@@ -1,0 +1,46 @@
+# Ralph Progress Log - Phase 6.2 (Graceful Degradation)
+Started: $(date)
+PRD: scripts/ralph/prds/coach-parent-summaries-phase6.2.prd.json
+Stories: US-012 to US-016 (5 stories)
+Branch: ralph/coach-parent-summaries-p6-phase2
+---
+
+## PHASE 6.2 OVERVIEW
+
+**Goal:** Implement circuit breaker pattern for AI service failures with graceful fallback.
+
+**Stories:**
+- US-012: Add aiServiceHealth table to schema
+- US-013: Implement circuit breaker logic
+- US-014: Integrate circuit breaker into AI actions
+- US-015: Add degradation notice to coach UI
+- US-016: Show degradation banner in voice notes dashboard
+
+**New Tables:**
+- aiServiceHealth - Service health tracking (singleton)
+
+**New Files:**
+- lib/circuitBreaker.ts - Circuit breaker logic
+- components/coach/degradation-banner.tsx - UI component
+- models/aiServiceHealth.ts - Health queries
+
+**Integration Point:**
+- Edit generateParentSummary and classifyInsightSensitivity actions
+- Wrap Anthropic API calls in circuit breaker
+- Return fallback template messages when circuit open
+
+**Circuit Breaker States:**
+- closed → open (5 failures in 5 min)
+- open → half_open (after 1 min cooldown)
+- half_open → closed (success) or open (failure)
+
+---
+
+## CODE REVIEW FEEDBACK
+
+### Agent Feedback - Phase 6.2 Start
+Building on Phase 6.1 (Cost Controls - US-001 to US-011 complete)
+Ready to begin Phase 6.2 implementation
+
+<!-- Agents will write feedback below this line -->
+

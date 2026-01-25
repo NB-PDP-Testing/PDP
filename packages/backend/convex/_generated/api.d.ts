@@ -24,6 +24,7 @@ import type * as http from "../http.js";
 import type * as lib_ageGroupUtils from "../lib/ageGroupUtils.js";
 import type * as lib_analytics from "../lib/analytics.js";
 import type * as lib_autoApprovalDecision from "../lib/autoApprovalDecision.js";
+import type * as lib_circuitBreaker from "../lib/circuitBreaker.js";
 import type * as lib_consentGateway from "../lib/consentGateway.js";
 import type * as lib_firstUserSetup from "../lib/firstUserSetup.js";
 import type * as lib_trustLevelCalculator from "../lib/trustLevelCalculator.js";
@@ -32,6 +33,7 @@ import type * as migrations_migrateLegacyData from "../migrations/migrateLegacyD
 import type * as models_adultPlayers from "../models/adultPlayers.js";
 import type * as models_ageGroupEligibilityOverrides from "../models/ageGroupEligibilityOverrides.js";
 import type * as models_aiModelConfig from "../models/aiModelConfig.js";
+import type * as models_aiServiceHealth from "../models/aiServiceHealth.js";
 import type * as models_aiUsageLog from "../models/aiUsageLog.js";
 import type * as models_checkUserRoles from "../models/checkUserRoles.js";
 import type * as models_cleanupOldData from "../models/cleanupOldData.js";
@@ -144,6 +146,7 @@ declare const fullApi: ApiFromModules<{
   "lib/ageGroupUtils": typeof lib_ageGroupUtils;
   "lib/analytics": typeof lib_analytics;
   "lib/autoApprovalDecision": typeof lib_autoApprovalDecision;
+  "lib/circuitBreaker": typeof lib_circuitBreaker;
   "lib/consentGateway": typeof lib_consentGateway;
   "lib/firstUserSetup": typeof lib_firstUserSetup;
   "lib/trustLevelCalculator": typeof lib_trustLevelCalculator;
@@ -152,6 +155,7 @@ declare const fullApi: ApiFromModules<{
   "models/adultPlayers": typeof models_adultPlayers;
   "models/ageGroupEligibilityOverrides": typeof models_ageGroupEligibilityOverrides;
   "models/aiModelConfig": typeof models_aiModelConfig;
+  "models/aiServiceHealth": typeof models_aiServiceHealth;
   "models/aiUsageLog": typeof models_aiUsageLog;
   "models/checkUserRoles": typeof models_checkUserRoles;
   "models/cleanupOldData": typeof models_cleanupOldData;

@@ -173,7 +173,16 @@ export function calculateHealthStatus(
 export function buildHealthUpdate(
   serviceHealth: Doc<"aiServiceHealth"> | null,
   success: boolean
-): Partial<Doc<"aiServiceHealth">> {
+): {
+  service: "anthropic";
+  status: "healthy" | "degraded" | "down";
+  lastSuccessAt: number;
+  lastFailureAt: number;
+  recentFailureCount: number;
+  failureWindow: number;
+  circuitBreakerState: "closed" | "open" | "half_open";
+  lastCheckedAt: number;
+} {
   const now = Date.now();
 
   // If no health record, initialize with defaults
@@ -207,10 +216,12 @@ export function buildHealthUpdate(
   const newStatus = calculateHealthStatus(newState);
 
   return {
+    service: "anthropic",
     status: newStatus,
     lastSuccessAt: success ? now : serviceHealth.lastSuccessAt,
     lastFailureAt: success ? serviceHealth.lastFailureAt : now,
     recentFailureCount: newFailureCount,
+    failureWindow: serviceHealth.failureWindow,
     circuitBreakerState: newState,
     lastCheckedAt: now,
   };

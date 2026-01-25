@@ -3379,4 +3379,30 @@ export default defineSchema({
     .index("by_phone", ["phoneNumber"])
     .index("by_status", ["status"])
     .index("by_messageSid", ["messageSid"]),
+
+  // ============================================================
+  // PLATFORM STAFF INVITATIONS
+  // Invitations for granting platform staff access to new users
+  // ============================================================
+  platformStaffInvitations: defineTable({
+    email: v.string(), // Email address being invited
+    invitedBy: v.string(), // User ID of person sending invitation
+    invitedByName: v.optional(v.string()),
+    invitedByEmail: v.optional(v.string()),
+    status: v.union(
+      v.literal("pending"),
+      v.literal("accepted"),
+      v.literal("cancelled"),
+      v.literal("expired")
+    ),
+    createdAt: v.number(),
+    expiresAt: v.number(), // Expiration timestamp
+    acceptedAt: v.optional(v.number()),
+    acceptedByUserId: v.optional(v.string()),
+    cancelledAt: v.optional(v.number()),
+    cancelledBy: v.optional(v.string()),
+  })
+    .index("by_email", ["email"])
+    .index("by_status", ["status"])
+    .index("by_email_and_status", ["email", "status"]),
 });

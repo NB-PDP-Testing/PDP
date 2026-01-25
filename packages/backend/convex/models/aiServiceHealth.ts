@@ -6,10 +6,50 @@
  */
 
 import { v } from "convex/values";
-import { internalMutation, internalQuery } from "../_generated/server";
+import { internalMutation, internalQuery, query } from "../_generated/server";
 
 /**
- * Get the current AI service health status
+ * Get the current AI service health status (PUBLIC)
+ * Returns simplified status for UI display
+ * Returns null if no health record exists (healthy by default)
+ */
+export const getAIServiceHealth = query({
+  args: {},
+  returns: v.union(
+    v.object({
+      status: v.union(
+        v.literal("healthy"),
+        v.literal("degraded"),
+        v.literal("down")
+      ),
+      circuitBreakerState: v.union(
+        v.literal("closed"),
+        v.literal("open"),
+        v.literal("half_open")
+      ),
+      lastCheckedAt: v.number(),
+    }),
+    v.null()
+  ),
+  handler: async (ctx) => {
+    // Since this is a singleton, we just get the first record
+    const health = await ctx.db.query("aiServiceHealth").first();
+
+    if (!health) {
+      return null; // No health record = assume healthy
+    }
+
+    return {
+      status: health.status,
+      circuitBreakerState: health.circuitBreakerState,
+      lastCheckedAt: health.lastCheckedAt,
+    };
+  },
+});
+
+/**
+ * Get the current AI service health status (INTERNAL)
+ * Returns full record with all fields
  * Returns null if no health record exists (first-time setup)
  */
 export const getServiceHealth = internalQuery({

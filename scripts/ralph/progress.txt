@@ -1,136 +1,49 @@
-# Ralph Progress Log
-Started: Sun 25 Jan 2026 18:03:17 GMT
+# Ralph Progress Log - Phase 6.3 (Admin Dashboard)
+Started: $(date)
+PRD: scripts/ralph/prds/coach-parent-summaries-phase6.3.prd.json
+Stories: US-017 to US-022 (6 stories)
+Branch: ralph/coach-parent-summaries-p6-phase3
+---
+
+## PHASE 6.3 OVERVIEW
+
+**Goal:** Platform admin dashboard at /platform/messaging with full monitoring and control.
+
+**Stories:**
+- US-017: Create platform messaging admin page structure
+- US-018: Build Cost Analytics tab
+- US-019: Build Rate Limits tab
+- US-020: Build Service Health tab
+- US-021: Build Settings tab with master kill switch
+- US-022: Build Overview tab with key metrics
+
+**New Route:**
+- /platform/messaging - Admin dashboard (platform staff only)
+
+**New Tables:**
+- platformMessagingSettings - Feature toggle settings (singleton)
+
+**5 Dashboard Tabs:**
+1. **Overview** (default) - War room view with all key metrics, alerts, activity feed
+2. **Cost Analytics** - 30-day trends, top orgs by cost, cache effectiveness
+3. **Rate Limits** - Configure platform/org limits, view violations
+4. **Service Health** - Circuit breaker state, recent errors, force reset
+5. **Settings** - Emergency kill switch, feature toggles
+
+**Integration Points:**
+- Use existing queries: getOrgUsage, aiServiceHealth
+- May need getPlatformUsage wrapper for cross-org analytics
+- All tabs require user.isPlatformStaff check
+
 ---
 
 ## CODE REVIEW FEEDBACK
 
-### Agent Feedback - 2026-01-25 18:03
-# Agent Feedback for Phase 6.2 (Graceful Degradation)
-
-Phase 6.2: US-012 to US-016 (5 stories)
-Branch: ralph/coach-parent-summaries-p6-phase2
-PRD: scripts/ralph/prds/coach-parent-summaries-phase6.2.prd.json
+### Agent Feedback - Phase 6.3 Start
+Building on:
+- Phase 6.1 (Cost Controls - US-001 to US-011) ✅
+- Phase 6.2 (Graceful Degradation - US-012 to US-016) ✅
+Ready to begin Phase 6.3 implementation
 
 <!-- Agents will write feedback below this line -->
 
-
-## Quality Monitor - 2026-01-25 17:59:12
-- ⚠️ Biome lint errors found
-
-
-## Quality Monitor - 2026-01-25 18:00:28
-- ⚠️ Biome lint errors found
-
-
-## Quality Monitor - 2026-01-25 18:01:42
-- ⚠️ Biome lint errors found
-
-
-## Quality Monitor - 2026-01-25 18:01:56
-- ⚠️ Biome lint errors found
-
-
-## Quality Monitor - 2026-01-25 18:02:44
-- ⚠️ Biome lint errors found
-
-
-## Quality Monitor - 2026-01-25 18:02:56
-- ⚠️ Biome lint errors found
-
-
-## 2026-01-25 18:20 - Phase 6.2 Complete - All Stories (US-012 to US-016)
-**Iteration**: 1
-**Commit**: 6fc830546339f2fc551c2a711115707dffdf759d
-**Session**: 349e58da-85f6-458b-9086-d65e17c6034f
-**Status**: Complete
-
-### What was implemented
-Successfully implemented all 5 stories for Phase 6.2 (Graceful Degradation):
-
-**US-012: aiServiceHealth table**
-- Added singleton table to schema.ts for tracking Anthropic API health
-- Fields: service, status, lastSuccessAt/lastFailureAt, recentFailureCount, failureWindow, circuitBreakerState, lastCheckedAt
-- No indexes needed (singleton pattern)
-
-**US-013: Circuit breaker logic**
-- Created lib/circuitBreaker.ts with complete circuit breaker implementation
-- Functions: shouldCallAPI(), calculateNextState(), calculateFailureCount(), calculateHealthStatus(), buildHealthUpdate()
-- State transitions: closed → open (5 failures in 5 min), open → half_open (1 min cooldown), half_open → closed/open
-- Thresholds: 5 failures, 5-minute window, 1-minute cooldown
-
-**US-014: AI action integration**
-- Integrated circuit breaker into generateParentSummary and classifyInsightSensitivity actions
-- Check circuit before API calls, block if open
-- Wrap API calls in try-catch, record success/failure
-- Update health state after each call
-- Fallback responses with isFallback flag
-
-**US-015: Degradation banner component**
-- Created DegradationBanner component with amber warning styling
-- Three degradation types: ai_fallback, rate_limited, budget_exceeded
-- Contextual messages for each type
-- Uses shadcn/ui Alert component with AlertCircle icon
-
-**US-016: Dashboard integration**
-- Added getAIServiceHealth public query (returns simplified status)
-- Integrated banner into voice notes dashboard
-- Positioned below header, above tabs
-- Real-time updates via Convex (auto-shows/hides)
-
-### Files changed
-- packages/backend/convex/schema.ts (+39)
-- packages/backend/convex/lib/circuitBreaker.ts (new, +217)
-- packages/backend/convex/models/aiServiceHealth.ts (new, +143)
-- packages/backend/convex/actions/coachParentSummaries.ts (+80, -15)
-- apps/web/src/components/coach/degradation-banner.tsx (new, +56)
-- apps/web/src/app/orgs/[orgId]/coach/voice-notes/voice-notes-dashboard.tsx (+8, -2)
-- scripts/ralph/prd.json (marked all stories as passes: true)
-
-### Quality checks
-- ✅ Type check: passed
-- ✅ Linting: passed (pre-existing lint errors in api routes, not from Phase 6.2)
-- ✅ Codegen: passed
-- ✅ All commits passed pre-commit hooks
-
-### Learnings for future iterations
-
-**Patterns discovered:**
-- Circuit breaker singleton pattern: aiServiceHealth table has only one record, no indexes needed
-- Public vs internal queries: Created both getAIServiceHealth (public, simplified) and getServiceHealth (internal, full fields)
-- Type safety for mutations: buildHealthUpdate returns explicit type structure matching mutation args (not Partial<>)
-- Real-time UI updates: Convex queries automatically re-run when data changes, banner appears/disappears without page refresh
-- Fallback transparency: Added isFallback flag to action returns for UI to detect degraded mode
-
-**Gotchas encountered:**
-- Linter removes unused imports: Had to add imports at same time as using them, otherwise Biome removes them
-- Partial<Doc<>> type issues: Convex mutations need all required fields, can't use Partial. Changed buildHealthUpdate to return explicit type structure
-- Type casting complexity: Instead of trying to cast Partial to full type, better to return complete type from helper function
-
-**Dependencies found:**
-- Circuit breaker logic depends on aiServiceHealth table existing
-- AI actions need both internal queries/mutations and the circuit breaker functions
-- Frontend banner needs public query (not internal) to display status
-- Banner styling uses tailwind classes with dark mode support
-
-**Implementation approach:**
-1. Started with schema (foundation)
-2. Added pure logic layer (circuit breaker)
-3. Integrated into existing actions (wrapped API calls)
-4. Created UI component (presentation)
-5. Wired up dashboard (glue)
-
-This layered approach worked well - each step built on previous foundation.
-
-**Pre-existing codebase issues:**
-- There are ~340 lint errors and 1360 warnings in codebase (mostly in api routes with `any` types)
-- These are NOT from Phase 6.2 work - they existed before
-- Phase 6.2 code passes all linting checks
-
-### What to do next
-All Phase 6.2 stories complete! Ready for:
-- Testing: Simulate API failures, verify circuit behavior
-- Documentation: Update user docs with degradation handling info
-- Monitoring: Add logs/metrics to track circuit state changes
-- PR creation when ready to merge
-
----

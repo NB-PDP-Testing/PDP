@@ -2485,7 +2485,6 @@ export default defineSchema({
     teamData: v.optional(v.any()),
     usedRealAI: v.optional(v.boolean()),
     viewCount: v.optional(v.number()),
-    savedToLibrary: v.optional(v.boolean()), // Legacy field for library save status
 
     // Library vs Cache distinction (Issue #234 follow-up)
     // When false/undefined: Plan is cached for Quick Actions blue badge but NOT shown in library

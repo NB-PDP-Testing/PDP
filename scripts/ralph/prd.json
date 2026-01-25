@@ -74,7 +74,7 @@
         "Typecheck passes"
       ],
       "priority": 18,
-      "passes": false,
+      "passes": true,
       "notes": "Data-driven decisions. See which orgs are heavy users, whether caching is effective, cost trends over time. May need getPlatformUsage wrapper that aggregates getOrgUsage across all orgs."
     },
     {

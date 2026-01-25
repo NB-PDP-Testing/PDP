@@ -19,6 +19,7 @@ export interface TrustLevelInput {
   currentLevel: number;
   preferredLevel: number | null | undefined;
   confidenceThreshold: number | null | undefined;
+  personalizedThreshold: number | null | undefined; // Phase 4: AI-learned threshold
 }
 
 export interface SummaryInput {
@@ -64,8 +65,9 @@ export function decideAutoApproval(
     trustLevel.preferredLevel ?? trustLevel.currentLevel
   );
 
-  // Use default threshold of 0.7 (70%) if not set
-  const threshold = trustLevel.confidenceThreshold ?? 0.7;
+  // Phase 4: Use personalized threshold if available, otherwise use coach's confidence threshold, otherwise default to 0.7
+  const threshold =
+    trustLevel.personalizedThreshold ?? trustLevel.confidenceThreshold ?? 0.7;
 
   // Rule 2: Levels 0-1 require manual review (learning phase)
   if (effectiveLevel < 2) {
@@ -102,4 +104,75 @@ export function decideAutoApproval(
     tier: "auto_send",
     decidedAt: now,
   };
+}
+
+/**
+ * Phase 4: Calculate personalized confidence threshold based on coach override patterns
+ *
+ * Analyzes coach behavior:
+ * - Trusting coach: Approves low confidence (60-70%) → Lower threshold (more automation)
+ * - Conservative coach: Rejects high confidence (80%+) → Higher threshold (fewer false positives)
+ *
+ * Industry pattern: Netflix/Spotify personalization, GitHub Copilot learning from rejections
+ *
+ * @param overrideHistory - Override analytics from getCoachOverridePatterns query
+ * @param defaultThreshold - Starting threshold (default 0.7)
+ * @param minOverrides - Minimum overrides required for personalization (default 20)
+ * @returns Personalized threshold or null if insufficient data
+ */
+export function calculatePersonalizedThreshold(
+  overrideHistory: {
+    totalOverrides: number;
+    byType: {
+      coach_approved_low_confidence: number;
+      coach_rejected_high_confidence: number;
+      coach_edited: number;
+      coach_revoked_auto: number;
+    };
+    avgConfidenceWhenRejected: number | null;
+  },
+  defaultThreshold = 0.7,
+  minOverrides = 20
+): number | null {
+  // Require minimum data for personalization
+  if (overrideHistory.totalOverrides < minOverrides) {
+    return null; // Not enough data yet
+  }
+
+  let adjustedThreshold = defaultThreshold;
+
+  // Pattern 1: Coach approves low confidence summaries (60-70% range)
+  // Signal: Coach is trusting, willing to approve borderline summaries
+  // Action: Lower threshold by 5% to increase automation
+  const approvedLowCount = overrideHistory.byType.coach_approved_low_confidence;
+  if (approvedLowCount > 0) {
+    // Calculate approval rate for low confidence summaries
+    // If >50% of overrides are approving low confidence, coach is trusting
+    const approvalRate = approvedLowCount / overrideHistory.totalOverrides;
+    if (approvalRate > 0.5) {
+      adjustedThreshold -= 0.05; // Lower by 5%
+    }
+  }
+
+  // Pattern 2: Coach rejects high confidence summaries (80%+ range)
+  // Signal: Coach is conservative, AI is over-confident
+  // Action: Raise threshold by 5% to reduce false positives
+  const rejectedHighCount =
+    overrideHistory.byType.coach_rejected_high_confidence;
+  if (rejectedHighCount > 0) {
+    // Calculate rejection rate for high confidence summaries
+    // If >20% of overrides are rejecting high confidence, coach is conservative
+    const rejectionRate = rejectedHighCount / overrideHistory.totalOverrides;
+    if (rejectionRate > 0.2) {
+      adjustedThreshold += 0.05; // Raise by 5%
+    }
+  }
+
+  // Safety bounds: Keep threshold between 60% and 85%
+  // Too low (< 60%): Risk of bad summaries being auto-approved
+  // Too high (> 85%): Defeats purpose of automation
+  const boundedThreshold = Math.max(0.6, Math.min(0.85, adjustedThreshold));
+
+  // Only return if we actually adjusted (otherwise let default/manual threshold apply)
+  return boundedThreshold !== defaultThreshold ? boundedThreshold : null;
 }

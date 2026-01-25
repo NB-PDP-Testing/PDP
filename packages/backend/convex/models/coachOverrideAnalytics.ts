@@ -57,30 +57,34 @@ export const getCoachOverridePatterns = query({
     }
 
     // Query summaries based on provided filters
-    const summaries =
-      args.coachId && args.organizationId
-        ? // Both provided - use coach_org_status index
-          await ctx.db
-            .query("coachParentSummaries")
-            .withIndex("by_coach_org_status", (q) =>
-              q
-                .eq("coachId", args.coachId)
-                .eq("organizationId", args.organizationId)
-            )
-            .collect()
-        : args.coachId
-          ? // Coach only - use by_coach index
-            await ctx.db
-              .query("coachParentSummaries")
-              .withIndex("by_coach", (q) => q.eq("coachId", args.coachId))
-              .collect()
-          : // Organization only - use by_org_status index (organizationId guaranteed by validation above)
-            await ctx.db
-              .query("coachParentSummaries")
-              .withIndex("by_org_status", (q) =>
-                q.eq("organizationId", args.organizationId ?? "")
-              )
-              .collect();
+    let summaries: Awaited<
+      ReturnType<(typeof ctx.db.query<"coachParentSummaries">)["collect"]>
+    >;
+    if (args.coachId && args.organizationId) {
+      // Both provided - use coach_org_status index
+      const coachId = args.coachId;
+      const orgId = args.organizationId;
+      summaries = await ctx.db
+        .query("coachParentSummaries")
+        .withIndex("by_coach_org_status", (q) =>
+          q.eq("coachId", coachId).eq("organizationId", orgId)
+        )
+        .collect();
+    } else if (args.coachId) {
+      // Coach only - use by_coach index
+      const coachId = args.coachId;
+      summaries = await ctx.db
+        .query("coachParentSummaries")
+        .withIndex("by_coach", (q) => q.eq("coachId", coachId))
+        .collect();
+    } else {
+      // Organization only - use by_org_status index (organizationId guaranteed by validation above)
+      const orgId = args.organizationId as string; // guaranteed by validation above
+      summaries = await ctx.db
+        .query("coachParentSummaries")
+        .withIndex("by_org_status", (q) => q.eq("organizationId", orgId))
+        .collect();
+    }
 
     // Initialize counters
     const byType = {

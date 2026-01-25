@@ -19,4 +19,16 @@ crons.interval(
   {}
 );
 
+// Phase 4: Adjust personalized thresholds weekly (every Sunday at 2 AM UTC)
+crons.weekly(
+  "adjust personalized thresholds",
+  {
+    dayOfWeek: "sunday",
+    hourUTC: 2, // 2 AM UTC
+    minuteUTC: 0,
+  },
+  internal.models.coachTrustLevels.adjustPersonalizedThresholds,
+  {}
+);
+
 export default crons;

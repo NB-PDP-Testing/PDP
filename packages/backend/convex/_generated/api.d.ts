@@ -35,6 +35,7 @@ import type * as models_aiModelConfig from "../models/aiModelConfig.js";
 import type * as models_aiUsageLog from "../models/aiUsageLog.js";
 import type * as models_checkUserRoles from "../models/checkUserRoles.js";
 import type * as models_cleanupOldData from "../models/cleanupOldData.js";
+import type * as models_coachOverrideAnalytics from "../models/coachOverrideAnalytics.js";
 import type * as models_coachParentMessages from "../models/coachParentMessages.js";
 import type * as models_coachParentSummaries from "../models/coachParentSummaries.js";
 import type * as models_coachTasks from "../models/coachTasks.js";
@@ -150,6 +151,7 @@ declare const fullApi: ApiFromModules<{
   "models/aiUsageLog": typeof models_aiUsageLog;
   "models/checkUserRoles": typeof models_checkUserRoles;
   "models/cleanupOldData": typeof models_cleanupOldData;
+  "models/coachOverrideAnalytics": typeof models_coachOverrideAnalytics;
   "models/coachParentMessages": typeof models_coachParentMessages;
   "models/coachParentSummaries": typeof models_coachParentSummaries;
   "models/coachTasks": typeof models_coachTasks;

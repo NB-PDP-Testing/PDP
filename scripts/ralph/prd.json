@@ -127,7 +127,7 @@
         "Typecheck passes"
       ],
       "priority": 21,
-      "passes": false,
+      "passes": true,
       "notes": "Nuclear option. If something goes catastrophically wrong (bug causing bad summaries, Anthropic billing issue, legal concern), disable everything instantly."
     },
     {

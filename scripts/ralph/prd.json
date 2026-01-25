@@ -105,7 +105,7 @@
         "Typecheck passes: npm run check-types"
       ],
       "priority": 3,
-      "passes": false,
+      "passes": true,
       "notes": "Optional by design. Most coaches will skip. Those who engage provide valuable signal. Industry pattern: GitHub Copilot prompts for feedback occasionally, not always. Dialog should be small and dismissible."
     },
     {
@@ -129,7 +129,7 @@
         "Typecheck passes: npm run check-types"
       ],
       "priority": 4,
-      "passes": false,
+      "passes": true,
       "notes": "Analytics for AI improvement. See patterns like: 'This coach rejects injury summaries 40% of the time even at 80% confidence - AI might be over-confident on injuries for this coach.' Enables data-driven threshold adjustment."
     },
     {

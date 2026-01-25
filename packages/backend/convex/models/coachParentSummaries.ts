@@ -219,6 +219,7 @@ export const createParentSummary = internalMutation({
           currentLevel: trustLevel.currentLevel,
           preferredLevel: trustLevel.preferredLevel,
           confidenceThreshold: trustLevel.confidenceThreshold,
+          personalizedThreshold: trustLevel.personalizedThreshold, // Phase 4: Use AI-learned threshold if available
         },
         {
           confidenceScore: args.publicSummary.confidenceScore,

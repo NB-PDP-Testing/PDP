@@ -1906,6 +1906,7 @@ export default defineSchema({
       })
     ),
     confidenceThreshold: v.optional(v.number()), // Minimum confidence score for auto-approval (default 0.7)
+    personalizedThreshold: v.optional(v.number()), // Phase 4: AI-learned threshold based on coach patterns (overrides confidenceThreshold if set)
   }).index("by_coach", ["coachId"]),
 
   // Coach Per-Org Preferences - settings that vary by organization

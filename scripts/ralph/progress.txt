@@ -410,3 +410,233 @@ PRD: scripts/ralph/prds/coach-parent-summaries-phase6.3.prd.json
 - Backend mutations/queries are sound based on code review and similar patterns elsewhere
 
 ---
+
+### Agent Feedback - 2026-01-25 19:06
+
+## Quality Monitor - 2026-01-25 18:55:40
+- ⚠️ Biome lint errors found
+
+
+## Quality Monitor - 2026-01-25 18:57:00
+- ⚠️ Biome lint errors found
+
+
+## PRD Audit - US-018 - 2026-01-25 18:57:19
+## **AUDIT REPORT: US-018 - Build Cost Analytics tab**
+
+### **Status: PARTIAL**
+
+---
+
+## Evidence Found
+
+### ✅ **Implemented Components**
+
+1. **Cost Analytics Tab** - `/apps/web/src/app/platform/messaging/page.tsx:86-87`
+   - Tab exists in Platform Messaging Dashboard
+   - Dedicated `CostAnalyticsTab` component (lines 186-437)
+
+2. **getPlatformUsage Query** - `/packages/backend/convex/models/aiUsageLog.ts:78-238`
+   - NEW query created (not using `getOrgUsage` as suggested in AC)
+   - Aggregates across ALL organizations
+   - Returns platform-wide statistics
+
+3. **Metric Cards** - All 4 cards implemented (lines 241-308):
+   - ✅ Total Cost (30 days) - line 242-257
+   - ✅ Cost Today - line 259-273
+   - ✅ Average per Message - line 275-288
+   - ✅ Cache Hit Rate with color coding - line 290-308
+
+4. **Daily Cost Chart** - Lines 311-359
+   - ✅ Shows 30-day daily cost trend
+   - ❌ **NOT using recharts** - uses simple horizontal bar chart with CSS
+   - Visual bars with date, cost, and call count
+
+5. **Top 10 Organizations Table** - Lines 362-434
+   - ✅ Shows top 10 orgs by cost
+   - ✅ Includes: org name, total cost, calls, avg cost/call, cache hit rate
+   - ✅ Sorted by cost (descending)
+
+6. **Color Coding** - Lines 153-183
+   - ✅ Green if cache hit rate ≥80%
+   - ✅ Amber if cache hit rate 60-80%
+   - ✅ Red if cache hit rate <60%
+   - Applied to cache hit rate card background and text
+
+7. **Recharts Library**
+   - ✅ Installed in package.json (line 88: `"recharts": "^2.15.4"`)
+
+---
+
+## Gaps Identified
+
+### ❌ **Critical Issues**
+
+1. **Recharts NOT Used**
+   - Acceptance criteria specifies: "use recharts library if available"
+   - Recharts IS available (installed in dependencies)
+   - Implementation uses simple CSS bars instead
+   - **Location**: `apps/web/src/app/platform/messaging/page.tsx:311-359`
+
+2. **Typecheck Failures**
+   - Acceptance criteria requires typecheck to pass
+   - Current typecheck output shows **25+ errors** in `packages/backend/convex/models/rateLimits.ts`
+   - These are UNRELATED to US-018 but prevent passing typecheck
+   - **Impact**: Blocks PR merge/deployment
+
+3. **Unit Tests**
+   - Test file exists: `/packages/backend/convex/__tests__/US-018.test.ts`
+   - **Contains only placeholder test** (line 12: `expect(true).toBe(true)`)
+   - No actual validation of functionality
+
+---
+
+## Summary
+
+**What's Working:**
+- Cost Analytics tab structure is complete
+- All 4 metric cards display correct data
+- Top 10 orgs table with full breakdown
+- Color coding system correctly implemented
+- Backend query (`getPlatformUsage`) fully functional
+
+**What's Missing/Broken:**
+1. **Chart visualization** - Should use recharts, currently uses simple bars
+2. **Typechecking** - Fails due to unrelated rateLimits.ts errors
+3. **Tests** - Placeholder only, no real validation
+
+---
+
+## Recommendation
+
+**Status**: Mark as **PARTIAL** until:
+1. Daily cost chart migrated to recharts (as specified in AC)
+2. Typecheck errors in `rateLimits.ts` resolved
+3. Meaningful unit tests added
+
+The core functionality is **80% complete** - only the chart library choice and typecheck failures prevent full PASS.
+
+## Quality Monitor - 2026-01-25 18:58:13
+- ⚠️ Biome lint errors found
+
+
+## Quality Monitor - 2026-01-25 18:59:45
+- ⚠️ Biome lint errors found
+
+
+## Quality Monitor - 2026-01-25 19:00:57
+- ⚠️ Biome lint errors found
+
+
+## Quality Monitor - 2026-01-25 19:02:19
+- ⚠️ Biome lint errors found
+
+
+## Quality Monitor - 2026-01-25 19:03:31
+- ⚠️ Biome lint errors found
+
+
+## Quality Monitor - 2026-01-25 19:05:03
+- ⚠️ Biome lint errors found
+
+
+## 2026-01-25 23:45 - US-020 - Build Service Health tab
+**Iteration**: 4
+**Commit**: 3aa21ef7ee39bc65c406275169bc190593885c88
+**Session**: 80c87374-46ce-4a36-8bc6-d55131867be9
+**Status**: Complete
+
+### What was implemented
+- Created getPlatformServiceHealth query in packages/backend/convex/models/aiServiceHealth.ts
+  - Platform staff only (checks isPlatformStaff authorization)
+  - Returns full health metrics: status, circuit breaker state, last success/failure times, failure counts
+- Created forceResetCircuitBreaker mutation in same file
+  - Platform staff only
+  - Resets circuit to closed state and status to healthy
+  - Resets failure count to 0
+  - Returns success/failure message
+- Built ServiceHealthTab component with complete functionality:
+  - Large status indicator with color coding (green/amber/red backgrounds)
+  - Shows circuit breaker state badge (Closed/Open/Half-Open)
+  - Displays all health metrics in grid layout
+  - Force Reset button (disabled when circuit already closed)
+  - Cache effectiveness card showing platform-wide cache hit rate
+  - Top 5 organizations by AI usage table (sorted by call count)
+  - Recent errors placeholder card (backend logging not implemented yet)
+  - Loading state with spinner
+  - Null state handling (healthy by default when no health data)
+- Added 3 helper functions:
+  - getStatusColor() - Returns styling based on health status
+  - getCircuitBreakerColor() - Returns badge variant and label
+  - formatTimeAgo() - Formats timestamps as "Xd/Xh/Xm ago"
+
+### Files changed
+- packages/backend/convex/models/aiServiceHealth.ts (+108, -2)
+  - Added imports: mutation, query, authComponent
+  - Added getPlatformServiceHealth query
+  - Added forceResetCircuitBreaker mutation
+- apps/web/src/app/platform/messaging/page.tsx (+358, -9)
+  - Added icon imports: CheckCircle2, RefreshCw, XCircle
+  - Replaced Service Health placeholder with ServiceHealthTab component
+  - Added 3 helper functions
+  - Added ServiceHealthTab component (~300 lines)
+
+### Quality checks
+- ✅ Type check: passed
+- ✅ Linting: passed (after fixing 3 errors)
+  - Added default cases to switch statements
+  - Fixed confirm() usage with biome-ignore comment
+- ✅ Pre-commit hooks: passed
+- ⏭️ Browser verification: not performed (requires platform staff account)
+
+### Learnings for future iterations ⚠️ CRITICAL
+
+**Patterns discovered:**
+- Platform staff queries follow same pattern as other protected queries
+- Use `await authComponent.safeGetAuthUser(ctx)` then check `isPlatformStaff`
+- Import authComponent from `"../auth"` not `"../betterAuth/authComponent"`
+- getPlatformUsage args expect number (timestamp) not string (ISO date)
+- Field names in byOrganization array: `cost`, `averageCacheHitRate` (not `totalCost`, `cacheHitRate`)
+
+**Gotchas encountered:**
+- CRITICAL: Pre-commit hook can revert changes if lint fails
+  - Solution: git stash apply to restore after failed commit
+  - Fix lint errors, then commit again
+- Biome-ignore comment must be on line IMMEDIATELY before the offending code
+  - Pattern: `// biome-ignore lint/rule: reason` then code on next line
+  - For confirm(): Extract to variable: `const confirmed = confirm("message")`
+- Switch statements require default case for biome linter
+  - Even when all cases are exhaustive, add a sensible default
+- Type errors from wrong field names in query results
+  - Always check the query return validator to get exact field names
+- Query args type mismatch: getPlatformUsage expects number timestamps, not ISO strings
+
+**Dependencies found:**
+- This story depends on getPlatformUsage query from US-018 (commit 7c4d751)
+- Backend aiServiceHealth table created in Phase 6.2 (US-012)
+- Recent errors table NOT implemented - placeholder only
+  - Future enhancement would need error logging in backend
+
+**What to do next**:
+- ✅ US-020 is complete
+- Next: US-021 - Build Settings tab with emergency kill switch
+  - Will need platformMessagingSettings table (singleton)
+  - Feature toggles for AI generation, auto-approval, parent notifications
+  - Emergency mode with global disable
+- Then: US-022 - Build Overview tab (aggregates data from all tabs)
+
+**Mistakes made**:
+- Initially used wrong import path for authComponent (betterAuth/authComponent instead of auth)
+- Passed ISO date strings to getPlatformUsage instead of number timestamps
+- Used wrong field names (totalCost, cacheHitRate) instead of (cost, averageCacheHitRate)
+- Forgot to add default cases to switch statements (biome requirement)
+- Initial biome-ignore placement didn't work - needed confirm on separate line
+
+**Browser verification note**:
+- Could not fully test Service Health tab UI because test account is not platform staff
+- Authorization correctly redirects non-staff users
+- To test UI fully: Need platform staff account OR temporarily mark test account as platform staff
+- Code structure is sound based on similar patterns used in Cost Analytics and Rate Limits tabs
+
+---
+

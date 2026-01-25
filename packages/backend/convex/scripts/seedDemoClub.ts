@@ -51,6 +51,146 @@ const DEMO_TEAMS = [
 ];
 
 /**
+ * Session plan configuration for demo - 4 plans per sport (12 total)
+ */
+const DEMO_SESSION_PLANS: Array<{
+  sport: string;
+  sportDisplay: string;
+  ageGroup: string;
+  focusArea: string;
+  intensity: "low" | "medium" | "high";
+  duration: number;
+  visibility: "private" | "club";
+  favorited: boolean;
+}> = [
+  // Rugby U14 - 4 plans
+  {
+    sport: "rugby",
+    sportDisplay: "Rugby",
+    ageGroup: "U14",
+    focusArea: "Technical Skills",
+    intensity: "medium",
+    duration: 75,
+    visibility: "club",
+    favorited: true,
+  },
+  {
+    sport: "rugby",
+    sportDisplay: "Rugby",
+    ageGroup: "U14",
+    focusArea: "Tactical Awareness",
+    intensity: "high",
+    duration: 90,
+    visibility: "private",
+    favorited: false,
+  },
+  {
+    sport: "rugby",
+    sportDisplay: "Rugby",
+    ageGroup: "U14",
+    focusArea: "Physical Fitness",
+    intensity: "high",
+    duration: 60,
+    visibility: "private",
+    favorited: false,
+  },
+  {
+    sport: "rugby",
+    sportDisplay: "Rugby",
+    ageGroup: "U14",
+    focusArea: "Team Cohesion",
+    intensity: "low",
+    duration: 75,
+    visibility: "club",
+    favorited: true,
+  },
+
+  // GAA U14 - 4 plans
+  {
+    sport: "gaa_football",
+    sportDisplay: "GAA Football",
+    ageGroup: "U14",
+    focusArea: "Technical Skills",
+    intensity: "medium",
+    duration: 75,
+    visibility: "club",
+    favorited: true,
+  },
+  {
+    sport: "gaa_football",
+    sportDisplay: "GAA Football",
+    ageGroup: "U14",
+    focusArea: "Game Strategy",
+    intensity: "medium",
+    duration: 90,
+    visibility: "private",
+    favorited: false,
+  },
+  {
+    sport: "gaa_football",
+    sportDisplay: "GAA Football",
+    ageGroup: "U14",
+    focusArea: "Individual Development",
+    intensity: "low",
+    duration: 60,
+    visibility: "private",
+    favorited: false,
+  },
+  {
+    sport: "gaa_football",
+    sportDisplay: "GAA Football",
+    ageGroup: "U14",
+    focusArea: "Physical Fitness",
+    intensity: "high",
+    duration: 75,
+    visibility: "club",
+    favorited: false,
+  },
+
+  // Soccer U14 - 4 plans
+  {
+    sport: "soccer",
+    sportDisplay: "Soccer",
+    ageGroup: "U14",
+    focusArea: "Technical Skills",
+    intensity: "medium",
+    duration: 75,
+    visibility: "club",
+    favorited: true,
+  },
+  {
+    sport: "soccer",
+    sportDisplay: "Soccer",
+    ageGroup: "U14",
+    focusArea: "Tactical Awareness",
+    intensity: "medium",
+    duration: 90,
+    visibility: "private",
+    favorited: false,
+  },
+  {
+    sport: "soccer",
+    sportDisplay: "Soccer",
+    ageGroup: "U14",
+    focusArea: "Team Cohesion",
+    intensity: "low",
+    duration: 60,
+    visibility: "club",
+    favorited: true,
+  },
+  {
+    sport: "soccer",
+    sportDisplay: "Soccer",
+    ageGroup: "U14",
+    focusArea: "Game Strategy",
+    intensity: "high",
+    duration: 90,
+    visibility: "private",
+    favorited: false,
+  },
+];
+
+/**
  * Performance level configuration for assessments and goals
  */
 type PerformanceLevel = "underachieving" | "achieving" | "overachieving";
@@ -346,6 +486,284 @@ function randomInt(min: number, max: number): number {
 }
 
 /**
+ * Skills by sport for session plans
+ */
+const SKILLS_BY_SPORT: Record<
+  string,
+  { technical: string[]; tactical: string[]; physical: string[] }
+> = {
+  rugby: {
+    technical: [
+      "Passing",
+      "Tackling",
+      "Catching",
+      "Kicking",
+      "Rucking",
+      "Scrummaging",
+    ],
+    tactical: [
+      "Positioning",
+      "Game Awareness",
+      "Decision Making",
+      "Defensive Shape",
+      "Attack Patterns",
+    ],
+    physical: ["Speed", "Endurance", "Agility", "Strength", "Power"],
+  },
+  gaa_football: {
+    technical: [
+      "Solo",
+      "Hand Pass",
+      "Kick Pass",
+      "Catching",
+      "Blocking",
+      "Hooking",
+    ],
+    tactical: [
+      "Positioning",
+      "Game Awareness",
+      "Decision Making",
+      "Marking",
+      "Support Play",
+    ],
+    physical: ["Speed", "Endurance", "Agility", "Strength", "Coordination"],
+  },
+  soccer: {
+    technical: [
+      "Passing",
+      "Ball Control",
+      "Dribbling",
+      "Shooting",
+      "First Touch",
+      "Crossing",
+    ],
+    tactical: [
+      "Positioning",
+      "Game Awareness",
+      "Decision Making",
+      "Defensive Shape",
+      "Attacking Movement",
+    ],
+    physical: ["Speed", "Endurance", "Agility", "Strength", "Coordination"],
+  },
+};
+
+/**
+ * Generate a session plan object for the demo
+ */
+function generateDemoSessionPlan(config: {
+  sport: string;
+  sportDisplay: string;
+  ageGroup: string;
+  focusArea: string;
+  intensity: "low" | "medium" | "high";
+  duration: number;
+  visibility: "private" | "club";
+  favorited: boolean;
+  coachId: string;
+  coachName: string;
+  teamName: string;
+  organizationId: string;
+  index: number;
+}) {
+  const skills = SKILLS_BY_SPORT[config.sport] || SKILLS_BY_SPORT.soccer;
+  const allSkills = [
+    ...skills.technical,
+    ...skills.tactical,
+    ...skills.physical,
+  ];
+
+  // Select 3-5 skills
+  const selectedSkills = allSkills.slice(0, 3 + (config.index % 3));
+
+  const equipment = ["Balls", "Cones", "Bibs", "Goals", "Markers"].slice(
+    0,
+    3 + (config.index % 3)
+  );
+
+  const categories = [
+    "Technical Training",
+    "Tactical Training",
+    "Physical Conditioning",
+    "Game-Based",
+    "Skill Development",
+  ];
+  const selectedCategories = categories.slice(0, 1 + (config.index % 2));
+
+  const title = `${config.focusArea} Session - ${config.ageGroup} ${config.sportDisplay}`;
+  const mainDuration = config.duration - 30;
+
+  const rawContent = `# ${title}
+
+## Session Overview
+- **Duration**: ${config.duration} minutes
+- **Age Group**: ${config.ageGroup}
+- **Sport**: ${config.sportDisplay}
+- **Focus**: ${config.focusArea}
+- **Intensity**: ${config.intensity}
+
+## Warm-Up (15 minutes)
+
+### Dynamic Stretching
+- Light jogging around the pitch
+- Dynamic stretches (leg swings, arm circles)
+- Gradual increase in intensity
+
+### Ball Familiarization
+- Players in pairs with one ball
+- Simple passing drills
+- Focus on first touch and accuracy
+
+## Main Session (${mainDuration} minutes)
+
+### Technical Drills
+Focus on: ${selectedSkills.join(", ")}
+
+- Station-based work
+- Progressive difficulty
+- Game-realistic scenarios
+
+### Small-Sided Games
+- Apply learned skills in game context
+- Emphasis on decision making
+- Coach interventions for teaching moments
+
+## Cool-Down (15 minutes)
+
+- Light jogging and walking
+- Static stretching routine
+- Team discussion and feedback
+
+---
+
+**Equipment Needed:**
+${equipment.map((e) => `- ${e}`).join("\n")}
+
+**Safety Considerations:**
+- Proper warm-up
+- Hydration breaks
+- Age-appropriate intensity
+`;
+
+  const sections = [
+    {
+      id: `warmup-demo-${config.index}`,
+      type: "warmup" as const,
+      title: "Warm-Up",
+      duration: 15,
+      order: 1,
+      activities: [
+        {
+          id: `warmup-demo-${config.index}-1`,
+          name: "Dynamic Stretching",
+          description: "Light jogging and dynamic stretches",
+          duration: 8,
+          order: 1,
+          activityType: "exercise" as const,
+        },
+        {
+          id: `warmup-demo-${config.index}-2`,
+          name: "Ball Familiarization",
+          description: "Pairs passing with focus on first touch",
+          duration: 7,
+          order: 2,
+          activityType: "drill" as const,
+        },
+      ],
+    },
+    {
+      id: `technical-demo-${config.index}`,
+      type: "technical" as const,
+      title: "Technical Skills",
+      duration: Math.floor(mainDuration / 2),
+      order: 2,
+      activities: [
+        {
+          id: `technical-demo-${config.index}-1`,
+          name: "Station Work",
+          description: `Focus on ${selectedSkills.slice(0, 2).join(" and ")}`,
+          duration: Math.floor(mainDuration / 2),
+          order: 1,
+          activityType: "drill" as const,
+        },
+      ],
+    },
+    {
+      id: `games-demo-${config.index}`,
+      type: "games" as const,
+      title: "Small-Sided Games",
+      duration: Math.floor(mainDuration / 2),
+      order: 3,
+      activities: [
+        {
+          id: `games-demo-${config.index}-1`,
+          name: "Game Application",
+          description: "Apply skills in game context",
+          duration: Math.floor(mainDuration / 2),
+          order: 1,
+          activityType: "game" as const,
+        },
+      ],
+    },
+    {
+      id: `cooldown-demo-${config.index}`,
+      type: "cooldown" as const,
+      title: "Cool-Down",
+      duration: 15,
+      order: 4,
+      activities: [
+        {
+          id: `cooldown-demo-${config.index}-1`,
+          name: "Recovery & Reflection",
+          description: "Static stretching and team discussion",
+          duration: 15,
+          order: 1,
+          activityType: "exercise" as const,
+        },
+      ],
+    },
+  ];
+
+  // Random days ago for creation date (1-60 days)
+  const daysAgo = 1 + config.index * 5;
+  const createdAt = Date.now() - daysAgo * 24 * 60 * 60 * 1000;
+
+  return {
+    organizationId: config.organizationId,
+    coachId: config.coachId,
+    coachName: config.coachName,
+    teamName: config.teamName,
+    title,
+    rawContent,
+    sections,
+    status: "saved" as const,
+    visibility: config.visibility,
+    ageGroup: config.ageGroup,
+    sport: config.sportDisplay,
+    duration: config.duration,
+    focusArea: config.focusArea,
+    playerCount: 14,
+    favorited: config.favorited,
+    pinnedByAdmin: config.visibility === "club" && config.favorited,
+    timesUsed: config.favorited ? randomInt(2, 8) : 0,
+    successRate: config.favorited ? randomInt(70, 95) : undefined,
+    extractedTags: {
+      categories: selectedCategories,
+      skills: selectedSkills,
+      equipment,
+      intensity: config.intensity,
+      playerCountRange: {
+        min: 10,
+        max: 18,
+        optimal: 14,
+      },
+    },
+    createdAt,
+    updatedAt: createdAt,
+  };
+}
+
+/**
  * Generate 3 assessment dates spread over 3 months showing progression
  */
 function generateAssessmentDates(): string[] {
@@ -397,6 +815,7 @@ export const seedDemoClub = mutation({
         medicalProfiles: v.number(),
         injuries: v.number(),
         guardianLinks: v.number(),
+        sessionPlans: v.number(),
       })
     ),
     message: v.optional(v.string()),
@@ -418,6 +837,7 @@ export const seedDemoClub = mutation({
       medicalProfiles: 0,
       injuries: 0,
       guardianLinks: 0,
+      sessionPlans: 0,
     };
 
     try {
@@ -1197,6 +1617,44 @@ export const seedDemoClub = mutation({
           });
           console.log(`    ✅ Assigned as coach to ${allTeamIds.length} teams`);
         }
+
+        // 9. Create session plans
+        console.log("\n📋 Step 9: Creating session plans...");
+
+        for (let i = 0; i < DEMO_SESSION_PLANS.length; i++) {
+          const planConfig = DEMO_SESSION_PLANS[i];
+          const teamName =
+            DEMO_TEAMS.find((t) => t.sport === planConfig.sport)?.name ||
+            "Demo Team";
+
+          const sessionPlan = generateDemoSessionPlan({
+            ...planConfig,
+            coachId: user._id as string,
+            coachName: user.name || "Demo Coach",
+            teamName,
+            organizationId: orgId,
+            index: i,
+          });
+
+          // Check if plan already exists (by title and org)
+          const existingPlan = await ctx.db
+            .query("sessionPlans")
+            .filter((q) =>
+              q.and(
+                q.eq(q.field("organizationId"), orgId),
+                q.eq(q.field("title"), sessionPlan.title)
+              )
+            )
+            .first();
+
+          if (existingPlan) {
+            console.log(`    ✓ Exists: ${sessionPlan.title}`);
+          } else {
+            await ctx.db.insert("sessionPlans", sessionPlan);
+            stats.sessionPlans += 1;
+            console.log(`    ✅ Created: ${sessionPlan.title}`);
+          }
+        }
       }
 
       // Summary
@@ -1211,6 +1669,7 @@ export const seedDemoClub = mutation({
       console.log(`Medical:         ${stats.medicalProfiles} profiles created`);
       console.log(`Injuries:        ${stats.injuries} records created`);
       console.log(`Guardian Links:  ${stats.guardianLinks} created`);
+      console.log(`Session Plans:   ${stats.sessionPlans} created`);
       console.log("=".repeat(60));
       console.log(`\nDemo Organization: ${DEMO_ORG.name}`);
       console.log(`Owner: ${args.ownerEmail}`);
@@ -1254,6 +1713,7 @@ export const previewDemoClubCleanup = query({
       guardianLinks: v.number(),
       guardianIdentities: v.number(),
       coachAssignments: v.number(),
+      sessionPlans: v.number(),
     }),
     playerNames: v.array(v.string()),
     teamNames: v.array(v.string()),
@@ -1298,6 +1758,7 @@ export const previewDemoClubCleanup = query({
           guardianLinks: 0,
           guardianIdentities: 0,
           coachAssignments: 0,
+          sessionPlans: 0,
         },
         playerNames: [],
         teamNames: [],
@@ -1414,6 +1875,16 @@ export const previewDemoClubCleanup = query({
       coachAssignmentCount = coachAssignments.length;
     }
 
+    // Count session plans
+    let sessionPlanCount = 0;
+    if (orgId) {
+      const sessionPlans = await ctx.db
+        .query("sessionPlans")
+        .filter((q) => q.eq(q.field("organizationId"), orgId))
+        .collect();
+      sessionPlanCount = sessionPlans.length;
+    }
+
     return {
       found: true,
       counts: {
@@ -1427,6 +1898,7 @@ export const previewDemoClubCleanup = query({
         guardianLinks: guardianLinkCount,
         guardianIdentities: demoGuardians.length,
         coachAssignments: coachAssignmentCount,
+        sessionPlans: sessionPlanCount,
       },
       playerNames,
       teamNames,
@@ -1456,6 +1928,7 @@ export const cleanupDemoClub = mutation({
       legacyPlayers: v.number(),
       enrollments: v.number(),
       teamAssignments: v.number(),
+      sessionPlans: v.number(),
       coachAssignments: v.number(),
     }),
     message: v.optional(v.string()),
@@ -1477,6 +1950,7 @@ export const cleanupDemoClub = mutation({
           legacyPlayers: 0,
           enrollments: 0,
           teamAssignments: 0,
+          sessionPlans: 0,
           coachAssignments: 0,
         },
         message: "Cleanup cancelled - confirmDelete must be true",
@@ -1498,6 +1972,7 @@ export const cleanupDemoClub = mutation({
       legacyPlayers: 0,
       enrollments: 0,
       teamAssignments: 0,
+      sessionPlans: 0,
       coachAssignments: 0,
     };
 
@@ -1737,7 +2212,21 @@ export const cleanupDemoClub = mutation({
         }
       }
 
-      // 12. Delete demo teams
+      // 12. Delete session plans
+      console.log("  📋 Deleting session plans...");
+      if (orgId) {
+        const sessionPlans = await ctx.db
+          .query("sessionPlans")
+          .filter((q) => q.eq(q.field("organizationId"), orgId))
+          .collect();
+
+        for (const plan of sessionPlans) {
+          await ctx.db.delete(plan._id);
+          stats.sessionPlans += 1;
+        }
+      }
+
+      // 13. Delete demo teams
       console.log("  ⚽ Deleting demo teams...");
       if (orgId) {
         const teamsResult = await ctx.runQuery(
@@ -1777,6 +2266,7 @@ export const cleanupDemoClub = mutation({
         `  Deleted: ${stats.guardianLinks} guardian links, ${stats.guardianIdentities} guardian identities`
       );
       console.log(`  Deleted: ${stats.coachAssignments} coach assignments`);
+      console.log(`  Deleted: ${stats.sessionPlans} session plans`);
 
       return {
         success: true,

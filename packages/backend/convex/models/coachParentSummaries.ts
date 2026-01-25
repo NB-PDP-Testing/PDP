@@ -447,6 +447,15 @@ export const approveInjurySummary = mutation({
 export const suppressSummary = mutation({
   args: {
     summaryId: v.id("coachParentSummaries"),
+    reason: v.optional(v.string()), // Optional text explanation (Phase 4)
+    feedback: v.optional(
+      v.object({
+        wasInaccurate: v.boolean(),
+        wasTooSensitive: v.boolean(),
+        timingWasWrong: v.boolean(),
+        otherReason: v.optional(v.string()),
+      })
+    ), // Optional structured feedback (Phase 4)
   },
   returns: v.null(),
   handler: async (ctx, args) => {
@@ -473,9 +482,19 @@ export const suppressSummary = mutation({
       throw new Error("Only the coach can suppress this summary");
     }
 
-    // Update the summary status
+    // Phase 4: Determine override type for learning signal
+    // Only track as override if confidence was high (>=70%)
+    // Suppressing low confidence summaries is normal, not an override
+    const confidenceScore = summary.publicSummary.confidenceScore;
+    const overrideType: "coach_rejected_high_confidence" | undefined =
+      confidenceScore >= 0.7 ? "coach_rejected_high_confidence" : undefined;
+
+    // Update the summary status with override tracking
     await ctx.db.patch(args.summaryId, {
       status: "suppressed",
+      overrideType,
+      overrideReason: args.reason,
+      overrideFeedback: args.feedback,
     });
 
     // Track preview mode statistics (Phase 5)

@@ -65,6 +65,7 @@ import type * as models_passportEnquiries from "../models/passportEnquiries.js";
 import type * as models_passportGoals from "../models/passportGoals.js";
 import type * as models_passportSharing from "../models/passportSharing.js";
 import type * as models_platformCostAlerts from "../models/platformCostAlerts.js";
+import type * as models_platformMessagingSettings from "../models/platformMessagingSettings.js";
 import type * as models_playerEmergencyContacts from "../models/playerEmergencyContacts.js";
 import type * as models_playerIdentities from "../models/playerIdentities.js";
 import type * as models_playerImport from "../models/playerImport.js";
@@ -187,6 +188,7 @@ declare const fullApi: ApiFromModules<{
   "models/passportGoals": typeof models_passportGoals;
   "models/passportSharing": typeof models_passportSharing;
   "models/platformCostAlerts": typeof models_platformCostAlerts;
+  "models/platformMessagingSettings": typeof models_platformMessagingSettings;
   "models/playerEmergencyContacts": typeof models_playerEmergencyContacts;
   "models/playerIdentities": typeof models_playerIdentities;
   "models/playerImport": typeof models_playerImport;

@@ -2,13 +2,13 @@
 
 import {
   Bell,
+  Brain,
   Check,
   ChevronDown,
   LogOut,
   Monitor,
   Moon,
   Settings,
-  Shield,
   Sun,
   User,
 } from "lucide-react";
@@ -312,8 +312,8 @@ export function EnhancedUserMenu() {
                 }}
                 type="button"
               >
-                <Shield aria-hidden="true" className="h-5 w-5" />
-                <span className="text-[10px]">Coach</span>
+                <Brain aria-hidden="true" className="h-5 w-5" />
+                <span className="text-[10px]">Coach AI</span>
               </button>
             </div>
 

@@ -115,3 +115,40 @@ export const logBudgetExceededEvent = internalMutation({
     return null;
   },
 });
+
+/**
+ * Reset daily spend counters at midnight UTC (US-005)
+ *
+ * USAGE: Called by cron job daily at 00:00 UTC
+ *
+ * Resets currentDailySpend to 0 for all orgs if lastResetDate !== today
+ */
+export const updateOrgDailySpend = internalMutation({
+  args: {},
+  returns: v.null(),
+  handler: async (ctx) => {
+    // Get today's date in YYYY-MM-DD format (UTC)
+    const today = new Date().toISOString().split("T")[0];
+
+    // Query all budget records
+    const budgets = await ctx.db.query("orgCostBudgets").collect();
+
+    let resetCount = 0;
+    for (const budget of budgets) {
+      // Reset if lastResetDate is not today
+      if (budget.lastResetDate !== today) {
+        await ctx.db.patch(budget._id, {
+          currentDailySpend: 0,
+          lastResetDate: today,
+        });
+        resetCount += 1;
+      }
+    }
+
+    console.log(
+      `✅ Daily spend reset complete: ${resetCount} orgs reset on ${today}`
+    );
+
+    return null;
+  },
+});

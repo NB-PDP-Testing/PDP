@@ -5,6 +5,7 @@ import {
   Database,
   Key,
   Megaphone,
+  MessageSquare,
   Settings,
   Shield,
   Target,
@@ -112,6 +113,20 @@ export default function PlatformDashboard() {
                     <Bot className="h-6 w-6 text-cyan-600" />
                   </div>
                   <CardTitle className="text-base">AI Configuration</CardTitle>
+                </CardContent>
+              </Card>
+            </Link>
+
+            {/* Messaging & AI Dashboard */}
+            <Link href="/platform/messaging">
+              <Card className="h-full cursor-pointer transition-all hover:shadow-md hover:ring-2 hover:ring-[#1E3A5F]/20">
+                <CardContent className="flex items-center gap-3 p-4">
+                  <div className="rounded-lg bg-indigo-100 p-3">
+                    <MessageSquare className="h-6 w-6 text-indigo-600" />
+                  </div>
+                  <CardTitle className="text-base">
+                    Messaging & AI Dashboard
+                  </CardTitle>
                 </CardContent>
               </Card>
             </Link>

@@ -1807,7 +1807,7 @@ export default defineSchema({
     timestamp: v.number(), // Date.now()
 
     // Context: who and where
-    organizationId: v.id("organization"), // Which org incurred the cost
+    organizationId: v.string(), // Better Auth organization ID (string, not Convex ID)
     coachId: v.string(), // Better Auth user ID of coach who triggered the call
     playerId: v.optional(v.id("orgPlayerEnrollments")), // Which player (if applicable)
 
@@ -1832,6 +1832,184 @@ export default defineSchema({
     .index("by_operation", ["operation"])
     .index("by_org_timestamp", ["organizationId", "timestamp"])
     .index("by_coach_timestamp", ["coachId", "timestamp"]),
+
+  // ============================================================
+  // PHASE 6.4: PERFORMANCE OPTIMIZATION
+  // Pre-aggregated daily AI usage stats for faster dashboard queries
+  // ============================================================
+
+  // Daily aggregated AI usage statistics (Phase 6.4 - US-023)
+  // Pre-computed daily rollups for 100x faster dashboard queries
+  // Cron job runs nightly at 1 AM UTC to aggregate previous day's data
+  aiUsageDailyAggregates: defineTable({
+    // Date dimension (YYYY-MM-DD format, e.g., "2026-01-25")
+    date: v.string(),
+
+    // Organization dimension
+    organizationId: v.string(), // Better Auth organization ID
+
+    // Aggregated metrics
+    totalCost: v.number(), // Sum of all costs for this org on this date
+    totalCalls: v.number(), // Count of API calls
+    totalInputTokens: v.number(), // Sum of input tokens
+    totalCachedTokens: v.number(), // Sum of cached tokens
+    totalOutputTokens: v.number(), // Sum of output tokens
+    avgCacheHitRate: v.number(), // Average cache hit rate (0.0-1.0)
+
+    // Metadata
+    createdAt: v.number(), // When this aggregate was created (timestamp)
+  })
+    .index("by_date", ["date"])
+    .index("by_org_date", ["organizationId", "date"])
+    .index("by_org", ["organizationId"]),
+
+  // ============================================================
+  // PHASE 6.1: COST MONITORING & BUDGET CONTROLS
+  // Per-org budget tracking with daily/monthly spending caps
+  // ============================================================
+
+  // Per-organization cost budgets (Phase 6.1)
+  // Tracks spending and enforces daily/monthly limits to prevent runaway costs
+  orgCostBudgets: defineTable({
+    organizationId: v.string(), // Better Auth organization ID
+
+    // Budget limits (in USD)
+    dailyBudgetUsd: v.number(), // Daily spending cap
+    monthlyBudgetUsd: v.number(), // Monthly spending cap
+
+    // Alert settings
+    alertThresholdPercent: v.number(), // Default 80 - triggers warning at 80% of budget
+
+    // Current spend tracking
+    currentDailySpend: v.number(), // Accumulated spend today
+    currentMonthlySpend: v.number(), // Accumulated spend this month
+
+    // Reset tracking
+    lastResetDate: v.string(), // Last daily reset (YYYY-MM-DD format)
+    lastResetMonth: v.string(), // Last monthly reset (YYYY-MM format)
+
+    // Status
+    isEnabled: v.boolean(), // Enable/disable budget enforcement
+  }).index("by_org", ["organizationId"]),
+
+  // Platform cost alerts audit trail (Phase 6.1)
+  // Logs all cost alerts for monitoring and analytics
+  platformCostAlerts: defineTable({
+    // Alert type and context
+    alertType: v.union(
+      v.literal("org_daily_threshold"), // Warning: approaching daily limit
+      v.literal("org_daily_exceeded"), // Critical: daily limit exceeded
+      v.literal("org_monthly_threshold"), // Warning: approaching monthly limit
+      v.literal("org_monthly_exceeded"), // Critical: monthly limit exceeded
+      v.literal("platform_spike") // Critical: unusual platform-wide spike
+    ),
+    organizationId: v.optional(v.string()), // Which org (null for platform-wide alerts)
+
+    // Alert severity
+    severity: v.union(v.literal("warning"), v.literal("critical")),
+
+    // Alert details
+    message: v.string(), // Human-readable alert message
+    triggerValue: v.number(), // Current value that triggered alert (e.g., current spend)
+    thresholdValue: v.number(), // Threshold value that was exceeded
+
+    // Timestamps
+    timestamp: v.number(), // When alert was created
+
+    // Acknowledgment tracking
+    acknowledged: v.boolean(), // Has this been reviewed by platform staff?
+    acknowledgedBy: v.optional(v.string()), // User ID who acknowledged
+    acknowledgedAt: v.optional(v.number()), // When acknowledged
+  })
+    .index("by_timestamp", ["timestamp"])
+    .index("by_org", ["organizationId"])
+    .index("by_severity_ack", ["severity", "acknowledged"]),
+
+  // Rate limiting infrastructure (Phase 6.1)
+  // Tracks API usage limits to prevent abuse or runaway loops
+  rateLimits: defineTable({
+    // Scope definition
+    scope: v.union(v.literal("platform"), v.literal("organization")),
+    scopeId: v.string(), // 'platform' for global limits, organizationId for org-specific
+
+    // Limit type
+    limitType: v.union(
+      v.literal("messages_per_hour"), // Message count limit per hour
+      v.literal("messages_per_day"), // Message count limit per day
+      v.literal("cost_per_hour"), // Cost limit per hour (in USD)
+      v.literal("cost_per_day") // Cost limit per day (in USD)
+    ),
+
+    // Limit value and current usage
+    limitValue: v.number(), // Maximum allowed (count or cost in USD)
+    currentCount: v.number(), // Current message count in window
+    currentCost: v.number(), // Current cost in window (USD)
+
+    // Rolling window tracking
+    windowStart: v.number(), // Window start timestamp
+    windowEnd: v.number(), // Window end timestamp
+    lastResetAt: v.number(), // Last time counters were reset
+  }).index("by_scope_type", ["scope", "scopeId", "limitType"]),
+
+  // ============================================================
+  // PHASE 6.2: GRACEFUL DEGRADATION & CIRCUIT BREAKER
+  // Track AI service health and implement circuit breaker pattern
+  // ============================================================
+
+  // AI service health tracking (Phase 6.2)
+  // Singleton table - only one record tracks Anthropic API health
+  // Circuit breaker: stops calling failing API after threshold
+  aiServiceHealth: defineTable({
+    // Service identifier (singleton - always 'anthropic')
+    service: v.literal("anthropic"),
+
+    // Current health status
+    status: v.union(
+      v.literal("healthy"), // Normal operation
+      v.literal("degraded"), // Some failures but not critical
+      v.literal("down") // Service unavailable
+    ),
+
+    // Timestamp tracking
+    lastSuccessAt: v.number(), // Last successful API call timestamp
+    lastFailureAt: v.number(), // Last failed API call timestamp
+
+    // Failure tracking for circuit breaker
+    recentFailureCount: v.number(), // Count of failures in current window
+    failureWindow: v.number(), // Time window for failure counting (default 5 minutes)
+
+    // Circuit breaker state
+    circuitBreakerState: v.union(
+      v.literal("closed"), // Normal operation, API calls allowed
+      v.literal("open"), // Too many failures, API calls blocked
+      v.literal("half_open") // Testing if service recovered
+    ),
+
+    // Last health check
+    lastCheckedAt: v.number(), // Last time health was evaluated
+  }),
+  // No indexes needed - singleton table with only one record
+
+  // Platform-wide messaging and AI feature settings
+  // Singleton table - only one record controls all platform settings
+  platformMessagingSettings: defineTable({
+    // Setting identifier (singleton - always 'global')
+    settingId: v.literal("global"),
+
+    // Feature toggles - control individual AI features
+    aiGenerationEnabled: v.boolean(), // Enable/disable AI summary generation
+    autoApprovalEnabled: v.boolean(), // Enable/disable auto-approval for trusted coaches
+    parentNotificationsEnabled: v.boolean(), // Enable/disable parent notifications
+
+    // Emergency controls
+    emergencyMode: v.boolean(), // Emergency kill switch - disables ALL AI features
+    emergencyMessage: v.optional(v.string()), // Message shown to users when emergency mode active
+
+    // Audit tracking
+    lastUpdatedAt: v.number(), // Last time settings were modified
+    lastUpdatedBy: v.optional(v.id("user")), // Platform staff who made the change
+  }),
+  // No indexes needed - singleton table with only one record
 
   // Track when parents view summaries
   parentSummaryViews: defineTable({

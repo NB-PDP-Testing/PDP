@@ -17,6 +17,7 @@ import {
 } from "lucide-react";
 import { useParams, useRouter } from "next/navigation";
 import { useEffect, useMemo, useState } from "react";
+import { DegradationBanner } from "@/components/coach/degradation-banner";
 import { TrustLevelIcon } from "@/components/coach/trust-level-icon";
 import { TrustNudgeBanner } from "@/components/coach/trust-nudge-banner";
 import { Badge } from "@/components/ui/badge";
@@ -74,6 +75,9 @@ export function VoiceNotesDashboard() {
   const trustLevel = useQuery(api.models.coachTrustLevels.getCoachTrustLevel, {
     organizationId: orgId,
   });
+  const aiServiceHealth = useQuery(
+    api.models.aiServiceHealth.getAIServiceHealth
+  );
 
   // Calculate counts
   const pendingInsightsCount =
@@ -351,6 +355,11 @@ export function VoiceNotesDashboard() {
             threshold={trustLevel.progressToNextLevel.threshold}
             totalApprovals={trustLevel.totalApprovals}
           />
+        )}
+
+        {/* AI Degradation Banner - shows when AI service is degraded */}
+        {aiServiceHealth && aiServiceHealth.status !== "healthy" && (
+          <DegradationBanner degradationType="ai_fallback" />
         )}
       </div>
 

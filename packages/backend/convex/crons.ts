@@ -31,4 +31,42 @@ crons.weekly(
   {}
 );
 
+// Phase 6.1: Reset daily spend counters at midnight UTC (US-005)
+crons.daily(
+  "update-org-daily-spend",
+  {
+    hourUTC: 0,
+    minuteUTC: 0,
+  },
+  internal.models.orgCostBudgets.updateOrgDailySpend,
+  {}
+);
+
+// Phase 6.1: Check cost alerts every 10 minutes (US-006)
+crons.interval(
+  "check-cost-alerts",
+  { minutes: 10 },
+  internal.models.platformCostAlerts.checkCostAlerts,
+  {}
+);
+
+// Phase 6.1: Reset expired rate limit windows hourly (US-010)
+crons.hourly(
+  "reset-rate-limit-windows",
+  { minuteUTC: 0 },
+  internal.models.rateLimits.resetRateLimitWindows,
+  {}
+);
+
+// Phase 6.4: Aggregate daily AI usage stats at 1 AM UTC (US-023)
+crons.daily(
+  "aggregate-daily-usage",
+  {
+    hourUTC: 1,
+    minuteUTC: 0,
+  },
+  internal.models.aiUsageLog.aggregateDailyUsage,
+  {}
+);
+
 export default crons;

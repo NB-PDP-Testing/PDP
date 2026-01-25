@@ -24,6 +24,7 @@ import type * as http from "../http.js";
 import type * as lib_ageGroupUtils from "../lib/ageGroupUtils.js";
 import type * as lib_analytics from "../lib/analytics.js";
 import type * as lib_autoApprovalDecision from "../lib/autoApprovalDecision.js";
+import type * as lib_circuitBreaker from "../lib/circuitBreaker.js";
 import type * as lib_consentGateway from "../lib/consentGateway.js";
 import type * as lib_firstUserSetup from "../lib/firstUserSetup.js";
 import type * as lib_trustLevelCalculator from "../lib/trustLevelCalculator.js";
@@ -32,6 +33,7 @@ import type * as migrations_migrateLegacyData from "../migrations/migrateLegacyD
 import type * as models_adultPlayers from "../models/adultPlayers.js";
 import type * as models_ageGroupEligibilityOverrides from "../models/ageGroupEligibilityOverrides.js";
 import type * as models_aiModelConfig from "../models/aiModelConfig.js";
+import type * as models_aiServiceHealth from "../models/aiServiceHealth.js";
 import type * as models_aiUsageLog from "../models/aiUsageLog.js";
 import type * as models_checkUserRoles from "../models/checkUserRoles.js";
 import type * as models_cleanupOldData from "../models/cleanupOldData.js";
@@ -51,6 +53,7 @@ import type * as models_guardianManagement from "../models/guardianManagement.js
 import type * as models_guardianPlayerLinks from "../models/guardianPlayerLinks.js";
 import type * as models_medicalProfiles from "../models/medicalProfiles.js";
 import type * as models_members from "../models/members.js";
+import type * as models_orgCostBudgets from "../models/orgCostBudgets.js";
 import type * as models_orgGuardianProfiles from "../models/orgGuardianProfiles.js";
 import type * as models_orgInjuryNotes from "../models/orgInjuryNotes.js";
 import type * as models_orgJoinRequests from "../models/orgJoinRequests.js";
@@ -61,12 +64,14 @@ import type * as models_passportComparison from "../models/passportComparison.js
 import type * as models_passportEnquiries from "../models/passportEnquiries.js";
 import type * as models_passportGoals from "../models/passportGoals.js";
 import type * as models_passportSharing from "../models/passportSharing.js";
+import type * as models_platformCostAlerts from "../models/platformCostAlerts.js";
 import type * as models_playerEmergencyContacts from "../models/playerEmergencyContacts.js";
 import type * as models_playerIdentities from "../models/playerIdentities.js";
 import type * as models_playerImport from "../models/playerImport.js";
 import type * as models_playerInjuries from "../models/playerInjuries.js";
 import type * as models_playerSelfAccess from "../models/playerSelfAccess.js";
 import type * as models_players from "../models/players.js";
+import type * as models_rateLimits from "../models/rateLimits.js";
 import type * as models_referenceData from "../models/referenceData.js";
 import type * as models_sessionPlans from "../models/sessionPlans.js";
 import type * as models_skillAssessments from "../models/skillAssessments.js";
@@ -114,6 +119,7 @@ import type * as scripts_stagedReset from "../scripts/stagedReset.js";
 import type * as scripts_updateTeamObservationCoachNames from "../scripts/updateTeamObservationCoachNames.js";
 import type * as scripts_validateTeamAssignments from "../scripts/validateTeamAssignments.js";
 import type * as scripts_verifyUATSetup from "../scripts/verifyUATSetup.js";
+import type * as seed_defaultRateLimits from "../seed/defaultRateLimits.js";
 import type * as seed_sessionPlansSeed from "../seed/sessionPlansSeed.js";
 import type * as utils_email from "../utils/email.js";
 
@@ -140,6 +146,7 @@ declare const fullApi: ApiFromModules<{
   "lib/ageGroupUtils": typeof lib_ageGroupUtils;
   "lib/analytics": typeof lib_analytics;
   "lib/autoApprovalDecision": typeof lib_autoApprovalDecision;
+  "lib/circuitBreaker": typeof lib_circuitBreaker;
   "lib/consentGateway": typeof lib_consentGateway;
   "lib/firstUserSetup": typeof lib_firstUserSetup;
   "lib/trustLevelCalculator": typeof lib_trustLevelCalculator;
@@ -148,6 +155,7 @@ declare const fullApi: ApiFromModules<{
   "models/adultPlayers": typeof models_adultPlayers;
   "models/ageGroupEligibilityOverrides": typeof models_ageGroupEligibilityOverrides;
   "models/aiModelConfig": typeof models_aiModelConfig;
+  "models/aiServiceHealth": typeof models_aiServiceHealth;
   "models/aiUsageLog": typeof models_aiUsageLog;
   "models/checkUserRoles": typeof models_checkUserRoles;
   "models/cleanupOldData": typeof models_cleanupOldData;
@@ -167,6 +175,7 @@ declare const fullApi: ApiFromModules<{
   "models/guardianPlayerLinks": typeof models_guardianPlayerLinks;
   "models/medicalProfiles": typeof models_medicalProfiles;
   "models/members": typeof models_members;
+  "models/orgCostBudgets": typeof models_orgCostBudgets;
   "models/orgGuardianProfiles": typeof models_orgGuardianProfiles;
   "models/orgInjuryNotes": typeof models_orgInjuryNotes;
   "models/orgJoinRequests": typeof models_orgJoinRequests;
@@ -177,12 +186,14 @@ declare const fullApi: ApiFromModules<{
   "models/passportEnquiries": typeof models_passportEnquiries;
   "models/passportGoals": typeof models_passportGoals;
   "models/passportSharing": typeof models_passportSharing;
+  "models/platformCostAlerts": typeof models_platformCostAlerts;
   "models/playerEmergencyContacts": typeof models_playerEmergencyContacts;
   "models/playerIdentities": typeof models_playerIdentities;
   "models/playerImport": typeof models_playerImport;
   "models/playerInjuries": typeof models_playerInjuries;
   "models/playerSelfAccess": typeof models_playerSelfAccess;
   "models/players": typeof models_players;
+  "models/rateLimits": typeof models_rateLimits;
   "models/referenceData": typeof models_referenceData;
   "models/sessionPlans": typeof models_sessionPlans;
   "models/skillAssessments": typeof models_skillAssessments;
@@ -230,6 +241,7 @@ declare const fullApi: ApiFromModules<{
   "scripts/updateTeamObservationCoachNames": typeof scripts_updateTeamObservationCoachNames;
   "scripts/validateTeamAssignments": typeof scripts_validateTeamAssignments;
   "scripts/verifyUATSetup": typeof scripts_verifyUATSetup;
+  "seed/defaultRateLimits": typeof seed_defaultRateLimits;
   "seed/sessionPlansSeed": typeof seed_sessionPlansSeed;
   "utils/email": typeof utils_email;
 }>;

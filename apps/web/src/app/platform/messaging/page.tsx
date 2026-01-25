@@ -1,0 +1,1607 @@
+"use client";
+
+import { api } from "@pdp/backend/convex/_generated/api";
+import { useMutation, useQuery } from "convex/react";
+import {
+  Activity,
+  AlertCircle,
+  CheckCircle2,
+  Clock,
+  DollarSign,
+  Gauge,
+  LayoutDashboard,
+  Pencil,
+  RefreshCw,
+  Save,
+  Settings,
+  TrendingUp,
+  Users,
+  X,
+  XCircle,
+  Zap,
+} from "lucide-react";
+import { useState } from "react";
+import { toast } from "sonner";
+import { Badge } from "@/components/ui/badge";
+import { Button } from "@/components/ui/button";
+import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { Input } from "@/components/ui/input";
+import { Label } from "@/components/ui/label";
+import { Switch } from "@/components/ui/switch";
+import {
+  Table,
+  TableBody,
+  TableCell,
+  TableHead,
+  TableHeader,
+  TableRow,
+} from "@/components/ui/table";
+import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
+import { Textarea } from "@/components/ui/textarea";
+
+export default function PlatformMessagingPage() {
+  return (
+    <div className="min-h-screen bg-gradient-to-b from-[#1E3A5F] via-[#1E3A5F] to-white p-4 sm:p-6 lg:p-8">
+      <div className="mx-auto max-w-7xl">
+        {/* Page Header */}
+        <div className="mb-8 text-white">
+          <h1 className="mb-2 font-bold text-3xl tracking-tight sm:text-4xl">
+            Platform Messaging & AI Dashboard
+          </h1>
+          <p className="text-lg text-white/90">
+            Monitor AI usage, costs, rate limits, and service health across all
+            organizations
+          </p>
+        </div>
+
+        {/* Main Content with Tabs */}
+        <div className="rounded-lg bg-white p-6 shadow-lg">
+          <Tabs className="w-full" defaultValue="overview">
+            <TabsList className="mb-6 w-full justify-start">
+              <TabsTrigger className="gap-2" value="overview">
+                <LayoutDashboard className="h-4 w-4" />
+                Overview
+              </TabsTrigger>
+              <TabsTrigger className="gap-2" value="cost-analytics">
+                <DollarSign className="h-4 w-4" />
+                Cost Analytics
+              </TabsTrigger>
+              <TabsTrigger className="gap-2" value="rate-limits">
+                <Gauge className="h-4 w-4" />
+                Rate Limits
+              </TabsTrigger>
+              <TabsTrigger className="gap-2" value="service-health">
+                <Activity className="h-4 w-4" />
+                Service Health
+              </TabsTrigger>
+              <TabsTrigger className="gap-2" value="settings">
+                <Settings className="h-4 w-4" />
+                Settings
+              </TabsTrigger>
+            </TabsList>
+
+            {/* Overview Tab */}
+            <TabsContent value="overview">
+              <OverviewTab />
+            </TabsContent>
+
+            {/* Cost Analytics Tab */}
+            <TabsContent value="cost-analytics">
+              <CostAnalyticsTab />
+            </TabsContent>
+
+            {/* Rate Limits Tab */}
+            <TabsContent value="rate-limits">
+              <RateLimitsTab />
+            </TabsContent>
+
+            {/* Service Health Tab */}
+            <TabsContent value="service-health">
+              <ServiceHealthTab />
+            </TabsContent>
+
+            {/* Settings Tab */}
+            <TabsContent value="settings">
+              <SettingsTab />
+            </TabsContent>
+          </Tabs>
+        </div>
+      </div>
+    </div>
+  );
+}
+
+// Overview Tab Component
+function OverviewTab() {
+  // Query data from last 24 hours
+  const twentyFourHoursAgo = Date.now() - 24 * 60 * 60 * 1000;
+  const platformUsage = useQuery(api.models.aiUsageLog.getPlatformUsage, {
+    startDate: twentyFourHoursAgo,
+  });
+  const health = useQuery(api.models.aiServiceHealth.getPlatformServiceHealth);
+
+  // Loading state
+  if (!platformUsage || health === undefined) {
+    return (
+      <div className="space-y-6">
+        <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-4">
+          {[1, 2, 3, 4].map((i) => (
+            <Card className="animate-pulse" key={i}>
+              <CardHeader className="pb-2">
+                <div className="h-4 w-24 rounded bg-gray-200" />
+              </CardHeader>
+              <CardContent>
+                <div className="h-8 w-32 rounded bg-gray-200" />
+              </CardContent>
+            </Card>
+          ))}
+        </div>
+      </div>
+    );
+  }
+
+  // Calculate metrics
+  const totalMessages24h = platformUsage.callCount;
+  const totalCost24h = platformUsage.totalCost;
+  const activeOrgs = platformUsage.byOrganization.length;
+  const serviceStatus = health?.status || "healthy";
+
+  // Determine overall health color
+  const getHealthColor = () => {
+    if (serviceStatus === "down") {
+      return "bg-red-100 border-red-300 text-red-700";
+    }
+    if (serviceStatus === "degraded") {
+      return "bg-amber-100 border-amber-300 text-amber-700";
+    }
+    return "bg-green-100 border-green-300 text-green-700";
+  };
+
+  // Get service status icon
+  const getStatusIcon = () => {
+    if (serviceStatus === "healthy") {
+      return <CheckCircle2 className="h-4 w-4" />;
+    }
+    if (serviceStatus === "degraded") {
+      return <AlertCircle className="h-4 w-4" />;
+    }
+    return <XCircle className="h-4 w-4" />;
+  };
+
+  return (
+    <div className="space-y-6">
+      {/* Key Metrics */}
+      <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-4">
+        {/* Total Messages (24h) */}
+        <Card>
+          <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+            <CardTitle className="font-medium text-sm">
+              Total Messages (24h)
+            </CardTitle>
+            <Activity className="h-4 w-4 text-muted-foreground" />
+          </CardHeader>
+          <CardContent>
+            <div className="font-bold text-2xl">
+              {totalMessages24h.toLocaleString()}
+            </div>
+            <p className="text-muted-foreground text-xs">
+              API calls in last 24 hours
+            </p>
+          </CardContent>
+        </Card>
+
+        {/* Total Cost (24h) */}
+        <Card>
+          <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+            <CardTitle className="font-medium text-sm">
+              Total Cost (24h)
+            </CardTitle>
+            <DollarSign className="h-4 w-4 text-muted-foreground" />
+          </CardHeader>
+          <CardContent>
+            <div className="font-bold text-2xl">${totalCost24h.toFixed(2)}</div>
+            <p className="text-muted-foreground text-xs">Anthropic API costs</p>
+          </CardContent>
+        </Card>
+
+        {/* Active Organizations */}
+        <Card>
+          <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+            <CardTitle className="font-medium text-sm">Active Orgs</CardTitle>
+            <Users className="h-4 w-4 text-muted-foreground" />
+          </CardHeader>
+          <CardContent>
+            <div className="font-bold text-2xl">{activeOrgs}</div>
+            <p className="text-muted-foreground text-xs">
+              Organizations using AI (24h)
+            </p>
+          </CardContent>
+        </Card>
+
+        {/* Service Status */}
+        <Card className={getHealthColor()}>
+          <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+            <CardTitle className="font-medium text-sm">
+              Service Status
+            </CardTitle>
+            {getStatusIcon()}
+          </CardHeader>
+          <CardContent>
+            <div className="font-bold text-2xl capitalize">{serviceStatus}</div>
+            <p className="text-xs">AI service health</p>
+          </CardContent>
+        </Card>
+      </div>
+
+      {/* Recent Activity Feed */}
+      <Card>
+        <CardHeader>
+          <CardTitle className="flex items-center gap-2">
+            <LayoutDashboard className="h-5 w-5" />
+            Recent Activity
+          </CardTitle>
+        </CardHeader>
+        <CardContent>
+          <p className="text-center text-muted-foreground">
+            Activity feed not yet implemented. Future enhancement will track:
+            summaries created, auto-approvals, budget alerts, emergency mode
+            activations, and other platform events.
+          </p>
+        </CardContent>
+      </Card>
+
+      {/* Platform Statistics */}
+      <div className="grid gap-4 md:grid-cols-2">
+        <Card>
+          <CardHeader>
+            <CardTitle className="flex items-center gap-2 text-base">
+              <TrendingUp className="h-4 w-4" />
+              Usage Trends
+            </CardTitle>
+          </CardHeader>
+          <CardContent className="space-y-2">
+            <div className="flex items-center justify-between">
+              <span className="text-muted-foreground text-sm">
+                Avg Cost/Message
+              </span>
+              <span className="font-semibold">
+                $
+                {totalMessages24h > 0
+                  ? (totalCost24h / totalMessages24h).toFixed(4)
+                  : "0.0000"}
+              </span>
+            </div>
+            <div className="flex items-center justify-between">
+              <span className="text-muted-foreground text-sm">
+                Cache Hit Rate
+              </span>
+              <span
+                className={`font-semibold ${getCacheHitRateColor(platformUsage.averageCacheHitRate)}`}
+              >
+                {platformUsage.averageCacheHitRate.toFixed(1)}%
+              </span>
+            </div>
+          </CardContent>
+        </Card>
+
+        <Card>
+          <CardHeader>
+            <CardTitle className="flex items-center gap-2 text-base">
+              <Zap className="h-4 w-4" />
+              Quick Stats
+            </CardTitle>
+          </CardHeader>
+          <CardContent className="space-y-2">
+            <div className="flex items-center justify-between">
+              <span className="text-muted-foreground text-sm">
+                Total Input Tokens
+              </span>
+              <span className="font-semibold">
+                {platformUsage.totalInputTokens.toLocaleString()}
+              </span>
+            </div>
+            <div className="flex items-center justify-between">
+              <span className="text-muted-foreground text-sm">
+                Total Output Tokens
+              </span>
+              <span className="font-semibold">
+                {platformUsage.totalOutputTokens.toLocaleString()}
+              </span>
+            </div>
+          </CardContent>
+        </Card>
+      </div>
+    </div>
+  );
+}
+
+// Helper function to get cache hit rate color
+function getCacheHitRateColor(rate: number): string {
+  if (rate >= 80) {
+    return "text-green-600";
+  }
+  if (rate >= 60) {
+    return "text-amber-600";
+  }
+  return "text-red-600";
+}
+
+// Helper function to get cache hit rate background color
+function getCacheHitRateBg(rate: number): string {
+  if (rate >= 80) {
+    return "bg-green-50 border-green-200";
+  }
+  if (rate >= 60) {
+    return "bg-amber-50 border-amber-200";
+  }
+  return "bg-red-50 border-red-200";
+}
+
+// Helper function to get cache hit rate label
+function getCacheHitRateLabel(rate: number): string {
+  if (rate >= 80) {
+    return "Excellent";
+  }
+  if (rate >= 60) {
+    return "Good";
+  }
+  return "Needs improvement";
+}
+
+// Cost Analytics Tab Component
+function CostAnalyticsTab() {
+  // Query platform usage for last 30 days
+  const thirtyDaysAgo = Date.now() - 30 * 24 * 60 * 60 * 1000;
+  const platformUsage = useQuery(api.models.aiUsageLog.getPlatformUsage, {
+    startDate: thirtyDaysAgo,
+  });
+
+  if (!platformUsage) {
+    return (
+      <div className="space-y-6">
+        <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-4">
+          {[1, 2, 3, 4].map((i) => (
+            <Card className="animate-pulse" key={i}>
+              <CardHeader className="pb-2">
+                <div className="h-4 w-24 rounded bg-gray-200" />
+              </CardHeader>
+              <CardContent>
+                <div className="h-8 w-32 rounded bg-gray-200" />
+              </CardContent>
+            </Card>
+          ))}
+        </div>
+        <Card className="animate-pulse">
+          <CardHeader>
+            <div className="h-6 w-48 rounded bg-gray-200" />
+          </CardHeader>
+          <CardContent>
+            <div className="h-64 rounded bg-gray-200" />
+          </CardContent>
+        </Card>
+      </div>
+    );
+  }
+
+  // Calculate today's cost
+  const today = new Date().toISOString().split("T")[0];
+  const todayCost =
+    platformUsage.dailyCosts.find((d: { date: string }) => d.date === today)
+      ?.cost || 0;
+
+  // Calculate average cost per message
+  const avgCostPerMessage =
+    platformUsage.callCount > 0
+      ? platformUsage.totalCost / platformUsage.callCount
+      : 0;
+
+  // Calculate max cost for chart scaling
+  const maxDailyCost = Math.max(
+    ...platformUsage.dailyCosts.map((d: { cost: number }) => d.cost),
+    0.01
+  );
+
+  return (
+    <div className="space-y-6">
+      {/* Metric Cards */}
+      <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-4">
+        <Card>
+          <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+            <CardTitle className="font-medium text-sm">
+              Total Cost (30d)
+            </CardTitle>
+            <DollarSign className="h-4 w-4 text-muted-foreground" />
+          </CardHeader>
+          <CardContent>
+            <div className="font-bold text-2xl">
+              ${platformUsage.totalCost.toFixed(2)}
+            </div>
+            <p className="text-muted-foreground text-xs">
+              {platformUsage.callCount.toLocaleString()} API calls
+            </p>
+          </CardContent>
+        </Card>
+
+        <Card>
+          <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+            <CardTitle className="font-medium text-sm">Cost Today</CardTitle>
+            <TrendingUp className="h-4 w-4 text-muted-foreground" />
+          </CardHeader>
+          <CardContent>
+            <div className="font-bold text-2xl">${todayCost.toFixed(2)}</div>
+            <p className="text-muted-foreground text-xs">
+              {platformUsage.dailyCosts.find(
+                (d: { date: string }) => d.date === today
+              )?.callCount || 0}{" "}
+              calls today
+            </p>
+          </CardContent>
+        </Card>
+
+        <Card>
+          <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+            <CardTitle className="font-medium text-sm">
+              Avg per Message
+            </CardTitle>
+            <Zap className="h-4 w-4 text-muted-foreground" />
+          </CardHeader>
+          <CardContent>
+            <div className="font-bold text-2xl">
+              ${avgCostPerMessage.toFixed(4)}
+            </div>
+            <p className="text-muted-foreground text-xs">Per API call</p>
+          </CardContent>
+        </Card>
+
+        <Card className={getCacheHitRateBg(platformUsage.averageCacheHitRate)}>
+          <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+            <CardTitle className="font-medium text-sm">
+              Cache Hit Rate
+            </CardTitle>
+            <Activity className="h-4 w-4 text-muted-foreground" />
+          </CardHeader>
+          <CardContent>
+            <div
+              className={`font-bold text-2xl ${getCacheHitRateColor(platformUsage.averageCacheHitRate)}`}
+            >
+              {platformUsage.averageCacheHitRate.toFixed(1)}%
+            </div>
+            <p className="text-muted-foreground text-xs">
+              {getCacheHitRateLabel(platformUsage.averageCacheHitRate)}
+            </p>
+          </CardContent>
+        </Card>
+      </div>
+
+      {/* Daily Cost Chart */}
+      <Card>
+        <CardHeader>
+          <CardTitle>Daily Cost Trend (30 Days)</CardTitle>
+        </CardHeader>
+        <CardContent>
+          <div className="space-y-2">
+            {platformUsage.dailyCosts.length === 0 ? (
+              <p className="text-center text-muted-foreground">
+                No data available for the selected period
+              </p>
+            ) : (
+              <div className="space-y-1">
+                {platformUsage.dailyCosts.map(
+                  (day: { date: string; cost: number; callCount: number }) => {
+                    const heightPercent = (day.cost / maxDailyCost) * 100;
+                    return (
+                      <div
+                        className="flex items-center gap-2 text-sm"
+                        key={day.date}
+                      >
+                        <div className="w-24 text-muted-foreground text-xs">
+                          {new Date(day.date).toLocaleDateString("en-US", {
+                            month: "short",
+                            day: "numeric",
+                          })}
+                        </div>
+                        <div className="flex-1">
+                          <div className="relative h-8 w-full overflow-hidden rounded bg-gray-100">
+                            <div
+                              className="h-full bg-blue-500 transition-all"
+                              style={{ width: `${heightPercent}%` }}
+                            />
+                          </div>
+                        </div>
+                        <div className="w-20 text-right font-medium text-xs">
+                          ${day.cost.toFixed(2)}
+                        </div>
+                        <div className="w-16 text-right text-muted-foreground text-xs">
+                          {day.callCount} calls
+                        </div>
+                      </div>
+                    );
+                  }
+                )}
+              </div>
+            )}
+          </div>
+        </CardContent>
+      </Card>
+
+      {/* Top Organizations by Cost */}
+      <Card>
+        <CardHeader>
+          <CardTitle className="flex items-center gap-2">
+            <Users className="h-5 w-5" />
+            Top 10 Organizations by Cost
+          </CardTitle>
+        </CardHeader>
+        <CardContent>
+          {platformUsage.byOrganization.length === 0 ? (
+            <p className="text-center text-muted-foreground">
+              No organizations with AI usage in this period
+            </p>
+          ) : (
+            <Table>
+              <TableHeader>
+                <TableRow>
+                  <TableHead>Organization</TableHead>
+                  <TableHead className="text-right">Total Cost</TableHead>
+                  <TableHead className="text-right">Calls</TableHead>
+                  <TableHead className="text-right">Avg Cost/Call</TableHead>
+                  <TableHead className="text-right">Cache Hit Rate</TableHead>
+                </TableRow>
+              </TableHeader>
+              <TableBody>
+                {platformUsage.byOrganization.map(
+                  (
+                    org: {
+                      organizationId: string;
+                      organizationName: string;
+                      cost: number;
+                      callCount: number;
+                      averageCacheHitRate: number;
+                    },
+                    index: number
+                  ) => {
+                    const avgCost = org.cost / org.callCount;
+                    return (
+                      <TableRow key={org.organizationId}>
+                        <TableCell className="font-medium">
+                          <div className="flex items-center gap-2">
+                            <span className="flex h-6 w-6 items-center justify-center rounded-full bg-gray-100 font-semibold text-xs">
+                              {index + 1}
+                            </span>
+                            <span className="font-mono text-sm">
+                              {org.organizationName}
+                            </span>
+                          </div>
+                        </TableCell>
+                        <TableCell className="text-right font-semibold">
+                          ${org.cost.toFixed(2)}
+                        </TableCell>
+                        <TableCell className="text-right text-muted-foreground">
+                          {org.callCount}
+                        </TableCell>
+                        <TableCell className="text-right text-muted-foreground text-sm">
+                          ${avgCost.toFixed(4)}
+                        </TableCell>
+                        <TableCell className="text-right">
+                          <span
+                            className={`font-semibold ${getCacheHitRateColor(org.averageCacheHitRate)}`}
+                          >
+                            {org.averageCacheHitRate.toFixed(1)}%
+                          </span>
+                        </TableCell>
+                      </TableRow>
+                    );
+                  }
+                )}
+              </TableBody>
+            </Table>
+          )}
+        </CardContent>
+      </Card>
+    </div>
+  );
+}
+
+// Rate Limits Tab Component
+function RateLimitsTab() {
+  const platformLimits = useQuery(api.models.rateLimits.getPlatformRateLimits);
+  const orgLimits = useQuery(api.models.rateLimits.getOrgRateLimits);
+  const updatePlatformLimit = useMutation(
+    api.models.rateLimits.updatePlatformRateLimit
+  );
+  const updateOrgLimit = useMutation(api.models.rateLimits.updateOrgRateLimit);
+  const deleteOrgLimit = useMutation(api.models.rateLimits.deleteOrgRateLimit);
+
+  const [editingLimitId, setEditingLimitId] = useState<string | null>(null);
+  const [editValue, setEditValue] = useState<string>("");
+
+  const handleEditClick = (limitId: string, currentValue: number) => {
+    setEditingLimitId(limitId);
+    setEditValue(currentValue.toString());
+  };
+
+  const handleSave = async (limitId: string, isPlatform: boolean) => {
+    const newValue = Number.parseFloat(editValue);
+    if (Number.isNaN(newValue) || newValue <= 0) {
+      toast.error("Please enter a valid positive number");
+      return;
+    }
+
+    try {
+      if (isPlatform) {
+        await updatePlatformLimit({
+          limitId:
+            limitId as import("@pdp/backend/convex/_generated/dataModel").Id<"rateLimits">,
+          newLimitValue: newValue,
+        });
+        toast.success("Platform limit updated successfully");
+      } else {
+        await updateOrgLimit({
+          limitId:
+            limitId as import("@pdp/backend/convex/_generated/dataModel").Id<"rateLimits">,
+          newLimitValue: newValue,
+        });
+        toast.success("Organization limit updated successfully");
+      }
+      setEditingLimitId(null);
+    } catch (error) {
+      const errorMessage =
+        error instanceof Error ? error.message : "Failed to update limit";
+      toast.error(errorMessage);
+    }
+  };
+
+  const handleDelete = async (limitId: string) => {
+    // Note: In production, replace with a proper confirmation dialog component
+    // biome-ignore lint/suspicious/noAlert: Temporary simple confirmation
+    const confirmed = confirm(
+      "Are you sure you want to delete this organization limit override?"
+    );
+    if (!confirmed) {
+      return;
+    }
+
+    try {
+      await deleteOrgLimit({
+        limitId:
+          limitId as import("@pdp/backend/convex/_generated/dataModel").Id<"rateLimits">,
+      });
+      toast.success("Organization limit deleted successfully");
+    } catch (error) {
+      const errorMessage =
+        error instanceof Error ? error.message : "Failed to delete limit";
+      toast.error(errorMessage);
+    }
+  };
+
+  const formatLimitType = (type: string): string =>
+    type
+      .split("_")
+      .map((word) => word.charAt(0).toUpperCase() + word.slice(1))
+      .join(" ");
+
+  const formatTimeRemaining = (windowEnd: number): string => {
+    const remaining = windowEnd - Date.now();
+    if (remaining <= 0) {
+      return "Resetting soon...";
+    }
+    const hours = Math.floor(remaining / (60 * 60 * 1000));
+    const minutes = Math.floor((remaining % (60 * 60 * 1000)) / (60 * 1000));
+    if (hours > 0) {
+      return `${hours}h ${minutes}m`;
+    }
+    return `${minutes}m`;
+  };
+
+  if (!(platformLimits && orgLimits)) {
+    return (
+      <div className="space-y-6">
+        <Card className="animate-pulse">
+          <CardHeader>
+            <CardTitle>Loading...</CardTitle>
+          </CardHeader>
+          <CardContent>
+            <div className="h-32 rounded bg-muted" />
+          </CardContent>
+        </Card>
+      </div>
+    );
+  }
+
+  return (
+    <div className="space-y-6">
+      {/* Platform-Wide Limits */}
+      <Card>
+        <CardHeader>
+          <CardTitle className="flex items-center gap-2">
+            <Gauge className="h-5 w-5" />
+            Platform-Wide Rate Limits
+          </CardTitle>
+          <p className="text-muted-foreground text-sm">
+            Global safety limits applied across all organizations
+          </p>
+        </CardHeader>
+        <CardContent>
+          <Table>
+            <TableHeader>
+              <TableRow>
+                <TableHead>Limit Type</TableHead>
+                <TableHead>Limit Value</TableHead>
+                <TableHead>Current Usage</TableHead>
+                <TableHead>Window Resets In</TableHead>
+                <TableHead className="text-right">Actions</TableHead>
+              </TableRow>
+            </TableHeader>
+            <TableBody>
+              {platformLimits.map((limit) => {
+                const isEditing = editingLimitId === limit._id;
+                const usagePercent = limit.limitType.includes("cost")
+                  ? (limit.currentCost / limit.limitValue) * 100
+                  : (limit.currentCount / limit.limitValue) * 100;
+                const isNearLimit = usagePercent >= 80;
+
+                return (
+                  <TableRow key={limit._id}>
+                    <TableCell className="font-medium">
+                      {formatLimitType(limit.limitType)}
+                    </TableCell>
+                    <TableCell>
+                      {isEditing ? (
+                        <div className="flex items-center gap-2">
+                          <Input
+                            className="w-32"
+                            onChange={(e) => setEditValue(e.target.value)}
+                            type="number"
+                            value={editValue}
+                          />
+                          <Button
+                            onClick={() => handleSave(limit._id, true)}
+                            size="sm"
+                            variant="ghost"
+                          >
+                            <Save className="h-4 w-4" />
+                          </Button>
+                          <Button
+                            onClick={() => setEditingLimitId(null)}
+                            size="sm"
+                            variant="ghost"
+                          >
+                            <X className="h-4 w-4" />
+                          </Button>
+                        </div>
+                      ) : (
+                        <div className="flex items-center gap-2">
+                          <span>
+                            {limit.limitType.includes("cost")
+                              ? `$${limit.limitValue}`
+                              : limit.limitValue.toLocaleString()}
+                          </span>
+                          <Button
+                            onClick={() =>
+                              handleEditClick(limit._id, limit.limitValue)
+                            }
+                            size="sm"
+                            variant="ghost"
+                          >
+                            <Pencil className="h-3 w-3" />
+                          </Button>
+                        </div>
+                      )}
+                    </TableCell>
+                    <TableCell>
+                      <div className="flex flex-col gap-1">
+                        <span>
+                          {limit.limitType.includes("cost")
+                            ? `$${limit.currentCost.toFixed(2)}`
+                            : limit.currentCount.toLocaleString()}
+                        </span>
+                        <Badge
+                          variant={isNearLimit ? "destructive" : "secondary"}
+                        >
+                          {usagePercent.toFixed(1)}%
+                        </Badge>
+                      </div>
+                    </TableCell>
+                    <TableCell>
+                      <div className="flex items-center gap-1 text-muted-foreground text-sm">
+                        <Clock className="h-3 w-3" />
+                        {formatTimeRemaining(limit.windowEnd)}
+                      </div>
+                    </TableCell>
+                    <TableCell className="text-right">
+                      {isNearLimit && (
+                        <Badge variant="destructive">Near Limit</Badge>
+                      )}
+                    </TableCell>
+                  </TableRow>
+                );
+              })}
+            </TableBody>
+          </Table>
+        </CardContent>
+      </Card>
+
+      {/* Organization-Specific Overrides */}
+      <Card>
+        <CardHeader>
+          <CardTitle className="flex items-center gap-2">
+            <Users className="h-5 w-5" />
+            Per-Organization Overrides
+          </CardTitle>
+          <p className="text-muted-foreground text-sm">
+            Custom rate limits for specific organizations
+          </p>
+        </CardHeader>
+        <CardContent>
+          {orgLimits.length === 0 ? (
+            <p className="py-8 text-center text-muted-foreground">
+              No organization-specific rate limits configured.
+            </p>
+          ) : (
+            <Table>
+              <TableHeader>
+                <TableRow>
+                  <TableHead>Organization ID</TableHead>
+                  <TableHead>Limit Type</TableHead>
+                  <TableHead>Limit Value</TableHead>
+                  <TableHead>Current Usage</TableHead>
+                  <TableHead className="text-right">Actions</TableHead>
+                </TableRow>
+              </TableHeader>
+              <TableBody>
+                {orgLimits.map((limit) => {
+                  const isEditing = editingLimitId === limit._id;
+                  const usagePercent = limit.limitType.includes("cost")
+                    ? (limit.currentCost / limit.limitValue) * 100
+                    : (limit.currentCount / limit.limitValue) * 100;
+
+                  return (
+                    <TableRow key={limit._id}>
+                      <TableCell className="font-mono text-sm">
+                        {limit.organizationId.slice(0, 12)}...
+                      </TableCell>
+                      <TableCell>{formatLimitType(limit.limitType)}</TableCell>
+                      <TableCell>
+                        {isEditing ? (
+                          <div className="flex items-center gap-2">
+                            <Input
+                              className="w-32"
+                              onChange={(e) => setEditValue(e.target.value)}
+                              type="number"
+                              value={editValue}
+                            />
+                            <Button
+                              onClick={() => handleSave(limit._id, false)}
+                              size="sm"
+                              variant="ghost"
+                            >
+                              <Save className="h-4 w-4" />
+                            </Button>
+                            <Button
+                              onClick={() => setEditingLimitId(null)}
+                              size="sm"
+                              variant="ghost"
+                            >
+                              <X className="h-4 w-4" />
+                            </Button>
+                          </div>
+                        ) : (
+                          <div className="flex items-center gap-2">
+                            <span>
+                              {limit.limitType.includes("cost")
+                                ? `$${limit.limitValue}`
+                                : limit.limitValue.toLocaleString()}
+                            </span>
+                            <Button
+                              onClick={() =>
+                                handleEditClick(limit._id, limit.limitValue)
+                              }
+                              size="sm"
+                              variant="ghost"
+                            >
+                              <Pencil className="h-3 w-3" />
+                            </Button>
+                          </div>
+                        )}
+                      </TableCell>
+                      <TableCell>
+                        <div className="flex flex-col gap-1">
+                          <span>
+                            {limit.limitType.includes("cost")
+                              ? `$${limit.currentCost.toFixed(2)}`
+                              : limit.currentCount.toLocaleString()}
+                          </span>
+                          <Badge variant="secondary">
+                            {usagePercent.toFixed(1)}%
+                          </Badge>
+                        </div>
+                      </TableCell>
+                      <TableCell className="text-right">
+                        <Button
+                          onClick={() => handleDelete(limit._id)}
+                          size="sm"
+                          variant="destructive"
+                        >
+                          Delete
+                        </Button>
+                      </TableCell>
+                    </TableRow>
+                  );
+                })}
+              </TableBody>
+            </Table>
+          )}
+        </CardContent>
+      </Card>
+    </div>
+  );
+}
+
+// Helper functions for Service Health tab
+function getStatusColor(status: "healthy" | "degraded" | "down"): {
+  bg: string;
+  text: string;
+  icon: typeof CheckCircle2;
+} {
+  switch (status) {
+    case "healthy":
+      return {
+        bg: "bg-green-100 border-green-300",
+        text: "text-green-700",
+        icon: CheckCircle2,
+      };
+    case "degraded":
+      return {
+        bg: "bg-amber-100 border-amber-300",
+        text: "text-amber-700",
+        icon: AlertCircle,
+      };
+    case "down":
+      return {
+        bg: "bg-red-100 border-red-300",
+        text: "text-red-700",
+        icon: XCircle,
+      };
+    default:
+      return {
+        bg: "bg-gray-100 border-gray-300",
+        text: "text-gray-700",
+        icon: AlertCircle,
+      };
+  }
+}
+
+function getCircuitBreakerColor(state: "closed" | "open" | "half_open"): {
+  badge: string;
+  label: string;
+} {
+  switch (state) {
+    case "closed":
+      return { badge: "default", label: "Closed (Normal)" };
+    case "open":
+      return { badge: "destructive", label: "Open (Blocked)" };
+    case "half_open":
+      return { badge: "secondary", label: "Half-Open (Testing)" };
+    default:
+      return { badge: "default", label: "Unknown" };
+  }
+}
+
+function formatTimeAgo(timestamp: number): string {
+  const now = Date.now();
+  const diff = now - timestamp;
+  const seconds = Math.floor(diff / 1000);
+  const minutes = Math.floor(seconds / 60);
+  const hours = Math.floor(minutes / 60);
+  const days = Math.floor(hours / 24);
+
+  if (days > 0) {
+    return `${days}d ago`;
+  }
+  if (hours > 0) {
+    return `${hours}h ${minutes % 60}m ago`;
+  }
+  if (minutes > 0) {
+    return `${minutes}m ago`;
+  }
+  return `${seconds}s ago`;
+}
+
+// Service Health Tab Component
+function ServiceHealthTab() {
+  const health = useQuery(api.models.aiServiceHealth.getPlatformServiceHealth);
+  const platformUsage = useQuery(api.models.aiUsageLog.getPlatformUsage, {
+    startDate: Date.now() - 30 * 24 * 60 * 60 * 1000,
+    endDate: Date.now(),
+  });
+  const forceReset = useMutation(
+    api.models.aiServiceHealth.forceResetCircuitBreaker
+  );
+
+  const handleForceReset = async () => {
+    // biome-ignore lint/suspicious/noAlert: Platform admin action requires explicit confirmation
+    const confirmed = confirm(
+      "Are you sure you want to force reset the circuit breaker? This should only be done if you've verified the AI service is healthy."
+    );
+    if (!confirmed) {
+      return;
+    }
+
+    try {
+      const result = await forceReset({});
+      if (result?.success) {
+        toast.success(result.message);
+      } else {
+        toast.error(result?.message || "Failed to reset circuit breaker");
+      }
+    } catch (error) {
+      if (error instanceof Error) {
+        toast.error(error.message);
+      } else {
+        toast.error("Failed to reset circuit breaker");
+      }
+    }
+  };
+
+  // Loading state
+  if (health === undefined || platformUsage === undefined) {
+    return (
+      <div className="space-y-6">
+        <Card>
+          <CardHeader>
+            <CardTitle>Loading Service Health...</CardTitle>
+          </CardHeader>
+          <CardContent>
+            <div className="flex items-center justify-center py-8">
+              <RefreshCw className="h-8 w-8 animate-spin text-muted-foreground" />
+            </div>
+          </CardContent>
+        </Card>
+      </div>
+    );
+  }
+
+  // No health data (healthy by default)
+  if (!health) {
+    return (
+      <div className="space-y-6">
+        <Card className="border-green-300 bg-green-50">
+          <CardHeader>
+            <CardTitle className="flex items-center gap-3 text-green-700">
+              <CheckCircle2 className="h-8 w-8" />
+              Service Healthy (No Data)
+            </CardTitle>
+          </CardHeader>
+          <CardContent>
+            <p className="text-green-700">
+              No health record found. This typically means the AI service has
+              never failed and is operating normally.
+            </p>
+          </CardContent>
+        </Card>
+      </div>
+    );
+  }
+
+  const statusStyle = getStatusColor(health.status);
+  const StatusIcon = statusStyle.icon;
+  const circuitStyle = getCircuitBreakerColor(health.circuitBreakerState);
+
+  // Calculate cache effectiveness from platform usage
+  const cacheHitRate = platformUsage?.averageCacheHitRate || 0;
+  const cacheColor = getCacheHitRateColor(cacheHitRate);
+  const cacheLabel = getCacheHitRateLabel(cacheHitRate);
+
+  // Get top 5 orgs by call count
+  const topOrgsByUsage = (platformUsage?.byOrganization || [])
+    .sort((a, b) => b.callCount - a.callCount)
+    .slice(0, 5);
+
+  return (
+    <div className="space-y-6">
+      {/* Large Status Indicator */}
+      <Card className={`border-2 ${statusStyle.bg}`}>
+        <CardHeader>
+          <CardTitle
+            className={`flex items-center gap-3 text-2xl ${statusStyle.text}`}
+          >
+            <StatusIcon className="h-10 w-10" />
+            Service Status:{" "}
+            {health.status.charAt(0).toUpperCase() + health.status.slice(1)}
+          </CardTitle>
+        </CardHeader>
+        <CardContent className="space-y-4">
+          <div className="grid grid-cols-1 gap-4 md:grid-cols-2 lg:grid-cols-3">
+            <div>
+              <p className="font-medium text-muted-foreground text-sm">
+                Circuit Breaker
+              </p>
+              <Badge
+                variant={
+                  circuitStyle.badge as "default" | "destructive" | "secondary"
+                }
+              >
+                {circuitStyle.label}
+              </Badge>
+            </div>
+            <div>
+              <p className="font-medium text-muted-foreground text-sm">
+                Last Success
+              </p>
+              <p className="font-semibold text-sm">
+                {formatTimeAgo(health.lastSuccessAt)}
+              </p>
+            </div>
+            <div>
+              <p className="font-medium text-muted-foreground text-sm">
+                Last Failure
+              </p>
+              <p className="font-semibold text-sm">
+                {formatTimeAgo(health.lastFailureAt)}
+              </p>
+            </div>
+            <div>
+              <p className="font-medium text-muted-foreground text-sm">
+                Recent Failures
+              </p>
+              <p className="font-semibold text-sm">
+                {health.recentFailureCount} in last{" "}
+                {Math.floor(health.failureWindow / 60_000)}m
+              </p>
+            </div>
+            <div>
+              <p className="font-medium text-muted-foreground text-sm">
+                Last Checked
+              </p>
+              <p className="font-semibold text-sm">
+                {formatTimeAgo(health.lastCheckedAt)}
+              </p>
+            </div>
+            <div className="flex items-end">
+              <Button
+                disabled={health.circuitBreakerState === "closed"}
+                onClick={handleForceReset}
+                size="sm"
+                variant="outline"
+              >
+                <RefreshCw className="mr-2 h-4 w-4" />
+                Force Reset Circuit
+              </Button>
+            </div>
+          </div>
+        </CardContent>
+      </Card>
+
+      {/* Cache Effectiveness Card */}
+      <Card>
+        <CardHeader>
+          <CardTitle className="flex items-center gap-2">
+            <Zap className="h-5 w-5" />
+            Cache Effectiveness
+          </CardTitle>
+        </CardHeader>
+        <CardContent>
+          <div className="grid grid-cols-1 gap-4 md:grid-cols-3">
+            <div className="rounded-lg border-2 p-4">
+              <p className="font-medium text-muted-foreground text-sm">
+                Average Cache Hit Rate
+              </p>
+              <p className={`font-bold text-3xl ${cacheColor}`}>
+                {cacheHitRate.toFixed(1)}%
+              </p>
+              <p className="mt-1 text-muted-foreground text-xs">{cacheLabel}</p>
+            </div>
+            <div className="rounded-lg border-2 p-4">
+              <p className="font-medium text-muted-foreground text-sm">
+                Total API Calls (30d)
+              </p>
+              <p className="font-bold text-3xl">
+                {platformUsage?.callCount.toLocaleString() || 0}
+              </p>
+            </div>
+            <div className="rounded-lg border-2 p-4">
+              <p className="font-medium text-muted-foreground text-sm">
+                Total Cost (30d)
+              </p>
+              <p className="font-bold text-3xl">
+                ${platformUsage?.totalCost.toFixed(2) || "0.00"}
+              </p>
+            </div>
+          </div>
+        </CardContent>
+      </Card>
+
+      {/* Top 5 Orgs by AI Usage */}
+      <Card>
+        <CardHeader>
+          <CardTitle className="flex items-center gap-2">
+            <Users className="h-5 w-5" />
+            Top 5 Organizations by AI Usage (30 days)
+          </CardTitle>
+        </CardHeader>
+        <CardContent>
+          {topOrgsByUsage.length === 0 ? (
+            <p className="text-center text-muted-foreground">
+              No usage data available
+            </p>
+          ) : (
+            <Table>
+              <TableHeader>
+                <TableRow>
+                  <TableHead>Rank</TableHead>
+                  <TableHead>Organization</TableHead>
+                  <TableHead className="text-right">API Calls</TableHead>
+                  <TableHead className="text-right">Total Cost</TableHead>
+                  <TableHead className="text-right">Avg Cost/Call</TableHead>
+                  <TableHead className="text-right">Cache Hit Rate</TableHead>
+                </TableRow>
+              </TableHeader>
+              <TableBody>
+                {topOrgsByUsage.map((org, index) => {
+                  const orgCacheColor = getCacheHitRateColor(
+                    org.averageCacheHitRate
+                  );
+                  const avgCostPerCall =
+                    org.callCount > 0 ? org.cost / org.callCount : 0;
+                  return (
+                    <TableRow key={org.organizationId}>
+                      <TableCell>
+                        <Badge variant="outline">#{index + 1}</Badge>
+                      </TableCell>
+                      <TableCell className="font-medium">
+                        {org.organizationId}
+                      </TableCell>
+                      <TableCell className="text-right">
+                        {org.callCount.toLocaleString()}
+                      </TableCell>
+                      <TableCell className="text-right">
+                        ${org.cost.toFixed(2)}
+                      </TableCell>
+                      <TableCell className="text-right">
+                        ${avgCostPerCall.toFixed(4)}
+                      </TableCell>
+                      <TableCell className="text-right">
+                        <span className={orgCacheColor}>
+                          {org.averageCacheHitRate.toFixed(1)}%
+                        </span>
+                      </TableCell>
+                    </TableRow>
+                  );
+                })}
+              </TableBody>
+            </Table>
+          )}
+        </CardContent>
+      </Card>
+
+      {/* Recent Errors (Placeholder) */}
+      <Card>
+        <CardHeader>
+          <CardTitle className="flex items-center gap-2">
+            <AlertCircle className="h-5 w-5" />
+            Recent Errors
+          </CardTitle>
+        </CardHeader>
+        <CardContent>
+          <p className="text-center text-muted-foreground">
+            Error logging not yet implemented. Future enhancement will track
+            error timestamp, type, affected organization, and resolution status.
+          </p>
+        </CardContent>
+      </Card>
+    </div>
+  );
+}
+
+// Settings Tab Component
+function SettingsTab() {
+  const settings = useQuery(
+    api.models.platformMessagingSettings.getPlatformMessagingSettings
+  );
+  const updateFeatureToggle = useMutation(
+    api.models.platformMessagingSettings.updateFeatureToggle
+  );
+  const activateEmergencyMode = useMutation(
+    api.models.platformMessagingSettings.activateEmergencyMode
+  );
+
+  const [emergencyMessage, setEmergencyMessage] = useState("");
+
+  const handleToggle = async (
+    feature:
+      | "aiGenerationEnabled"
+      | "autoApprovalEnabled"
+      | "parentNotificationsEnabled",
+    currentValue: boolean
+  ) => {
+    try {
+      const result = await updateFeatureToggle({
+        feature,
+        enabled: !currentValue,
+      });
+      if (result.success) {
+        toast.success(result.message);
+      } else {
+        toast.error("Failed to update feature toggle");
+      }
+    } catch (error) {
+      const errorMessage =
+        error instanceof Error
+          ? error.message
+          : "Failed to update feature toggle";
+      toast.error(errorMessage);
+    }
+  };
+
+  const handleEmergencyMode = async (enable: boolean) => {
+    // Confirm emergency mode activation
+    if (enable) {
+      // biome-ignore lint/suspicious/noAlert: Critical platform admin action requires explicit confirmation
+      const confirmed = confirm(
+        "⚠️ EMERGENCY MODE ACTIVATION ⚠️\n\n" +
+          "This will IMMEDIATELY disable ALL AI features across the entire platform:\n" +
+          "- AI summary generation\n" +
+          "- Auto-approval for trusted coaches\n" +
+          "- Parent notifications\n\n" +
+          "Use this only in emergencies (billing issues, quality problems, legal concerns).\n\n" +
+          "Are you absolutely sure you want to activate emergency mode?"
+      );
+      if (!confirmed) {
+        return;
+      }
+    }
+
+    try {
+      const result = await activateEmergencyMode({
+        enabled: enable,
+        message: enable ? emergencyMessage || undefined : undefined,
+      });
+
+      if (!result.success) {
+        toast.error("Failed to update emergency mode");
+        return;
+      }
+
+      toast.success(result.message);
+      if (!enable) {
+        setEmergencyMessage("");
+      }
+    } catch (error) {
+      const errorMessage =
+        error instanceof Error
+          ? error.message
+          : "Failed to update emergency mode";
+      toast.error(errorMessage);
+    }
+  };
+
+  // Loading state
+  if (settings === undefined) {
+    return (
+      <div className="space-y-6">
+        <Card>
+          <CardHeader>
+            <CardTitle>Loading Settings...</CardTitle>
+          </CardHeader>
+          <CardContent>
+            <div className="flex items-center justify-center py-8">
+              <RefreshCw className="h-8 w-8 animate-spin text-muted-foreground" />
+            </div>
+          </CardContent>
+        </Card>
+      </div>
+    );
+  }
+
+  // Default values if no settings exist yet
+  const currentSettings = settings || {
+    aiGenerationEnabled: true,
+    autoApprovalEnabled: true,
+    parentNotificationsEnabled: true,
+    emergencyMode: false,
+    emergencyMessage: undefined,
+  };
+
+  const isEmergencyMode = currentSettings.emergencyMode;
+
+  return (
+    <div className="space-y-6">
+      {/* Emergency Mode Banner */}
+      {isEmergencyMode && (
+        <Card className="border-red-500 bg-red-50">
+          <CardHeader>
+            <CardTitle className="flex items-center gap-2 text-red-700">
+              <AlertCircle className="h-6 w-6" />
+              ⚠️ EMERGENCY MODE ACTIVE ⚠️
+            </CardTitle>
+          </CardHeader>
+          <CardContent>
+            <p className="font-semibold text-red-700">
+              All AI features are currently disabled across the platform.
+            </p>
+            {currentSettings.emergencyMessage && (
+              <p className="mt-2 text-red-600">
+                Message: {currentSettings.emergencyMessage}
+              </p>
+            )}
+            <Button
+              className="mt-4"
+              onClick={() => handleEmergencyMode(false)}
+              variant="destructive"
+            >
+              Deactivate Emergency Mode
+            </Button>
+          </CardContent>
+        </Card>
+      )}
+
+      {/* Feature Toggles */}
+      <Card>
+        <CardHeader>
+          <CardTitle className="flex items-center gap-2">
+            <Settings className="h-5 w-5" />
+            Feature Controls
+          </CardTitle>
+          <p className="text-muted-foreground text-sm">
+            Enable or disable individual AI features across the platform
+          </p>
+        </CardHeader>
+        <CardContent className="space-y-6">
+          {/* AI Generation Toggle */}
+          <div className="flex items-center justify-between space-x-4">
+            <div className="flex-1 space-y-1">
+              <Label
+                className="font-semibold text-base"
+                htmlFor="ai-generation"
+              >
+                AI Summary Generation
+              </Label>
+              <p className="text-muted-foreground text-sm">
+                Allow coaches to generate AI-powered parent summaries
+              </p>
+            </div>
+            <Switch
+              checked={currentSettings.aiGenerationEnabled}
+              disabled={isEmergencyMode}
+              id="ai-generation"
+              onCheckedChange={() =>
+                handleToggle(
+                  "aiGenerationEnabled",
+                  currentSettings.aiGenerationEnabled
+                )
+              }
+            />
+          </div>
+
+          <div className="border-t" />
+
+          {/* Auto-Approval Toggle */}
+          <div className="flex items-center justify-between space-x-4">
+            <div className="flex-1 space-y-1">
+              <Label
+                className="font-semibold text-base"
+                htmlFor="auto-approval"
+              >
+                Auto-Approval for Trusted Coaches
+              </Label>
+              <p className="text-muted-foreground text-sm">
+                Automatically approve and send summaries from coaches with high
+                trust scores
+              </p>
+            </div>
+            <Switch
+              checked={currentSettings.autoApprovalEnabled}
+              disabled={isEmergencyMode}
+              id="auto-approval"
+              onCheckedChange={() =>
+                handleToggle(
+                  "autoApprovalEnabled",
+                  currentSettings.autoApprovalEnabled
+                )
+              }
+            />
+          </div>
+
+          <div className="border-t" />
+
+          {/* Parent Notifications Toggle */}
+          <div className="flex items-center justify-between space-x-4">
+            <div className="flex-1 space-y-1">
+              <Label
+                className="font-semibold text-base"
+                htmlFor="parent-notifications"
+              >
+                Parent Notifications
+              </Label>
+              <p className="text-muted-foreground text-sm">
+                Send notifications to parents when new summaries are available
+              </p>
+            </div>
+            <Switch
+              checked={currentSettings.parentNotificationsEnabled}
+              disabled={isEmergencyMode}
+              id="parent-notifications"
+              onCheckedChange={() =>
+                handleToggle(
+                  "parentNotificationsEnabled",
+                  currentSettings.parentNotificationsEnabled
+                )
+              }
+            />
+          </div>
+        </CardContent>
+      </Card>
+
+      {/* Emergency Controls */}
+      <Card className="border-red-200">
+        <CardHeader>
+          <CardTitle className="flex items-center gap-2 text-red-700">
+            <AlertCircle className="h-5 w-5" />
+            Emergency Controls
+          </CardTitle>
+          <p className="text-muted-foreground text-sm">
+            Nuclear option: Disable all AI features immediately
+          </p>
+        </CardHeader>
+        <CardContent className="space-y-4">
+          <div className="rounded-lg border-2 border-red-200 bg-red-50 p-4">
+            <h3 className="mb-2 font-semibold text-red-800">
+              When to use Emergency Mode:
+            </h3>
+            <ul className="ml-4 list-disc space-y-1 text-red-700 text-sm">
+              <li>AI generating incorrect or inappropriate summaries</li>
+              <li>Unexpected billing surge from Anthropic API</li>
+              <li>Legal or compliance concern requiring immediate shutdown</li>
+              <li>System-wide quality issues detected</li>
+            </ul>
+          </div>
+
+          {!isEmergencyMode && (
+            <div className="space-y-4">
+              <div className="space-y-2">
+                <Label className="font-semibold" htmlFor="emergency-message">
+                  Message to Users (Optional)
+                </Label>
+                <Textarea
+                  className="resize-none"
+                  id="emergency-message"
+                  onChange={(e: React.ChangeEvent<HTMLTextAreaElement>) =>
+                    setEmergencyMessage(e.target.value)
+                  }
+                  placeholder="e.g., 'AI features temporarily disabled for maintenance. Expected restoration in 2 hours.'"
+                  rows={3}
+                  value={emergencyMessage}
+                />
+                <p className="text-muted-foreground text-xs">
+                  This message will be shown to coaches and parents while
+                  emergency mode is active
+                </p>
+              </div>
+
+              <Button
+                className="w-full"
+                onClick={() => handleEmergencyMode(true)}
+                size="lg"
+                variant="destructive"
+              >
+                <AlertCircle className="mr-2 h-5 w-5" />
+                ACTIVATE EMERGENCY MODE
+              </Button>
+            </div>
+          )}
+        </CardContent>
+      </Card>
+
+      {/* Last Updated Info */}
+      {settings?.lastUpdatedAt && (
+        <Card>
+          <CardContent className="pt-6">
+            <p className="text-muted-foreground text-sm">
+              Last updated: {new Date(settings.lastUpdatedAt).toLocaleString()}
+            </p>
+          </CardContent>
+        </Card>
+      )}
+    </div>
+  );
+}

@@ -54,16 +54,16 @@ export function CoachFeedbackSnapshot({ orgId }: CoachFeedbackSnapshotProps) {
 
   // Flatten summaries and take most recent 3-4 items
   const recentFeedback = summariesData
-    ?.flatMap((childData) =>
-      childData.sportGroups.flatMap((sportGroup) =>
-        sportGroup.summaries.map((summary) => ({
+    ?.flatMap((childData: any) =>
+      childData.sportGroups.flatMap((sportGroup: any) =>
+        sportGroup.summaries.map((summary: any) => ({
           ...summary,
           childName: `${childData.player.firstName} ${childData.player.lastName}`,
           sportName: sportGroup.sport?.name || "General",
         }))
       )
     )
-    .sort((a, b) => (b._creationTime || 0) - (a._creationTime || 0))
+    .sort((a: any, b: any) => (b._creationTime || 0) - (a._creationTime || 0))
     .slice(0, 4);
 
   const hasFeedback = recentFeedback && recentFeedback.length > 0;
@@ -93,7 +93,7 @@ export function CoachFeedbackSnapshot({ orgId }: CoachFeedbackSnapshotProps) {
       <CardContent>
         {hasFeedback ? (
           <div className="space-y-3">
-            {recentFeedback.map((feedback) => (
+            {recentFeedback.map((feedback: any) => (
               <div
                 className="border-blue-500 border-l-4 py-2 pl-4"
                 key={feedback._id}

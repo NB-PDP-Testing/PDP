@@ -1,245 +1,174 @@
 {
-  "project": "Coach-Parent AI Summaries - Phase 6.3 (Admin Dashboard)",
-  "branchName": "ralph/coach-parent-summaries-p6-phase3",
-  "description": "Platform admin dashboard at /platform/messaging with cost analytics, rate limit controls, service health monitoring, and emergency kill switch.",
+  "project": "Coach-Parent AI Summaries - Phase 6.4 (Performance Optimization)",
+  "branchName": "ralph/coach-parent-summaries-p6-phase4",
+  "description": "Optional performance optimization: Pre-aggregate daily AI usage stats for 100x faster dashboard queries at scale.",
   "philosophyAndGoals": {
-    "corePhilosophy": "Give admins visibility and control. One dashboard for all AI monitoring. Act fast in emergencies.",
+    "corePhilosophy": "Optimize for scale. Pre-compute what you can. Trade freshness for speed when appropriate.",
     "keyPrinciples": [
-      "Centralized control: One page for all messaging/AI operations",
-      "Real-time data: Live metrics, no stale dashboards",
-      "Cost transparency: See exactly where money is going",
-      "Emergency controls: Kill switch for instant feature disable",
-      "Actionable insights: Don't just show data, enable decisions"
+      "Pre-aggregation: Daily cron summarizes yesterday's usage",
+      "Query optimization: Use aggregates for > 7 day ranges",
+      "Data retention: Keep raw logs for detailed analysis",
+      "Trade-offs: Accept up to 24h stale data for 100x speed gain",
+      "Future-proofing: Works at 10 orgs or 10,000 orgs"
     ],
     "successMetrics": {
-      "dashboardSpeed": "Full page load in < 2 seconds",
-      "dataAccuracy": "Metrics match aiUsageLog within 1%",
-      "emergencyResponse": "Kill switch disables AI within 10 seconds",
-      "usability": "Platform staff can find any metric in < 30 seconds"
+      "querySpeed": "30-day dashboard query in < 100ms (vs 1-2 seconds on raw logs)",
+      "scalability": "Query time stays flat as usage grows 100x",
+      "dataAccuracy": "Aggregates match raw logs within 0.1%",
+      "freshness": "Dashboard shows data within 24 hours"
     }
   },
   "dependencies": {
     "requiredPhases": [
       "Phase 6.1 - Cost Controls (US-001 to US-011)",
       "Phase 6.2 - Graceful Degradation (US-012 to US-016)",
+      "Phase 6.3 - Admin Dashboard (US-017 to US-022)",
       "Phase 5 Phases 1-4 - ALL COMPLETE AND MERGED TO MAIN (PR #331)"
     ],
-    "requiredTables": [
-      "aiUsageLog - Cost data (P5 Phase 3)",
-      "orgCostBudgets - Budget data (P6.1 US-001)",
-      "platformCostAlerts - Alert data (P6.1 US-002)",
-      "rateLimits - Rate limit data (P6.1 US-007)",
-      "aiServiceHealth - Health data (P6.2 US-012)",
-      "coachTrustLevels - Trust system data (P5 Phases 1 & 4)"
+    "requiredTables": ["aiUsageLog - Raw usage data (P5 Phase 3)"],
+    "requiredQueries": [
+      "aiUsageLog:getOrgUsage - Current query that needs optimization"
     ],
-    "existingQueries": [
-      "aiUsageLog:getOrgUsage - Returns org-level cost analytics",
-      "coachOverrideAnalytics:getCoachOverridePatterns - Override analytics"
+    "requiredCrons": [
+      "crons.ts exists with 6 existing cron jobs (3 from P5, 3 from P6.1)"
     ],
     "newInfrastructure": [
-      "/platform/messaging route - Admin dashboard page",
-      "platformMessagingSettings table - Feature toggle settings",
-      "getPlatformUsage query - Platform-wide cost aggregation"
+      "aiUsageDailyAggregates table - Pre-aggregated daily stats",
+      "aggregateDailyUsage cron - Runs nightly at 1 AM UTC",
+      "Optimized getOrgUsage query - Uses aggregates for > 7 day ranges"
     ]
   },
   "userStories": [
     {
-      "id": "US-017",
-      "title": "Create platform messaging admin page structure",
-      "description": "As a platform admin, I have a centralized control panel.",
-      "phase": "6.3: Admin Dashboard",
+      "id": "US-023",
+      "title": "Add daily aggregation for AI usage stats",
+      "description": "As the system, I pre-aggregate daily AI usage stats for faster dashboard queries",
+      "phase": "6.4: Performance Optimization",
       "acceptanceCriteria": [
-        "Create apps/web/src/app/platform/messaging/page.tsx",
-        "Check user.isPlatformStaff, redirect if not authorized",
-        "Page layout: tabs for Overview / Cost Analytics / Rate Limits / Service Health / Settings",
-        "Use Tabs, TabsList, TabsTrigger, TabsContent from @/components/ui/tabs",
-        "Placeholder content for each tab (filled in next stories)",
+        "Add aiUsageDailyAggregates table to schema.ts: date (string YYYY-MM-DD), organizationId (string), totalCost (number), totalCalls (number), totalInputTokens (number), totalCachedTokens (number), totalOutputTokens (number), avgCacheHitRate (number)",
+        "Add indexes: by_date (date), by_org_date (organizationId, date)",
+        "Edit crons.ts: Add cron job aggregateDailyUsage (runs daily at 1 AM UTC)",
+        "Job queries previous day's aiUsageLog entries, groups by organizationId, aggregates stats, inserts into aiUsageDailyAggregates",
+        "Update getOrgUsage query (or create new variant): For date ranges > 7 days, query aggregates table instead of raw logs (performance optimization)",
+        "Keep raw logs for detailed analysis, aggregates for dashboard speed",
         "Typecheck passes"
       ],
-      "priority": 17,
+      "priority": 23,
       "passes": true,
-      "notes": "Central hub. One page for all messaging/AI controls. Similar to AWS Cost Explorer, Stripe Dashboard, Vercel Analytics. Path: /platform/messaging (not under /orgs/[orgId])."
-    },
-    {
-      "id": "US-018",
-      "title": "Build Cost Analytics tab",
-      "description": "As a platform admin, I see cost trends and breakdowns.",
-      "acceptanceCriteria": [
-        "In messaging admin page, Cost Analytics tab",
-        "Use getOrgUsage query (aiUsageLog:getOrgUsage, created in P5 US-015) - call without organizationId to get platform-wide data OR create new getPlatformUsage query that aggregates across all orgs",
-        "Show cards: Total Cost (30 days), Cost Today, Average per Message, Cache Hit Rate",
-        "Show line chart: daily cost over 30 days (use recharts library if available, or simple bars)",
-        "Show table: top 10 orgs by cost with breakdown",
-        "Color coding: green if cache hit rate >80%, amber if 60-80%, red if <60%",
-        "Typecheck passes"
-      ],
-      "priority": 18,
-      "passes": true,
-      "notes": "Data-driven decisions. See which orgs are heavy users, whether caching is effective, cost trends over time. May need getPlatformUsage wrapper that aggregates getOrgUsage across all orgs."
-    },
-    {
-      "id": "US-019",
-      "title": "Build Rate Limits tab",
-      "description": "As a platform admin, I configure and monitor rate limits.",
-      "acceptanceCriteria": [
-        "In messaging admin page, Rate Limits tab",
-        "Show current platform-wide limits in editable cards",
-        "Button: 'Update Platform Limits' calls updatePlatformRateLimit mutation",
-        "Show recent rate limit violations table: org, limit type, time, reset time",
-        "Show per-org overrides table with 'Add Override' button",
-        "Form to set per-org limits: select org, set messages/hour, messages/day, save",
-        "Typecheck passes"
-      ],
-      "priority": 19,
-      "passes": true,
-      "notes": "Fine-grained control. Set global limits as safety net, per-org limits for heavy users or trial accounts. See violations to identify abuse or bugs."
-    },
-    {
-      "id": "US-020",
-      "title": "Build Service Health tab",
-      "description": "As a platform admin, I monitor AI service health.",
-      "acceptanceCriteria": [
-        "In messaging admin page, Service Health tab",
-        "Query aiServiceHealth for current status",
-        "Show large status indicator: green 'Healthy', amber 'Degraded', red 'Down'",
-        "Show metrics: last success time, last failure time, recent failure count, circuit breaker state",
-        "ENHANCEMENT: Show cache effectiveness: average cache hit rate from aiUsageLog (pull from existing getOrgUsage query)",
-        "ENHANCEMENT: Show per-org AI usage: top 5 orgs by AI calls (from getOrgUsage)",
-        "Show recent errors table (from logs): timestamp, error type, affected org, resolution",
-        "Button: 'Force Reset Circuit Breaker' (admin override to close circuit manually)",
-        "Typecheck passes"
-      ],
-      "priority": 20,
-      "passes": true,
-      "notes": "Health at a glance. See if AI is working, recent errors, circuit breaker status. Manual override for when admin knows service is back. Cache hit rate shows if prompt caching is effective."
-    },
-    {
-      "id": "US-021",
-      "title": "Build Settings tab with master kill switch",
-      "description": "As a platform admin, I can disable features globally.",
-      "acceptanceCriteria": [
-        "In messaging admin page, Settings tab",
-        "Add platformMessagingSettings table if not exists (singleton): aiGenerationEnabled (boolean), autoApprovalEnabled (boolean), parentNotificationsEnabled (boolean), emergencyMode (boolean), emergencyMessage (optional string)",
-        "Show toggle switches for each setting",
-        "Big red 'Emergency Disable All' button sets emergencyMode = true, disables all AI features",
-        "Emergency mode banner shows emergencyMessage to all users (coaches, parents)",
-        "Confirmation dialog before enabling emergency mode",
-        "Typecheck passes"
-      ],
-      "priority": 21,
-      "passes": true,
-      "notes": "Nuclear option. If something goes catastrophically wrong (bug causing bad summaries, Anthropic billing issue, legal concern), disable everything instantly."
-    },
-    {
-      "id": "US-022",
-      "title": "Build Overview tab with key metrics",
-      "description": "As a platform admin, I see health dashboard on page load.",
-      "acceptanceCriteria": [
-        "In messaging admin page, Overview tab (default active tab)",
-        "Show metric cards: Total Messages (24h), Total Cost (24h), Active Orgs, Service Status",
-        "ENHANCEMENT: Add Trust System Health card: X coaches automated (trust level 2+), Y summaries auto-sent (30 days)",
-        "ENHANCEMENT: Add AI Learning card: Z coaches have personalized thresholds (from coachTrustLevels where personalizedThreshold is not null)",
-        "Show alert panel: unacknowledged cost alerts with 'Acknowledge' button",
-        "Show recent activity feed: last 20 events (summary created, auto-approved, budget alert, etc.)",
-        "Color-coded status: green if all healthy, amber if warnings, red if critical alerts",
-        "Auto-refresh every 30 seconds (use setInterval or Convex real-time queries)",
-        "Typecheck passes"
-      ],
-      "priority": 22,
-      "passes": true,
-      "notes": "War room view. Open this page, see platform health immediately. Recent alerts at top. Activity feed shows what's happening. Trust metrics show P5 adoption and AI learning effectiveness."
+      "notes": "Performance optimization. As usage scales (10,000+ AI calls), querying raw logs becomes slow. Pre-aggregating daily stats means dashboard queries are O(30) instead of O(10,000) for 30-day views. Trade-off: slightly stale data (up to 24h old) but much faster. Industry: Google Analytics pre-aggregates, AWS CloudWatch uses metrics rollup."
     }
   ],
+  "implementationDetails": {
+    "aggregationLogic": {
+      "description": "How the nightly aggregation works",
+      "steps": [
+        "1. Cron triggers at 1 AM UTC daily",
+        "2. Query aiUsageLog for previous day (yesterday 00:00 to 23:59 UTC)",
+        "3. Group by organizationId",
+        "4. For each org, calculate: totalCost (sum), totalCalls (count), totalInputTokens (sum), totalCachedTokens (sum), totalOutputTokens (sum), avgCacheHitRate (average)",
+        "5. Insert one record per org into aiUsageDailyAggregates with date = yesterday (YYYY-MM-DD format)",
+        "6. Handle edge cases: No data for org on that day = skip insert (sparse table)",
+        "7. Idempotency: Check if record exists for (org, date) before inserting to avoid duplicates"
+      ]
+    },
+    "queryOptimization": {
+      "description": "How getOrgUsage decides raw vs aggregates",
+      "logic": [
+        "If no date range specified: Use raw logs (real-time data)",
+        "If date range <= 7 days: Use raw logs (recent data, fast enough)",
+        "If date range > 7 days: Use aggregates table",
+        "Example: 30-day query = 30 aggregate records instead of 10,000 raw logs",
+        "Fall back to raw logs if aggregates missing for requested dates"
+      ]
+    },
+    "dataRetention": {
+      "rawLogs": "Keep indefinitely for detailed analysis and compliance",
+      "aggregates": "Keep for 1 year (configurable), then archive or delete",
+      "reasoning": "Aggregates are derived data, can be regenerated from raw logs if needed"
+    }
+  },
   "testingStrategy": {
-    "authorization": {
-      "platformStaffOnly": [
-        "Access /platform/messaging as non-platform-staff user",
-        "Verify redirect to unauthorized page",
-        "Access as platform staff, verify page loads"
+    "aggregationAccuracy": {
+      "setup": [
+        "Generate 100 summaries across 3 orgs over 2 days",
+        "Manually trigger aggregateDailyUsage cron for day 1"
+      ],
+      "tests": [
+        "Verify aiUsageDailyAggregates has 3 records (one per org) for day 1",
+        "Verify totalCost matches sum of aiUsageLog for that org/day",
+        "Verify totalCalls matches count of aiUsageLog entries",
+        "Verify avgCacheHitRate matches average of raw logs",
+        "Verify date field formatted as YYYY-MM-DD"
       ]
     },
-    "costAnalytics": {
-      "dataAccuracy": [
-        "Generate 10 summaries with known costs",
-        "Open Cost Analytics tab",
-        "Verify total cost matches aiUsageLog",
-        "Verify cache hit rate calculation correct"
+    "queryOptimization": {
+      "rawLogsPath": [
+        "Query getOrgUsage with startDate = today - 3 days",
+        "Verify query uses raw aiUsageLog (not aggregates)",
+        "Measure query time (should be < 200ms for < 1000 logs)"
       ],
-      "visualizations": [
-        "Verify 30-day cost chart renders",
-        "Verify top orgs table shows correct data",
-        "Verify color coding works (green/amber/red)"
+      "aggregatesPath": [
+        "Query getOrgUsage with startDate = today - 30 days",
+        "Verify query uses aiUsageDailyAggregates",
+        "Measure query time (should be < 100ms regardless of log count)",
+        "Verify results match querying raw logs (within 0.1%)"
       ]
     },
-    "rateLimits": {
-      "configuration": [
-        "Update platform-wide limit from 1000 to 500 messages/hour",
-        "Verify limit saved",
-        "Generate summaries, verify new limit enforced"
+    "cronExecution": {
+      "manualTrigger": [
+        "Manually trigger aggregateDailyUsage cron",
+        "Verify cron completes without errors",
+        "Verify aggregates created for previous day only"
       ],
-      "violations": [
-        "Hit rate limit",
-        "Open Rate Limits tab",
-        "Verify violation appears in table with correct timestamp"
+      "idempotency": [
+        "Run aggregateDailyUsage twice for same day",
+        "Verify no duplicate records created",
+        "Verify second run updates existing record or skips"
+      ],
+      "edgeCases": [
+        "Run aggregation for day with zero AI usage",
+        "Verify no records inserted (sparse table)",
+        "Run aggregation for day with usage from only 1 org",
+        "Verify only 1 record inserted"
       ]
     },
-    "serviceHealth": {
-      "statusDisplay": [
-        "With healthy service, verify green indicator",
-        "Open circuit (simulate failure), verify red indicator",
-        "Verify recent errors table populated"
+    "performance": {
+      "scalability": [
+        "Simulate 10,000 AI usage logs across 10 orgs",
+        "Query 30-day stats using raw logs, measure time (baseline)",
+        "Run aggregation cron",
+        "Query 30-day stats using aggregates, measure time",
+        "Verify aggregates are 10-100x faster"
       ],
-      "manualReset": [
-        "Open circuit",
-        "Click 'Force Reset Circuit Breaker'",
-        "Verify circuit closes",
-        "Verify AI calls resume"
-      ]
-    },
-    "emergencyControls": {
-      "killSwitch": [
-        "Click 'Emergency Disable All' button",
-        "Verify confirmation dialog appears",
-        "Confirm, verify emergencyMode = true",
-        "Attempt to generate summary, verify blocked",
-        "Verify coaches see emergency banner"
-      ],
-      "featureToggles": [
-        "Disable aiGenerationEnabled toggle",
-        "Verify AI generation blocked but manual review still works",
-        "Re-enable, verify AI generation resumes"
-      ]
-    },
-    "overview": {
-      "realTimeMetrics": [
-        "Open Overview tab",
-        "Generate summary in different tab",
-        "Verify Total Messages count updates without refresh"
-      ],
-      "alertAcknowledgement": [
-        "Trigger cost alert (hit 80% budget)",
-        "Open Overview, verify alert in alert panel",
-        "Click 'Acknowledge', verify alert dismissed"
+      "dashboardLoad": [
+        "Open admin dashboard Cost Analytics tab",
+        "Measure initial load time for 30-day chart",
+        "Verify < 2 seconds total page load (including chart)"
       ]
     }
   },
   "performanceTargets": {
-    "pageLoad": "< 2 seconds for full dashboard with all tabs",
-    "tabSwitch": "< 100ms to switch between tabs",
-    "realTimeUpdates": "Convex queries update within 500ms of data change",
-    "chartRendering": "30-day cost chart renders in < 500ms"
+    "aggregationCron": "< 5 seconds to aggregate 1000 logs (worst case)",
+    "querySpeed": {
+      "rawLogs7Days": "< 200ms for 1000 logs",
+      "aggregates30Days": "< 100ms for 30 aggregate records",
+      "speedup": "10-100x faster for large date ranges"
+    },
+    "dashboardImpact": "Cost Analytics tab loads in < 2 seconds (down from 5-10 seconds at scale)"
   },
-  "securityChecklist": [
-    "All /platform/* routes check user.isPlatformStaff",
-    "Redirect non-platform-staff to unauthorized page",
-    "Only platform staff can update rate limits",
-    "Only platform staff can trigger emergency mode",
-    "Log who activated emergency mode and when",
-    "Cost data only visible to platform staff (not org admins)"
-  ],
   "rollbackPlan": {
-    "emergencyMode": "Disable via Settings tab toggle",
-    "circuitBreaker": "Use 'Force Reset' button",
-    "entireDashboard": "Remove /platform/messaging route, backend queries still work"
+    "disableAggregates": "Update getOrgUsage to always use raw logs (remove optimization logic)",
+    "deleteCron": "Remove aggregateDailyUsage cron from crons.ts",
+    "keepTable": "Keep aiUsageDailyAggregates table but don't populate (no harm if empty)"
+  },
+  "optionalEnhancements": {
+    "description": "Future improvements if needed",
+    "ideas": [
+      "Hourly aggregates for more granular recent data",
+      "Per-coach aggregates for coach-specific analytics",
+      "Materialized views that update in real-time",
+      "Compression for old aggregate records (year-level rollups)",
+      "Export aggregates to data warehouse for deeper analytics"
+    ]
   }
 }

@@ -1930,6 +1930,8 @@ export const cleanupDemoClub = mutation({
       teamAssignments: v.number(),
       sessionPlans: v.number(),
       coachAssignments: v.number(),
+      members: v.number(),
+      organization: v.number(),
     }),
     message: v.optional(v.string()),
   }),
@@ -1952,6 +1954,8 @@ export const cleanupDemoClub = mutation({
           teamAssignments: 0,
           sessionPlans: 0,
           coachAssignments: 0,
+          members: 0,
+          organization: 0,
         },
         message: "Cleanup cancelled - confirmDelete must be true",
       };
@@ -1974,6 +1978,8 @@ export const cleanupDemoClub = mutation({
       teamAssignments: 0,
       sessionPlans: 0,
       coachAssignments: 0,
+      members: 0,
+      organization: 0,
     };
 
     try {
@@ -2252,6 +2258,41 @@ export const cleanupDemoClub = mutation({
         }
       }
 
+      // 14. Delete organization members
+      console.log("  👥 Deleting organization members...");
+      if (orgId) {
+        const membersResult = await ctx.runQuery(
+          components.betterAuth.adapter.findMany,
+          {
+            model: "member",
+            paginationOpts: { cursor: null, numItems: 100 },
+            where: [{ field: "organizationId", value: orgId, operator: "eq" }],
+          }
+        );
+
+        for (const member of membersResult.page) {
+          await ctx.runMutation(components.betterAuth.adapter.deleteOne, {
+            input: {
+              model: "member",
+              where: [{ field: "_id", value: member._id, operator: "eq" }],
+            },
+          });
+          stats.members += 1;
+        }
+      }
+
+      // 15. Delete the organization itself
+      console.log("  🏢 Deleting Demo Club organization...");
+      if (orgId) {
+        await ctx.runMutation(components.betterAuth.adapter.deleteOne, {
+          input: {
+            model: "organization",
+            where: [{ field: "_id", value: orgId, operator: "eq" }],
+          },
+        });
+        stats.organization = 1;
+      }
+
       console.log("✅ Demo Club cleanup complete");
       console.log(
         `  Deleted: ${stats.players} players, ${stats.teams} teams, ${stats.passports} passports`
@@ -2267,6 +2308,9 @@ export const cleanupDemoClub = mutation({
       );
       console.log(`  Deleted: ${stats.coachAssignments} coach assignments`);
       console.log(`  Deleted: ${stats.sessionPlans} session plans`);
+      console.log(
+        `  Deleted: ${stats.members} members, ${stats.organization} organization`
+      );
 
       return {
         success: true,

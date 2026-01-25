@@ -201,3 +201,63 @@ export const incrementRateLimit = internalMutation({
     return null;
   },
 });
+
+/**
+ * Reset expired rate limit windows (US-010)
+ *
+ * USAGE: Called by cron job every hour
+ *
+ * For each rate limit where windowEnd <= now:
+ * - Reset currentCount and currentCost to 0
+ * - Set new windowStart and windowEnd based on limit type
+ *   - hourly limits: windowEnd = now + 1 hour
+ *   - daily limits: windowEnd = now + 24 hours
+ */
+export const resetRateLimitWindows = internalMutation({
+  args: {},
+  returns: v.null(),
+  handler: async (ctx) => {
+    const now = Date.now();
+    const ONE_HOUR_MS = 60 * 60 * 1000;
+    const ONE_DAY_MS = 24 * 60 * 60 * 1000;
+
+    // Query all rate limits
+    const limits = await ctx.db.query("rateLimits").collect();
+
+    let resetCount = 0;
+
+    for (const limit of limits) {
+      // Reset if window has expired
+      if (limit.windowEnd <= now) {
+        // Calculate new window duration based on limit type
+        let windowDuration: number;
+        if (
+          limit.limitType === "messages_per_hour" ||
+          limit.limitType === "cost_per_hour"
+        ) {
+          windowDuration = ONE_HOUR_MS;
+        } else {
+          // messages_per_day or cost_per_day
+          windowDuration = ONE_DAY_MS;
+        }
+
+        // Reset counters and set new window
+        await ctx.db.patch(limit._id, {
+          currentCount: 0,
+          currentCost: 0,
+          windowStart: now,
+          windowEnd: now + windowDuration,
+          lastResetAt: now,
+        });
+
+        resetCount += 1;
+      }
+    }
+
+    if (resetCount > 0) {
+      console.log(`✅ Reset ${resetCount} rate limit windows`);
+    }
+
+    return null;
+  },
+});

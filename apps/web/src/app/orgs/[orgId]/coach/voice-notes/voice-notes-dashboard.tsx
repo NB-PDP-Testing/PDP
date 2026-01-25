@@ -11,6 +11,7 @@ import {
   Loader2,
   MessageSquare,
   Mic,
+  Send,
   Settings,
   Users,
 } from "lucide-react";
@@ -21,6 +22,7 @@ import { TrustNudgeBanner } from "@/components/coach/trust-nudge-banner";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { authClient } from "@/lib/auth-client";
+import { AutoApprovedTab } from "./components/auto-approved-tab";
 import { HistoryTab } from "./components/history-tab";
 import { InsightsTab } from "./components/insights-tab";
 import { NewNoteTab } from "./components/new-note-tab";
@@ -30,7 +32,14 @@ import { TeamInsightsTab } from "./components/team-insights-tab";
 
 const { useSession } = authClient;
 
-type TabId = "new" | "parents" | "insights" | "team" | "history" | "settings";
+type TabId =
+  | "new"
+  | "parents"
+  | "insights"
+  | "team"
+  | "auto-sent"
+  | "history"
+  | "settings";
 
 export function VoiceNotesDashboard() {
   const params = useParams();
@@ -206,6 +215,16 @@ export function VoiceNotesDashboard() {
         label: "Team",
         icon: Users,
         badge: pendingTeamInsightsCount,
+      });
+    }
+
+    // Show Auto-Sent tab if coach has reached level 2 or higher (Phase 2)
+    const currentLevel = trustLevel?.currentLevel ?? 0;
+    if (currentLevel >= 2) {
+      baseTabs.push({
+        id: "auto-sent",
+        label: "Auto-Sent",
+        icon: Send,
       });
     }
 
@@ -433,6 +452,13 @@ export function VoiceNotesDashboard() {
         )}
         {activeTab === "team" && (
           <TeamInsightsTab
+            onError={showErrorMessage}
+            onSuccess={showSuccessMessage}
+            orgId={orgId}
+          />
+        )}
+        {activeTab === "auto-sent" && (
+          <AutoApprovedTab
             onError={showErrorMessage}
             onSuccess={showSuccessMessage}
             orgId={orgId}

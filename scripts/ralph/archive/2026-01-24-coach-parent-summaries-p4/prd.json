@@ -1,0 +1,272 @@
+{
+  "project": "Coach-Parent AI Summaries - P5 Phase 1 (Preview Mode + Trust Slider)",
+  "branchName": "ralph/coach-parent-summaries-p5",
+  "description": "Transparent preview mode showing what AI would auto-approve WITHOUT automating. Enhanced trust slider UI for coach control. Zero risk phase building trust before automation.",
+  "contextAndDependencies": {
+    "existingPhases": "P1-P4 complete. Trust levels built (P2) but don't automate anything. Confidence scores generated but hidden.",
+    "criticalGap": "Trust system promises auto-approval at Level 2/3 but it's FALSE - all summaries require manual review. P5 Phase 1 shows predictions transparently BEFORE enabling automation.",
+    "requiredTables": [
+      "coachParentSummaries - Has publicSummary.confidenceScore (generated but unused)",
+      "coachTrustLevels - Has currentLevel, preferredLevel, totalApprovals, totalSuppressed",
+      "voiceNotes - Source of insights that generate summaries"
+    ],
+    "requiredComponents": [
+      "SummaryApprovalCard at apps/web/src/app/orgs/[orgId]/coach/voice-notes/components/summary-approval-card.tsx",
+      "TrustPreferenceSettings at apps/web/src/components/coach/trust-preference-settings.tsx (will be replaced by slider)",
+      "voice-notes-dashboard.tsx at apps/web/src/app/orgs/[orgId]/coach/voice-notes/voice-notes-dashboard.tsx"
+    ],
+    "existingQueries": [
+      "getCoachPendingSummaries in coachParentSummaries.ts - Returns pending summaries for approval",
+      "getCoachTrustLevel in coachTrustLevels.ts - Returns coach's current trust level and progress"
+    ],
+    "keyFiles": [
+      "Schema: packages/backend/convex/schema.ts (line ~1795 for coachTrustLevels)",
+      "Backend models: packages/backend/convex/models/coachParentSummaries.ts (1,307 lines)",
+      "Backend models: packages/backend/convex/models/coachTrustLevels.ts (660 lines)",
+      "Trust calculator: packages/backend/convex/lib/trustLevelCalculator.ts (143 lines - pure function)",
+      "Dashboard: apps/web/src/app/orgs/[orgId]/coach/voice-notes/voice-notes-dashboard.tsx"
+    ]
+  },
+  "philosophyAndGoals": {
+    "corePhilosophy": "Coaches always feel in full control. Transparency builds trust. Show predictions BEFORE automating. Slider UI gives gradual control, not binary choices.",
+    "industryPatterns": [
+      "Google Smart Reply: Preview suggestions before auto-send",
+      "GitHub Copilot: Show what AI would suggest, track acceptance patterns",
+      "Spotify: Horizontal slider for gradual control with instant feedback",
+      "Tesla Autopilot: Progressive automation levels with driver always in control"
+    ],
+    "successMetrics": {
+      "transparency": "Coaches see confidence scores and auto-approval predictions on 100% of summaries",
+      "agreement": "Preview mode agreement rate >70% (coaches approve what AI predicted would auto-send)",
+      "understanding": "Coach survey shows >80% understand what each trust level does",
+      "control": "Slider engagement >50% of coaches adjust level in first week"
+    }
+  },
+  "userStories": [
+    {
+      "id": "US-001",
+      "title": "Add preview mode fields to coachTrustLevels schema",
+      "description": "As a coach, the system tracks my preview mode progress to measure AI agreement.",
+      "acceptanceCriteria": [
+        "Edit packages/backend/convex/schema.ts",
+        "Find coachTrustLevels table definition (around line 1795)",
+        "Add previewModeStats field: v.optional(v.object({ wouldAutoApproveSuggestions: v.number(), coachApprovedThose: v.number(), coachRejectedThose: v.number(), agreementRate: v.number(), startedAt: v.number(), completedAt: v.optional(v.number()) }))",
+        "Add confidenceThreshold field: v.optional(v.number())",
+        "Run: npx -w packages/backend convex codegen",
+        "Typecheck passes: npm run check-types"
+      ],
+      "priority": 1,
+      "passes": false,
+      "notes": "Preview mode is 20-message learning period. Shows what AI WOULD do without doing it. Industry pattern: Google Smart Reply, GitHub Copilot. Default 70% threshold based on Zendesk production data (60-70% is sweet spot)."
+    },
+    {
+      "id": "US-002",
+      "title": "Add wouldAutoApprove calculation to getCoachPendingSummaries",
+      "description": "As a coach, I see which summaries would auto-approve at my current trust level.",
+      "acceptanceCriteria": [
+        "Edit packages/backend/convex/models/coachParentSummaries.ts",
+        "Find getCoachPendingSummaries query (around line 468)",
+        "Import internal from '../_generated/api'",
+        "After fetching coach trust level, calculate wouldAutoApprove for each summary:",
+        "  const effectiveLevel = Math.min(trustLevel.currentLevel, trustLevel.preferredLevel ?? trustLevel.currentLevel)",
+        "  const threshold = trustLevel.confidenceThreshold ?? 0.7",
+        "  const wouldAutoApprove = summary.sensitivityCategory === 'normal' && effectiveLevel >= 2 && summary.publicSummary.confidenceScore >= threshold",
+        "Add wouldAutoApprove to each summary object returned",
+        "Update returns validator to include wouldAutoApprove: v.boolean()",
+        "Typecheck passes: npm run check-types"
+      ],
+      "priority": 2,
+      "passes": false,
+      "notes": "This is prediction ONLY - nothing auto-approves yet in Phase 1. Shows coaches what WOULD happen if automation was enabled. Level 0/1 always false. Level 2 checks confidence threshold. Level 3 always true for normal. NEVER true for injury/behavior (always manual review)."
+    },
+    {
+      "id": "US-003",
+      "title": "Add confidence visualization to SummaryApprovalCard",
+      "description": "As a coach, I see AI confidence scores that are currently hidden.",
+      "acceptanceCriteria": [
+        "Edit apps/web/src/app/orgs/[orgId]/coach/voice-notes/components/summary-approval-card.tsx",
+        "Import Progress component from '@/components/ui/progress'",
+        "After the summary content display (around line 60-80), add confidence section:",
+        "  <div className='mt-4 space-y-2'>",
+        "    <div className='flex items-center justify-between text-sm'>",
+        "      <span className={cn('font-medium', confidenceScore < 0.6 ? 'text-red-600' : confidenceScore < 0.8 ? 'text-amber-600' : 'text-green-600')}>",
+        "        AI Confidence: {Math.round(summary.publicSummary.confidenceScore * 100)}%",
+        "      </span>",
+        "    </div>",
+        "    <Progress value={summary.publicSummary.confidenceScore * 100} className='h-2' />",
+        "  </div>",
+        "Position above collapsible original insight section (if exists)",
+        "Import cn from '@/lib/utils' for className concatenation",
+        "Typecheck passes: npm run check-types"
+      ],
+      "priority": 3,
+      "passes": false,
+      "notes": "Confidence scores are ALREADY generated by generateParentSummary action (returns { summary, confidenceScore }) but currently HIDDEN from UI. Making them visible = transparency-first principle. This is huge UX improvement - coaches see AI isn't just guessing."
+    },
+    {
+      "id": "US-004",
+      "title": "Add preview mode prediction badge to SummaryApprovalCard",
+      "description": "As a coach in preview mode, I see what AI would do with this summary.",
+      "acceptanceCriteria": [
+        "In summary-approval-card.tsx, add wouldAutoApprove to props interface",
+        "After confidence visualization section, add prediction badge:",
+        "  {wouldAutoApprove ? (",
+        "    <Badge variant='secondary' className='bg-blue-100 text-blue-700'>",
+        "      <Sparkles className='mr-1 h-3 w-3' />",
+        "      AI would auto-send this at Level 2+",
+        "    </Badge>",
+        "  ) : (",
+        "    <p className='text-sm text-muted-foreground'>Requires manual review</p>",
+        "  )}",
+        "Import Badge from '@/components/ui/badge'",
+        "Import Sparkles from 'lucide-react'",
+        "Parent component (ParentsTab) must pass wouldAutoApprove prop from query data",
+        "Typecheck passes: npm run check-types"
+      ],
+      "priority": 4,
+      "passes": false,
+      "notes": "Visual feedback loop. Coaches see patterns: 'Oh, high confidence normal summaries would auto-send. Low confidence needs review. Injury always needs review.' Builds mental model BEFORE automation goes live. This is Google Smart Reply pattern."
+    },
+    {
+      "id": "US-005",
+      "title": "Track preview mode statistics when coaches approve/suppress",
+      "description": "As a coach, the system learns my agreement rate with AI predictions.",
+      "acceptanceCriteria": [
+        "Edit packages/backend/convex/models/coachParentSummaries.ts",
+        "Find approveSummary mutation (around line 232)",
+        "Before calling ctx.runMutation for updateTrustMetrics, add preview mode tracking:",
+        "  const trustLevel = await ctx.db.query('coachTrustLevels').withIndex('by_coach_org', q => q.eq('coachId', summary.coachId).eq('organizationId', summary.organizationId)).first()",
+        "  if (trustLevel?.previewModeStats && !trustLevel.previewModeStats.completedAt) {",
+        "    const effectiveLevel = Math.min(trustLevel.currentLevel, trustLevel.preferredLevel ?? trustLevel.currentLevel)",
+        "    const threshold = trustLevel.confidenceThreshold ?? 0.7",
+        "    const wouldAutoApprove = summary.sensitivityCategory === 'normal' && effectiveLevel >= 2 && summary.publicSummary.confidenceScore >= threshold",
+        "    const newSuggestions = trustLevel.previewModeStats.wouldAutoApproveSuggestions + (wouldAutoApprove ? 1 : 0)",
+        "    const newApproved = trustLevel.previewModeStats.coachApprovedThose + (wouldAutoApprove ? 1 : 0)",
+        "    const agreementRate = newSuggestions > 0 ? newApproved / newSuggestions : 0",
+        "    await ctx.db.patch(trustLevel._id, {",
+        "      previewModeStats: {",
+        "        ...trustLevel.previewModeStats,",
+        "        wouldAutoApproveSuggestions: newSuggestions,",
+        "        coachApprovedThose: newApproved,",
+        "        agreementRate,",
+        "        completedAt: newSuggestions >= 20 ? Date.now() : undefined",
+        "      }",
+        "    })",
+        "  }",
+        "Similar logic in suppressSummary mutation (increment wouldAutoApproveSuggestions but NOT coachApprovedThose)",
+        "Typecheck passes: npm run check-types"
+      ],
+      "priority": 5,
+      "passes": false,
+      "notes": "20-message preview period. Industry insight: GitHub Copilot tracks acceptance patterns before suggesting features. Agreement rate >70% suggests coach trusts AI predictions. This data informs when to suggest enabling auto-approval (Phase 2). Tracks suggestion count separately so we know denominator."
+    },
+    {
+      "id": "US-006",
+      "title": "Create TrustLevelSlider component replacing radio buttons",
+      "description": "As a coach, I use a horizontal slider for gradual trust control instead of discrete radio buttons.",
+      "acceptanceCriteria": [
+        "Create apps/web/src/components/coach/trust-level-slider.tsx",
+        "Add 'use client' directive at top",
+        "Props interface: { currentLevel: number; preferredLevel: number | null; earnedLevel: number; onLevelChange: (level: number) => void; progressToNext: { percentage: number; threshold: number; currentCount: number } }",
+        "Import Slider from '@/components/ui/slider'",
+        "Import Badge from '@/components/ui/badge'",
+        "Implement component:",
+        "  const selectedLevel = preferredLevel ?? currentLevel",
+        "  const levelNames = ['Manual', 'Learning', 'Trusted', 'Expert']",
+        "  return (",
+        "    <div className='space-y-6'>",
+        "      <div className='space-y-4'>",
+        "        <div className='flex justify-between text-sm'>",
+        "          {[0,1,2,3].map(level => (",
+        "            <div key={level} className={cn('text-center', level > earnedLevel && 'opacity-40')}>",
+        "              <div className='font-medium'>{levelNames[level]}</div>",
+        "              <div className='text-xs text-muted-foreground'>Lvl {level}</div>",
+        "            </div>",
+        "          ))}",
+        "        </div>",
+        "        <Slider",
+        "          min={0}",
+        "          max={earnedLevel}",
+        "          step={1}",
+        "          value={[selectedLevel]}",
+        "          onValueChange={([level]) => onLevelChange(level)}",
+        "          className='py-4'",
+        "        />",
+        "        <p className='text-sm text-muted-foreground'>Your Setting: Level {selectedLevel} - {levelNames[selectedLevel]}</p>",
+        "      </div>",
+        "    </div>",
+        "  )",
+        "Typecheck passes: npm run check-types"
+      ],
+      "priority": 6,
+      "passes": false,
+      "notes": "Replaces TrustPreferenceSettings radio button component. Slider feels gradual not binary. Industry pattern: Spotify volume slider, iPhone screen time controls. Horizontal orientation (wider = more familiar). Use Radix UI Slider primitive from shadcn/ui."
+    },
+    {
+      "id": "US-007",
+      "title": "Add real-time progress visualization to slider",
+      "description": "As a coach, I see progress TO next level, not just AT current level.",
+      "acceptanceCriteria": [
+        "In trust-level-slider.tsx, add progress section after slider:",
+        "  {earnedLevel < 3 && (",
+        "    <div className='rounded-lg border p-4 space-y-3'>",
+        "      <div>",
+        "        <div className='flex items-center justify-between mb-2'>",
+        "          <span className='text-sm font-medium'>Progress to {levelNames[earnedLevel + 1]}</span>",
+        "          <span className='text-xs text-muted-foreground'>{progressToNext.currentCount} / {progressToNext.threshold}</span>",
+        "        </div>",
+        "        <Progress value={progressToNext.percentage} className='h-2' />",
+        "      </div>",
+        "      <div className='text-xs text-muted-foreground'>",
+        "        {progressToNext.percentage >= 80 ? (",
+        "          <span className='text-green-600 font-medium'>Almost there! Keep approving quality summaries.</span>",
+        "        ) : (",
+        "          <span>{progressToNext.threshold - progressToNext.currentCount} more approvals needed</span>",
+        "        )}",
+        "      </div>",
+        "    </div>",
+        "  )}",
+        "  {earnedLevel === 3 && (",
+        "    <div className='rounded-lg border border-green-200 bg-green-50 p-4'>",
+        "      <p className='text-sm text-green-700'>🎉 Maximum level reached!</p>",
+        "    </div>",
+        "  )}",
+        "Import Progress from '@/components/ui/progress'",
+        "Import cn from '@/lib/utils'",
+        "Typecheck passes: npm run check-types"
+      ],
+      "priority": 7,
+      "passes": false,
+      "notes": "Real-time feedback. Coaches see 'I'm 38 of 50 approvals to Trusted' not just 'I'm at Learning'. Motivating. Industry: GitHub contribution graph, Duolingo progress, fitness apps. Use trustLevelCalculator.ts to get thresholds and calculate progress."
+    },
+    {
+      "id": "US-008",
+      "title": "Integrate TrustLevelSlider into voice notes settings",
+      "description": "As a coach, the new slider replaces old radio buttons in my settings.",
+      "acceptanceCriteria": [
+        "Edit apps/web/src/app/orgs/[orgId]/coach/voice-notes/components/settings-tab.tsx",
+        "Import TrustLevelSlider from '@/components/coach/trust-level-slider'",
+        "Import { TRUST_LEVEL_THRESHOLDS } from '@/../../packages/backend/convex/lib/trustLevelCalculator' (or copy constants)",
+        "Replace TrustPreferenceSettings component with TrustLevelSlider",
+        "Calculate progressToNext using trustLevel data:",
+        "  const nextLevel = (trustLevel?.currentLevel ?? 0) + 1",
+        "  const threshold = nextLevel === 1 ? 10 : nextLevel === 2 ? 50 : nextLevel === 3 ? 200 : 0",
+        "  const currentCount = trustLevel?.totalApprovals ?? 0",
+        "  const percentage = threshold > 0 ? Math.min(100, (currentCount / threshold) * 100) : 100",
+        "Pass props to TrustLevelSlider:",
+        "  currentLevel={trustLevel?.currentLevel ?? 0}",
+        "  preferredLevel={trustLevel?.preferredLevel ?? null}",
+        "  earnedLevel={trustLevel?.currentLevel ?? 0}",
+        "  onLevelChange={handleLevelChange}",
+        "  progressToNext={{ percentage, threshold, currentCount }}",
+        "Wire handleLevelChange to existing setCoachPreferredLevel mutation",
+        "Show toast on success: toast.success(`Trust level updated to ${levelNames[level]}`)",
+        "Import toast from 'sonner'",
+        "Typecheck passes: npm run check-types"
+      ],
+      "priority": 8,
+      "passes": false,
+      "notes": "Drops in as replacement for existing TrustPreferenceSettings. Backend mutation setCoachPreferredLevel already exists from Phase 2 - just wire new UI to existing mutation. TRUST_LEVEL_THRESHOLDS constants: level1: 10, level2: 50, level3: 200."
+    }
+  ]
+}

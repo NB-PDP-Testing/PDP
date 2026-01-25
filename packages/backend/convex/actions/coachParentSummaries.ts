@@ -237,6 +237,13 @@ Respond in JSON format:
 /**
  * Generate parent-friendly summary from coach insight
  * Transforms potentially negative or technical language into positive, encouraging feedback
+ *
+ * Uses Anthropic prompt caching for 90% cost reduction:
+ * - System prompt and player/sport context are cached (static content)
+ * - Only insight content varies per call (not cached)
+ * - Cache TTL: 5 minutes
+ *
+ * Logs all AI usage to aiUsageLog table for cost tracking and analytics.
  */
 export const generateParentSummary = internalAction({
   args: {
@@ -244,12 +251,21 @@ export const generateParentSummary = internalAction({
     insightDescription: v.string(),
     playerFirstName: v.string(),
     sportName: v.string(),
-    organizationId: v.optional(v.string()),
+    organizationId: v.string(), // Required for usage logging
+    coachId: v.string(), // Required for usage logging
+    playerId: v.optional(v.id("orgPlayerEnrollments")), // Optional for usage logging
   },
   returns: v.object({
     summary: v.string(),
     confidenceScore: v.number(),
     flags: v.array(v.string()),
+    // Cache statistics for cost tracking
+    cacheStats: v.object({
+      inputTokens: v.number(),
+      cachedTokens: v.number(),
+      outputTokens: v.number(),
+      cacheCreationTokens: v.number(),
+    }),
   }),
   handler: async (ctx, args) => {
     const client = getAnthropicClient();
@@ -261,7 +277,8 @@ export const generateParentSummary = internalAction({
       args.organizationId
     );
 
-    const prompt = `You are a youth sports communication assistant helping coaches share feedback with parents.
+    // System prompt - this will be cached (static content)
+    const systemPrompt = `You are a youth sports communication assistant helping coaches share feedback with parents.
 
 Your task: Transform the coach's internal insight into a positive, encouraging message for parents.
 
@@ -276,13 +293,6 @@ TRANSFORMATION RULES:
 - Be specific about what the player is working on
 - Always include a positive note
 
-Player: ${args.playerFirstName}
-Sport: ${args.sportName}
-
-Coach's Insight:
-Title: ${args.insightTitle}
-Description: ${args.insightDescription}
-
 Generate a parent-friendly summary. Also identify any flags that might need coach review:
 - "needs_context": Summary is too vague, needs more specifics
 - "overly_positive": May be glossing over important issues
@@ -295,16 +305,57 @@ Respond in JSON format:
   "flags": ["flag1", "flag2"] or []
 }`;
 
-    const response = await client.messages.create({
-      model: config.modelId,
-      max_tokens: config.maxTokens,
-      messages: [
-        {
-          role: "user",
-          content: prompt,
+    // Player context - this will be cached (semi-static)
+    const playerContext = `Player: ${args.playerFirstName}
+Sport: ${args.sportName}`;
+
+    // Insight content - this varies per call (NOT cached)
+    const insightContent = `Coach's Insight:
+Title: ${args.insightTitle}
+Description: ${args.insightDescription}`;
+
+    const response = await client.messages.create(
+      {
+        model: config.modelId,
+        max_tokens: config.maxTokens,
+        messages: [
+          {
+            role: "user",
+            content: [
+              {
+                type: "text",
+                text: systemPrompt,
+                // Mark for caching
+                cache_control: { type: "ephemeral" },
+              },
+              {
+                type: "text",
+                text: playerContext,
+                // Mark for caching
+                cache_control: { type: "ephemeral" },
+              },
+              {
+                type: "text",
+                text: insightContent,
+                // No cache_control = not cached (varies per call)
+              },
+            ],
+          },
+        ],
+      },
+      {
+        // REQUIRED: Enable prompt caching via headers in options
+        headers: {
+          "anthropic-beta": "prompt-caching-2024-07-31",
         },
-      ],
-    });
+      }
+    );
+
+    // Extract cache statistics from response
+    const inputTokens = response.usage.input_tokens;
+    const cachedTokens = response.usage.cache_read_input_tokens || 0;
+    const cacheCreationTokens = response.usage.cache_creation_input_tokens || 0;
+    const outputTokens = response.usage.output_tokens;
 
     // Parse the response
     const content = response.content[0];
@@ -321,10 +372,52 @@ Respond in JSON format:
 
     const result = JSON.parse(jsonMatch[0]);
 
+    // Calculate cost (Claude Haiku pricing)
+    const PRICE_INPUT_REGULAR = 0.000_005; // $5 per 1M tokens
+    const PRICE_INPUT_CACHED = 0.000_000_5; // $0.50 per 1M tokens (90% discount)
+    const PRICE_OUTPUT = 0.000_015; // $15 per 1M tokens
+
+    const regularTokens = inputTokens - cachedTokens;
+    const cost =
+      regularTokens * PRICE_INPUT_REGULAR +
+      cachedTokens * PRICE_INPUT_CACHED +
+      outputTokens * PRICE_OUTPUT;
+
+    // Calculate cache hit rate
+    const cacheHitRate = inputTokens > 0 ? cachedTokens / inputTokens : 0;
+
+    // Log AI usage (don't fail if logging fails)
+    try {
+      await ctx.runMutation(internal.models.aiUsageLog.logUsage, {
+        timestamp: Date.now(),
+        organizationId: args.organizationId as any, // Type assertion needed for Convex ID
+        coachId: args.coachId,
+        playerId: args.playerId,
+        operation: "parent_summary",
+        model: config.modelId,
+        inputTokens,
+        cachedTokens,
+        outputTokens,
+        cost,
+        cacheHitRate,
+      });
+    } catch (error) {
+      console.error(
+        "❌ Failed to log AI usage (non-fatal, continuing):",
+        error
+      );
+    }
+
     return {
       summary: result.summary,
       confidenceScore: Number(result.confidenceScore),
       flags: result.flags || [],
+      cacheStats: {
+        inputTokens,
+        cachedTokens,
+        outputTokens,
+        cacheCreationTokens,
+      },
     };
   },
 });
@@ -420,6 +513,9 @@ export const processVoiceNoteInsight = internalAction({
           insightDescription: args.insightDescription,
           playerFirstName: player.firstName,
           sportName: sport.name,
+          organizationId: args.organizationId,
+          coachId: args.coachId || "unknown", // Should always be present, fallback just in case
+          playerId: undefined, // Note: We have playerIdentityId but not orgPlayerEnrollments ID here
         }
       );
 

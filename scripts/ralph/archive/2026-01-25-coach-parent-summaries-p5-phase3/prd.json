@@ -1,0 +1,164 @@
+{
+  "project": "P5 Phase 4 (Learning Loop)",
+  "branchName": "ralph/coach-parent-summaries-p5-phase4",
+  "description": "AI learns from coach behavior to personalize automation. Tracks when coaches override AI decisions, captures optional feedback, analyzes patterns, and adapts confidence thresholds per coach.",
+  "contextAndDependencies": {
+    "previousPhases": {
+      "phase1": "US-001 to US-006 - Preview mode, confidence visualization, trust slider UI",
+      "phase2": "US-007 to US-011 - Auto-approval system with trust levels",
+      "phase3": "US-012 to US-015 - Cost optimization via prompt caching and usage tracking"
+    },
+    "requiredTables": [
+      "coachParentSummaries - Contains summaries with confidence scores and auto-approval status",
+      "coachTrustLevels - Platform-wide trust levels with currentLevel, preferredLevel",
+      "aiUsageLog - AI usage tracking (from Phase 3)"
+    ],
+    "keyFiles": [
+      "Schema: packages/backend/convex/schema.ts",
+      "Models: packages/backend/convex/models/coachParentSummaries.ts",
+      "Models: packages/backend/convex/models/coachTrustLevels.ts",
+      "Lib: packages/backend/convex/lib/autoApprovalDecision.ts (will add adaptive logic)",
+      "Crons: packages/backend/convex/crons.ts (will add weekly threshold adjustment)"
+    ]
+  },
+  "philosophyAndGoals": {
+    "corePhilosophy": "AI that learns from real coach behavior, not assumptions. Personalize automation per coach based on their actual patterns.",
+    "industryPatterns": [
+      "GitHub Copilot: Learns from rejection patterns to improve suggestions",
+      "Netflix: Personalizes recommendations based on viewing behavior",
+      "Spotify: Adapts playlists based on skip patterns",
+      "Zendesk: Confidence thresholds tuned per agent based on approval history"
+    ],
+    "successMetrics": {
+      "tracking": "100% of overrides captured (approve low confidence, reject high confidence, revoke auto)",
+      "feedback": "10%+ of suppressions include optional feedback (low friction goal)",
+      "adaptation": "Personalized thresholds reduce false positives by 15%+",
+      "engagement": "Decreasing suppression rates as AI learns coach preferences"
+    }
+  },
+  "userStories": [
+    {
+      "id": "US-016",
+      "title": "Add override tracking fields to coachParentSummaries",
+      "description": "As a coach, the system learns from my override decisions.",
+      "acceptanceCriteria": [
+        "Edit packages/backend/convex/schema.ts",
+        "Add overrideType to coachParentSummaries table:",
+        "  v.optional(v.union(",
+        "    v.literal('coach_approved_low_confidence'),",
+        "    v.literal('coach_rejected_high_confidence'),",
+        "    v.literal('coach_edited'),",
+        "    v.literal('coach_revoked_auto')",
+        "  ))",
+        "Add overrideReason: v.optional(v.string())",
+        "Add overrideFeedback: v.optional(v.object({",
+        "  wasInaccurate: v.boolean(),",
+        "  wasTooSensitive: v.boolean(),",
+        "  timingWasWrong: v.boolean(),",
+        "  otherReason: v.optional(v.string())",
+        "}))",
+        "Run: npx -w packages/backend convex codegen",
+        "Typecheck passes: npm run check-types"
+      ],
+      "priority": 1,
+      "passes": false,
+      "notes": "Learning signal. Track when coach disagrees with AI: approves low confidence (<70%), rejects high confidence (>70%), revokes auto-sent, or edits before sending. Optional feedback captures WHY (enables pattern analysis)."
+    },
+    {
+      "id": "US-017",
+      "title": "Capture override data in suppressSummary mutation",
+      "description": "As a coach, suppressing a summary gives feedback to improve AI.",
+      "acceptanceCriteria": [
+        "Edit packages/backend/convex/models/coachParentSummaries.ts",
+        "Find suppressSummary mutation",
+        "Add optional args: reason (v.optional(v.string())), feedback (v.optional(v.object({...})))",
+        "Determine overrideType logic:",
+        "  if (confidenceScore >= 0.7) overrideType = 'coach_rejected_high_confidence'",
+        "  else overrideType = null (suppressing low confidence is normal)",
+        "Store overrideType, overrideReason, overrideFeedback in summary record via ctx.db.patch",
+        "Update mutation returns validator",
+        "Typecheck passes: npm run check-types"
+      ],
+      "priority": 2,
+      "passes": false,
+      "notes": "Low friction - feedback is optional. But when provided, enables AI improvement. Pattern example: 'AI thought this was good (75% confidence) but coach suppressed because timing was wrong.' This signals AI to consider timing in future."
+    },
+    {
+      "id": "US-018",
+      "title": "Add optional feedback UI for suppression",
+      "description": "As a coach, I can optionally explain why I suppressed a summary.",
+      "acceptanceCriteria": [
+        "Edit apps/web/src/app/orgs/[orgId]/coach/voice-notes/components/summary-approval-card.tsx",
+        "Import Dialog, DialogContent, DialogHeader, DialogFooter from '@/components/ui/dialog'",
+        "Import Checkbox from '@/components/ui/checkbox'",
+        "Import Textarea from '@/components/ui/textarea'",
+        "On suppress button click: show dialog with feedback form",
+        "Dialog content:",
+        "  - Checkbox: 'Summary was inaccurate'",
+        "  - Checkbox: 'Too sensitive for parent to see'",
+        "  - Checkbox: 'Timing not right'",
+        "  - Textarea: 'Other reason' (optional)",
+        "Dialog buttons:",
+        "  - 'Skip' (default, closes dialog and suppresses without feedback)",
+        "  - 'Suppress & Send Feedback' (calls suppressSummary with feedback)",
+        "Keep it quick - feedback is optional help, not required",
+        "Typecheck passes: npm run check-types"
+      ],
+      "priority": 3,
+      "passes": false,
+      "notes": "Optional by design. Most coaches will skip. Those who engage provide valuable signal. Industry pattern: GitHub Copilot prompts for feedback occasionally, not always. Dialog should be small and dismissible."
+    },
+    {
+      "id": "US-019",
+      "title": "Create getCoachOverridePatterns analytics query",
+      "description": "As a platform admin, I see override analytics to understand AI performance.",
+      "acceptanceCriteria": [
+        "Create packages/backend/convex/models/coachOverrideAnalytics.ts",
+        "Add query getCoachOverridePatterns with args:",
+        "  coachId: v.optional(v.string()) - for per-coach analytics",
+        "  organizationId: v.optional(v.id('organization')) - for per-org analytics",
+        "Query coachParentSummaries with index by_organizationId or by_coachId",
+        "Filter for records where overrideType is not null",
+        "Calculate aggregates:",
+        "  - totalOverrides: count of all overrides",
+        "  - byType: breakdown by overrideType (approved_low, rejected_high, revoked, edited)",
+        "  - avgConfidenceWhenRejected: average confidenceScore for rejected_high_confidence",
+        "  - commonFeedbackReasons: counts of feedback categories",
+        "  - overrideRateByCategory: percentage by sensitivityCategory",
+        "Returns validator: v.object({ totalOverrides: v.number(), byType: v.any(), patterns: v.any() })",
+        "Typecheck passes: npm run check-types"
+      ],
+      "priority": 4,
+      "passes": false,
+      "notes": "Analytics for AI improvement. See patterns like: 'This coach rejects injury summaries 40% of the time even at 80% confidence - AI might be over-confident on injuries for this coach.' Enables data-driven threshold adjustment."
+    },
+    {
+      "id": "US-020",
+      "title": "Implement adaptive confidence thresholds per coach",
+      "description": "As a coach, my confidence threshold adapts based on my approval patterns.",
+      "acceptanceCriteria": [
+        "Edit packages/backend/convex/lib/autoApprovalDecision.ts",
+        "Add calculatePersonalizedThreshold function with args:",
+        "  - coachOverrideHistory (from getCoachOverridePatterns)",
+        "  - defaultThreshold (0.7)",
+        "Logic:",
+        "  - Count approvals of low confidence (60-70% range)",
+        "  - Count rejections of high confidence (80%+ range)",
+        "  - If >50% approval rate for 60-70% confidence: lower threshold by 5% (coach is trusting)",
+        "  - If >20% rejection rate for 80%+ confidence: raise threshold by 5% (coach is conservative)",
+        "  - Cap adjustments: minimum 0.6, maximum 0.85 (safety bounds)",
+        "Add personalizedThreshold field to coachTrustLevels schema: v.optional(v.number())",
+        "Create adjustPersonalizedThresholds scheduled function in packages/backend/convex/crons.ts:",
+        "  - Runs weekly (every Sunday at 2 AM)",
+        "  - For each active coach with >20 override decisions",
+        "  - Calculate new personalized threshold",
+        "  - Update coachTrustLevels record",
+        "Use personalizedThreshold in autoApprovalDecision if it exists (fallback to confidenceThreshold or 0.7)",
+        "Typecheck passes: npm run check-types"
+      ],
+      "priority": 5,
+      "passes": false,
+      "notes": "AI learns per coach. Conservative coach gets higher threshold (fewer false positives), trusting coach gets lower threshold (more automation). Weekly batch job analyzes last 30 days of patterns and adjusts. Industry: Netflix recommendation tuning, Spotify playlist personalization."
+    }
+  ]
+}

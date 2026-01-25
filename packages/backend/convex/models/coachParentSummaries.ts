@@ -9,6 +9,7 @@ import {
   query,
 } from "../_generated/server";
 import { authComponent } from "../auth";
+import { decideAutoApproval } from "../lib/autoApprovalDecision";
 
 // ============================================================
 // VALIDATORS
@@ -188,23 +189,60 @@ export const createParentSummary = internalMutation({
       );
     }
 
-    // Determine initial status based on sensitivity category
-    // INJURY and BEHAVIOR categories NEVER auto-approve (even in future phases)
-    let status: "pending_review" | "auto_approved" = "pending_review";
+    // Fetch coach's trust level to determine if eligible for auto-approval (Phase 2)
+    // Note: Trust levels are platform-wide (not per-org)
+    // coachId is guaranteed to exist due to check above
+    const coachId = voiceNote.coachId as string;
+    const trustLevel = await ctx.db
+      .query("coachTrustLevels")
+      .withIndex("by_coach", (q) => q.eq("coachId", coachId))
+      .first();
 
-    if (args.sensitivityCategory === "injury") {
-      status = "pending_review";
-    } else if (args.sensitivityCategory === "behavior") {
-      status = "pending_review";
+    // Determine auto-approval decision
+    let status: "pending_review" | "auto_approved" = "pending_review";
+    let autoApprovalDecision:
+      | {
+          shouldAutoApprove: boolean;
+          reason: string;
+          tier: "auto_send" | "manual_review" | "flagged";
+          decidedAt: number;
+        }
+      | undefined;
+    let approvedAt: number | undefined;
+    let approvedBy: string | undefined;
+    let scheduledDeliveryAt: number | undefined;
+
+    if (trustLevel) {
+      // Make auto-approval decision based on trust level and summary properties
+      const decision = decideAutoApproval(
+        {
+          currentLevel: trustLevel.currentLevel,
+          preferredLevel: trustLevel.preferredLevel,
+          confidenceThreshold: trustLevel.confidenceThreshold,
+          personalizedThreshold: trustLevel.personalizedThreshold, // Phase 4: Use AI-learned threshold if available
+        },
+        {
+          confidenceScore: args.publicSummary.confidenceScore,
+          sensitivityCategory: args.sensitivityCategory,
+        }
+      );
+
+      autoApprovalDecision = decision;
+
+      // If auto-approved, set status and schedule delivery with 1-hour revoke window
+      if (decision.shouldAutoApprove) {
+        status = "auto_approved";
+        approvedAt = Date.now();
+        approvedBy = "system:auto";
+        scheduledDeliveryAt = Date.now() + 60 * 60 * 1000; // 1 hour from now
+      }
     }
-    // Future Phase 5: Normal category may auto-approve based on trust level
-    // For now, all summaries go to pending_review
 
     // Create the summary record
     const summaryId = await ctx.db.insert("coachParentSummaries", {
       voiceNoteId: args.voiceNoteId,
       insightId: args.insightId,
-      coachId: voiceNote.coachId, // Required field - always present
+      coachId, // Required field - verified above
       playerIdentityId: args.playerIdentityId,
       organizationId: voiceNote.orgId,
       sportId: args.sportId,
@@ -215,6 +253,10 @@ export const createParentSummary = internalMutation({
       sensitivityConfidence: args.sensitivityConfidence,
       status,
       createdAt: Date.now(),
+      autoApprovalDecision,
+      approvedAt,
+      approvedBy,
+      scheduledDeliveryAt,
     });
 
     return summaryId;
@@ -266,6 +308,48 @@ export const approveSummary = mutation({
       approvedAt: Date.now(),
       approvedBy: userId,
     });
+
+    // Track preview mode statistics (Phase 5)
+    const trustLevel = await ctx.db
+      .query("coachTrustLevels")
+      .withIndex("by_coach", (q) => q.eq("coachId", summary.coachId))
+      .first();
+
+    if (
+      trustLevel?.previewModeStats &&
+      !trustLevel.previewModeStats.completedAt
+    ) {
+      // Calculate if this summary would have been auto-approved
+      const effectiveLevel = Math.min(
+        trustLevel.currentLevel,
+        trustLevel.preferredLevel ?? trustLevel.currentLevel
+      );
+      const threshold = trustLevel.confidenceThreshold ?? 0.7;
+      const wouldAutoApprove =
+        summary.sensitivityCategory === "normal" &&
+        effectiveLevel >= 2 &&
+        summary.publicSummary.confidenceScore >= threshold;
+
+      // Update preview mode stats
+      const newSuggestions =
+        trustLevel.previewModeStats.wouldAutoApproveSuggestions +
+        (wouldAutoApprove ? 1 : 0);
+      const newApproved =
+        trustLevel.previewModeStats.coachApprovedThose +
+        (wouldAutoApprove ? 1 : 0);
+      const agreementRate =
+        newSuggestions > 0 ? newApproved / newSuggestions : 0;
+
+      await ctx.db.patch(trustLevel._id, {
+        previewModeStats: {
+          ...trustLevel.previewModeStats,
+          wouldAutoApproveSuggestions: newSuggestions,
+          coachApprovedThose: newApproved,
+          agreementRate,
+          completedAt: newSuggestions >= 20 ? Date.now() : undefined,
+        },
+      });
+    }
 
     // Update coach trust metrics (platform-wide)
     await ctx.runMutation(internal.models.coachTrustLevels.updateTrustMetrics, {
@@ -364,6 +448,15 @@ export const approveInjurySummary = mutation({
 export const suppressSummary = mutation({
   args: {
     summaryId: v.id("coachParentSummaries"),
+    reason: v.optional(v.string()), // Optional text explanation (Phase 4)
+    feedback: v.optional(
+      v.object({
+        wasInaccurate: v.boolean(),
+        wasTooSensitive: v.boolean(),
+        timingWasWrong: v.boolean(),
+        otherReason: v.optional(v.string()),
+      })
+    ), // Optional structured feedback (Phase 4)
   },
   returns: v.null(),
   handler: async (ctx, args) => {
@@ -390,10 +483,65 @@ export const suppressSummary = mutation({
       throw new Error("Only the coach can suppress this summary");
     }
 
-    // Update the summary status
+    // Phase 4: Determine override type for learning signal
+    // Only track as override if confidence was high (>=70%)
+    // Suppressing low confidence summaries is normal, not an override
+    const confidenceScore = summary.publicSummary.confidenceScore;
+    const overrideType: "coach_rejected_high_confidence" | undefined =
+      confidenceScore >= 0.7 ? "coach_rejected_high_confidence" : undefined;
+
+    // Update the summary status with override tracking
     await ctx.db.patch(args.summaryId, {
       status: "suppressed",
+      overrideType,
+      overrideReason: args.reason,
+      overrideFeedback: args.feedback,
     });
+
+    // Track preview mode statistics (Phase 5)
+    const trustLevel = await ctx.db
+      .query("coachTrustLevels")
+      .withIndex("by_coach", (q) => q.eq("coachId", summary.coachId))
+      .first();
+
+    if (
+      trustLevel?.previewModeStats &&
+      !trustLevel.previewModeStats.completedAt
+    ) {
+      // Calculate if this summary would have been auto-approved
+      const effectiveLevel = Math.min(
+        trustLevel.currentLevel,
+        trustLevel.preferredLevel ?? trustLevel.currentLevel
+      );
+      const threshold = trustLevel.confidenceThreshold ?? 0.7;
+      const wouldAutoApprove =
+        summary.sensitivityCategory === "normal" &&
+        effectiveLevel >= 2 &&
+        summary.publicSummary.confidenceScore >= threshold;
+
+      // Update preview mode stats
+      // When suppressing: increment suggestions if would auto-approve, increment coachRejectedThose
+      const newSuggestions =
+        trustLevel.previewModeStats.wouldAutoApproveSuggestions +
+        (wouldAutoApprove ? 1 : 0);
+      const newRejected =
+        trustLevel.previewModeStats.coachRejectedThose +
+        (wouldAutoApprove ? 1 : 0);
+      const agreementRate =
+        newSuggestions > 0
+          ? trustLevel.previewModeStats.coachApprovedThose / newSuggestions
+          : 0;
+
+      await ctx.db.patch(trustLevel._id, {
+        previewModeStats: {
+          ...trustLevel.previewModeStats,
+          wouldAutoApproveSuggestions: newSuggestions,
+          coachRejectedThose: newRejected,
+          agreementRate,
+          completedAt: newSuggestions >= 20 ? Date.now() : undefined,
+        },
+      });
+    }
 
     // Update coach trust metrics (platform-wide)
     await ctx.runMutation(internal.models.coachTrustLevels.updateTrustMetrics, {
@@ -402,6 +550,91 @@ export const suppressSummary = mutation({
     });
 
     return null;
+  },
+});
+
+/**
+ * Revoke auto-approved summary (Phase 2)
+ * Coach can revoke within 1-hour window before parent views
+ * Safety net for supervised automation
+ */
+export const revokeSummary = mutation({
+  args: {
+    summaryId: v.id("coachParentSummaries"),
+    reason: v.optional(v.string()),
+  },
+  returns: v.object({
+    success: v.boolean(),
+    error: v.optional(v.string()),
+  }),
+  handler: async (ctx, args) => {
+    // Authenticate user
+    const user = await authComponent.safeGetAuthUser(ctx);
+
+    // Get the user ID (use _id or userId depending on what's available)
+    const userId = user?.userId || user?._id;
+    if (!userId) {
+      return {
+        success: false,
+        error: "Not authenticated",
+      };
+    }
+
+    // Fetch the summary
+    const summary = await ctx.db.get(args.summaryId);
+    if (!summary) {
+      return {
+        success: false,
+        error: "Summary not found",
+      };
+    }
+
+    // Verify coach owns this summary
+    if (summary.coachId !== userId) {
+      return {
+        success: false,
+        error: "Not authorized",
+      };
+    }
+
+    // Check if summary is auto-approved (only auto-approved can be revoked)
+    if (summary.status !== "auto_approved") {
+      return {
+        success: false,
+        error: "Only auto-approved summaries can be revoked",
+      };
+    }
+
+    // Check if parent has already viewed the summary
+    const view = await ctx.db
+      .query("parentSummaryViews")
+      .withIndex("by_summary", (q) => q.eq("summaryId", args.summaryId))
+      .first();
+
+    if (view) {
+      return {
+        success: false,
+        error: "Summary already viewed by parent",
+      };
+    }
+
+    // Revoke the summary (mark as suppressed with revocation metadata)
+    await ctx.db.patch(args.summaryId, {
+      status: "suppressed",
+      revokedAt: Date.now(),
+      revokedBy: userId,
+      revocationReason: args.reason ?? "Coach override",
+    });
+
+    // Update trust metrics (revocation counts as suppression)
+    await ctx.runMutation(internal.models.coachTrustLevels.updateTrustMetrics, {
+      coachId: summary.coachId,
+      action: "suppressed",
+    });
+
+    return {
+      success: true,
+    };
   },
 });
 
@@ -474,6 +707,7 @@ export const getCoachPendingSummaries = query({
       ...summaryValidator.fields,
       player: v.union(playerIdentityValidator, v.null()),
       sport: v.union(sportValidator, v.null()),
+      wouldAutoApprove: v.boolean(),
     })
   ),
   handler: async (ctx, args) => {
@@ -485,6 +719,21 @@ export const getCoachPendingSummaries = query({
 
     // Get userId with fallback to _id
     const userId = user.userId || user._id;
+
+    // Get coach trust level for wouldAutoApprove calculation
+    const trustLevel = await ctx.db
+      .query("coachTrustLevels")
+      .withIndex("by_coach", (q) => q.eq("coachId", userId))
+      .first();
+
+    // Calculate effective trust level and threshold
+    const effectiveLevel = trustLevel
+      ? Math.min(
+          trustLevel.currentLevel,
+          trustLevel.preferredLevel ?? trustLevel.currentLevel
+        )
+      : 0;
+    const threshold = trustLevel?.confidenceThreshold ?? 0.7;
 
     // Query summaries by coach with pending_review status
     const summaries = await ctx.db
@@ -502,15 +751,145 @@ export const getCoachPendingSummaries = query({
       summaries.map(async (summary) => {
         const player = await ctx.db.get(summary.playerIdentityId);
         const sport = await ctx.db.get(summary.sportId);
+
+        // Calculate if this summary would auto-approve at current trust level
+        // Level 0/1: Never auto-approve (always false)
+        // Level 2: Auto-approve if normal category AND confidence >= threshold
+        // Level 3: Auto-approve if normal category (regardless of confidence)
+        // Sensitive categories (injury, behavior): NEVER auto-approve
+        const wouldAutoApprove =
+          summary.sensitivityCategory === "normal" &&
+          effectiveLevel >= 2 &&
+          summary.publicSummary.confidenceScore >= threshold;
+
         return {
           ...summary,
           player,
           sport,
+          wouldAutoApprove,
         };
       })
     );
 
     return summariesWithInfo;
+  },
+});
+
+/**
+ * Get auto-approved summaries (Phase 2)
+ * Shows recently auto-approved messages with revoke option
+ * Includes pending delivery, delivered, viewed, and revoked summaries from last 7 days
+ */
+export const getAutoApprovedSummaries = query({
+  args: {
+    organizationId: v.string(),
+  },
+  returns: v.array(
+    v.object({
+      _id: v.id("coachParentSummaries"),
+      playerName: v.string(),
+      summaryContent: v.string(),
+      confidenceScore: v.number(),
+      approvedAt: v.optional(v.number()),
+      scheduledDeliveryAt: v.optional(v.number()),
+      status: v.string(),
+      viewedAt: v.optional(v.number()),
+      revokedAt: v.optional(v.number()),
+      isRevocable: v.boolean(),
+      autoApprovalDecision: v.optional(
+        v.object({
+          shouldAutoApprove: v.boolean(),
+          reason: v.string(),
+          tier: v.union(
+            v.literal("auto_send"),
+            v.literal("manual_review"),
+            v.literal("flagged")
+          ),
+          decidedAt: v.number(),
+        })
+      ),
+    })
+  ),
+  handler: async (ctx, args) => {
+    // Authenticate user
+    const user = await authComponent.safeGetAuthUser(ctx);
+    if (!user) {
+      throw new Error("Not authenticated");
+    }
+
+    const userId = user.userId || user._id;
+
+    // Query summaries from last 7 days that were auto-approved
+    const sevenDaysAgo = Date.now() - 7 * 24 * 60 * 60 * 1000;
+
+    // Get all summaries for this coach in this org
+    const allSummaries = await ctx.db
+      .query("coachParentSummaries")
+      .withIndex("by_coach_org_status", (q) =>
+        q.eq("coachId", userId).eq("organizationId", args.organizationId)
+      )
+      .collect();
+
+    // Filter for auto-approved summaries from last 7 days
+    const recentAutoApproved = allSummaries.filter((summary) => {
+      // Must have auto-approval decision indicating it was auto-approved
+      if (!summary.autoApprovalDecision?.shouldAutoApprove) {
+        return false;
+      }
+
+      // Must have been created in last 7 days
+      if (summary._creationTime < sevenDaysAgo) {
+        return false;
+      }
+
+      // Include: auto_approved, viewed, or suppressed (with revocation)
+      return (
+        summary.status === "auto_approved" ||
+        summary.status === "viewed" ||
+        (summary.status === "suppressed" && summary.revokedAt !== undefined)
+      );
+    });
+
+    // Enrich with player info and calculate isRevocable
+    const enrichedSummaries = await Promise.all(
+      recentAutoApproved.map(async (summary) => {
+        const player = await ctx.db.get(summary.playerIdentityId);
+        const playerName = player
+          ? `${player.firstName} ${player.lastName}`
+          : "Unknown Player";
+
+        // Check if parent has viewed
+        const hasViewed = summary.viewedAt !== undefined;
+
+        // Calculate isRevocable: auto_approved status, not viewed, within delivery window
+        const isRevocable =
+          summary.status === "auto_approved" &&
+          !hasViewed &&
+          summary.scheduledDeliveryAt !== undefined &&
+          Date.now() < summary.scheduledDeliveryAt;
+
+        return {
+          _id: summary._id,
+          playerName,
+          summaryContent: summary.publicSummary.content,
+          confidenceScore: summary.publicSummary.confidenceScore,
+          approvedAt: summary.approvedAt,
+          scheduledDeliveryAt: summary.scheduledDeliveryAt,
+          status: summary.status,
+          viewedAt: summary.viewedAt,
+          revokedAt: summary.revokedAt,
+          isRevocable,
+          autoApprovalDecision: summary.autoApprovalDecision,
+        };
+      })
+    );
+
+    // Sort by creation time (newest first)
+    return enrichedSummaries.sort((a, b) => {
+      const aTime = a.approvedAt ?? 0;
+      const bTime = b.approvedAt ?? 0;
+      return bTime - aTime;
+    });
   },
 });
 

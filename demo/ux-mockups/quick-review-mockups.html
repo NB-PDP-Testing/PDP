@@ -1,0 +1,2169 @@
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Quick Review - UX Mockups</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <link
+      rel="stylesheet"
+      href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css"
+    >
+    <style>
+    .phone-frame {
+      width: 375px;
+      height: 812px;
+      border-radius: 40px;
+      border: 12px solid #1a1a1a;
+      overflow: hidden;
+      position: relative;
+      background: white;
+      box-shadow: 0 25px 50px -12px rgba(0, 0, 0, 0.25);
+    }
+    .phone-notch {
+      position: absolute;
+      top: 0;
+      left: 50%;
+      transform: translateX(-50%);
+      width: 150px;
+      height: 30px;
+      background: #1a1a1a;
+      border-radius: 0 0 20px 20px;
+      z-index: 10;
+    }
+    .phone-content {
+      height: 100%;
+      overflow-y: auto;
+      padding-top: 44px;
+    }
+    .option-label {
+      position: absolute;
+      top: -40px;
+      left: 0;
+      right: 0;
+      text-align: center;
+      font-weight: 600;
+      color: #374151;
+    }
+    .section-title {
+      @apply text-2xl font-bold text-gray-800 mb-2;
+    }
+    .section-desc {
+      @apply text-gray-600 mb-8;
+    }
+    </style>
+  </head>
+  <body class="bg-gray-100 min-h-screen py-12">
+    <div class="max-w-7xl mx-auto px-4">
+      <h1 class="text-4xl font-bold text-center mb-4">
+        Mobile Quick-Review UX Mockups
+      </h1>
+      <p class="text-center text-gray-600 mb-12 max-w-2xl mx-auto">
+        These mockups show different design options for the coach quick-review
+        experience accessed via WhatsApp deep links. Each option explores
+        different approaches to layout, information density, and interaction
+        patterns.
+      </p>
+
+      <!-- Section 1: Main Review Page Options -->
+      <section class="mb-20">
+        <h2 class="section-title">1. Main Review Page Layout</h2>
+        <p class="section-desc">
+          Three options for the primary quick-review page that coaches see when
+          clicking the WhatsApp link.
+        </p>
+
+        <div class="flex flex-wrap justify-center gap-12">
+          <!-- Option A: Card Stack -->
+          <div class="relative pt-12">
+            <div class="option-label">Option A: Card Stack</div>
+            <div class="phone-frame">
+              <div class="phone-notch"></div>
+              <div class="phone-content bg-gray-50">
+                <!-- Header -->
+                <div
+                  class="bg-white border-b px-4 py-3 flex items-center justify-between sticky top-0 z-10"
+                >
+                  <button class="text-gray-600">
+                    <i class="fas fa-arrow-left text-lg"></i>
+                  </button>
+                  <div class="text-center">
+                    <div class="font-semibold text-sm">Quick Review</div>
+                    <div class="text-xs text-gray-500">
+                      Voice Note from Today, 2:45pm
+                    </div>
+                  </div>
+                  <button class="text-gray-600">
+                    <i class="fas fa-ellipsis-v"></i>
+                  </button>
+                </div>
+
+                <!-- Progress -->
+                <div class="bg-white px-4 py-3 border-b">
+                  <div class="flex items-center justify-between text-sm mb-2">
+                    <span class="text-gray-600">Review Progress</span>
+                    <span class="font-medium">2 of 4</span>
+                  </div>
+                  <div class="h-2 bg-gray-200 rounded-full overflow-hidden">
+                    <div
+                      class="h-full bg-green-500 rounded-full"
+                      style="width: 50%"
+                    ></div>
+                  </div>
+                </div>
+
+                <!-- Cards -->
+                <div class="p-4 space-y-4">
+                  <!-- Needs Review Card -->
+                  <div
+                    class="bg-white rounded-xl shadow-sm border-l-4 border-amber-400 p-4"
+                  >
+                    <div class="flex items-start gap-3">
+                      <span class="text-2xl">⚠️</span>
+                      <div class="flex-1">
+                        <div class="flex items-center gap-2 mb-1">
+                          <span class="font-semibold">Jake Murphy</span>
+                          <span
+                            class="text-xs bg-red-100 text-red-700 px-2 py-0.5 rounded-full"
+                            >Injury</span
+                          >
+                        </div>
+                        <p class="text-sm text-gray-600 mb-3">
+                          Twisted ankle during warm-up drills. Sat out for
+                          remainder of session.
+                        </p>
+                        <div class="flex gap-2">
+                          <button
+                            class="flex-1 bg-green-500 text-white py-2.5 rounded-lg font-medium text-sm"
+                          >
+                            <i class="fas fa-check mr-1"></i>Apply
+                          </button>
+                          <button
+                            class="flex-1 bg-gray-100 text-gray-700 py-2.5 rounded-lg font-medium text-sm"
+                          >
+                            <i class="fas fa-edit mr-1"></i>Edit
+                          </button>
+                          <button
+                            class="px-4 bg-gray-100 text-gray-500 py-2.5 rounded-lg"
+                          >
+                            <i class="fas fa-times"></i>
+                          </button>
+                        </div>
+                      </div>
+                    </div>
+                  </div>
+
+                  <!-- Unmatched Card -->
+                  <div
+                    class="bg-amber-50 rounded-xl border-2 border-amber-200 p-4"
+                  >
+                    <div class="flex items-start gap-3 mb-3">
+                      <span class="text-2xl">❓</span>
+                      <div class="flex-1">
+                        <p class="font-semibold text-amber-900">
+                          "Michael" not found
+                        </p>
+                        <p class="text-sm text-amber-700">
+                          Showed great improvement on left foot
+                        </p>
+                      </div>
+                    </div>
+                    <div class="bg-white rounded-lg p-3 mb-3">
+                      <p class="text-xs font-medium text-gray-500 mb-2">
+                        Did you mean?
+                      </p>
+                      <div class="space-y-2">
+                        <label
+                          class="flex items-center gap-3 p-2 rounded-lg border cursor-pointer hover:bg-gray-50"
+                        >
+                          <input
+                            type="radio"
+                            name="player"
+                            class="w-4 h-4 text-blue-600"
+                          >
+                          <span class="flex-1">
+                            <span class="font-medium">Michael O'Brien</span>
+                            <span class="text-gray-500 text-sm ml-1"
+                              >(U12 Boys)</span
+                            >
+                          </span>
+                          <span class="text-xs text-gray-400">92%</span>
+                        </label>
+                        <label
+                          class="flex items-center gap-3 p-2 rounded-lg border cursor-pointer hover:bg-gray-50"
+                        >
+                          <input
+                            type="radio"
+                            name="player"
+                            class="w-4 h-4 text-blue-600"
+                          >
+                          <span class="flex-1">
+                            <span class="font-medium">Michael Walsh</span>
+                            <span class="text-gray-500 text-sm ml-1"
+                              >(U14 Boys)</span
+                            >
+                          </span>
+                          <span class="text-xs text-gray-400">85%</span>
+                        </label>
+                      </div>
+                    </div>
+                    <button
+                      class="w-full bg-amber-500 text-white py-2.5 rounded-lg font-medium text-sm"
+                    >
+                      Assign & Apply
+                    </button>
+                  </div>
+
+                  <!-- Auto-applied (collapsed) -->
+                  <div
+                    class="bg-green-50 rounded-xl border border-green-200 p-4"
+                  >
+                    <button class="flex items-center justify-between w-full">
+                      <div class="flex items-center gap-3">
+                        <span class="text-2xl">✅</span>
+                        <div>
+                          <span class="font-semibold text-green-800"
+                            >Auto-applied (2)</span
+                          >
+                          <p class="text-sm text-green-600">John, Sarah</p>
+                        </div>
+                      </div>
+                      <i class="fas fa-chevron-down text-green-600"></i>
+                    </button>
+                  </div>
+
+                  <!-- Other pending -->
+                  <div
+                    class="bg-blue-50 rounded-xl border border-blue-200 p-4 flex items-center justify-between"
+                  >
+                    <div class="flex items-center gap-3">
+                      <span class="text-2xl">📋</span>
+                      <div>
+                        <span class="font-medium text-blue-800"
+                          >3 other pending</span
+                        >
+                        <p class="text-sm text-blue-600">From earlier notes</p>
+                      </div>
+                    </div>
+                    <button class="text-blue-600 font-medium text-sm">
+                      View all <i class="fas fa-arrow-right ml-1"></i>
+                    </button>
+                  </div>
+                </div>
+              </div>
+            </div>
+          </div>
+
+          <!-- Option B: Swipe Cards -->
+          <div class="relative pt-12">
+            <div class="option-label">Option B: Swipe Focus</div>
+            <div class="phone-frame">
+              <div class="phone-notch"></div>
+              <div
+                class="phone-content bg-gradient-to-b from-slate-900 to-slate-800"
+              >
+                <!-- Header -->
+                <div class="px-4 py-3 flex items-center justify-between">
+                  <button class="text-white/70">
+                    <i class="fas fa-times text-xl"></i>
+                  </button>
+                  <div class="text-center text-white">
+                    <div class="text-xs text-white/60">Reviewing</div>
+                    <div class="font-semibold">1 of 3</div>
+                  </div>
+                  <button class="text-white/70">
+                    <i class="fas fa-list text-lg"></i>
+                  </button>
+                </div>
+
+                <!-- Main Card Area -->
+                <div class="px-6 pt-4">
+                  <!-- Current Card -->
+                  <div class="bg-white rounded-2xl shadow-2xl p-6 relative">
+                    <!-- Category Badge -->
+                    <div class="absolute -top-3 left-6">
+                      <span
+                        class="bg-red-500 text-white text-xs font-bold px-3 py-1 rounded-full"
+                      >
+                        INJURY
+                      </span>
+                    </div>
+
+                    <!-- Player -->
+                    <div class="flex items-center gap-4 mb-4 pt-2">
+                      <div
+                        class="w-14 h-14 bg-slate-200 rounded-full flex items-center justify-center text-xl font-bold text-slate-500"
+                      >
+                        JM
+                      </div>
+                      <div>
+                        <h3 class="font-bold text-xl">Jake Murphy</h3>
+                        <p class="text-gray-500 text-sm">U14 Boys</p>
+                      </div>
+                    </div>
+
+                    <!-- Content -->
+                    <p class="text-gray-700 mb-6 leading-relaxed">
+                      Twisted ankle during warm-up drills. Sat out for remainder
+                      of session. Will need assessment before next training.
+                    </p>
+
+                    <!-- Swipe hints -->
+                    <div
+                      class="flex justify-between items-center text-sm text-gray-400 mb-4"
+                    >
+                      <span
+                        ><i class="fas fa-arrow-left mr-1"></i>Dismiss</span
+                      >
+                      <span
+                        >Apply <i class="fas fa-arrow-right ml-1"></i></span
+                      >
+                    </div>
+
+                    <!-- Progress dots -->
+                    <div class="flex justify-center gap-2">
+                      <div class="w-2 h-2 rounded-full bg-slate-800"></div>
+                      <div class="w-2 h-2 rounded-full bg-slate-300"></div>
+                      <div class="w-2 h-2 rounded-full bg-slate-300"></div>
+                    </div>
+                  </div>
+
+                  <!-- Peek of next card -->
+                  <div class="bg-white/10 rounded-2xl h-20 mt-4 mx-4"></div>
+                </div>
+
+                <!-- Action Buttons -->
+                <div class="absolute bottom-8 left-0 right-0 px-6">
+                  <div class="flex items-center justify-center gap-6">
+                    <button
+                      class="w-16 h-16 bg-white/10 rounded-full flex items-center justify-center text-white border-2 border-white/30"
+                    >
+                      <i class="fas fa-times text-2xl"></i>
+                    </button>
+                    <button
+                      class="w-20 h-20 bg-green-500 rounded-full flex items-center justify-center text-white shadow-lg shadow-green-500/50"
+                    >
+                      <i class="fas fa-check text-3xl"></i>
+                    </button>
+                    <button
+                      class="w-16 h-16 bg-white/10 rounded-full flex items-center justify-center text-white border-2 border-white/30"
+                    >
+                      <i class="fas fa-edit text-xl"></i>
+                    </button>
+                  </div>
+                </div>
+              </div>
+            </div>
+          </div>
+
+          <!-- Option C: List View -->
+          <div class="relative pt-12">
+            <div class="option-label">Option C: Compact List</div>
+            <div class="phone-frame">
+              <div class="phone-notch"></div>
+              <div class="phone-content bg-white">
+                <!-- Header -->
+                <div class="bg-emerald-600 text-white px-4 py-4">
+                  <div class="flex items-center justify-between mb-3">
+                    <button class="text-white/80">
+                      <i class="fas fa-arrow-left"></i>
+                    </button>
+                    <span class="font-semibold">Quick Review</span>
+                    <button class="text-white/80">
+                      <i class="fas fa-cog"></i>
+                    </button>
+                  </div>
+                  <div class="bg-white/20 rounded-lg p-3">
+                    <div class="text-sm text-white/80 mb-1">
+                      Voice Note - Today 2:45pm
+                    </div>
+                    <div class="text-xs text-white/60 truncate">
+                      "Good session today. Jake twisted his ankle during
+                      warm-up..."
+                    </div>
+                  </div>
+                </div>
+
+                <!-- Summary Stats -->
+                <div class="flex border-b">
+                  <div class="flex-1 text-center py-3 border-r">
+                    <div class="text-2xl font-bold text-amber-500">2</div>
+                    <div class="text-xs text-gray-500">Need Review</div>
+                  </div>
+                  <div class="flex-1 text-center py-3 border-r">
+                    <div class="text-2xl font-bold text-red-500">1</div>
+                    <div class="text-xs text-gray-500">Unmatched</div>
+                  </div>
+                  <div class="flex-1 text-center py-3">
+                    <div class="text-2xl font-bold text-green-500">2</div>
+                    <div class="text-xs text-gray-500">Applied</div>
+                  </div>
+                </div>
+
+                <!-- List -->
+                <div class="divide-y">
+                  <!-- Item 1 -->
+                  <div class="p-4 flex items-center gap-3">
+                    <div
+                      class="w-10 h-10 bg-amber-100 rounded-full flex items-center justify-center"
+                    >
+                      <i class="fas fa-exclamation text-amber-600"></i>
+                    </div>
+                    <div class="flex-1 min-w-0">
+                      <div class="flex items-center gap-2">
+                        <span class="font-medium">Jake Murphy</span>
+                        <span
+                          class="text-xs bg-red-100 text-red-600 px-1.5 py-0.5 rounded"
+                          >Injury</span
+                        >
+                      </div>
+                      <p class="text-sm text-gray-500 truncate">
+                        Twisted ankle during warm-up
+                      </p>
+                    </div>
+                    <div class="flex gap-1">
+                      <button
+                        class="w-9 h-9 bg-green-500 text-white rounded-lg"
+                      >
+                        <i class="fas fa-check text-sm"></i>
+                      </button>
+                      <button
+                        class="w-9 h-9 bg-gray-100 text-gray-600 rounded-lg"
+                      >
+                        <i class="fas fa-ellipsis-h text-sm"></i>
+                      </button>
+                    </div>
+                  </div>
+
+                  <!-- Item 2 -->
+                  <div class="p-4 flex items-center gap-3">
+                    <div
+                      class="w-10 h-10 bg-amber-100 rounded-full flex items-center justify-center"
+                    >
+                      <i class="fas fa-exclamation text-amber-600"></i>
+                    </div>
+                    <div class="flex-1 min-w-0">
+                      <div class="flex items-center gap-2">
+                        <span class="font-medium">Sarah O'Brien</span>
+                        <span
+                          class="text-xs bg-purple-100 text-purple-600 px-1.5 py-0.5 rounded"
+                          >Behavior</span
+                        >
+                      </div>
+                      <p class="text-sm text-gray-500 truncate">
+                        Great leadership shown today
+                      </p>
+                    </div>
+                    <div class="flex gap-1">
+                      <button
+                        class="w-9 h-9 bg-green-500 text-white rounded-lg"
+                      >
+                        <i class="fas fa-check text-sm"></i>
+                      </button>
+                      <button
+                        class="w-9 h-9 bg-gray-100 text-gray-600 rounded-lg"
+                      >
+                        <i class="fas fa-ellipsis-h text-sm"></i>
+                      </button>
+                    </div>
+                  </div>
+
+                  <!-- Unmatched Item -->
+                  <div class="p-4 flex items-center gap-3 bg-amber-50">
+                    <div
+                      class="w-10 h-10 bg-amber-200 rounded-full flex items-center justify-center"
+                    >
+                      <i class="fas fa-question text-amber-700"></i>
+                    </div>
+                    <div class="flex-1 min-w-0">
+                      <div class="font-medium text-amber-800">
+                        "Michael" not found
+                      </div>
+                      <p class="text-sm text-amber-600 truncate">
+                        Left foot improvement
+                      </p>
+                    </div>
+                    <button
+                      class="px-3 py-2 bg-amber-500 text-white rounded-lg text-sm font-medium"
+                    >
+                      Match
+                    </button>
+                  </div>
+
+                  <!-- Applied Section -->
+                  <div class="p-4 bg-green-50">
+                    <div class="flex items-center justify-between mb-2">
+                      <span class="font-medium text-green-800">
+                        <i class="fas fa-check-circle mr-1"></i>Auto-applied (2)
+                      </span>
+                      <button class="text-green-600 text-sm">View</button>
+                    </div>
+                    <div class="text-sm text-green-700">
+                      John, Sarah - Skill progress
+                    </div>
+                  </div>
+                </div>
+
+                <!-- Bottom Action -->
+                <div
+                  class="absolute bottom-0 left-0 right-0 p-4 bg-white border-t"
+                >
+                  <button
+                    class="w-full bg-emerald-600 text-white py-3 rounded-xl font-semibold"
+                  >
+                    <i class="fas fa-check-double mr-2"></i>Apply All Ready (3)
+                  </button>
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
+      </section>
+
+      <!-- Section 2: Unmatched Player Resolution -->
+      <section class="mb-20">
+        <h2 class="section-title">2. Unmatched Player Resolution</h2>
+        <p class="section-desc">
+          How coaches resolve players that weren't automatically matched. Fuzzy
+          suggestions based on Levenshtein similarity.
+        </p>
+
+        <div class="flex flex-wrap justify-center gap-12">
+          <!-- Option A: Inline Suggestions -->
+          <div class="relative pt-12">
+            <div class="option-label">Option A: Inline Radio</div>
+            <div class="phone-frame">
+              <div class="phone-notch"></div>
+              <div class="phone-content bg-gray-50">
+                <div
+                  class="bg-white border-b px-4 py-3 flex items-center gap-3"
+                >
+                  <button class="text-gray-600">
+                    <i class="fas fa-arrow-left"></i>
+                  </button>
+                  <span class="font-semibold">Match Player</span>
+                </div>
+
+                <div class="p-4">
+                  <!-- Context Card -->
+                  <div
+                    class="bg-amber-50 border border-amber-200 rounded-xl p-4 mb-4"
+                  >
+                    <div class="flex items-center gap-2 mb-2">
+                      <span class="text-xl">❓</span>
+                      <span class="font-semibold text-amber-900"
+                        >"Michael" not found</span
+                      >
+                    </div>
+                    <p class="text-sm text-amber-700 mb-2">
+                      <strong>Insight:</strong>Showed great improvement on left
+                      foot today. Keep working on weaker side.
+                    </p>
+                    <p class="text-xs text-amber-600">
+                      <i class="fas fa-microphone mr-1"></i>From voice note at
+                      2:45pm
+                    </p>
+                  </div>
+
+                  <!-- Suggestions -->
+                  <div class="bg-white rounded-xl border p-4 mb-4">
+                    <h3 class="font-semibold mb-3 flex items-center gap-2">
+                      <i class="fas fa-magic text-purple-500"></i>
+                      Similar names found
+                    </h3>
+                    <div class="space-y-2">
+                      <label
+                        class="flex items-center gap-3 p-3 rounded-lg border-2 border-transparent hover:border-blue-200 cursor-pointer transition-colors has-[:checked]:border-blue-500 has-[:checked]:bg-blue-50"
+                      >
+                        <input
+                          type="radio"
+                          name="match"
+                          class="w-5 h-5 text-blue-600"
+                          checked
+                        >
+                        <div
+                          class="w-10 h-10 bg-blue-100 rounded-full flex items-center justify-center font-semibold text-blue-600"
+                        >
+                          MO
+                        </div>
+                        <div class="flex-1">
+                          <div class="font-medium">Michael O'Brien</div>
+                          <div class="text-sm text-gray-500">
+                            U12 Boys • Grange FC
+                          </div>
+                        </div>
+                        <div class="text-right">
+                          <div class="text-sm font-semibold text-green-600">
+                            92%
+                          </div>
+                          <div class="text-xs text-gray-400">match</div>
+                        </div>
+                      </label>
+
+                      <label
+                        class="flex items-center gap-3 p-3 rounded-lg border-2 border-transparent hover:border-blue-200 cursor-pointer transition-colors"
+                      >
+                        <input
+                          type="radio"
+                          name="match"
+                          class="w-5 h-5 text-blue-600"
+                        >
+                        <div
+                          class="w-10 h-10 bg-gray-100 rounded-full flex items-center justify-center font-semibold text-gray-600"
+                        >
+                          MW
+                        </div>
+                        <div class="flex-1">
+                          <div class="font-medium">Michael Walsh</div>
+                          <div class="text-sm text-gray-500">
+                            U14 Boys • Grange FC
+                          </div>
+                        </div>
+                        <div class="text-right">
+                          <div class="text-sm font-semibold text-amber-600">
+                            85%
+                          </div>
+                          <div class="text-xs text-gray-400">match</div>
+                        </div>
+                      </label>
+
+                      <label
+                        class="flex items-center gap-3 p-3 rounded-lg border-2 border-transparent hover:border-blue-200 cursor-pointer transition-colors"
+                      >
+                        <input
+                          type="radio"
+                          name="match"
+                          class="w-5 h-5 text-blue-600"
+                        >
+                        <div
+                          class="w-10 h-10 bg-gray-100 rounded-full flex items-center justify-center font-semibold text-gray-600"
+                        >
+                          MK
+                        </div>
+                        <div class="flex-1">
+                          <div class="font-medium">Mick Kelly</div>
+                          <div class="text-sm text-gray-500">
+                            U12 Boys • Grange FC
+                          </div>
+                        </div>
+                        <div class="text-right">
+                          <div class="text-sm font-semibold text-gray-400">
+                            61%
+                          </div>
+                          <div class="text-xs text-gray-400">match</div>
+                        </div>
+                      </label>
+                    </div>
+                  </div>
+
+                  <!-- Search Option -->
+                  <button
+                    class="w-full flex items-center justify-center gap-2 p-3 border-2 border-dashed border-gray-300 rounded-xl text-gray-500 hover:border-gray-400 hover:text-gray-600 transition-colors mb-4"
+                  >
+                    <i class="fas fa-search"></i>
+                    <span>Search all players...</span>
+                  </button>
+
+                  <!-- Action -->
+                  <button
+                    class="w-full bg-blue-600 text-white py-4 rounded-xl font-semibold text-lg"
+                  >
+                    <i class="fas fa-user-check mr-2"></i>Assign to Michael
+                    O'Brien
+                  </button>
+                </div>
+              </div>
+            </div>
+          </div>
+
+          <!-- Option B: Quick Tap -->
+          <div class="relative pt-12">
+            <div class="option-label">Option B: Quick Tap Grid</div>
+            <div class="phone-frame">
+              <div class="phone-notch"></div>
+              <div class="phone-content bg-slate-900">
+                <div class="px-4 py-3 flex items-center justify-between">
+                  <button class="text-white/70">
+                    <i class="fas fa-times text-xl"></i>
+                  </button>
+                  <span class="text-white font-semibold"
+                    >Who is "Michael"?</span
+                  >
+                  <div class="w-6"></div>
+                </div>
+
+                <!-- Insight Preview -->
+                <div class="mx-4 mb-6 bg-white/10 rounded-xl p-4">
+                  <p class="text-white/80 text-sm">
+                    "...showed great improvement on left foot today. Keep
+                    working on weaker side..."
+                  </p>
+                </div>
+
+                <!-- Player Grid -->
+                <div class="px-4 mb-6">
+                  <p class="text-white/60 text-sm mb-3">Tap to select:</p>
+                  <div class="grid grid-cols-2 gap-3">
+                    <button
+                      class="bg-white rounded-xl p-4 text-left hover:ring-2 hover:ring-blue-500 transition-all"
+                    >
+                      <div class="flex items-center gap-3 mb-2">
+                        <div
+                          class="w-12 h-12 bg-blue-100 rounded-full flex items-center justify-center font-bold text-blue-600"
+                        >
+                          MO
+                        </div>
+                        <div
+                          class="bg-green-100 text-green-700 text-xs font-bold px-2 py-1 rounded-full"
+                        >
+                          92%
+                        </div>
+                      </div>
+                      <div class="font-semibold">Michael O'Brien</div>
+                      <div class="text-sm text-gray-500">U12 Boys</div>
+                    </button>
+
+                    <button
+                      class="bg-white rounded-xl p-4 text-left hover:ring-2 hover:ring-blue-500 transition-all"
+                    >
+                      <div class="flex items-center gap-3 mb-2">
+                        <div
+                          class="w-12 h-12 bg-gray-100 rounded-full flex items-center justify-center font-bold text-gray-600"
+                        >
+                          MW
+                        </div>
+                        <div
+                          class="bg-amber-100 text-amber-700 text-xs font-bold px-2 py-1 rounded-full"
+                        >
+                          85%
+                        </div>
+                      </div>
+                      <div class="font-semibold">Michael Walsh</div>
+                      <div class="text-sm text-gray-500">U14 Boys</div>
+                    </button>
+
+                    <button
+                      class="bg-white rounded-xl p-4 text-left hover:ring-2 hover:ring-blue-500 transition-all"
+                    >
+                      <div class="flex items-center gap-3 mb-2">
+                        <div
+                          class="w-12 h-12 bg-gray-100 rounded-full flex items-center justify-center font-bold text-gray-600"
+                        >
+                          MK
+                        </div>
+                        <div
+                          class="bg-gray-100 text-gray-600 text-xs font-bold px-2 py-1 rounded-full"
+                        >
+                          61%
+                        </div>
+                      </div>
+                      <div class="font-semibold">Mick Kelly</div>
+                      <div class="text-sm text-gray-500">U12 Boys</div>
+                    </button>
+
+                    <button
+                      class="bg-white/10 border-2 border-dashed border-white/30 rounded-xl p-4 text-left hover:bg-white/20 transition-all"
+                    >
+                      <div class="flex items-center justify-center h-12 mb-2">
+                        <i class="fas fa-search text-white/50 text-2xl"></i>
+                      </div>
+                      <div class="font-semibold text-white/70 text-center">
+                        Search
+                      </div>
+                      <div class="text-sm text-white/50 text-center">
+                        All players
+                      </div>
+                    </button>
+                  </div>
+                </div>
+
+                <!-- Skip Option -->
+                <div class="px-4">
+                  <button class="w-full py-3 text-white/50 text-sm">
+                    Skip for now <i class="fas fa-arrow-right ml-1"></i>
+                  </button>
+                </div>
+              </div>
+            </div>
+          </div>
+
+          <!-- Option C: Conversational -->
+          <div class="relative pt-12">
+            <div class="option-label">Option C: Conversational</div>
+            <div class="phone-frame">
+              <div class="phone-notch"></div>
+              <div class="phone-content bg-gray-100">
+                <div
+                  class="bg-white border-b px-4 py-3 flex items-center gap-3"
+                >
+                  <button class="text-gray-600">
+                    <i class="fas fa-arrow-left"></i>
+                  </button>
+                  <div>
+                    <div class="font-semibold">PlayerARC Assistant</div>
+                    <div class="text-xs text-green-500">Online</div>
+                  </div>
+                </div>
+
+                <div class="p-4 space-y-4">
+                  <!-- Bot message -->
+                  <div class="flex gap-3">
+                    <div
+                      class="w-8 h-8 bg-emerald-500 rounded-full flex items-center justify-center text-white text-sm"
+                    >
+                      <i class="fas fa-robot"></i>
+                    </div>
+                    <div class="flex-1">
+                      <div
+                        class="bg-white rounded-2xl rounded-tl-none p-4 shadow-sm"
+                      >
+                        <p class="mb-3">
+                          I couldn't find <strong>"Michael"</strong>in your team
+                          roster.
+                        </p>
+                        <p class="text-gray-600 text-sm mb-3">
+                          The insight was:
+                        </p>
+                        <div
+                          class="bg-gray-50 rounded-lg p-3 text-sm italic text-gray-600"
+                        >
+                          "Showed great improvement on left foot today. Keep
+                          working on weaker side."
+                        </div>
+                      </div>
+                      <div class="text-xs text-gray-400 mt-1">2:46pm</div>
+                    </div>
+                  </div>
+
+                  <!-- Bot suggestions -->
+                  <div class="flex gap-3">
+                    <div
+                      class="w-8 h-8 bg-emerald-500 rounded-full flex items-center justify-center text-white text-sm"
+                    >
+                      <i class="fas fa-robot"></i>
+                    </div>
+                    <div class="flex-1">
+                      <div
+                        class="bg-white rounded-2xl rounded-tl-none p-4 shadow-sm"
+                      >
+                        <p class="mb-3">Did you mean one of these players?</p>
+                        <div class="space-y-2">
+                          <button
+                            class="w-full text-left p-3 bg-blue-50 rounded-xl border border-blue-200 hover:bg-blue-100 transition-colors"
+                          >
+                            <div class="flex items-center justify-between">
+                              <div>
+                                <div class="font-medium text-blue-900">
+                                  Michael O'Brien
+                                </div>
+                                <div class="text-sm text-blue-600">
+                                  U12 Boys
+                                </div>
+                              </div>
+                              <span
+                                class="bg-blue-200 text-blue-800 text-xs font-bold px-2 py-1 rounded-full"
+                                >Best match</span
+                              >
+                            </div>
+                          </button>
+                          <button
+                            class="w-full text-left p-3 bg-gray-50 rounded-xl border hover:bg-gray-100 transition-colors"
+                          >
+                            <div class="font-medium">Michael Walsh</div>
+                            <div class="text-sm text-gray-500">U14 Boys</div>
+                          </button>
+                          <button
+                            class="w-full text-left p-3 bg-gray-50 rounded-xl border hover:bg-gray-100 transition-colors"
+                          >
+                            <div class="font-medium">Mick Kelly</div>
+                            <div class="text-sm text-gray-500">U12 Boys</div>
+                          </button>
+                        </div>
+                      </div>
+                    </div>
+                  </div>
+
+                  <!-- User input area -->
+                  <div
+                    class="fixed bottom-0 left-0 right-0 bg-white border-t p-3"
+                    style="position: absolute;"
+                  >
+                    <div class="flex gap-2">
+                      <button
+                        class="px-4 py-2 bg-gray-100 rounded-full text-sm text-gray-600"
+                      >
+                        <i class="fas fa-search mr-1"></i>Search
+                      </button>
+                      <button
+                        class="px-4 py-2 bg-gray-100 rounded-full text-sm text-gray-600"
+                      >
+                        <i class="fas fa-forward mr-1"></i>Skip
+                      </button>
+                      <button
+                        class="px-4 py-2 bg-gray-100 rounded-full text-sm text-gray-600"
+                      >
+                        <i class="fas fa-trash mr-1"></i>Discard
+                      </button>
+                    </div>
+                  </div>
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
+      </section>
+
+      <!-- Section 3: WhatsApp Message Formats -->
+      <section class="mb-20">
+        <h2 class="section-title">3. WhatsApp Message Formats</h2>
+        <p class="section-desc">
+          Different message styles based on trust level and outcome. Shows how
+          the deep link appears in WhatsApp.
+        </p>
+
+        <div class="flex flex-wrap justify-center gap-12">
+          <!-- Trust Level 0-1 -->
+          <div class="relative pt-12">
+            <div class="option-label">Trust Level 0-1 (New Coach)</div>
+            <div class="phone-frame">
+              <div class="phone-notch"></div>
+              <div class="phone-content" style="background: #ece5dd;">
+                <!-- WhatsApp Header -->
+                <div
+                  class="bg-emerald-700 text-white px-4 py-3 flex items-center gap-3"
+                >
+                  <i class="fas fa-arrow-left"></i>
+                  <div
+                    class="w-10 h-10 bg-emerald-600 rounded-full flex items-center justify-center font-bold"
+                  >
+                    P
+                  </div>
+                  <div class="flex-1">
+                    <div class="font-semibold">PlayerARC</div>
+                    <div class="text-xs text-emerald-200">online</div>
+                  </div>
+                  <i class="fas fa-video"></i>
+                  <i class="fas fa-phone ml-4"></i>
+                  <i class="fas fa-ellipsis-v ml-4"></i>
+                </div>
+
+                <div class="p-4 space-y-2">
+                  <!-- Ack message -->
+                  <div class="flex justify-end">
+                    <div
+                      class="bg-emerald-100 rounded-lg rounded-tr-none p-3 max-w-[85%]"
+                    >
+                      <p class="text-sm">
+                        Voice note received. Transcribing...
+                      </p>
+                      <div class="text-xs text-gray-500 text-right mt-1">
+                        2:45pm <i class="fas fa-check-double text-blue-500"></i>
+                      </div>
+                    </div>
+                  </div>
+
+                  <!-- Results message -->
+                  <div class="flex justify-end">
+                    <div
+                      class="bg-emerald-100 rounded-lg rounded-tr-none p-3 max-w-[85%]"
+                    >
+                      <p class="text-sm font-medium mb-2">Analysis complete!</p>
+                      <p class="text-sm mb-2">
+                        ⚠️ <strong>4 insights need your review</strong>
+                        <br>❓ <strong>1 unmatched player</strong>
+                      </p>
+                      <p class="text-sm text-blue-600 underline mb-1">
+                        Quick review: app.playerarc.io/r/Ab3xK9mQ
+                      </p>
+                      <p class="text-xs text-gray-500">(Link expires in 48h)</p>
+                      <div class="text-xs text-gray-500 text-right mt-1">
+                        2:46pm <i class="fas fa-check-double text-blue-500"></i>
+                      </div>
+                    </div>
+                  </div>
+                </div>
+              </div>
+            </div>
+          </div>
+
+          <!-- Trust Level 2 -->
+          <div class="relative pt-12">
+            <div class="option-label">Trust Level 2 (Mixed Results)</div>
+            <div class="phone-frame">
+              <div class="phone-notch"></div>
+              <div class="phone-content" style="background: #ece5dd;">
+                <!-- WhatsApp Header -->
+                <div
+                  class="bg-emerald-700 text-white px-4 py-3 flex items-center gap-3"
+                >
+                  <i class="fas fa-arrow-left"></i>
+                  <div
+                    class="w-10 h-10 bg-emerald-600 rounded-full flex items-center justify-center font-bold"
+                  >
+                    P
+                  </div>
+                  <div class="flex-1">
+                    <div class="font-semibold">PlayerARC</div>
+                    <div class="text-xs text-emerald-200">online</div>
+                  </div>
+                  <i class="fas fa-video"></i>
+                  <i class="fas fa-phone ml-4"></i>
+                  <i class="fas fa-ellipsis-v ml-4"></i>
+                </div>
+
+                <div class="p-4 space-y-2">
+                  <!-- Ack message -->
+                  <div class="flex justify-end">
+                    <div
+                      class="bg-emerald-100 rounded-lg rounded-tr-none p-3 max-w-[85%]"
+                    >
+                      <p class="text-sm">
+                        Note received for Grange FC. Processing...
+                      </p>
+                      <div class="text-xs text-gray-500 text-right mt-1">
+                        2:45pm <i class="fas fa-check-double text-blue-500"></i>
+                      </div>
+                    </div>
+                  </div>
+
+                  <!-- Results message -->
+                  <div class="flex justify-end">
+                    <div
+                      class="bg-emerald-100 rounded-lg rounded-tr-none p-3 max-w-[85%]"
+                    >
+                      <p class="text-sm font-medium mb-2">Analysis complete!</p>
+                      <p class="text-sm mb-1">
+                        ✅ Auto-applied (2): John, Sarah
+                      </p>
+                      <p class="text-sm mb-1">
+                        ⚠️ Needs review (1): Jake (Injury)
+                      </p>
+                      <p class="text-sm mb-2">❓ Unmatched (1): 'Michael'</p>
+                      <p class="text-sm text-blue-600 underline mb-1">
+                        Quick review: app.playerarc.io/r/Xp7kLm2n
+                      </p>
+                      <p class="text-xs text-gray-500">(Link expires in 48h)</p>
+                      <div class="text-xs text-gray-500 text-right mt-1">
+                        2:46pm <i class="fas fa-check-double text-blue-500"></i>
+                      </div>
+                    </div>
+                  </div>
+                </div>
+              </div>
+            </div>
+          </div>
+
+          <!-- Trust Level 3 -->
+          <div class="relative pt-12">
+            <div class="option-label">Trust Level 3 (All Applied)</div>
+            <div class="phone-frame">
+              <div class="phone-notch"></div>
+              <div class="phone-content" style="background: #ece5dd;">
+                <!-- WhatsApp Header -->
+                <div
+                  class="bg-emerald-700 text-white px-4 py-3 flex items-center gap-3"
+                >
+                  <i class="fas fa-arrow-left"></i>
+                  <div
+                    class="w-10 h-10 bg-emerald-600 rounded-full flex items-center justify-center font-bold"
+                  >
+                    P
+                  </div>
+                  <div class="flex-1">
+                    <div class="font-semibold">PlayerARC</div>
+                    <div class="text-xs text-emerald-200">online</div>
+                  </div>
+                  <i class="fas fa-video"></i>
+                  <i class="fas fa-phone ml-4"></i>
+                  <i class="fas fa-ellipsis-v ml-4"></i>
+                </div>
+
+                <div class="p-4 space-y-2">
+                  <!-- Ack message -->
+                  <div class="flex justify-end">
+                    <div
+                      class="bg-emerald-100 rounded-lg rounded-tr-none p-3 max-w-[85%]"
+                    >
+                      <p class="text-sm">
+                        Voice note received for Grange FC. Transcribing...
+                      </p>
+                      <div class="text-xs text-gray-500 text-right mt-1">
+                        2:45pm <i class="fas fa-check-double text-blue-500"></i>
+                      </div>
+                    </div>
+                  </div>
+
+                  <!-- Results message -->
+                  <div class="flex justify-end">
+                    <div
+                      class="bg-emerald-100 rounded-lg rounded-tr-none p-3 max-w-[85%]"
+                    >
+                      <p class="text-sm font-medium mb-2">✅ All applied!</p>
+                      <p class="text-sm mb-1">
+                        Auto-applied (3): John, Sarah, Emma
+                      </p>
+                      <p class="text-sm mb-2">📤 Parent updates queued (2)</p>
+                      <p class="text-sm text-blue-600 underline">
+                        View details: app.playerarc.io/r/Qr9nWx4p
+                      </p>
+                      <div class="text-xs text-gray-500 text-right mt-1">
+                        2:46pm <i class="fas fa-check-double text-blue-500"></i>
+                      </div>
+                    </div>
+                  </div>
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
+      </section>
+
+      <!-- Section 4: Link States -->
+      <section class="mb-20">
+        <h2 class="section-title">4. Link Error States</h2>
+        <p class="section-desc">
+          What coaches see when a link is expired or invalid.
+        </p>
+
+        <div class="flex flex-wrap justify-center gap-12">
+          <!-- Expired -->
+          <div class="relative pt-12">
+            <div class="option-label">Link Expired</div>
+            <div class="phone-frame">
+              <div class="phone-notch"></div>
+              <div
+                class="phone-content bg-gray-50 flex items-center justify-center"
+              >
+                <div class="text-center px-8">
+                  <div class="text-7xl mb-6">⏰</div>
+                  <h2 class="text-2xl font-bold mb-2">Link Expired</h2>
+                  <p class="text-gray-600 mb-6">
+                    This review link has expired. Links are valid for 48 hours
+                    after your voice note is processed.
+                  </p>
+                  <button
+                    class="w-full bg-emerald-600 text-white py-4 rounded-xl font-semibold mb-3"
+                  >
+                    Open Voice Notes
+                  </button>
+                  <button class="w-full text-gray-500 py-2">
+                    Back to WhatsApp
+                  </button>
+                </div>
+              </div>
+            </div>
+          </div>
+
+          <!-- Invalid -->
+          <div class="relative pt-12">
+            <div class="option-label">Link Invalid</div>
+            <div class="phone-frame">
+              <div class="phone-notch"></div>
+              <div
+                class="phone-content bg-gray-50 flex items-center justify-center"
+              >
+                <div class="text-center px-8">
+                  <div class="text-7xl mb-6">🔗</div>
+                  <h2 class="text-2xl font-bold mb-2">Link Not Found</h2>
+                  <p class="text-gray-600 mb-6">
+                    This review link doesn't exist or may have been entered
+                    incorrectly.
+                  </p>
+                  <button
+                    class="w-full bg-emerald-600 text-white py-4 rounded-xl font-semibold mb-3"
+                  >
+                    Go to PlayerARC
+                  </button>
+                  <button class="w-full text-gray-500 py-2">
+                    Contact Support
+                  </button>
+                </div>
+              </div>
+            </div>
+          </div>
+
+          <!-- All Done -->
+          <div class="relative pt-12">
+            <div class="option-label">All Reviewed</div>
+            <div class="phone-frame">
+              <div class="phone-notch"></div>
+              <div
+                class="phone-content bg-gradient-to-b from-emerald-500 to-emerald-600 flex items-center justify-center"
+              >
+                <div class="text-center px-8 text-white">
+                  <div class="text-7xl mb-6">🎉</div>
+                  <h2 class="text-2xl font-bold mb-2">All Done!</h2>
+                  <p class="text-emerald-100 mb-6">
+                    You've reviewed all insights from this voice note. Great job
+                    staying on top of your player feedback!
+                  </p>
+                  <div class="bg-white/20 rounded-xl p-4 mb-6">
+                    <div class="flex items-center justify-center gap-6">
+                      <div class="text-center">
+                        <div class="text-3xl font-bold">3</div>
+                        <div class="text-xs text-emerald-100">Applied</div>
+                      </div>
+                      <div class="w-px h-10 bg-white/30"></div>
+                      <div class="text-center">
+                        <div class="text-3xl font-bold">1</div>
+                        <div class="text-xs text-emerald-100">Matched</div>
+                      </div>
+                    </div>
+                  </div>
+                  <button
+                    class="w-full bg-white text-emerald-600 py-4 rounded-xl font-semibold mb-3"
+                  >
+                    View 2 Other Pending
+                  </button>
+                  <button class="w-full text-white/80 py-2">Close</button>
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
+      </section>
+
+      <!-- Section 5: Team Insights -->
+      <section class="mb-20">
+        <h2 class="section-title">5. Team Insights</h2>
+        <p class="section-desc">
+          Team-level observations from voice notes that apply to the squad as a
+          whole, not individual players. These might include session quality,
+          tactical notes, or group dynamics.
+        </p>
+
+        <div class="flex flex-wrap justify-center gap-12">
+          <!-- Option A: Integrated Cards -->
+          <div class="relative pt-12">
+            <div class="option-label">Option A: Mixed with Player Cards</div>
+            <div class="phone-frame">
+              <div class="phone-notch"></div>
+              <div class="phone-content bg-gray-50">
+                <!-- Header -->
+                <div
+                  class="bg-white border-b px-4 py-3 flex items-center justify-between sticky top-0 z-10"
+                >
+                  <button class="text-gray-600">
+                    <i class="fas fa-arrow-left text-lg"></i>
+                  </button>
+                  <div class="text-center">
+                    <div class="font-semibold text-sm">Quick Review</div>
+                    <div class="text-xs text-gray-500">U14 Boys Training</div>
+                  </div>
+                  <button class="text-gray-600">
+                    <i class="fas fa-ellipsis-v"></i>
+                  </button>
+                </div>
+
+                <!-- Cards -->
+                <div class="p-4 space-y-4">
+                  <!-- Team Insight Card -->
+                  <div
+                    class="bg-indigo-50 rounded-xl border-2 border-indigo-200 p-4"
+                  >
+                    <div class="flex items-start gap-3">
+                      <div
+                        class="w-10 h-10 bg-indigo-500 rounded-full flex items-center justify-center"
+                      >
+                        <i class="fas fa-users text-white"></i>
+                      </div>
+                      <div class="flex-1">
+                        <div class="flex items-center gap-2 mb-1">
+                          <span class="font-semibold text-indigo-900"
+                            >Team Insight</span
+                          >
+                          <span
+                            class="text-xs bg-indigo-200 text-indigo-700 px-2 py-0.5 rounded-full"
+                            >Tactical</span
+                          >
+                        </div>
+                        <p class="text-sm text-indigo-800 mb-3">
+                          Pressing from the front worked really well today. The
+                          high line caused problems for their attack. Continue
+                          this approach.
+                        </p>
+                        <div class="flex gap-2">
+                          <button
+                            class="flex-1 bg-indigo-500 text-white py-2.5 rounded-lg font-medium text-sm"
+                          >
+                            <i class="fas fa-bookmark mr-1"></i>Save to Team
+                            Notes
+                          </button>
+                          <button
+                            class="px-4 bg-white text-indigo-600 border border-indigo-300 py-2.5 rounded-lg"
+                          >
+                            <i class="fas fa-times"></i>
+                          </button>
+                        </div>
+                      </div>
+                    </div>
+                  </div>
+
+                  <!-- Player Card -->
+                  <div
+                    class="bg-white rounded-xl shadow-sm border-l-4 border-amber-400 p-4"
+                  >
+                    <div class="flex items-start gap-3">
+                      <span class="text-2xl">⚠️</span>
+                      <div class="flex-1">
+                        <div class="flex items-center gap-2 mb-1">
+                          <span class="font-semibold">Jake Murphy</span>
+                          <span
+                            class="text-xs bg-red-100 text-red-700 px-2 py-0.5 rounded-full"
+                            >Injury</span
+                          >
+                        </div>
+                        <p class="text-sm text-gray-600 mb-3">
+                          Twisted ankle during warm-up drills.
+                        </p>
+                        <div class="flex gap-2">
+                          <button
+                            class="flex-1 bg-green-500 text-white py-2 rounded-lg font-medium text-sm"
+                          >
+                            <i class="fas fa-check mr-1"></i>Apply
+                          </button>
+                          <button
+                            class="flex-1 bg-gray-100 text-gray-700 py-2 rounded-lg font-medium text-sm"
+                          >
+                            <i class="fas fa-edit mr-1"></i>Edit
+                          </button>
+                        </div>
+                      </div>
+                    </div>
+                  </div>
+
+                  <!-- Another Team Insight -->
+                  <div
+                    class="bg-orange-50 rounded-xl border-2 border-orange-200 p-4"
+                  >
+                    <div class="flex items-start gap-3">
+                      <div
+                        class="w-10 h-10 bg-orange-500 rounded-full flex items-center justify-center"
+                      >
+                        <i class="fas fa-users text-white"></i>
+                      </div>
+                      <div class="flex-1">
+                        <div class="flex items-center gap-2 mb-1">
+                          <span class="font-semibold text-orange-900"
+                            >Team Insight</span
+                          >
+                          <span
+                            class="text-xs bg-orange-200 text-orange-700 px-2 py-0.5 rounded-full"
+                            >Fitness</span
+                          >
+                        </div>
+                        <p class="text-sm text-orange-800 mb-3">
+                          Energy levels dropped significantly in the last 15
+                          mins. Need to work on conditioning.
+                        </p>
+                        <div class="flex gap-2">
+                          <button
+                            class="flex-1 bg-orange-500 text-white py-2.5 rounded-lg font-medium text-sm"
+                          >
+                            <i class="fas fa-bookmark mr-1"></i>Save
+                          </button>
+                          <button
+                            class="px-4 bg-white text-orange-600 border border-orange-300 py-2.5 rounded-lg"
+                          >
+                            <i class="fas fa-times"></i>
+                          </button>
+                        </div>
+                      </div>
+                    </div>
+                  </div>
+                </div>
+              </div>
+            </div>
+          </div>
+
+          <!-- Option B: Separate Tab -->
+          <div class="relative pt-12">
+            <div class="option-label">Option B: Tabbed View</div>
+            <div class="phone-frame">
+              <div class="phone-notch"></div>
+              <div class="phone-content bg-gray-50">
+                <!-- Header -->
+                <div class="bg-white border-b px-4 py-3">
+                  <div class="flex items-center justify-between mb-3">
+                    <button class="text-gray-600">
+                      <i class="fas fa-arrow-left text-lg"></i>
+                    </button>
+                    <span class="font-semibold">Quick Review</span>
+                    <button class="text-gray-600">
+                      <i class="fas fa-ellipsis-v"></i>
+                    </button>
+                  </div>
+                  <!-- Tabs -->
+                  <div class="flex border-b -mx-4 px-4">
+                    <button
+                      class="flex-1 py-2 text-sm font-medium text-gray-500 border-b-2 border-transparent"
+                    >
+                      Players (3)
+                    </button>
+                    <button
+                      class="flex-1 py-2 text-sm font-medium text-indigo-600 border-b-2 border-indigo-600"
+                    >
+                      Team (2)
+                    </button>
+                    <button
+                      class="flex-1 py-2 text-sm font-medium text-gray-500 border-b-2 border-transparent"
+                    >
+                      Actions (1)
+                    </button>
+                  </div>
+                </div>
+
+                <!-- Team Insights List -->
+                <div class="p-4 space-y-4">
+                  <div class="bg-white rounded-xl shadow-sm p-4">
+                    <div class="flex items-center gap-2 mb-2">
+                      <span
+                        class="text-xs bg-indigo-100 text-indigo-700 px-2 py-0.5 rounded-full"
+                      >
+                        <i class="fas fa-chess mr-1"></i>Tactical
+                      </span>
+                    </div>
+                    <p class="text-gray-800 mb-3">
+                      Pressing from the front worked really well today. The high
+                      line caused problems for their attack.
+                    </p>
+                    <div class="flex items-center justify-between">
+                      <span class="text-xs text-gray-400"
+                        >From today's session</span
+                      >
+                      <div class="flex gap-2">
+                        <button
+                          class="px-3 py-1.5 bg-indigo-500 text-white rounded-lg text-sm"
+                        >
+                          Save
+                        </button>
+                        <button
+                          class="px-3 py-1.5 bg-gray-100 text-gray-600 rounded-lg text-sm"
+                        >
+                          Dismiss
+                        </button>
+                      </div>
+                    </div>
+                  </div>
+
+                  <div class="bg-white rounded-xl shadow-sm p-4">
+                    <div class="flex items-center gap-2 mb-2">
+                      <span
+                        class="text-xs bg-orange-100 text-orange-700 px-2 py-0.5 rounded-full"
+                      >
+                        <i class="fas fa-heartbeat mr-1"></i>Fitness
+                      </span>
+                    </div>
+                    <p class="text-gray-800 mb-3">
+                      Energy levels dropped in the last 15 mins. Need
+                      conditioning work.
+                    </p>
+                    <div class="flex items-center justify-between">
+                      <span class="text-xs text-gray-400"
+                        >From today's session</span
+                      >
+                      <div class="flex gap-2">
+                        <button
+                          class="px-3 py-1.5 bg-indigo-500 text-white rounded-lg text-sm"
+                        >
+                          Save
+                        </button>
+                        <button
+                          class="px-3 py-1.5 bg-gray-100 text-gray-600 rounded-lg text-sm"
+                        >
+                          Dismiss
+                        </button>
+                      </div>
+                    </div>
+                  </div>
+
+                  <div class="bg-white rounded-xl shadow-sm p-4">
+                    <div class="flex items-center gap-2 mb-2">
+                      <span
+                        class="text-xs bg-green-100 text-green-700 px-2 py-0.5 rounded-full"
+                      >
+                        <i class="fas fa-trophy mr-1"></i>Morale
+                      </span>
+                    </div>
+                    <p class="text-gray-800 mb-3">
+                      Great team spirit today. Players encouraged each other
+                      well after mistakes.
+                    </p>
+                    <div class="flex items-center justify-between">
+                      <span class="text-xs text-gray-400"
+                        >From today's session</span
+                      >
+                      <div class="flex gap-2">
+                        <button
+                          class="px-3 py-1.5 bg-indigo-500 text-white rounded-lg text-sm"
+                        >
+                          Save
+                        </button>
+                        <button
+                          class="px-3 py-1.5 bg-gray-100 text-gray-600 rounded-lg text-sm"
+                        >
+                          Dismiss
+                        </button>
+                      </div>
+                    </div>
+                  </div>
+                </div>
+              </div>
+            </div>
+          </div>
+
+          <!-- Option C: Collapsible Summary -->
+          <div class="relative pt-12">
+            <div class="option-label">Option C: Summary Card</div>
+            <div class="phone-frame">
+              <div class="phone-notch"></div>
+              <div class="phone-content bg-gray-50">
+                <!-- Header -->
+                <div
+                  class="bg-white border-b px-4 py-3 flex items-center justify-between"
+                >
+                  <button class="text-gray-600">
+                    <i class="fas fa-arrow-left text-lg"></i>
+                  </button>
+                  <span class="font-semibold text-sm">Quick Review</span>
+                  <button class="text-gray-600">
+                    <i class="fas fa-ellipsis-v"></i>
+                  </button>
+                </div>
+
+                <!-- Team Summary Card at Top -->
+                <div class="p-4">
+                  <div
+                    class="bg-gradient-to-r from-indigo-500 to-purple-600 rounded-xl p-4 text-white mb-4"
+                  >
+                    <div class="flex items-center justify-between mb-3">
+                      <div class="flex items-center gap-2">
+                        <i class="fas fa-users"></i>
+                        <span class="font-semibold">Team Session Summary</span>
+                      </div>
+                      <span class="text-xs bg-white/20 px-2 py-1 rounded-full"
+                        >U14 Boys</span
+                      >
+                    </div>
+                    <div class="space-y-2 text-sm text-white/90">
+                      <div class="flex items-start gap-2">
+                        <i class="fas fa-check-circle mt-0.5"></i>
+                        <span>High press tactics worked well</span>
+                      </div>
+                      <div class="flex items-start gap-2">
+                        <i class="fas fa-exclamation-circle mt-0.5"></i>
+                        <span>Fitness dropped late in session</span>
+                      </div>
+                      <div class="flex items-start gap-2">
+                        <i class="fas fa-star mt-0.5"></i>
+                        <span>Great team morale throughout</span>
+                      </div>
+                    </div>
+                    <button
+                      class="w-full mt-3 py-2 bg-white/20 rounded-lg text-sm font-medium hover:bg-white/30 transition-colors"
+                    >
+                      <i class="fas fa-bookmark mr-1"></i>Save All to Team Notes
+                    </button>
+                  </div>
+
+                  <div class="text-sm font-medium text-gray-500 mb-3">
+                    Player Insights (3)
+                  </div>
+
+                  <!-- Player cards below -->
+                  <div class="space-y-3">
+                    <div
+                      class="bg-white rounded-xl shadow-sm p-3 flex items-center gap-3"
+                    >
+                      <div
+                        class="w-10 h-10 bg-red-100 rounded-full flex items-center justify-center"
+                      >
+                        <span class="text-lg">⚠️</span>
+                      </div>
+                      <div class="flex-1 min-w-0">
+                        <div class="font-medium">Jake Murphy</div>
+                        <div class="text-sm text-gray-500 truncate">
+                          Twisted ankle
+                        </div>
+                      </div>
+                      <button
+                        class="px-3 py-1.5 bg-green-500 text-white rounded-lg text-sm"
+                      >
+                        Apply
+                      </button>
+                    </div>
+                    <div
+                      class="bg-white rounded-xl shadow-sm p-3 flex items-center gap-3"
+                    >
+                      <div
+                        class="w-10 h-10 bg-green-100 rounded-full flex items-center justify-center"
+                      >
+                        <span class="text-lg">✅</span>
+                      </div>
+                      <div class="flex-1 min-w-0">
+                        <div class="font-medium">Sarah O'Brien</div>
+                        <div class="text-sm text-gray-500 truncate">
+                          Leadership skills
+                        </div>
+                      </div>
+                      <span class="text-xs text-green-600 font-medium"
+                        >Applied</span
+                      >
+                    </div>
+                  </div>
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
+      </section>
+
+      <!-- Section 6: Coach Todos/Actions -->
+      <section class="mb-20">
+        <h2 class="section-title">6. Coach Todos & Actions</h2>
+        <p class="section-desc">
+          Action items extracted from voice notes that the coach needs to follow
+          up on. These are tasks like "schedule physio", "order new bibs", or
+          "call parent".
+        </p>
+
+        <div class="flex flex-wrap justify-center gap-12">
+          <!-- Option A: Inline Actions -->
+          <div class="relative pt-12">
+            <div class="option-label">Option A: Action Cards</div>
+            <div class="phone-frame">
+              <div class="phone-notch"></div>
+              <div class="phone-content bg-gray-50">
+                <!-- Header -->
+                <div
+                  class="bg-white border-b px-4 py-3 flex items-center justify-between"
+                >
+                  <button class="text-gray-600">
+                    <i class="fas fa-arrow-left text-lg"></i>
+                  </button>
+                  <span class="font-semibold text-sm">Quick Review</span>
+                  <button class="text-gray-600">
+                    <i class="fas fa-ellipsis-v"></i>
+                  </button>
+                </div>
+
+                <div class="p-4 space-y-4">
+                  <!-- Action Card - Urgent -->
+                  <div class="bg-red-50 rounded-xl border-2 border-red-200 p-4">
+                    <div class="flex items-start gap-3">
+                      <div
+                        class="w-10 h-10 bg-red-500 rounded-full flex items-center justify-center"
+                      >
+                        <i class="fas fa-tasks text-white"></i>
+                      </div>
+                      <div class="flex-1">
+                        <div class="flex items-center gap-2 mb-1">
+                          <span class="font-semibold text-red-900"
+                            >Action Required</span
+                          >
+                          <span
+                            class="text-xs bg-red-200 text-red-700 px-2 py-0.5 rounded-full"
+                          >
+                            <i class="fas fa-exclamation mr-1"></i>Urgent
+                          </span>
+                        </div>
+                        <p class="text-sm text-red-800 mb-3">
+                          Book physio appointment for Jake Murphy's ankle injury
+                        </p>
+                        <div class="flex gap-2">
+                          <button
+                            class="flex-1 bg-red-500 text-white py-2.5 rounded-lg font-medium text-sm"
+                          >
+                            <i class="fas fa-plus mr-1"></i>Add to My Tasks
+                          </button>
+                          <button
+                            class="px-4 bg-white text-red-600 border border-red-300 py-2.5 rounded-lg"
+                          >
+                            <i class="fas fa-check"></i>
+                          </button>
+                        </div>
+                      </div>
+                    </div>
+                  </div>
+
+                  <!-- Action Card - Normal -->
+                  <div
+                    class="bg-blue-50 rounded-xl border-2 border-blue-200 p-4"
+                  >
+                    <div class="flex items-start gap-3">
+                      <div
+                        class="w-10 h-10 bg-blue-500 rounded-full flex items-center justify-center"
+                      >
+                        <i class="fas fa-tasks text-white"></i>
+                      </div>
+                      <div class="flex-1">
+                        <div class="flex items-center gap-2 mb-1">
+                          <span class="font-semibold text-blue-900"
+                            >Action Required</span
+                          >
+                          <span
+                            class="text-xs bg-blue-200 text-blue-700 px-2 py-0.5 rounded-full"
+                          >
+                            <i class="fas fa-phone mr-1"></i>Contact
+                          </span>
+                        </div>
+                        <p class="text-sm text-blue-800 mb-3">
+                          Call Michael's parents about his recent progress and
+                          potential move to U14s
+                        </p>
+                        <div class="flex gap-2">
+                          <button
+                            class="flex-1 bg-blue-500 text-white py-2.5 rounded-lg font-medium text-sm"
+                          >
+                            <i class="fas fa-plus mr-1"></i>Add to Tasks
+                          </button>
+                          <button
+                            class="px-4 bg-white text-blue-600 border border-blue-300 py-2.5 rounded-lg"
+                          >
+                            <i class="fas fa-check"></i>
+                          </button>
+                        </div>
+                      </div>
+                    </div>
+                  </div>
+
+                  <!-- Action Card - Equipment -->
+                  <div
+                    class="bg-amber-50 rounded-xl border-2 border-amber-200 p-4"
+                  >
+                    <div class="flex items-start gap-3">
+                      <div
+                        class="w-10 h-10 bg-amber-500 rounded-full flex items-center justify-center"
+                      >
+                        <i class="fas fa-tasks text-white"></i>
+                      </div>
+                      <div class="flex-1">
+                        <div class="flex items-center gap-2 mb-1">
+                          <span class="font-semibold text-amber-900"
+                            >Action Required</span
+                          >
+                          <span
+                            class="text-xs bg-amber-200 text-amber-700 px-2 py-0.5 rounded-full"
+                          >
+                            <i class="fas fa-box mr-1"></i>Equipment
+                          </span>
+                        </div>
+                        <p class="text-sm text-amber-800 mb-3">
+                          Order 10 new training bibs - current ones are worn out
+                        </p>
+                        <div class="flex gap-2">
+                          <button
+                            class="flex-1 bg-amber-500 text-white py-2.5 rounded-lg font-medium text-sm"
+                          >
+                            <i class="fas fa-plus mr-1"></i>Add to Tasks
+                          </button>
+                          <button
+                            class="px-4 bg-white text-amber-600 border border-amber-300 py-2.5 rounded-lg"
+                          >
+                            <i class="fas fa-check"></i>
+                          </button>
+                        </div>
+                      </div>
+                    </div>
+                  </div>
+                </div>
+              </div>
+            </div>
+          </div>
+
+          <!-- Option B: Checklist Style -->
+          <div class="relative pt-12">
+            <div class="option-label">Option B: Quick Checklist</div>
+            <div class="phone-frame">
+              <div class="phone-notch"></div>
+              <div class="phone-content bg-white">
+                <!-- Header -->
+                <div class="bg-slate-800 text-white px-4 py-4">
+                  <div class="flex items-center justify-between mb-2">
+                    <button class="text-white/70">
+                      <i class="fas fa-arrow-left"></i>
+                    </button>
+                    <span class="font-semibold">Action Items</span>
+                    <button class="text-white/70">
+                      <i class="fas fa-ellipsis-v"></i>
+                    </button>
+                  </div>
+                  <p class="text-sm text-white/60">
+                    3 actions from today's voice note
+                  </p>
+                </div>
+
+                <!-- Checklist -->
+                <div class="divide-y">
+                  <label
+                    class="flex items-start gap-4 p-4 cursor-pointer hover:bg-gray-50"
+                  >
+                    <input
+                      type="checkbox"
+                      class="w-6 h-6 mt-0.5 rounded border-2 border-gray-300 text-emerald-500 focus:ring-emerald-500"
+                    >
+                    <div class="flex-1">
+                      <div class="flex items-center gap-2 mb-1">
+                        <span
+                          class="text-xs bg-red-100 text-red-600 px-2 py-0.5 rounded font-medium"
+                          >URGENT</span
+                        >
+                      </div>
+                      <p class="font-medium text-gray-900">
+                        Book physio for Jake Murphy
+                      </p>
+                      <p class="text-sm text-gray-500">
+                        Ankle injury from today's session
+                      </p>
+                    </div>
+                  </label>
+
+                  <label
+                    class="flex items-start gap-4 p-4 cursor-pointer hover:bg-gray-50"
+                  >
+                    <input
+                      type="checkbox"
+                      class="w-6 h-6 mt-0.5 rounded border-2 border-gray-300 text-emerald-500 focus:ring-emerald-500"
+                    >
+                    <div class="flex-1">
+                      <div class="flex items-center gap-2 mb-1">
+                        <span
+                          class="text-xs bg-blue-100 text-blue-600 px-2 py-0.5 rounded font-medium"
+                          >CONTACT</span
+                        >
+                      </div>
+                      <p class="font-medium text-gray-900">
+                        Call Michael's parents
+                      </p>
+                      <p class="text-sm text-gray-500">
+                        Discuss progress and U14 move
+                      </p>
+                    </div>
+                  </label>
+
+                  <label
+                    class="flex items-start gap-4 p-4 cursor-pointer hover:bg-gray-50"
+                  >
+                    <input
+                      type="checkbox"
+                      class="w-6 h-6 mt-0.5 rounded border-2 border-gray-300 text-emerald-500 focus:ring-emerald-500"
+                    >
+                    <div class="flex-1">
+                      <div class="flex items-center gap-2 mb-1">
+                        <span
+                          class="text-xs bg-amber-100 text-amber-600 px-2 py-0.5 rounded font-medium"
+                          >EQUIPMENT</span
+                        >
+                      </div>
+                      <p class="font-medium text-gray-900">
+                        Order new training bibs
+                      </p>
+                      <p class="text-sm text-gray-500">
+                        10 bibs needed - current ones worn
+                      </p>
+                    </div>
+                  </label>
+
+                  <label
+                    class="flex items-start gap-4 p-4 cursor-pointer hover:bg-gray-50 bg-green-50"
+                  >
+                    <input
+                      type="checkbox"
+                      checked
+                      class="w-6 h-6 mt-0.5 rounded border-2 border-green-500 text-emerald-500 focus:ring-emerald-500"
+                    >
+                    <div class="flex-1">
+                      <div class="flex items-center gap-2 mb-1">
+                        <span
+                          class="text-xs bg-green-100 text-green-600 px-2 py-0.5 rounded font-medium"
+                          >DONE</span
+                        >
+                      </div>
+                      <p class="font-medium text-gray-400 line-through">
+                        Update team sheet
+                      </p>
+                      <p class="text-sm text-gray-400">For Saturday's match</p>
+                    </div>
+                  </label>
+                </div>
+
+                <!-- Bottom Actions -->
+                <div
+                  class="absolute bottom-0 left-0 right-0 p-4 bg-white border-t"
+                >
+                  <div class="flex gap-3">
+                    <button
+                      class="flex-1 bg-emerald-600 text-white py-3 rounded-xl font-semibold"
+                    >
+                      <i class="fas fa-plus mr-2"></i>Add All to Tasks
+                    </button>
+                    <button
+                      class="px-4 bg-gray-100 text-gray-600 py-3 rounded-xl"
+                    >
+                      <i class="fas fa-times"></i>
+                    </button>
+                  </div>
+                </div>
+              </div>
+            </div>
+          </div>
+
+          <!-- Option C: Calendar Integration -->
+          <div class="relative pt-12">
+            <div class="option-label">Option C: Smart Scheduling</div>
+            <div class="phone-frame">
+              <div class="phone-notch"></div>
+              <div class="phone-content bg-gray-50">
+                <!-- Header -->
+                <div class="bg-white border-b px-4 py-3">
+                  <div class="flex items-center justify-between mb-1">
+                    <button class="text-gray-600">
+                      <i class="fas fa-arrow-left"></i>
+                    </button>
+                    <span class="font-semibold">Schedule Action</span>
+                    <button class="text-gray-600">Done</button>
+                  </div>
+                </div>
+
+                <div class="p-4">
+                  <!-- Task Preview -->
+                  <div class="bg-white rounded-xl p-4 mb-4 shadow-sm">
+                    <div class="flex items-center gap-2 mb-2">
+                      <span
+                        class="text-xs bg-red-100 text-red-600 px-2 py-0.5 rounded font-medium"
+                        >URGENT</span
+                      >
+                    </div>
+                    <p class="font-semibold text-gray-900 mb-1">
+                      Book physio for Jake Murphy
+                    </p>
+                    <p class="text-sm text-gray-500">
+                      Ankle injury from today's session
+                    </p>
+                  </div>
+
+                  <!-- Quick Schedule Options -->
+                  <div class="mb-4">
+                    <p class="text-sm font-medium text-gray-600 mb-3">
+                      Quick schedule:
+                    </p>
+                    <div class="grid grid-cols-2 gap-2">
+                      <button
+                        class="p-3 bg-white rounded-xl border-2 border-emerald-500 text-left"
+                      >
+                        <div class="font-medium text-emerald-700">Today</div>
+                        <div class="text-xs text-gray-500">5:00 PM</div>
+                      </button>
+                      <button
+                        class="p-3 bg-white rounded-xl border hover:border-gray-300 text-left"
+                      >
+                        <div class="font-medium">Tomorrow</div>
+                        <div class="text-xs text-gray-500">9:00 AM</div>
+                      </button>
+                      <button
+                        class="p-3 bg-white rounded-xl border hover:border-gray-300 text-left"
+                      >
+                        <div class="font-medium">This Week</div>
+                        <div class="text-xs text-gray-500">Choose day</div>
+                      </button>
+                      <button
+                        class="p-3 bg-white rounded-xl border hover:border-gray-300 text-left"
+                      >
+                        <div class="font-medium">Custom</div>
+                        <div class="text-xs text-gray-500">Pick date/time</div>
+                      </button>
+                    </div>
+                  </div>
+
+                  <!-- Reminder Options -->
+                  <div class="mb-4">
+                    <p class="text-sm font-medium text-gray-600 mb-3">
+                      Remind me:
+                    </p>
+                    <div class="flex gap-2 flex-wrap">
+                      <button
+                        class="px-3 py-2 bg-emerald-100 text-emerald-700 rounded-full text-sm font-medium"
+                      >
+                        <i class="fas fa-check mr-1"></i>30 min before
+                      </button>
+                      <button
+                        class="px-3 py-2 bg-white border rounded-full text-sm"
+                      >
+                        1 hour before
+                      </button>
+                      <button
+                        class="px-3 py-2 bg-white border rounded-full text-sm"
+                      >
+                        Morning of
+                      </button>
+                    </div>
+                  </div>
+
+                  <!-- Add to Calendar -->
+                  <div class="bg-white rounded-xl p-4 border">
+                    <p class="text-sm font-medium text-gray-600 mb-3">
+                      Also add to:
+                    </p>
+                    <div class="space-y-2">
+                      <label class="flex items-center gap-3 cursor-pointer">
+                        <input
+                          type="checkbox"
+                          checked
+                          class="w-5 h-5 rounded text-emerald-500"
+                        >
+                        <i class="fab fa-google text-gray-400"></i>
+                        <span class="text-sm">Google Calendar</span>
+                      </label>
+                      <label class="flex items-center gap-3 cursor-pointer">
+                        <input
+                          type="checkbox"
+                          class="w-5 h-5 rounded text-emerald-500"
+                        >
+                        <i class="fab fa-apple text-gray-400"></i>
+                        <span class="text-sm">Apple Calendar</span>
+                      </label>
+                    </div>
+                  </div>
+                </div>
+
+                <!-- Bottom Action -->
+                <div
+                  class="absolute bottom-0 left-0 right-0 p-4 bg-white border-t"
+                >
+                  <button
+                    class="w-full bg-emerald-600 text-white py-4 rounded-xl font-semibold"
+                  >
+                    <i class="fas fa-calendar-plus mr-2"></i>Schedule for Today
+                    5 PM
+                  </button>
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
+      </section>
+
+      <!-- Summary -->
+      <section class="max-w-3xl mx-auto bg-white rounded-2xl p-8 shadow-sm">
+        <h2 class="text-2xl font-bold mb-4">Design Recommendations</h2>
+
+        <div class="space-y-4">
+          <div class="flex gap-4">
+            <div
+              class="w-8 h-8 bg-emerald-100 rounded-full flex items-center justify-center text-emerald-600 font-bold flex-shrink-0"
+            >
+              1
+            </div>
+            <div>
+              <h3 class="font-semibold">Main Layout: Option A (Card Stack)</h3>
+              <p class="text-gray-600 text-sm">
+                Provides clear visual hierarchy with priority-based ordering.
+                Familiar pattern for mobile users. Allows batch actions.
+              </p>
+            </div>
+          </div>
+
+          <div class="flex gap-4">
+            <div
+              class="w-8 h-8 bg-emerald-100 rounded-full flex items-center justify-center text-emerald-600 font-bold flex-shrink-0"
+            >
+              2
+            </div>
+            <div>
+              <h3 class="font-semibold">
+                Player Matching: Option A (Inline Radio)
+              </h3>
+              <p class="text-gray-600 text-sm">
+                Shows context alongside suggestions. Clear similarity
+                percentages help coaches make quick decisions. Search fallback
+                available.
+              </p>
+            </div>
+          </div>
+
+          <div class="flex gap-4">
+            <div
+              class="w-8 h-8 bg-emerald-100 rounded-full flex items-center justify-center text-emerald-600 font-bold flex-shrink-0"
+            >
+              3
+            </div>
+            <div>
+              <h3 class="font-semibold">WhatsApp Format: Trust-Adaptive</h3>
+              <p class="text-gray-600 text-sm">
+                Emoji indicators make scanning easier. Compact summaries with
+                names. Deep link prominent but not overwhelming.
+              </p>
+            </div>
+          </div>
+        </div>
+
+        <div class="flex gap-4 mt-4">
+          <div
+            class="w-8 h-8 bg-emerald-100 rounded-full flex items-center justify-center text-emerald-600 font-bold flex-shrink-0"
+          >
+            4
+          </div>
+          <div>
+            <h3 class="font-semibold">
+              Team Insights: Option C (Summary Card)
+            </h3>
+            <p class="text-gray-600 text-sm">
+              Aggregates team observations into a visually distinct summary at
+              the top. Easy bulk save. Keeps focus on player insights below.
+            </p>
+          </div>
+        </div>
+
+        <div class="flex gap-4 mt-4">
+          <div
+            class="w-8 h-8 bg-emerald-100 rounded-full flex items-center justify-center text-emerald-600 font-bold flex-shrink-0"
+          >
+            5
+          </div>
+          <div>
+            <h3 class="font-semibold">
+              Coach Todos: Option B (Quick Checklist)
+            </h3>
+            <p class="text-gray-600 text-sm">
+              Simple, familiar checklist pattern. Priority badges highlight
+              urgent items. One-tap to mark done or add all to tasks.
+            </p>
+          </div>
+        </div>
+
+        <div class="mt-8 p-4 bg-blue-50 rounded-xl">
+          <h4 class="font-semibold text-blue-800 mb-2">
+            Alternative Considerations
+          </h4>
+          <ul class="text-sm text-blue-700 space-y-1">
+            <li>
+              • <strong>Option B (Swipe)</strong>for main layout could work well
+              for high-volume coaches who want Tinder-style quick decisions
+            </li>
+            <li>
+              • <strong>Option C (Compact List)</strong>is better if coaches
+              typically have many insights to review at once
+            </li>
+            <li>
+              • <strong>Quick Tap Grid</strong>for player matching could be
+              faster for coaches who know their players well
+            </li>
+            <li>
+              • <strong>Option A (Mixed Cards)</strong>for team insights works
+              if coaches prefer seeing everything in one stream vs. separated
+              views
+            </li>
+            <li>
+              • <strong>Option C (Smart Scheduling)</strong>for todos is ideal
+              if calendar integration is a priority feature
+            </li>
+          </ul>
+        </div>
+      </section>
+
+      <div class="text-center text-gray-400 text-sm mt-12">
+        Created by Claude Code • January 25, 2026
+      </div>
+    </div>
+  </body>
+</html>

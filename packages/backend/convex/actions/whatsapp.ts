@@ -131,7 +131,7 @@ export const processIncomingMessage = internalAction({
 
       await sendWhatsAppMessage(
         phoneNumber,
-        `Your phone number isn't linked to a coach account in PlayerArc. Please add your phone number in the app settings, or contact your club administrator.`
+        `Your phone number isn't linked to a coach account in PlayerARC. Please add your phone number in your profile settings, or contact your club administrator.`
       );
 
       return { success: false, messageId, error: "Phone number not matched" };
@@ -273,7 +273,7 @@ export const processIncomingMessage = internalAction({
 
       await sendWhatsAppMessage(
         phoneNumber,
-        "Sorry, there was an error processing your message. Please try again or use the app directly."
+        "Sorry, there was an error processing your message. Please try again or try directly in PlayerARC."
       );
 
       return { success: false, messageId, error: errorMessage };

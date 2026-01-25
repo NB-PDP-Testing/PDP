@@ -5,6 +5,7 @@ import { useMutation, useQuery } from "convex/react";
 import {
   Activity,
   AlertCircle,
+  ArrowLeft,
   CheckCircle2,
   Clock,
   DollarSign,
@@ -20,6 +21,7 @@ import {
   XCircle,
   Zap,
 } from "lucide-react";
+import Link from "next/link";
 import { useState } from "react";
 import { toast } from "sonner";
 import { Badge } from "@/components/ui/badge";
@@ -44,14 +46,25 @@ export default function PlatformMessagingPage() {
     <div className="min-h-screen bg-gradient-to-b from-[#1E3A5F] via-[#1E3A5F] to-white p-4 sm:p-6 lg:p-8">
       <div className="mx-auto max-w-7xl">
         {/* Page Header */}
-        <div className="mb-8 text-white">
-          <h1 className="mb-2 font-bold text-3xl tracking-tight sm:text-4xl">
-            Platform Messaging & AI Dashboard
-          </h1>
-          <p className="text-lg text-white/90">
-            Monitor AI usage, costs, rate limits, and service health across all
-            organizations
-          </p>
+        <div className="mb-8 flex items-start gap-4 text-white">
+          <Link href="/platform">
+            <Button
+              className="mt-1 text-white hover:bg-white/20"
+              size="icon"
+              variant="ghost"
+            >
+              <ArrowLeft className="h-5 w-5" />
+            </Button>
+          </Link>
+          <div>
+            <h1 className="mb-2 font-bold text-3xl tracking-tight sm:text-4xl">
+              Platform Messaging & AI Dashboard
+            </h1>
+            <p className="text-lg text-white/90">
+              Monitor AI usage, costs, rate limits, and service health across
+              all organizations
+            </p>
+          </div>
         </div>
 
         {/* Main Content with Tabs */}

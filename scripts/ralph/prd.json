@@ -91,7 +91,7 @@
         "Typecheck passes"
       ],
       "priority": 19,
-      "passes": false,
+      "passes": true,
       "notes": "Fine-grained control. Set global limits as safety net, per-org limits for heavy users or trial accounts. See violations to identify abuse or bugs."
     },
     {

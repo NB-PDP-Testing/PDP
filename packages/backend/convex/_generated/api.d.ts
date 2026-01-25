@@ -117,6 +117,7 @@ import type * as scripts_stagedReset from "../scripts/stagedReset.js";
 import type * as scripts_updateTeamObservationCoachNames from "../scripts/updateTeamObservationCoachNames.js";
 import type * as scripts_validateTeamAssignments from "../scripts/validateTeamAssignments.js";
 import type * as scripts_verifyUATSetup from "../scripts/verifyUATSetup.js";
+import type * as seed_defaultRateLimits from "../seed/defaultRateLimits.js";
 import type * as seed_sessionPlansSeed from "../seed/sessionPlansSeed.js";
 import type * as utils_email from "../utils/email.js";
 
@@ -236,6 +237,7 @@ declare const fullApi: ApiFromModules<{
   "scripts/updateTeamObservationCoachNames": typeof scripts_updateTeamObservationCoachNames;
   "scripts/validateTeamAssignments": typeof scripts_validateTeamAssignments;
   "scripts/verifyUATSetup": typeof scripts_verifyUATSetup;
+  "seed/defaultRateLimits": typeof seed_defaultRateLimits;
   "seed/sessionPlansSeed": typeof seed_sessionPlansSeed;
   "utils/email": typeof utils_email;
 }>;

@@ -87,30 +87,27 @@ export const getGoalsForPassport = query({
   },
   returns: v.array(goalValidator),
   handler: async (ctx, args) => {
-    let goals;
-
-    if (args.status) {
-      goals = await ctx.db
+    const { passportId, status, category } = args;
+    if (status !== undefined) {
+      return await ctx.db
         .query("passportGoals")
         .withIndex("by_status", (q) =>
-          q.eq("passportId", args.passportId).eq("status", args.status!)
+          q.eq("passportId", passportId).eq("status", status)
         )
-        .collect();
-    } else if (args.category) {
-      goals = await ctx.db
-        .query("passportGoals")
-        .withIndex("by_category", (q) =>
-          q.eq("passportId", args.passportId).eq("category", args.category!)
-        )
-        .collect();
-    } else {
-      goals = await ctx.db
-        .query("passportGoals")
-        .withIndex("by_passportId", (q) => q.eq("passportId", args.passportId))
         .collect();
     }
-
-    return goals;
+    if (category !== undefined) {
+      return await ctx.db
+        .query("passportGoals")
+        .withIndex("by_category", (q) =>
+          q.eq("passportId", passportId).eq("category", category)
+        )
+        .collect();
+    }
+    return await ctx.db
+      .query("passportGoals")
+      .withIndex("by_passportId", (q) => q.eq("passportId", passportId))
+      .collect();
   },
 });
 
@@ -456,6 +453,118 @@ export const deleteGoal = mutation({
     }
 
     await ctx.db.delete(args.goalId);
+    return null;
+  },
+});
+
+/**
+ * Delete a milestone from a goal
+ */
+export const deleteMilestone = mutation({
+  args: {
+    goalId: v.id("passportGoals"),
+    milestoneId: v.string(),
+  },
+  returns: v.null(),
+  handler: async (ctx, args) => {
+    const existing = await ctx.db.get(args.goalId);
+    if (!existing) {
+      throw new Error("Goal not found");
+    }
+
+    const milestones = (existing.milestones ?? []).filter(
+      (m) => m.id !== args.milestoneId
+    );
+
+    // Recalculate progress based on remaining milestones
+    const completedCount = milestones.filter((m) => m.completed).length;
+    const progress =
+      milestones.length > 0
+        ? Math.round((completedCount / milestones.length) * 100)
+        : 0;
+
+    await ctx.db.patch(args.goalId, {
+      milestones,
+      progress,
+      updatedAt: Date.now(),
+    });
+
+    return null;
+  },
+});
+
+/**
+ * Update a milestone description
+ */
+export const updateMilestone = mutation({
+  args: {
+    goalId: v.id("passportGoals"),
+    milestoneId: v.string(),
+    description: v.string(),
+  },
+  returns: v.null(),
+  handler: async (ctx, args) => {
+    const existing = await ctx.db.get(args.goalId);
+    if (!existing) {
+      throw new Error("Goal not found");
+    }
+
+    const milestones = (existing.milestones ?? []).map((m) =>
+      m.id === args.milestoneId
+        ? {
+            ...m,
+            description: args.description,
+          }
+        : m
+    );
+
+    await ctx.db.patch(args.goalId, {
+      milestones,
+      updatedAt: Date.now(),
+    });
+
+    return null;
+  },
+});
+
+/**
+ * Mark a completed milestone as incomplete
+ */
+export const uncompleteMilestone = mutation({
+  args: {
+    goalId: v.id("passportGoals"),
+    milestoneId: v.string(),
+  },
+  returns: v.null(),
+  handler: async (ctx, args) => {
+    const existing = await ctx.db.get(args.goalId);
+    if (!existing) {
+      throw new Error("Goal not found");
+    }
+
+    const milestones = (existing.milestones ?? []).map((m) =>
+      m.id === args.milestoneId
+        ? {
+            ...m,
+            completed: false,
+            completedDate: undefined,
+          }
+        : m
+    );
+
+    // Recalculate progress based on milestones
+    const completedCount = milestones.filter((m) => m.completed).length;
+    const progress =
+      milestones.length > 0
+        ? Math.round((completedCount / milestones.length) * 100)
+        : 0;
+
+    await ctx.db.patch(args.goalId, {
+      milestones,
+      progress,
+      updatedAt: Date.now(),
+    });
+
     return null;
   },
 });

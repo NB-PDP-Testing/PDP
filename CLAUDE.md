@@ -394,6 +394,31 @@ This ensures full documentation is preserved both in the repository and on GitHu
 
 ---
 
+## Bug Fixing Workflow
+
+When the user indicates we're going to fix bugs, follow this process **before making any code changes**:
+
+### Step 1: Analyze the Bug Report
+- Thoroughly review all bug details provided (description, reproduction steps, expected vs actual behavior)
+- Do not make assumptions - ask clarifying questions if anything is unclear
+
+### Step 2: Investigate the Codebase
+- Explore relevant code paths comprehensively
+- Determine if the bug is still active or already fixed
+- Identify the root cause (not just symptoms)
+
+### Step 3: Present Findings
+- Summarize the bug and its root cause
+- Propose potential fixes with trade-offs
+- Ask any pertinent questions
+
+### Step 4: Wait for Approval
+- **Do not make any code changes** until the user reviews the analysis
+- Wait for explicit direction on which fix to implement
+- Confirm next steps before proceeding
+
+---
+
 ## Getting Help
 
 - Check existing `.md` files for feature documentation

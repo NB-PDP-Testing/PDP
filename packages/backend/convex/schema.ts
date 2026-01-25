@@ -1762,6 +1762,26 @@ export default defineSchema({
     revokedAt: v.optional(v.number()), // When coach revoked auto-approval
     revokedBy: v.optional(v.string()), // userId of coach who revoked
     revocationReason: v.optional(v.string()), // Why coach revoked
+
+    // Override tracking (Phase 4 - Learning Loop)
+    // Tracks when coach overrides AI decisions to learn patterns
+    overrideType: v.optional(
+      v.union(
+        v.literal("coach_approved_low_confidence"), // Coach approved despite low confidence (<70%)
+        v.literal("coach_rejected_high_confidence"), // Coach rejected despite high confidence (>70%)
+        v.literal("coach_edited"), // Coach edited before sending
+        v.literal("coach_revoked_auto") // Coach revoked auto-approved summary
+      )
+    ),
+    overrideReason: v.optional(v.string()), // Optional text explanation
+    overrideFeedback: v.optional(
+      v.object({
+        wasInaccurate: v.boolean(), // Summary didn't match voice note
+        wasTooSensitive: v.boolean(), // Too sensitive for parent
+        timingWasWrong: v.boolean(), // Wrong time to send
+        otherReason: v.optional(v.string()), // Free-text other reason
+      })
+    ),
   })
     .index("by_voiceNote", ["voiceNoteId"])
     .index("by_player", ["playerIdentityId"])

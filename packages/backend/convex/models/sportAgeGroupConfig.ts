@@ -21,6 +21,7 @@ export const getSportAgeGroupConfig = query({
   returns: v.array(
     v.object({
       _id: v.id("sportAgeGroupConfig"),
+      _creationTime: v.number(),
       sportCode: v.string(),
       ageGroupCode: v.string(),
       minAge: v.optional(v.number()),
@@ -54,6 +55,7 @@ export const getSportEligibilityRules = query({
   returns: v.array(
     v.object({
       _id: v.id("sportAgeGroupEligibilityRules"),
+      _creationTime: v.number(),
       sportCode: v.string(),
       fromAgeGroupCode: v.string(),
       toAgeGroupCode: v.string(),
@@ -91,6 +93,7 @@ export const getSportEligibilityRule = query({
     v.null(),
     v.object({
       _id: v.id("sportAgeGroupEligibilityRules"),
+      _creationTime: v.number(),
       sportCode: v.string(),
       fromAgeGroupCode: v.string(),
       toAgeGroupCode: v.string(),

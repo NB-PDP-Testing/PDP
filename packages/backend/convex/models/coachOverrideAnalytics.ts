@@ -57,9 +57,14 @@ export const getCoachOverridePatterns = query({
     }
 
     // Query summaries based on provided filters
-    let summaries: Awaited<
-      ReturnType<(typeof ctx.db.query<"coachParentSummaries">)["collect"]>
-    >;
+    let summaries: Array<{
+      _id: any;
+      _creationTime: number;
+      overrideType?: string;
+      sensitivityCategory: string;
+      publicSummary: { confidenceScore: number };
+      overrideFeedback?: any;
+    }>;
     if (args.coachId && args.organizationId) {
       // Both provided - use coach_org_status index
       const coachId = args.coachId;
@@ -113,13 +118,17 @@ export const getCoachOverridePatterns = query({
     // Process each summary
     for (const summary of summaries) {
       // Count by category (all summaries)
-      const category = summary.sensitivityCategory;
+      const category = summary.sensitivityCategory as
+        | "normal"
+        | "injury"
+        | "behavior";
       categoryStats[category].total += 1;
 
       // Check if this summary has an override
       if (summary.overrideType) {
         // Count by override type
-        byType[summary.overrideType] += 1;
+        const overrideType = summary.overrideType as keyof typeof byType;
+        byType[overrideType] += 1;
 
         // Mark as overridden for category stats
         categoryStats[category].overridden += 1;

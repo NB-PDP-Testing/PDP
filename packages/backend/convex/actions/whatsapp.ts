@@ -38,7 +38,6 @@ const WHATSAPP_PREFIX_REGEX = /^whatsapp:/;
  *    - Fall back to session memory (recent messages from same phone)
  *    - If ambiguous, ask for clarification via WhatsApp
  */
-// biome-ignore lint/complexity/noExcessiveCognitiveComplexity: Multi-org detection requires handling multiple code paths
 export const processIncomingMessage = internalAction({
   args: {
     messageSid: v.string(),
@@ -62,6 +61,7 @@ export const processIncomingMessage = internalAction({
     success: boolean;
     messageId?: Id<"whatsappMessages">;
     error?: string;
+    // biome-ignore lint/complexity/noExcessiveCognitiveComplexity: Multi-org detection requires handling multiple code paths
   }> => {
     // Extract phone number (remove "whatsapp:" prefix)
     const phoneNumber = args.from.replace(WHATSAPP_PREFIX_REGEX, "");
@@ -1006,7 +1006,11 @@ function formatResultsMessage(
   // Summary based on what needs attention
   const totalPending = results.needsReview.length + results.unmatched.length;
   if (totalPending > 0) {
-    lines.push(`Review ${totalPending} pending: playerarc.com/insights`);
+    const siteUrl = process.env.SITE_URL;
+    const reviewMessage = siteUrl
+      ? `Review ${totalPending} pending in PlayerARC: ${siteUrl}`
+      : `Review ${totalPending} pending in PlayerARC.`;
+    lines.push(reviewMessage);
   } else if (results.autoApplied.length > 0) {
     lines.push("All insights applied!");
   } else {

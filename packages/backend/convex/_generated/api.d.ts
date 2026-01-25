@@ -12,6 +12,7 @@ import type * as actions_coachParentSummaries from "../actions/coachParentSummar
 import type * as actions_guardianNotifications from "../actions/guardianNotifications.js";
 import type * as actions_invitations from "../actions/invitations.js";
 import type * as actions_messaging from "../actions/messaging.js";
+import type * as actions_platformStaffInvitations from "../actions/platformStaffInvitations.js";
 import type * as actions_practicePlans from "../actions/practicePlans.js";
 import type * as actions_sendDemoRequestNotification from "../actions/sendDemoRequestNotification.js";
 import type * as actions_sessionPlans from "../actions/sessionPlans.js";
@@ -66,6 +67,7 @@ import type * as models_passportGoals from "../models/passportGoals.js";
 import type * as models_passportSharing from "../models/passportSharing.js";
 import type * as models_platformCostAlerts from "../models/platformCostAlerts.js";
 import type * as models_platformMessagingSettings from "../models/platformMessagingSettings.js";
+import type * as models_platformStaffInvitations from "../models/platformStaffInvitations.js";
 import type * as models_playerEmergencyContacts from "../models/playerEmergencyContacts.js";
 import type * as models_playerIdentities from "../models/playerIdentities.js";
 import type * as models_playerImport from "../models/playerImport.js";
@@ -135,6 +137,7 @@ declare const fullApi: ApiFromModules<{
   "actions/guardianNotifications": typeof actions_guardianNotifications;
   "actions/invitations": typeof actions_invitations;
   "actions/messaging": typeof actions_messaging;
+  "actions/platformStaffInvitations": typeof actions_platformStaffInvitations;
   "actions/practicePlans": typeof actions_practicePlans;
   "actions/sendDemoRequestNotification": typeof actions_sendDemoRequestNotification;
   "actions/sessionPlans": typeof actions_sessionPlans;
@@ -189,6 +192,7 @@ declare const fullApi: ApiFromModules<{
   "models/passportSharing": typeof models_passportSharing;
   "models/platformCostAlerts": typeof models_platformCostAlerts;
   "models/platformMessagingSettings": typeof models_platformMessagingSettings;
+  "models/platformStaffInvitations": typeof models_platformStaffInvitations;
   "models/playerEmergencyContacts": typeof models_playerEmergencyContacts;
   "models/playerIdentities": typeof models_playerIdentities;
   "models/playerImport": typeof models_playerImport;

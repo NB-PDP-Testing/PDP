@@ -57,6 +57,9 @@ function RedirectToOrgs({
   const autoAssignFirstUser = useMutation(
     api.models.users.autoAssignFirstUserAsPlatformStaff
   );
+  const processPendingInvitation = useMutation(
+    api.models.platformStaffInvitations.processPendingInvitation
+  );
 
   useEffect(() => {
     const handleRedirect = async () => {
@@ -78,6 +81,26 @@ function RedirectToOrgs({
         console.error("Error checking first user:", error);
       }
 
+      // Check if user has a pending platform staff invitation
+      if (user.email) {
+        try {
+          const inviteResult = await processPendingInvitation({
+            email: user.email,
+            userId: user._id,
+          });
+
+          if (inviteResult.grantedStaffAccess) {
+            toast.success(
+              "🎉 Welcome to the platform staff team! You now have platform admin access."
+            );
+            router.push("/platform" as Route);
+            return;
+          }
+        } catch (error) {
+          console.error("Error processing platform staff invitation:", error);
+        }
+      }
+
       // Not the first user - proceed with normal redirect logic
       if (redirect) {
         router.push(redirect as Route);
@@ -91,7 +114,14 @@ function RedirectToOrgs({
     if (user) {
       handleRedirect();
     }
-  }, [router, user, redirect, checkedFirstUser, autoAssignFirstUser]);
+  }, [
+    router,
+    user,
+    redirect,
+    checkedFirstUser,
+    autoAssignFirstUser,
+    processPendingInvitation,
+  ]);
 
   return (
     <div className="flex min-h-screen items-center justify-center">

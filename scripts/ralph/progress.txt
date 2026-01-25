@@ -115,3 +115,66 @@ PRD: scripts/ralph/prds/coach-parent-summaries-phase6.3.prd.json
 - Fixed by adding the card usage first, then the import stayed
 
 ---
+
+## 2026-01-25 20:15 - US-018 - Build Cost Analytics tab (PARTIAL)
+**Iteration**: 1
+**Commit**: 7c4d751a58eb263a3a8dda49c32f8df6f0f8c9fc
+**Session**: 849235ae-2447-4dd0-948a-8918a42bca08
+**Status**: Partial (backend complete, frontend pending)
+
+### What was implemented
+- Created `getPlatformUsage` query in packages/backend/convex/models/aiUsageLog.ts
+- Query aggregates AI usage across ALL organizations (platform-wide analytics)
+- Returns key metrics: totalCost, totalInputTokens, totalCachedTokens, totalOutputTokens, averageCacheHitRate, callCount
+- Returns `byOrganization` array with top 10 orgs by cost
+- Returns `dailyCosts` array for time-series chart (date, cost, callCount)
+- Supports optional startDate/endDate filtering (for date range selection)
+- Uses organization ID as display name (TODO: integrate Better Auth adapter for real names)
+
+### Files changed
+- packages/backend/convex/models/aiUsageLog.ts (+172 lines for getPlatformUsage query)
+
+### Quality checks
+- ✅ Type check: passed
+- ✅ Linting: passed (pre-commit hooks)
+- ✅ Convex codegen: passed
+- ⏭️ Browser verification: pending (need to build UI first)
+
+### Learnings for future iterations ⚠️ CRITICAL
+
+**Patterns discovered:**
+- Platform-wide queries should aggregate across all orgs (no organizationId filter)
+- Daily aggregation uses ISO date strings (YYYY-MM-DD) for consistent grouping
+- Better Auth organization data is in external component tables, not directly accessible via ctx.db.get()
+- Using organization ID as display name is acceptable for MVP (platform admins will recognize)
+
+**Gotchas encountered:**
+- Cannot access `org.name` directly via `ctx.db.get(orgId)` - Better Auth tables are in component
+- Type error: `Property 'name' does not exist on type` when trying `org?.name`
+- Solution: Use organization ID as display name, add TODO for Better Auth integration
+
+**Dependencies found:**
+- Frontend will need to query this data and render:
+  - Metric cards (Total Cost, Cost Today, Average per Message, Cache Hit Rate)
+  - Line chart for daily costs (30 days)
+  - Table for top 10 orgs by cost
+- May need recharts or similar library for cost chart
+
+**What to do next**:
+- [ ] Create Cost Analytics tab UI component
+- [ ] Add metric cards showing totalCost, cache hit rate, etc.
+- [ ] Add line chart for dailyCosts (30-day view)
+- [ ] Add table showing top 10 orgs with cost breakdown
+- [ ] Add color coding: green (cache >80%), amber (60-80%), red (<60%)
+- [ ] Test with browser verification
+
+**Mistakes made**:
+- Initially tried to fetch org names via `ctx.db.get(orgId)` - doesn't work with Better Auth tables
+- Should have checked how Better Auth data is accessed before implementing
+
+**Context note**:
+- Approaching context limits (~68k tokens used)
+- Committed backend work as checkpoint
+- Good breaking point - backend complete, frontend next iteration
+
+---

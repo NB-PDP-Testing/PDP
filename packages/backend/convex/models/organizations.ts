@@ -1324,13 +1324,14 @@ export const generateLogoUploadUrl = mutation({
 /**
  * Save uploaded logo storage ID to organization
  * Updates organization logo field with Convex storage URL
+ * Returns the correct storage URL for the frontend to use
  */
 export const saveUploadedLogo = mutation({
   args: {
     organizationId: v.string(),
     storageId: v.id("_storage"),
   },
-  returns: v.null(),
+  returns: v.string(),
   handler: async (ctx, args) => {
     // Verify user is authenticated
     const user = await authComponent.getAuthUser(ctx);
@@ -1382,6 +1383,7 @@ export const saveUploadedLogo = mutation({
       },
     });
 
-    return null;
+    // Return the correct URL for the frontend to use
+    return logoUrl;
   },
 });

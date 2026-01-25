@@ -461,7 +461,7 @@ Description: ${args.insightDescription}`;
       try {
         await ctx.runMutation(internal.models.aiUsageLog.logUsage, {
           timestamp: Date.now(),
-          organizationId: args.organizationId as any, // Type assertion needed for Convex ID
+          organizationId: args.organizationId,
           coachId: args.coachId,
           playerId: args.playerId,
           operation: "parent_summary",

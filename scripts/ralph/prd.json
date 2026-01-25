@@ -26,7 +26,9 @@
       "processVoiceNoteInsight action exists in actions/coachParentSummaries.ts",
       "crons.ts exists with 3 existing cron jobs"
     ],
-    "requiredTables": ["aiUsageLog - For tracking actual costs (P5 Phase 3)"],
+    "requiredTables": [
+      "aiUsageLog - For tracking actual costs (P5 Phase 3)"
+    ],
     "newInfrastructure": [
       "orgCostBudgets table - Per-org budget tracking",
       "platformCostAlerts table - Alert audit trail",
@@ -48,7 +50,7 @@
         "Typecheck passes"
       ],
       "priority": 1,
-      "passes": false,
+      "passes": true,
       "notes": "Per-org budgets prevent runaway costs. alertThresholdPercent triggers warning emails at 80% by default. Daily resets at midnight UTC, monthly at month start."
     },
     {
@@ -62,7 +64,7 @@
         "Typecheck passes"
       ],
       "priority": 2,
-      "passes": false,
+      "passes": true,
       "notes": "Audit trail for all cost alerts. Platform staff can see alert history, acknowledge alerts to dismiss from dashboard. severity determines urgency."
     },
     {
@@ -81,7 +83,7 @@
         "Typecheck passes"
       ],
       "priority": 3,
-      "passes": false,
+      "passes": true,
       "notes": "Called FIRST in processVoiceNoteInsight action. Prevents AI calls if budget exceeded. Graceful: returns reason so user sees helpful error not generic failure."
     },
     {
@@ -98,7 +100,7 @@
         "Typecheck passes"
       ],
       "priority": 4,
-      "passes": false,
+      "passes": true,
       "notes": "CRITICAL: Budget check skips BOTH AI calls (classify AND generate). Fail fast. Don't call any AI if budget exceeded. Log event for analytics."
     },
     {
@@ -114,7 +116,7 @@
         "Typecheck passes"
       ],
       "priority": 5,
-      "passes": false,
+      "passes": true,
       "notes": "IMPORTANT: Edit crons.ts (already exists), don't create. Automated reset. No manual intervention needed. Runs at midnight UTC."
     },
     {
@@ -134,7 +136,7 @@
         "Typecheck passes"
       ],
       "priority": 6,
-      "passes": false,
+      "passes": true,
       "notes": "Proactive alerting. Catches budget issues before they become problems. Alert deduplication prevents notification fatigue."
     },
     {
@@ -149,7 +151,7 @@
         "Typecheck passes"
       ],
       "priority": 7,
-      "passes": false,
+      "passes": true,
       "notes": "Flexible rate limiting. Can limit by messages or cost, hourly or daily, per-org or platform-wide. windowStart/windowEnd track rolling windows."
     },
     {
@@ -167,7 +169,7 @@
         "Typecheck passes"
       ],
       "priority": 8,
-      "passes": false,
+      "passes": true,
       "notes": "Guards against abuse or bugs. Example: if bug causes infinite loop calling AI, rate limit stops it after 1000 messages/hour."
     },
     {
@@ -182,7 +184,7 @@
         "Typecheck passes"
       ],
       "priority": 9,
-      "passes": false,
+      "passes": true,
       "notes": "Defense in depth. Check BEFORE spending, increment AFTER. Order: rate check → budget check → AI calls → increment counters."
     },
     {
@@ -199,7 +201,7 @@
         "Typecheck passes"
       ],
       "priority": 10,
-      "passes": false,
+      "passes": true,
       "notes": "Automated reset. Rolling windows (not fixed midnight resets). If limit hit at 2:30pm, resets at 3:30pm (hourly) or next day 2:30pm (daily)."
     },
     {
@@ -214,7 +216,7 @@
         "Typecheck passes"
       ],
       "priority": 11,
-      "passes": false,
+      "passes": true,
       "notes": "Safety net. Even if no per-org limits set, platform limits prevent catastrophic costs. Values are conservative - adjust after observing production usage."
     }
   ],

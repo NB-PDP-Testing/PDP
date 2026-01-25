@@ -25,3 +25,97 @@ PRD: scripts/ralph/prds/coach-parent-summaries-phase6.1.prd.json
 ## Quality Monitor - 2026-01-25 12:03:24
 - ⚠️ Biome lint errors found
 
+## [2026-01-25 12:30] - Phase 6.1 Complete - All 11 Stories
+**Iteration**: 1
+**Commit**: da0556c6526fa12078138a005d58d89abbbf62a2
+**Session**: 61f3efc9-2d1a-4220-8647-730bd4a84bf7
+**Status**: Complete
+
+### What was implemented
+Phase 6.1 cost control infrastructure is fully implemented and operational:
+
+**Schema (US-001, US-002, US-007):**
+- orgCostBudgets table: daily/monthly budget tracking with alert thresholds
+- platformCostAlerts table: audit trail for cost violations
+- rateLimits table: flexible rate limiting (platform/org scope, message/cost limits)
+
+**Budget Queries (US-003):**
+- checkOrgCostBudget: validates budget before AI calls
+- Graceful defaults: no budget = unlimited, disabled = unlimited
+- Returns withinBudget boolean + remaining amounts
+- logBudgetExceededEvent: analytics tracking
+
+**Rate Limit Queries (US-008):**
+- checkRateLimit: validates rate limits before AI calls
+- Checks both platform-wide and org-specific limits
+- incrementRateLimit: updates counters after successful calls
+- Rolling windows with automatic expiry
+
+**AI Pipeline Integration (US-004, US-009):**
+- Rate check → Budget check → AI calls → Increment counters
+- Fail fast: exit early without wasting API calls
+- Helpful error messages with reset times
+- Defense in depth approach
+
+**Cron Jobs (US-005, US-006, US-010):**
+- updateOrgDailySpend: daily at 00:00 UTC (resets daily spend)
+- checkCostAlerts: every 10 minutes (monitors budgets, creates alerts)
+- resetRateLimitWindows: hourly at :00 (resets expired windows)
+
+**Seed Data (US-011):**
+- insertDefaultRateLimits: platform-wide safety net
+- Conservative limits: 1000/hour, 10000/day messages; $50/hour, $500/day cost
+- Idempotent: skips if already exists
+
+### Files changed
+- packages/backend/convex/schema.ts (+88)
+- packages/backend/convex/models/orgCostBudgets.ts (+156, new)
+- packages/backend/convex/models/rateLimits.ts (+260, new)
+- packages/backend/convex/models/platformCostAlerts.ts (+185, new)
+- packages/backend/convex/actions/coachParentSummaries.ts (+55, -5)
+- packages/backend/convex/crons.ts (+20)
+- packages/backend/convex/seed/defaultRateLimits.ts (+130, new)
+
+### Quality checks
+- ✅ Type check: passed
+- ✅ Linting: passed (fixed increment operators to use += 1)
+- ✅ Codegen: passed
+- ✅ All 4 commits merged to branch
+
+### **Learnings for future iterations** ⚠️ CRITICAL
+
+**Patterns discovered:**
+- Queries called from actions must be internalQuery (not public query)
+- Cron jobs use internal mutations and are added to crons.ts
+- Rate limit checks run BEFORE budget checks (fail fast)
+- Budget checks exit early without calling AI (don't waste money)
+- Return validators must use v.object() with v.number(), v.string(), etc.
+
+**Gotchas encountered:**
+- Linter auto-reverts api import, must use internal.models.X for all calls
+- Increment operators (++) not allowed by biome - use += 1 instead
+- Returns validator syntax: v.object({ field: v.number() }), not { field: 0 }
+- checkRateLimit and checkOrgCostBudget must be internalQuery for actions to call them
+- Queries use .filter() with complex conditions allowed (no index required for alerts deduplication)
+
+**Dependencies found:**
+- Budget/rate limit queries must exist before AI pipeline integration
+- Cron jobs depend on schema tables and mutations
+- Seed data depends on rateLimits table existing
+
+**Architecture decisions:**
+- Used internal queries/mutations for backend-only functions
+- Alert deduplication: check if same type/severity exists in last 60 minutes
+- Rolling windows for rate limits (not fixed midnight resets)
+- Conservative default limits (adjust after observing usage)
+
+**What to do next:**
+All Phase 6.1 stories complete! Ready for testing and deployment.
+
+**Mistakes made:**
+- Initially tried to use public queries from actions (should be internalQuery)
+- Forgot to add v import for returns validator
+- Used ++ operators which biome doesn't allow
+- Initially duplicated budget check query (removed unused variable)
+
+---

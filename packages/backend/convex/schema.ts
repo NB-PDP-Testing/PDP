@@ -1921,6 +1921,45 @@ export default defineSchema({
     lastResetAt: v.number(), // Last time counters were reset
   }).index("by_scope_type", ["scope", "scopeId", "limitType"]),
 
+  // ============================================================
+  // PHASE 6.2: GRACEFUL DEGRADATION & CIRCUIT BREAKER
+  // Track AI service health and implement circuit breaker pattern
+  // ============================================================
+
+  // AI service health tracking (Phase 6.2)
+  // Singleton table - only one record tracks Anthropic API health
+  // Circuit breaker: stops calling failing API after threshold
+  aiServiceHealth: defineTable({
+    // Service identifier (singleton - always 'anthropic')
+    service: v.literal("anthropic"),
+
+    // Current health status
+    status: v.union(
+      v.literal("healthy"), // Normal operation
+      v.literal("degraded"), // Some failures but not critical
+      v.literal("down") // Service unavailable
+    ),
+
+    // Timestamp tracking
+    lastSuccessAt: v.number(), // Last successful API call timestamp
+    lastFailureAt: v.number(), // Last failed API call timestamp
+
+    // Failure tracking for circuit breaker
+    recentFailureCount: v.number(), // Count of failures in current window
+    failureWindow: v.number(), // Time window for failure counting (default 5 minutes)
+
+    // Circuit breaker state
+    circuitBreakerState: v.union(
+      v.literal("closed"), // Normal operation, API calls allowed
+      v.literal("open"), // Too many failures, API calls blocked
+      v.literal("half_open") // Testing if service recovered
+    ),
+
+    // Last health check
+    lastCheckedAt: v.number(), // Last time health was evaluated
+  }),
+  // No indexes needed - singleton table with only one record
+
   // Track when parents view summaries
   parentSummaryViews: defineTable({
     summaryId: v.id("coachParentSummaries"),

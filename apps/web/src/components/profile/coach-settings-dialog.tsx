@@ -209,10 +209,10 @@ export function CoachSettingsDialog({
     return (
       <ResponsiveDialog
         contentClassName="sm:max-w-[650px]"
-        description="Loading your coach settings..."
+        description="Loading your AI coach assistant settings..."
         onOpenChange={onOpenChange}
         open={open}
-        title="🛡️ Coach Settings"
+        title="🧠 AI Coach Assistant"
       >
         <div className="flex items-center justify-center py-12">
           <Loader2 className="h-8 w-8 animate-spin text-muted-foreground" />
@@ -227,7 +227,7 @@ export function CoachSettingsDialog({
       description="Manage your AI assistant settings and trust level"
       onOpenChange={onOpenChange}
       open={open}
-      title="🛡️ Coach Settings"
+      title="🧠 AI Coach Assistant"
     >
       <div className="max-h-[70vh] space-y-6 overflow-y-auto">
         {/* Trust Level Hero Section */}

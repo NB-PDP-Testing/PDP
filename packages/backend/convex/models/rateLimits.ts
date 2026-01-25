@@ -4,7 +4,13 @@
  */
 
 import { v } from "convex/values";
-import { internalMutation, internalQuery } from "../_generated/server";
+import {
+  internalMutation,
+  internalQuery,
+  mutation,
+  query,
+} from "../_generated/server";
+import { authComponent } from "../auth";
 
 /**
  * Check rate limits before making AI calls
@@ -257,6 +263,314 @@ export const resetRateLimitWindows = internalMutation({
     if (resetCount > 0) {
       console.log(`✅ Reset ${resetCount} rate limit windows`);
     }
+
+    return null;
+  },
+});
+
+/**
+ * Get platform-wide rate limits (US-019)
+ *
+ * USAGE: Platform staff only - view current platform limits in admin dashboard
+ *
+ * Returns all platform-wide rate limits with current usage and window info
+ */
+export const getPlatformRateLimits = query({
+  args: {},
+  returns: v.array(
+    v.object({
+      _id: v.id("rateLimits"),
+      limitType: v.union(
+        v.literal("messages_per_hour"),
+        v.literal("messages_per_day"),
+        v.literal("cost_per_hour"),
+        v.literal("cost_per_day")
+      ),
+      limitValue: v.number(),
+      currentCount: v.number(),
+      currentCost: v.number(),
+      windowStart: v.number(),
+      windowEnd: v.number(),
+      lastResetAt: v.number(),
+    })
+  ),
+  handler: async (ctx) => {
+    // Verify current user is platform staff
+    const currentUser = await authComponent.safeGetAuthUser(ctx);
+    if (!currentUser?.isPlatformStaff) {
+      throw new Error("Only platform staff can view rate limits");
+    }
+
+    // Get all platform limits
+    const limits = await ctx.db
+      .query("rateLimits")
+      .withIndex("by_scope_type", (q) =>
+        q.eq("scope", "platform").eq("scopeId", "platform")
+      )
+      .collect();
+
+    return limits.map((limit) => ({
+      _id: limit._id,
+      limitType: limit.limitType,
+      limitValue: limit.limitValue,
+      currentCount: limit.currentCount,
+      currentCost: limit.currentCost,
+      windowStart: limit.windowStart,
+      windowEnd: limit.windowEnd,
+      lastResetAt: limit.lastResetAt,
+    }));
+  },
+});
+
+/**
+ * Update platform-wide rate limit (US-019)
+ *
+ * USAGE: Platform staff only - update platform limit values
+ *
+ * Updates a rate limit's value. Current count/cost are NOT reset (they reset on window expiry).
+ */
+export const updatePlatformRateLimit = mutation({
+  args: {
+    limitId: v.id("rateLimits"),
+    newLimitValue: v.number(),
+  },
+  returns: v.null(),
+  handler: async (ctx, args) => {
+    // Verify current user is platform staff
+    const currentUser = await authComponent.safeGetAuthUser(ctx);
+    if (!currentUser?.isPlatformStaff) {
+      throw new Error("Only platform staff can update rate limits");
+    }
+
+    // Verify the limit exists and is a platform limit
+    const limit = await ctx.db.get(args.limitId);
+    if (!limit) {
+      throw new Error("Rate limit not found");
+    }
+    if (limit.scope !== "platform" || limit.scopeId !== "platform") {
+      throw new Error(
+        "Can only update platform-wide limits with this mutation"
+      );
+    }
+
+    // Update the limit value
+    await ctx.db.patch(args.limitId, {
+      limitValue: args.newLimitValue,
+    });
+
+    console.log(
+      `✅ Platform staff ${currentUser._id} updated ${limit.limitType} to ${args.newLimitValue}`
+    );
+
+    return null;
+  },
+});
+
+/**
+ * Get organization-specific rate limit overrides (US-019)
+ *
+ * USAGE: Platform staff only - view per-org rate limit overrides
+ *
+ * Returns all org-specific rate limits (overrides)
+ */
+export const getOrgRateLimits = query({
+  args: {},
+  returns: v.array(
+    v.object({
+      _id: v.id("rateLimits"),
+      organizationId: v.string(),
+      limitType: v.union(
+        v.literal("messages_per_hour"),
+        v.literal("messages_per_day"),
+        v.literal("cost_per_hour"),
+        v.literal("cost_per_day")
+      ),
+      limitValue: v.number(),
+      currentCount: v.number(),
+      currentCost: v.number(),
+      windowStart: v.number(),
+      windowEnd: v.number(),
+      lastResetAt: v.number(),
+    })
+  ),
+  handler: async (ctx) => {
+    // Verify current user is platform staff
+    const currentUser = await authComponent.safeGetAuthUser(ctx);
+    if (!currentUser?.isPlatformStaff) {
+      throw new Error("Only platform staff can view rate limits");
+    }
+
+    // Get all org-specific limits
+    const limits = await ctx.db
+      .query("rateLimits")
+      .withIndex("by_scope_type", (q) => q.eq("scope", "organization"))
+      .collect();
+
+    return limits.map((limit) => ({
+      _id: limit._id,
+      organizationId: limit.scopeId,
+      limitType: limit.limitType,
+      limitValue: limit.limitValue,
+      currentCount: limit.currentCount,
+      currentCost: limit.currentCost,
+      windowStart: limit.windowStart,
+      windowEnd: limit.windowEnd,
+      lastResetAt: limit.lastResetAt,
+    }));
+  },
+});
+
+/**
+ * Create organization-specific rate limit override (US-019)
+ *
+ * USAGE: Platform staff only - set per-org rate limits
+ *
+ * Creates a new rate limit for a specific organization
+ */
+export const createOrgRateLimit = mutation({
+  args: {
+    organizationId: v.string(),
+    limitType: v.union(
+      v.literal("messages_per_hour"),
+      v.literal("messages_per_day"),
+      v.literal("cost_per_hour"),
+      v.literal("cost_per_day")
+    ),
+    limitValue: v.number(),
+  },
+  returns: v.id("rateLimits"),
+  handler: async (ctx, args) => {
+    // Verify current user is platform staff
+    const currentUser = await authComponent.safeGetAuthUser(ctx);
+    if (!currentUser?.isPlatformStaff) {
+      throw new Error("Only platform staff can create rate limits");
+    }
+
+    // Check if org already has this limit type
+    const existing = await ctx.db
+      .query("rateLimits")
+      .withIndex("by_scope_type", (q) =>
+        q.eq("scope", "organization").eq("scopeId", args.organizationId)
+      )
+      .collect();
+
+    const duplicate = existing.find((l) => l.limitType === args.limitType);
+    if (duplicate) {
+      throw new Error(
+        `Organization already has a ${args.limitType} limit. Use update instead.`
+      );
+    }
+
+    // Calculate window duration and end time
+    const now = Date.now();
+    const ONE_HOUR_MS = 60 * 60 * 1000;
+    const ONE_DAY_MS = 24 * 60 * 60 * 1000;
+
+    let windowDuration: number;
+    if (
+      args.limitType === "messages_per_hour" ||
+      args.limitType === "cost_per_hour"
+    ) {
+      windowDuration = ONE_HOUR_MS;
+    } else {
+      windowDuration = ONE_DAY_MS;
+    }
+
+    // Create the new limit
+    const limitId = await ctx.db.insert("rateLimits", {
+      scope: "organization",
+      scopeId: args.organizationId,
+      limitType: args.limitType,
+      limitValue: args.limitValue,
+      currentCount: 0,
+      currentCost: 0,
+      windowStart: now,
+      windowEnd: now + windowDuration,
+      lastResetAt: now,
+    });
+
+    console.log(
+      `✅ Platform staff ${currentUser._id} created ${args.limitType}=${args.limitValue} for org ${args.organizationId}`
+    );
+
+    return limitId;
+  },
+});
+
+/**
+ * Update organization-specific rate limit (US-019)
+ *
+ * USAGE: Platform staff only - update per-org rate limit values
+ */
+export const updateOrgRateLimit = mutation({
+  args: {
+    limitId: v.id("rateLimits"),
+    newLimitValue: v.number(),
+  },
+  returns: v.null(),
+  handler: async (ctx, args) => {
+    // Verify current user is platform staff
+    const currentUser = await authComponent.safeGetAuthUser(ctx);
+    if (!currentUser?.isPlatformStaff) {
+      throw new Error("Only platform staff can update rate limits");
+    }
+
+    // Verify the limit exists and is an org limit
+    const limit = await ctx.db.get(args.limitId);
+    if (!limit) {
+      throw new Error("Rate limit not found");
+    }
+    if (limit.scope !== "organization") {
+      throw new Error("Can only update organization limits with this mutation");
+    }
+
+    // Update the limit value
+    await ctx.db.patch(args.limitId, {
+      limitValue: args.newLimitValue,
+    });
+
+    console.log(
+      `✅ Platform staff ${currentUser._id} updated org ${limit.scopeId} ${limit.limitType} to ${args.newLimitValue}`
+    );
+
+    return null;
+  },
+});
+
+/**
+ * Delete organization-specific rate limit (US-019)
+ *
+ * USAGE: Platform staff only - remove per-org override
+ */
+export const deleteOrgRateLimit = mutation({
+  args: {
+    limitId: v.id("rateLimits"),
+  },
+  returns: v.null(),
+  handler: async (ctx, args) => {
+    // Verify current user is platform staff
+    const currentUser = await authComponent.safeGetAuthUser(ctx);
+    if (!currentUser?.isPlatformStaff) {
+      throw new Error("Only platform staff can delete rate limits");
+    }
+
+    // Verify the limit exists and is an org limit
+    const limit = await ctx.db.get(args.limitId);
+    if (!limit) {
+      throw new Error("Rate limit not found");
+    }
+    if (limit.scope !== "organization") {
+      throw new Error(
+        "Can only delete organization limits (not platform limits)"
+      );
+    }
+
+    // Delete the limit
+    await ctx.db.delete(args.limitId);
+
+    console.log(
+      `✅ Platform staff ${currentUser._id} deleted org ${limit.scopeId} ${limit.limitType}`
+    );
 
     return null;
   },

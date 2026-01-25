@@ -110,7 +110,7 @@
         "Typecheck passes"
       ],
       "priority": 20,
-      "passes": false,
+      "passes": true,
       "notes": "Health at a glance. See if AI is working, recent errors, circuit breaker status. Manual override for when admin knows service is back. Cache hit rate shows if prompt caching is effective."
     },
     {

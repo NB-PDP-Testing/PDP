@@ -1,0 +1,26 @@
+{
+  "project": "P5 Phase 4 - Learning Loop",
+  "branchName": "ralph/coach-parent-summaries-p5-phase4",
+  "status": "PLANNED",
+  "description": "AI learns from coach behavior. Adaptive confidence thresholds personalized per coach.",
+  "stories": ["US-016", "US-017", "US-018", "US-019", "US-020"],
+  "storyCount": 5,
+  "estimatedTime": "5-6 hours",
+  "filesWillModify": [
+    "packages/backend/convex/schema.ts",
+    "packages/backend/convex/models/coachParentSummaries.ts",
+    "packages/backend/convex/models/coachTrustLevels.ts",
+    "packages/backend/convex/lib/adaptiveThresholdCalculator.ts",
+    "packages/backend/convex/crons.ts"
+  ],
+  "keyFeatures": [
+    "Override tracking (why coaches suppress)",
+    "Optional feedback on suppression",
+    "Override pattern analytics",
+    "Adaptive confidence thresholds",
+    "Weekly batch job for threshold adjustment"
+  ],
+  "goal": "Personalize AI behavior per coach. Reduce false positives over time.",
+  "industryPattern": "GitHub Copilot learns from rejection patterns to improve suggestions",
+  "reference": "Full PRD: /scripts/ralph/prds/coach-parent-summaries-phase5-REVISED.prd.json (US-016 to US-020)"
+}

@@ -87,11 +87,20 @@ export function ReviewTab({ orgId, onSuccess, onError }: ReviewTabProps) {
     }
   };
 
-  const handleSuppressSummary = async (summaryId: string) => {
+  const handleSuppressSummary = async (
+    summaryId: string,
+    feedback?: {
+      wasInaccurate: boolean;
+      wasTooSensitive: boolean;
+      timingWasWrong: boolean;
+      otherReason?: string;
+    }
+  ) => {
     setSuppressingIds((prev) => new Set(prev).add(summaryId));
     try {
       await suppressSummary({
         summaryId: summaryId as Id<"coachParentSummaries">,
+        feedback,
       });
       onSuccess("Summary suppressed - will not be shared");
     } catch (error) {
@@ -220,7 +229,9 @@ export function ReviewTab({ orgId, onSuccess, onError }: ReviewTabProps) {
                 isSuppressing={suppressingIds.has(item._id)}
                 key={item._id}
                 onApprove={() => handleApproveSummary(item._id)}
-                onSuppress={() => handleSuppressSummary(item._id)}
+                onSuppress={(feedback) =>
+                  handleSuppressSummary(item._id, feedback)
+                }
                 player={
                   item.player
                     ? {
@@ -235,6 +246,7 @@ export function ReviewTab({ orgId, onSuccess, onError }: ReviewTabProps) {
                   publicSummary: item.publicSummary,
                   privateInsight: item.privateInsight,
                 }}
+                wouldAutoApprove={item.wouldAutoApprove}
               />
             ))}
           </CardContent>

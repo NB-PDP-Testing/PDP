@@ -1,246 +1,39 @@
-# Ralph Progress Log
-Started: Sun 25 Jan 2026 00:20:26 GMT
+# Ralph Progress Log - Phase 6.1 (Cost Controls)
+Started: $(date)
+PRD: scripts/ralph/prds/coach-parent-summaries-phase6.1.prd.json
+Stories: US-001 to US-011 (11 stories)
+Branch: ralph/coach-parent-summaries-p6-phase1
+---
+
+## PHASE 6.1 OVERVIEW
+
+**Goal:** Implement cost monitoring and rate limiting to prevent runaway AI costs.
+
+**Stories:**
+- US-001 to US-006: Cost Monitoring (budgets, alerts, resets)
+- US-007 to US-011: Rate Limiting (messages/hour, cost/day, defaults)
+
+**New Tables:**
+- orgCostBudgets - Per-org budget tracking
+- platformCostAlerts - Alert audit trail
+- rateLimits - Platform and per-org rate limits
+
+**New Crons (edit existing crons.ts):**
+- updateOrgDailySpend - Daily at 00:00 UTC
+- checkCostAlerts - Every 10 minutes
+- resetRateLimitWindows - Every hour at :00
+
+**Integration Point:**
+- Edit processVoiceNoteInsight action
+- Order: rate check → budget check → AI calls → increment counters
+
 ---
 
 ## CODE REVIEW FEEDBACK
 
-### Agent Feedback - 2026-01-25 00:20
-# Agent Feedback for P5 Phase 4 (Learning Loop)
-
-## Phase 4 - Ready for Ralph
-Starting fresh for US-016 through US-020
+### Agent Feedback - Phase 6.1 Start
+Ready to begin Phase 6.1 implementation
+All P5 dependencies satisfied (PR #331 merged to main)
 
 <!-- Agents will write feedback below this line -->
 
-## Quality Monitor - 2026-01-25 00:17:05
-- ⚠️ Biome lint errors found
-
-
-## Quality Monitor - 2026-01-25 00:18:16
-- ⚠️ Biome lint errors found
-
-
-## Quality Monitor - 2026-01-25 00:19:27
-- ⚠️ Biome lint errors found
-
-
-## Quality Monitor - 2026-01-25 00:20:14
-- ⚠️ Biome lint errors found
-
-
-## 2026-01-25 20:30 - US-016 - Add override tracking fields to coachParentSummaries
-**Iteration**: 1
-**Commit**: ba791708a8727262669acbf37fa239d3842f07bc
-**Session**: b65b8f57-711b-48b9-9918-4c739bce4b08
-**Status**: Complete
-
-### What was implemented
-- Added three new optional fields to coachParentSummaries schema for learning signal tracking:
-  - `overrideType`: Union type tracking coach override actions (approved_low_confidence, rejected_high_confidence, edited, revoked_auto)
-  - `overrideReason`: Optional string for text explanation
-  - `overrideFeedback`: Optional structured feedback object with boolean flags for inaccurate, too sensitive, timing wrong, plus optional other reason text
-- Fields placed after revocation tracking section, before table indexes
-- All fields are optional to maintain backward compatibility
-
-### Files changed
-- packages/backend/convex/schema.ts (+20 lines)
-
-### Quality checks
-- ✅ Type check: passed (npm run check-types)
-- ✅ Codegen: passed (npx -w packages/backend convex codegen)
-- ✅ Pre-commit hooks: passed (lint-staged with biome)
-- ✅ No browser verification needed (backend schema change only)
-
-### Learnings for future iterations ⚠️ CRITICAL
-
-**Patterns discovered:**
-- Schema changes for Convex require running codegen immediately after editing schema.ts
-- Pre-existing lint errors exist in the codebase (1350+ warnings), but pre-commit hooks only check staged files
-- Override tracking fields are all optional to allow gradual rollout and backward compatibility
-
-**Gotchas encountered:**
-- Schema.ts file is very large (32k+ tokens), need to use grep/search or offset/limit when reading
-- The coachParentSummaries table already had extensive Phase 2 and Phase 3 fields (auto-approval, revocation tracking)
-- Pre-commit hooks run biome with --diagnostic-level=error, so only errors block commits, not warnings
-
-**Dependencies found:**
-- These schema fields will be populated by suppressSummary mutation (US-017)
-- These fields will be read by getCoachOverridePatterns query (US-019)
-- The overrideType values align with the learning logic needed for adaptive thresholds (US-020)
-
-**What to do next**:
-- Move to US-017: Capture override data in suppressSummary mutation
-- The mutation already exists, need to add optional args and logic to populate the new schema fields
-
-**Mistakes made**: None - straightforward schema addition
-
----
-
-## 2026-01-25 21:00 - US-017 - Capture override data in suppressSummary mutation
-**Iteration**: 1
-**Commit**: 5afd606d049fd73e5587e6b66716c143bd98a59e
-**Session**: b65b8f57-711b-48b9-9918-4c739bce4b08
-**Status**: Complete
-
-### What was implemented
-- Extended suppressSummary mutation with optional feedback parameters:
-  - Added `reason` arg (optional string) for text explanation
-  - Added `feedback` arg (optional structured object) with boolean flags and other reason
-- Implemented override detection logic:
-  - If confidenceScore >= 0.7: sets overrideType to 'coach_rejected_high_confidence'
-  - If confidenceScore < 0.7: overrideType remains undefined (normal suppression)
-- Mutation now stores overrideType, overrideReason, and overrideFeedback in the summary record
-
-### Files changed
-- packages/backend/convex/models/coachParentSummaries.ts (+20 lines, -1 line)
-
-### Quality checks
-- ✅ Type check: passed (npm run check-types)
-- ✅ Codegen: passed (npx -w packages/backend convex codegen)
-- ✅ Pre-commit hooks: passed (lint-staged with biome)
-- ✅ No browser verification needed (backend mutation change only)
-
-### Learnings for future iterations ⚠️ CRITICAL
-
-**Patterns discovered:**
-- The suppressSummary mutation already had preview mode stats tracking - added override tracking alongside it
-- Args validators use v.optional() for optional parameters
-- The 70% confidence threshold (0.7) is consistent with the auto-approval threshold used elsewhere in the codebase
-
-**Gotchas encountered:**
-- Must read file before editing (got error on first attempt)
-- The mutation already called updateTrustMetrics - no need to modify that flow
-
-**Dependencies found:**
-- The overrideType value 'coach_rejected_high_confidence' matches the schema union types from US-016
-- The feedback object structure matches exactly what was defined in schema
-- Frontend (US-018) will need to pass these optional args when calling suppressSummary
-
-**What to do next**:
-- Move to US-018: Add optional feedback UI for suppression
-- Need to modify summary-approval-card.tsx to show dialog on suppress click
-- Dialog should make feedback optional (skip button as default)
-
-**Mistakes made**: None - straightforward mutation extension
-
----
-
-## 2026-01-25 22:00 - US-018 - Add optional feedback UI for suppression
-**Iteration**: 1
-**Commit**: eb3d7b41154560aae17804c3b51cc37714329bc1
-**Session**: b65b8f57-711b-48b9-9918-4c739bce4b08
-**Status**: Complete
-
-### What was implemented
-- Added feedback dialog to SummaryApprovalCard component:
-  - Dialog triggered when "Don't Share" button clicked
-  - Three checkboxes: inaccurate, too sensitive, timing wrong
-  - Optional textarea for other reasons
-  - Two buttons: "Skip" (default, no feedback) and "Suppress & Send Feedback"
-  - Dialog resets form after submission
-- Updated component props to accept optional feedback parameter in onSuppress callback
-- Modified review-tab.tsx and parents-tab.tsx to pass feedback to mutation
-- Only sends feedback if at least one checkbox is checked or other reason is provided
-
-### Files changed
-- apps/web/src/app/orgs/[orgId]/coach/voice-notes/components/summary-approval-card.tsx (+112 lines)
-- apps/web/src/app/orgs/[orgId]/coach/voice-notes/components/review-tab.tsx (+14 lines, -4 lines)
-- apps/web/src/app/orgs/[orgId]/coach/voice-notes/components/parents-tab.tsx (+17 lines, -7 lines)
-
-### Quality checks
-- ✅ Type check: passed (npm run check-types)
-- ✅ Codegen: passed (npx -w packages/backend convex codegen)
-- ✅ Pre-commit hooks: passed (lint-staged with biome)
-- ⚠️ Browser verification: RECOMMENDED but not done yet (UI change - should test dialog appearance and feedback submission)
-
-### Learnings for future iterations ⚠️ CRITICAL
-
-**Patterns discovered:**
-- Linter (Biome) may remove imports during pre-commit if not used yet - need to ensure imports are in place before using components
-- The codebase uses shadcn/ui components (Dialog, Checkbox, Textarea) from @/components/ui
-- Dialog pattern: onOpenChange prop for external state control, open prop for controlled mode
-- Feedback is passed as optional parameter to callbacks - TypeScript handles undefined correctly
-
-**Gotchas encountered:**
-- Initial edit to add imports was reverted by linter because Dialog wasn't used yet
-- Had to re-add imports after adding the Dialog JSX
-- Type errors showed "Cannot find name Dialog" etc when imports were missing
-
-**Dependencies found:**
-- Dialog, Checkbox, Textarea components are already installed (shadcn/ui)
-- The feedback type structure matches exactly what backend expects
-- Both review-tab and parents-tab use SummaryApprovalCard and needed updates
-
-**What to do next**:
-- Move to US-019: Create getCoachOverridePatterns analytics query
-- This is a backend-only query for platform admins
-- Will aggregate override data for pattern analysis
-
-**Mistakes made**:
-- Forgot that linter would remove unused imports - should have added Dialog usage in same edit as imports
-
----
-
-## 2026-01-25 23:00 - US-019 - Create getCoachOverridePatterns analytics query
-**Iteration**: 1
-**Commit**: 06a453ca18feaf14115f67b8c7ec22b4c99cb0e2
-**Session**: b65b8f57-711b-48b9-9918-4c739bce4b08
-**Status**: Complete
-
-### What was implemented
-- Created new file: coachOverrideAnalytics.ts with getCoachOverridePatterns query
-- Query accepts optional coachId and/or organizationId for flexible filtering
-- Aggregates override data across multiple dimensions:
-  - Total overrides by type (4 categories)
-  - Average confidence score when coaches reject high-confidence summaries
-  - Common feedback reasons (4 boolean flags + other reason count)
-  - Override rate by sensitivity category (normal, injury, behavior) with total/overridden/rate
-- Uses appropriate indexes based on which parameters are provided:
-  - Both coachId + organizationId: by_coach_org_status
-  - CoachId only: by_coach
-  - OrganizationId only: by_org_status
-- Returns structured analytics object for data-driven insights
-
-### Files changed
-- packages/backend/convex/models/coachOverrideAnalytics.ts (+193 lines, new file)
-
-### Quality checks
-- ✅ Type check: passed (npm run check-types)
-- ✅ Codegen: passed (npx -w packages/backend convex codegen)
-- ✅ Pre-commit hooks: passed (after fixing lint errors)
-- ✅ No browser verification needed (backend query only)
-
-### Learnings for future iterations ⚠️ CRITICAL
-
-**Patterns discovered:**
-- Biome linter requires explicit type annotations for let variables (can't infer from branches)
-- Biome disallows non-null assertions (!) - must use ternary or ensure type narrowing
-- Better to use const with ternary expression than let with if/else for cleaner code
-- Convex queries can use .collect() to get all results from an index query
-
-**Gotchas encountered:**
-- Initial commit failed due to lint errors:
-  - `let summaries;` without type annotation
-  - Non-null assertions like `args.coachId!`
-- Fixed by using const with nested ternary instead of if/else blocks
-- TypeScript correctly narrows types in ternary branches
-
-**Dependencies found:**
-- Uses existing indexes: by_coach_org_status, by_coach, by_org_status
-- Reads override fields added in US-016: overrideType, overrideFeedback
-- This query will be used by US-020 to calculate personalized thresholds
-
-**What to do next**:
-- Move to US-020: Implement adaptive confidence thresholds per coach
-- This is the final story - most complex one
-- Needs to:
-  1. Add personalizedThreshold field to coachTrustLevels schema
-  2. Create calculatePersonalizedThreshold function in autoApprovalDecision.ts
-  3. Create weekly cron job to adjust thresholds
-  4. Use personalizedThreshold in autoApprovalDecision logic
-
-**Mistakes made**: 
-- Used non-null assertions initially instead of proper type handling
-- Should have anticipated lint rules around type annotations
-
----

@@ -286,6 +286,17 @@ export function EnhancedUserMenu() {
                 className="flex flex-col items-center gap-1 rounded p-2 hover:bg-accent"
                 onClick={() => {
                   setOpen(false);
+                  setCoachSettingsOpen(true);
+                }}
+                type="button"
+              >
+                <Brain aria-hidden="true" className="h-5 w-5" />
+                <span className="text-[10px]">Coach AI</span>
+              </button>
+              <button
+                className="flex flex-col items-center gap-1 rounded p-2 hover:bg-accent"
+                onClick={() => {
+                  setOpen(false);
                   setPreferencesOpen(true);
                 }}
                 type="button"
@@ -303,17 +314,6 @@ export function EnhancedUserMenu() {
               >
                 <Bell aria-hidden="true" className="h-5 w-5" />
                 <span className="text-[10px]">Alerts</span>
-              </button>
-              <button
-                className="flex flex-col items-center gap-1 rounded p-2 hover:bg-accent"
-                onClick={() => {
-                  setOpen(false);
-                  setCoachSettingsOpen(true);
-                }}
-                type="button"
-              >
-                <Brain aria-hidden="true" className="h-5 w-5" />
-                <span className="text-[10px]">Coach AI</span>
               </button>
             </div>
 

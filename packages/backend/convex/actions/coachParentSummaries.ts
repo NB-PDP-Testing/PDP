@@ -5,6 +5,7 @@ import { v } from "convex/values";
 import { internal } from "../_generated/api";
 import type { ActionCtx } from "../_generated/server";
 import { action, internalAction } from "../_generated/server";
+import { buildHealthUpdate, shouldCallAPI } from "../lib/circuitBreaker";
 
 /**
  * AI Model Configuration for Parent Summaries
@@ -112,8 +113,27 @@ export const classifyInsightSensitivity = internalAction({
     ),
     confidence: v.number(),
     reason: v.string(),
+    isFallback: v.optional(v.boolean()),
   }),
   handler: async (ctx, args) => {
+    // Check circuit breaker status before calling API
+    const serviceHealth = await ctx.runQuery(
+      internal.models.aiServiceHealth.getServiceHealth
+    );
+
+    // If circuit breaker blocks the call, return fallback
+    if (!shouldCallAPI(serviceHealth)) {
+      console.warn(
+        "⚠️ Circuit breaker OPEN - returning fallback classification"
+      );
+      return {
+        category: "normal" as const,
+        confidence: 0.5,
+        reason: "AI service unavailable - defaulting to normal classification",
+        isFallback: true,
+      };
+    }
+
     const client = getAnthropicClient();
 
     // Get model config from database with fallback
@@ -176,61 +196,87 @@ Respond in JSON format:
   "reason": "brief explanation"
 }`;
 
-    const response = await client.messages.create({
-      model: config.modelId,
-      max_tokens: config.maxTokens,
-      messages: [
-        {
-          role: "user",
-          content: prompt,
-        },
-      ],
-    });
+    try {
+      const response = await client.messages.create({
+        model: config.modelId,
+        max_tokens: config.maxTokens,
+        messages: [
+          {
+            role: "user",
+            content: prompt,
+          },
+        ],
+      });
 
-    // Parse the response
-    const content = response.content[0];
-    if (content.type !== "text") {
-      throw new Error("Unexpected response type from Claude API");
-    }
+      // Parse the response
+      const content = response.content[0];
+      if (content.type !== "text") {
+        throw new Error("Unexpected response type from Claude API");
+      }
 
-    // Extract JSON from response (may be wrapped in markdown)
-    const text = content.text.trim();
-    const jsonMatch = text.match(JSON_EXTRACT_REGEX);
-    if (!jsonMatch) {
-      throw new Error("Failed to extract JSON from Claude response");
-    }
+      // Extract JSON from response (may be wrapped in markdown)
+      const text = content.text.trim();
+      const jsonMatch = text.match(JSON_EXTRACT_REGEX);
+      if (!jsonMatch) {
+        throw new Error("Failed to extract JSON from Claude response");
+      }
 
-    const result = JSON.parse(jsonMatch[0]);
+      const result = JSON.parse(jsonMatch[0]);
 
-    // Validate AI response structure before type casting
-    const validCategories = ["normal", "injury", "behavior"];
-    if (!(result.category && validCategories.includes(result.category))) {
-      throw new Error(
-        `Invalid category from AI: ${result.category}. Expected one of: ${validCategories.join(", ")}`
+      // Validate AI response structure before type casting
+      const validCategories = ["normal", "injury", "behavior"];
+      if (!(result.category && validCategories.includes(result.category))) {
+        throw new Error(
+          `Invalid category from AI: ${result.category}. Expected one of: ${validCategories.join(", ")}`
+        );
+      }
+
+      if (
+        typeof result.confidence !== "number" ||
+        result.confidence < 0 ||
+        result.confidence > 1
+      ) {
+        throw new Error(
+          `Invalid confidence score from AI: ${result.confidence}. Expected number between 0 and 1`
+        );
+      }
+
+      if (!result.reason || typeof result.reason !== "string") {
+        throw new Error(
+          `Invalid reason from AI: ${result.reason}. Expected non-empty string`
+        );
+      }
+
+      // Success - update health record
+      const healthUpdate = buildHealthUpdate(serviceHealth, true);
+      await ctx.runMutation(
+        internal.models.aiServiceHealth.updateServiceHealth,
+        healthUpdate
       );
-    }
 
-    if (
-      typeof result.confidence !== "number" ||
-      result.confidence < 0 ||
-      result.confidence > 1
-    ) {
-      throw new Error(
-        `Invalid confidence score from AI: ${result.confidence}. Expected number between 0 and 1`
+      return {
+        category: result.category as "normal" | "injury" | "behavior",
+        confidence: Number(result.confidence),
+        reason: result.reason,
+        isFallback: false,
+      };
+    } catch (error) {
+      // API call failed - update health record and return fallback
+      console.error("❌ AI classification failed:", error);
+
+      const healthUpdate = buildHealthUpdate(serviceHealth, false);
+      await ctx.runMutation(
+        internal.models.aiServiceHealth.updateServiceHealth,
+        healthUpdate
       );
-    }
 
-    if (!result.reason || typeof result.reason !== "string") {
-      throw new Error(
-        `Invalid reason from AI: ${result.reason}. Expected non-empty string`
-      );
+      return {
+        category: "normal" as const,
+        confidence: 0.5,
+        reason: "AI service error - defaulting to normal classification",
+        isFallback: true,
+      };
     }
-
-    return {
-      category: result.category as "normal" | "injury" | "behavior",
-      confidence: Number(result.confidence),
-      reason: result.reason,
-    };
   },
 });
 
@@ -259,6 +305,7 @@ export const generateParentSummary = internalAction({
     summary: v.string(),
     confidenceScore: v.number(),
     flags: v.array(v.string()),
+    isFallback: v.optional(v.boolean()),
     // Cache statistics for cost tracking
     cacheStats: v.object({
       inputTokens: v.number(),
@@ -268,6 +315,28 @@ export const generateParentSummary = internalAction({
     }),
   }),
   handler: async (ctx, args) => {
+    // Check circuit breaker status before calling API
+    const serviceHealth = await ctx.runQuery(
+      internal.models.aiServiceHealth.getServiceHealth
+    );
+
+    // If circuit breaker blocks the call, return fallback
+    if (!shouldCallAPI(serviceHealth)) {
+      console.warn("⚠️ Circuit breaker OPEN - returning fallback summary");
+      return {
+        summary: `Your coach shared an update about ${args.playerFirstName}. View details in passport.`,
+        confidenceScore: 0.5,
+        flags: ["fallback_mode"],
+        isFallback: true,
+        cacheStats: {
+          inputTokens: 0,
+          cachedTokens: 0,
+          outputTokens: 0,
+          cacheCreationTokens: 0,
+        },
+      };
+    }
+
     const client = getAnthropicClient();
 
     // Get model config from database with fallback
@@ -314,111 +383,144 @@ Sport: ${args.sportName}`;
 Title: ${args.insightTitle}
 Description: ${args.insightDescription}`;
 
-    const response = await client.messages.create(
-      {
-        model: config.modelId,
-        max_tokens: config.maxTokens,
-        messages: [
-          {
-            role: "user",
-            content: [
-              {
-                type: "text",
-                text: systemPrompt,
-                // Mark for caching
-                cache_control: { type: "ephemeral" },
-              },
-              {
-                type: "text",
-                text: playerContext,
-                // Mark for caching
-                cache_control: { type: "ephemeral" },
-              },
-              {
-                type: "text",
-                text: insightContent,
-                // No cache_control = not cached (varies per call)
-              },
-            ],
-          },
-        ],
-      },
-      {
-        // REQUIRED: Enable prompt caching via headers in options
-        headers: {
-          "anthropic-beta": "prompt-caching-2024-07-31",
-        },
-      }
-    );
-
-    // Extract cache statistics from response
-    const inputTokens = response.usage.input_tokens;
-    const cachedTokens = response.usage.cache_read_input_tokens || 0;
-    const cacheCreationTokens = response.usage.cache_creation_input_tokens || 0;
-    const outputTokens = response.usage.output_tokens;
-
-    // Parse the response
-    const content = response.content[0];
-    if (content.type !== "text") {
-      throw new Error("Unexpected response type from Claude API");
-    }
-
-    // Extract JSON from response
-    const text = content.text.trim();
-    const jsonMatch = text.match(JSON_EXTRACT_REGEX);
-    if (!jsonMatch) {
-      throw new Error("Failed to extract JSON from Claude response");
-    }
-
-    const result = JSON.parse(jsonMatch[0]);
-
-    // Calculate cost (Claude Haiku pricing)
-    const PRICE_INPUT_REGULAR = 0.000_005; // $5 per 1M tokens
-    const PRICE_INPUT_CACHED = 0.000_000_5; // $0.50 per 1M tokens (90% discount)
-    const PRICE_OUTPUT = 0.000_015; // $15 per 1M tokens
-
-    const regularTokens = inputTokens - cachedTokens;
-    const cost =
-      regularTokens * PRICE_INPUT_REGULAR +
-      cachedTokens * PRICE_INPUT_CACHED +
-      outputTokens * PRICE_OUTPUT;
-
-    // Calculate cache hit rate
-    const cacheHitRate = inputTokens > 0 ? cachedTokens / inputTokens : 0;
-
-    // Log AI usage (don't fail if logging fails)
     try {
-      await ctx.runMutation(internal.models.aiUsageLog.logUsage, {
-        timestamp: Date.now(),
-        organizationId: args.organizationId as any, // Type assertion needed for Convex ID
-        coachId: args.coachId,
-        playerId: args.playerId,
-        operation: "parent_summary",
-        model: config.modelId,
-        inputTokens,
-        cachedTokens,
-        outputTokens,
-        cost,
-        cacheHitRate,
-      });
-    } catch (error) {
-      console.error(
-        "❌ Failed to log AI usage (non-fatal, continuing):",
-        error
+      const response = await client.messages.create(
+        {
+          model: config.modelId,
+          max_tokens: config.maxTokens,
+          messages: [
+            {
+              role: "user",
+              content: [
+                {
+                  type: "text",
+                  text: systemPrompt,
+                  // Mark for caching
+                  cache_control: { type: "ephemeral" },
+                },
+                {
+                  type: "text",
+                  text: playerContext,
+                  // Mark for caching
+                  cache_control: { type: "ephemeral" },
+                },
+                {
+                  type: "text",
+                  text: insightContent,
+                  // No cache_control = not cached (varies per call)
+                },
+              ],
+            },
+          ],
+        },
+        {
+          // REQUIRED: Enable prompt caching via headers in options
+          headers: {
+            "anthropic-beta": "prompt-caching-2024-07-31",
+          },
+        }
       );
-    }
 
-    return {
-      summary: result.summary,
-      confidenceScore: Number(result.confidenceScore),
-      flags: result.flags || [],
-      cacheStats: {
-        inputTokens,
-        cachedTokens,
-        outputTokens,
-        cacheCreationTokens,
-      },
-    };
+      // Extract cache statistics from response
+      const inputTokens = response.usage.input_tokens;
+      const cachedTokens = response.usage.cache_read_input_tokens || 0;
+      const cacheCreationTokens =
+        response.usage.cache_creation_input_tokens || 0;
+      const outputTokens = response.usage.output_tokens;
+
+      // Parse the response
+      const content = response.content[0];
+      if (content.type !== "text") {
+        throw new Error("Unexpected response type from Claude API");
+      }
+
+      // Extract JSON from response
+      const text = content.text.trim();
+      const jsonMatch = text.match(JSON_EXTRACT_REGEX);
+      if (!jsonMatch) {
+        throw new Error("Failed to extract JSON from Claude response");
+      }
+
+      const result = JSON.parse(jsonMatch[0]);
+
+      // Calculate cost (Claude Haiku pricing)
+      const PRICE_INPUT_REGULAR = 0.000_005; // $5 per 1M tokens
+      const PRICE_INPUT_CACHED = 0.000_000_5; // $0.50 per 1M tokens (90% discount)
+      const PRICE_OUTPUT = 0.000_015; // $15 per 1M tokens
+
+      const regularTokens = inputTokens - cachedTokens;
+      const cost =
+        regularTokens * PRICE_INPUT_REGULAR +
+        cachedTokens * PRICE_INPUT_CACHED +
+        outputTokens * PRICE_OUTPUT;
+
+      // Calculate cache hit rate
+      const cacheHitRate = inputTokens > 0 ? cachedTokens / inputTokens : 0;
+
+      // Log AI usage (don't fail if logging fails)
+      try {
+        await ctx.runMutation(internal.models.aiUsageLog.logUsage, {
+          timestamp: Date.now(),
+          organizationId: args.organizationId as any, // Type assertion needed for Convex ID
+          coachId: args.coachId,
+          playerId: args.playerId,
+          operation: "parent_summary",
+          model: config.modelId,
+          inputTokens,
+          cachedTokens,
+          outputTokens,
+          cost,
+          cacheHitRate,
+        });
+      } catch (error) {
+        console.error(
+          "❌ Failed to log AI usage (non-fatal, continuing):",
+          error
+        );
+      }
+
+      // Success - update health record
+      const healthUpdate = buildHealthUpdate(serviceHealth, true);
+      await ctx.runMutation(
+        internal.models.aiServiceHealth.updateServiceHealth,
+        healthUpdate
+      );
+
+      return {
+        summary: result.summary,
+        confidenceScore: Number(result.confidenceScore),
+        flags: result.flags || [],
+        isFallback: false,
+        cacheStats: {
+          inputTokens,
+          cachedTokens,
+          outputTokens,
+          cacheCreationTokens,
+        },
+      };
+    } catch (error) {
+      // API call failed - update health record and return fallback
+      console.error("❌ AI summary generation failed:", error);
+
+      const healthUpdate = buildHealthUpdate(serviceHealth, false);
+      await ctx.runMutation(
+        internal.models.aiServiceHealth.updateServiceHealth,
+        healthUpdate
+      );
+
+      return {
+        summary: `Your coach shared an update about ${args.playerFirstName}. View details in passport.`,
+        confidenceScore: 0.5,
+        flags: ["fallback_mode"],
+        isFallback: true,
+        cacheStats: {
+          inputTokens: 0,
+          cachedTokens: 0,
+          outputTokens: 0,
+          cacheCreationTokens: 0,
+        },
+      };
+    }
   },
 });
 

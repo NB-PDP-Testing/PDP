@@ -95,6 +95,13 @@ const insightSchema = z.object({
           .string()
           .nullable()
           .describe("Suggested action or update based on this insight"),
+        confidence: z
+          .number()
+          .min(0)
+          .max(1)
+          .describe(
+            "AI confidence score (0.0-1.0) in this insight. Rate based on: 1.0 = Coach explicitly stated this fact with certainty. 0.8-0.9 = Clear implication from context with supporting details. 0.6-0.7 = Reasonable inference but some ambiguity. 0.4-0.5 = Speculative interpretation. Use higher scores when coach uses definitive language, specific numbers, or clear observations. Lower scores for vague comments or unclear context."
+          ),
         teamId: z
           .string()
           .nullable()
@@ -586,6 +593,7 @@ IMPORTANT:
           description: insight.description,
           category: insight.category ?? undefined,
           recommendedUpdate: insight.recommendedUpdate ?? undefined,
+          confidence: insight.confidence ?? 0.7, // Phase 7: AI confidence score, default to 0.7 if not provided
           teamId,
           teamName,
           assigneeUserId,

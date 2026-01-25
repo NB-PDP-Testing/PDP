@@ -29,6 +29,7 @@ import type * as lib_consentGateway from "../lib/consentGateway.js";
 import type * as lib_firstUserSetup from "../lib/firstUserSetup.js";
 import type * as lib_trustLevelCalculator from "../lib/trustLevelCalculator.js";
 import type * as migrations_cleanSlate from "../migrations/cleanSlate.js";
+import type * as migrations_extractInsightsToTable from "../migrations/extractInsightsToTable.js";
 import type * as migrations_migrateLegacyData from "../migrations/migrateLegacyData.js";
 import type * as models_adultPlayers from "../models/adultPlayers.js";
 import type * as models_ageGroupEligibilityOverrides from "../models/ageGroupEligibilityOverrides.js";
@@ -152,6 +153,7 @@ declare const fullApi: ApiFromModules<{
   "lib/firstUserSetup": typeof lib_firstUserSetup;
   "lib/trustLevelCalculator": typeof lib_trustLevelCalculator;
   "migrations/cleanSlate": typeof migrations_cleanSlate;
+  "migrations/extractInsightsToTable": typeof migrations_extractInsightsToTable;
   "migrations/migrateLegacyData": typeof migrations_migrateLegacyData;
   "models/adultPlayers": typeof models_adultPlayers;
   "models/ageGroupEligibilityOverrides": typeof models_ageGroupEligibilityOverrides;

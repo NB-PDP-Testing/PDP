@@ -96,27 +96,31 @@ export default function OrgAdminOverviewPage() {
           </>
         ) : (
           <>
-            {/* Action Required - Only shown when there are pending items */}
-            {pendingRequests && pendingRequests.length > 0 && (
-              <StatCard
-                description="Membership requests waiting"
-                href={`/orgs/${orgId}/admin/users/approvals` as Route}
-                icon={Clock}
-                title="Pending Requests"
-                value={pendingRequests.length}
-                variant="warning"
-              />
-            )}
-            {pendingRoleRequests && pendingRoleRequests.length > 0 && (
-              <StatCard
-                description="Members requesting new roles"
-                href={`/orgs/${orgId}/admin/users/approvals` as Route}
-                icon={UserCog}
-                title="Role Requests"
-                value={pendingRoleRequests.length}
-                variant="warning"
-              />
-            )}
+            {/* Approval Cards - Always shown so admins can monitor */}
+            <StatCard
+              description="Membership requests waiting"
+              href={`/orgs/${orgId}/admin/users/approvals` as Route}
+              icon={Clock}
+              title="Pending Requests"
+              value={pendingRequests?.length || 0}
+              variant={
+                pendingRequests && pendingRequests.length > 0
+                  ? "warning"
+                  : "primary"
+              }
+            />
+            <StatCard
+              description="Members requesting new roles"
+              href={`/orgs/${orgId}/admin/users/approvals` as Route}
+              icon={UserCog}
+              title="Role Requests"
+              value={pendingRoleRequests?.length || 0}
+              variant={
+                pendingRoleRequests && pendingRoleRequests.length > 0
+                  ? "warning"
+                  : "primary"
+              }
+            />
             {pendingInvitations && pendingInvitations.length > 0 && (
               <StatCard
                 description="Invitations sent but not accepted"

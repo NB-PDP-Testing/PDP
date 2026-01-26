@@ -1902,6 +1902,41 @@ export const updateInsights = internalMutation({
     }
 
     await ctx.db.patch(args.noteId, updates);
+
+    // Phase 7: Also create records in voiceNoteInsights table for auto-apply
+    if (args.insights !== undefined && args.status === "completed") {
+      const note = await ctx.db.get(args.noteId);
+      if (!note) {
+        console.error("[updateInsights] Note not found:", args.noteId);
+        return null;
+      }
+
+      // Create voiceNoteInsights records for each insight
+      for (const insight of args.insights) {
+        await ctx.db.insert("voiceNoteInsights", {
+          voiceNoteId: args.noteId,
+          insightId: insight.id,
+          title: insight.title,
+          description: insight.description,
+          category: insight.category ?? "",
+          recommendedUpdate: insight.recommendedUpdate,
+          playerIdentityId: insight.playerIdentityId,
+          playerName: insight.playerName,
+          teamId: insight.teamId,
+          teamName: insight.teamName,
+          assigneeUserId: insight.assigneeUserId,
+          assigneeName: insight.assigneeName,
+          confidenceScore: insight.confidence ?? 0.7,
+          wouldAutoApply: false, // Will be calculated by frontend query
+          status: "pending",
+          organizationId: note.orgId,
+          coachId: note.coachId || "",
+          createdAt: Date.now(),
+          updatedAt: Date.now(),
+        });
+      }
+    }
+
     return null;
   },
 });

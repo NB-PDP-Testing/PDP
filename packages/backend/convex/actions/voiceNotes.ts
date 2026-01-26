@@ -618,6 +618,109 @@ IMPORTANT:
         (i) => !i.playerIdentityId && i.playerName
       ).length;
 
+      // Phase 7.3: Automatically apply eligible insights (US-009.5)
+      // Query voiceNoteInsights table to get newly created insight records
+      if (note.coachId) {
+        // Get coach trust level for auto-apply eligibility
+        const trustLevel = await ctx.runQuery(
+          internal.models.coachTrustLevels.getCoachTrustLevelInternal,
+          {
+            coachId: note.coachId,
+          }
+        );
+
+        if (trustLevel) {
+          // Calculate effective trust level
+          const effectiveLevel = Math.min(
+            trustLevel.currentLevel,
+            trustLevel.preferredLevel ?? trustLevel.currentLevel
+          );
+          const threshold = trustLevel.insightConfidenceThreshold ?? 0.7;
+
+          // Get newly created insights from database
+          const createdInsights = await ctx.runQuery(
+            internal.models.voiceNotes.getInsightsForNote,
+            {
+              noteId: args.noteId,
+            }
+          );
+
+          // Check each insight for auto-apply eligibility
+          for (const insight of createdInsights) {
+            try {
+              // Eligibility checks
+              const isEligible =
+                insight.status === "pending" &&
+                insight.category !== "injury" &&
+                insight.category !== "medical" &&
+                effectiveLevel >= 2 &&
+                insight.confidenceScore >= threshold &&
+                insight.category === "skill"; // Phase 7.3: Only skills initially
+
+              if (isEligible) {
+                console.log(
+                  `[Auto-Apply] ✅ Eligible: insight ${insight._id} (${insight.category}, confidence: ${insight.confidenceScore}, threshold: ${threshold})`
+                );
+
+                // Attempt auto-apply
+                const result = await ctx.runMutation(
+                  api.models.voiceNoteInsights.autoApplyInsight,
+                  {
+                    insightId: insight._id,
+                  }
+                );
+
+                if (result.success) {
+                  console.log(
+                    `[Auto-Apply] ✅ SUCCESS: ${insight.title} - ${result.message}`
+                  );
+                } else {
+                  console.log(
+                    `[Auto-Apply] ⚠️ SKIPPED: ${insight.title} - ${result.message}`
+                  );
+                }
+              } else {
+                // Log why not eligible
+                const reasons: string[] = [];
+                if (insight.status !== "pending") {
+                  reasons.push(`status=${insight.status}`);
+                }
+                if (
+                  insight.category === "injury" ||
+                  insight.category === "medical"
+                ) {
+                  reasons.push(`category=${insight.category}`);
+                }
+                if (effectiveLevel < 2) {
+                  reasons.push(`effectiveLevel=${effectiveLevel}`);
+                }
+                if (insight.confidenceScore < threshold) {
+                  reasons.push(
+                    `confidence=${insight.confidenceScore} < ${threshold}`
+                  );
+                }
+                if (insight.category !== "skill") {
+                  reasons.push(`category=${insight.category}`);
+                }
+
+                console.log(
+                  `[Auto-Apply] ❌ NOT ELIGIBLE: ${insight.title} (${reasons.join(", ")})`
+                );
+              }
+            } catch (error) {
+              console.error(
+                `[Auto-Apply] ❌ ERROR for insight ${insight._id}:`,
+                error instanceof Error ? error.message : "Unknown error"
+              );
+            }
+          }
+        } else {
+          console.log(
+            `[Auto-Apply] ⚠️ No trust level found for coach ${note.coachId}`
+          );
+        }
+      }
+
       // Check if parent summaries are enabled for this coach
       const parentSummariesEnabled = await ctx.runQuery(
         internal.models.coachTrustLevels.isParentSummariesEnabled,

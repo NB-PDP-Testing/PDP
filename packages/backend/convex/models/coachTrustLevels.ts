@@ -599,6 +599,15 @@ export const getCoachTrustLevelInternal = internalQuery({
     preferredLevel: v.optional(v.number()),
     totalApprovals: v.number(),
     totalSuppressed: v.number(),
+    insightConfidenceThreshold: v.optional(v.number()),
+    insightAutoApplyPreferences: v.optional(
+      v.object({
+        skills: v.boolean(),
+        attendance: v.boolean(),
+        goals: v.boolean(),
+        performance: v.boolean(),
+      })
+    ),
   }),
   handler: async (ctx, args) => {
     const trustRecord = await ctx.db
@@ -612,6 +621,8 @@ export const getCoachTrustLevelInternal = internalQuery({
         preferredLevel: undefined,
         totalApprovals: 0,
         totalSuppressed: 0,
+        insightConfidenceThreshold: undefined,
+        insightAutoApplyPreferences: undefined,
       };
     }
 
@@ -620,6 +631,8 @@ export const getCoachTrustLevelInternal = internalQuery({
       preferredLevel: trustRecord.preferredLevel,
       totalApprovals: trustRecord.totalApprovals,
       totalSuppressed: trustRecord.totalSuppressed,
+      insightConfidenceThreshold: trustRecord.insightConfidenceThreshold,
+      insightAutoApplyPreferences: trustRecord.insightAutoApplyPreferences,
     };
   },
 });

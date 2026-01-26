@@ -648,6 +648,30 @@ IMPORTANT:
           // Check each insight for auto-apply eligibility
           for (const insight of createdInsights) {
             try {
+              // Map AI insight categories to preference categories (US-010/US-011)
+              // AI uses: skill_rating, skill_progress, behavior, performance, attendance, team_culture, todo
+              // Prefs use: skills, attendance, goals, performance
+              const categoryMap: Record<
+                string,
+                "skills" | "attendance" | "goals" | "performance" | null
+              > = {
+                skill_rating: "skills",
+                skill_progress: "skills",
+                attendance: "attendance",
+                performance: "performance",
+                behavior: "performance", // Map behavior to performance category
+                team_culture: null, // Team-wide, don't auto-apply
+                todo: null, // Tasks for coach, don't auto-apply
+                injury: null, // Safety: never auto-apply
+                medical: null, // Safety: never auto-apply
+              };
+
+              const prefCategory = categoryMap[insight.category];
+              const categoryEnabled = prefCategory
+                ? (trustLevel.insightAutoApplyPreferences?.[prefCategory] ??
+                  false)
+                : false;
+
               // Eligibility checks
               const isEligible =
                 insight.status === "pending" &&
@@ -655,7 +679,7 @@ IMPORTANT:
                 insight.category !== "medical" &&
                 effectiveLevel >= 2 &&
                 insight.confidenceScore >= threshold &&
-                insight.category === "skill"; // Phase 7.3: Only skills initially
+                categoryEnabled; // Must be enabled in preferences (Phase 7.3)
 
               if (isEligible) {
                 console.log(

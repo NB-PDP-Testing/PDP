@@ -2,6 +2,10 @@
 
 import { api } from "@pdp/backend/convex/_generated/api";
 import { useMutation, useQuery } from "convex/react";
+
+// Regex for splitting names - defined at top level for performance
+const WHITESPACE_REGEX = /\s+/;
+
 import {
   AlertCircle,
   Baby,
@@ -150,7 +154,7 @@ export default function JoinRequestApprovalsPage() {
     memberId: string;
     userName: string | null;
     userEmail: string | null;
-    requestedRole: "coach" | "parent" | "admin";
+    requestedRole: "coach" | "parent" | "admin" | "player";
   } | null>(null);
   const [roleRejectionReason, setRoleRejectionReason] = useState("");
 
@@ -159,7 +163,7 @@ export default function JoinRequestApprovalsPage() {
     if (!fullName) {
       return;
     }
-    const parts = fullName.trim().split(/\s+/);
+    const parts = fullName.trim().split(WHITESPACE_REGEX);
     return parts.length > 1 ? parts.at(-1) : undefined;
   };
 
@@ -319,7 +323,7 @@ export default function JoinRequestApprovalsPage() {
   // Handlers for functional role requests (existing members)
   const handleApproveFunctionalRole = async (
     memberId: string,
-    role: "coach" | "parent" | "admin"
+    role: "coach" | "parent" | "admin" | "player"
   ) => {
     setLoading(`role-${memberId}-${role}`);
     try {
@@ -369,7 +373,7 @@ export default function JoinRequestApprovalsPage() {
     memberId: string;
     userName: string | null;
     userEmail: string | null;
-    requestedRole: "coach" | "parent" | "admin";
+    requestedRole: "coach" | "parent" | "admin" | "player";
   }) => {
     setSelectedRoleRequest(request);
     setRoleRejectionReason("");
@@ -471,7 +475,7 @@ export default function JoinRequestApprovalsPage() {
                               {childrenData.map((child, idx) => (
                                 <div
                                   className="text-blue-700 text-xs dark:text-blue-300"
-                                  key={idx}
+                                  key={`${child.name}-${idx}`}
                                 >
                                   <span className="font-medium">
                                     {child.name}
@@ -955,10 +959,11 @@ export default function JoinRequestApprovalsPage() {
                 <div className="max-h-48 space-y-2 overflow-y-auto rounded-lg border p-3">
                   {teams && teams.length > 0 ? (
                     teams.map((team) => (
-                      <div
-                        className="flex items-center gap-3"
+                      <button
+                        className="flex w-full cursor-pointer items-center gap-3 rounded p-1 text-left hover:bg-muted"
                         key={team._id}
                         onClick={() => toggleTeam(team.name)}
+                        type="button"
                       >
                         <Checkbox
                           checked={selectedTeams.includes(team.name)}
@@ -970,7 +975,7 @@ export default function JoinRequestApprovalsPage() {
                         {selectedTeams.includes(team.name) && (
                           <Check className="h-4 w-4 text-green-600" />
                         )}
-                      </div>
+                      </button>
                     ))
                   ) : (
                     <p className="py-4 text-center text-muted-foreground text-sm">
@@ -1006,10 +1011,11 @@ export default function JoinRequestApprovalsPage() {
                     </p>
                     <div className="space-y-2 rounded-lg border border-green-200 bg-green-50 p-3">
                       {highConfidenceMatches.map((match) => (
-                        <div
-                          className="flex cursor-pointer items-center gap-3 rounded p-2 hover:bg-green-100"
+                        <button
+                          className="flex w-full cursor-pointer items-center gap-3 rounded p-2 text-left hover:bg-green-100"
                           key={match.playerIdentityId}
                           onClick={() => togglePlayer(match.playerIdentityId)}
+                          type="button"
                         >
                           <Checkbox
                             checked={selectedPlayerIds.includes(
@@ -1034,7 +1040,7 @@ export default function JoinRequestApprovalsPage() {
                           {selectedPlayerIds.includes(
                             match.playerIdentityId
                           ) && <Check className="h-4 w-4 text-green-600" />}
-                        </div>
+                        </button>
                       ))}
                     </div>
                   </div>
@@ -1058,10 +1064,11 @@ export default function JoinRequestApprovalsPage() {
                     {expandedMatches && (
                       <div className="max-h-48 space-y-2 overflow-y-auto rounded-lg border p-3">
                         {otherMatches.map((match) => (
-                          <div
-                            className="flex cursor-pointer items-center gap-3 rounded p-2 hover:bg-muted"
+                          <button
+                            className="flex w-full cursor-pointer items-center gap-3 rounded p-2 text-left hover:bg-muted"
                             key={match.playerIdentityId}
                             onClick={() => togglePlayer(match.playerIdentityId)}
+                            type="button"
                           >
                             <Checkbox
                               checked={selectedPlayerIds.includes(
@@ -1088,7 +1095,7 @@ export default function JoinRequestApprovalsPage() {
                             {selectedPlayerIds.includes(
                               match.playerIdentityId
                             ) && <Check className="h-4 w-4 text-green-600" />}
-                          </div>
+                          </button>
                         ))}
                       </div>
                     )}

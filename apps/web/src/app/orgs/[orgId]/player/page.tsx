@@ -6,6 +6,7 @@ import { useQuery } from "convex/react";
 import { Loader2, Share2, User } from "lucide-react";
 import { useParams, useRouter } from "next/navigation";
 import { useState } from "react";
+import { toast } from "sonner";
 import { BenchmarkComparison } from "@/components/benchmark-comparison";
 import { OrgThemedGradient } from "@/components/org-themed-gradient";
 import { Badge } from "@/components/ui/badge";
@@ -105,8 +106,8 @@ export default function PlayerDashboardPage() {
     );
   }
 
-  // Loading state for player data
-  if (playerData === undefined || playerIdentity === undefined) {
+  // Loading state for player identity lookup
+  if (playerIdentity === undefined) {
     return (
       <div className="container mx-auto space-y-6 p-4 md:p-8">
         <div className="flex items-center justify-center py-12">
@@ -116,19 +117,61 @@ export default function PlayerDashboardPage() {
     );
   }
 
-  // Player identity not found
+  // Player identity not found - show helpful error
   if (!playerIdentity) {
     return (
       <div className="container mx-auto p-4 md:p-8">
-        <Card>
+        <Card className="border-amber-200">
           <CardHeader>
-            <CardTitle>Profile Not Found</CardTitle>
-            <CardDescription>
-              Your player profile hasn&apos;t been linked yet. Please contact an
-              administrator to set up your player passport.
+            <CardTitle className="flex items-center gap-2">
+              <User className="h-5 w-5 text-amber-600" />
+              Player Profile Not Linked
+            </CardTitle>
+            <CardDescription className="mt-2 space-y-3">
+              <p>
+                You have the Player role, but your account hasn&apos;t been
+                linked to a player profile yet.
+              </p>
+              <p>
+                This happens because your login email (
+                <span className="font-medium">{session?.user?.email}</span>)
+                doesn&apos;t match any player record in the system.
+              </p>
             </CardDescription>
           </CardHeader>
+          <CardContent>
+            <div className="rounded-lg border border-amber-200 bg-amber-50 p-4">
+              <p className="font-medium text-amber-800 text-sm">
+                What to do next:
+              </p>
+              <ul className="mt-2 list-inside list-disc space-y-1 text-amber-700 text-sm">
+                <li>
+                  Contact your club administrator to link your account to your
+                  player profile
+                </li>
+                <li>
+                  Make sure your player record exists in the system with the
+                  correct email address
+                </li>
+                <li>
+                  If you&apos;re a new player, ask your coach or admin to create
+                  your player profile first
+                </li>
+              </ul>
+            </div>
+          </CardContent>
         </Card>
+      </div>
+    );
+  }
+
+  // Loading state for player passport data
+  if (playerData === undefined) {
+    return (
+      <div className="container mx-auto space-y-6 p-4 md:p-8">
+        <div className="flex items-center justify-center py-12">
+          <Loader2 className="h-8 w-8 animate-spin text-primary" />
+        </div>
       </div>
     );
   }
@@ -137,7 +180,7 @@ export default function PlayerDashboardPage() {
     setIsPdfGenerating(true);
     try {
       // TODO: Implement PDF generation
-      alert("PDF generation coming soon!");
+      toast.info("PDF generation coming soon!");
     } catch (error) {
       console.error("Failed to generate PDF:", error);
     } finally {

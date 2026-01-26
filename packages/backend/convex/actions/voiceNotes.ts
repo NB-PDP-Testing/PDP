@@ -620,7 +620,13 @@ IMPORTANT:
 
       // Phase 7.3: Automatically apply eligible insights (US-009.5)
       // Query voiceNoteInsights table to get newly created insight records
+      console.log(
+        `[buildInsights] 🔵 Phase 7.3: Starting auto-apply check for note ${args.noteId}`
+      );
       if (note.coachId) {
+        console.log(
+          `[buildInsights] 🔵 Querying trust level for coach ${note.coachId}`
+        );
         // Get coach trust level for auto-apply eligibility
         const trustLevel = await ctx.runQuery(
           internal.models.coachTrustLevels.getCoachTrustLevelInternal,
@@ -629,6 +635,10 @@ IMPORTANT:
           }
         );
 
+        console.log(
+          "[buildInsights] 🔵 Trust level result:",
+          trustLevel ? `Level ${trustLevel.currentLevel}` : "NOT FOUND"
+        );
         if (trustLevel) {
           // Calculate effective trust level
           const effectiveLevel = Math.min(
@@ -637,12 +647,19 @@ IMPORTANT:
           );
           const threshold = trustLevel.insightConfidenceThreshold ?? 0.7;
 
+          console.log(
+            `[buildInsights] 🔵 Querying voiceNoteInsights table for note ${args.noteId}`
+          );
           // Get newly created insights from database
           const createdInsights = await ctx.runQuery(
             internal.models.voiceNotes.getInsightsForNote,
             {
               noteId: args.noteId,
             }
+          );
+
+          console.log(
+            `[buildInsights] 🔵 Found ${createdInsights.length} insights in voiceNoteInsights table`
           );
 
           // Check each insight for auto-apply eligibility

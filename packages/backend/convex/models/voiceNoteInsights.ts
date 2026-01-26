@@ -809,3 +809,100 @@ export const undoAutoAppliedInsight = mutation({
     };
   },
 });
+
+// ============================================================
+// PHASE 7.3: UNDO REASON ANALYTICS (US-013)
+// ============================================================
+
+/**
+ * Get statistics on undo reasons for AI improvement feedback (Phase 7.3)
+ * Analyzes patterns in why coaches undo auto-applied insights
+ */
+export const getUndoReasonStats = query({
+  args: {
+    organizationId: v.optional(v.string()),
+    timeframeDays: v.optional(v.number()), // Default 30 days
+  },
+  returns: v.object({
+    total: v.number(),
+    byReason: v.array(
+      v.object({
+        reason: v.string(),
+        count: v.number(),
+        percentage: v.number(),
+      })
+    ),
+    topInsights: v.array(
+      v.object({
+        insightId: v.id("voiceNoteInsights"),
+        title: v.string(),
+        reason: v.string(),
+        undoneAt: v.number(),
+      })
+    ),
+  }),
+  handler: async (ctx, args) => {
+    // Calculate timeframe cutoff (default 30 days)
+    const timeframeDays = args.timeframeDays ?? 30;
+    const cutoffTime = Date.now() - timeframeDays * 24 * 60 * 60 * 1000;
+
+    // Query auto-applied insights - use by_undo_status index to find undone insights
+    // Note: by_undo_status index only has undoneAt field, so we can't filter by org in index
+    const allAudits = await ctx.db
+      .query("autoAppliedInsights")
+      .withIndex("by_undo_status")
+      .collect();
+
+    // Filter to only undone insights within timeframe and org if provided
+    const undoneAudits = allAudits.filter(
+      (audit) =>
+        audit.undoneAt !== undefined &&
+        audit.undoneAt >= cutoffTime &&
+        (!args.organizationId || audit.organizationId === args.organizationId)
+    );
+
+    const total = undoneAudits.length;
+
+    // Group by reason and count
+    const reasonCounts = new Map<string, number>();
+    for (const audit of undoneAudits) {
+      const reason = audit.undoReason || "unknown";
+      reasonCounts.set(reason, (reasonCounts.get(reason) || 0) + 1);
+    }
+
+    // Convert to array with percentages
+    const byReason = Array.from(reasonCounts.entries())
+      .map(([reason, count]) => ({
+        reason,
+        count,
+        percentage: total > 0 ? (count / total) * 100 : 0,
+      }))
+      .sort((a, b) => b.count - a.count); // Sort by count descending
+
+    // Get top 10 most recent undone insights
+    const sortedByRecent = [...undoneAudits].sort(
+      (a, b) => (b.undoneAt || 0) - (a.undoneAt || 0)
+    );
+
+    const top10 = sortedByRecent.slice(0, 10);
+
+    // Fetch insight details for top 10
+    const topInsights = await Promise.all(
+      top10.map(async (audit) => {
+        const insight = await ctx.db.get(audit.insightId);
+        return {
+          insightId: audit.insightId,
+          title: insight?.title || "Unknown",
+          reason: audit.undoReason || "unknown",
+          undoneAt: audit.undoneAt || 0,
+        };
+      })
+    );
+
+    return {
+      total,
+      byReason,
+      topInsights,
+    };
+  },
+});

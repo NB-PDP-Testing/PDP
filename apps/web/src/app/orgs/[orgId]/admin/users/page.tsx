@@ -129,6 +129,10 @@ export default function ManageUsersPage() {
   );
   const resendInvitation = useMutation(api.models.members.resendInvitation);
   const cancelInvitation = useMutation(api.models.members.cancelInvitation);
+  const reInviteExpired = useMutation(api.models.members.reInviteExpired);
+  const bulkReInviteExpired = useMutation(
+    api.models.members.bulkReInviteExpired
+  );
   const updateInvitationMetadata = useMutation(
     api.models.members.updateInvitationMetadata
   );
@@ -754,6 +758,51 @@ export default function ManageUsersPage() {
     }
   };
 
+  const handleReInviteExpired = async (invitationId: string) => {
+    setLoading(invitationId);
+    try {
+      const result = await reInviteExpired({ invitationId });
+      if (result.success) {
+        toast.success("New invitation sent successfully");
+      } else if (result.rateLimitInfo) {
+        const nextAllowed = result.rateLimitInfo.nextAllowedAt
+          ? new Date(result.rateLimitInfo.nextAllowedAt).toLocaleTimeString()
+          : "later";
+        toast.error(
+          `Rate limit reached (${result.rateLimitInfo.currentCount}/${result.rateLimitInfo.maxAllowed} in 24h). Try again after ${nextAllowed}`
+        );
+      } else {
+        toast.error(result.error || "Failed to re-invite");
+      }
+    } catch (error: any) {
+      console.error("Error re-inviting:", error);
+      toast.error(error.message || "Failed to re-invite");
+    } finally {
+      setLoading(null);
+    }
+  };
+
+  const handleBulkReInviteExpired = async () => {
+    setLoading("bulk-reinvite");
+    try {
+      const result = await bulkReInviteExpired({ organizationId: orgId });
+      if (result.total === 0) {
+        toast.info("No expired invitations to re-invite");
+      } else if (result.succeeded === result.total) {
+        toast.success(`Successfully re-invited ${result.succeeded} users`);
+      } else {
+        toast.warning(
+          `Re-invited ${result.succeeded} of ${result.total} users. ${result.rateLimited} rate-limited, ${result.failed} failed.`
+        );
+      }
+    } catch (error: any) {
+      console.error("Error bulk re-inviting:", error);
+      toast.error(error.message || "Failed to bulk re-invite");
+    } finally {
+      setLoading(null);
+    }
+  };
+
   const getInitials = (name?: string | null) => {
     if (!name) {
       return "??";
@@ -949,13 +998,39 @@ export default function ManageUsersPage() {
       {pendingInvitations && pendingInvitations.length > 0 && (
         <Card className="border-orange-200">
           <CardHeader>
-            <CardTitle className="flex items-center gap-2">
-              <Mail className="h-5 w-5 text-orange-600" />
-              Pending Invitations ({pendingInvitations.length})
-            </CardTitle>
-            <CardDescription>
-              Invitations that have been sent but not yet accepted
-            </CardDescription>
+            <div className="flex items-center justify-between">
+              <div>
+                <CardTitle className="flex items-center gap-2">
+                  <Mail className="h-5 w-5 text-orange-600" />
+                  Pending Invitations ({pendingInvitations.length})
+                </CardTitle>
+                <CardDescription>
+                  Invitations that have been sent but not yet accepted
+                </CardDescription>
+              </div>
+              {/* Bulk re-invite button - only show if there are expired invitations */}
+              {pendingInvitations.filter((inv: any) => inv.isExpired).length >
+                0 && (
+                <Button
+                  disabled={loading === "bulk-reinvite"}
+                  onClick={handleBulkReInviteExpired}
+                  size="sm"
+                  variant="outline"
+                >
+                  {loading === "bulk-reinvite" ? (
+                    <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                  ) : (
+                    <Send className="mr-2 h-4 w-4" />
+                  )}
+                  Re-invite All Expired (
+                  {
+                    pendingInvitations.filter((inv: any) => inv.isExpired)
+                      .length
+                  }
+                  )
+                </Button>
+              )}
+            </div>
           </CardHeader>
           <CardContent>
             <div className="space-y-3">
@@ -1073,6 +1148,25 @@ export default function ManageUsersPage() {
                               <Send className="h-4 w-4 sm:mr-2" />
                             )}
                             <span className="hidden sm:inline">Resend</span>
+                          </Button>
+                        )}
+                        {isExpired && (
+                          <Button
+                            className="h-8 w-8 p-0 sm:h-auto sm:w-auto sm:px-3"
+                            disabled={loading === invitation._id}
+                            onClick={() =>
+                              handleReInviteExpired(invitation._id)
+                            }
+                            size="sm"
+                            title="Send new invitation with same settings"
+                            variant="outline"
+                          >
+                            {loading === invitation._id ? (
+                              <Loader2 className="h-4 w-4 animate-spin sm:mr-2" />
+                            ) : (
+                              <Send className="h-4 w-4 sm:mr-2" />
+                            )}
+                            <span className="hidden sm:inline">Re-invite</span>
                           </Button>
                         )}
                         <Button

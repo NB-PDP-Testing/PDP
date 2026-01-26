@@ -127,7 +127,7 @@ export default function OrgAdminOverviewPage() {
                 variant="warning"
               />
             )}
-            {enquiryCount && enquiryCount > 0 && (
+            {enquiryCount !== undefined && enquiryCount > 0 && (
               <StatCard
                 description="Passport enquiries from other orgs"
                 href={`/orgs/${orgId}/admin/enquiries` as Route}

@@ -1791,6 +1791,56 @@ export const getNote = internalQuery({
   handler: async (ctx, args) => await ctx.db.get(args.noteId),
 });
 
+/**
+ * Get insights for a specific voice note from voiceNoteInsights table
+ * Used by buildInsights action for auto-apply triggering (Phase 7.3)
+ */
+export const getInsightsForNote = internalQuery({
+  args: {
+    noteId: v.id("voiceNotes"),
+  },
+  returns: v.array(
+    v.object({
+      _id: v.id("voiceNoteInsights"),
+      _creationTime: v.number(),
+      voiceNoteId: v.id("voiceNotes"),
+      insightId: v.string(),
+      title: v.string(),
+      description: v.string(),
+      category: v.string(),
+      recommendedUpdate: v.optional(v.string()),
+      playerIdentityId: v.optional(v.id("playerIdentities")),
+      playerName: v.optional(v.string()),
+      teamId: v.optional(v.string()),
+      teamName: v.optional(v.string()),
+      assigneeUserId: v.optional(v.string()),
+      assigneeName: v.optional(v.string()),
+      confidenceScore: v.number(),
+      status: v.union(
+        v.literal("pending"),
+        v.literal("applied"),
+        v.literal("dismissed"),
+        v.literal("auto_applied")
+      ),
+      appliedAt: v.optional(v.number()),
+      appliedBy: v.optional(v.string()),
+      dismissedAt: v.optional(v.number()),
+      dismissedBy: v.optional(v.string()),
+      organizationId: v.string(),
+      coachId: v.string(),
+      createdAt: v.number(),
+      updatedAt: v.number(),
+    })
+  ),
+  handler: async (ctx, args) => {
+    const insights = await ctx.db
+      .query("voiceNoteInsights")
+      .withIndex("by_voice_note", (q) => q.eq("voiceNoteId", args.noteId))
+      .collect();
+    return insights;
+  },
+});
+
 // ============ INTERNAL MUTATIONS ============
 
 /**

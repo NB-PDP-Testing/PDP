@@ -11,6 +11,7 @@ import {
   MessageSquare,
   Shield,
   Sparkles,
+  Target,
   X,
 } from "lucide-react";
 import { useState } from "react";
@@ -26,6 +27,7 @@ import {
   CardHeader,
   CardTitle,
 } from "@/components/ui/card";
+import { Checkbox } from "@/components/ui/checkbox";
 import {
   Collapsible,
   CollapsibleContent,
@@ -126,6 +128,11 @@ export function CoachSettingsDialog({
     api.models.coachTrustLevels.setSkipSensitiveInsights
   );
 
+  // Mutation for platform-wide insight auto-apply preferences
+  const setInsightAutoApplyPreferences = useMutation(
+    api.models.coachTrustLevels.setInsightAutoApplyPreferences
+  );
+
   // State for expanded org settings
   const [expandedOrgs, setExpandedOrgs] = useState<Set<string>>(new Set());
   const [savingOrgs, setSavingOrgs] = useState<Set<string>>(new Set());
@@ -182,6 +189,48 @@ export function CoachSettingsDialog({
         newSet.delete(orgId);
         return newSet;
       });
+    }
+  };
+
+  const handleToggleAutoApplyPreference = async (
+    category: "skills" | "attendance" | "goals" | "performance",
+    enabled: boolean
+  ) => {
+    try {
+      // Get current preferences or defaults
+      const currentPreferences =
+        platformTrustLevel?.insightAutoApplyPreferences || {
+          skills: false,
+          attendance: false,
+          goals: false,
+          performance: false,
+        };
+
+      // Update with the new value
+      const updatedPreferences = {
+        ...currentPreferences,
+        [category]: enabled,
+      };
+
+      // Call mutation
+      await setInsightAutoApplyPreferences({
+        preferences: updatedPreferences,
+      });
+
+      // Show toast notification
+      const categoryLabels = {
+        skills: "Skill",
+        attendance: "Attendance",
+        goals: "Goal",
+        performance: "Performance",
+      };
+      const label = categoryLabels[category];
+      toast.success(
+        enabled ? `${label} auto-apply enabled` : `${label} auto-apply disabled`
+      );
+    } catch (error) {
+      console.error("Failed to update auto-apply preferences:", error);
+      toast.error("Failed to update preferences");
     }
   };
 
@@ -510,6 +559,139 @@ export function CoachSettingsDialog({
                 These settings apply to voice notes you record in each club.
                 Disabling parent summaries still captures insights for your own
                 review.
+              </AlertDescription>
+            </Alert>
+          </CardContent>
+        </Card>
+
+        {/* Insight Auto-Apply Preferences Card */}
+        <Card>
+          <CardHeader>
+            <div className="flex items-center justify-between">
+              <CardTitle className="flex items-center gap-2 text-lg">
+                <Target className="h-5 w-5" />
+                Insight Auto-Apply Preferences
+              </CardTitle>
+              <Badge variant="outline">Platform-wide</Badge>
+            </div>
+            <CardDescription className="text-xs sm:text-sm">
+              Choose which types of insights can be automatically applied to
+              player profiles across all clubs
+            </CardDescription>
+          </CardHeader>
+          <CardContent className="space-y-4">
+            {/* Skills checkbox */}
+            <div className="flex items-start space-x-3">
+              <Checkbox
+                checked={
+                  platformTrustLevel?.insightAutoApplyPreferences?.skills ??
+                  false
+                }
+                id="auto-apply-skills"
+                onCheckedChange={(checked) =>
+                  handleToggleAutoApplyPreference("skills", checked as boolean)
+                }
+              />
+              <div className="grid gap-1.5 leading-none">
+                <Label
+                  className="cursor-pointer font-medium text-sm"
+                  htmlFor="auto-apply-skills"
+                >
+                  Skills
+                </Label>
+                <p className="text-muted-foreground text-sm">
+                  Auto-apply skill rating updates
+                </p>
+              </div>
+            </div>
+
+            {/* Attendance checkbox */}
+            <div className="flex items-start space-x-3">
+              <Checkbox
+                checked={
+                  platformTrustLevel?.insightAutoApplyPreferences?.attendance ??
+                  false
+                }
+                id="auto-apply-attendance"
+                onCheckedChange={(checked) =>
+                  handleToggleAutoApplyPreference(
+                    "attendance",
+                    checked as boolean
+                  )
+                }
+              />
+              <div className="grid gap-1.5 leading-none">
+                <Label
+                  className="cursor-pointer font-medium text-sm"
+                  htmlFor="auto-apply-attendance"
+                >
+                  Attendance
+                </Label>
+                <p className="text-muted-foreground text-sm">
+                  Auto-apply attendance records
+                </p>
+              </div>
+            </div>
+
+            {/* Goals checkbox */}
+            <div className="flex items-start space-x-3">
+              <Checkbox
+                checked={
+                  platformTrustLevel?.insightAutoApplyPreferences?.goals ??
+                  false
+                }
+                id="auto-apply-goals"
+                onCheckedChange={(checked) =>
+                  handleToggleAutoApplyPreference("goals", checked as boolean)
+                }
+              />
+              <div className="grid gap-1.5 leading-none">
+                <Label
+                  className="cursor-pointer font-medium text-sm"
+                  htmlFor="auto-apply-goals"
+                >
+                  Goals
+                </Label>
+                <p className="text-muted-foreground text-sm">
+                  Auto-apply development goal updates
+                </p>
+              </div>
+            </div>
+
+            {/* Performance checkbox */}
+            <div className="flex items-start space-x-3">
+              <Checkbox
+                checked={
+                  platformTrustLevel?.insightAutoApplyPreferences
+                    ?.performance ?? false
+                }
+                id="auto-apply-performance"
+                onCheckedChange={(checked) =>
+                  handleToggleAutoApplyPreference(
+                    "performance",
+                    checked as boolean
+                  )
+                }
+              />
+              <div className="grid gap-1.5 leading-none">
+                <Label
+                  className="cursor-pointer font-medium text-sm"
+                  htmlFor="auto-apply-performance"
+                >
+                  Performance
+                </Label>
+                <p className="text-muted-foreground text-sm">
+                  Auto-apply performance notes
+                </p>
+              </div>
+            </div>
+
+            <Alert>
+              <Info className="h-4 w-4" />
+              <AlertDescription className="text-xs">
+                Injury and medical insights always require manual review for
+                safety. These preferences apply across all clubs where you
+                coach.
               </AlertDescription>
             </Alert>
           </CardContent>

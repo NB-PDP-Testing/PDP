@@ -69,4 +69,23 @@ crons.daily(
   {}
 );
 
+// Phase 7.3: Adjust insight confidence thresholds daily at 2 AM UTC (US-012)
+crons.daily(
+  "adjust-insight-thresholds",
+  {
+    hourUTC: 2,
+    minuteUTC: 0,
+  },
+  internal.models.coachTrustLevels.adjustInsightThresholds,
+  {}
+);
+
+// Phase 7.2: Process scheduled deliveries every 5 minutes
+crons.interval(
+  "process-scheduled-deliveries",
+  { minutes: 5 },
+  internal.models.coachParentSummaries.processScheduledDeliveries,
+  {}
+);
+
 export default crons;

@@ -1,0 +1,289 @@
+# Ralph Progress Log
+Started: [PENDING - waiting for Ralph execution]
+---
+
+## CODE REVIEW FEEDBACK
+
+### Agent Feedback - Phase 7.3 Setup
+# Agent Feedback for Phase 7.3 (Learning Loop + Automatic Triggering)
+
+**Phase**: 7.3 - Learning Loop with Automatic Triggering
+**Stories**: US-009.5, US-010, US-011, US-012, US-013 (5 stories)
+**Branch**: ralph/coach-insights-auto-apply-p7-phase3
+**PRD**: scripts/ralph/prd.json (p7-phase3-learning-loop)
+**Base Branch**: ralph/coach-insights-auto-apply-p7-phase2
+
+---
+
+## Story Status
+
+| Story | Title | Status |
+|-------|-------|--------|
+| US-009.5 | Automatic triggering of auto-apply | 🔨 TODO (CRITICAL FIRST) |
+| US-010 | Category preferences mutation | ✅ Schema complete, need mutation |
+| US-011 | Category preferences UI | 🔨 TODO |
+| US-012 | Adaptive confidence thresholds | 🔨 TODO |
+| US-013 | Undo reason analytics | 🔨 TODO |
+
+---
+
+## CRITICAL: US-009.5 MUST BE DONE FIRST
+
+**Gap from Phase 7.2**: Auto-apply requires manual "Apply All" button
+
+**What's Missing**: Automatic triggering when insights are created
+
+**Why Critical**: Without this, Phase 7.3 features don't work:
+- Category preferences (US-010/011) need auto-apply to happen automatically
+- Adaptive thresholds (US-012) need undo data from auto-applied insights
+- Undo analysis (US-013) needs auto-apply generating data
+
+**Three Implementation Options**:
+
+1. **Option A (RECOMMENDED)**: Integrate with AI action `buildInsights`
+   - File: `packages/backend/convex/actions/voiceNotes.ts`
+   - After insights created, check eligibility and auto-apply
+   - Immediate triggering (no delay)
+   - Most elegant solution
+
+2. **Option B**: Use scheduler in mutation
+   - Use `ctx.scheduler.runAfter(0, ...)` after insight created
+   - Cleaner separation of concerns
+   - Near-immediate (milliseconds delay)
+
+3. **Option C**: Scheduled cron job
+   - Run every 5 minutes to scan pending insights
+   - Simplest but has 5-minute delay
+   - Good for batch processing
+
+**Recommendation**: Use Option A for immediate automatic behavior
+
+---
+
+## Agent Instructions
+
+### Documenter
+- Document US-009.5: Automatic triggering mechanism (PRIORITY 1)
+- Document US-010: setInsightAutoApplyPreferences mutation
+- Document US-011: Category preference checkboxes UI
+- Document US-012: Adaptive threshold cron job
+- Document US-013: Undo reason analytics query
+- Reference P5 patterns for learning loop
+
+### PRD Auditor
+- **VERIFY US-009.5 IMPLEMENTED FIRST** before other stories
+- Check automatic triggering: No manual intervention required
+- Verify eligibility checks: Level 2+, confidence >= threshold, category enabled
+- Check category preferences: Default all to false (opt-in)
+- Verify adaptive thresholds: Bounded 0.6-0.9, requires 10+ insights
+- Check safety: Injury/medical NEVER auto-apply regardless of settings
+
+### Quality Monitor
+- Watch for `.filter()` usage (should use `.withIndex()`)
+- Verify import organization (React → External → UI → Local → Convex)
+- Monitor type safety (no `any` types)
+- Check cron schedule syntax
+- Verify mutation error handling
+- Ensure logging for debugging automatic triggers
+
+### Test Runner
+- Type check after each backend change: `npm run check-types`
+- Lint check: `npx ultracite fix`
+- Codegen after schema changes: `npx -w packages/backend convex codegen`
+- **CRITICAL TEST for US-009.5**:
+  * Create voice note
+  * Wait for AI processing
+  * Verify insight auto-applies WITHOUT manual action
+  * Check audit trail created automatically
+  * Verify no "Apply All" button needed
+
+---
+
+## Prerequisites Complete ✅
+
+**Phase 7.1 (Preview Mode)**:
+- ✅ US-001: insightPreviewModeStats schema fields
+- ✅ US-002: wouldAutoApply calculation
+- ✅ US-003: Confidence visualization
+- ✅ US-004: Preview mode badge
+- ✅ US-005: Preview tracking
+
+**Phase 7.2 (Supervised Auto-Apply)**:
+- ✅ US-006: autoAppliedInsights audit trail table
+- ✅ US-007: autoApplyInsight mutation
+- ✅ US-008: undoAutoAppliedInsight mutation (1-hour window)
+- ✅ US-009: Auto-Applied tab UI with undo dialog
+- ❌ **GAP**: Automatic triggering (will be US-009.5)
+
+**Phase 7 Infrastructure**:
+- ✅ voiceNoteInsights table with 40+ insights
+- ✅ autoAppliedInsights audit trail
+- ✅ coachTrustLevels with insightAutoApplyPreferences field (schema ready)
+- ✅ AI confidence scoring (0.0-1.0 scale)
+- ✅ Trust level system operational
+
+---
+
+## Critical Learnings from Phase 7.1 & 7.2
+
+### Architecture Patterns
+1. ✅ Phase 7.1 bridged embedded insights with voiceNoteInsights table
+2. ✅ Phase 7.2 FULLY uses voiceNoteInsights table (NOT embedded array)
+3. ✅ Skills are in skillAssessments table (NOT player.skillRatings)
+4. ✅ Must query sportPassports first to get passportId
+5. ✅ Audit trail (autoAppliedInsights) separate from insights table
+
+### wouldAutoApply Calculation (reuse this)
+```typescript
+const effectiveLevel = Math.min(
+  trustLevel.currentLevel,
+  trustLevel.preferredLevel ?? trustLevel.currentLevel
+);
+const threshold = trustLevel.insightConfidenceThreshold ?? 0.7;
+const wouldAutoApply =
+  insight.category !== "injury" &&
+  insight.category !== "medical" &&
+  effectiveLevel >= 2 &&
+  insight.confidenceScore >= threshold;
+```
+
+### Safety Guardrails (NEVER bypass)
+- effectiveLevel >= 2 (Level 2+ required)
+- confidence >= threshold (default 0.7)
+- category enabled in preferences (Phase 7.3 adds this check)
+- NEVER auto-apply injury or medical
+- 1-hour undo window (3600000ms)
+- Track previousValue before applying newValue
+
+### Known Issues from Phase 7.1/7.2
+1. ✅ Linter auto-removing imports - re-add multiple times if needed
+2. ✅ Query parameter confusion - organizationId vs coachId
+3. ✅ Top-level regex constants required (useTopLevelRegex lint rule)
+4. ✅ Missing return validators caught and fixed
+5. ✅ Confidence validator added (commit 2acf345)
+6. ✅ Preview tracking added to updateInsightStatus (commit 210c5b0)
+
+---
+
+## P5 Pattern Reference (Critical for Phase 7.3)
+
+Phase 7.3 mirrors P5 Phases 3-4 (learning loop):
+
+**From P5 Phase 3**:
+- Category-specific preferences (skills, attendance, goals, performance)
+- Default all to OFF (opt-in per category)
+- Separate preferences from trust level (preferences per org, trust platform-wide)
+
+**From P5 Phase 4**:
+- Adaptive thresholds based on user behavior
+- 30-day rolling window for recent data
+- Require minimum data points (10+) for adjustment
+- Bounded adjustments (±0.05, range 0.6-0.9)
+- Daily cron job at 2am UTC
+
+**From P6**:
+- Logging for debugging automatic processes
+- Error handling without crashing
+- Monitoring and observability
+
+---
+
+## Phase 7.3 Specific Concerns
+
+### US-009.5: Automatic Triggering
+1. **File location matters**: If using Option A, modify actions/voiceNotes.ts carefully
+2. **Eligibility check**: Must duplicate wouldAutoApply logic from Phase 7.1
+3. **Error handling**: Don't crash if auto-apply fails, log and continue
+4. **Idempotency**: Don't auto-apply if already applied (check status)
+5. **Logging**: Log every auto-apply attempt (success/failure/reason)
+
+### US-010/011: Category Preferences
+1. **Default values**: All false (opt-in per category)
+2. **Schema already exists**: insightAutoApplyPreferences field ready
+3. **UI location**: Probably in insights-tab.tsx or separate settings-tab.tsx
+4. **Toast notifications**: Clear feedback when preferences change
+5. **Persistence**: Must persist on page refresh
+
+### US-012: Adaptive Thresholds
+1. **Cron schedule**: Daily at 2am UTC (low traffic time)
+2. **Data requirements**: Minimum 10 insights for adjustment
+3. **Bounded**: 0.6 minimum, 0.9 maximum (safety limits)
+4. **Calculation**: < 3% undo = lower threshold, > 10% undo = raise threshold
+5. **Logging**: Log all threshold adjustments for debugging
+
+### US-013: Undo Analytics
+1. **Query optimization**: Use indexes for undoneAt lookups
+2. **Timeframe**: Default 30 days, allow customization
+3. **Grouping**: Group by undoReason, calculate percentages
+4. **Admin only**: May need admin role check
+5. **CSV export**: Simple JSON to CSV conversion
+
+---
+
+## CRITICAL: Branch Creation Issue Resolved
+
+⚠️ **Phase 7.1 & 7.2 had branch creation issues** - Ralph didn't create branches
+
+**Fix Applied**: `preflight.sh` script now handles branch creation automatically
+
+**Before running Ralph**:
+```bash
+./scripts/ralph/preflight.sh
+# Creates ralph/coach-insights-auto-apply-p7-phase3 branch
+```
+
+**Verification**:
+```bash
+git branch --show-current
+# Should output: ralph/coach-insights-auto-apply-p7-phase3
+```
+
+---
+
+## Testing Checklist
+
+### US-009.5: Automatic Triggering (CRITICAL)
+- [ ] Create voice note about player skill
+- [ ] Wait for AI processing to complete
+- [ ] **VERIFY**: Insight auto-applies WITHOUT clicking "Apply All"
+- [ ] **VERIFY**: Insight appears in Auto-Applied tab immediately
+- [ ] **VERIFY**: Audit trail created in autoAppliedInsights
+- [ ] **VERIFY**: Player profile updated in skillAssessments
+- [ ] Test low trust (Level 0/1) - should NOT auto-apply
+- [ ] Test low confidence (<0.7) - should NOT auto-apply
+- [ ] Test injury category - should NOT auto-apply
+
+### US-010/011: Category Preferences
+- [ ] Navigate to settings
+- [ ] Toggle "Skills" checkbox ON
+- [ ] Create skill insight - should auto-apply
+- [ ] Toggle "Goals" checkbox OFF
+- [ ] Create goal insight - should NOT auto-apply
+- [ ] Refresh page - verify settings persist
+
+### US-012: Adaptive Thresholds
+- [ ] Create coach with high undo rate (>10%)
+- [ ] Run adjustInsightThresholds cron manually
+- [ ] Verify threshold increased
+- [ ] Create coach with low undo rate (<3%)
+- [ ] Run cron again
+- [ ] Verify threshold decreased
+
+### US-013: Undo Analytics
+- [ ] Undo 5 insights with different reasons
+- [ ] Call getUndoReasonStats query
+- [ ] Verify counts and percentages correct
+- [ ] Export to CSV
+- [ ] Verify CSV contains all undo data
+
+---
+
+<!-- Agents will write feedback below this line -->
+
+## [PENDING] - Waiting for Ralph execution
+
+Phase 7.3 setup complete. Ready to execute when user runs Ralph.
+
+**CRITICAL**: US-009.5 must be completed first before other stories!
+
+---

@@ -300,6 +300,47 @@ export const setCoachPreferredLevel = mutation({
 });
 
 /**
+ * Set insight auto-apply preferences per category (Phase 7.3)
+ * Controls which types of insights can be automatically applied to player profiles.
+ * Platform-wide setting (applies to all orgs coach works with).
+ */
+export const setInsightAutoApplyPreferences = mutation({
+  args: {
+    preferences: v.object({
+      skills: v.boolean(),
+      attendance: v.boolean(),
+      goals: v.boolean(),
+      performance: v.boolean(),
+    }),
+  },
+  returns: v.null(),
+  handler: async (ctx, args) => {
+    // Get authenticated user
+    const user = await authComponent.safeGetAuthUser(ctx);
+    if (!user) {
+      throw new Error("Not authenticated");
+    }
+
+    // Get the user ID (use _id or userId depending on what's available)
+    const coachId = user.userId || user._id;
+    if (!coachId) {
+      throw new Error("User ID not found");
+    }
+
+    // Get or create platform-wide trust record
+    const trustRecord = await getOrCreateTrustLevelHelper(ctx, coachId);
+
+    // Update insightAutoApplyPreferences
+    await ctx.db.patch(trustRecord._id, {
+      insightAutoApplyPreferences: args.preferences,
+      updatedAt: Date.now(),
+    });
+
+    return null;
+  },
+});
+
+/**
  * Toggle parent summaries generation on/off (per-org).
  * When disabled, insights are still captured but no parent summaries are generated.
  */
@@ -503,6 +544,14 @@ export const getCoachPlatformTrustLevel = query({
         percentage: v.number(),
         blockedBySuppressionRate: v.boolean(),
       }),
+      insightAutoApplyPreferences: v.optional(
+        v.object({
+          skills: v.boolean(),
+          attendance: v.boolean(),
+          goals: v.boolean(),
+          performance: v.boolean(),
+        })
+      ),
     }),
     v.null()
   ),
@@ -535,6 +584,7 @@ export const getCoachPlatformTrustLevel = query({
           percentage: 0,
           blockedBySuppressionRate: false,
         },
+        insightAutoApplyPreferences: undefined,
       };
     }
 
@@ -551,6 +601,7 @@ export const getCoachPlatformTrustLevel = query({
       totalSuppressed: trustRecord.totalSuppressed,
       consecutiveApprovals: trustRecord.consecutiveApprovals,
       progressToNextLevel,
+      insightAutoApplyPreferences: trustRecord.insightAutoApplyPreferences,
     };
   },
 });
@@ -599,6 +650,15 @@ export const getCoachTrustLevelInternal = internalQuery({
     preferredLevel: v.optional(v.number()),
     totalApprovals: v.number(),
     totalSuppressed: v.number(),
+    insightConfidenceThreshold: v.optional(v.number()),
+    insightAutoApplyPreferences: v.optional(
+      v.object({
+        skills: v.boolean(),
+        attendance: v.boolean(),
+        goals: v.boolean(),
+        performance: v.boolean(),
+      })
+    ),
   }),
   handler: async (ctx, args) => {
     const trustRecord = await ctx.db
@@ -612,6 +672,8 @@ export const getCoachTrustLevelInternal = internalQuery({
         preferredLevel: undefined,
         totalApprovals: 0,
         totalSuppressed: 0,
+        insightConfidenceThreshold: undefined,
+        insightAutoApplyPreferences: undefined,
       };
     }
 
@@ -620,6 +682,76 @@ export const getCoachTrustLevelInternal = internalQuery({
       preferredLevel: trustRecord.preferredLevel,
       totalApprovals: trustRecord.totalApprovals,
       totalSuppressed: trustRecord.totalSuppressed,
+      insightConfidenceThreshold: trustRecord.insightConfidenceThreshold,
+      insightAutoApplyPreferences: trustRecord.insightAutoApplyPreferences,
+    };
+  },
+});
+
+/**
+ * Get coach trust level with insight auto-apply fields (Phase 7.1)
+ * Used by insights UI to calculate wouldAutoApply predictions
+ */
+export const getCoachTrustLevelWithInsightFields = query({
+  args: {},
+  returns: v.union(
+    v.object({
+      currentLevel: v.number(),
+      preferredLevel: v.optional(v.number()),
+      insightConfidenceThreshold: v.optional(v.number()),
+      insightAutoApplyPreferences: v.optional(
+        v.object({
+          skills: v.boolean(),
+          attendance: v.boolean(),
+          goals: v.boolean(),
+          performance: v.boolean(),
+        })
+      ),
+      insightPreviewModeStats: v.optional(
+        v.object({
+          wouldAutoApplyInsights: v.number(),
+          coachAppliedThose: v.number(),
+          coachDismissedThose: v.number(),
+          agreementRate: v.number(),
+          startedAt: v.number(),
+          completedAt: v.optional(v.number()),
+        })
+      ),
+    }),
+    v.null()
+  ),
+  handler: async (ctx) => {
+    // Get authenticated user
+    const user = await authComponent.safeGetAuthUser(ctx);
+
+    // Get the user ID (use _id or userId depending on what's available)
+    const coachId = user?.userId || user?._id;
+    if (!coachId) {
+      return null;
+    }
+
+    // Get platform-wide trust record
+    const trustRecord = await ctx.db
+      .query("coachTrustLevels")
+      .withIndex("by_coach", (q) => q.eq("coachId", coachId))
+      .first();
+
+    if (!trustRecord) {
+      return {
+        currentLevel: 0,
+        preferredLevel: undefined,
+        insightConfidenceThreshold: 0.7,
+        insightAutoApplyPreferences: undefined,
+        insightPreviewModeStats: undefined,
+      };
+    }
+
+    return {
+      currentLevel: trustRecord.currentLevel,
+      preferredLevel: trustRecord.preferredLevel,
+      insightConfidenceThreshold: trustRecord.insightConfidenceThreshold,
+      insightAutoApplyPreferences: trustRecord.insightAutoApplyPreferences,
+      insightPreviewModeStats: trustRecord.insightPreviewModeStats,
     };
   },
 });
@@ -742,6 +874,101 @@ export const adjustPersonalizedThresholds = internalMutation({
           updatedAt: Date.now(),
         });
         adjusted += 1;
+      }
+    }
+
+    return {
+      processed,
+      adjusted,
+    };
+  },
+});
+
+/**
+ * Phase 7.3 (US-012): Daily cron job to adjust insight confidence thresholds
+ * Runs daily at 2 AM UTC
+ * Analyzes last 30 days of undo patterns and adjusts insightConfidenceThreshold
+ *
+ * Logic:
+ * - Get all coaches with auto-apply enabled (insightAutoApplyPreferences set)
+ * - For each coach, get recent auto-applied insights (last 30 days)
+ * - Calculate undo rate (undone insights / total insights)
+ * - Adjust threshold based on undo rate:
+ *   - < 3% undo rate (high accuracy) → lower threshold by 0.05 (more auto-apply)
+ *   - > 10% undo rate (low accuracy) → raise threshold by 0.05 (fewer auto-apply)
+ * - Thresholds bounded: min 0.6, max 0.9
+ * - Requires minimum 10 insights for statistical significance
+ */
+export const adjustInsightThresholds = internalMutation({
+  args: {},
+  returns: v.object({
+    processed: v.number(),
+    adjusted: v.number(),
+  }),
+  handler: async (ctx) => {
+    // Get all coaches with trust levels
+    const allCoaches = await ctx.db.query("coachTrustLevels").collect();
+
+    let processed = 0;
+    let adjusted = 0;
+
+    // 30 days ago timestamp
+    const thirtyDaysAgo = Date.now() - 30 * 24 * 60 * 60 * 1000;
+
+    for (const coach of allCoaches) {
+      // Skip coaches without auto-apply preferences
+      if (!coach.insightAutoApplyPreferences) {
+        continue;
+      }
+
+      processed += 1;
+
+      // Get recent auto-applied insights for this coach (last 30 days)
+      // Use by_coach_org_applied index but we need all orgs, so we'll query by coach
+      // and filter by appliedAt
+      const recentAudits = await ctx.db
+        .query("autoAppliedInsights")
+        .withIndex("by_coach_org", (q) => q.eq("coachId", coach.coachId))
+        .filter((q) => q.gte(q.field("appliedAt"), thirtyDaysAgo))
+        .collect();
+
+      // Need at least 10 auto-applied insights for meaningful data
+      if (recentAudits.length < 10) {
+        continue;
+      }
+
+      // Calculate undo rate
+      const undoCount = recentAudits.filter(
+        (a) => a.undoneAt !== undefined
+      ).length;
+      const undoRate = undoCount / recentAudits.length;
+
+      // Get current threshold (default 0.7)
+      const currentThreshold = coach.insightConfidenceThreshold ?? 0.7;
+
+      // Adjust threshold based on undo rate
+      let newThreshold = currentThreshold;
+
+      if (undoRate < 0.03) {
+        // Less than 3% undo rate = high trust, lower threshold
+        newThreshold = Math.max(0.6, currentThreshold - 0.05);
+      } else if (undoRate > 0.1) {
+        // More than 10% undo rate = low trust, raise threshold
+        newThreshold = Math.min(0.9, currentThreshold + 0.05);
+      }
+
+      // Update if threshold changed
+      if (newThreshold !== currentThreshold) {
+        await ctx.db.patch(coach._id, {
+          insightConfidenceThreshold: newThreshold,
+          updatedAt: Date.now(),
+        });
+
+        adjusted += 1;
+
+        console.log(
+          `Coach ${coach.coachId} threshold adjusted: ${currentThreshold} → ${newThreshold} (undo rate: ${Math.round(undoRate * 100)}%)`
+        );
       }
     }
 

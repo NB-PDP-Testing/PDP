@@ -1,0 +1,174 @@
+{
+  "project": "Coach-Parent AI Summaries - Phase 6.4 (Performance Optimization)",
+  "branchName": "ralph/coach-parent-summaries-p6-phase4",
+  "description": "Optional performance optimization: Pre-aggregate daily AI usage stats for 100x faster dashboard queries at scale.",
+  "philosophyAndGoals": {
+    "corePhilosophy": "Optimize for scale. Pre-compute what you can. Trade freshness for speed when appropriate.",
+    "keyPrinciples": [
+      "Pre-aggregation: Daily cron summarizes yesterday's usage",
+      "Query optimization: Use aggregates for > 7 day ranges",
+      "Data retention: Keep raw logs for detailed analysis",
+      "Trade-offs: Accept up to 24h stale data for 100x speed gain",
+      "Future-proofing: Works at 10 orgs or 10,000 orgs"
+    ],
+    "successMetrics": {
+      "querySpeed": "30-day dashboard query in < 100ms (vs 1-2 seconds on raw logs)",
+      "scalability": "Query time stays flat as usage grows 100x",
+      "dataAccuracy": "Aggregates match raw logs within 0.1%",
+      "freshness": "Dashboard shows data within 24 hours"
+    }
+  },
+  "dependencies": {
+    "requiredPhases": [
+      "Phase 6.1 - Cost Controls (US-001 to US-011)",
+      "Phase 6.2 - Graceful Degradation (US-012 to US-016)",
+      "Phase 6.3 - Admin Dashboard (US-017 to US-022)",
+      "Phase 5 Phases 1-4 - ALL COMPLETE AND MERGED TO MAIN (PR #331)"
+    ],
+    "requiredTables": ["aiUsageLog - Raw usage data (P5 Phase 3)"],
+    "requiredQueries": [
+      "aiUsageLog:getOrgUsage - Current query that needs optimization"
+    ],
+    "requiredCrons": [
+      "crons.ts exists with 6 existing cron jobs (3 from P5, 3 from P6.1)"
+    ],
+    "newInfrastructure": [
+      "aiUsageDailyAggregates table - Pre-aggregated daily stats",
+      "aggregateDailyUsage cron - Runs nightly at 1 AM UTC",
+      "Optimized getOrgUsage query - Uses aggregates for > 7 day ranges"
+    ]
+  },
+  "userStories": [
+    {
+      "id": "US-023",
+      "title": "Add daily aggregation for AI usage stats",
+      "description": "As the system, I pre-aggregate daily AI usage stats for faster dashboard queries",
+      "phase": "6.4: Performance Optimization",
+      "acceptanceCriteria": [
+        "Add aiUsageDailyAggregates table to schema.ts: date (string YYYY-MM-DD), organizationId (string), totalCost (number), totalCalls (number), totalInputTokens (number), totalCachedTokens (number), totalOutputTokens (number), avgCacheHitRate (number)",
+        "Add indexes: by_date (date), by_org_date (organizationId, date)",
+        "Edit crons.ts: Add cron job aggregateDailyUsage (runs daily at 1 AM UTC)",
+        "Job queries previous day's aiUsageLog entries, groups by organizationId, aggregates stats, inserts into aiUsageDailyAggregates",
+        "Update getOrgUsage query (or create new variant): For date ranges > 7 days, query aggregates table instead of raw logs (performance optimization)",
+        "Keep raw logs for detailed analysis, aggregates for dashboard speed",
+        "Typecheck passes"
+      ],
+      "priority": 23,
+      "passes": false,
+      "notes": "Performance optimization. As usage scales (10,000+ AI calls), querying raw logs becomes slow. Pre-aggregating daily stats means dashboard queries are O(30) instead of O(10,000) for 30-day views. Trade-off: slightly stale data (up to 24h old) but much faster. Industry: Google Analytics pre-aggregates, AWS CloudWatch uses metrics rollup."
+    }
+  ],
+  "implementationDetails": {
+    "aggregationLogic": {
+      "description": "How the nightly aggregation works",
+      "steps": [
+        "1. Cron triggers at 1 AM UTC daily",
+        "2. Query aiUsageLog for previous day (yesterday 00:00 to 23:59 UTC)",
+        "3. Group by organizationId",
+        "4. For each org, calculate: totalCost (sum), totalCalls (count), totalInputTokens (sum), totalCachedTokens (sum), totalOutputTokens (sum), avgCacheHitRate (average)",
+        "5. Insert one record per org into aiUsageDailyAggregates with date = yesterday (YYYY-MM-DD format)",
+        "6. Handle edge cases: No data for org on that day = skip insert (sparse table)",
+        "7. Idempotency: Check if record exists for (org, date) before inserting to avoid duplicates"
+      ]
+    },
+    "queryOptimization": {
+      "description": "How getOrgUsage decides raw vs aggregates",
+      "logic": [
+        "If no date range specified: Use raw logs (real-time data)",
+        "If date range <= 7 days: Use raw logs (recent data, fast enough)",
+        "If date range > 7 days: Use aggregates table",
+        "Example: 30-day query = 30 aggregate records instead of 10,000 raw logs",
+        "Fall back to raw logs if aggregates missing for requested dates"
+      ]
+    },
+    "dataRetention": {
+      "rawLogs": "Keep indefinitely for detailed analysis and compliance",
+      "aggregates": "Keep for 1 year (configurable), then archive or delete",
+      "reasoning": "Aggregates are derived data, can be regenerated from raw logs if needed"
+    }
+  },
+  "testingStrategy": {
+    "aggregationAccuracy": {
+      "setup": [
+        "Generate 100 summaries across 3 orgs over 2 days",
+        "Manually trigger aggregateDailyUsage cron for day 1"
+      ],
+      "tests": [
+        "Verify aiUsageDailyAggregates has 3 records (one per org) for day 1",
+        "Verify totalCost matches sum of aiUsageLog for that org/day",
+        "Verify totalCalls matches count of aiUsageLog entries",
+        "Verify avgCacheHitRate matches average of raw logs",
+        "Verify date field formatted as YYYY-MM-DD"
+      ]
+    },
+    "queryOptimization": {
+      "rawLogsPath": [
+        "Query getOrgUsage with startDate = today - 3 days",
+        "Verify query uses raw aiUsageLog (not aggregates)",
+        "Measure query time (should be < 200ms for < 1000 logs)"
+      ],
+      "aggregatesPath": [
+        "Query getOrgUsage with startDate = today - 30 days",
+        "Verify query uses aiUsageDailyAggregates",
+        "Measure query time (should be < 100ms regardless of log count)",
+        "Verify results match querying raw logs (within 0.1%)"
+      ]
+    },
+    "cronExecution": {
+      "manualTrigger": [
+        "Manually trigger aggregateDailyUsage cron",
+        "Verify cron completes without errors",
+        "Verify aggregates created for previous day only"
+      ],
+      "idempotency": [
+        "Run aggregateDailyUsage twice for same day",
+        "Verify no duplicate records created",
+        "Verify second run updates existing record or skips"
+      ],
+      "edgeCases": [
+        "Run aggregation for day with zero AI usage",
+        "Verify no records inserted (sparse table)",
+        "Run aggregation for day with usage from only 1 org",
+        "Verify only 1 record inserted"
+      ]
+    },
+    "performance": {
+      "scalability": [
+        "Simulate 10,000 AI usage logs across 10 orgs",
+        "Query 30-day stats using raw logs, measure time (baseline)",
+        "Run aggregation cron",
+        "Query 30-day stats using aggregates, measure time",
+        "Verify aggregates are 10-100x faster"
+      ],
+      "dashboardLoad": [
+        "Open admin dashboard Cost Analytics tab",
+        "Measure initial load time for 30-day chart",
+        "Verify < 2 seconds total page load (including chart)"
+      ]
+    }
+  },
+  "performanceTargets": {
+    "aggregationCron": "< 5 seconds to aggregate 1000 logs (worst case)",
+    "querySpeed": {
+      "rawLogs7Days": "< 200ms for 1000 logs",
+      "aggregates30Days": "< 100ms for 30 aggregate records",
+      "speedup": "10-100x faster for large date ranges"
+    },
+    "dashboardImpact": "Cost Analytics tab loads in < 2 seconds (down from 5-10 seconds at scale)"
+  },
+  "rollbackPlan": {
+    "disableAggregates": "Update getOrgUsage to always use raw logs (remove optimization logic)",
+    "deleteCron": "Remove aggregateDailyUsage cron from crons.ts",
+    "keepTable": "Keep aiUsageDailyAggregates table but don't populate (no harm if empty)"
+  },
+  "optionalEnhancements": {
+    "description": "Future improvements if needed",
+    "ideas": [
+      "Hourly aggregates for more granular recent data",
+      "Per-coach aggregates for coach-specific analytics",
+      "Materialized views that update in real-time",
+      "Compression for old aggregate records (year-level rollups)",
+      "Export aggregates to data warehouse for deeper analytics"
+    ]
+  }
+}

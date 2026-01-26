@@ -206,51 +206,56 @@ export default function OrgAdminOverviewPage() {
             ) : pendingRequests && pendingRequests.length > 0 ? (
               <div className="space-y-3">
                 {pendingRequests.slice(0, 5).map((request) => (
-                  <div
-                    className="flex items-center justify-between rounded-lg border p-3"
+                  <Link
+                    href={`/orgs/${orgId}/admin/users/approvals` as Route}
                     key={request._id}
-                    style={{
-                      borderColor: "rgb(var(--org-primary-rgb) / 0.2)",
-                    }}
                   >
-                    <div className="flex items-center gap-3">
-                      <div
-                        className="flex h-10 w-10 items-center justify-center rounded-full"
-                        style={{
-                          backgroundColor: "rgb(var(--org-primary-rgb) / 0.1)",
-                        }}
+                    <div
+                      className="flex cursor-pointer items-center justify-between rounded-lg border p-3 transition-colors hover:bg-muted/50"
+                      style={{
+                        borderColor: "rgb(var(--org-primary-rgb) / 0.2)",
+                      }}
+                    >
+                      <div className="flex items-center gap-3">
+                        <div
+                          className="flex h-10 w-10 items-center justify-center rounded-full"
+                          style={{
+                            backgroundColor:
+                              "rgb(var(--org-primary-rgb) / 0.1)",
+                          }}
+                        >
+                          <Users
+                            className="h-5 w-5"
+                            style={{ color: theme.primary }}
+                          />
+                        </div>
+                        <div>
+                          <p className="font-medium">{request.userName}</p>
+                          <p className="text-muted-foreground text-sm">
+                            {request.userEmail}
+                          </p>
+                        </div>
+                      </div>
+                      <Badge
+                        className={`border capitalize ${getRoleColor(request.requestedRole)}`}
+                        variant="outline"
                       >
-                        <Users
-                          className="h-5 w-5"
-                          style={{ color: theme.primary }}
-                        />
-                      </div>
-                      <div>
-                        <p className="font-medium">{request.userName}</p>
-                        <p className="text-muted-foreground text-sm">
-                          {request.userEmail}
-                        </p>
-                      </div>
+                        {request.requestedRole}
+                      </Badge>
                     </div>
-                    <Badge
-                      className={`border capitalize ${getRoleColor(request.requestedRole)}`}
-                      variant="outline"
-                    >
-                      {request.requestedRole}
-                    </Badge>
-                  </div>
-                ))}
-                {pendingRequests.length > 5 && (
-                  <Link href={`/orgs/${orgId}/admin/users/approvals` as Route}>
-                    <OrgThemedButton
-                      className="w-full"
-                      size="sm"
-                      variant="outline"
-                    >
-                      View all {pendingRequests.length} pending requests
-                    </OrgThemedButton>
                   </Link>
-                )}
+                ))}
+                <Link href={`/orgs/${orgId}/admin/users/approvals` as Route}>
+                  <OrgThemedButton
+                    className="w-full"
+                    size="sm"
+                    variant="outline"
+                  >
+                    {pendingRequests.length > 5
+                      ? `View all ${pendingRequests.length} pending requests`
+                      : "Manage Requests"}
+                  </OrgThemedButton>
+                </Link>
               </div>
             ) : (
               <div className="flex flex-col items-center justify-center py-8 text-center">

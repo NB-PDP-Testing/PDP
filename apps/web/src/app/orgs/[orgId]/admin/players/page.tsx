@@ -159,6 +159,12 @@ export default function ManagePlayersPage() {
     organizationId: orgId,
   });
 
+  // Get team-player links for proper team filtering
+  const teamPlayerLinks = useQuery(
+    api.models.teamPlayerIdentities.getTeamMembersForOrg,
+    { organizationId: orgId }
+  );
+
   // Transform to flat player structure for compatibility
   const players = enrolledPlayers?.map(
     ({ enrollment, player, sportCode }: any) => ({
@@ -190,7 +196,10 @@ export default function ManagePlayersPage() {
   const [sortColumn, setSortColumn] = useState<SortColumn>("name");
   const [sortDirection, setSortDirection] = useState<SortDirection>("asc");
 
-  const isLoading = enrolledPlayers === undefined || teams === undefined;
+  const isLoading =
+    enrolledPlayers === undefined ||
+    teams === undefined ||
+    teamPlayerLinks === undefined;
 
   // Validate add player form
   const validateForm = (): boolean => {
@@ -449,17 +458,18 @@ export default function ManagePlayersPage() {
       reviewStatusFilter === "all" ||
       player.reviewStatus === reviewStatusFilter;
 
-    // Team filter - check both players table and teamPlayers junction
+    // Team filter - check actual team membership via teamPlayerIdentities
     let matchesTeam = teamFilter === "all";
-    // We'll need to implement getPlayerCountByTeam properly later
-    // For now, just match on sport/ageGroup/gender
     if (!matchesTeam && teamFilter !== "all") {
       const selectedTeam = teams?.find((t: any) => t.name === teamFilter);
       if (selectedTeam) {
+        // Check if this player is actually assigned to the selected team
         matchesTeam =
-          player.sport === selectedTeam.sport &&
-          player.ageGroup === selectedTeam.ageGroup &&
-          player.gender === selectedTeam.gender;
+          teamPlayerLinks?.some(
+            (link: any) =>
+              link.teamId === selectedTeam._id &&
+              link.playerIdentityId === player._id
+          ) ?? false;
       }
     }
 
@@ -539,9 +549,24 @@ export default function ManagePlayersPage() {
   };
 
   const getPlayerTeams = (player: any) => {
-    // For now, return the player's age group since we need to properly implement
-    // the team membership lookup via teamPlayers table
-    return player.ageGroup ? [player.ageGroup] : ["Unassigned"];
+    // Get actual team names from teamPlayerIdentities
+    if (!(teamPlayerLinks && teams)) {
+      return player.ageGroup ? [player.ageGroup] : ["Unassigned"];
+    }
+
+    const playerTeamIds = teamPlayerLinks
+      .filter((link: any) => link.playerIdentityId === player._id)
+      .map((link: any) => link.teamId);
+
+    if (playerTeamIds.length === 0) {
+      return ["Unassigned"];
+    }
+
+    const teamNames = teams
+      .filter((team: any) => playerTeamIds.includes(team._id))
+      .map((team: any) => team.name);
+
+    return teamNames.length > 0 ? teamNames : ["Unassigned"];
   };
 
   const stats = {

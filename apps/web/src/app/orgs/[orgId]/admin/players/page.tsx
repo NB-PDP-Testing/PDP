@@ -165,6 +165,22 @@ export default function ManagePlayersPage() {
     { organizationId: orgId }
   );
 
+  // Get sport reference data for friendly names
+  const sportsData = useQuery(api.models.referenceData.getSports);
+
+  // Create a mapping from sport code to friendly name
+  const sportCodeToName = new Map<string, string>(
+    sportsData?.map((sport) => [sport.code, sport.name]) ?? []
+  );
+
+  // Helper to get friendly sport name from code
+  const getSportName = (sportCode: string | null | undefined): string => {
+    if (!sportCode || sportCode === "Not assigned") {
+      return "Not assigned";
+    }
+    return sportCodeToName.get(sportCode) ?? sportCode;
+  };
+
   // Transform to flat player structure for compatibility
   const players = enrolledPlayers?.map(
     ({ enrollment, player, sportCode }: any) => ({
@@ -679,9 +695,9 @@ export default function ManagePlayersPage() {
             </SelectTrigger>
             <SelectContent>
               <SelectItem value="all">All Sports</SelectItem>
-              {uniqueSports.map((sport) => (
-                <SelectItem key={sport} value={sport}>
-                  {sport}
+              {uniqueSports.map((sportCode) => (
+                <SelectItem key={sportCode} value={sportCode}>
+                  {getSportName(sportCode)}
                 </SelectItem>
               ))}
             </SelectContent>
@@ -857,8 +873,9 @@ export default function ManagePlayersPage() {
                   header: "Sport",
                   sortable: true,
                   mobileVisible: false,
-                  accessor: (player: any) => player.sport || "—",
-                  exportAccessor: (player: any) => player.sport || "",
+                  accessor: (player: any) => getSportName(player.sport) || "—",
+                  exportAccessor: (player: any) =>
+                    getSportName(player.sport) || "",
                 },
                 {
                   key: "lastReviewDate",

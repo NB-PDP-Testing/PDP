@@ -13,7 +13,7 @@ Phase 7.1 is **100% ready for Ralph execution**. All prerequisites complete, all
 **Execution Command**:
 ```bash
 npm run ralph -- \
-  --prd scripts/ralph/prds/p7-coach-insight-auto-apply-phase7.prd.json \
+  --prd scripts/ralph/prd.json \
   --phase 7.1 \
   --stories US-001,US-002,US-003,US-004,US-005 \
   --branch ralph/coach-insights-auto-apply-p7-phase1
@@ -295,7 +295,7 @@ git push origin main
 Once Phase 7.1 is merged to main:
 ```bash
 npm run ralph -- \
-  --prd scripts/ralph/prds/p7-coach-insight-auto-apply-phase7.prd.json \
+  --prd scripts/ralph/prd.json \
   --phase 7.2 \
   --stories US-006,US-007,US-008,US-009 \
   --branch ralph/coach-insights-auto-apply-p7-phase2
@@ -388,7 +388,7 @@ All documentation is ready and organized:
 **Command**:
 ```bash
 npm run ralph -- \
-  --prd scripts/ralph/prds/p7-coach-insight-auto-apply-phase7.prd.json \
+  --prd scripts/ralph/prd.json \
   --phase 7.1 \
   --stories US-001,US-002,US-003,US-004,US-005 \
   --branch ralph/coach-insights-auto-apply-p7-phase1

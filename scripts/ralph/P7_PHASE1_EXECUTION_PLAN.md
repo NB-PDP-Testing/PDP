@@ -57,7 +57,7 @@
 
 ```bash
 npm run ralph -- \
-  --prd scripts/ralph/prds/p7-coach-insight-auto-apply-phase7.prd.json \
+  --prd scripts/ralph/prd.json \
   --phase 7.1 \
   --stories US-001,US-002,US-003,US-004,US-005 \
   --branch ralph/coach-insights-auto-apply-p7-phase1
@@ -229,7 +229,7 @@ Once Phase 7.1 is complete and merged to `main`:
 ### Phase 7.2: Supervised Auto-Apply (US-006 to US-009)
 ```bash
 npm run ralph -- \
-  --prd scripts/ralph/prds/p7-coach-insight-auto-apply-phase7.prd.json \
+  --prd scripts/ralph/prd.json \
   --phase 7.2 \
   --stories US-006,US-007,US-008,US-009 \
   --branch ralph/coach-insights-auto-apply-p7-phase2
@@ -244,7 +244,7 @@ npm run ralph -- \
 ### Phase 7.3: Learning Loop (US-010 to US-013)
 ```bash
 npm run ralph -- \
-  --prd scripts/ralph/prds/p7-coach-insight-auto-apply-phase7.prd.json \
+  --prd scripts/ralph/prd.json \
   --phase 7.3 \
   --stories US-010,US-011,US-012,US-013 \
   --branch ralph/coach-insights-auto-apply-p7-phase3
@@ -348,7 +348,7 @@ All context prepared, all prerequisites complete, all learnings documented.
 
 ```bash
 npm run ralph -- \
-  --prd scripts/ralph/prds/p7-coach-insight-auto-apply-phase7.prd.json \
+  --prd scripts/ralph/prd.json \
   --phase 7.1 \
   --stories US-001,US-002,US-003,US-004,US-005 \
   --branch ralph/coach-insights-auto-apply-p7-phase1

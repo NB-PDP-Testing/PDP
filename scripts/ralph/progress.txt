@@ -2,7 +2,7 @@
 Started: 2026-01-25 23:15:00 GMT
 Base Branch: phase7/prerequisites-insight-auto-apply (commit b2c320f)
 Ralph Branch: ralph/coach-insights-auto-apply-p7-phase1
-PRD: scripts/ralph/prds/p7-coach-insight-auto-apply-phase7.prd.json
+PRD: scripts/ralph/prd.json
 ---
 
 ## PHASE 7.1 OVERVIEW

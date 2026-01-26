@@ -596,20 +596,41 @@ const updateInsightStatus = useMutation(
          │                       │                       │
          ▼                       ▼                       ▼
 ┌─────────────────┐     ┌─────────────────┐     ┌─────────────────┐
-│  Update         │     │  Extract to     │     │  Auto-Apply     │
-│  voiceNotes     │     │  voiceNote-     │     │  Eligible       │
-│  .insights[]    │     │  Insights table │     │  Insights       │
+│  Update         │     │  Extract to     │     │  Check Auto-    │
+│  voiceNotes     │     │  voiceNote-     │     │  Apply          │
+│  .insights[]    │     │  Insights table │     │  Eligibility    │
 └─────────────────┘     └─────────────────┘     └────────┬────────┘
                                                          │
-                                 ┌───────────────────────┼───────────────────────┐
-                                 │                       │                       │
-                                 ▼                       ▼                       ▼
-                        ┌─────────────────┐     ┌─────────────────┐     ┌─────────────────┐
-                        │  Generate       │     │  Create Coach   │     │  Create Team    │
-                        │  Parent         │     │  Task           │     │  Observation    │
-                        │  Summary        │     │  (TODO)         │     │                 │
-                        └─────────────────┘     └─────────────────┘     └─────────────────┘
+                              ┌───────────────┬──────────┴──────────┬───────────────┐
+                              │               │                     │               │
+                              ▼               ▼                     ▼               ▼
+                    ┌─────────────┐  ┌─────────────┐      ┌─────────────┐  ┌─────────────┐
+                    │  Generate   │  │  Create     │      │  Create     │  │  UPDATE     │
+                    │  Parent     │  │  Coach Task │      │  Team       │  │  PLAYER     │
+                    │  Summary    │  │  (TODO)     │      │ Observation │  │  PROFILE    │
+                    └─────────────┘  └─────────────┘      └─────────────┘  └──────┬──────┘
+                                                                                  │
+                              ┌───────────────────────────────────────────────────┤
+                              │                     │                             │
+                              ▼                     ▼                             ▼
+                    ┌─────────────────┐   ┌─────────────────┐          ┌─────────────────┐
+                    │ skillAssessments│   │ playerInjuries  │          │  passportGoals  │
+                    │ (skill_rating)  │   │ (injury)        │          │ (skill_progress)│
+                    └─────────────────┘   └─────────────────┘          └─────────────────┘
 ```
+
+### Player Profile Update Detail
+
+When an insight is applied (auto or manual), the system updates the appropriate player profile table:
+
+| Insight Category | Target Table | Fields Updated |
+|------------------|--------------|----------------|
+| `skill_rating` | `skillAssessments` | skillName, rating, notes, assessedBy |
+| `injury` | `playerInjuries` | type, severity, description, reportedBy |
+| `skill_progress` | `passportGoals` | title, description, status |
+| `attendance` | `attendanceRecords` | status, notes |
+| `performance` | `performanceNotes` | content, category |
+| `behavior` | `behaviorNotes` | content, sentiment |
 
 ### `transcribeAudio` Action
 

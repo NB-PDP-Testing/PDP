@@ -1,162 +1,230 @@
 # Ralph Progress Log
-Started: Mon 26 Jan 2026 09:00:54 GMT
+Started: Mon 26 Jan 2026 10:14:56 GMT
 ---
 
 ## CODE REVIEW FEEDBACK
 
-### Agent Feedback - 2026-01-26 09:00
-# Agent Feedback for Phase 7.1 (Insight Auto-Apply Preview Mode)
+### Agent Feedback - 2026-01-26 10:14
+# Agent Feedback for Phase 7.2 (Supervised Auto-Apply)
 
-**Phase**: 7.1 - Preview Mode
-**Stories**: US-001 to US-005 (5 stories)
-**Branch**: ralph/coach-insights-auto-apply-p7-phase1
-**PRD**: scripts/ralph/prd.json (p7-phase1-preview-mode)
-**Base Branch**: phase7/prerequisites-insight-auto-apply
-
----
-
-## Story Status
-
-| Story | Title | Status |
-|-------|-------|--------|
-| US-001 | Schema fields in coachTrustLevels | ✅ COMPLETE (prerequisite) |
-| US-002 | Add wouldAutoApply calculation query | 🔨 TODO |
-| US-003 | Confidence visualization | 🔨 TODO |
-| US-004 | Preview mode badge | 🔨 TODO |
-| US-005 | Preview tracking | 🔨 TODO |
+**Phase**: 7.2 - Supervised Auto-Apply for Insight Automation
+**Stories**: US-007, US-008, US-009 (3 stories, US-006 is prerequisite COMPLETE)
+**Branch**: ralph/coach-insights-auto-apply-p7-phase2
+**PRD**: scripts/ralph/prd.json (p7-phase2-supervised-auto-apply)
 
 ---
 
-## Agent Instructions
+## Critical Learnings from Phase 7.1
+
+### Architecture Insights
+- Phase 7.1 bridged embedded insights (legacy) with voiceNoteInsights table (future)
+- Phase 7.2 should FULLY use voiceNoteInsights table for auto-apply (NOT embedded array)
+- Player profiles need to be updated when auto-applying skill insights
+- Audit trail (autoAppliedInsights) is separate from insights table
+
+### wouldAutoApply Calculation Pattern
+```typescript
+const effectiveLevel = Math.min(
+  trustLevel.currentLevel,
+  trustLevel.preferredLevel ?? trustLevel.currentLevel
+);
+const threshold = trustLevel.insightConfidenceThreshold ?? 0.7;
+const wouldAutoApply =
+  insight.category !== "injury" &&
+  insight.category !== "medical" &&
+  effectiveLevel >= 2 &&
+  insight.confidenceScore >= threshold;
+```
+
+### Safety Guardrails (NEVER bypass)
+- effectiveLevel >= 2 (Level 2+ required)
+- confidence >= threshold (default 0.7)
+- category === 'skill' (Phase 7.2 only skills)
+- NEVER auto-apply injury or medical
+- 1-hour undo window (3600000ms)
+- Track previousValue before applying newValue
+
+### Issues from Phase 7.1
+1. **Linter auto-removing imports** - Watch for Progress, Sparkles, and other UI imports being removed
+2. **Wrong query parameters** - coachId vs organizationId confusion
+3. **Missing validators** - Ensure all mutations have returns validators
+4. **Table vs embedded array** - Phase 7.1 created table mutations but UI used embedded array
+
+### Fixes Applied After Phase 7.1
+1. **Confidence validator** (commit 2acf345) - Added `confidence: v.optional(v.number())` to insightValidator
+2. **Preview tracking** (commit 210c5b0) - Added tracking to updateInsightStatus mutation for embedded array
+
+---
+
+## Phase 7.2 Agent Instructions
 
 ### Documenter
-- Document new query: `getPendingInsights` with wouldAutoApply logic
-- Document mutations: `applyInsight` and `dismissInsight` with preview tracking
-- Document UI components: Confidence progress bars and preview badges
-- Reference P5 patterns extensively
+- Document mutation: `autoApplyInsight` with trust validation and audit trail creation
+- Document mutation: `undoAutoAppliedInsight` with 1-hour window enforcement
+- Document query: `getAutoAppliedInsights` for UI display
+- Document UI: Auto-Applied tab with undo functionality
+- Reference P5 Phase 2 patterns (supervised auto-approve with 1-hour revoke)
 
 ### PRD Auditor
-- Verify US-002 through US-005 match P5 US-002 through US-005 patterns
-- Check confidence scoring logic (threshold 0.7, levels 0-3)
-- Verify safety guardrails (no auto-apply for injury/medical)
-- Confirm 20-insight preview period
+- Verify US-007 implements ACTUAL auto-apply (NOT just preview)
+- Check auto-apply logic: Level 2+, confidence >= threshold, skills ONLY
+- Verify US-008 implements 1-hour undo window (3600000ms exactly)
+- Confirm audit trail creation in autoAppliedInsights table with ALL required fields
+- Check safety: NO auto-apply for injury/medical categories (100% manual)
+- Verify rollback logic reverts player profile to previousValue atomically
 
 ### Quality Monitor
-- Watch for `.filter()` usage (should use `.withIndex()`)
+- Watch for `.filter()` usage (should use `.withIndex()` with proper indexes)
 - Verify import organization (React → External → UI → Local → Convex)
 - Check component structure (Hooks → Derived → Handlers → Render)
-- Monitor type safety (no `any` types)
+- Monitor type safety (no `any` types, use Id<"tableName">)
+- Verify mutations include proper error handling and validation
+- Check audit trail captures: previousValue, newValue, confidenceScore, appliedAt
 
 ### Test Runner
 - Type check after each backend change: `npm run check-types`
 - Lint check: `npx ultracite fix`
 - Codegen after schema changes: `npx -w packages/backend convex codegen`
 - Visual verification instructions for UI changes
+- Manual tests:
+  * Create high-confidence skill insight at Level 2+ (should auto-apply)
+  * Verify audit trail record created with all fields
+  * Verify player profile updated correctly
+  * Test undo within 1 hour (should succeed and revert)
+  * Test undo after 1 hour (should fail with clear error)
+  * Test undo with wrong coach (should fail ownership check)
+  * Verify player profile reverted correctly on undo
 
 ---
 
-## Prerequisites Complete ✅
+## P5 Pattern Reference (Critical for Phase 7.2)
 
-- voiceNoteInsights table created (40 insights migrated)
-- autoAppliedInsights audit trail table created
-- coachTrustLevels extended with insight fields
-- AI confidence scoring implemented
-- Knowledge graph alignment verified
+Phase 7.2 mirrors P5 Phase 2 (supervised auto-approve):
+- **Same trust requirements**: Level 2+ with confidence threshold
+- **Same 1-hour undo window**: revokeParentSummary → undoAutoAppliedInsight
+- **Same audit trail pattern**: summaryApprovalActions → autoAppliedInsights
+- **Same safety-first approach**: injury always manual, never silent automation
+- **Same rollback capability**: previousValue → newValue with atomic revert
+
+---
+
+## Known Issues to Watch For
+
+### From Phase 7.1 Experience
+1. Linter will auto-remove imports - re-add them multiple times if needed
+2. Query parameter confusion - organizationId vs coachId
+3. Missing return validators - all mutations need proper returns
+4. Type imports - may need explicit `Id<"tableName">` imports
+
+### Phase 7.2 Specific Concerns
+1. Player profile updates need proper skillRatings structure
+2. Audit trail must capture previousValue BEFORE applying newValue
+3. Undo must revert ALL changes atomically (insight + profile + audit)
+4. 1-hour calculation: (Date.now() - appliedAt) < 3600000 (NOT <= 3600000)
 
 ---
 
 <!-- Agents will write feedback below this line -->
 
-## 2026-01-26 19:00 - Phase 7.1 Complete - All 5 Stories
-**Iteration**: 1
-**Commit**: 4f44a4059b619cc0c695efb14b412875d6d08f67
-**Session**: aace03e8-fb07-453a-a65c-062739cfc0bf
-**Status**: Complete
+
+## 2026-01-26 16:00 - US-007 & US-008 - Auto-apply and Undo for Skill Insights
+**Iteration**: 2
+**Commit**: bc813df158dab79b3642726c204af1b4065528db
+**Session**: 8cc12565-f397-402a-a531-6caa285a0d1e
+**Status**: Partial (Backend Complete, Frontend Pending)
 
 ### What was implemented
-Phase 7.1 Preview Mode for Insight Auto-Apply - ALL 5 STORIES COMPLETE
+**✅ US-007: Auto-apply logic for skill insights (COMPLETE)**
+- Created `autoApplyInsight` mutation in voiceNoteInsights.ts
+- Validates Level 2+ trust with `effectiveLevel >= 2`
+- Validates confidence score >= threshold (default 0.7)
+- Only applies skill category insights (injury/medical never auto-apply)
+- Updates skillAssessments table (not embedded skillRatings - discovered architecture)
+- Creates complete audit record in autoAppliedInsights table
+- Tracks previousValue for rollback capability
 
-**US-001**: ✅ Prerequisite fields verified (schema already complete from prerequisites)
-**US-002**: ✅ Created getPendingInsights query in voiceNoteInsights.ts
-  - Queries voiceNoteInsights TABLE (not embedded array) with by_coach_org_status index
-  - Calculates wouldAutoApply for each insight (effectiveLevel >= 2, confidence >= threshold, NOT injury/medical)
-  - Returns array with wouldAutoApply boolean field
-  
-**US-003**: ✅ Added confidence visualization to insight cards
-  - Progress bar with percentage (0-100%)
-  - Color coding: Red <60%, Amber 60-79%, Green 80%+
-  - Uses embedded insights.confidence field
-  - Displayed after description, before action buttons
-  
-**US-004**: ✅ Added preview mode prediction badge
-  - Created getCoachTrustLevelWithInsightFields query in coachTrustLevels.ts
-  - Calculate wouldAutoApply in InsightsTab component
-  - Blue badge with Sparkles icon: "AI would auto-apply this at Level 2+"
-  - "Requires manual review" text for wouldAutoApply=false
-  
-**US-005**: ✅ Added applyInsight and dismissInsight mutations with preview tracking
-  - Track wouldAutoApplyInsights, coachAppliedThose, coachDismissedThose
-  - Calculate agreementRate = coachAppliedThose / wouldAutoApplyInsights
-  - After 20 insights: set completedAt timestamp
-  - Only track if insightPreviewModeStats exists and NOT completedAt
+**✅ US-008: 1-hour undo window (COMPLETE)**
+- Created `undoAutoAppliedInsight` mutation in voiceNoteInsights.ts
+- Strictly enforces 1-hour window: `(Date.now() - appliedAt) >= 3_600_000`
+- Reverts skillAssessments to previousValue atomically
+- Handles "none" previousValue by deleting assessment
+- Marks audit record with undoneAt timestamp and reason
+- Resets insight status back to "pending"
+- Uses typed undoReason enum (not free-form string)
+
+**✅ Additional:**
+- Created `getAutoAppliedInsights` query for US-009 UI
+- Returns insights with audit trail details joined
+- Sorted by appliedAt descending (most recent first)
 
 ### Files changed
-- packages/backend/convex/models/voiceNoteInsights.ts (+302 new file)
-- packages/backend/convex/models/coachTrustLevels.ts (+64, -0)
-- apps/web/src/app/orgs/[orgId]/coach/voice-notes/components/insights-tab.tsx (+155, -13)
-- scripts/ralph/prd.json (+12, -8)
+- packages/backend/convex/models/voiceNoteInsights.ts (+510)
+  * Added SKILL_UPDATE_PATTERN constant (top-level regex for linter)
+  * Added autoApplyInsight mutation (US-007)
+  * Added undoAutoAppliedInsight mutation (US-008)
+  * Added getAutoAppliedInsights query (US-009)
 
 ### Quality checks
 - ✅ Type check: passed
-- ✅ Linting: passed (only pre-existing errors in codebase)
+- ✅ Linting: passed (after fixing top-level regex pattern)
 - ✅ Codegen: passed
-- ⚠️ Browser verification: NOT DONE (backend-only + UI changes need manual testing)
+- ❌ Browser verification: not applicable (backend only)
 
 ### Learnings for future iterations ⚠️ CRITICAL
 
+**Architecture discoveries:**
+1. **Skills are in skillAssessments table, NOT player.skillRatings**
+   - skillAssessments references sportPassport (not orgPlayerEnrollments)
+   - Must query sportPassports first, then skillAssessments
+   - Index name is `by_skill` (passportId + skillCode), NOT `by_passport_skill`
+   - Required fields: createdAt (timestamp)
+   
+2. **autoAppliedInsights playerId field is DEPRECATED**
+   - Expects `Id<"orgPlayerEnrollments">`, not `Id<"playerIdentities">`
+   - Must query orgPlayerEnrollments to get enrollment._id
+   - Use playerIdentityId for the actual player reference
+
+3. **undoReason is typed enum, not free-form string**
+   - Must use union of literals: `v.union(v.literal("wrong_player"), ...)`
+   - Valid values: wrong_player, wrong_rating, insight_incorrect, changed_mind, duplicate, other
+   - Cannot use `v.string()` or it will fail validation
+
 **Patterns discovered:**
-- Phase 7 mirrors Phase 5 pattern exactly: Preview → Supervised → Auto-Apply
-- wouldAutoApply calculation: category !== injury/medical AND effectiveLevel >= 2 AND confidence >= threshold
-- effectiveLevel = Math.min(currentLevel, preferredLevel) - coach can't bypass safety by having high currentLevel
-- Preview tracking ONLY happens if insightPreviewModeStats exists AND completedAt is undefined
-- 20-insight preview period (same as P5) - after 20, completedAt triggers Phase 7.2 eligibility
+- Regex patterns must be top-level constants (linter rule: useTopLevelRegex)
+- Use `Number.parseInt(value, 10)` for string to number conversion
+- Check for `undefined` on optional fields before using (previousValue, fieldChanged)
+- AutoAppliedInsights needs orgPlayerEnrollments lookup for deprecated playerId field
 
 **Gotchas encountered:**
-- getCoachTrustLevel query doesn't return insight fields - had to create new query getCoachTrustLevelWithInsightFields
-- Schema field names are skills/attendance/goals/performance (NOT autoApplySkills/etc)
-- Embedded insights use `confidence` field (not `confidenceScore`)
-- Linter keeps removing Progress and Sparkles imports - had to re-add multiple times
-- Current implementation uses embedded insights from voiceNotes (not voiceNoteInsights table) for UI display
-  - US-002 query (getPendingInsights) exists but not yet used in UI
-  - US-003/US-004 work with embedded insights and calculate wouldAutoApply in component
-  - This is OK for Phase 7.1 (preview mode only)
-  - Phase 7.2 (auto-apply) will need to use voiceNoteInsights table
+1. Linter blocks commit if regex is inline in function
+2. Type errors on index names - must match schema exactly
+3. Missing createdAt field on skillAssessments insert caused type error
+4. Must check `!== undefined` for optional fields before string operations
 
 **Dependencies found:**
-- US-004 depends on US-002 wouldAutoApply logic (same calculation)
-- US-005 mutations depend on US-002 wouldAutoApply logic (same calculation)
-- All 3 stories share exact same wouldAutoApply calculation - keep in sync!
-- Frontend uses embedded insights but backend has voiceNoteInsights table - eventual refactor needed
+- sportPassports table required to find passportId for skillAssessments
+- orgPlayerEnrollments required for deprecated playerId field in audit
+- skillDefinitions table exists but not used (using skillName as skillCode for now)
 
-**What to do next** (Phase 7.2):
-Phase 7.1 COMPLETE. Next is Phase 7.2: Supervised Auto-Apply
-- [ ] Actually auto-apply insights when effectiveLevel >= 2
-- [ ] 1-hour undo window (like P5 parent summaries)
-- [ ] Use voiceNoteInsights table for auto-apply (not embedded array)
-- [ ] Create autoAppliedInsights audit trail records
-- [ ] Update player profiles/skills/goals from auto-applied insights
+**What to do next** (US-009 - Frontend UI):
+- [ ] Add Tabs UI to insights-tab.tsx
+- [ ] Add state for active tab ("pending" | "auto-applied")
+- [ ] Query getAutoAppliedInsights with organizationId and coachId
+- [ ] Render Auto-Applied tab with insight cards
+- [ ] Show green "✓ Auto-Applied" badge
+- [ ] Display time applied ("23 minutes ago" - use relative time)
+- [ ] Show what changed ("Passing: 3 → 4" from previousValue → newValue)
+- [ ] Add [Undo] button with 1-hour enable/disable logic
+- [ ] Add [View Profile] button linking to player
+- [ ] Create undo confirmation dialog with radio button options
+- [ ] Call undoAutoAppliedInsight mutation on confirm
+- [ ] Show toast notifications for success/error
+- [ ] Add empty state when no auto-applied insights
 
 **Mistakes made** (learn from these!):
-- Initially tried to use getCoachTrustLevel which doesn't have insight fields - wasted time
-- Forgot to import `mutation` in voiceNoteInsights.ts - codegen failed
-- Used wrong query parameter (coachId instead of organizationId) - type error
-- Linter auto-removed imports - had to manually re-add Progress and Sparkles
-
-**Architecture insight:**
-The dual-system approach (embedded insights for legacy + voiceNoteInsights table for new) is intentional:
-- Embedded insights: Used by existing UI, fast to query with voiceNotes
-- voiceNoteInsights table: Used for Phase 7.2 auto-apply, better indexing, separate lifecycle
-- Phase 7.1 bridges both: UI shows embedded, tracking uses table
-- Phase 7.2 will fully migrate to table-based approach
+1. Initially tried to use `by_passport_skill` index which doesn't exist
+2. Forgot to add createdAt field when inserting skillAssessment
+3. Used `v.string()` for undoReason instead of typed union
+4. Tried to use playerIdentityId directly for playerId field (wrong type)
 
 ---

@@ -48,6 +48,8 @@ import {
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Progress } from "@/components/ui/progress";
+import { RadioGroup, RadioGroupItem } from "@/components/ui/radio-group";
+import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Textarea } from "@/components/ui/textarea";
 import { useSession } from "@/lib/auth-client";
 import { cn } from "@/lib/utils";
@@ -92,6 +94,14 @@ type ClassifyingInsight = {
   description?: string;
 } | null;
 
+type UndoingInsight = {
+  autoAppliedInsightId: Id<"autoAppliedInsights">;
+  fieldChanged?: string;
+  previousValue?: string;
+  newValue: string;
+  playerName?: string;
+} | null;
+
 // Categories that can be applied without player (team-level)
 const TEAM_LEVEL_CATEGORIES = ["team_culture", "todo"];
 
@@ -110,6 +120,30 @@ function formatInsightDate(date: Date | string | number): string {
   });
 }
 
+// Format relative time for auto-applied insights
+function formatRelativeTime(timestamp: number): string {
+  const now = Date.now();
+  const elapsed = now - timestamp;
+  const seconds = Math.floor(elapsed / 1000);
+  const minutes = Math.floor(seconds / 60);
+  const hours = Math.floor(minutes / 60);
+  const days = Math.floor(hours / 24);
+
+  if (seconds < 60) {
+    return "just now";
+  }
+  if (minutes < 60) {
+    return `${minutes} minute${minutes !== 1 ? "s" : ""} ago`;
+  }
+  if (hours < 24) {
+    return `${hours} hour${hours !== 1 ? "s" : ""} ago`;
+  }
+  if (days < 7) {
+    return `${days} day${days !== 1 ? "s" : ""} ago`;
+  }
+  return formatInsightDate(timestamp);
+}
+
 export function InsightsTab({ orgId, onSuccess, onError }: InsightsTabProps) {
   const router = useRouter();
   const { data: session } = useSession();
@@ -124,6 +158,12 @@ export function InsightsTab({ orgId, onSuccess, onError }: InsightsTabProps) {
     useState<ClassifyingInsight>(null);
   const [isSaving, setIsSaving] = useState(false);
   const [playerSearch, setPlayerSearch] = useState("");
+  const [activeTab, setActiveTab] = useState<"pending" | "auto-applied">(
+    "pending"
+  );
+  const [undoingInsight, setUndoingInsight] = useState<UndoingInsight>(null);
+  const [undoReason, setUndoReason] = useState<string>("wrong_rating");
+  const [undoReasonOther, setUndoReasonOther] = useState<string>("");
 
   // Get coach ID from session (use id as fallback if userId is null)
   const coachUserId = session?.user?.id;
@@ -165,6 +205,12 @@ export function InsightsTab({ orgId, onSuccess, onError }: InsightsTabProps) {
     api.models.coachTrustLevels.getCoachTrustLevelWithInsightFields
   );
 
+  // Get auto-applied insights (Phase 7.2)
+  const autoAppliedInsights = useQuery(
+    api.models.voiceNoteInsights.getAutoAppliedInsights,
+    coachUserId ? { organizationId: orgId, coachId: coachUserId } : "skip"
+  );
+
   const updateInsightStatus = useMutation(
     api.models.voiceNotes.updateInsightStatus
   );
@@ -177,6 +223,9 @@ export function InsightsTab({ orgId, onSuccess, onError }: InsightsTabProps) {
   const classifyInsight = useMutation(api.models.voiceNotes.classifyInsight);
   const bulkApplyInsights = useMutation(
     api.models.voiceNotes.bulkApplyInsights
+  );
+  const undoAutoAppliedInsight = useMutation(
+    api.models.voiceNoteInsights.undoAutoAppliedInsight
   );
 
   const [isBulkApplying, setIsBulkApplying] = useState(false);
@@ -323,6 +372,41 @@ export function InsightsTab({ orgId, onSuccess, onError }: InsightsTabProps) {
     } catch (error) {
       console.error("Failed to classify insight:", error);
       onError("Failed to classify insight.");
+    } finally {
+      setIsSaving(false);
+    }
+  };
+
+  const handleUndoAutoApplied = async () => {
+    if (!undoingInsight) {
+      return;
+    }
+    setIsSaving(true);
+    try {
+      const finalReason = undoReason === "other" ? undoReasonOther : undoReason;
+      const result = await undoAutoAppliedInsight({
+        autoAppliedInsightId: undoingInsight.autoAppliedInsightId,
+        undoReason: finalReason as
+          | "wrong_player"
+          | "wrong_rating"
+          | "insight_incorrect"
+          | "changed_mind"
+          | "duplicate"
+          | "other",
+      });
+      if (result.success) {
+        onSuccess(
+          `Auto-apply undone. ${undoingInsight.fieldChanged ? `${undoingInsight.fieldChanged} reverted to ${undoingInsight.previousValue || "none"}` : "Skill rating reverted"}.`
+        );
+        setUndoingInsight(null);
+        setUndoReason("wrong_rating");
+        setUndoReasonOther("");
+      } else {
+        onError(result.message);
+      }
+    } catch (error) {
+      console.error("Failed to undo auto-applied insight:", error);
+      onError("Failed to undo insight.");
     } finally {
       setIsSaving(false);
     }
@@ -575,7 +659,10 @@ export function InsightsTab({ orgId, onSuccess, onError }: InsightsTabProps) {
     );
   }
 
-  if (insightsWithPrediction.length === 0) {
+  if (
+    insightsWithPrediction.length === 0 &&
+    (!autoAppliedInsights || autoAppliedInsights.length === 0)
+  ) {
     return (
       <Card>
         <CardContent className="py-8">
@@ -917,107 +1004,377 @@ export function InsightsTab({ orgId, onSuccess, onError }: InsightsTabProps) {
 
   return (
     <>
-      {/* Needs Attention Section - Unmatched players and uncategorized insights */}
-      {needsAttentionCount > 0 && (
-        <Card className="mb-4 border-amber-300 bg-amber-50">
-          <CardHeader className="pb-3 sm:pb-4">
-            <CardTitle className="flex items-center gap-2 text-amber-800 text-lg sm:text-xl">
-              <AlertTriangle className="h-5 w-5" />
-              Needs Your Help ({needsAttentionCount})
-            </CardTitle>
-            <CardDescription className="text-amber-700 text-xs sm:text-sm">
-              {unmatchedInsights.length > 0 &&
-                `${unmatchedInsights.length} insight${unmatchedInsights.length !== 1 ? "s" : ""} mention players we couldn't match. `}
-              {teamInsightsNeedingAssignment.length > 0 &&
-                `${teamInsightsNeedingAssignment.length} team insight${teamInsightsNeedingAssignment.length !== 1 ? "s" : ""} need team assignment. `}
-              {unassignedTodoInsights.length > 0 &&
-                `${unassignedTodoInsights.length} TODO${unassignedTodoInsights.length !== 1 ? "s" : ""} need coach assignment. `}
-              {uncategorizedInsights.length > 0 &&
-                `${uncategorizedInsights.length} insight${uncategorizedInsights.length !== 1 ? "s" : ""} need classification.`}
-            </CardDescription>
-          </CardHeader>
-          <CardContent className="space-y-3">
-            {/* All needs-attention insights sorted by most recent */}
-            {needsAttentionInsights.map((insight) => {
-              // Determine type based on what's missing
-              let type:
-                | "matched"
-                | "unmatched"
-                | "classified"
-                | "uncategorized" = "uncategorized";
-              if (insight.playerName) {
-                type = "unmatched"; // Has player name but not matched
-              } else if (
-                insight.category === "team_culture" &&
-                !(insight as any).teamId
-              ) {
-                type = "uncategorized"; // Team insight needing team assignment
-              }
-              return renderInsightCard(insight, type);
-            })}
-          </CardContent>
-        </Card>
-      )}
+      <Tabs
+        onValueChange={(value) =>
+          setActiveTab(value as "pending" | "auto-applied")
+        }
+        value={activeTab}
+      >
+        <TabsList className="grid w-full grid-cols-2">
+          <TabsTrigger value="pending">Pending Review</TabsTrigger>
+          <TabsTrigger value="auto-applied">Auto-Applied</TabsTrigger>
+        </TabsList>
 
-      {/* Ready to Apply - Matched players and classified team insights */}
-      <Card>
-        <CardHeader className="pb-3 sm:pb-6">
-          <div className="flex items-start justify-between gap-2">
-            <div>
-              <CardTitle className="flex items-center gap-2 text-lg sm:text-xl">
-                <Lightbulb className="h-5 w-5 text-yellow-600" />
-                AI Insights
-              </CardTitle>
-              <CardDescription className="text-xs sm:text-sm">
-                {readyToApplyCount > 0
-                  ? `${readyToApplyCount} insight${readyToApplyCount !== 1 ? "s" : ""} ready to apply`
-                  : "No insights ready to apply"}
-                {needsAttentionCount > 0 &&
-                  ` • ${needsAttentionCount} need${needsAttentionCount !== 1 ? "" : "s"} your attention above`}
-              </CardDescription>
-            </div>
-            {readyToApplyCount > 1 && (
-              <Button
-                className="h-8 shrink-0 gap-1.5 bg-green-600 px-3 hover:bg-green-700 sm:h-9"
-                disabled={isBulkApplying}
-                onClick={() => handleBulkApply(readyToApplyInsights)}
-                size="sm"
-              >
-                {isBulkApplying ? (
-                  <>
-                    <Loader2 className="h-4 w-4 animate-spin" />
-                    Applying...
-                  </>
-                ) : (
-                  <>
-                    <CheckCircle className="h-4 w-4" />
-                    Apply All ({readyToApplyCount})
-                  </>
-                )}
-              </Button>
-            )}
-          </div>
-        </CardHeader>
-        <CardContent className="space-y-3">
-          {readyToApplyCount === 0 ? (
-            <p className="py-4 text-center text-gray-500 text-sm">
-              {needsAttentionCount > 0
-                ? "Resolve the insights above to see them here."
-                : "No pending insights."}
-            </p>
-          ) : (
-            <>
-              {/* All ready-to-apply insights sorted by most recent */}
-              {readyToApplyInsights.map((insight) => {
-                const type = insight.playerIdentityId
-                  ? "matched"
-                  : "classified";
-                return renderInsightCard(insight, type);
-              })}
-            </>
+        <TabsContent className="mt-4 space-y-4" value="pending">
+          {/* Needs Attention Section - Unmatched players and uncategorized insights */}
+          {needsAttentionCount > 0 && (
+            <Card className="border-amber-300 bg-amber-50">
+              <CardHeader className="pb-3 sm:pb-4">
+                <CardTitle className="flex items-center gap-2 text-amber-800 text-lg sm:text-xl">
+                  <AlertTriangle className="h-5 w-5" />
+                  Needs Your Help ({needsAttentionCount})
+                </CardTitle>
+                <CardDescription className="text-amber-700 text-xs sm:text-sm">
+                  {unmatchedInsights.length > 0 &&
+                    `${unmatchedInsights.length} insight${unmatchedInsights.length !== 1 ? "s" : ""} mention players we couldn't match. `}
+                  {teamInsightsNeedingAssignment.length > 0 &&
+                    `${teamInsightsNeedingAssignment.length} team insight${teamInsightsNeedingAssignment.length !== 1 ? "s" : ""} need team assignment. `}
+                  {unassignedTodoInsights.length > 0 &&
+                    `${unassignedTodoInsights.length} TODO${unassignedTodoInsights.length !== 1 ? "s" : ""} need coach assignment. `}
+                  {uncategorizedInsights.length > 0 &&
+                    `${uncategorizedInsights.length} insight${uncategorizedInsights.length !== 1 ? "s" : ""} need classification.`}
+                </CardDescription>
+              </CardHeader>
+              <CardContent className="space-y-3">
+                {/* All needs-attention insights sorted by most recent */}
+                {needsAttentionInsights.map((insight) => {
+                  // Determine type based on what's missing
+                  let type:
+                    | "matched"
+                    | "unmatched"
+                    | "classified"
+                    | "uncategorized" = "uncategorized";
+                  if (insight.playerName) {
+                    type = "unmatched"; // Has player name but not matched
+                  } else if (
+                    insight.category === "team_culture" &&
+                    !(insight as any).teamId
+                  ) {
+                    type = "uncategorized"; // Team insight needing team assignment
+                  }
+                  return renderInsightCard(insight, type);
+                })}
+              </CardContent>
+            </Card>
           )}
-        </CardContent>
-      </Card>
+
+          {/* Ready to Apply - Matched players and classified team insights */}
+          <Card>
+            <CardHeader className="pb-3 sm:pb-6">
+              <div className="flex items-start justify-between gap-2">
+                <div>
+                  <CardTitle className="flex items-center gap-2 text-lg sm:text-xl">
+                    <Lightbulb className="h-5 w-5 text-yellow-600" />
+                    AI Insights
+                  </CardTitle>
+                  <CardDescription className="text-xs sm:text-sm">
+                    {readyToApplyCount > 0
+                      ? `${readyToApplyCount} insight${readyToApplyCount !== 1 ? "s" : ""} ready to apply`
+                      : "No insights ready to apply"}
+                    {needsAttentionCount > 0 &&
+                      ` • ${needsAttentionCount} need${needsAttentionCount !== 1 ? "" : "s"} your attention above`}
+                  </CardDescription>
+                </div>
+                {readyToApplyCount > 1 && (
+                  <Button
+                    className="h-8 shrink-0 gap-1.5 bg-green-600 px-3 hover:bg-green-700 sm:h-9"
+                    disabled={isBulkApplying}
+                    onClick={() => handleBulkApply(readyToApplyInsights)}
+                    size="sm"
+                  >
+                    {isBulkApplying ? (
+                      <>
+                        <Loader2 className="h-4 w-4 animate-spin" />
+                        Applying...
+                      </>
+                    ) : (
+                      <>
+                        <CheckCircle className="h-4 w-4" />
+                        Apply All ({readyToApplyCount})
+                      </>
+                    )}
+                  </Button>
+                )}
+              </div>
+            </CardHeader>
+            <CardContent className="space-y-3">
+              {readyToApplyCount === 0 ? (
+                <p className="py-4 text-center text-gray-500 text-sm">
+                  {needsAttentionCount > 0
+                    ? "Resolve the insights above to see them here."
+                    : "No pending insights."}
+                </p>
+              ) : (
+                <>
+                  {/* All ready-to-apply insights sorted by most recent */}
+                  {readyToApplyInsights.map((insight) => {
+                    const type = insight.playerIdentityId
+                      ? "matched"
+                      : "classified";
+                    return renderInsightCard(insight, type);
+                  })}
+                </>
+              )}
+            </CardContent>
+          </Card>
+        </TabsContent>
+
+        <TabsContent className="mt-4" value="auto-applied">
+          <Card>
+            <CardHeader>
+              <CardTitle className="flex items-center gap-2">
+                <Sparkles className="h-5 w-5 text-green-600" />
+                Auto-Applied Insights
+              </CardTitle>
+              <CardDescription>
+                Insights that were automatically applied by AI. You can undo
+                within 1 hour.
+              </CardDescription>
+            </CardHeader>
+            <CardContent className="space-y-3">
+              {autoAppliedInsights === undefined ? (
+                <div className="flex items-center justify-center py-12">
+                  <Loader2 className="h-8 w-8 animate-spin text-gray-400" />
+                </div>
+              ) : autoAppliedInsights.length === 0 ? (
+                <Empty>
+                  <EmptyContent>
+                    <EmptyMedia variant="icon">
+                      <Sparkles className="h-6 w-6" />
+                    </EmptyMedia>
+                    <EmptyTitle>No auto-applied insights yet</EmptyTitle>
+                    <EmptyDescription>
+                      When you reach Level 2, high-confidence skill insights
+                      will auto-apply here
+                    </EmptyDescription>
+                  </EmptyContent>
+                </Empty>
+              ) : (
+                autoAppliedInsights.map((insight) => {
+                  const appliedAt = insight.appliedAt || 0;
+                  const elapsed = Date.now() - appliedAt;
+                  const canUndo = elapsed < 3_600_000 && !insight.undoneAt;
+                  const isUndone = !!insight.undoneAt;
+
+                  return (
+                    <div
+                      className={cn(
+                        "flex flex-col gap-3 rounded-lg border-2 p-3 sm:flex-row sm:items-start sm:justify-between sm:p-4",
+                        isUndone
+                          ? "border-gray-300 bg-gray-50"
+                          : "border-green-200 bg-green-50"
+                      )}
+                      key={insight._id}
+                    >
+                      <div className="flex-1">
+                        <div className="mb-1 flex flex-wrap items-center gap-1.5 sm:gap-2">
+                          <span className="font-semibold text-gray-800 text-sm sm:text-base">
+                            {insight.title || "Skill Update"}
+                          </span>
+                          {isUndone ? (
+                            <Badge
+                              className="bg-gray-100 text-gray-700"
+                              variant="secondary"
+                            >
+                              Undone
+                            </Badge>
+                          ) : (
+                            <Badge
+                              className="bg-green-100 text-green-700"
+                              variant="secondary"
+                            >
+                              <CheckCircle className="mr-1 h-3 w-3" />
+                              Auto-Applied
+                            </Badge>
+                          )}
+                          {insight.playerName && (
+                            <Badge className="text-xs" variant="secondary">
+                              {insight.playerName}
+                            </Badge>
+                          )}
+                        </div>
+
+                        <p className="mb-2 text-gray-500 text-xs">
+                          Applied {formatRelativeTime(appliedAt)}
+                        </p>
+
+                        {insight.description && (
+                          <p className="mb-2 text-gray-700 text-xs sm:text-sm">
+                            {insight.description}
+                          </p>
+                        )}
+
+                        {insight.fieldChanged && (
+                          <div className="mb-2 rounded bg-white p-2 text-sm">
+                            <span className="font-medium">
+                              {insight.fieldChanged}:
+                            </span>{" "}
+                            <span className="text-gray-600">
+                              {insight.previousValue || "none"}
+                            </span>
+                            {" → "}
+                            <span className="font-medium text-green-600">
+                              {insight.newValue}
+                            </span>
+                          </div>
+                        )}
+
+                        {insight.confidenceScore !== undefined && (
+                          <div className="mt-2 space-y-1">
+                            <div className="flex items-center justify-between text-sm">
+                              <span className="font-medium text-green-600">
+                                AI Confidence:{" "}
+                                {Math.round(insight.confidenceScore * 100)}%
+                              </span>
+                            </div>
+                            <Progress
+                              className="h-2"
+                              value={insight.confidenceScore * 100}
+                            />
+                          </div>
+                        )}
+                      </div>
+
+                      <div className="flex flex-wrap justify-end gap-2">
+                        <Button
+                          className="h-8 px-2 sm:h-9 sm:px-3"
+                          disabled={!canUndo || isSaving}
+                          onClick={() => {
+                            if (canUndo) {
+                              setUndoingInsight({
+                                autoAppliedInsightId: insight.auditRecordId,
+                                fieldChanged: insight.fieldChanged,
+                                previousValue: insight.previousValue,
+                                newValue: insight.newValue || "",
+                                playerName: insight.playerName,
+                              });
+                            }
+                          }}
+                          size="sm"
+                          title={
+                            isUndone
+                              ? "Already undone"
+                              : canUndo
+                                ? "Undo this auto-applied insight"
+                                : "Undo window expired (1 hour limit)"
+                          }
+                          variant={isUndone ? "outline" : "destructive"}
+                        >
+                          {isUndone ? "Undone" : canUndo ? "Undo" : "Expired"}
+                        </Button>
+                      </div>
+                    </div>
+                  );
+                })
+              )}
+            </CardContent>
+          </Card>
+        </TabsContent>
+      </Tabs>
+
+      {/* Undo Dialog */}
+      <Dialog
+        onOpenChange={(open) => !open && setUndoingInsight(null)}
+        open={!!undoingInsight}
+      >
+        <DialogContent className="sm:max-w-[500px]">
+          <DialogHeader>
+            <DialogTitle>Undo Auto-Applied Insight</DialogTitle>
+            <DialogDescription>
+              This will revert the player&apos;s rating back to{" "}
+              {undoingInsight?.previousValue || "none"}. Why are you undoing
+              this?
+            </DialogDescription>
+          </DialogHeader>
+          {undoingInsight && (
+            <div className="space-y-4 py-4">
+              <RadioGroup onValueChange={setUndoReason} value={undoReason}>
+                <div className="flex items-center space-x-2">
+                  <RadioGroupItem id="wrong_player" value="wrong_player" />
+                  <Label className="font-normal" htmlFor="wrong_player">
+                    Wrong player - AI applied to incorrect player
+                  </Label>
+                </div>
+                <div className="flex items-center space-x-2">
+                  <RadioGroupItem id="wrong_rating" value="wrong_rating" />
+                  <Label className="font-normal" htmlFor="wrong_rating">
+                    Wrong rating - The suggested rating was incorrect
+                  </Label>
+                </div>
+                <div className="flex items-center space-x-2">
+                  <RadioGroupItem
+                    id="insight_incorrect"
+                    value="insight_incorrect"
+                  />
+                  <Label className="font-normal" htmlFor="insight_incorrect">
+                    Insight incorrect - The insight itself was wrong
+                  </Label>
+                </div>
+                <div className="flex items-center space-x-2">
+                  <RadioGroupItem id="changed_mind" value="changed_mind" />
+                  <Label className="font-normal" htmlFor="changed_mind">
+                    Changed my mind - I want to review this manually
+                  </Label>
+                </div>
+                <div className="flex items-center space-x-2">
+                  <RadioGroupItem id="duplicate" value="duplicate" />
+                  <Label className="font-normal" htmlFor="duplicate">
+                    Duplicate - This was already applied
+                  </Label>
+                </div>
+                <div className="flex items-center space-x-2">
+                  <RadioGroupItem id="other" value="other" />
+                  <Label className="font-normal" htmlFor="other">
+                    Other (please explain)
+                  </Label>
+                </div>
+              </RadioGroup>
+
+              {undoReason === "other" && (
+                <div className="space-y-2">
+                  <Label htmlFor="other-reason">Explanation</Label>
+                  <Textarea
+                    id="other-reason"
+                    onChange={(e) => setUndoReasonOther(e.target.value)}
+                    placeholder="Please explain why you're undoing this..."
+                    rows={3}
+                    value={undoReasonOther}
+                  />
+                </div>
+              )}
+            </div>
+          )}
+          <DialogFooter>
+            <Button
+              disabled={isSaving}
+              onClick={() => {
+                setUndoingInsight(null);
+                setUndoReason("wrong_rating");
+                setUndoReasonOther("");
+              }}
+              variant="outline"
+            >
+              Cancel
+            </Button>
+            <Button
+              disabled={
+                isSaving || (undoReason === "other" && !undoReasonOther.trim())
+              }
+              onClick={handleUndoAutoApplied}
+              variant="destructive"
+            >
+              {isSaving ? (
+                <>
+                  <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                  Undoing...
+                </>
+              ) : (
+                "Undo"
+              )}
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
 
       {/* Edit Insight Dialog */}
       <Dialog

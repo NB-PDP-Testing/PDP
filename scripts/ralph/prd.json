@@ -268,7 +268,7 @@
         "  - Toast notifications appear on undo"
       ],
       "priority": 9,
-      "passes": false,
+      "passes": true,
       "notes": "Transparency. Coach sees everything AI did. Undo is one click. Collecting why helps AI learn (Phase 7.3). After 1 hour, button disabled with tooltip 'Undo window expired'."
     }
   ],

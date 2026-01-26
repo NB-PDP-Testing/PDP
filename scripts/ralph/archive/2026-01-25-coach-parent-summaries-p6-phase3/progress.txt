@@ -1,0 +1,101 @@
+# Ralph Progress Log
+Started: 2026-01-25 20:15 UTC
+---
+
+## Phase 6.4: Performance Optimization
+
+**Branch:** ralph/coach-parent-summaries-p6-phase4
+**Total Stories:** 1 (US-023)
+**Status:** Ready to start
+
+### Overview
+Phase 6.4 adds daily aggregation of AI usage stats for 100x faster dashboard queries at scale.
+
+### User Story: US-023
+**Title:** Add daily aggregation for AI usage stats
+**Status:** Not started
+**Description:** Pre-aggregate daily AI usage stats for faster dashboard queries
+
+**Acceptance Criteria:**
+- [ ] Add aiUsageDailyAggregates table to schema
+- [ ] Add indexes: by_date, by_org_date
+- [ ] Add cron job aggregateDailyUsage (runs daily at 1 AM UTC)
+- [ ] Aggregate previous day's usage by organization
+- [ ] Update getOrgUsage query to use aggregates for > 7 day ranges
+- [ ] Typecheck passes
+
+### Implementation Plan
+
+1. **Schema Changes** (packages/backend/convex/schema.ts)
+   - Add aiUsageDailyAggregates table with fields:
+     - date: v.string() // YYYY-MM-DD format
+     - organizationId: v.string() // Better Auth org ID
+     - totalCost: v.number()
+     - totalCalls: v.number()
+     - totalInputTokens: v.number()
+     - totalCachedTokens: v.number()
+     - totalOutputTokens: v.number()
+     - avgCacheHitRate: v.number()
+   - Add indexes:
+     - by_date: ["date"]
+     - by_org_date: ["organizationId", "date"]
+
+2. **Cron Job** (packages/backend/convex/crons.ts)
+   - Add daily cron at 1 AM UTC
+   - Create aggregation mutation in models/aiUsageLog.ts
+   - Process previous day only (yesterday 00:00 to 23:59 UTC)
+   - Group by organizationId
+   - Calculate: sum(cost), count(*), sum(tokens), avg(cacheHitRate)
+   - Insert into aiUsageDailyAggregates
+   - Handle idempotency (check for existing records)
+   - Sparse table (only insert if org had usage)
+
+3. **Query Optimization** (models/aiUsageLog.ts)
+   - Update getOrgUsage query
+   - Add logic: if (endDate - startDate) > 7 days, use aggregates
+   - Otherwise use raw aiUsageLog
+   - Fall back to raw logs if aggregates missing
+
+### Performance Goals
+
+- Aggregation cron: < 5 seconds for 1000 logs
+- Query speed with aggregates: < 100ms for 30 days
+- 10-100x speedup for large date ranges
+- Dashboard loads in < 2 seconds at scale
+
+### Dependencies Met
+
+✅ Phase 6.1 complete (Cost Controls)
+✅ Phase 6.2 complete (Graceful Degradation)
+✅ Phase 6.3 complete (Admin Dashboard) - **just fixed aiUsageLog type issues**
+✅ aiUsageLog table exists with correct schema (organizationId is string)
+✅ getOrgUsage query exists
+
+### Recent Fixes (Phase 6.3)
+
+Before starting Phase 6.4, we fixed critical bugs in Phase 6.3:
+
+1. **Fixed aiUsageLog schema** - Changed organizationId from v.id("organization") to v.string()
+   - Better Auth uses string IDs, not Convex IDs
+   - This was causing all AI usage logging to fail silently
+
+2. **Fixed return validators** - Updated getPlatformUsage and getOrgUsage validators
+   - Validators now match schema types
+
+3. **Fixed coachParentSummaries validator** - Added missing autoApprovalDecision field
+   - Was causing voice notes dashboard to crash
+
+4. **Dashboard now working** - Platform messaging dashboard shows metrics correctly
+
+### Notes
+
+This is an **optional** performance optimization. The system works without it, but as usage scales to thousands of AI calls, pre-aggregation will become necessary for good dashboard performance.
+
+Trade-off: Accept up to 24h stale data in exchange for 100x query speedup.
+
+---
+
+## CODE REVIEW FEEDBACK
+
+<!-- Agents will write feedback below this line -->
+

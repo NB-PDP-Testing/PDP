@@ -56,6 +56,9 @@ export function CoachFeedbackEnhanced({ orgId }: CoachFeedbackEnhancedProps) {
   const [searchQuery, setSearchQuery] = useState("");
   const [selectedChild, setSelectedChild] = useState<string>("all");
   const [activeTab, setActiveTab] = useState<"new" | "history">("new");
+  const [viewMode, setViewMode] = useState<"all-messages" | "by-child">(
+    "all-messages"
+  );
 
   // Fetch AI-generated summaries grouped by child and sport
   const summariesData = useQuery(
@@ -122,11 +125,20 @@ export function CoachFeedbackEnhanced({ orgId }: CoachFeedbackEnhancedProps) {
   };
 
   // Calculate stats and filter data
-  const { newData, historyData, stats, childOptions } = useMemo(() => {
+  const {
+    newData,
+    historyData,
+    allMessagesNew,
+    allMessagesHistory,
+    stats,
+    childOptions,
+  } = useMemo(() => {
     if (!summariesData) {
       return {
         newData: [],
         historyData: [],
+        allMessagesNew: [],
+        allMessagesHistory: [],
         stats: { total: 0, unread: 0, read: 0, children: 0 },
         childOptions: [],
       };
@@ -204,9 +216,74 @@ export function CoachFeedbackEnhanced({ orgId }: CoachFeedbackEnhancedProps) {
         .filter((child: any) => child.sportGroups.length > 0);
     };
 
+    // Create flat lists for "All Messages" view (sorted newest to oldest)
+    const createFlatList = (acknowledged: boolean) => {
+      const flatList: any[] = [];
+
+      // Apply child filter first
+      let dataToProcess = summariesData;
+      if (selectedChild !== "all") {
+        dataToProcess = dataToProcess.filter(
+          (child: any) => child.player._id === selectedChild
+        );
+      }
+
+      // Flatten all summaries with metadata
+      for (const child of dataToProcess) {
+        for (const sportGroup of child.sportGroups) {
+          for (const summary of sportGroup.summaries) {
+            // Filter by acknowledged status
+            if (acknowledged && !summary.acknowledgedAt) {
+              continue;
+            }
+            if (!acknowledged && summary.acknowledgedAt) {
+              continue;
+            }
+
+            // Apply search filter
+            if (searchQuery.trim()) {
+              const searchLower = searchQuery.toLowerCase();
+              const content = summary.publicSummary.content.toLowerCase();
+              const coachName = summary.coachName?.toLowerCase() || "";
+              const category =
+                summary.privateInsight?.category.toLowerCase() || "";
+
+              if (
+                !(
+                  content.includes(searchLower) ||
+                  coachName.includes(searchLower) ||
+                  category.includes(searchLower)
+                )
+              ) {
+                continue;
+              }
+            }
+
+            flatList.push({
+              summary,
+              child,
+              sportGroup,
+              playerName: `${child.player.firstName} ${child.player.lastName}`,
+              sportName: sportGroup.sport?.name || "Unknown Sport",
+              sportCode: sportGroup.sport?.code,
+            });
+          }
+        }
+      }
+
+      // Sort by creation time (newest first)
+      flatList.sort(
+        (a, b) => b.summary._creationTime - a.summary._creationTime
+      );
+
+      return flatList;
+    };
+
     return {
-      newData: splitData(false), // Unacknowledged
-      historyData: splitData(true), // Acknowledged
+      newData: splitData(false), // Unacknowledged (grouped by child)
+      historyData: splitData(true), // Acknowledged (grouped by child)
+      allMessagesNew: createFlatList(false), // Unacknowledged (flat list)
+      allMessagesHistory: createFlatList(true), // Acknowledged (flat list)
       stats: {
         total: totalSummaries,
         unread: unreadSummaries,
@@ -230,6 +307,65 @@ export function CoachFeedbackEnhanced({ orgId }: CoachFeedbackEnhancedProps) {
   if (!hasSummaries) {
     return null;
   }
+
+  // Render flat list of all messages (newest to oldest)
+  const renderAllMessages = (messages: typeof allMessagesNew) => {
+    if (messages.length === 0) {
+      return (
+        <div className="rounded-lg border border-dashed bg-muted/30 p-12 text-center">
+          <p className="text-muted-foreground">
+            {hasActiveFilters
+              ? "No messages found matching your filters."
+              : activeTab === "new"
+                ? "No new messages. Great job staying on top of feedback!"
+                : "No message history yet."}
+          </p>
+          {hasActiveFilters && (
+            <Button
+              className="mt-4"
+              onClick={() => {
+                setSearchQuery("");
+                setSelectedChild("all");
+              }}
+              variant="outline"
+            >
+              Clear filters
+            </Button>
+          )}
+        </div>
+      );
+    }
+
+    return (
+      <div className="space-y-2">
+        {messages.map((item: any) => (
+          <div className="space-y-1" key={item.summary._id}>
+            {/* Child and sport header */}
+            <div className="flex items-center gap-2 px-1 text-muted-foreground text-xs">
+              <span className="truncate font-medium text-foreground">
+                {item.playerName}
+              </span>
+              <span className="flex-shrink-0">•</span>
+              <span className="flex flex-shrink-0 items-center gap-1">
+                {(() => {
+                  const SportIcon = getSportIcon(item.sportCode);
+                  return <SportIcon className="h-3 w-3" />;
+                })()}
+                <span className="truncate">{item.sportName}</span>
+              </span>
+            </div>
+            {/* Summary card */}
+            <ParentSummaryCard
+              isUnread={!item.summary.acknowledgedAt}
+              onAcknowledge={handleAcknowledgeSummary}
+              onView={handleViewSummary}
+              summary={item.summary}
+            />
+          </div>
+        ))}
+      </div>
+    );
+  };
 
   const renderChildCards = (
     data: typeof newData,
@@ -262,7 +398,7 @@ export function CoachFeedbackEnhanced({ orgId }: CoachFeedbackEnhancedProps) {
     }
 
     return (
-      <div className="space-y-6">
+      <div className="space-y-4">
         {data.map((childData: any) => {
           const unreadCount = childData.sportGroups.reduce(
             (sum: any, sg: any) =>
@@ -272,13 +408,13 @@ export function CoachFeedbackEnhanced({ orgId }: CoachFeedbackEnhancedProps) {
 
           return (
             <Card key={childData.player._id}>
-              <CardHeader>
-                <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
-                  <div>
-                    <CardTitle className="text-xl">
+              <CardHeader className="pb-3">
+                <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+                  <div className="min-w-0 flex-1">
+                    <CardTitle className="truncate text-lg sm:text-xl">
                       {childData.player.firstName} {childData.player.lastName}
                     </CardTitle>
-                    <CardDescription>
+                    <CardDescription className="text-xs">
                       {childData.sportGroups.length} sport
                       {childData.sportGroups.length !== 1 ? "s" : ""} •{" "}
                       {childData.sportGroups.reduce(
@@ -305,22 +441,24 @@ export function CoachFeedbackEnhanced({ orgId }: CoachFeedbackEnhancedProps) {
                   </div>
                   {showMarkAllButton && unreadCount > 0 && (
                     <Button
+                      className="flex-shrink-0"
                       onClick={() => handleMarkAllAsRead(childData.player._id)}
                       size="sm"
                       variant="outline"
                     >
-                      <CheckCheck className="mr-2 h-4 w-4" />
-                      Mark All as Read
+                      <CheckCheck className="h-4 w-4 sm:mr-2" />
+                      <span className="hidden sm:inline">Mark All as Read</span>
+                      <span className="sm:hidden">Mark All</span>
                     </Button>
                   )}
                 </div>
               </CardHeader>
-              <CardContent className="space-y-6">
+              <CardContent className="space-y-4">
                 {childData.sportGroups.map((sportGroup: any) => (
                   <div key={sportGroup.sport?._id || `sport-${Math.random()}`}>
                     {/* Sport header */}
                     {sportGroup.sport && (
-                      <h4 className="mb-3 flex items-center gap-2 font-medium text-sm">
+                      <h4 className="mb-2 flex items-center gap-2 font-medium text-sm">
                         {(() => {
                           const SportIcon = getSportIcon(sportGroup.sport.code);
                           return <SportIcon className="h-4 w-4" />;
@@ -342,7 +480,7 @@ export function CoachFeedbackEnhanced({ orgId }: CoachFeedbackEnhancedProps) {
                     )}
 
                     {/* Summary cards */}
-                    <div className="space-y-3">
+                    <div className="space-y-2">
                       {sportGroup.summaries.map((summary: any) => (
                         <ParentSummaryCard
                           isUnread={!summary.acknowledgedAt}
@@ -364,19 +502,23 @@ export function CoachFeedbackEnhanced({ orgId }: CoachFeedbackEnhancedProps) {
   };
 
   return (
-    <div className="space-y-6">
+    <div className="space-y-4">
       {/* Stats Overview */}
-      <div className="grid gap-4 sm:grid-cols-3">
+      <div className="grid gap-3 sm:grid-cols-3">
         <Card>
-          <CardHeader className="pb-2">
-            <CardDescription>Total Messages</CardDescription>
-            <CardTitle className="text-3xl">{stats.total}</CardTitle>
+          <CardHeader className="pt-3 pb-2">
+            <CardDescription className="text-xs">
+              Total Messages
+            </CardDescription>
+            <CardTitle className="text-2xl">{stats.total}</CardTitle>
           </CardHeader>
         </Card>
         <Card>
-          <CardHeader className="pb-2">
-            <CardDescription>Unread Messages</CardDescription>
-            <CardTitle className="text-3xl">
+          <CardHeader className="pt-3 pb-2">
+            <CardDescription className="text-xs">
+              Unread Messages
+            </CardDescription>
+            <CardTitle className="text-2xl">
               {stats.unread}
               {stats.unread > 0 && (
                 <Badge className="ml-2 bg-red-500" variant="default">
@@ -387,30 +529,30 @@ export function CoachFeedbackEnhanced({ orgId }: CoachFeedbackEnhancedProps) {
           </CardHeader>
         </Card>
         <Card>
-          <CardHeader className="pb-2">
-            <CardDescription>Children</CardDescription>
-            <CardTitle className="text-3xl">{stats.children}</CardTitle>
+          <CardHeader className="pt-3 pb-2">
+            <CardDescription className="text-xs">Children</CardDescription>
+            <CardTitle className="text-2xl">{stats.children}</CardTitle>
           </CardHeader>
         </Card>
       </div>
 
       {/* Unified Card with Tabs and Content */}
       <Card>
-        <CardHeader>
-          <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
+        <CardHeader className="pb-3">
+          <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
             <div>
-              <CardTitle className="flex items-center gap-2">
+              <CardTitle className="flex items-center gap-2 text-lg">
                 <Sparkles className="h-5 w-5 text-blue-600" />
                 AI Coach Summaries
               </CardTitle>
-              <CardDescription>
+              <CardDescription className="text-xs">
                 AI-generated summaries from your coach's voice notes
               </CardDescription>
             </div>
           </div>
         </CardHeader>
 
-        <CardContent className="space-y-6">
+        <CardContent className="space-y-4">
           <Tabs
             onValueChange={(v) => setActiveTab(v as "new" | "history")}
             value={activeTab}
@@ -438,8 +580,66 @@ export function CoachFeedbackEnhanced({ orgId }: CoachFeedbackEnhancedProps) {
               </TabsTrigger>
             </TabsList>
 
+            {/* View Mode Toggle */}
+            <div className="mt-4 flex items-center justify-between">
+              <div className="flex items-center gap-1.5">
+                <Button
+                  onClick={() => setViewMode("all-messages")}
+                  size="sm"
+                  variant={viewMode === "all-messages" ? "default" : "outline"}
+                >
+                  <span className="inline-flex h-4 w-4 items-center justify-center sm:mr-2">
+                    <svg
+                      aria-label="List view"
+                      className="h-4 w-4"
+                      fill="none"
+                      role="img"
+                      stroke="currentColor"
+                      strokeWidth={2}
+                      viewBox="0 0 24 24"
+                      xmlns="http://www.w3.org/2000/svg"
+                    >
+                      <path
+                        d="M3 12h18M3 6h18M3 18h18"
+                        strokeLinecap="round"
+                        strokeLinejoin="round"
+                      />
+                    </svg>
+                  </span>
+                  <span className="hidden sm:inline">All Messages</span>
+                  <span className="sm:hidden">All</span>
+                </Button>
+                <Button
+                  onClick={() => setViewMode("by-child")}
+                  size="sm"
+                  variant={viewMode === "by-child" ? "default" : "outline"}
+                >
+                  <span className="inline-flex h-4 w-4 items-center justify-center sm:mr-2">
+                    <svg
+                      aria-label="Grid view"
+                      className="h-4 w-4"
+                      fill="none"
+                      role="img"
+                      stroke="currentColor"
+                      strokeWidth={2}
+                      viewBox="0 0 24 24"
+                      xmlns="http://www.w3.org/2000/svg"
+                    >
+                      <path
+                        d="M4 6a2 2 0 012-2h2a2 2 0 012 2v2a2 2 0 01-2 2H6a2 2 0 01-2-2V6zM14 6a2 2 0 012-2h2a2 2 0 012 2v2a2 2 0 01-2 2h-2a2 2 0 01-2-2V6zM4 16a2 2 0 012-2h2a2 2 0 012 2v2a2 2 0 01-2 2H6a2 2 0 01-2-2v-2zM14 16a2 2 0 012-2h2a2 2 0 012 2v2a2 2 0 01-2 2h-2a2 2 0 01-2-2v-2z"
+                        strokeLinecap="round"
+                        strokeLinejoin="round"
+                      />
+                    </svg>
+                  </span>
+                  <span className="hidden sm:inline">By Child</span>
+                  <span className="sm:hidden">Child</span>
+                </Button>
+              </div>
+            </div>
+
             {/* Search and Filters */}
-            <div className="mt-6 flex flex-col gap-3 sm:flex-row">
+            <div className="mt-4 flex flex-col gap-3 sm:flex-row">
               {/* Search */}
               <div className="relative flex-1">
                 <Search className="absolute top-3 left-3 h-4 w-4 text-muted-foreground" />
@@ -525,12 +725,16 @@ export function CoachFeedbackEnhanced({ orgId }: CoachFeedbackEnhancedProps) {
             )}
 
             {/* Tab Content */}
-            <TabsContent className="mt-6 space-y-6" value="new">
-              {renderChildCards(newData, true)}
+            <TabsContent className="mt-4" value="new">
+              {viewMode === "all-messages"
+                ? renderAllMessages(allMessagesNew)
+                : renderChildCards(newData, true)}
             </TabsContent>
 
-            <TabsContent className="mt-6 space-y-6" value="history">
-              {renderChildCards(historyData, false)}
+            <TabsContent className="mt-4" value="history">
+              {viewMode === "all-messages"
+                ? renderAllMessages(allMessagesHistory)
+                : renderChildCards(historyData, false)}
             </TabsContent>
           </Tabs>
         </CardContent>

@@ -95,6 +95,13 @@ const insightSchema = z.object({
           .string()
           .nullable()
           .describe("Suggested action or update based on this insight"),
+        confidence: z
+          .number()
+          .min(0)
+          .max(1)
+          .describe(
+            "AI confidence score (0.0-1.0) in this insight. Rate based on: 1.0 = Coach explicitly stated this fact with certainty. 0.8-0.9 = Clear implication from context with supporting details. 0.6-0.7 = Reasonable inference but some ambiguity. 0.4-0.5 = Speculative interpretation. Use higher scores when coach uses definitive language, specific numbers, or clear observations. Lower scores for vague comments or unclear context."
+          ),
         teamId: z
           .string()
           .nullable()
@@ -586,6 +593,7 @@ IMPORTANT:
           description: insight.description,
           category: insight.category ?? undefined,
           recommendedUpdate: insight.recommendedUpdate ?? undefined,
+          confidence: insight.confidence ?? 0.7, // Phase 7: AI confidence score, default to 0.7 if not provided
           teamId,
           teamName,
           assigneeUserId,
@@ -609,6 +617,159 @@ IMPORTANT:
       const _unmatchedCount = resolvedInsights.filter(
         (i) => !i.playerIdentityId && i.playerName
       ).length;
+
+      // Phase 7.3: Automatically apply eligible insights (US-009.5)
+      // Query voiceNoteInsights table to get newly created insight records
+      console.log(
+        `[buildInsights] 🔵 Phase 7.3: Starting auto-apply check for note ${args.noteId}`
+      );
+      if (note.coachId) {
+        console.log(
+          `[buildInsights] 🔵 Querying trust level for coach ${note.coachId}`
+        );
+        // Get coach trust level for auto-apply eligibility
+        const trustLevel = await ctx.runQuery(
+          internal.models.coachTrustLevels.getCoachTrustLevelInternal,
+          {
+            coachId: note.coachId,
+          }
+        );
+
+        console.log(
+          "[buildInsights] 🔵 Trust level result:",
+          trustLevel ? `Level ${trustLevel.currentLevel}` : "NOT FOUND"
+        );
+        if (trustLevel) {
+          // Calculate effective trust level
+          const effectiveLevel = Math.min(
+            trustLevel.currentLevel,
+            trustLevel.preferredLevel ?? trustLevel.currentLevel
+          );
+          const threshold = trustLevel.insightConfidenceThreshold ?? 0.7;
+
+          console.log(
+            `[buildInsights] 🔵 Querying voiceNoteInsights table for note ${args.noteId}`
+          );
+          // Get newly created insights from database
+          const createdInsights = await ctx.runQuery(
+            internal.models.voiceNotes.getInsightsForNote,
+            {
+              noteId: args.noteId,
+            }
+          );
+
+          console.log(
+            `[buildInsights] 🔵 Found ${createdInsights.length} insights in voiceNoteInsights table`
+          );
+
+          // Check each insight for auto-apply eligibility
+          for (const insight of createdInsights) {
+            try {
+              // Map AI insight categories to preference categories (US-010/US-011)
+              // AI uses: skill_rating, skill_progress, behavior, performance, attendance, team_culture, todo
+              // Prefs use: skills, attendance, goals, performance
+              const categoryMap: Record<
+                string,
+                "skills" | "attendance" | "goals" | "performance" | null
+              > = {
+                skill_rating: "skills",
+                skill_progress: "skills",
+                attendance: "attendance",
+                performance: "performance",
+                behavior: "performance", // Map behavior to performance category
+                team_culture: null, // Team-wide, don't auto-apply
+                todo: null, // Tasks for coach, don't auto-apply
+                injury: null, // Safety: never auto-apply
+                medical: null, // Safety: never auto-apply
+              };
+
+              const prefCategory = categoryMap[insight.category];
+              const categoryEnabled = prefCategory
+                ? (trustLevel.insightAutoApplyPreferences?.[prefCategory] ??
+                  false)
+                : false;
+
+              // Eligibility checks
+              const isEligible =
+                insight.status === "pending" &&
+                insight.category !== "injury" &&
+                insight.category !== "medical" &&
+                effectiveLevel >= 2 &&
+                insight.confidenceScore >= threshold &&
+                categoryEnabled; // Must be enabled in preferences (Phase 7.3)
+
+              if (isEligible) {
+                console.log(
+                  `[Auto-Apply] ✅ Eligible: insight ${insight._id} (${insight.category}, confidence: ${insight.confidenceScore}, threshold: ${threshold})`
+                );
+
+                // Attempt auto-apply using internal mutation (Phase 7.3 US-009.5)
+                const result = await ctx.runMutation(
+                  internal.models.voiceNoteInsights.autoApplyInsightInternal,
+                  {
+                    insightId: insight._id,
+                    coachId: note.coachId,
+                  }
+                );
+
+                if (result.success) {
+                  console.log(
+                    `[Auto-Apply] ✅ SUCCESS: ${insight.title} - ${result.message}`
+                  );
+                } else {
+                  console.log(
+                    `[Auto-Apply] ⚠️ SKIPPED: ${insight.title} - ${result.message}`
+                  );
+                }
+              } else {
+                // Log why not eligible
+                const reasons: string[] = [];
+                if (insight.status !== "pending") {
+                  reasons.push(`status=${insight.status}`);
+                }
+                if (
+                  insight.category === "injury" ||
+                  insight.category === "medical"
+                ) {
+                  reasons.push(`category=${insight.category} (safety)`);
+                }
+                if (effectiveLevel < 2) {
+                  reasons.push(`effectiveLevel=${effectiveLevel} (need 2+)`);
+                }
+                if (insight.confidenceScore < threshold) {
+                  reasons.push(
+                    `confidence=${insight.confidenceScore} < ${threshold}`
+                  );
+                }
+                if (!categoryEnabled) {
+                  if (prefCategory) {
+                    reasons.push(
+                      `category=${insight.category} maps to ${prefCategory} (disabled in preferences)`
+                    );
+                  } else {
+                    reasons.push(
+                      `category=${insight.category} (not auto-appliable)`
+                    );
+                  }
+                }
+
+                console.log(
+                  `[Auto-Apply] ❌ NOT ELIGIBLE: ${insight.title} (${reasons.join(", ")})`
+                );
+              }
+            } catch (error) {
+              console.error(
+                `[Auto-Apply] ❌ ERROR for insight ${insight._id}:`,
+                error instanceof Error ? error.message : "Unknown error"
+              );
+            }
+          }
+        } else {
+          console.log(
+            `[Auto-Apply] ⚠️ No trust level found for coach ${note.coachId}`
+          );
+        }
+      }
 
       // Check if parent summaries are enabled for this coach
       const parentSummariesEnabled = await ctx.runQuery(
@@ -837,6 +998,160 @@ Respond in JSON format:
       }
     } catch (error) {
       console.error("[AI Name Correction] Error:", error);
+    }
+
+    return null;
+  },
+});
+
+/**
+ * Re-check auto-apply eligibility for a single insight (Phase 7.3)
+ * Triggered after manual corrections like player assignment, categorization, etc.
+ * This allows insights that were initially ineligible to become auto-applied after corrections
+ */
+export const recheckAutoApply = internalAction({
+  args: {
+    voiceNoteInsightId: v.id("voiceNoteInsights"),
+  },
+  returns: v.null(),
+  handler: async (ctx, args) => {
+    console.log(
+      `[recheckAutoApply] 🔄 Starting re-check for insight ${args.voiceNoteInsightId}`
+    );
+
+    // 1. Get the insight from voiceNoteInsights table
+    const insight = await ctx.runQuery(
+      internal.models.voiceNotes.getInsightById,
+      {
+        insightId: args.voiceNoteInsightId,
+      }
+    );
+
+    if (!insight) {
+      console.log("[recheckAutoApply] ❌ Insight not found");
+      return null;
+    }
+
+    console.log(
+      `[recheckAutoApply] 📋 Insight: ${insight.title} (${insight.category}, status: ${insight.status})`
+    );
+
+    // 2. Only re-check if still pending
+    if (insight.status !== "pending") {
+      console.log(
+        `[recheckAutoApply] ⏭️ Skipping - insight already ${insight.status}`
+      );
+      return null;
+    }
+
+    // 3. Get coach trust level
+    console.log(
+      `[recheckAutoApply] 🔍 Fetching trust level for coach ${insight.coachId}`
+    );
+    const trustLevel = await ctx.runQuery(
+      internal.models.coachTrustLevels.getCoachTrustLevelInternal,
+      {
+        coachId: insight.coachId,
+      }
+    );
+
+    if (!trustLevel) {
+      console.log("[recheckAutoApply] ❌ No trust level found for coach");
+      return null;
+    }
+
+    console.log(
+      `[recheckAutoApply] 📊 Trust level: ${trustLevel.currentLevel}`
+    );
+
+    // 4. Calculate effective trust level
+    const effectiveLevel = Math.min(
+      trustLevel.currentLevel,
+      trustLevel.preferredLevel ?? trustLevel.currentLevel
+    );
+    const threshold = trustLevel.insightConfidenceThreshold ?? 0.7;
+
+    // 5. Map AI insight categories to preference categories (same as buildInsights)
+    const categoryMap: Record<
+      string,
+      "skills" | "attendance" | "goals" | "performance" | null
+    > = {
+      skill_rating: "skills",
+      skill_progress: "skills",
+      attendance: "attendance",
+      performance: "performance",
+      behavior: "performance", // Map behavior to performance category
+      team_culture: null, // Team-wide, don't auto-apply
+      todo: null, // Tasks for coach, don't auto-apply
+      injury: null, // Safety: never auto-apply
+      medical: null, // Safety: never auto-apply
+    };
+
+    const prefCategory = categoryMap[insight.category];
+    const categoryEnabled = prefCategory
+      ? (trustLevel.insightAutoApplyPreferences?.[prefCategory] ?? false)
+      : false;
+
+    // 6. Check eligibility (same logic as buildInsights)
+    const isEligible =
+      insight.status === "pending" &&
+      insight.category !== "injury" &&
+      insight.category !== "medical" &&
+      effectiveLevel >= 2 &&
+      insight.confidenceScore >= threshold &&
+      categoryEnabled;
+
+    if (!isEligible) {
+      // Log why not eligible
+      const reasons: string[] = [];
+      if (insight.status !== "pending") {
+        reasons.push(`status=${insight.status}`);
+      }
+      if (insight.category === "injury" || insight.category === "medical") {
+        reasons.push(`category=${insight.category} (safety)`);
+      }
+      if (effectiveLevel < 2) {
+        reasons.push(`effectiveLevel=${effectiveLevel} (need 2+)`);
+      }
+      if (insight.confidenceScore < threshold) {
+        reasons.push(`confidence=${insight.confidenceScore} < ${threshold}`);
+      }
+      if (!categoryEnabled) {
+        if (prefCategory) {
+          reasons.push(
+            `category=${insight.category} maps to ${prefCategory} (disabled in preferences)`
+          );
+        } else {
+          reasons.push(
+            `category=${insight.category} (not mappable to preferences)`
+          );
+        }
+      }
+      console.log(`[recheckAutoApply] ⏭️ Not eligible: ${reasons.join(", ")}`);
+      return null;
+    }
+
+    console.log(
+      `[recheckAutoApply] ✅ Eligible for auto-apply (confidence: ${insight.confidenceScore}, threshold: ${threshold})`
+    );
+
+    // 7. Attempt auto-apply
+    const result = await ctx.runMutation(
+      internal.models.voiceNoteInsights.autoApplyInsightInternal,
+      {
+        insightId: insight._id,
+        coachId: insight.coachId,
+      }
+    );
+
+    if (result.success) {
+      console.log(
+        `[recheckAutoApply] ✅ SUCCESS: ${insight.title} - ${result.message}`
+      );
+    } else {
+      console.log(
+        `[recheckAutoApply] ⚠️ FAILED: ${insight.title} - ${result.message}`
+      );
     }
 
     return null;

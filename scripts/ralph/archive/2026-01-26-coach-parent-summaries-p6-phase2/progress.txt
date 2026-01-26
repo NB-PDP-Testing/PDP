@@ -1,0 +1,127 @@
+# Ralph Progress Log
+Started: Mon 26 Jan 2026 12:10:00 GMT
+---
+
+## PHASE 7.3 STATUS: 3 of 5 Stories Complete
+
+**✅ COMPLETED (Run 1 - 11:41-12:05)**:
+- US-009.5: Automatic triggering (c1fccbd) - 166 lines
+- US-010: Category preferences mutation (00c4595) - 41 lines
+- US-012: Adaptive thresholds (aadd40c) - 106 lines
+
+**⏳ REMAINING (Run 2 - Starting Now)**:
+- US-011: Category preferences UI (Settings tab)
+- US-013: Undo analytics query
+
+**❌ REVERTED**:
+- df9c2c2: US-011 broken commit (only API changes, no UI) - reverted in d3d4f1a
+
+---
+
+## REMAINING WORK
+
+### US-011: Category Preference Controls to Settings Tab
+
+**What Ralph needs to build**:
+- Edit: `apps/web/src/app/orgs/[orgId]/coach/voice-notes/components/insights-tab.tsx`
+- Add a third tab: "Settings" (alongside "Pending Review" and "Auto-Applied")
+- Settings tab content:
+  * Section header: "Auto-Apply Category Preferences"
+  * 4 checkboxes for categories: skills, attendance, goals, performance
+  * Each checkbox calls setInsightAutoApplyPreferences mutation
+  * Toast notification on successful update
+  * Safety note: "Injury and medical insights always require manual review"
+  * Load current preferences from getCoachTrustLevel query
+- Use shadcn/ui Checkbox component
+- Use Tabs component for 3-tab layout
+
+**Critical learnings from Run 1**:
+- Ralph hit linter conflicts trying to Edit this file 19 times
+- File kept getting modified by linter after reads
+- **Recommendation**: Use Write tool to replace entire file OR make changes in smaller, atomic edits
+- Verify file hasn't changed between Read and Edit
+
+**Files to modify**:
+- apps/web/src/app/orgs/[orgId]/coach/voice-notes/components/insights-tab.tsx
+
+**Mutation already exists**: setInsightAutoApplyPreferences (from US-010)
+
+### US-013: Undo Reason Analytics
+
+**What Ralph needs to build**:
+- Create query: `getUndoReasonStats` in packages/backend/convex/models/voiceNoteInsights.ts
+- Query autoAppliedInsights where undoneAt exists
+- Group by undoReason, calculate counts and percentages
+- Return top 10 most recent undone insights
+- Args: organizationId (optional), timeframeDays (optional, default 30)
+
+**Optional**: Admin page to display stats (can defer to later)
+
+---
+
+## Critical Patterns from Phase 7.1 & 7.2
+
+### wouldAutoApply Calculation Pattern
+```typescript
+const effectiveLevel = Math.min(
+  trustLevel.currentLevel,
+  trustLevel.preferredLevel ?? trustLevel.currentLevel
+);
+const threshold = trustLevel.insightConfidenceThreshold ?? 0.7;
+const categoryEnabled = trustLevel.insightAutoApplyPreferences?.[insight.category] ?? false;
+const wouldAutoApply =
+  insight.category !== "injury" &&
+  insight.category !== "medical" &&
+  effectiveLevel >= 2 &&
+  insight.confidenceScore >= threshold &&
+  categoryEnabled;  // Category must be enabled in preferences
+```
+
+### Safety Guardrails (NEVER bypass)
+- effectiveLevel >= 2
+- confidence >= threshold (default 0.7)
+- category enabled in preferences
+- NEVER auto-apply injury or medical
+- 1-hour undo window (3600000ms)
+
+### Convex Best Practices
+- NEVER use `.filter()` - always use `.withIndex()`
+- All functions need `args` and `returns` validators
+- Use `Id<"tableName">` types, not `string`
+- Index names include all fields: `by_orgId_and_status`
+
+### Quality Checks Before Commit
+1. `npm run check-types` - Must pass
+2. `npx ultracite fix` - Auto-fix formatting
+3. `npm run check` - Linting must pass
+4. Browser testing (for UI changes) - Use dev-browser skill
+
+---
+
+## What Ralph Should Do
+
+1. **Read progress.txt** - This file (you're reading it now!)
+2. **Pick US-011 first** (UI is remaining, backend US-010 is done)
+3. **Implement Settings tab** in insights-tab.tsx
+   - Read file carefully
+   - Check for existing tabs pattern
+   - Add Settings tab with category checkboxes
+   - Test with browser before committing
+4. **Commit US-011** when complete
+5. **Move to US-013** - Create undo analytics query
+6. **Commit US-013** when complete
+7. **Report COMPLETE** when both stories pass
+
+---
+
+## Files Ralph Will Edit
+
+### For US-011:
+- apps/web/src/app/orgs/[orgId]/coach/voice-notes/components/insights-tab.tsx
+
+### For US-013:
+- packages/backend/convex/models/voiceNoteInsights.ts
+
+---
+
+<!-- Ralph will append progress updates below this line -->

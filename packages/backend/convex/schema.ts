@@ -1408,12 +1408,18 @@ export default defineSchema({
         description: v.string(),
         category: v.optional(v.string()),
         recommendedUpdate: v.optional(v.string()),
+        confidence: v.optional(v.number()), // Phase 7: AI confidence score (0.0-1.0)
         status: v.union(
           v.literal("pending"),
           v.literal("applied"),
-          v.literal("dismissed")
+          v.literal("dismissed"),
+          v.literal("auto_applied") // Phase 7.3: Auto-applied by AI
         ),
         appliedDate: v.optional(v.string()),
+        appliedAt: v.optional(v.number()), // Phase 7.3: Timestamp for auto-apply
+        appliedBy: v.optional(v.string()), // Phase 7.3: User ID who applied (or coachId for auto)
+        dismissedAt: v.optional(v.number()), // Phase 7.3: Timestamp for dismiss
+        dismissedBy: v.optional(v.string()), // Phase 7.3: User ID who dismissed
         // Team/TODO classification fields
         teamId: v.optional(v.string()), // For team_culture insights
         teamName: v.optional(v.string()),
@@ -1435,6 +1441,119 @@ export default defineSchema({
   })
     .index("by_orgId", ["orgId"])
     .index("by_orgId_and_coachId", ["orgId", "coachId"]),
+
+  // ============================================================
+  // PHASE 7: COACH INSIGHT AUTO-APPLY
+  // Extracted insights with confidence scores for auto-apply automation
+  // ============================================================
+
+  // Voice Note Insights - Extracted from voiceNotes.insights array
+  // Dedicated table for efficient querying by confidence, category, and status
+  // Supports Phase 7 trust-based auto-apply with preview mode
+  voiceNoteInsights: defineTable({
+    // Source tracking
+    voiceNoteId: v.id("voiceNotes"),
+    insightId: v.string(), // Original insight.id from embedded array
+
+    // Content
+    title: v.string(),
+    description: v.string(),
+    category: v.string(), // skill, attendance, goal, performance, injury, medical, team_culture, todo
+    recommendedUpdate: v.optional(v.string()),
+
+    // Player/Team association
+    playerIdentityId: v.optional(v.id("playerIdentities")),
+    playerName: v.optional(v.string()),
+    teamId: v.optional(v.string()),
+    teamName: v.optional(v.string()),
+    assigneeUserId: v.optional(v.string()), // For todo insights
+    assigneeName: v.optional(v.string()),
+
+    // Trust & Automation (Phase 7)
+    confidenceScore: v.number(), // 0.0-1.0, AI confidence in this insight
+    wouldAutoApply: v.boolean(), // Prediction flag for preview mode
+
+    // Status tracking
+    status: v.union(
+      v.literal("pending"),
+      v.literal("applied"),
+      v.literal("dismissed"),
+      v.literal("auto_applied") // Applied automatically by AI
+    ),
+
+    // Application tracking
+    appliedAt: v.optional(v.number()), // Timestamp when applied
+    appliedBy: v.optional(v.string()), // User ID or "system" for auto-apply
+    dismissedAt: v.optional(v.number()),
+    dismissedBy: v.optional(v.string()),
+
+    // Metadata
+    organizationId: v.string(),
+    coachId: v.string(),
+    createdAt: v.number(),
+    updatedAt: v.number(),
+  })
+    .index("by_coach_org_status", ["coachId", "organizationId", "status"])
+    .index("by_player_status", ["playerIdentityId", "status"])
+    .index("by_confidence", ["confidenceScore"])
+    .index("by_category_status", ["category", "status"])
+    .index("by_voice_note", ["voiceNoteId"])
+    .index("by_voice_note_and_insight", ["voiceNoteId", "insightId"])
+    .index("by_coach_org", ["coachId", "organizationId"])
+    .index("by_org_status", ["organizationId", "status"]),
+
+  // Auto-Applied Insights Audit Trail - Phase 7.2
+  // Tracks all automated insight applications for compliance and undo capability
+  // 1-hour undo window enforced
+  autoAppliedInsights: defineTable({
+    // Source tracking
+    insightId: v.id("voiceNoteInsights"),
+    voiceNoteId: v.id("voiceNotes"),
+
+    // Context (denormalized for audit trail)
+    playerId: v.id("orgPlayerEnrollments"), // DEPRECATED: Use playerIdentityId
+    playerIdentityId: v.id("playerIdentities"),
+    coachId: v.string(),
+    organizationId: v.string(),
+
+    // Insight metadata (snapshot at time of application)
+    category: v.string(),
+    confidenceScore: v.number(),
+    insightTitle: v.string(),
+    insightDescription: v.string(),
+
+    // Application tracking
+    appliedAt: v.number(),
+    autoAppliedByAI: v.boolean(), // true = auto, false = manual with system assist
+
+    // Undo tracking (1-hour window)
+    undoneAt: v.optional(v.number()),
+    undoReason: v.optional(
+      v.union(
+        v.literal("wrong_player"),
+        v.literal("wrong_rating"),
+        v.literal("insight_incorrect"),
+        v.literal("changed_mind"),
+        v.literal("duplicate"),
+        v.literal("other")
+      )
+    ),
+    undoReasonDetail: v.optional(v.string()), // Free text explanation
+
+    // Change tracking (for rollback)
+    changeType: v.string(), // "skill_rating", "attendance_record", "goal_created", etc.
+    targetTable: v.string(), // "skillAssessments", "passportGoals", etc.
+    targetRecordId: v.optional(v.string()), // ID of created/updated record
+    fieldChanged: v.optional(v.string()), // Field name if updating existing record
+    previousValue: v.optional(v.string()), // Serialized previous value (JSON string)
+    newValue: v.string(), // Serialized new value (JSON string)
+  })
+    .index("by_coach_org", ["coachId", "organizationId"])
+    .index("by_insight", ["insightId"])
+    .index("by_player_identity", ["playerIdentityId"])
+    .index("by_applied_at", ["appliedAt"])
+    .index("by_undo_status", ["undoneAt"]) // null = active, non-null = undone
+    .index("by_coach_org_applied", ["coachId", "organizationId", "appliedAt"]),
 
   // ============================================================
   // TEAM OBSERVATIONS
@@ -1738,6 +1857,7 @@ export default defineSchema({
     approvedBy: v.optional(v.string()), // Better Auth user ID
     deliveredAt: v.optional(v.number()),
     viewedAt: v.optional(v.number()),
+    viewedBy: v.optional(v.string()), // Better Auth user ID of parent who viewed
     acknowledgedAt: v.optional(v.number()), // When parent marked as read/acknowledged
     acknowledgedBy: v.optional(v.string()), // Better Auth user ID of parent who acknowledged
 
@@ -2072,7 +2192,7 @@ export default defineSchema({
     createdAt: v.number(),
     updatedAt: v.number(),
 
-    // Preview mode tracking (Phase 5)
+    // Preview mode tracking (Phase 5 - Parent Summaries)
     previewModeStats: v.optional(
       v.object({
         wouldAutoApproveSuggestions: v.number(), // Count of summaries AI would auto-approve
@@ -2083,8 +2203,31 @@ export default defineSchema({
         completedAt: v.optional(v.number()), // When 20 summaries reviewed (undefined until then)
       })
     ),
-    confidenceThreshold: v.optional(v.number()), // Minimum confidence score for auto-approval (default 0.7)
+    confidenceThreshold: v.optional(v.number()), // Minimum confidence score for parent summary auto-approval (default 0.7)
     personalizedThreshold: v.optional(v.number()), // Phase 4: AI-learned threshold based on coach patterns (overrides confidenceThreshold if set)
+
+    // Phase 7: Insight auto-apply tracking (separate from parent summaries)
+    // Coaches may trust AI differently for summaries vs player profile updates
+    insightPreviewModeStats: v.optional(
+      v.object({
+        wouldAutoApplyInsights: v.number(), // Count of insights AI would auto-apply
+        coachAppliedThose: v.number(), // Of those, how many coach applied
+        coachDismissedThose: v.number(), // Of those, how many coach dismissed
+        agreementRate: v.number(), // coachAppliedThose / wouldAutoApplyInsights
+        startedAt: v.number(), // When insight preview mode started
+        completedAt: v.optional(v.number()), // After 20 insights reviewed
+      })
+    ),
+    insightConfidenceThreshold: v.optional(v.number()), // Minimum confidence for insight auto-apply (default 0.7, separate from summary threshold)
+    insightAutoApplyPreferences: v.optional(
+      v.object({
+        skills: v.boolean(), // Auto-apply skill rating updates
+        attendance: v.boolean(), // Auto-apply attendance records
+        goals: v.boolean(), // Auto-apply development goal updates
+        performance: v.boolean(), // Auto-apply performance notes
+        // injury and medical always excluded (never auto-apply)
+      })
+    ),
   }).index("by_coach", ["coachId"]),
 
   // Coach Per-Org Preferences - settings that vary by organization

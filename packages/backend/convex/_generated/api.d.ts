@@ -30,6 +30,7 @@ import type * as lib_consentGateway from "../lib/consentGateway.js";
 import type * as lib_firstUserSetup from "../lib/firstUserSetup.js";
 import type * as lib_trustLevelCalculator from "../lib/trustLevelCalculator.js";
 import type * as migrations_cleanSlate from "../migrations/cleanSlate.js";
+import type * as migrations_extractInsightsToTable from "../migrations/extractInsightsToTable.js";
 import type * as migrations_migrateLegacyData from "../migrations/migrateLegacyData.js";
 import type * as models_adultPlayers from "../models/adultPlayers.js";
 import type * as models_ageGroupEligibilityOverrides from "../models/ageGroupEligibilityOverrides.js";
@@ -87,6 +88,7 @@ import type * as models_teamPlayerIdentities from "../models/teamPlayerIdentitie
 import type * as models_teams from "../models/teams.js";
 import type * as models_userPreferences from "../models/userPreferences.js";
 import type * as models_users from "../models/users.js";
+import type * as models_voiceNoteInsights from "../models/voiceNoteInsights.js";
 import type * as models_voiceNotes from "../models/voiceNotes.js";
 import type * as models_whatsappMessages from "../models/whatsappMessages.js";
 import type * as privateData from "../privateData.js";
@@ -155,6 +157,7 @@ declare const fullApi: ApiFromModules<{
   "lib/firstUserSetup": typeof lib_firstUserSetup;
   "lib/trustLevelCalculator": typeof lib_trustLevelCalculator;
   "migrations/cleanSlate": typeof migrations_cleanSlate;
+  "migrations/extractInsightsToTable": typeof migrations_extractInsightsToTable;
   "migrations/migrateLegacyData": typeof migrations_migrateLegacyData;
   "models/adultPlayers": typeof models_adultPlayers;
   "models/ageGroupEligibilityOverrides": typeof models_ageGroupEligibilityOverrides;
@@ -212,6 +215,7 @@ declare const fullApi: ApiFromModules<{
   "models/teams": typeof models_teams;
   "models/userPreferences": typeof models_userPreferences;
   "models/users": typeof models_users;
+  "models/voiceNoteInsights": typeof models_voiceNoteInsights;
   "models/voiceNotes": typeof models_voiceNotes;
   "models/whatsappMessages": typeof models_whatsappMessages;
   privateData: typeof privateData;

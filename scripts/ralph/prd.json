@@ -80,8 +80,9 @@
         "Type check passes: npm run check-types"
       ],
       "priority": 2,
-      "passes": false,
-      "notes": "CRITICAL: voiceNoteInsights is a TABLE (not embedded array). Use .withIndex(), never .filter(). Confidence scores already exist (0.7 default for historical, AI-generated for new). Pattern EXACTLY matches P5 US-002."
+      "passes": true,
+      "completed": true,
+      "notes": "✅ COMPLETED: getPendingInsights query created with wouldAutoApply calculation. Uses by_coach_org_status index, mirrors P5 US-002 exactly. Commit: 32c741c"
     },
     {
       "id": "US-003",
@@ -110,8 +111,9 @@
         "Visual verification in browser: http://localhost:3000/orgs/{orgId}/coach/voice-notes"
       ],
       "priority": 3,
-      "passes": false,
-      "notes": "Confidence scores already exist in voiceNoteInsights.confidenceScore. Making visible = transparency. Color coding: Red <60% (risky), Amber 60-79% (moderate), Green 80%+ (safe). EXACT P5 US-003 pattern."
+      "passes": true,
+      "completed": true,
+      "notes": "✅ COMPLETED: Confidence visualization added with progress bars and color coding (red/amber/green). Uses embedded insights.confidence field. Commit: 47b6a22"
     },
     {
       "id": "US-004",
@@ -138,8 +140,9 @@
         "Visual verification: Badge appears for high-confidence skills, 'manual review' for injury/medical"
       ],
       "priority": 4,
-      "passes": false,
-      "notes": "Google Smart Reply pattern. Coaches see predictions BEFORE automation. Blue badge = prediction (not action). Injury/medical ALWAYS show 'manual review'. Matches P5 US-004 exactly."
+      "passes": true,
+      "completed": true,
+      "notes": "✅ COMPLETED: Preview badge added with Sparkles icon for wouldAutoApply. Query added to get trust level with insight fields. Commit: 00f4b4a"
     },
     {
       "id": "US-005",
@@ -171,8 +174,9 @@
         "Type check passes"
       ],
       "priority": 5,
-      "passes": false,
-      "notes": "20-insight preview period (EXACT same as P5). GitHub Copilot pattern. Agreement rate >70% = coach trusts AI. Track BOTH apply AND dismiss for full picture. After 20 insights, completedAt triggers automatically. This data informs Phase 7.2 decision."
+      "passes": true,
+      "completed": true,
+      "notes": "✅ COMPLETED: applyInsight and dismissInsight mutations with preview tracking. 20-insight preview period with agreementRate calculation. Commit: 6666834"
     }
   ],
   "testingRequirements": {

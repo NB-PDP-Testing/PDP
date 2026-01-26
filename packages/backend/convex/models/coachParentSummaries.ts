@@ -57,6 +57,7 @@ const summaryValidator = v.object({
   createdAt: v.number(),
   approvedAt: v.optional(v.number()),
   approvedBy: v.optional(v.string()),
+  scheduledDeliveryAt: v.optional(v.number()),
   deliveredAt: v.optional(v.number()),
   viewedAt: v.optional(v.number()),
   acknowledgedAt: v.optional(v.number()),
@@ -817,6 +818,20 @@ export const getAutoApprovedSummaries = query({
           decidedAt: v.number(),
         })
       ),
+      acknowledgedAt: v.optional(v.number()),
+      acknowledgedByName: v.optional(v.string()),
+      viewedByName: v.optional(v.string()),
+      approvalMethod: v.union(v.literal("auto"), v.literal("manual")),
+      privateInsight: v.object({
+        title: v.string(),
+        description: v.string(),
+        category: v.string(),
+        sentiment: v.union(
+          v.literal("positive"),
+          v.literal("neutral"),
+          v.literal("concern")
+        ),
+      }),
     })
   ),
   handler: async (ctx, args) => {
@@ -828,8 +843,14 @@ export const getAutoApprovedSummaries = query({
 
     const userId = user.userId || user._id;
 
-    // Query summaries from last 7 days that were auto-approved
-    const sevenDaysAgo = Date.now() - 7 * 24 * 60 * 60 * 1000;
+    // Query summaries from last 30 days that were approved (auto or manual)
+    const thirtyDaysAgo = Date.now() - 30 * 24 * 60 * 60 * 1000;
+
+    console.log("[getAutoApprovedSummaries] Debug info:", {
+      userId,
+      organizationId: args.organizationId,
+      thirtyDaysAgo: new Date(thirtyDaysAgo).toISOString(),
+    });
 
     // Get all summaries for this coach in this org
     const allSummaries = await ctx.db
@@ -839,29 +860,43 @@ export const getAutoApprovedSummaries = query({
       )
       .collect();
 
-    // Filter for auto-approved summaries from last 7 days
-    const recentAutoApproved = allSummaries.filter((summary) => {
-      // Must have auto-approval decision indicating it was auto-approved
-      if (!summary.autoApprovalDecision?.shouldAutoApprove) {
+    console.log(
+      `[getAutoApprovedSummaries] Found ${allSummaries.length} total summaries for this coach+org`
+    );
+
+    // Count by status
+    const statusCounts: Record<string, number> = {};
+    for (const s of allSummaries) {
+      statusCounts[s.status] = (statusCounts[s.status] || 0) + 1;
+    }
+    console.log("[getAutoApprovedSummaries] Status breakdown:", statusCounts);
+
+    // Filter for all approved summaries (auto + manual) from last 30 days
+    const recentApproved = allSummaries.filter((summary) => {
+      // Must have been created in last 30 days
+      if (summary._creationTime < thirtyDaysAgo) {
         return false;
       }
 
-      // Must have been created in last 7 days
-      if (summary._creationTime < sevenDaysAgo) {
-        return false;
-      }
-
-      // Include: auto_approved, viewed, or suppressed (with revocation)
+      // Include summaries that have been approved (auto or manual)
+      // Statuses: approved, auto_approved, delivered, viewed
+      // Also include suppressed if it was revoked (coach canceled auto-approval)
       return (
+        summary.status === "approved" ||
         summary.status === "auto_approved" ||
+        summary.status === "delivered" ||
         summary.status === "viewed" ||
         (summary.status === "suppressed" && summary.revokedAt !== undefined)
       );
     });
 
+    console.log(
+      `[getAutoApprovedSummaries] After filtering: ${recentApproved.length} recent approved summaries`
+    );
+
     // Enrich with player info and calculate isRevocable
     const enrichedSummaries = await Promise.all(
-      recentAutoApproved.map(async (summary) => {
+      recentApproved.map(async (summary) => {
         const player = await ctx.db.get(summary.playerIdentityId);
         const playerName = player
           ? `${player.firstName} ${player.lastName}`
@@ -877,6 +912,44 @@ export const getAutoApprovedSummaries = query({
           summary.scheduledDeliveryAt !== undefined &&
           Date.now() < summary.scheduledDeliveryAt;
 
+        // Get acknowledgment info if acknowledged
+        let acknowledgedByName: string | undefined;
+        if (summary.acknowledgedBy) {
+          // Get the Better Auth user - acknowledgedBy is the user _id
+          const betterAuthUser = await ctx.db.get(
+            summary.acknowledgedBy as any
+          );
+
+          if (betterAuthUser) {
+            // Use the name field from Better Auth user table
+            acknowledgedByName =
+              (betterAuthUser as any).name ||
+              (betterAuthUser as any).email ||
+              "Parent";
+          }
+        }
+
+        // Get viewed by info if viewed
+        let viewedByName: string | undefined;
+        if (summary.viewedBy) {
+          // Get the Better Auth user - viewedBy is the user _id
+          const betterAuthUser = await ctx.db.get(summary.viewedBy as any);
+
+          if (betterAuthUser) {
+            // Use the name field from Better Auth user table
+            viewedByName =
+              (betterAuthUser as any).name ||
+              (betterAuthUser as any).email ||
+              "Parent";
+          }
+        }
+
+        // Determine approval method (auto vs manual)
+        const approvalMethod =
+          summary.autoApprovalDecision?.shouldAutoApprove === true
+            ? ("auto" as const)
+            : ("manual" as const);
+
         return {
           _id: summary._id,
           playerName,
@@ -889,6 +962,11 @@ export const getAutoApprovedSummaries = query({
           revokedAt: summary.revokedAt,
           isRevocable,
           autoApprovalDecision: summary.autoApprovalDecision,
+          acknowledgedAt: summary.acknowledgedAt,
+          acknowledgedByName,
+          viewedByName,
+          approvalMethod,
+          privateInsight: summary.privateInsight,
         };
       })
     );
@@ -1219,6 +1297,7 @@ export const markSummaryViewed = mutation({
     await ctx.db.patch(args.summaryId, {
       status: "viewed",
       viewedAt: Date.now(),
+      viewedBy: userId,
     });
 
     // Insert parentSummaryViews record
@@ -1690,6 +1769,157 @@ export const getSummaryForPDF = query({
       organizationName: data.orgName,
       generatedDate: formattedDate,
       category,
+    };
+  },
+});
+
+// ============================================================
+// PHASE 7.2: SCHEDULED DELIVERY PROCESSING
+// ============================================================
+
+/**
+ * Process scheduled deliveries for auto-approved summaries
+ * Updates status from "auto_approved" to "delivered" when scheduledDeliveryAt time has passed
+ * Called by cron job every 5 minutes
+ */
+export const processScheduledDeliveries = internalMutation({
+  args: {},
+  returns: v.object({
+    processed: v.number(),
+    errors: v.number(),
+  }),
+  handler: async (ctx) => {
+    const now = Date.now();
+    let processed = 0;
+    let errors = 0;
+
+    console.log(
+      `[processScheduledDeliveries] Starting at ${new Date(now).toISOString()}`
+    );
+
+    // Query for summaries ready to be delivered
+    // Status = auto_approved AND scheduledDeliveryAt <= now
+    const autoApprovedSummaries = await ctx.db
+      .query("coachParentSummaries")
+      .filter((q) =>
+        q.and(
+          q.eq(q.field("status"), "auto_approved"),
+          q.lte(q.field("scheduledDeliveryAt"), now)
+        )
+      )
+      .collect();
+
+    console.log(
+      `[processScheduledDeliveries] Found ${autoApprovedSummaries.length} summaries ready for delivery`
+    );
+
+    for (const summary of autoApprovedSummaries) {
+      try {
+        // Update status to delivered
+        await ctx.db.patch(summary._id, {
+          status: "delivered",
+          deliveredAt: now,
+        });
+
+        console.log(
+          `[processScheduledDeliveries] ✅ Delivered summary ${summary._id} for player ${summary.playerIdentityId}`
+        );
+        processed += 1;
+      } catch (error) {
+        console.error(
+          `[processScheduledDeliveries] ❌ Failed to deliver summary ${summary._id}:`,
+          error
+        );
+        errors += 1;
+      }
+    }
+
+    console.log(
+      `[processScheduledDeliveries] Complete: ${processed} processed, ${errors} errors`
+    );
+
+    return { processed, errors };
+  },
+});
+
+// ============================================================
+// DEBUG QUERY - Temporary diagnostic tool
+// ============================================================
+
+export const debugAutoApprovedTab = query({
+  args: {},
+  returns: v.object({
+    yourUserId: v.string(),
+    yourApprovedCount: v.number(),
+    totalApprovedCount: v.number(),
+    summariesByCoach: v.any(),
+    diagnosis: v.string(),
+    yourSamples: v.array(
+      v.object({
+        _id: v.string(),
+        status: v.string(),
+        coachId: v.string(),
+        organizationId: v.string(),
+        createdDaysAgo: v.number(),
+      })
+    ),
+  }),
+  handler: async (ctx, _args) => {
+    const user = await authComponent.safeGetAuthUser(ctx);
+    if (!user) {
+      throw new Error("Not authenticated");
+    }
+
+    const yourUserId = user.userId || user._id;
+
+    // Get all summaries
+    const allSummaries = await ctx.db.query("coachParentSummaries").collect();
+
+    const approvedStatuses = [
+      "approved",
+      "auto_approved",
+      "delivered",
+      "viewed",
+    ];
+    const approvedSummaries = allSummaries.filter((s) =>
+      approvedStatuses.includes(s.status)
+    );
+
+    // Count by coach
+    const byCoach: Record<string, number> = {};
+    for (const s of approvedSummaries) {
+      const coachId = s.coachId || "unknown";
+      byCoach[coachId] = (byCoach[coachId] || 0) + 1;
+    }
+
+    const yourCount = approvedSummaries.filter(
+      (s) => s.coachId === yourUserId
+    ).length;
+
+    // Get samples of YOUR approved summaries
+    const yourSamples = approvedSummaries
+      .filter((s) => s.coachId === yourUserId)
+      .slice(0, 5)
+      .map((s) => ({
+        _id: s._id,
+        status: s.status,
+        coachId: s.coachId,
+        organizationId: s.organizationId,
+        createdDaysAgo: Math.floor(
+          (Date.now() - s._creationTime) / (24 * 60 * 60 * 1000)
+        ),
+      }));
+
+    return {
+      yourUserId,
+      yourApprovedCount: yourCount,
+      totalApprovedCount: approvedSummaries.length,
+      summariesByCoach: byCoach,
+      diagnosis:
+        yourCount === 0
+          ? "❌ All approved summaries belong to OTHER coaches (not you)"
+          : `✅ You have ${yourCount} approved summaries that SHOULD appear in the tab`,
+      yourSamples,
     };
   },
 });

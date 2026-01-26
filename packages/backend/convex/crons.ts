@@ -80,4 +80,12 @@ crons.daily(
   {}
 );
 
+// Phase 7.2: Process scheduled deliveries every 5 minutes
+crons.interval(
+  "process-scheduled-deliveries",
+  { minutes: 5 },
+  internal.models.coachParentSummaries.processScheduledDeliveries,
+  {}
+);
+
 export default crons;

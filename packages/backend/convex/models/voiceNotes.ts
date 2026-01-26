@@ -36,9 +36,14 @@ const insightValidator = v.object({
   status: v.union(
     v.literal("pending"),
     v.literal("applied"),
-    v.literal("dismissed")
+    v.literal("dismissed"),
+    v.literal("auto_applied") // Phase 7.3: Auto-applied by AI
   ),
   appliedDate: v.optional(v.string()),
+  appliedAt: v.optional(v.number()), // Phase 7.3: Timestamp for auto-apply
+  appliedBy: v.optional(v.string()), // Phase 7.3: User ID who applied
+  dismissedAt: v.optional(v.number()), // Phase 7.3: Timestamp for dismiss
+  dismissedBy: v.optional(v.string()), // Phase 7.3: User ID who dismissed
   // Team/TODO classification fields
   teamId: v.optional(v.string()),
   teamName: v.optional(v.string()),
@@ -269,62 +274,77 @@ export const getVoiceNotesForCoachTeams = query({
       note.insights.some((insight: any) => insight.playerIdentityId)
     );
 
-    // Step 5: Enrich with coach names and team context
-    const enrichedNotes = await Promise.all(
-      notesWithPlayerInsights.map(async (note) => {
-        let coachName = "Unknown Coach";
+    // Step 5: Batch fetch coach names to avoid log overflow
+    // Get unique coach IDs
+    const uniqueCoachIds = Array.from(
+      new Set(
+        notesWithPlayerInsights
+          .map((note) => note.coachId)
+          .filter((id): id is string => !!id)
+      )
+    );
 
-        if (note.coachId) {
-          const coachResult = await ctx.runQuery(
-            components.betterAuth.adapter.findOne,
-            {
-              model: "user",
-              where: [{ field: "id", value: note.coachId, operator: "eq" }],
-            }
-          );
-
-          if (coachResult) {
-            const coach = coachResult as {
-              firstName?: string;
-              lastName?: string;
-              name?: string;
-            };
-            coachName =
-              `${coach.firstName || ""} ${coach.lastName || ""}`.trim() ||
-              coach.name ||
-              "Coach";
+    // Batch fetch all coach users using Better Auth adapter with correct field name
+    const coachNameMap = new Map<string, string>();
+    await Promise.all(
+      uniqueCoachIds.map(async (coachId) => {
+        // Use "_id" field (not "id") to query Convex's internal ID
+        // This uses the built-in _id index and avoids warnings
+        const coachResult = await ctx.runQuery(
+          components.betterAuth.adapter.findOne,
+          {
+            model: "user",
+            where: [{ field: "_id", value: coachId, operator: "eq" }],
           }
-        }
-
-        // Determine which of MY teams this note is relevant to
-        // (based on the creating coach's team assignments)
-        const noteCoachAssignment = allCoachAssignments.find(
-          (a) => a.userId === note.coachId
         );
-        const relevantTeamIds = noteCoachAssignment
-          ? noteCoachAssignment.teams.filter((teamId) =>
-              myTeams.includes(teamId)
-            )
-          : [];
 
-        return {
-          _id: note._id,
-          _creationTime: note._creationTime,
-          orgId: note.orgId,
-          coachId: note.coachId,
-          coachName,
-          date: note.date,
-          type: note.type,
-          transcription: note.transcription,
-          summary: note.summary,
-          insights: note.insights,
-          insightsStatus: note.insightsStatus,
-          relevantTeamIds,
-        };
+        if (coachResult) {
+          const coach = coachResult as {
+            firstName?: string;
+            lastName?: string;
+            name?: string;
+          };
+          const coachName =
+            `${coach.firstName || ""} ${coach.lastName || ""}`.trim() ||
+            coach.name ||
+            "Coach";
+          coachNameMap.set(coachId, coachName);
+        }
       })
     );
 
-    // Step 6: Sort by date (most recent first)
+    // Step 6: Enrich with coach names and team context (no more adapter calls)
+    const enrichedNotes = notesWithPlayerInsights.map((note) => {
+      const coachName = note.coachId
+        ? coachNameMap.get(note.coachId) || "Unknown Coach"
+        : "Unknown Coach";
+
+      // Determine which of MY teams this note is relevant to
+      // (based on the creating coach's team assignments)
+      const noteCoachAssignment = allCoachAssignments.find(
+        (a) => a.userId === note.coachId
+      );
+      const relevantTeamIds = noteCoachAssignment
+        ? noteCoachAssignment.teams.filter((teamId) => myTeams.includes(teamId))
+        : [];
+
+      return {
+        _id: note._id,
+        _creationTime: note._creationTime,
+        orgId: note.orgId,
+        coachId: note.coachId,
+        coachName,
+        date: note.date,
+        type: note.type,
+        transcription: note.transcription,
+        summary: note.summary,
+        insights: note.insights,
+        insightsStatus: note.insightsStatus,
+        relevantTeamIds,
+      };
+    });
+
+    // Step 7: Sort by date (most recent first)
     return enrichedNotes.sort(
       (a: any, b: any) => b._creationTime - a._creationTime
     );
@@ -1375,6 +1395,35 @@ export const updateInsightContent = mutation({
       insights: updatedInsights,
     });
 
+    // Phase 7.3: Update voiceNoteInsights table and re-check auto-apply eligibility
+    // Now that we have updated content, the insight might be eligible for auto-apply
+    const voiceNoteInsight = await ctx.db
+      .query("voiceNoteInsights")
+      .withIndex("by_voice_note_and_insight", (q) =>
+        q.eq("voiceNoteId", args.noteId).eq("insightId", args.insightId)
+      )
+      .first();
+
+    if (voiceNoteInsight && voiceNoteInsight.status === "pending") {
+      // Update the voiceNoteInsights record with new content
+      await ctx.db.patch(voiceNoteInsight._id, {
+        title: args.title ?? voiceNoteInsight.title,
+        description: args.description ?? voiceNoteInsight.description,
+        recommendedUpdate:
+          args.recommendedUpdate ?? voiceNoteInsight.recommendedUpdate,
+        updatedAt: Date.now(),
+      });
+
+      // Re-check auto-apply eligibility via action
+      await ctx.scheduler.runAfter(
+        0,
+        internal.actions.voiceNotes.recheckAutoApply,
+        {
+          voiceNoteInsightId: voiceNoteInsight._id,
+        }
+      );
+    }
+
     return { success: true };
   },
 });
@@ -1414,6 +1463,35 @@ export const updateInsightContentInternal = internalMutation({
     await ctx.db.patch(args.noteId, {
       insights: updatedInsights,
     });
+
+    // Phase 7.3: Update voiceNoteInsights table and re-check auto-apply eligibility
+    // Now that we have updated content, the insight might be eligible for auto-apply
+    const voiceNoteInsight = await ctx.db
+      .query("voiceNoteInsights")
+      .withIndex("by_voice_note_and_insight", (q) =>
+        q.eq("voiceNoteId", args.noteId).eq("insightId", args.insightId)
+      )
+      .first();
+
+    if (voiceNoteInsight && voiceNoteInsight.status === "pending") {
+      // Update the voiceNoteInsights record with new content
+      await ctx.db.patch(voiceNoteInsight._id, {
+        title: args.title ?? voiceNoteInsight.title,
+        description: args.description ?? voiceNoteInsight.description,
+        recommendedUpdate:
+          args.recommendedUpdate ?? voiceNoteInsight.recommendedUpdate,
+        updatedAt: Date.now(),
+      });
+
+      // Re-check auto-apply eligibility via action
+      await ctx.scheduler.runAfter(
+        0,
+        internal.actions.voiceNotes.recheckAutoApply,
+        {
+          voiceNoteInsightId: voiceNoteInsight._id,
+        }
+      );
+    }
 
     return null;
   },
@@ -1529,6 +1607,36 @@ export const classifyInsight = mutation({
     await ctx.db.patch(args.noteId, {
       insights: updatedInsights,
     });
+
+    // Phase 7.3: Update voiceNoteInsights table and re-check auto-apply eligibility
+    // Now that we have a category assigned, the insight might be eligible for auto-apply
+    const voiceNoteInsight = await ctx.db
+      .query("voiceNoteInsights")
+      .withIndex("by_voice_note_and_insight", (q) =>
+        q.eq("voiceNoteId", args.noteId).eq("insightId", args.insightId)
+      )
+      .first();
+
+    if (voiceNoteInsight && voiceNoteInsight.status === "pending") {
+      // Update the voiceNoteInsights record with new category info
+      await ctx.db.patch(voiceNoteInsight._id, {
+        category: args.category,
+        teamId: args.teamId,
+        teamName: args.teamName,
+        assigneeUserId: args.assigneeUserId,
+        assigneeName: args.assigneeName,
+        updatedAt: Date.now(),
+      });
+
+      // Re-check auto-apply eligibility via action
+      await ctx.scheduler.runAfter(
+        0,
+        internal.actions.voiceNotes.recheckAutoApply,
+        {
+          voiceNoteInsightId: voiceNoteInsight._id,
+        }
+      );
+    }
 
     return {
       success: true,
@@ -1737,6 +1845,36 @@ export const assignPlayerToInsight = mutation({
       }
     );
 
+    // Phase 7.3: Update voiceNoteInsights table and re-check auto-apply eligibility
+    // Now that we have a player assigned, the insight might be eligible for auto-apply
+    const voiceNoteInsight = await ctx.db
+      .query("voiceNoteInsights")
+      .withIndex("by_voice_note_and_insight", (q) =>
+        q.eq("voiceNoteId", args.noteId).eq("insightId", args.insightId)
+      )
+      .first();
+
+    if (voiceNoteInsight && voiceNoteInsight.status === "pending") {
+      // Update the voiceNoteInsights record with new player info
+      await ctx.db.patch(voiceNoteInsight._id, {
+        playerIdentityId: args.playerIdentityId,
+        playerName,
+        title: correctedTitle,
+        description: correctedDescription,
+        recommendedUpdate: correctedRecommendedUpdate,
+        updatedAt: Date.now(),
+      });
+
+      // Re-check auto-apply eligibility via action
+      await ctx.scheduler.runAfter(
+        0,
+        internal.actions.voiceNotes.recheckAutoApply,
+        {
+          voiceNoteInsightId: voiceNoteInsight._id,
+        }
+      );
+    }
+
     return { success: true, playerName, nameWasCorrected };
   },
 });
@@ -1840,6 +1978,52 @@ export const getInsightsForNote = internalQuery({
       .collect();
     return insights;
   },
+});
+
+/**
+ * Get a single insight by ID from voiceNoteInsights table
+ * Used by recheckAutoApply action (Phase 7.3 re-check after manual corrections)
+ */
+export const getInsightById = internalQuery({
+  args: {
+    insightId: v.id("voiceNoteInsights"),
+  },
+  returns: v.union(
+    v.object({
+      _id: v.id("voiceNoteInsights"),
+      _creationTime: v.number(),
+      voiceNoteId: v.id("voiceNotes"),
+      insightId: v.string(),
+      title: v.string(),
+      description: v.string(),
+      category: v.string(),
+      recommendedUpdate: v.optional(v.string()),
+      playerIdentityId: v.optional(v.id("playerIdentities")),
+      playerName: v.optional(v.string()),
+      teamId: v.optional(v.string()),
+      teamName: v.optional(v.string()),
+      assigneeUserId: v.optional(v.string()),
+      assigneeName: v.optional(v.string()),
+      confidenceScore: v.number(),
+      wouldAutoApply: v.boolean(),
+      status: v.union(
+        v.literal("pending"),
+        v.literal("applied"),
+        v.literal("dismissed"),
+        v.literal("auto_applied")
+      ),
+      appliedAt: v.optional(v.number()),
+      appliedBy: v.optional(v.string()),
+      dismissedAt: v.optional(v.number()),
+      dismissedBy: v.optional(v.string()),
+      organizationId: v.string(),
+      coachId: v.string(),
+      createdAt: v.number(),
+      updatedAt: v.number(),
+    }),
+    v.null()
+  ),
+  handler: async (ctx, args) => await ctx.db.get(args.insightId),
 });
 
 // ============ INTERNAL MUTATIONS ============

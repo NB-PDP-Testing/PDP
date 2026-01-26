@@ -15,7 +15,7 @@ type Insight = {
   description: string;
   category?: string;
   recommendedUpdate?: string;
-  status: "pending" | "applied" | "dismissed";
+  status: "pending" | "applied" | "dismissed" | "auto_applied";
   appliedDate?: string;
 };
 
@@ -76,6 +76,12 @@ export function InsightCard({
           icon: <Check className="h-3 w-3" />,
           text: "Applied",
           className: "bg-green-100 text-green-800 border-green-200",
+        };
+      case "auto_applied":
+        return {
+          icon: <Check className="h-3 w-3" />,
+          text: "Auto-Applied",
+          className: "bg-blue-100 text-blue-800 border-blue-200",
         };
       case "dismissed":
         return {

@@ -11,10 +11,11 @@ import { authComponent } from "../auth";
 const RATING_PATTERN = /(\d+)(?:\/5)?/;
 const SKILL_PATTERN_1 = /Set\s+.+?'s\s+(\w+)(?:\s+skill)?(?:\s+(?:to|rating))/i;
 const SKILL_PATTERN_2 = /Set\s+(\w+)\s+skill\s+to/i;
-const SKILL_PATTERN_3 = /^(.+?):\s*\d+/;
+const SKILL_PATTERN_3 = /Set\s+(\w+)\s+to\s+\d+/i; // "Set tackling to 4"
+const SKILL_PATTERN_4 = /^(.+?):\s*\d+/;
 
 // Helper function to parse skill rating from various AI-generated formats
-// Handles: "Kicking: 5", "Set kicking skill to 5/5", "Set Sinead's kicking to 5/5"
+// Handles: "Kicking: 5", "Set kicking skill to 5/5", "Set Sinead's kicking to 5/5", "Set tackling to 4/5"
 function parseSkillRating(recommendedUpdate: string): {
   success: boolean;
   skillName?: string;
@@ -55,9 +56,17 @@ function parseSkillRating(recommendedUpdate: string): {
     }
   }
 
-  // Pattern 3: "SKILL: N" (original format) → capture SKILL
+  // Pattern 3: "Set SKILL to N" (without "skill" word) → capture SKILL
   if (!skillName) {
     match = recommendedUpdate.match(SKILL_PATTERN_3);
+    if (match) {
+      skillName = match[1];
+    }
+  }
+
+  // Pattern 4: "SKILL: N" (original format) → capture SKILL
+  if (!skillName) {
+    match = recommendedUpdate.match(SKILL_PATTERN_4);
     if (match) {
       skillName = match[1].trim();
     }
@@ -391,12 +400,32 @@ export const applyInsight = mutation({
       });
     }
 
-    // Apply the insight
+    // Apply the insight in voiceNoteInsights table
     await ctx.db.patch(args.insightId, {
       status: "applied",
       appliedAt: Date.now(),
       appliedBy: userId,
     });
+
+    // Also update the embedded insights array in voiceNotes document
+    const voiceNote = await ctx.db.get(insight.voiceNoteId);
+    if (voiceNote) {
+      const updatedInsights = voiceNote.insights.map((embeddedInsight: any) => {
+        if (embeddedInsight.id === insight.insightId) {
+          return {
+            ...embeddedInsight,
+            status: "applied",
+            appliedAt: Date.now(),
+            appliedBy: userId,
+          };
+        }
+        return embeddedInsight;
+      });
+
+      await ctx.db.patch(insight.voiceNoteId, {
+        insights: updatedInsights,
+      });
+    }
 
     return args.insightId;
   },
@@ -479,12 +508,32 @@ export const dismissInsight = mutation({
       });
     }
 
-    // Dismiss the insight
+    // Dismiss the insight in voiceNoteInsights table
     await ctx.db.patch(args.insightId, {
       status: "dismissed",
       dismissedAt: Date.now(),
       dismissedBy: userId,
     });
+
+    // Also update the embedded insights array in voiceNotes document
+    const voiceNote = await ctx.db.get(insight.voiceNoteId);
+    if (voiceNote) {
+      const updatedInsights = voiceNote.insights.map((embeddedInsight: any) => {
+        if (embeddedInsight.id === insight.insightId) {
+          return {
+            ...embeddedInsight,
+            status: "dismissed",
+            dismissedAt: Date.now(),
+            dismissedBy: userId,
+          };
+        }
+        return embeddedInsight;
+      });
+
+      await ctx.db.patch(insight.voiceNoteId, {
+        insights: updatedInsights,
+      });
+    }
 
     return args.insightId;
   },
@@ -711,14 +760,35 @@ export const autoApplyInsight = mutation({
       newValue: newRating.toString(),
     });
 
-    // 12. Update insight status
+    // 12. Update insight status in voiceNoteInsights table
     await ctx.db.patch(args.insightId, {
       status: "auto_applied",
       appliedAt: Date.now(),
       appliedBy: userId,
     });
 
-    // 13. Return success with audit record ID
+    // 13. ALSO update the embedded insights array in voiceNotes document
+    // This prevents duplicate display in frontend (one in Pending, one in Auto-Applied)
+    const voiceNote = await ctx.db.get(insight.voiceNoteId);
+    if (voiceNote) {
+      const updatedInsights = voiceNote.insights.map((embeddedInsight: any) => {
+        if (embeddedInsight.id === insight.insightId) {
+          return {
+            ...embeddedInsight,
+            status: "auto_applied",
+            appliedAt: Date.now(),
+            appliedBy: userId,
+          };
+        }
+        return embeddedInsight;
+      });
+
+      await ctx.db.patch(insight.voiceNoteId, {
+        insights: updatedInsights,
+      });
+    }
+
+    // 14. Return success with audit record ID
     return {
       success: true,
       appliedInsightId: auditRecordId,
@@ -767,12 +837,34 @@ export const autoApplyInsightInternal = internalMutation({
     // 4. For non-skill insights, just mark as auto_applied (no data update needed)
     // Only skill_rating insights actually update player data
     if (insight.category !== "skill_rating") {
-      // Mark as auto_applied without updating any player data
+      // Mark as auto_applied in voiceNoteInsights table
       await ctx.db.patch(args.insightId, {
         status: "auto_applied",
         appliedAt: Date.now(),
         appliedBy: args.coachId,
       });
+
+      // Also update the embedded insights array in voiceNotes document
+      const voiceNote = await ctx.db.get(insight.voiceNoteId);
+      if (voiceNote) {
+        const updatedInsights = voiceNote.insights.map(
+          (embeddedInsight: any) => {
+            if (embeddedInsight.id === insight.insightId) {
+              return {
+                ...embeddedInsight,
+                status: "auto_applied",
+                appliedAt: Date.now(),
+                appliedBy: args.coachId,
+              };
+            }
+            return embeddedInsight;
+          }
+        );
+
+        await ctx.db.patch(insight.voiceNoteId, {
+          insights: updatedInsights,
+        });
+      }
 
       return {
         success: true,
@@ -901,12 +993,33 @@ export const autoApplyInsightInternal = internalMutation({
       newValue: newRating.toString(),
     });
 
-    // 9. Mark insight as auto_applied
+    // 9. Mark insight as auto_applied in voiceNoteInsights table
     await ctx.db.patch(args.insightId, {
       status: "auto_applied",
       appliedAt: Date.now(),
       appliedBy: args.coachId,
     });
+
+    // 10. ALSO update the embedded insights array in voiceNotes document
+    // This prevents duplicate display in frontend (one in Pending, one in Auto-Applied)
+    const voiceNote = await ctx.db.get(insight.voiceNoteId);
+    if (voiceNote) {
+      const updatedInsights = voiceNote.insights.map((embeddedInsight: any) => {
+        if (embeddedInsight.id === insight.insightId) {
+          return {
+            ...embeddedInsight,
+            status: "auto_applied",
+            appliedAt: Date.now(),
+            appliedBy: args.coachId,
+          };
+        }
+        return embeddedInsight;
+      });
+
+      await ctx.db.patch(insight.voiceNoteId, {
+        insights: updatedInsights,
+      });
+    }
 
     return {
       success: true,
@@ -1047,7 +1160,7 @@ export const undoAutoAppliedInsight = mutation({
       undoReason: args.undoReason,
     });
 
-    // 10. Update original insight in voiceNoteInsights
+    // 10. Update original insight in voiceNoteInsights table
     const originalInsight = await ctx.db.get(autoAppliedInsight.insightId);
     if (originalInsight) {
       await ctx.db.patch(autoAppliedInsight.insightId, {
@@ -1055,6 +1168,28 @@ export const undoAutoAppliedInsight = mutation({
         appliedAt: undefined,
         appliedBy: undefined,
       });
+
+      // Also update the embedded insights array in voiceNotes document
+      const voiceNote = await ctx.db.get(originalInsight.voiceNoteId);
+      if (voiceNote) {
+        const updatedInsights = voiceNote.insights.map(
+          (embeddedInsight: any) => {
+            if (embeddedInsight.id === originalInsight.insightId) {
+              return {
+                ...embeddedInsight,
+                status: "pending",
+                appliedAt: undefined,
+                appliedBy: undefined,
+              };
+            }
+            return embeddedInsight;
+          }
+        );
+
+        await ctx.db.patch(originalInsight.voiceNoteId, {
+          insights: updatedInsights,
+        });
+      }
     }
 
     // 11. Return success message with details

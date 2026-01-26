@@ -52,7 +52,7 @@ type VoiceNote = {
     description: string;
     category?: string;
     recommendedUpdate?: string;
-    status: "pending" | "applied" | "dismissed";
+    status: "pending" | "applied" | "dismissed" | "auto_applied";
     appliedDate?: string;
   }>;
   insightsStatus?: "pending" | "processing" | "completed" | "failed";

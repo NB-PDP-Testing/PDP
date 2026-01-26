@@ -1412,9 +1412,14 @@ export default defineSchema({
         status: v.union(
           v.literal("pending"),
           v.literal("applied"),
-          v.literal("dismissed")
+          v.literal("dismissed"),
+          v.literal("auto_applied") // Phase 7.3: Auto-applied by AI
         ),
         appliedDate: v.optional(v.string()),
+        appliedAt: v.optional(v.number()), // Phase 7.3: Timestamp for auto-apply
+        appliedBy: v.optional(v.string()), // Phase 7.3: User ID who applied (or coachId for auto)
+        dismissedAt: v.optional(v.number()), // Phase 7.3: Timestamp for dismiss
+        dismissedBy: v.optional(v.string()), // Phase 7.3: User ID who dismissed
         // Team/TODO classification fields
         teamId: v.optional(v.string()), // For team_culture insights
         teamName: v.optional(v.string()),
@@ -1493,6 +1498,7 @@ export default defineSchema({
     .index("by_confidence", ["confidenceScore"])
     .index("by_category_status", ["category", "status"])
     .index("by_voice_note", ["voiceNoteId"])
+    .index("by_voice_note_and_insight", ["voiceNoteId", "insightId"])
     .index("by_coach_org", ["coachId", "organizationId"])
     .index("by_org_status", ["organizationId", "status"]),
 
@@ -1851,6 +1857,7 @@ export default defineSchema({
     approvedBy: v.optional(v.string()), // Better Auth user ID
     deliveredAt: v.optional(v.number()),
     viewedAt: v.optional(v.number()),
+    viewedBy: v.optional(v.string()), // Better Auth user ID of parent who viewed
     acknowledgedAt: v.optional(v.number()), // When parent marked as read/acknowledged
     acknowledgedBy: v.optional(v.string()), // Better Auth user ID of parent who acknowledged
 

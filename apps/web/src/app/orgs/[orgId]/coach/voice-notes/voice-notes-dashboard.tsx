@@ -12,7 +12,6 @@ import {
   MessageSquare,
   Mic,
   Send,
-  Settings,
   Users,
 } from "lucide-react";
 import { useParams, useRouter } from "next/navigation";
@@ -28,19 +27,11 @@ import { HistoryTab } from "./components/history-tab";
 import { InsightsTab } from "./components/insights-tab";
 import { NewNoteTab } from "./components/new-note-tab";
 import { ParentsTab } from "./components/parents-tab";
-import { SettingsTab } from "./components/settings-tab";
 import { TeamInsightsTab } from "./components/team-insights-tab";
 
 const { useSession } = authClient;
 
-type TabId =
-  | "new"
-  | "parents"
-  | "insights"
-  | "team"
-  | "auto-sent"
-  | "history"
-  | "settings";
+type TabId = "new" | "parents" | "insights" | "team" | "auto-sent" | "history";
 
 export function VoiceNotesDashboard() {
   const params = useParams();
@@ -242,13 +233,13 @@ export function VoiceNotesDashboard() {
     pendingTeamInsightsCount,
     hasSensitiveSummaries,
     needsAttentionCount,
+    trustLevel,
   ]);
 
   // If current tab is no longer available (e.g., approved all summaries), switch to New
-  // Settings is a special case - it's always available via header icon, not in tabs array
   useEffect(() => {
     const tabIds = tabs.map((t) => t.id);
-    if (activeTab !== "settings" && !tabIds.includes(activeTab)) {
+    if (!tabIds.includes(activeTab)) {
       setActiveTab("new");
     }
   }, [tabs, activeTab]);
@@ -330,20 +321,9 @@ export function VoiceNotesDashboard() {
             {trustLevel && (
               <TrustLevelIcon
                 level={trustLevel.currentLevel}
-                onClick={() => setActiveTab("settings")}
                 totalApprovals={trustLevel.totalApprovals}
               />
             )}
-            {/* Settings button */}
-            <Button
-              className={`h-8 w-8 p-0 sm:h-9 sm:w-9 ${activeTab === "settings" ? "bg-gray-100 text-green-600" : ""}`}
-              onClick={() => setActiveTab("settings")}
-              size="sm"
-              title="AI Settings"
-              variant="ghost"
-            >
-              <Settings className="h-4 w-4 sm:h-5 sm:w-5" />
-            </Button>
           </div>
         </div>
 
@@ -480,7 +460,6 @@ export function VoiceNotesDashboard() {
             orgId={orgId}
           />
         )}
-        {activeTab === "settings" && <SettingsTab orgId={orgId} />}
       </div>
     </div>
   );

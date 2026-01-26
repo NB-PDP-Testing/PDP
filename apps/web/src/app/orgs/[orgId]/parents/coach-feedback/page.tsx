@@ -18,10 +18,10 @@ export default async function CoachFeedbackPage({
   const { orgId } = await params;
 
   return (
-    <div className="space-y-6">
+    <div className="space-y-4 sm:space-y-6">
       <div>
-        <h1 className="font-bold text-3xl">Coach Feedback</h1>
-        <p className="mt-2 text-muted-foreground">
+        <h1 className="font-bold text-2xl sm:text-3xl">Coach Feedback</h1>
+        <p className="mt-1 text-muted-foreground text-sm sm:mt-2 sm:text-base">
           AI-generated summaries from your coach's voice notes and observations
         </p>
       </div>

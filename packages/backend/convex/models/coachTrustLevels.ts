@@ -544,6 +544,14 @@ export const getCoachPlatformTrustLevel = query({
         percentage: v.number(),
         blockedBySuppressionRate: v.boolean(),
       }),
+      insightAutoApplyPreferences: v.optional(
+        v.object({
+          skills: v.boolean(),
+          attendance: v.boolean(),
+          goals: v.boolean(),
+          performance: v.boolean(),
+        })
+      ),
     }),
     v.null()
   ),
@@ -576,6 +584,7 @@ export const getCoachPlatformTrustLevel = query({
           percentage: 0,
           blockedBySuppressionRate: false,
         },
+        insightAutoApplyPreferences: undefined,
       };
     }
 
@@ -592,6 +601,7 @@ export const getCoachPlatformTrustLevel = query({
       totalSuppressed: trustRecord.totalSuppressed,
       consecutiveApprovals: trustRecord.consecutiveApprovals,
       progressToNextLevel,
+      insightAutoApplyPreferences: trustRecord.insightAutoApplyPreferences,
     };
   },
 });

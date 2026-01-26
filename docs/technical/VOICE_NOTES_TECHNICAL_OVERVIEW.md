@@ -360,22 +360,31 @@ coachParentSummaries: defineTable({
 
 ### Models Layer (`packages/backend/convex/models/`)
 
-#### `voiceNotes.ts` - Core Queries & Mutations
+#### `voiceNotes.ts` - Core Queries & Mutations (21 functions, 2,143 lines)
 
-| Function | Type | Description |
-|----------|------|-------------|
-| `getVoiceNotesByCoach` | Query | Get all notes for a coach in an org |
-| `getVoiceNoteById` | Query | Get single note by ID |
-| `getAllVoiceNotes` | Query | Admin: Get all org notes |
-| `createTypedNote` | Mutation | Create text-based note |
-| `createRecordedNote` | Mutation | Create audio note + trigger transcription |
-| `generateUploadUrl` | Mutation | Get Convex storage upload URL |
-| `updateInsightStatus` | Mutation | Apply/dismiss individual insight |
-| `classifyInsight` | Mutation | Manually set insight category |
-| `assignPlayerToInsight` | Mutation | Manually assign player to insight |
-| `deleteVoiceNote` | Mutation | Delete note and all related data |
-| `updateTranscription` | Internal | Update transcription status/content |
-| `updateInsights` | Internal | Update insights after AI processing |
+| Function | Type | Line | Description |
+|----------|------|------|-------------|
+| `getAllVoiceNotes` | Query | 84 | Admin: Get all org notes |
+| `getVoiceNoteById` | Query | 121 | Get single note by ID |
+| `getVoiceNotesByCoach` | Query | 155 | Get all notes for a coach in an org |
+| `getVoiceNotesForCoachTeams` | Query | 197 | Get notes for coach's assigned teams |
+| `getPendingInsights` | Query | 358 | Get pending insights (embedded version) |
+| `getVoiceNotesForPlayer` | Query | 400 | Get notes mentioning specific player |
+| `createTypedNote` | Mutation | 498 | Create text-based note |
+| `createRecordedNote` | Mutation | 535 | Create audio note + trigger transcription |
+| `generateUploadUrl` | Action | 573 | Get Convex storage upload URL |
+| `updateInsightStatus` | Mutation | 587 | Apply/dismiss individual insight |
+| `bulkApplyInsights` | Mutation | 1167 | Apply multiple insights at once |
+| `updateInsightContent` | Mutation | 1364 | Update insight title/description |
+| `updateInsightContentInternal` | Internal | 1435 | Internal version for AI corrections |
+| `classifyInsight` | Mutation | 1507 | Manually set insight category |
+| `assignPlayerToInsight` | Mutation | 1722 | Manually assign player to insight |
+| `deleteVoiceNote` | Mutation | 1885 | Delete note and all related data |
+| `getNote` | Internal Query | 1905 | Get note for internal use (actions) |
+| `getInsightsForNote` | Internal Query | 1936 | Get insight records for a note |
+| `getInsightById` | Internal Query | 1987 | Get single insight by ID |
+| `updateTranscription` | Internal | 2034 | Update transcription status/content |
+| `updateInsights` | Internal | 2063 | Update insights after AI processing |
 
 **Key Implementation Details:**
 
@@ -383,18 +392,18 @@ coachParentSummaries: defineTable({
 2. **Dual Update Pattern**: When updating insights, both the embedded array (`voiceNotes.insights`) and the separate table (`voiceNoteInsights`) are updated to maintain consistency
 3. **Player Identity System**: Uses `playerIdentityId` (platform-level) rather than org-scoped player IDs
 
-#### `voiceNoteInsights.ts` - Insight Management
+#### `voiceNoteInsights.ts` - Insight Management (8 functions, 1,299 lines)
 
-| Function | Type | Description |
-|----------|------|-------------|
-| `getPendingInsights` | Query | Get pending insights with wouldAutoApply |
-| `getAutoAppliedInsights` | Query | Get auto-applied insights with audit data |
-| `applyInsight` | Mutation | Manually apply insight |
-| `dismissInsight` | Mutation | Manually dismiss insight |
-| `autoApplyInsight` | Mutation | Trigger auto-apply (requires auth) |
-| `autoApplyInsightInternal` | Internal | Auto-apply from actions (no auth) |
-| `undoAutoAppliedInsight` | Mutation | Undo within 1-hour window |
-| `getUndoReasonStats` | Query | Analytics on undo patterns |
+| Function | Type | Line | Description |
+|----------|------|------|-------------|
+| `getPendingInsights` | Query | 138 | Get pending insights with wouldAutoApply calculation |
+| `getAutoAppliedInsights` | Query | 218 | Get auto-applied insights with audit data |
+| `applyInsight` | Mutation | 332 | Manually apply insight to player profile |
+| `dismissInsight` | Mutation | 437 | Manually dismiss insight |
+| `autoApplyInsight` | Mutation | 550 | Trigger auto-apply (requires auth) |
+| `autoApplyInsightInternal` | Internal | 804 | Auto-apply from actions (no auth check) |
+| `undoAutoAppliedInsight` | Mutation | 1035 | Undo within 1-hour window |
+| `getUndoReasonStats` | Query | 1211 | Analytics on undo reasons for AI tuning |
 
 **Auto-Apply Logic (Phase 7.2):**
 
@@ -409,17 +418,25 @@ const isEligible =
   categoryEnabled;                      // Enabled in preferences
 ```
 
-#### `coachTrustLevels.ts` - Trust System
+#### `coachTrustLevels.ts` - Trust System (15 functions, 981 lines)
 
-| Function | Type | Description |
-|----------|------|-------------|
-| `getCoachTrustLevel` | Query | Get trust level + org preferences |
-| `setCoachPreferredLevel` | Mutation | Set automation cap (0-3) |
-| `setParentSummariesEnabled` | Mutation | Toggle parent summaries per-org |
-| `setSkipSensitiveInsights` | Mutation | Skip injury/behavior from summaries |
-| `setInsightAutoApplyPreferences` | Mutation | Enable/disable by category |
-| `updateTrustMetrics` | Internal | Update after approve/suppress |
-| `adjustInsightThresholds` | Internal | Daily cron to tune thresholds |
+| Function | Type | Line | Description |
+|----------|------|------|-------------|
+| `getOrCreateTrustLevel` | Internal | 159 | Initialize trust level for new coach |
+| `updateTrustMetrics` | Internal | 172 | Update counts after approve/suppress |
+| `setCoachPreferredLevel` | Mutation | 254 | Set automation cap (0-3) |
+| `setInsightAutoApplyPreferences` | Mutation | 307 | Enable/disable by category |
+| `setParentSummariesEnabled` | Mutation | 347 | Toggle parent summaries per-org |
+| `setSkipSensitiveInsights` | Mutation | 387 | Skip injury/behavior from summaries |
+| `getCoachTrustLevel` | Query | 431 | Get trust level + org preferences |
+| `getCoachPlatformTrustLevel` | Query | 532 | Get platform-wide trust (no org) |
+| `getCoachAllOrgPreferences` | Query | 613 | Get preferences across all orgs |
+| `getCoachTrustLevelInternal` | Internal Query | 644 | Get trust for internal actions |
+| `getCoachTrustLevelWithInsightFields` | Query | 695 | Get trust with insight threshold data |
+| `isParentSummariesEnabled` | Internal Query | 764 | Check if summaries enabled for coach/org |
+| `shouldSkipSensitiveInsights` | Internal Query | 788 | Check if sensitive skipping enabled |
+| `adjustPersonalizedThresholds` | Internal | 812 | Cron: tune confidence thresholds |
+| `adjustInsightThresholds` | Internal | 902 | Cron: daily threshold adjustment |
 
 **Trust Level Calculation:**
 
@@ -438,32 +455,61 @@ if (suppressionRate > 0.1) {
 }
 ```
 
-#### `coachParentSummaries.ts` - Parent Communication
+#### `coachParentSummaries.ts` - Parent Communication (19 functions, 1,926 lines)
 
-| Function | Type | Description |
-|----------|------|-------------|
-| `createParentSummary` | Internal | Create summary after AI generation |
-| `approveSummary` | Mutation | Coach approves for delivery |
-| `approveInjurySummary` | Mutation | Injury approval with checklist |
-| `suppressSummary` | Mutation | Coach blocks delivery |
-| `revokeSummary` | Mutation | Revoke auto-approved (1-hour window) |
-| `editSummaryContent` | Mutation | Edit before approval |
-| `getCoachPendingSummaries` | Query | Get summaries awaiting review |
-| `getAutoApprovedSummaries` | Query | Get sent summaries (last 30 days) |
-| `markSummaryViewed` | Mutation | Parent views summary |
-| `acknowledgeParentSummary` | Mutation | Parent acknowledges |
-| `processScheduledDeliveries` | Internal | Cron: deliver auto-approved |
+| Function | Type | Line | Description |
+|----------|------|------|-------------|
+| `createParentSummary` | Internal | 158 | Create summary after AI generation |
+| `approveSummary` | Mutation | 284 | Coach approves normal summary for delivery |
+| `approveInjurySummary` | Mutation | 378 | Injury approval with safety checklist |
+| `suppressSummary` | Mutation | 458 | Coach blocks delivery permanently |
+| `revokeSummary` | Mutation | 571 | Revoke auto-approved (1-hour window) |
+| `editSummaryContent` | Mutation | 656 | Edit summary text before approval |
+| `getCoachPendingSummaries` | Query | 711 | Get summaries awaiting coach review |
+| `getAutoApprovedSummaries` | Query | 793 | Get sent summaries (last 30 days) |
+| `getParentUnreadCount` | Query | 987 | Get unread count for parent badge |
+| `getParentSummariesByChildAndSport` | Query | 1058 | Get summaries for parent dashboard |
+| `markSummaryViewed` | Mutation | 1243 | Mark summary as viewed by parent |
+| `trackShareEvent` | Mutation | 1318 | Track social sharing analytics |
+| `acknowledgeParentSummary` | Mutation | 1388 | Parent acknowledges receipt |
+| `acknowledgeAllForPlayer` | Mutation | 1450 | Acknowledge all for a player |
+| `getPassportLinkForSummary` | Query | 1536 | Get link to player passport |
+| `getSummaryForImage` | Internal Query | 1581 | Get data for shareable image |
+| `getSummaryForPDF` | Query | 1710 | Get data for PDF export |
+| `processScheduledDeliveries` | Internal | 1785 | Cron: deliver auto-approved after delay |
+| `debugAutoApprovedTab` | Query | 1849 | Debug query for troubleshooting |
 
 ### Actions Layer (`packages/backend/convex/actions/`)
 
-#### `voiceNotes.ts` - AI Processing
+#### `voiceNotes.ts` - AI Processing (4 functions, 1,160 lines)
 
-| Function | Type | Description |
-|----------|------|-------------|
-| `transcribeAudio` | Internal Action | OpenAI Whisper transcription |
-| `buildInsights` | Internal Action | GPT-4o insight extraction |
-| `correctInsightPlayerName` | Internal Action | AI name correction |
-| `recheckAutoApply` | Internal Action | Re-evaluate after manual edit |
+| Function | Type | Line | Description |
+|----------|------|------|-------------|
+| `transcribeAudio` | Internal Action | 142 | OpenAI Whisper audio-to-text |
+| `buildInsights` | Internal Action | 237 | GPT-4o insight extraction with roster context |
+| `correctInsightPlayerName` | Internal Action | 935 | AI-powered name correction in insight text |
+| `recheckAutoApply` | Internal Action | 1012 | Re-evaluate auto-apply after manual edit |
+
+#### `coachParentSummaries.ts` - Summary Generation (4 functions, 1,088 lines)
+
+| Function | Type | Line | Description |
+|----------|------|------|-------------|
+| `classifyInsightSensitivity` | Internal Action | 102 | Claude Haiku: classify injury/behavior/normal |
+| `generateParentSummary` | Internal Action | 294 | Claude Haiku: generate parent-friendly text |
+| `processVoiceNoteInsight` | Internal Action | 531 | Orchestrate full summary generation pipeline |
+| `generateShareableImage` | Action | 732 | Generate social media shareable image |
+
+### Function Summary
+
+| File | Location | Functions | Lines |
+|------|----------|-----------|-------|
+| `models/voiceNotes.ts` | Core CRUD | 21 | 2,143 |
+| `models/voiceNoteInsights.ts` | Phase 7 Auto-Apply | 8 | 1,299 |
+| `models/coachTrustLevels.ts` | Trust System | 15 | 981 |
+| `models/coachParentSummaries.ts` | Parent Communication | 19 | 1,926 |
+| `actions/voiceNotes.ts` | AI Processing | 4 | 1,160 |
+| `actions/coachParentSummaries.ts` | Summary AI | 4 | 1,088 |
+| **Total** | | **71** | **8,597** |
 
 ---
 
@@ -1432,7 +1478,247 @@ Coach Reviews Insight
 
 This section provides low-level detail on the AI prompts, inputs, outputs, and how insights are applied to player profiles.
 
-### 11.1 Insight Extraction: Input/Output Specification
+### 11.1 Complete Processing Pipeline with All Checks
+
+The insight extraction and parent summary generation involves multiple stages with various checks. Here's the complete flow:
+
+```
+┌─────────────────────────────────────────────────────────────────────────────────┐
+│                    COMPLETE VOICE NOTE PROCESSING PIPELINE                       │
+└─────────────────────────────────────────────────────────────────────────────────┘
+
+STAGE 1: INSIGHT EXTRACTION (buildInsights action)
+─────────────────────────────────────────────────
+┌─────────────────┐
+│ Voice Note      │
+│ Created         │
+└────────┬────────┘
+         │
+         ▼
+┌─────────────────────────────────────────────────────────────────┐
+│ CHECK: Does note have coachId?                                  │
+│ ─────────────────────────────                                   │
+│ YES → Fetch players from COACH'S ASSIGNED TEAMS only            │
+│ NO  → Fetch ALL players in org (legacy/WhatsApp notes)          │
+└────────┬────────────────────────────────────────────────────────┘
+         │
+         ▼
+┌─────────────────────────────────────────────────────────────────┐
+│ GATHER CONTEXT FOR AI PROMPT                                    │
+│ ─────────────────────────────                                   │
+│ 1. Player roster (from coach's teams)                           │
+│ 2. Coach's assigned teams (for team_culture matching)           │
+│ 3. Fellow coaches roster (for TODO assignment)                  │
+│ 4. Recording coach details (default TODO assignee)              │
+└────────┬────────────────────────────────────────────────────────┘
+         │
+         ▼
+┌─────────────────────────────────────────────────────────────────┐
+│ CALL GPT-4o: Extract Insights                                   │
+│ ─────────────────────────────                                   │
+│ Input: transcription + roster context + teams + coaches         │
+│ Output: summary + insights[]                                    │
+└────────┬────────────────────────────────────────────────────────┘
+         │
+         ▼
+┌─────────────────────────────────────────────────────────────────┐
+│ POST-PROCESSING                                                 │
+│ ─────────────────                                               │
+│ 1. Match player names to roster IDs (findMatchingPlayer)        │
+│ 2. Deduplicate by playerIdentityId                              │
+│ 3. Store in voiceNotes.insights[] (embedded)                    │
+│ 4. Store in voiceNoteInsights table (Phase 7)                   │
+└────────┬────────────────────────────────────────────────────────┘
+         │
+         ▼
+┌─────────────────────────────────────────────────────────────────┐
+│ CHECK: Auto-Apply Eligibility (Phase 7.3)                       │
+│ ─────────────────────────────────────────                       │
+│ For each insight:                                               │
+│   - Is trust level >= 2?                                        │
+│   - Is confidence >= threshold?                                 │
+│   - Is category enabled in preferences?                         │
+│   - Is NOT injury/medical?                                      │
+│ If all YES → Auto-apply to player profile                       │
+└────────┬────────────────────────────────────────────────────────┘
+         │
+         ▼
+┌─────────────────────────────────────────────────────────────────┐
+│ CHECK: Parent Summaries Enabled?                                │
+│ ─────────────────────────────────                               │
+│ Query: isParentSummariesEnabled(coachId, orgId)                 │
+│ If NO → Skip parent summary generation entirely                 │
+└────────┬────────────────────────────────────────────────────────┘
+         │ YES
+         ▼
+STAGE 2: PARENT SUMMARY GENERATION (for each player-linked insight)
+
+
+STAGE 2: PARENT SUMMARY GENERATION (processVoiceNoteInsight action)
+──────────────────────────────────────────────────────────────────
+┌─────────────────┐
+│ Insight with    │
+│ playerIdentityId│
+└────────┬────────┘
+         │
+         ▼
+┌─────────────────────────────────────────────────────────────────┐
+│ CHECK 1: Rate Limit (US-009)                                    │
+│ ──────────────────────────────                                  │
+│ Query: checkRateLimit(organizationId)                           │
+│ Purpose: Prevent abuse or runaway loops                         │
+│ If exceeded → EXIT (no AI call, no cost)                        │
+└────────┬────────────────────────────────────────────────────────┘
+         │ OK
+         ▼
+┌─────────────────────────────────────────────────────────────────┐
+│ CHECK 2: Budget Limit (US-004)                                  │
+│ ──────────────────────────────                                  │
+│ Query: checkOrgCostBudget(organizationId)                       │
+│ Purpose: Fail fast if daily/monthly budget exceeded             │
+│ If exceeded → Log event, EXIT (no AI call)                      │
+└────────┬────────────────────────────────────────────────────────┘
+         │ OK
+         ▼
+┌─────────────────────────────────────────────────────────────────┐
+│ AI CALL: Classify Sensitivity (Claude Haiku)                    │
+│ ─────────────────────────────────────────────                   │
+│ Input: insightTitle + insightDescription                        │
+│ Output: { category: "normal"|"injury"|"behavior",               │
+│           confidence: 0.0-1.0, reason: string }                 │
+│ Circuit breaker: Returns fallback if AI service down            │
+└────────┬────────────────────────────────────────────────────────┘
+         │
+         ▼
+┌─────────────────────────────────────────────────────────────────┐
+│ CHECK 3: Skip Sensitive Insights?                               │
+│ ─────────────────────────────────                               │
+│ If category is "injury" or "behavior":                          │
+│   Query: shouldSkipSensitiveInsights(coachId, orgId)            │
+│   If YES → EXIT (coach opted out of sensitive summaries)        │
+└────────┬────────────────────────────────────────────────────────┘
+         │ Continue
+         ▼
+┌─────────────────────────────────────────────────────────────────┐
+│ GATHER CONTEXT                                                  │
+│ ──────────────────                                              │
+│ 1. Get player info (name, DOB)                                  │
+│ 2. Get player's sport passport                                  │
+│ 3. Get organization name                                        │
+└────────┬────────────────────────────────────────────────────────┘
+         │
+         ▼
+┌─────────────────────────────────────────────────────────────────┐
+│ AI CALL: Generate Parent Summary (Claude Haiku)                 │
+│ ─────────────────────────────────────────────                   │
+│ Input: privateInsight + playerName + sportContext               │
+│ Output: Parent-friendly summary text                            │
+│ Rules: No jargon, encouraging tone, no severity ratings         │
+└────────┬────────────────────────────────────────────────────────┘
+         │
+         ▼
+┌─────────────────────────────────────────────────────────────────┐
+│ CREATE coachParentSummaries RECORD                              │
+│ ──────────────────────────────────                              │
+│ - Store privateInsight (coach only)                             │
+│ - Store publicSummary (parent facing)                           │
+│ - Set sensitivityCategory                                       │
+│ - Set initial status                                            │
+└────────┬────────────────────────────────────────────────────────┘
+         │
+         ▼
+┌─────────────────────────────────────────────────────────────────┐
+│ DECISION: Auto-Approve? (Trust Level System)                    │
+│ ─────────────────────────────────────────────                   │
+│ decideAutoApproval(trustLevel, summaryProps):                   │
+│   - Is trust level >= 2? (required)                             │
+│   - Is sensitivity "normal"? (injury/behavior → always manual)  │
+│   - Is confidence >= threshold? (default 0.7)                   │
+│                                                                 │
+│ If all YES:                                                     │
+│   - status = "auto_approved"                                    │
+│   - scheduledDeliveryAt = now + 1 hour (revoke window)          │
+│ If NO:                                                          │
+│   - status = "pending_review" (manual approval required)        │
+└─────────────────────────────────────────────────────────────────┘
+```
+
+### 11.2 Pre-Processing Checks Detail
+
+Before any AI processing occurs, multiple safeguards are checked:
+
+#### Rate Limiting (`checkRateLimit`)
+
+**File:** `packages/backend/convex/models/rateLimits.ts`
+
+| Check | Limit | Reset |
+|-------|-------|-------|
+| Summaries per minute | 10 | Rolling window |
+| Summaries per hour | 100 | Rolling window |
+| Summaries per day | 500 | Midnight UTC |
+
+```typescript
+// Returns { allowed: boolean, reason?: string, resetAt?: number }
+const rateCheck = await ctx.runQuery(
+  internal.models.rateLimits.checkRateLimit,
+  { organizationId }
+);
+```
+
+#### Budget Limiting (`checkOrgCostBudget`)
+
+**File:** `packages/backend/convex/models/orgCostBudgets.ts`
+
+| Budget Type | Default | Configurable |
+|-------------|---------|--------------|
+| Daily limit | $5.00 | Per-org |
+| Monthly limit | $50.00 | Per-org |
+
+```typescript
+// Returns { withinBudget: boolean, reason?: "daily_exceeded"|"monthly_exceeded" }
+const budgetCheck = await ctx.runQuery(
+  internal.models.orgCostBudgets.checkOrgCostBudget,
+  { organizationId }
+);
+```
+
+#### Circuit Breaker (`shouldCallAPI`)
+
+**File:** `packages/backend/convex/lib/circuitBreaker.ts`
+
+Prevents cascading failures when AI services are down:
+
+| State | Behavior |
+|-------|----------|
+| CLOSED | Normal operation, calls allowed |
+| OPEN | Failures exceeded threshold, calls blocked |
+| HALF_OPEN | Testing recovery, limited calls |
+
+```typescript
+if (!shouldCallAPI(serviceHealth)) {
+  // Return fallback classification instead of calling AI
+  return { category: "normal", confidence: 0.5, isFallback: true };
+}
+```
+
+#### Skip Sensitive Insights Check
+
+**File:** `packages/backend/convex/models/coachTrustLevels.ts`
+
+Coach preference to skip injury/behavior summaries entirely:
+
+```typescript
+// If coach has skipSensitiveInsights enabled and insight is injury/behavior
+if (classification.category === "injury" || classification.category === "behavior") {
+  const shouldSkip = await ctx.runQuery(
+    internal.models.coachTrustLevels.shouldSkipSensitiveInsights,
+    { coachId, organizationId }
+  );
+  if (shouldSkip) return null; // No summary created
+}
+```
+
+### 11.3 Insight Extraction: Input/Output Specification
 
 #### Input to `buildInsights` Action
 
@@ -1604,7 +1890,7 @@ new training cones before next week."
 }
 ```
 
-### 11.2 Player Profile Update Implementation
+### 11.4 Player Profile Update Implementation
 
 When an insight is applied (manually or auto-applied), the system updates the player's profile. Here's the detailed implementation:
 
@@ -1780,7 +2066,7 @@ if (insight.category === "team_culture") {
 }
 ```
 
-### 11.3 Complete Insight Application Matrix
+### 11.5 Complete Insight Application Matrix
 
 | Category | Target Table | Creates New | Updates Existing | Fields Set |
 |----------|--------------|-------------|------------------|------------|
@@ -1793,7 +2079,7 @@ if (insight.category === "team_culture") {
 | `team_culture` | `teamObservations` | ✅ Always | ❌ | title, description, sentiment |
 | `todo` | `coachTasks` | ✅ Always | ❌ | title, description, assignee |
 
-### 11.4 Auto-Applied Insight Audit Trail
+### 11.6 Auto-Applied Insight Audit Trail
 
 When an insight is auto-applied, a record is created in `autoAppliedInsights`:
 

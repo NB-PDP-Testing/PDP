@@ -300,6 +300,47 @@ export const setCoachPreferredLevel = mutation({
 });
 
 /**
+ * Set insight auto-apply preferences per category (Phase 7.3)
+ * Controls which types of insights can be automatically applied to player profiles.
+ * Platform-wide setting (applies to all orgs coach works with).
+ */
+export const setInsightAutoApplyPreferences = mutation({
+  args: {
+    preferences: v.object({
+      skills: v.boolean(),
+      attendance: v.boolean(),
+      goals: v.boolean(),
+      performance: v.boolean(),
+    }),
+  },
+  returns: v.null(),
+  handler: async (ctx, args) => {
+    // Get authenticated user
+    const user = await authComponent.safeGetAuthUser(ctx);
+    if (!user) {
+      throw new Error("Not authenticated");
+    }
+
+    // Get the user ID (use _id or userId depending on what's available)
+    const coachId = user.userId || user._id;
+    if (!coachId) {
+      throw new Error("User ID not found");
+    }
+
+    // Get or create platform-wide trust record
+    const trustRecord = await getOrCreateTrustLevelHelper(ctx, coachId);
+
+    // Update insightAutoApplyPreferences
+    await ctx.db.patch(trustRecord._id, {
+      insightAutoApplyPreferences: args.preferences,
+      updatedAt: Date.now(),
+    });
+
+    return null;
+  },
+});
+
+/**
  * Toggle parent summaries generation on/off (per-org).
  * When disabled, insights are still captured but no parent summaries are generated.
  */

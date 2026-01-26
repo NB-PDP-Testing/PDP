@@ -175,7 +175,7 @@
     },
     {
       "id": "US-011",
-      "title": "Add category preference controls to settings tab",
+      "title": "✅ COMPLETE: Add category preference controls to settings tab",
       "description": "As a coach, I see checkboxes to enable/disable auto-apply per insight category.",
       "phase": "7.3: Learning Loop",
       "acceptanceCriteria": [
@@ -211,7 +211,8 @@
         "Visual verification: Checkboxes toggle, changes persist on page refresh"
       ],
       "priority": 11,
-      "passes": false,
+      "passes": true,
+      "completed": true,
       "notes": "Empowers coaches to choose automation level per category. Some coaches want full automation, others only numeric skills. Respects different coaching styles. Clear safety message about injury/medical."
     },
     {
@@ -281,7 +282,7 @@
     },
     {
       "id": "US-013",
-      "title": "Track and display undo reasons for AI improvement feedback",
+      "title": "✅ COMPLETE: Track and display undo reasons for AI improvement feedback",
       "description": "As the platform, I collect undo reasons to identify AI improvement opportunities and track patterns.",
       "phase": "7.3: Learning Loop",
       "acceptanceCriteria": [
@@ -323,8 +324,9 @@
         "Visual verification: Stats display correctly, export works"
       ],
       "priority": 13,
-      "passes": false,
-      "notes": "Feedback loop for AI improvement. If 'wrong player' is common → improve player matching. If 'wrong rating' is common → improve confidence scoring. If 'insight incorrect' is common → improve AI prompt. Data-driven improvements. Can be used by AI team to retrain models."
+      "passes": true,
+      "completed": true,
+      "notes": "Backend query COMPLETE. Admin UI page is optional and NOT implemented (marked as such in acceptance criteria). Query provides all data needed for AI improvement analysis. If 'wrong player' is common → improve player matching. If 'wrong rating' is common → improve confidence scoring. If 'insight incorrect' is common → improve AI prompt. Data-driven improvements. Can be used by AI team to retrain models via direct query access."
     }
   ],
   "testingStrategy": {

@@ -16,9 +16,12 @@
 6. [AI Processing Pipeline](#6-ai-processing-pipeline)
 7. [Trust Level System (Phase 7)](#7-trust-level-system-phase-7)
 8. [Parent Communication Flow](#8-parent-communication-flow)
-9. [Data Flow Diagrams](#9-data-flow-diagrams)
-10. [Key Files Reference](#10-key-files-reference)
-11. [Troubleshooting Guide](#11-troubleshooting-guide)
+9. [Coach Notes Privacy Architecture](#9-coach-notes-privacy-architecture)
+10. [Data Flow Diagrams](#10-data-flow-diagrams)
+11. [AI Prompts & Insight Processing Deep Dive](#11-ai-prompts--insight-processing-deep-dive)
+12. [Limitations & Improvement Opportunities](#12-limitations--improvement-opportunities)
+13. [Key Files Reference](#13-key-files-reference)
+14. [Troubleshooting Guide](#14-troubleshooting-guide)
 
 ---
 
@@ -992,7 +995,365 @@ auto_approved → delivered → viewed
 
 ---
 
-## 9. Data Flow Diagrams
+## 9. Coach Notes Privacy Architecture
+
+This section provides a comprehensive overview of how coach voice notes remain **private by default** and the technical mechanisms that enforce data isolation.
+
+### Privacy Principles
+
+1. **Coach Ownership:** Voice notes belong to the coach who created them
+2. **Explicit Sharing Only:** Nothing reaches parents without coach approval
+3. **Organization Isolation:** Notes are scoped to a single organization
+4. **Role-Based Access:** Different users see different data based on their role
+5. **Audit Trail:** All access and approvals are logged
+
+### Data Isolation Model
+
+```
+┌─────────────────────────────────────────────────────────────────────────────────┐
+│                           VOICE NOTE PRIVACY LAYERS                              │
+├─────────────────────────────────────────────────────────────────────────────────┤
+│                                                                                  │
+│  LAYER 1: Organization Isolation                                                 │
+│  ─────────────────────────────────                                               │
+│  All voice notes filtered by orgId - coaches only see notes from their org       │
+│                                                                                  │
+│  LAYER 2: Coach Ownership                                                        │
+│  ────────────────────────                                                        │
+│  Within an org, coaches only see their OWN notes (filtered by coachId)          │
+│  Exception: Admins can see all notes for audit purposes                          │
+│                                                                                  │
+│  LAYER 3: Insight Privacy                                                        │
+│  ─────────────────────────                                                       │
+│  Raw insights (voiceNotes.insights[]) are NEVER exposed to parents               │
+│  Only AI-sanitized publicSummary can reach parents                               │
+│                                                                                  │
+│  LAYER 4: Approval Gate                                                          │
+│  ─────────────────────────                                                       │
+│  Parent summaries require explicit approval (manual or auto with trust)          │
+│  Coach can suppress any summary at any time                                      │
+│                                                                                  │
+└─────────────────────────────────────────────────────────────────────────────────┘
+```
+
+### Technical Implementation
+
+#### 1. Coach Ownership Filter (Query Level)
+
+All voice note queries enforce coach ownership. Here's the implementation:
+
+**File:** `packages/backend/convex/models/voiceNotes.ts`
+
+```typescript
+// getVoiceNotesByCoach - Primary coach query
+export const getVoiceNotesByCoach = query({
+  args: {
+    orgId: v.string(),
+    coachId: v.string(),
+  },
+  handler: async (ctx, args) => {
+    // PRIVACY: Filter by BOTH orgId AND coachId
+    const notes = await ctx.db
+      .query("voiceNotes")
+      .withIndex("by_orgId_and_coachId", (q) =>
+        q.eq("orgId", args.orgId).eq("coachId", args.coachId)
+      )
+      .collect();
+
+    return notes;
+  },
+});
+```
+
+**Key Point:** The index `by_orgId_and_coachId` ensures efficient filtering at the database level, not application level.
+
+#### 2. Frontend Coach ID Injection
+
+The frontend automatically injects the current user's ID:
+
+**File:** `apps/web/src/app/orgs/[orgId]/coach/voice-notes/voice-notes-dashboard.tsx`
+
+```typescript
+// Coach ID comes from authenticated session
+const { data: session } = authClient.useSession();
+const coachId = session?.user?.id;
+
+// Query is skipped if no session (prevents unauthorized access)
+const voiceNotes = useQuery(
+  api.models.voiceNotes.getVoiceNotesByCoach,
+  coachId ? { orgId, coachId } : "skip"  // ← "skip" if not authenticated
+);
+```
+
+#### 3. Mutation Authorization
+
+All mutations verify coach ownership:
+
+**File:** `packages/backend/convex/models/voiceNotes.ts`
+
+```typescript
+export const updateInsightStatus = mutation({
+  args: {
+    noteId: v.id("voiceNotes"),
+    insightId: v.string(),
+    status: v.union(v.literal("applied"), v.literal("dismissed")),
+  },
+  handler: async (ctx, args) => {
+    // 1. Authenticate user
+    const user = await authComponent.safeGetAuthUser(ctx);
+    if (!user) throw new Error("Not authenticated");
+
+    // 2. Get the voice note
+    const note = await ctx.db.get(args.noteId);
+    if (!note) throw new Error("Voice note not found");
+
+    // 3. PRIVACY CHECK: Verify ownership
+    if (note.coachId !== user.userId && note.coachId !== user._id) {
+      throw new Error("Not authorized to modify this voice note");
+    }
+
+    // 4. Proceed with update...
+  },
+});
+```
+
+#### 4. Parent Summary Authorization
+
+Parent summaries have strict ownership checks:
+
+**File:** `packages/backend/convex/models/coachParentSummaries.ts`
+
+```typescript
+export const approveSummary = mutation({
+  args: { summaryId: v.id("coachParentSummaries") },
+  handler: async (ctx, args) => {
+    const user = await authComponent.safeGetAuthUser(ctx);
+    const userId = user?.userId || user?._id;
+
+    const summary = await ctx.db.get(args.summaryId);
+
+    // STRICT OWNERSHIP: Only the creating coach can approve
+    if (summary.coachId !== userId) {
+      throw new Error(
+        "Only the coach who created this note can approve this summary"
+      );
+    }
+
+    // Proceed with approval...
+  },
+});
+```
+
+### What Each Role Can See
+
+#### Coach (Owner)
+
+| Data | Access | Location |
+|------|--------|----------|
+| Own voice notes | ✅ Full | `voiceNotes` table |
+| Own insights (raw) | ✅ Full | `voiceNotes.insights[]` |
+| Own insights (table) | ✅ Full | `voiceNoteInsights` table |
+| Own parent summaries | ✅ Full | `coachParentSummaries` |
+| Other coaches' notes | ❌ None | N/A |
+| Player profiles (assigned teams) | ✅ Read | Various tables |
+
+**Frontend Routes:**
+- `/orgs/[orgId]/coach/voice-notes` - Main dashboard
+- Only shows notes where `coachId === session.user.id`
+
+#### Admin (Organization)
+
+| Data | Access | Location |
+|------|--------|----------|
+| All org voice notes | ✅ Read-only | `voiceNotes` table |
+| All org insights | ✅ Read-only | `voiceNoteInsights` table |
+| All org summaries | ✅ Read-only | `coachParentSummaries` |
+| Cannot approve/dismiss | ❌ No mutations | N/A |
+
+**Frontend Route:**
+- `/orgs/[orgId]/admin/voice-notes` - Audit dashboard
+
+**Implementation:**
+
+```typescript
+// getAllVoiceNotes - Admin audit query
+export const getAllVoiceNotes = query({
+  args: { orgId: v.string() },
+  handler: async (ctx, args) => {
+    // Verify user is admin (checked via Better Auth org membership)
+    const member = await verifyOrgMembership(ctx, args.orgId);
+    if (member.role !== "owner" && member.role !== "admin") {
+      throw new Error("Admin access required");
+    }
+
+    // Return ALL notes for the org (no coachId filter)
+    return ctx.db
+      .query("voiceNotes")
+      .withIndex("by_orgId", (q) => q.eq("orgId", args.orgId))
+      .collect();
+  },
+});
+```
+
+#### Parent
+
+| Data | Access | Location |
+|------|--------|----------|
+| Voice notes | ❌ Never | N/A |
+| Raw insights | ❌ Never | N/A |
+| Private insight text | ❌ Never | N/A |
+| Public summary (approved) | ✅ Read | `coachParentSummaries.publicSummary` |
+| Summary status | ✅ Limited | Only own children's summaries |
+
+**Frontend Route:**
+- `/orgs/[orgId]/parent/dashboard` - Parent dashboard
+- Messages tab shows approved summaries only
+
+**Implementation:**
+
+```typescript
+// Parent can only see summaries for their linked children
+export const getParentSummariesByChildAndSport = query({
+  args: { organizationId: v.string() },
+  handler: async (ctx, args) => {
+    const user = await authComponent.safeGetAuthUser(ctx);
+
+    // 1. Find guardian identity for this user
+    const guardianIdentity = await ctx.db
+      .query("guardianIdentities")
+      .withIndex("by_userId", (q) => q.eq("userId", user._id))
+      .first();
+
+    if (!guardianIdentity) return [];
+
+    // 2. Get linked players (children)
+    const links = await ctx.db
+      .query("guardianPlayerLinks")
+      .withIndex("by_guardian", (q) =>
+        q.eq("guardianIdentityId", guardianIdentity._id)
+      )
+      .collect();
+
+    // 3. For each child, get ONLY approved/delivered summaries
+    // Parents NEVER see pending_review or suppressed
+    for (const link of links) {
+      const summaries = await ctx.db
+        .query("coachParentSummaries")
+        .withIndex("by_player_org_status", (q) =>
+          q.eq("playerIdentityId", link.playerIdentityId)
+           .eq("organizationId", args.organizationId)
+           .eq("status", "approved")  // ← Only approved
+        )
+        .collect();
+
+      // Return ONLY publicSummary, never privateInsight
+      return summaries.map(s => ({
+        ...s,
+        privateInsight: undefined,  // ← Explicitly removed
+      }));
+    }
+  },
+});
+```
+
+### Data Flow: What Parents See vs What Coaches See
+
+```
+┌──────────────────────────────────────────────────────────────────────────────┐
+│                         SAME INSIGHT, DIFFERENT VIEWS                         │
+└──────────────────────────────────────────────────────────────────────────────┘
+
+COACH SEES (Full Context):
+┌──────────────────────────────────────────────────────────────────────────────┐
+│ Voice Note #1234                                                             │
+│ Date: Jan 26, 2026 | Type: Training | Status: Completed                      │
+├──────────────────────────────────────────────────────────────────────────────┤
+│ Transcription:                                                               │
+│ "Good session tonight. Sarah Malone took a knock to her ankle during the     │
+│ tackle drill, looks like a minor sprain. She was limping but walked it off.  │
+│ I'm concerned about her form lately, might be overtraining. Need to chat     │
+│ with her parents about reducing her schedule."                               │
+├──────────────────────────────────────────────────────────────────────────────┤
+│ Insights Extracted:                                                          │
+│                                                                              │
+│ [INJURY] Sarah Malone - Ankle Sprain                                         │
+│ Description: Minor ankle sprain during tackle drill, limping observed        │
+│ Recommended: Rest and ice, monitor for 48 hours                              │
+│ Confidence: 0.89                                                             │
+│ Status: [Apply] [Dismiss]                                                    │
+│                                                                              │
+│ [BEHAVIOR] Sarah Malone - Overtraining Concern                               │
+│ Description: Coach concerned about form degradation, possible overtraining   │
+│ Recommended: Discuss reduced schedule with parents                           │
+│ Confidence: 0.72                                                             │
+│ Status: [Apply] [Dismiss]                                                    │
+└──────────────────────────────────────────────────────────────────────────────┘
+
+PARENT SEES (Sanitized Summary - ONLY after coach approves):
+┌──────────────────────────────────────────────────────────────────────────────┐
+│ Message from Coach                                                           │
+│ Jan 26, 2026                                                                 │
+├──────────────────────────────────────────────────────────────────────────────┤
+│ "Hi! Just wanted to let you know that Sarah had a good training session      │
+│ tonight. She did take a small knock to her ankle during one of the drills,   │
+│ but she's doing fine. You might want to keep an eye on it and let her rest   │
+│ if needed. See you at the next session!"                                     │
+├──────────────────────────────────────────────────────────────────────────────┤
+│ [Mark as Read] [View Sarah's Passport]                                       │
+└──────────────────────────────────────────────────────────────────────────────┘
+
+WHAT PARENT NEVER SEES:
+❌ Original voice note transcription
+❌ "minor sprain" severity assessment
+❌ "limping observed" clinical observation
+❌ "overtraining concern" behavioral flag
+❌ "discuss reduced schedule" internal recommendation
+❌ AI confidence scores
+❌ Insight categories (injury, behavior)
+```
+
+### Privacy-Critical Code Paths
+
+| Operation | File | Function | Privacy Check |
+|-----------|------|----------|---------------|
+| View notes | `voiceNotes.ts` | `getVoiceNotesByCoach` | `coachId` filter in index |
+| View all (admin) | `voiceNotes.ts` | `getAllVoiceNotes` | Role check |
+| Apply insight | `voiceNotes.ts` | `updateInsightStatus` | `note.coachId === userId` |
+| Approve summary | `coachParentSummaries.ts` | `approveSummary` | `summary.coachId === userId` |
+| Suppress summary | `coachParentSummaries.ts` | `suppressSummary` | `summary.coachId === userId` |
+| Revoke auto-approved | `coachParentSummaries.ts` | `revokeSummary` | `summary.coachId === userId` |
+| Parent view summary | `coachParentSummaries.ts` | `getParentSummariesByChildAndSport` | Guardian-player link check |
+
+### Database Indexes for Privacy
+
+These indexes enforce privacy at the database level:
+
+```typescript
+// voiceNotes table
+.index("by_orgId", ["orgId"])                    // Org isolation
+.index("by_orgId_and_coachId", ["orgId", "coachId"])  // Coach ownership
+
+// voiceNoteInsights table
+.index("by_coach_org_status", ["coachId", "organizationId", "status"])
+
+// coachParentSummaries table
+.index("by_coach_org_status", ["coachId", "organizationId", "status"])  // Coach view
+.index("by_player_org_status", ["playerIdentityId", "organizationId", "status"])  // Parent view
+```
+
+### Security Guarantees
+
+| Guarantee | Implementation |
+|-----------|----------------|
+| Coach A cannot see Coach B's notes | Index filter + no cross-coach queries |
+| Parents cannot see raw insights | `privateInsight` never returned to parent queries |
+| Parents cannot see pending summaries | Status filter: only `approved`/`delivered` |
+| Admins cannot modify coach notes | No admin mutations, read-only access |
+| Unauthenticated users see nothing | All queries require `authComponent.safeGetAuthUser` |
+
+---
+
+## 10. Data Flow Diagrams
 
 ### Voice Note Creation Flow
 
@@ -1067,7 +1428,532 @@ Coach Reviews Insight
 
 ---
 
-## 10. Key Files Reference
+## 11. AI Prompts & Insight Processing Deep Dive
+
+This section provides low-level detail on the AI prompts, inputs, outputs, and how insights are applied to player profiles.
+
+### 11.1 Insight Extraction: Input/Output Specification
+
+#### Input to `buildInsights` Action
+
+**File:** `packages/backend/convex/actions/voiceNotes.ts:237`
+
+| Input | Type | Source | Description |
+|-------|------|--------|-------------|
+| `noteId` | `Id<"voiceNotes">` | Scheduler | Voice note to process |
+| `transcription` | `string` | `voiceNotes.transcription` | Text from Whisper or typed input |
+| `players` | `Array<PlayerFromOrg>` | `getPlayersForCoachTeamsInternal` | Roster of players from coach's teams |
+| `teamsList` | `Array<Team>` | Better Auth teams query | Coach's assigned teams |
+| `coachesRoster` | `Array<Coach>` | `getFellowCoachesForTeams` | Coaches for TODO assignment |
+
+**Player Object Structure:**
+
+```typescript
+type PlayerFromOrg = {
+  _id: Id<"playerIdentities">;
+  playerIdentityId: Id<"playerIdentities">;
+  firstName: string;
+  lastName: string;
+  name: string;           // Full name: "firstName lastName"
+  ageGroup: string;       // e.g., "U14", "Senior"
+  sport: string | null;   // e.g., "GAA", "Soccer"
+};
+```
+
+#### The AI Prompt (Actual System Prompt)
+
+```
+You are an expert sports coaching assistant that analyzes coach voice notes
+and extracts actionable insights.
+
+Your task is to:
+1. Summarize the key points from the voice note
+2. Extract specific insights about individual players or the team
+3. Match player names to the roster when possible
+4. Categorize insights:
+   - injury: physical injuries, knocks, strains (PLAYER-SPECIFIC)
+   - skill_rating: when coach mentions a specific numeric rating/score (PLAYER-SPECIFIC)
+   - skill_progress: general skill improvement without numeric ratings (PLAYER-SPECIFIC)
+   - behavior: attitude, effort, teamwork issues (PLAYER-SPECIFIC)
+   - performance: match/training performance observations (PLAYER-SPECIFIC)
+   - attendance: presence/absence at sessions (PLAYER-SPECIFIC)
+   - team_culture: team morale, culture, collective behavior (TEAM-WIDE, no player)
+   - todo: action items the coach needs to do - NOT about players
+5. Suggest concrete actions the coach should take
+
+CATEGORIZATION RULES:
+- If it's about a specific player → must have playerName
+- If it's about the whole team → use team_culture, playerName should be null
+- If it's a task/action for the coach → use todo, playerName should be null
+- skill_rating: include the rating number in recommendedUpdate (e.g., "Set to 3/5")
+
+Team Roster (JSON array - players):
+${rosterContext}
+
+Coach's Teams (JSON array):
+${teamsList}
+
+Coaches on Same Teams (JSON array - for TODO assignment):
+${coachesRoster}
+
+CRITICAL PLAYER MATCHING INSTRUCTIONS:
+- When you identify a player name in the voice note, find them in the roster JSON
+- Compare to "fullName" field first (exact or partial match)
+- If only first name mentioned, check "firstName" in roster
+- When match found, copy EXACT "id" field value into playerId
+- If no match, set playerId to null but still include playerName
+```
+
+#### Expected Output (Zod Schema)
+
+```typescript
+const insightSchema = z.object({
+  summary: z.string().describe("A brief summary of the voice note content"),
+  insights: z.array(
+    z.object({
+      title: z.string().describe("A short title for the insight"),
+      description: z.string().describe("Detailed description of the insight"),
+      playerName: z.string().nullable().describe("Name of the player, if any"),
+      playerId: z.string().nullable().describe("ID from roster, if matched"),
+      category: z.string().nullable().describe(
+        "Category: injury, skill_rating, skill_progress, behavior, performance, attendance, team_culture, todo"
+      ),
+      recommendedUpdate: z.string().nullable().describe(
+        "Suggested action based on this insight"
+      ),
+      confidence: z.number().min(0).max(1).describe(
+        "AI confidence score (0.0-1.0). 1.0 = explicit statement, 0.6-0.7 = inference"
+      ),
+      teamId: z.string().nullable().optional().describe("Team ID for team_culture"),
+      teamName: z.string().nullable().optional().describe("Team name for team_culture"),
+      assigneeUserId: z.string().nullable().optional().describe("Coach ID for TODO"),
+      assigneeName: z.string().nullable().optional().describe("Coach name for TODO"),
+    })
+  ).min(0),
+});
+```
+
+#### Example AI Input/Output
+
+**Input Transcription:**
+```
+"Good training session tonight. Clodagh Barlow's hand pass has really improved,
+I'd give her a 4 out of 5 now. Sarah took a knock to her ankle, nothing serious
+but keep an eye on it. The U14 girls showed great team spirit. I need to order
+new training cones before next week."
+```
+
+**AI Output:**
+```json
+{
+  "summary": "Positive training session with individual skill progress noted, minor injury, good team morale, and equipment need identified.",
+  "insights": [
+    {
+      "title": "Hand pass improvement",
+      "description": "Clodagh Barlow's hand pass skill has significantly improved",
+      "playerName": "Clodagh Barlow",
+      "playerId": "mx7fsvhh9m9v8qayeetcjvn5g17y95dv",
+      "category": "skill_rating",
+      "recommendedUpdate": "Set hand_pass skill rating to 4/5",
+      "confidence": 0.95,
+      "teamId": null,
+      "teamName": null,
+      "assigneeUserId": null,
+      "assigneeName": null
+    },
+    {
+      "title": "Ankle injury",
+      "description": "Sarah took a knock to her ankle during training, described as minor",
+      "playerName": "Sarah",
+      "playerId": null,
+      "category": "injury",
+      "recommendedUpdate": "Monitor ankle, apply RICE protocol if needed",
+      "confidence": 0.88,
+      "teamId": null,
+      "teamName": null,
+      "assigneeUserId": null,
+      "assigneeName": null
+    },
+    {
+      "title": "Team spirit",
+      "description": "U14 girls demonstrated excellent team spirit and cohesion",
+      "playerName": null,
+      "playerId": null,
+      "category": "team_culture",
+      "recommendedUpdate": "Continue encouraging team bonding activities",
+      "confidence": 0.82,
+      "teamId": "team_u14_female_123",
+      "teamName": "U14 Female",
+      "assigneeUserId": null,
+      "assigneeName": null
+    },
+    {
+      "title": "Order training cones",
+      "description": "Coach needs to order new training cones before next week's session",
+      "playerName": null,
+      "playerId": null,
+      "category": "todo",
+      "recommendedUpdate": "Order training cones",
+      "confidence": 0.98,
+      "teamId": null,
+      "teamName": null,
+      "assigneeUserId": "coach_user_id_123",
+      "assigneeName": "Coach Neil"
+    }
+  ]
+}
+```
+
+### 11.2 Player Profile Update Implementation
+
+When an insight is applied (manually or auto-applied), the system updates the player's profile. Here's the detailed implementation:
+
+#### Skill Rating Application
+
+**Trigger:** `category === "skill_rating"`
+
+**Code Path:** `voiceNotes.ts → updateInsightStatus → applySkillRatingInsight`
+
+```typescript
+// Parse skill name and rating from insight
+// Example: "Set hand_pass skill rating to 4/5"
+const skillMatch = insight.recommendedUpdate?.match(
+  /(?:set|update)?\s*(\w+)\s*(?:skill)?\s*(?:rating)?\s*(?:to)?\s*(\d)(?:\/5)?/i
+);
+
+if (skillMatch && insight.playerIdentityId) {
+  const [, skillName, ratingStr] = skillMatch;
+  const rating = parseInt(ratingStr, 10);
+
+  // Find existing skill assessment or create new
+  const existingAssessment = await ctx.db
+    .query("skillAssessments")
+    .withIndex("by_player_skill", (q) =>
+      q.eq("playerIdentityId", insight.playerIdentityId)
+       .eq("skillName", skillName.toLowerCase())
+    )
+    .first();
+
+  if (existingAssessment) {
+    // Update existing
+    await ctx.db.patch(existingAssessment._id, {
+      rating,
+      notes: insight.description,
+      assessedBy: userId,
+      assessedAt: Date.now(),
+      source: "voice_note",
+      voiceNoteId: noteId,
+    });
+  } else {
+    // Create new
+    await ctx.db.insert("skillAssessments", {
+      playerIdentityId: insight.playerIdentityId,
+      organizationId: note.orgId,
+      skillName: skillName.toLowerCase(),
+      rating,
+      notes: insight.description,
+      assessedBy: userId,
+      assessedAt: Date.now(),
+      source: "voice_note",
+      voiceNoteId: noteId,
+    });
+  }
+}
+```
+
+**Fields Updated in `skillAssessments`:**
+
+| Field | Value Source | Description |
+|-------|--------------|-------------|
+| `playerIdentityId` | `insight.playerIdentityId` | Player being assessed |
+| `skillName` | Parsed from `recommendedUpdate` | e.g., "hand_pass", "tackling" |
+| `rating` | Parsed from `recommendedUpdate` | 1-5 scale |
+| `notes` | `insight.description` | AI-generated description |
+| `assessedBy` | `userId` (coach) | Who applied the insight |
+| `source` | `"voice_note"` | Origin tracking |
+| `voiceNoteId` | `noteId` | Link back to source |
+
+#### Injury Application
+
+**Trigger:** `category === "injury"`
+
+**Code Path:** `voiceNotes.ts → updateInsightStatus → applyInjuryInsight`
+
+```typescript
+if (insight.category === "injury" && insight.playerIdentityId) {
+  // Create injury record
+  await ctx.db.insert("playerInjuries", {
+    playerIdentityId: insight.playerIdentityId,
+    organizationId: note.orgId,
+    type: parseInjuryType(insight.description),  // "ankle", "knee", etc.
+    severity: "minor",  // Default, coach can edit
+    description: insight.description,
+    reportedBy: userId,
+    reportedAt: Date.now(),
+    status: "active",
+    source: "voice_note",
+    voiceNoteId: noteId,
+  });
+}
+```
+
+**Fields Created in `playerInjuries`:**
+
+| Field | Value Source | Description |
+|-------|--------------|-------------|
+| `playerIdentityId` | `insight.playerIdentityId` | Injured player |
+| `type` | Parsed from description | Body part/injury type |
+| `severity` | Default `"minor"` | Coach can edit later |
+| `description` | `insight.description` | Full AI description |
+| `status` | `"active"` | Injury tracking status |
+| `source` | `"voice_note"` | Origin tracking |
+
+#### Goal/Progress Application
+
+**Trigger:** `category === "skill_progress"` (general improvement, not numeric)
+
+**Code Path:** `voiceNotes.ts → updateInsightStatus → applyGoalInsight`
+
+```typescript
+if (insight.category === "skill_progress" && insight.playerIdentityId) {
+  await ctx.db.insert("passportGoals", {
+    playerIdentityId: insight.playerIdentityId,
+    organizationId: note.orgId,
+    title: insight.title,
+    description: insight.description,
+    status: "in_progress",
+    createdBy: userId,
+    createdAt: Date.now(),
+    source: "voice_note",
+    voiceNoteId: noteId,
+  });
+}
+```
+
+#### TODO Task Application
+
+**Trigger:** `category === "todo"`
+
+**Code Path:** `voiceNotes.ts → updateInsightStatus → applyTodoInsight`
+
+```typescript
+if (insight.category === "todo") {
+  const taskId = await ctx.db.insert("coachTasks", {
+    organizationId: note.orgId,
+    assigneeUserId: insight.assigneeUserId || userId,  // Default to recording coach
+    assigneeName: insight.assigneeName,
+    title: insight.title,
+    description: insight.description,
+    status: "pending",
+    priority: "normal",
+    createdBy: userId,
+    createdAt: Date.now(),
+    source: "voice_note",
+    voiceNoteId: noteId,
+  });
+
+  // Link task back to insight
+  await updateInsight(noteId, insightId, { linkedTaskId: taskId });
+}
+```
+
+#### Team Observation Application
+
+**Trigger:** `category === "team_culture"`
+
+**Code Path:** `voiceNotes.ts → updateInsightStatus → applyTeamObservation`
+
+```typescript
+if (insight.category === "team_culture") {
+  await ctx.db.insert("teamObservations", {
+    organizationId: note.orgId,
+    teamId: insight.teamId,  // May be null (unassigned)
+    teamName: insight.teamName,
+    title: insight.title,
+    description: insight.description,
+    sentiment: inferSentiment(insight.description),  // positive/neutral/concern
+    observedBy: userId,
+    observedAt: Date.now(),
+    source: "voice_note",
+    voiceNoteId: noteId,
+  });
+}
+```
+
+### 11.3 Complete Insight Application Matrix
+
+| Category | Target Table | Creates New | Updates Existing | Fields Set |
+|----------|--------------|-------------|------------------|------------|
+| `skill_rating` | `skillAssessments` | ✅ If no prior | ✅ If exists | rating, notes, assessedBy, assessedAt |
+| `injury` | `playerInjuries` | ✅ Always | ❌ | type, severity, description, status |
+| `skill_progress` | `passportGoals` | ✅ Always | ❌ | title, description, status |
+| `behavior` | `behaviorNotes` | ✅ Always | ❌ | content, sentiment |
+| `performance` | `performanceNotes` | ✅ Always | ❌ | content, category |
+| `attendance` | `attendanceRecords` | ✅ Always | ❌ | status, notes |
+| `team_culture` | `teamObservations` | ✅ Always | ❌ | title, description, sentiment |
+| `todo` | `coachTasks` | ✅ Always | ❌ | title, description, assignee |
+
+### 11.4 Auto-Applied Insight Audit Trail
+
+When an insight is auto-applied, a record is created in `autoAppliedInsights`:
+
+```typescript
+await ctx.db.insert("autoAppliedInsights", {
+  insightId: insight._id,
+  voiceNoteId: noteId,
+  playerIdentityId: insight.playerIdentityId,
+  coachId: note.coachId,
+  organizationId: note.orgId,
+  category: insight.category,
+  confidenceScore: insight.confidenceScore,
+  insightTitle: insight.title,
+  insightDescription: insight.description,
+  appliedAt: Date.now(),
+  autoAppliedByAI: true,
+
+  // For rollback support
+  changeType: insight.category,           // e.g., "skill_rating"
+  targetTable: "skillAssessments",        // Table that was modified
+  targetRecordId: newRecordId,            // ID of created/updated record
+  fieldChanged: "rating",                 // Specific field changed
+  previousValue: existingRating?.toString(), // For undo
+  newValue: newRating.toString(),         // What was set
+});
+```
+
+---
+
+## 12. Limitations & Improvement Opportunities
+
+### 12.1 Current Limitations
+
+#### Player Matching Limitations
+
+| Limitation | Impact | Current Workaround |
+|------------|--------|-------------------|
+| **First-name only ambiguity** | If 2 players share a first name, AI can't disambiguate | Returns `playerId: null`, coach assigns manually |
+| **Nickname handling** | "Tommy" won't match "Thomas" | No automatic nickname resolution |
+| **Spelling variations** | "Clodagh" vs "Cloda" | Partial match attempts, often fails |
+| **Non-roster players** | Guest players, trial players | Creates insight without player link |
+
+**Improvement Opportunity:**
+- Implement fuzzy matching with Levenshtein distance
+- Add nickname aliases to player profiles
+- Train custom embedding model for name matching
+
+#### AI Confidence Calibration
+
+| Limitation | Impact |
+|------------|--------|
+| **Uncalibrated scores** | 0.85 confidence doesn't mean 85% accurate |
+| **Category-blind** | Same threshold for injuries vs performance |
+| **No feedback loop** | Undo reasons don't retrain the model |
+
+**Improvement Opportunity:**
+- Implement calibration based on coach override patterns
+- Per-category thresholds based on historical accuracy
+- Fine-tune model on club-specific vocabulary
+
+#### Transcription Quality
+
+| Limitation | Impact |
+|------------|--------|
+| **Irish accents** | Whisper trained on American/British English |
+| **GAA terminology** | "Solo run", "hand pass" may be misheard |
+| **Background noise** | Training sessions are noisy environments |
+| **Short notes** | <5 second notes often fail |
+
+**Improvement Opportunity:**
+- Fine-tune Whisper on Irish sports audio
+- Add GAA glossary to post-processing
+- Implement noise reduction pre-processing
+
+#### Privacy & Consent
+
+| Limitation | Impact |
+|------------|--------|
+| **No player consent tracking** | Can't verify player agreed to be in notes |
+| **No GDPR data export** | No automated export of all player mentions |
+| **Retention policy** | No automatic deletion of old notes |
+
+**Improvement Opportunity:**
+- Add consent management per player
+- Implement GDPR-compliant data export
+- Add configurable retention policies
+
+### 12.2 Scalability Limitations
+
+| Area | Current Limit | Bottleneck |
+|------|---------------|------------|
+| **Roster size** | ~200 players | Prompt length (GPT-4o context) |
+| **Concurrent notes** | No explicit limit | OpenAI rate limits |
+| **Transcription length** | 25MB audio | Whisper file size limit |
+| **Insights per note** | No limit | Response parsing time |
+
+**Improvement Opportunity:**
+- Implement roster chunking for large clubs
+- Add queue system with rate limiting
+- Support long-form audio via chunking
+
+### 12.3 UX Limitations
+
+| Limitation | User Impact |
+|------------|-------------|
+| **No offline recording** | Can't record without network |
+| **No edit transcription** | Can't fix AI mishearing |
+| **No bulk operations** | Must apply insights one by one |
+| **No templates** | Can't save common note structures |
+
+**Improvement Opportunity:**
+- Implement offline-first with sync
+- Add transcription editing UI
+- Add "Apply All" for trusted coaches
+- Add note templates for session types
+
+### 12.4 Integration Gaps
+
+| Gap | Impact |
+|-----|--------|
+| **No calendar integration** | Can't auto-tag session date/type |
+| **No video link** | Can't attach video clips to insights |
+| **No parent app** | Parents must use web dashboard |
+| **No notification system** | Parents not notified of new summaries |
+
+**Improvement Opportunity:**
+- Integrate with Google/Outlook calendars
+- Add video attachment support
+- Build native parent mobile app
+- Implement push notifications
+
+### 12.5 Recommended Priority Improvements
+
+| Priority | Improvement | Effort | Impact |
+|----------|-------------|--------|--------|
+| 🔴 High | Fuzzy name matching | Medium | Reduces manual assignment by ~40% |
+| 🔴 High | Transcription editing | Low | Improves data quality |
+| 🟡 Medium | Offline recording | High | Enables sideline notes |
+| 🟡 Medium | Push notifications | Medium | Parent engagement |
+| 🟢 Low | Video attachments | High | Enhanced context |
+| 🟢 Low | GDPR export | Medium | Compliance |
+
+### 12.6 Known Technical Debt
+
+| Area | Debt | Risk |
+|------|------|------|
+| **Dual storage** | Insights in both `voiceNotes.insights[]` AND `voiceNoteInsights` table | Data sync bugs |
+| **Legacy `playerId`** | Old string field alongside new `playerIdentityId` | Confusion |
+| **Hardcoded thresholds** | Trust levels (10, 50, 200) not configurable | Inflexibility |
+| **No retry logic** | OpenAI failures not retried | Lost notes |
+
+**Recommended Actions:**
+1. Migrate fully to `voiceNoteInsights` table, deprecate embedded array
+2. Remove `playerId` field after migration
+3. Move thresholds to `aiModelConfig` table
+4. Add exponential backoff retry for AI calls
+
+---
+
+## 13. Key Files Reference
 
 ### Backend Files
 
@@ -1109,7 +1995,7 @@ Coach Reviews Insight
 
 ---
 
-## 11. Troubleshooting Guide
+## 14. Troubleshooting Guide
 
 ### Common Issues
 

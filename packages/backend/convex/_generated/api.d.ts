@@ -86,7 +86,6 @@ import type * as models_teamPlayerIdentities from "../models/teamPlayerIdentitie
 import type * as models_teams from "../models/teams.js";
 import type * as models_userPreferences from "../models/userPreferences.js";
 import type * as models_users from "../models/users.js";
-import type * as models_voiceNoteInsights from "../models/voiceNoteInsights.js";
 import type * as models_voiceNotes from "../models/voiceNotes.js";
 import type * as models_whatsappMessages from "../models/whatsappMessages.js";
 import type * as privateData from "../privateData.js";
@@ -211,7 +210,6 @@ declare const fullApi: ApiFromModules<{
   "models/teams": typeof models_teams;
   "models/userPreferences": typeof models_userPreferences;
   "models/users": typeof models_users;
-  "models/voiceNoteInsights": typeof models_voiceNoteInsights;
   "models/voiceNotes": typeof models_voiceNotes;
   "models/whatsappMessages": typeof models_whatsappMessages;
   privateData: typeof privateData;

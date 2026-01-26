@@ -8,6 +8,7 @@ import {
   mutation,
   query,
 } from "../_generated/server";
+import { authComponent } from "../auth";
 
 // ============ REGEX PATTERNS (for skill rating parsing) ============
 // Patterns to match: "Rating: 4", "set to 3", "to three", "improved to 4/5", "level 3"
@@ -1051,6 +1052,64 @@ export const updateInsightStatus = mutation({
         throw new Error(
           "Team insight must be assigned to a team before applying. Please classify it first."
         );
+      }
+    }
+
+    // Phase 7.1: Track preview mode statistics
+    const user = await authComponent.safeGetAuthUser(ctx);
+    if (user) {
+      const userId = user.userId || user._id;
+      const trustLevel = await ctx.db
+        .query("coachTrustLevels")
+        .withIndex("by_coach", (q) => q.eq("coachId", userId))
+        .first();
+
+      if (
+        trustLevel?.insightPreviewModeStats &&
+        !trustLevel.insightPreviewModeStats.completedAt
+      ) {
+        // Calculate if this insight would have been auto-applied
+        const effectiveLevel = Math.min(
+          trustLevel.currentLevel,
+          trustLevel.preferredLevel ?? trustLevel.currentLevel
+        );
+        const threshold = trustLevel.insightConfidenceThreshold ?? 0.7;
+        const confidence = (insight as any).confidence ?? 0.7;
+        const wouldAutoApply =
+          insight.category !== "injury" &&
+          insight.category !== "medical" &&
+          effectiveLevel >= 2 &&
+          confidence >= threshold;
+
+        // Update preview mode stats based on action
+        const stats = trustLevel.insightPreviewModeStats;
+        let newWouldAutoApply = stats.wouldAutoApplyInsights;
+        let newApplied = stats.coachAppliedThose;
+        let newDismissed = stats.coachDismissedThose;
+
+        if (wouldAutoApply) {
+          newWouldAutoApply += 1;
+          if (args.status === "applied") {
+            newApplied += 1;
+          } else if (args.status === "dismissed") {
+            newDismissed += 1;
+          }
+        }
+
+        const agreementRate =
+          newWouldAutoApply > 0 ? newApplied / newWouldAutoApply : 0;
+
+        await ctx.db.patch(trustLevel._id, {
+          insightPreviewModeStats: {
+            ...stats,
+            wouldAutoApplyInsights: newWouldAutoApply,
+            coachAppliedThose: newApplied,
+            coachDismissedThose: newDismissed,
+            agreementRate,
+            completedAt:
+              newWouldAutoApply >= 20 ? Date.now() : stats.completedAt,
+          },
+        });
       }
     }
 

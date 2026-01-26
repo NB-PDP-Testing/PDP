@@ -7,7 +7,8 @@ import { authComponent } from "../auth";
 // ============================================================
 
 // Regex patterns for parsing skill ratings (top-level for performance)
-const RATING_PATTERN = /(\d+)(?:\/5)?(?:\s|$)/;
+// Match rating with optional "/5" and any punctuation or end
+const RATING_PATTERN = /(\d+)(?:\/5)?/;
 const SKILL_PATTERN_1 = /Set\s+.+?'s\s+(\w+)(?:\s+skill)?(?:\s+(?:to|rating))/i;
 const SKILL_PATTERN_2 = /Set\s+(\w+)\s+skill\s+to/i;
 const SKILL_PATTERN_3 = /^(.+?):\s*\d+/;

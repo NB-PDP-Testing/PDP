@@ -46,8 +46,10 @@ import {
 } from "@/components/ui/empty";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
+import { Progress } from "@/components/ui/progress";
 import { Textarea } from "@/components/ui/textarea";
 import { useSession } from "@/lib/auth-client";
+import { cn } from "@/lib/utils";
 
 type InsightsTabProps = {
   orgId: BetterAuthId<"organization">;
@@ -649,6 +651,31 @@ export function InsightsTab({ orgId, onSuccess, onError }: InsightsTabProps) {
             <p className="text-gray-500 text-xs italic">
               {insight.recommendedUpdate}
             </p>
+          )}
+
+          {/* AI Confidence Visualization (Phase 7.1) */}
+          {(insight as any).confidence !== undefined && (
+            <div className="mt-4 space-y-2">
+              <div className="flex items-center justify-between text-sm">
+                <span
+                  className={cn(
+                    "font-medium",
+                    (insight as any).confidence < 0.6
+                      ? "text-red-600"
+                      : (insight as any).confidence < 0.8
+                        ? "text-amber-600"
+                        : "text-green-600"
+                  )}
+                >
+                  AI Confidence: {Math.round((insight as any).confidence * 100)}
+                  %
+                </span>
+              </div>
+              <Progress
+                className="h-2"
+                value={(insight as any).confidence * 100}
+              />
+            </div>
           )}
           {/* Hints for insights needing action */}
           {isUnmatched && (

@@ -31,6 +31,7 @@ const insightValidator = v.object({
   description: v.string(),
   category: v.optional(v.string()),
   recommendedUpdate: v.optional(v.string()),
+  confidence: v.optional(v.number()), // Phase 7: AI confidence score (0.0-1.0)
   status: v.union(
     v.literal("pending"),
     v.literal("applied"),

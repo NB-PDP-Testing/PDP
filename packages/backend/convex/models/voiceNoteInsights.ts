@@ -3,6 +3,13 @@ import { mutation, query } from "../_generated/server";
 import { authComponent } from "../auth";
 
 // ============================================================
+// CONSTANTS
+// ============================================================
+
+// Regex pattern for parsing skill insight recommendedUpdate format: "Skill: Rating"
+const SKILL_UPDATE_PATTERN = /^(.+?):\s*(\d+)$/;
+
+// ============================================================
 // VALIDATORS
 // ============================================================
 
@@ -120,6 +127,116 @@ export const getPendingInsights = query({
     });
 
     return insightsWithPrediction;
+  },
+});
+
+/**
+ * Get auto-applied insights with audit details (Phase 7.2)
+ * Returns insights that were auto-applied by AI with undo capability
+ */
+export const getAutoAppliedInsights = query({
+  args: {
+    organizationId: v.string(),
+    coachId: v.optional(v.string()), // Optional: defaults to authenticated user
+  },
+  returns: v.array(
+    v.object({
+      // Insight data
+      _id: v.id("voiceNoteInsights"),
+      _creationTime: v.number(),
+      voiceNoteId: v.id("voiceNotes"),
+      insightId: v.string(),
+      title: v.string(),
+      description: v.string(),
+      category: v.string(),
+      recommendedUpdate: v.optional(v.string()),
+      playerIdentityId: v.optional(v.id("playerIdentities")),
+      playerName: v.optional(v.string()),
+      teamId: v.optional(v.string()),
+      teamName: v.optional(v.string()),
+      assigneeUserId: v.optional(v.string()),
+      assigneeName: v.optional(v.string()),
+      confidenceScore: v.number(),
+      status: v.union(
+        v.literal("pending"),
+        v.literal("applied"),
+        v.literal("dismissed"),
+        v.literal("auto_applied")
+      ),
+      appliedAt: v.optional(v.number()),
+      appliedBy: v.optional(v.string()),
+      organizationId: v.string(),
+      coachId: v.string(),
+      createdAt: v.number(),
+      updatedAt: v.number(),
+      // Audit trail data
+      auditRecordId: v.id("autoAppliedInsights"),
+      autoAppliedByAI: v.boolean(),
+      fieldChanged: v.optional(v.string()),
+      previousValue: v.optional(v.string()),
+      newValue: v.string(),
+      undoneAt: v.optional(v.number()),
+      undoReason: v.optional(v.string()),
+    })
+  ),
+  handler: async (ctx, args) => {
+    // Authenticate user
+    const user = await authComponent.safeGetAuthUser(ctx);
+    if (!user) {
+      throw new Error("Not authenticated");
+    }
+
+    // Get userId with fallback to _id
+    const userId = user.userId || user._id;
+    const coachId = args.coachId || userId;
+
+    // Query auto-applied insights for this coach and org
+    const insights = await ctx.db
+      .query("voiceNoteInsights")
+      .withIndex("by_coach_org_status", (q) =>
+        q
+          .eq("coachId", coachId)
+          .eq("organizationId", args.organizationId)
+          .eq("status", "auto_applied")
+      )
+      .collect();
+
+    // Join with autoAppliedInsights table to get audit details
+    const insightsWithAudit = await Promise.all(
+      insights.map(async (insight) => {
+        const auditRecord = await ctx.db
+          .query("autoAppliedInsights")
+          .withIndex("by_insight", (q) => q.eq("insightId", insight._id))
+          .first();
+
+        if (!auditRecord) {
+          // This shouldn't happen, but handle gracefully
+          throw new Error(
+            `Audit record not found for auto-applied insight ${insight._id}`
+          );
+        }
+
+        return {
+          ...insight,
+          auditRecordId: auditRecord._id,
+          autoAppliedByAI: auditRecord.autoAppliedByAI,
+          fieldChanged: auditRecord.fieldChanged,
+          previousValue: auditRecord.previousValue,
+          newValue: auditRecord.newValue,
+          undoneAt: auditRecord.undoneAt,
+          undoReason: auditRecord.undoReason,
+        };
+      })
+    );
+
+    // Sort by appliedAt descending (most recent first)
+    insightsWithAudit.sort((a, b) => {
+      const aTime = a.appliedAt || 0;
+      const bTime = b.appliedAt || 0;
+      return bTime - aTime;
+    });
+
+    return insightsWithAudit;
   },
 });
 
@@ -297,5 +414,398 @@ export const dismissInsight = mutation({
     });
 
     return args.insightId;
+  },
+});
+
+// ============================================================
+// PHASE 7.2: AUTO-APPLY MUTATIONS
+// ============================================================
+
+/**
+ * Auto-apply a skill insight to player profile (Phase 7.2)
+ * Requires Level 2+ trust and high confidence score
+ */
+export const autoApplyInsight = mutation({
+  args: {
+    insightId: v.id("voiceNoteInsights"),
+  },
+  returns: v.object({
+    success: v.boolean(),
+    appliedInsightId: v.optional(v.id("autoAppliedInsights")),
+    message: v.string(),
+  }),
+  handler: async (ctx, args) => {
+    // 1. Get authenticated coach userId
+    const user = await authComponent.safeGetAuthUser(ctx);
+    if (!user) {
+      return { success: false, message: "Not authenticated" };
+    }
+    const userId = user.userId || user._id;
+    if (!userId) {
+      return { success: false, message: "User ID not found" };
+    }
+
+    // 2. Fetch insight from voiceNoteInsights table
+    const insight = await ctx.db.get(args.insightId);
+    if (!insight) {
+      return { success: false, message: "Insight not found" };
+    }
+
+    // 3. Validate insight belongs to this coach
+    if (insight.coachId !== userId) {
+      return {
+        success: false,
+        message: "Only the coach who created this insight can auto-apply it",
+      };
+    }
+
+    // 4. Fetch coach trust level from coachTrustLevels
+    const trustLevel = await ctx.db
+      .query("coachTrustLevels")
+      .withIndex("by_coach", (q) => q.eq("coachId", userId))
+      .first();
+
+    if (!trustLevel) {
+      return { success: false, message: "Trust level not found for coach" };
+    }
+
+    // 5. Calculate effectiveLevel = Math.min(currentLevel, preferredLevel ?? currentLevel)
+    const effectiveLevel = Math.min(
+      trustLevel.currentLevel,
+      trustLevel.preferredLevel ?? trustLevel.currentLevel
+    );
+
+    // 6. Validate trust requirements
+    if (effectiveLevel < 2) {
+      return {
+        success: false,
+        message:
+          "Level 2+ required for auto-apply (current: Level " +
+          effectiveLevel +
+          ")",
+      };
+    }
+
+    const threshold = trustLevel.insightConfidenceThreshold ?? 0.7;
+    if (insight.confidenceScore < threshold) {
+      return {
+        success: false,
+        message: `Confidence ${insight.confidenceScore} below threshold ${threshold}`,
+      };
+    }
+
+    if (insight.category !== "skill") {
+      return {
+        success: false,
+        message: "Only skill insights can be auto-applied in Phase 7.2",
+      };
+    }
+
+    if (insight.status !== "pending") {
+      return {
+        success: false,
+        message: `Insight already ${insight.status}`,
+      };
+    }
+
+    // 7. Get player from orgPlayerEnrollments using insight.playerId
+    // NOTE: The schema shows playerIdentityId, not playerId
+    if (!insight.playerIdentityId) {
+      return {
+        success: false,
+        message: "Insight missing playerIdentityId",
+      };
+    }
+
+    const playerIdentityId = insight.playerIdentityId;
+
+    // We need the player's sportPassport to update skillAssessments
+    const sportPassport = await ctx.db
+      .query("sportPassports")
+      .withIndex("by_player_and_org", (q) =>
+        q
+          .eq("playerIdentityId", playerIdentityId)
+          .eq("organizationId", insight.organizationId)
+      )
+      .first();
+
+    if (!sportPassport) {
+      return {
+        success: false,
+        message: "Sport passport not found for player",
+      };
+    }
+
+    // 9. Extract skill name and new rating from insight.recommendedUpdate
+    // Parse format: 'Skill: Rating' (e.g., 'Passing: 4')
+    if (!insight.recommendedUpdate) {
+      return {
+        success: false,
+        message: "Insight missing recommendedUpdate",
+      };
+    }
+
+    const match = insight.recommendedUpdate.match(SKILL_UPDATE_PATTERN);
+    if (!match) {
+      return {
+        success: false,
+        message: `Invalid recommendedUpdate format: ${insight.recommendedUpdate}`,
+      };
+    }
+
+    const skillName = match[1].trim();
+    const newRating = Number.parseInt(match[2], 10);
+
+    if (newRating < 1 || newRating > 5) {
+      return {
+        success: false,
+        message: `Invalid rating ${newRating} (must be 1-5)`,
+      };
+    }
+
+    // Get current skill assessment (previousValue)
+    // Note: skillCode needs to be determined from skillName
+    // For now, we'll use skillName as skillCode (should ideally map through skillDefinitions)
+    const currentAssessment = await ctx.db
+      .query("skillAssessments")
+      .withIndex("by_skill", (q) =>
+        q.eq("passportId", sportPassport._id).eq("skillCode", skillName)
+      )
+      .first();
+
+    const previousRating = currentAssessment?.rating;
+
+    // 10. Update player.skillRatings with new rating
+    // Create or update skill assessment
+    if (currentAssessment) {
+      // Update existing assessment
+      await ctx.db.patch(currentAssessment._id, {
+        rating: newRating,
+        previousRating,
+        assessmentDate: new Date().toISOString().split("T")[0],
+        assessmentType: "training",
+        assessedBy: userId,
+        assessorRole: "coach",
+      });
+    } else {
+      // Create new assessment
+      await ctx.db.insert("skillAssessments", {
+        passportId: sportPassport._id,
+        playerIdentityId,
+        sportCode: sportPassport.sportCode,
+        skillCode: skillName,
+        organizationId: insight.organizationId,
+        rating: newRating,
+        previousRating: undefined,
+        assessmentDate: new Date().toISOString().split("T")[0],
+        assessmentType: "training",
+        assessedBy: userId,
+        assessorRole: "coach",
+        createdAt: Date.now(),
+      });
+    }
+
+    // 11. Create autoAppliedInsights audit record
+    // Note: playerId field is deprecated and expects Id<"orgPlayerEnrollments">
+    // We need to get the enrollment record for this player
+    const enrollment = await ctx.db
+      .query("orgPlayerEnrollments")
+      .withIndex("by_player_and_org", (q) =>
+        q
+          .eq("playerIdentityId", playerIdentityId)
+          .eq("organizationId", insight.organizationId)
+      )
+      .first();
+
+    if (!enrollment) {
+      return {
+        success: false,
+        message: "Player enrollment not found",
+      };
+    }
+
+    const auditRecordId = await ctx.db.insert("autoAppliedInsights", {
+      insightId: insight._id,
+      voiceNoteId: insight.voiceNoteId,
+      playerId: enrollment._id,
+      playerIdentityId,
+      coachId: userId,
+      organizationId: insight.organizationId,
+      category: insight.category,
+      confidenceScore: insight.confidenceScore,
+      insightTitle: insight.title,
+      insightDescription: insight.description,
+      appliedAt: Date.now(),
+      autoAppliedByAI: true,
+      changeType: "skill_rating",
+      targetTable: "skillAssessments",
+      targetRecordId: currentAssessment?._id,
+      fieldChanged: skillName,
+      previousValue: previousRating?.toString() ?? "none",
+      newValue: newRating.toString(),
+    });
+
+    // 12. Update insight status
+    await ctx.db.patch(args.insightId, {
+      status: "auto_applied",
+      appliedAt: Date.now(),
+      appliedBy: userId,
+    });
+
+    // 13. Return success with audit record ID
+    return {
+      success: true,
+      appliedInsightId: auditRecordId,
+      message: `Auto-applied: ${skillName} ${previousRating ?? "none"} → ${newRating}`,
+    };
+  },
+});
+
+/**
+ * Undo an auto-applied insight within 1-hour window (Phase 7.2)
+ */
+export const undoAutoAppliedInsight = mutation({
+  args: {
+    autoAppliedInsightId: v.id("autoAppliedInsights"),
+    undoReason: v.union(
+      v.literal("wrong_player"),
+      v.literal("wrong_rating"),
+      v.literal("insight_incorrect"),
+      v.literal("changed_mind"),
+      v.literal("duplicate"),
+      v.literal("other")
+    ),
+  },
+  returns: v.object({
+    success: v.boolean(),
+    message: v.string(),
+  }),
+  handler: async (ctx, args) => {
+    // 1. Get authenticated coach userId
+    const user = await authComponent.safeGetAuthUser(ctx);
+    if (!user) {
+      return { success: false, message: "Not authenticated" };
+    }
+    const userId = user.userId || user._id;
+    if (!userId) {
+      return { success: false, message: "User ID not found" };
+    }
+
+    // 2. Fetch autoAppliedInsights record
+    const autoAppliedInsight = await ctx.db.get(args.autoAppliedInsightId);
+    if (!autoAppliedInsight) {
+      return { success: false, message: "Auto-applied insight not found" };
+    }
+
+    // 4. Validate coach owns this insight
+    if (autoAppliedInsight.coachId !== userId) {
+      return {
+        success: false,
+        message: "Only the coach who applied this insight can undo it",
+      };
+    }
+
+    // 5. Validate undo window (1 hour = 3600000ms)
+    const elapsed = Date.now() - autoAppliedInsight.appliedAt;
+    if (elapsed >= 3_600_000) {
+      return {
+        success: false,
+        message: "Undo window expired (must undo within 1 hour)",
+      };
+    }
+
+    // 6. Validate not already undone
+    if (autoAppliedInsight.undoneAt !== undefined) {
+      return {
+        success: false,
+        message: "Already undone",
+      };
+    }
+
+    // 7. Get player's sport passport to revert skill assessment
+    const sportPassport = await ctx.db
+      .query("sportPassports")
+      .withIndex("by_player_and_org", (q) =>
+        q
+          .eq("playerIdentityId", autoAppliedInsight.playerIdentityId)
+          .eq("organizationId", autoAppliedInsight.organizationId)
+      )
+      .first();
+
+    if (!sportPassport) {
+      return {
+        success: false,
+        message: "Sport passport not found for player",
+      };
+    }
+
+    // 8. Revert player profile to previousValue
+    const skillCode = autoAppliedInsight.fieldChanged;
+    if (!skillCode) {
+      return {
+        success: false,
+        message: "Field changed not recorded in audit trail",
+      };
+    }
+
+    const currentAssessment = await ctx.db
+      .query("skillAssessments")
+      .withIndex("by_skill", (q) =>
+        q.eq("passportId", sportPassport._id).eq("skillCode", skillCode)
+      )
+      .first();
+
+    if (!currentAssessment) {
+      return {
+        success: false,
+        message: "Skill assessment not found to revert",
+      };
+    }
+
+    // Parse previousValue
+    const previousValue = autoAppliedInsight.previousValue;
+    if (!previousValue) {
+      return {
+        success: false,
+        message: "Previous value not recorded in audit trail",
+      };
+    }
+
+    if (previousValue === "none") {
+      // Delete the assessment (it didn't exist before)
+      await ctx.db.delete(currentAssessment._id);
+    } else {
+      // Revert to previous rating
+      const previousRating = Number.parseInt(previousValue, 10);
+      await ctx.db.patch(currentAssessment._id, {
+        rating: previousRating,
+        assessmentDate: new Date().toISOString().split("T")[0],
+        assessmentType: "training",
+        assessedBy: userId,
+        assessorRole: "coach",
+      });
+    }
+
+    // 9. Update autoAppliedInsights record
+    await ctx.db.patch(args.autoAppliedInsightId, {
+      undoneAt: Date.now(),
+      undoReason: args.undoReason,
+    });
+
+    // 10. Update original insight in voiceNoteInsights
+    const originalInsight = await ctx.db.get(autoAppliedInsight.insightId);
+    if (originalInsight) {
+      await ctx.db.patch(autoAppliedInsight.insightId, {
+        status: "pending",
+        appliedAt: undefined,
+        appliedBy: undefined,
+      });
+    }
+
+    // 11. Return success message with details
+    return {
+      success: true,
+      message: `Undone: ${skillCode} reverted to ${previousValue}`,
+    };
   },
 });

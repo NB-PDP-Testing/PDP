@@ -1,0 +1,4 @@
+aadd40c feat: US-012 - Implement adaptive confidence threshold based on undo patterns
+df9c2c2 feat: US-011 - Add category preference controls to settings tab
+00c4595 feat: US-010 - Add setInsightAutoApplyPreferences mutation
+c1fccbd feat: US-009.5 - Implement automatic triggering of auto-apply for eligible insights

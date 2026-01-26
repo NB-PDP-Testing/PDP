@@ -6,8 +6,79 @@ import { authComponent } from "../auth";
 // CONSTANTS
 // ============================================================
 
-// Regex pattern for parsing skill insight recommendedUpdate format: "Skill: Rating"
-const SKILL_UPDATE_PATTERN = /^(.+?):\s*(\d+)$/;
+// Regex patterns for parsing skill ratings (top-level for performance)
+const RATING_PATTERN = /(\d+)(?:\/5)?(?:\s|$)/;
+const SKILL_PATTERN_1 = /Set\s+.+?'s\s+(\w+)(?:\s+skill)?(?:\s+(?:to|rating))/i;
+const SKILL_PATTERN_2 = /Set\s+(\w+)\s+skill\s+to/i;
+const SKILL_PATTERN_3 = /^(.+?):\s*\d+/;
+
+// Helper function to parse skill rating from various AI-generated formats
+// Handles: "Kicking: 5", "Set kicking skill to 5/5", "Set Sinead's kicking to 5/5"
+function parseSkillRating(recommendedUpdate: string): {
+  success: boolean;
+  skillName?: string;
+  rating?: number;
+  error?: string;
+} {
+  // Extract rating: find "N/5" or "N" before end of string
+  const ratingMatch = recommendedUpdate.match(RATING_PATTERN);
+  if (!ratingMatch) {
+    return {
+      success: false,
+      error: `No rating found in: "${recommendedUpdate}"`,
+    };
+  }
+  const rating = Number.parseInt(ratingMatch[1], 10);
+
+  if (rating < 1 || rating > 5) {
+    return {
+      success: false,
+      error: `Invalid rating ${rating} (must be 1-5)`,
+    };
+  }
+
+  // Extract skill name - try multiple patterns
+  let skillName: string | undefined;
+
+  // Pattern 1: "Set X's SKILL to/rating N" → capture SKILL
+  let match = recommendedUpdate.match(SKILL_PATTERN_1);
+  if (match) {
+    skillName = match[1];
+  }
+
+  // Pattern 2: "Set SKILL skill to N" → capture SKILL
+  if (!skillName) {
+    match = recommendedUpdate.match(SKILL_PATTERN_2);
+    if (match) {
+      skillName = match[1];
+    }
+  }
+
+  // Pattern 3: "SKILL: N" (original format) → capture SKILL
+  if (!skillName) {
+    match = recommendedUpdate.match(SKILL_PATTERN_3);
+    if (match) {
+      skillName = match[1].trim();
+    }
+  }
+
+  if (!skillName) {
+    return {
+      success: false,
+      error: `Could not extract skill name from: "${recommendedUpdate}"`,
+    };
+  }
+
+  // Capitalize first letter
+  skillName =
+    skillName.charAt(0).toUpperCase() + skillName.slice(1).toLowerCase();
+
+  return {
+    success: true,
+    skillName,
+    rating,
+  };
+}
 
 // ============================================================
 // VALIDATORS
@@ -545,23 +616,16 @@ export const autoApplyInsight = mutation({
       };
     }
 
-    const match = insight.recommendedUpdate.match(SKILL_UPDATE_PATTERN);
-    if (!match) {
+    const parseResult = parseSkillRating(insight.recommendedUpdate);
+    if (!parseResult.success) {
       return {
         success: false,
-        message: `Invalid recommendedUpdate format: ${insight.recommendedUpdate}`,
+        message: parseResult.error || "Failed to parse skill rating",
       };
     }
 
-    const skillName = match[1].trim();
-    const newRating = Number.parseInt(match[2], 10);
-
-    if (newRating < 1 || newRating > 5) {
-      return {
-        success: false,
-        message: `Invalid rating ${newRating} (must be 1-5)`,
-      };
-    }
+    const skillName = parseResult.skillName ?? "";
+    const newRating = parseResult.rating ?? 0;
 
     // Get current skill assessment (previousValue)
     // Note: skillCode needs to be determined from skillName
@@ -749,23 +813,16 @@ export const autoApplyInsightInternal = internalMutation({
       };
     }
 
-    const match = insight.recommendedUpdate.match(SKILL_UPDATE_PATTERN);
-    if (!match) {
+    const parseResult = parseSkillRating(insight.recommendedUpdate);
+    if (!parseResult.success) {
       return {
         success: false,
-        message: `Invalid recommendedUpdate format: ${insight.recommendedUpdate}`,
+        message: parseResult.error || "Failed to parse skill rating",
       };
     }
 
-    const skillName = match[1].trim();
-    const newRating = Number.parseInt(match[2], 10);
-
-    if (newRating < 1 || newRating > 5) {
-      return {
-        success: false,
-        message: `Invalid rating ${newRating} (must be 1-5)`,
-      };
-    }
+    const skillName = parseResult.skillName ?? "";
+    const newRating = parseResult.rating ?? 0;
 
     // Get current skill assessment
     const currentAssessment = await ctx.db

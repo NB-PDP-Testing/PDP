@@ -150,7 +150,7 @@ export default function JoinRequestApprovalsPage() {
     memberId: string;
     userName: string | null;
     userEmail: string | null;
-    requestedRole: "coach" | "parent" | "admin";
+    requestedRole: "coach" | "parent" | "admin" | "player";
   } | null>(null);
   const [roleRejectionReason, setRoleRejectionReason] = useState("");
 
@@ -319,7 +319,7 @@ export default function JoinRequestApprovalsPage() {
   // Handlers for functional role requests (existing members)
   const handleApproveFunctionalRole = async (
     memberId: string,
-    role: "coach" | "parent" | "admin"
+    role: "coach" | "parent" | "admin" | "player"
   ) => {
     setLoading(`role-${memberId}-${role}`);
     try {
@@ -369,7 +369,7 @@ export default function JoinRequestApprovalsPage() {
     memberId: string;
     userName: string | null;
     userEmail: string | null;
-    requestedRole: "coach" | "parent" | "admin";
+    requestedRole: "coach" | "parent" | "admin" | "player";
   }) => {
     setSelectedRoleRequest(request);
     setRoleRejectionReason("");

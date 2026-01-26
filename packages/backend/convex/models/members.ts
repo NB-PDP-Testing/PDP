@@ -2785,7 +2785,8 @@ export const getPendingFunctionalRoleRequests = query({
       requestedRole: v.union(
         v.literal("coach"),
         v.literal("parent"),
-        v.literal("admin")
+        v.literal("admin"),
+        v.literal("player")
       ),
       requestedAt: v.string(),
       message: v.union(v.string(), v.null()),
@@ -2818,14 +2819,14 @@ export const getPendingFunctionalRoleRequests = query({
       userEmail: string | null;
       userImage: string | null;
       currentRoles: ("coach" | "parent" | "admin")[];
-      requestedRole: "coach" | "parent" | "admin";
+      requestedRole: "coach" | "parent" | "admin" | "player";
       requestedAt: string;
       message: string | null;
     }> = [];
 
     for (const member of membersResult.page as Member[]) {
       const requests: Array<{
-        role: "coach" | "parent" | "admin";
+        role: "coach" | "parent" | "admin" | "player";
         requestedAt: string;
         message?: string;
       }> = (member as any).pendingFunctionalRoleRequests || [];

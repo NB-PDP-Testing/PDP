@@ -844,6 +844,84 @@ const effectiveLevel = Math.min(
 
 ## 8. Parent Communication Flow
 
+### Dual Storage Model: Coach Private vs Parent Public
+
+When insights are extracted from voice notes and involve a player, the system creates a **dual representation** in the `coachParentSummaries` table:
+
+```
+┌─────────────────────────────────────────────────────────────────────────────┐
+│                        coachParentSummaries Record                          │
+├─────────────────────────────────────────────────────────────────────────────┤
+│                                                                             │
+│  ┌─────────────────────────────────┐   ┌─────────────────────────────────┐  │
+│  │       PRIVATE INSIGHT           │   │       PUBLIC SUMMARY            │  │
+│  │       (Coach Only)              │   │       (Parent Facing)           │  │
+│  │  ───────────────────────────    │   │  ───────────────────────────    │  │
+│  │  title: "Knee injury during     │   │  content: "During today's       │  │
+│  │          tackle drill"          │   │   session, Sarah took a small   │  │
+│  │  description: "Sarah went down  │   │   knock to her knee. Coach has  │  │
+│  │   hard in the tackle drill,     │   │   noted she's resting it and    │  │
+│  │   limping, possible ligament    │   │   will monitor her progress."   │  │
+│  │   concern. Needs physio eval."  │   │                                 │  │
+│  │  category: "injury"             │   │  confidenceScore: 0.85          │  │
+│  │  sentiment: "concern"           │   │  generatedAt: timestamp         │  │
+│  └─────────────────────────────────┘   └─────────────────────────────────┘  │
+│                                                                             │
+│  sensitivityCategory: "injury"                                              │
+│  status: "pending_review"  (injuries always need manual review)             │
+│                                                                             │
+└─────────────────────────────────────────────────────────────────────────────┘
+```
+
+#### Private Insight (Coach Only)
+
+Stored in `privateInsight` field - **never shown to parents**:
+
+| Field | Type | Description |
+|-------|------|-------------|
+| `title` | string | Short technical title from AI extraction |
+| `description` | string | Full coaching details, may include sensitive info |
+| `category` | string | injury, skill_rating, behavior, etc. |
+| `sentiment` | enum | "positive", "neutral", "concern" |
+
+**Use Cases:**
+- Coach review queue
+- Admin audit dashboard
+- Internal reporting
+- Historical coaching record
+
+#### Public Summary (Parent Facing)
+
+Stored in `publicSummary` field - **shown to parents after approval**:
+
+| Field | Type | Description |
+|-------|------|-------------|
+| `content` | string | AI-rewritten parent-friendly message |
+| `confidenceScore` | number | AI confidence in the summary (0.0-1.0) |
+| `generatedAt` | number | Timestamp when generated |
+
+**AI Rewriting Rules:**
+- Remove technical/medical jargon
+- Use encouraging, constructive tone
+- Never include severity assessments for injuries
+- Focus on what parents can do to help
+- Omit coach-specific action items
+
+#### Why Dual Storage?
+
+1. **Privacy Protection:** Coaches can document sensitive observations without exposing them to parents
+2. **Tone Adaptation:** AI generates appropriate messaging for different audiences
+3. **Audit Trail:** Original coach insight is preserved for accountability
+4. **Review Control:** Coach sees full context when deciding to approve/suppress
+
+#### Access Control
+
+| User Role | Can See Private Insight | Can See Public Summary |
+|-----------|------------------------|------------------------|
+| Coach (owner) | ✅ Yes | ✅ Yes |
+| Admin (org) | ✅ Yes (audit) | ✅ Yes |
+| Parent | ❌ Never | ✅ Only if approved/delivered |
+
 ### Summary Generation Pipeline
 
 ```

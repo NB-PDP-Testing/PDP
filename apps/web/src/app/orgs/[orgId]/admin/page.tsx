@@ -96,18 +96,17 @@ export default function OrgAdminOverviewPage() {
           </>
         ) : (
           <>
-            <StatCard
-              description="Membership requests waiting"
-              href={`/orgs/${orgId}/admin/users/approvals` as Route}
-              icon={Clock}
-              title="Pending Requests"
-              value={pendingRequests?.length || 0}
-              variant={
-                pendingRequests && pendingRequests.length > 0
-                  ? "warning"
-                  : "primary"
-              }
-            />
+            {/* Action Required - Only shown when there are pending items */}
+            {pendingRequests && pendingRequests.length > 0 && (
+              <StatCard
+                description="Membership requests waiting"
+                href={`/orgs/${orgId}/admin/users/approvals` as Route}
+                icon={Clock}
+                title="Pending Requests"
+                value={pendingRequests.length}
+                variant="warning"
+              />
+            )}
             {pendingRoleRequests && pendingRoleRequests.length > 0 && (
               <StatCard
                 description="Members requesting new roles"
@@ -118,16 +117,6 @@ export default function OrgAdminOverviewPage() {
                 variant="warning"
               />
             )}
-            <StatCard
-              description="Organization members"
-              href={`/orgs/${orgId}/admin/users` as Route}
-              icon={Users}
-              title="Total Members"
-              value={
-                (memberCounts?.total || 0) + (pendingInvitations?.length || 0)
-              }
-              variant="primary"
-            />
             {pendingInvitations && pendingInvitations.length > 0 && (
               <StatCard
                 description="Invitations sent but not accepted"
@@ -138,14 +127,6 @@ export default function OrgAdminOverviewPage() {
                 variant="warning"
               />
             )}
-            <StatCard
-              description="Active teams"
-              href={`/orgs/${orgId}/admin/teams` as Route}
-              icon={Shield}
-              title="Teams"
-              value={teams?.length || 0}
-              variant="secondary"
-            />
             {enquiryCount && enquiryCount > 0 && (
               <StatCard
                 description="Passport enquiries from other orgs"
@@ -156,6 +137,25 @@ export default function OrgAdminOverviewPage() {
                 variant="warning"
               />
             )}
+            {/* Core Metrics - Always shown */}
+            <StatCard
+              description="Organization members"
+              href={`/orgs/${orgId}/admin/users` as Route}
+              icon={Users}
+              title="Total Members"
+              value={
+                (memberCounts?.total || 0) + (pendingInvitations?.length || 0)
+              }
+              variant="primary"
+            />
+            <StatCard
+              description="Active teams"
+              href={`/orgs/${orgId}/admin/teams` as Route}
+              icon={Shield}
+              title="Teams"
+              value={teams?.length || 0}
+              variant="secondary"
+            />
             <StatCard
               description="Registered players"
               href={`/orgs/${orgId}/admin/players` as Route}

@@ -10,6 +10,7 @@ import {
   MessageSquare,
   Shield,
   UserCheck,
+  UserCog,
   Users,
 } from "lucide-react";
 import type { Route } from "next";
@@ -59,6 +60,11 @@ export default function OrgAdminOverviewPage() {
   const enquiryCount = useQuery(api.models.passportEnquiries.getEnquiryCount, {
     organizationId: orgId,
   });
+  // Pending functional role requests from existing members
+  const pendingRoleRequests = useQuery(
+    api.models.members.getPendingFunctionalRoleRequests,
+    { organizationId: orgId }
+  );
 
   const isLoading =
     pendingRequests === undefined ||
@@ -66,7 +72,8 @@ export default function OrgAdminOverviewPage() {
     playerEnrollments === undefined ||
     teams === undefined ||
     memberCounts === undefined ||
-    enquiryCount === undefined;
+    enquiryCount === undefined ||
+    pendingRoleRequests === undefined;
 
   return (
     <div className="w-full max-w-full space-y-6 overflow-hidden sm:space-y-8">
@@ -101,6 +108,16 @@ export default function OrgAdminOverviewPage() {
                   : "primary"
               }
             />
+            {pendingRoleRequests && pendingRoleRequests.length > 0 && (
+              <StatCard
+                description="Members requesting new roles"
+                href={`/orgs/${orgId}/admin/users/approvals` as Route}
+                icon={UserCog}
+                title="Role Requests"
+                value={pendingRoleRequests.length}
+                variant="warning"
+              />
+            )}
             <StatCard
               description="Organization members"
               href={`/orgs/${orgId}/admin/users` as Route}

@@ -19,6 +19,7 @@ import { useEffect, useMemo, useState } from "react";
 import { DegradationBanner } from "@/components/coach/degradation-banner";
 import { TrustLevelIcon } from "@/components/coach/trust-level-icon";
 import { TrustNudgeBanner } from "@/components/coach/trust-nudge-banner";
+import { CoachAIHelpDialog } from "@/components/profile/coach-ai-help-dialog";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { authClient } from "@/lib/auth-client";
@@ -49,6 +50,7 @@ export function VoiceNotesDashboard() {
   const [nudgeDismissed, setNudgeDismissed] = useState<Record<number, boolean>>(
     {}
   );
+  const [showHelpDialog, setShowHelpDialog] = useState(false);
 
   // Queries for stats and conditional tab logic - scoped to this coach's notes only
   const voiceNotes = useQuery(
@@ -116,6 +118,28 @@ export function VoiceNotesDashboard() {
       setNudgeDismissed(dismissed);
     }
   }, [trustLevel?.currentLevel, trustLevel]);
+
+  // Show help guide on first visit to voice notes page
+  useEffect(() => {
+    const hasSeenHelpGuide = localStorage.getItem(
+      "voice-notes-help-guide-seen"
+    );
+    if (!hasSeenHelpGuide && coachId) {
+      // Small delay to let the page load first
+      const timer = setTimeout(() => {
+        setShowHelpDialog(true);
+      }, 1000);
+      return () => clearTimeout(timer);
+    }
+  }, [coachId]);
+
+  const handleCloseHelpDialog = (open: boolean) => {
+    setShowHelpDialog(open);
+    if (!open) {
+      // Mark as seen when closing
+      localStorage.setItem("voice-notes-help-guide-seen", "true");
+    }
+  };
 
   const handleNudgeDismiss = () => {
     if (trustLevel) {
@@ -461,6 +485,12 @@ export function VoiceNotesDashboard() {
           />
         )}
       </div>
+
+      {/* Help Guide Dialog - Auto-shows on first visit */}
+      <CoachAIHelpDialog
+        onOpenChange={handleCloseHelpDialog}
+        open={showHelpDialog}
+      />
     </div>
   );
 }

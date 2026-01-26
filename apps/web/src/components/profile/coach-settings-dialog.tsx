@@ -38,6 +38,7 @@ import { Progress } from "@/components/ui/progress";
 import { Switch } from "@/components/ui/switch";
 import { authClient } from "@/lib/auth-client";
 import { cn } from "@/lib/utils";
+import { CoachAIHelpDialog } from "./coach-ai-help-dialog";
 
 /**
  * Trust Level Labels and Descriptions
@@ -136,6 +137,7 @@ export function CoachSettingsDialog({
   // State for expanded org settings
   const [expandedOrgs, setExpandedOrgs] = useState<Set<string>>(new Set());
   const [savingOrgs, setSavingOrgs] = useState<Set<string>>(new Set());
+  const [helpDialogOpen, setHelpDialogOpen] = useState(false);
 
   const toggleOrgExpanded = (orgId: string) => {
     const newExpanded = new Set(expandedOrgs);
@@ -273,7 +275,7 @@ export function CoachSettingsDialog({
   return (
     <ResponsiveDialog
       contentClassName="sm:max-w-[650px]"
-      description="Manage your AI assistant settings and trust level"
+      description="Manage your AI assistant settings and trust level. New to the AI Coach Assistant? Check out the help guide below!"
       onOpenChange={onOpenChange}
       open={open}
       title="🧠 AI Coach Assistant"
@@ -699,12 +701,33 @@ export function CoachSettingsDialog({
       </div>
 
       {/* Footer */}
-      <div className="flex justify-end gap-3 border-t pt-4">
-        <Button onClick={() => onOpenChange(false)}>
+      <div className="flex flex-col gap-3 border-t pt-4 sm:flex-row sm:items-center sm:justify-between">
+        <div className="flex items-center gap-2">
+          <Button className="relative" onClick={() => setHelpDialogOpen(true)}>
+            <Sparkles className="mr-2 h-4 w-4" />
+            Help Guide
+            <Badge
+              className="-right-1 -top-1 absolute h-5 px-1.5 text-[10px]"
+              variant="secondary"
+            >
+              NEW
+            </Badge>
+          </Button>
+          <span className="hidden text-muted-foreground text-xs sm:inline">
+            Learn how this all works
+          </span>
+        </div>
+        <Button onClick={() => onOpenChange(false)} variant="outline">
           <Check className="mr-2 h-4 w-4" />
           Done
         </Button>
       </div>
+
+      {/* Help Dialog */}
+      <CoachAIHelpDialog
+        onOpenChange={setHelpDialogOpen}
+        open={helpDialogOpen}
+      />
     </ResponsiveDialog>
   );
 }

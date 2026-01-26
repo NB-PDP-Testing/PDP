@@ -229,6 +229,7 @@ export const getAutoAppliedInsights = query({
       assigneeUserId: v.optional(v.string()),
       assigneeName: v.optional(v.string()),
       confidenceScore: v.number(),
+      wouldAutoApply: v.boolean(),
       status: v.union(
         v.literal("pending"),
         v.literal("applied"),

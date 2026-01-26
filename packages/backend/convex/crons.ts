@@ -69,4 +69,15 @@ crons.daily(
   {}
 );
 
+// Phase 7.3: Adjust insight confidence thresholds daily at 2 AM UTC (US-012)
+crons.daily(
+  "adjust-insight-thresholds",
+  {
+    hourUTC: 2,
+    minuteUTC: 0,
+  },
+  internal.models.coachTrustLevels.adjustInsightThresholds,
+  {}
+);
+
 export default crons;

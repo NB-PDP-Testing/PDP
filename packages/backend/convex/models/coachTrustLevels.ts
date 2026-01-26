@@ -873,3 +873,98 @@ export const adjustPersonalizedThresholds = internalMutation({
     };
   },
 });
+
+/**
+ * Phase 7.3 (US-012): Daily cron job to adjust insight confidence thresholds
+ * Runs daily at 2 AM UTC
+ * Analyzes last 30 days of undo patterns and adjusts insightConfidenceThreshold
+ *
+ * Logic:
+ * - Get all coaches with auto-apply enabled (insightAutoApplyPreferences set)
+ * - For each coach, get recent auto-applied insights (last 30 days)
+ * - Calculate undo rate (undone insights / total insights)
+ * - Adjust threshold based on undo rate:
+ *   - < 3% undo rate (high accuracy) → lower threshold by 0.05 (more auto-apply)
+ *   - > 10% undo rate (low accuracy) → raise threshold by 0.05 (fewer auto-apply)
+ * - Thresholds bounded: min 0.6, max 0.9
+ * - Requires minimum 10 insights for statistical significance
+ */
+export const adjustInsightThresholds = internalMutation({
+  args: {},
+  returns: v.object({
+    processed: v.number(),
+    adjusted: v.number(),
+  }),
+  handler: async (ctx) => {
+    // Get all coaches with trust levels
+    const allCoaches = await ctx.db.query("coachTrustLevels").collect();
+
+    let processed = 0;
+    let adjusted = 0;
+
+    // 30 days ago timestamp
+    const thirtyDaysAgo = Date.now() - 30 * 24 * 60 * 60 * 1000;
+
+    for (const coach of allCoaches) {
+      // Skip coaches without auto-apply preferences
+      if (!coach.insightAutoApplyPreferences) {
+        continue;
+      }
+
+      processed += 1;
+
+      // Get recent auto-applied insights for this coach (last 30 days)
+      // Use by_coach_org_applied index but we need all orgs, so we'll query by coach
+      // and filter by appliedAt
+      const recentAudits = await ctx.db
+        .query("autoAppliedInsights")
+        .withIndex("by_coach_org", (q) => q.eq("coachId", coach.coachId))
+        .filter((q) => q.gte(q.field("appliedAt"), thirtyDaysAgo))
+        .collect();
+
+      // Need at least 10 auto-applied insights for meaningful data
+      if (recentAudits.length < 10) {
+        continue;
+      }
+
+      // Calculate undo rate
+      const undoCount = recentAudits.filter(
+        (a) => a.undoneAt !== undefined
+      ).length;
+      const undoRate = undoCount / recentAudits.length;
+
+      // Get current threshold (default 0.7)
+      const currentThreshold = coach.insightConfidenceThreshold ?? 0.7;
+
+      // Adjust threshold based on undo rate
+      let newThreshold = currentThreshold;
+
+      if (undoRate < 0.03) {
+        // Less than 3% undo rate = high trust, lower threshold
+        newThreshold = Math.max(0.6, currentThreshold - 0.05);
+      } else if (undoRate > 0.1) {
+        // More than 10% undo rate = low trust, raise threshold
+        newThreshold = Math.min(0.9, currentThreshold + 0.05);
+      }
+
+      // Update if threshold changed
+      if (newThreshold !== currentThreshold) {
+        await ctx.db.patch(coach._id, {
+          insightConfidenceThreshold: newThreshold,
+          updatedAt: Date.now(),
+        });
+
+        adjusted += 1;
+
+        console.log(
+          `Coach ${coach.coachId} threshold adjusted: ${currentThreshold} → ${newThreshold} (undo rate: ${Math.round(undoRate * 100)}%)`
+        );
+      }
+    }
+
+    return {
+      processed,
+      adjusted,
+    };
+  },
+});

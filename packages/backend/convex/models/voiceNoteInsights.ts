@@ -1,5 +1,5 @@
 import { v } from "convex/values";
-import { mutation, query } from "../_generated/server";
+import { internalMutation, mutation, query } from "../_generated/server";
 import { authComponent } from "../auth";
 
 // ============================================================
@@ -653,6 +653,202 @@ export const autoApplyInsight = mutation({
     });
 
     // 13. Return success with audit record ID
+    return {
+      success: true,
+      appliedInsightId: auditRecordId,
+      message: `Auto-applied: ${skillName} ${previousRating ?? "none"} → ${newRating}`,
+    };
+  },
+});
+
+/**
+ * Internal mutation for auto-applying insights from actions (Phase 7.3 US-009.5)
+ * Can be called from actions without authentication context
+ */
+export const autoApplyInsightInternal = internalMutation({
+  args: {
+    insightId: v.id("voiceNoteInsights"),
+    coachId: v.string(),
+  },
+  returns: v.object({
+    success: v.boolean(),
+    appliedInsightId: v.optional(v.id("autoAppliedInsights")),
+    message: v.string(),
+  }),
+  handler: async (ctx, args) => {
+    // 1. Fetch insight from voiceNoteInsights table
+    const insight = await ctx.db.get(args.insightId);
+    if (!insight) {
+      return { success: false, message: "Insight not found" };
+    }
+
+    // 2. Validate insight belongs to this coach
+    if (insight.coachId !== args.coachId) {
+      return {
+        success: false,
+        message: "Insight does not belong to this coach",
+      };
+    }
+
+    // 3. Check status
+    if (insight.status !== "pending") {
+      return {
+        success: false,
+        message: `Insight already ${insight.status}`,
+      };
+    }
+
+    // 4. For non-skill insights, just mark as auto_applied (no data update needed)
+    // Only skill_rating insights actually update player data
+    if (insight.category !== "skill_rating") {
+      // Mark as auto_applied without updating any player data
+      await ctx.db.patch(args.insightId, {
+        status: "auto_applied",
+        appliedAt: Date.now(),
+        appliedBy: args.coachId,
+      });
+
+      return {
+        success: true,
+        message: `Auto-applied ${insight.category} insight (no data update required)`,
+      };
+    }
+
+    // 5. For skill_rating insights, update player skill data
+    if (!insight.playerIdentityId) {
+      return {
+        success: false,
+        message: "Insight missing playerIdentityId",
+      };
+    }
+
+    const playerIdentityId = insight.playerIdentityId;
+
+    // Get sport passport to update skillAssessments
+    const sportPassport = await ctx.db
+      .query("sportPassports")
+      .withIndex("by_player_and_org", (q) =>
+        q
+          .eq("playerIdentityId", playerIdentityId)
+          .eq("organizationId", insight.organizationId)
+      )
+      .first();
+
+    if (!sportPassport) {
+      return {
+        success: false,
+        message: "Sport passport not found for player",
+      };
+    }
+
+    // 6. Extract skill name and new rating from insight.recommendedUpdate
+    if (!insight.recommendedUpdate) {
+      return {
+        success: false,
+        message: "Insight missing recommendedUpdate",
+      };
+    }
+
+    const match = insight.recommendedUpdate.match(SKILL_UPDATE_PATTERN);
+    if (!match) {
+      return {
+        success: false,
+        message: `Invalid recommendedUpdate format: ${insight.recommendedUpdate}`,
+      };
+    }
+
+    const skillName = match[1].trim();
+    const newRating = Number.parseInt(match[2], 10);
+
+    if (newRating < 1 || newRating > 5) {
+      return {
+        success: false,
+        message: `Invalid rating ${newRating} (must be 1-5)`,
+      };
+    }
+
+    // Get current skill assessment
+    const currentAssessment = await ctx.db
+      .query("skillAssessments")
+      .withIndex("by_skill", (q) =>
+        q.eq("passportId", sportPassport._id).eq("skillCode", skillName)
+      )
+      .first();
+
+    const previousRating = currentAssessment?.rating;
+
+    // 7. Update player skill rating
+    if (currentAssessment) {
+      await ctx.db.patch(currentAssessment._id, {
+        rating: newRating,
+        previousRating,
+        assessmentDate: new Date().toISOString().split("T")[0],
+        assessmentType: "training",
+        assessedBy: args.coachId,
+        assessorRole: "coach",
+      });
+    } else {
+      await ctx.db.insert("skillAssessments", {
+        passportId: sportPassport._id,
+        playerIdentityId,
+        sportCode: sportPassport.sportCode,
+        skillCode: skillName,
+        organizationId: insight.organizationId,
+        rating: newRating,
+        previousRating: undefined,
+        assessmentDate: new Date().toISOString().split("T")[0],
+        assessmentType: "training",
+        assessedBy: args.coachId,
+        assessorRole: "coach",
+        createdAt: Date.now(),
+      });
+    }
+
+    // 8. Create audit record
+    const enrollment = await ctx.db
+      .query("orgPlayerEnrollments")
+      .withIndex("by_player_and_org", (q) =>
+        q
+          .eq("playerIdentityId", playerIdentityId)
+          .eq("organizationId", insight.organizationId)
+      )
+      .first();
+
+    if (!enrollment) {
+      return {
+        success: false,
+        message: "Player enrollment not found",
+      };
+    }
+
+    const auditRecordId = await ctx.db.insert("autoAppliedInsights", {
+      insightId: insight._id,
+      voiceNoteId: insight.voiceNoteId,
+      playerId: enrollment._id,
+      playerIdentityId,
+      coachId: args.coachId,
+      organizationId: insight.organizationId,
+      category: insight.category,
+      confidenceScore: insight.confidenceScore,
+      insightTitle: insight.title,
+      insightDescription: insight.description,
+      appliedAt: Date.now(),
+      autoAppliedByAI: true,
+      changeType: "skill_rating",
+      targetTable: "skillAssessments",
+      targetRecordId: currentAssessment?._id,
+      fieldChanged: skillName,
+      previousValue: previousRating?.toString() ?? "none",
+      newValue: newRating.toString(),
+    });
+
+    // 9. Mark insight as auto_applied
+    await ctx.db.patch(args.insightId, {
+      status: "auto_applied",
+      appliedAt: Date.now(),
+      appliedBy: args.coachId,
+    });
+
     return {
       success: true,
       appliedInsightId: auditRecordId,

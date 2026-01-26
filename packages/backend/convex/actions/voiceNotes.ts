@@ -686,11 +686,12 @@ IMPORTANT:
                   `[Auto-Apply] ✅ Eligible: insight ${insight._id} (${insight.category}, confidence: ${insight.confidenceScore}, threshold: ${threshold})`
                 );
 
-                // Attempt auto-apply
+                // Attempt auto-apply using internal mutation (Phase 7.3 US-009.5)
                 const result = await ctx.runMutation(
-                  api.models.voiceNoteInsights.autoApplyInsight,
+                  internal.models.voiceNoteInsights.autoApplyInsightInternal,
                   {
                     insightId: insight._id,
+                    coachId: note.coachId,
                   }
                 );
 
@@ -713,18 +714,26 @@ IMPORTANT:
                   insight.category === "injury" ||
                   insight.category === "medical"
                 ) {
-                  reasons.push(`category=${insight.category}`);
+                  reasons.push(`category=${insight.category} (safety)`);
                 }
                 if (effectiveLevel < 2) {
-                  reasons.push(`effectiveLevel=${effectiveLevel}`);
+                  reasons.push(`effectiveLevel=${effectiveLevel} (need 2+)`);
                 }
                 if (insight.confidenceScore < threshold) {
                   reasons.push(
                     `confidence=${insight.confidenceScore} < ${threshold}`
                   );
                 }
-                if (insight.category !== "skill") {
-                  reasons.push(`category=${insight.category}`);
+                if (!categoryEnabled) {
+                  if (prefCategory) {
+                    reasons.push(
+                      `category=${insight.category} maps to ${prefCategory} (disabled in preferences)`
+                    );
+                  } else {
+                    reasons.push(
+                      `category=${insight.category} (not auto-appliable)`
+                    );
+                  }
                 }
 
                 console.log(

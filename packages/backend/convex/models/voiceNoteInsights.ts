@@ -1,5 +1,5 @@
 import { v } from "convex/values";
-import { query } from "../_generated/server";
+import { mutation, query } from "../_generated/server";
 import { authComponent } from "../auth";
 
 // ============================================================
@@ -120,5 +120,182 @@ export const getPendingInsights = query({
     });
 
     return insightsWithPrediction;
+  },
+});
+
+// ============================================================
+// PUBLIC MUTATIONS
+// ============================================================
+
+/**
+ * Apply an insight (Phase 7.1: Track preview mode statistics)
+ */
+export const applyInsight = mutation({
+  args: {
+    insightId: v.id("voiceNoteInsights"),
+  },
+  returns: v.id("voiceNoteInsights"),
+  handler: async (ctx, args) => {
+    // Authenticate user
+    const user = await authComponent.safeGetAuthUser(ctx);
+    if (!user) {
+      throw new Error("Not authenticated");
+    }
+
+    // Get userId with fallback to _id
+    const userId = user.userId || user._id;
+    if (!userId) {
+      throw new Error("User ID not found");
+    }
+
+    // Get the insight
+    const insight = await ctx.db.get(args.insightId);
+    if (!insight) {
+      throw new Error("Insight not found");
+    }
+
+    // Verify user is the coach for this insight
+    if (insight.coachId !== userId) {
+      throw new Error("Only the coach who created this insight can apply it");
+    }
+
+    // Track preview mode statistics (Phase 7.1)
+    const trustLevel = await ctx.db
+      .query("coachTrustLevels")
+      .withIndex("by_coach", (q) => q.eq("coachId", insight.coachId))
+      .first();
+
+    if (
+      trustLevel?.insightPreviewModeStats &&
+      !trustLevel.insightPreviewModeStats.completedAt
+    ) {
+      // Calculate if this insight would have been auto-applied
+      const effectiveLevel = Math.min(
+        trustLevel.currentLevel,
+        trustLevel.preferredLevel ?? trustLevel.currentLevel
+      );
+      const threshold = trustLevel.insightConfidenceThreshold ?? 0.7;
+      const wouldAutoApply =
+        insight.category !== "injury" &&
+        insight.category !== "medical" &&
+        effectiveLevel >= 2 &&
+        insight.confidenceScore >= threshold;
+
+      // Update preview mode stats
+      const newInsights =
+        trustLevel.insightPreviewModeStats.wouldAutoApplyInsights +
+        (wouldAutoApply ? 1 : 0);
+      const newApplied =
+        trustLevel.insightPreviewModeStats.coachAppliedThose +
+        (wouldAutoApply ? 1 : 0);
+      const agreementRate = newInsights > 0 ? newApplied / newInsights : 0;
+
+      await ctx.db.patch(trustLevel._id, {
+        insightPreviewModeStats: {
+          ...trustLevel.insightPreviewModeStats,
+          wouldAutoApplyInsights: newInsights,
+          coachAppliedThose: newApplied,
+          agreementRate,
+          completedAt: newInsights >= 20 ? Date.now() : undefined,
+        },
+      });
+    }
+
+    // Apply the insight
+    await ctx.db.patch(args.insightId, {
+      status: "applied",
+      appliedAt: Date.now(),
+      appliedBy: userId,
+    });
+
+    return args.insightId;
+  },
+});
+
+/**
+ * Dismiss an insight (Phase 7.1: Track preview mode statistics)
+ */
+export const dismissInsight = mutation({
+  args: {
+    insightId: v.id("voiceNoteInsights"),
+  },
+  returns: v.id("voiceNoteInsights"),
+  handler: async (ctx, args) => {
+    // Authenticate user
+    const user = await authComponent.safeGetAuthUser(ctx);
+    if (!user) {
+      throw new Error("Not authenticated");
+    }
+
+    // Get userId with fallback to _id
+    const userId = user.userId || user._id;
+    if (!userId) {
+      throw new Error("User ID not found");
+    }
+
+    // Get the insight
+    const insight = await ctx.db.get(args.insightId);
+    if (!insight) {
+      throw new Error("Insight not found");
+    }
+
+    // Verify user is the coach for this insight
+    if (insight.coachId !== userId) {
+      throw new Error("Only the coach who created this insight can dismiss it");
+    }
+
+    // Track preview mode statistics (Phase 7.1)
+    const trustLevel = await ctx.db
+      .query("coachTrustLevels")
+      .withIndex("by_coach", (q) => q.eq("coachId", insight.coachId))
+      .first();
+
+    if (
+      trustLevel?.insightPreviewModeStats &&
+      !trustLevel.insightPreviewModeStats.completedAt
+    ) {
+      // Calculate if this insight would have been auto-applied
+      const effectiveLevel = Math.min(
+        trustLevel.currentLevel,
+        trustLevel.preferredLevel ?? trustLevel.currentLevel
+      );
+      const threshold = trustLevel.insightConfidenceThreshold ?? 0.7;
+      const wouldAutoApply =
+        insight.category !== "injury" &&
+        insight.category !== "medical" &&
+        effectiveLevel >= 2 &&
+        insight.confidenceScore >= threshold;
+
+      // Update preview mode stats - increment dismissed count
+      const newInsights =
+        trustLevel.insightPreviewModeStats.wouldAutoApplyInsights +
+        (wouldAutoApply ? 1 : 0);
+      const newDismissed =
+        trustLevel.insightPreviewModeStats.coachDismissedThose +
+        (wouldAutoApply ? 1 : 0);
+      // Don't increment coachAppliedThose for dismissals
+      const currentApplied =
+        trustLevel.insightPreviewModeStats.coachAppliedThose;
+      const agreementRate = newInsights > 0 ? currentApplied / newInsights : 0;
+
+      await ctx.db.patch(trustLevel._id, {
+        insightPreviewModeStats: {
+          ...trustLevel.insightPreviewModeStats,
+          wouldAutoApplyInsights: newInsights,
+          coachDismissedThose: newDismissed,
+          agreementRate,
+          completedAt: newInsights >= 20 ? Date.now() : undefined,
+        },
+      });
+    }
+
+    // Dismiss the insight
+    await ctx.db.patch(args.insightId, {
+      status: "dismissed",
+      dismissedAt: Date.now(),
+      dismissedBy: userId,
+    });
+
+    return args.insightId;
   },
 });

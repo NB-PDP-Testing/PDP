@@ -10,7 +10,6 @@ import {
   MessageSquare,
   Shield,
   UserCheck,
-  UserCog,
   Users,
 } from "lucide-react";
 import type { Route } from "next";
@@ -96,27 +95,20 @@ export default function OrgAdminOverviewPage() {
           </>
         ) : (
           <>
-            {/* Approval Cards - Always shown so admins can monitor */}
+            {/* Pending Approvals - Combined membership + role requests */}
             <StatCard
-              description="Membership requests waiting"
+              description="Membership and role requests"
               href={`/orgs/${orgId}/admin/users/approvals` as Route}
               icon={Clock}
-              title="Pending Requests"
-              value={pendingRequests?.length || 0}
-              variant={
-                pendingRequests && pendingRequests.length > 0
-                  ? "warning"
-                  : "primary"
+              title="Pending Approvals"
+              value={
+                (pendingRequests?.length || 0) +
+                (pendingRoleRequests?.length || 0)
               }
-            />
-            <StatCard
-              description="Members requesting new roles"
-              href={`/orgs/${orgId}/admin/users/approvals` as Route}
-              icon={UserCog}
-              title="Role Requests"
-              value={pendingRoleRequests?.length || 0}
               variant={
-                pendingRoleRequests && pendingRoleRequests.length > 0
+                (pendingRequests?.length || 0) +
+                  (pendingRoleRequests?.length || 0) >
+                0
                   ? "warning"
                   : "primary"
               }

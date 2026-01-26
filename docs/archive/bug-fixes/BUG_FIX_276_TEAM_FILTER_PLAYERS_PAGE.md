@@ -1,10 +1,16 @@
-# Bug Fix: Team Filter Not Working on Manage Players Page (#276)
+# Bug Fix: Filters Not Working Correctly on Manage Players Page (#276)
 
 ## Issue Summary
 
+### Issue 1: Team Filter Not Working
 **Reported Issue**: When using the team filter on the Manage Players page (`/orgs/[orgId]/admin/players`), selecting a specific team shows 0 players, even when players are assigned to that team.
 
 **User Impact**: Admins cannot filter the player list by team, making it difficult to manage players for specific teams when the organization has many players.
+
+### Issue 2: Sport Filter Showing Codes Instead of Names
+**Reported Issue**: The Sport filter dropdown displays sport codes (e.g., "GAA_Football" with underscores) instead of friendly names (e.g., "GAA Football").
+
+**User Impact**: The UI is less user-friendly and inconsistent with how sports are displayed elsewhere in the application.
 
 ## Root Cause Analysis
 
@@ -53,13 +59,23 @@ playerIdentities ─────────┼──── teamPlayerIdentities
 
 ## Solution Implemented
 
-### Changes Made
+### Changes Made for Team Filter
 
 1. **Added team-player link query**: Fetch actual team membership data using the existing `getTeamMembersForOrg` query from `teamPlayerIdentities.ts`.
 
 2. **Updated filter logic**: Check if the player's `playerIdentityId` exists in the team-player links for the selected team.
 
 3. **Fixed team display**: The "Team(s)" column now shows actual team names instead of just the player's age group.
+
+### Changes Made for Sport Filter
+
+1. **Added sport reference data query**: Fetch sport configurations via `getSports` to get the mapping between sport codes and friendly names.
+
+2. **Created code-to-name mapping**: Built a `Map<string, string>` to efficiently look up friendly names from sport codes.
+
+3. **Updated sport filter dropdown**: Display friendly names in the dropdown while still filtering on sport codes.
+
+4. **Updated Sport column display**: The "Sport" column now shows friendly names in both the table and CSV exports.
 
 ### Modified File
 
@@ -116,11 +132,31 @@ const getPlayerTeams = (player: any) => {
 };
 ```
 
+**Sport Reference Data Query**:
+```typescript
+// Get sport reference data for friendly names
+const sportsData = useQuery(api.models.referenceData.getSports);
+
+// Create a mapping from sport code to friendly name
+const sportCodeToName = new Map<string, string>(
+  sportsData?.map((sport) => [sport.code, sport.name]) ?? []
+);
+
+// Helper to get friendly sport name from code
+const getSportName = (sportCode: string | null | undefined): string => {
+  if (!sportCode || sportCode === "Not assigned") {
+    return "Not assigned";
+  }
+  return sportCodeToName.get(sportCode) ?? sportCode;
+};
+```
+
 ## Manual Verification Steps
 
 ### Prerequisites
 - Access to an organization as Admin or Owner
 - At least one team with players assigned
+- Players with sport assignments (sport passports)
 
 ### Test 1: Verify Team Filter Works
 
@@ -153,6 +189,22 @@ const getPlayerTeams = (player: any) => {
 1. Navigate to `/orgs/[orgId]/admin/players`
 2. Set the Team filter to "All Teams"
 3. **Expected**: All enrolled players are shown regardless of team assignment
+
+### Test 5: Verify Sport Filter Shows Friendly Names
+
+1. Navigate to `/orgs/[orgId]/admin/players`
+2. Click on the "Sport" filter dropdown
+3. **Expected**: Sports are shown with friendly names (e.g., "GAA Football") not codes (e.g., "GAA_Football")
+4. Select a sport
+5. **Expected**: Players are filtered correctly by that sport
+
+### Test 6: Verify Sport Column Shows Friendly Names
+
+1. Navigate to `/orgs/[orgId]/admin/players`
+2. Look at the "Sport" column in the table
+3. **Expected**: Sport names are displayed with friendly names, not codes
+4. Export the player list to CSV
+5. **Expected**: The exported Sport column also contains friendly names
 
 ## Technical Notes
 

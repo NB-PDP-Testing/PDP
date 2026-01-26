@@ -6,6 +6,7 @@ import { useQuery } from "convex/react";
 import { Loader2, Share2, User } from "lucide-react";
 import { useParams, useRouter } from "next/navigation";
 import { useState } from "react";
+import { toast } from "sonner";
 import { BenchmarkComparison } from "@/components/benchmark-comparison";
 import { OrgThemedGradient } from "@/components/org-themed-gradient";
 import { Badge } from "@/components/ui/badge";
@@ -179,7 +180,7 @@ export default function PlayerDashboardPage() {
     setIsPdfGenerating(true);
     try {
       // TODO: Implement PDF generation
-      alert("PDF generation coming soon!");
+      toast.info("PDF generation coming soon!");
     } catch (error) {
       console.error("Failed to generate PDF:", error);
     } finally {

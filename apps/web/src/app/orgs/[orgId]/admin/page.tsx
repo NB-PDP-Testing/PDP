@@ -59,6 +59,11 @@ export default function OrgAdminOverviewPage() {
   const enquiryCount = useQuery(api.models.passportEnquiries.getEnquiryCount, {
     organizationId: orgId,
   });
+  // Pending functional role requests from existing members
+  const pendingRoleRequests = useQuery(
+    api.models.members.getPendingFunctionalRoleRequests,
+    { organizationId: orgId }
+  );
 
   const isLoading =
     pendingRequests === undefined ||
@@ -66,7 +71,8 @@ export default function OrgAdminOverviewPage() {
     playerEnrollments === undefined ||
     teams === undefined ||
     memberCounts === undefined ||
-    enquiryCount === undefined;
+    enquiryCount === undefined ||
+    pendingRoleRequests === undefined;
 
   return (
     <div className="w-full max-w-full space-y-6 overflow-hidden sm:space-y-8">
@@ -89,27 +95,23 @@ export default function OrgAdminOverviewPage() {
           </>
         ) : (
           <>
+            {/* Pending Approvals - Combined membership + role requests */}
             <StatCard
-              description="Membership requests waiting"
+              description="Membership and role requests"
               href={`/orgs/${orgId}/admin/users/approvals` as Route}
               icon={Clock}
-              title="Pending Requests"
-              value={pendingRequests?.length || 0}
+              title="Pending Approvals"
+              value={
+                (pendingRequests?.length || 0) +
+                (pendingRoleRequests?.length || 0)
+              }
               variant={
-                pendingRequests && pendingRequests.length > 0
+                (pendingRequests?.length || 0) +
+                  (pendingRoleRequests?.length || 0) >
+                0
                   ? "warning"
                   : "primary"
               }
-            />
-            <StatCard
-              description="Organization members"
-              href={`/orgs/${orgId}/admin/users` as Route}
-              icon={Users}
-              title="Total Members"
-              value={
-                (memberCounts?.total || 0) + (pendingInvitations?.length || 0)
-              }
-              variant="primary"
             />
             {pendingInvitations && pendingInvitations.length > 0 && (
               <StatCard
@@ -121,15 +123,7 @@ export default function OrgAdminOverviewPage() {
                 variant="warning"
               />
             )}
-            <StatCard
-              description="Active teams"
-              href={`/orgs/${orgId}/admin/teams` as Route}
-              icon={Shield}
-              title="Teams"
-              value={teams?.length || 0}
-              variant="secondary"
-            />
-            {enquiryCount && enquiryCount > 0 && (
+            {enquiryCount !== undefined && enquiryCount > 0 && (
               <StatCard
                 description="Passport enquiries from other orgs"
                 href={`/orgs/${orgId}/admin/enquiries` as Route}
@@ -139,6 +133,25 @@ export default function OrgAdminOverviewPage() {
                 variant="warning"
               />
             )}
+            {/* Core Metrics - Always shown */}
+            <StatCard
+              description="Organization members"
+              href={`/orgs/${orgId}/admin/users` as Route}
+              icon={Users}
+              title="Total Members"
+              value={
+                (memberCounts?.total || 0) + (pendingInvitations?.length || 0)
+              }
+              variant="primary"
+            />
+            <StatCard
+              description="Active teams"
+              href={`/orgs/${orgId}/admin/teams` as Route}
+              icon={Shield}
+              title="Teams"
+              value={teams?.length || 0}
+              variant="secondary"
+            />
             <StatCard
               description="Registered players"
               href={`/orgs/${orgId}/admin/players` as Route}
@@ -206,51 +219,56 @@ export default function OrgAdminOverviewPage() {
             ) : pendingRequests && pendingRequests.length > 0 ? (
               <div className="space-y-3">
                 {pendingRequests.slice(0, 5).map((request) => (
-                  <div
-                    className="flex items-center justify-between rounded-lg border p-3"
+                  <Link
+                    href={`/orgs/${orgId}/admin/users/approvals` as Route}
                     key={request._id}
-                    style={{
-                      borderColor: "rgb(var(--org-primary-rgb) / 0.2)",
-                    }}
                   >
-                    <div className="flex items-center gap-3">
-                      <div
-                        className="flex h-10 w-10 items-center justify-center rounded-full"
-                        style={{
-                          backgroundColor: "rgb(var(--org-primary-rgb) / 0.1)",
-                        }}
+                    <div
+                      className="flex cursor-pointer items-center justify-between rounded-lg border p-3 transition-colors hover:bg-muted/50"
+                      style={{
+                        borderColor: "rgb(var(--org-primary-rgb) / 0.2)",
+                      }}
+                    >
+                      <div className="flex items-center gap-3">
+                        <div
+                          className="flex h-10 w-10 items-center justify-center rounded-full"
+                          style={{
+                            backgroundColor:
+                              "rgb(var(--org-primary-rgb) / 0.1)",
+                          }}
+                        >
+                          <Users
+                            className="h-5 w-5"
+                            style={{ color: theme.primary }}
+                          />
+                        </div>
+                        <div>
+                          <p className="font-medium">{request.userName}</p>
+                          <p className="text-muted-foreground text-sm">
+                            {request.userEmail}
+                          </p>
+                        </div>
+                      </div>
+                      <Badge
+                        className={`border capitalize ${getRoleColor(request.requestedRole)}`}
+                        variant="outline"
                       >
-                        <Users
-                          className="h-5 w-5"
-                          style={{ color: theme.primary }}
-                        />
-                      </div>
-                      <div>
-                        <p className="font-medium">{request.userName}</p>
-                        <p className="text-muted-foreground text-sm">
-                          {request.userEmail}
-                        </p>
-                      </div>
+                        {request.requestedRole}
+                      </Badge>
                     </div>
-                    <Badge
-                      className={`border capitalize ${getRoleColor(request.requestedRole)}`}
-                      variant="outline"
-                    >
-                      {request.requestedRole}
-                    </Badge>
-                  </div>
-                ))}
-                {pendingRequests.length > 5 && (
-                  <Link href={`/orgs/${orgId}/admin/users/approvals` as Route}>
-                    <OrgThemedButton
-                      className="w-full"
-                      size="sm"
-                      variant="outline"
-                    >
-                      View all {pendingRequests.length} pending requests
-                    </OrgThemedButton>
                   </Link>
-                )}
+                ))}
+                <Link href={`/orgs/${orgId}/admin/users/approvals` as Route}>
+                  <OrgThemedButton
+                    className="w-full"
+                    size="sm"
+                    variant="outline"
+                  >
+                    {pendingRequests.length > 5
+                      ? `View all ${pendingRequests.length} pending requests`
+                      : "Manage Requests"}
+                  </OrgThemedButton>
+                </Link>
               </div>
             ) : (
               <div className="flex flex-col items-center justify-center py-8 text-center">

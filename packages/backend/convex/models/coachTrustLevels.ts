@@ -625,6 +625,74 @@ export const getCoachTrustLevelInternal = internalQuery({
 });
 
 /**
+ * Get coach trust level with insight auto-apply fields (Phase 7.1)
+ * Used by insights UI to calculate wouldAutoApply predictions
+ */
+export const getCoachTrustLevelWithInsightFields = query({
+  args: {},
+  returns: v.union(
+    v.object({
+      currentLevel: v.number(),
+      preferredLevel: v.optional(v.number()),
+      insightConfidenceThreshold: v.optional(v.number()),
+      insightAutoApplyPreferences: v.optional(
+        v.object({
+          skills: v.boolean(),
+          attendance: v.boolean(),
+          goals: v.boolean(),
+          performance: v.boolean(),
+        })
+      ),
+      insightPreviewModeStats: v.optional(
+        v.object({
+          wouldAutoApplyInsights: v.number(),
+          coachAppliedThose: v.number(),
+          coachDismissedThose: v.number(),
+          agreementRate: v.number(),
+          startedAt: v.number(),
+          completedAt: v.optional(v.number()),
+        })
+      ),
+    }),
+    v.null()
+  ),
+  handler: async (ctx) => {
+    // Get authenticated user
+    const user = await authComponent.safeGetAuthUser(ctx);
+
+    // Get the user ID (use _id or userId depending on what's available)
+    const coachId = user?.userId || user?._id;
+    if (!coachId) {
+      return null;
+    }
+
+    // Get platform-wide trust record
+    const trustRecord = await ctx.db
+      .query("coachTrustLevels")
+      .withIndex("by_coach", (q) => q.eq("coachId", coachId))
+      .first();
+
+    if (!trustRecord) {
+      return {
+        currentLevel: 0,
+        preferredLevel: undefined,
+        insightConfidenceThreshold: 0.7,
+        insightAutoApplyPreferences: undefined,
+        insightPreviewModeStats: undefined,
+      };
+    }
+
+    return {
+      currentLevel: trustRecord.currentLevel,
+      preferredLevel: trustRecord.preferredLevel,
+      insightConfidenceThreshold: trustRecord.insightConfidenceThreshold,
+      insightAutoApplyPreferences: trustRecord.insightAutoApplyPreferences,
+      insightPreviewModeStats: trustRecord.insightPreviewModeStats,
+    };
+  },
+});
+
+/**
  * Check if parent summaries are enabled for a coach in an org.
  * Used by voice note processing to decide whether to generate summaries.
  * @internal

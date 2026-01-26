@@ -13,6 +13,7 @@ import {
   Loader2,
   Pencil,
   Send,
+  Sparkles,
   UserPlus,
   Users,
   XCircle,
@@ -157,6 +158,11 @@ export function InsightsTab({ orgId, onSuccess, onError }: InsightsTabProps) {
   const fellowCoaches = useQuery(
     api.models.coaches.getFellowCoachesForTeams,
     coachUserId ? { userId: coachUserId, organizationId: orgId } : "skip"
+  );
+
+  // Get coach trust level for wouldAutoApply calculation (Phase 7.1)
+  const coachTrustLevel = useQuery(
+    api.models.coachTrustLevels.getCoachTrustLevelWithInsightFields
   );
 
   const updateInsightStatus = useMutation(
@@ -475,6 +481,33 @@ export function InsightsTab({ orgId, onSuccess, onError }: InsightsTabProps) {
           new Date(b.noteDate).getTime() - new Date(a.noteDate).getTime()
       ) ?? [];
 
+  // Calculate wouldAutoApply for each insight (Phase 7.1)
+  const effectiveLevel = coachTrustLevel
+    ? Math.min(
+        coachTrustLevel.currentLevel,
+        coachTrustLevel.preferredLevel ?? coachTrustLevel.currentLevel
+      )
+    : 0;
+  const threshold = coachTrustLevel?.insightConfidenceThreshold ?? 0.7;
+
+  const insightsWithPrediction = pendingInsights.map((insight) => {
+    // Calculate if this insight would auto-apply at current trust level
+    // Level 0/1: Never auto-apply (always false)
+    // Level 2+: Auto-apply if NOT injury/medical AND confidence >= threshold
+    // Injury/medical categories: NEVER auto-apply (safety guardrail)
+    const confidence = (insight as any).confidence ?? 0.7; // Default for legacy insights
+    const wouldAutoApply =
+      insight.category !== "injury" &&
+      insight.category !== "medical" &&
+      effectiveLevel >= 2 &&
+      confidence >= threshold;
+
+    return {
+      ...insight,
+      wouldAutoApply,
+    };
+  });
+
   // Separate insights by type:
   // 1. Matched: Has playerIdentityId (can be applied directly)
   // 2. Unmatched: Has playerName but no match (needs player assignment)
@@ -483,13 +516,15 @@ export function InsightsTab({ orgId, onSuccess, onError }: InsightsTabProps) {
   // 5. TODO insights WITH assignee: Ready to apply
   // 6. TODO insights WITHOUT assignee: Needs assignee (future)
   // 7. Uncategorized: No player and no team-level category (needs classification)
-  const matchedInsights = pendingInsights.filter((i) => i.playerIdentityId);
-  const unmatchedInsights = pendingInsights.filter(
+  const matchedInsights = insightsWithPrediction.filter(
+    (i) => i.playerIdentityId
+  );
+  const unmatchedInsights = insightsWithPrediction.filter(
     (i) => !i.playerIdentityId && i.playerName
   );
 
   // Team insights WITH teamId - ready to apply
-  const classifiedTeamInsights = pendingInsights.filter(
+  const classifiedTeamInsights = insightsWithPrediction.filter(
     (i) =>
       !(i.playerIdentityId || i.playerName) &&
       i.category === "team_culture" &&
@@ -497,7 +532,7 @@ export function InsightsTab({ orgId, onSuccess, onError }: InsightsTabProps) {
   );
 
   // Team insights WITHOUT teamId - needs team assignment
-  const teamInsightsNeedingAssignment = pendingInsights.filter(
+  const teamInsightsNeedingAssignment = insightsWithPrediction.filter(
     (i) =>
       !(i.playerIdentityId || i.playerName) &&
       i.category === "team_culture" &&
@@ -505,7 +540,7 @@ export function InsightsTab({ orgId, onSuccess, onError }: InsightsTabProps) {
   );
 
   // TODO insights WITH assignee - ready to apply
-  const assignedTodoInsights = pendingInsights.filter(
+  const assignedTodoInsights = insightsWithPrediction.filter(
     (i) =>
       !(i.playerIdentityId || i.playerName) &&
       i.category === "todo" &&
@@ -513,7 +548,7 @@ export function InsightsTab({ orgId, onSuccess, onError }: InsightsTabProps) {
   );
 
   // TODO insights WITHOUT assignee - needs coach assignment
-  const unassignedTodoInsights = pendingInsights.filter(
+  const unassignedTodoInsights = insightsWithPrediction.filter(
     (i) =>
       !(i.playerIdentityId || i.playerName) &&
       i.category === "todo" &&
@@ -521,7 +556,7 @@ export function InsightsTab({ orgId, onSuccess, onError }: InsightsTabProps) {
   );
 
   // Insights without player AND without team-level category need classification
-  const uncategorizedInsights = pendingInsights.filter(
+  const uncategorizedInsights = insightsWithPrediction.filter(
     (i) =>
       !(
         i.playerIdentityId ||
@@ -540,7 +575,7 @@ export function InsightsTab({ orgId, onSuccess, onError }: InsightsTabProps) {
     );
   }
 
-  if (pendingInsights.length === 0) {
+  if (insightsWithPrediction.length === 0) {
     return (
       <Card>
         <CardContent className="py-8">
@@ -675,6 +710,21 @@ export function InsightsTab({ orgId, onSuccess, onError }: InsightsTabProps) {
                 className="h-2"
                 value={(insight as any).confidence * 100}
               />
+
+              {/* Preview Mode Badge (Phase 7.1) */}
+              {(insight as any).wouldAutoApply ? (
+                <Badge
+                  className="bg-blue-100 text-blue-700"
+                  variant="secondary"
+                >
+                  <Sparkles className="mr-1 h-3 w-3" />
+                  AI would auto-apply this at Level 2+
+                </Badge>
+              ) : (
+                <p className="text-muted-foreground text-sm">
+                  Requires manual review
+                </p>
+              )}
             </div>
           )}
           {/* Hints for insights needing action */}

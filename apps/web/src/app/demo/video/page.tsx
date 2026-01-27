@@ -2,8 +2,7 @@
 
 import { Player } from "@remotion/player";
 import Link from "next/link";
-import { ArrowLeft, Download, Play } from "lucide-react";
-import { Button } from "@/components/ui/button";
+import { ArrowLeft } from "lucide-react";
 import { PDPCommercial } from "@/remotion/compositions/PDPCommercial";
 import {
   VIDEO_WIDTH,

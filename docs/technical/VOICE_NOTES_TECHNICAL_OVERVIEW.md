@@ -26,6 +26,7 @@
 16. [Audio Storage Architecture](#16-audio-storage-architecture)
 17. [Coach Learning & Feedback Loop](#17-coach-learning--feedback-loop)
 18. [Prompt Flexibility & Tone Controls](#18-prompt-flexibility--tone-controls)
+19. [Team Insights Collaboration Hub](#19-team-insights-collaboration-hub)
 
 ---
 
@@ -3256,6 +3257,401 @@ promptTemplates: defineTable({
 | `every_insight` | Immediate (current behavior) | Engaged parents |
 | `daily_digest` | Batch at 6 PM | Reduce notification fatigue |
 | `weekly_digest` | Sunday evening summary | Casual communication |
+
+---
+
+## 19. Team Insights Collaboration Hub
+
+This section explores how the Team Insights page can evolve into a comprehensive collaboration hub for coaches and support staff involved with a team.
+
+### 19.1 Current Implementation
+
+#### Two Team Insight Features
+
+| Feature | Location | Purpose |
+|---------|----------|---------|
+| **Team Insights Tab** | Voice notes dashboard | Real-time collaborative insights from fellow coaches |
+| **Team Insights Page** | `/coach/team-insights` | Persistent team observations and culture notes |
+
+#### Current Capabilities
+
+```
+┌─────────────────────────────────────────────────────────────────────────────────┐
+│                       CURRENT TEAM INSIGHTS ARCHITECTURE                         │
+└─────────────────────────────────────────────────────────────────────────────────┘
+
+┌─────────────────────────────────────────────────────────────────────────────────┐
+│ TEAM INSIGHTS TAB (Voice Notes Dashboard)                                        │
+│ ───────────────────────────────────────────────────────────────────────────────  │
+│ • Voice notes from all coaches on shared teams                                   │
+│ • Player-specific insights with attribution                                      │
+│ • Apply/Dismiss actions for insights                                             │
+│ • Filter by pending vs all, search by player                                     │
+│ • Auto-discovery of fellow coaches via coachAssignments                          │
+└─────────────────────────────────────────────────────────────────────────────────┘
+
+┌─────────────────────────────────────────────────────────────────────────────────┐
+│ TEAM INSIGHTS PAGE (/coach/team-insights)                                        │
+│ ───────────────────────────────────────────────────────────────────────────────  │
+│ • Persistent team observations (teamObservations table)                          │
+│ • Team culture notes from voice notes                                            │
+│ • Grouped by team with filtering                                                 │
+│ • Source tracking (voice_note vs manual)                                         │
+│ • Coach attribution and timestamps                                               │
+└─────────────────────────────────────────────────────────────────────────────────┘
+```
+
+#### Data Flow
+
+```
+Coach Records Voice Note
+         │
+         ▼
+AI Extracts team_culture Insight
+         │
+         ▼
+Coach Assigns to Team + Applies
+         │
+         ▼
+teamObservations Record Created
+         │
+         ▼
+Visible to All Coaches on That Team
+```
+
+### 19.2 Industry Best Practices Research
+
+Based on analysis of leading sports collaboration platforms:
+
+#### Communication Platforms
+
+| Platform | Key Features | Relevance |
+|----------|--------------|-----------|
+| **[Teamworks](https://teamworks.com/)** | "Operating System for Sports" - unified platform for coordination, development, talent deployment | Enterprise-level integration model |
+| **[Heja](https://heja.io/)** | Team messaging, family inclusion, carpool coordination | Community engagement |
+| **[sportsYou](https://sportsyou.com/)** | Data-secure coach-athlete messaging, real-time communication | Privacy-first communication |
+| **[Sportlyzer](https://www.sportlyzer.com/)** | Scheduling, attendance, performance tracking | Administrative efficiency |
+| **[Luceo Sports](https://www.luceosports.com/)** | Dynamic playbooks, video telestration, coaching moments | Teaching & preparation tools |
+
+#### Key Industry Trends (2025-2026)
+
+| Trend | Description | Application to PlayerARC |
+|-------|-------------|-------------------------|
+| **AI-Driven Insights** | Real-time performance analytics, tactical assistants | Already have with voice notes AI |
+| **Wearable Integration** | Health/workload tracking connected to platform | Future opportunity |
+| **Unified Calendar** | Practice, games, tournaments in one view | Integration opportunity |
+| **Dynamic Playbooks** | Interactive teaching materials | Session planning integration |
+| **Real-time Overlays** | Speed, distance, heat maps during video | Video attachment feature |
+
+### 19.3 Proposed Collaboration Hub Vision
+
+```
+┌─────────────────────────────────────────────────────────────────────────────────┐
+│                    TEAM COLLABORATION HUB - PROPOSED VISION                      │
+└─────────────────────────────────────────────────────────────────────────────────┘
+
+┌─────────────────────────────────────────────────────────────────────────────────┐
+│ TEAM: U14 Female                                         [Switch Team ▼]        │
+├─────────────────────────────────────────────────────────────────────────────────┤
+│                                                                                  │
+│  ┌─────────────┐ ┌─────────────┐ ┌─────────────┐ ┌─────────────┐               │
+│  │  INSIGHTS   │ │   TASKS     │ │  PLANNING   │ │  ACTIVITY   │               │
+│  │    (12)     │ │    (5)      │ │   (Next:    │ │   FEED      │               │
+│  │             │ │             │ │  Thu 6PM)   │ │             │               │
+│  └─────────────┘ └─────────────┘ └─────────────┘ └─────────────┘               │
+│                                                                                  │
+├──────────────────────────────────────────────────────────────────────────────────┤
+│                                                                                  │
+│  RECENT INSIGHTS FROM COACHING TEAM                                              │
+│  ─────────────────────────────────                                               │
+│  ┌────────────────────────────────────────────────────────────────────────────┐  │
+│  │ 🏃 Coach Sarah (Yesterday)                                                 │  │
+│  │ "Great team spirit at training - the girls are really gelling"             │  │
+│  │ [Team Culture] [Applied ✓]                                                 │  │
+│  │ 💬 2 comments  👍 Coach Neil liked this                                    │  │
+│  └────────────────────────────────────────────────────────────────────────────┘  │
+│                                                                                  │
+│  ┌────────────────────────────────────────────────────────────────────────────┐  │
+│  │ ⚽ Coach Neil (2 days ago)                                                 │  │
+│  │ "Clodagh's hand pass improved significantly - 4/5 now"                     │  │
+│  │ [Skill Rating] [Player: Clodagh Barlow]                                    │  │
+│  │ [View in Passport →]                                                       │  │
+│  └────────────────────────────────────────────────────────────────────────────┘  │
+│                                                                                  │
+│  TEAM ACTION ITEMS                                           [+ Add Task]       │
+│  ─────────────────                                                               │
+│  ☐ Order new training cones (Neil) - Due: Fri                                   │
+│  ☐ Book pitch for challenge match (Sarah) - Due: Next Mon                       │
+│  ☑ Update player medical forms (Neil) - Completed ✓                             │
+│                                                                                  │
+│  UPCOMING SESSIONS                                                               │
+│  ─────────────────                                                               │
+│  📅 Thu 23 Jan, 6:00 PM - Training @ Main Pitch                                 │
+│     Coaches: Neil, Sarah | Players confirmed: 14/16                              │
+│     [View Session Plan] [Add Notes]                                              │
+│                                                                                  │
+│  📅 Sat 25 Jan, 10:00 AM - Match vs Kilmacud                                    │
+│     Coaches: Neil | Players confirmed: 12/16                                     │
+│     [Prep Checklist] [View Opponent Notes]                                       │
+│                                                                                  │
+└─────────────────────────────────────────────────────────────────────────────────┘
+```
+
+### 19.4 Proposed Features
+
+#### 19.4.1 Insight Reactions & Comments
+
+```typescript
+// Proposed: insightReactions table
+insightReactions: defineTable({
+  insightId: v.string(),
+  userId: v.string(),
+  type: v.union(v.literal("like"), v.literal("helpful"), v.literal("flag")),
+  createdAt: v.number(),
+})
+
+// Proposed: insightComments table
+insightComments: defineTable({
+  insightId: v.string(),
+  voiceNoteId: v.id("voiceNotes"),
+  userId: v.string(),
+  userName: v.string(),
+  content: v.string(),
+  createdAt: v.number(),
+})
+```
+
+**Value:** Coaches can discuss insights, ask clarifying questions, build on observations.
+
+#### 19.4.2 Shared Task Management
+
+```typescript
+// Extend existing coachTasks table
+coachTasks: defineTable({
+  // ... existing fields
+  visibility: v.union(
+    v.literal("personal"),     // Only creator sees
+    v.literal("team"),         // All team coaches see
+    v.literal("organization")  // All org coaches see
+  ),
+  assigneeUserId: v.string(),
+  collaborators: v.array(v.string()),  // Multiple coaches involved
+  linkedInsightId: v.optional(v.string()),
+  status: v.union(
+    v.literal("pending"),
+    v.literal("in_progress"),
+    v.literal("blocked"),
+    v.literal("completed")
+  ),
+  comments: v.array(v.object({
+    userId: v.string(),
+    content: v.string(),
+    createdAt: v.number(),
+  })),
+})
+```
+
+**Use Cases:**
+- "Order cones" task visible to all team coaches
+- "Prepare match analysis" with multiple collaborators
+- Task handoff when coach unavailable
+
+#### 19.4.3 Session Preparation Hub
+
+```typescript
+// Proposed: sessionPrep table
+sessionPrep: defineTable({
+  teamId: v.string(),
+  organizationId: v.string(),
+  sessionDate: v.string(),
+  sessionType: v.union(v.literal("training"), v.literal("match")),
+  createdBy: v.string(),
+  objectives: v.array(v.string()),
+  focusAreas: v.array(v.string()),
+  equipmentNeeded: v.array(v.string()),
+  playerNotes: v.array(v.object({
+    playerIdentityId: v.id("playerIdentities"),
+    note: v.string(),
+    addedBy: v.string(),
+  })),
+  attachments: v.array(v.object({
+    type: v.union(v.literal("drill"), v.literal("video"), v.literal("document")),
+    url: v.string(),
+    title: v.string(),
+  })),
+  status: v.union(v.literal("draft"), v.literal("shared"), v.literal("completed")),
+})
+```
+
+**Features:**
+- Collaborative session planning
+- Pre-populated player notes from recent insights
+- Equipment checklist
+- Drill library integration (future)
+
+#### 19.4.4 Activity Feed
+
+```typescript
+// Proposed: teamActivityFeed table
+teamActivityFeed: defineTable({
+  teamId: v.string(),
+  organizationId: v.string(),
+  activityType: v.union(
+    v.literal("insight_created"),
+    v.literal("insight_applied"),
+    v.literal("task_created"),
+    v.literal("task_completed"),
+    v.literal("session_planned"),
+    v.literal("comment_added"),
+    v.literal("player_update")
+  ),
+  actorUserId: v.string(),
+  actorName: v.string(),
+  targetType: v.string(),        // "insight", "task", "player", etc.
+  targetId: v.string(),
+  summary: v.string(),           // "Neil applied skill rating to Clodagh"
+  createdAt: v.number(),
+})
+```
+
+**Value:** Real-time visibility into team activity without checking multiple tabs.
+
+### 19.5 Collaboration Patterns from Industry Leaders
+
+#### Pattern 1: Unified Team Dashboard (Teamworks Model)
+
+```
+┌─────────────────────────────────────────────────────────────────────────────────┐
+│ All team information in ONE place - reduces context switching                    │
+│ • Insights feed                                                                  │
+│ • Task list                                                                      │
+│ • Calendar                                                                       │
+│ • Quick actions                                                                  │
+└─────────────────────────────────────────────────────────────────────────────────┘
+```
+
+**Implementation:** Merge team-insights-tab and team-insights-page into single hub.
+
+#### Pattern 2: Real-time Notifications (Heja Model)
+
+```
+┌─────────────────────────────────────────────────────────────────────────────────┐
+│ Push notifications when teammates take actions:                                  │
+│ • "Coach Sarah added an insight about team culture"                              │
+│ • "New task assigned: Order cones"                                               │
+│ • "Session plan updated for Thursday training"                                   │
+└─────────────────────────────────────────────────────────────────────────────────┘
+```
+
+**Implementation:** Add notification system with coach preferences.
+
+#### Pattern 3: Smart Suggestions (AI-Powered like Luceo)
+
+```
+┌─────────────────────────────────────────────────────────────────────────────────┐
+│ AI surfaces relevant information at the right time:                              │
+│ • Before training: "3 players had injury insights this week"                     │
+│ • Before match: "Opponent analysis available from last encounter"                │
+│ • After session: "Would you like to record observations?"                        │
+└─────────────────────────────────────────────────────────────────────────────────┘
+```
+
+**Implementation:** Context-aware prompts based on schedule and recent activity.
+
+#### Pattern 4: Role-Based Views (Sportlyzer Model)
+
+```
+┌─────────────────────────────────────────────────────────────────────────────────┐
+│ Different views for different roles:                                             │
+│ • Head Coach: Strategic overview, all insights, all tasks                        │
+│ • Assistant Coach: Player-focused, assigned tasks only                           │
+│ • Physio/Support: Injury insights, medical notes                                 │
+│ • Volunteer: Read-only access, attendance tracking                               │
+└─────────────────────────────────────────────────────────────────────────────────┘
+```
+
+**Implementation:** Extend functional roles with team-specific permissions.
+
+### 19.6 Implementation Roadmap
+
+| Phase | Features | Effort | Value |
+|-------|----------|--------|-------|
+| **Phase 1** | Unified team dashboard, activity feed | Medium | High |
+| **Phase 2** | Task sharing, comments on insights | Medium | High |
+| **Phase 3** | Session prep hub, collaborative planning | High | Medium |
+| **Phase 4** | Smart notifications, AI suggestions | High | High |
+| **Phase 5** | Role-based views, permission system | Medium | Medium |
+
+### 19.7 Database Schema Additions
+
+```typescript
+// New tables for collaboration hub
+
+teamActivityFeed: defineTable({
+  teamId: v.string(),
+  organizationId: v.string(),
+  activityType: v.string(),
+  actorUserId: v.string(),
+  actorName: v.string(),
+  targetType: v.string(),
+  targetId: v.string(),
+  summary: v.string(),
+  metadata: v.optional(v.any()),
+  createdAt: v.number(),
+})
+.index("by_team", ["teamId"])
+.index("by_org", ["organizationId"])
+.index("by_created", ["createdAt"]),
+
+insightComments: defineTable({
+  insightId: v.string(),
+  voiceNoteId: v.id("voiceNotes"),
+  teamId: v.optional(v.string()),
+  userId: v.string(),
+  userName: v.string(),
+  content: v.string(),
+  createdAt: v.number(),
+})
+.index("by_insight", ["insightId"])
+.index("by_voice_note", ["voiceNoteId"]),
+
+sessionPrep: defineTable({
+  teamId: v.string(),
+  organizationId: v.string(),
+  sessionDate: v.string(),
+  sessionType: v.string(),
+  createdBy: v.string(),
+  objectives: v.array(v.string()),
+  focusAreas: v.array(v.string()),
+  equipmentNeeded: v.array(v.string()),
+  playerNotes: v.array(v.any()),
+  attachments: v.array(v.any()),
+  status: v.string(),
+  createdAt: v.number(),
+  updatedAt: v.number(),
+})
+.index("by_team_date", ["teamId", "sessionDate"])
+.index("by_org", ["organizationId"]),
+```
+
+### 19.8 Key Files Reference
+
+| Current File | Lines | Purpose |
+|--------------|-------|---------|
+| `components/team-insights-tab.tsx` | 324 | Collaborative voice note insights |
+| `coach/team-insights/page.tsx` | 351 | Persistent team observations |
+| `models/teamObservations.ts` | 174 | Team observation storage |
+| `models/coaches.ts` | 492 | Coach assignments and team discovery |
+
+### 19.9 Success Metrics
+
+| Metric | Current | Target | Measurement |
+|--------|---------|--------|-------------|
+| Insights viewed by teammates | Unknown | 80% | Activity feed tracking |
+| Tasks completed collaboratively | 0 | 30% of tasks | Task visibility + completion |
+| Session prep completion | N/A | 60% of sessions | Session prep usage |
+| Time to prepare for session | Unknown | -25% | User survey |
+| Coach satisfaction with collaboration | Unknown | 4.5/5 | In-app feedback |
 
 ---
 

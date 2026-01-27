@@ -4,8 +4,12 @@ import { api } from "@pdp/backend/convex/_generated/api";
 import { useMutation, useQuery } from "convex/react";
 import {
   ArrowLeft,
+  ArrowUpDown,
   CheckCircle2,
+  ChevronLeft,
+  ChevronRight,
   Flag,
+  MoreHorizontal,
   Search,
   Shield,
   ShieldAlert,
@@ -15,9 +19,26 @@ import {
 import Link from "next/link";
 import { useCallback, useMemo, useState } from "react";
 import { toast } from "sonner";
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+} from "@/components/ui/alert-dialog";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { Checkbox } from "@/components/ui/checkbox";
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuTrigger,
+} from "@/components/ui/dropdown-menu";
 import { Input } from "@/components/ui/input";
 import { Skeleton } from "@/components/ui/skeleton";
 import { Switch } from "@/components/ui/switch";
@@ -38,6 +59,9 @@ type FilterType =
   | "has-issues"
   | "recently-changed";
 
+type SortField = "name" | "lastChanged" | "overrideCount";
+type SortDirection = "asc" | "desc";
+
 type OrgStatus = {
   orgId: string;
   orgName: string;
@@ -53,17 +77,56 @@ type OrgStatus = {
 
 function OrganizationTableRow({
   org,
+  isSelected,
+  onToggleSelection,
   onToggleGates,
   onToggleAdminDelegation,
   onToggleCoachOverrides,
+  onViewDetails,
+  onResetToDefault,
 }: {
   org: OrgStatus;
+  isSelected: boolean;
+  onToggleSelection: (orgId: string) => void;
   onToggleGates: (orgId: string, currentValue: boolean) => void;
   onToggleAdminDelegation: (orgId: string, currentValue: boolean) => void;
   onToggleCoachOverrides: (orgId: string, currentValue: boolean) => void;
+  onViewDetails: (orgId: string) => void;
+  onResetToDefault: (orgId: string) => void;
 }) {
+  const formatLastChanged = (
+    lastChangedBy?: string,
+    lastChangedAt?: number
+  ) => {
+    if (!(lastChangedBy && lastChangedAt)) {
+      return (
+        <span className="text-muted-foreground text-sm">Never changed</span>
+      );
+    }
+    const date = new Date(lastChangedAt);
+    const formattedDate = date.toLocaleDateString("en-US", {
+      month: "short",
+      day: "numeric",
+      year: "numeric",
+    });
+    return (
+      <div className="text-sm">
+        <div className="font-medium">{lastChangedBy}</div>
+        <div className="text-muted-foreground text-xs">{formattedDate}</div>
+      </div>
+    );
+  };
+
   return (
     <TableRow key={org.orgId}>
+      <TableCell>
+        <Checkbox
+          checked={isSelected}
+          onCheckedChange={() => {
+            onToggleSelection(org.orgId);
+          }}
+        />
+      </TableCell>
       <TableCell className="font-medium">{org.orgName}</TableCell>
       <TableCell>
         <div className="flex items-center gap-2">
@@ -108,17 +171,61 @@ function OrganizationTableRow({
       </TableCell>
       <TableCell>
         {org.overridesCount > 0 ? (
-          <Badge variant="outline">{org.overridesCount}</Badge>
+          <button
+            className="cursor-pointer text-primary underline hover:text-primary/80"
+            onClick={() => {
+              onViewDetails(org.orgId);
+            }}
+            type="button"
+          >
+            {org.overridesCount}
+          </button>
         ) : (
           <span className="text-muted-foreground text-sm">None</span>
         )}
       </TableCell>
       <TableCell>
         {org.pendingRequestsCount > 0 ? (
-          <Badge variant="outline">{org.pendingRequestsCount}</Badge>
+          <button
+            className="cursor-pointer text-primary underline hover:text-primary/80"
+            onClick={() => {
+              onViewDetails(org.orgId);
+            }}
+            type="button"
+          >
+            {org.pendingRequestsCount}
+          </button>
         ) : (
           <span className="text-muted-foreground text-sm">None</span>
         )}
+      </TableCell>
+      <TableCell>
+        {formatLastChanged(org.lastChangedBy, org.lastChangedAt)}
+      </TableCell>
+      <TableCell>
+        <DropdownMenu>
+          <DropdownMenuTrigger asChild>
+            <Button size="icon" variant="ghost">
+              <MoreHorizontal className="h-4 w-4" />
+            </Button>
+          </DropdownMenuTrigger>
+          <DropdownMenuContent align="end">
+            <DropdownMenuItem
+              onClick={() => {
+                onViewDetails(org.orgId);
+              }}
+            >
+              View Details
+            </DropdownMenuItem>
+            <DropdownMenuItem
+              onClick={() => {
+                onResetToDefault(org.orgId);
+              }}
+            >
+              Reset to Default
+            </DropdownMenuItem>
+          </DropdownMenuContent>
+        </DropdownMenu>
       </TableCell>
     </TableRow>
   );
@@ -164,9 +271,37 @@ function applyOrgFilters(
   return filtered;
 }
 
+function applySorting(
+  orgs: OrgStatus[],
+  sortField: SortField,
+  sortDirection: SortDirection
+): OrgStatus[] {
+  return [...orgs].sort((a, b) => {
+    let compareValue = 0;
+
+    if (sortField === "name") {
+      compareValue = a.orgName.localeCompare(b.orgName);
+    } else if (sortField === "lastChanged") {
+      const aTime = a.lastChangedAt ?? 0;
+      const bTime = b.lastChangedAt ?? 0;
+      compareValue = aTime - bTime;
+    } else if (sortField === "overrideCount") {
+      compareValue = a.overridesCount - b.overridesCount;
+    }
+
+    return sortDirection === "asc" ? compareValue : -compareValue;
+  });
+}
+
 export default function FeatureFlagsPage() {
   const [searchQuery, setSearchQuery] = useState("");
   const [filterType, setFilterType] = useState<FilterType>("all");
+  const [sortField, setSortField] = useState<SortField>("name");
+  const [sortDirection, setSortDirection] = useState<SortDirection>("asc");
+  const [currentPage, setCurrentPage] = useState(1);
+  const [selectedOrgs, setSelectedOrgs] = useState<Set<string>>(new Set());
+  const [showBulkDisableDialog, setShowBulkDisableDialog] = useState(false);
+  const itemsPerPage = 20;
 
   // Query all organizations' feature flag status
   const orgsStatus = useQuery(
@@ -206,13 +341,35 @@ export default function FeatureFlagsPage() {
     };
   }, [orgsStatus]);
 
-  // Filter and search organizations
-  const filteredOrgs = useMemo(() => {
+  // Filter, sort, and paginate organizations
+  const displayedOrgs = useMemo(() => {
     if (!orgsStatus) {
       return [];
     }
-    return applyOrgFilters(orgsStatus, filterType, searchQuery);
+    let filtered = applyOrgFilters(orgsStatus, filterType, searchQuery);
+    filtered = applySorting(filtered, sortField, sortDirection);
+
+    // Paginate
+    const startIndex = (currentPage - 1) * itemsPerPage;
+    const endIndex = startIndex + itemsPerPage;
+    return filtered.slice(startIndex, endIndex);
+  }, [
+    orgsStatus,
+    filterType,
+    searchQuery,
+    sortField,
+    sortDirection,
+    currentPage,
+  ]);
+
+  const totalFilteredOrgs = useMemo(() => {
+    if (!orgsStatus) {
+      return 0;
+    }
+    return applyOrgFilters(orgsStatus, filterType, searchQuery).length;
   }, [orgsStatus, filterType, searchQuery]);
+
+  const totalPages = Math.ceil(totalFilteredOrgs / itemsPerPage);
 
   const handleToggleGates = useCallback(
     async (orgId: string, currentValue: boolean) => {
@@ -274,7 +431,156 @@ export default function FeatureFlagsPage() {
     [setPlatformFeatureFlags]
   );
 
+  const handleToggleSelection = useCallback((orgId: string) => {
+    setSelectedOrgs((prev) => {
+      const newSet = new Set(prev);
+      if (newSet.has(orgId)) {
+        newSet.delete(orgId);
+      } else {
+        newSet.add(orgId);
+      }
+      return newSet;
+    });
+  }, []);
+
+  const handleSelectAll = useCallback(() => {
+    if (selectedOrgs.size === displayedOrgs.length) {
+      setSelectedOrgs(new Set());
+    } else {
+      setSelectedOrgs(new Set(displayedOrgs.map((org) => org.orgId)));
+    }
+  }, [displayedOrgs, selectedOrgs]);
+
+  const handleViewDetails = useCallback((orgId: string) => {
+    toast.info(`View details for organization: ${orgId} (not yet implemented)`);
+  }, []);
+
+  const handleResetToDefault = useCallback(
+    async (orgId: string) => {
+      try {
+        await Promise.all([
+          setOrgTrustGatesEnabled({
+            organizationId: orgId,
+            enabled: true,
+          }),
+          setPlatformFeatureFlags({
+            organizationId: orgId,
+            allowAdminDelegation: false,
+            allowCoachOverrides: false,
+          }),
+        ]);
+        toast.success("Reset to default settings successfully");
+      } catch (error: unknown) {
+        const errorMessage =
+          error instanceof Error ? error.message : "Unknown error";
+        console.error("Error resetting to default:", error);
+        toast.error(errorMessage || "Failed to reset to default");
+      }
+    },
+    [setOrgTrustGatesEnabled, setPlatformFeatureFlags]
+  );
+
+  const handleBulkEnableAdminDelegation = useCallback(async () => {
+    if (selectedOrgs.size === 0) {
+      toast.error("No organizations selected");
+      return;
+    }
+
+    try {
+      await Promise.all(
+        Array.from(selectedOrgs).map((orgId) =>
+          setPlatformFeatureFlags({
+            organizationId: orgId,
+            allowAdminDelegation: true,
+          })
+        )
+      );
+      toast.success(
+        `Enabled admin delegation for ${selectedOrgs.size} organizations`
+      );
+      setSelectedOrgs(new Set());
+    } catch (error: unknown) {
+      const errorMessage =
+        error instanceof Error ? error.message : "Unknown error";
+      console.error("Error enabling admin delegation:", error);
+      toast.error(errorMessage || "Failed to enable admin delegation");
+    }
+  }, [selectedOrgs, setPlatformFeatureFlags]);
+
+  const handleBulkEnableCoachOverrides = useCallback(async () => {
+    if (selectedOrgs.size === 0) {
+      toast.error("No organizations selected");
+      return;
+    }
+
+    try {
+      await Promise.all(
+        Array.from(selectedOrgs).map((orgId) =>
+          setPlatformFeatureFlags({
+            organizationId: orgId,
+            allowCoachOverrides: true,
+          })
+        )
+      );
+      toast.success(
+        `Enabled coach overrides for ${selectedOrgs.size} organizations`
+      );
+      setSelectedOrgs(new Set());
+    } catch (error: unknown) {
+      const errorMessage =
+        error instanceof Error ? error.message : "Unknown error";
+      console.error("Error enabling coach overrides:", error);
+      toast.error(errorMessage || "Failed to enable coach overrides");
+    }
+  }, [selectedOrgs, setPlatformFeatureFlags]);
+
+  const handleBulkDisableGates = useCallback(async () => {
+    if (selectedOrgs.size === 0) {
+      toast.error("No organizations selected");
+      return;
+    }
+
+    setShowBulkDisableDialog(true);
+  }, [selectedOrgs]);
+
+  const confirmBulkDisableGates = useCallback(async () => {
+    try {
+      await Promise.all(
+        Array.from(selectedOrgs).map((orgId) =>
+          setOrgTrustGatesEnabled({
+            organizationId: orgId,
+            enabled: false,
+          })
+        )
+      );
+      toast.success(`Disabled gates for ${selectedOrgs.size} organizations`);
+      setSelectedOrgs(new Set());
+      setShowBulkDisableDialog(false);
+    } catch (error: unknown) {
+      const errorMessage =
+        error instanceof Error ? error.message : "Unknown error";
+      console.error("Error disabling gates:", error);
+      toast.error(errorMessage || "Failed to disable gates");
+    }
+  }, [selectedOrgs, setOrgTrustGatesEnabled]);
+
+  const handleSort = useCallback(
+    (field: SortField) => {
+      setSortField(field);
+      setSortDirection((prev) => {
+        if (sortField !== field) {
+          return "asc";
+        }
+        return prev === "asc" ? "desc" : "asc";
+      });
+      setCurrentPage(1);
+    },
+    [sortField]
+  );
+
   const isLoading = orgsStatus === undefined;
+  const isAllSelected =
+    displayedOrgs.length > 0 && selectedOrgs.size === displayedOrgs.length;
 
   return (
     <div className="min-h-screen bg-background p-4 sm:p-6 lg:p-8">
@@ -433,6 +739,49 @@ export default function FeatureFlagsPage() {
           </Card>
         </div>
 
+        {/* Bulk Actions */}
+        {selectedOrgs.size > 0 && (
+          <Card className="mb-6">
+            <CardContent className="pt-6">
+              <div className="flex flex-wrap items-center gap-2">
+                <span className="font-medium text-sm">
+                  {selectedOrgs.size} selected
+                </span>
+                <Button
+                  onClick={handleBulkEnableAdminDelegation}
+                  size="sm"
+                  variant="outline"
+                >
+                  Enable Admin Delegation
+                </Button>
+                <Button
+                  onClick={handleBulkEnableCoachOverrides}
+                  size="sm"
+                  variant="outline"
+                >
+                  Enable Coach Overrides
+                </Button>
+                <Button
+                  onClick={handleBulkDisableGates}
+                  size="sm"
+                  variant="destructive"
+                >
+                  Disable All Gates
+                </Button>
+                <Button
+                  onClick={() => {
+                    setSelectedOrgs(new Set());
+                  }}
+                  size="sm"
+                  variant="ghost"
+                >
+                  Clear Selection
+                </Button>
+              </div>
+            </CardContent>
+          </Card>
+        )}
+
         {/* Filters and Search */}
         <Card className="mb-6">
           <CardContent className="pt-6">
@@ -441,6 +790,7 @@ export default function FeatureFlagsPage() {
                 <Button
                   onClick={() => {
                     setFilterType("all");
+                    setCurrentPage(1);
                   }}
                   size="sm"
                   variant={filterType === "all" ? "default" : "outline"}
@@ -450,6 +800,7 @@ export default function FeatureFlagsPage() {
                 <Button
                   onClick={() => {
                     setFilterType("gates-disabled");
+                    setCurrentPage(1);
                   }}
                   size="sm"
                   variant={
@@ -461,6 +812,7 @@ export default function FeatureFlagsPage() {
                 <Button
                   onClick={() => {
                     setFilterType("admin-override");
+                    setCurrentPage(1);
                   }}
                   size="sm"
                   variant={
@@ -472,6 +824,7 @@ export default function FeatureFlagsPage() {
                 <Button
                   onClick={() => {
                     setFilterType("has-requests");
+                    setCurrentPage(1);
                   }}
                   size="sm"
                   variant={
@@ -483,6 +836,7 @@ export default function FeatureFlagsPage() {
                 <Button
                   onClick={() => {
                     setFilterType("has-issues");
+                    setCurrentPage(1);
                   }}
                   size="sm"
                   variant={filterType === "has-issues" ? "default" : "outline"}
@@ -492,6 +846,7 @@ export default function FeatureFlagsPage() {
                 <Button
                   onClick={() => {
                     setFilterType("recently-changed");
+                    setCurrentPage(1);
                   }}
                   size="sm"
                   variant={
@@ -508,6 +863,7 @@ export default function FeatureFlagsPage() {
                   className="pl-8"
                   onChange={(e) => {
                     setSearchQuery(e.target.value);
+                    setCurrentPage(1);
                   }}
                   placeholder="Search organizations..."
                   type="search"
@@ -521,26 +877,67 @@ export default function FeatureFlagsPage() {
         {/* Organizations Table */}
         <Card>
           <CardHeader>
-            <CardTitle>Organizations ({filteredOrgs.length})</CardTitle>
+            <CardTitle>Organizations ({totalFilteredOrgs})</CardTitle>
           </CardHeader>
           <CardContent>
             <div className="overflow-x-auto">
               <Table>
                 <TableHeader>
                   <TableRow>
-                    <TableHead>Organization</TableHead>
+                    <TableHead>
+                      <Checkbox
+                        checked={isAllSelected}
+                        onCheckedChange={handleSelectAll}
+                      />
+                    </TableHead>
+                    <TableHead>
+                      <button
+                        className="flex items-center gap-1 hover:text-foreground"
+                        onClick={() => {
+                          handleSort("name");
+                        }}
+                        type="button"
+                      >
+                        Organization
+                        <ArrowUpDown className="h-4 w-4" />
+                      </button>
+                    </TableHead>
                     <TableHead>Gates Enabled</TableHead>
                     <TableHead>Admin Delegation</TableHead>
                     <TableHead>Coach Overrides</TableHead>
                     <TableHead>Admin Override</TableHead>
-                    <TableHead>Individual Overrides</TableHead>
+                    <TableHead>
+                      <button
+                        className="flex items-center gap-1 hover:text-foreground"
+                        onClick={() => {
+                          handleSort("overrideCount");
+                        }}
+                        type="button"
+                      >
+                        Individual Overrides
+                        <ArrowUpDown className="h-4 w-4" />
+                      </button>
+                    </TableHead>
                     <TableHead>Pending Requests</TableHead>
+                    <TableHead>
+                      <button
+                        className="flex items-center gap-1 hover:text-foreground"
+                        onClick={() => {
+                          handleSort("lastChanged");
+                        }}
+                        type="button"
+                      >
+                        Last Changed
+                        <ArrowUpDown className="h-4 w-4" />
+                      </button>
+                    </TableHead>
+                    <TableHead>Actions</TableHead>
                   </TableRow>
                 </TableHeader>
                 <TableBody>
                   {isLoading && (
                     <TableRow>
-                      <TableCell colSpan={7}>
+                      <TableCell colSpan={10}>
                         <div className="flex items-center justify-center py-8">
                           <div className="text-center">
                             <Skeleton className="mx-auto mb-2 h-8 w-32" />
@@ -550,29 +947,95 @@ export default function FeatureFlagsPage() {
                       </TableCell>
                     </TableRow>
                   )}
-                  {!isLoading && filteredOrgs.length === 0 && (
+                  {!isLoading && displayedOrgs.length === 0 && (
                     <TableRow>
-                      <TableCell className="h-24 text-center" colSpan={7}>
+                      <TableCell className="h-24 text-center" colSpan={10}>
                         No organizations found
                       </TableCell>
                     </TableRow>
                   )}
                   {!isLoading &&
-                    filteredOrgs.length > 0 &&
-                    filteredOrgs.map((org) => (
+                    displayedOrgs.length > 0 &&
+                    displayedOrgs.map((org) => (
                       <OrganizationTableRow
+                        isSelected={selectedOrgs.has(org.orgId)}
                         key={org.orgId}
+                        onResetToDefault={handleResetToDefault}
                         onToggleAdminDelegation={handleToggleAdminDelegation}
                         onToggleCoachOverrides={handleToggleCoachOverrides}
                         onToggleGates={handleToggleGates}
+                        onToggleSelection={handleToggleSelection}
+                        onViewDetails={handleViewDetails}
                         org={org}
                       />
                     ))}
                 </TableBody>
               </Table>
             </div>
+
+            {/* Pagination */}
+            {totalPages > 1 && (
+              <div className="mt-4 flex items-center justify-between">
+                <p className="text-muted-foreground text-sm">
+                  Showing {(currentPage - 1) * itemsPerPage + 1} to{" "}
+                  {Math.min(currentPage * itemsPerPage, totalFilteredOrgs)} of{" "}
+                  {totalFilteredOrgs} organizations
+                </p>
+                <div className="flex items-center gap-2">
+                  <Button
+                    disabled={currentPage === 1}
+                    onClick={() => {
+                      setCurrentPage((prev) => prev - 1);
+                    }}
+                    size="sm"
+                    variant="outline"
+                  >
+                    <ChevronLeft className="h-4 w-4" />
+                    Previous
+                  </Button>
+                  <span className="text-sm">
+                    Page {currentPage} of {totalPages}
+                  </span>
+                  <Button
+                    disabled={currentPage === totalPages}
+                    onClick={() => {
+                      setCurrentPage((prev) => prev + 1);
+                    }}
+                    size="sm"
+                    variant="outline"
+                  >
+                    Next
+                    <ChevronRight className="h-4 w-4" />
+                  </Button>
+                </div>
+              </div>
+            )}
           </CardContent>
         </Card>
+
+        {/* Bulk Disable Confirmation Dialog */}
+        <AlertDialog
+          onOpenChange={setShowBulkDisableDialog}
+          open={showBulkDisableDialog}
+        >
+          <AlertDialogContent>
+            <AlertDialogHeader>
+              <AlertDialogTitle>Disable Trust Gates</AlertDialogTitle>
+              <AlertDialogDescription>
+                This will disable trust gates for {selectedOrgs.size}{" "}
+                organizations. All coaches in these organizations will gain
+                access to the Sent to Parents tab regardless of their trust
+                level. This action can be reversed later.
+              </AlertDialogDescription>
+            </AlertDialogHeader>
+            <AlertDialogFooter>
+              <AlertDialogCancel>Cancel</AlertDialogCancel>
+              <AlertDialogAction onClick={confirmBulkDisableGates}>
+                Disable Gates
+              </AlertDialogAction>
+            </AlertDialogFooter>
+          </AlertDialogContent>
+        </AlertDialog>
       </div>
     </div>
   );

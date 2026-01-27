@@ -24,6 +24,7 @@ import { v } from "convex/values";
 import { components } from "../_generated/api";
 import type { Id } from "../_generated/dataModel";
 import { mutation, query } from "../_generated/server";
+import { authComponent } from "../auth";
 import type { Doc as BetterAuthDoc } from "../betterAuth/_generated/dataModel";
 
 /**
@@ -125,7 +126,7 @@ export const getOrgFeatureFlagStatus = query({
     }
 
     // Get all coaches in org (members with functional role "coach")
-    const allMembers = (await ctx.runQuery(
+    const allMembersResult = await ctx.runQuery(
       components.betterAuth.adapter.findMany,
       {
         model: "member",
@@ -135,7 +136,9 @@ export const getOrgFeatureFlagStatus = query({
           numItems: 1000,
         },
       }
-    )) as BetterAuthDoc<"member">[];
+    );
+
+    const allMembers = allMembersResult.page as BetterAuthDoc<"member">[];
 
     const coaches = allMembers.filter((m) =>
       m.functionalRoles?.includes("coach")
@@ -317,30 +320,26 @@ export const getAllOrgsFeatureFlagStatus = query({
     })
   ),
   handler: async (ctx, _args) => {
-    // Get current user to verify platform staff
-    const identity = await ctx.auth.getUserIdentity();
-    if (!identity) {
-      throw new Error("Not authenticated");
-    }
-
-    const user = (await ctx.runQuery(components.betterAuth.adapter.findOne, {
-      model: "user",
-      where: [{ field: "userId", value: identity.subject }],
-    })) as BetterAuthDoc<"user"> | null;
-
+    // Get current user to verify platform staff (using the correct pattern)
+    const user = await authComponent.safeGetAuthUser(ctx);
     if (!user?.isPlatformStaff) {
       throw new Error("Unauthorized: Platform staff only");
     }
 
-    // Get all organizations
-    const orgs = (await ctx.runQuery(components.betterAuth.adapter.findMany, {
-      model: "organization",
-      where: [],
-      paginationOpts: {
-        cursor: null,
-        numItems: 1000,
-      },
-    })) as BetterAuthDoc<"organization">[];
+    // Get all organizations (using same pattern as getAllUsers)
+    const orgsResult = await ctx.runQuery(
+      components.betterAuth.adapter.findMany,
+      {
+        model: "organization",
+        where: [],
+        paginationOpts: {
+          cursor: null,
+          numItems: 1000,
+        },
+      }
+    );
+
+    const orgs = orgsResult.page as BetterAuthDoc<"organization">[];
 
     // Build status for each org
     const statuses = await Promise.all(
@@ -399,18 +398,9 @@ export const setPlatformFeatureFlags = mutation({
     success: v.boolean(),
   }),
   handler: async (ctx, args) => {
-    // Verify platform staff
-    const identity = await ctx.auth.getUserIdentity();
-    if (!identity) {
-      throw new Error("Not authenticated");
-    }
-
-    const user = (await ctx.runQuery(components.betterAuth.adapter.findOne, {
-      model: "user",
-      where: [{ field: "userId", value: identity.subject }],
-    })) as BetterAuthDoc<"user"> | null;
-
-    if (!user?.isPlatformStaff) {
+    // Verify platform staff (using working pattern)
+    const currentUser = await authComponent.safeGetAuthUser(ctx);
+    if (!currentUser?.isPlatformStaff) {
       throw new Error("Unauthorized: Platform staff only");
     }
 
@@ -447,18 +437,9 @@ export const setOrgTrustGatesEnabled = mutation({
     success: v.boolean(),
   }),
   handler: async (ctx, args) => {
-    // Verify platform staff
-    const identity = await ctx.auth.getUserIdentity();
-    if (!identity) {
-      throw new Error("Not authenticated");
-    }
-
-    const user = (await ctx.runQuery(components.betterAuth.adapter.findOne, {
-      model: "user",
-      where: [{ field: "userId", value: identity.subject }],
-    })) as BetterAuthDoc<"user"> | null;
-
-    if (!user?.isPlatformStaff) {
+    // Verify platform staff (using working pattern)
+    const currentUser = await authComponent.safeGetAuthUser(ctx);
+    if (!currentUser?.isPlatformStaff) {
       throw new Error("Unauthorized: Platform staff only");
     }
 
@@ -489,18 +470,9 @@ export const setAdminBlanketOverride = mutation({
     success: v.boolean(),
   }),
   handler: async (ctx, args) => {
-    // Verify authenticated
-    const identity = await ctx.auth.getUserIdentity();
-    if (!identity) {
-      throw new Error("Not authenticated");
-    }
-
-    const user = (await ctx.runQuery(components.betterAuth.adapter.findOne, {
-      model: "user",
-      where: [{ field: "userId", value: identity.subject }],
-    })) as BetterAuthDoc<"user"> | null;
-
-    if (!user) {
+    // Verify authenticated (using working pattern)
+    const currentUser = await authComponent.safeGetAuthUser(ctx);
+    if (!currentUser) {
       throw new Error("User not found");
     }
 
@@ -511,7 +483,7 @@ export const setAdminBlanketOverride = mutation({
         model: "member",
         where: [
           { field: "organizationId", value: args.organizationId },
-          { field: "userId", value: identity.subject },
+          { field: "userId", value: currentUser._id },
         ],
       }
     )) as BetterAuthDoc<"member"> | null;
@@ -544,7 +516,7 @@ export const setAdminBlanketOverride = mutation({
         where: [{ field: "_id", value: args.organizationId, operator: "eq" }],
         update: {
           adminOverrideTrustGates: args.override,
-          adminOverrideSetBy: identity.subject,
+          adminOverrideSetBy: currentUser._id,
           adminOverrideSetAt: Date.now(),
         },
       },
@@ -568,18 +540,9 @@ export const grantCoachOverride = mutation({
     success: v.boolean(),
   }),
   handler: async (ctx, args) => {
-    // Verify authenticated
-    const identity = await ctx.auth.getUserIdentity();
-    if (!identity) {
-      throw new Error("Not authenticated");
-    }
-
-    const user = (await ctx.runQuery(components.betterAuth.adapter.findOne, {
-      model: "user",
-      where: [{ field: "userId", value: identity.subject }],
-    })) as BetterAuthDoc<"user"> | null;
-
-    if (!user) {
+    // Verify authenticated (using working pattern)
+    const currentUser = await authComponent.safeGetAuthUser(ctx);
+    if (!currentUser) {
       throw new Error("User not found");
     }
 
@@ -590,7 +553,7 @@ export const grantCoachOverride = mutation({
         model: "member",
         where: [
           { field: "organizationId", value: args.organizationId },
-          { field: "userId", value: identity.subject },
+          { field: "userId", value: currentUser._id },
         ],
       }
     )) as BetterAuthDoc<"member"> | null;
@@ -628,7 +591,7 @@ export const grantCoachOverride = mutation({
       // Update existing
       await ctx.db.patch(coachPrefs._id, {
         trustGateOverride: true,
-        overrideGrantedBy: identity.subject,
+        overrideGrantedBy: currentUser._id,
         overrideGrantedAt: Date.now(),
         overrideReason: args.reason,
         overrideExpiresAt: args.expiresAt,
@@ -640,7 +603,7 @@ export const grantCoachOverride = mutation({
         coachId: args.coachId,
         organizationId: args.organizationId,
         trustGateOverride: true,
-        overrideGrantedBy: identity.subject,
+        overrideGrantedBy: currentUser._id,
         overrideGrantedAt: Date.now(),
         overrideReason: args.reason,
         overrideExpiresAt: args.expiresAt,
@@ -665,18 +628,9 @@ export const revokeCoachOverride = mutation({
     success: v.boolean(),
   }),
   handler: async (ctx, args) => {
-    // Verify authenticated
-    const identity = await ctx.auth.getUserIdentity();
-    if (!identity) {
-      throw new Error("Not authenticated");
-    }
-
-    const user = (await ctx.runQuery(components.betterAuth.adapter.findOne, {
-      model: "user",
-      where: [{ field: "userId", value: identity.subject }],
-    })) as BetterAuthDoc<"user"> | null;
-
-    if (!user) {
+    // Verify authenticated (using working pattern)
+    const currentUser = await authComponent.safeGetAuthUser(ctx);
+    if (!currentUser) {
       throw new Error("User not found");
     }
 
@@ -687,7 +641,7 @@ export const revokeCoachOverride = mutation({
         model: "member",
         where: [
           { field: "organizationId", value: args.organizationId },
-          { field: "userId", value: identity.subject },
+          { field: "userId", value: currentUser._id },
         ],
       }
     )) as BetterAuthDoc<"member"> | null;
@@ -732,14 +686,14 @@ export const requestCoachOverride = mutation({
     requestId: v.id("coachOverrideRequests"),
   }),
   handler: async (ctx, args) => {
-    // Verify authenticated
-    const identity = await ctx.auth.getUserIdentity();
-    if (!identity) {
-      throw new Error("Not authenticated");
+    // Verify authenticated (using working pattern)
+    const currentUser = await authComponent.safeGetAuthUser(ctx);
+    if (!currentUser) {
+      throw new Error("User not found");
     }
 
     // Verify user is the coach making the request
-    if (identity.subject !== args.coachId) {
+    if (currentUser._id !== args.coachId) {
       throw new Error("Can only request override for yourself");
     }
 
@@ -802,18 +756,9 @@ export const reviewCoachOverrideRequest = mutation({
     success: v.boolean(),
   }),
   handler: async (ctx, args) => {
-    // Verify authenticated
-    const identity = await ctx.auth.getUserIdentity();
-    if (!identity) {
-      throw new Error("Not authenticated");
-    }
-
-    const user = (await ctx.runQuery(components.betterAuth.adapter.findOne, {
-      model: "user",
-      where: [{ field: "userId", value: identity.subject }],
-    })) as BetterAuthDoc<"user"> | null;
-
-    if (!user) {
+    // Verify authenticated (using working pattern)
+    const currentUser = await authComponent.safeGetAuthUser(ctx);
+    if (!currentUser) {
       throw new Error("User not found");
     }
 
@@ -830,7 +775,7 @@ export const reviewCoachOverrideRequest = mutation({
         model: "member",
         where: [
           { field: "organizationId", value: request.organizationId },
-          { field: "userId", value: identity.subject },
+          { field: "userId", value: currentUser._id },
         ],
       }
     )) as BetterAuthDoc<"member"> | null;
@@ -845,7 +790,7 @@ export const reviewCoachOverrideRequest = mutation({
     // Update request
     await ctx.db.patch(args.requestId, {
       status: args.approved ? "approved" : "denied",
-      reviewedBy: identity.subject,
+      reviewedBy: currentUser._id,
       reviewedAt: Date.now(),
       reviewNotes: args.reviewNotes,
     });
@@ -866,7 +811,7 @@ export const reviewCoachOverrideRequest = mutation({
         // Update existing
         await ctx.db.patch(coachPrefs._id, {
           trustGateOverride: true,
-          overrideGrantedBy: identity.subject,
+          overrideGrantedBy: currentUser._id,
           overrideGrantedAt: Date.now(),
           overrideReason: request.reason,
           updatedAt: Date.now(),
@@ -877,7 +822,7 @@ export const reviewCoachOverrideRequest = mutation({
           coachId: request.coachId,
           organizationId: request.organizationId,
           trustGateOverride: true,
-          overrideGrantedBy: identity.subject,
+          overrideGrantedBy: currentUser._id,
           overrideGrantedAt: Date.now(),
           overrideReason: request.reason,
           createdAt: Date.now(),

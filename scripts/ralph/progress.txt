@@ -7671,3 +7671,51 @@ Core functionality is solid with working toggles, filters, search, and real-time
 - Initially imported `grantCoachOverride` mutation but never used it (manual granting not implemented in this story - requests go through approval flow instead)
 
 ---
+
+---
+## 2026-01-27 22:50 - CRITICAL BUG FIX - Better Auth Pattern in US-P8-022/023
+**Fixed By**: Manual review after Ralph implementation
+**Issue**: All `/platform/feature-flags` queries failed with "Unauthorized: Platform staff only"
+**Root Cause**: Ralph used incorrect Better Auth authentication pattern
+
+### The Bug
+Ralph wrote custom auth code instead of following existing patterns:
+```typescript
+// ❌ Ralph's broken pattern
+const identity = await ctx.auth.getUserIdentity();
+const user = await ctx.runQuery(components.betterAuth.adapter.findOne, {
+  where: [{ field: "userId", value: identity.subject }],
+});
+```
+
+Problem: Queries by `userId` field (often null), not the actual user ID.
+
+### The Fix  
+Use the exact pattern from working `/platform` pages:
+```typescript
+// ✅ Correct pattern from models/users.ts
+const currentUser = await authComponent.safeGetAuthUser(ctx);
+if (!currentUser?.isPlatformStaff) {
+  throw new Error("Unauthorized: Platform staff only");
+}
+```
+
+### Files Fixed
+- `packages/backend/convex/models/trustGatePermissions.ts` - All 8 queries
+- Also fixed: `findMany` returns `{ page: [] }` not array directly
+
+### Documentation Created
+- `scripts/ralph/AUTH_PATTERN_CRITICAL_FIX.md` - Full explanation for future iterations
+
+### Key Learnings for Ralph
+1. **ALWAYS copy working auth patterns** - Don't invent new auth code
+2. **Reference files**: `models/users.ts::getAllUsers` and `updatePlatformStaffStatus`
+3. **Better Auth adapter returns**: `findMany` → `result.page`, not direct array
+4. **Test auth immediately** - This bug blocked entire feature for 1+ hour
+
+### Impact
+- Feature now works correctly for all platform staff users
+- `/platform/feature-flags` page fully functional
+- All mutations properly authenticated
+
+---

@@ -27,6 +27,7 @@
 17. [Coach Learning & Feedback Loop](#17-coach-learning--feedback-loop)
 18. [Prompt Flexibility & Tone Controls](#18-prompt-flexibility--tone-controls)
 19. [Team Insights Collaboration Hub](#19-team-insights-collaboration-hub)
+20. [Coach Impact Visibility Gap](#20-coach-impact-visibility-gap)
 
 ---
 
@@ -3652,6 +3653,285 @@ sessionPrep: defineTable({
 | Session prep completion | N/A | 60% of sessions | Session prep usage |
 | Time to prepare for session | Unknown | -25% | User survey |
 | Coach satisfaction with collaboration | Unknown | 4.5/5 | In-app feedback |
+
+---
+
+## 20. Coach Impact Visibility Gap
+
+This section documents a significant UX gap: coaches at Level 0-1 have **no visibility** into the results of their work, while Level 2+ coaches get the "Sent to Parents" tab. All coaches need to answer basic questions about their coaching impact.
+
+### 20.1 The Problem
+
+#### Questions Coaches Can't Answer (Level 0-1)
+
+| Question | Current Answer | Impact |
+|----------|----------------|--------|
+| "What did I send to Emma's parent last week?" | ❌ No way to check | Coach can't follow up on conversations |
+| "Did that skill rating actually get applied?" | ❌ Must check player passport manually | No confidence in system |
+| "How many insights did I approve this month?" | ❌ No tracking | Can't measure own productivity |
+| "Which voice notes led to player updates?" | ❌ No traceability | Can't learn from patterns |
+| "What summaries are pending delivery?" | ❌ No visibility | No understanding of parent communication |
+
+#### Visibility Asymmetry by Trust Level
+
+```
+┌─────────────────────────────────────────────────────────────────────────────────┐
+│                    COACH VISIBILITY BY TRUST LEVEL                               │
+└─────────────────────────────────────────────────────────────────────────────────┘
+
+LEVEL 0-1 COACHES (Manual Review Required)
+──────────────────────────────────────────
+┌─────────────────────────────────────────────────────────────────────────────────┐
+│ WHAT THEY DO:                          │ WHAT THEY CAN SEE AFTER:               │
+│ ───────────────                        │ ──────────────────────────             │
+│ • Record voice notes                   │ ✅ Voice notes in History tab          │
+│ • Review every insight manually        │ ❌ NO "where did this go" tracking     │
+│ • Approve every parent summary         │ ❌ NO sent summary history             │
+│ • Fix unmatched players                │ ❌ NO applied insight history          │
+│ • Assign teams to observations         │ ❌ NO parent response visibility       │
+│                                        │ ❌ NO "my impact" dashboard            │
+└─────────────────────────────────────────────────────────────────────────────────┘
+
+LEVEL 2+ COACHES (AI-Assisted)
+──────────────────────────────
+┌─────────────────────────────────────────────────────────────────────────────────┐
+│ WHAT THEY DO:                          │ WHAT THEY CAN SEE AFTER:               │
+│ ───────────────                        │ ──────────────────────────             │
+│ • Record voice notes                   │ ✅ Voice notes in History tab          │
+│ • AI auto-applies eligible insights    │ ✅ Auto-Applied tab (with undo)        │
+│ • AI auto-approves parent summaries    │ ✅ Sent to Parents tab (30 days)       │
+│ • Review edge cases only               │ ✅ Parent view/acknowledge status      │
+│                                        │ ✅ Confidence scores on insights       │
+│                                        │ ✅ "Would auto-apply" predictions      │
+└─────────────────────────────────────────────────────────────────────────────────┘
+
+RESULT: Level 0-1 coaches do MORE work but have LESS visibility into outcomes.
+```
+
+### 20.2 Current Tab Availability
+
+| Tab | Level 0-1 | Level 2+ | Shows |
+|-----|-----------|----------|-------|
+| **New** | ✅ | ✅ | Recording interface |
+| **Parents** | ✅ (pending only) | ✅ (pending only) | Summaries awaiting approval |
+| **Insights** | ✅ (pending only) | ✅ (pending + auto-applied) | Insights needing action |
+| **Team** | ✅ | ✅ | Fellow coaches' insights |
+| **Sent to Parents** | ❌ **HIDDEN** | ✅ | History of sent summaries |
+| **History** | ✅ | ✅ | Voice note archive |
+| **Auto-Applied** (sub-tab) | ❌ Empty state | ✅ | Auto-applied insight history |
+
+### 20.3 What Level 0-1 Coaches Are Missing
+
+#### 1. Sent Summary History
+
+**Current State:** After a Level 0-1 coach approves a parent summary, it disappears from the Parents tab. They have **no way** to:
+- See what was sent
+- Check if parent viewed it
+- Review what they communicated last week
+- Follow up on injury notifications
+
+**Impact:** Coaches can't maintain continuity in parent communication.
+
+#### 2. Applied Insight Traceability
+
+**Current State:** When a Level 0-1 coach applies an insight, it's marked "applied" in the embedded array but there's **no applied history view**.
+
+**Impact:** Coaches can't:
+- See which insights led to profile changes
+- Understand patterns in their coaching notes
+- Verify data was correctly applied
+- Learn what categories they most often create
+
+#### 3. My Impact Dashboard
+
+**Current State:** No aggregate view of coaching activity and outcomes.
+
+**Impact:** Coaches can't answer:
+- "How productive was my week?"
+- "What value did my voice notes create?"
+- "Am I improving over time?"
+
+### 20.4 Proposed Solution: "My Impact" Tab
+
+Add a new **My Impact** tab visible to **ALL coaches** (Level 0+):
+
+```
+┌─────────────────────────────────────────────────────────────────────────────────┐
+│ MY IMPACT                                                   [This Month ▼]      │
+├─────────────────────────────────────────────────────────────────────────────────┤
+│                                                                                  │
+│  ┌──────────────┐  ┌──────────────┐  ┌──────────────┐  ┌──────────────┐        │
+│  │     12       │  │      8       │  │      5       │  │     85%      │        │
+│  │ Voice Notes  │  │   Insights   │  │  Summaries   │  │   Parent     │        │
+│  │   Created    │  │   Applied    │  │    Sent      │  │   View Rate  │        │
+│  └──────────────┘  └──────────────┘  └──────────────┘  └──────────────┘        │
+│                                                                                  │
+├──────────────────────────────────────────────────────────────────────────────────┤
+│                                                                                  │
+│  SENT TO PARENTS                                               [View All →]     │
+│  ─────────────────                                                               │
+│  ┌────────────────────────────────────────────────────────────────────────────┐  │
+│  │ 👁 Emma Barlow - "Great improvement in tackling..."                        │  │
+│  │    Sent: 2 hours ago | Viewed by Emma's Mum | ✓ Acknowledged               │  │
+│  └────────────────────────────────────────────────────────────────────────────┘  │
+│  ┌────────────────────────────────────────────────────────────────────────────┐  │
+│  │ ✉️ Sarah Malone - "Minor ankle knock during training..."                   │  │
+│  │    Sent: Yesterday | Delivered (not yet viewed)                            │  │
+│  └────────────────────────────────────────────────────────────────────────────┘  │
+│                                                                                  │
+│  APPLIED TO PLAYER PROFILES                                    [View All →]     │
+│  ──────────────────────────────                                                  │
+│  ┌────────────────────────────────────────────────────────────────────────────┐  │
+│  │ ⭐ Emma Barlow - Tackling: 3 → 4                                           │  │
+│  │    From: "Training session Jan 26" | Applied: 2 hours ago                  │  │
+│  │    [View in Passport →]                                                    │  │
+│  └────────────────────────────────────────────────────────────────────────────┘  │
+│  ┌────────────────────────────────────────────────────────────────────────────┐  │
+│  │ 🏥 Sarah Malone - Injury: Ankle (minor) added                              │  │
+│  │    From: "Training session Jan 26" | Applied: 2 hours ago                  │  │
+│  │    [View Record →]                                                         │  │
+│  └────────────────────────────────────────────────────────────────────────────┘  │
+│                                                                                  │
+│  TEAM OBSERVATIONS                                             [View All →]     │
+│  ──────────────────                                                              │
+│  ┌────────────────────────────────────────────────────────────────────────────┐  │
+│  │ 👥 U14 Female - "Great team spirit at training"                            │  │
+│  │    From: "Training session Jan 26" | Applied: Yesterday                    │  │
+│  │    [View in Team Insights →]                                               │  │
+│  └────────────────────────────────────────────────────────────────────────────┘  │
+│                                                                                  │
+└─────────────────────────────────────────────────────────────────────────────────┘
+```
+
+### 20.5 Implementation Approach
+
+#### Option A: Extend Existing Tabs
+
+| Change | Effort | Benefit |
+|--------|--------|---------|
+| Show "Sent to Parents" tab to ALL levels | Low | Immediate visibility |
+| Add "Applied History" section to History tab | Medium | Traceability |
+| Add summary stats to dashboard header | Low | Quick impact view |
+
+**Pros:** Minimal new code, uses existing components
+**Cons:** Fragmented experience, still no unified "my impact" view
+
+#### Option B: New "My Impact" Tab (Recommended)
+
+| Change | Effort | Benefit |
+|--------|--------|---------|
+| New `my-impact-tab.tsx` component | Medium | Unified experience |
+| New `getCoachImpactSummary` query | Medium | Aggregate data |
+| Reuse existing summary/insight components | Low | Consistent UI |
+
+**Pros:** Single destination for all impact questions, clear value proposition
+**Cons:** New tab increases navigation complexity
+
+### 20.6 Data Already Available
+
+The data needed for "My Impact" **already exists**:
+
+| Data | Source | Query Exists? |
+|------|--------|---------------|
+| Sent summaries | `coachParentSummaries` | ✅ `getAutoApprovedSummaries` (extend filter) |
+| Parent view status | `coachParentSummaries.viewedAt` | ✅ Available |
+| Applied insights | `voiceNoteInsights` (status=applied) | ⚠️ Need new query |
+| Skill changes | `skillAssessments` (source=voice_note) | ⚠️ Need new query |
+| Injury records | `playerInjuries` (source=voice_note) | ⚠️ Need new query |
+| Team observations | `teamObservations` | ✅ `getOrganizationObservations` |
+
+#### Proposed New Query: `getCoachImpactSummary`
+
+```typescript
+export const getCoachImpactSummary = query({
+  args: {
+    coachId: v.string(),
+    organizationId: v.string(),
+    dateRange: v.object({
+      start: v.number(),
+      end: v.number(),
+    }),
+  },
+  returns: v.object({
+    voiceNotesCreated: v.number(),
+    insightsApplied: v.number(),
+    insightsDismissed: v.number(),
+    summariesSent: v.number(),
+    summariesViewed: v.number(),
+    summariesAcknowledged: v.number(),
+    parentViewRate: v.number(),
+    skillChanges: v.array(v.object({
+      playerName: v.string(),
+      skillName: v.string(),
+      previousValue: v.optional(v.number()),
+      newValue: v.number(),
+      appliedAt: v.number(),
+      voiceNoteId: v.id("voiceNotes"),
+    })),
+    injuriesRecorded: v.array(v.object({
+      playerName: v.string(),
+      type: v.string(),
+      severity: v.string(),
+      appliedAt: v.number(),
+      voiceNoteId: v.id("voiceNotes"),
+    })),
+    recentSummaries: v.array(v.object({
+      playerName: v.string(),
+      summaryPreview: v.string(),
+      sentAt: v.number(),
+      status: v.string(),
+      viewedAt: v.optional(v.number()),
+      acknowledgedAt: v.optional(v.number()),
+    })),
+    teamObservations: v.array(v.object({
+      teamName: v.string(),
+      title: v.string(),
+      appliedAt: v.number(),
+    })),
+  }),
+  handler: async (ctx, args) => {
+    // Aggregate from multiple tables
+    // voiceNotes, voiceNoteInsights, coachParentSummaries,
+    // skillAssessments, playerInjuries, teamObservations
+  },
+});
+```
+
+### 20.7 UX Recommendations
+
+#### For All Coaches (Level 0+)
+
+1. **Always show "My Impact" tab** - Don't hide the destination for impact visibility
+2. **Include clickable links** - Every item links to source note or target profile
+3. **Show date filtering** - This week / This month / All time
+4. **Highlight engagement** - Parent view rate is a motivating metric
+
+#### For Level 0-1 Specifically
+
+1. **Show sent summary history** - Same as Level 2+, just no auto-approval
+2. **Show applied insight history** - Even though manual, still valuable
+3. **Encourage with progress** - "12 insights applied this month!"
+4. **Link to trust level progress** - "5 more reviews to unlock auto-apply"
+
+### 20.8 Priority & Effort
+
+| Feature | Priority | Effort | Value |
+|---------|----------|--------|-------|
+| Show "Sent to Parents" to Level 0-1 | 🔴 High | Low | Immediate gap fix |
+| Add `getCoachImpactSummary` query | 🔴 High | Medium | Enables dashboard |
+| Create "My Impact" tab component | 🔴 High | Medium | Unified experience |
+| Clickable links to passports/records | 🟡 Medium | Low | Better navigation |
+| Date range filtering | 🟡 Medium | Low | Usability |
+| Export impact report | 🟢 Low | Medium | Coach portfolios |
+
+### 20.9 Success Criteria
+
+| Metric | Current | Target |
+|--------|---------|--------|
+| Coaches who can answer "what did I send?" | 0% (L0-1) | 100% |
+| Time to find sent summary | N/A | < 10 seconds |
+| Coach confidence in system | Unknown | Survey: 4.5/5 |
+| Support tickets about "where did it go" | Unknown | -80% |
 
 ---
 

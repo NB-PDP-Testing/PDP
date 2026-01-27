@@ -28,6 +28,7 @@
 18. [Prompt Flexibility & Tone Controls](#18-prompt-flexibility--tone-controls)
 19. [Team Insights Collaboration Hub](#19-team-insights-collaboration-hub)
 20. [Coach Impact Visibility Gap](#20-coach-impact-visibility-gap)
+21. [WhatsApp Integration](#21-whatsapp-integration)
 
 ---
 
@@ -4223,13 +4224,434 @@ export const getCoachImpactSummary = query({
 
 ---
 
+## 21. WhatsApp Integration
+
+This section documents the complete WhatsApp voice notes integration, enabling coaches to send voice notes and text messages via WhatsApp that automatically flow into the PlayerARC system.
+
+### 21.1 Architecture Overview
+
+```
+┌─────────────────────────────────────────────────────────────────────────────────┐
+│                       WHATSAPP VOICE NOTES FLOW                                  │
+└─────────────────────────────────────────────────────────────────────────────────┘
+
+┌──────────────┐     ┌──────────────┐     ┌──────────────────────────────────────┐
+│   Coach      │     │   Twilio     │     │         PlayerARC Backend            │
+│  WhatsApp    │────▶│   Webhook    │────▶│                                      │
+└──────────────┘     └──────────────┘     │  ┌──────────────────────────────────┐│
+                                          │  │ HTTP Handler: /whatsapp/incoming ││
+                                          │  │ • Parse Twilio form data         ││
+                                          │  │ • Extract phone, message, media  ││
+                                          │  └─────────────┬────────────────────┘│
+                                          │                │                     │
+                                          │                ▼                     │
+                                          │  ┌──────────────────────────────────┐│
+                                          │  │ processIncomingMessage (Action)  ││
+                                          │  │ • Normalize phone number         ││
+                                          │  │ • Look up coach by phone         ││
+                                          │  │ • Detect organization (see 21.3) ││
+                                          │  │ • Download media if audio        ││
+                                          │  └─────────────┬────────────────────┘│
+                                          │                │                     │
+                                          │       ┌────────┴────────┐            │
+                                          │       ▼                 ▼            │
+                                          │  ┌──────────┐    ┌──────────┐        │
+                                          │  │  Audio   │    │   Text   │        │
+                                          │  │ Message  │    │ Message  │        │
+                                          │  └────┬─────┘    └────┬─────┘        │
+                                          │       │               │              │
+                                          │       ▼               ▼              │
+                                          │  ┌──────────────────────────────────┐│
+                                          │  │ createRecordedNote /             ││
+                                          │  │ createTypedNote                  ││
+                                          │  │ source: "whatsapp_audio" or      ││
+                                          │  │         "whatsapp_text"          ││
+                                          │  └─────────────┬────────────────────┘│
+                                          │                │                     │
+                                          │                ▼                     │
+                                          │  ┌──────────────────────────────────┐│
+                                          │  │ AI Pipeline (same as app)        ││
+                                          │  │ • Transcribe (audio only)        ││
+                                          │  │ • Extract insights               ││
+                                          │  │ • Match players                  ││
+                                          │  └─────────────┬────────────────────┘│
+                                          │                │                     │
+                                          │                ▼                     │
+                                          │  ┌──────────────────────────────────┐│
+                                          │  │ checkAndAutoApply (Scheduled)    ││
+                                          │  │ • 30 sec delay (audio)           ││
+                                          │  │ • 15 sec delay (text)            ││
+                                          │  │ • Trust-based auto-apply         ││
+                                          │  └─────────────┬────────────────────┘│
+                                          │                │                     │
+                                          └────────────────┼─────────────────────┘
+                                                           │
+                                                           ▼
+                                          ┌──────────────────────────────────────┐
+                                          │ WhatsApp Reply to Coach              │
+                                          │ "Analysis complete!                  │
+                                          │  Auto-applied (3): John: Skill...    │
+                                          │  Needs review (2): Michael: Injury..."│
+                                          └──────────────────────────────────────┘
+```
+
+### 21.2 Webhook Handler
+
+**Location:** `packages/backend/convex/http.ts`
+
+**Endpoints:**
+- `POST /whatsapp/incoming` - Receives Twilio webhooks
+- `GET /whatsapp/incoming` - Verification endpoint
+
+**Twilio Payload Fields:**
+
+| Field | Description | Example |
+|-------|-------------|---------|
+| `MessageSid` | Unique message ID | `SM1234567890abcdef` |
+| `AccountSid` | Twilio account ID | `AC1234567890abcdef` |
+| `From` | Sender phone | `whatsapp:+353851234567` |
+| `To` | Recipient phone | `whatsapp:+14155238886` |
+| `Body` | Text content | `"Emma did great at training"` |
+| `NumMedia` | Media attachment count | `1` |
+| `MediaUrl0` | Media URL (if present) | `https://api.twilio.com/...` |
+| `MediaContentType0` | Media MIME type | `audio/ogg` |
+
+### 21.3 Multi-Organization Detection
+
+Coaches who belong to multiple organizations need context detection. The system uses a cascading fallback strategy:
+
+```
+┌─────────────────────────────────────────────────────────────────────────────────┐
+│                    MULTI-ORG DETECTION CASCADE                                   │
+└─────────────────────────────────────────────────────────────────────────────────┘
+
+1. SINGLE ORG CHECK
+   └─▶ Coach only in 1 org? → Use it ✓
+
+2. EXPLICIT MENTION
+   └─▶ Message contains "@OrgName:" or "for OrgName" or "at OrgName"? → Use it ✓
+
+3. TEAM NAME MATCH
+   └─▶ Message mentions a team name from coach's assignments? → Use that org ✓
+
+4. AGE GROUP MATCH
+   └─▶ Extract patterns: "u12", "u-12", "under 12", "twelves", "senior"
+       Match to coach's teams? → Use that org ✓
+
+5. SPORT MATCH
+   └─▶ Detect: "soccer/football", "gaa/gaelic", "hurling", "rugby", etc.
+       Match to coach's sport assignments? → Use that org ✓
+
+6. PLAYER NAME MATCH
+   └─▶ Search for player names from coach's teams in message? → Use that org ✓
+
+7. COACH NAME MATCH
+   └─▶ Find other coaches mentioned who share teams? → Use that org ✓
+
+8. SESSION MEMORY (2-hour timeout)
+   └─▶ Coach sent a message to this org recently? → Use same org ✓
+
+9. ASK USER
+   └─▶ None matched? → Send WhatsApp asking coach to select:
+       "Which club is this for?
+        1. St. Patrick's GAA
+        2. Dublin Soccer Academy
+        Reply with number or name"
+```
+
+**Implementation:** `packages/backend/convex/models/whatsappMessages.ts`
+
+### 21.4 WhatsApp-Specific Database Tables
+
+#### `whatsappMessages` - Raw Message Storage
+
+```typescript
+whatsappMessages: defineTable({
+  // Twilio identifiers
+  messageSid: v.string(),
+  accountSid: v.string(),
+
+  // Phone numbers (E.164 format, without "whatsapp:" prefix)
+  fromNumber: v.string(),
+  toNumber: v.string(),
+
+  // Message content
+  messageType: v.union(
+    v.literal("text"),
+    v.literal("audio"),
+    v.literal("image"),
+    v.literal("video"),
+    v.literal("document")
+  ),
+  body: v.optional(v.string()),
+  mediaUrl: v.optional(v.string()),
+  mediaContentType: v.optional(v.string()),
+  mediaStorageId: v.optional(v.id("_storage")),
+
+  // Coach linking
+  coachId: v.optional(v.string()),
+  coachName: v.optional(v.string()),
+  organizationId: v.optional(v.string()),
+
+  // Processing status
+  status: v.union(
+    v.literal("received"),
+    v.literal("processing"),
+    v.literal("completed"),
+    v.literal("failed"),
+    v.literal("unmatched")
+  ),
+  errorMessage: v.optional(v.string()),
+
+  // Link to created voice note
+  voiceNoteId: v.optional(v.id("voiceNotes")),
+
+  // Auto-apply results (sent back in WhatsApp reply)
+  processingResults: v.optional(v.object({
+    autoApplied: v.array(v.object({
+      insightId: v.string(),
+      playerName: v.optional(v.string()),
+      teamName: v.optional(v.string()),
+      category: v.string(),
+      title: v.string(),
+      parentSummaryQueued: v.boolean(),
+    })),
+    needsReview: v.array(v.object({
+      insightId: v.string(),
+      playerName: v.optional(v.string()),
+      category: v.string(),
+      title: v.string(),
+      reason: v.string(),
+    })),
+    unmatched: v.array(v.object({
+      insightId: v.string(),
+      mentionedName: v.optional(v.string()),
+      title: v.string(),
+    })),
+  })),
+
+  receivedAt: v.number(),
+  processedAt: v.optional(v.number()),
+})
+.index("by_messageSid", ["messageSid"])
+.index("by_fromNumber", ["fromNumber"])
+.index("by_coachId", ["coachId"])
+.index("by_organizationId", ["organizationId"])
+.index("by_status", ["status"])
+.index("by_receivedAt", ["receivedAt"])
+```
+
+#### `whatsappSessions` - Multi-Org Memory
+
+```typescript
+whatsappSessions: defineTable({
+  phoneNumber: v.string(),         // E.164 format
+  coachId: v.string(),
+  organizationId: v.string(),
+  organizationName: v.string(),
+
+  // How org was determined
+  resolvedVia: v.union(
+    v.literal("single_org"),
+    v.literal("explicit_mention"),
+    v.literal("player_match"),
+    v.literal("team_match"),
+    v.literal("coach_match"),
+    v.literal("age_group_match"),
+    v.literal("sport_match"),
+    v.literal("user_selection")
+  ),
+
+  lastMessageAt: v.number(),       // 2-hour timeout
+  createdAt: v.number(),
+})
+.index("by_phone", ["phoneNumber"])
+.index("by_coach", ["coachId"])
+```
+
+#### `whatsappPendingMessages` - Awaiting Org Selection
+
+```typescript
+whatsappPendingMessages: defineTable({
+  messageSid: v.string(),
+  phoneNumber: v.string(),
+  coachId: v.string(),
+  coachName: v.string(),
+
+  // Original message (preserved for processing after selection)
+  messageType: v.string(),
+  body: v.optional(v.string()),
+  mediaUrl: v.optional(v.string()),
+  mediaContentType: v.optional(v.string()),
+  mediaStorageId: v.optional(v.id("_storage")),  // Already downloaded
+
+  // Orgs to choose from
+  availableOrgs: v.array(v.object({
+    id: v.string(),
+    name: v.string(),
+  })),
+
+  status: v.union(
+    v.literal("awaiting_selection"),
+    v.literal("resolved"),
+    v.literal("expired")
+  ),
+
+  createdAt: v.number(),
+  expiresAt: v.number(),  // 24 hours
+})
+.index("by_phone", ["phoneNumber"])
+```
+
+### 21.5 Trust-Based Auto-Apply for WhatsApp
+
+WhatsApp messages use the same trust system but with automatic reply:
+
+| Trust Level | Auto-Apply Behavior | WhatsApp Reply |
+|-------------|---------------------|----------------|
+| **0-1** (New) | Nothing auto-applies | "5 insights need review in app" |
+| **2** (Trusted) | Safe categories auto-apply | "3 auto-applied, 2 need review" |
+| **3** (Expert) | Safe categories + parent summaries | "3 applied + parent notified, 1 needs review" |
+
+**Safe Categories (auto-apply at Level 2+):**
+- `skill_progress`, `skill_rating`
+- `performance`, `attendance`
+- `team_culture`
+- `todo` (if assignee matched)
+
+**Always Manual Review:**
+- `injury`, `behavior` (sensitive)
+- Unmatched players
+- Unassigned TODOs
+
+### 21.6 WhatsApp Reply Format
+
+After processing, coaches receive a formatted reply:
+
+```
+✅ Analysis complete!
+
+AUTO-APPLIED (3):
+• Emma: Tackling 4/5
+• Sarah: Attendance ✓
+• U14: Team spirit → Parent notified
+
+NEEDS REVIEW (2):
+• Michael: Injury (sensitive)
+• Equipment order: Task (no assignee)
+
+UNMATCHED (1):
+• "Tommy" not found in roster
+
+📱 Review in PlayerARC: https://app.playerarc.com/orgs/xxx/coach/voice-notes
+```
+
+### 21.7 Key Actions
+
+**Location:** `packages/backend/convex/actions/whatsapp.ts`
+
+| Function | Type | Description |
+|----------|------|-------------|
+| `processIncomingMessage` | Internal Action | Main entry point from webhook |
+| `checkAndAutoApply` | Scheduled Action | Runs after delay to apply insights |
+| `sendWhatsAppMessage` | Helper | Calls Twilio API to send reply |
+| `downloadAndStoreMedia` | Helper | Downloads audio from Twilio, stores in Convex |
+
+### 21.8 Processing Timeline
+
+```
+T+0:00  - WhatsApp message received
+T+0:01  - Webhook processed, coach identified
+T+0:02  - Audio downloaded (if applicable)
+T+0:03  - Voice note created
+T+0:05  - Transcription started (audio)
+T+0:15  - Transcription complete
+T+0:17  - Insights extraction started
+T+0:25  - Insights complete
+T+0:30  - checkAndAutoApply runs (audio)
+         OR
+T+0:15  - checkAndAutoApply runs (text)
+T+0:31  - WhatsApp reply sent to coach
+```
+
+### 21.9 Environment Variables
+
+| Variable | Description | Required |
+|----------|-------------|----------|
+| `TWILIO_ACCOUNT_SID` | Twilio account identifier | ✅ |
+| `TWILIO_AUTH_TOKEN` | Twilio authentication token | ✅ |
+| `TWILIO_WHATSAPP_NUMBER` | Sender number (e.g., `+14155238886`) | ✅ |
+| `SITE_URL` | App URL for links in replies | ✅ |
+
+### 21.10 Testing & UAT
+
+**Test Documentation:** `docs/testing/whatsapp-voice-notes-uat.md`
+
+**Test Scenarios:**
+1. Single-org coach sends audio → Processes correctly
+2. Multi-org coach sends audio → Org detection cascade works
+3. Multi-org coach sends ambiguous message → Prompts for selection
+4. Coach replies with org number → Pending message processes
+5. Trust Level 0 coach → All insights marked "needs review"
+6. Trust Level 2 coach → Safe categories auto-apply
+7. Injury insight → Always requires manual review
+8. Session timeout (2+ hours) → Re-prompts for org selection
+
+### 21.11 Differences: WhatsApp vs In-App
+
+| Aspect | In-App | WhatsApp |
+|--------|--------|----------|
+| **Recording UI** | Real-time feedback, waveform | No visual feedback |
+| **Org Selection** | Explicit (URL path) | Auto-detected or prompted |
+| **Note Type** | Coach selects (training/match/general) | Defaults to "general" |
+| **Review** | Immediate in dashboard | Via app link in reply |
+| **Auto-Apply Timing** | Immediate after insights | 15-30 sec delay for reply |
+| **Reply** | Toast notification | WhatsApp message |
+| **Offline** | Not supported | N/A (requires WhatsApp) |
+
+### 21.12 Key Files Reference
+
+| File | Lines | Purpose |
+|------|-------|---------|
+| `convex/http.ts` | ~100 | Webhook handler |
+| `actions/whatsapp.ts` | ~600 | Core processing logic |
+| `models/whatsappMessages.ts` | ~400 | Multi-org detection, queries |
+| `schema.ts` (WhatsApp tables) | ~150 | Table definitions |
+
+---
+
 ## Appendix: Environment Variables
+
+### OpenAI (Required)
 
 | Variable | Description | Default |
 |----------|-------------|---------|
-| `OPENAI_API_KEY` | OpenAI API key (required) | - |
+| `OPENAI_API_KEY` | OpenAI API key | - |
 | `OPENAI_MODEL_TRANSCRIPTION` | Transcription model | `whisper-1` |
 | `OPENAI_MODEL_INSIGHTS` | Insight extraction model | `gpt-4o` |
+
+### Anthropic (Required for Parent Summaries)
+
+| Variable | Description | Default |
+|----------|-------------|---------|
+| `ANTHROPIC_API_KEY` | Anthropic API key | - |
+| `ANTHROPIC_MODEL_CLASSIFICATION` | Sensitivity classification | `claude-3-haiku` |
+| `ANTHROPIC_MODEL_SUMMARY` | Parent summary generation | `claude-3-haiku` |
+
+### Twilio/WhatsApp (Required for WhatsApp Integration)
+
+| Variable | Description | Default |
+|----------|-------------|---------|
+| `TWILIO_ACCOUNT_SID` | Twilio account identifier | - |
+| `TWILIO_AUTH_TOKEN` | Twilio authentication token | - |
+| `TWILIO_WHATSAPP_NUMBER` | WhatsApp sender number | - |
+
+### Application
+
+| Variable | Description | Default |
+|----------|-------------|---------|
+| `SITE_URL` | Application base URL (for links) | - |
+| `CONVEX_URL` | Convex deployment URL | - |
 
 ---
 

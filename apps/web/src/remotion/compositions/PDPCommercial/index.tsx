@@ -1,12 +1,12 @@
 import {
   AbsoluteFill,
-  Sequence,
-  useCurrentFrame,
-  interpolate,
-  spring,
-  useVideoConfig,
   Img,
+  interpolate,
+  Sequence,
+  spring,
   staticFile,
+  useCurrentFrame,
+  useVideoConfig,
 } from "remotion";
 import { COLORS, SCENES, STATS } from "../../constants";
 
@@ -85,7 +85,9 @@ const IntroScene = () => {
           }}
         >
           <Img
-            src={staticFile("logos-landing/PDP-Logo-OffWhiteOrbit_GreenHuman.png")}
+            src={staticFile(
+              "logos-landing/PDP-Logo-OffWhiteOrbit_GreenHuman.png"
+            )}
             style={{
               width: 280,
               height: 280,
@@ -261,7 +263,14 @@ const SolutionScene = () => {
         padding: 80,
       }}
     >
-      <div style={{ display: "flex", alignItems: "center", gap: 80, maxWidth: 1400 }}>
+      <div
+        style={{
+          display: "flex",
+          alignItems: "center",
+          gap: 80,
+          maxWidth: 1400,
+        }}
+      >
         {/* Passport Image */}
         <div
           style={{
@@ -271,7 +280,9 @@ const SolutionScene = () => {
           }}
         >
           <Img
-            src={staticFile("passports/PDP-Passport-BrownGold_CameraANDBox.png")}
+            src={staticFile(
+              "passports/PDP-Passport-BrownGold_CameraANDBox.png"
+            )}
             style={{
               width: 450,
               height: 450,
@@ -305,8 +316,8 @@ const SolutionScene = () => {
               lineHeight: 1.6,
             }}
           >
-            Track, nurture, and celebrate every child's sporting journey.
-            Keep players engaged, healthy, and performing at their best.
+            Track, nurture, and celebrate every child's sporting journey. Keep
+            players engaged, healthy, and performing at their best.
           </div>
         </div>
       </div>
@@ -639,7 +650,13 @@ const CTAScene = () => {
         }}
       />
 
-      <div style={{ textAlign: "center", transform: `scale(${scale})`, zIndex: 10 }}>
+      <div
+        style={{
+          textAlign: "center",
+          transform: `scale(${scale})`,
+          zIndex: 10,
+        }}
+      >
         <div
           style={{
             fontSize: 68,
@@ -703,32 +720,45 @@ const CTAScene = () => {
 };
 
 // Main composition
-export const PDPCommercial = () => {
-  return (
-    <AbsoluteFill style={{ fontFamily: "Inter, system-ui, sans-serif" }}>
-      <Sequence from={SCENES.intro.start} durationInFrames={SCENES.intro.duration}>
-        <IntroScene />
-      </Sequence>
+export const PDPCommercial = () => (
+  <AbsoluteFill style={{ fontFamily: "Inter, system-ui, sans-serif" }}>
+    <Sequence
+      durationInFrames={SCENES.intro.duration}
+      from={SCENES.intro.start}
+    >
+      <IntroScene />
+    </Sequence>
 
-      <Sequence from={SCENES.problem.start} durationInFrames={SCENES.problem.duration}>
-        <ProblemScene />
-      </Sequence>
+    <Sequence
+      durationInFrames={SCENES.problem.duration}
+      from={SCENES.problem.start}
+    >
+      <ProblemScene />
+    </Sequence>
 
-      <Sequence from={SCENES.solution.start} durationInFrames={SCENES.solution.duration}>
-        <SolutionScene />
-      </Sequence>
+    <Sequence
+      durationInFrames={SCENES.solution.duration}
+      from={SCENES.solution.start}
+    >
+      <SolutionScene />
+    </Sequence>
 
-      <Sequence from={SCENES.features.start} durationInFrames={SCENES.features.duration}>
-        <FeaturesScene />
-      </Sequence>
+    <Sequence
+      durationInFrames={SCENES.features.duration}
+      from={SCENES.features.start}
+    >
+      <FeaturesScene />
+    </Sequence>
 
-      <Sequence from={SCENES.benefits.start} durationInFrames={SCENES.benefits.duration}>
-        <BenefitsScene />
-      </Sequence>
+    <Sequence
+      durationInFrames={SCENES.benefits.duration}
+      from={SCENES.benefits.start}
+    >
+      <BenefitsScene />
+    </Sequence>
 
-      <Sequence from={SCENES.cta.start} durationInFrames={SCENES.cta.duration}>
-        <CTAScene />
-      </Sequence>
-    </AbsoluteFill>
-  );
-};
+    <Sequence durationInFrames={SCENES.cta.duration} from={SCENES.cta.start}>
+      <CTAScene />
+    </Sequence>
+  </AbsoluteFill>
+);

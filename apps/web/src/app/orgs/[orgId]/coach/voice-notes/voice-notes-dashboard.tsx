@@ -237,15 +237,13 @@ export function VoiceNotesDashboard() {
       });
     }
 
-    // Show Auto-Sent tab if coach has reached level 2 or higher (Phase 2)
-    const currentLevel = trustLevel?.currentLevel ?? 0;
-    if (currentLevel >= 2) {
-      baseTabs.push({
-        id: "auto-sent",
-        label: "Auto-Sent",
-        icon: Send,
-      });
-    }
+    // Phase 8: Show Auto-Sent tab to ALL coaches (removed trust level gate)
+    // Previously required level 2+, but Level 0-1 coaches need to see sent summaries
+    baseTabs.push({
+      id: "auto-sent",
+      label: "Sent to Parents",
+      icon: Send,
+    });
 
     // Always show History (Settings is now in header)
     baseTabs.push({ id: "history", label: "History", icon: History });

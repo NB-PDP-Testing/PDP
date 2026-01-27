@@ -5261,3 +5261,58 @@ The backend query is fully implemented and functional, but the admin UI page for
 - [ ] Pick up next story with passes: false (US-P8-001)
 
 ---
+
+## 2026-01-27 18:45 - US-P8-001 - Create getCoachImpactSummary Backend Query
+**Iteration**: 2
+**Commit**: 3f89356e
+**Session**: 16b9a343-4b9b-4feb-be40-fa964339d35b
+**Status**: Complete
+
+### What was implemented
+- Created comprehensive getCoachImpactSummary query in packages/backend/convex/models/voiceNotes.ts
+- Aggregates data from 6 tables: voiceNotes, voiceNoteInsights, coachParentSummaries, autoAppliedInsights
+- Returns complete impact metrics: voice notes count, insights applied/dismissed, summaries sent/viewed/acknowledged
+- Includes detailed arrays: skillChanges (20 recent), injuriesRecorded, recentSummaries (10), teamObservations
+- Parent engagement stats per player with view rates
+- Weekly trends for last 4 weeks (sent/viewed data for charts)
+- Fetches player names from playerIdentities table (not stored in summaries)
+- Uses publicSummary.content field (not summaryText)
+
+### Files changed
+- packages/backend/convex/models/voiceNotes.ts (+435)
+
+### Quality checks
+- ✅ Type check: passed
+- ✅ Convex codegen: passed
+- ✅ Pre-commit hooks: passed
+- ⚠️  Browser verification: not applicable (backend query only)
+
+### Learnings for future iterations ⚠️ CRITICAL
+**Patterns discovered:**
+- coachParentSummaries uses publicSummary.content, not summaryText or playerName
+- Player names must be fetched from playerIdentities table via playerIdentityId
+- Must use proper null checking instead of non-null assertion (!) for Map.get()
+- Indexes found: by_coach_org_status (coachParentSummaries), by_coach_org (autoAppliedInsights, voiceNoteInsights), by_orgId_and_coachId (voiceNotes)
+
+**Gotchas encountered:**
+- targetRecordId in autoAppliedInsights can be undefined - provide empty string fallback
+- Pre-commit hooks fail on non-null assertion (!) - use if (existing) instead
+- Schema fields don't always match what you expect - read schema or existing queries first
+
+**Dependencies found:**
+- Query depends on playerIdentities table for player names
+- Query depends on proper date range filtering in JS after index fetch
+- Frontend will need to format dates and percentages (parentViewRate is raw number)
+
+**What to do next**:
+- [x] US-P8-001 complete
+- [ ] US-P8-002 - Remove trust level gate (quick win)
+- [ ] US-P8-003 - Create My Impact tab structure
+- [ ] US-P8-004 - Add tab to navigation
+
+**Mistakes made:**
+- Initially assumed coachParentSummaries had playerName and summaryText fields
+- Used non-null assertion (!) which fails pre-commit hooks
+- Forgot to provide fallback for optional targetRecordId field
+
+---

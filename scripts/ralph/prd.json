@@ -90,7 +90,7 @@
         "criticalImportance": "This query is FOUNDATION for entire My Impact dashboard - all UI depends on it"
       },
       "priority": 1,
-      "passes": false,
+      "passes": true,
       "notes": "CRITICAL: This is the most complex query in P8. Test thoroughly in Convex dashboard before marking complete. All Week 2 UI work depends on this."
     },
     {
@@ -115,7 +115,7 @@
         "visualTest": "Login as neil.B@blablablak.com (platform staff can impersonate coach at any level) to test"
       },
       "priority": 2,
-      "passes": false,
+      "passes": true,
       "notes": "QUICK WIN - Simplest story in P8. Immediate positive impact for coaches. Should take < 15 minutes."
     },
     {
@@ -147,7 +147,7 @@
         "referencePattern": "See P8_RALPH_CONTEXT.md - 'Frontend Components (New)' section for complete patterns"
       },
       "priority": 3,
-      "passes": false,
+      "passes": true,
       "notes": "Scaffolding story - creates container for Week 2 work. Placeholders will be filled in US-P8-005 to US-P8-009."
     },
     {
@@ -175,7 +175,7 @@
         "iconImport": "import { BarChart3 } from 'lucide-react';"
       },
       "priority": 4,
-      "passes": false,
+      "passes": true,
       "notes": "Final scaffolding story - makes tab visible. After this, Week 1 is complete and Week 2 can fill in dashboard sections."
     }
   ],

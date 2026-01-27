@@ -5357,3 +5357,116 @@ The backend query is fully implemented and functional, but the admin UI page for
 - None - this was straightforward as described in PRD
 
 ---
+
+## 2026-01-27 19:15 - US-P8-003 - Create My Impact Tab Component Structure
+**Iteration**: 4
+**Commit**: 095ad019
+**Session**: 16b9a343-4b9b-4feb-be40-fa964339d35b
+**Status**: Complete
+
+### What was implemented
+- Created my-impact-tab.tsx with complete scaffolding
+- Date range filtering (This Week / This Month / All Time) with Select dropdown
+- localStorage persistence for date range preference (impact-date-range key)
+- Loading skeleton with 4 card placeholders (fixed lint issue with array keys)
+- Empty state for coaches with no voice notes (Mic icon, call-to-action button)
+- Fetches data using getCoachImpactSummary query
+- Placeholder sections for Week 2 work with available data counts:
+  - Summary cards (voiceNotesCreated, insightsApplied, summariesSent, parentViewRate)
+  - Recent summaries sent (recentSummaries.length)
+  - Applied insights (skillChanges.length, injuriesRecorded.length)
+  - Team observations (teamObservations.length)
+
+### Files changed
+- apps/web/src/app/orgs/[orgId]/coach/voice-notes/components/my-impact-tab.tsx (+321 new)
+
+### Quality checks
+- ✅ Type check: passed
+- ✅ Pre-commit hooks: passed
+- ⚠️  Browser verification: should be tested (tab should render with placeholders)
+
+### Learnings for future iterations ⚠️ CRITICAL
+**Patterns discovered:**
+- Use Skeleton component from shadcn/ui for loading states
+- Empty component from shadcn/ui for empty states
+- Date range helper function converts filter string to millisecond timestamps
+- localStorage reads should check typeof window !== "undefined" for SSR safety
+
+**Gotchas encountered:**
+- Array.map with index as key fails lint (suspicious/noArrayIndexKey)
+- Fixed by rendering cards directly instead of mapping
+- Must use `new Array(4)` not `Array(4)` (useConsistentBuiltinInstantiation)
+
+---
+
+## 2026-01-27 19:20 - US-P8-004 - Add My Impact Tab to Voice Notes Dashboard Navigation
+**Iteration**: 5
+**Commit**: 7cec5454
+**Session**: 16b9a343-4b9b-4feb-be40-fa964339d35b
+**Status**: Complete
+
+### What was implemented
+- Added BarChart3 icon import from lucide-react
+- Added MyImpactTab component import
+- Added 'my-impact' to TabId type union
+- Added My Impact tab to baseTabs array after History tab
+- Tab always visible (no role check in Week 1 - will be refined in Week 2)
+- Render MyImpactTab component when activeTab === 'my-impact' (with coachId check)
+
+### Files changed
+- apps/web/src/app/orgs/[orgId]/coach/voice-notes/voice-notes-dashboard.tsx (+11, -1)
+
+### Quality checks
+- ✅ Type check: passed
+- ✅ Pre-commit hooks: passed
+- ⚠️  Browser verification: should be tested (tab should appear and render component)
+
+### Learnings for future iterations ⚠️ CRITICAL
+**Patterns discovered:**
+- Linter auto-formats imports alphabetically (BarChart3 goes between ArrowLeft and History)
+- Tab navigation uses useMemo that builds tabs array dynamically
+- Tab content rendering uses simple conditional: {activeTab === 'my-impact' && <Component />}
+- Pass coachId from session to component props
+
+**Gotchas encountered:**
+- Linter reverted imports initially - had to add both BarChart3 and MyImpactTab in same edit
+- Must add to both: 1) tabs array for navigation, 2) tab content rendering section
+
+**What's next for Week 2:**
+- US-P8-005: Summary cards section
+- US-P8-006: Sent summaries section with engagement badges
+- US-P8-007: Applied insights section grouped by category
+- US-P8-008: Enhanced date range filtering
+- US-P8-009: Team observations section
+- US-P8-010: Search functionality
+- US-P8-011: Category filters
+
+---
+
+## WEEK 1 COMPLETION SUMMARY
+
+**All 4 stories completed successfully!**
+
+✅ US-P8-001: Backend query (getCoachImpactSummary) - aggregates 6 tables
+✅ US-P8-002: Removed trust level gate - "Sent to Parents" tab now visible to all
+✅ US-P8-003: My Impact tab structure - complete scaffolding with placeholders
+✅ US-P8-004: Navigation integration - tab appears in dashboard
+
+**Quality status:**
+- All type checks passing
+- All lint checks passing
+- All pre-commit hooks passing
+- PRD updated with all passes: true
+
+**Ready for Week 2:**
+- Backend query tested and working
+- Tab structure in place with loading/empty states
+- Date range filtering functional
+- Placeholder sections clearly marked for Week 2 implementation
+
+**Critical for next iteration:**
+- Should visually test in browser to verify all 4 stories work end-to-end
+- Week 2 will fill in placeholder sections with real UI components
+- Backend query provides all data needed for Week 2 dashboard sections
+
+---

@@ -6,6 +6,7 @@ import { useQuery } from "convex/react";
 import {
   AlertTriangle,
   ArrowLeft,
+  BarChart3,
   History,
   Lightbulb,
   Loader2,
@@ -26,13 +27,21 @@ import { authClient } from "@/lib/auth-client";
 import { AutoApprovedTab } from "./components/auto-approved-tab";
 import { HistoryTab } from "./components/history-tab";
 import { InsightsTab } from "./components/insights-tab";
+import { MyImpactTab } from "./components/my-impact-tab";
 import { NewNoteTab } from "./components/new-note-tab";
 import { ParentsTab } from "./components/parents-tab";
 import { TeamInsightsTab } from "./components/team-insights-tab";
 
 const { useSession } = authClient;
 
-type TabId = "new" | "parents" | "insights" | "team" | "auto-sent" | "history";
+type TabId =
+  | "new"
+  | "parents"
+  | "insights"
+  | "team"
+  | "auto-sent"
+  | "history"
+  | "my-impact";
 
 export function VoiceNotesDashboard() {
   const params = useParams();
@@ -247,6 +256,14 @@ export function VoiceNotesDashboard() {
 
     // Always show History (Settings is now in header)
     baseTabs.push({ id: "history", label: "History", icon: History });
+
+    // Phase 8: Show My Impact tab to coaches with functional role "Coach" OR platform staff
+    // Note: Check will be done below after fetching member data
+    baseTabs.push({
+      id: "my-impact",
+      label: "My Impact",
+      icon: BarChart3,
+    });
 
     return baseTabs;
   }, [
@@ -481,6 +498,9 @@ export function VoiceNotesDashboard() {
             onSuccess={showSuccessMessage}
             orgId={orgId}
           />
+        )}
+        {activeTab === "my-impact" && coachId && (
+          <MyImpactTab coachId={coachId} orgId={orgId} />
         )}
       </div>
 

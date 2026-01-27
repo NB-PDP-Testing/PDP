@@ -22,6 +22,7 @@
 
 import { v } from "convex/values";
 import { components } from "../_generated/api";
+import type { Id } from "../_generated/dataModel";
 import { mutation, query } from "../_generated/server";
 import type { Doc as BetterAuthDoc } from "../betterAuth/_generated/dataModel";
 
@@ -233,7 +234,7 @@ export const getCoachOverrideRequests = query({
   ),
   handler: async (ctx, args) => {
     let requests: Array<{
-      _id: string;
+      _id: Id<"coachOverrideRequests">;
       coachId: string;
       organizationId: string;
       featureType: string;

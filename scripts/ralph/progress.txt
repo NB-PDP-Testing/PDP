@@ -5316,3 +5316,44 @@ The backend query is fully implemented and functional, but the admin UI page for
 - Forgot to provide fallback for optional targetRecordId field
 
 ---
+
+## 2026-01-27 19:00 - US-P8-002 - Remove Trust Level Gate from Sent to Parents Tab
+**Iteration**: 3
+**Commit**: f4190553
+**Session**: 16b9a343-4b9b-4feb-be40-fa964339d35b
+**Status**: Complete
+
+### What was implemented
+- Removed trust level check (currentLevel >= 2) from voice notes dashboard
+- "Sent to Parents" tab now visible to ALL coaches (Level 0+)
+- Changed tab label from "Auto-Sent" to "Sent to Parents" for clarity
+- Tab always appears in navigation (no conditional rendering)
+
+### Files changed
+- apps/web/src/app/orgs/[orgId]/coach/voice-notes/voice-notes-dashboard.tsx (-5, +4)
+
+### Quality checks
+- ✅ Type check: passed
+- ✅ Pre-commit hooks: passed
+- ⚠️  Browser verification: should be tested (Level 0/1 coaches should now see tab)
+
+### Learnings for future iterations ⚠️ CRITICAL
+**Patterns discovered:**
+- Trust level gates are implemented in dashboard tab lists, not in tab components
+- Tab visibility controlled by useMemo that builds tabs array based on conditions
+- Pattern: remove conditional check and always push tab to baseTabs array
+
+**Gotchas encountered:**
+- Tab label was "Auto-Sent" which didn't clearly communicate purpose
+- Changed to "Sent to Parents" to better describe what the tab contains
+
+**What to do next**:
+- [x] US-P8-001 complete
+- [x] US-P8-002 complete (QUICK WIN completed in <15 minutes as expected)
+- [ ] US-P8-003 - Create My Impact tab structure (scaffolding)
+- [ ] US-P8-004 - Add tab to navigation
+
+**Mistakes made:**
+- None - this was straightforward as described in PRD
+
+---

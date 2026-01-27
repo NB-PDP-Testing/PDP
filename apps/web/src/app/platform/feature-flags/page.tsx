@@ -13,7 +13,7 @@ import {
   XCircle,
 } from "lucide-react";
 import Link from "next/link";
-import { useMemo, useState } from "react";
+import { useCallback, useMemo, useState } from "react";
 import { toast } from "sonner";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
@@ -30,7 +30,13 @@ import {
   TableRow,
 } from "@/components/ui/table";
 
-type FilterType = "all" | "gates-disabled" | "admin-override" | "has-requests";
+type FilterType =
+  | "all"
+  | "gates-disabled"
+  | "admin-override"
+  | "has-requests"
+  | "has-issues"
+  | "recently-changed";
 
 type OrgStatus = {
   orgId: string;
@@ -118,6 +124,46 @@ function OrganizationTableRow({
   );
 }
 
+function applyOrgFilters(
+  orgs: OrgStatus[],
+  filterType: FilterType,
+  searchQuery: string
+): OrgStatus[] {
+  let filtered = orgs;
+
+  // Apply filter
+  if (filterType === "gates-disabled") {
+    filtered = filtered.filter((org) => !org.gatesEnabled);
+  } else if (filterType === "admin-override") {
+    filtered = filtered.filter((org) => org.adminOverride !== undefined);
+  } else if (filterType === "has-requests") {
+    filtered = filtered.filter((org) => org.pendingRequestsCount > 0);
+  } else if (filterType === "has-issues") {
+    filtered = filtered.filter(
+      (org) =>
+        !org.gatesEnabled ||
+        org.adminOverride !== undefined ||
+        org.pendingRequestsCount > 0
+    );
+  } else if (filterType === "recently-changed") {
+    filtered = [...filtered].sort((a, b) => {
+      const aTime = a.lastChangedAt ?? 0;
+      const bTime = b.lastChangedAt ?? 0;
+      return bTime - aTime;
+    });
+  }
+
+  // Apply search
+  if (searchQuery.trim()) {
+    const query = searchQuery.toLowerCase();
+    filtered = filtered.filter((org) =>
+      org.orgName.toLowerCase().includes(query)
+    );
+  }
+
+  return filtered;
+}
+
 export default function FeatureFlagsPage() {
   const [searchQuery, setSearchQuery] = useState("");
   const [filterType, setFilterType] = useState<FilterType>("all");
@@ -165,85 +211,68 @@ export default function FeatureFlagsPage() {
     if (!orgsStatus) {
       return [];
     }
-
-    let filtered = orgsStatus;
-
-    // Apply filter
-    if (filterType === "gates-disabled") {
-      filtered = filtered.filter((org) => !org.gatesEnabled);
-    } else if (filterType === "admin-override") {
-      filtered = filtered.filter((org) => org.adminOverride !== undefined);
-    } else if (filterType === "has-requests") {
-      filtered = filtered.filter((org) => org.pendingRequestsCount > 0);
-    }
-
-    // Apply search
-    if (searchQuery.trim()) {
-      const query = searchQuery.toLowerCase();
-      filtered = filtered.filter((org) =>
-        org.orgName.toLowerCase().includes(query)
-      );
-    }
-
-    return filtered;
+    return applyOrgFilters(orgsStatus, filterType, searchQuery);
   }, [orgsStatus, filterType, searchQuery]);
 
-  const handleToggleGates = async (orgId: string, currentValue: boolean) => {
-    try {
-      await setOrgTrustGatesEnabled({
-        organizationId: orgId,
-        enabled: !currentValue,
-      });
-      toast.success(
-        `Trust gates ${currentValue ? "disabled" : "enabled"} successfully`
-      );
-    } catch (error: unknown) {
-      const errorMessage =
-        error instanceof Error ? error.message : "Unknown error";
-      console.error("Error toggling trust gates:", error);
-      toast.error(errorMessage || "Failed to toggle trust gates");
-    }
-  };
+  const handleToggleGates = useCallback(
+    async (orgId: string, currentValue: boolean) => {
+      try {
+        await setOrgTrustGatesEnabled({
+          organizationId: orgId,
+          enabled: !currentValue,
+        });
+        toast.success(
+          `Trust gates ${currentValue ? "disabled" : "enabled"} successfully`
+        );
+      } catch (error: unknown) {
+        const errorMessage =
+          error instanceof Error ? error.message : "Unknown error";
+        console.error("Error toggling trust gates:", error);
+        toast.error(errorMessage || "Failed to toggle trust gates");
+      }
+    },
+    [setOrgTrustGatesEnabled]
+  );
 
-  const handleToggleAdminDelegation = async (
-    orgId: string,
-    currentValue: boolean
-  ) => {
-    try {
-      await setPlatformFeatureFlags({
-        organizationId: orgId,
-        allowAdminDelegation: !currentValue,
-      });
-      toast.success(
-        `Admin delegation ${currentValue ? "disabled" : "enabled"} successfully`
-      );
-    } catch (error: unknown) {
-      const errorMessage =
-        error instanceof Error ? error.message : "Unknown error";
-      console.error("Error toggling admin delegation:", error);
-      toast.error(errorMessage || "Failed to toggle admin delegation");
-    }
-  };
+  const handleToggleAdminDelegation = useCallback(
+    async (orgId: string, currentValue: boolean) => {
+      try {
+        await setPlatformFeatureFlags({
+          organizationId: orgId,
+          allowAdminDelegation: !currentValue,
+        });
+        toast.success(
+          `Admin delegation ${currentValue ? "disabled" : "enabled"} successfully`
+        );
+      } catch (error: unknown) {
+        const errorMessage =
+          error instanceof Error ? error.message : "Unknown error";
+        console.error("Error toggling admin delegation:", error);
+        toast.error(errorMessage || "Failed to toggle admin delegation");
+      }
+    },
+    [setPlatformFeatureFlags]
+  );
 
-  const handleToggleCoachOverrides = async (
-    orgId: string,
-    currentValue: boolean
-  ) => {
-    try {
-      await setPlatformFeatureFlags({
-        organizationId: orgId,
-        allowCoachOverrides: !currentValue,
-      });
-      toast.success(
-        `Coach overrides ${currentValue ? "disabled" : "enabled"} successfully`
-      );
-    } catch (error: unknown) {
-      const errorMessage =
-        error instanceof Error ? error.message : "Unknown error";
-      console.error("Error toggling coach overrides:", error);
-      toast.error(errorMessage || "Failed to toggle coach overrides");
-    }
-  };
+  const handleToggleCoachOverrides = useCallback(
+    async (orgId: string, currentValue: boolean) => {
+      try {
+        await setPlatformFeatureFlags({
+          organizationId: orgId,
+          allowCoachOverrides: !currentValue,
+        });
+        toast.success(
+          `Coach overrides ${currentValue ? "disabled" : "enabled"} successfully`
+        );
+      } catch (error: unknown) {
+        const errorMessage =
+          error instanceof Error ? error.message : "Unknown error";
+        console.error("Error toggling coach overrides:", error);
+        toast.error(errorMessage || "Failed to toggle coach overrides");
+      }
+    },
+    [setPlatformFeatureFlags]
+  );
 
   const isLoading = orgsStatus === undefined;
 
@@ -308,8 +337,20 @@ export default function FeatureFlagsPage() {
                 <Skeleton className="h-8 w-20" />
               ) : (
                 <>
-                  <div className="font-bold text-2xl">
-                    {metrics.gatesDisabled}
+                  <div className="flex items-center gap-2">
+                    <div className="font-bold text-2xl">
+                      {metrics.gatesDisabled}
+                    </div>
+                    {metrics.totalOrgs > 0 &&
+                      (metrics.gatesDisabled / metrics.totalOrgs) * 100 >
+                        20 && (
+                        <Badge
+                          className="bg-red-100 text-red-700"
+                          variant="outline"
+                        >
+                          High
+                        </Badge>
+                      )}
                   </div>
                   <p className="text-muted-foreground text-xs">
                     {metrics.totalOrgs > 0
@@ -358,11 +399,33 @@ export default function FeatureFlagsPage() {
                 <Skeleton className="h-8 w-20" />
               ) : (
                 <>
-                  <div className="font-bold text-2xl">
-                    {metrics.pendingRequests}
+                  <div className="flex items-center gap-2">
+                    <div className="font-bold text-2xl">
+                      {metrics.pendingRequests}
+                    </div>
+                    {metrics.pendingRequests > 0 && (
+                      <Badge
+                        className="bg-orange-100 text-orange-700"
+                        variant="outline"
+                      >
+                        Action Needed
+                      </Badge>
+                    )}
                   </div>
                   <p className="text-muted-foreground text-xs">
-                    Across all organizations
+                    {metrics.pendingRequests > 0 ? (
+                      <button
+                        className="cursor-pointer text-primary underline hover:text-primary/80"
+                        onClick={() => {
+                          setFilterType("has-requests");
+                        }}
+                        type="button"
+                      >
+                        Review Requests
+                      </button>
+                    ) : (
+                      "No pending requests"
+                    )}
                   </p>
                 </>
               )}
@@ -416,6 +479,26 @@ export default function FeatureFlagsPage() {
                   }
                 >
                   Has Requests
+                </Button>
+                <Button
+                  onClick={() => {
+                    setFilterType("has-issues");
+                  }}
+                  size="sm"
+                  variant={filterType === "has-issues" ? "default" : "outline"}
+                >
+                  Show Orgs with Issues
+                </Button>
+                <Button
+                  onClick={() => {
+                    setFilterType("recently-changed");
+                  }}
+                  size="sm"
+                  variant={
+                    filterType === "recently-changed" ? "default" : "outline"
+                  }
+                >
+                  Show Recently Changed
                 </Button>
               </div>
 

@@ -127,6 +127,11 @@ export type ComponentApi<Name extends string | undefined = string | undefined> =
               }
             | {
                 data: {
+                  adminOverrideSetAt?: number;
+                  adminOverrideSetBy?: string;
+                  adminOverrideTrustGates?: boolean;
+                  allowAdminDelegation?: boolean;
+                  allowCoachOverrides?: boolean;
                   colors?: Array<string>;
                   createdAt: number;
                   logo?: null | string;
@@ -142,6 +147,7 @@ export type ComponentApi<Name extends string | undefined = string | undefined> =
                   socialLinkedin?: null | string;
                   socialTwitter?: null | string;
                   supportedSports?: Array<string>;
+                  voiceNotesTrustGatesEnabled?: boolean;
                   website?: null | string;
                 };
                 model: "organization";
@@ -465,6 +471,12 @@ export type ComponentApi<Name extends string | undefined = string | undefined> =
                     | "sharingContactName"
                     | "sharingContactEmail"
                     | "sharingContactPhone"
+                    | "voiceNotesTrustGatesEnabled"
+                    | "allowAdminDelegation"
+                    | "allowCoachOverrides"
+                    | "adminOverrideTrustGates"
+                    | "adminOverrideSetBy"
+                    | "adminOverrideSetAt"
                     | "_id";
                   operator?:
                     | "lt"
@@ -843,6 +855,12 @@ export type ComponentApi<Name extends string | undefined = string | undefined> =
                     | "sharingContactName"
                     | "sharingContactEmail"
                     | "sharingContactPhone"
+                    | "voiceNotesTrustGatesEnabled"
+                    | "allowAdminDelegation"
+                    | "allowCoachOverrides"
+                    | "adminOverrideTrustGates"
+                    | "adminOverrideSetBy"
+                    | "adminOverrideSetAt"
                     | "_id";
                   operator?:
                     | "lt"
@@ -1366,6 +1384,11 @@ export type ComponentApi<Name extends string | undefined = string | undefined> =
             | {
                 model: "organization";
                 update: {
+                  adminOverrideSetAt?: number;
+                  adminOverrideSetBy?: string;
+                  adminOverrideTrustGates?: boolean;
+                  allowAdminDelegation?: boolean;
+                  allowCoachOverrides?: boolean;
                   colors?: Array<string>;
                   createdAt?: number;
                   logo?: null | string;
@@ -1381,6 +1404,7 @@ export type ComponentApi<Name extends string | undefined = string | undefined> =
                   socialLinkedin?: null | string;
                   socialTwitter?: null | string;
                   supportedSports?: Array<string>;
+                  voiceNotesTrustGatesEnabled?: boolean;
                   website?: null | string;
                 };
                 where?: Array<{
@@ -1402,6 +1426,12 @@ export type ComponentApi<Name extends string | undefined = string | undefined> =
                     | "sharingContactName"
                     | "sharingContactEmail"
                     | "sharingContactPhone"
+                    | "voiceNotesTrustGatesEnabled"
+                    | "allowAdminDelegation"
+                    | "allowCoachOverrides"
+                    | "adminOverrideTrustGates"
+                    | "adminOverrideSetBy"
+                    | "adminOverrideSetAt"
                     | "_id";
                   operator?:
                     | "lt"
@@ -1876,6 +1906,11 @@ export type ComponentApi<Name extends string | undefined = string | undefined> =
             | {
                 model: "organization";
                 update: {
+                  adminOverrideSetAt?: number;
+                  adminOverrideSetBy?: string;
+                  adminOverrideTrustGates?: boolean;
+                  allowAdminDelegation?: boolean;
+                  allowCoachOverrides?: boolean;
                   colors?: Array<string>;
                   createdAt?: number;
                   logo?: null | string;
@@ -1891,6 +1926,7 @@ export type ComponentApi<Name extends string | undefined = string | undefined> =
                   socialLinkedin?: null | string;
                   socialTwitter?: null | string;
                   supportedSports?: Array<string>;
+                  voiceNotesTrustGatesEnabled?: boolean;
                   website?: null | string;
                 };
                 where?: Array<{
@@ -1912,6 +1948,12 @@ export type ComponentApi<Name extends string | undefined = string | undefined> =
                     | "sharingContactName"
                     | "sharingContactEmail"
                     | "sharingContactPhone"
+                    | "voiceNotesTrustGatesEnabled"
+                    | "allowAdminDelegation"
+                    | "allowCoachOverrides"
+                    | "adminOverrideTrustGates"
+                    | "adminOverrideSetBy"
+                    | "adminOverrideSetAt"
                     | "_id";
                   operator?:
                     | "lt"

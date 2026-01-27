@@ -6,6 +6,7 @@ import { useConvex, useMutation, useQuery } from "convex/react";
 import {
   ArrowLeft,
   Brain,
+  ClipboardList,
   Clock,
   Download,
   FileText,
@@ -589,18 +590,21 @@ export default function SessionPlansPage() {
         {/* Header */}
         <div className="min-w-0 border-b bg-background p-4 sm:p-6">
           <div className="mb-4 flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
-            <div className="flex items-center gap-3">
+            <div className="flex items-center gap-2 sm:gap-3">
               <Button
-                className="shrink-0"
+                className="h-8 w-8 shrink-0 p-0 sm:h-9 sm:w-9"
                 onClick={() => router.push(`/orgs/${orgId}/coach`)}
-                size="icon"
+                size="sm"
                 variant="ghost"
               >
-                <ArrowLeft className="h-5 w-5" />
+                <ArrowLeft className="h-4 w-4 sm:h-5 sm:w-5" />
               </Button>
+              <ClipboardList className="h-6 w-6 text-blue-600 sm:h-8 sm:w-8" />
               <div>
-                <h1 className="font-bold text-3xl">Session Plans</h1>
-                <p className="text-muted-foreground">
+                <h1 className="font-bold text-foreground text-xl sm:text-3xl">
+                  Session Plans
+                </h1>
+                <p className="text-muted-foreground text-sm">
                   AI-powered training session plans for your teams
                 </p>
               </div>
@@ -616,36 +620,36 @@ export default function SessionPlansPage() {
           {/* Stats Bar */}
           {stats && activeTab === "my-plans" && (
             <div className="grid grid-cols-2 gap-2 sm:gap-4 md:grid-cols-4">
-              <div className="rounded-lg border-2 border-[#667eea]/20 bg-gradient-to-br from-[#667eea]/5 to-[#764ba2]/5 p-3 shadow-sm sm:p-4">
+              <div className="rounded-lg border-2 border-blue-200 bg-blue-50 p-3 shadow-sm sm:p-4">
                 <div className="text-gray-600 text-xs sm:text-sm">
                   Total Plans
                 </div>
-                <div className="mt-1 font-bold text-[#667eea] text-xl sm:text-2xl">
+                <div className="mt-1 font-bold text-blue-600 text-xl sm:text-2xl">
                   {stats.totalPlans}
                 </div>
               </div>
-              <div className="rounded-lg border-2 border-[#48bb78]/20 bg-gradient-to-br from-[#48bb78]/5 to-[#38f9d7]/5 p-3 shadow-sm sm:p-4">
+              <div className="rounded-lg border-2 border-green-200 bg-green-50 p-3 shadow-sm sm:p-4">
                 <div className="text-gray-600 text-xs sm:text-sm">
                   Used Plans
                 </div>
-                <div className="mt-1 font-bold text-[#48bb78] text-xl sm:text-2xl">
+                <div className="mt-1 font-bold text-green-600 text-xl sm:text-2xl">
                   {stats.usedPlans}
                 </div>
               </div>
-              <div className="rounded-lg border-2 border-[#f093fb]/20 bg-gradient-to-br from-[#f093fb]/5 to-[#f5576c]/5 p-3 shadow-sm sm:p-4">
+              <div className="rounded-lg border-2 border-purple-200 bg-purple-50 p-3 shadow-sm sm:p-4">
                 <div className="text-gray-600 text-xs sm:text-sm">
                   Success Rate
                 </div>
-                <div className="mt-1 font-bold text-[#f5576c] text-xl sm:text-2xl">
+                <div className="mt-1 font-bold text-purple-600 text-xl sm:text-2xl">
                   {stats.avgSuccessRate?.toFixed(0) ?? 0}%
                 </div>
               </div>
-              <div className="rounded-lg border-2 border-[#4facfe]/20 bg-gradient-to-br from-[#4facfe]/5 to-[#00f2fe]/5 p-3 shadow-sm sm:p-4">
+              <div className="rounded-lg border-2 border-indigo-200 bg-indigo-50 p-3 shadow-sm sm:p-4">
                 <div className="flex items-center gap-1 text-gray-600 text-xs sm:gap-2 sm:text-sm">
                   <TrendingUp className="h-3 w-3 sm:h-4 sm:w-4" />
                   This Month
                 </div>
-                <div className="mt-1 font-bold text-[#4facfe] text-xl sm:text-2xl">
+                <div className="mt-1 font-bold text-indigo-600 text-xl sm:text-2xl">
                   {stats.recentPlans}
                 </div>
               </div>
@@ -1139,7 +1143,7 @@ export default function SessionPlansPage() {
 
       {/* Share Plan Modal */}
       {showShareModal && (
-        <div className="fixed inset-0 z-[110] flex items-center justify-center bg-black/50 p-2 md:p-4">
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 p-2 md:p-4">
           <Card className="w-full max-w-md">
             <CardHeader>
               <div className="flex items-center justify-between">
@@ -1266,7 +1270,7 @@ export default function SessionPlansPage() {
           aria-describedby="session-plan-description"
           aria-labelledby="session-plan-title"
           aria-modal="true"
-          className="fixed inset-0 z-[100] flex items-end justify-center bg-black/50 sm:items-center sm:p-4"
+          className="fixed inset-0 z-50 flex items-end justify-center bg-black/50 sm:items-center sm:p-4"
           role="dialog"
         >
           {/* Mobile: Full-screen sheet from bottom | Desktop: Centered modal */}

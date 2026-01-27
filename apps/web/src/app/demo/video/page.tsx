@@ -1,14 +1,14 @@
 "use client";
 
 import { Player } from "@remotion/player";
-import Link from "next/link";
 import { ArrowLeft } from "lucide-react";
+import Link from "next/link";
 import { PDPCommercial } from "@/remotion/compositions/PDPCommercial";
 import {
-  VIDEO_WIDTH,
-  VIDEO_HEIGHT,
-  VIDEO_FPS,
   DURATION_IN_FRAMES,
+  VIDEO_FPS,
+  VIDEO_HEIGHT,
+  VIDEO_WIDTH,
 } from "@/remotion/constants";
 
 export default function VideoPreviewPage() {
@@ -18,8 +18,8 @@ export default function VideoPreviewPage() {
       <header className="border-white/10 border-b bg-white/5 backdrop-blur-sm">
         <div className="mx-auto flex max-w-7xl items-center justify-between px-4 py-4">
           <Link
-            href="/demo"
             className="flex items-center gap-2 text-white/70 transition-colors hover:text-white"
+            href="/demo"
           >
             <ArrowLeft className="h-5 w-5" />
             Back to Demo
@@ -36,18 +36,18 @@ export default function VideoPreviewPage() {
         {/* Video Player */}
         <div className="mb-8 overflow-hidden rounded-2xl bg-black shadow-2xl">
           <Player
+            autoPlay={false}
             component={PDPCommercial}
+            compositionHeight={VIDEO_HEIGHT}
+            compositionWidth={VIDEO_WIDTH}
+            controls
             durationInFrames={DURATION_IN_FRAMES}
             fps={VIDEO_FPS}
-            compositionWidth={VIDEO_WIDTH}
-            compositionHeight={VIDEO_HEIGHT}
+            loop
             style={{
               width: "100%",
               aspectRatio: `${VIDEO_WIDTH} / ${VIDEO_HEIGHT}`,
             }}
-            controls
-            autoPlay={false}
-            loop
           />
         </div>
 

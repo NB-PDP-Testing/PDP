@@ -5,10 +5,12 @@ import {
   interpolate,
   spring,
   useVideoConfig,
+  Img,
+  staticFile,
 } from "remotion";
-import { COLORS, SCENES } from "../../constants";
+import { COLORS, SCENES, STATS } from "../../constants";
 
-// Intro Scene - Logo and tagline (matches hero-section.tsx)
+// Intro Scene - Logo image and tagline
 const IntroScene = () => {
   const frame = useCurrentFrame();
   const { fps } = useVideoConfig();
@@ -24,17 +26,17 @@ const IntroScene = () => {
     extrapolateRight: "clamp",
   });
 
-  const taglineOpacity = interpolate(frame, [30, 50], [0, 1], {
+  const taglineOpacity = interpolate(frame, [40, 60], [0, 1], {
     extrapolateLeft: "clamp",
     extrapolateRight: "clamp",
   });
 
-  const taglineY = interpolate(frame, [30, 50], [40, 0], {
+  const taglineY = interpolate(frame, [40, 60], [40, 0], {
     extrapolateLeft: "clamp",
     extrapolateRight: "clamp",
   });
 
-  const subtitleOpacity = interpolate(frame, [50, 70], [0, 1], {
+  const subtitleOpacity = interpolate(frame, [70, 90], [0, 1], {
     extrapolateLeft: "clamp",
     extrapolateRight: "clamp",
   });
@@ -47,17 +49,17 @@ const IntroScene = () => {
         alignItems: "center",
       }}
     >
-      {/* Decorative blurs like marketing site */}
+      {/* Decorative blurs */}
       <div
         style={{
           position: "absolute",
           top: 0,
           right: 0,
-          width: 400,
-          height: 400,
+          width: 500,
+          height: 500,
           borderRadius: "50%",
           background: `${COLORS.green}20`,
-          filter: "blur(100px)",
+          filter: "blur(120px)",
         }}
       />
       <div
@@ -65,16 +67,16 @@ const IntroScene = () => {
           position: "absolute",
           bottom: 0,
           left: 0,
-          width: 400,
-          height: 400,
+          width: 500,
+          height: 500,
           borderRadius: "50%",
           background: `${COLORS.orange}15`,
-          filter: "blur(100px)",
+          filter: "blur(120px)",
         }}
       />
 
       <div style={{ textAlign: "center", zIndex: 10 }}>
-        {/* Logo */}
+        {/* Logo Image */}
         <div
           style={{
             opacity: logoOpacity,
@@ -82,17 +84,15 @@ const IntroScene = () => {
             marginBottom: 30,
           }}
         >
-          <div
+          <Img
+            src={staticFile("logos-landing/PDP-Logo-OffWhiteOrbit_GreenHuman.png")}
             style={{
-              fontSize: 140,
-              fontWeight: 800,
-              color: COLORS.white,
-              letterSpacing: "-3px",
-              textShadow: "0 4px 40px rgba(0,0,0,0.3)",
+              width: 280,
+              height: 280,
+              objectFit: "contain",
+              filter: "drop-shadow(0 8px 40px rgba(0,0,0,0.3))",
             }}
-          >
-            Player<span style={{ color: COLORS.green }}>ARC</span>
-          </div>
+          />
         </div>
 
         {/* Main Tagline */}
@@ -100,7 +100,7 @@ const IntroScene = () => {
           style={{
             opacity: taglineOpacity,
             transform: `translateY(${taglineY}px)`,
-            fontSize: 52,
+            fontSize: 64,
             fontWeight: 700,
             color: COLORS.white,
             marginBottom: 20,
@@ -116,16 +116,198 @@ const IntroScene = () => {
         <div
           style={{
             opacity: subtitleOpacity,
-            fontSize: 28,
+            fontSize: 32,
             color: "rgba(255,255,255,0.85)",
             fontWeight: 400,
-            maxWidth: 800,
+            maxWidth: 900,
             margin: "0 auto",
           }}
         >
           The digital passport that travels with players
           <br />
           throughout their sporting journey
+        </div>
+      </div>
+    </AbsoluteFill>
+  );
+};
+
+// Problem Scene - Crisis Stats
+const ProblemScene = () => {
+  const frame = useCurrentFrame();
+  const { fps } = useVideoConfig();
+
+  const titleOpacity = interpolate(frame, [0, 20], [0, 1], {
+    extrapolateLeft: "clamp",
+    extrapolateRight: "clamp",
+  });
+
+  return (
+    <AbsoluteFill
+      style={{
+        background: `linear-gradient(180deg, ${COLORS.white} 0%, ${COLORS.lightGreen} 100%)`,
+        justifyContent: "center",
+        alignItems: "center",
+        padding: 80,
+      }}
+    >
+      <div style={{ textAlign: "center", maxWidth: 1400 }}>
+        <div
+          style={{
+            opacity: titleOpacity,
+            fontSize: 56,
+            fontWeight: 700,
+            color: COLORS.primaryBlue,
+            marginBottom: 20,
+          }}
+        >
+          We're Losing Our Young Athletes
+        </div>
+        <div
+          style={{
+            opacity: titleOpacity,
+            fontSize: 28,
+            color: COLORS.gray,
+            marginBottom: 60,
+          }}
+        >
+          The current youth sports system is failing our children
+        </div>
+
+        {/* Stats Row */}
+        <div style={{ display: "flex", justifyContent: "center", gap: 60 }}>
+          {STATS.map((stat, index) => {
+            const delay = index * 25 + 30;
+            const statScale = spring({
+              frame: frame - delay,
+              fps,
+              config: { damping: 12, stiffness: 100 },
+            });
+            const statOpacity = interpolate(frame - delay, [0, 20], [0, 1], {
+              extrapolateLeft: "clamp",
+              extrapolateRight: "clamp",
+            });
+
+            return (
+              <div
+                key={stat.value}
+                style={{
+                  opacity: statOpacity,
+                  transform: `scale(${statScale})`,
+                  textAlign: "center",
+                  padding: "40px 50px",
+                  background: COLORS.white,
+                  borderRadius: 24,
+                  boxShadow: "0 8px 40px rgba(0,0,0,0.1)",
+                  border: `3px solid ${stat.color}30`,
+                }}
+              >
+                <div
+                  style={{
+                    fontSize: 100,
+                    fontWeight: 800,
+                    color: stat.color,
+                    lineHeight: 1,
+                    marginBottom: 16,
+                  }}
+                >
+                  {stat.value}
+                </div>
+                <div
+                  style={{
+                    fontSize: 24,
+                    fontWeight: 600,
+                    color: COLORS.primaryBlue,
+                  }}
+                >
+                  {stat.label}
+                </div>
+              </div>
+            );
+          })}
+        </div>
+      </div>
+    </AbsoluteFill>
+  );
+};
+
+// Solution Scene - Passport Image
+const SolutionScene = () => {
+  const frame = useCurrentFrame();
+  const { fps } = useVideoConfig();
+
+  const contentOpacity = interpolate(frame, [0, 20], [0, 1], {
+    extrapolateLeft: "clamp",
+    extrapolateRight: "clamp",
+  });
+
+  const passportScale = spring({
+    frame: frame - 10,
+    fps,
+    config: { damping: 15, stiffness: 80 },
+  });
+
+  const textOpacity = interpolate(frame, [30, 50], [0, 1], {
+    extrapolateLeft: "clamp",
+    extrapolateRight: "clamp",
+  });
+
+  return (
+    <AbsoluteFill
+      style={{
+        background: `linear-gradient(135deg, ${COLORS.primaryBlue} 0%, ${COLORS.darkBlue} 100%)`,
+        justifyContent: "center",
+        alignItems: "center",
+        padding: 80,
+      }}
+    >
+      <div style={{ display: "flex", alignItems: "center", gap: 80, maxWidth: 1400 }}>
+        {/* Passport Image */}
+        <div
+          style={{
+            opacity: contentOpacity,
+            transform: `scale(${passportScale})`,
+            flex: "0 0 auto",
+          }}
+        >
+          <Img
+            src={staticFile("passports/PDP-Passport-BrownGold_CameraANDBox.png")}
+            style={{
+              width: 450,
+              height: 450,
+              objectFit: "contain",
+              filter: "drop-shadow(0 20px 60px rgba(0,0,0,0.4))",
+            }}
+          />
+        </div>
+
+        {/* Text Content */}
+        <div style={{ flex: 1, opacity: textOpacity }}>
+          <div
+            style={{
+              fontSize: 52,
+              fontWeight: 700,
+              color: COLORS.white,
+              marginBottom: 24,
+              lineHeight: 1.2,
+            }}
+          >
+            Our Solution:
+            <br />
+            <span style={{ color: COLORS.green }}>A Digital Passport</span>
+            <br />
+            for Every Player
+          </div>
+          <div
+            style={{
+              fontSize: 26,
+              color: "rgba(255,255,255,0.85)",
+              lineHeight: 1.6,
+            }}
+          >
+            Track, nurture, and celebrate every child's sporting journey.
+            Keep players engaged, healthy, and performing at their best.
+          </div>
         </div>
       </div>
     </AbsoluteFill>
@@ -170,9 +352,9 @@ const FeatureItem = ({
         gap: 24,
         opacity,
         transform: `translateX(${(1 - progress) * (isLeft ? -100 : 100)}px)`,
-        marginBottom: 35,
+        marginBottom: 28,
         background: COLORS.white,
-        padding: "24px 32px",
+        padding: "20px 28px",
         borderRadius: 16,
         boxShadow: "0 4px 20px rgba(0,0,0,0.08)",
         border: `2px solid ${COLORS.lightGray}`,
@@ -180,14 +362,14 @@ const FeatureItem = ({
     >
       <div
         style={{
-          width: 64,
-          height: 64,
+          width: 56,
+          height: 56,
           borderRadius: 12,
           background: `${COLORS.green}15`,
           display: "flex",
           alignItems: "center",
           justifyContent: "center",
-          fontSize: 32,
+          fontSize: 28,
           flexShrink: 0,
         }}
       >
@@ -196,21 +378,21 @@ const FeatureItem = ({
       <div>
         <div
           style={{
-            fontSize: 26,
+            fontSize: 22,
             fontWeight: 700,
             color: COLORS.primaryBlue,
-            marginBottom: 4,
+            marginBottom: 2,
           }}
         >
           {title}
         </div>
-        <div style={{ fontSize: 18, color: COLORS.gray }}>{description}</div>
+        <div style={{ fontSize: 16, color: COLORS.gray }}>{description}</div>
       </div>
     </div>
   );
 };
 
-// Features Scene (matches features-section.tsx & solution-section.tsx)
+// Features Scene
 const FeaturesScene = () => {
   const frame = useCurrentFrame();
 
@@ -223,38 +405,38 @@ const FeaturesScene = () => {
     {
       icon: "📋",
       title: "Player Passports",
-      description: "Digital passports that follow every athlete's journey",
+      description: "Digital profiles that follow every athlete's journey",
       delay: 15,
     },
     {
       icon: "👨‍🏫",
       title: "Coach Tools",
-      description: "Powerful tools for tracking and feedback",
-      delay: 30,
+      description: "Assessments, voice notes, and development tracking",
+      delay: 28,
     },
     {
       icon: "👨‍👩‍👧",
       title: "Parent Portal",
-      description: "Stay connected with your child's development",
-      delay: 45,
+      description: "Stay connected with your child's progress",
+      delay: 41,
     },
     {
       icon: "🧠",
       title: "AI-Powered Insights",
       description: "Personalized recommendations for every player",
-      delay: 60,
+      delay: 54,
     },
     {
       icon: "🎙️",
       title: "Voice Notes",
-      description: "Capture feedback through voice recordings",
-      delay: 75,
+      description: "Capture feedback with AI transcription",
+      delay: 67,
     },
     {
       icon: "📊",
       title: "Progress Tracking",
       description: "Visual dashboards for development trends",
-      delay: 90,
+      delay: 80,
     },
   ];
 
@@ -262,32 +444,32 @@ const FeaturesScene = () => {
     <AbsoluteFill
       style={{
         background: `linear-gradient(180deg, ${COLORS.white} 0%, ${COLORS.lightGreen} 100%)`,
-        padding: "60px 100px",
+        padding: "50px 80px",
       }}
     >
       <div
         style={{
           opacity: titleOpacity,
           textAlign: "center",
-          marginBottom: 40,
+          marginBottom: 30,
         }}
       >
         <div
           style={{
-            fontSize: 56,
+            fontSize: 48,
             fontWeight: 700,
             color: COLORS.primaryBlue,
-            marginBottom: 10,
+            marginBottom: 8,
           }}
         >
           Everything You Need to Nurture Talent
         </div>
-        <div style={{ fontSize: 24, color: COLORS.gray }}>
+        <div style={{ fontSize: 22, color: COLORS.gray }}>
           Comprehensive tools for coaches, parents, and administrators
         </div>
       </div>
 
-      <div style={{ display: "flex", gap: 40, marginTop: 20 }}>
+      <div style={{ display: "flex", gap: 40 }}>
         <div style={{ flex: 1 }}>
           {features.slice(0, 3).map((f, i) => (
             <FeatureItem key={f.title} {...f} index={i} />
@@ -344,7 +526,7 @@ const BenefitsScene = () => {
         <div
           style={{
             opacity: titleOpacity,
-            fontSize: 48,
+            fontSize: 52,
             fontWeight: 700,
             color: COLORS.white,
             marginBottom: 60,
@@ -371,7 +553,7 @@ const BenefitsScene = () => {
               style={{
                 opacity,
                 transform: `scale(${scale})`,
-                fontSize: 42,
+                fontSize: 44,
                 fontWeight: 600,
                 color: COLORS.white,
                 marginBottom: 40,
@@ -383,14 +565,14 @@ const BenefitsScene = () => {
             >
               <div
                 style={{
-                  width: 64,
-                  height: 64,
-                  borderRadius: 16,
+                  width: 72,
+                  height: 72,
+                  borderRadius: 18,
                   background: benefit.color,
                   display: "flex",
                   alignItems: "center",
                   justifyContent: "center",
-                  fontSize: 32,
+                  fontSize: 36,
                 }}
               >
                 {benefit.icon}
@@ -404,7 +586,7 @@ const BenefitsScene = () => {
   );
 };
 
-// CTA Scene (matches final-cta-section.tsx)
+// CTA Scene
 const CTAScene = () => {
   const frame = useCurrentFrame();
   const { fps } = useVideoConfig();
@@ -416,12 +598,11 @@ const CTAScene = () => {
   });
 
   const buttonScale = spring({
-    frame: frame - 15,
+    frame: frame - 20,
     fps,
     config: { damping: 10, stiffness: 100 },
   });
 
-  // Pulsing effect for the button
   const pulseOpacity = interpolate(Math.sin(frame * 0.15), [-1, 1], [0.85, 1]);
 
   return (
@@ -438,11 +619,11 @@ const CTAScene = () => {
           position: "absolute",
           top: "10%",
           right: "10%",
-          width: 300,
-          height: 300,
+          width: 400,
+          height: 400,
           borderRadius: "50%",
           background: `${COLORS.green}15`,
-          filter: "blur(80px)",
+          filter: "blur(100px)",
         }}
       />
       <div
@@ -450,21 +631,21 @@ const CTAScene = () => {
           position: "absolute",
           bottom: "10%",
           left: "10%",
-          width: 300,
-          height: 300,
+          width: 400,
+          height: 400,
           borderRadius: "50%",
           background: `${COLORS.orange}15`,
-          filter: "blur(80px)",
+          filter: "blur(100px)",
         }}
       />
 
       <div style={{ textAlign: "center", transform: `scale(${scale})`, zIndex: 10 }}>
         <div
           style={{
-            fontSize: 64,
+            fontSize: 68,
             fontWeight: 800,
             color: COLORS.white,
-            marginBottom: 20,
+            marginBottom: 24,
             textShadow: "0 4px 30px rgba(0,0,0,0.2)",
             lineHeight: 1.2,
           }}
@@ -476,9 +657,9 @@ const CTAScene = () => {
 
         <div
           style={{
-            fontSize: 28,
+            fontSize: 30,
             color: "rgba(255,255,255,0.8)",
-            marginBottom: 40,
+            marginBottom: 50,
           }}
         >
           Join forward-thinking clubs using PlayerARC
@@ -495,11 +676,11 @@ const CTAScene = () => {
               display: "inline-block",
               background: COLORS.orange,
               color: COLORS.white,
-              fontSize: 32,
+              fontSize: 36,
               fontWeight: 700,
-              padding: "24px 64px",
-              borderRadius: 50,
-              boxShadow: `0 10px 40px ${COLORS.orange}50`,
+              padding: "28px 72px",
+              borderRadius: 60,
+              boxShadow: `0 12px 50px ${COLORS.orange}50`,
             }}
           >
             Request a Demo
@@ -508,8 +689,8 @@ const CTAScene = () => {
 
         <div
           style={{
-            marginTop: 40,
-            fontSize: 24,
+            marginTop: 50,
+            fontSize: 28,
             color: "rgba(255,255,255,0.7)",
             fontWeight: 500,
           }}
@@ -527,6 +708,14 @@ export const PDPCommercial = () => {
     <AbsoluteFill style={{ fontFamily: "Inter, system-ui, sans-serif" }}>
       <Sequence from={SCENES.intro.start} durationInFrames={SCENES.intro.duration}>
         <IntroScene />
+      </Sequence>
+
+      <Sequence from={SCENES.problem.start} durationInFrames={SCENES.problem.duration}>
+        <ProblemScene />
+      </Sequence>
+
+      <Sequence from={SCENES.solution.start} durationInFrames={SCENES.solution.duration}>
+        <SolutionScene />
       </Sequence>
 
       <Sequence from={SCENES.features.start} durationInFrames={SCENES.features.duration}>

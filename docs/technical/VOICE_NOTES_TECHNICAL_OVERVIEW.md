@@ -3573,17 +3573,254 @@ teamActivityFeed: defineTable({
 
 **Implementation:** Extend functional roles with team-specific permissions.
 
-### 19.6 Implementation Roadmap
+### 19.6 Insights from Enterprise Collaboration Platforms
 
-| Phase | Features | Effort | Value |
-|-------|----------|--------|-------|
-| **Phase 1** | Unified team dashboard, activity feed | Medium | High |
-| **Phase 2** | Task sharing, comments on insights | Medium | High |
-| **Phase 3** | Session prep hub, collaborative planning | High | Medium |
-| **Phase 4** | Smart notifications, AI suggestions | High | High |
-| **Phase 5** | Role-based views, permission system | Medium | Medium |
+Deep research into leading collaboration platforms reveals patterns that can elevate the Team Insights hub from a simple information display to a true collaboration environment.
 
-### 19.7 Database Schema Additions
+#### 19.6.1 Notion: Block-Based Modularity & Real-Time Presence
+
+**Source:** [Notion Review 2026](https://research.com/software/reviews/notion) | [Notion Help Center](https://www.notion.com/help/collaborate-within-a-workspace)
+
+**Key Patterns:**
+
+| Pattern | How Notion Does It | Application to Team Insights |
+|---------|-------------------|------------------------------|
+| **Block Architecture** | Every piece of content is a modular block (50+ types) that can be nested, moved, arranged | Insights, tasks, observations as composable blocks that coaches can reorganize |
+| **Synced Blocks** | Content mirrors across pages automatically | Share an insight card across multiple team views without duplication |
+| **Real-time Presence** | Colored cursors show where teammates are working | Show which coaches are viewing the team hub right now |
+| **Inline Comments** | Comments attach to any content block | Thread discussions directly on insights |
+| **@mentions** | Notify teammates in context | "@Coach Sarah - can you follow up on this injury?" |
+
+**Proposed Feature: Block-Based Insight Cards**
+
+```
+┌─────────────────────────────────────────────────────────────────────────────────┐
+│ INSIGHT BLOCK (Draggable, Nestable)                                              │
+├─────────────────────────────────────────────────────────────────────────────────┤
+│ ⭐ Emma's Tackling Improved (4/5)                           [📍 Synced] [:::] │
+│ Coach Neil • 2 hours ago • skill_rating                                         │
+│                                                                                  │
+│ "Showed great technique in 1v1 drills"                                          │
+│                                                                                  │
+│ 💬 2 comments   👍 Coach Sarah   📎 Linked to Thursday session                  │
+│ ────────────────────────────────────────────────────────────────────────────── │
+│ └─ @Coach Sarah: Should we move her to starting lineup?                         │
+│    └─ @Coach Neil: Yes, ready for Saturday                                      │
+└─────────────────────────────────────────────────────────────────────────────────┘
+```
+
+#### 19.6.2 ClickUp: Multi-View Flexibility & AI Workflows
+
+**Source:** [ClickUp Review 2026](https://hackceleration.com/clickup-review/) | [ClickUp Blog](https://clickup.com/blog/workspace-software/)
+
+**Key Patterns:**
+
+| Pattern | How ClickUp Does It | Application to Team Insights |
+|---------|---------------------|------------------------------|
+| **15+ Views** | Same data rendered as Kanban, Gantt, Calendar, Table, Mind Map | Insights viewable as: List, Board (by status), Calendar (by date), Player (grouped) |
+| **Hierarchical Structure** | Spaces → Folders → Lists → Tasks | Teams → Sessions → Insights → Actions |
+| **100+ Automations** | Triggers and conditions eliminate manual steps | "When injury insight applied → Create follow-up task for physio" |
+| **AI Workflow Generation** | Create entire workflows from a single prompt | "Generate pre-match review checklist from recent insights" |
+| **Dashboards** | Real-time customizable visualizations | Team health dashboard with insight trends |
+
+**Proposed Feature: Multi-View Toggle**
+
+```
+┌─────────────────────────────────────────────────────────────────────────────────┐
+│ U14 FEMALE INSIGHTS                    [List] [Board] [Calendar] [Players]      │
+├─────────────────────────────────────────────────────────────────────────────────┤
+
+LIST VIEW:                          BOARD VIEW:
+┌────────────────────┐              ┌──────────┐ ┌──────────┐ ┌──────────┐
+│ • Emma: Tackling ↑ │              │ PENDING  │ │ APPLIED  │ │ FOLLOW-UP│
+│ • Sarah: Injury    │              │ ──────── │ │ ──────── │ │ ──────── │
+│ • Team: Great vibe │              │ [Card 1] │ │ [Card 3] │ │ [Card 5] │
+│ • Clodagh: Solo ↑  │              │ [Card 2] │ │ [Card 4] │ │          │
+└────────────────────┘              └──────────┘ └──────────┘ └──────────┘
+
+CALENDAR VIEW:                      PLAYER VIEW:
+┌─────┬─────┬─────┬─────┐          ┌──────────────────────────┐
+│ Mon │ Tue │ Wed │ Thu │          │ EMMA BARLOW              │
+├─────┼─────┼─────┼─────┤          │ • Tackling 4/5 (Jan 26)  │
+│  ●  │     │ ●●  │  ●  │          │ • Performance (Jan 24)   │
+│     │     │     │     │          │ • Attendance ✓ (Jan 22)  │
+└─────┴─────┴─────┴─────┘          └──────────────────────────┘
+```
+
+#### 19.6.3 Figma: Multiplayer Presence & Cursor Awareness
+
+**Source:** [Figma Multiplayer Blog](https://www.figma.com/blog/multiplayer-editing-in-figma/) | [Frontend Simplified](https://medium.com/frontend-simplified/deconstructing-the-magic-how-figma-achieved-seamless-real-time-multi-user-collaboration-37347f2ee292)
+
+**Key Patterns:**
+
+| Pattern | How Figma Does It | Application to Team Insights |
+|---------|-------------------|------------------------------|
+| **Live Cursors** | See exactly where teammates are working in real-time | See which insight Coach Sarah is currently reviewing |
+| **Cursor Chat** | Quick messages appear next to your cursor | Quick contextual comments without opening a modal |
+| **Observation Mode** | Follow a teammate's cursor during presentations | "Watch me review these insights" for training |
+| **Presence Indicators** | Avatars show who's in the document | Colored dots showing active coaches on team hub |
+| **Conflict Resolution** | CRDTs ensure edits don't overwrite each other | Two coaches editing same insight gracefully merges |
+
+**Proposed Feature: Live Collaboration Presence**
+
+```
+┌─────────────────────────────────────────────────────────────────────────────────┐
+│ U14 FEMALE                                    🟢 Neil  🔵 Sarah  🟡 Mike        │
+│ Team Insights Hub                             (3 coaches viewing)               │
+├─────────────────────────────────────────────────────────────────────────────────┤
+│                                                                                  │
+│  ┌─────────────────────────────────────────────────────────────────────────────┐│
+│  │ 🟢← Neil is here                                                            ││
+│  │ ⭐ Emma's Tackling Improved                                                 ││
+│  │ "Showed great technique..."                                                 ││
+│  │                                                                             ││
+│  │ 🔵 Sarah: "Should we start her Saturday?" (cursor chat)                     ││
+│  └─────────────────────────────────────────────────────────────────────────────┘│
+│                                                                                  │
+│  ┌─────────────────────────────────────────────────────────────────────────────┐│
+│  │ 🟡← Mike is here                                                            ││
+│  │ 🏥 Sarah's Ankle - Minor                                                    ││
+│  │ "Knock during drill..."                                                     ││
+│  └─────────────────────────────────────────────────────────────────────────────┘│
+│                                                                                  │
+└─────────────────────────────────────────────────────────────────────────────────┘
+```
+
+**Technical Implementation (WebSocket-based):**
+
+```typescript
+// Real-time presence via Convex subscriptions
+export const getTeamPresence = query({
+  args: { teamId: v.string() },
+  returns: v.array(v.object({
+    odz: v.string(),
+    name: v.string(),
+    avatarColor: v.string(),
+    currentViewingInsightId: v.optional(v.string()),
+    lastActiveAt: v.number(),
+  })),
+  handler: async (ctx, args) => {
+    // Query active sessions for this team
+    const presence = await ctx.db
+      .query("coachPresence")
+      .withIndex("by_team", q => q.eq("teamId", args.teamId))
+      .filter(q => q.gt(q.field("lastActiveAt"), Date.now() - 60000)) // Active in last minute
+      .collect();
+    return presence;
+  },
+});
+```
+
+#### 19.6.4 Activity Feed Design Patterns
+
+**Source:** [Activity Feed Design Guide](https://getstream.io/blog/activity-feed-design/) | [Smashing Magazine Notifications UX](https://www.smashingmagazine.com/2025/07/design-guidelines-better-notifications-ux/)
+
+**Key Patterns:**
+
+| Pattern | Best Practice | Application to Team Insights |
+|---------|--------------|------------------------------|
+| **Actor-Verb-Object** | "Sarah applied injury insight to Emma" | Clear, scannable activity descriptions |
+| **Read/Unread States** | Visual distinction for new items | Bold unread items, badge counts |
+| **Categorization** | Group by type (transactional, system, etc.) | Filter by: Insights, Tasks, Sessions, Comments |
+| **Notification Levels** | High/Medium/Low attention | 🔴 Injury = high, 🟡 Skill = medium, 🟢 Attendance = low |
+| **User Control** | Let users configure what they see | "Notify me about: Injuries ✓, Tasks ✓, Skills ○" |
+
+**Proposed Feature: Smart Activity Feed**
+
+```
+┌─────────────────────────────────────────────────────────────────────────────────┐
+│ TEAM ACTIVITY                                          [Filter ▼] [Mark All Read]│
+├─────────────────────────────────────────────────────────────────────────────────┤
+│ TODAY                                                                            │
+│ ─────                                                                            │
+│ ● 🔴 Coach Neil applied INJURY insight to Sarah Malone           2 min ago      │
+│   "Ankle knock during drill - monitor for 48 hours"                              │
+│   [View Insight] [View Player]                                                   │
+│                                                                                  │
+│ ○ ⭐ Coach Sarah applied SKILL insight to Emma Barlow             1 hour ago    │
+│   "Tackling improved: 3 → 4"                                                     │
+│   [View Insight] [View Player]                                                   │
+│                                                                                  │
+│ ○ 📝 Coach Mike added COMMENT on "Team spirit" insight            2 hours ago   │
+│   "Agreed - best session this month"                                             │
+│   [View Thread]                                                                  │
+│                                                                                  │
+│ YESTERDAY                                                                        │
+│ ─────────                                                                        │
+│ ○ ✅ Coach Neil completed TASK: Order training cones              Yesterday     │
+│   [View Task]                                                                    │
+│                                                                                  │
+│ ○ 📅 Coach Sarah created SESSION PLAN for Thu 23 Jan              Yesterday     │
+│   Focus: Defensive positioning, Ball retention                                   │
+│   [View Plan]                                                                    │
+└─────────────────────────────────────────────────────────────────────────────────┘
+```
+
+#### 19.6.5 Asana/Monday.com: Scalability & Templates
+
+**Source:** [Asana vs Monday.com](https://monday.com/blog/project-management/asana-vs-monday-com-which-to-choose/) | [Monday.com Review](https://www.morgen.so/blog-posts/clickup-review)
+
+**Key Patterns:**
+
+| Pattern | Best Practice | Application to Team Insights |
+|---------|--------------|------------------------------|
+| **Templates** | Pre-built workflows for common scenarios | "Pre-Match Review" template, "Season Planning" template |
+| **Scalable Permissions** | Multi-level access control that grows with team | Expand from 3 coaches to 10 without restructuring |
+| **Cross-Team Visibility** | See relevant info from other teams | Head coach sees all teams, assistant sees assigned only |
+| **Workload Management** | Visualize who has capacity | See which coaches have pending tasks/insights |
+| **Dependencies** | Link related items | "Follow-up task blocked by: Injury check complete" |
+
+**Proposed Feature: Session Templates**
+
+```
+┌─────────────────────────────────────────────────────────────────────────────────┐
+│ CREATE SESSION PLAN                                    [Use Template ▼]         │
+├─────────────────────────────────────────────────────────────────────────────────┤
+│                                                                                  │
+│ TEMPLATES:                                                                       │
+│ ┌─────────────────────────┐ ┌─────────────────────────┐ ┌─────────────────────┐│
+│ │ 📋 Pre-Match Review     │ │ 🏃 Training Session     │ │ 📊 Season Review    ││
+│ │ • Review recent insights│ │ • Warm-up objectives    │ │ • Player progress   ││
+│ │ • Injury status check   │ │ • Drill focus areas     │ │ • Goal assessment   ││
+│ │ • Opponent notes        │ │ • Player rotation       │ │ • Team culture      ││
+│ │ • Starting lineup       │ │ • Equipment list        │ │ • Recommendations   ││
+│ │                         │ │                         │ │                     ││
+│ │ [Use This Template]     │ │ [Use This Template]     │ │ [Use This Template] ││
+│ └─────────────────────────┘ └─────────────────────────┘ └─────────────────────┘│
+│                                                                                  │
+│ AI SUGGESTION: Based on your recent insights, we recommend the "Pre-Match        │
+│ Review" template. 3 players have injury notes that need review before Saturday.  │
+│                                                                                  │
+└─────────────────────────────────────────────────────────────────────────────────┘
+```
+
+#### 19.6.6 Summary: Platform Pattern Matrix
+
+| Capability | Notion | ClickUp | Figma | Asana/Monday | Priority for PlayerARC |
+|------------|--------|---------|-------|--------------|------------------------|
+| **Block-based content** | ✅ Core | Partial | ❌ | ❌ | 🟡 Medium |
+| **Multi-view flexibility** | ✅ | ✅ Core | ❌ | ✅ | 🔴 High |
+| **Live presence/cursors** | ✅ | ❌ | ✅ Core | ❌ | 🟡 Medium |
+| **@mentions & comments** | ✅ | ✅ | ✅ | ✅ | 🔴 High |
+| **Automations/triggers** | Limited | ✅ Core | ❌ | ✅ | 🟡 Medium |
+| **Templates** | ✅ | ✅ | ✅ | ✅ Core | 🔴 High |
+| **Activity feed** | ✅ | ✅ | Limited | ✅ | 🔴 High |
+| **AI suggestions** | ✅ (2025) | ✅ (2025) | ❌ | ✅ (2025) | 🔴 High (already have) |
+| **Mobile-first** | ✅ | ✅ | Limited | ✅ | 🔴 High |
+
+### 19.7 Implementation Roadmap (Updated)
+
+| Phase | Features | Inspiration | Effort | Value |
+|-------|----------|-------------|--------|-------|
+| **Phase 1** | Activity feed + @mentions | Notion, ClickUp | Medium | 🔴 High |
+| **Phase 2** | Multi-view toggle (List/Board/Calendar) | ClickUp | Medium | 🔴 High |
+| **Phase 3** | Comments & threaded discussions | Notion, Figma | Medium | 🔴 High |
+| **Phase 4** | Session templates library | Asana, Monday | Medium | 🟡 Medium |
+| **Phase 5** | Live presence indicators | Figma | High | 🟡 Medium |
+| **Phase 6** | Cursor chat & observation mode | Figma | High | 🟢 Low |
+| **Phase 7** | Block-based drag & drop | Notion | High | 🟢 Low |
+
+### 19.8 Database Schema Additions
 
 ```typescript
 // New tables for collaboration hub
@@ -3635,7 +3872,7 @@ sessionPrep: defineTable({
 .index("by_org", ["organizationId"]),
 ```
 
-### 19.8 Key Files Reference
+### 19.9 Key Files Reference
 
 | Current File | Lines | Purpose |
 |--------------|-------|---------|
@@ -3644,7 +3881,7 @@ sessionPrep: defineTable({
 | `models/teamObservations.ts` | 174 | Team observation storage |
 | `models/coaches.ts` | 492 | Coach assignments and team discovery |
 
-### 19.9 Success Metrics
+### 19.10 Success Metrics
 
 | Metric | Current | Target | Measurement |
 |--------|---------|--------|-------------|

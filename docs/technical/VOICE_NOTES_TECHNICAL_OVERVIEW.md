@@ -23,6 +23,9 @@
 13. [Key Files Reference](#13-key-files-reference)
 14. [Troubleshooting Guide](#14-troubleshooting-guide)
 15. [Admin Observability & Platform Analytics](#15-admin-observability--platform-analytics)
+16. [Audio Storage Architecture](#16-audio-storage-architecture)
+17. [Coach Learning & Feedback Loop](#17-coach-learning--feedback-loop)
+18. [Prompt Flexibility & Tone Controls](#18-prompt-flexibility--tone-controls)
 
 ---
 
@@ -2080,6 +2083,92 @@ if (insight.category === "team_culture") {
 | `team_culture` | `teamObservations` | ✅ Always | ❌ | title, description, sentiment |
 | `todo` | `coachTasks` | ✅ Always | ❌ | title, description, assignee |
 
+#### Visual: Insight → Player Passport Mapping
+
+```
+┌─────────────────────────────────────────────────────────────────────────────────┐
+│                    VOICE NOTE INSIGHT → PLAYER PASSPORT FLOW                     │
+└─────────────────────────────────────────────────────────────────────────────────┘
+
+┌──────────────────┐
+│   VOICE NOTE     │
+│ "Clodagh's hand  │
+│  pass is now 4/5,│
+│  ankle knock..."  │
+└────────┬─────────┘
+         │
+         ▼
+┌──────────────────────────────────────────────────────────────────────────────────┐
+│ AI EXTRACTION (buildInsights)                                                    │
+│ ┌──────────────────┐ ┌──────────────────┐ ┌──────────────────┐                   │
+│ │ Insight #1       │ │ Insight #2       │ │ Insight #3       │                   │
+│ │ skill_rating     │ │ injury           │ │ team_culture     │                   │
+│ │ "Hand pass 4/5"  │ │ "Ankle knock"    │ │ "Great spirit"   │                   │
+│ │ player: Clodagh  │ │ player: Clodagh  │ │ player: null     │                   │
+│ │ confidence: 0.95 │ │ confidence: 0.88 │ │ confidence: 0.82 │                   │
+│ └────────┬─────────┘ └────────┬─────────┘ └────────┬─────────┘                   │
+└──────────┼───────────────────┼───────────────────┼───────────────────────────────┘
+           │                   │                   │
+           ▼                   ▼                   ▼
+┌──────────────────┐ ┌──────────────────┐ ┌──────────────────┐
+│ skillAssessments │ │ playerInjuries   │ │ teamObservations │
+│ ────────────────│ │ ────────────────│ │ ────────────────│
+│ playerIdentityId │ │ playerIdentityId │ │ teamId           │
+│ skillName: hand_ │ │ type: ankle      │ │ title: Great     │
+│   pass           │ │ severity: minor  │ │   spirit         │
+│ rating: 4        │ │ description:...  │ │ sentiment:       │
+│ assessedBy:coach │ │ reportedBy:coach │ │   positive       │
+│ source: voice_   │ │ source: voice_   │ │ source: voice_   │
+│   note           │ │   note           │ │   note           │
+│ voiceNoteId: xxx │ │ voiceNoteId: xxx │ │ voiceNoteId: xxx │
+└────────┬─────────┘ └────────┬─────────┘ └──────────────────┘
+         │                   │
+         ▼                   ▼
+┌─────────────────────────────────────────────────────────────┐
+│                    PLAYER PASSPORT                           │
+│ ┌─────────────────────────────────────────────────────────┐ │
+│ │ CLODAGH BARLOW                                          │ │
+│ │ ─────────────────────────────────────────────────────── │ │
+│ │                                                         │ │
+│ │ SKILLS                        │ INJURIES                │ │
+│ │ ┌─────────────────────────┐   │ ┌─────────────────────┐ │ │
+│ │ │ Hand Pass    ████░ 4/5  │   │ │ Ankle (minor)       │ │ │
+│ │ │ Solo Run     ███░░ 3/5  │   │ │ Jan 26, 2026        │ │ │
+│ │ │ Tackling     ███░░ 3/5  │   │ │ Status: Active      │ │ │
+│ │ └─────────────────────────┘   │ └─────────────────────┘ │ │
+│ │                               │                         │ │
+│ │ GOALS                         │ ATTENDANCE              │ │
+│ │ ┌─────────────────────────┐   │ ┌─────────────────────┐ │ │
+│ │ │ Improve first touch     │   │ │ Sessions: 12/15     │ │ │
+│ │ │ Status: In Progress     │   │ │ Rate: 80%           │ │ │
+│ │ └─────────────────────────┘   │ └─────────────────────┘ │ │
+│ │                                                         │ │
+│ └─────────────────────────────────────────────────────────┘ │
+└─────────────────────────────────────────────────────────────┘
+
+TRACEABILITY:
+─────────────
+• Each passport record has `source: "voice_note"` + `voiceNoteId`
+• Enables "View source" links from passport back to original note
+• Auto-applied insights also stored in `autoAppliedInsights` for audit
+```
+
+#### Data Lineage
+
+```
+Voice Note ──► voiceNotes.insights[] ──► voiceNoteInsights table
+                                                │
+                                    ┌───────────┴───────────┐
+                                    │                       │
+                              (if applied)            (if auto-applied)
+                                    │                       │
+                                    ▼                       ▼
+                            Target Table            autoAppliedInsights
+                         (skillAssessments,         (audit trail with
+                          playerInjuries,            previousValue for
+                          passportGoals, etc.)       undo capability)
+```
+
 ### 11.6 Auto-Applied Insight Audit Trail
 
 When an insight is auto-applied, a record is created in `autoAppliedInsights`:
@@ -2738,6 +2827,435 @@ Tracks "what would have auto-applied" vs "what coach actually did":
 | `models/aiServiceHealth.ts` | ~200 | `recordSuccess`, `recordFailure`, `shouldCallAPI` |
 | `models/aiModelConfig.ts` | ~350 | `getConfigForFeature`, `updateModelConfig` |
 | `models/coachOverrideAnalytics.ts` | ~200 | `getCoachOverridePatterns`, `trackOverride` |
+
+---
+
+## 16. Audio Storage Architecture
+
+This section covers how audio recordings are stored, accessed, and managed.
+
+### 16.1 Storage Model
+
+```
+┌─────────────────────────────────────────────────────────────────┐
+│                    AUDIO STORAGE FLOW                            │
+└─────────────────────────────────────────────────────────────────┘
+
+Coach Records Audio
+         │
+         ▼
+┌─────────────────────────────────────────────────────────────────┐
+│ FRONTEND: MediaRecorder API                                     │
+│ - Format: audio/webm                                            │
+│ - Collects audio in chunks                                      │
+│ - Creates Blob on stop                                          │
+└──────────────────┬──────────────────────────────────────────────┘
+                   │
+                   ▼
+┌─────────────────────────────────────────────────────────────────┐
+│ CONVEX STORAGE (generateUploadUrl → POST blob)                  │
+│ - Direct browser upload via signed URL                          │
+│ - Returns storageId: Id<"_storage">                             │
+│ - No server relay (efficient)                                   │
+└──────────────────┬──────────────────────────────────────────────┘
+                   │
+                   ▼
+┌─────────────────────────────────────────────────────────────────┐
+│ DATABASE: voiceNotes.audioStorageId                             │
+│ - Links note to storage blob                                    │
+│ - Source: app_recorded | whatsapp_audio                         │
+└─────────────────────────────────────────────────────────────────┘
+```
+
+### 16.2 File Formats
+
+| Source | MIME Type | Extension | Notes |
+|--------|-----------|-----------|-------|
+| App Recording | `audio/webm` | `.webm` | Browser MediaRecorder default |
+| WhatsApp Audio | `audio/ogg` | `.ogg` | WhatsApp native format |
+
+### 16.3 Current Capabilities
+
+| Capability | Status | Notes |
+|------------|--------|-------|
+| Upload from browser | ✅ Implemented | Direct to Convex storage |
+| Storage reference | ✅ Implemented | `audioStorageId` in voiceNotes |
+| Delete with note | ✅ Implemented | `deleteVoiceNote()` cleans up |
+| Audio playback | ❌ Not implemented | No player UI |
+| Download audio | ❌ Not implemented | `getUrl()` available but unused |
+| Retention policy | ❌ Not implemented | Indefinite storage |
+| Storage quotas | ❌ Not implemented | No limits |
+
+### 16.4 Potential Uses for Stored Audio
+
+| Use Case | Description | Implementation Effort |
+|----------|-------------|----------------------|
+| **Playback Review** | Coach listens to original recording | Low - add audio player |
+| **Re-transcription** | Re-process with better model | Low - call transcribeAudio again |
+| **Quality Audit** | Admin reviews transcription accuracy | Medium - add comparison UI |
+| **Training Data** | Improve Whisper for Irish accents | High - export pipeline |
+| **Compliance** | GDPR data export | Medium - bulk download |
+| **Dispute Resolution** | Verify what was actually said | Low - playback access |
+
+### 16.5 Recording UI Feedback (Current State)
+
+**Location:** `apps/web/src/app/orgs/[orgId]/coach/voice-notes/components/new-note-tab.tsx`
+
+| Feedback | Status | Description |
+|----------|--------|-------------|
+| Button color change | ✅ | Green → Red when recording |
+| Pulsing animation | ✅ | Red ring pulses during recording |
+| Status badge | ✅ | "Recording... tap to stop" |
+| Upload indicator | ✅ | "Uploading..." with spinner |
+| **Waveform visualization** | ❌ | No audio amplitude display |
+| **Audio level meter** | ❌ | No real-time level feedback |
+| **Duration counter** | ❌ | No recording time shown |
+
+### 16.6 Gaps & Recommendations
+
+#### Audio Playback (High Priority)
+
+```typescript
+// Proposed: Add to voice note detail view
+const audioUrl = await ctx.storage.getUrl(note.audioStorageId);
+
+// Frontend component
+<audio controls src={audioUrl}>
+  Your browser does not support audio playback.
+</audio>
+```
+
+#### Waveform Visualization (Medium Priority)
+
+Would require:
+1. Web Audio API `AnalyserNode` for frequency data
+2. Canvas or SVG rendering for waveform
+3. Real-time update during recording
+
+#### Retention Policy (High Priority)
+
+```typescript
+// Proposed schema addition
+voiceNotes: defineTable({
+  // ... existing fields
+  retentionExpiresAt: v.optional(v.number()),  // TTL timestamp
+})
+
+// Proposed cron job (daily)
+export const cleanupExpiredAudio = internalMutation({
+  handler: async (ctx) => {
+    const expired = await ctx.db
+      .query("voiceNotes")
+      .withIndex("by_retention_expires")
+      .filter(q => q.lt(q.field("retentionExpiresAt"), Date.now()))
+      .collect();
+
+    for (const note of expired) {
+      if (note.audioStorageId) {
+        await ctx.storage.delete(note.audioStorageId);
+      }
+      // Keep note record but mark audio deleted
+      await ctx.db.patch(note._id, {
+        audioStorageId: undefined,
+        audioDeletedAt: Date.now(),
+      });
+    }
+  },
+});
+```
+
+---
+
+## 17. Coach Learning & Feedback Loop
+
+This section covers how coaches can learn from the system's corrections and how the system learns from coach behavior.
+
+### 17.1 Current Feedback Mechanisms
+
+#### What's Tracked When Coaches Correct AI
+
+| Action | Data Captured | Table |
+|--------|--------------|-------|
+| Approve low-confidence insight | confidenceScore, category | `coachOverrideAnalytics` |
+| Reject high-confidence insight | confidenceScore, reason | `coachOverrideAnalytics` |
+| Edit AI-generated text | before/after text | `coachOverrideAnalytics` |
+| Undo auto-applied insight | undoReason, previousValue | `autoAppliedInsights` |
+| Reassign player | wrongPlayer → correctPlayer | `voiceNotes` |
+| Change category | wrongCategory → correctCategory | `voiceNotes` |
+
+#### Trust Level Progression
+
+Coaches see their trust level in Settings tab:
+
+```
+Level 0 (Manual) ──► Level 1 (Learning) ──► Level 2 (Trusted) ──► Level 3 (Expert)
+                    10 approvals           50 approvals          200 approvals
+                                           <10% suppression       opt-in required
+```
+
+### 17.2 What Coaches Currently See
+
+| Feedback | Location | Status |
+|----------|----------|--------|
+| Trust level | Settings tab | ✅ Visible |
+| Progress to next level | Settings tab | ✅ Visible (%) |
+| Total approvals | Settings tab | ✅ Visible |
+| Suppression rate | Settings tab | ❌ Not shown |
+| Correction history | Nowhere | ❌ Not implemented |
+| AI accuracy for their notes | Nowhere | ❌ Not implemented |
+| Examples of applied insights | Nowhere | ❌ Not implemented |
+
+### 17.3 Proposed Coach Learning Dashboard
+
+#### Correction Summary View
+
+```
+┌─────────────────────────────────────────────────────────────────┐
+│ YOUR AI ACCURACY                                    Last 30 Days │
+├─────────────────────────────────────────────────────────────────┤
+│                                                                  │
+│  ┌──────────────┐  ┌──────────────┐  ┌──────────────┐           │
+│  │     87%      │  │     12       │  │      3       │           │
+│  │  Agreement   │  │  Corrections │  │  Undos       │           │
+│  │    Rate      │  │   Made       │  │              │           │
+│  └──────────────┘  └──────────────┘  └──────────────┘           │
+│                                                                  │
+│  COMMON CORRECTIONS:                                             │
+│  • Wrong player assigned (5x) - Try using full names            │
+│  • Wrong category (4x) - AI confused skill_rating/skill_progress│
+│  • Confidence too high (3x) - Threshold may need adjustment     │
+│                                                                  │
+└─────────────────────────────────────────────────────────────────┘
+```
+
+#### Applied Insights Examples
+
+```
+┌─────────────────────────────────────────────────────────────────┐
+│ RECENT APPLIED INSIGHTS                              View All ► │
+├─────────────────────────────────────────────────────────────────┤
+│                                                                  │
+│ ✅ "Hand pass improved to 4/5" → Sarah's Passport               │
+│    Applied: Jan 26, 2026 | Source: Training note                │
+│    [View in Passport] [View Original Note]                      │
+│                                                                  │
+│ ✅ "Ankle knock during drill" → Sarah's Injury Record           │
+│    Applied: Jan 26, 2026 | Source: Training note                │
+│    [View Record] [View Original Note]                           │
+│                                                                  │
+│ ⏪ "Solo run rating 3/5" → UNDONE (wrong player)                │
+│    Undone: Jan 25, 2026 | Original target: Clodagh              │
+│    [View Original Note]                                         │
+│                                                                  │
+└─────────────────────────────────────────────────────────────────┘
+```
+
+### 17.4 System Learning from Coach Behavior
+
+#### Current AI Tuning Mechanisms
+
+| Mechanism | Implementation | Status |
+|-----------|---------------|--------|
+| Per-coach confidence threshold | `insightConfidenceThreshold` in coachTrustLevels | ✅ Implemented |
+| Threshold adjustment cron | `adjustInsightThresholds` (daily) | ✅ Implemented |
+| Undo reason analytics | `getUndoReasonStats` | ✅ Implemented |
+| Override pattern tracking | `coachOverrideAnalytics` | ✅ Implemented |
+| **Prompt improvement from corrections** | Not implemented | ❌ Gap |
+| **Per-coach vocabulary learning** | Not implemented | ❌ Gap |
+
+#### Threshold Adjustment Logic
+
+```typescript
+// Daily cron adjusts coach's threshold based on behavior
+export const adjustInsightThresholds = internalMutation({
+  handler: async (ctx) => {
+    // For each coach with sufficient data
+    // If high override rate on high-confidence insights:
+    //   → Raise their threshold (more conservative)
+    // If low override rate and high agreement:
+    //   → Lower their threshold (more automation)
+  },
+});
+```
+
+### 17.5 Improvement Opportunities
+
+#### Coach-Facing Improvements
+
+| Feature | Value | Effort |
+|---------|-------|--------|
+| **Correction history view** | Coach sees their corrections over time | Medium |
+| **Applied insights gallery** | See examples of what went to passport | Medium |
+| **Tips based on patterns** | "Try using full names for better matching" | Low |
+| **Compare with other coaches** | Anonymous benchmarks | Medium |
+| **Voice note best practices** | Guided examples of effective notes | Low |
+
+#### System-Learning Improvements
+
+| Feature | Value | Effort |
+|---------|-------|--------|
+| **Nickname learning** | "Tommy" → Thomas for this coach | Medium |
+| **Sport-specific vocabulary** | Learn GAA terms from corrections | High |
+| **Per-org prompt tuning** | Customize prompts per organization | Medium |
+| **Correction → prompt feedback** | Auto-improve prompts from patterns | High |
+
+### 17.6 Clickable Links: Insights ↔ Passport
+
+#### Current State
+
+| Navigation | Status |
+|------------|--------|
+| Insight → Player Passport | ❌ No direct link |
+| Passport → Source Voice Note | ❌ No backlink |
+| History → Applied Record | ❌ No navigation |
+| Undo view → Original Insight | ❌ No link |
+
+#### Proposed Implementation
+
+```typescript
+// In insight card component
+<Link href={`/orgs/${orgId}/players/${playerIdentityId}/passport`}>
+  View {playerName}'s Passport →
+</Link>
+
+// In passport skill assessment
+{source === "voice_note" && (
+  <Link href={`/orgs/${orgId}/coach/voice-notes?noteId=${voiceNoteId}`}>
+    From voice note (Jan 26) →
+  </Link>
+)}
+
+// In auto-applied insights view
+<Link href={`/orgs/${orgId}/players/${playerIdentityId}/passport#skills`}>
+  View applied change →
+</Link>
+```
+
+---
+
+## 18. Prompt Flexibility & Tone Controls
+
+This section covers current prompt configuration and proposed flexibility.
+
+### 18.1 Current Prompt Configuration
+
+**Location:** `packages/backend/convex/actions/voiceNotes.ts` (lines 413-525)
+
+| Aspect | Current State | Configurable? |
+|--------|---------------|---------------|
+| System prompt | Hardcoded in code | ❌ No |
+| Categories | Hardcoded list | ❌ No |
+| Matching instructions | Hardcoded | ❌ No |
+| Confidence scoring guidance | Hardcoded | ❌ No |
+| Sport-specific vocabulary | Not included | ❌ No |
+
+### 18.2 AI Model Configuration (Exists)
+
+**Location:** `packages/backend/convex/models/aiModelConfig.ts`
+
+Currently configurable per feature:
+- Model ID (gpt-4o, whisper-1, etc.)
+- Max tokens
+- Temperature
+- Provider (openai, anthropic)
+
+**Not configurable:**
+- Prompt text itself
+- Sport-specific terminology
+- Tone preferences
+
+### 18.3 Proposed: Parent Summary Tone Controls
+
+#### Coach Preferences for Summary Style
+
+```typescript
+// Proposed addition to coachOrgPreferences
+{
+  coachId: string,
+  organizationId: string,
+  parentSummaryPreferences: {
+    tone: "warm" | "professional" | "brief",  // Default: warm
+    verbosity: "concise" | "detailed",        // Default: concise
+    includeActionItems: boolean,              // Default: true
+    includeEncouragement: boolean,            // Default: true
+  },
+}
+```
+
+#### Tone Examples
+
+| Tone | Example Output |
+|------|----------------|
+| **Warm (default)** | "Hi! Great news - Sarah showed wonderful improvement in her hand pass today. She's really putting in the effort and it's paying off! 🌟" |
+| **Professional** | "Sarah demonstrated measurable improvement in hand pass technique during today's session. Rating increased from 3/5 to 4/5." |
+| **Brief** | "Sarah: Hand pass improved to 4/5. Good session." |
+
+#### Verbosity Examples
+
+| Verbosity | Example |
+|-----------|---------|
+| **Concise** | "Sarah's tackling has improved. Keep encouraging practice at home." |
+| **Detailed** | "During today's training session, Sarah showed notable improvement in her tackling technique. She's now more confident going into challenges and her timing has improved significantly. At home, you might encourage her to watch some professional matches and notice how defenders position themselves before a tackle." |
+
+### 18.4 Proposed: Prompt Template System
+
+```typescript
+// Proposed: promptTemplates table
+promptTemplates: defineTable({
+  feature: v.string(),           // "voice_insights", "parent_summary"
+  scope: v.union(
+    v.literal("platform"),       // Default for all
+    v.literal("organization"),   // Org-specific override
+  ),
+  organizationId: v.optional(v.string()),
+  promptText: v.string(),        // The actual prompt template
+  variables: v.array(v.string()), // ["rosterContext", "teamsList"]
+  isActive: v.boolean(),
+  createdBy: v.string(),
+  createdAt: v.number(),
+})
+```
+
+#### Benefits
+
+1. **A/B Testing:** Run different prompts to compare accuracy
+2. **Sport Customization:** GAA vs Soccer vs Rugby terminology
+3. **Org Preferences:** Formal clubs vs casual teams
+4. **Rapid Iteration:** Change prompts without code deploy
+
+### 18.5 Parent Communication Frequency Controls
+
+#### Current State
+
+- Summaries generated for every insight with a player
+- No batching or throttling
+- Coach must suppress individually
+
+#### Proposed Controls
+
+```typescript
+// Addition to coachOrgPreferences
+{
+  parentCommunicationPreferences: {
+    frequency: "every_insight" | "daily_digest" | "weekly_digest",
+    minInsightsForDigest: 2,        // Don't send digest with just 1 item
+    quietHours: {
+      enabled: boolean,
+      startHour: 21,                // 9 PM
+      endHour: 8,                   // 8 AM
+    },
+    maxSummariesPerPlayerPerWeek: 5, // Prevent spam
+  },
+}
+```
+
+#### Frequency Options
+
+| Option | Behavior | Use Case |
+|--------|----------|----------|
+| `every_insight` | Immediate (current behavior) | Engaged parents |
+| `daily_digest` | Batch at 6 PM | Reduce notification fatigue |
+| `weekly_digest` | Sunday evening summary | Casual communication |
 
 ---
 

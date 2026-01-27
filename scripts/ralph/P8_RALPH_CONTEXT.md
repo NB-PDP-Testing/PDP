@@ -709,3 +709,1011 @@ Let's fix this visibility gap and make coaches happy! 💪
 - `scripts/ralph/P7_RALPH_CONTEXT.md` (P7 learnings)
 - `scripts/ralph/prds/Coaches Voice Insights/P8_COACH_IMPACT_VISIBILITY.md` (Full PRD)
 - `docs/technical/VOICE_NOTES_TECHNICAL_OVERVIEW.md` (Section 20 - Coach Visibility Gap)
+
+---
+
+## Week 1.5: Trust Gate Feature Flags Architecture
+
+### Context: Why Week 1.5 Exists
+
+**Problem Discovered in Week 1:**
+US-P8-002 removed trust gates entirely, making "Sent to Parents" tab visible to ALL coaches regardless of trust level. The story was titled "Remove Trust Level Gate" which Ralph interpreted literally.
+
+**What Happened:**
+```typescript
+// BEFORE (Week 1 - had trust gate)
+if (currentLevel >= 2) {
+  baseTabs.push({ id: "auto-sent", label: "Sent to Parents", icon: Send });
+}
+
+// AFTER Ralph's change (Week 1 - no gate at all)
+baseTabs.push({ id: "auto-sent", label: "Sent to Parents", icon: Send });
+```
+
+**Impact**: All coaches (including Level 0-1) can now see sent summaries, defeating the trust system built in P5-P7.
+
+**User Request**: Flexible 3-tier permission system where Platform Staff, Org Admins, and Coaches can control trust gate access.
+
+---
+
+### Trust Gate Permission System Architecture
+
+#### 3-Tier Control Hierarchy
+
+```
+TIER 1: PLATFORM STAFF
+├─ Enable/disable org-level trust gates (org.voiceNotesTrustGatesEnabled)
+├─ Enable admin delegation (org.allowAdminDelegation)
+└─ Enable coach overrides (org.allowCoachOverrides)
+      ↓
+TIER 2: ORG ADMINS (if delegation enabled)
+├─ Set blanket override (org.adminOverrideTrustGates) - affects ALL coaches
+└─ Grant individual coach overrides (coachOrgPreferences.trustGateOverride)
+      ↓
+TIER 3: COACHES (if overrides enabled)
+├─ Request override from admins (coachOverrideRequests table)
+└─ Inherit permissions from admin blanket or org default
+```
+
+#### Permission Calculation Priority
+
+**Order** (highest priority first):
+1. **Individual Coach Override** (`coachOrgPreferences.trustGateOverride === true`)
+   - Returns: `{ gatesActive: false, source: 'coach_override' }`
+   - Beats all other settings
+
+2. **Admin Blanket Override** (`org.adminOverrideTrustGates !== undefined`)
+   - Returns: `{ gatesActive: !org.adminOverrideTrustGates, source: 'admin_blanket' }`
+   - Affects all coaches in organization
+
+3. **Org Default** (`org.voiceNotesTrustGatesEnabled ?? true`)
+   - Returns: `{ gatesActive: org.voiceNotesTrustGatesEnabled ?? true, source: 'org_default' }`
+   - Fallback if no overrides set
+
+---
+
+### Schema Extensions for Week 1.5
+
+#### Extend `organization` Table
+```typescript
+// In packages/backend/convex/schema.ts
+
+// Master control
+voiceNotesTrustGatesEnabled: v.optional(v.boolean()), // default: true (conservative)
+
+// Delegation controls
+allowAdminDelegation: v.optional(v.boolean()),  // Can admins manage gates?
+allowCoachOverrides: v.optional(v.boolean()),   // Can coaches request bypass?
+
+// Admin blanket override
+adminOverrideTrustGates: v.optional(v.boolean()),  // Overrides org default for ALL
+adminOverrideSetBy: v.optional(v.string()),        // Who set it
+adminOverrideSetAt: v.optional(v.number()),        // When set
+```
+
+**Why `.optional()`**: Supports existing data without migration. Undefined treated as default value.
+
+#### Extend `coachOrgPreferences` Table
+```typescript
+// Individual coach overrides
+trustGateOverride: v.optional(v.boolean()),     // Bypass trust gates
+overrideGrantedBy: v.optional(v.string()),      // Admin who granted
+overrideGrantedAt: v.optional(v.number()),      // When granted
+overrideReason: v.optional(v.string()),         // Why granted
+overrideExpiresAt: v.optional(v.number()),      // Optional time-boxing
+```
+
+#### NEW: `orgAdminPermissions` Table
+```typescript
+orgAdminPermissions: defineTable({
+  organizationId: v.string(),
+  memberId: v.string(),
+  canManageFeatureFlags: v.boolean(),
+  canManageCoachOverrides: v.boolean(),
+  grantedBy: v.string(),          // Platform staff who granted
+  grantedAt: v.number(),
+})
+  .index("by_org_member", ["organizationId", "memberId"]),
+```
+
+**Purpose**: Track which admins have explicit permission to manage feature flags.
+
+#### NEW: `coachOverrideRequests` Table
+```typescript
+coachOverrideRequests: defineTable({
+  coachId: v.string(),
+  organizationId: v.string(),
+  featureType: v.string(),        // 'trust_gates' for now, extensible
+  reason: v.string(),             // Coach's justification
+  status: v.union(
+    v.literal("pending"),
+    v.literal("approved"),
+    v.literal("denied"),
+    v.literal("expired")
+  ),
+  requestedAt: v.number(),
+  reviewedBy: v.optional(v.string()),      // Admin who reviewed
+  reviewedAt: v.optional(v.number()),
+  reviewNotes: v.optional(v.string()),     // Admin's notes
+})
+  .index("by_coach_org", ["coachId", "organizationId"])
+  .index("by_org_status", ["organizationId", "status"]),
+```
+
+**Purpose**: Workflow for coaches to request and admins to approve/deny overrides.
+
+---
+
+### Backend Queries (Week 1.5)
+
+#### 1. `areTrustGatesActive` - Core Permission Check
+```typescript
+// In packages/backend/convex/models/trustGatePermissions.ts
+
+export const areTrustGatesActive = query({
+  args: {
+    coachId: v.string(),
+    organizationId: v.string(),
+  },
+  returns: v.object({
+    gatesActive: v.boolean(),
+    source: v.string(),  // 'coach_override' | 'admin_blanket' | 'org_default'
+    reason: v.optional(v.string()),
+  }),
+  handler: async (ctx, args) => {
+    const org = await ctx.db.get(args.organizationId);
+    const coachPrefs = await ctx.db
+      .query("coachOrgPreferences")
+      .withIndex("by_coach_org", q =>
+        q.eq("coachId", args.coachId)
+         .eq("organizationId", args.organizationId)
+      )
+      .first();
+
+    // PRIORITY 1: Individual override
+    if (coachPrefs?.trustGateOverride === true) {
+      return {
+        gatesActive: false,
+        source: "coach_override",
+        reason: coachPrefs.overrideReason,
+      };
+    }
+
+    // PRIORITY 2: Admin blanket override
+    if (org?.adminOverrideTrustGates !== undefined) {
+      return {
+        gatesActive: !org.adminOverrideTrustGates,
+        source: "admin_blanket",
+      };
+    }
+
+    // PRIORITY 3: Org default
+    return {
+      gatesActive: org?.voiceNotesTrustGatesEnabled ?? true,
+      source: "org_default",
+    };
+  }
+});
+```
+
+**Usage Pattern**: Call this query in frontend to determine feature visibility.
+
+#### 2. `getOrgFeatureFlagStatus` - Org Admin Dashboard
+```typescript
+export const getOrgFeatureFlagStatus = query({
+  args: { organizationId: v.string() },
+  returns: v.object({
+    voiceNotesTrustGatesEnabled: v.boolean(),
+    allowAdminDelegation: v.boolean(),
+    allowCoachOverrides: v.boolean(),
+    adminOverrideTrustGates: v.optional(v.boolean()),
+    adminOverrideSetBy: v.optional(v.string()),
+    adminOverrideSetAt: v.optional(v.number()),
+    totalCoaches: v.number(),
+    coachesWithAccess: v.number(),
+    activeOverrides: v.array(v.object({
+      coachId: v.string(),
+      coachName: v.string(),
+      trustLevel: v.number(),
+      reason: v.string(),
+      grantedAt: v.number(),
+      grantedBy: v.string(),
+      expiresAt: v.optional(v.number()),
+    })),
+  }),
+  handler: async (ctx, args) => {
+    const org = await ctx.db.get(args.organizationId);
+    
+    // Get all coaches in org
+    const coaches = await ctx.db
+      .query("member")
+      .withIndex("by_organization", q => q.eq("organizationId", args.organizationId))
+      .filter(q => q.eq(q.field("functionalRoles"), "Coach"))
+      .collect();
+
+    // Get coaches with individual overrides
+    const overrides = await ctx.db
+      .query("coachOrgPreferences")
+      .withIndex("by_org", q => q.eq("organizationId", args.organizationId))
+      .filter(q => q.eq(q.field("trustGateOverride"), true))
+      .collect();
+
+    // Calculate access (overrides + admin blanket + Level 2+)
+    const coachesWithAccess = coaches.filter(coach => {
+      const hasOverride = overrides.some(o => o.coachId === coach.userId);
+      const trustLevel = getTrustLevel(coach.userId); // Implement based on your logic
+      return hasOverride || org?.adminOverrideTrustGates === true || trustLevel >= 2;
+    }).length;
+
+    return {
+      voiceNotesTrustGatesEnabled: org?.voiceNotesTrustGatesEnabled ?? true,
+      allowAdminDelegation: org?.allowAdminDelegation ?? false,
+      allowCoachOverrides: org?.allowCoachOverrides ?? false,
+      adminOverrideTrustGates: org?.adminOverrideTrustGates,
+      adminOverrideSetBy: org?.adminOverrideSetBy,
+      adminOverrideSetAt: org?.adminOverrideSetAt,
+      totalCoaches: coaches.length,
+      coachesWithAccess,
+      activeOverrides: overrides.map(o => ({
+        coachId: o.coachId,
+        coachName: getCoachName(o.coachId), // Helper function
+        trustLevel: getTrustLevel(o.coachId),
+        reason: o.overrideReason ?? "",
+        grantedAt: o.overrideGrantedAt ?? 0,
+        grantedBy: o.overrideGrantedBy ?? "",
+        expiresAt: o.overrideExpiresAt,
+      })),
+    };
+  }
+});
+```
+
+#### 3. `getAllOrgsFeatureFlagStatus` - Platform Staff Overview
+```typescript
+export const getAllOrgsFeatureFlagStatus = query({
+  args: {},
+  returns: v.array(v.object({
+    orgId: v.string(),
+    orgName: v.string(),
+    gatesEnabled: v.boolean(),
+    adminOverride: v.optional(v.boolean()),
+    overridesCount: v.number(),
+    pendingRequestsCount: v.number(),
+    lastChangedBy: v.optional(v.string()),
+    lastChangedAt: v.optional(v.number()),
+  })),
+  handler: async (ctx, args) => {
+    // Verify platform staff
+    const identity = await ctx.auth.getUserIdentity();
+    if (!identity?.isPlatformStaff) {
+      throw new Error("Platform staff only");
+    }
+
+    const orgs = await ctx.db.query("organization").collect();
+
+    return Promise.all(orgs.map(async (org) => {
+      const overrides = await ctx.db
+        .query("coachOrgPreferences")
+        .withIndex("by_org", q => q.eq("organizationId", org._id))
+        .filter(q => q.eq(q.field("trustGateOverride"), true))
+        .collect();
+
+      const pendingRequests = await ctx.db
+        .query("coachOverrideRequests")
+        .withIndex("by_org_status", q =>
+          q.eq("organizationId", org._id).eq("status", "pending")
+        )
+        .collect();
+
+      return {
+        orgId: org._id,
+        orgName: org.name,
+        gatesEnabled: org.voiceNotesTrustGatesEnabled ?? true,
+        adminOverride: org.adminOverrideTrustGates,
+        overridesCount: overrides.length,
+        pendingRequestsCount: pendingRequests.length,
+        lastChangedBy: org.adminOverrideSetBy,
+        lastChangedAt: org.adminOverrideSetAt,
+      };
+    }));
+  }
+});
+```
+
+#### 4. `getCoachOverrideRequests` - Pending Requests
+```typescript
+export const getCoachOverrideRequests = query({
+  args: {
+    organizationId: v.string(),
+    status: v.optional(v.string()),
+  },
+  returns: v.array(v.object({
+    requestId: v.string(),
+    coachId: v.string(),
+    coachName: v.string(),
+    coachTrustLevel: v.number(),
+    reason: v.string(),
+    requestedAt: v.number(),
+    status: v.string(),
+    reviewedBy: v.optional(v.string()),
+    reviewedAt: v.optional(v.number()),
+    reviewNotes: v.optional(v.string()),
+  })),
+  handler: async (ctx, args) => {
+    let requestsQuery = ctx.db
+      .query("coachOverrideRequests")
+      .withIndex("by_org_status", q => q.eq("organizationId", args.organizationId));
+
+    if (args.status) {
+      requestsQuery = requestsQuery.filter(q => q.eq(q.field("status"), args.status));
+    }
+
+    const requests = await requestsQuery.collect();
+
+    return Promise.all(requests.map(async (req) => {
+      const coachMember = await ctx.db
+        .query("member")
+        .withIndex("by_org_user", q =>
+          q.eq("organizationId", args.organizationId)
+           .eq("userId", req.coachId)
+        )
+        .first();
+
+      const trustLevel = await ctx.db
+        .query("coachTrustLevels")
+        .withIndex("by_coach_org", q =>
+          q.eq("coachId", req.coachId)
+           .eq("organizationId", args.organizationId)
+        )
+        .first();
+
+      return {
+        requestId: req._id,
+        coachId: req.coachId,
+        coachName: `${coachMember?.firstName} ${coachMember?.lastName}`,
+        coachTrustLevel: trustLevel?.currentLevel ?? 0,
+        reason: req.reason,
+        requestedAt: req.requestedAt,
+        status: req.status,
+        reviewedBy: req.reviewedBy,
+        reviewedAt: req.reviewedAt,
+        reviewNotes: req.reviewNotes,
+      };
+    }));
+  }
+});
+```
+
+---
+
+### Backend Mutations (Week 1.5)
+
+#### 1. `setPlatformFeatureFlags` - Platform Staff Control
+```typescript
+export const setPlatformFeatureFlags = mutation({
+  args: {
+    organizationId: v.string(),
+    allowAdminDelegation: v.optional(v.boolean()),
+    allowCoachOverrides: v.optional(v.boolean()),
+  },
+  handler: async (ctx, args) => {
+    const identity = await ctx.auth.getUserIdentity();
+    if (!identity?.isPlatformStaff) {
+      throw new Error("Platform staff only");
+    }
+
+    const updates: any = {};
+    if (args.allowAdminDelegation !== undefined) {
+      updates.allowAdminDelegation = args.allowAdminDelegation;
+    }
+    if (args.allowCoachOverrides !== undefined) {
+      updates.allowCoachOverrides = args.allowCoachOverrides;
+    }
+
+    await ctx.db.patch(args.organizationId, updates);
+    return { success: true };
+  }
+});
+```
+
+#### 2. `setAdminBlanketOverride` - Admin Blanket Control
+```typescript
+export const setAdminBlanketOverride = mutation({
+  args: {
+    organizationId: v.string(),
+    override: v.boolean(),
+  },
+  handler: async (ctx, args) => {
+    const identity = await ctx.auth.getUserIdentity();
+    if (!identity) throw new Error("Not authenticated");
+
+    // Check org membership
+    const member = await ctx.db
+      .query("member")
+      .withIndex("by_org_user", q =>
+        q.eq("organizationId", args.organizationId)
+         .eq("userId", identity.subject)
+      )
+      .first();
+
+    if (!member || !["admin", "owner"].includes(member.role)) {
+      throw new Error("Not authorized - must be admin or owner");
+    }
+
+    // Check delegation enabled
+    const org = await ctx.db.get(args.organizationId);
+    if (!org?.allowAdminDelegation) {
+      throw new Error("Admin delegation not enabled for this organization");
+    }
+
+    await ctx.db.patch(args.organizationId, {
+      adminOverrideTrustGates: args.override,
+      adminOverrideSetBy: identity.subject,
+      adminOverrideSetAt: Date.now(),
+    });
+
+    return { success: true };
+  }
+});
+```
+
+#### 3. `grantCoachOverride` - Individual Coach Override
+```typescript
+export const grantCoachOverride = mutation({
+  args: {
+    coachId: v.string(),
+    organizationId: v.string(),
+    reason: v.string(),
+    expiresAt: v.optional(v.number()),
+  },
+  handler: async (ctx, args) => {
+    const identity = await ctx.auth.getUserIdentity();
+    if (!identity) throw new Error("Not authenticated");
+
+    // Check admin permissions
+    const member = await ctx.db
+      .query("member")
+      .withIndex("by_org_user", q =>
+        q.eq("organizationId", args.organizationId)
+         .eq("userId", identity.subject)
+      )
+      .first();
+
+    if (!member || !["admin", "owner"].includes(member.role)) {
+      throw new Error("Not authorized");
+    }
+
+    // Check overrides enabled
+    const org = await ctx.db.get(args.organizationId);
+    if (!org?.allowCoachOverrides) {
+      throw new Error("Coach overrides not enabled");
+    }
+
+    // Find or create coachOrgPreferences
+    let prefs = await ctx.db
+      .query("coachOrgPreferences")
+      .withIndex("by_coach_org", q =>
+        q.eq("coachId", args.coachId)
+         .eq("organizationId", args.organizationId)
+      )
+      .first();
+
+    if (!prefs) {
+      prefs = await ctx.db.insert("coachOrgPreferences", {
+        coachId: args.coachId,
+        organizationId: args.organizationId,
+        trustGateOverride: true,
+        overrideGrantedBy: identity.subject,
+        overrideGrantedAt: Date.now(),
+        overrideReason: args.reason,
+        overrideExpiresAt: args.expiresAt,
+      });
+    } else {
+      await ctx.db.patch(prefs._id, {
+        trustGateOverride: true,
+        overrideGrantedBy: identity.subject,
+        overrideGrantedAt: Date.now(),
+        overrideReason: args.reason,
+        overrideExpiresAt: args.expiresAt,
+      });
+    }
+
+    return { success: true };
+  }
+});
+```
+
+#### 4. `revokeCoachOverride` - Remove Individual Override
+```typescript
+export const revokeCoachOverride = mutation({
+  args: {
+    coachId: v.string(),
+    organizationId: v.string(),
+  },
+  handler: async (ctx, args) => {
+    const identity = await ctx.auth.getUserIdentity();
+    if (!identity) throw new Error("Not authenticated");
+
+    // Check admin permissions
+    const member = await ctx.db
+      .query("member")
+      .withIndex("by_org_user", q =>
+        q.eq("organizationId", args.organizationId)
+         .eq("userId", identity.subject)
+      )
+      .first();
+
+    if (!member || !["admin", "owner"].includes(member.role)) {
+      throw new Error("Not authorized");
+    }
+
+    const prefs = await ctx.db
+      .query("coachOrgPreferences")
+      .withIndex("by_coach_org", q =>
+        q.eq("coachId", args.coachId)
+         .eq("organizationId", args.organizationId)
+      )
+      .first();
+
+    if (prefs) {
+      await ctx.db.patch(prefs._id, {
+        trustGateOverride: false,
+        overrideGrantedBy: undefined,
+        overrideGrantedAt: undefined,
+        overrideReason: undefined,
+        overrideExpiresAt: undefined,
+      });
+    }
+
+    return { success: true };
+  }
+});
+```
+
+#### 5. `requestCoachOverride` - Coach Request Workflow
+```typescript
+export const requestCoachOverride = mutation({
+  args: {
+    coachId: v.string(),
+    organizationId: v.string(),
+    reason: v.string(),
+  },
+  handler: async (ctx, args) => {
+    const identity = await ctx.auth.getUserIdentity();
+    if (!identity) throw new Error("Not authenticated");
+
+    // Verify coach identity
+    if (identity.subject !== args.coachId) {
+      throw new Error("Can only request for self");
+    }
+
+    // Check overrides enabled
+    const org = await ctx.db.get(args.organizationId);
+    if (!org?.allowCoachOverrides) {
+      throw new Error("Coach overrides not enabled");
+    }
+
+    // Check for existing pending request
+    const existing = await ctx.db
+      .query("coachOverrideRequests")
+      .withIndex("by_coach_org", q =>
+        q.eq("coachId", args.coachId)
+         .eq("organizationId", args.organizationId)
+      )
+      .filter(q => q.eq(q.field("status"), "pending"))
+      .first();
+
+    if (existing) {
+      throw new Error("Request already pending");
+    }
+
+    const requestId = await ctx.db.insert("coachOverrideRequests", {
+      coachId: args.coachId,
+      organizationId: args.organizationId,
+      featureType: "trust_gates",
+      reason: args.reason,
+      status: "pending",
+      requestedAt: Date.now(),
+    });
+
+    return { success: true, requestId };
+  }
+});
+```
+
+#### 6. `reviewCoachOverrideRequest` - Admin Review
+```typescript
+export const reviewCoachOverrideRequest = mutation({
+  args: {
+    requestId: v.id("coachOverrideRequests"),
+    approved: v.boolean(),
+    reviewNotes: v.optional(v.string()),
+  },
+  handler: async (ctx, args) => {
+    const identity = await ctx.auth.getUserIdentity();
+    if (!identity) throw new Error("Not authenticated");
+
+    const request = await ctx.db.get(args.requestId);
+    if (!request) throw new Error("Request not found");
+
+    // Check admin permissions
+    const member = await ctx.db
+      .query("member")
+      .withIndex("by_org_user", q =>
+        q.eq("organizationId", request.organizationId)
+         .eq("userId", identity.subject)
+      )
+      .first();
+
+    if (!member || !["admin", "owner"].includes(member.role)) {
+      throw new Error("Not authorized");
+    }
+
+    // Update request status
+    await ctx.db.patch(args.requestId, {
+      status: args.approved ? "approved" : "denied",
+      reviewedBy: identity.subject,
+      reviewedAt: Date.now(),
+      reviewNotes: args.reviewNotes,
+    });
+
+    // If approved, grant override
+    if (args.approved) {
+      await ctx.runMutation(internal.models.trustGatePermissions.grantCoachOverride, {
+        coachId: request.coachId,
+        organizationId: request.organizationId,
+        reason: request.reason,
+      });
+    }
+
+    return { success: true };
+  }
+});
+```
+
+---
+
+### Frontend Patterns (Week 1.5)
+
+#### Pattern 1: Feature Flag Check in Component
+```typescript
+// In any component that needs to check trust gates
+
+import { useQuery } from "convex/react";
+import { api } from "@/convex/_generated/api";
+import { useMemo } from "react";
+
+function MyComponent({ coachId, orgId }: Props) {
+  const gateStatus = useQuery(
+    api.models.trustGatePermissions.areTrustGatesActive,
+    coachId && orgId ? { coachId, organizationId: orgId } : 'skip'
+  );
+
+  const trustLevel = useQuery(
+    api.models.coachTrustLevels.getCoachTrustLevel,
+    coachId && orgId ? { coachId, organizationId: orgId } : 'skip'
+  );
+
+  const shouldShowFeature = useMemo(() => {
+    // Loading state - hide feature
+    if (gateStatus === undefined) return false;
+
+    // Gates disabled via flags - show feature
+    if (!gateStatus.gatesActive) return true;
+
+    // Gates active - check trust level
+    const currentLevel = trustLevel?.currentLevel ?? 0;
+    return currentLevel >= 2;
+  }, [gateStatus, trustLevel]);
+
+  if (!shouldShowFeature) {
+    return (
+      <Tooltip>
+        <TooltipTrigger asChild>
+          <Button variant="ghost" disabled className="opacity-50">
+            <Lock className="h-4 w-4 mr-2" />
+            Feature Name
+          </Button>
+        </TooltipTrigger>
+        <TooltipContent>
+          <p>
+            {gateStatus?.source === 'org_default' && 'Available at Trust Level 2+'}
+            {gateStatus?.source === 'admin_blanket' && 'Contact your administrator for access'}
+          </p>
+        </TooltipContent>
+      </Tooltip>
+    );
+  }
+
+  return <ActualFeatureContent />;
+}
+```
+
+#### Pattern 2: Admin Toggle with Toast Feedback
+```typescript
+// In org admin settings page
+
+import { useMutation } from "convex/react";
+import { api } from "@/convex/_generated/api";
+import { toast } from "sonner";
+import { Switch } from "@/components/ui/switch";
+
+function AdminBlanketOverrideToggle({ orgId }: Props) {
+  const setBlanketOverride = useMutation(
+    api.models.trustGatePermissions.setAdminBlanketOverride
+  );
+
+  const handleToggle = async (checked: boolean) => {
+    try {
+      await setBlanketOverride({
+        organizationId: orgId,
+        override: checked,
+      });
+      toast.success(
+        checked 
+          ? "All coaches now have access regardless of trust level"
+          : "Trust level gates re-enabled for all coaches"
+      );
+    } catch (error) {
+      toast.error(`Failed: ${error.message}`);
+    }
+  };
+
+  return (
+    <div className="flex items-center justify-between">
+      <div>
+        <h4 className="font-medium">Override for All Coaches</h4>
+        <p className="text-sm text-muted-foreground">
+          When enabled, all coaches can access features regardless of trust level
+        </p>
+      </div>
+      <Switch
+        checked={status?.adminOverrideTrustGates ?? false}
+        onCheckedChange={handleToggle}
+      />
+    </div>
+  );
+}
+```
+
+#### Pattern 3: Platform Staff Table with Filters
+```typescript
+// In /platform-admin/feature-flags/page.tsx
+
+import { useQuery } from "convex/react";
+import { api } from "@/convex/_generated/api";
+import { useState, useMemo } from "react";
+import { Badge } from "@/components/ui/badge";
+import { Input } from "@/components/ui/input";
+import { Button } from "@/components/ui/button";
+
+function FeatureFlagsPage() {
+  const orgsStatus = useQuery(api.models.trustGatePermissions.getAllOrgsFeatureFlagStatus);
+  const [search, setSearch] = useState("");
+  const [filter, setFilter] = useState<'all' | 'issues' | 'recent'>('all');
+
+  const filteredOrgs = useMemo(() => {
+    if (!orgsStatus) return [];
+
+    let filtered = orgsStatus;
+
+    // Search filter
+    if (search) {
+      filtered = filtered.filter(org =>
+        org.orgName.toLowerCase().includes(search.toLowerCase())
+      );
+    }
+
+    // Issue filter
+    if (filter === 'issues') {
+      filtered = filtered.filter(org =>
+        !org.gatesEnabled || org.adminOverride !== undefined || org.pendingRequestsCount > 0
+      );
+    }
+
+    // Recent filter
+    if (filter === 'recent') {
+      filtered = filtered.sort((a, b) =>
+        (b.lastChangedAt ?? 0) - (a.lastChangedAt ?? 0)
+      );
+    }
+
+    return filtered;
+  }, [orgsStatus, search, filter]);
+
+  return (
+    <div>
+      <div className="flex gap-2 mb-4">
+        <Input
+          placeholder="Search organizations..."
+          value={search}
+          onChange={(e) => setSearch(e.target.value)}
+          className="max-w-sm"
+        />
+        <Button
+          variant={filter === 'all' ? 'default' : 'outline'}
+          onClick={() => setFilter('all')}
+        >
+          Show All
+        </Button>
+        <Button
+          variant={filter === 'issues' ? 'default' : 'outline'}
+          onClick={() => setFilter('issues')}
+        >
+          Show Issues
+        </Button>
+        <Button
+          variant={filter === 'recent' ? 'default' : 'outline'}
+          onClick={() => setFilter('recent')}
+        >
+          Recently Changed
+        </Button>
+      </div>
+
+      <Table>
+        {filteredOrgs.map(org => (
+          <TableRow key={org.orgId}>
+            <TableCell>{org.orgName}</TableCell>
+            <TableCell>
+              <Badge variant={org.gatesEnabled ? 'default' : 'destructive'}>
+                {org.gatesEnabled ? 'ON' : 'OFF'}
+              </Badge>
+            </TableCell>
+            <TableCell>
+              {org.adminOverride !== undefined && (
+                <Badge variant="secondary">
+                  Admin Override: {org.adminOverride ? 'DISABLED' : 'ENABLED'}
+                </Badge>
+              )}
+            </TableCell>
+            <TableCell>{org.overridesCount} coaches</TableCell>
+            <TableCell>
+              {org.pendingRequestsCount > 0 && (
+                <Badge variant="warning">{org.pendingRequestsCount} pending</Badge>
+              )}
+            </TableCell>
+          </TableRow>
+        ))}
+      </Table>
+    </div>
+  );
+}
+```
+
+---
+
+### Migration Strategy
+
+#### Conservative Approach (Default: Gates ON)
+
+**Goal**: Preserve existing behavior for all organizations unless explicitly changed.
+
+**Implementation**:
+1. All new fields are `.optional()` in schema
+2. Undefined values treated as defaults:
+   - `voiceNotesTrustGatesEnabled: undefined` → treated as `true` (gates ON)
+   - `allowAdminDelegation: undefined` → treated as `false` (delegation OFF)
+   - `allowCoachOverrides: undefined` → treated as `false` (overrides OFF)
+   - `adminOverrideTrustGates: undefined` → no blanket override
+   - `trustGateOverride: undefined` → no individual override
+
+**Why Conservative**:
+- Existing orgs maintain trust level system without surprise access changes
+- Platform staff must explicitly enable delegation/overrides per org
+- Admins must explicitly grant overrides
+- Coaches cannot suddenly access features they shouldn't
+
+**Rollout Steps**:
+1. Deploy schema changes (all optional fields)
+2. Deploy backend queries/mutations
+3. Deploy frontend UI changes
+4. Platform staff can then enable delegation for specific orgs
+5. Admins in those orgs can then manage overrides
+
+---
+
+### Testing Strategy for Week 1.5
+
+#### Test Scenarios for Permission Calculation
+
+| Scenario | Individual Override | Admin Blanket | Org Default | Expected Result |
+|----------|-------------------|---------------|-------------|-----------------|
+| 1 | true | - | true | Gates OFF (individual wins) |
+| 2 | false | true | true | Gates OFF (admin blanket) |
+| 3 | false | false | true | Gates ON (admin blanket OFF) |
+| 4 | undefined | true | true | Gates OFF (admin blanket) |
+| 5 | undefined | undefined | true | Gates ON (org default) |
+| 6 | undefined | undefined | false | Gates OFF (org default) |
+
+**Testing Approach**:
+1. Create test org in Convex dashboard
+2. Run `areTrustGatesActive` query with different combinations
+3. Verify priority order: Individual > Blanket > Default
+4. Test with Level 0, Level 1, and Level 2+ coaches
+
+#### UI Testing Checklist
+
+**Platform Staff UI** (`/platform-admin/feature-flags`):
+- [ ] Overview cards show correct counts
+- [ ] Organization table displays all orgs
+- [ ] Search filter works
+- [ ] Toggle admin delegation succeeds
+- [ ] Toggle coach overrides succeeds
+- [ ] Real-time updates work (open two browser windows)
+
+**Org Admin UI** (`/orgs/[orgId]/settings/features`):
+- [ ] Status card shows correct current state
+- [ ] Blanket override toggle hidden if delegation disabled
+- [ ] Blanket override toggle works if delegation enabled
+- [ ] Individual overrides table displays correctly
+- [ ] Pending requests section shows pending requests
+- [ ] Grant override button works
+- [ ] Revoke override button works
+- [ ] Approve request button works
+- [ ] Deny request button works
+
+**Voice Notes Dashboard** (US-P8-002 fix):
+- [ ] Level 0 coach + gates ON → Tab hidden, locked button shows
+- [ ] Level 0 coach + individual override → Tab visible
+- [ ] Level 0 coach + admin blanket → Tab visible
+- [ ] Level 2 coach + gates ON → Tab visible (trust level sufficient)
+- [ ] Tooltip shows correct message based on `gateStatus.source`
+
+---
+
+### Common Mistakes to Avoid (Week 1.5)
+
+1. **Don't use `.filter()` for table scans**
+   - Always use `.withIndex()` for queries
+   - Filter in JavaScript after fetching if needed
+
+2. **Don't forget auth checks in mutations**
+   - Verify `isPlatformStaff` for platform-level operations
+   - Verify `member.role` includes "admin" or "owner" for admin operations
+   - Verify delegation flags before allowing admin actions
+
+3. **Don't ignore loading states**
+   - Check `if (data === undefined)` before rendering
+   - Show skeleton or hide feature during loading
+
+4. **Don't hardcode priorities**
+   - Follow the established order: Individual > Blanket > Default
+   - Document why if deviating
+
+5. **Don't skip toast notifications**
+   - Always show user feedback for mutations
+   - Use appropriate variant: success (green), error (red), warning (yellow)
+
+6. **Don't forget conditional rendering**
+   - Check `allowAdminDelegation` before showing blanket override
+   - Check `allowCoachOverrides` before showing individual override UI
+
+---
+
+### Week 1.5 Documentation References
+
+**MUST READ BEFORE STARTING**:
+1. **`scripts/ralph/TRUST_GATE_ARCHITECTURE_V2.md`**
+   - Complete architecture design
+   - All schemas, queries, mutations
+   - UI component designs
+   - User flows (5 detailed workflows)
+
+2. **`scripts/ralph/TRUST_GATE_MVP_VS_GROUPS.md`**
+   - MVP vs Groups comparison
+   - Overview dashboard designs
+   - Rationale for phased approach
+
+3. **`scripts/ralph/P8_P9_COMPREHENSIVE_REFACTORING_PLAN.md`**
+   - Full impact analysis across P8 and P9
+   - Migration strategy details
+   - Risk assessment
+   - Testing strategy with test matrix
+
+**CONTEXT REFERENCES**:
+4. `packages/backend/convex/models/coachTrustLevels.ts` - Trust level query patterns
+5. `packages/backend/convex/models/coachParentSummaries.ts` - Similar aggregation patterns
+6. `apps/web/src/app/platform-admin/` - Platform staff UI patterns
+
+---
+

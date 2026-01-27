@@ -1,11 +1,12 @@
 # PRD: Phase 8 - Coach Impact Visibility & Traceability
 
 **Project:** Voice Notes - Coach Impact Visibility
-**Branch:** `ralph/coach-impact-visibility-p8`
+**Branch:** `ralph/coach-impact-visibility-p8-week1` (active)
 **Created:** January 27, 2026
-**Status:** Ready for Implementation
-**Estimated Time:** 3 weeks (20-25 user stories)
+**Status:** Week 1 Complete, Week 1.5 In Progress (Trust Gate Fix)
+**Estimated Time:** 3.5 weeks (Week 1 done, Week 1.5 in progress, Week 2-3 remaining)
 **Priority:** 🔴 CRITICAL - Fixes fundamental UX gap
+**Last Updated:** January 27, 2026 - Added Week 1.5 trust gate feature flags
 
 ---
 
@@ -33,10 +34,31 @@ Create a unified "My Impact" dashboard visible to ALL coaches that shows:
 
 **What This PRD Delivers:**
 
-### Week 1: Foundation & Quick Wins
-- Create `getCoachImpactSummary` backend query
-- Remove trust level gate from "Sent to Parents" tab (immediate impact)
-- Add basic "My Impact" tab structure
+### Week 1: Foundation (COMPLETED - Jan 27, 2026)
+- ✅ Create `getCoachImpactSummary` backend query (US-P8-001)
+- ⚠️ Remove trust level gate from "Sent to Parents" tab (US-P8-002 - removed entirely, needs Week 1.5 fix)
+- ✅ Add basic "My Impact" tab structure with date filtering (US-P8-003)
+- ✅ Add My Impact tab to navigation (US-P8-004)
+
+**Week 1 Issue Discovered:**
+US-P8-002 removed trust gates entirely instead of making them controllable. All coaches now see sent summaries regardless of trust level. Week 1.5 will fix this with a proper feature flag system.
+
+### Week 1.5: Trust Gate Feature Flags (IN PROGRESS - Critical Fix)
+**Purpose:** Fix US-P8-002 by implementing flexible 3-tier permission system
+
+**Architecture:**
+- Platform Staff → Enable delegation capabilities
+- Org Admins → Set blanket overrides (all coaches) OR grant individual overrides
+- Coaches → Request overrides if enabled
+
+**Stories (5):**
+- US-P8-021: Backend trust gate permission system (schema + queries + mutations)
+- US-P8-002-FIX: Fix dashboard gate check with feature flags + trust level logic
+- US-P8-022: Platform staff feature flags admin UI
+- US-P8-022B: Platform staff overview dashboard
+- US-P8-023: Org admin trust gate status dashboard
+
+**Reference:** See `scripts/ralph/prds/Coaches Voice Insights/p8-week1.5-trust-gate-fix.prd.json`
 
 ### Week 2: My Impact Dashboard
 - Summary cards (notes created, insights applied, summaries sent, parent view rate)

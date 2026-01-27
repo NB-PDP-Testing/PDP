@@ -4618,6 +4618,34 @@ T+0:31  - WhatsApp reply sent to coach
 | `models/whatsappMessages.ts` | ~400 | Multi-org detection, queries |
 | `schema.ts` (WhatsApp tables) | ~150 | Table definitions |
 
+### 21.13 Future: WhatsApp Coach Groups
+
+A detailed implementation plan exists for extending WhatsApp integration to support **coach group chats**:
+
+**See:** `docs/features/whatsapp-coach-groups.md`
+
+**Planned Features:**
+- **Meeting Mode** - Structured capture with "playerarc start meeting" / "playerarc end meeting" commands
+- **Passive Mode** - Automatic capture of group discussions in time windows
+- **Triggered Mode** - Capture on @playerarc mention
+- **Multi-Speaker Attribution** - Track which coach said what
+- **Collaborative Insights** - Combine multiple coaches' observations
+
+**New Tables (Proposed):**
+- `whatsappGroups` - Group chat configuration
+- `whatsappGroupMessages` - Individual group messages
+- `whatsappMeetingSessions` - Meeting capture sessions
+
+**Key Differences from 1:1:**
+| Aspect | 1:1 (Current) | Group (Future) |
+|--------|---------------|----------------|
+| Speaker | Single coach | Multiple coaches |
+| Capture | All messages | Configurable mode |
+| Context | Per-message | Conversation windows |
+| Attribution | Single coachId | Multi-speaker |
+
+This is a comprehensive 4-week implementation plan ready for development when prioritized.
+
 ---
 
 ## Appendix: Environment Variables

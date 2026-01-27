@@ -7560,3 +7560,114 @@ Core functionality is solid with working toggles, filters, search, and real-time
 - None - this was fixing previous iteration's incomplete implementation (US-P8-022 marked complete prematurely)
 
 ---
+
+### Agent Feedback - 2026-01-27 21:50
+
+## Quality Monitor - 2026-01-27 21:40:56
+- ⚠️ Biome lint errors found
+
+
+## Quality Monitor - 2026-01-27 21:42:20
+- ⚠️ Biome lint errors found
+
+
+## Quality Monitor - 2026-01-27 21:43:35
+- ⚠️ Biome lint errors found
+
+
+## Quality Monitor - 2026-01-27 21:45:16
+- ⚠️ Biome lint errors found
+
+
+## Quality Monitor - 2026-01-27 21:46:40
+- ⚠️ Biome lint errors found
+
+
+## Quality Monitor - 2026-01-27 21:48:36
+- ⚠️ Biome lint errors found
+
+
+## Quality Monitor - 2026-01-27 21:49:51
+- ⚠️ Biome lint errors found
+
+
+## 2026-01-28 00:38 - US-P8-023 - Org Admin Trust Gate Status Dashboard
+**Iteration**: 6
+**Commit**: 45214512329f1143a21cca912154482408377599
+**Session**: 85f000e0-050a-4710-a4ae-48ae590d5ebc
+**Status**: Complete
+
+### What was implemented
+- Created comprehensive org admin dashboard at `/orgs/[orgId]/admin/settings/features/page.tsx`
+- **Current Status Card**: Displays read-only org-level feature flag settings (gates ON/OFF, admin delegation, coach overrides)
+  - Info message: "Contact platform staff to change these settings"
+- **Admin Blanket Override Card** (conditional on `allowAdminDelegation`):
+  - Switch toggle to enable/disable gates for all coaches
+  - Shows current setting (gates disabled vs enabled)
+  - Displays who set the override and when (using `formatDistanceToNow`)
+  - Info alert explaining blanket override affects ALL coaches
+- **Overview Stats Card**: Grid display of 4 metrics
+  - Total Coaches
+  - Coaches with Access (count + percentage)
+  - Individual Overrides (count)
+  - Pending Requests (count)
+- **Individual Coach Overrides Table** (conditional on `allowCoachOverrides`):
+  - Columns: Coach Name, Override Status, Reason, Granted By, Granted At, Expires At, Actions
+  - Revoke button with confirmation dialog
+  - Empty state: "No individual overrides granted yet"
+- **Pending Override Requests Section** (conditional on `allowCoachOverrides`):
+  - Columns: Coach Name, Reason, Requested At, Actions
+  - Approve/Deny buttons with confirmation dialog
+  - Textarea for review notes
+  - Empty state: "No pending requests"
+- **Navigation**: Added "Feature Flags" link to admin sidebar Settings group
+  - Added Flag icon import to admin-sidebar.tsx
+  - Link appears between Settings and Messaging
+
+### Files changed
+- apps/web/src/app/orgs/[orgId]/admin/settings/features/page.tsx (+550 new)
+- apps/web/src/components/layout/admin-sidebar.tsx (+5, -1)
+
+### Quality checks
+- ✅ Type check: passed
+- ✅ Linting: passed (fixed unused import, added block statement for early return)
+- ⚠️ Browser verification: Not tested (requires org admin account with feature flags enabled by platform staff)
+
+### Learnings for future iterations ⚠️ CRITICAL
+
+**Patterns discovered:**
+- **Conditional Card Rendering**: Sections only show if feature is enabled (e.g., blanket override card only shows if `allowAdminDelegation === true`)
+- **Empty States**: Use centered text with `text-muted-foreground` for tables with no data
+- **AlertDialog Pattern**: Use separate state variables for dialog open/close + action type (approve/deny)
+- **Mutation Pattern**: Show toast on success/error, use try/catch for all async handlers
+- **Badge Variants**: Use `default` for enabled/ON, `secondary` for disabled/OFF
+- **Stats Grid**: Use `grid-cols-2 md:grid-cols-4` for responsive metric cards
+- **Date Formatting**: Use `formatDistanceToNow` from date-fns with `{ addSuffix: true }`
+- **Admin Sidebar Navigation**: Add items to Settings group, need to import icons used
+
+**Gotchas encountered:**
+- Linter error: Unused variable (`grantCoachOverride` mutation) - removed since not used for manual granting (only via request approval)
+- Linter error: Missing block statement for early return - must wrap single-line returns in `{}`
+- PRD mentioned `/orgs/[orgId]/settings/features` but existing pattern is `/orgs/[orgId]/admin/settings/features`
+- Flag icon import kept getting removed by linter until navigation item was added
+
+**Dependencies found:**
+- Requires all 3 queries from trustGatePermissions.ts:
+  - `getOrgFeatureFlagStatus` (org status, coach counts, active overrides)
+  - `getCoachOverrideRequests` (pending requests with status filter)
+- Requires 4 mutations from trustGatePermissions.ts:
+  - `setAdminBlanketOverride` (toggle blanket override)
+  - `revokeCoachOverride` (remove individual override)
+  - `reviewCoachOverrideRequest` (approve/deny requests, auto-grants override on approval)
+- Uses shadcn components: AlertDialog, Badge, Button, Card, Skeleton, Switch, Table, Textarea
+- Uses date-fns `formatDistanceToNow` for timestamp display
+- Inherits admin auth check from /orgs/[orgId]/admin/layout.tsx
+
+**What to do next**:
+- ✅ All P8 Week 1.5 stories complete (US-P8-021, US-P8-002-FIX, US-P8-022, US-P8-022B, US-P8-023)
+- Check PRD for next phase or story
+
+**Mistakes made:**
+- Initially imported `grantCoachOverride` mutation but never used it (manual granting not implemented in this story - requests go through approval flow instead)
+
+---

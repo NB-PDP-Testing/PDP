@@ -57,15 +57,15 @@ export default function VideoPreviewPage() {
             PlayerARC Overview Commercial
           </h2>
           <p className="mb-6 text-white/70">
-            A 15-second promotional video showcasing the key features of
-            PlayerARC - the player development platform that transforms youth
-            sports programs.
+            A 25-second promotional video showcasing the crisis in youth sports,
+            PlayerARC's solution, and key features of the platform that
+            transforms youth sports programs.
           </p>
 
           <div className="grid gap-4 md:grid-cols-3">
             <div className="rounded-lg bg-white/5 p-4">
               <div className="mb-1 font-medium text-[#27AE60]">Duration</div>
-              <div className="text-white">15 seconds</div>
+              <div className="text-white">25 seconds</div>
             </div>
             <div className="rounded-lg bg-white/5 p-4">
               <div className="mb-1 font-medium text-[#27AE60]">Resolution</div>
@@ -85,17 +85,17 @@ export default function VideoPreviewPage() {
                   1
                 </span>
                 <span>
-                  <strong className="text-white">Intro (0-3s):</strong> Logo
+                  <strong className="text-white">Intro (0-4s):</strong> Logo
                   reveal with tagline
                 </span>
               </li>
               <li className="flex items-center gap-2">
-                <span className="flex h-6 w-6 items-center justify-center rounded-full bg-[#27AE60] font-bold text-sm text-white">
+                <span className="flex h-6 w-6 items-center justify-center rounded-full bg-[#EF4444] font-bold text-sm text-white">
                   2
                 </span>
                 <span>
-                  <strong className="text-white">Features (3-9s):</strong> Key
-                  platform features
+                  <strong className="text-white">Problem (4-9s):</strong> Youth
+                  sports dropout crisis stats (70%, 35%, 85%)
                 </span>
               </li>
               <li className="flex items-center gap-2">
@@ -103,8 +103,8 @@ export default function VideoPreviewPage() {
                   3
                 </span>
                 <span>
-                  <strong className="text-white">Benefits (9-13s):</strong> Core
-                  value propositions
+                  <strong className="text-white">Solution (9-13s):</strong>{" "}
+                  Digital Passport with passport image
                 </span>
               </li>
               <li className="flex items-center gap-2">
@@ -112,7 +112,25 @@ export default function VideoPreviewPage() {
                   4
                 </span>
                 <span>
-                  <strong className="text-white">CTA (13-15s):</strong> Call to
+                  <strong className="text-white">Features (13-18s):</strong> Key
+                  platform features
+                </span>
+              </li>
+              <li className="flex items-center gap-2">
+                <span className="flex h-6 w-6 items-center justify-center rounded-full bg-[#27AE60] font-bold text-sm text-white">
+                  5
+                </span>
+                <span>
+                  <strong className="text-white">Benefits (18-22s):</strong>{" "}
+                  Core value propositions
+                </span>
+              </li>
+              <li className="flex items-center gap-2">
+                <span className="flex h-6 w-6 items-center justify-center rounded-full bg-[#F39C12] font-bold text-sm text-white">
+                  6
+                </span>
+                <span>
+                  <strong className="text-white">CTA (22-25s):</strong> Call to
                   action
                 </span>
               </li>

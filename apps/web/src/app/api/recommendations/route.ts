@@ -17,6 +17,30 @@ const DEFAULT_MODEL = "claude-3-5-haiku-20241022";
 const DEFAULT_MAX_TOKENS = 1500;
 const DEFAULT_TEMPERATURE = 0.7;
 
+interface TeamDataPlayer {
+  name: string;
+  ageGroup?: string;
+  attendance?: { training?: string | number };
+  skills?: Record<string, unknown>;
+  reviewStatus?: string;
+}
+
+interface TeamDataSkill {
+  skill: string;
+  avg?: number;
+}
+
+interface TeamData {
+  teamName: string;
+  playerCount?: number;
+  avgSkillLevel?: number;
+  strengths?: TeamDataSkill[];
+  weaknesses?: TeamDataSkill[];
+  attendanceIssues?: number;
+  overdueReviews?: number;
+  players?: TeamDataPlayer[];
+}
+
 function getConfig() {
   return {
     model: process.env.ANTHROPIC_MODEL_RECOMMENDATIONS || DEFAULT_MODEL,
@@ -29,9 +53,9 @@ function getConfig() {
   };
 }
 
-function buildCoachingPrompt(teamData: any): string {
+function buildCoachingPrompt(teamData: TeamData): string {
   const playerSummaries = (teamData.players || [])
-    .map((p: any) => {
+    .map((p: TeamDataPlayer) => {
       const skillValues = Object.values(p.skills || {}).filter(
         (v) => typeof v === "number"
       );
@@ -57,12 +81,12 @@ Average Team Skill Level: ${teamData.avgSkillLevel?.toFixed(1) || "0"}/5
 
 Team Strengths:
 ${(teamData.strengths || [])
-  .map((s: any) => `- ${s.skill}: ${s.avg?.toFixed(1) || "0"}/5`)
+  .map((s: TeamDataSkill) => `- ${s.skill}: ${s.avg?.toFixed(1) || "0"}/5`)
   .join("\n")}
 
 Team Weaknesses:
 ${(teamData.weaknesses || [])
-  .map((w: any) => `- ${w.skill}: ${w.avg?.toFixed(1) || "0"}/5`)
+  .map((w: TeamDataSkill) => `- ${w.skill}: ${w.avg?.toFixed(1) || "0"}/5`)
   .join("\n")}
 
 Issues:

@@ -17,6 +17,19 @@ const DEFAULT_MODEL = "claude-3-5-haiku-20241022";
 const DEFAULT_MAX_TOKENS = 1200;
 const DEFAULT_TEMPERATURE = 0.7;
 
+interface TeamDataSkill {
+  skill: string;
+  avg?: number;
+}
+
+interface TeamData {
+  teamName: string;
+  playerCount?: number;
+  ageGroup?: string;
+  strengths?: TeamDataSkill[];
+  weaknesses?: TeamDataSkill[];
+}
+
 function getConfig() {
   return {
     model: process.env.ANTHROPIC_MODEL_SESSION_PLAN || DEFAULT_MODEL,
@@ -29,17 +42,17 @@ function getConfig() {
   };
 }
 
-function buildSessionPlanPrompt(teamData: any, focus?: string): string {
+function buildSessionPlanPrompt(teamData: TeamData, focus?: string): string {
   return `You are an expert GAA football coach creating a training session plan.
 
 Team: ${teamData.teamName} (${teamData.playerCount || 0} players)
 ${focus ? `Focus Area: ${focus}` : "General training session"}
 
 Team Strengths: ${(teamData.strengths || [])
-    .map((s: any) => s.skill)
+    .map((s: TeamDataSkill) => s.skill)
     .join(", ")}
 Team Weaknesses: ${(teamData.weaknesses || [])
-    .map((w: any) => w.skill)
+    .map((w: TeamDataSkill) => w.skill)
     .join(", ")}
 
 Create a detailed 90-minute training session plan that addresses the team's weaknesses while maintaining their strengths. Include:

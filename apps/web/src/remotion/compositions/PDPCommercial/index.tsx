@@ -5,8 +5,6 @@ import {
   interpolate,
   spring,
   useVideoConfig,
-  Img,
-  staticFile,
 } from "remotion";
 import { COLORS, SCENES } from "../../constants";
 

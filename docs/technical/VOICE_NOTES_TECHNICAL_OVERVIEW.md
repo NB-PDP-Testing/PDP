@@ -2487,6 +2487,57 @@ const enabled = await ctx.runQuery(
 4. **Injury Safeguard:** Injury/medical insights NEVER auto-apply
 5. **1-Hour Revoke:** Auto-approved summaries can be revoked before delivery
 
+### Known Production Issues (GitHub Issue #355)
+
+These issues were identified during production testing and should be verified/addressed:
+
+#### 1. Team-Based Filtering Bug
+
+**Issue:** Team Insights tab shows ALL voice notes from a coach instead of only notes relevant to shared teams.
+
+**Expected:** If Coach A and Coach B share Team X but not Team Y, Coach B should only see Coach A's notes about Team X players.
+
+**Current:** Coach B sees all of Coach A's notes regardless of team.
+
+**Root Cause:** Query `getVoiceNotesForCoachTeams` may not be filtering correctly by shared team membership.
+
+**Location:** `packages/backend/convex/models/voiceNotes.ts` - `getVoiceNotesForCoachTeams`
+
+#### 2. Action Attribution Display Error
+
+**Issue:** Voice notes with TODO insights show incorrect coach attribution in Team Insights and My Tasks views.
+
+**Expected:** Action should show "Assigned by Coach A to Coach B"
+
+**Current:** Attribution displays incorrectly or missing
+
+**Location:** `apps/web/src/app/orgs/[orgId]/coach/voice-notes/components/team-insights-tab.tsx`
+
+#### 3. Help Modal System
+
+**Status:** ✅ Implemented
+
+A help modal displays on first coach access to the voice notes feature, providing guided onboarding.
+
+**Location:** `apps/web/src/app/orgs/[orgId]/coach/voice-notes/` (help modal component)
+
+**Future Enhancement:** Consider guided training feature to help coaches effectively use voice functionality with interactive tutorials.
+
+### Cross-Reference: Original Requirements
+
+The following items from the original planning (Issue #355) are now documented:
+
+| Original Item | Section in This Document |
+|---------------|-------------------------|
+| Real-time capture feedback | Section 16.5 (Audio Storage) |
+| Admin insights on performance | Section 15 (Admin Observability) |
+| Coach controls for parent messaging | Section 18 (Prompt Flexibility) |
+| Learning/feedback loop for coaches | Section 17 (Coach Learning) |
+| Insights linking to passport | Section 11.5 (Visual Diagram) |
+| Team collaboration hub | Section 19 (Collaboration Hub) |
+| Coach AI visibility gap | Section 20 (Coach Impact Visibility) |
+| Tab visibility documentation | Referenced: `COMPLETE_TAB_REFERENCE.md` |
+
 ---
 
 ## 15. Admin Observability & Platform Analytics

@@ -10,6 +10,7 @@ import {
   History,
   Lightbulb,
   Loader2,
+  Lock,
   MessageSquare,
   Mic,
   Send,
@@ -23,6 +24,11 @@ import { TrustNudgeBanner } from "@/components/coach/trust-nudge-banner";
 import { CoachAIHelpDialog } from "@/components/profile/coach-ai-help-dialog";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
+import {
+  Tooltip,
+  TooltipContent,
+  TooltipTrigger,
+} from "@/components/ui/tooltip";
 import { authClient } from "@/lib/auth-client";
 import { AutoApprovedTab } from "./components/auto-approved-tab";
 import { HistoryTab } from "./components/history-tab";
@@ -79,6 +85,10 @@ export function VoiceNotesDashboard() {
   });
   const aiServiceHealth = useQuery(
     api.models.aiServiceHealth.getAIServiceHealth
+  );
+  const gateStatus = useQuery(
+    api.models.trustGatePermissions.areTrustGatesActive,
+    coachId && orgId ? { coachId, organizationId: orgId } : "skip"
   );
 
   // Calculate counts
@@ -204,6 +214,23 @@ export function VoiceNotesDashboard() {
     setTimeout(() => setErrorMessage(null), 5000);
   };
 
+  // Calculate visibility for Sent to Parents tab using feature flags + trust level
+  const shouldShowSentToParents = useMemo(() => {
+    // Loading state - hide tab while checking
+    if (gateStatus === undefined) {
+      return false;
+    }
+
+    // Gates disabled via flags (any tier) - show tab
+    if (!gateStatus.gatesActive) {
+      return true;
+    }
+
+    // Gates active - check trust level
+    const currentLevel = trustLevel?.currentLevel ?? 0;
+    return currentLevel >= 2;
+  }, [gateStatus, trustLevel]);
+
   // Build tabs array - only include Parents/Insights when there's content
   const tabs = useMemo(() => {
     const baseTabs: {
@@ -246,13 +273,15 @@ export function VoiceNotesDashboard() {
       });
     }
 
-    // Phase 8: Show Auto-Sent tab to ALL coaches (removed trust level gate)
-    // Previously required level 2+, but Level 0-1 coaches need to see sent summaries
-    baseTabs.push({
-      id: "auto-sent",
-      label: "Sent to Parents",
-      icon: Send,
-    });
+    // Phase 8: Sent to Parents tab controlled by feature flags + trust level
+    // Show if gates disabled OR coach has sufficient trust level (2+)
+    if (shouldShowSentToParents) {
+      baseTabs.push({
+        id: "auto-sent",
+        label: "Sent to Parents",
+        icon: Send,
+      });
+    }
 
     // Always show History (Settings is now in header)
     baseTabs.push({ id: "history", label: "History", icon: History });
@@ -273,6 +302,7 @@ export function VoiceNotesDashboard() {
     hasSensitiveSummaries,
     needsAttentionCount,
     trustLevel,
+    shouldShowSentToParents,
   ]);
 
   // If current tab is no longer available (e.g., approved all summaries), switch to New
@@ -421,6 +451,29 @@ export function VoiceNotesDashboard() {
               </button>
             );
           })}
+          {/* Show locked button if Sent to Parents tab is hidden */}
+          {!shouldShowSentToParents && (
+            <Tooltip>
+              <TooltipTrigger asChild>
+                <button
+                  className="flex shrink-0 items-center gap-1.5 border-transparent border-b-2 px-3 py-2.5 font-medium text-gray-400 text-xs opacity-50 sm:gap-2 sm:px-4 sm:py-3 sm:text-sm"
+                  disabled
+                  type="button"
+                >
+                  <Lock className="h-4 w-4" />
+                  Sent to Parents
+                </button>
+              </TooltipTrigger>
+              <TooltipContent>
+                <p>
+                  {gateStatus?.source === "org_default" &&
+                    "Available at Trust Level 2+"}
+                  {gateStatus?.source === "admin_blanket" &&
+                    "Contact your administrator for access"}
+                </p>
+              </TooltipContent>
+            </Tooltip>
+          )}
         </nav>
       </div>
 

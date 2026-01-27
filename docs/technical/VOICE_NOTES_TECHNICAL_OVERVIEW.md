@@ -22,6 +22,7 @@
 12. [Limitations & Improvement Opportunities](#12-limitations--improvement-opportunities)
 13. [Key Files Reference](#13-key-files-reference)
 14. [Troubleshooting Guide](#14-troubleshooting-guide)
+15. [Admin Observability & Platform Analytics](#15-admin-observability--platform-analytics)
 
 ---
 
@@ -2394,6 +2395,349 @@ const enabled = await ctx.runQuery(
 3. **Parent Access:** Parents can only view summaries for their linked children
 4. **Injury Safeguard:** Injury/medical insights NEVER auto-apply
 5. **1-Hour Revoke:** Auto-approved summaries can be revoked before delivery
+
+---
+
+## 15. Admin Observability & Platform Analytics
+
+This section covers what insights and analytics are available to organization admins and platform staff for monitoring voice notes performance, coach usage, costs, and system health.
+
+### 15.1 Current Admin Capabilities
+
+#### Voice Notes Audit Dashboard
+
+**Location:** `/orgs/[orgId]/admin/voice-notes/page.tsx`
+
+**Query:** `getAllVoiceNotes` (up to 1,000 most recent notes)
+
+| Data Point | Description | Use Case |
+|------------|-------------|----------|
+| Transcription status | pending/processing/completed/failed | Identify processing issues |
+| Transcription errors | Error message if failed | Debug failures |
+| Insights status | pending/processing/completed/failed | Track AI extraction success |
+| Insights count | Number of insights extracted | Measure value generation |
+| Source channel | app_recorded/app_typed/whatsapp_audio/text | Understand input patterns |
+| Coach attribution | Which coach created the note | Usage by coach |
+
+**Filter Capabilities:**
+- By note type (training, match, general)
+- By transcription text search
+- By insight content and player names
+- Date range (coming soon)
+- Coach filter (coming soon)
+
+### 15.2 AI Usage & Cost Tracking
+
+**Backend Files:**
+- `models/aiUsageLog.ts` - Per-call logging
+- `models/aiUsageDailyAggregates.ts` - Daily rollup (100x faster queries)
+
+#### Per-API-Call Metrics
+
+| Metric | Description | Available From |
+|--------|-------------|----------------|
+| `operation` | voice_transcription, voice_insights, sensitivity_classification, parent_summary | All calls |
+| `inputTokens` | Tokens sent to AI | All calls |
+| `cachedTokens` | Tokens served from cache | Anthropic only |
+| `outputTokens` | Tokens received | All calls |
+| `cost` | USD cost for this call | All calls |
+| `coachId` | Which coach triggered | All calls |
+| `playerId` | Player context (optional) | Player-specific calls |
+
+#### Organization-Level Analytics
+
+**Query:** `getOrgUsage(organizationId, dateRange)`
+
+```typescript
+{
+  totalCost: number,           // Total USD spent
+  totalCalls: number,          // API call count
+  tokenBreakdown: {
+    input: number,
+    cached: number,
+    output: number,
+  },
+  averageCacheHitRate: number, // 0.0-1.0
+  byOperation: {               // Cost breakdown by feature
+    voice_transcription: { cost, calls },
+    voice_insights: { cost, calls },
+    parent_summary: { cost, calls },
+    // ...
+  },
+  topCoachesByCost: [          // Top 5 coaches
+    { coachId, coachName, cost, callCount },
+  ],
+  topPlayersByMentions: [      // Top 5 players in insights
+    { playerId, playerName, cost, callCount },
+  ],
+}
+```
+
+#### Platform-Level Analytics (Staff Only)
+
+**Query:** `getPlatformUsage(dateRange)`
+
+```typescript
+{
+  totalCost: number,
+  totalOrganizations: number,
+  byOrganization: [            // Top 10 orgs
+    { orgId, orgName, cost, callCount },
+  ],
+  dailyTrend: [                // For charting
+    { date, cost, calls },
+  ],
+}
+```
+
+### 15.3 Cost Budgeting & Alerts
+
+**Backend File:** `models/orgCostBudgets.ts`
+
+#### Budget Configuration
+
+| Setting | Default | Description |
+|---------|---------|-------------|
+| `dailyBudgetUsd` | $5.00 | Daily spend limit |
+| `monthlyBudgetUsd` | $50.00 | Monthly spend limit |
+| `alertThresholdPercent` | 80% | When to warn admins |
+| `enabled` | true | Whether budget enforced |
+
+#### Budget Enforcement Flow
+
+```
+┌─────────────────┐
+│ AI Call Request │
+└────────┬────────┘
+         │
+         ▼
+┌─────────────────────────────────────────┐
+│ checkOrgCostBudget(organizationId)      │
+│ ─────────────────────────────────────── │
+│ Returns:                                │
+│   withinBudget: boolean                 │
+│   dailyRemaining: number                │
+│   monthlyRemaining: number              │
+│   reason: "daily_exceeded" | "monthly_exceeded" | null │
+└────────┬────────────────────────────────┘
+         │
+    ┌────┴────┐
+    │         │
+    ▼         ▼
+┌────────┐  ┌────────────────────────────┐
+│ ALLOW  │  │ BLOCK + logBudgetExceeded  │
+│ Call   │  │ (no AI cost incurred)      │
+└────────┘  └────────────────────────────┘
+```
+
+#### Automatic Alerts
+
+**Backend File:** `models/platformCostAlerts.ts`
+
+**Cron:** Every 10 minutes
+
+| Alert Type | Trigger | Severity |
+|------------|---------|----------|
+| `org_daily_threshold` | 80% of daily budget | ⚠️ Warning |
+| `org_daily_exceeded` | 100% of daily budget | 🔴 Critical |
+| `org_monthly_threshold` | 80% of monthly budget | ⚠️ Warning |
+| `org_monthly_exceeded` | 100% of monthly budget | 🔴 Critical |
+
+**Deduplication:** Same alert not created within 60 minutes
+
+### 15.4 Processing Failures & Service Health
+
+**Backend File:** `models/aiServiceHealth.ts`
+
+#### Circuit Breaker Pattern
+
+| State | Description | Behavior |
+|-------|-------------|----------|
+| `closed` | Healthy | All calls proceed |
+| `open` | Too many failures | Calls blocked, return fallback |
+| `half_open` | Testing recovery | Limited calls allowed |
+
+#### Health Metrics
+
+```typescript
+{
+  status: "healthy" | "degraded" | "down",
+  circuitBreakerState: "closed" | "open" | "half_open",
+  lastSuccessAt: timestamp,
+  lastFailureAt: timestamp,
+  recentFailureCount: number,
+  failureWindowMs: number,      // Default: 60000 (1 minute)
+}
+```
+
+**Admin Functions:**
+- `getPlatformServiceHealth()` - View current health (platform staff only)
+- `forceResetCircuitBreaker()` - Manual reset when service recovers
+
+### 15.5 Coach Correction & Override Analytics
+
+**Backend File:** `models/coachOverrideAnalytics.ts`
+
+#### What Corrections Are Tracked
+
+| Override Type | Trigger | What It Tells You |
+|---------------|---------|-------------------|
+| `coach_approved_low_confidence` | Coach approved insight with confidence < threshold | AI being too conservative |
+| `coach_rejected_high_confidence` | Coach dismissed high-confidence insight | AI making wrong predictions |
+| `coach_edited` | Coach modified AI text | Summary tone/content issues |
+| `coach_revoked_auto` | Coach undid auto-applied insight | Auto-apply too aggressive |
+
+#### Analytics Query
+
+**Query:** `getCoachOverridePatterns(organizationId, dateRange)`
+
+```typescript
+{
+  totalOverrides: number,
+  byType: {
+    coach_approved_low_confidence: number,
+    coach_rejected_high_confidence: number,
+    coach_edited: number,
+    coach_revoked_auto: number,
+  },
+  averageConfidenceWhenRejected: number,  // Helps tune threshold
+  feedbackReasons: {
+    wasInaccurate: number,
+    wasTooSensitive: number,
+    timingWasWrong: number,
+    otherReason: number,
+  },
+  overrideRateByCategory: {
+    normal: number,      // % overridden
+    injury: number,
+    behavior: number,
+  },
+}
+```
+
+#### Undo Reason Analytics
+
+**Query:** `getUndoReasonStats(organizationId)`
+
+```typescript
+{
+  totalUndone: number,
+  byReason: {
+    wrong_player: { count, percentage },
+    wrong_rating: { count, percentage },
+    insight_incorrect: { count, percentage },
+    changed_mind: { count, percentage },
+    duplicate: { count, percentage },
+    other: { count, percentage },
+  },
+  recentUndone: [        // Last 10 for investigation
+    { insightTitle, reason, undoneAt, coachName },
+  ],
+}
+```
+
+### 15.6 Coach Trust Level Distribution
+
+**Backend File:** `models/coachTrustLevels.ts`
+
+#### Trust Level Distribution Query
+
+```typescript
+// Proposed: getOrgTrustDistribution(organizationId)
+{
+  level0_manual: number,      // Coaches requiring manual review
+  level1_learning: number,    // 10+ approvals
+  level2_trusted: number,     // 50+ approvals, <10% suppression
+  level3_expert: number,      // 200+ approvals, full automation
+  averageApprovalRate: number,
+  averageSuppressionRate: number,
+}
+```
+
+#### Preview Mode Analytics (Phase 7.1)
+
+Tracks "what would have auto-applied" vs "what coach actually did":
+
+```typescript
+{
+  wouldAutoApplyInsights: number,
+  coachAppliedThose: number,
+  coachDismissedThose: number,
+  agreementRate: number,       // (applied / wouldAutoApply) * 100
+}
+```
+
+**Use Case:** High agreement rate → coach ready for Level 2 upgrade
+
+### 15.7 Key Admin Tables Reference
+
+| Table | Purpose | Key Metrics |
+|-------|---------|-------------|
+| `aiUsageLog` | Per-call cost tracking | cost, tokens, operation, coachId |
+| `aiUsageDailyAggregates` | Fast 30-day views | dailyCost, dailyCalls |
+| `orgCostBudgets` | Budget enforcement | currentDailySpend, currentMonthlySpend |
+| `platformCostAlerts` | Threshold notifications | alertType, severity, triggered |
+| `aiServiceHealth` | API health | status, circuitBreakerState |
+| `aiModelConfig` | Model settings | modelId, temperature, maxTokens |
+| `aiModelConfigLog` | Config audit trail | previousValue, newValue, changedBy |
+| `voiceNoteInsights` | Insight analytics | status, wouldAutoApply, confidenceScore |
+| `autoAppliedInsights` | Auto-apply audit | undoReason, previousValue, newValue |
+| `coachTrustLevels` | Trust tracking | currentLevel, totalApprovals, levelHistory |
+| `coachOrgPreferences` | Per-org settings | parentSummariesEnabled, skipSensitive |
+
+### 15.8 System Tuning Insights
+
+#### How to Use Analytics for Improvement
+
+| Observation | What It Means | Action |
+|-------------|---------------|--------|
+| High `coach_rejected_high_confidence` | AI too aggressive | Lower confidence threshold |
+| High `coach_approved_low_confidence` | AI too conservative | Raise confidence threshold |
+| Many `wrong_player` undos | Name matching failing | Improve fuzzy matching |
+| High `coach_edited` rate | Summary tone wrong | Adjust parent summary prompt |
+| Budget exceeded frequently | Heavy usage or runaway | Review per-coach usage |
+| Circuit breaker opening | AI service issues | Check provider status |
+| Low cache hit rate | Prompt not stable | Stabilize prompt templates |
+
+#### Recommended Monitoring Dashboards
+
+**Org Admin Dashboard (To Build):**
+1. Voice notes created (daily trend)
+2. AI cost (daily trend)
+3. Success rate (transcription + insights)
+4. Coach leaderboard (notes created, insights applied)
+5. Common insight categories
+6. Override/correction rate
+
+**Platform Staff Dashboard (To Build):**
+1. Total platform cost (daily trend)
+2. Org cost distribution
+3. Service health status
+4. Model performance comparison
+5. Alert history
+
+### 15.9 Current Gaps & Improvement Opportunities
+
+| Gap | Impact | Priority |
+|-----|--------|----------|
+| **No dedicated voice notes analytics page** | Admins must query raw data | 🔴 High |
+| **No historical trend charts** | Can't see patterns over time | 🔴 High |
+| **No export functionality** | Can't do offline analysis | 🟡 Medium |
+| **No transcription quality metrics** | Can't measure Whisper accuracy | 🟡 Medium |
+| **No per-feature cost breakdown in UI** | Hard to optimize spending | 🟡 Medium |
+| **No insight accuracy validation** | Can't measure AI correctness | 🟢 Low |
+| **No confidence score distribution** | Can't tune thresholds visually | 🟢 Low |
+
+### 15.10 Implementation Files
+
+| File | Line Count | Key Functions |
+|------|------------|---------------|
+| `models/aiUsageLog.ts` | ~400 | `logAIUsage`, `getOrgUsage`, `getPlatformUsage` |
+| `models/orgCostBudgets.ts` | ~300 | `checkOrgCostBudget`, `updateOrgDailySpend` |
+| `models/platformCostAlerts.ts` | ~250 | `checkAndCreateAlerts`, `acknowledgeAlert` |
+| `models/aiServiceHealth.ts` | ~200 | `recordSuccess`, `recordFailure`, `shouldCallAPI` |
+| `models/aiModelConfig.ts` | ~350 | `getConfigForFeature`, `updateModelConfig` |
+| `models/coachOverrideAnalytics.ts` | ~200 | `getCoachOverridePatterns`, `trackOverride` |
 
 ---
 

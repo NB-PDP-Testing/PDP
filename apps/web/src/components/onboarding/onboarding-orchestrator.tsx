@@ -16,6 +16,10 @@ import type { Id } from "@pdp/backend/convex/_generated/dataModel";
 import { useQuery } from "convex/react";
 import { useEffect, useRef, useState } from "react";
 import { BulkGuardianClaimDialog } from "@/components/bulk-guardian-claim-dialog";
+import {
+  GuardianPrompt,
+  type PendingGraduation,
+} from "@/components/graduation/guardian-prompt";
 import { Button } from "@/components/ui/button";
 import {
   Dialog,
@@ -37,9 +41,15 @@ type OnboardingTask = {
     | "accept_invitation"
     | "guardian_claim"
     | "child_linking"
+    | "player_graduation"
     | "welcome";
   priority: number;
   data: unknown;
+};
+
+// Type for player_graduation task data (Phase 7)
+type PlayerGraduationTaskData = {
+  pendingGraduations: PendingGraduation[];
 };
 
 // Type for guardian_claim task data (matches what getOnboardingTasks returns)
@@ -169,6 +179,18 @@ function OnboardingStepRenderer({
     );
   }
 
+  // Handle player_graduation task with GuardianPrompt (Phase 7)
+  if (task.type === "player_graduation") {
+    const data = task.data as PlayerGraduationTaskData;
+
+    return (
+      <GuardianPrompt
+        onComplete={onComplete}
+        pendingGraduations={data.pendingGraduations}
+      />
+    );
+  }
+
   // Placeholder for other task types
   const getTaskTitle = (type: string) => {
     switch (type) {
@@ -180,6 +202,8 @@ function OnboardingStepRenderer({
         return "Claim Your Guardian Profile";
       case "child_linking":
         return "Confirm Your Children";
+      case "player_graduation":
+        return "Player Turned 18";
       case "welcome":
         return "Welcome!";
       default:
@@ -197,6 +221,8 @@ function OnboardingStepRenderer({
         return "We found a guardian profile that matches your email. Claim it to see your children.";
       case "child_linking":
         return "Please confirm the children linked to your account.";
+      case "player_graduation":
+        return "One of your children has turned 18 and can claim their own account.";
       case "welcome":
         return "Welcome to the platform! Let us show you around.";
       default:

@@ -22,6 +22,7 @@ import type * as auth from "../auth.js";
 import type * as crons from "../crons.js";
 import type * as healthCheck from "../healthCheck.js";
 import type * as http from "../http.js";
+import type * as jobs_graduations from "../jobs/graduations.js";
 import type * as jobs_invitations from "../jobs/invitations.js";
 import type * as lib_ageGroupUtils from "../lib/ageGroupUtils.js";
 import type * as lib_analytics from "../lib/analytics.js";
@@ -75,6 +76,7 @@ import type * as models_platformCostAlerts from "../models/platformCostAlerts.js
 import type * as models_platformMessagingSettings from "../models/platformMessagingSettings.js";
 import type * as models_platformStaffInvitations from "../models/platformStaffInvitations.js";
 import type * as models_playerEmergencyContacts from "../models/playerEmergencyContacts.js";
+import type * as models_playerGraduations from "../models/playerGraduations.js";
 import type * as models_playerIdentities from "../models/playerIdentities.js";
 import type * as models_playerImport from "../models/playerImport.js";
 import type * as models_playerInjuries from "../models/playerInjuries.js";
@@ -155,6 +157,7 @@ declare const fullApi: ApiFromModules<{
   crons: typeof crons;
   healthCheck: typeof healthCheck;
   http: typeof http;
+  "jobs/graduations": typeof jobs_graduations;
   "jobs/invitations": typeof jobs_invitations;
   "lib/ageGroupUtils": typeof lib_ageGroupUtils;
   "lib/analytics": typeof lib_analytics;
@@ -208,6 +211,7 @@ declare const fullApi: ApiFromModules<{
   "models/platformMessagingSettings": typeof models_platformMessagingSettings;
   "models/platformStaffInvitations": typeof models_platformStaffInvitations;
   "models/playerEmergencyContacts": typeof models_playerEmergencyContacts;
+  "models/playerGraduations": typeof models_playerGraduations;
   "models/playerIdentities": typeof models_playerIdentities;
   "models/playerImport": typeof models_playerImport;
   "models/playerInjuries": typeof models_playerInjuries;

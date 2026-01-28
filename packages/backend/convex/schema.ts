@@ -3722,4 +3722,35 @@ export default defineSchema({
   })
     .index("by_version", ["version"])
     .index("by_effective_date", ["effectiveDate"]),
+
+  // ============================================================
+  // USER NOTIFICATION PREFERENCES
+  // Per-user notification settings for email, push, and in-app
+  // ============================================================
+  notificationPreferences: defineTable({
+    userId: v.string(), // User ID from Better Auth
+    organizationId: v.optional(v.string()), // Optional org-specific prefs
+
+    // Email notification preferences
+    emailEnabled: v.boolean(), // Master toggle for all email
+    emailTeamUpdates: v.boolean(), // Team schedule, roster changes
+    emailPlayerUpdates: v.boolean(), // Player progress, assessments
+    emailAnnouncements: v.boolean(), // Org-wide announcements
+    emailAssessments: v.boolean(), // Assessment reminders and results
+
+    // Push notification preferences
+    pushEnabled: v.boolean(), // Master toggle for push
+    pushSubscription: v.optional(v.string()), // Browser push subscription JSON
+
+    // In-app notification preferences
+    inAppEnabled: v.boolean(), // Master toggle for in-app
+    inAppSound: v.boolean(), // Play sound on notification
+    inAppBadge: v.boolean(), // Show badge count
+
+    // Timestamps
+    createdAt: v.number(),
+    updatedAt: v.number(),
+  })
+    .index("by_userId", ["userId"])
+    .index("by_userId_orgId", ["userId", "organizationId"]),
 });

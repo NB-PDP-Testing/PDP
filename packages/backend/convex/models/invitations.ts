@@ -2,6 +2,202 @@ import { v } from "convex/values";
 import { components } from "../_generated/api";
 import { mutation, query } from "../_generated/server";
 
+// ============================================================
+// PHASE 3: INVITATION MANAGEMENT QUERIES
+// These support the admin invitation management dashboard
+// ============================================================
+
+/**
+ * Get invitation statistics for an organization
+ * Returns counts for active, expiring soon, expired, and pending requests
+ */
+export const getInvitationStats = query({
+  args: { organizationId: v.string() },
+  returns: v.object({
+    active: v.number(),
+    expiringSoon: v.number(),
+    expired: v.number(),
+    requests: v.number(),
+  }),
+  handler: async (ctx, args) => {
+    const now = Date.now();
+    const in48Hours = now + 48 * 60 * 60 * 1000;
+
+    // Get all invitations for this org (paginated)
+    const allInvitationsResult = await ctx.runQuery(
+      components.betterAuth.adapter.findMany,
+      {
+        model: "invitation",
+        paginationOpts: { cursor: null, numItems: 1000 },
+        where: [
+          {
+            field: "organizationId",
+            value: args.organizationId,
+            operator: "eq",
+          },
+        ],
+      }
+    );
+    const allInvitations = allInvitationsResult?.page || [];
+
+    // Count by status
+    let active = 0;
+    let expiringSoon = 0;
+    let expired = 0;
+
+    for (const invitation of allInvitations) {
+      if (
+        invitation.status === "accepted" ||
+        invitation.status === "cancelled"
+      ) {
+        continue;
+      }
+
+      if (invitation.expiresAt < now) {
+        expired += 1;
+      } else if (invitation.expiresAt <= in48Hours) {
+        expiringSoon += 1;
+      } else {
+        active += 1;
+      }
+    }
+
+    // Count pending requests
+    const pendingRequests = await ctx.db
+      .query("invitationRequests")
+      .withIndex("by_organization_status", (q) =>
+        q.eq("organizationId", args.organizationId).eq("status", "pending")
+      )
+      .collect();
+
+    return {
+      active,
+      expiringSoon,
+      expired,
+      requests: pendingRequests.length,
+    };
+  },
+});
+
+/**
+ * Get invitations by status category
+ * Supports filtering by: active, expiring_soon, expired
+ */
+export const getInvitationsByStatus = query({
+  args: {
+    organizationId: v.string(),
+    status: v.union(
+      v.literal("active"),
+      v.literal("expiring_soon"),
+      v.literal("expired")
+    ),
+  },
+  returns: v.array(v.any()),
+  handler: async (ctx, args) => {
+    const now = Date.now();
+    const in48Hours = now + 48 * 60 * 60 * 1000;
+
+    // Get all invitations for this org (paginated)
+    const allInvitationsResult = await ctx.runQuery(
+      components.betterAuth.adapter.findMany,
+      {
+        model: "invitation",
+        paginationOpts: { cursor: null, numItems: 1000 },
+        where: [
+          {
+            field: "organizationId",
+            value: args.organizationId,
+            operator: "eq",
+          },
+        ],
+      }
+    );
+    const allInvitations = allInvitationsResult?.page || [];
+
+    // Filter by status category
+    const filtered = allInvitations.filter(
+      (invitation: { status?: string; expiresAt: number }) => {
+        // Skip accepted/cancelled invitations
+        if (
+          invitation.status === "accepted" ||
+          invitation.status === "cancelled"
+        ) {
+          return false;
+        }
+
+        if (args.status === "expired") {
+          return invitation.expiresAt < now;
+        }
+        if (args.status === "expiring_soon") {
+          return (
+            invitation.expiresAt >= now && invitation.expiresAt <= in48Hours
+          );
+        }
+        // active
+        return invitation.expiresAt > in48Hours;
+      }
+    );
+
+    // Sort by expiration (soonest first for expiring_soon, most recently expired first for expired)
+    filtered.sort((a: { expiresAt: number }, b: { expiresAt: number }) => {
+      if (args.status === "expired") {
+        return b.expiresAt - a.expiresAt; // Most recently expired first
+      }
+      return a.expiresAt - b.expiresAt; // Soonest to expire first
+    });
+
+    return filtered;
+  },
+});
+
+/**
+ * Get pending invitation requests for an organization
+ */
+export const getPendingInvitationRequests = query({
+  args: { organizationId: v.string() },
+  returns: v.array(v.any()),
+  handler: async (ctx, args) => {
+    const requests = await ctx.db
+      .query("invitationRequests")
+      .withIndex("by_organization_status", (q) =>
+        q.eq("organizationId", args.organizationId).eq("status", "pending")
+      )
+      .order("desc")
+      .collect();
+
+    // Enrich with original invitation info
+    const enriched = await Promise.all(
+      requests.map(async (request) => {
+        const invitation = await ctx.runQuery(
+          components.betterAuth.adapter.findOne,
+          {
+            model: "invitation",
+            where: [
+              {
+                field: "_id",
+                value: request.originalInvitationId,
+                operator: "eq",
+              },
+            ],
+          }
+        );
+
+        return {
+          ...request,
+          originalInvitation: invitation
+            ? {
+                email: invitation.email,
+                role: invitation.role,
+              }
+            : null,
+        };
+      })
+    );
+
+    return enriched;
+  },
+});
+
 /**
  * Invitation Request Management Functions (Phase 1B)
  *

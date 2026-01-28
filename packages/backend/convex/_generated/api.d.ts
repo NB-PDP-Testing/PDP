@@ -82,6 +82,7 @@ import type * as models_players from "../models/players.js";
 import type * as models_rateLimits from "../models/rateLimits.js";
 import type * as models_referenceData from "../models/referenceData.js";
 import type * as models_sessionPlans from "../models/sessionPlans.js";
+import type * as models_setup from "../models/setup.js";
 import type * as models_skillAssessments from "../models/skillAssessments.js";
 import type * as models_skillBenchmarks from "../models/skillBenchmarks.js";
 import type * as models_sportAgeGroupConfig from "../models/sportAgeGroupConfig.js";
@@ -213,6 +214,7 @@ declare const fullApi: ApiFromModules<{
   "models/rateLimits": typeof models_rateLimits;
   "models/referenceData": typeof models_referenceData;
   "models/sessionPlans": typeof models_sessionPlans;
+  "models/setup": typeof models_setup;
   "models/skillAssessments": typeof models_skillAssessments;
   "models/skillBenchmarks": typeof models_skillBenchmarks;
   "models/sportAgeGroupConfig": typeof models_sportAgeGroupConfig;
@@ -316,6 +318,8 @@ export declare const components: {
                   parentOnboardingDismissCount?: number;
                   parentOnboardingLastDismissedAt?: number;
                   phone?: string;
+                  setupComplete?: boolean;
+                  setupStep?: string;
                   updatedAt: number;
                   userId?: null | string;
                 };
@@ -512,6 +516,8 @@ export declare const components: {
                     | "currentOrgId"
                     | "gdprConsentVersion"
                     | "gdprConsentedAt"
+                    | "setupComplete"
+                    | "setupStep"
                     | "_id";
                   operator?:
                     | "lt"
@@ -930,6 +936,8 @@ export declare const components: {
                     | "currentOrgId"
                     | "gdprConsentVersion"
                     | "gdprConsentedAt"
+                    | "setupComplete"
+                    | "setupStep"
                     | "_id";
                   operator?:
                     | "lt"
@@ -1432,6 +1440,8 @@ export declare const components: {
                   parentOnboardingDismissCount?: number;
                   parentOnboardingLastDismissedAt?: number;
                   phone?: string;
+                  setupComplete?: boolean;
+                  setupStep?: string;
                   updatedAt?: number;
                   userId?: null | string;
                 };
@@ -1456,6 +1466,8 @@ export declare const components: {
                     | "currentOrgId"
                     | "gdprConsentVersion"
                     | "gdprConsentedAt"
+                    | "setupComplete"
+                    | "setupStep"
                     | "_id";
                   operator?:
                     | "lt"
@@ -1998,6 +2010,8 @@ export declare const components: {
                   parentOnboardingDismissCount?: number;
                   parentOnboardingLastDismissedAt?: number;
                   phone?: string;
+                  setupComplete?: boolean;
+                  setupStep?: string;
                   updatedAt?: number;
                   userId?: null | string;
                 };
@@ -2022,6 +2036,8 @@ export declare const components: {
                     | "currentOrgId"
                     | "gdprConsentVersion"
                     | "gdprConsentedAt"
+                    | "setupComplete"
+                    | "setupStep"
                     | "_id";
                   operator?:
                     | "lt"

@@ -47,6 +47,8 @@ export type ComponentApi<Name extends string | undefined = string | undefined> =
                   parentOnboardingDismissCount?: number;
                   parentOnboardingLastDismissedAt?: number;
                   phone?: string;
+                  setupComplete?: boolean;
+                  setupStep?: string;
                   updatedAt: number;
                   userId?: null | string;
                 };
@@ -244,6 +246,8 @@ export type ComponentApi<Name extends string | undefined = string | undefined> =
                     | "currentOrgId"
                     | "gdprConsentVersion"
                     | "gdprConsentedAt"
+                    | "setupComplete"
+                    | "setupStep"
                     | "_id";
                   operator?:
                     | "lt"
@@ -663,6 +667,8 @@ export type ComponentApi<Name extends string | undefined = string | undefined> =
                     | "currentOrgId"
                     | "gdprConsentVersion"
                     | "gdprConsentedAt"
+                    | "setupComplete"
+                    | "setupStep"
                     | "_id";
                   operator?:
                     | "lt"
@@ -1168,6 +1174,8 @@ export type ComponentApi<Name extends string | undefined = string | undefined> =
                   parentOnboardingDismissCount?: number;
                   parentOnboardingLastDismissedAt?: number;
                   phone?: string;
+                  setupComplete?: boolean;
+                  setupStep?: string;
                   updatedAt?: number;
                   userId?: null | string;
                 };
@@ -1192,6 +1200,8 @@ export type ComponentApi<Name extends string | undefined = string | undefined> =
                     | "currentOrgId"
                     | "gdprConsentVersion"
                     | "gdprConsentedAt"
+                    | "setupComplete"
+                    | "setupStep"
                     | "_id";
                   operator?:
                     | "lt"
@@ -1735,6 +1745,8 @@ export type ComponentApi<Name extends string | undefined = string | undefined> =
                   parentOnboardingDismissCount?: number;
                   parentOnboardingLastDismissedAt?: number;
                   phone?: string;
+                  setupComplete?: boolean;
+                  setupStep?: string;
                   updatedAt?: number;
                   userId?: null | string;
                 };
@@ -1759,6 +1771,8 @@ export type ComponentApi<Name extends string | undefined = string | undefined> =
                     | "currentOrgId"
                     | "gdprConsentVersion"
                     | "gdprConsentedAt"
+                    | "setupComplete"
+                    | "setupStep"
                     | "_id";
                   operator?:
                     | "lt"

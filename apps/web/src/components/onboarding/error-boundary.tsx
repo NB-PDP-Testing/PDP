@@ -63,12 +63,19 @@ export class OnboardingErrorBoundary extends Component<
   render() {
     if (this.state.hasError) {
       return (
-        <div className="fixed inset-0 z-50 flex items-center justify-center bg-background/80 backdrop-blur-sm">
+        <div
+          aria-labelledby="error-title"
+          aria-live="assertive"
+          className="fixed inset-0 z-50 flex items-center justify-center bg-background/80 backdrop-blur-sm"
+          role="alert"
+        >
           <Card className="mx-4 max-w-md">
             <CardHeader className="pb-2">
               <div className="mb-2 flex items-center gap-2 text-destructive">
-                <AlertCircle className="size-6" />
-                <h2 className="font-semibold text-lg">Something went wrong</h2>
+                <AlertCircle aria-hidden="true" className="size-6" />
+                <h2 className="font-semibold text-lg" id="error-title">
+                  Something went wrong
+                </h2>
               </div>
             </CardHeader>
             <CardContent>
@@ -94,7 +101,7 @@ export class OnboardingErrorBoundary extends Component<
                 onClick={this.handleReset}
                 variant="default"
               >
-                <RefreshCw className="mr-2 size-4" />
+                <RefreshCw aria-hidden="true" className="mr-2 size-4" />
                 Try Again
               </Button>
               <Button asChild className="w-full sm:w-auto" variant="outline">

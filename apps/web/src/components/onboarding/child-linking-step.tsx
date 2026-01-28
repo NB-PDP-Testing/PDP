@@ -191,7 +191,7 @@ export function ChildLinkingStep({
       >
         <AlertDialogHeader>
           <div className="mb-2 flex items-center gap-2">
-            <Users className="size-6 text-primary" />
+            <Users aria-hidden="true" className="size-6 text-primary" />
             <AlertDialogTitle>Confirm Your Children</AlertDialogTitle>
           </div>
           <AlertDialogDescription asChild>
@@ -211,8 +211,14 @@ export function ChildLinkingStep({
 
         <div className="max-h-80 space-y-3 overflow-y-auto py-4">
           {allActioned ? (
-            <div className="py-8 text-center text-muted-foreground">
-              <Check className="mx-auto mb-2 size-12 text-green-500" />
+            <div
+              aria-live="polite"
+              className="py-8 text-center text-muted-foreground"
+            >
+              <Check
+                aria-hidden="true"
+                className="mx-auto mb-2 size-12 text-green-500"
+              />
               <p>All children have been confirmed!</p>
             </div>
           ) : (
@@ -230,20 +236,24 @@ export function ChildLinkingStep({
                   </div>
                   <div className="flex gap-2">
                     <Button
+                      aria-busy={isSubmitting === link.linkId}
+                      aria-label={`Decline link to ${link.playerName}`}
                       disabled={isSubmitting === link.linkId || acceptingAll}
                       onClick={() => handleDecline(link)}
                       size="sm"
                       variant="outline"
                     >
-                      <X className="mr-1 size-4" />
+                      <X aria-hidden="true" className="mr-1 size-4" />
                       Decline
                     </Button>
                     <Button
+                      aria-busy={isSubmitting === link.linkId}
+                      aria-label={`Accept link to ${link.playerName}`}
                       disabled={isSubmitting === link.linkId || acceptingAll}
                       onClick={() => handleAccept(link)}
                       size="sm"
                     >
-                      <Check className="mr-1 size-4" />
+                      <Check aria-hidden="true" className="mr-1 size-4" />
                       Accept
                     </Button>
                   </div>
@@ -283,6 +293,7 @@ export function ChildLinkingStep({
         <AlertDialogFooter className="flex-col gap-2 sm:flex-row">
           {!allActioned && canSkip && (
             <Button
+              aria-busy={isSkipping}
               className="w-full sm:w-auto"
               disabled={acceptingAll || isSubmitting !== null || isSkipping}
               onClick={handleSkip}
@@ -294,6 +305,7 @@ export function ChildLinkingStep({
           )}
           {!allActioned && remainingLinks.length > 1 && (
             <Button
+              aria-busy={acceptingAll}
               className="w-full sm:w-auto"
               disabled={acceptingAll || isSubmitting !== null || isSkipping}
               onClick={handleAcceptAll}

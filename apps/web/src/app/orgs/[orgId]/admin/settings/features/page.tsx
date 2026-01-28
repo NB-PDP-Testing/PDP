@@ -56,9 +56,24 @@ export default function OrgFeatureFlagsPage() {
     { organizationId: orgId, status: "pending" }
   );
 
+  // Fetch all coaches with their access status
+  const allCoaches = useQuery(
+    api.models.trustGatePermissions.getAllCoachesWithAccessStatus,
+    orgStatus?.allowAdminDelegation ? { organizationId: orgId } : "skip"
+  );
+
   // Mutations
   const setAdminBlanketOverride = useMutation(
     api.models.trustGatePermissions.setAdminBlanketOverride
+  );
+  const setAdminBlanketBlock = useMutation(
+    api.models.trustGatePermissions.setAdminBlanketBlock
+  );
+  const blockIndividualCoach = useMutation(
+    api.models.trustGatePermissions.blockIndividualCoach
+  );
+  const unblockIndividualCoach = useMutation(
+    api.models.trustGatePermissions.unblockIndividualCoach
   );
   const revokeCoachOverride = useMutation(
     api.models.trustGatePermissions.revokeCoachOverride
@@ -69,6 +84,12 @@ export default function OrgFeatureFlagsPage() {
 
   // UI state
   const [isTogglingBlanket, setIsTogglingBlanket] = useState(false);
+  const [isTogglingBlanketBlock, setIsTogglingBlanketBlock] = useState(false);
+  const [blockingCoachId, setBlockingCoachId] = useState<string | null>(null);
+  const [blockReason, setBlockReason] = useState("");
+  const [unblockingCoachId, setUnblockingCoachId] = useState<string | null>(
+    null
+  );
   const [revokingCoachId, setRevokingCoachId] = useState<string | null>(null);
   const [reviewingRequestId, setReviewingRequestId] =
     useState<Id<"coachOverrideRequests"> | null>(null);
@@ -115,6 +136,67 @@ export default function OrgFeatureFlagsPage() {
       toast.error(`Failed: ${error.message}`);
     } finally {
       setIsTogglingBlanket(false);
+    }
+  };
+
+  const handleToggleBlanketBlock = async () => {
+    if (!orgStatus.allowAdminDelegation) {
+      toast.error("Admin delegation not enabled for this organization");
+      return;
+    }
+
+    setIsTogglingBlanketBlock(true);
+    try {
+      const newValue = !(orgStatus as any).adminBlanketBlock;
+      await setAdminBlanketBlock({
+        organizationId: orgId,
+        blocked: newValue,
+      });
+      toast.success(
+        newValue
+          ? "Blanket block enabled - all coaches now blocked"
+          : "Blanket block disabled - access restored"
+      );
+    } catch (error: any) {
+      toast.error(`Failed: ${error.message}`);
+    } finally {
+      setIsTogglingBlanketBlock(false);
+    }
+  };
+
+  const handleBlockCoach = async () => {
+    if (!blockingCoachId) {
+      return;
+    }
+
+    try {
+      await blockIndividualCoach({
+        organizationId: orgId,
+        coachId: blockingCoachId,
+        reason: blockReason || undefined,
+      });
+      toast.success("Coach access blocked");
+      setBlockingCoachId(null);
+      setBlockReason("");
+    } catch (error: any) {
+      toast.error(`Failed: ${error.message}`);
+    }
+  };
+
+  const handleUnblockCoach = async () => {
+    if (!unblockingCoachId) {
+      return;
+    }
+
+    try {
+      await unblockIndividualCoach({
+        organizationId: orgId,
+        coachId: unblockingCoachId,
+      });
+      toast.success("Coach access unblocked");
+      setUnblockingCoachId(null);
+    } catch (error: any) {
+      toast.error(`Failed: ${error.message}`);
     }
   };
 
@@ -233,50 +315,81 @@ export default function OrgFeatureFlagsPage() {
           <CardHeader>
             <CardTitle className="flex items-center gap-2">
               <ShieldAlert className="h-5 w-5" />
-              Override for All Coaches
+              Bulk Access Control
             </CardTitle>
           </CardHeader>
-          <CardContent className="space-y-4">
-            <div className="flex items-center justify-between">
-              <div className="flex-1">
-                <p className="font-medium">Blanket Override</p>
-                <p className="text-muted-foreground text-sm">
-                  When enabled, all coaches can access features regardless of
-                  trust level
-                </p>
+          <CardContent className="space-y-6">
+            {/* Blanket Override (Grant All) */}
+            <div className="space-y-2">
+              <div className="flex items-center justify-between">
+                <div className="flex-1">
+                  <p className="font-medium">Grant All Coaches Access</p>
+                  <p className="text-muted-foreground text-sm">
+                    When enabled, all coaches can access features regardless of
+                    trust level
+                  </p>
+                </div>
+                <Switch
+                  checked={orgStatus.adminOverrideTrustGates ?? false}
+                  disabled={isTogglingBlanket}
+                  onCheckedChange={handleToggleBlanketOverride}
+                />
               </div>
-              <Switch
-                checked={orgStatus.adminOverrideTrustGates ?? false}
-                disabled={isTogglingBlanket}
-                onCheckedChange={handleToggleBlanketOverride}
-              />
+
+              {orgStatus.adminOverrideTrustGates !== undefined && (
+                <div className="rounded-md border bg-muted p-3 text-sm">
+                  <p className="font-medium">
+                    Current setting:{" "}
+                    {orgStatus.adminOverrideTrustGates
+                      ? "All coaches have access"
+                      : "Normal trust level rules apply"}
+                  </p>
+                  {orgStatus.adminOverrideSetBy &&
+                    orgStatus.adminOverrideSetAt && (
+                      <p className="text-muted-foreground text-xs">
+                        Set by {orgStatus.adminOverrideSetBy} •{" "}
+                        {formatDistanceToNow(orgStatus.adminOverrideSetAt, {
+                          addSuffix: true,
+                        })}
+                      </p>
+                    )}
+                </div>
+              )}
             </div>
 
-            {orgStatus.adminOverrideTrustGates !== undefined && (
-              <div className="rounded-md border bg-muted p-3 text-sm">
-                <p className="font-medium">
-                  Current setting:{" "}
-                  {orgStatus.adminOverrideTrustGates
-                    ? "Gates DISABLED (all coaches have access)"
-                    : "Gates ENABLED (trust level required)"}
-                </p>
-                {orgStatus.adminOverrideSetBy &&
-                  orgStatus.adminOverrideSetAt && (
-                    <p className="text-muted-foreground text-xs">
-                      Set by {orgStatus.adminOverrideSetBy} •{" "}
-                      {formatDistanceToNow(orgStatus.adminOverrideSetAt, {
-                        addSuffix: true,
-                      })}
-                    </p>
-                  )}
+            <div className="border-t" />
+
+            {/* Blanket Block (Block All) */}
+            <div className="space-y-2">
+              <div className="flex items-center justify-between">
+                <div className="flex-1">
+                  <p className="font-medium">Block All Coaches</p>
+                  <p className="text-muted-foreground text-sm">
+                    When enabled, ALL coaches lose access (even Level 2+)
+                  </p>
+                </div>
+                <Switch
+                  checked={(orgStatus as any).adminBlanketBlock ?? false}
+                  disabled={isTogglingBlanketBlock}
+                  onCheckedChange={handleToggleBlanketBlock}
+                />
               </div>
-            )}
+
+              {(orgStatus as any).adminBlanketBlock && (
+                <div className="rounded-md border border-red-200 bg-red-50 p-3 text-sm dark:border-red-900 dark:bg-red-950">
+                  <p className="font-medium text-red-900 dark:text-red-100">
+                    ⚠️ All coaches are currently blocked from parent
+                    communication
+                  </p>
+                </div>
+              )}
+            </div>
 
             <div className="rounded-md border bg-blue-50 p-3 dark:bg-blue-950">
               <p className="text-sm">
                 <AlertCircle className="mr-2 inline h-4 w-4" />
-                This override affects ALL coaches. Individual overrides can be
-                granted below.
+                Bulk controls affect ALL coaches. Use individual controls below
+                for specific coaches.
               </p>
             </div>
           </CardContent>
@@ -328,23 +441,103 @@ export default function OrgFeatureFlagsPage() {
         </CardContent>
       </Card>
 
-      {/* Individual Coach Overrides Table (only if coach overrides enabled) */}
-      {orgStatus.allowCoachOverrides && (
+      {/* All Coaches Access Management (only if delegation enabled) */}
+      {orgStatus.allowAdminDelegation && allCoaches && (
         <Card>
           <CardHeader>
-            <CardTitle>Individual Coach Overrides</CardTitle>
+            <CardTitle>Individual Coach Access Control</CardTitle>
+            <p className="text-muted-foreground text-sm">
+              Manage access for individual coaches
+            </p>
           </CardHeader>
           <CardContent>
-            {orgStatus.activeOverrides.length === 0 ? (
+            {allCoaches.length === 0 ? (
               <div className="py-8 text-center text-muted-foreground">
-                No individual overrides granted yet
+                No coaches found in this organization
               </div>
             ) : (
               <Table>
                 <TableHeader>
                   <TableRow>
                     <TableHead>Coach Name</TableHead>
-                    <TableHead>Override Status</TableHead>
+                    <TableHead>Trust Level</TableHead>
+                    <TableHead>Status</TableHead>
+                    <TableHead>Access Reason</TableHead>
+                    <TableHead>Actions</TableHead>
+                  </TableRow>
+                </TableHeader>
+                <TableBody>
+                  {allCoaches.map((coach) => (
+                    <TableRow key={coach.coachId}>
+                      <TableCell className="font-medium">
+                        {coach.coachName}
+                      </TableCell>
+                      <TableCell>Level {coach.trustLevel}</TableCell>
+                      <TableCell>
+                        {coach.adminBlocked && (
+                          <Badge variant="destructive">🚫 Blocked</Badge>
+                        )}
+                        {!(coach.adminBlocked || coach.parentAccessEnabled) && (
+                          <Badge variant="secondary">👤 Self-Off</Badge>
+                        )}
+                        {!coach.adminBlocked &&
+                          coach.parentAccessEnabled &&
+                          coach.hasAccess && (
+                            <Badge variant="default">✓ Active</Badge>
+                          )}
+                        {!coach.adminBlocked &&
+                          coach.parentAccessEnabled &&
+                          !coach.hasAccess && (
+                            <Badge variant="outline">No Access</Badge>
+                          )}
+                      </TableCell>
+                      <TableCell className="text-muted-foreground text-sm">
+                        {coach.accessReason}
+                      </TableCell>
+                      <TableCell>
+                        {coach.adminBlocked ? (
+                          <Button
+                            onClick={() => setUnblockingCoachId(coach.coachId)}
+                            size="sm"
+                            variant="outline"
+                          >
+                            Unblock
+                          </Button>
+                        ) : (
+                          <Button
+                            disabled={!coach.parentAccessEnabled}
+                            onClick={() => setBlockingCoachId(coach.coachId)}
+                            size="sm"
+                            variant="destructive"
+                          >
+                            Block
+                          </Button>
+                        )}
+                      </TableCell>
+                    </TableRow>
+                  ))}
+                </TableBody>
+              </Table>
+            )}
+          </CardContent>
+        </Card>
+      )}
+
+      {/* Active Overrides Table (only if coach overrides enabled) */}
+      {orgStatus.allowCoachOverrides &&
+        orgStatus.activeOverrides.length > 0 && (
+          <Card>
+            <CardHeader>
+              <CardTitle>Active Override Details</CardTitle>
+              <p className="text-muted-foreground text-sm">
+                Coaches with approved override requests
+              </p>
+            </CardHeader>
+            <CardContent>
+              <Table>
+                <TableHeader>
+                  <TableRow>
+                    <TableHead>Coach Name</TableHead>
                     <TableHead>Reason</TableHead>
                     <TableHead>Granted By</TableHead>
                     <TableHead>Granted At</TableHead>
@@ -357,9 +550,6 @@ export default function OrgFeatureFlagsPage() {
                     <TableRow key={override.coachId}>
                       <TableCell className="font-medium">
                         {override.coachName}
-                      </TableCell>
-                      <TableCell>
-                        <Badge variant="default">ACTIVE</Badge>
                       </TableCell>
                       <TableCell className="max-w-[200px] truncate">
                         {override.overrideReason || "No reason provided"}
@@ -383,7 +573,7 @@ export default function OrgFeatureFlagsPage() {
                         <Button
                           onClick={() => setRevokingCoachId(override.coachId)}
                           size="sm"
-                          variant="destructive"
+                          variant="outline"
                         >
                           Revoke
                         </Button>
@@ -392,10 +582,9 @@ export default function OrgFeatureFlagsPage() {
                   ))}
                 </TableBody>
               </Table>
-            )}
-          </CardContent>
-        </Card>
-      )}
+            </CardContent>
+          </Card>
+        )}
 
       {/* Pending Override Requests Section (only if coach overrides enabled) */}
       {orgStatus.allowCoachOverrides && (
@@ -535,6 +724,73 @@ export default function OrgFeatureFlagsPage() {
             <AlertDialogCancel>Cancel</AlertDialogCancel>
             <AlertDialogAction onClick={handleReviewRequest}>
               {reviewAction === "approve" ? "Approve" : "Deny"}
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
+
+      {/* Block Coach Dialog */}
+      <AlertDialog
+        onOpenChange={(open) => {
+          if (!open) {
+            setBlockingCoachId(null);
+            setBlockReason("");
+          }
+        }}
+        open={blockingCoachId !== null}
+      >
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>Block Coach Access?</AlertDialogTitle>
+            <AlertDialogDescription>
+              This will immediately hide the "Sent to Parents" tab for this
+              coach, even if they have sufficient trust level.
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <div className="space-y-2">
+            <label className="font-medium text-sm" htmlFor="block-reason">
+              Reason (optional)
+            </label>
+            <Textarea
+              id="block-reason"
+              onChange={(e) => setBlockReason(e.target.value)}
+              placeholder="Why are you blocking this coach?"
+              value={blockReason}
+            />
+          </div>
+          <AlertDialogFooter>
+            <AlertDialogCancel>Cancel</AlertDialogCancel>
+            <AlertDialogAction
+              className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
+              onClick={handleBlockCoach}
+            >
+              Block Access
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
+
+      {/* Unblock Coach Dialog */}
+      <AlertDialog
+        onOpenChange={(open) => {
+          if (!open) {
+            setUnblockingCoachId(null);
+          }
+        }}
+        open={unblockingCoachId !== null}
+      >
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>Unblock Coach Access?</AlertDialogTitle>
+            <AlertDialogDescription>
+              This will restore access for this coach based on their trust level
+              and other settings.
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel>Cancel</AlertDialogCancel>
+            <AlertDialogAction onClick={handleUnblockCoach}>
+              Unblock Access
             </AlertDialogAction>
           </AlertDialogFooter>
         </AlertDialogContent>

@@ -1244,3 +1244,160 @@ export const toggleCoachParentAccess = mutation({
     return { success: true };
   },
 });
+
+/**
+ * Get all coaches in org with their complete access status
+ * Used by org admin to manage individual coach access
+ */
+export const getAllCoachesWithAccessStatus = query({
+  args: {
+    organizationId: v.string(),
+  },
+  returns: v.array(
+    v.object({
+      coachId: v.string(),
+      coachName: v.string(),
+      trustLevel: v.number(),
+      hasAccess: v.boolean(),
+      accessReason: v.string(),
+      adminBlocked: v.boolean(),
+      parentAccessEnabled: v.boolean(),
+      hasOverride: v.boolean(),
+    })
+  ),
+  handler: async (ctx, args) => {
+    // Verify admin (using working pattern)
+    const currentUser = await authComponent.safeGetAuthUser(ctx);
+    if (!currentUser) {
+      throw new Error("User not found");
+    }
+
+    // Check if user is org admin
+    const membership = (await ctx.runQuery(
+      components.betterAuth.adapter.findOne,
+      {
+        model: "member",
+        where: [
+          { field: "organizationId", value: args.organizationId },
+          { field: "userId", value: currentUser._id },
+        ],
+      }
+    )) as BetterAuthDoc<"member"> | null;
+
+    if (
+      !membership ||
+      (membership.role !== "admin" && membership.role !== "owner")
+    ) {
+      throw new Error("Unauthorized: Admin or owner role required");
+    }
+
+    // Get all coaches in org
+    const allMembersResult = await ctx.runQuery(
+      components.betterAuth.adapter.findMany,
+      {
+        model: "member",
+        where: [{ field: "organizationId", value: args.organizationId }],
+        paginationOpts: {
+          cursor: null,
+          numItems: 1000,
+        },
+      }
+    );
+
+    const allMembers = allMembersResult.page as BetterAuthDoc<"member">[];
+    const coaches = allMembers.filter((m) =>
+      m.functionalRoles?.includes("coach")
+    );
+
+    // Get org settings
+    const org = (await ctx.runQuery(components.betterAuth.adapter.findOne, {
+      model: "organization",
+      where: [{ field: "_id", value: args.organizationId }],
+    })) as BetterAuthDoc<"organization"> | null;
+
+    if (!org) {
+      throw new Error("Organization not found");
+    }
+
+    // Build status for each coach
+    const coachStatuses = await Promise.all(
+      coaches.map(async (member) => {
+        // Get coach name
+        const user = (await ctx.runQuery(
+          components.betterAuth.adapter.findOne,
+          {
+            model: "user",
+            where: [{ field: "userId", value: member.userId }],
+          }
+        )) as BetterAuthDoc<"user"> | null;
+
+        // Get trust level
+        const trustLevel = await ctx.db
+          .query("coachTrustLevels")
+          .withIndex("by_coach", (q) => q.eq("coachId", member.userId))
+          .first();
+
+        // Get coach preferences
+        const coachPref = await ctx.db
+          .query("coachOrgPreferences")
+          .withIndex("by_coach_org", (q) =>
+            q
+              .eq("coachId", member.userId)
+              .eq("organizationId", args.organizationId)
+          )
+          .first();
+
+        // Check comprehensive access (same logic as checkCoachParentAccess)
+        let hasAccess = false;
+        let accessReason = "";
+
+        if (org.adminBlanketBlock === true) {
+          hasAccess = false;
+          accessReason = "Blocked by blanket block";
+        } else if (coachPref?.adminBlocked === true) {
+          hasAccess = false;
+          accessReason = "Blocked by admin";
+        } else if (coachPref?.parentAccessEnabled === false) {
+          hasAccess = false;
+          accessReason = "Disabled by coach";
+        } else if (org.voiceNotesTrustGatesEnabled === false) {
+          hasAccess = true;
+          accessReason = "Gates disabled";
+        } else if (org.adminOverrideTrustGates === true) {
+          hasAccess = true;
+          accessReason = "Blanket override";
+        } else if ((trustLevel?.currentLevel ?? 0) >= 2) {
+          hasAccess = true;
+          accessReason = `Trust Level ${trustLevel?.currentLevel ?? 0}`;
+        } else if (coachPref?.trustGateOverride === true) {
+          if (
+            coachPref.overrideExpiresAt &&
+            coachPref.overrideExpiresAt < Date.now()
+          ) {
+            hasAccess = false;
+            accessReason = "Override expired";
+          } else {
+            hasAccess = true;
+            accessReason = "Individual override";
+          }
+        } else {
+          hasAccess = false;
+          accessReason = "No access";
+        }
+
+        return {
+          coachId: member.userId,
+          coachName: user?.name || "Unknown",
+          trustLevel: trustLevel?.currentLevel ?? 0,
+          hasAccess,
+          accessReason,
+          adminBlocked: coachPref?.adminBlocked ?? false,
+          parentAccessEnabled: coachPref?.parentAccessEnabled ?? true,
+          hasOverride: coachPref?.trustGateOverride ?? false,
+        };
+      })
+    );
+
+    return coachStatuses;
+  },
+});

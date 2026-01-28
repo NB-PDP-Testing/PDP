@@ -32,7 +32,7 @@ type MyImpactTabProps = {
   coachId: string;
 };
 
-type DateRangeFilter = "week" | "month" | "all";
+type DateRangeFilter = "week" | "month" | "quarter" | "season" | "all";
 
 /**
  * Helper function to convert date range filter to millisecond timestamps
@@ -44,12 +44,25 @@ function getDateRangeForFilter(filter: DateRangeFilter): {
   const now = Date.now();
   const oneWeek = 7 * 24 * 60 * 60 * 1000;
   const oneMonth = 30 * 24 * 60 * 60 * 1000;
+  const oneQuarter = 90 * 24 * 60 * 60 * 1000;
 
   switch (filter) {
     case "week":
       return { start: now - oneWeek, end: now };
     case "month":
       return { start: now - oneMonth, end: now };
+    case "quarter":
+      return { start: now - oneQuarter, end: now };
+    case "season": {
+      // Sports season typically Sept 1 - Aug 31
+      // Calculate season start: Sept 1 of current year if after Sept, else Sept 1 of previous year
+      const currentDate = new Date();
+      const currentYear = currentDate.getFullYear();
+      const currentMonth = currentDate.getMonth();
+      const seasonStartYear = currentMonth >= 8 ? currentYear : currentYear - 1; // Month 8 = September (0-indexed)
+      const seasonStart = new Date(seasonStartYear, 8, 1).getTime(); // Sept 1
+      return { start: seasonStart, end: now };
+    }
     case "all":
       return { start: 0, end: now };
     default:
@@ -74,7 +87,13 @@ export function MyImpactTab({ orgId, coachId }: MyImpactTabProps) {
   const [dateRange, setDateRange] = useState<DateRangeFilter>(() => {
     if (typeof window !== "undefined") {
       const stored = localStorage.getItem("impact-date-range");
-      if (stored === "week" || stored === "month" || stored === "all") {
+      if (
+        stored === "week" ||
+        stored === "month" ||
+        stored === "quarter" ||
+        stored === "season" ||
+        stored === "all"
+      ) {
         return stored;
       }
     }
@@ -191,8 +210,10 @@ export function MyImpactTab({ orgId, coachId }: MyImpactTabProps) {
             <SelectValue />
           </SelectTrigger>
           <SelectContent>
-            <SelectItem value="week">This Week</SelectItem>
-            <SelectItem value="month">This Month</SelectItem>
+            <SelectItem value="week">Last 7 Days</SelectItem>
+            <SelectItem value="month">Last 30 Days</SelectItem>
+            <SelectItem value="quarter">Last 3 Months</SelectItem>
+            <SelectItem value="season">This Season</SelectItem>
             <SelectItem value="all">All Time</SelectItem>
           </SelectContent>
         </Select>

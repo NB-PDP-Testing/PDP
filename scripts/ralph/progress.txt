@@ -1,201 +1,132 @@
 # Ralph Progress Log
-Started: Wed 28 Jan 2026 16:34:02 GMT
+Started: Wed 28 Jan 2026 16:51:29 GMT
 ---
 
 ## CODE REVIEW FEEDBACK
 
-### Agent Feedback - 2026-01-28 16:34
+### Agent Feedback - 2026-01-28 16:51
 
-## Quality Monitor - 2026-01-28 16:02:00
+## Quality Monitor - 2026-01-28 16:34:18
 - ⚠️ Biome lint errors found
 
 
-## Quality Monitor - 2026-01-28 16:03:08
+## Quality Monitor - 2026-01-28 16:35:26
 - ⚠️ Biome lint errors found
 
 
-## Quality Monitor - 2026-01-28 16:04:31
+## Quality Monitor - 2026-01-28 16:36:48
 - ⚠️ Biome lint errors found
 
 
-## Quality Monitor - 2026-01-28 16:05:39
+## Quality Monitor - 2026-01-28 16:38:10
 - ⚠️ Biome lint errors found
 
 
-## Quality Monitor - 2026-01-28 16:06:55
+## Quality Monitor - 2026-01-28 16:39:18
 - ⚠️ Biome lint errors found
 
 
-## Quality Monitor - 2026-01-28 16:08:11
+## Quality Monitor - 2026-01-28 16:40:33
 - ⚠️ Biome lint errors found
 
 
-## Quality Monitor - 2026-01-28 16:09:25
+## Quality Monitor - 2026-01-28 16:41:48
 - ⚠️ Biome lint errors found
 
 
-## Quality Monitor - 2026-01-28 16:10:47
+## Quality Monitor - 2026-01-28 16:43:08
 - ⚠️ Biome lint errors found
 
 
-## Quality Monitor - 2026-01-28 16:12:09
+## Quality Monitor - 2026-01-28 16:44:30
 - ⚠️ Biome lint errors found
 
 
-## Quality Monitor - 2026-01-28 16:13:24
+## Quality Monitor - 2026-01-28 16:45:52
 - ⚠️ Biome lint errors found
 
 
-## Quality Monitor - 2026-01-28 16:14:40
+## Quality Monitor - 2026-01-28 16:47:00
 - ⚠️ Biome lint errors found
 
 
-## Documentation Update - 2026-01-28 16:15
-- ✅ Feature documentation generated: `docs/features/onboarding-phase-3.md`
-- Phase complete: Onboarding Phase 3 - Child Linking & Admin Invitation Tools
+## Documentation Update - 2026-01-28 16:47
+- ✅ Feature documentation generated: `docs/features/onboarding-phase-4.md`
+- Phase complete: Onboarding Phase 4 - Toast Notifications for Existing Users
 
-## Quality Monitor - 2026-01-28 16:15:48
+## Quality Monitor - 2026-01-28 16:48:08
 - ⚠️ Biome lint errors found
 
 
-## Quality Monitor - 2026-01-28 16:16:56
+## Quality Monitor - 2026-01-28 16:49:16
 - ⚠️ Biome lint errors found
 
 
-## Quality Monitor - 2026-01-28 16:18:04
+## Quality Monitor - 2026-01-28 16:50:24
 - ⚠️ Biome lint errors found
 
 
-## Quality Monitor - 2026-01-28 16:19:12
-- ⚠️ Biome lint errors found
-
-
-## Quality Monitor - 2026-01-28 16:20:20
-- ⚠️ Biome lint errors found
-
-
-## Quality Monitor - 2026-01-28 16:21:28
-- ⚠️ Biome lint errors found
-
-
-## Quality Monitor - 2026-01-28 16:22:36
-- ⚠️ Biome lint errors found
-
-
-## Quality Monitor - 2026-01-28 16:23:44
-- ⚠️ Biome lint errors found
-
-
-## Quality Monitor - 2026-01-28 16:24:52
-- ⚠️ Biome lint errors found
-
-
-## Quality Monitor - 2026-01-28 16:26:00
-- ⚠️ Biome lint errors found
-
-
-## Quality Monitor - 2026-01-28 16:27:08
-- ⚠️ Biome lint errors found
-
-
-## Quality Monitor - 2026-01-28 16:28:17
-- ⚠️ Biome lint errors found
-
-
-## Quality Monitor - 2026-01-28 16:29:27
-- ⚠️ Biome lint errors found
-
-
-## 2026-01-28 16:40 - Onboarding Phase 4 - Toast Notifications for Existing Users
+## 2026-01-28 17:30 - Phase 5 - First User Onboarding Setup Wizard
 **Iteration**: 1
-**Commit**: 9e42894
+**Commit**: 58a06fa181bf5f21b25df555f16966ac2e411aec
 **Status**: Complete
 
 ### What was implemented
-
-All 9 user stories for Phase 4 (Toast Notifications) have been implemented:
-
-**US-001: Create notifications table in schema**
-- Added `notifications` table to `packages/backend/convex/schema.ts`
-- Table stores userId, organizationId, type (role_granted, team_assigned, team_removed, child_declined, invitation_request), title, message, link, createdAt, seenAt, dismissedAt
-- Indexes: by_user_unseen, by_user_created, by_org_type
-
-**US-002: Create notification queries and mutations**
-- Created `packages/backend/convex/models/notifications.ts`
-- Queries: getUnseenNotifications, getRecentNotifications
-- Mutations: markNotificationSeen, markAllNotificationsSeen, dismissNotification
-- Internal mutation: createNotification (for backend use)
-
-**US-003 & US-004: NotificationProvider and NotificationToast components**
-- Created `apps/web/src/components/notification-provider.tsx`
-  - Subscribes to unseen notifications using Convex useQuery
-  - Displays notifications as staggered toasts (500ms apart)
-  - Marks notifications as seen after display
-  - Uses ref to track already-displayed notifications
-- Created `apps/web/src/components/notification-toast.tsx`
-  - showNotificationToast() function using Sonner toast
-  - Shows title, message, optional "View" action button
-
-**US-005: Integrate NotificationProvider into app layout**
-- Modified `apps/web/src/app/orgs/layout.tsx`
-- Wrapped children with NotificationProvider inside OnboardingOrchestrator
-
-**US-006: Trigger notifications on role grant**
-- Modified `packages/backend/convex/models/members.ts`
-- Added notifications to `addFunctionalRole` mutation (for Admin/Coach roles)
-- Added notifications to `updateMemberFunctionalRoles` mutation (detects newly granted roles)
-- Notifications include link to appropriate dashboard
-
-**US-007: Trigger notifications on team assignment**
-- Modified `packages/backend/convex/models/coaches.ts`
-- Added notifications to `updateCoachAssignments` mutation
-- Tracks newly assigned teams and removed teams
-- Sends team_assigned and team_removed notifications with team names
-
-**US-008: Trigger admin notifications for invitation requests**
-- Modified `packages/backend/convex/models/invitations.ts`
-- Added notification loop in `createInvitationRequest` mutation
-- Notifies all org admins/owners when user requests new invitation
-- Links to /admin/invitations?tab=requests
-
-**US-009: Handle offline notification delivery**
-- Already implemented via NotificationProvider
-- On mount, fetches all unseen notifications and displays them staggered
+All 12 user stories for Phase 5 - First User Onboarding:
+- US-001, US-003: Already existed (isFirstUser, autoAssignFirstUserAsPlatformStaff)
+- US-002: Added setupComplete and setupStep fields to user schema
+- US-004: Created setup wizard layout with protection
+- US-005: Created SetupProgress horizontal stepper component
+- US-006: Created GDPR consent page (Step 1)
+- US-007: Updated Welcome page (Step 2)
+- US-008: Updated Create organization page (Step 3)
+- US-009: Created Invite team page (Step 4)
+- US-010: Updated Complete page (Step 5)
+- US-011: Created setup.ts backend queries/mutations
+- US-012: Added setup redirects to home and /orgs pages
 
 ### Files changed
-- packages/backend/convex/schema.ts (+23)
-- packages/backend/convex/models/notifications.ts (+205, new file)
-- packages/backend/convex/models/members.ts (+62)
-- packages/backend/convex/models/coaches.ts (+61)
-- packages/backend/convex/models/invitations.ts (+39)
-- apps/web/src/components/notification-provider.tsx (+91, new file)
-- apps/web/src/components/notification-toast.tsx (+40, new file)
-- apps/web/src/app/orgs/layout.tsx (+5)
+- packages/backend/convex/betterAuth/schema.ts (added setupComplete, setupStep)
+- packages/backend/convex/models/setup.ts (new - queries and mutations)
+- packages/backend/convex/models/users.ts (added fields to return type)
+- apps/web/src/app/setup/layout.tsx (new - protected layout)
+- apps/web/src/app/setup/page.tsx (new - GDPR step)
+- apps/web/src/app/setup/welcome/page.tsx (updated)
+- apps/web/src/app/setup/organization/page.tsx (updated)
+- apps/web/src/app/setup/invite/page.tsx (new)
+- apps/web/src/app/setup/complete/page.tsx (updated)
+- apps/web/src/app/setup/create-org/page.tsx (new - redirect)
+- apps/web/src/components/setup/setup-progress.tsx (new)
+- apps/web/src/app/page.tsx (added setup redirect)
+- apps/web/src/app/orgs/page.tsx (added setup redirect)
 
 ### Quality checks
 - ✅ Type check: passed
-- ✅ Convex codegen: passed
-- ⚠️ Linting: Pre-existing warnings in codebase (not from new code)
+- ✅ Linting: passed (pre-commit hook)
+- ⏳ Browser verification: not performed (backend/frontend changes)
 
 ### Learnings for future iterations
 
 **Patterns discovered:**
-- Use `user._id as string` to get user ID from authComponent.safeGetAuthUser()
-- Use `components.betterAuth.adapter.findMany/findOne` to query Better Auth tables (organization, member, etc.)
-- Internal mutations use `internalMutation` from convex/server
-- To call internal mutations: `ctx.runMutation(internal.models.moduleName.functionName, args)`
+- Better Auth component uses ctx.runQuery/ctx.runMutation with components.betterAuth.adapter
+- User schema extended in packages/backend/convex/betterAuth/schema.ts, not main schema.ts
+- For Convex queries that return complex objects, need to match the validator exactly with the handler return
 
 **Gotchas encountered:**
-- Router.push requires casting: `router.push(link as Route)`
-- Need to import `useCallback` and wrap handlers used in useEffect dependencies
-- Better Auth org data accessed via adapter, not ctx.db
+- Next.js typed routes require `as Route` cast for dynamic paths with query params
+- Biome lint rules are strict about:
+  - Top-level regex (move regex outside functions)
+  - No increment operators (use += 1 instead of ++)
+  - No array index as React key (use unique IDs)
+  - No event handlers on non-interactive elements (img onError)
+  - Block statements required (use { return; } not just return;)
+  - SVG accessibility (need aria-hidden or title)
+- Pre-existing lint errors exist in codebase (333 errors) - don't try to fix them all
+- Some setup pages already existed and needed updating, not creating fresh
 
 **Dependencies found:**
-- Notification system depends on authClient.useSession() for user state
-- Notifications table separate from existing adminNotifications table (different purpose)
-
-**Mistakes made:**
-- Initially used `user.id` instead of `user._id as string`
-- Forgot to add handleNavigate to useEffect dependencies (fixed with useCallback)
+- Setup wizard relies on existing GDPR components from Phase 2
+- Setup completion marks user.setupComplete = true which affects redirect logic
+- authClient.organization methods used for creating orgs and sending invitations
 
 ---

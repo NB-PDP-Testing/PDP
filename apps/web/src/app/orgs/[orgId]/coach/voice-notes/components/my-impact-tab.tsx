@@ -22,6 +22,7 @@ import {
   SelectValue,
 } from "@/components/ui/select";
 import { Skeleton } from "@/components/ui/skeleton";
+import { ImpactSummaryCards } from "./impact-summary-cards";
 
 type MyImpactTabProps = {
   orgId: BetterAuthId<"organization">;
@@ -195,24 +196,7 @@ export function MyImpactTab({ orgId, coachId }: MyImpactTabProps) {
       </div>
 
       {/* Phase 8 Week 2: Summary cards section (US-P8-005) */}
-      <div>
-        <h3 className="mb-4 font-semibold text-muted-foreground text-sm uppercase tracking-wide">
-          Summary Cards
-        </h3>
-        <div className="rounded-lg border-2 border-muted-foreground/25 border-dashed bg-muted/50 p-8 text-center">
-          <p className="text-muted-foreground text-sm">
-            <strong>Week 2 Implementation:</strong> Summary cards will show
-            voice notes created, insights applied, summaries sent, and parent
-            view rate.
-          </p>
-          <p className="mt-2 text-muted-foreground text-xs">
-            Data available: {impactData.voiceNotesCreated} voice notes,{" "}
-            {impactData.insightsApplied} insights applied,{" "}
-            {impactData.summariesSent} summaries sent,{" "}
-            {impactData.parentViewRate.toFixed(0)}% parent view rate
-          </p>
-        </div>
-      </div>
+      <ImpactSummaryCards data={impactData} />
 
       {/* Phase 8 Week 2: Sent summaries section (US-P8-006) */}
       <div>

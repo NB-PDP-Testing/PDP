@@ -38,6 +38,10 @@ const customUserTable = defineTable({
   // GDPR consent tracking (Phase 2)
   gdprConsentVersion: v.optional(v.number()), // Version number accepted (1, 2, 3...)
   gdprConsentedAt: v.optional(v.number()), // Timestamp of consent
+
+  // First-user setup wizard tracking (Phase 5)
+  setupComplete: v.optional(v.boolean()), // True after first user completes wizard
+  setupStep: v.optional(v.string()), // Current step: 'gdpr', 'welcome', 'create-org', 'invite', 'complete'
 })
   .index("email_name", ["email", "name"])
   .index("name", ["name"])

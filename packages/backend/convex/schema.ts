@@ -312,6 +312,16 @@ export default defineSchema({
     ), // Why parent declined this link
     declineReasonText: v.optional(v.string()), // Custom reason if "other"
 
+    // Link status tracking (Phase 3)
+    status: v.optional(
+      v.union(
+        v.literal("pending"), // Awaiting parent acknowledgement
+        v.literal("active"), // Parent accepted
+        v.literal("declined") // Parent declined
+      )
+    ), // Existing links without status are treated as 'active'
+    declinedAt: v.optional(v.number()), // Timestamp when parent declined this link
+
     // Parent acknowledgement tracking (Bug #293 fix)
     acknowledgedByParentAt: v.optional(v.number()), // Timestamp when parent acknowledged this link
     notificationSentAt: v.optional(v.number()), // When we notified parent about this assignment
@@ -329,10 +339,9 @@ export default defineSchema({
   })
     .index("by_guardian", ["guardianIdentityId"])
     .index("by_player", ["playerIdentityId"])
-    .index("by_guardian_and_player", [
-      "guardianIdentityId",
-      "playerIdentityId",
-    ]),
+    .index("by_guardian_and_player", ["guardianIdentityId", "playerIdentityId"])
+    .index("by_guardian_and_status", ["guardianIdentityId", "status"])
+    .index("by_status", ["status"]),
 
   // Organization-level: Player enrollment
   orgPlayerEnrollments: defineTable({
@@ -3570,4 +3579,19 @@ export default defineSchema({
     .index("by_email", ["email"])
     .index("by_status", ["status"])
     .index("by_email_and_status", ["email", "status"]),
+
+  // ============================================================
+  // GDPR VERSION TRACKING
+  // Policy version tracking for GDPR compliance (Phase 2)
+  // ============================================================
+  gdprVersions: defineTable({
+    version: v.number(), // 1, 2, 3...
+    effectiveDate: v.number(), // When this version becomes active
+    summary: v.string(), // Short description of changes
+    fullText: v.string(), // Complete policy text
+    createdBy: v.string(), // Platform staff userId
+    createdAt: v.number(),
+  })
+    .index("by_version", ["version"])
+    .index("by_effective_date", ["effectiveDate"]),
 });

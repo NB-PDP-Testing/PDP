@@ -118,6 +118,14 @@ const customOrganizationTable = defineTable({
   sharingContactName: v.optional(v.union(v.null(), v.string())),
   sharingContactEmail: v.optional(v.union(v.null(), v.string())),
   sharingContactPhone: v.optional(v.union(v.null(), v.string())),
+
+  // Invitation lifecycle settings (Phase 1B)
+  // Controls how expired invitations are handled for this organization
+  invitationExpirationDays: v.optional(v.number()), // Default: 7 days
+  autoReInviteOnExpiration: v.optional(v.boolean()), // Default: false
+  maxAutoReInvitesPerInvitation: v.optional(v.number()), // Default: 2
+  adminContactEmail: v.optional(v.string()), // Contact email for expired invitation help
+  notifyAdminsOnInvitationRequest: v.optional(v.boolean()), // Default: true
 })
   .index("name", ["name"])
   .index("slug", ["slug"]);

@@ -1364,6 +1364,28 @@ export default defineSchema({
     .index("by_userId_and_organizationId", ["userId", "organizationId"])
     .index("by_organizationId_and_status", ["organizationId", "status"]),
 
+  // Invitation Requests (Phase 1B)
+  // Tracks user self-service requests for new invitations when their original invitation expired
+  invitationRequests: defineTable({
+    originalInvitationId: v.string(), // ID of the expired invitation
+    organizationId: v.string(), // Organization the invitation was for
+    userEmail: v.string(), // Email of the invited user
+    requestedAt: v.number(), // When the request was made
+    requestNumber: v.number(), // 1, 2, or 3 (max 3 requests per invitation)
+    status: v.union(
+      v.literal("pending"), // Awaiting admin action
+      v.literal("approved"), // Admin approved, new invite sent
+      v.literal("denied") // Admin denied request
+    ),
+    processedAt: v.optional(v.number()), // When admin processed the request
+    processedBy: v.optional(v.string()), // User ID of admin who processed
+    denyReason: v.optional(v.string()), // Reason for denial
+    newInvitationId: v.optional(v.string()), // ID of the new invitation (if approved)
+  })
+    .index("by_organization_status", ["organizationId", "status"])
+    .index("by_email", ["userEmail"])
+    .index("by_original_invitation", ["originalInvitationId"]),
+
   // Voice Notes
   voiceNotes: defineTable({
     orgId: v.string(),

@@ -18,7 +18,7 @@
       "title": "Debug and fix syncFunctionalRolesFromInvitation to persist child links",
       "description": "As a parent accepting an invitation with pre-linked children, I expect those children to be visible on my dashboard after acceptance.",
       "priority": 1,
-      "passes": false,
+      "passes": true,
       "acceptanceCriteria": [
         "Edit packages/backend/convex/models/members.ts",
         "Find syncFunctionalRolesFromInvitation function",
@@ -41,7 +41,7 @@
       "title": "Create getOnboardingTasks query to evaluate pending tasks",
       "description": "As the system, I need to evaluate all pending onboarding tasks for a user and return them in priority order.",
       "priority": 2,
-      "passes": false,
+      "passes": true,
       "acceptanceCriteria": [
         "Create new file: packages/backend/convex/models/onboarding.ts",
         "Create query: getOnboardingTasks",
@@ -69,7 +69,7 @@
       "title": "Create OnboardingOrchestrator component skeleton",
       "description": "As a user, I see onboarding steps presented one at a time in a coordinated flow, not multiple overlapping dialogs.",
       "priority": 3,
-      "passes": false,
+      "passes": true,
       "acceptanceCriteria": [
         "Create new file: apps/web/src/components/onboarding/onboarding-orchestrator.tsx",
         "Create OnboardingOrchestrator component that:",
@@ -109,7 +109,7 @@
       "title": "Integrate OnboardingOrchestrator into app layout",
       "description": "As the system, I wrap the org layout with OnboardingOrchestrator so it can intercept and present onboarding steps.",
       "priority": 4,
-      "passes": false,
+      "passes": true,
       "acceptanceCriteria": [
         "Edit: apps/web/src/app/orgs/[orgId]/layout.tsx",
         "Import OnboardingOrchestrator from '@/components/onboarding/onboarding-orchestrator'",
@@ -134,7 +134,7 @@
       "title": "Migrate BulkClaimProvider logic into orchestrator",
       "description": "As a parent with pending guardian claims, I see the claim prompt through the orchestrator instead of the old BulkClaimProvider.",
       "priority": 5,
-      "passes": false,
+      "passes": true,
       "acceptanceCriteria": [
         "Read: apps/web/src/components/bulk-claim-provider.tsx to understand current logic",
         "The key logic to migrate:",
@@ -161,7 +161,7 @@
       "title": "Remove BulkClaimProvider from codebase",
       "description": "As a developer, I no longer have the old BulkClaimProvider creating duplicate dialogs.",
       "priority": 6,
-      "passes": false,
+      "passes": true,
       "acceptanceCriteria": [
         "Search codebase for BulkClaimProvider usage:",
         "  grep -r 'BulkClaimProvider' apps/web/src/",
@@ -182,7 +182,7 @@
       "title": "End-to-end testing of Phase 1 fixes",
       "description": "As QA, I verify that bugs #297 and #327 are fixed and all existing functionality works.",
       "priority": 7,
-      "passes": false,
+      "passes": true,
       "acceptanceCriteria": [
         "Test Bug #297 - Parent child links:",
         "  1. Admin invites parent@test.com with children John and Jane",

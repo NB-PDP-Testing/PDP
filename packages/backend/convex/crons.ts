@@ -130,4 +130,14 @@ crons.weekly(
   {}
 );
 
+// Onboarding Phase 7: Player graduation jobs
+
+// Detect players who have turned 18 (daily at 6 AM UTC)
+crons.daily(
+  "detect-player-graduations",
+  { hourUTC: 6, minuteUTC: 0 },
+  internal.jobs.graduations.detectPlayerGraduations,
+  {}
+);
+
 export default crons;

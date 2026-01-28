@@ -254,6 +254,10 @@ export default defineSchema({
     email: v.optional(v.string()), // Direct contact (adults)
     phone: v.optional(v.string()),
 
+    // Account claim fields (for 18+ graduation flow)
+    claimedAt: v.optional(v.number()), // Timestamp when player claimed account
+    claimInvitedBy: v.optional(v.string()), // Guardian userId who initiated claim invitation
+
     // Address (optional, usually from guardian for youth)
     address: v.optional(v.string()),
     town: v.optional(v.string()),
@@ -277,6 +281,52 @@ export default defineSchema({
     .index("by_userId", ["userId"])
     .index("by_email", ["email"])
     .index("by_playerType", ["playerType"]),
+
+  // Player Graduations - tracks players who have turned 18 and their graduation status
+  playerGraduations: defineTable({
+    playerIdentityId: v.id("playerIdentities"),
+    organizationId: v.string(),
+    dateOfBirth: v.number(), // Stored as timestamp for comparison
+    turnedEighteenAt: v.number(), // When they turned 18
+
+    // Graduation status
+    status: v.union(
+      v.literal("pending"), // Detected, not yet actioned
+      v.literal("invitation_sent"), // Guardian sent invite
+      v.literal("claimed"), // Player claimed account
+      v.literal("dismissed") // Guardian dismissed prompt
+    ),
+
+    // Invitation tracking
+    invitationSentAt: v.optional(v.number()),
+    invitationSentBy: v.optional(v.string()), // Guardian userId
+
+    // Claim tracking
+    claimedAt: v.optional(v.number()),
+
+    // Dismissal tracking
+    dismissedAt: v.optional(v.number()),
+    dismissedBy: v.optional(v.string()), // Guardian userId
+  })
+    .index("by_status", ["status"])
+    .index("by_player", ["playerIdentityId"])
+    .index("by_org_and_status", ["organizationId", "status"]),
+
+  // Player Claim Tokens - secure tokens for players to claim their accounts
+  playerClaimTokens: defineTable({
+    playerIdentityId: v.id("playerIdentities"),
+    token: v.string(), // Secure random token
+    email: v.string(), // Email the token was sent to
+
+    // Validity
+    createdAt: v.number(),
+    expiresAt: v.number(), // 30 days validity
+
+    // Usage tracking
+    usedAt: v.optional(v.number()), // Set when token is used
+  })
+    .index("by_token", ["token"])
+    .index("by_player", ["playerIdentityId"]),
 
   // Guardian-Player relationship (N:M)
   guardianPlayerLinks: defineTable({

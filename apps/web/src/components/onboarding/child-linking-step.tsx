@@ -18,6 +18,7 @@ import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
 import { Checkbox } from "@/components/ui/checkbox";
 import { Label } from "@/components/ui/label";
+import { HelpFooter } from "./help-footer";
 
 export type ChildLink = {
   linkId: string;
@@ -304,6 +305,8 @@ export function ChildLinkingStep({
             </Button>
           )}
         </AlertDialogFooter>
+
+        <HelpFooter />
       </AlertDialogContent>
     </AlertDialog>
   );

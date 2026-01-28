@@ -24,7 +24,7 @@
     "husky": "^9.1.7",
     "lint-staged": "^16.2.7",
     "turbo": "^2.5.4",
-    "ultracite": "6.3.6"
+    "ultracite": "7.0.12"
   },
   "packageManager": "npm@11.6.2",
   "dependencies": {

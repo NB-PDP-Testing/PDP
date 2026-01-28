@@ -390,6 +390,9 @@ export declare const components: {
               }
             | {
                 data: {
+                  adminBlanketBlock?: boolean;
+                  adminBlanketBlockSetAt?: number;
+                  adminBlanketBlockSetBy?: string;
                   adminOverrideSetAt?: number;
                   adminOverrideSetBy?: string;
                   adminOverrideTrustGates?: boolean;
@@ -739,6 +742,9 @@ export declare const components: {
                     | "adminOverrideTrustGates"
                     | "adminOverrideSetBy"
                     | "adminOverrideSetAt"
+                    | "adminBlanketBlock"
+                    | "adminBlanketBlockSetBy"
+                    | "adminBlanketBlockSetAt"
                     | "_id";
                   operator?:
                     | "lt"
@@ -1122,6 +1128,9 @@ export declare const components: {
                     | "adminOverrideTrustGates"
                     | "adminOverrideSetBy"
                     | "adminOverrideSetAt"
+                    | "adminBlanketBlock"
+                    | "adminBlanketBlockSetBy"
+                    | "adminBlanketBlockSetAt"
                     | "_id";
                   operator?:
                     | "lt"
@@ -1642,6 +1651,9 @@ export declare const components: {
             | {
                 model: "organization";
                 update: {
+                  adminBlanketBlock?: boolean;
+                  adminBlanketBlockSetAt?: number;
+                  adminBlanketBlockSetBy?: string;
                   adminOverrideSetAt?: number;
                   adminOverrideSetBy?: string;
                   adminOverrideTrustGates?: boolean;
@@ -1690,6 +1702,9 @@ export declare const components: {
                     | "adminOverrideTrustGates"
                     | "adminOverrideSetBy"
                     | "adminOverrideSetAt"
+                    | "adminBlanketBlock"
+                    | "adminBlanketBlockSetBy"
+                    | "adminBlanketBlockSetAt"
                     | "_id";
                   operator?:
                     | "lt"
@@ -2163,6 +2178,9 @@ export declare const components: {
             | {
                 model: "organization";
                 update: {
+                  adminBlanketBlock?: boolean;
+                  adminBlanketBlockSetAt?: number;
+                  adminBlanketBlockSetBy?: string;
                   adminOverrideSetAt?: number;
                   adminOverrideSetBy?: string;
                   adminOverrideTrustGates?: boolean;
@@ -2211,6 +2229,9 @@ export declare const components: {
                     | "adminOverrideTrustGates"
                     | "adminOverrideSetBy"
                     | "adminOverrideSetAt"
+                    | "adminBlanketBlock"
+                    | "adminBlanketBlockSetBy"
+                    | "adminBlanketBlockSetAt"
                     | "_id";
                   operator?:
                     | "lt"

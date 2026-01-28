@@ -126,10 +126,14 @@ const customOrganizationTable = defineTable({
   allowAdminDelegation: v.optional(v.boolean()),
   // Can coaches request override access?
   allowCoachOverrides: v.optional(v.boolean()),
-  // Admin blanket override - overrides org default for ALL coaches
+  // Admin blanket override - grants access to ALL coaches (overrides trust levels)
   adminOverrideTrustGates: v.optional(v.boolean()),
   adminOverrideSetBy: v.optional(v.string()), // User ID who set blanket override
   adminOverrideSetAt: v.optional(v.number()),
+  // Admin blanket block - blocks ALL coaches from parent access (highest priority)
+  adminBlanketBlock: v.optional(v.boolean()),
+  adminBlanketBlockSetBy: v.optional(v.string()), // User ID who set blanket block
+  adminBlanketBlockSetAt: v.optional(v.number()),
 })
   .index("name", ["name"])
   .index("slug", ["slug"]);

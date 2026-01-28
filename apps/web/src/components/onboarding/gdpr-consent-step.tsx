@@ -80,7 +80,7 @@ export function GdprConsentStep({
       >
         <AlertDialogHeader>
           <div className="mb-2 flex items-center gap-2">
-            <ShieldCheck className="size-6 text-primary" />
+            <ShieldCheck aria-hidden="true" className="size-6 text-primary" />
             <AlertDialogTitle>
               Data Protection & Privacy Consent
             </AlertDialogTitle>
@@ -145,6 +145,7 @@ export function GdprConsentStep({
 
         <AlertDialogFooter>
           <Button
+            aria-busy={isSubmitting}
             className="w-full sm:w-auto"
             disabled={!acceptedPolicy || isSubmitting}
             onClick={handleAccept}

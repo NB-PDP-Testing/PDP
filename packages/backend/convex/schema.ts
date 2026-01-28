@@ -3223,6 +3223,39 @@ export default defineSchema({
     .index("by_consent", ["consentId"])
     .index("by_player", ["playerIdentityId"]),
 
+  // Admin Notifications
+  // In-app notifications for organization admins
+  adminNotifications: defineTable({
+    userId: v.string(), // Recipient (Better Auth user ID)
+    organizationId: v.string(), // Organization context
+
+    // Notification type
+    notificationType: v.union(
+      v.literal("child_declined"), // Parent declined a child link
+      v.literal("invitation_requested"), // User requested new invitation
+      v.literal("member_joined"), // New member joined organization
+      v.literal("guardian_added") // New guardian added to player
+    ),
+
+    // References
+    guardianPlayerLinkId: v.optional(v.id("guardianPlayerLinks")),
+    invitationRequestId: v.optional(v.id("invitationRequests")),
+
+    // Content
+    title: v.string(),
+    message: v.string(),
+    actionUrl: v.optional(v.string()), // URL for navigation
+
+    // Status
+    createdAt: v.number(),
+    readAt: v.optional(v.number()),
+    dismissedAt: v.optional(v.number()),
+  })
+    .index("by_user", ["userId"])
+    .index("by_user_and_org", ["userId", "organizationId"])
+    .index("by_org", ["organizationId"])
+    .index("by_user_unread", ["userId", "readAt"]),
+
   // ============================================================
   // USER PREFERENCES & USAGE TRACKING
   // Stores user preferences for default org/role and tracks

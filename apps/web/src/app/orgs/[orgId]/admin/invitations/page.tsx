@@ -3,9 +3,9 @@
 import { api } from "@pdp/backend/convex/_generated/api";
 import type { Id } from "@pdp/backend/convex/_generated/dataModel";
 import { useMutation, useQuery } from "convex/react";
-import { AlertCircle, RefreshCw } from "lucide-react";
-import { useParams } from "next/navigation";
-import { useState } from "react";
+import { AlertCircle, RefreshCw, UserX } from "lucide-react";
+import { useParams, useSearchParams } from "next/navigation";
+import { useEffect, useState } from "react";
 import { toast } from "sonner";
 import {
   InvitationCard,
@@ -24,12 +24,22 @@ import { useSession } from "@/lib/auth-client";
 
 export default function InvitationManagementPage() {
   const params = useParams();
+  const searchParams = useSearchParams();
   const orgId = params.orgId as string;
   // Session can be used for role checking in future
   useSession();
 
-  const [activeTab, setActiveTab] = useState<string>("active");
+  // Check for tab from URL query params (e.g., ?tab=declined)
+  const tabFromUrl = searchParams.get("tab");
+  const [activeTab, setActiveTab] = useState<string>(tabFromUrl || "active");
   const [selectedIds, setSelectedIds] = useState<Set<string>>(new Set());
+
+  // Sync tab with URL params
+  useEffect(() => {
+    if (tabFromUrl && tabFromUrl !== activeTab) {
+      setActiveTab(tabFromUrl);
+    }
+  }, [tabFromUrl, activeTab]);
 
   // Mutations for invitation actions
   const resendInvitationMutation = useMutation(
@@ -43,6 +53,9 @@ export default function InvitationManagementPage() {
   );
   const denyRequestMutation = useMutation(
     api.models.invitations.denyInvitationRequest
+  );
+  const resendChildLinkMutation = useMutation(
+    api.models.guardianPlayerLinks.resendChildLink
   );
 
   // Fetch stats
@@ -73,6 +86,10 @@ export default function InvitationManagementPage() {
     api.models.invitations.getPendingInvitationRequests,
     activeTab === "requests" ? { organizationId: orgId } : "skip"
   );
+  const declinedLinks = useQuery(
+    api.models.guardianPlayerLinks.getDeclinedChildLinks,
+    activeTab === "declined" ? { organizationId: orgId } : "skip"
+  );
 
   // Get current tab's data
   const getCurrentData = () => {
@@ -85,6 +102,8 @@ export default function InvitationManagementPage() {
         return expiredInvitations;
       case "requests":
         return pendingRequests;
+      case "declined":
+        return declinedLinks;
       default:
         return [];
     }
@@ -179,6 +198,19 @@ export default function InvitationManagementPage() {
     }
   };
 
+  // Declined child link handler
+  const handleResendChildLink = async (linkId: string) => {
+    try {
+      await resendChildLinkMutation({
+        linkId: linkId as Id<"guardianPlayerLinks">,
+      });
+      toast.success("Child link resent. Guardian will see it on next login.");
+    } catch (error) {
+      console.error("Failed to resend child link:", error);
+      toast.error("Failed to resend child link");
+    }
+  };
+
   return (
     <div className="container mx-auto max-w-4xl py-6">
       <div className="mb-6">
@@ -248,6 +280,10 @@ export default function InvitationManagementPage() {
             </TabsTrigger>
             <TabsTrigger value="requests">
               Requests ({stats?.requests ?? 0})
+            </TabsTrigger>
+            <TabsTrigger className="text-red-600" value="declined">
+              <UserX className="mr-1 size-4" />
+              Declined ({declinedLinks?.length ?? 0})
             </TabsTrigger>
           </TabsList>
 
@@ -416,7 +452,106 @@ export default function InvitationManagementPage() {
             )
           )}
         </TabsContent>
+
+        <TabsContent className="space-y-3" value="declined">
+          {isLoading ? (
+            <div className="py-8 text-center text-muted-foreground">
+              Loading...
+            </div>
+          ) : !Array.isArray(declinedLinks) || declinedLinks.length === 0 ? (
+            <Empty>
+              <EmptyHeader>
+                <EmptyTitle>No declined child links</EmptyTitle>
+                <EmptyDescription>
+                  No parents have declined child links.
+                </EmptyDescription>
+              </EmptyHeader>
+            </Empty>
+          ) : (
+            declinedLinks.map(
+              (link: {
+                linkId: string;
+                playerName: string;
+                guardianName: string;
+                guardianEmail: string;
+                declinedAt: number | null;
+              }) => (
+                <DeclinedLinkCard
+                  key={link.linkId}
+                  link={link}
+                  onResend={handleResendChildLink}
+                />
+              )
+            )
+          )}
+        </TabsContent>
       </Tabs>
     </div>
+  );
+}
+
+// Declined Link Card component
+function DeclinedLinkCard({
+  link,
+  onResend,
+}: {
+  link: {
+    linkId: string;
+    playerName: string;
+    guardianName: string;
+    guardianEmail: string;
+    declinedAt: number | null;
+  };
+  onResend: (linkId: string) => void;
+}) {
+  // Format relative time
+  const formatRelativeTime = (timestamp: number | null): string => {
+    if (!timestamp) {
+      return "Unknown";
+    }
+    const now = Date.now();
+    const diff = now - timestamp;
+    const days = Math.floor(diff / (1000 * 60 * 60 * 24));
+    const hours = Math.floor(diff / (1000 * 60 * 60));
+    const minutes = Math.floor(diff / (1000 * 60));
+
+    if (days > 0) {
+      return `${days} day${days > 1 ? "s" : ""} ago`;
+    }
+    if (hours > 0) {
+      return `${hours} hour${hours > 1 ? "s" : ""} ago`;
+    }
+    return `${minutes} minute${minutes > 1 ? "s" : ""} ago`;
+  };
+
+  return (
+    <Card className="border-red-200">
+      <CardContent className="flex items-center gap-4 p-4">
+        <div className="min-w-0 flex-1">
+          <div className="flex items-center gap-2">
+            <UserX className="size-4 text-red-500" />
+            <span className="font-medium">{link.guardianName}</span>
+            <span className="text-muted-foreground">
+              ({link.guardianEmail})
+            </span>
+          </div>
+          <div className="mt-1 flex items-center gap-2 text-muted-foreground text-sm">
+            <span>
+              Declined link to <strong>{link.playerName}</strong>
+            </span>
+            <span>•</span>
+            <span>{formatRelativeTime(link.declinedAt)}</span>
+          </div>
+        </div>
+        <Button
+          onClick={() => onResend(link.linkId)}
+          size="sm"
+          variant="outline"
+        >
+          <RefreshCw className="mr-1 size-4" />
+          Resend
+        </Button>
+      </CardContent>
+    </Card>
   );
 }

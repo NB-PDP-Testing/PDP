@@ -1889,8 +1889,62 @@ export const declineChildLinkWithStatus = mutation({
       updatedAt: now,
     });
 
-    // Note: Notification creation for org admins will be added in US-010
-    // when the notifications table is defined
+    // Get player info for notification message
+    const player = await ctx.db.get(link.playerIdentityId);
+    const playerName = player
+      ? `${player.firstName} ${player.lastName}`
+      : "Unknown";
+    const guardianName =
+      guardian.firstName && guardian.lastName
+        ? `${guardian.firstName} ${guardian.lastName}`
+        : guardian.email || "A guardian";
+
+    // Get organization(s) from player enrollments
+    const enrollments = await ctx.db
+      .query("orgPlayerEnrollments")
+      .withIndex("by_playerIdentityId", (q) =>
+        q.eq("playerIdentityId", link.playerIdentityId)
+      )
+      .filter((q) => q.eq(q.field("status"), "active"))
+      .collect();
+
+    // Create notifications for admins in each organization
+    for (const enrollment of enrollments) {
+      // Get org admins (members with role = admin or owner)
+      const membersResult = await ctx.runQuery(
+        components.betterAuth.adapter.findMany,
+        {
+          model: "member",
+          paginationOpts: { cursor: null, numItems: 100 },
+          where: [
+            {
+              field: "organizationId",
+              value: enrollment.organizationId,
+              operator: "eq",
+            },
+          ],
+        }
+      );
+
+      const admins =
+        (membersResult?.page || []).filter(
+          (m: { role?: string }) => m.role === "admin" || m.role === "owner"
+        ) || [];
+
+      // Create notification for each admin
+      for (const admin of admins) {
+        await ctx.db.insert("adminNotifications", {
+          userId: admin.userId,
+          organizationId: enrollment.organizationId,
+          notificationType: "child_declined",
+          guardianPlayerLinkId: args.linkId,
+          title: "Child Link Declined",
+          message: `${guardianName} declined link to ${playerName}`,
+          actionUrl: `/orgs/${enrollment.organizationId}/admin/invitations?tab=declined`,
+          createdAt: now,
+        });
+      }
+    }
 
     console.log(
       `[declineChildLinkWithStatus] User ${user._id} declined child link ${args.linkId}`

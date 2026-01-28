@@ -22,6 +22,7 @@ import type * as auth from "../auth.js";
 import type * as crons from "../crons.js";
 import type * as healthCheck from "../healthCheck.js";
 import type * as http from "../http.js";
+import type * as jobs_invitations from "../jobs/invitations.js";
 import type * as lib_ageGroupUtils from "../lib/ageGroupUtils.js";
 import type * as lib_analytics from "../lib/analytics.js";
 import type * as lib_autoApprovalDecision from "../lib/autoApprovalDecision.js";
@@ -154,6 +155,7 @@ declare const fullApi: ApiFromModules<{
   crons: typeof crons;
   healthCheck: typeof healthCheck;
   http: typeof http;
+  "jobs/invitations": typeof jobs_invitations;
   "lib/ageGroupUtils": typeof lib_ageGroupUtils;
   "lib/analytics": typeof lib_analytics;
   "lib/autoApprovalDecision": typeof lib_autoApprovalDecision;
@@ -302,6 +304,7 @@ export declare const components: {
           input:
             | {
                 data: {
+                  childLinkingSkipCount?: number;
                   createdAt: number;
                   currentOrgId?: string;
                   email: string;
@@ -513,6 +516,7 @@ export declare const components: {
                     | "lastChildrenCheckAt"
                     | "parentOnboardingDismissCount"
                     | "parentOnboardingLastDismissedAt"
+                    | "childLinkingSkipCount"
                     | "currentOrgId"
                     | "gdprConsentVersion"
                     | "gdprConsentedAt"
@@ -933,6 +937,7 @@ export declare const components: {
                     | "lastChildrenCheckAt"
                     | "parentOnboardingDismissCount"
                     | "parentOnboardingLastDismissedAt"
+                    | "childLinkingSkipCount"
                     | "currentOrgId"
                     | "gdprConsentVersion"
                     | "gdprConsentedAt"
@@ -1424,6 +1429,7 @@ export declare const components: {
             | {
                 model: "user";
                 update: {
+                  childLinkingSkipCount?: number;
                   createdAt?: number;
                   currentOrgId?: string;
                   email?: string;
@@ -1463,6 +1469,7 @@ export declare const components: {
                     | "lastChildrenCheckAt"
                     | "parentOnboardingDismissCount"
                     | "parentOnboardingLastDismissedAt"
+                    | "childLinkingSkipCount"
                     | "currentOrgId"
                     | "gdprConsentVersion"
                     | "gdprConsentedAt"
@@ -1994,6 +2001,7 @@ export declare const components: {
             | {
                 model: "user";
                 update: {
+                  childLinkingSkipCount?: number;
                   createdAt?: number;
                   currentOrgId?: string;
                   email?: string;
@@ -2033,6 +2041,7 @@ export declare const components: {
                     | "lastChildrenCheckAt"
                     | "parentOnboardingDismissCount"
                     | "parentOnboardingLastDismissedAt"
+                    | "childLinkingSkipCount"
                     | "currentOrgId"
                     | "gdprConsentVersion"
                     | "gdprConsentedAt"

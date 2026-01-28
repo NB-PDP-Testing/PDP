@@ -16,7 +16,7 @@
       "title": "Add error handling wrapper for onboarding components",
       "description": "As a user encountering an error during onboarding, I see a friendly message with retry option.",
       "priority": 1,
-      "passes": true,
+      "passes": false,
       "acceptanceCriteria": [
         "Create: apps/web/src/components/onboarding/error-boundary.tsx",
         "",
@@ -49,7 +49,7 @@
       "title": "Implement skip behavior for child linking",
       "description": "As a parent, I can skip child linking (max 3 times) and it will re-appear on next login.",
       "priority": 2,
-      "passes": true,
+      "passes": false,
       "acceptanceCriteria": [
         "Edit: packages/backend/convex/schema.ts",
         "Add to user table:",
@@ -80,7 +80,7 @@
       "title": "Add help footer to onboarding modals",
       "description": "As a user in an onboarding modal, I see help links at the bottom.",
       "priority": 3,
-      "passes": true,
+      "passes": false,
       "acceptanceCriteria": [
         "Create: apps/web/src/components/onboarding/help-footer.tsx",
         "",
@@ -114,7 +114,7 @@
       "title": "Add accessibility improvements to modals",
       "description": "As a user with accessibility needs, I can navigate onboarding modals with keyboard and screen reader.",
       "priority": 4,
-      "passes": true,
+      "passes": false,
       "acceptanceCriteria": [
         "Review all onboarding components for accessibility:",
         "",
@@ -147,7 +147,7 @@
       "title": "Add mobile responsive styles to modals",
       "description": "As a mobile user, onboarding modals display correctly on small screens.",
       "priority": 5,
-      "passes": true,
+      "passes": false,
       "acceptanceCriteria": [
         "Review all onboarding components for mobile:",
         "",
@@ -176,7 +176,7 @@
       "title": "Add analytics events for onboarding funnel",
       "description": "As the product team, I can track onboarding completion rates and drop-off points.",
       "priority": 6,
-      "passes": true,
+      "passes": false,
       "acceptanceCriteria": [
         "Edit: apps/web/src/lib/analytics.ts (or create if doesn't exist)",
         "",
@@ -213,7 +213,7 @@
       "title": "Create archivedInvitations table",
       "description": "As the system, I store archived invitations separately for long-term audit.",
       "priority": 7,
-      "passes": true,
+      "passes": false,
       "acceptanceCriteria": [
         "Edit: packages/backend/convex/schema.ts",
         "Add new table archivedInvitations:",
@@ -246,7 +246,7 @@
       "title": "Create scheduled job: Mark expired invitations",
       "description": "As the system, I automatically mark invitations as expired when they pass their expiration date.",
       "priority": 8,
-      "passes": true,
+      "passes": false,
       "acceptanceCriteria": [
         "Create: packages/backend/convex/jobs/invitations.ts",
         "",
@@ -283,7 +283,7 @@
       "title": "Create scheduled job: Auto re-invite for enabled orgs",
       "description": "As the system, I automatically resend invitations for organizations with auto re-invite enabled.",
       "priority": 9,
-      "passes": true,
+      "passes": false,
       "acceptanceCriteria": [
         "Edit: packages/backend/convex/jobs/invitations.ts",
         "",
@@ -330,7 +330,7 @@
       "title": "Create scheduled job: Admin expiration alerts",
       "description": "As an admin, I receive email alerts about invitations expiring soon.",
       "priority": 10,
-      "passes": true,
+      "passes": false,
       "acceptanceCriteria": [
         "Edit: packages/backend/convex/jobs/invitations.ts",
         "",
@@ -359,7 +359,7 @@
       "title": "Create scheduled job: Archive old invitations",
       "description": "As the system, I archive expired invitations older than 30 days.",
       "priority": 11,
-      "passes": true,
+      "passes": false,
       "acceptanceCriteria": [
         "Edit: packages/backend/convex/jobs/invitations.ts",
         "",
@@ -407,7 +407,7 @@
       "title": "Create scheduled job: Cleanup archived invitations",
       "description": "As the system, I delete archived invitations older than 90 days.",
       "priority": 12,
-      "passes": true,
+      "passes": false,
       "acceptanceCriteria": [
         "Edit: packages/backend/convex/jobs/invitations.ts",
         "",
@@ -443,7 +443,7 @@
       "title": "Configure crons.ts with all scheduled jobs",
       "description": "As the system, I have all scheduled jobs configured in the crons file.",
       "priority": 13,
-      "passes": true,
+      "passes": false,
       "acceptanceCriteria": [
         "Create or edit: packages/backend/convex/crons.ts",
         "",
@@ -472,7 +472,7 @@
       "title": "Handle edge case: User signs up with different email than invited",
       "description": "As a user who signed up with a different email, I see a helpful message about no pending invitations.",
       "priority": 14,
-      "passes": true,
+      "passes": false,
       "acceptanceCriteria": [
         "When user navigates to /orgs/accept-invitation/[id] with an invitation for a different email:",
         "",
@@ -494,7 +494,7 @@
       "title": "Handle edge case: Organization deleted during onboarding",
       "description": "As a user whose organization was deleted mid-onboarding, I see an error and am redirected.",
       "priority": 15,
-      "passes": true,
+      "passes": false,
       "acceptanceCriteria": [
         "In OnboardingOrchestrator and individual step components:",
         "",

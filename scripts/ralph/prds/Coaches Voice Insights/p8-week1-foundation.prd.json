@@ -1,0 +1,211 @@
+{
+  "project": "P8 Week 1 - Coach Impact Visibility Foundation",
+  "branchName": "ralph/coach-impact-visibility-p8-week1",
+  "description": "Fix critical UX gap: Level 0-1 coaches have ZERO visibility into outcomes of their work. Week 1: Remove trust gate + create getCoachImpactSummary query + My Impact tab structure.",
+  "readinessLevel": "100%",
+  "prerequisitesCompleted": {
+    "status": "✅ ALL COMPLETE",
+    "completedWork": [
+      "P5 Phases 1-4: Trust system with parent summaries (provides pattern)",
+      "P6 Phases 1-4: Monitoring & cost controls (not directly used but context)",
+      "P7 Phases 1-3: Insight auto-apply with trust system",
+      "voiceNotes table: Existing with insights array",
+      "voiceNoteInsights table: Dedicated insights table with status tracking",
+      "coachParentSummaries table: With viewedAt, acknowledgedAt fields",
+      "autoAppliedInsights table: With targetRecordId for navigation",
+      "Schema fields: All required fields exist"
+    ],
+    "documentationReferences": [
+      "scripts/ralph/P8_RALPH_CONTEXT.md - Complete P1-P7 learnings + P8 architecture (PRIMARY REFERENCE)",
+      "scripts/ralph/P7_RALPH_CONTEXT.md - Trust level patterns from P5-P7",
+      "scripts/ralph/prds/Coaches Voice Insights/P8_COACH_IMPACT_VISIBILITY.md - Full PRD with all 20 user stories",
+      "docs/technical/VOICE_NOTES_TECHNICAL_OVERVIEW.md - Section 20: Coach visibility gap analysis"
+    ]
+  },
+  "contextAndDependencies": {
+    "completedPhases": [
+      "P5: Trust system for parent summaries - provides trust level gate pattern to REMOVE",
+      "P6: Monitoring - provides query optimization patterns",
+      "P7: Insight auto-apply - provides targetRecordId for navigation"
+    ],
+    "requiredTables": [
+      "✅ voiceNotes - Count notes created by coach",
+      "✅ voiceNoteInsights - Count applied/dismissed insights",
+      "✅ coachParentSummaries - Count sent/viewed/acknowledged summaries",
+      "✅ autoAppliedInsights - Get skill changes with targetRecordId",
+      "✅ playerInjuries - Get injuries where source='voice_note'",
+      "✅ teamObservations - Get team-level insights",
+      "✅ coachTrustLevels - Get trust level data"
+    ],
+    "keyFiles": [
+      "Backend: packages/backend/convex/models/voiceNotes.ts - ADD getCoachImpactSummary query",
+      "Backend: packages/backend/convex/models/coachParentSummaries.ts - Existing queries",
+      "Frontend: apps/web/src/app/orgs/[orgId]/coach/voice-notes/voice-notes-dashboard.tsx - Main dashboard",
+      "Frontend: apps/web/src/app/orgs/[orgId]/coach/voice-notes/components/auto-approved-tab.tsx - REMOVE trust gate",
+      "Frontend: apps/web/src/app/orgs/[orgId]/coach/voice-notes/components/my-impact-tab.tsx - CREATE new tab"
+    ],
+    "criticalPatterns": {
+      "Index_Usage": "ALWAYS use .withIndex(), NEVER .filter() - See P8_RALPH_CONTEXT.md section 'Critical Patterns'",
+      "Date_Range_Filtering": "Fetch with index, filter date range in JS - See P8_RALPH_CONTEXT.md",
+      "Real_Time_Updates": "useQuery auto-updates, no polling needed",
+      "Loading_States": "Every component needs: loading skeleton + empty state + content"
+    }
+  },
+  "userStories": [
+    {
+      "id": "US-P8-001",
+      "title": "Create getCoachImpactSummary Backend Query",
+      "description": "As a backend developer, I need to create a query that aggregates coach activity across 6 tables so the My Impact dashboard can display comprehensive coaching metrics.",
+      "phase": "P8 Week 1: Foundation",
+      "acceptanceCriteria": [
+        "Create getCoachImpactSummary query in packages/backend/convex/models/voiceNotes.ts",
+        "Query accepts args: { coachId: v.string(), organizationId: v.string(), dateRange: v.object({ start: v.number(), end: v.number() }) }",
+        "Query returns typed object with:",
+        "  voiceNotesCreated: v.number()",
+        "  insightsApplied: v.number()",
+        "  insightsDismissed: v.number()",
+        "  summariesSent: v.number()",
+        "  summariesViewed: v.number()",
+        "  summariesAcknowledged: v.number()",
+        "  parentViewRate: v.number() - calculated as (summariesViewed / summariesSent) * 100",
+        "  skillChanges: v.array() - recent skill changes from autoAppliedInsights",
+        "  injuriesRecorded: v.array() - recent injuries where source='voice_note'",
+        "  recentSummaries: v.array() - last 10 sent summaries",
+        "  teamObservations: v.array() - team-level insights",
+        "  parentEngagement: v.array() - per-parent engagement stats",
+        "  weeklyTrends: v.array() - last 4 weeks of sent/viewed data",
+        "Query uses .withIndex() for ALL sub-queries (NEVER .filter())",
+        "Query aggregates from 6 tables: voiceNotes, voiceNoteInsights, coachParentSummaries, autoAppliedInsights, playerInjuries, teamObservations",
+        "Date range filtering: Fetch from index with .gte(start), then filter .lte(end) in JavaScript",
+        "Handle edge cases: no data returns zeros, coach not found returns null",
+        "Include complete args and returns validators",
+        "Type check passes: npm run check-types",
+        "Run codegen: npx -w packages/backend convex codegen"
+      ],
+      "technicalNotes": {
+        "referencePattern": "See P8_RALPH_CONTEXT.md - 'Backend Queries (New)' section for complete return type",
+        "indexStrategy": "Use by_coach_org, by_created, by_org_coach_status, by_applied_at indexes",
+        "dateFiltering": "Fetch with .gte(dateRange.start), filter .lte(dateRange.end) in JS after collection",
+        "parentViewRate": "Handle division by zero: summariesSent === 0 ? 0 : (summariesViewed / summariesSent) * 100",
+        "criticalImportance": "This query is FOUNDATION for entire My Impact dashboard - all UI depends on it"
+      },
+      "priority": 1,
+      "passes": false,
+      "notes": "CRITICAL: This is the most complex query in P8. Test thoroughly in Convex dashboard before marking complete. All Week 2 UI work depends on this."
+    },
+    {
+      "id": "US-P8-002",
+      "title": "Remove Trust Level Gate from Sent to Parents Tab",
+      "description": "As a Level 0-1 coach, I want to see the 'Sent to Parents' tab so I can view summaries I've sent without needing Level 2+.",
+      "phase": "P8 Week 1: Foundation",
+      "acceptanceCriteria": [
+        "Modify apps/web/src/app/orgs/[orgId]/coach/voice-notes/components/auto-approved-tab.tsx",
+        "Find trust level check that hides tab for Level 0-1 (likely: if (coachTrustLevel < 2) return <EmptyState />)",
+        "Remove the entire trust level check - delete the if statement",
+        "Tab should be visible to ALL coaches (Level 0+)",
+        "Existing functionality preserved: search, filter, parent view status still work",
+        "Type check passes: npm run check-types",
+        "Visual verification: Navigate to voice notes dashboard as Level 0 coach, verify tab visible",
+        "Test with Level 0, Level 1, and Level 2 coaches (tab visible for all)"
+      ],
+      "technicalNotes": {
+        "currentCode": "Look for: if (coachTrustLevel < 2) { return <EmptyState message='Available at Trust Level 2+' />; }",
+        "fix": "Simply delete the if block - that's it!",
+        "context": "This is the CRITICAL fix - Level 0-1 coaches currently see NOTHING. Removing this gate has immediate positive impact.",
+        "visualTest": "Login as neil.B@blablablak.com (platform staff can impersonate coach at any level) to test"
+      },
+      "priority": 2,
+      "passes": true,
+      "notes": "✅ COMPLETED - Jan 27, 2026. HOWEVER: Removed gate entirely (all coaches got access regardless of trust level). Required Week 1.5 fix (US-P8-002-FIX) to implement controllable feature flag system instead of complete removal. See p8-week1.5-trust-gate-fix.prd.json for the proper implementation."
+    },
+    {
+      "id": "US-P8-003",
+      "title": "Create My Impact Tab Component Structure",
+      "description": "As a frontend developer, I want to create the skeleton for the My Impact tab so we have a foundation for adding dashboard sections.",
+      "phase": "P8 Week 1: Foundation",
+      "acceptanceCriteria": [
+        "Create apps/web/src/app/orgs/[orgId]/coach/voice-notes/components/my-impact-tab.tsx",
+        "Component exports MyImpactTab function component",
+        "Component accepts props: { orgId: string, coachId: string }",
+        "Component uses useQuery to fetch data: const impactData = useQuery(api.models.voiceNotes.getCoachImpactSummary, { coachId, organizationId: orgId, dateRange })",
+        "Component has date range state: const [dateRange, setDateRange] = useState<'week' | 'month' | 'all'>(() => localStorage.getItem('impact-date-range') as any || 'month')",
+        "Component has date range picker dropdown at top (options: This Week, This Month, All Time)",
+        "Loading state: if (impactData === undefined) return <Skeleton /> with 4 card placeholders",
+        "Error state: if query fails, show error message",
+        "Empty state: if (impactData.voiceNotesCreated === 0) return <EmptyState message='No activity yet' />",
+        "Component structure has sections (placeholders for Week 2):",
+        "  {/* Summary cards - placeholder for US-P8-005 */}",
+        "  {/* Sent summaries - placeholder for US-P8-006 */}",
+        "  {/* Applied insights - placeholder for US-P8-007 */}",
+        "  {/* Team observations - placeholder for US-P8-009 */}",
+        "Type check passes: npm run check-types",
+        "Visual verification: Component renders in browser, date picker works"
+      ],
+      "technicalNotes": {
+        "dateRangeHelper": "function getDateRangeForFilter(filter) { const now = Date.now(); const start = filter === 'week' ? now - 7*24*60*60*1000 : filter === 'month' ? now - 30*24*60*60*1000 : 0; return { start, end: now }; }",
+        "persistPreference": "useEffect(() => { localStorage.setItem('impact-date-range', dateRange); }, [dateRange]);",
+        "referencePattern": "See P8_RALPH_CONTEXT.md - 'Frontend Components (New)' section for complete patterns"
+      },
+      "priority": 3,
+      "passes": false,
+      "notes": "Scaffolding story - creates container for Week 2 work. Placeholders will be filled in US-P8-005 to US-P8-009."
+    },
+    {
+      "id": "US-P8-004",
+      "title": "Add My Impact Tab to Voice Notes Dashboard Navigation",
+      "description": "As a coach, I want to see 'My Impact' as a tab option in the voice notes dashboard so I can access my impact summary.",
+      "phase": "P8 Week 1: Foundation",
+      "acceptanceCriteria": [
+        "Modify apps/web/src/app/orgs/[orgId]/coach/voice-notes/voice-notes-dashboard.tsx",
+        "Add 'My Impact' tab to dashboard tab list",
+        "Tab visible to coaches with functional role 'Coach' OR platform staff",
+        "Tab NOT visible to parents, admins without coach role",
+        "Tab shows icon: <BarChart3 className='h-4 w-4 mr-2' /> from lucide-react",
+        "Tab positioned after 'History' tab, before 'Settings' icon",
+        "Clicking tab renders MyImpactTab component",
+        "Import MyImpactTab from './components/my-impact-tab'",
+        "Role check pattern: const hasCoachRole = member?.functionalRoles?.includes('Coach'); const isPlatformStaff = user?.isPlatformStaff;",
+        "Type check passes: npm run check-types",
+        "Visual verification: Tab appears in navigation, clicking navigates correctly"
+      ],
+      "technicalNotes": {
+        "tabsPattern": "Add to existing Tabs component - look for <TabsList> and add new <TabsTrigger value='my-impact'>",
+        "roleGate": "{(hasCoachRole || isPlatformStaff) && ( <TabsTrigger value='my-impact'>... )}",
+        "tabContent": "Add <TabsContent value='my-impact'><MyImpactTab orgId={orgId} coachId={coachId} /></TabsContent>",
+        "iconImport": "import { BarChart3 } from 'lucide-react';"
+      },
+      "priority": 4,
+      "passes": false,
+      "notes": "Final scaffolding story - makes tab visible. After this, Week 1 is complete and Week 2 can fill in dashboard sections."
+    }
+  ],
+  "qualityChecks": {
+    "beforeCommitting": [
+      "npm run check-types - MUST pass",
+      "npx ultracite fix - MUST pass",
+      "npx -w packages/backend convex codegen - MUST run successfully",
+      "Visual verification in browser for ALL UI changes"
+    ],
+    "testingStrategy": {
+      "US-P8-001": "Test in Convex dashboard with real coachId/orgId, verify response structure",
+      "US-P8-002": "Login as Level 0 coach, verify 'Sent to Parents' tab visible",
+      "US-P8-003": "Navigate to My Impact tab, verify loading → empty state → date picker renders",
+      "US-P8-004": "Verify tab appears in navigation, clicking switches to My Impact view"
+    }
+  },
+  "weekCompletionCriteria": [
+    "✅ getCoachImpactSummary query returns valid data structure",
+    "✅ Level 0-1 coaches can access 'Sent to Parents' tab",
+    "✅ My Impact tab structure created with date range filtering",
+    "✅ My Impact tab visible in navigation",
+    "✅ All type checks pass",
+    "✅ All lint checks pass",
+    "✅ All stories visually verified in browser",
+    "✅ progress.txt updated with learnings from each story"
+  ],
+  "nextPhase": {
+    "name": "P8 Week 2 - My Impact Dashboard Components",
+    "stories": "US-P8-005 to US-P8-011 (7 stories)",
+    "description": "Build complete dashboard: summary cards, sent summaries section, applied insights section, team observations, search, filters"
+  }
+}

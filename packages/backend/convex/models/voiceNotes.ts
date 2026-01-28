@@ -2026,6 +2026,366 @@ export const getInsightById = internalQuery({
   handler: async (ctx, args) => await ctx.db.get(args.insightId),
 });
 
+/**
+ * Get comprehensive coaching impact summary for "My Impact" dashboard
+ * Phase 8: Coach Impact Visibility
+ *
+ * Aggregates data from 6 tables:
+ * - voiceNotes: Count notes created
+ * - voiceNoteInsights: Count applied/dismissed insights
+ * - coachParentSummaries: Count sent/viewed/acknowledged summaries
+ * - autoAppliedInsights: Get skill changes with targetRecordId
+ * - teamObservations: Get team-level insights (via category filter)
+ * - Parent engagement stats
+ */
+export const getCoachImpactSummary = query({
+  args: {
+    coachId: v.string(),
+    organizationId: v.string(),
+    dateRange: v.object({
+      start: v.number(),
+      end: v.number(),
+    }),
+  },
+  returns: v.object({
+    // Summary metrics
+    voiceNotesCreated: v.number(),
+    insightsApplied: v.number(),
+    insightsDismissed: v.number(),
+    summariesSent: v.number(),
+    summariesViewed: v.number(),
+    summariesAcknowledged: v.number(),
+    parentViewRate: v.number(),
+
+    // Detailed arrays
+    skillChanges: v.array(
+      v.object({
+        playerName: v.string(),
+        playerIdentityId: v.id("playerIdentities"),
+        description: v.string(),
+        appliedAt: v.number(),
+        voiceNoteId: v.id("voiceNotes"),
+        voiceNoteTitle: v.string(),
+        targetRecordId: v.string(),
+      })
+    ),
+    injuriesRecorded: v.array(
+      v.object({
+        playerName: v.string(),
+        playerIdentityId: v.id("playerIdentities"),
+        category: v.string(),
+        description: v.string(),
+        recordedAt: v.number(),
+        voiceNoteId: v.id("voiceNotes"),
+        insightId: v.string(),
+      })
+    ),
+    recentSummaries: v.array(
+      v.object({
+        summaryId: v.id("coachParentSummaries"),
+        playerName: v.string(),
+        summaryPreview: v.string(),
+        sentAt: v.number(),
+        viewedAt: v.optional(v.number()),
+        acknowledgedAt: v.optional(v.number()),
+      })
+    ),
+    teamObservations: v.array(
+      v.object({
+        observationId: v.string(),
+        teamName: v.optional(v.string()),
+        teamId: v.optional(v.string()),
+        title: v.string(),
+        description: v.string(),
+        appliedAt: v.number(),
+        voiceNoteId: v.id("voiceNotes"),
+      })
+    ),
+    parentEngagement: v.array(
+      v.object({
+        playerName: v.string(),
+        playerIdentityId: v.id("playerIdentities"),
+        summariesSent: v.number(),
+        summariesViewed: v.number(),
+        viewRate: v.number(),
+        lastViewedAt: v.optional(v.number()),
+      })
+    ),
+    weeklyTrends: v.array(
+      v.object({
+        week: v.string(),
+        sent: v.number(),
+        viewed: v.number(),
+      })
+    ),
+  }),
+  handler: async (ctx, args) => {
+    const { coachId, organizationId, dateRange } = args;
+
+    // 1. Count voice notes created in date range
+    const allVoiceNotes = await ctx.db
+      .query("voiceNotes")
+      .withIndex("by_orgId_and_coachId", (q) =>
+        q.eq("orgId", organizationId).eq("coachId", coachId)
+      )
+      .collect();
+
+    const voiceNotesInRange = allVoiceNotes.filter(
+      (note) =>
+        note._creationTime >= dateRange.start &&
+        note._creationTime <= dateRange.end
+    );
+    const voiceNotesCreated = voiceNotesInRange.length;
+
+    // 2. Get insights (applied and dismissed)
+    const allInsights = await ctx.db
+      .query("voiceNoteInsights")
+      .withIndex("by_coach_org", (q) =>
+        q.eq("coachId", coachId).eq("organizationId", organizationId)
+      )
+      .collect();
+
+    const insightsInRange = allInsights.filter(
+      (insight) =>
+        insight.createdAt >= dateRange.start &&
+        insight.createdAt <= dateRange.end
+    );
+
+    const insightsApplied = insightsInRange.filter(
+      (insight) =>
+        insight.status === "applied" || insight.status === "auto_applied"
+    ).length;
+
+    const insightsDismissed = insightsInRange.filter(
+      (insight) => insight.status === "dismissed"
+    ).length;
+
+    // 3. Get parent summaries (sent, viewed, acknowledged)
+    const allSummaries = await ctx.db
+      .query("coachParentSummaries")
+      .withIndex("by_coach_org_status", (q) =>
+        q
+          .eq("coachId", coachId)
+          .eq("organizationId", organizationId)
+          .eq("status", "delivered")
+      )
+      .collect();
+
+    const summariesInRange = allSummaries.filter(
+      (summary) =>
+        summary.deliveredAt &&
+        summary.deliveredAt >= dateRange.start &&
+        summary.deliveredAt <= dateRange.end
+    );
+
+    const summariesSent = summariesInRange.length;
+    const summariesViewed = summariesInRange.filter((s) => s.viewedAt).length;
+    const summariesAcknowledged = summariesInRange.filter(
+      (s) => s.acknowledgedAt
+    ).length;
+    const parentViewRate =
+      summariesSent === 0 ? 0 : (summariesViewed / summariesSent) * 100;
+
+    // 4. Get skill changes from autoAppliedInsights
+    const allAutoAppliedInsights = await ctx.db
+      .query("autoAppliedInsights")
+      .withIndex("by_coach_org", (q) =>
+        q.eq("coachId", coachId).eq("organizationId", organizationId)
+      )
+      .collect();
+
+    const autoAppliedInRange = allAutoAppliedInsights.filter(
+      (insight) =>
+        insight.appliedAt >= dateRange.start &&
+        insight.appliedAt <= dateRange.end &&
+        !insight.undoneAt
+    );
+
+    // Build skill changes array with player names and voice note titles
+    const skillChanges = await Promise.all(
+      autoAppliedInRange
+        .filter((insight) => insight.changeType === "skill_rating")
+        .slice(0, 20) // Limit to 20 most recent
+        .map(async (insight) => {
+          const voiceNote = await ctx.db.get(insight.voiceNoteId);
+          const playerIdentity = await ctx.db.get(insight.playerIdentityId);
+
+          // Parse previous and new values to create description
+          const prevValue = JSON.parse(insight.previousValue || "{}");
+          const newValue = JSON.parse(insight.newValue || "{}");
+          const skillName = newValue.skillName || "Unknown Skill";
+          const description = `${skillName}: ${prevValue.rating || "?"} → ${newValue.rating || "?"}`;
+
+          return {
+            playerName:
+              playerIdentity?.firstName && playerIdentity?.lastName
+                ? `${playerIdentity.firstName} ${playerIdentity.lastName}`
+                : "Unknown Player",
+            playerIdentityId: insight.playerIdentityId,
+            description,
+            appliedAt: insight.appliedAt,
+            voiceNoteId: insight.voiceNoteId,
+            voiceNoteTitle:
+              voiceNote?.summary?.substring(0, 50) || "Voice Note",
+            targetRecordId: insight.targetRecordId || "", // Provide empty string as fallback
+          };
+        })
+    );
+
+    // 5. Get injury insights (from voiceNoteInsights with category "injury")
+    const injuryInsights = insightsInRange.filter(
+      (insight) =>
+        insight.category === "injury" || insight.category === "medical"
+    );
+
+    const injuriesRecorded = injuryInsights.slice(0, 20).map((insight) => ({
+      playerName: insight.playerName || "Unknown Player",
+      playerIdentityId: insight.playerIdentityId as Id<"playerIdentities">,
+      category: insight.category,
+      description: insight.description,
+      recordedAt: insight.createdAt,
+      voiceNoteId: insight.voiceNoteId,
+      insightId: insight.insightId,
+    }));
+
+    // 6. Get team observations (insights with category "team" or teamId but no playerIdentityId)
+    const teamObservationInsights = insightsInRange.filter(
+      (insight) => insight.teamId && !insight.playerIdentityId
+    );
+
+    const teamObservations = teamObservationInsights
+      .slice(0, 20)
+      .map((insight) => ({
+        observationId: insight.insightId,
+        teamName: insight.teamName,
+        teamId: insight.teamId,
+        title: insight.title,
+        description: insight.description,
+        appliedAt: insight.createdAt,
+        voiceNoteId: insight.voiceNoteId,
+      }));
+
+    // 7. Recent summaries (last 10)
+    const recentSummariesWithPlayers = await Promise.all(
+      summariesInRange
+        .sort((a, b) => (b.deliveredAt || 0) - (a.deliveredAt || 0))
+        .slice(0, 10)
+        .map(async (summary) => {
+          const playerIdentity = await ctx.db.get(summary.playerIdentityId);
+          return {
+            summaryId: summary._id,
+            playerName:
+              playerIdentity?.firstName && playerIdentity?.lastName
+                ? `${playerIdentity.firstName} ${playerIdentity.lastName}`
+                : "Unknown Player",
+            summaryPreview:
+              summary.publicSummary.content.substring(0, 100) || "",
+            sentAt: summary.deliveredAt || 0,
+            viewedAt: summary.viewedAt,
+            acknowledgedAt: summary.acknowledgedAt,
+          };
+        })
+    );
+    const recentSummaries = recentSummariesWithPlayers;
+
+    // 8. Parent engagement (per-player stats)
+    const playerEngagementMap = new Map<
+      string,
+      {
+        playerName: string;
+        playerIdentityId: Id<"playerIdentities">;
+        sent: number;
+        viewed: number;
+        lastViewedAt?: number;
+      }
+    >();
+
+    for (const summary of summariesInRange) {
+      const key = summary.playerIdentityId;
+
+      if (!playerEngagementMap.has(key)) {
+        // Fetch player identity to get name
+        const playerIdentity = await ctx.db.get(summary.playerIdentityId);
+        playerEngagementMap.set(key, {
+          playerName:
+            playerIdentity?.firstName && playerIdentity?.lastName
+              ? `${playerIdentity.firstName} ${playerIdentity.lastName}`
+              : "Unknown Player",
+          playerIdentityId: summary.playerIdentityId,
+          sent: 0,
+          viewed: 0,
+          lastViewedAt: undefined,
+        });
+      }
+
+      const existing = playerEngagementMap.get(key);
+      if (existing) {
+        existing.sent += 1;
+        if (summary.viewedAt) {
+          existing.viewed += 1;
+          if (
+            !existing.lastViewedAt ||
+            summary.viewedAt > existing.lastViewedAt
+          ) {
+            existing.lastViewedAt = summary.viewedAt;
+          }
+        }
+
+        playerEngagementMap.set(key, existing);
+      }
+    }
+
+    const parentEngagement = Array.from(playerEngagementMap.values()).map(
+      (stats) => ({
+        playerName: stats.playerName,
+        playerIdentityId: stats.playerIdentityId,
+        summariesSent: stats.sent,
+        summariesViewed: stats.viewed,
+        viewRate: stats.sent === 0 ? 0 : (stats.viewed / stats.sent) * 100,
+        lastViewedAt: stats.lastViewedAt,
+      })
+    );
+
+    // 9. Weekly trends (last 4 weeks of sent/viewed data)
+    const weeklyTrends: Array<{ week: string; sent: number; viewed: number }> =
+      [];
+    const now = Date.now();
+    const oneWeek = 7 * 24 * 60 * 60 * 1000;
+
+    for (let i = 3; i >= 0; i--) {
+      const weekStart = now - (i + 1) * oneWeek;
+      const weekEnd = now - i * oneWeek;
+
+      const weekSummaries = allSummaries.filter(
+        (s) =>
+          s.deliveredAt && s.deliveredAt >= weekStart && s.deliveredAt < weekEnd
+      );
+
+      weeklyTrends.push({
+        week: `Week ${4 - i}`,
+        sent: weekSummaries.length,
+        viewed: weekSummaries.filter((s) => s.viewedAt).length,
+      });
+    }
+
+    return {
+      voiceNotesCreated,
+      insightsApplied,
+      insightsDismissed,
+      summariesSent,
+      summariesViewed,
+      summariesAcknowledged,
+      parentViewRate,
+      skillChanges,
+      injuriesRecorded,
+      recentSummaries,
+      teamObservations,
+      parentEngagement,
+      weeklyTrends,
+    };
+  },
+});
+
 // ============ INTERNAL MUTATIONS ============
 
 /**

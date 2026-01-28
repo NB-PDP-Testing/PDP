@@ -2240,6 +2240,22 @@ export default defineSchema({
     parentSummariesEnabled: v.optional(v.boolean()), // Generate parent summaries (default true)
     skipSensitiveInsights: v.optional(v.boolean()), // Skip injury/behavior from summaries (default false)
 
+    // Trust Gate Individual Override (P8 Week 1.5)
+    trustGateOverride: v.optional(v.boolean()), // true = bypass gates, false/null = follow org
+    overrideGrantedBy: v.optional(v.string()), // Admin or platform staff user ID
+    overrideGrantedAt: v.optional(v.number()),
+    overrideReason: v.optional(v.string()), // Why this coach got bypass
+    overrideExpiresAt: v.optional(v.number()), // Optional: time-boxed access
+
+    // Coach Self-Service Access Control (P8 Week 1.5 extension)
+    parentAccessEnabled: v.optional(v.boolean()), // Coach toggle (default true after approval)
+
+    // Admin Block Individual Coach (P8 Week 1.5 extension)
+    adminBlocked: v.optional(v.boolean()), // Admin blocked this specific coach
+    blockReason: v.optional(v.string()), // Why admin blocked
+    blockedBy: v.optional(v.string()), // User ID who blocked
+    blockedAt: v.optional(v.number()), // When blocked
+
     createdAt: v.number(),
     updatedAt: v.number(),
   })
@@ -2262,6 +2278,39 @@ export default defineSchema({
     // Timestamp
     completedAt: v.number(), // When checklist was completed
   }).index("by_summary", ["summaryId"]),
+
+  // Organization Admin Permissions (P8 Week 1.5)
+  // Tracks which admins have been delegated permission to manage feature flags
+  orgAdminPermissions: defineTable({
+    organizationId: v.string(),
+    memberId: v.string(), // Admin member ID from member table
+    canManageFeatureFlags: v.boolean(),
+    canManageCoachOverrides: v.boolean(),
+    grantedBy: v.string(), // Platform staff user ID who granted
+    grantedAt: v.number(),
+  }).index("by_org_member", ["organizationId", "memberId"]),
+
+  // Coach Override Requests (P8 Week 1.5)
+  // Request workflow for coaches to request trust gate bypass from admins
+  coachOverrideRequests: defineTable({
+    coachId: v.string(),
+    organizationId: v.string(),
+    featureType: v.string(), // "trust_gates" for now
+    reason: v.string(), // Coach's justification
+    status: v.union(
+      v.literal("pending"),
+      v.literal("approved"),
+      v.literal("denied"),
+      v.literal("expired")
+    ),
+    requestedAt: v.number(),
+    reviewedBy: v.optional(v.string()), // Admin who reviewed
+    reviewedAt: v.optional(v.number()),
+    reviewNotes: v.optional(v.string()), // Admin's notes
+  })
+    .index("by_coach_org", ["coachId", "organizationId"])
+    .index("by_org_status", ["organizationId", "status"])
+    .index("by_coach", ["coachId"]),
 
   // Organization Deletion Requests
   // Requires platform staff approval before deletion is executed

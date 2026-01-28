@@ -118,6 +118,22 @@ const customOrganizationTable = defineTable({
   sharingContactName: v.optional(v.union(v.null(), v.string())),
   sharingContactEmail: v.optional(v.union(v.null(), v.string())),
   sharingContactPhone: v.optional(v.union(v.null(), v.string())),
+
+  // Trust Gate Feature Flags (P8 Week 1.5)
+  // Master switch for voice notes trust gates - default true (conservative)
+  voiceNotesTrustGatesEnabled: v.optional(v.boolean()),
+  // Can admins manage trust gates for their org?
+  allowAdminDelegation: v.optional(v.boolean()),
+  // Can coaches request override access?
+  allowCoachOverrides: v.optional(v.boolean()),
+  // Admin blanket override - grants access to ALL coaches (overrides trust levels)
+  adminOverrideTrustGates: v.optional(v.boolean()),
+  adminOverrideSetBy: v.optional(v.string()), // User ID who set blanket override
+  adminOverrideSetAt: v.optional(v.number()),
+  // Admin blanket block - blocks ALL coaches from parent access (highest priority)
+  adminBlanketBlock: v.optional(v.boolean()),
+  adminBlanketBlockSetBy: v.optional(v.string()), // User ID who set blanket block
+  adminBlanketBlockSetAt: v.optional(v.number()),
 })
   .index("name", ["name"])
   .index("slug", ["slug"]);

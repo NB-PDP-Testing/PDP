@@ -1,0 +1,187 @@
+# Ralph Progress Log
+Started: Mon 26 Jan 2026 12:26:41 GMT
+---
+
+## CODE REVIEW FEEDBACK
+
+### Agent Feedback - 2026-01-26 12:26
+# Agent Feedback for Phase 6.3 (Admin Dashboard)
+
+Phase 6.3: US-017 to US-022 (6 stories)
+Branch: ralph/coach-parent-summaries-p6-phase3
+PRD: scripts/ralph/prds/coach-parent-summaries-phase6.3.prd.json
+
+<!-- Agents will write feedback below this line -->
+
+
+## Quality Monitor - 2026-01-26 12:12:47
+- ⚠️ Biome lint errors found
+
+
+## Quality Monitor - 2026-01-26 12:14:00
+- ⚠️ Biome lint errors found
+
+
+## Quality Monitor - 2026-01-26 12:15:14
+- ⚠️ Biome lint errors found
+
+
+## Quality Monitor - 2026-01-26 12:16:25
+- ⚠️ Biome lint errors found
+
+
+## Quality Monitor - 2026-01-26 12:17:37
+- ⚠️ Biome lint errors found
+
+
+## Quality Monitor - 2026-01-26 12:18:49
+- ⚠️ Biome lint errors found
+
+
+## Quality Monitor - 2026-01-26 12:20:03
+- ⚠️ Biome lint errors found
+
+
+## Quality Monitor - 2026-01-26 12:21:14
+- ⚠️ Biome lint errors found
+
+
+## Quality Monitor - 2026-01-26 12:22:26
+- ⚠️ Biome lint errors found
+
+
+## Quality Monitor - 2026-01-26 12:23:39
+- ⚠️ Biome lint errors found
+
+
+## Quality Monitor - 2026-01-26 12:24:51
+- ⚠️ Biome lint errors found
+
+
+## Quality Monitor - 2026-01-26 12:26:03
+- ⚠️ Biome lint errors found
+
+
+## Quality Monitor - 2026-01-26 12:26:27
+- ⚠️ Biome lint errors found
+
+
+## 2026-01-26 15:30 - US-011 - Add category preference controls to settings tab
+**Iteration**: 1
+**Commit**: 6c698a3f385b3930e06868e30b3f9b027e198ae0
+**Session**: 795cbc1c-0961-4d8d-a015-7cf4df749f57
+**Status**: Complete
+
+### What was implemented
+- Added Settings tab to the insights interface (3-tab layout: Pending Review, Auto-Applied, Settings)
+- Implemented checkbox controls for 4 insight categories: skills, attendance, goals, performance
+- Integrated with existing setInsightAutoApplyPreferences mutation
+- Added toast notifications for preference changes (using sonner)
+- Added safety note explaining injury/medical insights always require manual review
+- UI uses existing coachTrustLevel query to get current preferences
+
+### Files changed
+- apps/web/src/app/orgs/[orgId]/coach/voice-notes/components/insights-tab.tsx (+184, -5)
+
+### Quality checks
+- ✅ Type check: passed
+- ✅ Linting: passed (no new errors, 340 pre-existing errors unrelated to my changes)
+- ⚠️ Browser verification: Not completed (UI change but need dev server)
+
+### Learnings for future iterations ⚠️ CRITICAL
+
+**Patterns discovered:**
+- The insights tab already had 2 tabs (Pending Review, Auto-Applied)
+- Extended to 3 tabs by adding Settings tab
+- Used existing query (getCoachTrustLevelWithInsightFields) which includes insightAutoApplyPreferences
+- Mutation (setInsightAutoApplyPreferences) was already implemented in coachTrustLevels.ts
+- Toast notifications use 'sonner' library (imported as `import { toast } from "sonner"`)
+- Checkbox component from shadcn/ui: `import { Checkbox } from "@/components/ui/checkbox"`
+
+**Gotchas encountered:**
+- Initial commit (df9c2c2) was reverted because it only had API changes, no UI changes
+- Must import both Checkbox component AND toast function for this feature
+- Tab state type needed to be updated: `useState<"pending" | "auto-applied" | "settings">`
+- TabsList grid-cols changed from grid-cols-2 to grid-cols-3
+
+**Dependencies found:**
+- Checkbox component requires onCheckedChange handler
+- Handler receives `checked` parameter that can be boolean | "indeterminate"
+- Must cast to boolean: `checked as boolean`
+- Preferences default to false if not set (opt-in per category)
+
+**What works:**
+- Settings tab renders with all 4 checkboxes
+- Each checkbox shows current state from coachTrustLevel
+- Clicking checkbox calls setInsightAutoApplyPreferences mutation
+- Toast notifications display on change
+- Safety message about injury/medical is visible
+
+**Browser verification needed:**
+- [ ] Navigate to insights tab
+- [ ] Verify Settings tab appears
+- [ ] Toggle checkboxes
+- [ ] Verify toast notifications appear
+- [ ] Refresh page and verify preferences persist
+
+**Mistakes made:**
+- None - implementation was straightforward following the PRD
+
+---
+
+## 2026-01-26 16:00 - US-013 - Track and display undo reasons for AI improvement feedback
+**Iteration**: 1
+**Commit**: 459955341cf7b6eb259f45b8a33eb1299018e968
+**Session**: 795cbc1c-0961-4d8d-a015-7cf4df749f57
+**Status**: Complete (Backend query only - Admin UI page optional and not implemented)
+
+### What was implemented
+- Added getUndoReasonStats query to packages/backend/convex/models/voiceNoteInsights.ts
+- Query accepts optional organizationId and timeframeDays (defaults to 30 days)
+- Returns statistics: total undone insights, breakdown by reason with percentages, top 10 recent undone insights
+- Uses by_undo_status index for efficient querying of undone insights
+- Filters by timeframe and organizationId in JavaScript after fetching from index
+
+### Files changed
+- packages/backend/convex/models/voiceNoteInsights.ts (+97, -0)
+
+### Quality checks
+- ✅ Type check: passed
+- ✅ Linting: passed (no new errors)
+- ⚠️ Admin UI page: NOT implemented (marked as optional in PRD acceptance criteria)
+- ⚠️ Visual verification: Not applicable (backend-only change)
+
+### Learnings for future iterations ⚠️ CRITICAL
+
+**Patterns discovered:**
+- autoAppliedInsights table has by_undo_status index that only includes undoneAt field
+- No by_org or by_org_undo index exists, so must filter by org in JavaScript
+- Must use .withIndex() with existing indexes, cannot query without index
+- Available indexes: by_coach_org, by_insight, by_player_identity, by_applied_at, by_undo_status, by_coach_org_applied
+
+**Gotchas encountered:**
+- Initial attempt tried to use non-existent "by_org" index
+- Must collect all from index, then filter in JavaScript for multi-field filtering when index doesn't support it
+- by_undo_status index is efficient for finding undone insights (all records with undoneAt !== undefined)
+
+**Dependencies found:**
+- Query relies on undoReason field in autoAppliedInsights table
+- undoReason is optional and set when undoAutoAppliedInsight mutation is called
+- Query handles missing undoReason by using "unknown" as default
+
+**What works:**
+- Query efficiently fetches undone insights using by_undo_status index
+- Groups by reason and calculates percentages
+- Returns top 10 most recent undone insights with full context
+- Supports optional filtering by organization and timeframe
+
+**Admin UI page:**
+- Marked as optional in PRD: "Create admin page (optional)"
+- NOT implemented in this iteration
+- Query provides all data needed for future UI implementation or direct query access
+- Decision: Focus on backend infrastructure, UI can be added later if needed
+
+**Mistakes made:**
+- Initial attempt used non-existent index "by_org" - fixed by using by_undo_status and filtering in JS
+
+---

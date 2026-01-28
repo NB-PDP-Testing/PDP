@@ -25,6 +25,7 @@ import { Skeleton } from "@/components/ui/skeleton";
 import { AppliedInsightsSection } from "./applied-insights-section";
 import { ImpactSummaryCards } from "./impact-summary-cards";
 import { SentSummariesSection } from "./sent-summaries-section";
+import { TeamObservationsSection } from "./team-observations-section";
 
 type MyImpactTabProps = {
   orgId: BetterAuthId<"organization">;
@@ -211,21 +212,7 @@ export function MyImpactTab({ orgId, coachId }: MyImpactTabProps) {
       />
 
       {/* Phase 8 Week 2: Team observations section (US-P8-009) */}
-      <div>
-        <h3 className="mb-4 font-semibold text-muted-foreground text-sm uppercase tracking-wide">
-          Team Observations
-        </h3>
-        <div className="rounded-lg border-2 border-muted-foreground/25 border-dashed bg-muted/50 p-8 text-center">
-          <p className="text-muted-foreground text-sm">
-            <strong>Week 2 Implementation:</strong> Team-level insights and
-            observations from voice notes.
-          </p>
-          <p className="mt-2 text-muted-foreground text-xs">
-            Data available: {impactData.teamObservations.length} team
-            observations
-          </p>
-        </div>
-      </div>
+      <TeamObservationsSection observations={impactData.teamObservations} />
     </div>
   );
 }

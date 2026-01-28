@@ -65,7 +65,7 @@ type GuardianClaimTaskData = {
   }>;
 };
 
-// Type for child_linking task data (Phase 3)
+// Type for child_linking task data (Phase 3 + Phase 6 skip count)
 type ChildLinkingTaskData = {
   guardianIdentityId: Id<"guardianIdentities">;
   pendingChildren: Array<{
@@ -77,6 +77,7 @@ type ChildLinkingTaskData = {
     organizationId?: string;
     organizationName: string;
   }>;
+  skipCount?: number; // Phase 6: How many times user has skipped (max 3)
 };
 
 type OnboardingOrchestratorProps = {
@@ -162,6 +163,7 @@ function OnboardingStepRenderer({
         hasExistingGdprConsent={hasExistingGdprConsent}
         onComplete={onComplete}
         pendingLinks={pendingLinks}
+        skipCount={data.skipCount ?? 0}
       />
     );
   }

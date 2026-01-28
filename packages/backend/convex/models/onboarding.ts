@@ -15,7 +15,7 @@
 
 import { v } from "convex/values";
 import { components } from "../_generated/api";
-import { query } from "../_generated/server";
+import { mutation, query } from "../_generated/server";
 import { authComponent } from "../auth";
 
 // Task type definitions
@@ -371,12 +371,16 @@ export const getOnboardingTasks = query({
         const validPendingChildren = pendingChildren.filter(Boolean);
 
         if (validPendingChildren.length > 0) {
+          // Get user's skip count for child linking (Phase 6)
+          const skipCount = user?.childLinkingSkipCount ?? 0;
+
           tasks.push({
             type: "child_linking",
             priority: 3,
             data: {
               guardianIdentityId: userGuardian._id,
               pendingChildren: validPendingChildren,
+              skipCount, // Phase 6: Include skip count for UI to show/hide skip button
             },
           });
         }
@@ -395,5 +399,47 @@ export const getOnboardingTasks = query({
     tasks.sort((a, b) => a.priority - b.priority);
 
     return tasks;
+  },
+});
+
+/**
+ * Increment the child linking skip count for the current user.
+ *
+ * Called when user clicks "Skip for Now" on the child linking step.
+ * Maximum of 3 skips - after that, the user must take action.
+ *
+ * Returns the new skip count or null if user not found.
+ */
+export const incrementChildLinkingSkipCount = mutation({
+  args: {},
+  returns: v.union(v.object({ newSkipCount: v.number() }), v.null()),
+  handler: async (ctx) => {
+    const identity = await ctx.auth.getUserIdentity();
+    if (!identity) {
+      return null;
+    }
+
+    const user = await authComponent.safeGetAuthUser(ctx);
+    if (!user) {
+      return null;
+    }
+
+    const currentCount =
+      (user as { childLinkingSkipCount?: number }).childLinkingSkipCount ?? 0;
+    const newCount = currentCount + 1;
+
+    // Update the user record
+    await ctx.runMutation(components.betterAuth.adapter.updateOne, {
+      input: {
+        model: "user",
+        where: [{ field: "_id", value: user._id as string, operator: "eq" }],
+        update: {
+          childLinkingSkipCount: newCount,
+          updatedAt: Date.now(),
+        },
+      },
+    });
+
+    return { newSkipCount: newCount };
   },
 });

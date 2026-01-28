@@ -1,0 +1,409 @@
+{
+  "name": "P8 Week 3 - Navigation & Polish",
+  "version": "1.0.0",
+  "phase": "Phase 8 - Coach Impact Visibility",
+  "week": "Week 3",
+  "status": "READY TO START",
+  "readinessLevel": "100%",
+  "priority": "HIGH",
+  "dependencies": {
+    "prerequisiteWork": [
+      "P8 Week 1 (Foundation) - COMPLETE ✅",
+      "P8 Week 1.5 (Trust Gate & Self-Service) - COMPLETE ✅",
+      "P8 Week 2 (My Impact Dashboard) - COMPLETE ✅"
+    ],
+    "existingQueries": [
+      "getCoachImpactSummary (US-P8-001) - Returns impact summary data",
+      "listCoachParentSummaries - Returns sent summaries with view status",
+      "getCoachInsights - Returns applied insights with player data"
+    ],
+    "existingComponents": [
+      "my-impact-tab.tsx - Main dashboard structure",
+      "impact-summary-cards.tsx - 4 metric cards",
+      "sent-summaries-section.tsx - Parent engagement table",
+      "applied-insights-section.tsx - Applied insights grouped by category"
+    ]
+  },
+  "problemStatement": {
+    "userPain": "Coaches have a beautiful My Impact dashboard showing applied insights and sent summaries, but there's a critical navigation gap: no way to jump from insights to player passports, or from passports back to source voice notes. Coaches must manually navigate, losing context and wasting time.",
+    "currentState": "Disconnected views - insights and passports exist in silos",
+    "desiredState": "Bi-directional navigation with deep linking - click insight card → jump to passport → click source badge → jump back to voice note",
+    "impact": "Coaches can quickly review full player context when evaluating insights, and trace passport data back to source voice notes for verification"
+  },
+  "objectives": [
+    "Enable one-click navigation from insight cards to player passports",
+    "Show source attribution in player passports (skill assessments, injury records)",
+    "Implement deep linking from passports back to specific voice notes",
+    "Add parent engagement analytics (least engaged parents, trends chart)",
+    "Enable impact report export (CSV format)",
+    "Add period-over-period comparisons to summary metrics",
+    "Polish UX with loading skeletons"
+  ],
+  "scope": {
+    "included": [
+      "Navigation links from Applied Insights → Player Passport (all insight types)",
+      "Source badges on skill assessments in passport (voice note attribution)",
+      "Source badges on injury records in passport (voice note attribution)",
+      "Deep linking to voice notes with scroll + highlight animation",
+      "Parent engagement section showing least engaged parents (bottom 5)",
+      "Engagement trends chart (4-week line chart)",
+      "CSV export for applied insights",
+      "Previous period comparison on summary cards",
+      "Loading skeleton for My Impact tab"
+    ],
+    "excluded": [
+      "PDF export (deferred - CSV only for now)",
+      "Advanced filtering beyond existing category filters",
+      "Parent communication features (separate phase)",
+      "Team comparison analytics (future enhancement)",
+      "Insight recommendation engine (future AI feature)"
+    ]
+  },
+  "userStories": [
+    {
+      "id": "US-P8-012",
+      "title": "Add 'View in Passport' Links to Insight Cards",
+      "asA": "coach",
+      "iWant": "to click an insight card and jump directly to the player's passport",
+      "soThat": "I can see the full context of what was applied",
+      "acceptanceCriteria": [
+        "Every insight card in Applied Insights section shows link",
+        "Link text: 'View in [PlayerName]'s Passport →'",
+        "Link styled as primary color with hover underline",
+        "Link navigates to /orgs/[orgId]/players/[playerIdentityId]/passport",
+        "Deep link to specific section: Skills tab for skill insights, Health tab for injuries, Attendance tab for attendance",
+        "Link opens in same tab (not new window)",
+        "Link shows loading state during navigation",
+        "Type check passes",
+        "Visual verification: Links navigate correctly to passport sections"
+      ],
+      "priority": "HIGH",
+      "estimatedHours": 0.5,
+      "files": [
+        "apps/web/src/app/orgs/[orgId]/coach/voice-notes/components/applied-insights-section.tsx"
+      ]
+    },
+    {
+      "id": "US-P8-013",
+      "title": "Add Source Badge to Skill Assessments in Passport",
+      "asA": "coach viewing a player passport",
+      "iWant": "to see when a skill assessment came from a voice note",
+      "soThat": "I can review the original context if needed",
+      "acceptanceCriteria": [
+        "When viewing skill assessment with source: 'voice_note'",
+        "Show small badge: 'From voice note (Jan 26)'",
+        "Badge positioned below skill value, subtle gray color",
+        "Badge clickable to navigate to voice note detail",
+        "Badge includes small icon: Mic from lucide-react",
+        "Badge NOT shown for manual assessments (source: 'manual')",
+        "Type check passes",
+        "Visual verification: Badge appears for voice note skills, clickable"
+      ],
+      "priority": "HIGH",
+      "estimatedHours": 0.75,
+      "files": [
+        "apps/web/src/app/orgs/[orgId]/players/[playerId]/components/skill-assessment-display.tsx"
+      ],
+      "technicalNotes": "⚠️ CRITICAL: Check if skillAssessments table has 'source' and 'voiceNoteId' fields first. If not, add to schema before implementing."
+    },
+    {
+      "id": "US-P8-014",
+      "title": "Add Source Badge to Injury Records in Passport",
+      "asA": "coach viewing a player passport",
+      "iWant": "to see when an injury record came from a voice note",
+      "soThat": "I can review the original context if needed",
+      "acceptanceCriteria": [
+        "When viewing injury record with source: 'voice_note'",
+        "Show small badge: 'From voice note (Jan 26)'",
+        "Badge positioned below injury description",
+        "Badge clickable to navigate to voice note detail",
+        "Badge includes small icon: Mic from lucide-react",
+        "Badge NOT shown for manual injury entries",
+        "Type check passes",
+        "Visual verification: Badge appears for voice note injuries, clickable"
+      ],
+      "priority": "HIGH",
+      "estimatedHours": 0.75,
+      "files": [
+        "apps/web/src/app/orgs/[orgId]/players/[playerId]/components/injury-record-display.tsx"
+      ],
+      "technicalNotes": "⚠️ CRITICAL: Check if playerInjuries table has 'source' and 'voiceNoteId' fields first. If not, add to schema before implementing."
+    },
+    {
+      "id": "US-P8-015",
+      "title": "Add Voice Note Deep Linking from Passport",
+      "asA": "coach",
+      "iWant": "to click a source badge and see the specific insight highlighted",
+      "soThat": "I can quickly find the relevant part of the voice note",
+      "acceptanceCriteria": [
+        "Voice notes page accepts noteId query param",
+        "When noteId present, scroll to that note in History tab",
+        "Highlight the note card with subtle animation (fade border pulse)",
+        "Expand the note detail if collapsed",
+        "If insight ID also provided, highlight specific insight within note",
+        "URL format: /coach/voice-notes?noteId=X&insightId=Y",
+        "Type check passes",
+        "Visual verification: Deep linking works, highlight visible"
+      ],
+      "priority": "HIGH",
+      "estimatedHours": 1.0,
+      "files": [
+        "apps/web/src/app/orgs/[orgId]/coach/voice-notes/voice-notes-dashboard.tsx",
+        "apps/web/src/app/orgs/[orgId]/coach/voice-notes/components/history-tab.tsx"
+      ]
+    },
+    {
+      "id": "US-P8-016",
+      "title": "Add Least Engaged Parents Section to My Impact",
+      "asA": "coach",
+      "iWant": "to see which parents are not viewing summaries",
+      "soThat": "I can follow up with them personally",
+      "acceptanceCriteria": [
+        "Add 'Parent Engagement' section to My Impact tab",
+        "Section shows parents with lowest view rate",
+        "Display format: Parent name, player name, summaries sent count, view rate %, last viewed timestamp",
+        "List shows bottom 5 least engaged parents",
+        "Red/warning color if view rate < 30%",
+        "Yellow/caution color if view rate 30-60%",
+        "Green if view rate > 60%",
+        "Empty state if all parents engaged or no summaries sent",
+        "Type check passes",
+        "Visual verification: Shows least engaged parents with color coding"
+      ],
+      "priority": "MEDIUM",
+      "estimatedHours": 1.5,
+      "files": [
+        "packages/backend/convex/models/voiceNotes.ts",
+        "apps/web/src/app/orgs/[orgId]/coach/voice-notes/components/my-impact-tab.tsx"
+      ],
+      "backendChanges": "Extend getCoachImpactSummary to include parentEngagement array with guardian data, view rates, last viewed timestamps"
+    },
+    {
+      "id": "US-P8-017",
+      "title": "Add Engagement Trends Chart to My Impact",
+      "asA": "coach",
+      "iWant": "to see trends in parent engagement over time",
+      "soThat": "I can understand if my communication is improving",
+      "acceptanceCriteria": [
+        "Add 'Engagement Trends' chart below parent engagement section",
+        "Chart shows last 4 weeks of data",
+        "Two lines plotted: Summaries sent (blue), Summaries viewed (green)",
+        "X-axis: Week labels (Week 1, Week 2, etc.)",
+        "Y-axis: Count",
+        "Hover tooltip shows exact values",
+        "Chart responsive: shrinks on mobile, full width on desktop",
+        "Use recharts library (already in project)",
+        "Empty state if insufficient data (< 2 weeks)",
+        "Type check passes",
+        "Visual verification: Chart renders correctly, responsive"
+      ],
+      "priority": "MEDIUM",
+      "estimatedHours": 1.0,
+      "files": [
+        "packages/backend/convex/models/voiceNotes.ts",
+        "apps/web/src/app/orgs/[orgId]/coach/voice-notes/components/my-impact-tab.tsx"
+      ],
+      "backendChanges": "Extend getCoachImpactSummary to include weeklyTrends array with weekly summary counts"
+    },
+    {
+      "id": "US-P8-018",
+      "title": "Add Export Impact Report Button",
+      "asA": "coach",
+      "iWant": "to export my impact summary as CSV",
+      "soThat": "I can share it with club management or keep records",
+      "acceptanceCriteria": [
+        "'Export Report' button in My Impact tab header",
+        "Button shows dropdown: 'PDF' or 'CSV'",
+        "Selecting CSV: Generates CSV with applied insights data",
+        "CSV columns: Date, Player, Type, Description, Status",
+        "CSV downloads to user's device",
+        "File name: applied-insights-[coach-name]-[date].csv",
+        "Loading state during generation",
+        "Toast notification on success",
+        "PDF option shows 'Coming Soon' toast (deferred)",
+        "Type check passes",
+        "Visual verification: Export works, CSV file valid"
+      ],
+      "priority": "LOW",
+      "estimatedHours": 0.75,
+      "files": [
+        "apps/web/src/app/orgs/[orgId]/coach/voice-notes/components/my-impact-tab.tsx"
+      ],
+      "technicalNotes": "CSV only for MVP. PDF export deferred to future sprint."
+    },
+    {
+      "id": "US-P8-019",
+      "title": "Add Comparison with Previous Period",
+      "asA": "coach",
+      "iWant": "to see how my current period compares to the previous one",
+      "soThat": "I can understand if I'm improving",
+      "acceptanceCriteria": [
+        "Summary cards show comparison with previous period",
+        "Display format: '+3 vs last month' or '-2 vs last week'",
+        "Green text/icon for improvements (↑)",
+        "Red text/icon for decreases (↓)",
+        "Gray if no change (=)",
+        "Comparison based on current date range filter",
+        "Comparison hidden if insufficient historical data",
+        "Type check passes",
+        "Visual verification: Comparisons show correctly with color coding"
+      ],
+      "priority": "MEDIUM",
+      "estimatedHours": 1.0,
+      "files": [
+        "packages/backend/convex/models/voiceNotes.ts",
+        "apps/web/src/app/orgs/[orgId]/coach/voice-notes/components/impact-summary-cards.tsx"
+      ],
+      "backendChanges": "Extend getCoachImpactSummary to include previousPeriodStats object"
+    },
+    {
+      "id": "US-P8-020",
+      "title": "Add Loading Skeleton to My Impact Tab",
+      "asA": "user",
+      "iWant": "to see a loading skeleton while data fetches",
+      "soThat": "the page doesn't appear broken or empty",
+      "acceptanceCriteria": [
+        "Loading skeleton shows while getCoachImpactSummary query pending",
+        "Skeleton mimics actual layout: 4 card skeletons, 3 list item skeletons for each section",
+        "Skeleton uses shadcn Skeleton component",
+        "Skeleton has subtle pulse animation",
+        "Skeleton replaced by real data when query completes",
+        "Type check passes",
+        "Visual verification: Skeleton shows on initial load, smooth transition to data"
+      ],
+      "priority": "LOW",
+      "estimatedHours": 0.5,
+      "files": [
+        "apps/web/src/app/orgs/[orgId]/coach/voice-notes/components/my-impact-tab.tsx"
+      ]
+    }
+  ],
+  "technicalApproach": {
+    "backend": {
+      "changes": [
+        "Extend getCoachImpactSummary query with parentEngagement array (US-P8-016)",
+        "Extend getCoachImpactSummary query with weeklyTrends array (US-P8-017)",
+        "Extend getCoachImpactSummary query with previousPeriodStats object (US-P8-019)",
+        "Calculate parent-level engagement metrics from coachParentSummaries table",
+        "Group summaries by week for last 4 weeks",
+        "Query same date range shifted backward for previous period comparison"
+      ],
+      "newQueries": [],
+      "modifiedQueries": [
+        "getCoachImpactSummary - Add parentEngagement, weeklyTrends, previousPeriodStats to return type"
+      ],
+      "schemaChanges": [
+        "⚠️ CONDITIONAL: If skillAssessments doesn't have source/voiceNoteId, add them",
+        "⚠️ CONDITIONAL: If playerInjuries doesn't have source/voiceNoteId, add them"
+      ]
+    },
+    "frontend": {
+      "newComponents": [],
+      "modifiedComponents": [
+        "applied-insights-section.tsx - Add 'View in Passport' links",
+        "skill-assessment-display.tsx - Add source badge",
+        "injury-record-display.tsx - Add source badge",
+        "voice-notes-dashboard.tsx - Handle noteId query param",
+        "history-tab.tsx - Scroll and highlight logic",
+        "my-impact-tab.tsx - Parent engagement, trends chart, export, skeleton",
+        "impact-summary-cards.tsx - Add comparison indicators"
+      ],
+      "newHooks": [],
+      "stateManagement": "No new state - use existing query params and React state"
+    }
+  },
+  "testingStrategy": {
+    "testScenarios": [
+      "TC-W3-001: View in Passport Links - Click insight → verify lands on correct passport tab",
+      "TC-W3-002: Source Badges on Skills - Verify badge shows for voice note skills, not manual",
+      "TC-W3-003: Deep Linking Highlight - Click source badge → verify navigation, scroll, highlight",
+      "TC-W3-004: Parent Engagement Section - Verify shows bottom 5 with correct color coding",
+      "TC-W3-005: Engagement Trends Chart - Verify chart renders, responsive, tooltip works",
+      "TC-W3-006: Export CSV - Verify CSV exports with correct columns and filename",
+      "TC-W3-007: Previous Period Comparison - Verify comparisons show with correct colors",
+      "TC-W3-008: Loading Skeleton - Verify skeleton shows before data loads"
+    ],
+    "regressionTests": [
+      "Verify Week 1 functionality still works (trust gate)",
+      "Verify Week 1.5 functionality still works (self-service access control)",
+      "Verify Week 2 functionality still works (impact dashboard sections)"
+    ]
+  },
+  "implementation": {
+    "phaseOrder": [
+      "Phase 1: Backend Foundation - Extend getCoachImpactSummary query (30 min)",
+      "Phase 2: Navigation Links - Add 'View in Passport' + source badges (1 hour)",
+      "Phase 3: Deep Linking - Implement scroll + highlight animation (45 min)",
+      "Phase 4: Analytics & Export - Parent engagement, trends, CSV export (1.5 hours)",
+      "Phase 5: Polish - Loading skeleton, comparisons (30 min)",
+      "Phase 6: Testing & Documentation - Create testing guide, checkpoint (30 min)"
+    ],
+    "estimatedTotalTime": "4-6 hours"
+  },
+  "documentation": {
+    "requiredDocs": [
+      "P8_WEEK3_TESTING_GUIDE.md - Manual test cases for Week 3 features",
+      "P8_WEEK3_CHECKPOINT.md - Completion summary and handoff notes"
+    ],
+    "existingDocs": [
+      "P8_WEEK3_READY_TO_RUN.md - This PRD and implementation guide",
+      "scripts/ralph/prds/Coaches Voice Insights/P8_COACH_IMPACT_VISIBILITY.md - Main PRD with Week 3 section"
+    ]
+  },
+  "risks": [
+    {
+      "risk": "Schema fields (source, voiceNoteId) may not exist in skillAssessments/playerInjuries tables",
+      "mitigation": "Check schema first. If missing, add fields before implementing badges.",
+      "severity": "MEDIUM"
+    },
+    {
+      "risk": "Deep linking scroll behavior may be inconsistent across browsers",
+      "mitigation": "Test in Chrome, Safari, Firefox. Use standard scrollIntoView API.",
+      "severity": "LOW"
+    },
+    {
+      "risk": "Parent engagement calculation may be slow with large datasets",
+      "mitigation": "Use indexed queries, limit to last 90 days of data",
+      "severity": "LOW"
+    },
+    {
+      "risk": "CSV export may fail with special characters in player names/descriptions",
+      "mitigation": "Properly escape commas and quotes in CSV generation",
+      "severity": "LOW"
+    }
+  ],
+  "successCriteria": [
+    "All 9 user stories implemented and tested",
+    "Type checking passes: npm run check-types",
+    "Linting passes: npx ultracite fix",
+    "Navigation flows work bi-directionally (insights ↔ passport ↔ voice notes)",
+    "Parent engagement analytics visible and accurate",
+    "CSV export produces valid file with correct data",
+    "Loading skeleton shows before data loads",
+    "All regression tests pass (Weeks 1, 1.5, 2 still work)"
+  ],
+  "knownLimitations": [
+    "PDF export deferred - CSV only for now",
+    "Parent engagement limited to last 90 days (performance)",
+    "Trends chart limited to last 4 weeks (enough for actionable insights)",
+    "No advanced filtering beyond existing category filters",
+    "Deep linking doesn't expand collapsed sections within passport tabs (future enhancement)"
+  ],
+  "futureEnhancements": [
+    "PDF export with formatted impact report",
+    "Email parents directly from least engaged section",
+    "Customizable date range for trends chart (6 weeks, 8 weeks, etc.)",
+    "Drill-down from trends chart to specific week data",
+    "Export parent engagement metrics separately",
+    "Team comparison analytics (compare my impact vs other coaches)"
+  ],
+  "metadata": {
+    "createdDate": "2026-01-28",
+    "createdBy": "Claude (AI Assistant)",
+    "lastUpdated": "2026-01-28",
+    "ralphContext": "scripts/ralph/P8_WEEK3_READY_TO_RUN.md",
+    "mainPRD": "scripts/ralph/prds/Coaches Voice Insights/P8_COACH_IMPACT_VISIBILITY.md",
+    "branch": "ralph/coach-impact-visibility-p8-week3",
+    "estimatedCompletionDate": "2026-01-29"
+  }
+}

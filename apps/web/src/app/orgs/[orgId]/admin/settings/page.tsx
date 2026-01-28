@@ -27,6 +27,7 @@ import { toast } from "sonner";
 import { LogoUpload } from "@/components/logo-upload";
 import { OrgThemedButton } from "@/components/org-themed-button";
 import { DensityToggle } from "@/components/polish/density-toggle";
+import { NotificationPreferences } from "@/components/settings/notification-preferences";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import {
@@ -630,6 +631,9 @@ export default function OrgSettingsPage() {
           </div>
         </CardContent>
       </Card>
+
+      {/* Notification Preferences */}
+      <NotificationPreferences />
 
       {/* Help & Support */}
       <Card>

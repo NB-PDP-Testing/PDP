@@ -23,6 +23,7 @@ import {
 } from "@/components/ui/select";
 import { Skeleton } from "@/components/ui/skeleton";
 import { ImpactSummaryCards } from "./impact-summary-cards";
+import { SentSummariesSection } from "./sent-summaries-section";
 
 type MyImpactTabProps = {
   orgId: BetterAuthId<"organization">;
@@ -199,20 +200,7 @@ export function MyImpactTab({ orgId, coachId }: MyImpactTabProps) {
       <ImpactSummaryCards data={impactData} />
 
       {/* Phase 8 Week 2: Sent summaries section (US-P8-006) */}
-      <div>
-        <h3 className="mb-4 font-semibold text-muted-foreground text-sm uppercase tracking-wide">
-          Recent Summaries Sent
-        </h3>
-        <div className="rounded-lg border-2 border-muted-foreground/25 border-dashed bg-muted/50 p-8 text-center">
-          <p className="text-muted-foreground text-sm">
-            <strong>Week 2 Implementation:</strong> List of recent summaries
-            with parent engagement badges (viewed/acknowledged).
-          </p>
-          <p className="mt-2 text-muted-foreground text-xs">
-            Data available: {impactData.recentSummaries.length} recent summaries
-          </p>
-        </div>
-      </div>
+      <SentSummariesSection summaries={impactData.recentSummaries} />
 
       {/* Phase 8 Week 2: Applied insights section (US-P8-007) */}
       <div>

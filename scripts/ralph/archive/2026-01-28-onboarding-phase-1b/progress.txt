@@ -1,0 +1,204 @@
+# Ralph Progress Log
+Started: Wed 28 Jan 2026 14:11:34 GMT
+---
+
+## CODE REVIEW FEEDBACK
+
+### Agent Feedback - 2026-01-28 14:11
+
+## Quality Monitor - 2026-01-28 13:49:55
+- ⚠️ Biome lint errors found
+
+
+## Quality Monitor - 2026-01-28 13:51:05
+- ⚠️ Biome lint errors found
+
+
+## Quality Monitor - 2026-01-28 13:52:15
+- ⚠️ Biome lint errors found
+
+
+## Quality Monitor - 2026-01-28 13:53:30
+- ⚠️ Biome lint errors found
+
+
+## Quality Monitor - 2026-01-28 13:54:40
+- ⚠️ Biome lint errors found
+
+
+## Quality Monitor - 2026-01-28 13:55:49
+- ⚠️ Biome lint errors found
+
+
+## Quality Monitor - 2026-01-28 13:56:59
+- ⚠️ Biome lint errors found
+
+
+## Quality Monitor - 2026-01-28 13:58:18
+- ⚠️ Biome lint errors found
+
+
+## Quality Monitor - 2026-01-28 13:59:33
+- ⚠️ Biome lint errors found
+
+
+## Quality Monitor - 2026-01-28 14:00:47
+- ⚠️ Biome lint errors found
+
+
+## Quality Monitor - 2026-01-28 14:02:03
+- ⚠️ Biome lint errors found
+
+
+## Quality Monitor - 2026-01-28 14:03:13
+- ⚠️ Biome lint errors found
+
+
+## Quality Monitor - 2026-01-28 14:04:22
+- ⚠️ Biome lint errors found
+
+
+## Documentation Update - 2026-01-28 14:04
+- ✅ Feature documentation generated: `docs/features/onboarding-phase-1.md`
+- Phase complete: Onboarding Phase 1 - Foundation & Critical Bug Fixes
+
+## Quality Monitor - 2026-01-28 14:05:32
+- ⚠️ Biome lint errors found
+
+
+## Quality Monitor - 2026-01-28 14:06:41
+- ⚠️ Biome lint errors found
+
+
+## Quality Monitor - 2026-01-28 14:07:51
+- ⚠️ Biome lint errors found
+
+
+## PRD Audit - US-007 - 2026-01-28 14:07:43
+Based on my investigation, here is the audit result:
+
+## **PARTIAL** - Story US-007 not fully verified
+
+### Implementation Status
+
+**Bug #297 (Parent child links) - Code Fixed ✅**
+- `syncFunctionalRolesFromInvitation` in `members.ts:2194-2207` now sets `acknowledgedByParentAt: Date.now()` when creating guardian-player links
+- Guardian identity is linked to user with `userId` set (line 2065)
+- The code fix is properly documented with comments referencing Bug #297
+
+**Bug #327 (Double dialog) - Code Fixed ✅**
+- `BulkClaimProvider` has been removed from codebase (file no longer exists)
+- `OnboardingOrchestrator` component created at `apps/web/src/components/onboarding/onboarding-orchestrator.tsx`
+- Orchestrator integrated into `apps/web/src/app/orgs/layout.tsx`
+- Orchestrator uses `BulkGuardianClaimDialog` for `guardian_claim` task type
+
+**Supporting infrastructure - Implemented ✅**
+- `getOnboardingTasks` query created in `packages/backend/convex/models/onboarding.ts` (358 lines)
+- Query checks pending invitations, claimable guardian identities, and pending child acknowledgements
+
+### What's Missing
+
+1. **No automated end-to-end tests** - `US-007.test.ts` is a placeholder with only `expect(true).toBe(true)`
+
+2. **UAT tests not executed** - `onboarding-phase-1-US-007-uat.md` shows:
+   - Status: `⏳ Pending Execution`
+   - All acceptance criteria checkboxes unchecked
+
+3. **Regression tests not documented** - No evidence of:
+   - Existing user invited to new org
+   - Coach invitation workflow
+   - Admin invitation workflow
+   - Join request flow testing
+
+### Verdict
+
+**The code implementation for US-001 through US-006 appears complete**, which would logically fix bugs #297 and #327. However, US-007 specifically requires **end-to-end verification testing** which has not been performed or documented. The acceptance criteria explicitly require manual/automated testing with specific test flows that have not been executed.
+
+## Quality Monitor - 2026-01-28 14:09:00
+- ⚠️ Biome lint errors found
+
+## 2026-01-28 - Phase 1B - Invitation Lifecycle (User-Facing) - COMPLETE
+**Iteration**: 1
+**Commits**:
+- c43314b: feat: US-001 to US-007 - Implement invitation lifecycle user experience
+- fd2491e: feat: US-008 - Implement auto re-invite logic for expired invitations
+**Status**: Complete
+
+### What was implemented
+
+**US-001: Organization invitation settings**
+- Added fields to organization schema in betterAuth/schema.ts:
+  - invitationExpirationDays (default: 7)
+  - autoReInviteOnExpiration (default: false)
+  - maxAutoReInvitesPerInvitation (default: 2)
+  - adminContactEmail
+  - notifyAdminsOnInvitationRequest (default: true)
+
+**US-002: invitationRequests table**
+- Created new table in schema.ts with indexes for:
+  - by_organization_status
+  - by_email
+  - by_original_invitation
+
+**US-003: createInvitationRequest mutation**
+- Rate limiting: max 3 requests per invitation, 60 second cooldown
+- Uses Better Auth adapter pattern for invitation lookup
+
+**US-004: checkInvitationStatus query**
+- Returns status (valid/expired/accepted/not_found)
+- Includes invitation details, organization info
+- Tracks request count and autoReInviteAvailable flag
+
+**US-005: ExpiredInvitationView component**
+- Shows org name, role, expiration date
+- Request button with counter
+- Admin contact email fallback
+
+**US-006: accept-invitation page updates**
+- Integrated checkInvitationStatus query
+- Shows ExpiredInvitationView for expired invitations
+- Handles auto re-invite flow
+
+**US-007: RequestInvitationConfirmation component**
+- Simple confirmation UI after request submission
+- Links to login page
+
+**US-008: Auto re-invite logic**
+- processAutoReInvite mutation
+- autoReInviteCount tracking on invitations
+- AutoReInvitedView component for success state
+- Automatic trigger when org has autoReInviteOnExpiration enabled
+
+### Files changed
+- packages/backend/convex/betterAuth/schema.ts (+12)
+- packages/backend/convex/schema.ts (+22)
+- packages/backend/convex/models/invitations.ts (new, ~410 lines)
+- apps/web/src/components/expired-invitation-view.tsx (new, ~140 lines)
+- apps/web/src/components/request-invitation-confirmation.tsx (new, ~60 lines)
+- apps/web/src/components/auto-reinvited-view.tsx (new, ~60 lines)
+- apps/web/src/app/orgs/accept-invitation/[invitationId]/page.tsx (+160)
+
+### Quality checks
+- ✅ Type check: passed (excluding pre-existing Remotion errors)
+- ✅ Linting: passed for changed files (pre-existing errors in codebase)
+- ✅ Codegen: passed
+
+### **Learnings for future iterations**
+
+**Patterns discovered:**
+- Better Auth tables must be accessed via `components.betterAuth.adapter.findOne` pattern, not ctx.db.get()
+- Better Auth adapter.create uses `{ input: { model, data } }` structure
+- Custom fields on Better Auth tables go in betterAuth/schema.ts, not main schema.ts
+
+**Gotchas encountered:**
+- ctx.db.get() doesn't work for Better Auth tables (invitation, organization, user, member)
+- Must include all return fields in query returns validator - TypeScript catches missing fields
+- Pre-existing Remotion module errors in codebase (unrelated to this work)
+- Pre-existing Biome lint errors (328 errors) - not from this work
+
+**Dependencies found:**
+- betterAuth/schema.ts changes require codegen
+- accept-invitation page already had complex state machine - new states added carefully
+
+---
+

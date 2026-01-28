@@ -8,7 +8,7 @@
  * and renders the appropriate step component.
  *
  * Phase 1: Skeleton with guardian_claim step implemented
- * Phase 2+: Will add more step components (GDPR, welcome, etc.)
+ * Phase 2: Added GDPR consent as first step (priority 0)
  */
 
 import { api } from "@pdp/backend/convex/_generated/api";
@@ -25,10 +25,16 @@ import {
   DialogTitle,
 } from "@/components/ui/dialog";
 import { authClient } from "@/lib/auth-client";
+import { GdprConsentStep } from "./gdpr-consent-step";
 
 // Task type from the backend
 type OnboardingTask = {
-  type: "accept_invitation" | "guardian_claim" | "child_linking" | "welcome";
+  type:
+    | "gdpr_consent"
+    | "accept_invitation"
+    | "guardian_claim"
+    | "child_linking"
+    | "welcome";
   priority: number;
   data: unknown;
 };
@@ -73,6 +79,19 @@ function OnboardingStepRenderer({
   userId: string | undefined;
   onComplete: () => void;
 }) {
+  // Get current GDPR version for GDPR consent task
+  const gdprVersion = useQuery(api.models.gdpr.getCurrentGdprVersion);
+
+  // Handle gdpr_consent task - always shown first (priority 0)
+  if (task.type === "gdpr_consent") {
+    // Wait for GDPR version to load
+    if (!gdprVersion) {
+      return null; // Loading state
+    }
+
+    return <GdprConsentStep gdprVersion={gdprVersion} onAccept={onComplete} />;
+  }
+
   // Handle guardian_claim task with BulkGuardianClaimDialog
   if (task.type === "guardian_claim" && userId) {
     const data = task.data as GuardianClaimTaskData;
@@ -107,6 +126,8 @@ function OnboardingStepRenderer({
   // Placeholder for other task types
   const getTaskTitle = (type: string) => {
     switch (type) {
+      case "gdpr_consent":
+        return "Privacy Policy";
       case "accept_invitation":
         return "Pending Invitation";
       case "guardian_claim":
@@ -122,6 +143,8 @@ function OnboardingStepRenderer({
 
   const getTaskDescription = (type: string) => {
     switch (type) {
+      case "gdpr_consent":
+        return "Please review and accept our privacy policy to continue.";
       case "accept_invitation":
         return "You have pending organization invitations to review.";
       case "guardian_claim":

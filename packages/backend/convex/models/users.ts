@@ -51,6 +51,10 @@ export const getCurrentUser = query({
 
       // Current organization tracking
       currentOrgId: v.optional(v.string()),
+
+      // GDPR consent tracking
+      gdprConsentVersion: v.optional(v.number()),
+      gdprConsentedAt: v.optional(v.number()),
     })
   ),
   handler: async (ctx) => {

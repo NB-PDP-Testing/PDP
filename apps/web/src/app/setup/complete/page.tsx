@@ -1,11 +1,10 @@
 "use client";
 
 import { api } from "@pdp/backend/convex/_generated/api";
-import { useQuery } from "convex/react";
+import { useMutation, useQuery } from "convex/react";
 import { ArrowRight, CheckCircle, Trophy, UserPlus, Users } from "lucide-react";
-import type { Route } from "next";
 import { useRouter, useSearchParams } from "next/navigation";
-import { Suspense } from "react";
+import { Suspense, useEffect, useRef } from "react";
 import { PDPLogo } from "@/components/pdp-logo";
 import { Button } from "@/components/ui/button";
 
@@ -14,7 +13,20 @@ function SetupCompleteContent() {
   const searchParams = useSearchParams();
   const orgId = searchParams.get("orgId");
   const orgName = searchParams.get("orgName");
+  const invited = searchParams.get("invited");
   const currentUser = useQuery(api.models.users.getCurrentUser);
+  const completeSetup = useMutation(api.models.setup.completeSetup);
+  const hasCompletedRef = useRef(false);
+
+  // Mark setup as complete when page mounts
+  useEffect(() => {
+    if (currentUser && !hasCompletedRef.current) {
+      hasCompletedRef.current = true;
+      completeSetup().catch((error) => {
+        console.error("Failed to mark setup as complete:", error);
+      });
+    }
+  }, [currentUser, completeSetup]);
 
   // Redirect if not authenticated
   if (currentUser === null) {
@@ -24,7 +36,7 @@ function SetupCompleteContent() {
 
   // Redirect if not platform staff (shouldn't happen, but safety check)
   if (currentUser && !currentUser.isPlatformStaff) {
-    router.push("/orgs/current" as Route);
+    router.push("/orgs/current");
     return null;
   }
 
@@ -38,9 +50,9 @@ function SetupCompleteContent() {
 
   const handleContinue = () => {
     if (orgId) {
-      router.push(`/orgs/${orgId}/admin` as Route);
+      router.push(`/orgs/${orgId}/admin`);
     } else {
-      router.push("/orgs" as Route);
+      router.push("/orgs");
     }
   };
 
@@ -109,6 +121,17 @@ function SetupCompleteContent() {
                 <span>
                   First organization created:{" "}
                   <span className="font-semibold">{orgName}</span>
+                </span>
+              </div>
+            )}
+            {invited && Number(invited) > 0 && (
+              <div className="flex items-center gap-3">
+                <CheckCircle
+                  className="h-5 w-5 flex-shrink-0"
+                  style={{ color: "var(--pdp-green)" }}
+                />
+                <span>
+                  {invited} team member{Number(invited) > 1 ? "s" : ""} invited
                 </span>
               </div>
             )}

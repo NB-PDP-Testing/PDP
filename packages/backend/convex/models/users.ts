@@ -55,6 +55,10 @@ export const getCurrentUser = query({
       // GDPR consent tracking
       gdprConsentVersion: v.optional(v.number()),
       gdprConsentedAt: v.optional(v.number()),
+
+      // First-user setup wizard tracking
+      setupComplete: v.optional(v.boolean()),
+      setupStep: v.optional(v.string()),
     })
   ),
   handler: async (ctx) => {

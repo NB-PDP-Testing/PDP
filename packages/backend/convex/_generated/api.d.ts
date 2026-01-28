@@ -59,6 +59,7 @@ import type * as models_guardianPlayerLinks from "../models/guardianPlayerLinks.
 import type * as models_invitations from "../models/invitations.js";
 import type * as models_medicalProfiles from "../models/medicalProfiles.js";
 import type * as models_members from "../models/members.js";
+import type * as models_notificationPreferences from "../models/notificationPreferences.js";
 import type * as models_notifications from "../models/notifications.js";
 import type * as models_onboarding from "../models/onboarding.js";
 import type * as models_orgCostBudgets from "../models/orgCostBudgets.js";
@@ -194,6 +195,7 @@ declare const fullApi: ApiFromModules<{
   "models/invitations": typeof models_invitations;
   "models/medicalProfiles": typeof models_medicalProfiles;
   "models/members": typeof models_members;
+  "models/notificationPreferences": typeof models_notificationPreferences;
   "models/notifications": typeof models_notifications;
   "models/onboarding": typeof models_onboarding;
   "models/orgCostBudgets": typeof models_orgCostBudgets;

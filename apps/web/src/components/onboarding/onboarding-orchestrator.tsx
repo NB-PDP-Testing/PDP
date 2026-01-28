@@ -25,6 +25,7 @@ import {
   DialogTitle,
 } from "@/components/ui/dialog";
 import { authClient } from "@/lib/auth-client";
+import { type ChildLink, ChildLinkingStep } from "./child-linking-step";
 import { GdprConsentStep } from "./gdpr-consent-step";
 
 // Task type from the backend
@@ -60,6 +61,20 @@ type GuardianClaimTaskData = {
       organizationId: string;
       organizationName?: string;
     }>;
+  }>;
+};
+
+// Type for child_linking task data (Phase 3)
+type ChildLinkingTaskData = {
+  guardianIdentityId: Id<"guardianIdentities">;
+  pendingChildren: Array<{
+    linkId: Id<"guardianPlayerLinks">;
+    playerIdentityId: Id<"playerIdentities">;
+    firstName: string;
+    lastName: string;
+    relationship: string;
+    organizationId?: string;
+    organizationName: string;
   }>;
 };
 
@@ -119,6 +134,33 @@ function OnboardingStepRenderer({
         }}
         open
         userId={userId}
+      />
+    );
+  }
+
+  // Handle child_linking task with ChildLinkingStep (Phase 3)
+  if (task.type === "child_linking") {
+    const data = task.data as ChildLinkingTaskData;
+
+    // Check if user has already accepted GDPR (for privacy extension message)
+    const hasExistingGdprConsent = true; // If we got here, GDPR was already accepted
+
+    // Transform data to match ChildLinkingStep's expected format
+    const pendingLinks: ChildLink[] = data.pendingChildren.map((child) => ({
+      linkId: child.linkId as string,
+      playerIdentityId: child.playerIdentityId as string,
+      playerName: `${child.firstName} ${child.lastName}`,
+      relationship: child.relationship,
+      organizationName: child.organizationName,
+      organizationId: child.organizationId || "",
+      guardianIdentityId: data.guardianIdentityId as string,
+    }));
+
+    return (
+      <ChildLinkingStep
+        hasExistingGdprConsent={hasExistingGdprConsent}
+        onComplete={onComplete}
+        pendingLinks={pendingLinks}
       />
     );
   }

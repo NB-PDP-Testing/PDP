@@ -140,12 +140,12 @@ export default function SetupOrganizationPage() {
           );
         }
 
-        // Update setup step to invite
-        await updateSetupStep({ step: "invite" });
+        // Update setup step to create-team
+        await updateSetupStep({ step: "create-team" });
 
         toast.success(`Organization "${name}" created successfully!`);
         router.push(
-          `/setup/invite?orgId=${encodeURIComponent(data.id)}&orgName=${encodeURIComponent(name)}` as Route
+          `/setup/create-team?orgId=${encodeURIComponent(data.id)}&orgName=${encodeURIComponent(name)}` as Route
         );
       }
     } catch (error: unknown) {

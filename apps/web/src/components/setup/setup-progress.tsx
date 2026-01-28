@@ -7,7 +7,8 @@ const SETUP_STEPS = [
   { id: "gdpr", label: "Privacy" },
   { id: "welcome", label: "Welcome" },
   { id: "create-org", label: "Create Club" },
-  { id: "invite", label: "Invite Team" },
+  { id: "create-team", label: "First Team" },
+  { id: "invite", label: "Invite" },
   { id: "complete", label: "Done" },
 ] as const;
 

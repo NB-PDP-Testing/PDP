@@ -20,6 +20,7 @@ const SETUP_STEPS = [
   "gdpr",
   "welcome",
   "create-org",
+  "create-team",
   "invite",
   "complete",
 ] as const;

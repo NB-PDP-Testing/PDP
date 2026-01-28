@@ -75,7 +75,7 @@ export function GdprConsentStep({
   return (
     <AlertDialog open>
       <AlertDialogContent
-        className="max-w-lg sm:max-w-xl"
+        className="max-w-lg max-sm:h-screen max-sm:w-screen max-sm:max-w-none max-sm:rounded-none sm:max-w-xl"
         onEscapeKeyDown={(e) => e.preventDefault()}
       >
         <AlertDialogHeader>

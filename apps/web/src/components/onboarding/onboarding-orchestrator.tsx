@@ -26,6 +26,7 @@ import {
 } from "@/components/ui/dialog";
 import { authClient } from "@/lib/auth-client";
 import { type ChildLink, ChildLinkingStep } from "./child-linking-step";
+import { OnboardingErrorBoundary } from "./error-boundary";
 import { GdprConsentStep } from "./gdpr-consent-step";
 
 // Task type from the backend
@@ -290,11 +291,13 @@ export function OnboardingOrchestrator({
 
       {/* Show onboarding modal on top when there are tasks */}
       {shouldShowModal && (
-        <OnboardingStepRenderer
-          onComplete={handleStepComplete}
-          task={currentTask}
-          userId={userId}
-        />
+        <OnboardingErrorBoundary onRetry={() => setCurrentStepIndex(0)}>
+          <OnboardingStepRenderer
+            onComplete={handleStepComplete}
+            task={currentTask}
+            userId={userId}
+          />
+        </OnboardingErrorBoundary>
       )}
     </>
   );

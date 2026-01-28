@@ -1395,6 +1395,28 @@ export default defineSchema({
     .index("by_email", ["userEmail"])
     .index("by_original_invitation", ["originalInvitationId"]),
 
+  // Archived Invitations (Phase 6)
+  // Stores archived invitations for long-term audit purposes
+  // Invitations are archived 30 days after expiration and cleaned up after 90 days
+  archivedInvitations: defineTable({
+    originalInvitationId: v.string(), // ID of the original invitation
+    organizationId: v.string(),
+    email: v.string(),
+    role: v.string(),
+    metadata: v.optional(v.any()), // Original metadata (functional roles, player links, etc.)
+    createdAt: v.number(), // When the original invitation was created
+    expiredAt: v.number(), // When the original invitation expired
+    archivedAt: v.number(), // When this archive record was created
+    archivedReason: v.union(
+      v.literal("expired_30_days"), // Auto-archived 30 days after expiration
+      v.literal("manual_archive"), // Admin manually archived
+      v.literal("user_cancelled") // User cancelled/declined
+    ),
+  })
+    .index("by_organization", ["organizationId"])
+    .index("by_archived_at", ["archivedAt"])
+    .index("by_email", ["email"]),
+
   // Voice Notes
   voiceNotes: defineTable({
     orgId: v.string(),

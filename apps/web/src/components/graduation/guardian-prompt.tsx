@@ -161,7 +161,7 @@ export function GuardianPrompt({
 
   return (
     <AlertDialog open>
-      <AlertDialogContent className="sm:max-w-md">
+      <AlertDialogContent className="sm:max-w-md" data-testid="graduation">
         <AlertDialogHeader>
           <div className="mx-auto mb-2 flex h-12 w-12 items-center justify-center rounded-full bg-primary/10">
             <GraduationCap className="h-6 w-6 text-primary" />

@@ -418,16 +418,24 @@ export default function AcceptInvitationPage() {
           // Continue to try accepting invitation
         }
 
+        // Wait for invitationStatus to load (needed for org deleted check)
+        if (invitationStatus === undefined) {
+          console.log("[AcceptInvitation] Waiting for invitation status...");
+          setStatus("checking");
+          return;
+        }
+
+        // Phase 6: Check if organization was deleted during onboarding
+        if (invitationStatus && !invitationStatus.organization) {
+          console.log("[AcceptInvitation] Organization no longer exists");
+          toast.error("This organization no longer exists");
+          router.push("/orgs");
+          return;
+        }
+
         // Check if invitation is expired - use new expired flow (Phase 1B)
         if (invitation.isExpired) {
           console.log("[AcceptInvitation] Invitation is expired");
-
-          // Wait for invitationStatus to load
-          if (invitationStatus === undefined) {
-            console.log("[AcceptInvitation] Waiting for invitation status...");
-            setStatus("checking");
-            return;
-          }
 
           // Check if auto re-invite is available
           if (invitationStatus?.autoReInviteAvailable) {

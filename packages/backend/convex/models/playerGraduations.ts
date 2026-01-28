@@ -291,3 +291,203 @@ export const dismissGraduationPrompt = mutation({
     return null;
   },
 });
+
+/**
+ * Get the status of a player claim token
+ *
+ * This query is used by the claim account page to validate the token
+ * and display appropriate content.
+ *
+ * @param token - The claim token from the URL
+ */
+export const getPlayerClaimStatus = query({
+  args: {
+    token: v.string(),
+  },
+  returns: v.object({
+    valid: v.boolean(),
+    expired: v.boolean(),
+    used: v.boolean(),
+    playerName: v.optional(v.string()),
+    organizationName: v.optional(v.string()),
+    playerIdentityId: v.optional(v.id("playerIdentities")),
+  }),
+  handler: async (ctx, args) => {
+    // Find the claim token
+    const claimToken = await ctx.db
+      .query("playerClaimTokens")
+      .withIndex("by_token", (q) => q.eq("token", args.token))
+      .first();
+
+    if (!claimToken) {
+      return {
+        valid: false,
+        expired: false,
+        used: false,
+      };
+    }
+
+    // Check if already used
+    if (claimToken.usedAt) {
+      return {
+        valid: false,
+        expired: false,
+        used: true,
+      };
+    }
+
+    // Check if expired
+    const now = Date.now();
+    if (claimToken.expiresAt < now) {
+      return {
+        valid: false,
+        expired: true,
+        used: false,
+      };
+    }
+
+    // Token is valid - get player and organization info
+    const player = await ctx.db.get(claimToken.playerIdentityId);
+    if (!player) {
+      return {
+        valid: false,
+        expired: false,
+        used: false,
+      };
+    }
+
+    // Get organization name from enrollment
+    const enrollment = await ctx.db
+      .query("orgPlayerEnrollments")
+      .withIndex("by_playerIdentityId", (q) =>
+        q.eq("playerIdentityId", claimToken.playerIdentityId)
+      )
+      .first();
+
+    let organizationName = "Unknown Organization";
+    if (enrollment) {
+      const org = await ctx.runQuery(components.betterAuth.adapter.findOne, {
+        model: "organization",
+        where: [
+          { field: "_id", value: enrollment.organizationId, operator: "eq" },
+        ],
+      });
+      organizationName =
+        (org as { name?: string } | null)?.name || "Unknown Organization";
+    }
+
+    return {
+      valid: true,
+      expired: false,
+      used: false,
+      playerName: `${player.firstName} ${player.lastName}`,
+      organizationName,
+      playerIdentityId: claimToken.playerIdentityId,
+    };
+  },
+});
+
+/**
+ * Claim a player account using a valid token
+ *
+ * This mutation:
+ * 1. Validates the token is valid and not expired/used
+ * 2. Links the player identity to the user account
+ * 3. Updates the graduation record to claimed
+ * 4. Marks the token as used
+ *
+ * @param token - The claim token
+ * @param userId - The authenticated user's ID
+ */
+export const claimPlayerAccount = mutation({
+  args: {
+    token: v.string(),
+    userId: v.string(),
+  },
+  returns: v.object({
+    success: v.boolean(),
+    playerIdentityId: v.optional(v.id("playerIdentities")),
+    error: v.optional(v.string()),
+  }),
+  handler: async (ctx, args) => {
+    // Verify authentication
+    const identity = await ctx.auth.getUserIdentity();
+    if (!identity) {
+      return { success: false, error: "Not authenticated" };
+    }
+
+    // Find the claim token
+    const claimToken = await ctx.db
+      .query("playerClaimTokens")
+      .withIndex("by_token", (q) => q.eq("token", args.token))
+      .first();
+
+    if (!claimToken) {
+      return { success: false, error: "Invalid token" };
+    }
+
+    // Check if already used
+    if (claimToken.usedAt) {
+      return { success: false, error: "Token already used" };
+    }
+
+    // Check if expired
+    const now = Date.now();
+    if (claimToken.expiresAt < now) {
+      return { success: false, error: "Token expired" };
+    }
+
+    // Get the player identity
+    const player = await ctx.db.get(claimToken.playerIdentityId);
+    if (!player) {
+      return { success: false, error: "Player not found" };
+    }
+
+    // Check if player is already claimed by another user
+    if (player.userId && player.userId !== args.userId) {
+      return {
+        success: false,
+        error: "Player already claimed by another user",
+      };
+    }
+
+    // Find the graduation record to get the inviting guardian
+    const graduation = await ctx.db
+      .query("playerGraduations")
+      .withIndex("by_player", (q) =>
+        q.eq("playerIdentityId", claimToken.playerIdentityId)
+      )
+      .first();
+
+    // Update the player identity to link it to the user
+    await ctx.db.patch(claimToken.playerIdentityId, {
+      userId: args.userId,
+      claimedAt: now,
+      claimInvitedBy: graduation?.invitationSentBy,
+      playerType: "adult", // Convert from youth to adult
+      updatedAt: now,
+    });
+
+    // Update graduation record if exists
+    if (graduation) {
+      await ctx.db.patch(graduation._id, {
+        status: "claimed",
+        claimedAt: now,
+      });
+    }
+
+    // Mark the token as used
+    await ctx.db.patch(claimToken._id, {
+      usedAt: now,
+    });
+
+    console.log(
+      `[graduations] Player ${claimToken.playerIdentityId} claimed by user ${args.userId}`
+    );
+
+    return {
+      success: true,
+      playerIdentityId: claimToken.playerIdentityId,
+    };
+  },
+});

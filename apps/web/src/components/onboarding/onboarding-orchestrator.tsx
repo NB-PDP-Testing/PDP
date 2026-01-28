@@ -7,13 +7,15 @@
  * one at a time in a coordinated flow. It queries for pending tasks
  * and renders the appropriate step component.
  *
- * Phase 1: Basic skeleton with placeholder renderer
- * Phase 2+: Will add actual step components (GDPR, child linking, etc.)
+ * Phase 1: Skeleton with guardian_claim step implemented
+ * Phase 2+: Will add more step components (GDPR, welcome, etc.)
  */
 
 import { api } from "@pdp/backend/convex/_generated/api";
+import type { Id } from "@pdp/backend/convex/_generated/dataModel";
 import { useQuery } from "convex/react";
 import { useState } from "react";
+import { BulkGuardianClaimDialog } from "@/components/bulk-guardian-claim-dialog";
 import { Button } from "@/components/ui/button";
 import {
   Dialog,
@@ -22,6 +24,7 @@ import {
   DialogHeader,
   DialogTitle,
 } from "@/components/ui/dialog";
+import { authClient } from "@/lib/auth-client";
 
 // Task type from the backend
 type OnboardingTask = {
@@ -30,22 +33,78 @@ type OnboardingTask = {
   data: unknown;
 };
 
+// Type for guardian_claim task data (matches what getOnboardingTasks returns)
+type GuardianClaimTaskData = {
+  identities: Array<{
+    guardianIdentity: {
+      _id: Id<"guardianIdentities">;
+      firstName: string;
+      lastName: string;
+      email?: string;
+      phone?: string;
+      verificationStatus: string;
+    };
+    children: Array<{
+      playerIdentityId: Id<"playerIdentities">;
+      firstName: string;
+      lastName: string;
+      relationship: string;
+    }>;
+    organizations: Array<{
+      organizationId: string;
+      organizationName?: string;
+    }>;
+  }>;
+};
+
 type OnboardingOrchestratorProps = {
   children: React.ReactNode;
 };
 
 /**
- * Placeholder step renderer for Phase 1
- * In later phases, this will dispatch to actual step components
+ * Step renderer that dispatches to the appropriate component based on task type
  */
 function OnboardingStepRenderer({
   task,
+  userId,
   onComplete,
 }: {
   task: OnboardingTask;
+  userId: string | undefined;
   onComplete: () => void;
 }) {
-  // Get a human-readable title for the task type
+  // Handle guardian_claim task with BulkGuardianClaimDialog
+  if (task.type === "guardian_claim" && userId) {
+    const data = task.data as GuardianClaimTaskData;
+
+    // Transform data to match BulkGuardianClaimDialog's expected format
+    // The dialog expects a confidence field and dateOfBirth for children
+    const claimableIdentities = data.identities.map((identity) => ({
+      guardianIdentity: identity.guardianIdentity,
+      children: identity.children.map((child) => ({
+        ...child,
+        dateOfBirth: "", // Not available from our query, but dialog handles it
+      })),
+      organizations: identity.organizations,
+      confidence: 1.0, // High confidence since we matched by email
+    }));
+
+    return (
+      <BulkGuardianClaimDialog
+        claimableIdentities={claimableIdentities}
+        onClaimComplete={onComplete}
+        onOpenChange={(open) => {
+          if (!open) {
+            onComplete();
+          }
+        }}
+        open
+        userId={userId}
+      />
+    );
+  }
+
+  // Placeholder for other task types
   const getTaskTitle = (type: string) => {
     switch (type) {
       case "accept_invitation":
@@ -129,12 +188,14 @@ function OnboardingStepRenderer({
 export function OnboardingOrchestrator({
   children,
 }: OnboardingOrchestratorProps) {
+  const { data: session } = authClient.useSession();
   const tasks = useQuery(api.models.onboarding.getOnboardingTasks);
   const [currentStepIndex, setCurrentStepIndex] = useState(0);
   const [dismissed, setDismissed] = useState(false);
 
   // Get the current task (if any)
   const currentTask = tasks?.[currentStepIndex];
+  const userId = session?.user?.id;
 
   // Handle step completion - move to next step or finish
   const handleStepComplete = () => {
@@ -167,6 +228,7 @@ export function OnboardingOrchestrator({
         <OnboardingStepRenderer
           onComplete={handleStepComplete}
           task={currentTask}
+          userId={userId}
         />
       )}
     </>

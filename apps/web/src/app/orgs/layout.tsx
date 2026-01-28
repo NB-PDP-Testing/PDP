@@ -5,6 +5,7 @@ import { redirect, usePathname, useRouter } from "next/navigation";
 import { useEffect, useState } from "react";
 import Header from "@/components/header";
 import Loader from "@/components/loader";
+import { NotificationProvider } from "@/components/notification-provider";
 import { OnboardingOrchestrator } from "@/components/onboarding/onboarding-orchestrator";
 import { useCurrentUser } from "@/hooks/use-current-user";
 
@@ -87,7 +88,9 @@ export default function OrgLayout({
     return (
       <>
         <Header />
-        <OnboardingOrchestrator>{children}</OnboardingOrchestrator>
+        <OnboardingOrchestrator>
+          <NotificationProvider>{children}</NotificationProvider>
+        </OnboardingOrchestrator>
       </>
     );
   }

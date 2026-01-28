@@ -3256,6 +3256,29 @@ export default defineSchema({
     .index("by_org", ["organizationId"])
     .index("by_user_unread", ["userId", "readAt"]),
 
+  // User Notifications (Real-time Toast Notifications)
+  // General-purpose notifications for all users - role grants, team assignments, etc.
+  notifications: defineTable({
+    userId: v.string(), // Recipient (Better Auth user ID)
+    organizationId: v.string(), // Organization context
+    type: v.union(
+      v.literal("role_granted"), // User granted Admin/Coach role
+      v.literal("team_assigned"), // Coach assigned to team
+      v.literal("team_removed"), // Coach removed from team
+      v.literal("child_declined"), // Admin notified parent declined child
+      v.literal("invitation_request") // Admin notified of invitation request
+    ),
+    title: v.string(),
+    message: v.string(),
+    link: v.optional(v.string()), // URL for navigation
+    createdAt: v.number(),
+    seenAt: v.optional(v.number()), // null means unseen
+    dismissedAt: v.optional(v.number()), // When manually dismissed
+  })
+    .index("by_user_unseen", ["userId", "seenAt"])
+    .index("by_user_created", ["userId", "createdAt"])
+    .index("by_org_type", ["organizationId", "type"]),
+
   // ============================================================
   // USER PREFERENCES & USAGE TRACKING
   // Stores user preferences for default org/role and tracks

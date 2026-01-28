@@ -20,7 +20,7 @@
         "Verify in browser using dev-browser skill"
       ],
       "priority": 1,
-      "passes": true,
+      "passes": false,
       "notes": "Phase 5 - High Priority - Impacts first-time user experience"
     },
     {
@@ -37,7 +37,7 @@
         "Typecheck passes"
       ],
       "priority": 2,
-      "passes": true,
+      "passes": false,
       "notes": "Phase 5 - Navigation between wizard steps"
     },
     {
@@ -56,7 +56,7 @@
         "Verify in browser using dev-browser skill"
       ],
       "priority": 3,
-      "passes": true,
+      "passes": false,
       "notes": "Phase 5 - Organization branding configuration"
     },
     {
@@ -73,7 +73,7 @@
         "Typecheck passes"
       ],
       "priority": 4,
-      "passes": true,
+      "passes": false,
       "notes": "Phase 5 - Progress persistence"
     },
     {
@@ -89,7 +89,7 @@
         "Typecheck passes"
       ],
       "priority": 5,
-      "passes": true,
+      "passes": false,
       "notes": "Phase 5 - Setup completion detection"
     },
     {
@@ -106,7 +106,7 @@
         "Verify in browser using dev-browser skill"
       ],
       "priority": 6,
-      "passes": true,
+      "passes": false,
       "notes": "Phase 5 - Post-setup editing"
     },
     {
@@ -121,7 +121,7 @@
         "Typecheck passes"
       ],
       "priority": 7,
-      "passes": true,
+      "passes": false,
       "notes": "Phase 5 - Initial team creation"
     },
     {
@@ -139,7 +139,7 @@
         "Verify in browser using dev-browser skill"
       ],
       "priority": 8,
-      "passes": true,
+      "passes": false,
       "notes": "Phase 7 - High Priority - Celebration UI when onboarding complete"
     },
     {
@@ -155,7 +155,7 @@
         "Typecheck passes"
       ],
       "priority": 9,
-      "passes": true,
+      "passes": false,
       "notes": "Phase 7 - Completion detection logic"
     },
     {
@@ -170,7 +170,7 @@
         "Typecheck passes"
       ],
       "priority": 10,
-      "passes": true,
+      "passes": false,
       "notes": "Phase 7 - Prevent re-triggering"
     },
     {
@@ -186,7 +186,7 @@
         "Typecheck passes"
       ],
       "priority": 11,
-      "passes": true,
+      "passes": false,
       "notes": "Phase 7 - Progress visualization"
     },
     {
@@ -202,7 +202,7 @@
         "Typecheck passes"
       ],
       "priority": 12,
-      "passes": true,
+      "passes": false,
       "notes": "Phase 7 - Re-visit feature"
     },
     {
@@ -217,7 +217,7 @@
         "Typecheck passes"
       ],
       "priority": 13,
-      "passes": true,
+      "passes": false,
       "notes": "Phase 7 - Non-destructive help"
     },
     {
@@ -234,7 +234,7 @@
         "Verify in browser using dev-browser skill"
       ],
       "priority": 14,
-      "passes": true,
+      "passes": false,
       "notes": "Phase 4 - Medium Priority - Independent feature"
     },
     {
@@ -251,7 +251,7 @@
         "Typecheck passes"
       ],
       "priority": 15,
-      "passes": true,
+      "passes": false,
       "notes": "Phase 4 - Email preferences"
     },
     {
@@ -268,7 +268,7 @@
         "Verify in browser using dev-browser skill"
       ],
       "priority": 16,
-      "passes": true,
+      "passes": false,
       "notes": "Phase 4 - Push notification setup"
     },
     {
@@ -284,7 +284,7 @@
         "Typecheck passes"
       ],
       "priority": 17,
-      "passes": true,
+      "passes": false,
       "notes": "Phase 4 - In-app notification preferences"
     },
     {
@@ -301,7 +301,7 @@
         "Typecheck passes"
       ],
       "priority": 18,
-      "passes": true,
+      "passes": false,
       "notes": "Phase 4 - Backend data model"
     },
     {
@@ -318,7 +318,7 @@
         "Typecheck passes"
       ],
       "priority": 19,
-      "passes": true,
+      "passes": false,
       "notes": "Phase 7 - Backend functions"
     },
     {
@@ -334,7 +334,7 @@
         "Verify in browser using dev-browser skill at mobile viewport"
       ],
       "priority": 20,
-      "passes": true,
+      "passes": false,
       "notes": "Mobile - Low Priority - UI polish"
     },
     {
@@ -352,7 +352,7 @@
         "Typecheck passes"
       ],
       "priority": 21,
-      "passes": true,
+      "passes": false,
       "notes": "Mobile - Navigation panel functionality"
     }
   ],

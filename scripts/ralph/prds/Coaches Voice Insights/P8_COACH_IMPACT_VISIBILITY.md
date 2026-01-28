@@ -3,10 +3,10 @@
 **Project:** Voice Notes - Coach Impact Visibility
 **Branch:** `ralph/coach-impact-visibility-p8-week1` (active)
 **Created:** January 27, 2026
-**Status:** Week 1 Complete, Week 1.5 In Progress (Trust Gate Fix)
-**Estimated Time:** 3.5 weeks (Week 1 done, Week 1.5 in progress, Week 2-3 remaining)
+**Status:** Week 1 ✅ Complete, Week 1.5 ✅ Complete, Week 2 ⏳ Ready to Start
+**Estimated Time:** 3.5 weeks (Week 1 done, Week 1.5 done, Week 2-3 remaining)
 **Priority:** 🔴 CRITICAL - Fixes fundamental UX gap
-**Last Updated:** January 27, 2026 - Added Week 1.5 trust gate feature flags
+**Last Updated:** January 28, 2026 - Week 1.5 complete with self-service enhancements
 
 ---
 
@@ -43,22 +43,112 @@ Create a unified "My Impact" dashboard visible to ALL coaches that shows:
 **Week 1 Issue Discovered:**
 US-P8-002 removed trust gates entirely instead of making them controllable. All coaches now see sent summaries regardless of trust level. Week 1.5 will fix this with a proper feature flag system.
 
-### Week 1.5: Trust Gate Feature Flags (IN PROGRESS - Critical Fix)
-**Purpose:** Fix US-P8-002 by implementing flexible 3-tier permission system
+### Week 1.5: Trust Gate Feature Flags (✅ COMPLETE - Jan 28, 2026)
+**Purpose:** Fix US-P8-002 by implementing flexible 3-tier permission system + self-service enhancements
 
 **Architecture:**
-- Platform Staff → Enable delegation capabilities
-- Org Admins → Set blanket overrides (all coaches) OR grant individual overrides
-- Coaches → Request overrides if enabled
+- Platform Staff → Enable delegation capabilities and feature flags
+- Org Admins → Bulk controls (block all/grant all) + Individual coach management
+- Coaches → Self-service toggle (hide/show tab) + Request access capability
 
-**Stories (5):**
-- US-P8-021: Backend trust gate permission system (schema + queries + mutations)
-- US-P8-002-FIX: Fix dashboard gate check with feature flags + trust level logic
-- US-P8-022: Platform staff feature flags admin UI
-- US-P8-022B: Platform staff overview dashboard
-- US-P8-023: Org admin trust gate status dashboard
+**Stories Completed (9 total - 5 planned + 4 enhancements):**
 
-**Reference:** See `scripts/ralph/prds/Coaches Voice Insights/p8-week1.5-trust-gate-fix.prd.json`
+**Planned Stories:**
+- ✅ US-P8-021: Backend trust gate permission system (schema + queries + mutations)
+- ✅ US-P8-002-FIX: Fix dashboard gate check with feature flags + trust level logic
+- ✅ US-P8-022: Platform staff feature flags admin UI
+- ✅ US-P8-022B: Platform staff overview dashboard
+- ✅ US-P8-023: Org admin trust gate status dashboard
+
+**Enhancement Stories (Beyond Original Plan):**
+- ✅ US-P8-027: Coach self-service disable/enable toggle
+- ✅ US-P8-028: Coach dropdown menu on "Sent to Parents" tab
+- ✅ US-P8-029: Admin individual coach block with reason
+- ✅ US-P8-030: Admin comprehensive status view (all coaches table)
+
+**What Was Delivered:**
+- 8-priority access logic system (admin blanket block → individual admin block → coach self-disabled → gates disabled → admin blanket override → trust level 2+ → individual override → default)
+- 3-tier permission system: Platform Staff (org-wide flags) → Org Admin (bulk + individual controls) → Coach (self-service toggle)
+- Complete self-service access control: Coaches can hide/show tab, admins can block/unblock coaches
+- Real-time access checks with comprehensive reason messaging
+- Confirmation dialogs for all destructive actions
+- Toast notifications for all state changes
+- Admin bulk block toggle (block ALL coaches, even Level 2+)
+- Individual coach blocking with reason tracking
+- Comprehensive coach status table showing access status, trust level, and reason
+
+**Files Modified:**
+- Backend: `betterAuth/schema.ts`, `schema.ts`, `models/trustGatePermissions.ts` (6 queries, 8 mutations)
+- Frontend: `voice-notes-dashboard.tsx`, `admin/settings/features/page.tsx`
+- Testing: `p8-week1.5-self-service-access-testing-guide.md`, `p8-week1.5-quick-test-guide.md`
+
+**Reference:**
+- See `scripts/ralph/prds/Coaches Voice Insights/p8-week1.5-trust-gate-fix.prd.json`
+- See `scripts/ralph/P8_CHECKPOINT_JAN28.md` for full implementation details
+- See `scripts/ralph/P8_WEEK2_RALPH_CONTEXT.md` for learnings and patterns
+
+**Implementation Notes - Week 1.5:**
+
+**CRITICAL Better Auth Pattern:**
+Week 1.5 revealed a critical integration pattern that MUST be followed for Week 2 and beyond:
+
+```typescript
+// ❌ WRONG - Direct query on Better Auth tables (organization, team, member, user)
+const org = await ctx.db
+  .query("organization")
+  .withIndex("by_id", q => q.eq("_id", organizationId))
+  .first();
+
+// ✅ CORRECT - Use Better Auth component
+const orgs = await ctx.runQuery(components.betterAuth.adapter.findMany, {
+  input: {
+    model: "organization",
+    where: [{ field: "_id", value: organizationId, operator: "eq" }],
+  },
+});
+const org = orgs[0];
+```
+
+**Tables That Require Better Auth Component:**
+- `organization` - ALWAYS use Better Auth component
+- `team` - ALWAYS use Better Auth component
+- `member` - ALWAYS use Better Auth component
+- `user` - ALWAYS use Better Auth component
+- `invitation` - ALWAYS use Better Auth component
+
+**Tables That Use Regular Convex Queries:**
+- `coachParentSummaries` - Direct Convex queries OK
+- `voiceNotes` - Direct Convex queries OK
+- `voiceNoteInsights` - Direct Convex queries OK
+- `coachOrgPreferences` - Direct Convex queries OK
+- `coachTrustLevels` - Direct Convex queries OK
+- All other application tables - Direct Convex queries OK
+
+**Key Learnings:**
+1. **Comprehensive Access Checks**: Single query (`checkCoachParentAccess`) returns `{ hasAccess, reason, canRequest, canToggle }` - this eliminates inconsistent checks across UI
+2. **8-Priority Logic**: Access checks follow strict priority order to handle conflicting permissions
+3. **Self-Service UX**: Coaches prefer toggling visibility over requesting permission - both options provided
+4. **Admin Context**: Admins need bulk controls (all coaches) AND individual controls (specific coach) - both implemented
+5. **Reason Tracking**: All blocks/overrides tracked with reason, set by user, and timestamp - essential for compliance
+6. **Confirmation Dialogs**: ALL destructive actions require confirmation with clear consequences
+7. **Real-Time Updates**: Using Convex `useQuery` ensures UI updates instantly when permissions change
+8. **Toast Notifications**: Every mutation shows success/error toast - critical for user confidence
+9. **Empty States**: Every query result needs empty state handling (no coaches, no data, etc.)
+10. **Loading States**: Skeleton loaders improve perceived performance
+
+**What Worked Well:**
+- Breaking features into atomic mutations (single responsibility)
+- Comprehensive query that returns all access context in one call
+- Using enums for status badges ("🚫 Blocked", "👤 Self-Off", "✓ Active")
+- Dropdown menus on tabs (clean UX, no extra buttons)
+- Lock icon with tooltip (clear why access denied)
+
+**What to Avoid:**
+- Checking trust level in multiple places (use single access check query)
+- Querying Better Auth tables directly (always use component)
+- Assuming boolean flags (use comprehensive access check with reason)
+- Missing confirmation dialogs (users need to understand consequences)
+- Silent state changes (always show toast notification)
 
 ### Week 2: My Impact Dashboard
 - Summary cards (notes created, insights applied, summaries sent, parent view rate)

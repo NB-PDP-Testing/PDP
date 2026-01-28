@@ -32,6 +32,9 @@ const customUserTable = defineTable({
   parentOnboardingDismissCount: v.optional(v.number()), // How many times user dismissed the modal
   parentOnboardingLastDismissedAt: v.optional(v.number()), // When they last dismissed
 
+  // Child linking skip tracking (Phase 6)
+  childLinkingSkipCount: v.optional(v.number()), // How many times user skipped child linking (max 3)
+
   // Current organization tracking
   currentOrgId: v.optional(v.string()),
 

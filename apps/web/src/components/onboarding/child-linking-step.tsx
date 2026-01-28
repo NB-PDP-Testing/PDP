@@ -29,10 +29,14 @@ export type ChildLink = {
   guardianIdentityId: string;
 };
 
+// Maximum number of times a user can skip child linking
+const MAX_SKIP_COUNT = 3;
+
 type ChildLinkingStepProps = {
   pendingLinks: ChildLink[];
   hasExistingGdprConsent?: boolean;
   onComplete: () => void;
+  skipCount?: number; // Phase 6: Current skip count (max 3)
 };
 
 /**
@@ -45,11 +49,13 @@ export function ChildLinkingStep({
   pendingLinks,
   hasExistingGdprConsent = false,
   onComplete,
+  skipCount = 0,
 }: ChildLinkingStepProps) {
   const [consentToSharing, setConsentToSharing] = useState(true);
   const [actionedLinks, setActionedLinks] = useState<Set<string>>(new Set());
   const [isSubmitting, setIsSubmitting] = useState<string | null>(null);
   const [acceptingAll, setAcceptingAll] = useState(false);
+  const [isSkipping, setIsSkipping] = useState(false);
 
   const acceptChildLink = useMutation(
     api.models.guardianPlayerLinks.acceptChildLink
@@ -60,6 +66,26 @@ export function ChildLinkingStep({
   const acceptAllChildLinks = useMutation(
     api.models.guardianPlayerLinks.acceptAllChildLinks
   );
+  const incrementSkipCount = useMutation(
+    api.models.onboarding.incrementChildLinkingSkipCount
+  );
+
+  // Show skip button only if user hasn't exceeded max skips
+  const canSkip = skipCount < MAX_SKIP_COUNT;
+
+  const handleSkip = async () => {
+    setIsSkipping(true);
+    try {
+      await incrementSkipCount();
+      toast.info("You can complete this step next time you log in.");
+      onComplete();
+    } catch (error) {
+      console.error("Failed to skip child linking:", error);
+      toast.error("Failed to skip. Please try again.");
+    } finally {
+      setIsSkipping(false);
+    }
+  };
 
   // Get remaining pending links (not yet actioned)
   const remainingLinks = pendingLinks.filter(
@@ -253,11 +279,22 @@ export function ChildLinkingStep({
           </div>
         )}
 
-        <AlertDialogFooter>
+        <AlertDialogFooter className="flex-col gap-2 sm:flex-row">
+          {!allActioned && canSkip && (
+            <Button
+              className="w-full sm:w-auto"
+              disabled={acceptingAll || isSubmitting !== null || isSkipping}
+              onClick={handleSkip}
+              size="lg"
+              variant="outline"
+            >
+              {isSkipping ? "Skipping..." : "Skip for Now"}
+            </Button>
+          )}
           {!allActioned && remainingLinks.length > 1 && (
             <Button
               className="w-full sm:w-auto"
-              disabled={acceptingAll || isSubmitting !== null}
+              disabled={acceptingAll || isSubmitting !== null || isSkipping}
               onClick={handleAcceptAll}
               size="lg"
             >

@@ -49,6 +49,9 @@ export const getCurrentUser = query({
       parentOnboardingDismissCount: v.optional(v.number()),
       parentOnboardingLastDismissedAt: v.optional(v.number()),
 
+      // Child linking skip tracking (Phase 6)
+      childLinkingSkipCount: v.optional(v.number()),
+
       // Current organization tracking
       currentOrgId: v.optional(v.string()),
 

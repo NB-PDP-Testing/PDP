@@ -219,6 +219,10 @@ const customInvitationTable = defineTable({
 
   // Custom field: metadata for storing functional roles and assignments
   metadata: v.optional(v.any()),
+
+  // Auto re-invite tracking (Phase 1B)
+  // Counts how many times this invitation has been auto re-invited
+  autoReInviteCount: v.optional(v.number()), // Default: 0
 })
   .index("organizationId", ["organizationId"])
   .index("email", ["email"])

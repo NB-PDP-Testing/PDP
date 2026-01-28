@@ -450,6 +450,7 @@ export declare const components: {
               }
             | {
                 data: {
+                  autoReInviteCount?: number;
                   email: string;
                   expiresAt: number;
                   inviterId: string;
@@ -814,6 +815,7 @@ export declare const components: {
                     | "expiresAt"
                     | "inviterId"
                     | "metadata"
+                    | "autoReInviteCount"
                     | "_id";
                   operator?:
                     | "lt"
@@ -1196,6 +1198,7 @@ export declare const components: {
                     | "expiresAt"
                     | "inviterId"
                     | "metadata"
+                    | "autoReInviteCount"
                     | "_id";
                   operator?:
                     | "lt"
@@ -1781,6 +1784,7 @@ export declare const components: {
             | {
                 model: "invitation";
                 update: {
+                  autoReInviteCount?: number;
                   email?: string;
                   expiresAt?: number;
                   inviterId?: string;
@@ -1801,6 +1805,7 @@ export declare const components: {
                     | "expiresAt"
                     | "inviterId"
                     | "metadata"
+                    | "autoReInviteCount"
                     | "_id";
                   operator?:
                     | "lt"
@@ -2300,6 +2305,7 @@ export declare const components: {
             | {
                 model: "invitation";
                 update: {
+                  autoReInviteCount?: number;
                   email?: string;
                   expiresAt?: number;
                   inviterId?: string;
@@ -2320,6 +2326,7 @@ export declare const components: {
                     | "expiresAt"
                     | "inviterId"
                     | "metadata"
+                    | "autoReInviteCount"
                     | "_id";
                   operator?:
                     | "lt"

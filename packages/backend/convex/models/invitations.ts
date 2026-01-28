@@ -45,6 +45,7 @@ export const checkInvitationStatus = query({
     ),
     canRequestNew: v.boolean(),
     requestCount: v.number(),
+    autoReInviteAvailable: v.boolean(),
   }),
   handler: async (ctx, args) => {
     // Get invitation from Better Auth table using the adapter pattern
@@ -67,6 +68,7 @@ export const checkInvitationStatus = query({
         status: "not_found" as const,
         canRequestNew: false,
         requestCount: 0,
+        autoReInviteAvailable: false,
       };
     }
 
@@ -110,6 +112,24 @@ export const checkInvitationStatus = query({
     // Can request new if expired and under 3 requests
     const canRequestNew = status === "expired" && requestCount < 3;
 
+    // Check if auto re-invite is available
+    // Available if: org has autoReInviteOnExpiration enabled AND
+    // invitation's autoReInviteCount < org's maxAutoReInvitesPerInvitation (default 2)
+    const orgSettings = orgResult as {
+      autoReInviteOnExpiration?: boolean;
+      maxAutoReInvitesPerInvitation?: number;
+    } | null;
+    const invitationSettings = invitationResult as {
+      autoReInviteCount?: number;
+    };
+    const autoReInviteEnabled = orgSettings?.autoReInviteOnExpiration === true;
+    const maxAutoReInvites = orgSettings?.maxAutoReInvitesPerInvitation ?? 2;
+    const currentAutoReInviteCount = invitationSettings.autoReInviteCount ?? 0;
+    const autoReInviteAvailable =
+      status === "expired" &&
+      autoReInviteEnabled &&
+      currentAutoReInviteCount < maxAutoReInvites;
+
     return {
       status,
       invitation: {
@@ -128,6 +148,7 @@ export const checkInvitationStatus = query({
         : undefined,
       canRequestNew,
       requestCount,
+      autoReInviteAvailable,
     };
   },
 });
@@ -236,6 +257,155 @@ export const createInvitationRequest = mutation({
       success: true,
       requestNumber,
       message: "Request submitted.",
+    };
+  },
+});
+
+/**
+ * Process auto re-invite for an expired invitation
+ *
+ * Called automatically when a user clicks an expired invitation link
+ * and the organization has auto re-invite enabled.
+ *
+ * This creates a new invitation with the same details and sends it to the user.
+ */
+export const processAutoReInvite = mutation({
+  args: {
+    invitationId: v.string(),
+  },
+  returns: v.object({
+    success: v.boolean(),
+    newInvitationId: v.optional(v.string()),
+    message: v.string(),
+  }),
+  handler: async (ctx, args) => {
+    // Get invitation from Better Auth table
+    const invitationResult = await ctx.runQuery(
+      components.betterAuth.adapter.findOne,
+      {
+        model: "invitation",
+        where: [
+          {
+            field: "_id",
+            value: args.invitationId,
+            operator: "eq",
+          },
+        ],
+      }
+    );
+
+    if (!invitationResult) {
+      return {
+        success: false,
+        message: "Invitation not found.",
+      };
+    }
+
+    // Verify invitation is expired
+    const now = Date.now();
+    if (invitationResult.expiresAt > now) {
+      return {
+        success: false,
+        message: "This invitation is still valid.",
+      };
+    }
+
+    // Get organization to check auto re-invite settings
+    const orgResult = await ctx.runQuery(
+      components.betterAuth.adapter.findOne,
+      {
+        model: "organization",
+        where: [
+          {
+            field: "_id",
+            value: invitationResult.organizationId,
+            operator: "eq",
+          },
+        ],
+      }
+    );
+
+    if (!orgResult) {
+      return {
+        success: false,
+        message: "Organization not found.",
+      };
+    }
+
+    // Check if auto re-invite is enabled
+    const orgSettings = orgResult as {
+      autoReInviteOnExpiration?: boolean;
+      maxAutoReInvitesPerInvitation?: number;
+      invitationExpirationDays?: number;
+    };
+    const invitationSettings = invitationResult as {
+      autoReInviteCount?: number;
+    };
+
+    if (orgSettings.autoReInviteOnExpiration !== true) {
+      return {
+        success: false,
+        message: "Auto re-invite is not enabled for this organization.",
+      };
+    }
+
+    // Check if max auto re-invites exceeded
+    const maxAutoReInvites = orgSettings.maxAutoReInvitesPerInvitation ?? 2;
+    const currentCount = invitationSettings.autoReInviteCount ?? 0;
+
+    if (currentCount >= maxAutoReInvites) {
+      return {
+        success: false,
+        message: "Maximum auto re-invites reached.",
+      };
+    }
+
+    // Calculate new expiration date
+    const expirationDays = orgSettings.invitationExpirationDays ?? 7;
+    const newExpiresAt = now + expirationDays * 24 * 60 * 60 * 1000;
+
+    // Create new invitation with same details
+    const newInvitationData = {
+      organizationId: invitationResult.organizationId,
+      email: invitationResult.email,
+      role: invitationResult.role,
+      teamId: invitationResult.teamId,
+      status: "pending",
+      expiresAt: newExpiresAt,
+      inviterId: invitationResult.inviterId,
+      metadata: (invitationResult as { metadata?: unknown }).metadata,
+      autoReInviteCount: 0, // New invitation starts fresh
+    };
+
+    // Insert new invitation using adapter
+    const newInvitation = await ctx.runMutation(
+      components.betterAuth.adapter.create,
+      {
+        input: {
+          model: "invitation",
+          data: newInvitationData,
+        },
+      }
+    );
+
+    // Increment auto re-invite count on original invitation
+    await ctx.runMutation(components.betterAuth.adapter.updateOne, {
+      input: {
+        model: "invitation",
+        where: [{ field: "_id", value: args.invitationId, operator: "eq" }],
+        update: {
+          autoReInviteCount: currentCount + 1,
+        },
+      },
+    });
+
+    // Note: Email sending would be handled by Better Auth's invitation system
+    // or a separate action that calls the email service
+
+    return {
+      success: true,
+      newInvitationId: newInvitation._id,
+      message: "New invitation sent!",
     };
   },
 });

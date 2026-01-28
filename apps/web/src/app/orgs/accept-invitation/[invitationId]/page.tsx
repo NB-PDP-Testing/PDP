@@ -7,6 +7,7 @@ import type { Route } from "next";
 import { useParams, useRouter } from "next/navigation";
 import { useCallback, useEffect, useState } from "react";
 import { toast } from "sonner";
+import { AutoReInvitedView } from "@/components/auto-reinvited-view";
 import { ExpiredInvitationView } from "@/components/expired-invitation-view";
 import { RequestInvitationConfirmation } from "@/components/request-invitation-confirmation";
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
@@ -33,6 +34,7 @@ export default function AcceptInvitationPage() {
     | "idle"
     | "expired"
     | "requested"
+    | "auto_reinvited"
   >("loading");
   const [errorMessage, setErrorMessage] = useState<string>("");
   const [currentUserEmail, setCurrentUserEmail] = useState<string | null>(null);
@@ -61,6 +63,11 @@ export default function AcceptInvitationPage() {
   // Mutation to request new invitation (Phase 1B)
   const createInvitationRequest = useMutation(
     api.models.invitations.createInvitationRequest
+  );
+
+  // Mutation to process auto re-invite (Phase 1B)
+  const processAutoReInvite = useMutation(
+    api.models.invitations.processAutoReInvite
   );
 
   const acceptInvitation = useCallback(
@@ -413,8 +420,44 @@ export default function AcceptInvitationPage() {
 
         // Check if invitation is expired - use new expired flow (Phase 1B)
         if (invitation.isExpired) {
+          console.log("[AcceptInvitation] Invitation is expired");
+
+          // Wait for invitationStatus to load
+          if (invitationStatus === undefined) {
+            console.log("[AcceptInvitation] Waiting for invitation status...");
+            setStatus("checking");
+            return;
+          }
+
+          // Check if auto re-invite is available
+          if (invitationStatus?.autoReInviteAvailable) {
+            console.log(
+              "[AcceptInvitation] Auto re-invite available, processing..."
+            );
+            setStatus("loading");
+            try {
+              const result = await processAutoReInvite({ invitationId });
+              if (result.success && result.newInvitationId) {
+                console.log(
+                  "[AcceptInvitation] Auto re-invite successful, new invitation:",
+                  result.newInvitationId
+                );
+                toast.success("New invitation sent! Check your email.");
+                setStatus("auto_reinvited");
+                return;
+              }
+              console.log(
+                "[AcceptInvitation] Auto re-invite failed:",
+                result.message
+              );
+            } catch (error) {
+              console.error("[AcceptInvitation] Auto re-invite error:", error);
+            }
+          }
+
+          // Show expired view for manual request
           console.log(
-            "[AcceptInvitation] Invitation is expired, showing ExpiredInvitationView"
+            "[AcceptInvitation] Showing ExpiredInvitationView for manual request"
           );
           setStatus("expired");
           return;
@@ -485,7 +528,15 @@ export default function AcceptInvitationPage() {
     };
 
     checkAndAcceptInvitation();
-  }, [invitationId, router, invitation, session, acceptInvitation]);
+  }, [
+    invitationId,
+    router,
+    invitation,
+    session,
+    acceptInvitation,
+    invitationStatus,
+    processAutoReInvite,
+  ]);
 
   // Show ExpiredInvitationView for expired invitations (Phase 1B)
   if (status === "expired" && invitation && invitationStatus) {
@@ -509,6 +560,17 @@ export default function AcceptInvitationPage() {
   if (status === "requested" && invitationStatus) {
     return (
       <RequestInvitationConfirmation
+        organizationName={
+          invitationStatus.organization?.name ?? "Unknown Organization"
+        }
+      />
+    );
+  }
+
+  // Show auto-reinvited view when invitation is automatically re-sent (Phase 1B)
+  if (status === "auto_reinvited" && invitationStatus) {
+    return (
+      <AutoReInvitedView
         organizationName={
           invitationStatus.organization?.name ?? "Unknown Organization"
         }

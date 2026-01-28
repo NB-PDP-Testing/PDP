@@ -88,4 +88,46 @@ crons.interval(
   {}
 );
 
+// Onboarding Phase 6: Invitation lifecycle jobs
+
+// Mark expired invitations hourly
+crons.hourly(
+  "mark-expired-invitations",
+  { minuteUTC: 5 },
+  internal.jobs.invitations.markExpiredInvitations,
+  {}
+);
+
+// Process auto re-invites for enabled orgs (hourly, offset from mark-expired)
+crons.hourly(
+  "process-auto-reinvites",
+  { minuteUTC: 15 },
+  internal.jobs.invitations.processAutoReInvites,
+  {}
+);
+
+// Send admin alerts for expired invitations (daily at 9 AM UTC)
+crons.daily(
+  "admin-expiration-alerts",
+  { hourUTC: 9, minuteUTC: 0 },
+  internal.jobs.invitations.sendAdminExpirationAlerts,
+  {}
+);
+
+// Archive expired invitations older than 30 days (daily at 3 AM UTC)
+crons.daily(
+  "archive-old-invitations",
+  { hourUTC: 3, minuteUTC: 0 },
+  internal.jobs.invitations.archiveOldInvitations,
+  {}
+);
+
+// Cleanup archived invitations older than 90 days (weekly on Sunday at 4 AM UTC)
+crons.weekly(
+  "cleanup-archived-invitations",
+  { dayOfWeek: "sunday", hourUTC: 4, minuteUTC: 0 },
+  internal.jobs.invitations.cleanupArchivedInvitations,
+  {}
+);
+
 export default crons;

@@ -491,3 +491,177 @@ export const claimPlayerAccount = mutation({
     };
   },
 });
+
+/**
+ * Get player dashboard data for a claimed player
+ *
+ * Returns the player's profile, teams, goals, and recent activity
+ * for display on the player dashboard.
+ *
+ * @param organizationId - The organization ID to get dashboard data for
+ */
+export const getPlayerDashboard = query({
+  args: {
+    organizationId: v.string(),
+  },
+  returns: v.union(
+    v.object({
+      found: v.literal(true),
+      player: v.object({
+        id: v.id("playerIdentities"),
+        firstName: v.string(),
+        lastName: v.string(),
+        dateOfBirth: v.string(),
+        gender: v.string(),
+      }),
+      enrollment: v.object({
+        id: v.id("orgPlayerEnrollments"),
+        ageGroup: v.string(),
+        status: v.string(),
+        clubMembershipNumber: v.optional(v.string()),
+      }),
+      teams: v.array(
+        v.object({
+          id: v.string(), // Team IDs are strings (Better Auth managed)
+          name: v.string(),
+          sport: v.optional(v.string()),
+        })
+      ),
+      organizationName: v.string(),
+    }),
+    v.object({
+      found: v.literal(false),
+    })
+  ),
+  handler: async (ctx, args) => {
+    const identity = await ctx.auth.getUserIdentity();
+    if (!identity) {
+      return { found: false as const };
+    }
+
+    const userId = identity.subject;
+
+    // Find the player identity for this user
+    const player = await ctx.db
+      .query("playerIdentities")
+      .withIndex("by_userId", (q) => q.eq("userId", userId))
+      .first();
+
+    if (!player) {
+      return { found: false as const };
+    }
+
+    // Get the enrollment for this org
+    const enrollment = await ctx.db
+      .query("orgPlayerEnrollments")
+      .withIndex("by_playerIdentityId", (q) =>
+        q.eq("playerIdentityId", player._id)
+      )
+      .filter((q) => q.eq(q.field("organizationId"), args.organizationId))
+      .first();
+
+    if (!enrollment) {
+      return { found: false as const };
+    }
+
+    // Get organization name
+    const org = await ctx.runQuery(components.betterAuth.adapter.findOne, {
+      model: "organization",
+      where: [{ field: "_id", value: args.organizationId, operator: "eq" }],
+    });
+    const organizationName =
+      (org as { name?: string } | null)?.name || "Unknown Organization";
+
+    // Get team assignments
+    const teamAssignments = await ctx.db
+      .query("teamPlayerIdentities")
+      .withIndex("by_playerIdentityId", (q) =>
+        q.eq("playerIdentityId", player._id)
+      )
+      .collect();
+
+    const teams: Array<{
+      id: string;
+      name: string;
+      sport?: string;
+    }> = [];
+
+    for (const assignment of teamAssignments) {
+      // Team is managed by Better Auth, so we need to use the adapter
+      const team = await ctx.runQuery(components.betterAuth.adapter.findOne, {
+        model: "team",
+        where: [{ field: "_id", value: assignment.teamId, operator: "eq" }],
+      });
+      if (team) {
+        const teamData = team as { _id: string; name?: string; sport?: string };
+        teams.push({
+          id: teamData._id,
+          name: teamData.name || "Unknown Team",
+          sport: teamData.sport,
+        });
+      }
+    }
+
+    return {
+      found: true as const,
+      player: {
+        id: player._id,
+        firstName: player.firstName,
+        lastName: player.lastName,
+        dateOfBirth: player.dateOfBirth,
+        gender: player.gender,
+      },
+      enrollment: {
+        id: enrollment._id,
+        ageGroup: enrollment.ageGroup,
+        status: enrollment.status,
+        clubMembershipNumber: enrollment.clubMembershipNumber,
+      },
+      teams,
+      organizationName,
+    };
+  },
+});
+
+/**
+ * Check if the current user has a player dashboard in the given organization
+ *
+ * Used by the navigation to determine whether to show the "My Dashboard" link.
+ *
+ * @param organizationId - The organization ID to check
+ */
+export const hasPlayerDashboard = query({
+  args: {
+    organizationId: v.string(),
+  },
+  returns: v.boolean(),
+  handler: async (ctx, args) => {
+    const identity = await ctx.auth.getUserIdentity();
+    if (!identity) {
+      return false;
+    }
+
+    const userId = identity.subject;
+
+    // Find the player identity for this user
+    const player = await ctx.db
+      .query("playerIdentities")
+      .withIndex("by_userId", (q) => q.eq("userId", userId))
+      .first();
+
+    if (!player) {
+      return false;
+    }
+
+    // Check if there's an enrollment in this org
+    const enrollment = await ctx.db
+      .query("orgPlayerEnrollments")
+      .withIndex("by_playerIdentityId", (q) =>
+        q.eq("playerIdentityId", player._id)
+      )
+      .filter((q) => q.eq(q.field("organizationId"), args.organizationId))
+      .first();
+
+    return enrollment !== null;
+  },
+});

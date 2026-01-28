@@ -106,7 +106,7 @@ export default function PlatformDashboard() {
             </Link>
 
             {/* GDPR Policy Management */}
-            <Link href="/platform/gdpr">
+            <Link href={"/platform/gdpr" as "/platform"}>
               <Card className="h-full cursor-pointer transition-all hover:shadow-md hover:ring-2 hover:ring-[#1E3A5F]/20">
                 <CardContent className="flex items-center gap-3 p-4">
                   <div className="rounded-lg bg-emerald-100 p-3">

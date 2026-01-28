@@ -1,5 +1,5 @@
 import { v } from "convex/values";
-import { components } from "../_generated/api";
+import { components, internal } from "../_generated/api";
 import { mutation, query } from "../_generated/server";
 
 // ============================================================
@@ -448,6 +448,43 @@ export const createInvitationRequest = mutation({
       requestNumber,
       status: "pending",
     });
+
+    // Notify organization admins about the new invitation request
+    const membersResult = await ctx.runQuery(
+      components.betterAuth.adapter.findMany,
+      {
+        model: "member",
+        paginationOpts: { cursor: null, numItems: 1000 },
+        where: [
+          {
+            field: "organizationId",
+            value: invitationResult.organizationId,
+            operator: "eq",
+          },
+        ],
+      }
+    );
+    const members = (membersResult?.page || []) as {
+      userId: string;
+      role: string;
+    }[];
+
+    // Filter to admin and owner roles
+    const adminMembers = members.filter(
+      (m) => m.role === "admin" || m.role === "owner"
+    );
+
+    // Send notification to each admin
+    for (const admin of adminMembers) {
+      await ctx.runMutation(internal.models.notifications.createNotification, {
+        userId: admin.userId,
+        organizationId: invitationResult.organizationId,
+        type: "invitation_request",
+        title: "New Invitation Request",
+        message: `${args.userEmail} is requesting a new invitation`,
+        link: `/orgs/${invitationResult.organizationId}/admin/invitations?tab=requests`,
+      });
+    }
 
     return {
       success: true,

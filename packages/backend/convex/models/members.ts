@@ -332,6 +332,30 @@ export const addFunctionalRole = mutation({
     console.log(
       `[addFunctionalRole] Added ${args.functionalRole} role to user ${args.userId}`
     );
+
+    // Send notification for Admin/Coach role grants (not Parent - that uses Child Linking modal)
+    if (args.functionalRole === "admin" || args.functionalRole === "coach") {
+      // Get organization name for the notification message
+      const org = await ctx.runQuery(components.betterAuth.adapter.findOne, {
+        model: "organization",
+        where: [{ field: "_id", value: args.organizationId, operator: "eq" }],
+      });
+
+      const orgName = (org as any)?.name || "the organization";
+      const roleName = args.functionalRole === "admin" ? "Admin" : "Coach";
+      const dashboardPath =
+        args.functionalRole === "coach" ? "coach/dashboard" : "admin/dashboard";
+
+      await ctx.runMutation(internal.models.notifications.createNotification, {
+        userId: args.userId,
+        organizationId: args.organizationId,
+        type: "role_granted",
+        title: `New Role: ${roleName}`,
+        message: `You have been granted ${roleName} access to ${orgName}`,
+        link: `/orgs/${args.organizationId}/${dashboardPath}`,
+      });
+    }
+
     return null;
   },
 });
@@ -380,6 +404,10 @@ export const updateMemberFunctionalRoles = mutation({
       throw new Error("Member not found");
     }
 
+    // Get current roles to detect newly granted roles
+    const currentRoles: ("coach" | "parent" | "admin" | "player")[] =
+      (memberResult as any).functionalRoles || [];
+
     // Update functional roles using the adapter
     await ctx.runMutation(components.betterAuth.adapter.updateOne, {
       input: {
@@ -390,6 +418,40 @@ export const updateMemberFunctionalRoles = mutation({
         },
       },
     });
+
+    // Find newly added Admin/Coach roles and send notifications
+    const newlyGrantedRoles = args.functionalRoles.filter(
+      (role) =>
+        (role === "admin" || role === "coach") && !currentRoles.includes(role)
+    );
+
+    if (newlyGrantedRoles.length > 0) {
+      // Get organization name for the notification message
+      const org = await ctx.runQuery(components.betterAuth.adapter.findOne, {
+        model: "organization",
+        where: [{ field: "_id", value: args.organizationId, operator: "eq" }],
+      });
+
+      const orgName = (org as any)?.name || "the organization";
+
+      for (const role of newlyGrantedRoles) {
+        const roleName = role === "admin" ? "Admin" : "Coach";
+        const dashboardPath =
+          role === "coach" ? "coach/dashboard" : "admin/dashboard";
+
+        await ctx.runMutation(
+          internal.models.notifications.createNotification,
+          {
+            userId: args.userId,
+            organizationId: args.organizationId,
+            type: "role_granted",
+            title: `New Role: ${roleName}`,
+            message: `You have been granted ${roleName} access to ${orgName}`,
+            link: `/orgs/${args.organizationId}/${dashboardPath}`,
+          }
+        );
+      }
+    }
 
     return null;
   },

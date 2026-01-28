@@ -119,20 +119,32 @@ export function ExpiredInvitationView({
           ) : null}
         </CardContent>
 
-        {adminContactEmail && (
-          <CardFooter className="flex-col gap-2 border-t pt-6">
-            <p className="text-center text-gray-500 text-sm">
-              Or contact the organization directly:
+        <CardFooter className="flex-col gap-2 border-t pt-6">
+          {adminContactEmail ? (
+            <>
+              <p className="text-center text-gray-500 text-sm">
+                Or contact the organization directly:
+              </p>
+              <a
+                className="inline-flex items-center gap-2 font-medium text-blue-600 text-sm hover:underline"
+                href={`mailto:${adminContactEmail}?subject=Invitation Request for ${organizationName}`}
+              >
+                <Mail className="h-4 w-4" />
+                {adminContactEmail}
+              </a>
+            </>
+          ) : (
+            <p className="text-center text-muted-foreground text-sm">
+              Need help?{" "}
+              <a
+                className="underline hover:text-foreground"
+                href="mailto:support@playerarc.com"
+              >
+                Contact Support
+              </a>
             </p>
-            <a
-              className="inline-flex items-center gap-2 font-medium text-blue-600 text-sm hover:underline"
-              href={`mailto:${adminContactEmail}?subject=Invitation Request for ${organizationName}`}
-            >
-              <Mail className="h-4 w-4" />
-              {adminContactEmail}
-            </a>
-          </CardFooter>
-        )}
+          )}
+        </CardFooter>
       </Card>
     </div>
   );

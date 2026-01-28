@@ -17,6 +17,7 @@ import { Button } from "@/components/ui/button";
 import { Checkbox } from "@/components/ui/checkbox";
 import { Label } from "@/components/ui/label";
 import { GdprPolicyViewer } from "./gdpr-policy-viewer";
+import { HelpFooter } from "./help-footer";
 
 type GdprVersion = {
   _id: string;
@@ -152,6 +153,8 @@ export function GdprConsentStep({
             {isSubmitting ? "Accepting..." : "Accept & Continue"}
           </Button>
         </AlertDialogFooter>
+
+        <HelpFooter />
       </AlertDialogContent>
     </AlertDialog>
   );

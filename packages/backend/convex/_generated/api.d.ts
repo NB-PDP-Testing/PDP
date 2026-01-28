@@ -53,8 +53,10 @@ import type * as models_flows from "../models/flows.js";
 import type * as models_guardianIdentities from "../models/guardianIdentities.js";
 import type * as models_guardianManagement from "../models/guardianManagement.js";
 import type * as models_guardianPlayerLinks from "../models/guardianPlayerLinks.js";
+import type * as models_invitations from "../models/invitations.js";
 import type * as models_medicalProfiles from "../models/medicalProfiles.js";
 import type * as models_members from "../models/members.js";
+import type * as models_onboarding from "../models/onboarding.js";
 import type * as models_orgCostBudgets from "../models/orgCostBudgets.js";
 import type * as models_orgGuardianProfiles from "../models/orgGuardianProfiles.js";
 import type * as models_orgInjuryNotes from "../models/orgInjuryNotes.js";
@@ -180,8 +182,10 @@ declare const fullApi: ApiFromModules<{
   "models/guardianIdentities": typeof models_guardianIdentities;
   "models/guardianManagement": typeof models_guardianManagement;
   "models/guardianPlayerLinks": typeof models_guardianPlayerLinks;
+  "models/invitations": typeof models_invitations;
   "models/medicalProfiles": typeof models_medicalProfiles;
   "models/members": typeof models_members;
+  "models/onboarding": typeof models_onboarding;
   "models/orgCostBudgets": typeof models_orgCostBudgets;
   "models/orgGuardianProfiles": typeof models_orgGuardianProfiles;
   "models/orgInjuryNotes": typeof models_orgInjuryNotes;
@@ -388,11 +392,16 @@ export declare const components: {
               }
             | {
                 data: {
+                  adminContactEmail?: string;
+                  autoReInviteOnExpiration?: boolean;
                   colors?: Array<string>;
                   createdAt: number;
+                  invitationExpirationDays?: number;
                   logo?: null | string;
+                  maxAutoReInvitesPerInvitation?: number;
                   metadata?: null | string;
                   name: string;
+                  notifyAdminsOnInvitationRequest?: boolean;
                   sharingContactEmail?: null | string;
                   sharingContactMode?: "direct" | "enquiry" | "none";
                   sharingContactName?: null | string;
@@ -725,6 +734,11 @@ export declare const components: {
                     | "sharingContactName"
                     | "sharingContactEmail"
                     | "sharingContactPhone"
+                    | "invitationExpirationDays"
+                    | "autoReInviteOnExpiration"
+                    | "maxAutoReInvitesPerInvitation"
+                    | "adminContactEmail"
+                    | "notifyAdminsOnInvitationRequest"
                     | "_id";
                   operator?:
                     | "lt"
@@ -1102,6 +1116,11 @@ export declare const components: {
                     | "sharingContactName"
                     | "sharingContactEmail"
                     | "sharingContactPhone"
+                    | "invitationExpirationDays"
+                    | "autoReInviteOnExpiration"
+                    | "maxAutoReInvitesPerInvitation"
+                    | "adminContactEmail"
+                    | "notifyAdminsOnInvitationRequest"
                     | "_id";
                   operator?:
                     | "lt"
@@ -1622,11 +1641,16 @@ export declare const components: {
             | {
                 model: "organization";
                 update: {
+                  adminContactEmail?: string;
+                  autoReInviteOnExpiration?: boolean;
                   colors?: Array<string>;
                   createdAt?: number;
+                  invitationExpirationDays?: number;
                   logo?: null | string;
+                  maxAutoReInvitesPerInvitation?: number;
                   metadata?: null | string;
                   name?: string;
+                  notifyAdminsOnInvitationRequest?: boolean;
                   sharingContactEmail?: null | string;
                   sharingContactMode?: "direct" | "enquiry" | "none";
                   sharingContactName?: null | string;
@@ -1658,6 +1682,11 @@ export declare const components: {
                     | "sharingContactName"
                     | "sharingContactEmail"
                     | "sharingContactPhone"
+                    | "invitationExpirationDays"
+                    | "autoReInviteOnExpiration"
+                    | "maxAutoReInvitesPerInvitation"
+                    | "adminContactEmail"
+                    | "notifyAdminsOnInvitationRequest"
                     | "_id";
                   operator?:
                     | "lt"
@@ -2131,11 +2160,16 @@ export declare const components: {
             | {
                 model: "organization";
                 update: {
+                  adminContactEmail?: string;
+                  autoReInviteOnExpiration?: boolean;
                   colors?: Array<string>;
                   createdAt?: number;
+                  invitationExpirationDays?: number;
                   logo?: null | string;
+                  maxAutoReInvitesPerInvitation?: number;
                   metadata?: null | string;
                   name?: string;
+                  notifyAdminsOnInvitationRequest?: boolean;
                   sharingContactEmail?: null | string;
                   sharingContactMode?: "direct" | "enquiry" | "none";
                   sharingContactName?: null | string;
@@ -2167,6 +2201,11 @@ export declare const components: {
                     | "sharingContactName"
                     | "sharingContactEmail"
                     | "sharingContactPhone"
+                    | "invitationExpirationDays"
+                    | "autoReInviteOnExpiration"
+                    | "maxAutoReInvitesPerInvitation"
+                    | "adminContactEmail"
+                    | "notifyAdminsOnInvitationRequest"
                     | "_id";
                   operator?:
                     | "lt"

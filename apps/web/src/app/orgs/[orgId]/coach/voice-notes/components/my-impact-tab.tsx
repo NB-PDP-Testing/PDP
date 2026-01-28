@@ -22,6 +22,7 @@ import {
   SelectValue,
 } from "@/components/ui/select";
 import { Skeleton } from "@/components/ui/skeleton";
+import { AppliedInsightsSection } from "./applied-insights-section";
 import { ImpactSummaryCards } from "./impact-summary-cards";
 import { SentSummariesSection } from "./sent-summaries-section";
 
@@ -203,21 +204,11 @@ export function MyImpactTab({ orgId, coachId }: MyImpactTabProps) {
       <SentSummariesSection summaries={impactData.recentSummaries} />
 
       {/* Phase 8 Week 2: Applied insights section (US-P8-007) */}
-      <div>
-        <h3 className="mb-4 font-semibold text-muted-foreground text-sm uppercase tracking-wide">
-          Applied Insights
-        </h3>
-        <div className="rounded-lg border-2 border-muted-foreground/25 border-dashed bg-muted/50 p-8 text-center">
-          <p className="text-muted-foreground text-sm">
-            <strong>Week 2 Implementation:</strong> Insights grouped by category
-            (skills, injuries, attendance) with links to player passports.
-          </p>
-          <p className="mt-2 text-muted-foreground text-xs">
-            Data available: {impactData.skillChanges.length} skill changes,{" "}
-            {impactData.injuriesRecorded.length} injuries recorded
-          </p>
-        </div>
-      </div>
+      <AppliedInsightsSection
+        injuries={impactData.injuriesRecorded}
+        orgId={orgId}
+        skillChanges={impactData.skillChanges}
+      />
 
       {/* Phase 8 Week 2: Team observations section (US-P8-009) */}
       <div>

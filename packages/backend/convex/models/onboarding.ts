@@ -536,3 +536,164 @@ export const incrementChildLinkingSkipCount = mutation({
     return { newSkipCount: newCount };
   },
 });
+
+// ============ US-019: ONBOARDING STATE MANAGEMENT ============
+
+/**
+ * Get onboarding progress for the current user.
+ * Returns completion status for each onboarding step.
+ *
+ * US-019 requirement: getOnboardingProgress(userId) query
+ */
+export const getOnboardingProgress = query({
+  args: {},
+  returns: v.union(
+    v.object({
+      isComplete: v.boolean(),
+      gdprConsentComplete: v.boolean(),
+      setupComplete: v.boolean(),
+      currentStep: v.union(v.string(), v.null()),
+      steps: v.array(
+        v.object({
+          id: v.string(),
+          label: v.string(),
+          completed: v.boolean(),
+        })
+      ),
+    }),
+    v.null()
+  ),
+  handler: async (ctx) => {
+    const user = await authComponent.safeGetAuthUser(ctx);
+
+    if (!user) {
+      return null;
+    }
+
+    // Determine completion status for each step
+    const gdprConsentComplete = user.gdprConsentVersion !== undefined;
+    const setupComplete = user.setupComplete === true;
+    const onboardingComplete = user.onboardingComplete === true;
+
+    // Build steps array with completion status
+    const steps = [
+      {
+        id: "gdpr_consent",
+        label: "Privacy Consent",
+        completed: gdprConsentComplete,
+      },
+      {
+        id: "profile_setup",
+        label: "Profile Setup",
+        completed: true, // Always complete once user exists
+      },
+    ];
+
+    // Add owner-specific steps if user is platform staff
+    if (user.isPlatformStaff) {
+      steps.push(
+        {
+          id: "org_setup",
+          label: "Organization Setup",
+          completed: setupComplete,
+        },
+        {
+          id: "create_team",
+          label: "Create First Team",
+          completed: setupComplete, // Completed as part of wizard
+        },
+        {
+          id: "invite_members",
+          label: "Invite Team",
+          completed: setupComplete, // Optional but marked complete with wizard
+        }
+      );
+    }
+
+    // Determine current step
+    let currentStep: string | null = null;
+    for (const step of steps) {
+      if (!step.completed) {
+        currentStep = step.id;
+        break;
+      }
+    }
+
+    return {
+      isComplete: onboardingComplete || (gdprConsentComplete && setupComplete),
+      gdprConsentComplete,
+      setupComplete,
+      currentStep,
+      steps,
+    };
+  },
+});
+
+/**
+ * Mark onboarding as complete for the current user.
+ * Sets onboardingComplete: true on the user record.
+ *
+ * US-019 requirement: markOnboardingComplete(userId) mutation
+ */
+export const markOnboardingComplete = mutation({
+  args: {},
+  returns: v.null(),
+  handler: async (ctx) => {
+    const user = await authComponent.safeGetAuthUser(ctx);
+
+    if (!user) {
+      throw new Error("Must be authenticated");
+    }
+
+    // Update user record
+    await ctx.runMutation(components.betterAuth.adapter.updateOne, {
+      input: {
+        model: "user",
+        where: [{ field: "_id", value: user._id, operator: "eq" }],
+        update: {
+          onboardingComplete: true,
+        },
+      },
+    });
+
+    console.log(`[Onboarding] User ${user.email} completed onboarding`);
+
+    return null;
+  },
+});
+
+/**
+ * Reset onboarding for the current user.
+ * Clears onboardingComplete and setupComplete flags.
+ * Used when user wants to restart the onboarding experience.
+ *
+ * US-019 requirement: resetOnboarding(userId) mutation
+ */
+export const resetOnboarding = mutation({
+  args: {},
+  returns: v.null(),
+  handler: async (ctx) => {
+    const user = await authComponent.safeGetAuthUser(ctx);
+
+    if (!user) {
+      throw new Error("Must be authenticated");
+    }
+
+    // Reset onboarding state
+    await ctx.runMutation(components.betterAuth.adapter.updateOne, {
+      input: {
+        model: "user",
+        where: [{ field: "_id", value: user._id, operator: "eq" }],
+        update: {
+          onboardingComplete: false,
+          setupComplete: false,
+          setupStep: "gdpr", // Reset to first step
+        },
+      },
+    });
+
+    console.log(`[Onboarding] User ${user.email} reset onboarding`);
+
+    return null;
+  },
+});

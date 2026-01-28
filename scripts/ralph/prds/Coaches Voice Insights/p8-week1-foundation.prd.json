@@ -115,8 +115,8 @@
         "visualTest": "Login as neil.B@blablablak.com (platform staff can impersonate coach at any level) to test"
       },
       "priority": 2,
-      "passes": false,
-      "notes": "QUICK WIN - Simplest story in P8. Immediate positive impact for coaches. Should take < 15 minutes."
+      "passes": true,
+      "notes": "✅ COMPLETED - Jan 27, 2026. HOWEVER: Removed gate entirely (all coaches got access regardless of trust level). Required Week 1.5 fix (US-P8-002-FIX) to implement controllable feature flag system instead of complete removal. See p8-week1.5-trust-gate-fix.prd.json for the proper implementation."
     },
     {
       "id": "US-P8-003",

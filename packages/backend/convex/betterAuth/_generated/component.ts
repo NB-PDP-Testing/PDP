@@ -31,6 +31,7 @@ export type ComponentApi<Name extends string | undefined = string | undefined> =
           input:
             | {
                 data: {
+                  childLinkingSkipCount?: number;
                   createdAt: number;
                   currentOrgId?: string;
                   email: string;
@@ -243,6 +244,7 @@ export type ComponentApi<Name extends string | undefined = string | undefined> =
                     | "lastChildrenCheckAt"
                     | "parentOnboardingDismissCount"
                     | "parentOnboardingLastDismissedAt"
+                    | "childLinkingSkipCount"
                     | "currentOrgId"
                     | "gdprConsentVersion"
                     | "gdprConsentedAt"
@@ -664,6 +666,7 @@ export type ComponentApi<Name extends string | undefined = string | undefined> =
                     | "lastChildrenCheckAt"
                     | "parentOnboardingDismissCount"
                     | "parentOnboardingLastDismissedAt"
+                    | "childLinkingSkipCount"
                     | "currentOrgId"
                     | "gdprConsentVersion"
                     | "gdprConsentedAt"
@@ -1158,6 +1161,7 @@ export type ComponentApi<Name extends string | undefined = string | undefined> =
             | {
                 model: "user";
                 update: {
+                  childLinkingSkipCount?: number;
                   createdAt?: number;
                   currentOrgId?: string;
                   email?: string;
@@ -1197,6 +1201,7 @@ export type ComponentApi<Name extends string | undefined = string | undefined> =
                     | "lastChildrenCheckAt"
                     | "parentOnboardingDismissCount"
                     | "parentOnboardingLastDismissedAt"
+                    | "childLinkingSkipCount"
                     | "currentOrgId"
                     | "gdprConsentVersion"
                     | "gdprConsentedAt"
@@ -1729,6 +1734,7 @@ export type ComponentApi<Name extends string | undefined = string | undefined> =
             | {
                 model: "user";
                 update: {
+                  childLinkingSkipCount?: number;
                   createdAt?: number;
                   currentOrgId?: string;
                   email?: string;
@@ -1768,6 +1774,7 @@ export type ComponentApi<Name extends string | undefined = string | undefined> =
                     | "lastChildrenCheckAt"
                     | "parentOnboardingDismissCount"
                     | "parentOnboardingLastDismissedAt"
+                    | "childLinkingSkipCount"
                     | "currentOrgId"
                     | "gdprConsentVersion"
                     | "gdprConsentedAt"

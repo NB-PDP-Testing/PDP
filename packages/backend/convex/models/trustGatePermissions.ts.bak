@@ -21,7 +21,11 @@
  */
 
 import { v } from "convex/values";
-import { query, mutation } from "../_generated/server";
+import { components } from "../_generated/api";
+import type { Id } from "../_generated/dataModel";
+import { mutation, query } from "../_generated/server";
+import { authComponent } from "../auth";
+import type { Doc as BetterAuthDoc } from "../betterAuth/_generated/dataModel";
 
 /**
  * Check if trust gates are active for a specific coach
@@ -38,8 +42,12 @@ export const areTrustGatesActive = query({
     reason: v.optional(v.string()),
   }),
   handler: async (ctx, args) => {
-    // Get organization settings
-    const org = await ctx.db.get(args.organizationId as any);
+    // Get organization settings via Better Auth component
+    const org = (await ctx.runQuery(components.betterAuth.adapter.findOne, {
+      model: "organization",
+      where: [{ field: "_id", value: args.organizationId }],
+    })) as BetterAuthDoc<"organization"> | null;
+
     if (!org) {
       throw new Error("Organization not found");
     }
@@ -107,19 +115,28 @@ export const getOrgFeatureFlagStatus = query({
     ),
   }),
   handler: async (ctx, args) => {
-    // Get organization
-    const org = await ctx.db.get(args.organizationId as any);
+    // Get organization via Better Auth component
+    const org = (await ctx.runQuery(components.betterAuth.adapter.findOne, {
+      model: "organization",
+      where: [{ field: "_id", value: args.organizationId }],
+    })) as BetterAuthDoc<"organization"> | null;
+
     if (!org) {
       throw new Error("Organization not found");
     }
 
     // Get all coaches in org (members with functional role "coach")
-    const allMembers = await ctx.db
-      .query("member")
-      .withIndex("organizationId", (q) =>
-        q.eq("organizationId", args.organizationId)
-      )
-      .collect();
+    const allMembers = (await ctx.runQuery(
+      components.betterAuth.adapter.findMany,
+      {
+        model: "member",
+        where: [{ field: "organizationId", value: args.organizationId }],
+        paginationOpts: {
+          cursor: null,
+          numItems: 1000,
+        },
+      }
+    )) as BetterAuthDoc<"member">[];
 
     const coaches = allMembers.filter((m) =>
       m.functionalRoles?.includes("coach")
@@ -138,10 +155,13 @@ export const getOrgFeatureFlagStatus = query({
     // Build active overrides list with coach names
     const activeOverrides = await Promise.all(
       activeOverridePrefs.map(async (pref) => {
-        const user = await ctx.db
-          .query("user")
-          .filter((q) => q.eq(q.field("userId"), pref.coachId))
-          .first();
+        const user = (await ctx.runQuery(
+          components.betterAuth.adapter.findOne,
+          {
+            model: "user",
+            where: [{ field: "userId", value: pref.coachId }],
+          }
+        )) as BetterAuthDoc<"user"> | null;
 
         return {
           coachId: pref.coachId,
@@ -214,7 +234,18 @@ export const getCoachOverrideRequests = query({
     })
   ),
   handler: async (ctx, args) => {
-    let requests;
+    let requests: Array<{
+      _id: Id<"coachOverrideRequests">;
+      coachId: string;
+      organizationId: string;
+      featureType: string;
+      reason: string;
+      status: "pending" | "approved" | "denied" | "expired";
+      requestedAt: number;
+      reviewedBy?: string;
+      reviewedAt?: number;
+      reviewNotes?: string;
+    }>;
 
     if (args.status) {
       // Query by org + status
@@ -223,7 +254,10 @@ export const getCoachOverrideRequests = query({
         .withIndex("by_org_status", (q) =>
           q
             .eq("organizationId", args.organizationId)
-            .eq("status", args.status as any)
+            .eq(
+              "status",
+              args.status as "pending" | "approved" | "denied" | "expired"
+            )
         )
         .collect();
     } else {
@@ -237,10 +271,13 @@ export const getCoachOverrideRequests = query({
     // Enrich with coach names
     const enriched = await Promise.all(
       requests.map(async (req) => {
-        const user = await ctx.db
-          .query("user")
-          .filter((q) => q.eq(q.field("userId"), req.coachId))
-          .first();
+        const user = (await ctx.runQuery(
+          components.betterAuth.adapter.findOne,
+          {
+            model: "user",
+            where: [{ field: "userId", value: req.coachId }],
+          }
+        )) as BetterAuthDoc<"user"> | null;
 
         return {
           _id: req._id,
@@ -280,24 +317,22 @@ export const getAllOrgsFeatureFlagStatus = query({
       lastChangedAt: v.optional(v.number()),
     })
   ),
-  handler: async (ctx, args) => {
-    // Get current user to verify platform staff
-    const identity = await ctx.auth.getUserIdentity();
-    if (!identity) {
-      throw new Error("Not authenticated");
-    }
-
-    const user = await ctx.db
-      .query("user")
-      .filter((q) => q.eq(q.field("userId"), identity.subject))
-      .first();
-
+  handler: async (ctx, _args) => {
+    // Get current user to verify platform staff (using the correct pattern)
+    const user = await authComponent.safeGetAuthUser(ctx);
     if (!user?.isPlatformStaff) {
       throw new Error("Unauthorized: Platform staff only");
     }
 
     // Get all organizations
-    const orgs = await ctx.db.query("organization").collect();
+    const orgs = (await ctx.runQuery(components.betterAuth.adapter.findMany, {
+      model: "organization",
+      where: [],
+      paginationOpts: {
+        cursor: null,
+        numItems: 1000,
+      },
+    })) as BetterAuthDoc<"organization">[];
 
     // Build status for each org
     const statuses = await Promise.all(
@@ -362,17 +397,17 @@ export const setPlatformFeatureFlags = mutation({
       throw new Error("Not authenticated");
     }
 
-    const user = await ctx.db
-      .query("user")
-      .filter((q) => q.eq(q.field("userId"), identity.subject))
-      .first();
+    const user = (await ctx.runQuery(components.betterAuth.adapter.findOne, {
+      model: "user",
+      where: [{ field: "userId", value: identity.subject }],
+    })) as BetterAuthDoc<"user"> | null;
 
     if (!user?.isPlatformStaff) {
       throw new Error("Unauthorized: Platform staff only");
     }
 
-    // Update organization
-    const updates: any = {};
+    // Update organization via Better Auth component
+    const updates: Record<string, boolean> = {};
     if (args.allowAdminDelegation !== undefined) {
       updates.allowAdminDelegation = args.allowAdminDelegation;
     }
@@ -380,7 +415,13 @@ export const setPlatformFeatureFlags = mutation({
       updates.allowCoachOverrides = args.allowCoachOverrides;
     }
 
-    await ctx.db.patch(args.organizationId as any, updates);
+    await ctx.runMutation(components.betterAuth.adapter.updateOne, {
+      input: {
+        model: "organization",
+        where: [{ field: "_id", value: args.organizationId, operator: "eq" }],
+        update: updates,
+      },
+    });
 
     return { success: true };
   },
@@ -404,18 +445,24 @@ export const setOrgTrustGatesEnabled = mutation({
       throw new Error("Not authenticated");
     }
 
-    const user = await ctx.db
-      .query("user")
-      .filter((q) => q.eq(q.field("userId"), identity.subject))
-      .first();
+    const user = (await ctx.runQuery(components.betterAuth.adapter.findOne, {
+      model: "user",
+      where: [{ field: "userId", value: identity.subject }],
+    })) as BetterAuthDoc<"user"> | null;
 
     if (!user?.isPlatformStaff) {
       throw new Error("Unauthorized: Platform staff only");
     }
 
-    // Update organization
-    await ctx.db.patch(args.organizationId as any, {
-      voiceNotesTrustGatesEnabled: args.enabled,
+    // Update organization via Better Auth component
+    await ctx.runMutation(components.betterAuth.adapter.updateOne, {
+      input: {
+        model: "organization",
+        where: [{ field: "_id", value: args.organizationId, operator: "eq" }],
+        update: {
+          voiceNotesTrustGatesEnabled: args.enabled,
+        },
+      },
     });
 
     return { success: true };
@@ -440,29 +487,40 @@ export const setAdminBlanketOverride = mutation({
       throw new Error("Not authenticated");
     }
 
-    const user = await ctx.db
-      .query("user")
-      .filter((q) => q.eq(q.field("userId"), identity.subject))
-      .first();
+    const user = (await ctx.runQuery(components.betterAuth.adapter.findOne, {
+      model: "user",
+      where: [{ field: "userId", value: identity.subject }],
+    })) as BetterAuthDoc<"user"> | null;
 
     if (!user) {
       throw new Error("User not found");
     }
 
     // Check if user is org admin
-    const membership = await ctx.db
-      .query("member")
-      .withIndex("organizationId_userId", (q) =>
-        q.eq("organizationId", args.organizationId).eq("userId", identity.subject)
-      )
-      .first();
+    const membership = (await ctx.runQuery(
+      components.betterAuth.adapter.findOne,
+      {
+        model: "member",
+        where: [
+          { field: "organizationId", value: args.organizationId },
+          { field: "userId", value: identity.subject },
+        ],
+      }
+    )) as BetterAuthDoc<"member"> | null;
 
-    if (!membership || (membership.role !== "admin" && membership.role !== "owner")) {
+    if (
+      !membership ||
+      (membership.role !== "admin" && membership.role !== "owner")
+    ) {
       throw new Error("Unauthorized: Admin or owner role required");
     }
 
     // Check if org allows admin delegation
-    const org = await ctx.db.get(args.organizationId as any);
+    const org = (await ctx.runQuery(components.betterAuth.adapter.findOne, {
+      model: "organization",
+      where: [{ field: "_id", value: args.organizationId }],
+    })) as BetterAuthDoc<"organization"> | null;
+
     if (!org) {
       throw new Error("Organization not found");
     }
@@ -472,10 +530,16 @@ export const setAdminBlanketOverride = mutation({
     }
 
     // Update organization
-    await ctx.db.patch(args.organizationId as any, {
-      adminOverrideTrustGates: args.override,
-      adminOverrideSetBy: identity.subject,
-      adminOverrideSetAt: Date.now(),
+    await ctx.runMutation(components.betterAuth.adapter.updateOne, {
+      input: {
+        model: "organization",
+        where: [{ field: "_id", value: args.organizationId, operator: "eq" }],
+        update: {
+          adminOverrideTrustGates: args.override,
+          adminOverrideSetBy: identity.subject,
+          adminOverrideSetAt: Date.now(),
+        },
+      },
     });
 
     return { success: true };
@@ -502,29 +566,40 @@ export const grantCoachOverride = mutation({
       throw new Error("Not authenticated");
     }
 
-    const user = await ctx.db
-      .query("user")
-      .filter((q) => q.eq(q.field("userId"), identity.subject))
-      .first();
+    const user = (await ctx.runQuery(components.betterAuth.adapter.findOne, {
+      model: "user",
+      where: [{ field: "userId", value: identity.subject }],
+    })) as BetterAuthDoc<"user"> | null;
 
     if (!user) {
       throw new Error("User not found");
     }
 
     // Check if user is org admin
-    const membership = await ctx.db
-      .query("member")
-      .withIndex("organizationId_userId", (q) =>
-        q.eq("organizationId", args.organizationId).eq("userId", identity.subject)
-      )
-      .first();
+    const membership = (await ctx.runQuery(
+      components.betterAuth.adapter.findOne,
+      {
+        model: "member",
+        where: [
+          { field: "organizationId", value: args.organizationId },
+          { field: "userId", value: identity.subject },
+        ],
+      }
+    )) as BetterAuthDoc<"member"> | null;
 
-    if (!membership || (membership.role !== "admin" && membership.role !== "owner")) {
+    if (
+      !membership ||
+      (membership.role !== "admin" && membership.role !== "owner")
+    ) {
       throw new Error("Unauthorized: Admin or owner role required");
     }
 
     // Check if org allows coach overrides
-    const org = await ctx.db.get(args.organizationId as any);
+    const org = (await ctx.runQuery(components.betterAuth.adapter.findOne, {
+      model: "organization",
+      where: [{ field: "_id", value: args.organizationId }],
+    })) as BetterAuthDoc<"organization"> | null;
+
     if (!org) {
       throw new Error("Organization not found");
     }
@@ -534,7 +609,7 @@ export const grantCoachOverride = mutation({
     }
 
     // Get or create coach preferences
-    let coachPrefs = await ctx.db
+    const coachPrefs = await ctx.db
       .query("coachOrgPreferences")
       .withIndex("by_coach_org", (q) =>
         q.eq("coachId", args.coachId).eq("organizationId", args.organizationId)
@@ -588,24 +663,31 @@ export const revokeCoachOverride = mutation({
       throw new Error("Not authenticated");
     }
 
-    const user = await ctx.db
-      .query("user")
-      .filter((q) => q.eq(q.field("userId"), identity.subject))
-      .first();
+    const user = (await ctx.runQuery(components.betterAuth.adapter.findOne, {
+      model: "user",
+      where: [{ field: "userId", value: identity.subject }],
+    })) as BetterAuthDoc<"user"> | null;
 
     if (!user) {
       throw new Error("User not found");
     }
 
     // Check if user is org admin
-    const membership = await ctx.db
-      .query("member")
-      .withIndex("organizationId_userId", (q) =>
-        q.eq("organizationId", args.organizationId).eq("userId", identity.subject)
-      )
-      .first();
+    const membership = (await ctx.runQuery(
+      components.betterAuth.adapter.findOne,
+      {
+        model: "member",
+        where: [
+          { field: "organizationId", value: args.organizationId },
+          { field: "userId", value: identity.subject },
+        ],
+      }
+    )) as BetterAuthDoc<"member"> | null;
 
-    if (!membership || (membership.role !== "admin" && membership.role !== "owner")) {
+    if (
+      !membership ||
+      (membership.role !== "admin" && membership.role !== "owner")
+    ) {
       throw new Error("Unauthorized: Admin or owner role required");
     }
 
@@ -654,13 +736,19 @@ export const requestCoachOverride = mutation({
     }
 
     // Check if org allows coach override requests
-    const org = await ctx.db.get(args.organizationId as any);
+    const org = (await ctx.runQuery(components.betterAuth.adapter.findOne, {
+      model: "organization",
+      where: [{ field: "_id", value: args.organizationId }],
+    })) as BetterAuthDoc<"organization"> | null;
+
     if (!org) {
       throw new Error("Organization not found");
     }
 
     if (!org.allowCoachOverrides) {
-      throw new Error("Coach override requests not enabled for this organization");
+      throw new Error(
+        "Coach override requests not enabled for this organization"
+      );
     }
 
     // Check if there's already a pending request
@@ -712,10 +800,10 @@ export const reviewCoachOverrideRequest = mutation({
       throw new Error("Not authenticated");
     }
 
-    const user = await ctx.db
-      .query("user")
-      .filter((q) => q.eq(q.field("userId"), identity.subject))
-      .first();
+    const user = (await ctx.runQuery(components.betterAuth.adapter.findOne, {
+      model: "user",
+      where: [{ field: "userId", value: identity.subject }],
+    })) as BetterAuthDoc<"user"> | null;
 
     if (!user) {
       throw new Error("User not found");
@@ -728,14 +816,21 @@ export const reviewCoachOverrideRequest = mutation({
     }
 
     // Check if user is org admin
-    const membership = await ctx.db
-      .query("member")
-      .withIndex("organizationId_userId", (q) =>
-        q.eq("organizationId", request.organizationId).eq("userId", identity.subject)
-      )
-      .first();
+    const membership = (await ctx.runQuery(
+      components.betterAuth.adapter.findOne,
+      {
+        model: "member",
+        where: [
+          { field: "organizationId", value: request.organizationId },
+          { field: "userId", value: identity.subject },
+        ],
+      }
+    )) as BetterAuthDoc<"member"> | null;
 
-    if (!membership || (membership.role !== "admin" && membership.role !== "owner")) {
+    if (
+      !membership ||
+      (membership.role !== "admin" && membership.role !== "owner")
+    ) {
       throw new Error("Unauthorized: Admin or owner role required");
     }
 
@@ -750,10 +845,12 @@ export const reviewCoachOverrideRequest = mutation({
     // If approved, grant the override
     if (args.approved) {
       // Get or create coach preferences
-      let coachPrefs = await ctx.db
+      const coachPrefs = await ctx.db
         .query("coachOrgPreferences")
         .withIndex("by_coach_org", (q) =>
-          q.eq("coachId", request.coachId).eq("organizationId", request.organizationId)
+          q
+            .eq("coachId", request.coachId)
+            .eq("organizationId", request.organizationId)
         )
         .first();
 

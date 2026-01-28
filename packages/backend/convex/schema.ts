@@ -2247,6 +2247,15 @@ export default defineSchema({
     overrideReason: v.optional(v.string()), // Why this coach got bypass
     overrideExpiresAt: v.optional(v.number()), // Optional: time-boxed access
 
+    // Coach Self-Service Access Control (P8 Week 1.5 extension)
+    parentAccessEnabled: v.optional(v.boolean()), // Coach toggle (default true after approval)
+
+    // Admin Block Individual Coach (P8 Week 1.5 extension)
+    adminBlocked: v.optional(v.boolean()), // Admin blocked this specific coach
+    blockReason: v.optional(v.string()), // Why admin blocked
+    blockedBy: v.optional(v.string()), // User ID who blocked
+    blockedAt: v.optional(v.number()), // When blocked
+
     createdAt: v.number(),
     updatedAt: v.number(),
   })

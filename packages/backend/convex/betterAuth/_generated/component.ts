@@ -127,6 +127,9 @@ export type ComponentApi<Name extends string | undefined = string | undefined> =
               }
             | {
                 data: {
+                  adminBlanketBlock?: boolean;
+                  adminBlanketBlockSetAt?: number;
+                  adminBlanketBlockSetBy?: string;
                   adminOverrideSetAt?: number;
                   adminOverrideSetBy?: string;
                   adminOverrideTrustGates?: boolean;
@@ -477,6 +480,9 @@ export type ComponentApi<Name extends string | undefined = string | undefined> =
                     | "adminOverrideTrustGates"
                     | "adminOverrideSetBy"
                     | "adminOverrideSetAt"
+                    | "adminBlanketBlock"
+                    | "adminBlanketBlockSetBy"
+                    | "adminBlanketBlockSetAt"
                     | "_id";
                   operator?:
                     | "lt"
@@ -861,6 +867,9 @@ export type ComponentApi<Name extends string | undefined = string | undefined> =
                     | "adminOverrideTrustGates"
                     | "adminOverrideSetBy"
                     | "adminOverrideSetAt"
+                    | "adminBlanketBlock"
+                    | "adminBlanketBlockSetBy"
+                    | "adminBlanketBlockSetAt"
                     | "_id";
                   operator?:
                     | "lt"
@@ -1384,6 +1393,9 @@ export type ComponentApi<Name extends string | undefined = string | undefined> =
             | {
                 model: "organization";
                 update: {
+                  adminBlanketBlock?: boolean;
+                  adminBlanketBlockSetAt?: number;
+                  adminBlanketBlockSetBy?: string;
                   adminOverrideSetAt?: number;
                   adminOverrideSetBy?: string;
                   adminOverrideTrustGates?: boolean;
@@ -1432,6 +1444,9 @@ export type ComponentApi<Name extends string | undefined = string | undefined> =
                     | "adminOverrideTrustGates"
                     | "adminOverrideSetBy"
                     | "adminOverrideSetAt"
+                    | "adminBlanketBlock"
+                    | "adminBlanketBlockSetBy"
+                    | "adminBlanketBlockSetAt"
                     | "_id";
                   operator?:
                     | "lt"
@@ -1906,6 +1921,9 @@ export type ComponentApi<Name extends string | undefined = string | undefined> =
             | {
                 model: "organization";
                 update: {
+                  adminBlanketBlock?: boolean;
+                  adminBlanketBlockSetAt?: number;
+                  adminBlanketBlockSetBy?: string;
                   adminOverrideSetAt?: number;
                   adminOverrideSetBy?: string;
                   adminOverrideTrustGates?: boolean;
@@ -1954,6 +1972,9 @@ export type ComponentApi<Name extends string | undefined = string | undefined> =
                     | "adminOverrideTrustGates"
                     | "adminOverrideSetBy"
                     | "adminOverrideSetAt"
+                    | "adminBlanketBlock"
+                    | "adminBlanketBlockSetBy"
+                    | "adminBlanketBlockSetAt"
                     | "_id";
                   operator?:
                     | "lt"

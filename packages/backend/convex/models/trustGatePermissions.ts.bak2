@@ -88,152 +88,6 @@ export const areTrustGatesActive = query({
 });
 
 /**
- * Comprehensive access check for coach parent communication
- * Includes all blocking logic, self-service, and trust levels
- *
- * Priority order (highest to lowest):
- * 1. Admin blanket block → no access
- * 2. Individual admin block → no access
- * 3. Coach self-disabled → no access
- * 4. Gates disabled → access
- * 5. Admin blanket override → access
- * 6. Trust Level 2+ → access
- * 7. Individual override → access
- * 8. Default → no access
- */
-export const checkCoachParentAccess = query({
-  args: {
-    coachId: v.string(),
-    organizationId: v.string(),
-  },
-  returns: v.object({
-    hasAccess: v.boolean(),
-    reason: v.string(),
-    canRequest: v.boolean(), // Can coach request access?
-    canToggle: v.boolean(), // Can coach toggle on/off?
-  }),
-  handler: async (ctx, args) => {
-    // Get organization settings
-    const org = (await ctx.runQuery(components.betterAuth.adapter.findOne, {
-      model: "organization",
-      where: [{ field: "_id", value: args.organizationId }],
-    })) as BetterAuthDoc<"organization"> | null;
-
-    if (!org) {
-      throw new Error("Organization not found");
-    }
-
-    // Get coach preferences
-    const coachPref = await ctx.db
-      .query("coachOrgPreferences")
-      .withIndex("by_coach_org", (q) =>
-        q.eq("coachId", args.coachId).eq("organizationId", args.organizationId)
-      )
-      .first();
-
-    // Get coach trust level
-    const trustLevel = await ctx.db
-      .query("coachTrustLevels")
-      .withIndex("by_coach", (q) => q.eq("coachId", args.coachId))
-      .first();
-
-    const currentLevel = trustLevel?.currentLevel ?? 0;
-
-    // PRIORITY 1: Admin blanket block (highest - blocks EVERYONE)
-    if (org.adminBlanketBlock === true) {
-      return {
-        hasAccess: false,
-        reason: "Admin has disabled parent communication for all coaches",
-        canRequest: false,
-        canToggle: false,
-      };
-    }
-
-    // PRIORITY 2: Individual admin block
-    if (coachPref?.adminBlocked === true) {
-      return {
-        hasAccess: false,
-        reason: coachPref.blockReason || "Admin blocked your access",
-        canRequest: false,
-        canToggle: false,
-      };
-    }
-
-    // PRIORITY 3: Coach self-disabled (coach chose to hide)
-    if (coachPref?.parentAccessEnabled === false) {
-      return {
-        hasAccess: false,
-        reason: "You disabled this feature in your settings",
-        canRequest: false,
-        canToggle: true, // Can toggle back on
-      };
-    }
-
-    // PRIORITY 4: Gates disabled (everyone gets access)
-    if (org.voiceNotesTrustGatesEnabled === false) {
-      return {
-        hasAccess: true,
-        reason: "Trust gates disabled by platform staff",
-        canRequest: false,
-        canToggle: true, // Can still toggle off if they want
-      };
-    }
-
-    // PRIORITY 5: Admin blanket override (everyone gets access)
-    if (org.adminOverrideTrustGates === true) {
-      return {
-        hasAccess: true,
-        reason: "Admin granted access to all coaches",
-        canRequest: false,
-        canToggle: true, // Can toggle off if they want
-      };
-    }
-
-    // PRIORITY 6: Trust Level 2+ (earned access)
-    if (currentLevel >= 2) {
-      return {
-        hasAccess: true,
-        reason: "Trust Level 2+",
-        canRequest: false,
-        canToggle: true, // Can toggle off if they want
-      };
-    }
-
-    // PRIORITY 7: Individual override (admin approved)
-    if (coachPref?.trustGateOverride === true) {
-      // Check if expired
-      if (
-        coachPref.overrideExpiresAt &&
-        coachPref.overrideExpiresAt < Date.now()
-      ) {
-        return {
-          hasAccess: false,
-          reason: "Your override access has expired",
-          canRequest: org.allowCoachOverrides ?? false,
-          canToggle: false,
-        };
-      }
-
-      return {
-        hasAccess: true,
-        reason:
-          coachPref.overrideReason || "Admin granted you temporary access",
-        canRequest: false,
-        canToggle: true, // Can toggle off if they want
-      };
-    }
-
-    // PRIORITY 8: Default - no access
-    return {
-      hasAccess: false,
-      reason: "Requires Trust Level 2 or admin approval",
-      canRequest: org.allowCoachOverrides ?? false,
-      canToggle: false,
-    };
-  },
-});
-
-/**
  * Get feature flag status for an organization with aggregated coach data
  */
 export const getOrgFeatureFlagStatus = query({
@@ -272,7 +126,7 @@ export const getOrgFeatureFlagStatus = query({
     }
 
     // Get all coaches in org (members with functional role "coach")
-    const allMembersResult = await ctx.runQuery(
+    const allMembers = (await ctx.runQuery(
       components.betterAuth.adapter.findMany,
       {
         model: "member",
@@ -282,9 +136,7 @@ export const getOrgFeatureFlagStatus = query({
           numItems: 1000,
         },
       }
-    );
-
-    const allMembers = allMembersResult.page as BetterAuthDoc<"member">[];
+    )) as BetterAuthDoc<"member">[];
 
     const coaches = allMembers.filter((m) =>
       m.functionalRoles?.includes("coach")
@@ -472,20 +324,15 @@ export const getAllOrgsFeatureFlagStatus = query({
       throw new Error("Unauthorized: Platform staff only");
     }
 
-    // Get all organizations (using same pattern as getAllUsers)
-    const orgsResult = await ctx.runQuery(
-      components.betterAuth.adapter.findMany,
-      {
-        model: "organization",
-        where: [],
-        paginationOpts: {
-          cursor: null,
-          numItems: 1000,
-        },
-      }
-    );
-
-    const orgs = orgsResult.page as BetterAuthDoc<"organization">[];
+    // Get all organizations
+    const orgs = (await ctx.runQuery(components.betterAuth.adapter.findMany, {
+      model: "organization",
+      where: [],
+      paginationOpts: {
+        cursor: null,
+        numItems: 1000,
+      },
+    })) as BetterAuthDoc<"organization">[];
 
     // Build status for each org
     const statuses = await Promise.all(
@@ -544,9 +391,9 @@ export const setPlatformFeatureFlags = mutation({
     success: v.boolean(),
   }),
   handler: async (ctx, args) => {
-    // Verify platform staff (using working pattern)
-    const currentUser = await authComponent.safeGetAuthUser(ctx);
-    if (!currentUser?.isPlatformStaff) {
+    // Verify platform staff
+    const user = await authComponent.safeGetAuthUser(ctx);
+    if (!user?.isPlatformStaff) {
       throw new Error("Unauthorized: Platform staff only");
     }
 
@@ -583,9 +430,9 @@ export const setOrgTrustGatesEnabled = mutation({
     success: v.boolean(),
   }),
   handler: async (ctx, args) => {
-    // Verify platform staff (using working pattern)
-    const currentUser = await authComponent.safeGetAuthUser(ctx);
-    if (!currentUser?.isPlatformStaff) {
+    // Verify platform staff
+    const user = await authComponent.safeGetAuthUser(ctx);
+    if (!user?.isPlatformStaff) {
       throw new Error("Unauthorized: Platform staff only");
     }
 
@@ -616,9 +463,9 @@ export const setAdminBlanketOverride = mutation({
     success: v.boolean(),
   }),
   handler: async (ctx, args) => {
-    // Verify authenticated (using working pattern)
-    const currentUser = await authComponent.safeGetAuthUser(ctx);
-    if (!currentUser) {
+    // Verify authenticated
+    const user = await authComponent.safeGetAuthUser(ctx);
+    if (!user) {
       throw new Error("User not found");
     }
 
@@ -629,7 +476,7 @@ export const setAdminBlanketOverride = mutation({
         model: "member",
         where: [
           { field: "organizationId", value: args.organizationId },
-          { field: "userId", value: currentUser._id },
+          { field: "userId", value: identity.subject },
         ],
       }
     )) as BetterAuthDoc<"member"> | null;
@@ -662,7 +509,7 @@ export const setAdminBlanketOverride = mutation({
         where: [{ field: "_id", value: args.organizationId, operator: "eq" }],
         update: {
           adminOverrideTrustGates: args.override,
-          adminOverrideSetBy: currentUser._id,
+          adminOverrideSetBy: identity.subject,
           adminOverrideSetAt: Date.now(),
         },
       },
@@ -686,9 +533,9 @@ export const grantCoachOverride = mutation({
     success: v.boolean(),
   }),
   handler: async (ctx, args) => {
-    // Verify authenticated (using working pattern)
-    const currentUser = await authComponent.safeGetAuthUser(ctx);
-    if (!currentUser) {
+    // Verify authenticated
+    const user = await authComponent.safeGetAuthUser(ctx);
+    if (!user) {
       throw new Error("User not found");
     }
 
@@ -699,7 +546,7 @@ export const grantCoachOverride = mutation({
         model: "member",
         where: [
           { field: "organizationId", value: args.organizationId },
-          { field: "userId", value: currentUser._id },
+          { field: "userId", value: identity.subject },
         ],
       }
     )) as BetterAuthDoc<"member"> | null;
@@ -737,7 +584,7 @@ export const grantCoachOverride = mutation({
       // Update existing
       await ctx.db.patch(coachPrefs._id, {
         trustGateOverride: true,
-        overrideGrantedBy: currentUser._id,
+        overrideGrantedBy: identity.subject,
         overrideGrantedAt: Date.now(),
         overrideReason: args.reason,
         overrideExpiresAt: args.expiresAt,
@@ -749,7 +596,7 @@ export const grantCoachOverride = mutation({
         coachId: args.coachId,
         organizationId: args.organizationId,
         trustGateOverride: true,
-        overrideGrantedBy: currentUser._id,
+        overrideGrantedBy: identity.subject,
         overrideGrantedAt: Date.now(),
         overrideReason: args.reason,
         overrideExpiresAt: args.expiresAt,
@@ -774,9 +621,9 @@ export const revokeCoachOverride = mutation({
     success: v.boolean(),
   }),
   handler: async (ctx, args) => {
-    // Verify authenticated (using working pattern)
-    const currentUser = await authComponent.safeGetAuthUser(ctx);
-    if (!currentUser) {
+    // Verify authenticated
+    const user = await authComponent.safeGetAuthUser(ctx);
+    if (!user) {
       throw new Error("User not found");
     }
 
@@ -787,7 +634,7 @@ export const revokeCoachOverride = mutation({
         model: "member",
         where: [
           { field: "organizationId", value: args.organizationId },
-          { field: "userId", value: currentUser._id },
+          { field: "userId", value: identity.subject },
         ],
       }
     )) as BetterAuthDoc<"member"> | null;
@@ -832,14 +679,14 @@ export const requestCoachOverride = mutation({
     requestId: v.id("coachOverrideRequests"),
   }),
   handler: async (ctx, args) => {
-    // Verify authenticated (using working pattern)
-    const currentUser = await authComponent.safeGetAuthUser(ctx);
-    if (!currentUser) {
-      throw new Error("User not found");
+    // Verify authenticated
+    const identity = await ctx.auth.getUserIdentity();
+    if (!identity) {
+      throw new Error("Not authenticated");
     }
 
     // Verify user is the coach making the request
-    if (currentUser._id !== args.coachId) {
+    if (identity.subject !== args.coachId) {
       throw new Error("Can only request override for yourself");
     }
 
@@ -902,9 +749,9 @@ export const reviewCoachOverrideRequest = mutation({
     success: v.boolean(),
   }),
   handler: async (ctx, args) => {
-    // Verify authenticated (using working pattern)
-    const currentUser = await authComponent.safeGetAuthUser(ctx);
-    if (!currentUser) {
+    // Verify authenticated
+    const user = await authComponent.safeGetAuthUser(ctx);
+    if (!user) {
       throw new Error("User not found");
     }
 
@@ -921,7 +768,7 @@ export const reviewCoachOverrideRequest = mutation({
         model: "member",
         where: [
           { field: "organizationId", value: request.organizationId },
-          { field: "userId", value: currentUser._id },
+          { field: "userId", value: identity.subject },
         ],
       }
     )) as BetterAuthDoc<"member"> | null;
@@ -936,7 +783,7 @@ export const reviewCoachOverrideRequest = mutation({
     // Update request
     await ctx.db.patch(args.requestId, {
       status: args.approved ? "approved" : "denied",
-      reviewedBy: currentUser._id,
+      reviewedBy: identity.subject,
       reviewedAt: Date.now(),
       reviewNotes: args.reviewNotes,
     });
@@ -957,7 +804,7 @@ export const reviewCoachOverrideRequest = mutation({
         // Update existing
         await ctx.db.patch(coachPrefs._id, {
           trustGateOverride: true,
-          overrideGrantedBy: currentUser._id,
+          overrideGrantedBy: identity.subject,
           overrideGrantedAt: Date.now(),
           overrideReason: request.reason,
           updatedAt: Date.now(),
@@ -968,277 +815,13 @@ export const reviewCoachOverrideRequest = mutation({
           coachId: request.coachId,
           organizationId: request.organizationId,
           trustGateOverride: true,
-          overrideGrantedBy: currentUser._id,
+          overrideGrantedBy: identity.subject,
           overrideGrantedAt: Date.now(),
           overrideReason: request.reason,
           createdAt: Date.now(),
           updatedAt: Date.now(),
         });
       }
-    }
-
-    return { success: true };
-  },
-});
-
-/**
- * Admin: Set blanket block for all coaches (opposite of blanket override)
- * Blocks ALL coaches from parent communication regardless of trust level
- */
-export const setAdminBlanketBlock = mutation({
-  args: {
-    organizationId: v.string(),
-    blocked: v.boolean(),
-  },
-  returns: v.object({
-    success: v.boolean(),
-  }),
-  handler: async (ctx, args) => {
-    // Verify authenticated
-    const currentUser = await authComponent.safeGetAuthUser(ctx);
-    if (!currentUser) {
-      throw new Error("User not found");
-    }
-
-    // Check if user is org admin
-    const membership = (await ctx.runQuery(
-      components.betterAuth.adapter.findOne,
-      {
-        model: "member",
-        where: [
-          { field: "organizationId", value: args.organizationId },
-          { field: "userId", value: currentUser._id },
-        ],
-      }
-    )) as BetterAuthDoc<"member"> | null;
-
-    if (
-      !membership ||
-      (membership.role !== "admin" && membership.role !== "owner")
-    ) {
-      throw new Error("Unauthorized: Admin or owner role required");
-    }
-
-    // Check if org allows admin delegation
-    const org = (await ctx.runQuery(components.betterAuth.adapter.findOne, {
-      model: "organization",
-      where: [{ field: "_id", value: args.organizationId }],
-    })) as BetterAuthDoc<"organization"> | null;
-
-    if (!org?.allowAdminDelegation) {
-      throw new Error(
-        "Unauthorized: Organization does not allow admin delegation"
-      );
-    }
-
-    // Update organization via Better Auth component
-    await ctx.runMutation(components.betterAuth.adapter.updateOne, {
-      input: {
-        model: "organization",
-        where: [{ field: "_id", value: args.organizationId, operator: "eq" }],
-        update: {
-          adminBlanketBlock: args.blocked,
-          adminBlanketBlockSetBy: args.blocked ? currentUser._id : undefined,
-          adminBlanketBlockSetAt: args.blocked ? Date.now() : undefined,
-        },
-      },
-    });
-
-    return { success: true };
-  },
-});
-
-/**
- * Admin: Block specific coach from parent communication
- */
-export const blockIndividualCoach = mutation({
-  args: {
-    organizationId: v.string(),
-    coachId: v.string(),
-    reason: v.optional(v.string()),
-  },
-  returns: v.object({
-    success: v.boolean(),
-  }),
-  handler: async (ctx, args) => {
-    // Verify authenticated
-    const currentUser = await authComponent.safeGetAuthUser(ctx);
-    if (!currentUser) {
-      throw new Error("User not found");
-    }
-
-    // Check if user is org admin
-    const membership = (await ctx.runQuery(
-      components.betterAuth.adapter.findOne,
-      {
-        model: "member",
-        where: [
-          { field: "organizationId", value: args.organizationId },
-          { field: "userId", value: currentUser._id },
-        ],
-      }
-    )) as BetterAuthDoc<"member"> | null;
-
-    if (
-      !membership ||
-      (membership.role !== "admin" && membership.role !== "owner")
-    ) {
-      throw new Error("Unauthorized: Admin or owner role required");
-    }
-
-    // Check if org allows admin delegation
-    const org = (await ctx.runQuery(components.betterAuth.adapter.findOne, {
-      model: "organization",
-      where: [{ field: "_id", value: args.organizationId }],
-    })) as BetterAuthDoc<"organization"> | null;
-
-    if (!org?.allowAdminDelegation) {
-      throw new Error(
-        "Unauthorized: Organization does not allow admin delegation"
-      );
-    }
-
-    // Get or create coach preferences
-    const coachPrefs = await ctx.db
-      .query("coachOrgPreferences")
-      .withIndex("by_coach_org", (q) =>
-        q.eq("coachId", args.coachId).eq("organizationId", args.organizationId)
-      )
-      .first();
-
-    if (coachPrefs) {
-      // Update existing
-      await ctx.db.patch(coachPrefs._id, {
-        adminBlocked: true,
-        blockReason: args.reason,
-        blockedBy: currentUser._id,
-        blockedAt: Date.now(),
-        updatedAt: Date.now(),
-      });
-    } else {
-      // Create new
-      await ctx.db.insert("coachOrgPreferences", {
-        coachId: args.coachId,
-        organizationId: args.organizationId,
-        adminBlocked: true,
-        blockReason: args.reason,
-        blockedBy: currentUser._id,
-        blockedAt: Date.now(),
-        createdAt: Date.now(),
-        updatedAt: Date.now(),
-      });
-    }
-
-    return { success: true };
-  },
-});
-
-/**
- * Admin: Unblock specific coach
- */
-export const unblockIndividualCoach = mutation({
-  args: {
-    organizationId: v.string(),
-    coachId: v.string(),
-  },
-  returns: v.object({
-    success: v.boolean(),
-  }),
-  handler: async (ctx, args) => {
-    // Verify authenticated
-    const currentUser = await authComponent.safeGetAuthUser(ctx);
-    if (!currentUser) {
-      throw new Error("User not found");
-    }
-
-    // Check if user is org admin
-    const membership = (await ctx.runQuery(
-      components.betterAuth.adapter.findOne,
-      {
-        model: "member",
-        where: [
-          { field: "organizationId", value: args.organizationId },
-          { field: "userId", value: currentUser._id },
-        ],
-      }
-    )) as BetterAuthDoc<"member"> | null;
-
-    if (
-      !membership ||
-      (membership.role !== "admin" && membership.role !== "owner")
-    ) {
-      throw new Error("Unauthorized: Admin or owner role required");
-    }
-
-    // Get coach preferences
-    const coachPrefs = await ctx.db
-      .query("coachOrgPreferences")
-      .withIndex("by_coach_org", (q) =>
-        q.eq("coachId", args.coachId).eq("organizationId", args.organizationId)
-      )
-      .first();
-
-    if (!coachPrefs) {
-      return { success: true }; // Already not blocked
-    }
-
-    // Update to unblock
-    await ctx.db.patch(coachPrefs._id, {
-      adminBlocked: false,
-      blockReason: undefined,
-      blockedBy: undefined,
-      blockedAt: undefined,
-      updatedAt: Date.now(),
-    });
-
-    return { success: true };
-  },
-});
-
-/**
- * Coach: Toggle their own parent communication access on/off
- * Only works if coach already has permission (via trust level, override, etc.)
- */
-export const toggleCoachParentAccess = mutation({
-  args: {
-    organizationId: v.string(),
-    enabled: v.boolean(),
-  },
-  returns: v.object({
-    success: v.boolean(),
-  }),
-  handler: async (ctx, args) => {
-    // Verify authenticated
-    const currentUser = await authComponent.safeGetAuthUser(ctx);
-    if (!currentUser) {
-      throw new Error("User not found");
-    }
-
-    // Get or create coach preferences
-    const coachPrefs = await ctx.db
-      .query("coachOrgPreferences")
-      .withIndex("by_coach_org", (q) =>
-        q
-          .eq("coachId", currentUser._id)
-          .eq("organizationId", args.organizationId)
-      )
-      .first();
-
-    if (coachPrefs) {
-      // Update existing
-      await ctx.db.patch(coachPrefs._id, {
-        parentAccessEnabled: args.enabled,
-        updatedAt: Date.now(),
-      });
-    } else {
-      // Create new
-      await ctx.db.insert("coachOrgPreferences", {
-        coachId: currentUser._id,
-        organizationId: args.organizationId,
-        parentAccessEnabled: args.enabled,
-        createdAt: Date.now(),
-        updatedAt: Date.now(),
-      });
     }
 
     return { success: true };

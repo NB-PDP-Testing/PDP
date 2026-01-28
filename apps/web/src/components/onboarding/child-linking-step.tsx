@@ -18,6 +18,7 @@ import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
 import { Checkbox } from "@/components/ui/checkbox";
 import { Label } from "@/components/ui/label";
+import { AnalyticsEvents, useAnalytics } from "@/lib/analytics";
 import { HelpFooter } from "./help-footer";
 
 export type ChildLink = {
@@ -70,6 +71,7 @@ export function ChildLinkingStep({
   const incrementSkipCount = useMutation(
     api.models.onboarding.incrementChildLinkingSkipCount
   );
+  const { track } = useAnalytics();
 
   // Show skip button only if user hasn't exceeded max skips
   const canSkip = skipCount < MAX_SKIP_COUNT;
@@ -78,6 +80,11 @@ export function ChildLinkingStep({
     setIsSkipping(true);
     try {
       await incrementSkipCount();
+      track(AnalyticsEvents.ONBOARDING_STEP_SKIPPED, {
+        step_id: "child_linking",
+        skip_count: skipCount + 1,
+        pending_links: pendingLinks.length,
+      });
       toast.info("You can complete this step next time you log in.");
       onComplete();
     } catch (error) {

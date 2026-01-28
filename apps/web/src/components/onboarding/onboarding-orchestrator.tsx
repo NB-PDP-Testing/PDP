@@ -14,7 +14,7 @@
 import { api } from "@pdp/backend/convex/_generated/api";
 import type { Id } from "@pdp/backend/convex/_generated/dataModel";
 import { useQuery } from "convex/react";
-import { useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { BulkGuardianClaimDialog } from "@/components/bulk-guardian-claim-dialog";
 import { Button } from "@/components/ui/button";
 import {
@@ -24,6 +24,7 @@ import {
   DialogHeader,
   DialogTitle,
 } from "@/components/ui/dialog";
+import { AnalyticsEvents, useAnalytics } from "@/lib/analytics";
 import { authClient } from "@/lib/auth-client";
 import { type ChildLink, ChildLinkingStep } from "./child-linking-step";
 import { OnboardingErrorBoundary } from "./error-boundary";
@@ -260,18 +261,62 @@ export function OnboardingOrchestrator({
   const tasks = useQuery(api.models.onboarding.getOnboardingTasks);
   const [currentStepIndex, setCurrentStepIndex] = useState(0);
   const [dismissed, setDismissed] = useState(false);
+  const { track } = useAnalytics();
+
+  // Track when onboarding starts and steps are shown
+  const stepStartTimeRef = useRef<number>(Date.now());
+  const onboardingTrackedRef = useRef(false);
 
   // Get the current task (if any)
   const currentTask = tasks?.[currentStepIndex];
   const userId = session?.user?.id;
 
+  // Track onboarding started (once when tasks first load)
+  useEffect(() => {
+    if (tasks && tasks.length > 0 && !onboardingTrackedRef.current) {
+      onboardingTrackedRef.current = true;
+      track(AnalyticsEvents.ONBOARDING_STARTED, {
+        total_steps: tasks.length,
+        first_step: tasks[0]?.type ?? "unknown",
+      });
+    }
+  }, [tasks, track]);
+
+  // Track when a new step is shown
+  useEffect(() => {
+    if (currentTask) {
+      stepStartTimeRef.current = Date.now();
+      track(AnalyticsEvents.ONBOARDING_STEP_SHOWN, {
+        step_id: currentTask.type,
+        step_number: currentStepIndex + 1,
+        total_steps: tasks?.length ?? 0,
+      });
+    }
+  }, [currentTask, currentStepIndex, tasks?.length, track]);
+
   // Handle step completion - move to next step or finish
   const handleStepComplete = () => {
+    const durationSeconds = Math.round(
+      (Date.now() - stepStartTimeRef.current) / 1000
+    );
+
+    if (currentTask) {
+      track(AnalyticsEvents.ONBOARDING_STEP_COMPLETED, {
+        step_id: currentTask.type,
+        step_number: currentStepIndex + 1,
+        duration_seconds: durationSeconds,
+      });
+    }
+
     if (tasks && currentStepIndex < tasks.length - 1) {
       // Move to next task
       setCurrentStepIndex((prev) => prev + 1);
     } else {
       // All tasks complete, dismiss the orchestrator
+      track(AnalyticsEvents.ONBOARDING_COMPLETED, {
+        total_steps: tasks?.length ?? 0,
+        steps_completed: currentStepIndex + 1,
+      });
       setDismissed(true);
     }
   };

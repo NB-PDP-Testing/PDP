@@ -2,11 +2,13 @@
 
 import { api } from "@pdp/backend/convex/_generated/api";
 import type { Id as BetterAuthId } from "@pdp/backend/convex/betterAuth/_generated/dataModel";
-import { useQuery } from "convex/react";
+import { useMutation, useQuery } from "convex/react";
 import {
   AlertTriangle,
   ArrowLeft,
   BarChart3,
+  ChevronDown,
+  EyeOff,
   History,
   Lightbulb,
   Loader2,
@@ -18,12 +20,29 @@ import {
 } from "lucide-react";
 import { useParams, useRouter } from "next/navigation";
 import { useEffect, useMemo, useState } from "react";
+import { toast } from "sonner";
 import { DegradationBanner } from "@/components/coach/degradation-banner";
 import { TrustLevelIcon } from "@/components/coach/trust-level-icon";
 import { TrustNudgeBanner } from "@/components/coach/trust-nudge-banner";
 import { CoachAIHelpDialog } from "@/components/profile/coach-ai-help-dialog";
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+} from "@/components/ui/alert-dialog";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuTrigger,
+} from "@/components/ui/dropdown-menu";
 import {
   Tooltip,
   TooltipContent,
@@ -86,10 +105,30 @@ export function VoiceNotesDashboard() {
   const aiServiceHealth = useQuery(
     api.models.aiServiceHealth.getAIServiceHealth
   );
-  const gateStatus = useQuery(
+  const _gateStatus = useQuery(
     api.models.trustGatePermissions.areTrustGatesActive,
     coachId && orgId ? { coachId, organizationId: orgId } : "skip"
   );
+
+  // P8 Week 1.5: Comprehensive access check for self-service control
+  const accessCheck = useQuery(
+    api.models.trustGatePermissions.checkCoachParentAccess,
+    coachId && orgId ? { coachId, organizationId: orgId } : "skip"
+  );
+
+  // Mutations for self-service access control
+  const toggleParentAccess = useMutation(
+    api.models.trustGatePermissions.toggleCoachParentAccess
+  );
+  const requestOverride = useMutation(
+    api.models.trustGatePermissions.requestCoachOverride
+  );
+
+  // State for self-service dialogs
+  const [showToggleOffDialog, setShowToggleOffDialog] = useState(false);
+  const [showRequestDialog, setShowRequestDialog] = useState(false);
+  const [requestReason, setRequestReason] = useState("");
+  const [isTogglingAccess, setIsTogglingAccess] = useState(false);
 
   // Calculate counts
   const pendingInsightsCount =
@@ -214,22 +253,89 @@ export function VoiceNotesDashboard() {
     setTimeout(() => setErrorMessage(null), 5000);
   };
 
-  // Calculate visibility for Sent to Parents tab using feature flags + trust level
+  // P8 Week 1.5: Self-service access control handlers
+  const handleToggleAccess = async (enabled: boolean) => {
+    if (!(coachId && orgId)) {
+      return;
+    }
+
+    try {
+      setIsTogglingAccess(true);
+
+      if (!enabled) {
+        // Show confirmation dialog before disabling
+        setShowToggleOffDialog(true);
+        return;
+      }
+
+      // Enable access
+      await toggleParentAccess({ organizationId: orgId, enabled: true });
+      toast.success("Parent communication access enabled");
+    } catch (error) {
+      console.error("Error toggling access:", error);
+      toast.error("Failed to toggle access. Please try again.");
+    } finally {
+      setIsTogglingAccess(false);
+    }
+  };
+
+  const handleConfirmToggleOff = async () => {
+    if (!(coachId && orgId)) {
+      return;
+    }
+
+    try {
+      setIsTogglingAccess(true);
+      await toggleParentAccess({ organizationId: orgId, enabled: false });
+      toast.success("Parent communication access disabled");
+      setShowToggleOffDialog(false);
+
+      // Switch to different tab since this tab will hide
+      setActiveTab("new");
+    } catch (error) {
+      console.error("Error disabling access:", error);
+      toast.error("Failed to disable access. Please try again.");
+    } finally {
+      setIsTogglingAccess(false);
+    }
+  };
+
+  const handleRequestAccess = async () => {
+    if (!(coachId && orgId)) {
+      return;
+    }
+
+    try {
+      setIsTogglingAccess(true);
+      await requestOverride({
+        coachId,
+        organizationId: orgId,
+        reason:
+          requestReason || "Requesting access to parent communication features",
+      });
+      toast.success(
+        "Access request submitted. Your admin will review it shortly."
+      );
+      setShowRequestDialog(false);
+      setRequestReason("");
+    } catch (error) {
+      console.error("Error requesting access:", error);
+      toast.error("Failed to submit request. Please try again.");
+    } finally {
+      setIsTogglingAccess(false);
+    }
+  };
+
+  // P8 Week 1.5: Calculate visibility using comprehensive access check
   const shouldShowSentToParents = useMemo(() => {
     // Loading state - hide tab while checking
-    if (gateStatus === undefined) {
+    if (accessCheck === undefined) {
       return false;
     }
 
-    // Gates disabled via flags (any tier) - show tab
-    if (!gateStatus.gatesActive) {
-      return true;
-    }
-
-    // Gates active - check trust level
-    const currentLevel = trustLevel?.currentLevel ?? 0;
-    return currentLevel >= 2;
-  }, [gateStatus, trustLevel]);
+    // Use comprehensive access check result
+    return accessCheck.hasAccess;
+  }, [accessCheck]);
 
   // Build tabs array - only include Parents/Insights when there's content
   const tabs = useMemo(() => {
@@ -301,7 +407,6 @@ export function VoiceNotesDashboard() {
     pendingTeamInsightsCount,
     hasSensitiveSummaries,
     needsAttentionCount,
-    trustLevel,
     shouldShowSentToParents,
   ]);
 
@@ -418,6 +523,47 @@ export function VoiceNotesDashboard() {
           {tabs.map((tab) => {
             const Icon = tab.icon;
             const isActive = activeTab === tab.id;
+
+            // P8 Week 1.5: Add dropdown to "Sent to Parents" tab for self-service toggle
+            if (tab.id === "auto-sent" && accessCheck?.canToggle) {
+              return (
+                <DropdownMenu key={tab.id}>
+                  <div className="flex items-center">
+                    <button
+                      className={`flex shrink-0 items-center gap-1.5 border-b-2 px-3 py-2.5 font-medium text-xs transition-colors sm:gap-2 sm:px-4 sm:py-3 sm:text-sm ${
+                        isActive
+                          ? "border-green-600 text-green-600"
+                          : "border-transparent text-gray-500 hover:border-gray-300 hover:text-gray-700"
+                      }`}
+                      onClick={() => setActiveTab(tab.id)}
+                      type="button"
+                    >
+                      <Icon className="h-4 w-4" />
+                      {tab.label}
+                    </button>
+                    <DropdownMenuTrigger asChild>
+                      <button
+                        className={`flex shrink-0 items-center border-b-2 px-1 py-2.5 transition-colors sm:py-3 ${
+                          isActive
+                            ? "border-green-600 text-green-600"
+                            : "border-transparent text-gray-500 hover:text-gray-700"
+                        }`}
+                        type="button"
+                      >
+                        <ChevronDown className="h-3.5 w-3.5" />
+                      </button>
+                    </DropdownMenuTrigger>
+                  </div>
+                  <DropdownMenuContent align="start">
+                    <DropdownMenuItem onClick={() => handleToggleAccess(false)}>
+                      <EyeOff className="mr-2 h-4 w-4" />
+                      Hide this tab
+                    </DropdownMenuItem>
+                  </DropdownMenuContent>
+                </DropdownMenu>
+              );
+            }
+
             return (
               <button
                 className={`flex shrink-0 items-center gap-1.5 border-b-2 px-3 py-2.5 font-medium text-xs transition-colors sm:gap-2 sm:px-4 sm:py-3 sm:text-sm ${
@@ -451,29 +597,35 @@ export function VoiceNotesDashboard() {
               </button>
             );
           })}
-          {/* Show locked button if Sent to Parents tab is hidden */}
-          {!shouldShowSentToParents && (
-            <Tooltip>
-              <TooltipTrigger asChild>
-                <button
-                  className="flex shrink-0 items-center gap-1.5 border-transparent border-b-2 px-3 py-2.5 font-medium text-gray-400 text-xs opacity-50 sm:gap-2 sm:px-4 sm:py-3 sm:text-sm"
-                  disabled
-                  type="button"
-                >
-                  <Lock className="h-4 w-4" />
-                  Sent to Parents
-                </button>
-              </TooltipTrigger>
-              <TooltipContent>
-                <p>
-                  {gateStatus?.source === "org_default" &&
-                    "Available at Trust Level 2+"}
-                  {gateStatus?.source === "admin_blanket" &&
-                    "Contact your administrator for access"}
-                </p>
-              </TooltipContent>
-            </Tooltip>
-          )}
+          {/* P8 Week 1.5: Show Request Access button or locked indicator */}
+          {!shouldShowSentToParents &&
+            accessCheck &&
+            (accessCheck.canRequest ? (
+              <button
+                className="flex shrink-0 items-center gap-1.5 border-transparent border-b-2 bg-green-100 px-3 py-2.5 font-medium text-green-700 text-xs hover:bg-green-200 sm:gap-2 sm:px-4 sm:py-3 sm:text-sm"
+                onClick={() => setShowRequestDialog(true)}
+                type="button"
+              >
+                <Lock className="h-4 w-4" />
+                Request Access
+              </button>
+            ) : (
+              <Tooltip>
+                <TooltipTrigger asChild>
+                  <button
+                    className="flex shrink-0 items-center gap-1.5 border-transparent border-b-2 px-3 py-2.5 font-medium text-gray-400 text-xs opacity-50 sm:gap-2 sm:px-4 sm:py-3 sm:text-sm"
+                    disabled
+                    type="button"
+                  >
+                    <Lock className="h-4 w-4" />
+                    Sent to Parents
+                  </button>
+                </TooltipTrigger>
+                <TooltipContent>
+                  <p>{accessCheck.reason}</p>
+                </TooltipContent>
+              </Tooltip>
+            ))}
         </nav>
       </div>
 
@@ -562,6 +714,72 @@ export function VoiceNotesDashboard() {
         onOpenChange={handleCloseHelpDialog}
         open={showHelpDialog}
       />
+
+      {/* P8 Week 1.5: Toggle Off Confirmation Dialog */}
+      <AlertDialog
+        onOpenChange={setShowToggleOffDialog}
+        open={showToggleOffDialog}
+      >
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>Hide Parent Communication Tab?</AlertDialogTitle>
+            <AlertDialogDescription>
+              This will hide the "Sent to Parents" tab from your dashboard. You
+              can turn it back on anytime by clicking the "Request Access"
+              button.
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel>Cancel</AlertDialogCancel>
+            <AlertDialogAction
+              disabled={isTogglingAccess}
+              onClick={handleConfirmToggleOff}
+            >
+              {isTogglingAccess ? "Hiding..." : "Hide Tab"}
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
+
+      {/* P8 Week 1.5: Request Access Dialog */}
+      <AlertDialog onOpenChange={setShowRequestDialog} open={showRequestDialog}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>
+              Request Parent Communication Access
+            </AlertDialogTitle>
+            <AlertDialogDescription>
+              Your administrator will review your request and grant access if
+              approved. Once approved, you can toggle access on/off as needed.
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <div className="my-4">
+            <label
+              className="mb-2 block font-medium text-sm"
+              htmlFor="request-reason"
+            >
+              Reason (optional)
+            </label>
+            <textarea
+              className="w-full rounded-md border border-gray-300 p-2 text-sm"
+              id="request-reason"
+              onChange={(e) => setRequestReason(e.target.value)}
+              placeholder="Why do you need access to parent communication features?"
+              rows={3}
+              value={requestReason}
+            />
+          </div>
+          <AlertDialogFooter>
+            <AlertDialogCancel>Cancel</AlertDialogCancel>
+            <AlertDialogAction
+              disabled={isTogglingAccess}
+              onClick={handleRequestAccess}
+            >
+              {isTogglingAccess ? "Requesting..." : "Submit Request"}
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
     </div>
   );
 }

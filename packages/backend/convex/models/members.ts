@@ -2055,33 +2055,43 @@ export const syncFunctionalRolesFromInvitation = mutation({
           }
         );
 
+        // Bug #297 fix: Set userId when creating guardian identity during invitation acceptance
+        // Parent is accepting an invitation - this IS their consent to link this guardian identity
         const guardianId = await ctx.db.insert("guardianIdentities", {
           firstName: userResult?.name?.split(" ")[0] || "",
           lastName: userResult?.name?.split(" ").slice(1).join(" ") || "",
           email: normalizedEmail,
           phone: undefined, // Phone not reliably available from Better Auth user
-          verificationStatus: "unverified", // Changed from email_verified - parent must claim
+          userId, // Bug #297: Link to user so getGuardianForCurrentUser finds it
+          verificationStatus: "email_verified", // Parent verified by accepting invitation
           createdAt: Date.now(),
           updatedAt: Date.now(),
           createdFrom: "invitation",
-          // userId NOT set - parent must claim via modal (Option B)
         });
         guardian = await ctx.db.get(guardianId);
         console.log(
           "[syncFunctionalRolesFromInvitation] Created guardian identity:",
           guardianId,
-          "- parent must claim via modal (Option B)"
+          "linked to user:",
+          userId
         );
       }
 
-      // Option B behavior: Don't auto-link guardian identity
-      // Parent must explicitly claim via batched modal
-      // Only exception: Self-assignment in Add Guardian flow (handled separately)
+      // Bug #297 fix: Link guardian identity to user if not already linked
+      // Parent is accepting an invitation - this IS their consent to claim this guardian identity
       if (guardian && !guardian.userId) {
+        await ctx.db.patch(guardian._id, {
+          userId,
+          verificationStatus: "email_verified",
+          updatedAt: Date.now(),
+        });
+        // Refresh guardian object to have the updated userId
+        guardian = await ctx.db.get(guardian._id);
         console.log(
-          "[syncFunctionalRolesFromInvitation] Guardian identity exists but not auto-linked (Option B):",
-          guardian._id,
-          "- parent must claim to access children"
+          "[syncFunctionalRolesFromInvitation] Linked existing guardian identity:",
+          guardian?._id,
+          "to user:",
+          userId
         );
       }
 
@@ -2181,7 +2191,9 @@ export const syncFunctionalRolesFromInvitation = mutation({
                 .collect();
               const shouldBePrimary = existingGuardians.length === 0;
 
-              // Create the guardian-player link
+              // Create the guardian-player link with acknowledgedByParentAt set
+              // because the parent is explicitly accepting an invitation that includes these children
+              // Bug #297 fix: Without acknowledgedByParentAt, getPlayersForGuardian filters them out
               await ctx.db.insert("guardianPlayerLinks", {
                 guardianIdentityId: guardian._id,
                 playerIdentityId: playerIdentityId as Id<"playerIdentities">,
@@ -2190,6 +2202,7 @@ export const syncFunctionalRolesFromInvitation = mutation({
                 hasParentalResponsibility: true,
                 canCollectFromTraining: true,
                 consentedToSharing: true,
+                acknowledgedByParentAt: Date.now(), // Bug #297: Set to make children visible after acceptance
                 createdAt: Date.now(),
                 updatedAt: Date.now(),
               });

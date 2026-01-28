@@ -1,10 +1,12 @@
 "use client";
 
 import { api } from "@pdp/backend/convex/_generated/api";
-import { useQuery } from "convex/react";
+import type { Id } from "@pdp/backend/convex/_generated/dataModel";
+import { useMutation, useQuery } from "convex/react";
 import { AlertCircle, RefreshCw } from "lucide-react";
 import { useParams } from "next/navigation";
 import { useState } from "react";
+import { toast } from "sonner";
 import {
   InvitationCard,
   RequestCard,
@@ -28,6 +30,20 @@ export default function InvitationManagementPage() {
 
   const [activeTab, setActiveTab] = useState<string>("active");
   const [selectedIds, setSelectedIds] = useState<Set<string>>(new Set());
+
+  // Mutations for invitation actions
+  const resendInvitationMutation = useMutation(
+    api.models.invitations.resendInvitation
+  );
+  const cancelInvitationMutation = useMutation(
+    api.models.invitations.cancelInvitation
+  );
+  const approveRequestMutation = useMutation(
+    api.models.invitations.approveInvitationRequest
+  );
+  const denyRequestMutation = useMutation(
+    api.models.invitations.denyInvitationRequest
+  );
 
   // Fetch stats
   const stats = useQuery(api.models.invitations.getInvitationStats, {
@@ -107,6 +123,60 @@ export default function InvitationManagementPage() {
   const handleTabChange = (value: string) => {
     setActiveTab(value);
     clearSelection();
+  };
+
+  // Invitation action handlers
+  const handleResend = async (invitationId: string) => {
+    try {
+      const result = await resendInvitationMutation({ invitationId });
+      if (result.success) {
+        toast.success("Invitation resent successfully");
+      } else {
+        toast.error(result.message || "Failed to resend invitation");
+      }
+    } catch (error) {
+      console.error("Failed to resend invitation:", error);
+      toast.error("Failed to resend invitation");
+    }
+  };
+
+  const handleCancel = async (invitationId: string) => {
+    try {
+      await cancelInvitationMutation({ invitationId });
+      toast.success("Invitation cancelled");
+    } catch (error) {
+      console.error("Failed to cancel invitation:", error);
+      toast.error("Failed to cancel invitation");
+    }
+  };
+
+  // Request action handlers
+  const handleApprove = async (requestId: string) => {
+    try {
+      const result = await approveRequestMutation({
+        requestId: requestId as Id<"invitationRequests">,
+      });
+      if (result.success) {
+        toast.success("Request approved. New invitation sent.");
+      } else {
+        toast.error(result.message || "Failed to approve request");
+      }
+    } catch (error) {
+      console.error("Failed to approve request:", error);
+      toast.error("Failed to approve request");
+    }
+  };
+
+  const handleDeny = async (requestId: string) => {
+    try {
+      await denyRequestMutation({
+        requestId: requestId as Id<"invitationRequests">,
+      });
+      toast.success("Request denied");
+    } catch (error) {
+      console.error("Failed to deny request:", error);
+      toast.error("Failed to deny request");
+    }
   };
 
   return (
@@ -228,6 +298,7 @@ export default function InvitationManagementPage() {
                   invitation={invitation}
                   isSelected={selectedIds.has(invitation._id)}
                   key={invitation._id}
+                  onCancel={handleCancel}
                   onSelect={toggleSelection}
                   statusType="active"
                 />
@@ -263,6 +334,8 @@ export default function InvitationManagementPage() {
                   invitation={invitation}
                   isSelected={selectedIds.has(invitation._id)}
                   key={invitation._id}
+                  onCancel={handleCancel}
+                  onResend={handleResend}
                   onSelect={toggleSelection}
                   statusType="expiring_soon"
                 />
@@ -298,6 +371,7 @@ export default function InvitationManagementPage() {
                   invitation={invitation}
                   isSelected={selectedIds.has(invitation._id)}
                   key={invitation._id}
+                  onResend={handleResend}
                   onSelect={toggleSelection}
                   statusType="expired"
                 />
@@ -333,6 +407,8 @@ export default function InvitationManagementPage() {
                 <RequestCard
                   isSelected={selectedIds.has(request._id)}
                   key={request._id}
+                  onApprove={handleApprove}
+                  onDeny={handleDeny}
                   onSelect={toggleSelection}
                   request={request}
                 />

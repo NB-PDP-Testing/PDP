@@ -10,7 +10,7 @@
       "title": "Add status and declinedAt fields to guardianPlayerLinks table",
       "description": "As the system, I track whether a parent has accepted, declined, or not yet responded to a child link.",
       "priority": 1,
-      "passes": true,
+      "passes": false,
       "acceptanceCriteria": [
         "Edit: packages/backend/convex/schema.ts",
         "Find the guardianPlayerLinks table definition",
@@ -33,7 +33,7 @@
       "title": "Create child link queries and mutations",
       "description": "As the system, I can query pending child links and allow parents to accept/decline them.",
       "priority": 2,
-      "passes": true,
+      "passes": false,
       "acceptanceCriteria": [
         "Edit or create: packages/backend/convex/models/guardianPlayerLinks.ts",
         "",
@@ -82,7 +82,7 @@
       "title": "Create ChildLinkingStep modal component",
       "description": "As a parent with pending child links, I see a modal showing all children awaiting my acknowledgement.",
       "priority": 3,
-      "passes": true,
+      "passes": false,
       "acceptanceCriteria": [
         "Create: apps/web/src/components/onboarding/child-linking-step.tsx",
         "",
@@ -117,7 +117,7 @@
       "title": "Integrate ChildLinkingStep into OnboardingOrchestrator",
       "description": "As the system, I show the child linking modal when a parent has pending links.",
       "priority": 4,
-      "passes": true,
+      "passes": false,
       "acceptanceCriteria": [
         "Edit: packages/backend/convex/models/onboarding.ts",
         "Update getOnboardingTasks query:",
@@ -144,7 +144,7 @@
       "title": "Create invitation management page for admins",
       "description": "As an admin, I have a dedicated page to manage all invitations with tabs for different statuses.",
       "priority": 5,
-      "passes": true,
+      "passes": false,
       "acceptanceCriteria": [
         "Create: apps/web/src/app/orgs/[orgId]/admin/invitations/page.tsx",
         "",
@@ -178,7 +178,7 @@
       "title": "Create InvitationCard component with actions",
       "description": "As an admin, I see each invitation as a card with relevant actions based on status.",
       "priority": 6,
-      "passes": true,
+      "passes": false,
       "acceptanceCriteria": [
         "Create: apps/web/src/components/admin/invitation-card.tsx",
         "",
@@ -210,7 +210,7 @@
       "title": "Implement bulk invitation mutations",
       "description": "As an admin, I can resend or cancel multiple invitations at once.",
       "priority": 7,
-      "passes": true,
+      "passes": false,
       "acceptanceCriteria": [
         "Edit: packages/backend/convex/models/invitations.ts",
         "",
@@ -247,7 +247,7 @@
       "title": "Create invitation request queue UI",
       "description": "As an admin, I see pending invitation requests and can approve or deny them.",
       "priority": 8,
-      "passes": true,
+      "passes": false,
       "acceptanceCriteria": [
         "Create: apps/web/src/components/admin/invitation-request-card.tsx",
         "",
@@ -294,7 +294,7 @@
       "title": "Add email checkbox to add-guardian dialog",
       "description": "As an admin adding a guardian to a player, I can choose whether to send an email notification.",
       "priority": 9,
-      "passes": true,
+      "passes": false,
       "acceptanceCriteria": [
         "Edit: apps/web/src/components/admin/add-guardian-dialog.tsx (or wherever guardian addition is)",
         "",
@@ -322,7 +322,7 @@
       "title": "Create admin notification for declined child links",
       "description": "As an admin, I receive a notification when a parent declines a child link.",
       "priority": 10,
-      "passes": true,
+      "passes": false,
       "acceptanceCriteria": [
         "Edit: packages/backend/convex/models/guardianPlayerLinks.ts",
         "In declineChildLink mutation, after updating status:",

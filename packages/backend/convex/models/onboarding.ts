@@ -10,6 +10,7 @@
  * - accept_invitation: User has pending org invitations
  * - guardian_claim: User has claimable guardian identities (email match, no userId)
  * - child_linking: User has pending child acknowledgements
+ * - player_graduation: User has children who turned 18 and can claim their own account
  * - welcome: First login to organization (future)
  */
 
@@ -25,6 +26,7 @@ const onboardingTaskValidator = v.object({
     v.literal("accept_invitation"),
     v.literal("guardian_claim"),
     v.literal("child_linking"),
+    v.literal("player_graduation"),
     v.literal("welcome")
   ),
   priority: v.number(),
@@ -42,7 +44,8 @@ const onboardingTaskValidator = v.object({
  * 1. accept_invitation (priority 1) - Pending org invitations
  * 2. guardian_claim (priority 2) - Claimable guardian identities
  * 3. child_linking (priority 3) - Pending child acknowledgements
- * 4. welcome (priority 4) - First login welcome (future)
+ * 4. player_graduation (priority 4) - Children who turned 18
+ * 5. welcome (priority 5) - First login welcome (future)
  */
 export const getOnboardingTasks = query({
   args: {},
@@ -66,6 +69,7 @@ export const getOnboardingTasks = query({
         | "accept_invitation"
         | "guardian_claim"
         | "child_linking"
+        | "player_graduation"
         | "welcome";
       priority: number;
       data: unknown;
@@ -388,8 +392,97 @@ export const getOnboardingTasks = query({
     }
 
     // =================================================================
-    // Task 4: Welcome message (Future - Phase 2)
-    // Priority 4 - First login to organization
+    // Task 4: Check for player graduations (children who turned 18)
+    // Priority 4 - Guardian can send claim invitation to adult children
+    // =================================================================
+    if (userGuardian) {
+      // Use the same userGuardian from child_linking check
+      // Get all active links for this guardian
+      const guardianLinks = await ctx.db
+        .query("guardianPlayerLinks")
+        .withIndex("by_guardian", (q) =>
+          q.eq("guardianIdentityId", userGuardian._id)
+        )
+        .filter((q) =>
+          q.or(
+            q.eq(q.field("status"), "active"),
+            q.eq(q.field("status"), undefined) // Legacy links treated as active
+          )
+        )
+        .collect();
+
+      // Check each linked child for pending graduation records
+      const pendingGraduations: Array<{
+        graduationId: string;
+        playerIdentityId: string;
+        playerName: string;
+        dateOfBirth: string;
+        turnedEighteenAt: number;
+        organizationId: string;
+        organizationName: string;
+      }> = [];
+
+      for (const link of guardianLinks) {
+        const player = await ctx.db.get(link.playerIdentityId);
+        if (!player) {
+          continue;
+        }
+
+        // Check if there's a pending graduation record
+        const graduation = await ctx.db
+          .query("playerGraduations")
+          .withIndex("by_player", (q) =>
+            q.eq("playerIdentityId", link.playerIdentityId)
+          )
+          .filter((q) => q.eq(q.field("status"), "pending"))
+          .first();
+
+        if (graduation) {
+          // Get organization name
+          let organizationName = "Unknown Organization";
+          const org = await ctx.runQuery(
+            components.betterAuth.adapter.findOne,
+            {
+              model: "organization",
+              where: [
+                {
+                  field: "_id",
+                  value: graduation.organizationId,
+                  operator: "eq",
+                },
+              ],
+            }
+          );
+          if (org) {
+            organizationName = (org as { name?: string }).name || "Unknown";
+          }
+
+          pendingGraduations.push({
+            graduationId: graduation._id,
+            playerIdentityId: player._id,
+            playerName: `${player.firstName} ${player.lastName}`,
+            dateOfBirth: player.dateOfBirth,
+            turnedEighteenAt: graduation.turnedEighteenAt,
+            organizationId: graduation.organizationId,
+            organizationName,
+          });
+        }
+      }
+
+      if (pendingGraduations.length > 0) {
+        tasks.push({
+          type: "player_graduation",
+          priority: 4,
+          data: {
+            pendingGraduations,
+          },
+        });
+      }
+    }
+
+    // =================================================================
+    // Task 5: Welcome message (Future - Phase 2)
+    // Priority 5 - First login to organization
     // =================================================================
     // TODO: Implement in Phase 2
     // Check if user has never visited the org before (no flow progress records)

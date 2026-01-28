@@ -6,6 +6,7 @@
  * in priority order.
  *
  * Task types:
+ * - gdpr_consent: User needs to accept/re-accept GDPR policy (Priority 0 - always first)
  * - accept_invitation: User has pending org invitations
  * - guardian_claim: User has claimable guardian identities (email match, no userId)
  * - child_linking: User has pending child acknowledgements
@@ -15,10 +16,12 @@
 import { v } from "convex/values";
 import { components } from "../_generated/api";
 import { query } from "../_generated/server";
+import { authComponent } from "../auth";
 
 // Task type definitions
 const onboardingTaskValidator = v.object({
   type: v.union(
+    v.literal("gdpr_consent"),
     v.literal("accept_invitation"),
     v.literal("guardian_claim"),
     v.literal("child_linking"),
@@ -35,6 +38,7 @@ const onboardingTaskValidator = v.object({
  * steps they need to complete. Tasks are returned in priority order.
  *
  * Priority order:
+ * 0. gdpr_consent (priority 0) - GDPR consent required FIRST
  * 1. accept_invitation (priority 1) - Pending org invitations
  * 2. guardian_claim (priority 2) - Claimable guardian identities
  * 3. child_linking (priority 3) - Pending child acknowledgements
@@ -58,6 +62,7 @@ export const getOnboardingTasks = query({
     const normalizedEmail = userEmail.toLowerCase().trim();
     const tasks: Array<{
       type:
+        | "gdpr_consent"
         | "accept_invitation"
         | "guardian_claim"
         | "child_linking"
@@ -65,6 +70,42 @@ export const getOnboardingTasks = query({
       priority: number;
       data: unknown;
     }> = [];
+
+    // =================================================================
+    // Task 0: Check GDPR consent status
+    // Priority 0 - GDPR must be accepted before anything else
+    // =================================================================
+    const user = await authComponent.safeGetAuthUser(ctx);
+    if (user) {
+      // Get current effective GDPR version
+      const now = Date.now();
+      const allVersions = await ctx.db
+        .query("gdprVersions")
+        .withIndex("by_version")
+        .order("desc")
+        .collect();
+
+      const effectiveVersion = allVersions.find(
+        (version) => version.effectiveDate <= now
+      );
+
+      if (effectiveVersion) {
+        const userVersion = user.gdprConsentVersion;
+        const needsConsent =
+          userVersion === undefined || userVersion < effectiveVersion.version;
+
+        if (needsConsent) {
+          tasks.push({
+            type: "gdpr_consent",
+            priority: 0,
+            data: {
+              currentVersion: effectiveVersion.version,
+              userVersion: userVersion ?? null,
+            },
+          });
+        }
+      }
+    }
 
     // =================================================================
     // Task 1: Check for pending invitations

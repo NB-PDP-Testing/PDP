@@ -50,6 +50,7 @@ import type * as models_diagnosticIdentityCheck from "../models/diagnosticIdenti
 import type * as models_emergencyContacts from "../models/emergencyContacts.js";
 import type * as models_fixNeilsRoles from "../models/fixNeilsRoles.js";
 import type * as models_flows from "../models/flows.js";
+import type * as models_gdpr from "../models/gdpr.js";
 import type * as models_guardianIdentities from "../models/guardianIdentities.js";
 import type * as models_guardianManagement from "../models/guardianManagement.js";
 import type * as models_guardianPlayerLinks from "../models/guardianPlayerLinks.js";
@@ -179,6 +180,7 @@ declare const fullApi: ApiFromModules<{
   "models/emergencyContacts": typeof models_emergencyContacts;
   "models/fixNeilsRoles": typeof models_fixNeilsRoles;
   "models/flows": typeof models_flows;
+  "models/gdpr": typeof models_gdpr;
   "models/guardianIdentities": typeof models_guardianIdentities;
   "models/guardianManagement": typeof models_guardianManagement;
   "models/guardianPlayerLinks": typeof models_guardianPlayerLinks;
@@ -301,6 +303,8 @@ export declare const components: {
                   email: string;
                   emailVerified: boolean;
                   firstName?: string;
+                  gdprConsentVersion?: number;
+                  gdprConsentedAt?: number;
                   image?: null | string;
                   isPlatformStaff?: boolean;
                   lastChildrenCheckAt?: number;
@@ -461,6 +465,17 @@ export declare const components: {
                   teamId?: null | string;
                 };
                 model: "invitation";
+              }
+            | {
+                data: {
+                  createdAt: number;
+                  createdBy: string;
+                  effectiveDate: number;
+                  fullText: string;
+                  summary: string;
+                  version: number;
+                };
+                model: "gdprVersions";
               };
           onCreateHandle?: string;
           select?: Array<string>;
@@ -493,6 +508,8 @@ export declare const components: {
                     | "parentOnboardingDismissCount"
                     | "parentOnboardingLastDismissedAt"
                     | "currentOrgId"
+                    | "gdprConsentVersion"
+                    | "gdprConsentedAt"
                     | "_id";
                   operator?:
                     | "lt"
@@ -816,6 +833,39 @@ export declare const components: {
                     | "inviterId"
                     | "metadata"
                     | "autoReInviteCount"
+                    | "_id";
+                  operator?:
+                    | "lt"
+                    | "lte"
+                    | "gt"
+                    | "gte"
+                    | "eq"
+                    | "in"
+                    | "not_in"
+                    | "ne"
+                    | "contains"
+                    | "starts_with"
+                    | "ends_with";
+                  value:
+                    | string
+                    | number
+                    | boolean
+                    | Array<string>
+                    | Array<number>
+                    | null;
+                }>;
+              }
+            | {
+                model: "gdprVersions";
+                where?: Array<{
+                  connector?: "AND" | "OR";
+                  field:
+                    | "version"
+                    | "effectiveDate"
+                    | "summary"
+                    | "fullText"
+                    | "createdBy"
+                    | "createdAt"
                     | "_id";
                   operator?:
                     | "lt"
@@ -876,6 +926,8 @@ export declare const components: {
                     | "parentOnboardingDismissCount"
                     | "parentOnboardingLastDismissedAt"
                     | "currentOrgId"
+                    | "gdprConsentVersion"
+                    | "gdprConsentedAt"
                     | "_id";
                   operator?:
                     | "lt"
@@ -1220,6 +1272,39 @@ export declare const components: {
                     | Array<number>
                     | null;
                 }>;
+              }
+            | {
+                model: "gdprVersions";
+                where?: Array<{
+                  connector?: "AND" | "OR";
+                  field:
+                    | "version"
+                    | "effectiveDate"
+                    | "summary"
+                    | "fullText"
+                    | "createdBy"
+                    | "createdAt"
+                    | "_id";
+                  operator?:
+                    | "lt"
+                    | "lte"
+                    | "gt"
+                    | "gte"
+                    | "eq"
+                    | "in"
+                    | "not_in"
+                    | "ne"
+                    | "contains"
+                    | "starts_with"
+                    | "ends_with";
+                  value:
+                    | string
+                    | number
+                    | boolean
+                    | Array<string>
+                    | Array<number>
+                    | null;
+                }>;
               };
           onDeleteHandle?: string;
         },
@@ -1240,7 +1325,8 @@ export declare const components: {
             | "teamMember"
             | "organization"
             | "member"
-            | "invitation";
+            | "invitation"
+            | "gdprVersions";
           offset?: number;
           paginationOpts: {
             cursor: string | null;
@@ -1291,7 +1377,8 @@ export declare const components: {
             | "teamMember"
             | "organization"
             | "member"
-            | "invitation";
+            | "invitation"
+            | "gdprVersions";
           select?: Array<string>;
           where?: Array<{
             connector?: "AND" | "OR";
@@ -1332,6 +1419,8 @@ export declare const components: {
                   email?: string;
                   emailVerified?: boolean;
                   firstName?: string;
+                  gdprConsentVersion?: number;
+                  gdprConsentedAt?: number;
                   image?: null | string;
                   isPlatformStaff?: boolean;
                   lastChildrenCheckAt?: number;
@@ -1363,6 +1452,8 @@ export declare const components: {
                     | "parentOnboardingDismissCount"
                     | "parentOnboardingLastDismissedAt"
                     | "currentOrgId"
+                    | "gdprConsentVersion"
+                    | "gdprConsentedAt"
                     | "_id";
                   operator?:
                     | "lt"
@@ -1806,6 +1897,47 @@ export declare const components: {
                     | "inviterId"
                     | "metadata"
                     | "autoReInviteCount"
+                    | "_id";
+                  operator?:
+                    | "lt"
+                    | "lte"
+                    | "gt"
+                    | "gte"
+                    | "eq"
+                    | "in"
+                    | "not_in"
+                    | "ne"
+                    | "contains"
+                    | "starts_with"
+                    | "ends_with";
+                  value:
+                    | string
+                    | number
+                    | boolean
+                    | Array<string>
+                    | Array<number>
+                    | null;
+                }>;
+              }
+            | {
+                model: "gdprVersions";
+                update: {
+                  createdAt?: number;
+                  createdBy?: string;
+                  effectiveDate?: number;
+                  fullText?: string;
+                  summary?: string;
+                  version?: number;
+                };
+                where?: Array<{
+                  connector?: "AND" | "OR";
+                  field:
+                    | "version"
+                    | "effectiveDate"
+                    | "summary"
+                    | "fullText"
+                    | "createdBy"
+                    | "createdAt"
                     | "_id";
                   operator?:
                     | "lt"
@@ -1853,6 +1985,8 @@ export declare const components: {
                   email?: string;
                   emailVerified?: boolean;
                   firstName?: string;
+                  gdprConsentVersion?: number;
+                  gdprConsentedAt?: number;
                   image?: null | string;
                   isPlatformStaff?: boolean;
                   lastChildrenCheckAt?: number;
@@ -1884,6 +2018,8 @@ export declare const components: {
                     | "parentOnboardingDismissCount"
                     | "parentOnboardingLastDismissedAt"
                     | "currentOrgId"
+                    | "gdprConsentVersion"
+                    | "gdprConsentedAt"
                     | "_id";
                   operator?:
                     | "lt"
@@ -2327,6 +2463,47 @@ export declare const components: {
                     | "inviterId"
                     | "metadata"
                     | "autoReInviteCount"
+                    | "_id";
+                  operator?:
+                    | "lt"
+                    | "lte"
+                    | "gt"
+                    | "gte"
+                    | "eq"
+                    | "in"
+                    | "not_in"
+                    | "ne"
+                    | "contains"
+                    | "starts_with"
+                    | "ends_with";
+                  value:
+                    | string
+                    | number
+                    | boolean
+                    | Array<string>
+                    | Array<number>
+                    | null;
+                }>;
+              }
+            | {
+                model: "gdprVersions";
+                update: {
+                  createdAt?: number;
+                  createdBy?: string;
+                  effectiveDate?: number;
+                  fullText?: string;
+                  summary?: string;
+                  version?: number;
+                };
+                where?: Array<{
+                  connector?: "AND" | "OR";
+                  field:
+                    | "version"
+                    | "effectiveDate"
+                    | "summary"
+                    | "fullText"
+                    | "createdBy"
+                    | "createdAt"
                     | "_id";
                   operator?:
                     | "lt"

@@ -34,6 +34,10 @@ const customUserTable = defineTable({
 
   // Current organization tracking
   currentOrgId: v.optional(v.string()),
+
+  // GDPR consent tracking (Phase 2)
+  gdprConsentVersion: v.optional(v.number()), // Version number accepted (1, 2, 3...)
+  gdprConsentedAt: v.optional(v.number()), // Timestamp of consent
 })
   .index("email_name", ["email", "name"])
   .index("name", ["name"])
@@ -235,6 +239,18 @@ const customInvitationTable = defineTable({
   .index("inviterId_organizationId", ["inviterId", "organizationId"])
   .index("email_organizationId_status", ["email", "organizationId", "status"]);
 
+// GDPR policy version tracking table (Phase 2)
+const gdprVersionsTable = defineTable({
+  version: v.number(), // 1, 2, 3...
+  effectiveDate: v.number(), // When this version becomes active
+  summary: v.string(), // Short description of changes
+  fullText: v.string(), // Complete policy text
+  createdBy: v.string(), // Platform staff userId
+  createdAt: v.number(),
+})
+  .index("by_version", ["version"])
+  .index("by_effective_date", ["effectiveDate"]);
+
 export const tables = {
   ...generatedTables,
   // Override user table with custom fields
@@ -247,6 +263,8 @@ export const tables = {
   member: customMemberTable,
   // Override invitation table with metadata field
   invitation: customInvitationTable,
+  // GDPR policy versions table
+  gdprVersions: gdprVersionsTable,
 };
 
 const schema = defineSchema(tables);

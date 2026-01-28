@@ -140,12 +140,23 @@ See individual UAT files:
 ### Phase 8.1.5 Testing (Self-Service Access Control)
 
 #### Test Account Setup
-- **Platform staff**: Account with `isPlatformStaff: true`
+- **Platform staff**: Account with `isPlatformStaff: true` (for `/platform/feature-flags` testing)
 - **Org admin**: Account with Admin role in organization
 - **Coach**: Regular coach account
 - **Multiple coaches**: Need 3-5 coaches for bulk testing
+- **Multiple orgs**: Need 2-3 organizations for platform staff testing
 
-#### Quick Test (10 minutes)
+#### Quick Test (15 minutes)
+
+**Test 0: Platform Staff Overview (Optional)**
+1. Login as platform staff
+2. Navigate to `/platform/feature-flags`
+3. ✅ Verify: Overview dashboard shows 4 metric cards
+4. ✅ Verify: Organization table lists all orgs
+5. ✅ Verify: Can toggle "Gates Enabled" for an org
+6. ✅ Verify: Can toggle "Admin Delegation" and "Coach Overrides"
+7. ✅ Verify: Search filters organizations
+8. ✅ Verify: Quick filters work (All, Gates Disabled, etc.)
 
 **Test 1: Coach Self-Service (Hide Tab)**
 1. Login as coach with access
@@ -206,9 +217,9 @@ See full test guides:
 - **Full 40 Test Cases**: `docs/testing/Voice Insights/p8-week1.5-self-service-access-testing-guide.md`
 
 Test sections include:
-- Section A: Platform Staff Controls (4 tests) - DEFERRED
-- Section B: Org Admin Controls (7 tests)
-- Section C: Coach Self-Service Controls (8 tests)
+- Section A: Platform Staff Controls (4 tests) - ✅ Implemented at `/platform/feature-flags`
+- Section B: Org Admin Controls (7 tests) - ✅ Implemented
+- Section C: Coach Self-Service Controls (8 tests) - ✅ Implemented
 - Section D: Complex Scenarios (8 tests)
 - Section E: Edge Cases & Error Handling (6 tests)
 - Section F: Integration Tests (4 tests)
@@ -357,12 +368,13 @@ See individual UAT files:
 - None identified
 
 ### Phase 8.1.5
-- Platform staff UI (US-P8-022 + US-P8-022B) is DEFERRED - not implemented yet
 - Override expiration (overrideExpiresAt) is in schema but not enforced yet
+- Platform staff UI is at `/platform/feature-flags` (not `/platform-admin/feature-flags`)
 
 ### Phase 8.2
+- "View All" buttons in Applied Insights (Skills/Injuries) and Team Observations don't navigate yet (placeholders)
+- "View All Summaries" button in Sent Summaries section DOES work (navigates to "Sent to Parents" tab)
 - Parent engagement metrics section not yet implemented (planned for Week 3)
-- "View All" buttons don't navigate yet (currently placeholders)
 
 ---
 

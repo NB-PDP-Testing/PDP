@@ -2,21 +2,15 @@
 
 import { api } from "@pdp/backend/convex/_generated/api";
 import { useQuery } from "convex/react";
-import {
-  AlertCircle,
-  Clock,
-  Mail,
-  MailQuestion,
-  RefreshCw,
-  Timer,
-  X,
-} from "lucide-react";
+import { AlertCircle, RefreshCw } from "lucide-react";
 import { useParams } from "next/navigation";
 import { useState } from "react";
-import { Badge } from "@/components/ui/badge";
+import {
+  InvitationCard,
+  RequestCard,
+} from "@/components/admin/invitation-card";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
-import { Checkbox } from "@/components/ui/checkbox";
 import {
   Empty,
   EmptyDescription,
@@ -25,154 +19,6 @@ import {
 } from "@/components/ui/empty";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { useSession } from "@/lib/auth-client";
-
-type InvitationStatus = "active" | "expiring_soon" | "expired";
-
-// Format relative time for display
-function formatRelativeTime(timestamp: number): string {
-  const now = Date.now();
-  const diff = timestamp - now;
-  const absDiff = Math.abs(diff);
-
-  const minutes = Math.floor(absDiff / (1000 * 60));
-  const hours = Math.floor(absDiff / (1000 * 60 * 60));
-  const days = Math.floor(absDiff / (1000 * 60 * 60 * 24));
-
-  if (diff > 0) {
-    // Future
-    if (days > 0) {
-      return `in ${days} day${days > 1 ? "s" : ""}`;
-    }
-    if (hours > 0) {
-      return `in ${hours} hour${hours > 1 ? "s" : ""}`;
-    }
-    return `in ${minutes} minute${minutes > 1 ? "s" : ""}`;
-  }
-  // Past
-  if (days > 0) {
-    return `${days} day${days > 1 ? "s" : ""} ago`;
-  }
-  if (hours > 0) {
-    return `${hours} hour${hours > 1 ? "s" : ""} ago`;
-  }
-  return `${minutes} minute${minutes > 1 ? "s" : ""} ago`;
-}
-
-// Invitation Card Component (inline for now)
-function InvitationCard({
-  invitation,
-  isSelected,
-  onSelect,
-  statusType,
-}: {
-  invitation: {
-    _id: string;
-    email: string;
-    role?: string;
-    expiresAt: number;
-  };
-  isSelected: boolean;
-  onSelect: (id: string) => void;
-  statusType: InvitationStatus;
-}) {
-  const expiresAt = invitation.expiresAt;
-  const now = Date.now();
-  const isExpired = expiresAt < now;
-
-  return (
-    <Card className={isSelected ? "border-primary" : ""}>
-      <CardContent className="flex items-center gap-4 p-4">
-        <Checkbox
-          checked={isSelected}
-          onCheckedChange={() => onSelect(invitation._id)}
-        />
-        <div className="min-w-0 flex-1">
-          <div className="flex items-center gap-2">
-            <Mail className="size-4 text-muted-foreground" />
-            <span className="truncate font-medium">{invitation.email}</span>
-          </div>
-          <div className="mt-1 flex items-center gap-2 text-muted-foreground text-sm">
-            <Badge variant="outline">{invitation.role || "member"}</Badge>
-            <span className="flex items-center gap-1">
-              <Timer className="size-3" />
-              {isExpired ? "Expired" : "Expires"}{" "}
-              {formatRelativeTime(expiresAt)}
-            </span>
-          </div>
-        </div>
-        <div className="flex gap-2">
-          {statusType === "expired" ? (
-            <Button size="sm" variant="outline">
-              <RefreshCw className="mr-1 size-4" />
-              Resend
-            </Button>
-          ) : statusType === "expiring_soon" ? (
-            <Button size="sm" variant="outline">
-              <RefreshCw className="mr-1 size-4" />
-              Extend
-            </Button>
-          ) : (
-            <Button size="sm" variant="ghost">
-              <X className="size-4" />
-            </Button>
-          )}
-        </div>
-      </CardContent>
-    </Card>
-  );
-}
-
-// Request Card Component (inline for now)
-function RequestCard({
-  request,
-  isSelected,
-  onSelect,
-}: {
-  request: {
-    _id: string;
-    userEmail: string;
-    requestedAt: number;
-    requestNumber: number;
-    originalInvitation?: {
-      email: string;
-      role?: string;
-    } | null;
-  };
-  isSelected: boolean;
-  onSelect: (id: string) => void;
-}) {
-  return (
-    <Card className={isSelected ? "border-primary" : ""}>
-      <CardContent className="flex items-center gap-4 p-4">
-        <Checkbox
-          checked={isSelected}
-          onCheckedChange={() => onSelect(request._id)}
-        />
-        <div className="min-w-0 flex-1">
-          <div className="flex items-center gap-2">
-            <MailQuestion className="size-4 text-muted-foreground" />
-            <span className="truncate font-medium">{request.userEmail}</span>
-          </div>
-          <div className="mt-1 flex items-center gap-2 text-muted-foreground text-sm">
-            <Badge variant="secondary">Request #{request.requestNumber}</Badge>
-            <span className="flex items-center gap-1">
-              <Clock className="size-3" />
-              {formatRelativeTime(request.requestedAt)}
-            </span>
-          </div>
-        </div>
-        <div className="flex gap-2">
-          <Button size="sm" variant="outline">
-            Approve
-          </Button>
-          <Button size="sm" variant="ghost">
-            <X className="size-4" />
-          </Button>
-        </div>
-      </CardContent>
-    </Card>
-  );
-}
 
 export default function InvitationManagementPage() {
   const params = useParams();

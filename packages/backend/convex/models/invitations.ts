@@ -855,3 +855,146 @@ export const bulkCancelInvitations = mutation({
     return { success, failed };
   },
 });
+
+// ============================================================
+// PHASE 3: INVITATION REQUEST APPROVAL/DENIAL
+// These handle admin actions on invitation re-send requests
+// ============================================================
+
+/**
+ * Approve an invitation request
+ * Creates a new invitation with the same details as the original
+ */
+export const approveInvitationRequest = mutation({
+  args: { requestId: v.id("invitationRequests") },
+  returns: v.object({
+    success: v.boolean(),
+    newInvitationId: v.optional(v.string()),
+    message: v.string(),
+  }),
+  handler: async (ctx, args) => {
+    // Get the request
+    const request = await ctx.db.get(args.requestId);
+    if (!request) {
+      return {
+        success: false,
+        message: "Request not found.",
+      };
+    }
+
+    if (request.status !== "pending") {
+      return {
+        success: false,
+        message: "Request has already been processed.",
+      };
+    }
+
+    // Get the original invitation
+    const originalInvitation = await ctx.runQuery(
+      components.betterAuth.adapter.findOne,
+      {
+        model: "invitation",
+        where: [
+          { field: "_id", value: request.originalInvitationId, operator: "eq" },
+        ],
+      }
+    );
+
+    if (!originalInvitation) {
+      return {
+        success: false,
+        message: "Original invitation not found.",
+      };
+    }
+
+    // Get organization settings for expiration days
+    const orgResult = await ctx.runQuery(
+      components.betterAuth.adapter.findOne,
+      {
+        model: "organization",
+        where: [
+          { field: "_id", value: request.organizationId, operator: "eq" },
+        ],
+      }
+    );
+
+    const orgSettings = orgResult as {
+      invitationExpirationDays?: number;
+    } | null;
+    const expirationDays = orgSettings?.invitationExpirationDays ?? 7;
+
+    // Calculate new expiration date
+    const now = Date.now();
+    const newExpiresAt = now + expirationDays * 24 * 60 * 60 * 1000;
+
+    // Create new invitation with same details
+    const newInvitationData = {
+      organizationId: originalInvitation.organizationId,
+      email: originalInvitation.email,
+      role: originalInvitation.role,
+      teamId: originalInvitation.teamId,
+      status: "pending",
+      expiresAt: newExpiresAt,
+      inviterId: originalInvitation.inviterId,
+      metadata: (originalInvitation as { metadata?: unknown }).metadata,
+      autoReInviteCount: 0,
+    };
+
+    // Insert new invitation
+    const newInvitation = await ctx.runMutation(
+      components.betterAuth.adapter.create,
+      {
+        input: {
+          model: "invitation",
+          data: newInvitationData,
+        },
+      }
+    );
+
+    // Update the request to approved
+    await ctx.db.patch(args.requestId, {
+      status: "approved",
+      processedAt: now,
+      newInvitationId: newInvitation._id,
+    });
+
+    return {
+      success: true,
+      newInvitationId: newInvitation._id,
+      message: "Request approved. New invitation sent.",
+    };
+  },
+});
+
+/**
+ * Deny an invitation request
+ */
+export const denyInvitationRequest = mutation({
+  args: {
+    requestId: v.id("invitationRequests"),
+    reason: v.optional(v.string()),
+  },
+  returns: v.null(),
+  handler: async (ctx, args) => {
+    // Get the request
+    const request = await ctx.db.get(args.requestId);
+    if (!request) {
+      throw new Error("Request not found.");
+    }
+
+    if (request.status !== "pending") {
+      throw new Error("Request has already been processed.");
+    }
+
+    const now = Date.now();
+
+    // Update the request to denied
+    await ctx.db.patch(args.requestId, {
+      status: "denied",
+      processedAt: now,
+      denyReason: args.reason,
+    });
+
+    return null;
+  },
+});

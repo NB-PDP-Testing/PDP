@@ -605,3 +605,253 @@ export const processAutoReInvite = mutation({
     };
   },
 });
+
+// ============================================================
+// PHASE 3: ADMIN BULK INVITATION MUTATIONS
+// These support the admin invitation management dashboard
+// ============================================================
+
+/**
+ * Resend a single invitation (admin action)
+ * Creates a new invitation with same details but new expiration
+ */
+export const resendInvitation = mutation({
+  args: { invitationId: v.string() },
+  returns: v.object({
+    success: v.boolean(),
+    newInvitationId: v.optional(v.string()),
+    message: v.string(),
+  }),
+  handler: async (ctx, args) => {
+    // Get original invitation
+    const invitationResult = await ctx.runQuery(
+      components.betterAuth.adapter.findOne,
+      {
+        model: "invitation",
+        where: [{ field: "_id", value: args.invitationId, operator: "eq" }],
+      }
+    );
+
+    if (!invitationResult) {
+      return {
+        success: false,
+        message: "Invitation not found.",
+      };
+    }
+
+    // Get organization settings for expiration days
+    const orgResult = await ctx.runQuery(
+      components.betterAuth.adapter.findOne,
+      {
+        model: "organization",
+        where: [
+          {
+            field: "_id",
+            value: invitationResult.organizationId,
+            operator: "eq",
+          },
+        ],
+      }
+    );
+
+    const orgSettings = orgResult as {
+      invitationExpirationDays?: number;
+    } | null;
+    const expirationDays = orgSettings?.invitationExpirationDays ?? 7;
+
+    // Calculate new expiration date
+    const now = Date.now();
+    const newExpiresAt = now + expirationDays * 24 * 60 * 60 * 1000;
+
+    // Create new invitation with same details
+    const newInvitationData = {
+      organizationId: invitationResult.organizationId,
+      email: invitationResult.email,
+      role: invitationResult.role,
+      teamId: invitationResult.teamId,
+      status: "pending",
+      expiresAt: newExpiresAt,
+      inviterId: invitationResult.inviterId,
+      metadata: (invitationResult as { metadata?: unknown }).metadata,
+      autoReInviteCount: 0,
+    };
+
+    // Insert new invitation
+    const newInvitation = await ctx.runMutation(
+      components.betterAuth.adapter.create,
+      {
+        input: {
+          model: "invitation",
+          data: newInvitationData,
+        },
+      }
+    );
+
+    // Mark original as resent (using cancelled status with metadata)
+    await ctx.runMutation(components.betterAuth.adapter.updateOne, {
+      input: {
+        model: "invitation",
+        where: [{ field: "_id", value: args.invitationId, operator: "eq" }],
+        update: {
+          status: "cancelled",
+        },
+      },
+    });
+
+    return {
+      success: true,
+      newInvitationId: newInvitation._id,
+      message: "Invitation resent successfully.",
+    };
+  },
+});
+
+/**
+ * Cancel a single invitation
+ */
+export const cancelInvitation = mutation({
+  args: { invitationId: v.string() },
+  returns: v.null(),
+  handler: async (ctx, args) => {
+    await ctx.runMutation(components.betterAuth.adapter.updateOne, {
+      input: {
+        model: "invitation",
+        where: [{ field: "_id", value: args.invitationId, operator: "eq" }],
+        update: {
+          status: "cancelled",
+        },
+      },
+    });
+
+    return null;
+  },
+});
+
+/**
+ * Bulk resend multiple invitations
+ * Returns success and failure counts
+ */
+export const bulkResendInvitations = mutation({
+  args: { invitationIds: v.array(v.string()) },
+  returns: v.object({
+    success: v.number(),
+    failed: v.number(),
+  }),
+  handler: async (ctx, args) => {
+    let success = 0;
+    let failed = 0;
+
+    for (const invitationId of args.invitationIds) {
+      try {
+        // Get original invitation
+        const invitationResult = await ctx.runQuery(
+          components.betterAuth.adapter.findOne,
+          {
+            model: "invitation",
+            where: [{ field: "_id", value: invitationId, operator: "eq" }],
+          }
+        );
+
+        if (!invitationResult) {
+          failed += 1;
+          continue;
+        }
+
+        // Get organization settings
+        const orgResult = await ctx.runQuery(
+          components.betterAuth.adapter.findOne,
+          {
+            model: "organization",
+            where: [
+              {
+                field: "_id",
+                value: invitationResult.organizationId,
+                operator: "eq",
+              },
+            ],
+          }
+        );
+
+        const orgSettings = orgResult as {
+          invitationExpirationDays?: number;
+        } | null;
+        const expirationDays = orgSettings?.invitationExpirationDays ?? 7;
+        const now = Date.now();
+        const newExpiresAt = now + expirationDays * 24 * 60 * 60 * 1000;
+
+        // Create new invitation
+        const newInvitationData = {
+          organizationId: invitationResult.organizationId,
+          email: invitationResult.email,
+          role: invitationResult.role,
+          teamId: invitationResult.teamId,
+          status: "pending",
+          expiresAt: newExpiresAt,
+          inviterId: invitationResult.inviterId,
+          metadata: (invitationResult as { metadata?: unknown }).metadata,
+          autoReInviteCount: 0,
+        };
+
+        await ctx.runMutation(components.betterAuth.adapter.create, {
+          input: {
+            model: "invitation",
+            data: newInvitationData,
+          },
+        });
+
+        // Mark original as cancelled
+        await ctx.runMutation(components.betterAuth.adapter.updateOne, {
+          input: {
+            model: "invitation",
+            where: [{ field: "_id", value: invitationId, operator: "eq" }],
+            update: {
+              status: "cancelled",
+            },
+          },
+        });
+
+        success += 1;
+      } catch (error) {
+        console.error(`Failed to resend invitation ${invitationId}:`, error);
+        failed += 1;
+      }
+    }
+
+    return { success, failed };
+  },
+});
+
+/**
+ * Bulk cancel multiple invitations
+ */
+export const bulkCancelInvitations = mutation({
+  args: { invitationIds: v.array(v.string()) },
+  returns: v.object({
+    success: v.number(),
+    failed: v.number(),
+  }),
+  handler: async (ctx, args) => {
+    let success = 0;
+    let failed = 0;
+
+    for (const invitationId of args.invitationIds) {
+      try {
+        await ctx.runMutation(components.betterAuth.adapter.updateOne, {
+          input: {
+            model: "invitation",
+            where: [{ field: "_id", value: invitationId, operator: "eq" }],
+            update: {
+              status: "cancelled",
+            },
+          },
+        });
+        success += 1;
+      } catch (error) {
+        console.error(`Failed to cancel invitation ${invitationId}:`, error);
+        failed += 1;
+      }
+    }
+
+    return { success, failed };
+  },
+});

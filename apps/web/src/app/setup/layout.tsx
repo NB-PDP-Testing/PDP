@@ -66,7 +66,7 @@ export default function SetupLayout({
   }
 
   return (
-    <div className="flex min-h-screen flex-col">
+    <div className="flex min-h-screen flex-col" data-testid="first-user-wizard">
       <SetupProgress currentStep={user.setupStep ?? "gdpr"} />
       <main className="flex-1">{children}</main>
     </div>

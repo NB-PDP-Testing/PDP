@@ -23,18 +23,35 @@ interface SetupProgressProps {
  */
 export function SetupProgress({ currentStep }: SetupProgressProps) {
   const currentIndex = SETUP_STEPS.findIndex((step) => step.id === currentStep);
+  const progressPercentage = Math.round(
+    (currentIndex / (SETUP_STEPS.length - 1)) * 100
+  );
 
   return (
-    <div className="border-b bg-background">
+    <div className="border-b bg-background" data-testid="setup-progress">
       <div className="container mx-auto max-w-4xl py-6">
-        <nav aria-label="Setup progress">
+        {/* Progress bar for accessibility */}
+        <div
+          aria-label="Setup progress"
+          aria-valuemax={100}
+          aria-valuemin={0}
+          aria-valuenow={progressPercentage}
+          aria-valuetext={`Step ${currentIndex + 1} of ${SETUP_STEPS.length}`}
+          className="sr-only"
+          role="progressbar"
+        />
+        <nav aria-label="Setup progress" data-testid="wizard-step-indicator">
           <ol className="flex items-center justify-between">
             {SETUP_STEPS.map((step, index) => {
               const isCompleted = index < currentIndex;
               const isCurrent = index === currentIndex;
 
               return (
-                <li className="flex items-center" key={step.id}>
+                <li
+                  aria-current={isCurrent ? "step" : undefined}
+                  className="flex items-center"
+                  key={step.id}
+                >
                   <div className="flex flex-col items-center gap-2">
                     {/* Step indicator */}
                     <div

@@ -357,21 +357,32 @@ export function OnboardingOrchestrator({
     currentTask !== undefined &&
     !dismissed;
 
+  // Determine onboarding status for data attributes
+  const isOnboardingComplete = tasks !== undefined && tasks.length === 0;
+
   return (
-    <>
+    <div
+      data-onboarding-complete={isOnboardingComplete}
+      data-onboarding-in-progress={shouldShowModal}
+      data-testid={
+        isOnboardingComplete ? "onboarding-complete" : "onboarding-status"
+      }
+    >
       {/* Always render the app content */}
       {children}
 
       {/* Show onboarding modal on top when there are tasks */}
       {shouldShowModal && (
         <OnboardingErrorBoundary onRetry={() => setCurrentStepIndex(0)}>
-          <OnboardingStepRenderer
-            onComplete={handleStepComplete}
-            task={currentTask}
-            userId={userId}
-          />
+          <div data-testid="onboarding-wizard">
+            <OnboardingStepRenderer
+              onComplete={handleStepComplete}
+              task={currentTask}
+              userId={userId}
+            />
+          </div>
         </OnboardingErrorBoundary>
       )}
-    </>
+    </div>
   );
 }

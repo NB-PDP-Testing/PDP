@@ -57,7 +57,10 @@ function SetupCompleteContent() {
   };
 
   return (
-    <div className="min-h-screen bg-gradient-to-br from-background to-muted/20 px-4 py-12">
+    <div
+      className="min-h-screen bg-gradient-to-br from-background to-muted/20 px-4 py-12"
+      data-testid="setup-complete"
+    >
       <div className="mx-auto w-full max-w-2xl space-y-8">
         {/* Header */}
         <div className="text-center">
@@ -95,7 +98,10 @@ function SetupCompleteContent() {
         </div>
 
         {/* Completed Setup Card */}
-        <div className="space-y-6 rounded-lg border bg-card p-8 shadow-lg">
+        <div
+          className="space-y-6 rounded-lg border bg-card p-8 shadow-lg"
+          data-testid="completion-summary"
+        >
           <div>
             <h2 className="font-semibold text-2xl">What You've Accomplished</h2>
             <p className="mt-2 text-muted-foreground">

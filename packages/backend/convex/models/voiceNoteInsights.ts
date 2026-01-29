@@ -292,10 +292,9 @@ export const getAutoAppliedInsights = query({
           .first();
 
         if (!auditRecord) {
-          // This shouldn't happen, but handle gracefully
-          throw new Error(
-            `Audit record not found for auto-applied insight ${insight._id}`
-          );
+          // Race condition: Insight marked as auto_applied but processVoiceNoteInsight hasn't run yet
+          // Skip this insight until the audit record is created
+          return null;
         }
 
         return {
@@ -311,14 +310,19 @@ export const getAutoAppliedInsights = query({
       })
     );
 
+    // Filter out null values (insights without audit records yet)
+    const validInsights = insightsWithAudit.filter(
+      (insight) => insight !== null
+    );
+
     // Sort by appliedAt descending (most recent first)
-    insightsWithAudit.sort((a, b) => {
+    validInsights.sort((a, b) => {
       const aTime = a.appliedAt || 0;
       const bTime = b.appliedAt || 0;
       return bTime - aTime;
     });
 
-    return insightsWithAudit;
+    return validInsights;
   },
 });
 

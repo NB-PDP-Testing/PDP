@@ -10,11 +10,41 @@ import { Card } from "@/components/ui/card";
 import { Checkbox } from "@/components/ui/checkbox";
 import { Label } from "@/components/ui/label";
 
+// Regex patterns for formatting keys - moved to top level for performance
+const CAMEL_CASE_SPLIT_REGEX = /([A-Z])/g;
+const FIRST_CHAR_REGEX = /^./;
+
+type ImportDetail = {
+  sportCode: string;
+  categoriesCreated: number;
+  categoriesUpdated: number;
+  skillsCreated: number;
+  skillsUpdated: number;
+};
+
+type DevToolsResult = {
+  deleted?: Record<string, number>;
+  imported?: {
+    sportsProcessed: number;
+    categoriesCreated: number;
+    categoriesUpdated: number;
+    skillsCreated: number;
+    skillsUpdated: number;
+  };
+  migrated?: {
+    teamsUpdated: number;
+    updates: unknown[];
+  };
+  details?: ImportDetail[];
+  success?: boolean;
+  message?: string;
+};
+
 export default function DevToolsPage() {
   const params = useParams();
   const orgId = params.orgId as string;
   const [isClearing, setIsClearing] = useState(false);
-  const [result, setResult] = useState<any>(null);
+  const [result, setResult] = useState<DevToolsResult | null>(null);
   const [error, setError] = useState<string | null>(null);
 
   // Selection state for Clear All Dev Data
@@ -62,6 +92,7 @@ export default function DevToolsPage() {
     }
 
     if (
+      // biome-ignore lint/suspicious/noAlert: Dev tools intentionally uses confirm for dangerous operations
       !window.confirm(
         "This will convert sport NAMES to sport CODES for all teams in this organization. Continue?"
       )
@@ -74,17 +105,17 @@ export default function DevToolsPage() {
     setResult(null);
 
     try {
-      const result = await migrateSportNamesToCodes({
+      const migrateResult = await migrateSportNamesToCodes({
         organizationId: orgId,
       });
       setResult({
         migrated: {
-          teamsUpdated: result.teamsUpdated,
-          updates: result.updates,
+          teamsUpdated: migrateResult.teamsUpdated,
+          updates: migrateResult.updates,
         },
       });
-    } catch (err: any) {
-      setError(err.message);
+    } catch (err: unknown) {
+      setError(err instanceof Error ? err.message : "An error occurred");
     } finally {
       setIsClearing(false);
     }
@@ -92,6 +123,7 @@ export default function DevToolsPage() {
 
   const handleClearAllData = async () => {
     if (
+      // biome-ignore lint/suspicious/noAlert: Dev tools intentionally uses confirm for dangerous operations
       !window.confirm(
         "⚠️ DANGER: This will delete ALL data from the database. Are you absolutely sure?"
       )
@@ -100,6 +132,7 @@ export default function DevToolsPage() {
     }
 
     if (
+      // biome-ignore lint/suspicious/noAlert: Dev tools intentionally uses confirm for dangerous operations
       !window.confirm(
         "This action cannot be undone. Type 'DELETE ALL DATA' to confirm."
       )
@@ -112,13 +145,13 @@ export default function DevToolsPage() {
     setResult(null);
 
     try {
-      const result = await clearAllDevData({
+      const clearAllResult = await clearAllDevData({
         confirmDelete: true,
         selections: clearAllSelections,
       });
-      setResult(result);
-    } catch (err: any) {
-      setError(err.message);
+      setResult(clearAllResult);
+    } catch (err: unknown) {
+      setError(err instanceof Error ? err.message : "An error occurred");
     } finally {
       setIsClearing(false);
     }
@@ -131,6 +164,7 @@ export default function DevToolsPage() {
     }
 
     if (
+      // biome-ignore lint/suspicious/noAlert: Dev tools intentionally uses confirm for dangerous operations
       !window.confirm(
         "⚠️ WARNING: This will delete all data for this organization. Are you sure?"
       )
@@ -143,14 +177,14 @@ export default function DevToolsPage() {
     setResult(null);
 
     try {
-      const result = await clearOrgData({
+      const clearOrgResult = await clearOrgData({
         organizationId: orgId,
         confirmDelete: true,
         selections: clearOrgSelections,
       });
-      setResult(result);
-    } catch (err: any) {
-      setError(err.message);
+      setResult(clearOrgResult);
+    } catch (err: unknown) {
+      setError(err instanceof Error ? err.message : "An error occurred");
     } finally {
       setIsClearing(false);
     }
@@ -174,7 +208,7 @@ export default function DevToolsPage() {
       const skillsData = JSON.parse(text);
 
       // Import the skills data
-      const result = await importCompleteSkillsData({
+      const importResult = await importCompleteSkillsData({
         skillsData,
         replaceExisting: false,
         ensureSportsExist: true,
@@ -182,16 +216,16 @@ export default function DevToolsPage() {
 
       setResult({
         imported: {
-          sportsProcessed: result.sportsProcessed,
-          categoriesCreated: result.totalCategoriesCreated,
-          categoriesUpdated: result.totalCategoriesUpdated,
-          skillsCreated: result.totalSkillsCreated,
-          skillsUpdated: result.totalSkillsUpdated,
+          sportsProcessed: importResult.sportsProcessed,
+          categoriesCreated: importResult.totalCategoriesCreated,
+          categoriesUpdated: importResult.totalCategoriesUpdated,
+          skillsCreated: importResult.totalSkillsCreated,
+          skillsUpdated: importResult.totalSkillsUpdated,
         },
-        details: result.details,
+        details: importResult.details as ImportDetail[],
       });
-    } catch (err: any) {
-      setError(err.message);
+    } catch (err: unknown) {
+      setError(err instanceof Error ? err.message : "An error occurred");
     } finally {
       setIsClearing(false);
       // Reset the file input
@@ -750,8 +784,10 @@ export default function DevToolsPage() {
                     >
                       <span className="font-medium text-gray-700">
                         {key
-                          .replace(/([A-Z])/g, " $1")
-                          .replace(/^./, (str) => str.toUpperCase())}
+                          .replace(CAMEL_CASE_SPLIT_REGEX, " $1")
+                          .replace(FIRST_CHAR_REGEX, (str) =>
+                            str.toUpperCase()
+                          )}
                         :
                       </span>
                       <span className="font-bold text-green-700">
@@ -818,7 +854,7 @@ export default function DevToolsPage() {
                           Details by Sport:
                         </div>
                         <div className="space-y-2">
-                          {result.details.map((detail: any) => (
+                          {result.details.map((detail: ImportDetail) => (
                             <div
                               className="rounded border border-gray-200 bg-gray-50 p-2"
                               key={detail.sportCode}
@@ -964,13 +1000,17 @@ export default function DevToolsPage() {
                   });
                   setResult(res);
                   if (res.success) {
+                    // biome-ignore lint/suspicious/noAlert: Dev tools intentionally uses alert for feedback
                     alert(
                       `Success! ${res.message}\n\nPlease refresh the page to see the Coach link in the header.`
                     );
                   }
-                } catch (err: any) {
-                  setError(err.message);
-                  alert(`Error: ${err.message}`);
+                } catch (err: unknown) {
+                  const errorMessage =
+                    err instanceof Error ? err.message : "An error occurred";
+                  setError(errorMessage);
+                  // biome-ignore lint/suspicious/noAlert: Dev tools intentionally uses alert for feedback
+                  alert(`Error: ${errorMessage}`);
                 } finally {
                   setIsClearing(false);
                 }

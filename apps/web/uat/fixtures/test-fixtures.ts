@@ -12,6 +12,9 @@ import * as path from "path";
 const testDataPath = path.join(__dirname, "../test-data.json");
 export const testData = JSON.parse(fs.readFileSync(testDataPath, "utf-8"));
 
+// Export the test org ID for direct use in tests
+export const TEST_ORG_ID = testData.organization.id;
+
 // Storage state paths
 const authDir = path.join(__dirname, "../.auth");
 
@@ -149,73 +152,29 @@ export function getOrgIdFromUrl(url: string): string | null {
 /**
  * Helper to get current org ID
  *
- * Tries multiple strategies to get orgId:
- * 1. Check if already on an org page
- * 2. Navigate to /orgs and extract from first org card
- * 3. Use JavaScript to get from Better Auth session
+ * For UAT tests, we use the known test organization ID from test-data.json.
+ * This is more reliable than trying to extract it from the page DOM.
+ *
+ * Strategies:
+ * 1. Check if already on an org page (extract from URL)
+ * 2. Use the TEST_ORG_ID from test-data.json (default for UAT tests)
  */
 export async function getCurrentOrgId(page: Page): Promise<string> {
   // Strategy 1: Check if we're already on an org page
-  let url = page.url();
-  let orgId = getOrgIdFromUrl(url);
+  const url = page.url();
+  const orgId = getOrgIdFromUrl(url);
 
   if (orgId && orgId !== "current") {
     return orgId;
   }
 
-  // Strategy 2: Navigate to /orgs and get first organization
-  await page.goto("/orgs");
-  await waitForPageLoad(page);
-
-  // Wait a bit for async data to load
-  await page.waitForTimeout(2000);
-
-  // Try to find an org card and click it to get to an org page
-  const orgCard = page.locator('[data-testid="org-card"]').first()
-    .or(page.locator('[data-slot="card"]').first())
-    .or(page.getByRole("link", { name: /admin panel|coach panel/i }).first());
-
-  const cardVisible = await orgCard.isVisible({ timeout: 10000 }).catch(() => false);
-
-  if (cardVisible) {
-    // Get href from a link inside the card
-    const adminLink = page.getByRole("link", { name: /admin panel/i }).first();
-    const coachLink = page.getByRole("link", { name: /coach panel/i }).first();
-
-    let href = null;
-    if (await adminLink.isVisible({ timeout: 2000 }).catch(() => false)) {
-      href = await adminLink.getAttribute("href");
-    } else if (await coachLink.isVisible({ timeout: 2000 }).catch(() => false)) {
-      href = await coachLink.getAttribute("href");
-    }
-
-    if (href) {
-      const match = href.match(/\/orgs\/([^\/]+)/);
-      if (match && match[1]) {
-        return match[1];
-      }
-    }
+  // Strategy 2: Use the known test organization ID
+  // This is the most reliable approach for UAT tests
+  if (TEST_ORG_ID) {
+    return TEST_ORG_ID;
   }
 
-  // Strategy 3: Try to get from JavaScript/localStorage
-  try {
-    const sessionData = await page.evaluate(() => {
-      // Try to get from Better Auth session
-      const authStr = localStorage.getItem('better-auth.session.token') ||
-                     localStorage.getItem('session') ||
-                     localStorage.getItem('auth');
-      return authStr;
-    });
-
-    if (sessionData) {
-      // This is a fallback - the session might have orgId
-      console.log("[getCurrentOrgId] Found session data, but need to extract orgId");
-    }
-  } catch (e) {
-    // Ignore evaluation errors
-  }
-
-  throw new Error(`Could not get orgId from /orgs page. No organization cards found.`);
+  throw new Error(`Could not get orgId. TEST_ORG_ID is not set in test-data.json.`);
 }
 
 /**

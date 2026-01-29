@@ -121,18 +121,22 @@ export const getGoalsForPlayer = query({
   },
   returns: v.array(goalValidator),
   handler: async (ctx, args) => {
-    let goals = await ctx.db
+    // Use composite index when status is provided, basic index otherwise (avoid .filter())
+    const { status } = args;
+    if (status) {
+      return await ctx.db
+        .query("passportGoals")
+        .withIndex("by_player_status", (q) =>
+          q.eq("playerIdentityId", args.playerIdentityId).eq("status", status)
+        )
+        .collect();
+    }
+    return await ctx.db
       .query("passportGoals")
       .withIndex("by_playerIdentityId", (q) =>
         q.eq("playerIdentityId", args.playerIdentityId)
       )
       .collect();
-
-    if (args.status) {
-      goals = goals.filter((g) => g.status === args.status);
-    }
-
-    return goals;
   },
 });
 
@@ -147,18 +151,25 @@ export const getGoalsForOrg = query({
   },
   returns: v.array(goalValidator),
   handler: async (ctx, args) => {
-    let goals = await ctx.db
-      .query("passportGoals")
-      .withIndex("by_organizationId", (q) =>
-        q.eq("organizationId", args.organizationId)
-      )
-      .collect();
+    // Use composite index when status is provided, basic index otherwise (avoid .filter() on status)
+    const { status, category } = args;
+    let goals = status
+      ? await ctx.db
+          .query("passportGoals")
+          .withIndex("by_org_status", (q) =>
+            q.eq("organizationId", args.organizationId).eq("status", status)
+          )
+          .collect()
+      : await ctx.db
+          .query("passportGoals")
+          .withIndex("by_organizationId", (q) =>
+            q.eq("organizationId", args.organizationId)
+          )
+          .collect();
 
-    if (args.status) {
-      goals = goals.filter((g) => g.status === args.status);
-    }
-    if (args.category) {
-      goals = goals.filter((g) => g.category === args.category);
+    // Category filter must remain as JS filter (no composite index for category)
+    if (category) {
+      goals = goals.filter((g) => g.category === category);
     }
 
     return goals;

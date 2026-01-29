@@ -189,7 +189,8 @@
         "Empty state if < 2 weeks of data",
         "Type check passes"
       ],
-      "technicalNotes": "Recharts already available, no installation needed"
+      "technicalNotes": "Recharts already available, no installation needed",
+      "passes": true
     },
     {
       "id": "US-P8-018",

@@ -1,38 +1,30 @@
 "use client";
 
 import { api } from "@pdp/backend/convex/_generated/api";
-import { useQuery } from "convex/react";
+import { useMutation } from "convex/react";
 import type { Route } from "next";
 import { useRouter } from "next/navigation";
+import { useState } from "react";
+import { toast } from "sonner";
 import { PDPLogo } from "@/components/pdp-logo";
 import { Button } from "@/components/ui/button";
 
 export default function SetupWelcomePage() {
   const router = useRouter();
-  const currentUser = useQuery(api.models.users.getCurrentUser);
+  const updateSetupStep = useMutation(api.models.setup.updateSetupStep);
+  const [isSubmitting, setIsSubmitting] = useState(false);
 
-  // Redirect if not authenticated
-  if (currentUser === null) {
-    router.push("/login" as Route);
-    return null;
-  }
-
-  // Redirect if not platform staff (shouldn't happen, but safety check)
-  if (currentUser && !currentUser.isPlatformStaff) {
-    router.push("/orgs/current" as Route);
-    return null;
-  }
-
-  if (!currentUser) {
-    return (
-      <div className="flex min-h-screen items-center justify-center">
-        <div className="text-muted-foreground">Loading...</div>
-      </div>
-    );
-  }
-
-  const handleGetStarted = () => {
-    router.push("/setup/organization" as Route);
+  const handleGetStarted = async () => {
+    setIsSubmitting(true);
+    try {
+      await updateSetupStep({ step: "create-org" });
+      router.push("/setup/create-org" as Route);
+    } catch (error) {
+      console.error("Failed to update step:", error);
+      toast.error("Something went wrong. Please try again.");
+    } finally {
+      setIsSubmitting(false);
+    }
   };
 
   return (
@@ -126,6 +118,7 @@ export default function SetupWelcomePage() {
           >
             <div className="flex items-center gap-3">
               <svg
+                aria-hidden="true"
                 className="h-6 w-6 flex-shrink-0"
                 fill="none"
                 stroke="currentColor"
@@ -153,13 +146,14 @@ export default function SetupWelcomePage() {
           <div className="flex justify-center pt-4">
             <Button
               className="px-8 text-white"
+              disabled={isSubmitting}
               onClick={handleGetStarted}
               size="lg"
               style={{
                 backgroundColor: "var(--pdp-navy)",
               }}
             >
-              Get Started →
+              {isSubmitting ? "Loading..." : "Get Started →"}
             </Button>
           </div>
         </div>

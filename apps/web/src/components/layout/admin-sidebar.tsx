@@ -15,6 +15,7 @@ import {
   Key,
   LineChart,
   Megaphone,
+  Menu,
   MessageSquare,
   Mic,
   Settings,
@@ -433,12 +434,18 @@ export function AdminMobileNav({
     <Sheet onOpenChange={setOpen} open={open}>
       <SheetTrigger asChild>
         {trigger || (
-          <Button className="lg:hidden" size="icon" variant="ghost">
-            <Settings className="h-5 w-5" />
+          <Button
+            aria-label="Open navigation menu"
+            className="lg:hidden"
+            data-testid="hamburger-menu"
+            size="icon"
+            variant="ghost"
+          >
+            <Menu className="h-5 w-5" />
           </Button>
         )}
       </SheetTrigger>
-      <SheetContent className="w-80 p-0" side="left">
+      <SheetContent className="w-80 p-0" data-testid="mobile-menu" side="left">
         <SheetHeader className="border-b px-4 py-3">
           <SheetTitle className="flex items-center gap-2">
             <Settings className="h-5 w-5" style={{ color: primaryColor }} />
@@ -477,7 +484,7 @@ export function AdminMobileNav({
           </div>
 
           {/* Grouped navigation */}
-          <nav className="flex-1 space-y-1 px-3">
+          <nav aria-label="Admin navigation" className="flex-1 space-y-1 px-3">
             {navGroups.map((group) => {
               const isExpanded = expandedGroups.includes(group.label);
               const hasActiveItem = group.items.some((item) =>

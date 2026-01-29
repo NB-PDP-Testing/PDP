@@ -22,6 +22,8 @@ import type * as auth from "../auth.js";
 import type * as crons from "../crons.js";
 import type * as healthCheck from "../healthCheck.js";
 import type * as http from "../http.js";
+import type * as jobs_graduations from "../jobs/graduations.js";
+import type * as jobs_invitations from "../jobs/invitations.js";
 import type * as lib_ageGroupUtils from "../lib/ageGroupUtils.js";
 import type * as lib_analytics from "../lib/analytics.js";
 import type * as lib_autoApprovalDecision from "../lib/autoApprovalDecision.js";
@@ -50,11 +52,16 @@ import type * as models_diagnosticIdentityCheck from "../models/diagnosticIdenti
 import type * as models_emergencyContacts from "../models/emergencyContacts.js";
 import type * as models_fixNeilsRoles from "../models/fixNeilsRoles.js";
 import type * as models_flows from "../models/flows.js";
+import type * as models_gdpr from "../models/gdpr.js";
 import type * as models_guardianIdentities from "../models/guardianIdentities.js";
 import type * as models_guardianManagement from "../models/guardianManagement.js";
 import type * as models_guardianPlayerLinks from "../models/guardianPlayerLinks.js";
+import type * as models_invitations from "../models/invitations.js";
 import type * as models_medicalProfiles from "../models/medicalProfiles.js";
 import type * as models_members from "../models/members.js";
+import type * as models_notificationPreferences from "../models/notificationPreferences.js";
+import type * as models_notifications from "../models/notifications.js";
+import type * as models_onboarding from "../models/onboarding.js";
 import type * as models_orgCostBudgets from "../models/orgCostBudgets.js";
 import type * as models_orgGuardianProfiles from "../models/orgGuardianProfiles.js";
 import type * as models_orgInjuryNotes from "../models/orgInjuryNotes.js";
@@ -70,6 +77,7 @@ import type * as models_platformCostAlerts from "../models/platformCostAlerts.js
 import type * as models_platformMessagingSettings from "../models/platformMessagingSettings.js";
 import type * as models_platformStaffInvitations from "../models/platformStaffInvitations.js";
 import type * as models_playerEmergencyContacts from "../models/playerEmergencyContacts.js";
+import type * as models_playerGraduations from "../models/playerGraduations.js";
 import type * as models_playerIdentities from "../models/playerIdentities.js";
 import type * as models_playerImport from "../models/playerImport.js";
 import type * as models_playerInjuries from "../models/playerInjuries.js";
@@ -78,6 +86,7 @@ import type * as models_players from "../models/players.js";
 import type * as models_rateLimits from "../models/rateLimits.js";
 import type * as models_referenceData from "../models/referenceData.js";
 import type * as models_sessionPlans from "../models/sessionPlans.js";
+import type * as models_setup from "../models/setup.js";
 import type * as models_skillAssessments from "../models/skillAssessments.js";
 import type * as models_skillBenchmarks from "../models/skillBenchmarks.js";
 import type * as models_sportAgeGroupConfig from "../models/sportAgeGroupConfig.js";
@@ -150,6 +159,8 @@ declare const fullApi: ApiFromModules<{
   crons: typeof crons;
   healthCheck: typeof healthCheck;
   http: typeof http;
+  "jobs/graduations": typeof jobs_graduations;
+  "jobs/invitations": typeof jobs_invitations;
   "lib/ageGroupUtils": typeof lib_ageGroupUtils;
   "lib/analytics": typeof lib_analytics;
   "lib/autoApprovalDecision": typeof lib_autoApprovalDecision;
@@ -178,11 +189,16 @@ declare const fullApi: ApiFromModules<{
   "models/emergencyContacts": typeof models_emergencyContacts;
   "models/fixNeilsRoles": typeof models_fixNeilsRoles;
   "models/flows": typeof models_flows;
+  "models/gdpr": typeof models_gdpr;
   "models/guardianIdentities": typeof models_guardianIdentities;
   "models/guardianManagement": typeof models_guardianManagement;
   "models/guardianPlayerLinks": typeof models_guardianPlayerLinks;
+  "models/invitations": typeof models_invitations;
   "models/medicalProfiles": typeof models_medicalProfiles;
   "models/members": typeof models_members;
+  "models/notificationPreferences": typeof models_notificationPreferences;
+  "models/notifications": typeof models_notifications;
+  "models/onboarding": typeof models_onboarding;
   "models/orgCostBudgets": typeof models_orgCostBudgets;
   "models/orgGuardianProfiles": typeof models_orgGuardianProfiles;
   "models/orgInjuryNotes": typeof models_orgInjuryNotes;
@@ -198,6 +214,7 @@ declare const fullApi: ApiFromModules<{
   "models/platformMessagingSettings": typeof models_platformMessagingSettings;
   "models/platformStaffInvitations": typeof models_platformStaffInvitations;
   "models/playerEmergencyContacts": typeof models_playerEmergencyContacts;
+  "models/playerGraduations": typeof models_playerGraduations;
   "models/playerIdentities": typeof models_playerIdentities;
   "models/playerImport": typeof models_playerImport;
   "models/playerInjuries": typeof models_playerInjuries;
@@ -206,6 +223,7 @@ declare const fullApi: ApiFromModules<{
   "models/rateLimits": typeof models_rateLimits;
   "models/referenceData": typeof models_referenceData;
   "models/sessionPlans": typeof models_sessionPlans;
+  "models/setup": typeof models_setup;
   "models/skillAssessments": typeof models_skillAssessments;
   "models/skillBenchmarks": typeof models_skillBenchmarks;
   "models/sportAgeGroupConfig": typeof models_sportAgeGroupConfig;
@@ -294,11 +312,14 @@ export declare const components: {
           input:
             | {
                 data: {
+                  childLinkingSkipCount?: number;
                   createdAt: number;
                   currentOrgId?: string;
                   email: string;
                   emailVerified: boolean;
                   firstName?: string;
+                  gdprConsentVersion?: number;
+                  gdprConsentedAt?: number;
                   image?: null | string;
                   isPlatformStaff?: boolean;
                   lastChildrenCheckAt?: number;
@@ -308,6 +329,8 @@ export declare const components: {
                   parentOnboardingDismissCount?: number;
                   parentOnboardingLastDismissedAt?: number;
                   phone?: string;
+                  setupComplete?: boolean;
+                  setupStep?: string;
                   updatedAt: number;
                   userId?: null | string;
                 };
@@ -393,16 +416,21 @@ export declare const components: {
                   adminBlanketBlock?: boolean;
                   adminBlanketBlockSetAt?: number;
                   adminBlanketBlockSetBy?: string;
+                  adminContactEmail?: string;
                   adminOverrideSetAt?: number;
                   adminOverrideSetBy?: string;
                   adminOverrideTrustGates?: boolean;
                   allowAdminDelegation?: boolean;
                   allowCoachOverrides?: boolean;
+                  autoReInviteOnExpiration?: boolean;
                   colors?: Array<string>;
                   createdAt: number;
+                  invitationExpirationDays?: number;
                   logo?: null | string;
+                  maxAutoReInvitesPerInvitation?: number;
                   metadata?: null | string;
                   name: string;
+                  notifyAdminsOnInvitationRequest?: boolean;
                   sharingContactEmail?: null | string;
                   sharingContactMode?: "direct" | "enquiry" | "none";
                   sharingContactName?: null | string;
@@ -452,6 +480,7 @@ export declare const components: {
               }
             | {
                 data: {
+                  autoReInviteCount?: number;
                   email: string;
                   expiresAt: number;
                   inviterId: string;
@@ -462,6 +491,17 @@ export declare const components: {
                   teamId?: null | string;
                 };
                 model: "invitation";
+              }
+            | {
+                data: {
+                  createdAt: number;
+                  createdBy: string;
+                  effectiveDate: number;
+                  fullText: string;
+                  summary: string;
+                  version: number;
+                };
+                model: "gdprVersions";
               };
           onCreateHandle?: string;
           select?: Array<string>;
@@ -493,7 +533,12 @@ export declare const components: {
                     | "lastChildrenCheckAt"
                     | "parentOnboardingDismissCount"
                     | "parentOnboardingLastDismissedAt"
+                    | "childLinkingSkipCount"
                     | "currentOrgId"
+                    | "gdprConsentVersion"
+                    | "gdprConsentedAt"
+                    | "setupComplete"
+                    | "setupStep"
                     | "_id";
                   operator?:
                     | "lt"
@@ -736,6 +781,11 @@ export declare const components: {
                     | "sharingContactName"
                     | "sharingContactEmail"
                     | "sharingContactPhone"
+                    | "invitationExpirationDays"
+                    | "autoReInviteOnExpiration"
+                    | "maxAutoReInvitesPerInvitation"
+                    | "adminContactEmail"
+                    | "notifyAdminsOnInvitationRequest"
                     | "voiceNotesTrustGatesEnabled"
                     | "allowAdminDelegation"
                     | "allowCoachOverrides"
@@ -820,6 +870,40 @@ export declare const components: {
                     | "expiresAt"
                     | "inviterId"
                     | "metadata"
+                    | "autoReInviteCount"
+                    | "_id";
+                  operator?:
+                    | "lt"
+                    | "lte"
+                    | "gt"
+                    | "gte"
+                    | "eq"
+                    | "in"
+                    | "not_in"
+                    | "ne"
+                    | "contains"
+                    | "starts_with"
+                    | "ends_with";
+                  value:
+                    | string
+                    | number
+                    | boolean
+                    | Array<string>
+                    | Array<number>
+                    | null;
+                }>;
+              }
+            | {
+                model: "gdprVersions";
+                where?: Array<{
+                  connector?: "AND" | "OR";
+                  field:
+                    | "version"
+                    | "effectiveDate"
+                    | "summary"
+                    | "fullText"
+                    | "createdBy"
+                    | "createdAt"
                     | "_id";
                   operator?:
                     | "lt"
@@ -879,7 +963,12 @@ export declare const components: {
                     | "lastChildrenCheckAt"
                     | "parentOnboardingDismissCount"
                     | "parentOnboardingLastDismissedAt"
+                    | "childLinkingSkipCount"
                     | "currentOrgId"
+                    | "gdprConsentVersion"
+                    | "gdprConsentedAt"
+                    | "setupComplete"
+                    | "setupStep"
                     | "_id";
                   operator?:
                     | "lt"
@@ -1122,6 +1211,11 @@ export declare const components: {
                     | "sharingContactName"
                     | "sharingContactEmail"
                     | "sharingContactPhone"
+                    | "invitationExpirationDays"
+                    | "autoReInviteOnExpiration"
+                    | "maxAutoReInvitesPerInvitation"
+                    | "adminContactEmail"
+                    | "notifyAdminsOnInvitationRequest"
                     | "voiceNotesTrustGatesEnabled"
                     | "allowAdminDelegation"
                     | "allowCoachOverrides"
@@ -1206,6 +1300,40 @@ export declare const components: {
                     | "expiresAt"
                     | "inviterId"
                     | "metadata"
+                    | "autoReInviteCount"
+                    | "_id";
+                  operator?:
+                    | "lt"
+                    | "lte"
+                    | "gt"
+                    | "gte"
+                    | "eq"
+                    | "in"
+                    | "not_in"
+                    | "ne"
+                    | "contains"
+                    | "starts_with"
+                    | "ends_with";
+                  value:
+                    | string
+                    | number
+                    | boolean
+                    | Array<string>
+                    | Array<number>
+                    | null;
+                }>;
+              }
+            | {
+                model: "gdprVersions";
+                where?: Array<{
+                  connector?: "AND" | "OR";
+                  field:
+                    | "version"
+                    | "effectiveDate"
+                    | "summary"
+                    | "fullText"
+                    | "createdBy"
+                    | "createdAt"
                     | "_id";
                   operator?:
                     | "lt"
@@ -1247,7 +1375,8 @@ export declare const components: {
             | "teamMember"
             | "organization"
             | "member"
-            | "invitation";
+            | "invitation"
+            | "gdprVersions";
           offset?: number;
           paginationOpts: {
             cursor: string | null;
@@ -1298,7 +1427,8 @@ export declare const components: {
             | "teamMember"
             | "organization"
             | "member"
-            | "invitation";
+            | "invitation"
+            | "gdprVersions";
           select?: Array<string>;
           where?: Array<{
             connector?: "AND" | "OR";
@@ -1334,11 +1464,14 @@ export declare const components: {
             | {
                 model: "user";
                 update: {
+                  childLinkingSkipCount?: number;
                   createdAt?: number;
                   currentOrgId?: string;
                   email?: string;
                   emailVerified?: boolean;
                   firstName?: string;
+                  gdprConsentVersion?: number;
+                  gdprConsentedAt?: number;
                   image?: null | string;
                   isPlatformStaff?: boolean;
                   lastChildrenCheckAt?: number;
@@ -1348,6 +1481,8 @@ export declare const components: {
                   parentOnboardingDismissCount?: number;
                   parentOnboardingLastDismissedAt?: number;
                   phone?: string;
+                  setupComplete?: boolean;
+                  setupStep?: string;
                   updatedAt?: number;
                   userId?: null | string;
                 };
@@ -1369,7 +1504,12 @@ export declare const components: {
                     | "lastChildrenCheckAt"
                     | "parentOnboardingDismissCount"
                     | "parentOnboardingLastDismissedAt"
+                    | "childLinkingSkipCount"
                     | "currentOrgId"
+                    | "gdprConsentVersion"
+                    | "gdprConsentedAt"
+                    | "setupComplete"
+                    | "setupStep"
                     | "_id";
                   operator?:
                     | "lt"
@@ -1654,16 +1794,21 @@ export declare const components: {
                   adminBlanketBlock?: boolean;
                   adminBlanketBlockSetAt?: number;
                   adminBlanketBlockSetBy?: string;
+                  adminContactEmail?: string;
                   adminOverrideSetAt?: number;
                   adminOverrideSetBy?: string;
                   adminOverrideTrustGates?: boolean;
                   allowAdminDelegation?: boolean;
                   allowCoachOverrides?: boolean;
+                  autoReInviteOnExpiration?: boolean;
                   colors?: Array<string>;
                   createdAt?: number;
+                  invitationExpirationDays?: number;
                   logo?: null | string;
+                  maxAutoReInvitesPerInvitation?: number;
                   metadata?: null | string;
                   name?: string;
+                  notifyAdminsOnInvitationRequest?: boolean;
                   sharingContactEmail?: null | string;
                   sharingContactMode?: "direct" | "enquiry" | "none";
                   sharingContactName?: null | string;
@@ -1696,6 +1841,11 @@ export declare const components: {
                     | "sharingContactName"
                     | "sharingContactEmail"
                     | "sharingContactPhone"
+                    | "invitationExpirationDays"
+                    | "autoReInviteOnExpiration"
+                    | "maxAutoReInvitesPerInvitation"
+                    | "adminContactEmail"
+                    | "notifyAdminsOnInvitationRequest"
                     | "voiceNotesTrustGatesEnabled"
                     | "allowAdminDelegation"
                     | "allowCoachOverrides"
@@ -1799,6 +1949,7 @@ export declare const components: {
             | {
                 model: "invitation";
                 update: {
+                  autoReInviteCount?: number;
                   email?: string;
                   expiresAt?: number;
                   inviterId?: string;
@@ -1819,6 +1970,48 @@ export declare const components: {
                     | "expiresAt"
                     | "inviterId"
                     | "metadata"
+                    | "autoReInviteCount"
+                    | "_id";
+                  operator?:
+                    | "lt"
+                    | "lte"
+                    | "gt"
+                    | "gte"
+                    | "eq"
+                    | "in"
+                    | "not_in"
+                    | "ne"
+                    | "contains"
+                    | "starts_with"
+                    | "ends_with";
+                  value:
+                    | string
+                    | number
+                    | boolean
+                    | Array<string>
+                    | Array<number>
+                    | null;
+                }>;
+              }
+            | {
+                model: "gdprVersions";
+                update: {
+                  createdAt?: number;
+                  createdBy?: string;
+                  effectiveDate?: number;
+                  fullText?: string;
+                  summary?: string;
+                  version?: number;
+                };
+                where?: Array<{
+                  connector?: "AND" | "OR";
+                  field:
+                    | "version"
+                    | "effectiveDate"
+                    | "summary"
+                    | "fullText"
+                    | "createdBy"
+                    | "createdAt"
                     | "_id";
                   operator?:
                     | "lt"
@@ -1861,11 +2054,14 @@ export declare const components: {
             | {
                 model: "user";
                 update: {
+                  childLinkingSkipCount?: number;
                   createdAt?: number;
                   currentOrgId?: string;
                   email?: string;
                   emailVerified?: boolean;
                   firstName?: string;
+                  gdprConsentVersion?: number;
+                  gdprConsentedAt?: number;
                   image?: null | string;
                   isPlatformStaff?: boolean;
                   lastChildrenCheckAt?: number;
@@ -1875,6 +2071,8 @@ export declare const components: {
                   parentOnboardingDismissCount?: number;
                   parentOnboardingLastDismissedAt?: number;
                   phone?: string;
+                  setupComplete?: boolean;
+                  setupStep?: string;
                   updatedAt?: number;
                   userId?: null | string;
                 };
@@ -1896,7 +2094,12 @@ export declare const components: {
                     | "lastChildrenCheckAt"
                     | "parentOnboardingDismissCount"
                     | "parentOnboardingLastDismissedAt"
+                    | "childLinkingSkipCount"
                     | "currentOrgId"
+                    | "gdprConsentVersion"
+                    | "gdprConsentedAt"
+                    | "setupComplete"
+                    | "setupStep"
                     | "_id";
                   operator?:
                     | "lt"
@@ -2181,16 +2384,21 @@ export declare const components: {
                   adminBlanketBlock?: boolean;
                   adminBlanketBlockSetAt?: number;
                   adminBlanketBlockSetBy?: string;
+                  adminContactEmail?: string;
                   adminOverrideSetAt?: number;
                   adminOverrideSetBy?: string;
                   adminOverrideTrustGates?: boolean;
                   allowAdminDelegation?: boolean;
                   allowCoachOverrides?: boolean;
+                  autoReInviteOnExpiration?: boolean;
                   colors?: Array<string>;
                   createdAt?: number;
+                  invitationExpirationDays?: number;
                   logo?: null | string;
+                  maxAutoReInvitesPerInvitation?: number;
                   metadata?: null | string;
                   name?: string;
+                  notifyAdminsOnInvitationRequest?: boolean;
                   sharingContactEmail?: null | string;
                   sharingContactMode?: "direct" | "enquiry" | "none";
                   sharingContactName?: null | string;
@@ -2223,6 +2431,11 @@ export declare const components: {
                     | "sharingContactName"
                     | "sharingContactEmail"
                     | "sharingContactPhone"
+                    | "invitationExpirationDays"
+                    | "autoReInviteOnExpiration"
+                    | "maxAutoReInvitesPerInvitation"
+                    | "adminContactEmail"
+                    | "notifyAdminsOnInvitationRequest"
                     | "voiceNotesTrustGatesEnabled"
                     | "allowAdminDelegation"
                     | "allowCoachOverrides"
@@ -2326,6 +2539,7 @@ export declare const components: {
             | {
                 model: "invitation";
                 update: {
+                  autoReInviteCount?: number;
                   email?: string;
                   expiresAt?: number;
                   inviterId?: string;
@@ -2346,6 +2560,48 @@ export declare const components: {
                     | "expiresAt"
                     | "inviterId"
                     | "metadata"
+                    | "autoReInviteCount"
+                    | "_id";
+                  operator?:
+                    | "lt"
+                    | "lte"
+                    | "gt"
+                    | "gte"
+                    | "eq"
+                    | "in"
+                    | "not_in"
+                    | "ne"
+                    | "contains"
+                    | "starts_with"
+                    | "ends_with";
+                  value:
+                    | string
+                    | number
+                    | boolean
+                    | Array<string>
+                    | Array<number>
+                    | null;
+                }>;
+              }
+            | {
+                model: "gdprVersions";
+                update: {
+                  createdAt?: number;
+                  createdBy?: string;
+                  effectiveDate?: number;
+                  fullText?: string;
+                  summary?: string;
+                  version?: number;
+                };
+                where?: Array<{
+                  connector?: "AND" | "OR";
+                  field:
+                    | "version"
+                    | "effectiveDate"
+                    | "summary"
+                    | "fullText"
+                    | "createdBy"
+                    | "createdAt"
                     | "_id";
                   operator?:
                     | "lt"

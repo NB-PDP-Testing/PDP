@@ -64,9 +64,10 @@ export function EnhancedUserMenu() {
   const [coachSettingsOpen, setCoachSettingsOpen] = useState(false);
 
   // Check if user is a coach in any organization
+  // Skip query when user is not authenticated to avoid unnecessary backend calls
   const userOrganizations = useQuery(
     api.models.members.getMembersForAllOrganizations,
-    {}
+    user ? {} : "skip"
   );
   const isCoachAnywhere =
     userOrganizations?.some((org) => org.functionalRoles?.includes("coach")) ??

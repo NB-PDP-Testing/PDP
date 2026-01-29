@@ -25,8 +25,10 @@ export function TabNotificationProvider({
 
   // Get membership data to check functional role
   // Per US-005 acceptance criteria: check activeFunctionalRole === 'parent'
+  // Skip query when not authenticated to avoid unnecessary backend calls
   const allMemberships = useQuery(
-    api.models.members.getMembersForAllOrganizations
+    api.models.members.getMembersForAllOrganizations,
+    session?.user ? {} : "skip"
   );
 
   // Find current org membership

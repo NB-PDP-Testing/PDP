@@ -23,6 +23,7 @@ import { Input } from "@/components/ui/input";
 import { cn } from "@/lib/utils";
 
 type SkillChange = {
+  insightId: Id<"autoAppliedInsights">; // Unique ID for React keys
   playerName: string;
   playerIdentityId: Id<"playerIdentities">;
   description: string;
@@ -241,7 +242,7 @@ export function AppliedInsightsSection({
               ) : (
                 <>
                   {filteredSkills.slice(0, 5).map((skill) => (
-                    <Card key={skill.targetRecordId}>
+                    <Card key={skill.insightId}>
                       <CardContent className="p-4">
                         <div className="flex items-start justify-between">
                           <div className="flex-1">

@@ -2060,6 +2060,7 @@ export const getCoachImpactSummary = query({
     // Detailed arrays
     skillChanges: v.array(
       v.object({
+        insightId: v.id("autoAppliedInsights"), // Unique ID for React keys
         playerName: v.string(),
         playerIdentityId: v.id("playerIdentities"),
         description: v.string(),
@@ -2232,6 +2233,7 @@ export const getCoachImpactSummary = query({
           const description = `${skillName}: ${prevValue.rating || "?"} → ${newValue.rating || "?"}`;
 
           return {
+            insightId: insight._id, // Unique ID for React keys
             playerName:
               playerIdentity?.firstName && playerIdentity?.lastName
                 ? `${playerIdentity.firstName} ${playerIdentity.lastName}`

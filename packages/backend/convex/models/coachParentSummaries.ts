@@ -1288,11 +1288,8 @@ export const markSummaryViewed = mutation({
       throw new Error("Not authenticated");
     }
 
-    // Get the user ID
-    const userId = user._id || user.userId;
-    if (!userId) {
-      throw new Error("User ID not found");
-    }
+    // Get the user ID (user._id is the correct field in Better Auth)
+    const userId = user._id;
 
     // Fetch the summary
     const summary = await ctx.db.get(args.summaryId);
@@ -1363,11 +1360,8 @@ export const trackShareEvent = mutation({
       throw new Error("Not authenticated");
     }
 
-    // Get the user ID
-    const userId = user._id || user.userId;
-    if (!userId) {
-      throw new Error("User ID not found");
-    }
+    // Get the user ID (user._id is the correct field in Better Auth)
+    const userId = user._id;
 
     // Fetch the summary
     const summary = await ctx.db.get(args.summaryId);
@@ -1428,11 +1422,8 @@ export const acknowledgeParentSummary = mutation({
       throw new Error("Not authenticated");
     }
 
-    // Get the user ID
-    const userId = user._id || user.userId;
-    if (!userId) {
-      throw new Error("User ID not found");
-    }
+    // Get the user ID (user._id is the correct field in Better Auth)
+    const userId = user._id;
 
     // Fetch the summary
     const summary = await ctx.db.get(args.summaryId);
@@ -1493,11 +1484,8 @@ export const acknowledgeAllForPlayer = mutation({
       throw new Error("Not authenticated");
     }
 
-    // Get the user ID
-    const userId = user._id || user.userId;
-    if (!userId) {
-      throw new Error("User ID not found");
-    }
+    // Get the user ID (user._id is the correct field in Better Auth)
+    const userId = user._id;
 
     // Find guardian identity for this user
     const guardianIdentity = await ctx.db

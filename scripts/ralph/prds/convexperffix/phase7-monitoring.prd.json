@@ -1,0 +1,242 @@
+{
+  "project": "Convex Performance Fix - Phase 7: Monitoring & Final Validation",
+  "branchName": "johnobr/fixconvex",
+  "description": "Day 7: Set up Convex usage alerts, full regression testing, document learnings, verify <1M calls/month trajectory. Final validation before considering free tier downgrade.",
+  "readinessLevel": "100%",
+  "prerequisitesCompleted": {
+    "status": "Depends on Phase 1-6",
+    "completedWork": [
+      "Phase 1: Schema indexes added",
+      "Phase 2: Backend N+1 patterns fixed",
+      "Phase 3: Filter violations fixed",
+      "Phase 4: Frontend ChildCard refactored",
+      "Phase 5: Additional optimizations (caching, server-side filtering)",
+      "Phase 6: Issue #324 fixes complete"
+    ],
+    "documentationReferences": [
+      "GitHub Issue #330 - Convex Performance Crisis",
+      "All phase PRDs in this folder"
+    ]
+  },
+  "contextAndDependencies": {
+    "targetMetric": "Verified <1M calls/month (under free tier limit)",
+    "alertThresholds": "500K, 750K, 900K (free tier focused)",
+    "keyFiles": ["CLAUDE.md - Update with N+1 prevention checklist"]
+  },
+  "userStories": [
+    {
+      "id": "US-PERF-028",
+      "title": "Set Up Convex Usage Alerts",
+      "description": "Configure alerts in Convex dashboard or external monitoring for function call thresholds.",
+      "phase": "Phase 7: Monitoring",
+      "acceptanceCriteria": [
+        "Access Convex dashboard for the deployment",
+        "Navigate to usage/billing section",
+        "Set up alerts at these thresholds:",
+        "  - 500K calls/month: Warning - 50% of free tier",
+        "  - 750K calls/month: Alert - 75% of free tier",
+        "  - 900K calls/month: Critical - 90% of free tier",
+        "Configure alert destinations (email, Slack, etc.)",
+        "Test alert configuration if possible",
+        "Document alert setup in a monitoring doc"
+      ],
+      "technicalNotes": {
+        "convexDashboard": "https://dashboard.convex.dev/",
+        "alertOptions": "Convex may have built-in alerts or require external monitoring",
+        "fallback": "If no built-in alerts, schedule manual weekly review of usage"
+      },
+      "priority": 1,
+      "passes": false,
+      "notes": "Alerts prevent future surprise billing. Critical for staying on free tier."
+    },
+    {
+      "id": "US-PERF-029",
+      "title": "Update Better Auth to Latest (Optional)",
+      "description": "If Phase 1 patch update was successful, consider updating to latest minor version.",
+      "phase": "Phase 7: Monitoring",
+      "acceptanceCriteria": [
+        "Check if Phase 1 @convex-dev/better-auth update was successful",
+        "If successful, consider updating to latest: npm view @convex-dev/better-auth version",
+        "Update incrementally: 0.9.x → 0.10.x",
+        "Run: npx -w packages/backend convex codegen",
+        "Run: npm run check-types",
+        "Test login/logout, org switching thoroughly",
+        "If any issues, rollback to previous version"
+      ],
+      "technicalNotes": {
+        "currentVersion": "Check packages/backend/package.json",
+        "latestVersion": "npm view @convex-dev/better-auth version",
+        "strategy": "Only update if Phase 1 update was stable. Cautious approach."
+      },
+      "priority": 2,
+      "passes": false,
+      "notes": "OPTIONAL - only if confident from Phase 1 update. Skip if any concerns."
+    },
+    {
+      "id": "US-PERF-030",
+      "title": "Full Regression Test Suite",
+      "description": "Execute comprehensive regression testing of all major features.",
+      "phase": "Phase 7: Monitoring",
+      "acceptanceCriteria": [
+        "Platform staff can manage platform",
+        "Org admin can invite users (all roles: coach, parent, admin)",
+        "Coach can view assigned teams and players",
+        "Coach can create/view voice notes",
+        "Coach can view and manage insights",
+        "Parent can view children and coach feedback",
+        "Player passport displays all sections (skills, injuries, goals, medical)",
+        "Organization theming works (colors applied)",
+        "Onboarding flows complete successfully",
+        "Login/logout works with all auth methods",
+        "Organization switching works"
+      ],
+      "technicalNotes": {
+        "testAccount": "neil.B@blablablak.com / lien1979",
+        "roles": "Test as platform staff, org admin, coach, parent",
+        "criticalPaths": "Login → Dashboard → Feature → Data display"
+      },
+      "priority": 3,
+      "passes": false,
+      "notes": "Comprehensive testing ensures no regressions from all the optimizations"
+    },
+    {
+      "id": "US-PERF-031",
+      "title": "Verify Function Call Reduction",
+      "description": "Verify Convex function calls are on trajectory for <1M calls/month.",
+      "phase": "Phase 7: Monitoring",
+      "acceptanceCriteria": [
+        "Access Convex dashboard usage metrics",
+        "Compare current daily/weekly call volume to pre-optimization baseline",
+        "Calculate projected monthly calls based on current rate",
+        "Target: <900K calls/month (under free tier with safety margin)",
+        "Document: Before (3.2M) → After (target ~800K) = 75% reduction",
+        "If still over 1M projected, identify remaining high-call functions"
+      ],
+      "technicalNotes": {
+        "baseline": "3.2M calls/month before optimization",
+        "target": "~800K calls/month after all phases",
+        "calculation": "(daily calls × 30) or (weekly calls × 4.3)"
+      },
+      "priority": 4,
+      "passes": false,
+      "notes": "This is the key success metric. Must verify before considering free tier."
+    },
+    {
+      "id": "US-PERF-032",
+      "title": "Document Learnings in CLAUDE.md",
+      "description": "Update CLAUDE.md with N+1 prevention checklist and performance patterns.",
+      "phase": "Phase 7: Monitoring",
+      "acceptanceCriteria": [
+        "Open CLAUDE.md",
+        "Add new section: '## Performance & Query Optimization'",
+        "Include N+1 prevention checklist:",
+        "  - Never query in a loop (Promise.all with queries)",
+        "  - Collect IDs first, batch fetch, Map lookup",
+        "  - Use composite indexes for multi-field filters",
+        "  - Prefer withIndex() over filter()",
+        "  - Use server-side filtering over client-side",
+        "Include common patterns that cause issues",
+        "Reference this optimization project as example"
+      ],
+      "technicalNotes": {
+        "location": "CLAUDE.md in project root",
+        "purpose": "Prevent future developers from reintroducing N+1 patterns",
+        "format": "Match existing CLAUDE.md style and sections"
+      },
+      "priority": 5,
+      "passes": false,
+      "notes": "Documentation prevents future regression. Important institutional knowledge."
+    },
+    {
+      "id": "US-PERF-033",
+      "title": "Monitor for 24-48 Hours",
+      "description": "Monitor Convex function calls for 24-48 hours to verify stable reduction.",
+      "phase": "Phase 7: Monitoring",
+      "acceptanceCriteria": [
+        "Deploy all changes to production (if not already)",
+        "Monitor Convex dashboard for 24-48 hours",
+        "Check for any spikes or anomalies",
+        "Verify no new errors in logs",
+        "Confirm call volume is stable and within target",
+        "If stable, project is complete"
+      ],
+      "technicalNotes": {
+        "monitoringPeriod": "24-48 hours of production traffic",
+        "checkFor": "Spikes, errors, unexpected patterns",
+        "successCriteria": "Stable call volume under 900K/month trajectory"
+      },
+      "priority": 6,
+      "passes": false,
+      "notes": "Final validation before declaring project complete"
+    },
+    {
+      "id": "US-PERF-034",
+      "title": "Evaluate Free Tier Downgrade",
+      "description": "Based on monitoring results, evaluate whether to downgrade from Pro to Free tier.",
+      "phase": "Phase 7: Monitoring",
+      "acceptanceCriteria": [
+        "Review 48-hour monitoring results",
+        "Confirm projected monthly calls < 900K (safely under 1M free tier)",
+        "If yes: Document recommendation to downgrade to free tier",
+        "If no: Identify remaining optimization opportunities",
+        "Present findings to stakeholders",
+        "Make downgrade decision"
+      ],
+      "technicalNotes": {
+        "freeLimit": "1M function calls/month",
+        "target": "<900K to have safety margin",
+        "proFeatures": "Review if any Pro features are being used before downgrade"
+      },
+      "priority": 7,
+      "passes": false,
+      "notes": "Business decision based on technical results. May need stakeholder input."
+    }
+  ],
+  "qualityChecks": {
+    "beforeCommitting": [
+      "All documentation changes reviewed",
+      "Alert configuration verified",
+      "Regression tests passed"
+    ],
+    "testingStrategy": {
+      "US-PERF-030": "Manual testing of all critical paths",
+      "US-PERF-031": "Dashboard metrics review",
+      "US-PERF-033": "Continuous monitoring"
+    }
+  },
+  "projectCompletionCriteria": [
+    "Convex usage alerts configured",
+    "Full regression test suite passed",
+    "Function calls verified under 900K/month trajectory",
+    "CLAUDE.md updated with performance patterns",
+    "24-48 hour monitoring shows stable performance",
+    "Free tier downgrade evaluated and decision documented"
+  ],
+  "finalMetrics": {
+    "before": "3.2M calls/month (320% over free tier)",
+    "after": "~800K calls/month (20% under free tier)",
+    "reduction": "75% reduction in function calls",
+    "tablesOptimized": [
+      "sportPassports",
+      "passportGoals",
+      "coachParentSummaries",
+      "voiceNoteInsights",
+      "playerInjuries",
+      "session"
+    ],
+    "functionsFixed": [
+      "getMembersForAllOrganizations",
+      "getPendingInvitationsByEmail",
+      "getParentSummariesByChildAndSport",
+      "getVoiceNotesForPlayer",
+      "whatsappMessages coach lookups",
+      "ChildCard queries",
+      "getCurrentUser",
+      "getPlayersForOrg→getPlayersForCoach"
+    ]
+  },
+  "nextSteps": {
+    "ifSuccessful": "Consider downgrading to free tier, monitor monthly",
+    "ifNotSuccessful": "Identify remaining high-call functions, plan additional optimization"
+  }
+}

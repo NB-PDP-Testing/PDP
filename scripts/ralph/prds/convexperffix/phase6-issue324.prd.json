@@ -1,0 +1,192 @@
+{
+  "project": "Convex Performance Fix - Phase 6: Issue #324 Coordination",
+  "branchName": "johnobr/fixconvex",
+  "description": "Day 6: Fix userId fallback patterns and voiceNotes field bug (related to GitHub Issue #324). Fixes missing coach names and unnecessary fallback code.",
+  "readinessLevel": "100%",
+  "prerequisitesCompleted": {
+    "status": "Depends on Phase 1-5",
+    "completedWork": [
+      "Phase 1-5: Performance optimizations complete",
+      "Production audit script should show userId is null for all users"
+    ],
+    "documentationReferences": [
+      "GitHub Issue #324 - userId field confusion",
+      "GitHub Issue #330 - Convex Performance Crisis",
+      "Plan file - Full implementation details"
+    ]
+  },
+  "contextAndDependencies": {
+    "relatedIssue": "GitHub Issue #324 - Same root cause: userId field confusion",
+    "keyFiles": [
+      "packages/backend/convex/models/voiceNotes.ts - Line 452 (critical bug)",
+      "packages/backend/convex/models/coachTrustLevels.ts - Lines 272, 320, 360",
+      "packages/backend/convex/models/coachParentSummaries.ts - Lines 287, 386, 470, 660, 721, 820, 1174, 1248, 1313, 1378"
+    ],
+    "criticalContext": {
+      "userId_field": "The userId field on user table is ALWAYS null in production",
+      "correct_field": "_id is the correct field for user lookups",
+      "fallback_pattern": "user.userId || user._id is unnecessary since userId is always null"
+    }
+  },
+  "userStories": [
+    {
+      "id": "US-PERF-023",
+      "title": "Run Production Audit Script",
+      "description": "Run audit script to verify userId field is null for all users before making code changes.",
+      "phase": "Phase 6: Issue #324",
+      "acceptanceCriteria": [
+        "Run: npx convex run scripts:auditSummaryReport (or equivalent audit function)",
+        "Verify output shows: 'safeToRemoveUserIdFallback': true",
+        "Document any users that have non-null userId (should be zero)",
+        "If any users have userId populated, STOP and investigate"
+      ],
+      "technicalNotes": {
+        "auditQuery": "Query user table, count records where userId is not null",
+        "expectedResult": "0 users with non-null userId",
+        "ifNotZero": "Do not proceed - investigate why userId is populated"
+      },
+      "priority": 1,
+      "passes": false,
+      "notes": "CRITICAL: Must verify before removing fallback code"
+    },
+    {
+      "id": "US-PERF-024",
+      "title": "Fix voiceNotes.ts userId Field Bug (Critical)",
+      "description": "Fix critical bug at line 452 where query uses 'userId' field (always null) instead of '_id', causing missing coach names.",
+      "phase": "Phase 6: Issue #324",
+      "acceptanceCriteria": [
+        "Open packages/backend/convex/models/voiceNotes.ts",
+        "Find line 452 (or nearby): field: 'userId'",
+        "Change to: field: '_id'",
+        "Run: npx -w packages/backend convex codegen",
+        "Run: npm run check-types",
+        "Test: Login as parent, view voice notes from coach, verify coach name displays (was 'Unknown Coach')"
+      ],
+      "technicalNotes": {
+        "currentCode": "const coachResult = await ctx.runQuery(components.betterAuth.adapter.findOne, { model: 'user', where: [{ field: 'userId', value: note.coachId, operator: 'eq' }] });",
+        "fixedCode": "const coachResult = await ctx.runQuery(components.betterAuth.adapter.findOne, { model: 'user', where: [{ field: '_id', value: note.coachId, operator: 'eq' }] });",
+        "location": "packages/backend/convex/models/voiceNotes.ts around line 452",
+        "impact": "This bug causes coachResult to ALWAYS be null, resulting in 'Unknown Coach' display"
+      },
+      "priority": 2,
+      "passes": false,
+      "notes": "CRITICAL BUG FIX. Single character change fixes missing coach names throughout app."
+    },
+    {
+      "id": "US-PERF-025",
+      "title": "Fix coachTrustLevels.ts userId Fallback Pattern",
+      "description": "Remove unnecessary userId fallback pattern from 3 functions in coachTrustLevels.ts.",
+      "phase": "Phase 6: Issue #324",
+      "acceptanceCriteria": [
+        "Open packages/backend/convex/models/coachTrustLevels.ts",
+        "Find line 272 (setCoachPreferredLevel): const userId = user.userId || user._id;",
+        "Change to: const userId = user._id;",
+        "Find line 320 (setParentSummariesEnabled): same change",
+        "Find line 360 (setSkipSensitiveInsights): same change",
+        "Run: npx -w packages/backend convex codegen",
+        "Run: npm run check-types",
+        "Test: Coach sets preferred trust level, verify setting persists"
+      ],
+      "technicalNotes": {
+        "currentPattern": "const userId = user.userId || user._id;",
+        "fixedPattern": "const userId = user._id;",
+        "locations": ["Line 272", "Line 320", "Line 360"],
+        "reason": "userId is always null, so fallback always triggers - cleaner to just use _id directly"
+      },
+      "priority": 3,
+      "passes": false,
+      "notes": "3 simple find-and-replace changes. Clean up unnecessary code."
+    },
+    {
+      "id": "US-PERF-026",
+      "title": "Fix coachParentSummaries.ts userId Fallback Pattern",
+      "description": "Remove unnecessary userId fallback pattern from 10 functions in coachParentSummaries.ts.",
+      "phase": "Phase 6: Issue #324",
+      "acceptanceCriteria": [
+        "Open packages/backend/convex/models/coachParentSummaries.ts",
+        "Find and fix all 10 instances of: const userId = user.userId || user._id;",
+        "Lines to fix: 287, 386, 470, 660, 721, 820, 1174, 1248, 1313, 1378",
+        "Change each to: const userId = user._id;",
+        "Run: npx -w packages/backend convex codegen",
+        "Run: npm run check-types",
+        "Test: Approve a summary, suppress a summary, mark as viewed - verify all work"
+      ],
+      "technicalNotes": {
+        "functions": [
+          "Line 287: approveSummary",
+          "Line 386: approveInjurySummary",
+          "Line 470: suppressSummary",
+          "Line 660: revokeSummary",
+          "Line 721: editSummaryContent",
+          "Line 820: getCoachPendingSummaries",
+          "Line 1174: getAutoApprovedSummaries",
+          "Line 1248: markSummaryViewed",
+          "Line 1313: trackShareEvent",
+          "Line 1378: acknowledgeParentSummary"
+        ],
+        "searchPattern": "user.userId || user._id",
+        "replacePattern": "user._id"
+      },
+      "priority": 4,
+      "passes": false,
+      "notes": "10 simple find-and-replace changes. Tedious but straightforward."
+    },
+    {
+      "id": "US-PERF-027",
+      "title": "Test All Affected Features",
+      "description": "Comprehensive testing of all features affected by the userId/​_id changes.",
+      "phase": "Phase 6: Issue #324",
+      "acceptanceCriteria": [
+        "Voice Notes: Login as parent, view voice notes, verify coach names display correctly",
+        "Coach Trust Level: Login as coach, set preferred trust level, verify persists",
+        "Enable/disable parent summaries: verify works",
+        "Skip sensitive insights: verify works",
+        "Approve a summary: verify works",
+        "Suppress a summary: verify works",
+        "Mark summary as viewed: verify works",
+        "No null pointer exceptions in Convex logs",
+        "No 'Unknown Coach' displays where coach should be shown"
+      ],
+      "technicalNotes": {
+        "testAccount": "neil.B@blablablak.com / lien1979",
+        "criticalCheck": "Coach names should display correctly throughout app",
+        "logCheck": "No errors related to userId or null user lookups"
+      },
+      "priority": 5,
+      "passes": false,
+      "notes": "Verification story - ensure all fixes work correctly"
+    }
+  ],
+  "qualityChecks": {
+    "beforeCommitting": [
+      "npx -w packages/backend convex codegen - MUST succeed",
+      "npm run check-types - MUST pass",
+      "npm run check - Lint check"
+    ],
+    "testingStrategy": {
+      "US-PERF-023": "Audit script must pass before other changes",
+      "US-PERF-024": "Voice notes coach names - critical",
+      "US-PERF-025-026": "Coach operations work correctly",
+      "US-PERF-027": "Full regression of affected features"
+    }
+  },
+  "phaseCompletionCriteria": [
+    "Production audit confirms userId is null for all users",
+    "voiceNotes.ts uses '_id' field instead of 'userId'",
+    "coachTrustLevels.ts fallback patterns removed (3 functions)",
+    "coachParentSummaries.ts fallback patterns removed (10 functions)",
+    "All affected features tested and working",
+    "Coach names display correctly throughout app",
+    "No null pointer exceptions in logs"
+  ],
+  "expectedImpact": {
+    "bugFixed": "Missing coach names now display correctly",
+    "codeCleanup": "13 functions cleaned up (unnecessary fallback removed)",
+    "relatedIssue": "Addresses GitHub Issue #324"
+  },
+  "nextPhase": {
+    "name": "Phase 7: Monitoring & Final Validation",
+    "file": "phase7-monitoring.prd.json",
+    "description": "Set up alerts, final regression testing, document learnings"
+  }
+}

@@ -1,0 +1,185 @@
+{
+  "project": "Convex Performance Fix - Phase 5: Additional Optimizations",
+  "branchName": "johnobr/fixconvex",
+  "description": "Day 5: Additional optimizations to return to free tier - getCurrentUser caching, getPlayersForCoach server-side filtering, query skipping. Target: Return to <1M calls/month.",
+  "readinessLevel": "100%",
+  "prerequisitesCompleted": {
+    "status": "Depends on Phase 1-4",
+    "completedWork": [
+      "Phase 1: Schema indexes added",
+      "Phase 2: Backend N+1 patterns fixed",
+      "Phase 3: Filter violations fixed",
+      "Phase 4: Frontend ChildCard refactored"
+    ],
+    "documentationReferences": [
+      "GitHub Issue #330 - Convex Performance Crisis",
+      "Plan file - Full implementation details"
+    ]
+  },
+  "contextAndDependencies": {
+    "targetMetric": "Return to FREE TIER (<1M calls/month)",
+    "currentEstimate": "After Phase 4: ~900K calls/month",
+    "keyFiles": [
+      "packages/backend/convex/models/users.ts - getCurrentUser caching",
+      "packages/backend/convex/models/orgPlayerEnrollments.ts - Add getPlayersForCoach",
+      "apps/web/src/app/orgs/[orgId]/coach/coach-dashboard.tsx - Use server-side filtering",
+      "apps/web/src/lib/auth-context.tsx - Cache user data"
+    ],
+    "criticalPatterns": {
+      "React_Context_Caching": "Store fetched data in context to avoid re-fetching",
+      "Server_Side_Filtering": "Filter data on server, not client",
+      "Query_Skipping": "Don't query when data not needed or component unmounted"
+    }
+  },
+  "userStories": [
+    {
+      "id": "US-PERF-018",
+      "title": "Cache getCurrentUser Results in Context",
+      "description": "Reduce getCurrentUser calls (132K) by caching user data in React context after first fetch.",
+      "phase": "Phase 5: Additional",
+      "acceptanceCriteria": [
+        "Review current getCurrentUser usage patterns",
+        "Identify or create auth context (apps/web/src/lib/auth-context.tsx or similar)",
+        "Store user data in context after first fetch",
+        "Components read from context instead of calling getCurrentUser directly",
+        "Context refreshes on: login, logout, org switch",
+        "Run: npm run check-types",
+        "Run: npm run build",
+        "Test: Navigate multiple pages without full refresh, verify user data persists"
+      ],
+      "technicalNotes": {
+        "currentPattern": "Multiple components each call useQuery(api.models.users.getCurrentUser, {})",
+        "newPattern": "AuthProvider wraps app, provides user from context. useAuth() hook returns cached user.",
+        "refreshTriggers": "Login, logout, organization switch should invalidate cache",
+        "expectedReduction": "75% reduction in getCurrentUser calls"
+      },
+      "priority": 1,
+      "passes": false,
+      "notes": "High impact - 132K calls from this single function. Context caching is common React pattern."
+    },
+    {
+      "id": "US-PERF-019",
+      "title": "Create getPlayersForCoach Backend Query",
+      "description": "Create server-side filtered query that returns only players assigned to coach's teams, not all org players.",
+      "phase": "Phase 5: Additional",
+      "acceptanceCriteria": [
+        "Open packages/backend/convex/models/orgPlayerEnrollments.ts",
+        "Create new query: getPlayersForCoach",
+        "Args: { coachId: v.string(), organizationId: v.string() }",
+        "Logic:",
+        "  1. Get coach's team assignments from coachAssignments table",
+        "  2. Get all teamPlayerIdentities for those teams",
+        "  3. Get player enrollments for those player identities",
+        "  4. Return only the assigned players (not all org players)",
+        "Run: npx -w packages/backend convex codegen",
+        "Run: npm run check-types",
+        "Test: Query returns ~15 players for coach in org with 100 players"
+      ],
+      "technicalNotes": {
+        "currentProblem": "Coach dashboard fetches ALL org players (100+) then filters to ~15 assigned",
+        "solution": "Query only returns the 15 assigned players from server",
+        "expectedReduction": "Significant data transfer reduction + fewer downstream queries"
+      },
+      "priority": 2,
+      "passes": false,
+      "notes": "Server-side filtering is always better than client-side when possible"
+    },
+    {
+      "id": "US-PERF-020",
+      "title": "Update Coach Dashboard to Use getPlayersForCoach",
+      "description": "Modify coach dashboard to use the new server-side filtered query.",
+      "phase": "Phase 5: Additional",
+      "acceptanceCriteria": [
+        "Open apps/web/src/app/orgs/[orgId]/coach/coach-dashboard.tsx",
+        "Replace getPlayersForOrg query with getPlayersForCoach",
+        "Remove client-side filtering logic",
+        "Verify only assigned players are displayed",
+        "Run: npm run check-types",
+        "Run: npm run build",
+        "Test: Login as coach, verify only assigned players show (not all org players)"
+      ],
+      "technicalNotes": {
+        "currentCode": "const allPlayers = useQuery(api.models.orgPlayerEnrollments.getPlayersForOrg, { organizationId }); const myPlayers = allPlayers?.filter(p => isAssignedToCoach(p));",
+        "newCode": "const myPlayers = useQuery(api.models.orgPlayerEnrollments.getPlayersForCoach, { coachId, organizationId });"
+      },
+      "priority": 3,
+      "passes": false,
+      "notes": "Depends on US-PERF-019. Simple find-and-replace in frontend."
+    },
+    {
+      "id": "US-PERF-021",
+      "title": "Add Query Skipping for Unmounted Components",
+      "description": "Ensure queries don't continue firing for components that are unmounted or not visible.",
+      "phase": "Phase 5: Additional",
+      "acceptanceCriteria": [
+        "Review key components for real-time subscriptions",
+        "Add proper cleanup in useEffect where needed",
+        "Consider adding enabled flags to useQuery based on component visibility",
+        "Review React DevTools subscription count during navigation",
+        "Run: npm run check-types",
+        "Run: npm run build",
+        "Test: Navigate away from pages and back, verify no zombie queries"
+      ],
+      "technicalNotes": {
+        "convexBehavior": "Convex useQuery auto-subscribes. Subscriptions should auto-cleanup on unmount.",
+        "potentialIssues": "Multiple instances of same query, queries in hidden tabs/modals",
+        "solution": "Use enabled parameter: useQuery(api.query, args, { enabled: isVisible })"
+      },
+      "priority": 4,
+      "passes": false,
+      "notes": "Lower priority - Convex handles cleanup well. Focus on obvious cases."
+    },
+    {
+      "id": "US-PERF-022",
+      "title": "Deduplicate Redundant Queries via Context",
+      "description": "Identify and eliminate duplicate queries by sharing data via React context.",
+      "phase": "Phase 5: Additional",
+      "acceptanceCriteria": [
+        "Audit key pages for duplicate queries (same query called by multiple components)",
+        "Identify data that should be shared: current user, current org, member info",
+        "Extend auth context or create data context to share this data",
+        "Update components to read from context instead of querying directly",
+        "Run: npm run check-types",
+        "Run: npm run build",
+        "Test: Verify no duplicate queries in Convex logs"
+      ],
+      "technicalNotes": {
+        "commonDuplicates": "getCurrentUser, getCurrentOrganization, getCurrentMember called by multiple components on same page",
+        "solution": "Single query at layout level, shared via context to all children"
+      },
+      "priority": 5,
+      "passes": false,
+      "notes": "Builds on US-PERF-018 context work. May be partially addressed already."
+    }
+  ],
+  "qualityChecks": {
+    "beforeCommitting": [
+      "npx -w packages/backend convex codegen - MUST succeed",
+      "npm run check-types - MUST pass",
+      "npm run build - Full build test",
+      "npm run check - Lint check"
+    ],
+    "testingStrategy": {
+      "US-PERF-018": "Navigate multiple pages, check Convex logs for getCurrentUser call frequency",
+      "US-PERF-019-020": "Login as coach, verify only assigned players show",
+      "US-PERF-021-022": "Use React DevTools to check subscription counts"
+    }
+  },
+  "phaseCompletionCriteria": [
+    "getCurrentUser calls reduced via context caching",
+    "getPlayersForCoach query created and used by coach dashboard",
+    "Query skipping reviewed and implemented where needed",
+    "Duplicate queries eliminated via context sharing",
+    "Function calls trending toward <1M/month trajectory"
+  ],
+  "expectedImpact": {
+    "callsReduced": "~320K additional calls saved",
+    "totalReduction": "~620K calls saved (Phases 1-5)",
+    "projectedMonthly": "~800K calls/month (under free tier)"
+  },
+  "nextPhase": {
+    "name": "Phase 6: Issue #324 Coordination",
+    "file": "phase6-issue324.prd.json",
+    "description": "Fix userId fallback patterns and voiceNotes field bug"
+  }
+}

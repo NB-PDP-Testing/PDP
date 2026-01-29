@@ -128,6 +128,32 @@ Stories: US-P8-012 to US-P8-020 (9 stories)
 - ✅ Grid pattern: `grid-cols-1 md:grid-cols-2 lg:grid-cols-4`
 - ✅ Always wrap charts in ResponsiveContainer
 
+### 8. Database Design (from Week 1.5)
+- ✅ Use `.optional()` for new fields - no migration needed
+- ✅ Conservative defaults (e.g., adminBlanketBlock: false)
+- ✅ Backwards compatible design
+- Example:
+  ```typescript
+  organization: defineTable({
+    // Existing fields...
+    adminBlanketBlock: v.optional(v.boolean()),  // ✅ Optional, safe default
+    adminBlanketBlockSetAt: v.optional(v.number()),
+  })
+  ```
+
+### 9. Component Patterns (from Week 1 & 1.5)
+- ✅ Reuse shadcn/ui components (Card, Button, Badge, etc.)
+- ✅ Toast notifications for user feedback: `toast.success()`, `toast.error()`
+- ✅ Confirmation dialogs for destructive actions
+- ✅ Consistent patterns across all UIs (platform, admin, coach)
+
+### 10. Development Best Practices (from Week 1.5)
+- ⚠️ Test as you go - don't wait until all stories complete
+- ⚠️ Update documentation incrementally after each story
+- ⚠️ Run type check after EACH story: `npm run check-types`
+- ⚠️ Commit frequently with clear messages
+- ✅ Component reuse: Look for reusable patterns early
+
 ---
 
 ## WEEK 3 IMPLEMENTATION PLAN

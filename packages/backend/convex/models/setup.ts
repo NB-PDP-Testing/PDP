@@ -63,7 +63,8 @@ export const getSetupProgress = query({
 
 /**
  * Check if the current user should be redirected to setup
- * Returns true if user is platform staff and hasn't completed setup
+ * Returns true if user is platform staff, hasn't completed setup,
+ * AND no organizations exist on the platform (fresh deployment)
  */
 export const shouldRedirectToSetup = query({
   args: {},
@@ -75,8 +76,44 @@ export const shouldRedirectToSetup = query({
       return false;
     }
 
-    // Only platform staff who haven't completed setup
-    return user.isPlatformStaff === true && user.setupComplete !== true;
+    // Must be platform staff who hasn't completed setup
+    if (user.isPlatformStaff !== true || user.setupComplete === true) {
+      return false;
+    }
+
+    // Only redirect if NO organizations exist (fresh deployment)
+    const orgs = await ctx.runQuery(components.betterAuth.adapter.findMany, {
+      model: "organization",
+      paginationOpts: {
+        cursor: null,
+        numItems: 1,
+      },
+      where: [],
+    });
+
+    // If any organization exists, don't force redirect to setup
+    return !orgs.page || orgs.page.length === 0;
+  },
+});
+
+/**
+ * Check if any organizations exist on the platform
+ * Used to determine if this is a fresh deployment
+ */
+export const hasAnyOrganizations = query({
+  args: {},
+  returns: v.boolean(),
+  handler: async (ctx) => {
+    const orgs = await ctx.runQuery(components.betterAuth.adapter.findMany, {
+      model: "organization",
+      paginationOpts: {
+        cursor: null,
+        numItems: 1,
+      },
+      where: [],
+    });
+
+    return orgs.page !== undefined && orgs.page.length > 0;
   },
 });
 

@@ -1,6 +1,7 @@
 "use client";
 
-import { Authenticated } from "convex/react";
+import { api } from "@pdp/backend/convex/_generated/api";
+import { Authenticated, useQuery } from "convex/react";
 import type { Route } from "next";
 import { useRouter } from "next/navigation";
 import { useEffect } from "react";
@@ -38,6 +39,9 @@ function RedirectToOrgs() {
   const user = useCurrentUser();
   const router = useRouter();
 
+  // Check if any organizations exist on the platform (for fresh deployment detection)
+  const hasAnyOrgs = useQuery(api.models.setup.hasAnyOrganizations);
+
   useEffect(() => {
     // Only redirect if we're actually on the root path
     // This prevents interfering with direct URL navigation to other routes
@@ -61,14 +65,20 @@ function RedirectToOrgs() {
     }
 
     // Wait for data to load before making routing decisions
-    if (activeOrgPending || orgsListPending || user === undefined) {
+    if (
+      activeOrgPending ||
+      orgsListPending ||
+      user === undefined ||
+      hasAnyOrgs === undefined
+    ) {
       return;
     }
 
     // Platform staff who haven't completed setup should go to setup wizard
-    if (user?.isPlatformStaff && user?.setupComplete !== true) {
+    // BUT only if NO organizations exist (fresh deployment)
+    if (user?.isPlatformStaff && user?.setupComplete !== true && !hasAnyOrgs) {
       console.log(
-        "[Home] Platform staff needs to complete setup, redirecting to /setup"
+        "[Home] Fresh deployment: Platform staff needs to complete setup, redirecting to /setup"
       );
       router.push("/setup" as Route);
       return;
@@ -124,6 +134,7 @@ function RedirectToOrgs() {
     userOrganizations,
     orgsListPending,
     user,
+    hasAnyOrgs,
   ]);
 
   return (

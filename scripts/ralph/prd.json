@@ -207,7 +207,8 @@
         "PDF option: Show toast 'PDF export coming soon!'",
         "Type check passes"
       ],
-      "technicalNotes": "CSV only for MVP. PDF deferred."
+      "technicalNotes": "CSV only for MVP. PDF deferred.",
+      "passes": true
     },
     {
       "id": "US-P8-019",

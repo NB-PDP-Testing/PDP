@@ -95,6 +95,7 @@ import type * as models_sports from "../models/sports.js";
 import type * as models_teamObservations from "../models/teamObservations.js";
 import type * as models_teamPlayerIdentities from "../models/teamPlayerIdentities.js";
 import type * as models_teams from "../models/teams.js";
+import type * as models_trustGatePermissions from "../models/trustGatePermissions.js";
 import type * as models_userPreferences from "../models/userPreferences.js";
 import type * as models_users from "../models/users.js";
 import type * as models_voiceNoteInsights from "../models/voiceNoteInsights.js";
@@ -231,6 +232,7 @@ declare const fullApi: ApiFromModules<{
   "models/teamObservations": typeof models_teamObservations;
   "models/teamPlayerIdentities": typeof models_teamPlayerIdentities;
   "models/teams": typeof models_teams;
+  "models/trustGatePermissions": typeof models_trustGatePermissions;
   "models/userPreferences": typeof models_userPreferences;
   "models/users": typeof models_users;
   "models/voiceNoteInsights": typeof models_voiceNoteInsights;
@@ -411,7 +413,15 @@ export declare const components: {
               }
             | {
                 data: {
+                  adminBlanketBlock?: boolean;
+                  adminBlanketBlockSetAt?: number;
+                  adminBlanketBlockSetBy?: string;
                   adminContactEmail?: string;
+                  adminOverrideSetAt?: number;
+                  adminOverrideSetBy?: string;
+                  adminOverrideTrustGates?: boolean;
+                  allowAdminDelegation?: boolean;
+                  allowCoachOverrides?: boolean;
                   autoReInviteOnExpiration?: boolean;
                   colors?: Array<string>;
                   createdAt: number;
@@ -431,6 +441,7 @@ export declare const components: {
                   socialLinkedin?: null | string;
                   socialTwitter?: null | string;
                   supportedSports?: Array<string>;
+                  voiceNotesTrustGatesEnabled?: boolean;
                   website?: null | string;
                 };
                 model: "organization";
@@ -775,6 +786,15 @@ export declare const components: {
                     | "maxAutoReInvitesPerInvitation"
                     | "adminContactEmail"
                     | "notifyAdminsOnInvitationRequest"
+                    | "voiceNotesTrustGatesEnabled"
+                    | "allowAdminDelegation"
+                    | "allowCoachOverrides"
+                    | "adminOverrideTrustGates"
+                    | "adminOverrideSetBy"
+                    | "adminOverrideSetAt"
+                    | "adminBlanketBlock"
+                    | "adminBlanketBlockSetBy"
+                    | "adminBlanketBlockSetAt"
                     | "_id";
                   operator?:
                     | "lt"
@@ -1196,6 +1216,15 @@ export declare const components: {
                     | "maxAutoReInvitesPerInvitation"
                     | "adminContactEmail"
                     | "notifyAdminsOnInvitationRequest"
+                    | "voiceNotesTrustGatesEnabled"
+                    | "allowAdminDelegation"
+                    | "allowCoachOverrides"
+                    | "adminOverrideTrustGates"
+                    | "adminOverrideSetBy"
+                    | "adminOverrideSetAt"
+                    | "adminBlanketBlock"
+                    | "adminBlanketBlockSetBy"
+                    | "adminBlanketBlockSetAt"
                     | "_id";
                   operator?:
                     | "lt"
@@ -1762,7 +1791,15 @@ export declare const components: {
             | {
                 model: "organization";
                 update: {
+                  adminBlanketBlock?: boolean;
+                  adminBlanketBlockSetAt?: number;
+                  adminBlanketBlockSetBy?: string;
                   adminContactEmail?: string;
+                  adminOverrideSetAt?: number;
+                  adminOverrideSetBy?: string;
+                  adminOverrideTrustGates?: boolean;
+                  allowAdminDelegation?: boolean;
+                  allowCoachOverrides?: boolean;
                   autoReInviteOnExpiration?: boolean;
                   colors?: Array<string>;
                   createdAt?: number;
@@ -1782,6 +1819,7 @@ export declare const components: {
                   socialLinkedin?: null | string;
                   socialTwitter?: null | string;
                   supportedSports?: Array<string>;
+                  voiceNotesTrustGatesEnabled?: boolean;
                   website?: null | string;
                 };
                 where?: Array<{
@@ -1808,6 +1846,15 @@ export declare const components: {
                     | "maxAutoReInvitesPerInvitation"
                     | "adminContactEmail"
                     | "notifyAdminsOnInvitationRequest"
+                    | "voiceNotesTrustGatesEnabled"
+                    | "allowAdminDelegation"
+                    | "allowCoachOverrides"
+                    | "adminOverrideTrustGates"
+                    | "adminOverrideSetBy"
+                    | "adminOverrideSetAt"
+                    | "adminBlanketBlock"
+                    | "adminBlanketBlockSetBy"
+                    | "adminBlanketBlockSetAt"
                     | "_id";
                   operator?:
                     | "lt"
@@ -2334,7 +2381,15 @@ export declare const components: {
             | {
                 model: "organization";
                 update: {
+                  adminBlanketBlock?: boolean;
+                  adminBlanketBlockSetAt?: number;
+                  adminBlanketBlockSetBy?: string;
                   adminContactEmail?: string;
+                  adminOverrideSetAt?: number;
+                  adminOverrideSetBy?: string;
+                  adminOverrideTrustGates?: boolean;
+                  allowAdminDelegation?: boolean;
+                  allowCoachOverrides?: boolean;
                   autoReInviteOnExpiration?: boolean;
                   colors?: Array<string>;
                   createdAt?: number;
@@ -2354,6 +2409,7 @@ export declare const components: {
                   socialLinkedin?: null | string;
                   socialTwitter?: null | string;
                   supportedSports?: Array<string>;
+                  voiceNotesTrustGatesEnabled?: boolean;
                   website?: null | string;
                 };
                 where?: Array<{
@@ -2380,6 +2436,15 @@ export declare const components: {
                     | "maxAutoReInvitesPerInvitation"
                     | "adminContactEmail"
                     | "notifyAdminsOnInvitationRequest"
+                    | "voiceNotesTrustGatesEnabled"
+                    | "allowAdminDelegation"
+                    | "allowCoachOverrides"
+                    | "adminOverrideTrustGates"
+                    | "adminOverrideSetBy"
+                    | "adminOverrideSetAt"
+                    | "adminBlanketBlock"
+                    | "adminBlanketBlockSetBy"
+                    | "adminBlanketBlockSetAt"
                     | "_id";
                   operator?:
                     | "lt"

@@ -1,0 +1,325 @@
+{
+  "project": "Coach-Parent AI Summaries - Phase 2 (Trust Curve)",
+  "branchName": "ralph/coach-parent-summaries-p2",
+  "description": "Trust level tracking and progression system for coaches. Depends on Phase 1.",
+  "dependencies": {
+    "phase1Branch": "ralph/coach-parent-summaries-phase1",
+    "requiredFiles": [
+      "packages/backend/convex/models/coachParentSummaries.ts",
+      "packages/backend/convex/schema.ts (coachParentSummaries table)",
+      "apps/web/src/app/orgs/[orgId]/coach/voice-notes/voice-notes-dashboard.tsx"
+    ],
+    "relatedInfrastructure": [
+      "packages/backend/convex/models/aiModelConfig.ts - AI model configuration (created in Phase 1+)",
+      "packages/backend/convex/schema.ts (aiModelConfig, aiModelConfigLog tables)",
+      "apps/web/src/app/platform/ai-config/page.tsx - Platform Staff UI for AI config",
+      "docs/architecture/ai-configuration.md - AI configuration documentation"
+    ]
+  },
+  "userStories": [
+    {
+      "id": "US-001",
+      "title": "Add coachTrustLevels table",
+      "description": "As a developer, I need a table to store trust levels per coach.",
+      "acceptanceCriteria": [
+        "Add coachTrustLevels table to schema.ts with: coachId (v.string()), organizationId (v.string()), currentLevel (v.number()) range 0-3",
+        "Add fields: preferredLevel (v.optional(v.number())), totalApprovals (v.number()), totalSuppressed (v.number()), consecutiveApprovals (v.number())",
+        "Add timestamps: lastActivityAt (v.optional(v.number())), createdAt (v.number()), updatedAt (v.number())",
+        "Run: npx -w packages/backend convex codegen",
+        "Typecheck passes"
+      ],
+      "priority": 1,
+      "passes": false,
+      "notes": "Add after coachParentSummaries table in schema.ts. Use v.string() for coachId (Better Auth userId), not v.id(). Reference Phase 1 learnings: coachId is Better Auth userId string."
+    },
+    {
+      "id": "US-002",
+      "title": "Add levelHistory field and indexes",
+      "description": "As a developer, I need to track trust level changes over time.",
+      "acceptanceCriteria": [
+        "Add levelHistory array field: v.array(v.object({ level: v.number(), changedAt: v.number(), reason: v.string() }))",
+        "Add index: by_coach_org with fields [coachId, organizationId]",
+        "Add index: by_org for org-level queries",
+        "Typecheck passes"
+      ],
+      "priority": 2,
+      "passes": false,
+      "notes": "Index naming convention: include all fields in name (by_coach_org not by_coach)"
+    },
+    {
+      "id": "US-003",
+      "title": "Create coachTrustLevels.ts model file",
+      "description": "As a developer, I need the base model file.",
+      "acceptanceCriteria": [
+        "Create packages/backend/convex/models/coachTrustLevels.ts",
+        "Add imports: import { v } from 'convex/values'; import { mutation, query, internalMutation } from '../_generated/server'; import { authComponent } from '../auth';",
+        "Add file header comment explaining trust level system",
+        "Typecheck passes"
+      ],
+      "priority": 3,
+      "passes": false,
+      "notes": "Reference coachParentSummaries.ts for import patterns. Don't import unused modules - Biome will auto-remove them."
+    },
+    {
+      "id": "US-004",
+      "title": "Create trustLevelCalculator lib",
+      "description": "As a developer, I need a pure function to calculate trust level.",
+      "acceptanceCriteria": [
+        "Create packages/backend/convex/lib/trustLevelCalculator.ts",
+        "Export function calculateTrustLevel(totalApprovals: number, totalSuppressed: number, hasOptedIn: boolean): number",
+        "Return level 0-3 based on thresholds: 0=default, 1=10+ approvals, 2=50+ approvals & <10% suppress rate, 3=200+ approvals & opt-in required",
+        "Export TRUST_LEVEL_THRESHOLDS constant for UI use",
+        "Add unit test scenarios in JSDoc comment",
+        "Typecheck passes"
+      ],
+      "priority": 4,
+      "passes": false,
+      "notes": "Pure function, no DB access. Export thresholds so UI can show progress."
+    },
+    {
+      "id": "US-005",
+      "title": "Implement getOrCreateTrustLevel internal mutation",
+      "description": "As a coach, my trust level should be created on first use.",
+      "acceptanceCriteria": [
+        "Add getOrCreateTrustLevel as internalMutation with args: { coachId: v.string(), organizationId: v.string() }",
+        "Query by_coach_org index using .withIndex('by_coach_org', q => q.eq('coachId', args.coachId).eq('organizationId', args.organizationId))",
+        "If not found, insert new record with currentLevel: 0, all counters: 0, levelHistory: []",
+        "Return the trust level document",
+        "Add proper returns validator",
+        "Typecheck passes"
+      ],
+      "priority": 5,
+      "passes": false,
+      "notes": "Use internalMutation since this is called from other mutations. Always use .withIndex(), never .filter()."
+    },
+    {
+      "id": "US-006",
+      "title": "Implement updateTrustMetrics internal mutation",
+      "description": "As the system, I need to update metrics after coach actions.",
+      "acceptanceCriteria": [
+        "Add updateTrustMetrics as internalMutation with args: { coachId: v.string(), organizationId: v.string(), action: v.union(v.literal('approved'), v.literal('suppressed'), v.literal('edited')) }",
+        "Call getOrCreateTrustLevel first to ensure record exists",
+        "If action === 'approved': increment totalApprovals and consecutiveApprovals",
+        "If action === 'suppressed': increment totalSuppressed, reset consecutiveApprovals to 0",
+        "If action === 'edited': no counter change (just record activity)",
+        "Update lastActivityAt and updatedAt timestamps",
+        "Typecheck passes"
+      ],
+      "priority": 6,
+      "passes": false,
+      "notes": "Use ctx.runMutation(internal.models.coachTrustLevels.getOrCreateTrustLevel, {...}) to call internal mutation."
+    },
+    {
+      "id": "US-007",
+      "title": "Recalculate trust level in updateTrustMetrics",
+      "description": "As a coach, my trust level should update when metrics change.",
+      "acceptanceCriteria": [
+        "After updating counters, import and call calculateTrustLevel from lib",
+        "If newLevel !== currentLevel AND newLevel <= preferredLevel (or preferredLevel is null): update currentLevel",
+        "When level changes, append to levelHistory: { level: newLevel, changedAt: Date.now(), reason: `Reached ${totalApprovals} approvals` }",
+        "Typecheck passes"
+      ],
+      "priority": 7,
+      "passes": false,
+      "notes": "Don't auto-upgrade past preferredLevel - coach may want to stay at lower automation."
+    },
+    {
+      "id": "US-008",
+      "title": "Implement setCoachPreferredLevel mutation",
+      "description": "As a coach, I want to set my preferred maximum trust level.",
+      "acceptanceCriteria": [
+        "Add setCoachPreferredLevel mutation with args: { organizationId: v.string(), preferredLevel: v.number() }",
+        "Use authComponent.safeGetAuthUser(ctx) to get authenticated user",
+        "Validate preferredLevel is 0, 1, 2, or 3",
+        "Query trust record, update preferredLevel field",
+        "If currentLevel > preferredLevel, downgrade currentLevel and log in history",
+        "Return updated trust level",
+        "Typecheck passes"
+      ],
+      "priority": 8,
+      "passes": false,
+      "notes": "Coach can cap their automation level. Use user.userId for coachId (Better Auth ID), not user._id (Convex ID)."
+    },
+    {
+      "id": "US-009",
+      "title": "Hook approveSummary to update trust metrics",
+      "description": "As the system, approving a summary should update trust metrics.",
+      "acceptanceCriteria": [
+        "Edit packages/backend/convex/models/coachParentSummaries.ts approveSummary mutation",
+        "After successful ctx.db.patch() approval, call ctx.runMutation(internal.models.coachTrustLevels.updateTrustMetrics, { coachId: summary.coachId, organizationId: summary.organizationId, action: 'approved' })",
+        "Import internal from '../_generated/api'",
+        "Typecheck passes"
+      ],
+      "priority": 9,
+      "passes": false,
+      "notes": "summary.coachId is already a string (Better Auth userId). Use ctx.runMutation for internal mutations from mutations."
+    },
+    {
+      "id": "US-010",
+      "title": "Hook suppressSummary to update trust metrics",
+      "description": "As the system, suppressing a summary should update trust metrics.",
+      "acceptanceCriteria": [
+        "Edit packages/backend/convex/models/coachParentSummaries.ts suppressSummary mutation",
+        "After successful ctx.db.patch() suppression, call ctx.runMutation(internal.models.coachTrustLevels.updateTrustMetrics, { coachId: summary.coachId, organizationId: summary.organizationId, action: 'suppressed' })",
+        "Typecheck passes"
+      ],
+      "priority": 10,
+      "passes": false,
+      "notes": "Same pattern as US-009. Import already added in US-009."
+    },
+    {
+      "id": "US-011",
+      "title": "Implement getCoachTrustLevel query",
+      "description": "As a coach, I want to view my current trust level.",
+      "acceptanceCriteria": [
+        "Add getCoachTrustLevel query with args: { organizationId: v.string() }",
+        "Use authComponent.safeGetAuthUser(ctx), get user.userId for coachId",
+        "Query by_coach_org index for trust record",
+        "If not found, return default: { currentLevel: 0, totalApprovals: 0, totalSuppressed: 0, ... }",
+        "Calculate and include progressToNextLevel: { currentCount, threshold, percentage }",
+        "Add proper returns validator (not v.any())",
+        "Typecheck passes"
+      ],
+      "priority": 11,
+      "passes": false,
+      "notes": "Use user.userId (Better Auth ID) not user._id. Always define proper returns validator - never use v.any()."
+    },
+    {
+      "id": "US-012",
+      "title": "Create TrustLevelIndicator component",
+      "description": "As a coach, I want to see my trust level visually.",
+      "acceptanceCriteria": [
+        "Create apps/web/src/components/coach/trust-level-indicator.tsx",
+        "Props interface: { trustLevel: number; totalApprovals: number; totalSuppressed: number; progressToNextLevel: { percentage: number; threshold: number } }",
+        "Show level name using array: ['New', 'Learning', 'Trusted', 'Expert'][trustLevel]",
+        "Use Badge component from shadcn/ui with appropriate variant",
+        "Typecheck passes"
+      ],
+      "priority": 12,
+      "passes": false,
+      "notes": "Import Badge from '@/components/ui/badge'. Use 'use client' directive at top."
+    },
+    {
+      "id": "US-013",
+      "title": "Add progress bar to TrustLevelIndicator",
+      "description": "As a coach, I want to see my progress to the next level.",
+      "acceptanceCriteria": [
+        "Import Progress component from shadcn/ui",
+        "Show progress bar with progressToNextLevel.percentage value",
+        "Show text: '{totalApprovals} / {threshold} approvals'",
+        "Show suppression rate if totalSuppressed > 0: '{rate}% suppressed'",
+        "Typecheck passes"
+      ],
+      "priority": 13,
+      "passes": false,
+      "notes": "If at max level (3), show 'Maximum level reached' instead of progress."
+    },
+    {
+      "id": "US-014",
+      "title": "Add TrustLevelIndicator to voice notes dashboard",
+      "description": "As a coach, I want to see my trust level in the dashboard.",
+      "acceptanceCriteria": [
+        "Edit apps/web/src/app/orgs/[orgId]/coach/voice-notes/voice-notes-dashboard.tsx",
+        "Add useQuery(api.models.coachTrustLevels.getCoachTrustLevel, { organizationId })",
+        "Import TrustLevelIndicator component",
+        "Render TrustLevelIndicator in header area, after page title",
+        "Handle loading state (show skeleton or null)",
+        "Typecheck passes"
+      ],
+      "priority": 14,
+      "passes": false,
+      "notes": "This file already has getCoachPendingSummaries query from Phase 1. Add new query alongside it."
+    },
+    {
+      "id": "US-015",
+      "title": "Create TrustPreferenceSettings component",
+      "description": "As a coach, I want to configure my trust preferences.",
+      "acceptanceCriteria": [
+        "Create apps/web/src/components/coach/trust-preference-settings.tsx",
+        "Props interface: { currentLevel: number; preferredLevel: number | null; onUpdate: (level: number) => void }",
+        "Show RadioGroup from shadcn/ui with 4 options (levels 0-3)",
+        "Disable options above currentLevel (can't select level not yet earned)",
+        "Typecheck passes"
+      ],
+      "priority": 15,
+      "passes": false,
+      "notes": "Import RadioGroup, RadioGroupItem from '@/components/ui/radio-group'. Use Label for accessibility."
+    },
+    {
+      "id": "US-016",
+      "title": "Add level explanations to TrustPreferenceSettings",
+      "description": "As a coach, I want to understand what each level means.",
+      "acceptanceCriteria": [
+        "Define LEVEL_DESCRIPTIONS array with: ['Manual review for all summaries', 'Quick review with suggestions', 'Auto-approve normal, review sensitive', 'Full automation (requires opt-in)']",
+        "Show description below each radio option",
+        "Level 3 shows Alert component with warning about full automation",
+        "Call onUpdate when selection changes (controlled component)",
+        "Typecheck passes"
+      ],
+      "priority": 16,
+      "passes": false,
+      "notes": "Import Alert, AlertDescription from shadcn/ui for level 3 warning."
+    },
+    {
+      "id": "US-017",
+      "title": "Create TrustNudgeBanner component",
+      "description": "As a coach, I want encouragement when close to next level.",
+      "acceptanceCriteria": [
+        "Create apps/web/src/components/coach/trust-nudge-banner.tsx",
+        "Props interface: { currentLevel: number; totalApprovals: number; threshold: number; onDismiss: () => void }",
+        "Show only when: (currentLevel === 0 && totalApprovals >= 8) || (currentLevel === 1 && totalApprovals >= 45)",
+        "Message: 'Just {remaining} more approvals to reach {nextLevelName} level!'",
+        "Include dismiss X button",
+        "Typecheck passes"
+      ],
+      "priority": 17,
+      "passes": false,
+      "notes": "Use Card component from shadcn/ui. Make it visually encouraging (green tint or similar)."
+    },
+    {
+      "id": "US-018",
+      "title": "Add nudge banner to voice notes dashboard",
+      "description": "As a coach, nudges should appear in my dashboard.",
+      "acceptanceCriteria": [
+        "Edit voice-notes-dashboard.tsx",
+        "Add useState for dismissed state, initialize from localStorage key 'trust-nudge-dismissed-{level}'",
+        "Conditionally render TrustNudgeBanner based on trust data and dismissed state",
+        "onDismiss handler: set localStorage and update state",
+        "Typecheck passes"
+      ],
+      "priority": 18,
+      "passes": false,
+      "notes": "Reset dismissed state when level changes. Use useEffect to sync with localStorage."
+    },
+    {
+      "id": "US-019",
+      "title": "Add link to trust settings from indicator",
+      "description": "As a coach, I want to access settings from the indicator.",
+      "acceptanceCriteria": [
+        "Edit TrustLevelIndicator to accept optional onSettingsClick prop",
+        "Add Settings icon button (from lucide-react) next to level badge",
+        "When clicked, call onSettingsClick",
+        "In voice-notes-dashboard, wire onSettingsClick to open Dialog with TrustPreferenceSettings",
+        "Typecheck passes"
+      ],
+      "priority": 19,
+      "passes": false,
+      "notes": "Import Dialog, DialogContent, DialogHeader, DialogTitle from shadcn/ui. Import Settings from lucide-react."
+    },
+    {
+      "id": "US-020",
+      "title": "Wire trust preference save",
+      "description": "As a coach, saving preferences should persist.",
+      "acceptanceCriteria": [
+        "In voice-notes-dashboard, add useMutation(api.models.coachTrustLevels.setCoachPreferredLevel)",
+        "Wire onUpdate handler in TrustPreferenceSettings to call mutation",
+        "Use toast from sonner: toast.success('Trust preferences updated')",
+        "Close dialog on successful save",
+        "Typecheck passes"
+      ],
+      "priority": 20,
+      "passes": false,
+      "notes": "Import toast from 'sonner'. Handle mutation loading state to prevent double-submit."
+    }
+  ]
+}

@@ -132,7 +132,15 @@ export type ComponentApi<Name extends string | undefined = string | undefined> =
               }
             | {
                 data: {
+                  adminBlanketBlock?: boolean;
+                  adminBlanketBlockSetAt?: number;
+                  adminBlanketBlockSetBy?: string;
                   adminContactEmail?: string;
+                  adminOverrideSetAt?: number;
+                  adminOverrideSetBy?: string;
+                  adminOverrideTrustGates?: boolean;
+                  allowAdminDelegation?: boolean;
+                  allowCoachOverrides?: boolean;
                   autoReInviteOnExpiration?: boolean;
                   colors?: Array<string>;
                   createdAt: number;
@@ -152,6 +160,7 @@ export type ComponentApi<Name extends string | undefined = string | undefined> =
                   socialLinkedin?: null | string;
                   socialTwitter?: null | string;
                   supportedSports?: Array<string>;
+                  voiceNotesTrustGatesEnabled?: boolean;
                   website?: null | string;
                 };
                 model: "organization";
@@ -497,6 +506,15 @@ export type ComponentApi<Name extends string | undefined = string | undefined> =
                     | "maxAutoReInvitesPerInvitation"
                     | "adminContactEmail"
                     | "notifyAdminsOnInvitationRequest"
+                    | "voiceNotesTrustGatesEnabled"
+                    | "allowAdminDelegation"
+                    | "allowCoachOverrides"
+                    | "adminOverrideTrustGates"
+                    | "adminOverrideSetBy"
+                    | "adminOverrideSetAt"
+                    | "adminBlanketBlock"
+                    | "adminBlanketBlockSetBy"
+                    | "adminBlanketBlockSetAt"
                     | "_id";
                   operator?:
                     | "lt"
@@ -919,6 +937,15 @@ export type ComponentApi<Name extends string | undefined = string | undefined> =
                     | "maxAutoReInvitesPerInvitation"
                     | "adminContactEmail"
                     | "notifyAdminsOnInvitationRequest"
+                    | "voiceNotesTrustGatesEnabled"
+                    | "allowAdminDelegation"
+                    | "allowCoachOverrides"
+                    | "adminOverrideTrustGates"
+                    | "adminOverrideSetBy"
+                    | "adminOverrideSetAt"
+                    | "adminBlanketBlock"
+                    | "adminBlanketBlockSetBy"
+                    | "adminBlanketBlockSetAt"
                     | "_id";
                   operator?:
                     | "lt"
@@ -1488,7 +1515,15 @@ export type ComponentApi<Name extends string | undefined = string | undefined> =
             | {
                 model: "organization";
                 update: {
+                  adminBlanketBlock?: boolean;
+                  adminBlanketBlockSetAt?: number;
+                  adminBlanketBlockSetBy?: string;
                   adminContactEmail?: string;
+                  adminOverrideSetAt?: number;
+                  adminOverrideSetBy?: string;
+                  adminOverrideTrustGates?: boolean;
+                  allowAdminDelegation?: boolean;
+                  allowCoachOverrides?: boolean;
                   autoReInviteOnExpiration?: boolean;
                   colors?: Array<string>;
                   createdAt?: number;
@@ -1508,6 +1543,7 @@ export type ComponentApi<Name extends string | undefined = string | undefined> =
                   socialLinkedin?: null | string;
                   socialTwitter?: null | string;
                   supportedSports?: Array<string>;
+                  voiceNotesTrustGatesEnabled?: boolean;
                   website?: null | string;
                 };
                 where?: Array<{
@@ -1534,6 +1570,15 @@ export type ComponentApi<Name extends string | undefined = string | undefined> =
                     | "maxAutoReInvitesPerInvitation"
                     | "adminContactEmail"
                     | "notifyAdminsOnInvitationRequest"
+                    | "voiceNotesTrustGatesEnabled"
+                    | "allowAdminDelegation"
+                    | "allowCoachOverrides"
+                    | "adminOverrideTrustGates"
+                    | "adminOverrideSetBy"
+                    | "adminOverrideSetAt"
+                    | "adminBlanketBlock"
+                    | "adminBlanketBlockSetBy"
+                    | "adminBlanketBlockSetAt"
                     | "_id";
                   operator?:
                     | "lt"
@@ -2061,7 +2106,15 @@ export type ComponentApi<Name extends string | undefined = string | undefined> =
             | {
                 model: "organization";
                 update: {
+                  adminBlanketBlock?: boolean;
+                  adminBlanketBlockSetAt?: number;
+                  adminBlanketBlockSetBy?: string;
                   adminContactEmail?: string;
+                  adminOverrideSetAt?: number;
+                  adminOverrideSetBy?: string;
+                  adminOverrideTrustGates?: boolean;
+                  allowAdminDelegation?: boolean;
+                  allowCoachOverrides?: boolean;
                   autoReInviteOnExpiration?: boolean;
                   colors?: Array<string>;
                   createdAt?: number;
@@ -2081,6 +2134,7 @@ export type ComponentApi<Name extends string | undefined = string | undefined> =
                   socialLinkedin?: null | string;
                   socialTwitter?: null | string;
                   supportedSports?: Array<string>;
+                  voiceNotesTrustGatesEnabled?: boolean;
                   website?: null | string;
                 };
                 where?: Array<{
@@ -2107,6 +2161,15 @@ export type ComponentApi<Name extends string | undefined = string | undefined> =
                     | "maxAutoReInvitesPerInvitation"
                     | "adminContactEmail"
                     | "notifyAdminsOnInvitationRequest"
+                    | "voiceNotesTrustGatesEnabled"
+                    | "allowAdminDelegation"
+                    | "allowCoachOverrides"
+                    | "adminOverrideTrustGates"
+                    | "adminOverrideSetBy"
+                    | "adminOverrideSetAt"
+                    | "adminBlanketBlock"
+                    | "adminBlanketBlockSetBy"
+                    | "adminBlanketBlockSetAt"
                     | "_id";
                   operator?:
                     | "lt"

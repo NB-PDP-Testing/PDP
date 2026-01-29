@@ -3,8 +3,11 @@
 import { api } from "@pdp/backend/convex/_generated/api";
 import { useMutation, useQuery } from "convex/react";
 import {
+  AlertCircle,
   ArrowLeft,
   ArrowUpDown,
+  Bot,
+  CheckCircle,
   CheckCircle2,
   ChevronLeft,
   ChevronRight,
@@ -13,6 +16,7 @@ import {
   Search,
   Shield,
   ShieldAlert,
+  TrendingUp,
   Users,
   XCircle,
 } from "lucide-react";
@@ -307,6 +311,12 @@ export default function FeatureFlagsPage() {
   const orgsStatus = useQuery(
     api.models.trustGatePermissions.getAllOrgsFeatureFlagStatus,
     {}
+  );
+
+  // Fetch platform AI accuracy metrics
+  const aiAccuracy = useQuery(
+    api.models.coachTrustLevels.getPlatformAIAccuracy,
+    { timeWindowDays: 30 }
   );
 
   // Mutations
@@ -738,6 +748,164 @@ export default function FeatureFlagsPage() {
             </CardContent>
           </Card>
         </div>
+
+        {/* AI Accuracy Metrics Section */}
+        {aiAccuracy && aiAccuracy.totalInsights > 0 && (
+          <Card className="mb-6">
+            <CardHeader>
+              <CardTitle className="flex items-center gap-2 text-lg">
+                <TrendingUp className="h-5 w-5" />
+                AI Insight Accuracy (Last 30 Days)
+              </CardTitle>
+            </CardHeader>
+            <CardContent>
+              {/* Overview Stats */}
+              <div className="mb-6 grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
+                <Card className="border-green-200 bg-green-50">
+                  <CardContent className="flex items-center gap-3 p-4">
+                    <div className="rounded-full bg-green-100 p-2">
+                      <CheckCircle className="h-5 w-5 text-green-600" />
+                    </div>
+                    <div>
+                      <p className="font-bold text-2xl text-green-700">
+                        {aiAccuracy.accuracy.toFixed(1)}%
+                      </p>
+                      <p className="text-green-600 text-xs">AI Accuracy</p>
+                    </div>
+                  </CardContent>
+                </Card>
+                <Card className="border-blue-200 bg-blue-50">
+                  <CardContent className="flex items-center gap-3 p-4">
+                    <div className="rounded-full bg-blue-100 p-2">
+                      <Bot className="h-5 w-5 text-blue-600" />
+                    </div>
+                    <div>
+                      <p className="font-bold text-2xl text-blue-700">
+                        {aiAccuracy.totalInsights}
+                      </p>
+                      <p className="text-blue-600 text-xs">Total Insights</p>
+                    </div>
+                  </CardContent>
+                </Card>
+                <Card className="border-purple-200 bg-purple-50">
+                  <CardContent className="flex items-center gap-3 p-4">
+                    <div className="rounded-full bg-purple-100 p-2">
+                      <CheckCircle className="h-5 w-5 text-purple-600" />
+                    </div>
+                    <div>
+                      <p className="font-bold text-2xl text-purple-700">
+                        {aiAccuracy.aiGotItRight}
+                      </p>
+                      <p className="text-purple-600 text-xs">AI Correct</p>
+                    </div>
+                  </CardContent>
+                </Card>
+                <Card className="border-orange-200 bg-orange-50">
+                  <CardContent className="flex items-center gap-3 p-4">
+                    <div className="rounded-full bg-orange-100 p-2">
+                      <AlertCircle className="h-5 w-5 text-orange-600" />
+                    </div>
+                    <div>
+                      <p className="font-bold text-2xl text-orange-700">
+                        {aiAccuracy.manuallyCorrected}
+                      </p>
+                      <p className="text-orange-600 text-xs">
+                        Coach Corrections
+                      </p>
+                    </div>
+                  </CardContent>
+                </Card>
+              </div>
+
+              {/* Correction Breakdown */}
+              <div className="mb-4">
+                <h3 className="mb-3 font-semibold text-sm">
+                  Corrections by Type
+                </h3>
+                <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
+                  <div className="rounded-lg border bg-card p-3">
+                    <div className="flex items-center justify-between">
+                      <span className="text-muted-foreground text-sm">
+                        Player Assigned
+                      </span>
+                      <Badge variant="outline">
+                        {aiAccuracy.correctionBreakdown.playerAssigned}
+                      </Badge>
+                    </div>
+                  </div>
+                  <div className="rounded-lg border bg-card p-3">
+                    <div className="flex items-center justify-between">
+                      <span className="text-muted-foreground text-sm">
+                        Team Classified
+                      </span>
+                      <Badge variant="outline">
+                        {aiAccuracy.correctionBreakdown.teamClassified}
+                      </Badge>
+                    </div>
+                  </div>
+                  <div className="rounded-lg border bg-card p-3">
+                    <div className="flex items-center justify-between">
+                      <span className="text-muted-foreground text-sm">
+                        Todo Classified
+                      </span>
+                      <Badge variant="outline">
+                        {aiAccuracy.correctionBreakdown.todoClassified}
+                      </Badge>
+                    </div>
+                  </div>
+                  <div className="rounded-lg border bg-card p-3">
+                    <div className="flex items-center justify-between">
+                      <span className="text-muted-foreground text-sm">
+                        Content Edited
+                      </span>
+                      <Badge variant="outline">
+                        {aiAccuracy.correctionBreakdown.contentEdited}
+                      </Badge>
+                    </div>
+                  </div>
+                </div>
+              </div>
+
+              {/* Coaches Needing Help */}
+              {aiAccuracy.byCoach.length > 0 && (
+                <div>
+                  <h3 className="mb-3 font-semibold text-sm">
+                    Coaches with Lowest AI Accuracy (Top 5)
+                  </h3>
+                  <div className="space-y-2">
+                    {aiAccuracy.byCoach.slice(0, 5).map((coach) => (
+                      <div
+                        className="flex items-center justify-between rounded-lg border bg-card p-3"
+                        key={coach.coachId}
+                      >
+                        <div className="flex items-center gap-3">
+                          <code className="rounded bg-muted px-2 py-1 font-mono text-xs">
+                            {coach.coachId.slice(0, 8)}...
+                          </code>
+                          <span className="text-muted-foreground text-sm">
+                            {coach.totalInsights} insights,{" "}
+                            {coach.manuallyCorrected} corrected
+                          </span>
+                        </div>
+                        <Badge
+                          className={
+                            coach.accuracy < 70
+                              ? "bg-red-100 text-red-700"
+                              : coach.accuracy < 85
+                                ? "bg-orange-100 text-orange-700"
+                                : "bg-green-100 text-green-700"
+                          }
+                        >
+                          {coach.accuracy.toFixed(1)}%
+                        </Badge>
+                      </div>
+                    ))}
+                  </div>
+                </div>
+              )}
+            </CardContent>
+          </Card>
+        )}
 
         {/* Bulk Actions */}
         {selectedOrgs.size > 0 && (

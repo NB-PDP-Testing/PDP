@@ -497,7 +497,7 @@ export const createGuardianPlayerLink = mutation({
 
     const now = Date.now();
 
-    return await ctx.db.insert("guardianPlayerLinks", {
+    const linkId = await ctx.db.insert("guardianPlayerLinks", {
       guardianIdentityId: args.guardianIdentityId,
       playerIdentityId: args.playerIdentityId,
       relationship: args.relationship,
@@ -508,6 +508,82 @@ export const createGuardianPlayerLink = mutation({
       createdAt: now,
       updatedAt: now,
     });
+
+    // Add "parent" functional role to the guardian's member record
+    // This ensures they can access the parent dashboard
+    try {
+      if (guardian.email) {
+        const normalizedEmail = guardian.email.toLowerCase().trim();
+
+        // Find user by email
+        const user = await ctx.runQuery(components.betterAuth.adapter.findOne, {
+          model: "user",
+          where: [{ field: "email", value: normalizedEmail, operator: "eq" }],
+        });
+
+        if (user) {
+          // Get organization from player enrollment
+          const enrollment = await ctx.db
+            .query("orgPlayerEnrollments")
+            .withIndex("by_playerIdentityId", (q) =>
+              q.eq("playerIdentityId", args.playerIdentityId)
+            )
+            .first();
+
+          if (enrollment) {
+            // Check if member exists for this org
+            const memberResult = await ctx.runQuery(
+              components.betterAuth.adapter.findOne,
+              {
+                model: "member",
+                where: [
+                  { field: "userId", value: (user as any)._id, operator: "eq" },
+                  {
+                    field: "organizationId",
+                    value: enrollment.organizationId,
+                    operator: "eq",
+                  },
+                ],
+              }
+            );
+
+            if (memberResult) {
+              const currentRoles =
+                (memberResult as any).functionalRoles || ([] as string[]);
+              if (!currentRoles.includes("parent")) {
+                const updatedRoles = [...currentRoles, "parent"];
+                await ctx.runMutation(components.betterAuth.adapter.updateOne, {
+                  input: {
+                    model: "member",
+                    where: [
+                      {
+                        field: "_id",
+                        value: (memberResult as any)._id,
+                        operator: "eq",
+                      },
+                    ],
+                    update: {
+                      functionalRoles: updatedRoles,
+                    },
+                  },
+                });
+                console.log(
+                  `[createGuardianPlayerLink] Added parent role to member: ${normalizedEmail}`
+                );
+              }
+            }
+          }
+        }
+      }
+    } catch (error) {
+      // Don't fail the link creation if role assignment fails
+      console.error(
+        "[createGuardianPlayerLink] Failed to add parent role:",
+        error
+      );
+    }
+
+    return linkId;
   },
 });
 
@@ -927,7 +1003,32 @@ export const linkPlayersToGuardian = mutation({
           }
         );
 
-        if (!existingMember) {
+        if (existingMember) {
+          // Member exists - ensure they have the "parent" functional role
+          const currentRoles =
+            (existingMember as any).functionalRoles || ([] as string[]);
+          if (!currentRoles.includes("parent")) {
+            const updatedRoles = [...currentRoles, "parent"];
+            await ctx.runMutation(components.betterAuth.adapter.updateOne, {
+              input: {
+                model: "member",
+                where: [
+                  {
+                    field: "_id",
+                    value: (existingMember as any)._id,
+                    operator: "eq",
+                  },
+                ],
+                update: {
+                  functionalRoles: updatedRoles,
+                },
+              },
+            });
+            console.log(
+              `[linkPlayersToGuardian] Added parent role to existing member: ${normalizedEmail}`
+            );
+          }
+        } else {
           // Create org membership with "parent" functional role
           await ctx.runMutation(components.betterAuth.adapter.create, {
             input: {

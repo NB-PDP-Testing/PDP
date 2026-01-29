@@ -2118,6 +2118,14 @@ export const getCoachImpactSummary = query({
         viewed: v.number(),
       })
     ),
+    previousPeriodStats: v.optional(
+      v.object({
+        voiceNotesCreated: v.number(),
+        insightsApplied: v.number(),
+        summariesSent: v.number(),
+        parentViewRate: v.number(),
+      })
+    ),
   }),
   handler: async (ctx, args) => {
     const { coachId, organizationId, dateRange } = args;
@@ -2368,6 +2376,47 @@ export const getCoachImpactSummary = query({
       });
     }
 
+    // 10. Previous period stats for comparison (US-P8-019)
+    const rangeDuration = dateRange.end - dateRange.start;
+    const previousPeriodStart = dateRange.start - rangeDuration;
+    const previousPeriodEnd = dateRange.start;
+
+    const previousVoiceNotes = allVoiceNotes.filter(
+      (note) =>
+        note._creationTime >= previousPeriodStart &&
+        note._creationTime < previousPeriodEnd
+    );
+
+    const previousInsights = allInsights.filter(
+      (insight) =>
+        insight._creationTime >= previousPeriodStart &&
+        insight._creationTime < previousPeriodEnd
+    );
+
+    const previousApplied = previousInsights.filter(
+      (i) => i.status === "applied"
+    ).length;
+
+    const previousSummaries = allSummaries.filter(
+      (s) =>
+        s.deliveredAt &&
+        s.deliveredAt >= previousPeriodStart &&
+        s.deliveredAt < previousPeriodEnd
+    );
+
+    const previousViewed = previousSummaries.filter((s) => s.viewedAt).length;
+    const previousViewRate =
+      previousSummaries.length === 0
+        ? 0
+        : (previousViewed / previousSummaries.length) * 100;
+
+    const previousPeriodStats = {
+      voiceNotesCreated: previousVoiceNotes.length,
+      insightsApplied: previousApplied,
+      summariesSent: previousSummaries.length,
+      parentViewRate: previousViewRate,
+    };
+
     return {
       voiceNotesCreated,
       insightsApplied,
@@ -2382,6 +2431,7 @@ export const getCoachImpactSummary = query({
       teamObservations,
       parentEngagement,
       weeklyTrends,
+      previousPeriodStats,
     };
   },
 });

@@ -286,3 +286,38 @@ export const initializeFirstUserSetup = mutation({
     return { initialized: true };
   },
 });
+
+/**
+ * Reset onboarding to allow user to go through the setup wizard again
+ * Resets setupComplete, setupStep, and onboardingComplete
+ */
+export const resetOnboarding = mutation({
+  args: {},
+  returns: v.object({
+    success: v.boolean(),
+  }),
+  handler: async (ctx) => {
+    const user = await authComponent.safeGetAuthUser(ctx);
+
+    if (!user) {
+      throw new Error("Must be authenticated");
+    }
+
+    // Reset all onboarding-related fields
+    await ctx.runMutation(components.betterAuth.adapter.updateOne, {
+      input: {
+        model: "user",
+        where: [{ field: "_id", value: user._id, operator: "eq" }],
+        update: {
+          setupComplete: false,
+          setupStep: "gdpr",
+          onboardingComplete: false,
+        },
+      },
+    });
+
+    console.log(`[Setup] User ${user.email} reset their onboarding`);
+
+    return { success: true };
+  },
+});

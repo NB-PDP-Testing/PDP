@@ -854,6 +854,128 @@ export const getPendingInvitations = query({
   },
 });
 
+/**
+ * Get all pending invitations for a user by email
+ * Used by the notification bell to show pending invitations
+ */
+export const getPendingInvitationsForUser = query({
+  args: {
+    email: v.string(),
+  },
+  returns: v.array(
+    v.object({
+      invitationId: v.string(),
+      organizationId: v.string(),
+      organizationName: v.string(),
+      role: v.string(),
+      expiresAt: v.number(),
+      functionalRoles: v.array(v.string()),
+      playerLinks: v.array(
+        v.object({
+          id: v.string(),
+          name: v.optional(v.string()),
+        })
+      ),
+      teams: v.optional(
+        v.array(
+          v.object({
+            id: v.string(),
+            name: v.string(),
+          })
+        )
+      ),
+    })
+  ),
+  handler: async (ctx, args) => {
+    const normalizedEmail = args.email.toLowerCase().trim();
+
+    // Get all pending invitations for this email
+    const invitationsResult = await ctx.runQuery(
+      components.betterAuth.adapter.findMany,
+      {
+        model: "invitation",
+        paginationOpts: {
+          cursor: null,
+          numItems: 100,
+        },
+        where: [
+          {
+            field: "email",
+            value: normalizedEmail,
+            operator: "eq",
+          },
+          {
+            field: "status",
+            value: "pending",
+            operator: "eq",
+            connector: "AND",
+          },
+        ],
+      }
+    );
+
+    const now = Date.now();
+    // Filter out expired invitations
+    const pendingInvitations = invitationsResult.page.filter(
+      (inv: { expiresAt: number }) => inv.expiresAt > now
+    );
+
+    // Enrich invitations with organization names and metadata
+    const enrichedInvitations = await Promise.all(
+      pendingInvitations.map(
+        async (inv: {
+          _id: string;
+          organizationId: string;
+          role: string;
+          expiresAt: number;
+          metadata?: {
+            suggestedFunctionalRoles?: string[];
+            suggestedPlayerLinks?: Array<{ id: string; name?: string }>;
+            roleSpecificData?: {
+              teams?: Array<{ id?: string; _id?: string; name: string }>;
+            };
+          };
+        }) => {
+          const org = await ctx.runQuery(
+            components.betterAuth.adapter.findOne,
+            {
+              model: "organization",
+              where: [
+                {
+                  field: "_id",
+                  value: inv.organizationId,
+                  operator: "eq",
+                },
+              ],
+            }
+          );
+
+          // Extract teams from metadata
+          const rawTeams = inv.metadata?.roleSpecificData?.teams || [];
+          const teams = rawTeams.map((t) => ({
+            id: t.id || t._id || "",
+            name: t.name,
+          }));
+
+          return {
+            invitationId: inv._id,
+            organizationId: inv.organizationId,
+            organizationName:
+              (org as { name?: string } | null)?.name || "Unknown Organization",
+            role: inv.role,
+            expiresAt: inv.expiresAt,
+            functionalRoles: inv.metadata?.suggestedFunctionalRoles || [],
+            playerLinks: inv.metadata?.suggestedPlayerLinks || [],
+            teams: teams.length > 0 ? teams : undefined,
+          };
+        }
+      )
+    );
+
+    return enrichedInvitations;
+  },
+});
+
 // Rate limiting constants for invitations
 const INVITATION_RATE_LIMIT_WINDOW_MS = 24 * 60 * 60 * 1000; // 24 hours
 const INVITATION_RATE_LIMIT_MAX = 3; // Max 3 invitations per email per 24 hours

@@ -1760,7 +1760,7 @@ export const getPendingInvitationsByEmail = query({
     });
 
     // Filter out expired invitations
-    return enriched.filter((i) => !i.isExpired);
+    return enriched.filter((i: { isExpired: boolean }) => !i.isExpired);
   },
 });
 
@@ -3234,7 +3234,9 @@ export const getMembersForAllOrganizations = query({
 
     // BATCH FIX: Collect all unique orgIds and fetch organizations in parallel
     const uniqueOrgIds: string[] = [
-      ...new Set(membersResult.page.map((m: Member) => m.organizationId)),
+      ...new Set<string>(
+        membersResult.page.map((m: Member) => m.organizationId as string)
+      ),
     ];
 
     // Batch fetch all organizations (parallel gets instead of sequential per-member queries)

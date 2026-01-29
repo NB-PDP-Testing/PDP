@@ -436,54 +436,68 @@ export const getVoiceNotesForPlayer = query({
       )
     );
 
-    // Enrich with coach info
-    const notesWithCoachInfo = await Promise.all(
-      playerNotes.map(async (note) => {
-        let coachName = "Unknown Coach";
+    // Batch fetch coach info (fix N+1 pattern)
+    // 1. Collect unique coachIds
+    const uniqueCoachIds: string[] = [
+      ...new Set(
+        playerNotes
+          .map((n) => n.coachId)
+          .filter((id): id is string => id !== undefined)
+      ),
+    ];
 
-        if (note.coachId) {
-          // Query user from Better Auth component
-          const coachResult = await ctx.runQuery(
-            components.betterAuth.adapter.findOne,
+    // 2. Batch fetch all coaches in parallel
+    const coachResults = await Promise.all(
+      uniqueCoachIds.map((coachId) =>
+        ctx.runQuery(components.betterAuth.adapter.findOne, {
+          model: "user",
+          where: [
             {
-              model: "user",
-              where: [
-                {
-                  field: "userId",
-                  value: note.coachId,
-                  operator: "eq",
-                },
-              ],
-            }
-          );
-
-          if (coachResult) {
-            const coach = coachResult as {
-              firstName?: string;
-              lastName?: string;
-            };
-            if (coach.firstName || coach.lastName) {
-              coachName =
-                `${coach.firstName || ""} ${coach.lastName || ""}`.trim();
-            }
-          }
-        }
-
-        return {
-          _id: note._id,
-          _creationTime: note._creationTime,
-          orgId: note.orgId,
-          coachId: note.coachId,
-          coachName,
-          date: note.date,
-          type: note.type,
-          transcription: note.transcription,
-          transcriptionStatus: note.transcriptionStatus,
-          insights: note.insights,
-          insightsStatus: note.insightsStatus,
-        };
-      })
+              field: "userId",
+              value: coachId,
+              operator: "eq",
+            },
+          ],
+        })
+      )
     );
+
+    // 3. Create Map for O(1) lookup
+    const coachMap = new Map<string, string>();
+    for (let i = 0; i < uniqueCoachIds.length; i++) {
+      const result = coachResults[i];
+      if (result) {
+        // biome-ignore lint/suspicious/noExplicitAny: Better Auth adapter returns untyped data
+        const coach = result as any;
+        if (coach.firstName || coach.lastName) {
+          coachMap.set(
+            uniqueCoachIds[i],
+            `${coach.firstName || ""} ${coach.lastName || ""}`.trim()
+          );
+        }
+      }
+    }
+
+    // 4. Synchronously map over notes using pre-fetched data
+    const notesWithCoachInfo = playerNotes.map((note) => {
+      const coachName = note.coachId
+        ? coachMap.get(note.coachId) || "Unknown Coach"
+        : "Unknown Coach";
+
+      return {
+        _id: note._id,
+        _creationTime: note._creationTime,
+        orgId: note.orgId,
+        coachId: note.coachId,
+        coachName,
+        date: note.date,
+        type: note.type,
+        transcription: note.transcription,
+        transcriptionStatus: note.transcriptionStatus,
+        insights: note.insights,
+        insightsStatus: note.insightsStatus,
+      };
+    });
 
     return notesWithCoachInfo;
   },

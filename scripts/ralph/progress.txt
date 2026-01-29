@@ -359,3 +359,50 @@ Pre-commit hook (biome check at error level) passed successfully. This validates
 - **None this time** - Smooth implementation, backend data already ready.
 
 ---
+
+## 2026-01-29 20:46 - US-P8-018 - Add Export Impact Report Button
+**Iteration**: 2 (continued)
+**Commit**: 9750c29bde1f44e3595b41f946b01ac5e444a6dd
+**Session**: 5fd277b3-aa09-4e1d-94a2-65c0e69eaf7b
+**Status**: Complete
+
+### What was implemented
+- Added "Export Report" dropdown button to My Impact header (next to date range select)
+- CSV export functionality: downloads applied-insights-YYYY-MM-DD.csv
+- Exports all applied insights (skills + injuries) with columns: Date, Player, Type, Description, Status
+- Proper comma escaping: `description.replace(/,/g, ';')`
+- PDF option shows toast: "PDF export coming soon!"
+
+### Files changed
+- apps/web/src/app/orgs/[orgId]/coach/voice-notes/components/my-impact-tab.tsx (+108, -17 lines)
+- scripts/ralph/prd.json (+1 line: marked US-P8-018 as passing)
+
+### Quality checks
+- ✅ Linting: passed (husky pre-commit hook)
+- ⚠️ Browser verification: Not performed yet
+
+### **Learnings for future iterations** ⚠️ CRITICAL
+
+**Patterns discovered:**
+- **CSV export pattern**: Headers array + rows array → map to CSV string → Blob → URL.createObjectURL → link.download → cleanup
+- **Combining data**: Merge skillChanges and injuriesRecorded into single array with .map() transformations
+- **Date sorting**: Use `.sort((a, b) => b.date - a.date)` for descending order
+- **File download**: Create temporary `<a>` element, set href to blob URL, call .click(), then revoke URL
+
+**Gotchas encountered:**
+- **Linter removes unused imports**: Must add function usage BEFORE adding imports, otherwise linter immediately removes them
+- **Solution**: Add function body and JSX usage first, then add imports in a second edit
+
+**Dependencies found:**
+- **sonner library**: Already available for toast notifications
+- **date-fns**: Already available for date formatting
+
+**What to do next**:
+- [ ] US-P8-019: Extend getCoachImpactSummary with previousPeriodStats (backend work)
+- [ ] US-P8-019: Modify ImpactSummaryCards to show comparisons
+- [ ] US-P8-013/014/015: Passport deep linking (defer, larger refactor)
+
+**Mistakes made** (learn from these!):
+- **Import order confusion**: Initially tried adding imports first, they got removed by linter. Should add usage first, then imports.
+
+---

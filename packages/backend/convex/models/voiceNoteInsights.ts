@@ -156,8 +156,8 @@ export const getPendingInsights = query({
       throw new Error("Not authenticated");
     }
 
-    // Get userId with fallback to _id
-    const userId = user.userId || user._id;
+    // Get the user ID
+    const userId = user._id;
     const coachId = args.coachId || userId;
 
     // Get coach trust level for wouldAutoApply calculation
@@ -268,8 +268,8 @@ export const getAutoAppliedInsights = query({
       throw new Error("Not authenticated");
     }
 
-    // Get userId with fallback to _id
-    const userId = user.userId || user._id;
+    // Get the user ID
+    const userId = user._id;
     const coachId = args.coachId || userId;
 
     // Query auto-applied insights for this coach and org
@@ -341,8 +341,8 @@ export const applyInsight = mutation({
       throw new Error("Not authenticated");
     }
 
-    // Get userId with fallback to _id
-    const userId = user.userId || user._id;
+    // Get the user ID
+    const userId = user._id;
     if (!userId) {
       throw new Error("User ID not found");
     }
@@ -446,8 +446,8 @@ export const dismissInsight = mutation({
       throw new Error("Not authenticated");
     }
 
-    // Get userId with fallback to _id
-    const userId = user.userId || user._id;
+    // Get the user ID
+    const userId = user._id;
     if (!userId) {
       throw new Error("User ID not found");
     }
@@ -562,7 +562,7 @@ export const autoApplyInsight = mutation({
     if (!user) {
       return { success: false, message: "Not authenticated" };
     }
-    const userId = user.userId || user._id;
+    const userId = user._id;
     if (!userId) {
       return { success: false, message: "User ID not found" };
     }
@@ -1054,7 +1054,7 @@ export const undoAutoAppliedInsight = mutation({
     if (!user) {
       return { success: false, message: "Not authenticated" };
     }
-    const userId = user.userId || user._id;
+    const userId = user._id;
     if (!userId) {
       return { success: false, message: "User ID not found" };
     }

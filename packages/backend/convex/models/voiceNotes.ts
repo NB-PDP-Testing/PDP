@@ -453,7 +453,7 @@ export const getVoiceNotesForPlayer = query({
           model: "user",
           where: [
             {
-              field: "userId",
+              field: "_id",
               value: coachId,
               operator: "eq",
             },
@@ -1092,7 +1092,7 @@ export const updateInsightStatus = mutation({
     // Phase 7.1: Track preview mode statistics
     const user = await authComponent.safeGetAuthUser(ctx);
     if (user) {
-      const userId = user.userId || user._id;
+      const userId = user._id;
       const trustLevel = await ctx.db
         .query("coachTrustLevels")
         .withIndex("by_coach", (q) => q.eq("coachId", userId))

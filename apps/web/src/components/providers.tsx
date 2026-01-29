@@ -3,6 +3,7 @@
 import { ConvexBetterAuthProvider } from "@convex-dev/better-auth/react";
 import { ConvexReactClient } from "convex/react";
 import { authClient } from "@/lib/auth-client";
+import { CurrentUserProvider } from "@/providers/current-user-provider";
 import { PHProvider } from "@/providers/posthog-provider";
 import { AnnouncerProvider } from "./accessibility/live-region";
 import { DensityProvider } from "./polish/density-toggle";
@@ -26,9 +27,11 @@ export default function Providers({ children }: { children: React.ReactNode }) {
           <AnnouncerProvider>
             <ServiceWorkerProvider>
               <ConvexBetterAuthProvider authClient={authClient} client={convex}>
-                <ThemeTransitionManager />
-                {children}
-                {/* PendingInvitationsModal removed - OnboardingOrchestrator now handles invitations */}
+                <CurrentUserProvider>
+                  <ThemeTransitionManager />
+                  {children}
+                  {/* PendingInvitationsModal removed - OnboardingOrchestrator now handles invitations */}
+                </CurrentUserProvider>
               </ConvexBetterAuthProvider>
             </ServiceWorkerProvider>
           </AnnouncerProvider>

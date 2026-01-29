@@ -65,16 +65,7 @@ function RedirectToOrgs() {
       return;
     }
 
-    // Platform staff who haven't completed setup should go to setup wizard
-    if (user?.isPlatformStaff && user?.setupComplete !== true) {
-      console.log(
-        "[Home] Platform staff needs to complete setup, redirecting to /setup"
-      );
-      router.push("/setup" as Route);
-      return;
-    }
-
-    // Platform staff who have completed setup go to /orgs (platform management page)
+    // Platform staff should ALWAYS go to /orgs (platform management page)
     // This takes priority over active organization redirect
     if (user?.isPlatformStaff) {
       console.log("[Home] Platform staff detected, redirecting to /orgs");

@@ -7,7 +7,6 @@ import { Loader2 } from "lucide-react";
 import { useState } from "react";
 import { toast } from "sonner";
 import { Button } from "@/components/ui/button";
-import { Checkbox } from "@/components/ui/checkbox";
 import {
   Dialog,
   DialogContent,
@@ -59,7 +58,6 @@ export function AddGuardianModal({
       | "grandparent"
       | "other",
   });
-  const [sendEmail, setSendEmail] = useState(true);
 
   // Use atomic find-or-create mutation to avoid race conditions
   const findOrCreateGuardian = useMutation(
@@ -121,8 +119,8 @@ export function AddGuardianModal({
         consentedToSharing: false, // Requires explicit consent
       });
 
-      // Step 3: Send notification email (only if sendEmail is true and not auto-linked)
-      if (sendEmail && !guardianResult.autoLinked && session?.user) {
+      // Step 3: Send notification email (only if not auto-linked to current user)
+      if (!guardianResult.autoLinked && session?.user) {
         try {
           const notificationResult = await sendGuardianNotification({
             guardianEmail: formData.email.trim(),
@@ -174,18 +172,12 @@ export function AddGuardianModal({
           description: `You've been linked as guardian to ${playerName}. No claim process needed.`,
         });
       } else if (guardianResult.wasCreated) {
-        const emailNote = sendEmail
-          ? ""
-          : " Guardian will see a prompt on their next login.";
         toast.success("Guardian added successfully", {
-          description: `${formData.firstName} ${formData.lastName} has been created and linked to ${playerName}.${emailNote}`,
+          description: `${formData.firstName} ${formData.lastName} has been created and linked to ${playerName}`,
         });
       } else {
-        const emailNote = sendEmail
-          ? ""
-          : " Guardian will see a prompt on their next login.";
         toast.success("Existing guardian linked successfully", {
-          description: `${formData.firstName} ${formData.lastName} has been linked to ${playerName}.${emailNote}`,
+          description: `${formData.firstName} ${formData.lastName} has been linked to ${playerName}`,
         });
       }
 
@@ -197,7 +189,6 @@ export function AddGuardianModal({
         phone: "",
         relationship: "guardian",
       });
-      setSendEmail(true);
       onOpenChange(false);
     } catch (error) {
       console.error("Failed to add guardian:", error);
@@ -322,26 +313,6 @@ export function AddGuardianModal({
                   <SelectItem value="other">Other</SelectItem>
                 </SelectContent>
               </Select>
-            </div>
-
-            {/* Send Email Checkbox */}
-            <div className="flex items-start space-x-2">
-              <Checkbox
-                checked={sendEmail}
-                id="sendEmail"
-                onCheckedChange={(checked) => setSendEmail(checked === true)}
-              />
-              <div className="grid gap-1.5 leading-none">
-                <Label
-                  className="font-normal text-sm leading-none peer-disabled:cursor-not-allowed peer-disabled:opacity-70"
-                  htmlFor="sendEmail"
-                >
-                  Send email notification to guardian
-                </Label>
-                <p className="text-muted-foreground text-xs">
-                  If unchecked, guardian will see a prompt on their next login
-                </p>
-              </div>
             </div>
           </div>
 

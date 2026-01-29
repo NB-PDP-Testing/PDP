@@ -49,19 +49,8 @@ export const getCurrentUser = query({
       parentOnboardingDismissCount: v.optional(v.number()),
       parentOnboardingLastDismissedAt: v.optional(v.number()),
 
-      // Child linking skip tracking (Phase 6)
-      childLinkingSkipCount: v.optional(v.number()),
-
       // Current organization tracking
       currentOrgId: v.optional(v.string()),
-
-      // GDPR consent tracking
-      gdprConsentVersion: v.optional(v.number()),
-      gdprConsentedAt: v.optional(v.number()),
-
-      // First-user setup wizard tracking
-      setupComplete: v.optional(v.boolean()),
-      setupStep: v.optional(v.string()),
     })
   ),
   handler: async (ctx) => {

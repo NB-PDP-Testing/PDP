@@ -32,19 +32,8 @@ const customUserTable = defineTable({
   parentOnboardingDismissCount: v.optional(v.number()), // How many times user dismissed the modal
   parentOnboardingLastDismissedAt: v.optional(v.number()), // When they last dismissed
 
-  // Child linking skip tracking (Phase 6)
-  childLinkingSkipCount: v.optional(v.number()), // How many times user skipped child linking (max 3)
-
   // Current organization tracking
   currentOrgId: v.optional(v.string()),
-
-  // GDPR consent tracking (Phase 2)
-  gdprConsentVersion: v.optional(v.number()), // Version number accepted (1, 2, 3...)
-  gdprConsentedAt: v.optional(v.number()), // Timestamp of consent
-
-  // First-user setup wizard tracking (Phase 5)
-  setupComplete: v.optional(v.boolean()), // True after first user completes wizard
-  setupStep: v.optional(v.string()), // Current step: 'gdpr', 'welcome', 'create-org', 'invite', 'complete'
 })
   .index("email_name", ["email", "name"])
   .index("name", ["name"])
@@ -129,14 +118,6 @@ const customOrganizationTable = defineTable({
   sharingContactName: v.optional(v.union(v.null(), v.string())),
   sharingContactEmail: v.optional(v.union(v.null(), v.string())),
   sharingContactPhone: v.optional(v.union(v.null(), v.string())),
-
-  // Invitation lifecycle settings (Phase 1B)
-  // Controls how expired invitations are handled for this organization
-  invitationExpirationDays: v.optional(v.number()), // Default: 7 days
-  autoReInviteOnExpiration: v.optional(v.boolean()), // Default: false
-  maxAutoReInvitesPerInvitation: v.optional(v.number()), // Default: 2
-  adminContactEmail: v.optional(v.string()), // Contact email for expired invitation help
-  notifyAdminsOnInvitationRequest: v.optional(v.boolean()), // Default: true
 
   // Trust Gate Feature Flags (P8 Week 1.5)
   // Master switch for voice notes trust gates - default true (conservative)
@@ -246,10 +227,6 @@ const customInvitationTable = defineTable({
 
   // Custom field: metadata for storing functional roles and assignments
   metadata: v.optional(v.any()),
-
-  // Auto re-invite tracking (Phase 1B)
-  // Counts how many times this invitation has been auto re-invited
-  autoReInviteCount: v.optional(v.number()), // Default: 0
 })
   .index("organizationId", ["organizationId"])
   .index("email", ["email"])
@@ -261,18 +238,6 @@ const customInvitationTable = defineTable({
   .index("organizationId_status", ["organizationId", "status"])
   .index("inviterId_organizationId", ["inviterId", "organizationId"])
   .index("email_organizationId_status", ["email", "organizationId", "status"]);
-
-// GDPR policy version tracking table (Phase 2)
-const gdprVersionsTable = defineTable({
-  version: v.number(), // 1, 2, 3...
-  effectiveDate: v.number(), // When this version becomes active
-  summary: v.string(), // Short description of changes
-  fullText: v.string(), // Complete policy text
-  createdBy: v.string(), // Platform staff userId
-  createdAt: v.number(),
-})
-  .index("by_version", ["version"])
-  .index("by_effective_date", ["effectiveDate"]);
 
 export const tables = {
   ...generatedTables,
@@ -286,8 +251,6 @@ export const tables = {
   member: customMemberTable,
   // Override invitation table with metadata field
   invitation: customInvitationTable,
-  // GDPR policy versions table
-  gdprVersions: gdprVersionsTable,
 };
 
 const schema = defineSchema(tables);

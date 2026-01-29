@@ -1,6 +1,5 @@
 "use client";
 
-import { api } from "@pdp/backend/convex/_generated/api";
 import { useMutation, useQuery } from "convex/react";
 import {
   AlertCircle,
@@ -19,6 +18,7 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { authClient } from "@/lib/auth-client";
+import { api } from "../../../../../../packages/backend/convex/_generated/api";
 
 export default function SetupOrganizationPage() {
   const router = useRouter();
@@ -38,14 +38,13 @@ export default function SetupOrganizationPage() {
   const updateOrganizationSports = useMutation(
     api.models.organizations.updateOrganizationSports
   );
-  const updateSetupStep = useMutation(api.models.setup.updateSetupStep);
 
   // Redirect if not authenticated or not platform staff
   useEffect(() => {
     if (currentUser === null) {
-      router.push("/login");
+      router.push("/login" as Route);
     } else if (currentUser && !currentUser.isPlatformStaff) {
-      router.push("/orgs/current");
+      router.push("/orgs/current" as Route);
     }
   }, [currentUser, router]);
 
@@ -140,12 +139,9 @@ export default function SetupOrganizationPage() {
           );
         }
 
-        // Update setup step to create-team
-        await updateSetupStep({ step: "create-team" });
-
         toast.success(`Organization "${name}" created successfully!`);
         router.push(
-          `/setup/create-team?orgId=${encodeURIComponent(data.id)}&orgName=${encodeURIComponent(name)}` as Route
+          `/setup/complete?orgId=${encodeURIComponent(data.id)}&orgName=${encodeURIComponent(name)}` as Route
         );
       }
     } catch (error: unknown) {
@@ -284,6 +280,14 @@ export default function SetupOrganizationPage() {
               </p>
               {logo && (
                 <div className="mt-2 flex items-center gap-3 rounded-lg border bg-muted/30 p-2">
+                  <img
+                    alt="Logo preview"
+                    className="h-10 w-10 rounded object-contain"
+                    onError={(e) => {
+                      (e.target as HTMLImageElement).style.display = "none";
+                    }}
+                    src={logo}
+                  />
                   <span className="truncate text-muted-foreground text-xs">
                     {logo}
                   </span>

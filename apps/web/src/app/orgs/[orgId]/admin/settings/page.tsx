@@ -11,9 +11,7 @@ import {
   Eye,
   Globe,
   Heart,
-  HelpCircle,
   Palette,
-  RotateCcw,
   Save,
   Share2,
   Shield,
@@ -27,7 +25,6 @@ import { toast } from "sonner";
 import { LogoUpload } from "@/components/logo-upload";
 import { OrgThemedButton } from "@/components/org-themed-button";
 import { DensityToggle } from "@/components/polish/density-toggle";
-import { NotificationPreferences } from "@/components/settings/notification-preferences";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import {
@@ -150,15 +147,6 @@ export default function OrgSettingsPage() {
   const [selectedNewOwner, setSelectedNewOwner] = useState<string | null>(null);
   const [transferConfirmText, setTransferConfirmText] = useState("");
   const [transferring, setTransferring] = useState(false);
-
-  // Help & onboarding state
-  const [restartOnboardingDialogOpen, setRestartOnboardingDialogOpen] =
-    useState(false);
-  const [helpContentOpen, setHelpContentOpen] = useState(false);
-  const [isResettingOnboarding, setIsResettingOnboarding] = useState(false);
-
-  // Mutation for resetting onboarding
-  const resetOnboarding = useMutation(api.models.setup.resetOnboarding);
 
   // Get current theme for live preview
   const { theme } = useOrgTheme();
@@ -562,12 +550,10 @@ export default function OrgSettingsPage() {
           <div className="space-y-2">
             <Label htmlFor="name">Organization Name</Label>
             <Input
-              aria-required="true"
               disabled={saving}
               id="name"
               onChange={(e) => setName(e.target.value)}
               placeholder="My Sports Club"
-              required
               value={name}
             />
           </div>
@@ -580,7 +566,7 @@ export default function OrgSettingsPage() {
             </p>
           </div>
 
-          <div className="space-y-2" data-testid="logo-upload">
+          <div className="space-y-2">
             <Label>Organization Logo</Label>
             <LogoUpload
               currentLogo={logo}
@@ -599,7 +585,7 @@ export default function OrgSettingsPage() {
             </p>
           </div>
 
-          <Button data-testid="edit-org" disabled={saving} onClick={handleSave}>
+          <Button disabled={saving} onClick={handleSave}>
             {saving ? (
               <>
                 <Save className="mr-2 h-4 w-4 animate-pulse" />
@@ -636,151 +622,6 @@ export default function OrgSettingsPage() {
         </CardContent>
       </Card>
 
-      {/* Notification Preferences */}
-      <NotificationPreferences />
-
-      {/* Help & Support */}
-      <Card>
-        <CardHeader>
-          <CardTitle className="flex items-center gap-2">
-            <HelpCircle className="h-5 w-5" />
-            Help & Support
-          </CardTitle>
-          <CardDescription>
-            Get help with using the platform and access onboarding resources
-          </CardDescription>
-        </CardHeader>
-        <CardContent className="space-y-4">
-          <div className="flex flex-wrap gap-3">
-            <Button
-              data-testid="help-button"
-              onClick={() => setHelpContentOpen(true)}
-              variant="outline"
-            >
-              <HelpCircle className="mr-2 h-4 w-4" />
-              View Help Guide
-            </Button>
-            <Button
-              data-testid="restart-onboarding"
-              onClick={() => setRestartOnboardingDialogOpen(true)}
-              variant="outline"
-            >
-              <RotateCcw className="mr-2 h-4 w-4" />
-              Restart Onboarding
-            </Button>
-          </div>
-        </CardContent>
-      </Card>
-
-      {/* Help Content Dialog */}
-      <Dialog onOpenChange={setHelpContentOpen} open={helpContentOpen}>
-        <DialogContent data-testid="help-content">
-          <DialogHeader>
-            <DialogTitle>Getting Started Guide</DialogTitle>
-            <DialogDescription>
-              Quick tips for using the platform effectively
-            </DialogDescription>
-          </DialogHeader>
-          <div className="space-y-4 py-4" data-testid="tour">
-            <div className="space-y-2">
-              <h4 className="font-medium">Managing Your Organization</h4>
-              <p className="text-muted-foreground text-sm">
-                Use the admin navigation to access teams, players, and settings.
-              </p>
-            </div>
-            <div className="space-y-2">
-              <h4 className="font-medium">Adding Teams</h4>
-              <p className="text-muted-foreground text-sm">
-                Navigate to Teams in the admin menu to create and manage your
-                teams.
-              </p>
-            </div>
-            <div className="space-y-2">
-              <h4 className="font-medium">Enrolling Players</h4>
-              <p className="text-muted-foreground text-sm">
-                Go to Players to add new players and assign them to teams.
-              </p>
-            </div>
-            <div className="space-y-2">
-              <h4 className="font-medium">Need More Help?</h4>
-              <p className="text-muted-foreground text-sm">
-                Contact support at support@playerarc.com for additional
-                assistance.
-              </p>
-            </div>
-          </div>
-          <DialogFooter>
-            <Button onClick={() => setHelpContentOpen(false)}>Got It</Button>
-          </DialogFooter>
-        </DialogContent>
-      </Dialog>
-
-      {/* Restart Onboarding Confirmation Dialog */}
-      <Dialog
-        onOpenChange={setRestartOnboardingDialogOpen}
-        open={restartOnboardingDialogOpen}
-      >
-        <DialogContent>
-          <DialogHeader>
-            <DialogTitle className="flex items-center gap-2">
-              <RotateCcw className="h-5 w-5" />
-              Restart Onboarding?
-            </DialogTitle>
-            <DialogDescription>
-              This will show the onboarding wizard again. Your existing data and
-              settings will not be affected.
-            </DialogDescription>
-          </DialogHeader>
-          <div
-            className="flex items-start gap-3 rounded-lg border border-amber-500/20 bg-amber-500/10 p-3"
-            role="alertdialog"
-          >
-            <AlertTriangle className="mt-0.5 h-5 w-5 shrink-0 text-amber-600" />
-            <div className="text-sm">
-              <p className="text-amber-700">
-                The onboarding wizard will guide you through the platform
-                features again. This is helpful if you need a refresher.
-              </p>
-            </div>
-          </div>
-          <DialogFooter>
-            <Button
-              disabled={isResettingOnboarding}
-              onClick={() => setRestartOnboardingDialogOpen(false)}
-              variant="outline"
-            >
-              Cancel
-            </Button>
-            <Button
-              disabled={isResettingOnboarding}
-              onClick={async () => {
-                setIsResettingOnboarding(true);
-                try {
-                  const result = await resetOnboarding();
-                  if (result.success) {
-                    toast.success(
-                      "Onboarding has been reset. Redirecting to setup..."
-                    );
-                    setRestartOnboardingDialogOpen(false);
-                    // Redirect to setup wizard after a brief delay
-                    setTimeout(() => {
-                      router.push("/setup");
-                    }, 1000);
-                  }
-                } catch (error) {
-                  console.error("Failed to reset onboarding:", error);
-                  toast.error("Failed to reset onboarding. Please try again.");
-                } finally {
-                  setIsResettingOnboarding(false);
-                }
-              }}
-            >
-              {isResettingOnboarding ? "Resetting..." : "Restart Onboarding"}
-            </Button>
-          </DialogFooter>
-        </DialogContent>
-      </Dialog>
-
       {/* Theme & Colors - Only for owners and admins */}
       {isAdmin && (
         <Card>
@@ -797,7 +638,7 @@ export default function OrgSettingsPage() {
           </CardHeader>
           <CardContent className="space-y-6">
             {/* Color Inputs */}
-            <div className="space-y-4" data-testid="org-colors">
+            <div className="space-y-4">
               <div className="flex items-center justify-between">
                 <Label>Organization Colors</Label>
                 {colors.some((c) => c) && (

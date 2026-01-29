@@ -874,6 +874,7 @@ export const getPendingInvitationsForUser = query({
         v.object({
           id: v.string(),
           name: v.optional(v.string()),
+          ageGroup: v.optional(v.string()),
         })
       ),
       teams: v.optional(

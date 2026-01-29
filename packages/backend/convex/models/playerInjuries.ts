@@ -231,6 +231,12 @@ export const getActiveInjuriesForOrg = query({
       .collect();
 
     // Filter to active/recovering and visible to this org
+    // NOTE: JS filtering is intentionally used here because:
+    // 1. Visibility logic requires OR of: isVisibleToAllOrgs, restrictedToOrgIds.includes(), occurredAtOrgId match
+    // 2. These conditions cannot be expressed in a single Convex index
+    // 3. Status exclusion (exclude "healed") would require querying 3 separate statuses
+    // Performance impact: This queries all injuries for a player (typically <10 records)
+    // and filters in-memory, which is acceptable for this use case.
     return injuries.filter((injury) => {
       // Only show non-healed injuries
       if (injury.status === "healed") {

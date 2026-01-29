@@ -294,8 +294,8 @@ export const approveSummary = mutation({
       throw new Error("Not authenticated");
     }
 
-    // Get the user ID (use _id or userId depending on what's available)
-    const userId = user.userId || user._id;
+    // Get the user ID
+    const userId = user._id;
     if (!userId) {
       throw new Error("User ID not found");
     }
@@ -393,8 +393,8 @@ export const approveInjurySummary = mutation({
       throw new Error("Not authenticated");
     }
 
-    // Get the user ID (use _id or userId depending on what's available)
-    const userId = user.userId || user._id;
+    // Get the user ID
+    const userId = user._id;
     if (!userId) {
       throw new Error("User ID not found");
     }
@@ -477,8 +477,8 @@ export const suppressSummary = mutation({
       throw new Error("Not authenticated");
     }
 
-    // Get the user ID (use _id or userId depending on what's available)
-    const userId = user.userId || user._id;
+    // Get the user ID
+    const userId = user._id;
     if (!userId) {
       throw new Error("User ID not found");
     }
@@ -582,8 +582,8 @@ export const revokeSummary = mutation({
     // Authenticate user
     const user = await authComponent.safeGetAuthUser(ctx);
 
-    // Get the user ID (use _id or userId depending on what's available)
-    const userId = user?.userId || user?._id;
+    // Get the user ID
+    const userId = user?._id;
     if (!userId) {
       return {
         success: false,
@@ -667,8 +667,8 @@ export const editSummaryContent = mutation({
       throw new Error("Not authenticated");
     }
 
-    // Get the user ID (use _id or userId depending on what's available)
-    const userId = user.userId || user._id;
+    // Get the user ID
+    const userId = user._id;
     if (!userId) {
       throw new Error("User ID not found");
     }
@@ -728,8 +728,8 @@ export const getCoachPendingSummaries = query({
       throw new Error("Not authenticated");
     }
 
-    // Get userId with fallback to _id
-    const userId = user.userId || user._id;
+    // Get the user ID
+    const userId = user._id;
 
     // Get coach trust level for wouldAutoApprove calculation
     const trustLevel = await ctx.db
@@ -842,7 +842,7 @@ export const getAutoApprovedSummaries = query({
       throw new Error("Not authenticated");
     }
 
-    const userId = user.userId || user._id;
+    const userId = user._id;
 
     // Query summaries from last 30 days that were approved (auto or manual)
     const thirtyDaysAgo = Date.now() - 30 * 24 * 60 * 60 * 1000;
@@ -1901,7 +1901,7 @@ export const debugAutoApprovedTab = query({
       throw new Error("Not authenticated");
     }
 
-    const yourUserId = user.userId || user._id;
+    const yourUserId = user._id;
 
     // Get all summaries
     const allSummaries = await ctx.db.query("coachParentSummaries").collect();

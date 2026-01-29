@@ -1,176 +1,147 @@
 {
-  "project": "Convex Performance Fix - Phase 1: Schema Indexes & Package Updates",
+  "project": "Convex Performance Fix - Phase 2: Backend N+1 Fixes",
   "branchName": "johnobr/fixconvex",
-  "description": "Day 1 quick wins: Add composite indexes to eliminate filter() calls and update Better Auth packages. Target: 10-20% reduction in function calls.",
+  "description": "Day 2: Fix highest-impact backend N+1 patterns in members.ts and coachParentSummaries.ts. Expected: ~150K calls saved.",
   "readinessLevel": "100%",
   "prerequisitesCompleted": {
-    "status": "ALL COMPLETE",
+    "status": "Depends on Phase 1",
     "completedWork": [
-      "GitHub Issue #330 documents 3.2M function calls (320% over free tier)",
-      "Root causes identified: Better Auth adapter inefficiency, N+1 patterns, filter violations",
-      "Convex subscription upgraded to Pro (provides breathing room)",
-      "Branch johnobr/fixconvex created and clean"
+      "Phase 1: Schema indexes added",
+      "Phase 1: Better Auth package updated"
     ],
     "documentationReferences": [
       "GitHub Issue #330 - Convex Performance Crisis",
-      "Plan file in context - Full 7-day implementation plan"
+      "Plan file - Full implementation details"
     ]
   },
   "contextAndDependencies": {
-    "targetMetric": "Return to FREE TIER (<1M calls/month, target ~800K)",
-    "currentMetric": "3.2M calls/month",
+    "targetMetric": "~150K calls saved from N+1 fixes",
     "keyFiles": [
-      "packages/backend/convex/schema.ts - Add composite indexes",
-      "packages/backend/convex/betterAuth/schema.ts - Add session index",
-      "packages/backend/package.json - Update Better Auth versions"
+      "packages/backend/convex/models/members.ts - Lines 1624-1697, 3189-3254",
+      "packages/backend/convex/models/coachParentSummaries.ts - Lines 1174-1216"
     ],
     "criticalPatterns": {
-      "Index_Usage": "ALWAYS use .withIndex(), NEVER .filter() after index query",
-      "Composite_Indexes": "Include all fields used in queries to avoid post-collection filtering"
+      "N+1_Pattern": "Loop with individual queries inside = N+1. Fix: Collect IDs first, batch fetch, map in memory",
+      "Batch_Fetch": "Fetch all needed records in one query, then use Map/object for O(1) lookup"
     }
   },
   "userStories": [
     {
-      "id": "US-PERF-001",
-      "title": "Add sportPassports Composite Index",
-      "description": "Add by_player_org_status index to sportPassports table to eliminate filter() on status at line 878.",
-      "phase": "Phase 1: Indexes",
+      "id": "US-PERF-006",
+      "title": "Fix getMembersForAllOrganizations N+1 Pattern",
+      "description": "Fix N+1 pattern where Promise.all makes individual organization lookups per member. Expected: 77K calls saved.",
+      "phase": "Phase 2: Backend N+1",
       "acceptanceCriteria": [
-        "Open packages/backend/convex/schema.ts",
-        "Find sportPassports table definition (around line 486)",
-        "Add new index after existing indexes: .index('by_player_org_status', ['playerIdentityId', 'organizationId', 'status'])",
+        "Open packages/backend/convex/models/members.ts",
+        "Find getMembersForAllOrganizations function (lines 3189-3254)",
+        "Identify the N+1 pattern: Promise.all with individual org lookups per member",
+        "Refactor to batch pattern:",
+        "  1. Collect all unique organizationIds from members",
+        "  2. Batch fetch all organizations in ONE query using .filter() on collected IDs or multiple .get() calls",
+        "  3. Create Map<orgId, org> for O(1) lookup",
+        "  4. Map over members, looking up org from Map instead of querying",
         "Run: npx -w packages/backend convex codegen",
-        "Verify no errors"
+        "Run: npm run check-types",
+        "Test: Login as user with multiple org memberships, verify all orgs load correctly"
       ],
       "technicalNotes": {
-        "currentCode": "Line 878: .filter((q) => q.eq(q.field('status'), 'active'))",
-        "fix": "New index allows withIndex to filter by status directly",
-        "location": "packages/backend/convex/schema.ts around line 542"
+        "currentPattern": "Promise.all(members.map(async (m) => { const org = await ctx.db.get(m.organizationId); ... }))",
+        "fixedPattern": "const orgIds = [...new Set(members.map(m => m.organizationId))]; const orgs = await Promise.all(orgIds.map(id => ctx.db.get(id))); const orgMap = new Map(orgs.filter(Boolean).map(o => [o._id, o])); members.map(m => ({ ...m, org: orgMap.get(m.organizationId) }))",
+        "location": "packages/backend/convex/models/members.ts lines 3189-3254"
       },
       "priority": 1,
       "passes": true,
-      "notes": "This index enables Phase 3 filter violation fix in sportPassports.ts"
+      "notes": "This is one of the highest-impact fixes. 77K calls from this single function."
     },
     {
-      "id": "US-PERF-002",
-      "title": "Add passportGoals Composite Indexes",
-      "description": "Add by_player_status and by_org_status indexes to passportGoals table to eliminate filter() calls at lines 132 and 158.",
-      "phase": "Phase 1: Indexes",
+      "id": "US-PERF-007",
+      "title": "Fix getPendingInvitationsByEmail Triple N+1 Pattern",
+      "description": "Fix triple N+1 pattern where org + teams + players are looked up individually per invitation. Expected: 75K calls saved.",
+      "phase": "Phase 2: Backend N+1",
       "acceptanceCriteria": [
-        "Open packages/backend/convex/schema.ts",
-        "Find passportGoals table definition (around line 623)",
-        "Add new index: .index('by_player_status', ['playerIdentityId', 'status'])",
-        "Add new index: .index('by_org_status', ['organizationId', 'status'])",
+        "Open packages/backend/convex/models/members.ts",
+        "Find getPendingInvitationsByEmail function (lines 1624-1697)",
+        "Identify the triple N+1: org lookup + teams lookup + players lookup PER invitation",
+        "Refactor to batch pattern:",
+        "  1. Collect all unique orgIds, teamIds, playerIds from all invitations",
+        "  2. Batch fetch ALL orgs, teams, players in 3 queries",
+        "  3. Create Maps for O(1) lookup: orgMap, teamMap, playerMap",
+        "  4. Map over invitations, looking up from Maps",
         "Run: npx -w packages/backend convex codegen",
-        "Verify no errors"
+        "Run: npm run check-types",
+        "Test: Create test invitations, login as invited user, verify invitations display correctly"
       ],
       "technicalNotes": {
-        "currentCode": "Line 132: goals = goals.filter((g) => g.status === args.status)",
-        "fix": "New indexes allow withIndex to filter by status directly",
-        "location": "packages/backend/convex/schema.ts around line 690"
+        "currentPattern": "invitations.map(async (inv) => { const org = await getOrg(inv.orgId); const teams = await getTeams(inv.teamIds); const players = await getPlayers(inv.playerIds); })",
+        "fixedPattern": "Collect all IDs first, batch fetch, then map with lookups",
+        "location": "packages/backend/convex/models/members.ts lines 1624-1697"
       },
       "priority": 2,
       "passes": true,
-      "notes": "This index enables Phase 3 filter violation fix in passportGoals.ts"
+      "notes": "Triple N+1 is particularly expensive. Each invitation triggers 3+ queries."
     },
     {
-      "id": "US-PERF-003",
-      "title": "Add coachParentSummaries Composite Index",
-      "description": "Add by_player_status_created index to coachParentSummaries for optimized getParentSummariesByChildAndSport query.",
-      "phase": "Phase 1: Indexes",
+      "id": "US-PERF-008",
+      "title": "Fix getParentSummariesByChildAndSport Cascading N+1",
+      "description": "Fix cascading N+1 where nested Promise.all makes adapter calls for coach names per summary.",
+      "phase": "Phase 2: Backend N+1",
       "acceptanceCriteria": [
-        "Open packages/backend/convex/schema.ts",
-        "Find coachParentSummaries table definition (around line 1908)",
-        "Add new index: .index('by_player_status_created', ['playerIdentityId', 'status', 'createdAt'])",
+        "Open packages/backend/convex/models/coachParentSummaries.ts",
+        "Find getParentSummariesByChildAndSport function (lines 1174-1216)",
+        "Identify the N+1: Promise.all inside map calling Better Auth adapter for each coach",
+        "Refactor to batch pattern:",
+        "  1. Collect all unique coachIds from all summaries across all sports",
+        "  2. Batch fetch all coaches in ONE query",
+        "  3. Create coachMap for O(1) lookup",
+        "  4. Map over summaries, looking up coach name from Map",
         "Run: npx -w packages/backend convex codegen",
-        "Verify no errors"
+        "Run: npm run check-types",
+        "Test: Login as parent, navigate to dashboard, verify coach feedback summaries load with names"
       ],
       "technicalNotes": {
-        "purpose": "Optimize getParentSummariesByChildAndSport query which has cascading N+1",
-        "location": "packages/backend/convex/schema.ts around line 2031"
+        "currentPattern": "enrichedSummaries = await Promise.all(sportSummaries.map(async (summary) => { const coachResult = await ctx.runQuery(adapter.findOne, { model: 'user', where: [{ field: '_id', value: summary.coachId }] }); }))",
+        "fixedPattern": "Collect coachIds, batch query, create Map, then map with lookup",
+        "location": "packages/backend/convex/models/coachParentSummaries.ts lines 1174-1216",
+        "adapterNote": "Better Auth adapter queries are expensive - batching is critical"
       },
       "priority": 3,
       "passes": true,
-      "notes": "This index supports Phase 2 N+1 fix in coachParentSummaries.ts"
-    },
-    {
-      "id": "US-PERF-004",
-      "title": "Add Better Auth Session Index",
-      "description": "Add userId_activeOrganizationId index to session table for optimized session lookups.",
-      "phase": "Phase 1: Indexes",
-      "acceptanceCriteria": [
-        "Open packages/backend/convex/betterAuth/schema.ts",
-        "Create customSessionTable that extends the generated session table",
-        "Add all existing session indexes plus new: .index('userId_activeOrganizationId', ['userId', 'activeOrganizationId'])",
-        "Add session: customSessionTable to the tables export",
-        "Run: npx -w packages/backend convex codegen",
-        "Verify no errors"
-      ],
-      "technicalNotes": {
-        "sessionFields": "expiresAt, token, createdAt, updatedAt, ipAddress, userAgent, userId, activeOrganizationId, activeTeamId",
-        "existingIndexes": "expiresAt, expiresAt_userId, token, userId",
-        "newIndex": "userId_activeOrganizationId - optimizes session lookups with active org"
-      },
-      "priority": 4,
-      "passes": true,
-      "notes": "Helps reduce Better Auth adapter calls for session lookups"
-    },
-    {
-      "id": "US-PERF-005",
-      "title": "Update @convex-dev/better-auth Package",
-      "description": "Update @convex-dev/better-auth to next minor version cautiously.",
-      "phase": "Phase 1: Package Updates",
-      "acceptanceCriteria": [
-        "Check current version in packages/backend/package.json (currently 0.9.1)",
-        "Check latest version: npm view @convex-dev/better-auth version",
-        "Update to next patch/minor version (not major): npm install @convex-dev/better-auth@0.9.11 -w packages/backend",
-        "Run: npx -w packages/backend convex codegen",
-        "Run: npm run check-types",
-        "Test login/logout flow works",
-        "Test organization switching works"
-      ],
-      "technicalNotes": {
-        "currentVersion": "0.9.1",
-        "latestKnown": "0.10.10",
-        "strategy": "Update one minor version at a time, test between updates"
-      },
-      "priority": 5,
-      "passes": true,
-      "notes": "Be cautious with package updates - test thoroughly after each update"
+      "notes": "This function has cascading N+1 - nested loops each making queries. High impact fix."
     }
   ],
   "qualityChecks": {
     "beforeCommitting": [
       "npx -w packages/backend convex codegen - MUST succeed",
-      "npm run check-types - Check for type errors (pre-existing web errors OK)",
+      "npm run check-types - Check for type errors",
       "npm run check - Lint check"
     ],
     "testingStrategy": {
-      "US-PERF-001-004": "Verify indexes deployed: npx -w packages/backend convex dashboard - check indexes exist",
-      "US-PERF-005": "Login/logout flow, organization switching, check Convex logs for errors"
-    }
+      "US-PERF-006": "Login as user with multiple org memberships, verify org switcher shows all orgs with names",
+      "US-PERF-007": "Create invitations for coach/parent roles, login as invited user, verify invitation details",
+      "US-PERF-008": "Login as parent with linked children, view dashboard, verify coach names display"
+    },
+    "convexLogs": "Check Convex logs: should see 2-4 queries instead of N+1 pattern"
   },
   "phaseCompletionCriteria": [
-    "All 4 composite indexes added to schema.ts",
-    "Session index added to betterAuth/schema.ts",
-    "@convex-dev/better-auth updated (at least patch version)",
+    "getMembersForAllOrganizations uses batch pattern",
+    "getPendingInvitationsByEmail uses batch pattern for all 3 lookups",
+    "getParentSummariesByChildAndSport uses batch pattern for coach names",
+    "All affected features tested manually",
     "Convex codegen succeeds",
-    "No new type errors introduced",
-    "Login/logout flow works",
-    "Convex logs show reduced 'Querying without index' warnings"
+    "No type errors introduced",
+    "Function calls noticeably reduced (15-20% additional)"
   ],
   "expectedImpact": {
-    "callsReduced": "10-20% reduction from indexes alone",
-    "tablesOptimized": [
-      "sportPassports",
-      "passportGoals",
-      "coachParentSummaries",
-      "session"
+    "callsReduced": "~150K calls saved",
+    "functionsFixed": [
+      "getMembersForAllOrganizations",
+      "getPendingInvitationsByEmail",
+      "getParentSummariesByChildAndSport"
     ]
   },
   "nextPhase": {
-    "name": "Phase 2: Backend N+1 Fixes",
-    "file": "phase2-backend-n1.prd.json",
-    "description": "Fix getMembersForAllOrganizations, getPendingInvitationsByEmail, getParentSummariesByChildAndSport"
+    "name": "Phase 3: Backend Filter Fixes",
+    "file": "phase3-backend-filters.prd.json",
+    "description": "Fix voiceNotes, whatsappMessages coach lookups and filter violations"
   }
 }

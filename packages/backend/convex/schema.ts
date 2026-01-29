@@ -545,6 +545,10 @@ export default defineSchema({
     sessionId: v.optional(v.string()), // Link to training session
     matchId: v.optional(v.string()), // Link to match record
 
+    // Source tracking - where did this assessment come from?
+    source: v.optional(v.union(v.literal("manual"), v.literal("voice_note"))),
+    voiceNoteId: v.optional(v.id("voiceNotes")), // If created from voice note
+
     // Metadata
     confidence: v.optional(
       v.union(v.literal("low"), v.literal("medium"), v.literal("high"))
@@ -798,6 +802,10 @@ export default defineSchema({
         v.literal("admin")
       )
     ),
+
+    // Source tracking - where did this injury record come from?
+    source: v.optional(v.union(v.literal("manual"), v.literal("voice_note"))),
+    voiceNoteId: v.optional(v.id("voiceNotes")), // If created from voice note
 
     // Timestamps
     createdAt: v.number(),

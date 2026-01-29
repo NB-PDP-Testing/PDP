@@ -254,10 +254,6 @@ export default defineSchema({
     email: v.optional(v.string()), // Direct contact (adults)
     phone: v.optional(v.string()),
 
-    // Account claim fields (for 18+ graduation flow)
-    claimedAt: v.optional(v.number()), // Timestamp when player claimed account
-    claimInvitedBy: v.optional(v.string()), // Guardian userId who initiated claim invitation
-
     // Address (optional, usually from guardian for youth)
     address: v.optional(v.string()),
     town: v.optional(v.string()),
@@ -281,52 +277,6 @@ export default defineSchema({
     .index("by_userId", ["userId"])
     .index("by_email", ["email"])
     .index("by_playerType", ["playerType"]),
-
-  // Player Graduations - tracks players who have turned 18 and their graduation status
-  playerGraduations: defineTable({
-    playerIdentityId: v.id("playerIdentities"),
-    organizationId: v.string(),
-    dateOfBirth: v.number(), // Stored as timestamp for comparison
-    turnedEighteenAt: v.number(), // When they turned 18
-
-    // Graduation status
-    status: v.union(
-      v.literal("pending"), // Detected, not yet actioned
-      v.literal("invitation_sent"), // Guardian sent invite
-      v.literal("claimed"), // Player claimed account
-      v.literal("dismissed") // Guardian dismissed prompt
-    ),
-
-    // Invitation tracking
-    invitationSentAt: v.optional(v.number()),
-    invitationSentBy: v.optional(v.string()), // Guardian userId
-
-    // Claim tracking
-    claimedAt: v.optional(v.number()),
-
-    // Dismissal tracking
-    dismissedAt: v.optional(v.number()),
-    dismissedBy: v.optional(v.string()), // Guardian userId
-  })
-    .index("by_status", ["status"])
-    .index("by_player", ["playerIdentityId"])
-    .index("by_org_and_status", ["organizationId", "status"]),
-
-  // Player Claim Tokens - secure tokens for players to claim their accounts
-  playerClaimTokens: defineTable({
-    playerIdentityId: v.id("playerIdentities"),
-    token: v.string(), // Secure random token
-    email: v.string(), // Email the token was sent to
-
-    // Validity
-    createdAt: v.number(),
-    expiresAt: v.number(), // 30 days validity
-
-    // Usage tracking
-    usedAt: v.optional(v.number()), // Set when token is used
-  })
-    .index("by_token", ["token"])
-    .index("by_player", ["playerIdentityId"]),
 
   // Guardian-Player relationship (N:M)
   guardianPlayerLinks: defineTable({
@@ -362,16 +312,6 @@ export default defineSchema({
     ), // Why parent declined this link
     declineReasonText: v.optional(v.string()), // Custom reason if "other"
 
-    // Link status tracking (Phase 3)
-    status: v.optional(
-      v.union(
-        v.literal("pending"), // Awaiting parent acknowledgement
-        v.literal("active"), // Parent accepted
-        v.literal("declined") // Parent declined
-      )
-    ), // Existing links without status are treated as 'active'
-    declinedAt: v.optional(v.number()), // Timestamp when parent declined this link
-
     // Parent acknowledgement tracking (Bug #293 fix)
     acknowledgedByParentAt: v.optional(v.number()), // Timestamp when parent acknowledged this link
     notificationSentAt: v.optional(v.number()), // When we notified parent about this assignment
@@ -389,9 +329,10 @@ export default defineSchema({
   })
     .index("by_guardian", ["guardianIdentityId"])
     .index("by_player", ["playerIdentityId"])
-    .index("by_guardian_and_player", ["guardianIdentityId", "playerIdentityId"])
-    .index("by_guardian_and_status", ["guardianIdentityId", "status"])
-    .index("by_status", ["status"]),
+    .index("by_guardian_and_player", [
+      "guardianIdentityId",
+      "playerIdentityId",
+    ]),
 
   // Organization-level: Player enrollment
   orgPlayerEnrollments: defineTable({
@@ -1422,50 +1363,6 @@ export default defineSchema({
     .index("by_status", ["status"])
     .index("by_userId_and_organizationId", ["userId", "organizationId"])
     .index("by_organizationId_and_status", ["organizationId", "status"]),
-
-  // Invitation Requests (Phase 1B)
-  // Tracks user self-service requests for new invitations when their original invitation expired
-  invitationRequests: defineTable({
-    originalInvitationId: v.string(), // ID of the expired invitation
-    organizationId: v.string(), // Organization the invitation was for
-    userEmail: v.string(), // Email of the invited user
-    requestedAt: v.number(), // When the request was made
-    requestNumber: v.number(), // 1, 2, or 3 (max 3 requests per invitation)
-    status: v.union(
-      v.literal("pending"), // Awaiting admin action
-      v.literal("approved"), // Admin approved, new invite sent
-      v.literal("denied") // Admin denied request
-    ),
-    processedAt: v.optional(v.number()), // When admin processed the request
-    processedBy: v.optional(v.string()), // User ID of admin who processed
-    denyReason: v.optional(v.string()), // Reason for denial
-    newInvitationId: v.optional(v.string()), // ID of the new invitation (if approved)
-  })
-    .index("by_organization_status", ["organizationId", "status"])
-    .index("by_email", ["userEmail"])
-    .index("by_original_invitation", ["originalInvitationId"]),
-
-  // Archived Invitations (Phase 6)
-  // Stores archived invitations for long-term audit purposes
-  // Invitations are archived 30 days after expiration and cleaned up after 90 days
-  archivedInvitations: defineTable({
-    originalInvitationId: v.string(), // ID of the original invitation
-    organizationId: v.string(),
-    email: v.string(),
-    role: v.string(),
-    metadata: v.optional(v.any()), // Original metadata (functional roles, player links, etc.)
-    createdAt: v.number(), // When the original invitation was created
-    expiredAt: v.number(), // When the original invitation expired
-    archivedAt: v.number(), // When this archive record was created
-    archivedReason: v.union(
-      v.literal("expired_30_days"), // Auto-archived 30 days after expiration
-      v.literal("manual_archive"), // Admin manually archived
-      v.literal("user_cancelled") // User cancelled/declined
-    ),
-  })
-    .index("by_organization", ["organizationId"])
-    .index("by_archived_at", ["archivedAt"])
-    .index("by_email", ["email"]),
 
   // Voice Notes
   voiceNotes: defineTable({
@@ -3344,62 +3241,6 @@ export default defineSchema({
     .index("by_consent", ["consentId"])
     .index("by_player", ["playerIdentityId"]),
 
-  // Admin Notifications
-  // In-app notifications for organization admins
-  adminNotifications: defineTable({
-    userId: v.string(), // Recipient (Better Auth user ID)
-    organizationId: v.string(), // Organization context
-
-    // Notification type
-    notificationType: v.union(
-      v.literal("child_declined"), // Parent declined a child link
-      v.literal("invitation_requested"), // User requested new invitation
-      v.literal("member_joined"), // New member joined organization
-      v.literal("guardian_added") // New guardian added to player
-    ),
-
-    // References
-    guardianPlayerLinkId: v.optional(v.id("guardianPlayerLinks")),
-    invitationRequestId: v.optional(v.id("invitationRequests")),
-
-    // Content
-    title: v.string(),
-    message: v.string(),
-    actionUrl: v.optional(v.string()), // URL for navigation
-
-    // Status
-    createdAt: v.number(),
-    readAt: v.optional(v.number()),
-    dismissedAt: v.optional(v.number()),
-  })
-    .index("by_user", ["userId"])
-    .index("by_user_and_org", ["userId", "organizationId"])
-    .index("by_org", ["organizationId"])
-    .index("by_user_unread", ["userId", "readAt"]),
-
-  // User Notifications (Real-time Toast Notifications)
-  // General-purpose notifications for all users - role grants, team assignments, etc.
-  notifications: defineTable({
-    userId: v.string(), // Recipient (Better Auth user ID)
-    organizationId: v.string(), // Organization context
-    type: v.union(
-      v.literal("role_granted"), // User granted Admin/Coach role
-      v.literal("team_assigned"), // Coach assigned to team
-      v.literal("team_removed"), // Coach removed from team
-      v.literal("child_declined"), // Admin notified parent declined child
-      v.literal("invitation_request") // Admin notified of invitation request
-    ),
-    title: v.string(),
-    message: v.string(),
-    link: v.optional(v.string()), // URL for navigation
-    createdAt: v.number(),
-    seenAt: v.optional(v.number()), // null means unseen
-    dismissedAt: v.optional(v.number()), // When manually dismissed
-  })
-    .index("by_user_unseen", ["userId", "seenAt"])
-    .index("by_user_created", ["userId", "createdAt"])
-    .index("by_org_type", ["organizationId", "type"]),
-
   // ============================================================
   // USER PREFERENCES & USAGE TRACKING
   // Stores user preferences for default org/role and tracks
@@ -3756,50 +3597,4 @@ export default defineSchema({
     .index("by_email", ["email"])
     .index("by_status", ["status"])
     .index("by_email_and_status", ["email", "status"]),
-
-  // ============================================================
-  // GDPR VERSION TRACKING
-  // Policy version tracking for GDPR compliance (Phase 2)
-  // ============================================================
-  gdprVersions: defineTable({
-    version: v.number(), // 1, 2, 3...
-    effectiveDate: v.number(), // When this version becomes active
-    summary: v.string(), // Short description of changes
-    fullText: v.string(), // Complete policy text
-    createdBy: v.string(), // Platform staff userId
-    createdAt: v.number(),
-  })
-    .index("by_version", ["version"])
-    .index("by_effective_date", ["effectiveDate"]),
-
-  // ============================================================
-  // USER NOTIFICATION PREFERENCES
-  // Per-user notification settings for email, push, and in-app
-  // ============================================================
-  notificationPreferences: defineTable({
-    userId: v.string(), // User ID from Better Auth
-    organizationId: v.optional(v.string()), // Optional org-specific prefs
-
-    // Email notification preferences
-    emailEnabled: v.boolean(), // Master toggle for all email
-    emailTeamUpdates: v.boolean(), // Team schedule, roster changes
-    emailPlayerUpdates: v.boolean(), // Player progress, assessments
-    emailAnnouncements: v.boolean(), // Org-wide announcements
-    emailAssessments: v.boolean(), // Assessment reminders and results
-
-    // Push notification preferences
-    pushEnabled: v.boolean(), // Master toggle for push
-    pushSubscription: v.optional(v.string()), // Browser push subscription JSON
-
-    // In-app notification preferences
-    inAppEnabled: v.boolean(), // Master toggle for in-app
-    inAppSound: v.boolean(), // Play sound on notification
-    inAppBadge: v.boolean(), // Show badge count
-
-    // Timestamps
-    createdAt: v.number(),
-    updatedAt: v.number(),
-  })
-    .index("by_userId", ["userId"])
-    .index("by_userId_orgId", ["userId", "organizationId"]),
 });

@@ -115,16 +115,6 @@ export default function OrganizationsPage() {
     console.log("[/orgs] isPlatformStaff:", user?.isPlatformStaff);
   }, [user]);
 
-  // Redirect platform staff who haven't completed setup
-  useEffect(() => {
-    if (user?.isPlatformStaff && user?.setupComplete !== true) {
-      console.log(
-        "[/orgs] Platform staff needs to complete setup, redirecting to /setup"
-      );
-      router.push("/setup" as Route);
-    }
-  }, [user, router]);
-
   // Redirect if not platform staff
   useEffect(() => {
     if (user !== undefined && !user?.isPlatformStaff) {

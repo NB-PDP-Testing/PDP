@@ -1,7 +1,5 @@
 "use client";
-import { api } from "@pdp/backend/convex/_generated/api";
 import type { Member } from "better-auth/plugins";
-import { useQuery } from "convex/react";
 import { Building2 } from "lucide-react";
 import type { Route } from "next";
 import Link from "next/link";
@@ -29,23 +27,12 @@ function OrgNav({ member }: { member: Member }) {
   const functionalRoles = (member as any).functionalRoles || [];
   const hasCoachRole = functionalRoles.includes("coach");
   const hasParentRole = functionalRoles.includes("parent");
-  const hasPlayerRole = functionalRoles.includes("player");
-
-  // Check if user has a claimed player identity (via graduation flow)
-  // This is separate from having the "player" functional role
-  const hasPlayerDashboard = useQuery(
-    api.models.playerGraduations.hasPlayerDashboard,
-    effectiveOrgId ? { organizationId: effectiveOrgId } : "skip"
-  );
 
   // Admin access: Check Better Auth role for organizational permissions
   const hasOrgAdmin = authClient.organization.checkRolePermission({
     permissions: { organization: ["update"] },
     role,
   });
-
-  // Show player dashboard link if user has player role OR claimed player identity
-  const showPlayerLink = hasPlayerRole || hasPlayerDashboard === true;
 
   return (
     <nav className="hidden gap-4 text-lg sm:flex">
@@ -54,11 +41,6 @@ function OrgNav({ member }: { member: Member }) {
       )}
       {hasParentRole && (
         <Link href={`/orgs/${effectiveOrgId}/parents` as Route}>Parent</Link>
-      )}
-      {showPlayerLink && (
-        <Link href={`/orgs/${effectiveOrgId}/player` as Route}>
-          My Dashboard
-        </Link>
       )}
       {hasOrgAdmin && (
         <Link href={`/orgs/${effectiveOrgId}/admin` as Route}>Admin</Link>

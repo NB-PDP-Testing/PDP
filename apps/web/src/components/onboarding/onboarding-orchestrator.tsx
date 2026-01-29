@@ -29,11 +29,11 @@ import {
 } from "@/components/ui/dialog";
 import { AnalyticsEvents, useAnalytics } from "@/lib/analytics";
 import { authClient } from "@/lib/auth-client";
-import { AcceptInvitationStep } from "./accept-invitation-step";
 import { type ChildLink, ChildLinkingStep } from "./child-linking-step";
 import { OnboardingErrorBoundary } from "./error-boundary";
 import { GdprConsentStep } from "./gdpr-consent-step";
 import { UnifiedGuardianClaimStep } from "./unified-guardian-claim-step";
+import { UnifiedInvitationStep } from "./unified-invitation-step";
 
 // Task type from the backend
 type OnboardingTask = {
@@ -123,10 +123,12 @@ type OnboardingOrchestratorProps = {
 function OnboardingStepRenderer({
   task,
   userId,
+  userEmail,
   onComplete,
 }: {
   task: OnboardingTask;
   userId: string | undefined;
+  userEmail: string | undefined;
   onComplete: () => void;
 }) {
   // Get current GDPR version for GDPR consent task
@@ -142,13 +144,17 @@ function OnboardingStepRenderer({
     return <GdprConsentStep gdprVersion={gdprVersion} onAccept={onComplete} />;
   }
 
-  // Handle accept_invitation task
-  if (task.type === "accept_invitation") {
+  // Handle accept_invitation task with UnifiedInvitationStep
+  // This combines invitation acceptance + child confirmation in ONE step
+  // Works for all roles: parent (with children), coach (with teams), admin (no children/teams)
+  if (task.type === "accept_invitation" && userId && userEmail) {
     const data = task.data as AcceptInvitationTaskData;
     return (
-      <AcceptInvitationStep
+      <UnifiedInvitationStep
         invitations={data.invitations}
         onComplete={onComplete}
+        userEmail={userEmail}
+        userId={userId}
       />
     );
   }
@@ -333,6 +339,7 @@ export function OnboardingOrchestrator({
   // Get the current task (if any)
   const currentTask = tasks?.[currentStepIndex];
   const userId = session?.user?.id;
+  const userEmail = session?.user?.email;
 
   // Track onboarding started (once when tasks first load)
   useEffect(() => {
@@ -415,6 +422,7 @@ export function OnboardingOrchestrator({
             <OnboardingStepRenderer
               onComplete={handleStepComplete}
               task={currentTask}
+              userEmail={userEmail}
               userId={userId}
             />
           </div>

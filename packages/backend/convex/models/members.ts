@@ -2354,6 +2354,403 @@ export const syncFunctionalRolesFromInvitation = mutation({
 });
 
 /**
+ * Sync functional roles with explicit child selections
+ *
+ * This is used by the UnifiedInvitationStep to process invitation acceptance
+ * with explicit "Yes, this is mine" / "No, not mine" selections for each child.
+ *
+ * Key differences from syncFunctionalRolesFromInvitation:
+ * - Only links children from selectedPlayerIds (not all from invitation metadata)
+ * - Marks selected children as acknowledged immediately
+ * - Records declined children with declinedByUserId
+ * - Supports roles without children (admin, coach, etc.)
+ */
+export const syncFunctionalRolesWithChildSelections = mutation({
+  args: {
+    invitationId: v.string(),
+    organizationId: v.string(),
+    userId: v.string(),
+    userEmail: v.string(),
+    selectedPlayerIds: v.array(v.string()),
+    declinedPlayerIds: v.array(v.string()),
+    consentToSharing: v.boolean(),
+  },
+  returns: v.object({
+    success: v.boolean(),
+    error: v.optional(v.string()),
+    functionalRolesAssigned: v.array(v.string()),
+    coachTeamsAssigned: v.number(),
+    playersLinked: v.number(),
+    playersDeclined: v.number(),
+  }),
+  handler: async (ctx, args) => {
+    const { userEmail } = args;
+
+    console.log(
+      "[syncFunctionalRolesWithChildSelections] Starting with:",
+      `invitationId: ${args.invitationId}`,
+      `orgId: ${args.organizationId}`,
+      `userId: ${args.userId}`,
+      `selectedPlayers: ${args.selectedPlayerIds.length}`,
+      `declinedPlayers: ${args.declinedPlayerIds.length}`
+    );
+
+    // Find the invitation to get metadata
+    const invitationResult = await ctx.runQuery(
+      components.betterAuth.adapter.findOne,
+      {
+        model: "invitation",
+        where: [
+          {
+            field: "_id",
+            value: args.invitationId,
+            operator: "eq",
+          },
+        ],
+      }
+    );
+
+    if (!invitationResult) {
+      console.error(
+        "[syncFunctionalRolesWithChildSelections] Invitation not found:",
+        args.invitationId
+      );
+      return {
+        success: false,
+        error: "Invitation not found",
+        functionalRolesAssigned: [],
+        coachTeamsAssigned: 0,
+        playersLinked: 0,
+        playersDeclined: 0,
+      };
+    }
+
+    const metadata = invitationResult.metadata as any;
+    const suggestedRoles: ("coach" | "parent" | "admin")[] =
+      metadata?.suggestedFunctionalRoles || [];
+    const roleSpecificData = metadata?.roleSpecificData || {};
+
+    let coachTeamsAssigned = 0;
+    let playersLinked = 0;
+    let playersDeclined = 0;
+
+    // Find member record
+    const memberResult = await ctx.runQuery(
+      components.betterAuth.adapter.findOne,
+      {
+        model: "member",
+        where: [
+          {
+            field: "organizationId",
+            value: args.organizationId,
+            operator: "eq",
+          },
+          {
+            field: "userId",
+            value: args.userId,
+            operator: "eq",
+            connector: "AND",
+          },
+        ],
+      }
+    );
+
+    if (!memberResult) {
+      console.error(
+        "[syncFunctionalRolesWithChildSelections] Member not found"
+      );
+      return {
+        success: false,
+        error: "Member record not found",
+        functionalRolesAssigned: [],
+        coachTeamsAssigned: 0,
+        playersLinked: 0,
+        playersDeclined: 0,
+      };
+    }
+
+    // 1. Update member with functional roles
+    if (suggestedRoles.length > 0) {
+      const currentRoles: ("coach" | "parent" | "admin")[] =
+        (memberResult as any).functionalRoles || [];
+      const newRoles = [...new Set([...currentRoles, ...suggestedRoles])] as (
+        | "coach"
+        | "parent"
+        | "admin"
+      )[];
+
+      await ctx.runMutation(components.betterAuth.adapter.updateOne, {
+        input: {
+          model: "member",
+          where: [{ field: "_id", value: memberResult._id, operator: "eq" }],
+          update: {
+            functionalRoles: newRoles,
+          },
+        },
+      });
+
+      console.log(
+        "[syncFunctionalRolesWithChildSelections] Assigned roles:",
+        suggestedRoles
+      );
+    }
+
+    // 2. Create coach assignments if coach role with teams
+    if (
+      suggestedRoles.includes("coach") &&
+      roleSpecificData.teams?.length > 0
+    ) {
+      // biome-ignore lint/suspicious/noExplicitAny: Team metadata structure varies
+      const teams: string[] = roleSpecificData.teams.map((t: any) =>
+        typeof t === "string" ? t : t.id || t._id
+      );
+
+      const existingAssignment = await ctx.db
+        .query("coachAssignments")
+        .withIndex("by_user_and_org", (q) =>
+          q.eq("userId", args.userId).eq("organizationId", args.organizationId)
+        )
+        .first();
+
+      if (existingAssignment) {
+        const mergedTeams = [
+          ...new Set([...existingAssignment.teams, ...teams]),
+        ];
+        await ctx.db.patch(existingAssignment._id, {
+          teams: mergedTeams,
+          updatedAt: Date.now(),
+        });
+        coachTeamsAssigned = teams.length;
+      } else {
+        await ctx.db.insert("coachAssignments", {
+          userId: args.userId,
+          organizationId: args.organizationId,
+          teams,
+          ageGroups: [],
+          createdAt: Date.now(),
+          updatedAt: Date.now(),
+        });
+        coachTeamsAssigned = teams.length;
+      }
+
+      console.log(
+        "[syncFunctionalRolesWithChildSelections] Coach teams assigned:",
+        teams
+      );
+    }
+
+    // 3. Handle parent role with explicit child selections
+    if (suggestedRoles.includes("parent") && userEmail) {
+      const normalizedEmail = userEmail.toLowerCase().trim();
+
+      // Find or create guardian identity
+      let guardian = await ctx.db
+        .query("guardianIdentities")
+        .withIndex("by_email", (q) => q.eq("email", normalizedEmail))
+        .first();
+
+      if (!guardian) {
+        const userResult = await ctx.runQuery(
+          components.betterAuth.adapter.findOne,
+          {
+            model: "user",
+            where: [
+              {
+                field: "email",
+                value: normalizedEmail,
+                operator: "eq",
+              },
+            ],
+          }
+        );
+
+        const guardianId = await ctx.db.insert("guardianIdentities", {
+          firstName: userResult?.name?.split(" ")[0] || "",
+          lastName: userResult?.name?.split(" ").slice(1).join(" ") || "",
+          email: normalizedEmail,
+          phone: undefined,
+          userId: args.userId,
+          verificationStatus: "email_verified",
+          createdAt: Date.now(),
+          updatedAt: Date.now(),
+          createdFrom: "invitation",
+        });
+        guardian = await ctx.db.get(guardianId);
+        console.log(
+          "[syncFunctionalRolesWithChildSelections] Created guardian:",
+          guardianId
+        );
+      }
+
+      // Link guardian to user if not already linked
+      if (guardian && !guardian.userId) {
+        await ctx.db.patch(guardian._id, {
+          userId: args.userId,
+          verificationStatus: "email_verified",
+          updatedAt: Date.now(),
+        });
+        guardian = await ctx.db.get(guardian._id);
+      }
+
+      if (guardian) {
+        // 3a. Link SELECTED players (user confirmed "Yes, this is mine")
+        for (const playerIdentityId of args.selectedPlayerIds) {
+          try {
+            const playerIdentity = await ctx.db.get(
+              playerIdentityId as Id<"playerIdentities">
+            );
+            if (!playerIdentity) {
+              console.warn(
+                "[syncFunctionalRolesWithChildSelections] Player not found:",
+                playerIdentityId
+              );
+              continue;
+            }
+
+            // Check if link already exists
+            const existingLink = await ctx.db
+              .query("guardianPlayerLinks")
+              .withIndex("by_guardian_and_player", (q) =>
+                q
+                  .eq("guardianIdentityId", guardian?._id)
+                  .eq(
+                    "playerIdentityId",
+                    playerIdentityId as Id<"playerIdentities">
+                  )
+              )
+              .first();
+
+            if (existingLink) {
+              // Update existing link to acknowledged
+              await ctx.db.patch(existingLink._id, {
+                acknowledgedByParentAt: Date.now(),
+                consentedToSharing: args.consentToSharing,
+                status: "active",
+                declinedByUserId: undefined,
+                updatedAt: Date.now(),
+              });
+              playersLinked += 1;
+              continue;
+            }
+
+            // Determine if primary
+            const existingGuardians = await ctx.db
+              .query("guardianPlayerLinks")
+              .withIndex("by_player", (q) =>
+                q.eq(
+                  "playerIdentityId",
+                  playerIdentityId as Id<"playerIdentities">
+                )
+              )
+              .collect();
+            const shouldBePrimary = existingGuardians.length === 0;
+
+            // Create link - IMMEDIATELY ACKNOWLEDGED since user explicitly confirmed
+            await ctx.db.insert("guardianPlayerLinks", {
+              guardianIdentityId: guardian._id,
+              playerIdentityId: playerIdentityId as Id<"playerIdentities">,
+              relationship: "guardian",
+              isPrimary: shouldBePrimary,
+              hasParentalResponsibility: true,
+              canCollectFromTraining: true,
+              consentedToSharing: args.consentToSharing,
+              status: "active",
+              acknowledgedByParentAt: Date.now(), // User confirmed!
+              createdAt: Date.now(),
+              updatedAt: Date.now(),
+            });
+
+            playersLinked += 1;
+            console.log(
+              "[syncFunctionalRolesWithChildSelections] Linked player:",
+              playerIdentityId,
+              `(${playerIdentity.firstName} ${playerIdentity.lastName})`
+            );
+          } catch (error) {
+            console.error(
+              "[syncFunctionalRolesWithChildSelections] Error linking:",
+              playerIdentityId,
+              error
+            );
+          }
+        }
+
+        // 3b. Mark DECLINED players (user said "No, not mine")
+        for (const playerIdentityId of args.declinedPlayerIds) {
+          try {
+            // Check if link exists
+            const existingLink = await ctx.db
+              .query("guardianPlayerLinks")
+              .withIndex("by_guardian_and_player", (q) =>
+                q
+                  .eq("guardianIdentityId", guardian?._id)
+                  .eq(
+                    "playerIdentityId",
+                    playerIdentityId as Id<"playerIdentities">
+                  )
+              )
+              .first();
+
+            if (existingLink) {
+              // Mark as declined
+              await ctx.db.patch(existingLink._id, {
+                declinedByUserId: args.userId,
+                status: "declined",
+                updatedAt: Date.now(),
+              });
+            }
+            // If no existing link, nothing to decline - just skip
+
+            playersDeclined += 1;
+            console.log(
+              "[syncFunctionalRolesWithChildSelections] Declined player:",
+              playerIdentityId
+            );
+          } catch (error) {
+            console.error(
+              "[syncFunctionalRolesWithChildSelections] Error declining:",
+              playerIdentityId,
+              error
+            );
+          }
+        }
+
+        console.log(
+          "[syncFunctionalRolesWithChildSelections] Linked:",
+          playersLinked,
+          "Declined:",
+          playersDeclined
+        );
+      }
+    }
+
+    // Log the event
+    await ctx.runMutation(internal.models.members.logInvitationEvent, {
+      invitationId: args.invitationId,
+      organizationId: args.organizationId,
+      eventType: "accepted",
+      performedBy: args.userId,
+      performedByEmail: args.userEmail,
+      metadata: {
+        functionalRolesAssigned: suggestedRoles,
+        coachTeamsAssigned,
+        playersLinked,
+        playersDeclined,
+        childSelectionsUsed: true,
+      },
+    });
+
+    return {
+      success: true,
+      functionalRolesAssigned: suggestedRoles,
+      coachTeamsAssigned,
+      playersLinked,
+      playersDeclined,
+    };
+  },
+});
+
+/**
  * Switch active functional role for a member in an organization
  * Used by the OrgRoleSwitcher component to change which role the user is "using"
  */

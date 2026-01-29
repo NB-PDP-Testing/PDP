@@ -2219,8 +2219,15 @@ export const getCoachImpactSummary = query({
           const playerIdentity = await ctx.db.get(insight.playerIdentityId);
 
           // Parse previous and new values to create description
-          const prevValue = JSON.parse(insight.previousValue || "{}");
-          const newValue = JSON.parse(insight.newValue || "{}");
+          // Handle "none" case which is not valid JSON
+          const prevValue =
+            insight.previousValue === "none" || !insight.previousValue
+              ? {}
+              : JSON.parse(insight.previousValue);
+          const newValue =
+            insight.newValue === "none" || !insight.newValue
+              ? {}
+              : JSON.parse(insight.newValue);
           const skillName = newValue.skillName || "Unknown Skill";
           const description = `${skillName}: ${prevValue.rating || "?"} → ${newValue.rating || "?"}`;
 

@@ -1,14 +1,15 @@
 {
-  "project": "Convex Performance Fix - Phase 4: Frontend ChildCard Refactor",
+  "project": "Convex Performance Fix - Phase 5: Additional Optimizations",
   "branchName": "johnobr/fixconvex",
-  "description": "Day 4: Create bulk backend queries and refactor ChildCard component to eliminate 5 useQuery calls per child. Expected: 80% reduction in parent dashboard queries.",
+  "description": "Day 5: Additional optimizations to return to free tier - getCurrentUser caching, getPlayersForCoach server-side filtering, query skipping. Target: Return to <1M calls/month.",
   "readinessLevel": "100%",
   "prerequisitesCompleted": {
-    "status": "Depends on Phase 1-3",
+    "status": "Depends on Phase 1-4",
     "completedWork": [
       "Phase 1: Schema indexes added",
       "Phase 2: Backend N+1 patterns fixed",
-      "Phase 3: Filter violations fixed, production deployed"
+      "Phase 3: Filter violations fixed",
+      "Phase 4: Frontend ChildCard refactored"
     ],
     "documentationReferences": [
       "GitHub Issue #330 - Convex Performance Crisis",
@@ -16,125 +17,139 @@
     ]
   },
   "contextAndDependencies": {
-    "targetMetric": "80% reduction in parent dashboard queries (25 → 5 for 5 children)",
+    "targetMetric": "Return to FREE TIER (<1M calls/month)",
+    "currentEstimate": "After Phase 4: ~900K calls/month",
     "keyFiles": [
-      "packages/backend/convex/models/orgPlayerEnrollments.ts - Add getBulkChildData query",
-      "apps/web/src/app/orgs/[orgId]/parents/components/child-card.tsx - Lines 158-186",
-      "apps/web/src/app/orgs/[orgId]/parents/page.tsx - Query lifting"
+      "packages/backend/convex/models/users.ts - getCurrentUser caching",
+      "packages/backend/convex/models/orgPlayerEnrollments.ts - Add getPlayersForCoach",
+      "apps/web/src/app/orgs/[orgId]/coach/coach-dashboard.tsx - Use server-side filtering",
+      "apps/web/src/lib/auth-context.tsx - Cache user data"
     ],
     "criticalPatterns": {
-      "Query_Lifting": "Move queries from child components to parent, pass data as props",
-      "Bulk_Query": "Single query returns all data for multiple entities"
+      "React_Context_Caching": "Store fetched data in context to avoid re-fetching",
+      "Server_Side_Filtering": "Filter data on server, not client",
+      "Query_Skipping": "Don't query when data not needed or component unmounted"
     }
   },
   "userStories": [
     {
-      "id": "US-PERF-014",
-      "title": "Create getBulkChildData Backend Query",
-      "description": "Create a bulk query that fetches passport, injuries, goals, and medical profile for multiple children in one call.",
-      "phase": "Phase 4: Frontend",
+      "id": "US-PERF-018",
+      "title": "Cache getCurrentUser Results in Context",
+      "description": "Reduce getCurrentUser calls (132K) by caching user data in React context after first fetch.",
+      "phase": "Phase 5: Additional",
       "acceptanceCriteria": [
-        "Open packages/backend/convex/models/orgPlayerEnrollments.ts (or create new file)",
-        "Create new query: getBulkChildData",
-        "Args: { playerIdentityIds: v.array(v.id('playerIdentities')), organizationId: v.string() }",
-        "Returns: Map of playerIdentityId to child data object containing:",
-        "  - passport: SportPassport | null",
-        "  - activeInjuries: PlayerInjury[]",
-        "  - activeGoals: PassportGoal[]",
-        "  - medicalProfile: MedicalProfile | null",
-        "Use batch fetching pattern:",
-        "  1. Fetch all passports for playerIdentityIds in one query",
-        "  2. Fetch all injuries for playerIdentityIds in one query",
-        "  3. Fetch all goals for playerIdentityIds in one query",
-        "  4. Fetch all medical profiles in one query",
-        "Run: npx -w packages/backend convex codegen",
+        "Review current getCurrentUser usage patterns",
+        "Identify or create auth context (apps/web/src/lib/auth-context.tsx or similar)",
+        "Store user data in context after first fetch",
+        "Components read from context instead of calling getCurrentUser directly",
+        "Context refreshes on: login, logout, org switch",
         "Run: npm run check-types",
-        "Test in Convex dashboard with real playerIdentityIds"
+        "Run: npm run build",
+        "Test: Navigate multiple pages without full refresh, verify user data persists"
       ],
       "technicalNotes": {
-        "returnType": "v.record(v.string(), v.object({ passport: v.union(passportValidator, v.null()), activeInjuries: v.array(injuryValidator), activeGoals: v.array(goalValidator), medicalProfile: v.union(medicalProfileValidator, v.null()) }))",
-        "queryPattern": "For each data type, query by playerIdentityId index, collect all, then group by playerIdentityId in JS",
-        "performance": "4 queries total instead of 5 * N queries (where N = number of children)"
+        "currentPattern": "Multiple components each call useQuery(api.models.users.getCurrentUser, {})",
+        "newPattern": "AuthProvider wraps app, provides user from context. useAuth() hook returns cached user.",
+        "refreshTriggers": "Login, logout, organization switch should invalidate cache",
+        "expectedReduction": "75% reduction in getCurrentUser calls"
       },
       "priority": 1,
       "passes": true,
-      "notes": "This is the foundation query for the ChildCard refactor. Must be complete before UI changes."
+      "notes": "High impact - 132K calls from this single function. Context caching is common React pattern."
     },
     {
-      "id": "US-PERF-015",
-      "title": "Refactor Parent Dashboard to Use Bulk Query",
-      "description": "Modify parent dashboard page to fetch all children data at page level using getBulkChildData.",
-      "phase": "Phase 4: Frontend",
+      "id": "US-PERF-019",
+      "title": "Create getPlayersForCoach Backend Query",
+      "description": "Create server-side filtered query that returns only players assigned to coach's teams, not all org players.",
+      "phase": "Phase 5: Additional",
       "acceptanceCriteria": [
-        "Open apps/web/src/app/orgs/[orgId]/parents/page.tsx",
-        "Add useQuery call to getBulkChildData with all children's playerIdentityIds",
-        "Pass the bulk data to ChildCard components as props",
-        "Handle loading state at page level (single loading skeleton for all children)",
-        "Handle error state at page level",
+        "Open packages/backend/convex/models/orgPlayerEnrollments.ts",
+        "Create new query: getPlayersForCoach",
+        "Args: { coachId: v.string(), organizationId: v.string() }",
+        "Logic:",
+        "  1. Get coach's team assignments from coachAssignments table",
+        "  2. Get all teamPlayerIdentities for those teams",
+        "  3. Get player enrollments for those player identities",
+        "  4. Return only the assigned players (not all org players)",
+        "Run: npx -w packages/backend convex codegen",
         "Run: npm run check-types",
-        "Run: npm run build",
-        "Visual test: Parent dashboard loads all children together"
+        "Test: Query returns ~15 players for coach in org with 100 players"
       ],
       "technicalNotes": {
-        "currentPattern": "children.map(child => <ChildCard childId={child._id} />)",
-        "newPattern": "const bulkData = useQuery(api.models.orgPlayerEnrollments.getBulkChildData, { playerIdentityIds, organizationId }); children.map(child => <ChildCard childData={bulkData?.[child.playerIdentityId]} />)",
-        "loadingState": "if (bulkData === undefined) return <ParentDashboardSkeleton />"
+        "currentProblem": "Coach dashboard fetches ALL org players (100+) then filters to ~15 assigned",
+        "solution": "Query only returns the 15 assigned players from server",
+        "expectedReduction": "Significant data transfer reduction + fewer downstream queries"
       },
       "priority": 2,
       "passes": true,
-      "notes": "Depends on US-PERF-014. Query lifting pattern."
+      "notes": "Server-side filtering is always better than client-side when possible. Used existing getPlayersForCoachTeams query."
     },
     {
-      "id": "US-PERF-016",
-      "title": "Refactor ChildCard to Receive Props",
-      "description": "Modify ChildCard component to receive data as props instead of making 5 useQuery calls.",
-      "phase": "Phase 4: Frontend",
+      "id": "US-PERF-020",
+      "title": "Update Coach Dashboard to Use getPlayersForCoach",
+      "description": "Modify coach dashboard to use the new server-side filtered query.",
+      "phase": "Phase 5: Additional",
       "acceptanceCriteria": [
-        "Open apps/web/src/app/orgs/[orgId]/parents/components/child-card.tsx",
-        "Change props interface to receive pre-fetched data:",
-        "  - child: ChildEnrollment",
-        "  - passport: SportPassport | null",
-        "  - activeInjuries: PlayerInjury[]",
-        "  - activeGoals: PassportGoal[]",
-        "  - medicalProfile: MedicalProfile | null",
-        "Remove the 5 useQuery calls at lines 158-186",
-        "Use props directly instead of query results",
-        "Handle undefined/null cases appropriately",
+        "Open apps/web/src/app/orgs/[orgId]/coach/coach-dashboard.tsx",
+        "Replace getPlayersForOrg query with getPlayersForCoach",
+        "Remove client-side filtering logic",
+        "Verify only assigned players are displayed",
         "Run: npm run check-types",
         "Run: npm run build",
-        "Visual test: ChildCard displays all data correctly"
+        "Test: Login as coach, verify only assigned players show (not all org players)"
       ],
       "technicalNotes": {
-        "currentCode": "const passport = useQuery(api.models.sportPassports.getPassportForPlayer, {...}); const injuries = useQuery(api.models.playerInjuries.getActiveInjuriesForPlayer, {...}); // etc",
-        "newCode": "// Props: { child, passport, activeInjuries, activeGoals, medicalProfile } - use directly",
-        "location": "apps/web/src/app/orgs/[orgId]/parents/components/child-card.tsx lines 158-186"
+        "currentCode": "const allPlayers = useQuery(api.models.orgPlayerEnrollments.getPlayersForOrg, { organizationId }); const myPlayers = allPlayers?.filter(p => isAssignedToCoach(p));",
+        "newCode": "const myPlayers = useQuery(api.models.orgPlayerEnrollments.getPlayersForCoach, { coachId, organizationId });"
       },
       "priority": 3,
       "passes": true,
-      "notes": "Depends on US-PERF-015. This eliminates 5 useQuery calls per child."
+      "notes": "Depends on US-PERF-019. Updated to use getPlayersForCoachTeams with coachUserId parameter."
     },
     {
-      "id": "US-PERF-017",
-      "title": "Verify Parent Dashboard Performance",
-      "description": "Test and verify the refactored parent dashboard performs correctly with reduced queries.",
-      "phase": "Phase 4: Frontend",
+      "id": "US-PERF-021",
+      "title": "Add Query Skipping for Unmounted Components",
+      "description": "Ensure queries don't continue firing for components that are unmounted or not visible.",
+      "phase": "Phase 5: Additional",
       "acceptanceCriteria": [
-        "Login as parent with 1 child - verify displays correctly",
-        "Login as parent with 3+ children - verify all display correctly",
-        "Check that passport data, injuries, goals, medical profile all show",
-        "Check Convex logs: should see bulk queries, not 5 per child",
-        "Performance: Parent dashboard with 5 children should load in < 2 seconds",
-        "No visible loading states per child (all load together)",
-        "Compare data displayed to direct database queries - verify accuracy"
+        "Review key components for real-time subscriptions",
+        "Add proper cleanup in useEffect where needed",
+        "Consider adding enabled flags to useQuery based on component visibility",
+        "Review React DevTools subscription count during navigation",
+        "Run: npm run check-types",
+        "Run: npm run build",
+        "Test: Navigate away from pages and back, verify no zombie queries"
       ],
       "technicalNotes": {
-        "testAccounts": "Use existing parent test accounts or create new ones",
-        "convexLogs": "Check for getBulkChildData calls instead of individual getPassportForPlayer, getActiveInjuriesForPlayer, etc.",
-        "performance": "Should see dramatic reduction in Convex function calls on parent dashboard"
+        "convexBehavior": "Convex useQuery auto-subscribes. Subscriptions should auto-cleanup on unmount.",
+        "potentialIssues": "Multiple instances of same query, queries in hidden tabs/modals",
+        "solution": "Use enabled parameter: useQuery(api.query, args, { enabled: isVisible })"
       },
       "priority": 4,
       "passes": true,
-      "notes": "Verification story - ensure refactor works correctly before moving on"
+      "notes": "Lower priority - Convex handles cleanup well. Added skip conditions to tab-notification-provider and enhanced-user-menu."
+    },
+    {
+      "id": "US-PERF-022",
+      "title": "Deduplicate Redundant Queries via Context",
+      "description": "Identify and eliminate duplicate queries by sharing data via React context.",
+      "phase": "Phase 5: Additional",
+      "acceptanceCriteria": [
+        "Audit key pages for duplicate queries (same query called by multiple components)",
+        "Identify data that should be shared: current user, current org, member info",
+        "Extend auth context or create data context to share this data",
+        "Update components to read from context instead of querying directly",
+        "Run: npm run check-types",
+        "Run: npm run build",
+        "Test: Verify no duplicate queries in Convex logs"
+      ],
+      "technicalNotes": {
+        "commonDuplicates": "getCurrentUser, getCurrentOrganization, getCurrentMember called by multiple components on same page",
+        "solution": "Single query at layout level, shared via context to all children"
+      },
+      "priority": 5,
+      "passes": true,
+      "notes": "Created MembershipProvider to share getMembersForAllOrganizations across header components. Builds on US-PERF-018 CurrentUserProvider."
     }
   ],
   "qualityChecks": {
@@ -145,27 +160,26 @@
       "npm run check - Lint check"
     ],
     "testingStrategy": {
-      "US-PERF-014": "Test query in Convex dashboard with real data",
-      "US-PERF-015-016": "Visual test parent dashboard with various child counts",
-      "US-PERF-017": "Full regression test of parent dashboard functionality"
+      "US-PERF-018": "Navigate multiple pages, check Convex logs for getCurrentUser call frequency",
+      "US-PERF-019-020": "Login as coach, verify only assigned players show",
+      "US-PERF-021-022": "Use React DevTools to check subscription counts"
     }
   },
   "phaseCompletionCriteria": [
-    "getBulkChildData query created and working",
-    "Parent dashboard uses bulk query",
-    "ChildCard receives props instead of querying",
-    "All data displays correctly",
-    "Function calls for parent dashboard drop 80%",
-    "Type checks pass",
-    "Build passes"
+    "getCurrentUser calls reduced via context caching",
+    "getPlayersForCoach query created and used by coach dashboard",
+    "Query skipping reviewed and implemented where needed",
+    "Duplicate queries eliminated via context sharing",
+    "Function calls trending toward <1M/month trajectory"
   ],
   "expectedImpact": {
-    "callsReduced": "~200K calls saved",
-    "queryReduction": "25 queries → 5 queries for 5 children (80% reduction)"
+    "callsReduced": "~320K additional calls saved",
+    "totalReduction": "~620K calls saved (Phases 1-5)",
+    "projectedMonthly": "~800K calls/month (under free tier)"
   },
   "nextPhase": {
-    "name": "Phase 5: Additional Optimizations",
-    "file": "phase5-additional.prd.json",
-    "description": "getCurrentUser caching, getPlayersForCoach, query skipping"
+    "name": "Phase 6: Issue #324 Coordination",
+    "file": "phase6-issue324.prd.json",
+    "description": "Fix userId fallback patterns and voiceNotes field bug"
   }
 }

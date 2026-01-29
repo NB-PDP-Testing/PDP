@@ -531,7 +531,7 @@ export function UnifiedInvitationStep({
   // Desktop: Use AlertDialog
   return (
     <AlertDialog open>
-      <AlertDialogContent className="max-h-[90vh] max-w-2xl overflow-y-auto">
+      <AlertDialogContent className="max-h-[90vh] max-w-3xl overflow-y-auto">
         <AlertDialogHeader>
           <AlertDialogTitle className="text-2xl">{title}</AlertDialogTitle>
           <AlertDialogDescription className="pt-2 text-base">

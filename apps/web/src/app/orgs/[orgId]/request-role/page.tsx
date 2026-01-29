@@ -1,7 +1,7 @@
 "use client";
 
 import { api } from "@pdp/backend/convex/_generated/api";
-import { useMutation, useQuery } from "convex/react";
+import { useMutation } from "convex/react";
 import {
   ArrowLeft,
   Check,
@@ -14,6 +14,7 @@ import {
 } from "lucide-react";
 import { useParams, useRouter } from "next/navigation";
 import { useMemo, useState } from "react";
+import { toast } from "sonner";
 import { Button } from "@/components/ui/button";
 import {
   Card,
@@ -24,6 +25,7 @@ import {
 } from "@/components/ui/card";
 import { authClient } from "@/lib/auth-client";
 import { cn } from "@/lib/utils";
+import { useMembershipContext } from "@/providers/membership-provider";
 
 type FunctionalRole = "coach" | "parent" | "admin" | "player";
 
@@ -84,10 +86,8 @@ export default function RequestRolePage() {
 
   const { data: activeOrganization } = authClient.useActiveOrganization();
 
-  // Get membership data from Convex
-  const allMemberships = useQuery(
-    api.models.members.getMembersForAllOrganizations
-  );
+  // Get membership data from shared context
+  const { memberships: allMemberships } = useMembershipContext();
   const membership = allMemberships?.find((m) => m.organizationId === orgId);
 
   const requestFunctionalRole = useMutation(
@@ -137,7 +137,7 @@ export default function RequestRolePage() {
       setSelectedRole(null);
     } catch (error) {
       console.error("Error requesting role:", error);
-      alert(
+      toast.error(
         error instanceof Error ? error.message : "Failed to submit request"
       );
     } finally {
@@ -154,7 +154,7 @@ export default function RequestRolePage() {
       });
     } catch (error) {
       console.error("Error canceling request:", error);
-      alert(
+      toast.error(
         error instanceof Error ? error.message : "Failed to cancel request"
       );
     } finally {

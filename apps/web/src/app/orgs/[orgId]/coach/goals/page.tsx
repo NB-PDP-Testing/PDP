@@ -54,6 +54,8 @@ import {
   SelectValue,
 } from "@/components/ui/select";
 import { Textarea } from "@/components/ui/textarea";
+import { useCurrentUser } from "@/hooks/use-current-user";
+import { authClient } from "@/lib/auth-client";
 
 // Types
 type Goal = {
@@ -147,6 +149,11 @@ const formatCategory = (category: string) =>
 export default function GoalsDashboardPage() {
   const params = useParams();
   const orgId = params.orgId as string;
+  const currentUser = useCurrentUser();
+  const { data: session } = authClient.useSession();
+
+  // Fallback: use session user ID if Convex user query returns null
+  const userId = currentUser?._id || session?.user?.id;
 
   // State
   const [searchTerm, setSearchTerm] = useState("");
@@ -165,9 +172,10 @@ export default function GoalsDashboardPage() {
     organizationId: orgId,
   });
 
+  // Performance: Uses getPlayersForCoachTeams for server-side filtering
   const playersWithEnrollments = useQuery(
-    api.models.orgPlayerEnrollments.getPlayersForOrg,
-    { organizationId: orgId }
+    api.models.orgPlayerEnrollments.getPlayersForCoachTeams,
+    userId && orgId ? { organizationId: orgId, coachUserId: userId } : "skip"
   );
 
   const passports = useQuery(api.models.sportPassports.getPassportsForOrg, {

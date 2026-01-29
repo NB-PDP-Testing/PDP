@@ -30,6 +30,7 @@ import {
 } from "@/components/ui/dialog";
 import { AnalyticsEvents, useAnalytics } from "@/lib/analytics";
 import { authClient } from "@/lib/auth-client";
+import { AcceptInvitationStep } from "./accept-invitation-step";
 import { type ChildLink, ChildLinkingStep } from "./child-linking-step";
 import { OnboardingErrorBoundary } from "./error-boundary";
 import { GdprConsentStep } from "./gdpr-consent-step";
@@ -91,6 +92,27 @@ type ChildLinkingTaskData = {
   skipCount?: number; // Phase 6: How many times user has skipped (max 3)
 };
 
+// Type for accept_invitation task data
+type AcceptInvitationTaskData = {
+  invitations: Array<{
+    invitationId: string;
+    organizationId: string;
+    organizationName: string;
+    role: string;
+    functionalRoles: string[];
+    expiresAt: number;
+    playerLinks?: Array<{
+      id: string;
+      name: string;
+      ageGroup?: string;
+    }>;
+    teams?: Array<{
+      id: string;
+      name: string;
+    }>;
+  }>;
+};
+
 type OnboardingOrchestratorProps = {
   children: React.ReactNode;
 };
@@ -118,6 +140,17 @@ function OnboardingStepRenderer({
     }
 
     return <GdprConsentStep gdprVersion={gdprVersion} onAccept={onComplete} />;
+  }
+
+  // Handle accept_invitation task
+  if (task.type === "accept_invitation") {
+    const data = task.data as AcceptInvitationTaskData;
+    return (
+      <AcceptInvitationStep
+        invitations={data.invitations}
+        onComplete={onComplete}
+      />
+    );
   }
 
   // Handle guardian_claim task with BulkGuardianClaimDialog

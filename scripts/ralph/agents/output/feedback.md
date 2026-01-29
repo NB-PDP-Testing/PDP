@@ -1,136 +1,99 @@
 
-## Quality Monitor - 2026-01-27 21:51:07
+## Quality Monitor - 2026-01-29 20:59:50
 - ⚠️ Biome lint errors found
 
 
-## Quality Monitor - 2026-01-27 21:52:22
+## Quality Monitor - 2026-01-29 21:01:04
 - ⚠️ Biome lint errors found
 
 
-## Quality Monitor - 2026-01-27 21:53:39
+## Quality Monitor - 2026-01-29 21:02:18
 - ⚠️ Biome lint errors found
 
 
-## Quality Monitor - 2026-01-27 21:58:48
+## Documentation Update - 2026-01-29 21:02
+- ✅ Feature documentation generated: `docs/features/coach-impact-visibility-p8-week3.md`
+- Phase complete: P8 Week 3 - Navigation & Polish
+
+## Quality Monitor - 2026-01-29 21:03:40
 - ⚠️ Biome lint errors found
 
 
-## Quality Monitor - 2026-01-27 22:00:06
+## Quality Monitor - 2026-01-29 21:04:56
 - ⚠️ Biome lint errors found
 
 
-## Quality Monitor - 2026-01-27 22:01:36
-- ⚠️ Biome lint errors found
+## PRD Audit - US-P8-013 - 2026-01-29 21:03:59
+Perfect! Both tables have the required fields. Now let me create a comprehensive audit report:
 
+## **AUDIT REPORT: US-P8-013 - Add Source Badge to Skill Assessments in Passport**
 
-## Quality Monitor - 2026-01-27 22:02:53
-- ⚠️ Biome lint errors found
+### **Status: PARTIAL**
 
+---
 
-## Quality Monitor - 2026-01-27 22:04:19
-- ⚠️ Biome lint errors found
+### **Acceptance Criteria Assessment**
 
+| Criteria | Status | Evidence |
+|----------|--------|----------|
+| ✅ Schema has 'source' and 'voiceNoteId' fields | **PASS** | `skillAssessments` table has both fields (schema.ts:549-550) |
+| ❌ Component `skill-assessment-display.tsx` exists | **FAIL** | Component does not exist in codebase |
+| ❌ Badge shown for voice_note source | **NOT IMPLEMENTED** | No code displays skill assessment badges |
+| ❌ Badge includes mic icon and date | **NOT IMPLEMENTED** | No badge implementation found |
+| ❌ Badge links to voice notes | **NOT IMPLEMENTED** | No navigation implemented |
+| ✅ Type check passes | **PASS** | `npm run check-types` passes |
 
-## PRD Audit - US-P8-023 - 2026-01-27 22:04:25
-## AUDIT RESULT: **PARTIAL**
+---
 
-### What's Implemented ✅
+### **Key Findings**
 
-1. **Page exists** (but at different path):
-   - Required: `apps/web/src/app/orgs/[orgId]/settings/features/page.tsx`
-   - Actual: `apps/web/src/app/orgs/[orgId]/admin/settings/features/page.tsx`
+**1. Schema Requirements Met**
+- ✅ `skillAssessments` table has `source` field (line 549)
+- ✅ `skillAssessments` table has `voiceNoteId` field (line 550)
+- ✅ `playerInjuries` table also has both fields (lines 807-808)
 
-2. **Complete page structure** (apps/web/src/app/orgs/[orgId]/admin/settings/features/page.tsx:158-543):
-   - Header with "Voice Notes Features" title ✅
-   - Current Status Card with all 3 badges ✅
-   - Admin Blanket Override Card (conditional on allowAdminDelegation) ✅
-   - Overview Stats Card with all 4 metrics ✅
-   - Individual Coach Overrides Table (conditional on allowCoachOverrides) ✅
-   - Pending Override Requests Section (conditional on allowCoachOverrides) ✅
+**2. Critical Gap: Missing Component Architecture**
+- ❌ File `skill-assessment-display.tsx` **does not exist**
+- ❌ Current `skills-section.tsx` shows **aggregated skills** (`Record<string, number>`), NOT individual `skillAssessments` records
+- ❌ Passport page doesn't display individual skill assessment history with source tracking
 
-3. **Backend queries used correctly**:
-   - `getOrgFeatureFlagStatus` ✅ (line 48-51)
-   - `getCoachOverrideRequests` ✅ (line 54-57)
+**3. Alternative Implementation Exists**
+- The `VoiceInsightsSectionImproved` component provides partial functionality:
+  - Shows insights by category (skills, injuries, etc.)
+  - Includes "View in Voice Notes" button (line 306-309)
+  - Does NOT show source badges on individual skill assessments
+  - Works at the **insight level**, not the **assessment record level**
 
-4. **All mutations implemented**:
-   - `setAdminBlanketOverride` ✅ (line 60-62, handler at 96-119)
-   - `revokeCoachOverride` ✅ (line 63-65, handler at 121-132)
-   - `reviewCoachOverrideRequest` ✅ (line 66-68, handler at 134-156)
+**4. Architectural Mismatch**
+- PRD assumes passport displays **individual skill assessment records** with timestamps
+- Current implementation shows **current skill ratings** without assessment history
+- No UI exists to display skill assessment timeline/history
 
-5. **Auth guard**: Implemented in parent layout at /orgs/[orgId]/admin/layout.tsx:38-77 ✅
+---
 
-6. **Navigation link**: Found in admin-sidebar.tsx:191 ✅
+### **What's Missing**
 
-7. **Type check passes**: ✅ (confirmed by npm run check-types output)
+To properly implement US-P8-013, the following is required:
 
-### What's Missing ❌
+1. **Create assessment history display** - Component to show list of skill assessments over time
+2. **Add source badges** - Visual indicator with mic icon when `source === 'voice_note'`
+3. **Implement navigation** - Link to voice notes page with `?noteId=X` param
+4. **Integrate into passport** - Add assessment history section to player passport page
 
-1. **Trust Level column**: Individual Coach Overrides Table (line 344-397) does NOT include a "Trust Level" column showing badge with 0/1/2+ - only shows Coach Name, Override Status, Reason, Granted By, Granted At, Expires At, Actions
+---
 
-2. **Trust Level display in Pending Requests**: Pending Requests table (line 412-463) does NOT show Trust Level column - only shows Coach Name, Reason, Requested At, Actions
+### **Conclusion**
 
-### Summary
+**Status: PARTIAL** - Schema is ready, but UI implementation is missing.
 
-The story is **substantially complete** but missing the Trust Level display in both tables. This is a minor gap - the core functionality works, but the acceptance criteria explicitly required showing trust levels to give admins context when reviewing overrides.
+The story is marked as complete in `prd.json` with justification that `VoiceInsightsSection` provides "equivalent functionality," but this is **not accurate**:
 
-**Recommendation**: Add trustLevel field to the query responses and display as badges (0/1/2+) in both tables.
+- VoiceInsightsSection shows **insights** (coach observations)
+- US-P8-013 requires **skill assessment badges** (specific rating changes)
+- These are different data structures and user needs
 
-## Quality Monitor - 2026-01-27 22:05:37
-- ⚠️ Biome lint errors found
+**Recommendation**: Either implement the full feature as specified, or update the PRD to reflect that skill assessment source badges are deferred in favor of the existing Voice Insights section.
 
-
-## Quality Monitor - 2026-01-27 22:06:51
-- ⚠️ Biome lint errors found
-
-
-## Quality Monitor - 2026-01-27 22:08:04
-- ⚠️ Biome lint errors found
-
-
-## Quality Monitor - 2026-01-27 22:09:16
-- ⚠️ Biome lint errors found
-
-
-## Quality Monitor - 2026-01-27 22:10:28
-- ⚠️ Biome lint errors found
-
-
-## Quality Monitor - 2026-01-27 22:11:41
-- ⚠️ Biome lint errors found
-
-
-## Quality Monitor - 2026-01-27 22:12:53
-- ⚠️ Biome lint errors found
-
-
-## Quality Monitor - 2026-01-27 22:14:05
-- ⚠️ Biome lint errors found
-
-
-## Quality Monitor - 2026-01-27 22:15:18
-- ⚠️ Biome lint errors found
-
-
-## Quality Monitor - 2026-01-27 22:16:30
-- ⚠️ Biome lint errors found
-
-
-## Quality Monitor - 2026-01-27 22:17:43
-- ⚠️ Biome lint errors found
-
-
-## Quality Monitor - 2026-01-27 22:18:57
-- ⚠️ Biome lint errors found
-
-
-## Quality Monitor - 2026-01-27 22:20:13
-- ⚠️ Biome lint errors found
-
-
-## Quality Monitor - 2026-01-27 22:22:43
-- ⚠️ Biome lint errors found
-
-
-## Quality Monitor - 2026-01-27 22:24:49
+## Quality Monitor - 2026-01-29 21:06:10
 - ⚠️ Biome lint errors found
 

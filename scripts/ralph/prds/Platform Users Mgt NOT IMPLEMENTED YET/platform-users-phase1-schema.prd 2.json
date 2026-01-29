@@ -1,0 +1,81 @@
+{
+  "projectName": "Platform Staff User Management - Phase 1: Schema Foundation",
+  "branchName": "ralph/platform-users-phase1",
+  "description": "Add all schema tables required for platform staff user management. This phase creates the data foundation for all subsequent phases.",
+  "planReference": "/Users/neil/.claude/plans/starry-yawning-crane.md",
+  "verificationSteps": [
+    "Run: npx -w packages/backend convex codegen",
+    "Check Convex dashboard for new tables",
+    "Verify all indexes created"
+  ],
+  "userStories": [
+    {
+      "id": "US-001",
+      "title": "Add userSessions schema table for session tracking",
+      "priority": 1,
+      "passes": false,
+      "acceptanceCriteria": [
+        "Add userSessions table to schema.ts with fields: userId, sessionId, deviceType (union), browser, browserVersion, os, osVersion, ipAddress, location, userAgent, createdAt, lastActiveAt, endedAt, endedReason (union), isActive",
+        "Add indexes: by_userId, by_userId_and_active, by_lastActive, by_sessionId",
+        "Run convex codegen to verify schema compiles"
+      ]
+    },
+    {
+      "id": "US-002",
+      "title": "Add userActivityLog schema table for activity tracking",
+      "priority": 2,
+      "passes": false,
+      "acceptanceCriteria": [
+        "Add userActivityLog table with fields: userId, organizationId (optional), activityType (union of login, logout, page_view, voice_note_created, voice_note_viewed, assessment_created, player_viewed, team_accessed, settings_changed, invitation_sent, flow_completed), resourceType, resourceId, metadata, timestamp",
+        "Add indexes: by_userId, by_userId_and_type, by_userId_and_timestamp, by_orgId, by_timestamp",
+        "Run convex codegen to verify schema compiles"
+      ]
+    },
+    {
+      "id": "US-003",
+      "title": "Add impersonationSessions schema table",
+      "priority": 3,
+      "passes": false,
+      "acceptanceCriteria": [
+        "Add impersonationSessions table with fields: staffUserId, staffEmail, staffName, targetUserId, targetEmail, targetName, startedAt, expiresAt, endedAt, endedReason (union: manual, expired, forced), status (union: active, expired, ended), reason, pagesViewed (optional array)",
+        "Add indexes: by_staffUser, by_targetUser, by_status, by_expiresAt",
+        "Run convex codegen to verify schema compiles"
+      ]
+    },
+    {
+      "id": "US-004",
+      "title": "Add platformStaffApprovalRequests schema table",
+      "priority": 4,
+      "passes": false,
+      "acceptanceCriteria": [
+        "Add table with fields: requestedBy, requestedByEmail, requestedByName, actionType (union: suspend_user, unsuspend_user, delete_user, bulk_suspend, bulk_delete), targetUserId (optional), targetUserIds (optional array), targetUserEmail, targetUserEmails, organizationId, reason, additionalNotes, status (union: pending, approved, rejected, expired, cancelled), reviewedBy, reviewedByEmail, reviewedByName, reviewedAt, reviewNotes, executedAt, executionResult, executionDetails, createdAt, expiresAt",
+        "Add indexes: by_status, by_requestedBy, by_targetUser, by_actionType, by_createdAt, by_expiresAt",
+        "Run convex codegen to verify schema compiles"
+      ]
+    },
+    {
+      "id": "US-005",
+      "title": "Add platformStaffAuditLog schema table",
+      "priority": 5,
+      "passes": false,
+      "acceptanceCriteria": [
+        "Add table with fields: performedBy, performedByEmail, performedByName, targetUserId, targetUserEmail, targetUserName, targetUserIds (optional array), action (union of ~20 action types from plan), organizationId, organizationName, reason, beforeSnapshot, afterSnapshot, approvalRequestId, impersonationSessionId, ipAddress, userAgent, timestamp, isArchived, archivedAt",
+        "Add indexes: by_performedBy, by_targetUserId, by_action, by_timestamp, by_target_and_timestamp, by_isArchived",
+        "Run convex codegen to verify schema compiles"
+      ]
+    },
+    {
+      "id": "US-006",
+      "title": "Add platformErrorLog and platformUserNotifications schema tables",
+      "priority": 6,
+      "passes": false,
+      "acceptanceCriteria": [
+        "Add platformErrorLog table with fields: userId, userEmail, organizationId, errorType, errorCode, errorMessage, stackTrace, route, action, requestPayload, browser, os, deviceType, severity (union: info, warning, error, critical), isResolved, resolvedBy, resolvedAt, resolutionNotes, timestamp",
+        "Add platformErrorLog indexes: by_userId, by_timestamp, by_severity, by_errorType, by_isResolved",
+        "Add platformUserNotifications table with fields: userId, userEmail, notificationType (union: profile_updated, account_suspended, account_unsuspended, org_access_suspended, org_access_restored, password_reset_by_admin, account_deleted_notice), changedBy, changedByEmail, subject, body, reason, organizationId, organizationName, emailSent, emailSentAt, emailError, createdAt",
+        "Add platformUserNotifications indexes: by_userId, by_createdAt, by_emailSent",
+        "Run convex codegen to verify schema compiles"
+      ]
+    }
+  ]
+}

@@ -1,0 +1,311 @@
+# Ralph Progress Log - P8 Week 3 (Navigation & Polish)
+Started: Wed 29 Jan 2026
+Branch: ralph/coach-impact-visibility-p8-week3
+Stories: US-P8-012 to US-P8-020 (9 stories)
+---
+
+## PREREQUISITES VERIFIED ✅
+
+### Week 1 Complete (4 stories)
+- US-P8-001: getCoachImpactSummary backend query ✅
+- US-P8-003: my-impact-tab.tsx skeleton ✅
+- US-P8-004: My Impact tab navigation ✅
+
+### Week 1.5 Complete (10 stories)
+- Trust gate system with 8-priority access logic ✅
+- Coach self-service toggle, admin controls ✅
+- Platform staff feature flags UI ✅
+
+### Week 2 Complete (7 stories)
+- US-P8-005: Impact summary cards ✅
+- US-P8-006: Sent summaries section ✅
+- US-P8-007: Applied insights section ✅
+- US-P8-008: Date range filtering ✅
+- US-P8-009: Team observations section ✅
+- US-P8-010: Search in applied insights ✅
+- US-P8-011: Category filters ✅
+
+---
+
+## CRITICAL LEARNINGS FROM WEEK 2 ⚠️
+
+### 1. Type Safety (CRITICAL)
+- ❌ Ralph used `string` for IDs → caused type errors
+- ✅ Always use `Id<"tableName">` from `@pdp/backend/convex/_generated/dataModel`
+- Example:
+  ```typescript
+  import type { Id } from "@pdp/backend/convex/_generated/dataModel";
+
+  type SkillChange = {
+    playerIdentityId: Id<"playerIdentities">;  // ✅ CORRECT
+    voiceNoteId: Id<"voiceNotes">;             // ✅ CORRECT
+    // NOT string ❌
+  };
+  ```
+
+### 2. Interface vs Type (CRITICAL)
+- ❌ Ralph used `interface` → failed Biome lint
+- ✅ Always use `type` not `interface`
+- Biome rule: "Use of the interface detected. The codebase should use a consistent coding style"
+- Example:
+  ```typescript
+  // ❌ WRONG
+  interface MyComponentProps {
+    data: SomeType;
+  }
+
+  // ✅ CORRECT
+  type MyComponentProps = {
+    data: SomeType;
+  };
+  ```
+
+### 3. Match Backend Field Names Exactly (CRITICAL)
+- ❌ Ralph guessed field names → type mismatches
+- ❌ Ralph used `appliedAt` but backend returned `recordedAt` for injuries
+- ✅ ALWAYS read backend query return validator FIRST
+- Example:
+  ```typescript
+  // Backend query in voiceNotes.ts returns:
+  returns: v.object({
+    recordedAt: v.number(),  // ← Check this FIRST
+  })
+
+  // Frontend type must match exactly:
+  type Injury = {
+    recordedAt: number;  // ✅ CORRECT (matches backend)
+    // NOT appliedAt ❌
+  };
+  ```
+
+### 4. Better Auth Integration (CRITICAL)
+- ❌ DO NOT query organization/team/member/user tables directly
+- ✅ Use Better Auth adapter for these tables
+- Example:
+  ```typescript
+  import { components } from "../_generated/api";
+
+  // ❌ WRONG - Direct query causes sync issues
+  const org = await ctx.db
+    .query("organization")
+    .withIndex("by_id", q => q.eq("_id", orgId))
+    .first();
+
+  // ✅ CORRECT - Use Better Auth adapter
+  const orgs = await ctx.runQuery(components.betterAuth.adapter.findMany, {
+    input: {
+      model: "organization",
+      where: [{ field: "_id", value: orgId, operator: "eq" }],
+    },
+  });
+  const org = orgs[0];
+  ```
+
+**Which Tables Use Better Auth?**
+- `user` ✅ Use Better Auth component
+- `organization` ✅ Use Better Auth component
+- `member` ✅ Use Better Auth component
+- `team` ✅ Use Better Auth component
+- `invitation` ✅ Use Better Auth component
+
+**Which Tables Use Regular Convex?**
+- `voiceNotes` ✅ Regular Convex queries
+- `coachParentSummaries` ✅ Regular Convex queries
+- `skillAssessments` ✅ Regular Convex queries
+- `playerInjuries` ✅ Regular Convex queries
+- ALL other application tables ✅ Regular Convex queries
+
+### 5. Recharts Library
+- ✅ Already available in project - no installation needed
+- Import: `import { LineChart, Line, XAxis, YAxis, Tooltip, ResponsiveContainer } from "recharts";`
+- ✅ Always wrap in ResponsiveContainer for mobile
+
+### 6. CSV Export
+- ⚠️ Escape commas: `description.replace(/,/g, ';')`
+- Prevents CSV corruption when data contains commas
+
+### 7. Responsive Design
+- ✅ Grid pattern: `grid-cols-1 md:grid-cols-2 lg:grid-cols-4`
+- ✅ Always wrap charts in ResponsiveContainer
+
+### 8. Database Design (from Week 1.5)
+- ✅ Use `.optional()` for new fields - no migration needed
+- ✅ Conservative defaults (e.g., adminBlanketBlock: false)
+- ✅ Backwards compatible design
+- Example:
+  ```typescript
+  organization: defineTable({
+    // Existing fields...
+    adminBlanketBlock: v.optional(v.boolean()),  // ✅ Optional, safe default
+    adminBlanketBlockSetAt: v.optional(v.number()),
+  })
+  ```
+
+### 9. Component Patterns (from Week 1 & 1.5)
+- ✅ Reuse shadcn/ui components (Card, Button, Badge, etc.)
+- ✅ Toast notifications for user feedback: `toast.success()`, `toast.error()`
+- ✅ Confirmation dialogs for destructive actions
+- ✅ Consistent patterns across all UIs (platform, admin, coach)
+
+### 10. Development Best Practices (from Week 1.5)
+- ⚠️ Test as you go - don't wait until all stories complete
+- ⚠️ Update documentation incrementally after each story
+- ⚠️ Run type check after EACH story: `npm run check-types`
+- ⚠️ Commit frequently with clear messages
+- ✅ Component reuse: Look for reusable patterns early
+
+---
+
+## WEEK 3 IMPLEMENTATION PLAN
+
+### Phase 1: Schema Check & Backend (30 min) ⚠️ START HERE
+**CRITICAL FIRST STEP**:
+- [ ] Check if `skillAssessments` has `source` and `voiceNoteId` fields
+- [ ] Check if `playerInjuries` has `source` and `voiceNoteId` fields
+- [ ] If missing: Add to schema, run codegen, THEN proceed
+- [ ] If exists: Proceed to extend getCoachImpactSummary
+
+**Extend getCoachImpactSummary**:
+- [ ] Add `parentEngagement` array (group by guardian, calculate view rates)
+- [ ] Add `weeklyTrends` array (last 4 weeks, sent vs viewed)
+- [ ] Add `previousPeriodStats` object (shifted date range)
+- [ ] Run codegen: `npx -w packages/backend convex codegen`
+- [ ] Type check: `npm run check-types`
+
+### Phase 2: Navigation Links (1 hour)
+- [ ] US-P8-012: Add "View in Passport" links to insight cards
+  - File: `applied-insights-section.tsx`
+  - Link format: `/orgs/${orgId}/players/${playerIdentityId}/passport?tab=skills`
+- [ ] US-P8-013: Add source badge to skill assessments (if schema OK)
+  - File: `skill-assessment-display.tsx`
+  - Show only if `source === 'voice_note' AND voiceNoteId exists`
+- [ ] US-P8-014: Add source badge to injury records (if schema OK)
+  - File: `injury-record-display.tsx`
+  - Same pattern as skills
+- [ ] Type check after each story
+
+### Phase 3: Deep Linking (45 min)
+- [ ] US-P8-015: Implement voice note deep linking
+  - File: `voice-notes-dashboard.tsx` - Handle `?noteId=X` with useSearchParams
+  - File: `history-tab.tsx` - Scroll + highlight animation
+  - Highlight classes: `ring-2 ring-primary ring-offset-2`
+  - Remove highlight after 2 seconds with setTimeout
+  - Clean up timeout in useEffect return
+- [ ] Type check
+
+### Phase 4: Analytics & Export (1.5 hours)
+- [ ] US-P8-016: Add least engaged parents section
+  - File: `my-impact-tab.tsx`
+  - Show bottom 5 parents sorted by view rate
+  - Color coding: Red (<30%), Yellow (30-60%), Green (>60%)
+- [ ] US-P8-017: Add engagement trends chart
+  - File: `my-impact-tab.tsx`
+  - LineChart with ResponsiveContainer
+  - Two lines: sent (blue), viewed (green)
+- [ ] US-P8-019: Add comparison indicators
+  - File: `impact-summary-cards.tsx`
+  - Display: "+3 vs last month" with green/red/gray
+- [ ] US-P8-018: Add CSV export
+  - File: `my-impact-tab.tsx`
+  - Escape commas: `description.replace(/,/g, ';')`
+  - Filename: `applied-insights-[coach-name]-[date].csv`
+- [ ] Type check
+
+### Phase 5: Polish (30 min)
+- [ ] US-P8-020: Add loading skeleton
+  - File: `my-impact-tab.tsx`
+  - Check `if (impactData === undefined)` at top
+  - Return skeleton: 4 card skeletons + section skeletons
+- [ ] Visual review: Test all sections
+- [ ] Run linter: `npx ultracite fix`
+
+### Phase 6: Testing & Documentation (30 min)
+- [ ] Create `P8_WEEK3_TESTING_GUIDE.md`
+- [ ] Test all navigation flows manually
+- [ ] Update session history
+- [ ] Create `P8_WEEK3_CHECKPOINT.md`
+
+---
+
+## TESTING CHECKLIST
+
+- [ ] TC-W3-001: View in Passport links navigate to correct tabs
+- [ ] TC-W3-002: Source badges show for voice note skills/injuries only
+- [ ] TC-W3-003: Deep linking scrolls + highlights for 2 seconds
+- [ ] TC-W3-004: Parent engagement shows bottom 5 with color coding
+- [ ] TC-W3-005: Trends chart shows 4 weeks, responsive, tooltip
+- [ ] TC-W3-006: CSV exports with correct columns
+- [ ] TC-W3-007: Previous period comparisons show with colors
+- [ ] TC-W3-008: Loading skeleton shows before data loads
+- [ ] Type check passes: `npm run check-types`
+- [ ] Linting passes: `npx ultracite fix`
+
+---
+
+## PROGRESS TRACKING
+
+### Story Status
+- [ ] US-P8-012: "View in Passport" links (0.5h)
+- [ ] US-P8-013: Source badges on skills (0.75h)
+- [ ] US-P8-014: Source badges on injuries (0.75h)
+- [ ] US-P8-015: Deep linking with highlight (1.0h)
+- [ ] US-P8-016: Least engaged parents (1.5h)
+- [ ] US-P8-017: Engagement trends chart (1.0h)
+- [ ] US-P8-018: CSV export (0.75h)
+- [ ] US-P8-019: Previous period comparisons (1.0h)
+- [ ] US-P8-020: Loading skeleton (0.5h)
+
+### Files Modified/Created
+Backend:
+- [ ] `packages/backend/convex/schema.ts` (check/add fields)
+- [ ] `packages/backend/convex/models/voiceNotes.ts` (extend query)
+
+Frontend:
+- [ ] `applied-insights-section.tsx` (links)
+- [ ] `my-impact-tab.tsx` (engagement, trends, export, skeleton)
+- [ ] `impact-summary-cards.tsx` (comparisons)
+- [ ] `voice-notes-dashboard.tsx` (query param)
+- [ ] `history-tab.tsx` (scroll + highlight)
+- [ ] `skill-assessment-display.tsx` (source badge)
+- [ ] `injury-record-display.tsx` (source badge)
+
+Documentation:
+- [ ] `P8_WEEK3_TESTING_GUIDE.md`
+- [ ] `P8_WEEK3_CHECKPOINT.md`
+
+---
+
+## QUALITY GATES
+
+Before each commit:
+- [ ] npm run check-types - MUST pass
+- [ ] npx ultracite fix - MUST pass
+- [ ] Visual verification in browser
+
+Before final commit:
+- [ ] All 9 stories complete
+- [ ] All 8 test cases pass
+- [ ] Documentation created
+- [ ] Session history updated
+
+---
+
+## COMPLETION CRITERIA
+
+Week 3 is COMPLETE when:
+✅ All 9 user stories implemented
+✅ Bi-directional navigation works (insights ↔ passport ↔ voice notes)
+✅ Source badges show on skills/injuries in passport
+✅ Deep linking scrolls to note + highlights
+✅ Parent engagement analytics visible
+✅ CSV export works with proper formatting
+✅ Previous period comparisons display
+✅ Loading skeleton shows
+✅ Type checking passes
+✅ Linting passes
+✅ All test cases pass
+✅ Visual verification complete
+
+---
+
+Ready to start! Follow Phase 1 (Schema Check) first. ⚠️

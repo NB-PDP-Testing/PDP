@@ -225,7 +225,8 @@
         "Red ↓ for decreases (diff < 0)",
         "Gray = for no change (diff === 0)",
         "Type check passes"
-      ]
+      ],
+      "passes": true
     },
     {
       "id": "US-P8-020",

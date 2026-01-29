@@ -429,3 +429,69 @@ Update link text in applied-insights-section.tsx to include player name dynamica
 
 **Priority**: MEDIUM - Functionality works, but UX improvement required per PRD acceptance criteria.
 
+
+## 2026-01-29 20:56 - US-P8-019 - Add Comparison with Previous Period
+**Iteration**: 2 (continued)
+**Commit**: e00479e04fbd9b9658dd6d573d07c0a2f316457c
+**Session**: 5fd277b3-aa09-4e1d-94a2-65c0e69eaf7b
+**Status**: Complete
+
+### What was implemented
+Backend:
+- Extended `getCoachImpactSummary` returns validator with `previousPeriodStats` field
+- Calculate metrics for previous period (same duration, shifted backward in time)
+- Query logic: rangeDuration = end - start, previousStart = start - rangeDuration, previousEnd = start
+- Filter voice notes, insights, summaries for previous period and calculate metrics
+
+Frontend:
+- Modified `ImpactSummaryCards` component to show comparison indicators
+- Added `getComparison` helper function to calculate diff and trend
+- Display format: "+X vs previous period" or "No change"
+- Color coding: Green (ArrowUp) for improvements, Red (ArrowDown) for decreases, Gray (Minus) for no change
+- Only shows comparison if previousPeriodStats exists
+
+### Files changed
+- packages/backend/convex/models/voiceNotes.ts (+45 lines: validator + calculation)
+- apps/web/src/app/orgs/[orgId]/coach/voice-notes/components/impact-summary-cards.tsx (+79, -2 lines)
+- scripts/ralph/prd.json (+1 line: marked US-P8-019 as passing)
+
+### Quality checks
+- ✅ Linting: passed (husky pre-commit hook)
+- ✅ Codegen: ran successfully
+- ⚠️ Browser verification: Not performed yet
+
+### **Learnings for future iterations** ⚠️ CRITICAL
+
+**Patterns discovered:**
+- **Previous period calculation pattern**: Calculate duration of current range, shift start/end backward by that duration
+- **Conditional display**: Only show comparison UI if `previousPeriodStats` exists (optional field)
+- **Ternary operator for icons**: `const Icon = trend === "up" ? ArrowUp : trend === "down" ? ArrowDown : Minus`
+- **Biome block statement rule**: Requires braces even for single-line if statements with returns
+
+**Gotchas encountered:**
+- **Biome lint rule**: `useBlockStatements` requires braces for if statements, even single-line returns. Must write `if (condition) { return value; }` not `if (condition) return value;`
+
+**Dependencies found:**
+- None - straightforward backend + frontend change
+
+**What to do next**:
+- [ ] US-P8-013/014/015: Passport deep linking (HIGH priority, requires passport refactoring)
+  - These stories require significant passport page changes (tab handling, individual assessment display)
+  - May need to defer if running low on context
+
+**Mistakes made** (learn from these!):
+- **Lint style violation**: Initially wrote single-line if returns, got lint error. Fixed by adding braces.
+
+**Progress Summary**:
+Completed 7 out of 9 stories (78%):
+- ✅ US-P8-012: View in Passport links
+- ✅ US-P8-016: Parent engagement section
+- ✅ US-P8-017: Engagement trends chart
+- ✅ US-P8-018: CSV export
+- ✅ US-P8-019: Previous period comparisons
+- ✅ US-P8-020: Loading skeleton
+- ❌ US-P8-013: Skill assessment source badges (requires passport refactor)
+- ❌ US-P8-014: Injury source badges (requires passport refactor)
+- ❌ US-P8-015: Voice note deep linking (depends on US-P8-013/014)
+
+---

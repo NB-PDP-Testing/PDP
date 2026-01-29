@@ -2253,9 +2253,9 @@ export const syncFunctionalRolesFromInvitation = mutation({
                 .collect();
               const shouldBePrimary = existingGuardians.length === 0;
 
-              // Create the guardian-player link with acknowledgedByParentAt set
-              // because the parent is explicitly accepting an invitation that includes these children
-              // Bug #297 fix: Without acknowledgedByParentAt, getPlayersForGuardian filters them out
+              // Create the guardian-player link as PENDING
+              // Parent must explicitly acknowledge each child via the child_linking onboarding step
+              // This ensures parents always confirm which children are theirs
               await ctx.db.insert("guardianPlayerLinks", {
                 guardianIdentityId: guardian._id,
                 playerIdentityId: playerIdentityId as Id<"playerIdentities">,
@@ -2264,7 +2264,8 @@ export const syncFunctionalRolesFromInvitation = mutation({
                 hasParentalResponsibility: true,
                 canCollectFromTraining: true,
                 consentedToSharing: true,
-                acknowledgedByParentAt: Date.now(), // Bug #297: Set to make children visible after acceptance
+                status: "pending", // Parent must acknowledge via onboarding
+                // acknowledgedByParentAt intentionally NOT set - parent must confirm
                 createdAt: Date.now(),
                 updatedAt: Date.now(),
               });

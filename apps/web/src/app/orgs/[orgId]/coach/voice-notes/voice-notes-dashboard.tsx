@@ -18,7 +18,7 @@ import {
   Send,
   Users,
 } from "lucide-react";
-import { useParams, useRouter } from "next/navigation";
+import { useParams, useRouter, useSearchParams } from "next/navigation";
 import { useEffect, useMemo, useState } from "react";
 import { toast } from "sonner";
 import { DegradationBanner } from "@/components/coach/degradation-banner";
@@ -71,11 +71,15 @@ type TabId =
 export function VoiceNotesDashboard() {
   const params = useParams();
   const router = useRouter();
+  const searchParams = useSearchParams();
   const orgId = params.orgId as BetterAuthId<"organization">;
   const { data: session } = useSession();
 
   // Get coach ID from session (use id as fallback if userId is null)
   const coachId = session?.user?.userId || session?.user?.id;
+
+  // Check for deep link noteId parameter
+  const noteIdParam = searchParams.get("noteId");
 
   const [activeTab, setActiveTab] = useState<TabId>("new");
   const [successMessage, setSuccessMessage] = useState<string | null>(null);
@@ -418,6 +422,13 @@ export function VoiceNotesDashboard() {
     }
   }, [tabs, activeTab]);
 
+  // US-P8-015: Auto-switch to History tab when deep linking to a specific note
+  useEffect(() => {
+    if (noteIdParam && activeTab !== "history") {
+      setActiveTab("history");
+    }
+  }, [noteIdParam, activeTab]);
+
   return (
     <div className="flex min-h-[calc(100vh-4rem)] flex-col">
       {/* Header */}
@@ -699,6 +710,7 @@ export function VoiceNotesDashboard() {
         )}
         {activeTab === "history" && (
           <HistoryTab
+            highlightNoteId={noteIdParam || undefined}
             onError={showErrorMessage}
             onSuccess={showSuccessMessage}
             orgId={orgId}

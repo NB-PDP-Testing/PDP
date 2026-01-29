@@ -75,7 +75,11 @@ const insightSchema = z.object({
   insights: z
     .array(
       z.object({
-        title: z.string().describe("A short title for the insight"),
+        title: z
+          .string()
+          .describe(
+            "A short title for the insight. For player-specific insights, MUST include player name in format: '{Player Name}'s {Skill/Topic} {Action}'. Examples: 'Niamh's Tackling Improvement', 'Sinead's Tackling Skill Rating'"
+          ),
         description: z.string().describe("Detailed description of the insight"),
         playerName: z
           .string()
@@ -432,6 +436,18 @@ Your task is to:
    - team_culture: team morale, culture, collective behavior (TEAM-WIDE, no player)
    - todo: action items the coach needs to do - NOT about players (e.g., "order new cones", "book pitch", "schedule parent meeting", "prepare training plan")
 5. Suggest concrete actions the coach should take
+
+INSIGHT TITLE FORMAT RULES:
+- For PLAYER-SPECIFIC insights (injury, skill_rating, skill_progress, behavior, performance, attendance):
+  * ALWAYS include the player's name in the title
+  * Format: "{Player Name}'s {Skill/Topic} {Action/Status}"
+  * Examples: "Niamh's Tackling Improvement", "Sinead's Tackling Skill Rating", "Clodagh's Fitness Struggle"
+  * DO NOT create generic titles like "Improved Tackling Skill" or "Injury Update"
+- For TEAM-WIDE insights (team_culture):
+  * Use team name if available: "U18 Female Team Spirit"
+  * Otherwise use "Team" prefix: "Team Morale Improvement"
+- For TODO insights:
+  * Start with action verb: "Order New Equipment", "Schedule Parent Meeting"
 
 CATEGORIZATION RULES:
 - If it's about a specific player → must have playerName

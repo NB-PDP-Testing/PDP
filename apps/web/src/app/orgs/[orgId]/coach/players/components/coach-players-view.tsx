@@ -60,10 +60,11 @@ export function CoachPlayersView({ orgId }: CoachPlayersViewProps) {
     orgId ? { organizationId: orgId } : "skip"
   );
 
-  // Get all players from identity system
+  // Get players for coach's assigned teams (server-side filtering)
+  // Performance: Uses getPlayersForCoachTeams which only returns players on coach's teams
   const enrolledPlayersData = useQuery(
-    api.models.orgPlayerEnrollments.getPlayersForOrg,
-    orgId ? { organizationId: orgId } : "skip"
+    api.models.orgPlayerEnrollments.getPlayersForCoachTeams,
+    userId && orgId ? { organizationId: orgId, coachUserId: userId } : "skip"
   );
 
   // Transform identity-based players to legacy format for compatibility
@@ -290,11 +291,12 @@ export function CoachPlayersView({ orgId }: CoachPlayersViewProps) {
         if (!isOverdue) {
           return false;
         }
-      } else if (reviewStatusFilter === "completed") {
+      } else if (
+        reviewStatusFilter === "completed" &&
+        player.reviewStatus !== "Completed"
+      ) {
         // Completed: reviewStatus is "Completed"
-        if (player.reviewStatus !== "Completed") {
-          return false;
-        }
+        return false;
       }
 
       return true;
@@ -712,9 +714,11 @@ export function CoachPlayersView({ orgId }: CoachPlayersViewProps) {
                           </span>
                         )}
                       </td>
+                      {/* biome-ignore lint/a11y/noNoninteractiveElementInteractions: stopPropagation needed for button clicks */}
                       <td
                         className="px-4 py-3 text-right"
                         onClick={(e) => e.stopPropagation()}
+                        onKeyDown={(e) => e.stopPropagation()}
                       >
                         <div className="flex items-center justify-end gap-1">
                           <Button

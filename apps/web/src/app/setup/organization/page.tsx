@@ -18,6 +18,7 @@ import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
+import { useCurrentUser } from "@/hooks/use-current-user";
 import { authClient } from "@/lib/auth-client";
 
 export default function SetupOrganizationPage() {
@@ -30,7 +31,7 @@ export default function SetupOrganizationPage() {
   const [slugAvailable, setSlugAvailable] = useState<boolean | null>(null);
   const [selectedSports, setSelectedSports] = useState<string[]>([]);
 
-  const currentUser = useQuery(api.models.users.getCurrentUser);
+  const currentUser = useCurrentUser();
   const availableSports = useQuery(api.models.referenceData.getSports, {});
   const _updateOrganizationColors = useMutation(
     api.models.organizations.updateOrganizationColors

@@ -54,6 +54,7 @@ import {
 } from "@/components/ui/table";
 import { useCurrentUser } from "@/hooks/use-current-user";
 import { authClient } from "@/lib/auth-client";
+import { useMembershipContext } from "@/providers/membership-provider";
 
 // Type for organization from better-auth
 type Organization = {
@@ -166,10 +167,8 @@ export default function OrganizationsPage() {
     user?.isPlatformStaff ? {} : "skip"
   );
 
-  // Get user memberships for role-based navigation
-  const userMemberships = useQuery(
-    api.models.members.getMembersForAllOrganizations
-  );
+  // Get user memberships for role-based navigation (from shared context)
+  const { memberships: userMemberships } = useMembershipContext();
 
   // Get pending deletion requests for platform staff
   const pendingDeletionRequests = useQuery(

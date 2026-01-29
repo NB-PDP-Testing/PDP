@@ -268,8 +268,8 @@ export const setCoachPreferredLevel = mutation({
       throw new Error("Not authenticated");
     }
 
-    // Get the user ID (use _id or userId depending on what's available)
-    const coachId = user.userId || user._id;
+    // Get the user ID
+    const coachId = user._id;
     if (!coachId) {
       throw new Error("User ID not found");
     }
@@ -321,8 +321,8 @@ export const setInsightAutoApplyPreferences = mutation({
       throw new Error("Not authenticated");
     }
 
-    // Get the user ID (use _id or userId depending on what's available)
-    const coachId = user.userId || user._id;
+    // Get the user ID
+    const coachId = user._id;
     if (!coachId) {
       throw new Error("User ID not found");
     }
@@ -357,8 +357,8 @@ export const setParentSummariesEnabled = mutation({
       throw new Error("Not authenticated");
     }
 
-    // Get the user ID (use _id or userId depending on what's available)
-    const coachId = user.userId || user._id;
+    // Get the user ID
+    const coachId = user._id;
     if (!coachId) {
       throw new Error("User ID not found");
     }
@@ -397,8 +397,8 @@ export const setSkipSensitiveInsights = mutation({
       throw new Error("Not authenticated");
     }
 
-    // Get the user ID (use _id or userId depending on what's available)
-    const coachId = user.userId || user._id;
+    // Get the user ID
+    const coachId = user._id;
     if (!coachId) {
       throw new Error("User ID not found");
     }
@@ -451,8 +451,8 @@ export const getCoachTrustLevel = query({
     // Get authenticated user
     const user = await authComponent.safeGetAuthUser(ctx);
 
-    // Get the user ID (use _id or userId depending on what's available)
-    const coachId = user?.userId || user?._id;
+    // Get the user ID
+    const coachId = user?._id;
     if (!coachId) {
       // Return default values if not authenticated
       return {
@@ -559,8 +559,8 @@ export const getCoachPlatformTrustLevel = query({
     // Get authenticated user
     const user = await authComponent.safeGetAuthUser(ctx);
 
-    // Get the user ID (use _id or userId depending on what's available)
-    const coachId = user?.userId || user?._id;
+    // Get the user ID
+    const coachId = user?._id;
     if (!coachId) {
       return null;
     }
@@ -617,8 +617,8 @@ export const getCoachAllOrgPreferences = query({
     // Get authenticated user
     const user = await authComponent.safeGetAuthUser(ctx);
 
-    // Get the user ID (use _id or userId depending on what's available)
-    const coachId = user?.userId || user?._id;
+    // Get the user ID
+    const coachId = user?._id;
     if (!coachId) {
       return [];
     }
@@ -724,8 +724,8 @@ export const getCoachTrustLevelWithInsightFields = query({
     // Get authenticated user
     const user = await authComponent.safeGetAuthUser(ctx);
 
-    // Get the user ID (use _id or userId depending on what's available)
-    const coachId = user?.userId || user?._id;
+    // Get the user ID
+    const coachId = user?._id;
     if (!coachId) {
       return null;
     }

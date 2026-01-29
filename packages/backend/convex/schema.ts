@@ -539,7 +539,12 @@ export default defineSchema({
     .index("by_player_and_org", ["playerIdentityId", "organizationId"]) // Added Phase 3: Optimize sport validation JOINs
     .index("by_organizationId", ["organizationId"])
     .index("by_org_and_sport", ["organizationId", "sportCode"])
-    .index("by_status", ["organizationId", "sportCode", "status"]),
+    .index("by_status", ["organizationId", "sportCode", "status"])
+    .index("by_player_org_status", [
+      "playerIdentityId",
+      "organizationId",
+      "status",
+    ]), // Added for filter() elimination
 
   // Skill Assessments - point-in-time skill records
   skillAssessments: defineTable({
@@ -687,7 +692,9 @@ export default defineSchema({
     .index("by_playerIdentityId", ["playerIdentityId"])
     .index("by_organizationId", ["organizationId"])
     .index("by_status", ["passportId", "status"])
-    .index("by_category", ["passportId", "category"]),
+    .index("by_category", ["passportId", "category"])
+    .index("by_player_status", ["playerIdentityId", "status"]) // Added for filter() elimination
+    .index("by_org_status", ["organizationId", "status"]), // Added for filter() elimination
 
   // Team Player Identities - links Better Auth teams to player identities
   // This is the new identity system equivalent of teamPlayers
@@ -2021,7 +2028,12 @@ export default defineSchema({
       "organizationId",
       "status",
     ])
-    .index("by_player_acknowledged", ["playerIdentityId", "acknowledgedAt"]),
+    .index("by_player_acknowledged", ["playerIdentityId", "acknowledgedAt"])
+    .index("by_player_status_created", [
+      "playerIdentityId",
+      "status",
+      "createdAt",
+    ]), // Added for N+1 query optimization
 
   // AI usage tracking for cost visibility and analytics (Phase 5.3)
   // Logs every AI API call with token counts and costs

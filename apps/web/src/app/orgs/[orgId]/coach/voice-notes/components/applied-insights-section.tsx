@@ -257,7 +257,7 @@ export function AppliedInsightsSection({
                             </p>
                           </div>
                           <Link
-                            href={`/orgs/${orgId}/players/${skill.playerIdentityId}`}
+                            href={`/orgs/${orgId}/players/${skill.playerIdentityId}?tab=skills`}
                           >
                             <Button size="sm" variant="ghost">
                               View in {skill.playerName}'s Passport →
@@ -335,7 +335,7 @@ export function AppliedInsightsSection({
                             </p>
                           </div>
                           <Link
-                            href={`/orgs/${orgId}/players/${injury.playerIdentityId}`}
+                            href={`/orgs/${orgId}/players/${injury.playerIdentityId}?tab=health`}
                           >
                             <Button size="sm" variant="ghost">
                               View in {injury.playerName}'s Passport →

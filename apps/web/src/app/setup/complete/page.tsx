@@ -7,6 +7,7 @@ import { useRouter, useSearchParams } from "next/navigation";
 import { Suspense, useEffect, useRef } from "react";
 import { PDPLogo } from "@/components/pdp-logo";
 import { Button } from "@/components/ui/button";
+import { Confetti } from "@/components/ui/confetti";
 
 function SetupCompleteContent() {
   const router = useRouter();
@@ -61,6 +62,11 @@ function SetupCompleteContent() {
       className="min-h-screen bg-gradient-to-br from-background to-muted/20 px-4 py-12"
       data-testid="setup-complete"
     >
+      {/* Celebration wrapper with confetti animation */}
+      <div data-testid="celebration">
+        <Confetti />
+      </div>
+
       <div className="mx-auto w-full max-w-2xl space-y-8">
         {/* Header */}
         <div className="text-center">
@@ -75,9 +81,11 @@ function SetupCompleteContent() {
               <CheckCircle className="h-12 w-12 text-white" strokeWidth={2.5} />
             </div>
           </div>
-          <h1 className="font-bold text-4xl tracking-tight">Setup Complete!</h1>
+          <h1 className="font-bold text-4xl tracking-tight">
+            Congratulations!
+          </h1>
           <p className="mt-3 text-lg text-muted-foreground">
-            Your platform is ready. Let's get started!
+            Setup complete - your platform is ready. Let's get started!
           </p>
         </div>
 

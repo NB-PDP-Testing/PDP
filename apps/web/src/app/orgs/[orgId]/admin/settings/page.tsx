@@ -155,6 +155,10 @@ export default function OrgSettingsPage() {
   const [restartOnboardingDialogOpen, setRestartOnboardingDialogOpen] =
     useState(false);
   const [helpContentOpen, setHelpContentOpen] = useState(false);
+  const [isResettingOnboarding, setIsResettingOnboarding] = useState(false);
+
+  // Mutation for resetting onboarding
+  const resetOnboarding = useMutation(api.models.setup.resetOnboarding);
 
   // Get current theme for live preview
   const { theme } = useOrgTheme();
@@ -741,20 +745,37 @@ export default function OrgSettingsPage() {
           </div>
           <DialogFooter>
             <Button
+              disabled={isResettingOnboarding}
               onClick={() => setRestartOnboardingDialogOpen(false)}
               variant="outline"
             >
               Cancel
             </Button>
             <Button
-              onClick={() => {
-                toast.info(
-                  "Onboarding restart is not yet implemented. Contact support for assistance."
-                );
-                setRestartOnboardingDialogOpen(false);
+              disabled={isResettingOnboarding}
+              onClick={async () => {
+                setIsResettingOnboarding(true);
+                try {
+                  const result = await resetOnboarding();
+                  if (result.success) {
+                    toast.success(
+                      "Onboarding has been reset. Redirecting to setup..."
+                    );
+                    setRestartOnboardingDialogOpen(false);
+                    // Redirect to setup wizard after a brief delay
+                    setTimeout(() => {
+                      router.push("/setup");
+                    }, 1000);
+                  }
+                } catch (error) {
+                  console.error("Failed to reset onboarding:", error);
+                  toast.error("Failed to reset onboarding. Please try again.");
+                } finally {
+                  setIsResettingOnboarding(false);
+                }
               }}
             >
-              Restart Onboarding
+              {isResettingOnboarding ? "Resetting..." : "Restart Onboarding"}
             </Button>
           </DialogFooter>
         </DialogContent>

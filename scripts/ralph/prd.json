@@ -81,7 +81,7 @@
         "loadingState": "if (bulkData === undefined) return <ParentDashboardSkeleton />"
       },
       "priority": 2,
-      "passes": false,
+      "passes": true,
       "notes": "Depends on US-PERF-014. Query lifting pattern."
     },
     {
@@ -110,7 +110,7 @@
         "location": "apps/web/src/app/orgs/[orgId]/parents/components/child-card.tsx lines 158-186"
       },
       "priority": 3,
-      "passes": false,
+      "passes": true,
       "notes": "Depends on US-PERF-015. This eliminates 5 useQuery calls per child."
     },
     {

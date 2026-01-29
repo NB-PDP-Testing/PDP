@@ -1856,6 +1856,7 @@ export const batchAcknowledgeParentActions = mutation({
     }
 
     // 2. Mark acknowledgeLinkIds as acknowledged
+    const acknowledgedOrgIds = new Set<string>();
     for (const linkId of args.acknowledgeLinkIds) {
       const link = await ctx.db.get(linkId);
       if (!link) {
@@ -1867,7 +1868,58 @@ export const batchAcknowledgeParentActions = mutation({
         updatedAt: Date.now(),
       });
 
+      // Track organization IDs from player enrollments
+      const enrollment = await ctx.db
+        .query("orgPlayerEnrollments")
+        .withIndex("by_playerIdentityId", (q) =>
+          q.eq("playerIdentityId", link.playerIdentityId)
+        )
+        .first();
+      if (enrollment) {
+        acknowledgedOrgIds.add(enrollment.organizationId);
+      }
+
       acknowledged += 1;
+    }
+
+    // 2b. Ensure user has "parent" functional role in all acknowledged organizations
+    for (const orgId of acknowledgedOrgIds) {
+      const memberResult = await ctx.runQuery(
+        components.betterAuth.adapter.findOne,
+        {
+          model: "member",
+          where: [
+            { field: "userId", value: args.userId, operator: "eq" },
+            { field: "organizationId", value: orgId, operator: "eq" },
+          ],
+        }
+      );
+
+      if (memberResult) {
+        const currentRoles =
+          (memberResult as any).functionalRoles || ([] as string[]);
+        if (!currentRoles.includes("parent")) {
+          const updatedRoles = [...currentRoles, "parent"];
+          await ctx.runMutation(components.betterAuth.adapter.updateOne, {
+            input: {
+              model: "member",
+              where: [
+                {
+                  field: "_id",
+                  value: (memberResult as any)._id,
+                  operator: "eq",
+                },
+              ],
+              update: {
+                functionalRoles: updatedRoles,
+              },
+            },
+          });
+          console.log(
+            `[batchAcknowledgeParentActions] Added parent role to member in org ${orgId}`
+          );
+        }
+      }
     }
 
     // 3. Process declines with reasons

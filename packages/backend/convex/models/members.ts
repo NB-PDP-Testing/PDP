@@ -343,8 +343,7 @@ export const addFunctionalRole = mutation({
 
       const orgName = (org as any)?.name || "the organization";
       const roleName = args.functionalRole === "admin" ? "Admin" : "Coach";
-      const dashboardPath =
-        args.functionalRole === "coach" ? "coach/dashboard" : "admin/dashboard";
+      const dashboardPath = args.functionalRole === "coach" ? "coach" : "admin";
 
       await ctx.runMutation(internal.models.notifications.createNotification, {
         userId: args.userId,
@@ -436,8 +435,7 @@ export const updateMemberFunctionalRoles = mutation({
 
       for (const role of newlyGrantedRoles) {
         const roleName = role === "admin" ? "Admin" : "Coach";
-        const dashboardPath =
-          role === "coach" ? "coach/dashboard" : "admin/dashboard";
+        const dashboardPath = role === "coach" ? "coach" : "admin";
 
         await ctx.runMutation(
           internal.models.notifications.createNotification,
@@ -2821,8 +2819,27 @@ export const syncFunctionalRolesWithChildSelections = mutation({
                 status: "declined",
                 updatedAt: Date.now(),
               });
+            } else {
+              // Create a new declined link to record the rejection
+              // This ensures admins can see and act on declined connections
+              await ctx.db.insert("guardianPlayerLinks", {
+                guardianIdentityId: guardian._id,
+                playerIdentityId: playerIdentityId as Id<"playerIdentities">,
+                relationship: "guardian",
+                isPrimary: false,
+                hasParentalResponsibility: false,
+                canCollectFromTraining: false,
+                consentedToSharing: false,
+                status: "declined",
+                declinedByUserId: args.userId,
+                createdAt: Date.now(),
+                updatedAt: Date.now(),
+              });
+              console.log(
+                "[syncFunctionalRolesWithChildSelections] Created declined link for player:",
+                playerIdentityId
+              );
             }
-            // If no existing link, nothing to decline - just skip
 
             playersDeclined += 1;
             console.log(

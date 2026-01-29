@@ -1495,6 +1495,19 @@ export default defineSchema({
     dismissedAt: v.optional(v.number()),
     dismissedBy: v.optional(v.string()),
 
+    // AI Accuracy Tracking (Phase 7.3)
+    // Tracks when coach corrects AI classification/matching errors for analytics
+    wasManuallyCorrected: v.optional(v.boolean()), // True if coach corrected any AI classification
+    manuallyCorrectedAt: v.optional(v.number()), // Timestamp of correction
+    correctionType: v.optional(
+      v.union(
+        v.literal("player_assigned"), // Coach assigned/corrected player
+        v.literal("team_classified"), // Coach classified as team insight
+        v.literal("todo_classified"), // Coach classified as coach todo
+        v.literal("content_edited") // Coach edited title/description/recommendedUpdate
+      )
+    ),
+
     // Metadata
     organizationId: v.string(),
     coachId: v.string(),

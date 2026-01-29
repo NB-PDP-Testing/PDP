@@ -1411,6 +1411,10 @@ export const updateInsightContent = mutation({
         description: args.description ?? voiceNoteInsight.description,
         recommendedUpdate:
           args.recommendedUpdate ?? voiceNoteInsight.recommendedUpdate,
+        // AI Accuracy Tracking (Phase 7.3): Track that coach edited AI-generated content
+        wasManuallyCorrected: true,
+        manuallyCorrectedAt: Date.now(),
+        correctionType: "content_edited",
         updatedAt: Date.now(),
       });
 
@@ -1618,6 +1622,12 @@ export const classifyInsight = mutation({
       .first();
 
     if (voiceNoteInsight && voiceNoteInsight.status === "pending") {
+      // Determine correction type based on category
+      const correctionType =
+        args.category === "team_culture"
+          ? ("team_classified" as const)
+          : ("todo_classified" as const);
+
       // Update the voiceNoteInsights record with new category info
       await ctx.db.patch(voiceNoteInsight._id, {
         category: args.category,
@@ -1625,6 +1635,10 @@ export const classifyInsight = mutation({
         teamName: args.teamName,
         assigneeUserId: args.assigneeUserId,
         assigneeName: args.assigneeName,
+        // AI Accuracy Tracking (Phase 7.3): Track that coach reclassified insight
+        wasManuallyCorrected: true,
+        manuallyCorrectedAt: Date.now(),
+        correctionType,
         updatedAt: Date.now(),
       });
 
@@ -1862,6 +1876,10 @@ export const assignPlayerToInsight = mutation({
         title: correctedTitle,
         description: correctedDescription,
         recommendedUpdate: correctedRecommendedUpdate,
+        // AI Accuracy Tracking (Phase 7.3): Track that coach had to assign/correct player
+        wasManuallyCorrected: true,
+        manuallyCorrectedAt: Date.now(),
+        correctionType: "player_assigned",
         updatedAt: Date.now(),
       });
 

@@ -15,7 +15,6 @@ import { api } from "@pdp/backend/convex/_generated/api";
 import type { Id } from "@pdp/backend/convex/_generated/dataModel";
 import { useQuery } from "convex/react";
 import { useEffect, useRef, useState } from "react";
-import { BulkGuardianClaimDialog } from "@/components/bulk-guardian-claim-dialog";
 import {
   GuardianPrompt,
   type PendingGraduation,
@@ -34,6 +33,7 @@ import { AcceptInvitationStep } from "./accept-invitation-step";
 import { type ChildLink, ChildLinkingStep } from "./child-linking-step";
 import { OnboardingErrorBoundary } from "./error-boundary";
 import { GdprConsentStep } from "./gdpr-consent-step";
+import { UnifiedGuardianClaimStep } from "./unified-guardian-claim-step";
 
 // Task type from the backend
 type OnboardingTask = {
@@ -153,32 +153,36 @@ function OnboardingStepRenderer({
     );
   }
 
-  // Handle guardian_claim task with BulkGuardianClaimDialog
+  // Handle guardian_claim task with UnifiedGuardianClaimStep
+  // This component shows "Welcome, you have pending actions" and lets the user
+  // accept/decline individual children with "Yes, this is mine" / "No, not mine"
   if (task.type === "guardian_claim" && userId) {
     const data = task.data as GuardianClaimTaskData;
 
-    // Transform data to match BulkGuardianClaimDialog's expected format
-    // The dialog expects a confidence field and dateOfBirth for children
+    // Transform data to match UnifiedGuardianClaimStep's expected format
     const claimableIdentities = data.identities.map((identity) => ({
-      guardianIdentity: identity.guardianIdentity,
+      guardianIdentity: {
+        _id: identity.guardianIdentity._id as string,
+        firstName: identity.guardianIdentity.firstName,
+        lastName: identity.guardianIdentity.lastName,
+        email: identity.guardianIdentity.email,
+        phone: identity.guardianIdentity.phone,
+        verificationStatus: identity.guardianIdentity.verificationStatus,
+      },
       children: identity.children.map((child) => ({
-        ...child,
-        dateOfBirth: "", // Not available from our query, but dialog handles it
+        playerIdentityId: child.playerIdentityId as string,
+        firstName: child.firstName,
+        lastName: child.lastName,
+        dateOfBirth: "", // Not available from our query
+        relationship: child.relationship,
       })),
       organizations: identity.organizations,
-      confidence: 1.0, // High confidence since we matched by email
     }));
 
     return (
-      <BulkGuardianClaimDialog
+      <UnifiedGuardianClaimStep
         claimableIdentities={claimableIdentities}
-        onClaimComplete={onComplete}
-        onOpenChange={(open) => {
-          if (!open) {
-            onComplete();
-          }
-        }}
-        open
+        onComplete={onComplete}
         userId={userId}
       />
     );

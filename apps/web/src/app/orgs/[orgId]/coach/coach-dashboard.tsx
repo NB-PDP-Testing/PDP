@@ -65,12 +65,17 @@ export function CoachDashboard() {
     organizationId: orgId,
   });
 
-  // NEW: Get all players from identity system
+  // Get players for coach's assigned teams (server-side filtering)
+  // Performance: Uses getPlayersForCoachTeams which only returns players on coach's teams
+  // instead of fetching ALL org players and filtering client-side
   const enrolledPlayersData = useQuery(
-    api.models.orgPlayerEnrollments.getPlayersForOrg,
-    {
-      organizationId: orgId,
-    }
+    api.models.orgPlayerEnrollments.getPlayersForCoachTeams,
+    userId && orgId
+      ? {
+          organizationId: orgId,
+          coachUserId: userId,
+        }
+      : "skip"
   );
 
   // Transform identity-based players to legacy format for compatibility

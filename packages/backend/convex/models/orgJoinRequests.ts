@@ -199,10 +199,15 @@ export const getPendingRequestsForOrg = query({
       }
     );
 
-    if (
-      !memberResult ||
-      (memberResult.role !== "admin" && memberResult.role !== "owner")
-    ) {
+    // Check Better Auth role OR functional admin role
+    const betterAuthRole = memberResult?.role;
+    const functionalRoles = (memberResult as any)?.functionalRoles || [];
+    const hasAdminAccess =
+      betterAuthRole === "admin" ||
+      betterAuthRole === "owner" ||
+      functionalRoles.includes("admin");
+
+    if (!(memberResult && hasAdminAccess)) {
       throw new Error("You must be an admin or owner to view join requests");
     }
 
@@ -315,10 +320,15 @@ export const approveJoinRequest = mutation({
       }
     );
 
-    if (
-      !memberResult ||
-      (memberResult.role !== "admin" && memberResult.role !== "owner")
-    ) {
+    // Check Better Auth role OR functional admin role
+    const callerRole = memberResult?.role;
+    const callerFunctionalRoles = (memberResult as any)?.functionalRoles || [];
+    const hasAdminAccess =
+      callerRole === "admin" ||
+      callerRole === "owner" ||
+      callerFunctionalRoles.includes("admin");
+
+    if (!(memberResult && hasAdminAccess)) {
       throw new Error("You must be an admin or owner to approve join requests");
     }
 
@@ -419,7 +429,7 @@ export const approveJoinRequest = mutation({
           await ctx.db.patch(player._id, {
             parentEmail: normalizedEmail,
           });
-          linked++;
+          linked += 1;
         }
       }
       console.log(
@@ -484,10 +494,15 @@ export const rejectJoinRequest = mutation({
       }
     );
 
-    if (
-      !memberResult ||
-      (memberResult.role !== "admin" && memberResult.role !== "owner")
-    ) {
+    // Check Better Auth role OR functional admin role
+    const betterAuthRole = memberResult?.role;
+    const adminFunctionalRoles = (memberResult as any)?.functionalRoles || [];
+    const hasAdminAccess =
+      betterAuthRole === "admin" ||
+      betterAuthRole === "owner" ||
+      adminFunctionalRoles.includes("admin");
+
+    if (!(memberResult && hasAdminAccess)) {
       throw new Error("You must be an admin or owner to reject join requests");
     }
 

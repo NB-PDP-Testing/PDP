@@ -15,7 +15,6 @@ import { api } from "@pdp/backend/convex/_generated/api";
 import type { Id } from "@pdp/backend/convex/_generated/dataModel";
 import { useQuery } from "convex/react";
 import { useEffect, useRef, useState } from "react";
-import { BulkGuardianClaimDialog } from "@/components/bulk-guardian-claim-dialog";
 import {
   GuardianPrompt,
   type PendingGraduation,
@@ -33,6 +32,8 @@ import { authClient } from "@/lib/auth-client";
 import { type ChildLink, ChildLinkingStep } from "./child-linking-step";
 import { OnboardingErrorBoundary } from "./error-boundary";
 import { GdprConsentStep } from "./gdpr-consent-step";
+import { UnifiedGuardianClaimStep } from "./unified-guardian-claim-step";
+import { UnifiedInvitationStep } from "./unified-invitation-step";
 
 // Task type from the backend
 type OnboardingTask = {
@@ -91,6 +92,27 @@ type ChildLinkingTaskData = {
   skipCount?: number; // Phase 6: How many times user has skipped (max 3)
 };
 
+// Type for accept_invitation task data
+type AcceptInvitationTaskData = {
+  invitations: Array<{
+    invitationId: string;
+    organizationId: string;
+    organizationName: string;
+    role: string;
+    functionalRoles: string[];
+    expiresAt: number;
+    playerLinks?: Array<{
+      id: string;
+      name: string;
+      ageGroup?: string;
+    }>;
+    teams?: Array<{
+      id: string;
+      name: string;
+    }>;
+  }>;
+};
+
 type OnboardingOrchestratorProps = {
   children: React.ReactNode;
 };
@@ -101,10 +123,12 @@ type OnboardingOrchestratorProps = {
 function OnboardingStepRenderer({
   task,
   userId,
+  userEmail,
   onComplete,
 }: {
   task: OnboardingTask;
   userId: string | undefined;
+  userEmail: string | undefined;
   onComplete: () => void;
 }) {
   // Get current GDPR version for GDPR consent task
@@ -120,32 +144,51 @@ function OnboardingStepRenderer({
     return <GdprConsentStep gdprVersion={gdprVersion} onAccept={onComplete} />;
   }
 
-  // Handle guardian_claim task with BulkGuardianClaimDialog
+  // Handle accept_invitation task with UnifiedInvitationStep
+  // This combines invitation acceptance + child confirmation in ONE step
+  // Works for all roles: parent (with children), coach (with teams), admin (no children/teams)
+  if (task.type === "accept_invitation" && userId && userEmail) {
+    const data = task.data as AcceptInvitationTaskData;
+    return (
+      <UnifiedInvitationStep
+        invitations={data.invitations}
+        onComplete={onComplete}
+        userEmail={userEmail}
+        userId={userId}
+      />
+    );
+  }
+
+  // Handle guardian_claim task with UnifiedGuardianClaimStep
+  // This component shows "Welcome, you have pending actions" and lets the user
+  // accept/decline individual children with "Yes, this is mine" / "No, not mine"
   if (task.type === "guardian_claim" && userId) {
     const data = task.data as GuardianClaimTaskData;
 
-    // Transform data to match BulkGuardianClaimDialog's expected format
-    // The dialog expects a confidence field and dateOfBirth for children
+    // Transform data to match UnifiedGuardianClaimStep's expected format
     const claimableIdentities = data.identities.map((identity) => ({
-      guardianIdentity: identity.guardianIdentity,
+      guardianIdentity: {
+        _id: identity.guardianIdentity._id as string,
+        firstName: identity.guardianIdentity.firstName,
+        lastName: identity.guardianIdentity.lastName,
+        email: identity.guardianIdentity.email,
+        phone: identity.guardianIdentity.phone,
+        verificationStatus: identity.guardianIdentity.verificationStatus,
+      },
       children: identity.children.map((child) => ({
-        ...child,
-        dateOfBirth: "", // Not available from our query, but dialog handles it
+        playerIdentityId: child.playerIdentityId as string,
+        firstName: child.firstName,
+        lastName: child.lastName,
+        dateOfBirth: "", // Not available from our query
+        relationship: child.relationship,
       })),
       organizations: identity.organizations,
-      confidence: 1.0, // High confidence since we matched by email
     }));
 
     return (
-      <BulkGuardianClaimDialog
+      <UnifiedGuardianClaimStep
         claimableIdentities={claimableIdentities}
-        onClaimComplete={onComplete}
-        onOpenChange={(open) => {
-          if (!open) {
-            onComplete();
-          }
-        }}
-        open
+        onComplete={onComplete}
         userId={userId}
       />
     );
@@ -296,6 +339,7 @@ export function OnboardingOrchestrator({
   // Get the current task (if any)
   const currentTask = tasks?.[currentStepIndex];
   const userId = session?.user?.id;
+  const userEmail = session?.user?.email;
 
   // Track onboarding started (once when tasks first load)
   useEffect(() => {
@@ -378,6 +422,7 @@ export function OnboardingOrchestrator({
             <OnboardingStepRenderer
               onComplete={handleStepComplete}
               task={currentTask}
+              userEmail={userEmail}
               userId={userId}
             />
           </div>

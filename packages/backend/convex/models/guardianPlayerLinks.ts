@@ -247,9 +247,184 @@ export const getGuardianPlayerLink = query({
       .first(),
 });
 
+/**
+ * Get declined children for a guardian
+ * Returns children the guardian has explicitly declined during onboarding
+ * These can be reclaimed via the guardian settings
+ */
+export const getDeclinedChildrenForGuardian = query({
+  args: { guardianIdentityId: v.id("guardianIdentities") },
+  returns: v.array(
+    v.object({
+      link: v.object({
+        _id: v.id("guardianPlayerLinks"),
+        playerIdentityId: v.id("playerIdentities"),
+        relationship: v.string(),
+        declinedAt: v.optional(v.number()),
+      }),
+      player: v.object({
+        _id: v.id("playerIdentities"),
+        firstName: v.string(),
+        lastName: v.string(),
+        dateOfBirth: v.string(),
+      }),
+      organization: v.optional(
+        v.object({
+          _id: v.string(),
+          name: v.string(),
+        })
+      ),
+    })
+  ),
+  handler: async (ctx, args) => {
+    // Get the current user to check if they're the one who declined
+    const identity = await ctx.auth.getUserIdentity();
+    if (!identity) {
+      return [];
+    }
+    const userId = identity.subject;
+
+    const links = await ctx.db
+      .query("guardianPlayerLinks")
+      .withIndex("by_guardian", (q) =>
+        q.eq("guardianIdentityId", args.guardianIdentityId)
+      )
+      .collect();
+
+    const results = [];
+
+    for (const link of links) {
+      // Only show children this specific user has declined
+      if (link.declinedByUserId !== userId) {
+        continue;
+      }
+
+      const player = await ctx.db.get(link.playerIdentityId);
+      if (!player) {
+        continue;
+      }
+
+      // Get organization info from enrollment
+      let organization: { _id: string; name: string } | undefined;
+      const enrollment = await ctx.db
+        .query("orgPlayerEnrollments")
+        .withIndex("by_playerIdentityId", (q) =>
+          q.eq("playerIdentityId", link.playerIdentityId)
+        )
+        .first();
+
+      if (enrollment) {
+        const org = await ctx.runQuery(components.betterAuth.adapter.findOne, {
+          model: "organization",
+          where: [
+            {
+              field: "_id",
+              value: enrollment.organizationId,
+              operator: "eq",
+            },
+          ],
+        });
+        if (org) {
+          organization = {
+            _id: enrollment.organizationId,
+            name: (org as { name?: string }).name || "Unknown Organization",
+          };
+        }
+      }
+
+      results.push({
+        link: {
+          _id: link._id,
+          playerIdentityId: link.playerIdentityId,
+          relationship: link.relationship,
+          declinedAt: link.updatedAt,
+        },
+        player: {
+          _id: player._id,
+          firstName: player.firstName,
+          lastName: player.lastName,
+          dateOfBirth: player.dateOfBirth,
+        },
+        organization,
+      });
+    }
+
+    return results;
+  },
+});
+
 // ============================================================
 // MUTATIONS
 // ============================================================
+
+/**
+ * Reclaim a previously declined child
+ * Clears the declined status and acknowledges the guardian-player link
+ */
+export const reclaimDeclinedChild = mutation({
+  args: {
+    guardianIdentityId: v.id("guardianIdentities"),
+    playerIdentityId: v.id("playerIdentities"),
+    consentToSharing: v.boolean(),
+  },
+  returns: v.object({
+    success: v.boolean(),
+    error: v.optional(v.string()),
+  }),
+  handler: async (ctx, args) => {
+    // Verify user is authenticated
+    const identity = await ctx.auth.getUserIdentity();
+    if (!identity) {
+      return { success: false, error: "Not authenticated" };
+    }
+    const userId = identity.subject;
+
+    // Find the link
+    const link = await ctx.db
+      .query("guardianPlayerLinks")
+      .withIndex("by_guardian_and_player", (q) =>
+        q
+          .eq("guardianIdentityId", args.guardianIdentityId)
+          .eq("playerIdentityId", args.playerIdentityId)
+      )
+      .first();
+
+    if (!link) {
+      return { success: false, error: "Link not found" };
+    }
+
+    // Verify this user was the one who declined it
+    if (link.declinedByUserId !== userId) {
+      return {
+        success: false,
+        error: "You can only reclaim children you previously declined",
+      };
+    }
+
+    // Verify the guardian is linked to this user
+    const guardian = await ctx.db.get(args.guardianIdentityId);
+    if (!guardian || guardian.userId !== userId) {
+      return { success: false, error: "Not authorized" };
+    }
+
+    // Reclaim the child - clear declined status and acknowledge
+    await ctx.db.patch(link._id, {
+      declinedByUserId: undefined,
+      status: "active",
+      acknowledgedByParentAt: Date.now(),
+      consentedToSharing: args.consentToSharing,
+      updatedAt: Date.now(),
+    });
+
+    // Get player name for logging
+    const player = await ctx.db.get(args.playerIdentityId);
+    console.log(
+      `[reclaimDeclinedChild] User ${userId} reclaimed child ${player?.firstName} ${player?.lastName}`
+    );
+
+    return { success: true };
+  },
+});
 
 /**
  * Create a guardian-player link
@@ -322,7 +497,7 @@ export const createGuardianPlayerLink = mutation({
 
     const now = Date.now();
 
-    return await ctx.db.insert("guardianPlayerLinks", {
+    const linkId = await ctx.db.insert("guardianPlayerLinks", {
       guardianIdentityId: args.guardianIdentityId,
       playerIdentityId: args.playerIdentityId,
       relationship: args.relationship,
@@ -333,6 +508,82 @@ export const createGuardianPlayerLink = mutation({
       createdAt: now,
       updatedAt: now,
     });
+
+    // Add "parent" functional role to the guardian's member record
+    // This ensures they can access the parent dashboard
+    try {
+      if (guardian.email) {
+        const normalizedEmail = guardian.email.toLowerCase().trim();
+
+        // Find user by email
+        const user = await ctx.runQuery(components.betterAuth.adapter.findOne, {
+          model: "user",
+          where: [{ field: "email", value: normalizedEmail, operator: "eq" }],
+        });
+
+        if (user) {
+          // Get organization from player enrollment
+          const enrollment = await ctx.db
+            .query("orgPlayerEnrollments")
+            .withIndex("by_playerIdentityId", (q) =>
+              q.eq("playerIdentityId", args.playerIdentityId)
+            )
+            .first();
+
+          if (enrollment) {
+            // Check if member exists for this org
+            const memberResult = await ctx.runQuery(
+              components.betterAuth.adapter.findOne,
+              {
+                model: "member",
+                where: [
+                  { field: "userId", value: (user as any)._id, operator: "eq" },
+                  {
+                    field: "organizationId",
+                    value: enrollment.organizationId,
+                    operator: "eq",
+                  },
+                ],
+              }
+            );
+
+            if (memberResult) {
+              const currentRoles =
+                (memberResult as any).functionalRoles || ([] as string[]);
+              if (!currentRoles.includes("parent")) {
+                const updatedRoles = [...currentRoles, "parent"];
+                await ctx.runMutation(components.betterAuth.adapter.updateOne, {
+                  input: {
+                    model: "member",
+                    where: [
+                      {
+                        field: "_id",
+                        value: (memberResult as any)._id,
+                        operator: "eq",
+                      },
+                    ],
+                    update: {
+                      functionalRoles: updatedRoles,
+                    },
+                  },
+                });
+                console.log(
+                  `[createGuardianPlayerLink] Added parent role to member: ${normalizedEmail}`
+                );
+              }
+            }
+          }
+        }
+      }
+    } catch (error) {
+      // Don't fail the link creation if role assignment fails
+      console.error(
+        "[createGuardianPlayerLink] Failed to add parent role:",
+        error
+      );
+    }
+
+    return linkId;
   },
 });
 
@@ -752,7 +1003,32 @@ export const linkPlayersToGuardian = mutation({
           }
         );
 
-        if (!existingMember) {
+        if (existingMember) {
+          // Member exists - ensure they have the "parent" functional role
+          const currentRoles =
+            (existingMember as any).functionalRoles || ([] as string[]);
+          if (!currentRoles.includes("parent")) {
+            const updatedRoles = [...currentRoles, "parent"];
+            await ctx.runMutation(components.betterAuth.adapter.updateOne, {
+              input: {
+                model: "member",
+                where: [
+                  {
+                    field: "_id",
+                    value: (existingMember as any)._id,
+                    operator: "eq",
+                  },
+                ],
+                update: {
+                  functionalRoles: updatedRoles,
+                },
+              },
+            });
+            console.log(
+              `[linkPlayersToGuardian] Added parent role to existing member: ${normalizedEmail}`
+            );
+          }
+        } else {
           // Create org membership with "parent" functional role
           await ctx.runMutation(components.betterAuth.adapter.create, {
             input: {

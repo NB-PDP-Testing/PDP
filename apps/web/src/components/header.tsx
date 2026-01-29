@@ -15,6 +15,7 @@ import { authClient } from "@/lib/auth-client";
 import type { OrgMemberRole } from "@/lib/types";
 import { cn } from "@/lib/utils";
 import { ModeToggle } from "./mode-toggle";
+import { NotificationBell } from "./notifications/notification-bell";
 import { OrgRoleSwitcher } from "./org-role-switcher";
 import { EnhancedUserMenu } from "./profile/enhanced-user-menu";
 import UserMenu from "./user-menu";
@@ -233,6 +234,9 @@ export default function Header() {
           {/* Combined org + role switcher - replaces separate OrgSelector and FunctionalRoleIndicator */}
           {/* Only show on org-specific routes, not platform-level routes */}
           {!isPlatformLevelRoute && <OrgRoleSwitcher />}
+
+          {/* Notification bell - shows pending invitations */}
+          <NotificationBell />
 
           {/* Enhanced User Menu (consolidates UserMenu + ModeToggle) */}
           {useEnhancedUserMenu ? (

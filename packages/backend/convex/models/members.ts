@@ -3185,73 +3185,88 @@ export const getMembersForAllOrganizations = query({
       }
     );
 
-    // Get organization details for each membership
-    const memberships = await Promise.all(
-      membersResult.page.map(async (member: Member) => {
-        const orgResult = await ctx.runQuery(
-          components.betterAuth.adapter.findOne,
-          {
-            model: "organization",
-            where: [
-              {
-                field: "_id",
-                value: member.organizationId,
-                operator: "eq",
-              },
-            ],
-          }
-        );
+    // BATCH FIX: Collect all unique orgIds and fetch organizations in parallel
+    const uniqueOrgIds: string[] = [
+      ...new Set(membersResult.page.map((m: Member) => m.organizationId)),
+    ];
 
-        const functionalRoles: ("coach" | "parent" | "admin")[] =
-          (member as any).functionalRoles || [];
-        const activeRole = (member as any).activeFunctionalRole as
-          | "coach"
-          | "parent"
-          | "admin"
-          | undefined;
-        const pendingRequests: Array<{
-          role: "coach" | "parent" | "admin";
-          requestedAt: string;
-        }> = ((member as any).pendingFunctionalRoleRequests || []).map(
-          (req: { role: string; requestedAt: string }) => ({
-            role: req.role as "coach" | "parent" | "admin",
-            requestedAt: req.requestedAt,
-          })
-        );
+    // Batch fetch all organizations (parallel gets instead of sequential per-member queries)
+    const orgsResults = await Promise.all(
+      uniqueOrgIds.map((orgId: string) =>
+        ctx.runQuery(components.betterAuth.adapter.findOne, {
+          model: "organization",
+          where: [{ field: "_id", value: orgId, operator: "eq" }],
+        })
+      )
+    );
 
-        // Determine effective active role (set or fallback to priority)
-        let effectiveActiveRole: "coach" | "parent" | "admin" | null = null;
-        if (activeRole && functionalRoles.includes(activeRole)) {
-          effectiveActiveRole = activeRole;
-        } else if (functionalRoles.length > 0) {
-          // Fallback to priority
-          const priority: ("coach" | "admin" | "parent")[] = [
-            "coach",
-            "admin",
-            "parent",
-          ];
-          for (const role of priority) {
-            if (functionalRoles.includes(role)) {
-              effectiveActiveRole = role;
-              break;
-            }
-          }
-          if (!effectiveActiveRole) {
-            effectiveActiveRole = functionalRoles[0];
+    // Create Map for O(1) lookup
+    const orgMap = new Map<
+      string,
+      { name: string | null; logo: string | null }
+    >();
+    for (const org of orgsResults) {
+      if (org) {
+        orgMap.set(org._id as string, {
+          name: (org.name as string) || null,
+          logo: (org.logo as string) || null,
+        });
+      }
+    }
+
+    // Map over members using the pre-fetched org data (no more N+1)
+    const memberships = membersResult.page.map((member: Member) => {
+      const org = orgMap.get(member.organizationId);
+
+      const functionalRoles: ("coach" | "parent" | "admin")[] =
+        (member as any).functionalRoles || [];
+      const activeRole = (member as any).activeFunctionalRole as
+        | "coach"
+        | "parent"
+        | "admin"
+        | undefined;
+      const pendingRequests: Array<{
+        role: "coach" | "parent" | "admin";
+        requestedAt: string;
+      }> = ((member as any).pendingFunctionalRoleRequests || []).map(
+        (req: { role: string; requestedAt: string }) => ({
+          role: req.role as "coach" | "parent" | "admin",
+          requestedAt: req.requestedAt,
+        })
+      );
+
+      // Determine effective active role (set or fallback to priority)
+      let effectiveActiveRole: "coach" | "parent" | "admin" | null = null;
+      if (activeRole && functionalRoles.includes(activeRole)) {
+        effectiveActiveRole = activeRole;
+      } else if (functionalRoles.length > 0) {
+        // Fallback to priority
+        const priority: ("coach" | "admin" | "parent")[] = [
+          "coach",
+          "admin",
+          "parent",
+        ];
+        for (const role of priority) {
+          if (functionalRoles.includes(role)) {
+            effectiveActiveRole = role;
+            break;
           }
         }
+        if (!effectiveActiveRole) {
+          effectiveActiveRole = functionalRoles[0];
+        }
+      }
 
-        return {
-          organizationId: member.organizationId,
-          organizationName: (orgResult?.name as string) || null,
-          organizationLogo: (orgResult?.logo as string) || null,
-          functionalRoles,
-          activeFunctionalRole: effectiveActiveRole,
-          pendingRoleRequests: pendingRequests,
-          betterAuthRole: member.role,
-        };
-      })
-    );
+      return {
+        organizationId: member.organizationId,
+        organizationName: org?.name || null,
+        organizationLogo: org?.logo || null,
+        functionalRoles,
+        activeFunctionalRole: effectiveActiveRole,
+        pendingRoleRequests: pendingRequests,
+        betterAuthRole: member.role,
+      };
+    });
 
     return memberships;
   },

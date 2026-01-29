@@ -1,7 +1,5 @@
 "use client";
 
-import { api } from "@pdp/backend/convex/_generated/api";
-import { useQuery } from "convex/react";
 import {
   Bell,
   Brain,
@@ -30,6 +28,7 @@ import { UXAnalyticsEvents } from "@/hooks/use-ux-feature-flags";
 import { useAnalytics } from "@/lib/analytics";
 import { authClient } from "@/lib/auth-client";
 import { cn } from "@/lib/utils";
+import { useMembershipContext } from "@/providers/membership-provider";
 
 /**
  * Enhanced User Profile Menu
@@ -63,11 +62,11 @@ export function EnhancedUserMenu() {
   const [alertsOpen, setAlertsOpen] = useState(false);
   const [coachSettingsOpen, setCoachSettingsOpen] = useState(false);
 
+  // Get memberships from context (shared across header components)
+  // Performance: Uses MembershipProvider to avoid duplicate queries
+  const { memberships: userOrganizations } = useMembershipContext();
+
   // Check if user is a coach in any organization
-  const userOrganizations = useQuery(
-    api.models.members.getMembersForAllOrganizations,
-    {}
-  );
   const isCoachAnywhere =
     userOrganizations?.some((org) => org.functionalRoles?.includes("coach")) ??
     false;

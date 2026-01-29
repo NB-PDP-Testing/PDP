@@ -1,0 +1,206 @@
+{
+  "project": "Convex Performance Fix - Phase 3: Backend Filter Fixes",
+  "branchName": "johnobr/fixconvex",
+  "description": "Day 3: Fix voiceNotes and whatsappMessages coach lookups, plus filter violations in sportPassports, playerInjuries, passportGoals. Deploy to production after this phase.",
+  "readinessLevel": "100%",
+  "prerequisitesCompleted": {
+    "status": "Depends on Phase 1-2",
+    "completedWork": [
+      "Phase 1: Schema indexes added (required for filter fixes)",
+      "Phase 2: Major N+1 patterns fixed"
+    ],
+    "documentationReferences": [
+      "GitHub Issue #330 - Convex Performance Crisis",
+      "Plan file - Full implementation details"
+    ]
+  },
+  "contextAndDependencies": {
+    "targetMetric": "~150K additional calls saved",
+    "keyFiles": [
+      "packages/backend/convex/models/voiceNotes.ts - Lines 440-486",
+      "packages/backend/convex/models/whatsappMessages.ts - Lines 901-932",
+      "packages/backend/convex/models/sportPassports.ts - Line 878",
+      "packages/backend/convex/models/playerInjuries.ts - Lines 234-256",
+      "packages/backend/convex/models/passportGoals.ts - Lines 132, 158"
+    ],
+    "criticalPatterns": {
+      "Filter_Violation": ".filter() after .collect() scans all records. Fix: Use composite index with .withIndex()",
+      "Batch_Coach_Lookup": "Individual coach lookups in loops. Fix: Collect IDs, batch fetch, Map lookup"
+    }
+  },
+  "userStories": [
+    {
+      "id": "US-PERF-009",
+      "title": "Fix voiceNotes Coach Lookups N+1",
+      "description": "Fix N+1 pattern where one adapter call is made per voice note for coach info.",
+      "phase": "Phase 3: Backend Filters",
+      "acceptanceCriteria": [
+        "Open packages/backend/convex/models/voiceNotes.ts",
+        "Find getVoiceNotesForPlayer function (lines 440-486)",
+        "Identify the N+1: loop calling Better Auth adapter for each note's coach",
+        "Refactor to batch pattern:",
+        "  1. Collect all unique coachIds from voice notes",
+        "  2. Batch fetch all coaches in ONE query (or parallel Promise.all for .get())",
+        "  3. Create coachMap for O(1) lookup",
+        "  4. Map over notes, looking up coach from Map",
+        "Run: npx -w packages/backend convex codegen",
+        "Run: npm run check-types",
+        "Test: Navigate to voice notes page, verify notes load with coach names"
+      ],
+      "technicalNotes": {
+        "currentPattern": "notes.map(async (note) => { const coach = await adapter.findOne({ model: 'user', where: [{ field: '_id', value: note.coachId }] }); })",
+        "fixedPattern": "const coachIds = [...new Set(notes.map(n => n.coachId))]; const coaches = await Promise.all(coachIds.map(id => adapter.findOne(...))); const coachMap = new Map(...);",
+        "location": "packages/backend/convex/models/voiceNotes.ts lines 440-486"
+      },
+      "priority": 1,
+      "passes": false,
+      "notes": "Similar pattern to US-PERF-008. Batch coach lookups."
+    },
+    {
+      "id": "US-PERF-010",
+      "title": "Fix whatsappMessages Coach Lookups",
+      "description": "Fix loop in whatsappMessages with individual user queries per coach.",
+      "phase": "Phase 3: Backend Filters",
+      "acceptanceCriteria": [
+        "Open packages/backend/convex/models/whatsappMessages.ts",
+        "Find the function around lines 901-932",
+        "Identify the N+1: loop with individual user queries per coach",
+        "Refactor to batch pattern:",
+        "  1. Collect all unique coach IDs from team coaches",
+        "  2. Batch fetch all coaches in ONE query",
+        "  3. Create coachMap for O(1) lookup",
+        "  4. Map over coaches, looking up from Map",
+        "Run: npx -w packages/backend convex codegen",
+        "Run: npm run check-types",
+        "Test: If WhatsApp feature enabled, verify coach recipients populate correctly"
+      ],
+      "technicalNotes": {
+        "currentPattern": "Loop with individual ctx.db queries per coach",
+        "fixedPattern": "Batch fetch all team coaches in single query",
+        "location": "packages/backend/convex/models/whatsappMessages.ts lines 901-932"
+      },
+      "priority": 2,
+      "passes": false,
+      "notes": "WhatsApp feature may not be actively used - verify feature status first"
+    },
+    {
+      "id": "US-PERF-011",
+      "title": "Fix sportPassports Filter Violation",
+      "description": "Replace .filter() with .withIndex() using the new by_player_org_status index.",
+      "phase": "Phase 3: Backend Filters",
+      "acceptanceCriteria": [
+        "Open packages/backend/convex/models/sportPassports.ts",
+        "Find the query at line 878: .filter((q) => q.eq(q.field('status'), 'active'))",
+        "Replace with .withIndex('by_player_org_status'):",
+        "  .withIndex('by_player_org_status', (q) => q.eq('playerIdentityId', args.playerIdentityId).eq('organizationId', args.organizationId).eq('status', 'active'))",
+        "Remove the .filter() call",
+        "Run: npx -w packages/backend convex codegen",
+        "Run: npm run check-types",
+        "Test: Navigate to player passport page, verify passports load correctly"
+      ],
+      "technicalNotes": {
+        "currentCode": ".withIndex('by_player_and_org', (q) => q.eq('playerIdentityId', args.playerIdentityId).eq('organizationId', args.organizationId)).filter((q) => q.eq(q.field('status'), 'active'))",
+        "fixedCode": ".withIndex('by_player_org_status', (q) => q.eq('playerIdentityId', args.playerIdentityId).eq('organizationId', args.organizationId).eq('status', 'active'))",
+        "location": "packages/backend/convex/models/sportPassports.ts line 878",
+        "prerequisite": "Phase 1 index by_player_org_status must be deployed first"
+      },
+      "priority": 3,
+      "passes": false,
+      "notes": "Requires Phase 1 index to be deployed. Simple find-and-replace fix."
+    },
+    {
+      "id": "US-PERF-012",
+      "title": "Fix passportGoals Filter Violations",
+      "description": "Replace .filter() calls with .withIndex() using the new by_player_status and by_org_status indexes.",
+      "phase": "Phase 3: Backend Filters",
+      "acceptanceCriteria": [
+        "Open packages/backend/convex/models/passportGoals.ts",
+        "Find getGoalsForPlayer (line 132): goals = goals.filter((g) => g.status === args.status)",
+        "Refactor: If status provided, use .withIndex('by_player_status', (q) => q.eq('playerIdentityId', args.playerIdentityId).eq('status', args.status))",
+        "Find getGoalsForOrg (line 158): goals = goals.filter((g) => g.status === args.status)",
+        "Refactor: If status provided, use .withIndex('by_org_status', (q) => q.eq('organizationId', args.organizationId).eq('status', args.status))",
+        "Handle optional status: conditionally choose index based on args.status presence",
+        "Run: npx -w packages/backend convex codegen",
+        "Run: npm run check-types",
+        "Test: View player goals on passport page, verify goals display correctly"
+      ],
+      "technicalNotes": {
+        "currentPattern": "let goals = await ctx.db.query(...).withIndex('by_playerIdentityId', ...).collect(); if (args.status) { goals = goals.filter((g) => g.status === args.status); }",
+        "fixedPattern": "const query = args.status ? ctx.db.query(...).withIndex('by_player_status', (q) => q.eq('playerIdentityId', args.playerIdentityId).eq('status', args.status)) : ctx.db.query(...).withIndex('by_playerIdentityId', ...); const goals = await query.collect();",
+        "location": "packages/backend/convex/models/passportGoals.ts lines 132, 158",
+        "prerequisite": "Phase 1 indexes by_player_status and by_org_status must be deployed"
+      },
+      "priority": 4,
+      "passes": false,
+      "notes": "Two separate fixes in same file. Handle optional status parameter."
+    },
+    {
+      "id": "US-PERF-013",
+      "title": "Review playerInjuries Filter Pattern",
+      "description": "Review and potentially optimize playerInjuries filter at lines 234-256.",
+      "phase": "Phase 3: Backend Filters",
+      "acceptanceCriteria": [
+        "Open packages/backend/convex/models/playerInjuries.ts",
+        "Review getActiveInjuriesForPlayer (lines 234-256)",
+        "Analyze the filter logic: status check + visibility check + org check",
+        "Determine if composite index can help or if JS filtering is required",
+        "If index can help: Use existing by_status index ['playerIdentityId', 'status']",
+        "If JS filtering required: Document why (complex visibility logic)",
+        "Run: npx -w packages/backend convex codegen",
+        "Run: npm run check-types",
+        "Test: View player with injuries, verify injury data displays"
+      ],
+      "technicalNotes": {
+        "currentPattern": "injuries.filter((injury) => { if (injury.status === 'healed') return false; if (injury.isVisibleToAllOrgs) return true; ... })",
+        "analysis": "Complex visibility logic may require JS filtering - not all filters can use indexes",
+        "location": "packages/backend/convex/models/playerInjuries.ts lines 234-256",
+        "decision": "May keep JS filter if visibility logic is too complex for index"
+      },
+      "priority": 5,
+      "passes": false,
+      "notes": "Review and document - may not need change if visibility logic requires JS"
+    }
+  ],
+  "qualityChecks": {
+    "beforeCommitting": [
+      "npx -w packages/backend convex codegen - MUST succeed",
+      "npm run check-types - Check for type errors",
+      "npm run check - Lint check"
+    ],
+    "testingStrategy": {
+      "US-PERF-009": "Navigate to voice notes page, verify notes load with coach names",
+      "US-PERF-010": "If WhatsApp enabled, test message sending",
+      "US-PERF-011": "Navigate to player passport page, verify passports load",
+      "US-PERF-012": "View player goals, filter by status",
+      "US-PERF-013": "View player with injuries, verify injury data"
+    },
+    "convexLogs": "Check for 'Querying without index' warnings - should be reduced"
+  },
+  "productionDeploymentGate": {
+    "criteria": [
+      "All automated checks pass",
+      "All manual tests pass",
+      "Convex function calls reduced by 30%+ from baseline",
+      "No new errors in logs"
+    ],
+    "action": "Deploy to production after Phase 3 completes"
+  },
+  "phaseCompletionCriteria": [
+    "voiceNotes coach lookups use batch pattern",
+    "whatsappMessages coach lookups use batch pattern",
+    "sportPassports uses by_player_org_status index",
+    "passportGoals uses by_player_status and by_org_status indexes",
+    "playerInjuries reviewed and documented",
+    "All tests pass",
+    "Ready for production deployment"
+  ],
+  "expectedImpact": {
+    "callsReduced": "~150K additional calls saved",
+    "totalReductionSoFar": "~300K calls (Phases 1-3)"
+  },
+  "nextPhase": {
+    "name": "Phase 4: Frontend ChildCard Refactor",
+    "file": "phase4-frontend.prd.json",
+    "description": "Create bulk backend queries and refactor ChildCard component"
+  }
+}

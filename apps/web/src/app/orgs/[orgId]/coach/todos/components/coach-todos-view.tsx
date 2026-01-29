@@ -167,9 +167,10 @@ export function CoachTodosView({ orgId }: CoachTodosViewProps) {
   );
 
   // Get all players (raw data from backend)
+  // Performance: Uses getPlayersForCoachTeams for server-side filtering
   const enrolledPlayersData = useQuery(
-    api.models.orgPlayerEnrollments.getPlayersForOrg,
-    orgId ? { organizationId: orgId } : "skip"
+    api.models.orgPlayerEnrollments.getPlayersForCoachTeams,
+    userId && orgId ? { organizationId: orgId, coachUserId: userId } : "skip"
   );
 
   // Transform to legacy format with review status

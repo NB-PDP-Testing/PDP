@@ -1,6 +1,7 @@
 "use client";
 
 import { api } from "@pdp/backend/convex/_generated/api";
+import type { Id } from "@pdp/backend/convex/_generated/dataModel";
 import { useQuery } from "convex/react";
 import { AlertCircle, CheckCircle, Clock, Users } from "lucide-react";
 import { useParams, useRouter } from "next/navigation";
@@ -42,6 +43,24 @@ function ParentDashboardContent() {
     children: identityChildren,
     isLoading: identityLoading,
   } = useGuardianChildrenInOrg(orgId, session?.user?.email);
+
+  // US-PERF-014/015: Collect player IDs for bulk data fetch
+  const playerIdentityIds = useMemo(
+    () =>
+      identityChildren.map(
+        (child) => child.player._id as Id<"playerIdentities">
+      ),
+    [identityChildren]
+  );
+
+  // US-PERF-014/015: Bulk fetch all child data (passports, injuries, goals, medical profiles)
+  // This eliminates 5 useQuery calls per child in ChildCard component
+  const bulkChildData = useQuery(
+    api.models.orgPlayerEnrollments.getBulkChildData,
+    playerIdentityIds.length > 0
+      ? { playerIdentityIds, organizationId: orgId }
+      : "skip"
+  );
 
   // Get summaries data for child summary cards (US-009)
   const summariesData = useQuery(
@@ -263,13 +282,18 @@ function ParentDashboardContent() {
         />
       )}
 
-      {/* Children Cards */}
-      {playerCount > 0 && (
+      {/* Children Cards - US-PERF-015: Pass bulk data to avoid N+1 queries */}
+      {playerCount > 0 && bulkChildData && (
         <div>
           <h2 className="mb-4 font-semibold text-xl">Your Children</h2>
           <div className="grid gap-6 md:grid-cols-2 lg:grid-cols-3">
             {identityChildren.map((child) => (
-              <ChildCard child={child} key={child.player._id} orgId={orgId} />
+              <ChildCard
+                bulkData={bulkChildData?.[child.player._id as string]}
+                child={child}
+                key={child.player._id}
+                orgId={orgId}
+              />
             ))}
           </div>
         </div>

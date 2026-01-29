@@ -1,13 +1,14 @@
 "use client";
 
 import { api } from "@pdp/backend/convex/_generated/api";
-import { useMutation, useQuery } from "convex/react";
+import { useMutation } from "convex/react";
 import { ArrowRight, CheckCircle, Trophy, UserPlus, Users } from "lucide-react";
 import { useRouter, useSearchParams } from "next/navigation";
 import { Suspense, useEffect, useRef } from "react";
 import { PDPLogo } from "@/components/pdp-logo";
 import { Button } from "@/components/ui/button";
 import { Confetti } from "@/components/ui/confetti";
+import { useCurrentUser } from "@/hooks/use-current-user";
 
 function SetupCompleteContent() {
   const router = useRouter();
@@ -15,7 +16,7 @@ function SetupCompleteContent() {
   const orgId = searchParams.get("orgId");
   const orgName = searchParams.get("orgName");
   const invited = searchParams.get("invited");
-  const currentUser = useQuery(api.models.users.getCurrentUser);
+  const currentUser = useCurrentUser();
   const completeSetup = useMutation(api.models.setup.completeSetup);
   const hasCompletedRef = useRef(false);
 

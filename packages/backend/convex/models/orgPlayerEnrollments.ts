@@ -1197,3 +1197,350 @@ export const markReviewComplete = mutation({
     };
   },
 });
+
+// ============================================================
+// BULK QUERIES FOR PARENT DASHBOARD (US-PERF-014)
+// ============================================================
+
+// Validators for bulk child data return type
+const bulkPassportValidator = v.object({
+  _id: v.id("sportPassports"),
+  _creationTime: v.number(),
+  playerIdentityId: v.id("playerIdentities"),
+  sportCode: v.string(),
+  organizationId: v.string(),
+  status: v.union(
+    v.literal("active"),
+    v.literal("inactive"),
+    v.literal("archived")
+  ),
+  primaryPosition: v.optional(v.string()),
+  secondaryPositions: v.optional(v.array(v.string())),
+  coachPreferredPosition: v.optional(v.string()),
+  leastPreferredPosition: v.optional(v.string()),
+  dominantSide: v.optional(
+    v.union(v.literal("left"), v.literal("right"), v.literal("both"))
+  ),
+  isGoalkeeper: v.optional(v.boolean()),
+  currentOverallRating: v.optional(v.number()),
+  currentTechnicalRating: v.optional(v.number()),
+  currentTacticalRating: v.optional(v.number()),
+  currentPhysicalRating: v.optional(v.number()),
+  currentMentalRating: v.optional(v.number()),
+  lastAssessmentDate: v.optional(v.string()),
+  lastAssessmentType: v.optional(v.string()),
+  assessmentCount: v.number(),
+  nextReviewDue: v.optional(v.string()),
+  coachNotes: v.optional(v.string()),
+  parentNotes: v.optional(v.string()),
+  playerNotes: v.optional(v.string()),
+  currentSeason: v.optional(v.string()),
+  seasonsPlayed: v.optional(v.array(v.string())),
+  createdAt: v.number(),
+  updatedAt: v.number(),
+});
+
+const bulkInjuryValidator = v.object({
+  _id: v.id("playerInjuries"),
+  _creationTime: v.number(),
+  playerIdentityId: v.id("playerIdentities"),
+  injuryType: v.string(),
+  bodyPart: v.string(),
+  side: v.optional(
+    v.union(v.literal("left"), v.literal("right"), v.literal("both"))
+  ),
+  dateOccurred: v.string(),
+  dateReported: v.string(),
+  severity: v.union(
+    v.literal("minor"),
+    v.literal("moderate"),
+    v.literal("severe"),
+    v.literal("long_term")
+  ),
+  status: v.union(
+    v.literal("active"),
+    v.literal("recovering"),
+    v.literal("cleared"),
+    v.literal("healed")
+  ),
+  description: v.string(),
+  mechanism: v.optional(v.string()),
+  treatment: v.optional(v.string()),
+  medicalProvider: v.optional(v.string()),
+  medicalNotes: v.optional(v.string()),
+  expectedReturn: v.optional(v.string()),
+  actualReturn: v.optional(v.string()),
+  daysOut: v.optional(v.number()),
+  returnToPlayProtocol: v.optional(
+    v.array(
+      v.object({
+        id: v.string(),
+        step: v.number(),
+        description: v.string(),
+        completed: v.boolean(),
+        completedDate: v.optional(v.string()),
+        clearedBy: v.optional(v.string()),
+      })
+    )
+  ),
+  occurredDuring: v.optional(
+    v.union(
+      v.literal("training"),
+      v.literal("match"),
+      v.literal("other_sport"),
+      v.literal("non_sport"),
+      v.literal("unknown")
+    )
+  ),
+  occurredAtOrgId: v.optional(v.string()),
+  sportCode: v.optional(v.string()),
+  isVisibleToAllOrgs: v.boolean(),
+  restrictedToOrgIds: v.optional(v.array(v.string())),
+  reportedBy: v.optional(v.string()),
+  reportedByRole: v.optional(
+    v.union(
+      v.literal("guardian"),
+      v.literal("player"),
+      v.literal("coach"),
+      v.literal("admin")
+    )
+  ),
+  createdAt: v.number(),
+  updatedAt: v.number(),
+});
+
+const bulkGoalValidator = v.object({
+  _id: v.id("passportGoals"),
+  _creationTime: v.number(),
+  passportId: v.id("sportPassports"),
+  playerIdentityId: v.id("playerIdentities"),
+  organizationId: v.string(),
+  title: v.string(),
+  description: v.string(),
+  category: v.union(
+    v.literal("technical"),
+    v.literal("tactical"),
+    v.literal("physical"),
+    v.literal("mental"),
+    v.literal("social")
+  ),
+  priority: v.union(v.literal("high"), v.literal("medium"), v.literal("low")),
+  status: v.union(
+    v.literal("not_started"),
+    v.literal("in_progress"),
+    v.literal("completed"),
+    v.literal("on_hold"),
+    v.literal("cancelled")
+  ),
+  progress: v.number(),
+  targetDate: v.optional(v.string()),
+  completedDate: v.optional(v.string()),
+  linkedSkills: v.optional(v.array(v.string())),
+  milestones: v.optional(
+    v.array(
+      v.object({
+        id: v.string(),
+        description: v.string(),
+        completed: v.boolean(),
+        completedDate: v.optional(v.string()),
+      })
+    )
+  ),
+  parentActions: v.optional(v.array(v.string())),
+  parentCanView: v.boolean(),
+  isShareable: v.optional(v.boolean()),
+  markedShareableAt: v.optional(v.number()),
+  markedShareableBy: v.optional(v.string()),
+  coachNotes: v.optional(v.string()),
+  playerNotes: v.optional(v.string()),
+  createdBy: v.optional(v.string()),
+  createdAt: v.number(),
+  updatedAt: v.number(),
+});
+
+const bulkMedicalProfileValidator = v.object({
+  _id: v.id("medicalProfiles"),
+  _creationTime: v.number(),
+  playerId: v.optional(v.id("players")),
+  playerIdentityId: v.optional(v.string()),
+  bloodType: v.optional(v.string()),
+  allergies: v.array(v.string()),
+  medications: v.array(v.string()),
+  conditions: v.array(v.string()),
+  doctorName: v.optional(v.string()),
+  doctorPhone: v.optional(v.string()),
+  emergencyContact1Name: v.string(),
+  emergencyContact1Phone: v.string(),
+  emergencyContact2Name: v.optional(v.string()),
+  emergencyContact2Phone: v.optional(v.string()),
+  lastMedicalCheck: v.optional(v.string()),
+  insuranceCovered: v.boolean(),
+  notes: v.optional(v.string()),
+  createdAt: v.optional(v.number()),
+  updatedAt: v.optional(v.number()),
+});
+
+const bulkChildDataValidator = v.object({
+  passports: v.array(bulkPassportValidator),
+  injuries: v.array(bulkInjuryValidator),
+  goals: v.array(bulkGoalValidator),
+  medicalProfile: v.union(bulkMedicalProfileValidator, v.null()),
+});
+
+/**
+ * Get bulk child data for parent dashboard (US-PERF-014)
+ * Fetches passports, injuries, goals, and medical profiles for multiple children in one call.
+ * This eliminates 5 useQuery calls per child in the ChildCard component.
+ *
+ * Performance: 4 batch queries total instead of 5 * N queries (where N = number of children)
+ */
+export const getBulkChildData = query({
+  args: {
+    playerIdentityIds: v.array(v.id("playerIdentities")),
+    organizationId: v.string(),
+  },
+  returns: v.record(v.string(), bulkChildDataValidator),
+  handler: async (ctx, args) => {
+    const { playerIdentityIds, organizationId } = args;
+
+    if (playerIdentityIds.length === 0) {
+      return {};
+    }
+
+    // 1. Batch fetch all passports for all children
+    // We can't query by array of IDs in Convex, so we fetch per child (but in parallel)
+    const passportPromises = playerIdentityIds.map((playerId) =>
+      ctx.db
+        .query("sportPassports")
+        .withIndex("by_playerIdentityId", (q) =>
+          q.eq("playerIdentityId", playerId)
+        )
+        .collect()
+    );
+
+    // 2. Batch fetch all injuries for all children
+    const injuryPromises = playerIdentityIds.map((playerId) =>
+      ctx.db
+        .query("playerInjuries")
+        .withIndex("by_playerIdentityId", (q) =>
+          q.eq("playerIdentityId", playerId)
+        )
+        .collect()
+    );
+
+    // 3. Batch fetch all goals for all children
+    const goalPromises = playerIdentityIds.map((playerId) =>
+      ctx.db
+        .query("passportGoals")
+        .withIndex("by_playerIdentityId", (q) =>
+          q.eq("playerIdentityId", playerId)
+        )
+        .collect()
+    );
+
+    // 4. Get player identities for medical profile lookup (need names)
+    const identityPromises = playerIdentityIds.map((playerId) =>
+      ctx.db.get(playerId)
+    );
+
+    // Execute all queries in parallel
+    const [passportResults, injuryResults, goalResults, identityResults] =
+      await Promise.all([
+        Promise.all(passportPromises),
+        Promise.all(injuryPromises),
+        Promise.all(goalPromises),
+        Promise.all(identityPromises),
+      ]);
+
+    // 5. Build medical profile lookups - need to find legacy players by name
+    // Collect all names for batch lookup
+    const identitiesWithNames: Array<{
+      playerId: Id<"playerIdentities">;
+      fullName: string;
+    }> = [];
+    for (let i = 0; i < playerIdentityIds.length; i++) {
+      const identity = identityResults[i];
+      if (identity) {
+        identitiesWithNames.push({
+          playerId: playerIdentityIds[i],
+          fullName: `${identity.firstName} ${identity.lastName}`,
+        });
+      }
+    }
+
+    // Fetch legacy players for this org (single query)
+    const legacyPlayers = await ctx.db
+      .query("players")
+      .withIndex("by_organizationId", (q) =>
+        q.eq("organizationId", organizationId)
+      )
+      .collect();
+
+    // Create name to legacy player map
+    const nameToLegacyPlayer = new Map<string, (typeof legacyPlayers)[0]>();
+    for (const player of legacyPlayers) {
+      nameToLegacyPlayer.set(player.name, player);
+    }
+
+    // Collect legacy player IDs that match our children
+    const legacyPlayerIdsToFetch: Array<{
+      playerId: Id<"playerIdentities">;
+      legacyPlayerId: Id<"players">;
+    }> = [];
+    for (const { playerId, fullName } of identitiesWithNames) {
+      const legacyPlayer = nameToLegacyPlayer.get(fullName);
+      if (legacyPlayer) {
+        legacyPlayerIdsToFetch.push({
+          playerId,
+          legacyPlayerId: legacyPlayer._id,
+        });
+      }
+    }
+
+    // Batch fetch medical profiles
+    const medicalProfilePromises = legacyPlayerIdsToFetch.map(
+      ({ legacyPlayerId }) =>
+        ctx.db
+          .query("medicalProfiles")
+          .withIndex("by_playerId", (q) => q.eq("playerId", legacyPlayerId))
+          .first()
+    );
+    const medicalProfileResults = await Promise.all(medicalProfilePromises);
+
+    // Create playerIdentityId -> medical profile map
+    const playerToMedicalProfile = new Map<
+      string,
+      (typeof medicalProfileResults)[0]
+    >();
+    for (let i = 0; i < legacyPlayerIdsToFetch.length; i++) {
+      const { playerId } = legacyPlayerIdsToFetch[i];
+      const profile = medicalProfileResults[i];
+      if (profile) {
+        playerToMedicalProfile.set(playerId as string, profile);
+      }
+    }
+
+    // Build result map: playerIdentityId -> { passports, injuries, goals, medicalProfile }
+    const result: Record<
+      string,
+      {
+        passports: (typeof passportResults)[0];
+        injuries: (typeof injuryResults)[0];
+        goals: (typeof goalResults)[0];
+        medicalProfile: (typeof medicalProfileResults)[0] | null;
+      }
+    > = {};
+
+    for (let i = 0; i < playerIdentityIds.length; i++) {
+      const playerId = playerIdentityIds[i] as string;
+      result[playerId] = {
+        passports: passportResults[i],
+        injuries: injuryResults[i],
+        goals: goalResults[i],
+        medicalProfile: playerToMedicalProfile.get(playerId) ?? null,
+      };
+    }
+
+    return result;
+  },
+});

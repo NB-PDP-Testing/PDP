@@ -2,6 +2,7 @@
 
 import { api } from "@pdp/backend/convex/_generated/api";
 import { useMutation, useQuery } from "convex/react";
+import { useMembershipContext } from "@/providers/membership-provider";
 
 // Type for organization from better-auth
 type Organization = {
@@ -26,7 +27,7 @@ import {
 } from "lucide-react";
 import type { Route } from "next";
 import { useParams, usePathname, useRouter } from "next/navigation";
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { toast } from "sonner";
 
 // Regex for extracting role from pathname (Issue #226)
@@ -173,10 +174,9 @@ export function OrgRoleSwitcher({ className }: OrgRoleSwitcherProps) {
   const user = useCurrentUser();
   const { useOrgUsageTracking } = useUXFeatureFlags();
 
-  // Get all memberships with roles for all organizations
-  const allMemberships = useQuery(
-    api.models.members.getMembersForAllOrganizations
-  );
+  // Get all memberships from context (shared across header components)
+  // Performance: Uses MembershipProvider to avoid duplicate queries
+  const { memberships: allMemberships } = useMembershipContext();
 
   const switchActiveRole = useMutation(
     api.models.members.switchActiveFunctionalRole
@@ -197,14 +197,32 @@ export function OrgRoleSwitcher({ className }: OrgRoleSwitcherProps) {
     (m) => m.organizationId === urlOrgId
   );
 
+  // Track previous pathname to detect actual navigation events
+  // This prevents syncing when membership changes from manual role switch
+  const prevPathnameRef = useRef(pathname);
+
   // Fix for Issue #226: Sync activeFunctionalRole with URL pathname
   // When user navigates to a role page via links/back/forward/URL,
   // automatically update the database to match the current page
   //
-  // IMPORTANT: Only sync when the role ACTUALLY CHANGES to avoid write conflicts
-  // Previously this was called on every navigation which caused 1,500+ retries
+  // IMPORTANT: Only sync when PATHNAME CHANGES, not when membership changes.
+  // This prevents a race condition where:
+  // 1. User clicks to switch role (parent → admin)
+  // 2. Mutation updates membership to admin
+  // 3. This useEffect fires because membership changed
+  // 4. But pathname is still /parents (navigation pending)
+  // 5. useEffect tries to sync BACK to parent → infinite loop!
   useEffect(() => {
     const syncRoleFromURL = async () => {
+      // Only sync when pathname actually changed (user navigated)
+      // Don't sync when membership changed from manual role switch
+      const pathnameChanged = pathname !== prevPathnameRef.current;
+      prevPathnameRef.current = pathname;
+
+      if (!pathnameChanged) {
+        return; // Membership changed but pathname didn't - skip sync
+      }
+
       if (!(urlOrgId && currentMembership && pathname)) {
         return;
       }

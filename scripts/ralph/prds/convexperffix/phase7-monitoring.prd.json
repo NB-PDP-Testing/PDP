@@ -46,8 +46,8 @@
         "fallback": "If no built-in alerts, schedule manual weekly review of usage"
       },
       "priority": 1,
-      "passes": true,
-      "notes": "Alerts prevent future surprise billing. Critical for staying on free tier. Documentation created at docs/development/convex-usage-monitoring.md"
+      "passes": false,
+      "notes": "Alerts prevent future surprise billing. Critical for staying on free tier."
     },
     {
       "id": "US-PERF-029",
@@ -69,8 +69,8 @@
         "strategy": "Only update if Phase 1 update was stable. Cautious approach."
       },
       "priority": 2,
-      "passes": true,
-      "notes": "OPTIONAL - Skipped. Current 0.9.11 is working well. Latest is 0.10.10 which is a minor version jump. Recommend updating during a dedicated maintenance window with thorough testing."
+      "passes": false,
+      "notes": "OPTIONAL - only if confident from Phase 1 update. Skip if any concerns."
     },
     {
       "id": "US-PERF-030",
@@ -96,8 +96,8 @@
         "criticalPaths": "Login → Dashboard → Feature → Data display"
       },
       "priority": 3,
-      "passes": true,
-      "notes": "Verified: Login page loads, OAuth flows work, Convex backend responding. Test credentials (neil.B@blablablak.com) no longer valid - recommend creating fresh test accounts for full regression. Code review confirms all optimizations in place."
+      "passes": false,
+      "notes": "Comprehensive testing ensures no regressions from all the optimizations"
     },
     {
       "id": "US-PERF-031",
@@ -118,44 +118,34 @@
         "calculation": "(daily calls × 30) or (weekly calls × 4.3)"
       },
       "priority": 4,
-      "passes": true,
-      "notes": "Code optimizations implemented: Phase 1 (indexes), Phase 2 (N+1 fixes), Phase 3 (filter fixes), Phase 4 (ChildCard bulk), Phase 5 (context caching), Phase 6 (userId fixes). Expected 75% reduction. Actual production metrics should be verified in Convex dashboard."
+      "passes": false,
+      "notes": "This is the key success metric. Must verify before considering free tier."
     },
     {
       "id": "US-PERF-032",
       "title": "Document Learnings in CLAUDE.md",
-      "description": "Update CLAUDE.md with N+1 prevention checklist and MANDATORY performance patterns that ALL future code changes must follow.",
+      "description": "Update CLAUDE.md with N+1 prevention checklist and performance patterns.",
       "phase": "Phase 7: Monitoring",
       "acceptanceCriteria": [
         "Open CLAUDE.md",
-        "Add new section: '## Performance & Query Optimization (MANDATORY)'",
-        "Add prominent warning box/note at the top of section stating:",
-        "  - 'CRITICAL: All future backend and frontend changes MUST follow these patterns'",
-        "  - 'These optimizations reduced function calls from 3.2M to ~800K/month'",
-        "  - 'Violating these patterns will cause billing overages and performance issues'",
-        "  - 'Review this section before writing ANY new queries or data fetching code'",
-        "Include N+1 prevention checklist (MANDATORY rules):",
-        "  - NEVER query in a loop (Promise.all with individual queries)",
-        "  - ALWAYS collect IDs first, batch fetch, then Map lookup",
-        "  - ALWAYS use composite indexes for multi-field filters",
-        "  - ALWAYS use withIndex() - NEVER use filter()",
-        "  - ALWAYS prefer server-side filtering over client-side",
-        "  - ALWAYS lift queries to parent components, pass data as props",
-        "  - NEVER make multiple useQuery calls per list item (ChildCard pattern)",
-        "Include common anti-patterns with examples of what NOT to do",
-        "Include correct patterns with examples of what TO do",
-        "Reference GitHub Issue #330 and this optimization project",
-        "Add note: 'If unsure, ask before implementing - performance regression is costly'"
+        "Add new section: '## Performance & Query Optimization'",
+        "Include N+1 prevention checklist:",
+        "  - Never query in a loop (Promise.all with queries)",
+        "  - Collect IDs first, batch fetch, Map lookup",
+        "  - Use composite indexes for multi-field filters",
+        "  - Prefer withIndex() over filter()",
+        "  - Use server-side filtering over client-side",
+        "Include common patterns that cause issues",
+        "Reference this optimization project as example"
       ],
       "technicalNotes": {
         "location": "CLAUDE.md in project root",
-        "purpose": "MANDATORY guidelines to prevent future developers from reintroducing N+1 patterns",
-        "format": "Match existing CLAUDE.md style but make performance section prominently visible",
-        "emphasis": "This is not optional best practices - these are REQUIRED rules for all future development"
+        "purpose": "Prevent future developers from reintroducing N+1 patterns",
+        "format": "Match existing CLAUDE.md style and sections"
       },
       "priority": 5,
-      "passes": true,
-      "notes": "COMPLETED: Added comprehensive Performance & Query Optimization section to CLAUDE.md with warning box, N+1 prevention patterns, index usage rules, frontend query patterns, anti-pattern table, Better Auth user ID pattern, and performance checklist."
+      "passes": false,
+      "notes": "Documentation prevents future regression. Important institutional knowledge."
     },
     {
       "id": "US-PERF-033",
@@ -176,8 +166,8 @@
         "successCriteria": "Stable call volume under 900K/month trajectory"
       },
       "priority": 6,
-      "passes": true,
-      "notes": "Code changes deployed. Monitoring documentation created at docs/development/convex-usage-monitoring.md. Team should monitor Convex dashboard for 24-48h post-deploy. Alert thresholds: 500K (warning), 750K (alert), 900K (critical)."
+      "passes": false,
+      "notes": "Final validation before declaring project complete"
     },
     {
       "id": "US-PERF-034",
@@ -198,8 +188,8 @@
         "proFeatures": "Review if any Pro features are being used before downgrade"
       },
       "priority": 7,
-      "passes": true,
-      "notes": "RECOMMENDATION: After 24-48h monitoring confirms <900K/month trajectory, downgrade to free tier is recommended. All Phase 1-6 optimizations complete. Expected: 75% reduction (3.2M → ~800K). Decision requires stakeholder approval based on monitoring results."
+      "passes": false,
+      "notes": "Business decision based on technical results. May need stakeholder input."
     }
   ],
   "qualityChecks": {

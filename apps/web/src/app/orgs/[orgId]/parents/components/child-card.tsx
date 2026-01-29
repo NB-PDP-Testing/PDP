@@ -20,6 +20,43 @@ import { Badge } from "@/components/ui/badge";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Progress } from "@/components/ui/progress";
 
+// US-PERF-015/016: Type for bulk child data passed from parent dashboard
+type BulkChildData = {
+  passports: Array<{
+    _id: Id<"sportPassports">;
+    sportCode: string;
+    status: "active" | "inactive" | "archived";
+    currentOverallRating?: number;
+    assessmentCount: number;
+    [key: string]: unknown;
+  }>;
+  injuries: Array<{
+    _id: Id<"playerInjuries">;
+    status: "active" | "recovering" | "cleared" | "healed";
+    [key: string]: unknown;
+  }>;
+  goals: Array<{
+    _id: Id<"passportGoals">;
+    title: string;
+    status:
+      | "not_started"
+      | "in_progress"
+      | "completed"
+      | "on_hold"
+      | "cancelled";
+    progress: number;
+    parentCanView: boolean;
+    parentActions?: string[];
+    [key: string]: unknown;
+  }>;
+  medicalProfile: {
+    _id: Id<"medicalProfiles">;
+    conditions: string[];
+    allergies: string[];
+    [key: string]: unknown;
+  } | null;
+};
+
 type ChildCardProps = {
   child: {
     player: {
@@ -37,6 +74,8 @@ type ChildCardProps = {
     };
   };
   orgId: string;
+  // US-PERF-015/016: Optional bulk data from parent - if provided, skip individual queries
+  bulkData?: BulkChildData;
 };
 
 // Calculate average rating from skills
@@ -151,39 +190,58 @@ const getAssessmentStatusBadge = (
   );
 };
 
-export function ChildCard({ child, orgId }: ChildCardProps) {
+export function ChildCard({ child, orgId, bulkData }: ChildCardProps) {
   const { player, enrollment } = child;
 
-  // Get passport data for this child
-  const passportData = useQuery(
+  // US-PERF-015/016: Use bulk data when available, otherwise fall back to individual queries
+  // This eliminates 5 useQuery calls per child when bulk data is provided
+
+  // Get passport data for this child - ONLY if bulk data not provided
+  const passportDataQuery = useQuery(
     api.models.sportPassports.getFullPlayerPassportView,
-    {
-      playerIdentityId: player._id,
-      organizationId: orgId,
-    }
+    bulkData
+      ? "skip"
+      : {
+          playerIdentityId: player._id,
+          organizationId: orgId,
+        }
   );
 
-  // Get ALL sport passports for multi-sport passport buttons
-  const allPassports = useQuery(
+  // Get ALL sport passports for multi-sport passport buttons - ONLY if bulk data not provided
+  const allPassportsQuery = useQuery(
     api.models.sportPassports.getPassportsForPlayer,
-    { playerIdentityId: player._id }
+    bulkData ? "skip" : { playerIdentityId: player._id }
   );
 
-  // Get active injuries
-  const injuries = useQuery(api.models.playerInjuries.getInjuriesForPlayer, {
-    playerIdentityId: player._id,
-  });
+  // Get active injuries - ONLY if bulk data not provided
+  const injuriesQuery = useQuery(
+    api.models.playerInjuries.getInjuriesForPlayer,
+    bulkData ? "skip" : { playerIdentityId: player._id }
+  );
 
-  // Get goals
-  const goals = useQuery(api.models.passportGoals.getGoalsForPlayer, {
-    playerIdentityId: player._id,
-  });
+  // Get goals - ONLY if bulk data not provided
+  const goalsQuery = useQuery(
+    api.models.passportGoals.getGoalsForPlayer,
+    bulkData ? "skip" : { playerIdentityId: player._id }
+  );
 
-  // Get medical profile
-  const medicalProfile = useQuery(
+  // Get medical profile - ONLY if bulk data not provided
+  const medicalProfileQuery = useQuery(
     api.models.medicalProfiles.getByPlayerIdentityId,
-    { playerIdentityId: player._id, organizationId: orgId }
+    bulkData ? "skip" : { playerIdentityId: player._id, organizationId: orgId }
   );
+
+  // US-PERF-015/016: Use bulk data if available, otherwise use query results
+  const allPassports = bulkData?.passports ?? allPassportsQuery;
+  const injuries = bulkData?.injuries ?? injuriesQuery;
+  const goals = bulkData?.goals ?? goalsQuery;
+  const medicalProfile = bulkData?.medicalProfile ?? medicalProfileQuery;
+
+  // For passport data, we need to handle the view query differently
+  // The bulk data has passports array directly, but getFullPlayerPassportView has a different shape
+  const passportData = bulkData
+    ? { passports: bulkData.passports, skills: undefined }
+    : passportDataQuery;
 
   // Get first passport (primary sport)
   const primaryPassport = passportData?.passports?.[0];
@@ -193,7 +251,9 @@ export function ChildCard({ child, orgId }: ChildCardProps) {
     if (!allPassports) {
       return [];
     }
-    return allPassports.filter((p: any) => p.status === "active");
+    return (allPassports as Array<{ status: string }>).filter(
+      (p) => p.status === "active"
+    );
   }, [allPassports]);
 
   const isMultiSport = activeSports.length > 1;
@@ -213,8 +273,8 @@ export function ChildCard({ child, orgId }: ChildCardProps) {
     if (!injuries) {
       return [];
     }
-    return injuries.filter(
-      (i: any) => i.status === "active" || i.status === "recovering"
+    return (injuries as Array<{ status: string }>).filter(
+      (i) => i.status === "active" || i.status === "recovering"
     );
   }, [injuries]);
 
@@ -222,8 +282,8 @@ export function ChildCard({ child, orgId }: ChildCardProps) {
     if (!goals) {
       return [];
     }
-    return goals.filter(
-      (g: any) => g.status === "in_progress" || g.status === "not_started"
+    return (goals as Array<{ status: string }>).filter(
+      (g) => g.status === "in_progress" || g.status === "not_started"
     );
   }, [goals]);
 
@@ -231,7 +291,9 @@ export function ChildCard({ child, orgId }: ChildCardProps) {
     if (!goals) {
       return [];
     }
-    return goals.filter((g: any) => g.parentCanView !== false);
+    return (goals as Array<{ parentCanView?: boolean }>).filter(
+      (g) => g.parentCanView !== false
+    );
   }, [goals]);
 
   // Get medical alerts (conditions + allergies) with labels

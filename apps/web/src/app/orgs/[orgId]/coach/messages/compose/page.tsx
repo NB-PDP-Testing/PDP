@@ -74,13 +74,13 @@ export default function ComposeMessagePage() {
   const [isSubmitting, setIsSubmitting] = useState(false);
 
   // Fallback: use session user ID if Convex user query returns null
-  // TODO: Will be needed for coach assignment verification in future
-  const _userId = currentUser?._id || session?.user?.id;
+  const userId = currentUser?._id || session?.user?.id;
 
   // Fetch players for coach
+  // Performance: Uses getPlayersForCoachTeams for server-side filtering
   const allPlayersData = useQuery(
-    api.models.orgPlayerEnrollments.getPlayersForOrg,
-    orgId ? { organizationId: orgId } : "skip"
+    api.models.orgPlayerEnrollments.getPlayersForCoachTeams,
+    userId && orgId ? { organizationId: orgId, coachUserId: userId } : "skip"
   );
 
   // Fetch guardians for selected player

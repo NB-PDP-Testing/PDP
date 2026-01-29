@@ -51,6 +51,8 @@ import {
   SelectValue,
 } from "@/components/ui/select";
 import { Textarea } from "@/components/ui/textarea";
+import { useCurrentUser } from "@/hooks/use-current-user";
+import { authClient } from "@/lib/auth-client";
 
 type Severity = "minor" | "moderate" | "severe" | "long_term";
 type InjuryStatus = "active" | "recovering" | "cleared" | "healed";
@@ -129,6 +131,11 @@ export default function InjuryTrackingPage() {
   const params = useParams();
   const router = useRouter();
   const orgId = params.orgId as string;
+  const currentUser = useCurrentUser();
+  const { data: session } = authClient.useSession();
+
+  // Fallback: use session user ID if Convex user query returns null
+  const userId = currentUser?._id || session?.user?.id;
 
   // State
   const [selectedPlayerId, setSelectedPlayerId] = useState<string | null>(null);
@@ -154,10 +161,11 @@ export default function InjuryTrackingPage() {
       | "unknown",
   });
 
-  // Queries
-  const players = useQuery(api.models.orgPlayerEnrollments.getPlayersForOrg, {
-    organizationId: orgId,
-  });
+  // Queries - Performance: Uses getPlayersForCoachTeams for server-side filtering
+  const players = useQuery(
+    api.models.orgPlayerEnrollments.getPlayersForCoachTeams,
+    userId && orgId ? { organizationId: orgId, coachUserId: userId } : "skip"
+  );
 
   const injuries = useQuery(
     api.models.playerInjuries.getInjuriesForPlayer,

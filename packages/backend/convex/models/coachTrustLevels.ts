@@ -978,3 +978,188 @@ export const adjustInsightThresholds = internalMutation({
     };
   },
 });
+
+/**
+ * Phase 7.3 (US-012): Get AI accuracy metrics for a specific coach
+ * Shows how often coach needs to correct AI-generated insights
+ */
+export const getAIAccuracyByCoach = query({
+  args: {
+    coachId: v.string(),
+    organizationId: v.string(),
+    timeWindowDays: v.optional(v.number()), // Default 30 days
+  },
+  returns: v.object({
+    totalInsights: v.number(),
+    manuallyCorrected: v.number(),
+    aiGotItRight: v.number(),
+    accuracy: v.number(), // Percentage (0-100)
+    correctionBreakdown: v.object({
+      playerAssigned: v.number(),
+      teamClassified: v.number(),
+      todoClassified: v.number(),
+      contentEdited: v.number(),
+    }),
+  }),
+  handler: async (ctx, args) => {
+    const timeWindow = args.timeWindowDays ?? 30;
+    const startTime = Date.now() - timeWindow * 24 * 60 * 60 * 1000;
+
+    const insights = await ctx.db
+      .query("voiceNoteInsights")
+      .withIndex("by_coach_org", (q) =>
+        q.eq("coachId", args.coachId).eq("organizationId", args.organizationId)
+      )
+      .filter((q) => q.gte(q.field("createdAt"), startTime))
+      .collect();
+
+    const corrected = insights.filter((i) => i.wasManuallyCorrected === true);
+
+    const totalInsights = insights.length;
+    const manuallyCorrected = corrected.length;
+    const aiGotItRight = totalInsights - manuallyCorrected;
+    const accuracy =
+      totalInsights > 0 ? (aiGotItRight / totalInsights) * 100 : 0;
+
+    // Breakdown by correction type
+    const correctionBreakdown = {
+      playerAssigned: corrected.filter(
+        (i) => i.correctionType === "player_assigned"
+      ).length,
+      teamClassified: corrected.filter(
+        (i) => i.correctionType === "team_classified"
+      ).length,
+      todoClassified: corrected.filter(
+        (i) => i.correctionType === "todo_classified"
+      ).length,
+      contentEdited: corrected.filter(
+        (i) => i.correctionType === "content_edited"
+      ).length,
+    };
+
+    return {
+      totalInsights,
+      manuallyCorrected,
+      aiGotItRight,
+      accuracy,
+      correctionBreakdown,
+    };
+  },
+});
+
+/**
+ * Phase 7.3 (US-012): Get platform-wide AI accuracy metrics
+ * Shows aggregate AI performance across all coaches and organizations
+ * Used by platform staff AI configuration page
+ */
+export const getPlatformAIAccuracy = query({
+  args: {
+    timeWindowDays: v.optional(v.number()), // Default 30 days
+  },
+  returns: v.object({
+    totalInsights: v.number(),
+    manuallyCorrected: v.number(),
+    aiGotItRight: v.number(),
+    accuracy: v.number(), // Percentage (0-100)
+    correctionBreakdown: v.object({
+      playerAssigned: v.number(),
+      teamClassified: v.number(),
+      todoClassified: v.number(),
+      contentEdited: v.number(),
+    }),
+    byCoach: v.array(
+      v.object({
+        coachId: v.string(),
+        totalInsights: v.number(),
+        manuallyCorrected: v.number(),
+        accuracy: v.number(),
+      })
+    ),
+  }),
+  handler: async (ctx, args) => {
+    const timeWindow = args.timeWindowDays ?? 30;
+    const startTime = Date.now() - timeWindow * 24 * 60 * 60 * 1000;
+
+    // Get all insights in time window
+    const allInsights = await ctx.db
+      .query("voiceNoteInsights")
+      .filter((q) => q.gte(q.field("createdAt"), startTime))
+      .collect();
+
+    const corrected = allInsights.filter(
+      (i) => i.wasManuallyCorrected === true
+    );
+
+    const totalInsights = allInsights.length;
+    const manuallyCorrected = corrected.length;
+    const aiGotItRight = totalInsights - manuallyCorrected;
+    const accuracy =
+      totalInsights > 0 ? (aiGotItRight / totalInsights) * 100 : 0;
+
+    // Breakdown by correction type
+    const correctionBreakdown = {
+      playerAssigned: corrected.filter(
+        (i) => i.correctionType === "player_assigned"
+      ).length,
+      teamClassified: corrected.filter(
+        (i) => i.correctionType === "team_classified"
+      ).length,
+      todoClassified: corrected.filter(
+        (i) => i.correctionType === "todo_classified"
+      ).length,
+      contentEdited: corrected.filter(
+        (i) => i.correctionType === "content_edited"
+      ).length,
+    };
+
+    // Group by coach for per-coach breakdown
+    const byCoachMap = new Map<
+      string,
+      {
+        coachId: string;
+        totalInsights: number;
+        manuallyCorrected: number;
+        accuracy: number;
+      }
+    >();
+
+    for (const insight of allInsights) {
+      const existing = byCoachMap.get(insight.coachId) || {
+        coachId: insight.coachId,
+        totalInsights: 0,
+        manuallyCorrected: 0,
+        accuracy: 0,
+      };
+
+      existing.totalInsights += 1;
+      if (insight.wasManuallyCorrected) {
+        existing.manuallyCorrected += 1;
+      }
+
+      byCoachMap.set(insight.coachId, existing);
+    }
+
+    // Calculate accuracy for each coach
+    const byCoach = Array.from(byCoachMap.values()).map((coach) => ({
+      ...coach,
+      accuracy:
+        coach.totalInsights > 0
+          ? ((coach.totalInsights - coach.manuallyCorrected) /
+              coach.totalInsights) *
+            100
+          : 0,
+    }));
+
+    // Sort by accuracy (lowest first - coaches who need help)
+    byCoach.sort((a, b) => a.accuracy - b.accuracy);
+
+    return {
+      totalInsights,
+      manuallyCorrected,
+      aiGotItRight,
+      accuracy,
+      correctionBreakdown,
+      byCoach,
+    };
+  },
+});

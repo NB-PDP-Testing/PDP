@@ -52,7 +52,8 @@
       "TypeSafety": "CRITICAL - Always use Id<'tableName'> types, not string. Import from @pdp/backend/convex/_generated/dataModel. Ralph used 'string' in Week 2 which caused type errors.",
       "InterfaceVsType": "CRITICAL - Use 'type' not 'interface'. Biome linting rule enforces this. Ralph used 'interface' which failed lint.",
       "MatchBackendTypes": "CRITICAL - Read backend query return validator FIRST. Don't guess field names. Ralph used 'appliedAt' but backend returned 'recordedAt' for injuries.",
-      "BetterAuthIntegration": "Do NOT query organization/team/member/user tables directly. Use ctx.runQuery(components.betterAuth.adapter.findMany, {...}).",
+      "BetterAuthIntegration": "CRITICAL - Do NOT query organization/team/member/user/invitation tables directly. Better Auth manages these tables with internal logic. Direct queries bypass that logic and cause sync issues. MUST use ctx.runQuery(components.betterAuth.adapter.findMany, {...}) for these tables. APPLICATION tables (voiceNotes, coachParentSummaries, skillAssessments, playerInjuries, etc.) use regular Convex queries.",
+      "BetterAuthTablesList": "Tables that require Better Auth adapter: user, organization, member, team, invitation. ALL other application tables use regular Convex queries (ctx.db.query).",
       "RechartsAvailable": "Recharts library already in project. No installation needed. Import LineChart, ResponsiveContainer, etc.",
       "CSVExport": "Escape commas: description.replace(/,/g, ';'). Prevents CSV corruption.",
       "ResponsiveDesign": "Always wrap LineChart in ResponsiveContainer. Grid: grid-cols-1 md:grid-cols-2 lg:grid-cols-4"

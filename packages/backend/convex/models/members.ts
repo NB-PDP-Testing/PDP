@@ -1620,97 +1620,144 @@ export const getPendingInvitationsByEmail = query({
       }
     );
 
-    // Enrich with organization details and assignments
-    const enriched = await Promise.all(
-      invitationsResult.page.map(async (inv: any) => {
-        const orgResult = await ctx.runQuery(
-          components.betterAuth.adapter.findOne,
-          {
+    // BATCH FIX: Collect all unique IDs from all invitations first
+    const allOrgIds: string[] = [];
+    const allTeamIds: string[] = [];
+    const allPlayerIds: string[] = [];
+
+    for (const inv of invitationsResult.page) {
+      // biome-ignore lint/suspicious/noExplicitAny: Better Auth adapter returns untyped data
+      const invAny = inv as any;
+      allOrgIds.push(invAny.organizationId);
+
+      const metadata = invAny.metadata || {};
+      const teamData = metadata.roleSpecificData?.teams || [];
+      for (const team of teamData) {
+        const teamId = typeof team === "string" ? team : team.id || team._id;
+        if (teamId) {
+          allTeamIds.push(teamId);
+        }
+      }
+
+      const playerData = metadata.suggestedPlayerLinks || [];
+      for (const player of playerData) {
+        const playerId = typeof player === "string" ? player : player.id;
+        if (playerId) {
+          allPlayerIds.push(playerId);
+        }
+      }
+    }
+
+    // Deduplicate IDs
+    const uniqueOrgIds: string[] = [...new Set(allOrgIds)];
+    const uniqueTeamIds: string[] = [...new Set(allTeamIds)];
+    const uniquePlayerIds: string[] = [...new Set(allPlayerIds)];
+
+    // Batch fetch all data in parallel
+    const [orgsResults, teamsResults, playersResults] = await Promise.all([
+      // Batch fetch orgs
+      Promise.all(
+        uniqueOrgIds.map((orgId: string) =>
+          ctx.runQuery(components.betterAuth.adapter.findOne, {
             model: "organization",
-            where: [
-              {
-                field: "_id",
-                value: inv.organizationId,
-                operator: "eq",
-              },
-            ],
-          }
-        );
+            where: [{ field: "_id", value: orgId, operator: "eq" }],
+          })
+        )
+      ),
+      // Batch fetch teams
+      Promise.all(
+        uniqueTeamIds.map((teamId: string) =>
+          ctx.runQuery(components.betterAuth.adapter.findOne, {
+            model: "team",
+            where: [{ field: "_id", value: teamId, operator: "eq" }],
+          })
+        )
+      ),
+      // Batch fetch players (using ctx.db.get)
+      Promise.all(
+        // biome-ignore lint/suspicious/noExplicitAny: Player IDs may be stored as strings
+        uniquePlayerIds.map((playerId: string) => ctx.db.get(playerId as any))
+      ),
+    ]);
 
-        const metadata = inv.metadata || {};
-        const functionalRoles = metadata.suggestedFunctionalRoles || [];
+    // Create Maps for O(1) lookup
+    const orgMap = new Map<string, { name: string }>();
+    for (const org of orgsResults) {
+      if (org) {
+        // biome-ignore lint/suspicious/noExplicitAny: Better Auth adapter returns untyped data
+        orgMap.set(org._id as string, { name: (org as any).name || "Unknown" });
+      }
+    }
 
-        // Fetch team details for coaches
-        let teams = [];
-        const teamData = metadata.roleSpecificData?.teams || [];
-        if (teamData.length > 0) {
-          teams = await Promise.all(
-            teamData.map(async (team: any) => {
-              // Extract ID from team object (Phase 1 stores full objects now)
-              // Handle both 'id' and '_id' properties (edit modal uses '_id', invite form uses 'id')
-              const teamId =
-                typeof team === "string" ? team : team.id || team._id;
-              const teamResult = await ctx.runQuery(
-                components.betterAuth.adapter.findOne,
-                {
-                  model: "team",
-                  where: [
-                    {
-                      field: "_id",
-                      value: teamId,
-                      operator: "eq",
-                    },
-                  ],
-                }
-              );
+    const teamMap = new Map<
+      string,
+      { _id: string; name: string; ageGroup: string | null }
+    >();
+    for (const team of teamsResults) {
+      if (team) {
+        // biome-ignore lint/suspicious/noExplicitAny: Better Auth adapter returns untyped data
+        const teamAny = team as any;
+        teamMap.set(teamAny._id as string, {
+          _id: teamAny._id,
+          name: teamAny.name,
+          ageGroup: teamAny.ageGroup || null,
+        });
+      }
+    }
 
-              if (teamResult) {
-                return {
-                  _id: teamResult._id,
-                  name: teamResult.name,
-                  ageGroup: teamResult.ageGroup || null,
-                };
-              }
-              return null;
-            })
-          ).then((results) => results.filter(Boolean));
-        }
+    const playerMap = new Map<
+      string,
+      { _id: string; firstName: string; lastName: string }
+    >();
+    for (const player of playersResults) {
+      if (player) {
+        // biome-ignore lint/suspicious/noExplicitAny: Player record shape varies
+        const playerAny = player as any;
+        playerMap.set(playerAny._id as string, {
+          _id: playerAny._id,
+          firstName: playerAny.firstName,
+          lastName: playerAny.lastName,
+        });
+      }
+    }
 
-        // Fetch player details for parents
-        let players = [];
-        const playerData = metadata.suggestedPlayerLinks || [];
-        if (playerData.length > 0) {
-          players = await Promise.all(
-            playerData.map(async (player: any) => {
-              // Extract ID from player object (Phase 1 stores full objects now)
-              const playerId = typeof player === "string" ? player : player.id;
-              const playerRecord = await ctx.db.get(playerId as any);
-              if (playerRecord) {
-                return {
-                  _id: playerRecord._id,
-                  firstName: (playerRecord as any).firstName,
-                  lastName: (playerRecord as any).lastName,
-                };
-              }
-              return null;
-            })
-          ).then((results) => results.filter(Boolean));
-        }
+    // Map over invitations using pre-fetched data (no more N+1)
+    const enriched = invitationsResult.page.map((inv: any) => {
+      const orgData = orgMap.get(inv.organizationId);
+      const metadata = inv.metadata || {};
+      const functionalRoles = metadata.suggestedFunctionalRoles || [];
 
-        return {
-          _id: inv._id,
-          organizationId: inv.organizationId,
-          organizationName: orgResult?.name || "Unknown",
-          email: inv.email,
-          role: inv.role || null,
-          functionalRoles,
-          teams,
-          players,
-          expiresAt: inv.expiresAt,
-          isExpired: inv.expiresAt < Date.now(),
-        };
-      })
-    );
+      // Get team details from map
+      const teamData = metadata.roleSpecificData?.teams || [];
+      const teams = teamData
+        .map((team: any) => {
+          const teamId = typeof team === "string" ? team : team.id || team._id;
+          return teamMap.get(teamId);
+        })
+        .filter(Boolean);
+
+      // Get player details from map
+      const playerData = metadata.suggestedPlayerLinks || [];
+      const players = playerData
+        .map((player: any) => {
+          const playerId = typeof player === "string" ? player : player.id;
+          return playerMap.get(playerId);
+        })
+        .filter(Boolean);
+
+      return {
+        _id: inv._id,
+        organizationId: inv.organizationId,
+        organizationName: orgData?.name || "Unknown",
+        email: inv.email,
+        role: inv.role || null,
+        functionalRoles,
+        teams,
+        players,
+        expiresAt: inv.expiresAt,
+        isExpired: inv.expiresAt < Date.now(),
+      };
+    });
 
     // Filter out expired invitations
     return enriched.filter((i) => !i.isExpired);

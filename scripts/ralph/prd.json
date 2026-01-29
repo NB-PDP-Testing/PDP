@@ -1,13 +1,14 @@
 {
-  "project": "Convex Performance Fix - Phase 3: Backend Filter Fixes",
+  "project": "Convex Performance Fix - Phase 4: Frontend ChildCard Refactor",
   "branchName": "johnobr/fixconvex",
-  "description": "Day 3: Fix voiceNotes and whatsappMessages coach lookups, plus filter violations in sportPassports, playerInjuries, passportGoals. Deploy to production after this phase.",
+  "description": "Day 4: Create bulk backend queries and refactor ChildCard component to eliminate 5 useQuery calls per child. Expected: 80% reduction in parent dashboard queries.",
   "readinessLevel": "100%",
   "prerequisitesCompleted": {
-    "status": "Depends on Phase 1-2",
+    "status": "Depends on Phase 1-3",
     "completedWork": [
-      "Phase 1: Schema indexes added (required for filter fixes)",
-      "Phase 2: Major N+1 patterns fixed"
+      "Phase 1: Schema indexes added",
+      "Phase 2: Backend N+1 patterns fixed",
+      "Phase 3: Filter violations fixed, production deployed"
     ],
     "documentationReferences": [
       "GitHub Issue #330 - Convex Performance Crisis",
@@ -15,192 +16,156 @@
     ]
   },
   "contextAndDependencies": {
-    "targetMetric": "~150K additional calls saved",
+    "targetMetric": "80% reduction in parent dashboard queries (25 → 5 for 5 children)",
     "keyFiles": [
-      "packages/backend/convex/models/voiceNotes.ts - Lines 440-486",
-      "packages/backend/convex/models/whatsappMessages.ts - Lines 901-932",
-      "packages/backend/convex/models/sportPassports.ts - Line 878",
-      "packages/backend/convex/models/playerInjuries.ts - Lines 234-256",
-      "packages/backend/convex/models/passportGoals.ts - Lines 132, 158"
+      "packages/backend/convex/models/orgPlayerEnrollments.ts - Add getBulkChildData query",
+      "apps/web/src/app/orgs/[orgId]/parents/components/child-card.tsx - Lines 158-186",
+      "apps/web/src/app/orgs/[orgId]/parents/page.tsx - Query lifting"
     ],
     "criticalPatterns": {
-      "Filter_Violation": ".filter() after .collect() scans all records. Fix: Use composite index with .withIndex()",
-      "Batch_Coach_Lookup": "Individual coach lookups in loops. Fix: Collect IDs, batch fetch, Map lookup"
+      "Query_Lifting": "Move queries from child components to parent, pass data as props",
+      "Bulk_Query": "Single query returns all data for multiple entities"
     }
   },
   "userStories": [
     {
-      "id": "US-PERF-009",
-      "title": "Fix voiceNotes Coach Lookups N+1",
-      "description": "Fix N+1 pattern where one adapter call is made per voice note for coach info.",
-      "phase": "Phase 3: Backend Filters",
+      "id": "US-PERF-014",
+      "title": "Create getBulkChildData Backend Query",
+      "description": "Create a bulk query that fetches passport, injuries, goals, and medical profile for multiple children in one call.",
+      "phase": "Phase 4: Frontend",
       "acceptanceCriteria": [
-        "Open packages/backend/convex/models/voiceNotes.ts",
-        "Find getVoiceNotesForPlayer function (lines 440-486)",
-        "Identify the N+1: loop calling Better Auth adapter for each note's coach",
-        "Refactor to batch pattern:",
-        "  1. Collect all unique coachIds from voice notes",
-        "  2. Batch fetch all coaches in ONE query (or parallel Promise.all for .get())",
-        "  3. Create coachMap for O(1) lookup",
-        "  4. Map over notes, looking up coach from Map",
+        "Open packages/backend/convex/models/orgPlayerEnrollments.ts (or create new file)",
+        "Create new query: getBulkChildData",
+        "Args: { playerIdentityIds: v.array(v.id('playerIdentities')), organizationId: v.string() }",
+        "Returns: Map of playerIdentityId to child data object containing:",
+        "  - passport: SportPassport | null",
+        "  - activeInjuries: PlayerInjury[]",
+        "  - activeGoals: PassportGoal[]",
+        "  - medicalProfile: MedicalProfile | null",
+        "Use batch fetching pattern:",
+        "  1. Fetch all passports for playerIdentityIds in one query",
+        "  2. Fetch all injuries for playerIdentityIds in one query",
+        "  3. Fetch all goals for playerIdentityIds in one query",
+        "  4. Fetch all medical profiles in one query",
         "Run: npx -w packages/backend convex codegen",
         "Run: npm run check-types",
-        "Test: Navigate to voice notes page, verify notes load with coach names"
+        "Test in Convex dashboard with real playerIdentityIds"
       ],
       "technicalNotes": {
-        "currentPattern": "notes.map(async (note) => { const coach = await adapter.findOne({ model: 'user', where: [{ field: '_id', value: note.coachId }] }); })",
-        "fixedPattern": "const coachIds = [...new Set(notes.map(n => n.coachId))]; const coaches = await Promise.all(coachIds.map(id => adapter.findOne(...))); const coachMap = new Map(...);",
-        "location": "packages/backend/convex/models/voiceNotes.ts lines 440-486"
+        "returnType": "v.record(v.string(), v.object({ passport: v.union(passportValidator, v.null()), activeInjuries: v.array(injuryValidator), activeGoals: v.array(goalValidator), medicalProfile: v.union(medicalProfileValidator, v.null()) }))",
+        "queryPattern": "For each data type, query by playerIdentityId index, collect all, then group by playerIdentityId in JS",
+        "performance": "4 queries total instead of 5 * N queries (where N = number of children)"
       },
       "priority": 1,
       "passes": true,
-      "notes": "Similar pattern to US-PERF-008. Batch coach lookups."
+      "notes": "This is the foundation query for the ChildCard refactor. Must be complete before UI changes."
     },
     {
-      "id": "US-PERF-010",
-      "title": "Fix whatsappMessages Coach Lookups",
-      "description": "Fix loop in whatsappMessages with individual user queries per coach.",
-      "phase": "Phase 3: Backend Filters",
+      "id": "US-PERF-015",
+      "title": "Refactor Parent Dashboard to Use Bulk Query",
+      "description": "Modify parent dashboard page to fetch all children data at page level using getBulkChildData.",
+      "phase": "Phase 4: Frontend",
       "acceptanceCriteria": [
-        "Open packages/backend/convex/models/whatsappMessages.ts",
-        "Find the function around lines 901-932",
-        "Identify the N+1: loop with individual user queries per coach",
-        "Refactor to batch pattern:",
-        "  1. Collect all unique coach IDs from team coaches",
-        "  2. Batch fetch all coaches in ONE query",
-        "  3. Create coachMap for O(1) lookup",
-        "  4. Map over coaches, looking up from Map",
-        "Run: npx -w packages/backend convex codegen",
+        "Open apps/web/src/app/orgs/[orgId]/parents/page.tsx",
+        "Add useQuery call to getBulkChildData with all children's playerIdentityIds",
+        "Pass the bulk data to ChildCard components as props",
+        "Handle loading state at page level (single loading skeleton for all children)",
+        "Handle error state at page level",
         "Run: npm run check-types",
-        "Test: If WhatsApp feature enabled, verify coach recipients populate correctly"
+        "Run: npm run build",
+        "Visual test: Parent dashboard loads all children together"
       ],
       "technicalNotes": {
-        "currentPattern": "Loop with individual ctx.db queries per coach",
-        "fixedPattern": "Batch fetch all team coaches in single query",
-        "location": "packages/backend/convex/models/whatsappMessages.ts lines 901-932"
+        "currentPattern": "children.map(child => <ChildCard childId={child._id} />)",
+        "newPattern": "const bulkData = useQuery(api.models.orgPlayerEnrollments.getBulkChildData, { playerIdentityIds, organizationId }); children.map(child => <ChildCard childData={bulkData?.[child.playerIdentityId]} />)",
+        "loadingState": "if (bulkData === undefined) return <ParentDashboardSkeleton />"
       },
       "priority": 2,
-      "passes": true,
-      "notes": "WhatsApp feature may not be actively used - verify feature status first"
+      "passes": false,
+      "notes": "Depends on US-PERF-014. Query lifting pattern."
     },
     {
-      "id": "US-PERF-011",
-      "title": "Fix sportPassports Filter Violation",
-      "description": "Replace .filter() with .withIndex() using the new by_player_org_status index.",
-      "phase": "Phase 3: Backend Filters",
+      "id": "US-PERF-016",
+      "title": "Refactor ChildCard to Receive Props",
+      "description": "Modify ChildCard component to receive data as props instead of making 5 useQuery calls.",
+      "phase": "Phase 4: Frontend",
       "acceptanceCriteria": [
-        "Open packages/backend/convex/models/sportPassports.ts",
-        "Find the query at line 878: .filter((q) => q.eq(q.field('status'), 'active'))",
-        "Replace with .withIndex('by_player_org_status'):",
-        "  .withIndex('by_player_org_status', (q) => q.eq('playerIdentityId', args.playerIdentityId).eq('organizationId', args.organizationId).eq('status', 'active'))",
-        "Remove the .filter() call",
-        "Run: npx -w packages/backend convex codegen",
+        "Open apps/web/src/app/orgs/[orgId]/parents/components/child-card.tsx",
+        "Change props interface to receive pre-fetched data:",
+        "  - child: ChildEnrollment",
+        "  - passport: SportPassport | null",
+        "  - activeInjuries: PlayerInjury[]",
+        "  - activeGoals: PassportGoal[]",
+        "  - medicalProfile: MedicalProfile | null",
+        "Remove the 5 useQuery calls at lines 158-186",
+        "Use props directly instead of query results",
+        "Handle undefined/null cases appropriately",
         "Run: npm run check-types",
-        "Test: Navigate to player passport page, verify passports load correctly"
+        "Run: npm run build",
+        "Visual test: ChildCard displays all data correctly"
       ],
       "technicalNotes": {
-        "currentCode": ".withIndex('by_player_and_org', (q) => q.eq('playerIdentityId', args.playerIdentityId).eq('organizationId', args.organizationId)).filter((q) => q.eq(q.field('status'), 'active'))",
-        "fixedCode": ".withIndex('by_player_org_status', (q) => q.eq('playerIdentityId', args.playerIdentityId).eq('organizationId', args.organizationId).eq('status', 'active'))",
-        "location": "packages/backend/convex/models/sportPassports.ts line 878",
-        "prerequisite": "Phase 1 index by_player_org_status must be deployed first"
+        "currentCode": "const passport = useQuery(api.models.sportPassports.getPassportForPlayer, {...}); const injuries = useQuery(api.models.playerInjuries.getActiveInjuriesForPlayer, {...}); // etc",
+        "newCode": "// Props: { child, passport, activeInjuries, activeGoals, medicalProfile } - use directly",
+        "location": "apps/web/src/app/orgs/[orgId]/parents/components/child-card.tsx lines 158-186"
       },
       "priority": 3,
-      "passes": true,
-      "notes": "Requires Phase 1 index to be deployed. Simple find-and-replace fix."
+      "passes": false,
+      "notes": "Depends on US-PERF-015. This eliminates 5 useQuery calls per child."
     },
     {
-      "id": "US-PERF-012",
-      "title": "Fix passportGoals Filter Violations",
-      "description": "Replace .filter() calls with .withIndex() using the new by_player_status and by_org_status indexes.",
-      "phase": "Phase 3: Backend Filters",
+      "id": "US-PERF-017",
+      "title": "Verify Parent Dashboard Performance",
+      "description": "Test and verify the refactored parent dashboard performs correctly with reduced queries.",
+      "phase": "Phase 4: Frontend",
       "acceptanceCriteria": [
-        "Open packages/backend/convex/models/passportGoals.ts",
-        "Find getGoalsForPlayer (line 132): goals = goals.filter((g) => g.status === args.status)",
-        "Refactor: If status provided, use .withIndex('by_player_status', (q) => q.eq('playerIdentityId', args.playerIdentityId).eq('status', args.status))",
-        "Find getGoalsForOrg (line 158): goals = goals.filter((g) => g.status === args.status)",
-        "Refactor: If status provided, use .withIndex('by_org_status', (q) => q.eq('organizationId', args.organizationId).eq('status', args.status))",
-        "Handle optional status: conditionally choose index based on args.status presence",
-        "Run: npx -w packages/backend convex codegen",
-        "Run: npm run check-types",
-        "Test: View player goals on passport page, verify goals display correctly"
+        "Login as parent with 1 child - verify displays correctly",
+        "Login as parent with 3+ children - verify all display correctly",
+        "Check that passport data, injuries, goals, medical profile all show",
+        "Check Convex logs: should see bulk queries, not 5 per child",
+        "Performance: Parent dashboard with 5 children should load in < 2 seconds",
+        "No visible loading states per child (all load together)",
+        "Compare data displayed to direct database queries - verify accuracy"
       ],
       "technicalNotes": {
-        "currentPattern": "let goals = await ctx.db.query(...).withIndex('by_playerIdentityId', ...).collect(); if (args.status) { goals = goals.filter((g) => g.status === args.status); }",
-        "fixedPattern": "const query = args.status ? ctx.db.query(...).withIndex('by_player_status', (q) => q.eq('playerIdentityId', args.playerIdentityId).eq('status', args.status)) : ctx.db.query(...).withIndex('by_playerIdentityId', ...); const goals = await query.collect();",
-        "location": "packages/backend/convex/models/passportGoals.ts lines 132, 158",
-        "prerequisite": "Phase 1 indexes by_player_status and by_org_status must be deployed"
+        "testAccounts": "Use existing parent test accounts or create new ones",
+        "convexLogs": "Check for getBulkChildData calls instead of individual getPassportForPlayer, getActiveInjuriesForPlayer, etc.",
+        "performance": "Should see dramatic reduction in Convex function calls on parent dashboard"
       },
       "priority": 4,
-      "passes": true,
-      "notes": "Two separate fixes in same file. Handle optional status parameter."
-    },
-    {
-      "id": "US-PERF-013",
-      "title": "Review playerInjuries Filter Pattern",
-      "description": "Review and potentially optimize playerInjuries filter at lines 234-256.",
-      "phase": "Phase 3: Backend Filters",
-      "acceptanceCriteria": [
-        "Open packages/backend/convex/models/playerInjuries.ts",
-        "Review getActiveInjuriesForPlayer (lines 234-256)",
-        "Analyze the filter logic: status check + visibility check + org check",
-        "Determine if composite index can help or if JS filtering is required",
-        "If index can help: Use existing by_status index ['playerIdentityId', 'status']",
-        "If JS filtering required: Document why (complex visibility logic)",
-        "Run: npx -w packages/backend convex codegen",
-        "Run: npm run check-types",
-        "Test: View player with injuries, verify injury data displays"
-      ],
-      "technicalNotes": {
-        "currentPattern": "injuries.filter((injury) => { if (injury.status === 'healed') return false; if (injury.isVisibleToAllOrgs) return true; ... })",
-        "analysis": "Complex visibility logic may require JS filtering - not all filters can use indexes",
-        "location": "packages/backend/convex/models/playerInjuries.ts lines 234-256",
-        "decision": "May keep JS filter if visibility logic is too complex for index"
-      },
-      "priority": 5,
-      "passes": true,
-      "notes": "Review and document - may not need change if visibility logic requires JS"
+      "passes": false,
+      "notes": "Verification story - ensure refactor works correctly before moving on"
     }
   ],
   "qualityChecks": {
     "beforeCommitting": [
       "npx -w packages/backend convex codegen - MUST succeed",
-      "npm run check-types - Check for type errors",
+      "npm run check-types - MUST pass",
+      "npm run build - Full build test",
       "npm run check - Lint check"
     ],
     "testingStrategy": {
-      "US-PERF-009": "Navigate to voice notes page, verify notes load with coach names",
-      "US-PERF-010": "If WhatsApp enabled, test message sending",
-      "US-PERF-011": "Navigate to player passport page, verify passports load",
-      "US-PERF-012": "View player goals, filter by status",
-      "US-PERF-013": "View player with injuries, verify injury data"
-    },
-    "convexLogs": "Check for 'Querying without index' warnings - should be reduced"
-  },
-  "productionDeploymentGate": {
-    "criteria": [
-      "All automated checks pass",
-      "All manual tests pass",
-      "Convex function calls reduced by 30%+ from baseline",
-      "No new errors in logs"
-    ],
-    "action": "Deploy to production after Phase 3 completes"
+      "US-PERF-014": "Test query in Convex dashboard with real data",
+      "US-PERF-015-016": "Visual test parent dashboard with various child counts",
+      "US-PERF-017": "Full regression test of parent dashboard functionality"
+    }
   },
   "phaseCompletionCriteria": [
-    "voiceNotes coach lookups use batch pattern",
-    "whatsappMessages coach lookups use batch pattern",
-    "sportPassports uses by_player_org_status index",
-    "passportGoals uses by_player_status and by_org_status indexes",
-    "playerInjuries reviewed and documented",
-    "All tests pass",
-    "Ready for production deployment"
+    "getBulkChildData query created and working",
+    "Parent dashboard uses bulk query",
+    "ChildCard receives props instead of querying",
+    "All data displays correctly",
+    "Function calls for parent dashboard drop 80%",
+    "Type checks pass",
+    "Build passes"
   ],
   "expectedImpact": {
-    "callsReduced": "~150K additional calls saved",
-    "totalReductionSoFar": "~300K calls (Phases 1-3)"
+    "callsReduced": "~200K calls saved",
+    "queryReduction": "25 queries → 5 queries for 5 children (80% reduction)"
   },
   "nextPhase": {
-    "name": "Phase 4: Frontend ChildCard Refactor",
-    "file": "phase4-frontend.prd.json",
-    "description": "Create bulk backend queries and refactor ChildCard component"
+    "name": "Phase 5: Additional Optimizations",
+    "file": "phase5-additional.prd.json",
+    "description": "getCurrentUser caching, getPlayersForCoach, query skipping"
   }
 }

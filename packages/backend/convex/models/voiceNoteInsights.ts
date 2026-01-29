@@ -10,12 +10,13 @@ import { authComponent } from "../auth";
 // Match rating with optional "/5" and any punctuation or end
 const RATING_PATTERN = /(\d+)(?:\/5)?/;
 const SKILL_PATTERN_1 = /Set\s+.+?'s\s+(\w+)(?:\s+skill)?(?:\s+(?:to|rating))/i;
-const SKILL_PATTERN_2 = /Set\s+(\w+)\s+skill\s+to/i;
-const SKILL_PATTERN_3 = /Set\s+(\w+)\s+to\s+\d+/i; // "Set tackling to 4"
-const SKILL_PATTERN_4 = /^(.+?):\s*\d+/;
+const SKILL_PATTERN_2 = /Set\s+(\w+)\s+skill\s+rating\s+to/i; // "Set tackling skill rating to 4/5"
+const SKILL_PATTERN_3 = /Set\s+(\w+)\s+skill\s+to/i;
+const SKILL_PATTERN_4 = /Set\s+(\w+)\s+to\s+\d+/i; // "Set tackling to 4"
+const SKILL_PATTERN_5 = /^(.+?):\s*\d+/;
 
 // Helper function to parse skill rating from various AI-generated formats
-// Handles: "Kicking: 5", "Set kicking skill to 5/5", "Set Sinead's kicking to 5/5", "Set tackling to 4/5"
+// Handles: "Kicking: 5", "Set kicking skill rating to 4/5", "Set kicking skill to 5/5", "Set Sinead's kicking to 5/5", "Set tackling to 4/5"
 function parseSkillRating(recommendedUpdate: string): {
   success: boolean;
   skillName?: string;
@@ -48,7 +49,7 @@ function parseSkillRating(recommendedUpdate: string): {
     skillName = match[1];
   }
 
-  // Pattern 2: "Set SKILL skill to N" → capture SKILL
+  // Pattern 2: "Set SKILL skill rating to N" → capture SKILL
   if (!skillName) {
     match = recommendedUpdate.match(SKILL_PATTERN_2);
     if (match) {
@@ -56,7 +57,7 @@ function parseSkillRating(recommendedUpdate: string): {
     }
   }
 
-  // Pattern 3: "Set SKILL to N" (without "skill" word) → capture SKILL
+  // Pattern 3: "Set SKILL skill to N" → capture SKILL
   if (!skillName) {
     match = recommendedUpdate.match(SKILL_PATTERN_3);
     if (match) {
@@ -64,9 +65,17 @@ function parseSkillRating(recommendedUpdate: string): {
     }
   }
 
-  // Pattern 4: "SKILL: N" (original format) → capture SKILL
+  // Pattern 4: "Set SKILL to N" (without "skill" word) → capture SKILL
   if (!skillName) {
     match = recommendedUpdate.match(SKILL_PATTERN_4);
+    if (match) {
+      skillName = match[1];
+    }
+  }
+
+  // Pattern 5: "SKILL: N" (original format) → capture SKILL
+  if (!skillName) {
+    match = recommendedUpdate.match(SKILL_PATTERN_5);
     if (match) {
       skillName = match[1].trim();
     }

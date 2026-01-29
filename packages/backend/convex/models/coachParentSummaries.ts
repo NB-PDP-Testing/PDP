@@ -60,6 +60,7 @@ const summaryValidator = v.object({
   scheduledDeliveryAt: v.optional(v.number()),
   deliveredAt: v.optional(v.number()),
   viewedAt: v.optional(v.number()),
+  viewedBy: v.optional(v.string()),
   acknowledgedAt: v.optional(v.number()),
   acknowledgedBy: v.optional(v.string()),
   wouldAutoApprove: v.optional(v.boolean()),

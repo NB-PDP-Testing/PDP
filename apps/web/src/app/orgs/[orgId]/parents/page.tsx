@@ -283,7 +283,7 @@ function ParentDashboardContent() {
       )}
 
       {/* Children Cards - US-PERF-015: Pass bulk data to avoid N+1 queries */}
-      {playerCount > 0 && (
+      {playerCount > 0 && bulkChildData && (
         <div>
           <h2 className="mb-4 font-semibold text-xl">Your Children</h2>
           <div className="grid gap-6 md:grid-cols-2 lg:grid-cols-3">

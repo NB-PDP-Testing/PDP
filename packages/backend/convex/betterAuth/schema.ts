@@ -262,6 +262,25 @@ const customInvitationTable = defineTable({
   .index("inviterId_organizationId", ["inviterId", "organizationId"])
   .index("email_organizationId_status", ["email", "organizationId", "status"]);
 
+// Extend the session table with custom index for optimized lookups
+const customSessionTable = defineTable({
+  // Better Auth base fields
+  expiresAt: v.number(),
+  token: v.string(),
+  createdAt: v.number(),
+  updatedAt: v.number(),
+  ipAddress: v.optional(v.union(v.null(), v.string())),
+  userAgent: v.optional(v.union(v.null(), v.string())),
+  userId: v.string(),
+  activeOrganizationId: v.optional(v.union(v.null(), v.string())),
+  activeTeamId: v.optional(v.union(v.null(), v.string())),
+})
+  .index("expiresAt", ["expiresAt"])
+  .index("expiresAt_userId", ["expiresAt", "userId"])
+  .index("token", ["token"])
+  .index("userId", ["userId"])
+  .index("userId_activeOrganizationId", ["userId", "activeOrganizationId"]); // Added for session lookup optimization
+
 // GDPR policy version tracking table (Phase 2)
 const gdprVersionsTable = defineTable({
   version: v.number(), // 1, 2, 3...
@@ -278,6 +297,8 @@ export const tables = {
   ...generatedTables,
   // Override user table with custom fields
   user: customUserTable,
+  // Override session table with optimized index
+  session: customSessionTable,
   // Override team table with sports-specific fields
   team: customTeamTable,
   // Override organization table with club colors

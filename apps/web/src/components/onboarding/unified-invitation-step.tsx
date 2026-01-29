@@ -531,7 +531,7 @@ export function UnifiedInvitationStep({
   // Desktop: Use AlertDialog
   return (
     <AlertDialog open>
-      <AlertDialogContent className="max-h-[90vh] max-w-3xl overflow-y-auto">
+      <AlertDialogContent className="flex max-h-[95vh] max-w-3xl flex-col">
         <AlertDialogHeader>
           <AlertDialogTitle className="text-2xl">{title}</AlertDialogTitle>
           <AlertDialogDescription className="pt-2 text-base">
@@ -539,9 +539,9 @@ export function UnifiedInvitationStep({
           </AlertDialogDescription>
         </AlertDialogHeader>
 
-        <div className="py-4">{dialogContent}</div>
+        <div className="flex-1 overflow-y-auto py-4">{dialogContent}</div>
 
-        <AlertDialogFooter className="flex-col gap-2 sm:flex-row">
+        <AlertDialogFooter className="flex-shrink-0 flex-col gap-2 sm:flex-row">
           <Button disabled={isProcessing} onClick={handleSkip} variant="ghost">
             I'll do this later
           </Button>

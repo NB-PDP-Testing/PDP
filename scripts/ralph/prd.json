@@ -170,7 +170,8 @@
         "Color coding: Red badge (<30%), Yellow (30-60%), Green (>60%)",
         "Display: Guardian name, player name, summaries sent/viewed, last viewed date",
         "Type check passes"
-      ]
+      ],
+      "passes": true
     },
     {
       "id": "US-P8-017",

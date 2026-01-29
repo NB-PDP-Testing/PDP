@@ -156,7 +156,14 @@ All 5 user stories for Phase 1 of Convex Performance optimization were implement
 ---
 
 ## Codebase Patterns
-**Last Updated**: 2026-01-29 17:01 - Iteration 1
+**Last Updated**: 2026-01-29 17:30 - Iteration 2
+
+### N+1 Fix Pattern (CRITICAL)
+When you see `Promise.all(items.map(async (item) => { await ctx.runQuery(...) }))`:
+1. **Collect IDs**: `const uniqueIds: string[] = [...new Set(items.map(i => i.someId))]`
+2. **Batch fetch**: `const results = await Promise.all(uniqueIds.map(id => ctx.runQuery(...)))`
+3. **Create Map**: `const dataMap = new Map(); for (const r of results) if (r) dataMap.set(r._id, r);`
+4. **Sync map**: `const enriched = items.map(item => ({ ...item, data: dataMap.get(item.someId) }))`
 
 ### Convex Backend Patterns
 - NEVER use `.filter()` - always use `.withIndex()`
@@ -175,4 +182,255 @@ All 5 user stories for Phase 1 of Convex Performance optimization were implement
 - Codegen first: `npx -w packages/backend convex codegen`
 - Type check: `npm run check-types` (pre-existing web errors are OK for backend changes)
 - Note: Pre-existing lint errors in web app (interface vs type style)
+
+
+### Agent Feedback - 2026-01-29 17:13
+
+## Quality Monitor - 2026-01-29 16:58:51
+- ⚠️ Biome lint errors found
+
+
+## Quality Monitor - 2026-01-29 17:00:13
+- ⚠️ Biome lint errors found
+
+
+## Quality Monitor - 2026-01-29 17:01:36
+- ⚠️ Biome lint errors found
+
+
+## Quality Monitor - 2026-01-29 17:02:46
+- ⚠️ Biome lint errors found
+
+
+## Quality Monitor - 2026-01-29 17:04:10
+- ⚠️ Biome lint errors found
+
+
+## PRD Audit - US-PERF-005 - 2026-01-29 17:03:42
+## PASS: Story US-PERF-005 Properly Implemented
+
+**Evidence:**
+
+1. **Package updated**: `@convex-dev/better-auth` is at version `^0.9.11` in `packages/backend/package.json:22` (upgraded from 0.9.1)
+
+2. **Commit exists**: `a6684fee` explicitly mentions "Update @convex-dev/better-auth from 0.9.1 to 0.9.11"
+
+3. **Convex codegen runs successfully**: Output shows "Generating TypeScript bindings... Running TypeScript..." with no errors
+
+4. **Type checks**: The backend type checks pass (codegen succeeded). The frontend type errors are unrelated to this package - they concern missing `remotion` and `@remotion/player` modules and some route type issues.
+
+**Note on type-check failures**: The 4 TypeScript errors in the frontend are pre-existing issues unrelated to the better-auth package:
+- Missing remotion dependencies (demo/video page)
+- Route type mismatches (admin settings, platform pages)
+
+These should be addressed separately but do not indicate any regression from the package update.
+
+## Quality Monitor - 2026-01-29 17:05:20
+- ⚠️ Biome lint errors found
+
+
+## Quality Monitor - 2026-01-29 17:06:30
+- ⚠️ Biome lint errors found
+
+
+## Quality Monitor - 2026-01-29 17:07:40
+- ⚠️ Biome lint errors found
+
+
+## Quality Monitor - 2026-01-29 17:08:50
+- ⚠️ Biome lint errors found
+
+
+## Quality Monitor - 2026-01-29 17:10:01
+- ⚠️ Biome lint errors found
+
+
+## Quality Monitor - 2026-01-29 17:11:12
+- ⚠️ Biome lint errors found
+
+
+## Quality Monitor - 2026-01-29 17:12:23
+- ⚠️ Biome lint errors found
+
+---
+
+## 2026-01-29 17:30 - US-PERF-006 - Fix getMembersForAllOrganizations N+1
+**Iteration**: 2
+**Commit**: c6e0d4b46ae139599c585162136b91570b7bed12
+**Status**: Complete
+
+### What was implemented
+Fixed N+1 pattern in `getMembersForAllOrganizations` function:
+
+**Before (N+1 pattern):**
+```typescript
+const memberships = await Promise.all(
+  membersResult.page.map(async (member: Member) => {
+    const orgResult = await ctx.runQuery(...); // Query per member!
+    // ... rest of logic
+  })
+);
+```
+
+**After (Batch pattern):**
+```typescript
+// 1. Collect unique org IDs
+const uniqueOrgIds: string[] = [...new Set(membersResult.page.map(m => m.organizationId))];
+
+// 2. Batch fetch all orgs in parallel (bounded by unique orgs, not members)
+const orgsResults = await Promise.all(
+  uniqueOrgIds.map((orgId: string) => ctx.runQuery(...))
+);
+
+// 3. Create Map for O(1) lookup
+const orgMap = new Map<string, { name: string | null; logo: string | null }>();
+for (const org of orgsResults) {
+  if (org) orgMap.set(org._id as string, { ... });
+}
+
+// 4. Synchronous map using pre-fetched data
+const memberships = membersResult.page.map((member: Member) => {
+  const org = orgMap.get(member.organizationId);
+  // ... rest of logic (no async needed)
+});
+```
+
+### Files changed
+- packages/backend/convex/models/members.ts (+77, -62)
+
+### Quality checks
+- ✅ Convex codegen: passed
+- ✅ Type check: passed (backend changes don't affect pre-existing frontend errors)
+- ✅ Lint: passed (pre-commit hook verified)
+
+### **Learnings for future iterations** ⚠️ CRITICAL
+**Patterns discovered:**
+- N+1 fix pattern: Collect IDs → Batch fetch → Create Map → Sync map with lookup
+- Better Auth adapter queries use `ctx.runQuery(components.betterAuth.adapter.findOne, {...})`
+- When spreading Set to array, add explicit type: `const ids: string[] = [...new Set(...)]`
+
+**Gotchas encountered:**
+- TypeScript loses type info when spreading Set - need explicit type annotation
+- The `value` param in adapter.where expects specific type, not `unknown`
+
+**Dependencies found:**
+- `getMembersForAllOrganizations` is used by OrgRoleSwitcher for org dropdown
+
+**What to do next**:
+- US-PERF-007: Fix `getPendingInvitationsByEmail` triple N+1 pattern
+- US-PERF-008: Fix `getParentSummariesByChildAndSport` cascading N+1
+
+**Mistakes made**:
+- Initially forgot type annotation on `uniqueOrgIds`, caused TS error
+
+---
+
+## 2026-01-29 17:45 - US-PERF-007 - Fix getPendingInvitationsByEmail Triple N+1
+**Iteration**: 2 (continued)
+**Commit**: 2b1f672849cf35c623cebf3338ec3f2a61bcd93f
+**Status**: Complete
+
+### What was implemented
+Fixed triple N+1 pattern in `getPendingInvitationsByEmail` function:
+
+**Before (Triple N+1 pattern):**
+- For each invitation: query organization
+- For each team in each invitation: query team
+- For each player in each invitation: query player
+
+**After (Batch pattern):**
+1. Collect ALL unique orgIds, teamIds, playerIds from ALL invitations first
+2. Batch fetch ALL data in 3 parallel Promise.all calls
+3. Create Maps for O(1) lookup: orgMap, teamMap, playerMap
+4. Synchronously map over invitations using pre-fetched data
+
+### Files changed
+- packages/backend/convex/models/members.ts (+132, -85)
+
+### Quality checks
+- ✅ Convex codegen: passed
+- ✅ Type check: passed
+- ✅ Lint: passed (pre-commit hook verified)
+
+### **Learnings for future iterations** ⚠️ CRITICAL
+**Patterns discovered:**
+- Triple N+1 requires collecting IDs from nested structures first
+- Can batch fetch multiple entity types in parallel using nested Promise.all
+- Pattern: `const [orgs, teams, players] = await Promise.all([...orgsPromise, ...teamsPromise, ...playersPromise])`
+
+**Gotchas encountered:**
+- Biome requires block statements for if: `if (x) { y }` not `if (x) y`
+- Player IDs stored as strings need `ctx.db.get(playerId as any)`
+- Better Auth adapter returns untyped data, needs `as any` casts with biome-ignore
+
+**What to do next**:
+- US-PERF-008: Fix `getParentSummariesByChildAndSport` cascading N+1
+
+**Mistakes made**:
+- Initially forgot block statements for if, caught by biome lint
+
+---
+
+## 2026-01-29 18:00 - US-PERF-008 - Fix getParentSummariesByChildAndSport Cascading N+1
+**Iteration**: 2 (continued)
+**Commit**: 90aea0c1bb79876894959c88c40d5114c225dd54
+**Status**: Complete
+
+### What was implemented
+Fixed cascading N+1 pattern in `getParentSummariesByChildAndSport` function:
+
+**Before (Cascading N+1 pattern):**
+- Nested Promise.all: For each child → For each sport → For each summary → query coach
+- Also querying sport for each sport group
+
+**After (Batch pattern):**
+1. Fetch all players and summaries in parallel per child
+2. Collect ALL unique coachIds and sportIds from ALL summaries
+3. Batch fetch ALL coaches and sports in parallel
+4. Create Maps for O(1) lookup (coachMap, sportMap)
+5. Synchronously map using pre-fetched data (no more N+1)
+
+### Files changed
+- packages/backend/convex/models/coachParentSummaries.ts (+140, -110)
+
+### Quality checks
+- ✅ Convex codegen: passed
+- ✅ Type check: passed
+- ✅ Lint: passed (pre-commit hook verified)
+
+### **Learnings for future iterations** ⚠️ CRITICAL
+**Patterns discovered:**
+- Cascading N+1 (nested loops) requires flattening ID collection first
+- Sports can also be batch fetched alongside coaches
+- Type guard pattern for filtering nulls: `arr.filter((d): d is NonNullable<typeof d> => d !== null)`
+
+**Gotchas encountered:**
+- sportMap type needs `(typeof sportResults)[number]` for proper typing
+- Use index-based matching when batch fetching: `for (let i = 0; i < ids.length; i++)`
+
+**What to do next**:
+- Phase 2 COMPLETE! All 3 stories implemented
+- Monitor Convex dashboard for reduced function calls
+- Next: Phase 3 - Backend Filter Fixes
+
+**Mistakes made**:
+- None significant - applied patterns from previous fixes
+
+---
+
+## Phase 2 Complete - Summary
+**Commits**: c6e0d4b4, 2b1f6728, 90aea0c1
+**Stories Completed**: US-PERF-006, US-PERF-007, US-PERF-008
+**Expected Impact**: ~150K function calls saved
+
+### Key Pattern Applied
+The N+1 fix pattern was consistently applied across all 3 functions:
+1. **Collect IDs**: Gather all unique IDs before any queries
+2. **Batch Fetch**: Use Promise.all to fetch in parallel
+3. **Create Maps**: Build Map<id, data> for O(1) lookup
+4. **Sync Map**: Use synchronous .map() with Map.get()
+
+This pattern transforms O(N) queries into O(unique_items) queries.
+
+---
 

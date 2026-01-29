@@ -21,7 +21,6 @@ import {
 import type { Route } from "next";
 import { useRouter } from "next/navigation";
 import { useState } from "react";
-import { toast } from "sonner";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import {
@@ -31,7 +30,6 @@ import {
   CardHeader,
   CardTitle,
 } from "@/components/ui/card";
-import { Checkbox } from "@/components/ui/checkbox";
 import {
   Dialog,
   DialogContent,
@@ -160,9 +158,9 @@ export function InsightsTab({ orgId, onSuccess, onError }: InsightsTabProps) {
     useState<ClassifyingInsight>(null);
   const [isSaving, setIsSaving] = useState(false);
   const [playerSearch, setPlayerSearch] = useState("");
-  const [activeTab, setActiveTab] = useState<
-    "pending" | "auto-applied" | "settings"
-  >("pending");
+  const [activeTab, setActiveTab] = useState<"pending" | "auto-applied">(
+    "pending"
+  );
   const [undoingInsight, setUndoingInsight] = useState<UndoingInsight>(null);
   const [undoReason, setUndoReason] = useState<string>("wrong_rating");
   const [undoReasonOther, setUndoReasonOther] = useState<string>("");
@@ -228,9 +226,6 @@ export function InsightsTab({ orgId, onSuccess, onError }: InsightsTabProps) {
   );
   const undoAutoAppliedInsight = useMutation(
     api.models.voiceNoteInsights.undoAutoAppliedInsight
-  );
-  const setInsightAutoApplyPreferences = useMutation(
-    api.models.coachTrustLevels.setInsightAutoApplyPreferences
   );
 
   const [isBulkApplying, setIsBulkApplying] = useState(false);
@@ -414,50 +409,6 @@ export function InsightsTab({ orgId, onSuccess, onError }: InsightsTabProps) {
       onError("Failed to undo insight.");
     } finally {
       setIsSaving(false);
-    }
-  };
-
-  const handleToggleAutoApplyPreference = async (
-    category: "skills" | "attendance" | "goals" | "performance",
-    enabled: boolean
-  ) => {
-    try {
-      // Get current preferences or defaults
-      const currentPreferences =
-        coachTrustLevel?.insightAutoApplyPreferences || {
-          skills: false,
-          attendance: false,
-          goals: false,
-          performance: false,
-        };
-
-      // Update with the new value
-      const updatedPreferences = {
-        ...currentPreferences,
-        [category]: enabled,
-      };
-
-      // Call mutation
-      await setInsightAutoApplyPreferences({
-        preferences: updatedPreferences,
-      });
-
-      // Show toast notification
-      const categoryLabels = {
-        skills: "Skill",
-        attendance: "Attendance",
-        goals: "Goal",
-        performance: "Performance",
-      };
-      const label = categoryLabels[category];
-      if (enabled) {
-        toast.success(`${label} auto-apply enabled`);
-      } else {
-        toast.success(`${label} auto-apply disabled`);
-      }
-    } catch (error) {
-      console.error("Failed to update auto-apply preferences:", error);
-      toast.error("Failed to update preferences");
     }
   };
 
@@ -1055,14 +1006,13 @@ export function InsightsTab({ orgId, onSuccess, onError }: InsightsTabProps) {
     <>
       <Tabs
         onValueChange={(value) =>
-          setActiveTab(value as "pending" | "auto-applied" | "settings")
+          setActiveTab(value as "pending" | "auto-applied")
         }
         value={activeTab}
       >
-        <TabsList className="grid w-full grid-cols-3">
+        <TabsList className="grid w-full grid-cols-2">
           <TabsTrigger value="pending">Pending Review</TabsTrigger>
           <TabsTrigger value="auto-applied">Auto-Applied</TabsTrigger>
-          <TabsTrigger value="settings">Settings</TabsTrigger>
         </TabsList>
 
         <TabsContent className="mt-4 space-y-4" value="pending">
@@ -1317,135 +1267,6 @@ export function InsightsTab({ orgId, onSuccess, onError }: InsightsTabProps) {
                   );
                 })
               )}
-            </CardContent>
-          </Card>
-        </TabsContent>
-
-        <TabsContent className="mt-4" value="settings">
-          <Card>
-            <CardHeader>
-              <CardTitle>Auto-Apply Preferences</CardTitle>
-              <CardDescription>
-                Choose which types of insights can be automatically applied to
-                player profiles
-              </CardDescription>
-            </CardHeader>
-            <CardContent className="space-y-4">
-              {/* Skills checkbox */}
-              <div className="flex items-start space-x-3">
-                <Checkbox
-                  checked={
-                    coachTrustLevel?.insightAutoApplyPreferences?.skills ??
-                    false
-                  }
-                  id="auto-apply-skills"
-                  onCheckedChange={(checked) =>
-                    handleToggleAutoApplyPreference(
-                      "skills",
-                      checked as boolean
-                    )
-                  }
-                />
-                <div className="grid gap-1.5 leading-none">
-                  <Label
-                    className="cursor-pointer font-medium text-sm"
-                    htmlFor="auto-apply-skills"
-                  >
-                    Skills
-                  </Label>
-                  <p className="text-muted-foreground text-sm">
-                    Auto-apply skill rating updates
-                  </p>
-                </div>
-              </div>
-
-              {/* Attendance checkbox */}
-              <div className="flex items-start space-x-3">
-                <Checkbox
-                  checked={
-                    coachTrustLevel?.insightAutoApplyPreferences?.attendance ??
-                    false
-                  }
-                  id="auto-apply-attendance"
-                  onCheckedChange={(checked) =>
-                    handleToggleAutoApplyPreference(
-                      "attendance",
-                      checked as boolean
-                    )
-                  }
-                />
-                <div className="grid gap-1.5 leading-none">
-                  <Label
-                    className="cursor-pointer font-medium text-sm"
-                    htmlFor="auto-apply-attendance"
-                  >
-                    Attendance
-                  </Label>
-                  <p className="text-muted-foreground text-sm">
-                    Auto-apply attendance records
-                  </p>
-                </div>
-              </div>
-
-              {/* Goals checkbox */}
-              <div className="flex items-start space-x-3">
-                <Checkbox
-                  checked={
-                    coachTrustLevel?.insightAutoApplyPreferences?.goals ?? false
-                  }
-                  id="auto-apply-goals"
-                  onCheckedChange={(checked) =>
-                    handleToggleAutoApplyPreference("goals", checked as boolean)
-                  }
-                />
-                <div className="grid gap-1.5 leading-none">
-                  <Label
-                    className="cursor-pointer font-medium text-sm"
-                    htmlFor="auto-apply-goals"
-                  >
-                    Goals
-                  </Label>
-                  <p className="text-muted-foreground text-sm">
-                    Auto-apply development goal updates
-                  </p>
-                </div>
-              </div>
-
-              {/* Performance checkbox */}
-              <div className="flex items-start space-x-3">
-                <Checkbox
-                  checked={
-                    coachTrustLevel?.insightAutoApplyPreferences?.performance ??
-                    false
-                  }
-                  id="auto-apply-performance"
-                  onCheckedChange={(checked) =>
-                    handleToggleAutoApplyPreference(
-                      "performance",
-                      checked as boolean
-                    )
-                  }
-                />
-                <div className="grid gap-1.5 leading-none">
-                  <Label
-                    className="cursor-pointer font-medium text-sm"
-                    htmlFor="auto-apply-performance"
-                  >
-                    Performance
-                  </Label>
-                  <p className="text-muted-foreground text-sm">
-                    Auto-apply performance notes
-                  </p>
-                </div>
-              </div>
-
-              {/* Safety note */}
-              <div className="mt-6 rounded-lg border border-gray-200 bg-gray-50 p-4">
-                <p className="text-muted-foreground text-sm">
-                  ℹ️ Injury and medical insights always require manual review for
-                  safety
-                </p>
-              </div>
             </CardContent>
           </Card>
         </TabsContent>

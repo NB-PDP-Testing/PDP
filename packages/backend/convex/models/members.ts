@@ -332,30 +332,6 @@ export const addFunctionalRole = mutation({
     console.log(
       `[addFunctionalRole] Added ${args.functionalRole} role to user ${args.userId}`
     );
-
-    // Send notification for Admin/Coach role grants (not Parent - that uses Child Linking modal)
-    if (args.functionalRole === "admin" || args.functionalRole === "coach") {
-      // Get organization name for the notification message
-      const org = await ctx.runQuery(components.betterAuth.adapter.findOne, {
-        model: "organization",
-        where: [{ field: "_id", value: args.organizationId, operator: "eq" }],
-      });
-
-      const orgName = (org as any)?.name || "the organization";
-      const roleName = args.functionalRole === "admin" ? "Admin" : "Coach";
-      const dashboardPath =
-        args.functionalRole === "coach" ? "coach/dashboard" : "admin/dashboard";
-
-      await ctx.runMutation(internal.models.notifications.createNotification, {
-        userId: args.userId,
-        organizationId: args.organizationId,
-        type: "role_granted",
-        title: `New Role: ${roleName}`,
-        message: `You have been granted ${roleName} access to ${orgName}`,
-        link: `/orgs/${args.organizationId}/${dashboardPath}`,
-      });
-    }
-
     return null;
   },
 });
@@ -404,10 +380,6 @@ export const updateMemberFunctionalRoles = mutation({
       throw new Error("Member not found");
     }
 
-    // Get current roles to detect newly granted roles
-    const currentRoles: ("coach" | "parent" | "admin" | "player")[] =
-      (memberResult as any).functionalRoles || [];
-
     // Update functional roles using the adapter
     await ctx.runMutation(components.betterAuth.adapter.updateOne, {
       input: {
@@ -418,40 +390,6 @@ export const updateMemberFunctionalRoles = mutation({
         },
       },
     });
-
-    // Find newly added Admin/Coach roles and send notifications
-    const newlyGrantedRoles = args.functionalRoles.filter(
-      (role) =>
-        (role === "admin" || role === "coach") && !currentRoles.includes(role)
-    );
-
-    if (newlyGrantedRoles.length > 0) {
-      // Get organization name for the notification message
-      const org = await ctx.runQuery(components.betterAuth.adapter.findOne, {
-        model: "organization",
-        where: [{ field: "_id", value: args.organizationId, operator: "eq" }],
-      });
-
-      const orgName = (org as any)?.name || "the organization";
-
-      for (const role of newlyGrantedRoles) {
-        const roleName = role === "admin" ? "Admin" : "Coach";
-        const dashboardPath =
-          role === "coach" ? "coach/dashboard" : "admin/dashboard";
-
-        await ctx.runMutation(
-          internal.models.notifications.createNotification,
-          {
-            userId: args.userId,
-            organizationId: args.organizationId,
-            type: "role_granted",
-            title: `New Role: ${roleName}`,
-            message: `You have been granted ${roleName} access to ${orgName}`,
-            link: `/orgs/${args.organizationId}/${dashboardPath}`,
-          }
-        );
-      }
-    }
 
     return null;
   },
@@ -2117,43 +2055,33 @@ export const syncFunctionalRolesFromInvitation = mutation({
           }
         );
 
-        // Bug #297 fix: Set userId when creating guardian identity during invitation acceptance
-        // Parent is accepting an invitation - this IS their consent to link this guardian identity
         const guardianId = await ctx.db.insert("guardianIdentities", {
           firstName: userResult?.name?.split(" ")[0] || "",
           lastName: userResult?.name?.split(" ").slice(1).join(" ") || "",
           email: normalizedEmail,
           phone: undefined, // Phone not reliably available from Better Auth user
-          userId, // Bug #297: Link to user so getGuardianForCurrentUser finds it
-          verificationStatus: "email_verified", // Parent verified by accepting invitation
+          verificationStatus: "unverified", // Changed from email_verified - parent must claim
           createdAt: Date.now(),
           updatedAt: Date.now(),
           createdFrom: "invitation",
+          // userId NOT set - parent must claim via modal (Option B)
         });
         guardian = await ctx.db.get(guardianId);
         console.log(
           "[syncFunctionalRolesFromInvitation] Created guardian identity:",
           guardianId,
-          "linked to user:",
-          userId
+          "- parent must claim via modal (Option B)"
         );
       }
 
-      // Bug #297 fix: Link guardian identity to user if not already linked
-      // Parent is accepting an invitation - this IS their consent to claim this guardian identity
+      // Option B behavior: Don't auto-link guardian identity
+      // Parent must explicitly claim via batched modal
+      // Only exception: Self-assignment in Add Guardian flow (handled separately)
       if (guardian && !guardian.userId) {
-        await ctx.db.patch(guardian._id, {
-          userId,
-          verificationStatus: "email_verified",
-          updatedAt: Date.now(),
-        });
-        // Refresh guardian object to have the updated userId
-        guardian = await ctx.db.get(guardian._id);
         console.log(
-          "[syncFunctionalRolesFromInvitation] Linked existing guardian identity:",
-          guardian?._id,
-          "to user:",
-          userId
+          "[syncFunctionalRolesFromInvitation] Guardian identity exists but not auto-linked (Option B):",
+          guardian._id,
+          "- parent must claim to access children"
         );
       }
 
@@ -2253,9 +2181,7 @@ export const syncFunctionalRolesFromInvitation = mutation({
                 .collect();
               const shouldBePrimary = existingGuardians.length === 0;
 
-              // Create the guardian-player link with acknowledgedByParentAt set
-              // because the parent is explicitly accepting an invitation that includes these children
-              // Bug #297 fix: Without acknowledgedByParentAt, getPlayersForGuardian filters them out
+              // Create the guardian-player link
               await ctx.db.insert("guardianPlayerLinks", {
                 guardianIdentityId: guardian._id,
                 playerIdentityId: playerIdentityId as Id<"playerIdentities">,
@@ -2264,7 +2190,6 @@ export const syncFunctionalRolesFromInvitation = mutation({
                 hasParentalResponsibility: true,
                 canCollectFromTraining: true,
                 consentedToSharing: true,
-                acknowledgedByParentAt: Date.now(), // Bug #297: Set to make children visible after acceptance
                 createdAt: Date.now(),
                 updatedAt: Date.now(),
               });

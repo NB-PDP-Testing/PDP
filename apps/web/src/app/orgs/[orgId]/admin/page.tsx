@@ -16,7 +16,6 @@ import type { Route } from "next";
 import Link from "next/link";
 import { useParams } from "next/navigation";
 import { getRoleColor } from "@/components/functional-role-indicator";
-import { OnboardingStatus } from "@/components/onboarding/onboarding-status";
 import { OrgThemedButton } from "@/components/org-themed-button";
 import { Badge } from "@/components/ui/badge";
 import {
@@ -77,9 +76,6 @@ export default function OrgAdminOverviewPage() {
 
   return (
     <div className="w-full max-w-full space-y-6 overflow-hidden sm:space-y-8">
-      {/* Onboarding Status Indicator */}
-      <OnboardingStatus />
-
       {/* Header */}
       <div>
         <h1 className="font-bold text-3xl tracking-tight">Admin Dashboard</h1>

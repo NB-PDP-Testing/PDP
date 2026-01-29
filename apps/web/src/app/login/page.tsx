@@ -8,76 +8,12 @@ import {
   useMutation,
 } from "convex/react";
 import type { Route } from "next";
-import type { AppRouterInstance } from "next/dist/shared/lib/app-router-context.shared-runtime";
 import { useRouter, useSearchParams } from "next/navigation";
 import { Suspense, useEffect, useState } from "react";
 import { toast } from "sonner";
 import Loader from "@/components/loader";
 import SignInForm from "@/components/sign-in-form";
 import { useCurrentUser } from "@/hooks/use-current-user";
-
-type CurrentUser = NonNullable<ReturnType<typeof useCurrentUser>>;
-
-type ProcessPendingInvitationFn = (args: {
-  email: string;
-  userId: string;
-}) => Promise<{ grantedStaffAccess: boolean }>;
-
-/**
- * Process platform staff invitation and redirect to platform if access was granted
- * @returns true if redirected to platform, false otherwise
- */
-async function processPlatformStaffInvitation(
-  user: CurrentUser,
-  processPendingInvitation: ProcessPendingInvitationFn,
-  router: AppRouterInstance
-): Promise<boolean> {
-  if (!user.email) {
-    return false;
-  }
-
-  try {
-    const inviteResult = await processPendingInvitation({
-      email: user.email,
-      userId: user._id,
-    });
-
-    if (inviteResult.grantedStaffAccess) {
-      toast.success(
-        "🎉 Welcome to the platform staff team! You now have platform admin access."
-      );
-      router.push("/platform" as Route);
-      return true;
-    }
-  } catch (error) {
-    console.error("Error processing platform staff invitation:", error);
-  }
-
-  return false;
-}
-
-/**
- * Get the redirect URL from various sources (URL param, session storage, or default)
- */
-function getRedirectUrl(urlRedirect: string | null): string {
-  // If there's a redirect parameter (e.g., from invitation link), use it
-  if (urlRedirect) {
-    return urlRedirect;
-  }
-
-  // Check if there's a stored intended URL (from direct navigation)
-  if (typeof window !== "undefined") {
-    const intendedUrl = sessionStorage.getItem("intendedUrl");
-    if (intendedUrl) {
-      sessionStorage.removeItem("intendedUrl");
-      console.log("[Login] Redirecting to intended URL:", intendedUrl);
-      return intendedUrl;
-    }
-  }
-
-  // Otherwise go to home page (which will redirect appropriately)
-  return "/";
-}
 
 function LoginContent() {
   const user = useCurrentUser();
@@ -95,21 +31,50 @@ function LoginContent() {
         return;
       }
 
-      // Check and process platform staff invitation
-      const redirectedToPlatform = await processPlatformStaffInvitation(
-        user,
-        processPendingInvitation,
-        router
-      );
+      // Check if user has a pending platform staff invitation
+      if (user.email) {
+        try {
+          const inviteResult = await processPendingInvitation({
+            email: user.email,
+            userId: user._id,
+          });
+          setCheckedInvitation(true);
+
+          if (inviteResult.grantedStaffAccess) {
+            toast.success(
+              "🎉 Welcome to the platform staff team! You now have platform admin access."
+            );
+            router.push("/platform" as Route);
+            return;
+          }
+        } catch (error) {
+          console.error("Error processing platform staff invitation:", error);
+        }
+      }
+
       setCheckedInvitation(true);
 
-      if (redirectedToPlatform) {
+      // If there's a redirect parameter (e.g., from invitation link), use it
+      if (redirect) {
+        router.push(redirect as Route);
         return;
       }
 
-      // Redirect to the appropriate URL
-      const redirectUrl = getRedirectUrl(redirect);
-      router.push(redirectUrl as Route);
+      // Check if there's a stored intended URL (from direct navigation)
+      const intendedUrl =
+        typeof window !== "undefined"
+          ? sessionStorage.getItem("intendedUrl")
+          : null;
+
+      if (intendedUrl) {
+        sessionStorage.removeItem("intendedUrl");
+        console.log("[Login] Redirecting to intended URL:", intendedUrl);
+        router.push(intendedUrl as Route);
+        return;
+      }
+
+      // Otherwise go to home page (which will redirect appropriately)
+      router.push("/" as Route);
     };
 
     if (user) {

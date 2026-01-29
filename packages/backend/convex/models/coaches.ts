@@ -1,6 +1,6 @@
 import type { Doc as BetterAuthDoc } from "@pdp/backend/convex/betterAuth/_generated/dataModel";
 import { v } from "convex/values";
-import { components, internal } from "../_generated/api";
+import { components } from "../_generated/api";
 import { mutation, query } from "../_generated/server";
 
 /**
@@ -269,13 +269,6 @@ export const updateCoachAssignments = mutation({
       )
       .first();
 
-    // Track team changes for notifications
-    const previousTeams = existing?.teams || [];
-    const newlyAssignedTeams = args.teams.filter(
-      (t) => !previousTeams.includes(t)
-    );
-    const removedTeams = previousTeams.filter((t) => !args.teams.includes(t));
-
     if (existing) {
       // Update existing assignment
       await ctx.db.patch(existing._id, {
@@ -298,58 +291,6 @@ export const updateCoachAssignments = mutation({
         updatedAt: Date.now(),
       });
     }
-
-    // Send notifications for team changes
-    // Get team names for notification messages
-    const allTeamIds = [...newlyAssignedTeams, ...removedTeams];
-    if (allTeamIds.length > 0) {
-      const teamResult = await ctx.runQuery(
-        components.betterAuth.adapter.findMany,
-        {
-          model: "team",
-          paginationOpts: { cursor: null, numItems: 100 },
-          where: [],
-        }
-      );
-      const allTeams = (teamResult?.page || []) as {
-        _id: string;
-        name: string;
-      }[];
-      const teamNameMap = new Map(allTeams.map((t) => [t._id, t.name]));
-
-      // Send notifications for newly assigned teams
-      for (const teamId of newlyAssignedTeams) {
-        const teamName = teamNameMap.get(teamId) || "a team";
-        await ctx.runMutation(
-          internal.models.notifications.createNotification,
-          {
-            userId: args.userId,
-            organizationId: args.organizationId,
-            type: "team_assigned",
-            title: "Team Assignment",
-            message: `You have been assigned to ${teamName}`,
-            link: `/orgs/${args.organizationId}/teams/${teamId}`,
-          }
-        );
-      }
-
-      // Send notifications for removed teams
-      for (const teamId of removedTeams) {
-        const teamName = teamNameMap.get(teamId) || "a team";
-        await ctx.runMutation(
-          internal.models.notifications.createNotification,
-          {
-            userId: args.userId,
-            organizationId: args.organizationId,
-            type: "team_removed",
-            title: "Team Update",
-            message: `You have been removed from ${teamName}`,
-            link: `/orgs/${args.organizationId}/coach/dashboard`,
-          }
-        );
-      }
-    }
-
     return null;
   },
 });

@@ -38,14 +38,6 @@ export const AnalyticsEvents = {
   BULK_IMPORT_STARTED: "bulk_import_started",
   BULK_IMPORT_COMPLETED: "bulk_import_completed",
   EXPORT_INITIATED: "export_initiated",
-
-  // Onboarding events (Phase 6)
-  ONBOARDING_STARTED: "onboarding_started",
-  ONBOARDING_STEP_SHOWN: "onboarding_step_shown",
-  ONBOARDING_STEP_COMPLETED: "onboarding_step_completed",
-  ONBOARDING_STEP_SKIPPED: "onboarding_step_skipped",
-  ONBOARDING_COMPLETED: "onboarding_completed",
-  ONBOARDING_ERROR: "onboarding_error",
 } as const;
 
 /**

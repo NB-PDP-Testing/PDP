@@ -6,10 +6,6 @@ import { AlertCircle, CheckCircle, XCircle } from "lucide-react";
 import type { Route } from "next";
 import { useParams, useRouter } from "next/navigation";
 import { useCallback, useEffect, useState } from "react";
-import { toast } from "sonner";
-import { AutoReInvitedView } from "@/components/auto-reinvited-view";
-import { ExpiredInvitationView } from "@/components/expired-invitation-view";
-import { RequestInvitationConfirmation } from "@/components/request-invitation-confirmation";
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
 import { Button } from "@/components/ui/button";
 import {
@@ -26,19 +22,10 @@ export default function AcceptInvitationPage() {
   const router = useRouter();
   const invitationId = params.invitationId as string;
   const [status, setStatus] = useState<
-    | "loading"
-    | "checking"
-    | "mismatch"
-    | "success"
-    | "error"
-    | "idle"
-    | "expired"
-    | "requested"
-    | "auto_reinvited"
+    "loading" | "checking" | "mismatch" | "success" | "error" | "idle"
   >("loading");
   const [errorMessage, setErrorMessage] = useState<string>("");
   const [currentUserEmail, setCurrentUserEmail] = useState<string | null>(null);
-  const [isRequesting, setIsRequesting] = useState(false);
 
   // Use the session hook for better React integration
   const { data: session } = authClient.useSession();
@@ -49,25 +36,9 @@ export default function AcceptInvitationPage() {
     invitationId ? { invitationId } : "skip"
   );
 
-  // Fetch invitation status for expired invitations (Phase 1B)
-  const invitationStatus = useQuery(
-    api.models.invitations.checkInvitationStatus,
-    invitationId ? { invitationId } : "skip"
-  );
-
   // Mutation to sync functional roles from invitation metadata
   const syncFunctionalRolesFromInvitation = useMutation(
     api.models.members.syncFunctionalRolesFromInvitation
-  );
-
-  // Mutation to request new invitation (Phase 1B)
-  const createInvitationRequest = useMutation(
-    api.models.invitations.createInvitationRequest
-  );
-
-  // Mutation to process auto re-invite (Phase 1B)
-  const processAutoReInvite = useMutation(
-    api.models.invitations.processAutoReInvite
   );
 
   const acceptInvitation = useCallback(
@@ -215,37 +186,6 @@ export default function AcceptInvitationPage() {
       syncFunctionalRolesFromInvitation,
     ]
   );
-
-  // Handler for requesting a new invitation (Phase 1B)
-  const handleRequestNewInvitation = useCallback(async () => {
-    if (!invitation?.email) {
-      toast.error("Unable to request new invitation: email not available");
-      return;
-    }
-
-    setIsRequesting(true);
-    try {
-      const result = await createInvitationRequest({
-        originalInvitationId: invitationId,
-        userEmail: invitation.email,
-      });
-
-      if (result.success) {
-        toast.success("Request submitted successfully!");
-        setStatus("requested");
-      } else {
-        toast.error(result.message);
-      }
-    } catch (error) {
-      console.error(
-        "[AcceptInvitation] Error requesting new invitation:",
-        error
-      );
-      toast.error("Failed to submit request. Please try again.");
-    } finally {
-      setIsRequesting(false);
-    }
-  }, [invitationId, invitation?.email, createInvitationRequest]);
 
   // Timeout protection: if page is stuck loading for >15 seconds, show error
   useEffect(() => {
@@ -418,56 +358,12 @@ export default function AcceptInvitationPage() {
           // Continue to try accepting invitation
         }
 
-        // Wait for invitationStatus to load (needed for org deleted check)
-        if (invitationStatus === undefined) {
-          console.log("[AcceptInvitation] Waiting for invitation status...");
-          setStatus("checking");
-          return;
-        }
-
-        // Phase 6: Check if organization was deleted during onboarding
-        if (invitationStatus && !invitationStatus.organization) {
-          console.log("[AcceptInvitation] Organization no longer exists");
-          toast.error("This organization no longer exists");
-          router.push("/orgs");
-          return;
-        }
-
-        // Check if invitation is expired - use new expired flow (Phase 1B)
+        // Check if invitation is expired
         if (invitation.isExpired) {
-          console.log("[AcceptInvitation] Invitation is expired");
-
-          // Check if auto re-invite is available
-          if (invitationStatus?.autoReInviteAvailable) {
-            console.log(
-              "[AcceptInvitation] Auto re-invite available, processing..."
-            );
-            setStatus("loading");
-            try {
-              const result = await processAutoReInvite({ invitationId });
-              if (result.success && result.newInvitationId) {
-                console.log(
-                  "[AcceptInvitation] Auto re-invite successful, new invitation:",
-                  result.newInvitationId
-                );
-                toast.success("New invitation sent! Check your email.");
-                setStatus("auto_reinvited");
-                return;
-              }
-              console.log(
-                "[AcceptInvitation] Auto re-invite failed:",
-                result.message
-              );
-            } catch (error) {
-              console.error("[AcceptInvitation] Auto re-invite error:", error);
-            }
-          }
-
-          // Show expired view for manual request
-          console.log(
-            "[AcceptInvitation] Showing ExpiredInvitationView for manual request"
+          setStatus("error");
+          setErrorMessage(
+            "This invitation has expired. Please request a new invitation."
           );
-          setStatus("expired");
           return;
         }
 
@@ -536,55 +432,7 @@ export default function AcceptInvitationPage() {
     };
 
     checkAndAcceptInvitation();
-  }, [
-    invitationId,
-    router,
-    invitation,
-    session,
-    acceptInvitation,
-    invitationStatus,
-    processAutoReInvite,
-  ]);
-
-  // Show ExpiredInvitationView for expired invitations (Phase 1B)
-  if (status === "expired" && invitation && invitationStatus) {
-    return (
-      <ExpiredInvitationView
-        adminContactEmail={invitationStatus.organization?.adminContactEmail}
-        canRequestNew={invitationStatus.canRequestNew}
-        expiredDate={new Date(invitation.expiresAt)}
-        isRequesting={isRequesting}
-        onRequestNew={handleRequestNewInvitation}
-        organizationName={
-          invitationStatus.organization?.name ?? "Unknown Organization"
-        }
-        requestCount={invitationStatus.requestCount}
-        role={invitation.role ?? "Member"}
-      />
-    );
-  }
-
-  // Show confirmation after successfully requesting new invitation (Phase 1B)
-  if (status === "requested" && invitationStatus) {
-    return (
-      <RequestInvitationConfirmation
-        organizationName={
-          invitationStatus.organization?.name ?? "Unknown Organization"
-        }
-      />
-    );
-  }
-
-  // Show auto-reinvited view when invitation is automatically re-sent (Phase 1B)
-  if (status === "auto_reinvited" && invitationStatus) {
-    return (
-      <AutoReInvitedView
-        organizationName={
-          invitationStatus.organization?.name ?? "Unknown Organization"
-        }
-      />
-    );
-  }
+  }, [invitationId, router, invitation, session, acceptInvitation]);
 
   return (
     <div className="flex min-h-screen items-center justify-center bg-gray-50 px-4">

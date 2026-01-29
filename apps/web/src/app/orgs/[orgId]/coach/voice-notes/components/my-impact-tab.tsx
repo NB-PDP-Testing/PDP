@@ -23,6 +23,7 @@ import {
 } from "@/components/ui/select";
 import { Skeleton } from "@/components/ui/skeleton";
 import { AppliedInsightsSection } from "./applied-insights-section";
+import { EngagementTrendsSection } from "./engagement-trends-section";
 import { ImpactSummaryCards } from "./impact-summary-cards";
 import { ParentEngagementSection } from "./parent-engagement-section";
 import { SentSummariesSection } from "./sent-summaries-section";
@@ -235,6 +236,9 @@ export function MyImpactTab({ orgId, coachId }: MyImpactTabProps) {
 
       {/* Phase 8 Week 3: Parent engagement section (US-P8-016) */}
       <ParentEngagementSection parentEngagement={impactData.parentEngagement} />
+
+      {/* Phase 8 Week 3: Engagement trends section (US-P8-017) */}
+      <EngagementTrendsSection weeklyTrends={impactData.weeklyTrends} />
 
       {/* Phase 8 Week 2: Team observations section (US-P8-009) */}
       <TeamObservationsSection observations={impactData.teamObservations} />

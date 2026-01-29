@@ -101,7 +101,8 @@
         "Deep link to correct tab: ?tab=skills for skills, ?tab=health for injuries, ?tab=attendance",
         "Opens in same tab (not new window)",
         "Type check passes"
-      ]
+      ],
+      "passes": true
     },
     {
       "id": "US-P8-013",
@@ -236,7 +237,8 @@
         "Return skeleton layout: 4 card skeletons in grid, 3 section skeletons below",
         "Use shadcn Skeleton component with pulse animation",
         "Type check passes"
-      ]
+      ],
+      "passes": true
     }
   ],
   "qualityChecks": {

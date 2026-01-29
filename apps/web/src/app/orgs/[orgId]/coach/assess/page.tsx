@@ -55,6 +55,7 @@ import {
 } from "@/components/ui/select";
 import { Textarea } from "@/components/ui/textarea";
 import { useCurrentUser } from "@/hooks/use-current-user";
+import { authClient } from "@/lib/auth-client";
 
 type AssessmentType = "training" | "match" | "formal_review" | "trial";
 type AssessmentMode = "individual" | "batch";
@@ -68,6 +69,10 @@ export default function AssessPlayerPage() {
   const router = useRouter();
   const orgId = params.orgId as string;
   const currentUser = useCurrentUser();
+  const { data: session } = authClient.useSession();
+
+  // Fallback: use session user ID if Convex user query returns null
+  const userId = currentUser?._id || session?.user?.id;
 
   // State
   const [selectedPlayerId, setSelectedPlayerId] = useState<string | null>(null);
@@ -97,13 +102,11 @@ export default function AssessPlayerPage() {
   const [_batchNotes, setBatchNotes] = useState<BatchNotes>({});
   const [_batchSavedCount, setBatchSavedCount] = useState(0);
 
-  // Queries
+  // Queries - Performance: Uses getPlayersForCoachTeams for server-side filtering
   const sports = useQuery(api.models.referenceData.getSports);
   const allPlayers = useQuery(
-    api.models.orgPlayerEnrollments.getPlayersForOrg,
-    {
-      organizationId: orgId,
-    }
+    api.models.orgPlayerEnrollments.getPlayersForCoachTeams,
+    userId && orgId ? { organizationId: orgId, coachUserId: userId } : "skip"
   );
 
   // Helper: Sport code to display name mapping

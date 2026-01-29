@@ -310,3 +310,52 @@ The story is **substantially complete** but missing the Trust Level display in b
 Pre-commit hook (biome check at error level) passed successfully. This validates that my changes don't introduce new errors. The 329 errors + 1498 warnings reported by `npx ultracite fix` are pre-existing codebase issues unrelated to Week 3 work.
 
 ---
+
+## 2026-01-29 20:38 - US-P8-017 - Add Engagement Trends Chart to My Impact
+**Iteration**: 2 (continued)
+**Commit**: 4abebf023730bc9ec2461dc15b9db7b557db2fe0
+**Session**: 5fd277b3-aa09-4e1d-94a2-65c0e69eaf7b
+**Status**: Complete
+
+### What was implemented
+- Created `EngagementTrendsSection` component with recharts LineChart
+- Displays last 4 weeks of parent engagement: sent (blue) vs viewed (green)
+- Responsive layout using ResponsiveContainer (300px height)
+- Empty state: "Not enough data yet. Keep sending summaries!" (shows if < 2 weeks)
+- Backend `weeklyTrends` data already implemented, no backend changes needed
+
+### Files changed
+- apps/web/src/app/orgs/[orgId]/coach/voice-notes/components/engagement-trends-section.tsx (new, +87 lines)
+- apps/web/src/app/orgs/[orgId]/coach/voice-notes/components/my-impact-tab.tsx (+3 lines: import + component call)
+- scripts/ralph/prd.json (+1 line: marked US-P8-017 as passing)
+
+### Quality checks
+- ✅ Linting: passed (husky pre-commit hook)
+- ✅ Component structure correct
+- ⚠️ Browser verification: Not performed yet
+
+### **Learnings for future iterations** ⚠️ CRITICAL
+
+**Patterns discovered:**
+- **Recharts usage**: Import specific components needed: `LineChart, Line, XAxis, YAxis, Tooltip, CartesianGrid, ResponsiveContainer`.
+- **ResponsiveContainer is required**: Always wrap charts in `<ResponsiveContainer width="100%" height={300}>` for proper sizing.
+- **Empty state pattern**: Check data length before rendering chart. Show helpful message if insufficient data.
+- **Chart styling**: Use stroke colors directly: `#3b82f6` (blue), `#10b981` (green). strokeWidth={2} for visibility.
+
+**Gotchas encountered:**
+- **Import auto-removal**: Linter removes unused imports immediately. Must add both import AND usage together, or usage first then import.
+- **Data field names**: Guide mentioned `summariesSent` and `summariesViewed` but backend returns `sent` and `viewed`. Always verify backend types first.
+
+**Dependencies found:**
+- **Recharts library**: Already installed, no need to add. Available imports confirmed working.
+
+**What to do next**:
+- [ ] US-P8-019: Add previousPeriodStats to getCoachImpactSummary (backend work required)
+- [ ] US-P8-019: Modify ImpactSummaryCards to show +/- comparisons
+- [ ] US-P8-018: Add CSV export functionality (frontend only, straightforward)
+- [ ] US-P8-013/014/015: Passport deep linking (defer to end, larger refactor)
+
+**Mistakes made** (learn from these!):
+- **None this time** - Smooth implementation, backend data already ready.
+
+---

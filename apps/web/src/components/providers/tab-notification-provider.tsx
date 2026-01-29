@@ -5,6 +5,7 @@ import { useQuery } from "convex/react";
 import type { ReactNode } from "react";
 import { useTabNotification } from "@/hooks/use-tab-notification";
 import { authClient } from "@/lib/auth-client";
+import { useMembershipContext } from "@/providers/membership-provider";
 
 type TabNotificationProviderProps = {
   children: ReactNode;
@@ -23,18 +24,12 @@ export function TabNotificationProvider({
 }: TabNotificationProviderProps) {
   const { data: session } = authClient.useSession();
 
-  // Get membership data to check functional role
-  // Per US-005 acceptance criteria: check activeFunctionalRole === 'parent'
-  // Skip query when not authenticated to avoid unnecessary backend calls
-  const allMemberships = useQuery(
-    api.models.members.getMembersForAllOrganizations,
-    session?.user ? {} : "skip"
-  );
+  // Get membership data from context (shared across header components)
+  // Performance: Uses MembershipProvider to avoid duplicate queries
+  const { getMembershipForOrg } = useMembershipContext();
 
   // Find current org membership
-  const currentMembership = allMemberships?.find(
-    (m) => m.organizationId === orgId
-  );
+  const currentMembership = getMembershipForOrg(orgId);
 
   // Only query if user is authenticated and has parent role
   const isParent =

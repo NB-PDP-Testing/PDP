@@ -2,6 +2,7 @@
 
 import { api } from "@pdp/backend/convex/_generated/api";
 import { useMutation, useQuery } from "convex/react";
+import { useMembershipContext } from "@/providers/membership-provider";
 
 // Type for organization from better-auth
 type Organization = {
@@ -173,10 +174,9 @@ export function OrgRoleSwitcher({ className }: OrgRoleSwitcherProps) {
   const user = useCurrentUser();
   const { useOrgUsageTracking } = useUXFeatureFlags();
 
-  // Get all memberships with roles for all organizations
-  const allMemberships = useQuery(
-    api.models.members.getMembersForAllOrganizations
-  );
+  // Get all memberships from context (shared across header components)
+  // Performance: Uses MembershipProvider to avoid duplicate queries
+  const { memberships: allMemberships } = useMembershipContext();
 
   const switchActiveRole = useMutation(
     api.models.members.switchActiveFunctionalRole

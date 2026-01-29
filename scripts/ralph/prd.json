@@ -153,7 +153,8 @@
         "Remove highlight after 2 seconds with setTimeout",
         "Clean up timeout in useEffect return",
         "Type check passes"
-      ]
+      ],
+      "passes": true
     },
     {
       "id": "US-P8-016",

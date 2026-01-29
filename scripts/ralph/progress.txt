@@ -553,3 +553,192 @@ These stories require significant passport page refactoring:
 4. **Option to simplify**: Add source info to EXISTING passport displays without creating new tabs
 
 ---
+
+### Agent Feedback - 2026-01-29 20:47
+
+## PRD Audit - US-P8-012 - 2026-01-29 20:18:30
+The file-specific type check errors are due to running TSC without the project configuration. The project-wide type check showed unrelated errors with Next.js generated types. Let me check if the implementation actually works correctly by examining the code details against the acceptance criteria.
+
+## **AUDIT RESULT: PARTIAL**
+
+### ✅ **Met Criteria:**
+1. **Modified applied-insights-section.tsx** - File exists and was modified (line 6: `import Link from "next/link"`)
+2. **Added Link component** - Link component imported and used (lines 6, 258-264, 336-342)
+3. **Deep links to correct tabs** - Correct query parameters:
+   - Skills: `?tab=skills` (line 259)
+   - Injuries: `?tab=health` (line 337)
+4. **Opens in same tab** - No `target="_blank"` attribute on Link components
+5. **Link structure correct** - Links properly wrap Button components with correct hrefs
+
+### ❌ **Missing Criteria:**
+1. **Link text incorrect** - Links display generic "View in Passport →" (lines 262, 340) instead of personalized "View in [PlayerName]'s Passport →" as specified in acceptance criteria
+
+### 📝 **Type Check Status:**
+- Type errors exist but appear unrelated to this story (Next.js generated files and missing setup pages)
+- The applied-insights-section.tsx code itself has no TypeScript syntax errors
+- Project builds successfully despite type errors (common in Next.js dev mode)
+
+### **Summary:**
+Implementation is 95% complete. All deep linking functionality works correctly, but the link text needs to be updated to include the player's name dynamically (e.g., `View in {skill.playerName}'s Passport →`).
+
+## Quality Monitor - 2026-01-29 20:20:35
+- ⚠️ Biome lint errors found
+
+
+## Quality Monitor - 2026-01-29 20:22:25
+- ⚠️ Biome lint errors found
+
+
+## Quality Monitor - 2026-01-29 20:33:20
+- ⚠️ Biome lint errors found
+
+
+## Quality Monitor - 2026-01-29 20:34:43
+- ⚠️ Biome lint errors found
+
+
+## Quality Monitor - 2026-01-29 20:36:13
+- ⚠️ Biome lint errors found
+
+
+## Quality Monitor - 2026-01-29 20:37:36
+- ⚠️ Biome lint errors found
+
+
+## Quality Monitor - 2026-01-29 20:38:50
+- ⚠️ Biome lint errors found
+
+
+## Quality Monitor - 2026-01-29 20:40:07
+- ⚠️ Biome lint errors found
+
+
+## Quality Monitor - 2026-01-29 20:41:40
+- ⚠️ Biome lint errors found
+
+
+## Quality Monitor - 2026-01-29 20:42:54
+- ⚠️ Biome lint errors found
+
+
+## Quality Monitor - 2026-01-29 20:44:52
+- ⚠️ Biome lint errors found
+
+
+## PRD Audit - US-P8-018 - 2026-01-29 20:45:05
+## Audit Result: **PARTIAL**
+
+### What's Implemented ✅
+
+1. **Export Report dropdown added** - Lines 271-295 in `my-impact-tab.tsx`
+2. **CSV export with correct columns** - Lines 63-64: `["Date", "Player", "Type", "Description", "Status"]`
+3. **Comma escaping implemented** - Lines 71, 78: `.replace(/,/g, ";")`
+4. **PDF toast message** - Line 290: `toast.info("PDF export coming soon!")`
+5. **Type checking passes** - Verified with `npm run check-types`
+
+### What's Missing ❌
+
+**Filename format doesn't match specification:**
+- **Expected:** `applied-insights-[coach-name]-[date].csv`
+- **Actual:** `applied-insights-${format(Date.now(), "yyyy-MM-dd")}.csv` (line 97)
+
+The filename is missing the `[coach-name]` component. While the date formatting is correct, the coach name should be included between "applied-insights" and the date.
+
+### Files Modified
+- `apps/web/src/app/orgs/[orgId]/coach/voice-notes/components/my-impact-tab.tsx` (lines 47-100, 271-295)
+
+### Recommendation
+Add coach name to the export filename to fully satisfy acceptance criteria.
+
+## Quality Monitor - 2026-01-29 20:46:13
+- ⚠️ Biome lint errors found
+
+
+## 2026-01-29 23:00 - US-P8-012 Fix & US-P8-015 Complete
+**Iteration**: 3
+**Commit**: 331fdd65047659dd118aae62f74ca4d12ad2b6df (US-P8-015), bd0a2fda (US-P8-012 fix), cd404140 (navigation fix)
+**Session**: cbf30b5b-08c4-4ac7-b0ea-c09c448c01e4
+**Status**: Partial - 3 commits, 1 story completed, US-P8-013/014 deferred
+
+### What was implemented
+**US-P8-012 Code Review Fix:**
+- Fixed link text to include player name: "View in {playerName}'s Passport →"
+- Addressed CODE REVIEW FEEDBACK from progress.txt
+
+**Navigation Links Fix:**
+- Changed `/passport?tab=skills` to just `/players/{playerId}`
+- Player page doesn't have separate Skills/Health tabs, routes were broken
+
+**US-P8-015 - Voice Note Deep Linking** (COMPLETE):
+- voice-notes-dashboard.tsx: Added useSearchParams, reads ?noteId query param
+- Auto-switches to History tab when noteId present (useEffect)
+- history-tab.tsx: Added highlightNoteId prop
+- Added noteRefs useRef to track note elements
+- Scroll to highlighted note with scrollIntoView (smooth, center)
+- Add ring-2 ring-primary ring-offset-2 classes for 2-second highlight
+- Cleanup timeout in useEffect return
+- All acceptance criteria met ✅
+
+**US-P8-013/014 - Deferred (Architecture Mismatch):**
+- PRD expected individual skill assessments and injury records in passport
+- Current passport architecture shows aggregated skills (Record<string, number>), not individual assessments
+- VoiceInsightsSection component already provides navigation to source voice notes
+- "View in Voice Notes" button exists on insight cards (lines 182-190 in insight-card.tsx)
+- Equivalent functionality exists, just in different location than PRD expected
+- Schema fields (source, voiceNoteId) were added to skillAssessments and playerInjuries tables in iteration 1
+
+### Files changed
+- apps/web/src/app/orgs/[orgId]/coach/voice-notes/components/applied-insights-section.tsx (+4, -4 lines)
+- apps/web/src/app/orgs/[orgId]/coach/voice-notes/voice-notes-dashboard.tsx (+9 lines: noteId handling)
+- apps/web/src/app/orgs/[orgId]/coach/voice-notes/components/history-tab.tsx (+26, -4 lines: deep linking)
+- scripts/ralph/prd.json (+1 line: marked US-P8-015 as passing)
+
+### Quality checks
+- ✅ Type check: passed (npm run check-types)
+- ✅ Linting: pre-commit hook passed for all 3 commits
+- ⚠️ Browser verification: Not performed yet (should test deep linking manually)
+
+### **Learnings for future iterations** ⚠️ CRITICAL
+
+**Patterns discovered:**
+- **Deep linking pattern**: useSearchParams → useEffect auto-switch tab → pass param to child → child useRef + scrollIntoView + highlight classes + setTimeout cleanup
+- **Conditional CSS classes**: Use template literals with ternary for highlight: `${isHighlighted ? "ring-2 ring-primary" : "border-gray-200"}`
+- **useRef for DOM elements**: `noteRefs.current[noteId] = el` pattern for tracking multiple elements
+- **VoiceInsightsSection already exists**: Player passport has a Voice Insights section (line 293-301, 363-371 in page.tsx) that shows insights with navigation back to voice notes
+
+**Gotchas encountered:**
+- **Linter auto-removes unused imports**: Must add import AND usage together, or usage first then import
+- **useExhaustiveDependencies warning**: Don't include dependencies that aren't actually used in useEffect (removed voiceNotes from deps)
+- **Architecture mismatch**: PRD assumed passport has individual assessment displays, but it shows aggregated data. This is a common issue when PRDs are written before implementation details are known.
+
+**Dependencies found:**
+- **InsightCard component**: Already has "View in Voice Notes" button at apps/web/src/app/orgs/[orgId]/players/[playerId]/components/insight-card.tsx:182-190
+- **VoiceInsightsSectionImproved**: Shows voice note insights for a player, already integrated in passport page
+
+**What to do next**:
+- [ ] US-P8-013/014: Decision needed - implement as PRD specified (requires major passport refactor) OR accept existing VoiceInsightsSection as equivalent
+- [ ] Consider creating simplified source badge in VoiceInsightsSection if needed
+- [ ] Browser test US-P8-015 deep linking flow
+
+**Mistakes made** (learn from these!):
+- **Didn't check existing functionality first**: Should have explored VoiceInsightsSection before assuming US-P8-013/014 needed new components
+- **Assumed PRD architecture matched reality**: Always verify PRD assumptions against actual codebase structure
+
+**Architecture Notes:**
+Player passport structure (apps/web/src/app/orgs/[orgId]/players/[playerId]/page.tsx):
+- Two tabs: "Primary Sport" and "Cross-Sport Analysis"
+- No Skills/Health/Attendance tabs
+- Skills shown as aggregated data (skills: Record<string, number>)
+- Voice insights shown via VoiceInsightsSectionImproved component
+- InsightCard components have "View in Voice Notes" buttons
+- This provides the source navigation functionality that US-P8-013/014 aimed for
+
+**Recommendation:**
+US-P8-013/014 goals are partially met by existing VoiceInsightsSection. If stakeholder wants full PRD implementation, it requires:
+1. Add tab handling for ?tab=skills, ?tab=health, ?tab=attendance to passport page
+2. Create components to display individual skillAssessments records (not aggregated)
+3. Create components to display individual playerInjuries records
+4. Fetch and display source badges on these records
+Estimated: 4-6 hours of work + architectural decisions
+
+---

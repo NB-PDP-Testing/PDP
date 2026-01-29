@@ -17,18 +17,18 @@ const DEFAULT_MODEL = "claude-3-5-haiku-20241022";
 const DEFAULT_MAX_TOKENS = 1200;
 const DEFAULT_TEMPERATURE = 0.7;
 
-type SkillMetric = {
+interface TeamDataSkill {
   skill: string;
   avg?: number;
-};
+}
 
-type TeamData = {
+interface TeamData {
   teamName: string;
   playerCount?: number;
   ageGroup?: string;
-  strengths?: SkillMetric[];
-  weaknesses?: SkillMetric[];
-};
+  strengths?: TeamDataSkill[];
+  weaknesses?: TeamDataSkill[];
+}
 
 function getConfig() {
   return {
@@ -49,10 +49,10 @@ Team: ${teamData.teamName} (${teamData.playerCount || 0} players)
 ${focus ? `Focus Area: ${focus}` : "General training session"}
 
 Team Strengths: ${(teamData.strengths || [])
-    .map((s: SkillMetric) => s.skill)
+    .map((s: TeamDataSkill) => s.skill)
     .join(", ")}
 Team Weaknesses: ${(teamData.weaknesses || [])
-    .map((w: SkillMetric) => w.skill)
+    .map((w: TeamDataSkill) => w.skill)
     .join(", ")}
 
 Create a detailed 90-minute training session plan that addresses the team's weaknesses while maintaining their strengths. Include:

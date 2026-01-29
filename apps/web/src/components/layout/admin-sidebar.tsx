@@ -8,6 +8,7 @@ import {
   ChevronDown,
   Clipboard,
   ClipboardList,
+  Flag,
   GraduationCap,
   Home,
   Inbox,
@@ -186,6 +187,11 @@ export function getAdminNavGroups(
           href: `/orgs/${orgId}/admin/settings`,
           label: "Settings",
           icon: Settings,
+        },
+        {
+          href: `/orgs/${orgId}/admin/settings/features`,
+          label: "Feature Flags",
+          icon: Flag,
         },
         {
           href: `/orgs/${orgId}/admin/messaging`,

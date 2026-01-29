@@ -17,33 +17,29 @@ const DEFAULT_MODEL = "claude-3-5-haiku-20241022";
 const DEFAULT_MAX_TOKENS = 1500;
 const DEFAULT_TEMPERATURE = 0.7;
 
-type PlayerSkills = {
-  [key: string]: number | undefined;
-};
-
-type Player = {
+interface TeamDataPlayer {
   name: string;
   ageGroup?: string;
-  attendance?: { training?: number };
-  skills?: PlayerSkills;
+  attendance?: { training?: string | number };
+  skills?: Record<string, unknown>;
   reviewStatus?: string;
-};
+}
 
-type SkillMetric = {
+interface TeamDataSkill {
   skill: string;
   avg?: number;
-};
+}
 
-type TeamData = {
+interface TeamData {
   teamName: string;
   playerCount?: number;
   avgSkillLevel?: number;
-  strengths?: SkillMetric[];
-  weaknesses?: SkillMetric[];
+  strengths?: TeamDataSkill[];
+  weaknesses?: TeamDataSkill[];
   attendanceIssues?: number;
   overdueReviews?: number;
-  players?: Player[];
-};
+  players?: TeamDataPlayer[];
+}
 
 function getConfig() {
   return {
@@ -59,7 +55,7 @@ function getConfig() {
 
 function buildCoachingPrompt(teamData: TeamData): string {
   const playerSummaries = (teamData.players || [])
-    .map((p: Player) => {
+    .map((p: TeamDataPlayer) => {
       const skillValues = Object.values(p.skills || {}).filter(
         (v) => typeof v === "number"
       );
@@ -85,12 +81,12 @@ Average Team Skill Level: ${teamData.avgSkillLevel?.toFixed(1) || "0"}/5
 
 Team Strengths:
 ${(teamData.strengths || [])
-  .map((s: SkillMetric) => `- ${s.skill}: ${s.avg?.toFixed(1) || "0"}/5`)
+  .map((s: TeamDataSkill) => `- ${s.skill}: ${s.avg?.toFixed(1) || "0"}/5`)
   .join("\n")}
 
 Team Weaknesses:
 ${(teamData.weaknesses || [])
-  .map((w: SkillMetric) => `- ${w.skill}: ${w.avg?.toFixed(1) || "0"}/5`)
+  .map((w: TeamDataSkill) => `- ${w.skill}: ${w.avg?.toFixed(1) || "0"}/5`)
   .join("\n")}
 
 Issues:

@@ -1,0 +1,73 @@
+# Ralph Progress Log - Phase 8 Week 1
+Started: Monday 27 January 2026
+---
+
+## Codebase Patterns
+
+**Last Updated**: 27 Jan 2026 - Phase 8 Week 1
+
+### Architecture
+- All routes scoped under /orgs/[orgId]/
+- Use Better Auth for authentication, Convex for backend
+- Organization data isolated via organizationId field
+
+### Convex Backend Patterns
+- **NEVER use .filter()** - always use .withIndex()
+- All functions need args and returns validators
+- Use Id<"tableName"> types, not string
+- Index names include all fields: by_orgId_and_status
+- Date range filtering: Fetch with .gte(start), filter .lte(end) in JS
+
+### Frontend Patterns
+- Use shadcn/ui components from @/components/ui
+- Use useQuery for real-time data (auto-updates via Convex subscriptions)
+- Use useSearchParams for filter state (URL persistence)
+- Organization theming via CSS variables: --org-primary, etc.
+- Every component needs: Loading skeleton + Empty state + Content
+
+### Quality Checks
+- Run in order: npm run check-types → npx ultracite fix → npm run check
+- Run codegen after schema changes: npx -w packages/backend convex codegen
+- Visual verification in browser for ALL UI changes
+
+### File Locations (discovered during P1-P7)
+- Player data: orgPlayerEnrollments table
+- Admin pages: apps/web/src/app/orgs/[orgId]/admin/
+- Coach pages: apps/web/src/app/orgs/[orgId]/coach/
+- Convex queries: packages/backend/convex/models/
+
+---
+
+## Phase 8 Week 1 Context
+
+**Objective**: Fix critical UX gap where Level 0-1 coaches have ZERO visibility into outcomes of their work.
+
+**What We're Building**:
+1. getCoachImpactSummary query - aggregates data from 6 tables
+2. Remove trust level gate from "Sent to Parents" tab
+3. Create "My Impact" tab structure
+4. Add tab to navigation
+
+**Critical References**:
+- scripts/ralph/P8_RALPH_CONTEXT.md - Complete P1-P7 learnings + P8 architecture
+- scripts/ralph/prds/Coaches Voice Insights/P8_COACH_IMPACT_VISIBILITY.md - Full PRD (20 stories)
+- scripts/ralph/P7_RALPH_CONTEXT.md - Trust level patterns from P5-P7
+
+**Known Tables**:
+- ✅ voiceNotes - existing
+- ✅ voiceNoteInsights - dedicated insights table
+- ✅ coachParentSummaries - with viewedAt, acknowledgedAt
+- ✅ autoAppliedInsights - with targetRecordId for navigation
+- ✅ playerInjuries - with source field
+- ✅ teamObservations - existing
+- ✅ coachTrustLevels - with trust level data
+
+**Common Mistakes to Avoid** (from P1-P7):
+- ❌ Using .filter() instead of .withIndex() → ALWAYS use indexes
+- ❌ Forgetting to run codegen after schema changes → Add to acceptance criteria
+- ❌ Missing imports in frontend components → Check import statements
+- ❌ No loading/empty states → Every component needs both
+- ❌ Not testing visually → Always verify in browser after UI changes
+
+---
+

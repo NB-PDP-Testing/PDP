@@ -328,7 +328,7 @@ export const updateCoachAssignments = mutation({
             type: "team_assigned",
             title: "Team Assignment",
             message: `You have been assigned to ${teamName}`,
-            link: `/orgs/${args.organizationId}/teams/${teamId}`,
+            link: `/orgs/${args.organizationId}/coach`,
           }
         );
       }
@@ -344,7 +344,7 @@ export const updateCoachAssignments = mutation({
             type: "team_removed",
             title: "Team Update",
             message: `You have been removed from ${teamName}`,
-            link: `/orgs/${args.organizationId}/coach/dashboard`,
+            link: `/orgs/${args.organizationId}/coach`,
           }
         );
       }

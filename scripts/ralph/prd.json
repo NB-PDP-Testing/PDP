@@ -120,7 +120,8 @@
         "Badge links to /coach/voice-notes?noteId=X",
         "Type check passes"
       ],
-      "technicalNotes": "⚠️ CRITICAL: Schema check required before implementation"
+      "technicalNotes": "⚠️ CRITICAL: Schema check required before implementation",
+      "passes": true
     },
     {
       "id": "US-P8-014",
@@ -136,7 +137,8 @@
         "Same pattern as skill badge",
         "Type check passes"
       ],
-      "technicalNotes": "⚠️ CRITICAL: Schema check required before implementation"
+      "technicalNotes": "⚠️ CRITICAL: Schema check required before implementation",
+      "passes": true
     },
     {
       "id": "US-P8-015",

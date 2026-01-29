@@ -76,6 +76,9 @@ export default function OrganizationsPage() {
   // Use Convex query to get user with custom fields
   const user = useCurrentUser();
 
+  // Check if any organizations exist on the platform (for fresh deployment detection)
+  const hasAnyOrgs = useQuery(api.models.setup.hasAnyOrganizations);
+
   // View mode and search state - load from localStorage
   const [yourOrgsView, setYourOrgsView] = useState<"cards" | "table">(() => {
     if (typeof window !== "undefined") {
@@ -116,14 +119,18 @@ export default function OrganizationsPage() {
   }, [user]);
 
   // Redirect platform staff who haven't completed setup
+  // BUT only if NO organizations exist (fresh deployment)
   useEffect(() => {
-    if (user?.isPlatformStaff && user?.setupComplete !== true) {
+    if (hasAnyOrgs === undefined) {
+      return; // Wait for data to load
+    }
+    if (user?.isPlatformStaff && user?.setupComplete !== true && !hasAnyOrgs) {
       console.log(
-        "[/orgs] Platform staff needs to complete setup, redirecting to /setup"
+        "[/orgs] Fresh deployment: Platform staff needs to complete setup, redirecting to /setup"
       );
       router.push("/setup" as Route);
     }
-  }, [user, router]);
+  }, [user, router, hasAnyOrgs]);
 
   // Redirect if not platform staff
   useEffect(() => {

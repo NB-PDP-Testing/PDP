@@ -60,8 +60,35 @@ const orgPreferencesValidator = v.object({
   _creationTime: v.number(),
   coachId: v.string(),
   organizationId: v.string(),
+
+  // Feature toggles
   parentSummariesEnabled: v.optional(v.boolean()),
+  aiInsightMatchingEnabled: v.optional(v.boolean()),
+  autoApplyInsightsEnabled: v.optional(v.boolean()),
   skipSensitiveInsights: v.optional(v.boolean()),
+
+  // Trust Gate Individual Override
+  trustGateOverride: v.optional(v.boolean()),
+  overrideGrantedBy: v.optional(v.string()),
+  overrideGrantedAt: v.optional(v.number()),
+  overrideReason: v.optional(v.string()),
+  overrideExpiresAt: v.optional(v.number()),
+
+  // AI Control Rights
+  aiControlRightsEnabled: v.optional(v.boolean()),
+  grantedBy: v.optional(v.string()),
+  grantedAt: v.optional(v.number()),
+  grantNote: v.optional(v.string()),
+  revokedBy: v.optional(v.string()),
+  revokedAt: v.optional(v.number()),
+  revokeReason: v.optional(v.string()),
+
+  // Admin Block
+  adminBlockedFromAI: v.optional(v.boolean()),
+  blockReason: v.optional(v.string()),
+  blockedBy: v.optional(v.string()),
+  blockedAt: v.optional(v.number()),
+
   createdAt: v.number(),
   updatedAt: v.number(),
 });

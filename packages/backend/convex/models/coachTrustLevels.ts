@@ -1070,6 +1070,10 @@ export const getPlatformAIAccuracy = query({
     byCoach: v.array(
       v.object({
         coachId: v.string(),
+        coachName: v.string(),
+        organizationId: v.string(),
+        organizationName: v.string(),
+        sports: v.array(v.string()), // Sports this coach has insights for
         totalInsights: v.number(),
         manuallyCorrected: v.number(),
         accuracy: v.number(),
@@ -1117,18 +1121,23 @@ export const getPlatformAIAccuracy = query({
       string,
       {
         coachId: string;
+        organizationId: string;
         totalInsights: number;
         manuallyCorrected: number;
         accuracy: number;
+        sports: Set<string>;
       }
     >();
 
     for (const insight of allInsights) {
-      const existing = byCoachMap.get(insight.coachId) || {
+      const key = `${insight.coachId}_${insight.organizationId}`;
+      const existing = byCoachMap.get(key) || {
         coachId: insight.coachId,
+        organizationId: insight.organizationId,
         totalInsights: 0,
         manuallyCorrected: 0,
         accuracy: 0,
+        sports: new Set<string>(),
       };
 
       existing.totalInsights += 1;
@@ -1136,22 +1145,65 @@ export const getPlatformAIAccuracy = query({
         existing.manuallyCorrected += 1;
       }
 
-      byCoachMap.set(insight.coachId, existing);
+      // Get sport from player enrollment if available
+      const playerId = insight.playerIdentityId;
+      if (playerId !== undefined) {
+        // Get sport passports for this player in this organization
+        const passports = await ctx.db
+          .query("sportPassports")
+          .withIndex("by_player_and_org", (q) =>
+            q
+              .eq("playerIdentityId", playerId)
+              .eq("organizationId", insight.organizationId)
+          )
+          .collect();
+
+        for (const passport of passports) {
+          existing.sports.add(passport.sportCode);
+        }
+      }
+
+      byCoachMap.set(key, existing);
     }
 
-    // Calculate accuracy for each coach
-    const byCoach = Array.from(byCoachMap.values()).map((coach) => ({
-      ...coach,
-      accuracy:
-        coach.totalInsights > 0
-          ? ((coach.totalInsights - coach.manuallyCorrected) /
-              coach.totalInsights) *
-            100
-          : 0,
-    }));
+    // Enrich with coach and organization names from Better Auth tables
+    const byCoachWithNames = await Promise.all(
+      Array.from(byCoachMap.values()).map(async (coach) => {
+        // Get coach name from Better Auth user table
+        // Note: Casting to any because Better Auth tables are not in generated types
+        const user = await ctx.db.get(coach.coachId as any);
+        const coachName = user
+          ? `${(user as any).firstName || ""} ${(user as any).lastName || ""}`.trim() ||
+            (user as any).email ||
+            "Unknown Coach"
+          : "Unknown Coach";
+
+        // Get organization name from Better Auth organization table
+        const org = await ctx.db.get(coach.organizationId as any);
+        const organizationName = org
+          ? (org as any).name
+          : "Unknown Organization";
+
+        return {
+          coachId: coach.coachId,
+          coachName,
+          organizationId: coach.organizationId,
+          organizationName,
+          sports: Array.from(coach.sports).sort(),
+          totalInsights: coach.totalInsights,
+          manuallyCorrected: coach.manuallyCorrected,
+          accuracy:
+            coach.totalInsights > 0
+              ? ((coach.totalInsights - coach.manuallyCorrected) /
+                  coach.totalInsights) *
+                100
+              : 0,
+        };
+      })
+    );
 
     // Sort by accuracy (lowest first - coaches who need help)
-    byCoach.sort((a, b) => a.accuracy - b.accuracy);
+    byCoachWithNames.sort((a, b) => a.accuracy - b.accuracy);
 
     return {
       totalInsights,
@@ -1159,7 +1211,7 @@ export const getPlatformAIAccuracy = query({
       aiGotItRight,
       accuracy,
       correctionBreakdown,
-      byCoach,
+      byCoach: byCoachWithNames,
     };
   },
 });

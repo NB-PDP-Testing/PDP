@@ -31,11 +31,14 @@ export type ComponentApi<Name extends string | undefined = string | undefined> =
           input:
             | {
                 data: {
+                  childLinkingSkipCount?: number;
                   createdAt: number;
                   currentOrgId?: string;
                   email: string;
                   emailVerified: boolean;
                   firstName?: string;
+                  gdprConsentVersion?: number;
+                  gdprConsentedAt?: number;
                   image?: null | string;
                   isPlatformStaff?: boolean;
                   lastChildrenCheckAt?: number;
@@ -45,6 +48,8 @@ export type ComponentApi<Name extends string | undefined = string | undefined> =
                   parentOnboardingDismissCount?: number;
                   parentOnboardingLastDismissedAt?: number;
                   phone?: string;
+                  setupComplete?: boolean;
+                  setupStep?: string;
                   updatedAt: number;
                   userId?: null | string;
                 };
@@ -130,16 +135,21 @@ export type ComponentApi<Name extends string | undefined = string | undefined> =
                   adminBlanketBlock?: boolean;
                   adminBlanketBlockSetAt?: number;
                   adminBlanketBlockSetBy?: string;
+                  adminContactEmail?: string;
                   adminOverrideSetAt?: number;
                   adminOverrideSetBy?: string;
                   adminOverrideTrustGates?: boolean;
                   allowAdminDelegation?: boolean;
                   allowCoachOverrides?: boolean;
+                  autoReInviteOnExpiration?: boolean;
                   colors?: Array<string>;
                   createdAt: number;
+                  invitationExpirationDays?: number;
                   logo?: null | string;
+                  maxAutoReInvitesPerInvitation?: number;
                   metadata?: null | string;
                   name: string;
+                  notifyAdminsOnInvitationRequest?: boolean;
                   sharingContactEmail?: null | string;
                   sharingContactMode?: "direct" | "enquiry" | "none";
                   sharingContactName?: null | string;
@@ -189,6 +199,7 @@ export type ComponentApi<Name extends string | undefined = string | undefined> =
               }
             | {
                 data: {
+                  autoReInviteCount?: number;
                   email: string;
                   expiresAt: number;
                   inviterId: string;
@@ -199,6 +210,17 @@ export type ComponentApi<Name extends string | undefined = string | undefined> =
                   teamId?: null | string;
                 };
                 model: "invitation";
+              }
+            | {
+                data: {
+                  createdAt: number;
+                  createdBy: string;
+                  effectiveDate: number;
+                  fullText: string;
+                  summary: string;
+                  version: number;
+                };
+                model: "gdprVersions";
               };
           onCreateHandle?: string;
           select?: Array<string>;
@@ -231,7 +253,12 @@ export type ComponentApi<Name extends string | undefined = string | undefined> =
                     | "lastChildrenCheckAt"
                     | "parentOnboardingDismissCount"
                     | "parentOnboardingLastDismissedAt"
+                    | "childLinkingSkipCount"
                     | "currentOrgId"
+                    | "gdprConsentVersion"
+                    | "gdprConsentedAt"
+                    | "setupComplete"
+                    | "setupStep"
                     | "_id";
                   operator?:
                     | "lt"
@@ -474,6 +501,11 @@ export type ComponentApi<Name extends string | undefined = string | undefined> =
                     | "sharingContactName"
                     | "sharingContactEmail"
                     | "sharingContactPhone"
+                    | "invitationExpirationDays"
+                    | "autoReInviteOnExpiration"
+                    | "maxAutoReInvitesPerInvitation"
+                    | "adminContactEmail"
+                    | "notifyAdminsOnInvitationRequest"
                     | "voiceNotesTrustGatesEnabled"
                     | "allowAdminDelegation"
                     | "allowCoachOverrides"
@@ -558,6 +590,40 @@ export type ComponentApi<Name extends string | undefined = string | undefined> =
                     | "expiresAt"
                     | "inviterId"
                     | "metadata"
+                    | "autoReInviteCount"
+                    | "_id";
+                  operator?:
+                    | "lt"
+                    | "lte"
+                    | "gt"
+                    | "gte"
+                    | "eq"
+                    | "in"
+                    | "not_in"
+                    | "ne"
+                    | "contains"
+                    | "starts_with"
+                    | "ends_with";
+                  value:
+                    | string
+                    | number
+                    | boolean
+                    | Array<string>
+                    | Array<number>
+                    | null;
+                }>;
+              }
+            | {
+                model: "gdprVersions";
+                where?: Array<{
+                  connector?: "AND" | "OR";
+                  field:
+                    | "version"
+                    | "effectiveDate"
+                    | "summary"
+                    | "fullText"
+                    | "createdBy"
+                    | "createdAt"
                     | "_id";
                   operator?:
                     | "lt"
@@ -618,7 +684,12 @@ export type ComponentApi<Name extends string | undefined = string | undefined> =
                     | "lastChildrenCheckAt"
                     | "parentOnboardingDismissCount"
                     | "parentOnboardingLastDismissedAt"
+                    | "childLinkingSkipCount"
                     | "currentOrgId"
+                    | "gdprConsentVersion"
+                    | "gdprConsentedAt"
+                    | "setupComplete"
+                    | "setupStep"
                     | "_id";
                   operator?:
                     | "lt"
@@ -861,6 +932,11 @@ export type ComponentApi<Name extends string | undefined = string | undefined> =
                     | "sharingContactName"
                     | "sharingContactEmail"
                     | "sharingContactPhone"
+                    | "invitationExpirationDays"
+                    | "autoReInviteOnExpiration"
+                    | "maxAutoReInvitesPerInvitation"
+                    | "adminContactEmail"
+                    | "notifyAdminsOnInvitationRequest"
                     | "voiceNotesTrustGatesEnabled"
                     | "allowAdminDelegation"
                     | "allowCoachOverrides"
@@ -945,6 +1021,40 @@ export type ComponentApi<Name extends string | undefined = string | undefined> =
                     | "expiresAt"
                     | "inviterId"
                     | "metadata"
+                    | "autoReInviteCount"
+                    | "_id";
+                  operator?:
+                    | "lt"
+                    | "lte"
+                    | "gt"
+                    | "gte"
+                    | "eq"
+                    | "in"
+                    | "not_in"
+                    | "ne"
+                    | "contains"
+                    | "starts_with"
+                    | "ends_with";
+                  value:
+                    | string
+                    | number
+                    | boolean
+                    | Array<string>
+                    | Array<number>
+                    | null;
+                }>;
+              }
+            | {
+                model: "gdprVersions";
+                where?: Array<{
+                  connector?: "AND" | "OR";
+                  field:
+                    | "version"
+                    | "effectiveDate"
+                    | "summary"
+                    | "fullText"
+                    | "createdBy"
+                    | "createdAt"
                     | "_id";
                   operator?:
                     | "lt"
@@ -987,7 +1097,8 @@ export type ComponentApi<Name extends string | undefined = string | undefined> =
             | "teamMember"
             | "organization"
             | "member"
-            | "invitation";
+            | "invitation"
+            | "gdprVersions";
           offset?: number;
           paginationOpts: {
             cursor: string | null;
@@ -1039,7 +1150,8 @@ export type ComponentApi<Name extends string | undefined = string | undefined> =
             | "teamMember"
             | "organization"
             | "member"
-            | "invitation";
+            | "invitation"
+            | "gdprVersions";
           select?: Array<string>;
           where?: Array<{
             connector?: "AND" | "OR";
@@ -1076,11 +1188,14 @@ export type ComponentApi<Name extends string | undefined = string | undefined> =
             | {
                 model: "user";
                 update: {
+                  childLinkingSkipCount?: number;
                   createdAt?: number;
                   currentOrgId?: string;
                   email?: string;
                   emailVerified?: boolean;
                   firstName?: string;
+                  gdprConsentVersion?: number;
+                  gdprConsentedAt?: number;
                   image?: null | string;
                   isPlatformStaff?: boolean;
                   lastChildrenCheckAt?: number;
@@ -1090,6 +1205,8 @@ export type ComponentApi<Name extends string | undefined = string | undefined> =
                   parentOnboardingDismissCount?: number;
                   parentOnboardingLastDismissedAt?: number;
                   phone?: string;
+                  setupComplete?: boolean;
+                  setupStep?: string;
                   updatedAt?: number;
                   userId?: null | string;
                 };
@@ -1111,7 +1228,12 @@ export type ComponentApi<Name extends string | undefined = string | undefined> =
                     | "lastChildrenCheckAt"
                     | "parentOnboardingDismissCount"
                     | "parentOnboardingLastDismissedAt"
+                    | "childLinkingSkipCount"
                     | "currentOrgId"
+                    | "gdprConsentVersion"
+                    | "gdprConsentedAt"
+                    | "setupComplete"
+                    | "setupStep"
                     | "_id";
                   operator?:
                     | "lt"
@@ -1396,16 +1518,21 @@ export type ComponentApi<Name extends string | undefined = string | undefined> =
                   adminBlanketBlock?: boolean;
                   adminBlanketBlockSetAt?: number;
                   adminBlanketBlockSetBy?: string;
+                  adminContactEmail?: string;
                   adminOverrideSetAt?: number;
                   adminOverrideSetBy?: string;
                   adminOverrideTrustGates?: boolean;
                   allowAdminDelegation?: boolean;
                   allowCoachOverrides?: boolean;
+                  autoReInviteOnExpiration?: boolean;
                   colors?: Array<string>;
                   createdAt?: number;
+                  invitationExpirationDays?: number;
                   logo?: null | string;
+                  maxAutoReInvitesPerInvitation?: number;
                   metadata?: null | string;
                   name?: string;
+                  notifyAdminsOnInvitationRequest?: boolean;
                   sharingContactEmail?: null | string;
                   sharingContactMode?: "direct" | "enquiry" | "none";
                   sharingContactName?: null | string;
@@ -1438,6 +1565,11 @@ export type ComponentApi<Name extends string | undefined = string | undefined> =
                     | "sharingContactName"
                     | "sharingContactEmail"
                     | "sharingContactPhone"
+                    | "invitationExpirationDays"
+                    | "autoReInviteOnExpiration"
+                    | "maxAutoReInvitesPerInvitation"
+                    | "adminContactEmail"
+                    | "notifyAdminsOnInvitationRequest"
                     | "voiceNotesTrustGatesEnabled"
                     | "allowAdminDelegation"
                     | "allowCoachOverrides"
@@ -1541,6 +1673,7 @@ export type ComponentApi<Name extends string | undefined = string | undefined> =
             | {
                 model: "invitation";
                 update: {
+                  autoReInviteCount?: number;
                   email?: string;
                   expiresAt?: number;
                   inviterId?: string;
@@ -1561,6 +1694,48 @@ export type ComponentApi<Name extends string | undefined = string | undefined> =
                     | "expiresAt"
                     | "inviterId"
                     | "metadata"
+                    | "autoReInviteCount"
+                    | "_id";
+                  operator?:
+                    | "lt"
+                    | "lte"
+                    | "gt"
+                    | "gte"
+                    | "eq"
+                    | "in"
+                    | "not_in"
+                    | "ne"
+                    | "contains"
+                    | "starts_with"
+                    | "ends_with";
+                  value:
+                    | string
+                    | number
+                    | boolean
+                    | Array<string>
+                    | Array<number>
+                    | null;
+                }>;
+              }
+            | {
+                model: "gdprVersions";
+                update: {
+                  createdAt?: number;
+                  createdBy?: string;
+                  effectiveDate?: number;
+                  fullText?: string;
+                  summary?: string;
+                  version?: number;
+                };
+                where?: Array<{
+                  connector?: "AND" | "OR";
+                  field:
+                    | "version"
+                    | "effectiveDate"
+                    | "summary"
+                    | "fullText"
+                    | "createdBy"
+                    | "createdAt"
                     | "_id";
                   operator?:
                     | "lt"
@@ -1604,11 +1779,14 @@ export type ComponentApi<Name extends string | undefined = string | undefined> =
             | {
                 model: "user";
                 update: {
+                  childLinkingSkipCount?: number;
                   createdAt?: number;
                   currentOrgId?: string;
                   email?: string;
                   emailVerified?: boolean;
                   firstName?: string;
+                  gdprConsentVersion?: number;
+                  gdprConsentedAt?: number;
                   image?: null | string;
                   isPlatformStaff?: boolean;
                   lastChildrenCheckAt?: number;
@@ -1618,6 +1796,8 @@ export type ComponentApi<Name extends string | undefined = string | undefined> =
                   parentOnboardingDismissCount?: number;
                   parentOnboardingLastDismissedAt?: number;
                   phone?: string;
+                  setupComplete?: boolean;
+                  setupStep?: string;
                   updatedAt?: number;
                   userId?: null | string;
                 };
@@ -1639,7 +1819,12 @@ export type ComponentApi<Name extends string | undefined = string | undefined> =
                     | "lastChildrenCheckAt"
                     | "parentOnboardingDismissCount"
                     | "parentOnboardingLastDismissedAt"
+                    | "childLinkingSkipCount"
                     | "currentOrgId"
+                    | "gdprConsentVersion"
+                    | "gdprConsentedAt"
+                    | "setupComplete"
+                    | "setupStep"
                     | "_id";
                   operator?:
                     | "lt"
@@ -1924,16 +2109,21 @@ export type ComponentApi<Name extends string | undefined = string | undefined> =
                   adminBlanketBlock?: boolean;
                   adminBlanketBlockSetAt?: number;
                   adminBlanketBlockSetBy?: string;
+                  adminContactEmail?: string;
                   adminOverrideSetAt?: number;
                   adminOverrideSetBy?: string;
                   adminOverrideTrustGates?: boolean;
                   allowAdminDelegation?: boolean;
                   allowCoachOverrides?: boolean;
+                  autoReInviteOnExpiration?: boolean;
                   colors?: Array<string>;
                   createdAt?: number;
+                  invitationExpirationDays?: number;
                   logo?: null | string;
+                  maxAutoReInvitesPerInvitation?: number;
                   metadata?: null | string;
                   name?: string;
+                  notifyAdminsOnInvitationRequest?: boolean;
                   sharingContactEmail?: null | string;
                   sharingContactMode?: "direct" | "enquiry" | "none";
                   sharingContactName?: null | string;
@@ -1966,6 +2156,11 @@ export type ComponentApi<Name extends string | undefined = string | undefined> =
                     | "sharingContactName"
                     | "sharingContactEmail"
                     | "sharingContactPhone"
+                    | "invitationExpirationDays"
+                    | "autoReInviteOnExpiration"
+                    | "maxAutoReInvitesPerInvitation"
+                    | "adminContactEmail"
+                    | "notifyAdminsOnInvitationRequest"
                     | "voiceNotesTrustGatesEnabled"
                     | "allowAdminDelegation"
                     | "allowCoachOverrides"
@@ -2069,6 +2264,7 @@ export type ComponentApi<Name extends string | undefined = string | undefined> =
             | {
                 model: "invitation";
                 update: {
+                  autoReInviteCount?: number;
                   email?: string;
                   expiresAt?: number;
                   inviterId?: string;
@@ -2089,6 +2285,48 @@ export type ComponentApi<Name extends string | undefined = string | undefined> =
                     | "expiresAt"
                     | "inviterId"
                     | "metadata"
+                    | "autoReInviteCount"
+                    | "_id";
+                  operator?:
+                    | "lt"
+                    | "lte"
+                    | "gt"
+                    | "gte"
+                    | "eq"
+                    | "in"
+                    | "not_in"
+                    | "ne"
+                    | "contains"
+                    | "starts_with"
+                    | "ends_with";
+                  value:
+                    | string
+                    | number
+                    | boolean
+                    | Array<string>
+                    | Array<number>
+                    | null;
+                }>;
+              }
+            | {
+                model: "gdprVersions";
+                update: {
+                  createdAt?: number;
+                  createdBy?: string;
+                  effectiveDate?: number;
+                  fullText?: string;
+                  summary?: string;
+                  version?: number;
+                };
+                where?: Array<{
+                  connector?: "AND" | "OR";
+                  field:
+                    | "version"
+                    | "effectiveDate"
+                    | "summary"
+                    | "fullText"
+                    | "createdBy"
+                    | "createdAt"
                     | "_id";
                   operator?:
                     | "lt"

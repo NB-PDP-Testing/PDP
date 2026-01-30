@@ -3,9 +3,10 @@
 import { ConvexBetterAuthProvider } from "@convex-dev/better-auth/react";
 import { ConvexReactClient } from "convex/react";
 import { authClient } from "@/lib/auth-client";
+import { CurrentUserProvider } from "@/providers/current-user-provider";
+import { MembershipProvider } from "@/providers/membership-provider";
 import { PHProvider } from "@/providers/posthog-provider";
 import { AnnouncerProvider } from "./accessibility/live-region";
-import { PendingInvitationsModal } from "./pending-invitations-modal";
 import { DensityProvider } from "./polish/density-toggle";
 import { ServiceWorkerProvider } from "./pwa/service-worker-provider";
 import { ThemeProvider } from "./theme-provider";
@@ -27,9 +28,13 @@ export default function Providers({ children }: { children: React.ReactNode }) {
           <AnnouncerProvider>
             <ServiceWorkerProvider>
               <ConvexBetterAuthProvider authClient={authClient} client={convex}>
-                <ThemeTransitionManager />
-                {children}
-                <PendingInvitationsModal />
+                <CurrentUserProvider>
+                  <MembershipProvider>
+                    <ThemeTransitionManager />
+                    {children}
+                    {/* PendingInvitationsModal removed - OnboardingOrchestrator now handles invitations */}
+                  </MembershipProvider>
+                </CurrentUserProvider>
               </ConvexBetterAuthProvider>
             </ServiceWorkerProvider>
           </AnnouncerProvider>

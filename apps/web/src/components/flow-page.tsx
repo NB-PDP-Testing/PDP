@@ -1,9 +1,10 @@
 "use client";
 
 import { api } from "@pdp/backend/convex/_generated/api";
-import { useMutation, useQuery } from "convex/react";
+import { useMutation } from "convex/react";
 import { ArrowRight, CheckCircle } from "lucide-react";
 import ReactMarkdown from "react-markdown";
+import { useCurrentUser } from "@/hooks/use-current-user";
 import { PDPLogo } from "./pdp-logo";
 import { Button } from "./ui/button";
 
@@ -14,7 +15,7 @@ type FlowPageProps = {
 
 export function FlowPage({ flow, step }: FlowPageProps) {
   const completeStep = useMutation(api.models.flows.completeFlowStep);
-  const currentUser = useQuery(api.models.users.getCurrentUser);
+  const currentUser = useCurrentUser();
 
   const handleContinue = async () => {
     await completeStep({ flowId: flow._id, stepId: step.id });

@@ -1,0 +1,176 @@
+{
+  "project": "Convex Performance Fix - Phase 1: Schema Indexes & Package Updates",
+  "branchName": "johnobr/fixconvex",
+  "description": "Day 1 quick wins: Add composite indexes to eliminate filter() calls and update Better Auth packages. Target: 10-20% reduction in function calls.",
+  "readinessLevel": "100%",
+  "prerequisitesCompleted": {
+    "status": "ALL COMPLETE",
+    "completedWork": [
+      "GitHub Issue #330 documents 3.2M function calls (320% over free tier)",
+      "Root causes identified: Better Auth adapter inefficiency, N+1 patterns, filter violations",
+      "Convex subscription upgraded to Pro (provides breathing room)",
+      "Branch johnobr/fixconvex created and clean"
+    ],
+    "documentationReferences": [
+      "GitHub Issue #330 - Convex Performance Crisis",
+      "Plan file in context - Full 7-day implementation plan"
+    ]
+  },
+  "contextAndDependencies": {
+    "targetMetric": "Return to FREE TIER (<1M calls/month, target ~800K)",
+    "currentMetric": "3.2M calls/month",
+    "keyFiles": [
+      "packages/backend/convex/schema.ts - Add composite indexes",
+      "packages/backend/convex/betterAuth/schema.ts - Add session index",
+      "packages/backend/package.json - Update Better Auth versions"
+    ],
+    "criticalPatterns": {
+      "Index_Usage": "ALWAYS use .withIndex(), NEVER .filter() after index query",
+      "Composite_Indexes": "Include all fields used in queries to avoid post-collection filtering"
+    }
+  },
+  "userStories": [
+    {
+      "id": "US-PERF-001",
+      "title": "Add sportPassports Composite Index",
+      "description": "Add by_player_org_status index to sportPassports table to eliminate filter() on status at line 878.",
+      "phase": "Phase 1: Indexes",
+      "acceptanceCriteria": [
+        "Open packages/backend/convex/schema.ts",
+        "Find sportPassports table definition (around line 486)",
+        "Add new index after existing indexes: .index('by_player_org_status', ['playerIdentityId', 'organizationId', 'status'])",
+        "Run: npx -w packages/backend convex codegen",
+        "Verify no errors"
+      ],
+      "technicalNotes": {
+        "currentCode": "Line 878: .filter((q) => q.eq(q.field('status'), 'active'))",
+        "fix": "New index allows withIndex to filter by status directly",
+        "location": "packages/backend/convex/schema.ts around line 542"
+      },
+      "priority": 1,
+      "passes": false,
+      "notes": "This index enables Phase 3 filter violation fix in sportPassports.ts"
+    },
+    {
+      "id": "US-PERF-002",
+      "title": "Add passportGoals Composite Indexes",
+      "description": "Add by_player_status and by_org_status indexes to passportGoals table to eliminate filter() calls at lines 132 and 158.",
+      "phase": "Phase 1: Indexes",
+      "acceptanceCriteria": [
+        "Open packages/backend/convex/schema.ts",
+        "Find passportGoals table definition (around line 623)",
+        "Add new index: .index('by_player_status', ['playerIdentityId', 'status'])",
+        "Add new index: .index('by_org_status', ['organizationId', 'status'])",
+        "Run: npx -w packages/backend convex codegen",
+        "Verify no errors"
+      ],
+      "technicalNotes": {
+        "currentCode": "Line 132: goals = goals.filter((g) => g.status === args.status)",
+        "fix": "New indexes allow withIndex to filter by status directly",
+        "location": "packages/backend/convex/schema.ts around line 690"
+      },
+      "priority": 2,
+      "passes": false,
+      "notes": "This index enables Phase 3 filter violation fix in passportGoals.ts"
+    },
+    {
+      "id": "US-PERF-003",
+      "title": "Add coachParentSummaries Composite Index",
+      "description": "Add by_player_status_created index to coachParentSummaries for optimized getParentSummariesByChildAndSport query.",
+      "phase": "Phase 1: Indexes",
+      "acceptanceCriteria": [
+        "Open packages/backend/convex/schema.ts",
+        "Find coachParentSummaries table definition (around line 1908)",
+        "Add new index: .index('by_player_status_created', ['playerIdentityId', 'status', 'createdAt'])",
+        "Run: npx -w packages/backend convex codegen",
+        "Verify no errors"
+      ],
+      "technicalNotes": {
+        "purpose": "Optimize getParentSummariesByChildAndSport query which has cascading N+1",
+        "location": "packages/backend/convex/schema.ts around line 2031"
+      },
+      "priority": 3,
+      "passes": false,
+      "notes": "This index supports Phase 2 N+1 fix in coachParentSummaries.ts"
+    },
+    {
+      "id": "US-PERF-004",
+      "title": "Add Better Auth Session Index",
+      "description": "Add userId_activeOrganizationId index to session table for optimized session lookups.",
+      "phase": "Phase 1: Indexes",
+      "acceptanceCriteria": [
+        "Open packages/backend/convex/betterAuth/schema.ts",
+        "Create customSessionTable that extends the generated session table",
+        "Add all existing session indexes plus new: .index('userId_activeOrganizationId', ['userId', 'activeOrganizationId'])",
+        "Add session: customSessionTable to the tables export",
+        "Run: npx -w packages/backend convex codegen",
+        "Verify no errors"
+      ],
+      "technicalNotes": {
+        "sessionFields": "expiresAt, token, createdAt, updatedAt, ipAddress, userAgent, userId, activeOrganizationId, activeTeamId",
+        "existingIndexes": "expiresAt, expiresAt_userId, token, userId",
+        "newIndex": "userId_activeOrganizationId - optimizes session lookups with active org"
+      },
+      "priority": 4,
+      "passes": false,
+      "notes": "Helps reduce Better Auth adapter calls for session lookups"
+    },
+    {
+      "id": "US-PERF-005",
+      "title": "Update @convex-dev/better-auth Package",
+      "description": "Update @convex-dev/better-auth to next minor version cautiously.",
+      "phase": "Phase 1: Package Updates",
+      "acceptanceCriteria": [
+        "Check current version in packages/backend/package.json (currently 0.9.1)",
+        "Check latest version: npm view @convex-dev/better-auth version",
+        "Update to next patch/minor version (not major): npm install @convex-dev/better-auth@0.9.11 -w packages/backend",
+        "Run: npx -w packages/backend convex codegen",
+        "Run: npm run check-types",
+        "Test login/logout flow works",
+        "Test organization switching works"
+      ],
+      "technicalNotes": {
+        "currentVersion": "0.9.1",
+        "latestKnown": "0.10.10",
+        "strategy": "Update one minor version at a time, test between updates"
+      },
+      "priority": 5,
+      "passes": false,
+      "notes": "Be cautious with package updates - test thoroughly after each update"
+    }
+  ],
+  "qualityChecks": {
+    "beforeCommitting": [
+      "npx -w packages/backend convex codegen - MUST succeed",
+      "npm run check-types - Check for type errors (pre-existing web errors OK)",
+      "npm run check - Lint check"
+    ],
+    "testingStrategy": {
+      "US-PERF-001-004": "Verify indexes deployed: npx -w packages/backend convex dashboard - check indexes exist",
+      "US-PERF-005": "Login/logout flow, organization switching, check Convex logs for errors"
+    }
+  },
+  "phaseCompletionCriteria": [
+    "All 4 composite indexes added to schema.ts",
+    "Session index added to betterAuth/schema.ts",
+    "@convex-dev/better-auth updated (at least patch version)",
+    "Convex codegen succeeds",
+    "No new type errors introduced",
+    "Login/logout flow works",
+    "Convex logs show reduced 'Querying without index' warnings"
+  ],
+  "expectedImpact": {
+    "callsReduced": "10-20% reduction from indexes alone",
+    "tablesOptimized": [
+      "sportPassports",
+      "passportGoals",
+      "coachParentSummaries",
+      "session"
+    ]
+  },
+  "nextPhase": {
+    "name": "Phase 2: Backend N+1 Fixes",
+    "file": "phase2-backend-n1.prd.json",
+    "description": "Fix getMembersForAllOrganizations, getPendingInvitationsByEmail, getParentSummariesByChildAndSport"
+  }
+}

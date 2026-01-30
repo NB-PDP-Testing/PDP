@@ -1,0 +1,1260 @@
+{
+  "projectName": "Universal Onboarding System",
+  "version": "2.0",
+  "createdAt": "2026-01-28",
+  "prdDocument": "docs/features/onboarding-prd.md",
+  "relatedIssues": [
+    { "number": 371, "title": "Onboarding PRD", "type": "feature" },
+    {
+      "number": 297,
+      "title": "Parent Not Linked After Accepting",
+      "type": "bug",
+      "fixedInPhase": "1"
+    },
+    {
+      "number": 327,
+      "title": "New Parent Dialogue Window Error",
+      "type": "bug",
+      "fixedInPhase": "1"
+    },
+    {
+      "number": 293,
+      "title": "Guardian Player Connection Bug",
+      "type": "bug",
+      "fixedInPhase": "3"
+    },
+    {
+      "number": 335,
+      "title": "Role Granting Notification",
+      "type": "bug",
+      "fixedInPhase": "4"
+    }
+  ],
+  "phases": [
+    {
+      "id": "phase-1",
+      "name": "Foundation & Critical Bug Fixes",
+      "priority": "CRITICAL",
+      "description": "Fix data loss bugs and establish the OnboardingOrchestrator skeleton that replaces fragmented systems",
+      "dependencies": [],
+      "tasks": [
+        {
+          "id": "1.1",
+          "title": "Debug and fix syncFunctionalRolesFromInvitation",
+          "description": "Trace data flow to identify where child links are lost during invitation acceptance. Fix the mutation to properly persist guardianPlayerLinks.",
+          "type": "bugfix",
+          "files": [
+            {
+              "path": "packages/backend/convex/models/members.ts",
+              "action": "modify",
+              "details": "Fix syncFunctionalRolesFromInvitation function"
+            }
+          ],
+          "acceptanceCriteria": [
+            "Children linked during invitation persist after acceptance",
+            "suggestedPlayerLinks in invitation metadata are processed correctly"
+          ]
+        },
+        {
+          "id": "1.2",
+          "title": "Create getOnboardingTasks query",
+          "description": "Backend query that evaluates all pending onboarding tasks for a user and returns them in priority order",
+          "type": "feature",
+          "files": [
+            {
+              "path": "packages/backend/convex/models/onboarding.ts",
+              "action": "create",
+              "details": "New file for onboarding queries/mutations"
+            }
+          ],
+          "acceptanceCriteria": [
+            "Query returns ordered list of pending tasks",
+            "Tasks include: gdpr_consent, accept_invitation, child_linking, welcome",
+            "Each task has type, priority, and relevant data"
+          ]
+        },
+        {
+          "id": "1.3",
+          "title": "Build OnboardingOrchestrator component",
+          "description": "React component that wraps the app and presents onboarding steps one at a time, ensuring no overlapping dialogs",
+          "type": "feature",
+          "files": [
+            {
+              "path": "apps/web/src/components/onboarding/onboarding-orchestrator.tsx",
+              "action": "create",
+              "details": "Main orchestrator component"
+            },
+            {
+              "path": "apps/web/src/app/orgs/[orgId]/layout.tsx",
+              "action": "modify",
+              "details": "Add OnboardingOrchestrator wrapper"
+            }
+          ],
+          "acceptanceCriteria": [
+            "Only one onboarding step shown at a time",
+            "Steps presented in correct priority order",
+            "After step completion, advances to next step"
+          ]
+        },
+        {
+          "id": "1.4",
+          "title": "Migrate and remove BulkClaimProvider",
+          "description": "Move guardian claiming logic into the orchestrator and remove the old BulkClaimProvider component",
+          "type": "refactor",
+          "files": [
+            {
+              "path": "apps/web/src/components/bulk-claim-provider.tsx",
+              "action": "delete",
+              "details": "Remove after migrating logic"
+            }
+          ],
+          "acceptanceCriteria": [
+            "BulkClaimProvider removed from codebase",
+            "Guardian claiming works through orchestrator",
+            "No dual-dialog issue"
+          ]
+        },
+        {
+          "id": "1.5",
+          "title": "Regression testing",
+          "description": "Test all existing invitation flows still work correctly",
+          "type": "testing",
+          "files": [],
+          "acceptanceCriteria": [
+            "New parent with children: children linked after acceptance",
+            "Existing user invited as parent: no double dialog",
+            "All existing functionality preserved"
+          ]
+        }
+      ]
+    },
+    {
+      "id": "phase-1b",
+      "name": "Invitation Lifecycle (User-Facing)",
+      "priority": "CRITICAL",
+      "description": "Improve user experience when invitation links expire with clear messaging, request new invitation flow, and auto re-invite option",
+      "dependencies": ["phase-1"],
+      "tasks": [
+        {
+          "id": "1b.1",
+          "title": "Add organization invitation settings to schema",
+          "description": "Add fields for expiration days, auto re-invite, admin contact, and notification preferences",
+          "type": "schema",
+          "files": [
+            {
+              "path": "packages/backend/convex/schema.ts",
+              "action": "modify",
+              "details": "Add invitationExpirationDays, autoReInviteOnExpiration, maxAutoReInvitesPerInvitation, adminContactEmail, notifyAdminsOnInvitationRequest to organization"
+            }
+          ],
+          "acceptanceCriteria": [
+            "Organization table has new invitation settings fields",
+            "Default values: 7 days expiration, auto re-invite OFF"
+          ]
+        },
+        {
+          "id": "1b.2",
+          "title": "Create invitationRequests table",
+          "description": "New table to track user requests for new invitations when their original expires",
+          "type": "schema",
+          "files": [
+            {
+              "path": "packages/backend/convex/schema.ts",
+              "action": "modify",
+              "details": "Add invitationRequests table with indexes"
+            }
+          ],
+          "acceptanceCriteria": [
+            "Table created with all required fields",
+            "Indexes: by_organization_status, by_email, by_original_invitation",
+            "requestNumber field tracks 1, 2, or 3 (max per invitation)"
+          ]
+        },
+        {
+          "id": "1b.3",
+          "title": "Update expired invitation page",
+          "description": "Show clear message with org name, role, and options when invitation has expired",
+          "type": "feature",
+          "files": [
+            {
+              "path": "apps/web/src/app/orgs/accept-invitation/[invitationId]/page.tsx",
+              "action": "modify",
+              "details": "Add expired status detection and handling"
+            },
+            {
+              "path": "apps/web/src/components/expired-invitation-view.tsx",
+              "action": "create",
+              "details": "Expired state UI component"
+            }
+          ],
+          "acceptanceCriteria": [
+            "User sees clear expired message with org name and role",
+            "Shows original invitation date and expiration date",
+            "Displays org admin contact as fallback"
+          ]
+        },
+        {
+          "id": "1b.4",
+          "title": "Implement createInvitationRequest mutation",
+          "description": "Backend mutation for users to request a new invitation, with rate limiting",
+          "type": "feature",
+          "files": [
+            {
+              "path": "packages/backend/convex/models/invitations.ts",
+              "action": "modify",
+              "details": "Add createInvitationRequest mutation"
+            }
+          ],
+          "acceptanceCriteria": [
+            "Validates invitation exists and is expired",
+            "Checks request count (rejects if >= 3)",
+            "Creates request record with requestNumber",
+            "Rate limit: 1 request per minute"
+          ]
+        },
+        {
+          "id": "1b.5",
+          "title": "Implement processAutoReInvite mutation",
+          "description": "Backend mutation for automatic re-invitation when org setting is enabled",
+          "type": "feature",
+          "files": [
+            {
+              "path": "packages/backend/convex/models/invitations.ts",
+              "action": "modify",
+              "details": "Add processAutoReInvite mutation"
+            }
+          ],
+          "acceptanceCriteria": [
+            "Checks org has auto re-invite enabled",
+            "Checks max auto re-invites not exceeded (default 2)",
+            "Creates new invitation and sends email",
+            "Updates autoReInviteCount on original invitation"
+          ]
+        },
+        {
+          "id": "1b.6",
+          "title": "Admin notification on request",
+          "description": "Send email notification to admins when user requests new invitation (if setting enabled)",
+          "type": "feature",
+          "files": [
+            {
+              "path": "packages/backend/convex/models/invitations.ts",
+              "action": "modify",
+              "details": "Add admin notification logic"
+            }
+          ],
+          "acceptanceCriteria": [
+            "If notifyAdminsOnInvitationRequest is ON, email sent",
+            "If OFF, no email (request still created for dashboard)"
+          ]
+        },
+        {
+          "id": "1b.7",
+          "title": "Request confirmation UI",
+          "description": "Show confirmation after user submits invitation request",
+          "type": "feature",
+          "files": [
+            {
+              "path": "apps/web/src/components/request-invitation-confirmation.tsx",
+              "action": "create",
+              "details": "Post-request confirmation component"
+            }
+          ],
+          "acceptanceCriteria": [
+            "Shows success message after request submitted",
+            "After 3 requests, shows 'Contact admin directly' message"
+          ]
+        }
+      ]
+    },
+    {
+      "id": "phase-2",
+      "name": "GDPR Consent System",
+      "priority": "HIGH",
+      "description": "Platform-wide GDPR consent with one-time acceptance and re-acceptance capability when policy is updated",
+      "dependencies": ["phase-1"],
+      "tasks": [
+        {
+          "id": "2.1",
+          "title": "Add GDPR fields to user schema",
+          "description": "Add gdprConsentVersion and gdprConsentedAt fields to track consent",
+          "type": "schema",
+          "files": [
+            {
+              "path": "packages/backend/convex/schema.ts",
+              "action": "modify",
+              "details": "Add GDPR fields to user table"
+            }
+          ],
+          "acceptanceCriteria": [
+            "user table has gdprConsentVersion (number, optional)",
+            "user table has gdprConsentedAt (number, optional)"
+          ]
+        },
+        {
+          "id": "2.2",
+          "title": "Create gdprVersions table",
+          "description": "Table to track GDPR policy versions for re-acceptance triggers",
+          "type": "schema",
+          "files": [
+            {
+              "path": "packages/backend/convex/schema.ts",
+              "action": "modify",
+              "details": "Add gdprVersions table"
+            }
+          ],
+          "acceptanceCriteria": [
+            "Table has: version, effectiveDate, summary, fullText, createdBy, createdAt",
+            "Indexes: by_version, by_effective_date"
+          ]
+        },
+        {
+          "id": "2.3",
+          "title": "Seed initial GDPR version",
+          "description": "Create version 1 of GDPR policy with placeholder content from PRD",
+          "type": "data",
+          "files": [
+            {
+              "path": "packages/backend/convex/models/gdpr.ts",
+              "action": "create",
+              "details": "GDPR queries/mutations including seed function"
+            }
+          ],
+          "acceptanceCriteria": [
+            "Version 1 created with placeholder content",
+            "Content based on industry standards from PRD"
+          ]
+        },
+        {
+          "id": "2.4",
+          "title": "Create GDPR queries",
+          "description": "Backend queries for checking GDPR status and getting current version",
+          "type": "feature",
+          "files": [
+            {
+              "path": "packages/backend/convex/models/gdpr.ts",
+              "action": "modify",
+              "details": "Add getCurrentGdprVersion and checkUserGdprStatus queries"
+            }
+          ],
+          "acceptanceCriteria": [
+            "getCurrentGdprVersion returns latest active version",
+            "checkUserGdprStatus returns { needsConsent, currentVersion }"
+          ]
+        },
+        {
+          "id": "2.5",
+          "title": "Create acceptGdpr mutation",
+          "description": "Backend mutation to record user's GDPR consent",
+          "type": "feature",
+          "files": [
+            {
+              "path": "packages/backend/convex/models/gdpr.ts",
+              "action": "modify",
+              "details": "Add acceptGdpr mutation"
+            }
+          ],
+          "acceptanceCriteria": [
+            "Records version number accepted",
+            "Records timestamp of consent",
+            "Stores marketing preference separately"
+          ]
+        },
+        {
+          "id": "2.6",
+          "title": "Build GDPR consent modal",
+          "description": "React component for GDPR consent step with expandable policy text",
+          "type": "feature",
+          "files": [
+            {
+              "path": "apps/web/src/components/onboarding/gdpr-consent-step.tsx",
+              "action": "create",
+              "details": "GDPR consent modal component"
+            },
+            {
+              "path": "apps/web/src/components/onboarding/gdpr-policy-viewer.tsx",
+              "action": "create",
+              "details": "Expandable policy text component"
+            }
+          ],
+          "acceptanceCriteria": [
+            "Modal cannot be dismissed without accepting",
+            "Shows summary and expandable full text",
+            "Required checkbox: agree to policy",
+            "Required checkbox (if parent): authority for children",
+            "Optional checkbox: marketing consent"
+          ]
+        },
+        {
+          "id": "2.7",
+          "title": "Integrate GDPR into orchestrator",
+          "description": "Add GDPR check to onboarding orchestrator as first step",
+          "type": "feature",
+          "files": [
+            {
+              "path": "apps/web/src/components/onboarding/onboarding-orchestrator.tsx",
+              "action": "modify",
+              "details": "Add GDPR step integration"
+            },
+            {
+              "path": "packages/backend/convex/models/onboarding.ts",
+              "action": "modify",
+              "details": "Add GDPR check to getOnboardingTasks"
+            }
+          ],
+          "acceptanceCriteria": [
+            "GDPR always first step if consent needed",
+            "Re-acceptance triggered when version outdated"
+          ]
+        },
+        {
+          "id": "2.8",
+          "title": "Platform staff GDPR version management",
+          "description": "Admin UI for creating new GDPR versions",
+          "type": "feature",
+          "files": [
+            {
+              "path": "apps/web/src/app/platform-admin/gdpr/page.tsx",
+              "action": "create",
+              "details": "Platform staff GDPR management page"
+            }
+          ],
+          "acceptanceCriteria": [
+            "Platform staff can create new version",
+            "Shows list of versions with consent stats",
+            "New version triggers re-acceptance for users"
+          ]
+        }
+      ]
+    },
+    {
+      "id": "phase-3",
+      "name": "Child Linking & Admin Invitation Tools",
+      "priority": "HIGH",
+      "description": "Unified child linking modal for parents and comprehensive invitation management dashboard for admins",
+      "dependencies": ["phase-1", "phase-1b", "phase-2"],
+      "tasks": [
+        {
+          "id": "3.1",
+          "title": "Add status fields to guardianPlayerLinks",
+          "description": "Add status (pending/active/declined) and declinedAt fields",
+          "type": "schema",
+          "files": [
+            {
+              "path": "packages/backend/convex/schema.ts",
+              "action": "modify",
+              "details": "Add status and declinedAt to guardianPlayerLinks"
+            }
+          ],
+          "acceptanceCriteria": [
+            "status field with union type: pending, active, declined",
+            "declinedAt timestamp field"
+          ]
+        },
+        {
+          "id": "3.2",
+          "title": "Create child linking queries",
+          "description": "Backend queries for pending and declined child links",
+          "type": "feature",
+          "files": [
+            {
+              "path": "packages/backend/convex/models/guardianPlayerLinks.ts",
+              "action": "modify",
+              "details": "Add getPendingChildLinks and getDeclinedChildLinks queries"
+            }
+          ],
+          "acceptanceCriteria": [
+            "getPendingChildLinks returns all unacknowledged links for user",
+            "getDeclinedChildLinks returns declined links for admin view"
+          ]
+        },
+        {
+          "id": "3.3",
+          "title": "Create child linking mutations",
+          "description": "Backend mutations for accepting/declining child links",
+          "type": "feature",
+          "files": [
+            {
+              "path": "packages/backend/convex/models/guardianPlayerLinks.ts",
+              "action": "modify",
+              "details": "Add accept/decline mutations"
+            }
+          ],
+          "acceptanceCriteria": [
+            "acceptChildLink sets status=active, acknowledgedByParentAt",
+            "declineChildLink sets status=declined, declinedAt",
+            "acceptAllChildLinks bulk accepts for guardian",
+            "resendChildLink resets declined link to pending",
+            "removeChildLink permanently deletes link"
+          ]
+        },
+        {
+          "id": "3.4",
+          "title": "Build ChildLinkingStep modal",
+          "description": "React component for parent to accept/decline children with privacy extension acknowledgement",
+          "type": "feature",
+          "files": [
+            {
+              "path": "apps/web/src/components/onboarding/child-linking-step.tsx",
+              "action": "create",
+              "details": "Child linking modal component"
+            }
+          ],
+          "acceptanceCriteria": [
+            "Shows all pending children in one modal",
+            "Privacy extension acknowledgement at top",
+            "Accept/decline buttons per child",
+            "Accept All button",
+            "Cross-org sharing consent checkbox"
+          ]
+        },
+        {
+          "id": "3.5",
+          "title": "Admin notification on decline",
+          "description": "Notify admins when parent declines a child link",
+          "type": "feature",
+          "files": [
+            {
+              "path": "packages/backend/convex/models/guardianPlayerLinks.ts",
+              "action": "modify",
+              "details": "Add admin notification on decline"
+            }
+          ],
+          "acceptanceCriteria": [
+            "Dashboard badge shows declined count",
+            "Optional email notification (based on org setting)"
+          ]
+        },
+        {
+          "id": "3.6",
+          "title": "Create invitation management queries",
+          "description": "Backend queries for invitation tabs and stats",
+          "type": "feature",
+          "files": [
+            {
+              "path": "packages/backend/convex/models/invitations.ts",
+              "action": "modify",
+              "details": "Add getInvitationsByStatus, getInvitationStats queries"
+            }
+          ],
+          "acceptanceCriteria": [
+            "getInvitationsByStatus filters by: active, expiring_soon, expired",
+            "getInvitationStats returns counts for badges"
+          ]
+        },
+        {
+          "id": "3.7",
+          "title": "Create invitation bulk mutations",
+          "description": "Backend mutations for bulk invitation operations",
+          "type": "feature",
+          "files": [
+            {
+              "path": "packages/backend/convex/models/invitations.ts",
+              "action": "modify",
+              "details": "Add bulk resend, cancel, archive mutations"
+            }
+          ],
+          "acceptanceCriteria": [
+            "bulkResendInvitations creates new invitations",
+            "bulkCancelInvitations cancels selected",
+            "archiveInvitation moves to archive table"
+          ]
+        },
+        {
+          "id": "3.8",
+          "title": "Create request approval mutations",
+          "description": "Backend mutations for admin to approve/deny invitation requests",
+          "type": "feature",
+          "files": [
+            {
+              "path": "packages/backend/convex/models/invitations.ts",
+              "action": "modify",
+              "details": "Add approveInvitationRequest and denyInvitationRequest"
+            }
+          ],
+          "acceptanceCriteria": [
+            "approveInvitationRequest creates new invitation, updates request",
+            "denyInvitationRequest updates request status"
+          ]
+        },
+        {
+          "id": "3.9",
+          "title": "Build invitation management dashboard",
+          "description": "Admin page with tabbed interface for managing invitations",
+          "type": "feature",
+          "files": [
+            {
+              "path": "apps/web/src/app/orgs/[orgId]/admin/invitations/page.tsx",
+              "action": "create",
+              "details": "Invitation management page"
+            },
+            {
+              "path": "apps/web/src/components/admin/invitation-tabs.tsx",
+              "action": "create",
+              "details": "Tabbed invitation list component"
+            },
+            {
+              "path": "apps/web/src/components/admin/invitation-request-card.tsx",
+              "action": "create",
+              "details": "Request approve/deny card"
+            }
+          ],
+          "acceptanceCriteria": [
+            "Four tabs: Active, Expiring Soon, Expired, Requests",
+            "Badge counts on tabs",
+            "Bulk selection UI",
+            "Bulk re-invite and cancel actions",
+            "Request approve/deny actions"
+          ]
+        },
+        {
+          "id": "3.10",
+          "title": "Update add guardian dialog",
+          "description": "Add email notification checkbox to guardian addition",
+          "type": "feature",
+          "files": [
+            {
+              "path": "apps/web/src/components/admin/add-guardian-dialog.tsx",
+              "action": "modify",
+              "details": "Add sendEmail checkbox, default checked"
+            }
+          ],
+          "acceptanceCriteria": [
+            "Checkbox visible: 'Send email notification to guardian'",
+            "Default: checked",
+            "When checked, email sent on guardian addition"
+          ]
+        }
+      ]
+    },
+    {
+      "id": "phase-4",
+      "name": "Toast Notifications",
+      "priority": "MEDIUM",
+      "description": "Real-time toast notifications for role grants and other events",
+      "dependencies": ["phase-1"],
+      "tasks": [
+        {
+          "id": "4.1",
+          "title": "Create notifications table",
+          "description": "New table for storing notifications with real-time subscription support",
+          "type": "schema",
+          "files": [
+            {
+              "path": "packages/backend/convex/schema.ts",
+              "action": "modify",
+              "details": "Add notifications table"
+            }
+          ],
+          "acceptanceCriteria": [
+            "Table has: userId, orgId, type, title, message, link, createdAt, seenAt, dismissedAt",
+            "Indexes: by_user_unseen, by_user_created, by_org_type"
+          ]
+        },
+        {
+          "id": "4.2",
+          "title": "Create notification queries/mutations",
+          "description": "Backend functions for notification CRUD",
+          "type": "feature",
+          "files": [
+            {
+              "path": "packages/backend/convex/models/notifications.ts",
+              "action": "create",
+              "details": "Notification queries and mutations"
+            }
+          ],
+          "acceptanceCriteria": [
+            "getUnseenNotifications returns unseen for user",
+            "markNotificationSeen updates seenAt",
+            "createNotification internal helper"
+          ]
+        },
+        {
+          "id": "4.3",
+          "title": "Trigger notifications on role grant",
+          "description": "Create notifications when functional roles are granted",
+          "type": "feature",
+          "files": [
+            {
+              "path": "packages/backend/convex/models/members.ts",
+              "action": "modify",
+              "details": "Add notification creation on role grant"
+            },
+            {
+              "path": "packages/backend/convex/models/coachAssignments.ts",
+              "action": "modify",
+              "details": "Add notification on team assignment"
+            }
+          ],
+          "acceptanceCriteria": [
+            "role_granted notification when admin/coach role added",
+            "team_assigned notification when coach assigned to team"
+          ]
+        },
+        {
+          "id": "4.4",
+          "title": "Build NotificationProvider",
+          "description": "React component that subscribes to notifications and triggers toasts",
+          "type": "feature",
+          "files": [
+            {
+              "path": "apps/web/src/components/notification-provider.tsx",
+              "action": "create",
+              "details": "Real-time notification subscription"
+            },
+            {
+              "path": "apps/web/src/components/notification-toast.tsx",
+              "action": "create",
+              "details": "Toast component"
+            }
+          ],
+          "acceptanceCriteria": [
+            "Real-time subscription via Convex useQuery",
+            "Toast appears immediately when notification created",
+            "Auto-dismisses after 5 seconds",
+            "Marks as seen after display"
+          ]
+        },
+        {
+          "id": "4.5",
+          "title": "Handle offline notifications",
+          "description": "Show stored notifications when user logs in after being offline",
+          "type": "feature",
+          "files": [
+            {
+              "path": "apps/web/src/components/notification-provider.tsx",
+              "action": "modify",
+              "details": "Handle stored notifications on login"
+            }
+          ],
+          "acceptanceCriteria": [
+            "Notifications created while offline shown on login",
+            "Multiple notifications shown staggered"
+          ]
+        }
+      ]
+    },
+    {
+      "id": "phase-5",
+      "name": "First User Onboarding",
+      "priority": "MEDIUM",
+      "description": "Auto-detect first user on fresh deployment and guide through platform setup wizard",
+      "dependencies": ["phase-1", "phase-2"],
+      "tasks": [
+        {
+          "id": "5.1",
+          "title": "Add setup fields to user schema",
+          "description": "Add setupComplete and setupStep fields for tracking wizard progress",
+          "type": "schema",
+          "files": [
+            {
+              "path": "packages/backend/convex/schema.ts",
+              "action": "modify",
+              "details": "Add setupComplete, setupStep to user"
+            }
+          ],
+          "acceptanceCriteria": [
+            "setupComplete boolean field",
+            "setupStep string field for current step"
+          ]
+        },
+        {
+          "id": "5.2",
+          "title": "Create first user detection",
+          "description": "Backend helper to check if this is the first user on the platform",
+          "type": "feature",
+          "files": [
+            {
+              "path": "packages/backend/convex/lib/firstUser.ts",
+              "action": "create",
+              "details": "isFirstUser helper function"
+            }
+          ],
+          "acceptanceCriteria": [
+            "Returns true if no users exist",
+            "Called during signup flow"
+          ]
+        },
+        {
+          "id": "5.3",
+          "title": "Auto-assign Platform Staff",
+          "description": "Grant isPlatformStaff=true to first user automatically",
+          "type": "feature",
+          "files": [
+            {
+              "path": "packages/backend/convex/models/setup.ts",
+              "action": "create",
+              "details": "Setup wizard queries/mutations"
+            }
+          ],
+          "acceptanceCriteria": [
+            "First user gets isPlatformStaff=true",
+            "Redirected to /setup after signup"
+          ]
+        },
+        {
+          "id": "5.4",
+          "title": "Create setup wizard layout",
+          "description": "Layout for /setup/* routes with protection",
+          "type": "feature",
+          "files": [
+            {
+              "path": "apps/web/src/app/setup/layout.tsx",
+              "action": "create",
+              "details": "Setup wizard layout with auth check"
+            },
+            {
+              "path": "apps/web/src/components/setup/setup-progress.tsx",
+              "action": "create",
+              "details": "Progress indicator component"
+            }
+          ],
+          "acceptanceCriteria": [
+            "Only accessible to Platform Staff",
+            "Redirects to /orgs if setup complete",
+            "Shows progress indicator"
+          ]
+        },
+        {
+          "id": "5.5",
+          "title": "Build setup wizard pages",
+          "description": "Create all 5 wizard step pages",
+          "type": "feature",
+          "files": [
+            {
+              "path": "apps/web/src/app/setup/page.tsx",
+              "action": "create",
+              "details": "Step 1: GDPR (reuses component)"
+            },
+            {
+              "path": "apps/web/src/app/setup/welcome/page.tsx",
+              "action": "create",
+              "details": "Step 2: Welcome & overview"
+            },
+            {
+              "path": "apps/web/src/app/setup/create-org/page.tsx",
+              "action": "create",
+              "details": "Step 3: Create organization"
+            },
+            {
+              "path": "apps/web/src/app/setup/invite/page.tsx",
+              "action": "create",
+              "details": "Step 4: Invite team (optional)"
+            },
+            {
+              "path": "apps/web/src/app/setup/complete/page.tsx",
+              "action": "create",
+              "details": "Step 5: Completion"
+            }
+          ],
+          "acceptanceCriteria": [
+            "All 5 steps work correctly",
+            "Skip option on invite step",
+            "Organization created with user as Owner",
+            "setupComplete=true after finishing"
+          ]
+        },
+        {
+          "id": "5.6",
+          "title": "Create first organization mutation",
+          "description": "Backend mutation for creating org during setup",
+          "type": "feature",
+          "files": [
+            {
+              "path": "packages/backend/convex/models/setup.ts",
+              "action": "modify",
+              "details": "Add createFirstOrganization mutation"
+            }
+          ],
+          "acceptanceCriteria": [
+            "Creates organization with provided details",
+            "Creates membership with Owner role for user"
+          ]
+        }
+      ]
+    },
+    {
+      "id": "phase-6",
+      "name": "Polish, Scheduled Jobs & Edge Cases",
+      "priority": "MEDIUM",
+      "description": "Production hardening with error handling, accessibility, analytics, and automated scheduled jobs",
+      "dependencies": [
+        "phase-1",
+        "phase-1b",
+        "phase-2",
+        "phase-3",
+        "phase-4",
+        "phase-5"
+      ],
+      "tasks": [
+        {
+          "id": "6.1",
+          "title": "Create archivedInvitations table",
+          "description": "Table for storing archived invitations older than 30 days",
+          "type": "schema",
+          "files": [
+            {
+              "path": "packages/backend/convex/schema.ts",
+              "action": "modify",
+              "details": "Add archivedInvitations table"
+            }
+          ],
+          "acceptanceCriteria": [
+            "Table stores archived invitation data",
+            "Indexes: by_organization, by_archived_at"
+          ]
+        },
+        {
+          "id": "6.2",
+          "title": "Implement scheduled jobs",
+          "description": "Create all scheduled jobs for invitation lifecycle",
+          "type": "feature",
+          "files": [
+            {
+              "path": "packages/backend/convex/crons.ts",
+              "action": "create",
+              "details": "Define all cron jobs"
+            },
+            {
+              "path": "packages/backend/convex/jobs/invitations.ts",
+              "action": "create",
+              "details": "Invitation job handlers"
+            },
+            {
+              "path": "packages/backend/convex/jobs/notifications.ts",
+              "action": "create",
+              "details": "Alert job handlers"
+            }
+          ],
+          "acceptanceCriteria": [
+            "Hourly: markExpiredInvitations",
+            "Daily 8AM: processAutoReInvites",
+            "Daily 9AM: sendExpirationAlerts",
+            "Weekly: archiveOldInvitations (>30 days)",
+            "Monthly: cleanupArchivedInvitations (>90 days)"
+          ]
+        },
+        {
+          "id": "6.3",
+          "title": "Add error handling",
+          "description": "Create error boundary and user-friendly error messages",
+          "type": "feature",
+          "files": [
+            {
+              "path": "apps/web/src/components/onboarding/error-boundary.tsx",
+              "action": "create",
+              "details": "Error handling wrapper"
+            }
+          ],
+          "acceptanceCriteria": [
+            "Network errors show retry option",
+            "Validation errors inline with fields",
+            "Server errors show support contact"
+          ]
+        },
+        {
+          "id": "6.4",
+          "title": "Add analytics tracking",
+          "description": "Track onboarding funnel events",
+          "type": "feature",
+          "files": [
+            {
+              "path": "apps/web/src/lib/analytics.ts",
+              "action": "modify",
+              "details": "Add onboarding events"
+            }
+          ],
+          "acceptanceCriteria": [
+            "Events: started, step_shown, step_completed, step_skipped, completed, abandoned",
+            "Track duration and drop-off points"
+          ]
+        },
+        {
+          "id": "6.5",
+          "title": "Add help links",
+          "description": "Add contextual help links to all modals",
+          "type": "feature",
+          "files": [
+            {
+              "path": "apps/web/src/components/onboarding/help-footer.tsx",
+              "action": "create",
+              "details": "Help links component"
+            }
+          ],
+          "acceptanceCriteria": [
+            "Help footer in all onboarding modals",
+            "Links to support and relevant help articles"
+          ]
+        },
+        {
+          "id": "6.6",
+          "title": "Accessibility review",
+          "description": "Ensure all components meet WCAG AA standards",
+          "type": "testing",
+          "files": [],
+          "acceptanceCriteria": [
+            "Keyboard navigation works throughout",
+            "Focus trapped within modals",
+            "Screen reader announcements work",
+            "ARIA labels on all elements",
+            "Color contrast meets WCAG AA"
+          ]
+        },
+        {
+          "id": "6.7",
+          "title": "Mobile responsiveness",
+          "description": "Ensure all modals work on mobile viewports",
+          "type": "testing",
+          "files": [],
+          "acceptanceCriteria": [
+            "Modals full-screen on mobile (<640px)",
+            "Touch-friendly button sizes (44x44px)",
+            "No horizontal scrolling"
+          ]
+        },
+        {
+          "id": "6.8",
+          "title": "Create E2E test suite",
+          "description": "Playwright tests for all onboarding flows",
+          "type": "testing",
+          "files": [
+            {
+              "path": "apps/web/tests/e2e/onboarding/new-user-parent.spec.ts",
+              "action": "create",
+              "details": "New parent flow test"
+            },
+            {
+              "path": "apps/web/tests/e2e/onboarding/existing-user-new-org.spec.ts",
+              "action": "create",
+              "details": "Existing user test"
+            },
+            {
+              "path": "apps/web/tests/e2e/onboarding/first-user-setup.spec.ts",
+              "action": "create",
+              "details": "First user test"
+            },
+            {
+              "path": "apps/web/tests/e2e/onboarding/expired-invitation.spec.ts",
+              "action": "create",
+              "details": "Expired invitation test"
+            },
+            {
+              "path": "apps/web/tests/e2e/onboarding/child-linking.spec.ts",
+              "action": "create",
+              "details": "Child linking test"
+            },
+            {
+              "path": "apps/web/tests/e2e/onboarding/gdpr-reacceptance.spec.ts",
+              "action": "create",
+              "details": "GDPR re-acceptance test"
+            }
+          ],
+          "acceptanceCriteria": [
+            "All major flows covered",
+            "Tests run in CI pipeline"
+          ]
+        }
+      ]
+    },
+    {
+      "id": "phase-7",
+      "name": "Player Graduation",
+      "priority": "LOW",
+      "description": "Player dashboard and 18th birthday graduation flow - implement last after core onboarding is stable",
+      "dependencies": ["phase-1", "phase-2", "phase-6"],
+      "tasks": [
+        {
+          "id": "7.1",
+          "title": "Add claim fields to playerIdentities",
+          "description": "Add userId, claimedAt, claimInvitedBy for player account claiming",
+          "type": "schema",
+          "files": [
+            {
+              "path": "packages/backend/convex/schema.ts",
+              "action": "modify",
+              "details": "Add claim fields to playerIdentities"
+            }
+          ],
+          "acceptanceCriteria": [
+            "userId field for linking to user account",
+            "claimedAt timestamp",
+            "claimInvitedBy guardian reference"
+          ]
+        },
+        {
+          "id": "7.2",
+          "title": "Create graduation tracking tables",
+          "description": "Tables for tracking player graduations and claim tokens",
+          "type": "schema",
+          "files": [
+            {
+              "path": "packages/backend/convex/schema.ts",
+              "action": "modify",
+              "details": "Add playerGraduations and playerClaimTokens tables"
+            }
+          ],
+          "acceptanceCriteria": [
+            "playerGraduations tracks status: pending, invitation_sent, claimed, dismissed",
+            "playerClaimTokens for secure claim links (30 day expiry)"
+          ]
+        },
+        {
+          "id": "7.3",
+          "title": "Create birthday detection job",
+          "description": "Scheduled job to detect players turning 18",
+          "type": "feature",
+          "files": [
+            {
+              "path": "packages/backend/convex/jobs/graduations.ts",
+              "action": "create",
+              "details": "Birthday detection job handler"
+            },
+            {
+              "path": "packages/backend/convex/crons.ts",
+              "action": "modify",
+              "details": "Add daily 6AM job"
+            }
+          ],
+          "acceptanceCriteria": [
+            "Runs daily at 6AM UTC",
+            "Creates graduation records for players turning 18",
+            "Only creates if not already exists"
+          ]
+        },
+        {
+          "id": "7.4",
+          "title": "Create graduation queries/mutations",
+          "description": "Backend functions for graduation flow",
+          "type": "feature",
+          "files": [
+            {
+              "path": "packages/backend/convex/models/playerGraduations.ts",
+              "action": "create",
+              "details": "Graduation logic"
+            },
+            {
+              "path": "packages/backend/convex/models/playerClaims.ts",
+              "action": "create",
+              "details": "Claim token handling"
+            }
+          ],
+          "acceptanceCriteria": [
+            "getPendingGraduations for guardian prompt",
+            "sendGraduationInvite creates token and sends email",
+            "claimPlayerAccount links player to user"
+          ]
+        },
+        {
+          "id": "7.5",
+          "title": "Build guardian graduation prompt",
+          "description": "Modal for guardians to initiate player graduation",
+          "type": "feature",
+          "files": [
+            {
+              "path": "apps/web/src/components/graduation/guardian-prompt.tsx",
+              "action": "create",
+              "details": "Guardian graduation modal"
+            }
+          ],
+          "acceptanceCriteria": [
+            "Shows when guardian has player who turned 18",
+            "Options: Send invitation or Not now",
+            "Dismiss option hides for this guardian"
+          ]
+        },
+        {
+          "id": "7.6",
+          "title": "Build claim wizard",
+          "description": "Multi-step wizard for player to claim their account",
+          "type": "feature",
+          "files": [
+            {
+              "path": "apps/web/src/app/claim-account/[token]/page.tsx",
+              "action": "create",
+              "details": "Claim flow entry point"
+            },
+            {
+              "path": "apps/web/src/components/graduation/claim-wizard.tsx",
+              "action": "create",
+              "details": "Claim wizard component"
+            }
+          ],
+          "acceptanceCriteria": [
+            "Steps: Welcome, Account setup, GDPR, Review, Confirm",
+            "Links player identity to user account",
+            "Handles existing accounts (no new signup)"
+          ]
+        },
+        {
+          "id": "7.7",
+          "title": "Build player dashboard",
+          "description": "Basic dashboard for players to view their own data",
+          "type": "feature",
+          "files": [
+            {
+              "path": "apps/web/src/app/orgs/[orgId]/player/page.tsx",
+              "action": "create",
+              "details": "Player dashboard page"
+            },
+            {
+              "path": "apps/web/src/components/player/player-dashboard.tsx",
+              "action": "create",
+              "details": "Dashboard component"
+            }
+          ],
+          "acceptanceCriteria": [
+            "View personal profile",
+            "View development history",
+            "View assessments and goals",
+            "Manage emergency contacts"
+          ]
+        }
+      ]
+    }
+  ],
+  "summary": {
+    "totalPhases": 8,
+    "totalTasks": 55,
+    "criticalPhases": ["phase-1", "phase-1b"],
+    "highPriorityPhases": ["phase-2", "phase-3"],
+    "mediumPriorityPhases": ["phase-4", "phase-5", "phase-6"],
+    "lowPriorityPhases": ["phase-7"],
+    "bugsFixed": {
+      "phase-1": ["#297", "#327"],
+      "phase-3": ["#293"],
+      "phase-4": ["#335"]
+    },
+    "newTables": [
+      "gdprVersions",
+      "invitationRequests",
+      "archivedInvitations",
+      "notifications",
+      "playerGraduations",
+      "playerClaimTokens"
+    ],
+    "scheduledJobs": [
+      { "name": "markExpiredInvitations", "frequency": "hourly", "phase": "6" },
+      {
+        "name": "processAutoReInvites",
+        "frequency": "daily 8AM",
+        "phase": "6"
+      },
+      {
+        "name": "sendExpirationAlerts",
+        "frequency": "daily 9AM",
+        "phase": "6"
+      },
+      { "name": "archiveOldInvitations", "frequency": "weekly", "phase": "6" },
+      {
+        "name": "cleanupArchivedInvitations",
+        "frequency": "monthly",
+        "phase": "6"
+      },
+      {
+        "name": "detectPlayerGraduations",
+        "frequency": "daily 6AM",
+        "phase": "7"
+      }
+    ]
+  }
+}

@@ -1,11 +1,11 @@
 "use client";
 
 import { api } from "@pdp/backend/convex/_generated/api";
-import { useMutation, useQuery } from "convex/react";
+import type { Id } from "@pdp/backend/convex/_generated/dataModel";
+import { useQuery } from "convex/react";
 import { AlertCircle, CheckCircle, Clock, Users } from "lucide-react";
 import { useParams, useRouter } from "next/navigation";
-import { Suspense, useEffect, useMemo, useRef, useState } from "react";
-import { GuardianIdentityClaimDialog } from "@/components/guardian-identity-claim-dialog";
+import { Suspense, useMemo, useRef } from "react";
 import Loader from "@/components/loader";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
@@ -24,12 +24,7 @@ function ParentDashboardContent() {
   const orgId = params.orgId as string;
   const { data: activeOrganization } = authClient.useActiveOrganization();
   const { data: session } = authClient.useSession();
-  const [showClaimDialog, setShowClaimDialog] = useState(false);
-  const [currentClaimIndex, setCurrentClaimIndex] = useState(0);
-  const [dismissedIdentityIds, setDismissedIdentityIds] = useState<Set<string>>(
-    new Set()
-  );
-  const [hasAutoOpened, setHasAutoOpened] = useState(false);
+  // Guardian claim dialog state REMOVED - OnboardingOrchestrator now handles claims
 
   // Get user's role details in this organization
   const roleDetails = useQuery(
@@ -39,32 +34,7 @@ function ParentDashboardContent() {
       : "skip"
   );
 
-  // Check for unclaimed guardian identities
-  const allClaimableIdentities = useQuery(
-    api.models.guardianIdentities.findAllClaimableForCurrentUser
-  );
-
-  // Check for pending children on already-claimed guardians (e.g., after admin clicks "Resend")
-  const pendingChildrenForClaimed = useQuery(
-    api.models.guardianIdentities.findPendingChildrenForClaimedGuardian
-  );
-
-  // Combine both sources of claimable identities
-  const combinedClaimableIdentities = useMemo(() => {
-    const unclaimed = allClaimableIdentities || [];
-    const pending = pendingChildrenForClaimed || [];
-    return [...unclaimed, ...pending];
-  }, [allClaimableIdentities, pendingChildrenForClaimed]);
-
-  // Filter out dismissed identities
-  const claimableIdentities = useMemo(() => {
-    if (!combinedClaimableIdentities) {
-      return;
-    }
-    return combinedClaimableIdentities.filter(
-      (identity) => !dismissedIdentityIds.has(identity.guardianIdentity._id)
-    );
-  }, [combinedClaimableIdentities, dismissedIdentityIds]);
+  // Guardian claim queries REMOVED - OnboardingOrchestrator now handles claims
 
   // Get children from guardian identity system
   // Pass user email to enable fallback lookup for unclaimed guardian identities
@@ -74,90 +44,33 @@ function ParentDashboardContent() {
     isLoading: identityLoading,
   } = useGuardianChildrenInOrg(orgId, session?.user?.email);
 
+  // US-PERF-014/015: Collect player IDs for bulk data fetch
+  const playerIdentityIds = useMemo(
+    () =>
+      identityChildren.map(
+        (child) => child.player._id as Id<"playerIdentities">
+      ),
+    [identityChildren]
+  );
+
+  // US-PERF-014/015: Bulk fetch all child data (passports, injuries, goals, medical profiles)
+  // This eliminates 5 useQuery calls per child in ChildCard component
+  const bulkChildData = useQuery(
+    api.models.orgPlayerEnrollments.getBulkChildData,
+    playerIdentityIds.length > 0
+      ? { playerIdentityIds, organizationId: orgId }
+      : "skip"
+  );
+
   // Get summaries data for child summary cards (US-009)
   const summariesData = useQuery(
     api.models.coachParentSummaries.getParentSummariesByChildAndSport,
     { organizationId: orgId }
   );
 
-  // Show claim dialog if there are unclaimed identities (only auto-open once)
-  // Note: Don't check !guardianIdentity because useGuardianIdentity returns
-  // unclaimed identities too (via email lookup)
-  useEffect(() => {
-    if (
-      claimableIdentities &&
-      claimableIdentities.length > 0 &&
-      !showClaimDialog &&
-      !hasAutoOpened
-    ) {
-      setShowClaimDialog(true);
-      setHasAutoOpened(true);
-    }
-  }, [claimableIdentities, showClaimDialog, hasAutoOpened]);
-
-  // Handle successful claim
-  const handleClaimComplete = () => {
-    // Move to next claimable identity if there are more
-    if (
-      claimableIdentities &&
-      currentClaimIndex < claimableIdentities.length - 1
-    ) {
-      setCurrentClaimIndex(currentClaimIndex + 1);
-      setShowClaimDialog(true);
-    } else {
-      // All claims processed - refresh page to load new guardian data
-      setShowClaimDialog(false);
-      router.refresh();
-    }
-  };
-
-  // Mutation to decline guardian-player links
-  const declineGuardianPlayerLink = useMutation(
-    api.models.guardianPlayerLinks.declineGuardianPlayerLink
-  );
-
-  // Handle dialog dismissal (user clicks "This Isn't Me")
-  const handleDismiss = async () => {
-    if (!(currentClaimable && session?.user?.id)) {
-      return;
-    }
-
-    try {
-      // Decline all children in this guardian identity
-      for (const child of currentClaimable.children) {
-        await declineGuardianPlayerLink({
-          guardianIdentityId: currentClaimable.guardianIdentity._id,
-          playerIdentityId: child.playerIdentityId,
-          userId: session.user.id,
-        });
-      }
-
-      // Add this identity to the dismissed list (for immediate UI update)
-      const newDismissedIds = new Set(dismissedIdentityIds);
-      newDismissedIds.add(currentClaimable.guardianIdentity._id);
-      setDismissedIdentityIds(newDismissedIds);
-
-      // Move to next claimable identity if there are more
-      if (
-        claimableIdentities &&
-        currentClaimIndex < claimableIdentities.length - 1
-      ) {
-        setCurrentClaimIndex(currentClaimIndex + 1);
-        setShowClaimDialog(true);
-      } else {
-        // No more identities to show - close dialog
-        setShowClaimDialog(false);
-        setCurrentClaimIndex(0);
-      }
-    } catch (error) {
-      console.error("Failed to decline guardian connection:", error);
-      // Still close the dialog even if backend call fails
-      setShowClaimDialog(false);
-    }
-  };
-
-  // Get current claimable identity to display
-  const currentClaimable = claimableIdentities?.[currentClaimIndex];
+  // Guardian claim dialog REMOVED
+  // The OnboardingOrchestrator now handles guardian claims via UnifiedGuardianClaimStep
+  // This prevents duplicate popups during onboarding
 
   // US-013: Messages ref for smooth scroll behavior
   const messagesRef = useRef<HTMLDivElement>(null);
@@ -288,51 +201,8 @@ function ParentDashboardContent() {
         </div>
       </div>
 
-      {/* Pending Guardian Claims Notification */}
-      {claimableIdentities && claimableIdentities.length > 0 && (
-        <Card className="border-blue-200 bg-blue-50">
-          <CardHeader>
-            <div className="flex items-center gap-3">
-              <AlertCircle className="h-6 w-6 text-blue-600" />
-              <CardTitle className="text-blue-800">
-                Pending Guardian Connection
-              </CardTitle>
-            </div>
-          </CardHeader>
-          <CardContent>
-            <p className="text-blue-700">
-              We found an existing guardian profile that matches your email
-              address. Please review and claim your connection to access your
-              children's information.
-            </p>
-            <div className="mt-4 space-y-2">
-              <p className="font-medium text-blue-800 text-sm">
-                Guardian Profile Found:
-              </p>
-              <ul className="list-inside list-disc space-y-1 text-blue-700 text-sm">
-                <li>
-                  {currentClaimable?.guardianIdentity.firstName}{" "}
-                  {currentClaimable?.guardianIdentity.lastName}
-                </li>
-                <li>
-                  {currentClaimable?.children.length}{" "}
-                  {currentClaimable?.children.length === 1
-                    ? "child"
-                    : "children"}{" "}
-                  linked
-                </li>
-              </ul>
-            </div>
-            <Button
-              className="mt-4"
-              onClick={() => setShowClaimDialog(true)}
-              variant="default"
-            >
-              Review & Claim Connection
-            </Button>
-          </CardContent>
-        </Card>
-      )}
+      {/* Guardian Claims Notification REMOVED
+          The OnboardingOrchestrator now handles guardian claims via UnifiedGuardianClaimStep */}
 
       {/* Weekly Schedule - Moved to top */}
       {playerCount > 0 && <WeeklySchedule playerData={identityChildren} />}
@@ -412,13 +282,18 @@ function ParentDashboardContent() {
         />
       )}
 
-      {/* Children Cards */}
-      {playerCount > 0 && (
+      {/* Children Cards - US-PERF-015: Pass bulk data to avoid N+1 queries */}
+      {playerCount > 0 && bulkChildData && (
         <div>
           <h2 className="mb-4 font-semibold text-xl">Your Children</h2>
           <div className="grid gap-6 md:grid-cols-2 lg:grid-cols-3">
             {identityChildren.map((child) => (
-              <ChildCard child={child} key={child.player._id} orgId={orgId} />
+              <ChildCard
+                bulkData={bulkChildData?.[child.player._id as string]}
+                child={child}
+                key={child.player._id}
+                orgId={orgId}
+              />
             ))}
           </div>
         </div>
@@ -446,20 +321,9 @@ function ParentDashboardContent() {
         </Card>
       )}
 
-      {/* Guardian Identity Claim Dialog */}
-      {currentClaimable && session?.user?.id && (
-        <GuardianIdentityClaimDialog
-          childrenList={currentClaimable.children}
-          guardianIdentityId={currentClaimable.guardianIdentity._id}
-          guardianName={`${currentClaimable.guardianIdentity.firstName} ${currentClaimable.guardianIdentity.lastName}`}
-          onClaimComplete={handleClaimComplete}
-          onDismiss={handleDismiss}
-          onOpenChange={setShowClaimDialog}
-          open={showClaimDialog}
-          organizations={currentClaimable.organizations}
-          userId={session.user.id}
-        />
-      )}
+      {/* Guardian Identity Claim Dialog REMOVED
+          The OnboardingOrchestrator now handles guardian claims via UnifiedGuardianClaimStep
+          This prevents duplicate popups during onboarding */}
     </div>
   );
 }

@@ -1,0 +1,525 @@
+{
+  "project": "Convex Performance Optimization - Emergency Fix",
+  "branchName": "ralph/convex-performance-fix",
+  "description": "CRITICAL: Platform disabled due to 3.2M/1M function calls (320% over limit). Root causes: Better Auth adapter inefficiency (59%), backend N+1 patterns, frontend ChildCard N+1, filter violations. Target: Reduce to <1M calls.",
+  "readinessLevel": "100%",
+  "prerequisitesCompleted": {
+    "status": "✅ ANALYSIS COMPLETE - Ready for Implementation",
+    "completedWork": [
+      "Full codebase review (130+ backend files, 267+ frontend files)",
+      "Root cause identified: Better Auth adapter (1.88M calls = 59%)",
+      "N+1 patterns documented with specific file:line references",
+      "Schema indexes partially added (code not updated to use them)",
+      "GitHub issue #330 updated with complete analysis"
+    ],
+    "documentationReferences": [
+      "docs/archive/bug-fixes/ISSUE_330_VERIFICATION_2026_01_29.md - Complete verification",
+      "docs/PRD_CONVEX_PERFORMANCE_FIXES.md - Full PRD with implementation details",
+      "GitHub Issue #330 - Historical analysis and usage breakdown"
+    ]
+  },
+  "contextAndDependencies": {
+    "criticalUsageBreakdown": {
+      "betterAuthAdapterFindOne": "969K calls (30%)",
+      "betterAuthAdapterFindMany": "476K calls (15%)",
+      "httpApiAuth": "435K calls (14%)",
+      "usersGetCurrentUser": "132K calls (4%)",
+      "membersGetMembersForAllOrganizations": "77K calls (2.4%)",
+      "membersGetPendingInvitationsByEmail": "77K calls (2.4%)",
+      "otherQueries": "~1M calls (31%)"
+    },
+    "requiredTables": [
+      "✅ user - Better Auth user table",
+      "✅ member - Better Auth member table",
+      "✅ organization - Better Auth org table",
+      "✅ invitation - Better Auth invitation table",
+      "✅ sportPassports - Player passports",
+      "✅ playerInjuries - Injury records",
+      "✅ passportGoals - Player goals",
+      "✅ medicalProfiles - Medical data",
+      "✅ coachParentSummaries - Coach summaries to parents"
+    ],
+    "keyFiles": {
+      "backend": [
+        "packages/backend/convex/models/members.ts - N+1 patterns (lines 2576-2590, 1416-1534)",
+        "packages/backend/convex/models/users.ts - getCurrentUser inefficiency",
+        "packages/backend/convex/models/coachParentSummaries.ts - Cascading N+1 (lines 1105-1199)",
+        "packages/backend/convex/models/sportPassports.ts - Filter violation (lines 132-134)",
+        "packages/backend/convex/models/playerInjuries.ts - Filter violation",
+        "packages/backend/convex/models/passportGoals.ts - Filter violations",
+        "packages/backend/convex/schema.ts - Missing indexes"
+      ],
+      "frontend": [
+        "apps/web/src/app/orgs/[orgId]/parents/components/child-card.tsx - 5 queries per child (lines 158-186)",
+        "apps/web/src/app/orgs/[orgId]/parents/page.tsx - Renders ChildCard in loop",
+        "apps/web/src/app/orgs/[orgId]/coach/coach-dashboard.tsx - Fetches all org players"
+      ]
+    },
+    "criticalPatterns": {
+      "N+1_Elimination": "Replace Promise.all(items.map(async => query)) with batch fetch + in-memory map",
+      "Index_Usage": "ALWAYS use .withIndex(), NEVER .filter() after collect()",
+      "Batch_Pattern": "Collect all IDs first, single query, then Map for O(1) lookups"
+    }
+  },
+  "userStories": [
+    {
+      "id": "US-PERF-001",
+      "title": "Fix getMembersForAllOrganizations N+1 Pattern",
+      "description": "As a backend developer, I need to eliminate the N+1 organization lookup pattern so that users with multiple org memberships don't cause query explosion.",
+      "phase": "Phase 1: Backend N+1 Elimination",
+      "acceptanceCriteria": [
+        "Open packages/backend/convex/models/members.ts",
+        "Find getMembersForAllOrganizations function (around line 2520)",
+        "Current problem: Lines 2576-2590 call findOne for EACH member's organization inside Promise.all",
+        "Replace N+1 pattern with batch fetch:",
+        "  1. After getting membersResult, collect all unique orgIds: const orgIds = [...new Set(membersResult.page.map(m => m.organizationId))]",
+        "  2. Single batch fetch: const orgsResult = await ctx.runQuery(components.betterAuth.adapter.findMany, { model: 'organization', ... })",
+        "  3. Create Map: const orgMap = new Map(orgsResult.page.map(o => [o._id, o]))",
+        "  4. Map in memory: membersResult.page.map(member => ({ ...member, organization: orgMap.get(member.organizationId) }))",
+        "Preserve ALL existing fields: functionalRoles, effectiveActiveRole, pendingRequests, approvalStatus",
+        "Type check passes: npm run check-types",
+        "Codegen passes: npx -w packages/backend convex codegen"
+      ],
+      "technicalNotes": {
+        "currentPattern": "Promise.all(members.map(async member => { const org = await findOne('organization', member.organizationId); return {...member, org}; }))",
+        "fixedPattern": "const orgIds = members.map(m => m.organizationId); const orgs = await findMany('organization'); const orgMap = new Map(orgs.map(o => [o._id, o])); return members.map(m => ({...m, organization: orgMap.get(m.organizationId)}))",
+        "impact": "77K calls/month → ~7.7K calls (90% reduction)"
+      },
+      "priority": 1,
+      "passes": false,
+      "notes": "CRITICAL: This function is called on every page load for authenticated users. Highest impact fix."
+    },
+    {
+      "id": "US-PERF-002",
+      "title": "Fix getPendingInvitationsByEmail Triple N+1 Pattern",
+      "description": "As a backend developer, I need to eliminate the triple N+1 pattern (orgs, teams, players) so invitation lookups don't cause query explosion.",
+      "phase": "Phase 1: Backend N+1 Elimination",
+      "acceptanceCriteria": [
+        "Open packages/backend/convex/models/members.ts",
+        "Find getPendingInvitationsByEmail function (around line 1416)",
+        "Current problem: For EACH invitation, separately fetches organization, teams, and players",
+        "Replace triple N+1 with batch pattern:",
+        "  1. Fetch all invitations first",
+        "  2. Collect ALL orgIds, teamIds, playerIds from invitation metadata",
+        "  3. Batch fetch ALL organizations in one call",
+        "  4. Batch fetch ALL teams in one call (if any team IDs)",
+        "  5. Batch fetch ALL players in one call (if any player IDs)",
+        "  6. Create Maps for O(1) lookups",
+        "  7. Map invitations with pre-fetched data in memory",
+        "Handle missing metadata gracefully (some invitations may not have teams/players)",
+        "Type check passes: npm run check-types",
+        "Codegen passes: npx -w packages/backend convex codegen"
+      ],
+      "technicalNotes": {
+        "currentStructure": "for (invitation of invitations) { org = await findOne(org); for (team of teams) { await findOne(team); } for (player of players) { await db.get(player); } }",
+        "fixedStructure": "allOrgIds = invitations.map(i => i.orgId); allTeamIds = invitations.flatMap(i => i.metadata?.teams || []); allPlayerIds = invitations.flatMap(i => i.metadata?.players || []); [orgs, teams, players] = await Promise.all([batchFetch(orgs), batchFetch(teams), batchFetch(players)]); map in memory",
+        "impact": "77K calls/month → ~2K calls (97% reduction)"
+      },
+      "priority": 2,
+      "passes": false,
+      "notes": "Second highest impact. Called on login, org switch, dashboard load."
+    },
+    {
+      "id": "US-PERF-003",
+      "title": "Fix getParentSummariesByChildAndSport Cascading N+1",
+      "description": "As a backend developer, I need to eliminate the cascading N+1 in parent summaries so parent dashboards don't create query storms.",
+      "phase": "Phase 1: Backend N+1 Elimination",
+      "acceptanceCriteria": [
+        "Open packages/backend/convex/models/coachParentSummaries.ts",
+        "Find getParentSummariesByChildAndSport function (around line 1100)",
+        "Current problem: Lines 1105-1199 have nested N+1:",
+        "  - Line 1107: db.get(playerIdentityId) for EACH child",
+        "  - Lines 1113-1141: 3 separate status queries per child",
+        "  - Line 1166: db.get(sportId) for EACH sport",
+        "  - Lines 1181-1193: findOne(user) for EACH summary to get coach name",
+        "Replace with batch pattern:",
+        "  1. Batch fetch ALL players upfront",
+        "  2. SINGLE query for ALL summaries (filter by org, filter playerIds in memory)",
+        "  3. Batch fetch ALL sports",
+        "  4. Batch fetch ALL coach users for names",
+        "  5. Group and map entirely in memory",
+        "Type check passes: npm run check-types",
+        "Codegen passes: npx -w packages/backend convex codegen"
+      ],
+      "technicalNotes": {
+        "queryExplosion": "Guardian with 3 children × 2 sports × 5 summaries = ~50+ queries",
+        "fixedPattern": "Single query per data type: players (1), summaries (1), sports (1), coaches (1) = 4 queries total",
+        "indexToUse": "Use by_org_and_status index on coachParentSummaries",
+        "impact": "~50 queries per dashboard load → 4-5 queries (90% reduction)"
+      },
+      "priority": 3,
+      "passes": false,
+      "notes": "High complexity but high impact. Parent dashboard is heavily used."
+    },
+    {
+      "id": "US-PERF-004",
+      "title": "Fix sportPassports Filter Violation",
+      "description": "As a backend developer, I need to replace .filter() with index usage so passport queries use database indexes.",
+      "phase": "Phase 1: Backend N+1 Elimination",
+      "acceptanceCriteria": [
+        "Open packages/backend/convex/models/sportPassports.ts",
+        "Find getPassportsForOrg function",
+        "Current problem: Lines 132-134 use .filter() for status: passports.filter(p => p.status === args.status)",
+        "First check if by_org_and_status index exists in schema.ts for sportPassports table",
+        "If index missing, add it to schema.ts: .index('by_org_and_status', ['organizationId', 'status'])",
+        "Update query to use conditional index selection:",
+        "  - If status provided: use by_org_and_status index",
+        "  - If sportCode provided: use by_org_and_sport or by_status index",
+        "  - Default: use by_organizationId index",
+        "Remove ALL .filter() calls for status/sportCode",
+        "Type check passes: npm run check-types",
+        "Codegen passes: npx -w packages/backend convex codegen"
+      ],
+      "technicalNotes": {
+        "currentCode": "passports = await query.withIndex('by_organizationId').collect(); if (args.status) { passports = passports.filter(p => p.status === args.status); }",
+        "fixedCode": "if (args.status) { passports = await query.withIndex('by_org_and_status', q => q.eq('organizationId', orgId).eq('status', status)).collect(); }",
+        "schemaChange": "May need to add index: .index('by_org_and_status', ['organizationId', 'status'])"
+      },
+      "priority": 4,
+      "passes": false,
+      "notes": "Schema index may already exist. Verify before adding duplicate."
+    },
+    {
+      "id": "US-PERF-005",
+      "title": "Fix playerInjuries Filter Violation",
+      "description": "As a backend developer, I need to replace .filter() with index usage for injury status filtering.",
+      "phase": "Phase 1: Backend N+1 Elimination",
+      "acceptanceCriteria": [
+        "Open packages/backend/convex/models/playerInjuries.ts",
+        "Find getInjuriesForPlayer function",
+        "Current problem: Uses .filter() to exclude healed injuries instead of index",
+        "Verify by_player_and_status index exists (line 663 in schema.ts confirms it does)",
+        "Update query to use index for status filtering:",
+        "  - If specific status requested: use by_player_and_status",
+        "  - If includeHealed=false: query 'active' and 'recovering' statuses separately and merge",
+        "  - If includeHealed=true: use by_playerIdentityId (all statuses)",
+        "Remove ALL .filter() calls for status",
+        "Type check passes: npm run check-types"
+      ],
+      "technicalNotes": {
+        "indexExists": "by_player_and_status at schema.ts line 663",
+        "nonHealedStrategy": "Since Convex doesn't support 'not equals', query active + recovering separately and merge results",
+        "sortAfterMerge": "Sort merged results by _creationTime desc"
+      },
+      "priority": 5,
+      "passes": false,
+      "notes": "Index already exists. Just need to update query code."
+    },
+    {
+      "id": "US-PERF-006",
+      "title": "Fix passportGoals Filter Violations",
+      "description": "As a backend developer, I need to replace .filter() with index usage for goal status and category filtering.",
+      "phase": "Phase 1: Backend N+1 Elimination",
+      "acceptanceCriteria": [
+        "Open packages/backend/convex/models/passportGoals.ts",
+        "Find getGoalsForPlayer and getGoalsForOrg functions",
+        "Current problem: Both use .filter() for status and category",
+        "Verify by_player_and_status and by_org_and_status indexes exist (line 1676 confirms)",
+        "Update getGoalsForPlayer:",
+        "  - If status provided: use by_player_and_status index",
+        "  - If no status: use by_playerIdentityId index",
+        "Update getGoalsForOrg:",
+        "  - If status provided: use by_org_and_status index",
+        "  - Category filter: acceptable as secondary JS filter (less common, harder to index)",
+        "Remove .filter() for status filtering",
+        "Type check passes: npm run check-types"
+      ],
+      "technicalNotes": {
+        "indexExists": "by_player_and_status at schema.ts line 3048, by_org_and_status at line 1676",
+        "categoryNote": "Category filter can remain as JS filter - it's a secondary filter used less frequently"
+      },
+      "priority": 6,
+      "passes": false,
+      "notes": "Indexes exist. Update query code to use them."
+    },
+    {
+      "id": "US-PERF-007",
+      "title": "Add Missing sportPassports by_org_and_status Index",
+      "description": "As a backend developer, I need to add the missing composite index so status queries are efficient.",
+      "phase": "Phase 1: Backend N+1 Elimination",
+      "acceptanceCriteria": [
+        "Open packages/backend/convex/schema.ts",
+        "Find sportPassports table definition (around line 470)",
+        "Verify current indexes: by_playerIdentityId, by_player_and_sport, by_player_and_org, by_organizationId, by_org_and_sport, by_status",
+        "Note: by_status is ['organizationId', 'sportCode', 'status'] - requires sportCode",
+        "Add new index: .index('by_org_and_status', ['organizationId', 'status'])",
+        "Run codegen: npx -w packages/backend convex codegen",
+        "Deploy to create index: npx -w packages/backend convex deploy (or let dev server sync)"
+      ],
+      "technicalNotes": {
+        "existingIndexes": "by_status requires sportCode which isn't always available",
+        "newIndex": ".index('by_org_and_status', ['organizationId', 'status'])",
+        "placement": "Add after by_org_and_sport, before by_status"
+      },
+      "priority": 7,
+      "passes": false,
+      "notes": "Schema-only change. Deploy and wait for index to build before US-PERF-004 can use it."
+    },
+    {
+      "id": "US-PERF-008",
+      "title": "Update Better Auth Packages",
+      "description": "As a backend developer, I need to update Better Auth packages to get potential fixes for the id/\\_id field mismatch.",
+      "phase": "Phase 2: Better Auth Adapter",
+      "acceptanceCriteria": [
+        "Run: npm update @better-auth/convex better-auth @convex-dev/better-auth",
+        "Check package.json for updated versions",
+        "Run: npm install to ensure lock file is updated",
+        "Run: npm run check-types to verify no breaking changes",
+        "Run: npx -w packages/backend convex codegen",
+        "Test auth flows:",
+        "  - Login with email/password",
+        "  - Session refresh (navigate between pages)",
+        "  - Organization switching",
+        "Check Convex dashboard after testing - note if adapter.findOne calls reduced"
+      ],
+      "technicalNotes": {
+        "rootCause": "Better Auth adapter looks for 'id' field but Convex uses '_id'",
+        "possibleFix": "Newer versions may support idFieldMapping configuration",
+        "fallback": "If update doesn't help, US-PERF-009 will create wrapper functions"
+      },
+      "priority": 8,
+      "passes": false,
+      "notes": "Try package update first. If calls don't reduce, proceed to US-PERF-009."
+    },
+    {
+      "id": "US-PERF-009",
+      "title": "Create Optimized Better Auth Helper Functions (If Needed)",
+      "description": "As a backend developer, if the package update doesn't fix adapter inefficiency, I need to create optimized wrapper functions.",
+      "phase": "Phase 2: Better Auth Adapter",
+      "acceptanceCriteria": [
+        "SKIP if US-PERF-008 resolved the adapter.findOne calls (check Convex dashboard)",
+        "Create packages/backend/convex/lib/betterAuthHelpers.ts",
+        "Create getUserByEmailOptimized - uses db.query with email index directly",
+        "Create getOrganizationByIdOptimized - uses db.get(id) directly",
+        "Create getOrganizationsBatch - batch fetch by array of IDs",
+        "Create getMembersByUserIdOptimized - uses proper index",
+        "Update high-frequency callers to use optimized functions:",
+        "  - users.getCurrentUser should use getUserByEmailOptimized",
+        "  - members.getMembersForAllOrganizations should use getOrganizationsBatch",
+        "Type check passes: npm run check-types",
+        "Codegen passes: npx -w packages/backend convex codegen"
+      ],
+      "technicalNotes": {
+        "directDbAccess": "Use ctx.db.query('user').withIndex('email', q => q.eq('email', email)).first() instead of adapter.findOne",
+        "batchPattern": "Use ctx.db.get for individual IDs, Promise.all for batches",
+        "gradualMigration": "Don't change all callers at once - start with highest frequency"
+      },
+      "priority": 9,
+      "passes": false,
+      "notes": "Only implement if US-PERF-008 doesn't reduce adapter calls. Check dashboard first."
+    },
+    {
+      "id": "US-PERF-010",
+      "title": "Create Bulk Query Backend Functions",
+      "description": "As a backend developer, I need to create bulk query functions so the frontend can fetch data for multiple children in one call.",
+      "phase": "Phase 3: Frontend Optimization",
+      "acceptanceCriteria": [
+        "Create packages/backend/convex/models/bulkQueries.ts (new file)",
+        "Create getBulkChildCardData query with args: { playerIdentityIds: v.array(v.id('playerIdentities')), organizationId: v.string() }",
+        "Query returns object with 4 Maps (keyed by playerId):",
+        "  - passports: All passports for requested players",
+        "  - injuries: All injuries for requested players",
+        "  - goals: All goals for requested players",
+        "  - medicalProfiles: All medical profiles for requested players",
+        "Use parallel Promise.all to fetch all 4 data types simultaneously",
+        "Use proper indexes for all queries (no .filter())",
+        "Type check passes: npm run check-types",
+        "Codegen passes: npx -w packages/backend convex codegen",
+        "Test in Convex dashboard with real playerIdentityIds"
+      ],
+      "technicalNotes": {
+        "returnStructure": "{ passports: { [playerId]: Passport[] }, injuries: { [playerId]: Injury[] }, goals: { [playerId]: Goal[] }, medicalProfiles: { [playerId]: MedicalProfile | null } }",
+        "parallelFetch": "const [passports, injuries, goals, medical] = await Promise.all([...]);"
+      },
+      "priority": 10,
+      "passes": false,
+      "notes": "This enables the frontend ChildCard refactor. Must be complete before US-PERF-011."
+    },
+    {
+      "id": "US-PERF-011",
+      "title": "Refactor Parent Dashboard to Use Bulk Query",
+      "description": "As a frontend developer, I need to refactor the parent dashboard to fetch all children's data in one bulk query.",
+      "phase": "Phase 3: Frontend Optimization",
+      "acceptanceCriteria": [
+        "Open apps/web/src/app/orgs/[orgId]/parents/page.tsx",
+        "Add import for bulk query: import { api } from '@/convex/_generated/api'",
+        "Calculate playerIds from identityChildren: const playerIds = useMemo(() => identityChildren?.map(c => c.player._id) || [], [identityChildren])",
+        "Add bulk query: const bulkChildData = useQuery(api.models.bulkQueries.getBulkChildCardData, playerIds.length > 0 && orgId ? { playerIdentityIds: playerIds, organizationId: orgId } : 'skip')",
+        "Update ChildCard rendering to pass pre-fetched data:",
+        "  <ChildCard",
+        "    child={child}",
+        "    orgId={orgId}",
+        "    passportData={bulkChildData?.passports?.[child.player._id]}",
+        "    injuries={bulkChildData?.injuries?.[child.player._id]}",
+        "    goals={bulkChildData?.goals?.[child.player._id]}",
+        "    medicalProfile={bulkChildData?.medicalProfiles?.[child.player._id]}",
+        "  />",
+        "Type check passes: npm run check-types"
+      ],
+      "technicalNotes": {
+        "skipCondition": "Use 'skip' when playerIds empty to prevent unnecessary query",
+        "loadingState": "bulkChildData === undefined means loading, handle appropriately"
+      },
+      "priority": 11,
+      "passes": false,
+      "notes": "Depends on US-PERF-010 and US-PERF-012. Complete both first."
+    },
+    {
+      "id": "US-PERF-012",
+      "title": "Update ChildCard to Accept Pre-fetched Props",
+      "description": "As a frontend developer, I need to update ChildCard to use pre-fetched data when available, falling back to individual queries for backward compatibility.",
+      "phase": "Phase 3: Frontend Optimization",
+      "acceptanceCriteria": [
+        "Open apps/web/src/app/orgs/[orgId]/parents/components/child-card.tsx",
+        "Update ChildCardProps interface to include optional pre-fetched data:",
+        "  interface ChildCardProps {",
+        "    child: { player: any; enrollment: any; };",
+        "    orgId: string;",
+        "    passportData?: any;",
+        "    allPassports?: any[];",
+        "    injuries?: any[];",
+        "    goals?: any[];",
+        "    medicalProfile?: any;",
+        "  }",
+        "Update component to use pre-fetched data with fallback:",
+        "  const passportDataQuery = useQuery(api.models.sportPassports.getFullPlayerPassportView, prefetchedPassportData === undefined ? { playerIdentityId: player._id, organizationId: orgId } : 'skip')",
+        "  const passportData = prefetchedPassportData ?? passportDataQuery",
+        "Apply same pattern to all 5 queries (passportData, allPassports, injuries, goals, medicalProfile)",
+        "UI renders identically to before",
+        "Type check passes: npm run check-types",
+        "Visual verification: Parent dashboard displays children correctly"
+      ],
+      "technicalNotes": {
+        "fallbackPattern": "const query = useQuery(api.x, prefetched === undefined ? args : 'skip'); const data = prefetched ?? query;",
+        "backwardCompatibility": "Individual queries still work if props not passed - enables gradual rollout"
+      },
+      "priority": 12,
+      "passes": false,
+      "notes": "Must maintain backward compatibility. Some places may still render ChildCard without bulk data."
+    },
+    {
+      "id": "US-PERF-013",
+      "title": "Create getPlayersForCoach Backend Function",
+      "description": "As a backend developer, I need to create a function that returns only players assigned to a coach's teams.",
+      "phase": "Phase 3: Frontend Optimization",
+      "acceptanceCriteria": [
+        "Open packages/backend/convex/models/coaches.ts",
+        "Create getPlayersForCoach query with args: { organizationId: v.string(), coachUserId: v.string() }",
+        "Query logic:",
+        "  1. Get coach assignments for this coach in this org",
+        "  2. Extract teamIds from assignments",
+        "  3. Get teamPlayerIdentities for those teams",
+        "  4. Get unique playerIdentityIds",
+        "  5. Get orgPlayerEnrollments for those players",
+        "  6. Return enriched player data",
+        "Use proper indexes for all queries",
+        "Handle edge case: coach with no team assignments returns empty array",
+        "Type check passes: npm run check-types",
+        "Codegen passes: npx -w packages/backend convex codegen"
+      ],
+      "technicalNotes": {
+        "indexToUse": "coachAssignments: by_coach_and_org or by_organizationId",
+        "deduplication": "Use Set for unique playerIds since player can be on multiple teams",
+        "impact": "Coach sees 20 players instead of fetching all 200 org players"
+      },
+      "priority": 13,
+      "passes": false,
+      "notes": "Lower priority than parent dashboard fixes but still impactful for large orgs."
+    },
+    {
+      "id": "US-PERF-014",
+      "title": "Update Coach Dashboard to Use getPlayersForCoach",
+      "description": "As a frontend developer, I need to update the coach dashboard to fetch only assigned players instead of all org players.",
+      "phase": "Phase 3: Frontend Optimization",
+      "acceptanceCriteria": [
+        "Open apps/web/src/app/orgs/[orgId]/coach/coach-dashboard.tsx",
+        "Find current query: useQuery(api.models.orgPlayerEnrollments.getPlayersForOrg, { organizationId: orgId })",
+        "Replace with: useQuery(api.models.coaches.getPlayersForCoach, session?.user?.id && orgId ? { organizationId: orgId, coachUserId: session.user.id } : 'skip')",
+        "Remove any JavaScript filtering of players by coach assignment (no longer needed)",
+        "Verify coach sees only their assigned players",
+        "Type check passes: npm run check-types",
+        "Visual verification: Coach dashboard shows correct players"
+      ],
+      "technicalNotes": {
+        "sessionAccess": "Get coachUserId from session.user.id",
+        "filterRemoval": "Look for useMemo with coachPlayerIds.has() filter and remove it"
+      },
+      "priority": 14,
+      "passes": false,
+      "notes": "Complete after US-PERF-013. Final frontend optimization."
+    }
+  ],
+  "qualityChecks": {
+    "beforeEachCommit": [
+      "npm run check-types - MUST pass",
+      "npx ultracite fix - MUST pass",
+      "npx -w packages/backend convex codegen - MUST run successfully"
+    ],
+    "afterPhase1": [
+      "Check Convex dashboard - function calls should reduce",
+      "Test parent dashboard - should load without errors",
+      "Test coach dashboard - should load without errors",
+      "Test organization switching - should work normally"
+    ],
+    "afterPhase2": [
+      "Check Convex dashboard - adapter.findOne calls should reduce significantly",
+      "Test all auth flows: login, logout, session refresh, org switch",
+      "Test invitation acceptance"
+    ],
+    "afterPhase3": [
+      "Parent with 5 children should only create 2-3 subscriptions (not 25)",
+      "Coach dashboard should fetch only assigned players",
+      "Real-time updates still work"
+    ]
+  },
+  "phaseCompletionCriteria": {
+    "phase1": [
+      "✅ getMembersForAllOrganizations uses batch fetch (77K → 7.7K)",
+      "✅ getPendingInvitationsByEmail uses batch fetch (77K → 2K)",
+      "✅ getParentSummariesByChildAndSport uses batch fetch",
+      "✅ All filter violations fixed (using indexes)",
+      "✅ Missing sportPassports index added",
+      "✅ All type checks pass",
+      "✅ Convex dashboard shows reduced query count"
+    ],
+    "phase2": [
+      "✅ Better Auth packages updated",
+      "✅ adapter.findOne calls reduced (or wrapper functions created)",
+      "✅ All auth flows tested and working"
+    ],
+    "phase3": [
+      "✅ bulkQueries.ts created with getBulkChildCardData",
+      "✅ Parent dashboard uses bulk query",
+      "✅ ChildCard accepts pre-fetched props",
+      "✅ getPlayersForCoach created and used",
+      "✅ Total function calls under 1.5M target"
+    ]
+  },
+  "expectedImpact": {
+    "before": {
+      "totalCalls": "3.2M/month",
+      "betterAuthAdapter": "1.88M (59%)",
+      "parentDashboard5Kids": "25 subscriptions",
+      "coachDashboard200Players": "Fetches all 200"
+    },
+    "afterPhase1": {
+      "totalCalls": "~2.9M/month",
+      "reduction": "~300K calls saved"
+    },
+    "afterPhase2": {
+      "totalCalls": "~1.5M/month",
+      "reduction": "~1.4M additional calls saved"
+    },
+    "afterPhase3": {
+      "totalCalls": "~1.0M/month",
+      "parentDashboard5Kids": "2-3 subscriptions",
+      "coachDashboard200Players": "Fetches only assigned ~20",
+      "totalReduction": "~2.2M calls saved (68%)"
+    }
+  },
+  "emergencyRollback": {
+    "ifPhase1Breaks": "Revert members.ts changes, redeploy",
+    "ifPhase2Breaks": "Revert package.json, npm install, redeploy",
+    "ifPhase3Breaks": "ChildCard has fallback queries - will still work but slower"
+  }
+}

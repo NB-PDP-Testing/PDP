@@ -39,6 +39,12 @@ import {
   TableRow,
 } from "@/components/ui/table";
 import { Textarea } from "@/components/ui/textarea";
+import {
+  Tooltip,
+  TooltipContent,
+  TooltipProvider,
+  TooltipTrigger,
+} from "@/components/ui/tooltip";
 
 export default function OrgFeatureFlagsPage() {
   const params = useParams();
@@ -460,6 +466,7 @@ export default function OrgFeatureFlagsPage() {
                 <TableHeader>
                   <TableRow>
                     <TableHead>Coach Name</TableHead>
+                    <TableHead>Teams</TableHead>
                     <TableHead>Trust Level</TableHead>
                     <TableHead>Status</TableHead>
                     <TableHead>Access Reason</TableHead>
@@ -471,6 +478,33 @@ export default function OrgFeatureFlagsPage() {
                     <TableRow key={coach.coachId}>
                       <TableCell className="font-medium">
                         {coach.coachName}
+                      </TableCell>
+                      <TableCell className="text-sm">
+                        {coach.teamCount === 0 ? (
+                          <span className="text-muted-foreground">
+                            (No teams assigned)
+                          </span>
+                        ) : coach.teamCount <= 2 ? (
+                          coach.teamNames.join(", ")
+                        ) : (
+                          <TooltipProvider>
+                            <Tooltip>
+                              <TooltipTrigger asChild>
+                                <span className="cursor-help">
+                                  {coach.teamNames.slice(0, 2).join(", ")} +
+                                  {coach.teamCount - 2} more
+                                </span>
+                              </TooltipTrigger>
+                              <TooltipContent>
+                                <ul className="space-y-1">
+                                  {coach.teamNames.map((name) => (
+                                    <li key={name}>• {name}</li>
+                                  ))}
+                                </ul>
+                              </TooltipContent>
+                            </Tooltip>
+                          </TooltipProvider>
+                        )}
                       </TableCell>
                       <TableCell>Level {coach.trustLevel}</TableCell>
                       <TableCell>

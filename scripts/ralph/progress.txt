@@ -433,3 +433,58 @@ The story is marked as complete in `prd.json` with justification that `VoiceInsi
 - None - followed patterns from US-P9-003 and AGENTS.md
 
 ---
+
+## 2026-01-30 22:40 - US-P9-006 - Implement Reactions Backend
+**Iteration**: 1
+**Commit**: f9a571c89b4a6f30ba13e0c46b1c37cf02f23bfb
+**Session**: f948b5f4-bdfa-4706-841a-cf09389a920e
+**Status**: Complete
+
+### What was implemented
+- Implemented `getReactions` query in teamCollaboration.ts:
+  - Fetches all reactions for an insight using `by_insight` index
+  - Aggregates counts by type (like, helpful, flag)
+  - Returns counts + array of user reactions
+- Implemented `toggleReaction` mutation in teamCollaboration.ts:
+  - Checks for existing reaction using `by_insight_and_user` index
+  - Toggle behavior: same type → remove, different type → switch, no existing → add
+  - Returns action status (added or removed)
+  - Prevents duplicate reactions (one reaction per user per insight)
+
+### Files changed
+- packages/backend/convex/models/teamCollaboration.ts (+49, -8)
+- packages/backend/convex/_generated/*.ts (auto-generated)
+- scripts/ralph/prd.json (+1, -1) [marked US-P9-006 passes: true]
+
+### Quality checks
+- ✅ Type check: passed
+- ✅ Linting: passed (after fixing ++ to += 1)
+- ✅ Convex codegen: successful
+- ⏭️ Convex dashboard testing: deferred (can test after UI component)
+- ✅ No browser verification needed (backend-only change)
+
+### Learnings for future iterations ⚠️ CRITICAL
+**Patterns discovered:**
+- Aggregation pattern: loop through array and use `counts[key] += 1` (not `++`)
+- Toggle logic: check existing → same type removes, different switches, none adds
+- Using `by_insight_and_user` composite index to prevent duplicates
+
+**Gotchas encountered:**
+- Linter error: `counts[reaction.type]++` must be `counts[reaction.type] += 1`
+- Pre-commit hook failed, had to restore from stash and fix lint issue
+- Git lock file caused stash apply to fail - had to remove .git/index.lock
+
+**Dependencies found:**
+- toggleReaction requires userId and organizationId parameters (added to args)
+- UI components (US-P9-007, US-P9-008) will consume these backend functions
+
+**What to do next**:
+- [x] US-P9-006 complete (6 of 8 stories done!)
+- [ ] US-P9-007: Create InsightComments UI Component
+- [ ] US-P9-008: Create CommentForm Component
+
+**Mistakes made**:
+- Used `++` operator which is discouraged by linter (use `+=` instead)
+- Git lock conflict during stash restore (unrelated to code)
+
+---

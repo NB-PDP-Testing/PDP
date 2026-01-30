@@ -94,6 +94,12 @@ export default function OrgFeatureFlagsPage() {
   const reviewCoachOverrideRequest = useMutation(
     api.models.trustGatePermissions.reviewCoachOverrideRequest
   );
+  const grantAIControlRights = useMutation(
+    api.models.trustGatePermissions.grantAIControlRights
+  );
+  const revokeAIControlRights = useMutation(
+    api.models.trustGatePermissions.revokeAIControlRights
+  );
 
   // UI state
   const [isTogglingBlanket, setIsTogglingBlanket] = useState(false);
@@ -110,6 +116,13 @@ export default function OrgFeatureFlagsPage() {
     null
   );
   const [reviewNotes, setReviewNotes] = useState("");
+  const [grantingCoachId, setGrantingCoachId] = useState<string | null>(null);
+  const [grantNote, setGrantNote] = useState("");
+  const [notifyCoach, setNotifyCoach] = useState(true);
+  const [revokingRightsCoachId, setRevokingRightsCoachId] = useState<
+    string | null
+  >(null);
+  const [revokeReason, setRevokeReason] = useState("");
 
   // Loading state
   if (orgStatus === undefined) {
@@ -208,6 +221,46 @@ export default function OrgFeatureFlagsPage() {
       });
       toast.success("Coach access unblocked");
       setUnblockingCoachId(null);
+    } catch (error: any) {
+      toast.error(`Failed: ${error.message}`);
+    }
+  };
+
+  const handleGrantAIControlRights = async () => {
+    if (!grantingCoachId) {
+      return;
+    }
+
+    try {
+      await grantAIControlRights({
+        organizationId: orgId,
+        coachId: grantingCoachId,
+        grantNote: grantNote || undefined,
+        notifyCoach,
+      });
+      toast.success("AI control rights granted to coach");
+      setGrantingCoachId(null);
+      setGrantNote("");
+      setNotifyCoach(true);
+    } catch (error: any) {
+      toast.error(`Failed: ${error.message}`);
+    }
+  };
+
+  const handleRevokeAIControlRights = async () => {
+    if (!revokingRightsCoachId) {
+      return;
+    }
+
+    try {
+      await revokeAIControlRights({
+        organizationId: orgId,
+        coachId: revokingRightsCoachId,
+        revokeReason: revokeReason || undefined,
+      });
+      toast.success("AI control rights revoked from coach");
+      setRevokingRightsCoachId(null);
+      setRevokeReason("");
     } catch (error: any) {
       toast.error(`Failed: ${error.message}`);
     }
@@ -501,7 +554,8 @@ export default function OrgFeatureFlagsPage() {
                     <TableHead>Trust Level</TableHead>
                     <TableHead>Status</TableHead>
                     <TableHead>Access Reason</TableHead>
-                    <TableHead>Actions</TableHead>
+                    <TableHead>AI Control Rights</TableHead>
+                    <TableHead>Block/Unblock</TableHead>
                   </TableRow>
                 </TableHeader>
                 <TableBody>
@@ -559,6 +613,27 @@ export default function OrgFeatureFlagsPage() {
                       </TableCell>
                       <TableCell className="text-muted-foreground text-sm">
                         {coach.accessReason}
+                      </TableCell>
+                      <TableCell>
+                        {coach.aiControlRightsEnabled ? (
+                          <Button
+                            onClick={() =>
+                              setRevokingRightsCoachId(coach.coachId)
+                            }
+                            size="sm"
+                            variant="outline"
+                          >
+                            Revoke Rights
+                          </Button>
+                        ) : (
+                          <Button
+                            onClick={() => setGrantingCoachId(coach.coachId)}
+                            size="sm"
+                            variant="default"
+                          >
+                            Grant Rights
+                          </Button>
+                        )}
                       </TableCell>
                       <TableCell>
                         {coach.adminBlockedFromAI ? (
@@ -857,6 +932,101 @@ export default function OrgFeatureFlagsPage() {
             <AlertDialogCancel>Cancel</AlertDialogCancel>
             <AlertDialogAction onClick={handleUnblockCoach}>
               Unblock Access
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
+
+      {/* Grant AI Control Rights Dialog */}
+      <AlertDialog
+        onOpenChange={(open) => {
+          if (!open) {
+            setGrantingCoachId(null);
+            setGrantNote("");
+            setNotifyCoach(true);
+          }
+        }}
+        open={grantingCoachId !== null}
+      >
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>Grant AI Control Rights?</AlertDialogTitle>
+            <AlertDialogDescription>
+              This coach will be able to control their own AI automation
+              settings (insight matching, auto-apply, parent summaries). They
+              can toggle these features on/off at will.
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <div className="space-y-4">
+            <div className="space-y-2">
+              <label className="font-medium text-sm" htmlFor="grant-note">
+                Note to coach (optional)
+              </label>
+              <Textarea
+                id="grant-note"
+                onChange={(e) => setGrantNote(e.target.value)}
+                placeholder="Why are you granting these rights?"
+                value={grantNote}
+              />
+            </div>
+            <div className="flex items-center space-x-2">
+              <input
+                checked={notifyCoach}
+                id="notify-coach"
+                onChange={(e) => setNotifyCoach(e.target.checked)}
+                type="checkbox"
+              />
+              <label className="text-sm" htmlFor="notify-coach">
+                Notify coach with toast message (when implemented)
+              </label>
+            </div>
+          </div>
+          <AlertDialogFooter>
+            <AlertDialogCancel>Cancel</AlertDialogCancel>
+            <AlertDialogAction onClick={handleGrantAIControlRights}>
+              Grant Rights
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
+
+      {/* Revoke AI Control Rights Dialog */}
+      <AlertDialog
+        onOpenChange={(open) => {
+          if (!open) {
+            setRevokingRightsCoachId(null);
+            setRevokeReason("");
+          }
+        }}
+        open={revokingRightsCoachId !== null}
+      >
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>Revoke AI Control Rights?</AlertDialogTitle>
+            <AlertDialogDescription>
+              This coach will no longer be able to control their AI automation
+              settings. Their current settings will remain, but they cannot
+              change them.
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <div className="space-y-2">
+            <label className="font-medium text-sm" htmlFor="revoke-reason">
+              Reason (optional)
+            </label>
+            <Textarea
+              id="revoke-reason"
+              onChange={(e) => setRevokeReason(e.target.value)}
+              placeholder="Why are you revoking these rights?"
+              value={revokeReason}
+            />
+          </div>
+          <AlertDialogFooter>
+            <AlertDialogCancel>Cancel</AlertDialogCancel>
+            <AlertDialogAction
+              className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
+              onClick={handleRevokeAIControlRights}
+            >
+              Revoke Rights
             </AlertDialogAction>
           </AlertDialogFooter>
         </AlertDialogContent>

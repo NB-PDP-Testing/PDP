@@ -1727,6 +1727,8 @@ export const getCoachOrgPreferences = query({
       blockReason: v.optional(v.string()),
       blockedBy: v.optional(v.string()),
       blockedAt: v.optional(v.number()),
+      // Trust Gate Individual Override
+      trustGateOverride: v.optional(v.boolean()),
       // AI feature toggles
       aiInsightMatchingEnabled: v.optional(v.boolean()),
       autoApplyInsightsEnabled: v.optional(v.boolean()),
@@ -1758,6 +1760,8 @@ export const getCoachOrgPreferences = query({
       blockReason: coachPref.blockReason,
       blockedBy: coachPref.blockedBy,
       blockedAt: coachPref.blockedAt,
+      // Trust Gate Individual Override
+      trustGateOverride: coachPref.trustGateOverride,
       // AI feature toggles
       aiInsightMatchingEnabled: coachPref.aiInsightMatchingEnabled,
       autoApplyInsightsEnabled: coachPref.autoApplyInsightsEnabled,

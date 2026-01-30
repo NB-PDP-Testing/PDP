@@ -199,10 +199,14 @@ export const getPendingRequestsForOrg = query({
       }
     );
 
-    if (
-      !memberResult ||
-      (memberResult.role !== "admin" && memberResult.role !== "owner")
-    ) {
+    const member = memberResult as any;
+    const hasAdminAccess =
+      member &&
+      (member.role === "admin" ||
+        member.role === "owner" ||
+        member.functionalRoles?.includes("admin"));
+
+    if (!hasAdminAccess) {
       throw new Error("You must be an admin or owner to view join requests");
     }
 
@@ -419,7 +423,7 @@ export const approveJoinRequest = mutation({
           await ctx.db.patch(player._id, {
             parentEmail: normalizedEmail,
           });
-          linked++;
+          linked += 1;
         }
       }
       console.log(

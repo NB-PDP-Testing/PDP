@@ -3607,8 +3607,10 @@ export const getPendingFunctionalRoleRequests = query({
           (member as any).functionalRoles || [];
 
         for (const request of requests) {
+          // BUG FIX #232: Better Auth adapter may return 'id' or '_id' depending on context
+          const memberId = (member as any).id || (member as any)._id;
           pendingRequests.push({
-            memberId: (member as any)._id,
+            memberId,
             userId: member.userId,
             userName: (userResult?.name as string) || null,
             userEmail: (userResult?.email as string) || null,

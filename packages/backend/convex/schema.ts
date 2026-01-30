@@ -1687,6 +1687,99 @@ export default defineSchema({
     .index("by_coach_org_applied", ["coachId", "organizationId", "appliedAt"]),
 
   // ============================================================
+  // PHASE 9: TEAM COLLABORATION HUB
+  // Real-time collaboration features for coaches
+  // ============================================================
+
+  // Comments on voice note insights
+  insightComments: defineTable({
+    insightId: v.id("voiceNoteInsights"),
+    userId: v.string(), // Better Auth user ID
+    content: v.string(),
+    priority: v.union(
+      v.literal("critical"),
+      v.literal("important"),
+      v.literal("normal")
+    ),
+    parentCommentId: v.optional(v.id("insightComments")), // For threading
+    organizationId: v.string(), // Denormalized for access control
+  })
+    .index("by_insight", ["insightId"])
+    .index("by_user", ["userId"])
+    .index("by_org", ["organizationId"])
+    .index("by_insight_and_priority", ["insightId", "priority"])
+    .index("by_parent", ["parentCommentId"]),
+
+  // Reactions to voice note insights
+  insightReactions: defineTable({
+    insightId: v.id("voiceNoteInsights"),
+    userId: v.string(), // Better Auth user ID
+    type: v.union(v.literal("like"), v.literal("helpful"), v.literal("flag")),
+    organizationId: v.string(), // Denormalized for access control
+  })
+    .index("by_insight", ["insightId"])
+    .index("by_user", ["userId"])
+    .index("by_org", ["organizationId"])
+    .index("by_insight_and_user", ["insightId", "userId"])
+    .index("by_insight_and_type", ["insightId", "type"]),
+
+  // Team activity feed (aggregated events for dashboards)
+  teamActivityFeed: defineTable({
+    organizationId: v.string(), // Better Auth organization ID
+    teamId: v.string(), // Better Auth team ID
+    actorId: v.string(), // User who performed the action
+    actorName: v.string(), // Denormalized for display
+    actionType: v.union(
+      v.literal("voice_note_added"),
+      v.literal("insight_applied"),
+      v.literal("comment_added"),
+      v.literal("player_assessed"),
+      v.literal("goal_created"),
+      v.literal("injury_logged")
+    ),
+    entityType: v.union(
+      v.literal("voice_note"),
+      v.literal("insight"),
+      v.literal("comment"),
+      v.literal("skill_assessment"),
+      v.literal("goal"),
+      v.literal("injury")
+    ),
+    entityId: v.string(), // ID of the related entity
+    summary: v.string(), // Human-readable description
+    priority: v.union(
+      v.literal("critical"),
+      v.literal("important"),
+      v.literal("normal")
+    ),
+    metadata: v.optional(
+      v.object({
+        playerName: v.optional(v.string()),
+        insightTitle: v.optional(v.string()),
+        commentPreview: v.optional(v.string()),
+      })
+    ),
+  })
+    .index("by_team", ["teamId"])
+    .index("by_org", ["organizationId"])
+    .index("by_actor", ["actorId"])
+    .index("by_team_and_priority", ["teamId", "priority"]),
+
+  // Real-time presence tracking (who's viewing what)
+  teamHubPresence: defineTable({
+    userId: v.string(), // Better Auth user ID
+    organizationId: v.string(), // Better Auth organization ID
+    teamId: v.string(), // Better Auth team ID
+    currentView: v.optional(v.string()), // e.g., "voice_notes", "player_passport:123"
+    lastActive: v.number(), // Timestamp of last activity
+  })
+    .index("by_user", ["userId"])
+    .index("by_team", ["teamId"])
+    .index("by_org", ["organizationId"])
+    .index("by_user_and_team", ["userId", "teamId"])
+    .index("by_team_and_active", ["teamId", "lastActive"]),
+
+  // ============================================================
   // TEAM OBSERVATIONS
   // Structured storage for team-level insights from voice notes
   // ============================================================

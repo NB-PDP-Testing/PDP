@@ -634,10 +634,14 @@ export const setAdminBlanketOverride = mutation({
       }
     )) as BetterAuthDoc<"member"> | null;
 
-    if (
-      !membership ||
-      (membership.role !== "admin" && membership.role !== "owner")
-    ) {
+    // Check if user has admin access (either Better Auth role or functional role)
+    const hasAdminAccess =
+      membership &&
+      (membership.role === "admin" ||
+        membership.role === "owner" ||
+        membership.functionalRoles?.includes("admin"));
+
+    if (!hasAdminAccess) {
       throw new Error("Unauthorized: Admin or owner role required");
     }
 
@@ -704,10 +708,14 @@ export const grantCoachOverride = mutation({
       }
     )) as BetterAuthDoc<"member"> | null;
 
-    if (
-      !membership ||
-      (membership.role !== "admin" && membership.role !== "owner")
-    ) {
+    // Check if user has admin access (either Better Auth role or functional role)
+    const hasAdminAccess =
+      membership &&
+      (membership.role === "admin" ||
+        membership.role === "owner" ||
+        membership.functionalRoles?.includes("admin"));
+
+    if (!hasAdminAccess) {
       throw new Error("Unauthorized: Admin or owner role required");
     }
 
@@ -792,10 +800,14 @@ export const revokeCoachOverride = mutation({
       }
     )) as BetterAuthDoc<"member"> | null;
 
-    if (
-      !membership ||
-      (membership.role !== "admin" && membership.role !== "owner")
-    ) {
+    // Check if user has admin access (either Better Auth role or functional role)
+    const hasAdminAccess =
+      membership &&
+      (membership.role === "admin" ||
+        membership.role === "owner" ||
+        membership.functionalRoles?.includes("admin"));
+
+    if (!hasAdminAccess) {
       throw new Error("Unauthorized: Admin or owner role required");
     }
 
@@ -926,10 +938,14 @@ export const reviewCoachOverrideRequest = mutation({
       }
     )) as BetterAuthDoc<"member"> | null;
 
-    if (
-      !membership ||
-      (membership.role !== "admin" && membership.role !== "owner")
-    ) {
+    // Check if user has admin access (either Better Auth role or functional role)
+    const hasAdminAccess =
+      membership &&
+      (membership.role === "admin" ||
+        membership.role === "owner" ||
+        membership.functionalRoles?.includes("admin"));
+
+    if (!hasAdminAccess) {
       throw new Error("Unauthorized: Admin or owner role required");
     }
 
@@ -1012,10 +1028,14 @@ export const setAdminBlanketBlock = mutation({
       }
     )) as BetterAuthDoc<"member"> | null;
 
-    if (
-      !membership ||
-      (membership.role !== "admin" && membership.role !== "owner")
-    ) {
+    // Check if user has admin access (either Better Auth role or functional role)
+    const hasAdminAccess =
+      membership &&
+      (membership.role === "admin" ||
+        membership.role === "owner" ||
+        membership.functionalRoles?.includes("admin"));
+
+    if (!hasAdminAccess) {
       throw new Error("Unauthorized: Admin or owner role required");
     }
 
@@ -1079,10 +1099,14 @@ export const blockIndividualCoach = mutation({
       }
     )) as BetterAuthDoc<"member"> | null;
 
-    if (
-      !membership ||
-      (membership.role !== "admin" && membership.role !== "owner")
-    ) {
+    // Check if user has admin access (either Better Auth role or functional role)
+    const hasAdminAccess =
+      membership &&
+      (membership.role === "admin" ||
+        membership.role === "owner" ||
+        membership.functionalRoles?.includes("admin"));
+
+    if (!hasAdminAccess) {
       throw new Error("Unauthorized: Admin or owner role required");
     }
 
@@ -1163,10 +1187,14 @@ export const unblockIndividualCoach = mutation({
       }
     )) as BetterAuthDoc<"member"> | null;
 
-    if (
-      !membership ||
-      (membership.role !== "admin" && membership.role !== "owner")
-    ) {
+    // Check if user has admin access (either Better Auth role or functional role)
+    const hasAdminAccess =
+      membership &&
+      (membership.role === "admin" ||
+        membership.role === "owner" ||
+        membership.functionalRoles?.includes("admin"));
+
+    if (!hasAdminAccess) {
       throw new Error("Unauthorized: Admin or owner role required");
     }
 
@@ -1232,10 +1260,14 @@ export const grantAIControlRights = mutation({
       }
     )) as BetterAuthDoc<"member"> | null;
 
-    if (
-      !membership ||
-      (membership.role !== "admin" && membership.role !== "owner")
-    ) {
+    // Check if user has admin access (either Better Auth role or functional role)
+    const hasAdminAccess =
+      membership &&
+      (membership.role === "admin" ||
+        membership.role === "owner" ||
+        membership.functionalRoles?.includes("admin"));
+
+    if (!hasAdminAccess) {
       throw new Error("Unauthorized: Admin or owner role required");
     }
 
@@ -1335,10 +1367,14 @@ export const revokeAIControlRights = mutation({
       }
     )) as BetterAuthDoc<"member"> | null;
 
-    if (
-      !membership ||
-      (membership.role !== "admin" && membership.role !== "owner")
-    ) {
+    // Check if user has admin access (either Better Auth role or functional role)
+    const hasAdminAccess =
+      membership &&
+      (membership.role === "admin" ||
+        membership.role === "owner" ||
+        membership.functionalRoles?.includes("admin"));
+
+    if (!hasAdminAccess) {
       throw new Error("Unauthorized: Admin or owner role required");
     }
 
@@ -1467,10 +1503,14 @@ export const getAllCoachesWithAccessStatus = query({
       }
     )) as BetterAuthDoc<"member"> | null;
 
-    if (
-      !membership ||
-      (membership.role !== "admin" && membership.role !== "owner")
-    ) {
+    // Check if user has admin access (either Better Auth role or functional role)
+    const hasAdminAccess =
+      membership &&
+      (membership.role === "admin" ||
+        membership.role === "owner" ||
+        membership.functionalRoles?.includes("admin"));
+
+    if (!hasAdminAccess) {
       throw new Error("Unauthorized: Admin or owner role required");
     }
 
@@ -1507,6 +1547,34 @@ export const getAllCoachesWithAccessStatus = query({
     if (!org) {
       throw new Error("Organization not found");
     }
+
+    // Fetch all teams for this organization (do this once, outside the loop)
+    const allTeamsResult = await ctx.runQuery(
+      components.betterAuth.adapter.findMany,
+      {
+        model: "team",
+        paginationOpts: {
+          cursor: null,
+          numItems: 1000,
+        },
+        where: [
+          {
+            field: "organizationId",
+            value: args.organizationId,
+            operator: "eq",
+          },
+        ],
+      }
+    );
+
+    const allTeams = allTeamsResult.page as BetterAuthDoc<"team">[];
+
+    // Create maps for both ID and name lookups
+    // (coachAssignments.teams may contain either IDs or names depending on storage method)
+    const teamByIdMap = new Map(
+      allTeams.map((team) => [String(team._id), team])
+    );
+    const teamByNameMap = new Map(allTeams.map((team) => [team.name, team]));
 
     // Build status for each coach
     const coachStatuses = await Promise.all(
@@ -1546,13 +1614,23 @@ export const getAllCoachesWithAccessStatus = query({
           )
           .first();
 
-        // Get team names using Convex db.get (teams are Convex IDs, not Better Auth string IDs)
-        const teamNames = await Promise.all(
-          (coachAssignment?.teams || []).map(async (teamId) => {
-            const team = await ctx.db.get(teamId);
-            return team?.name || "Unknown Team";
-          })
-        );
+        // Get team names from the pre-fetched maps
+        // coachAssignment.teams may contain either team IDs or team names
+        const teamIdentifiers = coachAssignment?.teams || [];
+        const teamNames = teamIdentifiers.map((identifier) => {
+          // Try lookup by ID first, then by name
+          const teamById = teamByIdMap.get(identifier);
+          if (teamById) {
+            return teamById.name;
+          }
+
+          const teamByName = teamByNameMap.get(identifier);
+          if (teamByName) {
+            return teamByName.name;
+          }
+
+          return "Unknown Team";
+        });
 
         // Check comprehensive access (same logic as checkCoachParentAccess)
         let hasAccess = false;

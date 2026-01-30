@@ -5332,6 +5332,36 @@ export const removeFromOrganization = mutation({
           for (const profile of orgProfiles) {
             await ctx.db.delete(profile._id);
           }
+
+          // BUG FIX #382: Delete guardian-player links for players enrolled in this org
+          // When a parent is removed from an org, their links to children in that org
+          // should also be removed to prevent orphaned relationships in the Guardian tab.
+          const guardianPlayerLinks = await ctx.db
+            .query("guardianPlayerLinks")
+            .withIndex("by_guardian", (q) =>
+              q.eq("guardianIdentityId", guardianIdentity._id)
+            )
+            .collect();
+
+          for (const link of guardianPlayerLinks) {
+            // Check if this player is enrolled in the organization being removed
+            const playerEnrollment = await ctx.db
+              .query("orgPlayerEnrollments")
+              .withIndex("by_player_and_org", (q) =>
+                q
+                  .eq("playerIdentityId", link.playerIdentityId)
+                  .eq("organizationId", args.organizationId)
+              )
+              .first();
+
+            // Only delete the link if the player is enrolled in this org
+            if (playerEnrollment) {
+              await ctx.db.delete(link._id);
+              console.log(
+                `[removeFromOrganization] Deleted guardian-player link ${link._id} for player ${link.playerIdentityId}`
+              );
+            }
+          }
         }
       } catch (error) {
         console.log(

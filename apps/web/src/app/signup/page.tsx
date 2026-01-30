@@ -11,7 +11,7 @@ import type { Route } from "next";
 import { useRouter, useSearchParams } from "next/navigation";
 import { Suspense, useEffect, useState } from "react";
 import { toast } from "sonner";
-import Loader from "@/components/loader";
+import { CenteredSkeleton } from "@/components/loading";
 import SignUpForm from "@/components/sign-up-form";
 import { useCurrentUser } from "@/hooks/use-current-user";
 
@@ -29,9 +29,7 @@ function SignUpContent() {
         <SignUpForm redirect={redirect} />
       </Unauthenticated>
       <AuthLoading>
-        <div className="flex min-h-screen items-center justify-center">
-          <Loader />
-        </div>
+        <CenteredSkeleton />
       </AuthLoading>
     </>
   );
@@ -39,7 +37,7 @@ function SignUpContent() {
 
 export default function SignUpPage() {
   return (
-    <Suspense fallback={<Loader />}>
+    <Suspense fallback={<CenteredSkeleton />}>
       <SignUpContent />
     </Suspense>
   );
@@ -123,9 +121,5 @@ function RedirectToOrgs({
     processPendingInvitation,
   ]);
 
-  return (
-    <div className="flex min-h-screen items-center justify-center">
-      <Loader />
-    </div>
-  );
+  return <CenteredSkeleton />;
 }

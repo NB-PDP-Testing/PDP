@@ -3,7 +3,7 @@
 import { Heart } from "lucide-react";
 import { useParams } from "next/navigation";
 import { Suspense } from "react";
-import Loader from "@/components/loader";
+import { PageSkeleton } from "@/components/loading";
 import { useGuardianChildrenInOrg } from "@/hooks/use-guardian-identity";
 import { authClient } from "@/lib/auth-client";
 import { MedicalInfo } from "../components/medical-info";
@@ -19,11 +19,7 @@ function MedicalPageContent() {
   );
 
   if (isLoading) {
-    return (
-      <div className="flex min-h-[400px] items-center justify-center">
-        <Loader />
-      </div>
-    );
+    return <PageSkeleton variant="detail" />;
   }
 
   return (
@@ -49,7 +45,7 @@ function MedicalPageContent() {
 
 export default function MedicalPage() {
   return (
-    <Suspense fallback={<Loader />}>
+    <Suspense fallback={<PageSkeleton variant="detail" />}>
       <MedicalPageContent />
     </Suspense>
   );

@@ -1632,3 +1632,56 @@ export const getAllCoachesWithAccessStatus = query({
     return coachStatuses;
   },
 });
+
+/**
+ * Get coach's org-specific preferences for notification polling
+ * Used by coach to detect when admin grants/revokes rights or blocks access
+ */
+export const getCoachOrgPreferences = query({
+  args: {
+    coachId: v.string(),
+    organizationId: v.string(),
+  },
+  returns: v.union(
+    v.object({
+      aiControlRightsEnabled: v.optional(v.boolean()),
+      grantedBy: v.optional(v.string()),
+      grantedAt: v.optional(v.number()),
+      grantNote: v.optional(v.string()),
+      revokedBy: v.optional(v.string()),
+      revokedAt: v.optional(v.number()),
+      revokeReason: v.optional(v.string()),
+      adminBlockedFromAI: v.optional(v.boolean()),
+      blockReason: v.optional(v.string()),
+      blockedBy: v.optional(v.string()),
+      blockedAt: v.optional(v.number()),
+    }),
+    v.null()
+  ),
+  handler: async (ctx, args) => {
+    const coachPref = await ctx.db
+      .query("coachOrgPreferences")
+      .withIndex("by_coach_org", (q) =>
+        q.eq("coachId", args.coachId).eq("organizationId", args.organizationId)
+      )
+      .first();
+
+    if (!coachPref) {
+      return null;
+    }
+
+    return {
+      aiControlRightsEnabled: coachPref.aiControlRightsEnabled,
+      grantedBy: coachPref.grantedBy,
+      grantedAt: coachPref.grantedAt,
+      grantNote: coachPref.grantNote,
+      revokedBy: coachPref.revokedBy,
+      revokedAt: coachPref.revokedAt,
+      revokeReason: coachPref.revokeReason,
+      adminBlockedFromAI: coachPref.adminBlockedFromAI,
+      blockReason: coachPref.blockReason,
+      blockedBy: coachPref.blockedBy,
+      blockedAt: coachPref.blockedAt,
+    };
+  },
+});

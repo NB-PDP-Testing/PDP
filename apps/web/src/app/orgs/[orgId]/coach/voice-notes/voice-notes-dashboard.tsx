@@ -19,7 +19,7 @@ import {
   Users,
 } from "lucide-react";
 import { useParams, useRouter, useSearchParams } from "next/navigation";
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import { toast } from "sonner";
 import { DegradationBanner } from "@/components/coach/degradation-banner";
 import { TrustLevelIcon } from "@/components/coach/trust-level-icon";
@@ -120,6 +120,12 @@ export function VoiceNotesDashboard() {
     coachId && orgId ? { coachId, organizationId: orgId } : "skip"
   );
 
+  // P8 Week 1.5: Poll coach preferences for admin actions (grant/revoke/block notifications)
+  const coachPref = useQuery(
+    api.models.trustGatePermissions.getCoachOrgPreferences,
+    coachId && orgId ? { coachId, organizationId: orgId } : "skip"
+  );
+
   // Mutations for self-service access control
   const toggleAIControlRights = useMutation(
     api.models.trustGatePermissions.toggleCoachAIControlRights
@@ -194,6 +200,64 @@ export function VoiceNotesDashboard() {
       return () => clearTimeout(timer);
     }
   }, [coachId]);
+
+  // P8 Week 1.5: Notification polling - detect admin grant/revoke/block actions
+  const prevGrantedAt = useRef<number | undefined>(undefined);
+  const prevRevokedAt = useRef<number | undefined>(undefined);
+  const prevBlockedStatus = useRef<boolean | undefined>(undefined);
+
+  useEffect(() => {
+    if (!coachPref) {
+      return;
+    }
+
+    const now = Date.now();
+    const NOTIFICATION_WINDOW = 10_000; // 10 seconds
+
+    // Detect grant (new grantedAt timestamp)
+    if (
+      coachPref.grantedAt &&
+      prevGrantedAt.current !== coachPref.grantedAt &&
+      now - coachPref.grantedAt < NOTIFICATION_WINDOW
+    ) {
+      toast.success("🎉 AI Control Rights Granted!", {
+        description:
+          coachPref.grantNote ||
+          "You can now control AI automation settings in the Settings tab",
+        duration: 8000,
+      });
+    }
+
+    // Detect revoke (new revokedAt timestamp)
+    if (
+      coachPref.revokedAt &&
+      prevRevokedAt.current !== coachPref.revokedAt &&
+      now - coachPref.revokedAt < NOTIFICATION_WINDOW
+    ) {
+      toast.warning("AI Control Rights Revoked", {
+        description:
+          coachPref.revokeReason ||
+          "Your admin has removed your control permissions",
+        duration: 8000,
+      });
+    }
+
+    // Detect block (status changed to blocked)
+    const isBlocked = coachPref.adminBlockedFromAI === true;
+    if (prevBlockedStatus.current === false && isBlocked) {
+      toast.error("AI Automation Blocked", {
+        description:
+          coachPref.blockReason ||
+          "Your admin has blocked your access to AI features",
+        duration: 10_000,
+      });
+    }
+
+    // Update refs for next comparison
+    prevGrantedAt.current = coachPref.grantedAt;
+    prevRevokedAt.current = coachPref.revokedAt;
+    prevBlockedStatus.current = isBlocked;
+  }, [coachPref]);
 
   const handleCloseHelpDialog = (open: boolean) => {
     setShowHelpDialog(open);

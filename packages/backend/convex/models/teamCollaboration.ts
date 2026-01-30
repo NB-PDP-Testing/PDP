@@ -439,6 +439,114 @@ export const getCoachesForMentions = query({
 });
 
 /**
+ * Get smart coach mentions with contextual ranking
+ * Ranks coaches based on insight context (category, player, team)
+ */
+export const getSmartCoachMentions = query({
+  args: {
+    organizationId: v.string(),
+    insightCategory: v.optional(v.string()),
+    playerIdentityId: v.optional(v.id("playerIdentities")),
+    teamId: v.optional(v.string()),
+  },
+  returns: v.array(
+    v.object({
+      userId: v.string(),
+      name: v.string(),
+      avatar: v.optional(v.string()),
+      role: v.optional(v.string()),
+      relevanceScore: v.number(), // For sorting: higher = more relevant
+    })
+  ),
+  handler: async (ctx, args) => {
+    // Get all coach members for this organization
+    const membersResult = await ctx.runQuery(
+      components.betterAuth.adapter.findMany,
+      {
+        model: "member",
+        paginationOpts: {
+          cursor: null,
+          numItems: 1000,
+        },
+        where: [
+          {
+            field: "organizationId",
+            value: args.organizationId,
+            operator: "eq",
+          },
+        ],
+      }
+    );
+
+    const coachMembers = membersResult.data.filter((member: any) =>
+      member.functionalRoles?.includes("Coach")
+    );
+
+    // Enrich with user data using Better Auth adapter
+    const uniqueUserIds = [
+      ...new Set(coachMembers.map((m: any) => m.userId as string)),
+    ];
+
+    const usersData = await Promise.all(
+      uniqueUserIds.map((userId) =>
+        ctx.runQuery(components.betterAuth.adapter.findOne, {
+          model: "user",
+          where: [{ field: "_id", value: userId as any, operator: "eq" }],
+        })
+      )
+    );
+
+    // Create user lookup map
+    const userMap = new Map();
+    for (const user of usersData) {
+      if (user) {
+        userMap.set(user._id, user);
+      }
+    }
+
+    // Build coach list with relevance scores
+    const coaches = coachMembers.map((member: any) => {
+      const user = userMap.get(member.userId);
+      let relevanceScore = 0;
+
+      // Base score: alphabetical (small weight)
+      const name = user
+        ? `${user.firstName || ""} ${user.lastName || ""}`.trim() ||
+          "Unknown User"
+        : "Unknown User";
+      relevanceScore = 1000 - name.toLowerCase().charCodeAt(0);
+
+      // Context match: injury category → medical/first-aid role
+      if (
+        (args.insightCategory === "injury" ||
+          args.insightCategory === "medical") &&
+        (member.activeFunctionalRole?.toLowerCase().includes("medical") ||
+          member.activeFunctionalRole?.toLowerCase().includes("first-aid"))
+      ) {
+        relevanceScore += 10_000; // High priority
+      }
+
+      // TODO: Add player observation history (requires coachAssignments/voiceNotes query)
+      // TODO: Add team coach assignments (requires team members query)
+
+      return {
+        userId: member.userId,
+        name,
+        avatar: user?.image || undefined,
+        role: member.activeFunctionalRole || "Coach",
+        relevanceScore,
+      };
+    });
+
+    // Sort by relevance score descending (most relevant first)
+    return coaches.sort(
+      (a: { relevanceScore: number }, b: { relevanceScore: number }) =>
+        b.relevanceScore - a.relevanceScore
+    );
+  },
+});
+
+/**
  * Get team activity feed with priority filtering
  * Returns chronological feed of team actions (newest first)
  */

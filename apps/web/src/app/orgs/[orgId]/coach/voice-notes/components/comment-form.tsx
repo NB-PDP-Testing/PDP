@@ -14,6 +14,9 @@ import { useCurrentUser } from "@/hooks/use-current-user";
 interface CommentFormProps {
   insightId: Id<"voiceNoteInsights">;
   organizationId: string;
+  insightCategory?: string; // For smart mention ranking
+  playerIdentityId?: Id<"playerIdentities">; // For contextual coach suggestions
+  teamId?: string; // For team coach filtering
 }
 
 interface Coach {
@@ -21,9 +24,16 @@ interface Coach {
   name: string;
   avatar?: string;
   role?: string;
+  relevanceScore?: number; // For smart mentions
 }
 
-export function CommentForm({ insightId, organizationId }: CommentFormProps) {
+export function CommentForm({
+  insightId,
+  organizationId,
+  insightCategory,
+  playerIdentityId,
+  teamId,
+}: CommentFormProps) {
   const user = useCurrentUser();
   const [content, setContent] = useState("");
   const [isSubmitting, setIsSubmitting] = useState(false);
@@ -35,9 +45,14 @@ export function CommentForm({ insightId, organizationId }: CommentFormProps) {
   const dropdownRef = useRef<HTMLDivElement>(null);
   const addComment = useMutation(api.models.teamCollaboration.addComment);
 
-  // Fetch coaches for mentions
-  const coaches = useQuery(api.models.teamCollaboration.getCoachesForMentions, {
+  // Fetch coaches for mentions with smart ranking
+  // When context (category/player/team) is provided, ranking is contextual
+  // When no context, falls back to alphabetical sorting
+  const coaches = useQuery(api.models.teamCollaboration.getSmartCoachMentions, {
     organizationId,
+    insightCategory,
+    playerIdentityId,
+    teamId,
   });
 
   // Filter coaches based on mention query

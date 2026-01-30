@@ -18,8 +18,8 @@ import {
   Send,
   Users,
 } from "lucide-react";
-import { useParams, useRouter } from "next/navigation";
-import { useEffect, useMemo, useState } from "react";
+import { useParams, useRouter, useSearchParams } from "next/navigation";
+import { useEffect, useMemo, useRef, useState } from "react";
 import { toast } from "sonner";
 import { DegradationBanner } from "@/components/coach/degradation-banner";
 import { TrustLevelIcon } from "@/components/coach/trust-level-icon";
@@ -71,11 +71,15 @@ type TabId =
 export function VoiceNotesDashboard() {
   const params = useParams();
   const router = useRouter();
+  const searchParams = useSearchParams();
   const orgId = params.orgId as BetterAuthId<"organization">;
   const { data: session } = useSession();
 
   // Get coach ID from session (use id as fallback if userId is null)
   const coachId = session?.user?.userId || session?.user?.id;
+
+  // Check for deep link noteId parameter
+  const noteIdParam = searchParams.get("noteId");
 
   const [activeTab, setActiveTab] = useState<TabId>("new");
   const [successMessage, setSuccessMessage] = useState<string | null>(null);
@@ -116,9 +120,15 @@ export function VoiceNotesDashboard() {
     coachId && orgId ? { coachId, organizationId: orgId } : "skip"
   );
 
+  // P8 Week 1.5: Poll coach preferences for admin actions (grant/revoke/block notifications)
+  const coachPref = useQuery(
+    api.models.trustGatePermissions.getCoachOrgPreferences,
+    coachId && orgId ? { coachId, organizationId: orgId } : "skip"
+  );
+
   // Mutations for self-service access control
-  const toggleParentAccess = useMutation(
-    api.models.trustGatePermissions.toggleCoachParentAccess
+  const toggleAIControlRights = useMutation(
+    api.models.trustGatePermissions.toggleCoachAIControlRights
   );
   const requestOverride = useMutation(
     api.models.trustGatePermissions.requestCoachOverride
@@ -190,6 +200,64 @@ export function VoiceNotesDashboard() {
       return () => clearTimeout(timer);
     }
   }, [coachId]);
+
+  // P8 Week 1.5: Notification polling - detect admin grant/revoke/block actions
+  const prevGrantedAt = useRef<number | undefined>(undefined);
+  const prevRevokedAt = useRef<number | undefined>(undefined);
+  const prevBlockedStatus = useRef<boolean | undefined>(undefined);
+
+  useEffect(() => {
+    if (!coachPref) {
+      return;
+    }
+
+    const now = Date.now();
+    const NOTIFICATION_WINDOW = 10_000; // 10 seconds
+
+    // Detect grant (new grantedAt timestamp)
+    if (
+      coachPref.grantedAt &&
+      prevGrantedAt.current !== coachPref.grantedAt &&
+      now - coachPref.grantedAt < NOTIFICATION_WINDOW
+    ) {
+      toast.success("🎉 AI Control Rights Granted!", {
+        description:
+          coachPref.grantNote ||
+          "You can now control AI automation settings in the Settings tab",
+        duration: 8000,
+      });
+    }
+
+    // Detect revoke (new revokedAt timestamp)
+    if (
+      coachPref.revokedAt &&
+      prevRevokedAt.current !== coachPref.revokedAt &&
+      now - coachPref.revokedAt < NOTIFICATION_WINDOW
+    ) {
+      toast.warning("AI Control Rights Revoked", {
+        description:
+          coachPref.revokeReason ||
+          "Your admin has removed your control permissions",
+        duration: 8000,
+      });
+    }
+
+    // Detect block (status changed to blocked)
+    const isBlocked = coachPref.adminBlockedFromAI === true;
+    if (prevBlockedStatus.current === false && isBlocked) {
+      toast.error("AI Automation Blocked", {
+        description:
+          coachPref.blockReason ||
+          "Your admin has blocked your access to AI features",
+        duration: 10_000,
+      });
+    }
+
+    // Update refs for next comparison
+    prevGrantedAt.current = coachPref.grantedAt;
+    prevRevokedAt.current = coachPref.revokedAt;
+    prevBlockedStatus.current = isBlocked;
+  }, [coachPref]);
 
   const handleCloseHelpDialog = (open: boolean) => {
     setShowHelpDialog(open);
@@ -269,8 +337,8 @@ export function VoiceNotesDashboard() {
       }
 
       // Enable access
-      await toggleParentAccess({ organizationId: orgId, enabled: true });
-      toast.success("Parent communication access enabled");
+      await toggleAIControlRights({ organizationId: orgId, enabled: true });
+      toast.success("AI automation access enabled");
     } catch (error) {
       console.error("Error toggling access:", error);
       toast.error("Failed to toggle access. Please try again.");
@@ -286,8 +354,8 @@ export function VoiceNotesDashboard() {
 
     try {
       setIsTogglingAccess(true);
-      await toggleParentAccess({ organizationId: orgId, enabled: false });
-      toast.success("Parent communication access disabled");
+      await toggleAIControlRights({ organizationId: orgId, enabled: false });
+      toast.success("AI automation access disabled");
       setShowToggleOffDialog(false);
 
       // Switch to different tab since this tab will hide
@@ -310,8 +378,7 @@ export function VoiceNotesDashboard() {
       await requestOverride({
         coachId,
         organizationId: orgId,
-        reason:
-          requestReason || "Requesting access to parent communication features",
+        reason: requestReason || "Requesting access to AI automation features",
       });
       toast.success(
         "Access request submitted. Your admin will review it shortly."
@@ -417,6 +484,13 @@ export function VoiceNotesDashboard() {
       setActiveTab("new");
     }
   }, [tabs, activeTab]);
+
+  // US-P8-015: Auto-switch to History tab when deep linking to a specific note
+  useEffect(() => {
+    if (noteIdParam && activeTab !== "history") {
+      setActiveTab("history");
+    }
+  }, [noteIdParam, activeTab]);
 
   return (
     <div className="flex min-h-[calc(100vh-4rem)] flex-col">
@@ -699,6 +773,7 @@ export function VoiceNotesDashboard() {
         )}
         {activeTab === "history" && (
           <HistoryTab
+            highlightNoteId={noteIdParam || undefined}
             onError={showErrorMessage}
             onSuccess={showSuccessMessage}
             orgId={orgId}
@@ -764,7 +839,7 @@ export function VoiceNotesDashboard() {
               className="w-full rounded-md border border-gray-300 p-2 text-sm"
               id="request-reason"
               onChange={(e) => setRequestReason(e.target.value)}
-              placeholder="Why do you need access to parent communication features?"
+              placeholder="Why do you need access to AI automation features?"
               rows={3}
               value={requestReason}
             />

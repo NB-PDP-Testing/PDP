@@ -23,6 +23,7 @@ import { Input } from "@/components/ui/input";
 import { cn } from "@/lib/utils";
 
 type SkillChange = {
+  insightId: Id<"autoAppliedInsights">; // Unique ID for React keys
   playerName: string;
   playerIdentityId: Id<"playerIdentities">;
   description: string;
@@ -241,7 +242,7 @@ export function AppliedInsightsSection({
               ) : (
                 <>
                   {filteredSkills.slice(0, 5).map((skill) => (
-                    <Card key={skill.targetRecordId}>
+                    <Card key={skill.insightId}>
                       <CardContent className="p-4">
                         <div className="flex items-start justify-between">
                           <div className="flex-1">
@@ -256,10 +257,10 @@ export function AppliedInsightsSection({
                             </p>
                           </div>
                           <Link
-                            href={`/orgs/${orgId}/players/${skill.playerIdentityId}/passport?tab=skills`}
+                            href={`/orgs/${orgId}/players/${skill.playerIdentityId}?tab=skills`}
                           >
                             <Button size="sm" variant="ghost">
-                              View in Passport →
+                              View in {skill.playerName}'s Passport →
                             </Button>
                           </Link>
                         </div>
@@ -334,10 +335,10 @@ export function AppliedInsightsSection({
                             </p>
                           </div>
                           <Link
-                            href={`/orgs/${orgId}/players/${injury.playerIdentityId}/passport?tab=health`}
+                            href={`/orgs/${orgId}/players/${injury.playerIdentityId}?tab=health`}
                           >
                             <Button size="sm" variant="ghost">
-                              View in Passport →
+                              View in {injury.playerName}'s Passport →
                             </Button>
                           </Link>
                         </div>

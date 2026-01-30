@@ -1425,6 +1425,10 @@ export const updateInsightContent = mutation({
         description: args.description ?? voiceNoteInsight.description,
         recommendedUpdate:
           args.recommendedUpdate ?? voiceNoteInsight.recommendedUpdate,
+        // AI Accuracy Tracking (Phase 7.3): Track that coach edited AI-generated content
+        wasManuallyCorrected: true,
+        manuallyCorrectedAt: Date.now(),
+        correctionType: "content_edited",
         updatedAt: Date.now(),
       });
 
@@ -1632,6 +1636,12 @@ export const classifyInsight = mutation({
       .first();
 
     if (voiceNoteInsight && voiceNoteInsight.status === "pending") {
+      // Determine correction type based on category
+      const correctionType =
+        args.category === "team_culture"
+          ? ("team_classified" as const)
+          : ("todo_classified" as const);
+
       // Update the voiceNoteInsights record with new category info
       await ctx.db.patch(voiceNoteInsight._id, {
         category: args.category,
@@ -1639,6 +1649,10 @@ export const classifyInsight = mutation({
         teamName: args.teamName,
         assigneeUserId: args.assigneeUserId,
         assigneeName: args.assigneeName,
+        // AI Accuracy Tracking (Phase 7.3): Track that coach reclassified insight
+        wasManuallyCorrected: true,
+        manuallyCorrectedAt: Date.now(),
+        correctionType,
         updatedAt: Date.now(),
       });
 
@@ -1876,6 +1890,10 @@ export const assignPlayerToInsight = mutation({
         title: correctedTitle,
         description: correctedDescription,
         recommendedUpdate: correctedRecommendedUpdate,
+        // AI Accuracy Tracking (Phase 7.3): Track that coach had to assign/correct player
+        wasManuallyCorrected: true,
+        manuallyCorrectedAt: Date.now(),
+        correctionType: "player_assigned",
         updatedAt: Date.now(),
       });
 
@@ -2074,6 +2092,7 @@ export const getCoachImpactSummary = query({
     // Detailed arrays
     skillChanges: v.array(
       v.object({
+        insightId: v.id("autoAppliedInsights"), // Unique ID for React keys
         playerName: v.string(),
         playerIdentityId: v.id("playerIdentities"),
         description: v.string(),
@@ -2130,6 +2149,14 @@ export const getCoachImpactSummary = query({
         week: v.string(),
         sent: v.number(),
         viewed: v.number(),
+      })
+    ),
+    previousPeriodStats: v.optional(
+      v.object({
+        voiceNotesCreated: v.number(),
+        insightsApplied: v.number(),
+        summariesSent: v.number(),
+        parentViewRate: v.number(),
       })
     ),
   }),
@@ -2225,12 +2252,20 @@ export const getCoachImpactSummary = query({
           const playerIdentity = await ctx.db.get(insight.playerIdentityId);
 
           // Parse previous and new values to create description
-          const prevValue = JSON.parse(insight.previousValue || "{}");
-          const newValue = JSON.parse(insight.newValue || "{}");
+          // Handle "none" case which is not valid JSON
+          const prevValue =
+            insight.previousValue === "none" || !insight.previousValue
+              ? {}
+              : JSON.parse(insight.previousValue);
+          const newValue =
+            insight.newValue === "none" || !insight.newValue
+              ? {}
+              : JSON.parse(insight.newValue);
           const skillName = newValue.skillName || "Unknown Skill";
           const description = `${skillName}: ${prevValue.rating || "?"} → ${newValue.rating || "?"}`;
 
           return {
+            insightId: insight._id, // Unique ID for React keys
             playerName:
               playerIdentity?.firstName && playerIdentity?.lastName
                 ? `${playerIdentity.firstName} ${playerIdentity.lastName}`
@@ -2382,6 +2417,47 @@ export const getCoachImpactSummary = query({
       });
     }
 
+    // 10. Previous period stats for comparison (US-P8-019)
+    const rangeDuration = dateRange.end - dateRange.start;
+    const previousPeriodStart = dateRange.start - rangeDuration;
+    const previousPeriodEnd = dateRange.start;
+
+    const previousVoiceNotes = allVoiceNotes.filter(
+      (note) =>
+        note._creationTime >= previousPeriodStart &&
+        note._creationTime < previousPeriodEnd
+    );
+
+    const previousInsights = allInsights.filter(
+      (insight) =>
+        insight._creationTime >= previousPeriodStart &&
+        insight._creationTime < previousPeriodEnd
+    );
+
+    const previousApplied = previousInsights.filter(
+      (i) => i.status === "applied"
+    ).length;
+
+    const previousSummaries = allSummaries.filter(
+      (s) =>
+        s.deliveredAt &&
+        s.deliveredAt >= previousPeriodStart &&
+        s.deliveredAt < previousPeriodEnd
+    );
+
+    const previousViewed = previousSummaries.filter((s) => s.viewedAt).length;
+    const previousViewRate =
+      previousSummaries.length === 0
+        ? 0
+        : (previousViewed / previousSummaries.length) * 100;
+
+    const previousPeriodStats = {
+      voiceNotesCreated: previousVoiceNotes.length,
+      insightsApplied: previousApplied,
+      summariesSent: previousSummaries.length,
+      parentViewRate: previousViewRate,
+    };
+
     return {
       voiceNotesCreated,
       insightsApplied,
@@ -2396,6 +2472,7 @@ export const getCoachImpactSummary = query({
       teamObservations,
       parentEngagement,
       weeklyTrends,
+      previousPeriodStats,
     };
   },
 });

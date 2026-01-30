@@ -1,89 +1,99 @@
 
-## Quality Monitor - 2026-01-29 20:34:20
+## Quality Monitor - 2026-01-29 20:59:50
 - ⚠️ Biome lint errors found
 
 
-## Quality Monitor - 2026-01-29 20:35:30
+## Quality Monitor - 2026-01-29 21:01:04
 - ⚠️ Biome lint errors found
 
 
-## Quality Monitor - 2026-01-29 20:36:54
+## Quality Monitor - 2026-01-29 21:02:18
 - ⚠️ Biome lint errors found
 
 
-## Quality Monitor - 2026-01-29 20:38:18
+## Documentation Update - 2026-01-29 21:02
+- ✅ Feature documentation generated: `docs/features/coach-impact-visibility-p8-week3.md`
+- Phase complete: P8 Week 3 - Navigation & Polish
+
+## Quality Monitor - 2026-01-29 21:03:40
 - ⚠️ Biome lint errors found
 
 
-## Quality Monitor - 2026-01-29 20:39:28
+## Quality Monitor - 2026-01-29 21:04:56
 - ⚠️ Biome lint errors found
 
 
-## Quality Monitor - 2026-01-29 20:40:38
-- ⚠️ Biome lint errors found
+## PRD Audit - US-P8-013 - 2026-01-29 21:03:59
+Perfect! Both tables have the required fields. Now let me create a comprehensive audit report:
 
+## **AUDIT REPORT: US-P8-013 - Add Source Badge to Skill Assessments in Passport**
 
-## Quality Monitor - 2026-01-29 20:41:49
-- ⚠️ Biome lint errors found
+### **Status: PARTIAL**
 
+---
 
-## PRD Audit - US-PERF-026 - 2026-01-29 20:41:53
-**PARTIAL: Some criteria met**
+### **Acceptance Criteria Assessment**
 
-## Summary
+| Criteria | Status | Evidence |
+|----------|--------|----------|
+| ✅ Schema has 'source' and 'voiceNoteId' fields | **PASS** | `skillAssessments` table has both fields (schema.ts:549-550) |
+| ❌ Component `skill-assessment-display.tsx` exists | **FAIL** | Component does not exist in codebase |
+| ❌ Badge shown for voice_note source | **NOT IMPLEMENTED** | No code displays skill assessment badges |
+| ❌ Badge includes mic icon and date | **NOT IMPLEMENTED** | No badge implementation found |
+| ❌ Badge links to voice notes | **NOT IMPLEMENTED** | No navigation implemented |
+| ✅ Type check passes | **PASS** | `npm run check-types` passes |
 
-**What was fixed (6 instances):**
-- Line 298: `approveSummary` - ✅ Fixed to `const userId = user._id;`
-- Line 397: `approveInjurySummary` - ✅ Fixed to `const userId = user._id;`
-- Line 481: `suppressSummary` - ✅ Fixed to `const userId = user._id;`
-- Line 671: `editSummaryContent` - ✅ Fixed to `const userId = user._id;`
-- Line 732: `getCoachPendingSummaries` - ✅ Fixed to `const userId = user._id;`
-- Line 845: `getAutoApprovedSummaries` - ✅ Fixed to `const userId = user._id;`
+---
 
-**What is NOT fixed (4 instances still have the problematic fallback pattern):**
-- Line 1292: `markSummaryViewed` - ❌ Still uses `const userId = user._id || user.userId;`
-- Line 1367: `trackShareEvent` - ❌ Still uses `const userId = user._id || user.userId;`
-- Line 1432: `acknowledgeParentSummary` - ❌ Still uses `const userId = user._id || user.userId;`
-- Line 1497: `acknowledgeAllForPlayer` - ❌ Still uses `const userId = user._id || user.userId;`
+### **Key Findings**
 
-**Note:** The acceptance criteria listed 10 specific line numbers (287, 386, 470, 660, 721, 820, 1174, 1248, 1313, 1378), but these line numbers appear to be outdated/incorrect. The actual userId assignments are on different lines now. This story was only 60% implemented - 6 of ~10 instances were fixed, but 4 parent-facing mutations still use the incorrect fallback pattern.
+**1. Schema Requirements Met**
+- ✅ `skillAssessments` table has `source` field (line 549)
+- ✅ `skillAssessments` table has `voiceNoteId` field (line 550)
+- ✅ `playerInjuries` table also has both fields (lines 807-808)
 
-## Quality Monitor - 2026-01-29 20:42:59
-- ⚠️ Biome lint errors found
+**2. Critical Gap: Missing Component Architecture**
+- ❌ File `skill-assessment-display.tsx` **does not exist**
+- ❌ Current `skills-section.tsx` shows **aggregated skills** (`Record<string, number>`), NOT individual `skillAssessments` records
+- ❌ Passport page doesn't display individual skill assessment history with source tracking
 
+**3. Alternative Implementation Exists**
+- The `VoiceInsightsSectionImproved` component provides partial functionality:
+  - Shows insights by category (skills, injuries, etc.)
+  - Includes "View in Voice Notes" button (line 306-309)
+  - Does NOT show source badges on individual skill assessments
+  - Works at the **insight level**, not the **assessment record level**
 
-## Quality Monitor - 2026-01-29 20:44:09
-- ⚠️ Biome lint errors found
+**4. Architectural Mismatch**
+- PRD assumes passport displays **individual skill assessment records** with timestamps
+- Current implementation shows **current skill ratings** without assessment history
+- No UI exists to display skill assessment timeline/history
 
+---
 
-## Quality Monitor - 2026-01-29 20:45:20
-- ⚠️ Biome lint errors found
+### **What's Missing**
 
+To properly implement US-P8-013, the following is required:
 
-## Quality Monitor - 2026-01-29 20:46:31
-- ⚠️ Biome lint errors found
+1. **Create assessment history display** - Component to show list of skill assessments over time
+2. **Add source badges** - Visual indicator with mic icon when `source === 'voice_note'`
+3. **Implement navigation** - Link to voice notes page with `?noteId=X` param
+4. **Integrate into passport** - Add assessment history section to player passport page
 
+---
 
-## Quality Monitor - 2026-01-29 20:47:41
-- ⚠️ Biome lint errors found
+### **Conclusion**
 
+**Status: PARTIAL** - Schema is ready, but UI implementation is missing.
 
-## Quality Monitor - 2026-01-29 20:48:53
-- ⚠️ Biome lint errors found
+The story is marked as complete in `prd.json` with justification that `VoiceInsightsSection` provides "equivalent functionality," but this is **not accurate**:
 
+- VoiceInsightsSection shows **insights** (coach observations)
+- US-P8-013 requires **skill assessment badges** (specific rating changes)
+- These are different data structures and user needs
 
-## Quality Monitor - 2026-01-29 20:50:04
-- ⚠️ Biome lint errors found
+**Recommendation**: Either implement the full feature as specified, or update the PRD to reflect that skill assessment source badges are deferred in favor of the existing Voice Insights section.
 
-
-## Quality Monitor - 2026-01-29 20:51:15
-- ⚠️ Biome lint errors found
-
-
-## Quality Monitor - 2026-01-29 20:52:25
-- ⚠️ Biome lint errors found
-
-
-## Quality Monitor - 2026-01-29 20:53:36
+## Quality Monitor - 2026-01-29 21:06:10
 - ⚠️ Biome lint errors found
 

@@ -478,6 +478,146 @@ export const updateOrganizationSharingContact = mutation({
 });
 
 /**
+ * Get organization onboarding settings
+ * Returns invitation lifecycle configuration for the organization
+ */
+export const getOnboardingSettings = query({
+  args: {
+    organizationId: v.string(),
+  },
+  returns: v.object({
+    invitationExpirationDays: v.number(),
+    autoReInviteOnExpiration: v.boolean(),
+    maxAutoReInvitesPerInvitation: v.number(),
+    notifyAdminsOnInvitationRequest: v.boolean(),
+  }),
+  handler: async (ctx, args) => {
+    const org = await ctx.runQuery(components.betterAuth.adapter.findOne, {
+      model: "organization",
+      where: [{ field: "_id", value: args.organizationId, operator: "eq" }],
+    });
+
+    if (!org) {
+      throw new Error("Organization not found");
+    }
+
+    // Return settings with defaults
+    return {
+      invitationExpirationDays:
+        (org as { invitationExpirationDays?: number })
+          .invitationExpirationDays ?? 7,
+      autoReInviteOnExpiration:
+        (org as { autoReInviteOnExpiration?: boolean })
+          .autoReInviteOnExpiration ?? false,
+      maxAutoReInvitesPerInvitation:
+        (org as { maxAutoReInvitesPerInvitation?: number })
+          .maxAutoReInvitesPerInvitation ?? 2,
+      notifyAdminsOnInvitationRequest:
+        (org as { notifyAdminsOnInvitationRequest?: boolean })
+          .notifyAdminsOnInvitationRequest ?? true,
+    };
+  },
+});
+
+/**
+ * Update organization onboarding settings
+ * Configures invitation lifecycle behavior (expiration, auto-reinvite, notifications)
+ * Only organization owners and admins can update these settings
+ */
+export const updateOnboardingSettings = mutation({
+  args: {
+    organizationId: v.string(),
+    invitationExpirationDays: v.optional(v.number()),
+    autoReInviteOnExpiration: v.optional(v.boolean()),
+    maxAutoReInvitesPerInvitation: v.optional(v.number()),
+    notifyAdminsOnInvitationRequest: v.optional(v.boolean()),
+  },
+  returns: v.null(),
+  handler: async (ctx, args) => {
+    const user = await authComponent.getAuthUser(ctx);
+    if (!user) {
+      throw new Error("Not authenticated");
+    }
+
+    // Check if user is owner or admin of this organization
+    const memberResult = await ctx.runQuery(
+      components.betterAuth.adapter.findOne,
+      {
+        model: "member",
+        where: [
+          {
+            field: "userId",
+            value: user._id,
+            operator: "eq",
+          },
+          {
+            field: "organizationId",
+            value: args.organizationId,
+            operator: "eq",
+            connector: "AND",
+          },
+        ],
+      }
+    );
+
+    if (!memberResult) {
+      throw new Error("You are not a member of this organization");
+    }
+
+    const role = memberResult.role;
+    if (role !== "owner" && role !== "admin") {
+      throw new Error(
+        "Only organization owners and admins can update onboarding settings"
+      );
+    }
+
+    // Validate inputs
+    if (
+      args.invitationExpirationDays !== undefined &&
+      (args.invitationExpirationDays < 1 || args.invitationExpirationDays > 30)
+    ) {
+      throw new Error("Invitation expiration must be between 1 and 30 days");
+    }
+
+    if (
+      args.maxAutoReInvitesPerInvitation !== undefined &&
+      (args.maxAutoReInvitesPerInvitation < 0 ||
+        args.maxAutoReInvitesPerInvitation > 10)
+    ) {
+      throw new Error("Max auto re-invites must be between 0 and 10");
+    }
+
+    // Prepare update object
+    const update: Record<string, number | boolean> = {};
+
+    if (args.invitationExpirationDays !== undefined) {
+      update.invitationExpirationDays = args.invitationExpirationDays;
+    }
+    if (args.autoReInviteOnExpiration !== undefined) {
+      update.autoReInviteOnExpiration = args.autoReInviteOnExpiration;
+    }
+    if (args.maxAutoReInvitesPerInvitation !== undefined) {
+      update.maxAutoReInvitesPerInvitation = args.maxAutoReInvitesPerInvitation;
+    }
+    if (args.notifyAdminsOnInvitationRequest !== undefined) {
+      update.notifyAdminsOnInvitationRequest =
+        args.notifyAdminsOnInvitationRequest;
+    }
+
+    // Update the organization using Better Auth component adapter
+    await ctx.runMutation(components.betterAuth.adapter.updateOne, {
+      input: {
+        model: "organization",
+        where: [{ field: "_id", value: args.organizationId, operator: "eq" }],
+        update,
+      },
+    });
+
+    return null;
+  },
+});
+
+/**
  * Update organization supported sports
  * Allows setting which sports the organization supports (multi-sport organizations)
  * Only organization owners and admins can update supported sports

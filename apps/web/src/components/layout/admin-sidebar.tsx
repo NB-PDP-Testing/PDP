@@ -10,10 +10,12 @@ import {
   ClipboardList,
   Flag,
   GraduationCap,
+  Heart,
   Home,
   Inbox,
   Key,
   LineChart,
+  Mail,
   Megaphone,
   Menu,
   MessageSquare,
@@ -24,8 +26,10 @@ import {
   ShieldAlert,
   Upload,
   UserCheck,
+  UserPlus,
   Users,
   UsersRound,
+  UserX,
   Wrench,
 } from "lucide-react";
 import type { Route } from "next";
@@ -98,6 +102,21 @@ export function getAdminNavGroups(
           href: `/orgs/${orgId}/admin/users/approvals`,
           label: "Approvals",
           icon: UserCheck,
+        },
+        {
+          href: `/orgs/${orgId}/admin/invitations`,
+          label: "Invitations",
+          icon: Mail,
+        },
+        {
+          href: `/orgs/${orgId}/admin/unclaimed-guardians`,
+          label: "Unclaimed Guardians",
+          icon: UserX,
+        },
+        {
+          href: `/orgs/${orgId}/admin/medical`,
+          label: "Medical",
+          icon: Heart,
         },
       ],
     },
@@ -192,6 +211,11 @@ export function getAdminNavGroups(
           href: `/orgs/${orgId}/admin/settings/features`,
           label: "Feature Flags",
           icon: Flag,
+        },
+        {
+          href: `/orgs/${orgId}/admin/settings/onboarding`,
+          label: "Onboarding",
+          icon: UserPlus,
         },
         {
           href: `/orgs/${orgId}/admin/messaging`,

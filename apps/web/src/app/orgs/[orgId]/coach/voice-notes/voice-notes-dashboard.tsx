@@ -338,7 +338,7 @@ export function VoiceNotesDashboard() {
 
       // Enable access
       await toggleAIControlRights({ organizationId: orgId, enabled: true });
-      toast.success("Parent communication access enabled");
+      toast.success("AI automation access enabled");
     } catch (error) {
       console.error("Error toggling access:", error);
       toast.error("Failed to toggle access. Please try again.");
@@ -355,7 +355,7 @@ export function VoiceNotesDashboard() {
     try {
       setIsTogglingAccess(true);
       await toggleAIControlRights({ organizationId: orgId, enabled: false });
-      toast.success("Parent communication access disabled");
+      toast.success("AI automation access disabled");
       setShowToggleOffDialog(false);
 
       // Switch to different tab since this tab will hide
@@ -378,8 +378,7 @@ export function VoiceNotesDashboard() {
       await requestOverride({
         coachId,
         organizationId: orgId,
-        reason:
-          requestReason || "Requesting access to parent communication features",
+        reason: requestReason || "Requesting access to AI automation features",
       });
       toast.success(
         "Access request submitted. Your admin will review it shortly."
@@ -840,7 +839,7 @@ export function VoiceNotesDashboard() {
               className="w-full rounded-md border border-gray-300 p-2 text-sm"
               id="request-reason"
               onChange={(e) => setRequestReason(e.target.value)}
-              placeholder="Why do you need access to parent communication features?"
+              placeholder="Why do you need access to AI automation features?"
               rows={3}
               value={requestReason}
             />

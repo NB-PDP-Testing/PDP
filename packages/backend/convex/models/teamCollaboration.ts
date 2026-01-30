@@ -171,7 +171,7 @@ export const getInsightComments = query({
       uniqueUserIds.map((userId) =>
         ctx.runQuery(components.betterAuth.adapter.findOne, {
           model: "user",
-          where: [{ field: "_id", value: userId, operator: "eq" }],
+          where: [{ field: "_id", value: userId as any, operator: "eq" }],
         })
       )
     );
@@ -356,6 +356,85 @@ export const toggleReaction = mutation({
     });
 
     return { action: "added" as const };
+  },
+});
+
+/**
+ * Get coaches for @mention autocomplete
+ * Returns coaches with their name, avatar, and functional role
+ */
+export const getCoachesForMentions = query({
+  args: {
+    organizationId: v.string(),
+  },
+  returns: v.array(
+    v.object({
+      userId: v.string(),
+      name: v.string(),
+      avatar: v.optional(v.string()),
+      role: v.optional(v.string()),
+    })
+  ),
+  handler: async (ctx, args) => {
+    // Get all members for this organization
+    const membersResult = await ctx.runQuery(
+      components.betterAuth.adapter.findMany,
+      {
+        model: "member",
+        paginationOpts: {
+          cursor: null,
+          numItems: 1000,
+        },
+        where: [
+          {
+            field: "organizationId",
+            value: args.organizationId,
+            operator: "eq",
+          },
+        ],
+      }
+    );
+
+    // Filter to members with Coach functional role
+    const coachMembers = membersResult.data.filter((member: any) =>
+      member.functionalRoles?.includes("Coach")
+    );
+
+    // Enrich with user data using Better Auth adapter
+    const uniqueUserIds = [
+      ...new Set(coachMembers.map((m: any) => m.userId as string)),
+    ];
+
+    const usersData = await Promise.all(
+      uniqueUserIds.map((userId) =>
+        ctx.runQuery(components.betterAuth.adapter.findOne, {
+          model: "user",
+          where: [{ field: "_id", value: userId as any, operator: "eq" }],
+        })
+      )
+    );
+
+    // Create user lookup map
+    const userMap = new Map();
+    for (const user of usersData) {
+      if (user) {
+        userMap.set(user._id, user);
+      }
+    }
+
+    // Build coach list
+    return coachMembers.map((member: any) => {
+      const user = userMap.get(member.userId);
+      return {
+        userId: member.userId,
+        name: user
+          ? `${user.firstName || ""} ${user.lastName || ""}`.trim() ||
+            "Unknown User"
+          : "Unknown User",
+        avatar: user?.image || undefined,
+        role: member.activeFunctionalRole || "Coach",
+      };
+    });
   },
 });
 

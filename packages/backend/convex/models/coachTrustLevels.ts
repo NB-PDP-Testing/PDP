@@ -1281,3 +1281,68 @@ export const getPlatformAIAccuracy = query({
     };
   },
 });
+
+/**
+ * Set coach's preferred trust level.
+ *
+ * WITHOUT override: Coach can set preferredLevel from 0 up to their currentLevel (dial down)
+ * WITH override: Coach can set preferredLevel to 0-3 (any level)
+ */
+export const setPreferredTrustLevel = mutation({
+  args: {
+    preferredLevel: v.number(),
+    organizationId: v.string(), // Need to check if coach has override in this org
+  },
+  returns: v.null(),
+  handler: async (ctx, args) => {
+    // Get authenticated user
+    const user = await authComponent.safeGetAuthUser(ctx);
+    const coachId = user?.userId || user?._id;
+
+    if (!coachId) {
+      throw new Error("User not authenticated");
+    }
+
+    // Validate level is 0-3
+    if (args.preferredLevel < 0 || args.preferredLevel > 3) {
+      throw new Error("Preferred level must be between 0 and 3");
+    }
+
+    // Get or create trust level record
+    let trustRecord = await ctx.db
+      .query("coachTrustLevels")
+      .withIndex("by_coach", (q) => q.eq("coachId", coachId))
+      .first();
+
+    if (!trustRecord) {
+      trustRecord = await getOrCreateTrustLevelHelper(ctx, coachId);
+    }
+
+    // Check if coach has override in this org
+    const coachPref = await ctx.db
+      .query("coachOrgPreferences")
+      .withIndex("by_coach_org", (q) =>
+        q.eq("coachId", coachId).eq("organizationId", args.organizationId)
+      )
+      .first();
+
+    const hasOverride = coachPref?.trustGateOverride === true;
+
+    // Validation logic
+    // WITHOUT override: Can only dial down from current level
+    // WITH override: Can set to any level 0-3 (already validated above)
+    if (!hasOverride && args.preferredLevel > trustRecord.currentLevel) {
+      throw new Error(
+        `Without override, you can only set preferred level up to your current level (${trustRecord.currentLevel}). Request an override from your admin to access higher levels.`
+      );
+    }
+
+    // Update preferred level
+    await ctx.db.patch(trustRecord._id, {
+      preferredLevel: args.preferredLevel,
+      updatedAt: Date.now(),
+    });
+
+    return null;
+  },
+});

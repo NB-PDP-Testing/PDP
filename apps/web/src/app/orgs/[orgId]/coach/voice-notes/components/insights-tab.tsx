@@ -238,9 +238,13 @@ export function InsightsTab({ orgId, onSuccess, onError }: InsightsTabProps) {
   const toggleAIFeature = useMutation(
     api.models.trustGatePermissions.toggleAIFeatureSetting
   );
+  const setPreferredLevel = useMutation(
+    api.models.coachTrustLevels.setPreferredTrustLevel
+  );
 
   const [isBulkApplying, setIsBulkApplying] = useState(false);
   const [isTogglingFeature, setIsTogglingFeature] = useState(false);
+  const [isChangingTrustLevel, setIsChangingTrustLevel] = useState(false);
 
   const handleAssignPlayer = async (
     playerIdentityId: Id<"playerIdentities">
@@ -448,6 +452,24 @@ export function InsightsTab({ orgId, onSuccess, onError }: InsightsTabProps) {
       onError(error.message || "Failed to update setting");
     } finally {
       setIsTogglingFeature(false);
+    }
+  };
+
+  const handleChangePreferredLevel = async (level: number) => {
+    if (!orgId) {
+      return;
+    }
+    setIsChangingTrustLevel(true);
+    try {
+      await setPreferredLevel({
+        preferredLevel: level,
+        organizationId: orgId,
+      });
+      onSuccess(`Trust level set to Level ${level}`);
+    } catch (error: any) {
+      onError(error.message || "Failed to update trust level");
+    } finally {
+      setIsChangingTrustLevel(false);
     }
   };
 
@@ -1320,6 +1342,89 @@ export function InsightsTab({ orgId, onSuccess, onError }: InsightsTabProps) {
               </CardDescription>
             </CardHeader>
             <CardContent className="space-y-6">
+              {/* Trust Level Selector */}
+              {coachTrustLevel && (
+                <div className="rounded-lg border bg-muted/50 p-4">
+                  <div className="space-y-4">
+                    <div>
+                      <h4 className="font-medium text-sm">Trust Level</h4>
+                      <p className="mt-1 text-muted-foreground text-xs">
+                        {coachPref?.trustGateOverride
+                          ? "You have an override - you can set any level (0-3)"
+                          : `Your current level is ${coachTrustLevel.currentLevel} - you can set your preferred level up to this`}
+                      </p>
+                    </div>
+
+                    <div className="flex items-center gap-2">
+                      <span className="text-muted-foreground text-xs">
+                        Current:
+                      </span>
+                      <Badge variant="secondary">
+                        Level {coachTrustLevel.currentLevel}
+                      </Badge>
+                      {coachTrustLevel.preferredLevel !== undefined &&
+                        coachTrustLevel.preferredLevel !==
+                          coachTrustLevel.currentLevel && (
+                          <>
+                            <span className="text-muted-foreground text-xs">
+                              →
+                            </span>
+                            <Badge>
+                              Level {coachTrustLevel.preferredLevel} (Active)
+                            </Badge>
+                          </>
+                        )}
+                    </div>
+
+                    <div className="space-y-2">
+                      <Label className="text-xs">Set Preferred Level</Label>
+                      <RadioGroup
+                        disabled={isChangingTrustLevel}
+                        onValueChange={(value) =>
+                          handleChangePreferredLevel(Number.parseInt(value, 10))
+                        }
+                        value={String(
+                          coachTrustLevel.preferredLevel ??
+                            coachTrustLevel.currentLevel
+                        )}
+                      >
+                        {[0, 1, 2, 3].map((level) => {
+                          const isAvailable = coachPref?.trustGateOverride
+                            ? true
+                            : level <= coachTrustLevel.currentLevel;
+                          const isCurrentLevel =
+                            level === coachTrustLevel.currentLevel;
+
+                          return (
+                            <div
+                              className="flex items-center space-x-2"
+                              key={level}
+                            >
+                              <RadioGroupItem
+                                disabled={!isAvailable || isChangingTrustLevel}
+                                id={`level-${level}`}
+                                value={String(level)}
+                              />
+                              <Label
+                                className={cn(
+                                  "font-normal text-xs",
+                                  !isAvailable && "text-muted-foreground"
+                                )}
+                                htmlFor={`level-${level}`}
+                              >
+                                Level {level}
+                                {isCurrentLevel && " (Your earned level)"}
+                                {!isAvailable && " (Locked)"}
+                              </Label>
+                            </div>
+                          );
+                        })}
+                      </RadioGroup>
+                    </div>
+                  </div>
+                </div>
+              )}
+
               {coachPref?.aiControlRightsEnabled ? (
                 coachPref?.adminBlockedFromAI ? (
                   <div className="rounded-lg border border-destructive bg-destructive/10 p-4">

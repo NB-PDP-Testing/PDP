@@ -358,3 +358,133 @@ export const toggleReaction = mutation({
     return { action: "added" as const };
   },
 });
+
+/**
+ * Get team activity feed with priority filtering
+ * Returns chronological feed of team actions (newest first)
+ */
+export const getTeamActivityFeed = query({
+  args: {
+    teamId: v.string(),
+    organizationId: v.string(),
+    filterType: v.optional(
+      v.union(
+        v.literal("all"),
+        v.literal("insights"),
+        v.literal("comments"),
+        v.literal("reactions"),
+        v.literal("sessions"),
+        v.literal("votes")
+      )
+    ),
+    limit: v.optional(v.number()),
+  },
+  returns: v.array(
+    v.object({
+      _id: v.id("teamActivityFeed"),
+      actorId: v.string(),
+      actorName: v.string(),
+      actorAvatar: v.optional(v.string()),
+      actionType: v.union(
+        v.literal("voice_note_added"),
+        v.literal("insight_applied"),
+        v.literal("comment_added"),
+        v.literal("player_assessed"),
+        v.literal("goal_created"),
+        v.literal("injury_logged")
+      ),
+      entityType: v.union(
+        v.literal("voice_note"),
+        v.literal("insight"),
+        v.literal("comment"),
+        v.literal("skill_assessment"),
+        v.literal("goal"),
+        v.literal("injury")
+      ),
+      entityId: v.string(),
+      summary: v.string(),
+      priority: v.union(
+        v.literal("critical"),
+        v.literal("important"),
+        v.literal("normal")
+      ),
+      metadata: v.optional(
+        v.object({
+          playerName: v.optional(v.string()),
+          insightTitle: v.optional(v.string()),
+          commentPreview: v.optional(v.string()),
+        })
+      ),
+      _creationTime: v.number(),
+    })
+  ),
+  handler: async (ctx, args) => {
+    const limit = Math.min(args.limit || 50, 100); // Default 50, max 100
+
+    // Get activity entries for this team
+    const activities = await ctx.db
+      .query("teamActivityFeed")
+      .withIndex("by_team", (q) => q.eq("teamId", args.teamId))
+      .order("desc")
+      .take(limit);
+
+    // Filter by type if specified
+    const filteredActivities =
+      args.filterType && args.filterType !== "all"
+        ? activities.filter((activity) => {
+            // Map filterType to actionType
+            const typeMapping: Record<string, string[]> = {
+              insights: ["voice_note_added", "insight_applied"],
+              comments: ["comment_added"],
+              reactions: [], // Reactions are not actionType, they're tracked differently
+              sessions: [], // Sessions not implemented yet
+              votes: [], // Votes not implemented yet
+            };
+
+            const allowedTypes = typeMapping[args.filterType || "all"] || [];
+            return allowedTypes.includes(activity.actionType);
+          })
+        : activities;
+
+    // Enrich with user avatar using Better Auth adapter
+    // Use batch fetch pattern to avoid N+1 queries
+    const uniqueActorIds = [
+      ...new Set(filteredActivities.map((a) => a.actorId)),
+    ];
+
+    const usersData = await Promise.all(
+      uniqueActorIds.map((actorId) =>
+        ctx.runQuery(components.betterAuth.adapter.findOne, {
+          model: "user",
+          where: [{ field: "_id", value: actorId, operator: "eq" }],
+        })
+      )
+    );
+
+    // Create user lookup map
+    const userMap = new Map();
+    for (const user of usersData) {
+      if (user) {
+        userMap.set(user._id, user);
+      }
+    }
+
+    // Enrich activities with user avatar
+    return filteredActivities.map((activity) => {
+      const user = userMap.get(activity.actorId);
+      return {
+        _id: activity._id,
+        actorId: activity.actorId,
+        actorName: activity.actorName,
+        actorAvatar: user?.image || undefined,
+        actionType: activity.actionType,
+        entityType: activity.entityType,
+        entityId: activity.entityId,
+        summary: activity.summary,
+        priority: activity.priority,
+        metadata: activity.metadata,
+        _creationTime: activity._creationTime,
+      };
+    });
+  },
+});

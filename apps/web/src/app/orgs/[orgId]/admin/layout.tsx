@@ -282,10 +282,13 @@ function LegacyNavigation({
     { href: `/orgs/${orgId}/admin/overrides`, label: "Overrides" },
     { href: `/orgs/${orgId}/admin/coaches`, label: "Coaches" },
     { href: `/orgs/${orgId}/admin/guardians`, label: "Guardians" },
+    { href: `/orgs/${orgId}/admin/unclaimed-guardians`, label: "Unclaimed" },
+    { href: `/orgs/${orgId}/admin/medical`, label: "Medical" },
     { href: `/orgs/${orgId}/admin/users`, label: "Users" },
     { href: `/orgs/${orgId}/admin/users/approvals`, label: "Approvals" },
     { href: `/orgs/${orgId}/admin/invitations`, label: "Invitations" },
     { href: `/orgs/${orgId}/admin/voice-notes`, label: "Voice Notes" },
+    { href: `/orgs/${orgId}/admin/session-plans`, label: "Sessions" },
     { href: `/orgs/${orgId}/admin/player-import`, label: "Import" },
     { href: `/orgs/${orgId}/admin/gaa-import`, label: "GAA" },
     { href: `/orgs/${orgId}/admin/benchmarks`, label: "Benchmarks" },
@@ -296,8 +299,10 @@ function LegacyNavigation({
       ? [{ href: `/orgs/${orgId}/admin/enquiries`, label: "Enquiries" }]
       : []),
     { href: `/orgs/${orgId}/admin/announcements`, label: "Announcements" },
+    { href: `/orgs/${orgId}/admin/messaging`, label: "Messaging" },
     { href: `/orgs/${orgId}/admin/player-access`, label: "Player Access" },
     { href: `/orgs/${orgId}/admin/settings`, label: "Settings" },
+    { href: `/orgs/${orgId}/admin/settings/onboarding`, label: "Onboarding" },
     { href: `/orgs/${orgId}/admin/dev-tools`, label: "Dev Tools" },
   ];
 

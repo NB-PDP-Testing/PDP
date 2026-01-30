@@ -150,7 +150,7 @@ export const checkCoachParentAccess = query({
     }
 
     // PRIORITY 2: Individual admin block
-    if (coachPref?.adminBlocked === true) {
+    if (coachPref?.adminBlockedFromAI === true) {
       return {
         hasAccess: false,
         reason: coachPref.blockReason || "Admin blocked your access",
@@ -160,7 +160,7 @@ export const checkCoachParentAccess = query({
     }
 
     // PRIORITY 3: Coach self-disabled (coach chose to hide)
-    if (coachPref?.parentAccessEnabled === false) {
+    if (coachPref?.aiControlRightsEnabled === false) {
       return {
         hasAccess: false,
         reason: "You disabled this feature in your settings",
@@ -1109,7 +1109,7 @@ export const blockIndividualCoach = mutation({
     if (coachPrefs) {
       // Update existing
       await ctx.db.patch(coachPrefs._id, {
-        adminBlocked: true,
+        adminBlockedFromAI: true,
         blockReason: args.reason,
         blockedBy: currentUser._id,
         blockedAt: Date.now(),
@@ -1120,7 +1120,7 @@ export const blockIndividualCoach = mutation({
       await ctx.db.insert("coachOrgPreferences", {
         coachId: args.coachId,
         organizationId: args.organizationId,
-        adminBlocked: true,
+        adminBlockedFromAI: true,
         blockReason: args.reason,
         blockedBy: currentUser._id,
         blockedAt: Date.now(),
@@ -1184,7 +1184,7 @@ export const unblockIndividualCoach = mutation({
 
     // Update to unblock
     await ctx.db.patch(coachPrefs._id, {
-      adminBlocked: false,
+      adminBlockedFromAI: false,
       blockReason: undefined,
       blockedBy: undefined,
       blockedAt: undefined,
@@ -1196,10 +1196,10 @@ export const unblockIndividualCoach = mutation({
 });
 
 /**
- * Coach: Toggle their own parent communication access on/off
+ * Coach: Toggle their own AI automation control rights on/off
  * Only works if coach already has permission (via trust level, override, etc.)
  */
-export const toggleCoachParentAccess = mutation({
+export const toggleCoachAIControlRights = mutation({
   args: {
     organizationId: v.string(),
     enabled: v.boolean(),
@@ -1227,7 +1227,7 @@ export const toggleCoachParentAccess = mutation({
     if (coachPrefs) {
       // Update existing
       await ctx.db.patch(coachPrefs._id, {
-        parentAccessEnabled: args.enabled,
+        aiControlRightsEnabled: args.enabled,
         updatedAt: Date.now(),
       });
     } else {
@@ -1235,7 +1235,7 @@ export const toggleCoachParentAccess = mutation({
       await ctx.db.insert("coachOrgPreferences", {
         coachId: currentUser._id,
         organizationId: args.organizationId,
-        parentAccessEnabled: args.enabled,
+        aiControlRightsEnabled: args.enabled,
         createdAt: Date.now(),
         updatedAt: Date.now(),
       });
@@ -1263,8 +1263,8 @@ export const getAllCoachesWithAccessStatus = query({
       trustLevel: v.number(),
       hasAccess: v.boolean(),
       accessReason: v.string(),
-      adminBlocked: v.boolean(),
-      parentAccessEnabled: v.boolean(),
+      adminBlockedFromAI: v.boolean(),
+      aiControlRightsEnabled: v.boolean(),
       hasOverride: v.boolean(),
     })
   ),
@@ -1391,10 +1391,10 @@ export const getAllCoachesWithAccessStatus = query({
         if (org.adminBlanketBlock === true) {
           hasAccess = false;
           accessReason = "Blocked by blanket block";
-        } else if (coachPref?.adminBlocked === true) {
+        } else if (coachPref?.adminBlockedFromAI === true) {
           hasAccess = false;
           accessReason = "Blocked by admin";
-        } else if (coachPref?.parentAccessEnabled === false) {
+        } else if (coachPref?.aiControlRightsEnabled === false) {
           hasAccess = false;
           accessReason = "Disabled by coach";
         } else if (org.voiceNotesTrustGatesEnabled === false) {
@@ -1434,8 +1434,8 @@ export const getAllCoachesWithAccessStatus = query({
           trustLevel: trustLevel?.currentLevel ?? 0,
           hasAccess,
           accessReason,
-          adminBlocked: coachPref?.adminBlocked ?? false,
-          parentAccessEnabled: coachPref?.parentAccessEnabled ?? true,
+          adminBlockedFromAI: coachPref?.adminBlockedFromAI ?? false,
+          aiControlRightsEnabled: coachPref?.aiControlRightsEnabled ?? true,
           hasOverride: coachPref?.trustGateOverride ?? false,
         };
       })

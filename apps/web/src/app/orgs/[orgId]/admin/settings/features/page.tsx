@@ -539,19 +539,20 @@ export default function OrgFeatureFlagsPage() {
                       </TableCell>
                       <TableCell>Level {coach.trustLevel}</TableCell>
                       <TableCell>
-                        {coach.adminBlocked && (
+                        {coach.adminBlockedFromAI && (
                           <Badge variant="destructive">🚫 Blocked</Badge>
                         )}
-                        {!(coach.adminBlocked || coach.parentAccessEnabled) && (
-                          <Badge variant="secondary">👤 Self-Off</Badge>
-                        )}
-                        {!coach.adminBlocked &&
-                          coach.parentAccessEnabled &&
+                        {!(
+                          coach.adminBlockedFromAI ||
+                          coach.aiControlRightsEnabled
+                        ) && <Badge variant="secondary">👤 Self-Off</Badge>}
+                        {!coach.adminBlockedFromAI &&
+                          coach.aiControlRightsEnabled &&
                           coach.hasAccess && (
                             <Badge variant="default">✓ Active</Badge>
                           )}
-                        {!coach.adminBlocked &&
-                          coach.parentAccessEnabled &&
+                        {!coach.adminBlockedFromAI &&
+                          coach.aiControlRightsEnabled &&
                           !coach.hasAccess && (
                             <Badge variant="outline">No Access</Badge>
                           )}
@@ -560,7 +561,7 @@ export default function OrgFeatureFlagsPage() {
                         {coach.accessReason}
                       </TableCell>
                       <TableCell>
-                        {coach.adminBlocked ? (
+                        {coach.adminBlockedFromAI ? (
                           <Button
                             onClick={() => setUnblockingCoachId(coach.coachId)}
                             size="sm"
@@ -570,7 +571,7 @@ export default function OrgFeatureFlagsPage() {
                           </Button>
                         ) : (
                           <Button
-                            disabled={!coach.parentAccessEnabled}
+                            disabled={!coach.aiControlRightsEnabled}
                             onClick={() => setBlockingCoachId(coach.coachId)}
                             size="sm"
                             variant="destructive"

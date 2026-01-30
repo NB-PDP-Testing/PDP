@@ -2495,6 +2495,32 @@ export default defineSchema({
     blockedBy: v.optional(v.string()), // User ID who blocked
     blockedAt: v.optional(v.number()), // When blocked
 
+    // Notification Preferences (P9 Week 2)
+    // Channels per priority level: critical, important, normal
+    // Values: "push", "email", "digest", "none"
+    notificationChannels: v.optional(
+      v.object({
+        critical: v.array(v.string()), // Default: ["push", "email"]
+        important: v.array(v.string()), // Default: ["push", "email"]
+        normal: v.array(v.string()), // Default: ["push", "email"]
+      })
+    ),
+    // Daily digest schedule (e.g., send batched notifications at 08:00)
+    digestSchedule: v.optional(
+      v.object({
+        enabled: v.boolean(), // Default: false
+        time: v.string(), // 24h format (e.g., "08:00")
+      })
+    ),
+    // Quiet hours - suppress notifications during specified time range
+    quietHours: v.optional(
+      v.object({
+        enabled: v.boolean(), // Default: false
+        start: v.string(), // 24h format (e.g., "22:00")
+        end: v.string(), // 24h format (e.g., "08:00")
+      })
+    ),
+
     createdAt: v.number(),
     updatedAt: v.number(),
   })

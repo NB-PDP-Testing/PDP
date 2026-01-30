@@ -4,7 +4,7 @@ import { Authenticated, AuthLoading, Unauthenticated } from "convex/react";
 import type { Route } from "next";
 import { useRouter, useSearchParams } from "next/navigation";
 import { Suspense, useEffect } from "react";
-import Loader from "@/components/loader";
+import { CenteredSkeleton } from "@/components/loading";
 import { useCurrentUser } from "@/hooks/use-current-user";
 import { authClient } from "@/lib/auth-client";
 import type { OrgMemberRole } from "@/lib/types";
@@ -14,7 +14,7 @@ export default function CurrentOrgPage() {
   return (
     <>
       <Authenticated>
-        <Suspense fallback={<Loader />}>
+        <Suspense fallback={<CenteredSkeleton />}>
           <RedirectToActiveOrg />
         </Suspense>
       </Authenticated>
@@ -22,9 +22,7 @@ export default function CurrentOrgPage() {
         <RedirectToLogin />
       </Unauthenticated>
       <AuthLoading>
-        <div className="flex min-h-screen items-center justify-center">
-          <Loader />
-        </div>
+        <CenteredSkeleton />
       </AuthLoading>
     </>
   );
@@ -287,11 +285,7 @@ function RedirectToActiveOrg() {
     convexMemberships,
   ]);
 
-  return (
-    <div className="flex min-h-screen items-center justify-center">
-      <Loader />
-    </div>
-  );
+  return <CenteredSkeleton />;
 }
 
 function RedirectToLogin() {
@@ -301,9 +295,5 @@ function RedirectToLogin() {
     router.push("/login");
   }, [router]);
 
-  return (
-    <div className="flex min-h-screen items-center justify-center">
-      <Loader />
-    </div>
-  );
+  return <CenteredSkeleton />;
 }

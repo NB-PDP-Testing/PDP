@@ -12,7 +12,7 @@ import {
 } from "lucide-react";
 import { useParams } from "next/navigation";
 import { Suspense, useMemo } from "react";
-import Loader from "@/components/loader";
+import { PageSkeleton } from "@/components/loading";
 import { Badge } from "@/components/ui/badge";
 import {
   Card,
@@ -132,11 +132,7 @@ function InjuriesPageContent() {
   }, [allInjuries]);
 
   if (isLoading) {
-    return (
-      <div className="flex min-h-[400px] items-center justify-center">
-        <Loader />
-      </div>
-    );
+    return <PageSkeleton variant="list" />;
   }
 
   return (
@@ -412,7 +408,7 @@ function InjuriesPageContent() {
 
 export default function InjuriesPage() {
   return (
-    <Suspense fallback={<Loader />}>
+    <Suspense fallback={<PageSkeleton variant="list" />}>
       <InjuriesPageContent />
     </Suspense>
   );

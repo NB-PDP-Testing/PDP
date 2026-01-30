@@ -12,7 +12,7 @@ import type { AppRouterInstance } from "next/dist/shared/lib/app-router-context.
 import { useRouter, useSearchParams } from "next/navigation";
 import { Suspense, useEffect, useState } from "react";
 import { toast } from "sonner";
-import Loader from "@/components/loader";
+import { CenteredSkeleton } from "@/components/loading";
 import SignInForm from "@/components/sign-in-form";
 import { useCurrentUser } from "@/hooks/use-current-user";
 
@@ -120,17 +120,13 @@ function LoginContent() {
   return (
     <>
       <Authenticated>
-        <div className="flex min-h-screen items-center justify-center">
-          <Loader />
-        </div>
+        <CenteredSkeleton />
       </Authenticated>
       <Unauthenticated>
         <SignInForm />
       </Unauthenticated>
       <AuthLoading>
-        <div className="flex min-h-screen items-center justify-center">
-          <Loader />
-        </div>
+        <CenteredSkeleton />
       </AuthLoading>
     </>
   );
@@ -138,7 +134,7 @@ function LoginContent() {
 
 export default function DashboardPage() {
   return (
-    <Suspense fallback={<Loader />}>
+    <Suspense fallback={<CenteredSkeleton />}>
       <LoginContent />
     </Suspense>
   );

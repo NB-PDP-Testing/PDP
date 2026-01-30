@@ -14,6 +14,7 @@
 import { api } from "@pdp/backend/convex/_generated/api";
 import { useMutation } from "convex/react";
 import { Check, Users, X } from "lucide-react";
+import { useRouter } from "next/navigation";
 import { useState } from "react";
 import { toast } from "sonner";
 import {
@@ -72,6 +73,7 @@ export function UnifiedInvitationStep({
   userEmail,
   onComplete,
 }: UnifiedInvitationStepProps) {
+  const router = useRouter();
   const isMobile = useIsMobile();
   const [isProcessing, setIsProcessing] = useState(false);
   const [consentToSharing, setConsentToSharing] = useState(false);
@@ -207,6 +209,9 @@ export function UnifiedInvitationStep({
         setCurrentInvitationIndex((prev) => prev + 1);
         setIsProcessing(false);
       } else {
+        // Redirect to the organization the user just joined
+        // This ensures they land on their dashboard, not the /orgs list
+        router.push(`/orgs/${currentInvitation.organizationId}`);
         onComplete();
       }
     } catch (error) {
@@ -271,6 +276,8 @@ export function UnifiedInvitationStep({
         setCurrentInvitationIndex((prev) => prev + 1);
         setIsProcessing(false);
       } else {
+        // Redirect to the organization the user just joined
+        router.push(`/orgs/${currentInvitation.organizationId}`);
         onComplete();
       }
     } catch (error) {

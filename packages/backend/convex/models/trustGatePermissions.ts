@@ -1683,7 +1683,7 @@ export const getAllCoachesWithAccessStatus = query({
           hasAccess,
           accessReason,
           adminBlockedFromAI: coachPref?.adminBlockedFromAI ?? false,
-          aiControlRightsEnabled: coachPref?.aiControlRightsEnabled ?? true,
+          aiControlRightsEnabled: coachPref?.aiControlRightsEnabled ?? false,
           hasOverride: coachPref?.trustGateOverride ?? false,
         };
       })

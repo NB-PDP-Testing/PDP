@@ -1147,3 +1147,64 @@ Frontend implementation in comment-form.tsx:
 
 ---
 
+## 2026-01-31 01:30 - US-P9-013 - Smart Mention Autocomplete
+**Iteration**: 3
+**Commit**: dbb2334f249273dee5efd0f79418a850d01078b3
+**Session**: 0f2abf5c-e005-4b75-9c78-2b9ae959d3f6
+**Status**: Complete
+
+### What was implemented
+- Created getSmartCoachMentions backend query in teamCollaboration.ts
+- Contextual ranking algorithm for @mention suggestions
+- Enhanced CommentForm to accept and pass insight context
+- Features:
+  - Accepts optional context: insightCategory, playerIdentityId, teamId
+  - Injury/medical category → prioritizes medical/first-aid roles (+10,000 score)
+  - Base alphabetical sorting for all coaches (small weight)
+  - Returns coaches with relevanceScore field
+  - Sorts by relevance descending (most relevant first)
+  - Frontend automatically uses smart query (graceful fallback if no context)
+  - TODOs marked for future enhancements (player observation history, team assignments)
+
+### Files changed
+- packages/backend/convex/models/teamCollaboration.ts (+97, -0) [new query]
+- apps/web/src/app/orgs/[orgId]/coach/voice-notes/components/comment-form.tsx (+29, -3)
+- scripts/ralph/prd.json (+1, -1) [marked US-P9-013 passes: true]
+
+### Quality checks
+- ✅ Type check: passed
+- ✅ Linting: passed
+- ✅ Pre-commit hook: passed
+- ✅ Convex codegen: successful
+- ⏭️ Browser verification: deferred (component not yet integrated)
+
+### Learnings for future iterations ⚠️ CRITICAL
+**Patterns discovered:**
+- Relevance scoring pattern: base score + context bonuses
+- Score weighting: high context match (+10,000) >> alphabetical (0-1000)
+- Optional context parameters: query works with or without context
+- Query skip pattern issues: ternary with skip causes TypeScript inference errors
+- Solution: Use single query with optional params instead of conditional queries
+
+**Gotchas encountered:**
+- TypeScript can't infer union type of `FunctionReference | "skip"` in ternary
+- Simpler to use one query with optional params than two conditional queries
+- Better Auth member roles stored in activeFunctionalRole field
+
+**Dependencies found:**
+- Requires insight context to be passed from parent component when integrated
+- Future: Add player observation history (requires voiceNotes query)
+- Future: Add team coach assignments (requires team member query)
+
+**What to do next**:
+- [x] US-P9-013 complete (5 of 14 Week 2 stories done!)
+- [ ] US-P9-014: Extend coachOrgPreferences (Notifications schema)
+- [ ] US-P9-015: Create NotificationCenter Component
+- [ ] Continue with remaining Week 2 stories
+
+**Mistakes made**:
+- Initially tried conditional query with "skip" pattern (TypeScript errors)
+- Should have used single query with optional params from the start
+
+---
+

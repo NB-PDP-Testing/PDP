@@ -1,13 +1,13 @@
 "use client";
 
-import * as React from "react";
+import { type ReactNode, type TouchEvent, useRef, useState } from "react";
 import { cn } from "@/lib/utils";
 
 type SwipeAction = {
   /** Action label */
   label: string;
   /** Action icon */
-  icon?: React.ReactNode;
+  icon?: ReactNode;
   /** Background color class */
   bgColor?: string;
   /** Text color class */
@@ -18,7 +18,7 @@ type SwipeAction = {
 
 type SwipeableCardProps = {
   /** Card content */
-  children: React.ReactNode;
+  children: ReactNode;
   /** Left swipe actions (revealed when swiping left) */
   leftActions?: SwipeAction[];
   /** Right swipe actions (revealed when swiping right) */
@@ -45,17 +45,17 @@ export function SwipeableCard({
   className,
   disabled = false,
 }: SwipeableCardProps) {
-  const cardRef = React.useRef<HTMLDivElement>(null);
-  const [translateX, setTranslateX] = React.useState(0);
-  const [isDragging, setIsDragging] = React.useState(false);
-  const startXRef = React.useRef(0);
-  const currentXRef = React.useRef(0);
+  const cardRef = useRef<HTMLDivElement>(null);
+  const [translateX, setTranslateX] = useState(0);
+  const [isDragging, setIsDragging] = useState(false);
+  const startXRef = useRef(0);
+  const currentXRef = useRef(0);
 
   // Calculate max swipe distance based on actions
   const maxLeftSwipe = leftActions.length * 80; // 80px per action
   const maxRightSwipe = rightActions.length * 80;
 
-  const handleTouchStart = (e: React.TouchEvent) => {
+  const handleTouchStart = (e: TouchEvent) => {
     if (disabled) {
       return;
     }
@@ -64,7 +64,7 @@ export function SwipeableCard({
     setIsDragging(true);
   };
 
-  const handleTouchMove = (e: React.TouchEvent) => {
+  const handleTouchMove = (e: TouchEvent) => {
     if (disabled || !isDragging) {
       return;
     }
@@ -88,12 +88,16 @@ export function SwipeableCard({
     }
     setIsDragging(false);
 
-    const cardWidth = cardRef.current?.offsetWidth || 300;
-    const swipeRatio = Math.abs(translateX) / cardWidth;
+    // Bug fix #235: Calculate swipe ratio based on max swipe distance, not card width
+    // This ensures the threshold works correctly regardless of how many actions there are.
+    // Previously, with 1 left action (80px) on a 375px card, you'd need to swipe 112px
+    // (30% of 375) which is MORE than the action width, making it nearly impossible.
+    // Now, you only need to swipe 30% of the action width (24px for an 80px action).
 
     // Snap to action or reset
     if (translateX < 0 && leftActions.length > 0) {
       // Swiped left - show left actions
+      const swipeRatio = Math.abs(translateX) / maxLeftSwipe;
       if (swipeRatio > threshold) {
         setTranslateX(-maxLeftSwipe);
       } else {
@@ -101,6 +105,7 @@ export function SwipeableCard({
       }
     } else if (translateX > 0 && rightActions.length > 0) {
       // Swiped right - show right actions
+      const swipeRatio = translateX / maxRightSwipe;
       if (swipeRatio > threshold) {
         setTranslateX(maxRightSwipe);
       } else {
@@ -123,20 +128,28 @@ export function SwipeableCard({
     }
   };
 
+  // Handle keyboard interaction for accessibility
+  const handleKeyDown = (e: React.KeyboardEvent) => {
+    if (e.key === "Escape" && translateX !== 0) {
+      setTranslateX(0);
+    }
+  };
+
   return (
     <div className={cn("relative overflow-hidden rounded-lg", className)}>
       {/* Right actions (revealed on swipe right) */}
       {rightActions.length > 0 && (
         <div className="absolute top-0 bottom-0 left-0 flex">
-          {rightActions.map((action, idx) => (
+          {rightActions.map((action) => (
             <button
               className={cn(
                 "flex h-full w-20 flex-col items-center justify-center gap-1 font-medium text-xs transition-colors",
                 action.bgColor || "bg-primary",
                 action.textColor || "text-primary-foreground"
               )}
-              key={idx}
+              key={action.label}
               onClick={() => handleActionClick(action)}
+              type="button"
             >
               {action.icon}
               <span>{action.label}</span>
@@ -148,15 +161,16 @@ export function SwipeableCard({
       {/* Left actions (revealed on swipe left) */}
       {leftActions.length > 0 && (
         <div className="absolute top-0 right-0 bottom-0 flex">
-          {leftActions.map((action, idx) => (
+          {leftActions.map((action) => (
             <button
               className={cn(
                 "flex h-full w-20 flex-col items-center justify-center gap-1 font-medium text-xs transition-colors",
                 action.bgColor || "bg-destructive",
                 action.textColor || "text-destructive-foreground"
               )}
-              key={idx}
+              key={action.label}
               onClick={() => handleActionClick(action)}
+              type="button"
             >
               {action.icon}
               <span>{action.label}</span>
@@ -165,18 +179,22 @@ export function SwipeableCard({
         </div>
       )}
 
-      {/* Main card content */}
+      {/* Main card content - swipeable container */}
+      {/* biome-ignore lint/a11y/useSemanticElements: This is a swipeable card container that holds other interactive elements, not a simple button */}
       <div
         className={cn(
           "relative rounded-lg border bg-card transition-transform",
           isDragging ? "transition-none" : "duration-200 ease-out"
         )}
         onClick={handleCardClick}
+        onKeyDown={handleKeyDown}
         onTouchEnd={handleTouchEnd}
         onTouchMove={handleTouchMove}
         onTouchStart={handleTouchStart}
         ref={cardRef}
+        role="button"
         style={{ transform: `translateX(${translateX}px)` }}
+        tabIndex={0}
       >
         {children}
       </div>

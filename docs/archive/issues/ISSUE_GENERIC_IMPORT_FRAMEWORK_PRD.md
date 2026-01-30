@@ -4,7 +4,7 @@
 
 A comprehensive Product Requirements Document has been created for the **Generic Import Framework** - transforming PlayerARC's data onboarding from a single-sport, manual-only capability into a **multi-sport, configurable, connector-based import system**.
 
-📄 **Full PRD**: [`docs/prd/generic-import-framework.md`](../prd/generic-import-framework.md)
+📄 **Full PRD**: [`scripts/ralph/prds/generic-import-framework.md`](../../../scripts/ralph/prds/generic-import-framework.md)
 
 ---
 
@@ -167,4 +167,4 @@ Please review the full PRD and provide feedback on:
 ---
 
 **Branch**: `claude/generic-import-prd-JHg1h`
-**Full Document**: `docs/prd/generic-import-framework.md`
+**Full Document**: `scripts/ralph/prds/generic-import-framework.md`

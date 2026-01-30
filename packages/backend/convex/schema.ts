@@ -2259,6 +2259,8 @@ export default defineSchema({
 
     // Feature toggles (per-org)
     parentSummariesEnabled: v.optional(v.boolean()), // Generate parent summaries (default true)
+    aiInsightMatchingEnabled: v.optional(v.boolean()), // Auto-match players, classify insights (default true)
+    autoApplyInsightsEnabled: v.optional(v.boolean()), // Auto-apply skill ratings, injuries (default true)
     skipSensitiveInsights: v.optional(v.boolean()), // Skip injury/behavior from summaries (default false)
 
     // Trust Gate Individual Override (P8 Week 1.5)
@@ -2268,11 +2270,19 @@ export default defineSchema({
     overrideReason: v.optional(v.string()), // Why this coach got bypass
     overrideExpiresAt: v.optional(v.number()), // Optional: time-boxed access
 
-    // Coach Self-Service Access Control (P8 Week 1.5 extension)
-    parentAccessEnabled: v.optional(v.boolean()), // Coach toggle (default true after approval)
+    // AI Control Rights - Coach Self-Service Access (P8 Week 1.5)
+    // Renamed from parentAccessEnabled - grants control over ALL AI automation features
+    aiControlRightsEnabled: v.optional(v.boolean()), // Coach granted rights to control AI features
+    grantedBy: v.optional(v.string()), // Admin/platform staff who granted rights
+    grantedAt: v.optional(v.number()), // When rights were granted
+    grantNote: v.optional(v.string()), // Admin's note when granting
+    revokedBy: v.optional(v.string()), // Who revoked rights
+    revokedAt: v.optional(v.number()), // When rights were revoked
+    revokeReason: v.optional(v.string()), // Why rights were revoked
 
-    // Admin Block Individual Coach (P8 Week 1.5 extension)
-    adminBlocked: v.optional(v.boolean()), // Admin blocked this specific coach
+    // Admin Block Individual Coach from AI (P8 Week 1.5)
+    // Renamed from adminBlocked - blocks ALL AI automation features
+    adminBlockedFromAI: v.optional(v.boolean()), // Admin blocked this coach from AI features
     blockReason: v.optional(v.string()), // Why admin blocked
     blockedBy: v.optional(v.string()), // User ID who blocked
     blockedAt: v.optional(v.number()), // When blocked

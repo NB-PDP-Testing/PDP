@@ -121,8 +121,8 @@ export function VoiceNotesDashboard() {
   );
 
   // Mutations for self-service access control
-  const toggleParentAccess = useMutation(
-    api.models.trustGatePermissions.toggleCoachParentAccess
+  const toggleAIControlRights = useMutation(
+    api.models.trustGatePermissions.toggleCoachAIControlRights
   );
   const requestOverride = useMutation(
     api.models.trustGatePermissions.requestCoachOverride
@@ -273,7 +273,7 @@ export function VoiceNotesDashboard() {
       }
 
       // Enable access
-      await toggleParentAccess({ organizationId: orgId, enabled: true });
+      await toggleAIControlRights({ organizationId: orgId, enabled: true });
       toast.success("Parent communication access enabled");
     } catch (error) {
       console.error("Error toggling access:", error);
@@ -290,7 +290,7 @@ export function VoiceNotesDashboard() {
 
     try {
       setIsTogglingAccess(true);
-      await toggleParentAccess({ organizationId: orgId, enabled: false });
+      await toggleAIControlRights({ organizationId: orgId, enabled: false });
       toast.success("Parent communication access disabled");
       setShowToggleOffDialog(false);
 

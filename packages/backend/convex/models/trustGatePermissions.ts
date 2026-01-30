@@ -1546,16 +1546,10 @@ export const getAllCoachesWithAccessStatus = query({
           )
           .first();
 
-        // Get team names
+        // Get team names using Convex db.get (teams are Convex IDs, not Better Auth string IDs)
         const teamNames = await Promise.all(
           (coachAssignment?.teams || []).map(async (teamId) => {
-            const team = (await ctx.runQuery(
-              components.betterAuth.adapter.findOne,
-              {
-                model: "team",
-                where: [{ field: "_id", value: teamId, operator: "eq" }],
-              }
-            )) as BetterAuthDoc<"team"> | null;
+            const team = await ctx.db.get(teamId);
             return team?.name || "Unknown Team";
           })
         );

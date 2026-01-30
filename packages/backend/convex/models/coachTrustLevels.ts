@@ -1170,25 +1170,40 @@ export const getPlatformAIAccuracy = query({
     // Enrich with coach and organization names from Better Auth
     const byCoachWithNames = await Promise.all(
       Array.from(byCoachMap.values()).map(async (coach) => {
-        // Get coach name using Better Auth component query
-        const user = await ctx.runQuery(
-          components.betterAuth.userFunctions.getUserByStringId,
-          { userId: coach.coachId }
-        );
-        const coachName = user
-          ? `${user.firstName || ""} ${user.lastName || ""}`.trim() ||
-            user.email ||
-            "Unknown Coach"
-          : "Unknown Coach";
+        let coachName = "Unknown Coach";
+        let organizationName = "Unknown Organization";
 
-        // Get organization name using Better Auth adapter
-        const org = await ctx.runQuery(components.betterAuth.adapter.findOne, {
-          model: "organization",
-          where: [{ field: "_id", value: coach.organizationId }],
-        });
-        const organizationName = org
-          ? (org as any).name
-          : "Unknown Organization";
+        try {
+          // Get coach name using Better Auth component query
+          const user = await ctx.runQuery(
+            components.betterAuth.userFunctions.getUserByStringId,
+            { userId: coach.coachId }
+          );
+          if (user) {
+            coachName =
+              `${user.firstName || ""} ${user.lastName || ""}`.trim() ||
+              user.email ||
+              "Unknown Coach";
+          }
+        } catch (error) {
+          console.error(`Failed to fetch user ${coach.coachId}:`, error);
+        }
+
+        try {
+          // Get organization name using Better Auth adapter
+          const org = await ctx.runQuery(
+            components.betterAuth.adapter.findOne,
+            {
+              model: "organization",
+              where: [{ field: "_id", value: coach.organizationId }],
+            }
+          );
+          if (org) {
+            organizationName = (org as any).name || "Unknown Organization";
+          }
+        } catch (error) {
+          console.error(`Failed to fetch org ${coach.organizationId}:`, error);
+        }
 
         return {
           coachId: coach.coachId,

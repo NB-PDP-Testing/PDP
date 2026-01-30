@@ -294,15 +294,27 @@ export const getPlatformUsage = query({
     // Build organization breakdown with real organization names
     const byOrganizationWithNames = await Promise.all(
       Array.from(orgMap.entries()).map(async ([organizationId, stats]) => {
-        // Fetch organization name using Better Auth adapter
-        const org = await ctx.runQuery(components.betterAuth.adapter.findOne, {
-          model: "organization",
-          where: [{ field: "_id", value: organizationId }],
-        });
+        let organizationName = organizationId; // Fallback to ID
+
+        try {
+          // Fetch organization name using Better Auth adapter
+          const org = await ctx.runQuery(
+            components.betterAuth.adapter.findOne,
+            {
+              model: "organization",
+              where: [{ field: "_id", value: organizationId }],
+            }
+          );
+          if (org) {
+            organizationName = (org as any).name || organizationId;
+          }
+        } catch (error) {
+          console.error(`Failed to fetch org ${organizationId}:`, error);
+        }
 
         return {
           organizationId: organizationId as any,
-          organizationName: org ? (org as any).name : organizationId,
+          organizationName,
           cost: stats.cost,
           callCount: stats.callCount,
           averageCacheHitRate:

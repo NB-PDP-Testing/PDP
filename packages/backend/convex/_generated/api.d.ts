@@ -92,6 +92,7 @@ import type * as models_skillBenchmarks from "../models/skillBenchmarks.js";
 import type * as models_sportAgeGroupConfig from "../models/sportAgeGroupConfig.js";
 import type * as models_sportPassports from "../models/sportPassports.js";
 import type * as models_sports from "../models/sports.js";
+import type * as models_teamCollaboration from "../models/teamCollaboration.js";
 import type * as models_teamObservations from "../models/teamObservations.js";
 import type * as models_teamPlayerIdentities from "../models/teamPlayerIdentities.js";
 import type * as models_teams from "../models/teams.js";
@@ -229,6 +230,7 @@ declare const fullApi: ApiFromModules<{
   "models/sportAgeGroupConfig": typeof models_sportAgeGroupConfig;
   "models/sportPassports": typeof models_sportPassports;
   "models/sports": typeof models_sports;
+  "models/teamCollaboration": typeof models_teamCollaboration;
   "models/teamObservations": typeof models_teamObservations;
   "models/teamPlayerIdentities": typeof models_teamPlayerIdentities;
   "models/teams": typeof models_teams;

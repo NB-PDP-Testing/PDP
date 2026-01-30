@@ -286,13 +286,25 @@ export const getReactions = query({
       })
     ),
   }),
-  handler: (_ctx, _args) => {
-    // TODO: Implement in US-P9-006
+  handler: async (ctx, args) => {
+    // Get all reactions for this insight
+    const reactions = await ctx.db
+      .query("insightReactions")
+      .withIndex("by_insight", (q) => q.eq("insightId", args.insightId))
+      .collect();
+
+    // Aggregate counts by type
+    const counts = { like: 0, helpful: 0, flag: 0 };
+    for (const reaction of reactions) {
+      counts[reaction.type] += 1;
+    }
+
     return {
-      like: 0,
-      helpful: 0,
-      flag: 0,
-      userReactions: [],
+      ...counts,
+      userReactions: reactions.map((r) => ({
+        userId: r.userId,
+        type: r.type,
+      })),
     };
   },
 });
@@ -306,12 +318,43 @@ export const toggleReaction = mutation({
   args: {
     insightId: v.id("voiceNoteInsights"),
     type: v.union(v.literal("like"), v.literal("helpful"), v.literal("flag")),
+    userId: v.string(),
+    organizationId: v.string(),
   },
   returns: v.object({
     action: v.union(v.literal("added"), v.literal("removed")),
   }),
-  handler: (_ctx, _args) => {
-    // TODO: Implement in US-P9-006
+  handler: async (ctx, args) => {
+    // Check if reaction already exists (prevent duplicates)
+    const existing = await ctx.db
+      .query("insightReactions")
+      .withIndex("by_insight_and_user", (q) =>
+        q.eq("insightId", args.insightId).eq("userId", args.userId)
+      )
+      .first();
+
+    if (existing) {
+      // If same type, remove it (toggle off)
+      if (existing.type === args.type) {
+        await ctx.db.delete(existing._id);
+        return { action: "removed" as const };
+      }
+
+      // If different type, update it (switch reaction)
+      await ctx.db.patch(existing._id, {
+        type: args.type,
+      });
+      return { action: "added" as const };
+    }
+
+    // No existing reaction, create new one
+    await ctx.db.insert("insightReactions", {
+      insightId: args.insightId,
+      userId: args.userId,
+      type: args.type,
+      organizationId: args.organizationId,
+    });
+
     return { action: "added" as const };
   },
 });

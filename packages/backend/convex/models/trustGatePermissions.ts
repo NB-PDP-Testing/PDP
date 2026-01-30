@@ -1257,6 +1257,8 @@ export const getAllCoachesWithAccessStatus = query({
     v.object({
       coachId: v.string(),
       coachName: v.string(),
+      teamNames: v.array(v.string()),
+      teamCount: v.number(),
       trustLevel: v.number(),
       hasAccess: v.boolean(),
       accessReason: v.string(),
@@ -1357,6 +1359,30 @@ export const getAllCoachesWithAccessStatus = query({
           )
           .first();
 
+        // Get coach team assignments
+        const coachAssignment = await ctx.db
+          .query("coachAssignments")
+          .withIndex("by_user_and_org", (q) =>
+            q
+              .eq("userId", member.userId)
+              .eq("organizationId", args.organizationId)
+          )
+          .first();
+
+        // Get team names
+        const teamNames = await Promise.all(
+          (coachAssignment?.teams || []).map(async (teamId) => {
+            const team = (await ctx.runQuery(
+              components.betterAuth.adapter.findOne,
+              {
+                model: "team",
+                where: [{ field: "_id", value: teamId, operator: "eq" }],
+              }
+            )) as BetterAuthDoc<"team"> | null;
+            return team?.name || "Unknown Team";
+          })
+        );
+
         // Check comprehensive access (same logic as checkCoachParentAccess)
         let hasAccess = false;
         let accessReason = "";
@@ -1402,6 +1428,8 @@ export const getAllCoachesWithAccessStatus = query({
               ? `${user.firstName} ${user.lastName}`.trim()
               : user.name || user.email || "Unknown"
             : "Unknown",
+          teamNames,
+          teamCount: teamNames.length,
           trustLevel: trustLevel?.currentLevel ?? 0,
           hasAccess,
           accessReason,

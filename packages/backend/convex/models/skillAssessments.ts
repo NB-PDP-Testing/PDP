@@ -66,6 +66,8 @@ const assessmentValidator = v.object({
   sessionId: v.optional(v.string()),
   matchId: v.optional(v.string()),
   confidence: v.optional(confidenceValidator),
+  source: v.optional(v.union(v.literal("manual"), v.literal("voice_note"))),
+  voiceNoteId: v.optional(v.id("voiceNotes")),
   createdAt: v.number(),
 });
 

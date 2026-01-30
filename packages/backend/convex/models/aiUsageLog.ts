@@ -9,6 +9,7 @@
  */
 
 import { v } from "convex/values";
+import { components } from "../_generated/api";
 import type { QueryCtx } from "../_generated/server";
 import { internalMutation, query } from "../_generated/server";
 
@@ -290,20 +291,43 @@ export const getPlatformUsage = query({
       }
     }
 
-    // Build organization breakdown
-    // Note: Better Auth organizations are in external component tables
-    // For MVP, use organization ID as display name (platform admins will recognize)
-    // TODO: Integrate with Better Auth adapter to fetch real organization names
-    const byOrganization = Array.from(orgMap.entries())
-      .map(([organizationId, stats]) => ({
-        organizationId: organizationId as any, // Type assertion for Convex ID
-        organizationName: organizationId, // Use ID for now
-        cost: stats.cost,
-        callCount: stats.callCount,
-        averageCacheHitRate:
-          stats.cacheHitRates.reduce((sum, rate) => sum + rate, 0) /
-          stats.cacheHitRates.length,
-      }))
+    // Build organization breakdown with real organization names
+    const byOrganizationWithNames = await Promise.all(
+      Array.from(orgMap.entries()).map(async ([organizationId, stats]) => {
+        let organizationName = organizationId; // Fallback to ID
+
+        try {
+          // Fetch organization name using Better Auth adapter
+          const org = await ctx.runQuery(
+            components.betterAuth.adapter.findOne,
+            {
+              model: "organization",
+              where: [{ field: "_id", value: organizationId, operator: "eq" }],
+            }
+          );
+          if (org) {
+            organizationName = (org as any).name || organizationId;
+          }
+        } catch (error) {
+          console.error(
+            `[getPlatformUsage] Failed to fetch org ${organizationId}:`,
+            error
+          );
+        }
+
+        return {
+          organizationId: organizationId as any,
+          organizationName,
+          cost: stats.cost,
+          callCount: stats.callCount,
+          averageCacheHitRate:
+            stats.cacheHitRates.reduce((sum, rate) => sum + rate, 0) /
+            stats.cacheHitRates.length,
+        };
+      })
+    );
+
+    const byOrganization = byOrganizationWithNames
       .sort((a, b) => b.cost - a.cost)
       .slice(0, 10); // Top 10 organizations
 

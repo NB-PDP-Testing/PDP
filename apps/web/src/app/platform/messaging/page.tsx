@@ -126,10 +126,10 @@ export default function PlatformMessagingPage() {
 
 // Overview Tab Component
 function OverviewTab() {
-  // Query data from last 24 hours
-  const twentyFourHoursAgo = Date.now() - 24 * 60 * 60 * 1000;
+  // Use undefined to let backend use default time range (avoids re-render loops)
   const platformUsage = useQuery(api.models.aiUsageLog.getPlatformUsage, {
-    startDate: twentyFourHoursAgo,
+    startDate: undefined,
+    endDate: undefined,
   });
   const health = useQuery(api.models.aiServiceHealth.getPlatformServiceHealth);
 
@@ -363,10 +363,10 @@ function getCacheHitRateLabel(rate: number): string {
 
 // Cost Analytics Tab Component
 function CostAnalyticsTab() {
-  // Query platform usage for last 30 days
-  const thirtyDaysAgo = Date.now() - 30 * 24 * 60 * 60 * 1000;
+  // Use undefined to let backend use default time range (avoids re-render loops)
   const platformUsage = useQuery(api.models.aiUsageLog.getPlatformUsage, {
-    startDate: thirtyDaysAgo,
+    startDate: undefined,
+    endDate: undefined,
   });
 
   if (!platformUsage) {
@@ -1023,9 +1023,11 @@ function formatTimeAgo(timestamp: number): string {
 // Service Health Tab Component
 function ServiceHealthTab() {
   const health = useQuery(api.models.aiServiceHealth.getPlatformServiceHealth);
+
+  // Use undefined to let backend use default time range (avoids re-render loops)
   const platformUsage = useQuery(api.models.aiUsageLog.getPlatformUsage, {
-    startDate: Date.now() - 30 * 24 * 60 * 60 * 1000,
-    endDate: Date.now(),
+    startDate: undefined,
+    endDate: undefined,
   });
   const forceReset = useMutation(
     api.models.aiServiceHealth.forceResetCircuitBreaker

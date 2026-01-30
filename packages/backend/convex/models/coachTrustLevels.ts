@@ -1,4 +1,5 @@
 import { v } from "convex/values";
+import { components } from "../_generated/api";
 import type { Doc } from "../_generated/dataModel";
 import {
   internalMutation,
@@ -59,8 +60,35 @@ const orgPreferencesValidator = v.object({
   _creationTime: v.number(),
   coachId: v.string(),
   organizationId: v.string(),
+
+  // Feature toggles
   parentSummariesEnabled: v.optional(v.boolean()),
+  aiInsightMatchingEnabled: v.optional(v.boolean()),
+  autoApplyInsightsEnabled: v.optional(v.boolean()),
   skipSensitiveInsights: v.optional(v.boolean()),
+
+  // Trust Gate Individual Override
+  trustGateOverride: v.optional(v.boolean()),
+  overrideGrantedBy: v.optional(v.string()),
+  overrideGrantedAt: v.optional(v.number()),
+  overrideReason: v.optional(v.string()),
+  overrideExpiresAt: v.optional(v.number()),
+
+  // AI Control Rights
+  aiControlRightsEnabled: v.optional(v.boolean()),
+  grantedBy: v.optional(v.string()),
+  grantedAt: v.optional(v.number()),
+  grantNote: v.optional(v.string()),
+  revokedBy: v.optional(v.string()),
+  revokedAt: v.optional(v.number()),
+  revokeReason: v.optional(v.string()),
+
+  // Admin Block
+  adminBlockedFromAI: v.optional(v.boolean()),
+  blockReason: v.optional(v.string()),
+  blockedBy: v.optional(v.string()),
+  blockedAt: v.optional(v.number()),
+
   createdAt: v.number(),
   updatedAt: v.number(),
 });
@@ -976,5 +1004,345 @@ export const adjustInsightThresholds = internalMutation({
       processed,
       adjusted,
     };
+  },
+});
+
+/**
+ * Phase 7.3 (US-012): Get AI accuracy metrics for a specific coach
+ * Shows how often coach needs to correct AI-generated insights
+ */
+export const getAIAccuracyByCoach = query({
+  args: {
+    coachId: v.string(),
+    organizationId: v.string(),
+    timeWindowDays: v.optional(v.number()), // Default 30 days
+  },
+  returns: v.object({
+    totalInsights: v.number(),
+    manuallyCorrected: v.number(),
+    aiGotItRight: v.number(),
+    accuracy: v.number(), // Percentage (0-100)
+    correctionBreakdown: v.object({
+      playerAssigned: v.number(),
+      teamClassified: v.number(),
+      todoClassified: v.number(),
+      contentEdited: v.number(),
+    }),
+  }),
+  handler: async (ctx, args) => {
+    const timeWindow = args.timeWindowDays ?? 30;
+    const startTime = Date.now() - timeWindow * 24 * 60 * 60 * 1000;
+
+    const insights = await ctx.db
+      .query("voiceNoteInsights")
+      .withIndex("by_coach_org", (q) =>
+        q.eq("coachId", args.coachId).eq("organizationId", args.organizationId)
+      )
+      .filter((q) => q.gte(q.field("createdAt"), startTime))
+      .collect();
+
+    const corrected = insights.filter((i) => i.wasManuallyCorrected === true);
+
+    const totalInsights = insights.length;
+    const manuallyCorrected = corrected.length;
+    const aiGotItRight = totalInsights - manuallyCorrected;
+    const accuracy =
+      totalInsights > 0 ? (aiGotItRight / totalInsights) * 100 : 0;
+
+    // Breakdown by correction type
+    const correctionBreakdown = {
+      playerAssigned: corrected.filter(
+        (i) => i.correctionType === "player_assigned"
+      ).length,
+      teamClassified: corrected.filter(
+        (i) => i.correctionType === "team_classified"
+      ).length,
+      todoClassified: corrected.filter(
+        (i) => i.correctionType === "todo_classified"
+      ).length,
+      contentEdited: corrected.filter(
+        (i) => i.correctionType === "content_edited"
+      ).length,
+    };
+
+    return {
+      totalInsights,
+      manuallyCorrected,
+      aiGotItRight,
+      accuracy,
+      correctionBreakdown,
+    };
+  },
+});
+
+/**
+ * Phase 7.3 (US-012): Get platform-wide AI accuracy metrics
+ * Shows aggregate AI performance across all coaches and organizations
+ * Used by platform staff AI configuration page
+ */
+export const getPlatformAIAccuracy = query({
+  args: {
+    timeWindowDays: v.optional(v.number()), // Default 30 days
+  },
+  returns: v.object({
+    totalInsights: v.number(),
+    manuallyCorrected: v.number(),
+    aiGotItRight: v.number(),
+    accuracy: v.number(), // Percentage (0-100)
+    correctionBreakdown: v.object({
+      playerAssigned: v.number(),
+      teamClassified: v.number(),
+      todoClassified: v.number(),
+      contentEdited: v.number(),
+    }),
+    byCoach: v.array(
+      v.object({
+        coachId: v.string(),
+        coachName: v.string(),
+        organizationId: v.string(),
+        organizationName: v.string(),
+        sports: v.array(v.string()), // Sports this coach has insights for
+        totalInsights: v.number(),
+        manuallyCorrected: v.number(),
+        accuracy: v.number(),
+      })
+    ),
+  }),
+  handler: async (ctx, args) => {
+    const timeWindow = args.timeWindowDays ?? 30;
+    const startTime = Date.now() - timeWindow * 24 * 60 * 60 * 1000;
+
+    // Get all insights in time window
+    const allInsights = await ctx.db
+      .query("voiceNoteInsights")
+      .filter((q) => q.gte(q.field("createdAt"), startTime))
+      .collect();
+
+    const corrected = allInsights.filter(
+      (i) => i.wasManuallyCorrected === true
+    );
+
+    const totalInsights = allInsights.length;
+    const manuallyCorrected = corrected.length;
+    const aiGotItRight = totalInsights - manuallyCorrected;
+    const accuracy =
+      totalInsights > 0 ? (aiGotItRight / totalInsights) * 100 : 0;
+
+    // Breakdown by correction type
+    const correctionBreakdown = {
+      playerAssigned: corrected.filter(
+        (i) => i.correctionType === "player_assigned"
+      ).length,
+      teamClassified: corrected.filter(
+        (i) => i.correctionType === "team_classified"
+      ).length,
+      todoClassified: corrected.filter(
+        (i) => i.correctionType === "todo_classified"
+      ).length,
+      contentEdited: corrected.filter(
+        (i) => i.correctionType === "content_edited"
+      ).length,
+    };
+
+    // Group by coach for per-coach breakdown
+    const byCoachMap = new Map<
+      string,
+      {
+        coachId: string;
+        organizationId: string;
+        totalInsights: number;
+        manuallyCorrected: number;
+        accuracy: number;
+        sports: Set<string>;
+      }
+    >();
+
+    for (const insight of allInsights) {
+      const key = `${insight.coachId}_${insight.organizationId}`;
+      const existing = byCoachMap.get(key) || {
+        coachId: insight.coachId,
+        organizationId: insight.organizationId,
+        totalInsights: 0,
+        manuallyCorrected: 0,
+        accuracy: 0,
+        sports: new Set<string>(),
+      };
+
+      existing.totalInsights += 1;
+      if (insight.wasManuallyCorrected) {
+        existing.manuallyCorrected += 1;
+      }
+
+      // Get sport from player enrollment if available
+      const playerId = insight.playerIdentityId;
+      if (playerId !== undefined) {
+        // Get sport passports for this player in this organization
+        const passports = await ctx.db
+          .query("sportPassports")
+          .withIndex("by_player_and_org", (q) =>
+            q
+              .eq("playerIdentityId", playerId)
+              .eq("organizationId", insight.organizationId)
+          )
+          .collect();
+
+        for (const passport of passports) {
+          existing.sports.add(passport.sportCode);
+        }
+      }
+
+      byCoachMap.set(key, existing);
+    }
+
+    // Enrich with coach and organization names by querying Better Auth tables directly
+    const byCoachWithNames = await Promise.all(
+      Array.from(byCoachMap.values()).map(async (coach) => {
+        let coachName = "Unknown Coach";
+        let organizationName = "Unknown Organization";
+
+        try {
+          // Fetch user using Better Auth adapter
+          const user = await ctx.runQuery(
+            components.betterAuth.adapter.findOne,
+            {
+              model: "user",
+              where: [{ field: "_id", value: coach.coachId, operator: "eq" }],
+            }
+          );
+          if (user) {
+            const userRecord = user as any;
+            // Try firstName/lastName first, fall back to name field, then email
+            const fullName =
+              userRecord.firstName && userRecord.lastName
+                ? `${userRecord.firstName} ${userRecord.lastName}`.trim()
+                : userRecord.name || userRecord.email || "Unknown Coach";
+            coachName = fullName;
+          }
+        } catch (error) {
+          console.error(
+            `[getPlatformAIAccuracy] Failed to fetch user ${coach.coachId}:`,
+            error
+          );
+        }
+
+        try {
+          // Fetch organization using Better Auth adapter
+          const org = await ctx.runQuery(
+            components.betterAuth.adapter.findOne,
+            {
+              model: "organization",
+              where: [
+                {
+                  field: "_id",
+                  value: coach.organizationId,
+                  operator: "eq",
+                },
+              ],
+            }
+          );
+          if (org) {
+            organizationName = (org as any).name || "Unknown Organization";
+          }
+        } catch (error) {
+          console.error(
+            `[getPlatformAIAccuracy] Failed to fetch org ${coach.organizationId}:`,
+            error
+          );
+        }
+
+        return {
+          coachId: coach.coachId,
+          coachName,
+          organizationId: coach.organizationId,
+          organizationName,
+          sports: Array.from(coach.sports).sort(),
+          totalInsights: coach.totalInsights,
+          manuallyCorrected: coach.manuallyCorrected,
+          accuracy:
+            coach.totalInsights > 0
+              ? ((coach.totalInsights - coach.manuallyCorrected) /
+                  coach.totalInsights) *
+                100
+              : 0,
+        };
+      })
+    );
+
+    // Sort by accuracy (lowest first - coaches who need help)
+    byCoachWithNames.sort((a, b) => a.accuracy - b.accuracy);
+
+    return {
+      totalInsights,
+      manuallyCorrected,
+      aiGotItRight,
+      accuracy,
+      correctionBreakdown,
+      byCoach: byCoachWithNames,
+    };
+  },
+});
+
+/**
+ * Set coach's preferred trust level.
+ *
+ * WITHOUT override: Coach can set preferredLevel from 0 up to their currentLevel (dial down)
+ * WITH override: Coach can set preferredLevel to 0-3 (any level)
+ */
+export const setPreferredTrustLevel = mutation({
+  args: {
+    preferredLevel: v.number(),
+    organizationId: v.string(), // Need to check if coach has override in this org
+  },
+  returns: v.null(),
+  handler: async (ctx, args) => {
+    // Get authenticated user
+    const user = await authComponent.safeGetAuthUser(ctx);
+    const coachId = user?.userId || user?._id;
+
+    if (!coachId) {
+      throw new Error("User not authenticated");
+    }
+
+    // Validate level is 0-3
+    if (args.preferredLevel < 0 || args.preferredLevel > 3) {
+      throw new Error("Preferred level must be between 0 and 3");
+    }
+
+    // Get or create trust level record
+    let trustRecord = await ctx.db
+      .query("coachTrustLevels")
+      .withIndex("by_coach", (q) => q.eq("coachId", coachId))
+      .first();
+
+    if (!trustRecord) {
+      trustRecord = await getOrCreateTrustLevelHelper(ctx, coachId);
+    }
+
+    // Check if coach has override in this org
+    const coachPref = await ctx.db
+      .query("coachOrgPreferences")
+      .withIndex("by_coach_org", (q) =>
+        q.eq("coachId", coachId).eq("organizationId", args.organizationId)
+      )
+      .first();
+
+    const hasOverride = coachPref?.trustGateOverride === true;
+
+    // Validation logic
+    // WITHOUT override: Can only dial down from current level
+    // WITH override: Can set to any level 0-3 (already validated above)
+    if (!hasOverride && args.preferredLevel > trustRecord.currentLevel) {
+      throw new Error(
+        `Without override, you can only set preferred level up to your current level (${trustRecord.currentLevel}). Request an override from your admin to access higher levels.`
+      );
+    }
+
+    // Update preferred level
+    await ctx.db.patch(trustRecord._id, {
+      preferredLevel: args.preferredLevel,
+      updatedAt: Date.now(),
+    });
+
+    return null;
   },
 });

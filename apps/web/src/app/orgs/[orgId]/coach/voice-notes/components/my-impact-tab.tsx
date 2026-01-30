@@ -3,10 +3,18 @@
 import { api } from "@pdp/backend/convex/_generated/api";
 import type { Id as BetterAuthId } from "@pdp/backend/convex/betterAuth/_generated/dataModel";
 import { useQuery } from "convex/react";
-import { BarChart3, Mic } from "lucide-react";
+import { format } from "date-fns";
+import { BarChart3, Download, Mic } from "lucide-react";
 import { useEffect, useState } from "react";
+import { toast } from "sonner";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuTrigger,
+} from "@/components/ui/dropdown-menu";
 import {
   Empty,
   EmptyContent,
@@ -23,7 +31,9 @@ import {
 } from "@/components/ui/select";
 import { Skeleton } from "@/components/ui/skeleton";
 import { AppliedInsightsSection } from "./applied-insights-section";
+import { EngagementTrendsSection } from "./engagement-trends-section";
 import { ImpactSummaryCards } from "./impact-summary-cards";
+import { ParentEngagementSection } from "./parent-engagement-section";
 import { SentSummariesSection } from "./sent-summaries-section";
 import { TeamObservationsSection } from "./team-observations-section";
 
@@ -33,6 +43,61 @@ type MyImpactTabProps = {
 };
 
 type DateRangeFilter = "week" | "month" | "quarter" | "season" | "all";
+
+/**
+ * Export applied insights to CSV file
+ * Phase 8 Week 3 (US-P8-018)
+ */
+function exportAppliedInsightsToCSV(
+  skillChanges: Array<{
+    playerName: string;
+    description: string;
+    appliedAt: number;
+  }>,
+  injuries: Array<{
+    playerName: string;
+    description: string;
+    recordedAt: number;
+  }>
+) {
+  const headers = ["Date", "Player", "Type", "Description", "Status"];
+
+  // Combine skills and injuries into one array
+  const allInsights = [
+    ...skillChanges.map((s) => ({
+      date: s.appliedAt,
+      player: s.playerName,
+      type: "Skill",
+      description: s.description.replace(/,/g, ";"), // Escape commas for CSV
+      status: "Applied",
+    })),
+    ...injuries.map((i) => ({
+      date: i.recordedAt,
+      player: i.playerName,
+      type: "Injury",
+      description: i.description.replace(/,/g, ";"), // Escape commas for CSV
+      status: "Recorded",
+    })),
+  ].sort((a, b) => b.date - a.date); // Sort by date descending
+
+  const rows = allInsights.map((insight) => [
+    format(insight.date, "yyyy-MM-dd"),
+    insight.player,
+    insight.type,
+    insight.description,
+    insight.status,
+  ]);
+
+  const csv = [headers, ...rows].map((row) => row.join(",")).join("\n");
+
+  const blob = new Blob([csv], { type: "text/csv;charset=utf-8;" });
+  const url = URL.createObjectURL(blob);
+  const link = document.createElement("a");
+  link.href = url;
+  link.download = `applied-insights-${format(Date.now(), "yyyy-MM-dd")}.csv`;
+  link.click();
+  URL.revokeObjectURL(url);
+}
 
 /**
  * Helper function to convert date range filter to millisecond timestamps
@@ -188,7 +253,7 @@ export function MyImpactTab({ orgId, coachId }: MyImpactTabProps) {
 
   return (
     <div className="space-y-6">
-      {/* Header with date range filter */}
+      {/* Header with date range filter and export button */}
       <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
         <div className="flex items-center gap-3">
           <div className="flex h-10 w-10 items-center justify-center rounded-full bg-primary/10">
@@ -202,21 +267,49 @@ export function MyImpactTab({ orgId, coachId }: MyImpactTabProps) {
           </div>
         </div>
 
-        <Select
-          onValueChange={(v) => setDateRange(v as DateRangeFilter)}
-          value={dateRange}
-        >
-          <SelectTrigger className="w-[180px]">
-            <SelectValue />
-          </SelectTrigger>
-          <SelectContent>
-            <SelectItem value="week">Last 7 Days</SelectItem>
-            <SelectItem value="month">Last 30 Days</SelectItem>
-            <SelectItem value="quarter">Last 3 Months</SelectItem>
-            <SelectItem value="season">This Season</SelectItem>
-            <SelectItem value="all">All Time</SelectItem>
-          </SelectContent>
-        </Select>
+        <div className="flex items-center gap-2">
+          <DropdownMenu>
+            <DropdownMenuTrigger asChild>
+              <Button size="sm" variant="outline">
+                <Download className="mr-2 h-4 w-4" />
+                Export Report
+              </Button>
+            </DropdownMenuTrigger>
+            <DropdownMenuContent align="end">
+              <DropdownMenuItem
+                onClick={() =>
+                  exportAppliedInsightsToCSV(
+                    impactData.skillChanges,
+                    impactData.injuriesRecorded
+                  )
+                }
+              >
+                Export as CSV
+              </DropdownMenuItem>
+              <DropdownMenuItem
+                onClick={() => toast.info("PDF export coming soon!")}
+              >
+                Export as PDF (Coming Soon)
+              </DropdownMenuItem>
+            </DropdownMenuContent>
+          </DropdownMenu>
+
+          <Select
+            onValueChange={(v) => setDateRange(v as DateRangeFilter)}
+            value={dateRange}
+          >
+            <SelectTrigger className="w-[180px]">
+              <SelectValue />
+            </SelectTrigger>
+            <SelectContent>
+              <SelectItem value="week">Last 7 Days</SelectItem>
+              <SelectItem value="month">Last 30 Days</SelectItem>
+              <SelectItem value="quarter">Last 3 Months</SelectItem>
+              <SelectItem value="season">This Season</SelectItem>
+              <SelectItem value="all">All Time</SelectItem>
+            </SelectContent>
+          </Select>
+        </div>
       </div>
 
       {/* Phase 8 Week 2: Summary cards section (US-P8-005) */}
@@ -231,6 +324,12 @@ export function MyImpactTab({ orgId, coachId }: MyImpactTabProps) {
         orgId={orgId}
         skillChanges={impactData.skillChanges}
       />
+
+      {/* Phase 8 Week 3: Parent engagement section (US-P8-016) */}
+      <ParentEngagementSection parentEngagement={impactData.parentEngagement} />
+
+      {/* Phase 8 Week 3: Engagement trends section (US-P8-017) */}
+      <EngagementTrendsSection weeklyTrends={impactData.weeklyTrends} />
 
       {/* Phase 8 Week 2: Team observations section (US-P8-009) */}
       <TeamObservationsSection observations={impactData.teamObservations} />

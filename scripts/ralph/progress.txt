@@ -375,3 +375,61 @@ The story is marked as complete in `prd.json` with justification that `VoiceInsi
 - Should have grepped for examples first (saved time on second attempt)
 
 ---
+
+## 2026-01-30 22:35 - US-P9-005 - Implement Comment Backend
+**Iteration**: 1
+**Commit**: bc0997fd9abfb62d6fc1d95df14f90e46a7e1ef4
+**Session**: f948b5f4-bdfa-4706-841a-cf09389a920e
+**Status**: Complete
+
+### What was implemented
+- Implemented `getInsightComments` query in teamCollaboration.ts:
+  - Fetches all comments for an insight using `by_insight` index
+  - Enriches with user data using Better Auth adapter
+  - Uses batch fetch pattern (no N+1 queries) - fetches all users once
+  - Returns comments sorted chronologically (oldest first)
+- Implemented `addComment` mutation in teamCollaboration.ts:
+  - Auto-detects priority from content keywords:
+    - "injury", "urgent", "emergency" → critical
+    - "important", "concern", "issue" → important
+    - else → normal
+  - Supports threading via optional parentCommentId
+  - Added placeholder TODO for activity feed entry (US-P9-018)
+  - Returns newly created comment ID
+
+### Files changed
+- packages/backend/convex/models/teamCollaboration.ts (+71, -8)
+- packages/backend/convex/_generated/*.ts (auto-generated)
+- scripts/ralph/prd.json (+1, -1) [marked US-P9-005 passes: true]
+
+### Quality checks
+- ✅ Type check: passed
+- ✅ Linting: passed
+- ✅ Convex codegen: successful
+- ⏭️ Convex dashboard testing: deferred (can test after UI component)
+- ✅ No browser verification needed (backend-only change)
+
+### Learnings for future iterations ⚠️ CRITICAL
+**Patterns discovered:**
+- Batch fetch pattern works perfectly: collect unique IDs → Promise.all → create Map → enrich
+- Better Auth adapter already imported from US-P9-003 (no need to re-import)
+- Priority detection can be simple keyword matching (no AI needed for MVP)
+- Activity feed entry is a future story (US-P9-018) - leave TODO comment
+
+**Gotchas encountered:**
+- None! Implementation went smoothly following established patterns
+
+**Dependencies found:**
+- addComment requires userId and organizationId parameters (not in original PRD)
+- Updated args to include these required fields
+- US-P9-007 (InsightComments UI) will consume getInsightComments
+- US-P9-008 (CommentForm) will call addComment
+
+**What to do next**:
+- [x] US-P9-005 complete
+- [ ] US-P9-006: Implement Reactions Backend (toggleReaction, getReactions)
+
+**Mistakes made**:
+- None - followed patterns from US-P9-003 and AGENTS.md
+
+---

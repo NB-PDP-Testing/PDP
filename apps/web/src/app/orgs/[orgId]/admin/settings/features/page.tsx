@@ -7,6 +7,7 @@ import { formatDistanceToNow } from "date-fns";
 import {
   AlertCircle,
   CheckCircle2,
+  Search,
   Shield,
   ShieldAlert,
   Users,
@@ -28,6 +29,7 @@ import {
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { Input } from "@/components/ui/input";
 import { Skeleton } from "@/components/ui/skeleton";
 import { Switch } from "@/components/ui/switch";
 import {
@@ -39,10 +41,19 @@ import {
   TableRow,
 } from "@/components/ui/table";
 import { Textarea } from "@/components/ui/textarea";
+import {
+  Tooltip,
+  TooltipContent,
+  TooltipProvider,
+  TooltipTrigger,
+} from "@/components/ui/tooltip";
 
 export default function OrgFeatureFlagsPage() {
   const params = useParams();
   const orgId = params.orgId as string;
+
+  // UI state - must be before queries that use it
+  const [searchQuery, setSearchQuery] = useState("");
 
   // Fetch feature flag status for this org
   const orgStatus = useQuery(
@@ -59,7 +70,9 @@ export default function OrgFeatureFlagsPage() {
   // Fetch all coaches with their access status
   const allCoaches = useQuery(
     api.models.trustGatePermissions.getAllCoachesWithAccessStatus,
-    orgStatus?.allowAdminDelegation ? { organizationId: orgId } : "skip"
+    orgStatus?.allowAdminDelegation
+      ? { organizationId: orgId, searchQuery: searchQuery || undefined }
+      : "skip"
   );
 
   // Mutations
@@ -81,6 +94,12 @@ export default function OrgFeatureFlagsPage() {
   const reviewCoachOverrideRequest = useMutation(
     api.models.trustGatePermissions.reviewCoachOverrideRequest
   );
+  const grantAIControlRights = useMutation(
+    api.models.trustGatePermissions.grantAIControlRights
+  );
+  const revokeAIControlRights = useMutation(
+    api.models.trustGatePermissions.revokeAIControlRights
+  );
 
   // UI state
   const [isTogglingBlanket, setIsTogglingBlanket] = useState(false);
@@ -97,6 +116,13 @@ export default function OrgFeatureFlagsPage() {
     null
   );
   const [reviewNotes, setReviewNotes] = useState("");
+  const [grantingCoachId, setGrantingCoachId] = useState<string | null>(null);
+  const [grantNote, setGrantNote] = useState("");
+  const [notifyCoach, setNotifyCoach] = useState(true);
+  const [revokingRightsCoachId, setRevokingRightsCoachId] = useState<
+    string | null
+  >(null);
+  const [revokeReason, setRevokeReason] = useState("");
 
   // Loading state
   if (orgStatus === undefined) {
@@ -195,6 +221,46 @@ export default function OrgFeatureFlagsPage() {
       });
       toast.success("Coach access unblocked");
       setUnblockingCoachId(null);
+    } catch (error: any) {
+      toast.error(`Failed: ${error.message}`);
+    }
+  };
+
+  const handleGrantAIControlRights = async () => {
+    if (!grantingCoachId) {
+      return;
+    }
+
+    try {
+      await grantAIControlRights({
+        organizationId: orgId,
+        coachId: grantingCoachId,
+        grantNote: grantNote || undefined,
+        notifyCoach,
+      });
+      toast.success("AI control rights granted to coach");
+      setGrantingCoachId(null);
+      setGrantNote("");
+      setNotifyCoach(true);
+    } catch (error: any) {
+      toast.error(`Failed: ${error.message}`);
+    }
+  };
+
+  const handleRevokeAIControlRights = async () => {
+    if (!revokingRightsCoachId) {
+      return;
+    }
+
+    try {
+      await revokeAIControlRights({
+        organizationId: orgId,
+        coachId: revokingRightsCoachId,
+        revokeReason: revokeReason || undefined,
+      });
+      toast.success("AI control rights revoked from coach");
+      setRevokingRightsCoachId(null);
+      setRevokeReason("");
     } catch (error: any) {
       toast.error(`Failed: ${error.message}`);
     }
@@ -451,19 +517,45 @@ export default function OrgFeatureFlagsPage() {
             </p>
           </CardHeader>
           <CardContent>
+            {/* Search Input */}
+            <div className="mb-4 flex items-center gap-2">
+              <div className="relative max-w-md flex-1">
+                <Search className="absolute top-2.5 left-2.5 h-4 w-4 text-muted-foreground" />
+                <Input
+                  className="pl-9"
+                  onChange={(e) => setSearchQuery(e.target.value)}
+                  placeholder="Search coaches by name or team..."
+                  value={searchQuery}
+                />
+              </div>
+              {searchQuery && (
+                <Button
+                  onClick={() => setSearchQuery("")}
+                  size="sm"
+                  variant="ghost"
+                >
+                  Clear
+                </Button>
+              )}
+            </div>
+
             {allCoaches.length === 0 ? (
               <div className="py-8 text-center text-muted-foreground">
-                No coaches found in this organization
+                {searchQuery
+                  ? `No coaches found matching "${searchQuery}"`
+                  : "No coaches found in this organization"}
               </div>
             ) : (
               <Table>
                 <TableHeader>
                   <TableRow>
                     <TableHead>Coach Name</TableHead>
+                    <TableHead>Teams</TableHead>
                     <TableHead>Trust Level</TableHead>
                     <TableHead>Status</TableHead>
                     <TableHead>Access Reason</TableHead>
-                    <TableHead>Actions</TableHead>
+                    <TableHead>AI Control Rights</TableHead>
+                    <TableHead>Block/Unblock</TableHead>
                   </TableRow>
                 </TableHeader>
                 <TableBody>
@@ -472,21 +564,49 @@ export default function OrgFeatureFlagsPage() {
                       <TableCell className="font-medium">
                         {coach.coachName}
                       </TableCell>
+                      <TableCell className="text-sm">
+                        {coach.teamCount === 0 ? (
+                          <span className="text-muted-foreground">
+                            (No teams assigned)
+                          </span>
+                        ) : coach.teamCount <= 2 ? (
+                          coach.teamNames.join(", ")
+                        ) : (
+                          <TooltipProvider>
+                            <Tooltip>
+                              <TooltipTrigger asChild>
+                                <span className="cursor-help">
+                                  {coach.teamNames.slice(0, 2).join(", ")} +
+                                  {coach.teamCount - 2} more
+                                </span>
+                              </TooltipTrigger>
+                              <TooltipContent>
+                                <ul className="space-y-1">
+                                  {coach.teamNames.map((name) => (
+                                    <li key={name}>• {name}</li>
+                                  ))}
+                                </ul>
+                              </TooltipContent>
+                            </Tooltip>
+                          </TooltipProvider>
+                        )}
+                      </TableCell>
                       <TableCell>Level {coach.trustLevel}</TableCell>
                       <TableCell>
-                        {coach.adminBlocked && (
+                        {coach.adminBlockedFromAI && (
                           <Badge variant="destructive">🚫 Blocked</Badge>
                         )}
-                        {!(coach.adminBlocked || coach.parentAccessEnabled) && (
-                          <Badge variant="secondary">👤 Self-Off</Badge>
-                        )}
-                        {!coach.adminBlocked &&
-                          coach.parentAccessEnabled &&
+                        {!(
+                          coach.adminBlockedFromAI ||
+                          coach.aiControlRightsEnabled
+                        ) && <Badge variant="secondary">👤 Self-Off</Badge>}
+                        {!coach.adminBlockedFromAI &&
+                          coach.aiControlRightsEnabled &&
                           coach.hasAccess && (
                             <Badge variant="default">✓ Active</Badge>
                           )}
-                        {!coach.adminBlocked &&
-                          coach.parentAccessEnabled &&
+                        {!coach.adminBlockedFromAI &&
+                          coach.aiControlRightsEnabled &&
                           !coach.hasAccess && (
                             <Badge variant="outline">No Access</Badge>
                           )}
@@ -495,7 +615,28 @@ export default function OrgFeatureFlagsPage() {
                         {coach.accessReason}
                       </TableCell>
                       <TableCell>
-                        {coach.adminBlocked ? (
+                        {coach.aiControlRightsEnabled ? (
+                          <Button
+                            onClick={() =>
+                              setRevokingRightsCoachId(coach.coachId)
+                            }
+                            size="sm"
+                            variant="outline"
+                          >
+                            Revoke Rights
+                          </Button>
+                        ) : (
+                          <Button
+                            onClick={() => setGrantingCoachId(coach.coachId)}
+                            size="sm"
+                            variant="default"
+                          >
+                            Grant Rights
+                          </Button>
+                        )}
+                      </TableCell>
+                      <TableCell>
+                        {coach.adminBlockedFromAI ? (
                           <Button
                             onClick={() => setUnblockingCoachId(coach.coachId)}
                             size="sm"
@@ -505,7 +646,7 @@ export default function OrgFeatureFlagsPage() {
                           </Button>
                         ) : (
                           <Button
-                            disabled={!coach.parentAccessEnabled}
+                            disabled={!coach.aiControlRightsEnabled}
                             onClick={() => setBlockingCoachId(coach.coachId)}
                             size="sm"
                             variant="destructive"
@@ -791,6 +932,101 @@ export default function OrgFeatureFlagsPage() {
             <AlertDialogCancel>Cancel</AlertDialogCancel>
             <AlertDialogAction onClick={handleUnblockCoach}>
               Unblock Access
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
+
+      {/* Grant AI Control Rights Dialog */}
+      <AlertDialog
+        onOpenChange={(open) => {
+          if (!open) {
+            setGrantingCoachId(null);
+            setGrantNote("");
+            setNotifyCoach(true);
+          }
+        }}
+        open={grantingCoachId !== null}
+      >
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>Grant AI Control Rights?</AlertDialogTitle>
+            <AlertDialogDescription>
+              This coach will be able to control their own AI automation
+              settings (insight matching, auto-apply, parent summaries). They
+              can toggle these features on/off at will.
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <div className="space-y-4">
+            <div className="space-y-2">
+              <label className="font-medium text-sm" htmlFor="grant-note">
+                Note to coach (optional)
+              </label>
+              <Textarea
+                id="grant-note"
+                onChange={(e) => setGrantNote(e.target.value)}
+                placeholder="Why are you granting these rights?"
+                value={grantNote}
+              />
+            </div>
+            <div className="flex items-center space-x-2">
+              <input
+                checked={notifyCoach}
+                id="notify-coach"
+                onChange={(e) => setNotifyCoach(e.target.checked)}
+                type="checkbox"
+              />
+              <label className="text-sm" htmlFor="notify-coach">
+                Notify coach with toast message (when implemented)
+              </label>
+            </div>
+          </div>
+          <AlertDialogFooter>
+            <AlertDialogCancel>Cancel</AlertDialogCancel>
+            <AlertDialogAction onClick={handleGrantAIControlRights}>
+              Grant Rights
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
+
+      {/* Revoke AI Control Rights Dialog */}
+      <AlertDialog
+        onOpenChange={(open) => {
+          if (!open) {
+            setRevokingRightsCoachId(null);
+            setRevokeReason("");
+          }
+        }}
+        open={revokingRightsCoachId !== null}
+      >
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>Revoke AI Control Rights?</AlertDialogTitle>
+            <AlertDialogDescription>
+              This coach will no longer be able to control their AI automation
+              settings. Their current settings will remain, but they cannot
+              change them.
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <div className="space-y-2">
+            <label className="font-medium text-sm" htmlFor="revoke-reason">
+              Reason (optional)
+            </label>
+            <Textarea
+              id="revoke-reason"
+              onChange={(e) => setRevokeReason(e.target.value)}
+              placeholder="Why are you revoking these rights?"
+              value={revokeReason}
+            />
+          </div>
+          <AlertDialogFooter>
+            <AlertDialogCancel>Cancel</AlertDialogCancel>
+            <AlertDialogAction
+              className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
+              onClick={handleRevokeAIControlRights}
+            >
+              Revoke Rights
             </AlertDialogAction>
           </AlertDialogFooter>
         </AlertDialogContent>

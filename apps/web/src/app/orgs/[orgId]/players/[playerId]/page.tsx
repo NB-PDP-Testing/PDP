@@ -19,9 +19,11 @@ import { EmergencyContactsSection } from "./components/emergency-contacts-sectio
 import { GoalsSection } from "./components/goals-section";
 import { NotesSection } from "./components/notes-section";
 import { ParentSummariesSection } from "./components/parent-summaries-section";
+import { PlayerInjuriesSection } from "./components/player-injuries-section";
 import { PositionsFitnessSection } from "./components/positions-fitness-section";
 import { RequestAccessModal } from "./components/request-access-modal";
 import { ShareModal } from "./components/share-modal";
+import { SkillAssessmentsSection } from "./components/skill-assessments-section";
 import { SkillsSection } from "./components/skills-section";
 import { VoiceInsightsSectionImproved } from "./components/voice-insights-section-improved";
 
@@ -335,6 +337,21 @@ function PlayerPassportPageContent() {
               player={playerData as any}
             />
             <SkillsSection player={playerData as any} />
+
+            {/* P8 Week 3: Individual skill assessments with source badges (US-P8-013) */}
+            {playerData.passportId && (
+              <SkillAssessmentsSection
+                orgId={orgId}
+                passportId={playerData.passportId as Id<"sportPassports">}
+              />
+            )}
+
+            {/* P8 Week 3: Injury records with source badges (US-P8-014) */}
+            <PlayerInjuriesSection
+              orgId={orgId}
+              playerIdentityId={playerId as Id<"playerIdentities">}
+            />
+
             <PositionsFitnessSection player={playerData as any} />
           </TabsContent>
 
@@ -405,6 +422,21 @@ function PlayerPassportPageContent() {
             player={playerData as any}
           />
           <SkillsSection player={playerData as any} />
+
+          {/* P8 Week 3: Individual skill assessments with source badges (US-P8-013) */}
+          {playerData.passportId && (
+            <SkillAssessmentsSection
+              orgId={orgId}
+              passportId={playerData.passportId as Id<"sportPassports">}
+            />
+          )}
+
+          {/* P8 Week 3: Injury records with source badges (US-P8-014) */}
+          <PlayerInjuriesSection
+            orgId={orgId}
+            playerIdentityId={playerId as Id<"playerIdentities">}
+          />
+
           <PositionsFitnessSection player={playerData as any} />
         </div>
       )}

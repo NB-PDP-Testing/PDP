@@ -78,6 +78,8 @@ const injuryValidator = v.object({
   restrictedToOrgIds: v.optional(v.array(v.string())),
   reportedBy: v.optional(v.string()),
   reportedByRole: v.optional(reportedByRoleValidator),
+  source: v.optional(v.union(v.literal("manual"), v.literal("voice_note"))),
+  voiceNoteId: v.optional(v.id("voiceNotes")),
   createdAt: v.number(),
   updatedAt: v.number(),
 });

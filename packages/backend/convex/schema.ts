@@ -609,6 +609,10 @@ export default defineSchema({
     sessionId: v.optional(v.string()), // Link to training session
     matchId: v.optional(v.string()), // Link to match record
 
+    // Source tracking - where did this assessment come from?
+    source: v.optional(v.union(v.literal("manual"), v.literal("voice_note"))),
+    voiceNoteId: v.optional(v.id("voiceNotes")), // If created from voice note
+
     // Metadata
     confidence: v.optional(
       v.union(v.literal("low"), v.literal("medium"), v.literal("high"))
@@ -864,6 +868,10 @@ export default defineSchema({
         v.literal("admin")
       )
     ),
+
+    // Source tracking - where did this injury record come from?
+    source: v.optional(v.union(v.literal("manual"), v.literal("voice_note"))),
+    voiceNoteId: v.optional(v.id("voiceNotes")), // If created from voice note
 
     // Timestamps
     createdAt: v.number(),
@@ -1596,6 +1604,19 @@ export default defineSchema({
     appliedBy: v.optional(v.string()), // User ID or "system" for auto-apply
     dismissedAt: v.optional(v.number()),
     dismissedBy: v.optional(v.string()),
+
+    // AI Accuracy Tracking (Phase 7.3)
+    // Tracks when coach corrects AI classification/matching errors for analytics
+    wasManuallyCorrected: v.optional(v.boolean()), // True if coach corrected any AI classification
+    manuallyCorrectedAt: v.optional(v.number()), // Timestamp of correction
+    correctionType: v.optional(
+      v.union(
+        v.literal("player_assigned"), // Coach assigned/corrected player
+        v.literal("team_classified"), // Coach classified as team insight
+        v.literal("todo_classified"), // Coach classified as coach todo
+        v.literal("content_edited") // Coach edited title/description/recommendedUpdate
+      )
+    ),
 
     // Metadata
     organizationId: v.string(),
@@ -2353,6 +2374,8 @@ export default defineSchema({
 
     // Feature toggles (per-org)
     parentSummariesEnabled: v.optional(v.boolean()), // Generate parent summaries (default true)
+    aiInsightMatchingEnabled: v.optional(v.boolean()), // Auto-match players, classify insights (default true)
+    autoApplyInsightsEnabled: v.optional(v.boolean()), // Auto-apply skill ratings, injuries (default true)
     skipSensitiveInsights: v.optional(v.boolean()), // Skip injury/behavior from summaries (default false)
 
     // Trust Gate Individual Override (P8 Week 1.5)
@@ -2362,11 +2385,19 @@ export default defineSchema({
     overrideReason: v.optional(v.string()), // Why this coach got bypass
     overrideExpiresAt: v.optional(v.number()), // Optional: time-boxed access
 
-    // Coach Self-Service Access Control (P8 Week 1.5 extension)
-    parentAccessEnabled: v.optional(v.boolean()), // Coach toggle (default true after approval)
+    // AI Control Rights - Coach Self-Service Access (P8 Week 1.5)
+    // Renamed from parentAccessEnabled - grants control over ALL AI automation features
+    aiControlRightsEnabled: v.optional(v.boolean()), // Coach granted rights to control AI features
+    grantedBy: v.optional(v.string()), // Admin/platform staff who granted rights
+    grantedAt: v.optional(v.number()), // When rights were granted
+    grantNote: v.optional(v.string()), // Admin's note when granting
+    revokedBy: v.optional(v.string()), // Who revoked rights
+    revokedAt: v.optional(v.number()), // When rights were revoked
+    revokeReason: v.optional(v.string()), // Why rights were revoked
 
-    // Admin Block Individual Coach (P8 Week 1.5 extension)
-    adminBlocked: v.optional(v.boolean()), // Admin blocked this specific coach
+    // Admin Block Individual Coach from AI (P8 Week 1.5)
+    // Renamed from adminBlocked - blocks ALL AI automation features
+    adminBlockedFromAI: v.optional(v.boolean()), // Admin blocked this coach from AI features
     blockReason: v.optional(v.string()), // Why admin blocked
     blockedBy: v.optional(v.string()), // User ID who blocked
     blockedAt: v.optional(v.number()), // When blocked

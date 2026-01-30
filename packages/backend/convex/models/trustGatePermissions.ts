@@ -1196,6 +1196,182 @@ export const unblockIndividualCoach = mutation({
 });
 
 /**
+ * Admin: Grant AI Control Rights to specific coach
+ * Gives coach ability to toggle their own AI automation settings
+ */
+export const grantAIControlRights = mutation({
+  args: {
+    organizationId: v.string(),
+    coachId: v.string(),
+    grantNote: v.optional(v.string()),
+    notifyCoach: v.optional(v.boolean()), // For future toast notification
+  },
+  returns: v.object({
+    success: v.boolean(),
+  }),
+  handler: async (ctx, args) => {
+    // Verify authenticated
+    const currentUser = await authComponent.safeGetAuthUser(ctx);
+    if (!currentUser) {
+      throw new Error("User not found");
+    }
+
+    // Check if user is org admin (using working pattern with operator)
+    const membership = (await ctx.runQuery(
+      components.betterAuth.adapter.findOne,
+      {
+        model: "member",
+        where: [
+          {
+            field: "organizationId",
+            value: args.organizationId,
+            operator: "eq",
+          },
+          { field: "userId", value: currentUser._id, operator: "eq" },
+        ],
+      }
+    )) as BetterAuthDoc<"member"> | null;
+
+    if (
+      !membership ||
+      (membership.role !== "admin" && membership.role !== "owner")
+    ) {
+      throw new Error("Unauthorized: Admin or owner role required");
+    }
+
+    // Check if org allows admin delegation
+    const org = (await ctx.runQuery(components.betterAuth.adapter.findOne, {
+      model: "organization",
+      where: [{ field: "_id", value: args.organizationId, operator: "eq" }],
+    })) as BetterAuthDoc<"organization"> | null;
+
+    if (!org?.allowAdminDelegation) {
+      throw new Error(
+        "Unauthorized: Organization does not allow admin delegation"
+      );
+    }
+
+    // Get or create coach preferences
+    const coachPref = await ctx.db
+      .query("coachOrgPreferences")
+      .withIndex("by_coach_org", (q) =>
+        q.eq("coachId", args.coachId).eq("organizationId", args.organizationId)
+      )
+      .first();
+
+    if (coachPref) {
+      // Update existing
+      await ctx.db.patch(coachPref._id, {
+        aiControlRightsEnabled: true,
+        grantedBy: currentUser._id,
+        grantedAt: Date.now(),
+        grantNote: args.grantNote,
+        // Clear any previous block
+        adminBlockedFromAI: false,
+        blockReason: undefined,
+        blockedBy: undefined,
+        blockedAt: undefined,
+        // Clear any previous revoke
+        revokedBy: undefined,
+        revokedAt: undefined,
+        revokeReason: undefined,
+        updatedAt: Date.now(),
+      });
+    } else {
+      // Create new with all AI features enabled by default
+      await ctx.db.insert("coachOrgPreferences", {
+        coachId: args.coachId,
+        organizationId: args.organizationId,
+        aiControlRightsEnabled: true,
+        grantedBy: currentUser._id,
+        grantedAt: Date.now(),
+        grantNote: args.grantNote,
+        // Default all features ON
+        aiInsightMatchingEnabled: true,
+        autoApplyInsightsEnabled: true,
+        parentSummariesEnabled: true,
+        createdAt: Date.now(),
+        updatedAt: Date.now(),
+      });
+    }
+
+    return { success: true };
+  },
+});
+
+/**
+ * Admin: Revoke AI Control Rights from specific coach
+ * Removes coach's ability to toggle their own AI automation settings
+ */
+export const revokeAIControlRights = mutation({
+  args: {
+    organizationId: v.string(),
+    coachId: v.string(),
+    revokeReason: v.optional(v.string()),
+  },
+  returns: v.object({
+    success: v.boolean(),
+  }),
+  handler: async (ctx, args) => {
+    // Verify authenticated
+    const currentUser = await authComponent.safeGetAuthUser(ctx);
+    if (!currentUser) {
+      throw new Error("User not found");
+    }
+
+    // Check if user is org admin (using working pattern with operator)
+    const membership = (await ctx.runQuery(
+      components.betterAuth.adapter.findOne,
+      {
+        model: "member",
+        where: [
+          {
+            field: "organizationId",
+            value: args.organizationId,
+            operator: "eq",
+          },
+          { field: "userId", value: currentUser._id, operator: "eq" },
+        ],
+      }
+    )) as BetterAuthDoc<"member"> | null;
+
+    if (
+      !membership ||
+      (membership.role !== "admin" && membership.role !== "owner")
+    ) {
+      throw new Error("Unauthorized: Admin or owner role required");
+    }
+
+    // Get coach preferences
+    const coachPref = await ctx.db
+      .query("coachOrgPreferences")
+      .withIndex("by_coach_org", (q) =>
+        q.eq("coachId", args.coachId).eq("organizationId", args.organizationId)
+      )
+      .first();
+
+    if (!coachPref?.aiControlRightsEnabled) {
+      return { success: true }; // Already not granted
+    }
+
+    // Update to revoke
+    await ctx.db.patch(coachPref._id, {
+      aiControlRightsEnabled: false,
+      revokedBy: currentUser._id,
+      revokedAt: Date.now(),
+      revokeReason: args.revokeReason,
+      // Clear grant fields
+      grantedBy: undefined,
+      grantedAt: undefined,
+      grantNote: undefined,
+      updatedAt: Date.now(),
+    });
+
+    return { success: true };
+  },
+});
+
+/**
  * Coach: Toggle their own AI automation control rights on/off
  * Only works if coach already has permission (via trust level, override, etc.)
  */

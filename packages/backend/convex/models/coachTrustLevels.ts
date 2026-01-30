@@ -1,4 +1,5 @@
 import { v } from "convex/values";
+import { components } from "../_generated/api";
 import type { Doc } from "../_generated/dataModel";
 import {
   internalMutation,
@@ -1173,8 +1174,14 @@ export const getPlatformAIAccuracy = query({
         let organizationName = "Unknown Organization";
 
         try {
-          // Query user table directly (Better Auth table accessible via ctx.db)
-          const user = await ctx.db.get(coach.coachId as any);
+          // Fetch user using Better Auth adapter
+          const user = await ctx.runQuery(
+            components.betterAuth.adapter.findOne,
+            {
+              model: "user",
+              where: [{ field: "_id", value: coach.coachId, operator: "eq" }],
+            }
+          );
           if (user) {
             const userRecord = user as any;
             // Try firstName/lastName first, fall back to name field, then email
@@ -1192,8 +1199,20 @@ export const getPlatformAIAccuracy = query({
         }
 
         try {
-          // Query organization table directly (Better Auth table accessible via ctx.db)
-          const org = await ctx.db.get(coach.organizationId as any);
+          // Fetch organization using Better Auth adapter
+          const org = await ctx.runQuery(
+            components.betterAuth.adapter.findOne,
+            {
+              model: "organization",
+              where: [
+                {
+                  field: "_id",
+                  value: coach.organizationId,
+                  operator: "eq",
+                },
+              ],
+            }
+          );
           if (org) {
             organizationName = (org as any).name || "Unknown Organization";
           }

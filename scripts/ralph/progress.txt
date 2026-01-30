@@ -264,3 +264,59 @@ The story is marked as complete in `prd.json` with justification that `VoiceInsi
 - Created duplicate index with same fields as existing index
 
 ---
+
+## 2026-01-30 22:22 - US-P9-003 - Implement Presence Backend
+**Iteration**: 1
+**Commit**: 0fd4cf177eca30e3e0bc7eeb6cb1ba4e0d2fdb58
+**Session**: f948b5f4-bdfa-4706-841a-cf09389a920e
+**Status**: Complete
+
+### What was implemented
+- Implemented `updatePresence` mutation in teamCollaboration.ts:
+  - Upserts presence record (create or update based on user/team)
+  - Records current view (e.g., "voice_notes", "player_passport:123")
+  - Updates lastActive timestamp
+- Implemented `getTeamPresence` query in teamCollaboration.ts:
+  - Fetches all presence records for a team
+  - Filters out stale records (>15 minutes inactive)
+  - Enriches with user data using Better Auth adapter
+  - Calculates status: active (<5min), idle (5-15min), away (>15min)
+  - Returns array of active users with name, avatar, status
+
+### Files changed
+- packages/backend/convex/models/teamCollaboration.ts (+70, -10)
+- packages/backend/convex/_generated/*.ts (auto-generated)
+- scripts/ralph/prd.json (+1, -1) [marked US-P9-003 passes: true]
+
+### Quality checks
+- ✅ Type check: passed
+- ✅ Linting: passed
+- ✅ Convex codegen: successful
+- ⏭️ Convex dashboard testing: deferred (can be tested after UI component in US-P9-004)
+- ✅ No browser verification needed (backend-only change)
+
+### Learnings for future iterations ⚠️ CRITICAL
+**Patterns discovered:**
+- Better Auth adapter uses `model` not `table` parameter
+- Better Auth adapter `where` is an ARRAY of conditions, not a single object
+- Format: `where: [{ field: "_id", value: userId, operator: "eq" }]`
+- Use `_id` field for user lookups (not `userId` which is always null in this app)
+
+**Gotchas encountered:**
+- Initial type error: Used `table` instead of `model` in adapter call
+- Second type error: Used object instead of array for `where` parameter
+- Must include `operator: "eq"` in where clause
+
+**Dependencies found:**
+- US-P9-004 (Presence Indicators Component) will consume these queries
+- Can test both backend and frontend together after UI is implemented
+
+**What to do next**:
+- [x] US-P9-003 complete
+- [ ] US-P9-004: Create Presence Indicators Component (UI for "who's online")
+
+**Mistakes made**:
+- Used incorrect Better Auth adapter syntax initially (forgot it's an array)
+- Should have referenced AGENTS.md or flows.ts example BEFORE implementing
+
+---

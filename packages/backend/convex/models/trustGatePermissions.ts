@@ -1278,8 +1278,12 @@ export const getAllCoachesWithAccessStatus = query({
       {
         model: "member",
         where: [
-          { field: "organizationId", value: args.organizationId },
-          { field: "userId", value: currentUser._id },
+          {
+            field: "organizationId",
+            value: args.organizationId,
+            operator: "eq",
+          },
+          { field: "userId", value: currentUser._id, operator: "eq" },
         ],
       }
     )) as BetterAuthDoc<"member"> | null;
@@ -1296,7 +1300,13 @@ export const getAllCoachesWithAccessStatus = query({
       components.betterAuth.adapter.findMany,
       {
         model: "member",
-        where: [{ field: "organizationId", value: args.organizationId }],
+        where: [
+          {
+            field: "organizationId",
+            value: args.organizationId,
+            operator: "eq",
+          },
+        ],
         paginationOpts: {
           cursor: null,
           numItems: 1000,
@@ -1312,7 +1322,7 @@ export const getAllCoachesWithAccessStatus = query({
     // Get org settings
     const org = (await ctx.runQuery(components.betterAuth.adapter.findOne, {
       model: "organization",
-      where: [{ field: "_id", value: args.organizationId }],
+      where: [{ field: "_id", value: args.organizationId, operator: "eq" }],
     })) as BetterAuthDoc<"organization"> | null;
 
     if (!org) {
@@ -1327,7 +1337,7 @@ export const getAllCoachesWithAccessStatus = query({
           components.betterAuth.adapter.findOne,
           {
             model: "user",
-            where: [{ field: "userId", value: member.userId }],
+            where: [{ field: "_id", value: member.userId, operator: "eq" }],
           }
         )) as BetterAuthDoc<"user"> | null;
 
@@ -1387,7 +1397,11 @@ export const getAllCoachesWithAccessStatus = query({
 
         return {
           coachId: member.userId,
-          coachName: user?.name || "Unknown",
+          coachName: user
+            ? user.firstName && user.lastName
+              ? `${user.firstName} ${user.lastName}`.trim()
+              : user.name || user.email || "Unknown"
+            : "Unknown",
           trustLevel: trustLevel?.currentLevel ?? 0,
           hasAccess,
           accessReason,

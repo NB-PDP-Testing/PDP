@@ -11,6 +11,7 @@ import {
   Inbox,
   Lightbulb,
   Loader2,
+  Lock as LockIcon,
   Pencil,
   Send,
   Sparkles,
@@ -49,6 +50,7 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Progress } from "@/components/ui/progress";
 import { RadioGroup, RadioGroupItem } from "@/components/ui/radio-group";
+import { Switch } from "@/components/ui/switch";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Textarea } from "@/components/ui/textarea";
 import { useSession } from "@/lib/auth-client";
@@ -158,9 +160,9 @@ export function InsightsTab({ orgId, onSuccess, onError }: InsightsTabProps) {
     useState<ClassifyingInsight>(null);
   const [isSaving, setIsSaving] = useState(false);
   const [playerSearch, setPlayerSearch] = useState("");
-  const [activeTab, setActiveTab] = useState<"pending" | "auto-applied">(
-    "pending"
-  );
+  const [activeTab, setActiveTab] = useState<
+    "pending" | "auto-applied" | "settings"
+  >("pending");
   const [undoingInsight, setUndoingInsight] = useState<UndoingInsight>(null);
   const [undoReason, setUndoReason] = useState<string>("wrong_rating");
   const [undoReasonOther, setUndoReasonOther] = useState<string>("");
@@ -211,6 +213,12 @@ export function InsightsTab({ orgId, onSuccess, onError }: InsightsTabProps) {
     coachUserId ? { organizationId: orgId, coachId: coachUserId } : "skip"
   );
 
+  // Get coach org preferences for AI feature toggles (P8 Week 1.5)
+  const coachPref = useQuery(
+    api.models.trustGatePermissions.getCoachOrgPreferences,
+    coachId && orgId ? { coachId, organizationId: orgId } : "skip"
+  );
+
   const updateInsightStatus = useMutation(
     api.models.voiceNotes.updateInsightStatus
   );
@@ -227,8 +235,12 @@ export function InsightsTab({ orgId, onSuccess, onError }: InsightsTabProps) {
   const undoAutoAppliedInsight = useMutation(
     api.models.voiceNoteInsights.undoAutoAppliedInsight
   );
+  const toggleAIFeature = useMutation(
+    api.models.trustGatePermissions.toggleAIFeatureSetting
+  );
 
   const [isBulkApplying, setIsBulkApplying] = useState(false);
+  const [isTogglingFeature, setIsTogglingFeature] = useState(false);
 
   const handleAssignPlayer = async (
     playerIdentityId: Id<"playerIdentities">
@@ -409,6 +421,33 @@ export function InsightsTab({ orgId, onSuccess, onError }: InsightsTabProps) {
       onError("Failed to undo insight.");
     } finally {
       setIsSaving(false);
+    }
+  };
+
+  const handleToggleAIFeature = async (
+    feature:
+      | "aiInsightMatchingEnabled"
+      | "autoApplyInsightsEnabled"
+      | "parentSummariesEnabled",
+    enabled: boolean
+  ) => {
+    if (!orgId) {
+      return;
+    }
+    setIsTogglingFeature(true);
+    try {
+      await toggleAIFeature({
+        organizationId: orgId,
+        feature,
+        enabled,
+      });
+      onSuccess(
+        `${feature === "aiInsightMatchingEnabled" ? "AI Insight Matching" : feature === "autoApplyInsightsEnabled" ? "Auto-Apply Insights" : "Parent Summaries"} ${enabled ? "enabled" : "disabled"}`
+      );
+    } catch (error: any) {
+      onError(error.message || "Failed to update setting");
+    } finally {
+      setIsTogglingFeature(false);
     }
   };
 
@@ -1010,9 +1049,10 @@ export function InsightsTab({ orgId, onSuccess, onError }: InsightsTabProps) {
         }
         value={activeTab}
       >
-        <TabsList className="grid w-full grid-cols-2">
+        <TabsList className="grid w-full grid-cols-3">
           <TabsTrigger value="pending">Pending Review</TabsTrigger>
           <TabsTrigger value="auto-applied">Auto-Applied</TabsTrigger>
+          <TabsTrigger value="settings">Settings</TabsTrigger>
         </TabsList>
 
         <TabsContent className="mt-4 space-y-4" value="pending">
@@ -1267,6 +1307,128 @@ export function InsightsTab({ orgId, onSuccess, onError }: InsightsTabProps) {
                   );
                 })
               )}
+            </CardContent>
+          </Card>
+        </TabsContent>
+
+        <TabsContent className="mt-4" value="settings">
+          <Card>
+            <CardHeader>
+              <CardTitle>AI Automation Settings</CardTitle>
+              <CardDescription>
+                Control which AI features are enabled for your voice notes
+              </CardDescription>
+            </CardHeader>
+            <CardContent className="space-y-6">
+              {coachPref?.aiControlRightsEnabled ? (
+                coachPref?.adminBlockedFromAI ? (
+                  <div className="rounded-lg border border-destructive bg-destructive/10 p-4">
+                    <div className="flex items-start gap-3">
+                      <AlertTriangle className="mt-0.5 h-5 w-5 text-destructive" />
+                      <div className="flex-1">
+                        <h4 className="font-medium text-destructive text-sm">
+                          AI Access Blocked
+                        </h4>
+                        <p className="mt-1 text-destructive/90 text-xs">
+                          {coachPref.blockReason ||
+                            "Your admin has blocked your access to AI features"}
+                        </p>
+                      </div>
+                    </div>
+                  </div>
+                ) : (
+                  <div className="space-y-4">
+                    <div className="flex items-start justify-between space-x-4">
+                      <div className="flex-1">
+                        <h4 className="font-medium text-sm">
+                          AI Insight Matching
+                        </h4>
+                        <p className="text-muted-foreground text-xs">
+                          Automatically match players and classify insight
+                          categories
+                        </p>
+                      </div>
+                      <Switch
+                        checked={coachPref.aiInsightMatchingEnabled ?? true}
+                        disabled={isTogglingFeature}
+                        onCheckedChange={(checked) =>
+                          handleToggleAIFeature(
+                            "aiInsightMatchingEnabled",
+                            checked
+                          )
+                        }
+                      />
+                    </div>
+
+                    <div className="flex items-start justify-between space-x-4">
+                      <div className="flex-1">
+                        <h4 className="font-medium text-sm">
+                          Auto-Apply Insights
+                        </h4>
+                        <p className="text-muted-foreground text-xs">
+                          Automatically apply skill ratings and injury updates
+                          to player profiles
+                        </p>
+                      </div>
+                      <Switch
+                        checked={coachPref.autoApplyInsightsEnabled ?? true}
+                        disabled={isTogglingFeature}
+                        onCheckedChange={(checked) =>
+                          handleToggleAIFeature(
+                            "autoApplyInsightsEnabled",
+                            checked
+                          )
+                        }
+                      />
+                    </div>
+
+                    <div className="flex items-start justify-between space-x-4">
+                      <div className="flex-1">
+                        <h4 className="font-medium text-sm">
+                          Parent Summaries
+                        </h4>
+                        <p className="text-muted-foreground text-xs">
+                          Generate and send weekly summaries to parents
+                        </p>
+                      </div>
+                      <Switch
+                        checked={coachPref.parentSummariesEnabled ?? true}
+                        disabled={isTogglingFeature}
+                        onCheckedChange={(checked) =>
+                          handleToggleAIFeature(
+                            "parentSummariesEnabled",
+                            checked
+                          )
+                        }
+                      />
+                    </div>
+                  </div>
+                )
+              ) : (
+                <div className="rounded-lg border border-amber-300 bg-amber-50 p-4">
+                  <div className="flex items-start gap-3">
+                    <LockIcon className="mt-0.5 h-5 w-5 text-amber-700" />
+                    <div className="flex-1">
+                      <h4 className="font-medium text-amber-900 text-sm">
+                        AI Control Rights Required
+                      </h4>
+                      <p className="mt-1 text-amber-800 text-xs">
+                        You need AI control rights from your admin to change
+                        these settings. Contact your organization admin to
+                        request access.
+                      </p>
+                    </div>
+                  </div>
+                </div>
+              )}
+
+              <div className="border-t pt-4">
+                <p className="text-muted-foreground text-xs">
+                  These settings control how AI assists with your voice notes.
+                  {coachPref?.aiControlRightsEnabled &&
+                    " You can turn features on or off at any time."}
+                </p>
+              </div>
             </CardContent>
           </Card>
         </TabsContent>

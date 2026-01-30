@@ -60,6 +60,7 @@ const summaryValidator = v.object({
   scheduledDeliveryAt: v.optional(v.number()),
   deliveredAt: v.optional(v.number()),
   viewedAt: v.optional(v.number()),
+  viewedBy: v.optional(v.string()),
   acknowledgedAt: v.optional(v.number()),
   acknowledgedBy: v.optional(v.string()),
   wouldAutoApprove: v.optional(v.boolean()),
@@ -293,8 +294,8 @@ export const approveSummary = mutation({
       throw new Error("Not authenticated");
     }
 
-    // Get the user ID (use _id or userId depending on what's available)
-    const userId = user.userId || user._id;
+    // Get the user ID
+    const userId = user._id;
     if (!userId) {
       throw new Error("User ID not found");
     }
@@ -392,8 +393,8 @@ export const approveInjurySummary = mutation({
       throw new Error("Not authenticated");
     }
 
-    // Get the user ID (use _id or userId depending on what's available)
-    const userId = user.userId || user._id;
+    // Get the user ID
+    const userId = user._id;
     if (!userId) {
       throw new Error("User ID not found");
     }
@@ -476,8 +477,8 @@ export const suppressSummary = mutation({
       throw new Error("Not authenticated");
     }
 
-    // Get the user ID (use _id or userId depending on what's available)
-    const userId = user.userId || user._id;
+    // Get the user ID
+    const userId = user._id;
     if (!userId) {
       throw new Error("User ID not found");
     }
@@ -581,8 +582,8 @@ export const revokeSummary = mutation({
     // Authenticate user
     const user = await authComponent.safeGetAuthUser(ctx);
 
-    // Get the user ID (use _id or userId depending on what's available)
-    const userId = user?.userId || user?._id;
+    // Get the user ID
+    const userId = user?._id;
     if (!userId) {
       return {
         success: false,
@@ -666,8 +667,8 @@ export const editSummaryContent = mutation({
       throw new Error("Not authenticated");
     }
 
-    // Get the user ID (use _id or userId depending on what's available)
-    const userId = user.userId || user._id;
+    // Get the user ID
+    const userId = user._id;
     if (!userId) {
       throw new Error("User ID not found");
     }
@@ -727,8 +728,8 @@ export const getCoachPendingSummaries = query({
       throw new Error("Not authenticated");
     }
 
-    // Get userId with fallback to _id
-    const userId = user.userId || user._id;
+    // Get the user ID
+    const userId = user._id;
 
     // Get coach trust level for wouldAutoApprove calculation
     const trustLevel = await ctx.db
@@ -841,7 +842,7 @@ export const getAutoApprovedSummaries = query({
       throw new Error("Not authenticated");
     }
 
-    const userId = user.userId || user._id;
+    const userId = user._id;
 
     // Query summaries from last 30 days that were approved (auto or manual)
     const thirtyDaysAgo = Date.now() - 30 * 24 * 60 * 60 * 1000;
@@ -1101,134 +1102,164 @@ export const getParentSummariesByChildAndSport = query({
       )
       .collect();
 
-    // For each child, get summaries grouped by sport
-    const childrenWithSummaries = await Promise.all(
-      links.map(async (link) => {
-        const player = await ctx.db.get(link.playerIdentityId);
-        if (!player) {
-          return null;
+    // BATCH FIX: First, fetch all data for all children and collect coach IDs
+    // This avoids N+1 on coach lookups
+
+    // Step 1: Fetch all players and summaries in parallel
+    const childDataPromises = links.map(async (link) => {
+      const player = await ctx.db.get(link.playerIdentityId);
+      if (!player) {
+        return null;
+      }
+
+      // Get all summaries for this player (query each status separately)
+      const [approvedSummaries, deliveredSummaries, viewedSummaries] =
+        await Promise.all([
+          ctx.db
+            .query("coachParentSummaries")
+            .withIndex("by_player_org_status", (q) =>
+              q
+                .eq("playerIdentityId", link.playerIdentityId)
+                .eq("organizationId", args.organizationId)
+                .eq("status", "approved")
+            )
+            .collect(),
+          ctx.db
+            .query("coachParentSummaries")
+            .withIndex("by_player_org_status", (q) =>
+              q
+                .eq("playerIdentityId", link.playerIdentityId)
+                .eq("organizationId", args.organizationId)
+                .eq("status", "delivered")
+            )
+            .collect(),
+          ctx.db
+            .query("coachParentSummaries")
+            .withIndex("by_player_org_status", (q) =>
+              q
+                .eq("playerIdentityId", link.playerIdentityId)
+                .eq("organizationId", args.organizationId)
+                .eq("status", "viewed")
+            )
+            .collect(),
+        ]);
+
+      const playerSummaries = [
+        ...approvedSummaries,
+        ...deliveredSummaries,
+        ...viewedSummaries,
+      ];
+
+      return { player, playerSummaries };
+    });
+
+    const childData = await Promise.all(childDataPromises);
+    const validChildData = childData.filter(
+      (d): d is NonNullable<typeof d> => d !== null
+    );
+
+    // Step 2: Collect ALL unique coachIds and sportIds from ALL summaries
+    const allCoachIds: string[] = [];
+    const allSportIds: string[] = [];
+    for (const { playerSummaries } of validChildData) {
+      for (const summary of playerSummaries) {
+        if (summary.coachId) {
+          allCoachIds.push(summary.coachId);
         }
+        if (summary.sportId) {
+          allSportIds.push(summary.sportId);
+        }
+      }
+    }
 
-        // Get all summaries for this player (query each status separately)
-        const approvedSummaries = await ctx.db
-          .query("coachParentSummaries")
-          .withIndex("by_player_org_status", (q) =>
-            q
-              .eq("playerIdentityId", link.playerIdentityId)
-              .eq("organizationId", args.organizationId)
-              .eq("status", "approved")
-          )
-          .collect();
+    const uniqueCoachIds: string[] = [...new Set(allCoachIds)];
+    const uniqueSportIds: string[] = [...new Set(allSportIds)];
 
-        const deliveredSummaries = await ctx.db
-          .query("coachParentSummaries")
-          .withIndex("by_player_org_status", (q) =>
-            q
-              .eq("playerIdentityId", link.playerIdentityId)
-              .eq("organizationId", args.organizationId)
-              .eq("status", "delivered")
-          )
-          .collect();
+    // Step 3: Batch fetch ALL coaches and sports in parallel
+    const [coachResults, sportResults] = await Promise.all([
+      Promise.all(
+        uniqueCoachIds.map((coachId: string) =>
+          ctx.runQuery(components.betterAuth.adapter.findOne, {
+            model: "user",
+            where: [{ field: "_id", value: coachId, operator: "eq" }],
+          })
+        )
+      ),
+      Promise.all(
+        uniqueSportIds.map((sportId: string) =>
+          ctx.db.get(sportId as Id<"sports">)
+        )
+      ),
+    ]);
 
-        const viewedSummaries = await ctx.db
-          .query("coachParentSummaries")
-          .withIndex("by_player_org_status", (q) =>
-            q
-              .eq("playerIdentityId", link.playerIdentityId)
-              .eq("organizationId", args.organizationId)
-              .eq("status", "viewed")
-          )
-          .collect();
+    // Step 4: Create Maps for O(1) lookup
+    const coachMap = new Map<string, string>();
+    for (const coach of coachResults) {
+      if (coach) {
+        // biome-ignore lint/suspicious/noExplicitAny: Better Auth adapter returns untyped data
+        const coachAny = coach as any;
+        const name = coachAny.name || coachAny.email || "Unknown Coach";
+        coachMap.set(coachAny._id as string, name);
+      }
+    }
 
-        const playerSummaries = [
-          ...approvedSummaries,
-          ...deliveredSummaries,
-          ...viewedSummaries,
-        ];
+    const sportMap = new Map<string, (typeof sportResults)[number]>();
+    for (let i = 0; i < uniqueSportIds.length; i++) {
+      const sportId = uniqueSportIds[i];
+      const sport = sportResults[i];
+      if (sport) {
+        sportMap.set(sportId, sport);
+      }
+    }
 
-        // Group by sport
-        const sportMap = new Map<string, typeof playerSummaries>();
+    // Step 5: Map over children, now using pre-fetched coach/sport data (no N+1)
+    const childrenWithSummaries = validChildData.map(
+      ({ player, playerSummaries }) => {
+        // Group summaries by sport
+        const summariesBySport = new Map<string, typeof playerSummaries>();
         for (const summary of playerSummaries) {
           const sportId = summary.sportId;
-          if (!sportMap.has(sportId)) {
-            sportMap.set(sportId, []);
+          if (!summariesBySport.has(sportId)) {
+            summariesBySport.set(sportId, []);
           }
-          const sportSummaries = sportMap.get(sportId);
+          const sportSummaries = summariesBySport.get(sportId);
           if (sportSummaries) {
             sportSummaries.push(summary);
           }
         }
 
-        // Convert to array with sport info and enrich with coach names
-        const sportGroups = await Promise.all(
-          Array.from(sportMap.entries()).map(
-            async ([sportId, sportSummaries]) => {
-              const sport = await ctx.db.get(sportId as Id<"sports">);
-              // Count unacknowledged messages (not just unviewed)
-              // acknowledgedAt is the explicit user action to mark as read
-              const unreadCount = sportSummaries.filter(
-                (s) => !s.acknowledgedAt
-              ).length;
+        // Convert to array with sport info and enriched coach names
+        const sportGroups = Array.from(summariesBySport.entries()).map(
+          ([sportId, sportSummaries]) => {
+            const sport = sportMap.get(sportId) || null;
+            const unreadCount = sportSummaries.filter(
+              (s) => !s.acknowledgedAt
+            ).length;
 
-              // Enrich summaries with coach names
-              const enrichedSummaries = await Promise.all(
-                sportSummaries.map(async (summary) => {
-                  let coachName = "Unknown Coach";
-
-                  if (summary.coachId) {
-                    try {
-                      // Query by _id field (Convex document ID)
-                      const coachResult = await ctx.runQuery(
-                        components.betterAuth.adapter.findOne,
-                        {
-                          model: "user",
-                          where: [
-                            {
-                              field: "_id",
-                              value: summary.coachId,
-                              operator: "eq",
-                            },
-                          ],
-                        }
-                      );
-
-                      if (coachResult) {
-                        // Better Auth stores full name in 'name' field
-                        if (coachResult.name) {
-                          coachName = coachResult.name;
-                        } else if (coachResult.email) {
-                          coachName = coachResult.email;
-                        }
-                      }
-                    } catch (error) {
-                      console.error(
-                        `Failed to fetch coach name for ${summary.coachId}:`,
-                        error
-                      );
-                    }
-                  }
-
-                  return {
-                    ...summary,
-                    coachName,
-                  };
-                })
-              );
-
+            // Enrich summaries with coach names from pre-fetched map
+            const enrichedSummaries = sportSummaries.map((summary) => {
+              const coachName = summary.coachId
+                ? coachMap.get(summary.coachId) || "Unknown Coach"
+                : "Unknown Coach";
               return {
-                sport,
-                summaries: enrichedSummaries,
-                unreadCount,
+                ...summary,
+                coachName,
               };
-            }
-          )
+            });
+
+            return {
+              sport,
+              summaries: enrichedSummaries,
+              unreadCount,
+            };
+          }
         );
 
         return {
           player,
           sportGroups,
         };
-      })
+      }
     );
 
     // Filter out null entries
@@ -1257,11 +1288,8 @@ export const markSummaryViewed = mutation({
       throw new Error("Not authenticated");
     }
 
-    // Get the user ID
-    const userId = user._id || user.userId;
-    if (!userId) {
-      throw new Error("User ID not found");
-    }
+    // Get the user ID (user._id is the correct field in Better Auth)
+    const userId = user._id;
 
     // Fetch the summary
     const summary = await ctx.db.get(args.summaryId);
@@ -1332,11 +1360,8 @@ export const trackShareEvent = mutation({
       throw new Error("Not authenticated");
     }
 
-    // Get the user ID
-    const userId = user._id || user.userId;
-    if (!userId) {
-      throw new Error("User ID not found");
-    }
+    // Get the user ID (user._id is the correct field in Better Auth)
+    const userId = user._id;
 
     // Fetch the summary
     const summary = await ctx.db.get(args.summaryId);
@@ -1397,11 +1422,8 @@ export const acknowledgeParentSummary = mutation({
       throw new Error("Not authenticated");
     }
 
-    // Get the user ID
-    const userId = user._id || user.userId;
-    if (!userId) {
-      throw new Error("User ID not found");
-    }
+    // Get the user ID (user._id is the correct field in Better Auth)
+    const userId = user._id;
 
     // Fetch the summary
     const summary = await ctx.db.get(args.summaryId);
@@ -1462,11 +1484,8 @@ export const acknowledgeAllForPlayer = mutation({
       throw new Error("Not authenticated");
     }
 
-    // Get the user ID
-    const userId = user._id || user.userId;
-    if (!userId) {
-      throw new Error("User ID not found");
-    }
+    // Get the user ID (user._id is the correct field in Better Auth)
+    const userId = user._id;
 
     // Find guardian identity for this user
     const guardianIdentity = await ctx.db
@@ -1870,7 +1889,7 @@ export const debugAutoApprovedTab = query({
       throw new Error("Not authenticated");
     }
 
-    const yourUserId = user.userId || user._id;
+    const yourUserId = user._id;
 
     // Get all summaries
     const allSummaries = await ctx.db.query("coachParentSummaries").collect();

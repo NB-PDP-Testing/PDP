@@ -273,6 +273,8 @@ export const getMyMessages = query({
       createdAt: v.number(),
       sentAt: v.optional(v.number()),
       updatedAt: v.number(),
+      // Recipient tracking
+      recipientGuardianIds: v.optional(v.array(v.string())),
       // Additional computed fields
       recipientCount: v.number(),
       viewedCount: v.number(),

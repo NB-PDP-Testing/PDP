@@ -898,21 +898,29 @@ async function checkPlayerMatches(
       }
     }
 
-    for (const otherCoachId of teamCoachUserIds) {
-      const usersResult = await ctx.runQuery(
-        betterAuthComponents.betterAuth.adapter.findMany,
-        {
+    // BATCH FIX: Collect all coach IDs and fetch in parallel (fix N+1)
+    const coachIdsToFetch = Array.from(teamCoachUserIds);
+    const coachResults = await Promise.all(
+      coachIdsToFetch.map((otherCoachId) =>
+        ctx.runQuery(betterAuthComponents.betterAuth.adapter.findMany, {
           model: "user",
           paginationOpts: { cursor: null, numItems: 1 },
           where: [{ field: "_id", operator: "eq", value: otherCoachId }],
-        }
-      );
-      const user = (usersResult.page || [])[0];
+        })
+      )
+    );
+
+    // Process fetched results synchronously
+    for (let i = 0; i < coachIdsToFetch.length; i++) {
+      const usersResult = coachResults[i];
+      const user = (usersResult?.page || [])[0];
 
       if (user) {
-        const firstName = (user.firstName || "").toLowerCase();
-        const lastName = (user.lastName || "").toLowerCase();
-        const fullName = (user.name || "").toLowerCase();
+        // biome-ignore lint/suspicious/noExplicitAny: Better Auth adapter returns untyped data
+        const userData = user as any;
+        const firstName = (userData.firstName || "").toLowerCase();
+        const lastName = (userData.lastName || "").toLowerCase();
+        const fullName = (userData.name || "").toLowerCase();
 
         const coachFirstName = `coach ${firstName}`;
         const coachLastName = `coach ${lastName}`;

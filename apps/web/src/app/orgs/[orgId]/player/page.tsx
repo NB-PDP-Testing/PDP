@@ -20,6 +20,7 @@ import {
 } from "@/components/ui/card";
 import { Skeleton } from "@/components/ui/skeleton";
 import { authClient } from "@/lib/auth-client";
+import { useMembershipContext } from "@/providers/membership-provider";
 
 // Import the same sections used in the coach view
 import { BasicInformationSection } from "../players/[playerId]/components/basic-info-section";
@@ -39,10 +40,8 @@ export default function PlayerDashboardPage() {
   const { data: session, isPending: sessionLoading } = authClient.useSession();
   const { data: activeOrganization } = authClient.useActiveOrganization();
 
-  // Get membership details for role checking
-  const allMemberships = useQuery(
-    api.models.members.getMembersForAllOrganizations
-  );
+  // Get membership details for role checking (from shared context)
+  const { memberships: allMemberships } = useMembershipContext();
   const membership = allMemberships?.find((m) => m.organizationId === orgId);
 
   // Find the player identity linked to this user's email

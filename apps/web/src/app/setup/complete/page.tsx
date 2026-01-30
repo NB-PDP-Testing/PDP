@@ -1,20 +1,34 @@
 "use client";
 
 import { api } from "@pdp/backend/convex/_generated/api";
-import { useQuery } from "convex/react";
+import { useMutation } from "convex/react";
 import { ArrowRight, CheckCircle, Trophy, UserPlus, Users } from "lucide-react";
-import type { Route } from "next";
 import { useRouter, useSearchParams } from "next/navigation";
-import { Suspense } from "react";
+import { Suspense, useEffect, useRef } from "react";
 import { PDPLogo } from "@/components/pdp-logo";
 import { Button } from "@/components/ui/button";
+import { Confetti } from "@/components/ui/confetti";
+import { useCurrentUser } from "@/hooks/use-current-user";
 
 function SetupCompleteContent() {
   const router = useRouter();
   const searchParams = useSearchParams();
   const orgId = searchParams.get("orgId");
   const orgName = searchParams.get("orgName");
-  const currentUser = useQuery(api.models.users.getCurrentUser);
+  const invited = searchParams.get("invited");
+  const currentUser = useCurrentUser();
+  const completeSetup = useMutation(api.models.setup.completeSetup);
+  const hasCompletedRef = useRef(false);
+
+  // Mark setup as complete when page mounts
+  useEffect(() => {
+    if (currentUser && !hasCompletedRef.current) {
+      hasCompletedRef.current = true;
+      completeSetup().catch((error) => {
+        console.error("Failed to mark setup as complete:", error);
+      });
+    }
+  }, [currentUser, completeSetup]);
 
   // Redirect if not authenticated
   if (currentUser === null) {
@@ -24,7 +38,7 @@ function SetupCompleteContent() {
 
   // Redirect if not platform staff (shouldn't happen, but safety check)
   if (currentUser && !currentUser.isPlatformStaff) {
-    router.push("/orgs/current" as Route);
+    router.push("/orgs/current");
     return null;
   }
 
@@ -38,14 +52,22 @@ function SetupCompleteContent() {
 
   const handleContinue = () => {
     if (orgId) {
-      router.push(`/orgs/${orgId}/admin` as Route);
+      router.push(`/orgs/${orgId}/admin`);
     } else {
-      router.push("/orgs" as Route);
+      router.push("/orgs");
     }
   };
 
   return (
-    <div className="min-h-screen bg-gradient-to-br from-background to-muted/20 px-4 py-12">
+    <div
+      className="min-h-screen bg-gradient-to-br from-background to-muted/20 px-4 py-12"
+      data-testid="setup-complete"
+    >
+      {/* Celebration wrapper with confetti animation */}
+      <div data-testid="celebration">
+        <Confetti />
+      </div>
+
       <div className="mx-auto w-full max-w-2xl space-y-8">
         {/* Header */}
         <div className="text-center">
@@ -60,9 +82,11 @@ function SetupCompleteContent() {
               <CheckCircle className="h-12 w-12 text-white" strokeWidth={2.5} />
             </div>
           </div>
-          <h1 className="font-bold text-4xl tracking-tight">Setup Complete!</h1>
+          <h1 className="font-bold text-4xl tracking-tight">
+            Congratulations!
+          </h1>
           <p className="mt-3 text-lg text-muted-foreground">
-            Your platform is ready. Let's get started!
+            Setup complete - your platform is ready. Let's get started!
           </p>
         </div>
 
@@ -83,7 +107,10 @@ function SetupCompleteContent() {
         </div>
 
         {/* Completed Setup Card */}
-        <div className="space-y-6 rounded-lg border bg-card p-8 shadow-lg">
+        <div
+          className="space-y-6 rounded-lg border bg-card p-8 shadow-lg"
+          data-testid="completion-summary"
+        >
           <div>
             <h2 className="font-semibold text-2xl">What You've Accomplished</h2>
             <p className="mt-2 text-muted-foreground">
@@ -109,6 +136,17 @@ function SetupCompleteContent() {
                 <span>
                   First organization created:{" "}
                   <span className="font-semibold">{orgName}</span>
+                </span>
+              </div>
+            )}
+            {invited && Number(invited) > 0 && (
+              <div className="flex items-center gap-3">
+                <CheckCircle
+                  className="h-5 w-5 flex-shrink-0"
+                  style={{ color: "var(--pdp-green)" }}
+                />
+                <span>
+                  {invited} team member{Number(invited) > 1 ? "s" : ""} invited
                 </span>
               </div>
             )}

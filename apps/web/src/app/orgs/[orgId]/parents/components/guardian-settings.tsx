@@ -33,15 +33,28 @@ type GuardianSettingsProps = {
 export function GuardianSettings({ guardianIdentity }: GuardianSettingsProps) {
   const [showSettingsDialog, setShowSettingsDialog] = useState(false);
   const [processingLinkId, setProcessingLinkId] = useState<string | null>(null);
+  const [reclaimConsentMap, setReclaimConsentMap] = useState<
+    Record<string, boolean>
+  >({});
 
-  // Get all guardian-player links
+  // Get all guardian-player links (accepted children)
   const guardianPlayerLinks = useQuery(
     api.models.guardianPlayerLinks.getPlayersForGuardian,
     guardianIdentity ? { guardianIdentityId: guardianIdentity._id } : "skip"
   );
 
+  // Get declined children that can be reclaimed
+  const declinedChildren = useQuery(
+    api.models.guardianPlayerLinks.getDeclinedChildrenForGuardian,
+    guardianIdentity ? { guardianIdentityId: guardianIdentity._id } : "skip"
+  );
+
   const updateConsent = useMutation(
     api.models.guardianPlayerLinks.updateLinkConsent
+  );
+
+  const reclaimChild = useMutation(
+    api.models.guardianPlayerLinks.reclaimDeclinedChild
   );
 
   const handleConsentChange = async (
@@ -70,6 +83,43 @@ export function GuardianSettings({ guardianIdentity }: GuardianSettingsProps) {
     } catch (error) {
       console.error("Failed to update consent:", error);
       toast.error("Unable to update consent setting. Please try again.");
+    } finally {
+      setProcessingLinkId(null);
+    }
+  };
+
+  const handleReclaimChild = async (
+    playerIdentityId: Id<"playerIdentities">
+  ) => {
+    if (!guardianIdentity) {
+      return;
+    }
+
+    const linkId = `reclaim-${playerIdentityId}`;
+    setProcessingLinkId(linkId);
+
+    try {
+      const consentToSharing = reclaimConsentMap[playerIdentityId] ?? false;
+      const result = await reclaimChild({
+        guardianIdentityId: guardianIdentity._id,
+        playerIdentityId,
+        consentToSharing,
+      });
+
+      if (result.success) {
+        toast.success("Child has been linked to your account");
+        // Clear the consent selection for this child
+        setReclaimConsentMap((prev) => {
+          const updated = { ...prev };
+          delete updated[playerIdentityId];
+          return updated;
+        });
+      } else {
+        toast.error(result.error || "Failed to reclaim child");
+      }
+    } catch (error) {
+      console.error("Failed to reclaim child:", error);
+      toast.error("Unable to reclaim child. Please try again.");
     } finally {
       setProcessingLinkId(null);
     }
@@ -267,6 +317,99 @@ export function GuardianSettings({ guardianIdentity }: GuardianSettingsProps) {
                 )}
               </CardContent>
             </Card>
+
+            {/* Declined Children - Can be reclaimed */}
+            {declinedChildren && declinedChildren.length > 0 && (
+              <Card className="border-amber-200">
+                <CardHeader className="pb-3">
+                  <CardTitle className="flex items-center gap-2 text-amber-800 text-base">
+                    <Users className="h-4 w-4" />
+                    Previously Declined Children
+                  </CardTitle>
+                </CardHeader>
+                <CardContent>
+                  <p className="mb-4 text-muted-foreground text-sm">
+                    You previously declined to link these children to your
+                    account. If this was a mistake, you can reclaim them below.
+                  </p>
+                  <div className="space-y-4">
+                    {declinedChildren.map((item) => {
+                      const linkId = `reclaim-${item.player._id}`;
+                      const isProcessing = processingLinkId === linkId;
+
+                      return (
+                        <div
+                          className="rounded-lg border border-amber-200 bg-amber-50 p-4"
+                          key={item.player._id}
+                        >
+                          <div className="space-y-4">
+                            {/* Child Info */}
+                            <div>
+                              <h4 className="font-semibold">
+                                {item.player.firstName} {item.player.lastName}
+                              </h4>
+                              <p className="text-muted-foreground text-sm">
+                                DOB: {item.player.dateOfBirth}
+                              </p>
+                              {item.organization && (
+                                <p className="text-muted-foreground text-sm">
+                                  Organization: {item.organization.name}
+                                </p>
+                              )}
+                              <div className="mt-2">
+                                <Badge variant="outline">
+                                  {item.link.relationship}
+                                </Badge>
+                              </div>
+                            </div>
+
+                            {/* Consent checkbox */}
+                            <div className="flex items-start gap-3">
+                              <input
+                                checked={
+                                  reclaimConsentMap[item.player._id] ?? false
+                                }
+                                className="mt-1 h-4 w-4 rounded border-gray-300"
+                                disabled={isProcessing}
+                                id={`consent-${item.player._id}`}
+                                onChange={(e) =>
+                                  setReclaimConsentMap((prev) => ({
+                                    ...prev,
+                                    [item.player._id]: e.target.checked,
+                                  }))
+                                }
+                                type="checkbox"
+                              />
+                              <Label
+                                className="text-sm"
+                                htmlFor={`consent-${item.player._id}`}
+                              >
+                                Allow cross-organization sharing
+                              </Label>
+                            </div>
+
+                            {/* Reclaim button */}
+                            <Button
+                              className="w-full"
+                              disabled={isProcessing}
+                              onClick={() =>
+                                handleReclaimChild(item.player._id)
+                              }
+                              variant="default"
+                            >
+                              {isProcessing ? (
+                                <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                              ) : null}
+                              Claim This Child
+                            </Button>
+                          </div>
+                        </div>
+                      );
+                    })}
+                  </div>
+                </CardContent>
+              </Card>
+            )}
 
             {/* Info Card */}
             <div className="flex gap-3 rounded-lg border border-blue-200 bg-blue-50 p-4">

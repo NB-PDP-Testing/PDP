@@ -1,12 +1,6 @@
 "use client";
 
-import { api } from "@pdp/backend/convex/_generated/api";
-import {
-  Authenticated,
-  AuthLoading,
-  Unauthenticated,
-  useQuery,
-} from "convex/react";
+import { Authenticated, AuthLoading, Unauthenticated } from "convex/react";
 import type { Route } from "next";
 import { useRouter, useSearchParams } from "next/navigation";
 import { Suspense, useEffect } from "react";
@@ -14,6 +8,7 @@ import Loader from "@/components/loader";
 import { useCurrentUser } from "@/hooks/use-current-user";
 import { authClient } from "@/lib/auth-client";
 import type { OrgMemberRole } from "@/lib/types";
+import { useMembershipContext } from "@/providers/membership-provider";
 
 export default function CurrentOrgPage() {
   return (
@@ -64,6 +59,9 @@ function getRedirectRoute(
         return `/orgs/${orgId}/parents` as Route;
       case "player":
         return `/orgs/${orgId}/player` as Route;
+      default:
+        // Fall through to priority logic below
+        break;
     }
   }
 
@@ -111,10 +109,8 @@ function RedirectToActiveOrg() {
   const { data: activeOrganization } = authClient.useActiveOrganization();
   const { data: member } = authClient.useActiveMember();
   const { data: organizations } = authClient.useListOrganizations();
-  // Also query memberships directly from Convex as a fallback
-  const convexMemberships = useQuery(
-    api.models.members.getMembersForAllOrganizations
-  );
+  // Also query memberships directly from Convex as a fallback (from shared context)
+  const { memberships: convexMemberships } = useMembershipContext();
   const user = useCurrentUser();
   const router = useRouter();
   const searchParams = useSearchParams();

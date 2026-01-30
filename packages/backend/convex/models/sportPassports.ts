@@ -868,14 +868,15 @@ export const getSportsForPlayer = query({
   },
   returns: v.array(v.string()),
   handler: async (ctx, args) => {
+    // Use composite index to avoid .filter() (performance fix)
     const passports = await ctx.db
       .query("sportPassports")
-      .withIndex("by_player_and_org", (q) =>
+      .withIndex("by_player_org_status", (q) =>
         q
           .eq("playerIdentityId", args.playerIdentityId)
           .eq("organizationId", args.organizationId)
+          .eq("status", "active")
       )
-      .filter((q) => q.eq(q.field("status"), "active"))
       .collect();
 
     return passports.map((p) => p.sportCode);

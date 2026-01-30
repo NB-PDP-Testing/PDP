@@ -54,6 +54,7 @@ import {
 } from "@/components/ui/table";
 import { useCurrentUser } from "@/hooks/use-current-user";
 import { authClient } from "@/lib/auth-client";
+import { useMembershipContext } from "@/providers/membership-provider";
 
 // Type for organization from better-auth
 type Organization = {
@@ -75,6 +76,9 @@ export default function OrganizationsPage() {
 
   // Use Convex query to get user with custom fields
   const user = useCurrentUser();
+
+  // Check if any organizations exist on the platform (for fresh deployment detection)
+  const hasAnyOrgs = useQuery(api.models.setup.hasAnyOrganizations);
 
   // View mode and search state - load from localStorage
   const [yourOrgsView, setYourOrgsView] = useState<"cards" | "table">(() => {
@@ -115,6 +119,20 @@ export default function OrganizationsPage() {
     console.log("[/orgs] isPlatformStaff:", user?.isPlatformStaff);
   }, [user]);
 
+  // Redirect platform staff who haven't completed setup
+  // BUT only if NO organizations exist (fresh deployment)
+  useEffect(() => {
+    if (hasAnyOrgs === undefined) {
+      return; // Wait for data to load
+    }
+    if (user?.isPlatformStaff && user?.setupComplete !== true && !hasAnyOrgs) {
+      console.log(
+        "[/orgs] Fresh deployment: Platform staff needs to complete setup, redirecting to /setup"
+      );
+      router.push("/setup" as Route);
+    }
+  }, [user, router, hasAnyOrgs]);
+
   // Redirect if not platform staff
   useEffect(() => {
     if (user !== undefined && !user?.isPlatformStaff) {
@@ -149,10 +167,8 @@ export default function OrganizationsPage() {
     user?.isPlatformStaff ? {} : "skip"
   );
 
-  // Get user memberships for role-based navigation
-  const userMemberships = useQuery(
-    api.models.members.getMembersForAllOrganizations
-  );
+  // Get user memberships for role-based navigation (from shared context)
+  const { memberships: userMemberships } = useMembershipContext();
 
   // Get pending deletion requests for platform staff
   const pendingDeletionRequests = useQuery(

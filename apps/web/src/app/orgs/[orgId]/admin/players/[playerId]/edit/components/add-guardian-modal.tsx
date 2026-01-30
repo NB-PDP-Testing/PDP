@@ -7,6 +7,7 @@ import { Loader2, Mail, UserPlus } from "lucide-react";
 import { useState } from "react";
 import { toast } from "sonner";
 import { Button } from "@/components/ui/button";
+import { Checkbox } from "@/components/ui/checkbox";
 import {
   Dialog,
   DialogContent,
@@ -88,6 +89,7 @@ export function AddGuardianModal({
   const [email, setEmail] = useState("");
   const [relationship, setRelationship] = useState<Relationship>("guardian");
   const [isSubmitting, setIsSubmitting] = useState(false);
+  const [sendEmail, setSendEmail] = useState(true);
 
   // Get current session for self-assignment detection
   const { data: session } = authClient.useSession();
@@ -150,7 +152,7 @@ export function AddGuardianModal({
             `${normalizedEmail} has been added as a guardian. They will see a notification to confirm.`
           );
         }
-      } else {
+      } else if (sendEmail) {
         // User does NOT exist OR exists but not in org - send invitation
         const metadata = {
           suggestedFunctionalRoles: ["parent"] as const,
@@ -191,11 +193,31 @@ export function AddGuardianModal({
         toast.success(
           `Invitation sent to ${normalizedEmail}. When they accept, they'll be linked as a guardian.`
         );
+      } else {
+        // User doesn't exist or isn't in org, but admin chose not to send email
+        // Create pending link directly - guardian will see prompt on next login
+        const result = await linkPlayersToGuardian({
+          playerIdentityIds: [playerIdentityId],
+          guardianEmail: normalizedEmail,
+          organizationId,
+          relationship,
+          currentUserId: session?.user?.id,
+          currentUserEmail: session?.user?.email,
+        });
+
+        if (result.errors.length > 0) {
+          toast.error(result.errors[0]);
+        } else {
+          toast.success(
+            `${normalizedEmail} has been added as a guardian. They will see a prompt on their next login.`
+          );
+        }
       }
 
       // Reset form and close modal
       setEmail("");
       setRelationship("guardian");
+      setSendEmail(true);
       onOpenChange(false);
     } catch (error) {
       console.error("Error adding guardian:", error);
@@ -214,6 +236,7 @@ export function AddGuardianModal({
       // Reset form when closing
       setEmail("");
       setRelationship("guardian");
+      setSendEmail(true);
     }
     onOpenChange(newOpen);
   };
@@ -280,6 +303,27 @@ export function AddGuardianModal({
                   <SelectItem value="other">Other</SelectItem>
                 </SelectContent>
               </Select>
+            </div>
+
+            {/* Send Email Checkbox */}
+            <div className="flex items-start space-x-2">
+              <Checkbox
+                checked={sendEmail}
+                disabled={isSubmitting}
+                id="send-email"
+                onCheckedChange={(checked) => setSendEmail(checked === true)}
+              />
+              <div className="grid gap-1.5 leading-none">
+                <Label
+                  className="font-normal text-sm leading-none peer-disabled:cursor-not-allowed peer-disabled:opacity-70"
+                  htmlFor="send-email"
+                >
+                  Send email notification to guardian
+                </Label>
+                <p className="text-muted-foreground text-xs">
+                  If unchecked, guardian will see a prompt on their next login
+                </p>
+              </div>
             </div>
           </div>
 

@@ -1,0 +1,147 @@
+{
+  "project": "Convex Performance Fix - Phase 2: Backend N+1 Fixes",
+  "branchName": "johnobr/fixconvex",
+  "description": "Day 2: Fix highest-impact backend N+1 patterns in members.ts and coachParentSummaries.ts. Expected: ~150K calls saved.",
+  "readinessLevel": "100%",
+  "prerequisitesCompleted": {
+    "status": "Depends on Phase 1",
+    "completedWork": [
+      "Phase 1: Schema indexes added",
+      "Phase 1: Better Auth package updated"
+    ],
+    "documentationReferences": [
+      "GitHub Issue #330 - Convex Performance Crisis",
+      "Plan file - Full implementation details"
+    ]
+  },
+  "contextAndDependencies": {
+    "targetMetric": "~150K calls saved from N+1 fixes",
+    "keyFiles": [
+      "packages/backend/convex/models/members.ts - Lines 1624-1697, 3189-3254",
+      "packages/backend/convex/models/coachParentSummaries.ts - Lines 1174-1216"
+    ],
+    "criticalPatterns": {
+      "N+1_Pattern": "Loop with individual queries inside = N+1. Fix: Collect IDs first, batch fetch, map in memory",
+      "Batch_Fetch": "Fetch all needed records in one query, then use Map/object for O(1) lookup"
+    }
+  },
+  "userStories": [
+    {
+      "id": "US-PERF-006",
+      "title": "Fix getMembersForAllOrganizations N+1 Pattern",
+      "description": "Fix N+1 pattern where Promise.all makes individual organization lookups per member. Expected: 77K calls saved.",
+      "phase": "Phase 2: Backend N+1",
+      "acceptanceCriteria": [
+        "Open packages/backend/convex/models/members.ts",
+        "Find getMembersForAllOrganizations function (lines 3189-3254)",
+        "Identify the N+1 pattern: Promise.all with individual org lookups per member",
+        "Refactor to batch pattern:",
+        "  1. Collect all unique organizationIds from members",
+        "  2. Batch fetch all organizations in ONE query using .filter() on collected IDs or multiple .get() calls",
+        "  3. Create Map<orgId, org> for O(1) lookup",
+        "  4. Map over members, looking up org from Map instead of querying",
+        "Run: npx -w packages/backend convex codegen",
+        "Run: npm run check-types",
+        "Test: Login as user with multiple org memberships, verify all orgs load correctly"
+      ],
+      "technicalNotes": {
+        "currentPattern": "Promise.all(members.map(async (m) => { const org = await ctx.db.get(m.organizationId); ... }))",
+        "fixedPattern": "const orgIds = [...new Set(members.map(m => m.organizationId))]; const orgs = await Promise.all(orgIds.map(id => ctx.db.get(id))); const orgMap = new Map(orgs.filter(Boolean).map(o => [o._id, o])); members.map(m => ({ ...m, org: orgMap.get(m.organizationId) }))",
+        "location": "packages/backend/convex/models/members.ts lines 3189-3254"
+      },
+      "priority": 1,
+      "passes": false,
+      "notes": "This is one of the highest-impact fixes. 77K calls from this single function."
+    },
+    {
+      "id": "US-PERF-007",
+      "title": "Fix getPendingInvitationsByEmail Triple N+1 Pattern",
+      "description": "Fix triple N+1 pattern where org + teams + players are looked up individually per invitation. Expected: 75K calls saved.",
+      "phase": "Phase 2: Backend N+1",
+      "acceptanceCriteria": [
+        "Open packages/backend/convex/models/members.ts",
+        "Find getPendingInvitationsByEmail function (lines 1624-1697)",
+        "Identify the triple N+1: org lookup + teams lookup + players lookup PER invitation",
+        "Refactor to batch pattern:",
+        "  1. Collect all unique orgIds, teamIds, playerIds from all invitations",
+        "  2. Batch fetch ALL orgs, teams, players in 3 queries",
+        "  3. Create Maps for O(1) lookup: orgMap, teamMap, playerMap",
+        "  4. Map over invitations, looking up from Maps",
+        "Run: npx -w packages/backend convex codegen",
+        "Run: npm run check-types",
+        "Test: Create test invitations, login as invited user, verify invitations display correctly"
+      ],
+      "technicalNotes": {
+        "currentPattern": "invitations.map(async (inv) => { const org = await getOrg(inv.orgId); const teams = await getTeams(inv.teamIds); const players = await getPlayers(inv.playerIds); })",
+        "fixedPattern": "Collect all IDs first, batch fetch, then map with lookups",
+        "location": "packages/backend/convex/models/members.ts lines 1624-1697"
+      },
+      "priority": 2,
+      "passes": false,
+      "notes": "Triple N+1 is particularly expensive. Each invitation triggers 3+ queries."
+    },
+    {
+      "id": "US-PERF-008",
+      "title": "Fix getParentSummariesByChildAndSport Cascading N+1",
+      "description": "Fix cascading N+1 where nested Promise.all makes adapter calls for coach names per summary.",
+      "phase": "Phase 2: Backend N+1",
+      "acceptanceCriteria": [
+        "Open packages/backend/convex/models/coachParentSummaries.ts",
+        "Find getParentSummariesByChildAndSport function (lines 1174-1216)",
+        "Identify the N+1: Promise.all inside map calling Better Auth adapter for each coach",
+        "Refactor to batch pattern:",
+        "  1. Collect all unique coachIds from all summaries across all sports",
+        "  2. Batch fetch all coaches in ONE query",
+        "  3. Create coachMap for O(1) lookup",
+        "  4. Map over summaries, looking up coach name from Map",
+        "Run: npx -w packages/backend convex codegen",
+        "Run: npm run check-types",
+        "Test: Login as parent, navigate to dashboard, verify coach feedback summaries load with names"
+      ],
+      "technicalNotes": {
+        "currentPattern": "enrichedSummaries = await Promise.all(sportSummaries.map(async (summary) => { const coachResult = await ctx.runQuery(adapter.findOne, { model: 'user', where: [{ field: '_id', value: summary.coachId }] }); }))",
+        "fixedPattern": "Collect coachIds, batch query, create Map, then map with lookup",
+        "location": "packages/backend/convex/models/coachParentSummaries.ts lines 1174-1216",
+        "adapterNote": "Better Auth adapter queries are expensive - batching is critical"
+      },
+      "priority": 3,
+      "passes": false,
+      "notes": "This function has cascading N+1 - nested loops each making queries. High impact fix."
+    }
+  ],
+  "qualityChecks": {
+    "beforeCommitting": [
+      "npx -w packages/backend convex codegen - MUST succeed",
+      "npm run check-types - Check for type errors",
+      "npm run check - Lint check"
+    ],
+    "testingStrategy": {
+      "US-PERF-006": "Login as user with multiple org memberships, verify org switcher shows all orgs with names",
+      "US-PERF-007": "Create invitations for coach/parent roles, login as invited user, verify invitation details",
+      "US-PERF-008": "Login as parent with linked children, view dashboard, verify coach names display"
+    },
+    "convexLogs": "Check Convex logs: should see 2-4 queries instead of N+1 pattern"
+  },
+  "phaseCompletionCriteria": [
+    "getMembersForAllOrganizations uses batch pattern",
+    "getPendingInvitationsByEmail uses batch pattern for all 3 lookups",
+    "getParentSummariesByChildAndSport uses batch pattern for coach names",
+    "All affected features tested manually",
+    "Convex codegen succeeds",
+    "No type errors introduced",
+    "Function calls noticeably reduced (15-20% additional)"
+  ],
+  "expectedImpact": {
+    "callsReduced": "~150K calls saved",
+    "functionsFixed": [
+      "getMembersForAllOrganizations",
+      "getPendingInvitationsByEmail",
+      "getParentSummariesByChildAndSport"
+    ]
+  },
+  "nextPhase": {
+    "name": "Phase 3: Backend Filter Fixes",
+    "file": "phase3-backend-filters.prd.json",
+    "description": "Fix voiceNotes, whatsappMessages coach lookups and filter violations"
+  }
+}

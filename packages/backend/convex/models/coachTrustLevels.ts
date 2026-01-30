@@ -1,5 +1,4 @@
 import { v } from "convex/values";
-import { components } from "../_generated/api";
 import type { Doc } from "../_generated/dataModel";
 import {
   internalMutation,
@@ -1167,42 +1166,42 @@ export const getPlatformAIAccuracy = query({
       byCoachMap.set(key, existing);
     }
 
-    // Enrich with coach and organization names from Better Auth
+    // Enrich with coach and organization names by querying Better Auth tables directly
     const byCoachWithNames = await Promise.all(
       Array.from(byCoachMap.values()).map(async (coach) => {
         let coachName = "Unknown Coach";
         let organizationName = "Unknown Organization";
 
         try {
-          // Get coach name using Better Auth component query
-          const user = await ctx.runQuery(
-            components.betterAuth.userFunctions.getUserByStringId,
-            { userId: coach.coachId }
-          );
+          // Query user table directly (Better Auth table accessible via ctx.db)
+          const user = await ctx.db.get(coach.coachId as any);
           if (user) {
-            coachName =
-              `${user.firstName || ""} ${user.lastName || ""}`.trim() ||
-              user.email ||
-              "Unknown Coach";
+            const userRecord = user as any;
+            // Try firstName/lastName first, fall back to name field, then email
+            const fullName =
+              userRecord.firstName && userRecord.lastName
+                ? `${userRecord.firstName} ${userRecord.lastName}`.trim()
+                : userRecord.name || userRecord.email || "Unknown Coach";
+            coachName = fullName;
           }
         } catch (error) {
-          console.error(`Failed to fetch user ${coach.coachId}:`, error);
+          console.error(
+            `[getPlatformAIAccuracy] Failed to fetch user ${coach.coachId}:`,
+            error
+          );
         }
 
         try {
-          // Get organization name using Better Auth adapter
-          const org = await ctx.runQuery(
-            components.betterAuth.adapter.findOne,
-            {
-              model: "organization",
-              where: [{ field: "_id", value: coach.organizationId }],
-            }
-          );
+          // Query organization table directly (Better Auth table accessible via ctx.db)
+          const org = await ctx.db.get(coach.organizationId as any);
           if (org) {
             organizationName = (org as any).name || "Unknown Organization";
           }
         } catch (error) {
-          console.error(`Failed to fetch org ${coach.organizationId}:`, error);
+          console.error(
+            `[getPlatformAIAccuracy] Failed to fetch org ${coach.organizationId}:`,
+            error
+          );
         }
 
         return {

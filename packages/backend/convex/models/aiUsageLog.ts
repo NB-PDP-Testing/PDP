@@ -9,7 +9,6 @@
  */
 
 import { v } from "convex/values";
-import { components } from "../_generated/api";
 import type { QueryCtx } from "../_generated/server";
 import { internalMutation, query } from "../_generated/server";
 
@@ -297,19 +296,16 @@ export const getPlatformUsage = query({
         let organizationName = organizationId; // Fallback to ID
 
         try {
-          // Fetch organization name using Better Auth adapter
-          const org = await ctx.runQuery(
-            components.betterAuth.adapter.findOne,
-            {
-              model: "organization",
-              where: [{ field: "_id", value: organizationId }],
-            }
-          );
+          // Query organization table directly (Better Auth table accessible via ctx.db)
+          const org = await ctx.db.get(organizationId as any);
           if (org) {
             organizationName = (org as any).name || organizationId;
           }
         } catch (error) {
-          console.error(`Failed to fetch org ${organizationId}:`, error);
+          console.error(
+            `[getPlatformUsage] Failed to fetch org ${organizationId}:`,
+            error
+          );
         }
 
         return {

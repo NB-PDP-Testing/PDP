@@ -3,7 +3,7 @@ Started: Fri 30 Jan 2026 22:02:36 GMT
 ---
 
 ## Codebase Patterns
-**Last Updated**: Fri 30 Jan 2026 23:00 - Iteration 1 (P9 Week 1 Start)
+**Last Updated**: Fri 30 Jan 2026 23:50 - Iteration 1 (P9 Week 1 Complete)
 
 ### Architecture
 - All org-scoped routes under `/orgs/[orgId]/`
@@ -16,9 +16,13 @@ Started: Fri 30 Jan 2026 22:02:36 GMT
 - **MANDATORY**: NEVER use `.filter()` - always use `.withIndex()`
 - **MANDATORY**: All functions need `args` and `returns` validators
 - **MANDATORY**: Use Better Auth adapter pattern for user lookups
+  - Format: `ctx.runQuery(components.betterAuth.adapter.findOne, { model: "user", where: [{ field: "_id", value: userId, operator: "eq" }] })`
+  - Use `model` not `table`, `where` is an ARRAY, include `operator: "eq"`
 - Use `Id<"tableName">` types, not `string`
 - Index names include all fields: `by_orgId_and_status`
 - Batch fetch + Map lookup to avoid N+1 queries
+- Convex auto-adds `_creationTime` to indexes - never include explicitly
+- Use `counts[key] += 1` not `counts[key]++` (linter rule)
 
 ### Frontend Patterns
 - Use shadcn/ui components from `@/components/ui`
@@ -27,6 +31,11 @@ Started: Fri 30 Jan 2026 22:02:36 GMT
 - Organization theming via CSS variables: `--org-primary`, etc.
 - **MANDATORY**: Use skeleton loaders (ListSkeleton, CardSkeleton) while loading
 - Real-time updates via `useQuery` hook
+- Import paths: `@pdp/backend/convex/_generated/api` (not `@convex/...`)
+- `useCurrentUser` from `@/hooks/use-current-user` returns user directly
+- ListSkeleton uses `items` prop (not `rows`)
+- date-fns for relative timestamps: `formatDistanceToNow(timestamp, { addSuffix: true })`
+- Auto-expand textarea: useRef + useEffect + `Math.min(scrollHeight, maxHeight)`
 
 ### Quality Checks
 - Run in order: `npm run check-types` → `npx ultracite fix` → `npm run check`

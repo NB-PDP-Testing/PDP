@@ -1,4 +1,5 @@
 import { v } from "convex/values";
+import { components } from "../_generated/api";
 import type { Doc } from "../_generated/dataModel";
 import {
   internalMutation,
@@ -1166,20 +1167,25 @@ export const getPlatformAIAccuracy = query({
       byCoachMap.set(key, existing);
     }
 
-    // Enrich with coach and organization names from Better Auth tables
+    // Enrich with coach and organization names from Better Auth
     const byCoachWithNames = await Promise.all(
       Array.from(byCoachMap.values()).map(async (coach) => {
-        // Get coach name from Better Auth user table
-        // Note: Casting to any because Better Auth tables are not in generated types
-        const user = await ctx.db.get(coach.coachId as any);
+        // Get coach name using Better Auth component query
+        const user = await ctx.runQuery(
+          components.betterAuth.userFunctions.getUserByStringId,
+          { userId: coach.coachId }
+        );
         const coachName = user
-          ? `${(user as any).firstName || ""} ${(user as any).lastName || ""}`.trim() ||
-            (user as any).email ||
+          ? `${user.firstName || ""} ${user.lastName || ""}`.trim() ||
+            user.email ||
             "Unknown Coach"
           : "Unknown Coach";
 
-        // Get organization name from Better Auth organization table
-        const org = await ctx.db.get(coach.organizationId as any);
+        // Get organization name using Better Auth adapter
+        const org = await ctx.runQuery(components.betterAuth.adapter.findOne, {
+          model: "organization",
+          where: [{ field: "_id", value: coach.organizationId }],
+        });
         const organizationName = org
           ? (org as any).name
           : "Unknown Organization";

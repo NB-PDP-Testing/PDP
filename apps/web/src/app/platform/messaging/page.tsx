@@ -22,7 +22,7 @@ import {
   Zap,
 } from "lucide-react";
 import Link from "next/link";
-import { useState } from "react";
+import { useMemo, useState } from "react";
 import { toast } from "sonner";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
@@ -126,11 +126,18 @@ export default function PlatformMessagingPage() {
 
 // Overview Tab Component
 function OverviewTab() {
-  // Query data from last 24 hours
-  const twentyFourHoursAgo = Date.now() - 24 * 60 * 60 * 1000;
-  const platformUsage = useQuery(api.models.aiUsageLog.getPlatformUsage, {
-    startDate: twentyFourHoursAgo,
-  });
+  // Query data from last 24 hours - calculate once to prevent infinite re-renders
+  const queryParams = useMemo(
+    () => ({
+      startDate: Date.now() - 24 * 60 * 60 * 1000,
+    }),
+    []
+  );
+
+  const platformUsage = useQuery(
+    api.models.aiUsageLog.getPlatformUsage,
+    queryParams
+  );
   const health = useQuery(api.models.aiServiceHealth.getPlatformServiceHealth);
 
   // Loading state
@@ -363,11 +370,18 @@ function getCacheHitRateLabel(rate: number): string {
 
 // Cost Analytics Tab Component
 function CostAnalyticsTab() {
-  // Query platform usage for last 30 days
-  const thirtyDaysAgo = Date.now() - 30 * 24 * 60 * 60 * 1000;
-  const platformUsage = useQuery(api.models.aiUsageLog.getPlatformUsage, {
-    startDate: thirtyDaysAgo,
-  });
+  // Query platform usage for last 30 days - calculate once to prevent infinite re-renders
+  const queryParams = useMemo(
+    () => ({
+      startDate: Date.now() - 30 * 24 * 60 * 60 * 1000,
+    }),
+    []
+  );
+
+  const platformUsage = useQuery(
+    api.models.aiUsageLog.getPlatformUsage,
+    queryParams
+  );
 
   if (!platformUsage) {
     return (
@@ -1023,10 +1037,18 @@ function formatTimeAgo(timestamp: number): string {
 // Service Health Tab Component
 function ServiceHealthTab() {
   const health = useQuery(api.models.aiServiceHealth.getPlatformServiceHealth);
-  const platformUsage = useQuery(api.models.aiUsageLog.getPlatformUsage, {
-    startDate: Date.now() - 30 * 24 * 60 * 60 * 1000,
-    endDate: Date.now(),
-  });
+
+  // Calculate date range once to prevent infinite re-renders
+  const dateRange = useMemo(() => {
+    const endDate = Date.now();
+    const startDate = endDate - 30 * 24 * 60 * 60 * 1000;
+    return { startDate, endDate };
+  }, []);
+
+  const platformUsage = useQuery(
+    api.models.aiUsageLog.getPlatformUsage,
+    dateRange
+  );
   const forceReset = useMutation(
     api.models.aiServiceHealth.forceResetCircuitBreaker
   );

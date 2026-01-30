@@ -1208,3 +1208,57 @@ Frontend implementation in comment-form.tsx:
 
 ---
 
+## 2026-01-31 01:45 - US-P9-014 - Extend coachOrgPreferences (Notifications)
+**Iteration**: 3
+**Commit**: c6c1adda2b0dcdf638758c6b08e9a50a1e4f2a8d
+**Session**: 0f2abf5c-e005-4b75-9c78-2b9ae959d3f6
+**Status**: Complete
+
+### What was implemented
+- Extended coachOrgPreferences table in schema.ts with notification preferences
+- Added three new optional fields:
+  1. **notificationChannels**: Object with critical/important/normal arrays
+     - Each array contains channel strings: "push", "email", "digest", "none"
+     - Default (per PRD): all levels → ["push", "email"]
+  2. **digestSchedule**: Object with enabled boolean and time string
+     - Default: { enabled: false, time: "08:00" }
+  3. **quietHours**: Object with enabled boolean, start/end time strings
+     - Default: { enabled: false, start: "22:00", end: "08:00" }
+- All fields v.optional for backwards compatibility with existing records
+
+### Files changed
+- packages/backend/convex/schema.ts (+26, -0)
+- packages/backend/convex/_generated/*.ts (auto-generated)
+
+### Quality checks
+- ✅ Type check: passed
+- ✅ Linting: passed
+- ✅ Convex codegen: successful
+- ✅ Pre-commit hook: passed
+- ✅ Schema validation: passed
+
+### Learnings for future iterations ⚠️ CRITICAL
+**Patterns discovered:**
+- Schema extension pattern: add new fields with v.optional for backwards compatibility
+- Nested objects in Convex: use v.object({ field: type })
+- Time format: 24h strings (e.g., "08:00", "22:00") for consistent parsing
+
+**Gotchas encountered:**
+- None! Straightforward schema change
+
+**Dependencies found:**
+- US-P9-016 (Notification Preferences UI) will consume these schema fields
+- Future: Create mutation to update notification preferences
+- Future: Add default value initialization when coach record created
+
+**What to do next**:
+- [x] US-P9-014 complete (6 of 14 Week 2 stories done!)
+- [ ] US-P9-015: Create NotificationCenter Component (bell icon UI)
+- [ ] US-P9-016: Add Notification Preferences UI (settings page)
+- [ ] Continue with remaining Week 2 stories
+
+**Mistakes made**:
+- None - clean schema update
+
+---
+

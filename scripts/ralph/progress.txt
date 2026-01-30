@@ -213,3 +213,54 @@ The story is marked as complete in `prd.json` with justification that `VoiceInsi
 - Forgot to prefix unused params with underscore (standard pattern for TODO functions)
 
 ---
+
+## 2026-01-30 22:15 - US-P9-002 - Create Database Tables
+**Iteration**: 1
+**Commit**: 9734f44f3cb0eb6eea9f4f95a48e5f67a24db11a
+**Session**: f948b5f4-bdfa-4706-841a-cf09389a920e
+**Status**: Complete
+
+### What was implemented
+- Added 4 new tables to `packages/backend/convex/schema.ts`:
+  1. **insightComments** - Comments on voice note insights with priority (critical/important/normal) and threading support
+  2. **insightReactions** - Like, helpful, flag reactions on insights
+  3. **teamActivityFeed** - Aggregated events for team dashboards with priority levels
+  4. **teamHubPresence** - Real-time presence tracking (who's viewing what)
+- All tables include required indexes for efficient querying
+- Tables positioned after voiceNoteInsights, before teamObservations
+
+### Files changed
+- packages/backend/convex/schema.ts (+103, -0)
+- packages/backend/convex/_generated/*.ts (auto-generated)
+- scripts/ralph/prd.json (+1, -1) [marked US-P9-002 passes: true]
+
+### Quality checks
+- ✅ Type check: passed
+- ✅ Linting: passed
+- ✅ Convex codegen: successful
+- ✅ Schema validation: passed
+- ✅ No browser verification needed (backend-only change)
+
+### Learnings for future iterations ⚠️ CRITICAL
+**Patterns discovered:**
+- Convex automatically adds `_creationTime` to ALL indexes - never include it explicitly
+- Index names must be unique within a table (duplicate field lists cause error)
+- Use `by_org` not `by_org_and_creation` since creation time is added automatically
+
+**Gotchas encountered:**
+- Initial codegen failed: "IndexFieldsContainCreationTime" - removed explicit `_creationTime` from index
+- Second codegen failed: "IndexNotUnique" - removed duplicate `by_org_and_time` index (redundant with `by_org`)
+
+**Dependencies found:**
+- These tables are referenced in teamCollaboration.ts placeholder functions
+- Next step (US-P9-003) will implement presence queries using teamHubPresence table
+
+**What to do next**:
+- [x] US-P9-002 complete
+- [ ] US-P9-003: Implement presence backend (updatePresence, getTeamPresence)
+
+**Mistakes made**:
+- Added `_creationTime` to index explicitly (Convex adds it automatically)
+- Created duplicate index with same fields as existing index
+
+---

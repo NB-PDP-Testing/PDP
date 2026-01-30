@@ -1,4 +1,5 @@
 import { v } from "convex/values";
+import { components } from "../_generated/api";
 import { mutation, query } from "../_generated/server";
 
 // ============================================================
@@ -29,9 +30,61 @@ export const getTeamPresence = query({
       lastActive: v.number(),
     })
   ),
-  handler: (_ctx, _args) => {
-    // TODO: Implement in US-P9-003
-    return [];
+  handler: async (ctx, args) => {
+    const now = Date.now();
+    const FIVE_MINUTES = 5 * 60 * 1000;
+    const FIFTEEN_MINUTES = 15 * 60 * 1000;
+
+    // Get all presence records for this team
+    const presenceRecords = await ctx.db
+      .query("teamHubPresence")
+      .withIndex("by_team", (q) => q.eq("teamId", args.teamId))
+      .collect();
+
+    // Filter out stale records (>15 minutes old) and enrich with user data
+    const activePresence = [];
+
+    for (const record of presenceRecords) {
+      const timeSinceActive = now - record.lastActive;
+
+      // Skip users who haven't been active in 15+ minutes
+      if (timeSinceActive >= FIFTEEN_MINUTES) {
+        continue;
+      }
+
+      // Use Better Auth adapter to get user details
+      const user = await ctx.runQuery(components.betterAuth.adapter.findOne, {
+        model: "user",
+        where: [{ field: "_id", value: record.userId, operator: "eq" }],
+      });
+
+      if (!user) {
+        continue;
+      }
+
+      // Calculate status based on time since last activity
+      let status: "active" | "idle" | "away";
+      if (timeSinceActive < FIVE_MINUTES) {
+        status = "active";
+      } else if (timeSinceActive < FIFTEEN_MINUTES) {
+        status = "idle";
+      } else {
+        status = "away";
+      }
+
+      activePresence.push({
+        userId: record.userId,
+        userName:
+          `${user.firstName || ""} ${user.lastName || ""}`.trim() ||
+          "Unknown User",
+        userAvatar: user.image || undefined,
+        status,
+        currentView: record.currentView,
+        lastActive: record.lastActive,
+      });
+    }
+
+    return activePresence;
   },
 });
 
@@ -47,8 +100,34 @@ export const updatePresence = mutation({
     currentView: v.optional(v.string()),
   },
   returns: v.null(),
-  handler: (_ctx, _args) => {
-    // TODO: Implement in US-P9-003
+  handler: async (ctx, args) => {
+    const now = Date.now();
+
+    // Check if presence record exists for this user/team
+    const existing = await ctx.db
+      .query("teamHubPresence")
+      .withIndex("by_user_and_team", (q) =>
+        q.eq("userId", args.userId).eq("teamId", args.teamId)
+      )
+      .first();
+
+    if (existing) {
+      // Update existing presence
+      await ctx.db.patch(existing._id, {
+        currentView: args.currentView,
+        lastActive: now,
+      });
+    } else {
+      // Create new presence record
+      await ctx.db.insert("teamHubPresence", {
+        userId: args.userId,
+        organizationId: args.organizationId,
+        teamId: args.teamId,
+        currentView: args.currentView,
+        lastActive: now,
+      });
+    }
+
     return null;
   },
 });

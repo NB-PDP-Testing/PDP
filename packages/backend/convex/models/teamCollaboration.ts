@@ -156,9 +156,54 @@ export const getInsightComments = query({
       _creationTime: v.number(),
     })
   ),
-  handler: (_ctx, _args) => {
-    // TODO: Implement in US-P9-005
-    return [];
+  handler: async (ctx, args) => {
+    // Get all comments for this insight
+    const comments = await ctx.db
+      .query("insightComments")
+      .withIndex("by_insight", (q) => q.eq("insightId", args.insightId))
+      .collect();
+
+    // Enrich with user data using Better Auth adapter
+    // Use batch fetch pattern to avoid N+1 queries
+    const uniqueUserIds = [...new Set(comments.map((c) => c.userId))];
+
+    const usersData = await Promise.all(
+      uniqueUserIds.map((userId) =>
+        ctx.runQuery(components.betterAuth.adapter.findOne, {
+          model: "user",
+          where: [{ field: "_id", value: userId, operator: "eq" }],
+        })
+      )
+    );
+
+    // Create user lookup map
+    const userMap = new Map();
+    for (const user of usersData) {
+      if (user) {
+        userMap.set(user._id, user);
+      }
+    }
+
+    // Enrich comments with user data
+    const enrichedComments = comments.map((comment) => {
+      const user = userMap.get(comment.userId);
+      return {
+        _id: comment._id,
+        content: comment.content,
+        userId: comment.userId,
+        userName: user
+          ? `${user.firstName || ""} ${user.lastName || ""}`.trim() ||
+            "Unknown User"
+          : "Unknown User",
+        userAvatar: user?.image || undefined,
+        priority: comment.priority,
+        parentCommentId: comment.parentCommentId,
+        _creationTime: comment._creationTime,
+      };
+    });
+
+    // Sort by creation time (oldest first)
+    return enrichedComments.sort((a, b) => a._creationTime - b._creationTime);
   },
 });
 
@@ -172,11 +217,49 @@ export const addComment = mutation({
     insightId: v.id("voiceNoteInsights"),
     content: v.string(),
     parentCommentId: v.optional(v.id("insightComments")),
+    userId: v.string(),
+    organizationId: v.string(),
   },
   returns: v.id("insightComments"),
-  handler: (_ctx, _args) => {
-    // TODO: Implement in US-P9-005
-    throw new Error("Not implemented yet");
+  handler: async (ctx, args) => {
+    // Auto-detect priority from content keywords
+    const contentLower = args.content.toLowerCase();
+    let priority: "critical" | "important" | "normal" = "normal";
+
+    if (
+      contentLower.includes("injury") ||
+      contentLower.includes("urgent") ||
+      contentLower.includes("emergency")
+    ) {
+      priority = "critical";
+    } else if (
+      contentLower.includes("important") ||
+      contentLower.includes("concern") ||
+      contentLower.includes("issue")
+    ) {
+      priority = "important";
+    }
+
+    // Insert comment
+    const commentId = await ctx.db.insert("insightComments", {
+      insightId: args.insightId,
+      userId: args.userId,
+      content: args.content,
+      priority,
+      parentCommentId: args.parentCommentId,
+      organizationId: args.organizationId,
+    });
+
+    // TODO (US-P9-018): Create activity feed entry
+    // This is a placeholder for future story
+    // await createActivityFeedEntry(ctx, {
+    //   organizationId: args.organizationId,
+    //   actionType: "comment_added",
+    //   entityId: commentId,
+    //   ...
+    // });
+
+    return commentId;
   },
 });
 

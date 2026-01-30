@@ -9,6 +9,7 @@
  */
 
 import { v } from "convex/values";
+import { components } from "../_generated/api";
 import type { QueryCtx } from "../_generated/server";
 import { internalMutation, query } from "../_generated/server";
 
@@ -296,8 +297,14 @@ export const getPlatformUsage = query({
         let organizationName = organizationId; // Fallback to ID
 
         try {
-          // Query organization table directly (Better Auth table accessible via ctx.db)
-          const org = await ctx.db.get(organizationId as any);
+          // Fetch organization name using Better Auth adapter
+          const org = await ctx.runQuery(
+            components.betterAuth.adapter.findOne,
+            {
+              model: "organization",
+              where: [{ field: "_id", value: organizationId, operator: "eq" }],
+            }
+          );
           if (org) {
             organizationName = (org as any).name || organizationId;
           }

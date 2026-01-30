@@ -1655,6 +1655,10 @@ export const getCoachOrgPreferences = query({
       blockReason: v.optional(v.string()),
       blockedBy: v.optional(v.string()),
       blockedAt: v.optional(v.number()),
+      // AI feature toggles
+      aiInsightMatchingEnabled: v.optional(v.boolean()),
+      autoApplyInsightsEnabled: v.optional(v.boolean()),
+      parentSummariesEnabled: v.optional(v.boolean()),
     }),
     v.null()
   ),
@@ -1682,6 +1686,66 @@ export const getCoachOrgPreferences = query({
       blockReason: coachPref.blockReason,
       blockedBy: coachPref.blockedBy,
       blockedAt: coachPref.blockedAt,
+      // AI feature toggles
+      aiInsightMatchingEnabled: coachPref.aiInsightMatchingEnabled,
+      autoApplyInsightsEnabled: coachPref.autoApplyInsightsEnabled,
+      parentSummariesEnabled: coachPref.parentSummariesEnabled,
     };
+  },
+});
+
+/**
+ * Coach: Toggle AI feature settings
+ * Only works if coach has aiControlRightsEnabled
+ */
+export const toggleAIFeatureSetting = mutation({
+  args: {
+    organizationId: v.string(),
+    feature: v.union(
+      v.literal("aiInsightMatchingEnabled"),
+      v.literal("autoApplyInsightsEnabled"),
+      v.literal("parentSummariesEnabled")
+    ),
+    enabled: v.boolean(),
+  },
+  returns: v.object({
+    success: v.boolean(),
+  }),
+  handler: async (ctx, args) => {
+    // Verify authenticated
+    const currentUser = await authComponent.safeGetAuthUser(ctx);
+    if (!currentUser) {
+      throw new Error("User not found");
+    }
+
+    // Get coach preferences
+    const coachPref = await ctx.db
+      .query("coachOrgPreferences")
+      .withIndex("by_coach_org", (q) =>
+        q
+          .eq("coachId", currentUser._id)
+          .eq("organizationId", args.organizationId)
+      )
+      .first();
+
+    // Check if coach has AI control rights
+    if (!coachPref?.aiControlRightsEnabled) {
+      throw new Error(
+        "You don't have permission to change AI settings. Contact your admin."
+      );
+    }
+
+    // Check if admin blocked
+    if (coachPref.adminBlockedFromAI) {
+      throw new Error("AI access has been blocked by your admin");
+    }
+
+    // Update the specific feature
+    await ctx.db.patch(coachPref._id, {
+      [args.feature]: args.enabled,
+      updatedAt: Date.now(),
+    });
+
+    return { success: true };
   },
 });

@@ -150,7 +150,7 @@ export const checkCoachParentAccess = query({
     }
 
     // PRIORITY 2: Individual admin block
-    if (coachPref?.adminBlocked === true) {
+    if (coachPref?.adminBlockedFromAI === true) {
       return {
         hasAccess: false,
         reason: coachPref.blockReason || "Admin blocked your access",
@@ -160,7 +160,7 @@ export const checkCoachParentAccess = query({
     }
 
     // PRIORITY 3: Coach self-disabled (coach chose to hide)
-    if (coachPref?.parentAccessEnabled === false) {
+    if (coachPref?.aiControlRightsEnabled === false) {
       return {
         hasAccess: false,
         reason: "You disabled this feature in your settings",
@@ -634,10 +634,14 @@ export const setAdminBlanketOverride = mutation({
       }
     )) as BetterAuthDoc<"member"> | null;
 
-    if (
-      !membership ||
-      (membership.role !== "admin" && membership.role !== "owner")
-    ) {
+    // Check if user has admin access (either Better Auth role or functional role)
+    const hasAdminAccess =
+      membership &&
+      (membership.role === "admin" ||
+        membership.role === "owner" ||
+        membership.functionalRoles?.includes("admin"));
+
+    if (!hasAdminAccess) {
       throw new Error("Unauthorized: Admin or owner role required");
     }
 
@@ -704,10 +708,14 @@ export const grantCoachOverride = mutation({
       }
     )) as BetterAuthDoc<"member"> | null;
 
-    if (
-      !membership ||
-      (membership.role !== "admin" && membership.role !== "owner")
-    ) {
+    // Check if user has admin access (either Better Auth role or functional role)
+    const hasAdminAccess =
+      membership &&
+      (membership.role === "admin" ||
+        membership.role === "owner" ||
+        membership.functionalRoles?.includes("admin"));
+
+    if (!hasAdminAccess) {
       throw new Error("Unauthorized: Admin or owner role required");
     }
 
@@ -792,10 +800,14 @@ export const revokeCoachOverride = mutation({
       }
     )) as BetterAuthDoc<"member"> | null;
 
-    if (
-      !membership ||
-      (membership.role !== "admin" && membership.role !== "owner")
-    ) {
+    // Check if user has admin access (either Better Auth role or functional role)
+    const hasAdminAccess =
+      membership &&
+      (membership.role === "admin" ||
+        membership.role === "owner" ||
+        membership.functionalRoles?.includes("admin"));
+
+    if (!hasAdminAccess) {
       throw new Error("Unauthorized: Admin or owner role required");
     }
 
@@ -926,10 +938,14 @@ export const reviewCoachOverrideRequest = mutation({
       }
     )) as BetterAuthDoc<"member"> | null;
 
-    if (
-      !membership ||
-      (membership.role !== "admin" && membership.role !== "owner")
-    ) {
+    // Check if user has admin access (either Better Auth role or functional role)
+    const hasAdminAccess =
+      membership &&
+      (membership.role === "admin" ||
+        membership.role === "owner" ||
+        membership.functionalRoles?.includes("admin"));
+
+    if (!hasAdminAccess) {
       throw new Error("Unauthorized: Admin or owner role required");
     }
 
@@ -1012,10 +1028,14 @@ export const setAdminBlanketBlock = mutation({
       }
     )) as BetterAuthDoc<"member"> | null;
 
-    if (
-      !membership ||
-      (membership.role !== "admin" && membership.role !== "owner")
-    ) {
+    // Check if user has admin access (either Better Auth role or functional role)
+    const hasAdminAccess =
+      membership &&
+      (membership.role === "admin" ||
+        membership.role === "owner" ||
+        membership.functionalRoles?.includes("admin"));
+
+    if (!hasAdminAccess) {
       throw new Error("Unauthorized: Admin or owner role required");
     }
 
@@ -1079,10 +1099,14 @@ export const blockIndividualCoach = mutation({
       }
     )) as BetterAuthDoc<"member"> | null;
 
-    if (
-      !membership ||
-      (membership.role !== "admin" && membership.role !== "owner")
-    ) {
+    // Check if user has admin access (either Better Auth role or functional role)
+    const hasAdminAccess =
+      membership &&
+      (membership.role === "admin" ||
+        membership.role === "owner" ||
+        membership.functionalRoles?.includes("admin"));
+
+    if (!hasAdminAccess) {
       throw new Error("Unauthorized: Admin or owner role required");
     }
 
@@ -1109,7 +1133,7 @@ export const blockIndividualCoach = mutation({
     if (coachPrefs) {
       // Update existing
       await ctx.db.patch(coachPrefs._id, {
-        adminBlocked: true,
+        adminBlockedFromAI: true,
         blockReason: args.reason,
         blockedBy: currentUser._id,
         blockedAt: Date.now(),
@@ -1120,7 +1144,7 @@ export const blockIndividualCoach = mutation({
       await ctx.db.insert("coachOrgPreferences", {
         coachId: args.coachId,
         organizationId: args.organizationId,
-        adminBlocked: true,
+        adminBlockedFromAI: true,
         blockReason: args.reason,
         blockedBy: currentUser._id,
         blockedAt: Date.now(),
@@ -1163,10 +1187,14 @@ export const unblockIndividualCoach = mutation({
       }
     )) as BetterAuthDoc<"member"> | null;
 
-    if (
-      !membership ||
-      (membership.role !== "admin" && membership.role !== "owner")
-    ) {
+    // Check if user has admin access (either Better Auth role or functional role)
+    const hasAdminAccess =
+      membership &&
+      (membership.role === "admin" ||
+        membership.role === "owner" ||
+        membership.functionalRoles?.includes("admin"));
+
+    if (!hasAdminAccess) {
       throw new Error("Unauthorized: Admin or owner role required");
     }
 
@@ -1184,7 +1212,7 @@ export const unblockIndividualCoach = mutation({
 
     // Update to unblock
     await ctx.db.patch(coachPrefs._id, {
-      adminBlocked: false,
+      adminBlockedFromAI: false,
       blockReason: undefined,
       blockedBy: undefined,
       blockedAt: undefined,
@@ -1196,10 +1224,194 @@ export const unblockIndividualCoach = mutation({
 });
 
 /**
- * Coach: Toggle their own parent communication access on/off
+ * Admin: Grant AI Control Rights to specific coach
+ * Gives coach ability to toggle their own AI automation settings
+ */
+export const grantAIControlRights = mutation({
+  args: {
+    organizationId: v.string(),
+    coachId: v.string(),
+    grantNote: v.optional(v.string()),
+    notifyCoach: v.optional(v.boolean()), // For future toast notification
+  },
+  returns: v.object({
+    success: v.boolean(),
+  }),
+  handler: async (ctx, args) => {
+    // Verify authenticated
+    const currentUser = await authComponent.safeGetAuthUser(ctx);
+    if (!currentUser) {
+      throw new Error("User not found");
+    }
+
+    // Check if user is org admin (using working pattern with operator)
+    const membership = (await ctx.runQuery(
+      components.betterAuth.adapter.findOne,
+      {
+        model: "member",
+        where: [
+          {
+            field: "organizationId",
+            value: args.organizationId,
+            operator: "eq",
+          },
+          { field: "userId", value: currentUser._id, operator: "eq" },
+        ],
+      }
+    )) as BetterAuthDoc<"member"> | null;
+
+    // Check if user has admin access (either Better Auth role or functional role)
+    const hasAdminAccess =
+      membership &&
+      (membership.role === "admin" ||
+        membership.role === "owner" ||
+        membership.functionalRoles?.includes("admin"));
+
+    if (!hasAdminAccess) {
+      throw new Error("Unauthorized: Admin or owner role required");
+    }
+
+    // Check if org allows admin delegation
+    const org = (await ctx.runQuery(components.betterAuth.adapter.findOne, {
+      model: "organization",
+      where: [{ field: "_id", value: args.organizationId, operator: "eq" }],
+    })) as BetterAuthDoc<"organization"> | null;
+
+    if (!org?.allowAdminDelegation) {
+      throw new Error(
+        "Unauthorized: Organization does not allow admin delegation"
+      );
+    }
+
+    // Get or create coach preferences
+    const coachPref = await ctx.db
+      .query("coachOrgPreferences")
+      .withIndex("by_coach_org", (q) =>
+        q.eq("coachId", args.coachId).eq("organizationId", args.organizationId)
+      )
+      .first();
+
+    if (coachPref) {
+      // Update existing
+      await ctx.db.patch(coachPref._id, {
+        aiControlRightsEnabled: true,
+        grantedBy: currentUser._id,
+        grantedAt: Date.now(),
+        grantNote: args.grantNote,
+        // Clear any previous block
+        adminBlockedFromAI: false,
+        blockReason: undefined,
+        blockedBy: undefined,
+        blockedAt: undefined,
+        // Clear any previous revoke
+        revokedBy: undefined,
+        revokedAt: undefined,
+        revokeReason: undefined,
+        updatedAt: Date.now(),
+      });
+    } else {
+      // Create new with all AI features enabled by default
+      await ctx.db.insert("coachOrgPreferences", {
+        coachId: args.coachId,
+        organizationId: args.organizationId,
+        aiControlRightsEnabled: true,
+        grantedBy: currentUser._id,
+        grantedAt: Date.now(),
+        grantNote: args.grantNote,
+        // Default all features ON
+        aiInsightMatchingEnabled: true,
+        autoApplyInsightsEnabled: true,
+        parentSummariesEnabled: true,
+        createdAt: Date.now(),
+        updatedAt: Date.now(),
+      });
+    }
+
+    return { success: true };
+  },
+});
+
+/**
+ * Admin: Revoke AI Control Rights from specific coach
+ * Removes coach's ability to toggle their own AI automation settings
+ */
+export const revokeAIControlRights = mutation({
+  args: {
+    organizationId: v.string(),
+    coachId: v.string(),
+    revokeReason: v.optional(v.string()),
+  },
+  returns: v.object({
+    success: v.boolean(),
+  }),
+  handler: async (ctx, args) => {
+    // Verify authenticated
+    const currentUser = await authComponent.safeGetAuthUser(ctx);
+    if (!currentUser) {
+      throw new Error("User not found");
+    }
+
+    // Check if user is org admin (using working pattern with operator)
+    const membership = (await ctx.runQuery(
+      components.betterAuth.adapter.findOne,
+      {
+        model: "member",
+        where: [
+          {
+            field: "organizationId",
+            value: args.organizationId,
+            operator: "eq",
+          },
+          { field: "userId", value: currentUser._id, operator: "eq" },
+        ],
+      }
+    )) as BetterAuthDoc<"member"> | null;
+
+    // Check if user has admin access (either Better Auth role or functional role)
+    const hasAdminAccess =
+      membership &&
+      (membership.role === "admin" ||
+        membership.role === "owner" ||
+        membership.functionalRoles?.includes("admin"));
+
+    if (!hasAdminAccess) {
+      throw new Error("Unauthorized: Admin or owner role required");
+    }
+
+    // Get coach preferences
+    const coachPref = await ctx.db
+      .query("coachOrgPreferences")
+      .withIndex("by_coach_org", (q) =>
+        q.eq("coachId", args.coachId).eq("organizationId", args.organizationId)
+      )
+      .first();
+
+    if (!coachPref?.aiControlRightsEnabled) {
+      return { success: true }; // Already not granted
+    }
+
+    // Update to revoke
+    await ctx.db.patch(coachPref._id, {
+      aiControlRightsEnabled: false,
+      revokedBy: currentUser._id,
+      revokedAt: Date.now(),
+      revokeReason: args.revokeReason,
+      // Clear grant fields
+      grantedBy: undefined,
+      grantedAt: undefined,
+      grantNote: undefined,
+      updatedAt: Date.now(),
+    });
+
+    return { success: true };
+  },
+});
+
+/**
+ * Coach: Toggle their own AI automation control rights on/off
  * Only works if coach already has permission (via trust level, override, etc.)
  */
-export const toggleCoachParentAccess = mutation({
+export const toggleCoachAIControlRights = mutation({
   args: {
     organizationId: v.string(),
     enabled: v.boolean(),
@@ -1227,7 +1439,7 @@ export const toggleCoachParentAccess = mutation({
     if (coachPrefs) {
       // Update existing
       await ctx.db.patch(coachPrefs._id, {
-        parentAccessEnabled: args.enabled,
+        aiControlRightsEnabled: args.enabled,
         updatedAt: Date.now(),
       });
     } else {
@@ -1235,7 +1447,7 @@ export const toggleCoachParentAccess = mutation({
       await ctx.db.insert("coachOrgPreferences", {
         coachId: currentUser._id,
         organizationId: args.organizationId,
-        parentAccessEnabled: args.enabled,
+        aiControlRightsEnabled: args.enabled,
         createdAt: Date.now(),
         updatedAt: Date.now(),
       });
@@ -1252,16 +1464,19 @@ export const toggleCoachParentAccess = mutation({
 export const getAllCoachesWithAccessStatus = query({
   args: {
     organizationId: v.string(),
+    searchQuery: v.optional(v.string()),
   },
   returns: v.array(
     v.object({
       coachId: v.string(),
       coachName: v.string(),
+      teamNames: v.array(v.string()),
+      teamCount: v.number(),
       trustLevel: v.number(),
       hasAccess: v.boolean(),
       accessReason: v.string(),
-      adminBlocked: v.boolean(),
-      parentAccessEnabled: v.boolean(),
+      adminBlockedFromAI: v.boolean(),
+      aiControlRightsEnabled: v.boolean(),
       hasOverride: v.boolean(),
     })
   ),
@@ -1278,16 +1493,24 @@ export const getAllCoachesWithAccessStatus = query({
       {
         model: "member",
         where: [
-          { field: "organizationId", value: args.organizationId },
-          { field: "userId", value: currentUser._id },
+          {
+            field: "organizationId",
+            value: args.organizationId,
+            operator: "eq",
+          },
+          { field: "userId", value: currentUser._id, operator: "eq" },
         ],
       }
     )) as BetterAuthDoc<"member"> | null;
 
-    if (
-      !membership ||
-      (membership.role !== "admin" && membership.role !== "owner")
-    ) {
+    // Check if user has admin access (either Better Auth role or functional role)
+    const hasAdminAccess =
+      membership &&
+      (membership.role === "admin" ||
+        membership.role === "owner" ||
+        membership.functionalRoles?.includes("admin"));
+
+    if (!hasAdminAccess) {
       throw new Error("Unauthorized: Admin or owner role required");
     }
 
@@ -1296,7 +1519,13 @@ export const getAllCoachesWithAccessStatus = query({
       components.betterAuth.adapter.findMany,
       {
         model: "member",
-        where: [{ field: "organizationId", value: args.organizationId }],
+        where: [
+          {
+            field: "organizationId",
+            value: args.organizationId,
+            operator: "eq",
+          },
+        ],
         paginationOpts: {
           cursor: null,
           numItems: 1000,
@@ -1312,12 +1541,40 @@ export const getAllCoachesWithAccessStatus = query({
     // Get org settings
     const org = (await ctx.runQuery(components.betterAuth.adapter.findOne, {
       model: "organization",
-      where: [{ field: "_id", value: args.organizationId }],
+      where: [{ field: "_id", value: args.organizationId, operator: "eq" }],
     })) as BetterAuthDoc<"organization"> | null;
 
     if (!org) {
       throw new Error("Organization not found");
     }
+
+    // Fetch all teams for this organization (do this once, outside the loop)
+    const allTeamsResult = await ctx.runQuery(
+      components.betterAuth.adapter.findMany,
+      {
+        model: "team",
+        paginationOpts: {
+          cursor: null,
+          numItems: 1000,
+        },
+        where: [
+          {
+            field: "organizationId",
+            value: args.organizationId,
+            operator: "eq",
+          },
+        ],
+      }
+    );
+
+    const allTeams = allTeamsResult.page as BetterAuthDoc<"team">[];
+
+    // Create maps for both ID and name lookups
+    // (coachAssignments.teams may contain either IDs or names depending on storage method)
+    const teamByIdMap = new Map(
+      allTeams.map((team) => [String(team._id), team])
+    );
+    const teamByNameMap = new Map(allTeams.map((team) => [team.name, team]));
 
     // Build status for each coach
     const coachStatuses = await Promise.all(
@@ -1327,7 +1584,7 @@ export const getAllCoachesWithAccessStatus = query({
           components.betterAuth.adapter.findOne,
           {
             model: "user",
-            where: [{ field: "userId", value: member.userId }],
+            where: [{ field: "_id", value: member.userId, operator: "eq" }],
           }
         )) as BetterAuthDoc<"user"> | null;
 
@@ -1347,6 +1604,34 @@ export const getAllCoachesWithAccessStatus = query({
           )
           .first();
 
+        // Get coach team assignments
+        const coachAssignment = await ctx.db
+          .query("coachAssignments")
+          .withIndex("by_user_and_org", (q) =>
+            q
+              .eq("userId", member.userId)
+              .eq("organizationId", args.organizationId)
+          )
+          .first();
+
+        // Get team names from the pre-fetched maps
+        // coachAssignment.teams may contain either team IDs or team names
+        const teamIdentifiers = coachAssignment?.teams || [];
+        const teamNames = teamIdentifiers.map((identifier) => {
+          // Try lookup by ID first, then by name
+          const teamById = teamByIdMap.get(identifier);
+          if (teamById) {
+            return teamById.name;
+          }
+
+          const teamByName = teamByNameMap.get(identifier);
+          if (teamByName) {
+            return teamByName.name;
+          }
+
+          return "Unknown Team";
+        });
+
         // Check comprehensive access (same logic as checkCoachParentAccess)
         let hasAccess = false;
         let accessReason = "";
@@ -1354,10 +1639,10 @@ export const getAllCoachesWithAccessStatus = query({
         if (org.adminBlanketBlock === true) {
           hasAccess = false;
           accessReason = "Blocked by blanket block";
-        } else if (coachPref?.adminBlocked === true) {
+        } else if (coachPref?.adminBlockedFromAI === true) {
           hasAccess = false;
           accessReason = "Blocked by admin";
-        } else if (coachPref?.parentAccessEnabled === false) {
+        } else if (coachPref?.aiControlRightsEnabled === false) {
           hasAccess = false;
           accessReason = "Disabled by coach";
         } else if (org.voiceNotesTrustGatesEnabled === false) {
@@ -1387,17 +1672,156 @@ export const getAllCoachesWithAccessStatus = query({
 
         return {
           coachId: member.userId,
-          coachName: user?.name || "Unknown",
+          coachName: user
+            ? user.firstName && user.lastName
+              ? `${user.firstName} ${user.lastName}`.trim()
+              : user.name || user.email || "Unknown"
+            : "Unknown",
+          teamNames,
+          teamCount: teamNames.length,
           trustLevel: trustLevel?.currentLevel ?? 0,
           hasAccess,
           accessReason,
-          adminBlocked: coachPref?.adminBlocked ?? false,
-          parentAccessEnabled: coachPref?.parentAccessEnabled ?? true,
+          adminBlockedFromAI: coachPref?.adminBlockedFromAI ?? false,
+          aiControlRightsEnabled: coachPref?.aiControlRightsEnabled ?? false,
           hasOverride: coachPref?.trustGateOverride ?? false,
         };
       })
     );
 
+    // Filter by search query if provided
+    if (args.searchQuery) {
+      const searchTerm = args.searchQuery.toLowerCase();
+      return coachStatuses.filter(
+        (coach) =>
+          coach.coachName.toLowerCase().includes(searchTerm) ||
+          coach.teamNames.some((team) =>
+            team.toLowerCase().includes(searchTerm)
+          )
+      );
+    }
+
     return coachStatuses;
+  },
+});
+
+/**
+ * Get coach's org-specific preferences for notification polling
+ * Used by coach to detect when admin grants/revokes rights or blocks access
+ */
+export const getCoachOrgPreferences = query({
+  args: {
+    coachId: v.string(),
+    organizationId: v.string(),
+  },
+  returns: v.union(
+    v.object({
+      aiControlRightsEnabled: v.optional(v.boolean()),
+      grantedBy: v.optional(v.string()),
+      grantedAt: v.optional(v.number()),
+      grantNote: v.optional(v.string()),
+      revokedBy: v.optional(v.string()),
+      revokedAt: v.optional(v.number()),
+      revokeReason: v.optional(v.string()),
+      adminBlockedFromAI: v.optional(v.boolean()),
+      blockReason: v.optional(v.string()),
+      blockedBy: v.optional(v.string()),
+      blockedAt: v.optional(v.number()),
+      // Trust Gate Individual Override
+      trustGateOverride: v.optional(v.boolean()),
+      // AI feature toggles
+      aiInsightMatchingEnabled: v.optional(v.boolean()),
+      autoApplyInsightsEnabled: v.optional(v.boolean()),
+      parentSummariesEnabled: v.optional(v.boolean()),
+    }),
+    v.null()
+  ),
+  handler: async (ctx, args) => {
+    const coachPref = await ctx.db
+      .query("coachOrgPreferences")
+      .withIndex("by_coach_org", (q) =>
+        q.eq("coachId", args.coachId).eq("organizationId", args.organizationId)
+      )
+      .first();
+
+    if (!coachPref) {
+      return null;
+    }
+
+    return {
+      aiControlRightsEnabled: coachPref.aiControlRightsEnabled,
+      grantedBy: coachPref.grantedBy,
+      grantedAt: coachPref.grantedAt,
+      grantNote: coachPref.grantNote,
+      revokedBy: coachPref.revokedBy,
+      revokedAt: coachPref.revokedAt,
+      revokeReason: coachPref.revokeReason,
+      adminBlockedFromAI: coachPref.adminBlockedFromAI,
+      blockReason: coachPref.blockReason,
+      blockedBy: coachPref.blockedBy,
+      blockedAt: coachPref.blockedAt,
+      // Trust Gate Individual Override
+      trustGateOverride: coachPref.trustGateOverride,
+      // AI feature toggles
+      aiInsightMatchingEnabled: coachPref.aiInsightMatchingEnabled,
+      autoApplyInsightsEnabled: coachPref.autoApplyInsightsEnabled,
+      parentSummariesEnabled: coachPref.parentSummariesEnabled,
+    };
+  },
+});
+
+/**
+ * Coach: Toggle AI feature settings
+ * Only works if coach has aiControlRightsEnabled
+ */
+export const toggleAIFeatureSetting = mutation({
+  args: {
+    organizationId: v.string(),
+    feature: v.union(
+      v.literal("aiInsightMatchingEnabled"),
+      v.literal("autoApplyInsightsEnabled"),
+      v.literal("parentSummariesEnabled")
+    ),
+    enabled: v.boolean(),
+  },
+  returns: v.object({
+    success: v.boolean(),
+  }),
+  handler: async (ctx, args) => {
+    // Verify authenticated
+    const currentUser = await authComponent.safeGetAuthUser(ctx);
+    if (!currentUser) {
+      throw new Error("User not found");
+    }
+
+    // Get coach preferences
+    const coachPref = await ctx.db
+      .query("coachOrgPreferences")
+      .withIndex("by_coach_org", (q) =>
+        q
+          .eq("coachId", currentUser._id)
+          .eq("organizationId", args.organizationId)
+      )
+      .first();
+
+    // Check if coach has AI control rights
+    if (!coachPref?.aiControlRightsEnabled) {
+      throw new Error(
+        "You don't have permission to change AI settings. Contact your admin."
+      );
+    }
+
+    // Check if admin blocked
+    if (coachPref.adminBlockedFromAI) {
+      throw new Error("AI access has been blocked by your admin");
+    }
+
+    // Update the specific feature
+    await ctx.db.patch(coachPref._id, {
+      [args.feature]: args.enabled,
+      updatedAt: Date.now(),
+    });
+
+    return { success: true };
   },
 });

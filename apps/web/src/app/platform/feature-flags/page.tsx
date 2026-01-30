@@ -3,8 +3,11 @@
 import { api } from "@pdp/backend/convex/_generated/api";
 import { useMutation, useQuery } from "convex/react";
 import {
+  AlertCircle,
   ArrowLeft,
   ArrowUpDown,
+  Bot,
+  CheckCircle,
   CheckCircle2,
   ChevronLeft,
   ChevronRight,
@@ -13,6 +16,7 @@ import {
   Search,
   Shield,
   ShieldAlert,
+  TrendingUp,
   Users,
   XCircle,
 } from "lucide-react";
@@ -307,6 +311,12 @@ export default function FeatureFlagsPage() {
   const orgsStatus = useQuery(
     api.models.trustGatePermissions.getAllOrgsFeatureFlagStatus,
     {}
+  );
+
+  // Fetch platform AI accuracy metrics
+  const aiAccuracy = useQuery(
+    api.models.coachTrustLevels.getPlatformAIAccuracy,
+    { timeWindowDays: 30 }
   );
 
   // Mutations
@@ -607,7 +617,6 @@ export default function FeatureFlagsPage() {
             </div>
           </div>
         </div>
-
         {/* Overview Cards */}
         <div className="mb-6 grid gap-4 md:grid-cols-2 lg:grid-cols-4">
           <Card>
@@ -738,7 +747,130 @@ export default function FeatureFlagsPage() {
             </CardContent>
           </Card>
         </div>
+        {/* AI Accuracy Metrics Section */}
+        {aiAccuracy && aiAccuracy.totalInsights > 0 && (
+          <Card className="mb-6">
+            <CardHeader>
+              <CardTitle className="flex items-center gap-2 text-lg">
+                <TrendingUp className="h-5 w-5" />
+                AI Insight Accuracy (Last 30 Days)
+              </CardTitle>
+            </CardHeader>
+            <CardContent>
+              {/* Overview Stats */}
+              <div className="mb-6 grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
+                <Card className="border-green-200 bg-green-50">
+                  <CardContent className="flex items-center gap-3 p-4">
+                    <div className="rounded-full bg-green-100 p-2">
+                      <CheckCircle className="h-5 w-5 text-green-600" />
+                    </div>
+                    <div>
+                      <p className="font-bold text-2xl text-green-700">
+                        {aiAccuracy.accuracy.toFixed(1)}%
+                      </p>
+                      <p className="text-green-600 text-xs">AI Accuracy</p>
+                    </div>
+                  </CardContent>
+                </Card>
+                <Card className="border-blue-200 bg-blue-50">
+                  <CardContent className="flex items-center gap-3 p-4">
+                    <div className="rounded-full bg-blue-100 p-2">
+                      <Bot className="h-5 w-5 text-blue-600" />
+                    </div>
+                    <div>
+                      <p className="font-bold text-2xl text-blue-700">
+                        {aiAccuracy.totalInsights}
+                      </p>
+                      <p className="text-blue-600 text-xs">Total Insights</p>
+                    </div>
+                  </CardContent>
+                </Card>
+                <Card className="border-purple-200 bg-purple-50">
+                  <CardContent className="flex items-center gap-3 p-4">
+                    <div className="rounded-full bg-purple-100 p-2">
+                      <CheckCircle className="h-5 w-5 text-purple-600" />
+                    </div>
+                    <div>
+                      <p className="font-bold text-2xl text-purple-700">
+                        {aiAccuracy.aiGotItRight}
+                      </p>
+                      <p className="text-purple-600 text-xs">AI Correct</p>
+                    </div>
+                  </CardContent>
+                </Card>
+                <Card className="border-orange-200 bg-orange-50">
+                  <CardContent className="flex items-center gap-3 p-4">
+                    <div className="rounded-full bg-orange-100 p-2">
+                      <AlertCircle className="h-5 w-5 text-orange-600" />
+                    </div>
+                    <div>
+                      <p className="font-bold text-2xl text-orange-700">
+                        {aiAccuracy.manuallyCorrected}
+                      </p>
+                      <p className="text-orange-600 text-xs">
+                        Coach Corrections
+                      </p>
+                    </div>
+                  </CardContent>
+                </Card>
+              </div>
 
+              {/* Correction Breakdown */}
+              <div className="mb-4">
+                <h3 className="mb-3 font-semibold text-sm">
+                  Corrections by Type
+                </h3>
+                <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
+                  <div className="rounded-lg border bg-card p-3">
+                    <div className="flex items-center justify-between">
+                      <span className="text-muted-foreground text-sm">
+                        Player Assigned
+                      </span>
+                      <Badge variant="outline">
+                        {aiAccuracy.correctionBreakdown.playerAssigned}
+                      </Badge>
+                    </div>
+                  </div>
+                  <div className="rounded-lg border bg-card p-3">
+                    <div className="flex items-center justify-between">
+                      <span className="text-muted-foreground text-sm">
+                        Team Classified
+                      </span>
+                      <Badge variant="outline">
+                        {aiAccuracy.correctionBreakdown.teamClassified}
+                      </Badge>
+                    </div>
+                  </div>
+                  <div className="rounded-lg border bg-card p-3">
+                    <div className="flex items-center justify-between">
+                      <span className="text-muted-foreground text-sm">
+                        Todo Classified
+                      </span>
+                      <Badge variant="outline">
+                        {aiAccuracy.correctionBreakdown.todoClassified}
+                      </Badge>
+                    </div>
+                  </div>
+                  <div className="rounded-lg border bg-card p-3">
+                    <div className="flex items-center justify-between">
+                      <span className="text-muted-foreground text-sm">
+                        Content Edited
+                      </span>
+                      <Badge variant="outline">
+                        {aiAccuracy.correctionBreakdown.contentEdited}
+                      </Badge>
+                    </div>
+                  </div>
+                </div>
+              </div>
+
+              {/* All Coaches with AI Insights */}
+              {aiAccuracy.byCoach.length > 0 && (
+                <CoachAccuracyTable coaches={aiAccuracy.byCoach} />
+              )}
+            </CardContent>
+          </Card>
+        )}
         {/* Bulk Actions */}
         {selectedOrgs.size > 0 && (
           <Card className="mb-6">
@@ -781,7 +913,6 @@ export default function FeatureFlagsPage() {
             </CardContent>
           </Card>
         )}
-
         {/* Filters and Search */}
         <Card className="mb-6">
           <CardContent className="pt-6">
@@ -873,7 +1004,6 @@ export default function FeatureFlagsPage() {
             </div>
           </CardContent>
         </Card>
-
         {/* Organizations Table */}
         <Card>
           <CardHeader>
@@ -1012,7 +1142,6 @@ export default function FeatureFlagsPage() {
             )}
           </CardContent>
         </Card>
-
         {/* Bulk Disable Confirmation Dialog */}
         <AlertDialog
           onOpenChange={setShowBulkDisableDialog}
@@ -1036,6 +1165,197 @@ export default function FeatureFlagsPage() {
             </AlertDialogFooter>
           </AlertDialogContent>
         </AlertDialog>
+      </div>
+    </div>
+  );
+}
+
+// Coach Accuracy Table Component
+function CoachAccuracyTable({
+  coaches,
+}: {
+  coaches: Array<{
+    coachId: string;
+    coachName: string;
+    organizationId: string;
+    organizationName: string;
+    sports: string[];
+    totalInsights: number;
+    manuallyCorrected: number;
+    accuracy: number;
+  }>;
+}) {
+  const [searchQuery, setSearchQuery] = useState("");
+  const [sortBy, setSortBy] = useState<"accuracy" | "name" | "insights">(
+    "accuracy"
+  );
+  const [sortOrder, setSortOrder] = useState<"asc" | "desc">("asc");
+
+  // Filter and sort coaches
+  const filteredCoaches = useMemo(() => {
+    let filtered = coaches;
+
+    // Apply search filter
+    if (searchQuery.trim()) {
+      const query = searchQuery.toLowerCase();
+      filtered = filtered.filter(
+        (coach) =>
+          coach.coachName.toLowerCase().includes(query) ||
+          coach.organizationName.toLowerCase().includes(query) ||
+          coach.sports.some((sport) => sport.toLowerCase().includes(query))
+      );
+    }
+
+    // Apply sorting
+    const sorted = [...filtered].sort((a, b) => {
+      let compareValue = 0;
+
+      switch (sortBy) {
+        case "accuracy":
+          compareValue = a.accuracy - b.accuracy;
+          break;
+        case "name":
+          compareValue = a.coachName.localeCompare(b.coachName);
+          break;
+        case "insights":
+          compareValue = a.totalInsights - b.totalInsights;
+          break;
+        default:
+          compareValue = 0;
+          break;
+      }
+
+      return sortOrder === "asc" ? compareValue : -compareValue;
+    });
+
+    return sorted;
+  }, [coaches, searchQuery, sortBy, sortOrder]);
+
+  const handleSort = (column: "accuracy" | "name" | "insights") => {
+    if (sortBy === column) {
+      setSortOrder(sortOrder === "asc" ? "desc" : "asc");
+    } else {
+      setSortBy(column);
+      setSortOrder("asc");
+    }
+  };
+
+  const getAccuracyBadgeClass = (accuracy: number) => {
+    if (accuracy < 70) {
+      return "bg-red-100 text-red-700 hover:bg-red-200";
+    }
+    if (accuracy < 85) {
+      return "bg-orange-100 text-orange-700 hover:bg-orange-200";
+    }
+    return "bg-green-100 text-green-700 hover:bg-green-200";
+  };
+
+  return (
+    <div>
+      <div className="mb-4 flex items-center justify-between">
+        <h3 className="font-semibold text-sm">
+          All Coaches with AI Insights ({filteredCoaches.length})
+        </h3>
+        <div className="relative w-64">
+          <Search className="absolute top-2.5 left-2.5 h-4 w-4 text-muted-foreground" />
+          <Input
+            className="pl-8"
+            onChange={(e) => setSearchQuery(e.target.value)}
+            placeholder="Search coaches..."
+            type="search"
+            value={searchQuery}
+          />
+        </div>
+      </div>
+
+      <div className="rounded-lg border">
+        <Table>
+          <TableHeader>
+            <TableRow>
+              <TableHead>
+                <button
+                  className="flex items-center gap-1 hover:text-foreground"
+                  onClick={() => handleSort("name")}
+                  type="button"
+                >
+                  Coach
+                  <ArrowUpDown className="h-4 w-4" />
+                </button>
+              </TableHead>
+              <TableHead>Organization</TableHead>
+              <TableHead>Sport(s)</TableHead>
+              <TableHead>
+                <button
+                  className="flex items-center gap-1 hover:text-foreground"
+                  onClick={() => handleSort("insights")}
+                  type="button"
+                >
+                  Insights
+                  <ArrowUpDown className="h-4 w-4" />
+                </button>
+              </TableHead>
+              <TableHead>Corrected</TableHead>
+              <TableHead>
+                <button
+                  className="flex items-center gap-1 hover:text-foreground"
+                  onClick={() => handleSort("accuracy")}
+                  type="button"
+                >
+                  AI Accuracy
+                  <ArrowUpDown className="h-4 w-4" />
+                </button>
+              </TableHead>
+            </TableRow>
+          </TableHeader>
+          <TableBody>
+            {filteredCoaches.length === 0 ? (
+              <TableRow>
+                <TableCell className="h-24 text-center" colSpan={6}>
+                  No coaches found
+                </TableCell>
+              </TableRow>
+            ) : (
+              filteredCoaches.map((coach) => (
+                <TableRow key={`${coach.coachId}_${coach.organizationId}`}>
+                  <TableCell className="font-medium">
+                    {coach.coachName}
+                  </TableCell>
+                  <TableCell className="text-muted-foreground text-sm">
+                    {coach.organizationName}
+                  </TableCell>
+                  <TableCell>
+                    {coach.sports.length > 0 ? (
+                      <div className="flex flex-wrap gap-1">
+                        {coach.sports.map((sport) => (
+                          <Badge
+                            className="text-xs"
+                            key={sport}
+                            variant="outline"
+                          >
+                            {sport}
+                          </Badge>
+                        ))}
+                      </div>
+                    ) : (
+                      <span className="text-muted-foreground text-sm">-</span>
+                    )}
+                  </TableCell>
+                  <TableCell className="text-sm">
+                    {coach.totalInsights}
+                  </TableCell>
+                  <TableCell className="text-sm">
+                    {coach.manuallyCorrected}
+                  </TableCell>
+                  <TableCell>
+                    <Badge className={getAccuracyBadgeClass(coach.accuracy)}>
+                      {coach.accuracy.toFixed(1)}%
+                    </Badge>
+                  </TableCell>
+                </TableRow>
+              ))
+            )}
+          </TableBody>
+        </Table>
       </div>
     </div>
   );

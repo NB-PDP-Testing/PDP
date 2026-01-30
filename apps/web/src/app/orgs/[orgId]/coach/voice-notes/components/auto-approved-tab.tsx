@@ -86,7 +86,17 @@ export function AutoApprovedTab({
       return [];
     }
 
-    return autoApprovedSummaries.filter((summary) => {
+    // Filter out any summaries with invalid _id and deduplicate by _id
+    const validSummaries = autoApprovedSummaries.filter(
+      (summary) => summary._id && typeof summary._id === "string"
+    );
+
+    // Deduplicate by _id using Map
+    const uniqueSummaries = Array.from(
+      new Map(validSummaries.map((s) => [s._id, s])).values()
+    );
+
+    return uniqueSummaries.filter((summary) => {
       // Search filter (player name, summary content, or insight details)
       if (searchQuery.trim()) {
         const query = searchQuery.toLowerCase();
@@ -347,8 +357,8 @@ export function AutoApprovedTab({
                 )}
 
                 <span className="ml-auto text-muted-foreground text-sm">
-                  Showing {filteredSummaries.length} of{" "}
-                  {autoApprovedSummaries.length} summaries
+                  Showing {filteredSummaries.length}{" "}
+                  {filteredSummaries.length === 1 ? "summary" : "summaries"}
                 </span>
               </div>
             </div>

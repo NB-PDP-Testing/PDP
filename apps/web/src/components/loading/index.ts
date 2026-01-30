@@ -9,7 +9,11 @@
  * - PageSkeleton - For full page layouts
  *
  * Feature Flag: ux_skeleton_loaders
+ *
+ * @file Intentional barrel file for organizing loading components
  */
+
+/* biome-ignore-all lint/performance/noBarrelFile: Intentional barrel file for organizing loading components */
 
 // Card skeletons
 export {
@@ -18,6 +22,8 @@ export {
   StatCardSkeleton,
   StatGridSkeleton,
 } from "./card-skeleton";
+// Centered skeleton (for auth/transition pages)
+export { CenteredSkeleton } from "./centered-skeleton";
 // Form skeletons
 export {
   FormFieldSkeleton,

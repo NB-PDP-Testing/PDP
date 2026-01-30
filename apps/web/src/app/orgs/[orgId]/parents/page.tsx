@@ -6,7 +6,7 @@ import { useQuery } from "convex/react";
 import { AlertCircle, CheckCircle, Clock, Users } from "lucide-react";
 import { useParams, useRouter } from "next/navigation";
 import { Suspense, useMemo, useRef } from "react";
-import Loader from "@/components/loader";
+import { PageSkeleton } from "@/components/loading";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { useGuardianChildrenInOrg } from "@/hooks/use-guardian-identity";
@@ -135,11 +135,7 @@ function ParentDashboardContent() {
 
   // Show loading state while checking roles
   if (roleDetails === undefined || identityLoading) {
-    return (
-      <div className="flex min-h-[400px] items-center justify-center">
-        <Loader />
-      </div>
-    );
+    return <PageSkeleton variant="dashboard" />;
   }
 
   // Show access denied if user doesn't have parent role and no linked players
@@ -330,7 +326,7 @@ function ParentDashboardContent() {
 
 export default function ParentsPage() {
   return (
-    <Suspense fallback={<Loader />}>
+    <Suspense fallback={<PageSkeleton variant="dashboard" />}>
       <ParentDashboardContent />
     </Suspense>
   );

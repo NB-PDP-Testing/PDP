@@ -1,10 +1,10 @@
 import { Suspense } from "react";
-import Loader from "@/components/loader";
+import { PageSkeleton } from "@/components/loading";
 import { CoachDashboard } from "./coach-dashboard";
 
 export default function CoachPage() {
   return (
-    <Suspense fallback={<Loader />}>
+    <Suspense fallback={<PageSkeleton variant="dashboard" />}>
       <CoachDashboard />
     </Suspense>
   );

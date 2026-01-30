@@ -121,7 +121,7 @@
         "Type check passes"
       ],
       "priority": 6,
-      "passes": false
+      "passes": true
     },
     {
       "id": "US-P9-015",

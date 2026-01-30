@@ -1252,6 +1252,7 @@ export const toggleCoachParentAccess = mutation({
 export const getAllCoachesWithAccessStatus = query({
   args: {
     organizationId: v.string(),
+    searchQuery: v.optional(v.string()),
   },
   returns: v.array(
     v.object({
@@ -1439,6 +1440,18 @@ export const getAllCoachesWithAccessStatus = query({
         };
       })
     );
+
+    // Filter by search query if provided
+    if (args.searchQuery) {
+      const searchTerm = args.searchQuery.toLowerCase();
+      return coachStatuses.filter(
+        (coach) =>
+          coach.coachName.toLowerCase().includes(searchTerm) ||
+          coach.teamNames.some((team) =>
+            team.toLowerCase().includes(searchTerm)
+          )
+      );
+    }
 
     return coachStatuses;
   },

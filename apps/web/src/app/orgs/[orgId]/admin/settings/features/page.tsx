@@ -7,6 +7,7 @@ import { formatDistanceToNow } from "date-fns";
 import {
   AlertCircle,
   CheckCircle2,
+  Search,
   Shield,
   ShieldAlert,
   Users,
@@ -28,6 +29,7 @@ import {
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { Input } from "@/components/ui/input";
 import { Skeleton } from "@/components/ui/skeleton";
 import { Switch } from "@/components/ui/switch";
 import {
@@ -50,6 +52,9 @@ export default function OrgFeatureFlagsPage() {
   const params = useParams();
   const orgId = params.orgId as string;
 
+  // UI state - must be before queries that use it
+  const [searchQuery, setSearchQuery] = useState("");
+
   // Fetch feature flag status for this org
   const orgStatus = useQuery(
     api.models.trustGatePermissions.getOrgFeatureFlagStatus,
@@ -65,7 +70,9 @@ export default function OrgFeatureFlagsPage() {
   // Fetch all coaches with their access status
   const allCoaches = useQuery(
     api.models.trustGatePermissions.getAllCoachesWithAccessStatus,
-    orgStatus?.allowAdminDelegation ? { organizationId: orgId } : "skip"
+    orgStatus?.allowAdminDelegation
+      ? { organizationId: orgId, searchQuery: searchQuery || undefined }
+      : "skip"
   );
 
   // Mutations
@@ -457,9 +464,33 @@ export default function OrgFeatureFlagsPage() {
             </p>
           </CardHeader>
           <CardContent>
+            {/* Search Input */}
+            <div className="mb-4 flex items-center gap-2">
+              <div className="relative max-w-md flex-1">
+                <Search className="absolute top-2.5 left-2.5 h-4 w-4 text-muted-foreground" />
+                <Input
+                  className="pl-9"
+                  onChange={(e) => setSearchQuery(e.target.value)}
+                  placeholder="Search coaches by name or team..."
+                  value={searchQuery}
+                />
+              </div>
+              {searchQuery && (
+                <Button
+                  onClick={() => setSearchQuery("")}
+                  size="sm"
+                  variant="ghost"
+                >
+                  Clear
+                </Button>
+              )}
+            </div>
+
             {allCoaches.length === 0 ? (
               <div className="py-8 text-center text-muted-foreground">
-                No coaches found in this organization
+                {searchQuery
+                  ? `No coaches found matching "${searchQuery}"`
+                  : "No coaches found in this organization"}
               </div>
             ) : (
               <Table>

@@ -161,10 +161,11 @@ export default function PlatformSportsManagementPage() {
     }
 
     try {
+      // BUG FIX #233: Pass empty string instead of undefined so backend can clear the description
       await updateSport({
         code: editingSport.code,
         name: sportName.trim(),
-        description: sportDescription.trim() || undefined,
+        description: sportDescription.trim(),
       });
 
       toast.success(`${sportName} has been updated successfully`);
@@ -451,7 +452,7 @@ export default function PlatformSportsManagementPage() {
                           <TableCell className="font-medium">
                             {sport.name}
                           </TableCell>
-                          <TableCell className="text-muted-foreground text-sm">
+                          <TableCell className="max-w-[200px] truncate text-muted-foreground text-sm">
                             {sport.description || "—"}
                           </TableCell>
                           <TableCell className="space-x-2 text-right">

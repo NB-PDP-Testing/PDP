@@ -139,7 +139,8 @@ export const update = mutation({
       updates.governingBody = args.governingBody;
     }
     if (args.description !== undefined) {
-      updates.description = args.description;
+      // BUG FIX #233: Convert empty string to undefined to clear the description
+      updates.description = args.description || undefined;
     }
 
     await ctx.db.patch(sport._id, updates);

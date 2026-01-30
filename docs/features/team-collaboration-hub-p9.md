@@ -1,12 +1,12 @@
 # Phase 9 Week 1 - Collaboration Foundations + AI Copilot Backend
 
-> Auto-generated documentation - Last updated: 2026-01-30 22:22
+> Auto-generated documentation - Last updated: 2026-01-30 22:30
 
 ## Status
 
 - **Branch**: `ralph/team-collaboration-hub-p9`
-- **Progress**: 5 / 8 stories complete
-- **Phase Status**: 🔄 In Progress
+- **Progress**: 8 / 8 stories complete
+- **Phase Status**: ✅ Complete
 
 ## Completed Features
 
@@ -77,6 +77,49 @@ Backend for comments with threading and priority detection.
 - Create activity feed entry on comment (placeholder for US-P9-018)
 - Test in Convex dashboard
 - Type check passes
+
+### US-P9-006: Implement Reactions Backend
+
+Backend for like/helpful/flag reactions.
+
+**Acceptance Criteria:**
+- Modify teamCollaboration.ts
+- Implement toggleReaction mutation (like/helpful/flag)
+- Implement getReactions query
+- CRITICAL: Use Better Auth adapter
+- Prevent duplicate reactions (check index by_insight_and_user before insert)
+- Return added or removed status
+- Test in Convex dashboard
+- Type check passes
+
+### US-P9-007: Create InsightComments UI Component
+
+Display comments with real-time updates.
+
+**Acceptance Criteria:**
+- Create apps/web/src/app/orgs/[orgId]/coach/voice-notes/components/insight-comments.tsx
+- Displays comments chronologically (oldest first)
+- Shows avatar, name, content, timestamp (relative: 5 min ago)
+- Uses ListSkeleton while loading (3 rows)
+- Empty state: No comments yet - be the first to share your thoughts!
+- Real-time updates via useQuery (new comments appear instantly)
+- Type check passes
+- REQUIRED: Visual verification using dev-browser
+
+### US-P9-008: Create CommentForm Component
+
+Form for posting comments with auto-expand textarea.
+
+**Acceptance Criteria:**
+- Create apps/web/src/app/orgs/[orgId]/coach/voice-notes/components/comment-form.tsx
+- Textarea with auto-expand (grows with content, max 200px)
+- Post button (enabled only when text entered)
+- Calls addComment mutation from teamCollaboration
+- Form clears after successful submit
+- Loading state on button (spinner + disabled)
+- Error handling with toast (sonner)
+- Type check passes
+- REQUIRED: Visual verification - form works, comment appears in list after submit
 
 
 ## Implementation Notes

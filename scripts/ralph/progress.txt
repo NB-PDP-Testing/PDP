@@ -165,3 +165,51 @@ The story is marked as complete in `prd.json` with justification that `VoiceInsi
 ## Quality Monitor - 2026-01-29 21:06:10
 - ⚠️ Biome lint errors found
 
+
+## 2026-01-30 22:09 - US-P9-001 - Create teamCollaboration Backend Model
+**Iteration**: 1
+**Commit**: c39e756490cda7424085a2314483aac979a36bd7
+**Session**: f948b5f4-bdfa-4706-841a-cf09389a920e
+**Status**: Complete
+
+### What was implemented
+- Created `packages/backend/convex/models/teamCollaboration.ts` with 6 placeholder functions
+- Exported queries: `getTeamPresence`, `getInsightComments`, `getReactions`
+- Exported mutations: `updatePresence`, `addComment`, `toggleReaction`
+- All functions include proper `args` and `returns` validators
+- Functions ready for Better Auth adapter pattern (will be used in US-P9-003, US-P9-005, US-P9-006)
+- Placeholder handlers return empty/default values until implemented
+
+### Files changed
+- packages/backend/convex/models/teamCollaboration.ts (+156, -0) [NEW]
+- packages/backend/convex/_generated/api.d.ts (auto-generated)
+- scripts/ralph/prd.json (+1, -1) [marked US-P9-001 passes: true]
+
+### Quality checks
+- ✅ Type check: passed
+- ✅ Linting: passed (after prefixing unused params with underscore)
+- ✅ Convex codegen: successful
+- ✅ No browser verification needed (backend-only change)
+
+### Learnings for future iterations ⚠️ CRITICAL
+**Patterns discovered:**
+- Placeholder functions should prefix unused params with underscore (`_ctx`, `_args`) to avoid lint errors
+- Remove `async` from handlers that don't await anything (lint rule: `useAwait`)
+- Return type literals need `as const` when returning union types (e.g., `{ action: "added" as const }`)
+
+**Gotchas encountered:**
+- Initial commit failed due to lint errors for unused parameters
+- Fixed by removing `async` and prefixing params with `_`
+
+**Dependencies found:**
+- None - this is a foundation file for future stories
+
+**What to do next**:
+- [x] US-P9-001 complete
+- [ ] US-P9-002: Create database tables (schema.ts)
+
+**Mistakes made**:
+- Initially kept `async` on placeholder handlers (unnecessary, causes lint warning)
+- Forgot to prefix unused params with underscore (standard pattern for TODO functions)
+
+---

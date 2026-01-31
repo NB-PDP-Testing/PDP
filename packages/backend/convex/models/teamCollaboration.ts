@@ -561,6 +561,37 @@ export const getSmartCoachMentions = query({
       }
     }
 
+    // Get team coach assignments if teamId provided
+    // Note: coachAssignments.teams is an array, so we need to filter in-memory
+    let teamCoachIds: Set<string> = new Set();
+    if (args.teamId) {
+      const allAssignments = await ctx.db
+        .query("coachAssignments")
+        .withIndex("by_organizationId", (q: any) =>
+          q.eq("organizationId", args.organizationId)
+        )
+        .collect();
+      const teamAssignments = allAssignments.filter((a: any) =>
+        a.teams.includes(args.teamId)
+      );
+      teamCoachIds = new Set(teamAssignments.map((a: any) => a.userId));
+    }
+
+    // Get coaches who recently observed this player (if playerIdentityId provided)
+    // Use voiceNoteInsights table which has proper indexes
+    let coachesWithPlayerObservations: Set<string> = new Set();
+    if (args.playerIdentityId) {
+      const playerInsights = await ctx.db
+        .query("voiceNoteInsights")
+        .withIndex("by_player_status", (q: any) =>
+          q.eq("playerIdentityId", args.playerIdentityId)
+        )
+        .collect();
+      coachesWithPlayerObservations = new Set(
+        playerInsights.map((insight: any) => insight.coachId)
+      );
+    }
+
     // Build coach list with relevance scores
     const coaches = coachMembers.map((member: any) => {
       const user = userMap.get(member.userId);
@@ -583,8 +614,18 @@ export const getSmartCoachMentions = query({
         relevanceScore += 10_000; // High priority
       }
 
-      // TODO: Add player observation history (requires coachAssignments/voiceNotes query)
-      // TODO: Add team coach assignments (requires team members query)
+      // Context match: player mentioned → coaches who observed this player
+      if (
+        args.playerIdentityId &&
+        coachesWithPlayerObservations.has(member.userId)
+      ) {
+        relevanceScore += 5000; // Medium-high priority
+      }
+
+      // Context match: team observation → coaches assigned to this team
+      if (args.teamId && teamCoachIds.has(member.userId)) {
+        relevanceScore += 3000; // Medium priority
+      }
 
       return {
         userId: member.userId,

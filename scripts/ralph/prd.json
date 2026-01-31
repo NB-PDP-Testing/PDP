@@ -1,274 +1,519 @@
 {
-  "project": "Phase 9 Week 2 - Team Collaboration Hub (REMEDIATION)",
+  "project": "Phase 9 Week 3 - Multi-View, Voting, Command Palette & Mobile Gestures",
   "branchName": "ralph/team-collaboration-hub-p9",
-  "description": "Week 2 of Team Collaboration Hub: Real-time activity feed, @mention autocomplete, priority notifications, AI Copilot smart suggestions.",
-  "referencePRD": "scripts/ralph/prds/Coaches Voice Insights/P9_WEEK2_ACTIVITY_FEED.md",
+  "description": "Week 3: Multi-view layouts (board/calendar/players), team decisions voting, command palette, keyboard shortcuts, comment threading, mobile gestures.",
+  "referencePRD": "scripts/ralph/prds/Coaches Voice Insights/P9_WEEK3_MULTIVIEW_GESTURES_V2.md",
   "previousWeeks": [
-    "Week 1: Collaboration Foundations (8 stories) - COMPLETE ✅"
+    "Week 1: Collaboration Foundations (8 stories) - COMPLETE ✅",
+    "Week 2: Activity Feed & AI Copilot (14 stories) - COMPLETE ✅"
   ],
-  "nextWeeks": [
-    "Week 3: Multi-View, Templates, Voting + Mobile Gestures (15 stories)",
-    "Week 4: Personalization & Polish (7 stories)"
-  ],
-  "totalPhase9Scope": "48 stories across 4 weeks (~72 hours)",
-  "week2Effort": "~28 hours (14 stories)",
+  "nextWeeks": ["Week 4: Personalization & Polish (7 stories)"],
+  "totalPhase9Scope": "44 stories across 4 weeks (~90 hours)",
+  "week3Effort": "~41 hours (16 stories)",
+  "completedWork": {
+    "week1": {
+      "stories": 8,
+      "features": [
+        "Real-time presence indicators (teamMemberPresence table)",
+        "Comments with priority (insightComments table)",
+        "Reactions system (insightReactions table, like/helpful/flag)",
+        "Team activity feed foundation (teamActivityFeed table)",
+        "InsightReactions component with tooltips showing user names",
+        "Comment system with Better Auth integration"
+      ],
+      "branch": "ralph/team-collaboration-hub-p9",
+      "commits": "Multiple commits for Week 1 features"
+    },
+    "week2": {
+      "stories": 14,
+      "features": [
+        "Activity feed with filtering (US-P9-009, US-P9-010, US-P9-011)",
+        "@Mention autocomplete with smart ranking (US-P9-012, US-P9-013)",
+        "Priority notifications with preferences UI (US-P9-014, US-P9-015, US-P9-016)",
+        "AI Copilot smart suggestions (US-P9-041, US-P9-042, US-P9-043)",
+        "SmartActionBar component with reasoning field (US-P9-044)",
+        "Action handlers (apply insight fully functional)",
+        "NotificationCenter with bell icon and badge",
+        "Notification preferences matrix UI"
+      ],
+      "branch": "ralph/team-collaboration-hub-p9",
+      "commits": [
+        "af22bab2 - docs: Complete Phase 9 Week 2 - All 14 stories done!",
+        "edd4125e - feat: US-P9-044 - Create SmartActionBar Component",
+        "208e19df - feat: US-P9-043 - Implement Session Planning Suggestions",
+        "2de768af - docs: Mark US-P9-042 complete in PRD",
+        "c19d1bfe - feat: US-P9-042 - Implement Insight Context Suggestions",
+        "b9a276e6 - fix: Complete US-P9-043 and US-P9-044 - AI Copilot suggestions",
+        "89554b51 - feat: Implement SmartActionBar action handlers"
+      ]
+    },
+    "existingFeatures": {
+      "sessionPlanning": {
+        "status": "FULLY IMPLEMENTED",
+        "location": "/coach/session-plans",
+        "tables": ["sessionPlans", "planVotes", "drillLibrary"],
+        "features": [
+          "AI-generated session plans with Anthropic Claude",
+          "Template library (3 built-in templates)",
+          "Plan voting (like/dislike)",
+          "Sharing features (private/club/platform)",
+          "Drill library with effectiveness tracking",
+          "Full CRUD operations",
+          "Plan detail/edit view",
+          "Search and filtering"
+        ],
+        "note": "DO NOT rebuild session planning - only add real-time collaboration (US-P9-025b)"
+      }
+    }
+  },
   "criticalPatterns": [
     "MANDATORY: Use Better Auth adapter pattern: ctx.runQuery(components.betterAuth.adapter.findOne, { model: \"user\", where: [{ field: \"_id\", value: userId, operator: \"eq\" }] })",
-    "MANDATORY: Use withIndex(), NEVER use filter()",
-    "MANDATORY: Always include args and returns validators",
+    "MANDATORY: Use withIndex(), NEVER use filter() except after withIndex for additional filtering",
+    "MANDATORY: Always include args and returns validators on ALL queries/mutations",
     "MANDATORY: Use skeleton loaders (ListSkeleton uses 'items' prop, not 'rows')",
     "MANDATORY: Visual verification with dev-browser for all UI changes",
+    "MANDATORY: Batch fetch to avoid N+1 queries - use Map lookup pattern",
+    "MANDATORY: Add schema changes BEFORE implementing backend functions",
     "Priority keywords: urgent/injury → critical, important/concern → important, else → normal",
-    "date-fns for timestamps: formatDistanceToNow(timestamp, { addSuffix: true })"
+    "date-fns for timestamps: formatDistanceToNow(timestamp, { addSuffix: true })",
+    "Real-time updates: useQuery hook (Convex subscriptions)",
+    "Toast notifications: import { toast } from 'sonner'",
+    "Empty states: Use Empty, EmptyMedia, EmptyTitle, EmptyDescription from shadcn/ui"
+  ],
+  "schemaChangesRequired": [
+    {
+      "table": "insightComments",
+      "change": "Add parentCommentId field for threading",
+      "fields": {
+        "parentCommentId": "v.optional(v.id(\"insightComments\"))"
+      },
+      "indexes": [".index(\"by_parent\", [\"parentCommentId\"])"],
+      "story": "US-P9-030",
+      "status": "COMPLETE ✅ (added in Week 2, commit fc64a6af)"
+    },
+    {
+      "table": "teamDecisions",
+      "change": "NEW table for democratic voting",
+      "isNew": true,
+      "story": "US-P9-026",
+      "seeDetailedSpec": "P9_WEEK3_MULTIVIEW_GESTURES_V2.md lines 142-179",
+      "status": "COMPLETE ✅ (added commit fc64a6af)"
+    },
+    {
+      "table": "decisionVotes",
+      "change": "NEW table for vote tracking",
+      "isNew": true,
+      "story": "US-P9-026",
+      "seeDetailedSpec": "P9_WEEK3_MULTIVIEW_GESTURES_V2.md lines 181-192",
+      "status": "COMPLETE ✅ (added commit fc64a6af)"
+    },
+    {
+      "table": "coachOrgPreferences",
+      "change": "Add teamInsightsViewPreference field",
+      "fields": {
+        "teamInsightsViewPreference": "v.optional(v.union(v.literal(\"list\"), v.literal(\"board\"), v.literal(\"calendar\"), v.literal(\"players\")))"
+      },
+      "story": "US-P9-033",
+      "status": "COMPLETE ✅ (added commit fc64a6af)"
+    }
+  ],
+  "librariesToInstall": [
+    "npx shadcn@latest add command  # Command palette - ALREADY INSTALLED ✅",
+    "npm install react-hotkeys-hook  # Keyboard shortcuts - INSTALLED ✅ (2026-01-31)",
+    "npm install framer-motion       # Mobile gestures - INSTALLED ✅ (2026-01-31)"
   ],
   "userStories": [
     {
-      "id": "US-P9-009",
-      "title": "Implement Activity Feed Backend",
-      "description": "Backend query for team activity feed with priority filtering.",
+      "id": "US-P9-019",
+      "title": "Create InsightsView Container",
+      "description": "Multi-view wrapper with tabs for switching between list/board/calendar/players views.",
       "acceptanceCriteria": [
-        "Modify packages/backend/convex/models/teamCollaboration.ts",
-        "Implement getTeamActivityFeed query",
-        "Args: teamId, organizationId, filterType (optional: all/insights/comments/reactions/sessions/votes), limit (default 50, max 100)",
-        "Returns: Activity entries sorted by _creationTime desc",
-        "Use compound index by_team_priority for efficient filtering",
-        "CRITICAL: Use Better Auth adapter for user lookups (actor names)",
-        "Type check passes"
+        "Create apps/web/src/app/orgs/[orgId]/coach/voice-notes/components/insights-view-container.tsx",
+        "Modify insights-tab.tsx to integrate container",
+        "Tabs component with 4 views: List, Board, Calendar, Players",
+        "Icons: List, LayoutDashboard, Calendar, Users from lucide-react",
+        "URL persistence via useSearchParams (?view=board)",
+        "Load/save preference from coachOrgPreferences (teamInsightsViewPreference field)",
+        "URL overrides saved preference",
+        "On tab change: update URL AND save preference via updateCoachOrgPreference mutation",
+        "Skeleton loader while preferences loading (TabsSkeleton)",
+        "Responsive: tabs horizontal on desktop, scrollable on mobile (<768px)",
+        "Pass insights data to child views as props",
+        "Pass onInsightUpdate callback to child views",
+        "Preserve existing functionality (reactions, smart actions, etc.)",
+        "Type check passes",
+        "Visual verification with dev-browser (all 4 views accessible)"
       ],
       "priority": 1,
-      "passes": true
+      "passes": false,
+      "effort": "3h",
+      "dependencies": ["US-P9-033"]
     },
     {
-      "id": "US-P9-010",
-      "title": "Create ActivityFeedView Component",
-      "description": "UI component displaying real-time activity feed.",
+      "id": "US-P9-020",
+      "title": "Create InsightsBoardView",
+      "description": "Kanban board view with 3 columns: Pending, Applied, Dismissed.",
       "acceptanceCriteria": [
-        "Create apps/web/src/app/orgs/[orgId]/coach/team-hub/components/activity-feed-view.tsx",
-        "Chronological display (newest first)",
-        "Each entry shows: actor avatar, action summary, timestamp (relative), priority icon",
-        "Color-coded: Critical (red), Important (yellow), Normal (gray)",
-        "Use ListSkeleton while loading (items={5})",
-        "Empty state: No recent activity",
-        "Real-time updates via useQuery",
+        "Create apps/web/src/app/orgs/[orgId]/coach/voice-notes/components/insights-board-view.tsx",
+        "Create apps/web/src/app/orgs/[orgId]/coach/voice-notes/components/board-insight-card.tsx",
+        "Props: insights array, onInsightUpdate callback",
+        "3 columns: Pending | Applied | Dismissed",
+        "Column headers with status name, count badge, icon (Inbox/CheckCircle/XCircle)",
+        "Compact board-insight-card component (title, player, category, date only)",
+        "Status badge and category badge on each card",
+        "NO drag-and-drop (view-only board for MVP)",
+        "Empty state per column: 'No [status] insights yet' with Inbox icon",
+        "Loading skeleton: 3 columns with CardSkeleton (3 per column)",
+        "Responsive: 3 columns side-by-side on desktop (≥1024px), scrollable on tablet (768-1023px), stacked on mobile (<768px)",
         "Type check passes",
-        "Visual verification with dev-browser"
+        "Visual verification: all 3 columns visible, cards display correctly, counts match"
       ],
       "priority": 2,
-      "passes": true
+      "passes": false,
+      "effort": "4h"
     },
     {
-      "id": "US-P9-011",
-      "title": "Add Activity Feed Filters",
-      "description": "Filter tabs for activity feed with URL persistence.",
+      "id": "US-P9-021",
+      "title": "Create InsightsCalendarView",
+      "description": "Month calendar view with insight dots and day popover.",
       "acceptanceCriteria": [
-        "Modify activity-feed-view.tsx",
-        "Add Tabs component from shadcn/ui",
-        "Tabs: All, Insights, Comments, Reactions, Sessions, Votes",
-        "Each tab shows count badge",
-        "URL persistence via useSearchParams (?filter=insights)",
-        "Filter updates query to getTeamActivityFeed",
-        "Type check passes"
+        "Create apps/web/src/app/orgs/[orgId]/coach/voice-notes/components/insights-calendar-view.tsx",
+        "Create apps/web/src/app/orgs/[orgId]/coach/voice-notes/components/calendar-day-popover.tsx",
+        "Props: insights array, onInsightUpdate callback",
+        "Month grid: 7 columns (Sun-Sat) × 5-6 rows",
+        "Month/year header with prev/next navigation buttons",
+        "Today highlighted with distinct background (blue-50) and bold date number",
+        "Insight dots: colored by category (injury=red, skill=blue, team=purple, other=gray)",
+        "Max 3 dots visible per day, '+N more' text if >3 insights",
+        "Dot size: 6px × 6px circles, arranged horizontally",
+        "Click day → Popover opens with insights list (max 10 shown)",
+        "Popover content: date header, insight list (title/player/category), 'See all (N)' link if >10, 'View in List' link",
+        "Empty days: no dots, light gray background, 'No insights on this day' in popover",
+        "Uses date-fns (no external calendar library)",
+        "Loading skeleton: calendar grid with shimmer effect (7 × 6 grid)",
+        "Responsive: full grid on desktop, smaller dots (4px) and max 2 visible on mobile",
+        "Type check passes",
+        "Visual verification: month displays, dots appear, popover works, navigation works"
       ],
       "priority": 3,
-      "passes": true
+      "passes": false,
+      "effort": "5h"
     },
     {
-      "id": "US-P9-012",
-      "title": "Add @Mention Autocomplete",
-      "description": "Autocomplete dropdown for @mentions in comments.",
+      "id": "US-P9-022",
+      "title": "Create InsightsPlayerView",
+      "description": "Grouped view with insights organized by player.",
       "acceptanceCriteria": [
-        "Modify apps/web/src/app/orgs/[orgId]/coach/voice-notes/components/comment-form.tsx",
-        "Detect @ typing in textarea",
-        "Show dropdown with coach list (name, avatar, role)",
-        "Keyboard navigation (ArrowUp, ArrowDown, Enter, Escape)",
-        "Insert @mention on select (format: @CoachName)",
-        "Close dropdown on selection or Escape",
-        "Query coaches from Better Auth member table",
+        "Create apps/web/src/app/orgs/[orgId]/coach/voice-notes/components/insights-player-view.tsx",
+        "Props: insights array, onInsightUpdate callback",
+        "Search bar at top: placeholder 'Search players...', debounced (300ms), case-insensitive",
+        "Clear button (X icon) when search has value",
+        "Each player group is Collapsible component (collapsed by default)",
+        "Collapsible header: player name, insight count badge, expand/collapse icon (ChevronDown/ChevronUp)",
+        "Expanded state: list of insights for that player (compact cards)",
+        "Special groups: 'Team Insights' (category=team_culture), 'Unmatched' (no playerIdentityId)",
+        "Special groups appear at top before alphabetical players",
+        "Groups sorted alphabetically by player name",
+        "Empty state: 'No player insights yet' with Users icon",
+        "Search no results: 'No players found matching [query]' with Search icon",
+        "Loading skeleton: 5 CollapsibleSkeleton items",
+        "Responsive: full width on all screens",
         "Type check passes",
-        "Visual verification - dropdown appears, navigation works"
+        "Visual verification: groups collapse/expand, search filters correctly"
       ],
       "priority": 4,
-      "passes": true
+      "passes": false,
+      "effort": "3h"
     },
     {
-      "id": "US-P9-013",
-      "title": "Smart Mention Autocomplete",
-      "description": "Contextual coach suggestions for @mentions.",
+      "id": "US-P9-026",
+      "title": "Create Team Decisions Backend",
+      "description": "Democratic voting system backend with weighted votes.",
       "acceptanceCriteria": [
-        "Modify comment-form.tsx mention logic",
-        "Contextual ranking based on insight category",
-        "If injury → show coaches with medical/first-aid role first",
-        "If player mentioned → show coaches who recently observed that player first",
-        "If team observation → show all team coaches",
-        "Sort by: context match > recent activity > alphabetical",
-        "Type check passes"
+        "Modify packages/backend/convex/schema.ts (add teamDecisions + decisionVotes tables)",
+        "Create packages/backend/convex/models/teamDecisions.ts",
+        "Add teamDecisions table with fields: organizationId, teamId, createdBy, title, description, options, votingType, status, deadline, winningOption, timestamps",
+        "Add decisionVotes table with fields: decisionId, userId, optionId, weight, comment, votedAt",
+        "Add indexes: by_team, by_team_and_status, by_org, by_org_and_status for teamDecisions",
+        "Add indexes: by_decision, by_decision_and_user, by_user for decisionVotes",
+        "Export createDecision mutation (args: orgId, teamId, title, description, options, votingType, deadline | returns: decisionId)",
+        "Export castVote mutation (args: decisionId, optionId, comment | returns: voteId | calculates weight: owner/admin=2.0, coach=1.0, other=0.5 | upserts vote if user already voted)",
+        "Export finalizeDecision mutation (args: decisionId | returns: decisionId | only head coach/admin can finalize | calculates weighted totals | sets winningOption)",
+        "Export getTeamDecisions query (args: teamId, status (optional) | returns: array of decisions with vote counts and user names enriched via Better Auth adapter)",
+        "Export getDecisionVotes query (args: decisionId | returns: array of votes with user names enriched)",
+        "All functions use withIndex() for queries",
+        "All functions use Better Auth adapter for user enrichment",
+        "Batch fetch users to avoid N+1 queries (Map lookup pattern)",
+        "All functions have args + returns validators",
+        "Create activity feed entries for decision_created, vote_cast, decision_finalized",
+        "Type check passes",
+        "Run npx -w packages/backend convex codegen",
+        "Test in Convex dashboard: create decision, cast votes, verify weight calculation, finalize, verify winning option"
       ],
       "priority": 5,
-      "passes": true
+      "passes": false,
+      "effort": "5h"
     },
     {
-      "id": "US-P9-014",
-      "title": "Extend coachOrgPreferences (Notifications)",
-      "description": "Add notification preference fields to schema.",
+      "id": "US-P9-027",
+      "title": "Create Voting Card Component",
+      "description": "UI component for displaying and interacting with team decisions.",
       "acceptanceCriteria": [
-        "Modify packages/backend/convex/schema.ts",
-        "Extend coachOrgPreferences table (already exists)",
-        "Add notificationChannels field: { critical: string[], important: string[], normal: string[] } (values: push, email, digest, none)",
-        "Add digestSchedule field: { enabled: boolean, time: string } (e.g., '08:00')",
-        "Add quietHours field: { enabled: boolean, start: string, end: string } (e.g., '22:00' to '08:00')",
-        "Default: All levels → [push, email], digest off, quiet hours off",
-        "Run Convex schema push",
-        "Type check passes"
+        "Create apps/web/src/app/orgs/[orgId]/coach/team-hub/components/voting-card.tsx",
+        "Create apps/web/src/app/orgs/[orgId]/coach/team-hub/components/voting-list.tsx",
+        "Props: decisionId, organizationId, currentUserId, isHeadCoach",
+        "Query getTeamDecisions and getDecisionVotes for real-time updates",
+        "Card header: title, status badge (Open/Closed/Finalized), created by name, relative timestamp",
+        "Deadline countdown if set (using date-fns)",
+        "Options display: radio button OR checkmark (if user voted), label, vote count/points, percentage bar (Progress component), percentage text",
+        "If decision open and user hasn't voted: show RadioGroup, 'Cast Vote' button (disabled until option selected), optional comment textarea",
+        "Cast vote: show loading spinner, call castVote mutation, optimistic update, success toast on success, revert on error",
+        "If user already voted: show checkmark on selected option, 'Change Vote' button",
+        "Finalize button: only visible if isHeadCoach AND status=open, confirmation dialog ('This cannot be undone'), call finalizeDecision mutation",
+        "Finalized state: winning option highlighted (green background), trophy icon, 'Finalized by [Name] on [Date]'",
+        "Loading skeleton: CardSkeleton while loading",
+        "Empty state: 'No team decisions yet' with CheckSquare icon",
+        "Responsive: full width on mobile, progress bars adapt to container",
+        "Type check passes",
+        "Visual verification: votes cast, bars update, finalize works, confirmation dialog displays"
       ],
       "priority": 6,
-      "passes": true
+      "passes": false,
+      "effort": "4h",
+      "dependencies": ["US-P9-026"]
     },
     {
-      "id": "US-P9-015",
-      "title": "Create NotificationCenter Component",
-      "description": "Bell icon notification center with priority grouping.",
+      "id": "US-P9-028",
+      "title": "Create Command Palette",
+      "description": "Cmd+K command palette for quick navigation and actions.",
       "acceptanceCriteria": [
-        "Create apps/web/src/components/coach/notification-center.tsx",
-        "Bell icon (lucide-react Bell) in header",
-        "Badge shows unread count",
-        "Dropdown shows notifications grouped by priority (Critical, Important, Normal)",
-        "Each notification: icon, title, timestamp, unread indicator",
-        "Click notification navigates to target (insight, comment, etc.)",
-        "Mark as read on click",
-        "Real-time updates via useQuery",
-        "Use ListSkeleton while loading",
+        "Install cmdk: npx shadcn@latest add command",
+        "Create apps/web/src/components/coach/command-palette.tsx",
+        "Create apps/web/src/hooks/use-command-palette.ts",
+        "Modify apps/web/src/app/orgs/[orgId]/coach/layout.tsx (integrate palette)",
+        "Opens with Cmd+K (Mac) or Ctrl+K (Windows/Linux)",
+        "Closes with Escape or clicking outside",
+        "Global shortcut works from any page under /coach/*",
+        "Shortcut disabled when typing in input/textarea",
+        "Input field with autofocus, placeholder: 'Type a command or search...'",
+        "Fuzzy search across all items",
+        "Keyboard navigation: Arrow Up/Down, Enter to select, Escape to close",
+        "Section 1: Quick Actions (New Voice Note, View Team Hub, Session Plans, View Players)",
+        "Section 2: Navigation (all coach routes with icons)",
+        "Section 3: Recent Players (last 10 from voice notes, query getVoiceNotesByCoach, format: '[Player Name] - [Age Group]', navigate to passport)",
+        "Empty state: 'No results found for [query]'",
+        "Loading state while fetching recent players (skeleton items)",
+        "Hook useCommandPalette returns { open, setOpen }",
         "Type check passes",
-        "Visual verification - bell shows badge, dropdown works, navigation works"
+        "Visual verification: opens with Cmd+K, search works, navigation works, keyboard navigation works"
       ],
       "priority": 7,
-      "passes": true
+      "passes": false,
+      "effort": "4h"
     },
     {
-      "id": "US-P9-016",
-      "title": "Add Notification Preferences UI",
-      "description": "Settings section for notification preferences.",
+      "id": "US-P9-029",
+      "title": "Add Global Keyboard Shortcuts",
+      "description": "Global keyboard shortcuts for productivity.",
       "acceptanceCriteria": [
-        "Create apps/web/src/app/orgs/[orgId]/coach/settings/notification-preferences.tsx",
-        "Matrix UI: 3 priority levels (rows) × 4 channels (columns: Push, Email, Digest, None)",
-        "Each cell is a checkbox (multiple channels can be selected)",
-        "Digest time picker (24h format, default 08:00)",
-        "Quiet hours toggle + start/end time pickers",
-        "Save button calls mutation to update coachOrgPreferences",
-        "Loading state while saving",
-        "Success toast on save",
+        "Install react-hotkeys-hook: npm install react-hotkeys-hook",
+        "Create apps/web/src/components/coach/keyboard-shortcuts-help.tsx",
+        "Modify apps/web/src/app/orgs/[orgId]/coach/layout.tsx (add shortcuts)",
+        "Shortcuts: Cmd/Ctrl+K (command palette), K (new voice note), C (focus comment), N (next item), P (previous item), ? (help), Escape (close modals)",
+        "All shortcuts use react-hotkeys-hook with enableOnFormTags: false",
+        "Shortcuts disabled when typing in input/textarea/contenteditable",
+        "Help modal opens with ? shortcut",
+        "Help modal sections: Navigation, Actions, Views, Help",
+        "Each shortcut shows Kbd component + description",
+        "Platform-aware: show 'Cmd' on Mac, 'Ctrl' on Windows (detect with navigator.platform)",
+        "Help modal close button + Escape to close",
         "Type check passes",
-        "Visual verification - preferences save and persist"
+        "Visual verification: all shortcuts work, help modal displays, shortcuts don't fire in inputs"
       ],
       "priority": 8,
-      "passes": true
+      "passes": false,
+      "effort": "2h"
     },
     {
-      "id": "US-P9-017",
-      "title": "Create InsightReactions Component",
-      "description": "UI for like/helpful/flag reactions (backend exists from Week 1).",
+      "id": "US-P9-030",
+      "title": "Add Comment Threading UI",
+      "description": "Enable nested replies to comments.",
       "acceptanceCriteria": [
-        "Create apps/web/src/app/orgs/[orgId]/coach/voice-notes/components/insight-reactions.tsx",
-        "3 buttons: 👍 Like, 🌟 Helpful, 🚩 Flag",
-        "Show count for each reaction type",
-        "Active state if current user reacted (filled icon)",
-        "Tooltip shows list of users who reacted",
-        "Click calls toggleReaction mutation from teamCollaboration",
-        "Optimistic updates (instant UI response)",
+        "Modify packages/backend/convex/schema.ts (add parentCommentId to insightComments, add by_parent index)",
+        "Modify packages/backend/convex/models/teamCollaboration.ts (update addComment mutation)",
+        "addComment mutation: add parentCommentId arg (optional), validate parent exists and belongs to same insight, insert comment with parentCommentId",
+        "Modify apps/web/src/app/orgs/[orgId]/coach/voice-notes/components/insight-comments.tsx (recursive rendering)",
+        "Create recursive CommentItem component with props: comment, depth, maxDepth, onReply",
+        "Indentation: 16px per level, border-left: 2px solid muted on replies",
+        "Max depth: 3 levels (top-level → reply → nested reply)",
+        "Reply button on each comment (disabled at max depth)",
+        "Build comment tree from flat list (filter by parentCommentId)",
+        "Modify apps/web/src/app/orgs/[orgId]/coach/voice-notes/components/comment-form.tsx (add replyingTo prop)",
+        "If replyingTo set: show 'Replying to @username' header, X button to cancel, pass parentCommentId to addComment",
         "Type check passes",
-        "Visual verification - reactions toggle, counts update, tooltip shows users"
+        "Run npx -w packages/backend convex codegen",
+        "Visual verification: threading works, indentation correct, 3-level nesting works, 4th level disabled"
       ],
       "priority": 9,
-      "passes": true
+      "passes": false,
+      "effort": "4h"
     },
     {
-      "id": "US-P9-018",
-      "title": "addComment Creates Activity Entries",
-      "description": "Modify addComment to create teamActivityFeed entries.",
+      "id": "US-P9-031",
+      "title": "Add Loading Skeletons",
+      "description": "Loading states for all new views.",
       "acceptanceCriteria": [
-        "Modify packages/backend/convex/models/teamCollaboration.ts addComment mutation",
-        "After inserting comment, insert teamActivityFeed entry",
-        "Activity entry fields: teamId, actorId, actionType (comment), targetType (insight), targetId (insightId), summary, priority (inherit from comment)",
-        "Summary format: '[Actor Name] commented on [Player Name]'s [Category] insight'",
-        "Use Better Auth adapter to get player name",
-        "Type check passes",
-        "Test in Convex dashboard - adding comment creates activity entry"
+        "Create apps/web/src/components/loading/board-skeleton.tsx",
+        "Create apps/web/src/components/loading/calendar-skeleton.tsx",
+        "BoardSkeleton: 3 columns, each with header + 3 CardSkeleton items, shimmer animation",
+        "CalendarSkeleton: month grid (7 × 6), shimmer boxes, header shimmer text",
+        "Reuse ListSkeleton for list view: <ListSkeleton items={5} />",
+        "Reuse ListSkeleton for player view: <ListSkeleton items={5} />",
+        "All skeletons use animate-pulse from Tailwind",
+        "Consistent shimmer animation across all skeletons",
+        "Responsive: adapt to container width",
+        "Type check passes"
       ],
       "priority": 10,
-      "passes": true
+      "passes": false,
+      "effort": "2h"
     },
     {
-      "id": "US-P9-041",
-      "title": "Create AI Copilot Backend Model",
-      "description": "Create foundation for AI-powered smart suggestions.",
+      "id": "US-P9-032",
+      "title": "Add Empty States",
+      "description": "Friendly empty states for all views.",
       "acceptanceCriteria": [
-        "Create packages/backend/convex/models/aiCopilot.ts",
-        "Export getSmartSuggestions query",
-        "Args: context (viewing_insight/creating_session/viewing_activity/viewing_player_passport), contextId, userId, organizationId",
-        "Returns: Array of suggestions with type, title, description, action, confidence (0-1)",
-        "Placeholder implementation (return empty array)",
-        "Proper validators (args + returns)",
+        "Use Empty, EmptyMedia, EmptyTitle, EmptyDescription components from shadcn/ui",
+        "Board view: per column 'No [status] insights yet' with Inbox icon",
+        "Calendar view: 'No insights recorded this month' with Calendar icon, 'No insights on this day' for empty day popover",
+        "Player view: 'No player insights yet' with Users icon, 'No players found matching [query]' for search no results",
+        "Voting: 'No team decisions yet' with CheckSquare icon",
+        "All use consistent styling: centered layout, icon + title + description, optional CTA button",
+        "Type check passes",
+        "Visual verification: all empty states display correctly"
+      ],
+      "priority": 11,
+      "passes": false,
+      "effort": "2h"
+    },
+    {
+      "id": "US-P9-033",
+      "title": "Extend coachOrgPreferences (View)",
+      "description": "Add view preference field to schema.",
+      "acceptanceCriteria": [
+        "Modify packages/backend/convex/schema.ts",
+        "Add teamInsightsViewPreference field to coachOrgPreferences table",
+        "Type: v.optional(v.union(v.literal('list'), v.literal('board'), v.literal('calendar'), v.literal('players')))",
+        "Default: 'list' (when undefined)",
+        "Additive change (optional field, no migration needed)",
+        "Run npx -w packages/backend convex dev (applies schema)",
         "Type check passes",
         "Run npx -w packages/backend convex codegen"
       ],
-      "priority": 11,
-      "passes": true
-    },
-    {
-      "id": "US-P9-042",
-      "title": "Implement Insight Context Suggestions",
-      "description": "Generate smart suggestions when viewing insights.",
-      "acceptanceCriteria": [
-        "Modify packages/backend/convex/models/aiCopilot.ts",
-        "Implement generateInsightSuggestions function",
-        "5 suggestion types: apply_insight, mention_coach, add_to_session, create_task, link_observation",
-        "Logic: If injury category → suggest medical staff mention (0.9 confidence)",
-        "Logic: If skill category → suggest add to next session plan (0.8 confidence)",
-        "Logic: If unread by teammates → suggest @mention relevant coaches (0.7 confidence)",
-        "Return top 4 suggestions sorted by confidence desc",
-        "Use Better Auth adapter for coach lookups",
-        "Type check passes",
-        "Test in Convex dashboard - returns relevant suggestions"
-      ],
       "priority": 12,
-      "passes": true
+      "passes": false,
+      "effort": "1h"
     },
     {
-      "id": "US-P9-043",
-      "title": "Implement Session Planning Suggestions",
-      "description": "Generate suggestions when creating session plans.",
+      "id": "US-P9-025b",
+      "title": "Add Real-Time Collaboration to Session Editor",
+      "description": "Add presence indicators and auto-save to existing session plan editor.",
       "acceptanceCriteria": [
-        "Modify packages/backend/convex/models/aiCopilot.ts",
-        "Implement generateSessionSuggestions function",
-        "Auto-suggest based on recent insights",
-        "If recent injuries → suggest injury status checks (0.9 confidence)",
-        "If skill gaps identified → suggest focused drills (0.8 confidence)",
-        "If equipment mentioned → suggest equipment list (0.7 confidence)",
-        "Return top 3 suggestions sorted by confidence",
-        "Type check passes"
+        "Modify apps/web/src/app/orgs/[orgId]/coach/session-plans/[planId]/page.tsx",
+        "Reuse presence pattern from Week 1 (teamMemberPresence table OR create sessionPlanPresence)",
+        "Show avatars of coaches currently viewing/editing plan",
+        "Update presence on mount, unmount, every 30s",
+        "Expire presence after 60s of inactivity",
+        "Auto-save: debounce 300ms after last edit",
+        "Show 'Saving...' indicator while saving, 'Saved' checkmark on success, error toast on failure",
+        "Warn if unsaved changes before navigating (confirm dialog)",
+        "Conflict detection: last-write-wins strategy (no OT for MVP), toast 'Another coach is editing this plan' if detected",
+        "Type check passes",
+        "Visual verification: presence shows, auto-save works, tested with 2 coaches editing same plan"
       ],
       "priority": 13,
-      "passes": true
+      "passes": false,
+      "effort": "2h"
     },
     {
-      "id": "US-P9-044",
-      "title": "Create SmartActionBar Component",
-      "description": "UI component displaying AI Copilot suggestions.",
+      "id": "US-P9-045",
+      "title": "Create Swipeable Insight Card",
+      "description": "Mobile swipe gestures for apply/dismiss actions.",
       "acceptanceCriteria": [
-        "Create apps/web/src/components/coach/smart-action-bar.tsx",
-        "Props: context, contextId",
-        "Calls getSmartSuggestions query",
-        "Displays suggestions as action buttons with icons",
-        "Each button shows: icon, title, confidence indicator",
-        "Tooltip shows description and reasoning",
-        "Click executes action (apply insight, @mention, etc.)",
-        "Loading state while fetching suggestions",
-        "Skeleton loader with 3 button placeholders",
-        "Mobile responsive (stack vertically on small screens)",
+        "Install framer-motion: npm install framer-motion",
+        "Create apps/web/src/app/orgs/[orgId]/coach/voice-notes/components/swipeable-insight-card.tsx",
+        "Wraps existing insight card component",
+        "Mobile only (disabled on desktop ≥768px), detect with window.matchMedia",
+        "Uses framer-motion <motion.div> with drag='x'",
+        "Swipe threshold: 100px",
+        "Visual feedback while dragging: swipe RIGHT=green overlay + checkmark icon, swipe LEFT=red overlay + X icon",
+        "On release: if threshold met=complete action (apply/dismiss), if not met=spring back to center",
+        "Swipe RIGHT (>100px) → Apply insight (call updateInsightStatus)",
+        "Swipe LEFT (<-100px) → Dismiss insight (call updateInsightStatus)",
+        "Haptic feedback on action complete: vibrate(50) if navigator.vibrate supported",
+        "Accessibility: swipe not required, buttons still visible",
         "Type check passes",
-        "Visual verification - suggestions appear, actions execute, tooltips work"
+        "Visual verification on mobile: swipe works, animations smooth, tested on iOS Safari and Android Chrome"
       ],
       "priority": 14,
-      "passes": true
+      "passes": false,
+      "effort": "3h"
+    },
+    {
+      "id": "US-P9-046",
+      "title": "Add Long-Press Quick Actions",
+      "description": "Long-press context menu for quick actions.",
+      "acceptanceCriteria": [
+        "Create apps/web/src/hooks/use-long-press.ts",
+        "Modify swipeable-insight-card.tsx (add long-press)",
+        "Hook: useLongPress(onLongPress, delay=500) returns handlers: onMouseDown, onMouseUp, onTouchStart, onTouchEnd",
+        "500ms delay, works on touch AND mouse, cancel on move (>10px)",
+        "Opens DropdownMenu on long-press",
+        "Menu options: 'Apply Insight' (checkmark icon), 'Dismiss Insight' (X icon), 'Add Comment' (message icon), '@Mention Coach' (@ icon), 'Cancel'",
+        "Clicking option executes action, clicking outside dismisses menu",
+        "Haptic feedback on menu open: vibrate(50) (mobile only)",
+        "Type check passes",
+        "Visual verification: long-press opens menu, actions execute, works on desktop and mobile"
+      ],
+      "priority": 15,
+      "passes": false,
+      "effort": "2h",
+      "dependencies": ["US-P9-045"]
+    },
+    {
+      "id": "US-P9-047",
+      "title": "Add Touch Target Optimization",
+      "description": "Ensure all interactive elements meet 44×44px minimum.",
+      "acceptanceCriteria": [
+        "All buttons: min 44px × 44px (add padding to small buttons)",
+        "Checkboxes/radio: 24px × 24px input + 10px padding around = 44px × 44px clickable area",
+        "Remove tap highlight: add CSS * { -webkit-tap-highlight-color: transparent; }",
+        "Visual verification: all interactive elements easy to tap on mobile device"
+      ],
+      "priority": 16,
+      "passes": false,
+      "effort": "0.5h"
+    },
+    {
+      "id": "US-P9-048",
+      "title": "Add Gesture Customization Settings",
+      "description": "Settings page for gesture preferences.",
+      "acceptanceCriteria": [
+        "Create apps/web/src/app/orgs/[orgId]/coach/settings/gesture-preferences.tsx",
+        "Modify packages/backend/convex/schema.ts (add gesture fields to coachOrgPreferences)",
+        "Add fields: gesturesEnabled (boolean, default: true), swipeRightAction (union: apply/dismiss/disabled, default: apply), swipeLeftAction (union: apply/dismiss/disabled, default: dismiss)",
+        "Settings UI section: 'Mobile Gestures'",
+        "Toggle: 'Enable swipe gestures'",
+        "Dropdown: 'Swipe Right Action' (Apply / Dismiss / Disabled)",
+        "Dropdown: 'Swipe Left Action' (Apply / Dismiss / Disabled)",
+        "Save button calls updateCoachOrgPreference mutation",
+        "Show success toast on save",
+        "Type check passes",
+        "Visual verification: preferences save and apply to swipe behavior"
+      ],
+      "priority": 17,
+      "passes": false,
+      "effort": "0.5h"
     }
   ]
 }

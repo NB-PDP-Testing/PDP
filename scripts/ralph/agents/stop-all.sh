@@ -20,4 +20,4 @@ for pidfile in "$OUTPUT_DIR"/*.pid; do
     fi
 done
 
-echo "✅ All agents stopped"
+echo "✅ All 5 agents stopped"

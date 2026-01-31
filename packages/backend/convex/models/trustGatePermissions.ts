@@ -1733,6 +1733,15 @@ export const getCoachOrgPreferences = query({
       aiInsightMatchingEnabled: v.optional(v.boolean()),
       autoApplyInsightsEnabled: v.optional(v.boolean()),
       parentSummariesEnabled: v.optional(v.boolean()),
+      // View preferences
+      teamInsightsViewPreference: v.optional(
+        v.union(
+          v.literal("list"),
+          v.literal("board"),
+          v.literal("calendar"),
+          v.literal("players")
+        )
+      ),
     }),
     v.null()
   ),
@@ -1766,6 +1775,8 @@ export const getCoachOrgPreferences = query({
       aiInsightMatchingEnabled: coachPref.aiInsightMatchingEnabled,
       autoApplyInsightsEnabled: coachPref.autoApplyInsightsEnabled,
       parentSummariesEnabled: coachPref.parentSummariesEnabled,
+      // View preferences
+      teamInsightsViewPreference: coachPref.teamInsightsViewPreference,
     };
   },
 });
@@ -1821,6 +1832,68 @@ export const toggleAIFeatureSetting = mutation({
       [args.feature]: args.enabled,
       updatedAt: Date.now(),
     });
+
+    return { success: true };
+  },
+});
+
+/**
+ * Update coach org preferences (view preferences, etc.)
+ * Used by coaches to persist UI preferences
+ */
+export const updateCoachOrgPreference = mutation({
+  args: {
+    organizationId: v.string(),
+    teamInsightsViewPreference: v.optional(
+      v.union(
+        v.literal("list"),
+        v.literal("board"),
+        v.literal("calendar"),
+        v.literal("players")
+      )
+    ),
+  },
+  returns: v.object({
+    success: v.boolean(),
+  }),
+  handler: async (ctx, args) => {
+    // Verify authenticated
+    const currentUser = await authComponent.safeGetAuthUser(ctx);
+    if (!currentUser) {
+      throw new Error("User not found");
+    }
+
+    // Get or create coach preferences
+    const coachPref = await ctx.db
+      .query("coachOrgPreferences")
+      .withIndex("by_coach_org", (q) =>
+        q
+          .eq("coachId", currentUser._id)
+          .eq("organizationId", args.organizationId)
+      )
+      .first();
+
+    if (coachPref) {
+      // Update existing preferences
+      const updates: Record<string, unknown> = {
+        updatedAt: Date.now(),
+      };
+
+      if (args.teamInsightsViewPreference !== undefined) {
+        updates.teamInsightsViewPreference = args.teamInsightsViewPreference;
+      }
+
+      await ctx.db.patch(coachPref._id, updates);
+    } else {
+      // Create new preferences record
+      await ctx.db.insert("coachOrgPreferences", {
+        coachId: currentUser._id,
+        organizationId: args.organizationId,
+        teamInsightsViewPreference: args.teamInsightsViewPreference,
+        createdAt: Date.now(),
+        updatedAt: Date.now(),
+      });
+    }
 
     return { success: true };
   },

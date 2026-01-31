@@ -128,7 +128,7 @@ export function InsightReactions({
     }
     return reactions.userReactions
       .filter((r) => r.type === type)
-      .map((r) => r.userId);
+      .map((r) => r.userName);
   };
 
   return (
@@ -162,9 +162,10 @@ export function InsightReactions({
                 {usersWhoReacted.length > 0 ? (
                   <div className="space-y-1">
                     <p className="font-medium">{config.label}</p>
-                    <div className="text-muted-foreground text-xs">
-                      {usersWhoReacted.length}{" "}
-                      {usersWhoReacted.length === 1 ? "person" : "people"}
+                    <div className="space-y-0.5 text-muted-foreground text-xs">
+                      {usersWhoReacted.map((userName) => (
+                        <div key={userName}>{userName}</div>
+                      ))}
                     </div>
                   </div>
                 ) : (

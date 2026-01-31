@@ -310,6 +310,7 @@ export const getReactions = query({
     userReactions: v.array(
       v.object({
         userId: v.string(),
+        userName: v.string(),
         type: v.union(
           v.literal("like"),
           v.literal("helpful"),
@@ -331,10 +332,34 @@ export const getReactions = query({
       counts[reaction.type] += 1;
     }
 
+    // Batch fetch user names (avoid N+1 queries)
+    const uniqueUserIds = [...new Set(reactions.map((r) => r.userId))];
+    const usersData = await Promise.all(
+      uniqueUserIds.map((userId) =>
+        ctx.runQuery(components.betterAuth.adapter.findOne, {
+          model: "user",
+          where: [{ field: "_id", value: userId, operator: "eq" }],
+        })
+      )
+    );
+
+    // Create Map for O(1) lookup
+    const userMap = new Map();
+    for (const user of usersData) {
+      if (user) {
+        const displayName =
+          user.name ||
+          `${user.firstName || ""} ${user.lastName || ""}`.trim() ||
+          "Unknown User";
+        userMap.set(user._id, displayName);
+      }
+    }
+
     return {
       ...counts,
       userReactions: reactions.map((r) => ({
         userId: r.userId,
+        userName: userMap.get(r.userId) || "Unknown User",
         type: r.type,
       })),
     };

@@ -160,7 +160,7 @@
         "Visual verification - preferences save and persist"
       ],
       "priority": 8,
-      "passes": false
+      "passes": true
     },
     {
       "id": "US-P9-017",

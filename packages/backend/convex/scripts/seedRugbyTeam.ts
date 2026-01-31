@@ -363,11 +363,11 @@ export const seed = mutation({
         components.betterAuth.adapter.findMany,
         {
           model: "team",
+          paginationOpts: { cursor: null, numItems: 10 },
           where: [
             { field: "name", value: args.teamName, operator: "eq" },
             { field: "organizationId", value: args.orgId, operator: "eq" },
           ],
-          limit: 1,
         }
       );
 
@@ -677,11 +677,11 @@ export const cleanup = mutation({
       // Find the team
       const teams = await ctx.runQuery(components.betterAuth.adapter.findMany, {
         model: "team",
+        paginationOpts: { cursor: null, numItems: 10 },
         where: [
           { field: "name", value: args.teamName, operator: "eq" },
           { field: "organizationId", value: args.orgId, operator: "eq" },
         ],
-        limit: 1,
       });
 
       if (!teams || teams.length === 0) {

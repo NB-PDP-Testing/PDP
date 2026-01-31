@@ -2048,3 +2048,76 @@ The component implementation is **technically complete** with high code quality,
 ## Quality Monitor - 2026-01-30 22:31:24
 - ⚠️ Biome lint errors found
 
+
+## 2026-01-31 14:50 - US-P9-009 - Implement Activity Feed Backend (FIX)
+**Iteration**: 6 (Remediation Phase)
+**Commit**: d60af2a3fc0d27e49e261d310c2b52404ba97e7e
+**Session**: 0136be1b-5d81-4dba-94c5-2aad5e5ef1e1
+**Status**: Complete (Remediation of performance issue)
+
+### What was implemented
+- **Performance Optimization**: Replaced post-query `.filter()` with index-based queries
+- Added `by_team_and_actionType` composite index to `teamActivityFeed` schema
+- Refactored query logic to use indexes for all filter types:
+  - **"all" filter**: Use existing `by_team` index (no change)
+  - **Single actionType filters** (e.g., "comments"): Use new `by_team_and_actionType` index directly
+  - **Multi-actionType filters** (e.g., "insights" = voice_note_added + insight_applied): Fetch from multiple indexes in parallel, merge, and sort
+- Improved type safety:
+  - Added explicit `ActionType` union type
+  - Added explicit `EntityType` union type
+  - Added `ActivityDoc` type definition with proper `Id<"teamActivityFeed">` typing
+  - Fixed `actorAvatar` type to be `string | undefined` instead of `any`
+- **Zero `.filter()` usage** - all filtering now done via database indexes
+
+### Files changed
+- packages/backend/convex/schema.ts (+1, -1) [added by_team_and_actionType index]
+- packages/backend/convex/models/teamCollaboration.ts (+55, -20) [refactored query logic]
+- packages/backend/convex/_generated/*.ts (auto-generated from codegen)
+
+### Quality checks
+- ✅ Type check: passed
+- ✅ Convex codegen: successful
+- ✅ Pre-commit hook: passed (lint-staged)
+- ✅ Performance pattern: MANDATORY .withIndex() usage confirmed (zero .filter() calls)
+
+### Learnings for future iterations ⚠️ CRITICAL
+**Patterns discovered:**
+- **Index-based filtering pattern for multi-value unions**:
+  - Single value → use index directly with .eq()
+  - Multiple values → Promise.all() over each value, merge results, sort by _creationTime
+  - Empty array → return [] immediately (no query)
+- **Type safety for Convex queries**:
+  - Import `Id` type from `_generated/dataModel`
+  - Define union types for action/entity types to match validators
+  - Create intermediate type (ActivityDoc) matching database schema
+  - Explicit type casting for optional fields (actorAvatar)
+
+**Gotchas encountered:**
+- Must import `Id` type for proper typing of document IDs
+- `user?.image` from Better Auth adapter returns `any`, needs explicit type check
+- Multi-actionType filters require fetching from multiple indexes, then merging/sorting client-side
+- TypeScript infers `string[]` for arrays, need explicit union types for Convex validators
+
+**Dependencies found:**
+- ActivityFeedView (US-P9-010) now benefits from improved performance
+- Activity feed filters (US-P9-011) now use efficient index-based queries
+- This pattern should be used for any future multi-value filter scenarios
+
+**What to do next**:
+- [x] US-P9-009 remediation complete
+- [ ] US-P9-010/011 - Create team-hub page.tsx and integrate ActivityFeedView
+- [ ] US-P9-015 - Integrate NotificationCenter into coach layout
+- [ ] US-P9-016 - Create settings page.tsx
+- [ ] US-P9-017 - Integrate InsightReactions into insight display
+
+**Mistakes made**:
+- Initially forgot to import `Id` type (TypeScript error)
+- Initially used `any` type for ActivityDoc._id (caught by type checker)
+- Initially didn't handle `user?.image` being `any` type (type error on return value)
+
+**Audit Issue Resolved**:
+- ✅ Audit complaint: "Uses .filter() after query (lines 651-665) instead of composite index"
+- ✅ Solution: Added composite index + refactored to use index-based queries
+- ✅ Performance impact: Reduced query load by filtering at database level instead of application level
+
+---

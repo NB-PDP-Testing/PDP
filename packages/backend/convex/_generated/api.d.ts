@@ -36,6 +36,7 @@ import type * as migrations_extractInsightsToTable from "../migrations/extractIn
 import type * as migrations_migrateLegacyData from "../migrations/migrateLegacyData.js";
 import type * as models_adultPlayers from "../models/adultPlayers.js";
 import type * as models_ageGroupEligibilityOverrides from "../models/ageGroupEligibilityOverrides.js";
+import type * as models_aiCopilot from "../models/aiCopilot.js";
 import type * as models_aiModelConfig from "../models/aiModelConfig.js";
 import type * as models_aiServiceHealth from "../models/aiServiceHealth.js";
 import type * as models_aiUsageLog from "../models/aiUsageLog.js";
@@ -174,6 +175,7 @@ declare const fullApi: ApiFromModules<{
   "migrations/migrateLegacyData": typeof migrations_migrateLegacyData;
   "models/adultPlayers": typeof models_adultPlayers;
   "models/ageGroupEligibilityOverrides": typeof models_ageGroupEligibilityOverrides;
+  "models/aiCopilot": typeof models_aiCopilot;
   "models/aiModelConfig": typeof models_aiModelConfig;
   "models/aiServiceHealth": typeof models_aiServiceHealth;
   "models/aiUsageLog": typeof models_aiUsageLog;

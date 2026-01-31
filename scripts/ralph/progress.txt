@@ -3,7 +3,7 @@ Started: Fri 30 Jan 2026 22:02:36 GMT
 ---
 
 ## Codebase Patterns
-**Last Updated**: Fri 31 Jan 2026 01:00 - Iteration 3 (P9 Week 2 - US-P9-012)
+**Last Updated**: Fri 31 Jan 2026 10:30 - Iteration 4 (P9 Week 2 - US-P9-015)
 
 ### Architecture
 - All org-scoped routes under `/orgs/[orgId]/`
@@ -34,10 +34,14 @@ Started: Fri 30 Jan 2026 22:02:36 GMT
 - Import paths: `@pdp/backend/convex/_generated/api` (not `@convex/...`)
 - `useCurrentUser` from `@/hooks/use-current-user` returns user directly
 - ListSkeleton uses `items` prop (not `rows`)
+- ListSkeleton import: `@/components/loading/list-skeleton` (not `@/components/ui/list-skeleton`)
 - date-fns for relative timestamps: `formatDistanceToNow(timestamp, { addSuffix: true })`
 - Auto-expand textarea: useRef + useEffect + `Math.min(scrollHeight, maxHeight)`
 - @mention autocomplete pattern: track cursor, lastIndexOf("@"), dropdown with keyboard nav
 - Dropdown positioning above element: `absolute bottom-full left-0 z-50 mb-2`
+- DropdownMenu pattern: Bell icon with Badge, priority grouping, onClick handlers
+- Dynamic route navigation: `router.push(url as any)` for non-type-checked URLs
+- Badge count display: "99+" pattern for large counts (> 99)
 
 ### Quality Checks
 - Run in order: `npm run check-types` → `npx ultracite fix` → `npm run check`

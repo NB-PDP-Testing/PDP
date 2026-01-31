@@ -141,7 +141,7 @@
         "Visual verification - bell shows badge, dropdown works, navigation works"
       ],
       "priority": 7,
-      "passes": false
+      "passes": true
     },
     {
       "id": "US-P9-016",

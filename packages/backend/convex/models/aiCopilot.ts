@@ -5,12 +5,13 @@
  */
 
 import { v } from "convex/values";
+import { components } from "../_generated/api";
+import type { Id } from "../_generated/dataModel";
 import { query } from "../_generated/server";
 
 /**
  * Get smart suggestions based on current context
- * Placeholder implementation - returns empty array for now
- * Will be implemented in US-P9-042 and US-P9-043
+ * Implemented in US-P9-042 (insight context) and US-P9-043 (session planning)
  */
 export const getSmartSuggestions = query({
   args: {
@@ -39,11 +40,140 @@ export const getSmartSuggestions = query({
       confidence: v.number(), // 0-1 confidence score
     })
   ),
-  handler: (_ctx, _args) => {
-    // Placeholder implementation (US-P9-041)
-    // Will be implemented in:
-    // - US-P9-042: Insight context suggestions
-    // - US-P9-043: Session planning suggestions
+  handler: async (ctx, args) => {
+    // Route to appropriate suggestion generator based on context
+    if (args.context === "viewing_insight") {
+      return await generateInsightSuggestions(ctx, args);
+    }
+
+    if (args.context === "creating_session") {
+      // TODO (US-P9-043): Implement session planning suggestions
+      return [];
+    }
+
+    // Other contexts not implemented yet
     return [];
   },
 });
+
+/**
+ * Generate smart suggestions when viewing an insight
+ * US-P9-042: Insight context suggestions
+ */
+async function generateInsightSuggestions(
+  ctx: any,
+  args: {
+    contextId: string;
+    userId: string;
+    organizationId: string;
+  }
+) {
+  // Get insight details
+  const insight = await ctx.db.get(args.contextId as Id<"voiceNoteInsights">);
+  if (!insight) {
+    return [];
+  }
+
+  const suggestions: Array<{
+    type:
+      | "apply_insight"
+      | "mention_coach"
+      | "add_to_session"
+      | "create_task"
+      | "link_observation";
+    title: string;
+    description: string;
+    action: string;
+    confidence: number;
+  }> = [];
+
+  // Suggestion 1: If injury/medical category → suggest medical staff mention
+  if (insight.category === "injury" || insight.category === "medical") {
+    // Get coaches with medical/first-aid roles
+    const members = await ctx.runQuery(components.betterAuth.adapter.findMany, {
+      model: "member",
+      where: [
+        {
+          field: "organizationId",
+          value: args.organizationId as any,
+          operator: "eq",
+        },
+      ],
+      paginationOpts: {
+        cursor: null,
+        numItems: 100,
+      },
+    });
+
+    const medicalCoaches = members.data.filter(
+      (m: any) =>
+        m.activeFunctionalRole === "medical" ||
+        m.activeFunctionalRole === "first_aid"
+    );
+
+    if (medicalCoaches.length > 0) {
+      suggestions.push({
+        type: "mention_coach",
+        title: "Notify Medical Staff",
+        description: `Alert medical staff about this ${insight.category} observation`,
+        action: "mention:medical",
+        confidence: 0.9,
+      });
+    }
+  }
+
+  // Suggestion 2: If skill category → suggest add to session plan
+  if (insight.category === "skill") {
+    suggestions.push({
+      type: "add_to_session",
+      title: "Add to Next Session",
+      description: `Include ${insight.title} in upcoming training plan`,
+      action: `add_to_session:${args.contextId}`,
+      confidence: 0.8,
+    });
+  }
+
+  // Suggestion 3: If unread by teammates → suggest mention coaches
+  // Check if there are comments - if not, suggest engaging team
+  const comments = await ctx.db
+    .query("insightComments")
+    .withIndex("by_insight", (q: any) =>
+      q.eq("insightId", args.contextId as Id<"voiceNoteInsights">)
+    )
+    .collect();
+
+  if (comments.length === 0) {
+    suggestions.push({
+      type: "mention_coach",
+      title: "Engage Your Team",
+      description: "Tag relevant coaches to get their input on this insight",
+      action: "mention:team",
+      confidence: 0.7,
+    });
+  }
+
+  // Suggestion 4: If applied status → suggest creating follow-up task
+  if (insight.status === "applied") {
+    suggestions.push({
+      type: "create_task",
+      title: "Create Follow-up Task",
+      description: "Track progress on this applied insight",
+      action: `create_task:${args.contextId}`,
+      confidence: 0.65,
+    });
+  }
+
+  // Suggestion 5: Always suggest applying insight if pending
+  if (insight.status === "pending") {
+    suggestions.push({
+      type: "apply_insight",
+      title: "Apply This Insight",
+      description: `Mark this ${insight.category} insight as applied`,
+      action: `apply:${args.contextId}`,
+      confidence: 0.75,
+    });
+  }
+
+  // Sort by confidence descending and return top 4
+  return suggestions.sort((a, b) => b.confidence - a.confidence).slice(0, 4);
+}

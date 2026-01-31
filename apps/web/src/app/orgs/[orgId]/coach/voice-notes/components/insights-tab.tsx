@@ -22,6 +22,7 @@ import {
 import type { Route } from "next";
 import { useRouter } from "next/navigation";
 import { useState } from "react";
+import { toast } from "sonner";
 import { SmartActionBar } from "@/components/coach/smart-action-bar";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
@@ -852,9 +853,43 @@ export function InsightsTab({ orgId, onSuccess, onError }: InsightsTabProps) {
               <SmartActionBar
                 context="viewing_insight"
                 contextId={insight.id}
-                onActionClick={(action: string) => {
+                onActionClick={async (action: string) => {
                   // Handle smart action clicks
-                  console.log("Smart action:", action);
+                  if (action.startsWith("apply:")) {
+                    // Apply insight action - mark as applied
+                    try {
+                      await updateInsightStatus({
+                        noteId: insight.noteId,
+                        insightId: insight.id,
+                        status: "applied",
+                      });
+                      onSuccess("Insight marked as applied");
+                    } catch (error) {
+                      console.error("Failed to apply insight:", error);
+                      onError("Failed to apply insight");
+                    }
+                  } else if (action.startsWith("mention:")) {
+                    // Mention coach action - future: open comment form with @mention
+                    toast.info(
+                      "💬 Comment with @mention feature coming soon! Use the comment section below to tag coaches."
+                    );
+                  } else if (action.startsWith("add_to_session:")) {
+                    // Add to session action - future: integrate with session planner
+                    toast.info(
+                      "📅 Session planning integration coming soon! Bookmark this insight for now."
+                    );
+                  } else if (action.startsWith("create_task:")) {
+                    // Create task action - future: task management system
+                    toast.info(
+                      "✅ Task creation coming soon! Add a reminder to track this."
+                    );
+                  } else {
+                    // Generic action - log for debugging
+                    console.log("Smart action:", action);
+                    toast.info(
+                      "Action recorded - full implementation coming soon"
+                    );
+                  }
                 }}
                 organizationId={orgId}
                 userId={session.user.id}

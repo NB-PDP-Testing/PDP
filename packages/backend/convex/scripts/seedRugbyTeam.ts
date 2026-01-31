@@ -281,6 +281,7 @@ export const seed = mutation({
   args: {
     orgId: v.string(),
     teamName: v.string(),
+    sport: v.optional(v.string()), // defaults to "rugby" - can be "rugby", "soccer", "gaa_football", etc.
     ageGroup: v.optional(v.string()), // defaults to "u15"
     gender: v.optional(v.string()), // defaults to "Mixed"
     confirmProduction: v.optional(v.boolean()), // Required for production runs
@@ -310,12 +311,14 @@ export const seed = mutation({
     ),
   }),
   handler: async (ctx, args) => {
+    const sport = args.sport || "rugby";
     const ageGroup = args.ageGroup || "u15";
     const gender = args.gender || "Mixed";
 
-    console.log("🏉 Starting Rugby Team seed...");
+    console.log("🏃 Starting Team seed...");
     console.log(`  Organization ID: ${args.orgId}`);
     console.log(`  Team Name: ${args.teamName}`);
+    console.log(`  Sport: ${sport}`);
     console.log(`  Age Group: ${ageGroup}`);
     console.log(`  Gender: ${gender}`);
 
@@ -382,7 +385,7 @@ export const seed = mutation({
         const teamResult = await ctx.runMutation(api.models.teams.createTeam, {
           name: args.teamName,
           organizationId: args.orgId,
-          sport: "rugby",
+          sport,
           ageGroup,
           gender: gender as "Male" | "Female" | "Mixed",
           season: new Date().getFullYear().toString(),
@@ -424,26 +427,26 @@ export const seed = mutation({
         };
       }
 
-      // 4. Get rugby skill definitions
-      console.log("\n📋 Step 4: Loading rugby skills...");
+      // 4. Get skill definitions for the sport
+      console.log(`\n📋 Step 4: Loading ${sport} skills...`);
       const allSkills = await ctx.db
         .query("skillDefinitions")
-        .withIndex("by_sportCode", (q) => q.eq("sportCode", "rugby"))
+        .withIndex("by_sportCode", (q) => q.eq("sportCode", sport))
         .filter((q) => q.eq(q.field("isActive"), true))
         .collect();
 
       if (allSkills.length === 0) {
         return {
           success: false,
-          message: "No rugby skills found. Please seed sport rules first.",
+          message: `No ${sport} skills found. Please seed sport rules first.`,
         };
       }
-      console.log(`  ✓ Found ${allSkills.length} rugby skills`);
+      console.log(`  ✓ Found ${allSkills.length} ${sport} skills`);
 
       // Get skill categories for variety (query needed to ensure they exist)
       const _categories = await ctx.db
         .query("skillCategories")
-        .withIndex("by_sportCode", (q) => q.eq("sportCode", "rugby"))
+        .withIndex("by_sportCode", (q) => q.eq("sportCode", sport))
         .filter((q) => q.eq(q.field("isActive"), true))
         .collect();
 
@@ -476,7 +479,7 @@ export const seed = mutation({
             lastName: playerConfig.lastName,
             dateOfBirth: playerConfig.dateOfBirth,
             gender: playerConfig.gender,
-            createdFrom: "seed_rugby_team",
+            createdFrom: `seed_team_${sport}`,
           }
         );
         const playerIdentityId = playerResult.playerIdentityId;
@@ -500,7 +503,7 @@ export const seed = mutation({
             organizationId: args.orgId,
             ageGroup,
             season: new Date().getFullYear().toString(),
-            sportCode: "rugby",
+            sportCode: sport,
             status: "active",
           });
         }
@@ -529,7 +532,7 @@ export const seed = mutation({
           api.models.sportPassports.findOrCreatePassport,
           {
             playerIdentityId: playerIdentityId as Id<"playerIdentities">,
-            sportCode: "rugby",
+            sportCode: sport,
             organizationId: args.orgId,
           }
         );
@@ -640,6 +643,7 @@ export const cleanup = mutation({
   args: {
     orgId: v.string(),
     teamName: v.string(),
+    sport: v.optional(v.string()), // defaults to "rugby"
     confirmDelete: v.boolean(),
   },
   returns: v.object({
@@ -662,9 +666,12 @@ export const cleanup = mutation({
       };
     }
 
+    const sport = args.sport || "rugby";
+
     console.log("🧹 Starting cleanup...");
     console.log(`  Organization: ${args.orgId}`);
     console.log(`  Team: ${args.teamName}`);
+    console.log(`  Sport: ${sport}`);
 
     const stats = {
       players: 0,
@@ -696,7 +703,7 @@ export const cleanup = mutation({
       // Find all player assignments for this team
       const assignments = await ctx.db
         .query("teamPlayerIdentities")
-        .withIndex("by_team", (q) => q.eq("teamId", teamId))
+        .withIndex("by_teamId", (q) => q.eq("teamId", teamId))
         .collect();
 
       console.log(`  Found ${assignments.length} player assignments`);
@@ -748,7 +755,7 @@ export const cleanup = mutation({
 
         // Delete player identity (only if created by seed)
         const player = await ctx.db.get(playerIdentityId);
-        if (player && player.createdFrom === "seed_rugby_team") {
+        if (player && player.createdFrom === `seed_team_${sport}`) {
           await ctx.db.delete(playerIdentityId);
           stats.players += 1;
         }

@@ -1763,7 +1763,8 @@ export default defineSchema({
     .index("by_team", ["teamId"])
     .index("by_org", ["organizationId"])
     .index("by_actor", ["actorId"])
-    .index("by_team_and_priority", ["teamId", "priority"]),
+    .index("by_team_and_priority", ["teamId", "priority"])
+    .index("by_team_and_actionType", ["teamId", "actionType"]),
 
   // Real-time presence tracking (who's viewing what)
   teamHubPresence: defineTable({

@@ -1779,6 +1779,17 @@ export default defineSchema({
     .index("by_user_and_team", ["userId", "teamId"])
     .index("by_team_and_active", ["teamId", "lastActive"]),
 
+  // Activity read status tracking (for notification center)
+  activityReadStatus: defineTable({
+    userId: v.string(), // User who read the activity
+    activityId: v.id("teamActivityFeed"), // Activity that was read
+    organizationId: v.string(), // Organization context
+    readAt: v.number(), // Timestamp when marked as read
+  })
+    .index("by_user", ["userId"])
+    .index("by_activity", ["activityId"])
+    .index("by_user_and_activity", ["userId", "activityId"]),
+
   // ============================================================
   // TEAM OBSERVATIONS
   // Structured storage for team-level insights from voice notes

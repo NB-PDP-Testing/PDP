@@ -675,3 +675,166 @@ export const getTeamActivityFeed = query({
     });
   },
 });
+
+/**
+ * Get unread notifications for notification center
+ * Returns activities from user's teams that haven't been read
+ */
+export const getUnreadNotifications = query({
+  args: {
+    userId: v.string(),
+    organizationId: v.string(),
+    limit: v.optional(v.number()),
+  },
+  returns: v.object({
+    unreadCount: v.number(),
+    notifications: v.array(
+      v.object({
+        _id: v.id("teamActivityFeed"),
+        actorId: v.string(),
+        actorName: v.string(),
+        actorAvatar: v.optional(v.string()),
+        actionType: v.union(
+          v.literal("voice_note_added"),
+          v.literal("insight_applied"),
+          v.literal("comment_added"),
+          v.literal("player_assessed"),
+          v.literal("goal_created"),
+          v.literal("injury_logged")
+        ),
+        entityType: v.union(
+          v.literal("voice_note"),
+          v.literal("insight"),
+          v.literal("comment"),
+          v.literal("skill_assessment"),
+          v.literal("goal"),
+          v.literal("injury")
+        ),
+        entityId: v.string(),
+        summary: v.string(),
+        priority: v.union(
+          v.literal("critical"),
+          v.literal("important"),
+          v.literal("normal")
+        ),
+        metadata: v.optional(
+          v.object({
+            playerName: v.optional(v.string()),
+            insightTitle: v.optional(v.string()),
+            commentPreview: v.optional(v.string()),
+          })
+        ),
+        _creationTime: v.number(),
+      })
+    ),
+  }),
+  handler: async (ctx, args) => {
+    const limit = Math.min(args.limit || 50, 100); // Default 50, max 100
+
+    // Get all activities for this organization (simplified - could be scoped to user's teams)
+    const allActivities = await ctx.db
+      .query("teamActivityFeed")
+      .withIndex("by_org", (q) => q.eq("organizationId", args.organizationId))
+      .order("desc")
+      .take(limit);
+
+    // Filter out user's own activities
+    const othersActivities = allActivities.filter(
+      (a) => a.actorId !== args.userId
+    );
+
+    // Get read statuses for these activities
+    const readStatuses = await ctx.db
+      .query("activityReadStatus")
+      .withIndex("by_user", (q) => q.eq("userId", args.userId))
+      .collect();
+
+    // Create set of read activity IDs for fast lookup
+    const readActivityIds = new Set(
+      readStatuses.map((status) => status.activityId)
+    );
+
+    // Filter to only unread activities
+    const unreadActivities = othersActivities.filter(
+      (activity) => !readActivityIds.has(activity._id)
+    );
+
+    // Enrich with user avatars using Better Auth adapter
+    const uniqueActorIds = [...new Set(unreadActivities.map((a) => a.actorId))];
+
+    const usersData = await Promise.all(
+      uniqueActorIds.map((actorId) =>
+        ctx.runQuery(components.betterAuth.adapter.findOne, {
+          model: "user",
+          where: [{ field: "_id", value: actorId, operator: "eq" }],
+        })
+      )
+    );
+
+    // Create user lookup map
+    const userMap = new Map();
+    for (const user of usersData) {
+      if (user) {
+        userMap.set(user._id, user);
+      }
+    }
+
+    // Enrich activities with user avatar
+    const enrichedNotifications = unreadActivities.map((activity) => {
+      const user = userMap.get(activity.actorId);
+      return {
+        _id: activity._id,
+        actorId: activity.actorId,
+        actorName: activity.actorName,
+        actorAvatar: user?.image || undefined,
+        actionType: activity.actionType,
+        entityType: activity.entityType,
+        entityId: activity.entityId,
+        summary: activity.summary,
+        priority: activity.priority,
+        metadata: activity.metadata,
+        _creationTime: activity._creationTime,
+      };
+    });
+
+    return {
+      unreadCount: enrichedNotifications.length,
+      notifications: enrichedNotifications,
+    };
+  },
+});
+
+/**
+ * Mark an activity as read in the notification center
+ */
+export const markActivityAsRead = mutation({
+  args: {
+    activityId: v.id("teamActivityFeed"),
+    userId: v.string(),
+    organizationId: v.string(),
+  },
+  returns: v.id("activityReadStatus"),
+  handler: async (ctx, args) => {
+    // Check if already marked as read
+    const existing = await ctx.db
+      .query("activityReadStatus")
+      .withIndex("by_user_and_activity", (q) =>
+        q.eq("userId", args.userId).eq("activityId", args.activityId)
+      )
+      .first();
+
+    if (existing) {
+      return existing._id;
+    }
+
+    // Mark as read
+    const readStatusId = await ctx.db.insert("activityReadStatus", {
+      userId: args.userId,
+      activityId: args.activityId,
+      organizationId: args.organizationId,
+      readAt: Date.now(),
+    });
+
+    return readStatusId;
+  },
+});

@@ -1791,6 +1791,51 @@ export default defineSchema({
     .index("by_activity", ["activityId"])
     .index("by_user_and_activity", ["userId", "activityId"]),
 
+  // Team Decisions - Democratic voting on team matters (P9 Week 3)
+  teamDecisions: defineTable({
+    organizationId: v.string(),
+    teamId: v.string(),
+    createdBy: v.string(),
+    title: v.string(),
+    description: v.optional(v.string()),
+    options: v.array(
+      v.object({
+        id: v.string(),
+        label: v.string(),
+        description: v.optional(v.string()),
+      })
+    ),
+    votingType: v.union(v.literal("simple"), v.literal("weighted")),
+    status: v.union(
+      v.literal("open"),
+      v.literal("closed"),
+      v.literal("finalized")
+    ),
+    deadline: v.optional(v.number()),
+    finalizedAt: v.optional(v.number()),
+    finalizedBy: v.optional(v.string()),
+    winningOption: v.optional(v.string()),
+    createdAt: v.number(),
+    updatedAt: v.number(),
+  })
+    .index("by_team", ["teamId"])
+    .index("by_team_and_status", ["teamId", "status"])
+    .index("by_org", ["organizationId"])
+    .index("by_org_and_status", ["organizationId", "status"]),
+
+  // Decision Votes - Individual votes on team decisions (P9 Week 3)
+  decisionVotes: defineTable({
+    decisionId: v.id("teamDecisions"),
+    userId: v.string(),
+    optionId: v.string(),
+    weight: v.number(),
+    comment: v.optional(v.string()),
+    votedAt: v.number(),
+  })
+    .index("by_decision", ["decisionId"])
+    .index("by_decision_and_user", ["decisionId", "userId"])
+    .index("by_user", ["userId"]),
+
   // ============================================================
   // TEAM OBSERVATIONS
   // Structured storage for team-level insights from voice notes
@@ -2532,6 +2577,16 @@ export default defineSchema({
         end: v.string(), // 24h format (e.g., "08:00")
       })
     ),
+
+    // Team Insights View Preference (P9 Week 3)
+    teamInsightsViewPreference: v.optional(
+      v.union(
+        v.literal("list"),
+        v.literal("board"),
+        v.literal("calendar"),
+        v.literal("players")
+      )
+    ), // Default: "list"
 
     createdAt: v.number(),
     updatedAt: v.number(),

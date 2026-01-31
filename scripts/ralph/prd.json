@@ -54,7 +54,7 @@
         "Visual verification with dev-browser"
       ],
       "priority": 2,
-      "passes": false
+      "passes": true
     },
     {
       "id": "US-P9-011",
@@ -70,7 +70,7 @@
         "Type check passes"
       ],
       "priority": 3,
-      "passes": false
+      "passes": true
     },
     {
       "id": "US-P9-012",

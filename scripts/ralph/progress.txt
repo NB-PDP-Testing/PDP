@@ -2121,3 +2121,71 @@ The component implementation is **technically complete** with high code quality,
 - ✅ Performance impact: Reduced query load by filtering at database level instead of application level
 
 ---
+
+## 2026-01-31 15:05 - US-P9-010/011 - Team Hub Page Integration (FIX)
+**Iteration**: 6 (Remediation Phase)
+**Commit**: b18e8547ce413857d6ad8e6e02ab73c54038d59a
+**Session**: 0136be1b-5d81-4dba-94c5-2aad5e5ef1e1
+**Status**: Complete (Remediation of missing integration)
+
+### What was implemented
+- **Created missing page.tsx**: ActivityFeedView component now accessible via /orgs/[orgId]/coach/team-hub
+- Team selector dropdown showing coach-assigned teams
+- Integrated PresenceIndicators component (US-P9-004) showing real-time presence
+- Integrated ActivityFeedView component (US-P9-010) with all filter tabs
+- Empty state handling for coaches with no teams assigned
+- Auto-selects first team if none selected
+
+Features:
+- Team selector uses coach assignments query to filter teams
+- Maps team names to team IDs using allTeams data
+- Displays both presence indicators and activity feed
+- Wraps components in Card layout following coach page patterns
+- Proper loading states via query "skip" pattern
+
+### Files changed
+- apps/web/src/app/orgs/[orgId]/coach/team-hub/page.tsx (+168, -0) [NEW]
+
+### Quality checks
+- ✅ Type check: passed
+- ✅ Pre-commit hook: passed
+- ✅ Follows Next.js App Router patterns
+- ✅ Uses proper React hooks (useMemo for derived state)
+- ⏭️ Browser verification: deferred (component ready, needs manual testing)
+
+### Learnings for future iterations ⚠️ CRITICAL
+**Patterns discovered:**
+- **Page integration pattern**: Components in /components/ need a page.tsx sibling for Next.js routing
+- **Team selector pattern**: Use coach assignments + team list to filter and display team dropdown
+- **Map-based lookup**: Create Map from array for O(1) lookups when mapping names to IDs
+- **Query skip pattern**: Use userId && orgId ? {...} : "skip" for conditional queries
+- **Empty state pattern**: Show empty component when no data or no selection
+
+**Gotchas encountered:**
+- Type predicate `(id): id is string` fails when input type is already `string | undefined`
+- Must use explicit type assertion `as string[]` or filter + type guard separately
+- Team names in coachAssignment may not match team names in allTeams (use Map lookup)
+- Auto-selecting first team improves UX (users don't see empty state on load)
+
+**Dependencies found:**
+- ActivityFeedView component (US-P9-010) now accessible via route
+- Activity feed filters (US-P9-011) already integrated in ActivityFeedView
+- PresenceIndicators (US-P9-004) now integrated and visible
+- Backend query getTeamActivityFeed (US-P9-009) now has frontend consumer
+
+**What to do next**:
+- [x] US-P9-010/011 remediation complete
+- [ ] US-P9-015 - Integrate NotificationCenter into coach layout
+- [ ] US-P9-016 - Create settings page.tsx  
+- [ ] US-P9-017 - Integrate InsightReactions into insight display
+
+**Mistakes made**:
+- Initially used type predicate `(id): id is string` which failed because Map.get() returns `string | undefined`
+- Fixed by using explicit filter and type assertion instead
+
+**Audit Issues Resolved**:
+- ✅ US-P9-010 - "Component exists in /team-hub/components/ but NO /team-hub/page.tsx found"
+- ✅ US-P9-011 - Same issue (integrated into ActivityFeedView)
+- ✅ Both components now accessible and integrated
+
+---

@@ -18,6 +18,7 @@ import type { Route } from "next";
 import Link from "next/link";
 import { useParams, useRouter } from "next/navigation";
 import { useEffect, useRef, useState } from "react";
+import { NotificationCenter } from "@/components/coach/notification-center";
 import {
   BottomNav,
   type BottomNavItem,
@@ -291,6 +292,9 @@ function CoachLayoutInner({ children }: { children: React.ReactNode }) {
             </div>
 
             <div className="flex items-center gap-2">
+              {/* Notification Center */}
+              <NotificationCenter organizationId={orgId} />
+
               {/* Quick Actions Button - only show for FAB variant */}
               {quickActionsVariant === "fab" && actions.length > 0 && (
                 <Button

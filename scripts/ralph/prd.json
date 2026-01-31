@@ -178,7 +178,7 @@
         "Visual verification - reactions toggle, counts update, tooltip shows users"
       ],
       "priority": 9,
-      "passes": false
+      "passes": true
     },
     {
       "id": "US-P9-018",

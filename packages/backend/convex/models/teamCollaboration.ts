@@ -250,14 +250,45 @@ export const addComment = mutation({
       organizationId: args.organizationId,
     });
 
-    // TODO (US-P9-018): Create activity feed entry
-    // This is a placeholder for future story
-    // await createActivityFeedEntry(ctx, {
-    //   organizationId: args.organizationId,
-    //   actionType: "comment_added",
-    //   entityId: commentId,
-    //   ...
-    // });
+    // Get insight details for activity feed
+    const insight = await ctx.db.get(args.insightId);
+    if (!insight) {
+      return commentId;
+    }
+
+    // Get actor name using Better Auth adapter
+    const actor = await ctx.runQuery(components.betterAuth.adapter.findOne, {
+      model: "user",
+      where: [{ field: "_id", value: args.userId as any, operator: "eq" }],
+    });
+
+    const actorName = actor
+      ? `${actor.firstName || ""} ${actor.lastName || ""}`.trim() ||
+        "Unknown User"
+      : "Unknown User";
+
+    // Create activity feed entry (US-P9-018)
+    if (insight.teamId) {
+      const commentPreview = args.content.substring(0, 100);
+      const summary = `${actorName} commented on ${insight.playerName || "a player"}'s ${insight.category} insight`;
+
+      await ctx.db.insert("teamActivityFeed", {
+        organizationId: args.organizationId,
+        teamId: insight.teamId,
+        actorId: args.userId,
+        actorName,
+        actionType: "comment_added",
+        entityType: "comment",
+        entityId: commentId,
+        summary,
+        priority,
+        metadata: {
+          playerName: insight.playerName,
+          insightTitle: insight.title,
+          commentPreview,
+        },
+      });
+    }
 
     return commentId;
   },

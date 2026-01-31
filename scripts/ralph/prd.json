@@ -1,5 +1,5 @@
 {
-  "project": "Phase 9 Week 2 - Activity Feed, @Mentions, Notifications + AI Copilot UI",
+  "project": "Phase 9 Week 2 - Team Collaboration Hub (REMEDIATION)",
   "branchName": "ralph/team-collaboration-hub-p9",
   "description": "Week 2 of Team Collaboration Hub: Real-time activity feed, @mention autocomplete, priority notifications, AI Copilot smart suggestions.",
   "referencePRD": "scripts/ralph/prds/Coaches Voice Insights/P9_WEEK2_ACTIVITY_FEED.md",
@@ -36,7 +36,7 @@
         "Type check passes"
       ],
       "priority": 1,
-      "passes": true
+      "passes": false
     },
     {
       "id": "US-P9-010",
@@ -54,7 +54,7 @@
         "Visual verification with dev-browser"
       ],
       "priority": 2,
-      "passes": true
+      "passes": false
     },
     {
       "id": "US-P9-011",
@@ -70,7 +70,7 @@
         "Type check passes"
       ],
       "priority": 3,
-      "passes": true
+      "passes": false
     },
     {
       "id": "US-P9-012",
@@ -88,7 +88,7 @@
         "Visual verification - dropdown appears, navigation works"
       ],
       "priority": 4,
-      "passes": true
+      "passes": false
     },
     {
       "id": "US-P9-013",
@@ -104,7 +104,7 @@
         "Type check passes"
       ],
       "priority": 5,
-      "passes": true
+      "passes": false
     },
     {
       "id": "US-P9-014",
@@ -141,7 +141,7 @@
         "Visual verification - bell shows badge, dropdown works, navigation works"
       ],
       "priority": 7,
-      "passes": true
+      "passes": false
     },
     {
       "id": "US-P9-016",
@@ -160,7 +160,7 @@
         "Visual verification - preferences save and persist"
       ],
       "priority": 8,
-      "passes": true
+      "passes": false
     },
     {
       "id": "US-P9-017",
@@ -178,7 +178,7 @@
         "Visual verification - reactions toggle, counts update, tooltip shows users"
       ],
       "priority": 9,
-      "passes": true
+      "passes": false
     },
     {
       "id": "US-P9-018",
@@ -211,7 +211,7 @@
         "Run npx -w packages/backend convex codegen"
       ],
       "priority": 11,
-      "passes": true
+      "passes": false
     },
     {
       "id": "US-P9-042",
@@ -230,7 +230,7 @@
         "Test in Convex dashboard - returns relevant suggestions"
       ],
       "priority": 12,
-      "passes": true
+      "passes": false
     },
     {
       "id": "US-P9-043",

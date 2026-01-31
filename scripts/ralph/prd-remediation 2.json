@@ -1,0 +1,290 @@
+{
+  "project": "Phase 9 Week 2 - REMEDIATION: Fix All Critical Issues",
+  "branchName": "ralph/team-collaboration-hub-p9",
+  "description": "Fix all issues identified in comprehensive code audits. Focus: component integration, missing features, performance violations, real tests.",
+  "referencePRD": "scripts/ralph/prds/Coaches Voice Insights/P9_WEEK2_REMEDIATION.md",
+  "auditReports": [
+    "docs/archive/audits/RALPH_P9_WEEK2_COMPREHENSIVE_AUDIT.md",
+    "docs/archive/audits/RALPH_P9_WEEK2_DEEP_DIVE_AUDIT.md"
+  ],
+  "totalEffort": "~12-17 hours",
+  "criticalPatterns": [
+    "MANDATORY: Read both audit reports before starting ANY story",
+    "MANDATORY: Verify integration - grep -r 'import.*ComponentName' apps/web/src must return results",
+    "MANDATORY: Visual verification with dev-browser for ALL UI changes",
+    "MANDATORY: No .filter() after .withIndex() - use composite indexes",
+    "MANDATORY: Replace ALL placeholder tests with real tests",
+    "MANDATORY: If quality monitor flags issue, it MUST be fixed",
+    "Integration = component imported AND rendered AND accessible to users"
+  ],
+  "userStories": [
+    {
+      "id": "US-P9-FIX-001",
+      "title": "Create Page Route for Notification Preferences",
+      "description": "notification-preferences.tsx exists but has no page.tsx wrapper - users get 404",
+      "acceptanceCriteria": [
+        "Create apps/web/src/app/orgs/[orgId]/coach/settings/page.tsx",
+        "Import NotificationPreferences from ./notification-preferences",
+        "Export default function that renders <NotificationPreferences />",
+        "Route /orgs/[orgId]/coach/settings returns 200 (not 404)",
+        "Type check passes",
+        "Visual verification: Page loads, matrix UI displays, save button works"
+      ],
+      "priority": 1,
+      "estimatedHours": 0.5,
+      "category": "P0-Integration"
+    },
+    {
+      "id": "US-P9-FIX-002",
+      "title": "Integrate ActivityFeedView Component",
+      "description": "Component exists but never imported - feature invisible to users",
+      "acceptanceCriteria": [
+        "Find or create /coach/team-hub/page.tsx",
+        "Import ActivityFeedView component",
+        "Render with teamId and organizationId props",
+        "grep -r 'import.*ActivityFeedView' apps/web/src returns results",
+        "Component visible when navigating to team hub",
+        "Filters work (All, Insights, Comments, Reactions, Sessions, Votes)",
+        "Type check passes",
+        "Visual verification: Feed displays, filters work, real-time updates"
+      ],
+      "priority": 2,
+      "estimatedHours": 1,
+      "category": "P0-Integration"
+    },
+    {
+      "id": "US-P9-FIX-003",
+      "title": "Integrate CommentForm Component",
+      "description": "Component with @mention exists but never imported",
+      "acceptanceCriteria": [
+        "Find voice notes insight display component",
+        "Import CommentForm",
+        "Render below each insight with proper props",
+        "grep -r 'import.*CommentForm' apps/web/src returns results",
+        "Comment form visible below insights",
+        "Typing @ triggers dropdown",
+        "Keyboard navigation works (ArrowUp, ArrowDown, Enter, Escape)",
+        "Type check passes",
+        "Visual verification: Dropdown appears, mentions insert correctly"
+      ],
+      "priority": 3,
+      "estimatedHours": 1,
+      "category": "P0-Integration"
+    },
+    {
+      "id": "US-P9-FIX-004",
+      "title": "Integrate InsightReactions Component",
+      "description": "Reaction buttons exist but never imported",
+      "acceptanceCriteria": [
+        "Find voice notes insight display component",
+        "Import InsightReactions",
+        "Render with insightId and organizationId props",
+        "grep -r 'import.*InsightReactions' apps/web/src returns results",
+        "Reaction buttons (👍 🌟 🚩) visible on insights",
+        "Clicking reactions toggles active state",
+        "Counts update immediately (optimistic)",
+        "Type check passes",
+        "Visual verification: Reactions toggle, tooltips show, counts accurate"
+      ],
+      "priority": 4,
+      "estimatedHours": 1,
+      "category": "P0-Integration"
+    },
+    {
+      "id": "US-P9-FIX-005",
+      "title": "Integrate NotificationCenter Component",
+      "description": "Bell icon notification center exists but never imported",
+      "acceptanceCriteria": [
+        "Find coach layout or header component",
+        "Import NotificationCenter",
+        "Add to header (typically top-right corner)",
+        "grep -r 'import.*NotificationCenter' apps/web/src returns results",
+        "Bell icon visible in coach header",
+        "Badge shows unread count",
+        "Dropdown shows notifications grouped by priority",
+        "Clicking notification navigates to target",
+        "Type check passes",
+        "Visual verification: Bell visible, dropdown works, navigation works"
+      ],
+      "priority": 5,
+      "estimatedHours": 1,
+      "category": "P0-Integration"
+    },
+    {
+      "id": "US-P9-FIX-006",
+      "title": "Integrate SmartActionBar Component",
+      "description": "AI suggestions component exists but never imported",
+      "acceptanceCriteria": [
+        "Find voice notes insight view component",
+        "Import SmartActionBar",
+        "Render with context='viewing_insight'",
+        "Implement onActionClick handler for each action type",
+        "grep -r 'import.*SmartActionBar' apps/web/src returns results",
+        "AI suggestion buttons visible when viewing insights",
+        "Clicking suggestions executes actions",
+        "Tooltips show description",
+        "Type check passes",
+        "Visual verification: Suggestions appear, buttons work, loading correct"
+      ],
+      "priority": 6,
+      "estimatedHours": 1,
+      "category": "P0-Integration"
+    },
+    {
+      "id": "US-P9-FIX-007",
+      "title": "Fix InsightReactions Tooltip to Show User Names",
+      "description": "Tooltip shows count ('3 people') instead of list of user names per PRD",
+      "acceptanceCriteria": [
+        "Modify apps/web/src/app/orgs/[orgId]/coach/voice-notes/components/insight-reactions.tsx",
+        "Update getUsersWhoReacted() to fetch user names, not just IDs",
+        "Use Better Auth adapter for batch user lookup",
+        "Tooltip displays actual user names separated by commas",
+        "No N+1 queries - batch fetch all user data at once",
+        "Handle edge cases (deleted users, long lists)",
+        "Type check passes",
+        "Visual verification: Tooltip shows 'John Smith, Mary Jones' not '2 people'"
+      ],
+      "priority": 7,
+      "estimatedHours": 1,
+      "category": "P1-Features"
+    },
+    {
+      "id": "US-P9-FIX-008",
+      "title": "Complete US-P9-013 Smart Mention Ranking",
+      "description": "Only 1/3 ranking criteria implemented - missing player observation and team coach ranking",
+      "acceptanceCriteria": [
+        "Modify packages/backend/convex/models/teamCollaboration.ts (getSmartCoachMentions)",
+        "Remove TODO comments on lines 560-561",
+        "Implement player observation ranking: query voiceNotes by playerIdentityId",
+        "Add 5000 to relevanceScore for coaches who observed player in last 30 days",
+        "Implement team coach ranking: query coachAssignments by teamId",
+        "Add 3000 to relevanceScore for coaches assigned to team",
+        "Ensure sort by relevanceScore descending still works",
+        "Type check passes",
+        "Test in Convex dashboard: coaches ranked injury > player > team > alpha"
+      ],
+      "priority": 8,
+      "estimatedHours": 2,
+      "category": "P1-Features"
+    },
+    {
+      "id": "US-P9-FIX-009",
+      "title": "Complete US-P9-043 Skill Extraction",
+      "description": "Skill suggestions use .includes('improve') instead of extracting actual skills per PRD",
+      "acceptanceCriteria": [
+        "Modify packages/backend/convex/models/aiCopilot.ts (generateSessionSuggestions)",
+        "Replace boolean check with skill extraction logic",
+        "Extract skill keywords from insight descriptions (passing, shooting, tackling, etc)",
+        "Rank skills by mention frequency across recent insights",
+        "Return top 3 skills in suggestion description",
+        "Example: 'Focus on: passing (5 mentions), shooting (3 mentions), tackling (2 mentions)'",
+        "Works with multiple sports (soccer, GAA, rugby, etc)",
+        "Type check passes",
+        "Test in Convex dashboard: suggestions show actual skill names with counts"
+      ],
+      "priority": 9,
+      "estimatedHours": 2,
+      "category": "P1-Features"
+    },
+    {
+      "id": "US-P9-FIX-010",
+      "title": "Add Task Queries to Equipment Suggestions",
+      "description": "Equipment suggestions only search insights, not tasks per PRD requirement",
+      "acceptanceCriteria": [
+        "Modify packages/backend/convex/models/aiCopilot.ts (generateSessionSuggestions)",
+        "Add query to tasks table for recent team tasks (last 7 days)",
+        "Search task descriptions for equipment keywords (equipment, gear, ball, etc)",
+        "Combine equipment mentions from both insights AND tasks",
+        "Task-based mentions have higher confidence (0.75 vs 0.7)",
+        "Type check passes",
+        "Test in Convex dashboard: equipment suggestions trigger from tasks"
+      ],
+      "priority": 10,
+      "estimatedHours": 1.5,
+      "category": "P1-Features"
+    },
+    {
+      "id": "US-P9-FIX-011",
+      "title": "Add Reasoning Field to AI Suggestions",
+      "description": "SmartActionBar tooltip missing 'reasoning' field per PRD requirement",
+      "acceptanceCriteria": [
+        "Modify packages/backend/convex/models/aiCopilot.ts",
+        "Update returns validator: add reasoning: v.string() field",
+        "Add reasoning to each suggestion in generateInsightSuggestions",
+        "Example reasonings: 'Injury category detected - medical expertise needed', 'Skill development insight - add to training session'",
+        "Add reasoning to each suggestion in generateSessionSuggestions",
+        "Example: '3 players with recent injuries - verify recovery status'",
+        "Update apps/web/src/components/coach/smart-action-bar.tsx to display reasoning in tooltip",
+        "Type check passes",
+        "Visual verification: Tooltips show reasoning text below description"
+      ],
+      "priority": 11,
+      "estimatedHours": 1.5,
+      "category": "P1-Features"
+    },
+    {
+      "id": "US-P9-FIX-012",
+      "title": "Fix All .filter() Performance Violations",
+      "description": "7 instances of .filter() after queries violate mandatory performance rules",
+      "acceptanceCriteria": [
+        "Fix teamCollaboration.ts line 652 (getTeamActivityFeed): use composite index by_team_and_actionType",
+        "Fix aiCopilot.ts line 212 (generateSessionSuggestions): use composite index by_org_and_creationTime",
+        "Document Better Auth limitations for lines 430, 512, 107 (cannot filter roles at query level)",
+        "Document lines 773, 789 as acceptable client-side filters (small datasets)",
+        "Add new composite indexes to schema.ts: by_team_and_actionType, by_org_and_creationTime",
+        "Run Convex schema push",
+        "Quality monitor no longer flags .filter() violations",
+        "Type check passes",
+        "Verify in Convex dashboard: queries use indexes (check query plan)"
+      ],
+      "priority": 12,
+      "estimatedHours": 3,
+      "category": "P1-Performance"
+    },
+    {
+      "id": "US-P9-FIX-013",
+      "title": "Replace All Placeholder Tests",
+      "description": "All 11 test files contain only expect(true).toBe(true)",
+      "acceptanceCriteria": [
+        "Replace US-P9-009.test.ts with real tests (query logic, filters, limits)",
+        "Replace US-P9-010.test.ts with real tests (component rendering, props)",
+        "Replace US-P9-011.test.ts with real tests (filter tabs, URL persistence)",
+        "Replace US-P9-012.test.ts with real tests (@mention detection, dropdown)",
+        "Replace US-P9-015.test.ts with real tests (bell icon, notifications)",
+        "Replace US-P9-016.test.ts with real tests (matrix UI, save)",
+        "Replace US-P9-017.test.ts with real tests (reactions, tooltips)",
+        "Replace US-P9-018.test.ts with real tests (activity creation)",
+        "Replace US-P9-041.test.ts with real tests (query returns, validators)",
+        "Replace US-P9-044.test.ts with real tests (component rendering, actions)",
+        "All tests have minimum 3 tests per file",
+        "No expect(true).toBe(true) tests remain",
+        "All tests pass when run",
+        "Type check passes"
+      ],
+      "priority": 13,
+      "estimatedHours": 4,
+      "category": "P2-Testing"
+    },
+    {
+      "id": "US-P9-FIX-014",
+      "title": "Execute All Visual Verifications",
+      "description": "All UAT tests show 'Pending Execution' - visual verification not done",
+      "acceptanceCriteria": [
+        "Use dev-browser to test ActivityFeedView (feed displays, filters work)",
+        "Use dev-browser to test CommentForm (@mention dropdown, keyboard nav)",
+        "Use dev-browser to test InsightReactions (reactions toggle, tooltips)",
+        "Use dev-browser to test NotificationCenter (bell badge, dropdown, navigation)",
+        "Use dev-browser to test SmartActionBar (suggestions appear, tooltips)",
+        "Use dev-browser to test NotificationPreferences (matrix UI, save persists)",
+        "Update all 14 UAT test files with actual results",
+        "Change status from '⏳ Pending' to '✅ Passed'",
+        "Save screenshots for each major feature",
+        "All visual requirements from original PRD verified",
+        "Edge cases tested (empty states, loading states, errors)"
+      ],
+      "priority": 14,
+      "estimatedHours": 2,
+      "category": "P2-Testing"
+    }
+  ]
+}

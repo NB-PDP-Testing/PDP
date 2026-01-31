@@ -7,6 +7,7 @@ import {
   CheckSquare,
   ChevronDown,
   ClipboardList,
+  FileText,
   HeartPulse,
   Home,
   Menu,
@@ -92,6 +93,11 @@ export function getCoachNavGroups(orgId: string): NavGroup[] {
           href: `/orgs/${orgId}/coach/voice-notes`,
           label: "Voice Notes",
           icon: Mic,
+        },
+        {
+          href: `/orgs/${orgId}/coach/notes`,
+          label: "Development Notes",
+          icon: FileText,
         },
         {
           href: `/orgs/${orgId}/coach/team-insights`,

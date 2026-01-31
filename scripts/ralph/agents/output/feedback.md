@@ -1,195 +1,91 @@
 
-## Quality Monitor - 2026-01-30 22:02:24
+## Quality Monitor - 2026-01-31 14:35:17
 - ⚠️ Biome lint errors found
 
 
-## Quality Monitor - 2026-01-30 22:04:28
+## PRD Audit - US-P9-014 - 2026-01-31 14:35:19
+## Audit Report: US-P9-014
+
+**Status: PARTIAL**
+
+### What's Implemented ✅
+
+1. **Schema Extended**: `coachOrgPreferences` table in `packages/backend/convex/schema.ts:2476` has been extended
+2. **notificationChannels field added** (schema.ts:2513-2519):
+   - Structure: `{ critical: string[], important: string[], normal: string[] }`
+   - Values documented as: "push", "email", "digest", "none"
+   - Defaults documented: ["push", "email"] for all levels
+3. **digestSchedule field added** (schema.ts:2521-2526):
+   - Structure: `{ enabled: boolean, time: string }`
+   - Example documented: '08:00'
+   - Default documented: false
+4. **quietHours field added** (schema.ts:2528-2534):
+   - Structure: `{ enabled: boolean, start: string, end: string }`
+   - Example documented: '22:00' to '08:00'
+   - Default documented: false
+5. **Type check passes**: Confirmed via `npm run check-types`
+
+### What's Missing ❌
+
+1. **PRD Mismatch**: The acceptance criteria you provided don't match the PRD found in the codebase
+   - Your criteria mention `notificationChannels` (arrays) - **IMPLEMENTED**
+   - PRD mentions `notificationPreferences` (booleans) - **NOT FOUND**
+   - PRD mentions `digestTime` field - schema has `digestSchedule` object instead
+
+2. **No evidence of Convex schema push**: Cannot verify if `convex dev` or `convex deploy` was run to sync schema changes to Convex backend
+
+### Analysis
+
+The implementation in schema.ts:2509-2534 is **more sophisticated** than the original PRD v2 requirements. It appears the design evolved from simple booleans to arrays of channel preferences, which is a more flexible approach. However, this means the **exact** acceptance criteria as written weren't met - they were exceeded with a better design.
+
+**Recommendation**: If the V2 PRD is outdated, mark as **PASS** with updated acceptance criteria. If strict adherence to original PRD required, mark as **PARTIAL** due to field name/structure differences.
+
+## Quality Monitor - 2026-01-31 14:37:24
 - ⚠️ Biome lint errors found
 
 
-## Quality Monitor - 2026-01-30 22:05:41
-- ⚠️ Biome lint errors found
+## PRD Audit - US-P9-018 - 2026-01-31 14:37:13
+## Audit Report: US-P9-018 - addComment Creates Activity Entries
 
+**STATUS: PARTIAL**
 
-## Quality Monitor - 2026-01-30 22:06:54
-- ⚠️ Biome lint errors found
+### Implementation Evidence
 
-
-## Quality Monitor - 2026-01-30 22:08:47
-- ⚠️ Biome lint errors found
-
-
-## Quality Monitor - 2026-01-30 22:10:43
-- ⚠️ Biome lint errors found
-
-
-## Quality Monitor - 2026-01-30 22:12:35
-- ⚠️ Biome lint errors found
-
-
-## PRD Audit - US-P9-001 - 2026-01-30 22:12:26
-## Audit Result: **FAIL**
-
-### Story Implementation Status
-
-The story US-P9-001 has been **partially implemented but fails a critical acceptance criterion**.
+The story has been **implemented** in `packages/backend/convex/models/teamCollaboration.ts:215-295`. The `addComment` mutation includes activity feed creation logic starting at line 270.
 
 ### Acceptance Criteria Assessment
 
-✅ **Create packages/backend/convex/models/teamCollaboration.ts** - PASS  
-   File exists at correct path
+| Criterion | Status | Evidence |
+|-----------|--------|----------|
+| Modify addComment mutation | ✅ PASS | Lines 215-295 in teamCollaboration.ts |
+| After inserting comment, insert teamActivityFeed entry | ✅ PASS | Lines 270-291 create activity entry after comment insert |
+| Activity entry fields (teamId, actorId, actionType, entityType, entityId, summary, priority) | ✅ PASS | Lines 275-290 include all required fields |
+| Summary format: '[Actor Name] commented on [Player Name]'s [Category] insight' | ✅ PASS | Line 273: matches exact format |
+| Use Better Auth adapter to get actor name | ✅ PASS | Lines 260-268 use Better Auth adapter |
+| Type check passes | ❌ FAIL | Type errors in teamCollaboration.ts:706, 727 |
+| Test in Convex dashboard | ⏳ PENDING | UAT document shows pending execution |
 
-✅ **File exports placeholder queries/mutations** - PASS  
-   Six functions exported: `getTeamPresence`, `updatePresence`, `getInsightComments`, `addComment`, `getReactions`, `toggleReaction`
+### Critical Issues
 
-❌ **CRITICAL: All functions use Better Auth adapter pattern** - **FAIL**  
-   **Zero** instances of `ctx.runQuery(components.betterAuth.adapter.findOne, {...})` pattern found in the file. The handlers are empty placeholders with no Better Auth integration.
+1. **Type Check Failures** - Line 706 references undefined variable `filteredActivities` (should be `activities`)
+2. **Unit Tests** - Test file is placeholder only (US-P9-018.test.ts:12-14)
+3. **UAT Testing** - Not executed yet (marked as "⏳ Pending Execution")
 
-✅ **Proper validators (args + returns)** - PASS  
-   All six functions have both `args` and `returns` validators properly defined
+### Implementation Details
 
-✅ **Type check passes** - PASS  
-   `npm run check-types` completed successfully with no errors
+The implementation correctly:
+- Fetches insight details (line 254)
+- Gets actor name via Better Auth adapter (lines 260-268)
+- Creates proper summary string with player name and category (line 273)
+- Inherits priority from comment (line 284)
+- Uses correct actionType "comment_added" and entityType "comment" (lines 280-282)
 
-✅ **Run npx -w packages/backend convex codegen** - PASS  
-   Codegen runs successfully, schema tables `insightComments` and `insightReactions` exist at schema.ts:1695 and schema.ts:1714
+**VERDICT: PARTIAL** - Core functionality is implemented correctly, but type errors prevent successful compilation and tests are not complete.
 
-### Critical Gap
-
-The **placeholder handlers** contain TODO comments (e.g., "TODO: Implement in US-P9-003") but do **not** demonstrate the Better Auth adapter pattern as required. The acceptance criteria explicitly states:
-
-> CRITICAL: All functions use Better Auth adapter pattern: ctx.runQuery(components.betterAuth.adapter.findOne, {...})
-
-**None of the six functions** use this pattern. They return empty arrays, null values, or throw "Not implemented yet" errors.
-
-### Recommendation
-
-The story should be marked as **incomplete** until the Better Auth adapter pattern is demonstrated in at least one placeholder function, or the acceptance criteria should be amended to clarify that this pattern will be implemented in later stories (US-P9-003, US-P9-005, US-P9-006).
-
-## Quality Monitor - 2026-01-30 22:13:51
+## Quality Monitor - 2026-01-31 14:39:38
 - ⚠️ Biome lint errors found
 
 
-## Quality Monitor - 2026-01-30 22:15:43
-- ⚠️ Biome lint errors found
-
-
-## Quality Monitor - 2026-01-30 22:17:00
-- ⚠️ Biome lint errors found
-
-
-## Quality Monitor - 2026-01-30 22:18:20
-- ⚠️ Biome lint errors found
-
-
-## PRD Audit - US-P9-002 - 2026-01-30 22:18:10
-Perfect! Now let me create a summary report:
-
----
-
-## **AUDIT REPORT: US-P9-002 (Create Database Tables)**
-
-### **Status: PARTIAL**
-
-### **Schema Implementation: ✅ COMPLETE**
-
-All four tables have been added to `packages/backend/convex/schema.ts` (commit: 9734f44f):
-
-1. **✅ insightComments** - Lines 1695-1711
-   - Fields: `insightId`, `userId`, `content`, `priority` (critical/important/normal), `parentCommentId`, `organizationId`
-   - Indexes: `by_insight`, `by_user`, `by_org`, `by_insight_and_priority`, `by_parent`
-
-2. **✅ insightReactions** - Lines 1714-1724
-   - Fields: `insightId`, `userId`, `type` (like/helpful/flag), `organizationId`
-   - Indexes: `by_insight`, `by_user`, `by_org`, `by_insight_and_user`, `by_insight_and_type`
-
-3. **✅ teamActivityFeed** - Lines 1727-1766
-   - Fields: `organizationId`, `teamId`, `actorId`, `actorName`, `actionType`, `entityId`, `summary`, `priority` (critical/important/normal), `metadata`, `timestamp`
-   - Indexes: `by_team`, `by_org`, `by_actor`, `by_team_and_priority`
-
-4. **✅ teamHubPresence** - Lines 1769-1780
-   - Fields: `userId`, `organizationId`, `teamId`, `currentView`, `lastActive`
-   - Indexes: `by_user`, `by_team`, `by_org`, `by_user_and_team`, `by_team_and_active`
-
-### **Type Check: ❌ FAILS**
-
-The schema itself is valid, but type checking fails due to **frontend code errors** in US-P9-004 (not this story):
-
-```
-apps/web/src/app/orgs/[orgId]/coach/team-hub/components/presence-indicators.tsx:17:14
-  - Type '"team"' does not satisfy the constraint 'TableNames | SystemTableNames'
-apps/web/src/app/orgs/[orgId]/coach/team-hub/components/presence-indicators.tsx:25:11  
-  - Property 'user' does not exist on type 'CurrentUser | undefined'
-```
-
-### **Missing Evidence**
-
-- No confirmation that `npx convex codegen` was run after schema changes
-- No explicit evidence of `convex schema push` (though commit suggests deployment occurred)
-
-### **Conclusion**
-
-Schema implementation is **complete and correct**. Type check failure is due to **subsequent frontend work** (US-P9-004), not the database schema itself. Story US-P9-002 acceptance criteria are met **except** for the type check requirement, which fails due to code outside the scope of this story.
-
-## Quality Monitor - 2026-01-30 22:19:37
-- ⚠️ Biome lint errors found
-
-
-## Quality Monitor - 2026-01-30 22:20:50
-- ⚠️ Biome lint errors found
-
-
-## Quality Monitor - 2026-01-30 22:22:49
-- ⚠️ Biome lint errors found
-
-
-## PRD Audit - US-P9-004 - 2026-01-30 22:25:15
-## Audit Result: **PARTIAL**
-
-### Criteria Met ✅
-1. **Component created** - `presence-indicators.tsx` exists at correct path
-2. **Avatar display with +N** - Max 5 visible, remainder shown as "+N" (lines 48-114)
-3. **Tooltips** - Shows name, current view, last active (lines 95-107)
-4. **Real-time updates** - Uses `useQuery` with `api.models.teamCollaboration.getTeamPresence` (line 25)
-5. **Status rings** - Green for active, gray for idle/away (lines 84-92)
-6. **Current user excluded** - Filters out `user?._id` (line 42)
-7. **Loading skeleton** - 3 skeleton avatars while loading (lines 30-39)
-8. **Type check passes** - Confirmed via `npm run check-types` (0 errors)
-
-### Missing/Not Verified ❌
-1. **Visual verification using dev-browser** - CRITICAL acceptance criterion not met
-   - UAT test file shows "⏳ Pending Execution" (line 4)
-   - All checklist items unchecked (lines 11-19)
-   - No evidence of dev-browser verification performed
-
-2. **Component not integrated** - Component exists but not imported/used anywhere
-   - `team-hub` directory has only `components/` folder, no `page.tsx`
-   - No imports of `PresenceIndicators` found in codebase
-   - Component cannot be tested in real application
-
-### Summary
-The component implementation is **technically complete** with high code quality, but the story requires visual verification using dev-browser to confirm real-time presence updates work as expected. This acceptance criterion is explicitly marked as "REQUIRED" and has not been executed.
-
-## Quality Monitor - 2026-01-30 22:25:48
-- ⚠️ Biome lint errors found
-
-
-## Quality Monitor - 2026-01-30 22:27:07
-- ⚠️ Biome lint errors found
-
-
-## Quality Monitor - 2026-01-30 22:28:25
-- ⚠️ Biome lint errors found
-
-
-## Quality Monitor - 2026-01-30 22:30:01
-- ⚠️ Biome lint errors found
-
-
-## Documentation Update - 2026-01-30 22:30
-- ✅ Feature documentation generated: `docs/features/team-collaboration-hub-p9.md`
-- Phase complete: Phase 9 Week 1 - Collaboration Foundations + AI Copilot Backend
-
-## Quality Monitor - 2026-01-30 22:31:24
+## Quality Monitor - 2026-01-31 14:40:58
 - ⚠️ Biome lint errors found
 

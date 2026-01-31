@@ -1,5 +1,6 @@
 import { v } from "convex/values";
 import { components } from "../_generated/api";
+import type { Id } from "../_generated/dataModel";
 import { mutation, query } from "../_generated/server";
 
 // ============================================================
@@ -639,36 +640,105 @@ export const getTeamActivityFeed = query({
   handler: async (ctx, args) => {
     const limit = Math.min(args.limit || 50, 100); // Default 50, max 100
 
-    // Get activity entries for this team
-    const activities = await ctx.db
-      .query("teamActivityFeed")
-      .withIndex("by_team", (q) => q.eq("teamId", args.teamId))
-      .order("desc")
-      .take(limit);
+    // Map filterType to actionTypes
+    type ActionType =
+      | "voice_note_added"
+      | "insight_applied"
+      | "comment_added"
+      | "player_assessed"
+      | "goal_created"
+      | "injury_logged";
 
-    // Filter by type if specified
-    const filteredActivities =
-      args.filterType && args.filterType !== "all"
-        ? activities.filter((activity) => {
-            // Map filterType to actionType
-            const typeMapping: Record<string, string[]> = {
-              insights: ["voice_note_added", "insight_applied"],
-              comments: ["comment_added"],
-              reactions: [], // Reactions are not actionType, they're tracked differently
-              sessions: [], // Sessions not implemented yet
-              votes: [], // Votes not implemented yet
-            };
+    const typeMapping: Record<string, ActionType[]> = {
+      insights: ["voice_note_added", "insight_applied"],
+      comments: ["comment_added"],
+      reactions: [], // Reactions are not actionType, they're tracked differently
+      sessions: [], // Sessions not implemented yet
+      votes: [], // Votes not implemented yet
+    };
 
-            const allowedTypes = typeMapping[args.filterType || "all"] || [];
-            return allowedTypes.includes(activity.actionType);
-          })
-        : activities;
+    type EntityType =
+      | "voice_note"
+      | "insight"
+      | "comment"
+      | "skill_assessment"
+      | "goal"
+      | "injury";
+
+    type ActivityDoc = {
+      _id: Id<"teamActivityFeed">;
+      _creationTime: number;
+      organizationId: string;
+      teamId: string;
+      actorId: string;
+      actorName: string;
+      actionType: ActionType;
+      entityType: EntityType;
+      entityId: string;
+      summary: string;
+      priority: "critical" | "important" | "normal";
+      metadata?: {
+        playerName?: string;
+        insightTitle?: string;
+        commentPreview?: string;
+      };
+    };
+
+    let activities: ActivityDoc[];
+
+    // Use index-based filtering instead of .filter()
+    if (!args.filterType || args.filterType === "all") {
+      // Fetch all activities for the team
+      activities = await ctx.db
+        .query("teamActivityFeed")
+        .withIndex("by_team", (q) => q.eq("teamId", args.teamId))
+        .order("desc")
+        .take(limit);
+    } else {
+      // Get actionTypes for this filter
+      const actionTypes = typeMapping[args.filterType] || [];
+
+      if (actionTypes.length === 0) {
+        // No activities for this filter type (sessions, votes, reactions not implemented)
+        activities = [];
+      } else if (actionTypes.length === 1) {
+        // Single actionType - use index directly
+        activities = await ctx.db
+          .query("teamActivityFeed")
+          .withIndex("by_team_and_actionType", (q) =>
+            q.eq("teamId", args.teamId).eq("actionType", actionTypes[0])
+          )
+          .order("desc")
+          .take(limit);
+      } else {
+        // Multiple actionTypes (e.g., insights = voice_note_added + insight_applied)
+        // Fetch for each actionType, then merge and sort
+        const activitySets = await Promise.all(
+          actionTypes.map((actionType) =>
+            ctx.db
+              .query("teamActivityFeed")
+              .withIndex("by_team_and_actionType", (q) =>
+                q.eq("teamId", args.teamId).eq("actionType", actionType)
+              )
+              .order("desc")
+              .take(limit)
+              .then((results) => results)
+          )
+        );
+
+        // Merge all results
+        const merged = activitySets.flat();
+
+        // Sort by _creationTime descending and take limit
+        activities = merged
+          .sort((a, b) => b._creationTime - a._creationTime)
+          .slice(0, limit);
+      }
+    }
 
     // Enrich with user avatar using Better Auth adapter
     // Use batch fetch pattern to avoid N+1 queries
-    const uniqueActorIds = [
-      ...new Set(filteredActivities.map((a) => a.actorId)),
-    ];
+    const uniqueActorIds = [...new Set(activities.map((a) => a.actorId))];
 
     const usersData = await Promise.all(
       uniqueActorIds.map((actorId) =>
@@ -688,13 +758,15 @@ export const getTeamActivityFeed = query({
     }
 
     // Enrich activities with user avatar
-    return filteredActivities.map((activity) => {
+    return activities.map((activity) => {
       const user = userMap.get(activity.actorId);
+      const actorAvatar: string | undefined =
+        typeof user?.image === "string" ? user.image : undefined;
       return {
         _id: activity._id,
         actorId: activity.actorId,
         actorName: activity.actorName,
-        actorAvatar: user?.image || undefined,
+        actorAvatar,
         actionType: activity.actionType,
         entityType: activity.entityType,
         entityId: activity.entityId,

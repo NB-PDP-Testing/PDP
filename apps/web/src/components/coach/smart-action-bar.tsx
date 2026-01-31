@@ -134,6 +134,11 @@ export function SmartActionBar({
                   <p className="text-muted-foreground text-xs">
                     {suggestion.description}
                   </p>
+                  {suggestion.reasoning && (
+                    <p className="mt-1 text-muted-foreground text-xs italic">
+                      Why: {suggestion.reasoning}
+                    </p>
+                  )}
                 </div>
               </TooltipContent>
             </Tooltip>

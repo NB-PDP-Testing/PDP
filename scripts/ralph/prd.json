@@ -88,7 +88,7 @@
         "Visual verification - dropdown appears, navigation works"
       ],
       "priority": 4,
-      "passes": false
+      "passes": true
     },
     {
       "id": "US-P9-013",
@@ -104,7 +104,7 @@
         "Type check passes"
       ],
       "priority": 5,
-      "passes": false
+      "passes": true
     },
     {
       "id": "US-P9-014",
@@ -178,7 +178,7 @@
         "Visual verification - reactions toggle, counts update, tooltip shows users"
       ],
       "priority": 9,
-      "passes": false
+      "passes": true
     },
     {
       "id": "US-P9-018",
@@ -211,7 +211,7 @@
         "Run npx -w packages/backend convex codegen"
       ],
       "priority": 11,
-      "passes": false
+      "passes": true
     },
     {
       "id": "US-P9-042",
@@ -230,7 +230,7 @@
         "Test in Convex dashboard - returns relevant suggestions"
       ],
       "priority": 12,
-      "passes": false
+      "passes": true
     },
     {
       "id": "US-P9-043",
@@ -247,7 +247,7 @@
         "Type check passes"
       ],
       "priority": 13,
-      "passes": false
+      "passes": true
     },
     {
       "id": "US-P9-044",
@@ -268,7 +268,7 @@
         "Visual verification - suggestions appear, actions execute, tooltips work"
       ],
       "priority": 14,
-      "passes": false
+      "passes": true
     }
   ]
 }

@@ -48,3 +48,5 @@ export {
 } from "./page-skeleton";
 // Table skeletons
 export { TableRowSkeleton, TableSkeleton } from "./table-skeleton";
+// Tabs skeleton
+export { TabsSkeleton } from "./tabs-skeleton";

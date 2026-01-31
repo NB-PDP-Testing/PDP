@@ -58,6 +58,7 @@ import { Textarea } from "@/components/ui/textarea";
 import { useSession } from "@/lib/auth-client";
 import { cn } from "@/lib/utils";
 import { InsightReactions } from "./insight-reactions";
+import { InsightsViewContainer } from "./insights-view-container";
 
 type InsightsTabProps = {
   orgId: BetterAuthId<"organization">;
@@ -1139,107 +1140,109 @@ export function InsightsTab({ orgId, onSuccess, onError }: InsightsTabProps) {
         </TabsList>
 
         <TabsContent className="mt-4 space-y-4" value="pending">
-          {/* Needs Attention Section - Unmatched players and uncategorized insights */}
-          {needsAttentionCount > 0 && (
-            <Card className="border-amber-300 bg-amber-50">
-              <CardHeader className="pb-3 sm:pb-4">
-                <CardTitle className="flex items-center gap-2 text-amber-800 text-lg sm:text-xl">
-                  <AlertTriangle className="h-5 w-5" />
-                  Needs Your Help ({needsAttentionCount})
-                </CardTitle>
-                <CardDescription className="text-amber-700 text-xs sm:text-sm">
-                  {unmatchedInsights.length > 0 &&
-                    `${unmatchedInsights.length} insight${unmatchedInsights.length !== 1 ? "s" : ""} mention players we couldn't match. `}
-                  {teamInsightsNeedingAssignment.length > 0 &&
-                    `${teamInsightsNeedingAssignment.length} team insight${teamInsightsNeedingAssignment.length !== 1 ? "s" : ""} need team assignment. `}
-                  {unassignedTodoInsights.length > 0 &&
-                    `${unassignedTodoInsights.length} TODO${unassignedTodoInsights.length !== 1 ? "s" : ""} need coach assignment. `}
-                  {uncategorizedInsights.length > 0 &&
-                    `${uncategorizedInsights.length} insight${uncategorizedInsights.length !== 1 ? "s" : ""} need classification.`}
-                </CardDescription>
-              </CardHeader>
-              <CardContent className="space-y-3">
-                {/* All needs-attention insights sorted by most recent */}
-                {needsAttentionInsights.map((insight) => {
-                  // Determine type based on what's missing
-                  let type:
-                    | "matched"
-                    | "unmatched"
-                    | "classified"
-                    | "uncategorized" = "uncategorized";
-                  if (insight.playerName) {
-                    type = "unmatched"; // Has player name but not matched
-                  } else if (
-                    insight.category === "team_culture" &&
-                    !(insight as any).teamId
-                  ) {
-                    type = "uncategorized"; // Team insight needing team assignment
-                  }
-                  return renderInsightCard(insight, type);
-                })}
-              </CardContent>
-            </Card>
-          )}
-
-          {/* Ready to Apply - Matched players and classified team insights */}
-          <Card>
-            <CardHeader className="pb-3 sm:pb-6">
-              <div className="flex items-start justify-between gap-2">
-                <div>
-                  <CardTitle className="flex items-center gap-2 text-lg sm:text-xl">
-                    <Lightbulb className="h-5 w-5 text-yellow-600" />
-                    AI Insights
+          <InsightsViewContainer orgId={orgId}>
+            {/* Needs Attention Section - Unmatched players and uncategorized insights */}
+            {needsAttentionCount > 0 && (
+              <Card className="border-amber-300 bg-amber-50">
+                <CardHeader className="pb-3 sm:pb-4">
+                  <CardTitle className="flex items-center gap-2 text-amber-800 text-lg sm:text-xl">
+                    <AlertTriangle className="h-5 w-5" />
+                    Needs Your Help ({needsAttentionCount})
                   </CardTitle>
-                  <CardDescription className="text-xs sm:text-sm">
-                    {readyToApplyCount > 0
-                      ? `${readyToApplyCount} insight${readyToApplyCount !== 1 ? "s" : ""} ready to apply`
-                      : "No insights ready to apply"}
-                    {needsAttentionCount > 0 &&
-                      ` • ${needsAttentionCount} need${needsAttentionCount !== 1 ? "" : "s"} your attention above`}
+                  <CardDescription className="text-amber-700 text-xs sm:text-sm">
+                    {unmatchedInsights.length > 0 &&
+                      `${unmatchedInsights.length} insight${unmatchedInsights.length !== 1 ? "s" : ""} mention players we couldn't match. `}
+                    {teamInsightsNeedingAssignment.length > 0 &&
+                      `${teamInsightsNeedingAssignment.length} team insight${teamInsightsNeedingAssignment.length !== 1 ? "s" : ""} need team assignment. `}
+                    {unassignedTodoInsights.length > 0 &&
+                      `${unassignedTodoInsights.length} TODO${unassignedTodoInsights.length !== 1 ? "s" : ""} need coach assignment. `}
+                    {uncategorizedInsights.length > 0 &&
+                      `${uncategorizedInsights.length} insight${uncategorizedInsights.length !== 1 ? "s" : ""} need classification.`}
                   </CardDescription>
-                </div>
-                {readyToApplyCount > 1 && (
-                  <Button
-                    className="h-8 shrink-0 gap-1.5 bg-green-600 px-3 hover:bg-green-700 sm:h-9"
-                    disabled={isBulkApplying}
-                    onClick={() => handleBulkApply(readyToApplyInsights)}
-                    size="sm"
-                  >
-                    {isBulkApplying ? (
-                      <>
-                        <Loader2 className="h-4 w-4 animate-spin" />
-                        Applying...
-                      </>
-                    ) : (
-                      <>
-                        <CheckCircle className="h-4 w-4" />
-                        Apply All ({readyToApplyCount})
-                      </>
-                    )}
-                  </Button>
-                )}
-              </div>
-            </CardHeader>
-            <CardContent className="space-y-3">
-              {readyToApplyCount === 0 ? (
-                <p className="py-4 text-center text-gray-500 text-sm">
-                  {needsAttentionCount > 0
-                    ? "Resolve the insights above to see them here."
-                    : "No pending insights."}
-                </p>
-              ) : (
-                <>
-                  {/* All ready-to-apply insights sorted by most recent */}
-                  {readyToApplyInsights.map((insight) => {
-                    const type = insight.playerIdentityId
-                      ? "matched"
-                      : "classified";
+                </CardHeader>
+                <CardContent className="space-y-3">
+                  {/* All needs-attention insights sorted by most recent */}
+                  {needsAttentionInsights.map((insight) => {
+                    // Determine type based on what's missing
+                    let type:
+                      | "matched"
+                      | "unmatched"
+                      | "classified"
+                      | "uncategorized" = "uncategorized";
+                    if (insight.playerName) {
+                      type = "unmatched"; // Has player name but not matched
+                    } else if (
+                      insight.category === "team_culture" &&
+                      !(insight as any).teamId
+                    ) {
+                      type = "uncategorized"; // Team insight needing team assignment
+                    }
                     return renderInsightCard(insight, type);
                   })}
-                </>
-              )}
-            </CardContent>
-          </Card>
+                </CardContent>
+              </Card>
+            )}
+
+            {/* Ready to Apply - Matched players and classified team insights */}
+            <Card>
+              <CardHeader className="pb-3 sm:pb-6">
+                <div className="flex items-start justify-between gap-2">
+                  <div>
+                    <CardTitle className="flex items-center gap-2 text-lg sm:text-xl">
+                      <Lightbulb className="h-5 w-5 text-yellow-600" />
+                      AI Insights
+                    </CardTitle>
+                    <CardDescription className="text-xs sm:text-sm">
+                      {readyToApplyCount > 0
+                        ? `${readyToApplyCount} insight${readyToApplyCount !== 1 ? "s" : ""} ready to apply`
+                        : "No insights ready to apply"}
+                      {needsAttentionCount > 0 &&
+                        ` • ${needsAttentionCount} need${needsAttentionCount !== 1 ? "" : "s"} your attention above`}
+                    </CardDescription>
+                  </div>
+                  {readyToApplyCount > 1 && (
+                    <Button
+                      className="h-8 shrink-0 gap-1.5 bg-green-600 px-3 hover:bg-green-700 sm:h-9"
+                      disabled={isBulkApplying}
+                      onClick={() => handleBulkApply(readyToApplyInsights)}
+                      size="sm"
+                    >
+                      {isBulkApplying ? (
+                        <>
+                          <Loader2 className="h-4 w-4 animate-spin" />
+                          Applying...
+                        </>
+                      ) : (
+                        <>
+                          <CheckCircle className="h-4 w-4" />
+                          Apply All ({readyToApplyCount})
+                        </>
+                      )}
+                    </Button>
+                  )}
+                </div>
+              </CardHeader>
+              <CardContent className="space-y-3">
+                {readyToApplyCount === 0 ? (
+                  <p className="py-4 text-center text-gray-500 text-sm">
+                    {needsAttentionCount > 0
+                      ? "Resolve the insights above to see them here."
+                      : "No pending insights."}
+                  </p>
+                ) : (
+                  <>
+                    {/* All ready-to-apply insights sorted by most recent */}
+                    {readyToApplyInsights.map((insight) => {
+                      const type = insight.playerIdentityId
+                        ? "matched"
+                        : "classified";
+                      return renderInsightCard(insight, type);
+                    })}
+                  </>
+                )}
+              </CardContent>
+            </Card>
+          </InsightsViewContainer>
         </TabsContent>
 
         <TabsContent className="mt-4" value="auto-applied">

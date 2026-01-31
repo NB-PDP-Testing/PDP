@@ -1,173 +1,1414 @@
 
-## Quality Monitor - 2026-01-31 14:35:17
+## 🔒 Security Audit - 2026-01-31 20:57:23
+
+## ⚠️ MEDIUM: XSS Risk Detected
+Found dangerouslySetInnerHTML usage:
+```
+apps/web/src/components/ui/confetti.tsx:        dangerouslySetInnerHTML={{
+apps/web/src/components/ui/chart.tsx:      dangerouslySetInnerHTML={{
+apps/web/src/components/onboarding/gdpr-policy-viewer.tsx: * Uses dangerouslySetInnerHTML to avoid React key issues with static content.
+apps/web/src/components/onboarding/gdpr-policy-viewer.tsx:      dangerouslySetInnerHTML={{ __html: htmlContent }}
+```
+**Fix:** Sanitize with DOMPurify before rendering
+
+## ℹ️ INFO: Debug Logging Found
+Files with console.log:
+- apps/web/src/contexts/session-plan-context.tsx
+- apps/web/src/app/demo/ux-mockups/page.tsx
+- apps/web/src/app/orgs/join/page.tsx
+- apps/web/src/app/orgs/accept-invitation/[invitationId]/page.tsx
+- apps/web/src/app/orgs/[orgId]/admin/player-import/page.tsx
+**Action:** Remove debug logging before production
+
+## ⚠️ MEDIUM: Possible Missing Authorization
+Mutations without auth checks:
+packages/backend/convex/models/platformMessagingSettings.ts
+packages/backend/convex/models/passportComparison.ts
+packages/backend/convex/models/trustGatePermissions.ts
+packages/backend/convex/models/ageGroupEligibilityOverrides.ts
+packages/backend/convex/models/teamCollaboration.ts
+packages/backend/convex/models/guardianIdentities.ts
+packages/backend/convex/models/sessionPlans.ts
+packages/backend/convex/models/adultPlayers.ts
+packages/backend/convex/models/demoAsks.ts
+packages/backend/convex/models/skillBenchmarks.ts
+packages/backend/convex/models/coaches.ts
+packages/backend/convex/models/medicalProfiles.ts
+packages/backend/convex/models/invitations.ts
+packages/backend/convex/models/flows.ts
+packages/backend/convex/models/notifications.ts
+packages/backend/convex/models/teamObservations.ts
+packages/backend/convex/models/passportGoals.ts
+packages/backend/convex/models/players.ts
+packages/backend/convex/models/orgInjuryNotes.ts
+packages/backend/convex/models/playerImport.ts
+packages/backend/convex/models/passportEnquiries.ts
+packages/backend/convex/models/setup.ts
+packages/backend/convex/models/teamPlayerIdentities.ts
+packages/backend/convex/models/rateLimits.ts
+packages/backend/convex/models/platformStaffInvitations.ts
+packages/backend/convex/models/coachParentMessages.ts
+packages/backend/convex/models/aiModelConfig.ts
+packages/backend/convex/models/orgPlayerEnrollments.ts
+packages/backend/convex/models/sportPassports.ts
+packages/backend/convex/models/orgJoinRequests.ts
+packages/backend/convex/models/sportAgeGroupConfig.ts
+packages/backend/convex/models/referenceData.ts
+packages/backend/convex/models/notificationPreferences.ts
+packages/backend/convex/models/userPreferences.ts
+packages/backend/convex/models/teams.ts
+packages/backend/convex/models/gdpr.ts
+packages/backend/convex/models/emergencyContacts.ts
+packages/backend/convex/models/coachTrustLevels.ts
+packages/backend/convex/models/coachParentSummaries.ts
+packages/backend/convex/models/onboarding.ts
+packages/backend/convex/models/guardianPlayerLinks.ts
+packages/backend/convex/models/orgGuardianProfiles.ts
+packages/backend/convex/models/passportSharing.ts
+packages/backend/convex/models/playerGraduations.ts
+packages/backend/convex/models/members.ts
+packages/backend/convex/models/users.ts
+packages/backend/convex/models/skillAssessments.ts
+packages/backend/convex/models/playerSelfAccess.ts
+packages/backend/convex/models/aiServiceHealth.ts
+packages/backend/convex/models/sports.ts
+packages/backend/convex/models/fixNeilsRoles.ts
+packages/backend/convex/models/playerIdentities.ts
+packages/backend/convex/models/voiceNotes.ts
+packages/backend/convex/models/guardianManagement.ts
+packages/backend/convex/models/playerInjuries.ts
+packages/backend/convex/models/voiceNoteInsights.ts
+packages/backend/convex/models/playerEmergencyContacts.ts
+packages/backend/convex/models/coachTasks.ts**Fix:** Add getUserOrgRole() check in mutations
+
+
+**Summary:** 0 high, 2 medium, 1 low severity issues
+
+
+## Quality Monitor - 2026-01-31 20:57:35
 - ⚠️ Biome lint errors found
 
 
-## PRD Audit - US-P9-014 - 2026-01-31 14:35:19
-## Audit Report: US-P9-014
+## 🔒 Security Audit - 2026-01-31 20:58:56
 
-**Status: PARTIAL**
+## ⚠️ MEDIUM: XSS Risk Detected
+Found dangerouslySetInnerHTML usage:
+```
+apps/web/src/components/ui/confetti.tsx:        dangerouslySetInnerHTML={{
+apps/web/src/components/ui/chart.tsx:      dangerouslySetInnerHTML={{
+apps/web/src/components/onboarding/gdpr-policy-viewer.tsx: * Uses dangerouslySetInnerHTML to avoid React key issues with static content.
+apps/web/src/components/onboarding/gdpr-policy-viewer.tsx:      dangerouslySetInnerHTML={{ __html: htmlContent }}
+```
+**Fix:** Sanitize with DOMPurify before rendering
 
-### What's Implemented ✅
+## ℹ️ INFO: Debug Logging Found
+Files with console.log:
+- apps/web/src/contexts/session-plan-context.tsx
+- apps/web/src/app/demo/ux-mockups/page.tsx
+- apps/web/src/app/orgs/join/page.tsx
+- apps/web/src/app/orgs/accept-invitation/[invitationId]/page.tsx
+- apps/web/src/app/orgs/[orgId]/admin/player-import/page.tsx
+**Action:** Remove debug logging before production
 
-1. **Schema Extended**: `coachOrgPreferences` table in `packages/backend/convex/schema.ts:2476` has been extended
-2. **notificationChannels field added** (schema.ts:2513-2519):
-   - Structure: `{ critical: string[], important: string[], normal: string[] }`
-   - Values documented as: "push", "email", "digest", "none"
-   - Defaults documented: ["push", "email"] for all levels
-3. **digestSchedule field added** (schema.ts:2521-2526):
-   - Structure: `{ enabled: boolean, time: string }`
-   - Example documented: '08:00'
-   - Default documented: false
-4. **quietHours field added** (schema.ts:2528-2534):
-   - Structure: `{ enabled: boolean, start: string, end: string }`
-   - Example documented: '22:00' to '08:00'
-   - Default documented: false
-5. **Type check passes**: Confirmed via `npm run check-types`
+## ⚠️ MEDIUM: Possible Missing Authorization
+Mutations without auth checks:
+packages/backend/convex/models/platformMessagingSettings.ts
+packages/backend/convex/models/passportComparison.ts
+packages/backend/convex/models/trustGatePermissions.ts
+packages/backend/convex/models/ageGroupEligibilityOverrides.ts
+packages/backend/convex/models/teamCollaboration.ts
+packages/backend/convex/models/guardianIdentities.ts
+packages/backend/convex/models/sessionPlans.ts
+packages/backend/convex/models/adultPlayers.ts
+packages/backend/convex/models/demoAsks.ts
+packages/backend/convex/models/skillBenchmarks.ts
+packages/backend/convex/models/coaches.ts
+packages/backend/convex/models/medicalProfiles.ts
+packages/backend/convex/models/invitations.ts
+packages/backend/convex/models/flows.ts
+packages/backend/convex/models/notifications.ts
+packages/backend/convex/models/teamObservations.ts
+packages/backend/convex/models/passportGoals.ts
+packages/backend/convex/models/players.ts
+packages/backend/convex/models/orgInjuryNotes.ts
+packages/backend/convex/models/playerImport.ts
+packages/backend/convex/models/passportEnquiries.ts
+packages/backend/convex/models/setup.ts
+packages/backend/convex/models/teamPlayerIdentities.ts
+packages/backend/convex/models/rateLimits.ts
+packages/backend/convex/models/platformStaffInvitations.ts
+packages/backend/convex/models/coachParentMessages.ts
+packages/backend/convex/models/aiModelConfig.ts
+packages/backend/convex/models/orgPlayerEnrollments.ts
+packages/backend/convex/models/sportPassports.ts
+packages/backend/convex/models/orgJoinRequests.ts
+packages/backend/convex/models/sportAgeGroupConfig.ts
+packages/backend/convex/models/referenceData.ts
+packages/backend/convex/models/notificationPreferences.ts
+packages/backend/convex/models/userPreferences.ts
+packages/backend/convex/models/teams.ts
+packages/backend/convex/models/gdpr.ts
+packages/backend/convex/models/emergencyContacts.ts
+packages/backend/convex/models/coachTrustLevels.ts
+packages/backend/convex/models/coachParentSummaries.ts
+packages/backend/convex/models/onboarding.ts
+packages/backend/convex/models/guardianPlayerLinks.ts
+packages/backend/convex/models/orgGuardianProfiles.ts
+packages/backend/convex/models/passportSharing.ts
+packages/backend/convex/models/playerGraduations.ts
+packages/backend/convex/models/members.ts
+packages/backend/convex/models/users.ts
+packages/backend/convex/models/skillAssessments.ts
+packages/backend/convex/models/playerSelfAccess.ts
+packages/backend/convex/models/aiServiceHealth.ts
+packages/backend/convex/models/sports.ts
+packages/backend/convex/models/fixNeilsRoles.ts
+packages/backend/convex/models/playerIdentities.ts
+packages/backend/convex/models/voiceNotes.ts
+packages/backend/convex/models/guardianManagement.ts
+packages/backend/convex/models/playerInjuries.ts
+packages/backend/convex/models/voiceNoteInsights.ts
+packages/backend/convex/models/playerEmergencyContacts.ts
+packages/backend/convex/models/coachTasks.ts**Fix:** Add getUserOrgRole() check in mutations
 
-### What's Missing ❌
 
-1. **PRD Mismatch**: The acceptance criteria you provided don't match the PRD found in the codebase
-   - Your criteria mention `notificationChannels` (arrays) - **IMPLEMENTED**
-   - PRD mentions `notificationPreferences` (booleans) - **NOT FOUND**
-   - PRD mentions `digestTime` field - schema has `digestSchedule` object instead
+**Summary:** 0 high, 2 medium, 1 low severity issues
 
-2. **No evidence of Convex schema push**: Cannot verify if `convex dev` or `convex deploy` was run to sync schema changes to Convex backend
 
-### Analysis
+## 🔒 Security Audit - 2026-01-31 20:59:14
 
-The implementation in schema.ts:2509-2534 is **more sophisticated** than the original PRD v2 requirements. It appears the design evolved from simple booleans to arrays of channel preferences, which is a more flexible approach. However, this means the **exact** acceptance criteria as written weren't met - they were exceeded with a better design.
+## ⚠️ MEDIUM: XSS Risk Detected
+Found dangerouslySetInnerHTML usage:
+```
+apps/web/src/components/ui/confetti.tsx:        dangerouslySetInnerHTML={{
+apps/web/src/components/ui/chart.tsx:      dangerouslySetInnerHTML={{
+apps/web/src/components/onboarding/gdpr-policy-viewer.tsx: * Uses dangerouslySetInnerHTML to avoid React key issues with static content.
+apps/web/src/components/onboarding/gdpr-policy-viewer.tsx:      dangerouslySetInnerHTML={{ __html: htmlContent }}
+```
+**Fix:** Sanitize with DOMPurify before rendering
 
-**Recommendation**: If the V2 PRD is outdated, mark as **PASS** with updated acceptance criteria. If strict adherence to original PRD required, mark as **PARTIAL** due to field name/structure differences.
+## ℹ️ INFO: Debug Logging Found
+Files with console.log:
+- apps/web/src/contexts/session-plan-context.tsx
+- apps/web/src/app/demo/ux-mockups/page.tsx
+- apps/web/src/app/orgs/join/page.tsx
+- apps/web/src/app/orgs/accept-invitation/[invitationId]/page.tsx
+- apps/web/src/app/orgs/[orgId]/admin/player-import/page.tsx
+**Action:** Remove debug logging before production
 
-## Quality Monitor - 2026-01-31 14:37:24
+## ⚠️ MEDIUM: Possible Missing Authorization
+Mutations without auth checks:
+packages/backend/convex/models/platformMessagingSettings.ts
+packages/backend/convex/models/passportComparison.ts
+packages/backend/convex/models/trustGatePermissions.ts
+packages/backend/convex/models/ageGroupEligibilityOverrides.ts
+packages/backend/convex/models/teamCollaboration.ts
+packages/backend/convex/models/guardianIdentities.ts
+packages/backend/convex/models/sessionPlans.ts
+packages/backend/convex/models/adultPlayers.ts
+packages/backend/convex/models/demoAsks.ts
+packages/backend/convex/models/skillBenchmarks.ts
+packages/backend/convex/models/coaches.ts
+packages/backend/convex/models/medicalProfiles.ts
+packages/backend/convex/models/invitations.ts
+packages/backend/convex/models/flows.ts
+packages/backend/convex/models/notifications.ts
+packages/backend/convex/models/teamObservations.ts
+packages/backend/convex/models/passportGoals.ts
+packages/backend/convex/models/players.ts
+packages/backend/convex/models/orgInjuryNotes.ts
+packages/backend/convex/models/playerImport.ts
+packages/backend/convex/models/passportEnquiries.ts
+packages/backend/convex/models/setup.ts
+packages/backend/convex/models/teamPlayerIdentities.ts
+packages/backend/convex/models/rateLimits.ts
+packages/backend/convex/models/platformStaffInvitations.ts
+packages/backend/convex/models/coachParentMessages.ts
+packages/backend/convex/models/aiModelConfig.ts
+packages/backend/convex/models/orgPlayerEnrollments.ts
+packages/backend/convex/models/sportPassports.ts
+packages/backend/convex/models/orgJoinRequests.ts
+packages/backend/convex/models/sportAgeGroupConfig.ts
+packages/backend/convex/models/referenceData.ts
+packages/backend/convex/models/notificationPreferences.ts
+packages/backend/convex/models/userPreferences.ts
+packages/backend/convex/models/teams.ts
+packages/backend/convex/models/gdpr.ts
+packages/backend/convex/models/emergencyContacts.ts
+packages/backend/convex/models/coachTrustLevels.ts
+packages/backend/convex/models/coachParentSummaries.ts
+packages/backend/convex/models/onboarding.ts
+packages/backend/convex/models/guardianPlayerLinks.ts
+packages/backend/convex/models/orgGuardianProfiles.ts
+packages/backend/convex/models/passportSharing.ts
+packages/backend/convex/models/playerGraduations.ts
+packages/backend/convex/models/members.ts
+packages/backend/convex/models/users.ts
+packages/backend/convex/models/skillAssessments.ts
+packages/backend/convex/models/playerSelfAccess.ts
+packages/backend/convex/models/aiServiceHealth.ts
+packages/backend/convex/models/sports.ts
+packages/backend/convex/models/fixNeilsRoles.ts
+packages/backend/convex/models/playerIdentities.ts
+packages/backend/convex/models/voiceNotes.ts
+packages/backend/convex/models/guardianManagement.ts
+packages/backend/convex/models/playerInjuries.ts
+packages/backend/convex/models/voiceNoteInsights.ts
+packages/backend/convex/models/playerEmergencyContacts.ts
+packages/backend/convex/models/coachTasks.ts**Fix:** Add getUserOrgRole() check in mutations
+
+
+**Summary:** 0 high, 2 medium, 1 low severity issues
+
+
+## Quality Monitor - 2026-01-31 20:59:06
 - ⚠️ Biome lint errors found
 
 
-## PRD Audit - US-P9-018 - 2026-01-31 14:37:13
-## Audit Report: US-P9-018 - addComment Creates Activity Entries
-
-**STATUS: PARTIAL**
-
-### Implementation Evidence
-
-The story has been **implemented** in `packages/backend/convex/models/teamCollaboration.ts:215-295`. The `addComment` mutation includes activity feed creation logic starting at line 270.
-
-### Acceptance Criteria Assessment
-
-| Criterion | Status | Evidence |
-|-----------|--------|----------|
-| Modify addComment mutation | ✅ PASS | Lines 215-295 in teamCollaboration.ts |
-| After inserting comment, insert teamActivityFeed entry | ✅ PASS | Lines 270-291 create activity entry after comment insert |
-| Activity entry fields (teamId, actorId, actionType, entityType, entityId, summary, priority) | ✅ PASS | Lines 275-290 include all required fields |
-| Summary format: '[Actor Name] commented on [Player Name]'s [Category] insight' | ✅ PASS | Line 273: matches exact format |
-| Use Better Auth adapter to get actor name | ✅ PASS | Lines 260-268 use Better Auth adapter |
-| Type check passes | ❌ FAIL | Type errors in teamCollaboration.ts:706, 727 |
-| Test in Convex dashboard | ⏳ PENDING | UAT document shows pending execution |
-
-### Critical Issues
-
-1. **Type Check Failures** - Line 706 references undefined variable `filteredActivities` (should be `activities`)
-2. **Unit Tests** - Test file is placeholder only (US-P9-018.test.ts:12-14)
-3. **UAT Testing** - Not executed yet (marked as "⏳ Pending Execution")
-
-### Implementation Details
-
-The implementation correctly:
-- Fetches insight details (line 254)
-- Gets actor name via Better Auth adapter (lines 260-268)
-- Creates proper summary string with player name and category (line 273)
-- Inherits priority from comment (line 284)
-- Uses correct actionType "comment_added" and entityType "comment" (lines 280-282)
-
-**VERDICT: PARTIAL** - Core functionality is implemented correctly, but type errors prevent successful compilation and tests are not complete.
-
-## Quality Monitor - 2026-01-31 14:39:38
+## Quality Monitor - 2026-01-31 21:00:41
 - ⚠️ Biome lint errors found
 
 
-## Quality Monitor - 2026-01-31 14:40:58
+## 🔒 Security Audit - 2026-01-31 21:01:21
+
+## ⚠️ MEDIUM: XSS Risk Detected
+Found dangerouslySetInnerHTML usage:
+```
+apps/web/src/components/ui/confetti.tsx:        dangerouslySetInnerHTML={{
+apps/web/src/components/ui/chart.tsx:      dangerouslySetInnerHTML={{
+apps/web/src/components/onboarding/gdpr-policy-viewer.tsx: * Uses dangerouslySetInnerHTML to avoid React key issues with static content.
+apps/web/src/components/onboarding/gdpr-policy-viewer.tsx:      dangerouslySetInnerHTML={{ __html: htmlContent }}
+```
+**Fix:** Sanitize with DOMPurify before rendering
+
+## ℹ️ INFO: Debug Logging Found
+Files with console.log:
+- apps/web/src/contexts/session-plan-context.tsx
+- apps/web/src/app/demo/ux-mockups/page.tsx
+- apps/web/src/app/orgs/join/page.tsx
+- apps/web/src/app/orgs/accept-invitation/[invitationId]/page.tsx
+- apps/web/src/app/orgs/[orgId]/admin/player-import/page.tsx
+**Action:** Remove debug logging before production
+
+## ⚠️ MEDIUM: Possible Missing Authorization
+Mutations without auth checks:
+packages/backend/convex/models/platformMessagingSettings.ts
+packages/backend/convex/models/passportComparison.ts
+packages/backend/convex/models/trustGatePermissions.ts
+packages/backend/convex/models/ageGroupEligibilityOverrides.ts
+packages/backend/convex/models/teamCollaboration.ts
+packages/backend/convex/models/guardianIdentities.ts
+packages/backend/convex/models/sessionPlans.ts
+packages/backend/convex/models/adultPlayers.ts
+packages/backend/convex/models/demoAsks.ts
+packages/backend/convex/models/skillBenchmarks.ts
+packages/backend/convex/models/coaches.ts
+packages/backend/convex/models/medicalProfiles.ts
+packages/backend/convex/models/invitations.ts
+packages/backend/convex/models/flows.ts
+packages/backend/convex/models/notifications.ts
+packages/backend/convex/models/teamObservations.ts
+packages/backend/convex/models/passportGoals.ts
+packages/backend/convex/models/players.ts
+packages/backend/convex/models/orgInjuryNotes.ts
+packages/backend/convex/models/playerImport.ts
+packages/backend/convex/models/passportEnquiries.ts
+packages/backend/convex/models/setup.ts
+packages/backend/convex/models/teamPlayerIdentities.ts
+packages/backend/convex/models/rateLimits.ts
+packages/backend/convex/models/platformStaffInvitations.ts
+packages/backend/convex/models/coachParentMessages.ts
+packages/backend/convex/models/aiModelConfig.ts
+packages/backend/convex/models/orgPlayerEnrollments.ts
+packages/backend/convex/models/sportPassports.ts
+packages/backend/convex/models/orgJoinRequests.ts
+packages/backend/convex/models/sportAgeGroupConfig.ts
+packages/backend/convex/models/referenceData.ts
+packages/backend/convex/models/notificationPreferences.ts
+packages/backend/convex/models/userPreferences.ts
+packages/backend/convex/models/teams.ts
+packages/backend/convex/models/gdpr.ts
+packages/backend/convex/models/emergencyContacts.ts
+packages/backend/convex/models/coachTrustLevels.ts
+packages/backend/convex/models/coachParentSummaries.ts
+packages/backend/convex/models/onboarding.ts
+packages/backend/convex/models/guardianPlayerLinks.ts
+packages/backend/convex/models/orgGuardianProfiles.ts
+packages/backend/convex/models/passportSharing.ts
+packages/backend/convex/models/playerGraduations.ts
+packages/backend/convex/models/members.ts
+packages/backend/convex/models/users.ts
+packages/backend/convex/models/skillAssessments.ts
+packages/backend/convex/models/playerSelfAccess.ts
+packages/backend/convex/models/aiServiceHealth.ts
+packages/backend/convex/models/sports.ts
+packages/backend/convex/models/fixNeilsRoles.ts
+packages/backend/convex/models/playerIdentities.ts
+packages/backend/convex/models/voiceNotes.ts
+packages/backend/convex/models/guardianManagement.ts
+packages/backend/convex/models/playerInjuries.ts
+packages/backend/convex/models/voiceNoteInsights.ts
+packages/backend/convex/models/playerEmergencyContacts.ts
+packages/backend/convex/models/coachTasks.ts**Fix:** Add getUserOrgRole() check in mutations
+
+
+**Summary:** 0 high, 2 medium, 1 low severity issues
+
+
+## Auto Quality Check - 2026-01-31 21:02:01
+### File: /Users/neil/Documents/GitHub/PDP/packages/backend/convex/models/trustGatePermissions.ts
+
+- ⚠️ **Performance: .filter() usage detected**
+  - **Problem:** Should use .withIndex() for better performance
+  - **Fix:** Replace `.query().filter()` with `.query().withIndex()`
+
+
+## Auto Quality Check - 2026-01-31 21:02:21
+### File: /Users/neil/Documents/GitHub/PDP/packages/backend/convex/models/trustGatePermissions.ts
+
+- ⚠️ **Performance: .filter() usage detected**
+  - **Problem:** Should use .withIndex() for better performance
+  - **Fix:** Replace `.query().filter()` with `.query().withIndex()`
+
+
+## Quality Monitor - 2026-01-31 21:02:00
 - ⚠️ Biome lint errors found
 
 
-## Quality Monitor - 2026-01-31 14:42:48
+## 🔒 Security Audit - 2026-01-31 21:03:24
+
+## ⚠️ MEDIUM: XSS Risk Detected
+Found dangerouslySetInnerHTML usage:
+```
+apps/web/src/components/ui/confetti.tsx:        dangerouslySetInnerHTML={{
+apps/web/src/components/ui/chart.tsx:      dangerouslySetInnerHTML={{
+apps/web/src/components/onboarding/gdpr-policy-viewer.tsx: * Uses dangerouslySetInnerHTML to avoid React key issues with static content.
+apps/web/src/components/onboarding/gdpr-policy-viewer.tsx:      dangerouslySetInnerHTML={{ __html: htmlContent }}
+```
+**Fix:** Sanitize with DOMPurify before rendering
+
+## ℹ️ INFO: Debug Logging Found
+Files with console.log:
+- apps/web/src/contexts/session-plan-context.tsx
+- apps/web/src/app/demo/ux-mockups/page.tsx
+- apps/web/src/app/orgs/join/page.tsx
+- apps/web/src/app/orgs/accept-invitation/[invitationId]/page.tsx
+- apps/web/src/app/orgs/[orgId]/admin/player-import/page.tsx
+**Action:** Remove debug logging before production
+
+## ⚠️ MEDIUM: Possible Missing Authorization
+Mutations without auth checks:
+packages/backend/convex/models/platformMessagingSettings.ts
+packages/backend/convex/models/passportComparison.ts
+packages/backend/convex/models/trustGatePermissions.ts
+packages/backend/convex/models/ageGroupEligibilityOverrides.ts
+packages/backend/convex/models/teamCollaboration.ts
+packages/backend/convex/models/guardianIdentities.ts
+packages/backend/convex/models/sessionPlans.ts
+packages/backend/convex/models/adultPlayers.ts
+packages/backend/convex/models/demoAsks.ts
+packages/backend/convex/models/skillBenchmarks.ts
+packages/backend/convex/models/coaches.ts
+packages/backend/convex/models/medicalProfiles.ts
+packages/backend/convex/models/invitations.ts
+packages/backend/convex/models/flows.ts
+packages/backend/convex/models/notifications.ts
+packages/backend/convex/models/teamObservations.ts
+packages/backend/convex/models/passportGoals.ts
+packages/backend/convex/models/players.ts
+packages/backend/convex/models/orgInjuryNotes.ts
+packages/backend/convex/models/playerImport.ts
+packages/backend/convex/models/passportEnquiries.ts
+packages/backend/convex/models/setup.ts
+packages/backend/convex/models/teamPlayerIdentities.ts
+packages/backend/convex/models/rateLimits.ts
+packages/backend/convex/models/platformStaffInvitations.ts
+packages/backend/convex/models/coachParentMessages.ts
+packages/backend/convex/models/aiModelConfig.ts
+packages/backend/convex/models/orgPlayerEnrollments.ts
+packages/backend/convex/models/sportPassports.ts
+packages/backend/convex/models/orgJoinRequests.ts
+packages/backend/convex/models/sportAgeGroupConfig.ts
+packages/backend/convex/models/referenceData.ts
+packages/backend/convex/models/notificationPreferences.ts
+packages/backend/convex/models/userPreferences.ts
+packages/backend/convex/models/teams.ts
+packages/backend/convex/models/gdpr.ts
+packages/backend/convex/models/emergencyContacts.ts
+packages/backend/convex/models/coachTrustLevels.ts
+packages/backend/convex/models/coachParentSummaries.ts
+packages/backend/convex/models/onboarding.ts
+packages/backend/convex/models/guardianPlayerLinks.ts
+packages/backend/convex/models/orgGuardianProfiles.ts
+packages/backend/convex/models/passportSharing.ts
+packages/backend/convex/models/playerGraduations.ts
+packages/backend/convex/models/members.ts
+packages/backend/convex/models/users.ts
+packages/backend/convex/models/skillAssessments.ts
+packages/backend/convex/models/playerSelfAccess.ts
+packages/backend/convex/models/aiServiceHealth.ts
+packages/backend/convex/models/sports.ts
+packages/backend/convex/models/fixNeilsRoles.ts
+packages/backend/convex/models/playerIdentities.ts
+packages/backend/convex/models/voiceNotes.ts
+packages/backend/convex/models/guardianManagement.ts
+packages/backend/convex/models/playerInjuries.ts
+packages/backend/convex/models/voiceNoteInsights.ts
+packages/backend/convex/models/playerEmergencyContacts.ts
+packages/backend/convex/models/coachTasks.ts**Fix:** Add getUserOrgRole() check in mutations
+
+
+**Summary:** 0 high, 2 medium, 1 low severity issues
+
+
+## Auto Quality Check - 2026-01-31 21:03:26
+### File: /Users/neil/Documents/GitHub/PDP/packages/backend/convex/models/trustGatePermissions.ts
+
+- ⚠️ **Performance: .filter() usage detected**
+  - **Problem:** Should use .withIndex() for better performance
+  - **Fix:** Replace `.query().filter()` with `.query().withIndex()`
+
+
+## Quality Monitor - 2026-01-31 21:03:22
 - ⚠️ Biome lint errors found
 
 
-## Quality Monitor - 2026-01-31 14:44:01
+## Auto Quality Check - 2026-01-31 21:03:50
+### File: /Users/neil/Documents/GitHub/PDP/packages/backend/convex/models/trustGatePermissions.ts
+
+- ⚠️ **Performance: .filter() usage detected**
+  - **Problem:** Should use .withIndex() for better performance
+  - **Fix:** Replace `.query().filter()` with `.query().withIndex()`
+
+
+## Auto Quality Check - 2026-01-31 21:04:22
+### File: /Users/neil/Documents/GitHub/PDP/packages/backend/convex/models/trustGatePermissions.ts
+
+- ⚠️ **Performance: .filter() usage detected**
+  - **Problem:** Should use .withIndex() for better performance
+  - **Fix:** Replace `.query().filter()` with `.query().withIndex()`
+
+
+## Auto Quality Check - 2026-01-31 21:04:45
+### File: /Users/neil/Documents/GitHub/PDP/packages/backend/convex/models/trustGatePermissions.ts
+
+- ⚠️ **Performance: .filter() usage detected**
+  - **Problem:** Should use .withIndex() for better performance
+  - **Fix:** Replace `.query().filter()` with `.query().withIndex()`
+
+
+## Auto Quality Check - 2026-01-31 21:05:05
+### File: /Users/neil/Documents/GitHub/PDP/packages/backend/convex/models/trustGatePermissions.ts
+
+- ⚠️ **Performance: .filter() usage detected**
+  - **Problem:** Should use .withIndex() for better performance
+  - **Fix:** Replace `.query().filter()` with `.query().withIndex()`
+
+
+## 🔒 Security Audit - 2026-01-31 21:05:25
+
+## ⚠️ MEDIUM: XSS Risk Detected
+Found dangerouslySetInnerHTML usage:
+```
+apps/web/src/components/ui/confetti.tsx:        dangerouslySetInnerHTML={{
+apps/web/src/components/ui/chart.tsx:      dangerouslySetInnerHTML={{
+apps/web/src/components/onboarding/gdpr-policy-viewer.tsx: * Uses dangerouslySetInnerHTML to avoid React key issues with static content.
+apps/web/src/components/onboarding/gdpr-policy-viewer.tsx:      dangerouslySetInnerHTML={{ __html: htmlContent }}
+```
+**Fix:** Sanitize with DOMPurify before rendering
+
+## ℹ️ INFO: Debug Logging Found
+Files with console.log:
+- apps/web/src/contexts/session-plan-context.tsx
+- apps/web/src/app/demo/ux-mockups/page.tsx
+- apps/web/src/app/orgs/join/page.tsx
+- apps/web/src/app/orgs/accept-invitation/[invitationId]/page.tsx
+- apps/web/src/app/orgs/[orgId]/admin/player-import/page.tsx
+**Action:** Remove debug logging before production
+
+## ⚠️ MEDIUM: Possible Missing Authorization
+Mutations without auth checks:
+packages/backend/convex/models/platformMessagingSettings.ts
+packages/backend/convex/models/passportComparison.ts
+packages/backend/convex/models/trustGatePermissions.ts
+packages/backend/convex/models/ageGroupEligibilityOverrides.ts
+packages/backend/convex/models/teamCollaboration.ts
+packages/backend/convex/models/guardianIdentities.ts
+packages/backend/convex/models/sessionPlans.ts
+packages/backend/convex/models/adultPlayers.ts
+packages/backend/convex/models/demoAsks.ts
+packages/backend/convex/models/skillBenchmarks.ts
+packages/backend/convex/models/coaches.ts
+packages/backend/convex/models/medicalProfiles.ts
+packages/backend/convex/models/invitations.ts
+packages/backend/convex/models/flows.ts
+packages/backend/convex/models/notifications.ts
+packages/backend/convex/models/teamObservations.ts
+packages/backend/convex/models/passportGoals.ts
+packages/backend/convex/models/players.ts
+packages/backend/convex/models/orgInjuryNotes.ts
+packages/backend/convex/models/playerImport.ts
+packages/backend/convex/models/passportEnquiries.ts
+packages/backend/convex/models/setup.ts
+packages/backend/convex/models/teamPlayerIdentities.ts
+packages/backend/convex/models/rateLimits.ts
+packages/backend/convex/models/platformStaffInvitations.ts
+packages/backend/convex/models/coachParentMessages.ts
+packages/backend/convex/models/aiModelConfig.ts
+packages/backend/convex/models/orgPlayerEnrollments.ts
+packages/backend/convex/models/sportPassports.ts
+packages/backend/convex/models/orgJoinRequests.ts
+packages/backend/convex/models/sportAgeGroupConfig.ts
+packages/backend/convex/models/referenceData.ts
+packages/backend/convex/models/notificationPreferences.ts
+packages/backend/convex/models/userPreferences.ts
+packages/backend/convex/models/teams.ts
+packages/backend/convex/models/gdpr.ts
+packages/backend/convex/models/emergencyContacts.ts
+packages/backend/convex/models/coachTrustLevels.ts
+packages/backend/convex/models/coachParentSummaries.ts
+packages/backend/convex/models/onboarding.ts
+packages/backend/convex/models/guardianPlayerLinks.ts
+packages/backend/convex/models/orgGuardianProfiles.ts
+packages/backend/convex/models/passportSharing.ts
+packages/backend/convex/models/playerGraduations.ts
+packages/backend/convex/models/members.ts
+packages/backend/convex/models/users.ts
+packages/backend/convex/models/skillAssessments.ts
+packages/backend/convex/models/playerSelfAccess.ts
+packages/backend/convex/models/aiServiceHealth.ts
+packages/backend/convex/models/sports.ts
+packages/backend/convex/models/fixNeilsRoles.ts
+packages/backend/convex/models/playerIdentities.ts
+packages/backend/convex/models/voiceNotes.ts
+packages/backend/convex/models/guardianManagement.ts
+packages/backend/convex/models/playerInjuries.ts
+packages/backend/convex/models/voiceNoteInsights.ts
+packages/backend/convex/models/playerEmergencyContacts.ts
+packages/backend/convex/models/coachTasks.ts**Fix:** Add getUserOrgRole() check in mutations
+
+
+**Summary:** 0 high, 2 medium, 1 low severity issues
+
+
+## Auto Quality Check - 2026-01-31 21:05:31
+### File: /Users/neil/Documents/GitHub/PDP/packages/backend/convex/models/trustGatePermissions.ts
+
+- ⚠️ **Performance: .filter() usage detected**
+  - **Problem:** Should use .withIndex() for better performance
+  - **Fix:** Replace `.query().filter()` with `.query().withIndex()`
+
+
+## Quality Monitor - 2026-01-31 21:04:37
 - ⚠️ Biome lint errors found
 
 
-## PRD Audit - US-P9-009 - 2026-01-31 14:43:51
-## Audit Report: US-P9-009
+## 🔒 Security Audit - 2026-01-31 21:07:27
 
-**Status: PARTIAL** - Story is implemented but has some gaps
+## ⚠️ MEDIUM: XSS Risk Detected
+Found dangerouslySetInnerHTML usage:
+```
+apps/web/src/components/ui/confetti.tsx:        dangerouslySetInnerHTML={{
+apps/web/src/components/ui/chart.tsx:      dangerouslySetInnerHTML={{
+apps/web/src/components/onboarding/gdpr-policy-viewer.tsx: * Uses dangerouslySetInnerHTML to avoid React key issues with static content.
+apps/web/src/components/onboarding/gdpr-policy-viewer.tsx:      dangerouslySetInnerHTML={{ __html: htmlContent }}
+```
+**Fix:** Sanitize with DOMPurify before rendering
 
-### Evidence of Implementation
+## ℹ️ INFO: Debug Logging Found
+Files with console.log:
+- apps/web/src/contexts/session-plan-context.tsx
+- apps/web/src/app/demo/ux-mockups/page.tsx
+- apps/web/src/app/orgs/join/page.tsx
+- apps/web/src/app/orgs/accept-invitation/[invitationId]/page.tsx
+- apps/web/src/app/orgs/[orgId]/admin/player-import/page.tsx
+**Action:** Remove debug logging before production
 
-**✅ PASS - Core functionality implemented:**
-1. **File location**: Modified `packages/backend/convex/models/teamCollaboration.ts` ✓
-2. **Query function**: `getTeamActivityFeed` exists at line 585 ✓
-3. **Args validation**: All required args present with correct types:
-   - `teamId: v.string()` ✓
-   - `organizationId: v.string()` ✓
-   - `filterType: v.optional(v.union(...))` with all specified filter types ✓
-   - `limit: v.optional(v.number())` with default 50, max 100 (line 641) ✓
-4. **Returns validator**: Properly typed array of activity objects ✓
-5. **Sorting**: Results sorted by `_creationTime desc` (line 696, 712, 734) ✓
-6. **Better Auth adapter**: Uses Better Auth adapter for user lookups (lines 745-758) ✓
-7. **Type check**: Passes (`npm run check-types` successful) ✓
+## ⚠️ MEDIUM: Possible Missing Authorization
+Mutations without auth checks:
+packages/backend/convex/models/platformMessagingSettings.ts
+packages/backend/convex/models/passportComparison.ts
+packages/backend/convex/models/trustGatePermissions.ts
+packages/backend/convex/models/ageGroupEligibilityOverrides.ts
+packages/backend/convex/models/teamCollaboration.ts
+packages/backend/convex/models/guardianIdentities.ts
+packages/backend/convex/models/sessionPlans.ts
+packages/backend/convex/models/adultPlayers.ts
+packages/backend/convex/models/demoAsks.ts
+packages/backend/convex/models/skillBenchmarks.ts
+packages/backend/convex/models/coaches.ts
+packages/backend/convex/models/medicalProfiles.ts
+packages/backend/convex/models/invitations.ts
+packages/backend/convex/models/flows.ts
+packages/backend/convex/models/notifications.ts
+packages/backend/convex/models/teamObservations.ts
+packages/backend/convex/models/passportGoals.ts
+packages/backend/convex/models/players.ts
+packages/backend/convex/models/orgInjuryNotes.ts
+packages/backend/convex/models/playerImport.ts
+packages/backend/convex/models/passportEnquiries.ts
+packages/backend/convex/models/setup.ts
+packages/backend/convex/models/teamPlayerIdentities.ts
+packages/backend/convex/models/rateLimits.ts
+packages/backend/convex/models/platformStaffInvitations.ts
+packages/backend/convex/models/coachParentMessages.ts
+packages/backend/convex/models/aiModelConfig.ts
+packages/backend/convex/models/orgPlayerEnrollments.ts
+packages/backend/convex/models/sportPassports.ts
+packages/backend/convex/models/orgJoinRequests.ts
+packages/backend/convex/models/sportAgeGroupConfig.ts
+packages/backend/convex/models/referenceData.ts
+packages/backend/convex/models/notificationPreferences.ts
+packages/backend/convex/models/userPreferences.ts
+packages/backend/convex/models/teams.ts
+packages/backend/convex/models/gdpr.ts
+packages/backend/convex/models/emergencyContacts.ts
+packages/backend/convex/models/coachTrustLevels.ts
+packages/backend/convex/models/coachParentSummaries.ts
+packages/backend/convex/models/onboarding.ts
+packages/backend/convex/models/guardianPlayerLinks.ts
+packages/backend/convex/models/orgGuardianProfiles.ts
+packages/backend/convex/models/passportSharing.ts
+packages/backend/convex/models/playerGraduations.ts
+packages/backend/convex/models/members.ts
+packages/backend/convex/models/users.ts
+packages/backend/convex/models/skillAssessments.ts
+packages/backend/convex/models/playerSelfAccess.ts
+packages/backend/convex/models/aiServiceHealth.ts
+packages/backend/convex/models/sports.ts
+packages/backend/convex/models/fixNeilsRoles.ts
+packages/backend/convex/models/playerIdentities.ts
+packages/backend/convex/models/voiceNotes.ts
+packages/backend/convex/models/guardianManagement.ts
+packages/backend/convex/models/playerInjuries.ts
+packages/backend/convex/models/voiceNoteInsights.ts
+packages/backend/convex/models/playerEmergencyContacts.ts
+packages/backend/convex/models/coachTasks.ts**Fix:** Add getUserOrgRole() check in mutations
 
-### ❌ MISSING - Critical acceptance criterion:
 
-**Index not used as specified:**
-- Acceptance criteria requires: "Use compound index `by_team_priority` for efficient filtering"
-- **Actual schema** (line 1766): Has `by_team_and_priority` index (not `by_team_priority`)
-- **Implementation** (lines 690-736): Does NOT use `by_team_and_priority` index at all
-- Instead uses: `by_team` (line 694) and `by_team_and_actionType` (lines 708, 720)
-- The `by_team_and_priority` index exists but is never queried
+**Summary:** 0 high, 2 medium, 1 low severity issues
 
-### Additional Issues:
 
-1. **Unused index**: The `by_team_and_priority` index (line 1766) is defined but never utilized in the query logic
-2. **Test placeholder**: Test file exists but contains only placeholder tests (not a blocker for backend implementation)
-
-### Conclusion:
-
-The story implements all functional requirements correctly, but **violates the explicit indexing requirement** specified in acceptance criteria. The query works efficiently using other indexes, but doesn't match the documented specification requiring `by_team_priority` usage.
-
-**Recommendation**: Either:
-- Update implementation to use `by_team_and_priority` for priority-based filtering, OR
-- Update acceptance criteria to match actual implementation pattern
-
-## Quality Monitor - 2026-01-31 14:45:13
+## Quality Monitor - 2026-01-31 21:06:58
 - ⚠️ Biome lint errors found
 
 
-## Quality Monitor - 2026-01-31 14:46:32
+## 🔒 Security Audit - 2026-01-31 21:09:31
+
+## ⚠️ MEDIUM: XSS Risk Detected
+Found dangerouslySetInnerHTML usage:
+```
+apps/web/src/components/ui/confetti.tsx:        dangerouslySetInnerHTML={{
+apps/web/src/components/ui/chart.tsx:      dangerouslySetInnerHTML={{
+apps/web/src/components/onboarding/gdpr-policy-viewer.tsx: * Uses dangerouslySetInnerHTML to avoid React key issues with static content.
+apps/web/src/components/onboarding/gdpr-policy-viewer.tsx:      dangerouslySetInnerHTML={{ __html: htmlContent }}
+```
+**Fix:** Sanitize with DOMPurify before rendering
+
+## ℹ️ INFO: Debug Logging Found
+Files with console.log:
+- apps/web/src/contexts/session-plan-context.tsx
+- apps/web/src/app/demo/ux-mockups/page.tsx
+- apps/web/src/app/orgs/join/page.tsx
+- apps/web/src/app/orgs/accept-invitation/[invitationId]/page.tsx
+- apps/web/src/app/orgs/[orgId]/admin/player-import/page.tsx
+**Action:** Remove debug logging before production
+
+## ⚠️ MEDIUM: Possible Missing Authorization
+Mutations without auth checks:
+packages/backend/convex/models/platformMessagingSettings.ts
+packages/backend/convex/models/passportComparison.ts
+packages/backend/convex/models/trustGatePermissions.ts
+packages/backend/convex/models/ageGroupEligibilityOverrides.ts
+packages/backend/convex/models/teamCollaboration.ts
+packages/backend/convex/models/guardianIdentities.ts
+packages/backend/convex/models/sessionPlans.ts
+packages/backend/convex/models/adultPlayers.ts
+packages/backend/convex/models/demoAsks.ts
+packages/backend/convex/models/skillBenchmarks.ts
+packages/backend/convex/models/coaches.ts
+packages/backend/convex/models/medicalProfiles.ts
+packages/backend/convex/models/invitations.ts
+packages/backend/convex/models/flows.ts
+packages/backend/convex/models/notifications.ts
+packages/backend/convex/models/teamObservations.ts
+packages/backend/convex/models/passportGoals.ts
+packages/backend/convex/models/players.ts
+packages/backend/convex/models/orgInjuryNotes.ts
+packages/backend/convex/models/playerImport.ts
+packages/backend/convex/models/passportEnquiries.ts
+packages/backend/convex/models/setup.ts
+packages/backend/convex/models/teamPlayerIdentities.ts
+packages/backend/convex/models/rateLimits.ts
+packages/backend/convex/models/platformStaffInvitations.ts
+packages/backend/convex/models/coachParentMessages.ts
+packages/backend/convex/models/aiModelConfig.ts
+packages/backend/convex/models/orgPlayerEnrollments.ts
+packages/backend/convex/models/sportPassports.ts
+packages/backend/convex/models/orgJoinRequests.ts
+packages/backend/convex/models/sportAgeGroupConfig.ts
+packages/backend/convex/models/referenceData.ts
+packages/backend/convex/models/notificationPreferences.ts
+packages/backend/convex/models/userPreferences.ts
+packages/backend/convex/models/teams.ts
+packages/backend/convex/models/gdpr.ts
+packages/backend/convex/models/emergencyContacts.ts
+packages/backend/convex/models/coachTrustLevels.ts
+packages/backend/convex/models/coachParentSummaries.ts
+packages/backend/convex/models/onboarding.ts
+packages/backend/convex/models/guardianPlayerLinks.ts
+packages/backend/convex/models/orgGuardianProfiles.ts
+packages/backend/convex/models/passportSharing.ts
+packages/backend/convex/models/playerGraduations.ts
+packages/backend/convex/models/members.ts
+packages/backend/convex/models/users.ts
+packages/backend/convex/models/skillAssessments.ts
+packages/backend/convex/models/playerSelfAccess.ts
+packages/backend/convex/models/aiServiceHealth.ts
+packages/backend/convex/models/sports.ts
+packages/backend/convex/models/fixNeilsRoles.ts
+packages/backend/convex/models/playerIdentities.ts
+packages/backend/convex/models/voiceNotes.ts
+packages/backend/convex/models/guardianManagement.ts
+packages/backend/convex/models/playerInjuries.ts
+packages/backend/convex/models/voiceNoteInsights.ts
+packages/backend/convex/models/playerEmergencyContacts.ts
+packages/backend/convex/models/coachTasks.ts**Fix:** Add getUserOrgRole() check in mutations
+
+
+**Summary:** 0 high, 2 medium, 1 low severity issues
+
+
+## Quality Monitor - 2026-01-31 21:09:12
 - ⚠️ Biome lint errors found
 
 
-## Quality Monitor - 2026-01-31 14:47:47
+## 🔒 Security Audit - 2026-01-31 21:11:35
+
+## ⚠️ MEDIUM: XSS Risk Detected
+Found dangerouslySetInnerHTML usage:
+```
+apps/web/src/components/ui/confetti.tsx:        dangerouslySetInnerHTML={{
+apps/web/src/components/ui/chart.tsx:      dangerouslySetInnerHTML={{
+apps/web/src/components/onboarding/gdpr-policy-viewer.tsx: * Uses dangerouslySetInnerHTML to avoid React key issues with static content.
+apps/web/src/components/onboarding/gdpr-policy-viewer.tsx:      dangerouslySetInnerHTML={{ __html: htmlContent }}
+```
+**Fix:** Sanitize with DOMPurify before rendering
+
+## ℹ️ INFO: Debug Logging Found
+Files with console.log:
+- apps/web/src/contexts/session-plan-context.tsx
+- apps/web/src/app/demo/ux-mockups/page.tsx
+- apps/web/src/app/orgs/join/page.tsx
+- apps/web/src/app/orgs/accept-invitation/[invitationId]/page.tsx
+- apps/web/src/app/orgs/[orgId]/admin/player-import/page.tsx
+**Action:** Remove debug logging before production
+
+## ⚠️ MEDIUM: Possible Missing Authorization
+Mutations without auth checks:
+packages/backend/convex/models/platformMessagingSettings.ts
+packages/backend/convex/models/passportComparison.ts
+packages/backend/convex/models/trustGatePermissions.ts
+packages/backend/convex/models/ageGroupEligibilityOverrides.ts
+packages/backend/convex/models/teamCollaboration.ts
+packages/backend/convex/models/guardianIdentities.ts
+packages/backend/convex/models/sessionPlans.ts
+packages/backend/convex/models/adultPlayers.ts
+packages/backend/convex/models/demoAsks.ts
+packages/backend/convex/models/skillBenchmarks.ts
+packages/backend/convex/models/coaches.ts
+packages/backend/convex/models/medicalProfiles.ts
+packages/backend/convex/models/invitations.ts
+packages/backend/convex/models/flows.ts
+packages/backend/convex/models/notifications.ts
+packages/backend/convex/models/teamObservations.ts
+packages/backend/convex/models/passportGoals.ts
+packages/backend/convex/models/players.ts
+packages/backend/convex/models/orgInjuryNotes.ts
+packages/backend/convex/models/playerImport.ts
+packages/backend/convex/models/passportEnquiries.ts
+packages/backend/convex/models/setup.ts
+packages/backend/convex/models/teamPlayerIdentities.ts
+packages/backend/convex/models/rateLimits.ts
+packages/backend/convex/models/platformStaffInvitations.ts
+packages/backend/convex/models/coachParentMessages.ts
+packages/backend/convex/models/aiModelConfig.ts
+packages/backend/convex/models/orgPlayerEnrollments.ts
+packages/backend/convex/models/sportPassports.ts
+packages/backend/convex/models/orgJoinRequests.ts
+packages/backend/convex/models/sportAgeGroupConfig.ts
+packages/backend/convex/models/referenceData.ts
+packages/backend/convex/models/notificationPreferences.ts
+packages/backend/convex/models/userPreferences.ts
+packages/backend/convex/models/teams.ts
+packages/backend/convex/models/gdpr.ts
+packages/backend/convex/models/emergencyContacts.ts
+packages/backend/convex/models/coachTrustLevels.ts
+packages/backend/convex/models/coachParentSummaries.ts
+packages/backend/convex/models/onboarding.ts
+packages/backend/convex/models/guardianPlayerLinks.ts
+packages/backend/convex/models/orgGuardianProfiles.ts
+packages/backend/convex/models/passportSharing.ts
+packages/backend/convex/models/playerGraduations.ts
+packages/backend/convex/models/members.ts
+packages/backend/convex/models/users.ts
+packages/backend/convex/models/skillAssessments.ts
+packages/backend/convex/models/playerSelfAccess.ts
+packages/backend/convex/models/aiServiceHealth.ts
+packages/backend/convex/models/sports.ts
+packages/backend/convex/models/fixNeilsRoles.ts
+packages/backend/convex/models/playerIdentities.ts
+packages/backend/convex/models/voiceNotes.ts
+packages/backend/convex/models/guardianManagement.ts
+packages/backend/convex/models/playerInjuries.ts
+packages/backend/convex/models/voiceNoteInsights.ts
+packages/backend/convex/models/playerEmergencyContacts.ts
+packages/backend/convex/models/coachTasks.ts**Fix:** Add getUserOrgRole() check in mutations
+
+
+**Summary:** 0 high, 2 medium, 1 low severity issues
+
+
+## Quality Monitor - 2026-01-31 21:11:04
 - ⚠️ Biome lint errors found
 
 
-## Quality Monitor - 2026-01-31 14:49:06
+## Quality Monitor - 2026-01-31 21:12:44
 - ⚠️ Biome lint errors found
 
 
-## Quality Monitor - 2026-01-31 14:50:21
+## 🔒 Security Audit - 2026-01-31 21:13:39
+
+## ⚠️ MEDIUM: XSS Risk Detected
+Found dangerouslySetInnerHTML usage:
+```
+apps/web/src/components/ui/confetti.tsx:        dangerouslySetInnerHTML={{
+apps/web/src/components/ui/chart.tsx:      dangerouslySetInnerHTML={{
+apps/web/src/components/onboarding/gdpr-policy-viewer.tsx: * Uses dangerouslySetInnerHTML to avoid React key issues with static content.
+apps/web/src/components/onboarding/gdpr-policy-viewer.tsx:      dangerouslySetInnerHTML={{ __html: htmlContent }}
+```
+**Fix:** Sanitize with DOMPurify before rendering
+
+## ℹ️ INFO: Debug Logging Found
+Files with console.log:
+- apps/web/src/contexts/session-plan-context.tsx
+- apps/web/src/app/demo/ux-mockups/page.tsx
+- apps/web/src/app/orgs/join/page.tsx
+- apps/web/src/app/orgs/accept-invitation/[invitationId]/page.tsx
+- apps/web/src/app/orgs/[orgId]/admin/player-import/page.tsx
+**Action:** Remove debug logging before production
+
+## ⚠️ MEDIUM: Possible Missing Authorization
+Mutations without auth checks:
+packages/backend/convex/models/platformMessagingSettings.ts
+packages/backend/convex/models/passportComparison.ts
+packages/backend/convex/models/trustGatePermissions.ts
+packages/backend/convex/models/ageGroupEligibilityOverrides.ts
+packages/backend/convex/models/teamCollaboration.ts
+packages/backend/convex/models/guardianIdentities.ts
+packages/backend/convex/models/sessionPlans.ts
+packages/backend/convex/models/adultPlayers.ts
+packages/backend/convex/models/demoAsks.ts
+packages/backend/convex/models/skillBenchmarks.ts
+packages/backend/convex/models/coaches.ts
+packages/backend/convex/models/medicalProfiles.ts
+packages/backend/convex/models/invitations.ts
+packages/backend/convex/models/flows.ts
+packages/backend/convex/models/notifications.ts
+packages/backend/convex/models/teamObservations.ts
+packages/backend/convex/models/passportGoals.ts
+packages/backend/convex/models/players.ts
+packages/backend/convex/models/orgInjuryNotes.ts
+packages/backend/convex/models/playerImport.ts
+packages/backend/convex/models/passportEnquiries.ts
+packages/backend/convex/models/setup.ts
+packages/backend/convex/models/teamPlayerIdentities.ts
+packages/backend/convex/models/rateLimits.ts
+packages/backend/convex/models/platformStaffInvitations.ts
+packages/backend/convex/models/coachParentMessages.ts
+packages/backend/convex/models/aiModelConfig.ts
+packages/backend/convex/models/orgPlayerEnrollments.ts
+packages/backend/convex/models/sportPassports.ts
+packages/backend/convex/models/orgJoinRequests.ts
+packages/backend/convex/models/sportAgeGroupConfig.ts
+packages/backend/convex/models/referenceData.ts
+packages/backend/convex/models/notificationPreferences.ts
+packages/backend/convex/models/userPreferences.ts
+packages/backend/convex/models/teams.ts
+packages/backend/convex/models/gdpr.ts
+packages/backend/convex/models/emergencyContacts.ts
+packages/backend/convex/models/coachTrustLevels.ts
+packages/backend/convex/models/coachParentSummaries.ts
+packages/backend/convex/models/onboarding.ts
+packages/backend/convex/models/guardianPlayerLinks.ts
+packages/backend/convex/models/orgGuardianProfiles.ts
+packages/backend/convex/models/passportSharing.ts
+packages/backend/convex/models/playerGraduations.ts
+packages/backend/convex/models/members.ts
+packages/backend/convex/models/users.ts
+packages/backend/convex/models/skillAssessments.ts
+packages/backend/convex/models/playerSelfAccess.ts
+packages/backend/convex/models/aiServiceHealth.ts
+packages/backend/convex/models/sports.ts
+packages/backend/convex/models/fixNeilsRoles.ts
+packages/backend/convex/models/playerIdentities.ts
+packages/backend/convex/models/voiceNotes.ts
+packages/backend/convex/models/guardianManagement.ts
+packages/backend/convex/models/playerInjuries.ts
+packages/backend/convex/models/voiceNoteInsights.ts
+packages/backend/convex/models/playerEmergencyContacts.ts
+packages/backend/convex/models/coachTasks.ts**Fix:** Add getUserOrgRole() check in mutations
+
+
+**Summary:** 0 high, 2 medium, 1 low severity issues
+
+
+## Quality Monitor - 2026-01-31 21:14:01
 - ⚠️ Biome lint errors found
 
 
-## Quality Monitor - 2026-01-31 14:51:39
+## 🔒 Security Audit - 2026-01-31 21:15:42
+
+## ⚠️ MEDIUM: XSS Risk Detected
+Found dangerouslySetInnerHTML usage:
+```
+apps/web/src/components/ui/confetti.tsx:        dangerouslySetInnerHTML={{
+apps/web/src/components/ui/chart.tsx:      dangerouslySetInnerHTML={{
+apps/web/src/components/onboarding/gdpr-policy-viewer.tsx: * Uses dangerouslySetInnerHTML to avoid React key issues with static content.
+apps/web/src/components/onboarding/gdpr-policy-viewer.tsx:      dangerouslySetInnerHTML={{ __html: htmlContent }}
+```
+**Fix:** Sanitize with DOMPurify before rendering
+
+## ℹ️ INFO: Debug Logging Found
+Files with console.log:
+- apps/web/src/contexts/session-plan-context.tsx
+- apps/web/src/app/demo/ux-mockups/page.tsx
+- apps/web/src/app/orgs/join/page.tsx
+- apps/web/src/app/orgs/accept-invitation/[invitationId]/page.tsx
+- apps/web/src/app/orgs/[orgId]/admin/player-import/page.tsx
+**Action:** Remove debug logging before production
+
+## ⚠️ MEDIUM: Possible Missing Authorization
+Mutations without auth checks:
+packages/backend/convex/models/platformMessagingSettings.ts
+packages/backend/convex/models/passportComparison.ts
+packages/backend/convex/models/trustGatePermissions.ts
+packages/backend/convex/models/ageGroupEligibilityOverrides.ts
+packages/backend/convex/models/teamCollaboration.ts
+packages/backend/convex/models/guardianIdentities.ts
+packages/backend/convex/models/sessionPlans.ts
+packages/backend/convex/models/adultPlayers.ts
+packages/backend/convex/models/demoAsks.ts
+packages/backend/convex/models/skillBenchmarks.ts
+packages/backend/convex/models/coaches.ts
+packages/backend/convex/models/medicalProfiles.ts
+packages/backend/convex/models/invitations.ts
+packages/backend/convex/models/flows.ts
+packages/backend/convex/models/notifications.ts
+packages/backend/convex/models/teamObservations.ts
+packages/backend/convex/models/passportGoals.ts
+packages/backend/convex/models/players.ts
+packages/backend/convex/models/orgInjuryNotes.ts
+packages/backend/convex/models/playerImport.ts
+packages/backend/convex/models/passportEnquiries.ts
+packages/backend/convex/models/setup.ts
+packages/backend/convex/models/teamPlayerIdentities.ts
+packages/backend/convex/models/rateLimits.ts
+packages/backend/convex/models/platformStaffInvitations.ts
+packages/backend/convex/models/coachParentMessages.ts
+packages/backend/convex/models/aiModelConfig.ts
+packages/backend/convex/models/orgPlayerEnrollments.ts
+packages/backend/convex/models/sportPassports.ts
+packages/backend/convex/models/orgJoinRequests.ts
+packages/backend/convex/models/sportAgeGroupConfig.ts
+packages/backend/convex/models/referenceData.ts
+packages/backend/convex/models/notificationPreferences.ts
+packages/backend/convex/models/userPreferences.ts
+packages/backend/convex/models/teams.ts
+packages/backend/convex/models/gdpr.ts
+packages/backend/convex/models/emergencyContacts.ts
+packages/backend/convex/models/coachTrustLevels.ts
+packages/backend/convex/models/coachParentSummaries.ts
+packages/backend/convex/models/onboarding.ts
+packages/backend/convex/models/guardianPlayerLinks.ts
+packages/backend/convex/models/orgGuardianProfiles.ts
+packages/backend/convex/models/passportSharing.ts
+packages/backend/convex/models/playerGraduations.ts
+packages/backend/convex/models/members.ts
+packages/backend/convex/models/users.ts
+packages/backend/convex/models/skillAssessments.ts
+packages/backend/convex/models/playerSelfAccess.ts
+packages/backend/convex/models/aiServiceHealth.ts
+packages/backend/convex/models/sports.ts
+packages/backend/convex/models/fixNeilsRoles.ts
+packages/backend/convex/models/playerIdentities.ts
+packages/backend/convex/models/voiceNotes.ts
+packages/backend/convex/models/guardianManagement.ts
+packages/backend/convex/models/playerInjuries.ts
+packages/backend/convex/models/voiceNoteInsights.ts
+packages/backend/convex/models/playerEmergencyContacts.ts
+packages/backend/convex/models/coachTasks.ts**Fix:** Add getUserOrgRole() check in mutations
+
+
+**Summary:** 0 high, 2 medium, 1 low severity issues
+
+
+## Quality Monitor - 2026-01-31 21:16:15
 - ⚠️ Biome lint errors found
 
 
-## Quality Monitor - 2026-01-31 14:53:32
+## 🔒 Security Audit - 2026-01-31 21:17:44
+
+## ⚠️ MEDIUM: XSS Risk Detected
+Found dangerouslySetInnerHTML usage:
+```
+apps/web/src/components/ui/confetti.tsx:        dangerouslySetInnerHTML={{
+apps/web/src/components/ui/chart.tsx:      dangerouslySetInnerHTML={{
+apps/web/src/components/onboarding/gdpr-policy-viewer.tsx: * Uses dangerouslySetInnerHTML to avoid React key issues with static content.
+apps/web/src/components/onboarding/gdpr-policy-viewer.tsx:      dangerouslySetInnerHTML={{ __html: htmlContent }}
+```
+**Fix:** Sanitize with DOMPurify before rendering
+
+## ℹ️ INFO: Debug Logging Found
+Files with console.log:
+- apps/web/src/contexts/session-plan-context.tsx
+- apps/web/src/app/demo/ux-mockups/page.tsx
+- apps/web/src/app/orgs/join/page.tsx
+- apps/web/src/app/orgs/accept-invitation/[invitationId]/page.tsx
+- apps/web/src/app/orgs/[orgId]/admin/player-import/page.tsx
+**Action:** Remove debug logging before production
+
+## ⚠️ MEDIUM: Possible Missing Authorization
+Mutations without auth checks:
+packages/backend/convex/models/platformMessagingSettings.ts
+packages/backend/convex/models/passportComparison.ts
+packages/backend/convex/models/trustGatePermissions.ts
+packages/backend/convex/models/ageGroupEligibilityOverrides.ts
+packages/backend/convex/models/teamCollaboration.ts
+packages/backend/convex/models/guardianIdentities.ts
+packages/backend/convex/models/sessionPlans.ts
+packages/backend/convex/models/adultPlayers.ts
+packages/backend/convex/models/demoAsks.ts
+packages/backend/convex/models/skillBenchmarks.ts
+packages/backend/convex/models/coaches.ts
+packages/backend/convex/models/medicalProfiles.ts
+packages/backend/convex/models/invitations.ts
+packages/backend/convex/models/flows.ts
+packages/backend/convex/models/notifications.ts
+packages/backend/convex/models/teamObservations.ts
+packages/backend/convex/models/passportGoals.ts
+packages/backend/convex/models/players.ts
+packages/backend/convex/models/orgInjuryNotes.ts
+packages/backend/convex/models/playerImport.ts
+packages/backend/convex/models/passportEnquiries.ts
+packages/backend/convex/models/setup.ts
+packages/backend/convex/models/teamPlayerIdentities.ts
+packages/backend/convex/models/rateLimits.ts
+packages/backend/convex/models/platformStaffInvitations.ts
+packages/backend/convex/models/coachParentMessages.ts
+packages/backend/convex/models/aiModelConfig.ts
+packages/backend/convex/models/orgPlayerEnrollments.ts
+packages/backend/convex/models/sportPassports.ts
+packages/backend/convex/models/orgJoinRequests.ts
+packages/backend/convex/models/sportAgeGroupConfig.ts
+packages/backend/convex/models/referenceData.ts
+packages/backend/convex/models/notificationPreferences.ts
+packages/backend/convex/models/userPreferences.ts
+packages/backend/convex/models/teams.ts
+packages/backend/convex/models/gdpr.ts
+packages/backend/convex/models/emergencyContacts.ts
+packages/backend/convex/models/coachTrustLevels.ts
+packages/backend/convex/models/coachParentSummaries.ts
+packages/backend/convex/models/onboarding.ts
+packages/backend/convex/models/guardianPlayerLinks.ts
+packages/backend/convex/models/orgGuardianProfiles.ts
+packages/backend/convex/models/passportSharing.ts
+packages/backend/convex/models/playerGraduations.ts
+packages/backend/convex/models/members.ts
+packages/backend/convex/models/users.ts
+packages/backend/convex/models/skillAssessments.ts
+packages/backend/convex/models/playerSelfAccess.ts
+packages/backend/convex/models/aiServiceHealth.ts
+packages/backend/convex/models/sports.ts
+packages/backend/convex/models/fixNeilsRoles.ts
+packages/backend/convex/models/playerIdentities.ts
+packages/backend/convex/models/voiceNotes.ts
+packages/backend/convex/models/guardianManagement.ts
+packages/backend/convex/models/playerInjuries.ts
+packages/backend/convex/models/voiceNoteInsights.ts
+packages/backend/convex/models/playerEmergencyContacts.ts
+packages/backend/convex/models/coachTasks.ts**Fix:** Add getUserOrgRole() check in mutations
+
+
+**Summary:** 0 high, 2 medium, 1 low severity issues
+
+
+## Quality Monitor - 2026-01-31 21:18:02
 - ⚠️ Biome lint errors found
 
 
-## Quality Monitor - 2026-01-31 14:54:47
+## 🔒 Security Audit - 2026-01-31 21:19:48
+
+## ⚠️ MEDIUM: XSS Risk Detected
+Found dangerouslySetInnerHTML usage:
+```
+apps/web/src/components/ui/confetti.tsx:        dangerouslySetInnerHTML={{
+apps/web/src/components/ui/chart.tsx:      dangerouslySetInnerHTML={{
+apps/web/src/components/onboarding/gdpr-policy-viewer.tsx: * Uses dangerouslySetInnerHTML to avoid React key issues with static content.
+apps/web/src/components/onboarding/gdpr-policy-viewer.tsx:      dangerouslySetInnerHTML={{ __html: htmlContent }}
+```
+**Fix:** Sanitize with DOMPurify before rendering
+
+## ℹ️ INFO: Debug Logging Found
+Files with console.log:
+- apps/web/src/contexts/session-plan-context.tsx
+- apps/web/src/app/demo/ux-mockups/page.tsx
+- apps/web/src/app/orgs/join/page.tsx
+- apps/web/src/app/orgs/accept-invitation/[invitationId]/page.tsx
+- apps/web/src/app/orgs/[orgId]/admin/player-import/page.tsx
+**Action:** Remove debug logging before production
+
+## ⚠️ MEDIUM: Possible Missing Authorization
+Mutations without auth checks:
+packages/backend/convex/models/platformMessagingSettings.ts
+packages/backend/convex/models/passportComparison.ts
+packages/backend/convex/models/trustGatePermissions.ts
+packages/backend/convex/models/ageGroupEligibilityOverrides.ts
+packages/backend/convex/models/teamCollaboration.ts
+packages/backend/convex/models/guardianIdentities.ts
+packages/backend/convex/models/sessionPlans.ts
+packages/backend/convex/models/adultPlayers.ts
+packages/backend/convex/models/demoAsks.ts
+packages/backend/convex/models/skillBenchmarks.ts
+packages/backend/convex/models/coaches.ts
+packages/backend/convex/models/medicalProfiles.ts
+packages/backend/convex/models/invitations.ts
+packages/backend/convex/models/flows.ts
+packages/backend/convex/models/notifications.ts
+packages/backend/convex/models/teamObservations.ts
+packages/backend/convex/models/passportGoals.ts
+packages/backend/convex/models/players.ts
+packages/backend/convex/models/orgInjuryNotes.ts
+packages/backend/convex/models/playerImport.ts
+packages/backend/convex/models/passportEnquiries.ts
+packages/backend/convex/models/setup.ts
+packages/backend/convex/models/teamPlayerIdentities.ts
+packages/backend/convex/models/rateLimits.ts
+packages/backend/convex/models/platformStaffInvitations.ts
+packages/backend/convex/models/coachParentMessages.ts
+packages/backend/convex/models/aiModelConfig.ts
+packages/backend/convex/models/orgPlayerEnrollments.ts
+packages/backend/convex/models/sportPassports.ts
+packages/backend/convex/models/orgJoinRequests.ts
+packages/backend/convex/models/sportAgeGroupConfig.ts
+packages/backend/convex/models/referenceData.ts
+packages/backend/convex/models/notificationPreferences.ts
+packages/backend/convex/models/userPreferences.ts
+packages/backend/convex/models/teams.ts
+packages/backend/convex/models/gdpr.ts
+packages/backend/convex/models/emergencyContacts.ts
+packages/backend/convex/models/coachTrustLevels.ts
+packages/backend/convex/models/coachParentSummaries.ts
+packages/backend/convex/models/onboarding.ts
+packages/backend/convex/models/guardianPlayerLinks.ts
+packages/backend/convex/models/orgGuardianProfiles.ts
+packages/backend/convex/models/passportSharing.ts
+packages/backend/convex/models/playerGraduations.ts
+packages/backend/convex/models/members.ts
+packages/backend/convex/models/users.ts
+packages/backend/convex/models/skillAssessments.ts
+packages/backend/convex/models/playerSelfAccess.ts
+packages/backend/convex/models/aiServiceHealth.ts
+packages/backend/convex/models/sports.ts
+packages/backend/convex/models/fixNeilsRoles.ts
+packages/backend/convex/models/playerIdentities.ts
+packages/backend/convex/models/voiceNotes.ts
+packages/backend/convex/models/guardianManagement.ts
+packages/backend/convex/models/playerInjuries.ts
+packages/backend/convex/models/voiceNoteInsights.ts
+packages/backend/convex/models/playerEmergencyContacts.ts
+packages/backend/convex/models/coachTasks.ts**Fix:** Add getUserOrgRole() check in mutations
+
+
+**Summary:** 0 high, 2 medium, 1 low severity issues
+
+
+## 🔒 Security Audit - 2026-01-31 21:23:45
+
+## ⚠️ MEDIUM: XSS Risk Detected
+Found dangerouslySetInnerHTML usage:
+```
+apps/web/src/components/ui/confetti.tsx:        dangerouslySetInnerHTML={{
+apps/web/src/components/ui/chart.tsx:      dangerouslySetInnerHTML={{
+apps/web/src/components/onboarding/gdpr-policy-viewer.tsx: * Uses dangerouslySetInnerHTML to avoid React key issues with static content.
+apps/web/src/components/onboarding/gdpr-policy-viewer.tsx:      dangerouslySetInnerHTML={{ __html: htmlContent }}
+```
+**Fix:** Sanitize with DOMPurify before rendering
+
+## ℹ️ INFO: Debug Logging Found
+Files with console.log:
+- apps/web/src/contexts/session-plan-context.tsx
+- apps/web/src/app/demo/ux-mockups/page.tsx
+- apps/web/src/app/orgs/join/page.tsx
+- apps/web/src/app/orgs/accept-invitation/[invitationId]/page.tsx
+- apps/web/src/app/orgs/[orgId]/admin/player-import/page.tsx
+**Action:** Remove debug logging before production
+
+## ⚠️ MEDIUM: Possible Missing Authorization
+Mutations without auth checks:
+packages/backend/convex/models/platformMessagingSettings.ts
+packages/backend/convex/models/passportComparison.ts
+packages/backend/convex/models/trustGatePermissions.ts
+packages/backend/convex/models/ageGroupEligibilityOverrides.ts
+packages/backend/convex/models/teamCollaboration.ts
+packages/backend/convex/models/guardianIdentities.ts
+packages/backend/convex/models/sessionPlans.ts
+packages/backend/convex/models/adultPlayers.ts
+packages/backend/convex/models/demoAsks.ts
+packages/backend/convex/models/skillBenchmarks.ts
+packages/backend/convex/models/coaches.ts
+packages/backend/convex/models/medicalProfiles.ts
+packages/backend/convex/models/invitations.ts
+packages/backend/convex/models/flows.ts
+packages/backend/convex/models/notifications.ts
+packages/backend/convex/models/teamObservations.ts
+packages/backend/convex/models/passportGoals.ts
+packages/backend/convex/models/players.ts
+packages/backend/convex/models/orgInjuryNotes.ts
+packages/backend/convex/models/playerImport.ts
+packages/backend/convex/models/passportEnquiries.ts
+packages/backend/convex/models/setup.ts
+packages/backend/convex/models/teamPlayerIdentities.ts
+packages/backend/convex/models/rateLimits.ts
+packages/backend/convex/models/platformStaffInvitations.ts
+packages/backend/convex/models/coachParentMessages.ts
+packages/backend/convex/models/aiModelConfig.ts
+packages/backend/convex/models/orgPlayerEnrollments.ts
+packages/backend/convex/models/sportPassports.ts
+packages/backend/convex/models/orgJoinRequests.ts
+packages/backend/convex/models/sportAgeGroupConfig.ts
+packages/backend/convex/models/referenceData.ts
+packages/backend/convex/models/notificationPreferences.ts
+packages/backend/convex/models/userPreferences.ts
+packages/backend/convex/models/teams.ts
+packages/backend/convex/models/gdpr.ts
+packages/backend/convex/models/emergencyContacts.ts
+packages/backend/convex/models/coachTrustLevels.ts
+packages/backend/convex/models/coachParentSummaries.ts
+packages/backend/convex/models/onboarding.ts
+packages/backend/convex/models/guardianPlayerLinks.ts
+packages/backend/convex/models/orgGuardianProfiles.ts
+packages/backend/convex/models/passportSharing.ts
+packages/backend/convex/models/playerGraduations.ts
+packages/backend/convex/models/members.ts
+packages/backend/convex/models/users.ts
+packages/backend/convex/models/skillAssessments.ts
+packages/backend/convex/models/playerSelfAccess.ts
+packages/backend/convex/models/aiServiceHealth.ts
+packages/backend/convex/models/sports.ts
+packages/backend/convex/models/fixNeilsRoles.ts
+packages/backend/convex/models/playerIdentities.ts
+packages/backend/convex/models/voiceNotes.ts
+packages/backend/convex/models/guardianManagement.ts
+packages/backend/convex/models/playerInjuries.ts
+packages/backend/convex/models/voiceNoteInsights.ts
+packages/backend/convex/models/playerEmergencyContacts.ts
+packages/backend/convex/models/coachTasks.ts**Fix:** Add getUserOrgRole() check in mutations
+
+
+**Summary:** 0 high, 2 medium, 1 low severity issues
+
+
+## Quality Monitor - 2026-01-31 21:19:21
+- ⚠️ Biome lint errors found
+
+
+## 🔒 Security Audit - 2026-01-31 21:26:57
+
+## ⚠️ MEDIUM: XSS Risk Detected
+Found dangerouslySetInnerHTML usage:
+```
+apps/web/src/components/ui/confetti.tsx:        dangerouslySetInnerHTML={{
+apps/web/src/components/ui/chart.tsx:      dangerouslySetInnerHTML={{
+apps/web/src/components/onboarding/gdpr-policy-viewer.tsx: * Uses dangerouslySetInnerHTML to avoid React key issues with static content.
+apps/web/src/components/onboarding/gdpr-policy-viewer.tsx:      dangerouslySetInnerHTML={{ __html: htmlContent }}
+```
+**Fix:** Sanitize with DOMPurify before rendering
+
+## ℹ️ INFO: Debug Logging Found
+Files with console.log:
+- apps/web/src/contexts/session-plan-context.tsx
+- apps/web/src/app/demo/ux-mockups/page.tsx
+- apps/web/src/app/orgs/join/page.tsx
+- apps/web/src/app/orgs/accept-invitation/[invitationId]/page.tsx
+- apps/web/src/app/orgs/[orgId]/admin/player-import/page.tsx
+**Action:** Remove debug logging before production
+
+## ⚠️ MEDIUM: Possible Missing Authorization
+Mutations without auth checks:
+packages/backend/convex/models/platformMessagingSettings.ts
+packages/backend/convex/models/passportComparison.ts
+packages/backend/convex/models/trustGatePermissions.ts
+packages/backend/convex/models/ageGroupEligibilityOverrides.ts
+packages/backend/convex/models/teamCollaboration.ts
+packages/backend/convex/models/guardianIdentities.ts
+packages/backend/convex/models/sessionPlans.ts
+packages/backend/convex/models/adultPlayers.ts
+packages/backend/convex/models/demoAsks.ts
+packages/backend/convex/models/skillBenchmarks.ts
+packages/backend/convex/models/coaches.ts
+packages/backend/convex/models/medicalProfiles.ts
+packages/backend/convex/models/invitations.ts
+packages/backend/convex/models/flows.ts
+packages/backend/convex/models/notifications.ts
+packages/backend/convex/models/teamObservations.ts
+packages/backend/convex/models/passportGoals.ts
+packages/backend/convex/models/players.ts
+packages/backend/convex/models/orgInjuryNotes.ts
+packages/backend/convex/models/playerImport.ts
+packages/backend/convex/models/passportEnquiries.ts
+packages/backend/convex/models/setup.ts
+packages/backend/convex/models/teamPlayerIdentities.ts
+packages/backend/convex/models/rateLimits.ts
+packages/backend/convex/models/platformStaffInvitations.ts
+packages/backend/convex/models/coachParentMessages.ts
+packages/backend/convex/models/aiModelConfig.ts
+packages/backend/convex/models/orgPlayerEnrollments.ts
+packages/backend/convex/models/sportPassports.ts
+packages/backend/convex/models/orgJoinRequests.ts
+packages/backend/convex/models/sportAgeGroupConfig.ts
+packages/backend/convex/models/referenceData.ts
+packages/backend/convex/models/notificationPreferences.ts
+packages/backend/convex/models/userPreferences.ts
+packages/backend/convex/models/teams.ts
+packages/backend/convex/models/gdpr.ts
+packages/backend/convex/models/emergencyContacts.ts
+packages/backend/convex/models/coachTrustLevels.ts
+packages/backend/convex/models/coachParentSummaries.ts
+packages/backend/convex/models/onboarding.ts
+packages/backend/convex/models/guardianPlayerLinks.ts
+packages/backend/convex/models/orgGuardianProfiles.ts
+packages/backend/convex/models/passportSharing.ts
+packages/backend/convex/models/playerGraduations.ts
+packages/backend/convex/models/members.ts
+packages/backend/convex/models/users.ts
+packages/backend/convex/models/skillAssessments.ts
+packages/backend/convex/models/playerSelfAccess.ts
+packages/backend/convex/models/aiServiceHealth.ts
+packages/backend/convex/models/sports.ts
+packages/backend/convex/models/fixNeilsRoles.ts
+packages/backend/convex/models/playerIdentities.ts
+packages/backend/convex/models/voiceNotes.ts
+packages/backend/convex/models/guardianManagement.ts
+packages/backend/convex/models/playerInjuries.ts
+packages/backend/convex/models/voiceNoteInsights.ts
+packages/backend/convex/models/playerEmergencyContacts.ts
+packages/backend/convex/models/coachTasks.ts**Fix:** Add getUserOrgRole() check in mutations
+
+
+**Summary:** 0 high, 2 medium, 1 low severity issues
+
+
+## Quality Monitor - 2026-01-31 21:26:52
 - ⚠️ Biome lint errors found
 

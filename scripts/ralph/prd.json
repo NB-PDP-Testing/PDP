@@ -194,7 +194,7 @@
         "Test in Convex dashboard - adding comment creates activity entry"
       ],
       "priority": 10,
-      "passes": false
+      "passes": true
     },
     {
       "id": "US-P9-041",

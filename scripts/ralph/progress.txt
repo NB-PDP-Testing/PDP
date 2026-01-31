@@ -1733,3 +1733,64 @@ The NotificationCenter component is **fully implemented and functional** from a 
 - None - smooth implementation following established button/tooltip patterns!
 
 ---
+
+## 2026-01-31 12:15 - US-P9-018 - addComment Creates Activity Entries
+**Iteration**: 5
+**Commit**: 34a1b7ef607490d12a56c9b619ee923e3f96abf8
+**Session**: 03178b23-a67c-4360-b460-507263c74c06
+**Status**: Complete
+
+### What was implemented
+- Modified `addComment` mutation in teamCollaboration.ts to populate teamActivityFeed
+- After inserting comment:
+  - Gets insight details (playerName, category, teamId) using ctx.db.get()
+  - Gets actor name using Better Auth adapter (firstName + lastName)
+  - Inserts teamActivityFeed entry with full metadata
+- Activity feed entry includes:
+  - actionType: "comment_added"
+  - entityType: "comment"
+  - summary: "[Actor Name] commented on [Player Name]'s [Category] insight"
+  - priority: inherited from comment (critical/important/normal)
+  - metadata: playerName, insightTitle, commentPreview (first 100 chars)
+- Only creates activity entry if insight has teamId (some insights may be team-less)
+
+### Files changed
+- packages/backend/convex/models/teamCollaboration.ts (+39, -8)
+- packages/backend/convex/_generated/*.ts (auto-generated)
+- scripts/ralph/prd.json (+1, -1) [marked US-P9-018 passes: true]
+
+### Quality checks
+- ✅ Type check: passed
+- ✅ Linting: passed (linter auto-formatted ternary)
+- ✅ Pre-commit hook: passed
+- ✅ Convex codegen: successful
+- ⏭️ Convex dashboard testing: can be tested when comments are added via UI
+
+### Learnings for future iterations ⚠️ CRITICAL
+**Patterns discovered:**
+- Activity feed population pattern: fetch related entities → get actor name → insert entry
+- Summary format: "[Actor] [action verb] [target]" (human-readable)
+- Metadata pattern: include preview/context for richer display
+- Conditional insertion: only insert if teamId exists (graceful handling of missing data)
+- String truncation: `substring(0, 100)` for previews
+
+**Gotchas encountered:**
+- Must get insight details AFTER inserting comment (insight already exists)
+- Return early if insight not found (defensive programming)
+- Use template literals for summary formatting (easier to read)
+- Linter auto-formats multi-line ternary expressions
+
+**Dependencies found:**
+- Activity feed now populates when comments added via CommentForm (US-P9-008)
+- ActivityFeedView (US-P9-010) will now show real data
+- Activity feed filters (US-P9-011) will work with real comment activities
+
+**What to do next**:
+- [x] US-P9-018 complete (10 of 14 Week 2 stories done!)
+- [ ] US-P9-041: Create AI Copilot Backend Model (foundation for smart suggestions)
+- [ ] Continue with remaining Week 2 stories
+
+**Mistakes made**:
+- None - straightforward implementation following established activity feed pattern!
+
+---

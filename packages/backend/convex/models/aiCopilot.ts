@@ -36,6 +36,7 @@ export const getSmartSuggestions = query({
       ),
       title: v.string(),
       description: v.string(),
+      reasoning: v.string(), // Why this suggestion is being made
       action: v.string(), // Action identifier for frontend to execute
       confidence: v.number(), // 0-1 confidence score
     })
@@ -82,6 +83,7 @@ async function generateInsightSuggestions(
       | "link_observation";
     title: string;
     description: string;
+    reasoning: string;
     action: string;
     confidence: number;
   }> = [];
@@ -115,6 +117,8 @@ async function generateInsightSuggestions(
         type: "mention_coach",
         title: "Notify Medical Staff",
         description: `Alert medical staff about this ${insight.category} observation`,
+        reasoning:
+          "Injury/medical insights should be reviewed by qualified medical staff immediately",
         action: "mention:medical",
         confidence: 0.9,
       });
@@ -127,6 +131,8 @@ async function generateInsightSuggestions(
       type: "add_to_session",
       title: "Add to Next Session",
       description: `Include ${insight.title} in upcoming training plan`,
+      reasoning:
+        "Skill development insights should be incorporated into training sessions for targeted improvement",
       action: `add_to_session:${args.contextId}`,
       confidence: 0.8,
     });
@@ -146,6 +152,8 @@ async function generateInsightSuggestions(
       type: "mention_coach",
       title: "Engage Your Team",
       description: "Tag relevant coaches to get their input on this insight",
+      reasoning:
+        "No comments yet - getting team feedback can provide valuable perspectives",
       action: "mention:team",
       confidence: 0.7,
     });
@@ -157,6 +165,8 @@ async function generateInsightSuggestions(
       type: "create_task",
       title: "Create Follow-up Task",
       description: "Track progress on this applied insight",
+      reasoning:
+        "Applied insights benefit from follow-up tasks to ensure consistent progress tracking",
       action: `create_task:${args.contextId}`,
       confidence: 0.65,
     });
@@ -168,6 +178,8 @@ async function generateInsightSuggestions(
       type: "apply_insight",
       title: "Apply This Insight",
       description: `Mark this ${insight.category} insight as applied`,
+      reasoning:
+        "Pending insights should be reviewed and marked as applied to track coaching effectiveness",
       action: `apply:${args.contextId}`,
       confidence: 0.75,
     });
@@ -198,6 +210,7 @@ async function generateSessionSuggestions(
       | "link_observation";
     title: string;
     description: string;
+    reasoning: string;
     action: string;
     confidence: number;
   }> = [];
@@ -224,6 +237,8 @@ async function generateSessionSuggestions(
       title: "Include Injury Status Checks",
       description:
         "Recent injuries reported - add status check to session plan",
+      reasoning:
+        "Recent injury reports indicate players may need modified activity levels",
       action: "check_injuries",
       confidence: 0.9,
     });
@@ -242,6 +257,8 @@ async function generateSessionSuggestions(
       title: "Add Focused Skill Drills",
       description:
         "Skill gaps identified - include targeted training exercises",
+      reasoning:
+        "Coaches have identified areas for improvement that need focused practice",
       action: "add_drills",
       confidence: 0.8,
     });
@@ -260,6 +277,8 @@ async function generateSessionSuggestions(
       type: "create_task",
       title: "Prepare Equipment List",
       description: "Equipment mentioned in recent insights - create checklist",
+      reasoning:
+        "Equipment requirements noted in recent observations should be prepared in advance",
       action: "equipment_list",
       confidence: 0.7,
     });

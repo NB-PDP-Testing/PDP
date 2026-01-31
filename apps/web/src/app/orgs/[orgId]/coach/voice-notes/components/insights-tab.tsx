@@ -22,6 +22,7 @@ import {
 import type { Route } from "next";
 import { useRouter } from "next/navigation";
 import { useState } from "react";
+import { SmartActionBar } from "@/components/coach/smart-action-bar";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import {
@@ -844,6 +845,22 @@ export function InsightsTab({ orgId, onSuccess, onError }: InsightsTabProps) {
               organizationId={orgId}
             />
           </div>
+
+          {/* Smart Action Bar (Phase 9 Week 2 - AI Copilot) */}
+          {session?.user?.id && (
+            <div className="mt-3">
+              <SmartActionBar
+                context="viewing_insight"
+                contextId={insight.id}
+                onActionClick={(action: string) => {
+                  // Handle smart action clicks
+                  console.log("Smart action:", action);
+                }}
+                organizationId={orgId}
+                userId={session.user.id}
+              />
+            </div>
+          )}
 
           {/* AI Confidence Visualization (Phase 7.1) */}
           {(insight as any).confidence !== undefined && (

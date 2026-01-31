@@ -98,7 +98,7 @@ Convex scripts for seeding data, migrations, and utilities.
 
 | Document | Description |
 |----------|-------------|
-| [seed-rugby-team.md](./scripts/seed-rugby-team.md) | Seed a rugby team with 35 players and assessments |
+| [seed-rugby-team.md](./scripts/seed-rugby-team.md) | Seed a team (any sport) with 35 players and assessments |
 
 ### [status/](./status/)
 Current implementation status.

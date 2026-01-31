@@ -1,8 +1,8 @@
-# Seed Rugby Team Script
+# Seed Team Script
 
 **Location:** `packages/backend/convex/scripts/seedRugbyTeam.ts`
 
-Seeds a rugby team with 35 players and full assessment history. Useful for demos, testing, and development.
+Seeds a team with 35 players and full assessment history for any sport (rugby, soccer, GAA, etc.). Useful for demos, testing, and development.
 
 ## Quick Start
 
@@ -20,15 +20,23 @@ npx convex run scripts/seedRugbyTeam:seed \
 ```bash
 # Dry run - preview what would be created (no changes made)
 npx convex run scripts/seedRugbyTeam:seed \
-  --args '{"orgId":"abc123","teamName":"U15 Boys","dryRun":true}'
+  '{"orgId":"abc123","teamName":"U15 Boys","dryRun":true}'
 
-# Full run - creates all data
+# Full run - creates rugby team (default sport)
 npx convex run scripts/seedRugbyTeam:seed \
-  --args '{"orgId":"abc123","teamName":"U15 Boys"}'
+  '{"orgId":"abc123","teamName":"U15 Boys"}'
+
+# Soccer team
+npx convex run scripts/seedRugbyTeam:seed \
+  '{"orgId":"abc123","teamName":"U14 Soccer","sport":"soccer"}'
+
+# GAA Football team
+npx convex run scripts/seedRugbyTeam:seed \
+  '{"orgId":"abc123","teamName":"U12 GAA","sport":"gaa_football"}'
 
 # With custom age group and gender
 npx convex run scripts/seedRugbyTeam:seed \
-  --args '{"orgId":"abc123","teamName":"U14 Girls","ageGroup":"u14","gender":"Female"}'
+  '{"orgId":"abc123","teamName":"U14 Girls","sport":"rugby","ageGroup":"u14","gender":"Female"}'
 ```
 
 ### Production
@@ -47,6 +55,7 @@ npx convex run scripts/seedRugbyTeam:seed \
 |-----------|------|----------|---------|-------------|
 | `orgId` | string | Yes | - | Organization ID (Better Auth org ID) |
 | `teamName` | string | Yes | - | Name of the team to create/find |
+| `sport` | string | No | `"rugby"` | Sport code: "rugby", "soccer", "gaa_football", etc. |
 | `ageGroup` | string | No | `"u15"` | Age group (e.g., "u12", "u14", "u16", "u18") |
 | `gender` | string | No | `"Mixed"` | Team gender: "Male", "Female", or "Mixed" |
 | `dryRun` | boolean | No | `false` | Preview mode - no data created |

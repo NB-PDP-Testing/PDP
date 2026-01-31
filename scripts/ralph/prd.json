@@ -211,7 +211,7 @@
         "Run npx -w packages/backend convex codegen"
       ],
       "priority": 11,
-      "passes": false
+      "passes": true
     },
     {
       "id": "US-P9-042",

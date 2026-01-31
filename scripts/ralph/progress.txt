@@ -1794,3 +1794,53 @@ The NotificationCenter component is **fully implemented and functional** from a 
 - None - straightforward implementation following established activity feed pattern!
 
 ---
+
+## 2026-01-31 12:30 - US-P9-041 - Create AI Copilot Backend Model
+**Iteration**: 5
+**Commit**: 1945c83939e42fd278a8f2c64669b068521f01e2
+**Session**: 03178b23-a67c-4360-b460-507263c74c06
+**Status**: Complete
+
+### What was implemented
+- Created `packages/backend/convex/models/aiCopilot.ts` as foundation for AI suggestions
+- Exported `getSmartSuggestions` query with full TypeScript validators
+- Placeholder implementation returns empty array
+- Ready for actual implementation in US-P9-042 and US-P9-043
+
+### Files changed
+- packages/backend/convex/models/aiCopilot.ts (+51, -0) [NEW]
+- packages/backend/convex/_generated/*.ts (auto-generated)
+- scripts/ralph/prd.json (+1, -1) [marked US-P9-041 passes: true]
+
+### Quality checks
+- ✅ Type check: passed
+- ✅ Linting: passed (after removing async from placeholder handler)
+- ✅ Pre-commit hook: passed
+- ✅ Convex codegen: successful
+
+### Learnings for future iterations ⚠️ CRITICAL
+**Patterns discovered:**
+- Placeholder query pattern: remove `async` from handler if no await
+- Context enum pattern: union of literal strings for context types
+- Confidence score: number type (0-1 range documented in comment)
+- Action identifier: string for frontend to know what to execute
+
+**Gotchas encountered:**
+- Pre-commit hook caught `async` without `await` (useAwait rule)
+- Must remove `async` keyword from placeholder handlers
+
+**Dependencies found:**
+- US-P9-042 will implement generateInsightSuggestions logic
+- US-P9-043 will implement generateSessionSuggestions logic
+- US-P9-044 (SmartActionBar) will consume this query
+
+**What to do next**:
+- [x] US-P9-041 complete (11 of 14 Week 2 stories done!)
+- [ ] US-P9-042: Implement Insight Context Suggestions
+- [ ] US-P9-043: Implement Session Planning Suggestions
+- [ ] US-P9-044: Create SmartActionBar Component
+
+**Mistakes made**:
+- Initially left `async` keyword on placeholder handler (caught by pre-commit hook)
+
+---

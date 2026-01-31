@@ -47,8 +47,7 @@ export const getSmartSuggestions = query({
     }
 
     if (args.context === "creating_session") {
-      // TODO (US-P9-043): Implement session planning suggestions
-      return [];
+      return await generateSessionSuggestions(ctx, args);
     }
 
     // Other contexts not implemented yet
@@ -176,4 +175,96 @@ async function generateInsightSuggestions(
 
   // Sort by confidence descending and return top 4
   return suggestions.sort((a, b) => b.confidence - a.confidence).slice(0, 4);
+}
+
+/**
+ * Generate smart suggestions when creating a session plan
+ * US-P9-043: Session planning suggestions
+ */
+async function generateSessionSuggestions(
+  ctx: any,
+  args: {
+    contextId: string;
+    userId: string;
+    organizationId: string;
+  }
+) {
+  const suggestions: Array<{
+    type:
+      | "apply_insight"
+      | "mention_coach"
+      | "add_to_session"
+      | "create_task"
+      | "link_observation";
+    title: string;
+    description: string;
+    action: string;
+    confidence: number;
+  }> = [];
+
+  // Get recent insights for the organization (last 7 days)
+  const sevenDaysAgo = Date.now() - 7 * 24 * 60 * 60 * 1000;
+  const recentInsights = await ctx.db
+    .query("voiceNoteInsights")
+    .withIndex("by_org", (q: any) =>
+      q.eq("organizationId", args.organizationId)
+    )
+    .filter((q: any) => q.gte(q.field("_creationTime"), sevenDaysAgo))
+    .collect();
+
+  // Check for recent injuries
+  const hasRecentInjuries = recentInsights.some(
+    (insight: any) =>
+      insight.category === "injury" && insight.status !== "dismissed"
+  );
+
+  if (hasRecentInjuries) {
+    suggestions.push({
+      type: "create_task",
+      title: "Include Injury Status Checks",
+      description:
+        "Recent injuries reported - add status check to session plan",
+      action: "check_injuries",
+      confidence: 0.9,
+    });
+  }
+
+  // Check for skill gaps
+  const hasSkillGaps = recentInsights.some(
+    (insight: any) =>
+      insight.category === "skill" &&
+      insight.description.toLowerCase().includes("improve")
+  );
+
+  if (hasSkillGaps) {
+    suggestions.push({
+      type: "add_to_session",
+      title: "Add Focused Skill Drills",
+      description:
+        "Skill gaps identified - include targeted training exercises",
+      action: "add_drills",
+      confidence: 0.8,
+    });
+  }
+
+  // Check for equipment mentions
+  const hasEquipmentMentions = recentInsights.some(
+    (insight: any) =>
+      insight.description.toLowerCase().includes("equipment") ||
+      insight.description.toLowerCase().includes("gear") ||
+      insight.description.toLowerCase().includes("ball")
+  );
+
+  if (hasEquipmentMentions) {
+    suggestions.push({
+      type: "create_task",
+      title: "Prepare Equipment List",
+      description: "Equipment mentioned in recent insights - create checklist",
+      action: "equipment_list",
+      confidence: 0.7,
+    });
+  }
+
+  // Sort by confidence descending and return top 3
+  return suggestions.sort((a, b) => b.confidence - a.confidence).slice(0, 3);
 }

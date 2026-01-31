@@ -55,6 +55,7 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Textarea } from "@/components/ui/textarea";
 import { useSession } from "@/lib/auth-client";
 import { cn } from "@/lib/utils";
+import { InsightReactions } from "./insight-reactions";
 
 type InsightsTabProps = {
   orgId: BetterAuthId<"organization">;
@@ -835,6 +836,14 @@ export function InsightsTab({ orgId, onSuccess, onError }: InsightsTabProps) {
               {insight.recommendedUpdate}
             </p>
           )}
+
+          {/* Insight Reactions (Phase 9 Week 1) */}
+          <div className="mt-3">
+            <InsightReactions
+              insightId={insight.id as Id<"voiceNoteInsights">}
+              organizationId={orgId}
+            />
+          </div>
 
           {/* AI Confidence Visualization (Phase 7.1) */}
           {(insight as any).confidence !== undefined && (

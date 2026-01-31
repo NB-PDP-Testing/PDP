@@ -333,6 +333,7 @@ function PlayerPassportPageContent() {
             <GoalsSection player={playerData as any} />
 
             <NotesSection
+              canEdit={permissions.canEdit}
               isCoach={permissions.canEdit}
               player={playerData as any}
             />

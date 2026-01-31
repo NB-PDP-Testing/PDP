@@ -11,6 +11,7 @@ import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { useCurrentUser } from "@/hooks/use-current-user";
 import { authClient } from "@/lib/auth-client";
+import { CoachNotesSection } from "./coach-notes-section";
 
 export function CoachDashboard() {
   const params = useParams();
@@ -670,6 +671,9 @@ export function CoachDashboard() {
         selectedTeam={selectedTeam}
         selectedTeamData={selectedTeamData}
       />
+
+      {/* Coach Notes Section - shows all players with notes */}
+      <CoachNotesSection players={playersWithTeams} />
 
       {/* Passport Sharing Summary */}
       {userId && (

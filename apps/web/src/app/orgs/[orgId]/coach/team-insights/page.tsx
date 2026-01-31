@@ -86,15 +86,16 @@ export default function TeamInsightsPage() {
     const teamByNameMap = new Map(allTeams.map((team) => [team.name, team]));
 
     // Resolve team values (could be IDs or names) to actual IDs
-    const resolvedIds: string[] = [];
+    // Use a Set to deduplicate in case same team is listed by both ID and name
+    const resolvedIdSet = new Set<string>();
     for (const teamValue of coachAssignment.teams) {
       const team = teamByIdMap.get(teamValue) || teamByNameMap.get(teamValue);
       if (team) {
-        resolvedIds.push(String(team._id));
+        resolvedIdSet.add(String(team._id));
       }
     }
 
-    return resolvedIds;
+    return [...resolvedIdSet];
   }, [coachAssignment, allTeams]);
 
   // Filter observations by selected team

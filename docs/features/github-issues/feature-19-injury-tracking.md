@@ -3,12 +3,59 @@
 ## Overview
 Implement a comprehensive injury tracking system that allows coaches, parents, and club admins to record, monitor, and manage player injuries. The system should support recovery tracking, wellness checks, insurance documentation, and provide insights to coaches about player readiness.
 
-## Current State
-- Basic injury tracking exists in database schema (`injuries` table)
-- Voice notes can mention injuries
-- Medical profiles exist
-- No comprehensive injury management workflow
-- Limited integration between injury tracking and other features
+## Current State (Updated February 2026)
+
+### What's Already Implemented
+
+**Database Schema (Complete)**
+- `playerInjuries` table with 25+ fields - platform-level injury tracking
+- `orgInjuryNotes` table for organization-specific notes on injuries
+- Support for multi-org visibility (injuries visible across clubs for same player)
+- Return-to-play protocol schema with step tracking
+- Voice note linkage field (`voiceNoteId`)
+
+**Backend Functions (Complete)**
+Location: `packages/backend/convex/models/playerInjuries.ts`
+- `reportInjury()` - Create new injury records
+- `updateInjuryStatus()` - Status transitions with auto days-out calculation
+- `updateInjuryDetails()` - Update treatment/medical info
+- `setReturnToPlayProtocol()` - Configure recovery protocol steps
+- `completeProtocolStep()` - Track protocol step completion
+- `updateInjuryVisibility()` - Control multi-org visibility
+- `getInjuriesForPlayer()` - Query injuries for a single player
+- `getInjuriesForMultiplePlayers()` - Bulk query for parent dashboard
+- `getAllActiveInjuriesForOrg()` - Org-wide active injuries
+- `getAllInjuriesForOrg()` - Complete injury history
+- `getInjuryStats()` - Per-player injury statistics
+- `getInjuryHistoryByBodyPart()` - Body-part specific history
+- `deleteInjury()` - Hard delete capability
+
+**Frontend Pages (Functional)**
+- Coach injury tracking: `apps/web/src/app/orgs/[orgId]/coach/injuries/page.tsx`
+  - Report new injuries for players
+  - View active injuries across organization
+  - Update injury status (active → recovering → cleared → healed)
+  - Filter by status
+  - Complete injury history view
+- Parent injury view: `apps/web/src/app/orgs/[orgId]/parents/injuries/page.tsx`
+  - View all children's injuries
+  - Summary statistics (active, recovering, all-clear)
+  - Injury history with status badges
+- Player passport injury section: `apps/web/src/app/orgs/[orgId]/players/[playerId]/components/player-injuries-section.tsx`
+
+### What's NOT Implemented (Gaps)
+
+| Feature | Priority | Notes |
+|---------|----------|-------|
+| Notification system | **Critical** | No alerts when injuries reported/updated |
+| Parent injury reporting | **High** | Parents can only view, not report injuries |
+| Return-to-play protocol UI | **High** | Backend exists, no frontend |
+| Milestone tracking UI | **Medium** | No visual progress for recovery |
+| Admin analytics dashboard | **Medium** | No aggregate injury analytics |
+| Document/image uploads | **Medium** | No medical clearance file storage |
+| Voice note auto-creation | **Low** | Schema ready, no integration |
+| AI-powered insights | **Future** | Predictive analytics |
+| Insurance exports | **Future** | Compliance reporting |
 
 ## Purpose
 Enable stakeholders to:
@@ -29,144 +76,129 @@ The system should:
 ### 1. Injury Reporting
 
 **Who Can Report:**
-- **Coach**: Observes injury during training/match
-- **Parent**: Child injured outside club activities
-- **Player** (18+): Self-report
-- **Medical Staff** (future): Official diagnosis
+- **Coach**: ✅ IMPLEMENTED - Full injury report form
+- **Parent**: ❌ NOT YET - Parents can only view injuries
+- **Player** (18+): ❌ NOT YET - No self-report capability
+- **Medical Staff** (future): ❌ NOT YET - Role not implemented
 
-**Injury Report Form:**
-- Player name
-- Date/time of injury
-- Location (training, match, outside club)
-- Body part (shoulder, knee, ankle, head, etc.)
-- Injury type (sprain, fracture, concussion, muscle strain)
-- Severity (minor, moderate, severe)
-- Description/circumstances
-- Photo upload (optional)
-- Witness information
+**Injury Report Form:** ✅ IMPLEMENTED (Coach side)
+- Player name ✅
+- Date/time of injury ✅
+- Location (training, match, outside club) ✅ (`occurredDuring` field)
+- Body part (shoulder, knee, ankle, head, etc.) ✅
+- Injury type (sprain, fracture, concussion, muscle strain) ✅
+- Severity (minor, moderate, severe, long_term) ✅
+- Description/circumstances ✅
+- Side (left/right/both) ✅
+- Photo upload (optional) ❌ NOT YET
+- Witness information ❌ NOT YET
 
-**Voice Note Integration:**
-- Coach can leave voice note: "Player X seemed to hurt their ankle"
-- System prompts: "Do you want to create an injury report?"
-- Voice transcription auto-populates injury form
+**Voice Note Integration:** ⚠️ PARTIAL
+- Schema supports `voiceNoteId` linkage ✅
+- Auto-creation from voice note ❌ NOT YET
+- Voice transcription auto-populate ❌ NOT YET
 
 ### 2. Injury Status Tracking
 
-**Injury Lifecycle:**
-1. **Reported** → Initial report filed
-2. **Under Assessment** → Awaiting medical evaluation
-3. **Confirmed** → Medical diagnosis received
-4. **In Recovery** → Active rehabilitation
-5. **Cleared** → Medical clearance to return
-6. **Returned** → Player back in full training/matches
-7. **Recurred** → Same injury happens again (tracked separately)
+**Injury Lifecycle (IMPLEMENTED - Simplified to 4 states):**
+1. **Active** → Currently injured (initial state)
+2. **Recovering** → In recovery/rehabilitation
+3. **Cleared** → Medical clearance to return
+4. **Healed** → Fully healed (historical)
 
-**Status Updates:**
-- Coach, parent, or medical staff can update status
-- Automatic notifications to relevant parties
-- Timeline view of recovery progress
+*Note: The PRD originally proposed 7 states, but the implementation uses 4 states which better matches real-world usage. The simplified model avoids confusion about edge cases like "under assessment" vs "confirmed".*
+
+**Status Updates:** ⚠️ PARTIAL
+- Coach can update status ✅
+- Parent/medical staff updates ❌ NOT YET
+- Automatic notifications ❌ NOT YET (Critical gap)
+- Timeline view ❌ NOT YET
 
 ### 3. Recovery Management
 
-**Recovery Plan:**
-- Estimated recovery duration (e.g., 2-4 weeks)
-- Treatment plan (rest, physical therapy, etc.)
-- Milestones (e.g., "Can jog without pain", "Full sprint without pain")
-- Exercises and rehabilitation activities
-- Medical appointments schedule
-- Photos/videos of progress
+**Recovery Plan:** ⚠️ PARTIAL (Schema exists, limited UI)
+- Estimated recovery duration ✅ (`expectedReturn` field)
+- Treatment plan ✅ (`treatment` field)
+- Milestones - Schema supports via `returnToPlayProtocol` ✅, UI ❌
+- Exercises and rehabilitation activities ❌ NOT YET
+- Medical appointments schedule ❌ NOT YET
+- Photos/videos of progress ❌ NOT YET
 
-**Return-to-Play Protocol:**
-- Graduated return (e.g., week 1: light training, week 2: full training, week 3: match play)
-- Clearance requirements (doctor note, parent approval, player confirmation)
-- Safety checks before return
+**Return-to-Play Protocol:** ⚠️ PARTIAL (Backend complete, no UI)
+- Protocol schema ✅ (step-based with completion tracking)
+- Backend functions ✅ (`setReturnToPlayProtocol`, `completeProtocolStep`)
+- Protocol management UI ❌ NOT YET
+- Clearance requirements ❌ NOT YET (no enforcement)
+- Safety checks before return ❌ NOT YET
 
-**Progress Tracking:**
-- Parent/player updates progress weekly
-- Coach observes and notes changes
-- Medical clearance documents uploaded
-- Photos showing recovery (optional)
+**Progress Tracking:** ⚠️ PARTIAL
+- Coach can update status ✅
+- Parent/player updates ❌ NOT YET
+- Medical clearance documents ❌ NOT YET
+- Photos showing recovery ❌ NOT YET
 
 ### 4. Coach Dashboard Integration
 
-**Injury Overview Widget:**
-- Current injured players
-- Players in recovery (expected return date)
-- Players recently returned (monitor for recurrence)
-- Players cleared but not yet returned
+**Injury Overview Widget:** ✅ IMPLEMENTED
+- Current injured players ✅ (Active Injuries section)
+- Players in recovery ✅ (status filtering)
+- Expected return date ✅ (shown in injury cards)
+- Complete injury history ✅
 
-**Team Availability:**
-- "Next Match Availability" view
-- Shows which players are available, injured, or questionable
-- Helps with match planning and lineup decisions
+**Team Availability:** ❌ NOT YET IMPLEMENTED
+- "Next Match Availability" view ❌
+- Available/injured/questionable status ❌
+- Match planning integration ❌
 
-**Injury Alerts:**
-- New injury reported
-- Player recovery milestone reached
-- Player cleared for return
-- Overdue recovery updates
+**Injury Alerts:** ❌ NOT YET IMPLEMENTED
+- All notification features pending
 
 ### 5. Parent Dashboard Integration
 
-**My Child's Injuries:**
-- Current injuries and status
-- Recovery plan and milestones
-- Upcoming medical appointments
-- Instructions from coach/medical staff
-- Ability to update progress
+**My Child's Injuries:** ✅ IMPLEMENTED (Read-only)
+- Current injuries and status ✅
+- Summary statistics ✅ (active, recovering, all-clear counts)
+- Injury history ✅
+- Recovery plan/milestones ❌ NOT YET (no UI)
+- **Ability to report injuries** ❌ NOT YET (Critical gap)
+- Ability to update progress ❌ NOT YET
 
-**Notifications:**
-- Coach reported an injury observation
-- Reminder to update recovery progress
-- Medical clearance required
-- Child cleared to return
+**Notifications:** ❌ NOT YET IMPLEMENTED
+- All notification features pending
 
-### 6. Club Admin Dashboard
+### 6. Club Admin Dashboard - ❌ NOT IMPLEMENTED
 
-**Injury Analytics:**
-- Total injuries this season (vs. last season)
-- Injury breakdown by type, body part, severity
-- Most common injuries
-- Injury rate per team, age group, sport
-- Average recovery time by injury type
+**Injury Analytics:** ❌ NOT YET
+- No admin injury analytics page exists
+- Backend has `getInjuryStats()` for individual players only
+- Need aggregate org-level queries
 
-**Compliance & Insurance:**
-- Injuries requiring incident reports
-- Insurance claims tracking
-- Documentation completeness (photos, medical reports)
-- Parent signatures and acknowledgments
+**Compliance & Insurance:** ❌ NOT YET
+- No compliance tracking
+- No insurance integration
 
-**Safety Reporting:**
-- Patterns indicating unsafe conditions (e.g., multiple ankle sprains on same field)
-- Injury rate trends (increasing = investigate)
-- Generate reports for board meetings
+**Safety Reporting:** ❌ NOT YET
+- No pattern detection
+- No trend analysis
 
-### 7. Injury Prevention Insights (AI-Powered)
+### 7. Injury Prevention Insights (AI-Powered) - ❌ FUTURE PHASE
 
-**Predictive Analytics:**
-- "Player X is at risk for injury" (based on training load, fatigue, past injuries)
-- "Team injury rate is 20% higher than league average" (investigate causes)
-- "Ankle injuries spike in October" (field conditions? Equipment?)
+**Predictive Analytics:** ❌ NOT YET
+- All AI features are future scope
 
-**Recommendations:**
-- Suggest rest days for overworked players
-- Recommend preventive exercises for injury-prone players
-- Alert to environmental risks (weather, field conditions)
+**Recommendations:** ❌ NOT YET
+- Requires data collection and ML infrastructure
 
-### 8. Medical Documentation
+### 8. Medical Documentation - ❌ NOT IMPLEMENTED
 
-**Document Storage:**
-- Medical reports from doctors
-- X-ray/MRI scans (images)
-- Physical therapy progress notes
-- Insurance forms
-- Parent consent for treatment
+**Document Storage:** ❌ NOT YET
+- No file upload capability
+- Schema proposed for `injuryDocuments` table (see Technical Implementation)
 
-**Access Control:**
-- Parents control who sees medical docs
-- Coaches see injury status, not full medical details
-- Admins see what's needed for insurance/compliance
-- Medical staff (if role exists) have full access
+**Access Control:** ⚠️ PARTIAL
+- Multi-org visibility controls ✅ (`isVisibleToAllOrgs`, `restrictedToOrgIds`)
+- `medicalNotes` field exists for private notes ✅
+- Full document access control ❌ NOT YET
 
 ## User Workflows
 
@@ -236,108 +268,187 @@ The system should:
 
 ## Technical Implementation
 
-### Database Schema
+### Database Schema (IMPLEMENTED)
+
+The following schema is already implemented in `packages/backend/convex/schema.ts`:
 
 ```typescript
-injuries {
-  id: string
-  playerId: Id<"orgPlayerEnrollments">
-  organizationId: string
+// Primary injury tracking table (platform-level)
+playerInjuries {
+  // Platform-level reference (supports multi-club players)
+  playerIdentityId: Id<"playerIdentities">
 
   // Injury details
-  injuryDate: number
-  bodyPart: string // "ankle", "knee", "shoulder", "head", etc.
-  injuryType: string // "sprain", "fracture", "concussion", "strain"
-  severity: "minor" | "moderate" | "severe"
+  injuryType: string           // "sprain", "strain", "fracture", "concussion", etc.
+  bodyPart: string             // "ankle", "knee", "shoulder", "head", etc.
+  side?: "left" | "right" | "both"
+
+  // Dates
+  dateOccurred: string         // ISO date
+  dateReported: string         // ISO date
+
+  // Severity and status
+  severity: "minor" | "moderate" | "severe" | "long_term"
+  status: "active" | "recovering" | "cleared" | "healed"
+
+  // Description
   description: string
-  location: "training" | "match" | "outside_club"
+  mechanism?: string           // How injury occurred
 
-  // Reporting
-  reportedBy: Id<"user"> // Coach, parent, or player
-  reportedAt: number
-  voiceNoteId?: Id<"voiceNotes"> // If reported via voice note
-
-  // Status tracking
-  status: "reported" | "under_assessment" | "confirmed" | "in_recovery" | "cleared" | "returned" | "recurred"
-  statusUpdatedAt: number
-  statusUpdatedBy: Id<"user">
-
-  // Recovery
-  estimatedRecoveryDays?: number
-  actualRecoveryDays?: number
-  recoveryPlan?: string
-  milestones?: {
-    description: string
-    targetDate: number
-    completedDate?: number
-    notes?: string
-  }[]
-
-  // Medical
-  medicalClearanceRequired: boolean
-  medicalClearanceReceived: boolean
-  medicalClearanceDate?: number
-  medicalDocumentIds?: Id<"documents">[]
+  // Treatment
+  treatment?: string
+  medicalProvider?: string
+  medicalNotes?: string        // Private medical notes
 
   // Return to play
-  returnToPlayProtocol?: string // "standard" | "concussion" | "fracture"
-  returnDate?: number
-  returnApprovedBy?: Id<"user">[]
+  expectedReturn?: string      // ISO date
+  actualReturn?: string        // ISO date
+  daysOut?: number             // Auto-calculated when cleared/healed
+  returnToPlayProtocol?: Array<{
+    id: string
+    step: number
+    description: string
+    completed: boolean
+    completedDate?: string
+    clearedBy?: string
+  }>
 
-  // Recurrence tracking
-  isRecurrence: boolean
-  originalInjuryId?: Id<"injuries">
+  // Context
+  occurredDuring?: "training" | "match" | "other_sport" | "non_sport" | "unknown"
+  occurredAtOrgId?: string     // Which org the injury happened at
+  sportCode?: string           // Sport being played when injured
+
+  // Multi-org visibility
+  isVisibleToAllOrgs: boolean  // Default true
+  restrictedToOrgIds?: string[] // If not visible to all, which orgs can see
+
+  // Reporting
+  reportedBy?: string          // User ID who reported
+  reportedByRole?: "guardian" | "player" | "coach" | "admin"
+  source?: "manual" | "voice_note"
+  voiceNoteId?: Id<"voiceNotes">
+
+  // Timestamps
+  createdAt: number
+  updatedAt: number
 }
 
-injuryUpdates {
-  id: string
-  injuryId: Id<"injuries">
-  updatedBy: Id<"user">
-  updateType: "status_change" | "milestone_completed" | "note_added" | "clearance_uploaded"
-  timestamp: number
-  notes?: string
-  attachments?: string[]
+// Organization-specific notes on injuries
+orgInjuryNotes {
+  injuryId: Id<"playerInjuries">
+  organizationId: string
+
+  note: string
+  noteType: "observation" | "training_restriction" | "progress_update" | "clearance" | "follow_up"
+
+  addedBy: string              // User ID
+  addedByName: string
+  addedByRole: "coach" | "admin" | "medical_officer"
+
+  isPrivate: boolean           // If true, only org admins can see
+
+  createdAt: number
 }
 ```
 
-### Notifications
+### Schema Design Decisions
+
+1. **Platform-level tracking**: Uses `playerIdentityId` instead of org-scoped enrollment ID, allowing injuries to be tracked across clubs for multi-club players.
+
+2. **Separate notes table**: `orgInjuryNotes` allows each organization to add their own notes to a shared injury record, respecting organizational boundaries.
+
+3. **Visibility controls**: `isVisibleToAllOrgs` and `restrictedToOrgIds` enable parents to control which clubs see sensitive injury information.
+
+4. **4-state lifecycle**: Simplified from 7 states to 4 (`active` → `recovering` → `cleared` → `healed`) which matches real-world usage patterns.
+
+### Schema NOT YET Implemented
+
 ```typescript
-// Notify relevant parties
-async function notifyInjury(injury: Injury) {
-  const player = await ctx.db.get(injury.playerId)
-
-  // Notify coach(es)
-  const coaches = await getTeamCoaches(player.teamId)
-  for (const coach of coaches) {
-    await sendNotification(coach.userId, {
-      type: "injury_reported",
-      message: `${player.firstName} has reported an injury`,
-      injuryId: injury.id,
-    })
-  }
-
-  // Notify parent(s)
-  const parents = await getPlayerParents(player.id)
-  for (const parent of parents) {
-    await sendNotification(parent.userId, {
-      type: "injury_reported",
-      message: `An injury has been reported for ${player.firstName}`,
-      injuryId: injury.id,
-    })
-  }
-
-  // Notify admin if severity is high
-  if (injury.severity === "severe") {
-    const admins = await getOrgAdmins(injury.organizationId)
-    for (const admin of admins) {
-      await sendNotification(admin.userId, {
-        type: "severe_injury_alert",
-        message: `Severe injury reported for ${player.firstName}`,
-        injuryId: injury.id,
-      })
-    }
-  }
+// Proposed for Phase 2: Document storage
+injuryDocuments {
+  injuryId: Id<"playerInjuries">
+  documentType: "medical_clearance" | "xray" | "mri" | "physio_notes" | "insurance_form"
+  storageId: Id<"_storage">    // Convex file storage
+  uploadedBy: string
+  uploadedAt: number
+  description?: string
 }
+
+// Proposed for Phase 3: Injury analytics aggregation
+injuryAnalytics {
+  organizationId: string
+  period: string               // "2026-01", "2026-Q1", "2026"
+  totalInjuries: number
+  byBodyPart: Record<string, number>
+  bySeverity: Record<string, number>
+  byAgeGroup: Record<string, number>
+  avgRecoveryDays: number
+  recurrenceRate: number
+}
+```
+
+### Notifications (NOT YET IMPLEMENTED)
+
+**Priority**: Critical - this is the #1 gap in the current implementation.
+
+**Notification Events Needed:**
+
+| Event | Recipients | Priority |
+|-------|------------|----------|
+| Injury reported by coach | Parents of player | High |
+| Injury reported by parent | Coaches of player's teams | High |
+| Severe injury reported | Org admins | High |
+| Status changed to "cleared" | Parents, coaches | Medium |
+| Status changed to "healed" | Parents, coaches | Low |
+| Protocol step completed | Coaches | Medium |
+| Overdue recovery update | Parents | Medium |
+
+**Implementation Options:**
+
+1. **In-app notifications** (Recommended for MVP)
+   - Add `notifications` table to schema
+   - Show notification badge in navbar
+   - Mark as read when viewed
+
+2. **Email notifications** (Phase 2)
+   - Use Convex actions with email provider (Resend, SendGrid)
+   - User preference for email frequency
+
+3. **Push notifications** (Future)
+   - Requires PWA or native app
+
+**Proposed Schema:**
+```typescript
+notifications {
+  userId: string              // Recipient
+  organizationId: string
+  type: "injury_reported" | "injury_status_changed" | "severe_injury_alert" | "protocol_step_completed"
+  title: string
+  message: string
+  link?: string               // Deep link to relevant page
+  relatedInjuryId?: Id<"playerInjuries">
+  isRead: boolean
+  createdAt: number
+}
+```
+
+**Proposed Trigger Points:**
+```typescript
+// In reportInjury mutation - after successful insert:
+await notifyInjuryReported(ctx, {
+  injuryId: newInjuryId,
+  playerId: args.playerIdentityId,
+  reportedByRole: args.reportedByRole,
+  severity: args.severity,
+  organizationId: args.occurredAtOrgId,
+});
+
+// In updateInjuryStatus mutation - after successful update:
+await notifyStatusChanged(ctx, {
+  injuryId: args.injuryId,
+  newStatus: args.status,
+  playerId: injury.playerIdentityId,
+});
 ```
 
 ## Privacy & Safety
@@ -367,41 +478,121 @@ async function notifyInjury(injury: Injury) {
 - **Satisfaction**: 4.5+ star rating from coaches and parents
 - **Prevention**: Injury analytics lead to actionable safety improvements
 
-## Implementation Phases
+## Implementation Phases (Updated)
 
-### Phase 1: Core Injury Reporting
-- Injury report form
-- Basic status tracking
-- Notifications to stakeholders
-- Coach/parent dashboards
+### Phase 1: Core Injury Reporting - 70% COMPLETE
 
-### Phase 2: Recovery Management
-- Recovery plan creation
-- Milestone tracking
-- Progress updates
-- Medical document upload
+| Task | Status | Notes |
+|------|--------|-------|
+| Injury report form (coach) | ✅ Done | Full form with all fields |
+| Basic status tracking | ✅ Done | 4-status lifecycle |
+| Coach injury dashboard | ✅ Done | Active injuries, history, filtering |
+| Parent injury view | ✅ Done | Read-only view of children's injuries |
+| **Notification system** | ❌ TODO | Critical gap - no alerts |
+| **Parent injury reporting** | ❌ TODO | Parents cannot report injuries |
 
-### Phase 3: Analytics & Prevention
-- Admin analytics dashboard
-- Injury trends and insights
-- AI-powered risk prediction
-- Safety recommendations
+**Remaining Work for Phase 1:**
+1. Build notification infrastructure (injury reported, status changed, severe injury alert)
+2. Add injury reporting form to parent dashboard
+3. Add "Report Injury" to coach quick actions
 
-### Phase 4: Advanced Features
-- Return-to-play protocols
-- Integration with medical staff role
-- Mobile app optimization
-- Insurance export features
+### Phase 2: Recovery Management - 30% COMPLETE
+
+| Task | Status | Notes |
+|------|--------|-------|
+| Recovery protocol schema | ✅ Done | `returnToPlayProtocol` array |
+| Protocol backend functions | ✅ Done | `setReturnToPlayProtocol`, `completeProtocolStep` |
+| **Protocol management UI** | ❌ TODO | No way to create/edit protocols |
+| **Milestone tracking UI** | ❌ TODO | No visual progress display |
+| Progress updates | ⚠️ Partial | Basic status only, no detailed updates |
+| **Document uploads** | ❌ TODO | Need Convex file storage |
+
+**Remaining Work for Phase 2:**
+1. Build return-to-play protocol UI (create steps, mark complete)
+2. Add milestone progress visualization
+3. Implement medical document upload (Convex `_storage`)
+4. Add concussion-specific protocol template with mandatory steps
+
+### Phase 3: Analytics & Prevention - 0% COMPLETE
+
+| Task | Status | Notes |
+|------|--------|-------|
+| Admin analytics dashboard | ❌ TODO | Need new page |
+| Injury trends charts | ❌ TODO | Need aggregate queries |
+| Body part heatmap | ❌ TODO | Visual representation |
+| Season comparison | ❌ TODO | Year-over-year metrics |
+| AI risk prediction | ❌ Future | Phase 4+ |
+
+**Remaining Work for Phase 3:**
+1. Create `/orgs/[orgId]/admin/injuries` analytics page
+2. Build aggregate query functions for injury statistics
+3. Add charts: injuries by month, by body part, by severity
+4. Add team comparison views
+
+### Phase 4: Advanced Features - 10% COMPLETE
+
+| Task | Status | Notes |
+|------|--------|-------|
+| Return-to-play enforcement | ⚠️ Partial | Schema supports it, no enforcement |
+| Medical staff role | ❌ TODO | Role exists in notes, no full implementation |
+| Voice note integration | ⚠️ Partial | Schema ready, no auto-creation |
+| Insurance exports | ❌ TODO | Future requirement |
+| Mobile optimization | ❌ TODO | Current pages are responsive but not optimized |
+
+**Remaining Work for Phase 4:**
+1. Enforce concussion protocol (cannot clear without completing all steps)
+2. Add "Create injury from voice note" flow
+3. Build insurance report export (PDF/CSV)
+4. Add medical officer permissions and views
+
+## File Locations
+
+### Backend
+- **Schema**: `packages/backend/convex/schema.ts` (lines 789-918)
+- **Queries/Mutations**: `packages/backend/convex/models/playerInjuries.ts`
+- **Org Notes**: `packages/backend/convex/models/orgInjuryNotes.ts` (if exists)
+
+### Frontend
+- **Coach Injuries Page**: `apps/web/src/app/orgs/[orgId]/coach/injuries/page.tsx`
+- **Parent Injuries Page**: `apps/web/src/app/orgs/[orgId]/parents/injuries/page.tsx`
+- **Player Passport Section**: `apps/web/src/app/orgs/[orgId]/players/[playerId]/components/player-injuries-section.tsx`
+- **Coach Sidebar**: `apps/web/src/components/layout/coach-sidebar.tsx` (injuries link)
+- **Parent Sidebar**: `apps/web/src/components/layout/parent-sidebar.tsx` (injuries link)
 
 ## References
-- Existing `injuries` table in schema
+- **Schema Tables**: `playerInjuries`, `orgInjuryNotes` in schema.ts
 - Medical profiles: Medical Card feature (Feature #4)
-- Voice note integration: VoiceNote Enhancement (Feature #7)
+- Voice note integration: VoiceNote Enhancement (Feature #7) - `voiceNoteId` field ready
 - Parent-coach communication: Feature #2
 
-## Open Questions
-1. Should there be a "medical staff" role with special permissions?
-2. Can injuries be linked to specific training drills or activities (for pattern analysis)?
-3. Should system integrate with external medical providers (e.g., physical therapists)?
-4. How long should injury records be retained (years after recovery)?
-5. Should there be anonymous injury reporting (to encourage reporting of all incidents)?
+## Open Questions (With Recommendations)
+
+| Question | Recommendation | Status |
+|----------|----------------|--------|
+| Medical staff role with special permissions? | Use `medical_officer` in `addedByRole` for now. Full role can be added later if needed. | Deferred |
+| Link injuries to specific drills/activities? | Nice-to-have for Phase 3 analytics. Add `activityId` field when implementing. | Future |
+| Integrate with external medical providers? | Out of scope for MVP. Consider API webhooks later. | Out of scope |
+| How long to retain injury records? | Keep indefinitely. Injuries are important historical health data. Add `isArchived` flag if UI becomes cluttered. | Decided: Keep all |
+| Anonymous injury reporting? | Not recommended for sports context. All injuries should have accountability for safety. | Decided: No |
+
+## Performance Notes
+
+The current implementation has N+1 query patterns in `getAllActiveInjuriesForOrg()` and `getAllInjuriesForOrg()` that should be optimized before scaling:
+
+```typescript
+// Current (N+1 pattern) - packages/backend/convex/models/playerInjuries.ts:289
+for (const enrollment of activeEnrollments) {
+  const injuries = await ctx.db.query("playerInjuries")...  // Query per enrollment
+  const player = await ctx.db.get(enrollment.playerIdentityId);  // Another query
+}
+```
+
+**TODO**: Refactor to batch queries using the patterns in `CLAUDE.md` Performance section.
+
+## Changelog
+
+| Date | Change | Author |
+|------|--------|--------|
+| Jan 2026 | Initial PRD created | @jkobrien |
+| Jan 24, 2026 | Added governing bodies, global sports scope | @CAMMGael |
+| Feb 1, 2026 | Updated to reflect current implementation state | Claude |

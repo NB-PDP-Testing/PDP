@@ -705,6 +705,19 @@ IMPORTANT:
                   false)
                 : false;
 
+              // CRITICAL: Check if player/team was matched successfully
+              // Don't auto-apply if matching failed or was ambiguous
+              const hasPlayerName = !!insight.playerName;
+              const hasPlayerMatch = !!insight.playerIdentityId;
+              const hasTeamName = !!insight.teamName;
+              const hasTeamMatch = !!insight.teamId;
+
+              // If insight has a player name, it MUST have a successful player match
+              const playerMatchOk =
+                !hasPlayerName || (hasPlayerName && hasPlayerMatch);
+              // If insight has a team name, it MUST have a successful team match
+              const teamMatchOk = !hasTeamName || (hasTeamName && hasTeamMatch);
+
               // Eligibility checks
               const isEligible =
                 insight.status === "pending" &&
@@ -712,7 +725,9 @@ IMPORTANT:
                 insight.category !== "medical" &&
                 effectiveLevel >= 2 &&
                 insight.confidenceScore >= threshold &&
-                categoryEnabled; // Must be enabled in preferences (Phase 7.3)
+                categoryEnabled && // Must be enabled in preferences (Phase 7.3)
+                playerMatchOk && // Player must be matched if player name present
+                teamMatchOk; // Team must be matched if team name present
 
               if (isEligible) {
                 console.log(
@@ -755,6 +770,16 @@ IMPORTANT:
                 if (insight.confidenceScore < threshold) {
                   reasons.push(
                     `confidence=${insight.confidenceScore} < ${threshold}`
+                  );
+                }
+                if (!playerMatchOk) {
+                  reasons.push(
+                    `player not matched (name="${insight.playerName}" but no playerIdentityId)`
+                  );
+                }
+                if (!teamMatchOk) {
+                  reasons.push(
+                    `team not matched (name="${insight.teamName}" but no teamId)`
                   );
                 }
                 if (!categoryEnabled) {

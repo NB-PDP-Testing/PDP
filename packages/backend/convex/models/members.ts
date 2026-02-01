@@ -3,7 +3,12 @@ import type { GenericDatabaseReader } from "convex/server";
 import { v } from "convex/values";
 import { api, components, internal } from "../_generated/api";
 import type { DataModel, Id } from "../_generated/dataModel";
-import { internalMutation, mutation, query } from "../_generated/server";
+import {
+  internalMutation,
+  internalQuery,
+  mutation,
+  query,
+} from "../_generated/server";
 
 /**
  * Type helper for Better Auth teamMember table (not in Convex schema)
@@ -5643,5 +5648,41 @@ export const checkUserAndMembership = query({
       isMember: !!memberResult,
       userId,
     };
+  },
+});
+
+/**
+ * Get admin/owner user IDs for an organization
+ * Internal query for use by notification helpers
+ */
+export const getAdminUserIdsForOrg = internalQuery({
+  args: { organizationId: v.string() },
+  returns: v.array(v.string()),
+  handler: async (ctx, args) => {
+    const membersResult = await ctx.runQuery(
+      components.betterAuth.adapter.findMany,
+      {
+        model: "member",
+        paginationOpts: { cursor: null, numItems: 1000 },
+        where: [
+          {
+            field: "organizationId",
+            value: args.organizationId,
+            operator: "eq",
+          },
+        ],
+      }
+    );
+
+    const members = membersResult.page || [];
+
+    // Filter to admins/owners and dedupe by userId
+    const admins = members.filter(
+      (m: any) => m.role === "admin" || m.role === "owner"
+    );
+
+    // Use Set to ensure unique user IDs (in case user has multiple member records)
+    const uniqueUserIds = [...new Set(admins.map((m: any) => m.userId))];
+    return uniqueUserIds;
   },
 });

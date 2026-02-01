@@ -1,6 +1,7 @@
 import { v } from "convex/values";
 import type { Doc } from "../_generated/dataModel";
 import { mutation, query } from "../_generated/server";
+import * as injuryNotifications from "../lib/injuryNotifications";
 
 // ============================================================
 // TYPE DEFINITIONS
@@ -547,7 +548,7 @@ export const reportInjury = mutation({
     const now = Date.now();
     const today = new Date().toISOString().split("T")[0];
 
-    return await ctx.db.insert("playerInjuries", {
+    const injuryId = await ctx.db.insert("playerInjuries", {
       playerIdentityId: args.playerIdentityId,
       injuryType: args.injuryType,
       bodyPart: args.bodyPart,
@@ -571,6 +572,29 @@ export const reportInjury = mutation({
       createdAt: now,
       updatedAt: now,
     });
+
+    // Send notifications to relevant stakeholders (Phase 1 - Issue #261)
+    // Only send if we have an organization context
+    if (args.occurredAtOrgId) {
+      try {
+        await injuryNotifications.notifyInjuryReported(ctx, {
+          injuryId,
+          playerIdentityId: args.playerIdentityId,
+          organizationId: args.occurredAtOrgId,
+          reportedByUserId: args.reportedBy,
+          reportedByRole: args.reportedByRole,
+          severity: args.severity,
+          playerName: `${player.firstName} ${player.lastName}`,
+          bodyPart: args.bodyPart,
+          injuryType: args.injuryType,
+        });
+      } catch (error) {
+        // Log but don't fail the injury creation if notifications fail
+        console.error("[reportInjury] Failed to send notifications:", error);
+      }
+    }
+
+    return injuryId;
   },
 });
 
@@ -582,6 +606,7 @@ export const updateInjuryStatus = mutation({
     injuryId: v.id("playerInjuries"),
     status: injuryStatusValidator,
     actualReturn: v.optional(v.string()),
+    updatedBy: v.optional(v.string()), // User ID of who made the update
   },
   returns: v.null(),
   handler: async (ctx, args) => {
@@ -611,6 +636,36 @@ export const updateInjuryStatus = mutation({
     }
 
     await ctx.db.patch(args.injuryId, updates);
+
+    // Send notifications for significant status changes (Phase 1 - Issue #261)
+    // Only notify for cleared/healed status changes
+    if (
+      (args.status === "cleared" || args.status === "healed") &&
+      existing.occurredAtOrgId
+    ) {
+      try {
+        // Get player info for notification
+        const player = await ctx.db.get(existing.playerIdentityId);
+        if (player) {
+          await injuryNotifications.notifyStatusChanged(ctx, {
+            injuryId: args.injuryId,
+            playerIdentityId: existing.playerIdentityId,
+            organizationId: existing.occurredAtOrgId,
+            updatedByUserId: args.updatedBy,
+            newStatus: args.status,
+            playerName: `${player.firstName} ${player.lastName}`,
+            bodyPart: existing.bodyPart,
+          });
+        }
+      } catch (error) {
+        // Log but don't fail the status update if notifications fail
+        console.error(
+          "[updateInjuryStatus] Failed to send notifications:",
+          error
+        );
+      }
+    }
+
     return null;
   },
 });
@@ -651,6 +706,116 @@ export const updateInjuryDetails = mutation({
     }
 
     await ctx.db.patch(args.injuryId, updates);
+    return null;
+  },
+});
+
+/**
+ * Comprehensive injury update - allows editing all core injury fields
+ * Used by the Edit Injury dialog for coaches
+ */
+export const updateInjury = mutation({
+  args: {
+    injuryId: v.id("playerInjuries"),
+    injuryType: v.optional(v.string()),
+    bodyPart: v.optional(v.string()),
+    side: v.optional(v.union(sideValidator, v.null())),
+    dateOccurred: v.optional(v.string()),
+    severity: v.optional(severityValidator),
+    status: v.optional(injuryStatusValidator),
+    description: v.optional(v.string()),
+    treatment: v.optional(v.string()),
+    expectedReturn: v.optional(v.string()),
+    actualReturn: v.optional(v.string()),
+    occurredDuring: v.optional(occurredDuringValidator),
+  },
+  returns: v.null(),
+  handler: async (ctx, args) => {
+    const existing = await ctx.db.get(args.injuryId);
+    if (!existing) {
+      throw new Error("Injury not found");
+    }
+
+    const updates: Record<string, unknown> = {
+      updatedAt: Date.now(),
+    };
+
+    // Only include fields that were provided
+    if (args.injuryType !== undefined) {
+      updates.injuryType = args.injuryType;
+    }
+    if (args.bodyPart !== undefined) {
+      updates.bodyPart = args.bodyPart;
+    }
+    if (args.side !== undefined) {
+      updates.side = args.side ?? undefined;
+    }
+    if (args.dateOccurred !== undefined) {
+      updates.dateOccurred = args.dateOccurred;
+    }
+    if (args.severity !== undefined) {
+      updates.severity = args.severity;
+    }
+    if (args.status !== undefined) {
+      updates.status = args.status;
+    }
+    if (args.description !== undefined) {
+      updates.description = args.description;
+    }
+    if (args.treatment !== undefined) {
+      updates.treatment = args.treatment;
+    }
+    if (args.expectedReturn !== undefined) {
+      updates.expectedReturn = args.expectedReturn;
+    }
+    if (args.actualReturn !== undefined) {
+      updates.actualReturn = args.actualReturn;
+    }
+    if (args.occurredDuring !== undefined) {
+      updates.occurredDuring = args.occurredDuring;
+    }
+
+    // Calculate days out if status changed to cleared/healed and actualReturn provided
+    if (
+      (args.status === "cleared" || args.status === "healed") &&
+      args.actualReturn
+    ) {
+      const occurred = new Date(args.dateOccurred ?? existing.dateOccurred);
+      const returned = new Date(args.actualReturn);
+      updates.daysOut = Math.ceil(
+        (returned.getTime() - occurred.getTime()) / (1000 * 60 * 60 * 24)
+      );
+    }
+
+    await ctx.db.patch(args.injuryId, updates);
+
+    // Send notifications for significant status changes
+    if (
+      args.status &&
+      args.status !== existing.status &&
+      (args.status === "cleared" || args.status === "healed") &&
+      existing.occurredAtOrgId
+    ) {
+      try {
+        const playerIdentity = await ctx.db.get(existing.playerIdentityId);
+        const playerName = playerIdentity
+          ? `${playerIdentity.firstName} ${playerIdentity.lastName}`
+          : "Player";
+
+        await injuryNotifications.notifyStatusChanged(ctx, {
+          injuryId: args.injuryId,
+          playerIdentityId: existing.playerIdentityId,
+          organizationId: existing.occurredAtOrgId,
+          updatedByUserId: undefined,
+          newStatus: args.status,
+          playerName,
+          bodyPart: args.bodyPart ?? existing.bodyPart,
+        });
+      } catch (error) {
+        console.error("[updateInjury] Failed to send notifications:", error);
+      }
+    }
+
     return null;
   },
 });

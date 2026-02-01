@@ -3421,27 +3421,38 @@ export default defineSchema({
     .index("by_user_unread", ["userId", "readAt"]),
 
   // User Notifications (Real-time Toast Notifications)
-  // General-purpose notifications for all users - role grants, team assignments, etc.
+  // General-purpose notifications for all users - role grants, team assignments, injuries, etc.
   notifications: defineTable({
     userId: v.string(), // Recipient (Better Auth user ID)
     organizationId: v.string(), // Organization context
     type: v.union(
+      // Role & Team notifications
       v.literal("role_granted"), // User granted Admin/Coach role
       v.literal("team_assigned"), // Coach assigned to team
       v.literal("team_removed"), // Coach removed from team
       v.literal("child_declined"), // Admin notified parent declined child
-      v.literal("invitation_request") // Admin notified of invitation request
+      v.literal("invitation_request"), // Admin notified of invitation request
+      // Injury notifications (Phase 1 - Issue #261)
+      v.literal("injury_reported"), // New injury reported for a player
+      v.literal("injury_status_changed"), // Injury status updated (recovering, cleared, healed)
+      v.literal("severe_injury_alert"), // Severe injury requiring admin attention
+      v.literal("injury_cleared") // Player cleared to return to play
     ),
     title: v.string(),
     message: v.string(),
     link: v.optional(v.string()), // URL for navigation
+    // Injury context (optional - only set for injury notifications)
+    relatedInjuryId: v.optional(v.id("playerInjuries")),
+    relatedPlayerId: v.optional(v.id("playerIdentities")),
+    // Timestamps
     createdAt: v.number(),
     seenAt: v.optional(v.number()), // null means unseen
     dismissedAt: v.optional(v.number()), // When manually dismissed
   })
     .index("by_user_unseen", ["userId", "seenAt"])
     .index("by_user_created", ["userId", "createdAt"])
-    .index("by_org_type", ["organizationId", "type"]),
+    .index("by_org_type", ["organizationId", "type"])
+    .index("by_injury", ["relatedInjuryId"]), // Find notifications for an injury
 
   // ============================================================
   // USER PREFERENCES & USAGE TRACKING

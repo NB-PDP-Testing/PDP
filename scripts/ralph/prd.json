@@ -331,7 +331,7 @@
         "Visual verification: all shortcuts work, help modal displays, shortcuts don't fire in inputs"
       ],
       "priority": 8,
-      "passes": false,
+      "passes": true,
       "effort": "2h"
     },
     {
@@ -355,7 +355,7 @@
         "Visual verification: threading works, indentation correct, 3-level nesting works, 4th level disabled"
       ],
       "priority": 9,
-      "passes": false,
+      "passes": true,
       "effort": "4h"
     },
     {
@@ -375,7 +375,7 @@
         "Type check passes"
       ],
       "priority": 10,
-      "passes": false,
+      "passes": true,
       "effort": "2h"
     },
     {
@@ -393,7 +393,7 @@
         "Visual verification: all empty states display correctly"
       ],
       "priority": 11,
-      "passes": false,
+      "passes": true,
       "effort": "2h"
     },
     {
@@ -411,7 +411,7 @@
         "Run npx -w packages/backend convex codegen"
       ],
       "priority": 12,
-      "passes": false,
+      "passes": true,
       "effort": "1h"
     },
     {

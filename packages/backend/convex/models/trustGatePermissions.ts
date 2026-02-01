@@ -199,13 +199,27 @@ export const checkCoachParentAccess = query({
       };
     }
 
-    // PRIORITY 7: Individual override (admin approved)
-    if (coachPref?.trustGateOverride === true) {
-      // Check if expired
+    // PRIORITY 7: Individual override OR AI control rights (admin approved)
+    if (
+      coachPref?.trustGateOverride === true ||
+      coachPref?.aiControlRightsEnabled === true
+    ) {
+      // Check if override expired (only applies to trustGateOverride, not aiControlRights)
       if (
+        coachPref?.trustGateOverride === true &&
         coachPref.overrideExpiresAt &&
         coachPref.overrideExpiresAt < Date.now()
       ) {
+        // If trust override expired but they have AI control rights, still give access
+        if (coachPref?.aiControlRightsEnabled === true) {
+          return {
+            hasAccess: true,
+            reason: "AI control rights enabled",
+            canRequest: false,
+            canToggle: true,
+          };
+        }
+
         return {
           hasAccess: false,
           reason: "Your override access has expired",
@@ -217,7 +231,9 @@ export const checkCoachParentAccess = query({
       return {
         hasAccess: true,
         reason:
-          coachPref.overrideReason || "Admin granted you temporary access",
+          coachPref?.trustGateOverride === true
+            ? coachPref.overrideReason || "Admin granted you temporary access"
+            : "AI control rights enabled",
         canRequest: false,
         canToggle: true, // Can toggle off if they want
       };

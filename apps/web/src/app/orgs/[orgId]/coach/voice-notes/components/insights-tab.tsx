@@ -11,7 +11,6 @@ import {
   Inbox,
   Lightbulb,
   Loader2,
-  Lock as LockIcon,
   Pencil,
   Send,
   Sparkles,
@@ -52,7 +51,6 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Progress } from "@/components/ui/progress";
 import { RadioGroup, RadioGroupItem } from "@/components/ui/radio-group";
-import { Switch } from "@/components/ui/switch";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Textarea } from "@/components/ui/textarea";
 import { useSession } from "@/lib/auth-client";
@@ -236,7 +234,7 @@ export function InsightsTab({ orgId, onSuccess, onError }: InsightsTabProps) {
   );
 
   // Get coach org preferences for AI feature toggles (P8 Week 1.5)
-  const coachPref = useQuery(
+  const _coachPref = useQuery(
     api.models.trustGatePermissions.getCoachOrgPreferences,
     coachId && orgId ? { coachId, organizationId: orgId } : "skip"
   );
@@ -265,8 +263,8 @@ export function InsightsTab({ orgId, onSuccess, onError }: InsightsTabProps) {
   );
 
   const [isBulkApplying, setIsBulkApplying] = useState(false);
-  const [isTogglingFeature, setIsTogglingFeature] = useState(false);
-  const [isChangingTrustLevel, setIsChangingTrustLevel] = useState(false);
+  const [_isTogglingFeature, setIsTogglingFeature] = useState(false);
+  const [_isChangingTrustLevel, setIsChangingTrustLevel] = useState(false);
 
   const handleAssignPlayer = async (
     playerIdentityId: Id<"playerIdentities">
@@ -450,7 +448,7 @@ export function InsightsTab({ orgId, onSuccess, onError }: InsightsTabProps) {
     }
   };
 
-  const handleToggleAIFeature = async (
+  const _handleToggleAIFeature = async (
     feature:
       | "aiInsightMatchingEnabled"
       | "autoApplyInsightsEnabled"
@@ -477,7 +475,7 @@ export function InsightsTab({ orgId, onSuccess, onError }: InsightsTabProps) {
     }
   };
 
-  const handleChangePreferredLevel = async (level: number) => {
+  const _handleChangePreferredLevel = async (level: number) => {
     if (!orgId) {
       return;
     }
@@ -893,54 +891,59 @@ export function InsightsTab({ orgId, onSuccess, onError }: InsightsTabProps) {
             })()}
 
             {/* Smart Action Bar (Phase 9 Week 2 - AI Copilot) */}
-            {session?.user?.id && (
-              <div className="mt-3">
-                <SmartActionBar
-                  context="viewing_insight"
-                  contextId={insight.id}
-                  onActionClick={async (action: string) => {
-                    // Handle smart action clicks
-                    if (action.startsWith("apply:")) {
-                      // Apply insight action - mark as applied
-                      try {
-                        await updateInsightStatus({
-                          noteId: insight.noteId,
-                          insightId: insight.id,
-                          status: "applied",
-                        });
-                        onSuccess("Insight marked as applied");
-                      } catch (error) {
-                        console.error("Failed to apply insight:", error);
-                        onError("Failed to apply insight");
-                      }
-                    } else if (action.startsWith("mention:")) {
-                      // Mention coach action - future: open comment form with @mention
-                      toast.info(
-                        "💬 Comment with @mention feature coming soon! Use the comment section below to tag coaches."
-                      );
-                    } else if (action.startsWith("add_to_session:")) {
-                      // Add to session action - future: integrate with session planner
-                      toast.info(
-                        "📅 Session planning integration coming soon! Bookmark this insight for now."
-                      );
-                    } else if (action.startsWith("create_task:")) {
-                      // Create task action - future: task management system
-                      toast.info(
-                        "✅ Task creation coming soon! Add a reminder to track this."
-                      );
-                    } else {
-                      // Generic action - log for debugging
-                      console.log("Smart action:", action);
-                      toast.info(
-                        "Action recorded - full implementation coming soon"
-                      );
-                    }
-                  }}
-                  organizationId={orgId}
-                  userId={session.user.id}
-                />
-              </div>
-            )}
+            {session?.user?.id &&
+              (() => {
+                const key = `${insight.noteId}_${insight.id}`;
+                const convexId = insightIdMap.get(key);
+                return convexId ? (
+                  <div className="mt-3">
+                    <SmartActionBar
+                      context="viewing_insight"
+                      contextId={convexId}
+                      onActionClick={async (action: string) => {
+                        // Handle smart action clicks
+                        if (action.startsWith("apply:")) {
+                          // Apply insight action - mark as applied
+                          try {
+                            await updateInsightStatus({
+                              noteId: insight.noteId,
+                              insightId: insight.id,
+                              status: "applied",
+                            });
+                            onSuccess("Insight marked as applied");
+                          } catch (error) {
+                            console.error("Failed to apply insight:", error);
+                            onError("Failed to apply insight");
+                          }
+                        } else if (action.startsWith("mention:")) {
+                          // Mention coach action - future: open comment form with @mention
+                          toast.info(
+                            "💬 Comment with @mention feature coming soon! Use the comment section below to tag coaches."
+                          );
+                        } else if (action.startsWith("add_to_session:")) {
+                          // Add to session action - future: integrate with session planner
+                          toast.info(
+                            "📅 Session planning integration coming soon! Bookmark this insight for now."
+                          );
+                        } else if (action.startsWith("create_task:")) {
+                          // Create task action - future: task management system
+                          toast.info(
+                            "✅ Task creation coming soon! Add a reminder to track this."
+                          );
+                        } else {
+                          // Generic action - log for debugging
+                          console.log("Smart action:", action);
+                          toast.info(
+                            "Action recorded - full implementation coming soon"
+                          );
+                        }
+                      }}
+                      organizationId={orgId}
+                      userId={session.user.id}
+                    />
+                  </div>
+                ) : null;
+              })()}
 
             {/* AI Confidence Visualization (Phase 7.1) */}
             {(insight as any).confidence !== undefined && (
@@ -1181,10 +1184,9 @@ export function InsightsTab({ orgId, onSuccess, onError }: InsightsTabProps) {
         }
         value={activeTab}
       >
-        <TabsList className="grid w-full grid-cols-3">
+        <TabsList className="grid w-full grid-cols-2">
           <TabsTrigger value="pending">Pending Review</TabsTrigger>
           <TabsTrigger value="auto-applied">Auto-Applied</TabsTrigger>
-          <TabsTrigger value="settings">Settings</TabsTrigger>
         </TabsList>
 
         <TabsContent className="mt-4 space-y-4" value="pending">
@@ -1441,211 +1443,6 @@ export function InsightsTab({ orgId, onSuccess, onError }: InsightsTabProps) {
                   );
                 })
               )}
-            </CardContent>
-          </Card>
-        </TabsContent>
-
-        <TabsContent className="mt-4" value="settings">
-          <Card>
-            <CardHeader>
-              <CardTitle>AI Automation Settings</CardTitle>
-              <CardDescription>
-                Control which AI features are enabled for your voice notes
-              </CardDescription>
-            </CardHeader>
-            <CardContent className="space-y-6">
-              {/* Trust Level Selector */}
-              {coachTrustLevel && (
-                <div className="rounded-lg border bg-muted/50 p-4">
-                  <div className="space-y-4">
-                    <div>
-                      <h4 className="font-medium text-sm">Trust Level</h4>
-                      <p className="mt-1 text-muted-foreground text-xs">
-                        {coachPref?.trustGateOverride
-                          ? "You have an override - you can set any level (0-3)"
-                          : `Your current level is ${coachTrustLevel.currentLevel} - you can set your preferred level up to this`}
-                      </p>
-                    </div>
-
-                    <div className="flex items-center gap-2">
-                      <span className="text-muted-foreground text-xs">
-                        Current:
-                      </span>
-                      <Badge variant="secondary">
-                        Level {coachTrustLevel.currentLevel}
-                      </Badge>
-                      {coachTrustLevel.preferredLevel !== undefined &&
-                        coachTrustLevel.preferredLevel !==
-                          coachTrustLevel.currentLevel && (
-                          <>
-                            <span className="text-muted-foreground text-xs">
-                              →
-                            </span>
-                            <Badge>
-                              Level {coachTrustLevel.preferredLevel} (Active)
-                            </Badge>
-                          </>
-                        )}
-                    </div>
-
-                    <div className="space-y-2">
-                      <Label className="text-xs">Set Preferred Level</Label>
-                      <RadioGroup
-                        disabled={isChangingTrustLevel}
-                        onValueChange={(value) =>
-                          handleChangePreferredLevel(Number.parseInt(value, 10))
-                        }
-                        value={String(
-                          coachTrustLevel.preferredLevel ??
-                            coachTrustLevel.currentLevel
-                        )}
-                      >
-                        {[0, 1, 2, 3].map((level) => {
-                          const isAvailable = coachPref?.trustGateOverride
-                            ? true
-                            : level <= coachTrustLevel.currentLevel;
-                          const isCurrentLevel =
-                            level === coachTrustLevel.currentLevel;
-
-                          return (
-                            <div
-                              className="flex items-center space-x-2"
-                              key={level}
-                            >
-                              <RadioGroupItem
-                                disabled={!isAvailable || isChangingTrustLevel}
-                                id={`level-${level}`}
-                                value={String(level)}
-                              />
-                              <Label
-                                className={cn(
-                                  "font-normal text-xs",
-                                  !isAvailable && "text-muted-foreground"
-                                )}
-                                htmlFor={`level-${level}`}
-                              >
-                                Level {level}
-                                {isCurrentLevel && " (Your earned level)"}
-                                {!isAvailable && " (Locked)"}
-                              </Label>
-                            </div>
-                          );
-                        })}
-                      </RadioGroup>
-                    </div>
-                  </div>
-                </div>
-              )}
-
-              {coachPref?.aiControlRightsEnabled ? (
-                coachPref?.adminBlockedFromAI ? (
-                  <div className="rounded-lg border border-destructive bg-destructive/10 p-4">
-                    <div className="flex items-start gap-3">
-                      <AlertTriangle className="mt-0.5 h-5 w-5 text-destructive" />
-                      <div className="flex-1">
-                        <h4 className="font-medium text-destructive text-sm">
-                          AI Access Blocked
-                        </h4>
-                        <p className="mt-1 text-destructive/90 text-xs">
-                          {coachPref.blockReason ||
-                            "Your admin has blocked your access to AI features"}
-                        </p>
-                      </div>
-                    </div>
-                  </div>
-                ) : (
-                  <div className="space-y-4">
-                    <div className="flex items-start justify-between space-x-4">
-                      <div className="flex-1">
-                        <h4 className="font-medium text-sm">
-                          AI Insight Matching
-                        </h4>
-                        <p className="text-muted-foreground text-xs">
-                          Automatically match players and classify insight
-                          categories
-                        </p>
-                      </div>
-                      <Switch
-                        checked={coachPref.aiInsightMatchingEnabled ?? true}
-                        disabled={isTogglingFeature}
-                        onCheckedChange={(checked) =>
-                          handleToggleAIFeature(
-                            "aiInsightMatchingEnabled",
-                            checked
-                          )
-                        }
-                      />
-                    </div>
-
-                    <div className="flex items-start justify-between space-x-4">
-                      <div className="flex-1">
-                        <h4 className="font-medium text-sm">
-                          Auto-Apply Insights
-                        </h4>
-                        <p className="text-muted-foreground text-xs">
-                          Automatically apply skill ratings and injury updates
-                          to player profiles
-                        </p>
-                      </div>
-                      <Switch
-                        checked={coachPref.autoApplyInsightsEnabled ?? true}
-                        disabled={isTogglingFeature}
-                        onCheckedChange={(checked) =>
-                          handleToggleAIFeature(
-                            "autoApplyInsightsEnabled",
-                            checked
-                          )
-                        }
-                      />
-                    </div>
-
-                    <div className="flex items-start justify-between space-x-4">
-                      <div className="flex-1">
-                        <h4 className="font-medium text-sm">
-                          Parent Summaries
-                        </h4>
-                        <p className="text-muted-foreground text-xs">
-                          Generate and send weekly summaries to parents
-                        </p>
-                      </div>
-                      <Switch
-                        checked={coachPref.parentSummariesEnabled ?? true}
-                        disabled={isTogglingFeature}
-                        onCheckedChange={(checked) =>
-                          handleToggleAIFeature(
-                            "parentSummariesEnabled",
-                            checked
-                          )
-                        }
-                      />
-                    </div>
-                  </div>
-                )
-              ) : (
-                <div className="rounded-lg border border-amber-300 bg-amber-50 p-4">
-                  <div className="flex items-start gap-3">
-                    <LockIcon className="mt-0.5 h-5 w-5 text-amber-700" />
-                    <div className="flex-1">
-                      <h4 className="font-medium text-amber-900 text-sm">
-                        AI Control Rights Required
-                      </h4>
-                      <p className="mt-1 text-amber-800 text-xs">
-                        You need AI control rights from your admin to change
-                        these settings. Contact your organization admin to
-                        request access.
-                      </p>
-                    </div>
-                  </div>
-                </div>
-              )}
-
-              <div className="border-t pt-4">
-                <p className="text-muted-foreground text-xs">
-                  These settings control how AI assists with your voice notes.
-                  {coachPref?.aiControlRightsEnabled &&
-                    " You can turn features on or off at any time."}
-                </p>
-              </div>
             </CardContent>
           </Card>
         </TabsContent>

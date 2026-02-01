@@ -35,6 +35,7 @@ import {
 } from "@/components/ui/collapsible";
 import { Label } from "@/components/ui/label";
 import { Progress } from "@/components/ui/progress";
+import { Slider } from "@/components/ui/slider";
 import { Switch } from "@/components/ui/switch";
 import { authClient } from "@/lib/auth-client";
 import { cn } from "@/lib/utils";
@@ -47,13 +48,13 @@ const TRUST_LEVELS = [
   {
     level: 0,
     label: "New",
-    description: "Manual review required for all parent summaries",
+    description: "Manual review required for all AI insights",
     color: "bg-gray-500",
     textColor: "text-gray-700",
     bgColor: "bg-gray-100",
     borderColor: "border-gray-200",
     icon: Shield,
-    milestone: "Approve 10 summaries to reach Level 1",
+    milestone: "Approve 10 insights to reach Level 1",
   },
   {
     level: 1,
@@ -64,18 +65,18 @@ const TRUST_LEVELS = [
     bgColor: "bg-blue-50",
     borderColor: "border-blue-200",
     icon: Sparkles,
-    milestone: "Approve 50 summaries to reach Level 2 and unlock auto-send",
+    milestone: "Approve 50 insights to reach Level 2 and unlock automation",
   },
   {
     level: 2,
     label: "Trusted",
-    description: "Auto-approve normal summaries, review sensitive",
+    description: "Auto-apply non-sensitive insights, review others",
     color: "bg-green-500",
     textColor: "text-green-700",
     bgColor: "bg-green-50",
     borderColor: "border-green-200",
     icon: Award,
-    milestone: "Approve 200 summaries to reach Level 3 (Expert)",
+    milestone: "Approve 200 insights to reach Level 3 (Expert)",
   },
   {
     level: 3,
@@ -134,10 +135,21 @@ export function CoachSettingsDialog({
     api.models.coachTrustLevels.setInsightAutoApplyPreferences
   );
 
+  // Mutation for setting preferred trust level
+  const setPreferredLevel = useMutation(
+    api.models.coachTrustLevels.setPreferredTrustLevel
+  );
+
+  // Mutation for toggling AI features
+  const toggleAIFeature = useMutation(
+    api.models.trustGatePermissions.toggleAIFeatureSetting
+  );
+
   // State for expanded org settings
   const [expandedOrgs, setExpandedOrgs] = useState<Set<string>>(new Set());
   const [savingOrgs, setSavingOrgs] = useState<Set<string>>(new Set());
   const [helpDialogOpen, setHelpDialogOpen] = useState(false);
+  const [isChangingTrustLevel, setIsChangingTrustLevel] = useState(false);
 
   const toggleOrgExpanded = (orgId: string) => {
     const newExpanded = new Set(expandedOrgs);
@@ -194,6 +206,35 @@ export function CoachSettingsDialog({
     }
   };
 
+  const handleToggleAIFeature = async (
+    orgId: string,
+    feature: "aiInsightMatchingEnabled" | "autoApplyInsightsEnabled",
+    enabled: boolean
+  ) => {
+    setSavingOrgs((prev) => new Set(prev).add(orgId));
+    try {
+      await toggleAIFeature({
+        organizationId: orgId,
+        feature,
+        enabled,
+      });
+      const featureName =
+        feature === "aiInsightMatchingEnabled"
+          ? "AI Insight Matching"
+          : "Auto-Apply Insights";
+      toast.success(`${featureName} ${enabled ? "enabled" : "disabled"}`);
+    } catch (error) {
+      console.error("Failed to update AI feature setting:", error);
+      toast.error("Failed to update setting");
+    } finally {
+      setSavingOrgs((prev) => {
+        const newSet = new Set(prev);
+        newSet.delete(orgId);
+        return newSet;
+      });
+    }
+  };
+
   const handleToggleAutoApplyPreference = async (
     category: "skills" | "attendance" | "goals" | "performance",
     enabled: boolean
@@ -236,14 +277,61 @@ export function CoachSettingsDialog({
     }
   };
 
+  const handleChangePreferredLevel = async (level: number) => {
+    // Need at least one organization to set preferred level
+    if (!organizations || organizations.length === 0) {
+      toast.error("You must be a member of at least one organization");
+      return;
+    }
+
+    setIsChangingTrustLevel(true);
+    try {
+      // Use the first organization ID (trust level is platform-wide but mutation needs org for override check)
+      await setPreferredLevel({
+        preferredLevel: level,
+        organizationId: organizations[0].id,
+      });
+      toast.success(`Trust level preference set to Level ${level}`);
+    } catch (error: unknown) {
+      console.error("Failed to update trust level:", error);
+      toast.error(
+        error instanceof Error ? error.message : "Failed to update trust level"
+      );
+    } finally {
+      setIsChangingTrustLevel(false);
+    }
+  };
+
   // Get org preferences for a specific org
   const getOrgPrefs = (orgId: string) => {
     const prefs = allOrgPreferences?.find((p) => p.organizationId === orgId);
+    // Coach has access to advanced features if they have:
+    // 1. AI control rights (explicit permission), OR
+    // 2. Trust gate override (admin override), OR
+    // 3. Earned level 2+ (auto-apply unlocks at level 2)
+    const hasAdvancedAccess =
+      (prefs?.aiControlRightsEnabled ?? false) ||
+      (prefs?.trustGateOverride ?? false) ||
+      currentLevel >= 2;
+
     return {
       parentSummariesEnabled: prefs?.parentSummariesEnabled ?? true,
       skipSensitiveInsights: prefs?.skipSensitiveInsights ?? false,
+      aiInsightMatchingEnabled: prefs?.aiInsightMatchingEnabled ?? true,
+      autoApplyInsightsEnabled: prefs?.autoApplyInsightsEnabled ?? true,
+      hasAIControlRights: prefs?.aiControlRightsEnabled ?? false,
+      hasOverride: prefs?.trustGateOverride ?? false,
+      hasAdvancedAccess,
+      isBlocked: prefs?.adminBlockedFromAI ?? false,
     };
   };
+
+  // Compute trust gate override status from org preferences
+  // Coach has override if ANY org has granted trustGateOverride or aiControlRightsEnabled
+  const hasOverride =
+    allOrgPreferences?.some(
+      (pref) => pref.trustGateOverride || pref.aiControlRightsEnabled
+    ) ?? false;
 
   // Get current trust level info
   const currentLevel = platformTrustLevel?.currentLevel ?? 0;
@@ -403,10 +491,182 @@ export function CoachSettingsDialog({
             <Info className="h-4 w-4" />
             <AlertDescription className="text-xs">
               Your trust level is earned across all clubs. As you consistently
-              approve parent summaries, your automation level increases.
+              approve AI-generated insights (player updates, parent summaries,
+              development goals, etc.), your automation level increases.
             </AlertDescription>
           </Alert>
         </div>
+
+        {/* Set Preferred Trust Level Card */}
+        <Card>
+          <CardHeader>
+            <div className="flex items-center justify-between">
+              <CardTitle className="flex items-center gap-2 text-lg">
+                <Shield className="h-5 w-5" />
+                Set Preferred Trust Level
+              </CardTitle>
+              {hasOverride && (
+                <Badge
+                  className="border-yellow-300 bg-yellow-50 text-yellow-700"
+                  variant="outline"
+                >
+                  Override Enabled
+                </Badge>
+              )}
+            </div>
+            <CardDescription className="text-xs sm:text-sm">
+              {hasOverride
+                ? "With override enabled, you can set your preferred level to any value (0-3). The system will cap automated actions at your preferred level."
+                : "You can dial down from your current earned level at any time. To increase your preferred level, you must earn it through approved actions."}
+            </CardDescription>
+          </CardHeader>
+          <CardContent className="space-y-6">
+            {/* Slider with level indicators */}
+            <div className="space-y-4">
+              <div className="flex items-center justify-between">
+                <Label className="font-medium text-sm">
+                  Preferred Level:{" "}
+                  {platformTrustLevel?.preferredLevel ?? currentLevel}
+                </Label>
+                {isChangingTrustLevel && (
+                  <Loader2 className="h-4 w-4 animate-spin text-muted-foreground" />
+                )}
+              </div>
+
+              {/* Slider */}
+              <div className="px-2">
+                <Slider
+                  className="w-full"
+                  disabled={isChangingTrustLevel}
+                  max={hasOverride ? 3 : currentLevel}
+                  min={0}
+                  onValueChange={(values) =>
+                    handleChangePreferredLevel(values[0])
+                  }
+                  step={1}
+                  value={[platformTrustLevel?.preferredLevel ?? currentLevel]}
+                />
+              </div>
+
+              {/* Level markers */}
+              <div className="flex justify-between px-1 text-xs">
+                {TRUST_LEVELS.map((levelInfo) => {
+                  const isLocked =
+                    !hasOverride && levelInfo.level > currentLevel;
+                  const isSelected =
+                    levelInfo.level ===
+                    (platformTrustLevel?.preferredLevel ?? currentLevel);
+
+                  return (
+                    <button
+                      className={cn(
+                        "flex flex-col items-center gap-1 transition-all",
+                        isLocked && "cursor-not-allowed opacity-40",
+                        !isLocked && "cursor-pointer hover:opacity-75"
+                      )}
+                      disabled={isLocked || isChangingTrustLevel}
+                      key={levelInfo.level}
+                      onClick={() => {
+                        if (!(isLocked || isChangingTrustLevel)) {
+                          handleChangePreferredLevel(levelInfo.level);
+                        }
+                      }}
+                      type="button"
+                    >
+                      <div
+                        className={cn(
+                          "flex h-8 w-8 items-center justify-center rounded-full border-2 transition-all",
+                          isSelected
+                            ? cn(
+                                levelInfo.color,
+                                "border-transparent text-white"
+                              )
+                            : "border-gray-300 bg-white text-gray-600"
+                        )}
+                      >
+                        {isLocked ? (
+                          <span className="text-xs">🔒</span>
+                        ) : (
+                          <span className="font-bold text-xs">
+                            {levelInfo.level}
+                          </span>
+                        )}
+                      </div>
+                      <span
+                        className={cn(
+                          "font-medium",
+                          isSelected
+                            ? "text-foreground"
+                            : "text-muted-foreground"
+                        )}
+                      >
+                        {levelInfo.label}
+                      </span>
+                    </button>
+                  );
+                })}
+              </div>
+
+              {/* Selected level description */}
+              {(() => {
+                const selectedLevel =
+                  platformTrustLevel?.preferredLevel ?? currentLevel;
+                const levelInfo = TRUST_LEVELS[selectedLevel];
+                const LevelIcon = levelInfo.icon;
+
+                return (
+                  <div
+                    className={cn(
+                      "rounded-lg border-2 p-4",
+                      levelInfo.borderColor,
+                      levelInfo.bgColor
+                    )}
+                  >
+                    <div className="flex items-start gap-3">
+                      <div
+                        className={cn(
+                          "flex h-10 w-10 flex-shrink-0 items-center justify-center rounded-full",
+                          `${levelInfo.color.replace("bg-", "bg-")}/20`
+                        )}
+                      >
+                        <LevelIcon
+                          className={cn(
+                            "h-5 w-5",
+                            levelInfo.color.replace("bg-", "text-")
+                          )}
+                        />
+                      </div>
+                      <div className="flex-1 space-y-1">
+                        <div className="flex items-center gap-2">
+                          <h4 className="font-semibold text-sm">
+                            Level {selectedLevel}: {levelInfo.label}
+                          </h4>
+                          {selectedLevel === currentLevel && (
+                            <Badge className="text-xs" variant="secondary">
+                              Earned
+                            </Badge>
+                          )}
+                        </div>
+                        <p className="text-muted-foreground text-xs">
+                          {levelInfo.description}
+                        </p>
+                      </div>
+                    </div>
+                  </div>
+                );
+              })()}
+            </div>
+
+            <Alert>
+              <Info className="h-4 w-4" />
+              <AlertDescription className="text-xs">
+                {hasOverride
+                  ? "Override rights granted by your organization admin. You can set any level, but your earned level advances naturally through approved actions."
+                  : "You can always dial down for more control. To unlock higher levels, continue approving insights and summaries to build your trust score."}
+              </AlertDescription>
+            </Alert>
+          </CardContent>
+        </Card>
 
         {/* Per-Org Preferences Card */}
         <Card>
@@ -542,6 +802,77 @@ export function CoachSettingsDialog({
                                 }
                               />
                             </div>
+                          )}
+
+                          {/* AI Insight Matching Toggle - only show if has advanced access */}
+                          {prefs.hasAdvancedAccess && !prefs.isBlocked && (
+                            <>
+                              <div className="flex items-center justify-between gap-4">
+                                <div className="flex-1 space-y-0.5">
+                                  <Label
+                                    className="font-medium text-sm"
+                                    htmlFor={`ai-matching-${org.id}`}
+                                  >
+                                    AI Insight Matching
+                                  </Label>
+                                  <p className="text-muted-foreground text-xs">
+                                    Automatically match players and classify
+                                    insight categories
+                                  </p>
+                                </div>
+                                <Switch
+                                  checked={prefs.aiInsightMatchingEnabled}
+                                  disabled={isSaving}
+                                  id={`ai-matching-${org.id}`}
+                                  onCheckedChange={(checked) =>
+                                    handleToggleAIFeature(
+                                      org.id,
+                                      "aiInsightMatchingEnabled",
+                                      checked
+                                    )
+                                  }
+                                />
+                              </div>
+
+                              <div className="flex items-center justify-between gap-4">
+                                <div className="flex-1 space-y-0.5">
+                                  <Label
+                                    className="font-medium text-sm"
+                                    htmlFor={`auto-apply-${org.id}`}
+                                  >
+                                    Auto-Apply Insights
+                                  </Label>
+                                  <p className="text-muted-foreground text-xs">
+                                    Automatically apply skill ratings and
+                                    updates to player profiles
+                                  </p>
+                                </div>
+                                <Switch
+                                  checked={prefs.autoApplyInsightsEnabled}
+                                  disabled={isSaving}
+                                  id={`auto-apply-${org.id}`}
+                                  onCheckedChange={(checked) =>
+                                    handleToggleAIFeature(
+                                      org.id,
+                                      "autoApplyInsightsEnabled",
+                                      checked
+                                    )
+                                  }
+                                />
+                              </div>
+                            </>
+                          )}
+
+                          {/* AI Control Rights Warning - only show if no advanced access */}
+                          {!prefs.hasAdvancedAccess && (
+                            <Alert className="border-amber-300 bg-amber-50">
+                              <Info className="h-4 w-4 text-amber-700" />
+                              <AlertDescription className="text-amber-800 text-xs">
+                                {currentLevel >= 2
+                                  ? "Contact your organization admin to request AI control rights for advanced automation features."
+                                  : "Reach Level 2 or request AI control rights from your admin to access advanced automation features."}
+                              </AlertDescription>
+                            </Alert>
                           )}
                         </div>
                       </CollapsibleContent>

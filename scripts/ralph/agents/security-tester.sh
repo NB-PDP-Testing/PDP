@@ -1,6 +1,11 @@
 #!/bin/bash
 # Security Tester Agent
 # Runs security pattern checks every 120 seconds, reports issues to feedback
+#
+# Severity Classification (follows FEEDBACK-SEVERITY-GUIDE.md):
+# 🔴 CRITICAL (goes to progress.txt) - Runtime exploits, exposed secrets
+# ⚠️ WARNING (stays in feedback.md) - XSS risks, missing auth, code review items
+# ℹ️ INFO (stays in feedback.md) - Debug logging, informational findings
 
 set -e
 cd "$(dirname "$0")/../../.."
@@ -32,11 +37,13 @@ check_security() {
     if [ -n "$secrets" ]; then
         issues_found=true
         severity_high=$((severity_high + 1))
-        feedback+="## 🚨 HIGH: Possible Hardcoded Secrets\n"
+        # CRITICAL: Exposed secrets are a security breach
+        feedback+="🔴 CRITICAL: Hardcoded Secrets Detected\n"
         feedback+="Found potential hardcoded secrets in backend:\n"
         feedback+="\`\`\`\n$secrets\n\`\`\`\n"
-        feedback+="**Fix:** Use environment variables instead\n\n"
-        echo "🚨 Found potential hardcoded secrets" | tee -a "$LOG_FILE"
+        feedback+="**IMMEDIATE ACTION:** Remove hardcoded secrets and use environment variables (process.env).\n"
+        feedback+="**Security Risk:** Exposed credentials could allow unauthorized access.\n\n"
+        echo "🔴 CRITICAL: Found hardcoded secrets" | tee -a "$LOG_FILE"
     fi
 
     # 2. Check for XSS vulnerabilities (dangerouslySetInnerHTML)

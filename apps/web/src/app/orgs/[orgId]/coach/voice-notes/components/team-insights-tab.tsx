@@ -32,6 +32,7 @@ import {
 } from "@/components/ui/empty";
 import { Input } from "@/components/ui/input";
 import { authClient } from "@/lib/auth-client";
+import { SwipeableInsightCard } from "./swipeable-insight-card";
 
 const { useSession } = authClient;
 
@@ -320,95 +321,105 @@ export function TeamInsightsTab({
                         const isProcessing = applyingIds.has(key);
 
                         return (
-                          <div
-                            className="rounded-lg border border-gray-200 bg-gray-50 p-3"
+                          <SwipeableInsightCard
                             key={key}
+                            onApply={() =>
+                              handleApplyInsight(noteId, insight.id)
+                            }
+                            onDismiss={() =>
+                              handleDismissInsight(noteId, insight.id)
+                            }
                           >
-                            {/* Coach attribution and metadata */}
-                            <div className="mb-2 flex flex-wrap items-center gap-2 text-gray-600 text-xs">
-                              <Badge className="text-xs" variant="outline">
-                                {coachName}
-                              </Badge>
-                              <span>•</span>
-                              <span>{formatDate(date)}</span>
-                              <span>•</span>
-                              <Badge className="text-xs" variant="secondary">
-                                {type}
-                              </Badge>
-                              {insight.category && (
-                                <>
-                                  <span>•</span>
-                                  <Badge className="text-xs" variant="outline">
-                                    {insight.category.replace("_", " ")}
-                                  </Badge>
-                                </>
-                              )}
-                            </div>
-
-                            {/* Insight content */}
-                            <div className="mb-2">
-                              <h4 className="mb-1 font-medium text-gray-900 text-sm">
-                                {insight.title}
-                              </h4>
-                              <p className="text-gray-700 text-sm">
-                                {insight.description}
-                              </p>
-                              {insight.recommendedUpdate && (
-                                <div className="mt-2 rounded border-blue-200 border-l-4 bg-blue-50 p-2">
-                                  <p className="flex items-start gap-1.5 text-blue-900 text-xs">
-                                    <Lightbulb className="mt-0.5 h-3.5 w-3.5 flex-shrink-0" />
-                                    <span>{insight.recommendedUpdate}</span>
-                                  </p>
-                                </div>
-                              )}
-                            </div>
-
-                            {/* Actions */}
-                            {insight.status === "pending" ? (
-                              <div className="flex gap-2">
-                                <Button
-                                  className="flex-1"
-                                  disabled={isProcessing}
-                                  onClick={() =>
-                                    handleApplyInsight(noteId, insight.id)
-                                  }
-                                  size="sm"
-                                >
-                                  {isProcessing ? (
-                                    <Loader2 className="mr-1.5 h-3.5 w-3.5 animate-spin" />
-                                  ) : (
-                                    <CheckCircle className="mr-1.5 h-3.5 w-3.5" />
-                                  )}
-                                  Apply to Profile
-                                </Button>
-                                <Button
-                                  disabled={isProcessing}
-                                  onClick={() =>
-                                    handleDismissInsight(noteId, insight.id)
-                                  }
-                                  size="sm"
-                                  variant="outline"
-                                >
-                                  <XCircle className="mr-1.5 h-3.5 w-3.5" />
-                                  Dismiss
-                                </Button>
+                            <div className="rounded-lg border border-gray-200 bg-gray-50 p-3">
+                              {/* Coach attribution and metadata */}
+                              <div className="mb-2 flex flex-wrap items-center gap-2 text-gray-600 text-xs">
+                                <Badge className="text-xs" variant="outline">
+                                  {coachName}
+                                </Badge>
+                                <span>•</span>
+                                <span>{formatDate(date)}</span>
+                                <span>•</span>
+                                <Badge className="text-xs" variant="secondary">
+                                  {type}
+                                </Badge>
+                                {insight.category && (
+                                  <>
+                                    <span>•</span>
+                                    <Badge
+                                      className="text-xs"
+                                      variant="outline"
+                                    >
+                                      {insight.category.replace("_", " ")}
+                                    </Badge>
+                                  </>
+                                )}
                               </div>
-                            ) : (
-                              <Badge
-                                className="text-xs"
-                                variant={
-                                  insight.status === "applied"
-                                    ? "default"
-                                    : "secondary"
-                                }
-                              >
-                                {insight.status === "applied" && "✓ "}
-                                {insight.status === "dismissed" && "✗ "}
-                                {insight.status.charAt(0).toUpperCase() +
-                                  insight.status.slice(1)}
-                              </Badge>
-                            )}
-                          </div>
+
+                              {/* Insight content */}
+                              <div className="mb-2">
+                                <h4 className="mb-1 font-medium text-gray-900 text-sm">
+                                  {insight.title}
+                                </h4>
+                                <p className="text-gray-700 text-sm">
+                                  {insight.description}
+                                </p>
+                                {insight.recommendedUpdate && (
+                                  <div className="mt-2 rounded border-blue-200 border-l-4 bg-blue-50 p-2">
+                                    <p className="flex items-start gap-1.5 text-blue-900 text-xs">
+                                      <Lightbulb className="mt-0.5 h-3.5 w-3.5 flex-shrink-0" />
+                                      <span>{insight.recommendedUpdate}</span>
+                                    </p>
+                                  </div>
+                                )}
+                              </div>
+
+                              {/* Actions */}
+                              {insight.status === "pending" ? (
+                                <div className="flex gap-2">
+                                  <Button
+                                    className="flex-1"
+                                    disabled={isProcessing}
+                                    onClick={() =>
+                                      handleApplyInsight(noteId, insight.id)
+                                    }
+                                    size="sm"
+                                  >
+                                    {isProcessing ? (
+                                      <Loader2 className="mr-1.5 h-3.5 w-3.5 animate-spin" />
+                                    ) : (
+                                      <CheckCircle className="mr-1.5 h-3.5 w-3.5" />
+                                    )}
+                                    Apply to Profile
+                                  </Button>
+                                  <Button
+                                    disabled={isProcessing}
+                                    onClick={() =>
+                                      handleDismissInsight(noteId, insight.id)
+                                    }
+                                    size="sm"
+                                    variant="outline"
+                                  >
+                                    <XCircle className="mr-1.5 h-3.5 w-3.5" />
+                                    Dismiss
+                                  </Button>
+                                </div>
+                              ) : (
+                                <Badge
+                                  className="text-xs"
+                                  variant={
+                                    insight.status === "applied"
+                                      ? "default"
+                                      : "secondary"
+                                  }
+                                >
+                                  {insight.status === "applied" && "✓ "}
+                                  {insight.status === "dismissed" && "✗ "}
+                                  {insight.status.charAt(0).toUpperCase() +
+                                    insight.status.slice(1)}
+                                </Badge>
+                              )}
+                            </div>
+                          </SwipeableInsightCard>
                         );
                       }
                     )}

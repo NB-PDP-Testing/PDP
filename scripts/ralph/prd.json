@@ -145,7 +145,7 @@
         "Visual verification with dev-browser (all 4 views accessible)"
       ],
       "priority": 1,
-      "passes": false,
+      "passes": true,
       "effort": "3h",
       "dependencies": ["US-P9-033"]
     },
@@ -169,7 +169,7 @@
         "Visual verification: all 3 columns visible, cards display correctly, counts match"
       ],
       "priority": 2,
-      "passes": false,
+      "passes": true,
       "effort": "4h"
     },
     {
@@ -196,7 +196,7 @@
         "Visual verification: month displays, dots appear, popover works, navigation works"
       ],
       "priority": 3,
-      "passes": false,
+      "passes": true,
       "effort": "5h"
     },
     {
@@ -222,7 +222,7 @@
         "Visual verification: groups collapse/expand, search filters correctly"
       ],
       "priority": 4,
-      "passes": false,
+      "passes": true,
       "effort": "3h"
     },
     {

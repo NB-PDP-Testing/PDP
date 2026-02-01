@@ -11,6 +11,7 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { useSession } from "@/lib/auth-client";
 import { InsightsBoardView } from "./insights-board-view";
 import { InsightsCalendarView } from "./insights-calendar-view";
+import { InsightsPlayerView } from "./insights-player-view";
 
 type ViewType = "list" | "board" | "calendar" | "players";
 
@@ -129,14 +130,10 @@ export function InsightsViewContainer({
       </TabsContent>
 
       <TabsContent className="mt-6" value="players">
-        <div className="flex h-64 items-center justify-center rounded-lg border-2 border-muted-foreground/25 border-dashed">
-          <div className="text-center">
-            <Users className="mx-auto h-12 w-12 text-muted-foreground/50" />
-            <p className="mt-2 text-muted-foreground text-sm">
-              Players view coming soon (US-P9-022)
-            </p>
-          </div>
-        </div>
+        <InsightsPlayerView
+          insights={insights}
+          onInsightUpdate={onInsightUpdate}
+        />
       </TabsContent>
     </Tabs>
   );

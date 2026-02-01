@@ -1556,9 +1556,12 @@ export default defineSchema({
       )
     ),
     insightsError: v.optional(v.string()),
+    // Optional session plan link for voice notes taken during sessions
+    sessionPlanId: v.optional(v.id("sessionPlans")),
   })
     .index("by_orgId", ["orgId"])
-    .index("by_orgId_and_coachId", ["orgId", "coachId"]),
+    .index("by_orgId_and_coachId", ["orgId", "coachId"])
+    .index("by_session", ["sessionPlanId"]),
 
   // ============================================================
   // PHASE 7: COACH INSIGHT AUTO-APPLY

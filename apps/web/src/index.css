@@ -142,9 +142,25 @@ body {
 @layer base {
   * {
     @apply border-border outline-ring/50;
+    /* Remove tap highlight on mobile for better UX */
+    -webkit-tap-highlight-color: transparent;
   }
   body {
     @apply bg-background text-foreground;
+  }
+
+  /* Touch Target Optimization (Phase 9 Week 3) */
+  /* Ensure all buttons meet 44×44px minimum touch target */
+  button {
+    @apply min-h-[44px];
+  }
+
+  /* Ensure checkboxes and radio buttons have adequate clickable area */
+  input[type="checkbox"],
+  input[type="radio"] {
+    @apply min-h-[24px] min-w-[24px];
+    /* Add 10px padding around input for 44×44px total clickable area */
+    margin: 10px;
   }
 }
 

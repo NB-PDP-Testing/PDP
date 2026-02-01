@@ -352,6 +352,161 @@ export const updateTitle = mutation({
 });
 
 /**
+ * Update session plan content (for real-time editing)
+ */
+export const updateContent = mutation({
+  args: {
+    planId: v.id("sessionPlans"),
+    rawContent: v.string(),
+  },
+  returns: v.null(),
+  handler: async (ctx, args) => {
+    const identity = await ctx.auth.getUserIdentity();
+    if (!identity) {
+      throw new Error("Not authenticated");
+    }
+
+    const plan = await ctx.db.get(args.planId);
+    if (!plan) {
+      throw new Error("Plan not found");
+    }
+
+    // Verify ownership
+    if (plan.coachId !== identity.subject) {
+      throw new Error("Not authorized to edit this plan");
+    }
+
+    await ctx.db.patch(args.planId, {
+      rawContent: args.rawContent,
+      updatedAt: Date.now(),
+    });
+  },
+});
+
+/**
+ * Update presence for session plan editor
+ * Reuses teamHubPresence table with planId in currentView field
+ */
+export const updateSessionPlanPresence = mutation({
+  args: {
+    userId: v.string(),
+    organizationId: v.string(),
+    planId: v.id("sessionPlans"),
+  },
+  returns: v.null(),
+  handler: async (ctx, args) => {
+    const now = Date.now();
+    const plan = await ctx.db.get(args.planId);
+
+    if (!plan?.teamId) {
+      // Plan doesn't exist or has no team - can't track presence
+      return null;
+    }
+
+    // TypeScript narrowing: plan.teamId is guaranteed to exist after the check
+    const teamId = plan.teamId;
+    const currentView = `session_plan:${args.planId}`;
+
+    // Check if presence record exists for this user/team
+    const existing = await ctx.db
+      .query("teamHubPresence")
+      .withIndex("by_user_and_team", (q) =>
+        q.eq("userId", args.userId).eq("teamId", teamId)
+      )
+      .first();
+
+    if (existing) {
+      // Update existing presence
+      await ctx.db.patch(existing._id, {
+        currentView,
+        lastActive: now,
+      });
+    } else {
+      // Create new presence record
+      await ctx.db.insert("teamHubPresence", {
+        userId: args.userId,
+        organizationId: args.organizationId,
+        teamId: plan.teamId,
+        currentView,
+        lastActive: now,
+      });
+    }
+
+    return null;
+  },
+});
+
+/**
+ * Get presence for a session plan (who's viewing/editing)
+ */
+export const getSessionPlanPresence = query({
+  args: {
+    planId: v.id("sessionPlans"),
+  },
+  returns: v.array(
+    v.object({
+      userId: v.string(),
+      userName: v.string(),
+      userAvatar: v.optional(v.string()),
+      lastActive: v.number(),
+    })
+  ),
+  handler: async (ctx, args) => {
+    const now = Date.now();
+    const ONE_MINUTE = 60 * 1000;
+
+    const plan = await ctx.db.get(args.planId);
+    if (!plan?.teamId) {
+      return [];
+    }
+
+    // TypeScript narrowing: plan.teamId is guaranteed to exist after the check
+    const teamId = plan.teamId;
+    const currentView = `session_plan:${args.planId}`;
+
+    // Get all presence records for this team viewing this specific plan
+    const presenceRecords = await ctx.db
+      .query("teamHubPresence")
+      .withIndex("by_team", (q) => q.eq("teamId", teamId))
+      .collect();
+
+    // Filter for this specific plan and active users (last 60s)
+    const activePresence = [];
+
+    for (const record of presenceRecords) {
+      if (record.currentView !== currentView) {
+        continue;
+      }
+
+      const timeSinceActive = now - record.lastActive;
+      if (timeSinceActive >= ONE_MINUTE) {
+        continue;
+      }
+
+      // Use Better Auth adapter to get user details
+      const user = await ctx.runQuery(components.betterAuth.adapter.findOne, {
+        model: "user",
+        where: [{ field: "_id", value: record.userId, operator: "eq" }],
+      });
+
+      if (user) {
+        activePresence.push({
+          userId: record.userId,
+          userName:
+            `${user.firstName || ""} ${user.lastName || ""}`.trim() ||
+            user.email ||
+            "Unknown User",
+          userAvatar: user.image || undefined,
+          lastActive: record.lastActive,
+        });
+      }
+    }
+
+    return activePresence;
+  },
+});
+
+/**
  * Duplicate an existing plan
  */
 export const duplicatePlan = mutation({

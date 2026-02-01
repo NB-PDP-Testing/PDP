@@ -59,6 +59,7 @@ import { useSession } from "@/lib/auth-client";
 import { cn } from "@/lib/utils";
 import { InsightReactions } from "./insight-reactions";
 import { InsightsViewContainer } from "./insights-view-container";
+import { SwipeableInsightCard } from "./swipeable-insight-card";
 
 type InsightsTabProps = {
   orgId: BetterAuthId<"organization">;
@@ -181,6 +182,23 @@ export function InsightsTab({ orgId, onSuccess, onError }: InsightsTabProps) {
     api.models.voiceNotes.getVoiceNotesByCoach,
     coachId ? { orgId, coachId } : "skip"
   );
+
+  // Fetch voiceNoteInsights records to map string IDs to Convex IDs (for reactions)
+  // This avoids the issue of passing string IDs where Convex IDs are expected
+  const voiceNoteIds = voiceNotes?.map((note) => note._id) ?? [];
+  const allInsightRecords = useQuery(
+    api.models.voiceNoteInsights.getInsightsByVoiceNotes,
+    voiceNoteIds.length > 0 ? { voiceNoteIds } : "skip"
+  );
+
+  // Create a mapping from noteId_insightId → Convex _id for quick lookup
+  const insightIdMap = new Map<string, Id<"voiceNoteInsights">>();
+  if (allInsightRecords) {
+    for (const record of allInsightRecords) {
+      const key = `${record.voiceNoteId}_${record.insightId}`;
+      insightIdMap.set(key, record._id);
+    }
+  }
 
   // Get players for assignment dropdown - scoped to coach's assigned teams
 
@@ -791,330 +809,344 @@ export function InsightsTab({ orgId, onSuccess, onError }: InsightsTabProps) {
     };
 
     return (
-      <div
-        className={`flex flex-col gap-3 rounded-lg border-2 p-3 sm:flex-row sm:items-start sm:justify-between sm:p-4 ${cardStyles[type]}`}
+      <SwipeableInsightCard
         key={insight.id}
+        onApply={() => handleApplyInsight(insight.noteId, insight.id)}
+        onDismiss={() => handleDismissInsight(insight.noteId, insight.id)}
       >
-        <div className="flex-1">
-          <div className="mb-1 flex flex-wrap items-center gap-1.5 sm:gap-2">
-            <span className="font-semibold text-gray-800 text-sm sm:text-base">
-              {insight.title}
-            </span>
-            {insight.playerIdentityId ? (
-              <Badge className="text-xs" variant="secondary">
-                {insight.playerName}
-              </Badge>
-            ) : insight.playerName ? (
-              <Badge className="border-amber-400 bg-amber-100 text-amber-800 text-xs">
-                ⚠️ {insight.playerName} (not matched)
-              </Badge>
-            ) : insight.category === "team_culture" ? (
-              <Badge className="bg-purple-100 text-purple-700 text-xs">
-                {(insight as any).teamName
-                  ? `Team: ${(insight as any).teamName}`
-                  : "Team"}
-              </Badge>
-            ) : insight.category === "todo" ? (
-              <>
-                <Badge className="bg-green-100 text-green-700 text-xs">
-                  TODO
+        <div
+          className={`flex flex-col gap-3 rounded-lg border-2 p-3 sm:flex-row sm:items-start sm:justify-between sm:p-4 ${cardStyles[type]}`}
+        >
+          <div className="flex-1">
+            <div className="mb-1 flex flex-wrap items-center gap-1.5 sm:gap-2">
+              <span className="font-semibold text-gray-800 text-sm sm:text-base">
+                {insight.title}
+              </span>
+              {insight.playerIdentityId ? (
+                <Badge className="text-xs" variant="secondary">
+                  {insight.playerName}
                 </Badge>
-                {(insight as any).assigneeName && (
-                  <Badge className="bg-indigo-100 text-indigo-700 text-xs">
-                    → {(insight as any).assigneeName}
-                  </Badge>
-                )}
-                {(insight as any).linkedTaskId && (
-                  <Badge className="gap-1 bg-blue-100 text-blue-700 text-xs">
-                    ✓ Task created
-                  </Badge>
-                )}
-              </>
-            ) : (
-              <Badge className="border-orange-400 bg-orange-100 text-orange-800 text-xs">
-                ⚠️ Needs classification
-              </Badge>
-            )}
-            {insight.category &&
-              insight.category !== "team_culture" &&
-              insight.category !== "todo" && (
-                <Badge className="text-xs" variant="outline">
-                  {insight.category}
+              ) : insight.playerName ? (
+                <Badge className="border-amber-400 bg-amber-100 text-amber-800 text-xs">
+                  ⚠️ {insight.playerName} (not matched)
                 </Badge>
-              )}
-          </div>
-          {/* Date/Time */}
-          <p className="mb-2 text-gray-500 text-xs">
-            {formatInsightDate(insight.noteDate)}
-          </p>
-          <p className="mb-2 text-gray-700 text-xs sm:text-sm">
-            {insight.description}
-          </p>
-          {insight.recommendedUpdate && (
-            <p className="text-gray-500 text-xs italic">
-              {insight.recommendedUpdate}
-            </p>
-          )}
-
-          {/* Insight Reactions (Phase 9 Week 1) */}
-          <div className="mt-3">
-            <InsightReactions
-              insightId={insight.id as Id<"voiceNoteInsights">}
-              organizationId={orgId}
-            />
-          </div>
-
-          {/* Smart Action Bar (Phase 9 Week 2 - AI Copilot) */}
-          {session?.user?.id && (
-            <div className="mt-3">
-              <SmartActionBar
-                context="viewing_insight"
-                contextId={insight.id}
-                onActionClick={async (action: string) => {
-                  // Handle smart action clicks
-                  if (action.startsWith("apply:")) {
-                    // Apply insight action - mark as applied
-                    try {
-                      await updateInsightStatus({
-                        noteId: insight.noteId,
-                        insightId: insight.id,
-                        status: "applied",
-                      });
-                      onSuccess("Insight marked as applied");
-                    } catch (error) {
-                      console.error("Failed to apply insight:", error);
-                      onError("Failed to apply insight");
-                    }
-                  } else if (action.startsWith("mention:")) {
-                    // Mention coach action - future: open comment form with @mention
-                    toast.info(
-                      "💬 Comment with @mention feature coming soon! Use the comment section below to tag coaches."
-                    );
-                  } else if (action.startsWith("add_to_session:")) {
-                    // Add to session action - future: integrate with session planner
-                    toast.info(
-                      "📅 Session planning integration coming soon! Bookmark this insight for now."
-                    );
-                  } else if (action.startsWith("create_task:")) {
-                    // Create task action - future: task management system
-                    toast.info(
-                      "✅ Task creation coming soon! Add a reminder to track this."
-                    );
-                  } else {
-                    // Generic action - log for debugging
-                    console.log("Smart action:", action);
-                    toast.info(
-                      "Action recorded - full implementation coming soon"
-                    );
-                  }
-                }}
-                organizationId={orgId}
-                userId={session.user.id}
-              />
-            </div>
-          )}
-
-          {/* AI Confidence Visualization (Phase 7.1) */}
-          {(insight as any).confidence !== undefined && (
-            <div className="mt-4 space-y-2">
-              <div className="flex items-center justify-between text-sm">
-                <span
-                  className={cn(
-                    "font-medium",
-                    (insight as any).confidence < 0.6
-                      ? "text-red-600"
-                      : (insight as any).confidence < 0.8
-                        ? "text-amber-600"
-                        : "text-green-600"
-                  )}
-                >
-                  AI Confidence: {Math.round((insight as any).confidence * 100)}
-                  %
-                </span>
-              </div>
-              <Progress
-                className="h-2"
-                value={(insight as any).confidence * 100}
-              />
-
-              {/* Preview Mode Badge (Phase 7.1) */}
-              {(insight as any).wouldAutoApply ? (
-                <Badge
-                  className="bg-blue-100 text-blue-700"
-                  variant="secondary"
-                >
-                  <Sparkles className="mr-1 h-3 w-3" />
-                  AI would auto-apply this at Level 2+
+              ) : insight.category === "team_culture" ? (
+                <Badge className="bg-purple-100 text-purple-700 text-xs">
+                  {(insight as any).teamName
+                    ? `Team: ${(insight as any).teamName}`
+                    : "Team"}
                 </Badge>
-              ) : (
-                <p className="text-muted-foreground text-sm">
-                  Requires manual review
-                </p>
-              )}
-            </div>
-          )}
-          {/* Hints for insights needing action */}
-          {isUnmatched && (
-            <p className="mt-2 text-amber-700 text-xs">
-              💡 Player &quot;{insight.playerName}&quot; wasn&apos;t found in
-              your team. Assign a player below to generate a parent summary.
-            </p>
-          )}
-          {isTeamWithoutTeamId && (
-            <p className="mt-2 text-purple-700 text-xs">
-              💡 This is a team insight but no specific team was mentioned.
-              {coachTeams?.teams && coachTeams.teams.length === 1 ? (
+              ) : insight.category === "todo" ? (
                 <>
-                  {" "}
-                  Assign it to <strong>{coachTeams.teams[0].teamName}</strong>?
+                  <Badge className="bg-green-100 text-green-700 text-xs">
+                    TODO
+                  </Badge>
+                  {(insight as any).assigneeName && (
+                    <Badge className="bg-indigo-100 text-indigo-700 text-xs">
+                      → {(insight as any).assigneeName}
+                    </Badge>
+                  )}
+                  {(insight as any).linkedTaskId && (
+                    <Badge className="gap-1 bg-blue-100 text-blue-700 text-xs">
+                      ✓ Task created
+                    </Badge>
+                  )}
                 </>
               ) : (
-                " Assign it to a team below to apply."
+                <Badge className="border-orange-400 bg-orange-100 text-orange-800 text-xs">
+                  ⚠️ Needs classification
+                </Badge>
               )}
+              {insight.category &&
+                insight.category !== "team_culture" &&
+                insight.category !== "todo" && (
+                  <Badge className="text-xs" variant="outline">
+                    {insight.category}
+                  </Badge>
+                )}
+            </div>
+            {/* Date/Time */}
+            <p className="mb-2 text-gray-500 text-xs">
+              {formatInsightDate(insight.noteDate)}
             </p>
-          )}
-          {insight.category === "todo" && !(insight as any).assigneeUserId && (
-            <p className="mt-2 text-green-700 text-xs">
-              💡 This TODO couldn&apos;t be matched to a specific coach. Assign
-              it to yourself or another coach to create a task.
+            <p className="mb-2 text-gray-700 text-xs sm:text-sm">
+              {insight.description}
             </p>
-          )}
-          {isUncategorized && (
-            <p className="mt-2 text-orange-700 text-xs">
-              💡 Is this about a specific player, the team, or a task you need
-              to do? Classify it to apply.
-            </p>
-          )}
-        </div>
-        <div className="flex flex-wrap justify-end gap-2">
-          {/* Assign Player button for unmatched insights */}
-          {isUnmatched && (
-            <Button
-              className="h-8 bg-amber-600 px-2 hover:bg-amber-700 sm:h-9 sm:px-3"
-              onClick={() =>
-                setAssigningInsight({
-                  noteId: insight.noteId,
-                  insightId: insight.id,
-                  playerName: insight.playerName,
-                })
-              }
-              size="sm"
-              title="Assign to a player"
-            >
-              <UserPlus className="mr-1 h-4 w-4" />
-              Assign
-            </Button>
-          )}
-          {/* Classify button for uncategorized insights */}
-          {isUncategorized && (
-            <Button
-              className="h-8 bg-orange-600 px-2 hover:bg-orange-700 sm:h-9 sm:px-3"
-              onClick={() =>
-                setClassifyingInsight({
-                  noteId: insight.noteId,
-                  insightId: insight.id,
-                  title: insight.title,
-                  description: insight.description,
-                })
-              }
-              size="sm"
-              title="Classify this insight"
-            >
-              Classify
-            </Button>
-          )}
-          {/* Assign Team button for team insights without teamId */}
-          {isTeamWithoutTeamId && (
-            <Button
-              className="h-8 bg-purple-600 px-2 hover:bg-purple-700 sm:h-9 sm:px-3"
-              onClick={() =>
-                setAssigningTeamInsight({
-                  noteId: insight.noteId,
-                  insightId: insight.id,
-                  title: insight.title,
-                })
-              }
-              size="sm"
-              title="Assign to a team"
-            >
-              <Users className="mr-1 h-4 w-4" />
-              Assign Team
-            </Button>
-          )}
-          {/* Assign Coach button for TODO insights without assignee */}
-          {insight.category === "todo" && !(insight as any).assigneeUserId && (
-            <Button
-              className="h-8 bg-green-600 px-2 hover:bg-green-700 sm:h-9 sm:px-3"
-              onClick={() =>
-                setAssigningCoachInsight({
-                  noteId: insight.noteId,
-                  insightId: insight.id,
-                  title: insight.title,
-                  recordingCoachId: (insight as any).noteCoachId,
-                })
-              }
-              size="sm"
-              title="Assign to a coach"
-            >
-              <UserPlus className="mr-1 h-4 w-4" />
-              Assign Coach
-            </Button>
-          )}
-          {insight.playerIdentityId && (
+            {insight.recommendedUpdate && (
+              <p className="text-gray-500 text-xs italic">
+                {insight.recommendedUpdate}
+              </p>
+            )}
+
+            {/* Insight Reactions (Phase 9 Week 1) */}
+            {(() => {
+              const key = `${insight.noteId}_${insight.id}`;
+              const convexId = insightIdMap.get(key);
+              return convexId ? (
+                <div className="mt-3">
+                  <InsightReactions
+                    insightId={convexId}
+                    organizationId={orgId}
+                  />
+                </div>
+              ) : null;
+            })()}
+
+            {/* Smart Action Bar (Phase 9 Week 2 - AI Copilot) */}
+            {session?.user?.id && (
+              <div className="mt-3">
+                <SmartActionBar
+                  context="viewing_insight"
+                  contextId={insight.id}
+                  onActionClick={async (action: string) => {
+                    // Handle smart action clicks
+                    if (action.startsWith("apply:")) {
+                      // Apply insight action - mark as applied
+                      try {
+                        await updateInsightStatus({
+                          noteId: insight.noteId,
+                          insightId: insight.id,
+                          status: "applied",
+                        });
+                        onSuccess("Insight marked as applied");
+                      } catch (error) {
+                        console.error("Failed to apply insight:", error);
+                        onError("Failed to apply insight");
+                      }
+                    } else if (action.startsWith("mention:")) {
+                      // Mention coach action - future: open comment form with @mention
+                      toast.info(
+                        "💬 Comment with @mention feature coming soon! Use the comment section below to tag coaches."
+                      );
+                    } else if (action.startsWith("add_to_session:")) {
+                      // Add to session action - future: integrate with session planner
+                      toast.info(
+                        "📅 Session planning integration coming soon! Bookmark this insight for now."
+                      );
+                    } else if (action.startsWith("create_task:")) {
+                      // Create task action - future: task management system
+                      toast.info(
+                        "✅ Task creation coming soon! Add a reminder to track this."
+                      );
+                    } else {
+                      // Generic action - log for debugging
+                      console.log("Smart action:", action);
+                      toast.info(
+                        "Action recorded - full implementation coming soon"
+                      );
+                    }
+                  }}
+                  organizationId={orgId}
+                  userId={session.user.id}
+                />
+              </div>
+            )}
+
+            {/* AI Confidence Visualization (Phase 7.1) */}
+            {(insight as any).confidence !== undefined && (
+              <div className="mt-4 space-y-2">
+                <div className="flex items-center justify-between text-sm">
+                  <span
+                    className={cn(
+                      "font-medium",
+                      (insight as any).confidence < 0.6
+                        ? "text-red-600"
+                        : (insight as any).confidence < 0.8
+                          ? "text-amber-600"
+                          : "text-green-600"
+                    )}
+                  >
+                    AI Confidence:{" "}
+                    {Math.round((insight as any).confidence * 100)}%
+                  </span>
+                </div>
+                <Progress
+                  className="h-2"
+                  value={(insight as any).confidence * 100}
+                />
+
+                {/* Preview Mode Badge (Phase 7.1) */}
+                {(insight as any).wouldAutoApply ? (
+                  <Badge
+                    className="bg-blue-100 text-blue-700"
+                    variant="secondary"
+                  >
+                    <Sparkles className="mr-1 h-3 w-3" />
+                    AI would auto-apply this at Level 2+
+                  </Badge>
+                ) : (
+                  <p className="text-muted-foreground text-sm">
+                    Requires manual review
+                  </p>
+                )}
+              </div>
+            )}
+            {/* Hints for insights needing action */}
+            {isUnmatched && (
+              <p className="mt-2 text-amber-700 text-xs">
+                💡 Player &quot;{insight.playerName}&quot; wasn&apos;t found in
+                your team. Assign a player below to generate a parent summary.
+              </p>
+            )}
+            {isTeamWithoutTeamId && (
+              <p className="mt-2 text-purple-700 text-xs">
+                💡 This is a team insight but no specific team was mentioned.
+                {coachTeams?.teams && coachTeams.teams.length === 1 ? (
+                  <>
+                    {" "}
+                    Assign it to <strong>{coachTeams.teams[0].teamName}</strong>
+                    ?
+                  </>
+                ) : (
+                  " Assign it to a team below to apply."
+                )}
+              </p>
+            )}
+            {insight.category === "todo" &&
+              !(insight as any).assigneeUserId && (
+                <p className="mt-2 text-green-700 text-xs">
+                  💡 This TODO couldn&apos;t be matched to a specific coach.
+                  Assign it to yourself or another coach to create a task.
+                </p>
+              )}
+            {isUncategorized && (
+              <p className="mt-2 text-orange-700 text-xs">
+                💡 Is this about a specific player, the team, or a task you need
+                to do? Classify it to apply.
+              </p>
+            )}
+          </div>
+          <div className="flex flex-wrap justify-end gap-2">
+            {/* Assign Player button for unmatched insights */}
+            {isUnmatched && (
+              <Button
+                className="h-8 bg-amber-600 px-2 hover:bg-amber-700 sm:h-9 sm:px-3"
+                onClick={() =>
+                  setAssigningInsight({
+                    noteId: insight.noteId,
+                    insightId: insight.id,
+                    playerName: insight.playerName,
+                  })
+                }
+                size="sm"
+                title="Assign to a player"
+              >
+                <UserPlus className="mr-1 h-4 w-4" />
+                Assign
+              </Button>
+            )}
+            {/* Classify button for uncategorized insights */}
+            {isUncategorized && (
+              <Button
+                className="h-8 bg-orange-600 px-2 hover:bg-orange-700 sm:h-9 sm:px-3"
+                onClick={() =>
+                  setClassifyingInsight({
+                    noteId: insight.noteId,
+                    insightId: insight.id,
+                    title: insight.title,
+                    description: insight.description,
+                  })
+                }
+                size="sm"
+                title="Classify this insight"
+              >
+                Classify
+              </Button>
+            )}
+            {/* Assign Team button for team insights without teamId */}
+            {isTeamWithoutTeamId && (
+              <Button
+                className="h-8 bg-purple-600 px-2 hover:bg-purple-700 sm:h-9 sm:px-3"
+                onClick={() =>
+                  setAssigningTeamInsight({
+                    noteId: insight.noteId,
+                    insightId: insight.id,
+                    title: insight.title,
+                  })
+                }
+                size="sm"
+                title="Assign to a team"
+              >
+                <Users className="mr-1 h-4 w-4" />
+                Assign Team
+              </Button>
+            )}
+            {/* Assign Coach button for TODO insights without assignee */}
+            {insight.category === "todo" &&
+              !(insight as any).assigneeUserId && (
+                <Button
+                  className="h-8 bg-green-600 px-2 hover:bg-green-700 sm:h-9 sm:px-3"
+                  onClick={() =>
+                    setAssigningCoachInsight({
+                      noteId: insight.noteId,
+                      insightId: insight.id,
+                      title: insight.title,
+                      recordingCoachId: (insight as any).noteCoachId,
+                    })
+                  }
+                  size="sm"
+                  title="Assign to a coach"
+                >
+                  <UserPlus className="mr-1 h-4 w-4" />
+                  Assign Coach
+                </Button>
+              )}
+            {insight.playerIdentityId && (
+              <Button
+                className="h-8 px-2 sm:h-9 sm:px-3"
+                onClick={() => {
+                  router.push(
+                    `/orgs/${orgId}/coach/messages/compose?type=insight&voiceNoteId=${insight.noteId}&insightId=${insight.id}&playerIdentityId=${insight.playerIdentityId}` as Route
+                  );
+                }}
+                size="sm"
+                title="Share with Parent"
+                variant="secondary"
+              >
+                <Send className="h-4 w-4" />
+              </Button>
+            )}
             <Button
               className="h-8 px-2 sm:h-9 sm:px-3"
-              onClick={() => {
-                router.push(
-                  `/orgs/${orgId}/coach/messages/compose?type=insight&voiceNoteId=${insight.noteId}&insightId=${insight.id}&playerIdentityId=${insight.playerIdentityId}` as Route
-                );
-              }}
+              onClick={() => handleEditInsight(insight)}
               size="sm"
-              title="Share with Parent"
-              variant="secondary"
+              title="Edit insight"
+              variant="ghost"
             >
-              <Send className="h-4 w-4" />
+              <Pencil className="h-4 w-4" />
             </Button>
-          )}
-          <Button
-            className="h-8 px-2 sm:h-9 sm:px-3"
-            onClick={() => handleEditInsight(insight)}
-            size="sm"
-            title="Edit insight"
-            variant="ghost"
-          >
-            <Pencil className="h-4 w-4" />
-          </Button>
-          <Button
-            className="h-8 px-2 sm:h-9 sm:px-3"
-            disabled={needsAction}
-            onClick={() => handleApplyInsight(insight.noteId, insight.id)}
-            size="sm"
-            title={
-              needsAction
-                ? isUnmatched
-                  ? "Assign a player first to apply this insight"
-                  : isTeamWithoutTeamId
-                    ? "Assign to a team first to apply this insight"
-                    : isTodoWithoutAssignee
-                      ? "Assign to a coach first to apply this insight"
-                      : "Classify this insight first to apply"
-                : "Apply insight"
-            }
-            variant="default"
-          >
-            <CheckCircle className="h-4 w-4" />
-          </Button>
-          <Button
-            className="h-8 px-2 sm:h-9 sm:px-3"
-            onClick={() => handleDismissInsight(insight.noteId, insight.id)}
-            size="sm"
-            title="Dismiss insight"
-            variant="outline"
-          >
-            <XCircle className="h-4 w-4" />
-          </Button>
+            <Button
+              className="h-8 px-2 sm:h-9 sm:px-3"
+              disabled={needsAction}
+              onClick={() => handleApplyInsight(insight.noteId, insight.id)}
+              size="sm"
+              title={
+                needsAction
+                  ? isUnmatched
+                    ? "Assign a player first to apply this insight"
+                    : isTeamWithoutTeamId
+                      ? "Assign to a team first to apply this insight"
+                      : isTodoWithoutAssignee
+                        ? "Assign to a coach first to apply this insight"
+                        : "Classify this insight first to apply"
+                  : "Apply insight"
+              }
+              variant="default"
+            >
+              <CheckCircle className="h-4 w-4" />
+            </Button>
+            <Button
+              className="h-8 px-2 sm:h-9 sm:px-3"
+              onClick={() => handleDismissInsight(insight.noteId, insight.id)}
+              size="sm"
+              title="Dismiss insight"
+              variant="outline"
+            >
+              <XCircle className="h-4 w-4" />
+            </Button>
+          </div>
         </div>
-      </div>
+      </SwipeableInsightCard>
     );
   };
 

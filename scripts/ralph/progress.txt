@@ -1229,3 +1229,52 @@ Week 3 has now completed 12/17 stories (70.6%):
 - Should have tested the movement cancellation more thoroughly (may need useEffect for mousemove listener cleanup)
 
 ---
+## Sat 1 Feb 2026 22:30 - US-P9-047 - Add Touch Target Optimization
+**Iteration**: 51
+**Commit**: 8315c6897f23b7ee4e7c5f43e1c2b7e89a7b1e2f
+**Session**: d8860fdf-9e71-4080-8704-e053e1da2fb9
+**Status**: Complete
+
+### What was implemented
+- Added global CSS rules for touch target optimization (apps/web/src/index.css)
+- Removed tap highlight on all elements: -webkit-tap-highlight-color: transparent
+- Ensured all buttons meet 44×44px minimum: min-h-[44px] utility class
+- Ensured checkboxes and radio buttons have adequate clickable area:
+  - Input size: 24px × 24px (min-h-[24px] min-w-[24px])
+  - 10px margin around input for 44×44px total clickable area
+- Added comments explaining touch target optimization (Phase 9 Week 3)
+
+### Files changed
+- apps/web/src/index.css (+16 lines in @layer base)
+- scripts/ralph/prd.json (+1 line, marked passes: true)
+
+### Quality checks
+- ✅ CSS syntax valid (no build errors)
+- ✅ Linting: passed (CSS files not linted by biome)
+- ⚠️ Visual verification: not performed (recommend manual testing on mobile device)
+
+### **Learnings for future iterations** ⚠️ CRITICAL
+
+**Patterns discovered:**
+- Global CSS optimization: add rules in @layer base for consistent application
+- Touch target sizing: use Tailwind utilities (min-h-[44px], min-w-[24px])
+- Tap highlight removal: -webkit-tap-highlight-color: transparent (mobile-specific)
+- Checkbox/radio clickable area: use margin to expand clickable zone without affecting layout
+- Comments in CSS: helpful to document phase/feature context
+
+**Gotchas encountered:**
+- None - straightforward CSS addition
+
+**Dependencies found:**
+- index.css is imported in app layout (root)
+- Tailwind utilities available in @layer base
+- @apply directive for applying Tailwind utilities in CSS
+
+**What to do next** (for final Week 3 story):
+- [ ] US-P9-033: Already complete (schema field added in Week 3 prep)
+- [ ] US-P9-048: Gesture Customization Settings (add gesture fields to coachOrgPreferences, create settings UI)
+
+**Mistakes made** (learn from these!):
+- None - simple CSS update
+
+---

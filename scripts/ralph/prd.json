@@ -491,7 +491,7 @@
         "Visual verification: all interactive elements easy to tap on mobile device"
       ],
       "priority": 16,
-      "passes": false,
+      "passes": true,
       "effort": "0.5h"
     },
     {

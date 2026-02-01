@@ -67,6 +67,16 @@ const orgPreferencesValidator = v.object({
   autoApplyInsightsEnabled: v.optional(v.boolean()),
   skipSensitiveInsights: v.optional(v.boolean()),
 
+  // UI Preferences
+  teamInsightsViewPreference: v.optional(
+    v.union(
+      v.literal("list"),
+      v.literal("board"),
+      v.literal("calendar"),
+      v.literal("players")
+    )
+  ),
+
   // Trust Gate Individual Override
   trustGateOverride: v.optional(v.boolean()),
   overrideGrantedBy: v.optional(v.string()),
@@ -1458,7 +1468,10 @@ export const setPreferredTrustLevel = mutation({
       )
       .first();
 
-    const hasOverride = coachPref?.trustGateOverride === true;
+    // Coach has override if EITHER trustGateOverride OR aiControlRightsEnabled is true
+    const hasOverride =
+      coachPref?.trustGateOverride === true ||
+      coachPref?.aiControlRightsEnabled === true;
 
     // Validation logic
     // WITHOUT override: Can only dial down from current level

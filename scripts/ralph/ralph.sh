@@ -110,8 +110,10 @@ for i in $(seq 1 $MAX_ITERATIONS); do
     echo "   to see live progress updates!"
   fi
 
-  # Check for agent feedback before each iteration
-  check_agent_feedback
+  # DISABLED: Agent feedback appending causes progress.txt bloat (1.8MB issue)
+  # Agents write repetitive warnings (XSS, lint) that aren't useful in progress.txt
+  # Agent feedback is already available separately in: scripts/ralph/agents/output/feedback.md
+  # check_agent_feedback
 
   echo ""
   echo "🔄 Running Claude (iteration may take 2-5 minutes)..."

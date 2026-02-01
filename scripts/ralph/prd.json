@@ -308,7 +308,7 @@
         "Visual verification: opens with Cmd+K, search works, navigation works, keyboard navigation works"
       ],
       "priority": 7,
-      "passes": false,
+      "passes": true,
       "effort": "4h"
     },
     {

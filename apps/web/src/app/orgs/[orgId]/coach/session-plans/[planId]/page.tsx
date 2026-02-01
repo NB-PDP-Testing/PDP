@@ -185,6 +185,39 @@ export default function SessionPlanDetailPage() {
     };
   }, [userId, orgId, planId, updatePresence]);
 
+  // Detect when other coaches are editing and show notification
+  const previousOtherViewersRef = useRef<Set<string>>(new Set());
+  useEffect(() => {
+    if (!(presence && userId)) {
+      return;
+    }
+
+    const currentOtherViewers = new Set(
+      presence.filter((p) => p.userId !== userId).map((p) => p.userId)
+    );
+
+    // Check for new viewers (coaches who just started viewing)
+    const newViewers = Array.from(currentOtherViewers).filter(
+      (id) => !previousOtherViewersRef.current.has(id)
+    );
+
+    // Only show notification if user is actively editing (not just viewing)
+    if (newViewers.length > 0 && isEditing) {
+      const newViewerNames = presence
+        .filter((p) => newViewers.includes(p.userId))
+        .map((p) => p.userName)
+        .join(", ");
+
+      toast.info(`${newViewerNames} is now viewing this plan`, {
+        description:
+          "Changes are auto-saved. Last write wins if editing simultaneously.",
+        duration: 5000,
+      });
+    }
+
+    previousOtherViewersRef.current = currentOtherViewers;
+  }, [presence, userId, isEditing]);
+
   // Auto-save with 300ms debounce
   const debouncedSave = useCallback(
     (content: string) => {

@@ -858,8 +858,6 @@ export const autoApplyInsightInternal = internalMutation({
 
     // If playerIdentityId exists, verify player is in a team the coach coaches
     if (insight.playerIdentityId) {
-      const playerIdentityId = insight.playerIdentityId; // Type narrowing for TypeScript
-
       // Get coach's team assignments
       const coachAssignments = await ctx.db
         .query("coachAssignments")
@@ -877,7 +875,7 @@ export const autoApplyInsightInternal = internalMutation({
       const playerTeams = await ctx.db
         .query("teamPlayerIdentities")
         .withIndex("by_playerIdentityId", (q) =>
-          q.eq("playerIdentityId", playerIdentityId)
+          q.eq("playerIdentityId", insight.playerIdentityId)
         )
         .collect();
 

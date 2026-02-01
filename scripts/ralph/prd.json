@@ -251,7 +251,7 @@
         "Test in Convex dashboard: create decision, cast votes, verify weight calculation, finalize, verify winning option"
       ],
       "priority": 5,
-      "passes": false,
+      "passes": true,
       "effort": "5h"
     },
     {
@@ -278,7 +278,7 @@
         "Visual verification: votes cast, bars update, finalize works, confirmation dialog displays"
       ],
       "priority": 6,
-      "passes": false,
+      "passes": true,
       "effort": "4h",
       "dependencies": ["US-P9-026"]
     },

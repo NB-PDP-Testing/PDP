@@ -147,80 +147,85 @@ export function ActivityFeedView({
           </div>
         ) : (
           <div className="space-y-3">
-            {activities.map((activity) => {
-              const initials = activity.actorName
-                .split(" ")
-                .map((n) => n[0])
-                .join("")
-                .toUpperCase()
-                .substring(0, 2);
+            {activities.map(
+              (activity: NonNullable<typeof activities>[number]) => {
+                const initials = activity.actorName
+                  .split(" ")
+                  .map((n: string) => n[0])
+                  .join("")
+                  .toUpperCase()
+                  .substring(0, 2);
 
-              // Format relative timestamp
-              const relativeTime = formatDistanceToNow(activity._creationTime, {
-                addSuffix: true,
-              });
+                // Format relative timestamp
+                const relativeTime = formatDistanceToNow(
+                  activity._creationTime,
+                  {
+                    addSuffix: true,
+                  }
+                );
 
-              // Get icon and color based on action type
-              const { icon: Icon, color } = getActivityIcon(
-                activity.actionType
-              );
+                // Get icon and color based on action type
+                const { icon: Icon, color } = getActivityIcon(
+                  activity.actionType
+                );
 
-              // Get priority color
-              const priorityColor = getPriorityColor(activity.priority);
+                // Get priority color
+                const priorityColor = getPriorityColor(activity.priority);
 
-              return (
-                <div
-                  className="flex gap-3 rounded-lg border p-3 transition-colors hover:bg-muted/50"
-                  key={activity._id}
-                >
-                  {/* Actor Avatar */}
-                  <Avatar className="h-10 w-10 flex-shrink-0">
-                    <AvatarImage
-                      alt={activity.actorName}
-                      src={activity.actorAvatar}
-                    />
-                    <AvatarFallback className="text-xs">
-                      {initials}
-                    </AvatarFallback>
-                  </Avatar>
+                return (
+                  <div
+                    className="flex gap-3 rounded-lg border p-3 transition-colors hover:bg-muted/50"
+                    key={activity._id}
+                  >
+                    {/* Actor Avatar */}
+                    <Avatar className="h-10 w-10 flex-shrink-0">
+                      <AvatarImage
+                        alt={activity.actorName}
+                        src={activity.actorAvatar}
+                      />
+                      <AvatarFallback className="text-xs">
+                        {initials}
+                      </AvatarFallback>
+                    </Avatar>
 
-                  {/* Content */}
-                  <div className="flex-1 space-y-1">
-                    <div className="flex items-center gap-2">
-                      {/* Action Icon */}
-                      <Icon className={`h-4 w-4 ${color}`} />
+                    {/* Content */}
+                    <div className="flex-1 space-y-1">
+                      <div className="flex items-center gap-2">
+                        {/* Action Icon */}
+                        <Icon className={`h-4 w-4 ${color}`} />
 
-                      {/* Summary */}
-                      <span className="font-medium text-foreground text-sm">
-                        {activity.summary}
-                      </span>
-
-                      {/* Priority Indicator */}
-                      {activity.priority !== "normal" && (
-                        <span
-                          className={`inline-flex items-center gap-1 rounded-full px-2 py-0.5 font-medium text-xs ${priorityColor}`}
-                        >
-                          {activity.priority === "critical" && (
-                            <AlertCircle className="h-3 w-3" />
-                          )}
-                          {activity.priority === "important" && (
-                            <AlertTriangle className="h-3 w-3" />
-                          )}
-                          {activity.priority === "critical"
-                            ? "Critical"
-                            : "Important"}
+                        {/* Summary */}
+                        <span className="font-medium text-foreground text-sm">
+                          {activity.summary}
                         </span>
-                      )}
-                    </div>
 
-                    {/* Timestamp */}
-                    <p className="text-muted-foreground text-xs">
-                      {relativeTime}
-                    </p>
+                        {/* Priority Indicator */}
+                        {activity.priority !== "normal" && (
+                          <span
+                            className={`inline-flex items-center gap-1 rounded-full px-2 py-0.5 font-medium text-xs ${priorityColor}`}
+                          >
+                            {activity.priority === "critical" && (
+                              <AlertCircle className="h-3 w-3" />
+                            )}
+                            {activity.priority === "important" && (
+                              <AlertTriangle className="h-3 w-3" />
+                            )}
+                            {activity.priority === "critical"
+                              ? "Critical"
+                              : "Important"}
+                          </span>
+                        )}
+                      </div>
+
+                      {/* Timestamp */}
+                      <p className="text-muted-foreground text-xs">
+                        {relativeTime}
+                      </p>
+                    </div>
                   </div>
-                </div>
-              );
-            })}
+                );
+              }
+            )}
           </div>
         )}
       </TabsContent>

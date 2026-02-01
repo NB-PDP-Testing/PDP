@@ -403,13 +403,15 @@ export const updateSessionPlanPresence = mutation({
       return null;
     }
 
+    // TypeScript narrowing: plan.teamId is guaranteed to exist after the check
+    const teamId = plan.teamId;
     const currentView = `session_plan:${args.planId}`;
 
     // Check if presence record exists for this user/team
     const existing = await ctx.db
       .query("teamHubPresence")
       .withIndex("by_user_and_team", (q) =>
-        q.eq("userId", args.userId).eq("teamId", plan.teamId)
+        q.eq("userId", args.userId).eq("teamId", teamId)
       )
       .first();
 
@@ -458,12 +460,14 @@ export const getSessionPlanPresence = query({
       return [];
     }
 
+    // TypeScript narrowing: plan.teamId is guaranteed to exist after the check
+    const teamId = plan.teamId;
     const currentView = `session_plan:${args.planId}`;
 
     // Get all presence records for this team viewing this specific plan
     const presenceRecords = await ctx.db
       .query("teamHubPresence")
-      .withIndex("by_team", (q) => q.eq("teamId", plan.teamId))
+      .withIndex("by_team", (q) => q.eq("teamId", teamId))
       .collect();
 
     // Filter for this specific plan and active users (last 60s)

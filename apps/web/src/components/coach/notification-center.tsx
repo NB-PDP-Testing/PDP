@@ -211,42 +211,44 @@ export function NotificationCenter({
                 <div className="px-2 py-1 font-semibold text-red-600 text-xs">
                   Critical
                 </div>
-                {grouped.critical.map((notification) => (
-                  <DropdownMenuItem
-                    className="cursor-pointer p-3 hover:bg-muted/50"
-                    key={notification._id}
-                    onClick={() => {
-                      handleNotificationClick(
-                        notification._id,
-                        notification.entityType,
-                        notification.entityId
-                      );
-                    }}
-                  >
-                    <div className="flex w-full items-start gap-3">
-                      <Avatar className="h-8 w-8 shrink-0">
-                        <AvatarImage src={notification.actorAvatar} />
-                        <AvatarFallback className="text-xs">
-                          {getInitials(notification.actorName)}
-                        </AvatarFallback>
-                      </Avatar>
-                      <div className="flex-1 space-y-1">
-                        <div className="flex items-start gap-2">
-                          {getActivityIcon(notification.actionType)}
-                          <p className="flex-1 text-sm">
-                            {notification.summary}
+                {grouped.critical.map(
+                  (notification: (typeof grouped.critical)[number]) => (
+                    <DropdownMenuItem
+                      className="cursor-pointer p-3 hover:bg-muted/50"
+                      key={notification._id}
+                      onClick={() => {
+                        handleNotificationClick(
+                          notification._id,
+                          notification.entityType,
+                          notification.entityId
+                        );
+                      }}
+                    >
+                      <div className="flex w-full items-start gap-3">
+                        <Avatar className="h-8 w-8 shrink-0">
+                          <AvatarImage src={notification.actorAvatar} />
+                          <AvatarFallback className="text-xs">
+                            {getInitials(notification.actorName)}
+                          </AvatarFallback>
+                        </Avatar>
+                        <div className="flex-1 space-y-1">
+                          <div className="flex items-start gap-2">
+                            {getActivityIcon(notification.actionType)}
+                            <p className="flex-1 text-sm">
+                              {notification.summary}
+                            </p>
+                          </div>
+                          <p className="text-muted-foreground text-xs">
+                            {formatDistanceToNow(notification._creationTime, {
+                              addSuffix: true,
+                            })}
                           </p>
                         </div>
-                        <p className="text-muted-foreground text-xs">
-                          {formatDistanceToNow(notification._creationTime, {
-                            addSuffix: true,
-                          })}
-                        </p>
+                        {getPriorityBadge(notification.priority)}
                       </div>
-                      {getPriorityBadge(notification.priority)}
-                    </div>
-                  </DropdownMenuItem>
-                ))}
+                    </DropdownMenuItem>
+                  )
+                )}
                 <DropdownMenuSeparator />
               </>
             )}
@@ -257,42 +259,44 @@ export function NotificationCenter({
                 <div className="px-2 py-1 font-semibold text-xs text-yellow-600">
                   Important
                 </div>
-                {grouped.important.map((notification) => (
-                  <DropdownMenuItem
-                    className="cursor-pointer p-3 hover:bg-muted/50"
-                    key={notification._id}
-                    onClick={() => {
-                      handleNotificationClick(
-                        notification._id,
-                        notification.entityType,
-                        notification.entityId
-                      );
-                    }}
-                  >
-                    <div className="flex w-full items-start gap-3">
-                      <Avatar className="h-8 w-8 shrink-0">
-                        <AvatarImage src={notification.actorAvatar} />
-                        <AvatarFallback className="text-xs">
-                          {getInitials(notification.actorName)}
-                        </AvatarFallback>
-                      </Avatar>
-                      <div className="flex-1 space-y-1">
-                        <div className="flex items-start gap-2">
-                          {getActivityIcon(notification.actionType)}
-                          <p className="flex-1 text-sm">
-                            {notification.summary}
+                {grouped.important.map(
+                  (notification: (typeof grouped.important)[number]) => (
+                    <DropdownMenuItem
+                      className="cursor-pointer p-3 hover:bg-muted/50"
+                      key={notification._id}
+                      onClick={() => {
+                        handleNotificationClick(
+                          notification._id,
+                          notification.entityType,
+                          notification.entityId
+                        );
+                      }}
+                    >
+                      <div className="flex w-full items-start gap-3">
+                        <Avatar className="h-8 w-8 shrink-0">
+                          <AvatarImage src={notification.actorAvatar} />
+                          <AvatarFallback className="text-xs">
+                            {getInitials(notification.actorName)}
+                          </AvatarFallback>
+                        </Avatar>
+                        <div className="flex-1 space-y-1">
+                          <div className="flex items-start gap-2">
+                            {getActivityIcon(notification.actionType)}
+                            <p className="flex-1 text-sm">
+                              {notification.summary}
+                            </p>
+                          </div>
+                          <p className="text-muted-foreground text-xs">
+                            {formatDistanceToNow(notification._creationTime, {
+                              addSuffix: true,
+                            })}
                           </p>
                         </div>
-                        <p className="text-muted-foreground text-xs">
-                          {formatDistanceToNow(notification._creationTime, {
-                            addSuffix: true,
-                          })}
-                        </p>
+                        {getPriorityBadge(notification.priority)}
                       </div>
-                      {getPriorityBadge(notification.priority)}
-                    </div>
-                  </DropdownMenuItem>
-                ))}
+                    </DropdownMenuItem>
+                  )
+                )}
                 <DropdownMenuSeparator />
               </>
             )}
@@ -303,42 +307,44 @@ export function NotificationCenter({
                 <div className="px-2 py-1 font-semibold text-gray-600 text-xs">
                   Other
                 </div>
-                {grouped.normal.map((notification) => (
-                  <DropdownMenuItem
-                    className="cursor-pointer p-3 hover:bg-muted/50"
-                    key={notification._id}
-                    onClick={() => {
-                      handleNotificationClick(
-                        notification._id,
-                        notification.entityType,
-                        notification.entityId
-                      );
-                    }}
-                  >
-                    <div className="flex w-full items-start gap-3">
-                      <Avatar className="h-8 w-8 shrink-0">
-                        <AvatarImage src={notification.actorAvatar} />
-                        <AvatarFallback className="text-xs">
-                          {getInitials(notification.actorName)}
-                        </AvatarFallback>
-                      </Avatar>
-                      <div className="flex-1 space-y-1">
-                        <div className="flex items-start gap-2">
-                          {getActivityIcon(notification.actionType)}
-                          <p className="flex-1 text-sm">
-                            {notification.summary}
+                {grouped.normal.map(
+                  (notification: (typeof grouped.normal)[number]) => (
+                    <DropdownMenuItem
+                      className="cursor-pointer p-3 hover:bg-muted/50"
+                      key={notification._id}
+                      onClick={() => {
+                        handleNotificationClick(
+                          notification._id,
+                          notification.entityType,
+                          notification.entityId
+                        );
+                      }}
+                    >
+                      <div className="flex w-full items-start gap-3">
+                        <Avatar className="h-8 w-8 shrink-0">
+                          <AvatarImage src={notification.actorAvatar} />
+                          <AvatarFallback className="text-xs">
+                            {getInitials(notification.actorName)}
+                          </AvatarFallback>
+                        </Avatar>
+                        <div className="flex-1 space-y-1">
+                          <div className="flex items-start gap-2">
+                            {getActivityIcon(notification.actionType)}
+                            <p className="flex-1 text-sm">
+                              {notification.summary}
+                            </p>
+                          </div>
+                          <p className="text-muted-foreground text-xs">
+                            {formatDistanceToNow(notification._creationTime, {
+                              addSuffix: true,
+                            })}
                           </p>
                         </div>
-                        <p className="text-muted-foreground text-xs">
-                          {formatDistanceToNow(notification._creationTime, {
-                            addSuffix: true,
-                          })}
-                        </p>
+                        {getPriorityBadge(notification.priority)}
                       </div>
-                      {getPriorityBadge(notification.priority)}
-                    </div>
-                  </DropdownMenuItem>
-                ))}
+                    </DropdownMenuItem>
+                  )
+                )}
               </>
             )}
           </div>

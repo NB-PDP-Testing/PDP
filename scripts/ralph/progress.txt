@@ -1089,3 +1089,73 @@ Week 3 has now completed 12/17 stories (70.6%):
 - Should have checked if session plans always have teamId (some don't, added null check)
 
 ---
+## Sat 1 Feb 2026 21:45 - US-P9-045 - Create Swipeable Insight Card
+**Iteration**: 51
+**Commit**: 8ebe1e695bc80c7ee5ccd3a471f751e3ff381fbc
+**Session**: d8860fdf-9e71-4080-8704-e053e1da2fb9
+**Status**: Complete
+
+### What was implemented
+- Created SwipeableInsightCard wrapper component (apps/web/src/app/orgs/[orgId]/coach/voice-notes/components/swipeable-insight-card.tsx)
+- Mobile-only swipe gestures using framer-motion (disabled on desktop ≥768px)
+- Window.matchMedia detection for mobile vs desktop
+- Drag gesture with 100px threshold for apply/dismiss actions
+- Visual feedback overlays:
+  - Swipe RIGHT: green overlay with checkmark icon (fades in based on drag distance)
+  - Swipe LEFT: red overlay with X icon (fades in based on drag distance)
+  - Icons follow finger position during drag
+- Spring-back animation if threshold not met
+- Haptic feedback on action complete (vibrate(50) if supported)
+- Props: children (React.ReactNode), onApply callback, onDismiss callback, disabled flag
+- Accessibility: swipe not required (buttons remain visible), screen readers can ignore
+- Uses framer-motion motion.div with drag="x", dragConstraints, dragElastic
+- useTransform for opacity and icon position based on drag distance
+- useState for isMobile detection and isDragging state
+- useMotionValue for x position tracking
+
+### Files changed
+- apps/web/src/app/orgs/[orgId]/coach/voice-notes/components/swipeable-insight-card.tsx (new, 121 lines)
+- scripts/ralph/prd.json (+1 line, marked passes: true)
+
+### Quality checks
+- ✅ Type check: no new errors (only pre-existing errors in teamCollaboration.ts, notification-center.tsx, sessionPlans.ts)
+- ✅ Linting: passed pre-commit hook (biome check at error level)
+- ✅ No lint errors or warnings in new file
+- ⚠️ Browser verification: not performed (recommend manual testing on mobile device)
+
+### **Learnings for future iterations** ⚠️ CRITICAL
+
+**Patterns discovered:**
+- framer-motion drag pattern: <motion.div drag="x" dragConstraints={{ left: 0, right: 0 }} dragElastic={0.2} />
+- useMotionValue for tracking x position: const x = useMotionValue(0)
+- useTransform for calculated values: useTransform(x, [inputMin, inputMax], [outputMin, outputMax])
+- onDragEnd handler receives (event, info) where info.offset.x is the drag distance
+- Mobile detection: window.matchMedia("(max-width: 768px)").matches with resize listener
+- Haptic feedback: navigator.vibrate(50) with feature detection
+- Conditional rendering: return children directly if not mobile or disabled
+- Background overlays: absolute positioning with pointer-events-none, opacity controlled by motion values
+- Icon animation: separate motion.div for icon with x position based on drag distance
+
+**Gotchas encountered:**
+- Biome linter auto-formatted handleDragEnd function signature (split across multiple lines)
+- Type errors in teamCollaboration.ts are pre-existing from Week 3 schema changes (decision actionTypes)
+- Must use dragConstraints to limit drag area (prevents dragging too far off screen)
+- dragElastic provides rubber-band effect at drag boundaries
+- isDragging state needed to show/hide overlays (opacity transitions)
+
+**Dependencies found:**
+- framer-motion v12.29.2 (already installed in apps/web/package.json)
+- motion, useMotionValue, useTransform from framer-motion
+- Check and X icons from lucide-react
+- cn utility from @/lib/utils
+
+**What to do next** (for remaining Week 3 stories):
+- [ ] US-P9-033: Already complete (schema field added in Week 3 prep)
+- [ ] US-P9-046: Long-Press Quick Actions (create use-long-press.ts hook, add DropdownMenu on long-press)
+- [ ] US-P9-047: Touch Target Optimization (44px min touch targets, remove tap highlight)
+- [ ] US-P9-048: Gesture Customization Settings (add gesture fields to coachOrgPreferences, create settings UI)
+
+**Mistakes made** (learn from these!):
+- None - implementation was straightforward following framer-motion docs and existing patterns
+
+---

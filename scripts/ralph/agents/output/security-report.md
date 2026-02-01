@@ -1,4 +1,4 @@
-# Security Report - 2026-01-31 21:26:57
+# Security Report - 2026-02-01 11:19:39
 
 ## ⚠️ MEDIUM: XSS Risk Detected
 Found dangerouslySetInnerHTML usage:
@@ -75,6 +75,7 @@ packages/backend/convex/models/fixNeilsRoles.ts
 packages/backend/convex/models/playerIdentities.ts
 packages/backend/convex/models/voiceNotes.ts
 packages/backend/convex/models/guardianManagement.ts
+packages/backend/convex/models/teamDecisions.ts
 packages/backend/convex/models/playerInjuries.ts
 packages/backend/convex/models/voiceNoteInsights.ts
 packages/backend/convex/models/playerEmergencyContacts.ts

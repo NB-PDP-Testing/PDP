@@ -1735,7 +1735,10 @@ export default defineSchema({
       v.literal("comment_added"),
       v.literal("player_assessed"),
       v.literal("goal_created"),
-      v.literal("injury_logged")
+      v.literal("injury_logged"),
+      v.literal("decision_created"),
+      v.literal("vote_cast"),
+      v.literal("decision_finalized")
     ),
     entityType: v.union(
       v.literal("voice_note"),
@@ -1743,7 +1746,8 @@ export default defineSchema({
       v.literal("comment"),
       v.literal("skill_assessment"),
       v.literal("goal"),
-      v.literal("injury")
+      v.literal("injury"),
+      v.literal("decision")
     ),
     entityId: v.string(), // ID of the related entity
     summary: v.string(), // Human-readable description

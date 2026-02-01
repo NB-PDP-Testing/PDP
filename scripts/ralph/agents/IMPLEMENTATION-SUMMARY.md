@@ -169,7 +169,7 @@ cat scripts/ralph/agents/output/feedback.md | grep "Biome"
 ### Test 3: Hardcode a Secret
 ```bash
 # In packages/backend/convex, add:
-const API_KEY = "sk_live_1234567890abcdefghijklmnopqrstuvwxyz";
+const API_KEY = "sk_live_REDACTED";
 
 # Wait 120 seconds for security-tester to run
 # Check: Should appear in progress.txt with 🔴 CRITICAL marker

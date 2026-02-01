@@ -30,6 +30,7 @@ import type * as lib_autoApprovalDecision from "../lib/autoApprovalDecision.js";
 import type * as lib_circuitBreaker from "../lib/circuitBreaker.js";
 import type * as lib_consentGateway from "../lib/consentGateway.js";
 import type * as lib_firstUserSetup from "../lib/firstUserSetup.js";
+import type * as lib_injuryNotifications from "../lib/injuryNotifications.js";
 import type * as lib_trustLevelCalculator from "../lib/trustLevelCalculator.js";
 import type * as migrations_cleanSlate from "../migrations/cleanSlate.js";
 import type * as migrations_extractInsightsToTable from "../migrations/extractInsightsToTable.js";
@@ -168,6 +169,7 @@ declare const fullApi: ApiFromModules<{
   "lib/circuitBreaker": typeof lib_circuitBreaker;
   "lib/consentGateway": typeof lib_consentGateway;
   "lib/firstUserSetup": typeof lib_firstUserSetup;
+  "lib/injuryNotifications": typeof lib_injuryNotifications;
   "lib/trustLevelCalculator": typeof lib_trustLevelCalculator;
   "migrations/cleanSlate": typeof migrations_cleanSlate;
   "migrations/extractInsightsToTable": typeof migrations_extractInsightsToTable;

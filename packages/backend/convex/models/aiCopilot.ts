@@ -68,8 +68,16 @@ async function generateInsightSuggestions(
     organizationId: string;
   }
 ) {
-  // Get insight details
-  const insight = await ctx.db.get(args.contextId as Id<"voiceNoteInsights">);
+  // Validate contextId is not empty
+  if (!args.contextId || args.contextId.trim() === "") {
+    return [];
+  }
+
+  // Get insight details (catch invalid IDs)
+  const insight = await ctx.db
+    .get(args.contextId as Id<"voiceNoteInsights">)
+    .catch(() => null);
+
   if (!insight) {
     return [];
   }

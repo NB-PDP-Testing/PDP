@@ -1,4 +1,5 @@
 import type { Metadata } from "next";
+import { GesturePreferences } from "./gesture-preferences";
 import { NotificationPreferences } from "./notification-preferences";
 
 export const metadata: Metadata = {
@@ -17,6 +18,8 @@ export default function CoachSettingsPage() {
       </div>
 
       <NotificationPreferences />
+
+      <GesturePreferences />
     </div>
   );
 }

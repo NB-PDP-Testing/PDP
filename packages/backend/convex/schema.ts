@@ -2592,6 +2592,15 @@ export default defineSchema({
       )
     ), // Default: "list"
 
+    // Mobile Gesture Preferences (P9 Week 3)
+    gesturesEnabled: v.optional(v.boolean()), // Default: true
+    swipeRightAction: v.optional(
+      v.union(v.literal("apply"), v.literal("dismiss"), v.literal("disabled"))
+    ), // Default: "apply"
+    swipeLeftAction: v.optional(
+      v.union(v.literal("apply"), v.literal("dismiss"), v.literal("disabled"))
+    ), // Default: "dismiss"
+
     createdAt: v.number(),
     updatedAt: v.number(),
   })

@@ -1742,6 +1742,14 @@ export const getCoachOrgPreferences = query({
           v.literal("players")
         )
       ),
+      // Mobile gesture preferences
+      gesturesEnabled: v.optional(v.boolean()),
+      swipeRightAction: v.optional(
+        v.union(v.literal("apply"), v.literal("dismiss"), v.literal("disabled"))
+      ),
+      swipeLeftAction: v.optional(
+        v.union(v.literal("apply"), v.literal("dismiss"), v.literal("disabled"))
+      ),
     }),
     v.null()
   ),
@@ -1777,6 +1785,10 @@ export const getCoachOrgPreferences = query({
       parentSummariesEnabled: coachPref.parentSummariesEnabled,
       // View preferences
       teamInsightsViewPreference: coachPref.teamInsightsViewPreference,
+      // Mobile gesture preferences
+      gesturesEnabled: coachPref.gesturesEnabled,
+      swipeRightAction: coachPref.swipeRightAction,
+      swipeLeftAction: coachPref.swipeLeftAction,
     };
   },
 });
@@ -1852,6 +1864,13 @@ export const updateCoachOrgPreference = mutation({
         v.literal("players")
       )
     ),
+    gesturesEnabled: v.optional(v.boolean()),
+    swipeRightAction: v.optional(
+      v.union(v.literal("apply"), v.literal("dismiss"), v.literal("disabled"))
+    ),
+    swipeLeftAction: v.optional(
+      v.union(v.literal("apply"), v.literal("dismiss"), v.literal("disabled"))
+    ),
   },
   returns: v.object({
     success: v.boolean(),
@@ -1882,6 +1901,15 @@ export const updateCoachOrgPreference = mutation({
       if (args.teamInsightsViewPreference !== undefined) {
         updates.teamInsightsViewPreference = args.teamInsightsViewPreference;
       }
+      if (args.gesturesEnabled !== undefined) {
+        updates.gesturesEnabled = args.gesturesEnabled;
+      }
+      if (args.swipeRightAction !== undefined) {
+        updates.swipeRightAction = args.swipeRightAction;
+      }
+      if (args.swipeLeftAction !== undefined) {
+        updates.swipeLeftAction = args.swipeLeftAction;
+      }
 
       await ctx.db.patch(coachPref._id, updates);
     } else {
@@ -1890,6 +1918,9 @@ export const updateCoachOrgPreference = mutation({
         coachId: currentUser._id,
         organizationId: args.organizationId,
         teamInsightsViewPreference: args.teamInsightsViewPreference,
+        gesturesEnabled: args.gesturesEnabled,
+        swipeRightAction: args.swipeRightAction,
+        swipeLeftAction: args.swipeLeftAction,
         createdAt: Date.now(),
         updatedAt: Date.now(),
       });

@@ -18,6 +18,7 @@ import type { Route } from "next";
 import Link from "next/link";
 import { useParams, useRouter } from "next/navigation";
 import { useEffect, useRef, useState } from "react";
+import { CommandPalette } from "@/components/coach/command-palette";
 import { NotificationCenter } from "@/components/coach/notification-center";
 import {
   BottomNav,
@@ -39,6 +40,7 @@ import {
   SessionPlanProvider,
   useSessionPlanContext,
 } from "@/contexts/session-plan-context";
+import { useCommandPalette } from "@/hooks/use-command-palette";
 import { useOrgTheme } from "@/hooks/use-org-theme";
 import { useUXFeatureFlags } from "@/hooks/use-ux-feature-flags";
 import { authClient } from "@/lib/auth-client";
@@ -51,6 +53,10 @@ function CoachLayoutInner({ children }: { children: React.ReactNode }) {
 
   // Apply organization theme colors
   const { theme } = useOrgTheme();
+
+  // Command palette state
+  const { open: commandPaletteOpen, setOpen: setCommandPaletteOpen } =
+    useCommandPalette();
 
   // Check if the user has coach functional role
   useEffect(() => {
@@ -259,6 +265,13 @@ function CoachLayoutInner({ children }: { children: React.ReactNode }) {
 
   return (
     <>
+      {/* Command Palette - Global Cmd+K shortcut */}
+      <CommandPalette
+        open={commandPaletteOpen}
+        organizationId={orgId}
+        setOpen={setCommandPaletteOpen}
+      />
+
       {/* Bottom navigation for mobile */}
       {useBottomNav && <BottomNav items={coachBottomNavItems} />}
 

@@ -456,7 +456,7 @@
         "Visual verification on mobile: swipe works, animations smooth, tested on iOS Safari and Android Chrome"
       ],
       "priority": 14,
-      "passes": false,
+      "passes": true,
       "effort": "3h"
     },
     {

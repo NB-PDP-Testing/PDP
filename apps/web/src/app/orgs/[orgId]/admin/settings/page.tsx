@@ -764,7 +764,7 @@ export default function OrgSettingsPage() {
                     setRestartOnboardingDialogOpen(false);
                     // Redirect to setup wizard after a brief delay
                     setTimeout(() => {
-                      router.push("/setup");
+                      router.push("/setup" as any);
                     }, 1000);
                   }
                 } catch (error) {

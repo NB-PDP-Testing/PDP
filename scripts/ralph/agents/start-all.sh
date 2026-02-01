@@ -39,8 +39,15 @@ nohup ./test-runner.sh > /dev/null 2>&1 &
 echo $! > "$OUTPUT_DIR/test-runner.pid"
 echo "  PID: $(cat $OUTPUT_DIR/test-runner.pid)"
 
+# Start Security Tester Agent
+sleep 2
+echo "Starting Security Tester..."
+nohup ./security-tester.sh > /dev/null 2>&1 &
+echo $! > "$OUTPUT_DIR/security-tester.pid"
+echo "  PID: $(cat $OUTPUT_DIR/security-tester.pid)"
+
 echo ""
-echo "✅ All agents started!"
+echo "✅ All 5 agents started!"
 echo ""
 echo "Monitor outputs with:"
 echo "  tail -f scripts/ralph/agents/output/*.log"

@@ -1,0 +1,566 @@
+{
+  "project": "Phase 9 Week 2 - Team Collaboration Hub (REMEDIATION)",
+  "branchName": "ralph/team-collaboration-hub-p9",
+  "description": "Fix critical integration gaps and incomplete implementations from Phase 9 Week 2. This remediation addresses missing page routing, orphaned components, incomplete features, and scope mismatches identified in comprehensive audit.",
+  "priority": "P0 - BLOCKING",
+  "estimatedTime": "7-11 hours",
+  "auditReports": [
+    "docs/archive/audits/RALPH_P9_WEEK2_COMPREHENSIVE_AUDIT.md",
+    "scripts/ralph/agents/output/feedback.md"
+  ],
+  "criticalPatterns": {
+    "performance": [
+      "NEVER use .filter() - always use .withIndex()",
+      "Use composite indexes for multi-field filters",
+      "Batch fetch user data with Better Auth adapter to avoid N+1 queries"
+    ],
+    "betterAuth": [
+      "Always use Better Auth adapter with field '_id' not 'userId'",
+      "Batch user lookups with adapter.findMany() and Map for O(1) lookup"
+    ],
+    "visualVerification": [
+      "Use dev-browser tool to verify layout on desktop (1920px) and mobile (375px)",
+      "Test account: neil.B@blablablak.com / lien1979",
+      "Verify component actually renders and is accessible to users"
+    ]
+  },
+  "userStories": [
+    {
+      "id": "US-P9-016",
+      "title": "Add Notification Preferences UI",
+      "description": "Create routable page for notification preferences UI that was implemented but not accessible via Next.js App Router.",
+      "originalPRD": "scripts/ralph/prds/Coaches Voice Insights/P9_TEAM_COLLABORATION_HUB.md",
+      "acceptanceCriteria": [
+        "Create `/apps/web/src/app/orgs/[orgId]/coach/settings/page.tsx`",
+        "Page imports and renders NotificationPreferences component",
+        "Page accessible at URL: `/orgs/[orgId]/coach/settings`",
+        "Matrix UI displays: 3 priority levels × 4 channels (Push, Email, Digest, None)",
+        "Digest time picker shows (24h format, default 08:00)",
+        "Quiet hours toggle + start/end time pickers work",
+        "Save button calls setNotificationPreferences mutation",
+        "Success toast shown on save",
+        "Type check passes: npm run check-types",
+        "Visual verification using dev-browser: Desktop and mobile layout",
+        "FIX: Component was orphaned - no page.tsx existed so component was not routable"
+      ],
+      "files": {
+        "toCreate": ["/apps/web/src/app/orgs/[orgId]/coach/settings/page.tsx"],
+        "existing": [
+          "/apps/web/src/app/orgs/[orgId]/coach/settings/notification-preferences.tsx"
+        ]
+      },
+      "passes": false,
+      "auditStatus": "CRITICAL - Component exists but not routable (no page.tsx)",
+      "auditFindings": [
+        "NotificationPreferences component created at correct path",
+        "Component has all required UI (matrix, time pickers, quiet hours)",
+        "NO page.tsx file in /coach/settings/ directory",
+        "Component cannot be accessed via Next.js App Router routing",
+        "Progress notes incorrectly claimed 'Can be accessed directly via URL'",
+        "No visual verification was performed",
+        "Test file is placeholder only"
+      ],
+      "priority": "P0",
+      "estimatedTime": "0.5 hours"
+    },
+    {
+      "id": "US-P9-017",
+      "title": "Create InsightReactions Component",
+      "description": "Complete the InsightReactions component by adding user name tooltips and integrating into insight display views.",
+      "originalPRD": "scripts/ralph/prds/Coaches Voice Insights/P9_TEAM_COLLABORATION_HUB.md",
+      "acceptanceCriteria": [
+        "Component shows 3 reaction buttons: ThumbsUp (like), Star (helpful), Flag (flag)",
+        "Shows counts for each reaction type",
+        "Active state with color-coding (blue/yellow/red)",
+        "Clicking button calls toggleReaction mutation with optimistic updates",
+        "Tooltips show list of users who reacted (NOT just count)",
+        "Fetch user names from Better Auth adapter for tooltip display",
+        "Import and use <InsightReactions /> in insight card components",
+        "Integration locations: Team Insights tab, Pending Review tab, Team Hub insights view",
+        "Component visible and functional when viewing insights",
+        "Type check passes: npm run check-types",
+        "Visual verification using dev-browser: Reactions work, tooltips show names",
+        "FIX 1: Enhance tooltip to show actual user names instead of just count",
+        "FIX 2: Import and integrate component into insight display views"
+      ],
+      "files": {
+        "toModify": [
+          "/apps/web/src/app/orgs/[orgId]/coach/voice-notes/components/insight-reactions.tsx",
+          "/apps/web/src/app/orgs/[orgId]/coach/voice-notes/components/team-insights-tab.tsx",
+          "/apps/web/src/app/orgs/[orgId]/coach/voice-notes/components/pending-review-tab.tsx"
+        ]
+      },
+      "passes": false,
+      "auditStatus": "CRITICAL - Component orphaned (not integrated anywhere)",
+      "auditFindings": [
+        "Component fully implemented with 3 reaction buttons",
+        "Shows counts and active states correctly",
+        "Calls toggleReaction mutation with optimistic updates",
+        "Backend support complete (getReactions, toggleReaction)",
+        "CRITICAL: Component NOT imported or used anywhere in codebase",
+        "Component is orphaned - exists but never rendered",
+        "Tooltip shows count ('X people') but NOT user names",
+        "Acceptance criteria requires 'Tooltip shows list of users who reacted'",
+        "getUsersWhoReacted() returns user IDs but doesn't fetch/display names",
+        "Test file is placeholder only"
+      ],
+      "priority": "P0",
+      "estimatedTime": "1.0 hours"
+    },
+    {
+      "id": "US-P9-015",
+      "title": "Create NotificationCenter Component",
+      "description": "Integrate the NotificationCenter bell icon component into coach layout header for visibility.",
+      "originalPRD": "scripts/ralph/prds/Coaches Voice Insights/P9_TEAM_COLLABORATION_HUB.md",
+      "acceptanceCriteria": [
+        "NotificationCenter component exists with bell icon and badge count",
+        "Priority-grouped dropdown (Critical, Important, Normal) with color-coding",
+        "Click notification navigates to target entity",
+        "Mark as read functionality works",
+        "Import NotificationCenter into coach layout or dashboard header",
+        "Bell icon visible in top navigation bar",
+        "Badge count updates in real-time when new notifications arrive",
+        "Type check passes: npm run check-types",
+        "Visual verification using dev-browser: Bell icon visible, dropdown works",
+        "FIX: Component was created but never imported/used - must integrate into layout"
+      ],
+      "files": {
+        "toModify": [
+          "/apps/web/src/app/orgs/[orgId]/coach/layout.tsx",
+          "/apps/web/src/components/coach/notification-center.tsx"
+        ]
+      },
+      "passes": false,
+      "auditStatus": "CRITICAL - Component not integrated into any layout",
+      "auditFindings": [
+        "Component fully implemented at /components/coach/notification-center.tsx",
+        "Bell icon with badge count implemented",
+        "Priority-grouped dropdown (Critical, Important, Normal) complete",
+        "Color-coding (red, yellow, gray) implemented",
+        "Click navigation and mark-as-read functionality works",
+        "Loading skeleton state implemented",
+        "CRITICAL: Component NOT imported or used anywhere",
+        "grep found no imports of notification-center.tsx",
+        "Notification system invisible to users",
+        "Test file is placeholder only"
+      ],
+      "priority": "P0",
+      "estimatedTime": "0.75 hours"
+    },
+    {
+      "id": "US-P9-044",
+      "title": "Create SmartActionBar Component",
+      "description": "Complete SmartActionBar by adding 'reasoning' field to suggestions and integrating into insights/sessions pages.",
+      "originalPRD": "scripts/ralph/prds/Coaches Voice Insights/P9_TEAM_COLLABORATION_HUB.md",
+      "acceptanceCriteria": [
+        "Add 'reasoning' field to backend getSmartSuggestions returns validator",
+        "Populate reasoning in generateInsightSuggestions (explain why suggestion is relevant)",
+        "Populate reasoning in generateSessionSuggestions (explain why action recommended)",
+        "SmartActionBar tooltip displays: title, description, AND reasoning",
+        "Import and use SmartActionBar in insights view pages",
+        "Import and use SmartActionBar in session planning pages",
+        "Component visible when viewing insights or planning sessions",
+        "Suggestions appear with correct icons and confidence indicators",
+        "Click executes action via onActionClick callback",
+        "Type check passes: npm run check-types",
+        "Visual verification using dev-browser: Suggestions display, tooltips show reasoning",
+        "FIX 1: Add missing reasoning field to backend and component",
+        "FIX 2: Integrate component into insights and sessions pages"
+      ],
+      "files": {
+        "toModify": [
+          "/packages/backend/convex/models/aiCopilot.ts",
+          "/apps/web/src/components/coach/smart-action-bar.tsx",
+          "/apps/web/src/app/orgs/[orgId]/coach/team-hub/components/insights-view.tsx"
+        ]
+      },
+      "passes": false,
+      "auditStatus": "CRITICAL - Missing reasoning field and not integrated",
+      "auditFindings": [
+        "Component exists at correct path with proper props",
+        "Calls getSmartSuggestions query correctly",
+        "Displays suggestions as action buttons with icons",
+        "Shows confidence indicator (%) on buttons",
+        "Tooltips show title and description",
+        "Click handler executes action via callback",
+        "Loading state with skeleton implemented",
+        "Mobile responsive (flex-col → sm:flex-row)",
+        "CRITICAL: Tooltip missing 'reasoning' field",
+        "Acceptance criteria: 'Tooltip shows description and reasoning'",
+        "Backend query doesn't return reasoning field",
+        "Backend validator doesn't include reasoning field",
+        "Component NOT imported or used anywhere in codebase",
+        "Cannot be visually verified - not integrated",
+        "Test file is placeholder only"
+      ],
+      "priority": "P0",
+      "estimatedTime": "1.5 hours"
+    },
+    {
+      "id": "US-P9-041",
+      "title": "Create AI Copilot Backend Model",
+      "description": "Align implementation scope with PRD expectations - document actual delivered scope or revert to placeholder.",
+      "originalPRD": "scripts/ralph/prds/Coaches Voice Insights/P9_TEAM_COLLABORATION_HUB.md",
+      "acceptanceCriteria": [
+        "DECISION REQUIRED: Choose one of the following:",
+        "OPTION A - Update PRD: Document that US-P9-041 includes full implementation of US-P9-042 and US-P9-043 logic",
+        "OPTION B - Revert to placeholder: Move complex logic to US-P9-042 and US-P9-043 implementations",
+        "If OPTION A chosen: Update PRD acceptance criteria to reflect actual scope delivered",
+        "If OPTION A chosen: Update story title and description to match expanded scope",
+        "If OPTION B chosen: Refactor aiCopilot.ts to return empty array placeholder",
+        "If OPTION B chosen: Move generateInsightSuggestions to US-P9-042 story",
+        "If OPTION B chosen: Move generateSessionSuggestions to US-P9-043 story",
+        "Ensure story boundaries are clear for future tracking",
+        "Type check passes: npm run check-types",
+        "FIX: Scope mismatch - PRD said placeholder, delivered full implementation across 3 stories"
+      ],
+      "files": {
+        "toModify": [
+          "/packages/backend/convex/models/aiCopilot.ts",
+          "scripts/ralph/prds/Coaches Voice Insights/P9_TEAM_COLLABORATION_HUB.md"
+        ]
+      },
+      "passes": false,
+      "auditStatus": "FAIL - Scope creep (full implementation instead of placeholder)",
+      "auditFindings": [
+        "PRD specified: 'Placeholder implementation (return empty array)'",
+        "Actual delivery: 270 lines of production logic",
+        "Router logic to different suggestion generators (lines 43-55)",
+        "generateInsightSuggestions with complex DB queries (117 lines)",
+        "generateSessionSuggestions with pattern matching (87 lines)",
+        "This conflates US-P9-041, US-P9-042, and US-P9-043 into one implementation",
+        "Story was meant to establish infrastructure only (validators, types, file structure)",
+        "Acceptance criteria: File created, exports correct, validators correct - ALL MET",
+        "Acceptance criteria: Placeholder implementation - FAILED",
+        "Violates story boundaries - makes tracking/testing impossible",
+        "Either PRD needs update or code needs refactor to align with story scope"
+      ],
+      "priority": "P1",
+      "estimatedTime": "0.5 hours (documentation update)"
+    },
+    {
+      "id": "US-P9-009",
+      "title": "Implement Activity Feed Backend",
+      "description": "Replace .filter() with composite index for activity type filtering to follow performance guidelines.",
+      "originalPRD": "scripts/ralph/prds/Coaches Voice Insights/P9_TEAM_COLLABORATION_HUB.md",
+      "acceptanceCriteria": [
+        "getTeamActivityFeed query supports filtering (all/insights/comments/reactions/sessions/votes)",
+        "Add composite index: by_team_and_actionType for efficient filtering",
+        "Replace client-side .filter() with .withIndex() query (lines 651-665)",
+        "Map filter types correctly: 'insights' → ['insight_created', 'insight_applied', 'insight_dismissed']",
+        "Limit default 50, max 100 enforced",
+        "Better Auth adapter batch pattern for user lookups (prevent N+1)",
+        "Returns enriched activity with actor avatar",
+        "Type check passes: npm run check-types",
+        "Test query in Convex dashboard with different filters",
+        "FIX: Performance violation - uses .filter() instead of composite index"
+      ],
+      "files": {
+        "toModify": [
+          "/packages/backend/convex/schema.ts",
+          "/packages/backend/convex/models/teamCollaboration.ts"
+        ]
+      },
+      "passes": false,
+      "auditStatus": "Performance violation - uses .filter() after query",
+      "auditFindings": [
+        "getTeamActivityFeed query implemented correctly",
+        "Supports filtering (all/insights/comments/reactions/sessions/votes)",
+        "Uses compound index by_team for base queries",
+        "Limit default 50, max 100 working",
+        "Better Auth adapter batch pattern implemented (no N+1)",
+        "Returns enriched activity with actor avatar",
+        "ISSUE: Lines 651-665 use .filter() after query instead of composite index",
+        "Fetches all activities first, then filters in memory",
+        "Violates CLAUDE.md performance guidelines: 'NEVER use .filter()'",
+        "Should use composite index by_team_and_actionType instead",
+        "Works fine for small teams, scales poorly for high-activity teams",
+        "Test file is placeholder only"
+      ],
+      "priority": "P1",
+      "estimatedTime": "1.0 hours"
+    },
+    {
+      "id": "US-P9-043",
+      "title": "Implement Session Planning Suggestions",
+      "description": "Enhance session suggestions with task-based equipment detection and improved skill extraction.",
+      "originalPRD": "scripts/ralph/prds/Coaches Voice Insights/P9_TEAM_COLLABORATION_HUB.md",
+      "acceptanceCriteria": [
+        "generateSessionSuggestions returns top 3 suggestions sorted by confidence",
+        "Injury status checks implemented (0.9 confidence)",
+        "Skill gaps/focused drills suggestions (0.8 confidence)",
+        "Equipment mentions detection (0.7 confidence)",
+        "ENHANCEMENT 1: Query team tasks for equipment suggestions (not just insight descriptions)",
+        "ENHANCEMENT 2: Extract and rank actual skill keywords (not just .includes('improve'))",
+        "Create helper function extractTopSkills(insights) that:",
+        "  - Parses insight descriptions for skill keywords (hand pass, tackling, shooting, etc.)",
+        "  - Counts frequency of each skill mention",
+        "  - Returns top 3 most mentioned skills",
+        "Query tasks table for equipment-related tasks in last 14 days",
+        "Combine insight-based and task-based equipment suggestions",
+        "Type check passes: npm run check-types",
+        "Test query in Convex dashboard with team that has tasks",
+        "FIX 1: Add task querying for equipment suggestions",
+        "FIX 2: Replace boolean skill check with keyword extraction and ranking"
+      ],
+      "files": {
+        "toModify": ["/packages/backend/convex/models/aiCopilot.ts"]
+      },
+      "passes": false,
+      "auditStatus": "Functional but incomplete - missing task queries and advanced skill extraction",
+      "auditFindings": [
+        "generateSessionSuggestions function implemented (lines 184-270)",
+        "Auto-suggest based on recent insights (last 7 days) working",
+        "Injury status checks with 0.9 confidence (lines 216-230) working",
+        "Skill gaps/focused drills with 0.8 confidence (lines 233-248) working",
+        "Equipment mentions with 0.7 confidence (lines 251-266) working",
+        "Returns top 3 sorted by confidence correctly",
+        "ISSUE 1: PRD specifies getRecentTeamTasks helper - NOT IMPLEMENTED",
+        "ISSUE 2: Equipment suggestions only search insight descriptions (lines 251-256)",
+        "ISSUE 3: No query to tasks table for task-based equipment detection",
+        "ISSUE 4: Skill extraction oversimplified - boolean .includes('improve') check",
+        "ISSUE 5: Should extract and rank actual skill keywords from descriptions",
+        "Core functionality works but took shortcuts vs PRD requirements",
+        "Test file is placeholder only"
+      ],
+      "priority": "P1",
+      "estimatedTime": "2.0 hours"
+    },
+    {
+      "id": "US-P9-010",
+      "title": "Create ActivityFeedView Component",
+      "description": "ActivityFeedView component complete and functional - verify integration into Team Hub page.",
+      "originalPRD": "scripts/ralph/prds/Coaches Voice Insights/P9_TEAM_COLLABORATION_HUB.md",
+      "acceptanceCriteria": [
+        "Component displays activities chronologically (newest first)",
+        "Each activity shows: actor avatar, summary, timestamp, icon (color-coded by type)",
+        "ListSkeleton loading state implemented",
+        "Empty state: 'No activity yet - start collaborating!'",
+        "Real-time updates via useQuery",
+        "Component integrated into Team Hub page or coach dashboard",
+        "Type check passes: npm run check-types",
+        "Visual verification using dev-browser: Activities display correctly"
+      ],
+      "files": {
+        "existing": [
+          "/apps/web/src/app/orgs/[orgId]/coach/team-hub/components/activity-feed-view.tsx"
+        ]
+      },
+      "passes": true,
+      "auditStatus": "PASS - Component complete and functional",
+      "auditFindings": [
+        "Component implemented at correct path",
+        "Chronological display (newest first) working",
+        "Actor avatar, summary, timestamp displayed",
+        "Icon color-coding by action type implemented",
+        "ListSkeleton loading state present",
+        "Real-time updates via useQuery working",
+        "Component exists in /team-hub/components/ directory",
+        "NOTE: Cannot verify if component displayed anywhere (no team-hub/page.tsx found in audit)",
+        "Test file is placeholder only (acceptable for passing story)"
+      ]
+    },
+    {
+      "id": "US-P9-011",
+      "title": "Add Activity Feed Filters",
+      "description": "Activity feed filters complete and functional - integrated into ActivityFeedView component.",
+      "originalPRD": "scripts/ralph/prds/Coaches Voice Insights/P9_TEAM_COLLABORATION_HUB.md",
+      "acceptanceCriteria": [
+        "Filter tabs: All, Insights, Comments, Reactions, Sessions, Votes",
+        "Count badges on each filter show accurate counts",
+        "URL persistence via searchParams (?filter=insights)",
+        "Filter changes trigger backend query with filterType",
+        "Type check passes: npm run check-types",
+        "Visual verification using dev-browser: Filters work correctly"
+      ],
+      "files": {
+        "existing": [
+          "/apps/web/src/app/orgs/[orgId]/coach/team-hub/components/activity-feed-view.tsx"
+        ]
+      },
+      "passes": true,
+      "auditStatus": "PASS - Complete and integrated into US-P9-010",
+      "auditFindings": [
+        "Filter tabs implemented: All, Insights, Comments, Reactions, Sessions, Votes",
+        "Count badges implemented and accurate",
+        "URL persistence via searchParams working",
+        "Filter changes trigger backend query correctly",
+        "Integrated into ActivityFeedView component",
+        "Test file is placeholder only (acceptable for passing story)"
+      ]
+    },
+    {
+      "id": "US-P9-012",
+      "title": "Add @Mention Autocomplete",
+      "description": "@Mention autocomplete complete and functional in comment form.",
+      "originalPRD": "scripts/ralph/prds/Coaches Voice Insights/P9_TEAM_COLLABORATION_HUB.md",
+      "acceptanceCriteria": [
+        "Detects @ typing in textarea (lines 72-95)",
+        "Dropdown shows coaches with smart ranking",
+        "Keyboard navigation (Arrow Up/Down, Enter, Escape)",
+        "Inserts @mention on select",
+        "Smart ranking via getSmartCoachMentions query",
+        "Type check passes: npm run check-types",
+        "Visual verification using dev-browser: Autocomplete works"
+      ],
+      "files": {
+        "existing": [
+          "/apps/web/src/app/orgs/[orgId]/coach/voice-notes/components/comment-form.tsx"
+        ]
+      },
+      "passes": true,
+      "auditStatus": "PASS - Complete and functional",
+      "auditFindings": [
+        "Detects @ typing correctly (lines 72-95)",
+        "Dropdown with coaches implemented (lines 223-252)",
+        "Keyboard navigation working (Arrow Up/Down, Enter, Escape)",
+        "Inserts @mention on select correctly",
+        "Smart ranking via getSmartCoachMentions query integrated",
+        "Component integrated into comment form",
+        "Test file is placeholder only (acceptable for passing story)"
+      ]
+    },
+    {
+      "id": "US-P9-013",
+      "title": "Smart Mention Autocomplete",
+      "description": "Smart mention autocomplete complete - contextual suggestions based on insight category.",
+      "originalPRD": "scripts/ralph/prds/Coaches Voice Insights/P9_TEAM_COLLABORATION_HUB.md",
+      "acceptanceCriteria": [
+        "Contextual suggestions based on insight category",
+        "Injury → medical staff prioritized (relevanceScore 1.0)",
+        "Player insights → recent observers prioritized (score 0.8)",
+        "Sorted by relevance score descending",
+        "Type check passes: npm run check-types"
+      ],
+      "files": {
+        "existing": ["/packages/backend/convex/models/teamCollaboration.ts"]
+      },
+      "passes": true,
+      "auditStatus": "PASS - Integrated with US-P9-012",
+      "auditFindings": [
+        "getSmartCoachMentions query implemented",
+        "Contextual suggestions based on insight category working",
+        "Injury → medical staff prioritized with relevanceScore 1.0",
+        "Player insights → recent observers prioritized with score 0.8",
+        "Sorted by relevance score descending correctly",
+        "Integrated with @mention autocomplete in comment form",
+        "Test file is placeholder only (acceptable for passing story)"
+      ]
+    },
+    {
+      "id": "US-P9-014",
+      "title": "Extend coachOrgPreferences (Notifications)",
+      "description": "Notification preferences schema extension complete with mutation support.",
+      "originalPRD": "scripts/ralph/prds/Coaches Voice Insights/P9_TEAM_COLLABORATION_HUB.md",
+      "acceptanceCriteria": [
+        "Added notificationPreferences field (3x4 matrix) to schema",
+        "Added digestTime field (24h format) to schema",
+        "Added quietHours field (start/end times) to schema",
+        "Mutation setNotificationPreferences implemented (lines 455-504)",
+        "Fields are optional with sensible defaults",
+        "Type check passes: npm run check-types",
+        "Convex schema push succeeds"
+      ],
+      "files": {
+        "existing": [
+          "/packages/backend/convex/schema.ts",
+          "/packages/backend/convex/models/coachTrustLevels.ts"
+        ]
+      },
+      "passes": true,
+      "auditStatus": "PASS - Complete",
+      "auditFindings": [
+        "Added notificationPreferences field (3x4 matrix) to schema",
+        "Added digestTime field (24h format) to schema",
+        "Added quietHours field (start/end times) to schema",
+        "Mutation setNotificationPreferences implemented (lines 455-504)",
+        "Fields optional with defaults working",
+        "Schema changes complete and deployed",
+        "Test file is placeholder only (acceptable for passing story)"
+      ]
+    },
+    {
+      "id": "US-P9-018",
+      "title": "addComment Creates Activity Entries",
+      "description": "Modified addComment mutation creates activity feed entries correctly.",
+      "originalPRD": "scripts/ralph/prds/Coaches Voice Insights/P9_TEAM_COLLABORATION_HUB.md",
+      "acceptanceCriteria": [
+        "addComment mutation modified to create teamActivityFeed entry",
+        "Activity type: 'comment_added'",
+        "Summary format: '[Name] commented on [Player]'s insight'",
+        "Priority set to 'normal'",
+        "Proper metadata (playerName, commentPreview) included",
+        "Type check passes: npm run check-types",
+        "Test in Convex dashboard: Add comment → verify activity entry created"
+      ],
+      "files": {
+        "existing": ["/packages/backend/convex/models/teamCollaboration.ts"]
+      },
+      "passes": true,
+      "auditStatus": "PASS - Complete",
+      "auditFindings": [
+        "Modified addComment mutation correctly",
+        "Inserts teamActivityFeed entry after comment creation",
+        "Summary format correct: '[Name] commented on [Player]'s insight'",
+        "Priority set to 'normal'",
+        "Proper metadata (playerName, commentPreview) included",
+        "Activity feed integration working",
+        "Test file is placeholder only (acceptable for passing story)"
+      ]
+    },
+    {
+      "id": "US-P9-042",
+      "title": "Implement Insight Context Suggestions",
+      "description": "Insight context suggestions complete - implemented in US-P9-041 file (scope overlap).",
+      "originalPRD": "scripts/ralph/prds/Coaches Voice Insights/P9_TEAM_COLLABORATION_HUB.md",
+      "acceptanceCriteria": [
+        "generateInsightSuggestions function implemented",
+        "5 suggestion types: medical staff mention, related players, session plan, goals, related insights",
+        "Confidence scores implemented (0.6-0.95)",
+        "Returns top 4 sorted by confidence",
+        "Uses Better Auth adapter for member lookups",
+        "Type check passes: npm run check-types",
+        "Test query in Convex dashboard"
+      ],
+      "files": {
+        "existing": ["/packages/backend/convex/models/aiCopilot.ts"]
+      },
+      "passes": true,
+      "auditStatus": "PASS - Implemented (scope overlap with US-P9-041)",
+      "auditFindings": [
+        "generateInsightSuggestions function implemented (lines 62-178)",
+        "5 suggestion types working: medical staff mention, related players, session plan, goals, related insights",
+        "Confidence scores implemented (0.6-0.95)",
+        "Returns top 4 sorted by confidence correctly",
+        "Uses Better Auth adapter for member lookups (no N+1)",
+        "Already fully implemented in US-P9-041 file (story conflation)",
+        "Test file is placeholder only (acceptable for passing story)"
+      ]
+    }
+  ],
+  "completionCriteria": {
+    "p0BlockingIssues": [
+      "US-P9-016: Create page.tsx to make notification preferences routable",
+      "US-P9-017: Integrate InsightReactions component and add user name tooltips",
+      "US-P9-015: Integrate NotificationCenter into coach layout",
+      "US-P9-044: Add reasoning field to suggestions and integrate SmartActionBar"
+    ],
+    "p1ShouldFix": [
+      "US-P9-041: Update PRD to reflect actual scope or refactor to placeholder",
+      "US-P9-009: Replace .filter() with composite index for performance",
+      "US-P9-043: Add task-based equipment suggestions and enhanced skill extraction"
+    ],
+    "typeCheck": "npm run check-types must pass",
+    "lint": "npx ultracite fix && npm run check must pass with no errors",
+    "visualVerification": "Use dev-browser to verify all 4 components are visible and functional",
+    "estimatedRemediationTime": "7-11 hours"
+  },
+  "notes": [
+    "This remediation fixes critical integration gaps where components were created but not wired up",
+    "6 stories (43%) already complete and functional - no changes needed",
+    "5 stories (36%) require fixes - focus on integration and missing features",
+    "3 stories (21%) involve scope clarification or enhancement",
+    "All test files are placeholders - actual test coverage can be addressed in separate story",
+    "Priority order: P0 integration issues first, then features, then performance, then documentation"
+  ]
+}

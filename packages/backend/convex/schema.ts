@@ -1687,6 +1687,160 @@ export default defineSchema({
     .index("by_coach_org_applied", ["coachId", "organizationId", "appliedAt"]),
 
   // ============================================================
+  // PHASE 9: TEAM COLLABORATION HUB
+  // Real-time collaboration features for coaches
+  // ============================================================
+
+  // Comments on voice note insights
+  insightComments: defineTable({
+    insightId: v.id("voiceNoteInsights"),
+    userId: v.string(), // Better Auth user ID
+    content: v.string(),
+    priority: v.union(
+      v.literal("critical"),
+      v.literal("important"),
+      v.literal("normal")
+    ),
+    parentCommentId: v.optional(v.id("insightComments")), // For threading
+    organizationId: v.string(), // Denormalized for access control
+  })
+    .index("by_insight", ["insightId"])
+    .index("by_user", ["userId"])
+    .index("by_org", ["organizationId"])
+    .index("by_insight_and_priority", ["insightId", "priority"])
+    .index("by_parent", ["parentCommentId"]),
+
+  // Reactions to voice note insights
+  insightReactions: defineTable({
+    insightId: v.id("voiceNoteInsights"),
+    userId: v.string(), // Better Auth user ID
+    type: v.union(v.literal("like"), v.literal("helpful"), v.literal("flag")),
+    organizationId: v.string(), // Denormalized for access control
+  })
+    .index("by_insight", ["insightId"])
+    .index("by_user", ["userId"])
+    .index("by_org", ["organizationId"])
+    .index("by_insight_and_user", ["insightId", "userId"])
+    .index("by_insight_and_type", ["insightId", "type"]),
+
+  // Team activity feed (aggregated events for dashboards)
+  teamActivityFeed: defineTable({
+    organizationId: v.string(), // Better Auth organization ID
+    teamId: v.string(), // Better Auth team ID
+    actorId: v.string(), // User who performed the action
+    actorName: v.string(), // Denormalized for display
+    actionType: v.union(
+      v.literal("voice_note_added"),
+      v.literal("insight_applied"),
+      v.literal("comment_added"),
+      v.literal("player_assessed"),
+      v.literal("goal_created"),
+      v.literal("injury_logged"),
+      v.literal("decision_created"),
+      v.literal("vote_cast"),
+      v.literal("decision_finalized")
+    ),
+    entityType: v.union(
+      v.literal("voice_note"),
+      v.literal("insight"),
+      v.literal("comment"),
+      v.literal("skill_assessment"),
+      v.literal("goal"),
+      v.literal("injury"),
+      v.literal("decision")
+    ),
+    entityId: v.string(), // ID of the related entity
+    summary: v.string(), // Human-readable description
+    priority: v.union(
+      v.literal("critical"),
+      v.literal("important"),
+      v.literal("normal")
+    ),
+    metadata: v.optional(
+      v.object({
+        playerName: v.optional(v.string()),
+        insightTitle: v.optional(v.string()),
+        commentPreview: v.optional(v.string()),
+      })
+    ),
+  })
+    .index("by_team", ["teamId"])
+    .index("by_org", ["organizationId"])
+    .index("by_actor", ["actorId"])
+    .index("by_team_and_priority", ["teamId", "priority"])
+    .index("by_team_and_actionType", ["teamId", "actionType"]),
+
+  // Real-time presence tracking (who's viewing what)
+  teamHubPresence: defineTable({
+    userId: v.string(), // Better Auth user ID
+    organizationId: v.string(), // Better Auth organization ID
+    teamId: v.string(), // Better Auth team ID
+    currentView: v.optional(v.string()), // e.g., "voice_notes", "player_passport:123"
+    lastActive: v.number(), // Timestamp of last activity
+  })
+    .index("by_user", ["userId"])
+    .index("by_team", ["teamId"])
+    .index("by_org", ["organizationId"])
+    .index("by_user_and_team", ["userId", "teamId"])
+    .index("by_team_and_active", ["teamId", "lastActive"]),
+
+  // Activity read status tracking (for notification center)
+  activityReadStatus: defineTable({
+    userId: v.string(), // User who read the activity
+    activityId: v.id("teamActivityFeed"), // Activity that was read
+    organizationId: v.string(), // Organization context
+    readAt: v.number(), // Timestamp when marked as read
+  })
+    .index("by_user", ["userId"])
+    .index("by_activity", ["activityId"])
+    .index("by_user_and_activity", ["userId", "activityId"]),
+
+  // Team Decisions - Democratic voting on team matters (P9 Week 3)
+  teamDecisions: defineTable({
+    organizationId: v.string(),
+    teamId: v.string(),
+    createdBy: v.string(),
+    title: v.string(),
+    description: v.optional(v.string()),
+    options: v.array(
+      v.object({
+        id: v.string(),
+        label: v.string(),
+        description: v.optional(v.string()),
+      })
+    ),
+    votingType: v.union(v.literal("simple"), v.literal("weighted")),
+    status: v.union(
+      v.literal("open"),
+      v.literal("closed"),
+      v.literal("finalized")
+    ),
+    deadline: v.optional(v.number()),
+    finalizedAt: v.optional(v.number()),
+    finalizedBy: v.optional(v.string()),
+    winningOption: v.optional(v.string()),
+    createdAt: v.number(),
+    updatedAt: v.number(),
+  })
+    .index("by_team", ["teamId"])
+    .index("by_team_and_status", ["teamId", "status"])
+    .index("by_org", ["organizationId"])
+    .index("by_org_and_status", ["organizationId", "status"]),
+
+  // Decision Votes - Individual votes on team decisions (P9 Week 3)
+  decisionVotes: defineTable({
+    decisionId: v.id("teamDecisions"),
+    userId: v.string(),
+    optionId: v.string(),
+    weight: v.number(),
+    comment: v.optional(v.string()),
+    votedAt: v.number(),
+  })
+    .index("by_decision", ["decisionId"])
+    .index("by_decision_and_user", ["decisionId", "userId"])
+    .index("by_user", ["userId"]),
+
+  // ============================================================
   // TEAM OBSERVATIONS
   // Structured storage for team-level insights from voice notes
   // ============================================================
@@ -2401,6 +2555,51 @@ export default defineSchema({
     blockReason: v.optional(v.string()), // Why admin blocked
     blockedBy: v.optional(v.string()), // User ID who blocked
     blockedAt: v.optional(v.number()), // When blocked
+
+    // Notification Preferences (P9 Week 2)
+    // Channels per priority level: critical, important, normal
+    // Values: "push", "email", "digest", "none"
+    notificationChannels: v.optional(
+      v.object({
+        critical: v.array(v.string()), // Default: ["push", "email"]
+        important: v.array(v.string()), // Default: ["push", "email"]
+        normal: v.array(v.string()), // Default: ["push", "email"]
+      })
+    ),
+    // Daily digest schedule (e.g., send batched notifications at 08:00)
+    digestSchedule: v.optional(
+      v.object({
+        enabled: v.boolean(), // Default: false
+        time: v.string(), // 24h format (e.g., "08:00")
+      })
+    ),
+    // Quiet hours - suppress notifications during specified time range
+    quietHours: v.optional(
+      v.object({
+        enabled: v.boolean(), // Default: false
+        start: v.string(), // 24h format (e.g., "22:00")
+        end: v.string(), // 24h format (e.g., "08:00")
+      })
+    ),
+
+    // Team Insights View Preference (P9 Week 3)
+    teamInsightsViewPreference: v.optional(
+      v.union(
+        v.literal("list"),
+        v.literal("board"),
+        v.literal("calendar"),
+        v.literal("players")
+      )
+    ), // Default: "list"
+
+    // Mobile Gesture Preferences (P9 Week 3)
+    gesturesEnabled: v.optional(v.boolean()), // Default: true
+    swipeRightAction: v.optional(
+      v.union(v.literal("apply"), v.literal("dismiss"), v.literal("disabled"))
+    ), // Default: "apply"
+    swipeLeftAction: v.optional(
+      v.union(v.literal("apply"), v.literal("dismiss"), v.literal("disabled"))
+    ), // Default: "dismiss"
 
     createdAt: v.number(),
     updatedAt: v.number(),

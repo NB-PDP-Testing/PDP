@@ -36,6 +36,7 @@ import type * as migrations_extractInsightsToTable from "../migrations/extractIn
 import type * as migrations_migrateLegacyData from "../migrations/migrateLegacyData.js";
 import type * as models_adultPlayers from "../models/adultPlayers.js";
 import type * as models_ageGroupEligibilityOverrides from "../models/ageGroupEligibilityOverrides.js";
+import type * as models_aiCopilot from "../models/aiCopilot.js";
 import type * as models_aiModelConfig from "../models/aiModelConfig.js";
 import type * as models_aiServiceHealth from "../models/aiServiceHealth.js";
 import type * as models_aiUsageLog from "../models/aiUsageLog.js";
@@ -92,6 +93,8 @@ import type * as models_skillBenchmarks from "../models/skillBenchmarks.js";
 import type * as models_sportAgeGroupConfig from "../models/sportAgeGroupConfig.js";
 import type * as models_sportPassports from "../models/sportPassports.js";
 import type * as models_sports from "../models/sports.js";
+import type * as models_teamCollaboration from "../models/teamCollaboration.js";
+import type * as models_teamDecisions from "../models/teamDecisions.js";
 import type * as models_teamObservations from "../models/teamObservations.js";
 import type * as models_teamPlayerIdentities from "../models/teamPlayerIdentities.js";
 import type * as models_teams from "../models/teams.js";
@@ -174,6 +177,7 @@ declare const fullApi: ApiFromModules<{
   "migrations/migrateLegacyData": typeof migrations_migrateLegacyData;
   "models/adultPlayers": typeof models_adultPlayers;
   "models/ageGroupEligibilityOverrides": typeof models_ageGroupEligibilityOverrides;
+  "models/aiCopilot": typeof models_aiCopilot;
   "models/aiModelConfig": typeof models_aiModelConfig;
   "models/aiServiceHealth": typeof models_aiServiceHealth;
   "models/aiUsageLog": typeof models_aiUsageLog;
@@ -230,6 +234,8 @@ declare const fullApi: ApiFromModules<{
   "models/sportAgeGroupConfig": typeof models_sportAgeGroupConfig;
   "models/sportPassports": typeof models_sportPassports;
   "models/sports": typeof models_sports;
+  "models/teamCollaboration": typeof models_teamCollaboration;
+  "models/teamDecisions": typeof models_teamDecisions;
   "models/teamObservations": typeof models_teamObservations;
   "models/teamPlayerIdentities": typeof models_teamPlayerIdentities;
   "models/teams": typeof models_teams;

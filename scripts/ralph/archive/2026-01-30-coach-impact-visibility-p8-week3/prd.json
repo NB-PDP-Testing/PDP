@@ -1,0 +1,165 @@
+{
+  "project": "Phase 9 Week 1 - Collaboration Foundations + AI Copilot Backend",
+  "branchName": "ralph/team-collaboration-hub-p9",
+  "description": "Week 1 of Team Collaboration Hub: Comments, reactions, presence indicators, AI Copilot backend. Foundation for real-time team collaboration.",
+  "referencePRD": "scripts/ralph/prds/Coaches Voice Insights/P9_WEEK1_FOUNDATIONS.md",
+  "nextWeeks": [
+    "Week 2: Activity Feed, @Mentions, Notifications + AI Copilot UI (10 stories)",
+    "Week 3: Multi-View, Templates, Voting + Mobile Gestures (15 stories)",
+    "Week 4: Personalization & Polish (7 stories)"
+  ],
+  "totalPhase9Scope": "48 stories across 4 weeks (~72 hours)",
+  "week1Effort": "~15 hours (8 stories)",
+  "criticalPatterns": [
+    "MANDATORY: Use Better Auth adapter pattern for all user lookups",
+    "MANDATORY: Use withIndex(), NEVER use filter()",
+    "MANDATORY: Always include args and returns validators",
+    "MANDATORY: Use skeleton loaders (ListSkeleton, CardSkeleton) while loading",
+    "MANDATORY: Visual verification with dev-browser for all UI changes"
+  ],
+  "userStories": [
+    {
+      "id": "US-P9-001",
+      "title": "Create teamCollaboration Backend Model",
+      "description": "Create foundation file with Better Auth adapter pattern.",
+      "acceptanceCriteria": [
+        "Create packages/backend/convex/models/teamCollaboration.ts",
+        "File exports placeholder queries/mutations",
+        "CRITICAL: All functions use Better Auth adapter pattern: ctx.runQuery(components.betterAuth.adapter.findOne, {...})",
+        "Proper validators (args + returns)",
+        "Type check passes",
+        "Run npx -w packages/backend convex codegen"
+      ],
+      "priority": 1,
+      "passes": false,
+      "notes": ""
+    },
+    {
+      "id": "US-P9-002",
+      "title": "Create Database Tables",
+      "description": "Add insightComments, insightReactions, teamActivityFeed, teamHubPresence tables with indexes.",
+      "acceptanceCriteria": [
+        "Modify packages/backend/convex/schema.ts",
+        "Add insightComments table (with priority: critical/important/normal)",
+        "Add insightReactions table",
+        "Add teamActivityFeed table (with priority field)",
+        "Add teamHubPresence table",
+        "Add all indexes (by_insight, by_team_priority, by_user_and_team, etc.)",
+        "Run Convex schema push",
+        "Type check passes"
+      ],
+      "priority": 2,
+      "passes": false,
+      "notes": ""
+    },
+    {
+      "id": "US-P9-003",
+      "title": "Implement Presence Backend",
+      "description": "Real-time presence tracking (updatePresence, getTeamPresence).",
+      "acceptanceCriteria": [
+        "Modify teamCollaboration.ts",
+        "Implement updatePresence mutation (args: userId, organizationId, teamId, currentView)",
+        "Implement getTeamPresence query (args: teamId, organizationId)",
+        "CRITICAL: Use Better Auth adapter for user lookup",
+        "Auto-calculate status (active <5min, idle 5-15min, away >15min)",
+        "Test in Convex dashboard",
+        "Type check passes"
+      ],
+      "priority": 3,
+      "passes": false,
+      "notes": ""
+    },
+    {
+      "id": "US-P9-004",
+      "title": "Create Presence Indicators Component",
+      "description": "UI showing online coaches with avatars and tooltips.",
+      "acceptanceCriteria": [
+        "Create apps/web/src/app/orgs/[orgId]/coach/team-hub/components/presence-indicators.tsx",
+        "Shows avatars (max 5, then +N)",
+        "Tooltip with name, current view, last active",
+        "Real-time updates via useQuery",
+        "Green ring for active, gray for idle",
+        "Exclude current user",
+        "Use skeleton while loading",
+        "Type check passes",
+        "REQUIRED: Visual verification using dev-browser (see presence update in real-time)"
+      ],
+      "priority": 4,
+      "passes": false,
+      "notes": ""
+    },
+    {
+      "id": "US-P9-005",
+      "title": "Implement Comment Backend",
+      "description": "Backend for comments with threading and priority detection.",
+      "acceptanceCriteria": [
+        "Modify teamCollaboration.ts",
+        "Implement getInsightComments query",
+        "Implement addComment mutation (supports parentCommentId for threading)",
+        "CRITICAL: Use Better Auth adapter for user lookups",
+        "Auto-determine priority from content keywords (injury/urgent=critical, important/concern=important, else=normal)",
+        "Create activity feed entry on comment (placeholder for US-P9-018)",
+        "Test in Convex dashboard",
+        "Type check passes"
+      ],
+      "priority": 5,
+      "passes": false,
+      "notes": ""
+    },
+    {
+      "id": "US-P9-006",
+      "title": "Implement Reactions Backend",
+      "description": "Backend for like/helpful/flag reactions.",
+      "acceptanceCriteria": [
+        "Modify teamCollaboration.ts",
+        "Implement toggleReaction mutation (like/helpful/flag)",
+        "Implement getReactions query",
+        "CRITICAL: Use Better Auth adapter",
+        "Prevent duplicate reactions (check index by_insight_and_user before insert)",
+        "Return added or removed status",
+        "Test in Convex dashboard",
+        "Type check passes"
+      ],
+      "priority": 6,
+      "passes": false,
+      "notes": ""
+    },
+    {
+      "id": "US-P9-007",
+      "title": "Create InsightComments UI Component",
+      "description": "Display comments with real-time updates.",
+      "acceptanceCriteria": [
+        "Create apps/web/src/app/orgs/[orgId]/coach/voice-notes/components/insight-comments.tsx",
+        "Displays comments chronologically (oldest first)",
+        "Shows avatar, name, content, timestamp (relative: 5 min ago)",
+        "Uses ListSkeleton while loading (3 rows)",
+        "Empty state: No comments yet - be the first to share your thoughts!",
+        "Real-time updates via useQuery (new comments appear instantly)",
+        "Type check passes",
+        "REQUIRED: Visual verification using dev-browser"
+      ],
+      "priority": 7,
+      "passes": false,
+      "notes": ""
+    },
+    {
+      "id": "US-P9-008",
+      "title": "Create CommentForm Component",
+      "description": "Form for posting comments with auto-expand textarea.",
+      "acceptanceCriteria": [
+        "Create apps/web/src/app/orgs/[orgId]/coach/voice-notes/components/comment-form.tsx",
+        "Textarea with auto-expand (grows with content, max 200px)",
+        "Post button (enabled only when text entered)",
+        "Calls addComment mutation from teamCollaboration",
+        "Form clears after successful submit",
+        "Loading state on button (spinner + disabled)",
+        "Error handling with toast (sonner)",
+        "Type check passes",
+        "REQUIRED: Visual verification - form works, comment appears in list after submit"
+      ],
+      "priority": 8,
+      "passes": false,
+      "notes": ""
+    }
+  ]
+}

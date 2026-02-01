@@ -2,30 +2,92 @@
   "hooks": {
     "PostToolUse": [
       {
-        "matcher": "Edit|Write",
+        "matcher": "tool == \"Edit\" || tool == \"Write\"",
         "hooks": [
           {
             "type": "command",
-            "command": "npx ultracite fix $CLAUDE_FILE_PATH 2>/dev/null || true",
-            "statusMessage": "Formatting file..."
+            "command": "npx ultracite fix \"$CLAUDE_FILE_PATH\" 2>/dev/null || true",
+            "statusMessage": "Formatting file...",
+            "description": "Auto-format with ultracite"
           },
           {
             "type": "command",
-            "command": "npx biome check --max-diagnostics=10 $CLAUDE_FILE_PATH 2>&1 | head -40",
-            "statusMessage": "Checking linting..."
+            "command": "npx biome check --max-diagnostics=10 \"$CLAUDE_FILE_PATH\" 2>&1 | head -40 || true",
+            "statusMessage": "Checking linting...",
+            "description": "Lint check with biome"
+          },
+          {
+            "type": "command",
+            "command": "\"$CLAUDE_PROJECT_DIR\"/.claude/hooks/quality-check.sh",
+            "statusMessage": "🔍 Auto quality check...",
+            "async": true,
+            "timeout": 30,
+            "description": "Intelligent quality analysis for backend files"
           }
-        ]
+        ],
+        "description": "Format, lint, and quality check on file write/edit"
+      },
+      {
+        "matcher": "tool == \"Bash\" && tool_input.command matches \"git commit\"",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "\"$CLAUDE_PROJECT_DIR\"/.claude/hooks/security-check.sh",
+            "statusMessage": "🔒 Auto security review...",
+            "async": true,
+            "timeout": 60,
+            "description": "Security review of committed changes"
+          }
+        ],
+        "description": "Security review on git commits"
       }
     ],
     "PreToolUse": [
       {
-        "matcher": "Bash",
+        "matcher": "tool == \"Bash\" && tool_input.command matches \"(git reset --hard|git clean -f|rm -rf)\"",
         "hooks": [
           {
             "type": "command",
-            "command": "if echo \"$CLAUDE_BASH_COMMAND\" | grep -qE 'git commit'; then echo '⚠️  PRE-COMMIT: Checking staged files...' && git diff --cached --name-only 2>/dev/null | grep -E '\\.(ts|tsx)$' | head -3 | while read f; do npx biome check --max-diagnostics=5 \"$f\" 2>&1 | head -15; done; fi || true"
+            "command": "\"$CLAUDE_PROJECT_DIR\"/.claude/hooks/dangerous-command-check.sh",
+            "timeout": 5,
+            "description": "Block dangerous commands"
           }
-        ]
+        ],
+        "description": "Prevent destructive operations"
+      }
+    ],
+    "SessionStart": [
+      {
+        "matcher": "*",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "\"$CLAUDE_PROJECT_DIR\"/.claude/hooks/session-start.sh",
+            "timeout": 10,
+            "description": "Ralph project status check on session start"
+          },
+          {
+            "type": "command",
+            "command": "\"$CLAUDE_PROJECT_DIR\"/.claude/hooks/check-new-prd.sh",
+            "timeout": 5,
+            "description": "Check for new PRD phases and notify user"
+          }
+        ],
+        "description": "Check Ralph and agent status at session start"
+      }
+    ],
+    "SessionEnd": [
+      {
+        "matcher": "*",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "\"$CLAUDE_PROJECT_DIR\"/.claude/hooks/session-end.sh",
+            "timeout": 5,
+            "description": "Ralph session summary"
+          }
+        ],
+        "description": "Show session summary on exit"
       }
     ]
   }

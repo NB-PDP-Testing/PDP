@@ -1,0 +1,140 @@
+"use client";
+
+import { api } from "@pdp/backend/convex/_generated/api";
+import type { Id } from "@pdp/backend/convex/_generated/dataModel";
+import type { Id as BetterAuthId } from "@pdp/backend/convex/betterAuth/_generated/dataModel";
+import { useMutation, useQuery } from "convex/react";
+import { Calendar, LayoutDashboard, List, Users } from "lucide-react";
+import { useRouter, useSearchParams } from "next/navigation";
+import { TabsSkeleton } from "@/components/loading";
+import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
+import { useSession } from "@/lib/auth-client";
+import { InsightsBoardView } from "./insights-board-view";
+import { InsightsCalendarView } from "./insights-calendar-view";
+import { InsightsPlayerView } from "./insights-player-view";
+
+type ViewType = "list" | "board" | "calendar" | "players";
+
+type Insight = {
+  id: string;
+  noteId: Id<"voiceNotes">;
+  title: string;
+  description?: string;
+  category?: string;
+  playerName?: string;
+  playerIdentityId?: Id<"playerIdentities">;
+  status: "pending" | "applied" | "dismissed" | "auto_applied";
+  noteDate: string;
+  teamName?: string;
+  assigneeName?: string;
+};
+
+type InsightsViewContainerProps = {
+  orgId: BetterAuthId<"organization">;
+  children: React.ReactNode; // The list view content
+  insights?: Insight[]; // All insights for board/calendar/players views
+  onInsightUpdate?: () => void;
+};
+
+export function InsightsViewContainer({
+  orgId,
+  children,
+  insights = [],
+  onInsightUpdate,
+}: InsightsViewContainerProps) {
+  const router = useRouter();
+  const searchParams = useSearchParams();
+  const { data: session } = useSession();
+  const coachUserId = session?.user?.id;
+
+  // Get coach preferences
+  const preferences = useQuery(
+    api.models.trustGatePermissions.getCoachOrgPreferences,
+    coachUserId ? { coachId: coachUserId, organizationId: orgId } : "skip"
+  );
+
+  // Update preference mutation
+  const updatePreference = useMutation(
+    api.models.trustGatePermissions.updateCoachOrgPreference
+  );
+
+  // Determine current view: URL overrides saved preference
+  const urlView = searchParams.get("view") as ViewType | null;
+  const savedView = preferences?.teamInsightsViewPreference ?? "list";
+  const currentView = urlView ?? savedView;
+
+  // Update preference when view changes
+  const handleViewChange = async (newView: string) => {
+    const view = newView as ViewType;
+
+    // Update URL (use replace to avoid cluttering history)
+    const params = new URLSearchParams(searchParams);
+    params.set("view", view);
+    router.replace(`?${params.toString()}`);
+
+    // Save preference to backend
+    try {
+      await updatePreference({
+        organizationId: orgId,
+        teamInsightsViewPreference: view,
+      });
+    } catch (error) {
+      console.error("Failed to save view preference:", error);
+      // Don't toast error - this is not critical
+    }
+  };
+
+  // If preferences are loading and no URL param, show skeleton
+  if (preferences === undefined && !urlView) {
+    return <TabsSkeleton />;
+  }
+
+  return (
+    <Tabs onValueChange={handleViewChange} value={currentView}>
+      <TabsList className="w-full md:w-auto">
+        <TabsTrigger className="flex items-center gap-2" value="list">
+          <List className="h-4 w-4" />
+          <span className="hidden sm:inline">List</span>
+        </TabsTrigger>
+        <TabsTrigger className="flex items-center gap-2" value="board">
+          <LayoutDashboard className="h-4 w-4" />
+          <span className="hidden sm:inline">Board</span>
+        </TabsTrigger>
+        <TabsTrigger className="flex items-center gap-2" value="calendar">
+          <Calendar className="h-4 w-4" />
+          <span className="hidden sm:inline">Calendar</span>
+        </TabsTrigger>
+        <TabsTrigger className="flex items-center gap-2" value="players">
+          <Users className="h-4 w-4" />
+          <span className="hidden sm:inline">Players</span>
+        </TabsTrigger>
+      </TabsList>
+
+      <TabsContent className="mt-6" value="list">
+        {children}
+      </TabsContent>
+
+      <TabsContent className="mt-6" value="board">
+        <InsightsBoardView
+          insights={insights}
+          onInsightUpdate={onInsightUpdate}
+        />
+      </TabsContent>
+
+      <TabsContent className="mt-6" value="calendar">
+        <InsightsCalendarView
+          insights={insights}
+          onInsightUpdate={onInsightUpdate}
+          orgId={orgId}
+        />
+      </TabsContent>
+
+      <TabsContent className="mt-6" value="players">
+        <InsightsPlayerView
+          insights={insights}
+          onInsightUpdate={onInsightUpdate}
+        />
+      </TabsContent>
+    </Tabs>
+  );
+}

@@ -18,6 +18,10 @@ import type { Route } from "next";
 import Link from "next/link";
 import { useParams, useRouter } from "next/navigation";
 import { useEffect, useRef, useState } from "react";
+import { useHotkeys } from "react-hotkeys-hook";
+import { CommandPalette } from "@/components/coach/command-palette";
+import { KeyboardShortcutsHelp } from "@/components/coach/keyboard-shortcuts-help";
+import { NotificationCenter } from "@/components/coach/notification-center";
 import {
   BottomNav,
   type BottomNavItem,
@@ -38,6 +42,7 @@ import {
   SessionPlanProvider,
   useSessionPlanContext,
 } from "@/contexts/session-plan-context";
+import { useCommandPalette } from "@/hooks/use-command-palette";
 import { useOrgTheme } from "@/hooks/use-org-theme";
 import { useUXFeatureFlags } from "@/hooks/use-ux-feature-flags";
 import { authClient } from "@/lib/auth-client";
@@ -47,9 +52,129 @@ function CoachLayoutInner({ children }: { children: React.ReactNode }) {
   const orgId = params.orgId as string;
   const router = useRouter();
   const [hasAccess, setHasAccess] = useState<boolean | null>(null);
+  const [helpOpen, setHelpOpen] = useState(false);
 
   // Apply organization theme colors
   const { theme } = useOrgTheme();
+
+  // Command palette state
+  const { open: commandPaletteOpen, setOpen: setCommandPaletteOpen } =
+    useCommandPalette();
+
+  // Global keyboard shortcuts
+  // Note: enableOnFormTags: false prevents shortcuts from firing in input/textarea
+
+  // Cmd/Ctrl+K - Command palette (already handled by useCommandPalette hook)
+
+  // ? - Show keyboard shortcuts help
+  useHotkeys("?", () => setHelpOpen(true), {
+    enableOnFormTags: false,
+    preventDefault: true,
+  });
+
+  // K - New voice note
+  useHotkeys(
+    "k",
+    () => {
+      router.push(`/orgs/${orgId}/coach/voice-notes` as Route);
+    },
+    {
+      enableOnFormTags: false,
+      preventDefault: true,
+    }
+  );
+
+  // C - Focus comment (to be implemented when comment inputs are present)
+  useHotkeys(
+    "c",
+    () => {
+      const commentInput = document.querySelector<HTMLTextAreaElement>(
+        "[data-comment-input]"
+      );
+      if (commentInput) {
+        commentInput.focus();
+      }
+    },
+    {
+      enableOnFormTags: false,
+      preventDefault: true,
+    }
+  );
+
+  // N - Next item (to be implemented context-aware)
+  useHotkeys(
+    "n",
+    () => {
+      // Placeholder - would need context of what "next" means
+    },
+    {
+      enableOnFormTags: false,
+      preventDefault: true,
+    }
+  );
+
+  // P - Previous item (to be implemented context-aware)
+  useHotkeys(
+    "p",
+    () => {
+      // Placeholder - would need context of what "previous" means
+    },
+    {
+      enableOnFormTags: false,
+      preventDefault: true,
+    }
+  );
+
+  // Escape - Close modals (handled by Dialog components by default)
+
+  // Go-to shortcuts (G then second key)
+  // G+H - Go to home
+  useHotkeys(
+    "g,h",
+    () => {
+      router.push(`/orgs/${orgId}/coach` as Route);
+    },
+    {
+      enableOnFormTags: false,
+      preventDefault: true,
+    }
+  );
+
+  // G+P - Go to players
+  useHotkeys(
+    "g,p",
+    () => {
+      router.push(`/orgs/${orgId}/coach/players` as Route);
+    },
+    {
+      enableOnFormTags: false,
+      preventDefault: true,
+    }
+  );
+
+  // G+T - Go to tasks
+  useHotkeys(
+    "g,t",
+    () => {
+      router.push(`/orgs/${orgId}/coach/todos` as Route);
+    },
+    {
+      enableOnFormTags: false,
+      preventDefault: true,
+    }
+  );
+
+  // G+C - Go to calendar
+  useHotkeys(
+    "g,c",
+    () => {
+      router.push(`/orgs/${orgId}/coach/calendar` as Route);
+    },
+    {
+      enableOnFormTags: false,
+      preventDefault: true,
+    }
+  );
 
   // Check if the user has coach functional role
   useEffect(() => {
@@ -258,6 +383,16 @@ function CoachLayoutInner({ children }: { children: React.ReactNode }) {
 
   return (
     <>
+      {/* Command Palette - Global Cmd+K shortcut */}
+      <CommandPalette
+        open={commandPaletteOpen}
+        organizationId={orgId}
+        setOpen={setCommandPaletteOpen}
+      />
+
+      {/* Keyboard Shortcuts Help - Global ? shortcut */}
+      <KeyboardShortcutsHelp onOpenChange={setHelpOpen} open={helpOpen} />
+
       {/* Bottom navigation for mobile */}
       {useBottomNav && <BottomNav items={coachBottomNavItems} />}
 
@@ -291,6 +426,9 @@ function CoachLayoutInner({ children }: { children: React.ReactNode }) {
             </div>
 
             <div className="flex items-center gap-2">
+              {/* Notification Center */}
+              <NotificationCenter organizationId={orgId} />
+
               {/* Quick Actions Button - only show for FAB variant */}
               {quickActionsVariant === "fab" && actions.length > 0 && (
                 <Button

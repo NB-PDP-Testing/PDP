@@ -67,6 +67,16 @@ const orgPreferencesValidator = v.object({
   autoApplyInsightsEnabled: v.optional(v.boolean()),
   skipSensitiveInsights: v.optional(v.boolean()),
 
+  // UI Preferences
+  teamInsightsViewPreference: v.optional(
+    v.union(
+      v.literal("list"),
+      v.literal("board"),
+      v.literal("calendar"),
+      v.literal("players")
+    )
+  ),
+
   // Trust Gate Individual Override
   trustGateOverride: v.optional(v.boolean()),
   overrideGrantedBy: v.optional(v.string()),
@@ -445,6 +455,138 @@ export const setSkipSensitiveInsights = mutation({
     });
 
     return null;
+  },
+});
+
+/**
+ * Update notification preferences (P9 Week 2 - US-P9-016).
+ * Allows coaches to customize notification channels per priority level.
+ */
+export const setNotificationPreferences = mutation({
+  args: {
+    organizationId: v.string(),
+    notificationChannels: v.object({
+      critical: v.array(v.string()),
+      important: v.array(v.string()),
+      normal: v.array(v.string()),
+    }),
+    digestSchedule: v.object({
+      enabled: v.boolean(),
+      time: v.string(), // 24h format (e.g., "08:00")
+    }),
+    quietHours: v.object({
+      enabled: v.boolean(),
+      start: v.string(), // 24h format (e.g., "22:00")
+      end: v.string(), // 24h format (e.g., "08:00")
+    }),
+  },
+  returns: v.null(),
+  handler: async (ctx, args) => {
+    // Get authenticated user
+    const user = await authComponent.safeGetAuthUser(ctx);
+    if (!user) {
+      throw new Error("Not authenticated");
+    }
+
+    // Get the user ID
+    const coachId = user._id;
+    if (!coachId) {
+      throw new Error("User ID not found");
+    }
+
+    // Get or create per-org preferences
+    const prefs = await getOrCreateOrgPreferencesHelper(
+      ctx,
+      coachId,
+      args.organizationId
+    );
+
+    // Update notification preferences
+    await ctx.db.patch(prefs._id, {
+      notificationChannels: args.notificationChannels,
+      digestSchedule: args.digestSchedule,
+      quietHours: args.quietHours,
+      updatedAt: Date.now(),
+    });
+
+    return null;
+  },
+});
+
+/**
+ * Get notification preferences for current coach (P9 Week 2 - US-P9-016).
+ */
+export const getNotificationPreferences = query({
+  args: {
+    organizationId: v.string(),
+  },
+  returns: v.object({
+    notificationChannels: v.object({
+      critical: v.array(v.string()),
+      important: v.array(v.string()),
+      normal: v.array(v.string()),
+    }),
+    digestSchedule: v.object({
+      enabled: v.boolean(),
+      time: v.string(),
+    }),
+    quietHours: v.object({
+      enabled: v.boolean(),
+      start: v.string(),
+      end: v.string(),
+    }),
+  }),
+  handler: async (ctx, args) => {
+    // Get authenticated user
+    const user = await authComponent.safeGetAuthUser(ctx);
+
+    // Get the user ID
+    const coachId = user?._id;
+    if (!coachId) {
+      // Return defaults if not authenticated
+      return {
+        notificationChannels: {
+          critical: ["push", "email"],
+          important: ["push", "email"],
+          normal: ["push", "email"],
+        },
+        digestSchedule: {
+          enabled: false,
+          time: "08:00",
+        },
+        quietHours: {
+          enabled: false,
+          start: "22:00",
+          end: "08:00",
+        },
+      };
+    }
+
+    // Get per-org preferences
+    const prefs = await ctx.db
+      .query("coachOrgPreferences")
+      .withIndex("by_coach_org", (q) =>
+        q.eq("coachId", coachId).eq("organizationId", args.organizationId)
+      )
+      .first();
+
+    // Return stored preferences or defaults
+    return {
+      notificationChannels: prefs?.notificationChannels || {
+        critical: ["push", "email"],
+        important: ["push", "email"],
+        normal: ["push", "email"],
+      },
+      digestSchedule: prefs?.digestSchedule || {
+        enabled: false,
+        time: "08:00",
+      },
+      quietHours: prefs?.quietHours || {
+        enabled: false,
+        start: "22:00",
+        end: "08:00",
+      },
+    };
   },
 });
 
@@ -1326,7 +1468,10 @@ export const setPreferredTrustLevel = mutation({
       )
       .first();
 
-    const hasOverride = coachPref?.trustGateOverride === true;
+    // Coach has override if EITHER trustGateOverride OR aiControlRightsEnabled is true
+    const hasOverride =
+      coachPref?.trustGateOverride === true ||
+      coachPref?.aiControlRightsEnabled === true;
 
     // Validation logic
     // WITHOUT override: Can only dial down from current level

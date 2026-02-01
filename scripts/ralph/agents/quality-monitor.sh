@@ -1,6 +1,11 @@
 #!/bin/bash
 # Quality Monitor Agent
 # Runs type checks and lint every 60 seconds, reports issues to feedback
+#
+# Severity Classification (follows FEEDBACK-SEVERITY-GUIDE.md):
+# 💥 BUILD FAILURE (CRITICAL) - Convex codegen failures that block development
+# ❌ TYPE ERRORS (CRITICAL) - TypeScript compilation errors
+# ⚠️ WARNING - Biome lint errors (code quality, not blocking)
 
 set -e
 cd "$(dirname "$0")/../../.."
@@ -24,9 +29,12 @@ check_quality() {
 
     # Run Convex codegen
     echo "Running Convex codegen..." | tee -a "$LOG_FILE"
-    if ! npx -w packages/backend convex codegen 2>&1 | tee -a "$LOG_FILE"; then
+    local codegen_output=$(npx -w packages/backend convex codegen 2>&1)
+    if [ $? -ne 0 ]; then
         issues_found=true
-        feedback+="- ❌ Convex codegen failed\n"
+        # CRITICAL: Codegen failures block development
+        feedback+="💥 **BUILD FAILURE - Convex Codegen:**\n\`\`\`\n$codegen_output\n\`\`\`\n**Action Required:** Fix schema/function issues before continuing.\n\n"
+        echo "💥 Convex codegen FAILED (CRITICAL)" | tee -a "$LOG_FILE"
     else
         echo "✅ Convex codegen passed" | tee -a "$LOG_FILE"
     fi
@@ -39,10 +47,10 @@ check_quality() {
 
     if [ $ts_exit -ne 0 ]; then
         issues_found=true
-        # Extract the error message
-        local error_msg=$(echo "$ts_output" | grep -A 5 "error TS" | head -10)
-        feedback+="- ❌ TypeScript errors:\n\`\`\`\n$error_msg\n\`\`\`\n"
-        echo "❌ TypeScript check failed" | tee -a "$LOG_FILE"
+        # CRITICAL: Type errors block compilation
+        local error_msg=$(echo "$ts_output" | grep -A 5 "error TS" | head -20)
+        feedback+="❌ **TYPE ERRORS for Quality Monitor:**\n\`\`\`\n$error_msg\n\`\`\`\n**Action Required:** Fix these type errors to restore type safety.\n\n"
+        echo "❌ TypeScript check FAILED (CRITICAL)" | tee -a "$LOG_FILE"
     else
         echo "✅ TypeScript check passed" | tee -a "$LOG_FILE"
     fi

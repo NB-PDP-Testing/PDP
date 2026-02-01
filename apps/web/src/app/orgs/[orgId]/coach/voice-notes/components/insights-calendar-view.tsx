@@ -13,9 +13,16 @@ import {
   startOfWeek,
   subMonths,
 } from "date-fns";
-import { ChevronLeft, ChevronRight } from "lucide-react";
+import { Calendar, ChevronLeft, ChevronRight } from "lucide-react";
 import { useState } from "react";
 import { Button } from "@/components/ui/button";
+import {
+  Empty,
+  EmptyContent,
+  EmptyDescription,
+  EmptyMedia,
+  EmptyTitle,
+} from "@/components/ui/empty";
 import { CalendarDayPopover } from "./calendar-day-popover";
 
 type Insight = {
@@ -84,6 +91,45 @@ export function InsightsCalendarView({
       insightsByDay.set(dayKey, []);
     }
     insightsByDay.get(dayKey)?.push(insight);
+  }
+
+  // Check if month has any insights
+  const hasInsightsThisMonth = insights.length > 0;
+
+  // Empty state - no insights this month
+  if (!hasInsightsThisMonth) {
+    return (
+      <div className="w-full">
+        {/* Month/Year Header with Navigation */}
+        <div className="mb-6 flex items-center justify-between">
+          <h2 className="font-bold text-2xl text-gray-900">
+            {format(currentMonth, "MMMM yyyy")}
+          </h2>
+          <div className="flex gap-2">
+            <Button onClick={handlePreviousMonth} size="sm" variant="outline">
+              <ChevronLeft className="h-4 w-4" />
+            </Button>
+            <Button onClick={handleNextMonth} size="sm" variant="outline">
+              <ChevronRight className="h-4 w-4" />
+            </Button>
+          </div>
+        </div>
+
+        {/* Empty State */}
+        <Empty>
+          <EmptyContent className="py-12">
+            <EmptyMedia variant="icon">
+              <Calendar className="h-12 w-12" />
+            </EmptyMedia>
+            <EmptyTitle>No insights recorded this month</EmptyTitle>
+            <EmptyDescription>
+              Insights from voice notes will appear on the calendar once they
+              are created
+            </EmptyDescription>
+          </EmptyContent>
+        </Empty>
+      </div>
+    );
   }
 
   return (

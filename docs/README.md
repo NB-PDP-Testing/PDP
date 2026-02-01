@@ -93,6 +93,13 @@ Schema, data models, and comparisons.
 | [mvp-comparison.md](./reference/mvp-comparison.md) | MVP vs current feature comparison |
 | [legacy-tables.md](./reference/legacy-tables.md) | Legacy table analysis |
 
+### [scripts/](./scripts/)
+Convex scripts for seeding data, migrations, and utilities.
+
+| Document | Description |
+|----------|-------------|
+| [seed-rugby-team.md](./scripts/seed-rugby-team.md) | Seed a team (any sport) with 35 players and assessments |
+
 ### [status/](./status/)
 Current implementation status.
 

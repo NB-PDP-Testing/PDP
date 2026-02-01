@@ -13,7 +13,7 @@ import {
   User,
 } from "lucide-react";
 import { useParams, useRouter } from "next/navigation";
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { toast } from "sonner";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
@@ -63,6 +63,8 @@ export default function EditPlayerPage() {
   const { data: session } = authClient.useSession();
   const [isSaving, setIsSaving] = useState(false);
   const [selectedTeamIds, setSelectedTeamIds] = useState<string[]>([]);
+  const teamsInitializedRef = useRef(false);
+  const formInitializedRef = useRef(false);
   const [formData, setFormData] = useState({
     firstName: "",
     lastName: "",
@@ -105,9 +107,9 @@ export default function EditPlayerPage() {
     api.models.teamPlayerIdentities.updatePlayerTeams
   );
 
-  // Populate form when data loads
+  // Populate form when data loads - only once when data first loads
   useEffect(() => {
-    if (playerIdentity && enrollment) {
+    if (playerIdentity && enrollment && !formInitializedRef.current) {
       setFormData({
         firstName: playerIdentity.firstName || "",
         lastName: playerIdentity.lastName || "",
@@ -118,16 +120,18 @@ export default function EditPlayerPage() {
         coachNotes: enrollment.coachNotes || "",
         adminNotes: enrollment.adminNotes || "",
       });
+      formInitializedRef.current = true;
     }
   }, [playerIdentity, enrollment]);
 
-  // Initialize selected teams
+  // Initialize selected teams - only once when data first loads
   useEffect(() => {
-    if (eligibleTeams) {
+    if (eligibleTeams && !teamsInitializedRef.current) {
       const currentTeams = eligibleTeams
         .filter((t) => t.isCurrentlyOn)
         .map((t) => t.teamId);
       setSelectedTeamIds(currentTeams);
+      teamsInitializedRef.current = true;
     }
   }, [eligibleTeams]);
 

@@ -29,6 +29,22 @@ import {
 import { Textarea } from "@/components/ui/textarea";
 import { authClient } from "@/lib/auth-client";
 
+// Helper to format date for date input (YYYY-MM-DD) - defined outside component to avoid re-renders
+function formatDateForInput(dateString: string | undefined): string {
+  if (!dateString) {
+    return "";
+  }
+  try {
+    const date = new Date(dateString);
+    const year = date.getFullYear();
+    const month = String(date.getMonth() + 1).padStart(2, "0");
+    const day = String(date.getDate()).padStart(2, "0");
+    return `${year}-${month}-${day}`;
+  } catch {
+    return "";
+  }
+}
+
 export default function EditPlayerPassportPage() {
   const params = useParams();
   const router = useRouter();
@@ -71,9 +87,11 @@ export default function EditPlayerPassportPage() {
   // Helper: Sport code to display name mapping
   const sportCodeToName = useMemo(() => {
     const map = new Map<string, string>();
-    sports?.forEach((sport) => {
-      map.set(sport.code, sport.name);
-    });
+    if (sports) {
+      for (const sport of sports) {
+        map.set(sport.code, sport.name);
+      }
+    }
     return map;
   }, [sports]);
 
@@ -107,22 +125,6 @@ export default function EditPlayerPassportPage() {
     api.models.teamPlayerIdentities.removePlayerFromTeam
   );
 
-  // Helper to format date for date input (YYYY-MM-DD)
-  const formatDateForInput = (dateString: string | undefined) => {
-    if (!dateString) {
-      return "";
-    }
-    try {
-      const date = new Date(dateString);
-      const year = date.getFullYear();
-      const month = String(date.getMonth() + 1).padStart(2, "0");
-      const day = String(date.getDate()).padStart(2, "0");
-      return `${year}-${month}-${day}`;
-    } catch {
-      return "";
-    }
-  };
-
   // Populate form when data loads
   useEffect(() => {
     if (playerIdentity) {
@@ -142,7 +144,7 @@ export default function EditPlayerPassportPage() {
         coachNotes: enrollment.coachNotes || "",
       }));
     }
-  }, [playerIdentity, enrollment, formatDateForInput]);
+  }, [playerIdentity, enrollment]);
 
   // Initialize selected teams from current teams data
   useEffect(() => {

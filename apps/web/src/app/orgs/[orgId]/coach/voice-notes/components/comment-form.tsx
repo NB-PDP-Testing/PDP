@@ -3,7 +3,7 @@
 import { api } from "@pdp/backend/convex/_generated/api";
 import type { Id } from "@pdp/backend/convex/_generated/dataModel";
 import { useMutation, useQuery } from "convex/react";
-import { Loader2 } from "lucide-react";
+import { Loader2, X } from "lucide-react";
 import { useEffect, useRef, useState } from "react";
 import { toast } from "sonner";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
@@ -11,21 +11,26 @@ import { Button } from "@/components/ui/button";
 import { Textarea } from "@/components/ui/textarea";
 import { useCurrentUser } from "@/hooks/use-current-user";
 
-interface CommentFormProps {
+type CommentFormProps = {
   insightId: Id<"voiceNoteInsights">;
   organizationId: string;
   insightCategory?: string; // For smart mention ranking
   playerIdentityId?: Id<"playerIdentities">; // For contextual coach suggestions
   teamId?: string; // For team coach filtering
-}
+  replyingTo?: {
+    commentId: Id<"insightComments">;
+    userName: string;
+  } | null;
+  onCancelReply?: () => void;
+};
 
-interface Coach {
+type Coach = {
   userId: string;
   name: string;
   avatar?: string;
   role?: string;
   relevanceScore?: number; // For smart mentions
-}
+};
 
 export function CommentForm({
   insightId,
@@ -33,6 +38,8 @@ export function CommentForm({
   insightCategory,
   playerIdentityId,
   teamId,
+  replyingTo,
+  onCancelReply,
 }: CommentFormProps) {
   const user = useCurrentUser();
   const [content, setContent] = useState("");
@@ -67,7 +74,7 @@ export function CommentForm({
       textareaRef.current.style.height = "auto";
       textareaRef.current.style.height = `${Math.min(textareaRef.current.scrollHeight, 200)}px`;
     }
-  }, [content]);
+  }, []);
 
   // Detect @ typing and show mention dropdown
   const handleContentChange = (e: React.ChangeEvent<HTMLTextAreaElement>) => {
@@ -189,6 +196,7 @@ export function CommentForm({
         content: content.trim(),
         userId: user._id,
         organizationId,
+        parentCommentId: replyingTo?.commentId,
       });
 
       // Clear form on success
@@ -197,7 +205,14 @@ export function CommentForm({
         textareaRef.current.style.height = "auto";
       }
 
-      toast.success("Comment posted successfully");
+      // Clear reply state if set
+      if (replyingTo && onCancelReply) {
+        onCancelReply();
+      }
+
+      toast.success(
+        replyingTo ? "Reply posted successfully" : "Comment posted successfully"
+      );
     } catch (error) {
       console.error("Failed to post comment:", error);
       toast.error("Failed to post comment. Please try again.");
@@ -209,12 +224,35 @@ export function CommentForm({
   return (
     <div className="relative">
       <form className="space-y-3" onSubmit={handleSubmit}>
+        {replyingTo && (
+          <div className="flex items-center justify-between rounded-md bg-muted px-3 py-2 text-sm">
+            <span className="text-muted-foreground">
+              Replying to{" "}
+              <span className="font-medium">@{replyingTo.userName}</span>
+            </span>
+            {onCancelReply && (
+              <Button
+                className="h-auto p-0"
+                onClick={onCancelReply}
+                size="sm"
+                type="button"
+                variant="ghost"
+              >
+                <X className="h-4 w-4" />
+              </Button>
+            )}
+          </div>
+        )}
         <Textarea
           className="min-h-[80px] resize-none"
           disabled={isSubmitting}
           onChange={handleContentChange}
           onKeyDown={handleKeyDown}
-          placeholder="Add a comment... (type @ to mention a coach)"
+          placeholder={
+            replyingTo
+              ? "Write your reply... (type @ to mention a coach)"
+              : "Add a comment... (type @ to mention a coach)"
+          }
           ref={textareaRef}
           value={content}
         />

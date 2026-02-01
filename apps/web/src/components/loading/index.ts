@@ -15,6 +15,10 @@
 
 /* biome-ignore-all lint/performance/noBarrelFile: Intentional barrel file for organizing loading components */
 
+// Board skeleton (Kanban view)
+export { BoardSkeleton } from "./board-skeleton";
+// Calendar skeleton (Month view)
+export { CalendarSkeleton } from "./calendar-skeleton";
 // Card skeletons
 export {
   CardGridSkeleton,

@@ -1000,3 +1000,92 @@ Week 3 has now completed 12/17 stories (70.6%):
 - Good pattern: checked all views first before implementing (discovered only 1 missing empty state)
 
 ---
+## Sat 1 Feb 2026 20:45 - US-P9-025b - Add Real-Time Collaboration to Session Editor
+**Iteration**: 50
+**Commit**: 9401aee87baddce9d5f3c1e190a47bccf6038e40
+**Session**: b3d22dc5-c80c-48fb-a729-f163ba253f50
+**Status**: Complete
+
+### What was implemented
+- Added real-time collaboration features to existing session plan detail page
+- **Backend functions added to sessionPlans.ts:**
+  - `updateContent` mutation for editing plan content (allows coaches to edit AI-generated plans)
+  - `updateSessionPlanPresence` mutation for presence tracking
+  - `getSessionPlanPresence` query to show active viewers (filters last 60s activity)
+- **Reused existing teamHubPresence table** with `session_plan:${planId}` in currentView field
+- **Frontend modifications to session-plans/[planId]/page.tsx:**
+  - Presence indicators: avatars of other coaches viewing (max 3 shown, "+N more" badge)
+  - Tooltips on avatars showing coach names
+  - Edit mode toggle button (only visible to plan owner)
+  - Editable textarea for rawContent field (replaces read-only pre element when editing)
+  - Auto-save with 300ms debounce after content changes
+  - Saving indicators: "Saving..." with spinner, "Saved" with checkmark (shown for 2s)
+  - Unsaved changes warning using beforeunload event
+  - Presence updates every 30s via setInterval, cleaned up on unmount
+  - Toggle edit mode with unsaved changes confirmation
+
+### Files changed
+- packages/backend/convex/models/sessionPlans.ts (+140 lines total for 3 new functions)
+  - updateContent mutation (24 lines)
+  - updateSessionPlanPresence mutation (57 lines)
+  - getSessionPlanPresence query (59 lines)
+  - Auto-fixed 2 optional chaining linter issues (biome --write --unsafe)
+- apps/web/src/app/orgs/[orgId]/coach/session-plans/[planId]/page.tsx (+359 lines, -49 lines)
+  - Added imports: Avatar, Textarea, Tooltip components, Check/Save icons
+  - Added state: isEditing, editedContent, hasUnsavedChanges, saveStatus
+  - Added refs: saveTimeoutRef, presenceIntervalRef
+  - Added useEffect hooks: presence updates, auto-save debounce, beforeunload warning
+  - Added callbacks: debouncedSave, handleContentChange, toggleEditMode
+  - Modified UI: presence avatars, edit/save button, saving indicators, editable textarea
+
+### Quality checks
+- ✅ Type check: passed for new code (pre-existing errors in teamCollaboration.ts unrelated to this work)
+- ✅ Linting: passed with 1 complexity warning (SessionPlanDetailPage component has complexity 43, max 15)
+  - Complexity warning is expected for large UI components with multiple states/conditions
+- ✅ Pre-commit hook: passed after applying unsafe fixes for optional chaining
+- ⚠️ Browser verification: not performed (recommend manual testing with 2 coaches on same plan)
+
+### **Learnings for future iterations** ⚠️ CRITICAL
+
+**Patterns discovered:**
+- Session plans reuse teamHubPresence table with custom currentView format: `session_plan:${planId}`
+- Presence pattern: update on mount + 30s interval, expire after 60s, cleanup on unmount
+- Auto-save pattern: debounce 300ms, show status ("saving" → "saved" → "idle"), toast on error
+- beforeunload event for unsaved changes warning (requires returnValue="")
+- Filter current user from presence list: `(presence || []).filter((p) => p.userId !== userId)`
+- TooltipProvider wraps all Tooltip components (not individual tooltips)
+- Avatar fallback uses first char of name: `userName.charAt(0).toUpperCase()`
+- Status badges with icons use rounded-full + border + backdrop-blur-sm for glassmorphism effect
+
+**Gotchas encountered:**
+- Biome linter prefers optional chaining over `&&` checks: `if (!(plan?.teamId))` not `if (!(plan && plan.teamId))`
+- Pre-commit hook runs `biome check --diagnostic-level=error` which fails on fixable errors
+- Use `biome check --write --unsafe` to auto-fix before committing
+- Complexity warnings are acceptable for large UI components (not errors)
+- Session plans may not have teamId field - check before inserting presence records
+- Better Auth userId is in session.user.id (not session.user._id for frontend)
+- updatePresence should catch errors (don't let presence failures break page)
+
+**Dependencies found:**
+- Session plans require teamId to track presence (some plans don't have teamId)
+- Presence queries use same team filtering as teamHubPresence (by_team index)
+- Avatar, Tooltip components from shadcn/ui (already installed)
+- Textarea component from shadcn/ui for editable content
+- Save/Check icons from lucide-react for status indicators
+
+**What to do next** (for remaining Week 3 stories):
+- [ ] US-P9-033: Already complete (schema field added in Week 3 prep)
+- [ ] US-P9-045-048: Mobile Gestures (swipe, long-press, touch optimization, gesture settings)
+  - Note: framer-motion already installed (2026-01-31)
+  - Create swipeable-insight-card.tsx component
+  - Add long-press hook (use-long-press.ts)
+  - Implement 44px touch targets
+  - Add gesture preferences UI
+
+**Mistakes made** (learn from these!):
+- Initially left updateVisibility unused variable (linter caught it)
+- Initially had isSaving state but didn't use it (removed since saveStatus tracks saving)
+- Forgot to run biome unsafe fixes before committing (pre-commit hook caught it)
+- Should have checked if session plans always have teamId (some don't, added null check)
+
+---

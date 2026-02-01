@@ -9,10 +9,21 @@ type LongPressHandlers = {
   onTouchMove: (e: React.TouchEvent) => void;
 };
 
+type LongPressOptions = {
+  threshold?: number;
+  disabled?: boolean;
+};
+
 export function useLongPress(
   onLongPress: () => void,
-  delay = 500
+  options: number | LongPressOptions = 500
 ): LongPressHandlers {
+  // Normalize options
+  const delay =
+    typeof options === "number" ? options : (options.threshold ?? 500);
+  const disabled =
+    typeof options === "object" ? (options.disabled ?? false) : false;
+
   const timeoutRef = useRef<NodeJS.Timeout | null>(null);
   const startPosRef = useRef<{ x: number; y: number } | null>(null);
 
@@ -26,13 +37,16 @@ export function useLongPress(
 
   const handleMouseDown = useCallback(
     (e: React.MouseEvent) => {
+      if (disabled) {
+        return;
+      }
       startPosRef.current = { x: e.clientX, y: e.clientY };
       timeoutRef.current = setTimeout(() => {
         onLongPress();
         clear();
       }, delay);
     },
-    [onLongPress, delay, clear]
+    [onLongPress, delay, clear, disabled]
   );
 
   const handleMouseMove = useCallback(
@@ -53,6 +67,9 @@ export function useLongPress(
 
   const handleTouchStart = useCallback(
     (e: React.TouchEvent) => {
+      if (disabled) {
+        return;
+      }
       const touch = e.touches[0];
       if (touch) {
         startPosRef.current = { x: touch.clientX, y: touch.clientY };
@@ -62,7 +79,7 @@ export function useLongPress(
         }, delay);
       }
     },
-    [onLongPress, delay, clear]
+    [onLongPress, delay, clear, disabled]
   );
 
   const handleTouchMove = useCallback(

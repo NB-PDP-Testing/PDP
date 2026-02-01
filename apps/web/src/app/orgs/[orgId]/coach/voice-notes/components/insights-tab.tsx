@@ -612,6 +612,22 @@ export function InsightsTab({ orgId, onSuccess, onError }: InsightsTabProps) {
     }
   };
 
+  // Get ALL insights from all notes (for board view) and sort by most recent first
+  const allInsights =
+    voiceNotes
+      ?.flatMap((note) =>
+        note.insights.map((i) => ({
+          ...i,
+          noteId: note._id,
+          noteDate: note.date,
+          noteCoachId: note.coachId, // Pass through recording coach ID
+        }))
+      )
+      .sort(
+        (a, b) =>
+          new Date(b.noteDate).getTime() - new Date(a.noteDate).getTime()
+      ) ?? [];
+
   // Get pending insights from all notes and sort by most recent first
   const pendingInsights =
     voiceNotes
@@ -1140,7 +1156,7 @@ export function InsightsTab({ orgId, onSuccess, onError }: InsightsTabProps) {
         </TabsList>
 
         <TabsContent className="mt-4 space-y-4" value="pending">
-          <InsightsViewContainer orgId={orgId}>
+          <InsightsViewContainer insights={allInsights} orgId={orgId}>
             {/* Needs Attention Section - Unmatched players and uncategorized insights */}
             {needsAttentionCount > 0 && (
               <Card className="border-amber-300 bg-amber-50">

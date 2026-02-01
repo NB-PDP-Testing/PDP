@@ -1,6 +1,7 @@
 "use client";
 
 import { api } from "@pdp/backend/convex/_generated/api";
+import type { Id } from "@pdp/backend/convex/_generated/dataModel";
 import type { Id as BetterAuthId } from "@pdp/backend/convex/betterAuth/_generated/dataModel";
 import { useMutation, useQuery } from "convex/react";
 import { Calendar, LayoutDashboard, List, Users } from "lucide-react";
@@ -8,17 +9,36 @@ import { useRouter, useSearchParams } from "next/navigation";
 import { TabsSkeleton } from "@/components/loading";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { useSession } from "@/lib/auth-client";
+import { InsightsBoardView } from "./insights-board-view";
 
 type ViewType = "list" | "board" | "calendar" | "players";
+
+type Insight = {
+  id: string;
+  noteId: Id<"voiceNotes">;
+  title: string;
+  description?: string;
+  category?: string;
+  playerName?: string;
+  playerIdentityId?: Id<"playerIdentities">;
+  status: "pending" | "applied" | "dismissed" | "auto_applied";
+  noteDate: string;
+  teamName?: string;
+  assigneeName?: string;
+};
 
 type InsightsViewContainerProps = {
   orgId: BetterAuthId<"organization">;
   children: React.ReactNode; // The list view content
+  insights?: Insight[]; // All insights for board/calendar/players views
+  onInsightUpdate?: () => void;
 };
 
 export function InsightsViewContainer({
   orgId,
   children,
+  insights = [],
+  onInsightUpdate,
 }: InsightsViewContainerProps) {
   const router = useRouter();
   const searchParams = useSearchParams();
@@ -93,14 +113,10 @@ export function InsightsViewContainer({
       </TabsContent>
 
       <TabsContent className="mt-6" value="board">
-        <div className="flex h-64 items-center justify-center rounded-lg border-2 border-muted-foreground/25 border-dashed">
-          <div className="text-center">
-            <LayoutDashboard className="mx-auto h-12 w-12 text-muted-foreground/50" />
-            <p className="mt-2 text-muted-foreground text-sm">
-              Board view coming soon (US-P9-020)
-            </p>
-          </div>
-        </div>
+        <InsightsBoardView
+          insights={insights}
+          onInsightUpdate={onInsightUpdate}
+        />
       </TabsContent>
 
       <TabsContent className="mt-6" value="calendar">

@@ -26,7 +26,6 @@ import { useParams, useRouter } from "next/navigation";
 import { useCallback, useEffect, useMemo, useState } from "react";
 import Masonry from "react-masonry-css";
 import { toast } from "sonner";
-import { FABQuickActions } from "@/components/quick-actions/fab-variant";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import {
@@ -582,9 +581,6 @@ export default function SessionPlansPage() {
 
   return (
     <div className="min-w-0 max-w-full overflow-hidden">
-      {/* FAB Quick Actions - Session plan uses SessionPlanContext (Issue #234) */}
-      <FABQuickActions />
-
       {/* Main Content */}
       <div className="flex min-w-0 flex-1 flex-col">
         {/* Header */}

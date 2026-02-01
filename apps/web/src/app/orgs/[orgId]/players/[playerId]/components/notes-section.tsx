@@ -3,13 +3,17 @@
 import {
   ChevronDown,
   ChevronUp,
+  Edit2,
   FileText,
   MessageSquare,
   User,
   Users,
 } from "lucide-react";
+import Link from "next/link";
+import { useParams } from "next/navigation";
 import { useState } from "react";
 import { Badge } from "@/components/ui/badge";
+import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import {
   Collapsible,
@@ -26,9 +30,14 @@ type PlayerData = {
 type Props = {
   player: PlayerData;
   isCoach: boolean;
+  canEdit?: boolean;
 };
 
-export function NotesSection({ player, isCoach }: Props) {
+export function NotesSection({ player, isCoach, canEdit = false }: Props) {
+  const params = useParams();
+  const orgId = params.orgId as string;
+  const playerId = params.playerId as string;
+
   const hasNotes = Boolean(
     player.coachNotes || player.parentNotes || player.playerNotes
   );
@@ -39,9 +48,9 @@ export function NotesSection({ player, isCoach }: Props) {
   return (
     <Collapsible onOpenChange={setIsExpanded} open={isExpanded}>
       <Card>
-        <CollapsibleTrigger className="w-full">
-          <CardHeader className="cursor-pointer transition-colors hover:bg-accent/50">
-            <div className="flex items-center justify-between">
+        <CardHeader className="cursor-pointer transition-colors hover:bg-accent/50">
+          <div className="flex items-center justify-between">
+            <CollapsibleTrigger className="flex flex-1 items-center gap-2">
               <CardTitle className="flex items-center gap-2">
                 <FileText className="h-5 w-5" />
                 Development Notes
@@ -65,9 +74,19 @@ export function NotesSection({ player, isCoach }: Props) {
                   <ChevronDown className="h-5 w-5 text-muted-foreground" />
                 )}
               </div>
-            </div>
-          </CardHeader>
-        </CollapsibleTrigger>
+            </CollapsibleTrigger>
+            {canEdit && (
+              <Button asChild className="ml-2" size="sm" variant="outline">
+                <Link
+                  href={`/orgs/${orgId}/coach/notes?player=${playerId}` as any}
+                >
+                  <Edit2 className="mr-1 h-4 w-4" />
+                  Edit Notes
+                </Link>
+              </Button>
+            )}
+          </div>
+        </CardHeader>
 
         <CollapsibleContent>
           <CardContent className="space-y-4">

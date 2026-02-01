@@ -1278,3 +1278,80 @@ Week 3 has now completed 12/17 stories (70.6%):
 - None - simple CSS update
 
 ---
+## Sat 1 Feb 2026 22:45 - US-P9-048 - Add Gesture Customization Settings
+**Iteration**: 51
+**Commit**: cf32672f01cb40a6a1229f529e694bd4ed749d3a
+**Session**: d8860fdf-9e71-4080-8704-e053e1da2fb9
+**Status**: Complete
+
+### What was implemented
+- Added gesture fields to coachOrgPreferences schema (packages/backend/convex/schema.ts)
+  - gesturesEnabled: v.optional(v.boolean()) // Default: true
+  - swipeRightAction: v.optional(v.union(v.literal("apply"), v.literal("dismiss"), v.literal("disabled"))) // Default: "apply"
+  - swipeLeftAction: v.optional(v.union(v.literal("apply"), v.literal("dismiss"), v.literal("disabled"))) // Default: "dismiss"
+- Updated getCoachOrgPreferences query return type to include gesture fields
+- Updated getCoachOrgPreferences handler to return gesture fields
+- Updated updateCoachOrgPreference mutation args to accept gesture fields
+- Updated updateCoachOrgPreference handler to save gesture fields (both update and insert paths)
+- Created GesturePreferences component (apps/web/src/app/orgs/[orgId]/coach/settings/gesture-preferences.tsx)
+  - Card with "Mobile Gestures" title and description
+  - Switch for "Enable Swipe Gestures" toggle
+  - Select dropdown for "Swipe Right Action" (Apply/Dismiss/Disabled)
+  - Select dropdown for "Swipe Left Action" (Apply/Dismiss/Disabled)
+  - Save button that calls updateCoachOrgPreference mutation
+  - Success/error toast notifications
+  - Loading skeleton while preferences loading
+  - Disables dropdowns when gestures disabled
+- Integrated GesturePreferences into coach settings page (apps/web/src/app/orgs/[orgId]/coach/settings/page.tsx)
+  - Added import and component rendering below NotificationPreferences
+
+### Files changed
+- packages/backend/convex/schema.ts (+9 lines, added 3 gesture fields to coachOrgPreferences)
+- packages/backend/convex/models/trustGatePermissions.ts (+36 lines in 2 functions)
+- apps/web/src/app/orgs/[orgId]/coach/settings/gesture-preferences.tsx (new, 183 lines)
+- apps/web/src/app/orgs/[orgId]/coach/settings/page.tsx (+2 lines, added import and component)
+- scripts/ralph/prd.json (+1 line, marked passes: true)
+
+### Quality checks
+- ✅ Codegen: passed successfully (ran npx -w packages/backend convex codegen)
+- ✅ Type check: no new errors (only pre-existing errors in notification-center, context-menu, sessionPlans, teamCollaboration)
+- ✅ Linting: passed pre-commit hook (biome check at error level)
+- ⚠️ Browser verification: not performed (recommend manual testing in coach settings page)
+
+### **Learnings for future iterations** ⚠️ CRITICAL
+
+**Patterns discovered:**
+- Settings component pattern: Card with CardHeader (title + description) and CardContent (form fields + save button)
+- Form state management: useState for local state, useEffect to initialize from query results
+- Select component pattern: SelectTrigger + SelectContent + SelectItem for dropdowns
+- Switch component pattern: controlled with checked and onCheckedChange props
+- Mutation pattern: call mutation, show loading state, toast on success/error
+- Query return type pattern: must match handler return in validator (v.object)
+- Mutation args pattern: all optional fields for partial updates
+
+**Gotchas encountered:**
+- Biome linter auto-removes unused imports - must add import AND usage together in same Write operation
+- Codegen must run after schema changes before type checking
+- Mutation handlers need both update and insert paths to handle missing preferences records
+- useEffect dependency array must include all values used for initialization
+
+**Dependencies found:**
+- Select components from @/components/ui/select (shadcn/ui)
+- Switch component from @/components/ui/switch (shadcn/ui)
+- Card components from @/components/ui/card
+- Label from @/components/ui/label
+- Button from @/components/ui/button
+- toast from sonner for notifications
+- useCurrentUser hook for getting user ID
+
+**What to do next**:
+- [ ] US-P9-033: Already complete (schema field added in Week 3 prep)
+- [x] ALL 17 STORIES COMPLETE! 🎉
+
+**Week 3 Status**: 17/17 stories complete (100%)
+
+**Mistakes made** (learn from these!):
+- Initially forgot to update both the return validator AND the handler return in getCoachOrgPreferences (causes type errors)
+- Initially tried to use Edit tool for page.tsx but linter removed import before usage added (learned to use Write with both import and usage)
+
+---

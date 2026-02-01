@@ -512,7 +512,7 @@
         "Visual verification: preferences save and apply to swipe behavior"
       ],
       "priority": 17,
-      "passes": false,
+      "passes": true,
       "effort": "0.5h"
     }
   ]

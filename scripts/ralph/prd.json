@@ -476,7 +476,7 @@
         "Visual verification: long-press opens menu, actions execute, works on desktop and mobile"
       ],
       "priority": 15,
-      "passes": false,
+      "passes": true,
       "effort": "2h",
       "dependencies": ["US-P9-045"]
     },

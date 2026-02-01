@@ -130,11 +130,17 @@ export function ResponsiveContextMenu({
   );
 
   // Long press handler for mobile
-  const longPressHandlers = useLongPress(() => {
-    if (!disabled) {
-      handleOpenChange(true);
+  const longPressHandlers = useLongPress(
+    () => {
+      if (!disabled) {
+        handleOpenChange(true);
+      }
+    },
+    {
+      threshold: 500,
+      disabled: disabled || !isMobile,
     }
-  }, 500);
+  );
 
   // Mobile: Bottom sheet with long-press trigger
   if (isMobile) {

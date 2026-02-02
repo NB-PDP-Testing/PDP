@@ -1,6 +1,9 @@
 "use client";
 
+import { api } from "@pdp/backend/convex/_generated/api";
+import { useQuery } from "convex/react";
 import { Users } from "lucide-react";
+import { useMemo, useState } from "react";
 import {
   Empty,
   EmptyContent,
@@ -8,20 +11,182 @@ import {
   EmptyMedia,
   EmptyTitle,
 } from "@/components/ui/empty";
+import { Skeleton } from "@/components/ui/skeleton";
+import { PlayerCard } from "./player-card";
+import { PlayerFilters } from "./player-filters";
 
-export function PlayersTab() {
+type StatusFilter = "all" | "active" | "injured" | "on-break";
+type SortOption = "name-asc" | "jersey-asc" | "position";
+
+type PlayersTabProps = {
+  teamId: string;
+  organizationId: string;
+};
+
+export function PlayersTab({ teamId, organizationId }: PlayersTabProps) {
+  const [statusFilter, setStatusFilter] = useState<StatusFilter>("all");
+  const [positionFilter, setPositionFilter] = useState<string>("all");
+  const [searchQuery, setSearchQuery] = useState<string>("");
+  const [sortBy, setSortBy] = useState<SortOption>("name-asc");
+
+  const players = useQuery(api.models.teams.getTeamPlayersWithHealth, {
+    teamId,
+    organizationId,
+  });
+
+  // Extract available positions from players
+  const availablePositions = useMemo(() => {
+    if (!players) {
+      return [];
+    }
+    const positions = new Set<string>();
+    for (const player of players) {
+      if (player.position) {
+        positions.add(player.position);
+      }
+    }
+    return Array.from(positions).sort();
+  }, [players]);
+
+  // Filter and sort players
+  const filteredPlayers = useMemo(() => {
+    if (!players) {
+      return [];
+    }
+
+    let result = [...players];
+
+    // Filter by status
+    if (statusFilter === "active") {
+      result = result.filter((p) => p.healthStatus === "healthy");
+    } else if (statusFilter === "injured") {
+      result = result.filter((p) => p.healthStatus === "injured");
+    } else if (statusFilter === "on-break") {
+      result = result.filter((p) => p.healthStatus === "recovering");
+    }
+
+    // Filter by position
+    if (positionFilter !== "all") {
+      result = result.filter((p) => p.position === positionFilter);
+    }
+
+    // Filter by search query
+    if (searchQuery.trim()) {
+      const query = searchQuery.toLowerCase();
+      result = result.filter((p) => p.fullName.toLowerCase().includes(query));
+    }
+
+    // Sort
+    if (sortBy === "name-asc") {
+      result.sort((a, b) => a.fullName.localeCompare(b.fullName));
+    } else if (sortBy === "jersey-asc") {
+      result.sort((a, b) => {
+        const numA = a.jerseyNumber
+          ? Number.parseInt(a.jerseyNumber, 10)
+          : Number.POSITIVE_INFINITY;
+        const numB = b.jerseyNumber
+          ? Number.parseInt(b.jerseyNumber, 10)
+          : Number.POSITIVE_INFINITY;
+        return numA - numB;
+      });
+    } else if (sortBy === "position") {
+      result.sort((a, b) => {
+        const posA = a.position || "";
+        const posB = b.position || "";
+        return posA.localeCompare(posB);
+      });
+    }
+
+    return result;
+  }, [players, statusFilter, positionFilter, searchQuery, sortBy]);
+
+  // Loading state
+  if (!players) {
+    return (
+      <div className="space-y-6">
+        <div className="space-y-4">
+          <Skeleton className="h-10 w-full" />
+          <div className="flex gap-3">
+            <Skeleton className="h-10 max-w-sm flex-1" />
+            <Skeleton className="h-10 w-[140px]" />
+            <Skeleton className="h-10 w-[140px]" />
+          </div>
+        </div>
+        <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4">
+          {/* biome-ignore lint/suspicious/noArrayIndexKey: Static skeleton loaders don't have state or reordering issues */}
+          {Array.from({ length: 6 }).map((_, i) => (
+            <Skeleton className="h-32 w-full" key={i} />
+          ))}
+        </div>
+      </div>
+    );
+  }
+
+  // Empty state (no players on team)
+  if (players.length === 0) {
+    return (
+      <Empty>
+        <EmptyMedia>
+          <Users className="h-12 w-12 text-muted-foreground" />
+        </EmptyMedia>
+        <EmptyContent>
+          <EmptyTitle>No Players on This Team</EmptyTitle>
+          <EmptyDescription>
+            This team doesn't have any players assigned yet. Add players to get
+            started.
+          </EmptyDescription>
+        </EmptyContent>
+      </Empty>
+    );
+  }
+
   return (
-    <Empty>
-      <EmptyMedia>
-        <Users className="h-12 w-12 text-muted-foreground" />
-      </EmptyMedia>
-      <EmptyContent>
-        <EmptyTitle>Players Tab</EmptyTitle>
-        <EmptyDescription>
-          Coming in Phase 3. Player grid with health status badges and quick
-          access to passports.
-        </EmptyDescription>
-      </EmptyContent>
-    </Empty>
+    <div className="space-y-6">
+      {/* Filters */}
+      <PlayerFilters
+        availablePositions={availablePositions}
+        onPositionFilterChange={setPositionFilter}
+        onSearchQueryChange={setSearchQuery}
+        onSortByChange={setSortBy}
+        onStatusFilterChange={setStatusFilter}
+        positionFilter={positionFilter}
+        searchQuery={searchQuery}
+        sortBy={sortBy}
+        statusFilter={statusFilter}
+      />
+
+      {/* Player Grid */}
+      {filteredPlayers.length === 0 ? (
+        <Empty>
+          <EmptyMedia>
+            <Users className="h-12 w-12 text-muted-foreground" />
+          </EmptyMedia>
+          <EmptyContent>
+            <EmptyTitle>No Players Match Filters</EmptyTitle>
+            <EmptyDescription>
+              Try adjusting your filters or search query to find players.
+            </EmptyDescription>
+          </EmptyContent>
+        </Empty>
+      ) : (
+        <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4">
+          {filteredPlayers.map((player) => (
+            <PlayerCard
+              firstName={player.firstName}
+              fullName={player.fullName}
+              healthStatus={player.healthStatus}
+              isPlayingUp={player.isPlayingUp}
+              jerseyNumber={player.jerseyNumber}
+              key={player.playerId}
+              lastName={player.lastName}
+              organizationId={organizationId}
+              photoUrl={player.photoUrl}
+              playerId={player.playerId}
+              position={player.position}
+            />
+          ))}
+        </div>
+      )}
+    </div>
   );
 }

@@ -466,28 +466,14 @@ export default function ManageUsersPage() {
 
       // Update coach assignments if they have coach role
       if (state.functionalRoles.includes("coach")) {
-        // Convert team IDs to team names for consistency
-        const teamNames = (state.teams || [])
-          .map((teamIdOrName: string) => {
-            // Check if it's already a name (exists in teams array by name)
-            const teamByName = teams?.find((t: any) => t.name === teamIdOrName);
-            if (teamByName) {
-              return teamIdOrName; // It's already a name
-            }
-            // Check if it's a team ID and convert to name
-            const teamById = teams?.find((t: any) => t._id === teamIdOrName);
-            if (teamById) {
-              return teamById.name; // Convert ID to name
-            }
-            // Fallback: return as-is (might be a name that doesn't match)
-            return teamIdOrName;
-          })
-          .filter(Boolean);
+        // Pass team IDs directly (do NOT convert to names)
+        // Schema expects team IDs, not team names
+        const teamIds = (state.teams || []).filter(Boolean);
 
         await updateCoachAssignments({
           userId,
           organizationId: orgId,
-          teams: teamNames,
+          teams: teamIds,
           ageGroups: state.ageGroups,
         });
       }

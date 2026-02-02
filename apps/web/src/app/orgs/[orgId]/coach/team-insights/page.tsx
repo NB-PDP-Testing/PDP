@@ -55,9 +55,9 @@ export default function TeamInsightsPage() {
   // Get current user ID
   const userId = session?.user?.id;
 
-  // Get coach assignments
+  // Get coach assignments with enriched team data (Pattern B)
   const coachAssignment = useQuery(
-    api.models.coaches.getCoachAssignments,
+    api.models.coaches.getCoachAssignmentsWithTeams,
     userId && orgId ? { userId, organizationId: orgId } : "skip"
   );
 
@@ -67,36 +67,13 @@ export default function TeamInsightsPage() {
     orgId ? { organizationId: orgId } : "skip"
   );
 
-  // Get all teams for the organization to resolve names to IDs
-  const allTeams = useQuery(
-    api.models.teams.getTeamsByOrganization,
-    orgId ? { organizationId: orgId } : "skip"
-  );
-
-  // Get unique team IDs from coach assignment (resolving names to IDs)
+  // Get coach's team IDs (Pattern B - already resolved server-side)
   const coachTeamIds = useMemo(() => {
-    if (!(coachAssignment?.teams && allTeams)) {
+    if (!coachAssignment?.teams) {
       return [];
     }
-
-    // Build maps for lookup (by ID and by name)
-    const teamByIdMap = new Map(
-      allTeams.map((team) => [String(team._id), team])
-    );
-    const teamByNameMap = new Map(allTeams.map((team) => [team.name, team]));
-
-    // Resolve team values (could be IDs or names) to actual IDs
-    // Use a Set to deduplicate in case same team is listed by both ID and name
-    const resolvedIdSet = new Set<string>();
-    for (const teamValue of coachAssignment.teams) {
-      const team = teamByIdMap.get(teamValue) || teamByNameMap.get(teamValue);
-      if (team) {
-        resolvedIdSet.add(String(team._id));
-      }
-    }
-
-    return [...resolvedIdSet];
-  }, [coachAssignment, allTeams]);
+    return coachAssignment.teams.map((team) => team.teamId);
+  }, [coachAssignment?.teams]);
 
   // Filter observations by selected team
   const filteredObservations = useMemo(() => {

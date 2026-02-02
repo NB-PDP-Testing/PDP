@@ -70,35 +70,29 @@ export default function TeamHubPage() {
   // Get current user ID
   const userId = session?.user?.id;
 
-  // Get coach assignments to find which teams this coach has access to
-  const coachAssignment = useQuery(
-    api.models.coaches.getCoachAssignments,
+  // Get coach assignments with enriched team data
+  // Using getCoachAssignmentsWithTeams (consistent with assess, session-plans, goals pages)
+  // This eliminates the need for a separate getTeamsByOrganization query
+  const coachAssignments = useQuery(
+    api.models.coaches.getCoachAssignmentsWithTeams,
     userId && orgId ? { userId, organizationId: orgId } : "skip"
   );
 
-  // Get all teams for the organization
-  const allTeams = useQuery(
-    api.models.teams.getTeamsByOrganization,
-    orgId ? { organizationId: orgId } : "skip"
-  );
-
-  // Get team IDs this coach has access to
-  const coachTeamIds = useMemo(() => {
-    if (!coachAssignment?.teams) {
-      return [];
-    }
-
-    // coachAssignment.teams already contains team IDs (Better Auth team._id)
-    return coachAssignment.teams;
-  }, [coachAssignment?.teams]);
-
-  // Filter teams to only show those assigned to this coach
+  // Extract teams assigned to this coach
+  // getCoachAssignmentsWithTeams returns enriched team objects
   const coachTeams = useMemo(() => {
-    if (!allTeams) {
+    if (!coachAssignments?.teams) {
       return [];
     }
-    return allTeams.filter((team) => coachTeamIds.includes(team._id));
-  }, [allTeams, coachTeamIds]);
+    return coachAssignments.teams.map((team) => ({
+      _id: team.teamId,
+      name: team.teamName,
+      sportCode: team.sportCode,
+      ageGroup: team.ageGroup,
+      gender: team.gender,
+      isActive: team.isActive,
+    }));
+  }, [coachAssignments?.teams]);
 
   // Determine which team to show
   const displayTeamId =
@@ -109,7 +103,7 @@ export default function TeamHubPage() {
         : null;
 
   // Check if user is head coach
-  const isHeadCoach = coachAssignment?.roles?.includes("head_coach") ?? false;
+  const isHeadCoach = coachAssignments?.roles?.includes("head_coach") ?? false;
 
   // Handle tab change - update URL
   const handleTabChange = (newTab: string) => {

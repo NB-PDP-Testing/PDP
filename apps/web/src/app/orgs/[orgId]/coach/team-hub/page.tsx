@@ -292,7 +292,14 @@ export default function TeamHubPage() {
               </TabsContent>
 
               <TabsContent value="tasks">
-                <TasksTab organizationId={orgId} teamId={displayTeamId} />
+                <TasksTab
+                  currentUserId={userId || ""}
+                  currentUserName={
+                    session?.user?.name || session?.user?.email || "Unknown"
+                  }
+                  organizationId={orgId}
+                  teamId={displayTeamId}
+                />
               </TabsContent>
 
               <TabsContent value="insights">

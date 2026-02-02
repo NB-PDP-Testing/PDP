@@ -14,7 +14,9 @@ import {
   EmptyTitle,
 } from "@/components/ui/empty";
 import { Skeleton } from "@/components/ui/skeleton";
+import { CreateTaskModal } from "./create-task-modal";
 import { TaskCard } from "./task-card";
+import { TaskDetailModal } from "./task-detail-modal";
 import { TaskFilters } from "./task-filters";
 
 type StatusFilter = "all" | "open" | "in-progress" | "done";
@@ -24,16 +26,26 @@ type SortOption = "due-date" | "priority" | "created-date";
 type TasksTabProps = {
   teamId: string;
   organizationId: string;
+  currentUserId: string;
+  currentUserName: string;
 };
 
-export function TasksTab({ teamId, organizationId }: TasksTabProps) {
+export function TasksTab({
+  teamId,
+  organizationId,
+  currentUserId,
+  currentUserName,
+}: TasksTabProps) {
   const [statusFilter, setStatusFilter] = useState<StatusFilter>("all");
   const [priorityFilter, setPriorityFilter] = useState<PriorityFilter>("all");
   const [assigneeFilter, setAssigneeFilter] = useState<string>("all");
   const [searchQuery, setSearchQuery] = useState<string>("");
   const [sortBy, setSortBy] = useState<SortOption>("due-date");
-  const [_selectedTaskId, setSelectedTaskId] =
-    useState<Id<"coachTasks"> | null>(null);
+  const [selectedTaskId, setSelectedTaskId] = useState<Id<"coachTasks"> | null>(
+    null
+  );
+  const [showCreateModal, setShowCreateModal] = useState(false);
+  const [showDetailModal, setShowDetailModal] = useState(false);
 
   const tasks = useQuery(api.models.teams.getTeamTasks, {
     teamId,
@@ -142,13 +154,24 @@ export function TasksTab({ teamId, organizationId }: TasksTabProps) {
     );
   }
 
+  // Handle task card click - open detail modal
+  const handleTaskClick = (taskId: Id<"coachTasks">) => {
+    setSelectedTaskId(taskId);
+    setShowDetailModal(true);
+  };
+
+  // Get selected task for detail modal
+  const selectedTask = selectedTaskId
+    ? tasks?.find((t) => t._id === selectedTaskId)
+    : undefined;
+
   // Empty state (no tasks for team)
   if (tasks.length === 0) {
     return (
       <div className="space-y-4">
         <div className="flex items-center justify-between">
           <h3 className="font-semibold text-lg">Tasks</h3>
-          <Button size="sm">
+          <Button onClick={() => setShowCreateModal(true)} size="sm">
             <Plus className="mr-2 h-4 w-4" />
             Create Task
           </Button>
@@ -165,67 +188,99 @@ export function TasksTab({ teamId, organizationId }: TasksTabProps) {
             </EmptyDescription>
           </EmptyContent>
         </Empty>
+
+        <CreateTaskModal
+          currentUserId={currentUserId}
+          currentUserName={currentUserName}
+          onOpenChange={setShowCreateModal}
+          open={showCreateModal}
+          organizationId={organizationId}
+          teamId={teamId}
+        />
       </div>
     );
   }
 
   return (
-    <div className="space-y-6">
-      {/* Header with Create Button */}
-      <div className="flex items-center justify-between">
-        <h3 className="font-semibold text-lg">Tasks</h3>
-        <Button size="sm">
-          <Plus className="mr-2 h-4 w-4" />
-          Create Task
-        </Button>
+    <>
+      <div className="space-y-6">
+        {/* Header with Create Button */}
+        <div className="flex items-center justify-between">
+          <h3 className="font-semibold text-lg">Tasks</h3>
+          <Button onClick={() => setShowCreateModal(true)} size="sm">
+            <Plus className="mr-2 h-4 w-4" />
+            Create Task
+          </Button>
+        </div>
+
+        {/* Filters */}
+        <TaskFilters
+          assigneeFilter={assigneeFilter}
+          availableAssignees={availableAssignees}
+          onAssigneeFilterChange={setAssigneeFilter}
+          onPriorityFilterChange={setPriorityFilter}
+          onSearchQueryChange={setSearchQuery}
+          onSortByChange={setSortBy}
+          onStatusFilterChange={setStatusFilter}
+          priorityFilter={priorityFilter}
+          searchQuery={searchQuery}
+          sortBy={sortBy}
+          statusFilter={statusFilter}
+        />
+
+        {/* Task Grid */}
+        {filteredTasks.length === 0 ? (
+          <Empty>
+            <EmptyMedia>
+              <CheckSquare className="h-12 w-12 text-muted-foreground" />
+            </EmptyMedia>
+            <EmptyContent>
+              <EmptyTitle>No Tasks Match Filters</EmptyTitle>
+              <EmptyDescription>
+                Try adjusting your filters or search query to find tasks.
+              </EmptyDescription>
+            </EmptyContent>
+          </Empty>
+        ) : (
+          <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
+            {filteredTasks.map((task) => (
+              <TaskCard
+                assignedToName={task.assignedToName}
+                dueDate={task.dueDate}
+                key={task._id}
+                onTaskClick={handleTaskClick}
+                playerName={task.playerName}
+                priority={task.priority}
+                status={task.status}
+                taskId={task._id}
+                text={task.text}
+                voiceNoteId={task.voiceNoteId}
+              />
+            ))}
+          </div>
+        )}
       </div>
 
-      {/* Filters */}
-      <TaskFilters
-        assigneeFilter={assigneeFilter}
-        availableAssignees={availableAssignees}
-        onAssigneeFilterChange={setAssigneeFilter}
-        onPriorityFilterChange={setPriorityFilter}
-        onSearchQueryChange={setSearchQuery}
-        onSortByChange={setSortBy}
-        onStatusFilterChange={setStatusFilter}
-        priorityFilter={priorityFilter}
-        searchQuery={searchQuery}
-        sortBy={sortBy}
-        statusFilter={statusFilter}
+      {/* Modals */}
+      <CreateTaskModal
+        currentUserId={currentUserId}
+        currentUserName={currentUserName}
+        onOpenChange={setShowCreateModal}
+        open={showCreateModal}
+        organizationId={organizationId}
+        teamId={teamId}
       />
 
-      {/* Task Grid */}
-      {filteredTasks.length === 0 ? (
-        <Empty>
-          <EmptyMedia>
-            <CheckSquare className="h-12 w-12 text-muted-foreground" />
-          </EmptyMedia>
-          <EmptyContent>
-            <EmptyTitle>No Tasks Match Filters</EmptyTitle>
-            <EmptyDescription>
-              Try adjusting your filters or search query to find tasks.
-            </EmptyDescription>
-          </EmptyContent>
-        </Empty>
-      ) : (
-        <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
-          {filteredTasks.map((task) => (
-            <TaskCard
-              assignedToName={task.assignedToName}
-              dueDate={task.dueDate}
-              key={task._id}
-              onTaskClick={setSelectedTaskId}
-              playerName={task.playerName}
-              priority={task.priority}
-              status={task.status}
-              taskId={task._id}
-              text={task.text}
-              voiceNoteId={task.voiceNoteId}
-            />
-          ))}
-        </div>
+      {selectedTask && (
+        <TaskDetailModal
+          currentUserId={currentUserId}
+          currentUserName={currentUserName}
+          onOpenChange={setShowDetailModal}
+          open={showDetailModal}
+          organizationId={organizationId}
+          task={selectedTask}
+        />
       )}
-    </div>
+    </>
   );
 }

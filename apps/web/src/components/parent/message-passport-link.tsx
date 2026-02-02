@@ -9,10 +9,10 @@ import { useRouter } from "next/navigation";
 import { Button } from "@/components/ui/button";
 import { cn } from "@/lib/utils";
 
-interface MessagePassportLinkProps {
+type MessagePassportLinkProps = {
   summaryId: Id<"coachParentSummaries">;
   className?: string;
-}
+};
 
 /**
  * Link component to navigate from summary to player passport

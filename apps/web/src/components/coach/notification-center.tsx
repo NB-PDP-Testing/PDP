@@ -28,9 +28,9 @@ import {
 } from "@/components/ui/dropdown-menu";
 import { useCurrentUser } from "@/hooks/use-current-user";
 
-interface NotificationCenterProps {
+type NotificationCenterProps = {
   organizationId: string;
-}
+};
 
 export function NotificationCenter({
   organizationId,

@@ -103,11 +103,25 @@ export function CoachPlayersView({ orgId }: CoachPlayersViewProps) {
   );
 
   // Get coach's assigned team IDs (Pattern B - already resolved server-side)
+  // Filter out corrupted team IDs (e.g., player IDs)
   const coachTeamIds = useMemo(() => {
     if (!coachAssignments?.teams) {
       return [];
     }
-    return coachAssignments.teams.map((team) => team.teamId);
+    return coachAssignments.teams
+      .filter((team) => {
+        if (!team.teamId) {
+          return false;
+        }
+        if (team.teamId.includes("players")) {
+          console.warn(
+            `[Players View] Skipping corrupted teamId: ${team.teamId}`
+          );
+          return false;
+        }
+        return true;
+      })
+      .map((team) => team.teamId);
   }, [coachAssignments?.teams]);
 
   // Filter team-player links to only those for coach's assigned teams

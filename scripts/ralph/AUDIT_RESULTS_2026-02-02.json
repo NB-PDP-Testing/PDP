@@ -1,0 +1,110 @@
+{
+  "auditDate": "2026-02-02",
+  "environment": "production",
+  "results": {
+    "cleanAssignments": [],
+    "corruptedAssignments": [
+      {
+        "_id": "kn7dmtj0qkhda324xwsa4yvsgd7y97xd",
+        "issues": [
+          {
+            "type": "team_name",
+            "value": "Senior Women"
+          },
+          {
+            "type": "team_name",
+            "value": "U18 Female"
+          }
+        ],
+        "organizationId": "jh7f6k14jw7j4sj9rr9dfzekr97xm9j7",
+        "teams": ["Senior Women", "U18 Female"],
+        "userId": "k175sxnms1s6r8z66qdya70cb97w89d7"
+      },
+      {
+        "_id": "kn72p129ya1smyk3yd0b2zdpmd7ywhn9",
+        "issues": [
+          {
+            "type": "team_name",
+            "value": "DMC"
+          }
+        ],
+        "organizationId": "jh73c402cnayr0j9r5kh9trpx17ywzbc",
+        "teams": ["DMC"],
+        "userId": "k175sxnms1s6r8z66qdya70cb97w89d7"
+      },
+      {
+        "_id": "kn75azb2krzb90zdv7mm7mvmy17yz6as",
+        "issues": [
+          {
+            "type": "team_name",
+            "value": "U18 Female"
+          }
+        ],
+        "organizationId": "jh7f6k14jw7j4sj9rr9dfzekr97xm9j7",
+        "teams": ["U18 Female"],
+        "userId": "k17aqe558mmrjwnzrvy34d5mkn7yzkaf"
+      },
+      {
+        "_id": "kn762sy375svwe19wppb5emhnh7z1emf",
+        "issues": [
+          {
+            "type": "medical_profile_id",
+            "value": "js79xewp66skzqe3tv8r0ztd457y9qeh"
+          }
+        ],
+        "organizationId": "jh7f6k14jw7j4sj9rr9dfzekr97xm9j7",
+        "teams": ["js79xewp66skzqe3tv8r0ztd457y9qeh"],
+        "userId": "k17fwp081bcxjyxcv4t43xq7997z1py1"
+      },
+      {
+        "_id": "kn7abv4d3k4payktsp2e9jeban7zfatr",
+        "issues": [
+          {
+            "type": "team_name",
+            "value": "Senior Men"
+          }
+        ],
+        "organizationId": "jh7f6k14jw7j4sj9rr9dfzekr97xm9j7",
+        "teams": ["Senior Men"],
+        "userId": "k17cx7vnr8tz6qdr0mh4s09psh7ze0wa"
+      }
+    ],
+    "statistics": {
+      "emptyArrays": 0,
+      "medicalProfileIds": 1,
+      "otherCorruption": 0,
+      "playerIds": 0,
+      "teamNames": 5,
+      "validTeamIds": 0
+    },
+    "totalAssignments": 5
+  },
+  "summary": {
+    "totalAssignments": 5,
+    "corruptedAssignments": 5,
+    "cleanAssignments": 0,
+    "corruptionRate": "100%",
+    "issueTypes": {
+      "teamNames": 5,
+      "medicalProfileIds": 1,
+      "playerIds": 0,
+      "other": 0
+    },
+    "affectedOrganizations": [
+      "jh7f6k14jw7j4sj9rr9dfzekr97xm9j7",
+      "jh73c402cnayr0j9r5kh9trpx17ywzbc"
+    ],
+    "affectedUsers": [
+      "k175sxnms1s6r8z66qdya70cb97w89d7",
+      "k17aqe558mmrjwnzrvy34d5mkn7yzkaf",
+      "k17fwp081bcxjyxcv4t43xq7997z1py1",
+      "k17cx7vnr8tz6qdr0mh4s09psh7ze0wa"
+    ]
+  },
+  "analysis": {
+    "severity": "HIGH",
+    "impact": "ALL coach assignments are corrupted. Team Hub and related features cannot function.",
+    "rootCause": "Admin UI was converting team IDs to team names before saving (fixed in commit 0b48f2dd). One assignment has a medical profile ID, likely manual entry error.",
+    "recommendation": "Run migration immediately to convert team names to team IDs. Investigate medical profile ID source."
+  }
+}

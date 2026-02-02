@@ -68,11 +68,25 @@ export default function TeamInsightsPage() {
   );
 
   // Get coach's team IDs (Pattern B - already resolved server-side)
+  // Filter out corrupted team IDs (e.g., player IDs)
   const coachTeamIds = useMemo(() => {
     if (!coachAssignment?.teams) {
       return [];
     }
-    return coachAssignment.teams.map((team) => team.teamId);
+    return coachAssignment.teams
+      .filter((team) => {
+        if (!team.teamId) {
+          return false;
+        }
+        if (team.teamId.includes("players")) {
+          console.warn(
+            `[Team Insights] Skipping corrupted teamId: ${team.teamId}`
+          );
+          return false;
+        }
+        return true;
+      })
+      .map((team) => team.teamId);
   }, [coachAssignment?.teams]);
 
   // Filter observations by selected team

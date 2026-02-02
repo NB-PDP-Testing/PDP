@@ -8,9 +8,9 @@ export type DegradationType =
   | "rate_limited"
   | "budget_exceeded";
 
-interface DegradationBannerProps {
+type DegradationBannerProps = {
   degradationType: DegradationType;
-}
+};
 
 /**
  * Degradation Banner Component

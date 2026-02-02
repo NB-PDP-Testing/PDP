@@ -798,6 +798,8 @@ export const getTeamOverviewStats = query({
     activeInjuries: v.number(),
     attendancePercent: v.union(v.number(), v.null()), // null if no data
     upcomingEventsCount: v.number(),
+    openTasks: v.number(),
+    overdueCount: v.number(),
   }),
   handler: async (ctx, args) => {
     // Get total active players on team
@@ -846,6 +848,20 @@ export const getTeamOverviewStats = query({
       }
     }
 
+    // Get task counts for this team
+    const tasks = await ctx.db
+      .query("coachTasks")
+      .withIndex("by_team_and_org", (q) =>
+        q.eq("teamId", args.teamId).eq("organizationId", args.organizationId)
+      )
+      .collect();
+
+    const now = Date.now();
+    const openTasks = tasks.filter((t) => t.status !== "done").length;
+    const overdueCount = tasks.filter(
+      (t) => t.status !== "done" && t.dueDate && t.dueDate < now
+    ).length;
+
     // Attendance: placeholder for future implementation
     // TODO: Implement actual attendance tracking in future phase
     const attendancePercent = null;
@@ -859,6 +875,8 @@ export const getTeamOverviewStats = query({
       activeInjuries: activeInjuriesCount,
       attendancePercent,
       upcomingEventsCount,
+      openTasks,
+      overdueCount,
     };
   },
 });
@@ -1096,5 +1114,96 @@ export const getTeamPlayersWithHealth = query({
     }
 
     return results;
+  },
+});
+
+/**
+ * Get all tasks for a team with enriched assignee information
+ * Uses batch fetch pattern to avoid N+1 queries
+ */
+export const getTeamTasks = query({
+  args: {
+    teamId: v.string(),
+    organizationId: v.string(),
+  },
+  returns: v.array(
+    v.object({
+      _id: v.id("coachTasks"),
+      _creationTime: v.number(),
+      text: v.string(),
+      completed: v.boolean(),
+      status: v.optional(
+        v.union(v.literal("open"), v.literal("in-progress"), v.literal("done"))
+      ),
+      organizationId: v.string(),
+      assignedToUserId: v.string(),
+      assignedToName: v.optional(v.string()),
+      createdByUserId: v.string(),
+      priority: v.optional(
+        v.union(v.literal("low"), v.literal("medium"), v.literal("high"))
+      ),
+      dueDate: v.optional(v.number()),
+      source: v.union(v.literal("manual"), v.literal("voice_note")),
+      voiceNoteId: v.optional(v.id("voiceNotes")),
+      insightId: v.optional(v.string()),
+      playerIdentityId: v.optional(v.id("orgPlayerEnrollments")),
+      playerName: v.optional(v.string()),
+      teamId: v.optional(v.string()),
+      createdAt: v.number(),
+      completedAt: v.optional(v.number()),
+    })
+  ),
+  handler: async (ctx, args) => {
+    // Step 1: Get all tasks for this team
+    const tasks = await ctx.db
+      .query("coachTasks")
+      .withIndex("by_team_and_org", (q) =>
+        q.eq("teamId", args.teamId).eq("organizationId", args.organizationId)
+      )
+      .collect();
+
+    // Step 2: Collect unique user IDs for batch fetch
+    const userIds = [
+      ...new Set(tasks.map((t) => t.assignedToUserId).filter(Boolean)),
+    ];
+
+    // Step 3: Batch fetch all assignees via Better Auth adapter
+    const users = await Promise.all(
+      userIds.map((id) =>
+        ctx.runQuery(components.betterAuth.adapter.findOne, {
+          model: "user",
+          where: [
+            {
+              field: "_id",
+              value: id,
+              operator: "eq",
+            },
+          ],
+        })
+      )
+    );
+
+    // Step 4: Create Map for O(1) lookup
+    const userMap = new Map<string, BetterAuthDoc<"user">>();
+    for (const user of users) {
+      if (user) {
+        userMap.set(user.id, user);
+      }
+    }
+
+    // Step 5: Enrich tasks with user info (synchronous, no await in loop!)
+    const enrichedTasks = tasks.map((task) => {
+      const assignee = userMap.get(task.assignedToUserId);
+      return {
+        ...task,
+        assignedToName:
+          task.assignedToName ||
+          (assignee
+            ? `${assignee.firstName || ""} ${assignee.lastName || ""}`.trim()
+            : undefined),
+      };
+    });
+
+    return enrichedTasks;
   },
 });

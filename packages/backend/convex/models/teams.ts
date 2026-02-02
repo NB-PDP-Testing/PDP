@@ -437,7 +437,7 @@ export const migrateTeamGenderValues = mutation({
           oldGender: team.gender,
           newGender,
         });
-        teamsUpdated++;
+        teamsUpdated += 1;
       }
     }
 
@@ -508,7 +508,7 @@ export const cleanupStaleCoachTeamAssignments = mutation({
           teams: validTeams,
           updatedAt: Date.now(),
         });
-        assignmentsUpdated++;
+        assignmentsUpdated += 1;
         teamsRemoved.push(...removedTeams);
       }
     }
@@ -601,7 +601,7 @@ export const migrateSportNamesToCodes = mutation({
           oldSport: team.sport,
           newSport: sportCode,
         });
-        teamsUpdated++;
+        teamsUpdated += 1;
       }
     }
 
@@ -780,5 +780,123 @@ export const resetTeamEligibilitySettings = mutation({
     }
 
     return null;
+  },
+});
+
+/**
+ * Get team overview statistics for Overview Dashboard
+ * Returns: total players, active injuries count, attendance %, upcoming events count
+ */
+export const getTeamOverviewStats = query({
+  args: {
+    teamId: v.string(),
+    organizationId: v.string(),
+  },
+  returns: v.object({
+    totalPlayers: v.number(),
+    activeInjuries: v.number(),
+    attendancePercent: v.union(v.number(), v.null()), // null if no data
+    upcomingEventsCount: v.number(),
+  }),
+  handler: async (ctx, args) => {
+    // Get total active players on team
+    const teamMembers = await ctx.db
+      .query("teamPlayerIdentities")
+      .withIndex("by_teamId", (q) => q.eq("teamId", args.teamId))
+      .collect();
+
+    const activePlayers = teamMembers.filter((m) => m.status === "active");
+    const totalPlayers = activePlayers.length;
+
+    // Get active injuries count from health summary
+    // Reuse existing query logic for consistency
+    const playerIds = activePlayers.map((m) => m.playerIdentityId);
+    let activeInjuriesCount = 0;
+
+    if (playerIds.length > 0) {
+      const uniquePlayerIds = [...new Set(playerIds)];
+
+      for (const playerId of uniquePlayerIds) {
+        const injuries = await ctx.db
+          .query("playerInjuries")
+          .withIndex("by_playerIdentityId", (q) =>
+            q.eq("playerIdentityId", playerId)
+          )
+          .collect();
+
+        // Count active/recovering injuries visible to this org
+        const activeInjuries = injuries.filter((injury) => {
+          if (injury.status === "healed" || injury.status === "cleared") {
+            return false;
+          }
+          if (injury.isVisibleToAllOrgs) {
+            return true;
+          }
+          if (injury.restrictedToOrgIds?.includes(args.organizationId)) {
+            return true;
+          }
+          if (injury.occurredAtOrgId === args.organizationId) {
+            return true;
+          }
+          return false;
+        });
+
+        activeInjuriesCount += activeInjuries.length;
+      }
+    }
+
+    // Attendance: placeholder for future implementation
+    // TODO: Implement actual attendance tracking in future phase
+    const attendancePercent = null;
+
+    // Upcoming events: placeholder for future implementation
+    // TODO: Implement scheduled sessions/games in future phase
+    const upcomingEventsCount = 0;
+
+    return {
+      totalPlayers,
+      activeInjuries: activeInjuriesCount,
+      attendancePercent,
+      upcomingEventsCount,
+    };
+  },
+});
+
+/**
+ * Get upcoming events for team (sessions, games, practices)
+ * Returns next 3 scheduled events with details
+ */
+export const getUpcomingEvents = query({
+  args: {
+    teamId: v.string(),
+    limit: v.optional(v.number()),
+  },
+  returns: v.array(
+    v.object({
+      eventId: v.string(),
+      title: v.string(),
+      date: v.string(), // ISO date string
+      time: v.optional(v.string()),
+      location: v.optional(v.string()),
+      type: v.union(
+        v.literal("training"),
+        v.literal("game"),
+        v.literal("meeting"),
+        v.literal("other")
+      ),
+    })
+  ),
+  handler: (_ctx, _args) => {
+    // TODO: Implement scheduled events in future phase
+    // For now, return empty array as events scheduling is not yet implemented
+    // This prevents the Overview Dashboard from breaking
+
+    // Future implementation will:
+    // 1. Query scheduledSessions table (when it exists)
+    // 2. Filter by teamId and future dates
+    // 3. Sort by date ascending
+    // 4. Take first N events based on limit
+
+    return [];
   },
 });

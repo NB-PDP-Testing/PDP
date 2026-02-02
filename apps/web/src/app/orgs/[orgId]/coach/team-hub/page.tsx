@@ -117,7 +117,8 @@ export default function TeamHubPage() {
     if (coachTeams.length > 0 && !selectedTeamId) {
       setSelectedTeamId(coachTeams[0]._id);
     }
-  }, [coachTeams, selectedTeamId]);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [coachTeams.length, selectedTeamId]);
 
   // Determine which team to show
   const displayTeamId =

@@ -14,7 +14,7 @@ import { mutation, query } from "../_generated/server";
  */
 export const getTeamPresence = query({
   args: {
-    teamId: v.id("team"),
+    teamId: v.string(), // Better Auth team ID
     organizationId: v.string(),
   },
   returns: v.array(
@@ -97,7 +97,7 @@ export const updatePresence = mutation({
   args: {
     userId: v.string(),
     organizationId: v.string(),
-    teamId: v.id("team"),
+    teamId: v.string(), // Better Auth team ID
     currentView: v.optional(v.string()),
   },
   returns: v.null(),

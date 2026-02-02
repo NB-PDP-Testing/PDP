@@ -783,8 +783,12 @@ export const getMembersWithDetails = query({
 });
 
 /**
- * Get all pending invitations for an organization
+ * Get all pending and expired invitations for an organization
  * Returns invitations with inviter user details
+ *
+ * Note: Fetches both "pending" and "expired" status invitations because
+ * the markExpiredInvitations cron job changes status from "pending" to "expired"
+ * when invitations pass their expiration date. We need both to show in the UI tabs.
  */
 export const getPendingInvitations = query({
   args: {
@@ -792,8 +796,8 @@ export const getPendingInvitations = query({
   },
   returns: v.array(v.any()),
   handler: async (ctx, args) => {
-    // Get all pending invitations for the organization
-    const invitationsResult = await ctx.runQuery(
+    // Get pending invitations for the organization
+    const pendingResult = await ctx.runQuery(
       components.betterAuth.adapter.findMany,
       {
         model: "invitation",
@@ -817,7 +821,33 @@ export const getPendingInvitations = query({
       }
     );
 
-    const invitations = invitationsResult.page;
+    // Also get expired invitations (status changed by cron job)
+    const expiredResult = await ctx.runQuery(
+      components.betterAuth.adapter.findMany,
+      {
+        model: "invitation",
+        paginationOpts: {
+          cursor: null,
+          numItems: 1000,
+        },
+        where: [
+          {
+            field: "organizationId",
+            value: args.organizationId,
+            operator: "eq",
+          },
+          {
+            field: "status",
+            value: "expired",
+            operator: "eq",
+            connector: "AND",
+          },
+        ],
+      }
+    );
+
+    // Combine both sets of invitations
+    const invitations = [...pendingResult.page, ...expiredResult.page];
 
     // Fetch inviter details for each invitation
     const invitationsWithInviter = await Promise.all(
@@ -836,7 +866,7 @@ export const getPendingInvitations = query({
           }
         );
 
-        // Check if invitation is expired
+        // Check if invitation is expired (by timestamp, not status)
         const now = Date.now();
         const isExpired = invitation.expiresAt < now;
 

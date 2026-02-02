@@ -271,7 +271,10 @@ export default function TeamHubPage() {
               </TabsContent>
 
               <TabsContent value="planning">
-                <PlanningTab />
+                <PlanningTab
+                  organizationId={orgId}
+                  teamId={displayTeamId || ""}
+                />
               </TabsContent>
 
               <TabsContent value="activity">

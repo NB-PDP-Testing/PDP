@@ -15,7 +15,6 @@ import {
   Inbox,
   Key,
   LineChart,
-  Mail,
   Megaphone,
   Menu,
   MessageSquare,
@@ -102,11 +101,6 @@ export function getAdminNavGroups(
           href: `/orgs/${orgId}/admin/users/approvals`,
           label: "Approvals",
           icon: UserCheck,
-        },
-        {
-          href: `/orgs/${orgId}/admin/invitations`,
-          label: "Invitations",
-          icon: Mail,
         },
         {
           href: `/orgs/${orgId}/admin/unclaimed-guardians`,

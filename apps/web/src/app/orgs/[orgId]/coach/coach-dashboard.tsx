@@ -128,12 +128,25 @@ export function CoachDashboard() {
 
   // Get coach's assigned team IDs (Pattern B - already resolved server-side)
   // getCoachAssignmentsWithTeams handles legacy data (names vs IDs) on the server
+  // Filter out corrupted team IDs (e.g., player IDs)
   const coachTeamIds = useMemo(() => {
     if (!coachAssignments?.teams) {
       return [];
     }
     // Team IDs are already resolved and enriched by the server
-    return coachAssignments.teams.map((team) => team.teamId);
+    // Skip any corrupted IDs (e.g., player IDs mistakenly stored as team IDs)
+    return coachAssignments.teams
+      .filter((team) => {
+        if (!team.teamId) {
+          return false;
+        }
+        if (team.teamId.includes("players")) {
+          console.warn(`[Dashboard] Skipping corrupted teamId: ${team.teamId}`);
+          return false;
+        }
+        return true;
+      })
+      .map((team) => team.teamId);
   }, [coachAssignments?.teams]);
 
   // Filter team-player links to only those for coach's assigned teams

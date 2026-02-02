@@ -54,33 +54,40 @@ export function PlayersTab({ teamId, organizationId }: PlayersTabProps) {
       return [];
     }
 
-    let result = [...players];
+    const statusFilterMap = {
+      active: "healthy",
+      injured: "injured",
+      "on-break": "recovering",
+    } as const;
 
-    // Filter by status
-    if (statusFilter === "active") {
-      result = result.filter((p) => p.healthStatus === "healthy");
-    } else if (statusFilter === "injured") {
-      result = result.filter((p) => p.healthStatus === "injured");
-    } else if (statusFilter === "on-break") {
-      result = result.filter((p) => p.healthStatus === "recovering");
-    }
+    const matchesStatus =
+      statusFilter === "all"
+        ? () => true
+        : (p: (typeof players)[number]) =>
+            p.healthStatus === statusFilterMap[statusFilter];
 
-    // Filter by position
-    if (positionFilter !== "all") {
-      result = result.filter((p) => p.position === positionFilter);
-    }
+    const matchesPosition =
+      positionFilter === "all"
+        ? () => true
+        : (p: (typeof players)[number]) => p.position === positionFilter;
 
-    // Filter by search query
-    if (searchQuery.trim()) {
-      const query = searchQuery.toLowerCase();
-      result = result.filter((p) => p.fullName.toLowerCase().includes(query));
-    }
+    const matchesSearch = searchQuery.trim()
+      ? (p: (typeof players)[number]) =>
+          p.fullName.toLowerCase().includes(searchQuery.toLowerCase())
+      : () => true;
+
+    const result = players.filter(
+      (p) => matchesStatus(p) && matchesPosition(p) && matchesSearch(p)
+    );
 
     // Sort
-    if (sortBy === "name-asc") {
-      result.sort((a, b) => a.fullName.localeCompare(b.fullName));
-    } else if (sortBy === "jersey-asc") {
-      result.sort((a, b) => {
+    const sortFunctions = {
+      "name-asc": (a: (typeof players)[number], b: (typeof players)[number]) =>
+        a.fullName.localeCompare(b.fullName),
+      "jersey-asc": (
+        a: (typeof players)[number],
+        b: (typeof players)[number]
+      ) => {
         const numA = a.jerseyNumber
           ? Number.parseInt(a.jerseyNumber, 10)
           : Number.POSITIVE_INFINITY;
@@ -88,15 +95,12 @@ export function PlayersTab({ teamId, organizationId }: PlayersTabProps) {
           ? Number.parseInt(b.jerseyNumber, 10)
           : Number.POSITIVE_INFINITY;
         return numA - numB;
-      });
-    } else if (sortBy === "position") {
-      result.sort((a, b) => {
-        const posA = a.position || "";
-        const posB = b.position || "";
-        return posA.localeCompare(posB);
-      });
-    }
+      },
+      position: (a: (typeof players)[number], b: (typeof players)[number]) =>
+        (a.position || "").localeCompare(b.position || ""),
+    };
 
+    result.sort(sortFunctions[sortBy]);
     return result;
   }, [players, statusFilter, positionFilter, searchQuery, sortBy]);
 
@@ -113,9 +117,8 @@ export function PlayersTab({ teamId, organizationId }: PlayersTabProps) {
           </div>
         </div>
         <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4">
-          {/* biome-ignore lint/suspicious/noArrayIndexKey: Static skeleton loaders don't have state or reordering issues */}
-          {Array.from({ length: 6 }).map((_, i) => (
-            <Skeleton className="h-32 w-full" key={i} />
+          {Array.from({ length: 6 }, (_, i) => `skeleton-${i}`).map((key) => (
+            <Skeleton className="h-32 w-full" key={key} />
           ))}
         </div>
       </div>

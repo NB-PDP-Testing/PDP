@@ -15,10 +15,10 @@ import {
 } from "@/components/ui/empty";
 import { Skeleton } from "@/components/ui/skeleton";
 
-interface HealthSafetyWidgetProps {
+type HealthSafetyWidgetProps = {
   teamId: string;
   organizationId: string;
-}
+};
 
 export function HealthSafetyWidget({
   teamId,

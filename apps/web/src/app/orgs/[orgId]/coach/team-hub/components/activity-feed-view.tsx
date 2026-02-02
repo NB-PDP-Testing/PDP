@@ -22,10 +22,10 @@ import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 
-interface ActivityFeedViewProps {
+type ActivityFeedViewProps = {
   teamId: string;
   organizationId: string;
-}
+};
 
 type FilterType =
   | "all"

@@ -13,7 +13,7 @@ import {
   Vote,
 } from "lucide-react";
 import { useParams, useRouter, useSearchParams } from "next/navigation";
-import { useMemo, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import {
   Card,
   CardContent,
@@ -62,7 +62,7 @@ export default function TeamHubPage() {
   const router = useRouter();
   const searchParams = useSearchParams();
 
-  const [selectedTeamId, setSelectedTeamId] = useState<string>("all");
+  const [selectedTeamId, setSelectedTeamId] = useState<string>("");
 
   // Get current tab from URL, default to "overview"
   const currentTab = (searchParams.get("tab") as TabValue) || "overview";
@@ -80,27 +80,54 @@ export default function TeamHubPage() {
 
   // Extract teams assigned to this coach
   // getCoachAssignmentsWithTeams returns enriched team objects
+  // Filter out invalid/corrupted team IDs (e.g., player IDs mistakenly stored as team IDs)
   const coachTeams = useMemo(() => {
     if (!coachAssignments?.teams) {
       return [];
     }
-    return coachAssignments.teams.map((team) => ({
-      _id: team.teamId,
-      name: team.teamName,
-      sportCode: team.sportCode,
-      ageGroup: team.ageGroup,
-      gender: team.gender,
-      isActive: team.isActive,
-    }));
+    return coachAssignments.teams
+      .filter((team) => {
+        // Skip if team data is missing or invalid
+        if (!(team.teamId && team.teamName)) {
+          console.warn("[Team Hub] Skipping invalid team:", team);
+          return false;
+        }
+        // Skip if teamId appears to be from wrong table (data corruption)
+        // Convex IDs contain table info - player IDs will have "players" table marker
+        if (team.teamId.includes("players")) {
+          console.warn(
+            `[Team Hub] Skipping corrupted teamId (player ID): ${team.teamId}`
+          );
+          return false;
+        }
+        return true;
+      })
+      .map((team) => ({
+        _id: team.teamId,
+        name: team.teamName,
+        sportCode: team.sportCode,
+        ageGroup: team.ageGroup,
+        gender: team.gender,
+        isActive: team.isActive,
+      }));
   }, [coachAssignments?.teams]);
+
+  // Auto-select first team when coachTeams loads (only if not already set)
+  useEffect(() => {
+    if (coachTeams.length > 0 && !selectedTeamId) {
+      setSelectedTeamId(coachTeams[0]._id);
+    }
+  }, [coachTeams, selectedTeamId]);
 
   // Determine which team to show
   const displayTeamId =
-    selectedTeamId === "all" && coachTeams.length > 0
-      ? coachTeams[0]._id
-      : selectedTeamId !== "all"
+    coachTeams.length === 1
+      ? coachTeams[0]._id // Single team - always show it
+      : selectedTeamId
         ? selectedTeamId
-        : null;
+        : coachTeams.length > 0
+          ? coachTeams[0]._id
+          : null;
 
   // Check if user is head coach
   const isHeadCoach = coachAssignments?.roles?.includes("head_coach") ?? false;
@@ -123,44 +150,57 @@ export default function TeamHubPage() {
         </div>
       </div>
 
-      {/* Team Selector */}
-      <Card>
-        <CardHeader>
-          <CardTitle>Select Team</CardTitle>
-          <CardDescription>
-            View activity feed and presence for your teams
-          </CardDescription>
-        </CardHeader>
-        <CardContent>
-          <div className="flex items-center gap-4">
-            <Select onValueChange={setSelectedTeamId} value={selectedTeamId}>
-              <SelectTrigger className="w-[300px]">
-                <SelectValue placeholder="Select a team" />
-              </SelectTrigger>
-              <SelectContent>
-                {coachTeams.length > 0 ? (
-                  coachTeams.map((team) => (
+      {/* Team Selector - only show if coach has multiple teams */}
+      {coachTeams.length > 1 ? (
+        <Card>
+          <CardHeader>
+            <CardTitle>Select Team</CardTitle>
+            <CardDescription>
+              View activity feed and presence for your teams
+            </CardDescription>
+          </CardHeader>
+          <CardContent>
+            <div className="flex items-center gap-4">
+              <Select onValueChange={setSelectedTeamId} value={selectedTeamId}>
+                <SelectTrigger className="w-[300px]">
+                  <SelectValue placeholder="Select a team" />
+                </SelectTrigger>
+                <SelectContent>
+                  {coachTeams.map((team) => (
                     <SelectItem key={team._id} value={team._id}>
                       {team.name}
                     </SelectItem>
-                  ))
-                ) : (
-                  <SelectItem disabled value="none">
-                    No teams assigned
-                  </SelectItem>
-                )}
-              </SelectContent>
-            </Select>
+                  ))}
+                </SelectContent>
+              </Select>
 
+              {displayTeamId && (
+                <PresenceIndicators
+                  organizationId={orgId}
+                  teamId={displayTeamId}
+                />
+              )}
+            </div>
+          </CardContent>
+        </Card>
+      ) : coachTeams.length === 1 ? (
+        <Card>
+          <CardContent className="flex items-center justify-between pt-6">
+            <div>
+              <h2 className="font-semibold text-xl">{coachTeams[0].name}</h2>
+              <p className="text-muted-foreground text-sm">
+                {coachTeams[0].ageGroup} • {coachTeams[0].gender}
+              </p>
+            </div>
             {displayTeamId && (
               <PresenceIndicators
                 organizationId={orgId}
                 teamId={displayTeamId}
               />
             )}
-          </div>
-        </CardContent>
-      </Card>
+          </CardContent>
+        </Card>
+      ) : null}
 
       {/* Tab Navigation and Content */}
       {displayTeamId && orgId && userId ? (

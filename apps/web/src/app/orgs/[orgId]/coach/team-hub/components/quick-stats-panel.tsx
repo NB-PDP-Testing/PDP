@@ -2,7 +2,7 @@
 
 import { api } from "@pdp/backend/convex/_generated/api";
 import { useQuery } from "convex/react";
-import { AlertCircle, Calendar, TrendingUp, Users } from "lucide-react";
+import { AlertCircle, Calendar, CheckSquare, Users } from "lucide-react";
 import { Card, CardContent } from "@/components/ui/card";
 import { Skeleton } from "@/components/ui/skeleton";
 
@@ -50,14 +50,13 @@ export function QuickStatsPanel({
       bgColor: "bg-red-500/10",
     },
     {
-      title: "Attendance",
-      value:
-        stats.attendancePercent !== null
-          ? `${stats.attendancePercent}%`
-          : "N/A",
-      icon: TrendingUp,
-      color: "text-green-500",
-      bgColor: "bg-green-500/10",
+      title: "Open Tasks",
+      value: stats.openTasks || 0,
+      subtitle:
+        stats.overdueCount > 0 ? `${stats.overdueCount} overdue` : undefined,
+      icon: CheckSquare,
+      color: "text-orange-500",
+      bgColor: "bg-orange-500/10",
     },
     {
       title: "Upcoming Events",
@@ -84,6 +83,11 @@ export function QuickStatsPanel({
                     {stat.title}
                   </div>
                   <div className="mt-1 font-bold text-2xl">{stat.value}</div>
+                  {"subtitle" in stat && stat.subtitle && (
+                    <div className="mt-1 text-muted-foreground text-xs">
+                      {stat.subtitle}
+                    </div>
+                  )}
                 </div>
               </div>
             </CardContent>

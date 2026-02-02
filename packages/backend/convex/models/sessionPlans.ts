@@ -2706,16 +2706,13 @@ export const listByTeam = query({
       throw new Error("Not a member of this organization");
     }
 
-    // Fetch all session plans for the team
+    // Fetch all session plans for the team using composite index
     const allPlans = await ctx.db
       .query("sessionPlans")
-      .withIndex("by_org", (q) => q.eq("organizationId", args.organizationId))
-      .filter((q) =>
-        q.and(
-          q.eq(q.field("teamId"), args.teamId),
-          q.neq(q.field("status"), "deleted")
-        )
+      .withIndex("by_org_and_team", (q) =>
+        q.eq("organizationId", args.organizationId).eq("teamId", args.teamId)
       )
+      .filter((q) => q.neq(q.field("status"), "deleted"))
       .collect();
 
     // Map to return type with only needed fields

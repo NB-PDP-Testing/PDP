@@ -264,7 +264,10 @@ export default function TeamHubPage() {
               </TabsContent>
 
               <TabsContent value="players">
-                <PlayersTab />
+                <PlayersTab
+                  organizationId={params.orgId}
+                  teamId={displayTeamId}
+                />
               </TabsContent>
 
               <TabsContent value="planning">

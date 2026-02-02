@@ -1,6 +1,7 @@
 import type { Doc as BetterAuthDoc } from "@pdp/backend/convex/betterAuth/_generated/dataModel";
 import { v } from "convex/values";
 import { components } from "../_generated/api";
+import type { Doc } from "../_generated/dataModel";
 import { mutation, query } from "../_generated/server";
 import { customTeamTableSchema } from "../betterAuth/schema";
 
@@ -898,5 +899,202 @@ export const getUpcomingEvents = query({
     // 4. Take first N events based on limit
 
     return [];
+  },
+});
+
+/**
+ * Get team players with health status for Players Tab
+ * Returns player data with health badges (healthy/recovering/injured)
+ * Uses batch fetch pattern to avoid N+1 queries
+ */
+export const getTeamPlayersWithHealth = query({
+  args: {
+    teamId: v.string(),
+    organizationId: v.string(),
+  },
+  returns: v.array(
+    v.object({
+      playerId: v.id("playerIdentities"),
+      fullName: v.string(),
+      firstName: v.string(),
+      lastName: v.string(),
+      jerseyNumber: v.union(v.string(), v.null()),
+      position: v.union(v.string(), v.null()),
+      healthStatus: v.union(
+        v.literal("healthy"),
+        v.literal("recovering"),
+        v.literal("injured")
+      ),
+      isPlayingUp: v.boolean(),
+      photoUrl: v.union(v.string(), v.null()),
+      ageGroup: v.string(),
+    })
+  ),
+  handler: async (ctx, args) => {
+    // Step 1: Get all active players on the team
+    const teamMembers = await ctx.db
+      .query("teamPlayerIdentities")
+      .withIndex("by_teamId", (q) => q.eq("teamId", args.teamId))
+      .collect();
+
+    const activeMembers = teamMembers.filter((m) => m.status === "active");
+
+    if (activeMembers.length === 0) {
+      return [];
+    }
+
+    // Step 2: Batch fetch player identities (avoid N+1)
+    const uniquePlayerIds = [
+      ...new Set(activeMembers.map((m) => m.playerIdentityId)),
+    ];
+    const playerResults = await Promise.all(
+      uniquePlayerIds.map((id) => ctx.db.get(id))
+    );
+
+    const playerMap = new Map();
+    for (const player of playerResults) {
+      if (player) {
+        playerMap.set(player._id, player);
+      }
+    }
+
+    // Step 3: Batch fetch enrollments for ageGroup and jerseyNumber
+    const enrollmentResults = await Promise.all(
+      uniquePlayerIds.map((playerId) =>
+        ctx.db
+          .query("orgPlayerEnrollments")
+          .withIndex("by_player_and_org", (q) =>
+            q
+              .eq("playerIdentityId", playerId)
+              .eq("organizationId", args.organizationId)
+          )
+          .first()
+      )
+    );
+
+    const enrollmentMap = new Map();
+    for (const enrollment of enrollmentResults) {
+      if (enrollment) {
+        enrollmentMap.set(enrollment.playerIdentityId, enrollment);
+      }
+    }
+
+    // Step 4: Batch fetch injuries for health status
+    const injuryResults = await Promise.all(
+      uniquePlayerIds.map((playerId) =>
+        ctx.db
+          .query("playerInjuries")
+          .withIndex("by_playerIdentityId", (q) =>
+            q.eq("playerIdentityId", playerId)
+          )
+          .collect()
+      )
+    );
+
+    const injuryMap = new Map();
+    for (let i = 0; i < uniquePlayerIds.length; i += 1) {
+      const playerId = uniquePlayerIds[i];
+      const injuries = injuryResults[i];
+
+      // Filter to active/recovering injuries visible to this org
+      const visibleInjuries = injuries.filter((injury) => {
+        if (injury.status === "healed" || injury.status === "cleared") {
+          return false;
+        }
+        if (injury.isVisibleToAllOrgs) {
+          return true;
+        }
+        if (injury.restrictedToOrgIds?.includes(args.organizationId)) {
+          return true;
+        }
+        if (injury.occurredAtOrgId === args.organizationId) {
+          return true;
+        }
+        return false;
+      });
+
+      injuryMap.set(playerId, visibleInjuries);
+    }
+
+    // Step 5: Get team data to determine playing up status
+    const teamResult = await ctx.runQuery(
+      components.betterAuth.adapter.findOne,
+      {
+        model: "team",
+        where: [
+          {
+            field: "_id",
+            value: args.teamId,
+            operator: "eq",
+          },
+        ],
+      }
+    );
+
+    const team = teamResult as BetterAuthDoc<"team"> | null;
+
+    // Step 6: Build result array
+    const results = [];
+    for (const member of activeMembers) {
+      const player = playerMap.get(member.playerIdentityId);
+      const enrollment = enrollmentMap.get(member.playerIdentityId);
+
+      if (!player) {
+        continue;
+      }
+
+      const injuries = injuryMap.get(member.playerIdentityId) || [];
+
+      // Calculate health status
+      let healthStatus: "healthy" | "recovering" | "injured" = "healthy";
+
+      if (injuries.length > 0) {
+        // Check for severe or recent injuries (within 7 days)
+        const hasSevereOrRecentInjury = injuries.some(
+          (injury: Doc<"playerInjuries">) => {
+            if (injury.severity === "severe") {
+              return true;
+            }
+            const daysSince = Math.floor(
+              (Date.now() - new Date(injury.dateOccurred).getTime()) /
+                (1000 * 60 * 60 * 24)
+            );
+            return daysSince < 7;
+          }
+        );
+
+        if (hasSevereOrRecentInjury) {
+          healthStatus = "injured";
+        } else if (
+          injuries.some(
+            (injury: Doc<"playerInjuries">) => injury.status === "recovering"
+          )
+        ) {
+          healthStatus = "recovering";
+        }
+      }
+
+      // Determine if playing up
+      const isPlayingUp = Boolean(
+        team?.ageGroup &&
+          enrollment?.ageGroup &&
+          enrollment.ageGroup !== team.ageGroup
+      );
+
+      results.push({
+        playerId: player._id,
+        fullName: `${player.firstName} ${player.lastName}`,
+        firstName: player.firstName,
+        lastName: player.lastName,
+        jerseyNumber: enrollment?.clubMembershipNumber || null,
+        position: member.role || null,
+        healthStatus,
+        isPlayingUp,
+        photoUrl: null, // TODO: Add photo support in future phase
+        ageGroup: enrollment?.ageGroup || "",
+      });
+    }
+
+    return results;
   },
 });

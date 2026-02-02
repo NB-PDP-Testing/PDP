@@ -84,16 +84,13 @@ export default function TeamHubPage() {
 
   // Get team IDs this coach has access to
   const coachTeamIds = useMemo(() => {
-    if (!(coachAssignment?.teams && allTeams)) {
+    if (!coachAssignment?.teams) {
       return [];
     }
 
-    // Map team names from coachAssignment to team IDs
-    const teamMap = new Map(allTeams.map((team) => [team.name, team._id]));
-    return coachAssignment.teams
-      .map((teamName) => teamMap.get(teamName))
-      .filter((id) => id !== undefined) as string[];
-  }, [coachAssignment?.teams, allTeams]);
+    // coachAssignment.teams already contains team IDs (Better Auth team._id)
+    return coachAssignment.teams;
+  }, [coachAssignment?.teams]);
 
   // Filter teams to only show those assigned to this coach
   const coachTeams = useMemo(() => {

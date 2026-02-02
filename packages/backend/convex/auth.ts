@@ -45,6 +45,9 @@ export function createAuth(
     plugins: [
       convex(),
       organization({
+        // Invitation expiration: 7 days (default is 48 hours)
+        invitationExpiresIn: 60 * 60 * 24 * 7,
+
         // Enable teams within organizations
         teams: {
           enabled: true,

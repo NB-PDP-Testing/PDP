@@ -4166,30 +4166,8 @@ export const reInviteExpired = mutation({
         );
       }
 
-      // Mark the old invitation as cancelled
-      await ctx.runMutation(components.betterAuth.adapter.updateOne, {
-        input: {
-          model: "invitation",
-          where: [{ field: "_id", value: args.invitationId, operator: "eq" }],
-          update: {
-            status: "cancelled",
-          },
-        },
-      });
-
-      // Log cancellation event
-      await ctx.runMutation(internal.models.members.logInvitationEvent, {
-        invitationId: args.invitationId,
-        organizationId: invitationResult.organizationId,
-        eventType: "cancelled",
-        performedBy: currentUser?._id || "unknown",
-        performedByName: currentUser?.name,
-        performedByEmail: currentUser?.email,
-        metadata: { reason: "Cancelled for re-invite" },
-      });
-
-      // Create a new invitation with the same settings
-      // We need to use the adapter to create a new invitation directly
+      // Create new invitation FIRST (before cancelling old one)
+      // This prevents data loss if creation fails
       const INVITATION_EXPIRY_DAYS = 7;
       const expiresAt = now + INVITATION_EXPIRY_DAYS * 24 * 60 * 60 * 1000;
 
@@ -4216,7 +4194,6 @@ export const reInviteExpired = mutation({
               status: "pending",
               expiresAt,
               inviterId,
-              createdAt: now,
               metadata: {
                 ...existingMetadata,
                 reInvitedFrom: args.invitationId,
@@ -4229,6 +4206,28 @@ export const reInviteExpired = mutation({
       );
 
       const newInvitationId = (createResult as any)?._id || "unknown";
+
+      // Only cancel the old invitation AFTER successfully creating the new one
+      await ctx.runMutation(components.betterAuth.adapter.updateOne, {
+        input: {
+          model: "invitation",
+          where: [{ field: "_id", value: args.invitationId, operator: "eq" }],
+          update: {
+            status: "cancelled",
+          },
+        },
+      });
+
+      // Log cancellation event
+      await ctx.runMutation(internal.models.members.logInvitationEvent, {
+        invitationId: args.invitationId,
+        organizationId: invitationResult.organizationId,
+        eventType: "cancelled",
+        performedBy: currentUser?._id || "unknown",
+        performedByName: currentUser?.name,
+        performedByEmail: currentUser?.email,
+        metadata: { reason: "Cancelled for re-invite" },
+      });
 
       // Log creation event for new invitation
       await ctx.runMutation(internal.models.members.logInvitationEvent, {
@@ -4474,6 +4473,121 @@ export const bulkReInviteExpired = mutation({
       rateLimited,
       results,
     };
+  },
+});
+
+/**
+ * Restore a cancelled invitation back to expired status
+ * Use this to recover invitations that were cancelled due to failed re-invite
+ */
+export const restoreCancelledInvitation = mutation({
+  args: {
+    invitationId: v.string(),
+  },
+  returns: v.object({
+    success: v.boolean(),
+    error: v.optional(v.string()),
+  }),
+  handler: async (ctx, args) => {
+    try {
+      // Find the invitation
+      const invitation = await ctx.runQuery(
+        components.betterAuth.adapter.findOne,
+        {
+          model: "invitation",
+          where: [
+            {
+              field: "_id",
+              value: args.invitationId,
+              operator: "eq",
+            },
+          ],
+        }
+      );
+
+      if (!invitation) {
+        return { success: false, error: "Invitation not found" };
+      }
+
+      if (invitation.status !== "cancelled") {
+        return {
+          success: false,
+          error: `Invitation is not cancelled (status: ${invitation.status})`,
+        };
+      }
+
+      // Restore to expired status so it can be re-invited
+      await ctx.runMutation(components.betterAuth.adapter.updateOne, {
+        input: {
+          model: "invitation",
+          where: [{ field: "_id", value: args.invitationId, operator: "eq" }],
+          update: {
+            status: "expired",
+          },
+        },
+      });
+
+      console.log(
+        `[restoreCancelledInvitation] Restored invitation ${args.invitationId} to expired status`
+      );
+
+      return { success: true };
+    } catch (error) {
+      console.error("[restoreCancelledInvitation] Error:", error);
+      const errorMessage =
+        error instanceof Error ? error.message : "Unknown error";
+      return { success: false, error: errorMessage };
+    }
+  },
+});
+
+/**
+ * Get all cancelled invitations for an organization (for recovery purposes)
+ */
+export const getCancelledInvitations = query({
+  args: {
+    organizationId: v.string(),
+  },
+  returns: v.array(
+    v.object({
+      _id: v.string(),
+      email: v.string(),
+      role: v.optional(v.union(v.null(), v.string())),
+      status: v.string(),
+      organizationId: v.string(),
+      metadata: v.optional(v.any()),
+    })
+  ),
+  handler: async (ctx, args) => {
+    const result = await ctx.runQuery(components.betterAuth.adapter.findMany, {
+      model: "invitation",
+      paginationOpts: {
+        cursor: null,
+        numItems: 100,
+      },
+      where: [
+        {
+          field: "organizationId",
+          value: args.organizationId,
+          operator: "eq",
+        },
+        {
+          field: "status",
+          value: "cancelled",
+          operator: "eq",
+          connector: "AND",
+        },
+      ],
+    });
+
+    return result.page.map((inv: any) => ({
+      _id: inv._id,
+      email: inv.email,
+      role: inv.role,
+      status: inv.status,
+      organizationId: inv.organizationId,
+      metadata: inv.metadata,
+    }));
   },
 });
 

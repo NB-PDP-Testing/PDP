@@ -16,6 +16,9 @@ const taskReturnValidator = v.object({
     v.union(v.literal("low"), v.literal("medium"), v.literal("high"))
   ),
   dueDate: v.optional(v.number()),
+  status: v.optional(
+    v.union(v.literal("open"), v.literal("in-progress"), v.literal("done"))
+  ),
   source: v.union(v.literal("manual"), v.literal("voice_note")),
   voiceNoteId: v.optional(v.id("voiceNotes")),
   insightId: v.optional(v.string()),
@@ -140,10 +143,14 @@ export const createTask = mutation({
     assignedToUserId: v.string(),
     assignedToName: v.optional(v.string()),
     createdByUserId: v.string(),
+    actorName: v.string(), // For activity feed
     priority: v.optional(
       v.union(v.literal("low"), v.literal("medium"), v.literal("high"))
     ),
     dueDate: v.optional(v.number()),
+    status: v.optional(
+      v.union(v.literal("open"), v.literal("in-progress"), v.literal("done"))
+    ),
     playerIdentityId: v.optional(v.id("orgPlayerEnrollments")),
     playerName: v.optional(v.string()),
     teamId: v.optional(v.string()),
@@ -162,14 +169,33 @@ export const createTask = mutation({
       assignedToName: args.assignedToName,
       createdByUserId: args.createdByUserId,
       coachEmail: args.coachEmail,
-      priority: args.priority,
+      priority: args.priority || "medium",
       dueDate: args.dueDate,
+      status: args.status || "open",
       source: "manual",
       playerIdentityId: args.playerIdentityId,
       playerName: args.playerName,
       teamId: args.teamId,
       createdAt: now,
     });
+
+    // Create activity feed entry if this is a team task
+    if (args.teamId) {
+      await ctx.db.insert("teamActivityFeed", {
+        organizationId: args.organizationId,
+        teamId: args.teamId,
+        actorId: args.createdByUserId,
+        actorName: args.actorName,
+        actionType: "task_created",
+        entityType: "task",
+        entityId: taskId,
+        summary: `Created task: ${args.text}`,
+        priority: args.priority === "high" ? "important" : "normal",
+        metadata: {
+          playerName: args.playerName,
+        },
+      });
+    }
 
     return taskId;
   },
@@ -309,6 +335,8 @@ export const reassignTask = mutation({
     taskId: v.id("coachTasks"),
     newAssigneeUserId: v.string(),
     newAssigneeName: v.optional(v.string()),
+    actorId: v.string(),
+    actorName: v.string(),
   },
   returns: v.object({ success: v.boolean() }),
   handler: async (ctx, args) => {
@@ -321,6 +349,21 @@ export const reassignTask = mutation({
       assignedToUserId: args.newAssigneeUserId,
       assignedToName: args.newAssigneeName,
     });
+
+    // Create activity feed entry if this is a team task
+    if (task.teamId) {
+      await ctx.db.insert("teamActivityFeed", {
+        organizationId: task.organizationId,
+        teamId: task.teamId,
+        actorId: args.actorId,
+        actorName: args.actorName,
+        actionType: "task_assigned",
+        entityType: "task",
+        entityId: args.taskId,
+        summary: `Reassigned task to ${args.newAssigneeName || "another coach"}`,
+        priority: task.priority === "high" ? "important" : "normal",
+      });
+    }
 
     return { success: true };
   },
@@ -341,5 +384,69 @@ export const getTasksForVoiceNote = query({
       .collect();
 
     return tasks;
+  },
+});
+
+/**
+ * Update task status (open/in-progress/done)
+ * Syncs with completed boolean for backward compatibility
+ * Creates activity feed entry when task is completed
+ */
+export const updateTaskStatus = mutation({
+  args: {
+    taskId: v.id("coachTasks"),
+    status: v.union(
+      v.literal("open"),
+      v.literal("in-progress"),
+      v.literal("done")
+    ),
+    actorId: v.string(),
+    actorName: v.string(),
+  },
+  returns: v.object({ success: v.boolean() }),
+  handler: async (ctx, args) => {
+    const task = await ctx.db.get(args.taskId);
+    if (!task) {
+      throw new Error("Task not found");
+    }
+
+    const now = Date.now();
+    const updates: {
+      status: "open" | "in-progress" | "done";
+      completed?: boolean;
+      completedAt?: number;
+    } = {
+      status: args.status,
+    };
+
+    // Sync completed boolean with status for backward compatibility
+    if (args.status === "done") {
+      updates.completed = true;
+      updates.completedAt = now;
+    } else {
+      updates.completed = false;
+    }
+
+    await ctx.db.patch(args.taskId, updates);
+
+    // Create activity feed entry if this is a team task and status changed to done
+    if (task.teamId && args.status === "done") {
+      await ctx.db.insert("teamActivityFeed", {
+        organizationId: task.organizationId,
+        teamId: task.teamId,
+        actorId: args.actorId,
+        actorName: args.actorName,
+        actionType: "task_completed",
+        entityType: "task",
+        entityId: args.taskId,
+        summary: `Completed task: ${task.text}`,
+        priority: task.priority === "high" ? "important" : "normal",
+        metadata: {
+          playerName: task.playerName,
+        },
+      });
+    }
+
+    return { success: true };
   },
 });

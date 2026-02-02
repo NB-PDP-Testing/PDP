@@ -8,24 +8,24 @@
  * Reference: trustLevelCalculator.ts for similar pure logic pattern.
  */
 
-export interface AutoApprovalDecision {
+export type AutoApprovalDecision = {
   shouldAutoApprove: boolean;
   reason: string;
   tier: "auto_send" | "manual_review" | "flagged";
   decidedAt: number;
-}
+};
 
-export interface TrustLevelInput {
+export type TrustLevelInput = {
   currentLevel: number;
   preferredLevel: number | null | undefined;
   confidenceThreshold: number | null | undefined;
   personalizedThreshold: number | null | undefined; // Phase 4: AI-learned threshold
-}
+};
 
-export interface SummaryInput {
+export type SummaryInput = {
   confidenceScore: number;
   sensitivityCategory: string;
-}
+};
 
 /**
  * Decide whether a summary should be auto-approved based on trust level and summary properties.

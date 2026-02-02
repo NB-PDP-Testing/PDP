@@ -26,6 +26,7 @@ import type * as jobs_graduations from "../jobs/graduations.js";
 import type * as jobs_invitations from "../jobs/invitations.js";
 import type * as lib_ageGroupUtils from "../lib/ageGroupUtils.js";
 import type * as lib_analytics from "../lib/analytics.js";
+import type * as lib_auditCoachAssignments from "../lib/auditCoachAssignments.js";
 import type * as lib_autoApprovalDecision from "../lib/autoApprovalDecision.js";
 import type * as lib_circuitBreaker from "../lib/circuitBreaker.js";
 import type * as lib_consentGateway from "../lib/consentGateway.js";
@@ -167,6 +168,7 @@ declare const fullApi: ApiFromModules<{
   "jobs/invitations": typeof jobs_invitations;
   "lib/ageGroupUtils": typeof lib_ageGroupUtils;
   "lib/analytics": typeof lib_analytics;
+  "lib/auditCoachAssignments": typeof lib_auditCoachAssignments;
   "lib/autoApprovalDecision": typeof lib_autoApprovalDecision;
   "lib/circuitBreaker": typeof lib_circuitBreaker;
   "lib/consentGateway": typeof lib_consentGateway;

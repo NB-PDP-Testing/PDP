@@ -265,6 +265,7 @@ export function CoachTodosView({ orgId }: CoachTodosViewProps) {
         assignedToUserId: assigneeUserId,
         assignedToName: assigneeName,
         createdByUserId: userId,
+        actorName: userName || "Unknown",
         teamId,
         // Include legacy email for backward compatibility
         coachEmail: session?.user?.email || undefined,

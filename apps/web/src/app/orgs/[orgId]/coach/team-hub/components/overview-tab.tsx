@@ -85,62 +85,64 @@ export function OverviewTab({ teamId, organizationId }: OverviewTabProps) {
                   </div>
                 ) : (
                   <div className="space-y-3">
-                    {activityItems.map((activity) => {
-                      const initials = activity.actorName
-                        .split(" ")
-                        .map((n: string) => n[0])
-                        .join("")
-                        .toUpperCase()
-                        .substring(0, 2);
+                    {activityItems.map(
+                      (activity: (typeof activityItems)[number]) => {
+                        const initials = activity.actorName
+                          .split(" ")
+                          .map((n: string) => n[0])
+                          .join("")
+                          .toUpperCase()
+                          .substring(0, 2);
 
-                      const getPriorityBadge = (priority: string) => {
-                        switch (priority) {
-                          case "critical":
-                            return (
-                              <Badge variant="destructive">Critical</Badge>
-                            );
-                          case "important":
-                            return <Badge variant="default">Important</Badge>;
-                          default:
-                            return null;
-                        }
-                      };
+                        const getPriorityBadge = (priority: string) => {
+                          switch (priority) {
+                            case "critical":
+                              return (
+                                <Badge variant="destructive">Critical</Badge>
+                              );
+                            case "important":
+                              return <Badge variant="default">Important</Badge>;
+                            default:
+                              return null;
+                          }
+                        };
 
-                      return (
-                        <div
-                          className="flex items-start gap-3 rounded-lg border border-border bg-card p-3"
-                          key={activity._id}
-                        >
-                          <Avatar className="h-8 w-8">
-                            <AvatarImage
-                              alt={activity.actorName}
-                              src={activity.actorAvatar}
-                            />
-                            <AvatarFallback className="text-xs">
-                              {initials}
-                            </AvatarFallback>
-                          </Avatar>
-                          <div className="flex-1 space-y-1">
-                            <div className="flex items-start justify-between gap-2">
-                              <div className="flex-1">
-                                <p className="text-sm">
-                                  <span className="font-medium">
-                                    {activity.actorName}
-                                  </span>{" "}
-                                  {activity.summary}
-                                </p>
+                        return (
+                          <div
+                            className="flex items-start gap-3 rounded-lg border border-border bg-card p-3"
+                            key={activity._id}
+                          >
+                            <Avatar className="h-8 w-8">
+                              <AvatarImage
+                                alt={activity.actorName}
+                                src={activity.actorAvatar}
+                              />
+                              <AvatarFallback className="text-xs">
+                                {initials}
+                              </AvatarFallback>
+                            </Avatar>
+                            <div className="flex-1 space-y-1">
+                              <div className="flex items-start justify-between gap-2">
+                                <div className="flex-1">
+                                  <p className="text-sm">
+                                    <span className="font-medium">
+                                      {activity.actorName}
+                                    </span>{" "}
+                                    {activity.summary}
+                                  </p>
+                                </div>
+                                {getPriorityBadge(activity.priority)}
                               </div>
-                              {getPriorityBadge(activity.priority)}
+                              <p className="text-muted-foreground text-xs">
+                                {formatDistanceToNow(activity._creationTime, {
+                                  addSuffix: true,
+                                })}
+                              </p>
                             </div>
-                            <p className="text-muted-foreground text-xs">
-                              {formatDistanceToNow(activity._creationTime, {
-                                addSuffix: true,
-                              })}
-                            </p>
                           </div>
-                        </div>
-                      );
-                    })}
+                        );
+                      }
+                    )}
                   </div>
                 )
               ) : (

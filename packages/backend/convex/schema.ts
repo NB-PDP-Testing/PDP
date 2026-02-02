@@ -940,6 +940,9 @@ export default defineSchema({
       v.union(v.literal("low"), v.literal("medium"), v.literal("high"))
     ),
     dueDate: v.optional(v.number()), // Timestamp
+    status: v.optional(
+      v.union(v.literal("open"), v.literal("in-progress"), v.literal("done"))
+    ), // Task status (granular alternative to completed boolean)
 
     // Source tracking - where did this task come from?
     source: v.union(v.literal("manual"), v.literal("voice_note")),
@@ -1741,7 +1744,10 @@ export default defineSchema({
       v.literal("injury_logged"),
       v.literal("decision_created"),
       v.literal("vote_cast"),
-      v.literal("decision_finalized")
+      v.literal("decision_finalized"),
+      v.literal("task_created"),
+      v.literal("task_completed"),
+      v.literal("task_assigned")
     ),
     entityType: v.union(
       v.literal("voice_note"),
@@ -1750,7 +1756,8 @@ export default defineSchema({
       v.literal("skill_assessment"),
       v.literal("goal"),
       v.literal("injury"),
-      v.literal("decision")
+      v.literal("decision"),
+      v.literal("task")
     ),
     entityId: v.string(), // ID of the related entity
     summary: v.string(), // Human-readable description

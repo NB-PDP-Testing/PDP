@@ -911,3 +911,480 @@ Phase 4 is complete when:
 **Ready to start Phase 4!** Begin with US-P9-057 (Tasks Tab), then US-P9-058 (Insights Tab).
 
 Remember: **Copy, don't create**. Every component has a template from Phases 1-3.
+
+---
+
+## 🔴 CRITICAL: Existing coachTasks Schema (DO NOT CREATE NEW TABLE!)
+
+**IMPORTANT**: The `coachTasks` table ALREADY EXISTS in schema.ts at line 925. You must ENHANCE it, not replace it.
+
+### Existing Schema Structure
+
+```typescript
+coachTasks: defineTable({
+  text: v.string(), // Task description (use as "title")
+  completed: v.boolean(), // Legacy field - keep for backward compatibility
+  organizationId: v.string(), // Org scope
+
+  // Assignment - who the task is assigned to
+  assignedToUserId: v.string(), // Better Auth user ID of assigned coach
+  assignedToName: v.optional(v.string()), // Denormalized name for display
+  createdByUserId: v.string(), // Better Auth user ID of task creator
+
+  // Legacy field - keep for backward compatibility during migration
+  coachEmail: v.optional(v.string()), // Deprecated: Coach's email
+
+  // Task metadata
+  priority: v.optional(
+    v.union(v.literal("low"), v.literal("medium"), v.literal("high"))
+  ),
+  dueDate: v.optional(v.number()), // Timestamp
+
+  // Source tracking - where did this task come from?
+  source: v.union(v.literal("manual"), v.literal("voice_note")),
+  voiceNoteId: v.optional(v.id("voiceNotes")), // If created from voice note
+  insightId: v.optional(v.string()), // Insight ID within the voice note
+
+  // Player linking - optional association with a player
+  playerIdentityId: v.optional(v.id("orgPlayerEnrollments")),
+  playerName: v.optional(v.string()), // Denormalized for display
+
+  // Team scope - if set, this is a team task visible to all team members
+  teamId: v.optional(v.string()), // Better Auth team ID for team tasks
+
+  // Timestamps
+  createdAt: v.number(),
+  completedAt: v.optional(v.number()),
+})
+  .index("by_assigned_user_and_org", ["assignedToUserId", "organizationId"])
+  .index("by_team_and_org", ["teamId", "organizationId"])
+  .index("by_org", ["organizationId"])
+  .index("by_completed", ["completed"])
+  .index("by_voice_note", ["voiceNoteId"])
+  .index("by_coach_and_org", ["coachEmail", "organizationId"]) // Legacy
+```
+
+### What You Need to Add
+
+**Add ONLY this field**:
+```typescript
+status: v.optional(v.union(
+  v.literal("open"),
+  v.literal("in-progress"),
+  v.literal("done")
+))
+```
+
+**Rationale**: The `completed` field (boolean) stays for backward compatibility. The `status` field adds granularity for tracking "in-progress" state.
+
+### Query Pattern (Use Existing Index)
+
+```typescript
+// Get team tasks
+export const getTeamTasks = query({
+  args: {
+    teamId: v.string(),
+    organizationId: v.string(),
+  },
+  returns: v.array(v.object({
+    _id: v.id("coachTasks"),
+    text: v.string(), // This is the "title"
+    assignedToUserId: v.string(),
+    assignedToName: v.optional(v.string()),
+    dueDate: v.optional(v.number()),
+    priority: v.optional(v.union(v.literal("low"), v.literal("medium"), v.literal("high"))),
+    status: v.optional(v.union(v.literal("open"), v.literal("in-progress"), v.literal("done"))),
+    completed: v.boolean(),
+    voiceNoteId: v.optional(v.id("voiceNotes")),
+    playerIdentityId: v.optional(v.id("orgPlayerEnrollments")),
+    createdAt: v.number(),
+  })),
+  handler: async (ctx, args) => {
+    // Use existing by_team_and_org index
+    const tasks = await ctx.db
+      .query("coachTasks")
+      .withIndex("by_team_and_org", q =>
+        q.eq("teamId", args.teamId).eq("organizationId", args.organizationId)
+      )
+      .collect();
+
+    // Batch fetch assignees (avoid N+1)
+    const uniqueUserIds = [...new Set(tasks.map(t => t.assignedToUserId))];
+    const users = await Promise.all(
+      uniqueUserIds.map(userId =>
+        ctx.runQuery(components.betterAuth.adapter.findOne, {
+          model: "user",
+          where: [{ field: "_id", value: userId, operator: "eq" }],
+        })
+      )
+    );
+
+    const userMap = new Map();
+    for (const user of users) {
+      if (user) userMap.set(user._id, user);
+    }
+
+    // Enrich tasks with assignee names
+    return tasks.map(task => ({
+      ...task,
+      assignedToName: task.assignedToName || 
+        (() => {
+          const user = userMap.get(task.assignedToUserId);
+          return user ? `${user.firstName || ""} ${user.lastName || ""}`.trim() : "Unknown";
+        })(),
+    }));
+  },
+});
+```
+
+### Field Mapping
+
+| Frontend Label | Schema Field | Notes |
+|----------------|--------------|-------|
+| Title | `text` | Existing field (string) |
+| Description | N/A | Not in schema - can add as `description: v.optional(v.string())` |
+| Assignee | `assignedToUserId` + `assignedToName` | Existing fields |
+| Due Date | `dueDate` | Existing field (timestamp) |
+| Priority | `priority` | Existing field (low/medium/high) |
+| Status | `status` | **NEW FIELD** (open/in-progress/done) |
+| Completed | `completed` | Existing field (keep for backward compat) |
+| Voice Note Link | `voiceNoteId` | Existing field (optional) |
+| Player Link | `playerIdentityId` | Existing field (optional) |
+
+---
+
+## 🚀 Activity Feed Integration Pattern
+
+**Purpose**: Show task and insight events in the team activity feed so all collaboration is visible in one place.
+
+### Schema Updates
+
+**Extend `teamActivityFeed.actionType` enum** (schema.ts lines 1735-1745):
+```typescript
+actionType: v.union(
+  v.literal("voice_note_added"),
+  v.literal("insight_applied"),
+  v.literal("comment_added"),
+  v.literal("player_assessed"),
+  v.literal("goal_created"),
+  v.literal("injury_logged"),
+  v.literal("decision_created"),
+  v.literal("vote_cast"),
+  v.literal("decision_finalized"),
+  v.literal("task_created"),      // NEW
+  v.literal("task_completed"),    // NEW
+  v.literal("task_assigned"),     // NEW
+  v.literal("insight_generated")  // NEW
+),
+```
+
+**Extend `teamActivityFeed.entityType` enum** (schema.ts lines 1746-1754):
+```typescript
+entityType: v.union(
+  v.literal("voice_note"),
+  v.literal("insight"),
+  v.literal("comment"),
+  v.literal("skill_assessment"),
+  v.literal("goal"),
+  v.literal("injury"),
+  v.literal("decision"),
+  v.literal("task"),              // NEW
+  v.literal("team_insight")       // NEW
+),
+```
+
+### Mutation Pattern (Create Activity Entry)
+
+**After creating/updating task or insight, insert activity feed record**:
+
+```typescript
+// Example: createTask mutation
+export const createTask = mutation({
+  args: {
+    text: v.string(),
+    teamId: v.string(),
+    organizationId: v.string(),
+    assignedToUserId: v.string(),
+    priority: v.union(v.literal("low"), v.literal("medium"), v.literal("high")),
+    dueDate: v.optional(v.number()),
+  },
+  returns: v.id("coachTasks"),
+  handler: async (ctx, args) => {
+    // Auth check
+    const identity = await ctx.auth.getUserIdentity();
+    if (!identity) throw new Error("Not authenticated");
+    const userId = identity.subject;
+
+    // Create task
+    const taskId = await ctx.db.insert("coachTasks", {
+      text: args.text,
+      teamId: args.teamId,
+      organizationId: args.organizationId,
+      assignedToUserId: args.assignedToUserId,
+      assignedToName: undefined, // Will be enriched in query
+      createdByUserId: userId,
+      priority: args.priority,
+      dueDate: args.dueDate,
+      completed: false,
+      source: "manual",
+      createdAt: Date.now(),
+    });
+
+    // Get user name for activity feed
+    const user = await ctx.runQuery(components.betterAuth.adapter.findOne, {
+      model: "user",
+      where: [{ field: "_id", value: userId, operator: "eq" }],
+    });
+    const actorName = user ? `${user.firstName || ""} ${user.lastName || ""}`.trim() : "Unknown";
+
+    // 🔥 CREATE ACTIVITY FEED ENTRY
+    await ctx.db.insert("teamActivityFeed", {
+      organizationId: args.organizationId,
+      teamId: args.teamId,
+      actorId: userId,
+      actorName,
+      actionType: "task_created",
+      entityType: "task",
+      entityId: taskId,
+      summary: `Created task: ${args.text}`,
+      priority: args.priority === "high" ? "important" : "normal",
+    });
+
+    return taskId;
+  },
+});
+
+// Example: updateTaskStatus mutation
+export const updateTaskStatus = mutation({
+  args: {
+    taskId: v.id("coachTasks"),
+    status: v.union(v.literal("open"), v.literal("in-progress"), v.literal("done")),
+  },
+  returns: v.null(),
+  handler: async (ctx, args) => {
+    // Auth check
+    const identity = await ctx.auth.getUserIdentity();
+    if (!identity) throw new Error("Not authenticated");
+    const userId = identity.subject;
+
+    // Get task
+    const task = await ctx.db.get(args.taskId);
+    if (!task) throw new Error("Task not found");
+
+    // Update task
+    await ctx.db.patch(args.taskId, {
+      status: args.status,
+      completed: args.status === "done",
+      completedAt: args.status === "done" ? Date.now() : undefined,
+    });
+
+    // Get user name
+    const user = await ctx.runQuery(components.betterAuth.adapter.findOne, {
+      model: "user",
+      where: [{ field: "_id", value: userId, operator: "eq" }],
+    });
+    const actorName = user ? `${user.firstName || ""} ${user.lastName || ""}`.trim() : "Unknown";
+
+    // 🔥 CREATE ACTIVITY FEED ENTRY (only if completed)
+    if (args.status === "done") {
+      await ctx.db.insert("teamActivityFeed", {
+        organizationId: task.organizationId,
+        teamId: task.teamId!,
+        actorId: userId,
+        actorName,
+        actionType: "task_completed",
+        entityType: "task",
+        entityId: args.taskId,
+        summary: `Completed task: ${task.text}`,
+        priority: "normal",
+      });
+    }
+
+    return null;
+  },
+});
+```
+
+### When to Create Activity Entries
+
+| Event | actionType | entityType | When |
+|-------|-----------|-----------|------|
+| Task created | `task_created` | `task` | After insert |
+| Task completed | `task_completed` | `task` | When status → "done" |
+| Task assigned | `task_assigned` | `task` | When assignee changes (optional) |
+| Insight generated | `insight_generated` | `team_insight` | After AI action creates insight |
+
+---
+
+## 📊 Overview Dashboard Integration
+
+**Purpose**: Show task and insight counts in Quick Stats Panel so coaches see collaboration metrics at a glance.
+
+### Update getTeamOverviewStats Query
+
+**File**: `packages/backend/convex/models/teams.ts`
+
+**Add to return type**:
+```typescript
+returns: v.object({
+  totalPlayers: v.number(),
+  activeInjuries: v.number(),
+  attendancePercent: v.number(), // Keep as placeholder
+  upcomingEventsCount: v.number(), // Keep as placeholder
+  openTasks: v.number(),          // NEW
+  overdueCount: v.number(),       // NEW
+  unreadInsights: v.number(),     // NEW
+  highPriorityInsights: v.number(), // NEW
+}),
+```
+
+**Add to query handler**:
+```typescript
+// Get current user ID
+const identity = await ctx.auth.getUserIdentity();
+const userId = identity?.subject || "";
+
+// Count open tasks (status !== 'done' OR completed === false)
+const teamTasks = await ctx.db
+  .query("coachTasks")
+  .withIndex("by_team_and_org", q =>
+    q.eq("teamId", args.teamId).eq("organizationId", args.organizationId)
+  )
+  .collect();
+
+const openTasks = teamTasks.filter(t => 
+  t.status !== "done" && !t.completed
+);
+
+const now = Date.now();
+const overdueCount = openTasks.filter(t =>
+  t.dueDate && t.dueDate < now
+).length;
+
+// Count unread insights (!readBy.includes(userId))
+const insights = await ctx.db
+  .query("teamInsights")
+  .withIndex("by_team_and_date", q => q.eq("teamId", args.teamId))
+  .collect();
+
+const unreadInsights = insights.filter(i =>
+  !i.readBy || !i.readBy.includes(userId)
+);
+
+const highPriorityInsights = unreadInsights.filter(i =>
+  i.priority === "high"
+).length;
+
+return {
+  totalPlayers: /* existing code */,
+  activeInjuries: /* existing code */,
+  attendancePercent: 85, // Placeholder
+  upcomingEventsCount: /* existing code */,
+  openTasks: openTasks.length,
+  overdueCount,
+  unreadInsights: unreadInsights.length,
+  highPriorityInsights,
+};
+```
+
+### Update Quick Stats Panel UI
+
+**File**: `apps/web/src/app/orgs/[orgId]/coach/team-hub/components/quick-stats-panel.tsx`
+
+**Replace placeholders**:
+
+```typescript
+// BEFORE: Placeholder cards
+<StatCard
+  icon={Activity}
+  label="Attendance %"
+  value={`${stats.attendancePercent}%`}
+  trend={{ value: 0, direction: "neutral" }}
+/>
+<StatCard
+  icon={Calendar}
+  label="Upcoming Events"
+  value={stats.upcomingEventsCount}
+  trend={{ value: 0, direction: "neutral" }}
+/>
+
+// AFTER: Real task/insight cards
+<StatCard
+  icon={CheckSquare}
+  label="Open Tasks"
+  value={stats.openTasks}
+  badge={stats.overdueCount > 0 ? `${stats.overdueCount} overdue` : undefined}
+  badgeVariant="destructive"
+  trend={{ value: 0, direction: "neutral" }}
+  onClick={() => router.push(`/orgs/${orgId}/coach/team-hub?tab=tasks&filter=open`)}
+/>
+<StatCard
+  icon={Sparkles}
+  label="Unread Insights"
+  value={stats.unreadInsights}
+  badge={stats.highPriorityInsights > 0 ? `${stats.highPriorityInsights} priority` : undefined}
+  badgeVariant="default"
+  trend={{ value: 0, direction: "neutral" }}
+  onClick={() => router.push(`/orgs/${orgId}/coach/team-hub?tab=insights&filter=unread`)}
+/>
+```
+
+**Make cards clickable** (add to StatCard component):
+```typescript
+type StatCardProps = {
+  icon: LucideIcon;
+  label: string;
+  value: number | string;
+  badge?: string;
+  badgeVariant?: "default" | "destructive";
+  trend: { value: number; direction: "up" | "down" | "neutral" };
+  onClick?: () => void; // NEW
+};
+
+// In component render:
+<Card 
+  className={cn(
+    "cursor-pointer transition-colors hover:bg-accent", 
+    onClick && "cursor-pointer"
+  )}
+  onClick={onClick}
+>
+  {/* card content */}
+</Card>
+```
+
+---
+
+## 📝 Updated Effort Estimate
+
+| Story | Original | Enhanced | Delta | Reason |
+|-------|----------|----------|-------|--------|
+| US-P9-057 (Tasks) | 5h | 5.5h | +0.5h | Activity feed + overview integration |
+| US-P9-058 (Insights) | 4h | 5h | +1h | Activity feed + overview + voice notes badges |
+| US-P9-NAV (Navigation) | N/A | 0.5h | +0.5h | Sidebar + bottom nav updates |
+| **Total** | **9h** | **11h** | **+2h** | 4 major integrations |
+
+**Why the increase?**
+- Activity Feed integration (1h total): Extend schema enums + create entries in mutations
+- Overview Dashboard integration (0.75h): Update query + replace placeholder cards
+- Voice Notes badges (0.25h): Add insights count badge to voice notes tab
+
+**Why NOT more?**
+- Schema already exists! Just add 1 field to coachTasks (-0.5h)
+- Voice note linking exists! Just display badge (-0.5h)
+- Player linking exists! Just display badge (-0.5h)
+- Existing indexes reused (-0.5h)
+
+**Net**: Original 9h + 2h integrations - 2h reuse savings = **11h total**
+
+---
+
+**Phase 4 is now fully documented with all enhancements!** 
+
+Key changes from original plan:
+1. ✅ Use existing `coachTasks` table (add 1 field only)
+2. ✅ Integrate with Activity Feed (4 new event types)
+3. ✅ Integrate with Overview Dashboard (Quick Stats enhancement)
+4. ✅ Add Voice Notes bidirectional linking (badges)
+5. ✅ Add Navigation integration (sidebar + bottom nav)
+

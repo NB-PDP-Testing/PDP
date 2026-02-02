@@ -735,7 +735,10 @@ export const getTeamActivityFeed = query({
           v.literal("injury_logged"),
           v.literal("decision_created"),
           v.literal("vote_cast"),
-          v.literal("decision_finalized")
+          v.literal("decision_finalized"),
+          v.literal("task_created"),
+          v.literal("task_completed"),
+          v.literal("task_assigned")
         ),
         entityType: v.union(
           v.literal("voice_note"),
@@ -744,7 +747,8 @@ export const getTeamActivityFeed = query({
           v.literal("skill_assessment"),
           v.literal("goal"),
           v.literal("injury"),
-          v.literal("decision")
+          v.literal("decision"),
+          v.literal("task")
         ),
         entityId: v.string(),
         summary: v.string(),
@@ -777,7 +781,10 @@ export const getTeamActivityFeed = query({
       | "injury_logged"
       | "decision_created"
       | "vote_cast"
-      | "decision_finalized";
+      | "decision_finalized"
+      | "task_created"
+      | "task_completed"
+      | "task_assigned";
 
     const typeMapping: Record<string, ActionType[]> = {
       insights: ["voice_note_added", "insight_applied"],
@@ -794,7 +801,8 @@ export const getTeamActivityFeed = query({
       | "skill_assessment"
       | "goal"
       | "injury"
-      | "decision";
+      | "decision"
+      | "task";
 
     type ActivityDoc = {
       _id: Id<"teamActivityFeed">;
@@ -972,7 +980,10 @@ export const getUnreadNotifications = query({
           v.literal("injury_logged"),
           v.literal("decision_created"),
           v.literal("vote_cast"),
-          v.literal("decision_finalized")
+          v.literal("decision_finalized"),
+          v.literal("task_created"),
+          v.literal("task_completed"),
+          v.literal("task_assigned")
         ),
         entityType: v.union(
           v.literal("voice_note"),
@@ -981,7 +992,8 @@ export const getUnreadNotifications = query({
           v.literal("skill_assessment"),
           v.literal("goal"),
           v.literal("injury"),
-          v.literal("decision")
+          v.literal("decision"),
+          v.literal("task")
         ),
         entityId: v.string(),
         summary: v.string(),

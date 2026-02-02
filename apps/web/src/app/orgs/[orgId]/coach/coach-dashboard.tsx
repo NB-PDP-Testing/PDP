@@ -36,9 +36,10 @@ export function CoachDashboard() {
   // Fallback: use session user ID if Convex user query returns null
   const userId = currentUser?._id || session?.user?.id;
 
-  // Get coach assignments for current user
+  // Get coach assignments with enriched team data (Pattern B)
+  // Uses getCoachAssignmentsWithTeams for single-query enriched data
   const coachAssignments = useQuery(
-    api.models.coaches.getCoachAssignments,
+    api.models.coaches.getCoachAssignmentsWithTeams,
     userId && orgId
       ? {
           userId,
@@ -62,6 +63,8 @@ export function CoachDashboard() {
   const pendingCount = pendingShares?.length ?? 0;
 
   // Get all teams for the organization
+  // Note: Dashboard needs ALL org teams (not just coach's assigned teams)
+  // because players can be on multiple teams, and we need to look up any team
   const teams = useQuery(api.models.teams.getTeamsByOrganization, {
     organizationId: orgId,
   });
@@ -123,42 +126,15 @@ export function CoachDashboard() {
       : "skip"
   );
 
-  // Get coach's assigned team IDs
-  // Note: Some coach assignments may have team names instead of IDs (legacy data)
-  // We need to handle both cases
+  // Get coach's assigned team IDs (Pattern B - already resolved server-side)
+  // getCoachAssignmentsWithTeams handles legacy data (names vs IDs) on the server
   const coachTeamIds = useMemo(() => {
-    if (!(coachAssignments && teams)) {
+    if (!coachAssignments?.teams) {
       return [];
     }
-    const assignmentTeams = coachAssignments.teams || [];
-
-    // Create maps for both ID and name lookup
-    const teamIdSet = new Set(teams.map((t: any) => t._id));
-    const teamNameToId = new Map(teams.map((t: any) => [t.name, t._id]));
-
-    // Convert assignment values to team IDs (handles both ID and name formats)
-    const resolvedIds = assignmentTeams
-      .map((value: string) => {
-        // If it's already a valid team ID, use it
-        if (teamIdSet.has(value)) {
-          return value;
-        }
-        // Otherwise, try to look up by name
-        const idFromName = teamNameToId.get(value);
-        if (idFromName) {
-          console.log(
-            `[coach-dashboard] Resolved team name "${value}" to ID "${idFromName}"`
-          );
-          return idFromName;
-        }
-        console.warn(`[coach-dashboard] Could not resolve team: "${value}"`);
-        return null;
-      })
-      .filter((id: string | null): id is string => id !== null);
-
-    // Deduplicate
-    return Array.from(new Set(resolvedIds));
-  }, [coachAssignments, teams]);
+    // Team IDs are already resolved and enriched by the server
+    return coachAssignments.teams.map((team) => team.teamId);
+  }, [coachAssignments?.teams]);
 
   // Filter team-player links to only those for coach's assigned teams
   const coachTeamPlayerLinks = useMemo(() => {

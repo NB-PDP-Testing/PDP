@@ -79,16 +79,10 @@ export function CoachTodosView({ orgId }: CoachTodosViewProps) {
     userId && orgId ? { userId, organizationId: orgId } : "skip"
   );
 
-  // Get coach assignments to determine team(s)
+  // Get coach assignments with enriched team data (Pattern B)
   const coachAssignments = useQuery(
-    api.models.coaches.getCoachAssignments,
+    api.models.coaches.getCoachAssignmentsWithTeams,
     userId && orgId ? { userId, organizationId: orgId } : "skip"
-  );
-
-  // Get all teams in org
-  const teams = useQuery(
-    api.models.teams.getTeamsByOrganization,
-    orgId ? { organizationId: orgId } : "skip"
   );
 
   // Get fellow coaches who share teams with current coach
@@ -97,27 +91,13 @@ export function CoachTodosView({ orgId }: CoachTodosViewProps) {
     userId && orgId ? { userId, organizationId: orgId } : "skip"
   );
 
-  // Get coach's team IDs (resolve names to IDs if needed)
+  // Get coach's team IDs (Pattern B - already resolved server-side)
   const coachTeamIds = useMemo(() => {
-    if (!(coachAssignments && teams)) {
+    if (!coachAssignments?.teams) {
       return [];
     }
-    const assignmentTeams = coachAssignments.teams || [];
-    const teamIdSet = new Set(teams.map((t: any) => t._id));
-    const teamNameToId = new Map(teams.map((t: any) => [t.name, t._id]));
-
-    const resolvedIds = assignmentTeams
-      .map((value: string) => {
-        if (teamIdSet.has(value)) {
-          return value;
-        }
-        const idFromName = teamNameToId.get(value);
-        return idFromName || null;
-      })
-      .filter((id: string | null): id is string => id !== null);
-
-    return Array.from(new Set(resolvedIds));
-  }, [coachAssignments, teams]);
+    return coachAssignments.teams.map((team) => team.teamId);
+  }, [coachAssignments?.teams]);
 
   // Get all tasks for the org and filter to team tasks client-side
   // This avoids the hooks-in-loop issue while still getting team tasks

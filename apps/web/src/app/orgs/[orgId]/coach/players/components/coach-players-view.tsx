@@ -43,9 +43,9 @@ export function CoachPlayersView({ orgId }: CoachPlayersViewProps) {
   // Fallback: use session user ID if Convex user query returns null
   const userId = currentUser?._id || session?.user?.id;
 
-  // Get coach assignments for current user
+  // Get coach assignments with enriched team data (Pattern B)
   const coachAssignments = useQuery(
-    api.models.coaches.getCoachAssignments,
+    api.models.coaches.getCoachAssignmentsWithTeams,
     userId && orgId
       ? {
           userId,
@@ -102,34 +102,13 @@ export function CoachPlayersView({ orgId }: CoachPlayersViewProps) {
       : "skip"
   );
 
-  // Get coach's assigned team IDs
+  // Get coach's assigned team IDs (Pattern B - already resolved server-side)
   const coachTeamIds = useMemo(() => {
-    if (!(coachAssignments && teams)) {
+    if (!coachAssignments?.teams) {
       return [];
     }
-    const assignmentTeams = coachAssignments.teams || [];
-
-    // Create maps for both ID and name lookup
-    const teamIdSet = new Set(teams.map((t: any) => t._id));
-    const teamNameToId = new Map(teams.map((t: any) => [t.name, t._id]));
-
-    // Convert assignment values to team IDs
-    const resolvedIds = assignmentTeams
-      .map((value: string) => {
-        if (teamIdSet.has(value)) {
-          return value;
-        }
-        const idFromName = teamNameToId.get(value);
-        if (idFromName) {
-          return idFromName;
-        }
-        return null;
-      })
-      .filter((id: string | null): id is string => id !== null);
-
-    // Deduplicate
-    return Array.from(new Set(resolvedIds));
-  }, [coachAssignments, teams]);
+    return coachAssignments.teams.map((team) => team.teamId);
+  }, [coachAssignments?.teams]);
 
   // Filter team-player links to only those for coach's assigned teams
   const coachTeamPlayerLinks = useMemo(() => {

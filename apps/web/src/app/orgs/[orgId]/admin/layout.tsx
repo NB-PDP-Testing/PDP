@@ -286,7 +286,6 @@ function LegacyNavigation({
     { href: `/orgs/${orgId}/admin/medical`, label: "Medical" },
     { href: `/orgs/${orgId}/admin/users`, label: "Users" },
     { href: `/orgs/${orgId}/admin/users/approvals`, label: "Approvals" },
-    { href: `/orgs/${orgId}/admin/invitations`, label: "Invitations" },
     { href: `/orgs/${orgId}/admin/voice-notes`, label: "Voice Notes" },
     { href: `/orgs/${orgId}/admin/session-plans`, label: "Sessions" },
     { href: `/orgs/${orgId}/admin/player-import`, label: "Import" },

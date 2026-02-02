@@ -4064,282 +4064,310 @@ export const reInviteExpired = mutation({
     ),
   }),
   handler: async (ctx, args) => {
-    // Find the original invitation
-    const invitationResult = await ctx.runQuery(
-      components.betterAuth.adapter.findOne,
-      {
-        model: "invitation",
-        where: [
-          {
-            field: "_id",
-            value: args.invitationId,
-            operator: "eq",
-          },
-        ],
-      }
-    );
-
-    if (!invitationResult) {
-      return { success: false, error: "Invitation not found" };
-    }
-
-    // Verify invitation is expired
-    const now = Date.now();
-    if (invitationResult.expiresAt >= now) {
-      return {
-        success: false,
-        error: "Invitation is not expired. Use resend instead.",
-      };
-    }
-
-    // Check rate limit
-    const normalizedEmail = invitationResult.email.toLowerCase().trim();
-    const windowStart = now - INVITATION_RATE_LIMIT_WINDOW_MS;
-
-    const recentInvitationsResult = await ctx.runQuery(
-      components.betterAuth.adapter.findMany,
-      {
-        model: "invitation",
-        paginationOpts: {
-          cursor: null,
-          numItems: 100,
-        },
-        where: [
-          {
-            field: "organizationId",
-            value: invitationResult.organizationId,
-            operator: "eq",
-          },
-          {
-            field: "email",
-            value: normalizedEmail,
-            operator: "eq",
-            connector: "AND",
-          },
-        ],
-      }
-    );
-
-    const recentInvitations = recentInvitationsResult.page.filter(
-      (inv: any) => inv.createdAt >= windowStart
-    );
-
-    if (recentInvitations.length >= INVITATION_RATE_LIMIT_MAX) {
-      const oldestInvitation = recentInvitations.reduce(
-        (oldest: any, inv: any) =>
-          inv.createdAt < oldest.createdAt ? inv : oldest,
-        recentInvitations[0]
+    try {
+      // Find the original invitation
+      const invitationResult = await ctx.runQuery(
+        components.betterAuth.adapter.findOne,
+        {
+          model: "invitation",
+          where: [
+            {
+              field: "_id",
+              value: args.invitationId,
+              operator: "eq",
+            },
+          ],
+        }
       );
-      return {
-        success: false,
-        error: `Rate limit exceeded. Maximum ${INVITATION_RATE_LIMIT_MAX} invitations per email in 24 hours.`,
-        rateLimitInfo: {
-          currentCount: recentInvitations.length,
-          maxAllowed: INVITATION_RATE_LIMIT_MAX,
-          nextAllowedAt:
-            oldestInvitation.createdAt + INVITATION_RATE_LIMIT_WINDOW_MS,
-        },
-      };
-    }
 
-    // Get current user for tracking
-    const identity = await ctx.auth.getUserIdentity();
-    let currentUser = null;
-    if (identity?.email) {
-      currentUser = await ctx.runQuery(components.betterAuth.adapter.findOne, {
-        model: "user",
-        where: [
-          {
-            field: "email",
-            value: identity.email,
-            operator: "eq",
+      if (!invitationResult) {
+        return { success: false, error: "Invitation not found" };
+      }
+
+      // Verify invitation is expired - check both timestamp and status
+      const now = Date.now();
+      const isExpiredByTimestamp = invitationResult.expiresAt < now;
+      const isExpiredByStatus = invitationResult.status === "expired";
+
+      // Allow re-invite if either the timestamp says expired OR the status is "expired"
+      if (!(isExpiredByTimestamp || isExpiredByStatus)) {
+        return {
+          success: false,
+          error: "Invitation is not expired. Use resend instead.",
+        };
+      }
+
+      // Check rate limit
+      const normalizedEmail = invitationResult.email.toLowerCase().trim();
+      const windowStart = now - INVITATION_RATE_LIMIT_WINDOW_MS;
+
+      const recentInvitationsResult = await ctx.runQuery(
+        components.betterAuth.adapter.findMany,
+        {
+          model: "invitation",
+          paginationOpts: {
+            cursor: null,
+            numItems: 100,
           },
-        ],
-      });
-    }
+          where: [
+            {
+              field: "organizationId",
+              value: invitationResult.organizationId,
+              operator: "eq",
+            },
+            {
+              field: "email",
+              value: normalizedEmail,
+              operator: "eq",
+              connector: "AND",
+            },
+          ],
+        }
+      );
 
-    // Mark the old invitation as cancelled
-    await ctx.runMutation(components.betterAuth.adapter.updateOne, {
-      input: {
-        model: "invitation",
-        where: [{ field: "_id", value: args.invitationId, operator: "eq" }],
-        update: {
-          status: "cancelled",
-        },
-      },
-    });
+      const recentInvitations = recentInvitationsResult.page.filter(
+        (inv: any) => inv.createdAt >= windowStart
+      );
 
-    // Log cancellation event
-    await ctx.runMutation(internal.models.members.logInvitationEvent, {
-      invitationId: args.invitationId,
-      organizationId: invitationResult.organizationId,
-      eventType: "cancelled",
-      performedBy: currentUser?._id || "unknown",
-      performedByName: currentUser?.name,
-      performedByEmail: currentUser?.email,
-      metadata: { reason: "Cancelled for re-invite" },
-    });
+      if (recentInvitations.length >= INVITATION_RATE_LIMIT_MAX) {
+        const oldestInvitation = recentInvitations.reduce(
+          (oldest: any, inv: any) =>
+            inv.createdAt < oldest.createdAt ? inv : oldest,
+          recentInvitations[0]
+        );
+        return {
+          success: false,
+          error: `Rate limit exceeded. Maximum ${INVITATION_RATE_LIMIT_MAX} invitations per email in 24 hours.`,
+          rateLimitInfo: {
+            currentCount: recentInvitations.length,
+            maxAllowed: INVITATION_RATE_LIMIT_MAX,
+            nextAllowedAt:
+              oldestInvitation.createdAt + INVITATION_RATE_LIMIT_WINDOW_MS,
+          },
+        };
+      }
 
-    // Create a new invitation with the same settings
-    // We need to use the adapter to create a new invitation directly
-    const INVITATION_EXPIRY_DAYS = 7;
-    const expiresAt = now + INVITATION_EXPIRY_DAYS * 24 * 60 * 60 * 1000;
+      // Get current user for tracking
+      const identity = await ctx.auth.getUserIdentity();
+      let currentUser = null;
+      if (identity?.email) {
+        currentUser = await ctx.runQuery(
+          components.betterAuth.adapter.findOne,
+          {
+            model: "user",
+            where: [
+              {
+                field: "email",
+                value: identity.email,
+                operator: "eq",
+              },
+            ],
+          }
+        );
+      }
 
-    const createResult = await ctx.runMutation(
-      components.betterAuth.adapter.create,
-      {
+      // Mark the old invitation as cancelled
+      await ctx.runMutation(components.betterAuth.adapter.updateOne, {
         input: {
           model: "invitation",
-          data: {
-            organizationId: invitationResult.organizationId,
-            email: invitationResult.email,
-            role: invitationResult.role,
-            status: "pending",
-            expiresAt,
-            inviterId: currentUser?._id || invitationResult.inviterId,
-            createdAt: now,
-            metadata: {
-              ...invitationResult.metadata,
-              reInvitedFrom: args.invitationId,
-              reInvitedAt: now,
-              reInvitedBy: currentUser?._id || "unknown",
-            },
-          } as any,
+          where: [{ field: "_id", value: args.invitationId, operator: "eq" }],
+          update: {
+            status: "cancelled",
+          },
         },
-      }
-    );
-
-    const newInvitationId = (createResult as any)?._id || "unknown";
-
-    // Log creation event for new invitation
-    await ctx.runMutation(internal.models.members.logInvitationEvent, {
-      invitationId: newInvitationId,
-      organizationId: invitationResult.organizationId,
-      eventType: "created",
-      performedBy: currentUser?._id || "unknown",
-      performedByName: currentUser?.name,
-      performedByEmail: currentUser?.email,
-      metadata: { reInvitedFrom: args.invitationId },
-    });
-
-    // Get organization and inviter details for email
-    const orgResult = await ctx.runQuery(
-      components.betterAuth.adapter.findOne,
-      {
-        model: "organization",
-        where: [
-          {
-            field: "_id",
-            value: invitationResult.organizationId,
-            operator: "eq",
-          },
-        ],
-      }
-    );
-
-    const inviterResult = await ctx.runQuery(
-      components.betterAuth.adapter.findOne,
-      {
-        model: "user",
-        where: [
-          {
-            field: "_id",
-            value: currentUser?._id || invitationResult.inviterId,
-            operator: "eq",
-          },
-        ],
-      }
-    );
-
-    // Prepare email data
-    const siteUrl = (process.env.SITE_URL ?? "http://localhost:3000").replace(
-      TRAILING_SLASH_REGEX,
-      ""
-    );
-    const inviteLink = `${siteUrl}/orgs/accept-invitation/${newInvitationId}`;
-
-    const metadata = invitationResult.metadata || {};
-    const functionalRoles = metadata.suggestedFunctionalRoles || [];
-    const rawTeams = metadata.roleSpecificData?.teams || [];
-    const rawPlayers = metadata.suggestedPlayerLinks || [];
-
-    // Fetch team details
-    const teams = await Promise.all(
-      rawTeams.map(async (team: any) => {
-        if (typeof team === "string") {
-          const teamData = await ctx.runQuery(
-            components.betterAuth.adapter.findOne,
-            {
-              model: "team",
-              where: [{ field: "_id", value: team, operator: "eq" }],
-            }
-          );
-          if (teamData) {
-            const cleaned: any = { id: teamData._id, name: teamData.name };
-            if (teamData.sport) {
-              cleaned.sport = teamData.sport;
-            }
-            if (teamData.ageGroup) {
-              cleaned.ageGroup = teamData.ageGroup;
-            }
-            return cleaned;
-          }
-          return null;
-        }
-        const cleaned: any = { id: team.id, name: team.name };
-        if (team.sport !== undefined) {
-          cleaned.sport = team.sport;
-        }
-        if (team.ageGroup !== undefined) {
-          cleaned.ageGroup = team.ageGroup;
-        }
-        return cleaned;
-      })
-    ).then((results) => results.filter(Boolean));
-
-    // Fetch player details
-    const players = await Promise.all(
-      rawPlayers.map(async (player: any) => {
-        if (typeof player === "string") {
-          const playerData = await ctx.db.get(player as any);
-          if (playerData) {
-            const cleaned: any = {
-              id: playerData._id,
-              name: `${(playerData as any).firstName} ${(playerData as any).lastName}`,
-            };
-            if ((playerData as any).ageGroup) {
-              cleaned.ageGroup = (playerData as any).ageGroup;
-            }
-            return cleaned;
-          }
-          return null;
-        }
-        const cleaned: any = { id: player.id, name: player.name };
-        if (player.ageGroup !== undefined) {
-          cleaned.ageGroup = player.ageGroup;
-        }
-        return cleaned;
-      })
-    ).then((results) => results.filter(Boolean));
-
-    // Schedule email
-    const actionRef = (internal.actions as any).invitations
-      ?.resendInvitationEmail;
-
-    if (actionRef) {
-      await ctx.scheduler.runAfter(0, actionRef, {
-        email: invitationResult.email,
-        invitedByUsername: inviterResult?.name || "Someone",
-        invitedByEmail: inviterResult?.email || "",
-        organizationName: orgResult?.name || "Organization",
-        inviteLink,
-        functionalRoles,
-        teams,
-        players,
       });
-    }
 
-    return { success: true, newInvitationId };
+      // Log cancellation event
+      await ctx.runMutation(internal.models.members.logInvitationEvent, {
+        invitationId: args.invitationId,
+        organizationId: invitationResult.organizationId,
+        eventType: "cancelled",
+        performedBy: currentUser?._id || "unknown",
+        performedByName: currentUser?.name,
+        performedByEmail: currentUser?.email,
+        metadata: { reason: "Cancelled for re-invite" },
+      });
+
+      // Create a new invitation with the same settings
+      // We need to use the adapter to create a new invitation directly
+      const INVITATION_EXPIRY_DAYS = 7;
+      const expiresAt = now + INVITATION_EXPIRY_DAYS * 24 * 60 * 60 * 1000;
+
+      // Safely extract metadata, ensuring it's an object
+      const existingMetadata =
+        invitationResult.metadata &&
+        typeof invitationResult.metadata === "object"
+          ? invitationResult.metadata
+          : {};
+
+      // Ensure inviterId is always set (required field)
+      const inviterId =
+        currentUser?._id || invitationResult.inviterId || "system";
+
+      const createResult = await ctx.runMutation(
+        components.betterAuth.adapter.create,
+        {
+          input: {
+            model: "invitation",
+            data: {
+              organizationId: invitationResult.organizationId,
+              email: invitationResult.email,
+              role: invitationResult.role,
+              status: "pending",
+              expiresAt,
+              inviterId,
+              createdAt: now,
+              metadata: {
+                ...existingMetadata,
+                reInvitedFrom: args.invitationId,
+                reInvitedAt: now,
+                reInvitedBy: currentUser?._id || "unknown",
+              },
+            } as any,
+          },
+        }
+      );
+
+      const newInvitationId = (createResult as any)?._id || "unknown";
+
+      // Log creation event for new invitation
+      await ctx.runMutation(internal.models.members.logInvitationEvent, {
+        invitationId: newInvitationId,
+        organizationId: invitationResult.organizationId,
+        eventType: "created",
+        performedBy: currentUser?._id || "unknown",
+        performedByName: currentUser?.name,
+        performedByEmail: currentUser?.email,
+        metadata: { reInvitedFrom: args.invitationId },
+      });
+
+      // Get organization and inviter details for email
+      const orgResult = await ctx.runQuery(
+        components.betterAuth.adapter.findOne,
+        {
+          model: "organization",
+          where: [
+            {
+              field: "_id",
+              value: invitationResult.organizationId,
+              operator: "eq",
+            },
+          ],
+        }
+      );
+
+      const inviterResult = await ctx.runQuery(
+        components.betterAuth.adapter.findOne,
+        {
+          model: "user",
+          where: [
+            {
+              field: "_id",
+              value: currentUser?._id || invitationResult.inviterId,
+              operator: "eq",
+            },
+          ],
+        }
+      );
+
+      // Prepare email data
+      const siteUrl = (process.env.SITE_URL ?? "http://localhost:3000").replace(
+        TRAILING_SLASH_REGEX,
+        ""
+      );
+      const inviteLink = `${siteUrl}/orgs/accept-invitation/${newInvitationId}`;
+
+      const metadata = invitationResult.metadata || {};
+      const functionalRoles = metadata.suggestedFunctionalRoles || [];
+      const rawTeams = metadata.roleSpecificData?.teams || [];
+      const rawPlayers = metadata.suggestedPlayerLinks || [];
+
+      // Fetch team details
+      const teams = await Promise.all(
+        rawTeams.map(async (team: any) => {
+          if (typeof team === "string") {
+            const teamData = await ctx.runQuery(
+              components.betterAuth.adapter.findOne,
+              {
+                model: "team",
+                where: [{ field: "_id", value: team, operator: "eq" }],
+              }
+            );
+            if (teamData) {
+              const cleaned: any = { id: teamData._id, name: teamData.name };
+              if (teamData.sport) {
+                cleaned.sport = teamData.sport;
+              }
+              if (teamData.ageGroup) {
+                cleaned.ageGroup = teamData.ageGroup;
+              }
+              return cleaned;
+            }
+            return null;
+          }
+          const cleaned: any = { id: team.id, name: team.name };
+          if (team.sport !== undefined) {
+            cleaned.sport = team.sport;
+          }
+          if (team.ageGroup !== undefined) {
+            cleaned.ageGroup = team.ageGroup;
+          }
+          return cleaned;
+        })
+      ).then((results) => results.filter(Boolean));
+
+      // Fetch player details
+      const players = await Promise.all(
+        rawPlayers.map(async (player: any) => {
+          if (typeof player === "string") {
+            const playerData = await ctx.db.get(player as any);
+            if (playerData) {
+              const cleaned: any = {
+                id: playerData._id,
+                name: `${(playerData as any).firstName} ${(playerData as any).lastName}`,
+              };
+              if ((playerData as any).ageGroup) {
+                cleaned.ageGroup = (playerData as any).ageGroup;
+              }
+              return cleaned;
+            }
+            return null;
+          }
+          const cleaned: any = { id: player.id, name: player.name };
+          if (player.ageGroup !== undefined) {
+            cleaned.ageGroup = player.ageGroup;
+          }
+          return cleaned;
+        })
+      ).then((results) => results.filter(Boolean));
+
+      // Schedule email
+      const actionRef = (internal.actions as any).invitations
+        ?.resendInvitationEmail;
+
+      if (actionRef) {
+        await ctx.scheduler.runAfter(0, actionRef, {
+          email: invitationResult.email,
+          invitedByUsername: inviterResult?.name || "Someone",
+          invitedByEmail: inviterResult?.email || "",
+          organizationName: orgResult?.name || "Organization",
+          inviteLink,
+          functionalRoles,
+          teams,
+          players,
+        });
+      }
+
+      return { success: true, newInvitationId };
+    } catch (error) {
+      console.error("[reInviteExpired] Error:", error);
+      const errorMessage =
+        error instanceof Error ? error.message : "Unknown error occurred";
+      return {
+        success: false,
+        error: `Failed to re-invite: ${errorMessage}`,
+      };
+    }
   },
 });
 

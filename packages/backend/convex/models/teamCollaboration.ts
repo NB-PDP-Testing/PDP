@@ -688,7 +688,10 @@ export const getTeamActivityFeed = query({
             v.literal("injury_logged"),
             v.literal("decision_created"),
             v.literal("vote_cast"),
-            v.literal("decision_finalized")
+            v.literal("decision_finalized"),
+            v.literal("task_created"),
+            v.literal("task_completed"),
+            v.literal("task_assigned")
           ),
           entityType: v.union(
             v.literal("voice_note"),
@@ -697,7 +700,8 @@ export const getTeamActivityFeed = query({
             v.literal("skill_assessment"),
             v.literal("goal"),
             v.literal("injury"),
-            v.literal("decision")
+            v.literal("decision"),
+            v.literal("task")
           ),
           entityId: v.string(),
           summary: v.string(),

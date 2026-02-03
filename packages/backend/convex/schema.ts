@@ -2575,6 +2575,9 @@ export default defineSchema({
     aiInsightMatchingEnabled: v.optional(v.boolean()), // Auto-match players, classify insights (default true)
     autoApplyInsightsEnabled: v.optional(v.boolean()), // Auto-apply skill ratings, injuries (default true)
     skipSensitiveInsights: v.optional(v.boolean()), // Skip injury/behavior from summaries (default false)
+    parentSummaryTone: v.optional(
+      v.union(v.literal("warm"), v.literal("professional"), v.literal("brief"))
+    ), // Tone for AI-generated parent summaries (default warm)
 
     // Trust Gate Individual Override (P8 Week 1.5)
     trustGateOverride: v.optional(v.boolean()), // true = bypass gates, false/null = follow org

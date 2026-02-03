@@ -1,4 +1,12 @@
 import type { Metadata } from "next";
+import { ParentCommsSettings } from "@/components/coach/parent-comms-settings";
+import {
+  Card,
+  CardContent,
+  CardDescription,
+  CardHeader,
+  CardTitle,
+} from "@/components/ui/card";
 import { GesturePreferences } from "./gesture-preferences";
 import { NotificationPreferences } from "./notification-preferences";
 
@@ -7,7 +15,13 @@ export const metadata: Metadata = {
   description: "Manage your notification preferences and settings",
 };
 
-export default function CoachSettingsPage() {
+type CoachSettingsPageProps = {
+  params: {
+    orgId: string;
+  };
+};
+
+export default function CoachSettingsPage({ params }: CoachSettingsPageProps) {
   return (
     <div className="container mx-auto space-y-6 p-6">
       <div>
@@ -20,6 +34,18 @@ export default function CoachSettingsPage() {
       <NotificationPreferences />
 
       <GesturePreferences />
+
+      <Card>
+        <CardHeader>
+          <CardTitle>Parent Communications</CardTitle>
+          <CardDescription>
+            Configure how AI-generated summaries are written for parents
+          </CardDescription>
+        </CardHeader>
+        <CardContent>
+          <ParentCommsSettings organizationId={params.orgId} />
+        </CardContent>
+      </Card>
     </div>
   );
 }

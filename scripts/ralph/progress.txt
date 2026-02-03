@@ -354,3 +354,52 @@ Update UI in `quick-stats-panel.tsx`:
 - Had duplicate task-card/task-filters files with " 2" suffix (lint error)
 
 ---
+## 2026-02-03 15:45 - US-P9-NAV - Navigation Integration (Sidebar + Bottom Nav)
+**Iteration**: Unknown
+**Commit**: 270d1f7cfdf73bb80050dc04e0e2f6d7d22f1929
+**Session**: e7049d00-cb52-4ba6-99bf-87cdfec17f20
+**Status**: Complete
+
+### What was implemented
+- Added Team Hub to sidebar navigation in Development group (after Team Insights, before Messages)
+- Updated bottom nav with 5 items: Overview, Players, Voice (highlighted), Hub, Tasks
+- Added highlight property to BottomNavItem type definition
+- Implemented highlight styling: bg-primary/10 background + primary icon color
+- Added LayoutDashboard icon import for Team Hub
+
+### Files changed
+- apps/web/src/components/layout/coach-sidebar.tsx (+5, -1) - Added Team Hub nav item + LayoutDashboard import
+- apps/web/src/app/orgs/[orgId]/coach/layout.tsx (+6, -1) - Added Team Hub to bottom nav + highlight on Voice + LayoutDashboard import
+- apps/web/src/components/layout/bottom-nav.tsx (+3, -2) - Added highlight property to type + highlight styling implementation
+
+### Quality checks
+- ✅ Type check: passed (only pre-existing migration errors remain)
+- ✅ Linting: passed (pre-commit hooks successful)
+- ⏭️  Browser verification: Not performed (simple navigation changes, visual testing recommended)
+
+### **Learnings for future iterations** ⚠️ CRITICAL
+
+**Patterns discovered:**
+- Biome linter removes unused imports during pre-commit hooks, must re-add if needed
+- highlight property pattern for bottom nav: optional boolean + conditional styling
+- Bottom nav highlight styling: bg-primary/10 for background + text-primary for icon
+- Navigation integration requires imports in multiple files (both sidebar and layout)
+
+**Gotchas encountered:**
+- Biome removed LayoutDashboard import during first commit attempt (need to re-add)
+- BottomNavItem type didn't have highlight property - had to add to type definition first
+- Type errors show immediately if property doesn't exist in type
+
+**Dependencies found:**
+- Bottom nav uses BottomNavItem type from bottom-nav.tsx component
+- Sidebar uses getCoachNavGroups function which generates nav structure
+- Both sidebar and layout need LayoutDashboard icon imported from lucide-react
+
+**What to do next** (for remaining story):
+- [ ] US-P9-041: Tone Controls for Parent Summaries (2h)
+- [ ] Browser testing for all Phase 4 features together (recommended)
+
+**Mistakes made** (learn from these!):
+- None - straightforward implementation following existing patterns
+
+---

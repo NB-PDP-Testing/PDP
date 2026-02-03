@@ -236,7 +236,7 @@
         "Visual verification: Team Hub accessible from sidebar and bottom nav, Voice highlighted on mobile"
       ],
       "priority": 3,
-      "passes": false,
+      "passes": true,
       "effort": "0.5h",
       "dependencies": [],
       "files": {

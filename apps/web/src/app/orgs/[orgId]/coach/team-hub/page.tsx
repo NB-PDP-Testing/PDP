@@ -303,7 +303,7 @@ export default function TeamHubPage() {
               </TabsContent>
 
               <TabsContent value="insights">
-                <InsightsTab />
+                <InsightsTab organizationId={orgId} teamId={displayTeamId} />
               </TabsContent>
             </Tabs>
           </CardContent>

@@ -2,9 +2,10 @@
 
 import { api } from "@pdp/backend/convex/_generated/api";
 import { useQuery } from "convex/react";
-import { AlertCircle, Calendar, CheckSquare, Users } from "lucide-react";
+import { AlertCircle, CheckSquare, Lightbulb, Users } from "lucide-react";
 import { Card, CardContent } from "@/components/ui/card";
 import { Skeleton } from "@/components/ui/skeleton";
+import { useCurrentUser } from "@/hooks/use-current-user";
 
 type QuickStatsPanelProps = {
   teamId: string;
@@ -15,9 +16,12 @@ export function QuickStatsPanel({
   teamId,
   organizationId,
 }: QuickStatsPanelProps) {
+  const user = useCurrentUser();
+
   const stats = useQuery(api.models.teams.getTeamOverviewStats, {
     teamId,
     organizationId,
+    userId: user?._id,
   });
 
   if (!stats) {
@@ -59,9 +63,13 @@ export function QuickStatsPanel({
       bgColor: "bg-orange-500/10",
     },
     {
-      title: "Upcoming Events",
-      value: stats.upcomingEventsCount,
-      icon: Calendar,
+      title: "Unread Insights",
+      value: stats.unreadInsights || 0,
+      subtitle:
+        stats.highPriorityInsights > 0
+          ? `${stats.highPriorityInsights} priority`
+          : undefined,
+      icon: Lightbulb,
       color: "text-purple-500",
       bgColor: "bg-purple-500/10",
     },

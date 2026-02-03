@@ -16,6 +16,7 @@ import type * as actions_platformStaffInvitations from "../actions/platformStaff
 import type * as actions_practicePlans from "../actions/practicePlans.js";
 import type * as actions_sendDemoRequestNotification from "../actions/sendDemoRequestNotification.js";
 import type * as actions_sessionPlans from "../actions/sessionPlans.js";
+import type * as actions_teamInsights from "../actions/teamInsights.js";
 import type * as actions_voiceNotes from "../actions/voiceNotes.js";
 import type * as actions_whatsapp from "../actions/whatsapp.js";
 import type * as auth from "../auth.js";
@@ -162,6 +163,7 @@ declare const fullApi: ApiFromModules<{
   "actions/practicePlans": typeof actions_practicePlans;
   "actions/sendDemoRequestNotification": typeof actions_sendDemoRequestNotification;
   "actions/sessionPlans": typeof actions_sessionPlans;
+  "actions/teamInsights": typeof actions_teamInsights;
   "actions/voiceNotes": typeof actions_voiceNotes;
   "actions/whatsapp": typeof actions_whatsapp;
   auth: typeof auth;

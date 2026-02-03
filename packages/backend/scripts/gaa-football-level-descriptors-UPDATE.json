@@ -1,0 +1,177 @@
+{
+  "sports": [
+    {
+      "sportCode": "gaa_football",
+      "categories": [
+        {
+          "name": "Ball Mastery",
+          "skills": [
+            {
+              "name": "Soloing",
+              "level1Descriptor": "Learning to release ball and strike with toe/instep. Can perform stationary only with strong foot. Inconsistent contact and coordination. Requires constant supervision and coaching.",
+              "level2Descriptor": "Reliable technique when walking or jogging. Beginning to use both feet with occasional success. Can solo in practice drills with no pressure. Moderate consistency in controlled situations.",
+              "level3Descriptor": "Autonomous technique at game pace. Both feet adequately developed. Maintains possession while moving in traffic. Effective in game situations with some pressure. Good consistency across sessions.",
+              "level4Descriptor": "Excellent technique under all conditions. Equal proficiency with both feet. Makes good decisions while soloing (when to release, change direction). Effective under high pressure, uses soloing to create tactical advantage.",
+              "level5Descriptor": "Mastery level execution with perfect bilateral ability. Near-perfect consistency even at elite match intensity. Advanced tactical application - knows precisely when to solo vs pass. Can teach and demonstrate technique to others. Inter-county elite standard."
+            },
+            {
+              "name": "Ball Handling",
+              "level1Descriptor": "Basic ability to handle ball in hands. Drops ball frequently when static. Limited hand-eye coordination. Requires significant coaching on grip and control. Strong hand only.",
+              "level2Descriptor": "Secure grip and control when stationary. Can catch and control ball while walking. Beginning to handle with both hands. Occasional fumbles under light pressure. Adequate for controlled practice.",
+              "level3Descriptor": "Confident ball handling at game pace. Both hands adequately developed. Maintains secure possession while running and changing direction. Effective in game situations with moderate pressure. Rarely fumbles in match play.",
+              "level4Descriptor": "Excellent ball control in all game situations. Equal hand proficiency. Secure possession under heavy pressure and contact. Can manipulate ball for passing/kicking while moving at speed. High-level match reliability.",
+              "level5Descriptor": "Elite level ball mastery. Perfect control with both hands under any conditions. Can feint, dummy, and manipulate ball to deceive opponents while maintaining possession. Demonstrable to others as technical model. Inter-county elite standard."
+            },
+            {
+              "name": "Pickup/Toe Lift",
+              "level1Descriptor": "Learning technique to lift ball from ground. Can only perform when ball is stationary with repeated attempts. Poor coordination between foot and hand. Requires coaching on foot placement and timing.",
+              "level2Descriptor": "Reliable pickup of stationary ball using toe lift. Beginning to pickup while moving slowly. Can use both feet with coaching. Occasional success with moving ball. Adequate for controlled drills.",
+              "level3Descriptor": "Autonomous pickup at game pace. Both feet adequately developed. Can pickup moving ball in game situations. Effective under light pressure. Good consistency - rarely needs second attempt in match play.",
+              "level4Descriptor": "Excellent pickup technique in all game situations. Equal foot proficiency. Can pickup ball at speed and under pressure. Continues into soloing or passing motion seamlessly. Reliable in contested situations.",
+              "level5Descriptor": "Mastery level execution with perfect bilateral ability. Can pickup bouncing/moving ball at any angle under heavy pressure. Instantaneous transition to next action. Can teach optimal technique. Elite inter-county standard."
+            }
+          ]
+        },
+        {
+          "name": "Kicking",
+          "skills": [
+            {
+              "name": "Kicking - Long",
+              "level1Descriptor": "Learning fundamental kicking technique. Can strike ball 10-15m with strong foot only. Inconsistent contact and flight. Limited power and accuracy. Requires coaching on approach, contact point, and follow-through.",
+              "level2Descriptor": "Established technique for 20-30m kicks with strong foot. Beginning to develop weaker foot. Can kick accurately to stationary target in practice. Occasional success at game pace. Moderate consistency in controlled situations.",
+              "level3Descriptor": "Autonomous technique for 40m+ kicks. Both feet adequately developed. Accurate long kicking in game situations (within 45m line). Good distance and trajectory control. Effective kick-out technique. Consistent in match play.",
+              "level4Descriptor": "Excellent long kicking with both feet. Can deliver 50m+ accurately under pressure. Variety of trajectories (high fetch, low bullet). Effective long kick-passing in tactical situations. Reliable kick-outs and restarts. High consistency.",
+              "level5Descriptor": "Elite level execution with perfect bilateral ability. Can kick 60m+ with accuracy and appropriate trajectory. Pinpoint long passing in all conditions (wind, pressure). Tactical mastery of when to go long vs short. Inter-county elite standard."
+            },
+            {
+              "name": "Kicking - Short",
+              "level1Descriptor": "Learning controlled short passing with foot. Can kick 5-10m with strong foot to stationary target. Inconsistent weight of pass (too hard/soft). Limited accuracy. Requires coaching on technique and decision-making.",
+              "level2Descriptor": "Reliable short kicking 10-15m in practice. Beginning to use both feet. Can hit moving target with some success. Adequate weight of pass in controlled situations. Moderate consistency at training pace.",
+              "level3Descriptor": "Autonomous short kicking technique. Both feet adequately developed. Accurate short passing 15-20m in game situations. Good decision-making on weight and timing of pass. Effective in build-up play. Consistent under moderate pressure.",
+              "level4Descriptor": "Excellent short kicking with both feet under all conditions. Precise weight and timing - hits players in stride. Effective under heavy pressure. Can vary trajectory and pace. Makes good tactical decisions. High consistency in matches.",
+              "level5Descriptor": "Mastery level short passing game. Perfect bilateral ability. Can thread passes through tight spaces with perfect weight. Elite decision-making speed and accuracy. Dictates tempo of play. Can teach optimal technique. Inter-county elite standard."
+            }
+          ]
+        },
+        {
+          "name": "Catching",
+          "skills": [
+            {
+              "name": "High Catching",
+              "level1Descriptor": "Learning basic catching technique. Can catch ball at chest/head height when uncontested. Poor timing on jump and hand positioning. Cannot compete for ball in air. Requires coaching on technique and timing.",
+              "level2Descriptor": "Can catch ball above head height in practice. Beginning to time jump correctly. Occasional success with uncontested high balls. Can body-catch reliably. Adequate for drills with no competition.",
+              "level3Descriptor": "Autonomous high catch technique. Can field kick-outs and long passes in game situations. Good timing and hand positioning. Effective in light contests. Secure on landing. Consistent under moderate pressure in matches.",
+              "level4Descriptor": "Excellent high catching in all game situations. Strong under heavy contest. Good body protection and secure on landing. Can win clean possession for advanced mark. Effective on kick-outs against competition. High consistency.",
+              "level5Descriptor": "Elite level fielding ability. Dominates aerial contests against multiple opponents. Perfect timing and hand positioning. Consistent clean catches for advanced marks. Can teach optimal technique. Inter-county midfielder/full-forward standard."
+            }
+          ]
+        },
+        {
+          "name": "Free Taking",
+          "skills": [
+            {
+              "name": "Free Taking - Ground",
+              "level1Descriptor": "Learning free kick technique from ground (placed ball). Can strike 10-15m with strong foot. Inconsistent contact and accuracy. Limited range and pressure management. Requires coaching on routine and technique.",
+              "level2Descriptor": "Established routine for ground frees. Reliable technique for 20-25m frees in practice. Beginning to develop weaker foot. Moderate accuracy (50-60% success). Can score uncontested at training.",
+              "level3Descriptor": "Autonomous free taking technique. Consistent routine and approach. Good accuracy (70-75% success) from 25-35m in matches. Both feet adequate for angled frees. Effective under moderate pressure. Team's go-to free taker.",
+              "level4Descriptor": "Excellent free taking with high accuracy (80%+) from 40m range. Strong pre-shot routine manages pressure well. Equal foot proficiency for angles. Reliable in high-pressure situations. Scores from difficult positions consistently.",
+              "level5Descriptor": "Elite level accuracy (85-90%+) from 45m+ range. Mastery under extreme pressure. Perfect bilateral ability for any angle. Strong mental routine - rarely misses in crucial moments. Can teach technique and mental approach. Inter-county standard free taker."
+            },
+            {
+              "name": "Free Taking - Hand",
+              "level1Descriptor": "Learning hand-pass free technique. Can strike 5-10m with strong hand. Inconsistent height and accuracy over bar. Requires coaching on hand positioning, ball placement, and follow-through for scores.",
+              "level2Descriptor": "Established technique for hand-pass frees 13m out. Can score directly from stationary position in practice. Beginning to develop weaker hand. Moderate accuracy (50-60%) under no pressure.",
+              "level3Descriptor": "Autonomous hand-pass free technique. Good accuracy (70-75%) from 13m line in matches. Both hands adequate. Effective under moderate pressure. Reliable for close-range frees and 45s. Consistent routine.",
+              "level4Descriptor": "Excellent hand-pass free accuracy (80%+) from all angles inside 20m. Equal hand proficiency. Strong under pressure situations. Rarely misses routine frees. Good decision-making on when to go for point vs pass.",
+              "level5Descriptor": "Elite level execution with near-perfect accuracy (90%+) from any position inside 20m. Perfect bilateral ability. Exceptional pressure management. Clinical in crucial moments. Can teach technique and mental approach. Inter-county standard."
+            }
+          ]
+        },
+        {
+          "name": "Passing",
+          "skills": [
+            {
+              "name": "Hand Passing",
+              "level1Descriptor": "Learning to strike ball with open hand (not throw). Can pass 3-5m to stationary target with strong hand. Inconsistent striking technique - sometimes throws. Limited accuracy. Requires coaching on striking action and target selection.",
+              "level2Descriptor": "Consistent striking technique (not throwing) established. Can pass 5-10m accurately in practice with strong hand. Beginning to use both hands. Adequate weight and timing in controlled situations. Moderate success at training pace.",
+              "level3Descriptor": "Autonomous hand passing technique. Both hands adequately developed. Accurate passing 10m+ in game situations. Good decision-making on timing and target selection. Effective under moderate pressure. Rarely throws instead of strikes. Consistent in matches.",
+              "level4Descriptor": "Excellent hand passing with both hands under all conditions. Precise weight - hits players in stride. Quick decision-making and execution. Effective under heavy pressure. Can vary pace and trajectory. High consistency in high-tempo games.",
+              "level5Descriptor": "Mastery level execution with perfect bilateral ability. Elite decision-making speed - always finds best option. Can deliver passes through traffic with perfect weight. Dictates play tempo. Can teach technique and decision frameworks. Inter-county playmaker standard."
+            }
+          ]
+        },
+        {
+          "name": "Tactical",
+          "skills": [
+            {
+              "name": "Positional Sense",
+              "level1Descriptor": "Learning basic positional concepts. Understands own starting position but limited awareness of team shape. Gets caught out of position frequently. Requires constant coaching on where to be. Reacts to ball only.",
+              "level2Descriptor": "Understands team shape in basic formations. Maintains position in structured drills. Beginning to read game situations. Adequate awareness in slow-paced games. Can hold basic defensive/attacking positions with coaching reminders.",
+              "level3Descriptor": "Good positional awareness in game situations. Maintains shape when team has/loses possession. Understands when to press/drop. Effective in organized team systems. Anticipates play development. Rarely caught badly out of position. Consistent tactical discipline.",
+              "level4Descriptor": "Excellent positional awareness across all game phases. Proactive positioning - arrives in right place at right time. Understands opponent positioning. Effective in complex tactical systems. Strong anticipation and reading of play. High tactical IQ.",
+              "level5Descriptor": "Elite tactical awareness and positioning. Orchestrates team shape through communication and movement. Anticipates play 2-3 phases ahead. Exploits opponent positional weaknesses. Can play multiple positions/roles. Tactical leader on field. Inter-county elite standard."
+            },
+            {
+              "name": "Tracking",
+              "level1Descriptor": "Limited tracking of opponent movements. Often loses player in transition. Poor awareness of off-ball runs. Requires coaching on maintaining visual contact with player and ball. Reacts slowly to opponent movement.",
+              "level2Descriptor": "Can track direct opponent in structured situations. Maintains contact in set plays. Beginning to anticipate movements. Adequate in slow-paced games with clear assignments. Loses player in broken play occasionally.",
+              "level3Descriptor": "Good tracking in game situations. Maintains awareness of direct opponent while monitoring ball. Effective in transition - rarely loses player. Anticipates movements and cuts off runs. Consistent in defensive duties across match duration.",
+              "level4Descriptor": "Excellent tracking across all game phases. Shadows opponent tightly without fouling. Strong awareness of multiple players. Effective against quality forwards making intelligent runs. Communicates with teammates to pass off players. High work rate.",
+              "level5Descriptor": "Elite level tracking and defensive awareness. Anticipates runs before they happen. Can mark multiple threats. Communicates defensive coverage effectively. Never loses player in transition. Elite work rate and concentration. Inter-county defensive standard."
+            },
+            {
+              "name": "Decision Making",
+              "level1Descriptor": "Limited decision-making ability. Often makes poor choices under no pressure (wrong pass, hold ball too long). Requires significant coaching on when to pass/shoot/solo. Learning to read basic game situations.",
+              "level2Descriptor": "Makes appropriate decisions in simple game situations. Can choose between 2 clear options in practice. Beginning to weigh risk vs reward. Adequate decisions in low-pressure scenarios. Improves with coaching feedback.",
+              "level3Descriptor": "Good decision-making in game situations. Chooses correct option (pass/shoot/solo/tackle) most of the time. Effective under moderate pressure. Understands risk management. Makes smart tactical choices that benefit team. Consistent across match duration.",
+              "level4Descriptor": "Excellent decision-making under all conditions. Rapidly assesses multiple options and chooses optimal one. Effective under heavy pressure. Strong risk/reward judgment. Makes decisions that exploit opponent weaknesses. High game intelligence.",
+              "level5Descriptor": "Elite decision-making and game intelligence. Sees options others don't. Makes tactical decisions that dictate play. Effective split-second choices under extreme pressure. Can read and exploit game patterns. Playmaker level. Inter-county elite standard."
+            },
+            {
+              "name": "Decision Speed",
+              "level1Descriptor": "Slow to process game situations. Hesitates on ball, often taking too long to act. Misses opportunities due to delayed decisions. Requires coaching on pattern recognition and quick thinking. Learning to play at game speed.",
+              "level2Descriptor": "Adequate decision speed in simple situations. Can make quick choices between obvious options in practice. Beginning to react faster under light pressure. Moderate pace of play - occasionally too slow in transition.",
+              "level3Descriptor": "Good decision speed in game situations. Processes information quickly and acts decisively. Effective in fast-paced play. Rarely holds ball too long. Contributes to team's tempo. Consistent quick decision-making in matches.",
+              "level4Descriptor": "Excellent decision speed under all conditions. Instantaneous processing and execution. Effective in high-tempo games against quality opposition. Accelerates play through quick decisions. Strong anticipation speeds up choices. High-pressure performer.",
+              "level5Descriptor": "Elite decision-making speed. Processes multiple options instantaneously and executes optimally. Dictates game tempo through rapid play. Anticipates situations before they develop. Can operate at highest inter-county intensity. Playmaker with exceptional processing speed."
+            }
+          ]
+        },
+        {
+          "name": "Defensive",
+          "skills": [
+            {
+              "name": "Tackling",
+              "level1Descriptor": "Learning basic defensive techniques (block, shoulder). Poor positioning and timing. Often fouls or gets beaten easily. Limited awareness of legal/illegal contact. Requires coaching on approach, body position, and when to engage.",
+              "level2Descriptor": "Can execute basic blocks and shoulder challenges in drills. Adequate positioning with coaching. Beginning to time tackles better. Moderate success in low-pressure situations. Learning to avoid fouling. Adequate for structured defensive practice.",
+              "level3Descriptor": "Competent tackling technique across various methods (hook, block, shoulder). Good positioning and timing in game situations. Effective at turning over opponent in matches. Rarely fouls. Strong body position and legal contact. Consistent defensive contributor.",
+              "level4Descriptor": "Excellent tackling across all defensive situations. Strong positioning anticipates play. Effective against quality attackers. Variety of techniques executed well (hook, frontal block, near-hand tackle). Rarely beaten or fouls. High defensive work rate.",
+              "level5Descriptor": "Elite defensive ability. Dominates physical contests legally and effectively. Perfect timing and positioning. Can dispossess opponents in any situation. Variety of tackles executed at highest level. Defensive leader and role model. Inter-county defensive standard."
+            }
+          ]
+        },
+        {
+          "name": "Laterality",
+          "skills": [
+            {
+              "name": "Left Side",
+              "level1Descriptor": "If left-sided: Developing left foot/hand skills, right side very weak. If right-sided: Cannot perform skills with left side, avoids left-side actions entirely. Requires bilateral development coaching. Strong side only.",
+              "level2Descriptor": "If left-sided: Good left side ability, beginning to develop right side. If right-sided: Can perform basic left-side skills in practice with coaching. Moderate success with weak side in controlled situations. Active bilateral development.",
+              "level3Descriptor": "Adequate left-side ability for game situations. Can use left foot/hand when required under moderate pressure. Effective in most match scenarios even if not preferred side. Does not avoid left-side opportunities. Good bilateral development.",
+              "level4Descriptor": "Strong left-side proficiency. Comfortable using left foot/hand in all game situations under pressure. Near-equal ability to right side (if right-side dominant). Can attack/defend effectively from left side of field. High bilateral competence.",
+              "level5Descriptor": "Elite bilateral ability. Equal or near-equal proficiency on left side regardless of dominance. Can perform all skills at highest level with left foot/hand. No observable preference that opponents can exploit. Complete two-sided player. Inter-county standard."
+            },
+            {
+              "name": "Right Side",
+              "level1Descriptor": "If right-sided: Developing right foot/hand skills, left side very weak. If left-sided: Cannot perform skills with right side, avoids right-side actions entirely. Requires bilateral development coaching. Strong side only.",
+              "level2Descriptor": "If right-sided: Good right side ability, beginning to develop left side. If left-sided: Can perform basic right-side skills in practice with coaching. Moderate success with weak side in controlled situations. Active bilateral development.",
+              "level3Descriptor": "Adequate right-side ability for game situations. Can use right foot/hand when required under moderate pressure. Effective in most match scenarios even if not preferred side. Does not avoid right-side opportunities. Good bilateral development.",
+              "level4Descriptor": "Strong right-side proficiency. Comfortable using right foot/hand in all game situations under pressure. Near-equal ability to left side (if left-side dominant). Can attack/defend effectively from right side of field. High bilateral competence.",
+              "level5Descriptor": "Elite bilateral ability. Equal or near-equal proficiency on right side regardless of dominance. Can perform all skills at highest level with right foot/hand. No observable preference that opponents can exploit. Complete two-sided player. Inter-county standard."
+            }
+          ]
+        }
+      ]
+    }
+  ]
+}

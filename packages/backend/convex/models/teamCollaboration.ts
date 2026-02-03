@@ -694,7 +694,8 @@ export const getTeamActivityFeed = query({
             v.literal("decision_finalized"),
             v.literal("task_created"),
             v.literal("task_completed"),
-            v.literal("task_assigned")
+            v.literal("task_assigned"),
+            v.literal("insight_generated")
           ),
           entityType: v.union(
             v.literal("voice_note"),
@@ -704,7 +705,8 @@ export const getTeamActivityFeed = query({
             v.literal("goal"),
             v.literal("injury"),
             v.literal("decision"),
-            v.literal("task")
+            v.literal("task"),
+            v.literal("team_insight")
           ),
           entityId: v.string(),
           summary: v.string(),
@@ -745,7 +747,8 @@ export const getTeamActivityFeed = query({
           v.literal("decision_finalized"),
           v.literal("task_created"),
           v.literal("task_completed"),
-          v.literal("task_assigned")
+          v.literal("task_assigned"),
+          v.literal("insight_generated")
         ),
         entityType: v.union(
           v.literal("voice_note"),
@@ -755,7 +758,8 @@ export const getTeamActivityFeed = query({
           v.literal("goal"),
           v.literal("injury"),
           v.literal("decision"),
-          v.literal("task")
+          v.literal("task"),
+          v.literal("team_insight")
         ),
         entityId: v.string(),
         summary: v.string(),
@@ -791,7 +795,8 @@ export const getTeamActivityFeed = query({
       | "decision_finalized"
       | "task_created"
       | "task_completed"
-      | "task_assigned";
+      | "task_assigned"
+      | "insight_generated";
 
     const typeMapping: Record<string, ActionType[]> = {
       insights: ["voice_note_added", "insight_applied"],
@@ -809,7 +814,8 @@ export const getTeamActivityFeed = query({
       | "goal"
       | "injury"
       | "decision"
-      | "task";
+      | "task"
+      | "team_insight";
 
     type ActivityDoc = {
       _id: Id<"teamActivityFeed">;
@@ -990,7 +996,8 @@ export const getUnreadNotifications = query({
           v.literal("decision_finalized"),
           v.literal("task_created"),
           v.literal("task_completed"),
-          v.literal("task_assigned")
+          v.literal("task_assigned"),
+          v.literal("insight_generated")
         ),
         entityType: v.union(
           v.literal("voice_note"),
@@ -1000,7 +1007,8 @@ export const getUnreadNotifications = query({
           v.literal("goal"),
           v.literal("injury"),
           v.literal("decision"),
-          v.literal("task")
+          v.literal("task"),
+          v.literal("team_insight")
         ),
         entityId: v.string(),
         summary: v.string(),

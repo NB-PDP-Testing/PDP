@@ -1,7 +1,7 @@
 import type { Doc as BetterAuthDoc } from "@pdp/backend/convex/betterAuth/_generated/dataModel";
 import { v } from "convex/values";
 import { components } from "../_generated/api";
-import type { Doc } from "../_generated/dataModel";
+import type { Doc, Id } from "../_generated/dataModel";
 import { mutation, query } from "../_generated/server";
 import { customTeamTableSchema } from "../betterAuth/schema";
 
@@ -792,6 +792,7 @@ export const getTeamOverviewStats = query({
   args: {
     teamId: v.string(),
     organizationId: v.string(),
+    userId: v.optional(v.string()), // For unread insights count
   },
   returns: v.object({
     totalPlayers: v.number(),
@@ -800,6 +801,8 @@ export const getTeamOverviewStats = query({
     upcomingEventsCount: v.number(),
     openTasks: v.number(),
     overdueCount: v.number(),
+    unreadInsights: v.number(),
+    highPriorityInsights: v.number(),
   }),
   handler: async (ctx, args) => {
     // Get total active players on team
@@ -862,6 +865,22 @@ export const getTeamOverviewStats = query({
       (t) => t.status !== "done" && t.dueDate && t.dueDate < now
     ).length;
 
+    // Get insight counts for this team
+    const insights = await ctx.db
+      .query("teamInsights")
+      .withIndex("by_team", (q) => q.eq("teamId", args.teamId))
+      .collect();
+
+    // Count unread insights (insights not in user's readBy array)
+    const unreadInsights = args.userId
+      ? insights.filter((i) => !i.readBy.includes(args.userId!)).length
+      : insights.length;
+
+    // Count high priority insights
+    const highPriorityInsights = insights.filter(
+      (i) => i.priority === "high"
+    ).length;
+
     // Attendance: placeholder for future implementation
     // TODO: Implement actual attendance tracking in future phase
     const attendancePercent = null;
@@ -877,6 +896,8 @@ export const getTeamOverviewStats = query({
       upcomingEventsCount,
       openTasks,
       overdueCount,
+      unreadInsights,
+      highPriorityInsights,
     };
   },
 });
@@ -1205,5 +1226,309 @@ export const getTeamTasks = query({
     });
 
     return enrichedTasks;
+  },
+});
+
+// Get team insights with pagination, voice note, and player info
+export const getTeamInsights = query({
+  args: {
+    teamId: v.string(),
+    organizationId: v.string(),
+    paginationOpts: v.optional(
+      v.object({
+        cursor: v.union(v.string(), v.null()),
+        numItems: v.number(),
+      })
+    ),
+  },
+  returns: v.union(
+    // Paginated response (when paginationOpts provided)
+    v.object({
+      page: v.array(
+        v.object({
+          _id: v.id("teamInsights"),
+          _creationTime: v.number(),
+          teamId: v.string(),
+          organizationId: v.string(),
+          type: v.union(
+            v.literal("voice-note"),
+            v.literal("ai-generated"),
+            v.literal("manual")
+          ),
+          title: v.string(),
+          summary: v.string(),
+          fullText: v.optional(v.string()),
+          voiceNoteId: v.optional(v.id("voiceNotes")),
+          playerIds: v.array(v.id("orgPlayerEnrollments")),
+          topic: v.union(
+            v.literal("technical"),
+            v.literal("tactical"),
+            v.literal("fitness"),
+            v.literal("behavioral"),
+            v.literal("other")
+          ),
+          priority: v.union(
+            v.literal("high"),
+            v.literal("medium"),
+            v.literal("low")
+          ),
+          createdBy: v.string(),
+          createdAt: v.number(),
+          readBy: v.array(v.string()),
+          // Enriched fields
+          voiceNote: v.optional(
+            v.object({
+              title: v.string(),
+              summary: v.optional(v.string()),
+            })
+          ),
+          playerNames: v.array(v.string()),
+          creatorName: v.string(),
+        })
+      ),
+      continueCursor: v.union(v.string(), v.null()),
+      isDone: v.boolean(),
+    }),
+    // Simple array response (backward compatible)
+    v.array(
+      v.object({
+        _id: v.id("teamInsights"),
+        _creationTime: v.number(),
+        teamId: v.string(),
+        organizationId: v.string(),
+        type: v.union(
+          v.literal("voice-note"),
+          v.literal("ai-generated"),
+          v.literal("manual")
+        ),
+        title: v.string(),
+        summary: v.string(),
+        fullText: v.optional(v.string()),
+        voiceNoteId: v.optional(v.id("voiceNotes")),
+        playerIds: v.array(v.id("orgPlayerEnrollments")),
+        topic: v.union(
+          v.literal("technical"),
+          v.literal("tactical"),
+          v.literal("fitness"),
+          v.literal("behavioral"),
+          v.literal("other")
+        ),
+        priority: v.union(
+          v.literal("high"),
+          v.literal("medium"),
+          v.literal("low")
+        ),
+        createdBy: v.string(),
+        createdAt: v.number(),
+        readBy: v.array(v.string()),
+        // Enriched fields
+        voiceNote: v.optional(
+          v.object({
+            title: v.string(),
+            summary: v.optional(v.string()),
+          })
+        ),
+        playerNames: v.array(v.string()),
+        creatorName: v.string(),
+      })
+    )
+  ),
+  handler: async (ctx, args) => {
+    const usePagination = args.paginationOpts;
+
+    // Step 1: Fetch insights (with or without pagination)
+    let insights;
+    let paginationResult;
+
+    if (usePagination && args.paginationOpts) {
+      const result = await ctx.db
+        .query("teamInsights")
+        .withIndex("by_team_and_date", (q) => q.eq("teamId", args.teamId))
+        .order("desc")
+        .paginate(args.paginationOpts);
+
+      insights = result.page;
+      paginationResult = {
+        page: result.page,
+        continueCursor: result.continueCursor,
+        isDone: result.isDone,
+      };
+    } else {
+      insights = await ctx.db
+        .query("teamInsights")
+        .withIndex("by_team_and_date", (q) => q.eq("teamId", args.teamId))
+        .order("desc")
+        .take(50);
+    }
+
+    // Step 2: Batch fetch voice notes
+    const voiceNoteIds = [
+      ...new Set(insights.map((i) => i.voiceNoteId).filter(Boolean)),
+    ] as Id<"voiceNotes">[];
+
+    const voiceNotes = await Promise.all(
+      voiceNoteIds.map((id) => ctx.db.get(id))
+    );
+
+    const voiceNoteMap = new Map<string, { title: string; summary?: string }>();
+    voiceNotes.forEach((vn) => {
+      if (vn && "title" in vn && "summary" in vn) {
+        voiceNoteMap.set(vn._id, {
+          title: vn.title as string,
+          summary: vn.summary as string | undefined,
+        });
+      }
+    });
+
+    // Step 3: Batch fetch players
+    const playerIds = [
+      ...new Set(insights.flatMap((i) => i.playerIds)),
+    ] as Id<"orgPlayerEnrollments">[];
+
+    const players = await Promise.all(playerIds.map((id) => ctx.db.get(id)));
+
+    const playerMap = new Map<string, string>();
+    players.forEach((p) => {
+      if (p && "name" in p) {
+        playerMap.set(p._id, p.name as string);
+      }
+    });
+
+    // Step 4: Batch fetch creators
+    const creatorIds = [...new Set(insights.map((i) => i.createdBy))];
+
+    const creators = await Promise.all(
+      creatorIds.map((id) =>
+        ctx.runQuery(components.betterAuth.adapter.findOne, {
+          model: "user",
+          where: [
+            {
+              field: "_id",
+              value: id,
+              operator: "eq",
+            },
+          ],
+        })
+      )
+    );
+
+    const creatorMap = new Map<string, string>();
+    creators.forEach((creator) => {
+      if (creator) {
+        creatorMap.set(creator._id, creator.name || creator.email || "Unknown");
+      }
+    });
+
+    // Step 5: Enrich insights (synchronous, no await in loop!)
+    const enrichedInsights = insights.map((insight) => ({
+      ...insight,
+      voiceNote: insight.voiceNoteId
+        ? voiceNoteMap.get(insight.voiceNoteId)
+        : undefined,
+      playerNames: insight.playerIds
+        .map((id) => playerMap.get(id))
+        .filter(Boolean) as string[],
+      creatorName: creatorMap.get(insight.createdBy) || "Unknown",
+    }));
+
+    // Return paginated or simple array
+    if (paginationResult) {
+      return {
+        ...paginationResult,
+        page: enrichedInsights,
+      };
+    }
+
+    return enrichedInsights;
+  },
+});
+
+// Create a new team insight
+export const createInsight = mutation({
+  args: {
+    teamId: v.string(),
+    organizationId: v.string(),
+    type: v.union(
+      v.literal("voice-note"),
+      v.literal("ai-generated"),
+      v.literal("manual")
+    ),
+    title: v.string(),
+    summary: v.string(),
+    fullText: v.optional(v.string()),
+    voiceNoteId: v.optional(v.id("voiceNotes")),
+    playerIds: v.array(v.id("orgPlayerEnrollments")),
+    topic: v.union(
+      v.literal("technical"),
+      v.literal("tactical"),
+      v.literal("fitness"),
+      v.literal("behavioral"),
+      v.literal("other")
+    ),
+    priority: v.union(v.literal("high"), v.literal("medium"), v.literal("low")),
+    createdBy: v.string(),
+    actorName: v.string(), // For activity feed
+  },
+  returns: v.id("teamInsights"),
+  handler: async (ctx, args) => {
+    const now = Date.now();
+
+    const insightId = await ctx.db.insert("teamInsights", {
+      teamId: args.teamId,
+      organizationId: args.organizationId,
+      type: args.type,
+      title: args.title,
+      summary: args.summary,
+      fullText: args.fullText,
+      voiceNoteId: args.voiceNoteId,
+      playerIds: args.playerIds,
+      topic: args.topic,
+      priority: args.priority,
+      createdBy: args.createdBy,
+      createdAt: now,
+      readBy: [], // Empty initially
+    });
+
+    // Create activity feed entry
+    await ctx.db.insert("teamActivityFeed", {
+      organizationId: args.organizationId,
+      teamId: args.teamId,
+      actorId: args.createdBy,
+      actorName: args.actorName,
+      actionType: "insight_generated",
+      entityType: "team_insight",
+      entityId: insightId,
+      summary: `Generated insight: ${args.title}`,
+      priority: args.priority === "high" ? "important" : "normal",
+      metadata: {
+        insightTitle: args.title,
+      },
+    });
+
+    return insightId;
+  },
+});
+
+// Mark an insight as read by a user
+export const markInsightAsRead = mutation({
+  args: {
+    insightId: v.id("teamInsights"),
+    userId: v.string(),
+  },
+  returns: v.object({ success: v.boolean() }),
+  handler: async (ctx, args) => {
+    const insight = await ctx.db.get(args.insightId);
+    if (!insight) {
+      throw new Error("Insight not found");
+    }
+
+    // Add user to readBy array if not already there
+    if (!insight.readBy.includes(args.userId)) {
+      await ctx.db.patch(args.insightId, {
+        readBy: [...insight.readBy, args.userId],
+      });
+    }
+
+    return { success: true };
   },
 });

@@ -474,36 +474,45 @@ export const getCoachesForTeam = query({
       assignment.teams.includes(args.teamId)
     );
 
-    // Get user details from Better Auth using batch fetch pattern
+    // Get user details from Better Auth using batch fetch pattern (same as teams.ts)
     const uniqueUserIds = [...new Set(teamCoaches.map((c) => c.userId))];
 
     const usersData = await Promise.all(
       uniqueUserIds.map((userId) =>
-        ctx.runQuery(components.betterAuth.userFunctions.getUserByStringId, {
-          userId,
+        ctx.runQuery(components.betterAuth.adapter.findOne, {
+          model: "user",
+          where: [
+            {
+              field: "_id",
+              value: userId,
+              operator: "eq",
+            },
+          ],
         })
       )
     );
 
     // Create user lookup map
-    const userMap = new Map();
+    const userMap = new Map<string, BetterAuthDoc<"user">>();
     for (const user of usersData) {
       if (user) {
-        const userData = user as any;
-        userMap.set(userData.id, {
-          name: userData.name || userData.email || "Unknown",
-          email: userData.email,
-        });
+        userMap.set(user.id, user);
       }
     }
 
-    // Build results
+    // Build results using same name pattern as teams.ts
     const results = teamCoaches.map((coach) => {
-      const userInfo = userMap.get(coach.userId);
+      const user = userMap.get(coach.userId);
+      const displayName = user
+        ? `${user.firstName || ""} ${user.lastName || ""}`.trim() ||
+          user.email ||
+          "Unknown"
+        : "Unknown";
+
       return {
         userId: coach.userId,
-        name: userInfo?.name || "Unknown",
-        email: userInfo?.email,
+        name: displayName,
+        email: user?.email,
       };
     });
 

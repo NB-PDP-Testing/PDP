@@ -496,7 +496,7 @@ export const getCoachesForTeam = query({
     const userMap = new Map<string, BetterAuthDoc<"user">>();
     for (const user of usersData) {
       if (user) {
-        userMap.set(user.id, user);
+        userMap.set(user._id, user);
       }
     }
 

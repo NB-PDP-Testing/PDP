@@ -27,10 +27,18 @@
 
 ---
 
-## 📋 Phase 4: Ready to Execute (4 stories, 13h)
+## 📋 Phase 4: In Progress (3 of 4 stories remaining)
 
-### Stories:
-1. **US-P9-057**: Tasks Tab (5.5h)
+### ✅ Completed:
+1. **US-P9-057**: Tasks Tab (5.5h) - COMPLETE ✅
+   - Schema: Added status field to coachTasks
+   - Backend: getTeamTasks query, createTask/updateTask/deleteTask mutations
+   - Frontend: Full Tasks Tab with filters, cards, modals
+   - Integrations: Activity Feed events, Overview Dashboard stats
+   - Fixed: Better Auth user.name pattern (documented in .ruler/better-auth-patterns.md)
+   - Tested: Manual testing complete, coach names displaying correctly
+
+### 🔜 Remaining:
 2. **US-P9-058**: Insights Tab (5h)
 3. **US-P9-NAV**: Navigation Integration (0.5h)
 4. **US-P9-041**: Tone Controls for Parent Summaries (2h)

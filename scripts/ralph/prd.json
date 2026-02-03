@@ -120,7 +120,7 @@
         "Visual verification with dev-browser (filters work, create task works, status updates work, activity feed shows task events, overview shows task count)"
       ],
       "priority": 1,
-      "passes": false,
+      "passes": true,
       "effort": "5.5h",
       "effortBreakdown": {
         "schema": "0.25h (add 1 field to existing table)",

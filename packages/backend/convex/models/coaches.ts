@@ -445,6 +445,73 @@ export const getFellowCoachesForTeams = query({
 });
 
 /**
+ * Get all coaches assigned to a specific team
+ * Useful for task assignment dropdowns, team management, etc.
+ */
+export const getCoachesForTeam = query({
+  args: {
+    teamId: v.string(),
+    organizationId: v.string(),
+  },
+  returns: v.array(
+    v.object({
+      userId: v.string(),
+      name: v.string(),
+      email: v.optional(v.string()),
+    })
+  ),
+  handler: async (ctx, args) => {
+    // Get all coach assignments in this organization
+    const allAssignments = await ctx.db
+      .query("coachAssignments")
+      .withIndex("by_organizationId", (q) =>
+        q.eq("organizationId", args.organizationId)
+      )
+      .collect();
+
+    // Filter to coaches assigned to this specific team
+    const teamCoaches = allAssignments.filter((assignment) =>
+      assignment.teams.includes(args.teamId)
+    );
+
+    // Get user details from Better Auth using batch fetch pattern
+    const uniqueUserIds = [...new Set(teamCoaches.map((c) => c.userId))];
+
+    const usersData = await Promise.all(
+      uniqueUserIds.map((userId) =>
+        ctx.runQuery(components.betterAuth.userFunctions.getUserByStringId, {
+          userId,
+        })
+      )
+    );
+
+    // Create user lookup map
+    const userMap = new Map();
+    for (const user of usersData) {
+      if (user) {
+        const userData = user as any;
+        userMap.set(userData.id, {
+          name: userData.name || userData.email || "Unknown",
+          email: userData.email,
+        });
+      }
+    }
+
+    // Build results
+    const results = teamCoaches.map((coach) => {
+      const userInfo = userMap.get(coach.userId);
+      return {
+        userId: coach.userId,
+        name: userInfo?.name || "Unknown",
+        email: userInfo?.email,
+      };
+    });
+
+    return results;
+  },
+});
+
+/**
  * Migration: Convert coach assignments from team NAMES to team IDs
  * This fixes the issue where team renames break coach dashboards
  */

@@ -500,13 +500,11 @@ export const getCoachesForTeam = query({
       }
     }
 
-    // Build results using same name pattern as teams.ts
+    // Build results using Better Auth name field pattern
     const results = teamCoaches.map((coach) => {
       const user = userMap.get(coach.userId);
       const displayName = user
-        ? `${user.firstName || ""} ${user.lastName || ""}`.trim() ||
-          user.email ||
-          "Unknown"
+        ? user.name || user.email || "Unknown"
         : "Unknown";
 
       return {

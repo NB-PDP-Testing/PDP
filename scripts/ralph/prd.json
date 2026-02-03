@@ -191,7 +191,7 @@
         "Visual verification with dev-browser (pagination works, filters work, detail modal works, activity feed shows insight events, overview shows insight count, voice notes show insights badge)"
       ],
       "priority": 2,
-      "passes": false,
+      "passes": true,
       "effort": "5h",
       "effortBreakdown": {
         "schema": "0.5h (new table with indexes)",

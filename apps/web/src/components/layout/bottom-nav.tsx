@@ -21,6 +21,8 @@ export type BottomNavItem = {
   isAction?: boolean;
   /** Optional badge count */
   badge?: number;
+  /** Whether to highlight this item (emphasized styling) */
+  highlight?: boolean;
 };
 
 type BottomNavProps = {
@@ -101,6 +103,7 @@ export function BottomNav({ items, className, onActionClick }: BottomNavProps) {
               aria-current={isActive ? "page" : undefined}
               className={cn(
                 "relative flex h-14 w-14 flex-col items-center justify-center rounded-lg transition-colors",
+                item.highlight && "bg-primary/10",
                 isActive
                   ? "text-primary"
                   : "text-muted-foreground hover:text-foreground"
@@ -109,7 +112,9 @@ export function BottomNav({ items, className, onActionClick }: BottomNavProps) {
               key={item.id}
             >
               <div className="relative">
-                <Icon className="h-6 w-6" />
+                <Icon
+                  className={cn("h-6 w-6", item.highlight && "text-primary")}
+                />
                 {/* Badge */}
                 {item.badge && item.badge > 0 && (
                   <span className="-right-2 -top-1 absolute flex h-4 min-w-4 items-center justify-center rounded-full bg-destructive px-1 font-medium text-[10px] text-destructive-foreground">

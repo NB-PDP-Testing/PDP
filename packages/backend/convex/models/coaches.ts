@@ -445,6 +445,80 @@ export const getFellowCoachesForTeams = query({
 });
 
 /**
+ * Get all coaches assigned to a specific team
+ * Useful for task assignment dropdowns, team management, etc.
+ */
+export const getCoachesForTeam = query({
+  args: {
+    teamId: v.string(),
+    organizationId: v.string(),
+  },
+  returns: v.array(
+    v.object({
+      userId: v.string(),
+      name: v.string(),
+      email: v.optional(v.string()),
+    })
+  ),
+  handler: async (ctx, args) => {
+    // Get all coach assignments in this organization
+    const allAssignments = await ctx.db
+      .query("coachAssignments")
+      .withIndex("by_organizationId", (q) =>
+        q.eq("organizationId", args.organizationId)
+      )
+      .collect();
+
+    // Filter to coaches assigned to this specific team
+    const teamCoaches = allAssignments.filter((assignment) =>
+      assignment.teams.includes(args.teamId)
+    );
+
+    // Get user details from Better Auth using batch fetch pattern (same as teams.ts)
+    const uniqueUserIds = [...new Set(teamCoaches.map((c) => c.userId))];
+
+    const usersData = await Promise.all(
+      uniqueUserIds.map((userId) =>
+        ctx.runQuery(components.betterAuth.adapter.findOne, {
+          model: "user",
+          where: [
+            {
+              field: "_id",
+              value: userId,
+              operator: "eq",
+            },
+          ],
+        })
+      )
+    );
+
+    // Create user lookup map
+    const userMap = new Map<string, BetterAuthDoc<"user">>();
+    for (const user of usersData) {
+      if (user) {
+        userMap.set(user._id, user);
+      }
+    }
+
+    // Build results using Better Auth name field pattern
+    const results = teamCoaches.map((coach) => {
+      const user = userMap.get(coach.userId);
+      const displayName = user
+        ? user.name || user.email || "Unknown"
+        : "Unknown";
+
+      return {
+        userId: coach.userId,
+        name: displayName,
+        email: user?.email,
+      };
+    });
+
+    return results;
+  },
+});
+
+/**
  * Migration: Convert coach assignments from team NAMES to team IDs
  * This fixes the issue where team renames break coach dashboards
  */
@@ -546,5 +620,110 @@ export const migrateCoachAssignmentsToTeamIds = mutation({
       conversions,
       warnings,
     };
+  },
+});
+
+/**
+ * Get coach preferences for parent communications
+ */
+export const getCoachPreferences = query({
+  args: {
+    coachId: v.string(),
+    organizationId: v.string(),
+  },
+  returns: v.union(
+    v.null(),
+    v.object({
+      _id: v.id("coachOrgPreferences"),
+      _creationTime: v.number(),
+      coachId: v.string(),
+      organizationId: v.string(),
+      parentSummariesEnabled: v.optional(v.boolean()),
+      aiInsightMatchingEnabled: v.optional(v.boolean()),
+      autoApplyInsightsEnabled: v.optional(v.boolean()),
+      skipSensitiveInsights: v.optional(v.boolean()),
+      parentSummaryTone: v.optional(
+        v.union(
+          v.literal("warm"),
+          v.literal("professional"),
+          v.literal("brief")
+        )
+      ),
+      trustGateOverride: v.optional(v.boolean()),
+      overrideGrantedBy: v.optional(v.string()),
+      overrideGrantedAt: v.optional(v.number()),
+      overrideReason: v.optional(v.string()),
+      overrideExpiresAt: v.optional(v.number()),
+      aiControlRightsEnabled: v.optional(v.boolean()),
+      grantedBy: v.optional(v.string()),
+      grantedAt: v.optional(v.number()),
+      grantNote: v.optional(v.string()),
+      revokedBy: v.optional(v.string()),
+      revokedAt: v.optional(v.number()),
+      revokeReason: v.optional(v.string()),
+      adminBlockedFromAI: v.optional(v.boolean()),
+      blockedBy: v.optional(v.string()),
+      blockedAt: v.optional(v.number()),
+      blockReason: v.optional(v.string()),
+      createdAt: v.number(),
+      updatedAt: v.number(),
+    })
+  ),
+  handler: async (ctx, args) => {
+    const prefs = await ctx.db
+      .query("coachOrgPreferences")
+      .withIndex("by_coach_org", (q) =>
+        q.eq("coachId", args.coachId).eq("organizationId", args.organizationId)
+      )
+      .first();
+
+    return prefs || null;
+  },
+});
+
+/**
+ * Update coach preferences for parent communications
+ */
+export const updateCoachPreferences = mutation({
+  args: {
+    coachId: v.string(),
+    organizationId: v.string(),
+    parentSummaryTone: v.optional(
+      v.union(v.literal("warm"), v.literal("professional"), v.literal("brief"))
+    ),
+    parentSummariesEnabled: v.optional(v.boolean()),
+    aiInsightMatchingEnabled: v.optional(v.boolean()),
+    autoApplyInsightsEnabled: v.optional(v.boolean()),
+    skipSensitiveInsights: v.optional(v.boolean()),
+  },
+  returns: v.id("coachOrgPreferences"),
+  handler: async (ctx, args) => {
+    const { coachId, organizationId, ...updates } = args;
+
+    // Check if preferences already exist
+    const existing = await ctx.db
+      .query("coachOrgPreferences")
+      .withIndex("by_coach_org", (q) =>
+        q.eq("coachId", coachId).eq("organizationId", organizationId)
+      )
+      .first();
+
+    if (existing) {
+      // Update existing preferences
+      await ctx.db.patch(existing._id, updates);
+      return existing._id;
+    }
+
+    // Create new preferences record
+    const now = Date.now();
+    const prefsId = await ctx.db.insert("coachOrgPreferences", {
+      coachId,
+      organizationId,
+      ...updates,
+      createdAt: now,
+      updatedAt: now,
+    });
+
+    return prefsId;
   },
 });

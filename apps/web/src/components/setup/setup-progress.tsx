@@ -12,9 +12,9 @@ const SETUP_STEPS = [
   { id: "complete", label: "Done" },
 ] as const;
 
-interface SetupProgressProps {
+type SetupProgressProps = {
   currentStep: string;
-}
+};
 
 /**
  * Horizontal stepper showing setup wizard progress

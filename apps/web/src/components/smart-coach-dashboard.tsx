@@ -439,8 +439,6 @@ export function SmartCoachDashboard({
   useEffect(() => {
     calculateTeamAnalytics();
     generateCorrelationInsights();
-    // Dependencies are the data inputs that should trigger recalculation
-    // NOT the functions themselves (which would cause infinite loops)
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [players, coachTeams, isClubView]);
 

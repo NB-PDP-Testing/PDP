@@ -940,6 +940,9 @@ export default defineSchema({
       v.union(v.literal("low"), v.literal("medium"), v.literal("high"))
     ),
     dueDate: v.optional(v.number()), // Timestamp
+    status: v.optional(
+      v.union(v.literal("open"), v.literal("in-progress"), v.literal("done"))
+    ), // Task status (granular alternative to completed boolean)
 
     // Source tracking - where did this task come from?
     source: v.union(v.literal("manual"), v.literal("voice_note")),
@@ -1556,9 +1559,12 @@ export default defineSchema({
       )
     ),
     insightsError: v.optional(v.string()),
+    // Optional session plan link for voice notes taken during sessions
+    sessionPlanId: v.optional(v.id("sessionPlans")),
   })
     .index("by_orgId", ["orgId"])
-    .index("by_orgId_and_coachId", ["orgId", "coachId"]),
+    .index("by_orgId_and_coachId", ["orgId", "coachId"])
+    .index("by_session", ["sessionPlanId"]),
 
   // ============================================================
   // PHASE 7: COACH INSIGHT AUTO-APPLY
@@ -1738,7 +1744,11 @@ export default defineSchema({
       v.literal("injury_logged"),
       v.literal("decision_created"),
       v.literal("vote_cast"),
-      v.literal("decision_finalized")
+      v.literal("decision_finalized"),
+      v.literal("task_created"),
+      v.literal("task_completed"),
+      v.literal("task_assigned"),
+      v.literal("insight_generated")
     ),
     entityType: v.union(
       v.literal("voice_note"),
@@ -1747,7 +1757,9 @@ export default defineSchema({
       v.literal("skill_assessment"),
       v.literal("goal"),
       v.literal("injury"),
-      v.literal("decision")
+      v.literal("decision"),
+      v.literal("task"),
+      v.literal("team_insight")
     ),
     entityId: v.string(), // ID of the related entity
     summary: v.string(), // Human-readable description
@@ -1769,6 +1781,38 @@ export default defineSchema({
     .index("by_actor", ["actorId"])
     .index("by_team_and_priority", ["teamId", "priority"])
     .index("by_team_and_actionType", ["teamId", "actionType"]),
+
+  // Team insights - AI-generated insights from voice notes and analysis
+  teamInsights: defineTable({
+    teamId: v.string(), // Better Auth team ID
+    organizationId: v.string(), // Better Auth organization ID
+    type: v.union(
+      v.literal("voice-note"),
+      v.literal("ai-generated"),
+      v.literal("manual")
+    ),
+    title: v.string(),
+    summary: v.string(), // 2-3 sentence summary
+    fullText: v.optional(v.string()), // Full insight text
+    voiceNoteId: v.optional(v.id("voiceNotes")), // Source voice note if applicable
+    playerIds: v.array(v.id("orgPlayerEnrollments")), // Related players
+    topic: v.union(
+      v.literal("technical"),
+      v.literal("tactical"),
+      v.literal("fitness"),
+      v.literal("behavioral"),
+      v.literal("other")
+    ),
+    priority: v.union(v.literal("high"), v.literal("medium"), v.literal("low")),
+    createdBy: v.string(), // Better Auth user ID
+    createdAt: v.number(),
+    readBy: v.array(v.string()), // User IDs who have viewed this insight
+  })
+    .index("by_team", ["teamId"])
+    .index("by_org", ["organizationId"])
+    .index("by_team_and_type", ["teamId", "type"])
+    .index("by_voice_note", ["voiceNoteId"])
+    .index("by_team_and_date", ["teamId", "createdAt"]),
 
   // Real-time presence tracking (who's viewing what)
   teamHubPresence: defineTable({
@@ -2531,6 +2575,9 @@ export default defineSchema({
     aiInsightMatchingEnabled: v.optional(v.boolean()), // Auto-match players, classify insights (default true)
     autoApplyInsightsEnabled: v.optional(v.boolean()), // Auto-apply skill ratings, injuries (default true)
     skipSensitiveInsights: v.optional(v.boolean()), // Skip injury/behavior from summaries (default false)
+    parentSummaryTone: v.optional(
+      v.union(v.literal("warm"), v.literal("professional"), v.literal("brief"))
+    ), // Tone for AI-generated parent summaries (default warm)
 
     // Trust Gate Individual Override (P8 Week 1.5)
     trustGateOverride: v.optional(v.boolean()), // true = bypass gates, false/null = follow org

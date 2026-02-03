@@ -1,0 +1,437 @@
+{
+  "sportCode": "hyrox_gaa_fitness",
+  "categories": [
+    {
+      "code": "running_endurance",
+      "name": "Running & Endurance",
+      "description": "Aerobic capacity, pacing, and running efficiency for Hyrox 8km and GAA match endurance",
+      "sortOrder": 1,
+      "skills": [
+        {
+          "code": "aerobic_capacity",
+          "name": "Aerobic Capacity",
+          "description": "Ability to sustain prolonged aerobic effort (VO2max, endurance base)",
+          "level1Descriptor": "Struggles with continuous 10+ minute efforts",
+          "level2Descriptor": "Can sustain moderate effort for 20-30 minutes",
+          "level3Descriptor": "Can sustain effort for 40-60 minutes at steady pace",
+          "level4Descriptor": "Maintains high work rate for 60+ minutes with minimal decline",
+          "level5Descriptor": "Exceptional endurance, can sustain near-maximal effort for extended periods",
+          "ageGroupRelevance": ["u14", "u16", "u18", "senior"],
+          "sortOrder": 1
+        },
+        {
+          "code": "running_economy",
+          "name": "Running Economy",
+          "description": "Efficiency of running gait, energy cost per km",
+          "level1Descriptor": "Inefficient gait, high energy cost, poor mechanics",
+          "level2Descriptor": "Developing technique, some wasted movement",
+          "level3Descriptor": "Competent running mechanics, adequate efficiency",
+          "level4Descriptor": "Efficient gait, minimal wasted energy, good form under fatigue",
+          "level5Descriptor": "Exceptional running economy, maintains perfect form throughout",
+          "ageGroupRelevance": ["u14", "u16", "u18", "senior"],
+          "sortOrder": 2
+        },
+        {
+          "code": "pacing",
+          "name": "Pacing Strategy",
+          "description": "Ability to manage effort distribution across race/match duration",
+          "level1Descriptor": "Poor pacing, starts too fast or too slow, inconsistent",
+          "level2Descriptor": "Basic pacing awareness, significant variation in splits",
+          "level3Descriptor": "Can maintain relatively consistent pace in training",
+          "level4Descriptor": "Good pace judgment, minimal variation, adapts to conditions",
+          "level5Descriptor": "Exceptional pacing control, optimal energy distribution, competitive awareness",
+          "ageGroupRelevance": ["u14", "u16", "u18", "senior"],
+          "sortOrder": 3
+        },
+        {
+          "code": "recovery_between_efforts",
+          "name": "Recovery Between Efforts",
+          "description": "Ability to recover between high-intensity bouts (Hyrox stations, GAA surges)",
+          "level1Descriptor": "Slow recovery, struggles to resume activity quickly",
+          "level2Descriptor": "Moderate recovery, needs extended rest between efforts",
+          "level3Descriptor": "Can recover within 60-90 seconds for next bout",
+          "level4Descriptor": "Fast recovery, ready for next effort within 30-60 seconds",
+          "level5Descriptor": "Exceptional recovery, minimal performance drop between bouts",
+          "ageGroupRelevance": ["u14", "u16", "u18", "senior"],
+          "sortOrder": 4
+        }
+      ]
+    },
+    {
+      "code": "power_strength",
+      "name": "Power & Strength",
+      "description": "Functional strength for sled work, carries, and GAA-specific power (tackling, jumping, striking)",
+      "sortOrder": 2,
+      "skills": [
+        {
+          "code": "lower_body_strength",
+          "name": "Lower Body Strength",
+          "description": "Leg strength for sled push/pull, lunges, jumping (squat, lunge strength)",
+          "level1Descriptor": "Struggles with bodyweight movements, poor leg strength",
+          "level2Descriptor": "Can perform basic leg exercises with light load",
+          "level3Descriptor": "Can squat/lunge with moderate load (0.75-1x bodyweight)",
+          "level4Descriptor": "Strong lower body, can handle 1-1.5x bodyweight with good form",
+          "level5Descriptor": "Exceptional leg strength, 1.5-2x+ bodyweight, explosive power",
+          "ageGroupRelevance": ["u14", "u16", "u18", "senior"],
+          "sortOrder": 1
+        },
+        {
+          "code": "upper_body_strength",
+          "name": "Upper Body Strength",
+          "description": "Upper body strength for farmers carry, wall balls, rowing, skierg",
+          "level1Descriptor": "Struggles with pushups, limited upper body capacity",
+          "level2Descriptor": "Can perform basic upper body exercises with light load",
+          "level3Descriptor": "Can perform pushups/pulls with moderate load",
+          "level4Descriptor": "Strong upper body, good pressing/pulling strength",
+          "level5Descriptor": "Exceptional upper body strength and endurance",
+          "ageGroupRelevance": ["u14", "u16", "u18", "senior"],
+          "sortOrder": 2
+        },
+        {
+          "code": "grip_strength",
+          "name": "Grip Strength",
+          "description": "Grip endurance for farmers carry, sled pull, GAA ball handling",
+          "level1Descriptor": "Weak grip, cannot sustain carries or hangs",
+          "level2Descriptor": "Basic grip strength, fatigues quickly under load",
+          "level3Descriptor": "Can sustain moderate grip demands for 30-60 seconds",
+          "level4Descriptor": "Strong grip, can sustain heavy carries/hangs for 60+ seconds",
+          "level5Descriptor": "Exceptional grip strength and endurance, no limiting factor",
+          "ageGroupRelevance": ["u14", "u16", "u18", "senior"],
+          "sortOrder": 3
+        },
+        {
+          "code": "explosive_power",
+          "name": "Explosive Power",
+          "description": "Rate of force production - jumping, sprinting, striking, tackling",
+          "level1Descriptor": "Limited explosiveness, slow force development",
+          "level2Descriptor": "Developing power, moderate jump height/sprint acceleration",
+          "level3Descriptor": "Good power output, competent jumping and acceleration",
+          "level4Descriptor": "High power output, impressive explosiveness",
+          "level5Descriptor": "Exceptional explosiveness, elite jump/sprint/strike power",
+          "ageGroupRelevance": ["u14", "u16", "u18", "senior"],
+          "sortOrder": 4
+        },
+        {
+          "code": "strength_endurance",
+          "name": "Strength Endurance",
+          "description": "Ability to maintain strength output under fatigue (wall balls, repeated efforts)",
+          "level1Descriptor": "Strength deteriorates rapidly with repetition",
+          "level2Descriptor": "Can maintain moderate output for 10-15 reps",
+          "level3Descriptor": "Can sustain strength for 20-30 reps with minor decline",
+          "level4Descriptor": "Maintains high output for 30-50+ reps",
+          "level5Descriptor": "Exceptional strength endurance, minimal decline over 50+ reps",
+          "ageGroupRelevance": ["u14", "u16", "u18", "senior"],
+          "sortOrder": 5
+        }
+      ]
+    },
+    {
+      "code": "core_stability",
+      "name": "Core & Stability",
+      "description": "Core strength, balance, and stability for injury prevention and performance",
+      "sortOrder": 3,
+      "skills": [
+        {
+          "code": "core_strength",
+          "name": "Core Strength",
+          "description": "Anti-extension, anti-rotation, anti-lateral flexion strength",
+          "level1Descriptor": "Weak core, cannot hold basic plank positions",
+          "level2Descriptor": "Can hold plank for 30-60 seconds with moderate form",
+          "level3Descriptor": "Can hold planks/carries 60-90 seconds with good form",
+          "level4Descriptor": "Strong core, can maintain stability under load/fatigue",
+          "level5Descriptor": "Exceptional core strength, perfect stability in all movements",
+          "ageGroupRelevance": ["u14", "u16", "u18", "senior"],
+          "sortOrder": 1
+        },
+        {
+          "code": "balance_stability",
+          "name": "Balance & Stability",
+          "description": "Single-leg balance, dynamic stability, proprioception",
+          "level1Descriptor": "Poor balance, struggles on single leg",
+          "level2Descriptor": "Can balance on single leg for 10-20 seconds",
+          "level3Descriptor": "Good static balance, developing dynamic stability",
+          "level4Descriptor": "Strong balance, stable in dynamic movements",
+          "level5Descriptor": "Exceptional balance and proprioception in all conditions",
+          "ageGroupRelevance": ["u14", "u16", "u18", "senior"],
+          "sortOrder": 2
+        },
+        {
+          "code": "hip_stability",
+          "name": "Hip Stability",
+          "description": "Glute strength, single-leg control, pelvic stability",
+          "level1Descriptor": "Weak hips, knee valgus, poor single-leg control",
+          "level2Descriptor": "Developing hip strength, some compensation patterns",
+          "level3Descriptor": "Adequate hip stability for basic movements",
+          "level4Descriptor": "Strong hips, good control in running/jumping/cutting",
+          "level5Descriptor": "Exceptional hip stability, perfect movement patterns",
+          "ageGroupRelevance": ["u14", "u16", "u18", "senior"],
+          "sortOrder": 3
+        },
+        {
+          "code": "postural_control",
+          "name": "Postural Control",
+          "description": "Ability to maintain neutral spine and optimal posture under load",
+          "level1Descriptor": "Poor posture, excessive spinal flexion/extension",
+          "level2Descriptor": "Developing postural awareness, loses position under load",
+          "level3Descriptor": "Can maintain good posture in most movements",
+          "level4Descriptor": "Excellent postural control, maintains position under fatigue",
+          "level5Descriptor": "Perfect postural control in all conditions and loads",
+          "ageGroupRelevance": ["u14", "u16", "u18", "senior"],
+          "sortOrder": 4
+        }
+      ]
+    },
+    {
+      "code": "speed_agility",
+      "name": "Speed & Agility",
+      "description": "Sprint speed, acceleration, change of direction, and reactive agility for GAA",
+      "sortOrder": 4,
+      "skills": [
+        {
+          "code": "sprint_speed",
+          "name": "Sprint Speed (Max Velocity)",
+          "description": "Top-end running speed (20-40m flying sprint)",
+          "level1Descriptor": "Slow sprinter, limited top speed",
+          "level2Descriptor": "Below average sprint speed for age/level",
+          "level3Descriptor": "Average sprint speed, adequate for level",
+          "level4Descriptor": "Fast sprinter, above average speed",
+          "level5Descriptor": "Exceptional sprint speed, elite velocity",
+          "ageGroupRelevance": ["u14", "u16", "u18", "senior"],
+          "sortOrder": 1
+        },
+        {
+          "code": "acceleration",
+          "name": "Acceleration (0-10m)",
+          "description": "First step quickness, acceleration out of static position",
+          "level1Descriptor": "Slow acceleration, poor first step",
+          "level2Descriptor": "Developing acceleration, below average start",
+          "level3Descriptor": "Good acceleration, adequate for level",
+          "level4Descriptor": "Fast acceleration, explosive first 5-10m",
+          "level5Descriptor": "Exceptional acceleration, elite starting speed",
+          "ageGroupRelevance": ["u14", "u16", "u18", "senior"],
+          "sortOrder": 2
+        },
+        {
+          "code": "change_of_direction",
+          "name": "Change of Direction",
+          "description": "Ability to decelerate, cut, and re-accelerate (pre-planned)",
+          "level1Descriptor": "Slow direction changes, poor deceleration mechanics",
+          "level2Descriptor": "Developing COD, loses speed through cuts",
+          "level3Descriptor": "Can change direction adequately, some speed loss",
+          "level4Descriptor": "Fast COD, maintains speed through cuts",
+          "level5Descriptor": "Exceptional COD, minimal speed loss, explosive out of cuts",
+          "ageGroupRelevance": ["u14", "u16", "u18", "senior"],
+          "sortOrder": 3
+        },
+        {
+          "code": "reactive_agility",
+          "name": "Reactive Agility",
+          "description": "Ability to react and change direction based on stimulus (GAA-specific)",
+          "level1Descriptor": "Slow reactions, struggles with unpredictable movements",
+          "level2Descriptor": "Developing reactive ability, delayed responses",
+          "level3Descriptor": "Adequate reactions, can respond to simple stimuli",
+          "level4Descriptor": "Fast reactions, responds well to complex stimuli",
+          "level5Descriptor": "Exceptional reactive agility, elite anticipation and response",
+          "ageGroupRelevance": ["u14", "u16", "u18", "senior"],
+          "sortOrder": 4
+        },
+        {
+          "code": "repeated_sprint_ability",
+          "name": "Repeated Sprint Ability",
+          "description": "Ability to maintain sprint performance across multiple bouts",
+          "level1Descriptor": "Significant speed decline after 2-3 sprints",
+          "level2Descriptor": "Moderate decline after 4-5 sprints",
+          "level3Descriptor": "Can maintain 80-85% speed for 6-8 sprints",
+          "level4Descriptor": "Maintains 85-90% speed for 8-10 sprints",
+          "level5Descriptor": "Exceptional RSA, maintains 90%+ speed for 10+ sprints",
+          "ageGroupRelevance": ["u14", "u16", "u18", "senior"],
+          "sortOrder": 5
+        }
+      ]
+    },
+    {
+      "code": "hyrox_stations",
+      "name": "Hyrox Stations",
+      "description": "Technique and efficiency for the 8 Hyrox competition stations",
+      "sortOrder": 5,
+      "skills": [
+        {
+          "code": "skierg_technique",
+          "name": "SkiErg Technique (1000m)",
+          "description": "Efficiency and power on SkiErg, pacing for 1000m effort",
+          "level1Descriptor": "Poor technique, inefficient stroke, very slow pace",
+          "level2Descriptor": "Basic technique, developing efficiency, slow pace",
+          "level3Descriptor": "Competent technique, can complete 1000m at steady pace",
+          "level4Descriptor": "Efficient technique, strong power output, good pace",
+          "level5Descriptor": "Exceptional technique and power, elite SkiErg performance",
+          "ageGroupRelevance": ["u16", "u18", "senior"],
+          "sortOrder": 1
+        },
+        {
+          "code": "sled_push",
+          "name": "Sled Push (50m)",
+          "description": "Leg drive and body position for 50m sled push",
+          "level1Descriptor": "Struggles to move sled, poor mechanics",
+          "level2Descriptor": "Can push sled slowly with coaching cues",
+          "level3Descriptor": "Can complete 50m push with good pace and form",
+          "level4Descriptor": "Strong push, fast pace, excellent body position",
+          "level5Descriptor": "Exceptional power and speed on sled push",
+          "ageGroupRelevance": ["u14", "u16", "u18", "senior"],
+          "sortOrder": 2
+        },
+        {
+          "code": "sled_pull",
+          "name": "Sled Pull (50m)",
+          "description": "Arm-over-arm rope pull technique for 50m",
+          "level1Descriptor": "Struggles with pulling motion, very slow",
+          "level2Descriptor": "Can complete pull with poor efficiency",
+          "level3Descriptor": "Adequate pulling technique, steady pace",
+          "level4Descriptor": "Efficient pull, strong grip, fast pace",
+          "level5Descriptor": "Exceptional pulling power and efficiency",
+          "ageGroupRelevance": ["u14", "u16", "u18", "senior"],
+          "sortOrder": 3
+        },
+        {
+          "code": "burpee_broad_jumps",
+          "name": "Burpee Broad Jumps (80m)",
+          "description": "Efficient burpee technique combined with maximal broad jumps",
+          "level1Descriptor": "Slow burpees, short jumps, poor efficiency",
+          "level2Descriptor": "Can complete movement but very fatiguing",
+          "level3Descriptor": "Adequate technique, can maintain pace for 80m",
+          "level4Descriptor": "Efficient burpees, good jump distance, strong pace",
+          "level5Descriptor": "Exceptional efficiency and power, minimal fatigue",
+          "ageGroupRelevance": ["u14", "u16", "u18", "senior"],
+          "sortOrder": 4
+        },
+        {
+          "code": "rowing_technique",
+          "name": "Rowing (1000m)",
+          "description": "Rowing technique and pacing for 1000m effort",
+          "level1Descriptor": "Poor rowing form, very slow, inefficient",
+          "level2Descriptor": "Basic rowing technique, developing power",
+          "level3Descriptor": "Competent rowing, can maintain steady 1000m pace",
+          "level4Descriptor": "Efficient technique, strong power, good pace",
+          "level5Descriptor": "Exceptional rowing technique and power output",
+          "ageGroupRelevance": ["u14", "u16", "u18", "senior"],
+          "sortOrder": 5
+        },
+        {
+          "code": "farmers_carry",
+          "name": "Farmers Carry (200m)",
+          "description": "Posture, grip endurance, and walking efficiency with heavy kettlebells",
+          "level1Descriptor": "Cannot complete carry, drops weights multiple times",
+          "level2Descriptor": "Can complete with many stops, poor posture",
+          "level3Descriptor": "Can complete 200m with 1-2 stops, adequate posture",
+          "level4Descriptor": "Strong carry, minimal stops, good posture and pace",
+          "level5Descriptor": "Exceptional carry, no stops, perfect posture, fast pace",
+          "ageGroupRelevance": ["u14", "u16", "u18", "senior"],
+          "sortOrder": 6
+        },
+        {
+          "code": "sandbag_lunges",
+          "name": "Sandbag Lunges (100m)",
+          "description": "Lunge technique and endurance with sandbag for 100m",
+          "level1Descriptor": "Poor lunge form, cannot complete distance",
+          "level2Descriptor": "Can complete with poor form, many stops",
+          "level3Descriptor": "Adequate lunge technique, can complete 100m steadily",
+          "level4Descriptor": "Good form, strong lunges, minimal stops",
+          "level5Descriptor": "Exceptional lunge technique and endurance",
+          "ageGroupRelevance": ["u14", "u16", "u18", "senior"],
+          "sortOrder": 7
+        },
+        {
+          "code": "wall_balls",
+          "name": "Wall Balls (100 reps)",
+          "description": "Squat depth, timing, and endurance for 100 wall ball shots",
+          "level1Descriptor": "Poor squat depth, cannot maintain rhythm",
+          "level2Descriptor": "Basic technique, breaks into many small sets",
+          "level3Descriptor": "Adequate form, can complete 100 with several breaks",
+          "level4Descriptor": "Good form, strong sets, efficient pacing",
+          "level5Descriptor": "Exceptional technique, large unbroken sets, fast completion",
+          "ageGroupRelevance": ["u14", "u16", "u18", "senior"],
+          "sortOrder": 8
+        }
+      ]
+    },
+    {
+      "code": "movement_quality",
+      "name": "Movement Quality",
+      "description": "Fundamental movement patterns, mobility, and technique",
+      "sortOrder": 6,
+      "skills": [
+        {
+          "code": "squat_pattern",
+          "name": "Squat Pattern",
+          "description": "Bodyweight squat mechanics - depth, knee tracking, spine position",
+          "level1Descriptor": "Poor squat mechanics, limited depth, knee valgus",
+          "level2Descriptor": "Developing squat, some compensation patterns",
+          "level3Descriptor": "Competent squat to parallel with good alignment",
+          "level4Descriptor": "Excellent squat mechanics, full depth, perfect form",
+          "level5Descriptor": "Exceptional squat pattern, role model movement quality",
+          "ageGroupRelevance": ["u14", "u16", "u18", "senior"],
+          "sortOrder": 1
+        },
+        {
+          "code": "hip_hinge",
+          "name": "Hip Hinge Pattern",
+          "description": "Deadlift/hinge mechanics - neutral spine, hip drive",
+          "level1Descriptor": "Poor hinge, excessive spinal flexion, quad-dominant",
+          "level2Descriptor": "Developing hinge awareness, some lumbar rounding",
+          "level3Descriptor": "Adequate hinge, can maintain neutral spine with light load",
+          "level4Descriptor": "Excellent hinge mechanics under load",
+          "level5Descriptor": "Perfect hinge pattern, optimal hip drive and spinal position",
+          "ageGroupRelevance": ["u14", "u16", "u18", "senior"],
+          "sortOrder": 2
+        },
+        {
+          "code": "shoulder_mobility",
+          "name": "Shoulder Mobility",
+          "description": "Overhead range of motion, shoulder flexion and rotation",
+          "level1Descriptor": "Limited overhead mobility, restricted shoulder movement",
+          "level2Descriptor": "Developing mobility, can reach overhead with compensation",
+          "level3Descriptor": "Adequate shoulder mobility for basic movements",
+          "level4Descriptor": "Good shoulder mobility, full overhead range",
+          "level5Descriptor": "Exceptional shoulder mobility and control",
+          "ageGroupRelevance": ["u14", "u16", "u18", "senior"],
+          "sortOrder": 3
+        },
+        {
+          "code": "thoracic_mobility",
+          "name": "Thoracic Mobility",
+          "description": "Mid-back extension and rotation capacity",
+          "level1Descriptor": "Very stiff thoracic spine, limited rotation/extension",
+          "level2Descriptor": "Limited thoracic mobility, compensates with lumbar spine",
+          "level3Descriptor": "Adequate thoracic mobility for basic movements",
+          "level4Descriptor": "Good thoracic extension and rotation",
+          "level5Descriptor": "Exceptional thoracic mobility and control",
+          "ageGroupRelevance": ["u14", "u16", "u18", "senior"],
+          "sortOrder": 4
+        },
+        {
+          "code": "ankle_mobility",
+          "name": "Ankle Mobility",
+          "description": "Dorsiflexion range for squatting, lunging, running",
+          "level1Descriptor": "Severely limited ankle dorsiflexion",
+          "level2Descriptor": "Restricted ankle mobility, compensates with heel lift",
+          "level3Descriptor": "Adequate ankle mobility for most movements",
+          "level4Descriptor": "Good ankle dorsiflexion, no movement limitations",
+          "level5Descriptor": "Exceptional ankle mobility and control",
+          "ageGroupRelevance": ["u14", "u16", "u18", "senior"],
+          "sortOrder": 5
+        },
+        {
+          "code": "movement_coordination",
+          "name": "Movement Coordination",
+          "description": "Ability to learn and perform complex movement sequences",
+          "level1Descriptor": "Struggles with basic coordination, clumsy movements",
+          "level2Descriptor": "Developing coordination, learns movements slowly",
+          "level3Descriptor": "Adequate coordination, can learn standard movements",
+          "level4Descriptor": "Good coordination, learns complex movements quickly",
+          "level5Descriptor": "Exceptional coordination and body awareness",
+          "ageGroupRelevance": ["u14", "u16", "u18", "senior"],
+          "sortOrder": 6
+        }
+      ]
+    }
+  ]
+}

@@ -453,7 +453,10 @@ export const getCoachesForMentions = query({
     );
 
     // Filter to members with Coach functional role
-    const coachMembers = membersResult.data.filter((member: any) =>
+    const members = Array.isArray(membersResult)
+      ? membersResult
+      : membersResult?.data || [];
+    const coachMembers = members.filter((member: any) =>
       member.functionalRoles?.includes("Coach")
     );
 

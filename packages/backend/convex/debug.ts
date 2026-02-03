@@ -93,7 +93,7 @@ export const getRugbySkills = query({
         name: s.name,
         code: s.code,
         categoryId: s.categoryId,
-        hasDescriptors: s.level1Descriptor ? true : false,
+        hasDescriptors: !!s.level1Descriptor,
       })),
       benchmarksCount: benchmarks.length,
     };
@@ -152,8 +152,9 @@ export const verifyRugbyBenchmarks = query({
     // Count by gender
     const genderAll = allBenchmarks.filter((b) => b.gender === "all").length;
     const genderMale = allBenchmarks.filter((b) => b.gender === "male").length;
-    const genderFemale = allBenchmarks.filter((b) => b.gender === "female")
-      .length;
+    const genderFemale = allBenchmarks.filter(
+      (b) => b.gender === "female"
+    ).length;
 
     return {
       totalCount: allBenchmarks.length,

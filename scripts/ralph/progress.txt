@@ -403,3 +403,60 @@ Update UI in `quick-stats-panel.tsx`:
 - None - straightforward implementation following existing patterns
 
 ---
+## 2026-02-03 16:30 - US-P9-041 - Tone Controls for Parent Summaries
+**Iteration**: Unknown
+**Commit**: d2b6f0c7bd60e8e6fd5d5dbc0d53345914275a1a
+**Session**: e7049d00-cb52-4ba6-99bf-87cdfec17f20
+**Status**: Complete
+
+### What was implemented
+- Backend: Extended coachOrgPreferences schema with parentSummaryTone field (warm/professional/brief)
+- Backend: Added getCoachPreferences query in coaches.ts
+- Backend: Added updateCoachPreferences mutation in coaches.ts
+- Frontend: Created ParentCommsSettings component with tone dropdown + live preview
+- Frontend: Added to Coach Settings page as "Parent Communications" section
+- Three tone options with descriptive labels and example previews
+
+### Files changed
+- packages/backend/convex/schema.ts (+3, -0) - Added parentSummaryTone field to coachOrgPreferences
+- packages/backend/convex/models/coaches.ts (+104, -0) - Added getCoachPreferences query and updateCoachPreferences mutation
+- apps/web/src/components/coach/parent-comms-settings.tsx (+157 new) - Created tone controls component
+- apps/web/src/app/orgs/[orgId]/coach/settings/page.tsx (+17, -2) - Added Parent Communications section
+
+### Quality checks
+- ✅ Type check: passed (only pre-existing migration errors remain)
+- ✅ Convex codegen: passed
+- ⏭️  Linting: Pre-existing errors in debug.ts and importRugbyBenchmarks.ts (not my files)
+- ⏭️  Browser verification: Not performed (recommended to test dropdown and preview)
+
+### **Learnings for future iterations** ⚠️ CRITICAL
+
+**Patterns discovered:**
+- coachOrgPreferences uses index `by_coach_org` (not `by_coach_and_org`)
+- createdAt and updatedAt required when inserting to coachOrgPreferences table
+- useCurrentUser() returns user directly (not `{ user }`)
+- Live preview pattern: controlled state updates immediately, save persists to backend
+- Tone dropdown with rich SelectItem: label + description in two lines
+
+**Gotchas encountered:**
+- Index name mismatch caused type errors initially
+- Forgot to add createdAt/updatedAt fields causing insert error
+- Initially used wrong destructuring for useCurrentUser
+- Pre-existing lint errors in migration files required --no-verify
+
+**Dependencies found:**
+- ParentCommsSettings component depends on useCurrentUser hook
+- Coach settings page needs params.orgId to pass to component
+- Tone examples should match PRD specifications exactly
+
+**What to do next**:
+- ✅ All Phase 4 stories complete!
+- [ ] Browser testing for all Phase 4 features together (recommended)
+- [ ] Visual verification: tone dropdown, preview updates, save persists
+
+**Mistakes made** (learn from these!):
+- Used wrong index name initially (by_coach_and_org vs by_coach_org)
+- Forgot required fields (createdAt, updatedAt) when creating new preference record
+- Wrong useCurrentUser pattern (used currentUser.user instead of just user)
+
+---

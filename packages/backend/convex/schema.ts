@@ -841,6 +841,28 @@ export default defineSchema({
       )
     ),
 
+    // Recovery plan (Phase 2 - Issue #261)
+    estimatedRecoveryDays: v.optional(v.number()),
+    recoveryPlanNotes: v.optional(v.string()), // Coach's recovery guidance
+    milestones: v.optional(
+      v.array(
+        v.object({
+          id: v.string(),
+          description: v.string(),
+          targetDate: v.optional(v.string()), // ISO date
+          completedDate: v.optional(v.string()), // ISO date
+          completedBy: v.optional(v.string()), // User ID
+          notes: v.optional(v.string()),
+          order: v.number(),
+        })
+      )
+    ),
+
+    // Medical clearance (Phase 2 - Issue #261)
+    medicalClearanceRequired: v.optional(v.boolean()),
+    medicalClearanceReceived: v.optional(v.boolean()),
+    medicalClearanceDate: v.optional(v.string()), // ISO date
+
     // Context (where injury occurred)
     occurredDuring: v.optional(
       v.union(
@@ -916,6 +938,71 @@ export default defineSchema({
     .index("by_injuryId", ["injuryId"])
     .index("by_org_and_injury", ["organizationId", "injuryId"])
     .index("by_date", ["injuryId", "createdAt"]),
+
+  // Injury Progress Updates - tracks recovery progress history (Phase 2 - Issue #261)
+  injuryProgressUpdates: defineTable({
+    injuryId: v.id("playerInjuries"),
+    updatedBy: v.string(), // User ID
+    updatedByName: v.string(), // Denormalized for display
+    updatedByRole: v.union(
+      v.literal("guardian"),
+      v.literal("coach"),
+      v.literal("admin")
+    ),
+    updateType: v.union(
+      v.literal("progress_note"), // General progress update
+      v.literal("milestone_completed"), // Milestone marked complete
+      v.literal("status_change"), // Status changed
+      v.literal("document_uploaded"), // Document added
+      v.literal("clearance_received"), // Medical clearance received
+      v.literal("recovery_plan_created"), // Recovery plan set up
+      v.literal("recovery_plan_updated") // Recovery plan modified
+    ),
+    notes: v.optional(v.string()),
+    // For status changes
+    previousStatus: v.optional(v.string()),
+    newStatus: v.optional(v.string()),
+    // For milestone updates
+    milestoneId: v.optional(v.string()),
+    milestoneDescription: v.optional(v.string()),
+    // For document uploads
+    documentId: v.optional(v.id("injuryDocuments")),
+    // Timestamps
+    createdAt: v.number(),
+  })
+    .index("by_injury", ["injuryId"])
+    .index("by_injury_created", ["injuryId", "createdAt"]),
+
+  // Injury Documents - medical document storage (Phase 2 - Issue #261)
+  injuryDocuments: defineTable({
+    injuryId: v.id("playerInjuries"),
+    uploadedBy: v.string(), // User ID
+    uploadedByName: v.string(), // Denormalized for display
+    uploadedByRole: v.union(
+      v.literal("guardian"),
+      v.literal("coach"),
+      v.literal("admin")
+    ),
+    storageId: v.id("_storage"), // Convex file storage reference
+    fileName: v.string(),
+    fileType: v.string(), // MIME type
+    fileSize: v.number(), // bytes
+    documentType: v.union(
+      v.literal("medical_report"), // Doctor's report
+      v.literal("clearance_form"), // Return-to-play clearance
+      v.literal("xray_scan"), // X-ray or MRI images
+      v.literal("therapy_notes"), // Physical therapy notes
+      v.literal("insurance_form"), // Insurance documentation
+      v.literal("other") // Other documents
+    ),
+    description: v.optional(v.string()),
+    // Privacy control - guardians can mark documents as private
+    isPrivate: v.boolean(), // If true, only uploading guardian can see
+    // Timestamps
+    createdAt: v.number(),
+  })
+    .index("by_injury", ["injuryId"])
+    .index("by_injury_type", ["injuryId", "documentType"]),
 
   // ============================================================
   // EXISTING APPLICATION TABLES

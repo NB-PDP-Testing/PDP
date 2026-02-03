@@ -7,6 +7,7 @@ import {
   AlertTriangle,
   ArrowLeft,
   Calendar,
+  Eye,
   Heart,
   Loader2,
   Pencil,
@@ -16,6 +17,7 @@ import {
 import { useParams, useRouter } from "next/navigation";
 import { useCallback, useMemo, useState } from "react";
 import { toast } from "sonner";
+import { InjuryDetailModal } from "@/components/injuries/injury-detail-modal";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import {
@@ -140,8 +142,40 @@ export default function InjuryTrackingPage() {
   const [selectedPlayerId, setSelectedPlayerId] = useState<string | null>(null);
   const [showAddDialog, setShowAddDialog] = useState(false);
   const [showEditDialog, setShowEditDialog] = useState(false);
+  const [showDetailModal, setShowDetailModal] = useState(false);
   const [statusFilter, setStatusFilter] = useState<string>("active");
   const [historyStatusFilter, setHistoryStatusFilter] = useState<string>("all");
+
+  // Viewing injury state (for detail modal)
+  const [viewingInjury, setViewingInjury] = useState<{
+    _id: Id<"playerInjuries">;
+    playerIdentityId: Id<"playerIdentities">;
+    injuryType: string;
+    bodyPart: string;
+    side?: "left" | "right" | "both";
+    dateOccurred: string;
+    severity: string;
+    status: string;
+    description: string;
+    treatment?: string;
+    expectedReturn?: string;
+    actualReturn?: string;
+    estimatedRecoveryDays?: number;
+    recoveryPlanNotes?: string;
+    milestones?: Array<{
+      id: string;
+      description: string;
+      targetDate?: string;
+      completedDate?: string;
+      completedBy?: string;
+      notes?: string;
+      order: number;
+    }>;
+    medicalClearanceRequired?: boolean;
+    medicalClearanceReceived?: boolean;
+    medicalClearanceDate?: string;
+    player?: { firstName: string; lastName: string };
+  } | null>(null);
 
   // Edit injury state
   const [editingInjury, setEditingInjury] = useState<{
@@ -331,6 +365,46 @@ export default function InjuryTrackingPage() {
     []
   );
 
+  // Open detail modal with injury data (Phase 2)
+  const openDetailModal = useCallback(
+    (injury: {
+      _id: Id<"playerInjuries">;
+      playerIdentityId: Id<"playerIdentities">;
+      injuryType: string;
+      bodyPart: string;
+      side?: "left" | "right" | "both";
+      dateOccurred: string;
+      severity: string;
+      status: string;
+      description: string;
+      treatment?: string;
+      expectedReturn?: string;
+      actualReturn?: string;
+      estimatedRecoveryDays?: number;
+      recoveryPlanNotes?: string;
+      milestones?: Array<{
+        id: string;
+        description: string;
+        targetDate?: string;
+        completedDate?: string;
+        completedBy?: string;
+        notes?: string;
+        order: number;
+      }>;
+      medicalClearanceRequired?: boolean;
+      medicalClearanceReceived?: boolean;
+      medicalClearanceDate?: string;
+      player?: { firstName: string; lastName: string } | null;
+    }) => {
+      setViewingInjury({
+        ...injury,
+        player: injury.player || undefined,
+      });
+      setShowDetailModal(true);
+    },
+    []
+  );
+
   // Handle save injury (from edit dialog)
   const handleSaveInjury = useCallback(async () => {
     if (!editingInjury) {
@@ -410,9 +484,11 @@ export default function InjuryTrackingPage() {
           <CardContent>
             <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
               {activeInjuriesForOrg.map((injury) => (
-                <div
-                  className="flex items-center gap-3 rounded-lg border border-red-200 bg-white p-3"
+                <button
+                  className="flex w-full cursor-pointer items-center gap-3 rounded-lg border border-red-200 bg-white p-3 text-left transition-colors hover:bg-red-50"
                   key={injury._id}
+                  onClick={() => openDetailModal(injury)}
+                  type="button"
                 >
                   <div className="flex h-10 w-10 items-center justify-center rounded-full bg-red-100">
                     <Heart className="h-5 w-5 text-red-600" />
@@ -430,7 +506,7 @@ export default function InjuryTrackingPage() {
                   >
                     {SEVERITY_CONFIG[injury.severity as Severity].label}
                   </Badge>
-                </div>
+                </button>
               ))}
             </div>
           </CardContent>
@@ -568,14 +644,24 @@ export default function InjuryTrackingPage() {
                           )}
                         </div>
                       </div>
-                      <Button
-                        onClick={() => openEditDialog(injury)}
-                        size="sm"
-                        variant="outline"
-                      >
-                        <Pencil className="mr-1 h-3 w-3" />
-                        Edit
-                      </Button>
+                      <div className="flex gap-2">
+                        <Button
+                          onClick={() => openDetailModal(injury)}
+                          size="sm"
+                          variant="outline"
+                        >
+                          <Eye className="mr-1 h-3 w-3" />
+                          View
+                        </Button>
+                        <Button
+                          onClick={() => openEditDialog(injury)}
+                          size="sm"
+                          variant="outline"
+                        >
+                          <Pencil className="mr-1 h-3 w-3" />
+                          Edit
+                        </Button>
+                      </div>
                     </div>
                   </div>
                 ))}
@@ -645,17 +731,11 @@ export default function InjuryTrackingPage() {
           ) : (
             <div className="space-y-3">
               {filteredHistoryInjuries.map((injury) => (
-                <div
-                  className="flex cursor-pointer items-start justify-between rounded-lg border p-4 transition-colors hover:bg-muted/50"
+                <button
+                  className="flex w-full cursor-pointer items-start justify-between rounded-lg border p-4 text-left transition-colors hover:bg-muted/50"
                   key={injury._id}
-                  onClick={() => openEditDialog(injury)}
-                  onKeyDown={(e) => {
-                    if (e.key === "Enter" || e.key === " ") {
-                      openEditDialog(injury);
-                    }
-                  }}
-                  role="button"
-                  tabIndex={0}
+                  onClick={() => openDetailModal(injury)}
+                  type="button"
                 >
                   <div className="flex items-start gap-4">
                     <div className="flex h-10 w-10 flex-shrink-0 items-center justify-center rounded-full bg-gray-100">
@@ -713,7 +793,7 @@ export default function InjuryTrackingPage() {
                     </Badge>
                     <Pencil className="h-4 w-4 text-muted-foreground" />
                   </div>
-                </div>
+                </button>
               ))}
             </div>
           )}
@@ -1164,6 +1244,25 @@ export default function InjuryTrackingPage() {
           </DialogFooter>
         </DialogContent>
       </Dialog>
+
+      {/* Injury Detail Modal - Phase 2 Recovery Management */}
+      {userId && currentUser && (
+        <InjuryDetailModal
+          canEdit={true}
+          injury={viewingInjury}
+          onClose={() => {
+            setShowDetailModal(false);
+            setViewingInjury(null);
+          }}
+          open={showDetailModal}
+          userId={userId}
+          userName={
+            `${currentUser.firstName || ""} ${currentUser.lastName || ""}`.trim() ||
+            "Coach"
+          }
+          userRole="coach"
+        />
+      )}
     </div>
   );
 }

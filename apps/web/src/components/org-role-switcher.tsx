@@ -268,6 +268,7 @@ export function OrgRoleSwitcher({ className }: OrgRoleSwitcherProps) {
     currentMembership?.activeFunctionalRole,
     currentMembership?.functionalRoles,
     switchActiveRole,
+    currentMembership,
     // Note: currentMembership deliberately omitted - we already depend on
     // the specific fields we check (activeFunctionalRole, functionalRoles).
     // Including the entire object causes infinite loops as every Convex update

@@ -763,3 +763,181 @@ export const deleteInjury = mutation({
     return null;
   },
 });
+
+/**
+ * Get team health summary for Health & Safety Widget
+ * Returns active injuries (max 5), allergy count, medication count
+ * Uses batch fetch pattern to avoid N+1 queries
+ */
+export const getTeamHealthSummary = query({
+  args: {
+    teamId: v.string(),
+    organizationId: v.string(),
+  },
+  returns: v.object({
+    activeInjuries: v.array(
+      v.object({
+        injuryId: v.id("playerInjuries"),
+        playerId: v.id("playerIdentities"),
+        playerName: v.string(),
+        injuryType: v.string(),
+        bodyPart: v.string(),
+        severity: severityValidator,
+        daysSinceInjury: v.number(),
+        status: injuryStatusValidator,
+        dateOccurred: v.string(),
+      })
+    ),
+    totalActiveInjuries: v.number(),
+    allergyAlertsCount: v.number(),
+    medicationAlertsCount: v.number(),
+  }),
+  handler: async (ctx, args) => {
+    // Step 1: Get all active players on the team
+    const teamMembers = await ctx.db
+      .query("teamPlayerIdentities")
+      .withIndex("by_teamId", (q) => q.eq("teamId", args.teamId))
+      .collect();
+
+    const activeMembers = teamMembers.filter((m) => m.status === "active");
+    const playerIds = activeMembers.map((m) => m.playerIdentityId);
+
+    if (playerIds.length === 0) {
+      return {
+        activeInjuries: [],
+        totalActiveInjuries: 0,
+        allergyAlertsCount: 0,
+        medicationAlertsCount: 0,
+      };
+    }
+
+    // Step 2: Batch fetch all player identities (avoid N+1)
+    const uniquePlayerIds = [...new Set(playerIds)];
+    const playerResults = await Promise.all(
+      uniquePlayerIds.map((id) => ctx.db.get(id))
+    );
+
+    const playerMap = new Map();
+    for (const player of playerResults) {
+      if (player) {
+        playerMap.set(player._id, player);
+      }
+    }
+
+    // Step 3: Get all injuries for these players
+    const allInjuries = [];
+    for (const playerId of uniquePlayerIds) {
+      const injuries = await ctx.db
+        .query("playerInjuries")
+        .withIndex("by_playerIdentityId", (q) =>
+          q.eq("playerIdentityId", playerId)
+        )
+        .collect();
+
+      // Filter to active/recovering injuries visible to this org
+      const activeInjuries = injuries.filter((injury) => {
+        if (injury.status === "healed" || injury.status === "cleared") {
+          return false;
+        }
+        if (injury.isVisibleToAllOrgs) {
+          return true;
+        }
+        if (injury.restrictedToOrgIds?.includes(args.organizationId)) {
+          return true;
+        }
+        if (injury.occurredAtOrgId === args.organizationId) {
+          return true;
+        }
+        return false;
+      });
+
+      allInjuries.push(...activeInjuries);
+    }
+
+    // Step 4: Sort by severity (severe > moderate > minor) then by date (recent first)
+    const severityOrder = { severe: 1, moderate: 2, minor: 3, long_term: 4 };
+    allInjuries.sort((a, b) => {
+      const severityDiff =
+        severityOrder[a.severity] - severityOrder[b.severity];
+      if (severityDiff !== 0) {
+        return severityDiff;
+      }
+      return (
+        new Date(b.dateOccurred).getTime() - new Date(a.dateOccurred).getTime()
+      );
+    });
+
+    // Step 5: Calculate days since injury and map to return format
+    const now = Date.now();
+    const injuryData = allInjuries.slice(0, 5).map((injury) => {
+      const player = playerMap.get(injury.playerIdentityId);
+      const playerName = player
+        ? `${player.firstName} ${player.lastName}`
+        : "Unknown Player";
+
+      const dateOccurred = new Date(injury.dateOccurred);
+      const daysSinceInjury = Math.floor(
+        (now - dateOccurred.getTime()) / (1000 * 60 * 60 * 24)
+      );
+
+      return {
+        injuryId: injury._id,
+        playerId: injury.playerIdentityId,
+        playerName,
+        injuryType: injury.injuryType,
+        bodyPart: injury.bodyPart,
+        severity: injury.severity,
+        daysSinceInjury,
+        status: injury.status,
+        dateOccurred: injury.dateOccurred,
+      };
+    });
+
+    // Step 6: Get medical alert counts
+    // Medical profiles are linked via legacy players table, need to match by name
+    let allergyCount = 0;
+    let medicationCount = 0;
+
+    for (const playerId of uniquePlayerIds) {
+      const player = playerMap.get(playerId);
+      if (!player) {
+        continue;
+      }
+
+      const fullName = `${player.firstName} ${player.lastName}`;
+      const legacyPlayer = await ctx.db
+        .query("players")
+        .withIndex("by_organizationId", (q) =>
+          q.eq("organizationId", args.organizationId)
+        )
+        .filter((q) => q.eq(q.field("name"), fullName))
+        .first();
+
+      if (legacyPlayer) {
+        const medicalProfile = await ctx.db
+          .query("medicalProfiles")
+          .withIndex("by_playerId", (q) => q.eq("playerId", legacyPlayer._id))
+          .first();
+
+        if (medicalProfile) {
+          if (medicalProfile.allergies && medicalProfile.allergies.length > 0) {
+            allergyCount += 1;
+          }
+          if (
+            medicalProfile.medications &&
+            medicalProfile.medications.length > 0
+          ) {
+            medicationCount += 1;
+          }
+        }
+      }
+    }
+
+    return {
+      activeInjuries: injuryData,
+      totalActiveInjuries: allInjuries.length,
+      allergyAlertsCount: allergyCount,
+      medicationAlertsCount: medicationCount,
+    };
+  },
+});

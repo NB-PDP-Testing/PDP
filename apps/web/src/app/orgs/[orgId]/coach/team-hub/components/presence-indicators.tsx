@@ -12,10 +12,10 @@ import {
 } from "@/components/ui/tooltip";
 import { useCurrentUser } from "@/hooks/use-current-user";
 
-interface PresenceIndicatorsProps {
+type PresenceIndicatorsProps = {
   teamId: string;
   organizationId: string;
-}
+};
 
 export function PresenceIndicators({
   teamId,

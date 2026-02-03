@@ -14,7 +14,7 @@ import { mutation, query } from "../_generated/server";
  */
 export const getTeamPresence = query({
   args: {
-    teamId: v.id("team"),
+    teamId: v.string(), // Better Auth team ID
     organizationId: v.string(),
   },
   returns: v.array(
@@ -97,7 +97,7 @@ export const updatePresence = mutation({
   args: {
     userId: v.string(),
     organizationId: v.string(),
-    teamId: v.id("team"),
+    teamId: v.string(), // Better Auth team ID
     currentView: v.optional(v.string()),
   },
   returns: v.null(),
@@ -453,7 +453,10 @@ export const getCoachesForMentions = query({
     );
 
     // Filter to members with Coach functional role
-    const coachMembers = membersResult.data.filter((member: any) =>
+    const members = Array.isArray(membersResult)
+      ? membersResult
+      : membersResult?.data || [];
+    const coachMembers = members.filter((member: any) =>
       member.functionalRoles?.includes("Coach")
     );
 
@@ -663,49 +666,118 @@ export const getTeamActivityFeed = query({
       )
     ),
     limit: v.optional(v.number()),
+    paginationOpts: v.optional(
+      v.object({
+        cursor: v.union(v.string(), v.null()),
+        numItems: v.number(),
+      })
+    ),
   },
-  returns: v.array(
+  returns: v.union(
+    // Paginated response (when paginationOpts provided)
     v.object({
-      _id: v.id("teamActivityFeed"),
-      actorId: v.string(),
-      actorName: v.string(),
-      actorAvatar: v.optional(v.string()),
-      actionType: v.union(
-        v.literal("voice_note_added"),
-        v.literal("insight_applied"),
-        v.literal("comment_added"),
-        v.literal("player_assessed"),
-        v.literal("goal_created"),
-        v.literal("injury_logged"),
-        v.literal("decision_created"),
-        v.literal("vote_cast"),
-        v.literal("decision_finalized")
-      ),
-      entityType: v.union(
-        v.literal("voice_note"),
-        v.literal("insight"),
-        v.literal("comment"),
-        v.literal("skill_assessment"),
-        v.literal("goal"),
-        v.literal("injury"),
-        v.literal("decision")
-      ),
-      entityId: v.string(),
-      summary: v.string(),
-      priority: v.union(
-        v.literal("critical"),
-        v.literal("important"),
-        v.literal("normal")
-      ),
-      metadata: v.optional(
+      page: v.array(
         v.object({
-          playerName: v.optional(v.string()),
-          insightTitle: v.optional(v.string()),
-          commentPreview: v.optional(v.string()),
+          _id: v.id("teamActivityFeed"),
+          actorId: v.string(),
+          actorName: v.string(),
+          actorAvatar: v.optional(v.string()),
+          actionType: v.union(
+            v.literal("voice_note_added"),
+            v.literal("insight_applied"),
+            v.literal("comment_added"),
+            v.literal("player_assessed"),
+            v.literal("goal_created"),
+            v.literal("injury_logged"),
+            v.literal("decision_created"),
+            v.literal("vote_cast"),
+            v.literal("decision_finalized"),
+            v.literal("task_created"),
+            v.literal("task_completed"),
+            v.literal("task_assigned"),
+            v.literal("insight_generated")
+          ),
+          entityType: v.union(
+            v.literal("voice_note"),
+            v.literal("insight"),
+            v.literal("comment"),
+            v.literal("skill_assessment"),
+            v.literal("goal"),
+            v.literal("injury"),
+            v.literal("decision"),
+            v.literal("task"),
+            v.literal("team_insight")
+          ),
+          entityId: v.string(),
+          summary: v.string(),
+          priority: v.union(
+            v.literal("critical"),
+            v.literal("important"),
+            v.literal("normal")
+          ),
+          metadata: v.optional(
+            v.object({
+              playerName: v.optional(v.string()),
+              insightTitle: v.optional(v.string()),
+              commentPreview: v.optional(v.string()),
+            })
+          ),
+          _creationTime: v.number(),
         })
       ),
-      _creationTime: v.number(),
-    })
+      continueCursor: v.union(v.string(), v.null()),
+      isDone: v.boolean(),
+    }),
+    // Simple array response (backward compatible)
+    v.array(
+      v.object({
+        _id: v.id("teamActivityFeed"),
+        actorId: v.string(),
+        actorName: v.string(),
+        actorAvatar: v.optional(v.string()),
+        actionType: v.union(
+          v.literal("voice_note_added"),
+          v.literal("insight_applied"),
+          v.literal("comment_added"),
+          v.literal("player_assessed"),
+          v.literal("goal_created"),
+          v.literal("injury_logged"),
+          v.literal("decision_created"),
+          v.literal("vote_cast"),
+          v.literal("decision_finalized"),
+          v.literal("task_created"),
+          v.literal("task_completed"),
+          v.literal("task_assigned"),
+          v.literal("insight_generated")
+        ),
+        entityType: v.union(
+          v.literal("voice_note"),
+          v.literal("insight"),
+          v.literal("comment"),
+          v.literal("skill_assessment"),
+          v.literal("goal"),
+          v.literal("injury"),
+          v.literal("decision"),
+          v.literal("task"),
+          v.literal("team_insight")
+        ),
+        entityId: v.string(),
+        summary: v.string(),
+        priority: v.union(
+          v.literal("critical"),
+          v.literal("important"),
+          v.literal("normal")
+        ),
+        metadata: v.optional(
+          v.object({
+            playerName: v.optional(v.string()),
+            insightTitle: v.optional(v.string()),
+            commentPreview: v.optional(v.string()),
+          })
+        ),
+        _creationTime: v.number(),
+      })
+    )
   ),
   handler: async (ctx, args) => {
     const limit = Math.min(args.limit || 50, 100); // Default 50, max 100
@@ -720,7 +792,11 @@ export const getTeamActivityFeed = query({
       | "injury_logged"
       | "decision_created"
       | "vote_cast"
-      | "decision_finalized";
+      | "decision_finalized"
+      | "task_created"
+      | "task_completed"
+      | "task_assigned"
+      | "insight_generated";
 
     const typeMapping: Record<string, ActionType[]> = {
       insights: ["voice_note_added", "insight_applied"],
@@ -737,7 +813,9 @@ export const getTeamActivityFeed = query({
       | "skill_assessment"
       | "goal"
       | "injury"
-      | "decision";
+      | "decision"
+      | "task"
+      | "team_insight";
 
     type ActivityDoc = {
       _id: Id<"teamActivityFeed">;
@@ -758,16 +836,41 @@ export const getTeamActivityFeed = query({
       };
     };
 
+    // Check if we should use pagination (only for "all" filter)
+    const usePagination =
+      args.paginationOpts && (!args.filterType || args.filterType === "all");
+
     let activities: ActivityDoc[];
+    let paginationResult: {
+      page: ActivityDoc[];
+      continueCursor: string | null;
+      isDone: boolean;
+    } | null = null;
 
     // Use index-based filtering instead of .filter()
     if (!args.filterType || args.filterType === "all") {
-      // Fetch all activities for the team
-      activities = await ctx.db
-        .query("teamActivityFeed")
-        .withIndex("by_team", (q) => q.eq("teamId", args.teamId))
-        .order("desc")
-        .take(limit);
+      if (usePagination && args.paginationOpts) {
+        // Use cursor-based pagination for "all" filter
+        const result = await ctx.db
+          .query("teamActivityFeed")
+          .withIndex("by_team", (q) => q.eq("teamId", args.teamId))
+          .order("desc")
+          .paginate(args.paginationOpts);
+
+        activities = result.page;
+        paginationResult = {
+          page: result.page,
+          continueCursor: result.continueCursor,
+          isDone: result.isDone,
+        };
+      } else {
+        // Fetch all activities for the team (backward compatible)
+        activities = await ctx.db
+          .query("teamActivityFeed")
+          .withIndex("by_team", (q) => q.eq("teamId", args.teamId))
+          .order("desc")
+          .take(limit);
+      }
     } else {
       // Get actionTypes for this filter
       const actionTypes = typeMapping[args.filterType] || [];
@@ -832,7 +935,7 @@ export const getTeamActivityFeed = query({
     }
 
     // Enrich activities with user avatar
-    return activities.map((activity) => {
+    const enrichedActivities = activities.map((activity) => {
       const user = userMap.get(activity.actorId);
       const actorAvatar: string | undefined =
         typeof user?.image === "string" ? user.image : undefined;
@@ -850,6 +953,16 @@ export const getTeamActivityFeed = query({
         _creationTime: activity._creationTime,
       };
     });
+
+    // Return paginated object or simple array
+    if (paginationResult) {
+      return {
+        page: enrichedActivities,
+        continueCursor: paginationResult.continueCursor,
+        isDone: paginationResult.isDone,
+      };
+    }
+    return enrichedActivities;
   },
 });
 
@@ -880,7 +993,11 @@ export const getUnreadNotifications = query({
           v.literal("injury_logged"),
           v.literal("decision_created"),
           v.literal("vote_cast"),
-          v.literal("decision_finalized")
+          v.literal("decision_finalized"),
+          v.literal("task_created"),
+          v.literal("task_completed"),
+          v.literal("task_assigned"),
+          v.literal("insight_generated")
         ),
         entityType: v.union(
           v.literal("voice_note"),
@@ -889,7 +1006,9 @@ export const getUnreadNotifications = query({
           v.literal("skill_assessment"),
           v.literal("goal"),
           v.literal("injury"),
-          v.literal("decision")
+          v.literal("decision"),
+          v.literal("task"),
+          v.literal("team_insight")
         ),
         entityId: v.string(),
         summary: v.string(),

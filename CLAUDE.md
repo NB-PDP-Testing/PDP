@@ -380,9 +380,24 @@ const { user } = useCurrentUser(); // Reads from context, no query
 | Multiple components calling same query | Duplicate subscriptions | Use shared context/provider |
 | Query without checking auth state | Wasted calls | Add skip condition |
 
-### Better Auth User ID Pattern
+### Better Auth User Data Patterns
 
-When looking up users by ID in Convex, use `_id` not `userId`:
+**CRITICAL: Better Auth user object structure:**
+- Use `user._id` for user ID (NOT `user.id`, NOT `userId` in queries)
+- Use `user.name` for display name (NOT `user.firstName`/`user.lastName` - these fields don't exist!)
+- Use `user.email` as fallback when name is missing
+
+```typescript
+// ❌ BAD: These fields DO NOT EXIST
+const displayName = `${user.firstName} ${user.lastName}`;  // Wrong!
+const userId = user.id;  // Wrong, use user._id
+
+// ✅ GOOD: Correct Better Auth fields
+const displayName = user.name || user.email || "Unknown";
+const userId = user._id;
+```
+
+**When querying users by ID:**
 ```typescript
 // ❌ BAD: userId field is always null in this app
 const user = await adapter.findOne({
@@ -396,6 +411,17 @@ const user = await adapter.findOne({
   where: { field: "_id", value: id }
 });
 ```
+
+**When populating user lookup maps:**
+```typescript
+// ❌ BAD: Using wrong ID field
+userMap.set(user.id, user);
+
+// ✅ GOOD: Use _id field
+userMap.set(user._id, user);
+```
+
+**See `.ruler/better-auth-patterns.md` for complete batch fetch patterns and examples.**
 
 ### Performance Checklist (Before Every PR)
 

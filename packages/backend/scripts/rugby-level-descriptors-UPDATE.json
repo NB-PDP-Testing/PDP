@@ -1,0 +1,391 @@
+{
+  "sports": [
+    {
+      "sportCode": "rugby",
+      "categories": [
+        {
+          "name": "Passing & Handling",
+          "skills": [
+            {
+              "name": "Pass Accuracy (Left)",
+              "level1Descriptor": "Learning to pass with left hand as passing hand. Inconsistent hand positioning (hands across ball, not behind) and follow-through. Can complete short passes (4m) when stationary with coaching support. Poor accuracy under any pressure.",
+              "level2Descriptor": "Basic left-hand passing technique established with hands across ball and weight transfer developing. Can complete accurate 4m passes while moving at walking pace. Beginning to develop 7m passing distance. Moderate consistency in practice, struggles under defensive pressure.",
+              "level3Descriptor": "Good left-hand passing technique with consistent execution. Hands across ball, proper weight transfer, and follow-through toward target. Accurate passes at both 4m and 7m distances while running at game pace. Effective under moderate pressure in matches. Occasional errors in high-pressure situations.",
+              "level4Descriptor": "Excellent left-hand passing with high accuracy at all distances up to 10m. Maintains precise hand positioning and weight transfer under heavy defensive pressure. Quick, sharp passes in traffic with consistent follow-through. Strong bilateral development evident. Rarely makes poor passing decisions.",
+              "level5Descriptor": "Elite left-hand passing ability with near-perfect accuracy in all game situations. Executes pinpoint passes under extreme pressure and at full game speed. Can deliver any type of pass (flat, spiral, short, long) with left hand. Demonstrates complete bilateral mastery. Can teach technique to others and consistently delivers chest/face-height passes to receivers."
+            },
+            {
+              "name": "Pass Accuracy (Right)",
+              "level1Descriptor": "Learning to pass with right hand as passing hand. Inconsistent hand positioning and follow-through. Can complete short passes (4m) when stationary with coaching support. Poor accuracy under any pressure. May show strong-side preference without bilateral development.",
+              "level2Descriptor": "Basic right-hand passing technique established with hands across ball developing. Can complete accurate 4m passes while moving at walking pace. Beginning to develop 7m passing distance. Moderate consistency in practice, struggles under defensive pressure.",
+              "level3Descriptor": "Good right-hand passing technique with consistent execution. Hands across ball, proper weight transfer, and follow-through toward target. Accurate passes at both 4m and 7m distances while running at game pace. Effective under moderate pressure in matches. Developing bilateral proficiency.",
+              "level4Descriptor": "Excellent right-hand passing with high accuracy at all distances up to 10m. Maintains precise hand positioning and weight transfer under heavy defensive pressure. Quick, sharp passes in traffic. Strong bilateral development evident with no observable weak side. Can self-correct technique.",
+              "level5Descriptor": "Elite right-hand passing ability with near-perfect accuracy in all game situations. Executes pinpoint passes under extreme pressure and at full game speed. Can deliver any type of pass (flat, spiral, short, long) with right hand. Complete bilateral mastery. Can teach and demonstrate technique to others."
+            },
+            {
+              "name": "Pass Under Pressure",
+              "level1Descriptor": "Cannot maintain pass accuracy when under any defensive pressure. Ball security often compromised when pressured. Makes poor decisions about when to pass versus hold ball. Requires coaching support to recognize pressure situations.",
+              "level2Descriptor": "Beginning to pass with passive defenders present. Can complete short passes under light pressure but technique deteriorates quickly. Inconsistent decision-making about when to pass. Wind-up motion too long, telegraphs intention.",
+              "level3Descriptor": "Maintains good passing technique with active defenders applying moderate pressure. Makes early decisions before contact. Quick hands with minimal wind-up. Can execute short, sharp passes in traffic at 4-7m distance. Usually maintains ball security if pass unavailable.",
+              "level4Descriptor": "Executes accurate passes under heavy defensive pressure from multiple defenders. Excellent early decision-making before contact arrives. Quick, sharp passes with no wind-up. Maintains composure in high-pressure situations. Strong understanding of when to pass versus secure ball.",
+              "level5Descriptor": "Elite passing under extreme pressure. Executes pinpoint passes with multiple defenders closing at full speed. Exceptional decision-making under pressure. Can deliver any pass type in traffic. Rarely makes poor choices or loses possession. Creates opportunities for teammates through pressure passing."
+            },
+            {
+              "name": "Offload in Contact",
+              "level1Descriptor": "Learning offload concept but cannot execute in contact. Often ball is in one hand or lost when contact occurs. Cannot identify support players. Poor timing results in turnovers.",
+              "level2Descriptor": "Can execute basic offload in controlled, walking-speed contact situations. Ball in two hands before contact developing. Beginning to feel for support players. Timing inconsistent - often too early or too late. Success rate low in game situations.",
+              "level3Descriptor": "Effective offload in game situations with ball in two hands before contact. Drives into contact with leg power. Uses peripheral vision to identify support. Pop passes to support runners. Good timing in moderate-pressure situations. Understands when to offload versus secure ball.",
+              "level4Descriptor": "Highly effective offload under heavy pressure. Excellent leg drive into contact with ball availability. Strong peripheral awareness of support runners. Times offload perfectly to give support player space and momentum. High success rate with catchable offloads. Rarely forces poor offloads.",
+              "level5Descriptor": "Elite offloading ability creating significant try-scoring opportunities. Exceptional feel for support players through peripheral vision. Drives powerfully into contact while keeping ball available. Perfect timing of pop pass at optimal moment. Can offload with multiple defenders. Creates second-phase attacks consistently."
+            },
+            {
+              "name": "Draw and Pass",
+              "level1Descriptor": "Cannot commit defender effectively. Passes too early or too late. Poor understanding of when defender is committed. Inconsistent accuracy when under pressure of approaching defender.",
+              "level2Descriptor": "Can execute basic 2v1 with passive defender. Beginning to attack inside shoulder of defender. Passes before defender fully commits. Moderate success in controlled practice situations but struggles in games.",
+              "level3Descriptor": "Effective draw and pass in 2v1 and 3v2 game situations. Attacks inside shoulder of defender, accelerates to threaten run. Draws defender to 1-2m before passing. Good timing creates space for support player. Maintains accuracy under pressure of approaching defender.",
+              "level4Descriptor": "Excellent draw and pass execution creating overlaps consistently. Threatens defense credibly, drawing commitment. Perfect timing of pass gives support maximum space. Effective in complex situations (3v2, 4v3). Reads defender's commitment accurately.",
+              "level5Descriptor": "Elite draw and pass ability dominating 2v1 and overlap situations. Exceptional acceleration into space threatens defense. Perfect timing of pass creates optimal space and momentum for support. Can execute at full game speed with multiple defenders. Creates try-scoring opportunities through superior timing."
+            },
+            {
+              "name": "Spiral / Long Pass",
+              "level1Descriptor": "Learning spiral technique with inconsistent finger placement across seams. Cannot generate spin consistently. Distance limited to under 10m. Looping trajectory or poor accuracy. Not yet introduced at youth level.",
+              "level2Descriptor": "Basic spiral technique developing with fingers across seams. Can execute 10m spiral pass when static. Inconsistent rotation (sometimes spins, sometimes wobbles). Moderate accuracy but trajectory often too high. Struggles to execute while moving.",
+              "level3Descriptor": "Good spiral technique with tight rotation. Fingers across seam, spin with passing hand, proper follow-through. Can execute 10-15m accurate spiral while moving. Flat trajectory developing. Effective in game situations at moderate distances under light pressure.",
+              "level4Descriptor": "Excellent spiral passing at 15m+ with tight rotation and flat trajectory. Maintains accuracy while moving at game speed. Strong weight transfer generates distance. Can execute under pressure with good decision-making. Rarely wobbles or balloons trajectory.",
+              "level5Descriptor": "Elite spiral passing at 20m+ with pinpoint accuracy. Perfect tight rotation with flat trajectory in all conditions. Executes accurately under heavy pressure at full game speed. Can deliver long skip passes to create width. Teaches technique effectively to others."
+            },
+            {
+              "name": "Ball Security",
+              "level1Descriptor": "Learning ball security fundamentals with inconsistent application. Often carries ball loosely or in one hand. Drops ball occasionally when running without pressure. Ball not secured properly before contact. Four points of contact (hand, forearm, bicep, chest) not established.",
+              "level2Descriptor": "Basic ball security established when running without pressure. Ball in two hands while running developing. Can secure ball to chest before contact when reminded. Rarely drops ball in practice but occasional fumbles in games. Limited success maintaining possession when opponents attempt strip.",
+              "level3Descriptor": "Good ball security with four points of contact when carrying. Ball in two hands when running, secured to chest before contact. Rarely drops ball in games. Covers ball with body when on ground. Maintains possession in light to moderate contact. Strong hand grip evident.",
+              "level4Descriptor": "Excellent ball security in all situations. Automatic four-point contact when carrying. Ball always in two hands until contact imminent. Secure in heavy contact with dominant body position protecting ball. Very rarely stripped by opponents. Presents ball well after tackle.",
+              "level5Descriptor": "Elite ball security never compromising possession. Perfect four-point contact automatically maintained. Exceptional ball protection in heavy contact with multiple defenders attempting strip. Never drops ball in game situations. Superior ball presentation for quick ruck ball. Can teach security techniques to others."
+            }
+          ]
+        },
+        {
+          "name": "Catching & Receiving",
+          "skills": [
+            {
+              "name": "High Ball Catching",
+              "level1Descriptor": "Learning high ball catching technique with inconsistent hand positioning. Thumbs together 'bread basket' catch not established. Poor timing of jump. Cannot catch under any pressure. Frequent knock-ons or drops.",
+              "level2Descriptor": "Basic high ball technique developing with thumbs together and fingers spread. Can catch uncontested high balls when stationary or walking. Timing of jump inconsistent. Beginning to use one knee up for protection. Struggles to secure ball quickly under any pressure.",
+              "level3Descriptor": "Good high ball catching with consistent 'bread basket' technique. Watches ball into hands, times jump well at peak. Uses one knee up for protection. Can catch while running to ball. Effective in uncontested situations and beginning to contest with single opponent.",
+              "level4Descriptor": "Excellent high ball catching under contest situations. Watches ball all the way, perfect jump timing. Strong knee-up protection. Secures ball quickly to chest even with opponent pressure. Wins majority of contested high balls. Rarely makes handling errors.",
+              "level5Descriptor": "Elite high ball catching dominating aerial contests. Exceptional timing of jump at peak height. Perfect bread-basket technique with strong securing to chest. Wins contested high balls consistently against multiple opponents. Can catch while moving at full speed. Never intimidated under pressure."
+            },
+            {
+              "name": "Chest / Body Catch",
+              "level1Descriptor": "Learning chest catch technique. Often snatches at ball rather than cushioning. Inconsistent hand positioning in cup shape. Drops soft passes occasionally. Slow transfer to passing position after catch.",
+              "level2Descriptor": "Basic chest catch technique established. Hands ready in cup shape. Can cushion ball into chest when stationary or walking. Beginning to catch cleanly while moving. Occasional fumbles under pressure. Transfer to passing position developing.",
+              "level3Descriptor": "Good chest catch technique with consistent cushioning into body. Hands ready, allows ball to come to body, wraps arms to secure. Clean catches while running at game pace. Quick transfer to passing position. Rarely drops ball in games under moderate pressure.",
+              "level4Descriptor": "Excellent chest catching with automatic hand positioning. Cushions ball perfectly while moving at full speed. Immediate secure with quick transfer to passing position. Clean catch under heavy pressure. Very rarely drops or fumbles in games.",
+              "level5Descriptor": "Elite chest catching with perfect technique in all situations. Automatic cup-shape hands ready position. Cushions and secures ball instantly while running at full speed. Can catch and pass in one fluid motion. Never drops under pressure. Can teach catching progression to others."
+            },
+            {
+              "name": "Low Ball Pickup",
+              "level1Descriptor": "Learning low ball pickup with inconsistent technique. Often approaches ball straight on rather than at angle. Frequently fumbles or stabs at ball. Must slow down significantly to pickup. Cannot execute under any pressure.",
+              "level2Descriptor": "Basic pickup technique developing. Can approach at angle when walking or jogging. Outside foot placement beside ball inconsistent. Scoops ball into hands with moderate success. Must reduce speed significantly. Fumbles frequently in games.",
+              "level3Descriptor": "Good low ball pickup technique with angle approach and outside foot placement. Scoops ball into hands smoothly while jogging. Secures to chest immediately after pickup. Can pickup at running speed with moderate success. Maintains some momentum through pickup.",
+              "level4Descriptor": "Excellent low ball pickup at full running speed. Perfect angle of approach with outside foot beside ball. Smooth scoop into hands with immediate secure to chest. Accelerates through pickup maintaining momentum. Rarely fumbles even under opponent pressure.",
+              "level5Descriptor": "Elite low ball pickup never breaking stride at full speed. Perfect technique with angle approach and outside foot placement. Explosive acceleration through pickup. Can execute with opponents closing at speed. Never fumbles in game situations. Creates counter-attack opportunities through clean pickups."
+            },
+            {
+              "name": "Catching Under Pressure",
+              "level1Descriptor": "Cannot maintain catching technique when defender is nearby. Drops ball frequently when pressured. Poor awareness of approaching defenders. Hands not ready when receiving under pressure. Makes poor decisions to catch versus let bounce.",
+              "level2Descriptor": "Beginning to catch with passive defender present but technique deteriorates. Can secure ball with light pressure applied. Awareness of pressure developing but affects concentration. Inconsistent decision-making about catching versus avoiding contact.",
+              "level3Descriptor": "Maintains good catching technique with active defender applying moderate pressure. Strong hands with quick secure to body. Peripheral awareness of pressure while watching ball. Good body position to protect ball after catch. Sound decisions about when to catch versus tactical option.",
+              "level4Descriptor": "Excellent catching under heavy pressure from multiple defenders. Maintains perfect hand technique despite imminent contact. Strong hands refusing to drop on impact. Superior peripheral awareness and body positioning. Rarely makes handling errors under pressure.",
+              "level5Descriptor": "Elite catching ability under extreme pressure. Never intimidated by approaching defenders. Perfect technique maintained in all pressure situations. Exceptional peripheral awareness allows simultaneous ball-watching and pressure recognition. Can catch and offload/pass immediately under pressure. Completely reliable in high-pressure situations."
+            },
+            {
+              "name": "Hands Ready Position",
+              "level1Descriptor": "Inconsistent hands ready position. Often caught with hands down when pass arrives. Poor hand positioning (not in cup shape). Cannot maintain ready position while running. Must be reminded constantly by coaches.",
+              "level2Descriptor": "Beginning to maintain hands ready at chest height with coaching reminders. Basic cup shape developing with palms facing passer. Can hold ready position when stationary or walking. Inconsistent application in game situations especially when fatigued.",
+              "level3Descriptor": "Good hands ready position maintained consistently in games. Hands up at chest height with palms facing passer, fingers spread. Maintains ready position while running support lines. Automatic application in most situations. Weight on balls of feet ready to move.",
+              "level4Descriptor": "Excellent automatic hands ready position in all game situations. Perfect hand positioning (chest height, palms facing, cup shape) maintained even under fatigue. Eyes on ball/passer consistently. Ready position allows instant reaction to receive. Can coach others on importance.",
+              "level5Descriptor": "Elite hands ready position as automatic habit never compromised. Perfect technique maintained in all conditions including extreme fatigue and pressure. Hands always visible and ready for passer. Superior anticipation of pass timing. Can teach and demonstrate to others. Never caught unprepared."
+            },
+            {
+              "name": "Watch Ball Into Hands",
+              "level1Descriptor": "Frequently looks away before ball is secured. Cannot maintain focus on ball flight. Drops passes from looking for space too early. Does not understand concept of watching ball into hands.",
+              "level2Descriptor": "Understands concept of watching ball in but application inconsistent. Sometimes looks away before securing causing drops. Can track ball flight but loses concentration before contact with hands. Improving with coaching reminders.",
+              "level3Descriptor": "Consistently watches ball into hands until secured. Tracks ball flight all the way without looking away early. Can see logo/seam as ball arrives. Understands importance of securing before looking upfield. Rare drops from looking away early.",
+              "level4Descriptor": "Automatic habit of watching ball into hands in all situations. Perfect visual tracking from passer to secure. Never looks away before ball is completely secured. Maintains discipline even when space beckons. Can catch and secure before looking upfield in one fluid motion.",
+              "level5Descriptor": "Elite ball-watching discipline never compromised. Perfect visual tracking in all situations including under extreme pressure. Can watch ball in while simultaneously using peripheral vision for positioning. Never makes error from looking away early. Can teach importance and technique to others."
+            }
+          ]
+        },
+        {
+          "name": "Running & Ball Carry",
+          "skills": [
+            {
+              "name": "Running With Ball",
+              "level1Descriptor": "Learning to run with ball with inconsistent ball security. Often carries ball in one hand. Runs with head down (poor awareness). Slows down significantly when carrying ball. Runs across field rather than forward.",
+              "level2Descriptor": "Can run with ball in two hands at moderate pace. Beginning to run upright with eyes up. Ball security developing but still drops pace when carrying. Basic awareness of space and support. Sometimes runs across field instead of forward.",
+              "level3Descriptor": "Runs effectively with ball in two hands while maintaining game speed. Upright running position with eyes up scanning for space and support. Good ball security while running. Makes sound decisions about when to run versus pass. Usually goes forward gaining territory.",
+              "level4Descriptor": "Excellent running with ball at full speed while maintaining perfect security. Eyes constantly scanning with head on swivel. Accelerates with ball as fast as without. Superior decision-making about run versus pass options. Always goes forward maximizing territorial gain.",
+              "level5Descriptor": "Elite ball carrying creating attacking opportunities. Exceptional speed maintained while carrying with perfect security. Constant scanning identifies all space and support options. Decision-making creates optimal attacking outcomes. Can break defensive lines through pace and awareness. Gains territory consistently."
+            },
+            {
+              "name": "Evasion (Side Step)",
+              "level1Descriptor": "Learning side step footwork with poor execution. Cannot plant outside foot effectively. Minimal angle change achieved (less than 30°). Loses balance or ball security during movement. Cannot beat passive defender.",
+              "level2Descriptor": "Basic side step developing with outside foot plant. Can change direction 30-45° against passive defender. Moderate success at walking or jogging pace. Loses speed through sidestep. Limited effectiveness in game situations.",
+              "level3Descriptor": "Good side step technique with power stride and outside foot plant. Changes direction 45-90° effectively. Can beat active defenders in 1v1 situations. Maintains ball security during movement. Accelerates away from defender after sidestep. Effective in games under moderate pressure.",
+              "level4Descriptor": "Excellent side step beating defenders consistently. Powerful outside foot plant with explosive angle change. Short strides approaching defender then explosive push-off. Maintains speed through and after sidestep. High success rate in games. Creates space for self and support.",
+              "level5Descriptor": "Elite side step ability dominating 1v1 situations. Perfect footwork with deceptive approach and explosive angle change. Can execute at full speed without losing momentum. Multiple side steps in sequence. Beats defenders consistently creating try-scoring opportunities. Can teach technique to others."
+            },
+            {
+              "name": "Evasion (Swerve)",
+              "level1Descriptor": "Learning swerve technique with poor execution. Cannot generate curved running path effectively. Minimal direction change. Too far from defender to commit them. Loses balance or ball security.",
+              "level2Descriptor": "Basic swerve developing with curved running path. Can execute against passive defender at moderate pace. Direction change inconsistent. Sometimes too far from defender (no commitment). Limited effectiveness in games.",
+              "level3Descriptor": "Good swerve technique with curved path close to defender (1-2m). Uses outside or inside boot push-off effectively. Hips lead direction change. Can beat active defenders in 1v1. Accelerates through curve maintaining ball security. Effective in games.",
+              "level4Descriptor": "Excellent swerving ability beating defenders consistently. Perfect curved path timing at 1-2m from defender. Strong push-off with hip rotation leading direction. Explosive acceleration through curve. Uses appropriately (not every time). High success rate creating space.",
+              "level5Descriptor": "Elite swerving dominating defenders. Exceptional timing and curved path execution. Can swerve at full speed without losing momentum. Multiple defenders beaten with single swerve. Perfect decision-making about when to use. Creates try-scoring opportunities consistently."
+            },
+            {
+              "name": "Dummy Pass",
+              "level1Descriptor": "Learning dummy pass concept with unconvincing execution. Does not sell the fake effectively. Poor body language (defender not fooled). Ball security often compromised. Timing too early or too late relative to defender.",
+              "level2Descriptor": "Basic dummy pass developing but inconsistent execution. Sometimes sells fake with eyes and weight shift. Can fool passive defender occasionally. Timing improving but often too far from defender. Ball security maintained. Limited success in games.",
+              "level3Descriptor": "Good dummy pass execution with convincing body language. Eyes to receiver, weight shift as if passing. Close to defender (1-2m) for maximum effect. Accelerates immediately after dummy. Maintains ball security. Fools defenders regularly in games.",
+              "level4Descriptor": "Excellent dummy pass fooling defenders consistently. Perfect selling of fake with full passing motion. Timing at 1-2m from defender optimal. Explosive acceleration after dummy into created space. Never drops ball during dummy. High success rate in games.",
+              "level5Descriptor": "Elite dummy pass creating significant attacking opportunities. Exceptionally convincing fake with perfect body language. Defender commits wrong way consistently. Perfect timing and distance. Can combine with other evasion skills. Uses appropriately (not predictable). Teaches technique effectively."
+            },
+            {
+              "name": "Acceleration Into Space",
+              "level1Descriptor": "Poor space recognition cannot identify gaps in defense. Slow decision-making delays acceleration. First steps not explosive. Cannot accelerate while maintaining ball security. Misses obvious space opportunities.",
+              "level2Descriptor": "Beginning to identify obvious large gaps in defense. Decision-making improving but delayed. Can accelerate into space at moderate pace when identified. Ball security sometimes compromised when accelerating. Inconsistent space recognition in games.",
+              "level3Descriptor": "Good space recognition identifying gaps in defense quickly. Rapid decision-making with immediate acceleration. First 3 steps explosive. Pumps arms for power while maintaining ball security. Exploits space effectively in games. Creates opportunities through acceleration.",
+              "level4Descriptor": "Excellent space recognition and explosive acceleration. Identifies subtle gaps immediately with rapid decision-making. First 3 steps exceptionally explosive. Maintains perfect ball security while accelerating. Consistently exploits space creating line breaks. Superior scanning ability.",
+              "level5Descriptor": "Elite space recognition and explosive acceleration dominating games. Exceptional scanning identifies all gaps before receiving ball. Instant decision-making with devastating acceleration. Creates line breaks and try-scoring opportunities consistently through superior pace and recognition. Can teach spatial awareness."
+            },
+            {
+              "name": "Ball Carry Into Contact",
+              "level1Descriptor": "Poor body position entering contact with high hips or head down. Ball not secured to chest before impact. Cannot generate leg drive. Knocked backwards frequently. Ball not available for support players.",
+              "level2Descriptor": "Basic contact technique developing with ball to chest before impact. Low body position inconsistent. Some leg drive with short steps. Limited yards gained after contact. Ball presentation for support improving but inconsistent.",
+              "level3Descriptor": "Good ball carry into contact with low hips and ball to chest. Consistent leg drive with short powerful steps. Shoulder contact point (not arm). Gains yards after contact regularly. Ball available for support on correct side. Effective in games.",
+              "level4Descriptor": "Excellent ball carry winning collisions consistently. Perfect low body position with powerful leg drive. Shoulder contact dominant. Gains multiple yards after contact. Ball always available for support. Can offload or present effectively. Rarely driven backwards.",
+              "level5Descriptor": "Elite ball carry dominating all contact situations. Exceptional low body position with explosive leg drive through contact. Consistently gains significant yards after contact. Creates quick ruck ball or offload opportunities. Can break tackles. Never driven backwards. Teaches contact technique."
+            },
+            {
+              "name": "Body Position / Balance",
+              "level1Descriptor": "Poor body position with high hips or locked knees. Cannot maintain low center of gravity. Easily knocked off balance. Feet not shoulder-width apart. Runs upright (head high but poor power position).",
+              "level2Descriptor": "Beginning to understand low body position concept. Can demonstrate static power position but inconsistent when moving. Knees bent but hips sometimes high. Balance improving. Occasional low position in contact but not automatic.",
+              "level3Descriptor": "Good body position with consistent low hips and bent knees. Feet shoulder-width apart. Weight on balls of feet. Maintains balance when carrying ball and in contact. Head up with eyes scanning. Effective power position in games.",
+              "level4Descriptor": "Excellent body position automatically maintained in all situations. Perfect low center of gravity with feet shoulder-width, knees bent, hips low. Superior balance during evasion and contact. Rarely knocked off balance or backwards. Can coach others on importance.",
+              "level5Descriptor": "Elite body position and balance never compromised. Perfect power position automatic in all game situations including extreme fatigue. Exceptional balance allows advanced evasion skills. Dominates contact through superior body position. Wins collisions consistently. Can teach technique progression."
+            }
+          ]
+        },
+        {
+          "name": "Kicking",
+          "skills": [
+            {
+              "name": "Punt Kick (Left)",
+              "level1Descriptor": "Learning left-foot punt technique with inconsistent ball drop and contact. Cannot hold ball vertically (nose up). Poor contact on instep (toe or shin contact). Non-kicking foot pointing wrong direction. Distance under 15m. Not yet introduced at youth level.",
+              "level2Descriptor": "Basic left-foot punt developing. Can hold ball vertically and drop onto instep. Follow-through improving toward target. Non-kicking foot points generally toward target. Can kick 15-20m with inconsistent accuracy. Limited effectiveness under pressure.",
+              "level3Descriptor": "Good left-foot punt technique with consistent ball drop and instep contact. Holds ball vertically, drops (not throws) onto sweet spot. Follow-through high toward target. Can kick 20-30m with moderate accuracy. Developing height (hang time). Effective in games with no pressure.",
+              "level4Descriptor": "Excellent left-foot punt with 30-40m distance and good accuracy. Perfect ball hold, drop, and instep contact. Strong follow-through with proper non-kicking foot alignment. Can kick for corners with accuracy. Effective under moderate pressure. Developing bilateral proficiency.",
+              "level5Descriptor": "Elite left-foot punt kicking with 40m+ distance and pinpoint accuracy. Perfect technique in all components. Can kick corners, find touch, or maximize distance as needed. Effective under heavy pressure at game speed. Complete bilateral mastery. Can teach kicking progression to others."
+            },
+            {
+              "name": "Punt Kick (Right)",
+              "level1Descriptor": "Learning right-foot punt technique with inconsistent ball drop and contact. Cannot hold ball vertically (nose up). Poor contact on instep (toe or shin contact). Non-kicking foot pointing wrong direction. Distance under 15m. Not yet introduced at youth level.",
+              "level2Descriptor": "Basic right-foot punt developing. Can hold ball vertically and drop onto instep. Follow-through improving toward target. Non-kicking foot points generally toward target. Can kick 15-20m with inconsistent accuracy. Limited effectiveness under pressure.",
+              "level3Descriptor": "Good right-foot punt technique with consistent ball drop and instep contact. Holds ball vertically, drops (not throws) onto sweet spot. Follow-through high toward target. Can kick 20-30m with moderate accuracy. Developing height (hang time). Effective in games with no pressure.",
+              "level4Descriptor": "Excellent right-foot punt with 30-40m distance and good accuracy. Perfect ball hold, drop, and instep contact. Strong follow-through with proper non-kicking foot alignment. Can kick for corners with accuracy. Effective under moderate pressure. Similar proficiency both feet.",
+              "level5Descriptor": "Elite right-foot punt kicking with 40m+ distance and pinpoint accuracy. Perfect technique in all components. Can kick corners, find touch, or maximize distance as needed. Effective under heavy pressure at game speed. No observable foot preference. Can teach kicking progression to others."
+            },
+            {
+              "name": "Grubber Kick",
+              "level1Descriptor": "Learning grubber kick with poor execution. Cannot keep ball on ground (bounces high). Head not over ball at contact. Kicks lower half of ball (goes airborne). Poor accuracy. Not yet introduced at youth level.",
+              "level2Descriptor": "Basic grubber kick developing. Head over ball improving. Can strike upper half of ball sometimes keeping it low. Toes down with instep or inside boot developing. Ball stays on ground occasionally. Limited accuracy and effectiveness in games.",
+              "level3Descriptor": "Good grubber kick execution with ball staying on ground consistently. Head over ball, strikes upper half with toes down. Follow-through low along ground. Can aim for space behind defense with moderate accuracy. Beginning to chase and regather. Effective in games.",
+              "level4Descriptor": "Excellent grubber kick with consistent low trajectory and accuracy to target area. Perfect technique keeps ball on ground. Can execute while running at game pace. Good accuracy to space behind defense. High regather success rate. Creates attacking opportunities.",
+              "level5Descriptor": "Elite grubber kicking creating significant attacking opportunities. Perfect low trajectory every time. Pinpoint accuracy to space behind defense even under pressure. Exceptional regather success rate. Can execute at full speed in traffic. Tactical mastery of when to use grubber. Can teach technique."
+            },
+            {
+              "name": "Drop Kick",
+              "level1Descriptor": "Learning drop kick with poor timing and contact. Cannot hold ball vertically (nose down). Timing of contact inconsistent (too early/late). Poor contact point on ball. Limited distance and accuracy. Not yet introduced at youth level.",
+              "level2Descriptor": "Basic drop kick developing. Can hold ball vertically nose down. Timing of half-volley strike improving but inconsistent. Some instep contact achieved. Short distances only (10-15m). Limited accuracy. Not effective under pressure.",
+              "level3Descriptor": "Good drop kick technique with consistent half-volley timing. Drops ball (not throws) onto ground. Strikes at half-volley with instep. Low follow-through for height control. Can kick 15-20m with moderate accuracy. Beginning to attempt conversions in games.",
+              "level4Descriptor": "Excellent drop kick for distance (20-30m) and accuracy. Perfect timing of half-volley strike with instep contact. Consistent execution for conversions and kickoffs. Effective under moderate pressure. Good success rate in games. Can control height and direction.",
+              "level5Descriptor": "Elite drop kicking with high conversion success rate (80%+). Perfect technique and timing in all conditions. Can kick 30m+ with pinpoint accuracy. Effective under pressure (crowd, score situation). Can attempt drop goals in play. Can teach conversion routine and technique."
+            },
+            {
+              "name": "Place Kicking",
+              "level1Descriptor": "Learning place kick technique with inconsistent approach and contact. Cannot align seam toward target. Poor non-kicking ankle placement. No hip rotation. No pre-kick routine. Success rate below 40%. Not yet introduced at youth level.",
+              "level2Descriptor": "Basic place kick developing with 45° approach angle. Can align seam toward target. Non-kicking ankle beside ball improving. Some hip rotation developing. Beginning pre-kick routine. Success rate 40-60% from short, straight kicks only.",
+              "level3Descriptor": "Good place kicking technique with consistent approach and contact. Seam aligned, non-kicking ankle beside ball, hip rotation through kick. Follow-through toward target. Established pre-kick routine. Success rate 60-70% from varied positions (short and angled kicks).",
+              "level4Descriptor": "Excellent place kicking with 70-80% success rate from all positions. Perfect technique in all components with consistent routine. Can kick from angles and touchline. Effective under moderate pressure. Good distance capability (30m+). Mentally strong with misses.",
+              "level5Descriptor": "Elite place kicking with 80%+ success rate in games. Perfect technique and routine never compromised. Can kick from all positions including touchline and long distance (40m+). Exceptional under pressure (score, time, crowd). Mental mastery of kicking. Can teach routine development."
+            },
+            {
+              "name": "Kicking Distance",
+              "level1Descriptor": "Limited kicking distance (under 20m) due to poor technique. Cannot generate power through hip rotation. No momentum from approach. Poor contact on sweet spot. Follow-through short. Not yet introduced at youth level.",
+              "level2Descriptor": "Moderate kicking distance (20-30m) developing. Some hip rotation and approach momentum. Inconsistent contact on sweet spot. Follow-through improving but lacks full extension. Distance varies significantly between attempts.",
+              "level3Descriptor": "Good kicking distance (30-40m) with consistent technique. Full approach generates momentum. Strikes sweet spot regularly. Strong hip rotation and follow-through high and long. Consistent distance between attempts. Effective for territorial kicking in games.",
+              "level4Descriptor": "Excellent kicking distance (40-50m) with powerful technique. Perfect approach momentum and hip rotation. Consistent sweet spot contact. Full extension follow-through. Distance consistent and position-appropriate. Can kick for touch from own 22m to halfway.",
+              "level5Descriptor": "Elite kicking distance (50m+ for backs, 40m+ for forwards) dominating territorial game. Exceptional power generation through perfect technique. Can kick from own 22m beyond opposition 22m. Consistent maximum distance in games. Can teach power generation technique."
+            },
+            {
+              "name": "Kick Accuracy",
+              "level1Descriptor": "Poor kicking accuracy cannot hit target area. No clear target selection (just kicks). Body alignment wrong direction. Non-kicking foot not pointing at target. No tactical understanding of why kicking to specific area.",
+              "level2Descriptor": "Beginning to identify general target areas (left/right/long). Body alignment toward target improving. Non-kicking foot points generally correct direction. Can hit large target areas inconsistently. Basic tactical understanding developing.",
+              "level3Descriptor": "Good kicking accuracy to general zones (corner, touch, space). Consistent target selection before kick. Body aligned, non-kicking foot points at target. Follow-through toward target. Effective territory gained. Tactical awareness of why kicking to specific area.",
+              "level4Descriptor": "Excellent kicking accuracy to specific zones (within 5m of target). Perfect body alignment and technique for accuracy. Can kick to corners, touchline, or specific space behind defense. Strong tactical understanding. Creates territorial advantage consistently.",
+              "level5Descriptor": "Elite kicking accuracy with pinpoint precision (within 2m of target). Perfect technique for accuracy in all conditions. Can hit any target area under pressure. Exceptional tactical awareness creates attacking opportunities or territorial dominance. Can teach tactical kicking to others."
+            }
+          ]
+        },
+        {
+          "name": "Contact & Breakdown",
+          "skills": [
+            {
+              "name": "Tackle Technique",
+              "level1Descriptor": "Learning safe tackle technique with inconsistent execution. Head position unsafe (in front or down). Cannot get shoulder to thigh/hip. Limited arm wrap. No leg drive. Must use progressive contact introduction (kneeling both players). Requires constant coaching supervision.",
+              "level2Descriptor": "Basic safe tackle technique at walking/jogging speed. Head to side (cheek to cheek) developing. Can make shoulder contact to thigh/hip area. Arm wrap improving. Some leg drive with short steps. Safe at controlled speeds. Requires periodic coaching on head position safety.",
+              "level3Descriptor": "Good tackle technique at game speed with safety maintained. Eyes up, head to side of carrier (cheek to cheek). Shoulder contact to hip-to-knee area. Strong arm wrap and grip. Leg drive with both feet planted. Brings carrier to ground effectively. Regularly successful in matches.",
+              "level4Descriptor": "Excellent tackle technique with high completion rate (80%+). Perfect head position to side every time. Powerful shoulder contact and tight arm bind. Strong leg drive through contact. Dominant tackles (stops carrier's momentum). Can prevent offloads. Self-corrects technique. Can coach others on safety.",
+              "level5Descriptor": "Elite tackling with near-perfect technique and safety. Exceptional head position never compromised. Explosive leg drive dominates contact. Completion rate 85%+ in high-level competition. Prevents offloads consistently. Wins turnovers through dominant tackles. Can teach progressive tackle framework. World Rugby standard technique."
+            },
+            {
+              "name": "Tackle Completion",
+              "level1Descriptor": "Low tackle completion rate (below 60%). Often makes contact but doesn't bring carrier to ground. Half-tackles or arm grabs. Cannot hold on until carrier grounded. Releases too early. Many missed tackles.",
+              "level2Descriptor": "Moderate completion rate (60-70%) improving. Can complete tackles against willing carriers in practice. Beginning to drive through carrier (not just contact). Wrap and squeeze developing. Inconsistent in games - some completed, some missed.",
+              "level3Descriptor": "Good tackle completion rate (70-80%) in games. Commits to tackle fully. Drives through carrier with leg power. Wraps and squeezes legs together. Holds on until carrier grounded then releases immediately (law compliance). Effective against active carriers.",
+              "level4Descriptor": "Excellent completion rate (80-85%) against all opponents. Fully commits every time. Powerful drive through carrier dominates contact. Strong wrap preventing escape. Multiple attempts if first doesn't complete. Rarely misses tackles. Dominant tackles vs passive.",
+              "level5Descriptor": "Elite completion rate (85%+ in high-level competition). Never gives up on tackle. Exceptional commitment and technique. Dominant tackles stopping carrier behind gain line. Can complete against largest ball carriers. Anchors defensive line. Teaches tackle commitment to others."
+            },
+            {
+              "name": "Rip / Tag Technique",
+              "level1Descriptor": "Learning tag removal or rip technique with inconsistent execution. Cannot consistently get two hands on tag. Forgets to shout 'TAG!' or hold high. In contact rugby, cannot time rip attempt. Poor approach angle (in front vs side/behind).",
+              "level2Descriptor": "Basic tag removal technique in tag rugby - two hands, pull, hold high, shout. Can execute at moderate speeds. In contact rugby, beginning to attempt rip from side/behind but timing poor. Limited success rate. Understanding legality developing.",
+              "level3Descriptor": "Good tag removal at all speeds in tag rugby. Effective technique. In contact rugby, can attempt legal rips from side/behind. Hands on ball (not just carrier). Times rip before ground contact. Moderate success rate winning turnovers. Understands legal approach angles.",
+              "level4Descriptor": "Excellent rip technique winning turnovers regularly. Perfect timing before ground contact. Strong hands on ball ripping away. Secures possession immediately. Legal approach from side/behind. High success rate. Creates turnover opportunities for team.",
+              "level5Descriptor": "Elite rip/strip technique creating significant turnovers. Exceptional timing and hand strength. Can rip ball from strongest carriers. Perfect legal approach angles. Wins multiple turnovers per game. Game-changing defensive skill. Can teach strip technique to others."
+            },
+            {
+              "name": "Body Position in Contact",
+              "level1Descriptor": "Poor body position entering contact with high hips or locked knees. Head down (cannot see). Shoulders not square. Feet too narrow or too wide. Knocked backwards frequently. No power position established.",
+              "level2Descriptor": "Beginning to establish low body position into contact. Feet shoulder-width apart developing. Can bend at hips then knees when reminded. Inconsistent application - sometimes low, sometimes high. Understanding concept but not automatic.",
+              "level3Descriptor": "Good body position consistently maintained into contact. Feet shoulder-width, weight forward. Hips then knees bent (not head down). Low center of gravity (power position). Head up seeing what's coming. Shoulders square. Gains yards after contact regularly.",
+              "level4Descriptor": "Excellent body position automatic in all contact situations. Perfect feet positioning, low hips, head up. Powerful stance drives through contact. Rarely knocked backwards. Maintains low position even when fatigued. Dominates collisions. Can coach others on importance.",
+              "level5Descriptor": "Elite body position dominating all contact. Perfect power position never compromised even under extreme fatigue. Exceptional low center of gravity with feet perfectly positioned. Wins all collisions driving forward. Never stopped behind gain line. Can teach contact technique progression."
+            },
+            {
+              "name": "Leg Drive Through Contact",
+              "level1Descriptor": "No leg drive through contact - stops at impact. Feet not planted at contact. Cannot continue moving legs after initial contact. Knocked backwards or static. Feet too far apart or together at impact.",
+              "level2Descriptor": "Beginning to understand leg drive concept. Can demonstrate in practice with contact shields. Short, fast steps before contact developing. Some leg pump after impact. Inconsistent application in games. Often stops at contact rather than driving through.",
+              "level3Descriptor": "Good leg drive with short, fast steps before contact. Both feet planted at contact point. Drives through contact (not just into it). Leg pump alternating steps after impact. Keeps moving until whistle/grounded. Gains yards after contact regularly. Support can access ball.",
+              "level4Descriptor": "Excellent leg drive dominating contact situations. Perfect short steps into contact with both feet planted. Powerful continuous leg pump through impact. Always drives forward gaining multiple yards. Creates quick ball for support. Rarely stopped at contact. Can self-correct technique.",
+              "level5Descriptor": "Elite leg drive winning all collisions and driving opponents backwards. Exceptional power through perfect technique. Both feet always planted with explosive leg pump. Consistently gains significant yards after contact. Breaks tackles through leg drive. Dominant contact player. Can teach technique."
+            },
+            {
+              "name": "Ball Presentation",
+              "level1Descriptor": "Poor ball presentation after tackle with ball not available for teammates. Cannot execute long placement toward own team. Body position wrong (not protecting ball). Ball often trapped or available for opponent. No jacknife and roll.",
+              "level2Descriptor": "Beginning to understand ball presentation concept. Can place ball toward own team when reminded. 'Pencil' body position developing (body long, ball out front). Inconsistent jacknife and roll away from opponent. Ball sometimes trapped or contestable.",
+              "level3Descriptor": "Good ball presentation with long placement toward own team consistently. Pencil shape body position with ball out front. Jacknifes and rolls away from opponent side. Protects ball with body between ball and opponent. Releases immediately when tackled (law compliance). Clean ball for scrum-half regularly.",
+              "level4Descriptor": "Excellent ball presentation creating quick ruck ball. Perfect long placement every time. Superior body position protecting ball. Fast jacknife and roll. Ball always available on correct side for scrum-half. Rarely loses possession from poor presentation. Understands speed of ball importance.",
+              "level5Descriptor": "Elite ball presentation maximizing speed of ball for attack. Exceptional placement and body position every time. Instantaneous jacknife and roll. Creates lightning-fast ruck ball. Never loses possession from presentation errors. Can teach presentation technique progression to others."
+            },
+            {
+              "name": "Ruck Entry / Cleanout",
+              "level1Descriptor": "Poor ruck entry often illegal (wrong side of gate). High body position (above opponent's hips). Dives or flies into ruck (dangerous). Cannot move opponents. Frequent penalties. No understanding of ruck laws.",
+              "level2Descriptor": "Beginning to understand ruck entry through gate (own side of tackle). Body position low developing but inconsistent. Can drive and bind (not dive) when reminded. Limited effectiveness moving opponents. Some penalties but improving. Basic ruck law understanding.",
+              "level3Descriptor": "Good ruck entry through correct gate consistently. Low body position under opponent's hips. Drives and binds (doesn't go to ground). Targets center of gravity. Stays on feet. Can move opponents in static situations. Legal technique. Effective in game rucks.",
+              "level4Descriptor": "Excellent ruck technique with legal entry through gate always. Perfect low body position. Powerful drive moves opponents consistently. Strong bind staying on feet. Targets hips effectively. Rarely penalized. Secures possession quickly. Can clear multiple opponents.",
+              "level5Descriptor": "Elite ruck entry and cleanout dominating breakdown. Exceptional low position and power. Clears opponents explosively while maintaining safety and legality. Never penalized. Creates quick ball consistently. Can teach ruck technique and laws to others. Anchors forward pack at breakdown."
+            },
+            {
+              "name": "Jackaling / Turnovers",
+              "level1Descriptor": "Cannot compete for ball at breakdown. Doesn't understand jackal concept. Cannot support own body weight (collapses). Enters through wrong gate. Hands not on ball immediately. Frequent penalties.",
+              "level2Descriptor": "Beginning to understand jackal concept. Can arrive at breakdown and get hands on ball sometimes. Struggles to support own body weight under cleanout pressure. Through gate understanding developing. Low success rate winning turnovers. Some penalties for illegal technique.",
+              "level3Descriptor": "Good jackal technique with legal entry through gate. Arrives quickly to breakdown. Stays on feet supporting own body weight. Hands on ball immediately. Can resist light cleanout pressure. Wins some turnovers and penalties (opponent illegal). Understands when to attempt vs when to ruck.",
+              "level4Descriptor": "Excellent jackaling winning turnovers regularly. Perfect legal entry first to breakdown. Strong body position supporting weight. Hands on ball immediately with strong grip. Resists heavy cleanout as long as safe. Wins turnovers or penalties consistently. Superior timing and positioning.",
+              "level5Descriptor": "Elite jackal specialist creating game-changing turnovers. Exceptional body position and core strength. Arrives first consistently. Never illegal. Wins turnovers against multiple cleanout attempts. Forces penalties regularly. Elite 7s or loose forward skill. Can teach jackal technique progression."
+            }
+          ]
+        },
+        {
+          "name": "Tactical & Game Awareness",
+          "skills": [
+            {
+              "name": "Decision Making",
+              "level1Descriptor": "Poor decision-making with limited understanding of options. Cannot scan environment before receiving ball. Slow to process pass/run/kick/contact choices. Often selects wrong option for situation. Doesn't learn from outcomes. Requires constant coaching.",
+              "level2Descriptor": "Basic decision-making in simple situations (2v1). Beginning to scan before receiving ball. Can identify pass versus run in obvious scenarios. Slow processing under time pressure. Makes appropriate decisions in practice but struggles in games. Learning from coaching feedback.",
+              "level3Descriptor": "Good decision-making in moderate complexity (3v2, 4v3). Scans environment before receiving. Processes options quickly (pass, run, kick, contact). Selects best option for situation regularly. Executes decisively without hesitation. Effective decisions under moderate pressure. Learning from game outcomes.",
+              "level4Descriptor": "Excellent decision-making under pressure in complex situations. Rapid scanning and processing of all options. Consistently selects optimal choice. Decisive execution with commitment. Effective under fatigue and time pressure. Strong tactical understanding. Reflects on decisions to improve. Can help teammates.",
+              "level5Descriptor": "Elite decision-making dominating games through superior choices. Exceptional scanning before and during play. Instantaneous processing of complex situations. Consistently optimal decisions under extreme pressure. Advanced tactical intelligence. Creates opportunities through superior decision-making. Can teach decision-making skills."
+            },
+            {
+              "name": "Reading Defense",
+              "level1Descriptor": "Cannot identify defensive structure or gaps. No scanning of defensive line. Doesn't recognize space (linear, lateral, or kick). Cannot identify defensive weaknesses. Requires coaching to point out opportunities.",
+              "level2Descriptor": "Beginning to identify obvious large gaps in defensive line. Can scan defense when reminded. Basic recognition of space types developing. Limited pattern recognition. Can exploit obvious weaknesses in practice but struggles in games.",
+              "level3Descriptor": "Good defensive reading identifying gaps and weaknesses. Scans defensive line regularly (numbers, alignment, gaps). Recognizes linear, lateral, and kick space opportunities. Can read defensive line speed (fast=kick, slow=attack). Communicates opportunities to teammates. Exploits weaknesses in games.",
+              "level4Descriptor": "Excellent defensive reading with advanced pattern recognition. Identifies subtle gaps and alignment issues. Reads line speed and depth effectively. Anticipates defensive movements. Strong communication of threats and opportunities. Consistently exploits weaknesses. Superior tactical intelligence.",
+              "level5Descriptor": "Elite defensive reading dominating through exceptional awareness. Anticipates defensive movements before they occur. Identifies all gaps and weaknesses instantly. Perfect communication directing team attack. Creates try-scoring opportunities through superior reads. Can teach defensive analysis to others."
+            },
+            {
+              "name": "Positional Understanding",
+              "level1Descriptor": "Poor positional understanding - often out of position for their role. Doesn't know where to be based on game situation. Caught out of position regularly causing defensive holes or missed attacking opportunities. Requires constant positioning coaching.",
+              "level2Descriptor": "Basic understanding of their position's basic requirements. Can position correctly in static situations (set pieces). Inconsistent positioning in phase play. Beginning to understand attack vs defense positioning. Sometimes caught out of position. Learning positional responsibilities.",
+              "level3Descriptor": "Good positional understanding consistently correct for their position. Knows where to be in set pieces, phase play, and transitions. Appropriate depth and width in attack. Correct defensive line spacing and alignment. Rarely caught out of position. Understands position-specific requirements.",
+              "level4Descriptor": "Excellent positional play anticipating game flow. Perfect positioning in all game situations. Can cover for teammates' positioning errors. Advanced understanding of position-specific requirements (forwards: breakdown support; backs: attacking shape/depth). Organizes others. Tactical leadership developing.",
+              "level5Descriptor": "Elite positional understanding organizing entire team structure. Exceptional awareness of where all 15 players should be. Covers teammates seamlessly. Dictates team positioning through communication. Position-specific mastery. Tactical leadership controlling game through positioning. Can teach positional play."
+            },
+            {
+              "name": "Support Play (Attack)",
+              "level1Descriptor": "Poor support play - often not available for pass from ball carrier. No support lines run. Stands and watches ball carrier. Doesn't understand diamond shape (players around carrier). No communication to ball carrier.",
+              "level2Descriptor": "Beginning to run basic support lines staying near ball carrier. Can support in 2v1 situations when reminded. Diamond shape understanding developing. Inconsistent depth (2-5m behind). Sometimes too flat or too deep. Limited communication.",
+              "level3Descriptor": "Good support play with consistent availability for passes. Runs diamond shape around ball carrier (front, back, sides). Appropriate depth 2-5m behind carrier. Parallel runs for continuity. Matches speed to carrier. Communicates position ('Left!', 'Right!', 'Inside!'). Creates multiple options.",
+              "level4Descriptor": "Excellent support play creating overlaps and continuity. Perfect diamond positioning with optimal depth. Runs both parallel (continuity) and angled lines (penetration). Superior tempo matching ball carrier's speed. Strong communication. Always available. Creates attacking opportunities through support quality.",
+              "level5Descriptor": "Elite support play dominating through exceptional positioning. Anticipates ball carrier needs before they occur. Perfect support lines creating overlaps and penetration. Superior communication directing attack. Creates try-scoring opportunities through world-class support running. Can teach support play principles."
+            },
+            {
+              "name": "Support Play (Defense)",
+              "level1Descriptor": "Poor defensive support with gaps in line. Doesn't understand inside-out defense principle. No defensive communication. Poor line speed (too fast or too slow). Cannot cover space behind tackler. Defensive line disorganized.",
+              "level2Descriptor": "Beginning to understand defensive line basics. Can maintain basic spacing when reminded. Some inside-out defense understanding. Limited communication. Line speed inconsistent. Beginning to cover for breaks but often late. Defensive structure improving.",
+              "level3Descriptor": "Good defensive support with organized line consistently. Covers inside first then out (inside-out principle). Coordinated line speed with teammates. Regular communication ('Up!', 'Hold!', 'Drift!'). Covers space behind tackler for offloads/breaks. Maintains equal or better numbers than attack.",
+              "level4Descriptor": "Excellent defensive organization rarely broken. Perfect inside-out coverage. Strong coordinated line speed. Constant communication organizing line. Covers breaks and offloads effectively. Superior positioning prevents overlaps. Try-saving tackles through good positioning. Defensive leadership.",
+              "level5Descriptor": "Elite defensive support controlling opposition attack. Exceptional organization through communication and positioning. Dominant defensive structure forcing errors. Perfect coverage systems. Try-saving interventions regularly. Anchors defensive line. Can teach defensive systems to others."
+            },
+            {
+              "name": "Communication on Field",
+              "level1Descriptor": "Rarely communicates on field. Quiet during play. Doesn't call for ball or direct teammates. No awareness that communication helps team. Must be reminded to communicate by coaches.",
+              "level2Descriptor": "Occasionally communicates in games. Can call for ball sometimes. Limited directional calls. Quiet under pressure or fatigue. Communication not yet habit. Beginning to use Name-Action-Need structure when coached.",
+              "level3Descriptor": "Regularly communicates in games helping organize team. Uses Name-Action-Need structure ('John-Support-Left!'). Loud and clear above game noise. Positive language (not blame). Attack calls identifying options and space. Defense calls organizing line. Effective communication under moderate pressure.",
+              "level4Descriptor": "Vocal leader communicating constantly. Perfect Name-Action-Need structure. Loud even under fatigue and pressure. Organizes teammates in attack and defense. Identifies threats and opportunities clearly. Positive leadership tone. Controls game tempo through communication. Teammates respond to calls.",
+              "level5Descriptor": "Elite communication controlling entire team through voice. Exceptional clarity under all conditions (fatigue, score pressure, crowd noise). Organizes all 15 players effectively. Creates opportunities through superior communication. Undisputed vocal leader. Can teach communication skills and leadership."
+            },
+            {
+              "name": "Spatial Awareness",
+              "level1Descriptor": "Poor spatial awareness - doesn't know where teammates, opponents, or space are located. Cannot scan field. No peripheral vision use. Makes decisions without awareness of surroundings. Frequently caught unaware. No field position awareness.",
+              "level2Descriptor": "Basic spatial awareness of immediate area. Can scan occasionally but not consistent. Beginning to use peripheral vision. Limited awareness of teammates and opponents beyond immediate vicinity. Some field position awareness (22m, halfway). Makes basic spatial decisions.",
+              "level3Descriptor": "Good spatial awareness scanning constantly. Head on swivel with effective peripheral vision use. Knows where teammates and opponents are positioned. Field position awareness influences decisions. Recognizes space (attack space, defensive space). Makes good decisions based on spatial information regularly.",
+              "level4Descriptor": "Excellent spatial awareness rarely caught unaware. Constant scanning with superior peripheral vision. Complete awareness of all players' positions. Perfect field position awareness. Identifies and exploits space consistently. Advanced spatial intelligence under pressure. Creates opportunities through superior awareness.",
+              "level5Descriptor": "Elite spatial awareness seeing game differently. Exceptional scanning and peripheral vision creates complete field picture. Anticipates space before it appears. Perfect awareness of all 30 players simultaneously. Advanced spatial intelligence creates dominant performance. Can teach scanning techniques."
+            },
+            {
+              "name": "Game Sense / Instinct",
+              "level1Descriptor": "Limited game sense with no anticipation of play development. Cannot read game flow or momentum. No pattern recognition from repeated situations. Reactive rather than proactive. Doesn't understand when to play fast versus slow.",
+              "level2Descriptor": "Beginning to show some game sense in familiar situations. Limited pattern recognition developing. Can anticipate some obvious plays. Basic understanding of momentum (who has advantage). Learning game flow through experience. Mostly reactive with occasional anticipation.",
+              "level3Descriptor": "Good game sense with developing instincts. Shows pattern recognition from experience. Can anticipate opponent and teammate actions in moderate situations. Reads momentum and adjusts effort. Understanding of game flow (when fast/slow). Proactive decisions regularly. 'In right place' frequently.",
+              "level4Descriptor": "Excellent game sense with strong instincts. Advanced pattern recognition anticipates play development. Reads momentum and game flow expertly. Proactive positioning and decisions. Anticipatory actions (intercepts, support) regular. Superior tactical intelligence. Rarely caught wrong-footed.",
+              "level5Descriptor": "Elite game sense 'seeing game differently' than others. Exceptional anticipation of all play developments. Perfect reading of momentum and flow. Always in optimal position proactively. Game-changing intercepts and anticipatory plays. Innate tactical genius enhanced by experience. Can teach game sense development."
+            },
+            {
+              "name": "Following Game Plan",
+              "level1Descriptor": "Cannot understand or execute team game plan. Doesn't know their role within plan. Plays individually rather than following team strategy. No recognition of situations where plan applies. Team discipline lacking.",
+              "level2Descriptor": "Beginning to understand simple game plans (1-2 basic strategies). Can execute role in practice but inconsistent in games. Recognizes some situations to apply plan. Limited adaptation when plan not working. Team discipline improving.",
+              "level3Descriptor": "Good execution of basic game plans consistently. Understands multiple strategies and role within each. Recognizes situations to apply specific plans. Can follow plan under moderate pressure. Contributes to team cohesion through disciplined execution. Beginning to suggest adaptations when needed.",
+              "level4Descriptor": "Excellent execution of complex game plans with multiple strategies. Perfect understanding of role and situations for each plan. Can adapt plan during game based on effectiveness. Strong tactical discipline. Helps teammates execute plan. Contributes to in-game tactical discussions.",
+              "level5Descriptor": "Elite tactical mastery executing and adapting complex plans. Exceptional understanding of all strategies and counter-strategies. Can dictate opposition's game plan through superior execution. Tactical leadership directing team adjustments. Creates game plans through tactical intelligence. Can teach tactical planning."
+            }
+          ]
+        }
+      ]
+    }
+  ]
+}

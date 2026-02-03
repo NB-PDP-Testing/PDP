@@ -13,7 +13,7 @@ export type BottomNavItem = {
   id: string;
   /** Icon component from lucide-react */
   icon: LucideIcon;
-  /** Label shown when active (active-only labels for cleaner look) */
+  /** Label text shown below icon (always visible, emphasized when active) */
   label: string;
   /** Navigation href */
   href: string;
@@ -21,6 +21,8 @@ export type BottomNavItem = {
   isAction?: boolean;
   /** Optional badge count */
   badge?: number;
+  /** Whether to highlight this item (emphasized styling) */
+  highlight?: boolean;
 };
 
 type BottomNavProps = {
@@ -37,7 +39,7 @@ type BottomNavProps = {
  *
  * Industry standard: 72% of users prefer bottom navigation over hamburger menus
  * Touch targets: 44px+ minimum for accessibility
- * Labels: Shown on active item only for cleaner look
+ * Labels: Always visible for clarity, with active icons slightly larger
  *
  * @see https://blog.appmysite.com/bottom-navigation-bar-in-mobile-apps-heres-all-you-need-to-know/
  */
@@ -100,7 +102,8 @@ export function BottomNav({ items, className, onActionClick }: BottomNavProps) {
             <Link
               aria-current={isActive ? "page" : undefined}
               className={cn(
-                "relative flex h-14 w-14 flex-col items-center justify-center rounded-lg transition-colors",
+                "relative flex h-14 w-14 flex-col items-center justify-center gap-0.5 rounded-lg transition-all",
+                item.highlight && "bg-primary/10",
                 isActive
                   ? "text-primary"
                   : "text-muted-foreground hover:text-foreground"
@@ -109,7 +112,13 @@ export function BottomNav({ items, className, onActionClick }: BottomNavProps) {
               key={item.id}
             >
               <div className="relative">
-                <Icon className="h-6 w-6" />
+                <Icon
+                  className={cn(
+                    "transition-all",
+                    isActive ? "h-7 w-7" : "h-6 w-6",
+                    item.highlight && "text-primary"
+                  )}
+                />
                 {/* Badge */}
                 {item.badge && item.badge > 0 && (
                   <span className="-right-2 -top-1 absolute flex h-4 min-w-4 items-center justify-center rounded-full bg-destructive px-1 font-medium text-[10px] text-destructive-foreground">
@@ -117,12 +126,15 @@ export function BottomNav({ items, className, onActionClick }: BottomNavProps) {
                   </span>
                 )}
               </div>
-              {/* Active-only label for cleaner look */}
-              {isActive && (
-                <span className="mt-0.5 font-medium text-[10px]">
-                  {item.label}
-                </span>
-              )}
+              {/* Always show label with active state styling */}
+              <span
+                className={cn(
+                  "font-medium text-[10px] transition-all",
+                  isActive ? "opacity-100" : "opacity-70"
+                )}
+              >
+                {item.label}
+              </span>
             </Link>
           );
         })}

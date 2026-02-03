@@ -1,6 +1,7 @@
 import type { Doc as BetterAuthDoc } from "@pdp/backend/convex/betterAuth/_generated/dataModel";
 import { v } from "convex/values";
 import { components } from "../_generated/api";
+import type { Doc, Id } from "../_generated/dataModel";
 import { mutation, query } from "../_generated/server";
 import { customTeamTableSchema } from "../betterAuth/schema";
 
@@ -437,7 +438,7 @@ export const migrateTeamGenderValues = mutation({
           oldGender: team.gender,
           newGender,
         });
-        teamsUpdated++;
+        teamsUpdated += 1;
       }
     }
 
@@ -508,7 +509,7 @@ export const cleanupStaleCoachTeamAssignments = mutation({
           teams: validTeams,
           updatedAt: Date.now(),
         });
-        assignmentsUpdated++;
+        assignmentsUpdated += 1;
         teamsRemoved.push(...removedTeams);
       }
     }
@@ -601,7 +602,7 @@ export const migrateSportNamesToCodes = mutation({
           oldSport: team.sport,
           newSport: sportCode,
         });
-        teamsUpdated++;
+        teamsUpdated += 1;
       }
     }
 
@@ -780,5 +781,754 @@ export const resetTeamEligibilitySettings = mutation({
     }
 
     return null;
+  },
+});
+
+/**
+ * Get team overview statistics for Overview Dashboard
+ * Returns: total players, active injuries count, attendance %, upcoming events count
+ */
+export const getTeamOverviewStats = query({
+  args: {
+    teamId: v.string(),
+    organizationId: v.string(),
+    userId: v.optional(v.string()), // For unread insights count
+  },
+  returns: v.object({
+    totalPlayers: v.number(),
+    activeInjuries: v.number(),
+    attendancePercent: v.union(v.number(), v.null()), // null if no data
+    upcomingEventsCount: v.number(),
+    openTasks: v.number(),
+    overdueCount: v.number(),
+    unreadInsights: v.number(),
+    highPriorityInsights: v.number(),
+  }),
+  handler: async (ctx, args) => {
+    // Get total active players on team
+    const teamMembers = await ctx.db
+      .query("teamPlayerIdentities")
+      .withIndex("by_teamId", (q) => q.eq("teamId", args.teamId))
+      .collect();
+
+    const activePlayers = teamMembers.filter((m) => m.status === "active");
+    const totalPlayers = activePlayers.length;
+
+    // Get active injuries count from health summary
+    // Reuse existing query logic for consistency
+    const playerIds = activePlayers.map((m) => m.playerIdentityId);
+    let activeInjuriesCount = 0;
+
+    if (playerIds.length > 0) {
+      const uniquePlayerIds = [...new Set(playerIds)];
+
+      for (const playerId of uniquePlayerIds) {
+        const injuries = await ctx.db
+          .query("playerInjuries")
+          .withIndex("by_playerIdentityId", (q) =>
+            q.eq("playerIdentityId", playerId)
+          )
+          .collect();
+
+        // Count active/recovering injuries visible to this org
+        const activeInjuries = injuries.filter((injury) => {
+          if (injury.status === "healed" || injury.status === "cleared") {
+            return false;
+          }
+          if (injury.isVisibleToAllOrgs) {
+            return true;
+          }
+          if (injury.restrictedToOrgIds?.includes(args.organizationId)) {
+            return true;
+          }
+          if (injury.occurredAtOrgId === args.organizationId) {
+            return true;
+          }
+          return false;
+        });
+
+        activeInjuriesCount += activeInjuries.length;
+      }
+    }
+
+    // Get task counts for this team
+    const tasks = await ctx.db
+      .query("coachTasks")
+      .withIndex("by_team_and_org", (q) =>
+        q.eq("teamId", args.teamId).eq("organizationId", args.organizationId)
+      )
+      .collect();
+
+    const now = Date.now();
+    const openTasks = tasks.filter((t) => t.status !== "done").length;
+    const overdueCount = tasks.filter(
+      (t) => t.status !== "done" && t.dueDate && t.dueDate < now
+    ).length;
+
+    // Get insight counts for this team
+    const insights = await ctx.db
+      .query("teamInsights")
+      .withIndex("by_team", (q) => q.eq("teamId", args.teamId))
+      .collect();
+
+    // Count unread insights (insights not in user's readBy array)
+    const unreadInsights = args.userId
+      ? insights.filter((i) => !i.readBy.includes(args.userId!)).length
+      : insights.length;
+
+    // Count high priority insights
+    const highPriorityInsights = insights.filter(
+      (i) => i.priority === "high"
+    ).length;
+
+    // Attendance: placeholder for future implementation
+    // TODO: Implement actual attendance tracking in future phase
+    const attendancePercent = null;
+
+    // Upcoming events: placeholder for future implementation
+    // TODO: Implement scheduled sessions/games in future phase
+    const upcomingEventsCount = 0;
+
+    return {
+      totalPlayers,
+      activeInjuries: activeInjuriesCount,
+      attendancePercent,
+      upcomingEventsCount,
+      openTasks,
+      overdueCount,
+      unreadInsights,
+      highPriorityInsights,
+    };
+  },
+});
+
+/**
+ * Get upcoming events for team (sessions, games, practices)
+ * Returns next 3 scheduled events with details
+ */
+export const getUpcomingEvents = query({
+  args: {
+    teamId: v.string(),
+    limit: v.optional(v.number()),
+  },
+  returns: v.array(
+    v.object({
+      eventId: v.string(),
+      title: v.string(),
+      date: v.string(), // ISO date string
+      time: v.optional(v.string()),
+      location: v.optional(v.string()),
+      type: v.union(
+        v.literal("training"),
+        v.literal("game"),
+        v.literal("meeting"),
+        v.literal("other")
+      ),
+    })
+  ),
+  handler: (_ctx, _args) => {
+    // TODO: Implement scheduled events in future phase
+    // For now, return empty array as events scheduling is not yet implemented
+    // This prevents the Overview Dashboard from breaking
+
+    // Future implementation will:
+    // 1. Query scheduledSessions table (when it exists)
+    // 2. Filter by teamId and future dates
+    // 3. Sort by date ascending
+    // 4. Take first N events based on limit
+
+    return [];
+  },
+});
+
+/**
+ * Get team players with health status for Players Tab
+ * Returns player data with health badges (healthy/recovering/injured)
+ * Uses batch fetch pattern to avoid N+1 queries
+ */
+export const getTeamPlayersWithHealth = query({
+  args: {
+    teamId: v.string(),
+    organizationId: v.string(),
+  },
+  returns: v.array(
+    v.object({
+      playerId: v.id("playerIdentities"),
+      fullName: v.string(),
+      firstName: v.string(),
+      lastName: v.string(),
+      jerseyNumber: v.union(v.string(), v.null()),
+      position: v.union(v.string(), v.null()),
+      healthStatus: v.union(
+        v.literal("healthy"),
+        v.literal("recovering"),
+        v.literal("injured")
+      ),
+      isPlayingUp: v.boolean(),
+      photoUrl: v.union(v.string(), v.null()),
+      ageGroup: v.string(),
+    })
+  ),
+  handler: async (ctx, args) => {
+    // Step 1: Get all active players on the team
+    const teamMembers = await ctx.db
+      .query("teamPlayerIdentities")
+      .withIndex("by_teamId", (q) => q.eq("teamId", args.teamId))
+      .collect();
+
+    const activeMembers = teamMembers.filter((m) => m.status === "active");
+
+    if (activeMembers.length === 0) {
+      return [];
+    }
+
+    // Step 2: Batch fetch player identities (avoid N+1)
+    const uniquePlayerIds = [
+      ...new Set(activeMembers.map((m) => m.playerIdentityId)),
+    ];
+    const playerResults = await Promise.all(
+      uniquePlayerIds.map((id) => ctx.db.get(id))
+    );
+
+    const playerMap = new Map();
+    for (const player of playerResults) {
+      if (player) {
+        playerMap.set(player._id, player);
+      }
+    }
+
+    // Step 3: Batch fetch enrollments for ageGroup and jerseyNumber
+    const enrollmentResults = await Promise.all(
+      uniquePlayerIds.map((playerId) =>
+        ctx.db
+          .query("orgPlayerEnrollments")
+          .withIndex("by_player_and_org", (q) =>
+            q
+              .eq("playerIdentityId", playerId)
+              .eq("organizationId", args.organizationId)
+          )
+          .first()
+      )
+    );
+
+    const enrollmentMap = new Map();
+    for (const enrollment of enrollmentResults) {
+      if (enrollment) {
+        enrollmentMap.set(enrollment.playerIdentityId, enrollment);
+      }
+    }
+
+    // Step 4: Batch fetch injuries for health status
+    const injuryResults = await Promise.all(
+      uniquePlayerIds.map((playerId) =>
+        ctx.db
+          .query("playerInjuries")
+          .withIndex("by_playerIdentityId", (q) =>
+            q.eq("playerIdentityId", playerId)
+          )
+          .collect()
+      )
+    );
+
+    const injuryMap = new Map();
+    for (let i = 0; i < uniquePlayerIds.length; i += 1) {
+      const playerId = uniquePlayerIds[i];
+      const injuries = injuryResults[i];
+
+      // Filter to active/recovering injuries visible to this org
+      const visibleInjuries = injuries.filter((injury) => {
+        if (injury.status === "healed" || injury.status === "cleared") {
+          return false;
+        }
+        if (injury.isVisibleToAllOrgs) {
+          return true;
+        }
+        if (injury.restrictedToOrgIds?.includes(args.organizationId)) {
+          return true;
+        }
+        if (injury.occurredAtOrgId === args.organizationId) {
+          return true;
+        }
+        return false;
+      });
+
+      injuryMap.set(playerId, visibleInjuries);
+    }
+
+    // Step 5: Get team data to determine playing up status
+    const teamResult = await ctx.runQuery(
+      components.betterAuth.adapter.findOne,
+      {
+        model: "team",
+        where: [
+          {
+            field: "_id",
+            value: args.teamId,
+            operator: "eq",
+          },
+        ],
+      }
+    );
+
+    const team = teamResult as BetterAuthDoc<"team"> | null;
+
+    // Step 6: Build result array
+    const results = [];
+    for (const member of activeMembers) {
+      const player = playerMap.get(member.playerIdentityId);
+      const enrollment = enrollmentMap.get(member.playerIdentityId);
+
+      if (!player) {
+        continue;
+      }
+
+      const injuries = injuryMap.get(member.playerIdentityId) || [];
+
+      // Calculate health status
+      let healthStatus: "healthy" | "recovering" | "injured" = "healthy";
+
+      if (injuries.length > 0) {
+        // Check for severe or recent injuries (within 7 days)
+        const hasSevereOrRecentInjury = injuries.some(
+          (injury: Doc<"playerInjuries">) => {
+            if (injury.severity === "severe") {
+              return true;
+            }
+            const daysSince = Math.floor(
+              (Date.now() - new Date(injury.dateOccurred).getTime()) /
+                (1000 * 60 * 60 * 24)
+            );
+            return daysSince < 7;
+          }
+        );
+
+        if (hasSevereOrRecentInjury) {
+          healthStatus = "injured";
+        } else if (
+          injuries.some(
+            (injury: Doc<"playerInjuries">) => injury.status === "recovering"
+          )
+        ) {
+          healthStatus = "recovering";
+        }
+      }
+
+      // Determine if playing up
+      const isPlayingUp = Boolean(
+        team?.ageGroup &&
+          enrollment?.ageGroup &&
+          enrollment.ageGroup !== team.ageGroup
+      );
+
+      results.push({
+        playerId: player._id,
+        fullName: `${player.firstName} ${player.lastName}`,
+        firstName: player.firstName,
+        lastName: player.lastName,
+        jerseyNumber: enrollment?.clubMembershipNumber || null,
+        position: member.role || null,
+        healthStatus,
+        isPlayingUp,
+        photoUrl: null, // TODO: Add photo support in future phase
+        ageGroup: enrollment?.ageGroup || "",
+      });
+    }
+
+    return results;
+  },
+});
+
+/**
+ * Get all tasks for a team with enriched assignee information
+ * Uses batch fetch pattern to avoid N+1 queries
+ */
+export const getTeamTasks = query({
+  args: {
+    teamId: v.string(),
+    organizationId: v.string(),
+  },
+  returns: v.array(
+    v.object({
+      _id: v.id("coachTasks"),
+      _creationTime: v.number(),
+      text: v.string(),
+      completed: v.boolean(),
+      status: v.optional(
+        v.union(v.literal("open"), v.literal("in-progress"), v.literal("done"))
+      ),
+      organizationId: v.string(),
+      assignedToUserId: v.string(),
+      assignedToName: v.optional(v.string()),
+      createdByUserId: v.string(),
+      priority: v.optional(
+        v.union(v.literal("low"), v.literal("medium"), v.literal("high"))
+      ),
+      dueDate: v.optional(v.number()),
+      source: v.union(v.literal("manual"), v.literal("voice_note")),
+      voiceNoteId: v.optional(v.id("voiceNotes")),
+      insightId: v.optional(v.string()),
+      playerIdentityId: v.optional(v.id("orgPlayerEnrollments")),
+      playerName: v.optional(v.string()),
+      teamId: v.optional(v.string()),
+      createdAt: v.number(),
+      completedAt: v.optional(v.number()),
+    })
+  ),
+  handler: async (ctx, args) => {
+    // Step 1: Get all tasks for this team
+    const tasks = await ctx.db
+      .query("coachTasks")
+      .withIndex("by_team_and_org", (q) =>
+        q.eq("teamId", args.teamId).eq("organizationId", args.organizationId)
+      )
+      .collect();
+
+    // Step 2: Collect unique user IDs for batch fetch
+    const userIds = [
+      ...new Set(tasks.map((t) => t.assignedToUserId).filter(Boolean)),
+    ];
+
+    // Step 3: Batch fetch all assignees via Better Auth adapter
+    const users = await Promise.all(
+      userIds.map((id) =>
+        ctx.runQuery(components.betterAuth.adapter.findOne, {
+          model: "user",
+          where: [
+            {
+              field: "_id",
+              value: id,
+              operator: "eq",
+            },
+          ],
+        })
+      )
+    );
+
+    // Step 4: Create Map for O(1) lookup
+    const userMap = new Map<string, BetterAuthDoc<"user">>();
+    for (const user of users) {
+      if (user) {
+        userMap.set(user.id, user);
+      }
+    }
+
+    // Step 5: Enrich tasks with user info (synchronous, no await in loop!)
+    const enrichedTasks = tasks.map((task) => {
+      const assignee = userMap.get(task.assignedToUserId);
+      return {
+        ...task,
+        assignedToName:
+          task.assignedToName ||
+          (assignee
+            ? `${assignee.firstName || ""} ${assignee.lastName || ""}`.trim()
+            : undefined),
+      };
+    });
+
+    return enrichedTasks;
+  },
+});
+
+// Get team insights with pagination, voice note, and player info
+export const getTeamInsights = query({
+  args: {
+    teamId: v.string(),
+    organizationId: v.string(),
+    paginationOpts: v.optional(
+      v.object({
+        cursor: v.union(v.string(), v.null()),
+        numItems: v.number(),
+      })
+    ),
+  },
+  returns: v.union(
+    // Paginated response (when paginationOpts provided)
+    v.object({
+      page: v.array(
+        v.object({
+          _id: v.id("teamInsights"),
+          _creationTime: v.number(),
+          teamId: v.string(),
+          organizationId: v.string(),
+          type: v.union(
+            v.literal("voice-note"),
+            v.literal("ai-generated"),
+            v.literal("manual")
+          ),
+          title: v.string(),
+          summary: v.string(),
+          fullText: v.optional(v.string()),
+          voiceNoteId: v.optional(v.id("voiceNotes")),
+          playerIds: v.array(v.id("orgPlayerEnrollments")),
+          topic: v.union(
+            v.literal("technical"),
+            v.literal("tactical"),
+            v.literal("fitness"),
+            v.literal("behavioral"),
+            v.literal("other")
+          ),
+          priority: v.union(
+            v.literal("high"),
+            v.literal("medium"),
+            v.literal("low")
+          ),
+          createdBy: v.string(),
+          createdAt: v.number(),
+          readBy: v.array(v.string()),
+          // Enriched fields
+          voiceNote: v.optional(
+            v.object({
+              title: v.string(),
+              summary: v.optional(v.string()),
+            })
+          ),
+          playerNames: v.array(v.string()),
+          creatorName: v.string(),
+        })
+      ),
+      continueCursor: v.union(v.string(), v.null()),
+      isDone: v.boolean(),
+    }),
+    // Simple array response (backward compatible)
+    v.array(
+      v.object({
+        _id: v.id("teamInsights"),
+        _creationTime: v.number(),
+        teamId: v.string(),
+        organizationId: v.string(),
+        type: v.union(
+          v.literal("voice-note"),
+          v.literal("ai-generated"),
+          v.literal("manual")
+        ),
+        title: v.string(),
+        summary: v.string(),
+        fullText: v.optional(v.string()),
+        voiceNoteId: v.optional(v.id("voiceNotes")),
+        playerIds: v.array(v.id("orgPlayerEnrollments")),
+        topic: v.union(
+          v.literal("technical"),
+          v.literal("tactical"),
+          v.literal("fitness"),
+          v.literal("behavioral"),
+          v.literal("other")
+        ),
+        priority: v.union(
+          v.literal("high"),
+          v.literal("medium"),
+          v.literal("low")
+        ),
+        createdBy: v.string(),
+        createdAt: v.number(),
+        readBy: v.array(v.string()),
+        // Enriched fields
+        voiceNote: v.optional(
+          v.object({
+            title: v.string(),
+            summary: v.optional(v.string()),
+          })
+        ),
+        playerNames: v.array(v.string()),
+        creatorName: v.string(),
+      })
+    )
+  ),
+  handler: async (ctx, args) => {
+    const usePagination = args.paginationOpts;
+
+    // Step 1: Fetch insights (with or without pagination)
+    let insights;
+    let paginationResult;
+
+    if (usePagination && args.paginationOpts) {
+      const result = await ctx.db
+        .query("teamInsights")
+        .withIndex("by_team_and_date", (q) => q.eq("teamId", args.teamId))
+        .order("desc")
+        .paginate(args.paginationOpts);
+
+      insights = result.page;
+      paginationResult = {
+        page: result.page,
+        continueCursor: result.continueCursor,
+        isDone: result.isDone,
+      };
+    } else {
+      insights = await ctx.db
+        .query("teamInsights")
+        .withIndex("by_team_and_date", (q) => q.eq("teamId", args.teamId))
+        .order("desc")
+        .take(50);
+    }
+
+    // Step 2: Batch fetch voice notes
+    const voiceNoteIds = [
+      ...new Set(insights.map((i) => i.voiceNoteId).filter(Boolean)),
+    ] as Id<"voiceNotes">[];
+
+    const voiceNotes = await Promise.all(
+      voiceNoteIds.map((id) => ctx.db.get(id))
+    );
+
+    const voiceNoteMap = new Map<string, { title: string; summary?: string }>();
+    voiceNotes.forEach((vn) => {
+      if (vn && "title" in vn && "summary" in vn) {
+        voiceNoteMap.set(vn._id, {
+          title: vn.title as string,
+          summary: vn.summary as string | undefined,
+        });
+      }
+    });
+
+    // Step 3: Batch fetch players
+    const playerIds = [
+      ...new Set(insights.flatMap((i) => i.playerIds)),
+    ] as Id<"orgPlayerEnrollments">[];
+
+    const players = await Promise.all(playerIds.map((id) => ctx.db.get(id)));
+
+    const playerMap = new Map<string, string>();
+    players.forEach((p) => {
+      if (p && "name" in p) {
+        playerMap.set(p._id, p.name as string);
+      }
+    });
+
+    // Step 4: Batch fetch creators
+    const creatorIds = [...new Set(insights.map((i) => i.createdBy))];
+
+    const creators = await Promise.all(
+      creatorIds.map((id) =>
+        ctx.runQuery(components.betterAuth.adapter.findOne, {
+          model: "user",
+          where: [
+            {
+              field: "_id",
+              value: id,
+              operator: "eq",
+            },
+          ],
+        })
+      )
+    );
+
+    const creatorMap = new Map<string, string>();
+    creators.forEach((creator) => {
+      if (creator) {
+        creatorMap.set(creator._id, creator.name || creator.email || "Unknown");
+      }
+    });
+
+    // Step 5: Enrich insights (synchronous, no await in loop!)
+    const enrichedInsights = insights.map((insight) => ({
+      ...insight,
+      voiceNote: insight.voiceNoteId
+        ? voiceNoteMap.get(insight.voiceNoteId)
+        : undefined,
+      playerNames: insight.playerIds
+        .map((id) => playerMap.get(id))
+        .filter(Boolean) as string[],
+      creatorName: creatorMap.get(insight.createdBy) || "Unknown",
+    }));
+
+    // Return paginated or simple array
+    if (paginationResult) {
+      return {
+        ...paginationResult,
+        page: enrichedInsights,
+      };
+    }
+
+    return enrichedInsights;
+  },
+});
+
+// Create a new team insight
+export const createInsight = mutation({
+  args: {
+    teamId: v.string(),
+    organizationId: v.string(),
+    type: v.union(
+      v.literal("voice-note"),
+      v.literal("ai-generated"),
+      v.literal("manual")
+    ),
+    title: v.string(),
+    summary: v.string(),
+    fullText: v.optional(v.string()),
+    voiceNoteId: v.optional(v.id("voiceNotes")),
+    playerIds: v.array(v.id("orgPlayerEnrollments")),
+    topic: v.union(
+      v.literal("technical"),
+      v.literal("tactical"),
+      v.literal("fitness"),
+      v.literal("behavioral"),
+      v.literal("other")
+    ),
+    priority: v.union(v.literal("high"), v.literal("medium"), v.literal("low")),
+    createdBy: v.string(),
+    actorName: v.string(), // For activity feed
+  },
+  returns: v.id("teamInsights"),
+  handler: async (ctx, args) => {
+    const now = Date.now();
+
+    const insightId = await ctx.db.insert("teamInsights", {
+      teamId: args.teamId,
+      organizationId: args.organizationId,
+      type: args.type,
+      title: args.title,
+      summary: args.summary,
+      fullText: args.fullText,
+      voiceNoteId: args.voiceNoteId,
+      playerIds: args.playerIds,
+      topic: args.topic,
+      priority: args.priority,
+      createdBy: args.createdBy,
+      createdAt: now,
+      readBy: [], // Empty initially
+    });
+
+    // Create activity feed entry
+    await ctx.db.insert("teamActivityFeed", {
+      organizationId: args.organizationId,
+      teamId: args.teamId,
+      actorId: args.createdBy,
+      actorName: args.actorName,
+      actionType: "insight_generated",
+      entityType: "team_insight",
+      entityId: insightId,
+      summary: `Generated insight: ${args.title}`,
+      priority: args.priority === "high" ? "important" : "normal",
+      metadata: {
+        insightTitle: args.title,
+      },
+    });
+
+    return insightId;
+  },
+});
+
+// Mark an insight as read by a user
+export const markInsightAsRead = mutation({
+  args: {
+    insightId: v.id("teamInsights"),
+    userId: v.string(),
+  },
+  returns: v.object({ success: v.boolean() }),
+  handler: async (ctx, args) => {
+    const insight = await ctx.db.get(args.insightId);
+    if (!insight) {
+      throw new Error("Insight not found");
+    }
+
+    // Add user to readBy array if not already there
+    if (!insight.readBy.includes(args.userId)) {
+      await ctx.db.patch(args.insightId, {
+        readBy: [...insight.readBy, args.userId],
+      });
+    }
+
+    return { success: true };
   },
 });

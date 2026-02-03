@@ -56,8 +56,9 @@ export function CreateTaskModal({
   const [dueDate, setDueDate] = useState<Date | undefined>(undefined);
   const [isSubmitting, setIsSubmitting] = useState(false);
 
-  // Get available coaches for the organization
-  const coaches = useQuery(api.models.teamCollaboration.getCoachesForMentions, {
+  // Get coaches assigned to this specific team
+  const coaches = useQuery(api.models.coaches.getCoachesForTeam, {
+    teamId,
     organizationId,
   });
 

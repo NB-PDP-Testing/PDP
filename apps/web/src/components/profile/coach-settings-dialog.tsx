@@ -4,6 +4,7 @@ import { api } from "@pdp/backend/convex/_generated/api";
 import { useMutation, useQuery } from "convex/react";
 import {
   Award,
+  Bell,
   Check,
   ChevronDown,
   Info,
@@ -16,6 +17,9 @@ import {
 } from "lucide-react";
 import { useState } from "react";
 import { toast } from "sonner";
+import { GesturePreferences } from "@/app/orgs/[orgId]/coach/settings/gesture-preferences";
+import { NotificationPreferences } from "@/app/orgs/[orgId]/coach/settings/notification-preferences";
+import { ParentCommsSettings } from "@/components/coach/parent-comms-settings";
 import { ResponsiveDialog } from "@/components/interactions";
 import { Alert, AlertDescription } from "@/components/ui/alert";
 import { Badge } from "@/components/ui/badge";
@@ -150,6 +154,11 @@ export function CoachSettingsDialog({
   const [savingOrgs, setSavingOrgs] = useState<Set<string>>(new Set());
   const [helpDialogOpen, setHelpDialogOpen] = useState(false);
   const [isChangingTrustLevel, setIsChangingTrustLevel] = useState(false);
+
+  // Expanded sections state for collapsible Communication and Interface cards
+  const [notificationsOpen, setNotificationsOpen] = useState(false);
+  const [toneOpen, setToneOpen] = useState(false);
+  const [gesturesOpen, setGesturesOpen] = useState(false);
 
   const toggleOrgExpanded = (orgId: string) => {
     const newExpanded = new Set(expandedOrgs);
@@ -1027,6 +1036,123 @@ export function CoachSettingsDialog({
                 coach.
               </AlertDescription>
             </Alert>
+          </CardContent>
+        </Card>
+
+        {/* Communication Section */}
+        <Card>
+          <CardHeader>
+            <div className="flex items-center justify-between">
+              <CardTitle className="flex items-center gap-2 text-lg">
+                <MessageSquare className="h-5 w-5" />
+                Communication
+              </CardTitle>
+            </div>
+            <CardDescription className="text-xs sm:text-sm">
+              Configure how you receive notifications and communicate with
+              parents
+            </CardDescription>
+          </CardHeader>
+          <CardContent className="space-y-6">
+            {/* Notification Preferences */}
+            <Collapsible
+              onOpenChange={setNotificationsOpen}
+              open={notificationsOpen}
+            >
+              <CollapsibleTrigger asChild>
+                <Button
+                  className="w-full justify-between"
+                  type="button"
+                  variant="outline"
+                >
+                  <span className="flex items-center gap-2">
+                    <Bell className="h-4 w-4" />
+                    Notification Preferences
+                  </span>
+                  <ChevronDown
+                    className={cn(
+                      "h-4 w-4 transition-transform",
+                      notificationsOpen && "rotate-180"
+                    )}
+                  />
+                </Button>
+              </CollapsibleTrigger>
+              <CollapsibleContent className="mt-4">
+                {organizations && organizations.length > 0 && (
+                  <NotificationPreferences />
+                )}
+              </CollapsibleContent>
+            </Collapsible>
+
+            {/* Parent Communication Tone */}
+            <Collapsible onOpenChange={setToneOpen} open={toneOpen}>
+              <CollapsibleTrigger asChild>
+                <Button
+                  className="w-full justify-between"
+                  type="button"
+                  variant="outline"
+                >
+                  <span className="flex items-center gap-2">
+                    <MessageSquare className="h-4 w-4" />
+                    Parent Communication Tone
+                  </span>
+                  <ChevronDown
+                    className={cn(
+                      "h-4 w-4 transition-transform",
+                      toneOpen && "rotate-180"
+                    )}
+                  />
+                </Button>
+              </CollapsibleTrigger>
+              <CollapsibleContent className="mt-4">
+                {organizations && organizations.length > 0 && (
+                  <ParentCommsSettings organizationId={organizations[0].id} />
+                )}
+              </CollapsibleContent>
+            </Collapsible>
+          </CardContent>
+        </Card>
+
+        {/* Interface Section */}
+        <Card>
+          <CardHeader>
+            <div className="flex items-center justify-between">
+              <CardTitle className="flex items-center gap-2 text-lg">
+                <Target className="h-5 w-5" />
+                Interface
+              </CardTitle>
+            </div>
+            <CardDescription className="text-xs sm:text-sm">
+              Customize your interface preferences and mobile gestures
+            </CardDescription>
+          </CardHeader>
+          <CardContent className="space-y-6">
+            {/* Gesture Preferences */}
+            <Collapsible onOpenChange={setGesturesOpen} open={gesturesOpen}>
+              <CollapsibleTrigger asChild>
+                <Button
+                  className="w-full justify-between"
+                  type="button"
+                  variant="outline"
+                >
+                  <span className="flex items-center gap-2">
+                    <Sparkles className="h-4 w-4" />
+                    Mobile Gestures
+                  </span>
+                  <ChevronDown
+                    className={cn(
+                      "h-4 w-4 transition-transform",
+                      gesturesOpen && "rotate-180"
+                    )}
+                  />
+                </Button>
+              </CollapsibleTrigger>
+              <CollapsibleContent className="mt-4">
+                {organizations && organizations.length > 0 && (
+                  <GesturePreferences />
+                )}
+              </CollapsibleContent>
+            </Collapsible>
           </CardContent>
         </Card>
       </div>

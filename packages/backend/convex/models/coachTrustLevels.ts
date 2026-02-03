@@ -76,6 +76,9 @@ const orgPreferencesValidator = v.object({
       v.literal("players")
     )
   ),
+  parentSummaryTone: v.optional(
+    v.union(v.literal("warm"), v.literal("professional"), v.literal("brief"))
+  ),
 
   // Trust Gate Individual Override
   trustGateOverride: v.optional(v.boolean()),

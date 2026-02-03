@@ -661,10 +661,12 @@ export const getCoachPreferences = query({
       revokedBy: v.optional(v.string()),
       revokedAt: v.optional(v.number()),
       revokeReason: v.optional(v.string()),
-      adminBlockedAllAI: v.optional(v.boolean()),
+      adminBlockedFromAI: v.optional(v.boolean()),
       blockedBy: v.optional(v.string()),
       blockedAt: v.optional(v.number()),
       blockReason: v.optional(v.string()),
+      createdAt: v.number(),
+      updatedAt: v.number(),
     })
   ),
   handler: async (ctx, args) => {

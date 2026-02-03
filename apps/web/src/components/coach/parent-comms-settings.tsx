@@ -3,7 +3,7 @@
 import { api } from "@pdp/backend/convex/_generated/api";
 import { useMutation, useQuery } from "convex/react";
 import { Loader2 } from "lucide-react";
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { toast } from "sonner";
 import { Button } from "@/components/ui/button";
 import {
@@ -73,14 +73,14 @@ export function ParentCommsSettings({
     api.models.coaches.updateCoachPreferences
   );
 
-  // Set selected tone from loaded preferences
-  if (
-    preferences &&
-    !isSubmitting &&
-    selectedTone !== preferences.parentSummaryTone
-  ) {
-    setSelectedTone(preferences.parentSummaryTone || "warm");
-  }
+  // Set selected tone from loaded preferences (useEffect to avoid infinite render)
+  // Only sync from preferences when preferences actually change, not when user is editing
+  useEffect(() => {
+    if (preferences?.parentSummaryTone && !isSubmitting) {
+      setSelectedTone(preferences.parentSummaryTone);
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [preferences?.parentSummaryTone, isSubmitting]); // Intentionally exclude selectedTone
 
   const handleToneChange = (tone: string) => {
     setSelectedTone(tone as ToneOption);
@@ -129,17 +129,15 @@ export function ParentCommsSettings({
           <SelectContent>
             {Object.entries(TONE_LABELS).map(([value, label]) => (
               <SelectItem key={value} value={value}>
-                <div className="flex flex-col gap-1">
-                  <span className="font-medium">{label}</span>
-                  <span className="text-muted-foreground text-xs">
-                    {TONE_DESCRIPTIONS[value as ToneOption]}
-                  </span>
-                </div>
+                {label}
               </SelectItem>
             ))}
           </SelectContent>
         </Select>
         <p className="text-muted-foreground text-sm">
+          {TONE_DESCRIPTIONS[selectedTone]}
+        </p>
+        <p className="text-muted-foreground text-xs">
           Choose how AI-generated summaries will be written for parents.
         </p>
       </div>

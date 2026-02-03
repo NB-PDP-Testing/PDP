@@ -1,8 +1,26 @@
 # Phase 5: Parent Communication Controls - Ideation
 
-**Date**: 2026-02-02
-**Status**: 💡 Ideation Required
+**Date**: 2026-02-02 (Updated: 2026-02-03)
+**Status**: 🚧 **BLOCKED - Additional Ideation Required**
 **Priority**: High (based on tester feedback)
+
+---
+
+## ⚠️ BLOCKER: Coach Control Needs More Iteration
+
+**IMPORTANT**: Before Phase 5 implementation begins, we MUST iterate further on coach control mechanisms.
+
+**User Feedback (2026-02-03)**:
+> "Think we will need to ideate on the frequency controls a bit more to give more control to the coach. Ensure we iterate a bit further on that when planning for phase 5."
+
+**Action Required**:
+- [ ] Schedule ideation session to explore more granular coach controls
+- [ ] Consider different coaching styles and organization types
+- [ ] Balance coach control with parent experience
+- [ ] Validate approach with testers before implementation
+- [ ] Document final coach control model before writing user stories
+
+**Do NOT start Phase 5 implementation until this ideation is complete.**
 
 ---
 
@@ -343,8 +361,97 @@ const summary = await generateInsightSummary({
 
 ---
 
-**Status**: Ready for Phase 5 ideation and user research
+**Status**: 🚧 **BLOCKED - Additional Coach Control Ideation Required**
 **Owner**: Product team + Engineering
-**Timeline**: After Phase 4 complete
+**Timeline**: After Phase 4 complete + Additional ideation session
+
+---
+
+## 🔍 Additional Ideation Required (Before Phase 5 Implementation)
+
+### Questions to Explore
+
+#### 1. **Granularity of Coach Control**
+- Should coaches control volume at organization level, team level, or player level?
+- Example: "Max 5 insights per parent for U10 team, max 10 for U18 team"
+- Should there be different limits for different priority levels?
+
+#### 2. **Insight Categorization Control**
+- Should coaches be able to mark insights as "Must send immediately" vs "Can batch"?
+- Should there be a "Hold for review" option before batching?
+- How does this interact with AI priority classification?
+
+#### 3. **Preview & Simulation**
+- Should coaches see a preview of "What parents will receive" before insights are sent?
+- Real-time counter: "If you send this now, parents will receive X insights today"
+- Weekly report: "Last week, parents received avg 4.2 insights/day"
+
+#### 4. **Override Mechanisms**
+- Should coaches be able to override the max limit for important updates?
+- "Send all pending insights now" emergency button?
+- Per-parent overrides for parents who want more/less communication?
+
+#### 5. **Coaching Style Profiles**
+- Should there be preset profiles?
+  - "High Touch" (daily, max 10 insights)
+  - "Balanced" (daily, max 5 insights)
+  - "Highlights Only" (weekly, max 3 high-priority insights)
+- Can coaches create custom profiles per team/season?
+
+#### 6. **Organization Policies**
+- Should org admins be able to set organization-wide limits?
+- Example: "No more than 3 messages per parent per day" (overrides coach setting)
+- How do org policies interact with coach preferences?
+
+#### 7. **Feedback Loop**
+- How do coaches know if their settings are working?
+- Parent engagement metrics: "80% of parents read daily digests"
+- Should system suggest adjustments? "Consider reducing to 3 insights - 40% of parents mark as unread"
+
+#### 8. **Seasonal Variation**
+- Should volume limits vary by season phase?
+- Pre-season (high activity) vs mid-season vs off-season?
+- Auto-adjust based on insight creation patterns?
+
+### Coaching Scenarios to Consider
+
+1. **Youth Recreational Coach (U8-U10)**
+   - Creates 2-3 insights per week
+   - Parents want every detail
+   - Low complexity, high engagement
+
+2. **Competitive Youth Coach (U14-U16)**
+   - Creates 10-15 insights per week
+   - Parents vary: some want everything, some want highlights only
+   - Medium complexity, varied engagement
+
+3. **Elite Academy Coach (U18)**
+   - Creates 20+ insights per week
+   - Parents are busy, want efficiency
+   - High complexity, selective engagement
+
+4. **Multi-Team Coach**
+   - Manages 3 teams simultaneously
+   - Different parent expectations per team
+   - Needs team-level control
+
+### Design Principles to Validate
+
+- **Coach Autonomy**: Coaches should feel in control, not restricted
+- **Parent Experience**: Parents should never feel overwhelmed
+- **Flexibility**: One size does NOT fit all - provide options
+- **Sensible Defaults**: System should work well without configuration
+- **Progressive Disclosure**: Simple by default, advanced options available
+
+### Deliverables for Next Ideation Session
+
+- [ ] User research interviews with 3-5 coaches (different contexts)
+- [ ] Parent feedback on current notification volume
+- [ ] Competitive analysis (other sports platforms)
+- [ ] UI mockups for 3 control models (simple/medium/advanced)
+- [ ] Decision framework for coach control granularity
+- [ ] Finalized coach control model with examples
+
+**Next Step**: Schedule ideation workshop before Phase 5 planning begins.
 
 ---

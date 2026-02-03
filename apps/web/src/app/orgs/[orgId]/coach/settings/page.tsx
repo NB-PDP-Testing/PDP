@@ -16,12 +16,16 @@ export const metadata: Metadata = {
 };
 
 type CoachSettingsPageProps = {
-  params: {
+  params: Promise<{
     orgId: string;
-  };
+  }>;
 };
 
-export default function CoachSettingsPage({ params }: CoachSettingsPageProps) {
+export default async function CoachSettingsPage({
+  params,
+}: CoachSettingsPageProps) {
+  const { orgId } = await params;
+
   return (
     <div className="container mx-auto space-y-6 p-6">
       <div>
@@ -43,7 +47,7 @@ export default function CoachSettingsPage({ params }: CoachSettingsPageProps) {
           </CardDescription>
         </CardHeader>
         <CardContent>
-          <ParentCommsSettings organizationId={params.orgId} />
+          <ParentCommsSettings organizationId={orgId} />
         </CardContent>
       </Card>
     </div>

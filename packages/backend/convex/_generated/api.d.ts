@@ -57,6 +57,7 @@ import type * as models_gdpr from "../models/gdpr.js";
 import type * as models_guardianIdentities from "../models/guardianIdentities.js";
 import type * as models_guardianManagement from "../models/guardianManagement.js";
 import type * as models_guardianPlayerLinks from "../models/guardianPlayerLinks.js";
+import type * as models_injuryDocuments from "../models/injuryDocuments.js";
 import type * as models_invitations from "../models/invitations.js";
 import type * as models_medicalProfiles from "../models/medicalProfiles.js";
 import type * as models_members from "../models/members.js";
@@ -196,6 +197,7 @@ declare const fullApi: ApiFromModules<{
   "models/guardianIdentities": typeof models_guardianIdentities;
   "models/guardianManagement": typeof models_guardianManagement;
   "models/guardianPlayerLinks": typeof models_guardianPlayerLinks;
+  "models/injuryDocuments": typeof models_injuryDocuments;
   "models/invitations": typeof models_invitations;
   "models/medicalProfiles": typeof models_medicalProfiles;
   "models/members": typeof models_members;

@@ -1,7 +1,10 @@
 import { v } from "convex/values";
 import type { Doc } from "../_generated/dataModel";
 import { mutation, query } from "../_generated/server";
-import * as injuryNotifications from "../lib/injuryNotifications";
+import {
+  notifyInjuryReported,
+  notifyStatusChanged,
+} from "../lib/injuryNotifications";
 
 // ============================================================
 // TYPE DEFINITIONS
@@ -52,6 +55,17 @@ const returnToPlayStepValidator = v.object({
 });
 
 // Injury validator for return types
+// Milestone validator for Phase 2 recovery tracking
+const milestoneValidator = v.object({
+  id: v.string(),
+  description: v.string(),
+  targetDate: v.optional(v.string()),
+  completedDate: v.optional(v.string()),
+  completedBy: v.optional(v.string()),
+  notes: v.optional(v.string()),
+  order: v.number(),
+});
+
 const injuryValidator = v.object({
   _id: v.id("playerInjuries"),
   _creationTime: v.number(),
@@ -81,6 +95,14 @@ const injuryValidator = v.object({
   reportedByRole: v.optional(reportedByRoleValidator),
   source: v.optional(v.union(v.literal("manual"), v.literal("voice_note"))),
   voiceNoteId: v.optional(v.id("voiceNotes")),
+  // Phase 2 - Recovery plan (Issue #261)
+  estimatedRecoveryDays: v.optional(v.number()),
+  recoveryPlanNotes: v.optional(v.string()),
+  milestones: v.optional(v.array(milestoneValidator)),
+  // Phase 2 - Medical clearance (Issue #261)
+  medicalClearanceRequired: v.optional(v.boolean()),
+  medicalClearanceReceived: v.optional(v.boolean()),
+  medicalClearanceDate: v.optional(v.string()),
   createdAt: v.number(),
   updatedAt: v.number(),
 });
@@ -577,7 +599,7 @@ export const reportInjury = mutation({
     // Only send if we have an organization context
     if (args.occurredAtOrgId) {
       try {
-        await injuryNotifications.notifyInjuryReported(ctx, {
+        await notifyInjuryReported(ctx, {
           injuryId,
           playerIdentityId: args.playerIdentityId,
           organizationId: args.occurredAtOrgId,
@@ -647,7 +669,7 @@ export const updateInjuryStatus = mutation({
         // Get player info for notification
         const player = await ctx.db.get(existing.playerIdentityId);
         if (player) {
-          await injuryNotifications.notifyStatusChanged(ctx, {
+          await notifyStatusChanged(ctx, {
             injuryId: args.injuryId,
             playerIdentityId: existing.playerIdentityId,
             organizationId: existing.occurredAtOrgId,
@@ -802,7 +824,7 @@ export const updateInjury = mutation({
           ? `${playerIdentity.firstName} ${playerIdentity.lastName}`
           : "Player";
 
-        await injuryNotifications.notifyStatusChanged(ctx, {
+        await notifyStatusChanged(ctx, {
           injuryId: args.injuryId,
           playerIdentityId: existing.playerIdentityId,
           organizationId: existing.occurredAtOrgId,
@@ -925,6 +947,374 @@ export const deleteInjury = mutation({
     }
 
     await ctx.db.delete(args.injuryId);
+    return null;
+  },
+});
+
+// ============================================================
+// PHASE 2: RECOVERY MANAGEMENT (Issue #261)
+// ============================================================
+
+/**
+ * Progress update type validator
+ * Note: Reserved for future use when updateType becomes a parameter
+ */
+const _progressUpdateTypeValidator = v.union(
+  v.literal("progress_note"),
+  v.literal("milestone_completed"),
+  v.literal("status_change"),
+  v.literal("document_uploaded"),
+  v.literal("clearance_received"),
+  v.literal("recovery_plan_created"),
+  v.literal("recovery_plan_updated")
+);
+
+/**
+ * Role validator for progress updates
+ */
+const updaterRoleValidator = v.union(
+  v.literal("guardian"),
+  v.literal("coach"),
+  v.literal("admin")
+);
+
+/**
+ * Set or update recovery plan for an injury
+ */
+export const setRecoveryPlan = mutation({
+  args: {
+    injuryId: v.id("playerInjuries"),
+    estimatedRecoveryDays: v.optional(v.number()),
+    recoveryPlanNotes: v.optional(v.string()),
+    milestones: v.optional(
+      v.array(
+        v.object({
+          description: v.string(),
+          targetDate: v.optional(v.string()),
+          order: v.number(),
+        })
+      )
+    ),
+    medicalClearanceRequired: v.optional(v.boolean()),
+    // User context
+    updatedBy: v.string(),
+    updatedByName: v.string(),
+    updatedByRole: updaterRoleValidator,
+  },
+  returns: v.null(),
+  handler: async (ctx, args) => {
+    const existing = await ctx.db.get(args.injuryId);
+    if (!existing) {
+      throw new Error("Injury not found");
+    }
+
+    const isNewPlan = !(existing.milestones || existing.recoveryPlanNotes);
+
+    // Convert milestones to include IDs
+    const milestonesWithIds = args.milestones?.map((m, index) => ({
+      id: `milestone_${Date.now()}_${index}`,
+      description: m.description,
+      targetDate: m.targetDate,
+      order: m.order,
+      completedDate: undefined,
+      completedBy: undefined,
+      notes: undefined,
+    }));
+
+    await ctx.db.patch(args.injuryId, {
+      estimatedRecoveryDays: args.estimatedRecoveryDays,
+      recoveryPlanNotes: args.recoveryPlanNotes,
+      milestones: milestonesWithIds,
+      medicalClearanceRequired: args.medicalClearanceRequired,
+      updatedAt: Date.now(),
+    });
+
+    // Log progress update
+    await ctx.db.insert("injuryProgressUpdates", {
+      injuryId: args.injuryId,
+      updatedBy: args.updatedBy,
+      updatedByName: args.updatedByName,
+      updatedByRole: args.updatedByRole,
+      updateType: isNewPlan ? "recovery_plan_created" : "recovery_plan_updated",
+      notes: args.recoveryPlanNotes,
+      createdAt: Date.now(),
+    });
+
+    return null;
+  },
+});
+
+/**
+ * Add a milestone to an existing recovery plan
+ */
+export const addMilestone = mutation({
+  args: {
+    injuryId: v.id("playerInjuries"),
+    description: v.string(),
+    targetDate: v.optional(v.string()),
+    updatedBy: v.string(),
+    updatedByName: v.string(),
+    updatedByRole: updaterRoleValidator,
+  },
+  returns: v.string(), // Returns the new milestone ID
+  handler: async (ctx, args) => {
+    const existing = await ctx.db.get(args.injuryId);
+    if (!existing) {
+      throw new Error("Injury not found");
+    }
+
+    const currentMilestones = existing.milestones || [];
+    const newMilestoneId = `milestone_${Date.now()}`;
+    const newMilestone = {
+      id: newMilestoneId,
+      description: args.description,
+      targetDate: args.targetDate,
+      order: currentMilestones.length,
+      completedDate: undefined,
+      completedBy: undefined,
+      notes: undefined,
+    };
+
+    await ctx.db.patch(args.injuryId, {
+      milestones: [...currentMilestones, newMilestone],
+      updatedAt: Date.now(),
+    });
+
+    // Log progress update
+    await ctx.db.insert("injuryProgressUpdates", {
+      injuryId: args.injuryId,
+      updatedBy: args.updatedBy,
+      updatedByName: args.updatedByName,
+      updatedByRole: args.updatedByRole,
+      updateType: "recovery_plan_updated",
+      notes: `Added milestone: ${args.description}`,
+      milestoneId: newMilestoneId,
+      milestoneDescription: args.description,
+      createdAt: Date.now(),
+    });
+
+    return newMilestoneId;
+  },
+});
+
+/**
+ * Update a milestone (mark complete, add notes, change target date)
+ */
+export const updateMilestone = mutation({
+  args: {
+    injuryId: v.id("playerInjuries"),
+    milestoneId: v.string(),
+    completedDate: v.optional(v.string()),
+    notes: v.optional(v.string()),
+    targetDate: v.optional(v.string()),
+    updatedBy: v.string(),
+    updatedByName: v.string(),
+    updatedByRole: updaterRoleValidator,
+  },
+  returns: v.null(),
+  handler: async (ctx, args) => {
+    const existing = await ctx.db.get(args.injuryId);
+    if (!existing) {
+      throw new Error("Injury not found");
+    }
+
+    if (!existing.milestones) {
+      throw new Error("No milestones exist for this injury");
+    }
+
+    const milestoneIndex = existing.milestones.findIndex(
+      (m) => m.id === args.milestoneId
+    );
+    if (milestoneIndex === -1) {
+      throw new Error("Milestone not found");
+    }
+
+    const milestone = existing.milestones[milestoneIndex];
+    const wasCompleted = !!milestone.completedDate;
+    const isNowCompleted = !!args.completedDate;
+
+    const updatedMilestones = existing.milestones.map((m) => {
+      if (m.id === args.milestoneId) {
+        return {
+          ...m,
+          completedDate: args.completedDate ?? m.completedDate,
+          completedBy: args.completedDate ? args.updatedBy : m.completedBy,
+          notes: args.notes ?? m.notes,
+          targetDate: args.targetDate ?? m.targetDate,
+        };
+      }
+      return m;
+    });
+
+    await ctx.db.patch(args.injuryId, {
+      milestones: updatedMilestones,
+      updatedAt: Date.now(),
+    });
+
+    // Log progress update if milestone was just completed
+    if (!wasCompleted && isNowCompleted) {
+      await ctx.db.insert("injuryProgressUpdates", {
+        injuryId: args.injuryId,
+        updatedBy: args.updatedBy,
+        updatedByName: args.updatedByName,
+        updatedByRole: args.updatedByRole,
+        updateType: "milestone_completed",
+        notes: args.notes,
+        milestoneId: args.milestoneId,
+        milestoneDescription: milestone.description,
+        createdAt: Date.now(),
+      });
+    }
+
+    return null;
+  },
+});
+
+/**
+ * Remove a milestone from recovery plan
+ */
+export const removeMilestone = mutation({
+  args: {
+    injuryId: v.id("playerInjuries"),
+    milestoneId: v.string(),
+  },
+  returns: v.null(),
+  handler: async (ctx, args) => {
+    const existing = await ctx.db.get(args.injuryId);
+    if (!existing) {
+      throw new Error("Injury not found");
+    }
+
+    if (!existing.milestones) {
+      throw new Error("No milestones exist for this injury");
+    }
+
+    const updatedMilestones = existing.milestones
+      .filter((m) => m.id !== args.milestoneId)
+      .map((m, index) => ({ ...m, order: index }));
+
+    await ctx.db.patch(args.injuryId, {
+      milestones: updatedMilestones,
+      updatedAt: Date.now(),
+    });
+
+    return null;
+  },
+});
+
+/**
+ * Add a progress update note
+ */
+export const addProgressUpdate = mutation({
+  args: {
+    injuryId: v.id("playerInjuries"),
+    notes: v.string(),
+    updatedBy: v.string(),
+    updatedByName: v.string(),
+    updatedByRole: updaterRoleValidator,
+  },
+  returns: v.id("injuryProgressUpdates"),
+  handler: async (ctx, args) => {
+    const existing = await ctx.db.get(args.injuryId);
+    if (!existing) {
+      throw new Error("Injury not found");
+    }
+
+    const updateId = await ctx.db.insert("injuryProgressUpdates", {
+      injuryId: args.injuryId,
+      updatedBy: args.updatedBy,
+      updatedByName: args.updatedByName,
+      updatedByRole: args.updatedByRole,
+      updateType: "progress_note",
+      notes: args.notes,
+      createdAt: Date.now(),
+    });
+
+    // Update injury's updatedAt
+    await ctx.db.patch(args.injuryId, {
+      updatedAt: Date.now(),
+    });
+
+    return updateId;
+  },
+});
+
+/**
+ * Get progress updates for an injury
+ */
+export const getProgressUpdates = query({
+  args: {
+    injuryId: v.id("playerInjuries"),
+    limit: v.optional(v.number()),
+  },
+  returns: v.array(
+    v.object({
+      _id: v.id("injuryProgressUpdates"),
+      _creationTime: v.number(),
+      injuryId: v.id("playerInjuries"),
+      updatedBy: v.string(),
+      updatedByName: v.string(),
+      updatedByRole: v.string(),
+      updateType: v.string(),
+      notes: v.optional(v.string()),
+      previousStatus: v.optional(v.string()),
+      newStatus: v.optional(v.string()),
+      milestoneId: v.optional(v.string()),
+      milestoneDescription: v.optional(v.string()),
+      documentId: v.optional(v.id("injuryDocuments")),
+      createdAt: v.number(),
+    })
+  ),
+  handler: async (ctx, args) => {
+    const limit = args.limit ?? 50;
+
+    const updates = await ctx.db
+      .query("injuryProgressUpdates")
+      .withIndex("by_injury_created", (q) => q.eq("injuryId", args.injuryId))
+      .order("desc")
+      .take(limit);
+
+    return updates;
+  },
+});
+
+/**
+ * Record medical clearance received
+ */
+export const recordMedicalClearance = mutation({
+  args: {
+    injuryId: v.id("playerInjuries"),
+    clearanceDate: v.string(),
+    documentId: v.optional(v.id("injuryDocuments")),
+    updatedBy: v.string(),
+    updatedByName: v.string(),
+    updatedByRole: updaterRoleValidator,
+  },
+  returns: v.null(),
+  handler: async (ctx, args) => {
+    const existing = await ctx.db.get(args.injuryId);
+    if (!existing) {
+      throw new Error("Injury not found");
+    }
+
+    await ctx.db.patch(args.injuryId, {
+      medicalClearanceReceived: true,
+      medicalClearanceDate: args.clearanceDate,
+      updatedAt: Date.now(),
+    });
+
+    // Log progress update
+    await ctx.db.insert("injuryProgressUpdates", {
+      injuryId: args.injuryId,
+      updatedBy: args.updatedBy,
+      updatedByName: args.updatedByName,
+      updatedByRole: args.updatedByRole,
+      updateType: "clearance_received",
+      notes: `Medical clearance received on ${args.clearanceDate}`,
+      documentId: args.documentId,
+      createdAt: Date.now(),
+    });
+
     return null;
   },
 });

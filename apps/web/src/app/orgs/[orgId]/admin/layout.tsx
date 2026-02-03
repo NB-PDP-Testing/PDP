@@ -1,11 +1,16 @@
 "use client";
 
 import { api } from "@pdp/backend/convex/_generated/api";
-import { Authenticated, AuthLoading, Unauthenticated } from "convex/react";
+import {
+  Authenticated,
+  AuthLoading,
+  Unauthenticated,
+  useQuery,
+} from "convex/react";
 import { ClipboardList, Home, Menu, Settings, Users } from "lucide-react";
 import type { Route } from "next";
 import Link from "next/link";
-import { useParams, useRouter } from "next/navigation";
+import { useParams, usePathname, useRouter } from "next/navigation";
 import { useEffect, useState } from "react";
 import { CommandMenu } from "@/components/interactions/command-menu";
 import {
@@ -256,19 +261,12 @@ function LegacyNavigation({
   theme: { primary: string };
   children: React.ReactNode;
 }) {
-  // eslint-disable-next-line @typescript-eslint/no-require-imports
-  const { usePathname } = require("next/navigation");
-  // eslint-disable-next-line @typescript-eslint/no-require-imports
-  const { useQuery: useLegacyQuery } = require("convex/react");
   const pathname = usePathname();
 
   // Fetch org data to determine if enquiries should be shown
-  const organization = useLegacyQuery(
-    api.models.organizations.getOrganization,
-    {
-      organizationId: orgId,
-    }
-  );
+  const organization = useQuery(api.models.organizations.getOrganization, {
+    organizationId: orgId,
+  });
 
   // Show enquiries when mode is "enquiry" or not set (null/undefined = default to enquiry)
   const showEnquiries =

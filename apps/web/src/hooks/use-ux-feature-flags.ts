@@ -222,90 +222,103 @@ export type UXFeatureFlags = {
  * ACCESS CONTROL:
  * - Only Platform Staff (with PostHog access) can enable/disable features
  * - When enabled, features apply to ALL users
+ *
+ * DEV MODE:
+ * - Set ENABLE_ALL_UX_FLAGS to true to enable all flags for local development
  */
+
+// Toggle this to enable all UX feature flags for local development
+const ENABLE_ALL_UX_FLAGS = true;
+
 export function useUXFeatureFlags(): UXFeatureFlags {
   const { isFeatureEnabled } = useAnalytics();
 
+  // Helper that returns true if dev mode is enabled, otherwise checks PostHog
+  const checkFlag = (flag: string) =>
+    ENABLE_ALL_UX_FLAGS || isFeatureEnabled(flag);
+
   return {
     // Phase 1 - Navigation Foundation
-    useBottomNav: isFeatureEnabled("ux_bottom_nav"),
-    useTouchTargets44: isFeatureEnabled("ux_touch_targets_44px"),
-    adminNavStyle: getAdminNavStyle(isFeatureEnabled),
-    useAppShell: isFeatureEnabled("ux_app_shell"),
-    useHoverActions: isFeatureEnabled("ux_hover_actions"),
-    useResponsiveInputs: isFeatureEnabled("ux_responsive_inputs"),
+    useBottomNav: checkFlag("ux_bottom_nav"),
+    useTouchTargets44: checkFlag("ux_touch_targets_44px"),
+    adminNavStyle: ENABLE_ALL_UX_FLAGS
+      ? "sidebar"
+      : getAdminNavStyle(isFeatureEnabled),
+    useAppShell: checkFlag("ux_app_shell"),
+    useHoverActions: checkFlag("ux_hover_actions"),
+    useResponsiveInputs: checkFlag("ux_responsive_inputs"),
 
     // Phase 2 - Data Display
-    useMobileCards: isFeatureEnabled("ux_mobile_cards"),
-    useSkeletonLoaders: isFeatureEnabled("ux_skeleton_loaders"),
-    useEnhancedTables: isFeatureEnabled("ux_enhanced_tables"),
-    useSwipeCards: isFeatureEnabled("ux_swipe_cards"),
-    usePullToRefresh: isFeatureEnabled("ux_pull_to_refresh"),
+    useMobileCards: checkFlag("ux_mobile_cards"),
+    useSkeletonLoaders: checkFlag("ux_skeleton_loaders"),
+    useEnhancedTables: checkFlag("ux_enhanced_tables"),
+    useSwipeCards: checkFlag("ux_swipe_cards"),
+    usePullToRefresh: checkFlag("ux_pull_to_refresh"),
 
     // Phase 3 - Forms
-    useResponsiveForms: isFeatureEnabled("ux_responsive_forms"),
+    useResponsiveForms: checkFlag("ux_responsive_forms"),
 
     // Phase 4 - Interactions
-    useCommandMenu: isFeatureEnabled("ux_command_menu"),
-    useResponsiveDialogs: isFeatureEnabled("ux_responsive_dialogs"),
+    useCommandMenu: checkFlag("ux_command_menu"),
+    useResponsiveDialogs: checkFlag("ux_responsive_dialogs"),
 
     // Phase 5 - Polish
-    useKeyboardShortcutsOverlay: isFeatureEnabled(
-      "ux_keyboard_shortcuts_overlay"
-    ),
-    useDensityToggle: isFeatureEnabled("ux_density_toggle"),
-    useOfflineIndicator: isFeatureEnabled("ux_offline_indicator"),
-    usePWAInstallPrompt: isFeatureEnabled("ux_pwa_install_prompt"),
-    useResizableSidebar: isFeatureEnabled("ux_resizable_sidebar"),
-    usePinnedFavorites: isFeatureEnabled("ux_pinned_favorites"),
-    useRecentItems: isFeatureEnabled("ux_recent_items"),
+    useKeyboardShortcutsOverlay: checkFlag("ux_keyboard_shortcuts_overlay"),
+    useDensityToggle: checkFlag("ux_density_toggle"),
+    useOfflineIndicator: checkFlag("ux_offline_indicator"),
+    usePWAInstallPrompt: checkFlag("ux_pwa_install_prompt"),
+    useResizableSidebar: checkFlag("ux_resizable_sidebar"),
+    usePinnedFavorites: checkFlag("ux_pinned_favorites"),
+    useRecentItems: checkFlag("ux_recent_items"),
 
     // Phase 10 - Context Menu & Advanced Interactions
-    useContextMenu: isFeatureEnabled("ux_context_menu"),
-    useActionSheet: isFeatureEnabled("ux_action_sheet"),
-    useInlineEdit: isFeatureEnabled("ux_inline_edit"),
+    useContextMenu: checkFlag("ux_context_menu"),
+    useActionSheet: checkFlag("ux_action_sheet"),
+    useInlineEdit: checkFlag("ux_inline_edit"),
 
     // Phase 11 - PWA & Offline
-    useServiceWorker: isFeatureEnabled("ux_service_worker"),
-    useOfflineSupport: isFeatureEnabled("ux_offline_support"),
-    usePWAUpdatePrompt: isFeatureEnabled("ux_pwa_update_prompt"),
+    useServiceWorker: checkFlag("ux_service_worker"),
+    useOfflineSupport: checkFlag("ux_offline_support"),
+    usePWAUpdatePrompt: checkFlag("ux_pwa_update_prompt"),
 
     // Phase 12 - Accessibility
-    useSkipLinks: isFeatureEnabled("ux_skip_links"),
-    useFocusVisible: isFeatureEnabled("ux_focus_visible"),
-    useReducedMotion: isFeatureEnabled("ux_reduced_motion"),
-    useAnnouncer: isFeatureEnabled("ux_announcer"),
+    useSkipLinks: checkFlag("ux_skip_links"),
+    useFocusVisible: checkFlag("ux_focus_visible"),
+    useReducedMotion: checkFlag("ux_reduced_motion"),
+    useAnnouncer: checkFlag("ux_announcer"),
 
     // Phase 13 - Performance
-    useLazyComponents: isFeatureEnabled("ux_lazy_components"),
-    useWebVitalsMonitoring: isFeatureEnabled("ux_web_vitals"),
-    useDeferredRender: isFeatureEnabled("ux_deferred_render"),
-    useResourceHints: isFeatureEnabled("ux_resource_hints"),
+    useLazyComponents: checkFlag("ux_lazy_components"),
+    useWebVitalsMonitoring: checkFlag("ux_web_vitals"),
+    useDeferredRender: checkFlag("ux_deferred_render"),
+    useResourceHints: checkFlag("ux_resource_hints"),
 
     // Phase 14 - Theme & Accessibility
-    useEnhancedThemeToggle: isFeatureEnabled("ux_theme_enhanced"),
-    useThemeContrastColors: isFeatureEnabled("ux_theme_contrast_colors"),
-    useThemeDarkVariants: isFeatureEnabled("ux_theme_dark_variants"),
-    useThemeSmoothTransitions: isFeatureEnabled("ux_theme_smooth_transitions"),
+    useEnhancedThemeToggle: checkFlag("ux_theme_enhanced"),
+    useThemeContrastColors: checkFlag("ux_theme_contrast_colors"),
+    useThemeDarkVariants: checkFlag("ux_theme_dark_variants"),
+    useThemeSmoothTransitions: checkFlag("ux_theme_smooth_transitions"),
 
     // Phase 14 - Header Navigation
-    useMinimalHeaderNav: isFeatureEnabled("ux_header_nav_minimal"),
+    useMinimalHeaderNav: checkFlag("ux_header_nav_minimal"),
 
     // Phase 15 - Enhanced User Menu
-    useEnhancedUserMenu: isFeatureEnabled("ux_enhanced_user_menu"),
-    useOrgUsageTracking: isFeatureEnabled("ux_org_usage_tracking"),
+    useEnhancedUserMenu: checkFlag("ux_enhanced_user_menu"),
+    useOrgUsageTracking: checkFlag("ux_org_usage_tracking"),
 
     // Phase 16 - Logo Visibility Enhancement
-    useAdaptiveLogoVisibility: isFeatureEnabled("ux_logo_adaptive_visibility"),
+    useAdaptiveLogoVisibility: checkFlag("ux_logo_adaptive_visibility"),
 
     // Phase 17 - Parent Features
-    useParentSummaryShareImage: isFeatureEnabled("parent_summary_share_image"),
+    useParentSummaryShareImage: checkFlag("parent_summary_share_image"),
 
     // Phase 18 - Voice Notes Features
-    useVoiceNotesWhatsApp: isFeatureEnabled("voice_notes_whatsapp"),
+    useVoiceNotesWhatsApp: checkFlag("voice_notes_whatsapp"),
 
     // Quick Actions A/B/C Testing
-    quickActionsVariant: getQuickActionsVariant(isFeatureEnabled),
+    quickActionsVariant: ENABLE_ALL_UX_FLAGS
+      ? "two-tier"
+      : getQuickActionsVariant(isFeatureEnabled),
   };
 }
 

@@ -7,6 +7,7 @@ import {
   FileText,
   Heart,
   Home,
+  LayoutDashboard,
   Menu,
   Mic,
   Stethoscope,
@@ -348,6 +349,13 @@ function CoachLayoutInner({ children }: { children: React.ReactNode }) {
       icon: Mic,
       label: "Voice",
       href: `/orgs/${orgId}/coach/voice-notes`,
+      highlight: true,
+    },
+    {
+      id: "team-hub",
+      icon: LayoutDashboard,
+      label: "Hub",
+      href: `/orgs/${orgId}/coach/team-hub`,
     },
     {
       id: "todos",

@@ -38,6 +38,7 @@ import type * as migrations_cleanSlate from "../migrations/cleanSlate.js";
 import type * as migrations_extractInsightsToTable from "../migrations/extractInsightsToTable.js";
 import type * as migrations_importBenchmarksCLI from "../migrations/importBenchmarksCLI.js";
 import type * as migrations_importGAAFootballBenchmarks from "../migrations/importGAAFootballBenchmarks.js";
+import type * as migrations_importRugbyBenchmarks from "../migrations/importRugbyBenchmarks.js";
 import type * as migrations_importStrengthBenchmarks from "../migrations/importStrengthBenchmarks.js";
 import type * as migrations_migrateLegacyData from "../migrations/migrateLegacyData.js";
 import type * as models_adultPlayers from "../models/adultPlayers.js";
@@ -185,6 +186,7 @@ declare const fullApi: ApiFromModules<{
   "migrations/extractInsightsToTable": typeof migrations_extractInsightsToTable;
   "migrations/importBenchmarksCLI": typeof migrations_importBenchmarksCLI;
   "migrations/importGAAFootballBenchmarks": typeof migrations_importGAAFootballBenchmarks;
+  "migrations/importRugbyBenchmarks": typeof migrations_importRugbyBenchmarks;
   "migrations/importStrengthBenchmarks": typeof migrations_importStrengthBenchmarks;
   "migrations/migrateLegacyData": typeof migrations_migrateLegacyData;
   "models/adultPlayers": typeof models_adultPlayers;

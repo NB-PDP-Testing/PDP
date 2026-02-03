@@ -272,7 +272,7 @@
         "Visual verification with dev-browser (dropdown works, preview updates, save persists)"
       ],
       "priority": 4,
-      "passes": false,
+      "passes": true,
       "effort": "2h",
       "effortBreakdown": {
         "schema": "0.25h (add 1 field to coachOrgPreferences)",

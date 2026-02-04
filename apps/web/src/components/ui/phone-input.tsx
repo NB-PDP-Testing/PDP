@@ -2,6 +2,7 @@
 
 import * as React from "react";
 import PhoneInputWithCountry from "react-phone-number-input";
+import type { E164Number } from "react-phone-number-input";
 import flags from "react-phone-number-input/flags";
 
 import type { CountryCode } from "libphonenumber-js";
@@ -13,8 +14,8 @@ export interface PhoneInputProps
     React.InputHTMLAttributes<HTMLInputElement>,
     "onChange" | "value"
   > {
-  value?: string;
-  onChange?: (value: string | undefined) => void;
+  value?: E164Number | string;
+  onChange?: (value: E164Number | undefined) => void;
   defaultCountry?: CountryCode;
   countries?: CountryCode[];
 }

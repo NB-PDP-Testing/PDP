@@ -21,6 +21,7 @@ export const MATCHING_WEIGHTS = {
   SURNAME_TOWN: 35, // Medium family signal - same area
   PHONE: 30, // Strong signal - shared contact
   POSTCODE_ONLY: 20, // Moderate signal - same area
+  PLAYER_POSTCODE_BONUS: 10, // Bonus when postcode matches linked player's postcode
   TOWN_ONLY: 10, // Weak signal - same general area
   HOUSE_NUMBER: 5, // Tiebreaker - same exact address
 } as const;
@@ -49,6 +50,7 @@ export type MatchResult = {
     firstName: string;
     lastName: string;
     dateOfBirth: string;
+    postcodeMatchesUser?: boolean; // True if this player's postcode matches the user's postcode
   }>;
 };
 
@@ -203,10 +205,15 @@ function extractTown(
 /**
  * Calculate match score between a guardian and user params.
  * Uses multi-signal scoring for comprehensive matching.
+ *
+ * @param guardian - Guardian identity to match against
+ * @param params - User's profile data for matching
+ * @param playerPostcodeMatch - Optional pre-computed player postcode match result
  */
 export function calculateMatchScore(
   guardian: Doc<"guardianIdentities">,
-  params: MatchParams
+  params: MatchParams,
+  playerPostcodeMatch?: PlayerPostcodeMatchResult
 ): { score: number; matchReasons: string[] } {
   let score = 0;
   const matchReasons: string[] = [];
@@ -300,6 +307,14 @@ export function calculateMatchScore(
     matchReasons.push("House number match");
   }
 
+  // 5. Player postcode bonus - 10 points (separated parent scenario)
+  // This handles cases where the child lives at a different address than guardian
+  if (playerPostcodeMatch?.matches) {
+    score += MATCHING_WEIGHTS.PLAYER_POSTCODE_BONUS;
+    const playerNames = playerPostcodeMatch.matchedPlayers.join(", ");
+    matchReasons.push(`Postcode matches linked player(s): ${playerNames}`);
+  }
+
   return { score, matchReasons };
 }
 
@@ -377,13 +392,36 @@ export async function findGuardianMatches(
     }
   }
 
+  // Batch compute player postcode matches for all candidates (avoid N+1)
+  const playerPostcodeMatchMap = new Map<string, PlayerPostcodeMatchResult>();
+  const userPostcode = params.postcode;
+  if (userPostcode) {
+    const playerPostcodeResults = await Promise.all(
+      emailMatches.map((g) =>
+        checkPlayerPostcodeMatch(ctx, g._id, userPostcode)
+      )
+    );
+    for (let i = 0; i < emailMatches.length; i++) {
+      playerPostcodeMatchMap.set(emailMatches[i]._id, playerPostcodeResults[i]);
+    }
+  }
+
   // Score each candidate
   for (const guardian of emailMatches) {
-    const { score, matchReasons } = calculateMatchScore(guardian, params);
+    const playerPostcodeMatch = playerPostcodeMatchMap.get(guardian._id);
+    const { score, matchReasons } = calculateMatchScore(
+      guardian,
+      params,
+      playerPostcodeMatch
+    );
 
     // Only include if meets minimum threshold
     if (score >= CONFIDENCE_THRESHOLDS.LOW) {
-      const linkedChildren = await getLinkedChildren(ctx, guardian._id);
+      const linkedChildren = await getLinkedChildren(
+        ctx,
+        guardian._id,
+        params.postcode
+      );
 
       matches.push({
         guardianIdentityId: guardian._id,
@@ -492,7 +530,8 @@ async function findGuardiansByPostcode(
 
 async function getLinkedChildren(
   ctx: QueryCtx,
-  guardianIdentityId: Id<"guardianIdentities">
+  guardianIdentityId: Id<"guardianIdentities">,
+  userPostcode?: string
 ): Promise<MatchResult["linkedChildren"]> {
   const links = await ctx.db
     .query("guardianPlayerLinks")
@@ -505,19 +544,97 @@ async function getLinkedChildren(
   const playerIds = links.map((l) => l.playerIdentityId);
   const players = await Promise.all(playerIds.map((id) => ctx.db.get(id)));
 
+  const normalizedUserPostcode = userPostcode
+    ? normalizePostcode(userPostcode)
+    : "";
+
   const children: MatchResult["linkedChildren"] = [];
   for (const player of players) {
     if (player) {
+      // Check if player's postcode matches user's postcode
+      let postcodeMatchesUser: boolean | undefined;
+      if (normalizedUserPostcode && player.postcode) {
+        const normalizedPlayerPostcode = normalizePostcode(player.postcode);
+        postcodeMatchesUser =
+          normalizedPlayerPostcode === normalizedUserPostcode;
+      }
+
       children.push({
         playerIdentityId: player._id,
         firstName: player.firstName,
         lastName: player.lastName,
         dateOfBirth: player.dateOfBirth,
+        postcodeMatchesUser,
       });
     }
   }
 
   return children;
+}
+
+// ============================================================
+// PLAYER POSTCODE MATCHING
+// ============================================================
+
+export type PlayerPostcodeMatchResult = {
+  matches: boolean;
+  matchedPlayers: string[];
+};
+
+/**
+ * Check if a user's postcode matches any linked player's postcode.
+ * Used for separated parent scenarios where child lives with one parent.
+ *
+ * @param ctx - Convex query context
+ * @param guardianIdentityId - Guardian to check linked players for
+ * @param userPostcode - User's postcode to match against
+ * @returns Object with matches boolean and list of matched player names
+ */
+export async function checkPlayerPostcodeMatch(
+  ctx: QueryCtx,
+  guardianIdentityId: Id<"guardianIdentities">,
+  userPostcode: string
+): Promise<PlayerPostcodeMatchResult> {
+  if (!userPostcode) {
+    return { matches: false, matchedPlayers: [] };
+  }
+
+  const normalizedUserPostcode = normalizePostcode(userPostcode);
+
+  // Get all non-declined guardian-player links
+  const links = await ctx.db
+    .query("guardianPlayerLinks")
+    .withIndex("by_guardian", (q) =>
+      q.eq("guardianIdentityId", guardianIdentityId)
+    )
+    .collect();
+
+  // Filter out declined links
+  const activeLinks = links.filter((link) => link.status !== "declined");
+
+  if (activeLinks.length === 0) {
+    return { matches: false, matchedPlayers: [] };
+  }
+
+  // Batch fetch all player identities
+  const playerIds = activeLinks.map((l) => l.playerIdentityId);
+  const players = await Promise.all(playerIds.map((id) => ctx.db.get(id)));
+
+  // Check for postcode matches
+  const matchedPlayers: string[] = [];
+  for (const player of players) {
+    if (player?.postcode) {
+      const normalizedPlayerPostcode = normalizePostcode(player.postcode);
+      if (normalizedPlayerPostcode === normalizedUserPostcode) {
+        matchedPlayers.push(`${player.firstName} ${player.lastName}`);
+      }
+    }
+  }
+
+  return {
+    matches: matchedPlayers.length > 0,
+    matchedPlayers,
+  };
 }
 
 // ============================================================

@@ -156,7 +156,7 @@
         "Typecheck passes"
       ],
       "priority": 7,
-      "passes": false,
+      "passes": true,
       "notes": "Fallback UX when no matches found. Important for user confidence."
     },
     {

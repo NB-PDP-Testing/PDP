@@ -2738,11 +2738,31 @@ export declare const components: {
         { userId: string },
         any
       >;
+      skipProfileCompletionStep: FunctionReference<
+        "mutation",
+        "internal",
+        { currentSkipCount: number; userId: string },
+        { canSkipAgain: boolean; skipCount: number }
+      >;
       updateOnboardingComplete: FunctionReference<
         "mutation",
         "internal",
         { onboardingComplete: boolean; userId: string },
         null
+      >;
+      updateProfileCompletion: FunctionReference<
+        "mutation",
+        "internal",
+        {
+          address?: string;
+          altEmail?: string;
+          country?: string;
+          phone?: string;
+          postcode?: string;
+          town?: string;
+          userId: string;
+        },
+        { profileCompletedAt: number; success: boolean }
       >;
       updateUserProfile: FunctionReference<
         "mutation",

@@ -40,6 +40,7 @@ type OnboardingTask = {
   type:
     | "gdpr_consent"
     | "accept_invitation"
+    | "profile_completion"
     | "guardian_claim"
     | "child_linking"
     | "player_graduation"

@@ -2440,11 +2440,33 @@ export type ComponentApi<Name extends string | undefined = string | undefined> =
         any,
         Name
       >;
+      skipProfileCompletionStep: FunctionReference<
+        "mutation",
+        "internal",
+        { currentSkipCount: number; userId: string },
+        { canSkipAgain: boolean; skipCount: number },
+        Name
+      >;
       updateOnboardingComplete: FunctionReference<
         "mutation",
         "internal",
         { onboardingComplete: boolean; userId: string },
         null,
+        Name
+      >;
+      updateProfileCompletion: FunctionReference<
+        "mutation",
+        "internal",
+        {
+          address?: string;
+          altEmail?: string;
+          country?: string;
+          phone?: string;
+          postcode?: string;
+          town?: string;
+          userId: string;
+        },
+        { profileCompletedAt: number; success: boolean },
         Name
       >;
       updateUserProfile: FunctionReference<

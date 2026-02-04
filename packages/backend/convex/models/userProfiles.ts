@@ -11,6 +11,7 @@
  */
 
 import { v } from "convex/values";
+import { components } from "../_generated/api";
 import { mutation, query } from "../_generated/server";
 import { authComponent } from "../auth";
 import {
@@ -25,7 +26,7 @@ const MAX_SKIPS = 3;
  *
  * This mutation:
  * 1. Normalizes phone and postcode for consistent matching
- * 2. Saves the profile data to the user record
+ * 2. Saves the profile data to the user record via component function
  * 3. Marks profile as completed with timestamp
  */
 export const updateProfile = mutation({
@@ -61,25 +62,21 @@ export const updateProfile = mutation({
       ? args.altEmail.toLowerCase().trim()
       : undefined;
 
-    const now = Date.now();
+    // Update the user record via component function
+    const result = await ctx.runMutation(
+      components.betterAuth.userFunctions.updateProfileCompletion,
+      {
+        userId: user._id,
+        phone: normalizedPhone,
+        altEmail: normalizedAltEmail,
+        postcode: normalizedPostcode,
+        address: args.address,
+        town: args.town,
+        country: args.country,
+      }
+    );
 
-    // Update the user record
-    await ctx.db.patch(user._id, {
-      phone: normalizedPhone,
-      altEmail: normalizedAltEmail,
-      postcode: normalizedPostcode,
-      address: args.address,
-      town: args.town,
-      country: args.country,
-      profileCompletionStatus: "completed" as const,
-      profileCompletedAt: now,
-      updatedAt: now,
-    });
-
-    return {
-      success: true,
-      profileCompletedAt: now,
-    };
+    return result;
   },
 });
 
@@ -105,20 +102,17 @@ export const skipProfileCompletion = mutation({
     }
 
     const currentSkipCount = user.profileSkipCount ?? 0;
-    const newSkipCount = currentSkipCount + 1;
-    const now = Date.now();
 
-    // Update the user record
-    await ctx.db.patch(user._id, {
-      profileSkipCount: newSkipCount,
-      profileCompletionStatus: "skipped" as const,
-      updatedAt: now,
-    });
+    // Update the user record via component function
+    const result = await ctx.runMutation(
+      components.betterAuth.userFunctions.skipProfileCompletionStep,
+      {
+        userId: user._id,
+        currentSkipCount,
+      }
+    );
 
-    return {
-      skipCount: newSkipCount,
-      canSkipAgain: newSkipCount < MAX_SKIPS,
-    };
+    return result;
   },
 });
 

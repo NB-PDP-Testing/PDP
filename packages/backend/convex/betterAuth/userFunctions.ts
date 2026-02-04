@@ -109,6 +109,76 @@ export const updateUserProfile = mutation({
 });
 
 /**
+ * Update profile completion fields for multi-signal guardian matching.
+ * Part of Phase 0: Onboarding Sync
+ */
+export const updateProfileCompletion = mutation({
+  args: {
+    userId: v.id("user"),
+    phone: v.optional(v.string()),
+    altEmail: v.optional(v.string()),
+    postcode: v.optional(v.string()),
+    address: v.optional(v.string()),
+    town: v.optional(v.string()),
+    country: v.optional(v.string()),
+  },
+  returns: v.object({
+    success: v.boolean(),
+    profileCompletedAt: v.number(),
+  }),
+  handler: async (ctx, args) => {
+    const now = Date.now();
+
+    await ctx.db.patch(args.userId, {
+      phone: args.phone,
+      altEmail: args.altEmail,
+      postcode: args.postcode,
+      address: args.address,
+      town: args.town,
+      country: args.country,
+      profileCompletionStatus: "completed" as const,
+      profileCompletedAt: now,
+      updatedAt: now,
+    });
+
+    return {
+      success: true,
+      profileCompletedAt: now,
+    };
+  },
+});
+
+/**
+ * Skip profile completion step (with tracking).
+ * Part of Phase 0: Onboarding Sync
+ */
+export const skipProfileCompletionStep = mutation({
+  args: {
+    userId: v.id("user"),
+    currentSkipCount: v.number(),
+  },
+  returns: v.object({
+    skipCount: v.number(),
+    canSkipAgain: v.boolean(),
+  }),
+  handler: async (ctx, args) => {
+    const newSkipCount = args.currentSkipCount + 1;
+    const now = Date.now();
+
+    await ctx.db.patch(args.userId, {
+      profileSkipCount: newSkipCount,
+      profileCompletionStatus: "skipped" as const,
+      updatedAt: now,
+    });
+
+    return {
+      skipCount: newSkipCount,
+      canSkipAgain: newSkipCount < 3,
+    };
+  },
+});
+
+/**
  * Get a user by their string ID (for voice notes coachId lookups)
  * This function is accessible from outside the component.
  */

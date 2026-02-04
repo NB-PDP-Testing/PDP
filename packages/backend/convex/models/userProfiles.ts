@@ -35,7 +35,9 @@ export const updateProfile = mutation({
     altEmail: v.optional(v.string()),
     postcode: v.optional(v.string()),
     address: v.optional(v.string()),
+    address2: v.optional(v.string()), // Phase 0.6: Address line 2
     town: v.optional(v.string()),
+    county: v.optional(v.string()), // Phase 0.6: County/State/Province
     country: v.optional(v.string()),
   },
   returns: v.object({
@@ -71,7 +73,9 @@ export const updateProfile = mutation({
         altEmail: normalizedAltEmail,
         postcode: normalizedPostcode,
         address: args.address,
+        address2: args.address2,
         town: args.town,
+        county: args.county,
         country: args.country,
       }
     );
@@ -135,7 +139,9 @@ export const getProfileStatus = query({
       altEmail: v.optional(v.string()),
       postcode: v.optional(v.string()),
       address: v.optional(v.string()),
+      address2: v.optional(v.string()), // Phase 0.6: Address line 2
       town: v.optional(v.string()),
+      county: v.optional(v.string()), // Phase 0.6: County/State/Province
       country: v.optional(v.string()),
       skipCount: v.number(),
       canSkip: v.boolean(),
@@ -157,7 +163,9 @@ export const getProfileStatus = query({
       altEmail: user.altEmail,
       postcode: user.postcode,
       address: user.address,
+      address2: user.address2,
       town: user.town,
+      county: user.county,
       country: user.country,
       skipCount,
       canSkip: skipCount < MAX_SKIPS,

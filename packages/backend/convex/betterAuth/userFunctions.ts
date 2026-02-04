@@ -119,7 +119,9 @@ export const updateProfileCompletion = mutation({
     altEmail: v.optional(v.string()),
     postcode: v.optional(v.string()),
     address: v.optional(v.string()),
+    address2: v.optional(v.string()), // Phase 0.6: Address line 2
     town: v.optional(v.string()),
+    county: v.optional(v.string()), // Phase 0.6: County/State/Province
     country: v.optional(v.string()),
   },
   returns: v.object({
@@ -134,7 +136,9 @@ export const updateProfileCompletion = mutation({
       altEmail: args.altEmail,
       postcode: args.postcode,
       address: args.address,
+      address2: args.address2,
       town: args.town,
+      county: args.county,
       country: args.country,
       profileCompletionStatus: "completed" as const,
       profileCompletedAt: now,

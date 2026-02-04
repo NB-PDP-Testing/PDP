@@ -97,11 +97,16 @@ type ChildLinkingTaskData = {
   skipCount?: number; // Phase 6: How many times user has skipped (max 3)
 };
 
-// Type for profile_completion task data (Phase 0: Onboarding Sync)
+// Type for profile_completion task data (Phase 0: Onboarding Sync, Phase 0.6: Address Collection)
 type ProfileCompletionTaskData = {
   currentPhone?: string;
   currentPostcode?: string;
   currentAltEmail?: string;
+  currentAddress?: string;
+  currentAddress2?: string;
+  currentTown?: string;
+  currentCounty?: string;
+  currentCountry?: string;
   skipCount: number;
   canSkip: boolean;
   reason: string;
@@ -159,14 +164,19 @@ function OnboardingStepRenderer({
     return <GdprConsentStep gdprVersion={gdprVersion} onAccept={onComplete} />;
   }
 
-  // Handle profile_completion task (Phase 0: Onboarding Sync)
-  // This step collects phone, postcode, and alternate email for multi-signal matching
+  // Handle profile_completion task (Phase 0: Onboarding Sync, Phase 0.6: Address Collection)
+  // This step collects phone, postcode, alternate email, and full address for multi-signal matching
   if (task.type === "profile_completion") {
     const data = task.data as ProfileCompletionTaskData;
     const profileData: ProfileCompletionData = {
       currentPhone: data.currentPhone,
       currentPostcode: data.currentPostcode,
       currentAltEmail: data.currentAltEmail,
+      currentAddress: data.currentAddress,
+      currentAddress2: data.currentAddress2,
+      currentTown: data.currentTown,
+      currentCounty: data.currentCounty,
+      currentCountry: data.currentCountry,
       skipCount: data.skipCount,
       canSkip: data.canSkip,
       reason: data.reason,

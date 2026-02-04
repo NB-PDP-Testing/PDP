@@ -220,6 +220,11 @@ export const getOnboardingTasks = query({
             currentPhone: user.phone,
             currentPostcode: user.postcode,
             currentAltEmail: user.altEmail,
+            currentAddress: user.address,
+            currentAddress2: user.address2,
+            currentTown: user.town,
+            currentCounty: user.county,
+            currentCountry: user.country,
             skipCount,
             canSkip,
             reason:

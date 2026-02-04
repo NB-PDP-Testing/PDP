@@ -22,23 +22,31 @@ export function useOnlineStatus() {
     let previousState = true;
 
     const checkConnection = () => {
+      const browserOnline = navigator.onLine;
+
       // Convex client has a connectionState that we can check
       // @ts-expect-error - connectionState is not in public types but exists
       const connectionState = convex?.sync?.connectionState?.()?.state;
 
-      // Use Convex connection as source of truth (ignore navigator.onLine)
-      // - Connected → online (app works)
-      // - Disconnected/Error → offline (app won't work)
-      // - undefined → assume online during initial load (avoid flash)
-      const convexConnected =
-        connectionState === "Connected" || connectionState === undefined;
-      const connected = convexConnected;
+      // Priority logic:
+      // 1. If Convex is "Connected" → definitely online (ignore browser)
+      // 2. If Convex is "Disconnected"/error → definitely offline (app won't work)
+      // 3. If Convex is undefined (initial load) → fallback to browser status
+      let connected: boolean;
+      if (connectionState === "Connected") {
+        connected = true; // Convex connected = definitely online
+      } else if (connectionState === undefined) {
+        connected = browserOnline; // Unknown, use browser as fallback
+      } else {
+        connected = false; // Convex disconnected/error = definitely offline
+      }
 
       // Debug logging
       if (process.env.NODE_ENV === "development") {
         console.log("[Offline Indicator Debug]", {
+          browserOnline,
           connectionState,
-          connected,
+          finalConnected: connected,
         });
       }
 

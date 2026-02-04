@@ -1,6 +1,10 @@
 import { v } from "convex/values";
 import { components } from "../_generated/api";
 import { mutation, query } from "../_generated/server";
+import {
+  findGuardianMatches,
+  parseFullName,
+} from "../lib/matching/guardianMatcher";
 
 // ============================================================
 // TYPE DEFINITIONS
@@ -1763,6 +1767,155 @@ export const checkForClaimableIdentity = query({
       children,
       organizations,
       confidence,
+    };
+  },
+});
+
+/**
+ * Enhanced check for claimable guardian identity with multi-signal matching
+ *
+ * Phase 0: Onboarding Sync - This enhanced version uses phone, postcode, and altEmail
+ * for matching in addition to the primary email. This enables matching even when
+ * the user signs up with a different email than what the club has on file.
+ *
+ * Scoring:
+ * - EMAIL_EXACT: 50 points
+ * - SURNAME_POSTCODE: 45 points
+ * - PHONE: 30 points
+ * - SURNAME_TOWN: 35 points
+ * - POSTCODE_ONLY: 20 points
+ * - TOWN_ONLY: 10 points
+ *
+ * Confidence thresholds:
+ * - HIGH (60+): Auto-link
+ * - MEDIUM (40-59): Suggest, require confirmation
+ * - LOW (20-39): Show as possible match
+ */
+export const checkForClaimableIdentityEnhanced = query({
+  args: {
+    email: v.string(),
+    name: v.optional(v.string()),
+    // NEW: Additional matching signals from profile completion
+    phone: v.optional(v.string()),
+    altEmail: v.optional(v.string()),
+    postcode: v.optional(v.string()),
+  },
+  returns: v.union(
+    v.object({
+      hasClaimableIdentity: v.literal(true),
+      matches: v.array(
+        v.object({
+          guardianIdentityId: v.id("guardianIdentities"),
+          confidence: v.number(),
+          confidenceLevel: v.union(
+            v.literal("high"),
+            v.literal("medium"),
+            v.literal("low")
+          ),
+          matchReasons: v.array(v.string()),
+          guardian: v.object({
+            firstName: v.string(),
+            lastName: v.string(),
+            email: v.optional(v.string()),
+            phone: v.optional(v.string()),
+          }),
+          linkedChildren: v.array(
+            v.object({
+              playerIdentityId: v.id("playerIdentities"),
+              firstName: v.string(),
+              lastName: v.string(),
+              dateOfBirth: v.string(),
+            })
+          ),
+          organizations: v.array(
+            v.object({
+              organizationId: v.string(),
+              organizationName: v.optional(v.string()),
+            })
+          ),
+        })
+      ),
+    }),
+    v.object({
+      hasClaimableIdentity: v.literal(false),
+      reason: v.string(),
+    })
+  ),
+  handler: async (ctx, args) => {
+    // Parse name into first/last if provided
+    const { firstName, lastName } = args.name
+      ? parseFullName(args.name)
+      : { firstName: "", lastName: "" };
+
+    // Use the unified matching module
+    const allMatches = await findGuardianMatches(ctx, {
+      email: args.email,
+      firstName,
+      lastName,
+      phone: args.phone,
+      altEmail: args.altEmail,
+      postcode: args.postcode,
+    });
+
+    // Filter to only unclaimed guardians (no userId) with linked children
+    const claimableMatches = [];
+
+    for (const match of allMatches) {
+      // Check if guardian is unclaimed
+      const guardian = await ctx.db.get(match.guardianIdentityId);
+      if (!guardian || guardian.userId) {
+        continue; // Skip claimed guardians
+      }
+
+      // Check if has linked children
+      if (match.linkedChildren.length === 0) {
+        continue; // Skip guardians without children
+      }
+
+      // Get organizations for this guardian's children
+      const orgSet = new Set<string>();
+      for (const child of match.linkedChildren) {
+        const enrollments = await ctx.db
+          .query("orgPlayerEnrollments")
+          .withIndex("by_playerIdentityId", (q) =>
+            q.eq("playerIdentityId", child.playerIdentityId)
+          )
+          .collect();
+
+        for (const enrollment of enrollments) {
+          orgSet.add(enrollment.organizationId);
+        }
+      }
+
+      const organizations = Array.from(orgSet).map((orgId) => ({
+        organizationId: orgId,
+        organizationName: undefined, // Will be fetched from Better Auth on frontend
+      }));
+
+      claimableMatches.push({
+        guardianIdentityId: match.guardianIdentityId,
+        confidence: match.score,
+        confidenceLevel: match.confidence,
+        matchReasons: match.matchReasons,
+        guardian: match.guardian,
+        linkedChildren: match.linkedChildren,
+        organizations,
+      });
+    }
+
+    // Sort by confidence descending
+    claimableMatches.sort((a, b) => b.confidence - a.confidence);
+
+    if (claimableMatches.length === 0) {
+      return {
+        hasClaimableIdentity: false as const,
+        reason: "No matching guardian profiles found with linked children",
+      };
+    }
+
+    return {
+      hasClaimableIdentity: true as const,
+      matches: claimableMatches,
     };
   },
 });

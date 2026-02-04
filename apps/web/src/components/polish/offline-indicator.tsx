@@ -29,14 +29,12 @@ export function useOnlineStatus() {
       const connectionState = convex?.sync?.connectionState?.()?.state;
 
       // Priority logic:
-      // 1. If Convex is "Connected" → definitely online (ignore browser)
-      // 2. If Convex is "Disconnected"/error → definitely offline (app won't work)
-      // 3. If Convex is undefined (initial load) → fallback to browser status
+      // 1. If Convex is "Connected" → definitely online
+      // 2. If Convex is undefined → assume online (queries work even if state unreadable)
+      // 3. If Convex is "Disconnected"/error → definitely offline (app won't work)
       let connected: boolean;
-      if (connectionState === "Connected") {
-        connected = true; // Convex connected = definitely online
-      } else if (connectionState === undefined) {
-        connected = browserOnline; // Unknown, use browser as fallback
+      if (connectionState === "Connected" || connectionState === undefined) {
+        connected = true; // Convex connected or state unknown = online
       } else {
         connected = false; // Convex disconnected/error = definitely offline
       }

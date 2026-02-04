@@ -1,7 +1,7 @@
 import type { Doc as BetterAuthDoc } from "@pdp/backend/convex/betterAuth/_generated/dataModel";
 import { v } from "convex/values";
 import { components, internal } from "../_generated/api";
-import { mutation, query } from "../_generated/server";
+import { internalQuery, mutation, query } from "../_generated/server";
 
 /**
  * Get all coach assignments for an organization
@@ -627,6 +627,65 @@ export const migrateCoachAssignmentsToTeamIds = mutation({
  * Get coach preferences for parent communications
  */
 export const getCoachPreferences = query({
+  args: {
+    coachId: v.string(),
+    organizationId: v.string(),
+  },
+  returns: v.union(
+    v.null(),
+    v.object({
+      _id: v.id("coachOrgPreferences"),
+      _creationTime: v.number(),
+      coachId: v.string(),
+      organizationId: v.string(),
+      parentSummariesEnabled: v.optional(v.boolean()),
+      aiInsightMatchingEnabled: v.optional(v.boolean()),
+      autoApplyInsightsEnabled: v.optional(v.boolean()),
+      skipSensitiveInsights: v.optional(v.boolean()),
+      parentSummaryTone: v.optional(
+        v.union(
+          v.literal("warm"),
+          v.literal("professional"),
+          v.literal("brief")
+        )
+      ),
+      trustGateOverride: v.optional(v.boolean()),
+      overrideGrantedBy: v.optional(v.string()),
+      overrideGrantedAt: v.optional(v.number()),
+      overrideReason: v.optional(v.string()),
+      overrideExpiresAt: v.optional(v.number()),
+      aiControlRightsEnabled: v.optional(v.boolean()),
+      grantedBy: v.optional(v.string()),
+      grantedAt: v.optional(v.number()),
+      grantNote: v.optional(v.string()),
+      revokedBy: v.optional(v.string()),
+      revokedAt: v.optional(v.number()),
+      revokeReason: v.optional(v.string()),
+      adminBlockedFromAI: v.optional(v.boolean()),
+      blockedBy: v.optional(v.string()),
+      blockedAt: v.optional(v.number()),
+      blockReason: v.optional(v.string()),
+      createdAt: v.number(),
+      updatedAt: v.number(),
+    })
+  ),
+  handler: async (ctx, args) => {
+    const prefs = await ctx.db
+      .query("coachOrgPreferences")
+      .withIndex("by_coach_org", (q) =>
+        q.eq("coachId", args.coachId).eq("organizationId", args.organizationId)
+      )
+      .first();
+
+    return prefs || null;
+  },
+});
+
+/**
+ * Get coach preferences for parent communications (internal version for actions)
+ * @internal
+ */
+export const getCoachPreferencesInternal = internalQuery({
   args: {
     coachId: v.string(),
     organizationId: v.string(),

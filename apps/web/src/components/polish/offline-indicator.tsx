@@ -1,42 +1,52 @@
 "use client";
 
-import { useQuery } from "convex/react";
+import { useConvex } from "convex/react";
 import { RefreshCw, Wifi, WifiOff } from "lucide-react";
 import type * as React from "react";
 import { useEffect, useState } from "react";
 import { Button } from "@/components/ui/button";
-import { api } from "@/convex/_generated/api";
 import { cn } from "@/lib/utils";
 
 /**
- * Hook to track online/offline status using Convex healthCheck query
- * If the query returns data, we're connected. If undefined, we're disconnected.
+ * Hook to track online/offline status using Convex's official connection state API
+ * Uses client.subscribeToConnectionState() as documented in Convex best practices
  */
 export function useOnlineStatus() {
-  // Use healthCheck query to detect Convex connectivity
-  const healthCheck = useQuery(api.healthCheck.get);
+  const convex = useConvex();
   const [isOnline, setIsOnline] = useState(true);
   const [wasOffline, setWasOffline] = useState(false);
 
   useEffect(() => {
-    // Query returns "OK" when connected, undefined when disconnected/loading
-    const connected = healthCheck !== undefined;
+    if (!convex) {
+      return;
+    }
 
-    // Debug logging (always visible for troubleshooting)
-    console.log("[Offline Indicator v4 - HealthCheck]", {
-      healthCheck,
-      connected,
-      timestamp: new Date().toISOString(),
+    // Subscribe to Convex connection state changes (official API)
+    const unsubscribe = convex.subscribeToConnectionState((state) => {
+      // ConnectionState has different states: "Connected", "Connecting", "Disconnected"
+      const connected = state.isWebSocketConnected;
+
+      console.log("[Offline Indicator v5 - Official API]", {
+        connectionState: state,
+        isWebSocketConnected: connected,
+        timestamp: new Date().toISOString(),
+      });
+
+      // Track transition from offline to online for "reconnected" message
+      if (connected && !isOnline) {
+        setWasOffline(true);
+        setTimeout(() => setWasOffline(false), 5000);
+      }
+
+      setIsOnline(connected);
     });
 
-    setIsOnline(connected);
+    // Get initial state
+    const initialState = convex.connectionState();
+    setIsOnline(initialState.isWebSocketConnected);
 
-    // Track "was offline" state for reconnection message
-    if (connected && !isOnline) {
-      setWasOffline(true);
-      setTimeout(() => setWasOffline(false), 5000);
-    }
-  }, [healthCheck, isOnline]);
+    return () => unsubscribe();
+  }, [convex, isOnline]);
 
   return { isOnline, wasOffline };
 }

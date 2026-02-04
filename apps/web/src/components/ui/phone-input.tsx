@@ -1,8 +1,9 @@
 "use client";
 
 import * as React from "react";
-import PhoneInputWithCountry from "react-phone-number-input";
-import type { E164Number } from "react-phone-number-input";
+import PhoneInputWithCountry, {
+  type Value as E164Number,
+} from "react-phone-number-input";
 import flags from "react-phone-number-input/flags";
 
 import type { CountryCode } from "libphonenumber-js";
@@ -30,7 +31,7 @@ const PhoneInput = React.forwardRef<HTMLInputElement, PhoneInputProps>(
         defaultCountry={defaultCountry}
         countries={countries}
         flags={flags}
-        onChange={onChange}
+        onChange={onChange as (value?: E164Number) => void}
         className={cn(
           "flex h-10 w-full rounded-md border border-input bg-background text-sm ring-offset-background placeholder:text-muted-foreground focus-within:outline-none focus-within:ring-2 focus-within:ring-ring focus-within:ring-offset-2 disabled:cursor-not-allowed disabled:opacity-50",
           className

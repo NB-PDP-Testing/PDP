@@ -108,6 +108,7 @@ import type * as models_teamPlayerIdentities from "../models/teamPlayerIdentitie
 import type * as models_teams from "../models/teams.js";
 import type * as models_trustGatePermissions from "../models/trustGatePermissions.js";
 import type * as models_userPreferences from "../models/userPreferences.js";
+import type * as models_userProfiles from "../models/userProfiles.js";
 import type * as models_users from "../models/users.js";
 import type * as models_voiceNoteInsights from "../models/voiceNoteInsights.js";
 import type * as models_voiceNotes from "../models/voiceNotes.js";
@@ -257,6 +258,7 @@ declare const fullApi: ApiFromModules<{
   "models/teams": typeof models_teams;
   "models/trustGatePermissions": typeof models_trustGatePermissions;
   "models/userPreferences": typeof models_userPreferences;
+  "models/userProfiles": typeof models_userProfiles;
   "models/users": typeof models_users;
   "models/voiceNoteInsights": typeof models_voiceNoteInsights;
   "models/voiceNotes": typeof models_voiceNotes;

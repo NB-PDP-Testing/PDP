@@ -191,7 +191,7 @@
         "Typecheck passes"
       ],
       "priority": 9,
-      "passes": false,
+      "passes": true,
       "notes": "Entry point integration. Should work with existing redirect logic."
     },
     {

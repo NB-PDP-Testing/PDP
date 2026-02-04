@@ -24,6 +24,7 @@ const onboardingTaskValidator = v.object({
   type: v.union(
     v.literal("gdpr_consent"),
     v.literal("accept_invitation"),
+    v.literal("profile_completion"), // NEW: Phase 0 - Profile completion for guardian matching
     v.literal("guardian_claim"),
     v.literal("child_linking"),
     v.literal("player_graduation"),
@@ -42,6 +43,7 @@ const onboardingTaskValidator = v.object({
  * Priority order:
  * 0. gdpr_consent (priority 0) - GDPR consent required FIRST
  * 1. accept_invitation (priority 1) - Pending org invitations
+ * 1.5. profile_completion (priority 1.5) - Collect phone/postcode for guardian matching
  * 2. guardian_claim (priority 2) - Claimable guardian identities
  * 3. child_linking (priority 3) - Pending child acknowledgements
  * 4. player_graduation (priority 4) - Children who turned 18
@@ -67,6 +69,7 @@ export const getOnboardingTasks = query({
       type:
         | "gdpr_consent"
         | "accept_invitation"
+        | "profile_completion"
         | "guardian_claim"
         | "child_linking"
         | "player_graduation"
@@ -194,6 +197,36 @@ export const getOnboardingTasks = query({
           invitations: enrichedInvitations,
         },
       });
+    }
+
+    // =================================================================
+    // Task 1.5: Check for profile completion (Phase 0: Onboarding Sync)
+    // Priority 1.5 - Collect phone/postcode/altEmail for multi-signal guardian matching
+    // This runs BEFORE guardian_claim to enable better matching with collected signals
+    // =================================================================
+    if (user) {
+      const profileStatus = user.profileCompletionStatus;
+      const needsProfileCompletion =
+        profileStatus === undefined || profileStatus === "pending";
+
+      if (needsProfileCompletion) {
+        const skipCount = user.profileSkipCount ?? 0;
+        const canSkip = skipCount < 3;
+
+        tasks.push({
+          type: "profile_completion",
+          priority: 1.5,
+          data: {
+            currentPhone: user.phone,
+            currentPostcode: user.postcode,
+            currentAltEmail: user.altEmail,
+            skipCount,
+            canSkip,
+            reason:
+              "Providing your phone number and postcode helps us connect you to your children's profiles automatically, even if your email differs from what the club has on file.",
+          },
+        });
+      }
     }
 
     // =================================================================

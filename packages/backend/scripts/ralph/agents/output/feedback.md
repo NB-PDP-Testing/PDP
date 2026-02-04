@@ -174,3 +174,27 @@
   - **Problem:** Should use .withIndex() for better performance
   - **Fix:** Replace `.query().filter()` with `.query().withIndex()`
 
+
+## Auto Quality Check - 2026-02-04 14:08:03
+### File: /Users/neil/Documents/GitHub/PDP/packages/backend/convex/debug.ts
+
+- ⚠️ **Performance: .filter() usage detected**
+  - **Problem:** Should use .withIndex() for better performance
+  - **Fix:** Replace `.query().filter()` with `.query().withIndex()`
+
+
+## Auto Quality Check - 2026-02-04 14:09:07
+### File: /Users/neil/Documents/GitHub/PDP/packages/backend/convex/debug.ts
+
+- ⚠️ **Performance: .filter() usage detected**
+  - **Problem:** Should use .withIndex() for better performance
+  - **Fix:** Replace `.query().filter()` with `.query().withIndex()`
+
+
+## Auto Quality Check - 2026-02-04 14:09:32
+### File: /Users/neil/Documents/GitHub/PDP/packages/backend/convex/migrations/compareIrishDancing.ts
+
+- ⚠️ **Performance: .filter() usage detected**
+  - **Problem:** Should use .withIndex() for better performance
+  - **Fix:** Replace `.query().filter()` with `.query().withIndex()`
+

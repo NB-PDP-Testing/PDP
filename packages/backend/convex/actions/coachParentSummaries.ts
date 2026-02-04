@@ -418,7 +418,7 @@ export const generateParentSummary = internalAction({
 
     // Fetch coach preferences to get tone setting
     const preferences = await ctx.runQuery(
-      internal.models.coaches.getCoachPreferences,
+      internal.models.coaches.getCoachPreferencesInternal,
       {
         coachId: args.coachId,
         organizationId: args.organizationId,

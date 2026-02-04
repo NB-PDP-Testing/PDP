@@ -329,13 +329,13 @@ export default function VoiceNotesAuditPage() {
                             : "Typed"}
                       </Badge>
                     )}
-                    {note.coachId && (
+                    {note.coachName && (
                       <Badge
                         className="flex items-center gap-1"
                         variant="secondary"
                       >
                         <User className="h-3 w-3" />
-                        Coach ID: {note.coachId.slice(0, 8)}...
+                        {note.coachName}
                       </Badge>
                     )}
                   </div>
@@ -377,10 +377,54 @@ export default function VoiceNotesAuditPage() {
                     </Badge>
                   )}
                   {note.insights.length > 0 && (
-                    <Badge variant="default">
-                      {note.insights.length} insight
-                      {note.insights.length !== 1 ? "s" : ""}
-                    </Badge>
+                    <>
+                      {note.insights.filter((i: any) => i.status === "pending")
+                        .length > 0 && (
+                        <Badge variant="outline">
+                          {
+                            note.insights.filter(
+                              (i: any) => i.status === "pending"
+                            ).length
+                          }{" "}
+                          pending
+                        </Badge>
+                      )}
+                      {note.insights.filter((i: any) => i.status === "applied")
+                        .length > 0 && (
+                        <Badge variant="default">
+                          {
+                            note.insights.filter(
+                              (i: any) => i.status === "applied"
+                            ).length
+                          }{" "}
+                          applied
+                        </Badge>
+                      )}
+                      {note.insights.filter(
+                        (i: any) => i.status === "dismissed"
+                      ).length > 0 && (
+                        <Badge variant="secondary">
+                          {
+                            note.insights.filter(
+                              (i: any) => i.status === "dismissed"
+                            ).length
+                          }{" "}
+                          dismissed
+                        </Badge>
+                      )}
+                      {note.insights.filter(
+                        (i: any) => i.status === "auto_applied"
+                      ).length > 0 && (
+                        <Badge className="bg-green-100 text-green-800">
+                          {
+                            note.insights.filter(
+                              (i: any) => i.status === "auto_applied"
+                            ).length
+                          }{" "}
+                          auto-applied
+                        </Badge>
+                      )}
+                    </>
                   )}
                 </div>
 
@@ -408,13 +452,17 @@ export default function VoiceNotesAuditPage() {
                           variant={
                             insight.status === "applied"
                               ? "default"
-                              : insight.status === "dismissed"
-                                ? "secondary"
-                                : "outline"
+                              : insight.status === "auto_applied"
+                                ? "default"
+                                : insight.status === "dismissed"
+                                  ? "secondary"
+                                  : "outline"
                           }
                         >
-                          {insight.status === "applied" && "✓ "}
-                          {insight.status === "dismissed" && "✗ "}
+                          {insight.status === "applied" && "✓ Applied: "}
+                          {insight.status === "auto_applied" && "✓ Auto: "}
+                          {insight.status === "dismissed" && "✗ Dismissed: "}
+                          {insight.status === "pending" && "⏳ Pending: "}
                           {insight.playerName && `${insight.playerName}: `}
                           {insight.title}
                         </Badge>

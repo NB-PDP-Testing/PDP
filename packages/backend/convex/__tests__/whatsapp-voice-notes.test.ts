@@ -12,26 +12,13 @@
  */
 
 import { describe, expect, it } from "vitest";
+import { normalizePhoneNumber } from "../lib/phoneUtils";
 
 // ============================================================
 // CONSTANTS
 // ============================================================
 
 const WHATSAPP_PREFIX_REGEX = /^whatsapp:/;
-
-// ============================================================
-// PHONE NUMBER NORMALIZATION
-// ============================================================
-
-/**
- * Normalize a phone number for comparison.
- * Removes all non-digit characters except leading +
- */
-function normalizePhoneNumber(phone: string): string {
-  const hasPlus = phone.startsWith("+");
-  const digits = phone.replace(/\D/g, "");
-  return hasPlus ? `+${digits}` : digits;
-}
 
 describe("Phone Number Normalization", () => {
   it("should preserve leading + sign", () => {
@@ -50,8 +37,8 @@ describe("Phone Number Normalization", () => {
     expect(normalizePhoneNumber("+353(85)1234567")).toBe("+353851234567");
   });
 
-  it("should handle phone without + prefix", () => {
-    expect(normalizePhoneNumber("353851234567")).toBe("353851234567");
+  it("should auto-add + to phone with country code", () => {
+    expect(normalizePhoneNumber("353851234567")).toBe("+353851234567");
   });
 
   it("should handle mixed formatting", () => {
@@ -61,6 +48,17 @@ describe("Phone Number Normalization", () => {
   it("should strip whatsapp: prefix before normalizing", () => {
     const phone = "whatsapp:+353851234567".replace(WHATSAPP_PREFIX_REGEX, "");
     expect(normalizePhoneNumber(phone)).toBe("+353851234567");
+  });
+
+  it("should auto-fix Irish numbers starting with 0", () => {
+    expect(normalizePhoneNumber("0851234567")).toBe("+353851234567");
+    expect(normalizePhoneNumber("085 123 4567")).toBe("+353851234567");
+    expect(normalizePhoneNumber("085-123-4567")).toBe("+353851234567");
+  });
+
+  it("should handle international numbers", () => {
+    expect(normalizePhoneNumber("+442012345678")).toBe("+442012345678");
+    expect(normalizePhoneNumber("+1 415 555 1234")).toBe("+14155551234");
   });
 });
 

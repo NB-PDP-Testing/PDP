@@ -32,6 +32,10 @@ import { authClient } from "@/lib/auth-client";
 import { type ChildLink, ChildLinkingStep } from "./child-linking-step";
 import { OnboardingErrorBoundary } from "./error-boundary";
 import { GdprConsentStep } from "./gdpr-consent-step";
+import {
+  type ProfileCompletionData,
+  ProfileCompletionStep,
+} from "./profile-completion-step";
 import { UnifiedGuardianClaimStep } from "./unified-guardian-claim-step";
 import { UnifiedInvitationStep } from "./unified-invitation-step";
 
@@ -93,6 +97,16 @@ type ChildLinkingTaskData = {
   skipCount?: number; // Phase 6: How many times user has skipped (max 3)
 };
 
+// Type for profile_completion task data (Phase 0: Onboarding Sync)
+type ProfileCompletionTaskData = {
+  currentPhone?: string;
+  currentPostcode?: string;
+  currentAltEmail?: string;
+  skipCount: number;
+  canSkip: boolean;
+  reason: string;
+};
+
 // Type for accept_invitation task data
 type AcceptInvitationTaskData = {
   invitations: Array<{
@@ -143,6 +157,28 @@ function OnboardingStepRenderer({
     }
 
     return <GdprConsentStep gdprVersion={gdprVersion} onAccept={onComplete} />;
+  }
+
+  // Handle profile_completion task (Phase 0: Onboarding Sync)
+  // This step collects phone, postcode, and alternate email for multi-signal matching
+  if (task.type === "profile_completion") {
+    const data = task.data as ProfileCompletionTaskData;
+    const profileData: ProfileCompletionData = {
+      currentPhone: data.currentPhone,
+      currentPostcode: data.currentPostcode,
+      currentAltEmail: data.currentAltEmail,
+      skipCount: data.skipCount,
+      canSkip: data.canSkip,
+      reason: data.reason,
+    };
+
+    return (
+      <ProfileCompletionStep
+        data={profileData}
+        onComplete={onComplete}
+        onSkip={onComplete}
+      />
+    );
   }
 
   // Handle accept_invitation task with UnifiedInvitationStep
@@ -242,6 +278,8 @@ function OnboardingStepRenderer({
         return "Privacy Policy";
       case "accept_invitation":
         return "Pending Invitation";
+      case "profile_completion":
+        return "Help Us Find Your Children";
       case "guardian_claim":
         return "Claim Your Guardian Profile";
       case "child_linking":
@@ -261,6 +299,8 @@ function OnboardingStepRenderer({
         return "Please review and accept our privacy policy to continue.";
       case "accept_invitation":
         return "You have pending organization invitations to review.";
+      case "profile_completion":
+        return "Provide additional details to help us connect you with your children's records.";
       case "guardian_claim":
         return "We found a guardian profile that matches your email. Claim it to see your children.";
       case "child_linking":

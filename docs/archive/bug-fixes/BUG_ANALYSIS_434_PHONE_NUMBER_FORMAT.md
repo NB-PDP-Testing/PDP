@@ -362,6 +362,36 @@ Create migration script to:
 
 **Fixing Bug #434 is Step 1** towards phone-based auth readiness.
 
+## Critical Requirement: Mobile Numbers Only
+
+**User phone numbers MUST be mobile numbers, not landlines.**
+
+**Why This Matters**:
+- ✅ **WhatsApp**: Only works with mobile numbers (core feature)
+- ✅ **SMS Verification**: Required for phone-based auth (future)
+- ✅ **Two-Factor Auth**: SMS OTP requires mobile numbers
+- ✅ **Notifications**: SMS alerts require mobile
+- ❌ **Landlines**: Cannot receive WhatsApp, SMS, or push notifications
+
+**Future Validation**:
+Phase 2 frontend improvements should include mobile number detection:
+- Use `libphonenumber-js` library (includes `getNumberType()` function)
+- Detect if number is `MOBILE`, `FIXED_LINE`, or `FIXED_LINE_OR_MOBILE`
+- Warn user if landline detected: "Please enter a mobile number. Landlines cannot receive WhatsApp messages or SMS verification codes."
+- Allow override for edge cases (VoIP numbers, special cases)
+
+**Example Detection**:
+```typescript
+import { parsePhoneNumber } from 'libphonenumber-js';
+
+const phoneNumber = parsePhoneNumber('+353851234567', 'IE');
+const type = phoneNumber.getType(); // 'MOBILE' | 'FIXED_LINE' | etc.
+
+if (type === 'FIXED_LINE') {
+  // Show warning: "This appears to be a landline..."
+}
+```
+
 ## Recommendations
 
 1. **Immediate Action** (Today):

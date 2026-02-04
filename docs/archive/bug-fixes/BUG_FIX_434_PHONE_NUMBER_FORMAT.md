@@ -183,8 +183,18 @@ Prerequisites now in place:
 - ✅ 106/106 tests passing
 - ✅ No breaking changes to API
 
-## Notes
+## Important Notes
 
+### Mobile Numbers Required
+**User phone numbers should be mobile numbers, not landlines.** This is critical because:
+- ✅ **WhatsApp**: Only works with mobile numbers
+- ✅ **SMS Verification**: Required for phone-based authentication (future)
+- ✅ **Two-Factor Auth**: SMS OTP requires mobile
+- ❌ **Landlines**: Cannot receive WhatsApp messages or SMS codes
+
+**Future Enhancement**: Add mobile number validation to detect landline numbers and warn users. Libraries like `libphonenumber-js` can distinguish mobile vs landline by analyzing the number format and country code.
+
+### Technical Details
 - Default country code is Ireland (+353) - can be configured per organization in future
 - International numbers are fully supported with proper + prefix
 - Phone numbers are normalized at storage time, not display time (frontend can format for display)

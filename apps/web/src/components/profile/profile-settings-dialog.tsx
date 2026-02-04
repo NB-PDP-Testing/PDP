@@ -2,6 +2,8 @@
 
 import { api } from "@pdp/backend/convex/_generated/api";
 import { useMutation, useQuery } from "convex/react";
+import type { CountryCode } from "libphonenumber-js";
+import { parsePhoneNumber } from "libphonenumber-js";
 import { Camera, Info, Loader2, User, X } from "lucide-react";
 import { useState } from "react";
 import { toast } from "sonner";
@@ -19,10 +21,8 @@ import {
 } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
+import { PhoneInput } from "@/components/ui/phone-input";
 import { useCurrentUser } from "@/hooks/use-current-user";
-
-// Phone validation regex (top-level for performance)
-const PHONE_REGEX = /^[\d\s\-+()]+$/;
 
 /**
  * Profile Settings Dialog
@@ -94,9 +94,23 @@ export function ProfileSettingsDialog({
       }
     }
 
-    if (phone.length > 0 && (!PHONE_REGEX.test(phone) || phone.length < 10)) {
-      newErrors.phone =
-        "Phone must be at least 10 characters and contain only digits and formatting characters";
+    // Validate phone number format
+    if (phone.length > 0) {
+      try {
+        const phoneNumber = parsePhoneNumber(phone);
+        if (phoneNumber?.isValid()) {
+          // Check if it's a mobile number (not landline)
+          const type = phoneNumber.getType();
+          if (type === "FIXED_LINE") {
+            newErrors.phone =
+              "Please enter a mobile number. Landlines cannot receive WhatsApp messages or SMS.";
+          }
+        } else {
+          newErrors.phone = "Please enter a valid phone number";
+        }
+      } catch {
+        newErrors.phone = "Please enter a valid phone number";
+      }
     }
 
     setErrors(newErrors);
@@ -309,17 +323,22 @@ export function ProfileSettingsDialog({
 
             {/* Phone */}
             <div className="space-y-2">
-              <Label htmlFor="phone">Phone Number (Optional)</Label>
-              <Input
+              <Label htmlFor="phone">Mobile Number (Optional)</Label>
+              <PhoneInput
+                countries={["IE", "GB", "US"] as CountryCode[]}
+                defaultCountry={"IE" as CountryCode}
                 id="phone"
-                onChange={(e) => {
-                  setPhone(e.target.value);
+                onChange={(value) => {
+                  setPhone(value || "");
                   setErrors({ ...errors, phone: undefined });
                 }}
-                placeholder="+353 123 456 7890"
-                type="tel"
+                placeholder="Enter mobile number"
                 value={phone}
               />
+              <p className="text-muted-foreground text-xs">
+                Used for WhatsApp messages and SMS notifications. Must be a
+                mobile number.
+              </p>
               {errors.phone && (
                 <p className="text-destructive text-sm">{errors.phone}</p>
               )}

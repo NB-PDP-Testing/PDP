@@ -2,6 +2,7 @@ import type { Metadata } from "next";
 import { Geist, Geist_Mono } from "next/font/google";
 import { Suspense } from "react";
 import "../index.css";
+import "../styles/phone-input.css";
 import { SkipLink } from "@/components/accessibility";
 import { FlowInterceptor } from "@/components/flow-interceptor";
 // import { ParentActionsInterceptor } from "@/components/parent-actions-interceptor"; // DISABLED: Using Guardian Identity Claim Dialog instead

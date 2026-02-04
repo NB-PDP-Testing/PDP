@@ -1,86 +1,42 @@
 "use client";
 
-import { useConvex } from "convex/react";
+import { useQuery } from "convex/react";
 import { RefreshCw, Wifi, WifiOff } from "lucide-react";
 import type * as React from "react";
 import { useEffect, useState } from "react";
 import { Button } from "@/components/ui/button";
+import { api } from "@/convex/_generated/api";
 import { cn } from "@/lib/utils";
 
 /**
- * Hook to track online/offline status using hybrid approach:
- * - navigator.onLine for device-level network status
- * - Convex connection state for backend connectivity
+ * Hook to track online/offline status using Convex healthCheck query
+ * If the query returns data, we're connected. If undefined, we're disconnected.
  */
 export function useOnlineStatus() {
-  const convex = useConvex();
+  // Use healthCheck query to detect Convex connectivity
+  const healthCheck = useQuery(api.healthCheck.get);
   const [isOnline, setIsOnline] = useState(true);
   const [wasOffline, setWasOffline] = useState(false);
 
   useEffect(() => {
-    let checkInterval: NodeJS.Timeout;
-    let previousState = true;
+    // Query returns "OK" when connected, undefined when disconnected/loading
+    const connected = healthCheck !== undefined;
 
-    const checkConnection = () => {
-      const browserOnline = navigator.onLine;
+    // Debug logging (always visible for troubleshooting)
+    console.log("[Offline Indicator v4 - HealthCheck]", {
+      healthCheck,
+      connected,
+      timestamp: new Date().toISOString(),
+    });
 
-      // Convex client has a connectionState that we can check
-      // @ts-expect-error - connectionState is not in public types but exists
-      const connectionState = convex?.sync?.connectionState?.()?.state;
+    setIsOnline(connected);
 
-      // Priority logic:
-      // 1. If Convex is "Connected" → definitely online
-      // 2. If Convex is undefined → assume online (queries work even if state unreadable)
-      // 3. If Convex is "Disconnected"/error → definitely offline (app won't work)
-      let connected: boolean;
-      if (connectionState === "Connected" || connectionState === undefined) {
-        connected = true; // Convex connected or state unknown = online
-      } else {
-        connected = false; // Convex disconnected/error = definitely offline
-      }
-
-      // Debug logging (always visible for troubleshooting)
-      console.log("[Offline Indicator v3 - Option 2]", {
-        browserOnline,
-        connectionState,
-        convexExists: !!convex,
-        finalConnected: connected,
-        timestamp: new Date().toISOString(),
-      });
-
-      if (connected !== previousState) {
-        if (connected) {
-          setIsOnline(true);
-          setWasOffline(true);
-          // Clear "was offline" after a few seconds
-          setTimeout(() => setWasOffline(false), 5000);
-        } else {
-          setIsOnline(false);
-        }
-        previousState = connected;
-      }
-    };
-
-    // Listen to browser online/offline events
-    const handleBrowserOnline = () => checkConnection();
-    const handleBrowserOffline = () => {
-      setIsOnline(false);
-      previousState = false;
-    };
-
-    window.addEventListener("online", handleBrowserOnline);
-    window.addEventListener("offline", handleBrowserOffline);
-
-    // Check immediately and then every 3 seconds for Convex state
-    checkConnection();
-    checkInterval = setInterval(checkConnection, 3000);
-
-    return () => {
-      window.removeEventListener("online", handleBrowserOnline);
-      window.removeEventListener("offline", handleBrowserOffline);
-      clearInterval(checkInterval);
-    };
-  }, [convex]);
+    // Track "was offline" state for reconnection message
+    if (connected && !isOnline) {
+      setWasOffline(true);
+      setTimeout(() => setWasOffline(false), 5000);
+    }
+  }, [healthCheck, isOnline]);
 
   return { isOnline, wasOffline };
 }

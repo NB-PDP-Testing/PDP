@@ -41,14 +41,14 @@ export function useOnlineStatus() {
         connected = false; // Convex disconnected/error = definitely offline
       }
 
-      // Debug logging
-      if (process.env.NODE_ENV === "development") {
-        console.log("[Offline Indicator Debug]", {
-          browserOnline,
-          connectionState,
-          finalConnected: connected,
-        });
-      }
+      // Debug logging (always visible for troubleshooting)
+      console.log("[Offline Indicator v3 - Option 2]", {
+        browserOnline,
+        connectionState,
+        convexExists: !!convex,
+        finalConnected: connected,
+        timestamp: new Date().toISOString(),
+      });
 
       if (connected !== previousState) {
         if (connected) {

@@ -91,6 +91,7 @@ export const getAllVoiceNotes = query({
       _creationTime: v.number(),
       orgId: v.string(),
       coachId: v.optional(v.string()),
+      coachName: v.string(),
       date: v.string(),
       type: noteTypeValidator,
       audioStorageId: v.optional(v.id("_storage")),
@@ -111,7 +112,46 @@ export const getAllVoiceNotes = query({
       .order("desc")
       .take(1000);
 
-    return notes;
+    // Batch fetch coach names to avoid N+1 queries
+    // Get unique coach IDs
+    const uniqueCoachIds = Array.from(
+      new Set(
+        notes.map((note) => note.coachId).filter((id): id is string => !!id)
+      )
+    );
+
+    // Batch fetch all coach users using Better Auth adapter with correct field name
+    const coachNameMap = new Map<string, string>();
+    await Promise.all(
+      uniqueCoachIds.map(async (coachId) => {
+        // Use "_id" field (not "id") to query user by ID
+        const coachResult = await ctx.runQuery(
+          components.betterAuth.adapter.findOne,
+          {
+            model: "user",
+            where: [{ field: "_id", value: coachId, operator: "eq" }],
+          }
+        );
+
+        if (coachResult) {
+          const coach = coachResult as {
+            name?: string;
+            email?: string;
+          };
+          // Use name field, fallback to email, then "Coach"
+          const coachName = coach.name || coach.email || "Coach";
+          coachNameMap.set(coachId, coachName);
+        }
+      })
+    );
+
+    // Enrich notes with coach names
+    return notes.map((note) => ({
+      ...note,
+      coachName: note.coachId
+        ? coachNameMap.get(note.coachId) || "Unknown Coach"
+        : "Unknown Coach",
+    }));
   },
 });
 

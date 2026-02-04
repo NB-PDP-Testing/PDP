@@ -1,6 +1,7 @@
 import { v } from "convex/values";
 import { components } from "../_generated/api";
 import { mutation, query } from "../_generated/server";
+import { normalizePhoneNumber } from "../lib/phoneUtils";
 
 // ============================================================
 // TYPE DEFINITIONS
@@ -80,7 +81,7 @@ export const findGuardianByPhone = query({
   args: { phone: v.string() },
   returns: v.union(guardianIdentityValidator, v.null()),
   handler: async (ctx, args) => {
-    const normalizedPhone = normalizePhone(args.phone);
+    const normalizedPhone = normalizePhoneNumber(args.phone);
     return await ctx.db
       .query("guardianIdentities")
       .withIndex("by_phone", (q) => q.eq("phone", normalizedPhone))
@@ -928,7 +929,9 @@ export const createGuardianIdentity = mutation({
     }
 
     const now = Date.now();
-    const normalizedPhone = args.phone ? normalizePhone(args.phone) : undefined;
+    const normalizedPhone = args.phone
+      ? normalizePhoneNumber(args.phone)
+      : undefined;
 
     return await ctx.db.insert("guardianIdentities", {
       firstName: args.firstName.trim(),
@@ -1000,7 +1003,7 @@ export const updateGuardianIdentity = mutation({
       updates.email = normalizedEmail;
     }
     if (args.phone !== undefined) {
-      updates.phone = normalizePhone(args.phone);
+      updates.phone = normalizePhoneNumber(args.phone);
     }
     if (args.address !== undefined) {
       updates.address = args.address.trim();
@@ -1159,7 +1162,9 @@ export const findOrCreateGuardian = mutation({
 
     // No match found, create new guardian
     const now = Date.now();
-    const normalizedPhone = args.phone ? normalizePhone(args.phone) : undefined;
+    const normalizedPhone = args.phone
+      ? normalizePhoneNumber(args.phone)
+      : undefined;
 
     // Build guardian data - NEVER auto-link
     const guardianData: any = {
@@ -1249,7 +1254,7 @@ export const findMatchingGuardian = query({
 
     // 2. Phone match (if no email match)
     if (args.phone) {
-      const normalizedPhone = normalizePhone(args.phone);
+      const normalizedPhone = normalizePhoneNumber(args.phone);
       const byPhone = await ctx.db
         .query("guardianIdentities")
         .withIndex("by_phone", (q) => q.eq("phone", normalizedPhone))
@@ -2174,16 +2179,4 @@ export const trackParentOnboardingDismissal = mutation({
 // ============================================================
 // HELPER FUNCTIONS
 // ============================================================
-
-/**
- * Normalize a phone number for consistent storage and matching
- * Removes spaces, dashes, and common formatting characters
- */
-function normalizePhone(phone: string): string {
-  // Remove all non-digit characters except leading +
-  const hasPlus = phone.startsWith("+");
-  const digits = phone.replace(/\D/g, "");
-
-  // Add back the + if it was there
-  return hasPlus ? `+${digits}` : digits;
-}
+// Phone normalization moved to shared utility: lib/phoneUtils.ts

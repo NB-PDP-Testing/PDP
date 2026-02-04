@@ -1,5 +1,6 @@
 "use client";
 
+import { useConvex } from "convex/react";
 import { RefreshCw, Wifi, WifiOff } from "lucide-react";
 import type * as React from "react";
 import { useEffect, useState } from "react";
@@ -7,35 +8,68 @@ import { Button } from "@/components/ui/button";
 import { cn } from "@/lib/utils";
 
 /**
- * Hook to track online/offline status
+ * Hook to track online/offline status using hybrid approach:
+ * - navigator.onLine for device-level network status
+ * - Convex connection state for backend connectivity
  */
 export function useOnlineStatus() {
+  const convex = useConvex();
   const [isOnline, setIsOnline] = useState(true);
   const [wasOffline, setWasOffline] = useState(false);
 
   useEffect(() => {
-    // Initialize with actual status
+    // Initialize with browser's network status
     setIsOnline(navigator.onLine);
 
-    const handleOnline = () => {
-      setIsOnline(true);
-      setWasOffline(true);
-      // Clear "was offline" after a few seconds
-      setTimeout(() => setWasOffline(false), 5000);
+    let checkInterval: NodeJS.Timeout;
+    let previousState = true;
+
+    const checkConnection = () => {
+      // Check both browser network status AND Convex connection
+      const browserOnline = navigator.onLine;
+
+      // Convex client has a connectionState that we can check
+      // @ts-expect-error - connectionState is not in public types but exists
+      const connectionState = convex?.sync?.connectionState?.()?.state;
+      const convexConnected =
+        connectionState === "Connected" || connectionState === undefined;
+
+      // Consider online only if BOTH browser and Convex are connected
+      const connected = browserOnline && convexConnected;
+
+      if (connected !== previousState) {
+        if (connected) {
+          setIsOnline(true);
+          setWasOffline(true);
+          // Clear "was offline" after a few seconds
+          setTimeout(() => setWasOffline(false), 5000);
+        } else {
+          setIsOnline(false);
+        }
+        previousState = connected;
+      }
     };
 
-    const handleOffline = () => {
+    // Listen to browser online/offline events
+    const handleBrowserOnline = () => checkConnection();
+    const handleBrowserOffline = () => {
       setIsOnline(false);
+      previousState = false;
     };
 
-    window.addEventListener("online", handleOnline);
-    window.addEventListener("offline", handleOffline);
+    window.addEventListener("online", handleBrowserOnline);
+    window.addEventListener("offline", handleBrowserOffline);
+
+    // Check immediately and then every 3 seconds for Convex state
+    checkConnection();
+    checkInterval = setInterval(checkConnection, 3000);
 
     return () => {
-      window.removeEventListener("online", handleOnline);
-      window.removeEventListener("offline", handleOffline);
+      window.removeEventListener("online", handleBrowserOnline);
+      window.removeEventListener("offline", handleBrowserOffline);
+      clearInterval(checkInterval);
     };
-  }, []);
+  }, [convex]);
 
   return { isOnline, wasOffline };
 }
@@ -99,7 +133,6 @@ export function OfflineIndicator({
         isOnline ? "bg-green-500 text-white" : "bg-yellow-500 text-yellow-950",
         className
       )}
-      role="status"
     >
       {isOnline ? (
         <>

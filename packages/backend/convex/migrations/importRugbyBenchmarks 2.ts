@@ -86,15 +86,8 @@ export const run = internalMutation({
               .eq("sportCode", benchmark.sportCode)
               .eq("skillCode", skillCode)
               .eq("ageGroup", benchmark.ageGroup)
-              .eq("gender", benchmark.gender as "all" | "male" | "female")
-              .eq(
-                "level",
-                benchmark.level as
-                  | "development"
-                  | "recreational"
-                  | "competitive"
-                  | "elite"
-              )
+              .eq("gender", benchmark.gender)
+              .eq("level", benchmark.level)
           )
           .first();
 

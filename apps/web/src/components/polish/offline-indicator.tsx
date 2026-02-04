@@ -23,14 +23,7 @@ export function useOnlineStatus() {
 
     // Subscribe to Convex connection state changes (official API)
     const unsubscribe = convex.subscribeToConnectionState((state) => {
-      // ConnectionState has different states: "Connected", "Connecting", "Disconnected"
       const connected = state.isWebSocketConnected;
-
-      console.log("[Offline Indicator v5 - Official API]", {
-        connectionState: state,
-        isWebSocketConnected: connected,
-        timestamp: new Date().toISOString(),
-      });
 
       // Track transition from offline to online for "reconnected" message
       if (connected && !isOnline) {

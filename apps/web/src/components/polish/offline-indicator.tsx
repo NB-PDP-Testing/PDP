@@ -18,24 +18,29 @@ export function useOnlineStatus() {
   const [wasOffline, setWasOffline] = useState(false);
 
   useEffect(() => {
-    // Initialize with browser's network status
-    setIsOnline(navigator.onLine);
-
     let checkInterval: NodeJS.Timeout;
     let previousState = true;
 
     const checkConnection = () => {
-      // Check both browser network status AND Convex connection
-      const browserOnline = navigator.onLine;
-
       // Convex client has a connectionState that we can check
       // @ts-expect-error - connectionState is not in public types but exists
       const connectionState = convex?.sync?.connectionState?.()?.state;
+
+      // Use Convex connection as source of truth (ignore navigator.onLine)
+      // - Connected → online (app works)
+      // - Disconnected/Error → offline (app won't work)
+      // - undefined → assume online during initial load (avoid flash)
       const convexConnected =
         connectionState === "Connected" || connectionState === undefined;
+      const connected = convexConnected;
 
-      // Consider online only if BOTH browser and Convex are connected
-      const connected = browserOnline && convexConnected;
+      // Debug logging
+      if (process.env.NODE_ENV === "development") {
+        console.log("[Offline Indicator Debug]", {
+          connectionState,
+          connected,
+        });
+      }
 
       if (connected !== previousState) {
         if (connected) {

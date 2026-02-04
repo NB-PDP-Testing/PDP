@@ -334,7 +334,10 @@ export declare const components: {
           input:
             | {
                 data: {
+                  address?: string;
+                  altEmail?: string;
                   childLinkingSkipCount?: number;
+                  country?: string;
                   createdAt: number;
                   currentOrgId?: string;
                   email: string;
@@ -351,8 +354,13 @@ export declare const components: {
                   parentOnboardingDismissCount?: number;
                   parentOnboardingLastDismissedAt?: number;
                   phone?: string;
+                  postcode?: string;
+                  profileCompletedAt?: number;
+                  profileCompletionStatus?: "pending" | "completed" | "skipped";
+                  profileSkipCount?: number;
                   setupComplete?: boolean;
                   setupStep?: string;
+                  town?: string;
                   updatedAt: number;
                   userId?: null | string;
                 };
@@ -551,6 +559,14 @@ export declare const components: {
                     | "firstName"
                     | "lastName"
                     | "phone"
+                    | "altEmail"
+                    | "address"
+                    | "town"
+                    | "postcode"
+                    | "country"
+                    | "profileCompletionStatus"
+                    | "profileCompletedAt"
+                    | "profileSkipCount"
                     | "onboardingComplete"
                     | "lastChildrenCheckAt"
                     | "parentOnboardingDismissCount"
@@ -981,6 +997,14 @@ export declare const components: {
                     | "firstName"
                     | "lastName"
                     | "phone"
+                    | "altEmail"
+                    | "address"
+                    | "town"
+                    | "postcode"
+                    | "country"
+                    | "profileCompletionStatus"
+                    | "profileCompletedAt"
+                    | "profileSkipCount"
                     | "onboardingComplete"
                     | "lastChildrenCheckAt"
                     | "parentOnboardingDismissCount"
@@ -1486,7 +1510,10 @@ export declare const components: {
             | {
                 model: "user";
                 update: {
+                  address?: string;
+                  altEmail?: string;
                   childLinkingSkipCount?: number;
+                  country?: string;
                   createdAt?: number;
                   currentOrgId?: string;
                   email?: string;
@@ -1503,8 +1530,13 @@ export declare const components: {
                   parentOnboardingDismissCount?: number;
                   parentOnboardingLastDismissedAt?: number;
                   phone?: string;
+                  postcode?: string;
+                  profileCompletedAt?: number;
+                  profileCompletionStatus?: "pending" | "completed" | "skipped";
+                  profileSkipCount?: number;
                   setupComplete?: boolean;
                   setupStep?: string;
+                  town?: string;
                   updatedAt?: number;
                   userId?: null | string;
                 };
@@ -1522,6 +1554,14 @@ export declare const components: {
                     | "firstName"
                     | "lastName"
                     | "phone"
+                    | "altEmail"
+                    | "address"
+                    | "town"
+                    | "postcode"
+                    | "country"
+                    | "profileCompletionStatus"
+                    | "profileCompletedAt"
+                    | "profileSkipCount"
                     | "onboardingComplete"
                     | "lastChildrenCheckAt"
                     | "parentOnboardingDismissCount"
@@ -2076,7 +2116,10 @@ export declare const components: {
             | {
                 model: "user";
                 update: {
+                  address?: string;
+                  altEmail?: string;
                   childLinkingSkipCount?: number;
+                  country?: string;
                   createdAt?: number;
                   currentOrgId?: string;
                   email?: string;
@@ -2093,8 +2136,13 @@ export declare const components: {
                   parentOnboardingDismissCount?: number;
                   parentOnboardingLastDismissedAt?: number;
                   phone?: string;
+                  postcode?: string;
+                  profileCompletedAt?: number;
+                  profileCompletionStatus?: "pending" | "completed" | "skipped";
+                  profileSkipCount?: number;
                   setupComplete?: boolean;
                   setupStep?: string;
+                  town?: string;
                   updatedAt?: number;
                   userId?: null | string;
                 };
@@ -2112,6 +2160,14 @@ export declare const components: {
                     | "firstName"
                     | "lastName"
                     | "phone"
+                    | "altEmail"
+                    | "address"
+                    | "town"
+                    | "postcode"
+                    | "country"
+                    | "profileCompletionStatus"
+                    | "profileCompletedAt"
+                    | "profileSkipCount"
                     | "onboardingComplete"
                     | "lastChildrenCheckAt"
                     | "parentOnboardingDismissCount"

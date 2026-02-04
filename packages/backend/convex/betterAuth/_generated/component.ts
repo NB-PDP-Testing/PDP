@@ -31,7 +31,10 @@ export type ComponentApi<Name extends string | undefined = string | undefined> =
           input:
             | {
                 data: {
+                  address?: string;
+                  altEmail?: string;
                   childLinkingSkipCount?: number;
+                  country?: string;
                   createdAt: number;
                   currentOrgId?: string;
                   email: string;
@@ -48,8 +51,13 @@ export type ComponentApi<Name extends string | undefined = string | undefined> =
                   parentOnboardingDismissCount?: number;
                   parentOnboardingLastDismissedAt?: number;
                   phone?: string;
+                  postcode?: string;
+                  profileCompletedAt?: number;
+                  profileCompletionStatus?: "pending" | "completed" | "skipped";
+                  profileSkipCount?: number;
                   setupComplete?: boolean;
                   setupStep?: string;
+                  town?: string;
                   updatedAt: number;
                   userId?: null | string;
                 };
@@ -249,6 +257,14 @@ export type ComponentApi<Name extends string | undefined = string | undefined> =
                     | "firstName"
                     | "lastName"
                     | "phone"
+                    | "altEmail"
+                    | "address"
+                    | "town"
+                    | "postcode"
+                    | "country"
+                    | "profileCompletionStatus"
+                    | "profileCompletedAt"
+                    | "profileSkipCount"
                     | "onboardingComplete"
                     | "lastChildrenCheckAt"
                     | "parentOnboardingDismissCount"
@@ -680,6 +696,14 @@ export type ComponentApi<Name extends string | undefined = string | undefined> =
                     | "firstName"
                     | "lastName"
                     | "phone"
+                    | "altEmail"
+                    | "address"
+                    | "town"
+                    | "postcode"
+                    | "country"
+                    | "profileCompletionStatus"
+                    | "profileCompletedAt"
+                    | "profileSkipCount"
                     | "onboardingComplete"
                     | "lastChildrenCheckAt"
                     | "parentOnboardingDismissCount"
@@ -1188,7 +1212,10 @@ export type ComponentApi<Name extends string | undefined = string | undefined> =
             | {
                 model: "user";
                 update: {
+                  address?: string;
+                  altEmail?: string;
                   childLinkingSkipCount?: number;
+                  country?: string;
                   createdAt?: number;
                   currentOrgId?: string;
                   email?: string;
@@ -1205,8 +1232,13 @@ export type ComponentApi<Name extends string | undefined = string | undefined> =
                   parentOnboardingDismissCount?: number;
                   parentOnboardingLastDismissedAt?: number;
                   phone?: string;
+                  postcode?: string;
+                  profileCompletedAt?: number;
+                  profileCompletionStatus?: "pending" | "completed" | "skipped";
+                  profileSkipCount?: number;
                   setupComplete?: boolean;
                   setupStep?: string;
+                  town?: string;
                   updatedAt?: number;
                   userId?: null | string;
                 };
@@ -1224,6 +1256,14 @@ export type ComponentApi<Name extends string | undefined = string | undefined> =
                     | "firstName"
                     | "lastName"
                     | "phone"
+                    | "altEmail"
+                    | "address"
+                    | "town"
+                    | "postcode"
+                    | "country"
+                    | "profileCompletionStatus"
+                    | "profileCompletedAt"
+                    | "profileSkipCount"
                     | "onboardingComplete"
                     | "lastChildrenCheckAt"
                     | "parentOnboardingDismissCount"
@@ -1779,7 +1819,10 @@ export type ComponentApi<Name extends string | undefined = string | undefined> =
             | {
                 model: "user";
                 update: {
+                  address?: string;
+                  altEmail?: string;
                   childLinkingSkipCount?: number;
+                  country?: string;
                   createdAt?: number;
                   currentOrgId?: string;
                   email?: string;
@@ -1796,8 +1839,13 @@ export type ComponentApi<Name extends string | undefined = string | undefined> =
                   parentOnboardingDismissCount?: number;
                   parentOnboardingLastDismissedAt?: number;
                   phone?: string;
+                  postcode?: string;
+                  profileCompletedAt?: number;
+                  profileCompletionStatus?: "pending" | "completed" | "skipped";
+                  profileSkipCount?: number;
                   setupComplete?: boolean;
                   setupStep?: string;
+                  town?: string;
                   updatedAt?: number;
                   userId?: null | string;
                 };
@@ -1815,6 +1863,14 @@ export type ComponentApi<Name extends string | undefined = string | undefined> =
                     | "firstName"
                     | "lastName"
                     | "phone"
+                    | "altEmail"
+                    | "address"
+                    | "town"
+                    | "postcode"
+                    | "country"
+                    | "profileCompletionStatus"
+                    | "profileCompletedAt"
+                    | "profileSkipCount"
                     | "onboardingComplete"
                     | "lastChildrenCheckAt"
                     | "parentOnboardingDismissCount"

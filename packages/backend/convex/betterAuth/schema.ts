@@ -24,6 +24,20 @@ const customUserTable = defineTable({
   lastName: v.optional(v.string()),
   phone: v.optional(v.string()),
 
+  // Profile completion fields (Phase 0: Onboarding Sync)
+  altEmail: v.optional(v.string()), // Alternative email for guardian matching
+  address: v.optional(v.string()),
+  town: v.optional(v.string()),
+  postcode: v.optional(v.string()),
+  country: v.optional(v.string()),
+
+  // Profile completion tracking
+  profileCompletionStatus: v.optional(
+    v.union(v.literal("pending"), v.literal("completed"), v.literal("skipped"))
+  ),
+  profileCompletedAt: v.optional(v.number()),
+  profileSkipCount: v.optional(v.number()),
+
   // onboarding
   onboardingComplete: v.optional(v.boolean()),
 
@@ -48,7 +62,10 @@ const customUserTable = defineTable({
 })
   .index("email_name", ["email", "name"])
   .index("name", ["name"])
-  .index("userId", ["userId"]);
+  .index("userId", ["userId"])
+  .index("by_phone", ["phone"])
+  .index("by_altEmail", ["altEmail"])
+  .index("by_postcode", ["postcode"]);
 
 export const customTeamTableSchema = {
   // Better Auth base fields

@@ -202,6 +202,7 @@ export default defineSchema({
     .index("by_email", ["email"])
     .index("by_userId", ["userId"])
     .index("by_phone", ["phone"])
+    .index("by_postcode", ["postcode"])
     .index("by_name", ["lastName", "firstName"]),
 
   // Organization-level: Guardian preferences per org

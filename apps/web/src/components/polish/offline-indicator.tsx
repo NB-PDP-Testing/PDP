@@ -10,69 +10,76 @@ import { cn } from "@/lib/utils";
 /**
  * Hook to track online/offline status using Convex's official connection state API
  *
- * Simple logic:
- * - Start assuming online (don't show anything during initial load)
- * - Wait for WebSocket to be confirmed connected
- * - Only THEN start tracking offline/online transitions
+ * Only shows reconnected banner after a stable connection has been established.
+ * This prevents false "reconnected" messages during initial page load.
  */
 export function useOnlineStatus() {
   const convex = useConvex();
   const [isOnline, setIsOnline] = useState(true);
   const [wasOffline, setWasOffline] = useState(false);
 
-  // Track the previous connection state to detect transitions
   const previouslyConnectedRef = useRef<boolean | null>(null);
+  const hasStableConnectionRef = useRef(false);
 
   useEffect(() => {
     if (!convex) {
       return;
     }
 
+    let stableConnectionTimer: NodeJS.Timeout | null = null;
+
     const unsubscribe = convex.subscribeToConnectionState((state) => {
       const connected = state.isWebSocketConnected;
       const previouslyConnected = previouslyConnectedRef.current;
 
-      console.log("[OfflineIndicator]", {
-        connected,
-        previouslyConnected,
-        isFirstState: previouslyConnected === null,
-      });
-
-      // First time we get a state - just record it, don't react
+      // First time - just record state
       if (previouslyConnected === null) {
         previouslyConnectedRef.current = connected;
-        // Always start as online to avoid flashing on page load
         setIsOnline(true);
-        console.log("[OfflineIndicator] First state recorded, not reacting");
+
+        // If connected, set stable flag after 2 seconds
+        if (connected) {
+          stableConnectionTimer = setTimeout(() => {
+            hasStableConnectionRef.current = true;
+          }, 2000);
+        }
         return;
       }
 
-      // Now we can track actual transitions
+      // Detect transitions
       const wentOffline = previouslyConnected && !connected;
       const cameBackOnline = !previouslyConnected && connected;
 
-      console.log("[OfflineIndicator] Checking transitions:", {
-        wentOffline,
-        cameBackOnline,
-      });
-
-      if (wentOffline) {
-        // Actually went offline - show offline banner
-        console.log("[OfflineIndicator] Went offline!");
+      if (wentOffline && hasStableConnectionRef.current) {
+        // Only show offline if we had a stable connection first
         setIsOnline(false);
-      } else if (cameBackOnline) {
-        // Came back online - show reconnected banner
-        console.log("[OfflineIndicator] Came back online!");
+        hasStableConnectionRef.current = false; // Reset stable flag
+      } else if (cameBackOnline && !hasStableConnectionRef.current) {
+        // Coming back online after being offline
         setIsOnline(true);
         setWasOffline(true);
         setTimeout(() => setWasOffline(false), 3000);
+
+        // Re-establish stable connection flag
+        stableConnectionTimer = setTimeout(() => {
+          hasStableConnectionRef.current = true;
+        }, 2000);
+      } else if (connected && !hasStableConnectionRef.current) {
+        // Connected but not stable yet - set timer
+        stableConnectionTimer = setTimeout(() => {
+          hasStableConnectionRef.current = true;
+        }, 2000);
       }
 
-      // Update ref for next comparison
       previouslyConnectedRef.current = connected;
     });
 
-    return () => unsubscribe();
+    return () => {
+      if (stableConnectionTimer) {
+        clearTimeout(stableConnectionTimer);
+      }
+      unsubscribe();
+    };
   }, [convex]);
 
   return { isOnline, wasOffline };

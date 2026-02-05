@@ -13,6 +13,7 @@ import { useRouter, useSearchParams } from "next/navigation";
 import { Suspense, useEffect, useState } from "react";
 import { toast } from "sonner";
 import { CenteredSkeleton } from "@/components/loading";
+import { OfflineIndicator } from "@/components/polish/offline-indicator";
 import SignInForm from "@/components/sign-in-form";
 import { useCurrentUser } from "@/hooks/use-current-user";
 
@@ -134,8 +135,11 @@ function LoginContent() {
 
 export default function DashboardPage() {
   return (
-    <Suspense fallback={<CenteredSkeleton />}>
-      <LoginContent />
-    </Suspense>
+    <>
+      <OfflineIndicator position="top" />
+      <Suspense fallback={<CenteredSkeleton />}>
+        <LoginContent />
+      </Suspense>
+    </>
   );
 }

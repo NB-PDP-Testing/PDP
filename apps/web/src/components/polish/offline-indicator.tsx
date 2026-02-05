@@ -32,11 +32,18 @@ export function useOnlineStatus() {
       const connected = state.isWebSocketConnected;
       const previouslyConnected = previouslyConnectedRef.current;
 
+      console.log("[OfflineIndicator]", {
+        connected,
+        previouslyConnected,
+        isFirstState: previouslyConnected === null,
+      });
+
       // First time we get a state - just record it, don't react
       if (previouslyConnected === null) {
         previouslyConnectedRef.current = connected;
         // Always start as online to avoid flashing on page load
         setIsOnline(true);
+        console.log("[OfflineIndicator] First state recorded, not reacting");
         return;
       }
 
@@ -44,11 +51,18 @@ export function useOnlineStatus() {
       const wentOffline = previouslyConnected && !connected;
       const cameBackOnline = !previouslyConnected && connected;
 
+      console.log("[OfflineIndicator] Checking transitions:", {
+        wentOffline,
+        cameBackOnline,
+      });
+
       if (wentOffline) {
         // Actually went offline - show offline banner
+        console.log("[OfflineIndicator] Went offline!");
         setIsOnline(false);
       } else if (cameBackOnline) {
         // Came back online - show reconnected banner
+        console.log("[OfflineIndicator] Came back online!");
         setIsOnline(true);
         setWasOffline(true);
         setTimeout(() => setWasOffline(false), 3000);

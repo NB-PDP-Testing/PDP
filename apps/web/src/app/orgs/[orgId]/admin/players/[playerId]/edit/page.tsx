@@ -69,8 +69,13 @@ export default function EditPlayerPage() {
     firstName: "",
     lastName: "",
     email: "",
+    phone: "",
     dateOfBirth: "",
     gender: "male" as "male" | "female" | "other",
+    address: "",
+    town: "",
+    postcode: "",
+    country: "",
     ageGroup: "",
     coachNotes: "",
     adminNotes: "",
@@ -114,8 +119,13 @@ export default function EditPlayerPage() {
         firstName: playerIdentity.firstName || "",
         lastName: playerIdentity.lastName || "",
         email: playerIdentity.email || "",
+        phone: playerIdentity.phone || "",
         dateOfBirth: formatDateForInput(playerIdentity.dateOfBirth),
         gender: playerIdentity.gender || "male",
+        address: playerIdentity.address || "",
+        town: playerIdentity.town || "",
+        postcode: playerIdentity.postcode || "",
+        country: playerIdentity.country || "",
         ageGroup: enrollment.ageGroup || "",
         coachNotes: enrollment.coachNotes || "",
         adminNotes: enrollment.adminNotes || "",
@@ -144,8 +154,13 @@ export default function EditPlayerPage() {
         firstName: formData.firstName,
         lastName: formData.lastName,
         email: formData.email || undefined,
+        phone: formData.phone || undefined,
         dateOfBirth: formData.dateOfBirth || undefined,
         gender: formData.gender,
+        address: formData.address || undefined,
+        town: formData.town || undefined,
+        postcode: formData.postcode || undefined,
+        country: formData.country || undefined,
       });
 
       // Update enrollment if exists
@@ -309,21 +324,34 @@ export default function EditPlayerPage() {
               </div>
             </div>
 
-            <div className="space-y-2">
-              <Label htmlFor="email">Email Address</Label>
-              <Input
-                id="email"
-                onChange={(e) =>
-                  setFormData({ ...formData, email: e.target.value })
-                }
-                placeholder="player@example.com"
-                type="email"
-                value={formData.email}
-              />
-              <p className="text-muted-foreground text-xs">
-                For adult players, this must match their login email to link
-                their account to this player profile.
-              </p>
+            <div className="grid gap-4 md:grid-cols-2">
+              <div className="space-y-2">
+                <Label htmlFor="email">Email Address</Label>
+                <Input
+                  id="email"
+                  onChange={(e) =>
+                    setFormData({ ...formData, email: e.target.value })
+                  }
+                  placeholder="player@example.com"
+                  type="email"
+                  value={formData.email}
+                />
+                <p className="text-muted-foreground text-xs">
+                  For adult players, this must match their login email.
+                </p>
+              </div>
+              <div className="space-y-2">
+                <Label htmlFor="phone">Phone Number</Label>
+                <Input
+                  id="phone"
+                  onChange={(e) =>
+                    setFormData({ ...formData, phone: e.target.value })
+                  }
+                  placeholder="+353 87 123 4567"
+                  type="tel"
+                  value={formData.phone}
+                />
+              </div>
             </div>
 
             <div className="grid gap-4 md:grid-cols-2">
@@ -358,6 +386,60 @@ export default function EditPlayerPage() {
                     <SelectItem value="other">Other</SelectItem>
                   </SelectContent>
                 </Select>
+              </div>
+            </div>
+
+            {/* Address Section */}
+            <div className="space-y-4 border-t pt-4">
+              <Label className="text-muted-foreground text-sm">Address</Label>
+              <div className="space-y-2">
+                <Label htmlFor="address">Street Address</Label>
+                <Input
+                  id="address"
+                  onChange={(e) =>
+                    setFormData({ ...formData, address: e.target.value })
+                  }
+                  placeholder="123 Main Street"
+                  value={formData.address}
+                />
+              </div>
+              <div className="grid gap-4 md:grid-cols-2">
+                <div className="space-y-2">
+                  <Label htmlFor="town">Town / City</Label>
+                  <Input
+                    id="town"
+                    onChange={(e) =>
+                      setFormData({ ...formData, town: e.target.value })
+                    }
+                    placeholder="Dublin"
+                    value={formData.town}
+                  />
+                </div>
+                <div className="space-y-2">
+                  <Label htmlFor="postcode">Postcode / Eircode</Label>
+                  <Input
+                    id="postcode"
+                    onChange={(e) =>
+                      setFormData({
+                        ...formData,
+                        postcode: e.target.value.toUpperCase(),
+                      })
+                    }
+                    placeholder="D02 XY45"
+                    value={formData.postcode}
+                  />
+                </div>
+              </div>
+              <div className="space-y-2">
+                <Label htmlFor="country">Country</Label>
+                <Input
+                  id="country"
+                  onChange={(e) =>
+                    setFormData({ ...formData, country: e.target.value })
+                  }
+                  placeholder="Ireland"
+                  value={formData.country}
+                />
               </div>
             </div>
           </CardContent>

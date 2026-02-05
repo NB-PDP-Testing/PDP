@@ -33,7 +33,9 @@ const guardianIdentityValidator = v.object({
   email: v.optional(v.string()),
   phone: v.optional(v.string()),
   address: v.optional(v.string()),
+  address2: v.optional(v.string()), // Phase 0.7: Address line 2
   town: v.optional(v.string()),
+  county: v.optional(v.string()), // Phase 0.7: County/State/Province
   postcode: v.optional(v.string()),
   country: v.optional(v.string()),
   userId: v.optional(v.string()),
@@ -909,7 +911,9 @@ export const createGuardianIdentity = mutation({
     email: v.string(),
     phone: v.optional(v.string()),
     address: v.optional(v.string()),
+    address2: v.optional(v.string()), // Phase 0.7: Address line 2
     town: v.optional(v.string()),
+    county: v.optional(v.string()), // Phase 0.7: County/State/Province
     postcode: v.optional(v.string()),
     country: v.optional(v.string()),
     userId: v.optional(v.string()),
@@ -940,7 +944,9 @@ export const createGuardianIdentity = mutation({
       email: normalizedEmail,
       phone: normalizedPhone,
       address: args.address?.trim(),
+      address2: args.address2?.trim(),
       town: args.town?.trim(),
+      county: args.county?.trim(),
       postcode: args.postcode?.trim(),
       country: args.country?.trim(),
       userId: args.userId,
@@ -964,7 +970,9 @@ export const updateGuardianIdentity = mutation({
     email: v.optional(v.string()),
     phone: v.optional(v.string()),
     address: v.optional(v.string()),
+    address2: v.optional(v.string()), // Phase 0.7: Address line 2
     town: v.optional(v.string()),
+    county: v.optional(v.string()), // Phase 0.7: County/State/Province
     postcode: v.optional(v.string()),
     country: v.optional(v.string()),
     verificationStatus: v.optional(verificationStatusValidator),
@@ -1009,8 +1017,14 @@ export const updateGuardianIdentity = mutation({
     if (args.address !== undefined) {
       updates.address = args.address.trim();
     }
+    if (args.address2 !== undefined) {
+      updates.address2 = args.address2.trim();
+    }
     if (args.town !== undefined) {
       updates.town = args.town.trim();
+    }
+    if (args.county !== undefined) {
+      updates.county = args.county.trim();
     }
     if (args.postcode !== undefined) {
       updates.postcode = args.postcode.trim();
@@ -1106,7 +1120,9 @@ export const findOrCreateGuardian = mutation({
     email: v.string(),
     phone: v.optional(v.string()),
     address: v.optional(v.string()),
+    address2: v.optional(v.string()), // Phase 0.7: Address line 2
     town: v.optional(v.string()),
+    county: v.optional(v.string()), // Phase 0.7: County/State/Province
     postcode: v.optional(v.string()),
     country: v.optional(v.string()),
     createdFrom: v.optional(v.string()),
@@ -1172,7 +1188,9 @@ export const findOrCreateGuardian = mutation({
       email: normalizedEmail,
       phone: normalizedPhone,
       address: args.address?.trim(),
+      address2: args.address2?.trim(),
       town: args.town?.trim(),
+      county: args.county?.trim(),
       postcode: args.postcode?.trim(),
       country: args.country?.trim(),
       verificationStatus: "unverified", // Always unverified - must claim via modal

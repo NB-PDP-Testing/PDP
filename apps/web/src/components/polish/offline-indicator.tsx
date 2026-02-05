@@ -3,7 +3,7 @@
 import { useConvex } from "convex/react";
 import { RefreshCw, Wifi, WifiOff } from "lucide-react";
 import type * as React from "react";
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { Button } from "@/components/ui/button";
 import { cn } from "@/lib/utils";
 
@@ -15,31 +15,41 @@ export function useOnlineStatus() {
   const convex = useConvex();
   const [isOnline, setIsOnline] = useState(true);
   const [wasOffline, setWasOffline] = useState(false);
+  const hasBeenOfflineRef = useRef(false);
+  const isInitializedRef = useRef(false);
 
   useEffect(() => {
     if (!convex) {
       return;
     }
 
+    // Get initial state
+    const initialState = convex.connectionState();
+    const initiallyConnected = initialState.isWebSocketConnected;
+    setIsOnline(initiallyConnected);
+    isInitializedRef.current = true;
+
     // Subscribe to Convex connection state changes (official API)
     const unsubscribe = convex.subscribeToConnectionState((state) => {
       const connected = state.isWebSocketConnected;
 
-      // Track transition from offline to online for "reconnected" message
-      if (connected && !isOnline) {
+      // Track when we go offline (after initialization)
+      if (!connected && isInitializedRef.current) {
+        hasBeenOfflineRef.current = true;
+      }
+
+      // Only show "reconnected" message if we've actually been offline in this session
+      if (connected && hasBeenOfflineRef.current) {
         setWasOffline(true);
         setTimeout(() => setWasOffline(false), 5000);
+        hasBeenOfflineRef.current = false; // Reset until next offline event
       }
 
       setIsOnline(connected);
     });
 
-    // Get initial state
-    const initialState = convex.connectionState();
-    setIsOnline(initialState.isWebSocketConnected);
-
     return () => unsubscribe();
-  }, [convex, isOnline]);
+  }, [convex]);
 
   return { isOnline, wasOffline };
 }

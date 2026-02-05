@@ -33,6 +33,7 @@ import type * as lib_autoApprovalDecision from "../lib/autoApprovalDecision.js";
 import type * as lib_circuitBreaker from "../lib/circuitBreaker.js";
 import type * as lib_consentGateway from "../lib/consentGateway.js";
 import type * as lib_firstUserSetup from "../lib/firstUserSetup.js";
+import type * as lib_phoneUtils from "../lib/phoneUtils.js";
 import type * as lib_trustLevelCalculator from "../lib/trustLevelCalculator.js";
 import type * as migrations_cleanSlate from "../migrations/cleanSlate.js";
 import type * as migrations_compareIrishDancing from "../migrations/compareIrishDancing.js";
@@ -191,6 +192,7 @@ declare const fullApi: ApiFromModules<{
   "lib/circuitBreaker": typeof lib_circuitBreaker;
   "lib/consentGateway": typeof lib_consentGateway;
   "lib/firstUserSetup": typeof lib_firstUserSetup;
+  "lib/phoneUtils": typeof lib_phoneUtils;
   "lib/trustLevelCalculator": typeof lib_trustLevelCalculator;
   "migrations/cleanSlate": typeof migrations_cleanSlate;
   "migrations/compareIrishDancing": typeof migrations_compareIrishDancing;
@@ -467,6 +469,7 @@ export declare const components: {
                   autoReInviteOnExpiration?: boolean;
                   colors?: Array<string>;
                   createdAt: number;
+                  defaultCountry?: "IE" | "GB" | "US";
                   invitationExpirationDays?: number;
                   logo?: null | string;
                   maxAutoReInvitesPerInvitation?: number;
@@ -819,6 +822,7 @@ export declare const components: {
                     | "socialLinkedin"
                     | "website"
                     | "supportedSports"
+                    | "defaultCountry"
                     | "sharingContactMode"
                     | "sharingContactName"
                     | "sharingContactEmail"
@@ -1249,6 +1253,7 @@ export declare const components: {
                     | "socialLinkedin"
                     | "website"
                     | "supportedSports"
+                    | "defaultCountry"
                     | "sharingContactMode"
                     | "sharingContactName"
                     | "sharingContactEmail"
@@ -1845,6 +1850,7 @@ export declare const components: {
                   autoReInviteOnExpiration?: boolean;
                   colors?: Array<string>;
                   createdAt?: number;
+                  defaultCountry?: "IE" | "GB" | "US";
                   invitationExpirationDays?: number;
                   logo?: null | string;
                   maxAutoReInvitesPerInvitation?: number;
@@ -1879,6 +1885,7 @@ export declare const components: {
                     | "socialLinkedin"
                     | "website"
                     | "supportedSports"
+                    | "defaultCountry"
                     | "sharingContactMode"
                     | "sharingContactName"
                     | "sharingContactEmail"
@@ -2435,6 +2442,7 @@ export declare const components: {
                   autoReInviteOnExpiration?: boolean;
                   colors?: Array<string>;
                   createdAt?: number;
+                  defaultCountry?: "IE" | "GB" | "US";
                   invitationExpirationDays?: number;
                   logo?: null | string;
                   maxAutoReInvitesPerInvitation?: number;
@@ -2469,6 +2477,7 @@ export declare const components: {
                     | "socialLinkedin"
                     | "website"
                     | "supportedSports"
+                    | "defaultCountry"
                     | "sharingContactMode"
                     | "sharingContactName"
                     | "sharingContactEmail"

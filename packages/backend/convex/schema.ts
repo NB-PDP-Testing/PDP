@@ -539,6 +539,7 @@ export default defineSchema({
     .index("by_player_and_org", ["playerIdentityId", "organizationId"]) // Added Phase 3: Optimize sport validation JOINs
     .index("by_organizationId", ["organizationId"])
     .index("by_org_and_sport", ["organizationId", "sportCode"])
+    .index("by_sportCode", ["sportCode"]) // For migration scripts
     .index("by_status", ["organizationId", "sportCode", "status"])
     .index("by_player_org_status", [
       "playerIdentityId",
@@ -622,6 +623,7 @@ export default defineSchema({
     .index("by_passportId", ["passportId"])
     .index("by_playerIdentityId", ["playerIdentityId"])
     .index("by_player_and_sport", ["playerIdentityId", "sportCode"])
+    .index("by_sportCode", ["sportCode"]) // For migration scripts
     .index("by_skill", ["passportId", "skillCode"])
     .index("by_date", ["passportId", "assessmentDate"])
     .index("by_assessor", ["assessedBy", "assessmentDate"])
@@ -2252,7 +2254,8 @@ export default defineSchema({
       "playerIdentityId",
       "status",
       "createdAt",
-    ]), // Added for N+1 query optimization
+    ]) // Added for N+1 query optimization
+    .index("by_status_scheduledDeliveryAt", ["status", "scheduledDeliveryAt"]), // Added for scheduled delivery processing
 
   // AI usage tracking for cost visibility and analytics (Phase 5.3)
   // Logs every AI API call with token counts and costs

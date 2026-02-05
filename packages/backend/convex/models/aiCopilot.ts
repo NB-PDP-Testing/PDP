@@ -73,10 +73,15 @@ async function generateInsightSuggestions(
     return [];
   }
 
-  // Get insight details (catch invalid IDs)
-  const insight = await ctx.db
-    .get(args.contextId as Id<"voiceNoteInsights">)
-    .catch(() => null);
+  // Get insight details (handle invalid IDs)
+  let insight: Awaited<ReturnType<typeof ctx.db.get>> | null = null;
+  try {
+    insight = await ctx.db.get(args.contextId as Id<"voiceNoteInsights">);
+  } catch (error) {
+    // Invalid ID or not found
+    console.warn(`[aiCopilot] Invalid insight ID: ${args.contextId}`, error);
+    return [];
+  }
 
   if (!insight) {
     return [];
@@ -148,12 +153,19 @@ async function generateInsightSuggestions(
 
   // Suggestion 3: If unread by teammates → suggest mention coaches
   // Check if there are comments - if not, suggest engaging team
-  const comments = await ctx.db
-    .query("insightComments")
-    .withIndex("by_insight", (q: any) =>
-      q.eq("insightId", args.contextId as Id<"voiceNoteInsights">)
-    )
-    .collect();
+  let comments: Array<{ _id: string }> = [];
+  try {
+    comments = await ctx.db
+      .query("insightComments")
+      .withIndex("by_insight", (q: any) =>
+        q.eq("insightId", args.contextId as Id<"voiceNoteInsights">)
+      )
+      .collect();
+  } catch (error) {
+    // If query fails, assume no comments
+    console.warn("[aiCopilot] Failed to fetch insight comments", error);
+    comments = [];
+  }
 
   if (comments.length === 0) {
     suggestions.push({
@@ -225,6 +237,10 @@ async function generateSessionSuggestions(
 
   // Get recent insights for the organization (last 7 days)
   const sevenDaysAgo = Date.now() - 7 * 24 * 60 * 60 * 1000;
+
+  // Query recent insights efficiently
+  // Note: Using .filter() on _creationTime is acceptable here as it's a system field
+  // and we're already scoped by organization via index
   const recentInsights = await ctx.db
     .query("voiceNoteInsights")
     .withIndex("by_org", (q: any) =>

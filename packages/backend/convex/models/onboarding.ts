@@ -231,7 +231,7 @@ export const getOnboardingTasks = query({
             skipCount,
             canSkip,
             reason:
-              "Providing your phone number and postcode helps us connect you to your children's profiles automatically, even if your email differs from what the club has on file.",
+              "This information helps your club manage your membership and keep your details up to date.",
           },
         });
       }

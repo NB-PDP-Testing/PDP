@@ -3,12 +3,13 @@
 /**
  * ProfileCompletionStep - Onboarding step for collecting profile data
  *
- * Collects phone, postcode, alternate email, and full address to enable
- * multi-signal guardian matching. This allows parents who signed up with
- * different emails to be matched with their children.
+ * Collects phone, postcode, alternate email, and full address.
+ * For invited users, this enables multi-signal guardian matching.
+ * For self-registered users, this collects profile info for later admin use.
  *
  * Part of Phase 0: Onboarding Sync
  * Updated in Phase 0.6: Address Collection Enhancement
+ * Updated in Phase 0.8: Neutral messaging for all users
  */
 
 import { api } from "@pdp/backend/convex/_generated/api";
@@ -228,13 +229,12 @@ export function ProfileCompletionStep({
         <AlertDialogHeader>
           <div className="mb-2 flex items-center gap-2">
             <User aria-hidden="true" className="size-6 text-primary" />
-            <AlertDialogTitle>Help Us Find Your Children</AlertDialogTitle>
+            <AlertDialogTitle>Additional Information</AlertDialogTitle>
           </div>
           <AlertDialogDescription asChild>
             <div className="space-y-2">
               <p>
-                To help connect you with your children's club records, please
-                provide some additional details.
+                Please provide additional information to complete your profile.
               </p>
             </div>
           </AlertDialogDescription>
@@ -249,9 +249,8 @@ export function ProfileCompletionStep({
           <div className="text-blue-800 text-sm">
             <p className="font-medium">Why do we ask for this?</p>
             <p className="mt-1 text-blue-700">
-              Clubs often have different contact details on file than the email
-              you signed up with. Providing your phone number or postcode helps
-              us match you to your children's records.
+              This information helps your club manage your membership and keep
+              your details up to date.
             </p>
           </div>
         </div>
@@ -285,7 +284,7 @@ export function ProfileCompletionStep({
               value={altEmail}
             />
             <p className="text-muted-foreground text-xs">
-              If the club might have a different email for you
+              An alternative email address for your account
             </p>
           </div>
 

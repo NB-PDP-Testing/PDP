@@ -390,85 +390,75 @@ export default function AdminSessionPlansPage() {
       <div className="flex min-w-0 flex-1 flex-col">
         {/* Header */}
         <div className="min-w-0 border-b bg-background p-4 sm:p-6">
-          <div className="mb-4 flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
-            <div className="flex items-center gap-3">
-              <Button
-                className="shrink-0"
-                onClick={() => router.push(`/orgs/${orgId}/admin`)}
-                size="icon"
-                variant="ghost"
-              >
-                <ArrowLeft className="h-5 w-5" />
-              </Button>
-              <div>
-                <div className="flex items-center gap-2">
-                  <Shield className="h-8 w-8 text-primary" />
-                  <h1 className="font-bold text-3xl">
-                    Session Plans Moderation
-                  </h1>
-                </div>
-                <p className="text-muted-foreground">
-                  Review and moderate session plans shared with the organization
-                </p>
+          <div className="mb-6 flex flex-col gap-4 sm:flex-row sm:items-start sm:justify-between">
+            <div>
+              <div className="mb-2 flex items-center gap-3">
+                <Button
+                  className="shrink-0"
+                  onClick={() => router.push(`/orgs/${orgId}/admin`)}
+                  size="icon"
+                  variant="ghost"
+                >
+                  <ArrowLeft className="h-5 w-5" />
+                </Button>
+                <Shield className="h-8 w-8 text-primary" />
+                <h1 className="font-bold text-3xl tracking-tight">
+                  Session Plans Moderation
+                </h1>
               </div>
+              <p className="ml-16 text-muted-foreground">
+                Review and moderate session plans shared with the organization
+              </p>
             </div>
           </div>
 
           {/* Clickable Filter Cards (All / Rejected) */}
-          <div className="mb-6 grid grid-cols-2 gap-4">
+          <div className="mb-6 grid gap-4 md:grid-cols-2">
             {/* All Shared Plans Card */}
-            <button
-              className={`cursor-pointer rounded-lg border-2 p-4 text-left transition-all hover:shadow-md active:scale-[0.98] ${
+            <Card
+              className={`cursor-pointer transition-all hover:shadow-md ${
                 filterView === "all"
-                  ? "border-primary bg-primary/5 ring-2 ring-primary/20"
-                  : "border-slate-200 bg-gradient-to-br from-slate-50 to-gray-50 hover:border-primary/50"
+                  ? "border-primary ring-2 ring-primary/20"
+                  : ""
               }`}
               onClick={() => setFilterView("all")}
-              type="button"
             >
-              <div className="flex items-start justify-between">
-                <div>
-                  <div
-                    className={`font-bold text-2xl sm:text-3xl ${filterView === "all" ? "text-primary" : ""}`}
-                  >
-                    {sharedPlans.length}
+              <CardContent className="p-4">
+                <div className="flex items-center justify-between">
+                  <div>
+                    <p className="text-muted-foreground text-sm">
+                      All Shared Plans
+                    </p>
+                    <p className="font-bold text-2xl">{sharedPlans.length}</p>
                   </div>
-                  <div className="text-muted-foreground text-xs sm:text-sm">
-                    All Shared Plans
-                  </div>
+                  <Layers className="h-8 w-8 text-muted-foreground" />
                 </div>
-                <Layers
-                  className={`h-6 w-6 sm:h-8 sm:w-8 ${filterView === "all" ? "text-primary" : "text-muted-foreground"}`}
-                />
-              </div>
-            </button>
+              </CardContent>
+            </Card>
 
             {/* Rejected Plans Card */}
-            <button
-              className={`cursor-pointer rounded-lg border-2 p-4 text-left transition-all hover:shadow-md active:scale-[0.98] ${
+            <Card
+              className={`cursor-pointer transition-all hover:shadow-md ${
                 filterView === "rejected"
-                  ? "border-red-500 bg-red-50 ring-2 ring-red-200"
-                  : "border-red-200 bg-gradient-to-br from-red-50 to-rose-50 hover:border-red-400"
+                  ? "border-red-500 ring-2 ring-red-200"
+                  : ""
               }`}
               onClick={() => setFilterView("rejected")}
-              type="button"
             >
-              <div className="flex items-start justify-between">
-                <div>
-                  <div
-                    className={`font-bold text-2xl sm:text-3xl ${filterView === "rejected" ? "text-red-600" : "text-red-600"}`}
-                  >
-                    {rejectedPlans.length}
+              <CardContent className="p-4">
+                <div className="flex items-center justify-between">
+                  <div>
+                    <p className="text-muted-foreground text-sm">
+                      Rejected Plans
+                    </p>
+                    <p className="font-bold text-2xl text-red-600">
+                      {rejectedPlans.length}
+                    </p>
                   </div>
-                  <div className="text-muted-foreground text-xs sm:text-sm">
-                    Rejected Plans
-                  </div>
+                  <AlertTriangle className="h-8 w-8 text-red-600" />
                 </div>
-                <AlertTriangle
-                  className={`h-6 w-6 sm:h-8 sm:w-8 ${filterView === "rejected" ? "text-red-600" : "text-red-500"}`}
-                />
-              </div>
-            </button>
+              </CardContent>
+            </Card>
           </div>
 
           {/* Search Bar */}

@@ -1,0 +1,28 @@
+{
+  "skillName": "Running Relaxation & Efficiency",
+  "category": "Running Mechanics",
+  "description": "Ability to maintain relaxed, economical running form while minimizing excess tension and wasted movement. Relaxation doesn't mean lack of effort, but rather absence of counterproductive tension. Efficient runners appear smooth and controlled rather than forced and strained. Facial muscles, jaw, shoulders, hands, and non-working muscles remain relaxed while working muscles contract appropriately. Economy of movement minimizes energy expenditure.",
+  "levels": {
+    "1": {
+      "label": "Developing",
+      "description": "Excessive tension throughout body during all running, even easy efforts. Face scrunched, jaw clenched, shoulders hunched up toward ears, hands in tight fists. Running appears forced, strained, and labored regardless of actual pace. Excessive vertical oscillation (bouncing up and down) wastes energy. Unnecessary movements visible - flailing arms, excessive head movement, twisting torso. Cannot maintain any relaxation for more than few strides before tension creeps back. Breathing appears strained and uncontrolled. Demonstrates no understanding of relaxation's role in running efficiency. Tenses up dramatically when attempting faster paces, actually reducing speed through muscular conflict. Appears to work very hard to run at moderate paces that should feel comfortable."
+    },
+    "2": {
+      "label": "Emerging",
+      "description": "Some relaxation during easy running but significant tension remains and increases dramatically with pace. Can implement relaxation cues (\"relax your jaw,\" \"drop your shoulders,\" \"loosen your hands\") temporarily but reverts to tension quickly without constant reminding. Face and shoulders still show considerable tightness during moderate and hard efforts. Beginning to understand relaxation concept but struggles to maintain while running hard. Shows some reduction in wasteful movements but efficiency still poor compared to competent runners. Breathing rhythm choppy and irregular. Relaxation deteriorates rapidly with fatigue. May achieve brief periods of smooth running but cannot sustain. Demonstrates improvement trajectory but significant development needed."
+    },
+    "3": {
+      "label": "Competent",
+      "description": "Good relaxation and efficiency during steady running with generally smooth appearance. Maintains loose jaw, relaxed shoulders, and cupped hands during normal training paces. Demonstrates economical movement without excessive vertical oscillation or unnecessary motions. Breathing controlled and rhythmic at moderate intensities. Some tension visible during very hard efforts or extreme fatigue but maintains reasonable relaxation in most situations. Can recognize when tension creeps in and actively relax without external cueing. Running appears fluid and controlled rather than strained. Efficiency appropriate for club-level competition with decent running economy. May tighten up slightly in final stages of races but doesn't completely lose relaxed form."
+    },
+    "4": {
+      "label": "Advanced",
+      "description": "Excellent relaxation across all running intensities with smooth, efficient movement quality. Maintains relaxed facial muscles, jaw, shoulders, and hands even during maximal sprint efforts. Demonstrates \"relaxed intensity\" - working hard but without counterproductive tension. Minimal wasted movement with economical running form contributing to superior running economy. Controlled breathing pattern maintained across wide range of intensities. Appears smooth and effortless even when running at near-maximal effort. Can maintain relaxation throughout entire races and workouts despite severe fatigue. Self-monitoring prevents tension from developing. Competitive advantage through superior economy and efficiency. Serves as model for smooth, relaxed running form. Can coach others on relaxation techniques and demonstrate across full speed spectrum."
+    },
+    "5": {
+      "label": "Elite",
+      "description": "Perfect relaxation and efficiency automatic at world-class level appearing effortless despite elite speeds. Maintains complete relaxation of non-working muscles during Olympic or World Championship finals under extreme intensity and pressure. Demonstrates biomechanically perfect economy of movement with zero wasted energy. Facial expression calm and controlled even during championship sprint finishes. Running appears smooth, fluid, and almost easy despite world-record pace or maximum sprint velocity. Among the most economical and efficient running forms globally. Serves as international model for relaxed, efficient running mechanics. Contributes meaningfully to world-class running economy through superior relaxation ability. No visible tension or wasted movement observable under any circumstance including maximum intensity against world's best competitors."
+    }
+  },
+  "assessmentGuidance": "Observe entire body during running at various intensities. Look for tension indicators: clenched jaw and fists, raised shoulders, tight facial expression, rigid posture. Note smoothness of movement - fluid and controlled versus choppy and forced. Watch for wasted motions: excessive bouncing, flailing limbs, unnecessary head movement. Listen to breathing - controlled and rhythmic versus gasping and irregular. Assess across spectrum of efforts from easy recovery runs through maximum intensity. Note whether athlete can maintain relaxation as pace increases or fatigue develops. Video analysis helpful for reviewing overall movement quality and identifying specific tension areas."
+}

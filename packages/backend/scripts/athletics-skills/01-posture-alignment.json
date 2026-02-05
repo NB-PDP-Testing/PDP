@@ -1,0 +1,28 @@
+{
+  "skillName": "Posture & Alignment",
+  "category": "Running Mechanics",
+  "description": "Maintaining optimal body position during running with proper torso lean, spinal alignment, and head position. Torso lean should originate from ankles (not hips), creating straight-line alignment of shoulders, hips, and ankles. Core bracing prevents excessive lumbar extension and enables efficient force transfer.",
+  "levels": {
+    "1": {
+      "label": "Developing",
+      "description": "Aware of posture but inconsistent execution. Often runs with excessive forward bend at waist or sitting back with hips, disconnecting upper and lower body force transfer. Tends to look down at feet rather than ahead, disrupting spinal alignment. Shoulders frequently tense and raised toward ears. Posture deteriorates significantly when fatigued, particularly in final portions of runs. Requires constant coaching cues to maintain proper alignment and cannot self-correct. Core engagement minimal or absent, leading to excessive lumbar extension during running."
+    },
+    "2": {
+      "label": "Emerging",
+      "description": "Maintains reasonable posture during easy running with occasional lapses. Can implement coaching cues (\"run tall,\" \"lean from ankles\") with reminders and shows improvement within sessions. Generally keeps head position neutral during steady efforts but reverts to looking down when stressed. Posture breaks down during intense efforts or late in runs as fatigue sets in. Demonstrates understanding of proper alignment but lacks consistency across different intensities and situations. Some core engagement present but not sustained throughout entire run."
+    },
+    "3": {
+      "label": "Competent",
+      "description": "Consistently maintains good posture during training runs at moderate intensity with proper ankle lean and spinal alignment. Self-corrects when posture slips without external cueing, showing body awareness. Keeps eyes focused forward 10-20 meters ahead, shoulders relaxed and level. Able to maintain form during tempo runs and most race-pace work. Challenges remain at maximum intensity or in deep fatigue states. Core stability adequate for most running situations, preventing excessive lumbar extension. Demonstrates competent biomechanics appropriate for club-level competition."
+    },
+    "4": {
+      "label": "Advanced",
+      "description": "Excellent posture across all training intensities and race situations with minimal deterioration when fatigued. Maintains optimal alignment throughout races and hard workouts, including final sprint finishes. Demonstrates strong core stability under all conditions, with visible engagement preventing energy leaks. Posture appears efficient and economical with proper forward lean from ankles, neutral spine, and relaxed upper body. Can maintain perfect form even during lactate-inducing efforts. Serves as positive example for training partners and demonstrates proper mechanics on request. Competitive advantage through superior biomechanical efficiency."
+    },
+    "5": {
+      "label": "Elite",
+      "description": "Optimal biomechanics automatic across all situations, intensities, and fatigue states. Maintains perfect posture even in extreme fatigue states or during final championship sprint finishes against elite competition. Demonstrates world-class running economy through flawless alignment and core stability. Forward lean originates precisely from ankles with shoulders, hips, and ankles in perfect alignment. No conscious thought required to maintain form under any circumstance. Serves as biomechanical model for other athletes and coaches. Elite-level efficiency enables performance at international competition standard."
+    }
+  },
+  "assessmentGuidance": "Observe during multiple running scenarios: warm-up, steady runs, tempo pace, and maximum intensity efforts. Watch for head position, torso angle, hip alignment, and core engagement. Note whether form deteriorates with fatigue or remains consistent. Key indicators include forward lean origin point (ankles vs. waist), shoulder relaxation, and ability to maintain form through finish line in races."
+}

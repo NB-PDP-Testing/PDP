@@ -1,18 +1,14 @@
 #!/bin/bash
 # Test Runner Agent
-# Creates and EXECUTES both UAT and unit tests when stories complete
+# Creates and EXECUTES both Playwright E2E and unit tests when stories complete
 # Provides REAL-TIME feedback to Ralph via feedback.md
 #
 # Key features:
-# - Detects newly completed stories (polls every 30 seconds for faster response)
-# - Generates unit test files for backend mutations/queries
-# - Runs tests immediately and reports results
-# - Writes failures directly to feedback.md for Ralph to fix during the run
-#
-# FIXES:
-# - Only report NEW errors, not pre-existing lint warnings
-# - Track baseline error counts to detect regressions
-# - Don't mark as failed if only lint warnings exist (not errors)
+# - Detects newly completed stories (polls every 30 seconds)
+# - Runs Playwright E2E tests against the running dev server
+# - Runs type checks and codegen validation
+# - Tracks baseline lint errors to detect regressions
+# - Writes failures directly to feedback.md for Ralph to fix
 
 set -e
 cd "$(dirname "$0")/../../.."
@@ -24,6 +20,8 @@ PRD_FILE="scripts/ralph/prd.json"
 TESTS_DIR="scripts/ralph/agents/output/tests"
 UNIT_TESTS_DIR="packages/backend/convex/__tests__"
 BASELINE_FILE="$OUTPUT_DIR/.lint-baseline"
+PLAYWRIGHT_CONFIG="apps/web/uat/playwright.config.ts"
+PLAYWRIGHT_TESTS_DIR="apps/web/uat/tests"
 
 mkdir -p "$OUTPUT_DIR"
 mkdir -p "$TESTS_DIR"
@@ -63,13 +61,64 @@ write_feedback() {
     echo "📝 Feedback written: $severity" | tee -a "$LOG_FILE"
 }
 
-# Run TypeScript/type checks for a specific story's files
+# Check if dev server is running (required for Playwright)
+check_dev_server() {
+    if curl -s -o /dev/null -w "%{http_code}" http://localhost:3000 2>/dev/null | grep -q "200\|302\|304"; then
+        return 0
+    fi
+    return 1
+}
+
+# Run Playwright E2E tests
+run_playwright_tests() {
+    local story_id="$1"
+    local test_pattern="$2"
+
+    echo "Running Playwright E2E tests..." | tee -a "$LOG_FILE"
+
+    # Check if dev server is running
+    if ! check_dev_server; then
+        echo "⚠️ Dev server not running on localhost:3000 - skipping E2E tests" | tee -a "$LOG_FILE"
+        write_feedback "⚠️ **E2E TESTS SKIPPED for $story_id:**" "Dev server not running on localhost:3000. Start it with \`npm run dev\` to enable E2E testing."
+        return 1
+    fi
+
+    local playwright_output=""
+    local playwright_exit=0
+
+    if [ -n "$test_pattern" ] && [ -d "$PLAYWRIGHT_TESTS_DIR" ]; then
+        # Run tests matching the pattern (feature-specific)
+        playwright_output=$(npx -w apps/web playwright test --config="$PLAYWRIGHT_CONFIG" -g "$test_pattern" --reporter=list 2>&1) || playwright_exit=$?
+    else
+        # Run all tests
+        playwright_output=$(npx -w apps/web playwright test --config="$PLAYWRIGHT_CONFIG" --reporter=list 2>&1) || playwright_exit=$?
+    fi
+
+    # Parse results
+    local passed=$(echo "$playwright_output" | grep -oE "[0-9]+ passed" | grep -oE "[0-9]+" || echo "0")
+    local failed=$(echo "$playwright_output" | grep -oE "[0-9]+ failed" | grep -oE "[0-9]+" || echo "0")
+    local skipped=$(echo "$playwright_output" | grep -oE "[0-9]+ skipped" | grep -oE "[0-9]+" || echo "0")
+
+    echo "Playwright results: $passed passed, $failed failed, $skipped skipped" | tee -a "$LOG_FILE"
+
+    if [ "$playwright_exit" -ne 0 ] && [ "$failed" -gt 0 ]; then
+        # Extract failure details
+        local failures=$(echo "$playwright_output" | grep -A 5 "✘\|FAILED\|Error:" | head -30)
+        write_feedback "❌ **E2E TEST FAILURES for $story_id ($failed failed, $passed passed):**" "\`\`\`\n$failures\n\`\`\`\n\n**Action Required:** Fix failing E2E tests. View full report:\n\`npx -w apps/web playwright show-report uat/playwright-report\`\n\nTrace files at: \`apps/web/uat/test-results/\`"
+        echo "❌ Playwright: $failed tests failed" | tee -a "$LOG_FILE"
+        return 1
+    fi
+
+    echo "✅ Playwright: $passed tests passed" | tee -a "$LOG_FILE"
+    return 0
+}
+
+# Run TypeScript/type checks
 run_type_checks() {
     local story_id="$1"
 
     echo "Running type checks..." | tee -a "$LOG_FILE"
 
-    # Run full type check (fast enough for real-time)
     local ts_output=$(npm run check-types 2>&1)
     local ts_exit=$?
 
@@ -111,10 +160,9 @@ run_lint_check() {
     local current_errors=$(echo "$biome_output" | grep -oE "Found [0-9]+ error" | grep -oE "[0-9]+" | head -1 || echo "0")
     local baseline_errors=$(cat "$BASELINE_FILE" 2>/dev/null || echo "0")
 
-    # Only fail if NEW errors were introduced
     if [ "$current_errors" -gt "$baseline_errors" ]; then
         local new_errors=$((current_errors - baseline_errors))
-        write_feedback "❌ **NEW LINT ERRORS for $story_id:**" "Introduced $new_errors new error(s) (was $baseline_errors, now $current_errors)\n\n**Suggestion:** Run \`npx biome check --write --unsafe\` to auto-fix."
+        write_feedback "❌ **NEW LINT ERRORS for $story_id:**" "Introduced $new_errors new error(s) (was $baseline_errors, now $current_errors)\n\n**Suggestion:** Run \`npx ultracite fix\` to auto-fix."
         return 1
     elif [ "$current_errors" -gt 0 ]; then
         echo "⚠️ Lint has $current_errors pre-existing errors (baseline: $baseline_errors) - not failing" | tee -a "$LOG_FILE"
@@ -124,72 +172,7 @@ run_lint_check() {
     return 0
 }
 
-# Generate unit test file for backend changes
-generate_unit_test() {
-    local story_id="$1"
-    local story_title="$2"
-    local acceptance="$3"
-
-    # Check if story involves backend (mutations/queries)
-    if echo "$acceptance" | grep -qiE "(mutation|query|schema|table|index)"; then
-        local test_file="$UNIT_TESTS_DIR/${story_id}.test.ts"
-
-        echo "Generating unit test: $test_file" | tee -a "$LOG_FILE"
-
-        cat > "$test_file" << EOF
-/**
- * Unit Tests: $story_id - $story_title
- * Auto-generated by Test Runner Agent
- *
- * NOTE: These are placeholder tests. Review and enhance based on actual implementation.
- */
-
-import { describe, it, expect } from 'vitest';
-
-describe('$story_id: $story_title', () => {
-  // Placeholder test - implement based on actual acceptance criteria
-  it('should be implemented', () => {
-    // TODO: Implement actual test
-    expect(true).toBe(true);
-  });
-});
-EOF
-
-        echo "✅ Unit test generated: $test_file" | tee -a "$LOG_FILE"
-        return 0
-    fi
-
-    echo "Skipping unit test (no backend changes detected)" | tee -a "$LOG_FILE"
-    return 0
-}
-
-# Run existing unit tests
-run_unit_tests() {
-    local story_id="$1"
-
-    # Check if vitest is configured
-    if [ -f "packages/backend/vitest.config.ts" ] || [ -f "vitest.config.ts" ]; then
-        echo "Running unit tests..." | tee -a "$LOG_FILE"
-
-        # Run vitest in CI mode (non-interactive)
-        local test_output=$(npm run test --if-present 2>&1 || npx vitest run --reporter=verbose 2>&1 || echo "No test runner configured")
-        local test_exit=$?
-
-        if [ $test_exit -ne 0 ] && echo "$test_output" | grep -qiE "(fail|error)"; then
-            local failures=$(echo "$test_output" | grep -A 3 -E "(FAIL|Error:)" | head -20)
-            write_feedback "❌ **UNIT TEST FAILURES for $story_id:**" "\`\`\`\n$failures\n\`\`\`\n\n**Action Required:** Fix failing tests."
-            return 1
-        fi
-
-        echo "✅ Unit tests passed (or not configured)" | tee -a "$LOG_FILE"
-    else
-        echo "⏭️ No unit test runner configured" | tee -a "$LOG_FILE"
-    fi
-
-    return 0
-}
-
-# Generate UAT test scenario file
+# Generate UAT test scenario file (kept for documentation, supplementing Playwright)
 generate_uat_tests() {
     local story_id="$1"
     local story_title="$2"
@@ -199,7 +182,7 @@ generate_uat_tests() {
 
     local uat_file="$TESTS_DIR/${feature_slug}-${story_id}-uat.md"
 
-    echo "Generating UAT tests: $uat_file" | tee -a "$LOG_FILE"
+    echo "Generating UAT checklist: $uat_file" | tee -a "$LOG_FILE"
 
     cat > "$uat_file" << EOF
 # UAT Test: $story_id - $story_title
@@ -214,7 +197,6 @@ $story_desc
 
 EOF
 
-    # Generate checklist from acceptance criteria
     echo "$acceptance" | while read -r criteria; do
         if [ -n "$criteria" ]; then
             echo "- [ ] $criteria" >> "$uat_file"
@@ -223,31 +205,9 @@ EOF
 
     cat >> "$uat_file" << EOF
 
-## Test Scenarios
-
-### Happy Path
-1. Navigate to the feature
-2. Perform the primary action described in the story
-3. Verify all acceptance criteria are met
-4. **Expected:** Feature works as described
-
-### Edge Cases
-1. Test with empty/null values
-2. Test with boundary values
-3. Test rapid repeated actions
-4. **Expected:** Graceful handling, no errors
-
-### Error Handling
-1. Test with invalid inputs
-2. Test without proper permissions
-3. Test with network issues (if applicable)
-4. **Expected:** Clear error messages, no crashes
-
-## Visual Verification
-- [ ] UI matches design expectations
-- [ ] Responsive on mobile (if applicable)
-- [ ] Loading states are appropriate
-- [ ] Error states are user-friendly
+## Playwright E2E Tests
+- Run: \`npx -w apps/web playwright test --config=uat/playwright.config.ts -g "$story_id"\`
+- Report: \`npx -w apps/web playwright show-report uat/playwright-report\`
 
 ## Notes
 _Add testing observations here_
@@ -256,7 +216,7 @@ _Add testing observations here_
 *Generated by Test Runner Agent*
 EOF
 
-    echo "✅ UAT test generated: $uat_file" | tee -a "$LOG_FILE"
+    echo "✅ UAT checklist generated: $uat_file" | tee -a "$LOG_FILE"
 }
 
 # Main test function for a story
@@ -294,29 +254,26 @@ test_story() {
     # 3. Run lint checks - ONLY NEW ERRORS are critical
     if ! run_lint_check "$story_id"; then
         all_passed=false
-        # Not marking as critical since pre-existing errors are ignored
     fi
 
-    # 4. Generate tests (UAT + Unit)
-    generate_uat_tests "$story_id" "$story_title" "$story_desc" "$acceptance" "$feature_slug"
-    generate_unit_test "$story_id" "$story_title" "$acceptance"
-
-    # 5. Run unit tests if configured
-    if ! run_unit_tests "$story_id"; then
+    # 4. Run Playwright E2E tests (the real deal)
+    if ! run_playwright_tests "$story_id" "$story_id"; then
         all_passed=false
     fi
+
+    # 5. Generate UAT checklist (documentation)
+    generate_uat_tests "$story_id" "$story_title" "$story_desc" "$acceptance" "$feature_slug"
 
     # Record this story as tested
     echo "$story_id" >> "$TESTED_FILE"
 
-    # Write summary - only if critical checks passed
+    # Write summary
     if [ "$critical_failure" = true ]; then
         echo "❌ CRITICAL tests failed for $story_id - Ralph needs to fix" | tee -a "$LOG_FILE"
     elif [ "$all_passed" = true ]; then
-        echo "✅ All tests passed for $story_id" | tee -a "$LOG_FILE"
-        # Don't spam feedback with success messages - only report failures
+        echo "✅ All tests passed for $story_id (including Playwright E2E)" | tee -a "$LOG_FILE"
     else
-        echo "⚠️ Some non-critical checks had warnings for $story_id" | tee -a "$LOG_FILE"
+        echo "⚠️ Some tests had warnings for $story_id" | tee -a "$LOG_FILE"
     fi
 }
 
@@ -342,6 +299,9 @@ check_for_completed_stories() {
         fi
     done
 }
+
+# Store PID
+echo $$ > "$OUTPUT_DIR/test-runner.pid"
 
 # Main loop - fast polling for real-time feedback
 while true; do

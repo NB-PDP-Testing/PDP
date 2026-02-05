@@ -7,7 +7,6 @@ import { SkipLink } from "@/components/accessibility";
 import { FlowInterceptor } from "@/components/flow-interceptor";
 // import { ParentActionsInterceptor } from "@/components/parent-actions-interceptor"; // DISABLED: Using Guardian Identity Claim Dialog instead
 import { KeyboardShortcutsOverlay } from "@/components/polish/keyboard-shortcuts-overlay";
-import { OfflineIndicator } from "@/components/polish/offline-indicator";
 import { PWAInstallPrompt } from "@/components/polish/pwa-install-prompt";
 import Providers from "@/components/providers";
 import { PWAUpdatePrompt } from "@/components/pwa";
@@ -72,7 +71,6 @@ export default function RootLayout({
           {/* <ParentActionsInterceptor /> DISABLED: Using Guardian Identity Claim Dialog instead */}
           <FlowInterceptor>
             <KeyboardShortcutsOverlay />
-            <OfflineIndicator position="top" />
             <PWAInstallPrompt />
             <PWAUpdatePrompt />
             <div className="flex min-h-svh flex-col" id="main-content">

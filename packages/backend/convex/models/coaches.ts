@@ -665,6 +665,23 @@ export const getCoachPreferences = query({
       blockedBy: v.optional(v.string()),
       blockedAt: v.optional(v.number()),
       blockReason: v.optional(v.string()),
+      teamInsightsViewPreference: v.optional(
+        v.union(
+          v.literal("list"),
+          v.literal("board"),
+          v.literal("calendar"),
+          v.literal("players")
+        )
+      ),
+      gesturesEnabled: v.optional(v.boolean()),
+      swipeRightAction: v.optional(
+        v.union(v.literal("apply"), v.literal("dismiss"), v.literal("disabled"))
+      ),
+      swipeLeftAction: v.optional(
+        v.union(v.literal("apply"), v.literal("dismiss"), v.literal("disabled"))
+      ),
+      createdAt: v.number(),
+      updatedAt: v.number(),
     })
   ),
   handler: async (ctx, args) => {
@@ -722,6 +739,23 @@ export const getCoachPreferencesInternal = internalQuery({
       blockedBy: v.optional(v.string()),
       blockedAt: v.optional(v.number()),
       blockReason: v.optional(v.string()),
+      teamInsightsViewPreference: v.optional(
+        v.union(
+          v.literal("list"),
+          v.literal("board"),
+          v.literal("calendar"),
+          v.literal("players")
+        )
+      ),
+      gesturesEnabled: v.optional(v.boolean()),
+      swipeRightAction: v.optional(
+        v.union(v.literal("apply"), v.literal("dismiss"), v.literal("disabled"))
+      ),
+      swipeLeftAction: v.optional(
+        v.union(v.literal("apply"), v.literal("dismiss"), v.literal("disabled"))
+      ),
+      createdAt: v.number(),
+      updatedAt: v.number(),
     })
   ),
   handler: async (ctx, args) => {

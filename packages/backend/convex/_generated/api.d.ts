@@ -339,9 +339,11 @@ export declare const components: {
             | {
                 data: {
                   address?: string;
+                  address2?: string;
                   altEmail?: string;
                   childLinkingSkipCount?: number;
                   country?: string;
+                  county?: string;
                   createdAt: number;
                   currentOrgId?: string;
                   email: string;
@@ -565,7 +567,9 @@ export declare const components: {
                     | "phone"
                     | "altEmail"
                     | "address"
+                    | "address2"
                     | "town"
+                    | "county"
                     | "postcode"
                     | "country"
                     | "profileCompletionStatus"
@@ -1003,7 +1007,9 @@ export declare const components: {
                     | "phone"
                     | "altEmail"
                     | "address"
+                    | "address2"
                     | "town"
+                    | "county"
                     | "postcode"
                     | "country"
                     | "profileCompletionStatus"
@@ -1515,9 +1521,11 @@ export declare const components: {
                 model: "user";
                 update: {
                   address?: string;
+                  address2?: string;
                   altEmail?: string;
                   childLinkingSkipCount?: number;
                   country?: string;
+                  county?: string;
                   createdAt?: number;
                   currentOrgId?: string;
                   email?: string;
@@ -1560,7 +1568,9 @@ export declare const components: {
                     | "phone"
                     | "altEmail"
                     | "address"
+                    | "address2"
                     | "town"
+                    | "county"
                     | "postcode"
                     | "country"
                     | "profileCompletionStatus"
@@ -2121,9 +2131,11 @@ export declare const components: {
                 model: "user";
                 update: {
                   address?: string;
+                  address2?: string;
                   altEmail?: string;
                   childLinkingSkipCount?: number;
                   country?: string;
+                  county?: string;
                   createdAt?: number;
                   currentOrgId?: string;
                   email?: string;
@@ -2166,7 +2178,9 @@ export declare const components: {
                     | "phone"
                     | "altEmail"
                     | "address"
+                    | "address2"
                     | "town"
+                    | "county"
                     | "postcode"
                     | "country"
                     | "profileCompletionStatus"
@@ -2755,8 +2769,10 @@ export declare const components: {
         "internal",
         {
           address?: string;
+          address2?: string;
           altEmail?: string;
           country?: string;
+          county?: string;
           phone?: string;
           postcode?: string;
           town?: string;

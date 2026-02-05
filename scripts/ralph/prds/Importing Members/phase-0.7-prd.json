@@ -44,7 +44,7 @@
         "Typecheck passes: npm run check-types"
       ],
       "priority": 1,
-      "passes": true,
+      "passes": false,
       "notes": "Schema foundation - must be done first."
     },
     {
@@ -63,7 +63,7 @@
         "Typecheck passes"
       ],
       "priority": 2,
-      "passes": true,
+      "passes": false,
       "notes": "Core sync logic for profile updates."
     },
     {
@@ -80,7 +80,7 @@
         "Typecheck passes"
       ],
       "priority": 3,
-      "passes": true,
+      "passes": false,
       "notes": "Pre-populate user profile from imported data."
     },
     {
@@ -103,7 +103,7 @@
         "Typecheck passes"
       ],
       "priority": 4,
-      "passes": true,
+      "passes": false,
       "notes": "Main UI for address editing. Reuse patterns from profile-completion-step.tsx."
     },
     {
@@ -120,7 +120,7 @@
         "Typecheck passes"
       ],
       "priority": 5,
-      "passes": true,
+      "passes": false,
       "notes": "Display-only. Editing done via Profile Settings."
     },
     {
@@ -139,7 +139,7 @@
         "All type checks pass: npm run check-types"
       ],
       "priority": 6,
-      "passes": true,
+      "passes": false,
       "notes": "Final verification before marking phase complete."
     }
   ]

@@ -263,7 +263,7 @@ export function ProfileCompletionStep({
 
           {/* Alternate Email Input */}
           <div className="space-y-2">
-            <Label htmlFor="altEmail">Alternate Email (Optional)</Label>
+            <Label htmlFor="altEmail">Alternate Email</Label>
             <Input
               disabled={isSubmitting || isSkipping}
               id="altEmail"

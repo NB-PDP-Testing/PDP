@@ -15,8 +15,8 @@ export function useOnlineStatus() {
   const convex = useConvex();
   const [isOnline, setIsOnline] = useState(true);
   const [wasOffline, setWasOffline] = useState(false);
-  const hasBeenOfflineRef = useRef(false);
-  const isInitializedRef = useRef(false);
+  const hasBeenOnlineRef = useRef(false); // Track if we've been online first
+  const hasGoneOfflineRef = useRef(false); // Track if we've gone offline after being online
 
   useEffect(() => {
     if (!convex) {
@@ -27,22 +27,31 @@ export function useOnlineStatus() {
     const initialState = convex.connectionState();
     const initiallyConnected = initialState.isWebSocketConnected;
     setIsOnline(initiallyConnected);
-    isInitializedRef.current = true;
+
+    // If initially connected, mark that we've been online
+    if (initiallyConnected) {
+      hasBeenOnlineRef.current = true;
+    }
 
     // Subscribe to Convex connection state changes (official API)
     const unsubscribe = convex.subscribeToConnectionState((state) => {
       const connected = state.isWebSocketConnected;
 
-      // Track when we go offline (after initialization)
-      if (!connected && isInitializedRef.current) {
-        hasBeenOfflineRef.current = true;
+      // Track that we've been online at least once
+      if (connected && !hasBeenOnlineRef.current) {
+        hasBeenOnlineRef.current = true;
       }
 
-      // Only show "reconnected" message if we've actually been offline in this session
-      if (connected && hasBeenOfflineRef.current) {
+      // Only track offline state if we've been online first (not during initial load)
+      if (!connected && hasBeenOnlineRef.current) {
+        hasGoneOfflineRef.current = true;
+      }
+
+      // Only show "reconnected" if: we were online, then went offline, now back online
+      if (connected && hasGoneOfflineRef.current) {
         setWasOffline(true);
-        setTimeout(() => setWasOffline(false), 5000);
-        hasBeenOfflineRef.current = false; // Reset until next offline event
+        setTimeout(() => setWasOffline(false), 3000); // Match banner timeout
+        hasGoneOfflineRef.current = false; // Reset for next offline cycle
       }
 
       setIsOnline(connected);

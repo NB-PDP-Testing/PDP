@@ -2,7 +2,8 @@
 
 **Branch**: feat/voice-gateways-v2
 **Started**: 2026-02-04
-**Current Phase**: Phase 2 - Mobile Quick Review UI (6 stories)
+**Current Phase**: Phase 2 - Coach Quick Review Microsite (6 stories, 7-9 days)
+**PRD Revision**: v2 — aggregated no-auth microsite (replaces per-note auth'd review page)
 
 ---
 
@@ -17,74 +18,85 @@
 - US-VN-006: Find Similar Players Query
 
 ### Integration Gaps Fixed (post-Phase 1):
-- VN-002: validateTranscriptQuality now wired into transcribeAudio pipeline
-  - Branches on reject/ask_user/process after Whisper transcription
-  - Quality fields (transcriptQuality, transcriptValidation) stored on voiceNotes
-  - getAwaitingConfirmation query added for WhatsApp confirmation flow
-  - CONFIRM/RETRY/CANCEL handler added to WhatsApp processMessage
-- VN-006: findSimilarPlayers now called as fuzzy fallback in buildInsights
-  - Fires when deterministic findMatchingPlayer returns undefined
-  - Uses 0.85 similarity threshold to prevent false positives
-  - Converted insights .map() to for...of loop for async support
+- VN-002: validateTranscriptQuality wired into transcribeAudio pipeline
+- VN-006: findSimilarPlayers called as fuzzy fallback in buildInsights (0.85 threshold)
 
 ### Test Results: 349 tests passing across 86 files
 
 ---
 
-## Phase 2: Mobile Quick Review UI - IN PROGRESS
+## Phase 2: Coach Quick Review Microsite - IN PROGRESS
 
-### Execution Order (sequential - heavy dependencies):
-1. US-VN-007 → US-VN-008 → US-VN-009 → US-VN-010
-2. US-VN-011 (parallel with US-VN-009, depends on US-VN-007)
-3. US-VN-012 (depends on US-VN-009)
+### Design Principles (from UX research):
+- Zero friction: no login — 8-char code = authentication (magic link)
+- Aggregated queue: one rolling link per coach, ALL pending items
+- Priority ordering: injuries → unmatched → pending → todos → team → auto-applied
+- Batch operations: "Apply All", "Save All Team Notes", "Add All to Tasks"
+- WhatsApp-native: "OK" to apply all matched, "R" to resend link
+- Completion feedback: progress counter + "All caught up" state
+
+### Execution Order:
+1. US-VN-007 → US-VN-008 → US-VN-009 → US-VN-010 (sequential)
+2. US-VN-011 (parallel after 007)
+3. US-VN-012 (parallel after 008)
 
 ### Stories:
 
-#### US-VN-007: Review Links Backend (1 day) - PENDING
-- Add whatsappReviewLinks table to schema.ts
-- Schema: code (8-char unique), voiceNoteId, organizationId, coachUserId, createdAt, expiresAt (48h), status
-- Indexes: by_code, by_voiceNoteId, by_expiresAt_and_status, by_coachUserId
-- Functions: generateReviewLink (internalMutation), getReviewLinkData (query), markLinkAccessed (mutation)
-- Integration: Hook into checkAndAutoApply, update formatResultsMessage with deep link
-- Unit tests required
+#### US-VN-007: Review Links Backend, Coach-Scoped (1.5 days) - PENDING
+- whatsappReviewLinks table with coach-scoped reuse logic
+- ONE active link per coach, voiceNoteIds array grows as notes arrive
+- PUBLIC queries: getReviewLinkByCode, getCoachPendingItems, markLinkAccessed
+- Integration into checkAndAutoApply + formatResultsMessage
+- Unit tests
 
-#### US-VN-008: Redirect Route (0.5 day) - PENDING
-- Create /r/[code] server component redirect route
-- Validate link, redirect to /orgs/{orgId}/coach/review/{code} or error pages
-- Create /review-link-invalid and /review-link-expired error pages
+#### US-VN-008: Quick Review Microsite (1 day) - PENDING
+- /r/[code] renders directly — NO auth, NO redirect
+- Client component for real-time useQuery
+- Error states inline (InvalidLinkView, ExpiredLinkView)
+- Mobile: max-w-lg, touch targets >= 44px, safe area
 
-#### US-VN-009: Quick Review Page (2 days) - PENDING
-- Create /orgs/[orgId]/coach/review/[code] client component
-- Sections: QuickReviewHeader, VoiceNoteContext, NeedsReviewSection, UnmatchedSection, AutoAppliedSection, OtherPendingPrompt
-- Mobile-first: max-w-lg, p-4, touch targets >= 44px, safe area padding
-- Loading skeletons, real-time via useQuery
+#### US-VN-009: Review Queue Sections & Batch Actions (2.5 days) - PENDING
+- 6 priority-sorted sections: Injuries, Unmatched, NeedsReview, Todos, TeamNotes, AutoApplied
+- Batch ops: Apply All, Save All Team Notes, Add All to Tasks
+- Progress counter + "All caught up" completion state
+- New mutations: logInjuryFromInsight, addTodoFromInsight, saveTeamNote, batchApplyInsights
 
-#### US-VN-010: Unmatched Player Cards (1.5 days) - PENDING
-- UnmatchedPlayerCard with fuzzy-matched suggestions from Phase 1
-- REUSE findSimilarPlayers from Phase 1 (NOTE: it's an internalQuery - needs public wrapper!)
-- Radio group for suggestions, "Someone else..." fallback
-- assignPlayerToInsight mutation
+#### US-VN-010: Unmatched Player Cards + Text Reply (1.5 days) - PENDING
+- PUBLIC wrapper for findSimilarPlayers (it's internalQuery!)
+- Inline Radio layout with fuzzy suggestions + similarity %
+- Text reply input for "Someone else..." — re-searches on submit
+- Aggregated across all voice notes in the link
 
-#### US-VN-011: Trust-Adaptive Messages (0.5 day) - PENDING
-- Update formatResultsMessage based on coach trust level (TL0-3)
-- TL0-1: Generic counts / TL2: Top 3 names / TL3: Confident "All applied!"
-- Helpers: getTrustLevel, formatCategory, truncateList
-- Unit tests required
+#### US-VN-011: Trust-Adaptive Messages + WhatsApp Quick Actions (1 day) - PENDING
+- Trust-level formatting (TL0-3) with running totals
+- "OK" quick-reply: batch-apply all matched without leaving WhatsApp
+- "R" reply: resend link + pending summary
+- Handler priority: OK → R → CONFIRM/RETRY/CANCEL → normal
 
 #### US-VN-012: Link Expiry & Cleanup (0.5 day) - PENDING
-- Cron job: daily 3am UTC, delete links > 7 days expired
-- LinkExpiredView component for expired link UI
-- Unit tests required
+- Cron: daily 3am UTC, expire active links + delete > 7 days
+- Link lifecycle: create → reuse → expire → cleanup
+- ExpiredLinkView with WhatsApp deep link back
 
 ---
 
 ## Critical Reminders for Ralph:
-- DON'T rebuild Phase 1 functions (validateTranscriptQuality, findSimilarPlayers, etc.)
-- REUSE findSimilarPlayers from Phase 1 for US-VN-010 (needs public wrapper since it's internalQuery)
-- Link expiry: 48 hours, validate on EVERY access
-- Mobile-first: touch targets >= 44px, max-w-lg, safe area padding
-- NEVER use .filter() - always use .withIndex()
+- NO AUTH on /r/[code] — public route, code = token
+- NO REDIRECT — renders review UI directly at /r/[code]
+- ONE LINK PER COACH — reuse active link, don't generate per note
+- findSimilarPlayers is internalQuery — needs PUBLIC wrapper
+- All microsite queries validate code + expiry on EVERY call
+- WhatsApp handler order: OK → R → CONFIRM/RETRY/CANCEL → awaiting_confirmation → normal
+- NEVER use .filter() — always .withIndex()
 - Better Auth: user._id (not user.id), user.name (not user.firstName)
-- Batch fetch + Map lookup (avoid N+1 queries)
-- Lift useQuery to parent, pass data as props
-- Use shadcn/ui components + Tailwind CSS + Lucide Icons
+- Batch fetch + Map lookup (avoid N+1)
+- Touch targets >= 44px, min 16px font, max-w-lg
+- Use shadcn/ui + Tailwind CSS + Lucide Icons
+
+## Phase 3 Candidates (Deferred):
+- Swipe gestures (Tinder/Superhuman pattern)
+- End-of-day WhatsApp digest
+- Snooze action ("review later")
+- Offline resilience (PWA)
+- Voice reply from microsite
+- Flow-through card-by-card mode

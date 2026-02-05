@@ -68,11 +68,12 @@ export default function TeamInsightsPage() {
   );
 
   // Get coach's team IDs (Pattern B - already resolved server-side)
-  // Filter out corrupted team IDs (e.g., player IDs)
+  // Filter out corrupted team IDs (e.g., player IDs) and deduplicate
   const coachTeamIds = useMemo(() => {
     if (!coachAssignment?.teams) {
       return [];
     }
+    const seen = new Set<string>();
     return coachAssignment.teams
       .filter((team) => {
         if (!team.teamId) {
@@ -84,6 +85,11 @@ export default function TeamInsightsPage() {
           );
           return false;
         }
+        // Deduplicate - only include first occurrence
+        if (seen.has(team.teamId)) {
+          return false;
+        }
+        seen.add(team.teamId);
         return true;
       })
       .map((team) => team.teamId);

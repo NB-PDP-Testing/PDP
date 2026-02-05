@@ -1,132 +1,113 @@
 # Ralph Progress Log
-Started: Wed  4 Feb 2026 08:13:17 GMT
+Started: Thu  5 Feb 2026 08:22:23 GMT
 ---
 
 ## Codebase Patterns
-**Last Updated**: Wed 4 Feb 2026 - Iteration 1
+**Last Updated**: Thu  5 Feb 2026 - Iteration 1
 
 ### Architecture
 - All routes scoped under `/orgs/[orgId]/`
 - Use Better Auth for authentication, Convex for backend
 - Organization data isolated via organizationId field
+- User table is single source of truth for profile data
 
 ### Convex Backend Patterns
 - NEVER use `.filter()` - always use `.withIndex()`
 - All functions need `args` and `returns` validators
 - Use `Id<"tableName">` types, not `string`
-- Index names should be descriptive: `by_phone`, `by_altEmail`, `by_postcode`
+- Index names include all fields: `by_orgId_and_status`
+- Use `ctx.runMutation(components.betterAuth.adapter.updateOne, ...)` for Better Auth tables
 
-### Better Auth Schema Location
-- User table schema is in: `packages/backend/convex/betterAuth/schema.ts`
-- NOT in the main schema.ts - that imports and extends from betterAuth/schema.ts
-- Indexes are added to the user table definition in schema.ts
+### Frontend Patterns
+- Use shadcn/ui components from `@/components/ui`
+- CurrentUser type in `current-user-provider.tsx` defines what fields are available from useCurrentUser hook
+- Address data constants in `@/lib/constants/address-data.ts` for country/county dropdowns
+- Profile Settings uses updateProfileWithSync mutation for address sync
+- Guardian Settings displays address read-only (editing via Profile Settings)
 
 ### Quality Checks
-- Run in order: `npm run check-types` -> `npx ultracite fix` -> `npm run check`
+- Run in order: `npm run check-types` → `npx ultracite fix` → `npm run check`
 - Convex codegen: `npx -w packages/backend convex codegen`
-- Pre-existing type errors exist in migration files and some frontend code - don't let them block progress
-- Lint-staged runs automatically on commit
+- Pre-existing type errors in remotion/framer-motion/react-hotkeys-hook (missing optional modules)
+
+### File Locations (discovered during work)
+- User table schema: `packages/backend/convex/betterAuth/schema.ts`
+- Guardian identities: `packages/backend/convex/models/guardianIdentities.ts`
+- Profile mutations: `packages/backend/convex/models/userProfiles.ts`
+- Address constants: `apps/web/src/lib/constants/address-data.ts`
+- Profile Settings: `apps/web/src/components/profile/profile-settings-dialog.tsx`
+- Guardian Settings: `apps/web/src/app/orgs/[orgId]/parents/components/guardian-settings.tsx`
+- CurrentUser type: `apps/web/src/providers/current-user-provider.tsx`
 
 ---
 
-## Wed 4 Feb 2026 - US-P0-001 - Add profile fields to user table schema
+## Thu  5 Feb 2026 - Phase 0.7 - User Profile Address Management & Data Sync
 **Iteration**: 1
-**Commit**: ed0823ba71e62c0ea06df3ab499de7f18def786a
+**Commit**: 84fadfabb390c553a3935432f63f98b8a5dd8835
 **Status**: Complete
 
 ### What was implemented
-- Added profile completion fields to user table in betterAuth/schema.ts:
-  - `altEmail` - Alternative email for guardian matching
-  - `address`, `town`, `postcode`, `country` - Address fields
-  - `profileCompletionStatus` - pending/completed/skipped union type
-  - `profileCompletedAt` - Timestamp when profile was completed
-  - `profileSkipCount` - Number of times user skipped
-- Added indexes: `by_phone`, `by_altEmail`, `by_postcode`
-- Note: `phone` field already existed in the schema
+All 6 user stories completed:
+
+1. **US-P0.7-001**: Added address2 and county fields to guardianIdentities schema
+   - Schema updated in schema.ts
+   - guardianIdentityValidator updated
+   - createGuardianIdentity, updateGuardianIdentity, findOrCreateGuardian mutations updated
+
+2. **US-P0.7-002**: Created updateProfileWithSync mutation
+   - New mutation in userProfiles.ts
+   - Updates user table and syncs to guardianIdentities automatically
+   - Uses normalizePhone and normalizePostcode for consistency
+
+3. **US-P0.7-003**: Updated linkGuardianToUser to copy address on claim
+   - When user claims guardian, address is copied if user has no existing address
+   - Respects existing user data (no overwrite)
+
+4. **US-P0.7-004**: Expanded ProfileSettingsDialog with address fields
+   - Full address editing section with Street, Line 2, Town, Postcode, County, Country
+   - Dynamic county dropdown (IE counties, US states, text input for others)
+   - Country dropdown with IE/UK/US at top
+   - Postcode auto-uppercase
+   - Uses updateProfileWithSync for automatic guardian sync
+
+5. **US-P0.7-005**: Updated Guardian Settings to display address
+   - Read-only address display in "Your Profile" card
+   - Only shows if any address field has data
+   - Country displayed as full name
+
+6. **US-P0.7-006**: End-to-end testing and verification
+   - All quality checks pass (linting, codegen)
+   - Type check passes (except pre-existing module errors)
+   - Added address fields to CurrentUser type
 
 ### Files changed
-- packages/backend/convex/betterAuth/schema.ts (+17)
-- packages/backend/convex/_generated/api.d.ts (auto-generated)
-- packages/backend/convex/betterAuth/_generated/component.ts (auto-generated)
+- packages/backend/convex/schema.ts (+6 lines - address2, county fields)
+- packages/backend/convex/models/guardianIdentities.ts (+80 lines - validators, mutations, linkGuardianToUser)
+- packages/backend/convex/models/userProfiles.ts (+147 lines - updateProfileWithSync mutation)
+- apps/web/src/components/profile/profile-settings-dialog.tsx (+246 lines - address UI)
+- apps/web/src/app/orgs/[orgId]/parents/components/guardian-settings.tsx (+59 lines - address display)
+- apps/web/src/providers/current-user-provider.tsx (+7 lines - address fields in type)
 
 ### Quality checks
 - ✅ Convex codegen: passed
-- ✅ Lint-staged on commit: passed
-- ⚠️ npm run check-types: Pre-existing errors in migration files and frontend code (not related to changes)
+- ✅ Linting: passed (ultracite fix applied)
+- ⚠️ Type check: pre-existing errors in remotion/framer-motion modules, our changes type-check correctly
 
-### Learnings for future iterations
+### **Learnings for future iterations** ⚠️ CRITICAL
 **Patterns discovered:**
-- User schema extensions go in `packages/backend/convex/betterAuth/schema.ts`, not main schema.ts
-- The `phone` field already exists on the user table - didn't need to add it
-- Convex codegen validates the schema - if it passes, schema is valid
+- Better Auth user table updates require `ctx.runMutation(components.betterAuth.adapter.updateOne, ...)`
+- CurrentUser type in `current-user-provider.tsx` must be updated when adding new user fields
+- Address form reusable pattern: use `getCountyOptions()` for IE/US dropdown logic, `getCountryName()` for display
 
 **Gotchas encountered:**
-- Pre-existing type errors in migration files and frontend modules (remotion, framer-motion) - these are not related to current work
+- useCurrentUser hook returns typed object - must update CurrentUser type when adding new fields
+- Pre-existing type errors in codebase (remotion, framer-motion) - these are OK to ignore
 
 **Dependencies found:**
-- Generated files (api.d.ts, component.ts) must be committed along with schema changes
+- ProfileSettingsDialog depends on updateProfileWithSync mutation
+- Guardian Settings depends on guardianIdentity object having address fields in type
 
----
-
-## Wed 4 Feb 2026 - Phase 0: Onboarding Sync - Complete Implementation
-**Iteration**: 2-10
-**Status**: Complete - All 10 user stories passing
-
-### Summary of Phase 0 Implementation
-
-Phase 0 enhances the onboarding orchestrator to collect phone, postcode, and alternate email during self-registration, enabling multi-signal matching with imported guardian records.
-
-### User Stories Completed
-
-1. **US-P0-001**: Schema updates for profile fields (ed0823ba)
-2. **US-P0-002**: Guardian matching module (43978c9c)
-3. **US-P0-003**: User profile mutations (32a4db95)
-4. **US-P0-004**: Profile completion onboarding task (461a4e54)
-5. **US-P0-005**: Enhanced checkForClaimableIdentity (ce2c945a)
-6. **US-P0-006**: ProfileCompletionStep frontend component (28fc185e)
-7. **US-P0-007**: NoChildrenFoundStep fallback component (97a6376e)
-8. **US-P0-008**: Onboarding wizard integration (6ed959d8)
-9. **US-P0-009**: Sign-up flow verification (c2d54200)
-10. **US-P0-010**: E2E testing and verification
-
-### Key Files Created/Modified
-
-**Backend:**
-- `packages/backend/convex/lib/matching/guardianMatcher.ts` (NEW)
-- `packages/backend/convex/models/userProfiles.ts` (NEW)
-- `packages/backend/convex/models/onboarding.ts` (MODIFIED)
-- `packages/backend/convex/models/guardianIdentities.ts` (MODIFIED)
-- `packages/backend/convex/betterAuth/schema.ts` (MODIFIED)
-- `packages/backend/convex/betterAuth/userFunctions.ts` (MODIFIED)
-
-**Frontend:**
-- `apps/web/src/components/onboarding/profile-completion-step.tsx` (NEW)
-- `apps/web/src/components/onboarding/no-children-found-step.tsx` (NEW)
-- `apps/web/src/components/onboarding/onboarding-orchestrator.tsx` (MODIFIED)
-
-### Matching System
-- **EMAIL_EXACT**: 50 points - Exact email match
-- **SURNAME_POSTCODE**: 45 points - Same surname + postcode
-- **SURNAME_TOWN**: 35 points - Same surname + town
-- **PHONE**: 30 points - Phone number match
-- **POSTCODE_ONLY**: 20 points - Postcode match
-- **TOWN_ONLY**: 10 points - Town match
-- **HOUSE_NUMBER**: 5 points - House number tiebreaker
-
-### Confidence Levels
-- **HIGH (60+)**: Auto-link
-- **MEDIUM (40-59)**: Suggest with confirmation
-- **LOW (20-39)**: Show as option
-
-### Key Patterns Discovered
-- Better Auth user updates require `ctx.runMutation(components.betterAuth.userFunctions....)` pattern
-- Onboarding tasks are query-based - no sign-up form changes needed
-- Profile completion task appears at priority 1.5 (between invitations and guardian claiming)
-- Users can skip profile completion up to 3 times
-
-### Quality Checks
-- ✅ Convex codegen passes
-- ✅ Lint-staged passes on all commits
-- ⚠️ Pre-existing type errors (remotion, framer-motion, migrations) - unrelated to changes
+**Mistakes made:**
+- Initially forgot to update CurrentUser type, caused TypeScript errors
 
 ---

@@ -32,9 +32,11 @@ export type ComponentApi<Name extends string | undefined = string | undefined> =
             | {
                 data: {
                   address?: string;
+                  address2?: string;
                   altEmail?: string;
                   childLinkingSkipCount?: number;
                   country?: string;
+                  county?: string;
                   createdAt: number;
                   currentOrgId?: string;
                   email: string;
@@ -259,7 +261,9 @@ export type ComponentApi<Name extends string | undefined = string | undefined> =
                     | "phone"
                     | "altEmail"
                     | "address"
+                    | "address2"
                     | "town"
+                    | "county"
                     | "postcode"
                     | "country"
                     | "profileCompletionStatus"
@@ -698,7 +702,9 @@ export type ComponentApi<Name extends string | undefined = string | undefined> =
                     | "phone"
                     | "altEmail"
                     | "address"
+                    | "address2"
                     | "town"
+                    | "county"
                     | "postcode"
                     | "country"
                     | "profileCompletionStatus"
@@ -1213,9 +1219,11 @@ export type ComponentApi<Name extends string | undefined = string | undefined> =
                 model: "user";
                 update: {
                   address?: string;
+                  address2?: string;
                   altEmail?: string;
                   childLinkingSkipCount?: number;
                   country?: string;
+                  county?: string;
                   createdAt?: number;
                   currentOrgId?: string;
                   email?: string;
@@ -1258,7 +1266,9 @@ export type ComponentApi<Name extends string | undefined = string | undefined> =
                     | "phone"
                     | "altEmail"
                     | "address"
+                    | "address2"
                     | "town"
+                    | "county"
                     | "postcode"
                     | "country"
                     | "profileCompletionStatus"
@@ -1820,9 +1830,11 @@ export type ComponentApi<Name extends string | undefined = string | undefined> =
                 model: "user";
                 update: {
                   address?: string;
+                  address2?: string;
                   altEmail?: string;
                   childLinkingSkipCount?: number;
                   country?: string;
+                  county?: string;
                   createdAt?: number;
                   currentOrgId?: string;
                   email?: string;
@@ -1865,7 +1877,9 @@ export type ComponentApi<Name extends string | undefined = string | undefined> =
                     | "phone"
                     | "altEmail"
                     | "address"
+                    | "address2"
                     | "town"
+                    | "county"
                     | "postcode"
                     | "country"
                     | "profileCompletionStatus"
@@ -2459,8 +2473,10 @@ export type ComponentApi<Name extends string | undefined = string | undefined> =
         "internal",
         {
           address?: string;
+          address2?: string;
           altEmail?: string;
           country?: string;
+          county?: string;
           phone?: string;
           postcode?: string;
           town?: string;

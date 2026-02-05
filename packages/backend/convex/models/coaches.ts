@@ -269,17 +269,20 @@ export const updateCoachAssignments = mutation({
       )
       .first();
 
+    // Deduplicate teams array to prevent duplicate entries
+    const uniqueTeams = [...new Set(args.teams)];
+
     // Track team changes for notifications
     const previousTeams = existing?.teams || [];
-    const newlyAssignedTeams = args.teams.filter(
+    const newlyAssignedTeams = uniqueTeams.filter(
       (t) => !previousTeams.includes(t)
     );
-    const removedTeams = previousTeams.filter((t) => !args.teams.includes(t));
+    const removedTeams = previousTeams.filter((t) => !uniqueTeams.includes(t));
 
     if (existing) {
       // Update existing assignment
       await ctx.db.patch(existing._id, {
-        teams: args.teams,
+        teams: uniqueTeams,
         ageGroups: args.ageGroups,
         sport: args.sport,
         roles: args.roles,
@@ -290,7 +293,7 @@ export const updateCoachAssignments = mutation({
       await ctx.db.insert("coachAssignments", {
         userId: args.userId,
         organizationId: args.organizationId,
-        teams: args.teams,
+        teams: uniqueTeams,
         ageGroups: args.ageGroups,
         sport: args.sport,
         roles: args.roles,

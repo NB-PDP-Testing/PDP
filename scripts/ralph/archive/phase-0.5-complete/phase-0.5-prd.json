@@ -1,0 +1,124 @@
+{
+  "project": "PlayerARC - Phase 0.5: Player Postcode Matching Enhancement",
+  "branchName": "ralph/phase-0.5-player-postcode-matching",
+  "description": "Enhance the guardian matching algorithm to include player identity postcode as an additional matching signal. This improves matching accuracy for scenarios with separated parents where the child's postcode differs from one or both guardians.",
+  "prdFile": "scripts/ralph/prds/Importing Members/phase-0.5-player-postcode-matching.md",
+  "contextFiles": [
+    "packages/backend/convex/lib/matching/guardianMatcher.ts",
+    "packages/backend/convex/models/guardianIdentities.ts",
+    "packages/backend/convex/models/playerImport.ts",
+    "packages/backend/convex/schema.ts",
+    "apps/web/src/components/onboarding/unified-guardian-claim-step.tsx",
+    "CLAUDE.md"
+  ],
+  "mandatoryPatterns": [
+    "Use Convex function syntax with args and returns validators",
+    "Use .withIndex() never .filter() for queries",
+    "Batch fetch with Map lookup pattern to avoid N+1 queries",
+    "Preserve existing guardian matching algorithm weights",
+    "Maintain backward compatibility with existing matching logic",
+    "Run npx ultracite fix before completing any story"
+  ],
+  "successCriteria": [
+    "Player postcode is used as additional matching signal",
+    "Match reasons display player postcode match information",
+    "Existing email/phone/guardian-postcode matching continues to work",
+    "Separated parent scenarios handled correctly",
+    "No regression in matching accuracy"
+  ],
+  "userStories": [
+    {
+      "id": "US-P0.5-001",
+      "title": "Add PLAYER_POSTCODE_BONUS weight constant",
+      "description": "As a developer, I need a new matching weight constant for player postcode matching.",
+      "acceptanceCriteria": [
+        "Add PLAYER_POSTCODE_BONUS: 10 to MATCHING_WEIGHTS in guardianMatcher.ts",
+        "Export the updated MATCHING_WEIGHTS constant",
+        "Typecheck passes: npm run check-types"
+      ],
+      "priority": 1,
+      "passes": false,
+      "notes": "Simple addition to existing weights object."
+    },
+    {
+      "id": "US-P0.5-002",
+      "title": "Implement checkPlayerPostcodeMatch function",
+      "description": "As a developer, I need a function to check if a user's postcode matches any linked player's postcode.",
+      "acceptanceCriteria": [
+        "Create checkPlayerPostcodeMatch function in guardianMatcher.ts",
+        "Function takes ctx, guardianId, and userPostcode parameters",
+        "Function queries guardianPlayerLinks by guardian ID",
+        "Function fetches linked player identities",
+        "Function compares normalized postcodes",
+        "Function returns { matches: boolean, matchedPlayers: string[] }",
+        "Function excludes declined links from comparison",
+        "Typecheck passes"
+      ],
+      "priority": 2,
+      "passes": false,
+      "notes": "Core logic for player postcode matching."
+    },
+    {
+      "id": "US-P0.5-003",
+      "title": "Update calculateMatchScore to include player postcode bonus",
+      "description": "As a user, I need the matching algorithm to give bonus points when my postcode matches linked players.",
+      "acceptanceCriteria": [
+        "Modify calculateMatchScore in guardianMatcher.ts",
+        "After existing scoring, call checkPlayerPostcodeMatch if postcode provided",
+        "Add PLAYER_POSTCODE_BONUS to score if players match",
+        "Add match reason: 'Postcode matches linked player(s): [names]'",
+        "Typecheck passes"
+      ],
+      "priority": 3,
+      "passes": false,
+      "notes": "Integration of player postcode matching into scoring."
+    },
+    {
+      "id": "US-P0.5-004",
+      "title": "Update GuardianMatch type for player postcode info",
+      "description": "As a developer, I need the match result type to include player postcode match information.",
+      "acceptanceCriteria": [
+        "Update GuardianMatch type in guardianMatcher.ts",
+        "Add optional postcodeMatches field to linkedPlayers array items",
+        "Update findGuardianMatches to populate this field",
+        "Typecheck passes"
+      ],
+      "priority": 4,
+      "passes": false,
+      "notes": "Type updates for enhanced match results."
+    },
+    {
+      "id": "US-P0.5-005",
+      "title": "Unit tests for player postcode matching",
+      "description": "As a developer, I need comprehensive tests for the player postcode matching feature.",
+      "acceptanceCriteria": [
+        "Test checkPlayerPostcodeMatch with matching postcode returns true",
+        "Test checkPlayerPostcodeMatch with non-matching postcode returns false",
+        "Test checkPlayerPostcodeMatch with multiple players, one match",
+        "Test checkPlayerPostcodeMatch with no linked players returns false",
+        "Test checkPlayerPostcodeMatch excludes declined links",
+        "Test score calculation includes player postcode bonus",
+        "All tests pass"
+      ],
+      "priority": 5,
+      "passes": false,
+      "notes": "Test coverage for new functionality."
+    },
+    {
+      "id": "US-P0.5-006",
+      "title": "End-to-end verification",
+      "description": "As a developer, I need to verify the complete flow works correctly.",
+      "acceptanceCriteria": [
+        "Test: User registers with postcode matching linked player → bonus points applied",
+        "Test: User registers with postcode NOT matching linked player → no bonus",
+        "Test: Existing email/phone/guardian-postcode matching still works",
+        "Test: Match reasons display player names when postcode matches",
+        "All linting passes: npx ultracite fix",
+        "All type checks pass: npm run check-types"
+      ],
+      "priority": 6,
+      "passes": false,
+      "notes": "Final verification before marking phase complete."
+    }
+  ]
+}

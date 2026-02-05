@@ -70,6 +70,9 @@ export const getCurrentUser = query({
       // Child linking skip tracking (Phase 6)
       childLinkingSkipCount: v.optional(v.number()),
 
+      // No children found acknowledgement (Phase 0)
+      noChildrenAcknowledged: v.optional(v.boolean()),
+
       // Current organization tracking
       currentOrgId: v.optional(v.string()),
 
@@ -80,6 +83,9 @@ export const getCurrentUser = query({
       // First-user setup wizard tracking
       setupComplete: v.optional(v.boolean()),
       setupStep: v.optional(v.string()),
+
+      // Invitation tracking (Phase 0.8)
+      wasInvited: v.optional(v.boolean()),
     })
   ),
   handler: async (ctx) => {

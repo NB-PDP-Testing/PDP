@@ -9,65 +9,56 @@ import { cn } from "@/lib/utils";
 
 /**
  * Hook to track online/offline status using Convex's official connection state API
- * Uses client.subscribeToConnectionState() as documented in Convex best practices
+ *
+ * Simple logic:
+ * - Start assuming online (don't show anything during initial load)
+ * - Wait for WebSocket to be confirmed connected
+ * - Only THEN start tracking offline/online transitions
  */
 export function useOnlineStatus() {
   const convex = useConvex();
   const [isOnline, setIsOnline] = useState(true);
   const [wasOffline, setWasOffline] = useState(false);
-  const hasBeenOnlineRef = useRef(false); // Track if we've been online first
-  const hasGoneOfflineRef = useRef(false); // Track if we've gone offline after being online
-  const isInitialMountRef = useRef(true); // Track if we're still in initial mount phase
+
+  // Track the previous connection state to detect transitions
+  const previouslyConnectedRef = useRef<boolean | null>(null);
 
   useEffect(() => {
     if (!convex) {
       return;
     }
 
-    // Give a brief grace period for initial connection (1 second)
-    // This prevents showing offline during page load
-    const gracePeriodTimer = setTimeout(() => {
-      isInitialMountRef.current = false;
-    }, 1000);
-
-    // Subscribe to Convex connection state changes (official API)
     const unsubscribe = convex.subscribeToConnectionState((state) => {
       const connected = state.isWebSocketConnected;
+      const previouslyConnected = previouslyConnectedRef.current;
 
-      // Track that we've been online at least once
-      if (connected) {
-        hasBeenOnlineRef.current = true;
+      // First time we get a state - just record it, don't react
+      if (previouslyConnected === null) {
+        previouslyConnectedRef.current = connected;
+        // Always start as online to avoid flashing on page load
+        setIsOnline(true);
+        return;
       }
 
-      // Only track offline state if:
-      // 1. We've been online first (not during initial load)
-      // 2. We're past the initial mount grace period
-      if (
-        !connected &&
-        hasBeenOnlineRef.current &&
-        !isInitialMountRef.current
-      ) {
-        hasGoneOfflineRef.current = true;
-      }
+      // Now we can track actual transitions
+      const wentOffline = previouslyConnected && !connected;
+      const cameBackOnline = !previouslyConnected && connected;
 
-      // Only show "reconnected" if: we were online, then went offline, now back online
-      if (connected && hasGoneOfflineRef.current) {
+      if (wentOffline) {
+        // Actually went offline - show offline banner
+        setIsOnline(false);
+      } else if (cameBackOnline) {
+        // Came back online - show reconnected banner
+        setIsOnline(true);
         setWasOffline(true);
-        setTimeout(() => setWasOffline(false), 3000); // Match banner timeout
-        hasGoneOfflineRef.current = false; // Reset for next offline cycle
+        setTimeout(() => setWasOffline(false), 3000);
       }
 
-      // Only update isOnline state if we're past initial mount or if connected
-      // This prevents showing offline during page load
-      if (!isInitialMountRef.current || connected) {
-        setIsOnline(connected);
-      }
+      // Update ref for next comparison
+      previouslyConnectedRef.current = connected;
     });
 
-    return () => {
-      clearTimeout(gracePeriodTimer);
-      unsubscribe();
-    };
+    return () => unsubscribe();
   }, [convex]);
 
   return { isOnline, wasOffline };

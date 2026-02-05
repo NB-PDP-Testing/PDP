@@ -38,6 +38,14 @@ type CurrentUser = {
   gdprConsentedAt?: number;
   setupComplete?: boolean;
   setupStep?: string;
+  // Profile completion fields (Phase 0)
+  altEmail?: string;
+  profileCompletionStatus?: "pending" | "completed" | "skipped";
+  profileCompletedAt?: number;
+  profileSkipCount?: number;
+  noChildrenAcknowledged?: boolean;
+  // Invitation tracking (Phase 0.8)
+  wasInvited?: boolean;
 } | null;
 
 type CurrentUserContextType = {

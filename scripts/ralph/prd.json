@@ -1,7 +1,7 @@
 {
-  "project": "Voice Gateways v2 - Phase 2: Mobile Quick Review UI",
+  "project": "Voice Gateways v2 - Phase 2: Coach Quick Review Microsite",
   "branchName": "feat/voice-gateways-v2",
-  "description": "Build mobile-optimized quick review interface for WhatsApp voice notes. Coaches receive time-limited deep links (48h) to review, confirm, and resolve fuzzy-matched player suggestions. Phase 2 of 6 for the complete Voice Notes Pipeline v2.",
+  "description": "Build no-auth mobile microsite for coach voice note review. Coaches tap a WhatsApp deep link to see an aggregated priority-sorted queue of ALL pending insights across all voice notes. One rolling link per coach, 48h expiry, batch operations, WhatsApp 'OK' quick-reply. Phase 2 of 6 for the complete Voice Notes Pipeline v2.",
   "contextFiles": [
     "scripts/ralph/prds/voice-gateways-v2/context/MAIN_CONTEXT.md",
     "scripts/ralph/prds/voice-gateways-v2/context/PHASE2_MOBILE_REVIEW.md",
@@ -9,9 +9,9 @@
   ],
   "relatedIssue": "https://github.com/NB-PDP-Testing/PDP/issues/423",
   "previousPhases": [
-    "Phase 1 - Quality Gates & Fuzzy Matching (COMPLETE: US-VN-001 to US-VN-006, 118 unit tests, integration gaps fixed)"
+    "Phase 1 - Quality Gates & Fuzzy Matching (COMPLETE: US-VN-001 to US-VN-006, 349 tests, integration gaps fixed)"
   ],
-  "currentPhase": "Phase 2 - Mobile Quick Review UI (6 stories, 5-7 days)",
+  "currentPhase": "Phase 2 - Coach Quick Review Microsite (6 stories, 7-9 days)",
   "completedStories": [
     "US-VN-001",
     "US-VN-002",
@@ -23,7 +23,7 @@
   "executionStrategy": {
     "parallelStreams": false,
     "sequential": {
-      "name": "Mobile Quick Review",
+      "name": "Coach Quick Review Microsite",
       "order": [
         "US-VN-007",
         "US-VN-008",
@@ -32,224 +32,178 @@
         "US-VN-011",
         "US-VN-012"
       ],
-      "notes": "Sequential due to heavy dependencies: backend links -> redirect route -> review page -> unmatched cards"
+      "notes": "Sequential: backend links → microsite shell → queue sections → unmatched cards. US-VN-011 can parallel after 007. US-VN-012 can parallel after 008."
     }
   },
+  "designPrinciples": [
+    "Zero friction: no login required — 8-char code IS the authentication",
+    "Aggregated queue: one rolling link per coach, ALL pending items across all voice notes",
+    "Priority ordering: injuries → unmatched → pending → todos → team notes → auto-applied",
+    "Batch operations: 'Apply All', 'Save All Team Notes', 'Add All to Tasks'",
+    "Progressive disclosure: urgent items visible, informational items collapsed",
+    "WhatsApp-native: 'OK' to apply all matched, 'R' to resend link",
+    "Completion feedback: progress counter + 'All caught up' state"
+  ],
   "criticalReminders": [
-    "DON'T rebuild: Auto-Apply Preferences (coachTrustLevels.insightAutoApplyPreferences) - already exists",
-    "DON'T rebuild: Trust Level System (coachTrustLevels table) - already exists",
-    "DON'T rebuild: findSimilarPlayers (Phase 1 US-VN-006) - REUSE it in UnmatchedPlayerCard",
-    "DON'T rebuild: validateTranscriptQuality or quality gates (Phase 1) - already integrated",
-    "DON'T rebuild: WhatsApp Integration Foundation (actions/whatsapp.ts) - EXTEND it",
-    "REUSE findSimilarPlayers from Phase 1 for unmatched player suggestions (US-VN-010)",
+    "NO AUTH on /r/[code] — this is a public route, code = token",
+    "NO REDIRECT — /r/[code] renders the review UI directly",
+    "ONE LINK PER COACH — reuse active link, don't generate per voice note",
+    "DON'T rebuild: findSimilarPlayers (Phase 1 US-VN-006) — create a PUBLIC wrapper",
+    "DON'T rebuild: validateTranscriptQuality or quality gates (Phase 1)",
+    "DON'T rebuild: WhatsApp Integration Foundation (actions/whatsapp.ts) — EXTEND it",
+    "findSimilarPlayers is internalQuery — needs public wrapper for microsite queries",
+    "All microsite queries validate code + expiry on EVERY call",
     "Link expiry: 48 hours from creation, validate on EVERY access",
-    "Mobile-first: touch targets >= 44px, max-w-lg, safe area padding",
-    "NEVER use .filter() - always use .withIndex()",
+    "Mobile-first: touch targets >= 44px, max-w-lg, safe area padding, min 16px font",
+    "NEVER use .filter() — always use .withIndex()",
     "Better Auth IDs as v.string() not v.id()",
     "Batch fetch + Map lookup (avoid N+1 queries)",
-    "Lift useQuery to parent components, pass data as props"
+    "WhatsApp handler order: OK → R → CONFIRM/RETRY/CANCEL → awaiting_confirmation → normal",
+    "Use shadcn/ui components + Tailwind CSS + Lucide Icons"
   ],
   "mandatoryPatterns": [
+    "Code-based auth: validate review code on every query (not session auth)",
+    "Coach-scoped links: reuse active link if exists, extend voiceNoteIds array",
+    "Priority ordering: injuries first, auto-applied last (collapsed)",
+    "Batch fetch + Map lookup for aggregation queries (NEVER N+1)",
     "Mobile-first responsive design (test on 375px width)",
     "Touch targets >= 44px for all interactive elements",
     "Loading skeletons for all async sections",
-    "Real-time updates via useQuery (not polling)",
-    "Link validation on every access (check expiry)",
-    "Batch fetch + Map lookup (avoid N+1 queries)",
+    "Real-time updates via useQuery (Convex subscriptions)",
     "Use composite indexes (never .filter() after .withIndex())",
     "Better Auth IDs as v.string() not v.id()",
     "Use shadcn/ui components + Tailwind CSS",
     "Use Lucide Icons for iconography"
   ],
   "phase1IntegrationNotes": [
-    "validateTranscriptQuality is NOW wired into transcribeAudio - branches on reject/ask_user/process",
+    "validateTranscriptQuality is wired into transcribeAudio — branches on reject/ask_user/process",
     "getAwaitingConfirmation internal query exists for CONFIRM/RETRY/CANCEL flow",
     "WhatsApp processMessage checks for pending confirmations before text processing",
-    "findSimilarPlayers is NOW called as fuzzy fallback in buildInsights (threshold >= 0.85)",
+    "findSimilarPlayers is called as fuzzy fallback in buildInsights (threshold >= 0.85)",
     "updateTranscription mutation accepts transcriptQuality and transcriptValidation fields"
   ],
   "userStories": [
     {
       "id": "US-VN-007",
       "phase": 2,
-      "title": "Review Links Backend",
-      "description": "Create backend infrastructure for time-limited deep links to mobile quick review pages. Generate unique 8-char codes, track expiry (48h), and provide validation queries for link access.",
+      "title": "Review Links Backend (Coach-Scoped)",
+      "description": "Create backend infrastructure for coach-scoped review links. ONE active link per coach, reused across multiple voice notes. 48h expiry. Aggregated pending items query.",
       "acceptanceCriteria": [
         "Backend: Add whatsappReviewLinks table to schema.ts",
-        "Schema fields: code (8 alphanumeric, unique), voiceNoteId, organizationId, coachUserId, createdAt, expiresAt (48h), accessedAt, status (active/expired/used), pendingInsightsCount, unmatchedCount",
-        "Indexes: by_code, by_voiceNoteId, by_expiresAt_and_status, by_coachUserId",
-        "Backend: Create models/whatsappReviewLinks.ts",
-        "Function: generateReviewLink (internalMutation) - Generate unique 8-char code (exclude 0, O, I, l)",
-        "Function: getReviewLinkData (query) - Query by code, check expiry",
-        "Function: markLinkAccessed (mutation) - Update status='used', set accessedAt",
-        "Integration: Call generateReviewLink in checkAndAutoApply after processing insights",
-        "Update formatResultsMessage to include deep link: 'Quick review: {SITE_URL}/r/{code}'",
-        "Unit tests: Create __tests__/whatsappReviewLinks.test.ts",
+        "Schema: code, organizationId, coachUserId, createdAt, expiresAt, accessedAt, status, voiceNoteIds (array), lastNoteAddedAt",
+        "Indexes: by_code, by_coachUserId_and_status, by_expiresAt_and_status",
+        "Function: generateReviewLink (internalMutation) — reuses active link if exists, otherwise creates new 8-char code",
+        "Function: getReviewLinkByCode (PUBLIC query) — validates code, returns link data with isExpired flag",
+        "Function: getCoachPendingItems (PUBLIC query) — aggregates ALL pending items across all voiceNoteIds, grouped by priority",
+        "Function: markLinkAccessed (PUBLIC mutation) — sets accessedAt, keeps status='active'",
+        "Integration: call generateReviewLink in checkAndAutoApply",
+        "Update formatResultsMessage to include review link URL",
+        "Unit tests with test cases for reuse, expiry, aggregation",
         "Type check passes: npm run check-types"
       ],
       "priority": 7,
-      "passes": true,
-      "effort": "1 day",
-      "dependencies": ["US-VN-006"],
-      "files": {
-        "create": [
-          "packages/backend/convex/models/whatsappReviewLinks.ts",
-          "packages/backend/convex/__tests__/whatsappReviewLinks.test.ts"
-        ],
-        "modify": [
-          "packages/backend/convex/schema.ts",
-          "packages/backend/convex/actions/whatsapp.ts"
-        ]
-      }
+      "effort": "1.5 days",
+      "dependencies": ["US-VN-006"]
     },
     {
       "id": "US-VN-008",
       "phase": 2,
-      "title": "Redirect Route",
-      "description": "Create public /r/[code] redirect route that validates review links and redirects to org-scoped review page or shows error states (expired, invalid).",
+      "title": "Quick Review Microsite",
+      "description": "Create no-auth microsite at /r/[code]. Renders review UI directly — no redirect, no login. Code = token. Error states inline.",
       "acceptanceCriteria": [
-        "Frontend: Create apps/web/src/app/r/[code]/page.tsx (server component)",
-        "Extract code from params, call getReviewLinkData via fetchQuery",
-        "If null: redirect('/review-link-invalid')",
-        "If expired: redirect('/review-link-expired')",
-        "Else: redirect('/orgs/{orgId}/coach/review/{code}')",
-        "Create /review-link-invalid page with error message + 'Open App' button",
-        "Create /review-link-expired page with error message + 'Open Voice Notes' button",
+        "Frontend: Create apps/web/src/app/r/[code]/page.tsx (client component)",
+        "NO AUTH REQUIRED — public route",
+        "NO REDIRECT — renders review UI directly",
+        "Components: QuickReviewLayout, QuickReviewHeader, InvalidLinkView, ExpiredLinkView, LoadingSkeleton",
+        "Mobile: max-w-lg mx-auto, p-4, touch targets >= 44px, min 16px font, safe area padding",
         "Type check passes: npm run check-types"
       ],
       "priority": 8,
-      "passes": true,
-      "effort": "0.5 day",
-      "dependencies": ["US-VN-007"],
-      "files": {
-        "create": [
-          "apps/web/src/app/r/[code]/page.tsx",
-          "apps/web/src/app/review-link-invalid/page.tsx",
-          "apps/web/src/app/review-link-expired/page.tsx"
-        ]
-      }
+      "effort": "1 day",
+      "dependencies": ["US-VN-007"]
     },
     {
       "id": "US-VN-009",
       "phase": 2,
-      "title": "Quick Review Page",
-      "description": "Create mobile-optimized review page at /orgs/[orgId]/coach/review/[code] showing voice note context, pending insights, and auto-applied items with collapsible sections.",
+      "title": "Review Queue Sections & Batch Actions",
+      "description": "Priority-sorted sections with batch ops, progress counter, 'All caught up' state. Grouped by type across ALL voice notes.",
       "acceptanceCriteria": [
-        "Frontend: Create apps/web/src/app/orgs/[orgId]/coach/review/[code]/page.tsx (client component)",
-        "Sections: QuickReviewHeader, VoiceNoteContext (collapsible), NeedsReviewSection, UnmatchedSection, AutoAppliedSection (collapsed), OtherPendingPrompt",
-        "Queries: useQuery for reviewLink data, voiceNote, voiceNotesByCoach",
-        "Mutations: markLinkAccessed, applyInsight, dismissInsight",
-        "Mobile-responsive: max-w-lg, p-4, touch targets >= 44px, bottom safe area",
-        "Loading states: skeleton for each section",
-        "Mark link accessed on mount via useEffect",
+        "Sections in priority order: InjuryAlertSection, UnmatchedSection (placeholder), NeedsReviewSection, TodosSection, TeamNotesSection, AutoAppliedSection",
+        "Batch actions: 'Apply All', 'Save All Team Notes', 'Add All to Tasks'",
+        "Progress counter: '{reviewed} of {total} reviewed' with visual progress bar",
+        "'All caught up' completion state with summary counts",
+        "New mutations: logInjuryFromInsight, addTodoFromInsight, saveTeamNote, batchApplyInsights",
         "Type check passes: npm run check-types"
       ],
       "priority": 9,
-      "passes": true,
-      "effort": "2 days",
-      "dependencies": ["US-VN-008"],
-      "files": {
-        "create": [
-          "apps/web/src/app/orgs/[orgId]/coach/review/[code]/page.tsx",
-          "apps/web/src/app/orgs/[orgId]/coach/review/[code]/components/quick-review-header.tsx",
-          "apps/web/src/app/orgs/[orgId]/coach/review/[code]/components/voice-note-context.tsx",
-          "apps/web/src/app/orgs/[orgId]/coach/review/[code]/components/needs-review-section.tsx",
-          "apps/web/src/app/orgs/[orgId]/coach/review/[code]/components/auto-applied-section.tsx",
-          "apps/web/src/app/orgs/[orgId]/coach/review/[code]/components/other-pending-prompt.tsx",
-          "apps/web/src/app/orgs/[orgId]/coach/review/[code]/components/quick-review-skeleton.tsx"
-        ]
-      }
+      "effort": "2.5 days",
+      "dependencies": ["US-VN-008"]
     },
     {
       "id": "US-VN-010",
       "phase": 2,
-      "title": "Unmatched Player Cards",
-      "description": "Create UnmatchedPlayerCard component that displays fuzzy-matched player suggestions from Phase 1, allows coach to select match and assign player.",
+      "title": "Unmatched Player Cards + Text Reply",
+      "description": "Fuzzy-matched suggestions from Phase 1 with text reply input for coach to type correct name. PUBLIC wrapper for findSimilarPlayers.",
       "acceptanceCriteria": [
-        "Frontend: Create unmatched-player-card.tsx and unmatched-section.tsx",
-        "REUSE Phase 1 query: useQuery(api.models.orgPlayerEnrollments.findSimilarPlayers, { ... limit: 4 })",
-        "Layout: amber-200 border, player name header, 'Did you mean?' suggestions",
-        "Radio group with player suggestions showing fullName, teamName, similarity %",
-        "Last option: 'Someone else...' with future search placeholder",
-        "If no suggestions: show 'No similar names found' + 'Search Players' button",
-        "Mutation: assignPlayerToInsight({ noteId, insightId, playerIdentityId })",
-        "Loading state: Loader2 icon during assignment",
+        "Backend: findSimilarPlayersForReview (PUBLIC query wrapper) — validates code, delegates to findSimilarPlayers",
+        "Layout: Inline Radio (mockup Option A) — amber border, suggestions with similarity %, 'Someone else...' option",
+        "Text reply input when 'Someone else...' selected or no suggestions — re-searches on submit",
+        "Mutation: assignPlayerFromReview (PUBLIC) — validates code, assigns player to insight",
+        "Aggregation: shows unmatched from ALL voice notes in the link",
         "Type check passes: npm run check-types"
       ],
       "priority": 10,
-      "passes": true,
       "effort": "1.5 days",
-      "dependencies": ["US-VN-009", "US-VN-006"],
-      "files": {
-        "create": [
-          "apps/web/src/app/orgs/[orgId]/coach/review/[code]/components/unmatched-player-card.tsx",
-          "apps/web/src/app/orgs/[orgId]/coach/review/[code]/components/unmatched-section.tsx"
-        ],
-        "modify": ["apps/web/src/app/orgs/[orgId]/coach/review/[code]/page.tsx"]
-      }
+      "dependencies": ["US-VN-009", "US-VN-006"]
     },
     {
       "id": "US-VN-011",
       "phase": 2,
-      "title": "Trust-Adaptive Messages",
-      "description": "Update WhatsApp message formatting based on coach trust level (0-3) to show progressively more detailed summaries.",
+      "title": "Trust-Adaptive Messages + WhatsApp Quick Actions",
+      "description": "Trust-level formatting (TL0-3), running totals across notes, 'OK' quick-reply to batch-apply, 'R' to resend link.",
       "acceptanceCriteria": [
-        "Backend: Update formatResultsMessage in actions/whatsapp.ts",
-        "TL0-1: Generic counts only (cautious tone)",
-        "TL2: Show top 3 names + counts (established tone)",
-        "TL3: Confident tone, show all applied if <= 3",
-        "Helper: getTrustLevel, formatCategory, truncateList",
-        "Unit tests: Add to __tests__/whatsappFeedback.test.ts",
+        "Update formatResultsMessage with trust-adaptive formatting",
+        "Running totals: 'You now have {totalPending} pending items'",
+        "WhatsApp 'OK' handler: batch-apply all matched insights, reply with count + remaining",
+        "WhatsApp 'R' handler: resend current review link + pending summary",
+        "Handler priority: OK → R → CONFIRM/RETRY/CANCEL → awaiting_confirmation → normal",
+        "Unit tests for all trust levels + quick actions",
         "Type check passes: npm run check-types"
       ],
       "priority": 11,
-      "passes": true,
-      "effort": "0.5 day",
-      "dependencies": ["US-VN-007"],
-      "files": {
-        "modify": [
-          "packages/backend/convex/actions/whatsapp.ts",
-          "packages/backend/convex/__tests__/whatsappFeedback.test.ts"
-        ]
-      }
+      "effort": "1 day",
+      "dependencies": ["US-VN-007"]
     },
     {
       "id": "US-VN-012",
       "phase": 2,
       "title": "Link Expiry & Cleanup",
-      "description": "Implement cron job to clean up expired review links (>7 days old) and handle expired link UI states.",
+      "description": "Cron job for expired link cleanup, link lifecycle management, expired link UI in microsite.",
       "acceptanceCriteria": [
-        "Backend: Add cleanupExpiredLinks cron job (daily at 3am UTC)",
-        "Backend: Add cleanupExpiredLinks internalMutation to whatsappReviewLinks.ts",
-        "Frontend: Create link-expired-view.tsx component",
-        "Integration: Render LinkExpiredView when linkData.isExpired in page.tsx",
-        "Unit tests: Add cleanup tests to __tests__/whatsappReviewLinks.test.ts",
+        "Cron: cleanupExpiredLinks daily at 3am UTC (delete links > 7 days past expiry)",
+        "Cron: expireActiveLinks (update active → expired where expiresAt < now)",
+        "Link lifecycle: create → reuse → expire → cleanup",
+        "New note after expiry creates fresh link",
+        "ExpiredLinkView with 'Open Voice Notes' + 'Back to WhatsApp' buttons",
+        "Unit tests for expiry + cleanup",
         "Type check passes: npm run check-types"
       ],
       "priority": 12,
-      "passes": true,
       "effort": "0.5 day",
-      "dependencies": ["US-VN-009"],
-      "files": {
-        "create": [
-          "apps/web/src/app/orgs/[orgId]/coach/review/[code]/components/link-expired-view.tsx"
-        ],
-        "modify": [
-          "packages/backend/convex/crons.ts",
-          "packages/backend/convex/models/whatsappReviewLinks.ts",
-          "apps/web/src/app/orgs/[orgId]/coach/review/[code]/page.tsx",
-          "packages/backend/convex/__tests__/whatsappReviewLinks.test.ts"
-        ]
-      }
+      "dependencies": ["US-VN-008"]
     }
   ],
   "successCriteria": [
-    "Review link generated after voice note processing",
-    "Link expires after 48 hours with graceful UI",
-    "Mobile-optimized layout (responsive, touch-friendly)",
-    "Fuzzy match suggestions shown for unmatched players (reusing Phase 1)",
-    "Trust-adaptive WhatsApp messages based on coach level",
-    "Cron job cleans up links > 7 days old",
+    "No-auth microsite at /r/[code] — zero login friction",
+    "Coach-scoped aggregated link (one link, all pending items)",
+    "Priority-sorted queue (injuries → unmatched → pending → todos → team → auto-applied)",
+    "Batch operations (Apply All, Save All Team Notes, Add All to Tasks)",
+    "Progress counter + 'All caught up' completion state",
+    "WhatsApp running totals + 'OK' quick-reply to batch-apply",
+    "Fuzzy match suggestions + text reply for unmatched players",
+    "Trust-adaptive message formatting (TL0-3)",
+    "48h link expiry with graceful expired state",
+    "Mobile-first: touch targets >= 44px, max-w-lg, safe area",
     "All unit tests passing",
     "Type check passes (0 errors)"
   ]

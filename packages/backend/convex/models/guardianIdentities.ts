@@ -2396,6 +2396,49 @@ export const trackParentOnboardingDismissal = mutation({
   },
 });
 
+/**
+ * Admin function to unlink a guardian identity from a user
+ * Used for testing/cleanup purposes
+ * WARNING: No auth check - only use in dev environment
+ */
+export const adminUnlinkGuardian = mutation({
+  args: {
+    guardianIdentityId: v.id("guardianIdentities"),
+  },
+  returns: v.null(),
+  handler: async (ctx, args) => {
+    const guardian = await ctx.db.get(args.guardianIdentityId);
+    if (!guardian) {
+      throw new Error("Guardian identity not found");
+    }
+
+    // Remove userId from guardian identity
+    await ctx.db.patch(args.guardianIdentityId, {
+      userId: undefined,
+    });
+
+    // Reset acknowledgedByParentAt on all links for this guardian
+    const links = await ctx.db
+      .query("guardianPlayerLinks")
+      .withIndex("by_guardian", (q) =>
+        q.eq("guardianIdentityId", args.guardianIdentityId)
+      )
+      .collect();
+
+    for (const link of links) {
+      await ctx.db.patch(link._id, {
+        acknowledgedByParentAt: undefined,
+      });
+    }
+
+    console.log(
+      `[Admin] Unlinked guardian ${args.guardianIdentityId}, reset ${links.length} links`
+    );
+
+    return null;
+  },
+});
+
 // ============================================================
 // HELPER FUNCTIONS
 // ============================================================

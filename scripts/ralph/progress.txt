@@ -1,113 +1,109 @@
 # Ralph Progress Log
-Started: Thu  5 Feb 2026 08:22:23 GMT
----
+Started: Thu  5 Feb 2026 18:29:45 GMT
 
 ## Codebase Patterns
-**Last Updated**: Thu  5 Feb 2026 - Iteration 1
+**Last Updated**: 2026-02-05 - Iteration 1
 
 ### Architecture
 - All routes scoped under `/orgs/[orgId]/`
 - Use Better Auth for authentication, Convex for backend
 - Organization data isolated via organizationId field
-- User table is single source of truth for profile data
+- Monorepo: `apps/web/` (Next.js), `packages/backend/` (Convex)
 
 ### Convex Backend Patterns
 - NEVER use `.filter()` - always use `.withIndex()`
 - All functions need `args` and `returns` validators
 - Use `Id<"tableName">` types, not `string`
 - Index names include all fields: `by_orgId_and_status`
-- Use `ctx.runMutation(components.betterAuth.adapter.updateOne, ...)` for Better Auth tables
+- User schema in `packages/backend/convex/betterAuth/schema.ts`
+- Domain logic in `packages/backend/convex/models/`
+- Use `authComponent.safeGetAuthUser(ctx)` to get current user
+- Update user with `ctx.runMutation(components.betterAuth.adapter.updateOne, ...)`
+- User ID is `user._id`, NOT `user.id`
 
 ### Frontend Patterns
 - Use shadcn/ui components from `@/components/ui`
-- CurrentUser type in `current-user-provider.tsx` defines what fields are available from useCurrentUser hook
-- Address data constants in `@/lib/constants/address-data.ts` for country/county dropdowns
-- Profile Settings uses updateProfileWithSync mutation for address sync
-- Guardian Settings displays address read-only (editing via Profile Settings)
+- Organization theming via CSS variables: `--org-primary`, etc.
+- Onboarding orchestrator at `apps/web/src/components/onboarding/onboarding-orchestrator.tsx`
 
 ### Quality Checks
 - Run in order: `npm run check-types` → `npx ultracite fix` → `npm run check`
-- Convex codegen: `npx -w packages/backend convex codegen`
-- Pre-existing type errors in remotion/framer-motion/react-hotkeys-hook (missing optional modules)
+- Ultracite must run before linting or you'll get false failures
+- Run codegen: `npx -w packages/backend convex codegen`
 
 ### File Locations (discovered during work)
-- User table schema: `packages/backend/convex/betterAuth/schema.ts`
+- User schema: `packages/backend/convex/betterAuth/schema.ts`
+- Onboarding logic: `packages/backend/convex/models/onboarding.ts`
+- Members/invitations: `packages/backend/convex/models/members.ts`
+- Join requests: `packages/backend/convex/models/orgJoinRequests.ts`
 - Guardian identities: `packages/backend/convex/models/guardianIdentities.ts`
-- Profile mutations: `packages/backend/convex/models/userProfiles.ts`
-- Address constants: `apps/web/src/lib/constants/address-data.ts`
-- Profile Settings: `apps/web/src/components/profile/profile-settings-dialog.tsx`
-- Guardian Settings: `apps/web/src/app/orgs/[orgId]/parents/components/guardian-settings.tsx`
-- CurrentUser type: `apps/web/src/providers/current-user-provider.tsx`
+- Onboarding UI: `apps/web/src/components/onboarding/`
+- Profile completion step: `apps/web/src/components/onboarding/profile-completion-step.tsx`
+- Onboarding orchestrator: `apps/web/src/components/onboarding/onboarding-orchestrator.tsx`
+
+### Invitation Acceptance Flow
+- Two mutations handle invitation acceptance: `syncFunctionalRolesFromInvitation` and `syncFunctionalRolesWithChildSelections` (both in members.ts)
+- Both must be updated when adding post-acceptance user patches (e.g., wasInvited flag)
+- Guardian identity creation/linking during invitation: uses `findOrCreateGuardian` pattern
+
+### Guardian System
+- `guardianIdentities` table: platform-level parent identity (has userId when claimed)
+- `guardianPlayerLinks` table: links guardians to players with relationship, status, acknowledgement
+- To find existing guardian: check by_userId first, then by_email for unclaimed
+- Link status: "pending" → "active" (acknowledged) or "declined"
+- Admin approval of join request should set acknowledgedByParentAt on links
 
 ---
 
-## Thu  5 Feb 2026 - Phase 0.7 - User Profile Address Management & Data Sync
+## 2026-02-05 - Phase 0.8 - All Stories (US-P0.8-001 through US-P0.8-008)
 **Iteration**: 1
-**Commit**: 84fadfabb390c553a3935432f63f98b8a5dd8835
+**Commits**: e033d3f5, 28c65519, c7540072, 6bba4a5f, 2fcf65f3, 841b9903, 0fa4d2a2
+**Session**: c7081e5b-0423-4b3d-9b93-a1150a7396dc
 **Status**: Complete
 
 ### What was implemented
-All 6 user stories completed:
+All 8 user stories completed in a single iteration:
 
-1. **US-P0.7-001**: Added address2 and county fields to guardianIdentities schema
-   - Schema updated in schema.ts
-   - guardianIdentityValidator updated
-   - createGuardianIdentity, updateGuardianIdentity, findOrCreateGuardian mutations updated
-
-2. **US-P0.7-002**: Created updateProfileWithSync mutation
-   - New mutation in userProfiles.ts
-   - Updates user table and syncs to guardianIdentities automatically
-   - Uses normalizePhone and normalizePostcode for consistency
-
-3. **US-P0.7-003**: Updated linkGuardianToUser to copy address on claim
-   - When user claims guardian, address is copied if user has no existing address
-   - Respects existing user data (no overwrite)
-
-4. **US-P0.7-004**: Expanded ProfileSettingsDialog with address fields
-   - Full address editing section with Street, Line 2, Town, Postcode, County, Country
-   - Dynamic county dropdown (IE counties, US states, text input for others)
-   - Country dropdown with IE/UK/US at top
-   - Postcode auto-uppercase
-   - Uses updateProfileWithSync for automatic guardian sync
-
-5. **US-P0.7-005**: Updated Guardian Settings to display address
-   - Read-only address display in "Your Profile" card
-   - Only shows if any address field has data
-   - Country displayed as full name
-
-6. **US-P0.7-006**: End-to-end testing and verification
-   - All quality checks pass (linting, codegen)
-   - Type check passes (except pre-existing module errors)
-   - Added address fields to CurrentUser type
+1. **US-P0.8-001** (e033d3f5): Added `wasInvited: v.optional(v.boolean())` to user table schema
+2. **US-P0.8-002** (28c65519): Set `wasInvited: true` in both invitation acceptance mutations (`syncFunctionalRolesFromInvitation` and `syncFunctionalRolesWithChildSelections`)
+3. **US-P0.8-003** (c7540072): Wrapped guardian matching logic in `getOnboardingTasks` with `if (wasInvited)` check - self-registered users skip guardian_claim entirely
+4. **US-P0.8-004** (6bba4a5f): Removed `no_children_found` task type from backend validator, tasks array type, orchestrator renderer, and switch statements
+5. **US-P0.8-005** (2fcf65f3): Updated profile completion messaging - title to "Additional Information", neutral info box text, neutral alt email helper text, neutral backend reason string
+6. **US-P0.8-006** (841b9903): Replaced broken `players` table patching with proper `guardianIdentity` creation/claiming and `guardianPlayerLink` creation in `approveJoinRequest`
+7. **US-P0.8-007** (0fa4d2a2): Removed all [PHONE DEBUG], [GUARDIAN DEBUG], [TASKS DEBUG], [ONBOARDING DEBUG] console.log statements; kept legitimate operational logs
+8. **US-P0.8-008**: Programmatic and visual verification - typecheck passes, codegen passes, linting passes, browser confirms neutral messaging
 
 ### Files changed
-- packages/backend/convex/schema.ts (+6 lines - address2, county fields)
-- packages/backend/convex/models/guardianIdentities.ts (+80 lines - validators, mutations, linkGuardianToUser)
-- packages/backend/convex/models/userProfiles.ts (+147 lines - updateProfileWithSync mutation)
-- apps/web/src/components/profile/profile-settings-dialog.tsx (+246 lines - address UI)
-- apps/web/src/app/orgs/[orgId]/parents/components/guardian-settings.tsx (+59 lines - address display)
-- apps/web/src/providers/current-user-provider.tsx (+7 lines - address fields in type)
+- packages/backend/convex/betterAuth/schema.ts (+3 - wasInvited field)
+- packages/backend/convex/models/members.ts (+24 - wasInvited patches in both invitation mutations)
+- packages/backend/convex/models/onboarding.ts (+8, -130 - wasInvited guard, no_children_found removal, debug log cleanup)
+- packages/backend/convex/models/orgJoinRequests.ts (+99, -16 - guardianIdentity/guardianPlayerLink creation)
+- apps/web/src/components/onboarding/onboarding-orchestrator.tsx (-30 - no_children_found removal, debug log cleanup)
+- apps/web/src/components/onboarding/profile-completion-step.tsx (+5, -6 - neutral messaging)
 
 ### Quality checks
 - ✅ Convex codegen: passed
-- ✅ Linting: passed (ultracite fix applied)
-- ⚠️ Type check: pre-existing errors in remotion/framer-motion modules, our changes type-check correctly
+- ✅ Linting: passed (pre-commit hooks verified all 7 commits)
+- ⚠️ Type check: pre-existing errors in migration files + coachParentSummaries.ts, our changes have zero type errors
+- ✅ Browser verification: profile completion shows "Additional Information" title, neutral messaging, no debug logs in console
 
 ### **Learnings for future iterations** ⚠️ CRITICAL
 **Patterns discovered:**
-- Better Auth user table updates require `ctx.runMutation(components.betterAuth.adapter.updateOne, ...)`
-- CurrentUser type in `current-user-provider.tsx` must be updated when adding new user fields
-- Address form reusable pattern: use `getCountyOptions()` for IE/US dropdown logic, `getCountryName()` for display
+- There are TWO invitation acceptance mutations in members.ts - both must be updated for any post-acceptance user patches
+- Wrapping large code blocks in `if` guards: add the guard, close it, let ultracite fix indentation
+- `approveJoinRequest` in orgJoinRequests.ts had broken code patching a non-existent `players` table - it now uses the proper guardianIdentity/guardianPlayerLink pattern
+- The onboarding task type validator must stay in sync with the inline tasks array type declaration
 
 **Gotchas encountered:**
-- useCurrentUser hook returns typed object - must update CurrentUser type when adding new fields
-- Pre-existing type errors in codebase (remotion, framer-motion) - these are OK to ignore
+- Pre-existing type errors: migrations/importGAAFootballBenchmarks.ts, migrations/importRugbyBenchmarks.ts, actions/coachParentSummaries.ts - these are NOT our fault
+- `git stash pop` can conflict with linter changes to files - need to `git checkout` conflicting file first
+- HMR errors in dev-browser on first load are transient - retry navigation resolves them
 
 **Dependencies found:**
-- ProfileSettingsDialog depends on updateProfileWithSync mutation
-- Guardian Settings depends on guardianIdentity object having address fields in type
+- Removing a task type (no_children_found) requires updates in: backend validator, inline type, orchestrator handler, orchestrator switch cases, import statement
+- wasInvited flag check in onboarding.ts depends on the flag being set in members.ts during invitation acceptance
 
 **Mistakes made:**
-- Initially forgot to update CurrentUser type, caused TypeScript errors
+- None significant - the stories were well-defined and the implementation was straightforward
 
 ---

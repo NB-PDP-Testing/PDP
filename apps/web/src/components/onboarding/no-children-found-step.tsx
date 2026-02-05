@@ -70,6 +70,9 @@ export function NoChildrenFoundStep({
   const [isRetrying, setIsRetrying] = useState(false);
 
   const updateProfile = useMutation(api.models.userProfiles.updateProfile);
+  const acknowledgeNoChildrenFound = useMutation(
+    api.models.onboarding.acknowledgeNoChildrenFound
+  );
   const { track } = useAnalytics();
 
   const handleRetrySearch = async () => {
@@ -121,12 +124,22 @@ export function NoChildrenFoundStep({
     }
   };
 
-  const handleContinueWithoutLinking = () => {
-    track(AnalyticsEvents.ONBOARDING_STEP_COMPLETED, {
-      step_id: "no_children_found",
-      action: "continue_without_linking",
-    });
-    onComplete();
+  const handleContinueWithoutLinking = async () => {
+    try {
+      // Mark as acknowledged so step doesn't reappear
+      await acknowledgeNoChildrenFound();
+
+      track(AnalyticsEvents.ONBOARDING_STEP_COMPLETED, {
+        step_id: "no_children_found",
+        action: "continue_without_linking",
+      });
+
+      onComplete();
+    } catch (error) {
+      console.error("Failed to acknowledge no children found:", error);
+      // Still proceed even if acknowledgement fails
+      onComplete();
+    }
   };
 
   const handlePostcodeChange = (value: string) => {

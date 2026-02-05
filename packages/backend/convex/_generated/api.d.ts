@@ -356,6 +356,7 @@ export declare const components: {
                   lastChildrenCheckAt?: number;
                   lastName?: string;
                   name: string;
+                  noChildrenAcknowledged?: boolean;
                   onboardingComplete?: boolean;
                   parentOnboardingDismissCount?: number;
                   parentOnboardingLastDismissedAt?: number;
@@ -369,6 +370,7 @@ export declare const components: {
                   town?: string;
                   updatedAt: number;
                   userId?: null | string;
+                  wasInvited?: boolean;
                 };
                 model: "user";
               }
@@ -576,10 +578,12 @@ export declare const components: {
                     | "profileCompletedAt"
                     | "profileSkipCount"
                     | "onboardingComplete"
+                    | "wasInvited"
                     | "lastChildrenCheckAt"
                     | "parentOnboardingDismissCount"
                     | "parentOnboardingLastDismissedAt"
                     | "childLinkingSkipCount"
+                    | "noChildrenAcknowledged"
                     | "currentOrgId"
                     | "gdprConsentVersion"
                     | "gdprConsentedAt"
@@ -1016,10 +1020,12 @@ export declare const components: {
                     | "profileCompletedAt"
                     | "profileSkipCount"
                     | "onboardingComplete"
+                    | "wasInvited"
                     | "lastChildrenCheckAt"
                     | "parentOnboardingDismissCount"
                     | "parentOnboardingLastDismissedAt"
                     | "childLinkingSkipCount"
+                    | "noChildrenAcknowledged"
                     | "currentOrgId"
                     | "gdprConsentVersion"
                     | "gdprConsentedAt"
@@ -1538,6 +1544,7 @@ export declare const components: {
                   lastChildrenCheckAt?: number;
                   lastName?: string;
                   name?: string;
+                  noChildrenAcknowledged?: boolean;
                   onboardingComplete?: boolean;
                   parentOnboardingDismissCount?: number;
                   parentOnboardingLastDismissedAt?: number;
@@ -1551,6 +1558,7 @@ export declare const components: {
                   town?: string;
                   updatedAt?: number;
                   userId?: null | string;
+                  wasInvited?: boolean;
                 };
                 where?: Array<{
                   connector?: "AND" | "OR";
@@ -1577,10 +1585,12 @@ export declare const components: {
                     | "profileCompletedAt"
                     | "profileSkipCount"
                     | "onboardingComplete"
+                    | "wasInvited"
                     | "lastChildrenCheckAt"
                     | "parentOnboardingDismissCount"
                     | "parentOnboardingLastDismissedAt"
                     | "childLinkingSkipCount"
+                    | "noChildrenAcknowledged"
                     | "currentOrgId"
                     | "gdprConsentVersion"
                     | "gdprConsentedAt"
@@ -2148,6 +2158,7 @@ export declare const components: {
                   lastChildrenCheckAt?: number;
                   lastName?: string;
                   name?: string;
+                  noChildrenAcknowledged?: boolean;
                   onboardingComplete?: boolean;
                   parentOnboardingDismissCount?: number;
                   parentOnboardingLastDismissedAt?: number;
@@ -2161,6 +2172,7 @@ export declare const components: {
                   town?: string;
                   updatedAt?: number;
                   userId?: null | string;
+                  wasInvited?: boolean;
                 };
                 where?: Array<{
                   connector?: "AND" | "OR";
@@ -2187,10 +2199,12 @@ export declare const components: {
                     | "profileCompletedAt"
                     | "profileSkipCount"
                     | "onboardingComplete"
+                    | "wasInvited"
                     | "lastChildrenCheckAt"
                     | "parentOnboardingDismissCount"
                     | "parentOnboardingLastDismissedAt"
                     | "childLinkingSkipCount"
+                    | "noChildrenAcknowledged"
                     | "currentOrgId"
                     | "gdprConsentVersion"
                     | "gdprConsentedAt"

@@ -45,7 +45,7 @@
         "Typecheck passes: npm run check-types"
       ],
       "priority": 1,
-      "passes": true,
+      "passes": false,
       "notes": "Schema foundation for flow differentiation. Must be done first."
     },
     {
@@ -62,7 +62,7 @@
         "Test: Accept invitation -> Query user record -> Verify wasInvited = true"
       ],
       "priority": 2,
-      "passes": true,
+      "passes": false,
       "notes": "Critical for flow differentiation. Without this flag, we can't distinguish user types."
     },
     {
@@ -80,7 +80,7 @@
         "Test: Self-registered user completes profile -> No guardian_claim task shown"
       ],
       "priority": 3,
-      "passes": true,
+      "passes": false,
       "notes": "Core logic change. Self-reg users provide info, matching happens at admin approval."
     },
     {
@@ -97,7 +97,7 @@
         "Typecheck passes: npm run check-types"
       ],
       "priority": 4,
-      "passes": true,
+      "passes": false,
       "notes": "Simplifies flow. Self-reg users go straight to org join after profile completion."
     },
     {
@@ -116,7 +116,7 @@
         "Visual test: Profile completion shows neutral messaging"
       ],
       "priority": 5,
-      "passes": true,
+      "passes": false,
       "notes": "UX clarity - self-reg users provide info for later admin use, not for immediate matching."
     },
     {
@@ -136,7 +136,7 @@
         "Typecheck passes: npm run check-types"
       ],
       "priority": 6,
-      "passes": true,
+      "passes": false,
       "notes": "Critical fix. Current code patches wrong table. Must use guardianPlayerLinks."
     },
     {
@@ -153,7 +153,7 @@
         "Typecheck passes: npm run check-types"
       ],
       "priority": 7,
-      "passes": true,
+      "passes": false,
       "notes": "Cleanup task. Do after all functionality is verified working."
     },
     {
@@ -186,8 +186,8 @@
         "Document any issues found"
       ],
       "priority": 8,
-      "passes": true,
-      "notes": "Comprehensive testing of all flows before marking phase complete. Programmatic and visual verification complete."
+      "passes": false,
+      "notes": "Comprehensive testing of all flows before marking phase complete."
     }
   ]
 }

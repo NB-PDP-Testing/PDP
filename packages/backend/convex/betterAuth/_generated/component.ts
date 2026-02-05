@@ -49,6 +49,7 @@ export type ComponentApi<Name extends string | undefined = string | undefined> =
                   lastChildrenCheckAt?: number;
                   lastName?: string;
                   name: string;
+                  noChildrenAcknowledged?: boolean;
                   onboardingComplete?: boolean;
                   parentOnboardingDismissCount?: number;
                   parentOnboardingLastDismissedAt?: number;
@@ -62,6 +63,7 @@ export type ComponentApi<Name extends string | undefined = string | undefined> =
                   town?: string;
                   updatedAt: number;
                   userId?: null | string;
+                  wasInvited?: boolean;
                 };
                 model: "user";
               }
@@ -270,10 +272,12 @@ export type ComponentApi<Name extends string | undefined = string | undefined> =
                     | "profileCompletedAt"
                     | "profileSkipCount"
                     | "onboardingComplete"
+                    | "wasInvited"
                     | "lastChildrenCheckAt"
                     | "parentOnboardingDismissCount"
                     | "parentOnboardingLastDismissedAt"
                     | "childLinkingSkipCount"
+                    | "noChildrenAcknowledged"
                     | "currentOrgId"
                     | "gdprConsentVersion"
                     | "gdprConsentedAt"
@@ -711,10 +715,12 @@ export type ComponentApi<Name extends string | undefined = string | undefined> =
                     | "profileCompletedAt"
                     | "profileSkipCount"
                     | "onboardingComplete"
+                    | "wasInvited"
                     | "lastChildrenCheckAt"
                     | "parentOnboardingDismissCount"
                     | "parentOnboardingLastDismissedAt"
                     | "childLinkingSkipCount"
+                    | "noChildrenAcknowledged"
                     | "currentOrgId"
                     | "gdprConsentVersion"
                     | "gdprConsentedAt"
@@ -1236,6 +1242,7 @@ export type ComponentApi<Name extends string | undefined = string | undefined> =
                   lastChildrenCheckAt?: number;
                   lastName?: string;
                   name?: string;
+                  noChildrenAcknowledged?: boolean;
                   onboardingComplete?: boolean;
                   parentOnboardingDismissCount?: number;
                   parentOnboardingLastDismissedAt?: number;
@@ -1249,6 +1256,7 @@ export type ComponentApi<Name extends string | undefined = string | undefined> =
                   town?: string;
                   updatedAt?: number;
                   userId?: null | string;
+                  wasInvited?: boolean;
                 };
                 where?: Array<{
                   connector?: "AND" | "OR";
@@ -1275,10 +1283,12 @@ export type ComponentApi<Name extends string | undefined = string | undefined> =
                     | "profileCompletedAt"
                     | "profileSkipCount"
                     | "onboardingComplete"
+                    | "wasInvited"
                     | "lastChildrenCheckAt"
                     | "parentOnboardingDismissCount"
                     | "parentOnboardingLastDismissedAt"
                     | "childLinkingSkipCount"
+                    | "noChildrenAcknowledged"
                     | "currentOrgId"
                     | "gdprConsentVersion"
                     | "gdprConsentedAt"
@@ -1847,6 +1857,7 @@ export type ComponentApi<Name extends string | undefined = string | undefined> =
                   lastChildrenCheckAt?: number;
                   lastName?: string;
                   name?: string;
+                  noChildrenAcknowledged?: boolean;
                   onboardingComplete?: boolean;
                   parentOnboardingDismissCount?: number;
                   parentOnboardingLastDismissedAt?: number;
@@ -1860,6 +1871,7 @@ export type ComponentApi<Name extends string | undefined = string | undefined> =
                   town?: string;
                   updatedAt?: number;
                   userId?: null | string;
+                  wasInvited?: boolean;
                 };
                 where?: Array<{
                   connector?: "AND" | "OR";
@@ -1886,10 +1898,12 @@ export type ComponentApi<Name extends string | undefined = string | undefined> =
                     | "profileCompletedAt"
                     | "profileSkipCount"
                     | "onboardingComplete"
+                    | "wasInvited"
                     | "lastChildrenCheckAt"
                     | "parentOnboardingDismissCount"
                     | "parentOnboardingLastDismissedAt"
                     | "childLinkingSkipCount"
+                    | "noChildrenAcknowledged"
                     | "currentOrgId"
                     | "gdprConsentVersion"
                     | "gdprConsentedAt"

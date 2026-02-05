@@ -92,12 +92,32 @@ function RedirectToOrgs() {
       return;
     }
 
-    // If user has an active organization, redirect to org root
-    // The org-level router will determine the correct dashboard based on functional role
+    // If user has an active organization, verify they're still a member before redirecting
+    // This handles cases where a user's join request was rejected or they were removed
     if (activeOrganization) {
-      console.log("[Home] Active organization found:", activeOrganization.id);
-      router.push(`/orgs/${activeOrganization.id}` as Route);
-      return;
+      const isStillMember = userOrganizations?.some(
+        (org) => org.id === activeOrganization.id
+      );
+
+      if (isStillMember) {
+        console.log(
+          "[Home] Active organization found and verified:",
+          activeOrganization.id
+        );
+        router.push(`/orgs/${activeOrganization.id}` as Route);
+        return;
+      }
+
+      // User has a stale activeOrganization - they're no longer a member
+      // Clear it and let the logic below handle routing
+      console.log(
+        "[Home] Active organization is stale (user no longer a member), clearing:",
+        activeOrganization.id
+      );
+      authClient.organization.setActive({ organizationId: null }).catch(() => {
+        // Ignore errors clearing stale org
+      });
+      // Don't return - fall through to check if they have other orgs
     }
 
     // If user has organization memberships but no active organization,

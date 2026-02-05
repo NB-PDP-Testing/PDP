@@ -21,6 +21,13 @@ type CurrentUser = {
   firstName?: string;
   lastName?: string;
   phone?: string;
+  // Address fields (Phase 0.7)
+  address?: string;
+  address2?: string;
+  town?: string;
+  county?: string;
+  postcode?: string;
+  country?: string;
   onboardingComplete?: boolean;
   lastChildrenCheckAt?: number;
   parentOnboardingDismissCount?: number;

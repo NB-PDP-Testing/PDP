@@ -1,448 +1,256 @@
 {
-  "project": "Phase 9 Week 4 Phase 4 - Collaboration Features (Tasks + Insights) ENHANCED",
-  "branchName": "ralph/p9-week4-team-hub",
-  "description": "Complete Week 4 with Tasks Tab and Insights Tab. Integrate with Activity Feed, Overview Dashboard, Voice Notes, and Navigation. Build on existing patterns from Phases 1-3 and REUSE existing coachTasks schema.",
+  "project": "Voice Gateways v2 - Phase 2: Mobile Quick Review UI",
+  "branchName": "feat/voice-gateways-v2",
+  "description": "Build mobile-optimized quick review interface for WhatsApp voice notes. Coaches receive time-limited deep links (48h) to review, confirm, and resolve fuzzy-matched player suggestions. Phase 2 of 6 for the complete Voice Notes Pipeline v2.",
   "contextFiles": [
-    "scripts/ralph/PHASE4_CONTEXT.md",
-    "scripts/ralph/PHASE4_FINAL_RECOMMENDATIONS.md",
-    "scripts/ralph/PHASE3_CONTEXT.md",
-    "scripts/ralph/progress.txt"
+    "scripts/ralph/prds/voice-gateways-v2/context/MAIN_CONTEXT.md",
+    "scripts/ralph/prds/voice-gateways-v2/context/PHASE2_MOBILE_REVIEW.md",
+    "scripts/ralph/prds/voice-gateways-v2/RALPH_EXECUTION_GUIDE.md"
   ],
+  "relatedIssue": "https://github.com/NB-PDP-Testing/PDP/issues/423",
   "previousPhases": [
-    "Phase 1: Foundation (Tab Navigation, Activity Feed Pagination, Schema) - COMPLETE ✅",
-    "Phase 2: Core Widgets (Health Widget, Overview Dashboard) - COMPLETE ✅",
-    "Phase 3: Tab Views (Players Tab, Planning Tab) - COMPLETE ✅"
+    "Phase 1 - Quality Gates & Fuzzy Matching (COMPLETE: US-VN-001 to US-VN-006, 118 unit tests, integration gaps fixed)"
   ],
-  "currentPhase": "Phase 4 - Collaboration Features (4 stories, 13 hours) + Integrations",
+  "currentPhase": "Phase 2 - Mobile Quick Review UI (6 stories, 5-7 days)",
   "completedStories": [
-    "US-P9-063: Tab Navigation",
-    "US-P9-SCHEMA: Schema updates",
-    "US-P9-056: Activity Feed Pagination",
-    "US-P9-055: Health & Safety Widget",
-    "US-P9-052: Overview Dashboard",
-    "US-P9-053: Players Tab",
-    "US-P9-054: Planning Tab"
+    "US-VN-001",
+    "US-VN-002",
+    "US-VN-003",
+    "US-VN-004",
+    "US-VN-005",
+    "US-VN-006"
   ],
-  "featuresAlreadyComplete": [
-    "✅ Team Decision Voting (voting-card.tsx + voting-list.tsx) - Don't rebuild!",
-    "✅ Quick Actions Menu (HeaderQuickActionsMenu in layout) - Don't rebuild!",
-    "✅ Presence Indicators (presence-indicators.tsx) - Already working!",
-    "✅ Voice Note Linking Schema (voiceNoteId field exists in coachTasks) - Just display!",
-    "✅ Player Linking Schema (playerIdentityId field exists in coachTasks) - Just display!"
-  ],
-  "criticalPatternsEstablished": [
-    "✅ Filter Pattern: Multi-dimensional filters (status + category + search + sort)",
-    "✅ Card Pattern: Avatar + content + badges + watermark (jersey #, date, etc)",
-    "✅ List Pattern: Icon circle + title + metadata + badges",
-    "✅ Empty States: Icon + title + description + optional CTA",
-    "✅ Loading States: Skeleton grid/list matching final layout",
-    "✅ Batch Fetch: Collect IDs → Promise.all(fetch) → Map lookup → enrich",
-    "✅ Composite Indexes: Always use for multi-field queries",
-    "✅ Pagination: Cursor-based with Load More button",
-    "✅ Responsive Grid: 1→2→3→4 columns (mobile→tablet→desktop→XL)",
-    "✅ Activity Feed Events: Create entries for all collaboration actions"
-  ],
-  "reusableComponents": {
-    "filters": {
-      "component": "apps/web/src/app/orgs/[orgId]/coach/team-hub/components/player-filters.tsx",
-      "pattern": "Tabs for primary filter + Search input + Dropdown filters + Sort dropdown",
-      "usage": "Copy structure, rename to TaskFilters/InsightFilters, adjust filter options"
-    },
-    "cards": {
-      "component": "apps/web/src/app/orgs/[orgId]/coach/team-hub/components/player-card.tsx",
-      "pattern": "Card with avatar + title + metadata + badges + hover effect + click navigation",
-      "usage": "Copy layout for TaskCard and InsightCard, adjust content fields"
-    },
-    "lists": {
-      "component": "apps/web/src/app/orgs/[orgId]/coach/team-hub/components/session-plan-list.tsx",
-      "pattern": "Card list with icon + title + timestamp + badges",
-      "usage": "Copy for task lists and insight lists"
-    },
-    "emptyStates": {
-      "component": "@/components/ui/empty",
-      "pattern": "Empty + EmptyMedia + EmptyContent + EmptyTitle + EmptyDescription",
-      "usage": "Use directly, just pass icon and text"
-    },
-    "pagination": {
-      "component": "apps/web/src/app/orgs/[orgId]/coach/team-hub/components/activity-feed-view.tsx",
-      "pattern": "Cursor-based pagination with Load More button",
-      "usage": "Copy pagination logic lines 60-90"
-    },
-    "activityFeed": {
-      "table": "teamActivityFeed",
-      "pattern": "Create activity entries in mutations for all collaboration actions",
-      "usage": "After create/update/delete operations, insert teamActivityFeed record with actionType, entityType, summary"
+  "executionStrategy": {
+    "parallelStreams": false,
+    "sequential": {
+      "name": "Mobile Quick Review",
+      "order": [
+        "US-VN-007",
+        "US-VN-008",
+        "US-VN-009",
+        "US-VN-010",
+        "US-VN-011",
+        "US-VN-012"
+      ],
+      "notes": "Sequential due to heavy dependencies: backend links -> redirect route -> review page -> unmatched cards"
     }
   },
+  "criticalReminders": [
+    "DON'T rebuild: Auto-Apply Preferences (coachTrustLevels.insightAutoApplyPreferences) - already exists",
+    "DON'T rebuild: Trust Level System (coachTrustLevels table) - already exists",
+    "DON'T rebuild: findSimilarPlayers (Phase 1 US-VN-006) - REUSE it in UnmatchedPlayerCard",
+    "DON'T rebuild: validateTranscriptQuality or quality gates (Phase 1) - already integrated",
+    "DON'T rebuild: WhatsApp Integration Foundation (actions/whatsapp.ts) - EXTEND it",
+    "REUSE findSimilarPlayers from Phase 1 for unmatched player suggestions (US-VN-010)",
+    "Link expiry: 48 hours from creation, validate on EVERY access",
+    "Mobile-first: touch targets >= 44px, max-w-lg, safe area padding",
+    "NEVER use .filter() - always use .withIndex()",
+    "Better Auth IDs as v.string() not v.id()",
+    "Batch fetch + Map lookup (avoid N+1 queries)",
+    "Lift useQuery to parent components, pass data as props"
+  ],
+  "mandatoryPatterns": [
+    "Mobile-first responsive design (test on 375px width)",
+    "Touch targets >= 44px for all interactive elements",
+    "Loading skeletons for all async sections",
+    "Real-time updates via useQuery (not polling)",
+    "Link validation on every access (check expiry)",
+    "Batch fetch + Map lookup (avoid N+1 queries)",
+    "Use composite indexes (never .filter() after .withIndex())",
+    "Better Auth IDs as v.string() not v.id()",
+    "Use shadcn/ui components + Tailwind CSS",
+    "Use Lucide Icons for iconography"
+  ],
+  "phase1IntegrationNotes": [
+    "validateTranscriptQuality is NOW wired into transcribeAudio - branches on reject/ask_user/process",
+    "getAwaitingConfirmation internal query exists for CONFIRM/RETRY/CANCEL flow",
+    "WhatsApp processMessage checks for pending confirmations before text processing",
+    "findSimilarPlayers is NOW called as fuzzy fallback in buildInsights (threshold >= 0.85)",
+    "updateTranscription mutation accepts transcriptQuality and transcriptValidation fields"
+  ],
   "userStories": [
     {
-      "id": "US-P9-057",
-      "phase": 4,
-      "title": "Tasks Tab - Team Task Management (Enhanced with Integrations)",
-      "description": "Task list with create/assign/complete functionality. Build on Players Tab patterns. REUSE existing coachTasks table (don't create new table!). Integrate with Activity Feed, Overview Dashboard, and Voice Notes.",
+      "id": "US-VN-007",
+      "phase": 2,
+      "title": "Review Links Backend",
+      "description": "Create backend infrastructure for time-limited deep links to mobile quick review pages. Generate unique 8-char codes, track expiry (48h), and provide validation queries for link access.",
       "acceptanceCriteria": [
-        "⚠️ CRITICAL: Use EXISTING coachTasks table (schema line 925) - DO NOT create teamTasks!",
-        "Backend: Enhance EXISTING coachTasks schema in packages/backend/convex/schema.ts",
-        "Schema: Add ONE new field: status: v.optional(v.union(v.literal('open'), v.literal('in-progress'), v.literal('done')))",
-        "Schema: Existing fields to REUSE: text (=title), assignedToUserId, assignedToName, teamId, organizationId, priority (low/medium/high), dueDate, completed, createdAt, completedAt, playerIdentityId, voiceNoteId, source",
-        "Schema: Existing indexes to REUSE: by_team_and_org, by_assigned_user_and_org, by_voice_note, by_completed",
-        "Note: 'completed' field (boolean) remains for backward compatibility, 'status' field adds granularity",
-        "Backend: Create getTeamTasks query in packages/backend/convex/models/teams.ts",
-        "Query pattern: .withIndex('by_team_and_org', q => q.eq('teamId', teamId).eq('organizationId', orgId))",
-        "Query uses batch fetch pattern: (1) Get tasks by team, (2) Batch fetch assignees via Better Auth adapter, (3) Map lookup, (4) Enrich tasks with assignee names",
-        "Query returns: Array of tasks with all fields + assignee info + voice note metadata (if voiceNoteId exists)",
-        "Backend: Create mutations: createTask, updateTask, deleteTask, updateTaskStatus",
-        "Backend: ACTIVITY FEED INTEGRATION - After task mutations, create teamActivityFeed entry",
-        "Schema: Extend teamActivityFeed.actionType enum: Add v.literal('task_created'), v.literal('task_completed'), v.literal('task_assigned')",
-        "Schema: Extend teamActivityFeed.entityType enum: Add v.literal('task')",
-        "Mutation Pattern: await ctx.db.insert('teamActivityFeed', { organizationId, teamId, actorId, actorName, actionType: 'task_created', entityType: 'task', entityId: taskId, summary: `Created task: ${title}`, priority: taskPriority === 'high' ? 'important' : 'normal' })",
-        "Backend: OVERVIEW INTEGRATION - Enhance getTeamOverviewStats query",
-        "Add to return type: openTasks: v.number(), overdueCount: v.number()",
-        "Query counts tasks with status !== 'done' and filters by dueDate < now for overdueCount",
-        "Frontend: Replace placeholder tasks-tab.tsx with full implementation",
-        "REUSE: Copy filter pattern from player-filters.tsx",
-        "Filter controls: Status tabs (All/Open/In Progress/Done), Priority dropdown (All/High/Medium/Low), Assignee dropdown (All + coach list), Sort (Due Date/Priority/Created Date)",
-        "REUSE: Copy card layout from player-card.tsx",
-        "Task card shows: Assignee avatar + initials fallback, Task title (text field), Due date (relative time), Priority badge (destructive=high, default=medium, secondary=low), Status badge (open/in-progress/done), Overdue badge if past due date",
-        "Task card badges: Voice note icon badge if voiceNoteId exists (click → open voice note modal), Player badge if playerIdentityId exists",
-        "Task card watermark: Due date in large text on right (like jersey number in player cards)",
-        "Task grid: 1 col mobile, 2 cols tablet, 3 cols desktop (use sm:grid-cols-2 lg:grid-cols-3)",
-        "Click task card → Open task detail modal (show full description, assignee, voice note link, player link, actions)",
-        "Create Task button: Top right of tab, opens modal with form (title, description, assignee select, due date picker, priority select, optional player select)",
-        "Task actions: Update Status dropdown (open/in-progress/done), Edit, Delete (from detail modal)",
-        "Empty states: 'No tasks created' (with + Create Task CTA), 'No tasks match filters'",
-        "Loading state: Skeleton grid (6 cards)",
-        "Touch-friendly: Cards min 44px height, clear tap targets",
-        "OVERVIEW INTEGRATION: Update quick-stats-panel.tsx to show 'Open Tasks' stat",
-        "Replace 'Attendance %' placeholder → 'Open Tasks' card with overdue badge (e.g., '5 tasks, 2 overdue')",
-        "Click Open Tasks stat → navigate to Tasks tab with 'open' filter",
-        "Type check passes: npm run check-types",
-        "Visual verification with dev-browser (filters work, create task works, status updates work, activity feed shows task events, overview shows task count)"
+        "Backend: Add whatsappReviewLinks table to schema.ts",
+        "Schema fields: code (8 alphanumeric, unique), voiceNoteId, organizationId, coachUserId, createdAt, expiresAt (48h), accessedAt, status (active/expired/used), pendingInsightsCount, unmatchedCount",
+        "Indexes: by_code, by_voiceNoteId, by_expiresAt_and_status, by_coachUserId",
+        "Backend: Create models/whatsappReviewLinks.ts",
+        "Function: generateReviewLink (internalMutation) - Generate unique 8-char code (exclude 0, O, I, l)",
+        "Function: getReviewLinkData (query) - Query by code, check expiry",
+        "Function: markLinkAccessed (mutation) - Update status='used', set accessedAt",
+        "Integration: Call generateReviewLink in checkAndAutoApply after processing insights",
+        "Update formatResultsMessage to include deep link: 'Quick review: {SITE_URL}/r/{code}'",
+        "Unit tests: Create __tests__/whatsappReviewLinks.test.ts",
+        "Type check passes: npm run check-types"
       ],
-      "priority": 1,
+      "priority": 7,
       "passes": true,
-      "effort": "5.5h",
-      "effortBreakdown": {
-        "schema": "0.25h (add 1 field to existing table)",
-        "backend": "2h (queries + mutations + activity feed)",
-        "frontend": "2.5h (tab + cards + filters + modals)",
-        "overview": "0.5h (update Quick Stats Panel)",
-        "testing": "0.25h (dev-browser verification)"
-      },
-      "dependencies": [],
+      "effort": "1 day",
+      "dependencies": ["US-VN-006"],
       "files": {
-        "modify": [
-          "packages/backend/convex/schema.ts (add status field to coachTasks, extend teamActivityFeed enums)",
-          "packages/backend/convex/models/teams.ts (add getTeamTasks query, enhance getTeamOverviewStats)",
-          "apps/web/src/app/orgs/[orgId]/coach/team-hub/components/tasks-tab.tsx",
-          "apps/web/src/app/orgs/[orgId]/coach/team-hub/components/quick-stats-panel.tsx (replace placeholder)"
-        ],
         "create": [
-          "apps/web/src/app/orgs/[orgId]/coach/team-hub/components/task-card.tsx",
-          "apps/web/src/app/orgs/[orgId]/coach/team-hub/components/task-filters.tsx",
-          "apps/web/src/app/orgs/[orgId]/coach/team-hub/components/task-detail-modal.tsx",
-          "apps/web/src/app/orgs/[orgId]/coach/team-hub/components/create-task-modal.tsx",
-          "packages/backend/convex/models/coachTasks.ts (optional: centralize task functions)"
+          "packages/backend/convex/models/whatsappReviewLinks.ts",
+          "packages/backend/convex/__tests__/whatsappReviewLinks.test.ts"
+        ],
+        "modify": [
+          "packages/backend/convex/schema.ts",
+          "packages/backend/convex/actions/whatsapp.ts"
         ]
       }
     },
     {
-      "id": "US-P9-058",
-      "phase": 4,
-      "title": "Insights Tab - AI-Generated Team Insights (Enhanced with Integrations)",
-      "description": "Display insights from voice notes and AI analysis. Build on Activity Feed patterns. Integrate with Activity Feed, Overview Dashboard, and Voice Notes tab with bidirectional linking.",
+      "id": "US-VN-008",
+      "phase": 2,
+      "title": "Redirect Route",
+      "description": "Create public /r/[code] redirect route that validates review links and redirects to org-scoped review page or shows error states (expired, invalid).",
       "acceptanceCriteria": [
-        "Backend: Create teamInsights table in schema",
-        "Schema fields: _id, teamId, organizationId, type (voice-note/ai-generated/manual), title, summary, fullText (optional), voiceNoteId (optional), playerIds (array), topic (technical/tactical/fitness/behavioral/other), priority (high/medium/low), createdBy, createdAt, readBy (array of userIds who viewed)",
-        "Backend: Add composite indexes: by_team_and_type, by_voice_note, by_team_and_date",
-        "Backend: Create getTeamInsights query in packages/backend/convex/models/teams.ts",
-        "Query uses batch fetch pattern: (1) Get insights by team, (2) Batch fetch voice notes, (3) Batch fetch player identities, (4) Map lookups, (5) Enrich with player names and voice note metadata",
-        "Query supports pagination: cursor-based (50 items/page) like activity feed",
-        "Query returns: { page, continueCursor, isDone } or array (backward compatible)",
-        "Backend: Create mutations: createInsight, markAsRead",
-        "Backend: Create action: generateInsightsFromVoiceNotes (AI processing - placeholder for now, just create sample insights)",
-        "Backend: ACTIVITY FEED INTEGRATION - After insight creation, create teamActivityFeed entry",
-        "Schema: Extend teamActivityFeed.actionType enum: Add v.literal('insight_generated')",
-        "Schema: Extend teamActivityFeed.entityType enum: Add v.literal('team_insight')",
-        "Mutation Pattern: await ctx.db.insert('teamActivityFeed', { organizationId, teamId, actorId, actorName, actionType: 'insight_generated', entityType: 'team_insight', entityId: insightId, summary: `Generated insight: ${title}`, priority: insightPriority === 'high' ? 'important' : 'normal', metadata: { insightTitle: title } })",
-        "Backend: OVERVIEW INTEGRATION - Enhance getTeamOverviewStats query",
-        "Add to return type: unreadInsights: v.number(), highPriorityInsights: v.number()",
-        "Query counts insights where !readBy.includes(userId) and filters for priority === 'high'",
-        "Frontend: Replace placeholder insights-tab.tsx with full implementation",
-        "REUSE: Copy pagination logic from activity-feed-view.tsx",
-        "Filter controls: Type tabs (All/Voice Notes/AI Insights/Manual), Player dropdown (All + player list), Topic dropdown (All/Technical/Tactical/Fitness/Behavioral), Sort (Newest/Oldest/Priority)",
-        "REUSE: Copy list card pattern from activity-feed-view.tsx",
-        "Insight card shows: Creator avatar + initials, Type icon (Mic=voice note, Sparkles=AI, FileText=manual), Insight title (bold), Summary text (2-3 lines, truncated), Related player badges (if any), Topic badge, Priority badge (high only), Timestamp (relative time)",
-        "Insight card click → Open detail modal (show full text, voice note link if applicable, mark as read)",
-        "Detail modal: If voiceNoteId exists, show 'View Source Voice Note' button → navigate to voice notes with highlight query param",
-        "Detail modal: Optional 'Create Task from Insight' button → pre-fill create task modal with insight details (title, description from summary)",
-        "Generate Insights button: Top right, triggers AI action (show loading toast, refresh on complete)",
-        "Load More button: Bottom of list when more insights available (like activity feed)",
-        "Empty states: 'No insights yet' (with Generate Insights CTA), 'No insights match filters'",
-        "Loading state: List skeleton (5 items)",
-        "Mobile responsive: Stacked cards on mobile, same layout on desktop",
-        "OVERVIEW INTEGRATION: Update quick-stats-panel.tsx to show 'Unread Insights' stat",
-        "Replace 'Upcoming Events' placeholder → 'Unread Insights' card with priority badge (e.g., '3 insights, 1 priority')",
-        "Click Unread Insights stat → navigate to Insights tab with unread filter",
-        "VOICE NOTES INTEGRATION: Update voice-notes tab to show insights badge on note cards",
-        "Voice note card shows badge: 'X insights' if insights generated from this note",
-        "Click badge or note → detail modal → Show 'View Generated Insights' button",
-        "Type check passes: npm run check-types",
-        "Visual verification with dev-browser (pagination works, filters work, detail modal works, activity feed shows insight events, overview shows insight count, voice notes show insights badge)"
+        "Frontend: Create apps/web/src/app/r/[code]/page.tsx (server component)",
+        "Extract code from params, call getReviewLinkData via fetchQuery",
+        "If null: redirect('/review-link-invalid')",
+        "If expired: redirect('/review-link-expired')",
+        "Else: redirect('/orgs/{orgId}/coach/review/{code}')",
+        "Create /review-link-invalid page with error message + 'Open App' button",
+        "Create /review-link-expired page with error message + 'Open Voice Notes' button",
+        "Type check passes: npm run check-types"
       ],
-      "priority": 2,
+      "priority": 8,
       "passes": true,
-      "effort": "5h",
-      "effortBreakdown": {
-        "schema": "0.5h (new table with indexes)",
-        "backend": "2h (query + mutations + action + activity feed)",
-        "frontend": "2h (tab + cards + filters + modals)",
-        "overview": "0.25h (update Quick Stats Panel)",
-        "voiceNotesLink": "0.25h (add insights badge to voice notes tab)"
-      },
-      "dependencies": [],
+      "effort": "0.5 day",
+      "dependencies": ["US-VN-007"],
       "files": {
-        "modify": [
-          "packages/backend/convex/schema.ts (add teamInsights table, extend teamActivityFeed enums)",
-          "packages/backend/convex/models/teams.ts (add getTeamInsights query, enhance getTeamOverviewStats)",
-          "apps/web/src/app/orgs/[orgId]/coach/team-hub/components/insights-tab.tsx",
-          "apps/web/src/app/orgs/[orgId]/coach/team-hub/components/quick-stats-panel.tsx (replace placeholder)",
-          "apps/web/src/app/orgs/[orgId]/coach/voice-notes/page.tsx (add insights badge to note cards - optional)"
-        ],
         "create": [
-          "apps/web/src/app/orgs/[orgId]/coach/team-hub/components/insight-card.tsx",
-          "apps/web/src/app/orgs/[orgId]/coach/team-hub/components/insight-filters.tsx",
-          "apps/web/src/app/orgs/[orgId]/coach/team-hub/components/insight-detail-modal.tsx",
-          "packages/backend/convex/actions/teamInsights.ts"
+          "apps/web/src/app/r/[code]/page.tsx",
+          "apps/web/src/app/review-link-invalid/page.tsx",
+          "apps/web/src/app/review-link-expired/page.tsx"
         ]
       }
     },
     {
-      "id": "US-P9-NAV",
-      "phase": 4,
-      "title": "Navigation Integration - Sidebar + Bottom Nav",
-      "description": "Add Team Hub to sidebar and bottom nav for easy access. Bottom nav has 5 items with Voice highlighted in center-right position.",
+      "id": "US-VN-009",
+      "phase": 2,
+      "title": "Quick Review Page",
+      "description": "Create mobile-optimized review page at /orgs/[orgId]/coach/review/[code] showing voice note context, pending insights, and auto-applied items with collapsible sections.",
       "acceptanceCriteria": [
-        "Sidebar: Add Team Hub to 'Development' group in coach-sidebar.tsx",
-        "Sidebar position: After 'Team Insights', before 'Messages'",
-        "Sidebar item: { href: `/orgs/${orgId}/coach/team-hub`, label: 'Team Hub', icon: LayoutDashboard }",
-        "Bottom Nav: Update layout.tsx to add Team Hub (5 items total)",
-        "Bottom Nav order: Overview → Players → Voice → Team Hub → Tasks",
-        "Bottom Nav Voice item: Add highlight: true to emphasize (user's key feature)",
-        "Bottom Nav code: const coachBottomNavItems: BottomNavItem[] = [{ id: 'overview', icon: Home, label: 'Overview', href: `/orgs/${orgId}/coach` }, { id: 'players', icon: Users, label: 'Players', href: `/orgs/${orgId}/coach/players` }, { id: 'voice', icon: Mic, label: 'Voice', href: `/orgs/${orgId}/coach/voice-notes`, highlight: true }, { id: 'team-hub', icon: LayoutDashboard, label: 'Hub', href: `/orgs/${orgId}/coach/team-hub` }, { id: 'todos', icon: CheckSquare, label: 'Tasks', href: `/orgs/${orgId}/coach/todos` }]",
-        "Mobile: 5 icons fit on bottom nav without overflow",
-        "Desktop: Sidebar shows Team Hub with same styling as other nav items",
-        "Type check passes: npm run check-types",
-        "Visual verification: Team Hub accessible from sidebar and bottom nav, Voice highlighted on mobile"
+        "Frontend: Create apps/web/src/app/orgs/[orgId]/coach/review/[code]/page.tsx (client component)",
+        "Sections: QuickReviewHeader, VoiceNoteContext (collapsible), NeedsReviewSection, UnmatchedSection, AutoAppliedSection (collapsed), OtherPendingPrompt",
+        "Queries: useQuery for reviewLink data, voiceNote, voiceNotesByCoach",
+        "Mutations: markLinkAccessed, applyInsight, dismissInsight",
+        "Mobile-responsive: max-w-lg, p-4, touch targets >= 44px, bottom safe area",
+        "Loading states: skeleton for each section",
+        "Mark link accessed on mount via useEffect",
+        "Type check passes: npm run check-types"
       ],
-      "priority": 3,
+      "priority": 9,
       "passes": true,
-      "effort": "0.5h",
-      "dependencies": [],
+      "effort": "2 days",
+      "dependencies": ["US-VN-008"],
       "files": {
-        "modify": [
-          "apps/web/src/components/layout/coach-sidebar.tsx (add Team Hub to Development group)",
-          "apps/web/src/app/orgs/[orgId]/coach/layout.tsx (update bottom nav items)"
+        "create": [
+          "apps/web/src/app/orgs/[orgId]/coach/review/[code]/page.tsx",
+          "apps/web/src/app/orgs/[orgId]/coach/review/[code]/components/quick-review-header.tsx",
+          "apps/web/src/app/orgs/[orgId]/coach/review/[code]/components/voice-note-context.tsx",
+          "apps/web/src/app/orgs/[orgId]/coach/review/[code]/components/needs-review-section.tsx",
+          "apps/web/src/app/orgs/[orgId]/coach/review/[code]/components/auto-applied-section.tsx",
+          "apps/web/src/app/orgs/[orgId]/coach/review/[code]/components/other-pending-prompt.tsx",
+          "apps/web/src/app/orgs/[orgId]/coach/review/[code]/components/quick-review-skeleton.tsx"
         ]
       }
     },
     {
-      "id": "US-P9-041",
-      "phase": 4,
-      "title": "Tone Controls for Parent Summaries",
-      "description": "Configure AI tone for parent communications. Add settings UI for coaches to customize how AI-generated summaries are written to parents (warm, professional, or brief).",
+      "id": "US-VN-010",
+      "phase": 2,
+      "title": "Unmatched Player Cards",
+      "description": "Create UnmatchedPlayerCard component that displays fuzzy-matched player suggestions from Phase 1, allows coach to select match and assign player.",
       "acceptanceCriteria": [
-        "Backend: Extend coachOrgPreferences table in packages/backend/convex/schema.ts",
-        "Schema: Add field: parentSummaryTone: v.optional(v.union(v.literal('warm'), v.literal('professional'), v.literal('brief')))",
-        "Backend: Create getCoachPreferences query in packages/backend/convex/models/coaches.ts",
-        "Backend: Create updateCoachPreferences mutation in packages/backend/convex/models/coaches.ts",
-        "Frontend: Create parent-comms-settings.tsx component in apps/web/src/components/coach/",
-        "Settings: Tone dropdown with 3 options: Warm, Professional, Brief",
-        "Settings: Live preview card showing example parent summary in selected tone",
-        "Preview updates on selection change (no save needed to see preview)",
-        "Save button persists preference to coachOrgPreferences",
-        "Settings accessible from Team Hub Settings tab (add Settings tab to team-hub-tabs.tsx)",
-        "OR accessible from Coach Settings page (apps/web/src/app/orgs/[orgId]/coach/settings/page.tsx)",
-        "Example preview text for each tone:",
-        "  - Warm: 'Great news! Emma's tackling skills have really improved from 3/5 to 4/5. She's showing fantastic progress and we're so proud of her development!'",
-        "  - Professional: 'Emma's tackling rating has improved from 3/5 to 4/5. This demonstrates consistent progress in defensive fundamentals.'",
-        "  - Brief: 'Emma: Tackling 3/5 → 4/5. Good progress.'",
-        "Mobile-responsive layout (dropdown + preview card stack on mobile)",
-        "Type check passes: npm run check-types",
-        "Visual verification with dev-browser (dropdown works, preview updates, save persists)"
+        "Frontend: Create unmatched-player-card.tsx and unmatched-section.tsx",
+        "REUSE Phase 1 query: useQuery(api.models.orgPlayerEnrollments.findSimilarPlayers, { ... limit: 4 })",
+        "Layout: amber-200 border, player name header, 'Did you mean?' suggestions",
+        "Radio group with player suggestions showing fullName, teamName, similarity %",
+        "Last option: 'Someone else...' with future search placeholder",
+        "If no suggestions: show 'No similar names found' + 'Search Players' button",
+        "Mutation: assignPlayerToInsight({ noteId, insightId, playerIdentityId })",
+        "Loading state: Loader2 icon during assignment",
+        "Type check passes: npm run check-types"
       ],
-      "priority": 4,
+      "priority": 10,
       "passes": true,
-      "effort": "2h",
-      "effortBreakdown": {
-        "schema": "0.25h (add 1 field to coachOrgPreferences)",
-        "backend": "0.5h (get + update mutations)",
-        "frontend": "1h (settings component + dropdown + preview card)",
-        "testing": "0.25h (dev-browser verification)"
-      },
-      "dependencies": [],
+      "effort": "1.5 days",
+      "dependencies": ["US-VN-009", "US-VN-006"],
       "files": {
-        "modify": [
-          "packages/backend/convex/schema.ts (extend coachOrgPreferences with parentSummaryTone field)",
-          "packages/backend/convex/models/coaches.ts (add getCoachPreferences, updateCoachPreferences)",
-          "apps/web/src/app/orgs/[orgId]/coach/team-hub/components/team-hub-tabs.tsx (add Settings tab - optional)",
-          "apps/web/src/app/orgs/[orgId]/coach/settings/page.tsx (add Parent Comms section - alternative)"
+        "create": [
+          "apps/web/src/app/orgs/[orgId]/coach/review/[code]/components/unmatched-player-card.tsx",
+          "apps/web/src/app/orgs/[orgId]/coach/review/[code]/components/unmatched-section.tsx"
         ],
-        "create": ["apps/web/src/components/coach/parent-comms-settings.tsx"]
+        "modify": ["apps/web/src/app/orgs/[orgId]/coach/review/[code]/page.tsx"]
+      }
+    },
+    {
+      "id": "US-VN-011",
+      "phase": 2,
+      "title": "Trust-Adaptive Messages",
+      "description": "Update WhatsApp message formatting based on coach trust level (0-3) to show progressively more detailed summaries.",
+      "acceptanceCriteria": [
+        "Backend: Update formatResultsMessage in actions/whatsapp.ts",
+        "TL0-1: Generic counts only (cautious tone)",
+        "TL2: Show top 3 names + counts (established tone)",
+        "TL3: Confident tone, show all applied if <= 3",
+        "Helper: getTrustLevel, formatCategory, truncateList",
+        "Unit tests: Add to __tests__/whatsappFeedback.test.ts",
+        "Type check passes: npm run check-types"
+      ],
+      "priority": 11,
+      "passes": true,
+      "effort": "0.5 day",
+      "dependencies": ["US-VN-007"],
+      "files": {
+        "modify": [
+          "packages/backend/convex/actions/whatsapp.ts",
+          "packages/backend/convex/__tests__/whatsappFeedback.test.ts"
+        ]
+      }
+    },
+    {
+      "id": "US-VN-012",
+      "phase": 2,
+      "title": "Link Expiry & Cleanup",
+      "description": "Implement cron job to clean up expired review links (>7 days old) and handle expired link UI states.",
+      "acceptanceCriteria": [
+        "Backend: Add cleanupExpiredLinks cron job (daily at 3am UTC)",
+        "Backend: Add cleanupExpiredLinks internalMutation to whatsappReviewLinks.ts",
+        "Frontend: Create link-expired-view.tsx component",
+        "Integration: Render LinkExpiredView when linkData.isExpired in page.tsx",
+        "Unit tests: Add cleanup tests to __tests__/whatsappReviewLinks.test.ts",
+        "Type check passes: npm run check-types"
+      ],
+      "priority": 12,
+      "passes": true,
+      "effort": "0.5 day",
+      "dependencies": ["US-VN-009"],
+      "files": {
+        "create": [
+          "apps/web/src/app/orgs/[orgId]/coach/review/[code]/components/link-expired-view.tsx"
+        ],
+        "modify": [
+          "packages/backend/convex/crons.ts",
+          "packages/backend/convex/models/whatsappReviewLinks.ts",
+          "apps/web/src/app/orgs/[orgId]/coach/review/[code]/page.tsx",
+          "packages/backend/convex/__tests__/whatsappReviewLinks.test.ts"
+        ]
       }
     }
   ],
-  "phase4Checklist": [
-    "✅ Phase 3 complete: Players Tab and Planning Tab working",
-    "⬜ Start with US-P9-057 (Tasks Tab) - uses existing coachTasks table",
-    "⬜ Schema: Add status field to EXISTING coachTasks table (ONE field only)",
-    "⬜ Schema: Extend teamActivityFeed enums (task_created, task_completed, task_assigned, task)",
-    "⬜ Backend: Create getTeamTasks query using by_team_and_org index",
-    "⬜ Backend: Create task mutations (createTask, updateTask, deleteTask, updateTaskStatus)",
-    "⬜ Backend: Add activity feed entries in task mutations",
-    "⬜ Backend: Enhance getTeamOverviewStats to return openTasks, overdueCount",
-    "⬜ Frontend: Build Tasks Tab (copy player-tab.tsx structure)",
-    "⬜ Frontend: Build TaskCard component (copy player-card.tsx, add voice note badge)",
-    "⬜ Frontend: Build TaskFilters component (copy player-filters.tsx)",
-    "⬜ Frontend: Build Create Task Modal (form with validation)",
-    "⬜ Frontend: Build Task Detail Modal (view/edit/delete/status update, voice note link)",
-    "⬜ Frontend: Update Quick Stats Panel - Replace 'Attendance %' with 'Open Tasks'",
-    "⬜ Test: Task filtering, sorting, voice note linking, activity feed events",
-    "⬜ Schema: Create teamInsights table with indexes",
-    "⬜ Schema: Extend teamActivityFeed enums (insight_generated, team_insight)",
-    "⬜ Backend: Create getTeamInsights query with pagination and batch fetch",
-    "⬜ Backend: Create insight mutations (createInsight, markAsRead)",
-    "⬜ Backend: Create generateInsightsFromVoiceNotes action (placeholder)",
-    "⬜ Backend: Add activity feed entries in insight mutations",
-    "⬜ Backend: Enhance getTeamOverviewStats to return unreadInsights, highPriorityInsights",
-    "⬜ Frontend: Build Insights Tab (copy activity-feed-view.tsx pagination structure)",
-    "⬜ Frontend: Build InsightCard component (copy activity card, add voice note badge)",
-    "⬜ Frontend: Build InsightFilters component",
-    "⬜ Frontend: Build Insight Detail Modal (voice note link, create task action)",
-    "⬜ Frontend: Update Quick Stats Panel - Replace 'Upcoming Events' with 'Unread Insights'",
-    "⬜ Frontend: Add insights badge to voice notes tab (optional)",
-    "⬜ Test: Insight pagination, filters, voice note linking, activity feed events",
-    "⬜ Navigation: Add Team Hub to sidebar (Development group)",
-    "⬜ Navigation: Update bottom nav (5 items: Overview, Players, Voice, Hub, Tasks)",
-    "⬜ Navigation: Set Voice item with highlight: true",
-    "⬜ Schema: Extend coachOrgPreferences table with parentSummaryTone field",
-    "⬜ Backend: Create getCoachPreferences query",
-    "⬜ Backend: Create updateCoachPreferences mutation",
-    "⬜ Frontend: Build parent-comms-settings.tsx component",
-    "⬜ Frontend: Add tone dropdown (Warm, Professional, Brief)",
-    "⬜ Frontend: Add live preview card with example summaries",
-    "⬜ Frontend: Wire up to Team Hub Settings tab OR Coach Settings page",
-    "⬜ Test: Tone selection updates preview, save persists preference",
-    "⬜ Visual verification with dev-browser (all tabs, navigation, integrations, tone controls)",
-    "⬜ Type check passes",
-    "⬜ Verify Activity Feed shows task/insight events",
-    "⬜ Verify Overview Dashboard shows task/insight counts",
-    "⬜ Commit with message: 'feat: Phase 9 Week 4 Phase 4 - Tasks + Insights + Tone Controls with Full Integration'"
-  ],
-  "successCriteria": {
-    "phase4Complete": [
-      "Tasks Tab shows team tasks using existing coachTasks table",
-      "Task filtering works (status, priority, assignee)",
-      "Create task modal works (validation, assignee select, date picker, player select)",
-      "Task status updates (open/in-progress/done) via detail modal",
-      "Task cards show voice note badge if linked",
-      "Task detail modal shows voice note link button",
-      "Activity Feed shows task events (created, completed, assigned)",
-      "Overview Dashboard Quick Stats shows 'Open Tasks' with overdue count",
-      "Click Open Tasks stat → navigates to Tasks tab",
-      "Insights Tab shows paginated insights",
-      "Insight filtering works (type, player, topic)",
-      "Load More pagination works",
-      "Insight detail modal shows full text and voice note link",
-      "Insight detail modal has 'Create Task' action button (optional)",
-      "Generate Insights button triggers AI action (placeholder)",
-      "Activity Feed shows insight events (generated)",
-      "Overview Dashboard Quick Stats shows 'Unread Insights' with priority count",
-      "Click Unread Insights stat → navigates to Insights tab",
-      "Voice notes tab shows insights badge on note cards (optional)",
-      "Team Hub accessible from sidebar (Development group)",
-      "Team Hub accessible from bottom nav (5 items: Overview, Players, Voice, Hub, Tasks)",
-      "Voice item highlighted on mobile bottom nav",
-      "Tone Controls accessible from Team Hub Settings OR Coach Settings",
-      "Tone dropdown shows Warm, Professional, Brief options",
-      "Live preview card updates on tone selection change",
-      "Save button persists tone preference to coachOrgPreferences",
-      "All tabs responsive on mobile/tablet/desktop",
-      "Empty states and loading states present",
-      "Type check passes",
-      "0 new TypeScript errors introduced"
-    ]
-  },
-  "mandatoryPatterns": [
-    "ALWAYS use Better Auth IDs as v.string() not v.id()",
-    "ALWAYS use existing coachTasks table (schema line 925) - DO NOT create teamTasks",
-    "ALWAYS use composite indexes for multi-field queries (never .filter() after .withIndex())",
-    "ALWAYS use batch fetch with Map lookup to avoid N+1 queries",
-    "ALWAYS create teamActivityFeed entries after task/insight mutations",
-    "ALWAYS include args and returns validators on ALL queries/mutations",
-    "ALWAYS use skeleton loaders (not spinners) for loading states",
-    "ALWAYS provide empty states with icon + title + description",
-    "ALWAYS use mobile-first responsive design (1→2→3→4 column grids)",
-    "ALWAYS ensure touch targets ≥44px for mobile",
-    "ALWAYS run npm run check-types before committing",
-    "ALWAYS use dev-browser for visual verification of UI changes",
-    "COPY existing component patterns from Phases 1-3 (don't reinvent)"
-  ],
-  "integrationPoints": {
-    "activityFeed": {
-      "purpose": "Show task and insight collaboration events in team activity stream",
-      "events": [
-        "task_created",
-        "task_completed",
-        "task_assigned",
-        "insight_generated"
-      ],
-      "pattern": "After mutation, insert teamActivityFeed record with actionType, entityType, summary, priority",
-      "example": "await ctx.db.insert('teamActivityFeed', { organizationId, teamId, actorId, actorName, actionType: 'task_created', entityType: 'task', entityId: taskId, summary: `Created task: ${title}`, priority: 'normal' })"
-    },
-    "overviewDashboard": {
-      "purpose": "Show task and insight counts in Quick Stats Panel",
-      "stats": [
-        "openTasks",
-        "overdueCount",
-        "unreadInsights",
-        "highPriorityInsights"
-      ],
-      "pattern": "Enhance getTeamOverviewStats query to count tasks (status !== done) and insights (!readBy.includes(userId))",
-      "ui": "Replace placeholders: Attendance % → Open Tasks, Upcoming Events → Unread Insights"
-    },
-    "voiceNotes": {
-      "purpose": "Bidirectional linking between tasks/insights and voice notes",
-      "fields": [
-        "voiceNoteId in coachTasks (exists!)",
-        "voiceNoteId in teamInsights (new)"
-      ],
-      "pattern": "Display voice note icon badge on task/insight cards, link to voice note detail modal",
-      "optional": "Add insights badge to voice notes tab showing count of generated insights"
-    },
-    "navigation": {
-      "purpose": "Make Team Hub easily accessible from sidebar and bottom nav",
-      "sidebar": "Development group → Team Hub (after Team Insights)",
-      "bottomNav": "5 items: Overview, Players, Voice (highlighted), Hub, Tasks",
-      "icon": "LayoutDashboard for Team Hub, Mic for Voice (highlighted)"
-    }
-  },
-  "effortSummary": {
-    "US-P9-057 (Tasks)": "5.5h",
-    "US-P9-058 (Insights)": "5h",
-    "US-P9-NAV (Navigation)": "0.5h",
-    "US-P9-041 (Tone Controls)": "2h",
-    "total": "13h",
-    "breakdown": {
-      "schema": "1h (add 1 field to coachTasks + 1 table teamInsights + extend enums + 1 field to coachOrgPreferences)",
-      "backend": "4.5h (queries + mutations + actions + activity feed + coach preferences)",
-      "frontend": "6h (2 tabs + cards + filters + modals + tone controls settings)",
-      "integration": "1h (Quick Stats + voice notes badges)",
-      "navigation": "0.5h (sidebar + bottom nav)",
-      "testing": "0.5h (dev-browser verification)"
-    },
-    "originalEstimate": "9h",
-    "revisedEstimate": "13h",
-    "delta": "+4h for 4 major integrations + tone controls (activity feed, overview, voice notes, navigation, parent comms)"
-  }
+  "successCriteria": [
+    "Review link generated after voice note processing",
+    "Link expires after 48 hours with graceful UI",
+    "Mobile-optimized layout (responsive, touch-friendly)",
+    "Fuzzy match suggestions shown for unmatched players (reusing Phase 1)",
+    "Trust-adaptive WhatsApp messages based on coach level",
+    "Cron job cleans up links > 7 days old",
+    "All unit tests passing",
+    "Type check passes (0 errors)"
+  ]
 }

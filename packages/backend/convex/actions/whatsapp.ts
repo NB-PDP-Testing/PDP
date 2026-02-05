@@ -241,6 +241,75 @@ export const processIncomingMessage = internalAction({
       organizationId: organization.id,
     });
 
+    // US-VN-002: Check for pending confirmation before processing text
+    if (messageType === "text" && args.body) {
+      const awaitingNoteId = await ctx.runQuery(
+        internal.models.voiceNotes.getAwaitingConfirmation,
+        { coachId: coachContext.coachId }
+      );
+
+      if (awaitingNoteId) {
+        const { parseConfirmationResponse, generateConfirmationResponse } =
+          await import("../lib/feedbackMessages");
+        const action = parseConfirmationResponse(args.body);
+
+        if (action === "confirm") {
+          // Resume insight extraction
+          await ctx.runMutation(internal.models.voiceNotes.updateInsights, {
+            noteId: awaitingNoteId,
+            status: "pending",
+          });
+          await ctx.scheduler.runAfter(
+            0,
+            internal.actions.voiceNotes.buildInsights,
+            { noteId: awaitingNoteId }
+          );
+          await ctx.scheduler.runAfter(
+            15_000,
+            internal.actions.whatsapp.checkAndAutoApply,
+            {
+              messageId,
+              voiceNoteId: awaitingNoteId,
+              coachId: coachContext.coachId,
+              organizationId: organization.id,
+              phoneNumber,
+            }
+          );
+          await sendWhatsAppMessage(
+            phoneNumber,
+            generateConfirmationResponse("confirm")
+          );
+          return { success: true, messageId };
+        }
+
+        if (action === "retry") {
+          await ctx.runMutation(internal.models.voiceNotes.updateInsights, {
+            noteId: awaitingNoteId,
+            status: "cancelled",
+          });
+          await sendWhatsAppMessage(
+            phoneNumber,
+            generateConfirmationResponse("retry")
+          );
+          return { success: true, messageId };
+        }
+
+        if (action === "cancel") {
+          await ctx.runMutation(internal.models.voiceNotes.updateInsights, {
+            noteId: awaitingNoteId,
+            status: "cancelled",
+          });
+          await sendWhatsAppMessage(
+            phoneNumber,
+            generateConfirmationResponse("cancel")
+          );
+          return { success: true, messageId };
+        }
+
+        // Not a confirmation command - fall through to normal text processing
+      }
+    }
+
     // Send immediate acknowledgment (include org name for multi-org coaches)
     const isMultiOrg = coachContext.availableOrgs.length > 1;
     const ackMessage =

@@ -36,7 +36,7 @@ fi
 STORY_COUNT=$(jq '.userStories | length' "$PRD_FILE" 2>/dev/null || echo "?")
 
 # Display notification
-cat << EOF >&2
+cat << EOF
 
 ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
 📐 NEW PRD PHASE DETECTED

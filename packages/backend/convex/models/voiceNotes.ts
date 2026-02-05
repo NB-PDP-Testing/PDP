@@ -2530,6 +2530,18 @@ export const updateTranscription = internalMutation({
     transcription: v.optional(v.string()),
     status: statusValidator,
     error: v.optional(v.string()),
+    transcriptQuality: v.optional(v.number()),
+    transcriptValidation: v.optional(
+      v.object({
+        isValid: v.boolean(),
+        reason: v.optional(v.string()),
+        suggestedAction: v.union(
+          v.literal("process"),
+          v.literal("ask_user"),
+          v.literal("reject")
+        ),
+      })
+    ),
   },
   returns: v.null(),
   handler: async (ctx, args) => {
@@ -2543,6 +2555,14 @@ export const updateTranscription = internalMutation({
 
     if (args.error !== undefined) {
       updates.transcriptionError = args.error;
+    }
+
+    if (args.transcriptQuality !== undefined) {
+      updates.transcriptQuality = args.transcriptQuality;
+    }
+
+    if (args.transcriptValidation !== undefined) {
+      updates.transcriptValidation = args.transcriptValidation;
     }
 
     await ctx.db.patch(args.noteId, updates);
@@ -2632,5 +2652,38 @@ export const updateInsights = internalMutation({
     }
 
     return null;
+  },
+});
+
+/**
+ * Find the most recent voice note awaiting confirmation for a coach.
+ * Used by WhatsApp flow to detect pending CONFIRM/RETRY/CANCEL responses.
+ */
+export const getAwaitingConfirmation = internalQuery({
+  args: {
+    coachId: v.string(),
+  },
+  returns: v.union(v.id("voiceNotes"), v.null()),
+  handler: async (ctx, args) => {
+    // Query notes for this coach with awaiting_confirmation status.
+    // Uses filter because we don't have an index on insightsStatus.
+    // This is acceptable: only runs on WhatsApp text messages when a coach
+    // has a pending confirmation (rare), and we take the first match.
+    const note = await ctx.db
+      .query("voiceNotes")
+      .order("desc")
+      .filter((q) =>
+        q.and(
+          q.eq(q.field("coachId"), args.coachId),
+          q.eq(q.field("insightsStatus"), "awaiting_confirmation"),
+          q.or(
+            q.eq(q.field("source"), "whatsapp_audio"),
+            q.eq(q.field("source"), "whatsapp_text")
+          )
+        )
+      )
+      .first();
+
+    return note?._id ?? null;
   },
 });

@@ -603,7 +603,7 @@ async function processAudioMessage(
 }
 
 /**
- * Process a text message - create typed voice note
+ * Process a text message - validate quality then create typed voice note
  */
 async function processTextMessage(
   // biome-ignore lint/suspicious/noExplicitAny: Convex action context type
@@ -616,6 +616,43 @@ async function processTextMessage(
     phoneNumber: string;
   }
 ) {
+  // US-VN-001: Quality gate - validate text before processing
+  const { validateTextMessage } = await import("../lib/messageValidation");
+  const qualityCheck = validateTextMessage(args.text);
+
+  if (!qualityCheck.isValid) {
+    // Update message with quality check result and reject
+    await ctx.runMutation(internal.models.whatsappMessages.updateStatus, {
+      messageId: args.messageId,
+      status: "rejected",
+      errorMessage: `Quality check failed: ${qualityCheck.reason}`,
+    });
+
+    await ctx.runMutation(internal.models.whatsappMessages.updateQualityCheck, {
+      messageId: args.messageId,
+      qualityCheck: {
+        isValid: false,
+        reason: qualityCheck.reason,
+        checkedAt: Date.now(),
+      },
+    });
+
+    // Send helpful feedback to coach
+    if (qualityCheck.suggestion) {
+      await sendWhatsAppMessage(args.phoneNumber, qualityCheck.suggestion);
+    }
+    return;
+  }
+
+  // Quality check passed - store result
+  await ctx.runMutation(internal.models.whatsappMessages.updateQualityCheck, {
+    messageId: args.messageId,
+    qualityCheck: {
+      isValid: true,
+      checkedAt: Date.now(),
+    },
+  });
+
   // Create voice note (this triggers insights pipeline)
   const noteId = await ctx.runMutation(api.models.voiceNotes.createTypedNote, {
     orgId: args.organizationId,

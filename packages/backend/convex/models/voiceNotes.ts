@@ -63,7 +63,9 @@ const statusValidator = v.union(
   v.literal("pending"),
   v.literal("processing"),
   v.literal("completed"),
-  v.literal("failed")
+  v.literal("failed"),
+  v.literal("awaiting_confirmation"),
+  v.literal("cancelled")
 );
 
 const sourceValidator = v.optional(

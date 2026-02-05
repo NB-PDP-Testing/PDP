@@ -1557,10 +1557,25 @@ export default defineSchema({
         v.literal("pending"),
         v.literal("processing"),
         v.literal("completed"),
-        v.literal("failed")
+        v.literal("failed"),
+        v.literal("awaiting_confirmation"),
+        v.literal("cancelled")
       )
     ),
     insightsError: v.optional(v.string()),
+    // Transcript quality tracking (US-VN-002)
+    transcriptQuality: v.optional(v.number()),
+    transcriptValidation: v.optional(
+      v.object({
+        isValid: v.boolean(),
+        reason: v.optional(v.string()),
+        suggestedAction: v.union(
+          v.literal("process"),
+          v.literal("ask_user"),
+          v.literal("reject")
+        ),
+      })
+    ),
     // Optional session plan link for voice notes taken during sessions
     sessionPlanId: v.optional(v.id("sessionPlans")),
   })
@@ -3900,9 +3915,24 @@ export default defineSchema({
       v.literal("processing"),
       v.literal("completed"),
       v.literal("failed"),
-      v.literal("unmatched")
+      v.literal("unmatched"),
+      v.literal("rejected"),
+      v.literal("duplicate")
     ),
     errorMessage: v.optional(v.string()),
+
+    // Quality gate results (US-VN-001)
+    messageQualityCheck: v.optional(
+      v.object({
+        isValid: v.boolean(),
+        reason: v.optional(v.string()),
+        checkedAt: v.number(),
+      })
+    ),
+
+    // Duplicate detection (US-VN-003)
+    isDuplicate: v.optional(v.boolean()),
+    duplicateOfMessageId: v.optional(v.id("whatsappMessages")),
 
     // Link to created voice note
     voiceNoteId: v.optional(v.id("voiceNotes")),
@@ -3948,7 +3978,9 @@ export default defineSchema({
     .index("by_coachId", ["coachId"])
     .index("by_organizationId", ["organizationId"])
     .index("by_status", ["status"])
-    .index("by_receivedAt", ["receivedAt"]),
+    .index("by_receivedAt", ["receivedAt"])
+    .index("by_fromNumber_and_receivedAt", ["fromNumber", "receivedAt"])
+    .index("by_duplicateOfMessageId", ["duplicateOfMessageId"]),
 
   // WhatsApp session memory for multi-org coaches
   // Remembers which org a coach was recently messaging about (2-hour timeout)

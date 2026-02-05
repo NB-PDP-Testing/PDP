@@ -2528,6 +2528,18 @@ export const syncFunctionalRolesFromInvitation = mutation({
       }
     }
 
+    // Mark user as invited (Phase 0.8: Onboarding flow differentiation)
+    await ctx.runMutation(components.betterAuth.adapter.updateOne, {
+      input: {
+        model: "user",
+        where: [{ field: "_id", value: userId, operator: "eq" }],
+        update: {
+          wasInvited: true,
+          updatedAt: Date.now(),
+        },
+      },
+    });
+
     // Log the acceptance event
     await ctx.runMutation(internal.models.members.logInvitationEvent, {
       invitationId: args.invitationId,
@@ -2940,6 +2952,18 @@ export const syncFunctionalRolesWithChildSelections = mutation({
         );
       }
     }
+
+    // Mark user as invited (Phase 0.8: Onboarding flow differentiation)
+    await ctx.runMutation(components.betterAuth.adapter.updateOne, {
+      input: {
+        model: "user",
+        where: [{ field: "_id", value: args.userId, operator: "eq" }],
+        update: {
+          wasInvited: true,
+          updatedAt: Date.now(),
+        },
+      },
+    });
 
     // Log the event
     await ctx.runMutation(internal.models.members.logInvitationEvent, {

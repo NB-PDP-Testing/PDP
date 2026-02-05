@@ -14,7 +14,7 @@
 
 import { api } from "@pdp/backend/convex/_generated/api";
 import { useMutation } from "convex/react";
-import { ChevronDown, Info, Loader2, User } from "lucide-react";
+import { Info, Loader2, User } from "lucide-react";
 import { useState } from "react";
 import { toast } from "sonner";
 import {
@@ -26,11 +26,6 @@ import {
   AlertDialogTitle,
 } from "@/components/ui/alert-dialog";
 import { Button } from "@/components/ui/button";
-import {
-  Collapsible,
-  CollapsibleContent,
-  CollapsibleTrigger,
-} from "@/components/ui/collapsible";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import {
@@ -51,7 +46,6 @@ import {
   TOP_COUNTRIES,
   US_STATES,
 } from "@/lib/constants/address-data";
-import { cn } from "@/lib/utils";
 import { HelpFooter } from "./help-footer";
 
 export type ProfileCompletionData = {
@@ -92,7 +86,6 @@ export function ProfileCompletionStep({
   const [country, setCountry] = useState(data.currentCountry || "");
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [isSkipping, setIsSkipping] = useState(false);
-  const [isAddressExpanded, setIsAddressExpanded] = useState(false);
 
   // Track if "Other" was selected for county dropdown
   const [isCountyOther, setIsCountyOther] = useState(false);
@@ -253,24 +246,70 @@ export function ProfileCompletionStep({
         </div>
 
         <div className="max-h-[50vh] space-y-4 overflow-y-auto py-4 sm:max-h-none">
-          {/* Required Fields: Phone and Postcode */}
+          {/* Phone Input */}
+          <div className="space-y-2">
+            <Label htmlFor="phone">
+              Phone Number <span className="text-destructive">*</span>
+            </Label>
+            <Input
+              disabled={isSubmitting || isSkipping}
+              id="phone"
+              onChange={(e) => setPhone(e.target.value)}
+              placeholder="+353 87 123 4567"
+              type="tel"
+              value={phone}
+            />
+          </div>
+
+          {/* Alternate Email Input */}
+          <div className="space-y-2">
+            <Label htmlFor="altEmail">Alternate Email (Optional)</Label>
+            <Input
+              disabled={isSubmitting || isSkipping}
+              id="altEmail"
+              onChange={(e) => setAltEmail(e.target.value)}
+              placeholder="another.email@example.com"
+              type="email"
+              value={altEmail}
+            />
+          </div>
+
+          {/* Street Address */}
+          <div className="space-y-2">
+            <Label htmlFor="address">Street Address</Label>
+            <Input
+              disabled={isSubmitting || isSkipping}
+              id="address"
+              onChange={(e) => setAddress(e.target.value)}
+              placeholder="123 Main Street"
+              value={address}
+            />
+          </div>
+
+          {/* Address Line 2 */}
+          <div className="space-y-2">
+            <Label htmlFor="address2">Address Line 2</Label>
+            <Input
+              disabled={isSubmitting || isSkipping}
+              id="address2"
+              onChange={(e) => setAddress2(e.target.value)}
+              placeholder="Apt, unit, building, etc."
+              value={address2}
+            />
+          </div>
+
+          {/* Town / City and Postcode row */}
           <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
-            {/* Phone Input */}
             <div className="space-y-2">
-              <Label htmlFor="phone">
-                Phone Number <span className="text-destructive">*</span>
-              </Label>
+              <Label htmlFor="town">Town / City</Label>
               <Input
                 disabled={isSubmitting || isSkipping}
-                id="phone"
-                onChange={(e) => setPhone(e.target.value)}
-                placeholder="+353 87 123 4567"
-                type="tel"
-                value={phone}
+                id="town"
+                onChange={(e) => setTown(e.target.value)}
+                placeholder="Dublin"
+                value={town}
               />
             </div>
-
-            {/* Postcode Input */}
             <div className="space-y-2">
               <Label htmlFor="postcode">
                 Postcode / Eircode <span className="text-destructive">*</span>
@@ -285,195 +324,115 @@ export function ProfileCompletionStep({
             </div>
           </div>
 
-          {/* Alternate Email Input */}
-          <div className="space-y-2">
-            <Label htmlFor="altEmail">Alternate Email (Optional)</Label>
-            <Input
-              disabled={isSubmitting || isSkipping}
-              id="altEmail"
-              onChange={(e) => setAltEmail(e.target.value)}
-              placeholder="another.email@example.com"
-              type="email"
-              value={altEmail}
-            />
-            <p className="text-muted-foreground text-xs">
-              An alternative email address for your account
-            </p>
-          </div>
-
-          {/* Address Section - Collapsible */}
-          <Collapsible
-            onOpenChange={setIsAddressExpanded}
-            open={isAddressExpanded}
-          >
-            <CollapsibleTrigger asChild>
-              <button
-                className={cn(
-                  "flex w-full items-center justify-between rounded-lg border px-4 py-3 text-left transition-colors",
-                  "hover:bg-muted/50",
-                  isAddressExpanded && "border-primary/20 bg-muted/30"
-                )}
-                disabled={isSubmitting || isSkipping}
-                type="button"
-              >
-                <span className="font-medium text-sm">Address (Optional)</span>
-                <ChevronDown
-                  className={cn(
-                    "size-4 text-muted-foreground transition-transform",
-                    isAddressExpanded && "rotate-180"
-                  )}
-                />
-              </button>
-            </CollapsibleTrigger>
-
-            <CollapsibleContent className="space-y-4 pt-4">
-              {/* Street Address */}
-              <div className="space-y-2">
-                <Label htmlFor="address">Street Address</Label>
-                <Input
+          {/* County and Country row */}
+          <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
+            {/* County Field - Dynamic based on country */}
+            <div className="space-y-2">
+              <Label htmlFor="county">
+                {country === "US" ? "State" : "County"}
+              </Label>
+              {showCountyDropdown ? (
+                <Select
                   disabled={isSubmitting || isSkipping}
-                  id="address"
-                  onChange={(e) => setAddress(e.target.value)}
-                  placeholder="123 Main Street"
-                  value={address}
-                />
-              </div>
-
-              {/* Address Line 2 */}
-              <div className="space-y-2">
-                <Label htmlFor="address2">Address Line 2</Label>
-                <Input
-                  disabled={isSubmitting || isSkipping}
-                  id="address2"
-                  onChange={(e) => setAddress2(e.target.value)}
-                  placeholder="Apt, unit, building, etc. (optional)"
-                  value={address2}
-                />
-              </div>
-
-              {/* Town / City */}
-              <div className="space-y-2">
-                <Label htmlFor="town">Town / City</Label>
-                <Input
-                  disabled={isSubmitting || isSkipping}
-                  id="town"
-                  onChange={(e) => setTown(e.target.value)}
-                  placeholder="Dublin"
-                  value={town}
-                />
-              </div>
-
-              {/* County and Country row */}
-              <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
-                {/* County Field - Dynamic based on country */}
-                <div className="space-y-2">
-                  <Label htmlFor="county">
-                    {country === "US" ? "State" : "County"}
-                  </Label>
-                  {showCountyDropdown ? (
-                    <Select
-                      disabled={isSubmitting || isSkipping}
-                      onValueChange={handleCountySelectChange}
-                      value={county}
-                    >
-                      <SelectTrigger className="w-full">
-                        <SelectValue
-                          placeholder={
-                            country === "US" ? "Select state" : "Select county"
-                          }
-                        />
-                      </SelectTrigger>
-                      <SelectContent>
-                        <SelectGroup>
-                          {country === "IE" && (
-                            <>
-                              <SelectLabel>Irish Counties</SelectLabel>
-                              {IRISH_COUNTIES.map((c) => (
-                                <SelectItem key={c} value={c}>
-                                  {c}
-                                </SelectItem>
-                              ))}
-                            </>
-                          )}
-                          {country === "US" && (
-                            <>
-                              <SelectLabel>US States</SelectLabel>
-                              {US_STATES.map((s) => (
-                                <SelectItem key={s} value={s}>
-                                  {s}
-                                </SelectItem>
-                              ))}
-                            </>
-                          )}
-                          <SelectSeparator />
-                          <SelectItem value="__other__">
-                            Other (enter manually)
-                          </SelectItem>
-                        </SelectGroup>
-                      </SelectContent>
-                    </Select>
-                  ) : (
-                    <Input
-                      disabled={isSubmitting || isSkipping}
-                      id="county"
-                      onChange={(e) => setCounty(e.target.value)}
+                  onValueChange={handleCountySelectChange}
+                  value={county}
+                >
+                  <SelectTrigger className="w-full">
+                    <SelectValue
                       placeholder={
-                        country === "US" ? "Enter state" : "Enter county/region"
+                        country === "US" ? "Select state" : "Select county"
                       }
-                      value={county}
                     />
-                  )}
-                  {isCountyOther && countyOptions && (
-                    <button
-                      className="text-primary text-xs hover:underline"
-                      onClick={() => {
-                        setIsCountyOther(false);
-                        setCounty("");
-                      }}
-                      type="button"
-                    >
-                      Back to dropdown
-                    </button>
-                  )}
-                </div>
-
-                {/* Country Dropdown */}
-                <div className="space-y-2">
-                  <Label htmlFor="country">Country</Label>
-                  <Select
-                    disabled={isSubmitting || isSkipping}
-                    onValueChange={handleCountryChange}
-                    value={country}
-                  >
-                    <SelectTrigger className="w-full">
-                      <SelectValue placeholder="Select country" />
-                    </SelectTrigger>
-                    <SelectContent>
-                      {/* Top countries */}
-                      <SelectGroup>
-                        <SelectLabel>Common</SelectLabel>
-                        {TOP_COUNTRIES.map((c) => (
-                          <SelectItem key={c.code} value={c.code}>
-                            {c.name}
-                          </SelectItem>
-                        ))}
-                      </SelectGroup>
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectGroup>
+                      {country === "IE" && (
+                        <>
+                          <SelectLabel>Irish Counties</SelectLabel>
+                          {IRISH_COUNTIES.map((c) => (
+                            <SelectItem key={c} value={c}>
+                              {c}
+                            </SelectItem>
+                          ))}
+                        </>
+                      )}
+                      {country === "US" && (
+                        <>
+                          <SelectLabel>US States</SelectLabel>
+                          {US_STATES.map((s) => (
+                            <SelectItem key={s} value={s}>
+                              {s}
+                            </SelectItem>
+                          ))}
+                        </>
+                      )}
                       <SelectSeparator />
-                      {/* All other countries */}
-                      <SelectGroup>
-                        <SelectLabel>All Countries</SelectLabel>
-                        {otherCountries.map((c) => (
-                          <SelectItem key={c.code} value={c.code}>
-                            {c.name}
-                          </SelectItem>
-                        ))}
-                      </SelectGroup>
-                    </SelectContent>
-                  </Select>
-                </div>
-              </div>
-            </CollapsibleContent>
-          </Collapsible>
+                      <SelectItem value="__other__">
+                        Other (enter manually)
+                      </SelectItem>
+                    </SelectGroup>
+                  </SelectContent>
+                </Select>
+              ) : (
+                <Input
+                  disabled={isSubmitting || isSkipping}
+                  id="county"
+                  onChange={(e) => setCounty(e.target.value)}
+                  placeholder={
+                    country === "US" ? "Enter state" : "Enter county/region"
+                  }
+                  value={county}
+                />
+              )}
+              {isCountyOther && countyOptions && (
+                <button
+                  className="text-primary text-xs hover:underline"
+                  onClick={() => {
+                    setIsCountyOther(false);
+                    setCounty("");
+                  }}
+                  type="button"
+                >
+                  Back to dropdown
+                </button>
+              )}
+            </div>
+
+            {/* Country Dropdown */}
+            <div className="space-y-2">
+              <Label htmlFor="country">Country</Label>
+              <Select
+                disabled={isSubmitting || isSkipping}
+                onValueChange={handleCountryChange}
+                value={country}
+              >
+                <SelectTrigger className="w-full">
+                  <SelectValue placeholder="Select country" />
+                </SelectTrigger>
+                <SelectContent>
+                  {/* Top countries */}
+                  <SelectGroup>
+                    <SelectLabel>Common</SelectLabel>
+                    {TOP_COUNTRIES.map((c) => (
+                      <SelectItem key={c.code} value={c.code}>
+                        {c.name}
+                      </SelectItem>
+                    ))}
+                  </SelectGroup>
+                  <SelectSeparator />
+                  {/* All other countries */}
+                  <SelectGroup>
+                    <SelectLabel>All Countries</SelectLabel>
+                    {otherCountries.map((c) => (
+                      <SelectItem key={c.code} value={c.code}>
+                        {c.name}
+                      </SelectItem>
+                    ))}
+                  </SelectGroup>
+                </SelectContent>
+              </Select>
+            </div>
+          </div>
         </div>
 
         <AlertDialogFooter className="flex-col gap-2 sm:flex-row">

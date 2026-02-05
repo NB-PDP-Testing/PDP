@@ -8,6 +8,7 @@ import {
   mutation,
   query,
 } from "../_generated/server";
+import { calculateMatchScore } from "../lib/stringMatching";
 
 // ============================================================
 // TYPE DEFINITIONS
@@ -1542,5 +1543,109 @@ export const getBulkChildData = query({
     }
 
     return result;
+  },
+});
+
+// ============================================================
+// FUZZY PLAYER MATCHING (US-VN-006)
+// ============================================================
+
+const SIMILARITY_THRESHOLD = 0.5;
+const DEFAULT_MATCH_LIMIT = 5;
+
+/**
+ * Find players whose names are similar to a search term.
+ * Uses Levenshtein-based matching from stringMatching.ts (US-VN-005).
+ *
+ * Used by the WhatsApp voice note pipeline to resolve spoken player names.
+ */
+export const findSimilarPlayers = internalQuery({
+  args: {
+    organizationId: v.string(),
+    coachUserId: v.string(),
+    searchName: v.string(),
+    limit: v.optional(v.number()),
+  },
+  returns: v.array(
+    v.object({
+      playerId: v.id("playerIdentities"),
+      firstName: v.string(),
+      lastName: v.string(),
+      fullName: v.string(),
+      similarity: v.number(),
+      ageGroup: v.string(),
+      sport: v.union(v.string(), v.null()),
+    })
+  ),
+  handler: async (ctx, args) => {
+    const maxResults = args.limit ?? DEFAULT_MATCH_LIMIT;
+
+    // Get active players for the organization
+    const enrollments = await ctx.db
+      .query("orgPlayerEnrollments")
+      .withIndex("by_org_and_status", (q) =>
+        q.eq("organizationId", args.organizationId).eq("status", "active")
+      )
+      .collect();
+
+    // Batch fetch player identities
+    const uniquePlayerIds = [
+      ...new Set(enrollments.map((e) => e.playerIdentityId)),
+    ];
+    const playerDocs = await Promise.all(
+      uniquePlayerIds.map((id) => ctx.db.get(id))
+    );
+    const playerMap = new Map<
+      Id<"playerIdentities">,
+      { firstName: string; lastName: string }
+    >();
+    for (const doc of playerDocs) {
+      if (doc) {
+        playerMap.set(doc._id, {
+          firstName: doc.firstName,
+          lastName: doc.lastName,
+        });
+      }
+    }
+
+    // Score each player
+    const scored: Array<{
+      playerId: Id<"playerIdentities">;
+      firstName: string;
+      lastName: string;
+      fullName: string;
+      similarity: number;
+      ageGroup: string;
+      sport: string | null;
+    }> = [];
+
+    for (const enrollment of enrollments) {
+      const player = playerMap.get(enrollment.playerIdentityId);
+      if (!player) {
+        continue;
+      }
+
+      const similarity = calculateMatchScore(
+        args.searchName,
+        player.firstName,
+        player.lastName
+      );
+
+      if (similarity >= SIMILARITY_THRESHOLD) {
+        scored.push({
+          playerId: enrollment.playerIdentityId,
+          firstName: player.firstName,
+          lastName: player.lastName,
+          fullName: `${player.firstName} ${player.lastName}`,
+          similarity,
+          ageGroup: enrollment.ageGroup,
+          sport: enrollment.sport ?? null,
+        });
+      }
+    }
+
+    // Sort by similarity descending, take top N
+    scored.sort((a, b) => b.similarity - a.similarity);
+    return scored.slice(0, maxResults);
   },
 });

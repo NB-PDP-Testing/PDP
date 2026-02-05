@@ -32,8 +32,12 @@ import type * as lib_auditCoachAssignments from "../lib/auditCoachAssignments.js
 import type * as lib_autoApprovalDecision from "../lib/autoApprovalDecision.js";
 import type * as lib_circuitBreaker from "../lib/circuitBreaker.js";
 import type * as lib_consentGateway from "../lib/consentGateway.js";
+import type * as lib_duplicateDetection from "../lib/duplicateDetection.js";
+import type * as lib_feedbackMessages from "../lib/feedbackMessages.js";
 import type * as lib_firstUserSetup from "../lib/firstUserSetup.js";
+import type * as lib_messageValidation from "../lib/messageValidation.js";
 import type * as lib_phoneUtils from "../lib/phoneUtils.js";
+import type * as lib_stringMatching from "../lib/stringMatching.js";
 import type * as lib_trustLevelCalculator from "../lib/trustLevelCalculator.js";
 import type * as migrations_cleanSlate from "../migrations/cleanSlate.js";
 import type * as migrations_compareIrishDancing from "../migrations/compareIrishDancing.js";
@@ -191,8 +195,12 @@ declare const fullApi: ApiFromModules<{
   "lib/autoApprovalDecision": typeof lib_autoApprovalDecision;
   "lib/circuitBreaker": typeof lib_circuitBreaker;
   "lib/consentGateway": typeof lib_consentGateway;
+  "lib/duplicateDetection": typeof lib_duplicateDetection;
+  "lib/feedbackMessages": typeof lib_feedbackMessages;
   "lib/firstUserSetup": typeof lib_firstUserSetup;
+  "lib/messageValidation": typeof lib_messageValidation;
   "lib/phoneUtils": typeof lib_phoneUtils;
+  "lib/stringMatching": typeof lib_stringMatching;
   "lib/trustLevelCalculator": typeof lib_trustLevelCalculator;
   "migrations/cleanSlate": typeof migrations_cleanSlate;
   "migrations/compareIrishDancing": typeof migrations_compareIrishDancing;

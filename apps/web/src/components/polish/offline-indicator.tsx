@@ -116,14 +116,17 @@ export function OfflineIndicator({
 }: OfflineIndicatorProps) {
   const { isOnline, wasOffline } = useOnlineStatus();
   const [showBanner, setShowBanner] = useState(false);
+  const wasShowingOfflineRef = useRef(false);
 
   // Show banner when offline
   useEffect(() => {
     if (!isOnline) {
       setShowBanner(true);
-    } else if (showReconnected && wasOffline) {
-      // Keep showing for reconnected message
+      wasShowingOfflineRef.current = true; // Track that we showed offline
+    } else if (showReconnected && wasOffline && wasShowingOfflineRef.current) {
+      // ONLY show reconnected if we were actually showing the offline banner before
       setShowBanner(true);
+      wasShowingOfflineRef.current = false; // Reset
       const timer = setTimeout(() => setShowBanner(false), 3000);
       return () => clearTimeout(timer);
     } else {

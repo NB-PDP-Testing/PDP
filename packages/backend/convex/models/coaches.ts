@@ -665,8 +665,6 @@ export const getCoachPreferences = query({
       blockedBy: v.optional(v.string()),
       blockedAt: v.optional(v.number()),
       blockReason: v.optional(v.string()),
-      createdAt: v.number(),
-      updatedAt: v.number(),
     })
   ),
   handler: async (ctx, args) => {
@@ -724,8 +722,6 @@ export const getCoachPreferencesInternal = internalQuery({
       blockedBy: v.optional(v.string()),
       blockedAt: v.optional(v.number()),
       blockReason: v.optional(v.string()),
-      createdAt: v.number(),
-      updatedAt: v.number(),
     })
   ),
   handler: async (ctx, args) => {

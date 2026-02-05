@@ -29,21 +29,26 @@ DASHBOARD
       echo "🔴 Ralph: STOPPED"
   fi
 
-  # Check if all 5 agents are running
+  # Check if all 6 agents are running
   AGENTS_RUNNING=0
-  [ -f scripts/ralph/agents/output/quality-monitor.pid ] && kill -0 $(cat scripts/ralph/agents/output/quality-monitor.pid) 2>/dev/null && ((AGENTS_RUNNING++))
-  [ -f scripts/ralph/agents/output/prd-auditor.pid ] && kill -0 $(cat scripts/ralph/agents/output/prd-auditor.pid) 2>/dev/null && ((AGENTS_RUNNING++))
-  [ -f scripts/ralph/agents/output/documenter.pid ] && kill -0 $(cat scripts/ralph/agents/output/documenter.pid) 2>/dev/null && ((AGENTS_RUNNING++))
-  [ -f scripts/ralph/agents/output/security-tester.pid ] && kill -0 $(cat scripts/ralph/agents/output/security-tester.pid) 2>/dev/null && ((AGENTS_RUNNING++))
-  [ -f scripts/ralph/agents/output/test-runner.pid ] && kill -0 $(cat scripts/ralph/agents/output/test-runner.pid) 2>/dev/null && ((AGENTS_RUNNING++))
+  AGENT_STATUS=""
+  for agent in quality-monitor prd-auditor documenter test-runner security-tester code-review-gate; do
+      if [ -f "scripts/ralph/agents/output/${agent}.pid" ] && kill -0 $(cat "scripts/ralph/agents/output/${agent}.pid") 2>/dev/null; then
+          ((AGENTS_RUNNING++))
+          AGENT_STATUS+="  ✅ $agent\n"
+      else
+          AGENT_STATUS+="  🔴 $agent\n"
+      fi
+  done
 
-  if [ $AGENTS_RUNNING -eq 5 ]; then
-      echo "✅ Agents: ALL RUNNING ($AGENTS_RUNNING/5)"
+  if [ $AGENTS_RUNNING -eq 6 ]; then
+      echo "✅ Agents: ALL RUNNING ($AGENTS_RUNNING/6)"
   elif [ $AGENTS_RUNNING -gt 0 ]; then
-      echo "⚠️  Agents: PARTIAL ($AGENTS_RUNNING/5 running)"
+      echo "⚠️  Agents: PARTIAL ($AGENTS_RUNNING/6 running)"
   else
-      echo "🔴 Agents: STOPPED (0/5 running)"
+      echo "🔴 Agents: STOPPED (0/6 running)"
   fi
+  echo -e "$AGENT_STATUS"
 
   echo ""
   echo "📊 STORY PROGRESS:"
@@ -99,14 +104,16 @@ DASHBOARD
   fi
 
   echo ""
-  echo "🛡️  AGENT LOGS (Last 6 lines):"
+  echo "🛡️  AGENT LOGS (Latest):"
   echo "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
   if [ -f scripts/ralph/agents/output/quality-monitor.log ]; then
-      echo "Quality Monitor:"
-      tail -3 scripts/ralph/agents/output/quality-monitor.log 2>/dev/null | sed 's/^/  /' || echo "  (no output)"
-      echo ""
-      echo "Test Runner:"
-      tail -3 scripts/ralph/agents/output/test-runner.log 2>/dev/null | sed 's/^/  /' || echo "  (no output yet)"
+      for agent_log in quality-monitor test-runner code-review-gate security-tester; do
+          if [ -f "scripts/ralph/agents/output/${agent_log}.log" ]; then
+              echo "$agent_log:"
+              tail -2 "scripts/ralph/agents/output/${agent_log}.log" 2>/dev/null | sed 's/^/  /' || echo "  (no output)"
+              echo ""
+          fi
+      done
   else
       echo "No agent logs yet"
       echo "Run: ./scripts/ralph/agents/start-all.sh"

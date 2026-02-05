@@ -54,6 +54,18 @@
           }
         ],
         "description": "Prevent destructive operations"
+      },
+      {
+        "matcher": "tool == \"Write\" && tool_input.file_path matches \"\\.(md|MD)$\" && !(tool_input.file_path matches \"(\\.claude/|docs/|scripts/ralph/|CLAUDE\\.md|\\.ruler/)\")",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "echo '⚠️  Creating a new markdown file outside docs/, scripts/ralph/, or .claude/. Ralph tends to create excessive documentation files. Consider whether this file is truly necessary or if the content belongs in an existing doc.' && exit 0",
+            "timeout": 3,
+            "description": "Warn about unnecessary markdown file creation"
+          }
+        ],
+        "description": "Warn when creating markdown files outside expected locations"
       }
     ],
     "SessionStart": [
@@ -74,6 +86,20 @@
           }
         ],
         "description": "Check Ralph and agent status at session start"
+      }
+    ],
+    "Stop": [
+      {
+        "matcher": "*",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "cd \"$CLAUDE_PROJECT_DIR\" && CONSOLE_LOGS=$(git diff --name-only HEAD 2>/dev/null | xargs grep -l 'console\\.log' 2>/dev/null | grep -v node_modules | grep -v '\\.test\\.' | grep -v '__tests__' || true) && if [ -n \"$CONSOLE_LOGS\" ]; then echo \"⚠️  console.log found in changed files:\" && echo \"$CONSOLE_LOGS\" && echo \"Remove before committing.\"; fi && exit 0",
+            "timeout": 5,
+            "description": "Check for leftover console.log in changed files"
+          }
+        ],
+        "description": "Detect console.log statements before session ends"
       }
     ],
     "SessionEnd": [

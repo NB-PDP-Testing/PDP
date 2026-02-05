@@ -7,6 +7,7 @@ import Header from "@/components/header";
 import Loader from "@/components/loader";
 import { NotificationProvider } from "@/components/notification-provider";
 import { OnboardingOrchestrator } from "@/components/onboarding/onboarding-orchestrator";
+import { OfflineIndicator } from "@/components/polish/offline-indicator";
 import { useCurrentUser } from "@/hooks/use-current-user";
 
 // todo generateMetadata
@@ -87,6 +88,7 @@ export default function OrgLayout({
   if (user) {
     return (
       <>
+        <OfflineIndicator position="top" />
         <Header />
         <OnboardingOrchestrator>
           <NotificationProvider>{children}</NotificationProvider>

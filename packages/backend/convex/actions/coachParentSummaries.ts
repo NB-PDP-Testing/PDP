@@ -418,7 +418,7 @@ export const generateParentSummary = internalAction({
 
     // Fetch coach preferences to get tone setting
     const preferences = await ctx.runQuery(
-      internal.models.coaches.getCoachPreferences,
+      internal.models.coaches.getCoachPreferencesInternal,
       {
         coachId: args.coachId,
         organizationId: args.organizationId,
@@ -595,6 +595,9 @@ export const processVoiceNoteInsight = internalAction({
   },
   returns: v.null(),
   handler: async (ctx, args) => {
+    console.log(
+      `🔄 processVoiceNoteInsight started for insightId=${args.insightId}, playerId=${args.playerIdentityId}`
+    );
     try {
       // Step 0.1: Check rate limits FIRST (US-009)
       // Prevents abuse or runaway loops
@@ -668,6 +671,9 @@ export const processVoiceNoteInsight = internalAction({
         );
 
         if (shouldSkip) {
+          console.log(
+            `⏭️  Skipping ${classification.category} insight for coachId=${args.coachId} (skipSensitiveInsights enabled)`
+          );
           return null;
         }
       }
@@ -747,6 +753,10 @@ export const processVoiceNoteInsight = internalAction({
           playerIdentityId: args.playerIdentityId,
           sportId: sport._id,
         }
+      );
+
+      console.log(
+        `✅ Parent summary created successfully for insightId=${args.insightId}, category=${classification.category}`
       );
 
       // Step 6: Increment rate limit counters (US-009)

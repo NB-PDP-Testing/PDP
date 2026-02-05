@@ -1,0 +1,28 @@
+{
+  "skillName": "Core Stability During Running",
+  "category": "Running Mechanics",
+  "description": "Maintaining stable trunk and pelvis during running motion to efficiently transfer force from lower body. Core bracing prevents excessive movement and rotation of the torso, reducing energy leaks. Strong core prevents excessive lumbar extension and maintains proper biomechanics when fatigued. Core stability enables efficient force transfer from powerful leg drive through trunk to forward propulsion.",
+  "levels": {
+    "1": {
+      "label": "Developing",
+      "description": "Minimal core engagement during running with excessive trunk and pelvic movement. Visible excessive rotation of shoulders and hips, particularly when fatigued. Lower back arches excessively (anterior pelvic tilt and lumbar extension) creating energy leaks and poor force transfer. Torso flexes and extends noticeably with each stride rather than maintaining stability. Cannot maintain \"chin to belt buckle\" core brace for more than a few strides. Posture collapses quickly as core fatigues, leading to sitting back with hips or excessive forward bend at waist. Demonstrates fundamental weakness in core musculature and no understanding of core's role in running efficiency. Running appears disjointed with poor connection between upper and lower body."
+    },
+    "2": {
+      "label": "Emerging",
+      "description": "Some core engagement present but inconsistent and inadequate for optimal running. Can brace core with coaching reminders (\"engage your core,\" \"chin to belt buckle\") but doesn't maintain automatically. Moderate trunk stability during easy running but noticeable degradation when pace increases or fatigue sets in. Excessive lumbar extension still visible, particularly in later stages of runs. Some rotational movement present though less extreme than beginner level. Beginning to understand core stability concept and shows improvement when focusing on it. Cannot maintain core engagement throughout entire run - tends to fatigue midway through sessions. Shows promise but needs significant development in core strength and endurance."
+    },
+    "3": {
+      "label": "Competent",
+      "description": "Good core stability during most running situations with effective trunk control. Maintains stable pelvis and spine during steady running with minimal excessive rotation or extension. Demonstrates proper core bracing automatically during normal training paces. Some degradation in core stability during very hard efforts or extreme fatigue but maintains reasonable control. Efficient force transfer from lower body through stable trunk enables competent running economy. Can self-correct when core engagement lapses. Demonstrates understanding of core's role and can engage properly without external cueing in most situations. Appropriate core stability for club-regional level competition. May still experience some breakdown in final stages of championship races or after prolonged hard efforts."
+    },
+    "4": {
+      "label": "Advanced",
+      "description": "Excellent core stability across all running intensities and durations with minimal energy leaks. Strong, consistent core bracing maintains optimal trunk position even during maximal sprint efforts and severe fatigue states. Visible core engagement prevents excessive rotation, flexion, extension, or lateral movement. Maintains perfect force transfer from powerful leg drive through stable trunk to forward propulsion. Core strength endures throughout races and hard workouts without meaningful degradation. Can demonstrate proper core engagement and explain its biomechanical importance to others. Competitive advantage through superior core stability enabling better running economy and power transfer. Self-correcting if core engagement weakens, though this rarely occurs. Serves as model for core stability during running."
+    },
+    "5": {
+      "label": "Elite",
+      "description": "Perfect core stability automatic across all situations including Olympic and World Championship competition. Exceptional core strength and endurance maintains flawless trunk control even during championship sprint finishes or final kilometers of distance races under extreme fatigue. Zero energy leaks through trunk with optimal force transfer from lower body to forward propulsion. Core engagement requires no conscious thought and never degrades regardless of intensity, duration, or fatigue. Demonstrates world-class biomechanical efficiency with trunk serving as perfect stable platform for leg drive. Among the most stable running cores globally, contributing to elite-level running economy and power application. Serves as global model for core stability during running. No technical flaws observable under any circumstance including maximum intensity against world's best athletes."
+    }
+  },
+  "assessmentGuidance": "Observe trunk stability from all angles during running at various intensities. Look for excessive rotation (shoulders and hips twisting), lumbar extension (lower back arching), lateral flexion (leaning side to side), or forward collapse at waist. Note whether core stability degrades with fatigue - compare form when fresh versus final stages of hard efforts. Watch for visible core muscle engagement (slight drawing in of abdomen, stable trunk position). Assess during easy running, moderate pace, race pace, and maximum intensity. Video analysis helpful for detecting subtle instability. Palpation of core muscles during running can reveal engagement level."
+}

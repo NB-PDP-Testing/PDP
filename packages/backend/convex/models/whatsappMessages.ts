@@ -1,5 +1,6 @@
 import { v } from "convex/values";
 import { internalMutation, internalQuery, query } from "../_generated/server";
+import { normalizePhoneNumber } from "../lib/phoneUtils";
 
 /**
  * WhatsApp Messages Model
@@ -366,16 +367,7 @@ export const findCoachByPhone = internalQuery({
   },
 });
 
-/**
- * Normalize a phone number for comparison.
- * Removes all non-digit characters except leading +
- */
-function normalizePhoneNumber(phone: string): string {
-  // Keep + at the start if present, remove everything else except digits
-  const hasPlus = phone.startsWith("+");
-  const digits = phone.replace(/\D/g, "");
-  return hasPlus ? `+${digits}` : digits;
-}
+// Phone normalization moved to shared utility: lib/phoneUtils.ts
 
 // ============================================================
 // MULTI-ORG DETECTION

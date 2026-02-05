@@ -1,0 +1,28 @@
+{
+  "skillName": "Acceleration Ability",
+  "category": "Speed & Power",
+  "description": "Capacity to increase velocity from standing or slow running to higher speeds. Critical in the first 0-40 meters of sprints where horizontal force production is paramount. Characterized by pronounced forward lean (45-55 degrees at first step, gradually becoming upright), aggressive triple extension of ankles-knees-hips, powerful ground contact with force directed backward and down, and progressive stride length increase.",
+  "levels": {
+    "1": {
+      "label": "Developing",
+      "description": "Little acceleration ability with slow, labored speed development from start. Stands upright immediately rather than maintaining low, powerful drive position. Weak force production during push-off limits acceleration rate. No understanding of proper acceleration mechanics - no forward lean, inadequate triple extension, poor ground contact angles. Stride length increases minimally during acceleration phase. Appears to jog rather than explosively accelerate. Cannot maintain any forward lean beyond first step. Takes 50+ meters to reach near-maximum velocity. Demonstrates fundamental lack of power and technical knowledge. Loses ground dramatically to competitors in acceleration phase of sprints or during break-aways in distance events."
+    },
+    "2": {
+      "label": "Emerging",
+      "description": "Basic acceleration present but technically flawed and lacking power. Some forward lean attempted but often too upright too soon, typically rising by 10 meters. Moderate force production enables reasonable speed development but not competitive at higher levels. Can implement coaching cues (\"stay low,\" \"drive, drive, drive\") temporarily during drills but struggles to transfer to actual races. Some triple extension visible but incomplete and inconsistent. Stride length builds somewhat but not optimally progressive. Understands acceleration should differ from upright sprinting but execution poor. Reaches moderate velocity by 30-40 meters but rate of acceleration slow. Shows improvement potential but needs significant power and technical development."
+    },
+    "3": {
+      "label": "Competent",
+      "description": "Good acceleration mechanics with appropriate lean angle and powerful drive phase. Maintains progressive forward lean through first 10-20 meters before gradually rising to upright position. Powerful triple extension visible with strong ground contact and backward-directed force. Stride length builds progressively and appropriately throughout acceleration zone. Demonstrates competent acceleration technique enabling competitive performance at club-regional level. Reaches near-maximum velocity by 40-50 meters. Some breakdown may occur under extreme fatigue or championship pressure but generally reliable. Can execute acceleration drills properly and transfer to racing situations. Understands front-side mechanics emphasis during acceleration."
+    },
+    "4": {
+      "label": "Advanced",
+      "description": "Excellent acceleration with strong horizontal force production and technically sound mechanics. Maintains optimal lean angles (45-55 degrees early, gradually rising) throughout acceleration phase. Explosive triple extension generates rapid velocity increase. Powerful ground contacts with force vectors optimally directed for maximum acceleration. Stride length progression perfect - controlled early steps building to full sprint stride by 30-40 meters. Reaches maximum or near-maximum velocity by 40 meters in 100m sprint. Competitive advantage through superior acceleration ability - gains significant ground on competitors during drive phase. Maintains excellent technique even when fatigued. Can demonstrate perfect acceleration mechanics and coach others. Elite-level explosive ability evident."
+    },
+    "5": {
+      "label": "Elite",
+      "description": "World-class acceleration demonstrating exceptional power and perfect technique. Explosive first steps with optimal 45-55 degree lean and maximal horizontal force production. Reaches maximum velocity in minimal distance (35-40 meters or less). Biomechanically perfect throughout acceleration - optimal lean angles, flawless triple extension, perfect force vectors, ideal stride progression. Demonstrates elite-level explosive strength enabling dominating acceleration performance at international competition. Maintains perfect technique during Olympic or World Championship finals under maximum pressure. Among fastest accelerators globally for chosen event. Serves as international model for acceleration mechanics. Gains decisive competitive advantage through superior acceleration ability. No technical flaws observable under any circumstance."
+    }
+  },
+  "assessmentGuidance": "Observe during acceleration runs from blocks or standing starts. Watch body angle during first 10 meters - should show pronounced forward lean. Note force production quality through triple extension completeness. Observe stride length progression - should build gradually, not reach maximum immediately. Assess distance required to reach maximum or near-maximum velocity. Video analysis from side view optimal for measuring lean angles and ground contact mechanics. Compare performance in fresh state versus when fatigued. Measure 10m, 20m, 30m split times to quantify acceleration rate."
+}

@@ -1,0 +1,28 @@
+{
+  "skillName": "Arm Action & Mechanics",
+  "category": "Running Mechanics",
+  "description": "Coordinated arm movement supporting leg turnover and maintaining upright posture. Arms swing in opposition to legs, driving primarily forward and backward (not across body). Backward-driven elbow maintains chest tall and improves leg turnover rate. Relaxed hands and shoulders reduce upper body tension that spreads throughout the body.",
+  "levels": {
+    "1": {
+      "label": "Developing",
+      "description": "Arms move inefficiently with little coordination to leg movement. Frequently crosses arms across body midline, creating wasteful rotation and energy loss. Clenched fists and tense shoulders are common, with tension spreading throughout upper body. Arms may be held too high (above shoulders) or too low with minimal movement. Shows no awareness of arm's role in supporting running efficiency and speed. Cannot maintain any particular arm pattern for more than a few strides. Requires constant coaching on basic arm swing mechanics and relaxation."
+    },
+    "2": {
+      "label": "Emerging",
+      "description": "Basic forward-back movement established but significant technique flaws remain. Still tends to cross midline occasionally, particularly when fatigued or running at higher intensities. Can implement coaching cues (\"drive elbows back,\" \"relax hands\") with reminders but reverts to old patterns without constant attention. Arms show some coordination with legs but timing often off, particularly during acceleration. Excessive tension still present though improving. Arm action doesn't properly match leg speed - arms too slow during sprints or unnecessarily aggressive during easy running."
+    },
+    "3": {
+      "label": "Competent",
+      "description": "Good arm mechanics during steady running with arms complementing leg turnover effectively. Generally relaxed with hands loosely cupped (\"holding potato chips\") and shoulders down. Demonstrates proper elbow drive backward as the active component, with forward swing relaxed. Arms move primarily in sagittal plane (forward-back) with minimal crossing. May lose some form during all-out sprints or when severely fatigued but maintains reasonable mechanics in most situations. Self-corrects when tension creeps in. Demonstrates understanding of arm-leg coordination and can adjust arm action as pace changes."
+    },
+    "4": {
+      "label": "Advanced",
+      "description": "Excellent arm mechanics across all paces from easy running through maximum sprint speed. Arms drive powerfully when sprinting with aggressive elbow drive backward, while appropriately relaxed for distance running. Strong backward elbow drive maintains upright posture and drives leg turnover. Minimal wasted motion with perfect sagittal plane movement. Hands, wrists, and shoulders remain relaxed despite high intensity. Arms enhance running efficiency measurably rather than just accompanying leg movement. Can demonstrate proper technique to others and self-corrects immediately if form degrades. Competitive advantage through superior arm-leg coordination."
+    },
+    "5": {
+      "label": "Elite",
+      "description": "Perfect arm-leg coordination automatic across all running speeds and situations. Arms enhance running efficiency at world-class level, contributing meaningfully to elite performance. Completely relaxed yet powerful, with no excess tension or wasted movement visible even during championship finals. Elbow drive backward is explosive during sprints while maintaining perfect relaxation during sustained efforts. Demonstrates biomechanical perfection that serves as model for other athletes. Arms adjust automatically to pace changes without conscious thought. No technical flaws observable even under extreme fatigue or maximum intensity at international competition level."
+    }
+  },
+  "assessmentGuidance": "Observe arm swing from front, side, and back views during various running speeds. Look for midline crossing (front view), elbow drive backward (side view), and shoulder tension (all views). Note hand position (relaxed vs. clenched) and whether arms match leg speed appropriately. Assess at different intensities: easy running, moderate pace, race pace, and maximum sprint to see if technique degrades with intensity."
+}

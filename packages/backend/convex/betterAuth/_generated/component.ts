@@ -156,6 +156,7 @@ export type ComponentApi<Name extends string | undefined = string | undefined> =
                   autoReInviteOnExpiration?: boolean;
                   colors?: Array<string>;
                   createdAt: number;
+                  defaultCountry?: "IE" | "GB" | "US";
                   invitationExpirationDays?: number;
                   logo?: null | string;
                   maxAutoReInvitesPerInvitation?: number;
@@ -521,6 +522,7 @@ export type ComponentApi<Name extends string | undefined = string | undefined> =
                     | "socialLinkedin"
                     | "website"
                     | "supportedSports"
+                    | "defaultCountry"
                     | "sharingContactMode"
                     | "sharingContactName"
                     | "sharingContactEmail"
@@ -964,6 +966,7 @@ export type ComponentApi<Name extends string | undefined = string | undefined> =
                     | "socialLinkedin"
                     | "website"
                     | "supportedSports"
+                    | "defaultCountry"
                     | "sharingContactMode"
                     | "sharingContactName"
                     | "sharingContactEmail"
@@ -1587,6 +1590,7 @@ export type ComponentApi<Name extends string | undefined = string | undefined> =
                   autoReInviteOnExpiration?: boolean;
                   colors?: Array<string>;
                   createdAt?: number;
+                  defaultCountry?: "IE" | "GB" | "US";
                   invitationExpirationDays?: number;
                   logo?: null | string;
                   maxAutoReInvitesPerInvitation?: number;
@@ -1621,6 +1625,7 @@ export type ComponentApi<Name extends string | undefined = string | undefined> =
                     | "socialLinkedin"
                     | "website"
                     | "supportedSports"
+                    | "defaultCountry"
                     | "sharingContactMode"
                     | "sharingContactName"
                     | "sharingContactEmail"
@@ -2202,6 +2207,7 @@ export type ComponentApi<Name extends string | undefined = string | undefined> =
                   autoReInviteOnExpiration?: boolean;
                   colors?: Array<string>;
                   createdAt?: number;
+                  defaultCountry?: "IE" | "GB" | "US";
                   invitationExpirationDays?: number;
                   logo?: null | string;
                   maxAutoReInvitesPerInvitation?: number;
@@ -2236,6 +2242,7 @@ export type ComponentApi<Name extends string | undefined = string | undefined> =
                     | "socialLinkedin"
                     | "website"
                     | "supportedSports"
+                    | "defaultCountry"
                     | "sharingContactMode"
                     | "sharingContactName"
                     | "sharingContactEmail"

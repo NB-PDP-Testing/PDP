@@ -895,7 +895,7 @@ export function InsightsTab({ orgId, onSuccess, onError }: InsightsTabProps) {
               (() => {
                 const key = `${insight.noteId}_${insight.id}`;
                 const convexId = insightIdMap.get(key);
-                return convexId ? (
+                return convexId && coachUserId ? (
                   <div className="mt-3">
                     <SmartActionBar
                       context="viewing_insight"
@@ -939,7 +939,7 @@ export function InsightsTab({ orgId, onSuccess, onError }: InsightsTabProps) {
                         }
                       }}
                       organizationId={orgId}
-                      userId={session.user.id}
+                      userId={coachUserId}
                     />
                   </div>
                 ) : null;

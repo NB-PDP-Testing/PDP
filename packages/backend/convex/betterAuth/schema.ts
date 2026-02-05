@@ -141,6 +141,13 @@ const customOrganizationTable = defineTable({
   // Sport codes reference the sports table: "gaa_football", "soccer", "rugby", etc.
   supportedSports: v.optional(v.array(v.string())),
 
+  // Default country for phone numbers (ISO 3166-1 alpha-2)
+  // Used as default in phone input fields for this organization
+  // Examples: "IE" (Ireland), "GB" (United Kingdom), "US" (United States)
+  defaultCountry: v.optional(
+    v.union(v.literal("IE"), v.literal("GB"), v.literal("US"))
+  ),
+
   // Passport sharing contact configuration
   // Allows other organizations to contact this org for coordination about shared players
   // NOTE: Changed from "form" to "enquiry" on 2026-01-19 (deployed to Convex backend)

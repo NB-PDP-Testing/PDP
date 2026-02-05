@@ -179,6 +179,9 @@ export default function OrgSettingsPage() {
   const updateOrganizationSharingContact = useMutation(
     api.models.organizations.updateOrganizationSharingContact
   );
+  const updateOrganizationLogo = useMutation(
+    api.models.organizations.updateOrganizationLogo
+  );
 
   // Query for org data including social links and supported sports
   const orgData = useQuery(api.models.organizations.getOrganization, {
@@ -264,13 +267,21 @@ export default function OrgSettingsPage() {
 
     setSaving(true);
     try {
+      // Update name via Better Auth client
       await authClient.organization.update({
         organizationId: orgId,
         data: {
           name,
-          logo: logo || undefined,
         },
       });
+
+      // Update logo via dedicated Convex mutation
+      // This properly handles clearing (empty string → null)
+      await updateOrganizationLogo({
+        organizationId: orgId,
+        logo: logo || null,
+      });
+
       toast.success("Organization updated successfully");
       setOrg((prev) => (prev ? { ...prev, name, logo } : null));
     } catch (error) {

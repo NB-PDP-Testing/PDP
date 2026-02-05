@@ -1,41 +1,86 @@
 "use client";
 
+import { useConvex } from "convex/react";
 import { RefreshCw, Wifi, WifiOff } from "lucide-react";
 import type * as React from "react";
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { Button } from "@/components/ui/button";
 import { cn } from "@/lib/utils";
 
 /**
- * Hook to track online/offline status
+ * Hook to track online/offline status using Convex's official connection state API
+ *
+ * Only shows reconnected banner after a stable connection has been established.
+ * This prevents false "reconnected" messages during initial page load.
  */
 export function useOnlineStatus() {
+  const convex = useConvex();
   const [isOnline, setIsOnline] = useState(true);
   const [wasOffline, setWasOffline] = useState(false);
 
+  const previouslyConnectedRef = useRef<boolean | null>(null);
+  const hasStableConnectionRef = useRef(false);
+
   useEffect(() => {
-    // Initialize with actual status
-    setIsOnline(navigator.onLine);
+    if (!convex) {
+      return;
+    }
 
-    const handleOnline = () => {
-      setIsOnline(true);
-      setWasOffline(true);
-      // Clear "was offline" after a few seconds
-      setTimeout(() => setWasOffline(false), 5000);
-    };
+    let stableConnectionTimer: NodeJS.Timeout | null = null;
 
-    const handleOffline = () => {
-      setIsOnline(false);
-    };
+    const unsubscribe = convex.subscribeToConnectionState((state) => {
+      const connected = state.isWebSocketConnected;
+      const previouslyConnected = previouslyConnectedRef.current;
 
-    window.addEventListener("online", handleOnline);
-    window.addEventListener("offline", handleOffline);
+      // First time - just record state
+      if (previouslyConnected === null) {
+        previouslyConnectedRef.current = connected;
+        setIsOnline(true);
+
+        // If connected, set stable flag after 2 seconds
+        if (connected) {
+          stableConnectionTimer = setTimeout(() => {
+            hasStableConnectionRef.current = true;
+          }, 2000);
+        }
+        return;
+      }
+
+      // Detect transitions
+      const wentOffline = previouslyConnected && !connected;
+      const cameBackOnline = !previouslyConnected && connected;
+
+      if (wentOffline && hasStableConnectionRef.current) {
+        // Only show offline if we had a stable connection first
+        setIsOnline(false);
+        hasStableConnectionRef.current = false; // Reset stable flag
+      } else if (cameBackOnline && !hasStableConnectionRef.current) {
+        // Coming back online after being offline
+        setIsOnline(true);
+        setWasOffline(true);
+        setTimeout(() => setWasOffline(false), 3000);
+
+        // Re-establish stable connection flag
+        stableConnectionTimer = setTimeout(() => {
+          hasStableConnectionRef.current = true;
+        }, 2000);
+      } else if (connected && !hasStableConnectionRef.current) {
+        // Connected but not stable yet - set timer
+        stableConnectionTimer = setTimeout(() => {
+          hasStableConnectionRef.current = true;
+        }, 2000);
+      }
+
+      previouslyConnectedRef.current = connected;
+    });
 
     return () => {
-      window.removeEventListener("online", handleOnline);
-      window.removeEventListener("offline", handleOffline);
+      if (stableConnectionTimer) {
+        clearTimeout(stableConnectionTimer);
+      }
+      unsubscribe();
     };
-  }, []);
+  }, [convex]);
 
   return { isOnline, wasOffline };
 }
@@ -71,14 +116,17 @@ export function OfflineIndicator({
 }: OfflineIndicatorProps) {
   const { isOnline, wasOffline } = useOnlineStatus();
   const [showBanner, setShowBanner] = useState(false);
+  const wasShowingOfflineRef = useRef(false);
 
   // Show banner when offline
   useEffect(() => {
     if (!isOnline) {
       setShowBanner(true);
-    } else if (showReconnected && wasOffline) {
-      // Keep showing for reconnected message
+      wasShowingOfflineRef.current = true; // Track that we showed offline
+    } else if (showReconnected && wasOffline && wasShowingOfflineRef.current) {
+      // ONLY show reconnected if we were actually showing the offline banner before
       setShowBanner(true);
+      wasShowingOfflineRef.current = false; // Reset
       const timer = setTimeout(() => setShowBanner(false), 3000);
       return () => clearTimeout(timer);
     } else {
@@ -99,7 +147,6 @@ export function OfflineIndicator({
         isOnline ? "bg-green-500 text-white" : "bg-yellow-500 text-yellow-950",
         className
       )}
-      role="status"
     >
       {isOnline ? (
         <>

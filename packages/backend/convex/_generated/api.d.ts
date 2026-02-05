@@ -34,14 +34,25 @@ import type * as lib_circuitBreaker from "../lib/circuitBreaker.js";
 import type * as lib_consentGateway from "../lib/consentGateway.js";
 import type * as lib_firstUserSetup from "../lib/firstUserSetup.js";
 import type * as lib_matching_guardianMatcher from "../lib/matching/guardianMatcher.js";
+import type * as lib_phoneUtils from "../lib/phoneUtils.js";
 import type * as lib_trustLevelCalculator from "../lib/trustLevelCalculator.js";
 import type * as migrations_cleanSlate from "../migrations/cleanSlate.js";
+import type * as migrations_compareIrishDancing from "../migrations/compareIrishDancing.js";
+import type * as migrations_deleteOldIrishDancingSport from "../migrations/deleteOldIrishDancingSport.js";
 import type * as migrations_extractInsightsToTable from "../migrations/extractInsightsToTable.js";
 import type * as migrations_importBenchmarksCLI from "../migrations/importBenchmarksCLI.js";
 import type * as migrations_importGAAFootballBenchmarks from "../migrations/importGAAFootballBenchmarks.js";
+import type * as migrations_importGAAFootballLevelDescriptors from "../migrations/importGAAFootballLevelDescriptors.js";
+import type * as migrations_importIrishDancingBenchmarks from "../migrations/importIrishDancingBenchmarks.js";
+import type * as migrations_importIrishDancingGradeBenchmarks from "../migrations/importIrishDancingGradeBenchmarks.js";
+import type * as migrations_importIrishDancingLevelDescriptors from "../migrations/importIrishDancingLevelDescriptors.js";
 import type * as migrations_importRugbyBenchmarks from "../migrations/importRugbyBenchmarks.js";
+import type * as migrations_importRugbyLevelDescriptors from "../migrations/importRugbyLevelDescriptors.js";
+import type * as migrations_importSoccerBenchmarks from "../migrations/importSoccerBenchmarks.js";
+import type * as migrations_importSoccerLevelDescriptors from "../migrations/importSoccerLevelDescriptors.js";
 import type * as migrations_importStrengthBenchmarks from "../migrations/importStrengthBenchmarks.js";
 import type * as migrations_migrateLegacyData from "../migrations/migrateLegacyData.js";
+import type * as migrations_setupIrishDancing from "../migrations/setupIrishDancing.js";
 import type * as models_adultPlayers from "../models/adultPlayers.js";
 import type * as models_ageGroupEligibilityOverrides from "../models/ageGroupEligibilityOverrides.js";
 import type * as models_aiCopilot from "../models/aiCopilot.js";
@@ -184,14 +195,25 @@ declare const fullApi: ApiFromModules<{
   "lib/consentGateway": typeof lib_consentGateway;
   "lib/firstUserSetup": typeof lib_firstUserSetup;
   "lib/matching/guardianMatcher": typeof lib_matching_guardianMatcher;
+  "lib/phoneUtils": typeof lib_phoneUtils;
   "lib/trustLevelCalculator": typeof lib_trustLevelCalculator;
   "migrations/cleanSlate": typeof migrations_cleanSlate;
+  "migrations/compareIrishDancing": typeof migrations_compareIrishDancing;
+  "migrations/deleteOldIrishDancingSport": typeof migrations_deleteOldIrishDancingSport;
   "migrations/extractInsightsToTable": typeof migrations_extractInsightsToTable;
   "migrations/importBenchmarksCLI": typeof migrations_importBenchmarksCLI;
   "migrations/importGAAFootballBenchmarks": typeof migrations_importGAAFootballBenchmarks;
+  "migrations/importGAAFootballLevelDescriptors": typeof migrations_importGAAFootballLevelDescriptors;
+  "migrations/importIrishDancingBenchmarks": typeof migrations_importIrishDancingBenchmarks;
+  "migrations/importIrishDancingGradeBenchmarks": typeof migrations_importIrishDancingGradeBenchmarks;
+  "migrations/importIrishDancingLevelDescriptors": typeof migrations_importIrishDancingLevelDescriptors;
   "migrations/importRugbyBenchmarks": typeof migrations_importRugbyBenchmarks;
+  "migrations/importRugbyLevelDescriptors": typeof migrations_importRugbyLevelDescriptors;
+  "migrations/importSoccerBenchmarks": typeof migrations_importSoccerBenchmarks;
+  "migrations/importSoccerLevelDescriptors": typeof migrations_importSoccerLevelDescriptors;
   "migrations/importStrengthBenchmarks": typeof migrations_importStrengthBenchmarks;
   "migrations/migrateLegacyData": typeof migrations_migrateLegacyData;
+  "migrations/setupIrishDancing": typeof migrations_setupIrishDancing;
   "models/adultPlayers": typeof models_adultPlayers;
   "models/ageGroupEligibilityOverrides": typeof models_ageGroupEligibilityOverrides;
   "models/aiCopilot": typeof models_aiCopilot;
@@ -463,6 +485,7 @@ export declare const components: {
                   autoReInviteOnExpiration?: boolean;
                   colors?: Array<string>;
                   createdAt: number;
+                  defaultCountry?: "IE" | "GB" | "US";
                   invitationExpirationDays?: number;
                   logo?: null | string;
                   maxAutoReInvitesPerInvitation?: number;
@@ -827,6 +850,7 @@ export declare const components: {
                     | "socialLinkedin"
                     | "website"
                     | "supportedSports"
+                    | "defaultCountry"
                     | "sharingContactMode"
                     | "sharingContactName"
                     | "sharingContactEmail"
@@ -1269,6 +1293,7 @@ export declare const components: {
                     | "socialLinkedin"
                     | "website"
                     | "supportedSports"
+                    | "defaultCountry"
                     | "sharingContactMode"
                     | "sharingContactName"
                     | "sharingContactEmail"
@@ -1889,6 +1914,7 @@ export declare const components: {
                   autoReInviteOnExpiration?: boolean;
                   colors?: Array<string>;
                   createdAt?: number;
+                  defaultCountry?: "IE" | "GB" | "US";
                   invitationExpirationDays?: number;
                   logo?: null | string;
                   maxAutoReInvitesPerInvitation?: number;
@@ -1923,6 +1949,7 @@ export declare const components: {
                     | "socialLinkedin"
                     | "website"
                     | "supportedSports"
+                    | "defaultCountry"
                     | "sharingContactMode"
                     | "sharingContactName"
                     | "sharingContactEmail"
@@ -2503,6 +2530,7 @@ export declare const components: {
                   autoReInviteOnExpiration?: boolean;
                   colors?: Array<string>;
                   createdAt?: number;
+                  defaultCountry?: "IE" | "GB" | "US";
                   invitationExpirationDays?: number;
                   logo?: null | string;
                   maxAutoReInvitesPerInvitation?: number;
@@ -2537,6 +2565,7 @@ export declare const components: {
                     | "socialLinkedin"
                     | "website"
                     | "supportedSports"
+                    | "defaultCountry"
                     | "sharingContactMode"
                     | "sharingContactName"
                     | "sharingContactEmail"

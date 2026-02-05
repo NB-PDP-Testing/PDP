@@ -1,0 +1,28 @@
+{
+  "skillName": "Stride Length & Frequency",
+  "category": "Running Mechanics",
+  "description": "Running velocity is the product of stride length times stride frequency (cadence). Elite runners optimize both variables for their event. Stride length is distance covered per stride; frequency is steps per minute. Distance runners typically maintain 180+ steps/minute; elite sprinters exceed 240 steps/minute at maximum velocity. Optimal balance varies by individual anthropometry and event demands.",
+  "levels": {
+    "1": {
+      "label": "Developing",
+      "description": "Inefficient stride with either excessive length (overstriding with foot landing far ahead of body) or insufficient length (short, choppy steps). Very low cadence, typically below 160 steps per minute even during moderate-pace running. No optimization of stride length and frequency relationship. May take excessively long strides attempting to run faster, actually creating braking forces and reducing speed. Or conversely, uses short, frantic steps without generating forward propulsion. Cannot adjust stride parameters based on running speed or terrain. Requires coaching on stride mechanics but struggles to implement changes. Demonstrates fundamental misunderstanding of how stride length and frequency combine to create running velocity."
+    },
+    "2": {
+      "label": "Emerging",
+      "description": "Adequate stride mechanics but clearly suboptimal. Cadence improving but still below 170-175 steps per minute for distance running. May still overstride when attempting faster paces or use insufficient stride length when conditions allow for more. Beginning to understand stride optimization concept but execution inconsistent. Responds to coaching cues (\"shorten your stride\" if overstriding, \"open up your stride\" during sprints) but changes don't persist without constant reminders. Shows some ability to adjust stride based on speed but not automatic. Demonstrates improvement in matching stride parameters to pace but significant development still needed. Metronome training beginning to establish more consistent cadence."
+    },
+    "3": {
+      "label": "Competent",
+      "description": "Good stride length and frequency for current ability level with reasonable optimization. Distance runners achieve near 180 steps per minute cadence during training runs. Sprinters demonstrate progressive stride lengthening during acceleration with high frequency at maximum velocity. Appropriate balance between stride length and frequency for body proportions and event. Can adjust stride parameters based on pace requirements without conscious thought in most situations. Foot landing reasonably close to center of mass during distance running, extending stride appropriately during sprints. Biomechanically efficient for club-regional competition level. Self-awareness allows adjustment if stride pattern becomes inefficient during fatigue."
+    },
+    "4": {
+      "label": "Advanced",
+      "description": "Excellent stride mechanics with optimal balance of length and frequency for event demands. Distance runners maintain 180-185 steps per minute with ideal stride length for their biomechanics and pace. Sprinters achieve exceptional stride frequency (220+ steps/minute at max velocity) while maximizing stride length through powerful hip extension and leg drive. Perfect optimization for individual anthropometry - neither overstriding nor leaving speed on table with insufficient stride length. Maintains optimal stride parameters even when severely fatigued. Can explain stride mechanics to others and demonstrate across full spectrum of running speeds. Competitive advantage through superior stride efficiency. Adjusts automatically to terrain changes (hills, curves, surface) without conscious thought."
+    },
+    "5": {
+      "label": "Elite",
+      "description": "Perfect stride optimization automatic across all speeds and competitive situations. Elite distance runners achieve 180-185 optimal cadence with maximal economical stride length. World-class sprinters exceed 240 steps per minute at maximum velocity while generating exceptional stride length (2.4+ meters for elite male sprinters). Demonstrates textbook stride mechanics that serve as global model. Maintains biomechanically perfect parameters during Olympic or World Championship finals under extreme pressure and fatigue. Stride length achieved through exceptional power and technique, not overstriding. Frequency optimal for event specialization. Among the most efficient stride patterns globally, contributing to world-class running economy and speed. No technical flaws observable under any circumstance."
+    }
+  },
+  "assessmentGuidance": "Count steps per minute (cadence/frequency) over 30-60 seconds at various running speeds. Observe stride length visually - look for overstriding (foot landing far ahead of body) or insufficient length (choppy steps). Video analysis allows measurement of actual stride length. Assess the stride length-frequency relationship: both should increase together as speed increases, though in different proportions. Listen to rhythm - smooth, consistent rhythm indicates good stride pattern; erratic suggests poor optimization. Note whether athlete can adjust stride based on speed, terrain, and fatigue appropriately."
+}

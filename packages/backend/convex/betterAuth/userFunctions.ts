@@ -1,4 +1,5 @@
 import { v } from "convex/values";
+import { normalizePhoneNumber } from "../lib/phoneUtils";
 import { mutation, query } from "./_generated/server";
 
 /**
@@ -87,7 +88,8 @@ export const updateUserProfile = mutation({
         updates.lastName = args.lastName;
       }
       if (args.phone !== undefined) {
-        updates.phone = args.phone;
+        // Normalize phone to E.164 format for WhatsApp compatibility
+        updates.phone = normalizePhoneNumber(args.phone);
       }
 
       // Also update the combined name field if first/last name changed

@@ -42,6 +42,16 @@ export const getSmartSuggestions = query({
     })
   ),
   handler: async (ctx, args) => {
+    // Defensive: Validate required parameters
+    if (!(args.contextId && args.userId && args.organizationId)) {
+      console.warn("[aiCopilot] Missing required parameters", {
+        contextId: !!args.contextId,
+        userId: !!args.userId,
+        orgId: !!args.organizationId,
+      });
+      return [];
+    }
+
     // Route to appropriate suggestion generator based on context
     if (args.context === "viewing_insight") {
       return await generateInsightSuggestions(ctx, args);
@@ -119,11 +129,13 @@ async function generateInsightSuggestions(
       },
     });
 
-    const medicalCoaches = members.data.filter(
-      (m: any) =>
-        m.activeFunctionalRole === "medical" ||
-        m.activeFunctionalRole === "first_aid"
-    );
+    const medicalCoaches = members?.data
+      ? members.data.filter(
+          (m: any) =>
+            m.activeFunctionalRole === "medical" ||
+            m.activeFunctionalRole === "first_aid"
+        )
+      : [];
 
     if (medicalCoaches.length > 0) {
       suggestions.push({

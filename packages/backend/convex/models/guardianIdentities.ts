@@ -1046,6 +1046,7 @@ export const updateGuardianIdentity = mutation({
 
 /**
  * Link a guardian identity to a Better Auth user
+ * Phase 0.7: Also pre-populate user address from guardian if user has no address
  */
 export const linkGuardianToUser = mutation({
   args: {
@@ -1079,6 +1080,59 @@ export const linkGuardianToUser = mutation({
           : existing.verificationStatus,
       updatedAt: Date.now(),
     });
+
+    // Phase 0.7: Pre-populate user address from guardian if user has no address
+    // User table is single source of truth, but when claiming a guardian,
+    // we copy imported address data to give user a starting point
+    const user = await ctx.runQuery(components.betterAuth.adapter.findOne, {
+      model: "user",
+      where: [{ field: "_id", value: args.userId, operator: "eq" }],
+    });
+
+    if (user) {
+      const userAddress = (user as any).address;
+      const guardianHasAddress = existing.address;
+
+      // Only copy if user has NO address and guardian HAS address
+      if (!userAddress && guardianHasAddress) {
+        const addressUpdates: Record<string, string | number | undefined> = {
+          updatedAt: Date.now(),
+        };
+
+        // Copy all address fields from guardian to user
+        if (existing.address) {
+          addressUpdates.address = existing.address;
+        }
+        if (existing.address2) {
+          addressUpdates.address2 = existing.address2;
+        }
+        if (existing.town) {
+          addressUpdates.town = existing.town;
+        }
+        if (existing.county) {
+          addressUpdates.county = existing.county;
+        }
+        if (existing.postcode) {
+          addressUpdates.postcode = existing.postcode;
+        }
+        if (existing.country) {
+          addressUpdates.country = existing.country;
+        }
+
+        await ctx.runMutation(components.betterAuth.adapter.updateOne, {
+          input: {
+            model: "user",
+            where: [{ field: "_id", value: args.userId, operator: "eq" }],
+            update: addressUpdates,
+          },
+        });
+
+        console.log(
+          "[linkGuardianToUser] Copied address from guardian to user:",
+          args.userId
+        );
+      }
+    }
 
     return null;
   },

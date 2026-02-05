@@ -520,6 +520,34 @@ export const approveJoinRequest = mutation({
       );
     }
 
+    // Copy phone and address from join request to user profile
+    // This ensures the profile completion step shows pre-filled values
+    if (request.phone || request.address) {
+      const updateData: Record<string, unknown> = {
+        updatedAt: Date.now(),
+      };
+
+      // Only copy if the join request has these values
+      if (request.phone) {
+        updateData.phone = request.phone;
+      }
+      if (request.address) {
+        updateData.address = request.address;
+      }
+
+      await ctx.runMutation(components.betterAuth.adapter.updateOne, {
+        input: {
+          model: "user",
+          where: [{ field: "_id", value: request.userId, operator: "eq" }],
+          update: updateData,
+        },
+      });
+
+      console.log(
+        `[approveJoinRequest] Copied contact info to user profile: phone=${!!request.phone}, address=${!!request.address}`
+      );
+    }
+
     // Update request status
     await ctx.db.patch(args.requestId, {
       status: "approved",

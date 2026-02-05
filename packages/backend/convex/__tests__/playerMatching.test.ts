@@ -102,6 +102,13 @@ describe("findSimilarPlayers - fuzzy Irish name matches", () => {
     expect(obrienMatch?.similarity).toBeGreaterThanOrEqual(0.5);
   });
 
+  it("should find Niamh when searching Neeve", () => {
+    const results = findMatches("Neeve");
+    const niamhMatch = results.find((r) => r.firstName === "Niamh");
+    expect(niamhMatch).toBeDefined();
+    expect(niamhMatch?.similarity).toBeGreaterThanOrEqual(0.5);
+  });
+
   it("should find Padraig when searching Paddy with lower threshold", () => {
     // Paddy is a nickname for Padraig - Levenshtein gives ~0.43
     // Nickname resolution requires a lower threshold than typo correction

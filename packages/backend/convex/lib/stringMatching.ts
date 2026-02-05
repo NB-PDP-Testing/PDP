@@ -93,6 +93,40 @@ const APOSTROPHE_HYPHEN_REGEX = /['\u2019`-]/g;
 // Whitespace split regex
 const WHITESPACE_REGEX = /\s+/;
 
+// Irish name phonetic equivalents: maps anglicized pronunciations to Irish spellings.
+// Each group shares a canonical form so that voice-transcribed anglicized names
+// match the Irish original (e.g. "Neeve" → "Niamh").
+const IRISH_NAME_ALIASES: string[][] = [
+  ["niamh", "neeve", "neve", "neev"],
+  ["siobhan", "shivawn", "shavon", "chevonne"],
+  ["caoimhe", "keeva", "kweeva"],
+  ["saoirse", "seersha", "sorsha"],
+  ["oisin", "osheen", "usheen"],
+  ["ciaran", "kieran", "keiran"],
+  ["roisin", "rosheen"],
+  ["eoghan", "owen"],
+  ["meadhbh", "maeve", "meave"],
+  ["aoife", "eefa"],
+  ["tadgh", "taig", "tige"],
+  ["diarmuid", "dermot"],
+  ["grainne", "granya"],
+  ["clodagh", "cloda"],
+  ["orlaith", "orla"],
+  ["muireann", "mwirren"],
+  ["sadhbh", "sive"],
+  ["dearbhla", "dervla"],
+  ["fionnuala", "finola", "nuala"],
+];
+
+// Build a reverse lookup: normalized name → canonical (first entry in each group)
+const ALIAS_TO_CANONICAL = new Map<string, string>();
+for (const group of IRISH_NAME_ALIASES) {
+  const canonical = group[0];
+  for (const alias of group) {
+    ALIAS_TO_CANONICAL.set(alias, canonical);
+  }
+}
+
 /**
  * Normalize a string for fuzzy matching.
  * Lowercase, remove diacritics, remove O'/Mc/Mac prefixes, trim.
@@ -136,6 +170,13 @@ export function calculateMatchScore(
 
   // Try multiple matching strategies, return best score
   const scores: number[] = [];
+
+  // 0. Irish phonetic alias check: if both names resolve to the same canonical form, boost
+  const searchCanonical = ALIAS_TO_CANONICAL.get(normalizedSearch);
+  const firstCanonical = ALIAS_TO_CANONICAL.get(normalizedFirst);
+  if (searchCanonical && firstCanonical && searchCanonical === firstCanonical) {
+    scores.push(0.9);
+  }
 
   // 1. Full name match
   scores.push(levenshteinSimilarity(normalizedSearch, normalizedFull));

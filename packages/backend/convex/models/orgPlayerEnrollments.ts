@@ -1579,8 +1579,67 @@ export const findSimilarPlayers = internalQuery({
   ),
   handler: async (ctx, args) => {
     const maxResults = args.limit ?? DEFAULT_MATCH_LIMIT;
+    const TEAM_CONTEXT_BONUS = 0.1;
 
-    // Get active players for the organization
+    // 1. Resolve coach's assigned teams to get their player set
+    let coachTeamPlayerIds: Set<Id<"playerIdentities">> | null = null;
+
+    const coachAssignment = await ctx.db
+      .query("coachAssignments")
+      .withIndex("by_user_and_org", (q) =>
+        q
+          .eq("userId", args.coachUserId)
+          .eq("organizationId", args.organizationId)
+      )
+      .first();
+
+    if (coachAssignment && coachAssignment.teams.length > 0) {
+      // Resolve team names/IDs (teams array can contain IDs or names)
+      const allTeamsResult = await ctx.runQuery(
+        components.betterAuth.adapter.findMany,
+        {
+          model: "team",
+          paginationOpts: { cursor: null, numItems: 1000 },
+          where: [
+            {
+              field: "organizationId",
+              value: args.organizationId,
+              operator: "eq",
+            },
+          ],
+        }
+      );
+
+      const allTeams = allTeamsResult.page as any[];
+      const teamByIdMap = new Map(
+        allTeams.map((team) => [String(team._id), team])
+      );
+      const teamByNameMap = new Map(allTeams.map((team) => [team.name, team]));
+
+      const teamIds: string[] = [];
+      for (const teamValue of coachAssignment.teams) {
+        const team = teamByIdMap.get(teamValue) || teamByNameMap.get(teamValue);
+        if (team) {
+          teamIds.push(String(team._id));
+        }
+      }
+
+      // Get players on coach's teams
+      coachTeamPlayerIds = new Set<Id<"playerIdentities">>();
+      for (const teamId of teamIds) {
+        const teamMembers = await ctx.db
+          .query("teamPlayerIdentities")
+          .withIndex("by_teamId", (q) => q.eq("teamId", teamId))
+          .filter((q) => q.eq(q.field("status"), "active"))
+          .collect();
+
+        for (const member of teamMembers) {
+          coachTeamPlayerIds.add(member.playerIdentityId);
+        }
+      }
+    }
+
+    // 2. Get active players for the organization
     const enrollments = await ctx.db
       .query("orgPlayerEnrollments")
       .withIndex("by_org_and_status", (q) =>
@@ -1588,7 +1647,7 @@ export const findSimilarPlayers = internalQuery({
       )
       .collect();
 
-    // Batch fetch player identities
+    // 3. Batch fetch player identities
     const uniquePlayerIds = [
       ...new Set(enrollments.map((e) => e.playerIdentityId)),
     ];
@@ -1608,7 +1667,7 @@ export const findSimilarPlayers = internalQuery({
       }
     }
 
-    // Score each player
+    // 4. Score each player with team context bonus
     const scored: Array<{
       playerId: Id<"playerIdentities">;
       firstName: string;
@@ -1625,11 +1684,17 @@ export const findSimilarPlayers = internalQuery({
         continue;
       }
 
-      const similarity = calculateMatchScore(
+      const baseSimilarity = calculateMatchScore(
         args.searchName,
         player.firstName,
         player.lastName
       );
+
+      // Apply team context bonus if player is on coach's team
+      let similarity = baseSimilarity;
+      if (coachTeamPlayerIds?.has(enrollment.playerIdentityId)) {
+        similarity = Math.min(1, baseSimilarity + TEAM_CONTEXT_BONUS);
+      }
 
       if (similarity >= SIMILARITY_THRESHOLD) {
         scored.push({

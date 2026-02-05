@@ -474,12 +474,6 @@ export function OnboardingOrchestrator({
   const shouldShowModal =
     tasks !== undefined && tasks.length > 0 && currentTask !== undefined;
 
-  // Debug logging for onboarding
-  console.log("[ONBOARDING DEBUG] tasks:", tasks);
-  console.log("[ONBOARDING DEBUG] currentTask:", currentTask);
-  console.log("[ONBOARDING DEBUG] userId:", userId);
-  console.log("[ONBOARDING DEBUG] shouldShowModal:", shouldShowModal);
-
   // Determine onboarding status for data attributes
   const isOnboardingComplete = tasks !== undefined && tasks.length === 0;
 

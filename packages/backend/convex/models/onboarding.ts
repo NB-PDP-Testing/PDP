@@ -276,11 +276,6 @@ export const getOnboardingTasks = query({
       // Strip ALL whitespace first (trim + internal spaces)
       const userPhoneRaw = user?.phone;
       const userPhone = userPhoneRaw?.replace(/\s/g, "");
-      console.log("[PHONE DEBUG] userPhoneRaw:", JSON.stringify(userPhoneRaw));
-      console.log(
-        "[PHONE DEBUG] userPhone (cleaned):",
-        JSON.stringify(userPhone)
-      );
       if (userPhone && userPhone.length >= 7) {
         // Generate phone format variations to match stored formats
         const phoneFormats = new Set<string>();
@@ -301,85 +296,29 @@ export const getOnboardingTasks = query({
           phoneFormats.add(`+${digitsOnly}`);
         }
 
-        console.log("[PHONE DEBUG] phoneFormats:", Array.from(phoneFormats));
-
         // Query for each format
         const existingIds = new Set(matchingGuardians.map((g) => g._id));
         for (const phoneFormat of phoneFormats) {
-          console.log("[PHONE DEBUG] Querying for phone format:", phoneFormat);
           const phoneMatches = await ctx.db
             .query("guardianIdentities")
             .withIndex("by_phone", (q) => q.eq("phone", phoneFormat))
             .filter((q) => q.eq(q.field("userId"), undefined))
             .collect();
 
-          console.log(
-            "[PHONE DEBUG] Found",
-            phoneMatches.length,
-            "matches for",
-            phoneFormat
-          );
-
           // Add any new matches (avoid duplicates)
           for (const match of phoneMatches) {
             if (!existingIds.has(match._id)) {
-              console.log(
-                "[PHONE DEBUG] Adding match:",
-                match.firstName,
-                match.lastName,
-                match.phone
-              );
               matchingGuardians.push(match);
               existingIds.add(match._id);
             }
           }
         }
-      } else {
-        console.log(
-          "[PHONE DEBUG] No valid phone to search. userPhone:",
-          userPhone
-        );
       }
 
-      console.log(
-        "[GUARDIAN DEBUG] matchingGuardians count:",
-        matchingGuardians.length
-      );
       if (matchingGuardians.length > 0) {
         // Enrich guardian data with children info
         const guardiansWithChildren = await Promise.all(
           matchingGuardians.map(async (guardian) => {
-            console.log(
-              "[GUARDIAN DEBUG] Processing guardian:",
-              guardian.firstName,
-              guardian.lastName,
-              "id:",
-              guardian._id
-            );
-
-            // Get ALL links first for debugging
-            const allLinks = await ctx.db
-              .query("guardianPlayerLinks")
-              .withIndex("by_guardian", (q) =>
-                q.eq("guardianIdentityId", guardian._id)
-              )
-              .collect();
-
-            console.log(
-              "[GUARDIAN DEBUG] All links for guardian:",
-              allLinks.length
-            );
-            for (const link of allLinks) {
-              console.log(
-                "[GUARDIAN DEBUG] Link:",
-                link._id,
-                "declinedByUserId:",
-                link.declinedByUserId,
-                "current userId:",
-                userId
-              );
-            }
-
             // Get ALL linked children - do NOT filter by decline status
             // Any user matching the guardian's contact details should see all children
             // The admin will handle approval of connections
@@ -390,19 +329,9 @@ export const getOnboardingTasks = query({
               )
               .collect();
 
-            console.log("[GUARDIAN DEBUG] Filtered links:", links.length);
-
             const children = await Promise.all(
               links.map(async (link) => {
-                console.log(
-                  "[GUARDIAN DEBUG] Getting player:",
-                  link.playerIdentityId
-                );
                 const player = await ctx.db.get(link.playerIdentityId);
-                console.log(
-                  "[GUARDIAN DEBUG] Player found:",
-                  player ? `${player.firstName} ${player.lastName}` : "NULL"
-                );
                 if (!player) {
                   return null;
                 }
@@ -417,10 +346,6 @@ export const getOnboardingTasks = query({
             );
 
             const filteredChildren = children.filter(Boolean);
-            console.log(
-              "[GUARDIAN DEBUG] Children count after filter:",
-              filteredChildren.length
-            );
 
             // Get organizations where children are enrolled
             const orgSet = new Set<string>();
@@ -475,13 +400,7 @@ export const getOnboardingTasks = query({
           (g) => g.children.length > 0
         );
 
-        console.log(
-          "[GUARDIAN DEBUG] guardiansWithLinkedChildren:",
-          guardiansWithLinkedChildren.length
-        );
-
         if (guardiansWithLinkedChildren.length > 0) {
-          console.log("[GUARDIAN DEBUG] Adding guardian_claim task!");
           tasks.push({
             type: "guardian_claim",
             priority: 2,
@@ -680,15 +599,6 @@ export const getOnboardingTasks = query({
 
     // Sort tasks by priority
     tasks.sort((a, b) => a.priority - b.priority);
-
-    console.log(
-      "[TASKS DEBUG] Final tasks being returned:",
-      tasks.map((t) => ({ type: t.type, priority: t.priority }))
-    );
-    console.log(
-      "[TASKS DEBUG] User profile status:",
-      user?.profileCompletionStatus
-    );
 
     return tasks;
   },

@@ -3,7 +3,7 @@
 import { api } from "@pdp/backend/convex/_generated/api";
 import type { Id } from "@pdp/backend/convex/_generated/dataModel";
 import { useMutation, useQuery } from "convex/react";
-import { Loader2, Settings, Shield, Users } from "lucide-react";
+import { Loader2, MapPin, Settings, Shield, Users } from "lucide-react";
 import { useState } from "react";
 import { toast } from "sonner";
 import { Badge } from "@/components/ui/badge";
@@ -18,6 +18,7 @@ import {
 } from "@/components/ui/dialog";
 import { Label } from "@/components/ui/label";
 import { Switch } from "@/components/ui/switch";
+import { getCountryName } from "@/lib/constants/address-data";
 
 type GuardianSettingsProps = {
   guardianIdentity: {
@@ -27,6 +28,13 @@ type GuardianSettingsProps = {
     email?: string;
     phone?: string;
     verificationStatus?: string;
+    // Address fields (Phase 0.7)
+    address?: string;
+    address2?: string;
+    town?: string;
+    county?: string;
+    postcode?: string;
+    country?: string;
   } | null;
 };
 
@@ -190,6 +198,56 @@ export function GuardianSettings({ guardianIdentity }: GuardianSettingsProps) {
                           : "Unverified"}
                     </Badge>
                   </div>
+                  {/* Address Section (Phase 0.7) - Only show if any address field has data */}
+                  {(guardianIdentity.address ||
+                    guardianIdentity.address2 ||
+                    guardianIdentity.town ||
+                    guardianIdentity.county ||
+                    guardianIdentity.postcode ||
+                    guardianIdentity.country) && (
+                    <div className="mt-4 border-t pt-4">
+                      <div className="mb-2 flex items-center gap-2 text-muted-foreground">
+                        <MapPin className="h-4 w-4" />
+                        <span className="font-medium text-sm">Address</span>
+                      </div>
+                      <div className="text-sm">
+                        {/* Line 1: Street address + Address line 2 */}
+                        {(guardianIdentity.address ||
+                          guardianIdentity.address2) && (
+                          <div className="font-medium">
+                            {guardianIdentity.address}
+                            {guardianIdentity.address &&
+                              guardianIdentity.address2 &&
+                              ", "}
+                            {guardianIdentity.address2}
+                          </div>
+                        )}
+                        {/* Line 2: Town + Postcode */}
+                        {(guardianIdentity.town ||
+                          guardianIdentity.postcode) && (
+                          <div>
+                            {guardianIdentity.town}
+                            {guardianIdentity.town &&
+                              guardianIdentity.postcode &&
+                              ", "}
+                            {guardianIdentity.postcode}
+                          </div>
+                        )}
+                        {/* Line 3: County + Country */}
+                        {(guardianIdentity.county ||
+                          guardianIdentity.country) && (
+                          <div>
+                            {guardianIdentity.county}
+                            {guardianIdentity.county &&
+                              guardianIdentity.country &&
+                              ", "}
+                            {getCountryName(guardianIdentity.country) ||
+                              guardianIdentity.country}
+                          </div>
+                        )}
+                      </div>
+                    </div>
+                  )}
                 </div>
               </CardContent>
             </Card>

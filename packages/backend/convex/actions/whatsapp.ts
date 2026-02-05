@@ -742,6 +742,18 @@ export const checkAndAutoApply = internalAction({
       return null;
     }
 
+    // US-VN-004: Check for failure conditions and send detailed feedback
+    const { determineFeedbackCategory, generateFeedbackMessage } = await import(
+      "../lib/feedbackMessages"
+    );
+    const feedbackCategory = determineFeedbackCategory(voiceNote, retryCount);
+
+    if (feedbackCategory && feedbackCategory !== "still_processing") {
+      const feedbackMsg = generateFeedbackMessage(feedbackCategory, voiceNote);
+      await sendWhatsAppMessage(args.phoneNumber, feedbackMsg);
+      return null;
+    }
+
     // Check if insights are ready
     if (voiceNote.insightsStatus !== "completed") {
       if (retryCount < maxRetries) {
@@ -757,12 +769,13 @@ export const checkAndAutoApply = internalAction({
         return null;
       }
 
-      // Send status update even if insights failed
-      if (voiceNote.insightsStatus === "failed") {
-        await sendWhatsAppMessage(
-          args.phoneNumber,
-          "Your note was saved but AI analysis failed. You can view it in the app."
+      // Max retries reached - send detailed feedback
+      if (feedbackCategory === "still_processing") {
+        const feedbackMsg = generateFeedbackMessage(
+          feedbackCategory,
+          voiceNote
         );
+        await sendWhatsAppMessage(args.phoneNumber, feedbackMsg);
       } else {
         await sendWhatsAppMessage(
           args.phoneNumber,

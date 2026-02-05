@@ -1,4 +1,5 @@
 import { v } from "convex/values";
+import type { Id } from "../_generated/dataModel";
 import { internalMutation, internalQuery, query } from "../_generated/server";
 import { normalizePhoneNumber } from "../lib/phoneUtils";
 
@@ -207,6 +208,92 @@ export const updateQualityCheck = internalMutation({
   handler: async (ctx, args) => {
     await ctx.db.patch(args.messageId, {
       messageQualityCheck: args.qualityCheck,
+    });
+    return null;
+  },
+});
+
+/**
+ * Check for duplicate messages from the same phone number (US-VN-003).
+ * Uses the by_fromNumber_and_receivedAt index to efficiently find recent messages.
+ */
+export const checkForDuplicateMessage = internalQuery({
+  args: {
+    fromNumber: v.string(),
+    messageType: v.string(),
+    body: v.optional(v.string()),
+    mediaContentType: v.optional(v.string()),
+    windowMs: v.optional(v.number()),
+  },
+  returns: v.union(
+    v.null(),
+    v.object({
+      isDuplicate: v.boolean(),
+      originalMessageId: v.optional(v.id("whatsappMessages")),
+      timeSinceOriginal: v.optional(v.number()),
+    })
+  ),
+  handler: async (ctx, args) => {
+    const { checkDuplicate, DEFAULT_TEXT_WINDOW_MS } = await import(
+      "../lib/duplicateDetection"
+    );
+    const windowMs = args.windowMs ?? DEFAULT_TEXT_WINDOW_MS;
+    const now = Date.now();
+    const windowStart = now - windowMs;
+
+    // Get recent messages from same phone within the window
+    const recentMessages = await ctx.db
+      .query("whatsappMessages")
+      .withIndex("by_fromNumber_and_receivedAt", (q) =>
+        q.eq("fromNumber", args.fromNumber).gte("receivedAt", windowStart)
+      )
+      .order("desc")
+      .take(20);
+
+    const result = checkDuplicate({
+      recentMessages: recentMessages.map((m) => ({
+        _id: m._id,
+        messageType: m.messageType,
+        body: m.body,
+        mediaContentType: m.mediaContentType,
+        receivedAt: m.receivedAt,
+        status: m.status,
+      })),
+      messageType: args.messageType,
+      body: args.body,
+      mediaContentType: args.mediaContentType,
+      now,
+    });
+
+    if (!result.isDuplicate) {
+      return null;
+    }
+
+    return {
+      isDuplicate: true,
+      originalMessageId: result.originalMessageId as
+        | Id<"whatsappMessages">
+        | undefined,
+      timeSinceOriginal: result.timeSinceOriginal,
+    };
+  },
+});
+
+/**
+ * Mark a message as duplicate (US-VN-003).
+ */
+export const markAsDuplicate = internalMutation({
+  args: {
+    messageId: v.id("whatsappMessages"),
+    originalMessageId: v.id("whatsappMessages"),
+  },
+  returns: v.null(),
+  handler: async (ctx, args) => {
+    await ctx.db.patch(args.messageId, {
+      status: "duplicate",
+      isDuplicate: true,
+      duplicateOfMessageId: args.originalMessageId,
+      processedAt: Date.now(),
     });
     return null;
   },

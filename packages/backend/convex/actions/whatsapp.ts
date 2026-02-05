@@ -115,6 +115,30 @@ export const processIncomingMessage = internalAction({
       }
     );
 
+    // US-VN-003: Duplicate message detection
+    const duplicateCheck = await ctx.runQuery(
+      internal.models.whatsappMessages.checkForDuplicateMessage,
+      {
+        fromNumber: phoneNumber,
+        messageType,
+        body: args.body,
+        mediaContentType: args.mediaContentType,
+      }
+    );
+
+    if (duplicateCheck?.isDuplicate && duplicateCheck.originalMessageId) {
+      console.log(
+        "[WhatsApp] Duplicate detected, skipping processing. Original:",
+        duplicateCheck.originalMessageId
+      );
+      await ctx.runMutation(internal.models.whatsappMessages.markAsDuplicate, {
+        messageId,
+        originalMessageId: duplicateCheck.originalMessageId,
+      });
+      // Silently skip - don't send any reply for duplicates
+      return { success: true, messageId };
+    }
+
     // Look up coach with org context detection
     const coachContext = await ctx.runQuery(
       internal.models.whatsappMessages.findCoachWithOrgContext,

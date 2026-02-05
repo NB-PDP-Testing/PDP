@@ -110,17 +110,14 @@ export function ProfileCompletionStep({
   const showCountyDropdown = countyOptions && !isCountyOther;
 
   const handleSubmit = async () => {
-    // Validate at least one field is provided
-    if (
-      !(
-        phone.trim() ||
-        postcode.trim() ||
-        altEmail.trim() ||
-        address.trim() ||
-        town.trim()
-      )
-    ) {
-      toast.error("Please provide at least one piece of information");
+    // Validate required fields: phone and postcode
+    if (!phone.trim()) {
+      toast.error("Please provide a phone number");
+      return;
+    }
+
+    if (!postcode.trim()) {
+      toast.error("Please provide a postcode / eircode");
       return;
     }
 
@@ -256,20 +253,36 @@ export function ProfileCompletionStep({
         </div>
 
         <div className="max-h-[50vh] space-y-4 overflow-y-auto py-4 sm:max-h-none">
-          {/* Phone Input */}
-          <div className="space-y-2">
-            <Label htmlFor="phone">Phone Number</Label>
-            <Input
-              disabled={isSubmitting || isSkipping}
-              id="phone"
-              onChange={(e) => setPhone(e.target.value)}
-              placeholder="+353 87 123 4567"
-              type="tel"
-              value={phone}
-            />
-            <p className="text-muted-foreground text-xs">
-              Irish and UK mobile numbers are supported
-            </p>
+          {/* Required Fields: Phone and Postcode */}
+          <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
+            {/* Phone Input */}
+            <div className="space-y-2">
+              <Label htmlFor="phone">
+                Phone Number <span className="text-destructive">*</span>
+              </Label>
+              <Input
+                disabled={isSubmitting || isSkipping}
+                id="phone"
+                onChange={(e) => setPhone(e.target.value)}
+                placeholder="+353 87 123 4567"
+                type="tel"
+                value={phone}
+              />
+            </div>
+
+            {/* Postcode Input */}
+            <div className="space-y-2">
+              <Label htmlFor="postcode">
+                Postcode / Eircode <span className="text-destructive">*</span>
+              </Label>
+              <Input
+                disabled={isSubmitting || isSkipping}
+                id="postcode"
+                onChange={(e) => handlePostcodeChange(e.target.value)}
+                placeholder="D02 XY45"
+                value={postcode}
+              />
+            </div>
           </div>
 
           {/* Alternate Email Input */}
@@ -338,28 +351,16 @@ export function ProfileCompletionStep({
                 />
               </div>
 
-              {/* Town / City and Postcode row */}
-              <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
-                <div className="space-y-2">
-                  <Label htmlFor="town">Town / City</Label>
-                  <Input
-                    disabled={isSubmitting || isSkipping}
-                    id="town"
-                    onChange={(e) => setTown(e.target.value)}
-                    placeholder="Dublin"
-                    value={town}
-                  />
-                </div>
-                <div className="space-y-2">
-                  <Label htmlFor="postcode">Postcode / Eircode</Label>
-                  <Input
-                    disabled={isSubmitting || isSkipping}
-                    id="postcode"
-                    onChange={(e) => handlePostcodeChange(e.target.value)}
-                    placeholder="D02 XY45"
-                    value={postcode}
-                  />
-                </div>
+              {/* Town / City */}
+              <div className="space-y-2">
+                <Label htmlFor="town">Town / City</Label>
+                <Input
+                  disabled={isSubmitting || isSkipping}
+                  id="town"
+                  onChange={(e) => setTown(e.target.value)}
+                  placeholder="Dublin"
+                  value={town}
+                />
               </div>
 
               {/* County and Country row */}

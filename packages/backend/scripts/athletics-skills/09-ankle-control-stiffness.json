@@ -1,0 +1,28 @@
+{
+  "skillName": "Ankle Control & Stiffness",
+  "category": "Running Mechanics",
+  "description": "Ankle positioning during stride cycle and stiffness of ankle-foot complex affecting force transmission. Dorsiflexion (toes up) during swing phase prepares for ground contact. Appropriate ankle stiffness during stance phase prevents excessive collapse while allowing elastic energy return. Too stiff reduces shock absorption; too compliant reduces energy return. Optimal stiffness varies by individual and running speed.",
+  "levels": {
+    "1": {
+      "label": "Developing",
+      "description": "Poor ankle control with excessive collapse (dorsiflexion) upon landing, absorbing force rather than returning it elastically. Ankle too compliant, allowing foot to sink into ground during stance phase. Or conversely, may demonstrate rigid ankle lacking natural spring mechanism. No active dorsiflexion during swing phase - foot may dangle loosely or demonstrate poor positioning. Cannot maintain proper ankle position through fatigue. Demonstrates weak intrinsic foot musculature and poor proprioception. Running appears heavy and stuck to ground rather than bouncy and reactive. Minimal elastic energy return from Achilles tendon-calf complex due to poor stiffness regulation. Requires coaching on ankle positioning and stiffness concept but struggles to understand or implement."
+    },
+    "2": {
+      "label": "Emerging",
+      "description": "Some ankle control developing but inconsistent stiffness regulation. Better dorsiflexion during swing phase when concentrating but often reverts to poor positioning. Ankle stiffness improving slightly with training but still allows excessive collapse upon landing or demonstrates too much rigidity. Can implement coaching cues (\"pull toes up,\" \"bounce off ground\") temporarily but doesn't maintain without constant reminding. Beginning to develop some elastic recoil capacity but still absorbs too much force. Moderate success during drills specifically targeting ankle mechanics but struggles to transfer to continuous running. Shows improvement trajectory but significant development still needed. Running starting to appear slightly more springy but far from optimal reactive quality."
+    },
+    "3": {
+      "label": "Competent",
+      "description": "Good ankle control with appropriate dorsiflexion during swing phase preparing for landing. Reasonable ankle stiffness during stance phase provides adequate elastic energy return without excessive collapse. Demonstrates natural springy quality when running, particularly during faster efforts. Foot positioned properly throughout stride cycle in most situations. Ankle stiffness appropriate for running speed - slightly more compliant during distance running, stiffer during sprints. Some degradation in ankle control when severely fatigued but maintains reasonable mechanics throughout most efforts. Competent ankle mechanics contribute to decent running economy for club-level competition. Can feel difference between proper and improper ankle positioning and adjust accordingly in most situations."
+    },
+    "4": {
+      "label": "Advanced",
+      "description": "Excellent ankle control and stiffness regulation across all running speeds and conditions. Active, deliberate dorsiflexion during swing phase positions foot optimally for landing. Ankle stiffness during stance phase perfectly balanced - allows minimal necessary compliance while maximizing elastic energy return. Highly developed Achilles tendon-calf complex provides superior spring-like behavior. Running appears highly reactive and bouncy with visible elastic recoil. Maintains optimal ankle mechanics even when severely fatigued. Ankle stiffness adjusts automatically based on running speed, terrain, and footwear without conscious thought. Competitive advantage through superior ankle mechanics contributing to running economy and ground contact efficiency. Can demonstrate and explain ankle control to others. Serves as model for proper ankle function during running."
+    },
+    "5": {
+      "label": "Elite",
+      "description": "Perfect ankle control and stiffness regulation automatic at world-class level. Optimal dorsiflexion-plantar flexion control throughout stride cycle maximizes efficiency and power. Elite-level ankle stiffness provides maximum elastic energy return with minimal energy absorption. Achilles tendon-calf complex demonstrates exceptional spring-like properties contributing to world-class running economy. Maintains flawless ankle mechanics during Olympic or World Championship finals under extreme fatigue and intensity. Demonstrates biomechanical perfection that serves as global model. Ankle function optimized for chosen event specialization. Among the most efficient ankle mechanics globally, contributing to international-level performance capability. No technical flaws observable under any circumstance. Running economy measurably enhanced by superior ankle-foot complex function."
+    }
+  },
+  "assessmentGuidance": "Observe ankle position during all phases of running stride. During swing phase, look for active dorsiflexion (toes pulled up toward shin). During landing, watch for excessive collapse at ankle or overly rigid contact. Note overall springiness and bounce quality when running. Listen to footfalls - light, quick contacts suggest good ankle stiffness; heavy, prolonged contacts suggest poor stiffness. Assess during different speeds - ankle should be slightly more compliant during distance running, stiffer during sprints. Video analysis helpful for slow-motion review of ankle behavior. Palpate calf musculature to assess Achilles-calf development. Compare mechanics when fresh versus fatigued."
+}

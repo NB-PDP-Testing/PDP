@@ -1,0 +1,28 @@
+{
+  "skillName": "Hip Extension & Drive",
+  "category": "Running Mechanics",
+  "description": "Powerful hip extension during push-off phase to generate forward propulsion. The gluteal muscles and hamstrings extend the hip joint, driving the leg backward and propelling the body forward. Complete hip extension (leg fully straightened behind body) indicates powerful running mechanics. Strong triple extension (ankles, knees, hips) is critical during acceleration and maximum velocity running.",
+  "levels": {
+    "1": {
+      "label": "Developing",
+      "description": "Minimal hip extension visible during running stride cycle. Leg stays bent throughout stride with little to no straightening behind body during push-off. Appears to \"paw\" at the ground rather than drive powerfully through complete extension. Weak glute activation with hamstring-dominant running pattern. Limited power generated from hips, resulting in short, choppy strides. May sit back with hips instead of driving them forward through space. Cannot complete triple extension sequence, limiting force production capacity. Stride appears labored and inefficient with obvious weakness in hip extension mechanics."
+    },
+    "2": {
+      "label": "Emerging",
+      "description": "Some hip extension present but incomplete, with leg not fully straightening behind body. Moderate force production from hip extensors but inconsistent execution. Better form when fresh at beginning of runs but deteriorates significantly with fatigue. Shows improvement with coaching cues (\"drive the leg back,\" \"finish the push-off\") during drills but struggles to transfer to actual running. Beginning to activate glutes but still partially hamstring-dependent. Triple extension sequence attempted but timing and completeness inconsistent. Power output from hips remains moderate, limiting speed potential."
+    },
+    "3": {
+      "label": "Competent",
+      "description": "Good hip extension during moderate-intensity running with visible leg straightening behind body. Powerful drive visible in sprint work and acceleration phases with strong triple extension. Generally completes extension cycle before initiating knee lift for next stride. Good glute activation providing primary force production with hamstrings in supporting role. Maintains reasonable hip extension mechanics when fatigued though some degradation occurs in final portions of hard efforts. Demonstrates competent force production appropriate for club-level competition. Can execute hip extension drills properly and transfer to running most of the time."
+    },
+    "4": {
+      "label": "Advanced",
+      "description": "Strong, consistent hip extension across all running speeds with exceptional power visible. Powerful glute activation dominates force production with perfect timing of triple extension. Maintains full hip extension mechanics when fatigued, even in final stages of races or hard workouts. Leg fully straightens behind body before knee lift initiates, maximizing propulsion from each stride. Generates elite-level force production through hip extensors, creating competitive advantage in acceleration and maximum velocity. Can demonstrate perfect hip extension technique and explain biomechanics to others. Visible power and efficiency in hip drive distinguishes from competitors at regional-national level."
+    },
+    "5": {
+      "label": "Elite",
+      "description": "Maximal hip extension with exceptional power production at world-class level. Perfect timing of hip extension and knee lift phases creates biomechanical perfection. Explosive glute activation generates elite-level horizontal and vertical forces. Triple extension flawless during acceleration with optimal force vectors. Maintains perfect hip extension mechanics even during championship sprint finishes against international competition. Serves as biomechanical model demonstrating ideal hip extension technique. Power output from hip extensors among the highest globally, enabling elite performance in sprints, middle distance, or distance events depending on specialization. No technical flaws observable under any circumstance."
+    }
+  },
+  "assessmentGuidance": "Observe from the side during running to see leg extension behind body during push-off phase. Look for complete straightening of hip joint before leg swings forward for next stride. Note glute activation (visible muscle engagement in buttocks) versus hamstring dominance. Assess during acceleration runs, maximum velocity sprints, and sustained efforts. Video analysis helpful for freeze-framing at maximum extension point. Compare extension quality when fresh versus fatigued."
+}

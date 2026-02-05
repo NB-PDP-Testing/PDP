@@ -1,0 +1,28 @@
+{
+  "skillName": "Knee Drive & Lift",
+  "category": "Running Mechanics",
+  "description": "Controlled knee lift during flight phase of running stride, with height varying by running speed and event. High knee action required in sprinting (front-side mechanics), moderate knee lift in middle distance, and economical knee lift in distance running. Proper knee drive sets up effective foot placement and contributes to stride length and running efficiency.",
+  "levels": {
+    "1": {
+      "label": "Developing",
+      "description": "Minimal knee lift with leg remaining mostly extended throughout stride cycle. Appears to shuffle or \"paw\" at ground rather than drive knee upward. No distinction in knee lift between different running speeds - uses same low knee pattern whether jogging or attempting to sprint. Cannot generate high knee drive even when specifically attempting sprint mechanics. Often exhibits back-side mechanics with foot extending behind body before initiating forward swing. Stride length severely limited by inadequate knee lift. Requires constant coaching on knee drive concept but struggles to execute even with cueing."
+    },
+    "2": {
+      "label": "Emerging",
+      "description": "Basic knee lift present but insufficient for running speed attempted. Shows some elevation during sprint efforts but nowhere near optimal height for maximum velocity generation. Can execute high knee drill in isolation but fails to transfer to actual running. Inconsistent knee drive - better when concentrating but reverts to low knee shuffle when focus shifts to other aspects of running. Beginning to understand front-side mechanics concept but execution unreliable. Moderate success with coaching cues but requires frequent reminders. Knee lift appropriate for easy running but inadequate when speed increases."
+    },
+    "3": {
+      "label": "Competent",
+      "description": "Appropriate knee lift for event and running speed with good differentiation between distance and sprint mechanics. High knee action during sprint work with thigh approaching parallel to ground at full speed. Moderate, economical knee lift during distance running that doesn't waste energy on excessive vertical motion. Demonstrates front-side mechanics competently during acceleration and maximum velocity phases. Can adjust knee lift based on pace requirements without conscious thought in most situations. Generally maintains proper knee drive when fatigued though some degradation in final stages of hard efforts. Biomechanics appropriate for club-regional level competition."
+    },
+    "4": {
+      "label": "Advanced",
+      "description": "Excellent knee drive across all running applications with optimal height for each situation. Powerful, explosive knee lift during sprints with thigh reaching or exceeding parallel at maximum velocity. Perfect front-side mechanics with knee driving forward and up before foot placement. Economical knee lift during sustained efforts - just enough for efficiency without wasted vertical motion. Maintains optimal knee drive even when severely fatigued or during championship race finishes. Can demonstrate perfect technique in drills and transfer seamlessly to competition. Competitive advantage through superior knee drive mechanics enabling better acceleration and top-end speed. Self-correcting if form degrades."
+    },
+    "5": {
+      "label": "Elite",
+      "description": "Perfect knee drive mechanics automatic across all speeds and competitive situations. Elite-level knee lift during sprints generates world-class stride length and frequency. Flawless front-side mechanics with explosive upward and forward knee drive. Maintains biomechanically perfect knee action even during Olympic or World Championship finals under extreme fatigue. Demonstrates textbook technique that serves as model for coaches and athletes globally. Knee lift optimizes performance in chosen event specialization - explosive power for sprints or economical efficiency for distance. No technical flaws observable under any circumstance including maximum intensity against world's best athletes."
+    }
+  },
+  "assessmentGuidance": "Observe from the side during various running speeds to assess knee height during flight phase. Look for thigh angle relative to ground at highest point of knee lift. Note whether athlete demonstrates front-side mechanics (knee forward before foot strike) or back-side mechanics (foot extends behind before coming forward). Assess during easy running, moderate pace, race pace, and maximum sprint. Compare knee lift appropriateness for the event - sprinters should show high knee drive, distance runners economical lift. Video analysis helpful for measuring thigh angles."
+}

@@ -1,0 +1,28 @@
+{
+  "skillName": "Maximum Velocity",
+  "category": "Speed & Power",
+  "description": "Highest speed achievable after acceleration phase complete, typically reached at 40-60 meters in 100m sprint and maintained for 20-30 meters before deceleration begins. At maximum velocity, force production shifts from horizontal (acceleration) to primarily vertical. Characterized by upright torso, high knee lift with front-side mechanics, rapid leg turnover (4-5 strides per second for elite sprinters), minimal ground contact time (under 0.10 seconds for elite), and relaxed upper body despite high intensity.",
+  "levels": {
+    "1": {
+      "label": "Developing",
+      "description": "Low maximum velocity with poor mechanics at top speed. Appears tense and forced when attempting maximum effort rather than relaxed and fluid. Demonstrates back-side mechanics with foot reaching behind body before ground contact rather than proper front-side technique. Excessive ground contact time and inadequate knee lift limit velocity potential. Arms crossing midline or poorly coordinated with legs. Cannot maintain any particular velocity - constantly decelerating and re-accelerating. Limited speed capacity restricts performance across all running events. Velocity reached far below potential for age and training level. Breathing pattern irregular and strained during maximum efforts."
+    },
+    "2": {
+      "label": "Emerging",
+      "description": "Moderate maximum velocity for age and training level with basic mechanics present but significant flaws evident. Some front-side mechanics visible during top speed running but inconsistent - may revert to back-side reaching. Moderate tension remains in upper body limiting full velocity expression. Some knee lift present but insufficient for optimal maximum velocity generation. Ground contact time excessive compared to elite standards. Leg turnover rate moderate. Can implement coaching cues (\"relax,\" \"high knees,\" \"quick feet\") during drills but struggles to maintain during actual maximum velocity running. Shows improvement trajectory but needs considerable development. Speed reserve limited."
+    },
+    "3": {
+      "label": "Competent",
+      "description": "Good maximum velocity relative to competition level with sound mechanics at top speed. Demonstrates proper front-side mechanics with knee drive forward before foot placement. Reasonably relaxed upper body despite high intensity effort. Good knee lift and leg turnover rate for ability level. Ground contact time adequate though not elite. Maintains maximum velocity for reasonable duration (10-20 meters) before deceleration. Upright torso position with coordinated arm-leg action. Velocity appropriate for club-regional competition. Can execute maximum velocity drills and transfer to racing. Some breakdown may occur with extreme fatigue but generally maintains mechanics well."
+    },
+    "4": {
+      "label": "Advanced",
+      "description": "High maximum velocity with excellent mechanics maintained at top speed. Perfect front-side mechanics with explosive knee drive and optimal foot placement. Relaxed and fluid appearance despite near-maximal intensity. Exceptional stride frequency combined with good stride length. Very short ground contact time approaching elite standards. Maintains top speed for extended duration (20-30+ meters) with minimal deceleration. Demonstrates relaxed intensity - working maximally but without counterproductive tension. Competitive advantage in maximum velocity events and phases. Can maintain excellent mechanics even when fatigued. Serves as model for proper maximum velocity technique. Elite-level top-end speed capability."
+    },
+    "5": {
+      "label": "Elite",
+      "description": "World-class maximum velocity demonstrating perfect mechanics automatic at top speed. Exceptional stride frequency (240+ steps per minute) combined with elite stride length. Ground contact time under 0.10 seconds with maximum force production. Flawless front-side mechanics with explosive knee drive and perfect foot placement. Appears completely relaxed and effortless despite running at world-record pace or near personal maximum. Maintains elite-level top speed throughout maximum velocity zone with minimal deceleration. Biomechanically perfect at top speed - serves as international model. Among fastest maximum velocities globally. Performs at Olympic or World Championship level in maximum velocity events. No technical flaws observable under any circumstance including finals against world's best sprinters."
+    }
+  },
+  "assessmentGuidance": "Observe during flying sprints (20-30m maximum velocity zone after 30-40m acceleration). Watch for upright posture, front-side versus back-side mechanics, knee lift height, and overall relaxation. Note stride frequency (count steps over measured distance). Listen to rhythm - should be rapid and consistent. Video analysis essential for evaluating maximum velocity mechanics in slow motion. Measure actual velocity using timing gates at 10m intervals through maximum velocity zone. Compare mechanics when fresh versus fatigued. Observe facial expression and upper body for tension indicators."
+}

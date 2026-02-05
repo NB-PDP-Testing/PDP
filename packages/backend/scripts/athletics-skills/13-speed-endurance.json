@@ -1,0 +1,28 @@
+{
+  "skillName": "Speed Endurance",
+  "category": "Speed & Power",
+  "description": "Capacity to maintain high percentage of maximum velocity (85-95%) over extended distances or repeated efforts. Critical for 200m, 400m, and all hurdle events. Physiologically involves lactate tolerance, phosphocreatine resynthesis capacity, and maintaining technique under metabolic stress. Distinguished from pure endurance by the speed component - sustaining near-maximal velocities rather than submaximal paces.",
+  "levels": {
+    "1": {
+      "label": "Developing",
+      "description": "Very limited speed endurance with significant deceleration in second half of even short sprints. Cannot maintain pace over distances beyond 60-80 meters without dramatic slowing. Mechanics break down severely when combining speed and fatigue - form collapses, stride shortens drastically, arms flail. Experiences severe tying up (excessive muscle tension and acidosis) attempting to sustain speed. Cannot complete 200m at anything approaching maximum effort without walking or near-walking in final portion. Demonstrates fundamental lack of lactate tolerance and speed endurance capacity. Recovery between sprint repetitions very prolonged. Shows no ability to maintain technique under metabolic stress."
+    },
+    "2": {
+      "label": "Emerging",
+      "description": "Basic speed endurance developing but limited capacity. Can maintain moderate speeds over 100-150 meters but significant fade visible and measurable. 200m very challenging with pronounced deceleration in final 50-80 meters. 400m extremely difficult, often requiring 60+ seconds and involving walking or near-complete breakdown. Mechanical deterioration significant when combining speed and fatigue though not complete collapse. Tying up common in longer sprints. Can complete speed endurance workouts but requires extended recovery between repetitions. Shows improvement trajectory with training but substantial development needed. Lactate tolerance low but trainable."
+    },
+    "3": {
+      "label": "Competent",
+      "description": "Good speed endurance for competition level with limited deceleration over 200 meters. Can complete competitive 400m with reasonable pace maintenance, though some slowing inevitable in final 100m. Technique deteriorates moderately under speed-fatigue combination but doesn't collapse completely. Demonstrates adequate lactate tolerance for club-regional level competition. Can maintain 80-85% of maximum velocity over 200m. Recovery between speed endurance repetitions reasonable. Completes race-specific workouts (200m, 300m, 400m intervals) at appropriate intensities. Shows good training response to speed endurance work. Mechanical breakdown manageable even when experiencing metabolic stress."
+    },
+    "4": {
+      "label": "Advanced",
+      "description": "Excellent speed endurance with ability to maintain high percentage (85-90%) of maximum velocity through 200m and sustain competitive speed throughout 400m. Minimal mechanical breakdown when fatigued - maintains stride length, arm action, and postural control despite intense metabolic stress. Strong lactate tolerance enables high-level performance in longer sprints and hurdle events. Demonstrates competitive advantage in 200m/400m through superior speed maintenance. Can complete demanding speed endurance workouts (multiple 300m or 400m repetitions) with controlled rest and maintain quality. Recovery capacity strong. Minimal deceleration visible even in championship 200m/400m finals. Serves as model for speed endurance training and execution."
+    },
+    "5": {
+      "label": "Elite",
+      "description": "World-class speed endurance demonstrating exceptional ability to maintain velocity under extreme metabolic stress. Can sustain 90-95% of maximum velocity through 200m and maintain elite pace throughout 400m with minimal deceleration. Perfect technique preservation when fatigued - no mechanical breakdown visible even during Olympic or World Championship 200m/400m finals. Exceptional lactate tolerance enables dominating performance in longer sprints. Among the best globally at maintaining speed under metabolic stress. Demonstrates biomechanical perfection even when experiencing severe acidosis. Recovery ability elite-level. Serves as international model for speed endurance. Competitive advantage decisive in 200m/400m/hurdle events at highest level. No technical flaws observable despite extreme physiological stress."
+    }
+  },
+  "assessmentGuidance": "Assess during 200m and 400m runs at near-maximum effort. Measure split times (every 50m or 100m) to quantify deceleration. Observe technical breakdown: note when stride length shortens, arms deteriorate, posture collapses. Watch for tying up (excessive tension, drastically reduced motion). Evaluate during speed endurance workouts (repeated 200m, 300m, 400m) noting quality maintenance across repetitions. Compare early-race mechanics to late-race mechanics. Time recovery needed between sprint repetitions. Video analysis helpful for documenting mechanical changes with fatigue."
+}

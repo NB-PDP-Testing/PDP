@@ -24,8 +24,7 @@ const onboardingTaskValidator = v.object({
   type: v.union(
     v.literal("gdpr_consent"),
     v.literal("accept_invitation"),
-    v.literal("profile_completion"), // NEW: Phase 0 - Profile completion for guardian matching
-    v.literal("no_children_found"), // NEW: Phase 0 - Fallback when no guardian matches found
+    v.literal("profile_completion"), // Phase 0 - Profile completion for guardian matching
     v.literal("guardian_claim"),
     v.literal("child_linking"),
     v.literal("player_graduation"),
@@ -71,7 +70,6 @@ export const getOnboardingTasks = query({
         | "gdpr_consent"
         | "accept_invitation"
         | "profile_completion"
-        | "no_children_found"
         | "guardian_claim"
         | "child_linking"
         | "player_graduation"
@@ -494,40 +492,6 @@ export const getOnboardingTasks = query({
         }
       }
     } // End of wasInvited check for guardian_claim
-
-    // =================================================================
-    // Task 2.5: No Children Found fallback
-    // Priority 2.5 - Shown when profile is completed but no guardian matches found
-    // This allows user to retry with different details or continue without linking
-    // =================================================================
-    if (user) {
-      const profileIsCompleted = user.profileCompletionStatus === "completed";
-      const noGuardianClaimTaskAdded = !tasks.some(
-        (t) => t.type === "guardian_claim"
-      );
-      const hasNotAcknowledged = !user.noChildrenAcknowledged;
-
-      // Show "no children found" if:
-      // 1. Profile completion is done
-      // 2. No guardian matches were found (no guardian_claim task)
-      // 3. User hasn't already acknowledged this state
-      if (
-        profileIsCompleted &&
-        noGuardianClaimTaskAdded &&
-        hasNotAcknowledged
-      ) {
-        tasks.push({
-          type: "no_children_found",
-          priority: 2.5,
-          data: {
-            searchedEmail: normalizedEmail,
-            searchedPhone: user.phone,
-            searchedPostcode: user.postcode,
-            searchedAltEmail: user.altEmail,
-          },
-        });
-      }
-    }
 
     // =================================================================
     // Task 3: Check for pending child acknowledgements

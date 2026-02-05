@@ -289,7 +289,7 @@ function OnboardingStepRenderer({
       case "accept_invitation":
         return "Pending Invitation";
       case "profile_completion":
-        return "Help Us Find Your Children";
+        return "Additional Information";
       case "guardian_claim":
         return "Claim Your Guardian Profile";
       case "child_linking":
@@ -310,7 +310,7 @@ function OnboardingStepRenderer({
       case "accept_invitation":
         return "You have pending organization invitations to review.";
       case "profile_completion":
-        return "Provide additional details to help us connect you with your children's records.";
+        return "Please provide additional information to complete your profile.";
       case "guardian_claim":
         return "We found a guardian profile that matches your email. Claim it to see your children.";
       case "child_linking":
@@ -380,7 +380,6 @@ export function OnboardingOrchestrator({
   const { data: session } = authClient.useSession();
   const tasks = useQuery(api.models.onboarding.getOnboardingTasks);
   const [currentStepIndex, setCurrentStepIndex] = useState(0);
-  const [dismissed, setDismissed] = useState(false);
   const { track } = useAnalytics();
 
   // Track when onboarding starts and steps are shown
@@ -392,6 +391,17 @@ export function OnboardingOrchestrator({
   const userId = session?.user?.id;
   const userEmail = session?.user?.email;
 
+  // Reset step index when tasks change (e.g., after completing a step, the query re-fetches)
+  // This handles the race condition where:
+  // 1. User completes step → currentStepIndex increments
+  // 2. Query re-fetches → returns shorter array (completed task removed)
+  // 3. currentStepIndex now points past the array bounds
+  useEffect(() => {
+    if (tasks && currentStepIndex >= tasks.length) {
+      setCurrentStepIndex(0);
+    }
+  }, [tasks, currentStepIndex]);
+
   // Track onboarding started (once when tasks first load)
   useEffect(() => {
     if (tasks && tasks.length > 0 && !onboardingTrackedRef.current) {
@@ -400,6 +410,26 @@ export function OnboardingOrchestrator({
         total_steps: tasks.length,
         first_step: tasks[0]?.type ?? "unknown",
       });
+    }
+  }, [tasks, track]);
+
+  // Track onboarding completed when tasks array becomes empty
+  // (after previously having tasks)
+  const prevTasksLengthRef = useRef<number | undefined>(undefined);
+  useEffect(() => {
+    if (tasks !== undefined) {
+      // If we previously had tasks and now have none, onboarding is complete
+      if (
+        prevTasksLengthRef.current !== undefined &&
+        prevTasksLengthRef.current > 0 &&
+        tasks.length === 0
+      ) {
+        track(AnalyticsEvents.ONBOARDING_COMPLETED, {
+          total_steps: prevTasksLengthRef.current,
+          steps_completed: prevTasksLengthRef.current,
+        });
+      }
+      prevTasksLengthRef.current = tasks.length;
     }
   }, [tasks, track]);
 
@@ -415,7 +445,10 @@ export function OnboardingOrchestrator({
     }
   }, [currentTask, currentStepIndex, tasks?.length, track]);
 
-  // Handle step completion - move to next step or finish
+  // Handle step completion - move to next step or let query re-fetch
+  // IMPORTANT: Don't dismiss immediately! The Convex query will re-fetch
+  // and may return new tasks (e.g., guardian_claim after profile_completion).
+  // We only dismiss when the query returns an empty array.
   const handleStepComplete = () => {
     const durationSeconds = Math.round(
       (Date.now() - stepStartTimeRef.current) / 1000
@@ -429,28 +462,23 @@ export function OnboardingOrchestrator({
       });
     }
 
-    if (tasks && currentStepIndex < tasks.length - 1) {
-      // Move to next task
-      setCurrentStepIndex((prev) => prev + 1);
-    } else {
-      // All tasks complete, dismiss the orchestrator
-      track(AnalyticsEvents.ONBOARDING_COMPLETED, {
-        total_steps: tasks?.length ?? 0,
-        steps_completed: currentStepIndex + 1,
-      });
-      setDismissed(true);
-    }
+    // Always reset to step 0 - the query will re-fetch and return
+    // either new tasks or an empty array. The useEffect will handle
+    // updating the step index if needed.
+    setCurrentStepIndex(0);
   };
 
   // Don't show anything if:
   // - Tasks are still loading (undefined)
-  // - No tasks to show
-  // - User has dismissed the orchestrator
+  // - No tasks to show (query returns empty array when all complete)
   const shouldShowModal =
-    tasks !== undefined &&
-    tasks.length > 0 &&
-    currentTask !== undefined &&
-    !dismissed;
+    tasks !== undefined && tasks.length > 0 && currentTask !== undefined;
+
+  // Debug logging for onboarding
+  console.log("[ONBOARDING DEBUG] tasks:", tasks);
+  console.log("[ONBOARDING DEBUG] currentTask:", currentTask);
+  console.log("[ONBOARDING DEBUG] userId:", userId);
+  console.log("[ONBOARDING DEBUG] shouldShowModal:", shouldShowModal);
 
   // Determine onboarding status for data attributes
   const isOnboardingComplete = tasks !== undefined && tasks.length === 0;

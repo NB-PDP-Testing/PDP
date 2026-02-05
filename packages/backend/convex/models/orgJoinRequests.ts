@@ -409,31 +409,114 @@ export const approveJoinRequest = mutation({
     }
 
     // Link parent to players if parent role and player IDs provided
+    // Phase 0.8: Create proper guardianIdentity and guardianPlayerLinks
     if (functionalRoles.includes("parent") && args.linkedPlayerIds?.length) {
       const normalizedEmail = request.userEmail.toLowerCase().trim();
 
-      // Get all players from the organization to find matches
-      const allPlayers = await ctx.db
-        .query("players")
-        .withIndex("by_organizationId", (q) =>
-          q.eq("organizationId", request.organizationId)
-        )
-        .collect();
-      const playerMap = new Map(allPlayers.map((p) => [p._id.toString(), p]));
+      // Get user details for guardian identity
+      const requestUser = await ctx.runQuery(
+        components.betterAuth.adapter.findOne,
+        {
+          model: "user",
+          where: [{ field: "_id", value: request.userId, operator: "eq" }],
+        }
+      );
 
-      // Link each player to the parent
-      let linked = 0;
-      for (const playerId of args.linkedPlayerIds) {
-        const player = playerMap.get(playerId);
-        if (player && !player.parentEmail) {
-          await ctx.db.patch(player._id, {
-            parentEmail: normalizedEmail,
+      // Parse user name into first/last
+      const userName =
+        (requestUser as { name?: string })?.name || request.userName || "";
+      const nameParts = userName.split(" ");
+      const firstName = nameParts[0] || "";
+      const lastName = nameParts.slice(1).join(" ") || "";
+
+      // Find existing guardian identity for this user, or create one
+      let guardianIdentityId: string;
+      const existingGuardian = await ctx.db
+        .query("guardianIdentities")
+        .withIndex("by_userId", (q) => q.eq("userId", request.userId))
+        .first();
+
+      if (existingGuardian) {
+        guardianIdentityId = existingGuardian._id;
+      } else {
+        // Also check by email for unclaimed guardian identities
+        const emailGuardian = await ctx.db
+          .query("guardianIdentities")
+          .withIndex("by_email", (q) => q.eq("email", normalizedEmail))
+          .first();
+
+        if (emailGuardian && !emailGuardian.userId) {
+          // Claim existing unclaimed guardian identity
+          await ctx.db.patch(emailGuardian._id, {
+            userId: request.userId,
+            updatedAt: Date.now(),
           });
-          linked += 1;
+          guardianIdentityId = emailGuardian._id;
+        } else {
+          // Create new guardian identity
+          guardianIdentityId = await ctx.db.insert("guardianIdentities", {
+            firstName,
+            lastName,
+            email: normalizedEmail,
+            phone: request.phone || (requestUser as { phone?: string })?.phone,
+            address:
+              request.address || (requestUser as { address?: string })?.address,
+            userId: request.userId,
+            verificationStatus: "unverified",
+            createdAt: Date.now(),
+            updatedAt: Date.now(),
+            createdFrom: "registration",
+          });
         }
       }
+
+      // Create guardianPlayerLinks for each selected player
+      let linked = 0;
+      for (const playerId of args.linkedPlayerIds) {
+        // Verify the player identity exists
+        const playerIdentity = await ctx.db.get(playerId as any);
+        if (!playerIdentity) {
+          console.warn(
+            `[approveJoinRequest] Player identity not found: ${playerId}`
+          );
+          continue;
+        }
+
+        // Check if link already exists
+        const existingLink = await ctx.db
+          .query("guardianPlayerLinks")
+          .withIndex("by_guardian_and_player", (q) =>
+            q
+              .eq("guardianIdentityId", guardianIdentityId as any)
+              .eq("playerIdentityId", playerId as any)
+          )
+          .first();
+
+        if (existingLink) {
+          console.log(
+            `[approveJoinRequest] Link already exists for player: ${playerId}`
+          );
+          continue;
+        }
+
+        // Create the guardian-player link
+        await ctx.db.insert("guardianPlayerLinks", {
+          guardianIdentityId: guardianIdentityId as any,
+          playerIdentityId: playerId as any,
+          relationship: "guardian",
+          isPrimary: linked === 0, // First linked player is primary
+          hasParentalResponsibility: true,
+          canCollectFromTraining: true,
+          consentedToSharing: false,
+          status: "active",
+          acknowledgedByParentAt: Date.now(), // Admin approved = parent confirmed
+          createdAt: Date.now(),
+          updatedAt: Date.now(),
+        });
+        linked += 1;
+      }
       console.log(
-        `[approveJoinRequest] Linked ${linked} players to parent ${request.userEmail}`
+        `[approveJoinRequest] Created ${linked} guardianPlayerLinks for parent ${request.userEmail}`
       );
     }
 

@@ -17,33 +17,36 @@ export function useOnlineStatus() {
   const [wasOffline, setWasOffline] = useState(false);
   const hasBeenOnlineRef = useRef(false); // Track if we've been online first
   const hasGoneOfflineRef = useRef(false); // Track if we've gone offline after being online
+  const isInitialMountRef = useRef(true); // Track if we're still in initial mount phase
 
   useEffect(() => {
     if (!convex) {
       return;
     }
 
-    // Get initial state
-    const initialState = convex.connectionState();
-    const initiallyConnected = initialState.isWebSocketConnected;
-    setIsOnline(initiallyConnected);
-
-    // If initially connected, mark that we've been online
-    if (initiallyConnected) {
-      hasBeenOnlineRef.current = true;
-    }
+    // Give a brief grace period for initial connection (1 second)
+    // This prevents showing offline during page load
+    const gracePeriodTimer = setTimeout(() => {
+      isInitialMountRef.current = false;
+    }, 1000);
 
     // Subscribe to Convex connection state changes (official API)
     const unsubscribe = convex.subscribeToConnectionState((state) => {
       const connected = state.isWebSocketConnected;
 
       // Track that we've been online at least once
-      if (connected && !hasBeenOnlineRef.current) {
+      if (connected) {
         hasBeenOnlineRef.current = true;
       }
 
-      // Only track offline state if we've been online first (not during initial load)
-      if (!connected && hasBeenOnlineRef.current) {
+      // Only track offline state if:
+      // 1. We've been online first (not during initial load)
+      // 2. We're past the initial mount grace period
+      if (
+        !connected &&
+        hasBeenOnlineRef.current &&
+        !isInitialMountRef.current
+      ) {
         hasGoneOfflineRef.current = true;
       }
 
@@ -54,10 +57,17 @@ export function useOnlineStatus() {
         hasGoneOfflineRef.current = false; // Reset for next offline cycle
       }
 
-      setIsOnline(connected);
+      // Only update isOnline state if we're past initial mount or if connected
+      // This prevents showing offline during page load
+      if (!isInitialMountRef.current || connected) {
+        setIsOnline(connected);
+      }
     });
 
-    return () => unsubscribe();
+    return () => {
+      clearTimeout(gracePeriodTimer);
+      unsubscribe();
+    };
   }, [convex]);
 
   return { isOnline, wasOffline };

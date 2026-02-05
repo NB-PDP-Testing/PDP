@@ -261,19 +261,6 @@ export function ProfileCompletionStep({
             />
           </div>
 
-          {/* Alternate Email Input */}
-          <div className="space-y-2">
-            <Label htmlFor="altEmail">Alternate Email</Label>
-            <Input
-              disabled={isSubmitting || isSkipping}
-              id="altEmail"
-              onChange={(e) => setAltEmail(e.target.value)}
-              placeholder="another.email@example.com"
-              type="email"
-              value={altEmail}
-            />
-          </div>
-
           {/* Street Address */}
           <div className="space-y-2">
             <Label htmlFor="address">Street Address</Label>
@@ -432,6 +419,19 @@ export function ProfileCompletionStep({
                 </SelectContent>
               </Select>
             </div>
+          </div>
+
+          {/* Alternate Email Input */}
+          <div className="space-y-2">
+            <Label htmlFor="altEmail">Alternate Email</Label>
+            <Input
+              disabled={isSubmitting || isSkipping}
+              id="altEmail"
+              onChange={(e) => setAltEmail(e.target.value)}
+              placeholder="another.email@example.com"
+              type="email"
+              value={altEmail}
+            />
           </div>
         </div>
 

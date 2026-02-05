@@ -61,7 +61,9 @@ const statusValidator = v.union(
   v.literal("processing"),
   v.literal("completed"),
   v.literal("failed"),
-  v.literal("unmatched")
+  v.literal("unmatched"),
+  v.literal("rejected"),
+  v.literal("duplicate")
 );
 
 const processingResultsValidator = v.object({
@@ -184,6 +186,27 @@ export const updateMediaStorage = internalMutation({
   handler: async (ctx, args) => {
     await ctx.db.patch(args.messageId, {
       mediaStorageId: args.mediaStorageId,
+    });
+    return null;
+  },
+});
+
+/**
+ * Update message with quality check result (US-VN-001)
+ */
+export const updateQualityCheck = internalMutation({
+  args: {
+    messageId: v.id("whatsappMessages"),
+    qualityCheck: v.object({
+      isValid: v.boolean(),
+      reason: v.optional(v.string()),
+      checkedAt: v.number(),
+    }),
+  },
+  returns: v.null(),
+  handler: async (ctx, args) => {
+    await ctx.db.patch(args.messageId, {
+      messageQualityCheck: args.qualityCheck,
     });
     return null;
   },

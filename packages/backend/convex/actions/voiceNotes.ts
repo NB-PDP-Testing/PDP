@@ -206,14 +206,46 @@ export const transcribeAudio = internalAction({
         file,
       });
 
-      // Update with transcription
+      // US-VN-002: Validate transcript quality before insight extraction
+      const { validateTranscriptQuality } = await import(
+        "../lib/messageValidation"
+      );
+      const quality = validateTranscriptQuality(transcription.text);
+
+      // Update with transcription + quality results
       await ctx.runMutation(internal.models.voiceNotes.updateTranscription, {
         noteId: args.noteId,
         transcription: transcription.text,
         status: "completed",
+        transcriptQuality: quality.confidence,
+        transcriptValidation: {
+          isValid: quality.isValid,
+          reason: quality.reason,
+          suggestedAction: quality.suggestedAction,
+        },
       });
 
-      // Schedule insights extraction
+      // Branch on quality result
+      if (quality.suggestedAction === "reject") {
+        // Transcription worked but quality too low for insights
+        await ctx.runMutation(internal.models.voiceNotes.updateInsights, {
+          noteId: args.noteId,
+          status: "failed",
+          error: `Transcript quality rejected: ${quality.reason}`,
+        });
+        return null;
+      }
+
+      if (quality.suggestedAction === "ask_user") {
+        // Set insights to awaiting confirmation - WhatsApp flow will handle response
+        await ctx.runMutation(internal.models.voiceNotes.updateInsights, {
+          noteId: args.noteId,
+          status: "awaiting_confirmation",
+        });
+        return null;
+      }
+
+      // Quality OK - schedule insights extraction
       await ctx.scheduler.runAfter(
         0,
         internal.actions.voiceNotes.buildInsights,
@@ -569,7 +601,23 @@ IMPORTANT:
 
       // Resolve player IDs and build insights array
       // Now using playerIdentityId for the new identity system
-      const resolvedInsights = parsed.data.insights.map((insight) => {
+      // Uses for...of to allow async fuzzy matching fallback (US-VN-006)
+      const resolvedInsights: Array<{
+        id: string;
+        playerIdentityId: Id<"playerIdentities"> | undefined;
+        playerName: string | undefined;
+        title: string;
+        description: string;
+        category: string | undefined;
+        recommendedUpdate: string | undefined;
+        confidence: number;
+        teamId: string | undefined;
+        teamName: string | undefined;
+        assigneeUserId: string | undefined;
+        assigneeName: string | undefined;
+        status: "pending";
+      }> = [];
+      for (const insight of parsed.data.insights) {
         // Log what AI returned
         if (insight.playerName && !insight.playerId) {
           console.warn(
@@ -578,7 +626,33 @@ IMPORTANT:
         }
 
         // Use deduplicated roster for matching
-        const matchedPlayer = findMatchingPlayer(insight, uniquePlayers);
+        let matchedPlayer:
+          | { playerIdentityId: Id<"playerIdentities">; name: string }
+          | undefined = findMatchingPlayer(insight, uniquePlayers);
+
+        // US-VN-006: Fuzzy matching fallback when deterministic matching fails
+        if (!matchedPlayer && insight.playerName && note.coachId) {
+          const fuzzyResults = await ctx.runQuery(
+            internal.models.orgPlayerEnrollments.findSimilarPlayers,
+            {
+              organizationId: note.orgId,
+              coachUserId: note.coachId,
+              searchName: insight.playerName,
+              limit: 1,
+            }
+          );
+
+          if (fuzzyResults.length > 0 && fuzzyResults[0].similarity >= 0.85) {
+            const fuzzy = fuzzyResults[0];
+            console.log(
+              `[Fuzzy Match] ✅ "${insight.playerName}" → "${fuzzy.fullName}" (similarity: ${fuzzy.similarity.toFixed(2)})`
+            );
+            matchedPlayer = {
+              playerIdentityId: fuzzy.playerId,
+              name: fuzzy.fullName,
+            };
+          }
+        }
 
         // Log matching result
         if (insight.playerName && !matchedPlayer) {
@@ -601,7 +675,7 @@ IMPORTANT:
         const assigneeUserId = insight.assigneeUserId ?? undefined;
         const assigneeName = insight.assigneeName ?? undefined;
 
-        return {
+        resolvedInsights.push({
           id: `insight_${Date.now()}_${Math.random().toString(36).slice(2, 11)}`,
           playerIdentityId: matchedPlayer?.playerIdentityId ?? undefined,
           playerName: matchedPlayer?.name ?? insight.playerName ?? undefined,
@@ -609,14 +683,14 @@ IMPORTANT:
           description: insight.description,
           category: insight.category ?? undefined,
           recommendedUpdate: insight.recommendedUpdate ?? undefined,
-          confidence: insight.confidence ?? 0.7, // Phase 7: AI confidence score, default to 0.7 if not provided
+          confidence: insight.confidence ?? 0.7,
           teamId,
           teamName,
           assigneeUserId,
           assigneeName,
           status: "pending" as const,
-        };
-      });
+        });
+      }
 
       // Update the note with insights
       await ctx.runMutation(internal.models.voiceNotes.updateInsights, {

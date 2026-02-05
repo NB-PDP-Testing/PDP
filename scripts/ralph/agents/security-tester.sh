@@ -239,6 +239,69 @@ run_security_checks() {
     fi
 
     # ========================================
+    # DEEP CLAUDE REVIEW (on story completion or every 5th cycle)
+    # ========================================
+
+    local cycle_count=$(cat "$OUTPUT_DIR/.security-cycle-count" 2>/dev/null || echo "0")
+    cycle_count=$((cycle_count + 1))
+    echo "$cycle_count" > "$OUTPUT_DIR/.security-cycle-count"
+
+    # Check if a new story was completed (PRD changed)
+    local current_completed=$(jq '[.userStories[] | select(.passes == true)] | length' scripts/ralph/prd.json 2>/dev/null || echo "0")
+    local last_completed=$(cat "$OUTPUT_DIR/.last-security-completed" 2>/dev/null || echo "0")
+
+    local run_deep_review=false
+    if [ "$current_completed" -gt "$last_completed" ]; then
+        run_deep_review=true
+        echo "$current_completed" > "$OUTPUT_DIR/.last-security-completed"
+        echo "🆕 New story completed - triggering deep security review" | tee -a "$LOG_FILE"
+    elif [ $((cycle_count % 5)) -eq 0 ]; then
+        run_deep_review=true
+        echo "📊 Periodic deep security review (cycle $cycle_count)" | tee -a "$LOG_FILE"
+    fi
+
+    if [ "$run_deep_review" = true ]; then
+        echo "🔒 Running deep Claude security review..." | tee -a "$LOG_FILE"
+
+        # Get recently changed files
+        local recent_files=$(git diff --name-only HEAD~3 HEAD 2>/dev/null | grep -E '\.(ts|tsx)$' | grep -v node_modules | head -15 || true)
+
+        if [ -n "$recent_files" ]; then
+            local deep_prompt="You are a security reviewer for PlayerARC (Next.js + Convex + Better Auth multi-tenant app).
+
+Review these recently changed files for security vulnerabilities:
+$recent_files
+
+Read each file and focus on:
+1. CRITICAL: Hardcoded secrets, XSS (dangerouslySetInnerHTML without sanitization)
+2. CRITICAL: Authentication bypass, missing auth checks on mutations
+3. CRITICAL: Organization data isolation - queries MUST filter by organizationId
+4. HIGH: Missing input validation on Convex mutations
+5. HIGH: Server-only env vars exposed in client code (non-NEXT_PUBLIC_)
+6. HIGH: Unsafe user input passed to AI prompts (prompt injection)
+7. MEDIUM: Missing rate limiting on high-frequency endpoints
+
+Be concise. Only report actual issues found (not theoretical).
+Output: SEVERITY - file:line - description - fix suggestion"
+
+            local deep_result=$(echo "$deep_prompt" | timeout 90 claude --print 2>&1 || echo "DEEP_REVIEW_ERROR")
+
+            if echo "$deep_result" | grep -qi "CRITICAL\|HIGH"; then
+                echo "" >> "$FEEDBACK_FILE"
+                echo "## Deep Security Review - $timestamp" >> "$FEEDBACK_FILE"
+                echo "" >> "$FEEDBACK_FILE"
+                echo "$deep_result" >> "$FEEDBACK_FILE"
+                echo "" >> "$FEEDBACK_FILE"
+                echo "🚨 Deep security review found issues" | tee -a "$LOG_FILE"
+            elif ! echo "$deep_result" | grep -qi "DEEP_REVIEW_ERROR"; then
+                echo "✅ Deep security review passed" | tee -a "$LOG_FILE"
+            else
+                echo "⚠️ Deep review failed (Claude CLI error)" | tee -a "$LOG_FILE"
+            fi
+        fi
+    fi
+
+    # ========================================
     # REPORTING
     # ========================================
 

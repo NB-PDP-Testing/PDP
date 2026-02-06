@@ -12,9 +12,10 @@
 
 import { api } from "@pdp/backend/convex/_generated/api";
 import { useMutation, useQuery } from "convex/react";
-import { Mic } from "lucide-react";
+import { LogIn, Mic } from "lucide-react";
+import Image from "next/image";
+import Link from "next/link";
 import { use, useEffect, useRef } from "react";
-import { PDPLogo } from "@/components/pdp-logo";
 import { OfflineIndicator } from "@/components/polish/offline-indicator";
 import { ExpiredLinkView } from "./expired-link-view";
 import { InvalidLinkView } from "./invalid-link-view";
@@ -137,29 +138,61 @@ export default function QuickReviewPage({ params }: QuickReviewPageProps) {
 
 /**
  * Mobile-first layout wrapper for the review microsite.
- * max-w-lg centered, safe area padding, min 16px font.
+ * Navy header bar matching playerarc.io brand, minimal footer with login link.
  * Offline detection via shared OfflineIndicator (US-VN-012d).
  * SW registration handled by ServiceWorkerProvider in root layout.
  */
 function QuickReviewLayout({ children }: { children: React.ReactNode }) {
   return (
-    <div className="min-h-svh bg-background">
+    <div className="flex min-h-svh flex-col bg-background">
       <OfflineIndicator
         offlineMessage="You're offline. Data will refresh when you reconnect."
         position="top"
       />
-      <div className="mx-auto max-w-lg px-4 pt-4 pb-[env(safe-area-inset-bottom)]">
-        <div className="mb-4 flex items-center justify-between">
-          <div className="flex items-center gap-2">
-            <Mic className="h-5 w-5 text-primary" />
-            <h1 className="font-semibold text-lg">Voice Note Review</h1>
+
+      {/* Navy header bar */}
+      <header className="bg-[#1E3A5F]">
+        <div className="mx-auto flex h-14 max-w-lg items-center justify-between px-4">
+          <Link className="flex items-center gap-2.5" href="/">
+            <div className="relative h-8 w-8">
+              <Image
+                alt="PlayerARC"
+                className="object-contain"
+                fill
+                priority
+                sizes="32px"
+                src="/logos-landing/PDP-Logo-OffWhiteOrbit_GreenHuman.png"
+              />
+            </div>
+            <span className="font-bold text-sm text-white">PlayerARC</span>
+          </Link>
+          <div className="flex items-center gap-1.5 text-white/90">
+            <Mic className="h-4 w-4" />
+            <span className="font-medium text-sm">Voice Note Review</span>
           </div>
-          <a href="/login" title="Open PlayerARC">
-            <PDPLogo size="sm" />
-          </a>
         </div>
+      </header>
+
+      {/* Content area */}
+      <main className="mx-auto w-full max-w-lg flex-1 px-4 pt-4 pb-6">
         {children}
-      </div>
+      </main>
+
+      {/* Minimal footer */}
+      <footer className="bg-[#1E3A5F] pb-[env(safe-area-inset-bottom)]">
+        <div className="mx-auto flex max-w-lg items-center justify-between px-4 py-3">
+          <span className="text-white/60 text-xs">
+            &copy; {new Date().getFullYear()} PlayerARC
+          </span>
+          <Link
+            className="flex items-center gap-1.5 text-white/80 text-xs transition-colors hover:text-white"
+            href="/login"
+          >
+            <LogIn className="h-3.5 w-3.5" />
+            Log in to PlayerARC
+          </Link>
+        </div>
+      </footer>
     </div>
   );
 }

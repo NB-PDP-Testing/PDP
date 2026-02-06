@@ -105,21 +105,26 @@ export function DocumentList({
 
   const handleDownload = async (doc: Document) => {
     try {
-      // Get fresh download URL using query
-      const url = await fetch(
-        `/api/injury-document-url?documentId=${doc._id}&userId=${userId}`
+      // Get fresh download URL using authenticated API route
+      // Note: userId is determined server-side from session, not passed by client
+      const response = await fetch(
+        `/api/injury-document-url?documentId=${doc._id}`
       );
-      if (!url.ok) {
+      if (!response.ok) {
+        if (response.status === 401) {
+          throw new Error("Please log in to download documents");
+        }
         throw new Error("Failed to get download URL");
       }
-      const { downloadUrl } = await url.json();
+      const { downloadUrl } = await response.json();
 
       // Open in new tab for viewing/downloading
       window.open(downloadUrl, "_blank");
     } catch (error) {
-      // Fallback: try to construct URL directly
       console.error("Download error:", error);
-      toast.error("Failed to download document");
+      toast.error(
+        error instanceof Error ? error.message : "Failed to download document"
+      );
     }
   };
 

@@ -534,6 +534,227 @@ export const getInjuryStats = query({
 });
 
 // ============================================================
+// PHASE 3: ANALYTICS QUERIES (Issue #261)
+// ============================================================
+
+/**
+ * Check if an injury is visible to a given organization.
+ */
+function isInjuryVisibleToOrg(
+  injury: Doc<"playerInjuries">,
+  organizationId: string
+): boolean {
+  if (injury.isVisibleToAllOrgs) {
+    return true;
+  }
+  if (injury.restrictedToOrgIds?.includes(organizationId)) {
+    return true;
+  }
+  return injury.occurredAtOrgId === organizationId;
+}
+
+/**
+ * Apply date range filtering to injuries.
+ */
+function filterByDateRange(
+  injuries: Doc<"playerInjuries">[],
+  startDate?: string,
+  endDate?: string
+): Doc<"playerInjuries">[] {
+  let result = injuries;
+  if (startDate) {
+    result = result.filter((i) => i.dateOccurred >= startDate);
+  }
+  if (endDate) {
+    result = result.filter((i) => i.dateOccurred <= endDate);
+  }
+  return result;
+}
+
+/** Count injuries by a string field, returning sorted array. */
+function countByField(
+  injuries: Doc<"playerInjuries">[],
+  getKey: (injury: Doc<"playerInjuries">) => string
+): Array<{ key: string; count: number }> {
+  const map = new Map<string, number>();
+  for (const injury of injuries) {
+    const k = getKey(injury);
+    map.set(k, (map.get(k) || 0) + 1);
+  }
+  return Array.from(map.entries())
+    .map(([key, count]) => ({ key, count }))
+    .sort((a, b) => b.count - a.count);
+}
+
+/** Compute injury counts by month for the last 12 months. */
+function computeByMonth(
+  injuries: Doc<"playerInjuries">[]
+): Array<{ month: string; count: number }> {
+  const monthMap = new Map<string, number>();
+  const now = new Date();
+  for (let i = 11; i >= 0; i -= 1) {
+    const d = new Date(now.getFullYear(), now.getMonth() - i, 1);
+    const key = `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}`;
+    monthMap.set(key, 0);
+  }
+  for (const injury of injuries) {
+    const d = new Date(injury.dateOccurred);
+    const key = `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}`;
+    if (monthMap.has(key)) {
+      monthMap.set(key, (monthMap.get(key) || 0) + 1);
+    }
+  }
+  return Array.from(monthMap.entries()).map(([month, count]) => ({
+    month,
+    count,
+  }));
+}
+
+/** Compute average recovery days from healed injuries. */
+function computeAvgRecoveryDays(injuries: Doc<"playerInjuries">[]): number {
+  const healedWithDays = injuries.filter(
+    (i) => i.status === "healed" && i.daysOut != null
+  );
+  if (healedWithDays.length === 0) {
+    return 0;
+  }
+  const totalDays = healedWithDays.reduce(
+    (sum, i) => sum + (i.daysOut || 0),
+    0
+  );
+  return Math.round((totalDays / healedWithDays.length) * 10) / 10;
+}
+
+/** Compute recurrence rate: players with 2+ injuries / total injured players. */
+function computeRecurrenceRate(injuries: Doc<"playerInjuries">[]): number {
+  const playerCounts = new Map<string, number>();
+  for (const injury of injuries) {
+    const pid = injury.playerIdentityId;
+    playerCounts.set(pid, (playerCounts.get(pid) || 0) + 1);
+  }
+  const totalInjuredPlayers = playerCounts.size;
+  if (totalInjuredPlayers === 0) {
+    return 0;
+  }
+  let playersWithRecurrence = 0;
+  for (const count of playerCounts.values()) {
+    if (count >= 2) {
+      playersWithRecurrence += 1;
+    }
+  }
+  return Math.round((playersWithRecurrence / totalInjuredPlayers) * 1000) / 10;
+}
+
+/**
+ * Aggregate injury data into analytics summaries.
+ */
+function computeInjuryAggregations(injuries: Doc<"playerInjuries">[]) {
+  // Status counts
+  const statusCounts = { active: 0, recovering: 0, cleared: 0, healed: 0 };
+  for (const injury of injuries) {
+    if (injury.status in statusCounts) {
+      statusCounts[injury.status as keyof typeof statusCounts] += 1;
+    }
+  }
+
+  const byBodyPart = countByField(injuries, (i) => i.bodyPart).map(
+    ({ key, count }) => ({ bodyPart: key, count })
+  );
+  const bySeverity = countByField(injuries, (i) => i.severity).map(
+    ({ key, count }) => ({ severity: key, count })
+  );
+  const byOccurredDuring = countByField(
+    injuries,
+    (i) => i.occurredDuring || "unknown"
+  ).map(({ key, count }) => ({ context: key, count }));
+
+  return {
+    totalInjuries: injuries.length,
+    activeCount: statusCounts.active,
+    recoveringCount: statusCounts.recovering,
+    clearedCount: statusCounts.cleared,
+    healedCount: statusCounts.healed,
+    byBodyPart,
+    bySeverity,
+    byMonth: computeByMonth(injuries),
+    byOccurredDuring,
+    avgRecoveryDays: computeAvgRecoveryDays(injuries),
+    recurrenceRate: computeRecurrenceRate(injuries),
+  };
+}
+
+/** Return type for analytics aggregations */
+const analyticsReturnValidator = v.object({
+  totalInjuries: v.number(),
+  activeCount: v.number(),
+  recoveringCount: v.number(),
+  clearedCount: v.number(),
+  healedCount: v.number(),
+  byBodyPart: v.array(v.object({ bodyPart: v.string(), count: v.number() })),
+  bySeverity: v.array(v.object({ severity: v.string(), count: v.number() })),
+  byMonth: v.array(v.object({ month: v.string(), count: v.number() })),
+  byOccurredDuring: v.array(
+    v.object({ context: v.string(), count: v.number() })
+  ),
+  avgRecoveryDays: v.number(),
+  recurrenceRate: v.number(),
+});
+
+/**
+ * Get comprehensive injury analytics for an organization.
+ * Fetches all injuries via enrollments, aggregates in-memory.
+ * No N+1: batch fetch pattern with Map lookups.
+ */
+export const getOrgInjuryAnalytics = query({
+  args: {
+    organizationId: v.string(),
+    startDate: v.optional(v.string()),
+    endDate: v.optional(v.string()),
+  },
+  returns: analyticsReturnValidator,
+  handler: async (ctx, args) => {
+    // 1. Get all active enrollments for the org
+    const enrollments = await ctx.db
+      .query("orgPlayerEnrollments")
+      .withIndex("by_org_and_status", (q) =>
+        q.eq("organizationId", args.organizationId).eq("status", "active")
+      )
+      .collect();
+
+    // 2. Collect unique playerIdentityIds
+    const uniquePlayerIds = [
+      ...new Set(enrollments.map((e) => e.playerIdentityId)),
+    ];
+
+    // 3. Batch fetch all injuries for all players, filtered by org visibility
+    const allInjuries: Doc<"playerInjuries">[] = [];
+    for (const playerId of uniquePlayerIds) {
+      const injuries = await ctx.db
+        .query("playerInjuries")
+        .withIndex("by_playerIdentityId", (q) =>
+          q.eq("playerIdentityId", playerId)
+        )
+        .collect();
+
+      for (const injury of injuries) {
+        if (isInjuryVisibleToOrg(injury, args.organizationId)) {
+          allInjuries.push(injury);
+        }
+      }
+    }
+
+    // 4. Apply date range filtering and compute aggregations
+    const filteredInjuries = filterByDateRange(
+      allInjuries,
+      args.startDate,
+      args.endDate
+    );
+
+    return computeInjuryAggregations(filteredInjuries);
+  },
+});
+
+// ============================================================
 // MUTATIONS
 // ============================================================
 

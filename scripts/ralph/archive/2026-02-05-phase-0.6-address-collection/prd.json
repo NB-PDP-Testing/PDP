@@ -1,0 +1,146 @@
+{
+  "project": "PlayerARC - Phase 0.7: User Profile Address Management & Data Sync",
+  "branchName": "ralph/phase-0.7-profile-address-sync",
+  "description": "Establish user table as single source of truth for address. Add address editing to Profile Settings dialog. Sync address changes to guardianIdentities automatically. Pre-populate user address from imported guardian when claiming.",
+  "prdFile": "scripts/ralph/prds/Importing Members/phase-0.7-profile-address-sync.md",
+  "contextFiles": [
+    "packages/backend/convex/schema.ts",
+    "packages/backend/convex/betterAuth/schema.ts",
+    "packages/backend/convex/models/guardianIdentities.ts",
+    "packages/backend/convex/models/userProfiles.ts",
+    "apps/web/src/components/profile/profile-settings-dialog.tsx",
+    "apps/web/src/app/orgs/[orgId]/parents/components/guardian-settings.tsx",
+    "apps/web/src/lib/constants/address-data.ts",
+    "CLAUDE.md"
+  ],
+  "mandatoryPatterns": [
+    "Use Convex function syntax with args and returns validators",
+    "Use .withIndex() never .filter() for queries",
+    "Use shadcn/ui components for all UI",
+    "user table is single source of truth - always sync TO guardianIdentities, not FROM",
+    "Reuse address data constants from Phase 0.6 (address-data.ts)",
+    "Run npx ultracite fix before completing any story"
+  ],
+  "successCriteria": [
+    "address2 and county fields added to guardianIdentities schema",
+    "ProfileSettingsDialog includes full address editing section",
+    "Address changes sync to guardianIdentities automatically when saved",
+    "When claiming guardian, address copied to user table if user has no address",
+    "Guardian Settings displays address (read-only)",
+    "No regression in guardian matching",
+    "No regression in profile completion flow"
+  ],
+  "userStories": [
+    {
+      "id": "US-P0.7-001",
+      "title": "Add address2 and county fields to guardianIdentities schema",
+      "description": "As a developer, I need guardianIdentities to have the same address fields as the user table for consistency.",
+      "acceptanceCriteria": [
+        "Add address2: v.optional(v.string()) to guardianIdentities in schema.ts",
+        "Add county: v.optional(v.string()) to guardianIdentities in schema.ts",
+        "Update guardianIdentityValidator in guardianIdentities.ts to include address2 and county",
+        "Update updateGuardianIdentity mutation args to accept address2 and county",
+        "Run npx -w packages/backend convex codegen successfully",
+        "Typecheck passes: npm run check-types"
+      ],
+      "priority": 1,
+      "passes": false,
+      "notes": "Schema foundation - must be done first."
+    },
+    {
+      "id": "US-P0.7-002",
+      "title": "Create updateProfileWithSync mutation",
+      "description": "As a user, I need my profile changes to automatically sync to my guardian identity record.",
+      "acceptanceCriteria": [
+        "Create updateProfileWithSync mutation in userProfiles.ts",
+        "Mutation accepts: firstName, lastName, phone, address, address2, town, county, postcode, country",
+        "Mutation updates the user table with all provided fields",
+        "Mutation finds linked guardianIdentity by userId using withIndex",
+        "If guardianIdentity found, sync name and address fields to it",
+        "If no guardianIdentity linked, no error thrown",
+        "Use normalizePhone and normalizePostcode from guardianMatcher.ts",
+        "Returns { success: boolean }",
+        "Typecheck passes"
+      ],
+      "priority": 2,
+      "passes": false,
+      "notes": "Core sync logic for profile updates."
+    },
+    {
+      "id": "US-P0.7-003",
+      "title": "Update linkGuardianToUser to copy address on claim",
+      "description": "As a user who claims an imported guardian, I want my profile pre-populated with the imported address.",
+      "acceptanceCriteria": [
+        "Modify linkGuardianToUser mutation in guardianIdentities.ts",
+        "After linking userId, check if user has no address",
+        "If user.address is empty and guardian has address, copy all address fields",
+        "Copy: address, address2, town, county, postcode, country",
+        "If user already has address, do NOT overwrite",
+        "Existing linking behavior unchanged",
+        "Typecheck passes"
+      ],
+      "priority": 3,
+      "passes": false,
+      "notes": "Pre-populate user profile from imported data."
+    },
+    {
+      "id": "US-P0.7-004",
+      "title": "Expand ProfileSettingsDialog with address fields",
+      "description": "As a user, I need to be able to edit my full address in Profile Settings.",
+      "acceptanceCriteria": [
+        "Import address data constants from @/lib/constants/address-data",
+        "Add state variables for all address fields",
+        "Initialize state from user data (user?.address, etc.)",
+        "Add new 'Address' card section after 'Personal Information'",
+        "Include: Street Address, Address Line 2, Town/City, Postcode, County, Country",
+        "Town and Postcode on same row (50/50 grid)",
+        "County and Country on same row (50/50 grid)",
+        "County field dynamic: dropdown for IE (26 counties + Other), dropdown for US (states + Other), text input for others",
+        "Country dropdown: Ireland, UK, US at top, then alphabetical",
+        "Postcode auto-uppercase on input",
+        "Update save handler to use updateProfileWithSync mutation",
+        "Include all address fields in mutation call",
+        "Typecheck passes"
+      ],
+      "priority": 4,
+      "passes": false,
+      "notes": "Main UI for address editing. Reuse patterns from profile-completion-step.tsx."
+    },
+    {
+      "id": "US-P0.7-005",
+      "title": "Update Guardian Settings to display address",
+      "description": "As a parent, I want to see my address in Guardian Settings.",
+      "acceptanceCriteria": [
+        "Update GuardianSettingsProps type to include address fields",
+        "Add address display section in 'Your Profile' card",
+        "Only show address section if any address field has data",
+        "Format: Address line 1 + line 2, Town + postcode, County + country",
+        "Display country as full name using getCountryName helper",
+        "Address display is read-only (no edit in this dialog)",
+        "Typecheck passes"
+      ],
+      "priority": 5,
+      "passes": false,
+      "notes": "Display-only. Editing done via Profile Settings."
+    },
+    {
+      "id": "US-P0.7-006",
+      "title": "End-to-end testing and verification",
+      "description": "As a developer, I need to verify the complete address sync flow works correctly.",
+      "acceptanceCriteria": [
+        "Test: Self-registered user edits address → saved to user table",
+        "Test: User with linked guardian edits address → synced to guardianIdentities",
+        "Test: User claims guardian with address, user has no address → address copied",
+        "Test: User claims guardian with address, user HAS address → NOT overwritten",
+        "Test: Guardian Settings displays address correctly",
+        "Test: Manage Users page shows correct address (existing functionality)",
+        "Test: Guardian matching still works (no regression)",
+        "All linting passes: npx ultracite fix",
+        "All type checks pass: npm run check-types"
+      ],
+      "priority": 6,
+      "passes": false,
+      "notes": "Final verification before marking phase complete."
+    }
+  ]
+}

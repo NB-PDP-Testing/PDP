@@ -5,16 +5,22 @@ import type { Id } from "@pdp/backend/convex/_generated/dataModel";
 import { useMutation, useQuery } from "convex/react";
 import {
   AlertTriangle,
+  CheckCircle2,
   ChevronDown,
   ChevronUp,
+  Clock,
   Crown,
   Eye,
+  Home,
   Loader2,
   Mail,
+  MapPin,
+  Phone,
   Save,
   Search,
   Send,
   Shield,
+  SkipForward,
   Trash2,
   UserCheck,
   UserCircle,
@@ -59,6 +65,7 @@ import { Skeleton } from "@/components/ui/skeleton";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { useOrgTheme } from "@/hooks/use-org-theme";
 import { authClient } from "@/lib/auth-client";
+import { getCountryName } from "@/lib/constants/address-data";
 import { DisableMemberDialog } from "./disable-member-dialog";
 import { EditInvitationModal } from "./edit-invitation-modal";
 import { InvitationDetailModal } from "./invitation-detail-modal";
@@ -174,6 +181,7 @@ export default function ManageUsersPage() {
   const [loading, setLoading] = useState<string | null>(null);
   const [searchTerm, setSearchTerm] = useState("");
   const [roleFilter, setRoleFilter] = useState<string>("all");
+  const [profileStatusFilter, setProfileStatusFilter] = useState<string>("all");
   const [playerSearchTerms, setPlayerSearchTerms] = useState<{
     [userId: string]: string;
   }>({});
@@ -908,11 +916,26 @@ export default function ManageUsersPage() {
     if (roleFilter !== "all" && !functionalRoles.includes(roleFilter)) {
       return false;
     }
+    // Profile status filter
+    if (profileStatusFilter !== "all") {
+      const user = member.user || {};
+      const userProfileStatus = user.profileCompletionStatus || "pending";
+      if (profileStatusFilter !== userProfileStatus) {
+        return false;
+      }
+    }
     if (!searchTerm) {
       return true;
     }
     const user = member.user || {};
-    const searchable = [user.name, user.email, ...functionalRoles]
+    // Search by name, email, phone, postcode, and functional roles
+    const searchable = [
+      user.name,
+      user.email,
+      user.phone,
+      user.postcode,
+      ...functionalRoles,
+    ]
       .filter(Boolean)
       .join(" ")
       .toLowerCase();
@@ -1572,24 +1595,39 @@ export default function ManageUsersPage() {
         );
       })()}
       {/* Search and Filter */}
-      <div className="flex flex-col gap-4 sm:flex-row">
+      <div className="flex flex-col gap-4 sm:flex-row sm:items-center">
         <div className="relative max-w-md flex-1">
           <Search className="-translate-y-1/2 absolute top-1/2 left-3 h-4 w-4 text-muted-foreground" />
           <Input
             className="pl-10"
             onChange={(e) => setSearchTerm(e.target.value)}
-            placeholder="Search users by name or email..."
+            placeholder="Search by name, email, phone, or postcode..."
             value={searchTerm}
           />
         </div>
-        {roleFilter !== "all" && (
+        {/* Profile Status Filter */}
+        <select
+          className="h-10 rounded-md border border-input bg-background px-3 py-2 text-sm ring-offset-background focus:outline-none focus:ring-2 focus:ring-ring focus:ring-offset-2"
+          onChange={(e) => setProfileStatusFilter(e.target.value)}
+          value={profileStatusFilter}
+        >
+          <option value="all">All Profile Status</option>
+          <option value="completed">Profile Completed</option>
+          <option value="pending">Profile Pending</option>
+          <option value="skipped">Profile Skipped</option>
+        </select>
+        {/* Clear Filters */}
+        {(roleFilter !== "all" || profileStatusFilter !== "all") && (
           <Button
-            onClick={() => setRoleFilter("all")}
+            onClick={() => {
+              setRoleFilter("all");
+              setProfileStatusFilter("all");
+            }}
             size="sm"
             variant="ghost"
           >
             <X className="mr-2 h-4 w-4" />
-            Clear filter: {roleFilter}
+            Clear filters
           </Button>
         )}
       </div>
@@ -1602,21 +1640,27 @@ export default function ManageUsersPage() {
                 <Users className="h-6 w-6" />
               </EmptyMedia>
               <EmptyTitle>
-                {searchTerm || roleFilter !== "all"
+                {searchTerm ||
+                roleFilter !== "all" ||
+                profileStatusFilter !== "all"
                   ? "No results found"
                   : "No users yet"}
               </EmptyTitle>
               <EmptyDescription>
-                {searchTerm || roleFilter !== "all"
+                {searchTerm ||
+                roleFilter !== "all" ||
+                profileStatusFilter !== "all"
                   ? "Try adjusting your search or filter criteria"
                   : "Get started by inviting your first team member to join this organization"}
               </EmptyDescription>
-              {!searchTerm && roleFilter === "all" && (
-                <Button onClick={() => setInviteDialogOpen(true)}>
-                  <UserPlus className="mr-2 h-4 w-4" />
-                  Invite Member
-                </Button>
-              )}
+              {!searchTerm &&
+                roleFilter === "all" &&
+                profileStatusFilter === "all" && (
+                  <Button onClick={() => setInviteDialogOpen(true)}>
+                    <UserPlus className="mr-2 h-4 w-4" />
+                    Invite Member
+                  </Button>
+                )}
             </EmptyContent>
           </Empty>
         ) : (
@@ -1662,12 +1706,26 @@ export default function ManageUsersPage() {
                           <CardTitle className="truncate text-base">
                             {user.name || "Unknown"}
                           </CardTitle>
-                          <CardDescription className="flex min-w-0 items-center gap-1 text-sm">
-                            <Mail className="h-3 w-3 flex-shrink-0" />
-                            <span className="truncate">
-                              {user.email || "No email"}
-                            </span>
-                          </CardDescription>
+                          <div className="flex flex-wrap items-center gap-x-3 gap-y-1">
+                            <CardDescription className="flex min-w-0 items-center gap-1 text-sm">
+                              <Mail className="h-3 w-3 flex-shrink-0" />
+                              <span className="truncate">
+                                {user.email || "No email"}
+                              </span>
+                            </CardDescription>
+                            {user.phone && (
+                              <CardDescription className="flex items-center gap-1 text-sm">
+                                <Phone className="h-3 w-3 flex-shrink-0" />
+                                <span>{user.phone}</span>
+                              </CardDescription>
+                            )}
+                            {user.postcode && (
+                              <CardDescription className="flex items-center gap-1 text-sm">
+                                <MapPin className="h-3 w-3 flex-shrink-0" />
+                                <span>{user.postcode}</span>
+                              </CardDescription>
+                            )}
+                          </div>
                         </div>
                       </div>
 
@@ -1846,6 +1904,156 @@ export default function ManageUsersPage() {
                         also be a parent.
                       </p>
                     </div>
+
+                    {/* Profile Information (Phase 0: Onboarding Sync) */}
+                    <div className="space-y-3 rounded-lg border border-slate-200 bg-slate-50 p-4">
+                      <div className="flex items-center justify-between">
+                        <div className="flex items-center gap-2">
+                          <UserCircle className="h-4 w-4 text-slate-600" />
+                          <span className="font-semibold text-slate-700 text-sm">
+                            Profile Information
+                          </span>
+                        </div>
+                        {/* Profile completion status badge */}
+                        {(() => {
+                          const profileStatus =
+                            user.profileCompletionStatus || "pending";
+                          if (profileStatus === "completed") {
+                            return (
+                              <Badge className="border-green-300 bg-green-100 text-green-700">
+                                <CheckCircle2 className="mr-1 h-3 w-3" />
+                                Completed
+                              </Badge>
+                            );
+                          }
+                          if (profileStatus === "skipped") {
+                            return (
+                              <Badge className="border-amber-300 bg-amber-100 text-amber-700">
+                                <SkipForward className="mr-1 h-3 w-3" />
+                                Skipped ({user.profileSkipCount || 0}/3)
+                              </Badge>
+                            );
+                          }
+                          return (
+                            <Badge className="border-slate-300 bg-slate-100 text-slate-700">
+                              <Clock className="mr-1 h-3 w-3" />
+                              Pending
+                            </Badge>
+                          );
+                        })()}
+                      </div>
+
+                      <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
+                        {/* Phone */}
+                        <div className="flex items-start gap-2">
+                          <Phone className="mt-0.5 h-4 w-4 text-slate-500" />
+                          <div>
+                            <p className="font-medium text-slate-600 text-xs">
+                              Phone
+                            </p>
+                            <p className="text-sm">
+                              {user.phone || (
+                                <span className="text-muted-foreground italic">
+                                  Not provided
+                                </span>
+                              )}
+                            </p>
+                          </div>
+                        </div>
+
+                        {/* Postcode */}
+                        <div className="flex items-start gap-2">
+                          <MapPin className="mt-0.5 h-4 w-4 text-slate-500" />
+                          <div>
+                            <p className="font-medium text-slate-600 text-xs">
+                              Postcode
+                            </p>
+                            <p className="text-sm">
+                              {user.postcode || (
+                                <span className="text-muted-foreground italic">
+                                  Not provided
+                                </span>
+                              )}
+                            </p>
+                          </div>
+                        </div>
+
+                        {/* Alt Email */}
+                        <div className="flex items-start gap-2">
+                          <Mail className="mt-0.5 h-4 w-4 text-slate-500" />
+                          <div>
+                            <p className="font-medium text-slate-600 text-xs">
+                              Alternate Email
+                            </p>
+                            <p className="text-sm">
+                              {user.altEmail || (
+                                <span className="text-muted-foreground italic">
+                                  Not provided
+                                </span>
+                              )}
+                            </p>
+                          </div>
+                        </div>
+
+                        {/* Profile Completed At */}
+                        {user.profileCompletedAt && (
+                          <div className="flex items-start gap-2">
+                            <CheckCircle2 className="mt-0.5 h-4 w-4 text-slate-500" />
+                            <div>
+                              <p className="font-medium text-slate-600 text-xs">
+                                Completed At
+                              </p>
+                              <p className="text-sm">
+                                {new Date(
+                                  user.profileCompletedAt
+                                ).toLocaleDateString()}
+                              </p>
+                            </div>
+                          </div>
+                        )}
+                      </div>
+                    </div>
+
+                    {/* Address Section (Phase 0.6) */}
+                    {(user.address ||
+                      user.address2 ||
+                      user.town ||
+                      user.county ||
+                      user.country) && (
+                      <div className="space-y-3 rounded-lg border border-slate-200 bg-slate-50 p-4">
+                        <div className="flex items-center gap-2">
+                          <Home className="h-4 w-4 text-slate-600" />
+                          <span className="font-semibold text-slate-700 text-sm">
+                            Address
+                          </span>
+                        </div>
+                        <div className="text-sm">
+                          {/* Address Line 1 (with optional Line 2) */}
+                          {user.address && (
+                            <p>
+                              {user.address}
+                              {user.address2 && `, ${user.address2}`}
+                            </p>
+                          )}
+                          {/* Town/City and Postcode */}
+                          {(user.town || user.postcode) && (
+                            <p>
+                              {user.town}
+                              {user.town && user.postcode && ", "}
+                              {user.postcode}
+                            </p>
+                          )}
+                          {/* County and Country */}
+                          {(user.county || user.country) && (
+                            <p>
+                              {user.county && `County ${user.county}`}
+                              {user.county && user.country && ", "}
+                              {user.country && getCountryName(user.country)}
+                            </p>
+                          )}
+                        </div>
+                      </div>
+                    )}
 
                     {/* Coach Settings */}
                     {state.functionalRoles.includes("coach") && (

@@ -24,6 +24,7 @@ const onboardingTaskValidator = v.object({
   type: v.union(
     v.literal("gdpr_consent"),
     v.literal("accept_invitation"),
+    v.literal("profile_completion"), // Phase 0 - Profile completion for guardian matching
     v.literal("guardian_claim"),
     v.literal("child_linking"),
     v.literal("player_graduation"),
@@ -42,6 +43,7 @@ const onboardingTaskValidator = v.object({
  * Priority order:
  * 0. gdpr_consent (priority 0) - GDPR consent required FIRST
  * 1. accept_invitation (priority 1) - Pending org invitations
+ * 1.5. profile_completion (priority 1.5) - Collect phone/postcode for guardian matching
  * 2. guardian_claim (priority 2) - Claimable guardian identities
  * 3. child_linking (priority 3) - Pending child acknowledgements
  * 4. player_graduation (priority 4) - Children who turned 18
@@ -67,6 +69,7 @@ export const getOnboardingTasks = query({
       type:
         | "gdpr_consent"
         | "accept_invitation"
+        | "profile_completion"
         | "guardian_claim"
         | "child_linking"
         | "player_graduation"
@@ -197,107 +200,217 @@ export const getOnboardingTasks = query({
     }
 
     // =================================================================
-    // Task 2: Check for claimable guardian identities
-    // Priority 2 - User has guardian profiles matching their email that need claiming
+    // Task 1.5: Check for profile completion (Phase 0: Onboarding Sync)
+    // Priority 1.5 - Collect phone/postcode/altEmail for multi-signal guardian matching
+    // This runs BEFORE guardian_claim to enable better matching with collected signals
     // =================================================================
-    const matchingGuardians = await ctx.db
-      .query("guardianIdentities")
-      .withIndex("by_email", (q) => q.eq("email", normalizedEmail))
-      .filter((q) => q.eq(q.field("userId"), undefined))
-      .collect();
+    if (user) {
+      const profileStatus = user.profileCompletionStatus;
+      const skipCount = user.profileSkipCount ?? 0;
+      const canSkip = skipCount < 3;
 
-    if (matchingGuardians.length > 0) {
-      // Enrich guardian data with children info
-      const guardiansWithChildren = await Promise.all(
-        matchingGuardians.map(async (guardian) => {
-          // Get linked children (excluding declined links)
-          const links = await ctx.db
-            .query("guardianPlayerLinks")
-            .withIndex("by_guardian", (q) =>
-              q.eq("guardianIdentityId", guardian._id)
-            )
-            .filter((q) => q.neq(q.field("declinedByUserId"), userId))
-            .collect();
+      // Show profile completion if status is NOT "completed"
+      // - undefined/pending = never completed
+      // - skipped = user skipped, but must still complete eventually
+      // The canSkip flag controls whether Skip button appears, not the form itself
+      const needsProfileCompletion = profileStatus !== "completed";
 
-          const children = await Promise.all(
-            links.map(async (link) => {
-              const player = await ctx.db.get(link.playerIdentityId);
-              if (!player) {
-                return null;
-              }
-
-              return {
-                playerIdentityId: player._id,
-                firstName: player.firstName,
-                lastName: player.lastName,
-                relationship: link.relationship,
-              };
-            })
-          );
-
-          // Get organizations where children are enrolled
-          const orgSet = new Set<string>();
-          for (const link of links) {
-            const enrollments = await ctx.db
-              .query("orgPlayerEnrollments")
-              .withIndex("by_playerIdentityId", (q) =>
-                q.eq("playerIdentityId", link.playerIdentityId)
-              )
-              .collect();
-
-            for (const enrollment of enrollments) {
-              orgSet.add(enrollment.organizationId);
-            }
-          }
-
-          // Get org names
-          const organizations = await Promise.all(
-            Array.from(orgSet).map(async (orgId) => {
-              const org = await ctx.runQuery(
-                components.betterAuth.adapter.findOne,
-                {
-                  model: "organization",
-                  where: [
-                    {
-                      field: "_id",
-                      value: orgId,
-                      operator: "eq",
-                    },
-                  ],
-                }
-              );
-
-              return {
-                organizationId: orgId,
-                organizationName:
-                  (org as { name?: string } | null)?.name || "Unknown",
-              };
-            })
-          );
-
-          return {
-            guardianIdentity: guardian,
-            children: children.filter(Boolean),
-            organizations,
-          };
-        })
-      );
-
-      // Only include guardians that have at least one child
-      const guardiansWithLinkedChildren = guardiansWithChildren.filter(
-        (g) => g.children.length > 0
-      );
-
-      if (guardiansWithLinkedChildren.length > 0) {
+      if (needsProfileCompletion) {
         tasks.push({
-          type: "guardian_claim",
-          priority: 2,
+          type: "profile_completion",
+          priority: 1.5,
           data: {
-            identities: guardiansWithLinkedChildren,
+            currentPhone: user.phone,
+            currentPostcode: user.postcode,
+            currentAltEmail: user.altEmail,
+            currentAddress: user.address,
+            currentAddress2: user.address2,
+            currentTown: user.town,
+            currentCounty: user.county,
+            currentCountry: user.country,
+            skipCount,
+            canSkip,
+            reason:
+              "This information helps your club manage your membership and keep your details up to date.",
           },
         });
       }
     }
+
+    // =================================================================
+    // Task 2: Check for claimable guardian identities
+    // Priority 2 - User has guardian profiles matching their email that need claiming
+    // Check both primary email AND alt email (entered during profile completion)
+    // Phase 0.8: Only run guardian matching for INVITED users
+    // Self-registered users skip this step - matching happens at admin approval time
+    // =================================================================
+    const wasInvited = user?.wasInvited === true;
+
+    if (wasInvited) {
+      const matchingGuardians = await ctx.db
+        .query("guardianIdentities")
+        .withIndex("by_email", (q) => q.eq("email", normalizedEmail))
+        .filter((q) => q.eq(q.field("userId"), undefined))
+        .collect();
+
+      // Also check alt email if user has one
+      const userAltEmail = user?.altEmail?.toLowerCase().trim();
+      if (userAltEmail && userAltEmail !== normalizedEmail) {
+        const altEmailMatches = await ctx.db
+          .query("guardianIdentities")
+          .withIndex("by_email", (q) => q.eq("email", userAltEmail))
+          .filter((q) => q.eq(q.field("userId"), undefined))
+          .collect();
+
+        // Add any new matches (avoid duplicates)
+        const existingIds = new Set(matchingGuardians.map((g) => g._id));
+        for (const match of altEmailMatches) {
+          if (!existingIds.has(match._id)) {
+            matchingGuardians.push(match);
+          }
+        }
+      }
+
+      // Also check phone if user has one (Phase 0: Multi-signal matching)
+      // Try multiple phone formats since stored format may differ
+      // Strip ALL whitespace first (trim + internal spaces)
+      const userPhoneRaw = user?.phone;
+      const userPhone = userPhoneRaw?.replace(/\s/g, "");
+      if (userPhone && userPhone.length >= 7) {
+        // Generate phone format variations to match stored formats
+        const phoneFormats = new Set<string>();
+        phoneFormats.add(userPhone);
+
+        // Try with leading + if not present
+        if (!userPhone.startsWith("+")) {
+          phoneFormats.add(`+${userPhone}`);
+        }
+        // Try without + if present
+        if (userPhone.startsWith("+")) {
+          phoneFormats.add(userPhone.substring(1));
+        }
+        // Try digits only (remove all non-digits)
+        const digitsOnly = userPhone.replace(/\D/g, "");
+        if (digitsOnly.length >= 7) {
+          phoneFormats.add(digitsOnly);
+          phoneFormats.add(`+${digitsOnly}`);
+        }
+
+        // Query for each format
+        const existingIds = new Set(matchingGuardians.map((g) => g._id));
+        for (const phoneFormat of phoneFormats) {
+          const phoneMatches = await ctx.db
+            .query("guardianIdentities")
+            .withIndex("by_phone", (q) => q.eq("phone", phoneFormat))
+            .filter((q) => q.eq(q.field("userId"), undefined))
+            .collect();
+
+          // Add any new matches (avoid duplicates)
+          for (const match of phoneMatches) {
+            if (!existingIds.has(match._id)) {
+              matchingGuardians.push(match);
+              existingIds.add(match._id);
+            }
+          }
+        }
+      }
+
+      if (matchingGuardians.length > 0) {
+        // Enrich guardian data with children info
+        const guardiansWithChildren = await Promise.all(
+          matchingGuardians.map(async (guardian) => {
+            // Get ALL linked children - do NOT filter by decline status
+            // Any user matching the guardian's contact details should see all children
+            // The admin will handle approval of connections
+            const links = await ctx.db
+              .query("guardianPlayerLinks")
+              .withIndex("by_guardian", (q) =>
+                q.eq("guardianIdentityId", guardian._id)
+              )
+              .collect();
+
+            const children = await Promise.all(
+              links.map(async (link) => {
+                const player = await ctx.db.get(link.playerIdentityId);
+                if (!player) {
+                  return null;
+                }
+
+                return {
+                  playerIdentityId: player._id,
+                  firstName: player.firstName,
+                  lastName: player.lastName,
+                  relationship: link.relationship,
+                };
+              })
+            );
+
+            const filteredChildren = children.filter(Boolean);
+
+            // Get organizations where children are enrolled
+            const orgSet = new Set<string>();
+            for (const link of links) {
+              const enrollments = await ctx.db
+                .query("orgPlayerEnrollments")
+                .withIndex("by_playerIdentityId", (q) =>
+                  q.eq("playerIdentityId", link.playerIdentityId)
+                )
+                .collect();
+
+              for (const enrollment of enrollments) {
+                orgSet.add(enrollment.organizationId);
+              }
+            }
+
+            // Get org names
+            const organizations = await Promise.all(
+              Array.from(orgSet).map(async (orgId) => {
+                const org = await ctx.runQuery(
+                  components.betterAuth.adapter.findOne,
+                  {
+                    model: "organization",
+                    where: [
+                      {
+                        field: "_id",
+                        value: orgId,
+                        operator: "eq",
+                      },
+                    ],
+                  }
+                );
+
+                return {
+                  organizationId: orgId,
+                  organizationName:
+                    (org as { name?: string } | null)?.name || "Unknown",
+                };
+              })
+            );
+
+            return {
+              guardianIdentity: guardian,
+              children: filteredChildren,
+              organizations,
+            };
+          })
+        );
+
+        // Only include guardians that have at least one child
+        const guardiansWithLinkedChildren = guardiansWithChildren.filter(
+          (g) => g.children.length > 0
+        );
+
+        if (guardiansWithLinkedChildren.length > 0) {
+          tasks.push({
+            type: "guardian_claim",
+            priority: 2,
+            data: {
+              identities: guardiansWithLinkedChildren,
+            },
+          });
+        }
+      }
+    } // End of wasInvited check for guardian_claim
 
     // =================================================================
     // Task 3: Check for pending child acknowledgements
@@ -311,17 +424,13 @@ export const getOnboardingTasks = query({
 
     if (userGuardian) {
       // Find links where acknowledgedByParentAt is undefined (not yet acknowledged)
+      // Do NOT filter by declinedByUserId - ALL children should be shown to matching users
       const pendingLinks = await ctx.db
         .query("guardianPlayerLinks")
         .withIndex("by_guardian", (q) =>
           q.eq("guardianIdentityId", userGuardian._id)
         )
-        .filter((q) =>
-          q.and(
-            q.eq(q.field("acknowledgedByParentAt"), undefined),
-            q.eq(q.field("declinedByUserId"), undefined)
-          )
-        )
+        .filter((q) => q.eq(q.field("acknowledgedByParentAt"), undefined))
         .collect();
 
       if (pendingLinks.length > 0) {
@@ -534,6 +643,84 @@ export const incrementChildLinkingSkipCount = mutation({
     });
 
     return { newSkipCount: newCount };
+  },
+});
+
+/**
+ * Acknowledge the "no children found" state.
+ *
+ * Called when user clicks "Continue Without Linking" on the NoChildrenFoundStep.
+ * Sets noChildrenAcknowledged to true so the step doesn't reappear.
+ *
+ * Returns success status.
+ */
+export const acknowledgeNoChildrenFound = mutation({
+  args: {},
+  returns: v.object({ success: v.boolean() }),
+  handler: async (ctx) => {
+    const identity = await ctx.auth.getUserIdentity();
+    if (!identity) {
+      throw new Error("Not authenticated");
+    }
+
+    const user = await authComponent.safeGetAuthUser(ctx);
+    if (!user) {
+      throw new Error("User not found");
+    }
+
+    // Update the user record
+    await ctx.runMutation(components.betterAuth.adapter.updateOne, {
+      input: {
+        model: "user",
+        where: [{ field: "_id", value: user._id as string, operator: "eq" }],
+        update: {
+          noChildrenAcknowledged: true,
+          updatedAt: Date.now(),
+        },
+      },
+    });
+
+    return { success: true };
+  },
+});
+
+/**
+ * Reset the "no children found" acknowledgement.
+ *
+ * Called when user wants to retry searching with different details.
+ * This allows the NoChildrenFoundStep or profile completion to reappear.
+ *
+ * Returns success status.
+ */
+export const resetNoChildrenAcknowledged = mutation({
+  args: {},
+  returns: v.object({ success: v.boolean() }),
+  handler: async (ctx) => {
+    const identity = await ctx.auth.getUserIdentity();
+    if (!identity) {
+      throw new Error("Not authenticated");
+    }
+
+    const user = await authComponent.safeGetAuthUser(ctx);
+    if (!user) {
+      throw new Error("User not found");
+    }
+
+    // Update the user record - reset both acknowledgement and profile completion
+    // to allow user to re-enter details and retry matching
+    await ctx.runMutation(components.betterAuth.adapter.updateOne, {
+      input: {
+        model: "user",
+        where: [{ field: "_id", value: user._id as string, operator: "eq" }],
+        update: {
+          noChildrenAcknowledged: false,
+          profileCompletionStatus: "pending",
+          updatedAt: Date.now(),
+        },
+      },
+    });
+
+    return { success: true };
   },
 });
 

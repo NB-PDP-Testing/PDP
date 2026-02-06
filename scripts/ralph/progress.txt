@@ -146,8 +146,28 @@ Started: Fri Feb  6 23:37:29 GMT 2026
 - Imports added before code that uses them get auto-removed by linter
 
 **What to do next:**
-- [ ] Pick up US-ANA-003 (getInjuryTrends)
-- [ ] Reuse `isInjuryVisibleToOrg`, `filterByDateRange` helpers
-- [ ] Can reuse aggregation helpers but needs period comparison logic
+- [x] Pick up US-ANA-003 (getInjuryTrends) - DONE
+- [x] Reuse `isInjuryVisibleToOrg`, `filterByDateRange` helpers - DONE
+
+---
+
+## 2026-02-06 - US-ANA-003 & US-ANA-004 - Backend analytics queries
+**Iteration**: 1
+**Commit**: (see individual commits)
+**Session**: 5de20633-ba62-443d-a9f9-78273eb0b91b
+**Status**: Complete
+
+### What was implemented
+- US-ANA-003: `getInjuryTrends` - period comparison query with current/previous N-day windows
+- US-ANA-004: `getRecentInjuriesForAdmin` - enriched injury records with player/team/ageGroup data
+
+### Learnings for future iterations
+**Gotchas encountered:**
+- When creating a `Set` from `Id<T>` values, use `[...new Set(items.map(x => x.id))]` to preserve type, NOT `new Set<string>()` which loses the branded type
+- `Promise.all(ids.map(id => ctx.db.get(id)))` is OK for batch fetching (Convex optimizes these internally)
+
+**What to do next:**
+- [ ] US-ANA-005: Create admin injuries page route and layout
+- [ ] Need to check if admin layout exists or if page is standalone
 
 ---

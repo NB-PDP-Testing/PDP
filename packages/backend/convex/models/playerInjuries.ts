@@ -1078,6 +1078,184 @@ export const getInjuryTrends = query({
   },
 });
 
+/**
+ * Get enriched recent injuries for admin dashboard table.
+ * Batch fetches player names, team names, and age groups.
+ */
+export const getRecentInjuriesForAdmin = query({
+  args: {
+    organizationId: v.string(),
+    limit: v.optional(v.number()),
+    status: v.optional(injuryStatusValidator),
+  },
+  returns: v.array(
+    v.object({
+      injuryId: v.id("playerInjuries"),
+      playerName: v.string(),
+      teamNames: v.array(v.string()),
+      ageGroup: v.string(),
+      bodyPart: v.string(),
+      injuryType: v.string(),
+      severity: v.string(),
+      status: v.string(),
+      dateOccurred: v.string(),
+      daysOut: v.optional(v.number()),
+      expectedReturn: v.optional(v.string()),
+      treatment: v.optional(v.string()),
+      medicalProvider: v.optional(v.string()),
+      occurredDuring: v.optional(v.string()),
+    })
+  ),
+  handler: async (ctx, args) => {
+    const maxResults = args.limit ?? 50;
+
+    // 1. Get all active enrollments
+    const enrollments = await ctx.db
+      .query("orgPlayerEnrollments")
+      .withIndex("by_org_and_status", (q) =>
+        q.eq("organizationId", args.organizationId).eq("status", "active")
+      )
+      .collect();
+
+    // Build enrollment map: playerIdentityId → enrollment (for ageGroup)
+    const enrollmentMap = new Map<string, { ageGroup: string }>();
+    for (const e of enrollments) {
+      enrollmentMap.set(e.playerIdentityId, { ageGroup: e.ageGroup });
+    }
+
+    // Collect unique playerIdentityIds (preserving Id type)
+    const uniquePlayerIds = [
+      ...new Set(enrollments.map((e) => e.playerIdentityId)),
+    ];
+
+    // 2. Batch fetch all injuries for all players
+    const allInjuries: Doc<"playerInjuries">[] = [];
+    for (const playerId of uniquePlayerIds) {
+      const injuries = await ctx.db
+        .query("playerInjuries")
+        .withIndex("by_playerIdentityId", (q) =>
+          q.eq("playerIdentityId", playerId)
+        )
+        .collect();
+
+      for (const injury of injuries) {
+        if (isInjuryVisibleToOrg(injury, args.organizationId)) {
+          // Apply status filter if provided
+          if (args.status && injury.status !== args.status) {
+            continue;
+          }
+          allInjuries.push(injury);
+        }
+      }
+    }
+
+    // 3. Sort by dateOccurred descending and limit
+    allInjuries.sort(
+      (a, b) =>
+        new Date(b.dateOccurred).getTime() - new Date(a.dateOccurred).getTime()
+    );
+    const limitedInjuries = allInjuries.slice(0, maxResults);
+
+    // 4. Batch fetch player identities for enrichment
+    const playerIdsToFetch = [
+      ...new Set(limitedInjuries.map((i) => i.playerIdentityId)),
+    ];
+    const playerMap = new Map<
+      string,
+      { firstName: string; lastName: string }
+    >();
+    const players = await Promise.all(
+      playerIdsToFetch.map((id) => ctx.db.get(id))
+    );
+    for (const player of players) {
+      if (player) {
+        playerMap.set(player._id, {
+          firstName: player.firstName,
+          lastName: player.lastName,
+        });
+      }
+    }
+
+    // 5. Batch fetch team assignments for these players
+    const teamPlayerIdentities = await ctx.db
+      .query("teamPlayerIdentities")
+      .withIndex("by_org_and_status", (q) =>
+        q.eq("organizationId", args.organizationId).eq("status", "active")
+      )
+      .collect();
+
+    // Build player → teamIds map
+    const playerTeamIds = new Map<string, string[]>();
+    for (const tpi of teamPlayerIdentities) {
+      const existing = playerTeamIds.get(tpi.playerIdentityId);
+      if (existing) {
+        existing.push(tpi.teamId);
+      } else {
+        playerTeamIds.set(tpi.playerIdentityId, [tpi.teamId]);
+      }
+    }
+
+    // 6. Batch fetch team names
+    const allTeamIds = new Set<string>();
+    for (const teamIds of playerTeamIds.values()) {
+      for (const tid of teamIds) {
+        allTeamIds.add(tid);
+      }
+    }
+
+    const teamNameMap = new Map<string, string>();
+    if (allTeamIds.size > 0) {
+      const teamsResult = await ctx.runQuery(
+        components.betterAuth.adapter.findMany,
+        {
+          model: "team",
+          paginationOpts: { cursor: null, numItems: 500 },
+          where: [
+            {
+              field: "organizationId",
+              value: args.organizationId,
+              operator: "eq",
+            },
+          ],
+        }
+      );
+      const teams = (teamsResult?.page || []) as BetterAuthDoc<"team">[];
+      for (const team of teams) {
+        teamNameMap.set(team._id, team.name);
+      }
+    }
+
+    // 7. Assemble enriched results
+    return limitedInjuries.map((injury) => {
+      const player = playerMap.get(injury.playerIdentityId);
+      const enrollment = enrollmentMap.get(injury.playerIdentityId);
+      const teamIds = playerTeamIds.get(injury.playerIdentityId) || [];
+      const teamNames = teamIds
+        .map((tid) => teamNameMap.get(tid))
+        .filter((name): name is string => name != null);
+
+      return {
+        injuryId: injury._id,
+        playerName: player
+          ? `${player.firstName} ${player.lastName}`
+          : "Unknown",
+        teamNames,
+        ageGroup: enrollment?.ageGroup || "Unknown",
+        bodyPart: injury.bodyPart,
+        injuryType: injury.injuryType,
+        severity: injury.severity,
+        status: injury.status,
+        dateOccurred: injury.dateOccurred,
+        daysOut: injury.daysOut,
+        expectedReturn: injury.expectedReturn,
+        treatment: injury.treatment,
+        medicalProvider: injury.medicalProvider,
+        occurredDuring: injury.occurredDuring,
+      };
+    });
+  },
+});
+
 // ============================================================
 // MUTATIONS
 // ============================================================

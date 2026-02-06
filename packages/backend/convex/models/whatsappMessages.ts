@@ -1,6 +1,10 @@
 import { v } from "convex/values";
 import type { Id } from "../_generated/dataModel";
 import { internalMutation, internalQuery, query } from "../_generated/server";
+import {
+  checkDuplicate,
+  DEFAULT_TEXT_WINDOW_MS,
+} from "../lib/duplicateDetection";
 import { normalizePhoneNumber } from "../lib/phoneUtils";
 
 /**
@@ -224,6 +228,7 @@ export const checkForDuplicateMessage = internalQuery({
     body: v.optional(v.string()),
     mediaContentType: v.optional(v.string()),
     windowMs: v.optional(v.number()),
+    excludeMessageId: v.optional(v.id("whatsappMessages")),
   },
   returns: v.union(
     v.null(),
@@ -234,9 +239,6 @@ export const checkForDuplicateMessage = internalQuery({
     })
   ),
   handler: async (ctx, args) => {
-    const { checkDuplicate, DEFAULT_TEXT_WINDOW_MS } = await import(
-      "../lib/duplicateDetection"
-    );
     const windowMs = args.windowMs ?? DEFAULT_TEXT_WINDOW_MS;
     const now = Date.now();
     const windowStart = now - windowMs;
@@ -250,8 +252,13 @@ export const checkForDuplicateMessage = internalQuery({
       .order("desc")
       .take(20);
 
+    // Exclude the just-created message so it doesn't match itself
+    const filtered = args.excludeMessageId
+      ? recentMessages.filter((m) => m._id !== args.excludeMessageId)
+      : recentMessages;
+
     const result = checkDuplicate({
-      recentMessages: recentMessages.map((m) => ({
+      recentMessages: filtered.map((m) => ({
         _id: m._id,
         messageType: m.messageType,
         body: m.body,
@@ -296,6 +303,74 @@ export const markAsDuplicate = internalMutation({
       processedAt: Date.now(),
     });
     return null;
+  },
+});
+
+/**
+ * Get processing status of the original message (for duplicate feedback).
+ * Returns message status + voice note insight summary if available.
+ */
+export const getOriginalMessageStatus = internalQuery({
+  args: { messageId: v.id("whatsappMessages") },
+  returns: v.union(
+    v.object({
+      messageStatus: v.string(),
+      hasVoiceNote: v.boolean(),
+      insightsStatus: v.optional(v.string()),
+      insightCount: v.number(),
+      playerNames: v.array(v.string()),
+    }),
+    v.null()
+  ),
+  handler: async (ctx, args) => {
+    // Follow the duplicateOfMessageId chain to the true original
+    const initial = await ctx.db.get(args.messageId);
+    if (!initial) {
+      return null;
+    }
+
+    let current: NonNullable<typeof initial> = initial;
+    const maxDepth = 10;
+    let depth = 0;
+    while (
+      current.status === "duplicate" &&
+      current.duplicateOfMessageId &&
+      depth < maxDepth
+    ) {
+      const parent = await ctx.db.get(current.duplicateOfMessageId);
+      if (!parent) {
+        break;
+      }
+      current = parent;
+      depth += 1;
+    }
+
+    const result = {
+      messageStatus: current.status,
+      hasVoiceNote: false,
+      insightsStatus: undefined as string | undefined,
+      insightCount: 0,
+      playerNames: [] as string[],
+    };
+
+    if (current.voiceNoteId) {
+      const voiceNote = await ctx.db.get(current.voiceNoteId);
+      if (voiceNote) {
+        result.hasVoiceNote = true;
+        result.insightsStatus = voiceNote.insightsStatus;
+        const insights = voiceNote.insights ?? [];
+        result.insightCount = insights.length;
+        result.playerNames = [
+          ...new Set(
+            insights
+              .map((i) => i.playerName)
+              .filter((n): n is string => Boolean(n))
+          ),
+        ];
+      }
+    }
+
+    return result;
   },
 });
 
@@ -360,8 +435,6 @@ export const findCoachByPhone = internalQuery({
     // Normalize phone number (remove spaces, dashes, etc.)
     const normalizedPhone = normalizePhoneNumber(args.phoneNumber);
 
-    console.log("[WhatsApp] Looking up coach by phone:", normalizedPhone);
-
     // Query users from the Better Auth component (user table is inside the component)
     // Using the adapter.findMany to access the component's user table
     // eslint-disable-next-line @typescript-eslint/no-require-imports
@@ -388,11 +461,8 @@ export const findCoachByPhone = internalQuery({
     });
 
     if (!matchedUser) {
-      console.log("[WhatsApp] No user found with phone:", normalizedPhone);
       return null;
     }
-
-    console.log("[WhatsApp] Found user:", matchedUser.name, matchedUser._id);
 
     // Get the user's organization memberships from the component
     const membersResult = await ctx.runQuery(
@@ -414,8 +484,6 @@ export const findCoachByPhone = internalQuery({
     );
     // biome-ignore lint/suspicious/noExplicitAny: Dynamic type from component
     const members = (membersResult.page || []) as any[];
-
-    console.log("[WhatsApp] User has", members.length, "memberships");
 
     // Find a membership where user has coach functional role
     // biome-ignore lint/suspicious/noExplicitAny: Dynamic type from component
@@ -440,7 +508,6 @@ export const findCoachByPhone = internalQuery({
     }
 
     if (!coachMembership) {
-      console.log("[WhatsApp] User has no organization membership");
       return null;
     }
 
@@ -532,11 +599,6 @@ export const findCoachWithOrgContext = internalQuery({
   // biome-ignore lint/complexity/noExcessiveCognitiveComplexity: Multi-org detection requires multiple fallback strategies
   handler: async (ctx, args) => {
     const normalizedPhone = normalizePhoneNumber(args.phoneNumber);
-    console.log(
-      "[WhatsApp] Looking up coach with org context:",
-      normalizedPhone
-    );
-
     // Query users from the Better Auth component
     // eslint-disable-next-line @typescript-eslint/no-require-imports
     const { components: betterAuthComponents } = require("../_generated/api");
@@ -558,7 +620,6 @@ export const findCoachWithOrgContext = internalQuery({
     });
 
     if (!matchedUser) {
-      console.log("[WhatsApp] No user found with phone:", normalizedPhone);
       return null;
     }
 
@@ -567,8 +628,6 @@ export const findCoachWithOrgContext = internalQuery({
       matchedUser.name ||
       `${matchedUser.firstName || ""} ${matchedUser.lastName || ""}`.trim() ||
       "Unknown Coach";
-
-    console.log("[WhatsApp] Found user:", coachName, coachId);
 
     // Get all memberships
     const membersResult = await ctx.runQuery(
@@ -583,7 +642,6 @@ export const findCoachWithOrgContext = internalQuery({
     const members = (membersResult.page || []) as any[];
 
     if (members.length === 0) {
-      console.log("[WhatsApp] User has no organization membership");
       return null;
     }
 
@@ -606,11 +664,8 @@ export const findCoachWithOrgContext = internalQuery({
       name: org.name || "Unknown Org",
     }));
 
-    console.log("[WhatsApp] Coach has", availableOrgs.length, "org(s)");
-
     // CASE 1: Single org - no ambiguity
     if (availableOrgs.length === 1) {
-      console.log("[WhatsApp] Single org, using:", availableOrgs[0].name);
       return {
         coachId,
         coachName,
@@ -636,7 +691,6 @@ export const findCoachWithOrgContext = internalQuery({
         `from ${orgNameLower}`,
       ];
       if (patterns.some((p) => messageBody.includes(p))) {
-        console.log("[WhatsApp] Explicit org mention detected:", org.name);
         return {
           coachId,
           coachName,
@@ -658,10 +712,6 @@ export const findCoachWithOrgContext = internalQuery({
       availableOrgs
     );
     if (playerMatches.matchedOrg) {
-      console.log(
-        "[WhatsApp] Player/team match detected:",
-        playerMatches.matchedOrg.name
-      );
       return {
         coachId,
         coachName,
@@ -688,7 +738,6 @@ export const findCoachWithOrgContext = internalQuery({
         (o) => o.id === session.organizationId
       );
       if (sessionOrg) {
-        console.log("[WhatsApp] Session memory match:", sessionOrg.name);
         return {
           coachId,
           coachName,
@@ -701,7 +750,6 @@ export const findCoachWithOrgContext = internalQuery({
     }
 
     // CASE 3: Ambiguous - need clarification
-    console.log("[WhatsApp] Ambiguous - need clarification");
     return {
       coachId,
       coachName,
@@ -896,35 +944,64 @@ async function checkPlayerMatches(
   // Use resolved team IDs (not the raw coachAssignment.teams which may contain names)
   const playerMatches: Map<string, number> = new Map();
 
+  // Build teamId -> orgId mapping and collect all team IDs
+  const teamToOrg = new Map<string, string>();
   for (const org of availableOrgs) {
     const teamIds = resolvedTeamIdsByOrg.get(org.id);
-    if (!teamIds || teamIds.length === 0) {
+    if (teamIds) {
+      for (const teamId of teamIds) {
+        teamToOrg.set(teamId, org.id);
+      }
+    }
+  }
+
+  // Batch fetch all team player identities (one query per team)
+  const allTeamIds = Array.from(teamToOrg.keys());
+  const teamPlayerResults = await Promise.all(
+    allTeamIds.map((teamId) =>
+      ctx.db
+        .query("teamPlayerIdentities")
+        // biome-ignore lint/suspicious/noExplicitAny: ctx is untyped helper function
+        .withIndex("by_teamId_and_status", (q: any) =>
+          q.eq("teamId", teamId).eq("status", "active")
+        )
+        .collect()
+    )
+  );
+  const allTeamPlayers = teamPlayerResults.flat();
+
+  // Collect unique player IDs and batch fetch
+  const uniquePlayerIds = [
+    ...new Set(allTeamPlayers.map((tp) => tp.playerIdentityId)),
+  ];
+  const playerResults = await Promise.all(
+    uniquePlayerIds.map((id) => ctx.db.get(id))
+  );
+  const playerMap = new Map<string, (typeof playerResults)[number]>();
+  for (const player of playerResults) {
+    if (player) {
+      playerMap.set(player._id, player);
+    }
+  }
+
+  // Synchronous name matching using pre-fetched data
+  for (const teamPlayer of allTeamPlayers) {
+    const player = playerMap.get(teamPlayer.playerIdentityId);
+    if (!player) {
       continue;
     }
 
-    for (const teamId of teamIds) {
-      const teamPlayers = await ctx.db
-        .query("teamPlayerIdentities")
-        // biome-ignore lint/suspicious/noExplicitAny: Dynamic query builder
-        .withIndex("by_teamId", (q: any) => q.eq("teamId", teamId))
-        // biome-ignore lint/suspicious/noExplicitAny: Dynamic query builder
-        .filter((q: any) => q.eq(q.field("status"), "active"))
-        .collect();
+    const firstName = (player.firstName || "").toLowerCase();
+    const lastName = (player.lastName || "").toLowerCase();
+    const fullName = `${firstName} ${lastName}`;
 
-      for (const teamPlayer of teamPlayers) {
-        const player = await ctx.db.get(teamPlayer.playerIdentityId);
-        if (player) {
-          const firstName = (player.firstName || "").toLowerCase();
-          const lastName = (player.lastName || "").toLowerCase();
-          const fullName = `${firstName} ${lastName}`;
-
-          if (
-            (firstName.length > 2 && messageBody.includes(firstName)) ||
-            messageBody.includes(fullName)
-          ) {
-            playerMatches.set(org.id, (playerMatches.get(org.id) || 0) + 1);
-          }
-        }
+    if (
+      (firstName.length > 2 && messageBody.includes(firstName)) ||
+      messageBody.includes(fullName)
+    ) {
+      const orgId = teamToOrg.get(teamPlayer.teamId);
+      if (orgId) {
+        playerMatches.set(orgId, (playerMatches.get(orgId) || 0) + 1);
       }
     }
   }
@@ -1358,8 +1435,9 @@ export const getPendingMessage = internalMutation({
 
     const pending = await ctx.db
       .query("whatsappPendingMessages")
-      .withIndex("by_phone", (q) => q.eq("phoneNumber", normalizedPhone))
-      .filter((q) => q.eq(q.field("status"), "awaiting_selection"))
+      .withIndex("by_phone_and_status", (q) =>
+        q.eq("phoneNumber", normalizedPhone).eq("status", "awaiting_selection")
+      )
       .first();
 
     if (!pending) {

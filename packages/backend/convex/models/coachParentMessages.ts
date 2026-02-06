@@ -1,5 +1,5 @@
 import { v } from "convex/values";
-import { components } from "../_generated/api";
+import { components, internal } from "../_generated/api";
 import type { Id } from "../_generated/dataModel";
 import type { MutationCtx, QueryCtx } from "../_generated/server";
 import { mutation, query } from "../_generated/server";
@@ -744,9 +744,6 @@ export const sendMessage = mutation({
       .query("messageRecipients")
       .withIndex("by_message", (q) => q.eq("messageId", args.messageId))
       .collect();
-
-    // Import internal from _generated/api
-    const { internal } = await import("../_generated/api");
 
     for (const recipient of recipients) {
       await ctx.db.patch(recipient._id, {

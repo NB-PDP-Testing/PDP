@@ -18,6 +18,7 @@ import {
   mutation,
   query,
 } from "../_generated/server";
+import { findSimilarPlayersLogic } from "../lib/playerMatching";
 
 // 48 hours in milliseconds
 const LINK_EXPIRY_MS = 48 * 60 * 60 * 1000;
@@ -262,6 +263,19 @@ export const getCoachPendingItems = query({
           noteDate: v.string(),
         })
       ),
+      recentlyReviewed: v.array(
+        v.object({
+          insightId: v.string(),
+          voiceNoteId: v.id("voiceNotes"),
+          playerName: v.optional(v.string()),
+          teamName: v.optional(v.string()),
+          title: v.string(),
+          description: v.string(),
+          category: v.optional(v.string()),
+          status: v.string(),
+          noteDate: v.string(),
+        })
+      ),
       totalCount: v.number(),
       reviewedCount: v.number(),
       voiceNoteCount: v.number(),
@@ -375,11 +389,26 @@ export const getCoachPendingItems = query({
       }));
 
     const autoApplied = allInsights
-      .filter((i) => i.status === "auto_applied" || i.status === "applied")
+      .filter((i) => i.status === "auto_applied")
       .map((i) => ({
         insightId: i.id,
         voiceNoteId: i.voiceNoteId,
         playerName: i.playerName,
+        title: i.title,
+        description: i.description,
+        category: i.category,
+        status: i.status,
+        noteDate: i.noteDate,
+      }));
+
+    // Manually reviewed items (applied or dismissed by the coach)
+    const recentlyReviewed = allInsights
+      .filter((i) => i.status === "applied" || i.status === "dismissed")
+      .map((i) => ({
+        insightId: i.id,
+        voiceNoteId: i.voiceNoteId,
+        playerName: i.playerName,
+        teamName: i.teamName,
         title: i.title,
         description: i.description,
         category: i.category,
@@ -403,6 +432,7 @@ export const getCoachPendingItems = query({
       todos,
       teamNotes,
       autoApplied,
+      recentlyReviewed,
       totalCount: actionable + reviewed,
       reviewedCount: reviewed,
       voiceNoteCount: validNotes.length,
@@ -683,48 +713,418 @@ export const batchApplyInsightsFromReview = mutation({
         failCount += 1;
         continue;
       }
-      const existing = byNote.get(item.voiceNoteId as string) || [];
+      const noteKey = String(item.voiceNoteId);
+      const existing = byNote.get(noteKey) || [];
       existing.push(item.insightId);
-      byNote.set(item.voiceNoteId as string, existing);
+      byNote.set(noteKey, existing);
     }
+
+    // Batch fetch all notes at once, then process
+    const noteIds = [...byNote.keys()];
+    const notes = await Promise.all(
+      link.voiceNoteIds
+        .filter((id) => noteIds.includes(String(id)))
+        .map((id) => ctx.db.get(id))
+    );
+    const noteMap = new Map(
+      notes
+        .filter((n): n is NonNullable<typeof n> => n !== null)
+        .map((n) => [String(n._id), n])
+    );
 
     const now = Date.now();
     for (const [noteId, insightIds] of byNote) {
-      // biome-ignore lint/suspicious/noExplicitAny: Map key is string but ctx.db.get expects Id type
-      const note = await ctx.db.get(noteId as any);
+      const note = noteMap.get(noteId);
       if (!note) {
         failCount += insightIds.length;
         continue;
       }
 
-      // biome-ignore lint/suspicious/noExplicitAny: voiceNotes doc type not narrowed from generic get
-      const updatedInsights = (note as any).insights.map(
-        (i: { id: string; status: string }) => {
-          if (insightIds.includes(i.id) && i.status === "pending") {
-            successCount += 1;
-            return {
-              ...i,
-              status: "applied" as const,
-              appliedAt: now,
-              appliedDate: new Date().toISOString(),
-            };
-          }
-          return i;
+      const pendingIds = new Set(
+        note.insights
+          .filter((i) => insightIds.includes(i.id) && i.status === "pending")
+          .map((i) => i.id)
+      );
+
+      if (pendingIds.size === 0) {
+        failCount += insightIds.length;
+        continue;
+      }
+
+      const updatedInsights = note.insights.map((i) => {
+        if (pendingIds.has(i.id)) {
+          return {
+            ...i,
+            status: "applied" as const,
+            appliedAt: now,
+            appliedDate: new Date().toISOString(),
+          };
         }
-      );
+        return i;
+      });
 
-      // Check if any were actually not applied (already actioned)
-      const actualApplied = insightIds.filter((id) =>
-        // biome-ignore lint/suspicious/noExplicitAny: voiceNotes doc type not narrowed
-        (note as any).insights.find(
-          (i: { id: string; status: string }) =>
-            i.id === id && i.status === "pending"
-        )
-      );
-      failCount += insightIds.length - actualApplied.length;
+      successCount += pendingIds.size;
+      failCount += insightIds.length - pendingIds.size;
+      await ctx.db.patch(note._id, { insights: updatedInsights });
+    }
 
-      // biome-ignore lint/suspicious/noExplicitAny: Generic doc type from Map-based lookup
-      await ctx.db.patch(note._id as any, { insights: updatedInsights });
+    return { successCount, failCount };
+  },
+});
+
+// ============================================================
+// PUBLIC MUTATIONS — Domain actions from review (US-VN-009)
+// ============================================================
+
+/**
+ * Create a coach task from a todo insight in the review microsite.
+ * Inserts into coachTasks table and marks insight as applied.
+ */
+export const addTodoFromReview = mutation({
+  args: {
+    code: v.string(),
+    voiceNoteId: v.id("voiceNotes"),
+    insightId: v.string(),
+  },
+  returns: v.union(
+    v.object({ success: v.literal(true), message: v.string() }),
+    v.object({ success: v.literal(false), reason: v.string() })
+  ),
+  handler: async (ctx, args) => {
+    const scope = await validateReviewScope(ctx, args.code, args.voiceNoteId);
+    if (!scope) {
+      return { success: false as const, reason: "invalid_or_expired" };
+    }
+
+    const { link, note } = scope;
+    const insight = note.insights.find((i) => i.id === args.insightId);
+    if (!insight) {
+      return { success: false as const, reason: "insight_not_found" };
+    }
+    if (insight.status !== "pending") {
+      return { success: false as const, reason: "already_actioned" };
+    }
+
+    const now = Date.now();
+
+    // Create coachTask record
+    await ctx.db.insert("coachTasks", {
+      text: insight.description
+        ? `${insight.title} — ${insight.description}`
+        : insight.title,
+      completed: false,
+      organizationId: link.organizationId,
+      assignedToUserId: link.coachUserId,
+      createdByUserId: link.coachUserId,
+      source: "voice_note",
+      voiceNoteId: args.voiceNoteId,
+      insightId: args.insightId,
+      playerName: insight.playerName,
+      createdAt: now,
+    });
+
+    // Mark insight as applied
+    const updatedInsights = note.insights.map((i) => {
+      if (i.id === args.insightId) {
+        return {
+          ...i,
+          status: "applied" as const,
+          appliedAt: now,
+          appliedDate: new Date().toISOString(),
+        };
+      }
+      return i;
+    });
+    await ctx.db.patch(note._id, { insights: updatedInsights });
+
+    return {
+      success: true as const,
+      message: `Task created: ${insight.title}`,
+    };
+  },
+});
+
+/**
+ * Save a team observation from a team note insight in the review microsite.
+ * Inserts into teamObservations table and marks insight as applied.
+ */
+export const saveTeamNoteFromReview = mutation({
+  args: {
+    code: v.string(),
+    voiceNoteId: v.id("voiceNotes"),
+    insightId: v.string(),
+  },
+  returns: v.union(
+    v.object({ success: v.literal(true), message: v.string() }),
+    v.object({ success: v.literal(false), reason: v.string() })
+  ),
+  handler: async (ctx, args) => {
+    const scope = await validateReviewScope(ctx, args.code, args.voiceNoteId);
+    if (!scope) {
+      return { success: false as const, reason: "invalid_or_expired" };
+    }
+
+    const { link, note } = scope;
+    const insight = note.insights.find((i) => i.id === args.insightId);
+    if (!insight) {
+      return { success: false as const, reason: "insight_not_found" };
+    }
+    if (insight.status !== "pending") {
+      return { success: false as const, reason: "already_actioned" };
+    }
+
+    const now = Date.now();
+    const dateStr = new Date(note._creationTime).toISOString().split("T")[0];
+
+    // Create teamObservation record
+    await ctx.db.insert("teamObservations", {
+      organizationId: link.organizationId,
+      teamId: "unspecified",
+      teamName: insight.teamName ?? "Team",
+      source: "voice_note",
+      coachId: link.coachUserId,
+      coachName: "Coach",
+      title: insight.title,
+      description: insight.description,
+      dateObserved: dateStr,
+      createdAt: now,
+    });
+
+    // Mark insight as applied
+    const updatedInsights = note.insights.map((i) => {
+      if (i.id === args.insightId) {
+        return {
+          ...i,
+          status: "applied" as const,
+          appliedAt: now,
+          appliedDate: new Date().toISOString(),
+        };
+      }
+      return i;
+    });
+    await ctx.db.patch(note._id, { insights: updatedInsights });
+
+    return {
+      success: true as const,
+      message: `Team note saved: ${insight.title}`,
+    };
+  },
+});
+
+/**
+ * Batch create coach tasks from todo insights in the review microsite.
+ */
+export const batchAddTodosFromReview = mutation({
+  args: {
+    code: v.string(),
+    items: v.array(
+      v.object({
+        voiceNoteId: v.id("voiceNotes"),
+        insightId: v.string(),
+      })
+    ),
+  },
+  returns: v.object({
+    successCount: v.number(),
+    failCount: v.number(),
+  }),
+  handler: async (ctx, args) => {
+    const result = await validateReviewCode(ctx, args.code);
+    if (!result || result.isExpired) {
+      return { successCount: 0, failCount: args.items.length };
+    }
+
+    const { link } = result;
+    let successCount = 0;
+    let failCount = 0;
+
+    // Group by voiceNoteId
+    const byNote = new Map<string, string[]>();
+    for (const item of args.items) {
+      if (!link.voiceNoteIds.includes(item.voiceNoteId)) {
+        failCount += 1;
+        continue;
+      }
+      const noteKey = String(item.voiceNoteId);
+      const existing = byNote.get(noteKey) || [];
+      existing.push(item.insightId);
+      byNote.set(noteKey, existing);
+    }
+
+    // Batch fetch all notes
+    const noteIds = [...byNote.keys()];
+    const notes = await Promise.all(
+      link.voiceNoteIds
+        .filter((id) => noteIds.includes(String(id)))
+        .map((id) => ctx.db.get(id))
+    );
+    const noteMap = new Map(
+      notes
+        .filter((n): n is NonNullable<typeof n> => n !== null)
+        .map((n) => [String(n._id), n])
+    );
+
+    const now = Date.now();
+    for (const [noteId, insightIds] of byNote) {
+      const note = noteMap.get(noteId);
+      if (!note) {
+        failCount += insightIds.length;
+        continue;
+      }
+
+      const pendingInsights = note.insights.filter(
+        (i) => insightIds.includes(i.id) && i.status === "pending"
+      );
+      if (pendingInsights.length === 0) {
+        failCount += insightIds.length;
+        continue;
+      }
+
+      // Create coachTask for each pending insight
+      for (const insight of pendingInsights) {
+        await ctx.db.insert("coachTasks", {
+          text: insight.description
+            ? `${insight.title} — ${insight.description}`
+            : insight.title,
+          completed: false,
+          organizationId: link.organizationId,
+          assignedToUserId: link.coachUserId,
+          createdByUserId: link.coachUserId,
+          source: "voice_note",
+          voiceNoteId: note._id,
+          insightId: insight.id,
+          playerName: insight.playerName,
+          createdAt: now,
+        });
+      }
+
+      // Mark insights as applied
+      const pendingIdSet = new Set(pendingInsights.map((i) => i.id));
+      const updatedInsights = note.insights.map((i) => {
+        if (pendingIdSet.has(i.id)) {
+          return {
+            ...i,
+            status: "applied" as const,
+            appliedAt: now,
+            appliedDate: new Date().toISOString(),
+          };
+        }
+        return i;
+      });
+
+      successCount += pendingInsights.length;
+      failCount += insightIds.length - pendingInsights.length;
+      await ctx.db.patch(note._id, { insights: updatedInsights });
+    }
+
+    return { successCount, failCount };
+  },
+});
+
+/**
+ * Batch save team observations from team note insights in the review microsite.
+ */
+export const batchSaveTeamNotesFromReview = mutation({
+  args: {
+    code: v.string(),
+    items: v.array(
+      v.object({
+        voiceNoteId: v.id("voiceNotes"),
+        insightId: v.string(),
+      })
+    ),
+  },
+  returns: v.object({
+    successCount: v.number(),
+    failCount: v.number(),
+  }),
+  handler: async (ctx, args) => {
+    const result = await validateReviewCode(ctx, args.code);
+    if (!result || result.isExpired) {
+      return { successCount: 0, failCount: args.items.length };
+    }
+
+    const { link } = result;
+    let successCount = 0;
+    let failCount = 0;
+
+    // Group by voiceNoteId
+    const byNote = new Map<string, string[]>();
+    for (const item of args.items) {
+      if (!link.voiceNoteIds.includes(item.voiceNoteId)) {
+        failCount += 1;
+        continue;
+      }
+      const noteKey = String(item.voiceNoteId);
+      const existing = byNote.get(noteKey) || [];
+      existing.push(item.insightId);
+      byNote.set(noteKey, existing);
+    }
+
+    // Batch fetch all notes
+    const noteIds = [...byNote.keys()];
+    const notes = await Promise.all(
+      link.voiceNoteIds
+        .filter((id) => noteIds.includes(String(id)))
+        .map((id) => ctx.db.get(id))
+    );
+    const noteMap = new Map(
+      notes
+        .filter((n): n is NonNullable<typeof n> => n !== null)
+        .map((n) => [String(n._id), n])
+    );
+
+    const now = Date.now();
+    for (const [noteId, insightIds] of byNote) {
+      const note = noteMap.get(noteId);
+      if (!note) {
+        failCount += insightIds.length;
+        continue;
+      }
+
+      const pendingInsights = note.insights.filter(
+        (i) => insightIds.includes(i.id) && i.status === "pending"
+      );
+      if (pendingInsights.length === 0) {
+        failCount += insightIds.length;
+        continue;
+      }
+
+      const dateStr = new Date(note._creationTime).toISOString().split("T")[0];
+
+      // Create teamObservation for each pending insight
+      for (const insight of pendingInsights) {
+        await ctx.db.insert("teamObservations", {
+          organizationId: link.organizationId,
+          teamId: "unspecified",
+          teamName: insight.teamName ?? "Team",
+          source: "voice_note",
+          coachId: link.coachUserId,
+          coachName: "Coach",
+          title: insight.title,
+          description: insight.description,
+          dateObserved: dateStr,
+          createdAt: now,
+        });
+      }
+
+      // Mark insights as applied
+      const pendingIdSet = new Set(pendingInsights.map((i) => i.id));
+      const updatedInsights = note.insights.map((i) => {
+        if (pendingIdSet.has(i.id)) {
+          return {
+            ...i,
+            status: "applied" as const,
+            appliedAt: now,
+            appliedDate: new Date().toISOString(),
+          };
+        }
+        return i;
+      });
+
+      successCount += pendingInsights.length;
+      failCount += insightIds.length - pendingInsights.length;
+      await ctx.db.patch(note._id, { insights: updatedInsights });
     }
 
     return { successCount, failCount };
@@ -767,11 +1167,7 @@ export const findSimilarPlayersForReview = query({
       return null;
     }
 
-    const { findSimilarPlayersLogic: matchLogic } = await import(
-      "../lib/playerMatching"
-    );
-
-    const suggestions = await matchLogic(ctx, {
+    const suggestions = await findSimilarPlayersLogic(ctx, {
       organizationId: result.link.organizationId,
       coachUserId: result.link.coachUserId,
       searchName: args.searchName,
@@ -856,14 +1252,14 @@ export const expireActiveLinks = internalMutation({
     const now = Date.now();
     let expiredCount = 0;
 
-    // Query active links where expiresAt has passed
+    // Query only active links via status index
     const activeLinks = await ctx.db
       .query("whatsappReviewLinks")
-      .withIndex("by_expiresAt_and_status")
+      .withIndex("by_status", (q) => q.eq("status", "active"))
       .collect();
 
     for (const link of activeLinks) {
-      if (link.status === "active" && link.expiresAt < now) {
+      if (link.expiresAt < now) {
         await ctx.db.patch(link._id, { status: "expired" });
         expiredCount += 1;
       }
@@ -885,14 +1281,14 @@ export const cleanupExpiredLinks = internalMutation({
     const cutoff = Date.now() - CLEANUP_GRACE_PERIOD_MS;
     let deletedCount = 0;
 
-    // Query expired links
+    // Query only expired links via status index
     const expiredLinks = await ctx.db
       .query("whatsappReviewLinks")
-      .withIndex("by_expiresAt_and_status")
+      .withIndex("by_status", (q) => q.eq("status", "expired"))
       .collect();
 
     for (const link of expiredLinks) {
-      if (link.status === "expired" && link.expiresAt < cutoff) {
+      if (link.expiresAt < cutoff) {
         await ctx.db.delete(link._id);
         deletedCount += 1;
       }

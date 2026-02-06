@@ -8,6 +8,7 @@ import {
   query,
 } from "../_generated/server";
 import { authComponent } from "../auth";
+import { calculatePersonalizedThreshold } from "../lib/autoApprovalDecision";
 import {
   calculateProgressToNextLevel,
   calculateTrustLevel,
@@ -989,11 +990,6 @@ export const adjustPersonalizedThresholds = internalMutation({
     adjusted: v.number(),
   }),
   handler: async (ctx) => {
-    // Import the calculation function
-    const { calculatePersonalizedThreshold } = await import(
-      "../lib/autoApprovalDecision"
-    );
-
     // Get all coach trust levels
     const allCoaches = await ctx.db.query("coachTrustLevels").collect();
 

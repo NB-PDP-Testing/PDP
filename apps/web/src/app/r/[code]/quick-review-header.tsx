@@ -1,6 +1,6 @@
 "use client";
 
-import { CheckCircle2, Clock, Mic } from "lucide-react";
+import { CheckCircle2, Clock } from "lucide-react";
 import { Progress } from "@/components/ui/progress";
 
 type QuickReviewHeaderProps = {
@@ -31,12 +31,6 @@ export function QuickReviewHeader({
 
   return (
     <div className="mb-6 space-y-3">
-      {/* Title */}
-      <div className="flex items-center gap-2">
-        <Mic className="h-5 w-5 text-primary" />
-        <h1 className="font-semibold text-lg">Voice Note Review</h1>
-      </div>
-
       {/* Stats row */}
       <div className="flex items-center justify-between text-muted-foreground text-sm">
         <span>

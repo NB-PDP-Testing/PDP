@@ -729,6 +729,7 @@ export default defineSchema({
     updatedAt: v.number(),
   })
     .index("by_teamId", ["teamId"])
+    .index("by_teamId_and_status", ["teamId", "status"])
     .index("by_playerIdentityId", ["playerIdentityId"])
     .index("by_team_and_player", ["teamId", "playerIdentityId"])
     .index("by_organizationId", ["organizationId"])
@@ -4052,6 +4053,7 @@ export default defineSchema({
     expiresAt: v.number(), // 24 hours from creation
   })
     .index("by_phone", ["phoneNumber"])
+    .index("by_phone_and_status", ["phoneNumber", "status"])
     .index("by_status", ["status"])
     .index("by_messageSid", ["messageSid"]),
 
@@ -4089,7 +4091,8 @@ export default defineSchema({
   })
     .index("by_code", ["code"])
     .index("by_coachUserId_and_status", ["coachUserId", "status"])
-    .index("by_expiresAt_and_status", ["expiresAt", "status"]),
+    .index("by_expiresAt_and_status", ["expiresAt", "status"])
+    .index("by_status", ["status"]),
 
   // ============================================================
   // PLATFORM STAFF INVITATIONS

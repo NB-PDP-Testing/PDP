@@ -12,7 +12,9 @@
 
 import { api } from "@pdp/backend/convex/_generated/api";
 import { useMutation, useQuery } from "convex/react";
+import { Mic } from "lucide-react";
 import { use, useEffect, useRef } from "react";
+import { PDPLogo } from "@/components/pdp-logo";
 import { ExpiredLinkView } from "./expired-link-view";
 import { InvalidLinkView } from "./invalid-link-view";
 import { LoadingSkeleton } from "./loading-skeleton";
@@ -73,7 +75,10 @@ export default function QuickReviewPage({ params }: QuickReviewPageProps) {
   if (linkData.isExpired) {
     return (
       <QuickReviewLayout>
-        <ExpiredLinkView />
+        <ExpiredLinkView
+          expiresAt={linkData.expiresAt}
+          voiceNoteCount={linkData.voiceNoteCount}
+        />
       </QuickReviewLayout>
     );
   }
@@ -97,7 +102,10 @@ export default function QuickReviewPage({ params }: QuickReviewPageProps) {
   if (pendingItems === null) {
     return (
       <QuickReviewLayout>
-        <ExpiredLinkView />
+        <ExpiredLinkView
+          expiresAt={linkData.expiresAt}
+          voiceNoteCount={linkData.voiceNoteCount}
+        />
       </QuickReviewLayout>
     );
   }
@@ -115,6 +123,7 @@ export default function QuickReviewPage({ params }: QuickReviewPageProps) {
         code={code}
         injuries={pendingItems.injuries}
         needsReview={pendingItems.needsReview}
+        recentlyReviewed={pendingItems.recentlyReviewed}
         reviewedCount={pendingItems.reviewedCount}
         teamNotes={pendingItems.teamNotes}
         todos={pendingItems.todos}
@@ -133,6 +142,15 @@ function QuickReviewLayout({ children }: { children: React.ReactNode }) {
   return (
     <div className="min-h-svh bg-background">
       <div className="mx-auto max-w-lg px-4 pt-4 pb-[env(safe-area-inset-bottom)]">
+        <div className="mb-4 flex items-center justify-between">
+          <div className="flex items-center gap-2">
+            <Mic className="h-5 w-5 text-primary" />
+            <h1 className="font-semibold text-lg">Voice Note Review</h1>
+          </div>
+          <a href="/login" title="Open PlayerARC">
+            <PDPLogo size="sm" />
+          </a>
+        </div>
         {children}
       </div>
     </div>

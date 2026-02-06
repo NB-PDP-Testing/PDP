@@ -8,6 +8,7 @@
  * See ADR-VN2-004 for rationale.
  */
 
+import { components } from "../_generated/api";
 import type { Id } from "../_generated/dataModel";
 import type { QueryCtx } from "../_generated/server";
 import { calculateMatchScore } from "./stringMatching";
@@ -56,7 +57,6 @@ export async function findSimilarPlayersLogic(
 
   if (coachAssignment && coachAssignment.teams.length > 0) {
     // Get all teams for the org to resolve names/IDs
-    const { components } = await import("../_generated/api");
     const allTeamsResult = await ctx.runQuery(
       components.betterAuth.adapter.findMany,
       {
@@ -96,8 +96,9 @@ export async function findSimilarPlayersLogic(
     for (const teamId of teamIds) {
       const teamMembers = await ctx.db
         .query("teamPlayerIdentities")
-        .withIndex("by_teamId", (q) => q.eq("teamId", teamId))
-        .filter((q) => q.eq(q.field("status"), "active"))
+        .withIndex("by_teamId_and_status", (q) =>
+          q.eq("teamId", teamId).eq("status", "active")
+        )
         .collect();
 
       for (const member of teamMembers) {

@@ -9,6 +9,7 @@ import {
   CheckCircle2,
   ChevronDown,
   ClipboardList,
+  Clock,
   HelpCircle,
   Loader2,
   PartyPopper,
@@ -49,6 +50,11 @@ type TeamNoteItem = BaseItem & {
   teamName?: string;
 };
 
+type ReviewedItem = BaseItem & {
+  playerName?: string;
+  teamName?: string;
+};
+
 type ReviewQueueProps = {
   code: string;
   injuries: PlayerItem[];
@@ -57,6 +63,7 @@ type ReviewQueueProps = {
   todos: TodoItem[];
   teamNotes: TeamNoteItem[];
   autoApplied: (BaseItem & { playerName?: string })[];
+  recentlyReviewed: ReviewedItem[];
   totalCount: number;
   reviewedCount: number;
 };
@@ -69,6 +76,7 @@ export function ReviewQueue({
   todos,
   teamNotes,
   autoApplied,
+  recentlyReviewed,
   totalCount,
   reviewedCount,
 }: ReviewQueueProps) {
@@ -83,6 +91,16 @@ export function ReviewQueue({
   );
   const batchApply = useMutation(
     api.models.whatsappReviewLinks.batchApplyInsightsFromReview
+  );
+  const addTodo = useMutation(api.models.whatsappReviewLinks.addTodoFromReview);
+  const saveTeamNote = useMutation(
+    api.models.whatsappReviewLinks.saveTeamNoteFromReview
+  );
+  const batchAddTodos = useMutation(
+    api.models.whatsappReviewLinks.batchAddTodosFromReview
+  );
+  const batchSaveTeamNotes = useMutation(
+    api.models.whatsappReviewLinks.batchSaveTeamNotesFromReview
   );
 
   const [loadingIds, setLoadingIds] = useState<Set<string>>(new Set());
@@ -135,6 +153,40 @@ export function ReviewQueue({
     [editInsight, code]
   );
 
+  const handleAddTodo = useCallback(
+    async (voiceNoteId: Id<"voiceNotes">, insightId: string) => {
+      const key = `${voiceNoteId}-${insightId}`;
+      setLoadingIds((prev) => new Set(prev).add(key));
+      try {
+        await addTodo({ code, voiceNoteId, insightId });
+      } finally {
+        setLoadingIds((prev) => {
+          const next = new Set(prev);
+          next.delete(key);
+          return next;
+        });
+      }
+    },
+    [addTodo, code]
+  );
+
+  const handleSaveTeamNote = useCallback(
+    async (voiceNoteId: Id<"voiceNotes">, insightId: string) => {
+      const key = `${voiceNoteId}-${insightId}`;
+      setLoadingIds((prev) => new Set(prev).add(key));
+      try {
+        await saveTeamNote({ code, voiceNoteId, insightId });
+      } finally {
+        setLoadingIds((prev) => {
+          const next = new Set(prev);
+          next.delete(key);
+          return next;
+        });
+      }
+    },
+    [saveTeamNote, code]
+  );
+
   const handleBatchApply = useCallback(
     async (sectionKey: string, items: BaseItem[]) => {
       setBatchLoadingSection(sectionKey);
@@ -153,6 +205,42 @@ export function ReviewQueue({
     [batchApply, code]
   );
 
+  const handleBatchAddTodos = useCallback(
+    async (items: BaseItem[]) => {
+      setBatchLoadingSection("todos");
+      try {
+        await batchAddTodos({
+          code,
+          items: items.map((i) => ({
+            voiceNoteId: i.voiceNoteId,
+            insightId: i.insightId,
+          })),
+        });
+      } finally {
+        setBatchLoadingSection(null);
+      }
+    },
+    [batchAddTodos, code]
+  );
+
+  const handleBatchSaveTeamNotes = useCallback(
+    async (items: BaseItem[]) => {
+      setBatchLoadingSection("teamNotes");
+      try {
+        await batchSaveTeamNotes({
+          code,
+          items: items.map((i) => ({
+            voiceNoteId: i.voiceNoteId,
+            insightId: i.insightId,
+          })),
+        });
+      } finally {
+        setBatchLoadingSection(null);
+      }
+    },
+    [batchSaveTeamNotes, code]
+  );
+
   const allDone =
     totalCount > 0 &&
     reviewedCount >= totalCount &&
@@ -163,7 +251,15 @@ export function ReviewQueue({
     teamNotes.length === 0;
 
   if (allDone) {
-    return <AllCaughtUpView reviewedCount={reviewedCount} />;
+    return (
+      <div className="space-y-4">
+        <AllCaughtUpView reviewedCount={reviewedCount} />
+        {recentlyReviewed.length > 0 && (
+          <RecentlyReviewedSection items={recentlyReviewed} />
+        )}
+        {autoApplied.length > 0 && <AutoAppliedSection items={autoApplied} />}
+      </div>
+    );
   }
 
   return (
@@ -271,7 +367,7 @@ export function ReviewQueue({
               count={todos.length}
               label="Add All to Tasks"
               loading={batchLoadingSection === "todos"}
-              onApply={() => handleBatchApply("todos", todos)}
+              onApply={() => handleBatchAddTodos(todos)}
             />
           }
           borderColor="border-l-blue-500"
@@ -288,7 +384,7 @@ export function ReviewQueue({
               key={`${item.voiceNoteId}-${item.insightId}`}
               loading={loadingIds.has(`${item.voiceNoteId}-${item.insightId}`)}
               noteDate={item.noteDate}
-              onApply={handleApply}
+              onApply={handleAddTodo}
               onDismiss={handleDismiss}
               onEdit={handleEdit}
               title={item.title}
@@ -306,7 +402,7 @@ export function ReviewQueue({
               count={teamNotes.length}
               label="Save All Team Notes"
               loading={batchLoadingSection === "teamNotes"}
-              onApply={() => handleBatchApply("teamNotes", teamNotes)}
+              onApply={() => handleBatchSaveTeamNotes(teamNotes)}
             />
           }
           borderColor="border-l-green-500"
@@ -322,7 +418,7 @@ export function ReviewQueue({
               key={`${item.voiceNoteId}-${item.insightId}`}
               loading={loadingIds.has(`${item.voiceNoteId}-${item.insightId}`)}
               noteDate={item.noteDate}
-              onApply={handleApply}
+              onApply={handleSaveTeamNote}
               onDismiss={handleDismiss}
               onEdit={handleEdit}
               teamName={item.teamName}
@@ -335,6 +431,10 @@ export function ReviewQueue({
       )}
 
       {autoApplied.length > 0 && <AutoAppliedSection items={autoApplied} />}
+
+      {recentlyReviewed.length > 0 && (
+        <RecentlyReviewedSection items={recentlyReviewed} />
+      )}
     </div>
   );
 }
@@ -666,6 +766,98 @@ function AutoAppliedSection({
                 <p className="mt-0.5 text-muted-foreground/70 text-xs">
                   {formatNoteDate(item.noteDate)}
                 </p>
+              </CardContent>
+            </Card>
+          ))}
+        </div>
+      )}
+    </div>
+  );
+}
+
+// ============================================================
+// Recently reviewed section (manually applied + dismissed by coach)
+// ============================================================
+
+function RecentlyReviewedSection({ items }: { items: ReviewedItem[] }) {
+  const [expanded, setExpanded] = useState(false);
+  const appliedCount = items.filter((i) => i.status === "applied").length;
+  const dismissedCount = items.filter((i) => i.status === "dismissed").length;
+
+  return (
+    <div className="border-l-4 border-l-blue-300 pl-3">
+      <button
+        className="flex min-h-[44px] w-full items-center gap-2 text-left"
+        onClick={() => setExpanded(!expanded)}
+        type="button"
+      >
+        <Clock className="h-4 w-4 text-blue-400" />
+        <span className="font-medium text-muted-foreground text-sm">
+          Recently Reviewed
+        </span>
+        <span className="ml-auto flex items-center gap-1.5">
+          {appliedCount > 0 && (
+            <Badge
+              className="bg-green-100 text-green-700 text-xs"
+              variant="secondary"
+            >
+              {appliedCount} applied
+            </Badge>
+          )}
+          {dismissedCount > 0 && (
+            <Badge
+              className="bg-gray-100 text-gray-500 text-xs"
+              variant="secondary"
+            >
+              {dismissedCount} skipped
+            </Badge>
+          )}
+        </span>
+        <ChevronDown
+          className={`h-4 w-4 text-muted-foreground transition-transform ${
+            expanded ? "rotate-180" : ""
+          }`}
+        />
+      </button>
+
+      {expanded && (
+        <div className="mt-2 space-y-2">
+          {items.map((item) => (
+            <Card
+              className="border-gray-200 shadow-sm"
+              key={`${item.voiceNoteId}-${item.insightId}`}
+            >
+              <CardContent className="p-3">
+                <div className="flex items-start justify-between gap-2">
+                  <div className="min-w-0 flex-1">
+                    {item.playerName && (
+                      <p className="truncate font-medium text-muted-foreground text-sm">
+                        {item.playerName}
+                      </p>
+                    )}
+                    {item.teamName && (
+                      <p className="truncate font-medium text-muted-foreground text-sm">
+                        {item.teamName}
+                      </p>
+                    )}
+                    <p className="text-muted-foreground text-sm">
+                      {item.title}
+                    </p>
+                    <p className="mt-0.5 text-muted-foreground/70 text-xs">
+                      {formatNoteDate(item.noteDate)}
+                    </p>
+                  </div>
+                  <Badge
+                    className={`shrink-0 text-xs ${
+                      item.status === "applied"
+                        ? "bg-green-100 text-green-700"
+                        : "bg-gray-100 text-gray-500"
+                    }`}
+                    variant="secondary"
+                  >
+                    {item.status === "applied" ? "Applied" : "Skipped"}
+                  </Badge>
+                </div>
               </CardContent>
             </Card>
           ))}

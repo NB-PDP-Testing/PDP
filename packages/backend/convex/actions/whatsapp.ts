@@ -120,7 +120,7 @@ export const processIncomingMessage = internalAction({
       }
     );
 
-    // US-VN-003: Duplicate message detection
+    // US-VN-003: Duplicate message detection (exclude the message we just created)
     const duplicateCheck = await ctx.runQuery(
       internal.models.whatsappMessages.checkForDuplicateMessage,
       {
@@ -128,19 +128,25 @@ export const processIncomingMessage = internalAction({
         messageType,
         body: args.body,
         mediaContentType: args.mediaContentType,
+        excludeMessageId: messageId,
       }
     );
 
     if (duplicateCheck?.isDuplicate && duplicateCheck.originalMessageId) {
-      console.log(
-        "[WhatsApp] Duplicate detected, skipping processing. Original:",
-        duplicateCheck.originalMessageId
-      );
       await ctx.runMutation(internal.models.whatsappMessages.markAsDuplicate, {
         messageId,
         originalMessageId: duplicateCheck.originalMessageId,
       });
-      // Silently skip - don't send any reply for duplicates
+      // Look up what happened with the original message
+      const originalStatus = await ctx.runQuery(
+        internal.models.whatsappMessages.getOriginalMessageStatus,
+        { messageId: duplicateCheck.originalMessageId }
+      );
+      const replyMsg = buildDuplicateReply(
+        duplicateCheck.timeSinceOriginal,
+        originalStatus
+      );
+      await sendWhatsAppMessage(phoneNumber, replyMsg);
       return { success: true, messageId };
     }
 
@@ -168,8 +174,6 @@ export const processIncomingMessage = internalAction({
 
     // Handle multi-org ambiguity
     if (coachContext.needsClarification) {
-      console.log("[WhatsApp] Multi-org coach, need clarification");
-
       // Store media if present (for audio messages)
       let mediaStorageId: Id<"_storage"> | undefined;
       if (messageType === "audio" && args.mediaUrl) {
@@ -459,8 +463,6 @@ async function handleOrgSelectionResponse(
 
     return { success: false, error: "Invalid org selection" };
   }
-
-  console.log("[WhatsApp] Org selected:", selectedOrg.name);
 
   // Mark pending message as resolved
   await ctx.runMutation(
@@ -1421,6 +1423,68 @@ function formatCategory(category: string): string {
 }
 
 // ============================================================
+// DUPLICATE REPLY BUILDER
+// ============================================================
+
+function buildDuplicateReply(
+  timeSinceOriginal: number | undefined,
+  originalStatus: {
+    messageStatus: string;
+    hasVoiceNote: boolean;
+    insightsStatus?: string;
+    insightCount: number;
+    playerNames: string[];
+  } | null
+): string {
+  const secsAgo = timeSinceOriginal ? Math.round(timeSinceOriginal / 1000) : 0;
+  const timeLabel =
+    secsAgo < 60 ? `${secsAgo}s ago` : `${Math.round(secsAgo / 60)}m ago`;
+
+  // If we couldn't look up the original, send a basic reply
+  if (!originalStatus) {
+    return `We received this message already (${timeLabel}). No need to resend.`;
+  }
+
+  const { messageStatus, insightsStatus, insightCount, playerNames } =
+    originalStatus;
+  const playerList =
+    playerNames.length > 0 ? playerNames.join(", ") : undefined;
+
+  // Message still being processed (not yet completed)
+  if (messageStatus === "processing" || messageStatus === "received") {
+    return (
+      `We received this message ${timeLabel} and it's currently being processed.` +
+      ` No need to resend — we'll update you when it's done.`
+    );
+  }
+
+  // Message completed — check insight status
+  if (insightsStatus === "completed" && insightCount > 0) {
+    const playerInfo = playerList ? ` about ${playerList}` : "";
+    return (
+      `We already processed this note${playerInfo} (${timeLabel}) and extracted ${insightCount} insight${insightCount !== 1 ? "s" : ""}.` +
+      " Check your review link or type R for a new one."
+    );
+  }
+
+  if (insightsStatus === "processing" || insightsStatus === "pending") {
+    return (
+      `We received this message ${timeLabel} — insights are being extracted now.` +
+      " No need to resend."
+    );
+  }
+
+  if (insightsStatus === "failed") {
+    return (
+      `We received this message ${timeLabel} but had trouble extracting insights.` +
+      " Try sending a new, clearer message instead of resending."
+    );
+  }
+
+  // Default fallback
+  return `We received this message already (${timeLabel}). No need to resend.`;
+}
+
 // TWILIO API
 // ============================================================
 

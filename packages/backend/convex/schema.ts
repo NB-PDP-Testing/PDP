@@ -4088,11 +4088,42 @@ export default defineSchema({
         userAgent: v.optional(v.string()),
       })
     ),
+    // Snooze/remind later (US-VN-012c)
+    snoozeRemindAt: v.optional(v.number()), // Timestamp to send reminder
+    snoozeCount: v.optional(v.number()), // Times snoozed (max 3)
   })
     .index("by_code", ["code"])
     .index("by_coachUserId_and_status", ["coachUserId", "status"])
     .index("by_expiresAt_and_status", ["expiresAt", "status"])
     .index("by_status", ["status"]),
+
+  // ============================================================
+  // REVIEW ANALYTICS EVENTS (US-VN-012a)
+  // Tracks all coach actions on the /r/ review microsite
+  // ============================================================
+  reviewAnalyticsEvents: defineTable({
+    linkCode: v.string(),
+    coachUserId: v.string(),
+    organizationId: v.string(),
+    eventType: v.union(
+      v.literal("apply"),
+      v.literal("dismiss"),
+      v.literal("edit"),
+      v.literal("snooze"),
+      v.literal("batch_apply"),
+      v.literal("batch_dismiss")
+    ),
+    insightId: v.optional(v.string()),
+    voiceNoteId: v.optional(v.id("voiceNotes")),
+    category: v.optional(v.string()),
+    confidenceScore: v.optional(v.number()),
+    wasAutoApplyCandidate: v.optional(v.boolean()),
+    metadata: v.optional(v.any()),
+    timestamp: v.number(),
+  })
+    .index("by_coachUserId_and_timestamp", ["coachUserId", "timestamp"])
+    .index("by_organizationId_and_timestamp", ["organizationId", "timestamp"])
+    .index("by_linkCode", ["linkCode"]),
 
   // ============================================================
   // PLATFORM STAFF INVITATIONS

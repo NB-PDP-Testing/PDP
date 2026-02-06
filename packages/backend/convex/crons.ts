@@ -98,6 +98,14 @@ crons.daily(
   {}
 );
 
+// Process snoozed review reminders every 15 minutes (US-VN-012c)
+crons.interval(
+  "process-snoozed-review-reminders",
+  { minutes: 15 },
+  internal.models.whatsappReviewLinks.processSnoozedReminders,
+  {}
+);
+
 // Delete expired review links older than 7 days past expiry (daily at 3:15 AM UTC)
 crons.daily(
   "cleanup-expired-review-links",

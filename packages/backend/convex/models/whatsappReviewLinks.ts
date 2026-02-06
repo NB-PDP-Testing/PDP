@@ -11,6 +11,8 @@
  */
 
 import { v } from "convex/values";
+// biome-ignore lint: Convex internal API import required for scheduler
+import { internal } from "../_generated/api";
 import type { Doc } from "../_generated/dataModel";
 import {
   internalMutation,
@@ -565,20 +567,38 @@ export const editInsightFromReview = mutation({
       return { success: false as const, reason: "invalid_or_expired" };
     }
 
-    const { note } = scope;
-    const updatedInsights = note.insights.map((insight) => {
-      if (insight.id === args.insightId) {
+    const { link, note } = scope;
+    const updatedInsights = note.insights.map((ins) => {
+      if (ins.id === args.insightId) {
         return {
-          ...insight,
-          title: args.title ?? insight.title,
-          description: args.description ?? insight.description,
-          category: args.category ?? insight.category,
+          ...ins,
+          title: args.title ?? ins.title,
+          description: args.description ?? ins.description,
+          category: args.category ?? ins.category,
         };
       }
-      return insight;
+      return ins;
     });
 
     await ctx.db.patch(note._id, { insights: updatedInsights });
+
+    // Log analytics event
+    const insight = note.insights.find((i) => i.id === args.insightId);
+    await ctx.scheduler.runAfter(
+      0,
+      internal.models.reviewAnalytics.logReviewEvent,
+      {
+        linkCode: args.code,
+        coachUserId: link.coachUserId,
+        organizationId: link.organizationId,
+        eventType: "edit",
+        insightId: args.insightId,
+        voiceNoteId: args.voiceNoteId,
+        category: insight?.category,
+        confidenceScore: insight?.confidence,
+      }
+    );
+
     return { success: true as const };
   },
 });
@@ -626,6 +646,23 @@ export const applyInsightFromReview = mutation({
     });
 
     await ctx.db.patch(note._id, { insights: updatedInsights });
+
+    // Log analytics event
+    await ctx.scheduler.runAfter(
+      0,
+      internal.models.reviewAnalytics.logReviewEvent,
+      {
+        linkCode: args.code,
+        coachUserId: scope.link.coachUserId,
+        organizationId: scope.link.organizationId,
+        eventType: "apply",
+        insightId: args.insightId,
+        voiceNoteId: args.voiceNoteId,
+        category: insight.category,
+        confidenceScore: insight.confidence,
+      }
+    );
+
     return {
       success: true as const,
       message: `Applied: ${insight.title}`,
@@ -674,6 +711,23 @@ export const dismissInsightFromReview = mutation({
     });
 
     await ctx.db.patch(note._id, { insights: updatedInsights });
+
+    // Log analytics event
+    await ctx.scheduler.runAfter(
+      0,
+      internal.models.reviewAnalytics.logReviewEvent,
+      {
+        linkCode: args.code,
+        coachUserId: scope.link.coachUserId,
+        organizationId: scope.link.organizationId,
+        eventType: "dismiss",
+        insightId: args.insightId,
+        voiceNoteId: args.voiceNoteId,
+        category: insight.category,
+        confidenceScore: insight.confidence,
+      }
+    );
+
     return { success: true as const };
   },
 });
@@ -766,6 +820,21 @@ export const batchApplyInsightsFromReview = mutation({
       successCount += pendingIds.size;
       failCount += insightIds.length - pendingIds.size;
       await ctx.db.patch(note._id, { insights: updatedInsights });
+    }
+
+    // Log batch analytics event
+    if (successCount > 0) {
+      await ctx.scheduler.runAfter(
+        0,
+        internal.models.reviewAnalytics.logReviewEvent,
+        {
+          linkCode: args.code,
+          coachUserId: link.coachUserId,
+          organizationId: link.organizationId,
+          eventType: "batch_apply",
+          metadata: { count: successCount },
+        }
+      );
     }
 
     return { successCount, failCount };
@@ -1230,6 +1299,132 @@ export const assignPlayerFromReview = mutation({
 
     await ctx.db.patch(note._id, { insights: updatedInsights });
     return { success: true as const, playerName };
+  },
+});
+
+// ============================================================
+// PUBLIC MUTATIONS — Snooze & Remind Later (US-VN-012c)
+// ============================================================
+
+const MAX_SNOOZE_COUNT = 3;
+
+/**
+ * Snooze the review link — defer review with a timed WhatsApp reminder.
+ * Code-authenticated (no session needed).
+ */
+export const snoozeReviewLink = mutation({
+  args: {
+    code: v.string(),
+    delayMs: v.number(),
+  },
+  returns: v.union(
+    v.object({ success: v.literal(true), snoozeCount: v.number() }),
+    v.object({ success: v.literal(false), reason: v.string() })
+  ),
+  handler: async (ctx, args) => {
+    const result = await validateReviewCode(ctx, args.code);
+    if (!result) {
+      return { success: false as const, reason: "invalid_code" };
+    }
+    if (result.isExpired) {
+      return { success: false as const, reason: "expired" };
+    }
+
+    const { link } = result;
+    const currentSnoozeCount = link.snoozeCount ?? 0;
+
+    if (currentSnoozeCount >= MAX_SNOOZE_COUNT) {
+      return { success: false as const, reason: "max_snoozes_reached" };
+    }
+
+    const newSnoozeCount = currentSnoozeCount + 1;
+    await ctx.db.patch(link._id, {
+      snoozeRemindAt: Date.now() + args.delayMs,
+      snoozeCount: newSnoozeCount,
+    });
+
+    // Log analytics event
+    await ctx.scheduler.runAfter(
+      0,
+      internal.models.reviewAnalytics.logReviewEvent,
+      {
+        linkCode: args.code,
+        coachUserId: link.coachUserId,
+        organizationId: link.organizationId,
+        eventType: "snooze",
+        metadata: { delayMs: args.delayMs, snoozeCount: newSnoozeCount },
+      }
+    );
+
+    return { success: true as const, snoozeCount: newSnoozeCount };
+  },
+});
+
+/**
+ * Get snooze info for a review link (for displaying in SnoozeBar UI).
+ */
+export const getSnoozeInfo = query({
+  args: { code: v.string() },
+  returns: v.union(
+    v.object({
+      snoozeCount: v.number(),
+      maxSnoozes: v.number(),
+      snoozeRemindAt: v.optional(v.number()),
+    }),
+    v.null()
+  ),
+  handler: async (ctx, args) => {
+    const result = await validateReviewCode(ctx, args.code);
+    if (!result || result.isExpired) {
+      return null;
+    }
+    return {
+      snoozeCount: result.link.snoozeCount ?? 0,
+      maxSnoozes: MAX_SNOOZE_COUNT,
+      snoozeRemindAt: result.link.snoozeRemindAt,
+    };
+  },
+});
+
+/**
+ * Process snoozed review reminders.
+ * Called by cron every 15 minutes.
+ * Sends WhatsApp reminders for links whose snoozeRemindAt has passed.
+ */
+export const processSnoozedReminders = internalMutation({
+  args: {},
+  returns: v.object({ remindedCount: v.number() }),
+  handler: async (ctx) => {
+    const now = Date.now();
+    let remindedCount = 0;
+
+    // Query active links that have a snooze reminder due
+    const activeLinks = await ctx.db
+      .query("whatsappReviewLinks")
+      .withIndex("by_status", (q) => q.eq("status", "active"))
+      .collect();
+
+    for (const link of activeLinks) {
+      if (link.snoozeRemindAt && link.snoozeRemindAt <= now) {
+        // Clear the snooze reminder
+        await ctx.db.patch(link._id, { snoozeRemindAt: undefined });
+
+        // Schedule WhatsApp reminder via the action
+        await ctx.scheduler.runAfter(
+          0,
+          internal.actions.whatsapp.sendSnoozeReminder,
+          {
+            coachUserId: link.coachUserId,
+            organizationId: link.organizationId,
+            linkCode: link.code,
+          }
+        );
+
+        remindedCount += 1;
+      }
+    }
+
+    return { remindedCount };
   },
 });
 

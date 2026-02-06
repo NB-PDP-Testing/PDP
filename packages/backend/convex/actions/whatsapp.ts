@@ -12,6 +12,8 @@ const TRAILING_SLASH_REGEX = /\/+$/;
 // US-VN-011: WhatsApp quick-reply command patterns (exact match only)
 const OK_COMMAND_REGEX = /^(ok|yes|apply|go)$/i;
 const RESEND_COMMAND_REGEX = /^r$/i;
+// US-VN-012c: Snooze command pattern
+const SNOOZE_COMMAND_REGEX = /^(snooze|later|remind)/i;
 
 /**
  * WhatsApp Integration via Twilio
@@ -281,6 +283,20 @@ export const processIncomingMessage = internalAction({
           phoneNumber,
         });
         if (resendResult) {
+          return { success: true, messageId };
+        }
+        // No active link — fall through to normal processing
+      }
+
+      // Priority 2.5: SNOOZE/LATER — defer review with 2h default (US-VN-012c)
+      if (SNOOZE_COMMAND_REGEX.test(trimmedBody)) {
+        const snoozeResult = await handleSnoozeCommand(ctx, {
+          messageId,
+          coachId: coachContext.coachId,
+          organizationId: organization.id,
+          phoneNumber,
+        });
+        if (snoozeResult) {
           return { success: true, messageId };
         }
         // No active link — fall through to normal processing
@@ -1668,3 +1684,102 @@ async function handleResendCommand(
   await sendWhatsAppMessage(args.phoneNumber, lines.join("\n"));
   return true;
 }
+
+/**
+ * Handle "SNOOZE/LATER/REMIND" quick-reply: defer review with 2h default.
+ * Returns true if handled (active link exists), false if should fall through.
+ */
+async function handleSnoozeCommand(
+  // biome-ignore lint/suspicious/noExplicitAny: Convex action context type
+  ctx: any,
+  args: {
+    messageId: Id<"whatsappMessages">;
+    coachId: string;
+    organizationId: string;
+    phoneNumber: string;
+  }
+): Promise<boolean> {
+  const activeLink = await ctx.runQuery(
+    internal.models.whatsappReviewLinks.getActiveLinkForCoach,
+    {
+      coachUserId: args.coachId,
+      organizationId: args.organizationId,
+    }
+  );
+
+  if (!activeLink) {
+    return false;
+  }
+
+  // Default 2h delay
+  const twoHoursMs = 2 * 60 * 60 * 1000;
+
+  const result = await ctx.runMutation(
+    api.models.whatsappReviewLinks.snoozeReviewLink,
+    {
+      code: activeLink.code,
+      delayMs: twoHoursMs,
+    }
+  );
+
+  if (result.success) {
+    await sendWhatsAppMessage(
+      args.phoneNumber,
+      `Got it! I'll remind you in 2 hours. (${result.snoozeCount}/3 reminders used)`
+    );
+  } else {
+    const reason =
+      result.reason === "max_snoozes_reached"
+        ? "You've used all 3 reminders."
+        : "Could not set reminder.";
+    await sendWhatsAppMessage(args.phoneNumber, reason);
+  }
+
+  return true;
+}
+
+// ============================================================
+// SNOOZE REMINDER (US-VN-012c)
+// ============================================================
+
+/**
+ * Send a WhatsApp reminder for a snoozed review link.
+ * Called by the processSnoozedReminders cron via scheduler.
+ */
+export const sendSnoozeReminder = internalAction({
+  args: {
+    coachUserId: v.string(),
+    organizationId: v.string(),
+    linkCode: v.string(),
+  },
+  returns: v.null(),
+  handler: async (ctx, args) => {
+    // Look up coach's phone number
+    const coachPhone = await ctx.runQuery(
+      internal.models.whatsappMessages.getCoachPhoneNumber,
+      { coachUserId: args.coachUserId }
+    );
+
+    if (!coachPhone) {
+      console.error(
+        "[WhatsApp] No phone number found for coach:",
+        args.coachUserId
+      );
+      return null;
+    }
+
+    const siteUrl = (process.env.SITE_URL ?? "http://localhost:3000").replace(
+      TRAILING_SLASH_REGEX,
+      ""
+    );
+
+    const reviewUrl = `${siteUrl}/r/${args.linkCode}`;
+
+    await sendWhatsAppMessage(
+      coachPhone,
+      `Reminder: You have pending voice note insights to review.\n\n${reviewUrl}\n\nReply OK to apply all matched insights.`
+    );
+
+    return null;
+  },
+});

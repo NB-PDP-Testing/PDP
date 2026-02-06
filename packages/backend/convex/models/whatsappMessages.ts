@@ -544,6 +544,36 @@ export const findCoachByPhone = internalQuery({
   },
 });
 
+/**
+ * Get a coach's phone number by user ID.
+ * Used by snooze reminders to send WhatsApp messages.
+ * @internal
+ */
+export const getCoachPhoneNumber = internalQuery({
+  args: {
+    coachUserId: v.string(),
+  },
+  returns: v.union(v.string(), v.null()),
+  handler: async (ctx, args) => {
+    // eslint-disable-next-line @typescript-eslint/no-require-imports
+    const { components: betterAuthComponents } = require("../_generated/api");
+    const userResult = await ctx.runQuery(
+      betterAuthComponents.betterAuth.adapter.findOne,
+      {
+        model: "user",
+        where: [{ field: "_id", operator: "eq", value: args.coachUserId }],
+      }
+    );
+
+    if (!userResult) {
+      return null;
+    }
+
+    // biome-ignore lint/suspicious/noExplicitAny: Dynamic user type from component
+    return (userResult as any).phone ?? null;
+  },
+});
+
 // Phone normalization moved to shared utility: lib/phoneUtils.ts
 
 // ============================================================

@@ -1,6 +1,8 @@
 import { v } from "convex/values";
+import { components } from "../_generated/api";
 import type { Doc } from "../_generated/dataModel";
 import { mutation, query } from "../_generated/server";
+import type { Doc as BetterAuthDoc } from "../betterAuth/_generated/dataModel";
 import {
   notifyInjuryReported,
   notifyMedicalClearance,
@@ -751,6 +753,193 @@ export const getOrgInjuryAnalytics = query({
     );
 
     return computeInjuryAggregations(filteredInjuries);
+  },
+});
+
+/** Compute summary stats for a set of injuries belonging to a team. */
+function computeTeamInjuryStats(injuries: Doc<"playerInjuries">[]) {
+  const severityOrder: Record<string, number> = {
+    minor: 1,
+    moderate: 2,
+    severe: 3,
+    long_term: 4,
+  };
+  const severityLabels = ["minor", "moderate", "severe", "long_term"];
+
+  let activeCount = 0;
+  let severitySum = 0;
+  for (const inj of injuries) {
+    if (inj.status === "active" || inj.status === "recovering") {
+      activeCount += 1;
+    }
+    severitySum += severityOrder[inj.severity] || 1;
+  }
+  const avgSeverityIdx = Math.round(severitySum / injuries.length) - 1;
+  const avgSeverity =
+    severityLabels[Math.max(0, Math.min(3, avgSeverityIdx))] || "minor";
+
+  const bodyPartCounts = countByField(injuries, (i) => i.bodyPart);
+  const mostCommonBodyPart =
+    bodyPartCounts.length > 0 ? bodyPartCounts[0].key : "N/A";
+
+  const typeCounts = countByField(injuries, (i) => i.injuryType);
+  const mostCommonType = typeCounts.length > 0 ? typeCounts[0].key : "N/A";
+
+  return {
+    totalInjuries: injuries.length,
+    activeCount,
+    avgSeverity,
+    mostCommonBodyPart,
+    mostCommonType,
+  };
+}
+
+/** Collect injuries for a set of player IDs from a pre-built map. */
+function gatherTeamInjuries(
+  playerIds: Set<string>,
+  playerInjuryMap: Map<string, Doc<"playerInjuries">[]>
+): Doc<"playerInjuries">[] {
+  const teamInjuries: Doc<"playerInjuries">[] = [];
+  for (const pid of playerIds) {
+    const pInjuries = playerInjuryMap.get(pid);
+    if (pInjuries) {
+      for (const inj of pInjuries) {
+        teamInjuries.push(inj);
+      }
+    }
+  }
+  return teamInjuries;
+}
+
+/**
+ * Get injury statistics broken down by team.
+ * Uses Better Auth adapter for team data, batch fetches injuries.
+ */
+export const getInjuriesByTeam = query({
+  args: {
+    organizationId: v.string(),
+    startDate: v.optional(v.string()),
+    endDate: v.optional(v.string()),
+  },
+  returns: v.array(
+    v.object({
+      teamId: v.string(),
+      teamName: v.string(),
+      totalInjuries: v.number(),
+      activeCount: v.number(),
+      avgSeverity: v.string(),
+      mostCommonBodyPart: v.string(),
+      mostCommonType: v.string(),
+    })
+  ),
+  handler: async (ctx, args) => {
+    // 1. Fetch all teams for the org via Better Auth adapter
+    const teamsResult = await ctx.runQuery(
+      components.betterAuth.adapter.findMany,
+      {
+        model: "team",
+        paginationOpts: { cursor: null, numItems: 500 },
+        where: [
+          {
+            field: "organizationId",
+            value: args.organizationId,
+            operator: "eq",
+          },
+        ],
+      }
+    );
+    const teams = (teamsResult?.page || []) as BetterAuthDoc<"team">[];
+
+    if (teams.length === 0) {
+      return [];
+    }
+
+    // 2. Build team map for O(1) lookup
+    const teamMap = new Map<string, BetterAuthDoc<"team">>();
+    for (const team of teams) {
+      teamMap.set(team._id, team);
+    }
+
+    // 3. Fetch all teamPlayerIdentities for the org
+    const teamPlayerIdentities = await ctx.db
+      .query("teamPlayerIdentities")
+      .withIndex("by_org_and_status", (q) =>
+        q.eq("organizationId", args.organizationId).eq("status", "active")
+      )
+      .collect();
+
+    // 4. Build playerIds-by-team map
+    const teamPlayerMap = new Map<string, Set<string>>();
+    for (const tpi of teamPlayerIdentities) {
+      if (!teamMap.has(tpi.teamId)) {
+        continue;
+      }
+      const existing = teamPlayerMap.get(tpi.teamId);
+      if (existing) {
+        existing.add(tpi.playerIdentityId);
+      } else {
+        teamPlayerMap.set(tpi.teamId, new Set([tpi.playerIdentityId]));
+      }
+    }
+
+    // 5. Collect all unique player IDs across all teams
+    const allPlayerIds = new Set<string>();
+    for (const playerSet of teamPlayerMap.values()) {
+      for (const pid of playerSet) {
+        allPlayerIds.add(pid);
+      }
+    }
+
+    // 6. Batch fetch all injuries for all players
+    const playerInjuryMap = new Map<string, Doc<"playerInjuries">[]>();
+    for (const playerId of allPlayerIds) {
+      const injuries = await ctx.db
+        .query("playerInjuries")
+        .withIndex("by_playerIdentityId", (q) =>
+          q.eq(
+            "playerIdentityId",
+            playerId as Doc<"playerInjuries">["playerIdentityId"]
+          )
+        )
+        .collect();
+
+      // Filter by visibility and date range
+      const visible = injuries.filter((i) =>
+        isInjuryVisibleToOrg(i, args.organizationId)
+      );
+      const filtered = filterByDateRange(visible, args.startDate, args.endDate);
+
+      if (filtered.length > 0) {
+        playerInjuryMap.set(playerId, filtered);
+      }
+    }
+
+    // 7. Compute per-team stats using helpers
+    const results = [];
+
+    for (const [teamId, playerIds] of teamPlayerMap.entries()) {
+      const team = teamMap.get(teamId);
+      if (!team) {
+        continue;
+      }
+
+      const teamInjuries = gatherTeamInjuries(playerIds, playerInjuryMap);
+      if (teamInjuries.length === 0) {
+        continue;
+      }
+
+      const stats = computeTeamInjuryStats(teamInjuries);
+      results.push({
+        teamId,
+        teamName: team.name,
+        ...stats,
+      });
+    }
+
+    // Sort by totalInjuries descending
+    results.sort((a, b) => b.totalInjuries - a.totalInjuries);
+
+    return results;
   },
 });
 

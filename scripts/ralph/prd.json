@@ -112,7 +112,7 @@
         "Typecheck passes: npm run check-types"
       ],
       "priority": 4,
-      "passes": false,
+      "passes": true,
       "notes": "This powers the injuries data table on the admin dashboard. Keep enrichment efficient with Map lookups."
     },
     {

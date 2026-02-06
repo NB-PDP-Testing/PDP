@@ -337,3 +337,156 @@ export async function notifyStatusChanged(
     `[notifyStatusChanged] Created ${uniqueRecipients.length} notifications for status change to ${newStatus}`
   );
 }
+
+/**
+ * Notify relevant parties when a recovery milestone is completed
+ *
+ * - If parent completes → notify coaches
+ * - If coach completes → notify parents
+ */
+export async function notifyMilestoneCompleted(
+  ctx: MutationCtx,
+  args: {
+    injuryId: Id<"playerInjuries">;
+    playerIdentityId: Id<"playerIdentities">;
+    organizationId: string;
+    completedByUserId: string;
+    completedByRole: ReportedByRole;
+    playerName: string;
+    milestoneDescription: string;
+  }
+): Promise<void> {
+  const {
+    injuryId,
+    playerIdentityId,
+    organizationId,
+    completedByUserId,
+    completedByRole,
+    playerName,
+    milestoneDescription,
+  } = args;
+
+  const recipientUserIds: string[] = [];
+
+  console.log("[notifyMilestoneCompleted] Starting notification process:", {
+    injuryId,
+    completedByRole,
+    milestoneDescription,
+  });
+
+  // Determine who to notify based on who completed the milestone
+  if (completedByRole === "guardian" || completedByRole === "player") {
+    // Parent completed → notify coaches
+    const coachIds = await getCoachUserIdsForPlayer(
+      ctx,
+      playerIdentityId,
+      organizationId
+    );
+    recipientUserIds.push(...coachIds);
+  } else {
+    // Coach/admin completed → notify parents
+    const guardianIds = await getGuardianUserIdsForPlayer(
+      ctx,
+      playerIdentityId
+    );
+    recipientUserIds.push(...guardianIds);
+  }
+
+  // Remove the completer from the recipient list
+  const filteredRecipients = recipientUserIds.filter(
+    (id) => id !== completedByUserId
+  );
+
+  // Remove duplicates
+  const uniqueRecipients = [...new Set(filteredRecipients)];
+
+  const title = "Recovery Milestone Completed";
+  const message = `${playerName} - ${milestoneDescription}`;
+
+  await Promise.all(
+    uniqueRecipients.map((userId) =>
+      ctx.runMutation(internal.models.notifications.createNotification, {
+        userId,
+        organizationId,
+        type: "milestone_completed",
+        title,
+        message,
+        relatedInjuryId: injuryId,
+        relatedPlayerId: playerIdentityId,
+      })
+    )
+  );
+
+  console.log(
+    `[notifyMilestoneCompleted] Created ${uniqueRecipients.length} notifications for milestone completion`
+  );
+}
+
+/**
+ * Notify coaches when medical clearance is received
+ *
+ * Notifies coaches when a parent submits medical clearance documentation
+ */
+export async function notifyMedicalClearance(
+  ctx: MutationCtx,
+  args: {
+    injuryId: Id<"playerInjuries">;
+    playerIdentityId: Id<"playerIdentities">;
+    organizationId: string;
+    submittedByUserId: string;
+    playerName: string;
+    bodyPart: string;
+  }
+): Promise<void> {
+  const {
+    injuryId,
+    playerIdentityId,
+    organizationId,
+    submittedByUserId,
+    playerName,
+    bodyPart,
+  } = args;
+
+  console.log("[notifyMedicalClearance] Starting notification process:", {
+    injuryId,
+    playerName,
+    bodyPart,
+  });
+
+  // Notify both coaches and parents (except the submitter)
+  const [coachIds, guardianIds] = await Promise.all([
+    getCoachUserIdsForPlayer(ctx, playerIdentityId, organizationId),
+    getGuardianUserIdsForPlayer(ctx, playerIdentityId),
+  ]);
+
+  const allRecipients = [...coachIds, ...guardianIds];
+
+  // Remove the submitter from the recipient list
+  const filteredRecipients = allRecipients.filter(
+    (id) => id !== submittedByUserId
+  );
+
+  // Remove duplicates
+  const uniqueRecipients = [...new Set(filteredRecipients)];
+
+  const title = "Medical Clearance Received";
+  const message = `${playerName} - medical clearance received for ${bodyPart} injury`;
+
+  await Promise.all(
+    uniqueRecipients.map((userId) =>
+      ctx.runMutation(internal.models.notifications.createNotification, {
+        userId,
+        organizationId,
+        type: "clearance_received",
+        title,
+        message,
+        relatedInjuryId: injuryId,
+        relatedPlayerId: playerIdentityId,
+      })
+    )
+  );
+
+  console.log(
+    `[notifyMedicalClearance] Created ${uniqueRecipients.length} notifications for medical clearance`
+  );
+}

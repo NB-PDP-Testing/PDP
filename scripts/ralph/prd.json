@@ -1,234 +1,361 @@
 {
-  "project": "Injury Tracking Phase 1 - Notifications",
-  "branchName": "feature/261-injury-tracking-phase1-notifications",
-  "description": "In-app notifications for the injury tracking system. Alert relevant stakeholders (parents, coaches, admins) when injuries are reported or status changes significantly.",
+  "project": "Injury Tracking Phase 2 - Recovery Management",
+  "branchName": "feature/261-injury-tracking-phase2-recovery",
+  "description": "Recovery management for injury tracking: recovery plans, milestone tracking, progress updates, medical document uploads, and recovery timeline visualization.",
   "readinessLevel": "100% - Ready to Start",
-  "urgency": "HIGH - Critical gap in injury tracking system, no alerts when injuries reported/updated",
+  "urgency": "HIGH - Phase 1 notifications complete, Phase 2 is next priority",
   "contextAndDependencies": {
     "criticalContext": [
-      "Injury tracking backend already exists: packages/backend/convex/models/playerInjuries.ts",
-      "Notifications table already exists: packages/backend/convex/models/notifications.ts with createNotification mutation",
+      "Phase 1 (notifications) is complete - injuryNotifications.ts helper module exists",
+      "playerInjuries table already has returnToPlayProtocol array, expectedReturn, treatment, medicalProvider, medicalNotes fields",
+      "Existing mutations: setReturnToPlayProtocol, completeProtocolStep, updateInjuryDetails, updateInjuryStatus",
       "Coach injuries page exists: apps/web/src/app/orgs/[orgId]/coach/injuries/page.tsx",
       "Parent injuries page exists: apps/web/src/app/orgs/[orgId]/parents/injuries/page.tsx",
-      "Notification bell exists: apps/web/src/components/notifications/notification-bell.tsx",
-      "playerInjuries uses playerIdentityId (platform-level), not org-scoped enrollment ID",
-      "guardianPlayerLinks table links guardians to players",
-      "coachAssignments table links coaches to teams",
-      "teamPlayerIdentities table links players to teams"
+      "Convex file storage already used for voice notes - can adapt pattern for document uploads",
+      "Logo upload component exists and can be referenced for file upload UI patterns",
+      "Shared injuries components directory: apps/web/src/components/injuries/"
     ],
     "keyFiles": [
-      "Backend: packages/backend/convex/models/playerInjuries.ts - reportInjury, updateInjuryStatus mutations",
-      "Backend: packages/backend/convex/models/notifications.ts - createNotification mutation",
-      "Backend: packages/backend/convex/models/members.ts - member/admin queries",
-      "Backend: packages/backend/convex/schema.ts - notifications table type literals",
+      "Backend: packages/backend/convex/schema.ts - playerInjuries table, add new tables",
+      "Backend: packages/backend/convex/models/playerInjuries.ts - existing mutations, add recovery mutations",
+      "Backend: packages/backend/convex/models/injuryDocuments.ts - NEW file for document operations",
+      "Backend: packages/backend/convex/lib/injuryNotifications.ts - add Phase 2 notification functions",
+      "Backend: packages/backend/convex/models/notifications.ts - notification type literals",
+      "Frontend: apps/web/src/components/injuries/ - shared recovery components directory",
       "Frontend: apps/web/src/app/orgs/[orgId]/coach/injuries/page.tsx - coach injury dashboard",
-      "Frontend: apps/web/src/components/notifications/notification-bell.tsx - notification display"
+      "Frontend: apps/web/src/app/orgs/[orgId]/parents/injuries/page.tsx - parent injury view"
     ],
     "criticalPatterns": {
-      "BetterAuthTables": "Do NOT query user/organization/member/team tables directly. Use ctx.runQuery(components.betterAuth.adapter.findMany, {...}) for these tables.",
-      "ApplicationTables": "playerInjuries, guardianPlayerLinks, coachAssignments, teamPlayerIdentities use regular Convex queries (ctx.db.query).",
+      "BetterAuthTables": "Do NOT query user/organization/member/team tables directly. Use ctx.runQuery(components.betterAuth.adapter.findMany, {...}).",
+      "ApplicationTables": "playerInjuries, injuryProgressUpdates, injuryDocuments use regular Convex queries (ctx.db.query).",
       "N1Prevention": "Batch fetch with Map lookup, never query in a loop. See CLAUDE.md Performance section.",
       "IndexUsage": "Always use .withIndex(), never .filter(). Add composite indexes for new query patterns.",
       "TypeSafety": "Use Id<'tableName'> types, not string. Import from @pdp/backend/convex/_generated/dataModel.",
-      "ErrorHandling": "Notification failures should be caught and logged, never block the main mutation."
+      "ConvexFileStorage": "Use ctx.storage.generateUploadUrl() in actions. Store storageId from upload, use ctx.storage.getUrl(storageId) for downloads.",
+      "ErrorHandling": "Notification failures should be caught and logged, never block the main mutation.",
+      "ConvexActions": "Actions cannot access ctx.db - use ctx.runQuery/ctx.runMutation for database access from actions.",
+      "ReturnValidators": "All queries and mutations MUST include a returns validator."
+    },
+    "documentAccessControl": {
+      "medical_report": "Guardian: Full, Coach: Metadata only, Admin: Metadata only",
+      "clearance_form": "Guardian: Full, Coach: Full, Admin: Full",
+      "private_docs": "Guardian: Full, Coach: None, Admin: Audit only"
     }
   },
   "userStories": [
     {
-      "id": "US-INJ-001",
-      "title": "Add injury notification type literals to schema",
-      "description": "As a developer, I need the notification type literals added to the schema so injury notifications can be stored.",
+      "id": "US-REC-001",
+      "title": "Add recovery fields to playerInjuries table in schema",
+      "description": "As a developer, I need additional fields on the playerInjuries table to support recovery plans, milestones, and medical clearance tracking.",
       "acceptanceCriteria": [
-        "Add v.literal('injury_reported') to notifications table type union in schema.ts",
-        "Add v.literal('severe_injury_alert') to notifications table type union",
-        "Add v.literal('injury_cleared') to notifications table type union",
-        "Add v.literal('injury_status_changed') to notifications table type union",
+        "Add estimatedRecoveryDays: v.optional(v.number()) to playerInjuries table",
+        "Add recoveryPlanNotes: v.optional(v.string()) for coach recovery guidance",
+        "Add milestones: v.optional(v.array(v.object({id, description, targetDate?, completedDate?, completedBy?, notes?, order})))",
+        "Add medicalClearanceRequired: v.optional(v.boolean())",
+        "Add medicalClearanceReceived: v.optional(v.boolean())",
+        "Add medicalClearanceDate: v.optional(v.string())",
         "Run: npx -w packages/backend convex codegen",
         "Typecheck passes: npm run check-types"
       ],
       "priority": 1,
       "passes": true,
-      "notes": "Find the notifications table type union in schema.ts and add the new literals alongside existing types."
+      "notes": "milestones array is enhanced from existing returnToPlayProtocol. Both can coexist for backwards compatibility. IMPLEMENTED: All recovery fields exist in schema."
     },
     {
-      "id": "US-INJ-002",
-      "title": "Create injuryNotifications helper module",
-      "description": "As a developer, I need a helper module to encapsulate all injury notification logic.",
+      "id": "US-REC-002",
+      "title": "Create injuryProgressUpdates table in schema",
+      "description": "As a developer, I need a table to store progress update history for injuries, tracking who made updates and what type of update it was.",
       "acceptanceCriteria": [
-        "Create packages/backend/convex/lib/injuryNotifications.ts",
-        "Add imports for Convex types, Id types, and internal references",
-        "Export placeholder async functions: getGuardianUserIdsForPlayer, getCoachUserIdsForPlayer, getAdminUserIdsForOrg",
+        "Add injuryProgressUpdates table to schema.ts with fields: injuryId (Id<playerInjuries>), updatedBy (string), updatedByRole (guardian|coach|admin), updateType (progress_note|milestone_completed|status_change|document_uploaded|clearance_received), notes (optional string), previousStatus (optional string), newStatus (optional string), milestoneId (optional string), documentId (optional Id<injuryDocuments>), createdAt (number)",
+        "Add index by_injury on injuryId",
+        "Add index by_injury_created on [injuryId, createdAt]",
+        "Run: npx -w packages/backend convex codegen",
         "Typecheck passes: npm run check-types"
       ],
       "priority": 2,
       "passes": true,
-      "notes": "This is the foundation file. Subsequent stories will implement each function."
+      "notes": "This table creates an audit trail of all recovery-related activity. IMPLEMENTED: Table exists with all fields + denormalized updatedByName and milestoneDescription."
     },
     {
-      "id": "US-INJ-003",
-      "title": "Implement getGuardianUserIdsForPlayer helper",
-      "description": "As the system, I need to find all guardian user IDs for a given player so I can notify them when their child is injured.",
+      "id": "US-REC-003",
+      "title": "Create injuryDocuments table in schema",
+      "description": "As a developer, I need a table to store metadata for medical documents uploaded against injuries.",
       "acceptanceCriteria": [
-        "Implement getGuardianUserIdsForPlayer(ctx, playerIdentityId) in injuryNotifications.ts",
-        "Query guardianPlayerLinks table using by_player index to find linked guardians",
-        "For each guardian link, look up the guardianIdentity to get the userId",
-        "Return array of unique user ID strings",
-        "Handle case where player has no linked guardians (return empty array)",
+        "Add injuryDocuments table to schema.ts with fields: injuryId (Id<playerInjuries>), uploadedBy (string), uploadedByRole (guardian|coach|admin), storageId (Id<_storage>), fileName (string), fileType (string), fileSize (number), documentType (medical_report|clearance_form|xray_scan|therapy_notes|other), description (optional string), isPrivate (boolean), createdAt (number)",
+        "Add index by_injury on injuryId",
+        "Add index by_injury_type on [injuryId, documentType]",
+        "Run: npx -w packages/backend convex codegen",
         "Typecheck passes: npm run check-types"
       ],
       "priority": 3,
       "passes": true,
-      "notes": "Use batch fetch pattern: collect all guardian IDs first, then batch lookup. No N+1 queries."
+      "notes": "isPrivate controls visibility - if true, only the uploading guardian can see the document. IMPLEMENTED: Table exists with insurance_form as additional documentType."
     },
     {
-      "id": "US-INJ-004",
-      "title": "Implement getCoachUserIdsForPlayer helper",
-      "description": "As the system, I need to find all coach user IDs assigned to a player's teams so I can notify them of injuries.",
+      "id": "US-REC-004",
+      "title": "Implement setRecoveryPlan mutation",
+      "description": "As a coach, I want to create a recovery plan for an injured player with estimated recovery time, notes, milestones, and medical clearance requirements.",
       "acceptanceCriteria": [
-        "Implement getCoachUserIdsForPlayer(ctx, playerIdentityId, organizationId) in injuryNotifications.ts",
-        "Query teamPlayerIdentities to find which teams the player is on",
-        "Query coachAssignments to find coaches assigned to those teams",
-        "Return array of unique coach user ID strings",
-        "Handle case where player has no team assignments (return empty array)",
+        "Add setRecoveryPlan mutation to playerInjuries.ts",
+        "Args: injuryId, estimatedRecoveryDays (optional number), recoveryPlanNotes (optional string), milestones (optional array of {description, targetDate?, order}), medicalClearanceRequired (optional boolean)",
+        "Verify the injury exists before updating",
+        "Generate unique IDs for each milestone (use crypto.randomUUID or similar)",
+        "Patch the injury record with the recovery plan fields",
+        "Include returns validator",
         "Typecheck passes: npm run check-types"
       ],
       "priority": 4,
       "passes": true,
-      "notes": "Use batch fetch pattern. Player may be on multiple teams - deduplicate coach IDs with Set."
+      "notes": "Milestones should have auto-generated IDs. Order field determines display sequence. IMPLEMENTED: Uses milestone_${Date.now()}_${index} for IDs."
     },
     {
-      "id": "US-INJ-005",
-      "title": "Implement getAdminUserIdsForOrg helper",
-      "description": "As the system, I need to find all admin/owner user IDs for an organization so I can notify them of severe injuries.",
+      "id": "US-REC-005",
+      "title": "Implement milestone CRUD mutations",
+      "description": "As a coach or parent, I need mutations to update, add, and remove individual milestones on an injury's recovery plan.",
       "acceptanceCriteria": [
-        "Add getAdminUserIdsForOrg internal query to members.ts that uses Better Auth adapter",
-        "Query members with role 'admin' or 'owner' for the given organizationId",
-        "Return array of unique user ID strings",
-        "Wire up the helper in injuryNotifications.ts to call this internal query",
+        "Add updateMilestone mutation: args injuryId, milestoneId, completedDate (optional), notes (optional). Finds milestone by ID in array, updates it, patches injury",
+        "Add addMilestone mutation: args injuryId, description, targetDate (optional). Generates ID, appends to milestones array with next order number",
+        "Add removeMilestone mutation: args injuryId, milestoneId. Filters milestone out of array, patches injury",
+        "All three mutations verify injury exists before modifying",
+        "All three include returns validators",
         "Typecheck passes: npm run check-types"
       ],
       "priority": 5,
       "passes": true,
-      "notes": "MUST use Better Auth adapter (components.betterAuth.adapter.findMany) for member table access, not direct ctx.db.query."
+      "notes": "updateMilestone should also set completedBy to the current user ID when completedDate is provided. IMPLEMENTED: All three mutations exist with progress update logging."
     },
     {
-      "id": "US-INJ-006",
-      "title": "Implement notifyInjuryReported function",
-      "description": "As the system, I need to create notifications when a new injury is reported, routing to the correct recipients based on who reported it.",
+      "id": "US-REC-006",
+      "title": "Implement addProgressUpdate mutation and getProgressUpdates query",
+      "description": "As a coach or parent, I want to add progress notes to an injury and view the full progress history.",
       "acceptanceCriteria": [
-        "Implement notifyInjuryReported(ctx, args) in injuryNotifications.ts",
-        "Args: injuryId, playerIdentityId, reportedByRole, reportedByUserId, severity, organizationId, playerName",
-        "If reported by guardian/player: notify all coaches assigned to player's teams",
-        "If reported by coach/admin: notify all guardians linked to player",
-        "If severity is 'severe' or 'long_term': ALSO notify all org admins/owners",
-        "Filter out the reporter from recipients (don't notify yourself)",
-        "Deduplicate all recipient IDs using Set",
-        "Use notification type 'injury_reported' for minor/moderate, 'severe_injury_alert' for severe/long_term",
-        "Create notification for each recipient using createNotification mutation",
+        "Add addProgressUpdate mutation to playerInjuries.ts with args: injuryId, notes (string), updateType (progress_note|milestone_completed), milestoneId (optional string)",
+        "Mutation inserts a record into injuryProgressUpdates table with updatedBy, updatedByRole, createdAt",
+        "Add getProgressUpdates query with args: injuryId, limit (optional number, default 50)",
+        "Query uses by_injury_created index, orders by createdAt descending",
+        "Both include returns validators",
         "Typecheck passes: npm run check-types"
       ],
       "priority": 6,
       "passes": true,
-      "notes": "Notification title: 'Injury Reported' or 'Severe Injury Reported'. Message should include player name and injury summary."
+      "notes": "Progress updates create a timeline of recovery activity visible to both coaches and parents. IMPLEMENTED: Both mutation and query exist."
     },
     {
-      "id": "US-INJ-007",
-      "title": "Implement notifyStatusChanged function",
-      "description": "As the system, I need to create notifications when an injury status changes to cleared or healed.",
+      "id": "US-REC-007",
+      "title": "Create injuryDocuments model with upload and save functions",
+      "description": "As a developer, I need backend functions for generating upload URLs and saving document metadata after upload.",
       "acceptanceCriteria": [
-        "Implement notifyStatusChanged(ctx, args) in injuryNotifications.ts",
-        "Args: injuryId, playerIdentityId, newStatus, updatedByUserId, organizationId, playerName",
-        "Only trigger for significant changes: status changed to 'cleared' or 'healed'",
-        "Notify all guardians linked to the player",
-        "Notify all coaches assigned to player's teams",
-        "Filter out the updater from recipients",
-        "Deduplicate recipient IDs using Set",
-        "Use type 'injury_cleared' for cleared status, 'injury_status_changed' for healed",
+        "Create packages/backend/convex/models/injuryDocuments.ts",
+        "Add generateUploadUrl mutation that calls ctx.storage.generateUploadUrl()",
+        "Add saveDocument mutation with args: injuryId, storageId (Id<_storage>), fileName, fileType, fileSize, documentType, description (optional), isPrivate (boolean)",
+        "saveDocument inserts into injuryDocuments table with uploadedBy and createdAt",
+        "saveDocument also inserts a progress update record of type 'document_uploaded'",
+        "Both include returns validators",
         "Typecheck passes: npm run check-types"
       ],
       "priority": 7,
       "passes": true,
-      "notes": "Title: 'Player Cleared to Return' for cleared, 'Injury Fully Healed' for healed."
+      "notes": "generateUploadUrl must be a mutation (not action) since Convex storage.generateUploadUrl is available in mutations. IMPLEMENTED: generateUploadUrl is an action, saveDocument is a mutation."
     },
     {
-      "id": "US-INJ-008",
-      "title": "Integrate notifications into reportInjury mutation",
-      "description": "As the system, reporting a new injury should automatically trigger notifications to relevant stakeholders.",
+      "id": "US-REC-008",
+      "title": "Add document query, delete, and download URL functions",
+      "description": "As a user, I need to view documents for an injury, delete documents I uploaded, and get download URLs.",
       "acceptanceCriteria": [
-        "Edit reportInjury mutation in playerInjuries.ts",
-        "After successful injury insert, call notifyInjuryReported with appropriate args",
-        "Wrap notification call in try/catch so notification failure does not block injury creation",
-        "Log errors with console.error if notification fails",
+        "Add getDocuments query to injuryDocuments.ts with args: injuryId. Uses by_injury index. Filters private docs based on user role (guardians see all, coaches/admins only see non-private)",
+        "Add deleteDocument mutation with args: documentId. Verifies the user is the uploader or an admin. Deletes from injuryDocuments table and from Convex storage via ctx.storage.delete(storageId)",
+        "Add getDocumentUrl query with args: storageId (Id<_storage>). Returns URL via ctx.storage.getUrl(storageId)",
+        "All include returns validators",
         "Typecheck passes: npm run check-types"
       ],
       "priority": 8,
       "passes": true,
-      "notes": "The main operation (injury insert) must NEVER fail because of notification errors."
+      "notes": "Access control is critical: private documents should only be visible to the uploading guardian. IMPLEMENTED: getDocuments, getDocumentsAdmin, deleteDocument, getDownloadUrl, updateDocumentPrivacy, getDocumentCounts all exist."
     },
     {
-      "id": "US-INJ-009",
-      "title": "Integrate notifications into updateInjuryStatus mutation",
-      "description": "As the system, changing an injury status to cleared or healed should automatically trigger notifications.",
+      "id": "US-REC-009",
+      "title": "Implement recordMedicalClearance mutation",
+      "description": "As a parent or coach, I want to record that medical clearance has been received for an injury, optionally linking to an uploaded clearance document.",
       "acceptanceCriteria": [
-        "Edit updateInjuryStatus mutation in playerInjuries.ts",
-        "After successful status update, check if new status is 'cleared' or 'healed'",
-        "If so, call notifyStatusChanged with appropriate args",
-        "Wrap notification call in try/catch so notification failure does not block status update",
-        "Log errors with console.error if notification fails",
+        "Add recordMedicalClearance mutation to playerInjuries.ts with args: injuryId, clearanceDate (string), documentId (optional Id<injuryDocuments>)",
+        "Patches injury with medicalClearanceReceived: true and medicalClearanceDate",
+        "Inserts a progress update record of type 'clearance_received'",
+        "Include returns validator",
         "Typecheck passes: npm run check-types"
       ],
       "priority": 9,
       "passes": true,
-      "notes": "Only notify on cleared/healed transitions. active→recovering should NOT trigger notifications."
+      "notes": "This does NOT automatically change injury status to 'cleared' - that's still a coach decision. It just records that clearance paperwork was received. IMPLEMENTED: Exists with updatedBy/updatedByName/updatedByRole context."
     },
     {
-      "id": "US-INJ-010",
-      "title": "Add injury-specific icons and styling to notification bell",
-      "description": "As a user, I want injury notifications to display with appropriate icons and color coding in the notification bell dropdown.",
+      "id": "US-REC-010",
+      "title": "Add Phase 2 notification types and functions",
+      "description": "As the system, I need notification types and helper functions for milestone completion, progress updates, and medical clearance events.",
       "acceptanceCriteria": [
-        "Edit notification-bell.tsx",
-        "Add icon mapping: injury_reported → orange Heart icon, severe_injury_alert → red AlertTriangle icon",
-        "Add icon mapping: injury_cleared → green CheckCircle icon, injury_status_changed → blue Heart icon",
-        "Apply appropriate color classes to each injury notification type",
-        "Typecheck passes: npm run check-types",
-        "Lint passes: npx ultracite fix"
+        "Add v.literal('milestone_completed'), v.literal('progress_update'), v.literal('clearance_received'), v.literal('recovery_reminder') to notifications table type union in schema.ts",
+        "Add notifyMilestoneCompleted function to injuryNotifications.ts - notifies coaches when parent completes milestone, notifies parents when coach updates",
+        "Add notifyMedicalClearance function to injuryNotifications.ts - notifies coaches when clearance is received",
+        "Wire notifyMilestoneCompleted into updateMilestone mutation (when completedDate is set)",
+        "Wire notifyMedicalClearance into recordMedicalClearance mutation",
+        "Wrap all notification calls in try/catch",
+        "Run: npx -w packages/backend convex codegen",
+        "Typecheck passes: npm run check-types"
       ],
       "priority": 10,
       "passes": true,
-      "notes": "Use Lucide icons: Heart, AlertTriangle, CheckCircle. Match existing notification bell styling patterns."
+      "notes": "IMPLEMENTED: Added milestone_completed + clearance_received to notifications type union. Added notifyMilestoneCompleted + notifyMedicalClearance helpers. Wired into updateMilestone + recordMedicalClearance mutations with try/catch."
     },
     {
-      "id": "US-INJ-011",
-      "title": "Add edit injury dialog to coach injuries page",
-      "description": "As a coach, I want to edit injury details (status, treatment, expected return) from the injuries page without navigating away.",
+      "id": "US-REC-011",
+      "title": "Create MilestoneTracker shared component",
+      "description": "As a coach or parent, I want a visual milestone tracker that shows recovery milestones with completion status, target dates, and the ability to mark them complete.",
       "acceptanceCriteria": [
-        "Add an edit dialog/modal to the coach injuries page (page.tsx)",
-        "Dialog shows all editable injury fields: status, treatment, medicalProvider, medicalNotes, expectedReturn",
-        "Status dropdown includes all 4 states: active, recovering, cleared, healed",
-        "Save button calls updateInjuryDetails and/or updateInjuryStatus mutations",
-        "Show toast on successful update",
-        "Dialog closes after successful save",
+        "Create apps/web/src/components/injuries/milestone-tracker.tsx",
+        "Props: milestones array, canEdit boolean, onComplete callback, onRemove callback (optional)",
+        "Display milestones in order with checkbox, description, target date, and completion status",
+        "Completed milestones show green checkmark with completion date",
+        "Pending milestones show empty checkbox (clickable if canEdit is true)",
+        "If canEdit, show remove button on each milestone",
+        "Export Milestone type for reuse",
         "Typecheck passes: npm run check-types",
         "Lint passes: npx ultracite fix"
       ],
       "priority": 11,
       "passes": true,
-      "notes": "Use shadcn/ui Dialog component. Reuse existing form patterns from the report injury form."
+      "notes": "Use shadcn/ui Checkbox, Badge components. Sort by order field. IMPLEMENTED: Full CRUD, progress bar, add/complete dialogs."
     },
     {
-      "id": "US-INJ-012",
-      "title": "Make injury history cards clickable to open edit dialog",
-      "description": "As a coach, I want to click on any injury card in the history list to open the edit dialog for quick updates.",
+      "id": "US-REC-012",
+      "title": "Create RecoveryTimeline shared component",
+      "description": "As a coach or parent, I want a timeline visualization showing all recovery progress updates, milestone completions, and status changes in chronological order.",
       "acceptanceCriteria": [
-        "Injury cards in the active injuries and history sections are clickable",
-        "Clicking a card opens the edit dialog pre-populated with that injury's data",
-        "Add hover state styling to indicate cards are clickable (cursor-pointer, subtle bg change)",
+        "Create apps/web/src/components/injuries/recovery-timeline.tsx",
+        "Props: updates (ProgressUpdate array), milestones (Milestone array), injuryDate (string), expectedReturn (optional string)",
+        "Display updates as a vertical timeline with date, actor name, update type icon, and notes",
+        "Milestone completions highlighted with distinct styling",
+        "Status changes shown with before/after badges",
+        "Document uploads shown with file icon and filename",
+        "Empty state when no updates exist",
+        "Export ProgressUpdate type for reuse",
         "Typecheck passes: npm run check-types",
         "Lint passes: npx ultracite fix"
       ],
       "priority": 12,
       "passes": true,
-      "notes": "Wire up onClick handler on the card component that sets selected injury and opens dialog."
+      "notes": "Use Lucide icons for different update types. Timeline reads newest-first. IMPLEMENTED: Vertical timeline with 7 event types, relative timestamps, empty state."
+    },
+    {
+      "id": "US-REC-013",
+      "title": "Create DocumentUpload and DocumentList shared components",
+      "description": "As a parent or coach, I want to upload medical documents and view/manage the list of uploaded documents for an injury.",
+      "acceptanceCriteria": [
+        "Create apps/web/src/components/injuries/document-upload.tsx with props: injuryId, userRole, onUploadComplete",
+        "DocumentUpload has file picker, document type dropdown (medical_report|clearance_form|xray_scan|therapy_notes|other), optional description field, isPrivate checkbox",
+        "Upload flow: call generateUploadUrl, upload file via fetch, call saveDocument with metadata",
+        "Show upload progress indicator",
+        "Create apps/web/src/components/injuries/document-list.tsx with props: documents array, canDelete boolean, onDelete callback",
+        "DocumentList displays file name, type badge, upload date, uploader name, private badge if applicable",
+        "Each document has download link and delete button (if canDelete)",
+        "Typecheck passes: npm run check-types",
+        "Lint passes: npx ultracite fix"
+      ],
+      "priority": 13,
+      "passes": true,
+      "notes": "IMPLEMENTED: DocumentUpload with 6 types, 10MB limit, privacy toggle. DocumentList with download, delete, access control."
+    },
+    {
+      "id": "US-REC-014",
+      "title": "Create RecoveryPlanForm and RecoveryPlanCard shared components",
+      "description": "As a coach, I want a form to create/edit recovery plans and a card to display the current recovery plan summary.",
+      "acceptanceCriteria": [
+        "Create apps/web/src/components/injuries/recovery-plan-form.tsx",
+        "RecoveryPlanForm props: injury data, onSave callback",
+        "Form fields: estimated recovery days (number input), recovery notes (textarea), milestones list with add/remove, medical clearance required (checkbox)",
+        "Milestones sub-form: description input, target date picker, add button to append",
+        "Create RecoveryPlanCard component (can be in same file) that displays: estimated recovery days, days remaining calculation, recovery notes, milestone progress (X of Y complete), medical clearance status",
+        "Export both components",
+        "Typecheck passes: npm run check-types",
+        "Lint passes: npx ultracite fix"
+      ],
+      "priority": 14,
+      "passes": true,
+      "notes": "IMPLEMENTED: RecoveryPlanForm with milestone sub-form, RecoveryPlanCard with summary display."
+    },
+    {
+      "id": "US-REC-015",
+      "title": "Create InjuryDetailModal shared component",
+      "description": "As a coach or parent, I want a full injury detail modal with tabbed sections for overview, recovery plan, timeline, and documents.",
+      "acceptanceCriteria": [
+        "Create apps/web/src/components/injuries/injury-detail-modal.tsx",
+        "Props: injuryId, isOpen, onClose, userRole (coach|guardian|admin)",
+        "Uses shadcn/ui Dialog with Tabs inside",
+        "Tab 1 - Overview: injury details (type, body part, severity, status, dates)",
+        "Tab 2 - Recovery: RecoveryPlanCard or RecoveryPlanForm (depending on role and whether plan exists), MilestoneTracker",
+        "Tab 3 - Timeline: RecoveryTimeline component with getProgressUpdates query",
+        "Tab 4 - Documents: DocumentUpload (if canUpload) and DocumentList with getDocuments query",
+        "Fetches injury data, progress updates, and documents via useQuery",
+        "Typecheck passes: npm run check-types",
+        "Lint passes: npx ultracite fix"
+      ],
+      "priority": 15,
+      "passes": true,
+      "notes": "IMPLEMENTED: 4-tab modal with Overview/Recovery/Timeline/Documents. Role-based access control."
+    },
+    {
+      "id": "US-REC-016",
+      "title": "Integrate recovery plan into coach injuries page",
+      "description": "As a coach, I want to access recovery management from the injuries dashboard - creating recovery plans, viewing milestones, and managing documents.",
+      "acceptanceCriteria": [
+        "Edit apps/web/src/app/orgs/[orgId]/coach/injuries/page.tsx",
+        "Add InjuryDetailModal - opens when clicking an injury card",
+        "Add 'Create Recovery Plan' button on injury cards that don't have a plan",
+        "Show recovery plan summary (milestone progress, days remaining) on active injury cards",
+        "Show medical clearance status badge on cards where clearance is required",
+        "Wire up setRecoveryPlan, updateMilestone, addMilestone, removeMilestone mutations",
+        "Show toast notifications on successful actions",
+        "Typecheck passes: npm run check-types",
+        "Lint passes: npx ultracite fix"
+      ],
+      "priority": 16,
+      "passes": true,
+      "notes": "IMPLEMENTED: InjuryDetailModal integrated, canEdit=true for coaches."
+    },
+    {
+      "id": "US-REC-017",
+      "title": "Add progress updates and milestone completion to parent injuries page",
+      "description": "As a parent, I want to view my child's recovery plan, mark milestones as complete, and add progress notes from the parent injuries page.",
+      "acceptanceCriteria": [
+        "Edit apps/web/src/app/orgs/[orgId]/parents/injuries/page.tsx",
+        "Add InjuryDetailModal - opens when clicking an injury card",
+        "Parents can view recovery plan (read-only) and milestone list",
+        "Parents can mark milestones as complete (calls updateMilestone mutation)",
+        "Parents can add progress notes (calls addProgressUpdate mutation)",
+        "Show recovery plan summary on injury cards",
+        "Wire up mutations with toast notifications",
+        "Typecheck passes: npm run check-types",
+        "Lint passes: npx ultracite fix"
+      ],
+      "priority": 17,
+      "passes": true,
+      "notes": "IMPLEMENTED: InjuryDetailModal with canEdit=false, parents can complete milestones and add progress."
+    },
+    {
+      "id": "US-REC-018",
+      "title": "Add document upload to parent injuries page",
+      "description": "As a parent, I want to upload medical documents (clearance forms, medical reports) for my child's injury and control their visibility.",
+      "acceptanceCriteria": [
+        "Ensure DocumentUpload component is accessible from parent injury detail modal Documents tab",
+        "Parents can upload documents with type selection and privacy toggle",
+        "Parents can view all documents they uploaded plus non-private documents uploaded by others",
+        "Parents can delete documents they uploaded",
+        "Upload clearance_form type auto-triggers recordMedicalClearance if injury has medicalClearanceRequired",
+        "Show document count badge on injury cards that have documents",
+        "Typecheck passes: npm run check-types",
+        "Lint passes: npx ultracite fix"
+      ],
+      "priority": 18,
+      "passes": true,
+      "notes": "IMPLEMENTED: DocumentUpload in Documents tab, privacy toggle, delete own uploads."
     }
   ],
   "qualityChecks": {
@@ -236,8 +363,10 @@
       "npm run check-types - MUST pass",
       "npx ultracite fix - MUST pass",
       "npx -w packages/backend convex codegen - MUST pass",
-      "Verify notification deduplication: reporter should never receive their own notification",
-      "Verify error isolation: notification failures must not block injury operations"
+      "Verify document access control: private docs visible only to uploading guardian",
+      "Verify notification deduplication: actor should never receive their own notification",
+      "Verify error isolation: notification failures must not block main mutations",
+      "No N+1 query patterns: use batch fetch with Map lookup"
     ]
   }
 }

@@ -5677,12 +5677,12 @@ export const getAdminUserIdsForOrg = internalQuery({
     const members = membersResult.page || [];
 
     // Filter to admins/owners and dedupe by userId
-    const admins = members.filter(
-      (m: any) => m.role === "admin" || m.role === "owner"
-    );
-
-    // Use Set to ensure unique user IDs (in case user has multiple member records)
-    const uniqueUserIds = [...new Set(admins.map((m: any) => m.userId))];
-    return uniqueUserIds;
+    type MemberRecord = { role?: string; userId?: string };
+    const typedMembers = members as MemberRecord[];
+    const adminUserIds: string[] = typedMembers
+      .filter((m) => m.role === "admin" || m.role === "owner")
+      .map((m) => m.userId)
+      .filter((id): id is string => typeof id === "string");
+    return [...new Set(adminUserIds)];
   },
 });

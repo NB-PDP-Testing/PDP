@@ -8,7 +8,7 @@ import {
   mutation,
   query,
 } from "../_generated/server";
-import { calculateMatchScore } from "../lib/stringMatching";
+import { findSimilarPlayersLogic } from "../lib/playerMatching";
 
 // ============================================================
 // TYPE DEFINITIONS
@@ -1548,16 +1548,15 @@ export const getBulkChildData = query({
 
 // ============================================================
 // FUZZY PLAYER MATCHING (US-VN-006)
+// Logic extracted to convex/lib/playerMatching.ts (shared with review microsite)
 // ============================================================
-
-const SIMILARITY_THRESHOLD = 0.5;
-const DEFAULT_MATCH_LIMIT = 5;
 
 /**
  * Find players whose names are similar to a search term.
  * Uses Levenshtein-based matching from stringMatching.ts (US-VN-005).
  *
  * Used by the WhatsApp voice note pipeline to resolve spoken player names.
+ * Logic lives in lib/playerMatching.ts so the public review wrapper can reuse it.
  */
 export const findSimilarPlayers = internalQuery({
   args: {
@@ -1577,140 +1576,5 @@ export const findSimilarPlayers = internalQuery({
       sport: v.union(v.string(), v.null()),
     })
   ),
-  handler: async (ctx, args) => {
-    const maxResults = args.limit ?? DEFAULT_MATCH_LIMIT;
-    const TEAM_CONTEXT_BONUS = 0.1;
-
-    // 1. Resolve coach's assigned teams to get their player set
-    let coachTeamPlayerIds: Set<Id<"playerIdentities">> | null = null;
-
-    const coachAssignment = await ctx.db
-      .query("coachAssignments")
-      .withIndex("by_user_and_org", (q) =>
-        q
-          .eq("userId", args.coachUserId)
-          .eq("organizationId", args.organizationId)
-      )
-      .first();
-
-    if (coachAssignment && coachAssignment.teams.length > 0) {
-      // Resolve team names/IDs (teams array can contain IDs or names)
-      const allTeamsResult = await ctx.runQuery(
-        components.betterAuth.adapter.findMany,
-        {
-          model: "team",
-          paginationOpts: { cursor: null, numItems: 1000 },
-          where: [
-            {
-              field: "organizationId",
-              value: args.organizationId,
-              operator: "eq",
-            },
-          ],
-        }
-      );
-
-      const allTeams = allTeamsResult.page as any[];
-      const teamByIdMap = new Map(
-        allTeams.map((team) => [String(team._id), team])
-      );
-      const teamByNameMap = new Map(allTeams.map((team) => [team.name, team]));
-
-      const teamIds: string[] = [];
-      for (const teamValue of coachAssignment.teams) {
-        const team = teamByIdMap.get(teamValue) || teamByNameMap.get(teamValue);
-        if (team) {
-          teamIds.push(String(team._id));
-        }
-      }
-
-      // Get players on coach's teams
-      coachTeamPlayerIds = new Set<Id<"playerIdentities">>();
-      for (const teamId of teamIds) {
-        const teamMembers = await ctx.db
-          .query("teamPlayerIdentities")
-          .withIndex("by_teamId", (q) => q.eq("teamId", teamId))
-          .filter((q) => q.eq(q.field("status"), "active"))
-          .collect();
-
-        for (const member of teamMembers) {
-          coachTeamPlayerIds.add(member.playerIdentityId);
-        }
-      }
-    }
-
-    // 2. Get active players for the organization
-    const enrollments = await ctx.db
-      .query("orgPlayerEnrollments")
-      .withIndex("by_org_and_status", (q) =>
-        q.eq("organizationId", args.organizationId).eq("status", "active")
-      )
-      .collect();
-
-    // 3. Batch fetch player identities
-    const uniquePlayerIds = [
-      ...new Set(enrollments.map((e) => e.playerIdentityId)),
-    ];
-    const playerDocs = await Promise.all(
-      uniquePlayerIds.map((id) => ctx.db.get(id))
-    );
-    const playerMap = new Map<
-      Id<"playerIdentities">,
-      { firstName: string; lastName: string }
-    >();
-    for (const doc of playerDocs) {
-      if (doc) {
-        playerMap.set(doc._id, {
-          firstName: doc.firstName,
-          lastName: doc.lastName,
-        });
-      }
-    }
-
-    // 4. Score each player with team context bonus
-    const scored: Array<{
-      playerId: Id<"playerIdentities">;
-      firstName: string;
-      lastName: string;
-      fullName: string;
-      similarity: number;
-      ageGroup: string;
-      sport: string | null;
-    }> = [];
-
-    for (const enrollment of enrollments) {
-      const player = playerMap.get(enrollment.playerIdentityId);
-      if (!player) {
-        continue;
-      }
-
-      const baseSimilarity = calculateMatchScore(
-        args.searchName,
-        player.firstName,
-        player.lastName
-      );
-
-      // Apply team context bonus if player is on coach's team
-      let similarity = baseSimilarity;
-      if (coachTeamPlayerIds?.has(enrollment.playerIdentityId)) {
-        similarity = Math.min(1, baseSimilarity + TEAM_CONTEXT_BONUS);
-      }
-
-      if (similarity >= SIMILARITY_THRESHOLD) {
-        scored.push({
-          playerId: enrollment.playerIdentityId,
-          firstName: player.firstName,
-          lastName: player.lastName,
-          fullName: `${player.firstName} ${player.lastName}`,
-          similarity,
-          ageGroup: enrollment.ageGroup,
-          sport: enrollment.sport ?? null,
-        });
-      }
-    }
-
-    // Sort by similarity descending, take top N
-    scored.sort((a, b) => b.similarity - a.similarity);
-    return scored.slice(0, maxResults);
-  },
+  handler: async (ctx, args) => findSimilarPlayersLogic(ctx, args),
 });

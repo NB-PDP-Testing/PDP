@@ -4055,6 +4055,42 @@ export default defineSchema({
     .index("by_status", ["status"])
     .index("by_messageSid", ["messageSid"]),
 
+  // WhatsApp review links for coach Quick Review microsite
+  // ONE active link per coach, reused across multiple voice notes (48h expiry)
+  whatsappReviewLinks: defineTable({
+    code: v.string(), // 8-char alphanumeric (excludes 0OIl)
+    organizationId: v.string(), // Better Auth org ID
+    coachUserId: v.string(), // Better Auth user ID of coach
+
+    // Voice notes aggregated under this link
+    voiceNoteIds: v.array(v.id("voiceNotes")),
+
+    // Lifecycle
+    status: v.union(
+      v.literal("active"),
+      v.literal("expired"),
+      v.literal("used")
+    ),
+    createdAt: v.number(),
+    expiresAt: v.number(), // 48h from creation
+    lastNoteAddedAt: v.number(), // Updated when new note appended
+
+    // Access tracking
+    accessedAt: v.optional(v.number()), // Last access timestamp
+    deviceFingerprint: v.optional(v.string()), // Cookie-based, set on first access
+    accessCount: v.number(), // Incremented on each access
+    accessLog: v.array(
+      v.object({
+        timestamp: v.number(),
+        ip: v.optional(v.string()),
+        userAgent: v.optional(v.string()),
+      })
+    ),
+  })
+    .index("by_code", ["code"])
+    .index("by_coachUserId_and_status", ["coachUserId", "status"])
+    .index("by_expiresAt_and_status", ["expiresAt", "status"]),
+
   // ============================================================
   // PLATFORM STAFF INVITATIONS
   // Invitations for granting platform staff access to new users

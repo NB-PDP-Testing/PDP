@@ -7,6 +7,7 @@ import { internalAction } from "../_generated/server";
 
 // Regex patterns at top level for performance
 const WHATSAPP_PREFIX_REGEX = /^whatsapp:/;
+const TRAILING_SLASH_REGEX = /\/+$/;
 
 /**
  * WhatsApp Integration via Twilio
@@ -868,6 +869,16 @@ export const checkAndAutoApply = internalAction({
       organizationId: args.organizationId,
     });
 
+    // Generate review link for the coach (reuses active link if exists)
+    const reviewLink = await ctx.runMutation(
+      internal.models.whatsappReviewLinks.generateReviewLink,
+      {
+        voiceNoteId: args.voiceNoteId,
+        organizationId: args.organizationId,
+        coachUserId: args.coachId,
+      }
+    );
+
     // Update WhatsApp message with processing results
     await ctx.runMutation(
       internal.models.whatsappMessages.updateProcessingResults,
@@ -877,8 +888,12 @@ export const checkAndAutoApply = internalAction({
       }
     );
 
-    // Send detailed follow-up message
-    const replyMessage = formatResultsMessage(results, trustLevel.currentLevel);
+    // Send detailed follow-up message with review link
+    const replyMessage = formatResultsMessage(
+      results,
+      trustLevel.currentLevel,
+      reviewLink.code
+    );
     await sendWhatsAppMessage(args.phoneNumber, replyMessage);
 
     return null;
@@ -1099,7 +1114,8 @@ function formatResultsMessage(
       title: string;
     }>;
   },
-  _trustLevel: number
+  _trustLevel: number,
+  reviewCode?: string
 ): string {
   const lines: string[] = ["Analysis complete!"];
   lines.push("");
@@ -1149,11 +1165,15 @@ function formatResultsMessage(
   // Summary based on what needs attention
   const totalPending = results.needsReview.length + results.unmatched.length;
   if (totalPending > 0) {
-    const siteUrl = process.env.SITE_URL;
-    const reviewMessage = siteUrl
-      ? `Review ${totalPending} pending in PlayerARC: ${siteUrl}`
-      : `Review ${totalPending} pending in PlayerARC.`;
-    lines.push(reviewMessage);
+    const siteUrl = (process.env.SITE_URL ?? "http://localhost:3000").replace(
+      TRAILING_SLASH_REGEX,
+      ""
+    );
+    if (reviewCode) {
+      lines.push(`Review ${totalPending} pending: ${siteUrl}/r/${reviewCode}`);
+    } else {
+      lines.push(`Review ${totalPending} pending in PlayerARC.`);
+    }
   } else if (results.autoApplied.length > 0) {
     lines.push("All insights applied!");
   } else {

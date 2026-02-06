@@ -5,9 +5,13 @@ import { api, internal } from "../_generated/api";
 import type { Id } from "../_generated/dataModel";
 import { internalAction } from "../_generated/server";
 
-// Regex patterns at top level for performance
+// Regex patterns at top level for performance (Biome: useTopLevelRegex)
 const WHATSAPP_PREFIX_REGEX = /^whatsapp:/;
 const TRAILING_SLASH_REGEX = /\/+$/;
+
+// US-VN-011: WhatsApp quick-reply command patterns (exact match only)
+const OK_COMMAND_REGEX = /^(ok|yes|apply|go)$/i;
+const RESEND_COMMAND_REGEX = /^r$/i;
 
 /**
  * WhatsApp Integration via Twilio
@@ -242,7 +246,44 @@ export const processIncomingMessage = internalAction({
       organizationId: organization.id,
     });
 
-    // US-VN-002: Check for pending confirmation before processing text
+    // ============================================================
+    // US-VN-011: WhatsApp Quick-Reply Command Priority Chain
+    // Priority: OK → R → CONFIRM/RETRY/CANCEL → normal processing
+    // See ADR-VN2-005 for design rationale
+    // ============================================================
+    if (messageType === "text" && args.body) {
+      const trimmedBody = args.body.trim();
+
+      // Priority 1: "OK" — batch-apply all matched pending insights
+      if (OK_COMMAND_REGEX.test(trimmedBody)) {
+        const okResult = await handleOkCommand(ctx, {
+          messageId,
+          coachId: coachContext.coachId,
+          organizationId: organization.id,
+          phoneNumber,
+        });
+        if (okResult) {
+          return { success: true, messageId };
+        }
+        // No active link or no pending matched — fall through to normal processing
+      }
+
+      // Priority 2: "R" — resend review link with pending summary
+      if (RESEND_COMMAND_REGEX.test(trimmedBody)) {
+        const resendResult = await handleResendCommand(ctx, {
+          messageId,
+          coachId: coachContext.coachId,
+          organizationId: organization.id,
+          phoneNumber,
+        });
+        if (resendResult) {
+          return { success: true, messageId };
+        }
+        // No active link — fall through to normal processing
+      }
+    }
+
+    // Priority 3: US-VN-002: Check for pending confirmation before processing text
     if (messageType === "text" && args.body) {
       const awaitingNoteId = await ctx.runQuery(
         internal.models.voiceNotes.getAwaitingConfirmation,
@@ -888,11 +929,21 @@ export const checkAndAutoApply = internalAction({
       }
     );
 
-    // Send detailed follow-up message with review link
+    // US-VN-011: Get running totals across all notes for this coach
+    const activeLink = await ctx.runQuery(
+      internal.models.whatsappReviewLinks.getActiveLinkForCoach,
+      {
+        coachUserId: args.coachId,
+        organizationId: args.organizationId,
+      }
+    );
+
+    // Send detailed follow-up message with review link and running totals
     const replyMessage = formatResultsMessage(
       results,
       trustLevel.currentLevel,
-      reviewLink.code
+      reviewLink.code,
+      activeLink?.totalPendingCount
     );
     await sendWhatsAppMessage(args.phoneNumber, replyMessage);
 
@@ -1088,9 +1139,11 @@ async function applyInsightsWithTrust(
 }
 
 /**
- * Format the results into a WhatsApp-friendly message
+ * Format the results into a WhatsApp-friendly message.
+ * Trust-adaptive: TL0 verbose, TL1 standard, TL2 compact, TL3 minimal.
+ *
+ * US-VN-011: Trust-Adaptive Messages
  */
-// biome-ignore lint/complexity/noExcessiveCognitiveComplexity: Message formatting requires handling multiple result types
 function formatResultsMessage(
   results: {
     autoApplied: Array<{
@@ -1114,23 +1167,180 @@ function formatResultsMessage(
       title: string;
     }>;
   },
-  _trustLevel: number,
-  reviewCode?: string
+  trustLevel: number,
+  reviewCode?: string,
+  runningTotalPending?: number
 ): string {
+  const siteUrl = (process.env.SITE_URL ?? "http://localhost:3000").replace(
+    TRAILING_SLASH_REGEX,
+    ""
+  );
+  const reviewUrl = reviewCode ? `${siteUrl}/r/${reviewCode}` : undefined;
+  const totalPending = results.needsReview.length + results.unmatched.length;
+  const appliedCount = results.autoApplied.length;
+
+  // TL3: Minimal — just counts and link
+  if (trustLevel >= 3) {
+    return formatTL3Message(
+      appliedCount,
+      totalPending,
+      reviewUrl,
+      runningTotalPending
+    );
+  }
+
+  // TL2: Compact — summary counts with link
+  if (trustLevel >= 2) {
+    return formatTL2Message({
+      results,
+      appliedCount,
+      totalPending,
+      reviewUrl,
+      runningTotalPending,
+    });
+  }
+
+  // TL0-1: Detailed — list items with explanations
+  return formatTL01Message({
+    results,
+    trustLevel,
+    appliedCount,
+    totalPending,
+    reviewUrl,
+    runningTotalPending,
+  });
+}
+
+/**
+ * TL3: Minimal message format for highly trusted coaches.
+ */
+function formatTL3Message(
+  appliedCount: number,
+  totalPending: number,
+  reviewUrl?: string,
+  runningTotalPending?: number
+): string {
+  const lines: string[] = [];
+
+  if (appliedCount > 0) {
+    lines.push(`Applied ${appliedCount}.`);
+  }
+
+  if (totalPending > 0 && reviewUrl) {
+    lines.push(`${totalPending} pending: ${reviewUrl}`);
+  } else if (appliedCount === 0) {
+    lines.push("No actionable insights found.");
+  }
+
+  // Running total if there are more pending items across all notes
+  if (runningTotalPending && runningTotalPending > totalPending) {
+    lines.push(
+      `${runningTotalPending} total pending. Reply OK to apply matched.`
+    );
+  }
+
+  return lines.join("\n");
+}
+
+/**
+ * TL2: Compact message format for trusted coaches.
+ */
+function formatTL2Message(opts: {
+  results: {
+    autoApplied: Array<{
+      playerName?: string;
+      teamName?: string;
+      category: string;
+    }>;
+    needsReview: Array<{ playerName?: string; category: string }>;
+    unmatched: Array<{ mentionedName?: string }>;
+  };
+  appliedCount: number;
+  totalPending: number;
+  reviewUrl?: string;
+  runningTotalPending?: number;
+}): string {
+  const {
+    results,
+    appliedCount,
+    totalPending,
+    reviewUrl,
+    runningTotalPending,
+  } = opts;
+  const lines: string[] = [];
+
+  if (appliedCount > 0) {
+    lines.push(`Applied ${appliedCount} insights.`);
+  }
+
+  if (results.unmatched.length > 0) {
+    lines.push(`${results.unmatched.length} unmatched player(s).`);
+  }
+
+  if (results.needsReview.length > 0) {
+    lines.push(`${results.needsReview.length} need(s) review.`);
+  }
+
+  if (totalPending > 0 && reviewUrl) {
+    lines.push("");
+    lines.push(`Review: ${reviewUrl}`);
+    lines.push("Reply OK to apply matched.");
+  } else if (appliedCount === 0) {
+    lines.push("No actionable insights found.");
+  }
+
+  // Running total
+  if (runningTotalPending && runningTotalPending > totalPending) {
+    lines.push("");
+    lines.push(`You have ${runningTotalPending} total pending items.`);
+  }
+
+  return lines.join("\n");
+}
+
+/**
+ * TL0-1: Detailed message format for new/building-trust coaches.
+ */
+// biome-ignore lint/complexity/noExcessiveCognitiveComplexity: Detailed formatting across multiple result types
+function formatTL01Message(opts: {
+  results: {
+    autoApplied: Array<{
+      playerName?: string;
+      teamName?: string;
+      category: string;
+      parentSummaryQueued: boolean;
+    }>;
+    needsReview: Array<{ playerName?: string; category: string }>;
+    unmatched: Array<{ mentionedName?: string }>;
+  };
+  trustLevel: number;
+  appliedCount: number;
+  totalPending: number;
+  reviewUrl?: string;
+  runningTotalPending?: number;
+}): string {
+  const {
+    results,
+    trustLevel,
+    appliedCount,
+    totalPending,
+    reviewUrl,
+    runningTotalPending,
+  } = opts;
   const lines: string[] = ["Analysis complete!"];
   lines.push("");
 
   // Auto-applied insights
-  if (results.autoApplied.length > 0) {
-    lines.push(`Auto-applied (${results.autoApplied.length}):`);
+  if (appliedCount > 0) {
+    lines.push(`Auto-applied (${appliedCount}):`);
     for (const insight of results.autoApplied.slice(0, 5)) {
       const name = insight.playerName || insight.teamName || "Unknown";
       const categoryDisplay = formatCategory(insight.category);
       const parentNote = insight.parentSummaryQueued ? " -> Parent" : "";
       lines.push(`- ${name}: ${categoryDisplay}${parentNote}`);
     }
-    if (results.autoApplied.length > 5) {
-      lines.push(`  ...and ${results.autoApplied.length - 5} more`);
+    if (appliedCount > 5) {
+      lines.push(`  ...and ${appliedCount - 5} more`);
     }
     lines.push("");
   }
@@ -1162,22 +1372,32 @@ function formatResultsMessage(
     lines.push("");
   }
 
-  // Summary based on what needs attention
-  const totalPending = results.needsReview.length + results.unmatched.length;
+  // Summary with review link
   if (totalPending > 0) {
-    const siteUrl = (process.env.SITE_URL ?? "http://localhost:3000").replace(
-      TRAILING_SLASH_REGEX,
-      ""
-    );
-    if (reviewCode) {
-      lines.push(`Review ${totalPending} pending: ${siteUrl}/r/${reviewCode}`);
+    if (reviewUrl) {
+      lines.push(`Review ${totalPending} pending: ${reviewUrl}`);
     } else {
       lines.push(`Review ${totalPending} pending in PlayerARC.`);
     }
-  } else if (results.autoApplied.length > 0) {
+
+    // TL0 gets extra guidance
+    if (trustLevel === 0) {
+      lines.push("");
+      lines.push("Reply OK to apply all matched insights.");
+      lines.push("Reply R to get your review link again.");
+    }
+  } else if (appliedCount > 0) {
     lines.push("All insights applied!");
   } else {
     lines.push("No actionable insights found.");
+  }
+
+  // Running total
+  if (runningTotalPending && runningTotalPending > totalPending) {
+    lines.push("");
+    lines.push(
+      `You have ${runningTotalPending} total pending items across all notes.`
+    );
   }
 
   return lines.join("\n");
@@ -1247,4 +1467,140 @@ async function sendWhatsAppMessage(to: string, body: string): Promise<boolean> {
     console.error("[WhatsApp] Error sending message:", error);
     return false;
   }
+}
+
+// ============================================================
+// WHATSAPP QUICK-REPLY COMMAND HANDLERS (US-VN-011)
+// ============================================================
+
+/**
+ * Handle "OK" quick-reply: batch-apply all matched pending insights.
+ * Returns true if handled (active link with pending matched insights),
+ * false if should fall through to normal processing.
+ */
+async function handleOkCommand(
+  // biome-ignore lint/suspicious/noExplicitAny: Convex action context type
+  ctx: any,
+  args: {
+    messageId: Id<"whatsappMessages">;
+    coachId: string;
+    organizationId: string;
+    phoneNumber: string;
+  }
+): Promise<boolean> {
+  // Check for active link with pending matched insights
+  const activeLink = await ctx.runQuery(
+    internal.models.whatsappReviewLinks.getActiveLinkForCoach,
+    {
+      coachUserId: args.coachId,
+      organizationId: args.organizationId,
+    }
+  );
+
+  if (!activeLink || activeLink.pendingMatchedCount === 0) {
+    return false;
+  }
+
+  // Batch-apply all matched pending insights
+  const result = await ctx.runMutation(
+    internal.models.whatsappReviewLinks.batchApplyMatchedFromWhatsApp,
+    {
+      coachUserId: args.coachId,
+      organizationId: args.organizationId,
+    }
+  );
+
+  const siteUrl = (process.env.SITE_URL ?? "http://localhost:3000").replace(
+    TRAILING_SLASH_REGEX,
+    ""
+  );
+
+  // Build reply message
+  const lines: string[] = [];
+  if (result.appliedCount > 0) {
+    lines.push(`Applied ${result.appliedCount} insight(s)!`);
+  }
+
+  if (result.remainingPendingCount > 0 && result.reviewCode) {
+    lines.push(
+      `${result.remainingPendingCount} item(s) still need review: ${siteUrl}/r/${result.reviewCode}`
+    );
+  } else if (result.appliedCount > 0) {
+    lines.push("All caught up!");
+  }
+
+  await sendWhatsAppMessage(args.phoneNumber, lines.join("\n"));
+  return true;
+}
+
+/**
+ * Handle "R" quick-reply: resend review link with pending summary.
+ * Returns true if handled (active link exists), false if should fall through.
+ */
+async function handleResendCommand(
+  // biome-ignore lint/suspicious/noExplicitAny: Convex action context type
+  ctx: any,
+  args: {
+    messageId: Id<"whatsappMessages">;
+    coachId: string;
+    organizationId: string;
+    phoneNumber: string;
+  }
+): Promise<boolean> {
+  const activeLink = await ctx.runQuery(
+    internal.models.whatsappReviewLinks.getActiveLinkForCoach,
+    {
+      coachUserId: args.coachId,
+      organizationId: args.organizationId,
+    }
+  );
+
+  if (!activeLink) {
+    return false;
+  }
+
+  const siteUrl = (process.env.SITE_URL ?? "http://localhost:3000").replace(
+    TRAILING_SLASH_REGEX,
+    ""
+  );
+
+  // Calculate time until expiry
+  const hoursLeft = Math.max(
+    0,
+    Math.round((activeLink.expiresAt - Date.now()) / (1000 * 60 * 60))
+  );
+
+  // Build pending summary
+  const pendingParts: string[] = [];
+  if (activeLink.pendingInjuryCount > 0) {
+    pendingParts.push(
+      `${activeLink.pendingInjuryCount} injur${activeLink.pendingInjuryCount === 1 ? "y" : "ies"}`
+    );
+  }
+  if (activeLink.pendingUnmatchedCount > 0) {
+    pendingParts.push(`${activeLink.pendingUnmatchedCount} unmatched`);
+  }
+  if (activeLink.pendingMatchedCount > 0) {
+    pendingParts.push(`${activeLink.pendingMatchedCount} needs review`);
+  }
+  if (activeLink.pendingTodoCount > 0) {
+    pendingParts.push(`${activeLink.pendingTodoCount} task(s)`);
+  }
+  if (activeLink.pendingTeamNoteCount > 0) {
+    pendingParts.push(`${activeLink.pendingTeamNoteCount} team note(s)`);
+  }
+
+  const lines: string[] = [];
+  lines.push("Here's your review link:");
+  lines.push(`${siteUrl}/r/${activeLink.code} (expires in ${hoursLeft}h)`);
+
+  if (pendingParts.length > 0) {
+    lines.push("");
+    lines.push(
+      `${activeLink.totalPendingCount} pending: ${pendingParts.join(", ")}`
+    );
+  }
+
+  await sendWhatsAppMessage(args.phoneNumber, lines.join("\n"));
+  return true;
 }

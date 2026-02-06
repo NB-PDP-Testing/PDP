@@ -724,3 +724,109 @@ export const batchApplyInsightsFromReview = mutation({
     return { successCount, failCount };
   },
 });
+
+// ============================================================
+// PUBLIC QUERIES — Unmatched player matching (US-VN-010)
+// ============================================================
+
+/**
+ * Find similar players for an unmatched insight in the review microsite.
+ * PUBLIC wrapper that validates code, then delegates to shared findSimilarPlayersLogic.
+ */
+export const findSimilarPlayersForReview = query({
+  args: {
+    code: v.string(),
+    searchName: v.string(),
+    limit: v.optional(v.number()),
+  },
+  returns: v.union(
+    v.object({
+      suggestions: v.array(
+        v.object({
+          playerId: v.id("playerIdentities"),
+          firstName: v.string(),
+          lastName: v.string(),
+          fullName: v.string(),
+          similarity: v.number(),
+          ageGroup: v.string(),
+          sport: v.union(v.string(), v.null()),
+        })
+      ),
+    }),
+    v.null()
+  ),
+  handler: async (ctx, args) => {
+    const result = await validateReviewCode(ctx, args.code);
+    if (!result || result.isExpired) {
+      return null;
+    }
+
+    const { findSimilarPlayersLogic: matchLogic } = await import(
+      "../lib/playerMatching"
+    );
+
+    const suggestions = await matchLogic(ctx, {
+      organizationId: result.link.organizationId,
+      coachUserId: result.link.coachUserId,
+      searchName: args.searchName,
+      limit: args.limit ?? 5,
+    });
+
+    return { suggestions };
+  },
+});
+
+// ============================================================
+// PUBLIC MUTATIONS — Unmatched player assignment (US-VN-010)
+// ============================================================
+
+/**
+ * Assign a player to an unmatched insight from the review microsite.
+ * Updates the insight's playerIdentityId and playerName.
+ */
+export const assignPlayerFromReview = mutation({
+  args: {
+    code: v.string(),
+    voiceNoteId: v.id("voiceNotes"),
+    insightId: v.string(),
+    playerIdentityId: v.id("playerIdentities"),
+  },
+  returns: v.union(
+    v.object({ success: v.literal(true), playerName: v.string() }),
+    v.object({ success: v.literal(false), reason: v.string() })
+  ),
+  handler: async (ctx, args) => {
+    const scope = await validateReviewScope(ctx, args.code, args.voiceNoteId);
+    if (!scope) {
+      return { success: false as const, reason: "invalid_or_expired" };
+    }
+
+    const { note } = scope;
+    const insight = note.insights.find((i) => i.id === args.insightId);
+    if (!insight) {
+      return { success: false as const, reason: "insight_not_found" };
+    }
+
+    // Verify the player exists
+    const player = await ctx.db.get(args.playerIdentityId);
+    if (!player) {
+      return { success: false as const, reason: "player_not_found" };
+    }
+
+    const playerName = `${player.firstName} ${player.lastName}`;
+
+    const updatedInsights = note.insights.map((i) => {
+      if (i.id === args.insightId) {
+        return {
+          ...i,
+          playerIdentityId: args.playerIdentityId,
+          playerName,
+        };
+      }
+      return i;
+    });
+
+    await ctx.db.patch(note._id, { insights: updatedInsights });
+    return { success: true as const, playerName };
+  },
+});

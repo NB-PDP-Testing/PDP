@@ -28,6 +28,7 @@ import {
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
+import { PhoneInput } from "@/components/ui/phone-input";
 import {
   Select,
   SelectContent,
@@ -251,12 +252,13 @@ export function ProfileCompletionStep({
             <Label htmlFor="phone">
               Phone Number <span className="text-destructive">*</span>
             </Label>
-            <Input
+            <PhoneInput
+              countries={["IE", "GB", "US"]}
+              defaultCountry="IE"
               disabled={isSubmitting || isSkipping}
               id="phone"
-              onChange={(e) => setPhone(e.target.value)}
-              placeholder="+353 87 123 4567"
-              type="tel"
+              onChange={(value) => setPhone(value || "")}
+              placeholder="Enter phone number"
               value={phone}
             />
           </div>

@@ -398,7 +398,9 @@ export function ProfileSettingsDialog({
 
             {/* Phone */}
             <div className="space-y-2">
-              <Label htmlFor="phone">Mobile Number (Optional)</Label>
+              <Label htmlFor="phone">
+                Mobile Number <span className="text-destructive">*</span>
+              </Label>
               <PhoneInput
                 countries={["IE", "GB", "US"] as CountryCode[]}
                 defaultCountry={"IE" as CountryCode}
@@ -448,7 +450,7 @@ export function ProfileSettingsDialog({
 
             {/* Address Line 2 */}
             <div className="space-y-2">
-              <Label htmlFor="address2">Address Line 2 (Optional)</Label>
+              <Label htmlFor="address2">Address Line 2</Label>
               <Input
                 id="address2"
                 onChange={(e) => setAddress2(e.target.value)}
@@ -469,7 +471,9 @@ export function ProfileSettingsDialog({
                 />
               </div>
               <div className="space-y-2">
-                <Label htmlFor="postcode">Postcode / Eircode</Label>
+                <Label htmlFor="postcode">
+                  Postcode / Eircode <span className="text-destructive">*</span>
+                </Label>
                 <Input
                   id="postcode"
                   onChange={(e) => handlePostcodeChange(e.target.value)}

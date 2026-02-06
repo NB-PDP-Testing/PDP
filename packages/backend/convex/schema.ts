@@ -4131,6 +4131,72 @@ export default defineSchema({
     .index("by_linkCode", ["linkCode"]),
 
   // ============================================================
+  // VOICE NOTE ARTIFACTS (v2 Pipeline)
+  // Source-agnostic record for any voice/text input
+  // Links back to v1 voiceNotes for backward compat
+  // ============================================================
+  voiceNoteArtifacts: defineTable({
+    artifactId: v.string(), // Unique identifier (UUID)
+    sourceChannel: v.union(
+      v.literal("whatsapp_audio"),
+      v.literal("whatsapp_text"),
+      v.literal("app_recorded"),
+      v.literal("app_typed")
+    ),
+    senderUserId: v.string(), // Better Auth user ID
+    orgContextCandidates: v.array(
+      v.object({
+        organizationId: v.string(),
+        confidence: v.number(),
+      })
+    ),
+    status: v.union(
+      v.literal("received"),
+      v.literal("transcribing"),
+      v.literal("transcribed"),
+      v.literal("processing"),
+      v.literal("completed"),
+      v.literal("failed")
+    ),
+    voiceNoteId: v.optional(v.id("voiceNotes")), // Backward compat link to v1
+    rawMediaStorageId: v.optional(v.id("_storage")),
+    metadata: v.optional(
+      v.object({
+        mimeType: v.optional(v.string()),
+        fileSize: v.optional(v.number()),
+        whatsappMessageId: v.optional(v.string()),
+      })
+    ),
+    createdAt: v.number(),
+    updatedAt: v.number(),
+  })
+    .index("by_artifactId", ["artifactId"])
+    .index("by_senderUserId_and_createdAt", ["senderUserId", "createdAt"])
+    .index("by_voiceNoteId", ["voiceNoteId"])
+    .index("by_status_and_createdAt", ["status", "createdAt"]),
+
+  // ============================================================
+  // VOICE NOTE TRANSCRIPTS (v2 Pipeline)
+  // Detailed transcription with segments and per-segment confidence
+  // ============================================================
+  voiceNoteTranscripts: defineTable({
+    artifactId: v.id("voiceNoteArtifacts"),
+    fullText: v.string(),
+    segments: v.array(
+      v.object({
+        text: v.string(),
+        startTime: v.number(),
+        endTime: v.number(),
+        confidence: v.number(),
+      })
+    ),
+    modelUsed: v.string(),
+    language: v.string(),
+    duration: v.number(),
+    createdAt: v.number(),
+  }).index("by_artifactId", ["artifactId"]),
+
+  // ============================================================
   // PLATFORM STAFF INVITATIONS
   // Invitations for granting platform staff access to new users
   // ============================================================

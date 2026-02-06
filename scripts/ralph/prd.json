@@ -148,7 +148,7 @@
         "Lint passes: npx ultracite fix"
       ],
       "priority": 6,
-      "passes": false,
+      "passes": true,
       "notes": "Use the existing NavItem pattern in admin-sidebar.tsx. Heart icon with ShieldAlert as alternative."
     },
     {

@@ -23,7 +23,7 @@
 - US-VN-008: Quick Review Microsite at /r/[code] (1d) - COMPLETE
 - US-VN-009: Review Queue Sections & Batch Actions (2.5d) - COMPLETE
 - US-VN-010: Unmatched Player Cards + Text Reply (1.5d) - COMPLETE
-- US-VN-011: Trust-Adaptive Messages + WhatsApp Quick Actions (1d) - PENDING
+- US-VN-011: Trust-Adaptive Messages + WhatsApp Quick Actions (1d) - COMPLETE
 - US-VN-012: Link Expiry & Cleanup (0.5d) - PENDING
 
 ---
@@ -395,5 +395,75 @@ OK → R → CONFIRM/RETRY/CANCEL → awaiting_confirmation → normal
 **Mistakes made:**
 - Initially included unused `searchName`/`setSearchName` state — Biome caught it as error
 - Initial component was too complex (18 vs max 15) — had to extract sub-components
+
+---
+
+## 2026-02-06 - US-VN-011 - Trust-Adaptive Messages + WhatsApp Quick Actions
+**Iteration**: 5
+**Commit**: 77f0af5b1d2d7dac550ebb10b048bcd40f00e4e4
+**Session**: 61e8461e-a256-4607-a7b6-da9a2e19c50a
+**Status**: Complete
+
+### What was implemented
+
+**Backend (whatsappReviewLinks.ts):**
+- `getActiveLinkForCoach` (internalQuery) — returns active link data + pending counts by category
+- `batchApplyMatchedFromWhatsApp` (internalMutation) — batch-applies all pending matched insights (not injuries, unmatched, todos, team notes)
+- `countPendingInsights` helper — categorizes pending insights using a map-based approach
+- `classifyInsight` helper — maps insight to count key (extracted to reduce cognitive complexity)
+
+**WhatsApp handlers (whatsapp.ts):**
+- `handleOkCommand` — exact match "ok/yes/apply/go", queries active link, batch-applies matched, sends reply with applied count + remaining
+- `handleResendCommand` — exact match "r", queries active link, sends review link URL + pending summary with hours until expiry
+- Priority chain: OK → R → CONFIRM/RETRY/CANCEL → awaiting_confirmation → normal processing
+- Safe fall-through: if no active link or no pending matched, falls through to normal text processing
+
+**Trust-adaptive `formatResultsMessage`:**
+- TL0: Verbose with item lists + "Reply OK to apply" / "Reply R" guidance
+- TL1: Standard detail with item lists
+- TL2: Compact summary counts + review link + "Reply OK" hint
+- TL3: Minimal — just counts and link
+- Running totals: shows total pending across all notes when > this note's pending
+
+**Message formatting refactored:**
+- `formatTL3Message` — minimal (counts + link)
+- `formatTL2Message` — compact (summary + link, uses options object)
+- `formatTL01Message` — detailed (item lists, uses options object)
+- Regex patterns at module scope for Biome compliance
+
+### Files changed
+- packages/backend/convex/actions/whatsapp.ts (+395, -20) — trust-adaptive formatting, OK/R handlers
+- packages/backend/convex/models/whatsappReviewLinks.ts (+215) — getActiveLinkForCoach, batchApplyMatchedFromWhatsApp
+
+### Quality checks
+- ✅ Type check: passed (0 errors)
+- ✅ Biome lint: 0 errors, 0 warnings on changed files
+- ✅ Convex codegen: passed
+- ✅ Lint-staged: passed on commit
+- N/A Browser verification: backend-only changes
+
+### Learnings for future iterations
+
+**Patterns discovered:**
+- Biome `useMaxParams` limit is 4 — use options objects for functions with 5+ params
+- Extracting helper functions with lookup maps reduces cognitive complexity (map-based approach instead of if/else chains)
+- `internalQuery` functions in whatsappReviewLinks.ts can be called from whatsapp.ts actions via `ctx.runQuery(internal.models.whatsappReviewLinks.fn, ...)`
+- Regex patterns MUST be at module scope (top-level constants) — Biome `useTopLevelRegex`
+
+**Gotchas encountered:**
+- Biome PostToolUse hook removes `internalQuery` import if no internalQuery exists yet — add import AND usage in same file edit
+- Pre-existing `noExplicitAny` warnings in codebase (402 errors in full repo check) — only fix in files you modify
+- `npm run check` runs against entire repo — many pre-existing issues, verify your files separately with `npx biome check <files>`
+
+**Dependencies found:**
+- US-VN-012 is the only remaining story and is independent (cron jobs + expired link UI)
+
+**What to do next:**
+- US-VN-012: Link Expiry & Cleanup crons (last story, should complete Phase 2)
+
+**Mistakes made:**
+- Forgot `internalQuery` would be removed by Biome hook — had to re-add it after first edit
+- Initial `countPendingInsights` had cognitive complexity 20 — extracted `classifyInsight` helper with map lookup to get under 15
+- Initial `formatTL2Message`/`formatTL01Message` had 5-6 params — refactored to options object pattern
 
 ---

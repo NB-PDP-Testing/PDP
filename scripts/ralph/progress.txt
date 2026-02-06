@@ -2,7 +2,7 @@
 
 **Branch**: feat/voice-gateways-v2
 **Started**: 2026-02-04
-**Current Phase**: Phase 2 - Coach Quick Review Microsite
+**Current Phase**: Phase 3 - v2 Artifacts Foundation
 **Architecture Review**: COMPLETE (6 ADRs in docs/architecture/decisions/ADR-VN2-*)
 
 ---
@@ -11,7 +11,7 @@
 
 ---
 
-## Phase 2: Coach Quick Review Microsite - IN PROGRESS
+## Phase 2: Coach Quick Review Microsite - COMPLETE
 
 ### Execution Order:
 1. US-VN-007 → US-VN-008 → US-VN-009 → US-VN-010 (sequential)
@@ -527,7 +527,129 @@ OK → R → CONFIRM/RETRY/CANCEL → awaiting_confirmation → normal
 
 ---
 
-## PHASE 2 COMPLETE 🎉
+## PHASE 2 COMPLETE
 All 6 stories (US-VN-007 through US-VN-012) implemented and passing.
+
+---
+
+## Phase 2.5: Review Microsite Polish - COMPLETE
+
+### What was implemented (manual implementation, not Ralph)
+Phase 2.5 added 4 enhancements to the /r/[code] review microsite:
+
+**US-VN-012a: Review Analytics & Coach Learning**
+- New `reviewAnalyticsEvents` table with indexes (by_coachUserId_and_timestamp, by_organizationId_and_timestamp, by_linkCode)
+- `logReviewEvent` (internalMutation) — logs every apply/dismiss/edit/snooze action
+- `getCoachDecisionPatterns` (internalQuery) — coach analytics over 30 days
+- `getOrganizationReviewStats` (internalQuery) — org-level aggregates
+- Analytics logging integrated into all existing apply/dismiss/edit mutations via `ctx.scheduler.runAfter(0, ...)`
+- Extended `adjustPersonalizedThresholds` in coachTrustLevels.ts with review analytics data
+
+**US-VN-012b: Swipe Gestures on Review Cards**
+- framer-motion `drag="x"` with SwipeableReviewCard wrapper in review-queue.tsx
+- Green overlay (right = apply) / Red overlay (left = dismiss)
+- Haptic feedback via `navigator.vibrate(50)`
+- Mobile-only detection via matchMedia
+- Existing Apply/Skip buttons remain as desktop fallback
+
+**US-VN-012c: Snooze & Remind Later**
+- Added snoozeRemindAt and snoozeCount fields to whatsappReviewLinks table
+- `snoozeReviewLink` (public mutation) + `snoozeReviewLinkInternal` (internalMutation, shared `performSnooze` helper)
+- Bounds checking: MIN_SNOOZE_DELAY_MS (60s), MAX_SNOOZE_DELAY_MS (24h)
+- `processSnoozedReminders` (internalMutation) — 15-minute interval cron
+- SnoozeBar component with "1h", "2h", "Tomorrow 9am" buttons
+- SNOOZE/LATER command handler in whatsapp.ts (uses internalMutation for defense-in-depth)
+
+**US-VN-012d: Offline PWA Support**
+- Reused existing `OfflineIndicator` component (Convex WebSocket state-aware)
+- Reused existing `ServiceWorkerProvider` (already in root layout)
+- NO custom useOnlineStatus hook (existing infrastructure is superior)
+
+### Commits
+- cdf03bf9 — Phase 2.5 implementation (analytics, swipe, snooze, PWA)
+- f3015fa0 — Code review fixes (OfflineIndicator reuse, internal mutation, bounds check, typed validators)
+
+### Code Review Findings Fixed
+1. PUBLIC mutation called from internalAction → created snoozeReviewLinkInternal
+2. Unbounded delayMs → added MIN/MAX_SNOOZE_DELAY_MS validation
+3. v.any() usage → replaced with typed v.union validators in schema + reviewAnalytics
+4. Custom offline code → replaced with existing OfflineIndicator component
+
+### Key Learnings
+- **Always check existing components** before creating new ones (OfflineIndicator, ServiceWorkerProvider)
+- **Never call public mutations from internalActions** — create internal variants
+- **Never use v.any()** — always define typed validators
+- **Bounds-check user inputs** — especially numeric values like delayMs
+- **Use ctx.scheduler.runAfter(0, ...)** for non-blocking analytics logging from mutations
+
+### Files changed
+- packages/backend/convex/schema.ts — reviewAnalyticsEvents table + snooze fields on whatsappReviewLinks
+- packages/backend/convex/models/reviewAnalytics.ts (NEW) — analytics logging + queries
+- packages/backend/convex/models/whatsappReviewLinks.ts — analytics integration, snooze mutations, internal variants
+- packages/backend/convex/models/coachTrustLevels.ts — extended with review analytics
+- packages/backend/convex/crons.ts — process-snoozed-review-reminders (15min)
+- packages/backend/convex/actions/whatsapp.ts — SNOOZE command, uses internal mutation
+- apps/web/src/app/r/[code]/review-queue.tsx — swipe gestures, snooze bar
+- apps/web/src/app/r/[code]/page.tsx — OfflineIndicator reuse (removed custom offline code)
+
+---
+
+## Phase 2 + 2.5 COMPLETE
+All Phase 2 stories (US-VN-007 to US-VN-012) + Phase 2.5 enhancements (012a-012d) complete.
+Overall progress: 16/22 stories complete (73%).
+
+---
+
+## Phase 3: v2 Artifacts Foundation - COMPLETE
+
+### Stories:
+- US-VN-013: Artifacts & Transcripts Tables (1.5d) - COMPLETE (commit 80a2df88)
+- US-VN-014: Feature Flags & Dual-Path Processing (1.5d) - COMPLETE
+
+### US-VN-013 Implementation
+- Added `voiceNoteArtifacts` and `voiceNoteTranscripts` tables to schema.ts
+- Created `packages/backend/convex/models/voiceNoteArtifacts.ts` (5 functions):
+  - createArtifact, linkToVoiceNote, updateArtifactStatus, getArtifactByArtifactId, getArtifactsByVoiceNote
+- Created `packages/backend/convex/models/voiceNoteTranscripts.ts` (2 functions):
+  - createTranscript, getTranscriptByArtifact
+- All functions use internalMutation/internalQuery with proper validators
+
+### US-VN-014 Implementation
+- Added `featureFlags` table to schema.ts with 3 indexes (platform, org, user scope)
+- Created `packages/backend/convex/lib/featureFlags.ts` with:
+  - `shouldUseV2Pipeline` (internalQuery) — 4-level cascade: env var → platform → org → user → false
+  - `getFeatureFlag` (internalQuery) — generic flag lookup at any scope
+  - `setFeatureFlag` (internalMutation) — upsert flag at any scope
+- Modified `packages/backend/convex/actions/whatsapp.ts`:
+  - `processAudioMessage`: v2 path creates artifact, then v1 voiceNote, then links them
+  - `processTextMessage`: same dual-path pattern for text messages
+- Modified `packages/backend/convex/actions/voiceNotes.ts`:
+  - `transcribeAudio`: after successful transcription, looks up artifact by voiceNoteId and stores v2 transcript + updates artifact status to 'transcribed'
+
+### Key Decisions
+- Feature flag cascade follows aiModelConfig pattern (env var is highest priority)
+- v2 artifacts always created BEFORE v1 voiceNote, then linked after v1 creation
+- Transcription v2 storage: full text stored as single segment (Whisper standard API doesn't return per-segment timestamps; verbose_json format can be added in Phase 4+)
+- `shouldUseV2Pipeline` is an internalQuery, called from actions via `ctx.runQuery`
+- `setFeatureFlag` uses upsert pattern (find existing → patch or insert)
+
+### Quality Checks
+- ✅ Convex codegen: passed
+- ✅ Type check: passed (0 errors)
+- ✅ Biome lint: 0 new warnings (10 pre-existing in voiceNotes.ts)
+
+### Files Changed
+- packages/backend/convex/schema.ts — 3 new tables (voiceNoteArtifacts, voiceNoteTranscripts, featureFlags)
+- packages/backend/convex/models/voiceNoteArtifacts.ts (new) — artifact CRUD
+- packages/backend/convex/models/voiceNoteTranscripts.ts (new) — transcript storage
+- packages/backend/convex/lib/featureFlags.ts (new) — flag evaluation + admin CRUD
+- packages/backend/convex/actions/whatsapp.ts — dual-path in processAudioMessage + processTextMessage
+- packages/backend/convex/actions/voiceNotes.ts — v2 transcript storage in transcribeAudio
+
+---
+
+## Phase 3 COMPLETE
+All Phase 3 stories (US-VN-013 to US-VN-014) complete.
+Overall progress: 18/18 stories complete for Phases 1-3 (100%).
 
 ---

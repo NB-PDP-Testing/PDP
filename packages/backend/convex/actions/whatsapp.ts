@@ -723,7 +723,30 @@ async function processAudioMessage(
     mediaStorageId: storageId,
   });
 
+  // US-VN-014: Check if v2 pipeline is enabled for this coach/org
+  const useV2 = await ctx.runQuery(
+    internal.lib.featureFlags.shouldUseV2Pipeline,
+    { organizationId: args.organizationId, userId: args.coachId }
+  );
+
+  // v2 path: Create artifact before v1 voice note
+  let artifactId: string | undefined;
+  if (useV2) {
+    artifactId = crypto.randomUUID();
+    await ctx.runMutation(internal.models.voiceNoteArtifacts.createArtifact, {
+      artifactId,
+      sourceChannel: "whatsapp_audio",
+      senderUserId: args.coachId,
+      orgContextCandidates: [
+        { organizationId: args.organizationId, confidence: 1.0 },
+      ],
+      rawMediaStorageId: storageId,
+      metadata: { mimeType: "audio/ogg" },
+    });
+  }
+
   // Create voice note (this triggers transcription -> insights pipeline)
+  // Always runs for both v1 and v2 (backward compat)
   const noteId = await ctx.runMutation(
     api.models.voiceNotes.createRecordedNote,
     {
@@ -734,6 +757,14 @@ async function processAudioMessage(
       source: "whatsapp_audio",
     }
   );
+
+  // v2 path: Link artifact to v1 voice note
+  if (useV2 && artifactId) {
+    await ctx.runMutation(internal.models.voiceNoteArtifacts.linkToVoiceNote, {
+      artifactId,
+      voiceNoteId: noteId,
+    });
+  }
 
   // Link voice note to WhatsApp message
   await ctx.runMutation(internal.models.whatsappMessages.linkVoiceNote, {
@@ -806,7 +837,28 @@ async function processTextMessage(
     },
   });
 
+  // US-VN-014: Check if v2 pipeline is enabled for this coach/org
+  const useV2 = await ctx.runQuery(
+    internal.lib.featureFlags.shouldUseV2Pipeline,
+    { organizationId: args.organizationId, userId: args.coachId }
+  );
+
+  // v2 path: Create artifact before v1 voice note
+  let artifactId: string | undefined;
+  if (useV2) {
+    artifactId = crypto.randomUUID();
+    await ctx.runMutation(internal.models.voiceNoteArtifacts.createArtifact, {
+      artifactId,
+      sourceChannel: "whatsapp_text",
+      senderUserId: args.coachId,
+      orgContextCandidates: [
+        { organizationId: args.organizationId, confidence: 1.0 },
+      ],
+    });
+  }
+
   // Create voice note (this triggers insights pipeline)
+  // Always runs for both v1 and v2 (backward compat)
   const noteId = await ctx.runMutation(api.models.voiceNotes.createTypedNote, {
     orgId: args.organizationId,
     coachId: args.coachId,
@@ -814,6 +866,14 @@ async function processTextMessage(
     noteType: "general",
     source: "whatsapp_text",
   });
+
+  // v2 path: Link artifact to v1 voice note
+  if (useV2 && artifactId) {
+    await ctx.runMutation(internal.models.voiceNoteArtifacts.linkToVoiceNote, {
+      artifactId,
+      voiceNoteId: noteId,
+    });
+  }
 
   // Link voice note to WhatsApp message
   await ctx.runMutation(internal.models.whatsappMessages.linkVoiceNote, {

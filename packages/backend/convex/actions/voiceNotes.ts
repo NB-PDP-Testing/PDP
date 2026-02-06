@@ -225,6 +225,37 @@ export const transcribeAudio = internalAction({
         },
       });
 
+      // US-VN-014: v2 path — store transcript in voiceNoteTranscripts if artifact exists
+      const artifacts = await ctx.runQuery(
+        internal.models.voiceNoteArtifacts.getArtifactsByVoiceNote,
+        { voiceNoteId: args.noteId }
+      );
+      if (artifacts.length > 0) {
+        const artifact = artifacts[0];
+        await ctx.runMutation(
+          internal.models.voiceNoteTranscripts.createTranscript,
+          {
+            artifactId: artifact._id,
+            fullText: transcription.text,
+            segments: [
+              {
+                text: transcription.text,
+                startTime: 0,
+                endTime: 0,
+                confidence: quality.confidence ?? 0,
+              },
+            ],
+            modelUsed: config.modelId,
+            language: "en",
+            duration: 0,
+          }
+        );
+        await ctx.runMutation(
+          internal.models.voiceNoteArtifacts.updateArtifactStatus,
+          { artifactId: artifact.artifactId, status: "transcribed" }
+        );
+      }
+
       // Branch on quality result
       if (quality.suggestedAction === "reject") {
         // Transcription worked but quality too low for insights

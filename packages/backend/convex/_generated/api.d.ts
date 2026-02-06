@@ -33,6 +33,7 @@ import type * as lib_autoApprovalDecision from "../lib/autoApprovalDecision.js";
 import type * as lib_circuitBreaker from "../lib/circuitBreaker.js";
 import type * as lib_consentGateway from "../lib/consentGateway.js";
 import type * as lib_duplicateDetection from "../lib/duplicateDetection.js";
+import type * as lib_featureFlags from "../lib/featureFlags.js";
 import type * as lib_feedbackMessages from "../lib/feedbackMessages.js";
 import type * as lib_firstUserSetup from "../lib/firstUserSetup.js";
 import type * as lib_messageValidation from "../lib/messageValidation.js";
@@ -204,6 +205,7 @@ declare const fullApi: ApiFromModules<{
   "lib/circuitBreaker": typeof lib_circuitBreaker;
   "lib/consentGateway": typeof lib_consentGateway;
   "lib/duplicateDetection": typeof lib_duplicateDetection;
+  "lib/featureFlags": typeof lib_featureFlags;
   "lib/feedbackMessages": typeof lib_feedbackMessages;
   "lib/firstUserSetup": typeof lib_firstUserSetup;
   "lib/messageValidation": typeof lib_messageValidation;

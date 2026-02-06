@@ -5,7 +5,14 @@
   "contextFiles": [
     "scripts/ralph/prds/voice-gateways-v2/context/MAIN_CONTEXT.md",
     "scripts/ralph/prds/voice-gateways-v2/context/PHASE2_MOBILE_REVIEW.md",
-    "scripts/ralph/prds/voice-gateways-v2/RALPH_EXECUTION_GUIDE.md"
+    "scripts/ralph/prds/voice-gateways-v2/RALPH_EXECUTION_GUIDE.md",
+    "scripts/ralph/agents/output/feedback.md",
+    "docs/architecture/decisions/ADR-VN2-001-capability-url-auth.md",
+    "docs/architecture/decisions/ADR-VN2-002-coach-scoped-rolling-links.md",
+    "docs/architecture/decisions/ADR-VN2-003-public-queries-code-validation.md",
+    "docs/architecture/decisions/ADR-VN2-004-aggregated-pending-items-query.md",
+    "docs/architecture/decisions/ADR-VN2-005-whatsapp-command-interceptors.md",
+    "docs/architecture/decisions/ADR-VN2-006-inline-edit-and-mutation-design.md"
   ],
   "relatedIssue": "https://github.com/NB-PDP-Testing/PDP/issues/423",
   "previousPhases": [

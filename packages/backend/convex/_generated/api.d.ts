@@ -125,7 +125,9 @@ import type * as models_teams from "../models/teams.js";
 import type * as models_trustGatePermissions from "../models/trustGatePermissions.js";
 import type * as models_userPreferences from "../models/userPreferences.js";
 import type * as models_users from "../models/users.js";
+import type * as models_voiceNoteArtifacts from "../models/voiceNoteArtifacts.js";
 import type * as models_voiceNoteInsights from "../models/voiceNoteInsights.js";
+import type * as models_voiceNoteTranscripts from "../models/voiceNoteTranscripts.js";
 import type * as models_voiceNotes from "../models/voiceNotes.js";
 import type * as models_whatsappMessages from "../models/whatsappMessages.js";
 import type * as models_whatsappReviewLinks from "../models/whatsappReviewLinks.js";
@@ -294,7 +296,9 @@ declare const fullApi: ApiFromModules<{
   "models/trustGatePermissions": typeof models_trustGatePermissions;
   "models/userPreferences": typeof models_userPreferences;
   "models/users": typeof models_users;
+  "models/voiceNoteArtifacts": typeof models_voiceNoteArtifacts;
   "models/voiceNoteInsights": typeof models_voiceNoteInsights;
+  "models/voiceNoteTranscripts": typeof models_voiceNoteTranscripts;
   "models/voiceNotes": typeof models_voiceNotes;
   "models/whatsappMessages": typeof models_whatsappMessages;
   "models/whatsappReviewLinks": typeof models_whatsappReviewLinks;
@@ -376,7 +380,12 @@ export declare const components: {
           input:
             | {
                 data: {
+                  address?: string;
+                  address2?: string;
+                  altEmail?: string;
                   childLinkingSkipCount?: number;
+                  country?: string;
+                  county?: string;
                   createdAt: number;
                   currentOrgId?: string;
                   email: string;
@@ -389,14 +398,21 @@ export declare const components: {
                   lastChildrenCheckAt?: number;
                   lastName?: string;
                   name: string;
+                  noChildrenAcknowledged?: boolean;
                   onboardingComplete?: boolean;
                   parentOnboardingDismissCount?: number;
                   parentOnboardingLastDismissedAt?: number;
                   phone?: string;
+                  postcode?: string;
+                  profileCompletedAt?: number;
+                  profileCompletionStatus?: "pending" | "completed" | "skipped";
+                  profileSkipCount?: number;
                   setupComplete?: boolean;
                   setupStep?: string;
+                  town?: string;
                   updatedAt: number;
                   userId?: null | string;
+                  wasInvited?: boolean;
                 };
                 model: "user";
               }
@@ -594,6 +610,18 @@ export declare const components: {
                     | "firstName"
                     | "lastName"
                     | "phone"
+                    | "altEmail"
+                    | "address"
+                    | "address2"
+                    | "town"
+                    | "county"
+                    | "postcode"
+                    | "country"
+                    | "profileCompletionStatus"
+                    | "profileCompletedAt"
+                    | "profileSkipCount"
+                    | "wasInvited"
+                    | "noChildrenAcknowledged"
                     | "onboardingComplete"
                     | "lastChildrenCheckAt"
                     | "parentOnboardingDismissCount"
@@ -1025,6 +1053,18 @@ export declare const components: {
                     | "firstName"
                     | "lastName"
                     | "phone"
+                    | "altEmail"
+                    | "address"
+                    | "address2"
+                    | "town"
+                    | "county"
+                    | "postcode"
+                    | "country"
+                    | "profileCompletionStatus"
+                    | "profileCompletedAt"
+                    | "profileSkipCount"
+                    | "wasInvited"
+                    | "noChildrenAcknowledged"
                     | "onboardingComplete"
                     | "lastChildrenCheckAt"
                     | "parentOnboardingDismissCount"
@@ -1531,7 +1571,12 @@ export declare const components: {
             | {
                 model: "user";
                 update: {
+                  address?: string;
+                  address2?: string;
+                  altEmail?: string;
                   childLinkingSkipCount?: number;
+                  country?: string;
+                  county?: string;
                   createdAt?: number;
                   currentOrgId?: string;
                   email?: string;
@@ -1544,14 +1589,21 @@ export declare const components: {
                   lastChildrenCheckAt?: number;
                   lastName?: string;
                   name?: string;
+                  noChildrenAcknowledged?: boolean;
                   onboardingComplete?: boolean;
                   parentOnboardingDismissCount?: number;
                   parentOnboardingLastDismissedAt?: number;
                   phone?: string;
+                  postcode?: string;
+                  profileCompletedAt?: number;
+                  profileCompletionStatus?: "pending" | "completed" | "skipped";
+                  profileSkipCount?: number;
                   setupComplete?: boolean;
                   setupStep?: string;
+                  town?: string;
                   updatedAt?: number;
                   userId?: null | string;
+                  wasInvited?: boolean;
                 };
                 where?: Array<{
                   connector?: "AND" | "OR";
@@ -1567,6 +1619,18 @@ export declare const components: {
                     | "firstName"
                     | "lastName"
                     | "phone"
+                    | "altEmail"
+                    | "address"
+                    | "address2"
+                    | "town"
+                    | "county"
+                    | "postcode"
+                    | "country"
+                    | "profileCompletionStatus"
+                    | "profileCompletedAt"
+                    | "profileSkipCount"
+                    | "wasInvited"
+                    | "noChildrenAcknowledged"
                     | "onboardingComplete"
                     | "lastChildrenCheckAt"
                     | "parentOnboardingDismissCount"
@@ -2123,7 +2187,12 @@ export declare const components: {
             | {
                 model: "user";
                 update: {
+                  address?: string;
+                  address2?: string;
+                  altEmail?: string;
                   childLinkingSkipCount?: number;
+                  country?: string;
+                  county?: string;
                   createdAt?: number;
                   currentOrgId?: string;
                   email?: string;
@@ -2136,14 +2205,21 @@ export declare const components: {
                   lastChildrenCheckAt?: number;
                   lastName?: string;
                   name?: string;
+                  noChildrenAcknowledged?: boolean;
                   onboardingComplete?: boolean;
                   parentOnboardingDismissCount?: number;
                   parentOnboardingLastDismissedAt?: number;
                   phone?: string;
+                  postcode?: string;
+                  profileCompletedAt?: number;
+                  profileCompletionStatus?: "pending" | "completed" | "skipped";
+                  profileSkipCount?: number;
                   setupComplete?: boolean;
                   setupStep?: string;
+                  town?: string;
                   updatedAt?: number;
                   userId?: null | string;
+                  wasInvited?: boolean;
                 };
                 where?: Array<{
                   connector?: "AND" | "OR";
@@ -2159,6 +2235,18 @@ export declare const components: {
                     | "firstName"
                     | "lastName"
                     | "phone"
+                    | "altEmail"
+                    | "address"
+                    | "address2"
+                    | "town"
+                    | "county"
+                    | "postcode"
+                    | "country"
+                    | "profileCompletionStatus"
+                    | "profileCompletedAt"
+                    | "profileSkipCount"
+                    | "wasInvited"
+                    | "noChildrenAcknowledged"
                     | "onboardingComplete"
                     | "lastChildrenCheckAt"
                     | "parentOnboardingDismissCount"

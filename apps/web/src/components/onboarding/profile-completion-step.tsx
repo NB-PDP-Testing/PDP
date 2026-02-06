@@ -77,7 +77,14 @@ export function ProfileCompletionStep({
   onComplete,
   onSkip,
 }: ProfileCompletionStepProps) {
-  const [phone, setPhone] = useState(data.currentPhone || "");
+  // Normalize phone to E.164 format (must start with +)
+  const initialPhone = data.currentPhone
+    ? data.currentPhone.startsWith("+")
+      ? data.currentPhone
+      : `+${data.currentPhone}`
+    : "";
+
+  const [phone, setPhone] = useState(initialPhone);
   const [postcode, setPostcode] = useState(data.currentPostcode || "");
   const [altEmail, setAltEmail] = useState(data.currentAltEmail || "");
   const [address, setAddress] = useState(data.currentAddress || "");

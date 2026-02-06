@@ -71,10 +71,17 @@ export function ProfileSettingsDialog({
     user?._id ? { userId: user._id } : "skip"
   );
 
+  // Normalize phone to E.164 format (must start with +)
+  const initialPhone = user?.phone
+    ? user.phone.startsWith("+")
+      ? user.phone
+      : `+${user.phone}`
+    : "";
+
   // Form state - Personal Information
   const [firstName, setFirstName] = useState(user?.firstName || "");
   const [lastName, setLastName] = useState(user?.lastName || "");
-  const [phone, setPhone] = useState(user?.phone || "");
+  const [phone, setPhone] = useState(initialPhone);
 
   // Form state - Address (Phase 0.7)
   const [address, setAddress] = useState(user?.address || "");

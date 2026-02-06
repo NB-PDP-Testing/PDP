@@ -145,11 +145,13 @@ function OnboardingStepRenderer({
   userId,
   userEmail,
   onComplete,
+  onSkip,
 }: {
   task: OnboardingTask;
   userId: string | undefined;
   userEmail: string | undefined;
   onComplete: () => void;
+  onSkip: () => void;
 }) {
   // Get current GDPR version for GDPR consent task
   const gdprVersion = useQuery(api.models.gdpr.getCurrentGdprVersion);
@@ -186,7 +188,7 @@ function OnboardingStepRenderer({
       <ProfileCompletionStep
         data={profileData}
         onComplete={onComplete}
-        onSkip={onComplete}
+        onSkip={onSkip}
       />
     );
   }
@@ -378,9 +380,19 @@ export function OnboardingOrchestrator({
   children,
 }: OnboardingOrchestratorProps) {
   const { data: session } = authClient.useSession();
-  const tasks = useQuery(api.models.onboarding.getOnboardingTasks);
+  const rawTasks = useQuery(api.models.onboarding.getOnboardingTasks);
   const [currentStepIndex, setCurrentStepIndex] = useState(0);
+  const [sessionSkipped, setSessionSkipped] = useState<Set<string>>(() => {
+    if (typeof window === "undefined") {
+      return new Set();
+    }
+    const stored = sessionStorage.getItem("onboarding_skipped");
+    return stored ? new Set(JSON.parse(stored)) : new Set();
+  });
   const { track } = useAnalytics();
+
+  // Filter out tasks the user has already skipped this session
+  const tasks = rawTasks?.filter((t) => !sessionSkipped.has(t.type));
 
   // Track when onboarding starts and steps are shown
   const stepStartTimeRef = useRef<number>(Date.now());
@@ -468,6 +480,25 @@ export function OnboardingOrchestrator({
     setCurrentStepIndex(0);
   };
 
+  // Handle step skip - dismiss for this browser session via sessionStorage
+  const handleStepSkipped = () => {
+    if (currentTask) {
+      const updated = new Set(sessionSkipped);
+      updated.add(currentTask.type);
+      setSessionSkipped(updated);
+      sessionStorage.setItem(
+        "onboarding_skipped",
+        JSON.stringify([...updated])
+      );
+
+      track(AnalyticsEvents.ONBOARDING_STEP_SKIPPED, {
+        step_id: currentTask.type,
+        step_number: currentStepIndex + 1,
+      });
+    }
+    setCurrentStepIndex(0);
+  };
+
   // Don't show anything if:
   // - Tasks are still loading (undefined)
   // - No tasks to show (query returns empty array when all complete)
@@ -494,6 +525,7 @@ export function OnboardingOrchestrator({
           <div data-testid="onboarding-wizard">
             <OnboardingStepRenderer
               onComplete={handleStepComplete}
+              onSkip={handleStepSkipped}
               task={currentTask}
               userEmail={userEmail}
               userId={userId}

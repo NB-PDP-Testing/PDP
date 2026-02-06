@@ -209,12 +209,12 @@ export const getOnboardingTasks = query({
       const skipCount = user.profileSkipCount ?? 0;
       const canSkip = skipCount < 3;
 
-      // Show profile completion if not yet completed or skipped
-      // - undefined/pending = never completed, show the form
-      // - skipped = user skipped this session, don't show again until next login
-      // - completed = user filled in their details, never show again
-      const needsProfileCompletion =
-        profileStatus !== "completed" && profileStatus !== "skipped";
+      // Show profile completion if status is NOT "completed"
+      // - undefined/pending = never completed
+      // - skipped = user skipped, but must still complete eventually
+      //   (frontend handles hiding for the current session)
+      // The canSkip flag controls whether Skip button appears, not the form itself
+      const needsProfileCompletion = profileStatus !== "completed";
 
       if (needsProfileCompletion) {
         tasks.push({

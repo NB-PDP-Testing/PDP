@@ -1,108 +1,6 @@
 # Ralph Progress Log
-Started: Fri Feb  6 23:08:30 GMT 2026
+Started: Fri Feb  6 23:37:29 GMT 2026
 ---
-
-## CODE REVIEW FEEDBACK
-
-### Agent Feedback - 2026-02-06 23:08
-
-## Quality Monitor - 2026-01-29 20:59:50
-- ⚠️ Biome lint errors found
-
-
-## Quality Monitor - 2026-01-29 21:01:04
-- ⚠️ Biome lint errors found
-
-
-## Quality Monitor - 2026-01-29 21:02:18
-- ⚠️ Biome lint errors found
-
-
-## Documentation Update - 2026-01-29 21:02
-- ✅ Feature documentation generated: `docs/features/coach-impact-visibility-p8-week3.md`
-- Phase complete: P8 Week 3 - Navigation & Polish
-
-## Quality Monitor - 2026-01-29 21:03:40
-- ⚠️ Biome lint errors found
-
-
-## Quality Monitor - 2026-01-29 21:04:56
-- ⚠️ Biome lint errors found
-
-
-## PRD Audit - US-P8-013 - 2026-01-29 21:03:59
-Perfect! Both tables have the required fields. Now let me create a comprehensive audit report:
-
-## **AUDIT REPORT: US-P8-013 - Add Source Badge to Skill Assessments in Passport**
-
-### **Status: PARTIAL**
-
----
-
-### **Acceptance Criteria Assessment**
-
-| Criteria | Status | Evidence |
-|----------|--------|----------|
-| ✅ Schema has 'source' and 'voiceNoteId' fields | **PASS** | `skillAssessments` table has both fields (schema.ts:549-550) |
-| ❌ Component `skill-assessment-display.tsx` exists | **FAIL** | Component does not exist in codebase |
-| ❌ Badge shown for voice_note source | **NOT IMPLEMENTED** | No code displays skill assessment badges |
-| ❌ Badge includes mic icon and date | **NOT IMPLEMENTED** | No badge implementation found |
-| ❌ Badge links to voice notes | **NOT IMPLEMENTED** | No navigation implemented |
-| ✅ Type check passes | **PASS** | `npm run check-types` passes |
-
----
-
-### **Key Findings**
-
-**1. Schema Requirements Met**
-- ✅ `skillAssessments` table has `source` field (line 549)
-- ✅ `skillAssessments` table has `voiceNoteId` field (line 550)
-- ✅ `playerInjuries` table also has both fields (lines 807-808)
-
-**2. Critical Gap: Missing Component Architecture**
-- ❌ File `skill-assessment-display.tsx` **does not exist**
-- ❌ Current `skills-section.tsx` shows **aggregated skills** (`Record<string, number>`), NOT individual `skillAssessments` records
-- ❌ Passport page doesn't display individual skill assessment history with source tracking
-
-**3. Alternative Implementation Exists**
-- The `VoiceInsightsSectionImproved` component provides partial functionality:
-  - Shows insights by category (skills, injuries, etc.)
-  - Includes "View in Voice Notes" button (line 306-309)
-  - Does NOT show source badges on individual skill assessments
-  - Works at the **insight level**, not the **assessment record level**
-
-**4. Architectural Mismatch**
-- PRD assumes passport displays **individual skill assessment records** with timestamps
-- Current implementation shows **current skill ratings** without assessment history
-- No UI exists to display skill assessment timeline/history
-
----
-
-### **What's Missing**
-
-To properly implement US-P8-013, the following is required:
-
-1. **Create assessment history display** - Component to show list of skill assessments over time
-2. **Add source badges** - Visual indicator with mic icon when `source === 'voice_note'`
-3. **Implement navigation** - Link to voice notes page with `?noteId=X` param
-4. **Integrate into passport** - Add assessment history section to player passport page
-
----
-
-### **Conclusion**
-
-**Status: PARTIAL** - Schema is ready, but UI implementation is missing.
-
-The story is marked as complete in `prd.json` with justification that `VoiceInsightsSection` provides "equivalent functionality," but this is **not accurate**:
-
-- VoiceInsightsSection shows **insights** (coach observations)
-- US-P8-013 requires **skill assessment badges** (specific rating changes)
-- These are different data structures and user needs
-
-**Recommendation**: Either implement the full feature as specified, or update the PRD to reflect that skill assessment source badges are deferred in favor of the existing Voice Insights section.
-
-## Quality Monitor - 2026-01-29 21:06:10
-- ⚠️ Biome lint errors found
 
 ## Codebase Patterns
 **Last Updated**: 2026-02-06 - Iteration 1
@@ -111,71 +9,101 @@ The story is marked as complete in `prd.json` with justification that `VoiceInsi
 - All routes scoped under `/orgs/[orgId]/`
 - Use Better Auth for authentication, Convex for backend
 - Organization data isolated via organizationId field
+- Injuries linked to orgs through `orgPlayerEnrollments` → `playerIdentityId` → `playerInjuries`
 
 ### Convex Backend Patterns
 - NEVER use `.filter()` - always use `.withIndex()`
 - All functions need `args` and `returns` validators
 - Use `Id<"tableName">` types, not `string`
 - Index names include all fields: `by_orgId_and_status`
-- Better Auth tables (user, member, org, team) MUST use `components.betterAuth.adapter` - never `ctx.db.query`
-- Application tables (playerInjuries, guardianPlayerLinks, etc.) use regular `ctx.db.query`
-- Better Auth adapter returns untyped results - use explicit type assertions to avoid `unknown[]` return types
+- Better Auth tables (user, org, team, member) use `ctx.runQuery(components.betterAuth.adapter.findMany, {...})`
+- Application tables (playerInjuries, orgPlayerEnrollments, teamPlayerIdentities) use regular `ctx.db.query()`
+- `findMany` returns `{ page: [...], cursor: ... }` - access results via `.page`
+
+### Key Indexes (for analytics queries)
+- `playerInjuries`: `by_playerIdentityId`, `by_status` (playerIdentityId+status), `by_date` (playerIdentityId+dateOccurred)
+- `orgPlayerEnrollments`: `by_org_and_status` (organizationId+status), `by_organizationId`
+- `teamPlayerIdentities`: `by_teamId`, `by_organizationId`, `by_org_and_status`
+
+### Injury Visibility Pattern
+- Injuries have `isVisibleToAllOrgs`, `restrictedToOrgIds`, `occurredAtOrgId`
+- Must filter visibility in-memory (OR conditions can't be expressed in single index)
+- Typically <10 injuries per player, so in-memory filtering is OK
 
 ### Frontend Patterns
 - Use shadcn/ui components from `@/components/ui`
-- Use `useSearchParams` for filter state (URL persistence)
+- Recharts library installed for charts (LineChart, BarChart, PieChart, ResponsiveContainer)
 - Organization theming via CSS variables: `--org-primary`, etc.
-- Notification types must be kept in sync across: schema.ts, notification-bell.tsx, notification-toast.tsx
 
 ### Quality Checks
 - Run in order: `npm run check-types` → `npx ultracite fix` → `npm run check`
-- Ultracite must run before linting or you'll get false failures
-- Pre-existing lint warnings exist across codebase (not related to new changes)
+- Ultracite has ~302 pre-existing errors across the project - don't try to fix those
+- New code should not introduce new lint errors/warnings
+- Biome lint rules to watch: `useBlockStatements` (always use {}), `noNonNullAssertion` (assign to const first), `noIncrementDecrement` (use += 1), `noExcessiveCognitiveComplexity` (break into helper functions)
+- `npx -w packages/backend convex codegen` to verify backend types
 
 ### File Locations (discovered during work)
-- Player data: `orgPlayerEnrollments` table (not `players`)
+- Player injuries backend: `packages/backend/convex/models/playerInjuries.ts`
+- Schema: `packages/backend/convex/schema.ts`
+- Admin sidebar: `apps/web/src/components/layout/admin-sidebar.tsx`
 - Admin pages: `apps/web/src/app/orgs/[orgId]/admin/`
-- Convex queries: `packages/backend/convex/models/`
-- Notification helpers: `packages/backend/convex/lib/injuryNotifications.ts`
-- Notification bell: `apps/web/src/components/notifications/notification-bell.tsx`
-- Notification toast types: `apps/web/src/components/notification-toast.tsx`
 
 ---
 
-## 2026-02-06 - US-INJ-001 through US-INJ-012 - All Stories
+## 2026-02-06 - US-ANA-001 - Create getOrgInjuryAnalytics aggregate query
 **Iteration**: 1
-**Session**: 17697716-5e34-4f10-9076-f6abdcd030bc
+**Commit**: (pending)
+**Session**: 5de20633-ba62-443d-a9f9-78273eb0b91b
 **Status**: Complete
 
 ### What was implemented
-All 12 stories were already implemented by previous iterations. This iteration found and fixed 2 TypeScript errors that were preventing typecheck from passing:
-
-1. **notification-toast.tsx**: `NotificationType` union was missing injury notification types (`injury_reported`, `injury_status_changed`, `severe_injury_alert`, `injury_cleared`). This caused a type mismatch in `notification-provider.tsx` when passing notification data to `showNotificationToast()`.
-
-2. **members.ts**: `getAdminUserIdsForOrg` internal query had an `unknown[]` return type because the Better Auth adapter's `findMany` returns untyped records. Using `any` type assertions on `filter` and `map` caused the final `Set` spread to infer `unknown[]` instead of `string[]`. Fixed by using a properly typed local interface and type guard filter.
+- Added `getOrgInjuryAnalytics` query to `playerInjuries.ts`
+- Query fetches all active enrollments for org, batch fetches injuries for all enrolled players
+- Applies org visibility filtering (isVisibleToAllOrgs, restrictedToOrgIds, occurredAtOrgId)
+- Applies optional date range filtering (startDate, endDate as ISO strings)
+- Computes comprehensive aggregations in-memory:
+  - Status counts (active, recovering, cleared, healed)
+  - Body part breakdown (sorted by count desc)
+  - Severity distribution (sorted by count desc)
+  - Monthly trend (last 12 months, initialized with zeros)
+  - Occurred during context (training, match, etc.)
+  - Average recovery days (from healed injuries with daysOut)
+  - Recurrence rate (% of players with 2+ injuries)
+- Extracted reusable helper functions: `isInjuryVisibleToOrg`, `filterByDateRange`, `countByField`, `computeByMonth`, `computeAvgRecoveryDays`, `computeRecurrenceRate`, `computeInjuryAggregations`
+- Created shared `analyticsReturnValidator` for reuse across analytics queries
 
 ### Files changed
-- `apps/web/src/components/notification-toast.tsx` (+4, -0) - Added injury notification types to NotificationType union
-- `packages/backend/convex/models/members.ts` (+5, -4) - Fixed type inference in getAdminUserIdsForOrg
+- packages/backend/convex/models/playerInjuries.ts (+150 lines of helpers and query)
 
 ### Quality checks
-- ✅ Type check: passed (`npm run check-types`)
-- ✅ Convex codegen: passed (`npx -w packages/backend convex codegen`)
-- ✅ Lint on modified files: passed (no new errors)
-- ⚠️ Global lint: pre-existing warnings across codebase (not related to changes)
+- ✅ Type check: passed
+- ✅ Convex codegen: passed
+- ✅ Linting: passed (no new errors in our code; pre-existing warnings remain)
+- N/A Browser verification: backend-only change
 
-### **Learnings for future iterations** ⚠️ CRITICAL
+### Learnings for future iterations
 **Patterns discovered:**
-- Better Auth adapter returns untyped results - you MUST explicitly type assertions on `.filter()` and `.map()` chains or TypeScript will infer `unknown[]`
-- Notification types must be kept in sync across THREE files: schema.ts, notification-bell.tsx, and notification-toast.tsx
-- When all stories are already implemented, focus on verifying quality checks pass
+- Helper functions should be extracted to keep Convex handler complexity low (biome `noExcessiveCognitiveComplexity` threshold is 15)
+- The `analyticsReturnValidator` and helper functions (`isInjuryVisibleToOrg`, `filterByDateRange`, `countByField`, `computeByMonth`, etc.) are reusable for US-ANA-002 and US-ANA-003
+- Recurrence rate is computed as percentage: (playersWithRecurrence / totalInjuredPlayers) * 100, rounded to 1 decimal
 
 **Gotchas encountered:**
-- Using `(m: any)` in a chain like `members.filter((m: any) => ...).map((m: any) => m.userId)` produces `unknown[]` because `any` propagates poorly through Set construction
-- Fix: Use a typed local interface (`type MemberRecord = { role?: string; userId?: string }`) and cast the array once, then use type guard filters
+- Biome requires block statements (`{}`) on all if/else - can't use single-line `if (x) y++`
+- Biome prohibits `++`/`--` - must use `+= 1`
+- Biome prohibits non-null assertions (`!`) - assign optional to const variable first
+- `npx ultracite fix` exits with error code 1 due to pre-existing errors, but this is normal
+
+**Dependencies found:**
+- US-ANA-002 (getInjuriesByTeam) will need the Better Auth adapter pattern to fetch team names
+- US-ANA-003 (getInjuryTrends) can reuse `computeInjuryAggregations` for both periods
+
+**What to do next:**
+- [ ] Pick up US-ANA-002 (getInjuriesByTeam)
+- [ ] Reuse `isInjuryVisibleToOrg`, `filterByDateRange` helpers
+- [ ] Use Better Auth adapter `findMany` with model "team" to get team names
 
 **Mistakes made:**
-- First attempt to fix members.ts used `as string` type assertion on the map callback, but this didn't fix the issue because the Set still inferred unknown from the intermediate array
-- Second attempt used separate typed callbacks on filter/map but missed typing the filter parameter in the subsequent `.filter()` call
+- Initially used `++` and non-null assertions - caught by lint
+- Initially wrote all aggregation logic inline in handler - too complex, refactored to helpers
 
 ---

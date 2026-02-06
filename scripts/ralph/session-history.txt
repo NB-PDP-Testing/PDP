@@ -90,3 +90,11 @@ Iteration 2: f68879b3-14e2-4f74-a50f-078fa56c4ba9 (Mon  2 Feb 2026 15:01:43 GMT)
 Iteration 3: 5bd2c9f5-554f-44a3-ad1f-050bc1d350ae (Mon  2 Feb 2026 15:08:50 GMT)
 Iteration 1: ed5d93a2-5150-4079-9adf-ca2d94c70a9f (Mon  2 Feb 2026 21:16:14 GMT)
 Iteration 1: ea1c86e0-6af3-43bf-887e-3693e2a245f9 (Tue  3 Feb 2026 10:37:52 GMT)
+
+# ===== Voice Gateways v2 - Phase 2: Coach Quick Review Microsite =====
+# Branch: feat/voice-gateways-v2
+# PRD: scripts/ralph/prd.json (v2 revision — aggregated no-auth microsite)
+# Phase 1 Complete: US-VN-001 to US-VN-006 (349 tests, integration gaps fixed)
+# Phase 2 Stories: US-VN-007 to US-VN-012 (6 stories, 7-9 days)
+# Architecture Review: Complete (see docs/architecture/decisions/ADR-VN2-*)
+# Prep Date: Wed 5 Feb 2026

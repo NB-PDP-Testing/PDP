@@ -2,7 +2,8 @@
 
 import { api } from "@pdp/backend/convex/_generated/api";
 import type { Id } from "@pdp/backend/convex/_generated/dataModel";
-import { useMutation } from "convex/react";
+import { useMutation, useQuery } from "convex/react";
+import { motion, useMotionValue, useTransform } from "framer-motion";
 import {
   AlertTriangle,
   Check,
@@ -18,7 +19,7 @@ import {
   Users,
   X,
 } from "lucide-react";
-import { useCallback, useState } from "react";
+import { useCallback, useEffect, useState } from "react";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
@@ -264,6 +265,8 @@ export function ReviewQueue({
 
   return (
     <div className="space-y-4 pb-8">
+      <SnoozeBar code={code} />
+
       {injuries.length > 0 && (
         <ReviewSection
           batchAction={
@@ -279,22 +282,31 @@ export function ReviewQueue({
           title="Injuries"
         >
           {injuries.map((item) => (
-            <InsightCard
-              category={item.category}
-              code={code}
-              description={item.description}
-              insightId={item.insightId}
+            <SwipeableReviewCard
               key={`${item.voiceNoteId}-${item.insightId}`}
-              loading={loadingIds.has(`${item.voiceNoteId}-${item.insightId}`)}
-              noteDate={item.noteDate}
-              onApply={handleApply}
-              onDismiss={handleDismiss}
-              onEdit={handleEdit}
-              playerName={item.playerName}
-              title={item.title}
-              variant="injury"
-              voiceNoteId={item.voiceNoteId}
-            />
+              onSwipeLeft={() =>
+                handleDismiss(item.voiceNoteId, item.insightId)
+              }
+              onSwipeRight={() => handleApply(item.voiceNoteId, item.insightId)}
+            >
+              <InsightCard
+                category={item.category}
+                code={code}
+                description={item.description}
+                insightId={item.insightId}
+                loading={loadingIds.has(
+                  `${item.voiceNoteId}-${item.insightId}`
+                )}
+                noteDate={item.noteDate}
+                onApply={handleApply}
+                onDismiss={handleDismiss}
+                onEdit={handleEdit}
+                playerName={item.playerName}
+                title={item.title}
+                variant="injury"
+                voiceNoteId={item.voiceNoteId}
+              />
+            </SwipeableReviewCard>
           ))}
         </ReviewSection>
       )}
@@ -340,22 +352,31 @@ export function ReviewQueue({
           title="Needs Review"
         >
           {needsReview.map((item) => (
-            <InsightCard
-              category={item.category}
-              code={code}
-              description={item.description}
-              insightId={item.insightId}
+            <SwipeableReviewCard
               key={`${item.voiceNoteId}-${item.insightId}`}
-              loading={loadingIds.has(`${item.voiceNoteId}-${item.insightId}`)}
-              noteDate={item.noteDate}
-              onApply={handleApply}
-              onDismiss={handleDismiss}
-              onEdit={handleEdit}
-              playerName={item.playerName}
-              title={item.title}
-              variant="review"
-              voiceNoteId={item.voiceNoteId}
-            />
+              onSwipeLeft={() =>
+                handleDismiss(item.voiceNoteId, item.insightId)
+              }
+              onSwipeRight={() => handleApply(item.voiceNoteId, item.insightId)}
+            >
+              <InsightCard
+                category={item.category}
+                code={code}
+                description={item.description}
+                insightId={item.insightId}
+                loading={loadingIds.has(
+                  `${item.voiceNoteId}-${item.insightId}`
+                )}
+                noteDate={item.noteDate}
+                onApply={handleApply}
+                onDismiss={handleDismiss}
+                onEdit={handleEdit}
+                playerName={item.playerName}
+                title={item.title}
+                variant="review"
+                voiceNoteId={item.voiceNoteId}
+              />
+            </SwipeableReviewCard>
           ))}
         </ReviewSection>
       )}
@@ -376,21 +397,32 @@ export function ReviewQueue({
           title="Actions / Todos"
         >
           {todos.map((item) => (
-            <InsightCard
-              assigneeName={item.assigneeName}
-              code={code}
-              description={item.description}
-              insightId={item.insightId}
+            <SwipeableReviewCard
               key={`${item.voiceNoteId}-${item.insightId}`}
-              loading={loadingIds.has(`${item.voiceNoteId}-${item.insightId}`)}
-              noteDate={item.noteDate}
-              onApply={handleAddTodo}
-              onDismiss={handleDismiss}
-              onEdit={handleEdit}
-              title={item.title}
-              variant="todo"
-              voiceNoteId={item.voiceNoteId}
-            />
+              onSwipeLeft={() =>
+                handleDismiss(item.voiceNoteId, item.insightId)
+              }
+              onSwipeRight={() =>
+                handleAddTodo(item.voiceNoteId, item.insightId)
+              }
+            >
+              <InsightCard
+                assigneeName={item.assigneeName}
+                code={code}
+                description={item.description}
+                insightId={item.insightId}
+                loading={loadingIds.has(
+                  `${item.voiceNoteId}-${item.insightId}`
+                )}
+                noteDate={item.noteDate}
+                onApply={handleAddTodo}
+                onDismiss={handleDismiss}
+                onEdit={handleEdit}
+                title={item.title}
+                variant="todo"
+                voiceNoteId={item.voiceNoteId}
+              />
+            </SwipeableReviewCard>
           ))}
         </ReviewSection>
       )}
@@ -411,21 +443,32 @@ export function ReviewQueue({
           title="Team Notes"
         >
           {teamNotes.map((item) => (
-            <InsightCard
-              code={code}
-              description={item.description}
-              insightId={item.insightId}
+            <SwipeableReviewCard
               key={`${item.voiceNoteId}-${item.insightId}`}
-              loading={loadingIds.has(`${item.voiceNoteId}-${item.insightId}`)}
-              noteDate={item.noteDate}
-              onApply={handleSaveTeamNote}
-              onDismiss={handleDismiss}
-              onEdit={handleEdit}
-              teamName={item.teamName}
-              title={item.title}
-              variant="team"
-              voiceNoteId={item.voiceNoteId}
-            />
+              onSwipeLeft={() =>
+                handleDismiss(item.voiceNoteId, item.insightId)
+              }
+              onSwipeRight={() =>
+                handleSaveTeamNote(item.voiceNoteId, item.insightId)
+              }
+            >
+              <InsightCard
+                code={code}
+                description={item.description}
+                insightId={item.insightId}
+                loading={loadingIds.has(
+                  `${item.voiceNoteId}-${item.insightId}`
+                )}
+                noteDate={item.noteDate}
+                onApply={handleSaveTeamNote}
+                onDismiss={handleDismiss}
+                onEdit={handleEdit}
+                teamName={item.teamName}
+                title={item.title}
+                variant="team"
+                voiceNoteId={item.voiceNoteId}
+              />
+            </SwipeableReviewCard>
           ))}
         </ReviewSection>
       )}
@@ -924,4 +967,192 @@ function getBadgeVariant(
     default:
       return "secondary";
   }
+}
+
+// ============================================================
+// Swipeable wrapper for review cards (US-VN-012b)
+// Mobile-only: swipe right = apply, swipe left = dismiss
+// ============================================================
+
+const SWIPE_THRESHOLD = 100;
+
+function SwipeableReviewCard({
+  children,
+  onSwipeRight,
+  onSwipeLeft,
+}: {
+  children: React.ReactNode;
+  onSwipeRight: () => void;
+  onSwipeLeft: () => void;
+}) {
+  const [isMobile, setIsMobile] = useState(false);
+  const [isDragging, setIsDragging] = useState(false);
+  const x = useMotionValue(0);
+
+  useEffect(() => {
+    const check = () =>
+      setIsMobile(window.matchMedia("(max-width: 768px)").matches);
+    check();
+    window.addEventListener("resize", check);
+    return () => window.removeEventListener("resize", check);
+  }, []);
+
+  const greenOpacity = useTransform(x, [0, SWIPE_THRESHOLD], [0, 0.8]);
+  const redOpacity = useTransform(x, [0, -SWIPE_THRESHOLD], [0, 0.8]);
+  const greenIconX = useTransform(x, [0, SWIPE_THRESHOLD], [-20, 0]);
+  const redIconX = useTransform(x, [0, -SWIPE_THRESHOLD], [20, 0]);
+
+  if (!isMobile) {
+    return <>{children}</>;
+  }
+
+  return (
+    <div className="relative">
+      {/* Green overlay (apply) */}
+      <motion.div
+        className={`pointer-events-none absolute inset-0 flex items-center justify-start rounded-lg bg-green-500 px-4 ${
+          isDragging ? "opacity-100" : "opacity-0"
+        }`}
+        style={{ opacity: greenOpacity }}
+      >
+        <motion.div style={{ x: greenIconX }}>
+          <Check className="h-8 w-8 text-white" />
+        </motion.div>
+      </motion.div>
+
+      {/* Red overlay (dismiss) */}
+      <motion.div
+        className={`pointer-events-none absolute inset-0 flex items-center justify-end rounded-lg bg-red-500 px-4 ${
+          isDragging ? "opacity-100" : "opacity-0"
+        }`}
+        style={{ opacity: redOpacity }}
+      >
+        <motion.div style={{ x: redIconX }}>
+          <X className="h-8 w-8 text-white" />
+        </motion.div>
+      </motion.div>
+
+      {/* Draggable card */}
+      <motion.div
+        drag="x"
+        dragConstraints={{ left: 0, right: 0 }}
+        dragElastic={0.2}
+        onDragEnd={(_event, info) => {
+          setIsDragging(false);
+          if (info.offset.x > SWIPE_THRESHOLD) {
+            if ("vibrate" in navigator) {
+              navigator.vibrate(50);
+            }
+            onSwipeRight();
+          } else if (info.offset.x < -SWIPE_THRESHOLD) {
+            if ("vibrate" in navigator) {
+              navigator.vibrate(50);
+            }
+            onSwipeLeft();
+          }
+        }}
+        onDragStart={() => setIsDragging(true)}
+        style={{ x }}
+      >
+        {children}
+      </motion.div>
+    </div>
+  );
+}
+
+// ============================================================
+// Snooze Bar — defer review with timed reminder (US-VN-012c)
+// ============================================================
+
+function SnoozeBar({ code }: { code: string }) {
+  const snoozeInfo = useQuery(api.models.whatsappReviewLinks.getSnoozeInfo, {
+    code,
+  });
+  const snoozeMutation = useMutation(
+    api.models.whatsappReviewLinks.snoozeReviewLink
+  );
+  const [snoozingLabel, setSnoozingLabel] = useState<string | null>(null);
+  const [showSuccess, setShowSuccess] = useState(false);
+
+  if (!snoozeInfo || snoozeInfo.snoozeCount >= snoozeInfo.maxSnoozes) {
+    return null;
+  }
+
+  // If a reminder is already set, show a "reminder pending" badge
+  if (snoozeInfo.snoozeRemindAt) {
+    return (
+      <div className="rounded-md border border-blue-200 bg-blue-50 p-2 text-center text-blue-800 text-sm">
+        Reminder set for{" "}
+        {new Date(snoozeInfo.snoozeRemindAt).toLocaleTimeString([], {
+          hour: "2-digit",
+          minute: "2-digit",
+        })}
+      </div>
+    );
+  }
+
+  if (showSuccess) {
+    return (
+      <div className="rounded-md border border-green-200 bg-green-50 p-2 text-center text-green-800 text-sm">
+        Reminder set! You'll get a WhatsApp message.
+      </div>
+    );
+  }
+
+  const handleSnooze = async (label: string, delayMs: number) => {
+    setSnoozingLabel(label);
+    try {
+      const result = await snoozeMutation({ code, delayMs });
+      if (result.success) {
+        setShowSuccess(true);
+        setTimeout(() => setShowSuccess(false), 3000);
+      }
+    } finally {
+      setSnoozingLabel(null);
+    }
+  };
+
+  // Calculate "Tomorrow 9am" delay
+  const getTomorrow9amDelay = () => {
+    const now = new Date();
+    const tomorrow = new Date(now);
+    tomorrow.setDate(tomorrow.getDate() + 1);
+    tomorrow.setHours(9, 0, 0, 0);
+    return tomorrow.getTime() - now.getTime();
+  };
+
+  return (
+    <div className="space-y-1.5">
+      <div className="flex items-center gap-1.5">
+        <Clock className="h-3.5 w-3.5 text-muted-foreground" />
+        <span className="text-muted-foreground text-xs">Remind me later</span>
+        {snoozeInfo.snoozeCount > 0 && (
+          <span className="text-muted-foreground/60 text-xs">
+            ({snoozeInfo.snoozeCount}/{snoozeInfo.maxSnoozes} used)
+          </span>
+        )}
+      </div>
+      <div className="flex gap-2">
+        {[
+          { label: "1h", ms: 60 * 60 * 1000 },
+          { label: "2h", ms: 2 * 60 * 60 * 1000 },
+          { label: "Tomorrow 9am", ms: getTomorrow9amDelay() },
+        ].map(({ label, ms }) => (
+          <Button
+            className="min-h-[36px] flex-1 text-xs"
+            disabled={snoozingLabel !== null}
+            key={label}
+            onClick={() => handleSnooze(label, ms)}
+            size="sm"
+            variant="outline"
+          >
+            {snoozingLabel === label ? (
+              <Loader2 className="mr-1 h-3 w-3 animate-spin" />
+            ) : null}
+            {label}
+          </Button>
+        ))}
+      </div>
+    </div>
+  );
 }

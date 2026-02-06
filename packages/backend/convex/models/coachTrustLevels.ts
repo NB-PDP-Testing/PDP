@@ -1,5 +1,5 @@
 import { v } from "convex/values";
-import { components } from "../_generated/api";
+import { components, internal } from "../_generated/api";
 import type { Doc } from "../_generated/dataModel";
 import {
   internalMutation,
@@ -1036,10 +1036,39 @@ export const adjustPersonalizedThresholds = internalMutation({
         20 // Minimum 20 override decisions required
       );
 
-      // Update if threshold changed
-      if (newThreshold !== null) {
+      // US-VN-012a: Supplement with review analytics data
+      const reviewPatterns = await ctx.runQuery(
+        internal.models.reviewAnalytics.getCoachDecisionPatterns,
+        { coachUserId: coach.coachId }
+      );
+
+      let analyticsAdjustment = 0;
+      if (reviewPatterns.totalDecisions >= 20) {
+        if (reviewPatterns.agreementRate > 0.8) {
+          // High agreement with auto-apply candidates → lower threshold
+          analyticsAdjustment = -0.02;
+        } else if (reviewPatterns.agreementRate < 0.5) {
+          // Low agreement → raise threshold
+          analyticsAdjustment = 0.02;
+        }
+      }
+
+      // Combine both signals
+      const baseThreshold = newThreshold ?? coach.confidenceThreshold ?? 0.7;
+      const combinedThreshold = Math.max(
+        0.6,
+        Math.min(0.9, baseThreshold + analyticsAdjustment)
+      );
+      const thresholdChanged =
+        combinedThreshold !== (coach.confidenceThreshold ?? 0.7);
+
+      // Update if threshold changed (from either source)
+      if (
+        newThreshold !== null ||
+        (analyticsAdjustment !== 0 && thresholdChanged)
+      ) {
         await ctx.db.patch(coach._id, {
-          personalizedThreshold: newThreshold,
+          personalizedThreshold: combinedThreshold,
           updatedAt: Date.now(),
         });
         adjusted += 1;

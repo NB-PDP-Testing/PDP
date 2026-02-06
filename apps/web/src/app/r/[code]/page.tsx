@@ -12,8 +12,8 @@
 
 import { api } from "@pdp/backend/convex/_generated/api";
 import { useMutation, useQuery } from "convex/react";
-import { Mic } from "lucide-react";
-import { use, useEffect, useRef } from "react";
+import { Mic, WifiOff } from "lucide-react";
+import { use, useEffect, useRef, useState } from "react";
 import { PDPLogo } from "@/components/pdp-logo";
 import { ExpiredLinkView } from "./expired-link-view";
 import { InvalidLinkView } from "./invalid-link-view";
@@ -135,10 +135,39 @@ export default function QuickReviewPage({ params }: QuickReviewPageProps) {
 }
 
 /**
+ * Online/offline status hook (US-VN-012d)
+ */
+function useOnlineStatus() {
+  const [online, setOnline] = useState(true);
+  useEffect(() => {
+    const handleOnline = () => setOnline(true);
+    const handleOffline = () => setOnline(false);
+    window.addEventListener("online", handleOnline);
+    window.addEventListener("offline", handleOffline);
+    setOnline(navigator.onLine);
+    return () => {
+      window.removeEventListener("online", handleOnline);
+      window.removeEventListener("offline", handleOffline);
+    };
+  }, []);
+  return online;
+}
+
+/**
  * Mobile-first layout wrapper for the review microsite.
  * max-w-lg centered, safe area padding, min 16px font.
+ * Includes SW registration and offline detection (US-VN-012d).
  */
 function QuickReviewLayout({ children }: { children: React.ReactNode }) {
+  const isOnline = useOnlineStatus();
+
+  // Register service worker for offline support
+  useEffect(() => {
+    if ("serviceWorker" in navigator) {
+      navigator.serviceWorker.register("/sw.js");
+    }
+  }, []);
+
   return (
     <div className="min-h-svh bg-background">
       <div className="mx-auto max-w-lg px-4 pt-4 pb-[env(safe-area-inset-bottom)]">
@@ -151,6 +180,12 @@ function QuickReviewLayout({ children }: { children: React.ReactNode }) {
             <PDPLogo size="sm" />
           </a>
         </div>
+        {!isOnline && (
+          <div className="mb-4 flex items-center gap-2 rounded-md border border-yellow-200 bg-yellow-50 p-2 text-sm text-yellow-800">
+            <WifiOff className="h-4 w-4 shrink-0" />
+            You're offline. Data will refresh when you reconnect.
+          </div>
+        )}
         {children}
       </div>
     </div>

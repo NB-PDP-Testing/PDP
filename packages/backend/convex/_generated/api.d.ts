@@ -8,6 +8,7 @@
  * @module
  */
 
+import type * as actions_claimsExtraction from "../actions/claimsExtraction.js";
 import type * as actions_coachParentSummaries from "../actions/coachParentSummaries.js";
 import type * as actions_guardianNotifications from "../actions/guardianNotifications.js";
 import type * as actions_invitations from "../actions/invitations.js";
@@ -31,6 +32,7 @@ import type * as lib_analytics from "../lib/analytics.js";
 import type * as lib_auditCoachAssignments from "../lib/auditCoachAssignments.js";
 import type * as lib_autoApprovalDecision from "../lib/autoApprovalDecision.js";
 import type * as lib_circuitBreaker from "../lib/circuitBreaker.js";
+import type * as lib_coachContext from "../lib/coachContext.js";
 import type * as lib_consentGateway from "../lib/consentGateway.js";
 import type * as lib_duplicateDetection from "../lib/duplicateDetection.js";
 import type * as lib_featureFlags from "../lib/featureFlags.js";
@@ -127,6 +129,7 @@ import type * as models_trustGatePermissions from "../models/trustGatePermission
 import type * as models_userPreferences from "../models/userPreferences.js";
 import type * as models_users from "../models/users.js";
 import type * as models_voiceNoteArtifacts from "../models/voiceNoteArtifacts.js";
+import type * as models_voiceNoteClaims from "../models/voiceNoteClaims.js";
 import type * as models_voiceNoteInsights from "../models/voiceNoteInsights.js";
 import type * as models_voiceNoteTranscripts from "../models/voiceNoteTranscripts.js";
 import type * as models_voiceNotes from "../models/voiceNotes.js";
@@ -180,6 +183,7 @@ import type {
 } from "convex/server";
 
 declare const fullApi: ApiFromModules<{
+  "actions/claimsExtraction": typeof actions_claimsExtraction;
   "actions/coachParentSummaries": typeof actions_coachParentSummaries;
   "actions/guardianNotifications": typeof actions_guardianNotifications;
   "actions/invitations": typeof actions_invitations;
@@ -203,6 +207,7 @@ declare const fullApi: ApiFromModules<{
   "lib/auditCoachAssignments": typeof lib_auditCoachAssignments;
   "lib/autoApprovalDecision": typeof lib_autoApprovalDecision;
   "lib/circuitBreaker": typeof lib_circuitBreaker;
+  "lib/coachContext": typeof lib_coachContext;
   "lib/consentGateway": typeof lib_consentGateway;
   "lib/duplicateDetection": typeof lib_duplicateDetection;
   "lib/featureFlags": typeof lib_featureFlags;
@@ -299,6 +304,7 @@ declare const fullApi: ApiFromModules<{
   "models/userPreferences": typeof models_userPreferences;
   "models/users": typeof models_users;
   "models/voiceNoteArtifacts": typeof models_voiceNoteArtifacts;
+  "models/voiceNoteClaims": typeof models_voiceNoteClaims;
   "models/voiceNoteInsights": typeof models_voiceNoteInsights;
   "models/voiceNoteTranscripts": typeof models_voiceNoteTranscripts;
   "models/voiceNotes": typeof models_voiceNotes;

@@ -169,6 +169,45 @@ export const getArtifactByArtifactId = internalQuery({
 });
 
 /**
+ * Get artifact by Convex document _id.
+ * Used by claimsExtraction action which receives the _id from scheduler.
+ */
+export const getArtifactById = internalQuery({
+  args: {
+    _id: v.id("voiceNoteArtifacts"),
+  },
+  returns: v.union(
+    v.object({
+      _id: v.id("voiceNoteArtifacts"),
+      _creationTime: v.number(),
+      artifactId: v.string(),
+      sourceChannel: sourceChannelValidator,
+      senderUserId: v.string(),
+      orgContextCandidates: v.array(
+        v.object({
+          organizationId: v.string(),
+          confidence: v.number(),
+        })
+      ),
+      status: statusValidator,
+      voiceNoteId: v.optional(v.id("voiceNotes")),
+      rawMediaStorageId: v.optional(v.id("_storage")),
+      metadata: v.optional(
+        v.object({
+          mimeType: v.optional(v.string()),
+          fileSize: v.optional(v.number()),
+          whatsappMessageId: v.optional(v.string()),
+        })
+      ),
+      createdAt: v.number(),
+      updatedAt: v.number(),
+    }),
+    v.null()
+  ),
+  handler: async (ctx, args) => ctx.db.get(args._id),
+});
+
+/**
  * Get all artifacts linked to a specific v1 voiceNote.
  */
 export const getArtifactsByVoiceNote = internalQuery({

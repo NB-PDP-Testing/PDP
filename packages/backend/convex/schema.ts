@@ -4220,6 +4220,102 @@ export default defineSchema({
   }).index("by_artifactId", ["artifactId"]),
 
   // ============================================================
+  // VOICE NOTE CLAIMS (v2 Pipeline)
+  // Atomic claims extracted from transcripts, one per entity mention
+  // 15 topic categories, best-effort entity resolution
+  // ============================================================
+  voiceNoteClaims: defineTable({
+    claimId: v.string(),
+    artifactId: v.id("voiceNoteArtifacts"),
+    sourceText: v.string(),
+    timestampStart: v.optional(v.number()),
+    timestampEnd: v.optional(v.number()),
+    topic: v.union(
+      v.literal("injury"),
+      v.literal("skill_rating"),
+      v.literal("skill_progress"),
+      v.literal("behavior"),
+      v.literal("performance"),
+      v.literal("attendance"),
+      v.literal("wellbeing"),
+      v.literal("recovery"),
+      v.literal("development_milestone"),
+      v.literal("physical_development"),
+      v.literal("parent_communication"),
+      v.literal("tactical"),
+      v.literal("team_culture"),
+      v.literal("todo"),
+      v.literal("session_plan")
+    ),
+    title: v.string(),
+    description: v.string(),
+    recommendedAction: v.optional(v.string()),
+    timeReference: v.optional(v.string()),
+
+    entityMentions: v.array(
+      v.object({
+        mentionType: v.union(
+          v.literal("player_name"),
+          v.literal("team_name"),
+          v.literal("group_reference"),
+          v.literal("coach_name")
+        ),
+        rawText: v.string(),
+        position: v.number(),
+      })
+    ),
+
+    resolvedPlayerIdentityId: v.optional(v.id("playerIdentities")),
+    resolvedPlayerName: v.optional(v.string()),
+    resolvedTeamId: v.optional(v.string()),
+    resolvedTeamName: v.optional(v.string()),
+    resolvedAssigneeUserId: v.optional(v.string()),
+    resolvedAssigneeName: v.optional(v.string()),
+
+    severity: v.optional(
+      v.union(
+        v.literal("low"),
+        v.literal("medium"),
+        v.literal("high"),
+        v.literal("critical")
+      )
+    ),
+    sentiment: v.optional(
+      v.union(
+        v.literal("positive"),
+        v.literal("neutral"),
+        v.literal("negative"),
+        v.literal("concerned")
+      )
+    ),
+    skillName: v.optional(v.string()),
+    skillRating: v.optional(v.number()),
+
+    extractionConfidence: v.number(),
+    organizationId: v.string(),
+    coachUserId: v.string(),
+
+    status: v.union(
+      v.literal("extracted"),
+      v.literal("resolving"),
+      v.literal("resolved"),
+      v.literal("needs_disambiguation"),
+      v.literal("merged"),
+      v.literal("discarded"),
+      v.literal("failed")
+    ),
+    createdAt: v.number(),
+    updatedAt: v.number(),
+  })
+    .index("by_artifactId", ["artifactId"])
+    .index("by_artifactId_and_status", ["artifactId", "status"])
+    .index("by_claimId", ["claimId"])
+    .index("by_topic", ["topic"])
+    .index("by_org_and_coach", ["organizationId", "coachUserId"])
+    .index("by_org_and_status", ["organizationId", "status"])
+    .index("by_resolvedPlayerIdentityId", ["resolvedPlayerIdentityId"]),
+
+  // ============================================================
   // PLATFORM STAFF INVITATIONS
   // Invitations for granting platform staff access to new users
   // ============================================================

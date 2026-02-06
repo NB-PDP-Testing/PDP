@@ -2,7 +2,7 @@
 
 **Branch**: feat/voice-gateways-v2
 **Started**: 2026-02-04
-**Current Phase**: Phase 3 - v2 Artifacts Foundation
+**Current Phase**: Phase 4 - Claims Extraction
 **Architecture Review**: COMPLETE (6 ADRs in docs/architecture/decisions/ADR-VN2-*)
 
 ---
@@ -134,12 +134,19 @@ OK → R → CONFIRM/RETRY/CANCEL → awaiting_confirmation → normal
 ### File Locations (discovered during work)
 - Player data: `orgPlayerEnrollments` table (not `players`)
 - Admin pages: `apps/web/src/app/orgs/[orgId]/admin/`
+- Platform admin pages: `apps/web/src/app/platform/` (ai-config, v2-claims)
 - Convex queries: `packages/backend/convex/models/`
 - Convex shared libs: `packages/backend/convex/lib/`
+- Convex actions: `packages/backend/convex/actions/`
 - String matching: `packages/backend/convex/lib/stringMatching.ts`
 - Player matching (shared): `packages/backend/convex/lib/playerMatching.ts`
+- Feature flags: `packages/backend/convex/lib/featureFlags.ts`
 - Review links model: `packages/backend/convex/models/whatsappReviewLinks.ts`
 - WhatsApp actions: `packages/backend/convex/actions/whatsapp.ts`
+- Voice notes actions: `packages/backend/convex/actions/voiceNotes.ts` (transcription + buildInsights)
+- v2 Artifacts: `packages/backend/convex/models/voiceNoteArtifacts.ts`
+- v2 Transcripts: `packages/backend/convex/models/voiceNoteTranscripts.ts`
+- AI model config: `packages/backend/convex/models/aiModelConfig.ts`
 - Crons: `packages/backend/convex/crons.ts`
 
 ---
@@ -651,5 +658,89 @@ Overall progress: 16/22 stories complete (73%).
 ## Phase 3 COMPLETE
 All Phase 3 stories (US-VN-013 to US-VN-014) complete.
 Overall progress: 18/18 stories complete for Phases 1-3 (100%).
+
+---
+
+## Phase 4: Claims Extraction - READY TO START
+
+### PRD & Context Files Updated
+- `scripts/ralph/prd.json` — Updated for Phase 4 (US-VN-015 + US-VN-016)
+- `scripts/ralph/prds/voice-gateways-v2/phases/PHASE4_PRD.json` — Complete rewrite with improved plan
+- `scripts/ralph/prds/voice-gateways-v2/context/PHASE4_CLAIMS_EXTRACTION.md` — NEW detailed implementation guide
+- `scripts/ralph/prds/voice-gateways-v2/RALPH_EXECUTION_GUIDE.md` — Updated progress + Phase 4 as current
+
+### Execution Order
+1. **US-VN-015**: Claims Table & Extraction Action (2 days)
+   - Schema: voiceNoteClaims table with 15 topic categories + 7 indexes
+   - Model: voiceNoteClaims.ts with 6 functions
+   - Helper: coachContext.ts (internalQuery, extracts logic from buildInsights lines 340-471)
+   - Action: claimsExtraction.ts (internalAction, GPT-4 + Zod structured output)
+   - Modify: voiceNoteArtifacts.ts (add getArtifactById internalQuery)
+
+2. **US-VN-016**: Pipeline Integration & Claims Viewer (1 day)
+   - Pipeline hook: ~3 lines in voiceNotes.ts (scheduler call after "transcribed")
+   - Query: getRecentArtifacts (public) in voiceNoteArtifacts.ts
+   - Frontend: /platform/v2-claims page (follow ai-config pattern)
+
+### Key Integration Points (Line References)
+- voiceNotes.ts line 228-257: v2 transcript storage (artifact check + status to "transcribed")
+- voiceNotes.ts line 233: `if (artifacts.length > 0)` block — add claims scheduler HERE
+- voiceNotes.ts line 280-286: v1 buildInsights scheduler (DO NOT MODIFY)
+- voiceNotes.ts lines 340-471: Coach context gathering (port to coachContext.ts)
+- voiceNotes.ts lines 486-604: GPT-4 prompt matching rules (port to claims prompt)
+- voiceNotes.ts lines 651-724: Player matching + fuzzy fallback (replicate pattern)
+
+### Phase 4 Design Principles
+- Claims run ALONGSIDE v1 buildInsights (parallel, NOT replacing)
+- 15 topic categories (v1 has 7, Phase 4 adds 8 new ones)
+- Separate action file claimsExtraction.ts (voiceNotes.ts is 1300+ lines)
+- Shared coachContext.ts internalQuery (avoids duplicating buildInsights logic)
+- Denormalized org/coach on claims table
+- Platform debug viewer at /platform/v2-claims
+
+---
+
+## US-VN-015: Claims Table & Extraction Action ✅
+**Status**: COMPLETE
+**Date**: 2026-02-06
+
+### What was built:
+1. **Schema**: Added `voiceNoteClaims` table to schema.ts with 15 topic categories (injury, skill_rating, skill_progress, behavior, performance, attendance, wellbeing, recovery, development_milestone, physical_development, parent_communication, tactical, team_culture, todo, session_plan), entity mentions array, resolved entity fields, severity/sentiment/skill metadata, and 7 indexes (by_artifactId, by_artifactId_and_status, by_claimId, by_topic, by_org_and_coach, by_org_and_status, by_resolvedPlayerIdentityId)
+
+2. **Model**: Created `packages/backend/convex/models/voiceNoteClaims.ts` with 6 functions:
+   - storeClaims (internalMutation) — batch insert claims
+   - getClaimsByArtifact (internalQuery) — by_artifactId index
+   - getClaimsByArtifactAndStatus (internalQuery) — composite index
+   - updateClaimStatus (internalMutation) — by_claimId lookup
+   - getClaimByClaimId (internalQuery) — single claim lookup
+   - getClaimsByOrgAndCoach (PUBLIC query) — for claims viewer, limit 50/max 200
+
+3. **Helper**: Created `packages/backend/convex/lib/coachContext.ts` with gatherCoachContext internalQuery
+   - Ported logic from voiceNotes.ts buildInsights lines 340-471
+   - Returns players, teams, coaches, recordingCoachName, and pre-formatted JSON strings for AI prompt
+   - Deduplicates players by playerIdentityId
+
+4. **Action**: Created `packages/backend/convex/actions/claimsExtraction.ts` with extractClaims internalAction
+   - "use node" directive, OpenAI + zodTextFormat structured output
+   - Zod schema with all 15 topics, entity mentions, severity/sentiment
+   - GPT-4 system prompt with atomicity rules, player/team/coach matching
+   - Deterministic player matching (ID → exact name → first name → partial)
+   - Fuzzy fallback via findSimilarPlayers (threshold >= 0.85)
+   - AI model config via getAIConfig pattern (feature: "voice_insights")
+   - Error handling: try/catch, marks artifact as "failed" on error
+   - Extracted helpers to reduce cognitive complexity (resolveClaimPlayer, buildClaimRecord, markArtifactFailed)
+
+5. **Modified**: Added `getArtifactById` internalQuery to voiceNoteArtifacts.ts (takes Convex _id, simpler than getArtifactByArtifactId)
+
+### Quality checks:
+- `npx -w packages/backend convex codegen` — PASSES
+- `npm run check-types` — PASSES (0 errors)
+- `npx biome check` on all 4 files — PASSES (0 errors)
+
+### Key decisions:
+- Shared validators at module scope in voiceNoteClaims.ts (topicValidator, statusValidator, etc.)
+- coachContext.ts is an internalQuery (not plain function) since called from action via ctx.runQuery
+- Claims extraction reuses same AI model config as v1 buildInsights (feature: "voice_insights")
+- Player matching follows identical pattern to v1 (deterministic first, fuzzy fallback >= 0.85)
 
 ---

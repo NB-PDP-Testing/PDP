@@ -75,7 +75,7 @@
         "Typecheck passes: npm run check-types"
       ],
       "priority": 2,
-      "passes": false,
+      "passes": true,
       "notes": "Use batch fetch pattern. A player on multiple teams should count toward each team's stats. Use Better Auth adapter for team table."
     },
     {

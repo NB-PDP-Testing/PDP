@@ -6,7 +6,7 @@ import type { CountryCode } from "libphonenumber-js";
 import { parsePhoneNumber } from "libphonenumber-js";
 import { Camera, Info, Loader2, MapPin, User, X } from "lucide-react";
 
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { toast } from "sonner";
 import { ResponsiveDialog } from "@/components/interactions";
 import { Alert, AlertDescription } from "@/components/ui/alert";
@@ -95,6 +95,30 @@ export function ProfileSettingsDialog({
   const [isCountyOther, setIsCountyOther] = useState(false);
 
   const [isSaving, setIsSaving] = useState(false);
+
+  // Sync form state with latest user data when the dialog opens.
+  // useState only captures the initial value at mount time, so if
+  // the user record updates (e.g. after onboarding profile completion),
+  // the form fields would still show stale values without this.
+  useEffect(() => {
+    if (open && user) {
+      let phoneValue = "";
+      if (user.phone) {
+        phoneValue = user.phone.startsWith("+") ? user.phone : `+${user.phone}`;
+      }
+      setFirstName(user.firstName || "");
+      setLastName(user.lastName || "");
+      setPhone(phoneValue);
+      setAddress(user.address || "");
+      setAddress2(user.address2 || "");
+      setTown(user.town || "");
+      setCounty(user.county || "");
+      setPostcode(user.postcode || "");
+      setCountry(user.country || "");
+      setIsCountyOther(false);
+      setErrors({});
+    }
+  }, [open, user]);
 
   // Validation errors
   const [errors, setErrors] = useState<{

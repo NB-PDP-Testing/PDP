@@ -60,6 +60,7 @@
     "Batch fetch + Map lookup (avoid N+1 queries)",
     "WhatsApp handler order: OK → R → CONFIRM/RETRY/CANCEL → awaiting_confirmation → normal",
     "Use shadcn/ui components + Tailwind CSS + Lucide Icons",
+    "SITE_URL: use process.env.SITE_URL for deep link generation — already set in Convex env, used across whatsapp.ts, auth.ts, members.ts",
     "SECURITY: Single-device binding — store deviceFingerprint cookie on first access, soft-warn on different device",
     "SECURITY: Access audit log — log IP, user-agent, timestamp on every access",
     "SECURITY: Access count monitoring — flag links with > 20 accesses for admin review",
@@ -101,7 +102,8 @@
         "Function: getCoachPendingItems (PUBLIC query) — aggregates ALL pending items across all voiceNoteIds, grouped by priority",
         "Function: markLinkAccessed (PUBLIC mutation) — sets accessedAt, increments accessCount, appends to accessLog, stores/checks deviceFingerprint",
         "Integration: call generateReviewLink in checkAndAutoApply",
-        "Update formatResultsMessage to include review link URL",
+        "Update formatResultsMessage to include review link URL using process.env.SITE_URL: `${siteUrl}/r/${code}`",
+        "SITE_URL pattern: const siteUrl = (process.env.SITE_URL ?? 'http://localhost:3000').replace(/\\/+$/, '') — already used in whatsapp.ts line 1152, auth.ts, members.ts",
         "Unit tests with test cases for reuse, expiry, aggregation",
         "Type check passes: npm run check-types"
       ],

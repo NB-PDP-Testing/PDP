@@ -12,7 +12,12 @@
 
 import { v } from "convex/values";
 import type { Doc } from "../_generated/dataModel";
-import { internalMutation, mutation, query } from "../_generated/server";
+import {
+  internalMutation,
+  internalQuery,
+  mutation,
+  query,
+} from "../_generated/server";
 
 // 48 hours in milliseconds
 const LINK_EXPIRY_MS = 48 * 60 * 60 * 1000;
@@ -494,6 +499,7 @@ async function validateReviewScope(
 
   const { link } = result;
   // Verify the voice note belongs to this link
+  // biome-ignore lint/suspicious/noExplicitAny: voiceNoteId string must be cast to match Id type in array
   if (!link.voiceNoteIds.includes(voiceNoteId as any)) {
     return null;
   }
@@ -828,5 +834,214 @@ export const assignPlayerFromReview = mutation({
 
     await ctx.db.patch(note._id, { insights: updatedInsights });
     return { success: true as const, playerName };
+  },
+});
+
+// ============================================================
+// INTERNAL QUERIES — WhatsApp command handlers (US-VN-011)
+// ============================================================
+
+type PendingCounts = {
+  pendingMatchedCount: number;
+  pendingUnmatchedCount: number;
+  pendingInjuryCount: number;
+  pendingTodoCount: number;
+  pendingTeamNoteCount: number;
+  totalPendingCount: number;
+};
+
+// Category-to-count-key mapping for pending insight categorization
+const CATEGORY_COUNT_KEY: Record<
+  string,
+  keyof Omit<PendingCounts, "totalPendingCount">
+> = {
+  injury: "pendingInjuryCount",
+  todo: "pendingTodoCount",
+  team_culture: "pendingTeamNoteCount",
+};
+
+/**
+ * Classify a single pending insight into a count key.
+ */
+function classifyInsight(insight: {
+  category?: string;
+  playerIdentityId?: unknown;
+}): keyof Omit<PendingCounts, "totalPendingCount"> {
+  const mapped = CATEGORY_COUNT_KEY[insight.category ?? ""];
+  if (mapped) {
+    return mapped;
+  }
+  return insight.playerIdentityId
+    ? "pendingMatchedCount"
+    : "pendingUnmatchedCount";
+}
+
+/**
+ * Count pending insights by category across voice notes.
+ */
+function countPendingInsights(
+  notes: Array<{
+    insights?: Array<{
+      status: string;
+      category?: string;
+      playerIdentityId?: unknown;
+    }>;
+  }>
+): PendingCounts {
+  const counts: PendingCounts = {
+    pendingMatchedCount: 0,
+    pendingUnmatchedCount: 0,
+    pendingInjuryCount: 0,
+    pendingTodoCount: 0,
+    pendingTeamNoteCount: 0,
+    totalPendingCount: 0,
+  };
+
+  for (const note of notes) {
+    for (const insight of note.insights ?? []) {
+      if (insight.status === "pending") {
+        const key = classifyInsight(insight);
+        counts[key] += 1;
+        counts.totalPendingCount += 1;
+      }
+    }
+  }
+
+  return counts;
+}
+
+/**
+ * Get the active review link for a coach.
+ * Returns the link data + pending item counts for WhatsApp quick-reply handlers.
+ */
+export const getActiveLinkForCoach = internalQuery({
+  args: {
+    coachUserId: v.string(),
+    organizationId: v.string(),
+  },
+  returns: v.union(
+    v.object({
+      code: v.string(),
+      expiresAt: v.number(),
+      voiceNoteIds: v.array(v.id("voiceNotes")),
+      pendingMatchedCount: v.number(),
+      pendingUnmatchedCount: v.number(),
+      pendingInjuryCount: v.number(),
+      pendingTodoCount: v.number(),
+      pendingTeamNoteCount: v.number(),
+      totalPendingCount: v.number(),
+    }),
+    v.null()
+  ),
+  handler: async (ctx, args) => {
+    const link = await ctx.db
+      .query("whatsappReviewLinks")
+      .withIndex("by_coachUserId_and_status", (q) =>
+        q.eq("coachUserId", args.coachUserId).eq("status", "active")
+      )
+      .first();
+
+    if (!link || link.expiresAt < Date.now()) {
+      return null;
+    }
+
+    // Batch fetch all voice notes
+    const voiceNotes = await Promise.all(
+      link.voiceNoteIds.map((id) => ctx.db.get(id))
+    );
+    const validNotes = voiceNotes.filter(Boolean) as NonNullable<
+      (typeof voiceNotes)[number]
+    >[];
+
+    const counts = countPendingInsights(validNotes);
+
+    return {
+      code: link.code,
+      expiresAt: link.expiresAt,
+      voiceNoteIds: link.voiceNoteIds,
+      ...counts,
+    };
+  },
+});
+
+/**
+ * Batch-apply all pending matched insights across all voice notes in a coach's active link.
+ * Used by the WhatsApp "OK" quick-reply handler.
+ * Returns count of applied items and remaining pending count.
+ */
+export const batchApplyMatchedFromWhatsApp = internalMutation({
+  args: {
+    coachUserId: v.string(),
+    organizationId: v.string(),
+  },
+  returns: v.object({
+    appliedCount: v.number(),
+    remainingPendingCount: v.number(),
+    reviewCode: v.optional(v.string()),
+  }),
+  handler: async (ctx, args) => {
+    const link = await ctx.db
+      .query("whatsappReviewLinks")
+      .withIndex("by_coachUserId_and_status", (q) =>
+        q.eq("coachUserId", args.coachUserId).eq("status", "active")
+      )
+      .first();
+
+    if (!link || link.expiresAt < Date.now()) {
+      return { appliedCount: 0, remainingPendingCount: 0 };
+    }
+
+    const now = Date.now();
+    let appliedCount = 0;
+    let remainingPendingCount = 0;
+
+    // Batch fetch all voice notes
+    const voiceNotes = await Promise.all(
+      link.voiceNoteIds.map((id) => ctx.db.get(id))
+    );
+
+    for (const note of voiceNotes) {
+      if (!note) {
+        continue;
+      }
+
+      let modified = false;
+      const updatedInsights = note.insights.map((insight) => {
+        if (insight.status !== "pending") {
+          return insight;
+        }
+
+        // Only auto-apply matched insights (not injuries, unmatched, todos, team notes)
+        const isMatched =
+          insight.playerIdentityId &&
+          insight.category !== "injury" &&
+          insight.category !== "todo" &&
+          insight.category !== "team_culture";
+
+        if (isMatched) {
+          appliedCount += 1;
+          modified = true;
+          return {
+            ...insight,
+            status: "applied" as const,
+            appliedAt: now,
+            appliedDate: new Date().toISOString(),
+          };
+        }
+
+        remainingPendingCount += 1;
+        return insight;
+      });
+
+      if (modified) {
+        await ctx.db.patch(note._id, { insights: updatedInsights });
+      }
+    }
+
+    return {
+      appliedCount,
+      remainingPendingCount,
+      reviewCode: remainingPendingCount > 0 ? link.code : undefined,
+    };
   },
 });

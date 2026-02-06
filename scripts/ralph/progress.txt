@@ -20,7 +20,7 @@
 
 ### Stories:
 - US-VN-007: Review Links Backend (1.5d) - COMPLETE
-- US-VN-008: Quick Review Microsite at /r/[code] (1d) - PENDING
+- US-VN-008: Quick Review Microsite at /r/[code] (1d) - COMPLETE
 - US-VN-009: Review Queue Sections & Batch Actions (2.5d) - PENDING
 - US-VN-010: Unmatched Player Cards + Text Reply (1.5d) - PENDING
 - US-VN-011: Trust-Adaptive Messages + WhatsApp Quick Actions (1d) - PENDING
@@ -146,7 +146,7 @@ OK → R → CONFIRM/RETRY/CANCEL → awaiting_confirmation → normal
 
 ## 2026-02-06 - US-VN-007 - Review Links Backend (Coach-Scoped)
 **Iteration**: 1
-**Commit**: (pending)
+**Commit**: f25e1da88535d55ab66136b215a01a74e3376a75
 **Session**: 29c9a8a5-66ed-4465-85aa-454eeb09ed61
 **Status**: Complete
 
@@ -202,5 +202,64 @@ OK → R → CONFIRM/RETRY/CANCEL → awaiting_confirmation → normal
 **Mistakes made:**
 - Initially used `GenericQueryCtx<DataModel>` which doesn't have `runQuery` — switched to `QueryCtx`
 - Forgot that Biome PostToolUse hook removes imports — had to re-add `findSimilarPlayersLogic` import
+
+---
+
+## 2026-02-06 - US-VN-008 - Quick Review Microsite
+**Iteration**: 2
+**Commit**: ee6c4ea7c116036947ca8ea5fb67c45ca5037ac4
+**Session**: 413549fc-ceae-4d54-a59b-d47e9a8503c8
+**Status**: Complete
+
+### What was implemented
+- Created `/r/[code]` public route — no-auth microsite for coach voice note review
+- `page.tsx` — Client component, validates code via `getReviewLinkByCode`, subscribes to `getCoachPendingItems` with real-time Convex updates, logs access via `markLinkAccessed` on first load
+- `quick-review-header.tsx` — Progress bar, reviewed/total count, expiry countdown, voice note count
+- `review-queue.tsx` — Priority-sorted sections: injuries (red), unmatched (amber), needs review (yellow), todos (blue), team notes (green), auto-applied (gray, collapsed). "All caught up" completion view
+- `invalid-link-view.tsx` — Error state for invalid/missing codes
+- `expired-link-view.tsx` — Expiry state with WhatsApp "R" command hint, Open WhatsApp button
+- `loading-skeleton.tsx` — Skeleton UI for async loading states
+- Mobile-first: max-w-lg, 44px touch targets, safe area padding, min 16px font
+
+### Files changed
+- apps/web/src/app/r/[code]/page.tsx (+139, new)
+- apps/web/src/app/r/[code]/quick-review-header.tsx (+76, new)
+- apps/web/src/app/r/[code]/review-queue.tsx (+403, new)
+- apps/web/src/app/r/[code]/invalid-link-view.tsx (+35, new)
+- apps/web/src/app/r/[code]/expired-link-view.tsx (+56, new)
+- apps/web/src/app/r/[code]/loading-skeleton.tsx (+31, new)
+
+### Quality checks
+- ✅ Type check: passed (0 errors)
+- ✅ Linting: passed (0 errors in /r/ files, biome check clean)
+- ✅ Lint-staged: passed on commit
+- N/A Browser verification: dev server not available for testing
+
+### Learnings for future iterations
+
+**Patterns discovered:**
+- `claim-account/[token]` is a great reference for public code-based routes — similar pattern
+- React 19 `use()` from `import { use } from "react"` works for async params unwrapping (cleaner than `require("react").use(params)`)
+- Convex `useQuery` with `"skip"` as second arg works for conditional queries — e.g. skip pending items query until link validation succeeds
+- `useRef` + `useEffect` pattern for one-time side effects (markLinkAccessed on first load)
+- The root layout `Providers` component wraps `ConvexBetterAuthProvider` so `useQuery`/`useMutation` work from any route including /r/[code]
+
+**Gotchas encountered:**
+- Biome auto-removes unused imports on Write hook — `CardHeader`/`CardTitle`/`MessageSquare` were removed from review-queue.tsx because they weren't used in the final code
+- Biome reorders JSX props alphabetically — write `asChild` before `className` etc.
+- Tailwind class ordering: `pb-[env(...)] pt-4` gets reordered to `pt-4 pb-[env(...)]` by formatter
+
+**Dependencies found:**
+- US-VN-009 will add batch action buttons to each ReviewSection + InsightCard action buttons
+- US-VN-010 will add fuzzy player matching UI to the unmatched section
+- US-VN-012 will enhance the ExpiredLinkView
+
+**What to do next:**
+- US-VN-009: Add batch action mutations + buttons to review sections
+- US-VN-011: Trust-adaptive WhatsApp messages (can parallel since it's backend-only)
+- US-VN-012: Link expiry cron jobs (can parallel since it's backend-only)
+
+**Mistakes made:**
+- None significant — clean implementation following established patterns
 
 ---

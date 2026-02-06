@@ -221,6 +221,8 @@ export const getClaimByClaimId = internalQuery({
 
 const MAX_CLAIMS_LIMIT = 200;
 const DEFAULT_CLAIMS_LIMIT = 50;
+const MAX_RECENT_CLAIMS = 500;
+const DEFAULT_RECENT_CLAIMS = 100;
 
 export const getClaimsByOrgAndCoach = query({
   args: {
@@ -243,5 +245,21 @@ export const getClaimsByOrgAndCoach = query({
       )
       .order("desc")
       .take(limit);
+  },
+});
+
+// ── 7. getRecentClaims (PUBLIC query) ─────────────────────────
+
+export const getRecentClaims = query({
+  args: {
+    limit: v.optional(v.number()),
+  },
+  returns: v.array(claimObjectValidator),
+  handler: async (ctx, args) => {
+    const limit = Math.min(
+      args.limit ?? DEFAULT_RECENT_CLAIMS,
+      MAX_RECENT_CLAIMS
+    );
+    return await ctx.db.query("voiceNoteClaims").order("desc").take(limit);
   },
 });

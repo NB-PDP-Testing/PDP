@@ -4,12 +4,14 @@
  * Source-agnostic records for voice/text input processing.
  * Each artifact links back to a v1 voiceNote for backward compatibility.
  *
- * All functions are internal (server-to-server only) since artifacts
- * are created by the WhatsApp action pipeline, not by clients directly.
+ * Internal functions for pipeline use + public query for claims viewer.
  */
 
 import { v } from "convex/values";
-import { internalMutation, internalQuery } from "../_generated/server";
+import { internalMutation, internalQuery, query } from "../_generated/server";
+
+const MAX_RECENT_ARTIFACTS = 200;
+const DEFAULT_RECENT_ARTIFACTS = 50;
 
 const sourceChannelValidator = v.union(
   v.literal("whatsapp_audio"),
@@ -26,6 +28,32 @@ const statusValidator = v.union(
   v.literal("completed"),
   v.literal("failed")
 );
+
+const artifactObjectValidator = v.object({
+  _id: v.id("voiceNoteArtifacts"),
+  _creationTime: v.number(),
+  artifactId: v.string(),
+  sourceChannel: sourceChannelValidator,
+  senderUserId: v.string(),
+  orgContextCandidates: v.array(
+    v.object({
+      organizationId: v.string(),
+      confidence: v.number(),
+    })
+  ),
+  status: statusValidator,
+  voiceNoteId: v.optional(v.id("voiceNotes")),
+  rawMediaStorageId: v.optional(v.id("_storage")),
+  metadata: v.optional(
+    v.object({
+      mimeType: v.optional(v.string()),
+      fileSize: v.optional(v.number()),
+      whatsappMessageId: v.optional(v.string()),
+    })
+  ),
+  createdAt: v.number(),
+  updatedAt: v.number(),
+});
 
 /**
  * Create a new artifact record when a voice/text input is received.
@@ -133,34 +161,7 @@ export const getArtifactByArtifactId = internalQuery({
   args: {
     artifactId: v.string(),
   },
-  returns: v.union(
-    v.object({
-      _id: v.id("voiceNoteArtifacts"),
-      _creationTime: v.number(),
-      artifactId: v.string(),
-      sourceChannel: sourceChannelValidator,
-      senderUserId: v.string(),
-      orgContextCandidates: v.array(
-        v.object({
-          organizationId: v.string(),
-          confidence: v.number(),
-        })
-      ),
-      status: statusValidator,
-      voiceNoteId: v.optional(v.id("voiceNotes")),
-      rawMediaStorageId: v.optional(v.id("_storage")),
-      metadata: v.optional(
-        v.object({
-          mimeType: v.optional(v.string()),
-          fileSize: v.optional(v.number()),
-          whatsappMessageId: v.optional(v.string()),
-        })
-      ),
-      createdAt: v.number(),
-      updatedAt: v.number(),
-    }),
-    v.null()
-  ),
+  returns: v.union(artifactObjectValidator, v.null()),
   handler: async (ctx, args) =>
     await ctx.db
       .query("voiceNoteArtifacts")
@@ -176,34 +177,7 @@ export const getArtifactById = internalQuery({
   args: {
     _id: v.id("voiceNoteArtifacts"),
   },
-  returns: v.union(
-    v.object({
-      _id: v.id("voiceNoteArtifacts"),
-      _creationTime: v.number(),
-      artifactId: v.string(),
-      sourceChannel: sourceChannelValidator,
-      senderUserId: v.string(),
-      orgContextCandidates: v.array(
-        v.object({
-          organizationId: v.string(),
-          confidence: v.number(),
-        })
-      ),
-      status: statusValidator,
-      voiceNoteId: v.optional(v.id("voiceNotes")),
-      rawMediaStorageId: v.optional(v.id("_storage")),
-      metadata: v.optional(
-        v.object({
-          mimeType: v.optional(v.string()),
-          fileSize: v.optional(v.number()),
-          whatsappMessageId: v.optional(v.string()),
-        })
-      ),
-      createdAt: v.number(),
-      updatedAt: v.number(),
-    }),
-    v.null()
-  ),
+  returns: v.union(artifactObjectValidator, v.null()),
   handler: async (ctx, args) => ctx.db.get(args._id),
 });
 
@@ -214,36 +188,28 @@ export const getArtifactsByVoiceNote = internalQuery({
   args: {
     voiceNoteId: v.id("voiceNotes"),
   },
-  returns: v.array(
-    v.object({
-      _id: v.id("voiceNoteArtifacts"),
-      _creationTime: v.number(),
-      artifactId: v.string(),
-      sourceChannel: sourceChannelValidator,
-      senderUserId: v.string(),
-      orgContextCandidates: v.array(
-        v.object({
-          organizationId: v.string(),
-          confidence: v.number(),
-        })
-      ),
-      status: statusValidator,
-      voiceNoteId: v.optional(v.id("voiceNotes")),
-      rawMediaStorageId: v.optional(v.id("_storage")),
-      metadata: v.optional(
-        v.object({
-          mimeType: v.optional(v.string()),
-          fileSize: v.optional(v.number()),
-          whatsappMessageId: v.optional(v.string()),
-        })
-      ),
-      createdAt: v.number(),
-      updatedAt: v.number(),
-    })
-  ),
+  returns: v.array(artifactObjectValidator),
   handler: async (ctx, args) =>
     await ctx.db
       .query("voiceNoteArtifacts")
       .withIndex("by_voiceNoteId", (q) => q.eq("voiceNoteId", args.voiceNoteId))
       .collect(),
+});
+
+/**
+ * Get recent artifacts ordered by creation time (most recent first).
+ * Used by the platform claims viewer to list artifacts with their claims.
+ */
+export const getRecentArtifacts = query({
+  args: {
+    limit: v.optional(v.number()),
+  },
+  returns: v.array(artifactObjectValidator),
+  handler: async (ctx, args) => {
+    const limit = Math.min(
+      args.limit ?? DEFAULT_RECENT_ARTIFACTS,
+      MAX_RECENT_ARTIFACTS
+    );
+    return await ctx.db.query("voiceNoteArtifacts").order("desc").take(limit);
+  },
 });

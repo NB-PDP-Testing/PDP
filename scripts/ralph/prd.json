@@ -34,7 +34,8 @@
     "US-VN-012d",
     "US-VN-013",
     "US-VN-014",
-    "US-VN-015"
+    "US-VN-015",
+    "US-VN-016"
   ],
   "executionStrategy": {
     "parallelStreams": false,
@@ -185,7 +186,7 @@
       "priority": 16,
       "effort": "1 day",
       "dependencies": ["US-VN-015"],
-      "passes": false
+      "passes": true
     }
   ],
   "successCriteria": [

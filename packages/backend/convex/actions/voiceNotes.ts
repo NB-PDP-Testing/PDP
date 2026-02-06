@@ -254,6 +254,13 @@ export const transcribeAudio = internalAction({
           internal.models.voiceNoteArtifacts.updateArtifactStatus,
           { artifactId: artifact.artifactId, status: "transcribed" }
         );
+
+        // US-VN-016: Schedule v2 claims extraction (runs in parallel with v1 buildInsights)
+        await ctx.scheduler.runAfter(
+          0,
+          internal.actions.claimsExtraction.extractClaims,
+          { artifactId: artifact._id }
+        );
       }
 
       // Branch on quality result

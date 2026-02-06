@@ -171,7 +171,8 @@
       ],
       "priority": 10,
       "effort": "1.5 days",
-      "dependencies": ["US-VN-009", "US-VN-006"]
+      "dependencies": ["US-VN-009", "US-VN-006"],
+      "passes": true
     },
     {
       "id": "US-VN-011",

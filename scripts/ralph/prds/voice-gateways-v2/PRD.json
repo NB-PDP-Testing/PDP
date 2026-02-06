@@ -1,0 +1,1700 @@
+{
+  "project": "Voice Enhance Gating-WAPP v2",
+  "branchName": "feat/voice-gateways-v2",
+  "description": "Comprehensive voice notes pipeline v2 with quality gates, fuzzy player matching, mobile quick review, and phased migration to claims-based architecture. Addresses Issue #423: WhatsApp gibberish detection, improved feedback loops, and enhanced player matching from WhatsApp messages.",
+  "issueReference": "https://github.com/NB-PDP-Testing/PDP/issues/423",
+  "contextFiles": [
+    "scripts/ralph/prds/voice-gateways-v2/context/MAIN_CONTEXT.md",
+    "scripts/ralph/prds/voice-gateways-v2/context/PHASE1_QUALITY_GATES.md",
+    "scripts/ralph/prds/voice-gateways-v2/context/PHASE2_MOBILE_REVIEW.md",
+    "scripts/ralph/prds/voice-gateways-v2/context/PHASE3_V2_MIGRATION.md",
+    "docs/archive/bug-fixes/ISSUE_423_WHATSAPP_QUALITY_GATES_ANALYSIS.md",
+    "docs/features/MOBILE_QUICK_REVIEW_PLAN.md",
+    "docs/architecture/voice-notes-pipeline-v2.md",
+    "docs/architecture/whatsapp-integration-patterns.md",
+    ".ruler/voice-notes-validation-patterns.md"
+  ],
+  "previousPhases": [],
+  "currentPhase": "Phase 1 - Quality Gates & Fuzzy Matching (Parallel Execution)",
+  "completedStories": [],
+  "phaseStructure": {
+    "approach": "Sequential phases with parallel work streams within phases",
+    "phase1ParallelStreams": [
+      "Stream A: Quality Gates (US-VN-001 to US-VN-004)",
+      "Stream B: Fuzzy Matching (US-VN-005 to US-VN-006)"
+    ],
+    "phases": [
+      {
+        "id": 1,
+        "name": "Quality Gates & Fuzzy Matching",
+        "duration": "2.5 days",
+        "parallelExecution": true,
+        "stories": [
+          "US-VN-001",
+          "US-VN-002",
+          "US-VN-003",
+          "US-VN-004",
+          "US-VN-005",
+          "US-VN-006"
+        ],
+        "blocksPhase": 2
+      },
+      {
+        "id": 2,
+        "name": "Mobile Quick Review UI",
+        "duration": "5-7 days",
+        "parallelExecution": false,
+        "stories": [
+          "US-VN-007",
+          "US-VN-008",
+          "US-VN-009",
+          "US-VN-010",
+          "US-VN-011",
+          "US-VN-012"
+        ],
+        "dependsOnPhase": 1,
+        "blocksPhase": 3
+      },
+      {
+        "id": 3,
+        "name": "v2 Artifacts Foundation",
+        "duration": "3 days",
+        "parallelExecution": false,
+        "stories": ["US-VN-013", "US-VN-014"],
+        "dependsOnPhase": 2,
+        "blocksPhase": 4
+      },
+      {
+        "id": 4,
+        "name": "Claims Extraction",
+        "duration": "4 days",
+        "parallelExecution": false,
+        "stories": ["US-VN-015", "US-VN-016"],
+        "dependsOnPhase": 3,
+        "blocksPhase": 5
+      },
+      {
+        "id": 5,
+        "name": "Entity Resolution & Disambiguation",
+        "duration": "4 days",
+        "parallelExecution": false,
+        "stories": ["US-VN-017", "US-VN-018"],
+        "dependsOnPhase": 4,
+        "blocksPhase": 6
+      },
+      {
+        "id": 6,
+        "name": "Drafts & Confirmation Workflow",
+        "duration": "5 days",
+        "parallelExecution": false,
+        "stories": ["US-VN-019", "US-VN-020", "US-VN-021"],
+        "dependsOnPhase": 5
+      }
+    ]
+  },
+  "featureFlags": {
+    "strategy": "Multi-layered flexible control",
+    "implementations": [
+      {
+        "layer": "Database Config",
+        "table": "platformConfig",
+        "key": "voice_notes_v2_enabled",
+        "priority": 1,
+        "description": "Global on/off switch via database"
+      },
+      {
+        "layer": "Organization Override",
+        "table": "organization",
+        "field": "settings.voiceNotesVersion",
+        "values": ["v1", "v2", "hybrid"],
+        "priority": 2,
+        "description": "Per-org control via admin UI"
+      },
+      {
+        "layer": "Coach Beta Features",
+        "table": "member",
+        "field": "betaFeatures[]",
+        "value": "voice_notes_v2",
+        "priority": 3,
+        "description": "Individual coach opt-in via profile settings"
+      },
+      {
+        "layer": "PostHog Feature Flag",
+        "flag": "voice-notes-v2-rollout",
+        "priority": 4,
+        "description": "A/B testing and gradual rollout (less reliable with privacy filters)",
+        "usage": "Fallback for analytics and testing"
+      }
+    ],
+    "evaluationOrder": "platformConfig \u2192 organization \u2192 coach \u2192 posthog \u2192 default (v1)"
+  },
+  "userStories": [
+    {
+      "id": "US-VN-001",
+      "phase": 1,
+      "stream": "A",
+      "title": "Text Message Quality Gate",
+      "description": "Implement pre-processing validation for WhatsApp text messages to reject empty, too short, or gibberish content before expensive AI processing.",
+      "acceptanceCriteria": [
+        "Backend: Create lib/messageValidation.ts in packages/backend/convex/lib/",
+        "Function: validateTextMessage(text: string): MessageQualityCheck",
+        "Validation checks:",
+        "  1. Empty check: trimmed.length === 0 \u2192 reject",
+        "  2. Minimum length: trimmed.length < 10 chars \u2192 reject",
+        "  3. Word count: words.length < 3 \u2192 reject",
+        "  4. Average word length: avgWordLength > 20 or < 2 \u2192 reject (gibberish detection)",
+        "  5. Repeated characters: /(..)\\1{5,}/ regex \u2192 reject (spam detection)",
+        "Return type: { isValid: boolean, reason?: string, suggestion?: string }",
+        "Integration: Add validation to processIncomingMessage in actions/whatsapp.ts",
+        "Rejection flow: If !isValid, send suggestion to WhatsApp, mark message status='rejected', return early",
+        "Schema: Add to whatsappMessages table:",
+        "  - messageQualityCheck: v.optional(v.object({ isValid: v.boolean(), reason: v.optional(v.string()), checkedAt: v.number() }))",
+        "Unit tests: Create __tests__/messageValidation.test.ts",
+        "Test cases:",
+        "  - Empty string \u2192 rejected",
+        "  - 'hi' \u2192 rejected (too short)",
+        "  - 'asdfjkl;' \u2192 rejected (gibberish)",
+        "  - 'aaaaaaaaaa' \u2192 rejected (repeated chars)",
+        "  - 'John did well in training today' \u2192 accepted",
+        "Type check passes: npm run check-types",
+        "Manual WhatsApp test: Send 'hi' \u2192 receives rejection message"
+      ],
+      "priority": 1,
+      "passes": true,
+      "effort": "0.5 day",
+      "effortBreakdown": {
+        "validation": "2h (function + return types)",
+        "integration": "1h (hook into whatsapp.ts)",
+        "schema": "0.5h (add quality check field)",
+        "tests": "2h (unit tests + test cases)",
+        "manual": "0.5h (WhatsApp testing)"
+      },
+      "dependencies": [],
+      "files": {
+        "create": [
+          "packages/backend/convex/lib/messageValidation.ts",
+          "packages/backend/convex/__tests__/messageValidation.test.ts"
+        ],
+        "modify": [
+          "packages/backend/convex/schema.ts (add messageQualityCheck to whatsappMessages)",
+          "packages/backend/convex/actions/whatsapp.ts (integrate validation)"
+        ]
+      },
+      "testingRequirements": {
+        "unitTests": true,
+        "integrationTests": false,
+        "manualTesting": true,
+        "uatTestCases": ["QG-001", "QG-002", "QG-003", "QG-007", "QG-008"]
+      }
+    },
+    {
+      "id": "US-VN-002",
+      "phase": 1,
+      "stream": "A",
+      "title": "Transcript Quality Validation",
+      "description": "Implement post-transcription quality validation to detect inaudible audio, gibberish transcripts, or poor-quality recordings before insight extraction.",
+      "acceptanceCriteria": [
+        "Backend: Add validateTranscriptQuality() to lib/messageValidation.ts",
+        "Function: validateTranscriptQuality(transcript: string, audioDuration?: number): TranscriptQualityResult",
+        "Return type: { isValid: boolean, confidence: number, reason?: string, suggestedAction: 'process' | 'ask_user' | 'reject' }",
+        "Validation checks:",
+        "  1. Empty transcript \u2192 reject (confidence: 0)",
+        "  2. Too short audio (<3s) + short transcript (<20 chars) \u2192 reject",
+        "  3. Whisper uncertainty markers check: '[inaudible]', '[music]', '[noise]', '(inaudible)', '(background noise)'",
+        "     - Count uncertainty markers, calc ratio: uncertaintyCount / wordCount",
+        "     - If ratio > 0.5 \u2192 reject (confidence: 0.2)",
+        "     - If ratio > 0.2 \u2192 ask_user (confidence: 0.5)",
+        "  4. Word count check: words.length < 5 \u2192 reject (confidence: 0.3)",
+        "  5. Average word length check: avgWordLength < 2 or > 15 \u2192 ask_user (confidence: 0.2)",
+        "  6. Sports context detection (confidence booster):",
+        "     - Keywords: player, team, training, match, game, injury, session, practice, coach, etc.",
+        "     - If hasSportsContext \u2192 confidence: 0.9, else confidence: 0.6",
+        "Integration: Hook into transcription completion (models/voiceNotes.ts)",
+        "Create onTranscriptionComplete internal mutation:",
+        "  - Run validateTranscriptQuality",
+        "  - Store transcriptQuality (0-1) and transcriptValidation in voiceNote",
+        "  - If suggestedAction === 'reject' \u2192 mark insightsStatus='failed', don't process",
+        "  - If suggestedAction === 'ask_user' \u2192 mark insightsStatus='awaiting_confirmation'",
+        "  - If suggestedAction === 'process' \u2192 continue to insight extraction",
+        "Schema: Add to voiceNotes table:",
+        "  - transcriptQuality: v.optional(v.number())",
+        "  - transcriptValidation: v.optional(v.object({ isValid: v.boolean(), reason: v.optional(v.string()), suggestedAction: v.union(v.literal('process'), v.literal('ask_user'), v.literal('reject')) }))",
+        "Unit tests: Add to __tests__/messageValidation.test.ts",
+        "Test cases:",
+        "  - Empty transcript \u2192 rejected",
+        "  - '[inaudible] [music]' (70% uncertainty) \u2192 rejected",
+        "  - 'Uh... um... hi' (short, unclear) \u2192 ask_user",
+        "  - 'John did well in training' (sports context) \u2192 accepted (0.9)",
+        "  - 'The weather is nice today' (no sports) \u2192 accepted (0.6)",
+        "Type check passes: npm run check-types",
+        "Manual test: Upload audio with background noise \u2192 receives quality feedback"
+      ],
+      "priority": 2,
+      "passes": true,
+      "effort": "0.5 day",
+      "effortBreakdown": {
+        "validation": "2h (function + logic)",
+        "integration": "1.5h (onTranscriptionComplete hook)",
+        "schema": "0.5h (add quality fields)",
+        "tests": "2h (unit tests)",
+        "manual": "0.5h (audio testing)"
+      },
+      "dependencies": ["US-VN-001"],
+      "files": {
+        "modify": [
+          "packages/backend/convex/lib/messageValidation.ts (add validateTranscriptQuality)",
+          "packages/backend/convex/schema.ts (add transcriptQuality, transcriptValidation to voiceNotes)",
+          "packages/backend/convex/models/voiceNotes.ts (add onTranscriptionComplete)",
+          "packages/backend/convex/__tests__/messageValidation.test.ts (add transcript tests)"
+        ]
+      },
+      "testingRequirements": {
+        "unitTests": true,
+        "integrationTests": false,
+        "manualTesting": true,
+        "uatTestCases": ["QG-004", "QG-005", "QG-006", "QG-008"]
+      }
+    },
+    {
+      "id": "US-VN-003",
+      "phase": 1,
+      "stream": "A",
+      "title": "Duplicate Message Detection",
+      "description": "Detect and prevent processing of duplicate WhatsApp messages (accidental sends, network retries) to avoid wasted API calls and user confusion.",
+      "acceptanceCriteria": [
+        "Backend: Create checkForDuplicateMessage query in models/whatsappMessages.ts",
+        "Query args: { phoneNumber: v.string(), body: v.optional(v.string()), mediaContentType: v.optional(v.string()), withinMinutes: v.optional(v.number()) }",
+        "Default window: 5 minutes (configurable)",
+        "Query logic:",
+        "  1. Get recent messages from same phone within time window",
+        "  2. For text: Check if body matches exactly",
+        "  3. For audio: Check if mediaContentType matches + timeDiff < 2 minutes (network retry detection)",
+        "Return: { isDuplicate: boolean, originalMessageId: v.id('whatsappMessages'), timeSinceOriginal: v.number() } or null",
+        "Integration: Add to processIncomingMessage in actions/whatsapp.ts",
+        "Duplicate handling:",
+        "  - Call checkForDuplicateMessage before storing message",
+        "  - If isDuplicate: Send WhatsApp message: '\u26a0\ufe0f I just received a similar message X seconds ago. If this is a new note, please add more details so I can tell them apart.'",
+        "  - Mark message status='duplicate'",
+        "  - Add duplicateOfMessageId field to message",
+        "  - Return early, don't process",
+        "Schema: Add to whatsappMessages table:",
+        "  - isDuplicate: v.optional(v.boolean())",
+        "  - duplicateOfMessageId: v.optional(v.id('whatsappMessages'))",
+        "Unit tests: Create __tests__/duplicateDetection.test.ts",
+        "Test cases:",
+        "  - Same text twice within 2 min \u2192 duplicate",
+        "  - Same text after 6 min \u2192 not duplicate",
+        "  - Different text within 2 min \u2192 not duplicate",
+        "  - Audio with same type within 1 min \u2192 duplicate",
+        "Type check passes: npm run check-types",
+        "Manual test: Send same message twice quickly \u2192 second rejected as duplicate"
+      ],
+      "priority": 3,
+      "passes": true,
+      "effort": "0.5 day",
+      "effortBreakdown": {
+        "query": "2h (duplicate detection logic)",
+        "integration": "1h (hook into whatsapp.ts)",
+        "schema": "0.5h (add duplicate fields)",
+        "tests": "2h (unit tests)",
+        "manual": "0.5h (duplicate testing)"
+      },
+      "dependencies": [],
+      "files": {
+        "create": [
+          "packages/backend/convex/__tests__/duplicateDetection.test.ts"
+        ],
+        "modify": [
+          "packages/backend/convex/models/whatsappMessages.ts (add checkForDuplicateMessage query)",
+          "packages/backend/convex/schema.ts (add isDuplicate, duplicateOfMessageId)",
+          "packages/backend/convex/actions/whatsapp.ts (integrate duplicate check)"
+        ]
+      },
+      "testingRequirements": {
+        "unitTests": true,
+        "integrationTests": false,
+        "manualTesting": true,
+        "uatTestCases": ["QG-007"]
+      }
+    },
+    {
+      "id": "US-VN-004",
+      "phase": 1,
+      "stream": "A",
+      "title": "Enhanced WhatsApp Feedback Messages",
+      "description": "Replace generic error messages with specific, actionable feedback based on rejection reason (empty, too short, inaudible, etc.) to improve user experience.",
+      "acceptanceCriteria": [
+        "Note: Extends existing generic fallbacks in checkAndAutoApply for edge cases",
+        "Backend: Create sendDetailedFeedback() function in actions/whatsapp.ts",
+        "Function signature: sendDetailedFeedback(phoneNumber: string, voiceNote: any, retryCount: number): Promise<void>",
+        "Feedback categories (based on validation results):",
+        "  1. Transcription failed:",
+        "     '\u274c I couldn't transcribe your audio. This might be because:\\n\u2022 Audio was too short (needs 3+ seconds)\\n\u2022 Background noise was too loud\\n\u2022 File format issue\\n\\nPlease try recording again in a quiet space.'",
+        "  2. Transcript quality rejected:",
+        "     '\u274c {reason message}.\\n\\n\ud83d\udcdd Transcript: \"{transcript.substring(0, 100)}\"\\n\\nPlease try again:\\n\u2022 Record in a quiet place\\n\u2022 Speak clearly for at least 5 seconds\\n\u2022 Mention player names and what happened'",
+        "     Reason messages map:",
+        "       - empty_transcript: 'The audio had no speech detected.'",
+        "       - too_short: 'The message was too short to analyze.'",
+        "       - mostly_inaudible: 'Most of the audio was inaudible or noisy.'",
+        "       - too_few_words: 'I only caught a few words.'",
+        "       - suspicious_word_pattern: 'The transcription doesn't look like natural speech.'",
+        "  3. Needs confirmation (unclear):",
+        "     '\u26a0\ufe0f I transcribed your audio, but I'm not confident about the quality.\\n\\n\ud83d\udcdd I heard: \"{transcript.substring(0, 150)}\"\\n\\nReply:\\n\u2022 CONFIRM to analyze it anyway\\n\u2022 RETRY to record again\\n\u2022 CANCEL to discard'",
+        "  4. Insights extraction failed:",
+        "     '\u274c I transcribed your note but couldn't extract insights.\\n\\n\ud83d\udcdd Transcript: \"{transcript.substring(0, 100)}\"\\n\\nThis might be because:\\n\u2022 No player names were mentioned\\n\u2022 The message wasn't about player development\\n\\nYour note is saved in the app. You can add details manually.'",
+        "  5. Generic fallback (still processing):",
+        "     '\u23f3 Your note is taking longer than usual to process.\\n\\nYou can:\\n\u2022 Check the app for updates\\n\u2022 Wait for processing to complete (may take 1-2 minutes)\\n\\nIf this keeps happening, please report it.'",
+        "Integration: Replace existing error messages in checkAndAutoApply",
+        "Update checkAndAutoApply in actions/whatsapp.ts:",
+        "  - Call sendDetailedFeedback for validation failures (adds to existing generic fallbacks)",
+        "  - Pass voiceNote with validation results",
+        "  - Use appropriate category based on status",
+        "Confirmation workflow:",
+        "  - If user replies 'CONFIRM' to awaiting_confirmation message \u2192 mark as confirmed, process insights",
+        "  - If user replies 'RETRY' \u2192 ignore previous note, allow new recording",
+        "  - If user replies 'CANCEL' \u2192 mark as cancelled",
+        "Unit tests: Add to __tests__/whatsappFeedback.test.ts",
+        "Test cases:",
+        "  - Empty transcript \u2192 correct rejection message",
+        "  - Mostly inaudible \u2192 correct rejection with transcript snippet",
+        "  - Needs confirmation \u2192 shows CONFIRM/RETRY/CANCEL options",
+        "  - No players mentioned \u2192 correct insights failed message",
+        "Type check passes: npm run check-types",
+        "Manual test: Trigger each rejection type \u2192 verify correct message received"
+      ],
+      "priority": 4,
+      "passes": true,
+      "effort": "0.5 day",
+      "effortBreakdown": {
+        "feedback": "2h (sendDetailedFeedback function + message templates)",
+        "integration": "1.5h (replace existing messages in checkAndAutoApply)",
+        "confirmation": "1h (CONFIRM/RETRY/CANCEL workflow)",
+        "tests": "1.5h (unit tests)",
+        "manual": "0.5h (test all feedback types)"
+      },
+      "dependencies": ["US-VN-001", "US-VN-002"],
+      "files": {
+        "create": [
+          "packages/backend/convex/__tests__/whatsappFeedback.test.ts"
+        ],
+        "modify": [
+          "packages/backend/convex/actions/whatsapp.ts (add sendDetailedFeedback, update checkAndAutoApply)"
+        ]
+      },
+      "testingRequirements": {
+        "unitTests": true,
+        "integrationTests": false,
+        "manualTesting": true,
+        "uatTestCases": ["FB-001", "FB-002", "FB-003", "FB-004", "FB-005"]
+      }
+    },
+    {
+      "id": "US-VN-005",
+      "phase": 1,
+      "stream": "B",
+      "title": "Levenshtein Fuzzy Matching Backend",
+      "description": "Implement Levenshtein distance algorithm for fuzzy player name matching to handle typos, Irish names, and phonetic variations (Se\u00e1n vs Shawn, Niamh vs Neeve).",
+      "acceptanceCriteria": [
+        "Backend: Create lib/stringMatching.ts in packages/backend/convex/lib/",
+        "Function: levenshteinDistance(a: string, b: string): number",
+        "Implementation: Standard dynamic programming algorithm",
+        "  - Matrix approach: matrix[i][j] = min of:",
+        "    - matrix[i-1][j-1] + (a[i] !== b[j] ? 1 : 0)  // substitution",
+        "    - matrix[i][j-1] + 1  // insertion",
+        "    - matrix[i-1][j] + 1  // deletion",
+        "Function: levenshteinSimilarity(a: string, b: string): number",
+        "  - Returns: 1 - (distance / maxLength)  // 0 = no match, 1 = exact match",
+        "  - Edge cases: If a === b return 1, if either length === 0 return 0",
+        "Helper: normalizeForMatching(str: string): string",
+        "  - Lowercase, trim, remove diacritics (\u00e9 \u2192 e, \u00e1 \u2192 a, \u00f3 \u2192 o)",
+        "  - Remove common prefixes: O', Mc, Mac",
+        "  - Example: \"O'Brien\" \u2192 \"obrien\"",
+        "Unit tests: Create __tests__/stringMatching.test.ts",
+        "Test cases:",
+        "  - levenshteinDistance('kitten', 'sitting') === 3",
+        "  - levenshteinSimilarity('Se\u00e1n', 'Shawn') >= 0.75",
+        "  - levenshteinSimilarity('Niamh', 'Neeve') >= 0.50",
+        "  - levenshteinSimilarity('O'Brien', 'O'Bryan') >= 0.85",
+        "  - levenshteinSimilarity('P\u00e1draig', 'Paddy') >= 0.50",
+        "  - normalizeForMatching('Se\u00e1n O'Brien') === 'sean obrien'",
+        "Performance test: Matching 1000 names completes in <100ms",
+        "Type check passes: npm run check-types"
+      ],
+      "priority": 5,
+      "passes": true,
+      "effort": "1 day",
+      "effortBreakdown": {
+        "algorithm": "3h (Levenshtein implementation + similarity calc)",
+        "normalize": "1h (diacritics removal + prefix handling)",
+        "tests": "3h (comprehensive unit tests with Irish names)",
+        "performance": "1h (optimization if needed)"
+      },
+      "dependencies": [],
+      "files": {
+        "create": [
+          "packages/backend/convex/lib/stringMatching.ts",
+          "packages/backend/convex/__tests__/stringMatching.test.ts"
+        ]
+      },
+      "testingRequirements": {
+        "unitTests": true,
+        "integrationTests": false,
+        "manualTesting": false,
+        "uatTestCases": ["FM-001", "FM-002", "FM-003", "FM-004"]
+      }
+    },
+    {
+      "id": "US-VN-006",
+      "phase": 1,
+      "stream": "B",
+      "title": "Find Similar Players Query",
+      "description": "Implement findSimilarPlayers query using Levenshtein matching to suggest player candidates for unmatched names in voice notes, with team context and recent mentions weighting.",
+      "acceptanceCriteria": [
+        "Backend: Add findSimilarPlayers query to models/orgPlayerEnrollments.ts",
+        "Query args: { organizationId: v.string(), coachUserId: v.string(), searchName: v.string(), limit: v.optional(v.number()) }",
+        "Query returns: v.array(v.object({ playerIdentityId: v.id('playerIdentities'), firstName: v.string(), lastName: v.string(), fullName: v.string(), teamName: v.optional(v.string()), ageGroup: v.optional(v.string()), similarity: v.number() }))",
+        "Query logic:",
+        "  1. Get players from coach's teams: Call getPlayersForCoachTeamsInternal",
+        "  2. Normalize search name: searchLower = normalizeForMatching(searchName)",
+        "  3. Calculate similarity for each player:",
+        "     - firstNameSim = levenshteinSimilarity(searchLower, normalize(firstName))",
+        "     - lastNameSim = levenshteinSimilarity(searchLower, normalize(lastName))",
+        "     - fullNameSim = levenshteinSimilarity(searchLower, normalize(fullName))",
+        "     - similarity = Math.max(firstNameSim, lastNameSim, fullNameSim)",
+        "  4. Filter: similarity > 0.5 (configurable threshold)",
+        "  5. Sort: By similarity descending",
+        "  6. Limit: Default 5, max 20",
+        "Context weighting (optional bonus):",
+        "  - If player was mentioned in last 3 voice notes from same coach: similarity += 0.1",
+        "  - If searchName includes team context (e.g., 'John from U14'): similarity += 0.15 for U14 players",
+        "Index optimization: Use by_org_and_status index for initial player fetch",
+        "Unit tests: Add to __tests__/playerMatching.test.ts",
+        "Test cases:",
+        "  - Search 'Shawn' \u2192 finds 'Se\u00e1n' (0.85), 'Shane' (0.75), 'Shaun' (0.90)",
+        "  - Search 'Neeve' \u2192 finds 'Niamh' (0.60), 'Neve' (0.90)",
+        "  - Search 'O'Brian' \u2192 finds 'O'Brien' (0.95), 'O'Bryan' (0.85)",
+        "  - Search 'abc123' \u2192 returns empty array (no matches > 0.5)",
+        "  - Limit works: limit=3 returns max 3 results",
+        "Type check passes: npm run check-types",
+        "Manual test: Query with known typo \u2192 returns correct player suggestions"
+      ],
+      "priority": 6,
+      "passes": true,
+      "effort": "1 day",
+      "effortBreakdown": {
+        "query": "3h (batch fetch + similarity calc + sorting)",
+        "context": "1h (recent mentions + team context weighting)",
+        "optimization": "1h (index usage + performance)",
+        "tests": "3h (unit tests with real scenarios)",
+        "manual": "1h (query testing with coach data)"
+      },
+      "dependencies": ["US-VN-005"],
+      "files": {
+        "create": ["packages/backend/convex/__tests__/playerMatching.test.ts"],
+        "modify": [
+          "packages/backend/convex/models/orgPlayerEnrollments.ts (add findSimilarPlayers query)"
+        ]
+      },
+      "testingRequirements": {
+        "unitTests": true,
+        "integrationTests": false,
+        "manualTesting": true,
+        "uatTestCases": ["FM-001", "FM-002", "FM-003", "FM-004", "FM-005"]
+      }
+    },
+    {
+      "id": "US-VN-007",
+      "phase": 2,
+      "title": "Review Links Backend",
+      "description": "Create backend infrastructure for time-limited deep links to mobile quick review pages. Generate unique 8-char codes, track expiry (48h), and provide validation queries for link access.",
+      "acceptanceCriteria": [
+        "Backend: Add whatsappReviewLinks table to schema.ts",
+        "Schema fields:",
+        "  - code: v.string() (8 alphanumeric chars, unique)",
+        "  - voiceNoteId: v.id('voiceNotes')",
+        "  - organizationId: v.string()",
+        "  - coachUserId: v.string()",
+        "  - createdAt: v.number()",
+        "  - expiresAt: v.number() (48 hours from creation)",
+        "  - accessedAt: v.optional(v.number())",
+        "  - status: v.union('active', 'expired', 'used')",
+        "  - pendingInsightsCount: v.number()",
+        "  - unmatchedCount: v.number()",
+        "Indexes:",
+        "  - by_code: ['code']",
+        "  - by_voiceNoteId: ['voiceNoteId']",
+        "  - by_expiresAt_and_status: ['expiresAt', 'status']",
+        "  - by_coachUserId: ['coachUserId']",
+        "Backend: Create models/whatsappReviewLinks.ts",
+        "Function: generateReviewLink (internalMutation)",
+        "  args: { voiceNoteId, organizationId, coachUserId, pendingInsightsCount, unmatchedCount }",
+        "  returns: { code: v.string(), expiresAt: v.number() }",
+        "  Logic: Generate unique 8-char alphanumeric code (exclude confusing chars: 0, O, I, l)",
+        "  Insert record with status='active', expiresAt = now + 48h",
+        "Function: getReviewLinkData (query)",
+        "  args: { code: v.string() }",
+        "  returns: { voiceNoteId, organizationId, coachUserId, isExpired, createdAt, expiresAt } or null",
+        "  Logic: Query by_code index, check if expired (Date.now() > expiresAt)",
+        "Function: markLinkAccessed (mutation)",
+        "  args: { code: v.string() }",
+        "  returns: v.null()",
+        "  Logic: Update status='used', set accessedAt=Date.now() if status='active'",
+        "Integration: Call generateReviewLink in checkAndAutoApply after processing insights",
+        "Update formatResultsMessage to include deep link: 'Quick review: {SITE_URL}/r/{code}'",
+        "Unit tests: Create __tests__/whatsappReviewLinks.test.ts",
+        "Test cases:",
+        "  - Generate link \u2192 returns 8-char code",
+        "  - Get valid link \u2192 returns data, isExpired=false",
+        "  - Get expired link (mock time) \u2192 isExpired=true",
+        "  - Get non-existent code \u2192 returns null",
+        "  - Mark accessed \u2192 updates status and accessedAt",
+        "Type check passes: npm run check-types"
+      ],
+      "priority": 7,
+      "passes": true,
+      "effort": "1 day",
+      "effortBreakdown": {
+        "schema": "1h (table definition + indexes)",
+        "backend": "3h (generateReviewLink, getReviewLinkData, markLinkAccessed)",
+        "integration": "1.5h (hook into checkAndAutoApply, update formatResultsMessage)",
+        "tests": "2.5h (unit tests)",
+        "manual": "0.5h (test link generation via WhatsApp)"
+      },
+      "dependencies": ["US-VN-006"],
+      "files": {
+        "create": [
+          "packages/backend/convex/models/whatsappReviewLinks.ts",
+          "packages/backend/convex/__tests__/whatsappReviewLinks.test.ts"
+        ],
+        "modify": [
+          "packages/backend/convex/schema.ts (add whatsappReviewLinks table)",
+          "packages/backend/convex/actions/whatsapp.ts (integrate link generation, update formatResultsMessage)"
+        ]
+      },
+      "testingRequirements": {
+        "unitTests": true,
+        "integrationTests": false,
+        "manualTesting": true,
+        "uatTestCases": ["QR-001", "QR-003", "QR-004"]
+      }
+    },
+    {
+      "id": "US-VN-008",
+      "phase": 2,
+      "title": "Redirect Route",
+      "description": "Create public /r/[code] redirect route that validates review links and redirects to org-scoped review page or shows error states (expired, invalid).",
+      "acceptanceCriteria": [
+        "Frontend: Create apps/web/src/app/r/[code]/page.tsx",
+        "Route type: Server component (for SEO and fast initial validation)",
+        "Implementation:",
+        "  - Extract code from params",
+        "  - Call api.models.whatsappReviewLinks.getReviewLinkData via fetchQuery",
+        "  - If linkData === null: redirect('/review-link-invalid')",
+        "  - If linkData.isExpired: redirect('/review-link-expired')",
+        "  - Else: redirect('/orgs/{orgId}/coach/review/{code}')",
+        "Create /review-link-invalid page:",
+        "  - Show error: 'Link Invalid - This review link doesn't exist or has been deleted.'",
+        "  - Button: 'Open App' \u2192 redirects to root",
+        "Create /review-link-expired page:",
+        "  - Show error: 'Link Expired - This review link expired. Links are valid for 48 hours.'",
+        "  - Button: 'Open Voice Notes' \u2192 requires auth, redirects to voice notes",
+        "Type check passes: npm run check-types",
+        "Manual test:",
+        "  - Valid code \u2192 redirects to org review page",
+        "  - Invalid code 'xyz123' \u2192 shows invalid page",
+        "  - Expired code (mock) \u2192 shows expired page"
+      ],
+      "priority": 8,
+      "passes": true,
+      "effort": "0.5 day",
+      "effortBreakdown": {
+        "redirect": "1.5h (redirect logic + fetchQuery)",
+        "errorPages": "2h (invalid + expired pages with styling)",
+        "manual": "0.5h (test all states)"
+      },
+      "dependencies": ["US-VN-007"],
+      "files": {
+        "create": [
+          "apps/web/src/app/r/[code]/page.tsx",
+          "apps/web/src/app/review-link-invalid/page.tsx",
+          "apps/web/src/app/review-link-expired/page.tsx"
+        ]
+      },
+      "testingRequirements": {
+        "unitTests": false,
+        "integrationTests": false,
+        "manualTesting": true,
+        "uatTestCases": ["QR-003", "QR-004"]
+      }
+    },
+    {
+      "id": "US-VN-009",
+      "phase": 2,
+      "title": "Quick Review Page",
+      "description": "Create mobile-optimized review page at /orgs/[orgId]/coach/review/[code] showing voice note context, pending insights, and auto-applied items with collapsible sections.",
+      "acceptanceCriteria": [
+        "Frontend: Create apps/web/src/app/orgs/[orgId]/coach/review/[code]/page.tsx",
+        "Route type: Client component (for real-time updates via useQuery)",
+        "Page structure:",
+        "  1. QuickReviewHeader (fixed top):",
+        "     - Title: 'Quick Review'",
+        "     - Close button (X) \u2192 navigates to /orgs/{orgId}/coach/voice-notes",
+        "  2. VoiceNoteContext (collapsible, defaultCollapsed=true):",
+        "     - Show transcript snippet (first 150 chars + '...')",
+        "     - Show full transcript when expanded",
+        "     - Show created timestamp",
+        "  3. NeedsReviewSection (if needsReview.length > 0):",
+        "     - Title: 'Needs Review ({count})'",
+        "     - List of matched insights awaiting approval",
+        "     - Each insight card: player name, category, description, Apply/Dismiss buttons",
+        "  4. UnmatchedSection (if unmatched.length > 0):",
+        "     - Title: 'Unmatched Players ({count})'",
+        "     - List of unmatched insights (handled by US-VN-010)",
+        "  5. AutoAppliedSection (if autoApplied.length > 0, defaultCollapsed=true):",
+        "     - Title: 'Auto-Applied ({count})'",
+        "     - Collapsible list of already applied insights",
+        "  6. OtherPendingPrompt (if otherPendingCount > 0):",
+        "     - Message: '{count} other pending items from other notes'",
+        "     - Button: 'View All' \u2192 navigates to voice notes with insights tab",
+        "Queries:",
+        "  - useQuery(api.models.whatsappReviewLinks.getReviewLinkData, { code })",
+        "  - useQuery(api.models.voiceNotes.getVoiceNoteById, { noteId: linkData.voiceNoteId })",
+        "  - useQuery(api.models.voiceNotes.getVoiceNotesByCoach, { orgId, coachId })",
+        "Mutations:",
+        "  - useMutation(api.models.whatsappReviewLinks.markLinkAccessed)",
+        "  - useMutation(api.models.voiceNotes.applyInsight)",
+        "  - useMutation(api.models.voiceNotes.dismissInsight)",
+        "Mobile-responsive styling:",
+        "  - max-w-lg container",
+        "  - p-4 spacing",
+        "  - Touch targets \u2265 44px",
+        "  - Bottom padding for safe area",
+        "Loading states: Show skeleton for each section",
+        "Mark link accessed on mount (useEffect with markLinkAccessed)",
+        "Type check passes: npm run check-types",
+        "Manual test: Open link on mobile \u2192 verify layout, interactions, collapsibles"
+      ],
+      "priority": 9,
+      "passes": true,
+      "effort": "2 days",
+      "effortBreakdown": {
+        "page": "2h (page structure + queries)",
+        "header": "1h (QuickReviewHeader component)",
+        "context": "1.5h (VoiceNoteContext collapsible)",
+        "sections": "4h (NeedsReviewSection, AutoAppliedSection, OtherPendingPrompt)",
+        "styling": "2h (mobile-responsive, touch targets, spacing)",
+        "loading": "1h (skeleton states)",
+        "manual": "1h (mobile testing)"
+      },
+      "dependencies": ["US-VN-008"],
+      "files": {
+        "create": [
+          "apps/web/src/app/orgs/[orgId]/coach/review/[code]/page.tsx",
+          "apps/web/src/app/orgs/[orgId]/coach/review/[code]/components/quick-review-header.tsx",
+          "apps/web/src/app/orgs/[orgId]/coach/review/[code]/components/voice-note-context.tsx",
+          "apps/web/src/app/orgs/[orgId]/coach/review/[code]/components/needs-review-section.tsx",
+          "apps/web/src/app/orgs/[orgId]/coach/review/[code]/components/auto-applied-section.tsx",
+          "apps/web/src/app/orgs/[orgId]/coach/review/[code]/components/other-pending-prompt.tsx",
+          "apps/web/src/app/orgs/[orgId]/coach/review/[code]/components/quick-review-skeleton.tsx"
+        ]
+      },
+      "testingRequirements": {
+        "unitTests": false,
+        "integrationTests": false,
+        "manualTesting": true,
+        "uatTestCases": ["QR-001", "QR-005", "QR-006"]
+      }
+    },
+    {
+      "id": "US-VN-010",
+      "phase": 2,
+      "title": "Unmatched Player Cards",
+      "description": "Create UnmatchedPlayerCard component that displays fuzzy-matched player suggestions from Phase 1, allows coach to select match and assign player, with 'Someone else' fallback.",
+      "acceptanceCriteria": [
+        "Frontend: Create apps/web/src/app/orgs/[orgId]/coach/review/[code]/components/unmatched-player-card.tsx",
+        "Component props: { insight, voiceNoteId, organizationId, coachUserId }",
+        "Layout:",
+        "  - Border: 2px solid amber-200, bg-amber-50",
+        "  - Header: \u2753 icon + 'playerName not found' + insight.title",
+        "  - Suggestions section: 'Did you mean?'",
+        "  - Radio group with player suggestions",
+        "  - Each option: player fullName, teamName (if available), similarity % badge",
+        "  - Last option: 'Someone else...'",
+        "  - Actions: 'Assign & Apply' button (enabled when selection made)",
+        "Query: useQuery(api.models.orgPlayerEnrollments.findSimilarPlayers, { organizationId, coachUserId, searchName: insight.playerName, limit: 4 })",
+        "If suggestions.length === 0:",
+        "  - Show message: 'No similar names found in your teams.'",
+        "  - Show 'Search Players' button instead of radio group",
+        "Mutation: useMutation(api.models.voiceNotes.assignPlayerToInsight)",
+        "Handle assign:",
+        "  - If selectedPlayerId && selectedPlayerId !== 'other':",
+        "    - Call assignPlayerToInsight({ noteId, insightId, playerIdentityId })",
+        "    - Show toast: 'Applied to {playerName}'",
+        "  - If selectedPlayerId === 'other':",
+        "    - Show 'Search Players' dialog (future enhancement placeholder)",
+        "Similarity display: Math.round(similarity * 100) + '%'",
+        "Loading state: Show Loader2 icon during assignment",
+        "Type check passes: npm run check-types",
+        "Manual test:",
+        "  - Unmatched 'Shawn' \u2192 shows 'Se\u00e1n' suggestion with similarity",
+        "  - Select suggestion \u2192 'Assign & Apply' enabled",
+        "  - Click assign \u2192 insight disappears, toast shown",
+        "  - No matches \u2192 shows 'Search Players' button"
+      ],
+      "priority": 10,
+      "passes": true,
+      "effort": "1.5 days",
+      "effortBreakdown": {
+        "component": "3h (layout + radio group + actions)",
+        "fuzzy": "2h (integrate findSimilarPlayers query from Phase 1)",
+        "mutation": "1.5h (assignPlayerToInsight + toast)",
+        "noMatches": "1h (handle empty suggestions state)",
+        "styling": "1.5h (amber styling, mobile touch targets)",
+        "manual": "1.5h (test fuzzy matching scenarios)"
+      },
+      "dependencies": ["US-VN-009", "US-VN-006"],
+      "files": {
+        "create": [
+          "apps/web/src/app/orgs/[orgId]/coach/review/[code]/components/unmatched-player-card.tsx",
+          "apps/web/src/app/orgs/[orgId]/coach/review/[code]/components/unmatched-section.tsx"
+        ],
+        "modify": [
+          "apps/web/src/app/orgs/[orgId]/coach/review/[code]/page.tsx (integrate UnmatchedSection)"
+        ]
+      },
+      "testingRequirements": {
+        "unitTests": false,
+        "integrationTests": false,
+        "manualTesting": true,
+        "uatTestCases": ["QR-002", "QR-007", "QR-008"]
+      }
+    },
+    {
+      "id": "US-VN-011",
+      "phase": 2,
+      "title": "Trust-Adaptive Messages",
+      "description": "Update WhatsApp message formatting based on coach trust level (0-3) to show progressively more detailed summaries and adapt tone from cautious to confident.",
+      "acceptanceCriteria": [
+        "Backend: Update formatResultsMessage in actions/whatsapp.ts",
+        "Trust level evaluation:",
+        "  - TL0-1 (New coach, <10 auto-applied): Generic counts only",
+        "  - TL2 (Established, 10-50 auto-applied): Show top 3 names + counts",
+        "  - TL3 (Trusted, >50 auto-applied): Confident tone, show all applied if \u22643",
+        "Message formats:",
+        "  Trust Level 0-1:",
+        "    'Analysis complete!\\n\\n\u26a0\ufe0f {needsReview} insights need your review\\n\u2753 {unmatched} unmatched players\\n\\nQuick review: {link}\\n(Link expires in 48h)'",
+        "  Trust Level 2:",
+        "    'Analysis complete!\\n\\n\u2705 Auto-applied ({count}): {names.slice(0,3).join(', ')}{count>3 ? ' +' + (count-3) : ''}\\n\u26a0\ufe0f Needs review ({count}): {items.slice(0,2)}+{more}\\n\u2753 Unmatched ({count}): {names.slice(0,2)}+{more}\\n\\nQuick review: {link}'",
+        "  Trust Level 3 (all applied):",
+        "    '\u2705 All applied!\\n\\nAuto-applied ({count}): {names.join(', ')}\\n\ud83d\udce4 Parent updates queued ({count})\\n\\nView details: {link}'",
+        "Helper functions:",
+        "  - getTrustLevel(coachId): Query voiceNotes to count auto-applied insights by coach",
+        "  - formatCategory(category): Map category to emoji + short label",
+        "  - truncateList(items, limit): Show first N items + '+X more' if exceeds",
+        "Integration:",
+        "  - Call getTrustLevel before formatResultsMessage",
+        "  - Pass trustLevel to formatResultsMessage",
+        "  - Use appropriate format based on trust level + outcomes",
+        "Unit tests: Add to __tests__/whatsappFeedback.test.ts",
+        "Test cases:",
+        "  - TL0, 4 pending \u2192 generic format",
+        "  - TL2, 2 applied + 1 pending \u2192 shows names + counts",
+        "  - TL3, 3 applied, 0 pending \u2192 confident 'All applied!'",
+        "Type check passes: npm run check-types",
+        "Manual test: Send voice note with different trust levels \u2192 verify message format"
+      ],
+      "priority": 11,
+      "passes": true,
+      "effort": "0.5 day",
+      "effortBreakdown": {
+        "trust": "1.5h (getTrustLevel query)",
+        "formatting": "2h (update formatResultsMessage with trust levels)",
+        "helpers": "1h (formatCategory, truncateList)",
+        "tests": "1h (unit tests)",
+        "manual": "0.5h (test different trust scenarios)"
+      },
+      "dependencies": ["US-VN-007"],
+      "files": {
+        "modify": [
+          "packages/backend/convex/actions/whatsapp.ts (update formatResultsMessage, add getTrustLevel)",
+          "packages/backend/convex/__tests__/whatsappFeedback.test.ts (add trust level tests)"
+        ]
+      },
+      "testingRequirements": {
+        "unitTests": true,
+        "integrationTests": false,
+        "manualTesting": true,
+        "uatTestCases": ["QR-009", "QR-010"]
+      }
+    },
+    {
+      "id": "US-VN-012",
+      "phase": 2,
+      "title": "Link Expiry & Cleanup",
+      "description": "Implement cron job to clean up expired review links (>7 days old) and handle expired link UI states gracefully.",
+      "acceptanceCriteria": [
+        "Backend: Create crons.ts if not exists (or add to existing)",
+        "Cron job: cleanupExpiredLinks",
+        "  - Schedule: Daily at 3am UTC",
+        "  - Function: internal.models.whatsappReviewLinks.cleanupExpiredLinks",
+        "Backend: Add cleanupExpiredLinks internalMutation to models/whatsappReviewLinks.ts",
+        "  args: {}",
+        "  returns: { deleted: v.number() }",
+        "  Logic:",
+        "    - Query links with expiresAt < (now - 7 days)",
+        "    - Delete each link",
+        "    - Return count deleted",
+        "Frontend: Create apps/web/src/app/orgs/[orgId]/coach/review/[code]/components/link-expired-view.tsx",
+        "  - Show: '\u23f0' icon, 'Link Expired' title, 'This review link has expired. Links are valid for 48 hours.' message",
+        "  - Button: 'Open Voice Notes' \u2192 navigates to /orgs/{orgId}/coach/voice-notes?tab=insights",
+        "Frontend: Integrate LinkExpiredView in page.tsx",
+        "  - If linkData.isExpired === true, render <LinkExpiredView orgId={orgId} />",
+        "Unit tests: Add to __tests__/whatsappReviewLinks.test.ts",
+        "Test cases:",
+        "  - Cleanup finds expired links (mock Date.now)",
+        "  - Cleanup deletes links > 7 days expired",
+        "  - Cleanup returns correct count",
+        "Type check passes: npm run check-types",
+        "Manual test:",
+        "  - Mock expired link \u2192 shows LinkExpiredView",
+        "  - Run cron manually \u2192 deletes old links"
+      ],
+      "priority": 12,
+      "passes": true,
+      "effort": "0.5 day",
+      "effortBreakdown": {
+        "cron": "1.5h (cron setup + cleanupExpiredLinks mutation)",
+        "ui": "1.5h (LinkExpiredView component)",
+        "integration": "1h (integrate into page.tsx)",
+        "tests": "1h (unit tests)",
+        "manual": "0.5h (test cron + expired UI)"
+      },
+      "dependencies": ["US-VN-009"],
+      "files": {
+        "create": [
+          "apps/web/src/app/orgs/[orgId]/coach/review/[code]/components/link-expired-view.tsx"
+        ],
+        "modify": [
+          "packages/backend/convex/crons.ts (add cleanup cron)",
+          "packages/backend/convex/models/whatsappReviewLinks.ts (add cleanupExpiredLinks)",
+          "apps/web/src/app/orgs/[orgId]/coach/review/[code]/page.tsx (integrate LinkExpiredView)",
+          "packages/backend/convex/__tests__/whatsappReviewLinks.test.ts (add cleanup tests)"
+        ]
+      },
+      "testingRequirements": {
+        "unitTests": true,
+        "integrationTests": false,
+        "manualTesting": true,
+        "uatTestCases": ["QR-003"]
+      }
+    },
+    {
+      "id": "US-VN-013",
+      "phase": 3,
+      "title": "Artifacts Tables",
+      "description": "Create v2 tables (voiceNoteArtifacts, voiceNoteTranscripts) to support source-agnostic voice note processing and detailed transcription storage with segments.",
+      "acceptanceCriteria": [
+        "Backend: Add voiceNoteArtifacts table to schema.ts",
+        "Schema fields:",
+        "  - artifactId: v.string() (unique identifier)",
+        "  - sourceChannel: v.union(v.literal('whatsapp_audio'), v.literal('whatsapp_text'), v.literal('app_recorded'), v.literal('app_typed'))",
+        "  - senderUserId: v.string()",
+        "  - orgContextCandidates: v.array(v.object({ organizationId: v.string(), confidence: v.number() }))",
+        "  - status: v.union(v.literal('received'), v.literal('transcribing'), v.literal('transcribed'), v.literal('processing'), v.literal('completed'), v.literal('failed'))",
+        "  - voiceNoteId: v.optional(v.id('voiceNotes')) (backward compat link)",
+        "  - createdAt: v.number()",
+        "  - updatedAt: v.number()",
+        "Indexes:",
+        "  - by_artifactId: ['artifactId']",
+        "  - by_senderUserId: ['senderUserId']",
+        "  - by_voiceNoteId: ['voiceNoteId']",
+        "  - by_status_and_createdAt: ['status', 'createdAt']",
+        "Backend: Add voiceNoteTranscripts table to schema.ts",
+        "Schema fields:",
+        "  - artifactId: v.id('voiceNoteArtifacts')",
+        "  - fullText: v.string()",
+        "  - segments: v.array(v.object({ text: v.string(), startTime: v.number(), endTime: v.number(), confidence: v.number() }))",
+        "  - modelUsed: v.string() (e.g., 'whisper-1')",
+        "  - language: v.string()",
+        "  - duration: v.number()",
+        "  - createdAt: v.number()",
+        "Indexes:",
+        "  - by_artifactId: ['artifactId']",
+        "Backend: Create models/voiceNoteArtifacts.ts",
+        "Function: createArtifact (internalMutation)",
+        "  args: { artifactId, sourceChannel, senderUserId, orgContextCandidates }",
+        "  returns: v.id('voiceNoteArtifacts')",
+        "Function: linkToVoiceNote (internalMutation)",
+        "  args: { artifactId, voiceNoteId }",
+        "  returns: v.null()",
+        "Function: updateArtifactStatus (internalMutation)",
+        "  args: { artifactId, status }",
+        "  returns: v.null()",
+        "Backend: Create models/voiceNoteTranscripts.ts",
+        "Function: createTranscript (internalMutation)",
+        "  args: { artifactId, fullText, segments, modelUsed, language, duration }",
+        "  returns: v.id('voiceNoteTranscripts')",
+        "Function: getTranscriptByArtifact (query)",
+        "  args: { artifactId }",
+        "  returns: transcript or null",
+        "Type check passes: npm run check-types"
+      ],
+      "priority": 13,
+      "passes": true,
+      "effort": "1.5 days",
+      "effortBreakdown": {
+        "schema": "2h (two tables + indexes)",
+        "artifacts": "2h (createArtifact, linkToVoiceNote, updateArtifactStatus)",
+        "transcripts": "2h (createTranscript, getTranscriptByArtifact)",
+        "tests": "3h (unit tests for both modules)",
+        "manual": "0.5h (test artifact creation flow)"
+      },
+      "dependencies": ["US-VN-012"],
+      "files": {
+        "create": [
+          "packages/backend/convex/models/voiceNoteArtifacts.ts",
+          "packages/backend/convex/models/voiceNoteTranscripts.ts",
+          "packages/backend/convex/__tests__/voiceNoteArtifacts.test.ts",
+          "packages/backend/convex/__tests__/voiceNoteTranscripts.test.ts"
+        ],
+        "modify": [
+          "packages/backend/convex/schema.ts (add voiceNoteArtifacts, voiceNoteTranscripts tables)"
+        ]
+      },
+      "testingRequirements": {
+        "unitTests": true,
+        "integrationTests": false,
+        "manualTesting": true,
+        "uatTestCases": []
+      }
+    },
+    {
+      "id": "US-VN-014",
+      "phase": 3,
+      "title": "Dual-Path Processing",
+      "description": "Implement feature flag evaluation and dual-path processing where v2-enabled coaches create artifacts while maintaining v1 backward compatibility.",
+      "acceptanceCriteria": [
+        "Backend: Create lib/featureFlags.ts",
+        "Function: shouldUseV2Pipeline (internal)",
+        "  args: { orgId, coachUserId }",
+        "  returns: v.boolean()",
+        "  Logic:",
+        "    1. Check platformConfig.voice_notes_v2_enabled (global on/off)",
+        "    2. Check organization.settings.voiceNotesVersion (org override: 'v1', 'v2', 'hybrid')",
+        "    3. Check member.betaFeatures includes 'voice_notes_v2' (coach opt-in)",
+        "    4. Return true if any layer enables v2, else false",
+        "Backend: Update actions/whatsapp.ts processIncomingMessage",
+        "Integration:",
+        "  - After message validation, call shouldUseV2Pipeline",
+        "  - If useV2:",
+        "    - Generate artifactId",
+        "    - Call internal.models.voiceNoteArtifacts.createArtifact",
+        "    - Still create v1 voiceNote (backward compat)",
+        "    - Call internal.models.voiceNoteArtifacts.linkToVoiceNote",
+        "  - Else:",
+        "    - Use existing v1 flow (unchanged)",
+        "  - Both paths continue to transcription as before",
+        "Backend: Update transcription completion hook",
+        "  - If v2 enabled:",
+        "    - Call internal.models.voiceNoteTranscripts.createTranscript with segments",
+        "    - Update artifact status to 'transcribed'",
+        "  - If v1:",
+        "    - Store transcript in voiceNote.transcript (existing behavior)",
+        "Unit tests: Create __tests__/featureFlags.test.ts",
+        "Test cases:",
+        "  - Platform disabled \u2192 returns false",
+        "  - Org v2 override \u2192 returns true",
+        "  - Coach beta opt-in \u2192 returns true",
+        "  - All disabled \u2192 returns false",
+        "Integration test: Create __tests__/dualPathProcessing.test.ts",
+        "Test cases:",
+        "  - v2 enabled coach \u2192 creates artifact + voiceNote",
+        "  - v1 coach \u2192 creates voiceNote only",
+        "  - v2 transcription \u2192 creates transcript with segments",
+        "Type check passes: npm run check-types",
+        "Manual test: Enable v2 for test coach \u2192 send voice note \u2192 verify artifact + transcript created"
+      ],
+      "priority": 14,
+      "passes": true,
+      "effort": "1.5 days",
+      "effortBreakdown": {
+        "featureFlags": "2h (shouldUseV2Pipeline logic)",
+        "integration": "3h (dual-path in processIncomingMessage)",
+        "transcription": "1.5h (update transcription completion hook)",
+        "tests": "3h (unit + integration tests)",
+        "manual": "1h (test v1 and v2 paths)"
+      },
+      "dependencies": ["US-VN-013"],
+      "files": {
+        "create": [
+          "packages/backend/convex/lib/featureFlags.ts",
+          "packages/backend/convex/__tests__/featureFlags.test.ts",
+          "packages/backend/convex/__tests__/dualPathProcessing.test.ts"
+        ],
+        "modify": [
+          "packages/backend/convex/actions/whatsapp.ts (add dual-path processing)",
+          "packages/backend/convex/models/voiceNotes.ts (update transcription hook)"
+        ]
+      },
+      "testingRequirements": {
+        "unitTests": true,
+        "integrationTests": true,
+        "manualTesting": true,
+        "uatTestCases": []
+      }
+    },
+    {
+      "id": "US-VN-015",
+      "phase": 4,
+      "title": "Claims Extraction",
+      "description": "Implement AI-based claims extraction to segment transcripts into atomic units (one per player mention) using GPT-4, storing entity mentions and topic classification.",
+      "acceptanceCriteria": [
+        "Backend: Add voiceNoteClaims table to schema.ts",
+        "Schema fields:",
+        "  - claimId: v.string()",
+        "  - artifactId: v.id('voiceNoteArtifacts')",
+        "  - sourceText: v.string() (e.g., 'John did well in training')",
+        "  - timestampStart: v.optional(v.number())",
+        "  - timestampEnd: v.optional(v.number())",
+        "  - topic: v.union(v.literal('injury'), v.literal('wellbeing'), v.literal('performance'), v.literal('attendance'), v.literal('behavior'), v.literal('other'))",
+        "  - entityMentions: v.array(v.object({ mentionType: v.union(v.literal('player_name'), v.literal('team_name'), v.literal('group_reference')), rawText: v.string(), position: v.number() }))",
+        "  - extractionConfidence: v.number()",
+        "  - status: v.union(v.literal('pending'), v.literal('resolving'), v.literal('resolved'), v.literal('failed'))",
+        "  - createdAt: v.number()",
+        "Indexes:",
+        "  - by_artifactId: ['artifactId']",
+        "  - by_status: ['status']",
+        "Backend: Create actions/claimsExtraction.ts",
+        "Function: extractClaims (action)",
+        "  args: { artifactId }",
+        "  returns: v.array(v.object({ claimId, sourceText, topic, entityMentions, extractionConfidence }))",
+        "  Logic:",
+        "    1. Get transcript from voiceNoteTranscripts",
+        "    2. Call OpenAI GPT-4 with prompt:",
+        "       'Segment this coach\\'s voice note into atomic claims (one per player/team mentioned). Return JSON array with sourceText, topic, entityMentions.'",
+        "    3. Parse JSON response",
+        "    4. For each claim, generate claimId, set extractionConfidence based on GPT response",
+        "    5. Return claims array",
+        "Function: storeClaims (internalMutation)",
+        "  args: { claims: v.array(...) }",
+        "  returns: v.null()",
+        "  Logic: Insert each claim into voiceNoteClaims table",
+        "Integration: Add to v2 processing pipeline after transcription",
+        "  - If v2 enabled && transcript created:",
+        "    - Call ctx.scheduler.runAfter(0, internal.actions.claimsExtraction.extractClaims, { artifactId })",
+        "    - Update artifact status to 'processing'",
+        "Unit tests: Create __tests__/claimsExtraction.test.ts",
+        "Test cases:",
+        "  - Single player mention \u2192 1 claim",
+        "  - Two players \u2192 2 claims",
+        "  - Team mention \u2192 entityMentions includes team_name",
+        "  - Group reference ('the twins') \u2192 entityMentions includes group_reference",
+        "Type check passes: npm run check-types",
+        "Manual test: Send voice note with 2 players \u2192 verify 2 claims created with correct entity mentions"
+      ],
+      "priority": 15,
+      "passes": true,
+      "effort": "2 days",
+      "effortBreakdown": {
+        "schema": "1h (voiceNoteClaims table)",
+        "prompt": "2h (GPT-4 prompt engineering + testing)",
+        "extraction": "3h (extractClaims action logic)",
+        "storage": "1h (storeClaims mutation)",
+        "integration": "1.5h (hook into v2 pipeline)",
+        "tests": "3h (unit tests)",
+        "manual": "1h (test claim extraction scenarios)"
+      },
+      "dependencies": ["US-VN-014"],
+      "files": {
+        "create": [
+          "packages/backend/convex/actions/claimsExtraction.ts",
+          "packages/backend/convex/__tests__/claimsExtraction.test.ts"
+        ],
+        "modify": [
+          "packages/backend/convex/schema.ts (add voiceNoteClaims table)",
+          "packages/backend/convex/models/voiceNotes.ts (integrate claims extraction)"
+        ]
+      },
+      "testingRequirements": {
+        "unitTests": true,
+        "integrationTests": false,
+        "manualTesting": true,
+        "uatTestCases": []
+      }
+    },
+    {
+      "id": "US-VN-016",
+      "phase": 4,
+      "title": "Claim Processing",
+      "description": "Implement claim processing pipeline that takes extracted claims and prepares them for entity resolution, updating claim status and artifact status.",
+      "acceptanceCriteria": [
+        "Backend: Create models/voiceNoteClaims.ts",
+        "Function: getClaimsByArtifact (query)",
+        "  args: { artifactId }",
+        "  returns: v.array(claim objects)",
+        "Function: updateClaimStatus (internalMutation)",
+        "  args: { claimId, status }",
+        "  returns: v.null()",
+        "Backend: Create actions/claimProcessing.ts",
+        "Function: processClaims (action)",
+        "  args: { artifactId }",
+        "  returns: v.object({ processed: v.number(), failed: v.number() })",
+        "  Logic:",
+        "    1. Get claims by artifactId",
+        "    2. For each claim:",
+        "       - If entityMentions.length === 0: mark status='failed'",
+        "       - Else: mark status='resolving' (ready for Phase 5)",
+        "    3. Update artifact status to 'completed'",
+        "    4. Return counts",
+        "Integration: Add to claims extraction flow",
+        "  - After storeClaims completes:",
+        "    - Call ctx.scheduler.runAfter(0, internal.actions.claimProcessing.processClaims, { artifactId })",
+        "Unit tests: Create __tests__/claimProcessing.test.ts",
+        "Test cases:",
+        "  - Claims with entity mentions \u2192 status='resolving'",
+        "  - Claims without entities \u2192 status='failed'",
+        "  - Artifact status updated to 'completed'",
+        "Type check passes: npm run check-types",
+        "Manual test: Extract claims \u2192 verify processing runs \u2192 claims marked 'resolving'"
+      ],
+      "priority": 16,
+      "passes": true,
+      "effort": "2 days",
+      "effortBreakdown": {
+        "queries": "2h (getClaimsByArtifact, updateClaimStatus)",
+        "processing": "3h (processClaims action logic)",
+        "integration": "1.5h (hook into claims extraction)",
+        "tests": "3h (unit tests)",
+        "manual": "1h (test processing flow)"
+      },
+      "dependencies": ["US-VN-015"],
+      "files": {
+        "create": [
+          "packages/backend/convex/models/voiceNoteClaims.ts",
+          "packages/backend/convex/actions/claimProcessing.ts",
+          "packages/backend/convex/__tests__/claimProcessing.test.ts"
+        ],
+        "modify": [
+          "packages/backend/convex/actions/claimsExtraction.ts (integrate claim processing)"
+        ]
+      },
+      "testingRequirements": {
+        "unitTests": true,
+        "integrationTests": false,
+        "manualTesting": true,
+        "uatTestCases": []
+      }
+    },
+    {
+      "id": "US-VN-017",
+      "phase": 5,
+      "title": "Entity Resolution Table",
+      "description": "Create voiceNoteEntityResolutions table and implement entity resolution logic using Phase 1 fuzzy matching to find player candidates for each entity mention.",
+      "acceptanceCriteria": [
+        "Backend: Add voiceNoteEntityResolutions table to schema.ts",
+        "Schema fields:",
+        "  - claimId: v.id('voiceNoteClaims')",
+        "  - mentionIndex: v.number() (position in entityMentions array)",
+        "  - rawText: v.string() (e.g., 'Shawn')",
+        "  - candidates: v.array(v.object({ entityType: v.literal('player'), entityId: v.string(), entityName: v.string(), score: v.number(), matchReason: v.string() }))",
+        "  - status: v.union(v.literal('auto_resolved'), v.literal('needs_disambiguation'), v.literal('user_resolved'), v.literal('unresolved'))",
+        "  - resolvedEntityId: v.optional(v.string())",
+        "  - resolvedAt: v.optional(v.number())",
+        "  - createdAt: v.number()",
+        "Indexes:",
+        "  - by_claimId: ['claimId']",
+        "  - by_status: ['status']",
+        "Backend: Create actions/entityResolution.ts",
+        "Function: resolveEntities (action)",
+        "  args: { artifactId }",
+        "  returns: v.object({ autoResolved: v.number(), needsDisambiguation: v.number(), unresolved: v.number() })",
+        "  Logic:",
+        "    1. Get claims with status='resolving' for artifactId",
+        "    2. For each claim, for each entityMention:",
+        "       - If mentionType === 'player_name':",
+        "         - Call api.models.orgPlayerEnrollments.findSimilarPlayers (FROM PHASE 1!)",
+        "         - If candidates.length === 1 && similarity > 0.9:",
+        "           - status = 'auto_resolved', resolvedEntityId = candidate.playerIdentityId",
+        "         - Else if candidates.length > 1:",
+        "           - status = 'needs_disambiguation'",
+        "         - Else:",
+        "           - status = 'unresolved'",
+        "       - Store resolution in voiceNoteEntityResolutions",
+        "    3. Update claim status to 'resolved'",
+        "    4. Return counts",
+        "Backend: Create models/voiceNoteEntityResolutions.ts",
+        "Function: createResolution (internalMutation)",
+        "  args: { claimId, mentionIndex, rawText, candidates, status, resolvedEntityId }",
+        "  returns: v.id('voiceNoteEntityResolutions')",
+        "Function: getResolutionsByClaim (query)",
+        "  args: { claimId }",
+        "  returns: v.array(resolution objects)",
+        "Integration: Add to claim processing flow",
+        "  - After processClaims completes:",
+        "    - Call ctx.scheduler.runAfter(0, internal.actions.entityResolution.resolveEntities, { artifactId })",
+        "Unit tests: Create __tests__/entityResolution.test.ts",
+        "Test cases:",
+        "  - Single high-confidence match \u2192 auto_resolved",
+        "  - Multiple matches \u2192 needs_disambiguation",
+        "  - No matches \u2192 unresolved",
+        "Type check passes: npm run check-types",
+        "Manual test: Claim with 'Shawn' \u2192 finds 'Se\u00e1n' \u2192 auto-resolves if >0.9 similarity"
+      ],
+      "priority": 17,
+      "passes": true,
+      "effort": "2 days",
+      "effortBreakdown": {
+        "schema": "1h (voiceNoteEntityResolutions table)",
+        "resolution": "4h (resolveEntities action with Phase 1 fuzzy matching)",
+        "models": "2h (createResolution, getResolutionsByClaim)",
+        "integration": "1.5h (hook into claim processing)",
+        "tests": "3h (unit tests)",
+        "manual": "1h (test resolution scenarios)"
+      },
+      "dependencies": ["US-VN-016", "US-VN-006"],
+      "files": {
+        "create": [
+          "packages/backend/convex/actions/entityResolution.ts",
+          "packages/backend/convex/models/voiceNoteEntityResolutions.ts",
+          "packages/backend/convex/__tests__/entityResolution.test.ts"
+        ],
+        "modify": [
+          "packages/backend/convex/schema.ts (add voiceNoteEntityResolutions table)",
+          "packages/backend/convex/actions/claimProcessing.ts (integrate entity resolution)"
+        ]
+      },
+      "testingRequirements": {
+        "unitTests": true,
+        "integrationTests": false,
+        "manualTesting": true,
+        "uatTestCases": []
+      }
+    },
+    {
+      "id": "US-VN-018",
+      "phase": 5,
+      "title": "Disambiguation UI",
+      "description": "Create coach-facing UI to resolve ambiguous entity mentions (needs_disambiguation status), showing candidates from fuzzy matching with similarity scores.",
+      "acceptanceCriteria": [
+        "Frontend: Create apps/web/src/app/orgs/[orgId]/coach/voice-notes/disambiguation/[artifactId]/page.tsx",
+        "Page structure:",
+        "  1. Header: 'Resolve Player Mentions'",
+        "  2. List of claims with needs_disambiguation resolutions",
+        "  3. For each resolution:",
+        "     - Show claim sourceText",
+        "     - Show rawText mention highlighted",
+        "     - Radio group with candidates (fullName, teamName, similarity %)",
+        "     - 'Confirm' button",
+        "  4. 'Skip' and 'Save All' buttons at bottom",
+        "Queries:",
+        "  - useQuery(api.models.voiceNoteClaims.getClaimsByArtifact, { artifactId })",
+        "  - useQuery(api.models.voiceNoteEntityResolutions.getResolutionsByClaim, { claimId })",
+        "Mutations:",
+        "  - useMutation(api.models.voiceNoteEntityResolutions.resolveEntity)",
+        "Backend: Add resolveEntity mutation to models/voiceNoteEntityResolutions.ts",
+        "  args: { resolutionId, resolvedEntityId }",
+        "  returns: v.null()",
+        "  Logic: Update status='user_resolved', resolvedEntityId, resolvedAt",
+        "Navigation: Link from voice notes list when artifact has needs_disambiguation resolutions",
+        "Mobile-responsive: Works on phone (touch targets, scrolling)",
+        "Type check passes: npm run check-types",
+        "Manual test:",
+        "  - Voice note with ambiguous mention \u2192 shows disambiguation page",
+        "  - Select candidate \u2192 confirm \u2192 resolution updated",
+        "  - All resolved \u2192 navigates back to voice notes"
+      ],
+      "priority": 18,
+      "passes": true,
+      "effort": "2 days",
+      "effortBreakdown": {
+        "page": "3h (disambiguation page structure + queries)",
+        "ui": "3h (resolution cards with radio groups + confirm buttons)",
+        "mutation": "1.5h (resolveEntity mutation)",
+        "navigation": "1h (link from voice notes list)",
+        "styling": "1.5h (mobile-responsive)",
+        "manual": "1h (test disambiguation flow)"
+      },
+      "dependencies": ["US-VN-017"],
+      "files": {
+        "create": [
+          "apps/web/src/app/orgs/[orgId]/coach/voice-notes/disambiguation/[artifactId]/page.tsx",
+          "apps/web/src/app/orgs/[orgId]/coach/voice-notes/disambiguation/[artifactId]/components/resolution-card.tsx"
+        ],
+        "modify": [
+          "packages/backend/convex/models/voiceNoteEntityResolutions.ts (add resolveEntity mutation)",
+          "apps/web/src/app/orgs/[orgId]/coach/voice-notes/page.tsx (add disambiguation link)"
+        ]
+      },
+      "testingRequirements": {
+        "unitTests": false,
+        "integrationTests": false,
+        "manualTesting": true,
+        "uatTestCases": []
+      }
+    },
+    {
+      "id": "US-VN-019",
+      "phase": 6,
+      "title": "Drafts Table",
+      "description": "Create insightDrafts table to store pending insights awaiting confirmation before applying to player records, with confidence scores and evidence links.",
+      "acceptanceCriteria": [
+        "Backend: Add insightDrafts table to schema.ts",
+        "Schema fields:",
+        "  - draftId: v.string()",
+        "  - artifactId: v.id('voiceNoteArtifacts')",
+        "  - claimId: v.id('voiceNoteClaims')",
+        "  - playerIdentityId: v.optional(v.id('playerIdentities'))",
+        "  - insightType: v.union(v.literal('injury'), v.literal('wellbeing'), v.literal('performance'), v.literal('attendance'), v.literal('behavior'), v.literal('note'))",
+        "  - title: v.string()",
+        "  - description: v.string()",
+        "  - evidence: v.object({ transcriptSnippet: v.string(), timestampStart: v.optional(v.number()), audioClipStorageId: v.optional(v.id('_storage')) })",
+        "  - aiConfidence: v.number() (extraction confidence from claim)",
+        "  - resolutionConfidence: v.number() (entity match confidence)",
+        "  - overallConfidence: v.number() (aiConfidence * resolutionConfidence)",
+        "  - requiresConfirmation: v.boolean() (true if overallConfidence < 0.85)",
+        "  - status: v.union(v.literal('pending'), v.literal('confirmed'), v.literal('rejected'), v.literal('applied'))",
+        "  - createdAt: v.number()",
+        "Indexes:",
+        "  - by_artifactId: ['artifactId']",
+        "  - by_status: ['status']",
+        "  - by_playerIdentityId_and_status: ['playerIdentityId', 'status']",
+        "Backend: Create models/insightDrafts.ts",
+        "Function: createDraft (internalMutation)",
+        "  args: { draftId, artifactId, claimId, playerIdentityId, insightType, title, description, evidence, aiConfidence, resolutionConfidence }",
+        "  returns: v.id('insightDrafts')",
+        "  Logic: Calculate overallConfidence, set requiresConfirmation, insert draft",
+        "Function: getDraftsByArtifact (query)",
+        "  args: { artifactId }",
+        "  returns: v.array(draft objects)",
+        "Function: confirmDraft (mutation)",
+        "  args: { draftId }",
+        "  returns: v.null()",
+        "  Logic: Update status='confirmed'",
+        "Function: rejectDraft (mutation)",
+        "  args: { draftId }",
+        "  returns: v.null()",
+        "  Logic: Update status='rejected'",
+        "Integration: Add to entity resolution flow",
+        "  - After resolveEntities completes:",
+        "    - For each resolved claim, create draft",
+        "    - If overallConfidence >= 0.85 && trustLevel >= 2: auto-confirm",
+        "    - Else: leave as pending (requires confirmation)",
+        "Type check passes: npm run check-types"
+      ],
+      "priority": 19,
+      "passes": true,
+      "effort": "2 days",
+      "effortBreakdown": {
+        "schema": "1.5h (insightDrafts table with all fields)",
+        "models": "3h (createDraft, getDraftsByArtifact, confirmDraft, rejectDraft)",
+        "confidence": "1.5h (overallConfidence calculation logic)",
+        "integration": "2h (hook into entity resolution)",
+        "tests": "3h (unit tests)",
+        "manual": "1h (test draft creation scenarios)"
+      },
+      "dependencies": ["US-VN-018"],
+      "files": {
+        "create": [
+          "packages/backend/convex/models/insightDrafts.ts",
+          "packages/backend/convex/__tests__/insightDrafts.test.ts"
+        ],
+        "modify": [
+          "packages/backend/convex/schema.ts (add insightDrafts table)",
+          "packages/backend/convex/actions/entityResolution.ts (integrate draft creation)"
+        ]
+      },
+      "testingRequirements": {
+        "unitTests": true,
+        "integrationTests": false,
+        "manualTesting": true,
+        "uatTestCases": []
+      }
+    },
+    {
+      "id": "US-VN-020",
+      "phase": 6,
+      "title": "WhatsApp Commands",
+      "description": "Implement WhatsApp command parser and handlers for confirmation workflow (CONFIRM, CONFIRM 1,2,3, TWINS = Emma & Niamh, CANCEL) to approve or reject insight drafts.",
+      "acceptanceCriteria": [
+        "Backend: Create lib/whatsappCommands.ts",
+        "Function: parseCommand(text: string): Command | null",
+        "  Supported commands:",
+        "    - 'CONFIRM' (all pending drafts)",
+        "    - 'CONFIRM 1,2,3' (specific draft numbers)",
+        "    - 'CANCEL' (reject all pending drafts)",
+        "    - 'TWINS = Emma & Niamh' (custom entity mapping for group references)",
+        "    - 'TWINS = Emma and Niamh U12' (with team context)",
+        "  Return: { type: 'confirm' | 'cancel' | 'entity_mapping', draftNumbers?: number[], entityMapping?: { rawText, playerNames, teamContext } }",
+        "Backend: Create actions/whatsappCommandHandler.ts",
+        "Function: handleCommand (action)",
+        "  args: { phoneNumber, command, messageText }",
+        "  returns: v.string() (response message)",
+        "  Logic:",
+        "    1. Get pending drafts for coach (match phoneNumber to coachUserId)",
+        "    2. If command.type === 'confirm':",
+        "       - If draftNumbers: confirm those specific drafts",
+        "       - Else: confirm all pending drafts",
+        "       - Apply confirmed drafts to player records",
+        "       - Return: '\u2705 Saved {count} updates. Updated players: {names}'",
+        "    3. If command.type === 'cancel':",
+        "       - Reject all pending drafts",
+        "       - Return: '\u274c Cancelled all pending updates.'",
+        "    4. If command.type === 'entity_mapping':",
+        "       - Resolve group reference using provided names + fuzzy matching",
+        "       - Update resolutions with resolved entities",
+        "       - Return: '\u2705 {rawText} = {resolvedNames}. Use CONFIRM to save.'",
+        "Integration: Add to processIncomingMessage",
+        "  - If message is text, check if it's a command",
+        "  - If parseCommand returns command: call handleCommand, send response, return early",
+        "  - Else: continue normal processing",
+        "Unit tests: Create __tests__/whatsappCommands.test.ts",
+        "Test cases:",
+        "  - 'CONFIRM' \u2192 parsed as confirm all",
+        "  - 'CONFIRM 1,2,3' \u2192 parsed with draftNumbers [1,2,3]",
+        "  - 'CANCEL' \u2192 parsed as cancel",
+        "  - 'TWINS = Emma & Niamh' \u2192 parsed as entity_mapping",
+        "  - 'random text' \u2192 returns null (not a command)",
+        "Type check passes: npm run check-types",
+        "Manual test:",
+        "  - Send voice note \u2192 receive draft summary",
+        "  - Reply 'CONFIRM 1,2' \u2192 confirms those drafts",
+        "  - Reply 'TWINS = Emma and Niamh' \u2192 resolves group reference"
+      ],
+      "priority": 20,
+      "passes": true,
+      "effort": "2 days",
+      "effortBreakdown": {
+        "parser": "2h (parseCommand with regex patterns)",
+        "handler": "4h (handleCommand action logic for all command types)",
+        "integration": "1.5h (hook into processIncomingMessage)",
+        "tests": "3h (unit tests for parser + handler)",
+        "manual": "1.5h (test WhatsApp command flow)"
+      },
+      "dependencies": ["US-VN-019"],
+      "files": {
+        "create": [
+          "packages/backend/convex/lib/whatsappCommands.ts",
+          "packages/backend/convex/actions/whatsappCommandHandler.ts",
+          "packages/backend/convex/__tests__/whatsappCommands.test.ts"
+        ],
+        "modify": [
+          "packages/backend/convex/actions/whatsapp.ts (integrate command parsing)"
+        ]
+      },
+      "testingRequirements": {
+        "unitTests": true,
+        "integrationTests": false,
+        "manualTesting": true,
+        "uatTestCases": []
+      }
+    },
+    {
+      "id": "US-VN-021",
+      "phase": 6,
+      "title": "Migration Script",
+      "description": "Create optional migration script to backfill historical v1 voice notes into v2 artifacts, transcripts, and claims for data consistency and analysis.",
+      "acceptanceCriteria": [
+        "Script: Create scripts/migrations/voice-notes-to-v2.ts",
+        "Script usage: npm run migrate:voice-notes-to-v2",
+        "Migration logic:",
+        "  1. Query all voiceNotes with status='completed'",
+        "  2. For each voiceNote:",
+        "     - Generate artifactId",
+        "     - Create artifact with sourceChannel based on voiceNote.source",
+        "     - Link artifact to voiceNoteId",
+        "     - If transcript exists: create voiceNoteTranscripts (no segments, use fullText only)",
+        "     - If insights exist: best-effort create claims (one per insight)",
+        "     - Log migration results: { processed, artifacts, transcripts, claims, errors }",
+        "  3. Output summary report",
+        "Dry-run mode: --dry-run flag to preview without writing",
+        "Batch processing: Process 100 voice notes at a time to avoid timeout",
+        "Error handling: Log errors but continue processing remaining notes",
+        "Backend: Create actions/migration.ts",
+        "Function: migrateVoiceNoteToV2 (action)",
+        "  args: { voiceNoteId }",
+        "  returns: v.object({ success: v.boolean(), artifactId: v.optional(v.string()), error: v.optional(v.string()) })",
+        "Documentation: Add migration guide to docs/migrations/voice-notes-v2-migration.md",
+        "  - When to run migration",
+        "  - How to verify results",
+        "  - Rollback strategy (artifacts link back to voiceNotes)",
+        "Type check passes: npm run check-types",
+        "Manual test:",
+        "  - Run with --dry-run on test org",
+        "  - Run actual migration on 10 test voice notes",
+        "  - Verify artifacts, transcripts, claims created correctly"
+      ],
+      "priority": 21,
+      "passes": true,
+      "effort": "1 day",
+      "effortBreakdown": {
+        "script": "3h (migration script logic + batch processing)",
+        "action": "2h (migrateVoiceNoteToV2 action)",
+        "dryRun": "1h (dry-run mode + summary report)",
+        "docs": "1.5h (migration guide)",
+        "manual": "1h (test migration on sample data)"
+      },
+      "dependencies": ["US-VN-020"],
+      "files": {
+        "create": [
+          "scripts/migrations/voice-notes-to-v2.ts",
+          "packages/backend/convex/actions/migration.ts",
+          "docs/migrations/voice-notes-v2-migration.md"
+        ]
+      },
+      "testingRequirements": {
+        "unitTests": false,
+        "integrationTests": false,
+        "manualTesting": true,
+        "uatTestCases": []
+      }
+    }
+  ],
+  "phase1Checklist": [
+    "\u2705 Create directory: scripts/ralph/prds/voice-gateways-v2/",
+    "\u2b1c Stream A (Quality Gates): Start US-VN-001",
+    "\u2b1c Stream B (Fuzzy Matching): Start US-VN-005 (parallel with Stream A)",
+    "\u2b1c US-VN-001: Create lib/messageValidation.ts",
+    "\u2b1c US-VN-001: Implement validateTextMessage function",
+    "\u2b1c US-VN-001: Add messageQualityCheck to whatsappMessages schema",
+    "\u2b1c US-VN-001: Integrate validation in processIncomingMessage",
+    "\u2b1c US-VN-001: Write unit tests (__tests__/messageValidation.test.ts)",
+    "\u2b1c US-VN-001: Manual WhatsApp testing (send 'hi' \u2192 rejected)",
+    "\u2b1c US-VN-002: Add validateTranscriptQuality to messageValidation.ts",
+    "\u2b1c US-VN-002: Add transcriptQuality fields to voiceNotes schema",
+    "\u2b1c US-VN-002: Create onTranscriptionComplete hook",
+    "\u2b1c US-VN-002: Write unit tests for transcript validation",
+    "\u2b1c US-VN-002: Manual audio testing (background noise \u2192 rejected)",
+    "\u2b1c US-VN-003: Create checkForDuplicateMessage query",
+    "\u2b1c US-VN-003: Add isDuplicate fields to whatsappMessages schema",
+    "\u2b1c US-VN-003: Integrate duplicate check in processIncomingMessage",
+    "\u2b1c US-VN-003: Write unit tests (__tests__/duplicateDetection.test.ts)",
+    "\u2b1c US-VN-003: Manual duplicate testing (send twice \u2192 second rejected)",
+    "\u2b1c US-VN-004: Create sendDetailedFeedback function",
+    "\u2b1c US-VN-004: Add all feedback message templates",
+    "\u2b1c US-VN-004: Implement CONFIRM/RETRY/CANCEL workflow",
+    "\u2b1c US-VN-004: Replace generic errors in checkAndAutoApply",
+    "\u2b1c US-VN-004: Write unit tests (__tests__/whatsappFeedback.test.ts)",
+    "\u2b1c US-VN-004: Manual testing (trigger each rejection type)",
+    "\u2b1c US-VN-005: Create lib/stringMatching.ts",
+    "\u2b1c US-VN-005: Implement levenshteinDistance algorithm",
+    "\u2b1c US-VN-005: Implement levenshteinSimilarity function",
+    "\u2b1c US-VN-005: Add normalizeForMatching helper (diacritics, prefixes)",
+    "\u2b1c US-VN-005: Write unit tests (__tests__/stringMatching.test.ts)",
+    "\u2b1c US-VN-005: Test Irish names (Se\u00e1n, Niamh, P\u00e1draig, O'Brien)",
+    "\u2b1c US-VN-005: Performance test (1000 names < 100ms)",
+    "\u2b1c US-VN-006: Add findSimilarPlayers query to orgPlayerEnrollments.ts",
+    "\u2b1c US-VN-006: Implement batch fetch + similarity calculation",
+    "\u2b1c US-VN-006: Add context weighting (recent mentions, team context)",
+    "\u2b1c US-VN-006: Write unit tests (__tests__/playerMatching.test.ts)",
+    "\u2b1c US-VN-006: Manual testing with coach data",
+    "\u2b1c Merge Stream A and Stream B",
+    "\u2b1c Run npm run check-types (0 errors)",
+    "\u2b1c Run all unit tests (100% passing)",
+    "\u2b1c Manual UAT: QG-001 through QG-008",
+    "\u2b1c Manual UAT: FB-001 through FB-005",
+    "\u2b1c Manual UAT: FM-001 through FM-005",
+    "\u2b1c Commit: 'feat(voice-notes): Phase 1 - Quality Gates & Fuzzy Matching'",
+    "\u2b1c Phase 1 Complete \u2705"
+  ],
+  "successCriteria": {
+    "phase1Complete": {
+      "productionReady": true,
+      "criteria": [
+        "Quality gates reject gibberish text messages",
+        "Quality gates reject poor-quality audio transcripts",
+        "Duplicate messages detected and rejected within 5 minutes",
+        "Detailed error messages sent to WhatsApp (not generic)",
+        "CONFIRM/RETRY/CANCEL workflow functional",
+        "Levenshtein algorithm correctly calculates similarity",
+        "Irish names handled (Se\u00e1n, Niamh, O'Brien, etc.)",
+        "findSimilarPlayers returns top 5 candidates with scores > 0.5",
+        "Context weighting boosts recently mentioned players",
+        "All unit tests passing (100% coverage for validation logic)",
+        "Type check passes (0 TypeScript errors)",
+        "Manual UAT complete: 18 test cases passing",
+        "Documentation updated in .ruler/voice-notes-validation-patterns.md",
+        "Performance: Player matching < 100ms for 1000 players",
+        "WhatsApp feedback tested manually for all rejection types",
+        "No regressions: Existing voice notes flow still works"
+      ]
+    }
+  },
+  "mandatoryPatterns": [
+    "ALWAYS use Better Auth IDs as v.string() not v.id()",
+    "ALWAYS include args and returns validators on ALL queries/mutations",
+    "ALWAYS use composite indexes for multi-field queries (never .filter() after .withIndex())",
+    "ALWAYS use batch fetch with Map lookup to avoid N+1 queries",
+    "ALWAYS normalize strings before matching (lowercase, trim, remove diacritics)",
+    "ALWAYS provide specific error messages (not 'Something went wrong')",
+    "ALWAYS validate input at entry points (WhatsApp webhook, API endpoints)",
+    "ALWAYS write unit tests for validation logic (100% coverage)",
+    "ALWAYS use early return pattern for rejection (validate \u2192 reject \u2192 process)",
+    "ALWAYS log rejection reasons for analytics",
+    "COPY Levenshtein implementation from MOBILE_QUICK_REVIEW_PLAN.md (don't reinvent)",
+    "NEVER process messages without quality checks (waste of API calls)",
+    "NEVER use exact string matching for player names (always fuzzy)",
+    "NEVER send generic error messages to WhatsApp users"
+  ],
+  "integrationPoints": {
+    "qualityGates": {
+      "purpose": "Prevent wasted API calls on low-quality messages",
+      "entry": "packages/backend/convex/actions/whatsapp.ts - processIncomingMessage",
+      "validates": ["text messages", "audio transcripts"],
+      "rejects": ["empty", "too short", "gibberish", "duplicates"],
+      "feedback": "sendDetailedFeedback function sends specific WhatsApp messages"
+    },
+    "fuzzyMatching": {
+      "purpose": "Improve player name resolution from voice notes",
+      "entry": "packages/backend/convex/models/orgPlayerEnrollments.ts - findSimilarPlayers",
+      "uses": "levenshteinSimilarity from lib/stringMatching.ts",
+      "threshold": 0.5,
+      "returns": "Top 5 candidates with similarity scores"
+    },
+    "notifications": {
+      "purpose": "Alert coaches when quick review ready (Phase 2)",
+      "events": [
+        "voice_note_analysis_complete",
+        "unmatched_players_found",
+        "quick_review_link_generated"
+      ],
+      "channels": ["WhatsApp", "Push (future)", "Email (future)"]
+    }
+  },
+  "effortSummary": {
+    "phase1": {
+      "streamA": {
+        "US-VN-001": "0.5 day",
+        "US-VN-002": "0.5 day",
+        "US-VN-003": "0.5 day",
+        "US-VN-004": "0.5 day",
+        "subtotal": "2 days"
+      },
+      "streamB": {
+        "US-VN-005": "1 day",
+        "US-VN-006": "1 day",
+        "subtotal": "2 days"
+      },
+      "parallelTotal": "2 days (streams run concurrently)",
+      "mergeAndTest": "0.5 day",
+      "total": "2.5 days"
+    },
+    "totalProject": "25-30 days (6 phases)",
+    "breakdown": {
+      "phase1": "2.5 days (quality gates + fuzzy matching)",
+      "phase2": "5-7 days (mobile quick review)",
+      "phase3": "3 days (v2 artifacts)",
+      "phase4": "4 days (claims extraction)",
+      "phase5": "4 days (entity resolution)",
+      "phase6": "5 days (drafts & confirmation)",
+      "testing": "1.5 days (distributed across phases)"
+    }
+  },
+  "ralphInstructions": {
+    "executionMode": "sequential-phases-parallel-streams",
+    "phase1Approach": "Execute Stream A and Stream B in parallel, merge when both complete",
+    "testingStrategy": "Unit tests required for all validation logic, manual UAT for WhatsApp flows",
+    "qualityCriteria": "Type check must pass, 0 new TypeScript errors, all unit tests passing",
+    "documentationRequired": true,
+    "quickActionsAvailable": true
+  }
+}

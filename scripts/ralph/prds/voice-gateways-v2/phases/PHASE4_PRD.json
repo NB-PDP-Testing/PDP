@@ -1,0 +1,156 @@
+{
+  "phaseNumber": 4,
+  "phaseName": "Claims Extraction",
+  "duration": "4 days",
+  "storyCount": 2,
+  "contextFiles": [
+    "context/MAIN_CONTEXT.md",
+    "context/PHASE3_V2_MIGRATION.md",
+    "docs/architecture/voice-notes-pipeline-v2.md"
+  ],
+  "stories": [
+    {
+      "id": "US-VN-015",
+      "phase": 4,
+      "title": "Claims Extraction",
+      "description": "Implement AI-based claims extraction to segment transcripts into atomic units (one per player mention) using GPT-4, storing entity mentions and topic classification.",
+      "acceptanceCriteria": [
+        "Backend: Add voiceNoteClaims table to schema.ts",
+        "Schema fields:",
+        "  - claimId: v.string()",
+        "  - artifactId: v.id('voiceNoteArtifacts')",
+        "  - sourceText: v.string() (e.g., 'John did well in training')",
+        "  - timestampStart: v.optional(v.number())",
+        "  - timestampEnd: v.optional(v.number())",
+        "  - topic: v.union(v.literal('injury'), v.literal('wellbeing'), v.literal('performance'), v.literal('attendance'), v.literal('behavior'), v.literal('other'))",
+        "  - entityMentions: v.array(v.object({ mentionType: v.union(v.literal('player_name'), v.literal('team_name'), v.literal('group_reference')), rawText: v.string(), position: v.number() }))",
+        "  - extractionConfidence: v.number()",
+        "  - status: v.union(v.literal('pending'), v.literal('resolving'), v.literal('resolved'), v.literal('failed'))",
+        "  - createdAt: v.number()",
+        "Indexes:",
+        "  - by_artifactId: ['artifactId']",
+        "  - by_status: ['status']",
+        "Backend: Create actions/claimsExtraction.ts",
+        "Function: extractClaims (action)",
+        "  args: { artifactId }",
+        "  returns: v.array(v.object({ claimId, sourceText, topic, entityMentions, extractionConfidence }))",
+        "  Logic:",
+        "    1. Get transcript from voiceNoteTranscripts",
+        "    2. Call OpenAI GPT-4 with prompt:",
+        "       'Segment this coach\\'s voice note into atomic claims (one per player/team mentioned). Return JSON array with sourceText, topic, entityMentions.'",
+        "    3. Parse JSON response",
+        "    4. For each claim, generate claimId, set extractionConfidence based on GPT response",
+        "    5. Return claims array",
+        "Function: storeClaims (internalMutation)",
+        "  args: { claims: v.array(...) }",
+        "  returns: v.null()",
+        "  Logic: Insert each claim into voiceNoteClaims table",
+        "Integration: Add to v2 processing pipeline after transcription",
+        "  - If v2 enabled && transcript created:",
+        "    - Call ctx.scheduler.runAfter(0, internal.actions.claimsExtraction.extractClaims, { artifactId })",
+        "    - Update artifact status to 'processing'",
+        "Unit tests: Create __tests__/claimsExtraction.test.ts",
+        "Test cases:",
+        "  - Single player mention \u2192 1 claim",
+        "  - Two players \u2192 2 claims",
+        "  - Team mention \u2192 entityMentions includes team_name",
+        "  - Group reference ('the twins') \u2192 entityMentions includes group_reference",
+        "Type check passes: npm run check-types",
+        "Manual test: Send voice note with 2 players \u2192 verify 2 claims created with correct entity mentions"
+      ],
+      "priority": 15,
+      "passes": true,
+      "effort": "2 days",
+      "effortBreakdown": {
+        "schema": "1h (voiceNoteClaims table)",
+        "prompt": "2h (GPT-4 prompt engineering + testing)",
+        "extraction": "3h (extractClaims action logic)",
+        "storage": "1h (storeClaims mutation)",
+        "integration": "1.5h (hook into v2 pipeline)",
+        "tests": "3h (unit tests)",
+        "manual": "1h (test claim extraction scenarios)"
+      },
+      "dependencies": ["US-VN-014"],
+      "files": {
+        "create": [
+          "packages/backend/convex/actions/claimsExtraction.ts",
+          "packages/backend/convex/__tests__/claimsExtraction.test.ts"
+        ],
+        "modify": [
+          "packages/backend/convex/schema.ts (add voiceNoteClaims table)",
+          "packages/backend/convex/models/voiceNotes.ts (integrate claims extraction)"
+        ]
+      },
+      "testingRequirements": {
+        "unitTests": true,
+        "integrationTests": false,
+        "manualTesting": true,
+        "uatTestCases": []
+      }
+    },
+    {
+      "id": "US-VN-016",
+      "phase": 4,
+      "title": "Claim Processing",
+      "description": "Implement claim processing pipeline that takes extracted claims and prepares them for entity resolution, updating claim status and artifact status.",
+      "acceptanceCriteria": [
+        "Backend: Create models/voiceNoteClaims.ts",
+        "Function: getClaimsByArtifact (query)",
+        "  args: { artifactId }",
+        "  returns: v.array(claim objects)",
+        "Function: updateClaimStatus (internalMutation)",
+        "  args: { claimId, status }",
+        "  returns: v.null()",
+        "Backend: Create actions/claimProcessing.ts",
+        "Function: processClaims (action)",
+        "  args: { artifactId }",
+        "  returns: v.object({ processed: v.number(), failed: v.number() })",
+        "  Logic:",
+        "    1. Get claims by artifactId",
+        "    2. For each claim:",
+        "       - If entityMentions.length === 0: mark status='failed'",
+        "       - Else: mark status='resolving' (ready for Phase 5)",
+        "    3. Update artifact status to 'completed'",
+        "    4. Return counts",
+        "Integration: Add to claims extraction flow",
+        "  - After storeClaims completes:",
+        "    - Call ctx.scheduler.runAfter(0, internal.actions.claimProcessing.processClaims, { artifactId })",
+        "Unit tests: Create __tests__/claimProcessing.test.ts",
+        "Test cases:",
+        "  - Claims with entity mentions \u2192 status='resolving'",
+        "  - Claims without entities \u2192 status='failed'",
+        "  - Artifact status updated to 'completed'",
+        "Type check passes: npm run check-types",
+        "Manual test: Extract claims \u2192 verify processing runs \u2192 claims marked 'resolving'"
+      ],
+      "priority": 16,
+      "passes": true,
+      "effort": "2 days",
+      "effortBreakdown": {
+        "queries": "2h (getClaimsByArtifact, updateClaimStatus)",
+        "processing": "3h (processClaims action logic)",
+        "integration": "1.5h (hook into claims extraction)",
+        "tests": "3h (unit tests)",
+        "manual": "1h (test processing flow)"
+      },
+      "dependencies": ["US-VN-015"],
+      "files": {
+        "create": [
+          "packages/backend/convex/models/voiceNoteClaims.ts",
+          "packages/backend/convex/actions/claimProcessing.ts",
+          "packages/backend/convex/__tests__/claimProcessing.test.ts"
+        ],
+        "modify": [
+          "packages/backend/convex/actions/claimsExtraction.ts (integrate claim processing)"
+        ]
+      },
+      "testingRequirements": {
+        "unitTests": true,
+        "integrationTests": false,
+        "manualTesting": true,
+        "uatTestCases": []
+      }
+    }
+  ],
+  "successCriteria": {}
+}

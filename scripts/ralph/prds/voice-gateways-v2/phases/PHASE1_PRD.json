@@ -1,0 +1,453 @@
+{
+  "phaseNumber": 1,
+  "phaseName": "Quality Gates & Fuzzy Matching",
+  "duration": "2.5 days",
+  "storyCount": 6,
+  "contextFiles": [
+    "context/MAIN_CONTEXT.md",
+    "context/PHASE1_QUALITY_GATES.md",
+    ".ruler/voice-notes-validation-patterns.md"
+  ],
+  "stories": [
+    {
+      "id": "US-VN-001",
+      "phase": 1,
+      "stream": "A",
+      "title": "Text Message Quality Gate",
+      "description": "Implement pre-processing validation for WhatsApp text messages to reject empty, too short, or gibberish content before expensive AI processing.",
+      "acceptanceCriteria": [
+        "Backend: Create lib/messageValidation.ts in packages/backend/convex/lib/",
+        "Function: validateTextMessage(text: string): MessageQualityCheck",
+        "Validation checks:",
+        "  1. Empty check: trimmed.length === 0 \u2192 reject",
+        "  2. Minimum length: trimmed.length < 10 chars \u2192 reject",
+        "  3. Word count: words.length < 3 \u2192 reject",
+        "  4. Average word length: avgWordLength > 20 or < 2 \u2192 reject (gibberish detection)",
+        "  5. Repeated characters: /(..)\\1{5,}/ regex \u2192 reject (spam detection)",
+        "Return type: { isValid: boolean, reason?: string, suggestion?: string }",
+        "Integration: Add validation to processIncomingMessage in actions/whatsapp.ts",
+        "Rejection flow: If !isValid, send suggestion to WhatsApp, mark message status='rejected', return early",
+        "Schema: Add to whatsappMessages table:",
+        "  - messageQualityCheck: v.optional(v.object({ isValid: v.boolean(), reason: v.optional(v.string()), checkedAt: v.number() }))",
+        "Unit tests: Create __tests__/messageValidation.test.ts",
+        "Test cases:",
+        "  - Empty string \u2192 rejected",
+        "  - 'hi' \u2192 rejected (too short)",
+        "  - 'asdfjkl;' \u2192 rejected (gibberish)",
+        "  - 'aaaaaaaaaa' \u2192 rejected (repeated chars)",
+        "  - 'John did well in training today' \u2192 accepted",
+        "Type check passes: npm run check-types",
+        "Manual WhatsApp test: Send 'hi' \u2192 receives rejection message"
+      ],
+      "priority": 1,
+      "passes": true,
+      "effort": "0.5 day",
+      "effortBreakdown": {
+        "validation": "2h (function + return types)",
+        "integration": "1h (hook into whatsapp.ts)",
+        "schema": "0.5h (add quality check field)",
+        "tests": "2h (unit tests + test cases)",
+        "manual": "0.5h (WhatsApp testing)"
+      },
+      "dependencies": [],
+      "files": {
+        "create": [
+          "packages/backend/convex/lib/messageValidation.ts",
+          "packages/backend/convex/__tests__/messageValidation.test.ts"
+        ],
+        "modify": [
+          "packages/backend/convex/schema.ts (add messageQualityCheck to whatsappMessages)",
+          "packages/backend/convex/actions/whatsapp.ts (integrate validation)"
+        ]
+      },
+      "testingRequirements": {
+        "unitTests": true,
+        "integrationTests": false,
+        "manualTesting": true,
+        "uatTestCases": ["QG-001", "QG-002", "QG-003", "QG-007", "QG-008"]
+      }
+    },
+    {
+      "id": "US-VN-002",
+      "phase": 1,
+      "stream": "A",
+      "title": "Transcript Quality Validation",
+      "description": "Implement post-transcription quality validation to detect inaudible audio, gibberish transcripts, or poor-quality recordings before insight extraction.",
+      "acceptanceCriteria": [
+        "Backend: Add validateTranscriptQuality() to lib/messageValidation.ts",
+        "Function: validateTranscriptQuality(transcript: string, audioDuration?: number): TranscriptQualityResult",
+        "Return type: { isValid: boolean, confidence: number, reason?: string, suggestedAction: 'process' | 'ask_user' | 'reject' }",
+        "Validation checks:",
+        "  1. Empty transcript \u2192 reject (confidence: 0)",
+        "  2. Too short audio (<3s) + short transcript (<20 chars) \u2192 reject",
+        "  3. Whisper uncertainty markers check: '[inaudible]', '[music]', '[noise]', '(inaudible)', '(background noise)'",
+        "     - Count uncertainty markers, calc ratio: uncertaintyCount / wordCount",
+        "     - If ratio > 0.5 \u2192 reject (confidence: 0.2)",
+        "     - If ratio > 0.2 \u2192 ask_user (confidence: 0.5)",
+        "  4. Word count check: words.length < 5 \u2192 reject (confidence: 0.3)",
+        "  5. Average word length check: avgWordLength < 2 or > 15 \u2192 ask_user (confidence: 0.2)",
+        "  6. Sports context detection (confidence booster):",
+        "     - Keywords: player, team, training, match, game, injury, session, practice, coach, etc.",
+        "     - If hasSportsContext \u2192 confidence: 0.9, else confidence: 0.6",
+        "Integration: Hook into transcription completion (models/voiceNotes.ts)",
+        "Create onTranscriptionComplete internal mutation:",
+        "  - Run validateTranscriptQuality",
+        "  - Store transcriptQuality (0-1) and transcriptValidation in voiceNote",
+        "  - If suggestedAction === 'reject' \u2192 mark insightsStatus='failed', don't process",
+        "  - If suggestedAction === 'ask_user' \u2192 mark insightsStatus='awaiting_confirmation'",
+        "  - If suggestedAction === 'process' \u2192 continue to insight extraction",
+        "Schema: Add to voiceNotes table:",
+        "  - transcriptQuality: v.optional(v.number())",
+        "  - transcriptValidation: v.optional(v.object({ isValid: v.boolean(), reason: v.optional(v.string()), suggestedAction: v.union(v.literal('process'), v.literal('ask_user'), v.literal('reject')) }))",
+        "Unit tests: Add to __tests__/messageValidation.test.ts",
+        "Test cases:",
+        "  - Empty transcript \u2192 rejected",
+        "  - '[inaudible] [music]' (70% uncertainty) \u2192 rejected",
+        "  - 'Uh... um... hi' (short, unclear) \u2192 ask_user",
+        "  - 'John did well in training' (sports context) \u2192 accepted (0.9)",
+        "  - 'The weather is nice today' (no sports) \u2192 accepted (0.6)",
+        "Type check passes: npm run check-types",
+        "Manual test: Upload audio with background noise \u2192 receives quality feedback"
+      ],
+      "priority": 2,
+      "passes": true,
+      "effort": "0.5 day",
+      "effortBreakdown": {
+        "validation": "2h (function + logic)",
+        "integration": "1.5h (onTranscriptionComplete hook)",
+        "schema": "0.5h (add quality fields)",
+        "tests": "2h (unit tests)",
+        "manual": "0.5h (audio testing)"
+      },
+      "dependencies": ["US-VN-001"],
+      "files": {
+        "modify": [
+          "packages/backend/convex/lib/messageValidation.ts (add validateTranscriptQuality)",
+          "packages/backend/convex/schema.ts (add transcriptQuality, transcriptValidation to voiceNotes)",
+          "packages/backend/convex/models/voiceNotes.ts (add onTranscriptionComplete)",
+          "packages/backend/convex/__tests__/messageValidation.test.ts (add transcript tests)"
+        ]
+      },
+      "testingRequirements": {
+        "unitTests": true,
+        "integrationTests": false,
+        "manualTesting": true,
+        "uatTestCases": ["QG-004", "QG-005", "QG-006", "QG-008"]
+      }
+    },
+    {
+      "id": "US-VN-003",
+      "phase": 1,
+      "stream": "A",
+      "title": "Duplicate Message Detection",
+      "description": "Detect and prevent processing of duplicate WhatsApp messages (accidental sends, network retries) to avoid wasted API calls and user confusion.",
+      "acceptanceCriteria": [
+        "Backend: Create checkForDuplicateMessage query in models/whatsappMessages.ts",
+        "Query args: { phoneNumber: v.string(), body: v.optional(v.string()), mediaContentType: v.optional(v.string()), withinMinutes: v.optional(v.number()) }",
+        "Default window: 5 minutes (configurable)",
+        "Query logic:",
+        "  1. Get recent messages from same phone within time window",
+        "  2. For text: Check if body matches exactly",
+        "  3. For audio: Check if mediaContentType matches + timeDiff < 2 minutes (network retry detection)",
+        "Return: { isDuplicate: boolean, originalMessageId: v.id('whatsappMessages'), timeSinceOriginal: v.number() } or null",
+        "Integration: Add to processIncomingMessage in actions/whatsapp.ts",
+        "Duplicate handling:",
+        "  - Call checkForDuplicateMessage before storing message",
+        "  - If isDuplicate: Send WhatsApp message: '\u26a0\ufe0f I just received a similar message X seconds ago. If this is a new note, please add more details so I can tell them apart.'",
+        "  - Mark message status='duplicate'",
+        "  - Add duplicateOfMessageId field to message",
+        "  - Return early, don't process",
+        "Schema: Add to whatsappMessages table:",
+        "  - isDuplicate: v.optional(v.boolean())",
+        "  - duplicateOfMessageId: v.optional(v.id('whatsappMessages'))",
+        "Unit tests: Create __tests__/duplicateDetection.test.ts",
+        "Test cases:",
+        "  - Same text twice within 2 min \u2192 duplicate",
+        "  - Same text after 6 min \u2192 not duplicate",
+        "  - Different text within 2 min \u2192 not duplicate",
+        "  - Audio with same type within 1 min \u2192 duplicate",
+        "Type check passes: npm run check-types",
+        "Manual test: Send same message twice quickly \u2192 second rejected as duplicate"
+      ],
+      "priority": 3,
+      "passes": true,
+      "effort": "0.5 day",
+      "effortBreakdown": {
+        "query": "2h (duplicate detection logic)",
+        "integration": "1h (hook into whatsapp.ts)",
+        "schema": "0.5h (add duplicate fields)",
+        "tests": "2h (unit tests)",
+        "manual": "0.5h (duplicate testing)"
+      },
+      "dependencies": [],
+      "files": {
+        "create": [
+          "packages/backend/convex/__tests__/duplicateDetection.test.ts"
+        ],
+        "modify": [
+          "packages/backend/convex/models/whatsappMessages.ts (add checkForDuplicateMessage query)",
+          "packages/backend/convex/schema.ts (add isDuplicate, duplicateOfMessageId)",
+          "packages/backend/convex/actions/whatsapp.ts (integrate duplicate check)"
+        ]
+      },
+      "testingRequirements": {
+        "unitTests": true,
+        "integrationTests": false,
+        "manualTesting": true,
+        "uatTestCases": ["QG-007"]
+      }
+    },
+    {
+      "id": "US-VN-004",
+      "phase": 1,
+      "stream": "A",
+      "title": "Enhanced WhatsApp Feedback Messages",
+      "description": "Replace generic error messages with specific, actionable feedback based on rejection reason (empty, too short, inaudible, etc.) to improve user experience.",
+      "acceptanceCriteria": [
+        "Note: Extends existing generic fallbacks in checkAndAutoApply for edge cases",
+        "Backend: Create sendDetailedFeedback() function in actions/whatsapp.ts",
+        "Function signature: sendDetailedFeedback(phoneNumber: string, voiceNote: any, retryCount: number): Promise<void>",
+        "Feedback categories (based on validation results):",
+        "  1. Transcription failed:",
+        "     '\u274c I couldn't transcribe your audio. This might be because:\\n\u2022 Audio was too short (needs 3+ seconds)\\n\u2022 Background noise was too loud\\n\u2022 File format issue\\n\\nPlease try recording again in a quiet space.'",
+        "  2. Transcript quality rejected:",
+        "     '\u274c {reason message}.\\n\\n\ud83d\udcdd Transcript: \"{transcript.substring(0, 100)}\"\\n\\nPlease try again:\\n\u2022 Record in a quiet place\\n\u2022 Speak clearly for at least 5 seconds\\n\u2022 Mention player names and what happened'",
+        "     Reason messages map:",
+        "       - empty_transcript: 'The audio had no speech detected.'",
+        "       - too_short: 'The message was too short to analyze.'",
+        "       - mostly_inaudible: 'Most of the audio was inaudible or noisy.'",
+        "       - too_few_words: 'I only caught a few words.'",
+        "       - suspicious_word_pattern: 'The transcription doesn't look like natural speech.'",
+        "  3. Needs confirmation (unclear):",
+        "     '\u26a0\ufe0f I transcribed your audio, but I'm not confident about the quality.\\n\\n\ud83d\udcdd I heard: \"{transcript.substring(0, 150)}\"\\n\\nReply:\\n\u2022 CONFIRM to analyze it anyway\\n\u2022 RETRY to record again\\n\u2022 CANCEL to discard'",
+        "  4. Insights extraction failed:",
+        "     '\u274c I transcribed your note but couldn't extract insights.\\n\\n\ud83d\udcdd Transcript: \"{transcript.substring(0, 100)}\"\\n\\nThis might be because:\\n\u2022 No player names were mentioned\\n\u2022 The message wasn't about player development\\n\\nYour note is saved in the app. You can add details manually.'",
+        "  5. Generic fallback (still processing):",
+        "     '\u23f3 Your note is taking longer than usual to process.\\n\\nYou can:\\n\u2022 Check the app for updates\\n\u2022 Wait for processing to complete (may take 1-2 minutes)\\n\\nIf this keeps happening, please report it.'",
+        "Integration: Replace existing error messages in checkAndAutoApply",
+        "Update checkAndAutoApply in actions/whatsapp.ts:",
+        "  - Call sendDetailedFeedback for validation failures (adds to existing generic fallbacks)",
+        "  - Pass voiceNote with validation results",
+        "  - Use appropriate category based on status",
+        "Confirmation workflow:",
+        "  - If user replies 'CONFIRM' to awaiting_confirmation message \u2192 mark as confirmed, process insights",
+        "  - If user replies 'RETRY' \u2192 ignore previous note, allow new recording",
+        "  - If user replies 'CANCEL' \u2192 mark as cancelled",
+        "Unit tests: Add to __tests__/whatsappFeedback.test.ts",
+        "Test cases:",
+        "  - Empty transcript \u2192 correct rejection message",
+        "  - Mostly inaudible \u2192 correct rejection with transcript snippet",
+        "  - Needs confirmation \u2192 shows CONFIRM/RETRY/CANCEL options",
+        "  - No players mentioned \u2192 correct insights failed message",
+        "Type check passes: npm run check-types",
+        "Manual test: Trigger each rejection type \u2192 verify correct message received"
+      ],
+      "priority": 4,
+      "passes": true,
+      "effort": "0.5 day",
+      "effortBreakdown": {
+        "feedback": "2h (sendDetailedFeedback function + message templates)",
+        "integration": "1.5h (replace existing messages in checkAndAutoApply)",
+        "confirmation": "1h (CONFIRM/RETRY/CANCEL workflow)",
+        "tests": "1.5h (unit tests)",
+        "manual": "0.5h (test all feedback types)"
+      },
+      "dependencies": ["US-VN-001", "US-VN-002"],
+      "files": {
+        "create": [
+          "packages/backend/convex/__tests__/whatsappFeedback.test.ts"
+        ],
+        "modify": [
+          "packages/backend/convex/actions/whatsapp.ts (add sendDetailedFeedback, update checkAndAutoApply)"
+        ]
+      },
+      "testingRequirements": {
+        "unitTests": true,
+        "integrationTests": false,
+        "manualTesting": true,
+        "uatTestCases": ["FB-001", "FB-002", "FB-003", "FB-004", "FB-005"]
+      }
+    },
+    {
+      "id": "US-VN-005",
+      "phase": 1,
+      "stream": "B",
+      "title": "Levenshtein Fuzzy Matching Backend",
+      "description": "Implement Levenshtein distance algorithm for fuzzy player name matching to handle typos, Irish names, and phonetic variations (Se\u00e1n vs Shawn, Niamh vs Neeve).",
+      "acceptanceCriteria": [
+        "Backend: Create lib/stringMatching.ts in packages/backend/convex/lib/",
+        "Function: levenshteinDistance(a: string, b: string): number",
+        "Implementation: Standard dynamic programming algorithm",
+        "  - Matrix approach: matrix[i][j] = min of:",
+        "    - matrix[i-1][j-1] + (a[i] !== b[j] ? 1 : 0)  // substitution",
+        "    - matrix[i][j-1] + 1  // insertion",
+        "    - matrix[i-1][j] + 1  // deletion",
+        "Function: levenshteinSimilarity(a: string, b: string): number",
+        "  - Returns: 1 - (distance / maxLength)  // 0 = no match, 1 = exact match",
+        "  - Edge cases: If a === b return 1, if either length === 0 return 0",
+        "Helper: normalizeForMatching(str: string): string",
+        "  - Lowercase, trim, remove diacritics (\u00e9 \u2192 e, \u00e1 \u2192 a, \u00f3 \u2192 o)",
+        "  - Remove common prefixes: O', Mc, Mac",
+        "  - Example: \"O'Brien\" \u2192 \"obrien\"",
+        "Unit tests: Create __tests__/stringMatching.test.ts",
+        "Test cases:",
+        "  - levenshteinDistance('kitten', 'sitting') === 3",
+        "  - levenshteinSimilarity('Se\u00e1n', 'Shawn') >= 0.75",
+        "  - levenshteinSimilarity('Niamh', 'Neeve') >= 0.50",
+        "  - levenshteinSimilarity('O'Brien', 'O'Bryan') >= 0.85",
+        "  - levenshteinSimilarity('P\u00e1draig', 'Paddy') >= 0.50",
+        "  - normalizeForMatching('Se\u00e1n O'Brien') === 'sean obrien'",
+        "Performance test: Matching 1000 names completes in <100ms",
+        "Type check passes: npm run check-types"
+      ],
+      "priority": 5,
+      "passes": true,
+      "effort": "1 day",
+      "effortBreakdown": {
+        "algorithm": "3h (Levenshtein implementation + similarity calc)",
+        "normalize": "1h (diacritics removal + prefix handling)",
+        "tests": "3h (comprehensive unit tests with Irish names)",
+        "performance": "1h (optimization if needed)"
+      },
+      "dependencies": [],
+      "files": {
+        "create": [
+          "packages/backend/convex/lib/stringMatching.ts",
+          "packages/backend/convex/__tests__/stringMatching.test.ts"
+        ]
+      },
+      "testingRequirements": {
+        "unitTests": true,
+        "integrationTests": false,
+        "manualTesting": false,
+        "uatTestCases": ["FM-001", "FM-002", "FM-003", "FM-004"]
+      }
+    },
+    {
+      "id": "US-VN-006",
+      "phase": 1,
+      "stream": "B",
+      "title": "Find Similar Players Query",
+      "description": "Implement findSimilarPlayers query using Levenshtein matching to suggest player candidates for unmatched names in voice notes, with team context and recent mentions weighting.",
+      "acceptanceCriteria": [
+        "Backend: Add findSimilarPlayers query to models/orgPlayerEnrollments.ts",
+        "Query args: { organizationId: v.string(), coachUserId: v.string(), searchName: v.string(), limit: v.optional(v.number()) }",
+        "Query returns: v.array(v.object({ playerIdentityId: v.id('playerIdentities'), firstName: v.string(), lastName: v.string(), fullName: v.string(), teamName: v.optional(v.string()), ageGroup: v.optional(v.string()), similarity: v.number() }))",
+        "Query logic:",
+        "  1. Get players from coach's teams: Call getPlayersForCoachTeamsInternal",
+        "  2. Normalize search name: searchLower = normalizeForMatching(searchName)",
+        "  3. Calculate similarity for each player:",
+        "     - firstNameSim = levenshteinSimilarity(searchLower, normalize(firstName))",
+        "     - lastNameSim = levenshteinSimilarity(searchLower, normalize(lastName))",
+        "     - fullNameSim = levenshteinSimilarity(searchLower, normalize(fullName))",
+        "     - similarity = Math.max(firstNameSim, lastNameSim, fullNameSim)",
+        "  4. Filter: similarity > 0.5 (configurable threshold)",
+        "  5. Sort: By similarity descending",
+        "  6. Limit: Default 5, max 20",
+        "Context weighting (optional bonus):",
+        "  - If player was mentioned in last 3 voice notes from same coach: similarity += 0.1",
+        "  - If searchName includes team context (e.g., 'John from U14'): similarity += 0.15 for U14 players",
+        "Index optimization: Use by_org_and_status index for initial player fetch",
+        "Unit tests: Add to __tests__/playerMatching.test.ts",
+        "Test cases:",
+        "  - Search 'Shawn' \u2192 finds 'Se\u00e1n' (0.85), 'Shane' (0.75), 'Shaun' (0.90)",
+        "  - Search 'Neeve' \u2192 finds 'Niamh' (0.60), 'Neve' (0.90)",
+        "  - Search 'O'Brian' \u2192 finds 'O'Brien' (0.95), 'O'Bryan' (0.85)",
+        "  - Search 'abc123' \u2192 returns empty array (no matches > 0.5)",
+        "  - Limit works: limit=3 returns max 3 results",
+        "Type check passes: npm run check-types",
+        "Manual test: Query with known typo \u2192 returns correct player suggestions"
+      ],
+      "priority": 6,
+      "passes": true,
+      "effort": "1 day",
+      "effortBreakdown": {
+        "query": "3h (batch fetch + similarity calc + sorting)",
+        "context": "1h (recent mentions + team context weighting)",
+        "optimization": "1h (index usage + performance)",
+        "tests": "3h (unit tests with real scenarios)",
+        "manual": "1h (query testing with coach data)"
+      },
+      "dependencies": ["US-VN-005"],
+      "files": {
+        "create": ["packages/backend/convex/__tests__/playerMatching.test.ts"],
+        "modify": [
+          "packages/backend/convex/models/orgPlayerEnrollments.ts (add findSimilarPlayers query)"
+        ]
+      },
+      "testingRequirements": {
+        "unitTests": true,
+        "integrationTests": false,
+        "manualTesting": true,
+        "uatTestCases": ["FM-001", "FM-002", "FM-003", "FM-004", "FM-005"]
+      }
+    }
+  ],
+  "successCriteria": {},
+  "checklist": [
+    "\u2705 Create directory: scripts/ralph/prds/voice-gateways-v2/",
+    "\u2b1c Stream A (Quality Gates): Start US-VN-001",
+    "\u2b1c Stream B (Fuzzy Matching): Start US-VN-005 (parallel with Stream A)",
+    "\u2b1c US-VN-001: Create lib/messageValidation.ts",
+    "\u2b1c US-VN-001: Implement validateTextMessage function",
+    "\u2b1c US-VN-001: Add messageQualityCheck to whatsappMessages schema",
+    "\u2b1c US-VN-001: Integrate validation in processIncomingMessage",
+    "\u2b1c US-VN-001: Write unit tests (__tests__/messageValidation.test.ts)",
+    "\u2b1c US-VN-001: Manual WhatsApp testing (send 'hi' \u2192 rejected)",
+    "\u2b1c US-VN-002: Add validateTranscriptQuality to messageValidation.ts",
+    "\u2b1c US-VN-002: Add transcriptQuality fields to voiceNotes schema",
+    "\u2b1c US-VN-002: Create onTranscriptionComplete hook",
+    "\u2b1c US-VN-002: Write unit tests for transcript validation",
+    "\u2b1c US-VN-002: Manual audio testing (background noise \u2192 rejected)",
+    "\u2b1c US-VN-003: Create checkForDuplicateMessage query",
+    "\u2b1c US-VN-003: Add isDuplicate fields to whatsappMessages schema",
+    "\u2b1c US-VN-003: Integrate duplicate check in processIncomingMessage",
+    "\u2b1c US-VN-003: Write unit tests (__tests__/duplicateDetection.test.ts)",
+    "\u2b1c US-VN-003: Manual duplicate testing (send twice \u2192 second rejected)",
+    "\u2b1c US-VN-004: Create sendDetailedFeedback function",
+    "\u2b1c US-VN-004: Add all feedback message templates",
+    "\u2b1c US-VN-004: Implement CONFIRM/RETRY/CANCEL workflow",
+    "\u2b1c US-VN-004: Replace generic errors in checkAndAutoApply",
+    "\u2b1c US-VN-004: Write unit tests (__tests__/whatsappFeedback.test.ts)",
+    "\u2b1c US-VN-004: Manual testing (trigger each rejection type)",
+    "\u2b1c US-VN-005: Create lib/stringMatching.ts",
+    "\u2b1c US-VN-005: Implement levenshteinDistance algorithm",
+    "\u2b1c US-VN-005: Implement levenshteinSimilarity function",
+    "\u2b1c US-VN-005: Add normalizeForMatching helper (diacritics, prefixes)",
+    "\u2b1c US-VN-005: Write unit tests (__tests__/stringMatching.test.ts)",
+    "\u2b1c US-VN-005: Test Irish names (Se\u00e1n, Niamh, P\u00e1draig, O'Brien)",
+    "\u2b1c US-VN-005: Performance test (1000 names < 100ms)",
+    "\u2b1c US-VN-006: Add findSimilarPlayers query to orgPlayerEnrollments.ts",
+    "\u2b1c US-VN-006: Implement batch fetch + similarity calculation",
+    "\u2b1c US-VN-006: Add context weighting (recent mentions, team context)",
+    "\u2b1c US-VN-006: Write unit tests (__tests__/playerMatching.test.ts)",
+    "\u2b1c US-VN-006: Manual testing with coach data",
+    "\u2b1c Merge Stream A and Stream B",
+    "\u2b1c Run npm run check-types (0 errors)",
+    "\u2b1c Run all unit tests (100% passing)",
+    "\u2b1c Manual UAT: QG-001 through QG-008",
+    "\u2b1c Manual UAT: FB-001 through FB-005",
+    "\u2b1c Manual UAT: FM-001 through FM-005",
+    "\u2b1c Commit: 'feat(voice-notes): Phase 1 - Quality Gates & Fuzzy Matching'",
+    "\u2b1c Phase 1 Complete \u2705"
+  ],
+  "executionGuidance": {
+    "parallelStreams": {},
+    "streamA": {
+      "name": "Quality Gates",
+      "duration": "2 days",
+      "stories": ["US-VN-001", "US-VN-002", "US-VN-003", "US-VN-004"]
+    },
+    "streamB": {
+      "name": "Fuzzy Matching",
+      "duration": "2 days",
+      "stories": ["US-VN-005", "US-VN-006"]
+    },
+    "mergeAndTest": "0.5 day",
+    "notes": [
+      "Execute Stream A and Stream B in parallel",
+      "Both streams can run independently until merge",
+      "Final 0.5 day for integration testing and merge"
+    ]
+  }
+}

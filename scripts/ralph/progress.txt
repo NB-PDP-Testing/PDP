@@ -22,7 +22,7 @@
 - US-VN-007: Review Links Backend (1.5d) - COMPLETE
 - US-VN-008: Quick Review Microsite at /r/[code] (1d) - COMPLETE
 - US-VN-009: Review Queue Sections & Batch Actions (2.5d) - COMPLETE
-- US-VN-010: Unmatched Player Cards + Text Reply (1.5d) - PENDING
+- US-VN-010: Unmatched Player Cards + Text Reply (1.5d) - COMPLETE
 - US-VN-011: Trust-Adaptive Messages + WhatsApp Quick Actions (1d) - PENDING
 - US-VN-012: Link Expiry & Cleanup (0.5d) - PENDING
 
@@ -327,5 +327,73 @@ OK → R → CONFIRM/RETRY/CANCEL → awaiting_confirmation → normal
 
 **Mistakes made:**
 - None — clean implementation following patterns from US-VN-007/008
+
+---
+
+## 2026-02-06 - US-VN-010 - Unmatched Player Cards + Text Reply
+**Iteration**: 4
+**Commit**: 87ca1ebbba74aa2a921ca7c74d04636345e48949
+**Session**: 1fe697e2-9eac-4d97-bb94-bb98d419e25b
+**Status**: Complete
+
+### What was implemented
+
+**Backend (whatsappReviewLinks.ts):**
+- `findSimilarPlayersForReview` (PUBLIC query) — validates code, delegates to shared `findSimilarPlayersLogic` via dynamic import
+- `assignPlayerFromReview` (PUBLIC mutation) — validates code + scope, looks up player identity, updates insight's playerIdentityId and playerName
+
+**Frontend (unmatched-player-card.tsx, new file):**
+- `UnmatchedPlayerCard` — main component with fuzzy player matching UI
+- Inline radio-style selection for fuzzy suggestions (amber border, similarity %)
+- "Someone else..." option with manual text search input
+- Auto-searches on Enter key or search button click
+- Edit mode for insight title/description (extracted to `EditInsightCard` sub-component)
+- Loading states for suggestions query and assign mutation
+- Mobile-first: 44px touch targets, amber color scheme for unmatched
+
+**Sub-components (extracted for Biome complexity compliance):**
+- `InsightHeader` — unmatched indicator with HelpCircle icon, category badge, date, edit button
+- `SuggestionsList` — radio options, manual search, loading state
+- `SuggestionRadio` — individual suggestion button with radio indicator + similarity %
+- `EditInsightCard` — inline edit mode with Save/Cancel
+
+**Integration (review-queue.tsx):**
+- Replaced generic `InsightCard` with `UnmatchedPlayerCard` in unmatched section
+- Passes code, edit, and dismiss handlers; no batch action for unmatched (by design)
+
+### Files changed
+- packages/backend/convex/models/whatsappReviewLinks.ts (+100) — 2 new public functions
+- apps/web/src/app/r/[code]/unmatched-player-card.tsx (+507, new) — unmatched player matching UI
+- apps/web/src/app/r/[code]/review-queue.tsx (+3, -5) — import + use UnmatchedPlayerCard
+
+### Quality checks
+- ✅ Type check: passed (0 errors)
+- ✅ Biome lint: 0 errors, 1 pre-existing warning
+- ✅ Lint-staged: passed on commit
+- N/A Browser verification: dev server needed for visual testing
+
+### Learnings for future iterations
+
+**Patterns discovered:**
+- Dynamic import inside Convex handler (`const { fn } = await import(...)`) avoids Biome PostToolUse hook removing top-level imports for shared libs
+- Biome `noExcessiveCognitiveComplexity` max is 15 — extract sub-components to stay under the limit
+- `useQuery` with `"skip"` is ideal for conditional fuzzy search (skip when search < 2 chars)
+- Real-time subscriptions auto-update the unmatched section when `assignPlayerFromReview` modifies the insight
+
+**Gotchas encountered:**
+- Biome removes unused state variables — `searchName`/`setSearchName` were flagged because only `activeSearch` was used in the query
+- Cognitive complexity count includes all conditional branches (if/ternary/&&) in JSX — extraction to sub-components is the fix
+
+**Dependencies found:**
+- US-VN-011 and US-VN-012 are independent (backend only, can parallel)
+- When a player is assigned via `assignPlayerFromReview`, the insight moves from "unmatched" to "needsReview" in the queue automatically (real-time)
+
+**What to do next:**
+- US-VN-011: Trust-Adaptive Messages + WhatsApp Quick Actions (backend only)
+- US-VN-012: Link Expiry & Cleanup crons (backend only)
+
+**Mistakes made:**
+- Initially included unused `searchName`/`setSearchName` state — Biome caught it as error
+- Initial component was too complex (18 vs max 15) — had to extract sub-components
 
 ---

@@ -24,7 +24,7 @@
 - US-VN-009: Review Queue Sections & Batch Actions (2.5d) - COMPLETE
 - US-VN-010: Unmatched Player Cards + Text Reply (1.5d) - COMPLETE
 - US-VN-011: Trust-Adaptive Messages + WhatsApp Quick Actions (1d) - COMPLETE
-- US-VN-012: Link Expiry & Cleanup (0.5d) - PENDING
+- US-VN-012: Link Expiry & Cleanup (0.5d) - COMPLETE
 
 ---
 
@@ -465,5 +465,69 @@ OK → R → CONFIRM/RETRY/CANCEL → awaiting_confirmation → normal
 - Forgot `internalQuery` would be removed by Biome hook — had to re-add it after first edit
 - Initial `countPendingInsights` had cognitive complexity 20 — extracted `classifyInsight` helper with map lookup to get under 15
 - Initial `formatTL2Message`/`formatTL01Message` had 5-6 params — refactored to options object pattern
+
+---
+
+## 2026-02-06 - US-VN-012 - Link Expiry & Cleanup
+**Iteration**: 6
+**Commit**: 9fa977788fc1cd5ef4ef33fc94aa36a92d780361
+**Session**: a46acec6-1061-481e-8b0a-dfb6394fbcf9
+**Status**: Complete
+
+### What was implemented
+
+**Backend (whatsappReviewLinks.ts):**
+- `expireActiveLinks` (internalMutation) — queries all links via `by_expiresAt_and_status` index, updates active links past expiresAt to "expired" status
+- `cleanupExpiredLinks` (internalMutation) — deletes expired links older than 7 days past expiry (permanent data cleanup)
+- Constants: `CLEANUP_GRACE_PERIOD_MS` (7 days)
+
+**Crons (crons.ts):**
+- `expire-active-review-links` — daily at 2:30 AM UTC (avoids 2 AM UTC collision with existing crons)
+- `cleanup-expired-review-links` — daily at 3:15 AM UTC (avoids 3 AM UTC collision with archive-old-invitations)
+
+**Frontend (expired-link-view.tsx):**
+- Updated buttons to match acceptance criteria: "Open Voice Notes" (primary, links to /) + "Back to WhatsApp" (outline, links to wa.me/)
+- Reordered buttons: primary action first, secondary second
+- Minor spacing fix (space-y-3 → space-y-4)
+
+**Link lifecycle verified:**
+- create → reuse (while active + <48h) → expire (cron sets status to "expired") → cleanup (cron deletes after 7d)
+- New note after expiry: `generateReviewLink` queries `by_coachUserId_and_status` for "active" — won't find expired link, creates fresh one
+
+### Files changed
+- packages/backend/convex/models/whatsappReviewLinks.ts (+63) — expiry/cleanup internal mutations
+- packages/backend/convex/crons.ts (+14) — two daily cron jobs
+- apps/web/src/app/r/[code]/expired-link-view.tsx (+6, -6) — updated buttons per AC
+
+### Quality checks
+- ✅ Type check: passed (0 errors)
+- ✅ Biome lint: 0 errors on changed files
+- ✅ Convex codegen: passed
+- ✅ Lint-staged: passed on commit
+- N/A Browser verification: minor UI button label/order change, no layout changes
+
+### Learnings for future iterations
+
+**Patterns discovered:**
+- Cron scheduling: check existing crons in crons.ts to avoid time collisions before adding new ones
+- The `by_expiresAt_and_status` composite index works for both expiry and cleanup queries — scan all, filter in-code for status
+- `internalMutation` for cron handlers — they don't need args (empty `{}`)
+
+**Gotchas encountered:**
+- None — straightforward implementation following patterns from previous iterations
+
+**Dependencies found:**
+- Phase 2 is now COMPLETE — all 6 stories pass
+
+**What to do next:**
+- Phase 2 complete — Phase 3 can begin (V2 Migration)
+
+**Mistakes made:**
+- None
+
+---
+
+## PHASE 2 COMPLETE 🎉
+All 6 stories (US-VN-007 through US-VN-012) implemented and passing.
 
 ---

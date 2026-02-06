@@ -132,7 +132,7 @@
         "Lint passes: npx ultracite fix"
       ],
       "priority": 5,
-      "passes": false,
+      "passes": true,
       "notes": "This is the first admin page. Check if admin layout wrapper exists - if not, the page can be standalone with admin sidebar."
     },
     {

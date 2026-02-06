@@ -1037,6 +1037,8 @@ export const adjustPersonalizedThresholds = internalMutation({
       );
 
       // US-VN-012a: Supplement with review analytics data
+      // TODO(perf): N+1 — one query per coach. Acceptable for weekly cron at 2 AM.
+      // If coach count grows significantly, batch-fetch all analytics events and compute in-memory.
       const reviewPatterns = await ctx.runQuery(
         internal.models.reviewAnalytics.getCoachDecisionPatterns,
         { coachUserId: coach.coachId }

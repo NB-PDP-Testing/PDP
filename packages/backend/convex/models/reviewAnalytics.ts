@@ -34,7 +34,12 @@ export const logReviewEvent = internalMutation({
     category: v.optional(v.string()),
     confidenceScore: v.optional(v.number()),
     wasAutoApplyCandidate: v.optional(v.boolean()),
-    metadata: v.optional(v.any()),
+    metadata: v.optional(
+      v.union(
+        v.object({ count: v.number() }),
+        v.object({ delayMs: v.number(), snoozeCount: v.number() })
+      )
+    ),
   },
   returns: v.null(),
   handler: async (ctx, args) => {
@@ -60,7 +65,14 @@ export const getCoachDecisionPatterns = internalQuery({
     totalEdit: v.number(),
     totalDecisions: v.number(),
     agreementRate: v.number(),
-    categoryBreakdown: v.any(),
+    categoryBreakdown: v.record(
+      v.string(),
+      v.object({
+        applied: v.number(),
+        dismissed: v.number(),
+        edited: v.number(),
+      })
+    ),
   }),
   handler: async (ctx, args) => {
     const thirtyDaysAgo = Date.now() - 30 * 24 * 60 * 60 * 1000;

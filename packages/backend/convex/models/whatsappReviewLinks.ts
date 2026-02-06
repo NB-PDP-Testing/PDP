@@ -1307,10 +1307,55 @@ export const assignPlayerFromReview = mutation({
 // ============================================================
 
 const MAX_SNOOZE_COUNT = 3;
+const MAX_SNOOZE_DELAY_MS = 24 * 60 * 60 * 1000; // 24 hours max
+const MIN_SNOOZE_DELAY_MS = 60 * 1000; // 1 minute min
+
+/**
+ * Shared snooze logic used by both public and internal mutations.
+ */
+async function performSnooze(
+  // biome-ignore lint/suspicious/noExplicitAny: Generic Convex mutation context
+  ctx: any,
+  link: Doc<"whatsappReviewLinks">,
+  code: string,
+  delayMs: number
+): Promise<
+  { success: true; snoozeCount: number } | { success: false; reason: string }
+> {
+  if (delayMs < MIN_SNOOZE_DELAY_MS || delayMs > MAX_SNOOZE_DELAY_MS) {
+    return { success: false, reason: "invalid_delay" };
+  }
+
+  const currentSnoozeCount = link.snoozeCount ?? 0;
+  if (currentSnoozeCount >= MAX_SNOOZE_COUNT) {
+    return { success: false, reason: "max_snoozes_reached" };
+  }
+
+  const newSnoozeCount = currentSnoozeCount + 1;
+  await ctx.db.patch(link._id, {
+    snoozeRemindAt: Date.now() + delayMs,
+    snoozeCount: newSnoozeCount,
+  });
+
+  // Log analytics event
+  await ctx.scheduler.runAfter(
+    0,
+    internal.models.reviewAnalytics.logReviewEvent,
+    {
+      linkCode: code,
+      coachUserId: link.coachUserId,
+      organizationId: link.organizationId,
+      eventType: "snooze",
+      metadata: { delayMs, snoozeCount: newSnoozeCount },
+    }
+  );
+
+  return { success: true, snoozeCount: newSnoozeCount };
+}
 
 /**
  * Snooze the review link — defer review with a timed WhatsApp reminder.
- * Code-authenticated (no session needed).
+ * Code-authenticated (no session needed). Used by the /r/ microsite UI.
  */
 export const snoozeReviewLink = mutation({
   args: {
@@ -1330,33 +1375,33 @@ export const snoozeReviewLink = mutation({
       return { success: false as const, reason: "expired" };
     }
 
-    const { link } = result;
-    const currentSnoozeCount = link.snoozeCount ?? 0;
+    return performSnooze(ctx, result.link, args.code, args.delayMs);
+  },
+});
 
-    if (currentSnoozeCount >= MAX_SNOOZE_COUNT) {
-      return { success: false as const, reason: "max_snoozes_reached" };
+/**
+ * Internal snooze mutation for server-to-server calls (e.g. WhatsApp command handler).
+ * Bypasses public mutation boundary — code is validated internally.
+ */
+export const snoozeReviewLinkInternal = internalMutation({
+  args: {
+    code: v.string(),
+    delayMs: v.number(),
+  },
+  returns: v.union(
+    v.object({ success: v.literal(true), snoozeCount: v.number() }),
+    v.object({ success: v.literal(false), reason: v.string() })
+  ),
+  handler: async (ctx, args) => {
+    const result = await validateReviewCode(ctx, args.code);
+    if (!result) {
+      return { success: false as const, reason: "invalid_code" };
+    }
+    if (result.isExpired) {
+      return { success: false as const, reason: "expired" };
     }
 
-    const newSnoozeCount = currentSnoozeCount + 1;
-    await ctx.db.patch(link._id, {
-      snoozeRemindAt: Date.now() + args.delayMs,
-      snoozeCount: newSnoozeCount,
-    });
-
-    // Log analytics event
-    await ctx.scheduler.runAfter(
-      0,
-      internal.models.reviewAnalytics.logReviewEvent,
-      {
-        linkCode: args.code,
-        coachUserId: link.coachUserId,
-        organizationId: link.organizationId,
-        eventType: "snooze",
-        metadata: { delayMs: args.delayMs, snoozeCount: newSnoozeCount },
-      }
-    );
-
-    return { success: true as const, snoozeCount: newSnoozeCount };
+    return performSnooze(ctx, result.link, args.code, args.delayMs);
   },
 });
 
@@ -1390,6 +1435,10 @@ export const getSnoozeInfo = query({
  * Process snoozed review reminders.
  * Called by cron every 15 minutes.
  * Sends WhatsApp reminders for links whose snoozeRemindAt has passed.
+ *
+ * TODO(perf): Serial patches per link. Volume is low (only active links with
+ * pending snoozeRemindAt), but if scale grows consider a composite index
+ * by_status_and_snoozeRemindAt to avoid full table scan + JS filter.
  */
 export const processSnoozedReminders = internalMutation({
   args: {},

@@ -3,6 +3,8 @@ import type { Doc } from "../_generated/dataModel";
 import { mutation, query } from "../_generated/server";
 import {
   notifyInjuryReported,
+  notifyMedicalClearance,
+  notifyMilestoneCompleted,
   notifyStatusChanged,
 } from "../lib/injuryNotifications";
 
@@ -1164,6 +1166,29 @@ export const updateMilestone = mutation({
         milestoneDescription: milestone.description,
         createdAt: Date.now(),
       });
+
+      // Send milestone completion notifications (Phase 2 - Issue #261)
+      if (existing.occurredAtOrgId) {
+        try {
+          const player = await ctx.db.get(existing.playerIdentityId);
+          if (player) {
+            await notifyMilestoneCompleted(ctx, {
+              injuryId: args.injuryId,
+              playerIdentityId: existing.playerIdentityId,
+              organizationId: existing.occurredAtOrgId,
+              completedByUserId: args.updatedBy,
+              completedByRole: args.updatedByRole,
+              playerName: `${player.firstName} ${player.lastName}`,
+              milestoneDescription: milestone.description,
+            });
+          }
+        } catch (error) {
+          console.error(
+            "[updateMilestone] Failed to send notifications:",
+            error
+          );
+        }
+      }
     }
 
     return null;
@@ -1314,6 +1339,28 @@ export const recordMedicalClearance = mutation({
       documentId: args.documentId,
       createdAt: Date.now(),
     });
+
+    // Send medical clearance notifications (Phase 2 - Issue #261)
+    if (existing.occurredAtOrgId) {
+      try {
+        const player = await ctx.db.get(existing.playerIdentityId);
+        if (player) {
+          await notifyMedicalClearance(ctx, {
+            injuryId: args.injuryId,
+            playerIdentityId: existing.playerIdentityId,
+            organizationId: existing.occurredAtOrgId,
+            submittedByUserId: args.updatedBy,
+            playerName: `${player.firstName} ${player.lastName}`,
+            bodyPart: existing.bodyPart,
+          });
+        }
+      } catch (error) {
+        console.error(
+          "[recordMedicalClearance] Failed to send notifications:",
+          error
+        );
+      }
+    }
 
     return null;
   },

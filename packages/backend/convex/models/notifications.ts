@@ -17,7 +17,10 @@ const notificationTypeValidator = v.union(
   v.literal("injury_reported"),
   v.literal("injury_status_changed"),
   v.literal("severe_injury_alert"),
-  v.literal("injury_cleared")
+  v.literal("injury_cleared"),
+  // Injury notifications (Phase 2 - Recovery Management)
+  v.literal("milestone_completed"),
+  v.literal("clearance_received")
 );
 
 const notificationValidator = v.object({

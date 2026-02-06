@@ -3523,7 +3523,10 @@ export default defineSchema({
       v.literal("injury_reported"), // New injury reported for a player
       v.literal("injury_status_changed"), // Injury status updated (recovering, cleared, healed)
       v.literal("severe_injury_alert"), // Severe injury requiring admin attention
-      v.literal("injury_cleared") // Player cleared to return to play
+      v.literal("injury_cleared"), // Player cleared to return to play
+      // Injury notifications (Phase 2 - Recovery Management)
+      v.literal("milestone_completed"), // Recovery milestone marked complete
+      v.literal("clearance_received") // Medical clearance received
     ),
     title: v.string(),
     message: v.string(),

@@ -21,7 +21,7 @@
 ### Stories:
 - US-VN-007: Review Links Backend (1.5d) - COMPLETE
 - US-VN-008: Quick Review Microsite at /r/[code] (1d) - COMPLETE
-- US-VN-009: Review Queue Sections & Batch Actions (2.5d) - PENDING
+- US-VN-009: Review Queue Sections & Batch Actions (2.5d) - COMPLETE
 - US-VN-010: Unmatched Player Cards + Text Reply (1.5d) - PENDING
 - US-VN-011: Trust-Adaptive Messages + WhatsApp Quick Actions (1d) - PENDING
 - US-VN-012: Link Expiry & Cleanup (0.5d) - PENDING
@@ -261,5 +261,71 @@ OK → R → CONFIRM/RETRY/CANCEL → awaiting_confirmation → normal
 
 **Mistakes made:**
 - None significant — clean implementation following established patterns
+
+---
+
+## 2026-02-06 - US-VN-009 - Review Queue Sections & Batch Actions
+**Iteration**: 3
+**Commit**: 10db071ad069e5b668cb070a7a1971738e6fcb9e
+**Session**: 7ef27d2c-6372-4b64-a50b-2ebb9c5b20aa
+**Status**: Complete
+
+### What was implemented
+
+**Backend (whatsappReviewLinks.ts):**
+- `validateReviewScope` helper — validates code + verifies voiceNoteId belongs to link
+- `editInsightFromReview` (PUBLIC mutation) — edit title/description/category with code validation
+- `applyInsightFromReview` (PUBLIC mutation) — apply single insight, marks as "applied" with timestamp
+- `dismissInsightFromReview` (PUBLIC mutation) — dismiss/skip single insight
+- `batchApplyInsightsFromReview` (PUBLIC mutation) — batch apply all items, groups by noteId to minimize DB reads
+
+**Frontend (review-queue.tsx):**
+- `InsightCard` — now fully interactive with Apply/Skip buttons, inline edit (pencil icon → Input/Textarea → Save/Cancel)
+- `ReviewSection` — accepts optional `batchAction` prop for batch operation button
+- `BatchApplyButton` — "Apply All (N)", "Save All Team Notes (N)", "Add All to Tasks (N)"
+- Loading states: per-card (loadingIds Set) and per-section (batchLoadingSection)
+- All touch targets >= 44px, mobile-first design maintained
+- `code` prop threaded from page.tsx → ReviewQueue → all mutations
+
+**page.tsx:**
+- Added `code={code}` prop to ReviewQueue component
+
+### Files changed
+- packages/backend/convex/models/whatsappReviewLinks.ts (+250) — 4 public mutations + validateReviewScope helper
+- apps/web/src/app/r/[code]/review-queue.tsx (+340, -210 rewrite) — interactive cards, batch actions
+- apps/web/src/app/r/[code]/page.tsx (+1) — pass code prop
+
+### Quality checks
+- ✅ Type check: passed (0 errors)
+- ✅ Convex codegen: passed
+- ✅ Biome lint: 0 errors, 1 pre-existing warning
+- ✅ Lint-staged: passed on commit
+- N/A Browser verification: dev server needed for visual testing
+
+### Learnings for future iterations
+
+**Patterns discovered:**
+- Public mutations follow same pattern as queries: validateReviewCode → check scope → mutate
+- The `validateReviewScope` helper extends `validateReviewCode` with note ownership check
+- Existing `bulkApplyInsights` in voiceNotes.ts uses Map<noteId, insightIds[]> grouping — same pattern for batch
+- Convex real-time subscriptions mean UI auto-updates when mutations modify the embedded insights array
+
+**Gotchas encountered:**
+- `ctx.db.get()` from a Map<string, ...> requires `as any` cast since string key loses the Id type
+- The batch mutation needs to track success/fail counts carefully — must check if insight was actually pending before counting as success
+- Biome auto-formatter reflows JSX props — write them alphabetically to avoid unnecessary diffs
+
+**Dependencies found:**
+- US-VN-010 will add fuzzy player matching to the unmatched section (no batch action there by design)
+- US-VN-011 WhatsApp handlers depend on US-VN-007 only (parallel safe)
+- US-VN-012 cron depends on US-VN-008 only (parallel safe)
+
+**What to do next:**
+- US-VN-010: Unmatched Player Cards + fuzzy matching (needs findSimilarPlayersForReview public wrapper)
+- US-VN-011: Trust-Adaptive Messages + WhatsApp Quick Actions (backend only, can parallel)
+- US-VN-012: Link Expiry & Cleanup crons (backend only, can parallel)
+
+**Mistakes made:**
+- None — clean implementation following patterns from US-VN-007/008
 
 ---

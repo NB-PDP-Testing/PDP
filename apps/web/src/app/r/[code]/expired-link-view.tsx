@@ -23,7 +23,7 @@ export function ExpiredLinkView() {
             This review link has expired. Review links are valid for 48 hours.
           </CardDescription>
         </CardHeader>
-        <CardContent className="space-y-3">
+        <CardContent className="space-y-4">
           <p className="text-center text-muted-foreground text-sm">
             To get a new link, send a voice note or type{" "}
             <span className="rounded bg-muted px-1.5 py-0.5 font-mono text-foreground text-xs">
@@ -32,6 +32,12 @@ export function ExpiredLinkView() {
             in your WhatsApp chat.
           </p>
           <div className="flex flex-col gap-2">
+            <Button asChild className="min-h-[44px] w-full">
+              <a href="/">
+                <Mic className="mr-2 h-4 w-4" />
+                Open Voice Notes
+              </a>
+            </Button>
             <Button asChild className="min-h-[44px] w-full" variant="outline">
               <a
                 href="https://wa.me/"
@@ -39,13 +45,7 @@ export function ExpiredLinkView() {
                 target="_blank"
               >
                 <MessageSquare className="mr-2 h-4 w-4" />
-                Open WhatsApp
-              </a>
-            </Button>
-            <Button asChild className="min-h-[44px] w-full" variant="ghost">
-              <a href="/">
-                <Mic className="mr-2 h-4 w-4" />
-                Open PlayerARC
+                Back to WhatsApp
               </a>
             </Button>
           </div>

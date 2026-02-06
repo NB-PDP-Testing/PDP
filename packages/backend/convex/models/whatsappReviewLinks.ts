@@ -838,6 +838,71 @@ export const assignPlayerFromReview = mutation({
 });
 
 // ============================================================
+// INTERNAL MUTATIONS — Link expiry & cleanup crons (US-VN-012)
+// ============================================================
+
+// 7 days past expiry before cleanup (deletion)
+const CLEANUP_GRACE_PERIOD_MS = 7 * 24 * 60 * 60 * 1000;
+
+/**
+ * Expire active links that have passed their expiresAt time.
+ * Called by cron at 2:30 AM UTC daily.
+ * Updates status from "active" → "expired".
+ */
+export const expireActiveLinks = internalMutation({
+  args: {},
+  returns: v.object({ expiredCount: v.number() }),
+  handler: async (ctx) => {
+    const now = Date.now();
+    let expiredCount = 0;
+
+    // Query active links where expiresAt has passed
+    const activeLinks = await ctx.db
+      .query("whatsappReviewLinks")
+      .withIndex("by_expiresAt_and_status")
+      .collect();
+
+    for (const link of activeLinks) {
+      if (link.status === "active" && link.expiresAt < now) {
+        await ctx.db.patch(link._id, { status: "expired" });
+        expiredCount += 1;
+      }
+    }
+
+    return { expiredCount };
+  },
+});
+
+/**
+ * Delete expired links older than 7 days past expiry.
+ * Called by cron at 3:15 AM UTC daily.
+ * Permanent deletion of stale data.
+ */
+export const cleanupExpiredLinks = internalMutation({
+  args: {},
+  returns: v.object({ deletedCount: v.number() }),
+  handler: async (ctx) => {
+    const cutoff = Date.now() - CLEANUP_GRACE_PERIOD_MS;
+    let deletedCount = 0;
+
+    // Query expired links
+    const expiredLinks = await ctx.db
+      .query("whatsappReviewLinks")
+      .withIndex("by_expiresAt_and_status")
+      .collect();
+
+    for (const link of expiredLinks) {
+      if (link.status === "expired" && link.expiresAt < cutoff) {
+        await ctx.db.delete(link._id);
+        deletedCount += 1;
+      }
+    }
+
+    return { deletedCount };
+  },
+});
+
+// ============================================================
 // INTERNAL QUERIES — WhatsApp command handlers (US-VN-011)
 // ============================================================
 

@@ -4118,7 +4118,12 @@ export default defineSchema({
     category: v.optional(v.string()),
     confidenceScore: v.optional(v.number()),
     wasAutoApplyCandidate: v.optional(v.boolean()),
-    metadata: v.optional(v.any()),
+    metadata: v.optional(
+      v.union(
+        v.object({ count: v.number() }),
+        v.object({ delayMs: v.number(), snoozeCount: v.number() })
+      )
+    ),
     timestamp: v.number(),
   })
     .index("by_coachUserId_and_timestamp", ["coachUserId", "timestamp"])

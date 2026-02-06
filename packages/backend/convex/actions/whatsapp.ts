@@ -1715,7 +1715,7 @@ async function handleSnoozeCommand(
   const twoHoursMs = 2 * 60 * 60 * 1000;
 
   const result = await ctx.runMutation(
-    api.models.whatsappReviewLinks.snoozeReviewLink,
+    internal.models.whatsappReviewLinks.snoozeReviewLinkInternal,
     {
       code: activeLink.code,
       delayMs: twoHoursMs,

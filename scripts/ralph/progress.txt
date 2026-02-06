@@ -107,3 +107,47 @@ Started: Fri Feb  6 23:37:29 GMT 2026
 - Initially wrote all aggregation logic inline in handler - too complex, refactored to helpers
 
 ---
+
+## 2026-02-06 - US-ANA-002 - Create getInjuriesByTeam aggregate query
+**Iteration**: 1
+**Commit**: c2e21e11
+**Session**: 5de20633-ba62-443d-a9f9-78273eb0b91b
+**Status**: Complete
+
+### What was implemented
+- Added `getInjuriesByTeam` query to `playerInjuries.ts`
+- Fetches teams via Better Auth adapter `findMany` with `model: "team"`
+- Maps players to teams via `teamPlayerIdentities` with `by_org_and_status` index
+- Batch fetches injuries for all unique players across teams
+- Per-team stats: totalInjuries, activeCount, avgSeverity, mostCommonBodyPart, mostCommonType
+- Added imports for `components` and `BetterAuthDoc`
+- Extracted helpers: `computeTeamInjuryStats`, `gatherTeamInjuries`
+
+### Files changed
+- packages/backend/convex/models/playerInjuries.ts (+191 lines)
+
+### Quality checks
+- ✅ Type check: passed
+- ✅ Convex codegen: passed
+- ✅ Linting: passed (complexity warning is non-blocking, consistent with existing code)
+- N/A Browser verification: backend-only change
+
+### Learnings for future iterations
+**Patterns discovered:**
+- Better Auth adapter `findMany` for teams: use `model: "team"`, `paginationOpts: { cursor: null, numItems: 500 }`, and `where` with `organizationId`
+- Cast result as `BetterAuthDoc<"team">[]` (not `Array<...>` - biome prefers `T[]` syntax)
+- Import `BetterAuthDoc` from `"../betterAuth/_generated/dataModel"`
+- Import `components` from `"../_generated/api"`
+- The linter will remove unused imports on save - add imports AFTER writing the code that uses them
+- `playerIdentityId` is typed as `Id<"playerIdentities">` which is a string subtype - can use it as Map key
+
+**Gotchas encountered:**
+- Biome `useConsistentArrayType` prefers `Type[]` over `Array<Type>`
+- Imports added before code that uses them get auto-removed by linter
+
+**What to do next:**
+- [ ] Pick up US-ANA-003 (getInjuryTrends)
+- [ ] Reuse `isInjuryVisibleToOrg`, `filterByDateRange` helpers
+- [ ] Can reuse aggregation helpers but needs period comparison logic
+
+---

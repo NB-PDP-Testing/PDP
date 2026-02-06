@@ -943,6 +943,141 @@ export const getInjuriesByTeam = query({
   },
 });
 
+/** Compute percentage change between two values. Returns 0 if previous is 0. */
+function percentChange(current: number, previous: number): number {
+  if (previous === 0) {
+    return current > 0 ? 100 : 0;
+  }
+  return Math.round(((current - previous) / previous) * 1000) / 10;
+}
+
+/** Period stats shape for trend comparison. */
+const periodStatsValidator = v.object({
+  totalInjuries: v.number(),
+  bySeverity: v.array(v.object({ severity: v.string(), count: v.number() })),
+  byBodyPart: v.array(v.object({ bodyPart: v.string(), count: v.number() })),
+  avgRecoveryDays: v.number(),
+});
+
+/**
+ * Compare injury stats between current and previous periods.
+ * Useful for trend indicators on summary cards.
+ */
+export const getInjuryTrends = query({
+  args: {
+    organizationId: v.string(),
+    periodDays: v.optional(v.number()),
+  },
+  returns: v.object({
+    currentPeriod: periodStatsValidator,
+    previousPeriod: periodStatsValidator,
+    changes: v.object({
+      totalChange: v.number(),
+      totalChangePercent: v.number(),
+      avgRecoveryChange: v.number(),
+      avgRecoveryChangePercent: v.number(),
+    }),
+  }),
+  handler: async (ctx, args) => {
+    const days = args.periodDays ?? 30;
+    const now = new Date();
+
+    // Current period: last N days
+    const currentEnd = now.toISOString().split("T")[0];
+    const currentStart = new Date(now.getTime() - days * 86_400_000)
+      .toISOString()
+      .split("T")[0];
+
+    // Previous period: the N days before that
+    const previousEnd = currentStart;
+    const previousStart = new Date(now.getTime() - days * 2 * 86_400_000)
+      .toISOString()
+      .split("T")[0];
+
+    // Fetch all active enrollments for the org
+    const enrollments = await ctx.db
+      .query("orgPlayerEnrollments")
+      .withIndex("by_org_and_status", (q) =>
+        q.eq("organizationId", args.organizationId).eq("status", "active")
+      )
+      .collect();
+
+    const uniquePlayerIds = [
+      ...new Set(enrollments.map((e) => e.playerIdentityId)),
+    ];
+
+    // Batch fetch all injuries for all players
+    const allInjuries: Doc<"playerInjuries">[] = [];
+    for (const playerId of uniquePlayerIds) {
+      const injuries = await ctx.db
+        .query("playerInjuries")
+        .withIndex("by_playerIdentityId", (q) =>
+          q.eq("playerIdentityId", playerId)
+        )
+        .collect();
+
+      for (const injury of injuries) {
+        if (isInjuryVisibleToOrg(injury, args.organizationId)) {
+          allInjuries.push(injury);
+        }
+      }
+    }
+
+    // Split into current and previous period
+    const currentInjuries = filterByDateRange(
+      allInjuries,
+      currentStart,
+      currentEnd
+    );
+    const previousInjuries = filterByDateRange(
+      allInjuries,
+      previousStart,
+      previousEnd
+    );
+
+    // Compute stats for each period
+    const computePeriodStats = (injuries: Doc<"playerInjuries">[]) => {
+      const bySeverity = countByField(injuries, (i) => i.severity).map(
+        ({ key, count }) => ({ severity: key, count })
+      );
+      const byBodyPart = countByField(injuries, (i) => i.bodyPart).map(
+        ({ key, count }) => ({ bodyPart: key, count })
+      );
+
+      return {
+        totalInjuries: injuries.length,
+        bySeverity,
+        byBodyPart,
+        avgRecoveryDays: computeAvgRecoveryDays(injuries),
+      };
+    };
+
+    const currentPeriod = computePeriodStats(currentInjuries);
+    const previousPeriod = computePeriodStats(previousInjuries);
+
+    return {
+      currentPeriod,
+      previousPeriod,
+      changes: {
+        totalChange: currentPeriod.totalInjuries - previousPeriod.totalInjuries,
+        totalChangePercent: percentChange(
+          currentPeriod.totalInjuries,
+          previousPeriod.totalInjuries
+        ),
+        avgRecoveryChange:
+          Math.round(
+            (currentPeriod.avgRecoveryDays - previousPeriod.avgRecoveryDays) *
+              10
+          ) / 10,
+        avgRecoveryChangePercent: percentChange(
+          currentPeriod.avgRecoveryDays,
+          previousPeriod.avgRecoveryDays
+        ),
+      },
+    };
+  },
+});
+
 // ============================================================
 // MUTATIONS
 // ============================================================

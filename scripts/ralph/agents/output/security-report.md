@@ -1,4 +1,4 @@
-# Security Report - 2026-02-03 11:50:12
+# Security Report - 2026-02-06 08:16:25
 
 **Phase:** P9
 **Critical:** 2 | **High:** 5 | **Medium:** 0
@@ -12,7 +12,7 @@ apps/web/src/app/api/session-plan/route.ts:      console.error("❌ ANTHROPIC_AP
 packages/backend/convex/actions/coachParentSummaries.ts: * Throws if ANTHROPIC_API_KEY is not configured
 packages/backend/convex/actions/coachParentSummaries.ts:      "ANTHROPIC_API_KEY environment variable is not set. Please configure it in Convex dashboard."
 ```
-- ⚠️ **HIGH**: 3 high-severity dependency vulnerabilities
+- ⚠️ **HIGH**: 4 high-severity dependency vulnerabilities
   Run `npm audit fix` to resolve
 - ⚠️ **HIGH**: Mutations without authorization checks:
   - packages/backend/convex/models/platformMessagingSettings.ts
@@ -30,6 +30,7 @@ packages/backend/convex/actions/coachParentSummaries.ts:      "ANTHROPIC_API_KEY
   - packages/backend/convex/models/invitations.ts
   - packages/backend/convex/models/flows.ts
   - packages/backend/convex/models/notifications.ts
+  - packages/backend/convex/models/whatsappReviewLinks.ts
   - packages/backend/convex/models/teamObservations.ts
   - packages/backend/convex/models/passportGoals.ts
   - packages/backend/convex/models/players.ts

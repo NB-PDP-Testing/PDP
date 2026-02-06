@@ -130,6 +130,7 @@ import type * as models_whatsappMessages from "../models/whatsappMessages.js";
 import type * as models_whatsappReviewLinks from "../models/whatsappReviewLinks.js";
 import type * as privateData from "../privateData.js";
 import type * as scripts_analyzeReimport from "../scripts/analyzeReimport.js";
+import type * as scripts_auditOrgData from "../scripts/auditOrgData.js";
 import type * as scripts_bootstrapPlatformStaff from "../scripts/bootstrapPlatformStaff.js";
 import type * as scripts_checkPlayerSport from "../scripts/checkPlayerSport.js";
 import type * as scripts_cleanupEnrollmentSport from "../scripts/cleanupEnrollmentSport.js";
@@ -295,6 +296,7 @@ declare const fullApi: ApiFromModules<{
   "models/whatsappReviewLinks": typeof models_whatsappReviewLinks;
   privateData: typeof privateData;
   "scripts/analyzeReimport": typeof scripts_analyzeReimport;
+  "scripts/auditOrgData": typeof scripts_auditOrgData;
   "scripts/bootstrapPlatformStaff": typeof scripts_bootstrapPlatformStaff;
   "scripts/checkPlayerSport": typeof scripts_checkPlayerSport;
   "scripts/cleanupEnrollmentSport": typeof scripts_cleanupEnrollmentSport;

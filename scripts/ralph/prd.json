@@ -59,7 +59,11 @@
     "Better Auth IDs as v.string() not v.id()",
     "Batch fetch + Map lookup (avoid N+1 queries)",
     "WhatsApp handler order: OK → R → CONFIRM/RETRY/CANCEL → awaiting_confirmation → normal",
-    "Use shadcn/ui components + Tailwind CSS + Lucide Icons"
+    "Use shadcn/ui components + Tailwind CSS + Lucide Icons",
+    "SECURITY: Single-device binding — store deviceFingerprint cookie on first access, soft-warn on different device",
+    "SECURITY: Access audit log — log IP, user-agent, timestamp on every access",
+    "SECURITY: Access count monitoring — flag links with > 20 accesses for admin review",
+    "Coach can EDIT insights inline (pencil icon) before applying — edit title, description, category"
   ],
   "mandatoryPatterns": [
     "Code-based auth: validate review code on every query (not session auth)",
@@ -90,12 +94,12 @@
       "description": "Create backend infrastructure for coach-scoped review links. ONE active link per coach, reused across multiple voice notes. 48h expiry. Aggregated pending items query.",
       "acceptanceCriteria": [
         "Backend: Add whatsappReviewLinks table to schema.ts",
-        "Schema: code, organizationId, coachUserId, createdAt, expiresAt, accessedAt, status, voiceNoteIds (array), lastNoteAddedAt",
+        "Schema: code, organizationId, coachUserId, createdAt, expiresAt, accessedAt, status, voiceNoteIds (array), lastNoteAddedAt, deviceFingerprint, accessLog, accessCount",
         "Indexes: by_code, by_coachUserId_and_status, by_expiresAt_and_status",
         "Function: generateReviewLink (internalMutation) — reuses active link if exists, otherwise creates new 8-char code",
         "Function: getReviewLinkByCode (PUBLIC query) — validates code, returns link data with isExpired flag",
         "Function: getCoachPendingItems (PUBLIC query) — aggregates ALL pending items across all voiceNoteIds, grouped by priority",
-        "Function: markLinkAccessed (PUBLIC mutation) — sets accessedAt, keeps status='active'",
+        "Function: markLinkAccessed (PUBLIC mutation) — sets accessedAt, increments accessCount, appends to accessLog, stores/checks deviceFingerprint",
         "Integration: call generateReviewLink in checkAndAutoApply",
         "Update formatResultsMessage to include review link URL",
         "Unit tests with test cases for reuse, expiry, aggregation",
@@ -132,7 +136,8 @@
         "Batch actions: 'Apply All', 'Save All Team Notes', 'Add All to Tasks'",
         "Progress counter: '{reviewed} of {total} reviewed' with visual progress bar",
         "'All caught up' completion state with summary counts",
-        "New mutations: logInjuryFromInsight, addTodoFromInsight, saveTeamNote, batchApplyInsights",
+        "Inline edit on ALL card types: pencil icon → editable title/description, save/cancel buttons",
+        "New mutations: editInsight, logInjuryFromInsight, addTodoFromInsight, saveTeamNote, batchApplyInsights",
         "Type check passes: npm run check-types"
       ],
       "priority": 9,

@@ -198,3 +198,83 @@
   - **Problem:** Should use .withIndex() for better performance
   - **Fix:** Replace `.query().filter()` with `.query().withIndex()`
 
+
+## Auto Quality Check - 2026-02-06 13:45:38
+### File: /Users/neil/Documents/GitHub/PDP/packages/backend/convex/scripts/auditOrgData.ts
+
+- ❌ **CRITICAL: Better Auth adapter violation**
+  - **Problem:** Direct DB access to auth tables
+  - **Fix:** Use `ctx.runQuery(components.betterAuth.adapter.findOne, {...})`
+
+
+## Auto Quality Check - 2026-02-06 13:46:13
+### File: /Users/neil/Documents/GitHub/PDP/packages/backend/convex/scripts/auditOrgData.ts
+
+- ❌ **CRITICAL: Better Auth adapter violation**
+  - **Problem:** Direct DB access to auth tables
+  - **Fix:** Use `ctx.runQuery(components.betterAuth.adapter.findOne, {...})`
+
+
+## Auto Quality Check - 2026-02-06 13:46:13
+### File: /Users/neil/Documents/GitHub/PDP/packages/backend/convex/scripts/auditOrgData.ts
+
+- ⚠️ **Performance: .filter() usage detected**
+  - **Problem:** Should use .withIndex() for better performance
+  - **Fix:** Replace `.query().filter()` with `.query().withIndex()`
+
+
+## Auto Quality Check - 2026-02-06 13:47:25
+### File: /Users/neil/Documents/GitHub/PDP/packages/backend/convex/models/organizations.ts
+
+- ❌ **CRITICAL: Better Auth adapter violation**
+  - **Problem:** Direct DB access to auth tables
+  - **Fix:** Use `ctx.runQuery(components.betterAuth.adapter.findOne, {...})`
+
+
+## Auto Quality Check - 2026-02-06 13:47:25
+### File: /Users/neil/Documents/GitHub/PDP/packages/backend/convex/models/organizations.ts
+
+- ⚠️ **Performance: .filter() usage detected**
+  - **Problem:** Should use .withIndex() for better performance
+  - **Fix:** Replace `.query().filter()` with `.query().withIndex()`
+
+
+## Auto Quality Check - 2026-02-06 13:48:22
+### File: /Users/neil/Documents/GitHub/PDP/packages/backend/convex/scripts/auditOrgData.ts
+
+- ⚠️ **Performance: .filter() usage detected**
+  - **Problem:** Should use .withIndex() for better performance
+  - **Fix:** Replace `.query().filter()` with `.query().withIndex()`
+
+
+## Auto Quality Check - 2026-02-06 13:48:59
+### File: /Users/neil/Documents/GitHub/PDP/packages/backend/convex/scripts/auditOrgData.ts
+
+- ⚠️ **Performance: .filter() usage detected**
+  - **Problem:** Should use .withIndex() for better performance
+  - **Fix:** Replace `.query().filter()` with `.query().withIndex()`
+
+
+## Auto Quality Check - 2026-02-06 13:49:41
+### File: /Users/neil/Documents/GitHub/PDP/packages/backend/convex/scripts/auditOrgData.ts
+
+- ⚠️ **Performance: .filter() usage detected**
+  - **Problem:** Should use .withIndex() for better performance
+  - **Fix:** Replace `.query().filter()` with `.query().withIndex()`
+
+
+## Auto Quality Check - 2026-02-06 13:50:24
+### File: /Users/neil/Documents/GitHub/PDP/packages/backend/convex/scripts/auditOrgData.ts
+
+- ❌ **CRITICAL: Better Auth adapter violation**
+  - **Problem:** Direct DB access to auth tables
+  - **Fix:** Use `ctx.runQuery(components.betterAuth.adapter.findOne, {...})`
+
+
+## Auto Quality Check - 2026-02-06 13:51:46
+### File: /Users/neil/Documents/GitHub/PDP/packages/backend/convex/scripts/auditOrgData.ts
+
+- ⚠️ **Performance: .filter() usage detected**
+  - **Problem:** Should use .withIndex() for better performance
+  - **Fix:** Replace `.query().filter()` with `.query().withIndex()`
+

@@ -43,6 +43,9 @@
         "  - status: v.union('active', 'expired', 'used')",
         "  - voiceNoteIds: v.array(v.id('voiceNotes')) (all notes included in this link)",
         "  - lastNoteAddedAt: v.number() (when last voice note was added)",
+        "  - deviceFingerprint: v.optional(v.string()) (set on first access for single-device binding)",
+        "  - accessLog: v.optional(v.array(v.object({ at: v.number(), ip: v.optional(v.string()), ua: v.optional(v.string()) })))",
+        "  - accessCount: v.number() (default 0, incremented on each access)",
         "Indexes:",
         "  - by_code: ['code']",
         "  - by_coachUserId_and_status: ['coachUserId', 'status']",
@@ -72,8 +75,15 @@
         "  NOTE: This query aggregates across ALL voiceNoteIds in the link, not just one note",
         "  Uses batch fetch + Map lookup (NEVER N+1)",
         "Function: markLinkAccessed (mutation — PUBLIC)",
-        "  args: { code: v.string() }",
-        "  Logic: Set accessedAt=Date.now(), keep status='active' (not 'used' — link is reusable)",
+        "  args: { code: v.string(), deviceFingerprint: v.optional(v.string()), ip: v.optional(v.string()), userAgent: v.optional(v.string()) }",
+        "  Logic:",
+        "    - Set accessedAt=Date.now(), increment accessCount",
+        "    - Append to accessLog: { at, ip, ua }",
+        "    - On FIRST access: store deviceFingerprint from client (cookie-based hash)",
+        "    - On subsequent access: if deviceFingerprint differs from stored, return { requiresReauth: true }",
+        "      (client shows 'Open this link from your WhatsApp again' message — not a hard block, just a nudge)",
+        "    - Keep status='active' (link is reusable)",
+        "    - If accessCount > 20: log warning for org admin review",
         "Integration: Call generateReviewLink in checkAndAutoApply after processing insights",
         "Update formatResultsMessage to include deep link URL",
         "Unit tests: Create __tests__/whatsappReviewLinks.test.ts",
@@ -83,7 +93,10 @@
         "  - Expired link + new note: generates fresh code",
         "  - getCoachPendingItems aggregates across multiple notes",
         "  - Invalid code returns null",
-        "  - markLinkAccessed updates accessedAt",
+        "  - markLinkAccessed updates accessedAt and accessCount",
+        "  - Device fingerprint stored on first access",
+        "  - Different device returns requiresReauth hint",
+        "  - Access log appended on every access",
         "Type check passes: npm run check-types"
       ],
       "priority": 7,
@@ -168,7 +181,9 @@
         "   - Blue border, Eye icon",
         "   - Title: 'Needs Review ({count})'",
         "   - Each card: player name, category badge, description, confidence %",
-        "   - Actions per card: 'Apply' / 'Dismiss'",
+        "   - Inline edit: tap pencil icon to edit title/description/category before applying",
+        "   - Edit mode: text fields become editable inline (not a modal), save/cancel buttons appear",
+        "   - Actions per card: 'Apply' / 'Edit' (pencil icon) / 'Dismiss'",
         "   - Batch action: 'Apply All ({count})' button at section top",
         "",
         "4. TodosSection (if todos.length > 0):",
@@ -202,8 +217,19 @@
         "  - 'View in App' link to full voice notes dashboard",
         "  - Clean, satisfying completion state",
         "",
+        "Inline edit on ALL card types (not just NeedsReview):",
+        "  - Pencil icon on each insight card (top-right)",
+        "  - Tap to enter edit mode: title + description become editable text fields",
+        "  - For injury cards: can also edit severity",
+        "  - For todo cards: can edit description and priority",
+        "  - For team notes: can edit observation text",
+        "  - Save/Cancel buttons replace Apply/Dismiss during edit",
+        "  - After save: returns to normal card view with updated content",
+        "  - Edit saves to the insight record (not a copy), so 'Apply' uses the edited version",
+        "",
         "Mutations needed:",
         "  - applyInsight (existing), dismissInsight (existing)",
+        "  - editInsight (new — updates title/description/category on voiceNoteInsight, validates via code)",
         "  - logInjuryFromInsight (new — creates injury record from insight data)",
         "  - addTodoFromInsight (new — creates coachTask from insight)",
         "  - saveTeamNote (new — saves team observation)",
@@ -223,6 +249,7 @@
           "apps/web/src/app/r/[code]/components/auto-applied-section.tsx",
           "apps/web/src/app/r/[code]/components/all-caught-up.tsx",
           "apps/web/src/app/r/[code]/components/insight-card.tsx",
+          "apps/web/src/app/r/[code]/components/inline-edit-form.tsx",
           "apps/web/src/app/r/[code]/components/progress-bar.tsx"
         ],
         "modify": [
@@ -402,6 +429,58 @@
       }
     }
   ],
+  "securityControls": {
+    "description": "Zero-friction security controls for the magic link microsite",
+    "threatModel": "Link shared/forwarded, browser history on shared device, brute force, network sniffing",
+    "controls": [
+      {
+        "name": "48-hour expiry",
+        "friction": "zero",
+        "description": "Links automatically expire 48h after creation. Expired codes return nothing."
+      },
+      {
+        "name": "Cryptographic randomness",
+        "friction": "zero",
+        "description": "8-char alphanumeric (excluding 0/O/I/l) = ~35^8 = 2.2 trillion combinations. Unguessable."
+      },
+      {
+        "name": "Single-device binding",
+        "friction": "zero",
+        "description": "On first access, store a device fingerprint (cookie-based hash). If a different device accesses the same code, show soft warning: 'Open this link from your WhatsApp again.' Not a hard block — coach can still re-tap the WhatsApp link."
+      },
+      {
+        "name": "Access audit log",
+        "friction": "zero",
+        "description": "Every access logged with timestamp, IP, user-agent. Stored on the link record. Visible to org admins if needed. Coach never sees it."
+      },
+      {
+        "name": "Access count monitoring",
+        "friction": "zero",
+        "description": "Track total access count per link. If > 20 accesses, flag for org admin review (potential link sharing)."
+      },
+      {
+        "name": "HTTPS only",
+        "friction": "zero",
+        "description": "Code in URL path is encrypted in transit. Force HTTPS redirect."
+      },
+      {
+        "name": "Scoped data exposure",
+        "friction": "zero",
+        "description": "Microsite only exposes coaching insights (player names + generic observations). No medical records, parent contacts, or sensitive personal data."
+      },
+      {
+        "name": "Write-limited mutations",
+        "friction": "zero",
+        "description": "Can only apply/dismiss/edit own insights and save own notes. Cannot read other coaches' data or access org-wide data."
+      }
+    ],
+    "futureOptions": [
+      "4-digit PIN (last 4 of phone) — org-level toggle for security-conscious clubs",
+      "IP geofencing — restrict to country/region (too many false positives for now)",
+      "Biometric confirmation — fingerprint/face ID before applying (iOS/Android native only)"
+    ],
+    "trustLevelSecurityAdaptation": "At TL3 (trusted coach), most insights are auto-applied. The microsite becomes a read-only receipt/confirmation dashboard with minimal actionable data exposed. Security risk decreases naturally as trust increases."
+  },
   "phase3Candidates": {
     "description": "Polish and power-user features deferred from Phase 2 for a future enhancement phase",
     "items": [

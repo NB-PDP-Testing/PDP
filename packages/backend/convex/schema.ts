@@ -4131,6 +4131,29 @@ export default defineSchema({
     .index("by_linkCode", ["linkCode"]),
 
   // ============================================================
+  // FEATURE FLAGS
+  // Cascading feature flags: env var → platform → org → user → default
+  // Follows aiModelConfig pattern for scope-based lookups
+  // ============================================================
+  featureFlags: defineTable({
+    featureKey: v.string(), // e.g. "voice_notes_v2"
+    scope: v.union(
+      v.literal("platform"),
+      v.literal("organization"),
+      v.literal("user")
+    ),
+    organizationId: v.optional(v.string()), // Set when scope = "organization"
+    userId: v.optional(v.string()), // Set when scope = "user"
+    enabled: v.boolean(),
+    updatedBy: v.optional(v.string()), // Admin who toggled
+    updatedAt: v.number(),
+    notes: v.optional(v.string()),
+  })
+    .index("by_featureKey_and_scope", ["featureKey", "scope"])
+    .index("by_featureKey_scope_org", ["featureKey", "scope", "organizationId"])
+    .index("by_featureKey_scope_user", ["featureKey", "scope", "userId"]),
+
+  // ============================================================
   // VOICE NOTE ARTIFACTS (v2 Pipeline)
   // Source-agnostic record for any voice/text input
   // Links back to v1 voiceNotes for backward compat

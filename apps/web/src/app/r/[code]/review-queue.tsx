@@ -23,6 +23,7 @@ import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
+import { UnmatchedPlayerCard } from "./unmatched-player-card";
 
 // Shared insight item types (matches getCoachPendingItems return)
 type BaseItem = {
@@ -210,7 +211,7 @@ export function ReviewQueue({
           title="Unmatched Players"
         >
           {unmatched.map((item) => (
-            <InsightCard
+            <UnmatchedPlayerCard
               category={item.category}
               code={code}
               description={item.description}
@@ -218,12 +219,10 @@ export function ReviewQueue({
               key={`${item.voiceNoteId}-${item.insightId}`}
               loading={loadingIds.has(`${item.voiceNoteId}-${item.insightId}`)}
               noteDate={item.noteDate}
-              onApply={handleApply}
               onDismiss={handleDismiss}
               onEdit={handleEdit}
               playerName={item.playerName}
               title={item.title}
-              variant="unmatched"
               voiceNoteId={item.voiceNoteId}
             />
           ))}

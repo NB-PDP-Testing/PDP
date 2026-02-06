@@ -470,3 +470,257 @@ export const markLinkAccessed = mutation({
     return { success: true as const, isNewDevice };
   },
 });
+
+// ============================================================
+// PUBLIC MUTATIONS — Review actions (US-VN-009)
+// ============================================================
+
+/**
+ * Helper: validate code + verify voiceNoteId belongs to link.
+ */
+async function validateReviewScope(
+  // biome-ignore lint/suspicious/noExplicitAny: Accepts both QueryCtx and MutationCtx
+  ctx: any,
+  code: string,
+  voiceNoteId: string
+): Promise<{
+  link: Doc<"whatsappReviewLinks">;
+  note: Doc<"voiceNotes">;
+} | null> {
+  const result = await validateReviewCode(ctx, code);
+  if (!result || result.isExpired) {
+    return null;
+  }
+
+  const { link } = result;
+  // Verify the voice note belongs to this link
+  if (!link.voiceNoteIds.includes(voiceNoteId as any)) {
+    return null;
+  }
+
+  const note = await ctx.db.get(voiceNoteId);
+  if (!note) {
+    return null;
+  }
+
+  return { link, note };
+}
+
+/**
+ * Edit insight content (title, description, category) from the review microsite.
+ * Coach can edit AI-generated insights before applying.
+ */
+export const editInsightFromReview = mutation({
+  args: {
+    code: v.string(),
+    voiceNoteId: v.id("voiceNotes"),
+    insightId: v.string(),
+    title: v.optional(v.string()),
+    description: v.optional(v.string()),
+    category: v.optional(v.string()),
+  },
+  returns: v.union(
+    v.object({ success: v.literal(true) }),
+    v.object({ success: v.literal(false), reason: v.string() })
+  ),
+  handler: async (ctx, args) => {
+    const scope = await validateReviewScope(ctx, args.code, args.voiceNoteId);
+    if (!scope) {
+      return { success: false as const, reason: "invalid_or_expired" };
+    }
+
+    const { note } = scope;
+    const updatedInsights = note.insights.map((insight) => {
+      if (insight.id === args.insightId) {
+        return {
+          ...insight,
+          title: args.title ?? insight.title,
+          description: args.description ?? insight.description,
+          category: args.category ?? insight.category,
+        };
+      }
+      return insight;
+    });
+
+    await ctx.db.patch(note._id, { insights: updatedInsights });
+    return { success: true as const };
+  },
+});
+
+/**
+ * Apply a single insight from the review microsite.
+ * Marks the embedded insight as "applied" with timestamp.
+ */
+export const applyInsightFromReview = mutation({
+  args: {
+    code: v.string(),
+    voiceNoteId: v.id("voiceNotes"),
+    insightId: v.string(),
+  },
+  returns: v.union(
+    v.object({ success: v.literal(true), message: v.string() }),
+    v.object({ success: v.literal(false), reason: v.string() })
+  ),
+  handler: async (ctx, args) => {
+    const scope = await validateReviewScope(ctx, args.code, args.voiceNoteId);
+    if (!scope) {
+      return { success: false as const, reason: "invalid_or_expired" };
+    }
+
+    const { note } = scope;
+    const insight = note.insights.find((i) => i.id === args.insightId);
+    if (!insight) {
+      return { success: false as const, reason: "insight_not_found" };
+    }
+    if (insight.status !== "pending") {
+      return { success: false as const, reason: "already_actioned" };
+    }
+
+    const now = Date.now();
+    const updatedInsights = note.insights.map((i) => {
+      if (i.id === args.insightId) {
+        return {
+          ...i,
+          status: "applied" as const,
+          appliedAt: now,
+          appliedDate: new Date().toISOString(),
+        };
+      }
+      return i;
+    });
+
+    await ctx.db.patch(note._id, { insights: updatedInsights });
+    return {
+      success: true as const,
+      message: `Applied: ${insight.title}`,
+    };
+  },
+});
+
+/**
+ * Dismiss a single insight from the review microsite.
+ */
+export const dismissInsightFromReview = mutation({
+  args: {
+    code: v.string(),
+    voiceNoteId: v.id("voiceNotes"),
+    insightId: v.string(),
+  },
+  returns: v.union(
+    v.object({ success: v.literal(true) }),
+    v.object({ success: v.literal(false), reason: v.string() })
+  ),
+  handler: async (ctx, args) => {
+    const scope = await validateReviewScope(ctx, args.code, args.voiceNoteId);
+    if (!scope) {
+      return { success: false as const, reason: "invalid_or_expired" };
+    }
+
+    const { note } = scope;
+    const insight = note.insights.find((i) => i.id === args.insightId);
+    if (!insight) {
+      return { success: false as const, reason: "insight_not_found" };
+    }
+    if (insight.status !== "pending") {
+      return { success: false as const, reason: "already_actioned" };
+    }
+
+    const now = Date.now();
+    const updatedInsights = note.insights.map((i) => {
+      if (i.id === args.insightId) {
+        return {
+          ...i,
+          status: "dismissed" as const,
+          dismissedAt: now,
+        };
+      }
+      return i;
+    });
+
+    await ctx.db.patch(note._id, { insights: updatedInsights });
+    return { success: true as const };
+  },
+});
+
+/**
+ * Batch apply all pending matched insights from the review microsite.
+ * Applies all insights that have a playerIdentityId or are team-level.
+ */
+export const batchApplyInsightsFromReview = mutation({
+  args: {
+    code: v.string(),
+    items: v.array(
+      v.object({
+        voiceNoteId: v.id("voiceNotes"),
+        insightId: v.string(),
+      })
+    ),
+  },
+  returns: v.object({
+    successCount: v.number(),
+    failCount: v.number(),
+  }),
+  handler: async (ctx, args) => {
+    const result = await validateReviewCode(ctx, args.code);
+    if (!result || result.isExpired) {
+      return { successCount: 0, failCount: args.items.length };
+    }
+
+    const { link } = result;
+    let successCount = 0;
+    let failCount = 0;
+
+    // Group by voiceNoteId to batch DB reads
+    const byNote = new Map<string, string[]>();
+    for (const item of args.items) {
+      if (!link.voiceNoteIds.includes(item.voiceNoteId)) {
+        failCount += 1;
+        continue;
+      }
+      const existing = byNote.get(item.voiceNoteId as string) || [];
+      existing.push(item.insightId);
+      byNote.set(item.voiceNoteId as string, existing);
+    }
+
+    const now = Date.now();
+    for (const [noteId, insightIds] of byNote) {
+      // biome-ignore lint/suspicious/noExplicitAny: Map key is string but ctx.db.get expects Id type
+      const note = await ctx.db.get(noteId as any);
+      if (!note) {
+        failCount += insightIds.length;
+        continue;
+      }
+
+      // biome-ignore lint/suspicious/noExplicitAny: voiceNotes doc type not narrowed from generic get
+      const updatedInsights = (note as any).insights.map(
+        (i: { id: string; status: string }) => {
+          if (insightIds.includes(i.id) && i.status === "pending") {
+            successCount += 1;
+            return {
+              ...i,
+              status: "applied" as const,
+              appliedAt: now,
+              appliedDate: new Date().toISOString(),
+            };
+          }
+          return i;
+        }
+      );
+
+      // Check if any were actually not applied (already actioned)
+      const actualApplied = insightIds.filter((id) =>
+        // biome-ignore lint/suspicious/noExplicitAny: voiceNotes doc type not narrowed
+        (note as any).insights.find(
+          (i: { id: string; status: string }) =>
+            i.id === id && i.status === "pending"
+        )
+      );
+      failCount += insightIds.length - actualApplied.length;
+
+      // biome-ignore lint/suspicious/noExplicitAny: Generic doc type from Map-based lookup
+      await ctx.db.patch(note._id as any, { insights: updatedInsights });
+    }
+
+    return { successCount, failCount };
+  },
+});

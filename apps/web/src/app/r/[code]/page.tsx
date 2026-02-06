@@ -112,6 +112,7 @@ export default function QuickReviewPage({ params }: QuickReviewPageProps) {
       />
       <ReviewQueue
         autoApplied={pendingItems.autoApplied}
+        code={code}
         injuries={pendingItems.injuries}
         needsReview={pendingItems.needsReview}
         reviewedCount={pendingItems.reviewedCount}

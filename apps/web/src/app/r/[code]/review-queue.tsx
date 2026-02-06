@@ -1,19 +1,28 @@
 "use client";
 
+import { api } from "@pdp/backend/convex/_generated/api";
 import type { Id } from "@pdp/backend/convex/_generated/dataModel";
+import { useMutation } from "convex/react";
 import {
   AlertTriangle,
+  Check,
   CheckCircle2,
   ChevronDown,
   ClipboardList,
   HelpCircle,
+  Loader2,
   PartyPopper,
+  Pencil,
   Shield,
   Users,
+  X,
 } from "lucide-react";
-import { useState } from "react";
+import { useCallback, useState } from "react";
 import { Badge } from "@/components/ui/badge";
+import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
+import { Input } from "@/components/ui/input";
+import { Textarea } from "@/components/ui/textarea";
 
 // Shared insight item types (matches getCoachPendingItems return)
 type BaseItem = {
@@ -40,6 +49,7 @@ type TeamNoteItem = BaseItem & {
 };
 
 type ReviewQueueProps = {
+  code: string;
   injuries: PlayerItem[];
   unmatched: (BaseItem & { playerName?: string })[];
   needsReview: PlayerItem[];
@@ -51,6 +61,7 @@ type ReviewQueueProps = {
 };
 
 export function ReviewQueue({
+  code,
   injuries,
   unmatched,
   needsReview,
@@ -60,6 +71,87 @@ export function ReviewQueue({
   totalCount,
   reviewedCount,
 }: ReviewQueueProps) {
+  const applyInsight = useMutation(
+    api.models.whatsappReviewLinks.applyInsightFromReview
+  );
+  const dismissInsight = useMutation(
+    api.models.whatsappReviewLinks.dismissInsightFromReview
+  );
+  const editInsight = useMutation(
+    api.models.whatsappReviewLinks.editInsightFromReview
+  );
+  const batchApply = useMutation(
+    api.models.whatsappReviewLinks.batchApplyInsightsFromReview
+  );
+
+  const [loadingIds, setLoadingIds] = useState<Set<string>>(new Set());
+  const [batchLoadingSection, setBatchLoadingSection] = useState<string | null>(
+    null
+  );
+
+  const handleApply = useCallback(
+    async (voiceNoteId: Id<"voiceNotes">, insightId: string) => {
+      const key = `${voiceNoteId}-${insightId}`;
+      setLoadingIds((prev) => new Set(prev).add(key));
+      try {
+        await applyInsight({ code, voiceNoteId, insightId });
+      } finally {
+        setLoadingIds((prev) => {
+          const next = new Set(prev);
+          next.delete(key);
+          return next;
+        });
+      }
+    },
+    [applyInsight, code]
+  );
+
+  const handleDismiss = useCallback(
+    async (voiceNoteId: Id<"voiceNotes">, insightId: string) => {
+      const key = `${voiceNoteId}-${insightId}`;
+      setLoadingIds((prev) => new Set(prev).add(key));
+      try {
+        await dismissInsight({ code, voiceNoteId, insightId });
+      } finally {
+        setLoadingIds((prev) => {
+          const next = new Set(prev);
+          next.delete(key);
+          return next;
+        });
+      }
+    },
+    [dismissInsight, code]
+  );
+
+  const handleEdit = useCallback(
+    async (
+      voiceNoteId: Id<"voiceNotes">,
+      insightId: string,
+      updates: { title?: string; description?: string; category?: string }
+    ) => {
+      await editInsight({ code, voiceNoteId, insightId, ...updates });
+    },
+    [editInsight, code]
+  );
+
+  const handleBatchApply = useCallback(
+    async (sectionKey: string, items: BaseItem[]) => {
+      setBatchLoadingSection(sectionKey);
+      try {
+        await batchApply({
+          code,
+          items: items.map((i) => ({
+            voiceNoteId: i.voiceNoteId,
+            insightId: i.insightId,
+          })),
+        });
+      } finally {
+        setBatchLoadingSection(null);
+      }
+    },
+    [batchApply, code]
+  );
+
   const allDone =
     totalCount > 0 &&
     reviewedCount >= totalCount &&
@@ -77,6 +169,13 @@ export function ReviewQueue({
     <div className="space-y-4 pb-8">
       {injuries.length > 0 && (
         <ReviewSection
+          batchAction={
+            <BatchApplyButton
+              count={injuries.length}
+              loading={batchLoadingSection === "injuries"}
+              onApply={() => handleBatchApply("injuries", injuries)}
+            />
+          }
           borderColor="border-l-red-500"
           count={injuries.length}
           icon={<Shield className="h-4 w-4 text-red-600" />}
@@ -85,12 +184,19 @@ export function ReviewQueue({
           {injuries.map((item) => (
             <InsightCard
               category={item.category}
+              code={code}
               description={item.description}
+              insightId={item.insightId}
               key={`${item.voiceNoteId}-${item.insightId}`}
+              loading={loadingIds.has(`${item.voiceNoteId}-${item.insightId}`)}
               noteDate={item.noteDate}
+              onApply={handleApply}
+              onDismiss={handleDismiss}
+              onEdit={handleEdit}
               playerName={item.playerName}
               title={item.title}
               variant="injury"
+              voiceNoteId={item.voiceNoteId}
             />
           ))}
         </ReviewSection>
@@ -106,12 +212,19 @@ export function ReviewQueue({
           {unmatched.map((item) => (
             <InsightCard
               category={item.category}
+              code={code}
               description={item.description}
+              insightId={item.insightId}
               key={`${item.voiceNoteId}-${item.insightId}`}
+              loading={loadingIds.has(`${item.voiceNoteId}-${item.insightId}`)}
               noteDate={item.noteDate}
+              onApply={handleApply}
+              onDismiss={handleDismiss}
+              onEdit={handleEdit}
               playerName={item.playerName}
               title={item.title}
               variant="unmatched"
+              voiceNoteId={item.voiceNoteId}
             />
           ))}
         </ReviewSection>
@@ -119,6 +232,13 @@ export function ReviewQueue({
 
       {needsReview.length > 0 && (
         <ReviewSection
+          batchAction={
+            <BatchApplyButton
+              count={needsReview.length}
+              loading={batchLoadingSection === "needsReview"}
+              onApply={() => handleBatchApply("needsReview", needsReview)}
+            />
+          }
           borderColor="border-l-yellow-500"
           count={needsReview.length}
           icon={<AlertTriangle className="h-4 w-4 text-yellow-600" />}
@@ -127,12 +247,19 @@ export function ReviewQueue({
           {needsReview.map((item) => (
             <InsightCard
               category={item.category}
+              code={code}
               description={item.description}
+              insightId={item.insightId}
               key={`${item.voiceNoteId}-${item.insightId}`}
+              loading={loadingIds.has(`${item.voiceNoteId}-${item.insightId}`)}
               noteDate={item.noteDate}
+              onApply={handleApply}
+              onDismiss={handleDismiss}
+              onEdit={handleEdit}
               playerName={item.playerName}
               title={item.title}
               variant="review"
+              voiceNoteId={item.voiceNoteId}
             />
           ))}
         </ReviewSection>
@@ -140,6 +267,14 @@ export function ReviewQueue({
 
       {todos.length > 0 && (
         <ReviewSection
+          batchAction={
+            <BatchApplyButton
+              count={todos.length}
+              label="Add All to Tasks"
+              loading={batchLoadingSection === "todos"}
+              onApply={() => handleBatchApply("todos", todos)}
+            />
+          }
           borderColor="border-l-blue-500"
           count={todos.length}
           icon={<ClipboardList className="h-4 w-4 text-blue-600" />}
@@ -148,11 +283,18 @@ export function ReviewQueue({
           {todos.map((item) => (
             <InsightCard
               assigneeName={item.assigneeName}
+              code={code}
               description={item.description}
+              insightId={item.insightId}
               key={`${item.voiceNoteId}-${item.insightId}`}
+              loading={loadingIds.has(`${item.voiceNoteId}-${item.insightId}`)}
               noteDate={item.noteDate}
+              onApply={handleApply}
+              onDismiss={handleDismiss}
+              onEdit={handleEdit}
               title={item.title}
               variant="todo"
+              voiceNoteId={item.voiceNoteId}
             />
           ))}
         </ReviewSection>
@@ -160,6 +302,14 @@ export function ReviewQueue({
 
       {teamNotes.length > 0 && (
         <ReviewSection
+          batchAction={
+            <BatchApplyButton
+              count={teamNotes.length}
+              label="Save All Team Notes"
+              loading={batchLoadingSection === "teamNotes"}
+              onApply={() => handleBatchApply("teamNotes", teamNotes)}
+            />
+          }
           borderColor="border-l-green-500"
           count={teamNotes.length}
           icon={<Users className="h-4 w-4 text-green-600" />}
@@ -167,12 +317,19 @@ export function ReviewQueue({
         >
           {teamNotes.map((item) => (
             <InsightCard
+              code={code}
               description={item.description}
+              insightId={item.insightId}
               key={`${item.voiceNoteId}-${item.insightId}`}
+              loading={loadingIds.has(`${item.voiceNoteId}-${item.insightId}`)}
               noteDate={item.noteDate}
+              onApply={handleApply}
+              onDismiss={handleDismiss}
+              onEdit={handleEdit}
               teamName={item.teamName}
               title={item.title}
               variant="team"
+              voiceNoteId={item.voiceNoteId}
             />
           ))}
         </ReviewSection>
@@ -184,7 +341,40 @@ export function ReviewQueue({
 }
 
 // ============================================================
-// Section wrapper with colored left border
+// Batch Apply Button
+// ============================================================
+
+function BatchApplyButton({
+  count,
+  label,
+  loading,
+  onApply,
+}: {
+  count: number;
+  label?: string;
+  loading: boolean;
+  onApply: () => void;
+}) {
+  return (
+    <Button
+      className="min-h-[44px] w-full"
+      disabled={loading}
+      onClick={onApply}
+      size="sm"
+      variant="outline"
+    >
+      {loading ? (
+        <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+      ) : (
+        <Check className="mr-2 h-4 w-4" />
+      )}
+      {label ?? "Apply All"} ({count})
+    </Button>
+  );
+}
+
+// ============================================================
+// Section wrapper with colored left border + optional batch action
 // ============================================================
 
 function ReviewSection({
@@ -192,12 +382,14 @@ function ReviewSection({
   icon,
   count,
   borderColor,
+  batchAction,
   children,
 }: {
   title: string;
   icon: React.ReactNode;
   count: number;
   borderColor: string;
+  batchAction?: React.ReactNode;
   children: React.ReactNode;
 }) {
   return (
@@ -209,16 +401,20 @@ function ReviewSection({
           {count}
         </Badge>
       </div>
+      {batchAction && <div className="mb-2">{batchAction}</div>}
       <div className="space-y-2">{children}</div>
     </div>
   );
 }
 
 // ============================================================
-// Insight card (read-only shell — actions added in US-VN-009)
+// Insight card with inline edit + apply/dismiss actions
 // ============================================================
 
 type InsightCardProps = {
+  code: string;
+  voiceNoteId: Id<"voiceNotes">;
+  insightId: string;
   title: string;
   description: string;
   noteDate: string;
@@ -227,9 +423,22 @@ type InsightCardProps = {
   teamName?: string;
   category?: string;
   variant: "injury" | "unmatched" | "review" | "todo" | "team";
+  loading: boolean;
+  onApply: (voiceNoteId: Id<"voiceNotes">, insightId: string) => Promise<void>;
+  onDismiss: (
+    voiceNoteId: Id<"voiceNotes">,
+    insightId: string
+  ) => Promise<void>;
+  onEdit: (
+    voiceNoteId: Id<"voiceNotes">,
+    insightId: string,
+    updates: { title?: string; description?: string; category?: string }
+  ) => Promise<void>;
 };
 
 function InsightCard({
+  voiceNoteId,
+  insightId,
   title,
   description,
   noteDate,
@@ -238,8 +447,97 @@ function InsightCard({
   teamName,
   category,
   variant,
+  loading,
+  onApply,
+  onDismiss,
+  onEdit,
 }: InsightCardProps) {
   const formattedDate = formatNoteDate(noteDate);
+  const [editing, setEditing] = useState(false);
+  const [editTitle, setEditTitle] = useState(title);
+  const [editDescription, setEditDescription] = useState(description);
+  const [saving, setSaving] = useState(false);
+
+  const handleSaveEdit = async () => {
+    setSaving(true);
+    try {
+      await onEdit(voiceNoteId, insightId, {
+        title: editTitle !== title ? editTitle : undefined,
+        description:
+          editDescription !== description ? editDescription : undefined,
+      });
+      setEditing(false);
+    } finally {
+      setSaving(false);
+    }
+  };
+
+  const handleCancelEdit = () => {
+    setEditTitle(title);
+    setEditDescription(description);
+    setEditing(false);
+  };
+
+  if (editing) {
+    return (
+      <Card className="shadow-sm">
+        <CardContent className="space-y-2 p-3">
+          {/* Entity name (read-only) */}
+          {playerName && (
+            <p className="truncate font-medium text-sm">{playerName}</p>
+          )}
+          {teamName && (
+            <p className="truncate font-medium text-sm">{teamName}</p>
+          )}
+          {assigneeName && (
+            <p className="truncate font-medium text-sm">{assigneeName}</p>
+          )}
+
+          {/* Editable title */}
+          <Input
+            className="text-sm"
+            onChange={(e) => setEditTitle(e.target.value)}
+            value={editTitle}
+          />
+
+          {/* Editable description */}
+          <Textarea
+            className="min-h-[60px] text-sm"
+            onChange={(e) => setEditDescription(e.target.value)}
+            rows={2}
+            value={editDescription}
+          />
+
+          {/* Save/Cancel */}
+          <div className="flex gap-2">
+            <Button
+              className="min-h-[44px] flex-1"
+              disabled={saving}
+              onClick={handleSaveEdit}
+              size="sm"
+            >
+              {saving ? (
+                <Loader2 className="mr-1 h-3.5 w-3.5 animate-spin" />
+              ) : (
+                <Check className="mr-1 h-3.5 w-3.5" />
+              )}
+              Save
+            </Button>
+            <Button
+              className="min-h-[44px] flex-1"
+              disabled={saving}
+              onClick={handleCancelEdit}
+              size="sm"
+              variant="outline"
+            >
+              <X className="mr-1 h-3.5 w-3.5" />
+              Cancel
+            </Button>
+          </div>
+        </CardContent>
+      </Card>
+    );
+  }
 
   return (
     <Card className="shadow-sm">
@@ -268,7 +566,7 @@ function InsightCard({
             )}
           </div>
 
-          {/* Category badge + date */}
+          {/* Category badge + date + edit button */}
           <div className="flex shrink-0 flex-col items-end gap-1">
             {category && variant !== "todo" && variant !== "team" && (
               <Badge className="text-xs" variant={getBadgeVariant(variant)}>
@@ -278,7 +576,42 @@ function InsightCard({
             <span className="whitespace-nowrap text-muted-foreground text-xs">
               {formattedDate}
             </span>
+            <button
+              className="mt-0.5 rounded p-1 text-muted-foreground hover:bg-muted hover:text-foreground"
+              onClick={() => setEditing(true)}
+              title="Edit insight"
+              type="button"
+            >
+              <Pencil className="h-3.5 w-3.5" />
+            </button>
           </div>
+        </div>
+
+        {/* Action buttons */}
+        <div className="mt-2 flex gap-2">
+          <Button
+            className="min-h-[44px] flex-1"
+            disabled={loading}
+            onClick={() => onApply(voiceNoteId, insightId)}
+            size="sm"
+          >
+            {loading ? (
+              <Loader2 className="mr-1 h-3.5 w-3.5 animate-spin" />
+            ) : (
+              <Check className="mr-1 h-3.5 w-3.5" />
+            )}
+            Apply
+          </Button>
+          <Button
+            className="min-h-[44px] flex-1"
+            disabled={loading}
+            onClick={() => onDismiss(voiceNoteId, insightId)}
+            size="sm"
+            variant="outline"
+          >
+            <X className="mr-1 h-3.5 w-3.5" />
+            Skip
+          </Button>
         </div>
       </CardContent>
     </Card>

@@ -257,6 +257,130 @@ defineTable({
 
 ---
 
+## Multi-Guardian Address Handling
+
+### Problem Statement
+
+The current import logic copies the player's address to all guardians, which is incorrect for scenarios like separated parents where each guardian may have a different address.
+
+**Example:**
+- Child (Emma) lives primarily with mum in Dublin (D02 AF30)
+- Guardian 1 (Mum): Dublin (D02 AF30) - same as child
+- Guardian 2 (Dad): Cork (T12 XY45) - different address
+
+### Current Behavior (Incorrect)
+
+```typescript
+// Import copies player address to guardian
+guardianIdentityId = await ctx.db.insert("guardianIdentities", {
+  ...
+  address: args.address?.trim(),       // ❌ Player's address copied to ALL guardians
+  postcode: args.postcode?.trim(),     // ❌ Player's postcode copied to ALL guardians
+});
+```
+
+### Required Changes
+
+#### 1. Import Template Enhancement
+
+Add support for multiple guardian address columns in templates:
+
+```typescript
+columnMappings: [
+  // Player address (child's primary residence)
+  { sourcePattern: "Player Address", targetField: "playerAddress", required: false },
+  { sourcePattern: "Player Postcode", targetField: "playerPostcode", required: false },
+
+  // Guardian 1 address (may differ from player)
+  { sourcePattern: "Guardian1 Address", targetField: "guardian1Address", required: false },
+  { sourcePattern: "Guardian1 Postcode", targetField: "guardian1Postcode", required: false },
+
+  // Guardian 2 address (may differ from player and guardian 1)
+  { sourcePattern: "Guardian2 Address", targetField: "guardian2Address", required: false },
+  { sourcePattern: "Guardian2 Postcode", targetField: "guardian2Postcode", required: false },
+]
+```
+
+#### 2. Import Data Schema Update
+
+Extend the player import input schema:
+
+```typescript
+players: v.array(v.object({
+  // ... existing fields ...
+
+  // Player's primary residence address
+  playerAddress: v.optional(v.string()),
+  playerTown: v.optional(v.string()),
+  playerPostcode: v.optional(v.string()),
+
+  // Guardian 1 specific address (falls back to player address if not provided)
+  guardian1Address: v.optional(v.string()),
+  guardian1Town: v.optional(v.string()),
+  guardian1Postcode: v.optional(v.string()),
+
+  // Guardian 2 specific address (falls back to player address if not provided)
+  guardian2Address: v.optional(v.string()),
+  guardian2Town: v.optional(v.string()),
+  guardian2Postcode: v.optional(v.string()),
+}))
+```
+
+#### 3. Import Logic Update
+
+Modify `batchImportPlayersWithIdentity` to handle separate addresses:
+
+```typescript
+// When creating guardian identity
+const guardian1Address = playerData.guardian1Address || playerData.playerAddress || playerData.address;
+const guardian1Postcode = playerData.guardian1Postcode || playerData.playerPostcode || playerData.postcode;
+
+guardianIdentityId = await ctx.db.insert("guardianIdentities", {
+  firstName: playerData.parentFirstName.trim(),
+  lastName: playerData.parentLastName.trim(),
+  email: normalizedEmail,
+  phone: playerData.parentPhone?.trim(),
+  address: guardian1Address?.trim(),      // ✅ Use guardian-specific or fallback to player
+  town: guardian1Town?.trim(),
+  postcode: guardian1Postcode?.trim(),    // ✅ Use guardian-specific or fallback to player
+  country: playerData.country?.trim(),
+  verificationStatus: "unverified",
+  createdAt: now,
+  updatedAt: now,
+});
+```
+
+#### 4. Backward Compatibility
+
+- If separate guardian address fields are NOT provided, fall back to existing behavior (copy player address)
+- Existing imports continue to work without modification
+- New templates can opt-in to separate address handling
+
+### Alias Mappings for Common Formats
+
+```typescript
+{
+  playerAddress: ["address", "player address", "child address", "home address"],
+  playerPostcode: ["postcode", "player postcode", "eircode", "child postcode"],
+  guardian1Address: ["parent address", "guardian address", "mother address", "father address", "parent1 address"],
+  guardian1Postcode: ["parent postcode", "guardian postcode", "mother postcode", "father postcode", "parent1 postcode"],
+  guardian2Address: ["parent2 address", "guardian2 address", "second parent address"],
+  guardian2Postcode: ["parent2 postcode", "guardian2 postcode", "second parent postcode"],
+}
+```
+
+### Integration with Phase 0.5
+
+Phase 0.5 adds player postcode matching to the guardian matching algorithm. This Phase 1 enhancement ensures:
+
+1. **Player identity** has accurate postcode (child's primary residence)
+2. **Guardian identities** have their own postcodes (may differ from player)
+3. **Matching algorithm** (Phase 0.5) can use player postcode as additional signal
+
+See: [Phase 0.5: Player Postcode Matching Enhancement](./phase-0.5-player-postcode-matching.md)
+
+---
+
 ## Backend Implementation
 
 ### Files to Create

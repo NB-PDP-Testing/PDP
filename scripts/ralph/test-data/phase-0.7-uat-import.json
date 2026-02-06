@@ -1,0 +1,196 @@
+{
+  "description": "Phase 0.7 UAT Test Data - Profile Address Management & Data Sync",
+  "version": "1.0",
+  "created": "2026-02-05",
+  "notes": [
+    "Import via Admin > Import Players page",
+    "Use organizationId from URL, sportCode: 'soccer', ageGroup and season as specified per player"
+  ],
+  "testScenarios": {
+    "scenario1": "Imported guardian with full address - user claims and address copies to user table",
+    "scenario2": "Imported guardian without address - user claims, no address to copy",
+    "scenario3": "Multiple children same guardian - verify single guardian identity created",
+    "scenario4": "Guardian with email that matches existing user - verify auto-link",
+    "scenario5": "Edit address in Profile Settings - verify sync to guardianIdentities"
+  },
+  "players": [
+    {
+      "_comment": "Scenario 1: Guardian with FULL ADDRESS - Test address copy on claim",
+      "firstName": "Emma",
+      "lastName": "Murphy",
+      "dateOfBirth": "2014-03-15",
+      "gender": "female",
+      "ageGroup": "U12",
+      "season": "2025-2026",
+      "address": "42 Oak Street",
+      "town": "Armagh",
+      "postcode": "BT61 7PQ",
+      "country": "GB",
+      "parentFirstName": "Sarah",
+      "parentLastName": "Murphy",
+      "parentEmail": "sarah.murphy.uat@example.com",
+      "parentPhone": "+44 7700 100001",
+      "parentRelationship": "mother"
+    },
+    {
+      "_comment": "Scenario 2: Guardian WITHOUT address - Test claim with no address data",
+      "firstName": "Liam",
+      "lastName": "O'Connor",
+      "dateOfBirth": "2013-07-22",
+      "gender": "male",
+      "ageGroup": "U14",
+      "season": "2025-2026",
+      "parentFirstName": "Patrick",
+      "parentLastName": "O'Connor",
+      "parentEmail": "patrick.oconnor.uat@example.com",
+      "parentPhone": "+44 7700 100002",
+      "parentRelationship": "father"
+    },
+    {
+      "_comment": "Scenario 3a: First child of multi-child guardian - FULL address",
+      "firstName": "Aoife",
+      "lastName": "Kelly",
+      "dateOfBirth": "2012-01-10",
+      "gender": "female",
+      "ageGroup": "U14",
+      "season": "2025-2026",
+      "address": "15 Church Road",
+      "town": "Dungannon",
+      "postcode": "BT70 1AB",
+      "country": "GB",
+      "parentFirstName": "Mary",
+      "parentLastName": "Kelly",
+      "parentEmail": "mary.kelly.uat@example.com",
+      "parentPhone": "+44 7700 100003",
+      "parentRelationship": "mother"
+    },
+    {
+      "_comment": "Scenario 3b: Second child of SAME guardian (Mary Kelly) - Tests guardian deduplication",
+      "firstName": "Cian",
+      "lastName": "Kelly",
+      "dateOfBirth": "2015-09-05",
+      "gender": "male",
+      "ageGroup": "U10",
+      "season": "2025-2026",
+      "address": "15 Church Road",
+      "town": "Dungannon",
+      "postcode": "BT70 1AB",
+      "country": "GB",
+      "parentFirstName": "Mary",
+      "parentLastName": "Kelly",
+      "parentEmail": "mary.kelly.uat@example.com",
+      "parentPhone": "+44 7700 100003",
+      "parentRelationship": "mother"
+    },
+    {
+      "_comment": "Scenario 5: Guardian for Profile Settings edit test - FULL address",
+      "firstName": "Noah",
+      "lastName": "Walsh",
+      "dateOfBirth": "2014-11-30",
+      "gender": "male",
+      "ageGroup": "U12",
+      "season": "2025-2026",
+      "address": "8 Mill Lane",
+      "town": "Portadown",
+      "postcode": "BT62 3CD",
+      "country": "GB",
+      "parentFirstName": "Fiona",
+      "parentLastName": "Walsh",
+      "parentEmail": "fiona.walsh.uat@example.com",
+      "parentPhone": "+44 7700 100004",
+      "parentRelationship": "mother"
+    },
+    {
+      "_comment": "Additional: Guardian (grandparent) with partial address",
+      "firstName": "Saoirse",
+      "lastName": "Byrne",
+      "dateOfBirth": "2016-04-18",
+      "gender": "female",
+      "ageGroup": "U10",
+      "season": "2025-2026",
+      "address": "23 Main Street",
+      "town": "Lurgan",
+      "parentFirstName": "Margaret",
+      "parentLastName": "Byrne",
+      "parentEmail": "margaret.byrne.uat@example.com",
+      "parentPhone": "+44 7700 100005",
+      "parentRelationship": "grandparent"
+    },
+    {
+      "_comment": "Additional: Different gender/relationship test",
+      "firstName": "Oscar",
+      "lastName": "Doyle",
+      "dateOfBirth": "2011-08-25",
+      "gender": "male",
+      "ageGroup": "U16",
+      "season": "2025-2026",
+      "address": "101 Station Road",
+      "town": "Newry",
+      "postcode": "BT35 6EF",
+      "country": "GB",
+      "parentFirstName": "Michael",
+      "parentLastName": "Doyle",
+      "parentEmail": "michael.doyle.uat@example.com",
+      "parentPhone": "+44 7700 100006",
+      "parentRelationship": "father"
+    },
+    {
+      "_comment": "Additional: Guardian relationship type 'other'",
+      "firstName": "Niamh",
+      "lastName": "Ryan",
+      "dateOfBirth": "2013-12-03",
+      "gender": "female",
+      "ageGroup": "U14",
+      "season": "2025-2026",
+      "address": "7 Park View",
+      "town": "Craigavon",
+      "postcode": "BT65 5GH",
+      "country": "GB",
+      "parentFirstName": "Louise",
+      "parentLastName": "Ryan",
+      "parentEmail": "louise.ryan.uat@example.com",
+      "parentPhone": "+44 7700 100007",
+      "parentRelationship": "guardian"
+    }
+  ],
+  "expectedResults": {
+    "totalPlayers": 8,
+    "uniqueGuardians": 7,
+    "guardiansWithFullAddress": 6,
+    "guardiansWithPartialAddress": 1,
+    "guardiansWithNoAddress": 1
+  },
+  "testAccounts": {
+    "note": "Create these accounts BEFORE import to test Scenario 4 (auto-link to existing user)",
+    "accounts": [
+      {
+        "email": "sarah.murphy.uat@example.com",
+        "password": "TestPass123!",
+        "firstName": "Sarah",
+        "lastName": "Murphy",
+        "purpose": "Scenario 1 - Claim guardian with full address"
+      },
+      {
+        "email": "patrick.oconnor.uat@example.com",
+        "password": "TestPass123!",
+        "firstName": "Patrick",
+        "lastName": "O'Connor",
+        "purpose": "Scenario 2 - Claim guardian without address"
+      },
+      {
+        "email": "mary.kelly.uat@example.com",
+        "password": "TestPass123!",
+        "firstName": "Mary",
+        "lastName": "Kelly",
+        "purpose": "Scenario 3 - Multi-child guardian"
+      },
+      {
+        "email": "fiona.walsh.uat@example.com",
+        "password": "TestPass123!",
+        "firstName": "Fiona",
+        "lastName": "Walsh",
+        "purpose": "Scenario 5 - Edit address and verify sync"
+      }
+    ]
+  }
+}

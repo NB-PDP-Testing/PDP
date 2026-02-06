@@ -31,7 +31,12 @@ export type ComponentApi<Name extends string | undefined = string | undefined> =
           input:
             | {
                 data: {
+                  address?: string;
+                  address2?: string;
+                  altEmail?: string;
                   childLinkingSkipCount?: number;
+                  country?: string;
+                  county?: string;
                   createdAt: number;
                   currentOrgId?: string;
                   email: string;
@@ -44,14 +49,21 @@ export type ComponentApi<Name extends string | undefined = string | undefined> =
                   lastChildrenCheckAt?: number;
                   lastName?: string;
                   name: string;
+                  noChildrenAcknowledged?: boolean;
                   onboardingComplete?: boolean;
                   parentOnboardingDismissCount?: number;
                   parentOnboardingLastDismissedAt?: number;
                   phone?: string;
+                  postcode?: string;
+                  profileCompletedAt?: number;
+                  profileCompletionStatus?: "pending" | "completed" | "skipped";
+                  profileSkipCount?: number;
                   setupComplete?: boolean;
                   setupStep?: string;
+                  town?: string;
                   updatedAt: number;
                   userId?: null | string;
+                  wasInvited?: boolean;
                 };
                 model: "user";
               }
@@ -144,6 +156,7 @@ export type ComponentApi<Name extends string | undefined = string | undefined> =
                   autoReInviteOnExpiration?: boolean;
                   colors?: Array<string>;
                   createdAt: number;
+                  defaultCountry?: "IE" | "GB" | "US";
                   invitationExpirationDays?: number;
                   logo?: null | string;
                   maxAutoReInvitesPerInvitation?: number;
@@ -249,11 +262,23 @@ export type ComponentApi<Name extends string | undefined = string | undefined> =
                     | "firstName"
                     | "lastName"
                     | "phone"
+                    | "altEmail"
+                    | "address"
+                    | "address2"
+                    | "town"
+                    | "county"
+                    | "postcode"
+                    | "country"
+                    | "profileCompletionStatus"
+                    | "profileCompletedAt"
+                    | "profileSkipCount"
                     | "onboardingComplete"
+                    | "wasInvited"
                     | "lastChildrenCheckAt"
                     | "parentOnboardingDismissCount"
                     | "parentOnboardingLastDismissedAt"
                     | "childLinkingSkipCount"
+                    | "noChildrenAcknowledged"
                     | "currentOrgId"
                     | "gdprConsentVersion"
                     | "gdprConsentedAt"
@@ -497,6 +522,7 @@ export type ComponentApi<Name extends string | undefined = string | undefined> =
                     | "socialLinkedin"
                     | "website"
                     | "supportedSports"
+                    | "defaultCountry"
                     | "sharingContactMode"
                     | "sharingContactName"
                     | "sharingContactEmail"
@@ -680,11 +706,23 @@ export type ComponentApi<Name extends string | undefined = string | undefined> =
                     | "firstName"
                     | "lastName"
                     | "phone"
+                    | "altEmail"
+                    | "address"
+                    | "address2"
+                    | "town"
+                    | "county"
+                    | "postcode"
+                    | "country"
+                    | "profileCompletionStatus"
+                    | "profileCompletedAt"
+                    | "profileSkipCount"
                     | "onboardingComplete"
+                    | "wasInvited"
                     | "lastChildrenCheckAt"
                     | "parentOnboardingDismissCount"
                     | "parentOnboardingLastDismissedAt"
                     | "childLinkingSkipCount"
+                    | "noChildrenAcknowledged"
                     | "currentOrgId"
                     | "gdprConsentVersion"
                     | "gdprConsentedAt"
@@ -928,6 +966,7 @@ export type ComponentApi<Name extends string | undefined = string | undefined> =
                     | "socialLinkedin"
                     | "website"
                     | "supportedSports"
+                    | "defaultCountry"
                     | "sharingContactMode"
                     | "sharingContactName"
                     | "sharingContactEmail"
@@ -1188,7 +1227,12 @@ export type ComponentApi<Name extends string | undefined = string | undefined> =
             | {
                 model: "user";
                 update: {
+                  address?: string;
+                  address2?: string;
+                  altEmail?: string;
                   childLinkingSkipCount?: number;
+                  country?: string;
+                  county?: string;
                   createdAt?: number;
                   currentOrgId?: string;
                   email?: string;
@@ -1201,14 +1245,21 @@ export type ComponentApi<Name extends string | undefined = string | undefined> =
                   lastChildrenCheckAt?: number;
                   lastName?: string;
                   name?: string;
+                  noChildrenAcknowledged?: boolean;
                   onboardingComplete?: boolean;
                   parentOnboardingDismissCount?: number;
                   parentOnboardingLastDismissedAt?: number;
                   phone?: string;
+                  postcode?: string;
+                  profileCompletedAt?: number;
+                  profileCompletionStatus?: "pending" | "completed" | "skipped";
+                  profileSkipCount?: number;
                   setupComplete?: boolean;
                   setupStep?: string;
+                  town?: string;
                   updatedAt?: number;
                   userId?: null | string;
+                  wasInvited?: boolean;
                 };
                 where?: Array<{
                   connector?: "AND" | "OR";
@@ -1224,11 +1275,23 @@ export type ComponentApi<Name extends string | undefined = string | undefined> =
                     | "firstName"
                     | "lastName"
                     | "phone"
+                    | "altEmail"
+                    | "address"
+                    | "address2"
+                    | "town"
+                    | "county"
+                    | "postcode"
+                    | "country"
+                    | "profileCompletionStatus"
+                    | "profileCompletedAt"
+                    | "profileSkipCount"
                     | "onboardingComplete"
+                    | "wasInvited"
                     | "lastChildrenCheckAt"
                     | "parentOnboardingDismissCount"
                     | "parentOnboardingLastDismissedAt"
                     | "childLinkingSkipCount"
+                    | "noChildrenAcknowledged"
                     | "currentOrgId"
                     | "gdprConsentVersion"
                     | "gdprConsentedAt"
@@ -1527,6 +1590,7 @@ export type ComponentApi<Name extends string | undefined = string | undefined> =
                   autoReInviteOnExpiration?: boolean;
                   colors?: Array<string>;
                   createdAt?: number;
+                  defaultCountry?: "IE" | "GB" | "US";
                   invitationExpirationDays?: number;
                   logo?: null | string;
                   maxAutoReInvitesPerInvitation?: number;
@@ -1561,6 +1625,7 @@ export type ComponentApi<Name extends string | undefined = string | undefined> =
                     | "socialLinkedin"
                     | "website"
                     | "supportedSports"
+                    | "defaultCountry"
                     | "sharingContactMode"
                     | "sharingContactName"
                     | "sharingContactEmail"
@@ -1779,7 +1844,12 @@ export type ComponentApi<Name extends string | undefined = string | undefined> =
             | {
                 model: "user";
                 update: {
+                  address?: string;
+                  address2?: string;
+                  altEmail?: string;
                   childLinkingSkipCount?: number;
+                  country?: string;
+                  county?: string;
                   createdAt?: number;
                   currentOrgId?: string;
                   email?: string;
@@ -1792,14 +1862,21 @@ export type ComponentApi<Name extends string | undefined = string | undefined> =
                   lastChildrenCheckAt?: number;
                   lastName?: string;
                   name?: string;
+                  noChildrenAcknowledged?: boolean;
                   onboardingComplete?: boolean;
                   parentOnboardingDismissCount?: number;
                   parentOnboardingLastDismissedAt?: number;
                   phone?: string;
+                  postcode?: string;
+                  profileCompletedAt?: number;
+                  profileCompletionStatus?: "pending" | "completed" | "skipped";
+                  profileSkipCount?: number;
                   setupComplete?: boolean;
                   setupStep?: string;
+                  town?: string;
                   updatedAt?: number;
                   userId?: null | string;
+                  wasInvited?: boolean;
                 };
                 where?: Array<{
                   connector?: "AND" | "OR";
@@ -1815,11 +1892,23 @@ export type ComponentApi<Name extends string | undefined = string | undefined> =
                     | "firstName"
                     | "lastName"
                     | "phone"
+                    | "altEmail"
+                    | "address"
+                    | "address2"
+                    | "town"
+                    | "county"
+                    | "postcode"
+                    | "country"
+                    | "profileCompletionStatus"
+                    | "profileCompletedAt"
+                    | "profileSkipCount"
                     | "onboardingComplete"
+                    | "wasInvited"
                     | "lastChildrenCheckAt"
                     | "parentOnboardingDismissCount"
                     | "parentOnboardingLastDismissedAt"
                     | "childLinkingSkipCount"
+                    | "noChildrenAcknowledged"
                     | "currentOrgId"
                     | "gdprConsentVersion"
                     | "gdprConsentedAt"
@@ -2118,6 +2207,7 @@ export type ComponentApi<Name extends string | undefined = string | undefined> =
                   autoReInviteOnExpiration?: boolean;
                   colors?: Array<string>;
                   createdAt?: number;
+                  defaultCountry?: "IE" | "GB" | "US";
                   invitationExpirationDays?: number;
                   logo?: null | string;
                   maxAutoReInvitesPerInvitation?: number;
@@ -2152,6 +2242,7 @@ export type ComponentApi<Name extends string | undefined = string | undefined> =
                     | "socialLinkedin"
                     | "website"
                     | "supportedSports"
+                    | "defaultCountry"
                     | "sharingContactMode"
                     | "sharingContactName"
                     | "sharingContactEmail"
@@ -2384,11 +2475,35 @@ export type ComponentApi<Name extends string | undefined = string | undefined> =
         any,
         Name
       >;
+      skipProfileCompletionStep: FunctionReference<
+        "mutation",
+        "internal",
+        { currentSkipCount: number; userId: string },
+        { canSkipAgain: boolean; skipCount: number },
+        Name
+      >;
       updateOnboardingComplete: FunctionReference<
         "mutation",
         "internal",
         { onboardingComplete: boolean; userId: string },
         null,
+        Name
+      >;
+      updateProfileCompletion: FunctionReference<
+        "mutation",
+        "internal",
+        {
+          address?: string;
+          address2?: string;
+          altEmail?: string;
+          country?: string;
+          county?: string;
+          phone?: string;
+          postcode?: string;
+          town?: string;
+          userId: string;
+        },
+        { profileCompletedAt: number; success: boolean },
         Name
       >;
       updateUserProfile: FunctionReference<

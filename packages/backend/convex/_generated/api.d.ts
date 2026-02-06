@@ -33,6 +33,7 @@ import type * as lib_autoApprovalDecision from "../lib/autoApprovalDecision.js";
 import type * as lib_circuitBreaker from "../lib/circuitBreaker.js";
 import type * as lib_consentGateway from "../lib/consentGateway.js";
 import type * as lib_firstUserSetup from "../lib/firstUserSetup.js";
+import type * as lib_matching_guardianMatcher from "../lib/matching/guardianMatcher.js";
 import type * as lib_phoneUtils from "../lib/phoneUtils.js";
 import type * as lib_trustLevelCalculator from "../lib/trustLevelCalculator.js";
 import type * as migrations_cleanSlate from "../migrations/cleanSlate.js";
@@ -118,6 +119,7 @@ import type * as models_teamPlayerIdentities from "../models/teamPlayerIdentitie
 import type * as models_teams from "../models/teams.js";
 import type * as models_trustGatePermissions from "../models/trustGatePermissions.js";
 import type * as models_userPreferences from "../models/userPreferences.js";
+import type * as models_userProfiles from "../models/userProfiles.js";
 import type * as models_users from "../models/users.js";
 import type * as models_voiceNoteInsights from "../models/voiceNoteInsights.js";
 import type * as models_voiceNotes from "../models/voiceNotes.js";
@@ -192,6 +194,7 @@ declare const fullApi: ApiFromModules<{
   "lib/circuitBreaker": typeof lib_circuitBreaker;
   "lib/consentGateway": typeof lib_consentGateway;
   "lib/firstUserSetup": typeof lib_firstUserSetup;
+  "lib/matching/guardianMatcher": typeof lib_matching_guardianMatcher;
   "lib/phoneUtils": typeof lib_phoneUtils;
   "lib/trustLevelCalculator": typeof lib_trustLevelCalculator;
   "migrations/cleanSlate": typeof migrations_cleanSlate;
@@ -277,6 +280,7 @@ declare const fullApi: ApiFromModules<{
   "models/teams": typeof models_teams;
   "models/trustGatePermissions": typeof models_trustGatePermissions;
   "models/userPreferences": typeof models_userPreferences;
+  "models/userProfiles": typeof models_userProfiles;
   "models/users": typeof models_users;
   "models/voiceNoteInsights": typeof models_voiceNoteInsights;
   "models/voiceNotes": typeof models_voiceNotes;
@@ -356,7 +360,12 @@ export declare const components: {
           input:
             | {
                 data: {
+                  address?: string;
+                  address2?: string;
+                  altEmail?: string;
                   childLinkingSkipCount?: number;
+                  country?: string;
+                  county?: string;
                   createdAt: number;
                   currentOrgId?: string;
                   email: string;
@@ -369,14 +378,21 @@ export declare const components: {
                   lastChildrenCheckAt?: number;
                   lastName?: string;
                   name: string;
+                  noChildrenAcknowledged?: boolean;
                   onboardingComplete?: boolean;
                   parentOnboardingDismissCount?: number;
                   parentOnboardingLastDismissedAt?: number;
                   phone?: string;
+                  postcode?: string;
+                  profileCompletedAt?: number;
+                  profileCompletionStatus?: "pending" | "completed" | "skipped";
+                  profileSkipCount?: number;
                   setupComplete?: boolean;
                   setupStep?: string;
+                  town?: string;
                   updatedAt: number;
                   userId?: null | string;
+                  wasInvited?: boolean;
                 };
                 model: "user";
               }
@@ -574,11 +590,23 @@ export declare const components: {
                     | "firstName"
                     | "lastName"
                     | "phone"
+                    | "altEmail"
+                    | "address"
+                    | "address2"
+                    | "town"
+                    | "county"
+                    | "postcode"
+                    | "country"
+                    | "profileCompletionStatus"
+                    | "profileCompletedAt"
+                    | "profileSkipCount"
                     | "onboardingComplete"
+                    | "wasInvited"
                     | "lastChildrenCheckAt"
                     | "parentOnboardingDismissCount"
                     | "parentOnboardingLastDismissedAt"
                     | "childLinkingSkipCount"
+                    | "noChildrenAcknowledged"
                     | "currentOrgId"
                     | "gdprConsentVersion"
                     | "gdprConsentedAt"
@@ -1005,11 +1033,23 @@ export declare const components: {
                     | "firstName"
                     | "lastName"
                     | "phone"
+                    | "altEmail"
+                    | "address"
+                    | "address2"
+                    | "town"
+                    | "county"
+                    | "postcode"
+                    | "country"
+                    | "profileCompletionStatus"
+                    | "profileCompletedAt"
+                    | "profileSkipCount"
                     | "onboardingComplete"
+                    | "wasInvited"
                     | "lastChildrenCheckAt"
                     | "parentOnboardingDismissCount"
                     | "parentOnboardingLastDismissedAt"
                     | "childLinkingSkipCount"
+                    | "noChildrenAcknowledged"
                     | "currentOrgId"
                     | "gdprConsentVersion"
                     | "gdprConsentedAt"
@@ -1511,7 +1551,12 @@ export declare const components: {
             | {
                 model: "user";
                 update: {
+                  address?: string;
+                  address2?: string;
+                  altEmail?: string;
                   childLinkingSkipCount?: number;
+                  country?: string;
+                  county?: string;
                   createdAt?: number;
                   currentOrgId?: string;
                   email?: string;
@@ -1524,14 +1569,21 @@ export declare const components: {
                   lastChildrenCheckAt?: number;
                   lastName?: string;
                   name?: string;
+                  noChildrenAcknowledged?: boolean;
                   onboardingComplete?: boolean;
                   parentOnboardingDismissCount?: number;
                   parentOnboardingLastDismissedAt?: number;
                   phone?: string;
+                  postcode?: string;
+                  profileCompletedAt?: number;
+                  profileCompletionStatus?: "pending" | "completed" | "skipped";
+                  profileSkipCount?: number;
                   setupComplete?: boolean;
                   setupStep?: string;
+                  town?: string;
                   updatedAt?: number;
                   userId?: null | string;
+                  wasInvited?: boolean;
                 };
                 where?: Array<{
                   connector?: "AND" | "OR";
@@ -1547,11 +1599,23 @@ export declare const components: {
                     | "firstName"
                     | "lastName"
                     | "phone"
+                    | "altEmail"
+                    | "address"
+                    | "address2"
+                    | "town"
+                    | "county"
+                    | "postcode"
+                    | "country"
+                    | "profileCompletionStatus"
+                    | "profileCompletedAt"
+                    | "profileSkipCount"
                     | "onboardingComplete"
+                    | "wasInvited"
                     | "lastChildrenCheckAt"
                     | "parentOnboardingDismissCount"
                     | "parentOnboardingLastDismissedAt"
                     | "childLinkingSkipCount"
+                    | "noChildrenAcknowledged"
                     | "currentOrgId"
                     | "gdprConsentVersion"
                     | "gdprConsentedAt"
@@ -2103,7 +2167,12 @@ export declare const components: {
             | {
                 model: "user";
                 update: {
+                  address?: string;
+                  address2?: string;
+                  altEmail?: string;
                   childLinkingSkipCount?: number;
+                  country?: string;
+                  county?: string;
                   createdAt?: number;
                   currentOrgId?: string;
                   email?: string;
@@ -2116,14 +2185,21 @@ export declare const components: {
                   lastChildrenCheckAt?: number;
                   lastName?: string;
                   name?: string;
+                  noChildrenAcknowledged?: boolean;
                   onboardingComplete?: boolean;
                   parentOnboardingDismissCount?: number;
                   parentOnboardingLastDismissedAt?: number;
                   phone?: string;
+                  postcode?: string;
+                  profileCompletedAt?: number;
+                  profileCompletionStatus?: "pending" | "completed" | "skipped";
+                  profileSkipCount?: number;
                   setupComplete?: boolean;
                   setupStep?: string;
+                  town?: string;
                   updatedAt?: number;
                   userId?: null | string;
+                  wasInvited?: boolean;
                 };
                 where?: Array<{
                   connector?: "AND" | "OR";
@@ -2139,11 +2215,23 @@ export declare const components: {
                     | "firstName"
                     | "lastName"
                     | "phone"
+                    | "altEmail"
+                    | "address"
+                    | "address2"
+                    | "town"
+                    | "county"
+                    | "postcode"
+                    | "country"
+                    | "profileCompletionStatus"
+                    | "profileCompletedAt"
+                    | "profileSkipCount"
                     | "onboardingComplete"
+                    | "wasInvited"
                     | "lastChildrenCheckAt"
                     | "parentOnboardingDismissCount"
                     | "parentOnboardingLastDismissedAt"
                     | "childLinkingSkipCount"
+                    | "noChildrenAcknowledged"
                     | "currentOrgId"
                     | "gdprConsentVersion"
                     | "gdprConsentedAt"
@@ -2707,11 +2795,33 @@ export declare const components: {
         { userId: string },
         any
       >;
+      skipProfileCompletionStep: FunctionReference<
+        "mutation",
+        "internal",
+        { currentSkipCount: number; userId: string },
+        { canSkipAgain: boolean; skipCount: number }
+      >;
       updateOnboardingComplete: FunctionReference<
         "mutation",
         "internal",
         { onboardingComplete: boolean; userId: string },
         null
+      >;
+      updateProfileCompletion: FunctionReference<
+        "mutation",
+        "internal",
+        {
+          address?: string;
+          address2?: string;
+          altEmail?: string;
+          country?: string;
+          county?: string;
+          phone?: string;
+          postcode?: string;
+          town?: string;
+          userId: string;
+        },
+        { profileCompletedAt: number; success: boolean }
       >;
       updateUserProfile: FunctionReference<
         "mutation",

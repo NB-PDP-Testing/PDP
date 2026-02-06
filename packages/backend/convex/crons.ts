@@ -88,6 +88,24 @@ crons.interval(
   {}
 );
 
+// Voice Gateways v2 Phase 2: Review link lifecycle (US-VN-012)
+
+// Expire active review links that have passed their 48h expiry (daily at 2:30 AM UTC)
+crons.daily(
+  "expire-active-review-links",
+  { hourUTC: 2, minuteUTC: 30 },
+  internal.models.whatsappReviewLinks.expireActiveLinks,
+  {}
+);
+
+// Delete expired review links older than 7 days past expiry (daily at 3:15 AM UTC)
+crons.daily(
+  "cleanup-expired-review-links",
+  { hourUTC: 3, minuteUTC: 15 },
+  internal.models.whatsappReviewLinks.cleanupExpiredLinks,
+  {}
+);
+
 // Onboarding Phase 6: Invitation lifecycle jobs
 
 // Mark expired invitations hourly

@@ -167,6 +167,11 @@ export function getAdminNavGroups(
           icon: LineChart,
         },
         {
+          href: `/orgs/${orgId}/admin/injuries`,
+          label: "Injury Analytics",
+          icon: Heart,
+        },
+        {
           href: `/orgs/${orgId}/admin/benchmarks`,
           label: "Benchmarks",
           icon: BarChart3,

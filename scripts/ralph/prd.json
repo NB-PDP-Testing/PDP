@@ -209,7 +209,8 @@
       ],
       "priority": 12,
       "effort": "0.5 day",
-      "dependencies": ["US-VN-008"]
+      "dependencies": ["US-VN-008"],
+      "passes": true
     }
   ],
   "successCriteria": [

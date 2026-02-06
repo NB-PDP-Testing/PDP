@@ -1,0 +1,162 @@
+{
+  "phaseNumber": 5,
+  "phaseName": "Entity Resolution & Disambiguation",
+  "duration": "4 days",
+  "storyCount": 2,
+  "contextFiles": [
+    "context/MAIN_CONTEXT.md",
+    "context/PHASE3_V2_MIGRATION.md",
+    "context/PHASE1_QUALITY_GATES.md",
+    "docs/architecture/voice-notes-pipeline-v2.md"
+  ],
+  "stories": [
+    {
+      "id": "US-VN-017",
+      "phase": 5,
+      "title": "Entity Resolution Table",
+      "description": "Create voiceNoteEntityResolutions table and implement entity resolution logic using Phase 1 fuzzy matching to find player candidates for each entity mention.",
+      "acceptanceCriteria": [
+        "Backend: Add voiceNoteEntityResolutions table to schema.ts",
+        "Schema fields:",
+        "  - claimId: v.id('voiceNoteClaims')",
+        "  - mentionIndex: v.number() (position in entityMentions array)",
+        "  - rawText: v.string() (e.g., 'Shawn')",
+        "  - candidates: v.array(v.object({ entityType: v.literal('player'), entityId: v.string(), entityName: v.string(), score: v.number(), matchReason: v.string() }))",
+        "  - status: v.union(v.literal('auto_resolved'), v.literal('needs_disambiguation'), v.literal('user_resolved'), v.literal('unresolved'))",
+        "  - resolvedEntityId: v.optional(v.string())",
+        "  - resolvedAt: v.optional(v.number())",
+        "  - createdAt: v.number()",
+        "Indexes:",
+        "  - by_claimId: ['claimId']",
+        "  - by_status: ['status']",
+        "Backend: Create actions/entityResolution.ts",
+        "Function: resolveEntities (action)",
+        "  args: { artifactId }",
+        "  returns: v.object({ autoResolved: v.number(), needsDisambiguation: v.number(), unresolved: v.number() })",
+        "  Logic:",
+        "    1. Get claims with status='resolving' for artifactId",
+        "    2. For each claim, for each entityMention:",
+        "       - If mentionType === 'player_name':",
+        "         - Call api.models.orgPlayerEnrollments.findSimilarPlayers (FROM PHASE 1!)",
+        "         - If candidates.length === 1 && similarity > 0.9:",
+        "           - status = 'auto_resolved', resolvedEntityId = candidate.playerIdentityId",
+        "         - Else if candidates.length > 1:",
+        "           - status = 'needs_disambiguation'",
+        "         - Else:",
+        "           - status = 'unresolved'",
+        "       - Store resolution in voiceNoteEntityResolutions",
+        "    3. Update claim status to 'resolved'",
+        "    4. Return counts",
+        "Backend: Create models/voiceNoteEntityResolutions.ts",
+        "Function: createResolution (internalMutation)",
+        "  args: { claimId, mentionIndex, rawText, candidates, status, resolvedEntityId }",
+        "  returns: v.id('voiceNoteEntityResolutions')",
+        "Function: getResolutionsByClaim (query)",
+        "  args: { claimId }",
+        "  returns: v.array(resolution objects)",
+        "Integration: Add to claim processing flow",
+        "  - After processClaims completes:",
+        "    - Call ctx.scheduler.runAfter(0, internal.actions.entityResolution.resolveEntities, { artifactId })",
+        "Unit tests: Create __tests__/entityResolution.test.ts",
+        "Test cases:",
+        "  - Single high-confidence match \u2192 auto_resolved",
+        "  - Multiple matches \u2192 needs_disambiguation",
+        "  - No matches \u2192 unresolved",
+        "Type check passes: npm run check-types",
+        "Manual test: Claim with 'Shawn' \u2192 finds 'Se\u00e1n' \u2192 auto-resolves if >0.9 similarity"
+      ],
+      "priority": 17,
+      "passes": true,
+      "effort": "2 days",
+      "effortBreakdown": {
+        "schema": "1h (voiceNoteEntityResolutions table)",
+        "resolution": "4h (resolveEntities action with Phase 1 fuzzy matching)",
+        "models": "2h (createResolution, getResolutionsByClaim)",
+        "integration": "1.5h (hook into claim processing)",
+        "tests": "3h (unit tests)",
+        "manual": "1h (test resolution scenarios)"
+      },
+      "dependencies": ["US-VN-016", "US-VN-006"],
+      "files": {
+        "create": [
+          "packages/backend/convex/actions/entityResolution.ts",
+          "packages/backend/convex/models/voiceNoteEntityResolutions.ts",
+          "packages/backend/convex/__tests__/entityResolution.test.ts"
+        ],
+        "modify": [
+          "packages/backend/convex/schema.ts (add voiceNoteEntityResolutions table)",
+          "packages/backend/convex/actions/claimProcessing.ts (integrate entity resolution)"
+        ]
+      },
+      "testingRequirements": {
+        "unitTests": true,
+        "integrationTests": false,
+        "manualTesting": true,
+        "uatTestCases": []
+      }
+    },
+    {
+      "id": "US-VN-018",
+      "phase": 5,
+      "title": "Disambiguation UI",
+      "description": "Create coach-facing UI to resolve ambiguous entity mentions (needs_disambiguation status), showing candidates from fuzzy matching with similarity scores.",
+      "acceptanceCriteria": [
+        "Frontend: Create apps/web/src/app/orgs/[orgId]/coach/voice-notes/disambiguation/[artifactId]/page.tsx",
+        "Page structure:",
+        "  1. Header: 'Resolve Player Mentions'",
+        "  2. List of claims with needs_disambiguation resolutions",
+        "  3. For each resolution:",
+        "     - Show claim sourceText",
+        "     - Show rawText mention highlighted",
+        "     - Radio group with candidates (fullName, teamName, similarity %)",
+        "     - 'Confirm' button",
+        "  4. 'Skip' and 'Save All' buttons at bottom",
+        "Queries:",
+        "  - useQuery(api.models.voiceNoteClaims.getClaimsByArtifact, { artifactId })",
+        "  - useQuery(api.models.voiceNoteEntityResolutions.getResolutionsByClaim, { claimId })",
+        "Mutations:",
+        "  - useMutation(api.models.voiceNoteEntityResolutions.resolveEntity)",
+        "Backend: Add resolveEntity mutation to models/voiceNoteEntityResolutions.ts",
+        "  args: { resolutionId, resolvedEntityId }",
+        "  returns: v.null()",
+        "  Logic: Update status='user_resolved', resolvedEntityId, resolvedAt",
+        "Navigation: Link from voice notes list when artifact has needs_disambiguation resolutions",
+        "Mobile-responsive: Works on phone (touch targets, scrolling)",
+        "Type check passes: npm run check-types",
+        "Manual test:",
+        "  - Voice note with ambiguous mention \u2192 shows disambiguation page",
+        "  - Select candidate \u2192 confirm \u2192 resolution updated",
+        "  - All resolved \u2192 navigates back to voice notes"
+      ],
+      "priority": 18,
+      "passes": true,
+      "effort": "2 days",
+      "effortBreakdown": {
+        "page": "3h (disambiguation page structure + queries)",
+        "ui": "3h (resolution cards with radio groups + confirm buttons)",
+        "mutation": "1.5h (resolveEntity mutation)",
+        "navigation": "1h (link from voice notes list)",
+        "styling": "1.5h (mobile-responsive)",
+        "manual": "1h (test disambiguation flow)"
+      },
+      "dependencies": ["US-VN-017"],
+      "files": {
+        "create": [
+          "apps/web/src/app/orgs/[orgId]/coach/voice-notes/disambiguation/[artifactId]/page.tsx",
+          "apps/web/src/app/orgs/[orgId]/coach/voice-notes/disambiguation/[artifactId]/components/resolution-card.tsx"
+        ],
+        "modify": [
+          "packages/backend/convex/models/voiceNoteEntityResolutions.ts (add resolveEntity mutation)",
+          "apps/web/src/app/orgs/[orgId]/coach/voice-notes/page.tsx (add disambiguation link)"
+        ]
+      },
+      "testingRequirements": {
+        "unitTests": false,
+        "integrationTests": false,
+        "manualTesting": true,
+        "uatTestCases": []
+      }
+    }
+  ],
+  "successCriteria": {}
+}

@@ -1,0 +1,52 @@
+[
+  {
+    "id": "US-VN-007",
+    "phase": 2,
+    "title": "Review Links Backend",
+    "description": "Create backend infrastructure for time-limited deep links to mobile quick review pages. Generate unique 8-char codes, track expiry (48h), and provide validation queries for link access.",
+    "acceptanceCriteria": [
+      "Backend: Add whatsappReviewLinks table to schema.ts",
+      "Schema fields: code (string, 8 chars), voiceNoteId, organizationId, coachUserId, createdAt, expiresAt (48h), accessedAt (optional), status (active/expired/used), pendingInsightsCount, unmatchedCount",
+      "Indexes: by_code, by_voiceNoteId, by_expiresAt_and_status, by_coachUserId",
+      "Backend: Create models/whatsappReviewLinks.ts",
+      "Function: generateReviewLink (internalMutation) - generates unique 8-char code, sets expiresAt = now + 48h",
+      "Function: getReviewLinkData (query) - validates code, checks expiry",
+      "Function: markLinkAccessed (mutation) - updates status to 'used'",
+      "Helper: generateUniqueCode() - uses safe chars (no ambiguous 0/O, 1/I/l)",
+      "Unit tests: Create __tests__/whatsappReviewLinks.test.ts",
+      "Test: generateReviewLink creates valid code",
+      "Test: getReviewLinkData returns null for invalid code",
+      "Test: getReviewLinkData correctly calculates isExpired",
+      "Test: markLinkAccessed updates status and timestamp",
+      "Type check passes: npm run check-types",
+      "Manual test: Generate link, verify in database, query by code, verify expiry logic"
+    ],
+    "priority": 7,
+    "passes": true,
+    "effort": "1 day",
+    "effortBreakdown": {
+      "schema": "1h (add whatsappReviewLinks table + indexes)",
+      "mutations": "3h (generateReviewLink, markLinkAccessed)",
+      "query": "2h (getReviewLinkData with expiry logic)",
+      "helpers": "1h (generateUniqueCode)",
+      "tests": "2h (unit tests for all functions)",
+      "manual": "1h (database verification)"
+    },
+    "dependencies": ["US-VN-006"],
+    "files": {
+      "create": [
+        "packages/backend/convex/models/whatsappReviewLinks.ts",
+        "packages/backend/convex/__tests__/whatsappReviewLinks.test.ts"
+      ],
+      "modify": [
+        "packages/backend/convex/schema.ts (add whatsappReviewLinks table)"
+      ]
+    },
+    "testingRequirements": {
+      "unitTests": true,
+      "integrationTests": false,
+      "manualTesting": true,
+      "uatTestCases": ["QR-003", "QR-004"]
+    }
+  }
+]

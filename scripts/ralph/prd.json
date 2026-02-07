@@ -35,7 +35,10 @@
     "US-VN-015",
     "US-VN-016",
     "US-VN-017",
-    "US-VN-018"
+    "US-VN-018",
+    "US-VN-019",
+    "US-VN-020",
+    "US-VN-021"
   ],
   "criticalLearnings": {
     "description": "Lessons from Phases 1-5 that MUST be followed:",

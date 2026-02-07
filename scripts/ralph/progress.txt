@@ -2,7 +2,7 @@
 
 **Branch**: feat/voice-gateways-v2
 **Started**: 2026-02-04
-**Current Phase**: Phase 5 - Entity Resolution & Disambiguation
+**Current Phase**: Phase 6 - Drafts, Confirmation & Migration (COMPLETE)
 **Architecture Review**: COMPLETE (6 ADRs in docs/architecture/decisions/ADR-VN2-*)
 
 ---
@@ -952,5 +952,117 @@ Overall progress: 20/22 stories complete for Phases 1-4 (91%).
 
 ## PHASE 5 COMPLETE
 All 2 stories (US-VN-017 + US-VN-018) implemented and passing quality checks.
+
+---
+
+## Phase 6: Drafts, Confirmation & Migration - COMPLETE
+
+### Stories:
+- US-VN-019: Drafts Table & Auto-Confirm Logic (2d) - COMPLETE
+- US-VN-020: WhatsApp Command Parser & Handler (1.5d) - COMPLETE
+- US-VN-021: v1-to-v2 Migration Script (1d) - COMPLETE
+
+### US-VN-019: Drafts Table & Auto-Confirm Logic
+**Status**: COMPLETE
+**Date**: 2026-02-07
+**Commit**: 4d0e5232
+
+#### What was built:
+1. **Schema**: `insightDrafts` table already in schema.ts with 5 indexes (by_draftId, by_artifactId, by_artifactId_and_status, by_org_and_coach_and_status, by_playerIdentityId_and_status)
+
+2. **Model**: Created `packages/backend/convex/models/insightDrafts.ts` with 11 functions:
+   - createDrafts (internalMutation) — batch insert drafts
+   - getDraftsByArtifact (internalQuery) — by_artifactId index
+   - getPendingDraftsForCoach (PUBLIC query) — org + coach + status index, 48h expiry filter
+   - confirmDraft (PUBLIC mutation) — auth guard, sets status to "confirmed"
+   - confirmAllDrafts (PUBLIC mutation) — auth guard, batch confirm all pending
+   - rejectDraft (PUBLIC mutation) — auth guard, sets status to "rejected"
+   - rejectAllDrafts (PUBLIC mutation) — auth guard, batch reject all pending
+   - applyDraft (internalMutation) — creates voiceNoteInsight record on v1 voiceNote
+   - getPendingDraftsInternal (internalQuery) — for WhatsApp command handler
+   - confirmDraftInternal (internalMutation) — no auth check, for WhatsApp handler
+   - rejectDraftInternal (internalMutation) — no auth check, for WhatsApp handler
+
+3. **Action**: Created `packages/backend/convex/actions/draftGeneration.ts` (internalAction):
+   - generateDrafts — called after entity resolution completes
+   - Confidence formula: `overallConfidence = clamp(aiConfidence * resolutionConfidence, 0, 1)` (ADR-VN2-023)
+   - Auto-confirm gate: trust >= 2, not sensitive type, confidence >= threshold, category preference allowed (ADR-VN2-024)
+   - Sensitive types: injury, wellbeing, recovery (NEVER auto-confirm)
+   - displayOrder: 1-indexed at generation time (ADR-VN2-028)
+   - Auto-confirmed drafts scheduled for immediate application
+   - Extracted helper functions: findPlayerResolution, calculateConfidence, requiresConfirmation, checkAutoApplyAllowed, buildResolutionMap
+
+4. **Integration**: entityResolution.ts already schedules `generateDrafts` after resolution completes
+
+### US-VN-020: WhatsApp Command Parser & Handler
+**Status**: COMPLETE
+**Date**: 2026-02-07
+**Commit**: 4d0e5232
+
+#### What was built:
+1. **Parser**: Created `packages/backend/convex/lib/whatsappCommands.ts`:
+   - Pure function, no Convex dependency
+   - 4 command types: confirm_all, confirm_specific, cancel, entity_mapping
+   - Anchored regex patterns at top-level scope (Biome compliance)
+   - Extracted into 4 helper functions: tryParseConfirmAll, tryParseConfirmSpecific, tryParseCancel, tryParseEntityMapping
+   - Entity mapping with team context detection (e.g., "TWINS = Emma & Niamh U12")
+
+2. **Handler**: Created `packages/backend/convex/lib/whatsappCommandHandler.ts`:
+   - Async helper function (NOT a Convex action — actions can't call ctx.runAction)
+   - handleConfirmAll — confirms all pending drafts + schedules apply
+   - handleConfirmSpecific — confirms drafts by displayOrder number
+   - handleCancel — rejects all pending drafts
+   - handleEntityMapping — placeholder acknowledgement (full implementation in future phase)
+
+3. **Tests**: Created `packages/backend/convex/__tests__/whatsappCommands.test.ts`:
+   - 26 unit tests covering all 4 command types + null cases
+   - Vitest, all passing
+
+4. **Integration**: whatsapp.ts already imports parseCommand + handleCommand and routes commands before normal processing
+
+### US-VN-021: v1-to-v2 Migration Script
+**Status**: COMPLETE
+**Date**: 2026-02-07
+**Commit**: 4d0e5232
+
+#### What was built:
+1. **Action**: Created `packages/backend/convex/actions/migration.ts` (internalAction):
+   - migrateVoiceNotesToV2 — batch-processes completed v1 voiceNotes
+   - Dry-run mode for safe previewing
+   - Batch size: configurable (default 50, max 200)
+   - Per-org filtering via optional organizationId arg
+   - Idempotent: checks getArtifactsByVoiceNote before creating artifacts (ADR-VN2-032)
+   - Creates: v2 artifact → links to v1 voiceNote → transcript → claims from insights
+   - Field mapping helpers: mapSourceChannel (v1 source → v2 sourceChannel), mapInsightTopic (v1 category → v2 topic with 15 categories)
+   - Extracted helper functions: processVoiceNote, countDryRunStats, buildClaimFromInsight, createTranscriptForVn, createClaimsForVn
+
+2. **Supporting query**: getCompletedForMigration (internalQuery) in voiceNotes.ts — returns completed v1 notes with transcriptions
+
+### Quality checks:
+- ✅ Convex codegen: PASSES
+- ✅ Type check: PASSES (0 errors)
+- ✅ Biome lint: PASSES (0 errors on all Phase 6 files)
+- ✅ Vitest: 26/26 tests passing
+- ✅ Lint-staged: PASSES on commit
+
+### Key decisions:
+- insightDrafts model provides both public (auth-guarded) and internal (no auth) variants for WhatsApp handler use
+- Draft generation extracts confidence, gate logic, and resolution map into top-level helper functions (Biome complexity compliance)
+- Migration uses Record<string, unknown> for v1 voiceNote typing (shape varies across historical data)
+- WhatsApp command handler is a plain async function, NOT a Convex action (ADR-VN2-031)
+- Entity mapping handler is a placeholder — full fuzzy resolution deferred to future phase
+
+### Learnings:
+- Biome `useConsistentTypeDefinitions`: use `type` not `interface` for all type definitions
+- Biome `useMaxParams`: max 4 parameters — use options object pattern for 5+ params
+- Biome `noIncrementDecrement`: use `+= 1` not `++`
+- `ActionCtx` type needed for helper functions called from internalAction handlers
+- `as unknown as` casts needed when crossing Convex Id<> ↔ string boundaries in Map keys
+
+---
+
+## PHASE 6 COMPLETE
+All 3 stories (US-VN-019, US-VN-020, US-VN-021) implemented and passing.
+Overall progress: All stories complete for Phases 1-6.
 
 ---

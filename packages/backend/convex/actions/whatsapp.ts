@@ -4,6 +4,8 @@ import { v } from "convex/values";
 import { api, internal } from "../_generated/api";
 import type { Id } from "../_generated/dataModel";
 import { internalAction } from "../_generated/server";
+import { handleCommand } from "../lib/whatsappCommandHandler";
+import { parseCommand } from "../lib/whatsappCommands";
 
 // Regex patterns at top level for performance (Biome: useTopLevelRegex)
 const WHATSAPP_PREFIX_REGEX = /^whatsapp:/;
@@ -369,6 +371,31 @@ export const processIncomingMessage = internalAction({
         }
 
         // Not a confirmation command - fall through to normal text processing
+      }
+    }
+
+    // v2 Pipeline: Check for draft management commands
+    if (messageType === "text" && args.body) {
+      const command = parseCommand(args.body);
+      if (command) {
+        try {
+          const response = await handleCommand(
+            ctx,
+            coachContext.coachId,
+            organization.id,
+            command
+          );
+          await sendWhatsAppMessage(phoneNumber, response);
+          // Update message status
+          await ctx.runMutation(internal.models.whatsappMessages.updateStatus, {
+            messageId,
+            status: "completed",
+          });
+          return { success: true, messageId };
+        } catch (error) {
+          console.error("[whatsapp] Command handler error:", error);
+          // Fall through to normal processing
+        }
       }
     }
 

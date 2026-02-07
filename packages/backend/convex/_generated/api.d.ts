@@ -10,10 +10,12 @@
 
 import type * as actions_claimsExtraction from "../actions/claimsExtraction.js";
 import type * as actions_coachParentSummaries from "../actions/coachParentSummaries.js";
+import type * as actions_draftGeneration from "../actions/draftGeneration.js";
 import type * as actions_entityResolution from "../actions/entityResolution.js";
 import type * as actions_guardianNotifications from "../actions/guardianNotifications.js";
 import type * as actions_invitations from "../actions/invitations.js";
 import type * as actions_messaging from "../actions/messaging.js";
+import type * as actions_migration from "../actions/migration.js";
 import type * as actions_platformStaffInvitations from "../actions/platformStaffInvitations.js";
 import type * as actions_practicePlans from "../actions/practicePlans.js";
 import type * as actions_sendDemoRequestNotification from "../actions/sendDemoRequestNotification.js";
@@ -44,6 +46,8 @@ import type * as lib_phoneUtils from "../lib/phoneUtils.js";
 import type * as lib_playerMatching from "../lib/playerMatching.js";
 import type * as lib_stringMatching from "../lib/stringMatching.js";
 import type * as lib_trustLevelCalculator from "../lib/trustLevelCalculator.js";
+import type * as lib_whatsappCommandHandler from "../lib/whatsappCommandHandler.js";
+import type * as lib_whatsappCommands from "../lib/whatsappCommands.js";
 import type * as migrations_cleanSlate from "../migrations/cleanSlate.js";
 import type * as migrations_compareIrishDancing from "../migrations/compareIrishDancing.js";
 import type * as migrations_deleteOldIrishDancingSport from "../migrations/deleteOldIrishDancingSport.js";
@@ -85,6 +89,7 @@ import type * as models_gdpr from "../models/gdpr.js";
 import type * as models_guardianIdentities from "../models/guardianIdentities.js";
 import type * as models_guardianManagement from "../models/guardianManagement.js";
 import type * as models_guardianPlayerLinks from "../models/guardianPlayerLinks.js";
+import type * as models_insightDrafts from "../models/insightDrafts.js";
 import type * as models_invitations from "../models/invitations.js";
 import type * as models_medicalProfiles from "../models/medicalProfiles.js";
 import type * as models_members from "../models/members.js";
@@ -188,10 +193,12 @@ import type {
 declare const fullApi: ApiFromModules<{
   "actions/claimsExtraction": typeof actions_claimsExtraction;
   "actions/coachParentSummaries": typeof actions_coachParentSummaries;
+  "actions/draftGeneration": typeof actions_draftGeneration;
   "actions/entityResolution": typeof actions_entityResolution;
   "actions/guardianNotifications": typeof actions_guardianNotifications;
   "actions/invitations": typeof actions_invitations;
   "actions/messaging": typeof actions_messaging;
+  "actions/migration": typeof actions_migration;
   "actions/platformStaffInvitations": typeof actions_platformStaffInvitations;
   "actions/practicePlans": typeof actions_practicePlans;
   "actions/sendDemoRequestNotification": typeof actions_sendDemoRequestNotification;
@@ -222,6 +229,8 @@ declare const fullApi: ApiFromModules<{
   "lib/playerMatching": typeof lib_playerMatching;
   "lib/stringMatching": typeof lib_stringMatching;
   "lib/trustLevelCalculator": typeof lib_trustLevelCalculator;
+  "lib/whatsappCommandHandler": typeof lib_whatsappCommandHandler;
+  "lib/whatsappCommands": typeof lib_whatsappCommands;
   "migrations/cleanSlate": typeof migrations_cleanSlate;
   "migrations/compareIrishDancing": typeof migrations_compareIrishDancing;
   "migrations/deleteOldIrishDancingSport": typeof migrations_deleteOldIrishDancingSport;
@@ -263,6 +272,7 @@ declare const fullApi: ApiFromModules<{
   "models/guardianIdentities": typeof models_guardianIdentities;
   "models/guardianManagement": typeof models_guardianManagement;
   "models/guardianPlayerLinks": typeof models_guardianPlayerLinks;
+  "models/insightDrafts": typeof models_insightDrafts;
   "models/invitations": typeof models_invitations;
   "models/medicalProfiles": typeof models_medicalProfiles;
   "models/members": typeof models_members;

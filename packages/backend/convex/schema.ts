@@ -4384,6 +4384,70 @@ export default defineSchema({
     .index("by_coach_org", ["coachUserId", "organizationId"]),
 
   // ============================================================
+  // INSIGHT DRAFTS (v2 Pipeline - Phase 6)
+  // Pending insights awaiting coach confirmation before applying
+  // to player records. Each draft has confidence scoring and
+  // supports auto-confirm for trusted coaches.
+  // ============================================================
+  insightDrafts: defineTable({
+    draftId: v.string(),
+    artifactId: v.id("voiceNoteArtifacts"),
+    claimId: v.id("voiceNoteClaims"),
+    playerIdentityId: v.optional(v.id("playerIdentities")),
+    resolvedPlayerName: v.optional(v.string()),
+    insightType: v.union(
+      v.literal("injury"),
+      v.literal("skill_rating"),
+      v.literal("skill_progress"),
+      v.literal("behavior"),
+      v.literal("performance"),
+      v.literal("attendance"),
+      v.literal("wellbeing"),
+      v.literal("recovery"),
+      v.literal("development_milestone"),
+      v.literal("physical_development"),
+      v.literal("parent_communication"),
+      v.literal("tactical"),
+      v.literal("team_culture"),
+      v.literal("todo"),
+      v.literal("session_plan")
+    ),
+    title: v.string(),
+    description: v.string(),
+    evidence: v.object({
+      transcriptSnippet: v.string(),
+      timestampStart: v.optional(v.number()),
+    }),
+    displayOrder: v.number(),
+    aiConfidence: v.number(),
+    resolutionConfidence: v.number(),
+    overallConfidence: v.number(),
+    requiresConfirmation: v.boolean(),
+    status: v.union(
+      v.literal("pending"),
+      v.literal("confirmed"),
+      v.literal("rejected"),
+      v.literal("applied"),
+      v.literal("expired")
+    ),
+    organizationId: v.string(),
+    coachUserId: v.string(),
+    confirmedAt: v.optional(v.number()),
+    appliedAt: v.optional(v.number()),
+    createdAt: v.number(),
+    updatedAt: v.number(),
+  })
+    .index("by_draftId", ["draftId"])
+    .index("by_artifactId", ["artifactId"])
+    .index("by_artifactId_and_status", ["artifactId", "status"])
+    .index("by_org_and_coach_and_status", [
+      "organizationId",
+      "coachUserId",
+      "status",
+    ])
+    .index("by_playerIdentityId_and_status", ["playerIdentityId", "status"]),
+
+  // ============================================================
   // PLATFORM STAFF INVITATIONS
   // Invitations for granting platform staff access to new users
   // ============================================================

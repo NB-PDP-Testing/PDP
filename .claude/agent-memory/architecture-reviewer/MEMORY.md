@@ -3,7 +3,7 @@
 ## Project Structure
 - Monorepo: `apps/web/` (Next.js 14) + `packages/backend/` (Convex)
 - Auth: Better Auth with org plugin, user fields: `_id`, `name`, `email`
-- Schema: `packages/backend/convex/schema.ts` (~3800+ lines, very large)
+- Schema: `packages/backend/convex/schema.ts` (~4400+ lines, very large)
 - Voice notes pipeline: `actions/whatsapp.ts`, `models/voiceNotes.ts`, `actions/voiceNotes.ts`
 
 ## Key Findings (2026-02-06)
@@ -29,11 +29,12 @@
 - 3:15 AM UTC: (available for cleanup-expired-review-links)
 
 ### ADRs Written
-- `docs/architecture/decisions/ADR-VN2-001` through `ADR-VN2-006` for Phase 2 Voice Gateways v2
-- `ADR-VN2-007`: Feature flag storage design (new featureFlags table)
-- `ADR-VN2-008`: Artifact ID generation (crypto.randomUUID())
-- `ADR-VN2-009`: Dual-path processing order (v1 first, then v2 artifact)
-- See `phase2-review.md` and `phase3-review.md` for detailed notes
+- `ADR-VN2-001` through `ADR-VN2-006`: Phase 2 Voice Gateways v2
+- `ADR-VN2-007` through `ADR-VN2-009`: Phase 3 (feature flags, artifact IDs, dual-path)
+- `ADR-VN2-010` through `ADR-VN2-014`: Phase 4 (claims extraction)
+- `ADR-VN2-015` through `ADR-VN2-022`: Phase 5 (entity resolution)
+- `ADR-VN2-023` through `ADR-VN2-032`: Phase 6 (drafts & confirmation)
+- See phase-specific review files for details
 
 ## Phase 3 Findings (2026-02-06)
 
@@ -120,8 +121,39 @@
 - getRecentArtifacts/getRecentClaims no platform staff check (Phase 4, still open)
 - batchUpdateResolutionsByRawText appears unused (dead code)
 
+## Phase 6 Pre-Implementation Review (2026-02-07)
+
+### Review Result: 4 critical PRD discrepancies, 5 warnings, 4 suggestions
+### 10 ADRs generated (VN2-023 through VN2-032)
+
+### Critical PRD Fixes Required
+- C1: insightType must use 15 topics (not 8) to match voiceNoteClaims.topic
+- C2: Remove bare `by_status` index (anti-pattern)
+- C3: Use 5 statuses (include "expired")
+- C4: handleCommand must be lib/ async helper (Convex can't ctx.runAction from action)
+
+### Schema Corrections
+- Add `displayOrder: v.number()` (stable CONFIRM numbering)
+- Add `resolvedPlayerName: v.optional(v.string())` (avoid N+1 in WhatsApp summary)
+- Add `by_artifactId_and_status` index (command handler query pattern)
+- Total: 5 indexes on insightDrafts
+
+### Key Architectural Decisions
+- Confidence: `ai * resolution` with [0,1] clamping (ADR-VN2-023)
+- Auto-confirm: personalized threshold + category prefs + never injury/wellbeing (ADR-VN2-024)
+- Command routing: Between Priority 3 and 4 in processIncomingMessage (ADR-VN2-025)
+- Draft apply target: voiceNoteInsights table (reuses Phase 7 pipeline) (ADR-VN2-026)
+- Migration: batch 50, idempotent via by_voiceNoteId (ADR-VN2-027)
+- Parser: lib/whatsappCommands.ts (pure), Handler: lib/whatsappCommandHandler.ts (async) (ADR-VN2-031)
+
+### Integration Points
+- entityResolution.ts ~line 187: scheduler for draftGeneration
+- whatsapp.ts between line 373 and 375: v2 command check
+- schema.ts after line 4384: insightDrafts table
+
 ## Files Reference
 - See `phase2-review.md` for detailed Phase 2 architectural review notes
 - See `phase3-review.md` for detailed Phase 3 architectural review notes
 - See `phase4-review.md` for detailed Phase 4 architectural review notes
 - See `phase5-review.md` for detailed Phase 5 architectural review notes
+- See `phase6-review.md` for detailed Phase 6 architectural review notes

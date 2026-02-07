@@ -50,6 +50,7 @@ import {
 } from "@/components/ui/tooltip";
 import { authClient } from "@/lib/auth-client";
 import { AutoApprovedTab } from "./components/auto-approved-tab";
+import { DisambiguationBanner } from "./components/disambiguation-banner";
 import { HistoryTab } from "./components/history-tab";
 import { InsightsTab } from "./components/insights-tab";
 import { MyImpactTab } from "./components/my-impact-tab";
@@ -589,6 +590,9 @@ export function VoiceNotesDashboard() {
         {aiServiceHealth && aiServiceHealth.status !== "healthy" && (
           <DegradationBanner degradationType="ai_fallback" />
         )}
+
+        {/* Phase 5: Disambiguation banner */}
+        <DisambiguationBanner orgId={orgId} />
       </div>
 
       {/* Tabs - scrollable on mobile, standard on desktop */}

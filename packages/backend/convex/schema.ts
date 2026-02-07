@@ -4102,7 +4102,7 @@ export default defineSchema({
   // Tracks all coach actions on the /r/ review microsite
   // ============================================================
   reviewAnalyticsEvents: defineTable({
-    linkCode: v.string(),
+    linkCode: v.optional(v.string()),
     coachUserId: v.string(),
     organizationId: v.string(),
     eventType: v.union(
@@ -4111,7 +4111,10 @@ export default defineSchema({
       v.literal("edit"),
       v.literal("snooze"),
       v.literal("batch_apply"),
-      v.literal("batch_dismiss")
+      v.literal("batch_dismiss"),
+      v.literal("disambiguate_accept"),
+      v.literal("disambiguate_reject_all"),
+      v.literal("disambiguate_skip")
     ),
     insightId: v.optional(v.string()),
     voiceNoteId: v.optional(v.id("voiceNotes")),
@@ -4314,6 +4317,70 @@ export default defineSchema({
     .index("by_org_and_coach", ["organizationId", "coachUserId"])
     .index("by_org_and_status", ["organizationId", "status"])
     .index("by_resolvedPlayerIdentityId", ["resolvedPlayerIdentityId"]),
+
+  // ============================================================
+  // VOICE NOTE ENTITY RESOLUTIONS (v2 Pipeline - Phase 5)
+  // Detailed resolution records for entity mentions in claims.
+  // Captures candidates with match reasons for disambiguation.
+  // ============================================================
+  voiceNoteEntityResolutions: defineTable({
+    claimId: v.id("voiceNoteClaims"),
+    artifactId: v.id("voiceNoteArtifacts"),
+    mentionIndex: v.number(),
+    mentionType: v.union(
+      v.literal("player_name"),
+      v.literal("team_name"),
+      v.literal("group_reference"),
+      v.literal("coach_name")
+    ),
+    rawText: v.string(),
+    candidates: v.array(
+      v.object({
+        entityType: v.union(
+          v.literal("player"),
+          v.literal("team"),
+          v.literal("coach")
+        ),
+        entityId: v.string(),
+        entityName: v.string(),
+        score: v.number(),
+        matchReason: v.string(),
+      })
+    ),
+    status: v.union(
+      v.literal("auto_resolved"),
+      v.literal("needs_disambiguation"),
+      v.literal("user_resolved"),
+      v.literal("unresolved")
+    ),
+    resolvedEntityId: v.optional(v.string()),
+    resolvedEntityName: v.optional(v.string()),
+    resolvedAt: v.optional(v.number()),
+    organizationId: v.string(),
+    createdAt: v.number(),
+  })
+    .index("by_claimId", ["claimId"])
+    .index("by_artifactId", ["artifactId"])
+    .index("by_artifactId_and_status", ["artifactId", "status"])
+    .index("by_org_and_status", ["organizationId", "status"]),
+
+  // ============================================================
+  // COACH PLAYER ALIASES (v2 Pipeline - Phase 5, Enhancement E5)
+  // Stores coach-specific name aliases for auto-resolution.
+  // Resolve once, remember forever.
+  // ============================================================
+  coachPlayerAliases: defineTable({
+    coachUserId: v.string(),
+    organizationId: v.string(),
+    rawText: v.string(),
+    resolvedEntityId: v.string(),
+    resolvedEntityName: v.string(),
+    useCount: v.number(),
+    lastUsedAt: v.number(),
+    createdAt: v.number(),
+  })
+    .index("by_coach_org_rawText", ["coachUserId", "organizationId", "rawText"])
+    .index("by_coach_org", ["coachUserId", "organizationId"]),
 
   // ============================================================
   // PLATFORM STAFF INVITATIONS

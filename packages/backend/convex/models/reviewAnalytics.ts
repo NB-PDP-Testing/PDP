@@ -18,7 +18,7 @@ import { internalMutation, internalQuery } from "../_generated/server";
  */
 export const logReviewEvent = internalMutation({
   args: {
-    linkCode: v.string(),
+    linkCode: v.optional(v.string()),
     coachUserId: v.string(),
     organizationId: v.string(),
     eventType: v.union(
@@ -27,7 +27,10 @@ export const logReviewEvent = internalMutation({
       v.literal("edit"),
       v.literal("snooze"),
       v.literal("batch_apply"),
-      v.literal("batch_dismiss")
+      v.literal("batch_dismiss"),
+      v.literal("disambiguate_accept"),
+      v.literal("disambiguate_reject_all"),
+      v.literal("disambiguate_skip")
     ),
     insightId: v.optional(v.string()),
     voiceNoteId: v.optional(v.id("voiceNotes")),

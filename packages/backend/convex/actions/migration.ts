@@ -19,6 +19,9 @@ import { internalAction } from "../_generated/server";
 const DEFAULT_BATCH_SIZE = 50;
 const MAX_BATCH_SIZE = 200;
 
+/** Default confidence for migrated data that lacks original AI scores */
+const MIGRATION_DEFAULT_CONFIDENCE = 0.8;
+
 // ── Type for migration stats ────────────────────────────────────
 
 type MigrationStats = {
@@ -118,10 +121,21 @@ function mapInsightTopic(category: string | undefined): ClaimTopic {
   }
 }
 
+// ── Type for v1 voice note data used in migration ───────────────
+
+type MigrationVoiceNote = {
+  _id: Id<"voiceNotes">;
+  coachId?: string;
+  orgId?: string;
+  source?: string;
+  transcription?: string;
+  insights?: Record<string, unknown>[];
+};
+
 // ── Helper: count dry-run stats ─────────────────────────────────
 
 function countDryRunStats(
-  vn: { transcription?: string; insights?: Record<string, unknown>[] },
+  vn: Pick<MigrationVoiceNote, "transcription" | "insights">,
   stats: MigrationStats
 ): void {
   stats.artifacts += 1;
@@ -172,7 +186,7 @@ function buildClaimFromInsight(
       (insight.title as string) || `${(insight.category as string) || "Note"}`,
     description: (insight.description as string) || "",
     entityMentions: [],
-    extractionConfidence: 0.8, // Assumed for migrated data
+    extractionConfidence: MIGRATION_DEFAULT_CONFIDENCE,
     organizationId: orgId,
     coachUserId: coachId,
     status: "extracted",
@@ -300,7 +314,7 @@ export const migrateVoiceNotesToV2 = internalAction({
       `[migration] Found ${voiceNotes.length} voice notes to process`
     );
 
-    for (const vn of voiceNotes) {
+    for (const vn of voiceNotes as MigrationVoiceNote[]) {
       stats.processed += 1;
 
       try {
@@ -334,29 +348,23 @@ export const migrateVoiceNotesToV2 = internalAction({
 
 async function processVoiceNote(
   ctx: ActionCtx,
-  vn: Record<string, unknown>,
+  vn: MigrationVoiceNote,
   dryRun: boolean,
   stats: MigrationStats
 ): Promise<void> {
   // Check if already migrated (idempotent)
   const existingArtifacts = await ctx.runQuery(
     internal.models.voiceNoteArtifacts.getArtifactsByVoiceNote,
-    { voiceNoteId: vn._id as Id<"voiceNotes"> }
+    { voiceNoteId: vn._id }
   );
 
-  if ((existingArtifacts as unknown[]).length > 0) {
+  if (existingArtifacts.length > 0) {
     stats.skipped += 1;
     return;
   }
 
   if (dryRun) {
-    countDryRunStats(
-      vn as {
-        transcription?: string;
-        insights?: Record<string, unknown>[];
-      },
-      stats
-    );
+    countDryRunStats(vn, stats);
     return;
   }
 
@@ -369,14 +377,14 @@ async function processVoiceNote(
 
   // Create v2 artifact
   const artifactId = crypto.randomUUID();
-  const sourceChannel = mapSourceChannel(vn.source as string | undefined);
+  const sourceChannel = mapSourceChannel(vn.source);
 
   const artifactDocId = await ctx.runMutation(
     internal.models.voiceNoteArtifacts.createArtifact,
     {
       artifactId,
       sourceChannel,
-      senderUserId: vn.coachId as string,
+      senderUserId: vn.coachId,
       orgContextCandidates: [
         { organizationId: vn.orgId as string, confidence: 1.0 },
       ],
@@ -387,7 +395,7 @@ async function processVoiceNote(
   // Link artifact to v1 voiceNote
   await ctx.runMutation(internal.models.voiceNoteArtifacts.linkToVoiceNote, {
     artifactId,
-    voiceNoteId: vn._id as Id<"voiceNotes">,
+    voiceNoteId: vn._id,
   });
 
   // Create transcript if exists
@@ -396,20 +404,19 @@ async function processVoiceNote(
       ctx,
       artifactDocId,
       artifactId,
-      vn.transcription as string
+      vn.transcription
     );
     stats.transcripts += 1;
   }
 
   // Create claims from existing insights
-  const insights = vn.insights as Record<string, unknown>[] | undefined;
-  if (insights && insights.length > 0) {
+  if (vn.insights && vn.insights.length > 0) {
     const claimCount = await createClaimsForVn(
       ctx,
       {
-        insights,
+        insights: vn.insights,
         orgId: vn.orgId as string,
-        coachId: vn.coachId as string,
+        coachId: vn.coachId,
       },
       artifactDocId,
       artifactId

@@ -4,10 +4,11 @@
  * Pending insights awaiting coach confirmation before applying to player profiles.
  * Each draft has confidence scoring and supports auto-confirm for trusted coaches.
  *
- * 8 functions: 2 internal (pipeline) + 6 public (UI).
+ * 11 functions: 4 internal (pipeline + command handler) + 7 public (UI).
  */
 
 import { v } from "convex/values";
+import { internal } from "../_generated/api";
 import type { Id } from "../_generated/dataModel";
 import {
   internalMutation,
@@ -187,6 +188,11 @@ export const confirmDraft = mutation({
       throw new Error("Draft not found");
     }
 
+    // Status guard: only pending drafts can be confirmed
+    if (draft.status !== "pending") {
+      throw new Error(`Draft cannot be confirmed (status: ${draft.status})`);
+    }
+
     // Verify ownership: get artifact and check senderUserId
     const artifact = await ctx.db.get(draft.artifactId);
     if (!artifact) {
@@ -196,11 +202,18 @@ export const confirmDraft = mutation({
       throw new Error("Access denied: Draft does not belong to you");
     }
 
+    const now = Date.now();
+
     // Update status
     await ctx.db.patch(draft._id, {
       status: "confirmed",
-      confirmedAt: Date.now(),
-      updatedAt: Date.now(),
+      confirmedAt: now,
+      updatedAt: now,
+    });
+
+    // Schedule apply so the confirmed draft gets applied to player records
+    await ctx.scheduler.runAfter(0, internal.models.insightDrafts.applyDraft, {
+      draftId: args.draftId,
     });
 
     return null;
@@ -239,13 +252,18 @@ export const confirmAllDrafts = mutation({
 
     const now = Date.now();
 
-    // Confirm all
+    // Confirm all and schedule apply for each
     for (const draft of drafts) {
       await ctx.db.patch(draft._id, {
         status: "confirmed",
         confirmedAt: now,
         updatedAt: now,
       });
+      await ctx.scheduler.runAfter(
+        0,
+        internal.models.insightDrafts.applyDraft,
+        { draftId: draft.draftId }
+      );
     }
 
     return null;
@@ -273,6 +291,11 @@ export const rejectDraft = mutation({
 
     if (!draft) {
       throw new Error("Draft not found");
+    }
+
+    // Status guard: only pending drafts can be rejected
+    if (draft.status !== "pending") {
+      throw new Error(`Draft cannot be rejected (status: ${draft.status})`);
     }
 
     // Verify ownership

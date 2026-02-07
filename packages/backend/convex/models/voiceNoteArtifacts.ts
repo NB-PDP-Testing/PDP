@@ -214,14 +214,12 @@ export const getRecentArtifacts = query({
       args.limit ?? DEFAULT_RECENT_ARTIFACTS,
       MAX_RECENT_ARTIFACTS
     );
-    // Fetch recent artifacts then filter to current user's only.
-    // Platform staff debug: use an internal query if cross-org access is needed.
-    const allRecent = await ctx.db
+    return await ctx.db
       .query("voiceNoteArtifacts")
+      .withIndex("by_senderUserId_and_createdAt", (q) =>
+        q.eq("senderUserId", identity.subject)
+      )
       .order("desc")
-      .take(MAX_RECENT_ARTIFACTS);
-    return allRecent
-      .filter((a) => a.senderUserId === identity.subject)
-      .slice(0, limit);
+      .take(limit);
   },
 });

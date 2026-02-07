@@ -4316,7 +4316,8 @@ export default defineSchema({
     .index("by_topic", ["topic"])
     .index("by_org_and_coach", ["organizationId", "coachUserId"])
     .index("by_org_and_status", ["organizationId", "status"])
-    .index("by_resolvedPlayerIdentityId", ["resolvedPlayerIdentityId"]),
+    .index("by_resolvedPlayerIdentityId", ["resolvedPlayerIdentityId"])
+    .index("by_coachUserId", ["coachUserId"]),
 
   // ============================================================
   // VOICE NOTE ENTITY RESOLUTIONS (v2 Pipeline - Phase 5)

@@ -232,6 +232,10 @@ export const getClaimsByOrgAndCoach = query({
   },
   returns: v.array(claimObjectValidator),
   handler: async (ctx, args) => {
+    const identity = await ctx.auth.getUserIdentity();
+    if (!identity) {
+      return [];
+    }
     const limit = Math.min(
       args.limit ?? DEFAULT_CLAIMS_LIMIT,
       MAX_CLAIMS_LIMIT
@@ -248,7 +252,7 @@ export const getClaimsByOrgAndCoach = query({
   },
 });
 
-// ── 7. getRecentClaims (PUBLIC query) ─────────────────────────
+// ── 7. getRecentClaims (PUBLIC query — platform staff debug) ──
 
 export const getRecentClaims = query({
   args: {
@@ -256,6 +260,10 @@ export const getRecentClaims = query({
   },
   returns: v.array(claimObjectValidator),
   handler: async (ctx, args) => {
+    const identity = await ctx.auth.getUserIdentity();
+    if (!identity) {
+      return [];
+    }
     const limit = Math.min(
       args.limit ?? DEFAULT_RECENT_CLAIMS,
       MAX_RECENT_CLAIMS

@@ -17,6 +17,7 @@ import { useState } from "react";
 import { Badge } from "@/components/ui/badge";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Skeleton } from "@/components/ui/skeleton";
+import { useCurrentUser } from "@/hooks/use-current-user";
 
 // ── Topic display config ──────────────────────────────────────
 
@@ -287,12 +288,16 @@ function ArtifactList(props: {
 // ── Main page ─────────────────────────────────────────────────
 
 export default function V2ClaimsPage() {
-  const artifacts = useQuery(api.models.voiceNoteArtifacts.getRecentArtifacts, {
-    limit: 50,
-  });
-  const claims = useQuery(api.models.voiceNoteClaims.getRecentClaims, {
-    limit: 200,
-  });
+  const user = useCurrentUser();
+  const isPlatformStaff = user?.isPlatformStaff === true;
+  const artifacts = useQuery(
+    api.models.voiceNoteArtifacts.getRecentArtifacts,
+    isPlatformStaff ? { limit: 50 } : "skip"
+  );
+  const claims = useQuery(
+    api.models.voiceNoteClaims.getRecentClaims,
+    isPlatformStaff ? { limit: 200 } : "skip"
+  );
 
   const isLoading = artifacts === undefined || claims === undefined;
 

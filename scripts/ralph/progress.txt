@@ -899,3 +899,58 @@ Overall progress: 20/22 stories complete for Phases 1-4 (91%).
 - Feature flag E2 checked at integration point (claimsExtraction.ts) not inside entityResolution action
 
 ---
+
+## US-VN-018: Disambiguation UI with Analytics & Batch Resolution
+**Status**: COMPLETE
+**Commit**: 71bc8088
+**Date**: 2026-02-07
+
+### What was implemented:
+
+1. **Backend additions** (voiceNoteEntityResolutions.ts):
+   - `getDisambiguationForArtifact` (PUBLIC query) — artifact-scoped, uses by_artifactId_and_status index
+   - `rejectResolution` (PUBLIC mutation) — marks resolution as 'unresolved', logs disambiguate_reject_all analytics
+   - `skipResolution` (PUBLIC mutation) — logs disambiguate_skip analytics event without changing status
+
+2. **Schema extensions**:
+   - Made `linkCode` optional in reviewAnalyticsEvents (needed for non-review-link disambiguation events)
+   - Added disambiguate_accept, disambiguate_reject_all, disambiguate_skip event types
+   - Added `shouldUseEntityResolution` feature flag cascade in featureFlags.ts (env → platform → org → user)
+
+3. **Disambiguation page** (`disambiguation/[artifactId]/page.tsx`):
+   - Groups resolutions by rawText for batch same-name resolution (E6)
+   - Candidate cards with score bars (green ≥90%, yellow 70-90%, red <70%)
+   - Match reason badges: Irish alias, Exact first name, Similar name, Team context, etc. (E4)
+   - Resolve/reject/skip actions with toast notifications and Convex mutations
+   - Org-themed selection borders and confirm button via useOrgTheme()
+   - Summary card showing total, auto-resolved, and pending counts
+   - Loading skeleton while data loads
+
+4. **Disambiguation banner** (`components/disambiguation-banner.tsx`):
+   - Orange banner on voice notes dashboard when disambiguation queue has items
+   - Shows unique name count and voice note count
+   - Navigates to disambiguation page for first artifact
+
+5. **Dashboard integration** (voice-notes-dashboard.tsx):
+   - Added DisambiguationBanner component after AI degradation banner, before tabs
+
+### Quality checks:
+- `npx -w packages/backend convex codegen` — PASSES
+- `npm run check-types` — PASSES (0 errors)
+- `npx biome check` on all changed files — PASSES (0 errors)
+- `npm run build` — PASSES (route visible at /orgs/[orgId]/coach/voice-notes/disambiguation/[artifactId])
+- Lint-staged: PASSES on commit
+
+### Key decisions:
+- Used namespace import pattern for Next.js Route type (`import type * as NextTypes from "next"`) to avoid Biome stripping the import
+- Switched from Link to router.push() for dynamic route strings (Next.js typed routes limitation)
+- Extracted getScoreColor helper to avoid nested ternary (Biome noNestedTernary rule)
+- rejectResolution and skipResolution are separate mutations for clearer analytics tracking
+- linkCode made optional in analytics schema to support disambiguation context (no review link involved)
+
+---
+
+## PHASE 5 COMPLETE
+All 2 stories (US-VN-017 + US-VN-018) implemented and passing quality checks.
+
+---

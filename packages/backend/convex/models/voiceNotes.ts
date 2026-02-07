@@ -1,6 +1,6 @@
 import { v } from "convex/values";
 import { components, internal } from "../_generated/api";
-import type { Id } from "../_generated/dataModel";
+import type { Doc, Id } from "../_generated/dataModel";
 import {
   action,
   internalMutation,

@@ -10,6 +10,7 @@
 
 import type * as actions_claimsExtraction from "../actions/claimsExtraction.js";
 import type * as actions_coachParentSummaries from "../actions/coachParentSummaries.js";
+import type * as actions_entityResolution from "../actions/entityResolution.js";
 import type * as actions_guardianNotifications from "../actions/guardianNotifications.js";
 import type * as actions_invitations from "../actions/invitations.js";
 import type * as actions_messaging from "../actions/messaging.js";
@@ -71,6 +72,7 @@ import type * as models_cleanupOldData from "../models/cleanupOldData.js";
 import type * as models_coachOverrideAnalytics from "../models/coachOverrideAnalytics.js";
 import type * as models_coachParentMessages from "../models/coachParentMessages.js";
 import type * as models_coachParentSummaries from "../models/coachParentSummaries.js";
+import type * as models_coachPlayerAliases from "../models/coachPlayerAliases.js";
 import type * as models_coachTasks from "../models/coachTasks.js";
 import type * as models_coachTrustLevels from "../models/coachTrustLevels.js";
 import type * as models_coaches from "../models/coaches.js";
@@ -130,6 +132,7 @@ import type * as models_userPreferences from "../models/userPreferences.js";
 import type * as models_users from "../models/users.js";
 import type * as models_voiceNoteArtifacts from "../models/voiceNoteArtifacts.js";
 import type * as models_voiceNoteClaims from "../models/voiceNoteClaims.js";
+import type * as models_voiceNoteEntityResolutions from "../models/voiceNoteEntityResolutions.js";
 import type * as models_voiceNoteInsights from "../models/voiceNoteInsights.js";
 import type * as models_voiceNoteTranscripts from "../models/voiceNoteTranscripts.js";
 import type * as models_voiceNotes from "../models/voiceNotes.js";
@@ -185,6 +188,7 @@ import type {
 declare const fullApi: ApiFromModules<{
   "actions/claimsExtraction": typeof actions_claimsExtraction;
   "actions/coachParentSummaries": typeof actions_coachParentSummaries;
+  "actions/entityResolution": typeof actions_entityResolution;
   "actions/guardianNotifications": typeof actions_guardianNotifications;
   "actions/invitations": typeof actions_invitations;
   "actions/messaging": typeof actions_messaging;
@@ -246,6 +250,7 @@ declare const fullApi: ApiFromModules<{
   "models/coachOverrideAnalytics": typeof models_coachOverrideAnalytics;
   "models/coachParentMessages": typeof models_coachParentMessages;
   "models/coachParentSummaries": typeof models_coachParentSummaries;
+  "models/coachPlayerAliases": typeof models_coachPlayerAliases;
   "models/coachTasks": typeof models_coachTasks;
   "models/coachTrustLevels": typeof models_coachTrustLevels;
   "models/coaches": typeof models_coaches;
@@ -305,6 +310,7 @@ declare const fullApi: ApiFromModules<{
   "models/users": typeof models_users;
   "models/voiceNoteArtifacts": typeof models_voiceNoteArtifacts;
   "models/voiceNoteClaims": typeof models_voiceNoteClaims;
+  "models/voiceNoteEntityResolutions": typeof models_voiceNoteEntityResolutions;
   "models/voiceNoteInsights": typeof models_voiceNoteInsights;
   "models/voiceNoteTranscripts": typeof models_voiceNoteTranscripts;
   "models/voiceNotes": typeof models_voiceNotes;

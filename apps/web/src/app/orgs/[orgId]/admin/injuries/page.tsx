@@ -4,6 +4,20 @@ import { api } from "@pdp/backend/convex/_generated/api";
 import { useQuery } from "convex/react";
 import { useParams } from "next/navigation";
 import { useState } from "react";
+import {
+  Bar,
+  BarChart,
+  CartesianGrid,
+  Cell,
+  Line,
+  LineChart,
+  Pie,
+  PieChart,
+  ResponsiveContainer,
+  Tooltip,
+  XAxis,
+  YAxis,
+} from "recharts";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Skeleton } from "@/components/ui/skeleton";
@@ -35,6 +49,44 @@ function getDateRange(preset: DatePreset): {
   return { startDate: `${now.getFullYear()}-01-01`, endDate };
 }
 
+const MONTH_LABELS: Record<string, string> = {
+  "01": "Jan",
+  "02": "Feb",
+  "03": "Mar",
+  "04": "Apr",
+  "05": "May",
+  "06": "Jun",
+  "07": "Jul",
+  "08": "Aug",
+  "09": "Sep",
+  "10": "Oct",
+  "11": "Nov",
+  "12": "Dec",
+};
+
+const SEVERITY_COLORS: Record<string, string> = {
+  minor: "#22c55e",
+  moderate: "#f59e0b",
+  severe: "#f97316",
+  long_term: "#ef4444",
+};
+
+const CONTEXT_COLORS: Record<string, string> = {
+  training: "#3b82f6",
+  match: "#ef4444",
+  other_sport: "#8b5cf6",
+  non_sport: "#6b7280",
+  unknown: "#d1d5db",
+};
+
+const CONTEXT_LABELS: Record<string, string> = {
+  training: "Training",
+  match: "Match",
+  other_sport: "Other Sport",
+  non_sport: "Non-Sport",
+  unknown: "Unknown",
+};
+
 function SkeletonCard() {
   return (
     <Card>
@@ -61,6 +113,231 @@ function SkeletonChart() {
     </Card>
   );
 }
+
+// ============================================================
+// Chart Components
+// ============================================================
+
+function InjuryTrendChart({
+  data,
+}: {
+  data: { month: string; count: number }[];
+}) {
+  const chartData = data.map((d) => ({
+    ...d,
+    label: MONTH_LABELS[d.month.split("-")[1]] || d.month,
+  }));
+
+  if (chartData.every((d) => d.count === 0)) {
+    return (
+      <Card>
+        <CardHeader>
+          <CardTitle className="text-base">Injury Trends</CardTitle>
+        </CardHeader>
+        <CardContent className="flex items-center justify-center py-12">
+          <p className="text-muted-foreground">
+            No injury data for selected period
+          </p>
+        </CardContent>
+      </Card>
+    );
+  }
+
+  return (
+    <Card>
+      <CardHeader>
+        <CardTitle className="text-base">Injury Trends</CardTitle>
+      </CardHeader>
+      <CardContent>
+        <ResponsiveContainer height={300} width="100%">
+          <LineChart data={chartData}>
+            <CartesianGrid strokeDasharray="3 3" />
+            <XAxis dataKey="label" fontSize={12} />
+            <YAxis allowDecimals={false} fontSize={12} />
+            <Tooltip />
+            <Line
+              dataKey="count"
+              name="Injuries"
+              stroke="#3b82f6"
+              strokeWidth={2}
+              type="monotone"
+            />
+          </LineChart>
+        </ResponsiveContainer>
+      </CardContent>
+    </Card>
+  );
+}
+
+function BodyPartChart({
+  data,
+}: {
+  data: { bodyPart: string; count: number }[];
+}) {
+  // Limit to top 10
+  const chartData = data.slice(0, 10);
+
+  if (chartData.length === 0) {
+    return (
+      <Card>
+        <CardHeader>
+          <CardTitle className="text-base">Injuries by Body Part</CardTitle>
+        </CardHeader>
+        <CardContent className="flex items-center justify-center py-12">
+          <p className="text-muted-foreground">No data available</p>
+        </CardContent>
+      </Card>
+    );
+  }
+
+  return (
+    <Card>
+      <CardHeader>
+        <CardTitle className="text-base">Injuries by Body Part</CardTitle>
+      </CardHeader>
+      <CardContent>
+        <ResponsiveContainer height={300} width="100%">
+          <BarChart data={chartData} layout="vertical">
+            <CartesianGrid strokeDasharray="3 3" />
+            <XAxis allowDecimals={false} fontSize={12} type="number" />
+            <YAxis
+              dataKey="bodyPart"
+              fontSize={12}
+              type="category"
+              width={100}
+            />
+            <Tooltip />
+            <Bar dataKey="count" fill="#8b5cf6" name="Injuries" radius={4} />
+          </BarChart>
+        </ResponsiveContainer>
+      </CardContent>
+    </Card>
+  );
+}
+
+function SeverityChart({
+  data,
+}: {
+  data: { severity: string; count: number }[];
+}) {
+  const total = data.reduce((sum, d) => sum + d.count, 0);
+
+  if (total === 0) {
+    return (
+      <Card>
+        <CardHeader>
+          <CardTitle className="text-base">Severity Distribution</CardTitle>
+        </CardHeader>
+        <CardContent className="flex items-center justify-center py-12">
+          <p className="text-muted-foreground">No data available</p>
+        </CardContent>
+      </Card>
+    );
+  }
+
+  const chartData = data.map((d) => ({
+    ...d,
+    label: d.severity.replace("_", " "),
+    fill: SEVERITY_COLORS[d.severity] || "#6b7280",
+  }));
+
+  return (
+    <Card>
+      <CardHeader>
+        <CardTitle className="text-base">Severity Distribution</CardTitle>
+      </CardHeader>
+      <CardContent>
+        <div className="flex items-center justify-center">
+          <ResponsiveContainer height={300} width="100%">
+            <PieChart>
+              <Pie
+                cx="50%"
+                cy="50%"
+                data={chartData}
+                dataKey="count"
+                innerRadius={60}
+                label={({ severity, count }) =>
+                  `${severity} (${Math.round((count / total) * 100)}%)`
+                }
+                nameKey="label"
+                outerRadius={100}
+              >
+                {chartData.map((entry) => (
+                  <Cell fill={entry.fill} key={entry.severity} />
+                ))}
+              </Pie>
+              <Tooltip />
+            </PieChart>
+          </ResponsiveContainer>
+        </div>
+        <div className="mt-2 flex flex-wrap justify-center gap-4">
+          {chartData.map((d) => (
+            <div className="flex items-center gap-1.5 text-sm" key={d.severity}>
+              <div
+                className="h-3 w-3 rounded-full"
+                style={{ backgroundColor: d.fill }}
+              />
+              <span className="capitalize">{d.label}</span>
+              <span className="text-muted-foreground">({d.count})</span>
+            </div>
+          ))}
+        </div>
+      </CardContent>
+    </Card>
+  );
+}
+
+function InjuryContextChart({
+  data,
+}: {
+  data: { context: string; count: number }[];
+}) {
+  if (data.length === 0) {
+    return (
+      <Card>
+        <CardHeader>
+          <CardTitle className="text-base">Injury Context</CardTitle>
+        </CardHeader>
+        <CardContent className="flex items-center justify-center py-12">
+          <p className="text-muted-foreground">No data available</p>
+        </CardContent>
+      </Card>
+    );
+  }
+
+  const chartData = data.map((d) => ({
+    ...d,
+    label: CONTEXT_LABELS[d.context] || d.context,
+    fill: CONTEXT_COLORS[d.context] || "#6b7280",
+  }));
+
+  return (
+    <Card>
+      <CardHeader>
+        <CardTitle className="text-base">Injury Context</CardTitle>
+      </CardHeader>
+      <CardContent>
+        <ResponsiveContainer height={300} width="100%">
+          <BarChart data={chartData}>
+            <CartesianGrid strokeDasharray="3 3" />
+            <XAxis dataKey="label" fontSize={12} />
+            <YAxis allowDecimals={false} fontSize={12} />
+            <Tooltip />
+            <Bar dataKey="count" name="Injuries" radius={4}>
+              {chartData.map((entry) => (
+                <Cell fill={entry.fill} key={entry.context} />
+              ))}
+            </Bar>
+          </BarChart>
+        </ResponsiveContainer>
+      </CardContent>
+    </Card>
+  );
+}
+
+// ============================================================
+// Main Page
+// ============================================================
 
 export default function AdminInjuriesPage() {
   const params = useParams();
@@ -110,14 +387,24 @@ export default function AdminInjuriesPage() {
         </div>
       </div>
 
-      {/* Summary Cards Row */}
+      {/* Dashboard content */}
       {isLoading ? (
-        <div className="grid grid-cols-1 gap-4 md:grid-cols-2 lg:grid-cols-4">
-          <SkeletonCard />
-          <SkeletonCard />
-          <SkeletonCard />
-          <SkeletonCard />
-        </div>
+        <>
+          <div className="grid grid-cols-1 gap-4 md:grid-cols-2 lg:grid-cols-4">
+            <SkeletonCard />
+            <SkeletonCard />
+            <SkeletonCard />
+            <SkeletonCard />
+          </div>
+          <div className="grid grid-cols-1 gap-4 md:grid-cols-2">
+            <SkeletonChart />
+            <SkeletonChart />
+          </div>
+          <div className="grid grid-cols-1 gap-4 md:grid-cols-2">
+            <SkeletonChart />
+            <SkeletonChart />
+          </div>
+        </>
       ) : analytics.totalInjuries === 0 ? (
         <Card>
           <CardContent className="flex items-center justify-center py-12">
@@ -128,7 +415,7 @@ export default function AdminInjuriesPage() {
         </Card>
       ) : (
         <>
-          {/* Summary cards placeholder - US-ANA-007 */}
+          {/* Summary Cards */}
           <div className="grid grid-cols-1 gap-4 md:grid-cols-2 lg:grid-cols-4">
             <Card>
               <CardHeader className="pb-2">
@@ -180,16 +467,16 @@ export default function AdminInjuriesPage() {
             </Card>
           </div>
 
-          {/* Charts Row 1: Trends + Body Part - placeholders for US-ANA-008, US-ANA-009 */}
+          {/* Charts Row 1: Trends + Body Part */}
           <div className="grid grid-cols-1 gap-4 md:grid-cols-2">
-            <SkeletonChart />
-            <SkeletonChart />
+            <InjuryTrendChart data={analytics.byMonth} />
+            <BodyPartChart data={analytics.byBodyPart} />
           </div>
 
-          {/* Charts Row 2: Severity + Context - placeholders for US-ANA-010, US-ANA-011 */}
+          {/* Charts Row 2: Severity + Context */}
           <div className="grid grid-cols-1 gap-4 md:grid-cols-2">
-            <SkeletonChart />
-            <SkeletonChart />
+            <SeverityChart data={analytics.bySeverity} />
+            <InjuryContextChart data={analytics.byOccurredDuring} />
           </div>
 
           {/* Team Comparison placeholder - US-ANA-012 */}

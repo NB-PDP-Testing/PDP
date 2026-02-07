@@ -188,7 +188,7 @@
         "Lint passes: npx ultracite fix"
       ],
       "priority": 8,
-      "passes": false,
+      "passes": true,
       "notes": "Data comes from byMonth array in getOrgInjuryAnalytics. Recharts is already installed."
     },
     {
@@ -209,7 +209,7 @@
         "Lint passes: npx ultracite fix"
       ],
       "priority": 9,
-      "passes": false,
+      "passes": true,
       "notes": "Data comes from byBodyPart object in getOrgInjuryAnalytics. Transform to array and sort."
     },
     {
@@ -229,7 +229,7 @@
         "Lint passes: npx ultracite fix"
       ],
       "priority": 10,
-      "passes": false,
+      "passes": true,
       "notes": "Data comes from bySeverity object in getOrgInjuryAnalytics. Use consistent color coding across the dashboard."
     },
     {
@@ -248,7 +248,7 @@
         "Lint passes: npx ultracite fix"
       ],
       "priority": 11,
-      "passes": false,
+      "passes": true,
       "notes": "Data comes from byOccurredDuring object in getOrgInjuryAnalytics. Map enum values to display labels."
     },
     {

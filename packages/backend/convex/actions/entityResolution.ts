@@ -179,6 +179,13 @@ export const resolveEntities = internalAction({
       // 14. Update claim statuses based on resolution outcomes
       await updateClaimStatuses(ctx, unresolvedClaims, resolutions);
 
+      // 15. Schedule draft generation (Phase 6)
+      await ctx.scheduler.runAfter(
+        0,
+        internal.actions.draftGeneration.generateDrafts,
+        { artifactId: args.artifactId }
+      );
+
       // Log summary
       const counts = countResolutionStatuses(resolutions);
       console.info(

@@ -2687,3 +2687,61 @@ export const getAwaitingConfirmation = internalQuery({
     return note?._id ?? null;
   },
 });
+
+/**
+ * Get completed voice notes for v1-to-v2 migration.
+ * Returns notes with completed transcriptions for backfilling to v2 pipeline.
+ * Internal use only - called by migration action.
+ */
+export const getCompletedForMigration = internalQuery({
+  args: {
+    organizationId: v.optional(v.string()),
+    limit: v.number(),
+  },
+  returns: v.array(
+    v.object({
+      _id: v.id("voiceNotes"),
+      orgId: v.string(),
+      coachId: v.optional(v.string()),
+      source: sourceValidator,
+      transcription: v.optional(v.string()),
+      transcriptionStatus: v.optional(statusValidator),
+      insights: v.array(
+        v.object({
+          id: v.string(),
+          playerIdentityId: v.optional(v.id("playerIdentities")),
+          playerName: v.optional(v.string()),
+          title: v.string(),
+          description: v.string(),
+          category: v.optional(v.string()),
+          severity: v.optional(v.string()),
+          sentiment: v.optional(v.string()),
+        })
+      ),
+    })
+  ),
+  handler: async (ctx, args) => {
+    let notes: Doc<"voiceNotes">[];
+
+    // Filter by organization if provided - guard against undefined
+    if (args.organizationId !== undefined) {
+      notes = await ctx.db
+        .query("voiceNotes")
+        .withIndex("by_orgId", (q) =>
+          q.eq("orgId", args.organizationId as string)
+        )
+        .take(args.limit);
+    } else {
+      // No specific index for all orgs - take from default order
+      notes = await ctx.db.query("voiceNotes").take(args.limit);
+    }
+
+    // Filter to only completed transcriptions with transcripts
+    return notes.filter(
+      (note) =>
+        note.transcriptionStatus === "completed" &&
+        note.transcription &&
+        note.transcription.length > 0
+    );
+  },
+});

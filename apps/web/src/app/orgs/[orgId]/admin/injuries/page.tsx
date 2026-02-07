@@ -151,6 +151,43 @@ function SkeletonChart() {
 }
 
 // ============================================================
+// Trend Indicator (US-ANA-007 / US-ANA-016)
+// ============================================================
+
+/**
+ * Shows a trend indicator with arrow and percentage.
+ * `invertColors` flips the color logic: green for decrease (fewer injuries = good).
+ */
+function TrendIndicator({
+  change,
+  changePercent,
+  invertColors = false,
+}: {
+  change: number;
+  changePercent: number;
+  invertColors?: boolean;
+}) {
+  if (change === 0 && changePercent === 0) {
+    return (
+      <span className="text-muted-foreground text-xs">— vs last period</span>
+    );
+  }
+
+  // For most injury metrics, a decrease is good (green) and increase is bad (red)
+  // When invertColors is false: decrease = green, increase = red
+  const isPositiveChange = change > 0;
+  const isImprovement = invertColors ? isPositiveChange : !isPositiveChange;
+
+  return (
+    <span
+      className={`font-medium text-xs ${isImprovement ? "text-green-600" : "text-red-600"}`}
+    >
+      {isPositiveChange ? "↑" : "↓"} {Math.abs(changePercent)}% vs last period
+    </span>
+  );
+}
+
+// ============================================================
 // Chart Components
 // ============================================================
 
@@ -624,6 +661,14 @@ export default function AdminInjuriesPage() {
     endDate: dateRange.endDate,
   });
 
+  // Trend data for period comparison indicators on summary cards
+  const trendPeriodDays =
+    datePreset === "30d" ? 30 : datePreset === "90d" ? 90 : 30;
+  const trends = useQuery(api.models.playerInjuries.getInjuryTrends, {
+    organizationId: orgId,
+    periodDays: trendPeriodDays,
+  });
+
   // Separate query for CSV export (all injuries, no status filter, higher limit)
   const allInjuriesForExport = useQuery(
     api.models.playerInjuries.getRecentInjuriesForAdmin,
@@ -762,7 +807,7 @@ export default function AdminInjuriesPage() {
         </Card>
       ) : (
         <>
-          {/* Summary Cards */}
+          {/* Summary Cards with Trend Indicators */}
           <div className="grid grid-cols-1 gap-4 md:grid-cols-2 lg:grid-cols-4">
             <Card>
               <CardHeader className="pb-2">
@@ -773,6 +818,16 @@ export default function AdminInjuriesPage() {
               <CardContent>
                 <div className="font-bold text-2xl">
                   {analytics.totalInjuries}
+                </div>
+                <div className="mt-1">
+                  {trends ? (
+                    <TrendIndicator
+                      change={trends.changes.totalChange}
+                      changePercent={trends.changes.totalChangePercent}
+                    />
+                  ) : (
+                    <Skeleton className="h-3 w-24" />
+                  )}
                 </div>
               </CardContent>
             </Card>
@@ -786,6 +841,12 @@ export default function AdminInjuriesPage() {
                 <div className="font-bold text-2xl">
                   {analytics.activeCount + analytics.recoveringCount}
                 </div>
+                <div className="mt-1">
+                  <span className="text-muted-foreground text-xs">
+                    {analytics.activeCount} active, {analytics.recoveringCount}{" "}
+                    recovering
+                  </span>
+                </div>
               </CardContent>
             </Card>
             <Card>
@@ -798,6 +859,16 @@ export default function AdminInjuriesPage() {
                 <div className="font-bold text-2xl">
                   {analytics.avgRecoveryDays}
                 </div>
+                <div className="mt-1">
+                  {trends ? (
+                    <TrendIndicator
+                      change={trends.changes.avgRecoveryChange}
+                      changePercent={trends.changes.avgRecoveryChangePercent}
+                    />
+                  ) : (
+                    <Skeleton className="h-3 w-24" />
+                  )}
+                </div>
               </CardContent>
             </Card>
             <Card>
@@ -809,6 +880,11 @@ export default function AdminInjuriesPage() {
               <CardContent>
                 <div className="font-bold text-2xl">
                   {analytics.recurrenceRate}%
+                </div>
+                <div className="mt-1">
+                  <span className="text-muted-foreground text-xs">
+                    Players with repeat injuries
+                  </span>
                 </div>
               </CardContent>
             </Card>

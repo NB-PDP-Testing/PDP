@@ -1,4 +1,4 @@
-# Security Report - 2026-02-07 08:00:27
+# Security Report - 2026-02-07 17:48:52
 
 **Phase:** P9
 **Critical:** 2 | **High:** 5 | **Medium:** 0
@@ -61,6 +61,7 @@ packages/backend/convex/actions/coachParentSummaries.ts:      "ANTHROPIC_API_KEY
   - packages/backend/convex/models/passportSharing.ts
   - packages/backend/convex/models/playerGraduations.ts
   - packages/backend/convex/models/members.ts
+  - packages/backend/convex/models/voiceNoteEntityResolutions.ts
   - packages/backend/convex/models/users.ts
   - packages/backend/convex/models/skillAssessments.ts
   - packages/backend/convex/models/playerSelfAccess.ts

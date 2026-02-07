@@ -52,47 +52,69 @@
 
 ---
 
-### Phase 4: Claims Extraction (3 days) 🟢 START HERE
-**File**: `scripts/ralph/prd.json` (PRIMARY — updated for Phase 4)
-**Stories**: US-VN-015 to US-VN-016 (2 stories)
+### Phase 4: Claims Extraction (3 days) ✅ COMPLETE
+**File**: `phases/PHASE4_PRD.json`
+**Stories**: US-VN-015 to US-VN-016 (2 stories) — ALL COMPLETE
 **Dependencies**: Phase 3 complete ✅
 
-**CRITICAL — Read These First:**
-1. `scripts/ralph/prd.json` — working PRD with Phase 4 stories + critical reminders
-2. `context/PHASE4_CLAIMS_EXTRACTION.md` — **DETAILED implementation guide** with code snippets, schema, prompt template
-3. `context/MAIN_CONTEXT.md` — project overview
-4. `context/PHASE3_V2_MIGRATION.md` — v2 migration context (Phase 3 decisions)
+**What was built:**
+- `voiceNoteClaims` table + 7 functions (storeClaims, getClaimsByArtifact, getClaimsByArtifactAndStatus, updateClaimStatus, getClaimByClaimId, getClaimsByOrgAndCoach, getRecentClaims)
+- `coachContext.ts` shared helper (gatherCoachContext internalQuery — roster, teams, coaches)
+- `claimsExtraction.ts` action (extractClaims with GPT-4 structured output, 15 topic categories, Zod schema)
+- Deterministic + fuzzy player matching (0.85 threshold) populates resolvedPlayerIdentityId on claims
+- Pipeline hook in voiceNotes.ts: `scheduler.runAfter(0, extractClaims)` after "transcribed"
+- Platform debug viewer at `/platform/v2-claims` (auth-guarded, platform staff only)
+- All public queries have auth guards (ctx.auth.getUserIdentity())
+- crypto.randomUUID() for claim IDs
 
 **Key Design Decisions:**
 - Claims run ALONGSIDE v1 buildInsights (parallel, NOT replacing)
-- Separate action file `claimsExtraction.ts` (voiceNotes.ts is 1300+ lines)
-- Shared `coachContext.ts` helper (avoids duplicating 130+ lines from buildInsights)
-- 15 topic categories (8 more than v1's 7)
+- Claims created with status "extracted" (NOT "resolving")
+- Entity mentions preserved raw; resolved* fields are best-effort from Phase 4
 - Denormalized org/coach on claims for efficient querying
-- Entity mentions preserved raw; resolved* fields are best-effort
-- Platform debug viewer at `/platform/v2-claims`
-
-**Execution Order:**
-1. US-VN-015 (schema + model + helper + extraction action) — backend only
-2. US-VN-016 (pipeline hook + claims viewer) — 3 lines in voiceNotes.ts + frontend page
-
-**Context Files**:
-- `context/PHASE4_CLAIMS_EXTRACTION.md` ← PRIMARY (detailed implementation guide)
-- `context/MAIN_CONTEXT.md`
-- `context/PHASE3_V2_MIGRATION.md`
+- 15 topic categories (8 more than v1's 7)
 
 ---
 
-### Phase 5: Entity Resolution & Disambiguation (4 days)
-**File**: `phases/PHASE5_PRD.json`
+### Phase 5: Entity Resolution & Disambiguation (4 days) 🟢 START HERE
+**File**: `phases/PHASE5_PRD.json` (PRIMARY — updated with Phase 1-4 learnings + 6 enhancements)
 **Stories**: US-VN-017 to US-VN-018 (2 stories)
-**Dependencies**: Phase 4 complete (needs claims), Phase 1 (fuzzy matching)
+**Dependencies**: Phase 4 complete ✅, Phase 1 fuzzy matching ✅
+
+**CRITICAL — Read These First:**
+1. `phases/PHASE5_PRD.json` — updated PRD with corrected acceptance criteria + 6 enhancements
+2. `context/PHASE5_ENTITY_RESOLUTION.md` — **DETAILED implementation guide** with batch patterns, auth guards, threshold reference, enhancement integration
+3. `context/PHASE5_ENHANCEMENTS_CATALOG.md` — Full catalog of ALL 12 assessed enhancements (6 included, 6 deferred for future)
+4. `context/MAIN_CONTEXT.md` — project overview
+5. `context/PHASE3_V2_MIGRATION.md` — v2 migration context
+
+**6 ENHANCEMENTS INCLUDED (from Phases 1-4 infrastructure analysis):**
+- **E1**: Trust-Adaptive Threshold — use coach's `insightConfidenceThreshold` instead of hardcoded 0.9 (~1h)
+- **E2**: Feature Flag Gating — `entity_resolution_v2` flag controls entity resolution independently (~30m)
+- **E3**: Disambiguation Analytics — log `disambiguate_accept/reject_all/skip` events via existing `reviewAnalytics.ts` (~1h)
+- **E4**: Rich matchReason — show WHY a candidate matched (irish_alias, fuzzy_full_name, etc.) (~1h)
+- **E5**: Coach Alias Learning — `coachPlayerAliases` table, resolve once → remember forever (~3h)
+- **E6**: Batch Same-Name Resolution — group mentions by rawText, resolve all at once (~2h)
+
+**CRITICAL LEARNINGS FROM PHASE 4 (MUST FOLLOW):**
+- Phase 4 creates claims with status `"extracted"` — query for this status, NOT `"resolving"`
+- Phase 4 already does player matching (0.85 threshold) — SKIP claims with resolvedPlayerIdentityId set
+- `claimProcessing.ts` does NOT exist — the file is `claimsExtraction.ts`
+- `findSimilarPlayers` is an internalQuery — use `ctx.runQuery(internal.models...)`
+- ALL public queries/mutations MUST check `ctx.auth.getUserIdentity()`
+- Use BATCH pattern: collect unique names → query once per name → Map for O(1) lookup
+- Handle ALL entity types: player_name, team_name, group_reference, coach_name
+- Auto-resolve threshold: **personalized** via coach trust level (E1), fallback 0.9
+
+**Execution Order:**
+1. US-VN-017 (schema for both tables + models + resolution action with E1/E4/E5/E6 + integration with E2) — backend only
+2. US-VN-018 (disambiguation UI with E3 analytics + E4 matchReason badges + E6 batch display) — frontend + mutation
 
 **Context Files**:
+- `context/PHASE5_ENTITY_RESOLUTION.md` ← PRIMARY (detailed implementation guide with enhancements)
+- `context/PHASE5_ENHANCEMENTS_CATALOG.md` ← Full enhancement catalog (included + deferred)
 - `context/MAIN_CONTEXT.md`
 - `context/PHASE3_V2_MIGRATION.md`
-- `context/PHASE1_QUALITY_GATES.md` (fuzzy matching integration)
-- `docs/architecture/voice-notes-pipeline-v2.md`
 
 ---
 
@@ -223,16 +245,17 @@ After completing each phase, update this checklist:
 - [x] Phase 2: Coach Quick Review Microsite (7-9 days) ✅ COMPLETE
 - [x] Phase 2.5: Review Microsite Polish ✅ COMPLETE
 - [x] Phase 3: v2 Artifacts Foundation (3 days) ✅ COMPLETE
-- [ ] Phase 4: Claims Extraction (3 days) 🟢 START HERE
-- [ ] Phase 5: Entity Resolution & Disambiguation (4 days)
+- [x] Phase 4: Claims Extraction (3 days) ✅ COMPLETE
+- [ ] Phase 5: Entity Resolution & Disambiguation (4 days) 🟢 START HERE
 - [ ] Phase 6: Drafts & Confirmation Workflow (5 days)
 
-**Current Phase**: Phase 4 🟢
-**Overall Progress**: 82% (18/22 stories complete)
+**Current Phase**: Phase 5 🟢
+**Overall Progress**: 91% (19/21 stories complete)
 **Phase 1**: Complete (US-VN-001 to US-VN-006, 349 tests passing)
 **Phase 2**: Complete (US-VN-007 to US-VN-012, full mobile microsite)
 **Phase 2.5**: Complete (012a-012d, analytics + swipe + snooze + PWA)
 **Phase 3**: Complete (US-VN-013 + US-VN-014, v2 tables + feature flags + dual-path)
+**Phase 4**: Complete (US-VN-015 + US-VN-016, claims table + extraction action + viewer)
 
 ---
 
@@ -240,12 +263,13 @@ After completing each phase, update this checklist:
 
 Refer to:
 1. **Main Context**: `context/MAIN_CONTEXT.md`
-2. **Phase Guide**: `context/PHASE4_CLAIMS_EXTRACTION.md` (Phase 4)
-3. **Validation Reports**: `validation/` directory
-4. **Master PRD**: `PRD.json` (complete reference)
+2. **Phase Guide**: `context/PHASE5_ENTITY_RESOLUTION.md` (Phase 5)
+3. **Enhancements Catalog**: `context/PHASE5_ENHANCEMENTS_CATALOG.md` (E1-E12 assessment)
+4. **Validation Reports**: `validation/` directory
+5. **Master PRD**: `PRD.json` (complete reference)
 
 ---
 
-**Ready to start Phase 4!**
+**Ready to start Phase 5!**
 
-Read `scripts/ralph/prd.json` (the working PRD, updated for Phase 4) and `context/PHASE4_CLAIMS_EXTRACTION.md` to begin.
+Read `scripts/ralph/prd.json` (the working PRD) and `context/PHASE5_ENTITY_RESOLUTION.md` to begin. Also review `context/PHASE5_ENHANCEMENTS_CATALOG.md` for enhancement details.

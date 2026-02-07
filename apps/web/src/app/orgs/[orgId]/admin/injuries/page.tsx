@@ -2,8 +2,9 @@
 
 import { api } from "@pdp/backend/convex/_generated/api";
 import { useQuery } from "convex/react";
+import { Download } from "lucide-react";
 import { useParams } from "next/navigation";
-import { useState } from "react";
+import { useCallback, useState } from "react";
 import {
   Bar,
   BarChart,
@@ -18,6 +19,7 @@ import {
   XAxis,
   YAxis,
 } from "recharts";
+import { toast } from "sonner";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
@@ -593,6 +595,21 @@ function RecentInjuriesTable({
 // Main Page
 // ============================================================
 
+// ============================================================
+// CSV Export Helper
+// ============================================================
+
+function escapeCsvField(value: string | number | undefined | null): string {
+  if (value == null) {
+    return "";
+  }
+  const str = String(value);
+  if (str.includes(",") || str.includes('"') || str.includes("\n")) {
+    return `"${str.replace(/"/g, '""')}"`;
+  }
+  return str;
+}
+
 export default function AdminInjuriesPage() {
   const params = useParams();
   const orgId = params.orgId as string;
@@ -606,6 +623,68 @@ export default function AdminInjuriesPage() {
     startDate: dateRange.startDate,
     endDate: dateRange.endDate,
   });
+
+  // Separate query for CSV export (all injuries, no status filter, higher limit)
+  const allInjuriesForExport = useQuery(
+    api.models.playerInjuries.getRecentInjuriesForAdmin,
+    {
+      organizationId: orgId,
+      limit: 1000,
+    }
+  );
+
+  const handleExportCsv = useCallback(() => {
+    if (!allInjuriesForExport || allInjuriesForExport.length === 0) {
+      toast.error("No injury data to export");
+      return;
+    }
+
+    const headers = [
+      "Player Name",
+      "Team",
+      "Body Part",
+      "Injury Type",
+      "Severity",
+      "Status",
+      "Date Occurred",
+      "Days Out",
+      "Expected Return",
+      "Occurred During",
+      "Treatment",
+      "Medical Provider",
+    ];
+
+    const rows = allInjuriesForExport.map((injury) => [
+      escapeCsvField(injury.playerName),
+      escapeCsvField(injury.teamNames.join("; ")),
+      escapeCsvField(injury.bodyPart),
+      escapeCsvField(injury.injuryType),
+      escapeCsvField(injury.severity),
+      escapeCsvField(injury.status),
+      escapeCsvField(injury.dateOccurred),
+      escapeCsvField(injury.daysOut),
+      escapeCsvField(injury.expectedReturn),
+      escapeCsvField(injury.occurredDuring),
+      escapeCsvField(injury.treatment),
+      escapeCsvField(injury.medicalProvider),
+    ]);
+
+    const csvContent = [
+      headers.join(","),
+      ...rows.map((r) => r.join(",")),
+    ].join("\n");
+
+    const blob = new Blob([csvContent], { type: "text/csv;charset=utf-8;" });
+    const url = URL.createObjectURL(blob);
+    const link = document.createElement("a");
+    const today = new Date().toISOString().split("T")[0];
+    link.href = url;
+    link.download = `injury-report-${today}.csv`;
+    link.click();
+    URL.revokeObjectURL(url);
+
+    toast.success("Injury report exported successfully");
+  }, [allInjuriesForExport]);
 
   const isLoading = analytics === undefined;
 
@@ -621,7 +700,7 @@ export default function AdminInjuriesPage() {
             Organization-wide injury statistics and trends
           </p>
         </div>
-        <div className="flex gap-2">
+        <div className="flex flex-wrap gap-2">
           {(
             [
               { key: "30d", label: "Last 30 days" },
@@ -639,6 +718,17 @@ export default function AdminInjuriesPage() {
               {label}
             </Button>
           ))}
+          <Button
+            disabled={
+              !allInjuriesForExport || allInjuriesForExport.length === 0
+            }
+            onClick={handleExportCsv}
+            size="sm"
+            variant="outline"
+          >
+            <Download className="mr-1 h-4 w-4" />
+            Export CSV
+          </Button>
         </div>
       </div>
 

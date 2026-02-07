@@ -372,7 +372,7 @@ function buildClaimRecord(opts: {
   now: number;
 }): ClaimRecord {
   return {
-    claimId: `claim_${opts.now}_${Math.random().toString(36).slice(2, 11)}`,
+    claimId: `claim_${opts.now}_${crypto.randomUUID().slice(0, 8)}`,
     artifactId: opts.artifactId,
     sourceText: opts.claim.sourceText,
     topic: opts.claim.topic,
@@ -567,11 +567,11 @@ export const extractClaims = internalAction({
         { artifactId: artifact.artifactId, status: "completed" }
       );
 
-      console.log(
-        `[extractClaims] ✅ Extracted ${claimsToStore.length} claims for artifact ${artifact.artifactId}`
+      console.info(
+        `[extractClaims] Extracted ${claimsToStore.length} claims for artifact ${artifact.artifactId}`
       );
     } catch (error) {
-      console.error("[extractClaims] ❌ Failed:", error);
+      console.error("[extractClaims] Failed:", error);
       await markArtifactFailed(ctx, args.artifactId);
     }
 

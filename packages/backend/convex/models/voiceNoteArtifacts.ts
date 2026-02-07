@@ -206,6 +206,10 @@ export const getRecentArtifacts = query({
   },
   returns: v.array(artifactObjectValidator),
   handler: async (ctx, args) => {
+    const identity = await ctx.auth.getUserIdentity();
+    if (!identity) {
+      return [];
+    }
     const limit = Math.min(
       args.limit ?? DEFAULT_RECENT_ARTIFACTS,
       MAX_RECENT_ARTIFACTS

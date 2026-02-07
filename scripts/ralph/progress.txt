@@ -2,7 +2,7 @@
 
 **Branch**: feat/voice-gateways-v2
 **Started**: 2026-02-04
-**Current Phase**: Phase 4 - Claims Extraction
+**Current Phase**: Phase 5 - Entity Resolution & Disambiguation
 **Architecture Review**: COMPLETE (6 ADRs in docs/architecture/decisions/ADR-VN2-*)
 
 ---
@@ -779,5 +779,123 @@ All 2 stories (US-VN-015, US-VN-016) are now complete. The v2 claims extraction 
 - claimsExtraction.ts internalAction
 - Pipeline hook in voiceNotes.ts (parallel with v1)
 - Claims viewer at /platform/v2-claims
+
+### Post-implementation Fixes (code review findings):
+- Added auth guards (ctx.auth.getUserIdentity()) to all 3 public queries
+- Added useCurrentUser() + isPlatformStaff guard to v2-claims page
+- Replaced Math.random() with crypto.randomUUID() for claim IDs
+- Replaced console.log with console.info, removed emoji from logs
+- Commit: 2880d9f9 (fix: address code review findings)
+
+---
+
+## PHASE 4 COMPLETE
+All Phase 4 stories (US-VN-015, US-VN-016) complete + post-review fixes.
+Overall progress: 20/22 stories complete for Phases 1-4 (91%).
+
+---
+
+## Phase 5: Entity Resolution & Disambiguation - READY TO START
+
+### PRD & Context Files Updated
+- `phases/PHASE5_PRD.json` — Rewritten with Phase 1-4 learnings + 6 enhancements integrated
+- `context/PHASE5_ENTITY_RESOLUTION.md` — Detailed implementation guide with enhancement code snippets
+- `context/PHASE5_ENHANCEMENTS_CATALOG.md` — Full catalog of ALL 12 assessed enhancements (6 included, 6 deferred)
+- `RALPH_EXECUTION_GUIDE.md` — Updated progress + Phase 5 as current
+
+### 6 ENHANCEMENTS INCLUDED (from Phases 1-4 cross-cutting analysis):
+| # | Enhancement | What | Effort | Key Infrastructure |
+|---|-------------|------|--------|-------------------|
+| E1 | Trust-Adaptive Threshold | Coach's personalized insightConfidenceThreshold instead of 0.9 | ~1h | coachTrustLevels.ts |
+| E2 | Feature Flag Gating | entity_resolution_v2 flag with cascade evaluation | ~30m | featureFlags.ts |
+| E3 | Disambiguation Analytics | Log disambiguate_accept/reject_all/skip events | ~1h | reviewAnalytics.ts |
+| E4 | Rich matchReason | Show WHY candidate matched (irish_alias, fuzzy, etc.) | ~1h | stringMatching.ts |
+| E5 | Coach Alias Learning | coachPlayerAliases table — resolve once, remember forever | ~3h | NEW table |
+| E6 | Batch Same-Name | Group mentions by rawText, resolve all at once | ~2h | entityResolution.ts |
+
+### 6 DEFERRED ENHANCEMENTS (documented in PHASE5_ENHANCEMENTS_CATALOG.md):
+- E7: WhatsApp disambiguation notification (Phase 5.5)
+- E8: WhatsApp inline disambiguation (Phase 5.5)
+- E9: Snooze for disambiguation (Phase 5.5)
+- E10: Review microsite integration (Phase 5.5)
+- E11: Mention frequency tracking (Phase 6+)
+- E12: Category-aware auto-resolve rules (Phase 6+)
+
+### CRITICAL LEARNINGS FROM PHASE 4 (MUST FOLLOW):
+1. Phase 4 creates claims with status "extracted" — query for THIS status, NOT "resolving"
+2. Phase 4 already does player matching (0.85 threshold) — SKIP claims with resolvedPlayerIdentityId set
+3. claimProcessing.ts does NOT exist — the actual file is claimsExtraction.ts
+4. findSimilarPlayers is an internalQuery — use ctx.runQuery(internal.models...)
+5. ALL public queries/mutations MUST check ctx.auth.getUserIdentity()
+6. Use BATCH pattern: collect unique names → query once per name → Map for O(1) lookup
+7. Handle ALL entity types: player_name, team_name, group_reference, coach_name
+8. Auto-resolve threshold: PERSONALIZED via coach trust level (E1), fallback 0.9
+
+### Execution Order
+1. **US-VN-017**: Entity Resolution Table, Aliases & Action (2.5 days)
+   - Schema: voiceNoteEntityResolutions table + coachPlayerAliases table (E5)
+   - Model: voiceNoteEntityResolutions.ts (5 internal + 3 public with auth guards)
+   - Model: coachPlayerAliases.ts (2 internal + 1 public) (E5)
+   - Action: entityResolution.ts (internalAction, E1 trust threshold, E4 matchReason, E5 alias lookup, E6 batch grouping)
+   - Modify: claimsExtraction.ts (E2 feature flag check + scheduler call)
+
+2. **US-VN-018**: Disambiguation UI with Analytics & Batch Resolution (1.5 days)
+   - Frontend: /orgs/[orgId]/coach/voice-notes/disambiguation/[artifactId]/page.tsx
+   - E4: matchReason badges on candidates
+   - E6: Grouped by rawText ("Tommy (5 claims)")
+   - E3: Analytics logging on accept/reject/skip
+   - E5: Alias storage on resolve
+   - Lift queries to parent, pass as props
+   - Mobile-responsive, org theming, touch targets >= 44px
+
+---
+
+## US-VN-017: Entity Resolution Table, Aliases & Action
+**Status**: COMPLETE
+**Date**: 2026-02-07
+**Commit**: 6b07231e
+
+### What was built:
+1. **Model: voiceNoteEntityResolutions.ts** (5 internal + 3 public functions):
+   - storeResolutions (internalMutation) — batch insert resolution records
+   - getResolutionsByArtifact (internalQuery) — by_artifactId index
+   - getResolutionsByArtifactAndStatus (internalQuery) — composite index
+   - updateResolutionStatus (internalMutation) — patch single resolution
+   - batchUpdateResolutionsByRawText (internalMutation) — E6 batch update by rawText
+   - getResolutionsByClaim (PUBLIC query) — auth guard, by_claimId index
+   - getDisambiguationQueue (PUBLIC query) — auth guard, by_org_and_status index, limit 50/max 200
+   - resolveEntity (PUBLIC mutation) — auth guard, updates resolution + parent claim + E5 alias upsert + E6 batch same-name + E3 analytics event
+
+2. **Model: coachPlayerAliases.ts** (2 internal + 1 public):
+   - lookupAlias (internalQuery) — normalizes rawText, queries by_coach_org_rawText
+   - storeAlias (internalMutation) — upsert pattern (increment useCount or create new)
+   - getCoachAliases (PUBLIC query) — auth guard, returns aliases for authenticated coach
+
+3. **Action: entityResolution.ts** (internalAction with 6 enhancements):
+   - E1: Trust-adaptive threshold via getCoachTrustLevelInternal (fallback 0.9)
+   - E2: Feature flag checked at integration point in claimsExtraction.ts
+   - E3: Analytics event logged via scheduler in resolveEntity mutation
+   - E4: Rich matchReason (irish_alias, exact_first_name, fuzzy_full_name, etc. + team_context suffix)
+   - E5: Coach alias lookup BEFORE fuzzy matching (skip fuzzy if alias exists)
+   - E6: Group player_name mentions by normalized rawText, resolve once per unique name
+   - Refactored into 8 focused functions to stay under Biome complexity limit (max 15)
+   - Handles all 4 mention types: player_name, team_name, coach_name, group_reference
+
+4. **Integration**: Added feature flag check + scheduler call in claimsExtraction.ts (after storeClaims)
+
+5. **Exported**: ALIAS_TO_CANONICAL from stringMatching.ts for Irish name phonetic matching
+
+### Quality checks:
+- `npx -w packages/backend convex codegen` — PASSES
+- `npm run check-types` — PASSES (0 errors)
+- `npx biome check` on all files — PASSES (0 errors)
+- Lint-staged: PASSES on commit
+
+### Key decisions:
+- Schema tables were already in schema.ts (added during architecture review) — no schema changes needed
+- resolveEntity mutation inlines E5 alias upsert + E6 batch resolution (no scheduler needed since already in mutation context)
+- processEntityMentions refactored into 8 smaller functions to comply with Biome noExcessiveCognitiveComplexity (max 15)
+- Used options object pattern for functions with 5+ params (Biome useMaxParams limit is 4)
+- Feature flag E2 checked at integration point (claimsExtraction.ts) not inside entityResolution action
 
 ---

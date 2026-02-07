@@ -91,7 +91,7 @@
         "  - artifactId: v.id('voiceNoteArtifacts')",
         "  - claimId: v.id('voiceNoteClaims')",
         "  - playerIdentityId: v.optional(v.id('playerIdentities'))",
-        "  - insightType: v.union('injury','wellbeing','performance','attendance','behavior','skill_rating','development_milestone','note')",
+        "  - insightType: v.union('injury','skill_rating','skill_progress','behavior','performance','attendance','wellbeing','recovery','development_milestone','physical_development','parent_communication','tactical','team_culture','todo','session_plan') — mirrors voiceNoteClaims.topic exactly (15 types, NOT 8)",
         "  - title: v.string()",
         "  - description: v.string()",
         "  - evidence: v.object({ transcriptSnippet: v.string(), timestampStart: v.optional(v.number()) })",
@@ -103,12 +103,15 @@
         "  - organizationId: v.string() (denormalized for auth filtering)",
         "  - coachUserId: v.string() (denormalized for auth filtering)",
         "  - confirmedAt: v.optional(v.number())",
+        "  - displayOrder: v.number() — 1-indexed position for stable WhatsApp CONFIRM 1,2,3 numbering (ADR-VN2-028)",
+        "  - resolvedPlayerName: v.optional(v.string()) — denormalized from entity resolution for WhatsApp summary (avoids N+1 lookup)",
         "  - appliedAt: v.optional(v.number())",
         "  - createdAt: v.number()",
         "  - updatedAt: v.number()",
         "Indexes:",
         "  - by_draftId: ['draftId']",
         "  - by_artifactId: ['artifactId']",
+        "  - by_artifactId_and_status: ['artifactId', 'status'] — for command handler querying pending drafts per artifact (ADR-VN2-029)",
         "  - by_org_and_coach_and_status: ['organizationId', 'coachUserId', 'status']",
         "  - by_playerIdentityId_and_status: ['playerIdentityId', 'status']",
         "",
@@ -138,7 +141,11 @@
         "       - Calculate confidence scores",
         "       - Create draft record",
         "    5. Get coach trust level",
-        "    6. Auto-confirm logic: if overallConfidence >= 0.85 AND trust level >= 2, auto-confirm the draft",
+        "    6. Auto-confirm gate (ADR-VN2-024 — ALL conditions must pass):",
+        "       a. Coach trust level >= 2 (respecting preferredLevel cap)",
+        "       b. overallConfidence >= coach's personalized insightConfidenceThreshold (default 0.85)",
+        "       c. insightAutoApplyPreferences[insightType] !== false (per-category toggle)",
+        "       d. insightType NOT in ['injury', 'wellbeing', 'recovery'] — NEVER auto-confirm sensitive categories",
         "    7. For auto-confirmed drafts, schedule applyDraft",
         "",
         "--- INTEGRATION ---",
@@ -186,11 +193,11 @@
         "  Return type: { type: 'confirm_all' | 'confirm_specific' | 'cancel' | 'entity_mapping', draftNumbers?: number[], entityMapping?: { rawText: string, playerNames: string[], teamContext?: string } } | null",
         "  Returns null if text is not a recognized command (normal voice/text processing continues)",
         "",
-        "--- COMMAND HANDLER ---",
-        "Backend: Create actions/whatsappCommandHandler.ts",
-        "Function: handleCommand (internalAction)",
-        "  args: { coachUserId: v.string(), organizationId: v.string(), command: command object }",
-        "  returns: v.string() (response message to send back via WhatsApp)",
+        "--- COMMAND HANDLER (ADR-VN2-031) ---",
+        "Backend: Create lib/whatsappCommandHandler.ts",
+        "Function: handleCommand (async helper function — NOT a Convex action, because Convex cannot ctx.runAction from within an action. Called directly from processIncomingMessage which is already an internalAction with ctx.runQuery/ctx.runMutation access)",
+        "  Params: ctx (ActionCtx), coachUserId: string, organizationId: string, command: Command",
+        "  Returns: string (response message to send back via WhatsApp)",
         "  Logic:",
         "    1. Get pending drafts for coach in this org",
         "    2. If command.type === 'confirm_all':",
@@ -242,7 +249,7 @@
       "files": {
         "create": [
           "packages/backend/convex/lib/whatsappCommands.ts",
-          "packages/backend/convex/actions/whatsappCommandHandler.ts",
+          "packages/backend/convex/lib/whatsappCommandHandler.ts",
           "packages/backend/convex/__tests__/whatsappCommands.test.ts"
         ],
         "modify": [
@@ -264,7 +271,7 @@
         "  Logic:",
         "    1. Query voiceNotes with status='completed' (optionally filter by org)",
         "    2. Skip voiceNotes that already have a linked artifact (check voiceNoteArtifacts.by_voiceNoteId)",
-        "    3. Process in batches of batchSize (default 100)",
+        "    3. Process in batches of batchSize (default 50, max 200 — ADR-VN2-027 Convex timeout constraints)",
         "    4. For each voiceNote:",
         "       a. Generate artifactId (crypto.randomUUID())",
         "       b. Determine sourceChannel from voiceNote.source field",
@@ -322,9 +329,38 @@
     "NEVER pass null for optional Convex fields — omit the field entirely",
     "NEVER add a bare by_status index — always scope with organizationId"
   ],
+  "architectureReview": {
+    "status": "COMPLETED — 10 ADRs generated, 4 critical fixes applied to this PRD",
+    "adrs": [
+      "docs/architecture/decisions/ADR-VN2-023-draft-confidence-scoring-formula.md",
+      "docs/architecture/decisions/ADR-VN2-024-auto-confirm-threshold-and-trust-gating.md",
+      "docs/architecture/decisions/ADR-VN2-025-whatsapp-command-routing-and-concurrency.md",
+      "docs/architecture/decisions/ADR-VN2-026-draft-application-target-and-lifecycle.md",
+      "docs/architecture/decisions/ADR-VN2-027-migration-batch-size-and-timeout-strategy.md",
+      "docs/architecture/decisions/ADR-VN2-028-draft-numbering-stability-for-whatsapp-commands.md",
+      "docs/architecture/decisions/ADR-VN2-029-insight-drafts-schema-and-index-strategy.md",
+      "docs/architecture/decisions/ADR-VN2-030-draft-generation-scheduling-and-integration-point.md",
+      "docs/architecture/decisions/ADR-VN2-031-whatsapp-command-handler-as-internal-action.md",
+      "docs/architecture/decisions/ADR-VN2-032-migration-v1-field-mapping-and-idempotency.md"
+    ],
+    "criticalFixesApplied": [
+      "C1: insightType expanded from 8 to 15 types (mirrors voiceNoteClaims.topic)",
+      "C2: No bare by_status index (org-scoped indexes only)",
+      "C3: 5-status enum includes 'expired'",
+      "C4: Command handler is lib/ async helper (not action — Convex cannot ctx.runAction from action)"
+    ],
+    "warningsApplied": [
+      "W1: Added displayOrder field for stable WhatsApp numbering",
+      "W2: Added resolvedPlayerName denormalization",
+      "W4: Added by_artifactId_and_status index",
+      "W5: Auto-confirm gate expanded with category preferences, personalized threshold, sensitive category exclusions"
+    ],
+    "implementationGuidance": "scripts/ralph/agents/output/feedback.md"
+  },
   "ralphInstructions": {
     "executionMode": "sequential",
     "storyOrder": ["US-VN-019", "US-VN-020", "US-VN-021"],
+    "preImplementation": "Read ALL 10 ADRs in docs/architecture/decisions/ADR-VN2-023 through ADR-VN2-032 AND scripts/ralph/agents/output/feedback.md BEFORE starting any story",
     "testingStrategy": "Unit tests for whatsappCommands parser (US-VN-020). Manual testing for all stories.",
     "qualityCriteria": "npm run check-types passes, npm run build succeeds, manual test scenarios pass"
   }

@@ -2,6 +2,7 @@ import { v } from "convex/values";
 import { components } from "../_generated/api";
 import type { Doc } from "../_generated/dataModel";
 import { mutation, query } from "../_generated/server";
+import { authComponent } from "../auth";
 import type { Doc as BetterAuthDoc } from "../betterAuth/_generated/dataModel";
 import {
   notifyInjuryReported,
@@ -121,7 +122,13 @@ const injuryValidator = v.object({
 export const getInjuryById = query({
   args: { injuryId: v.id("playerInjuries") },
   returns: v.union(injuryValidator, v.null()),
-  handler: async (ctx, args) => await ctx.db.get(args.injuryId),
+  handler: async (ctx, args) => {
+    const user = await authComponent.safeGetAuthUser(ctx);
+    if (!user) {
+      throw new Error("Not authenticated");
+    }
+    return await ctx.db.get(args.injuryId);
+  },
 });
 
 /**
@@ -135,6 +142,11 @@ export const getInjuriesForPlayer = query({
   },
   returns: v.array(injuryValidator),
   handler: async (ctx, args) => {
+    const user = await authComponent.safeGetAuthUser(ctx);
+    if (!user) {
+      throw new Error("Not authenticated");
+    }
+
     let injuries: Doc<"playerInjuries">[];
 
     if (args.status) {
@@ -194,6 +206,11 @@ export const getInjuriesForMultiplePlayers = query({
     })
   ),
   handler: async (ctx, args) => {
+    const user = await authComponent.safeGetAuthUser(ctx);
+    if (!user) {
+      throw new Error("Not authenticated");
+    }
+
     if (args.playerIdentityIds.length === 0) {
       return [];
     }
@@ -252,6 +269,11 @@ export const getActiveInjuriesForOrg = query({
   },
   returns: v.array(injuryValidator),
   handler: async (ctx, args) => {
+    const user = await authComponent.safeGetAuthUser(ctx);
+    if (!user) {
+      throw new Error("Not authenticated");
+    }
+
     const injuries = await ctx.db
       .query("playerInjuries")
       .withIndex("by_playerIdentityId", (q) =>
@@ -302,22 +324,49 @@ export const getAllActiveInjuriesForOrg = query({
   },
   returns: v.array(v.any()),
   handler: async (ctx, args) => {
-    // Get all enrolled players in this org
-    const enrollments = await ctx.db
+    const user = await authComponent.safeGetAuthUser(ctx);
+    if (!user) {
+      throw new Error("Not authenticated");
+    }
+
+    // Get all active enrollments using composite index (no JS filter)
+    const activeEnrollments = await ctx.db
       .query("orgPlayerEnrollments")
-      .withIndex("by_organizationId", (q) =>
-        q.eq("organizationId", args.organizationId)
+      .withIndex("by_org_and_status", (q) =>
+        q.eq("organizationId", args.organizationId).eq("status", "active")
       )
       .collect();
 
-    const activeEnrollments = enrollments.filter((e) => e.status === "active");
-    const results = [];
+    // Deduplicate playerIdentityIds (same player can have multiple enrollments)
+    const uniquePlayerIds = [
+      ...new Set(activeEnrollments.map((e) => e.playerIdentityId)),
+    ];
 
-    for (const enrollment of activeEnrollments) {
+    // Batch fetch all player identities
+    const players = await Promise.all(
+      uniquePlayerIds.map((id) => ctx.db.get(id))
+    );
+    const playerMap = new Map<
+      string,
+      { _id: string; firstName: string; lastName: string }
+    >();
+    for (const p of players) {
+      if (p) {
+        playerMap.set(p._id, {
+          _id: p._id,
+          firstName: p.firstName,
+          lastName: p.lastName,
+        });
+      }
+    }
+
+    // Fetch injuries for each unique player
+    const results = [];
+    for (const playerId of uniquePlayerIds) {
       const injuries = await ctx.db
         .query("playerInjuries")
         .withIndex("by_playerIdentityId", (q) =>
-          q.eq("playerIdentityId", enrollment.playerIdentityId)
+          q.eq("playerIdentityId", playerId)
         )
         .collect();
 
@@ -326,32 +375,15 @@ export const getAllActiveInjuriesForOrg = query({
         if (injury.status === "healed" || injury.status === "cleared") {
           return false;
         }
-        if (injury.isVisibleToAllOrgs) {
-          return true;
-        }
-        if (injury.restrictedToOrgIds?.includes(args.organizationId)) {
-          return true;
-        }
-        if (injury.occurredAtOrgId === args.organizationId) {
-          return true;
-        }
-        return false;
+        return isInjuryVisibleToOrg(injury, args.organizationId);
       });
 
-      if (activeInjuries.length > 0) {
-        const player = await ctx.db.get(enrollment.playerIdentityId);
-        for (const injury of activeInjuries) {
-          results.push({
-            ...injury,
-            player: player
-              ? {
-                  _id: player._id,
-                  firstName: player.firstName,
-                  lastName: player.lastName,
-                }
-              : null,
-          });
-        }
+      const player = playerMap.get(playerId);
+      for (const injury of activeInjuries) {
+        results.push({
+          ...injury,
+          player: player ?? null,
+        });
       }
     }
 
@@ -370,60 +402,72 @@ export const getAllInjuriesForOrg = query({
   },
   returns: v.array(v.any()),
   handler: async (ctx, args) => {
-    // Get all enrolled players in this org
-    const enrollments = await ctx.db
+    const user = await authComponent.safeGetAuthUser(ctx);
+    if (!user) {
+      throw new Error("Not authenticated");
+    }
+
+    // Get all active enrollments using composite index (no JS filter)
+    const activeEnrollments = await ctx.db
       .query("orgPlayerEnrollments")
-      .withIndex("by_organizationId", (q) =>
-        q.eq("organizationId", args.organizationId)
+      .withIndex("by_org_and_status", (q) =>
+        q.eq("organizationId", args.organizationId).eq("status", "active")
       )
       .collect();
 
-    const activeEnrollments = enrollments.filter((e) => e.status === "active");
-    const results = [];
+    // Deduplicate playerIdentityIds and build enrollment lookup for ageGroup
+    const uniquePlayerIds = [
+      ...new Set(activeEnrollments.map((e) => e.playerIdentityId)),
+    ];
+    const enrollmentMap = new Map<string, { ageGroup: string }>();
+    for (const e of activeEnrollments) {
+      enrollmentMap.set(e.playerIdentityId, { ageGroup: e.ageGroup });
+    }
 
-    for (const enrollment of activeEnrollments) {
+    // Batch fetch all player identities
+    const players = await Promise.all(
+      uniquePlayerIds.map((id) => ctx.db.get(id))
+    );
+    const playerMap = new Map<
+      string,
+      { _id: string; firstName: string; lastName: string }
+    >();
+    for (const p of players) {
+      if (p) {
+        playerMap.set(p._id, {
+          _id: p._id,
+          firstName: p.firstName,
+          lastName: p.lastName,
+        });
+      }
+    }
+
+    // Fetch injuries for each unique player
+    const results = [];
+    for (const playerId of uniquePlayerIds) {
       const injuries = await ctx.db
         .query("playerInjuries")
         .withIndex("by_playerIdentityId", (q) =>
-          q.eq("playerIdentityId", enrollment.playerIdentityId)
+          q.eq("playerIdentityId", playerId)
         )
         .collect();
 
-      // Filter by status if provided, otherwise return all visible to this org
+      // Filter by status and visibility
       const filteredInjuries = injuries.filter((injury) => {
-        // Status filter
         if (args.status && injury.status !== args.status) {
           return false;
         }
-
-        // Visibility filter
-        if (injury.isVisibleToAllOrgs) {
-          return true;
-        }
-        if (injury.restrictedToOrgIds?.includes(args.organizationId)) {
-          return true;
-        }
-        if (injury.occurredAtOrgId === args.organizationId) {
-          return true;
-        }
-        return false;
+        return isInjuryVisibleToOrg(injury, args.organizationId);
       });
 
-      if (filteredInjuries.length > 0) {
-        const player = await ctx.db.get(enrollment.playerIdentityId);
-        for (const injury of filteredInjuries) {
-          results.push({
-            ...injury,
-            player: player
-              ? {
-                  _id: player._id,
-                  firstName: player.firstName,
-                  lastName: player.lastName,
-                }
-              : null,
-            ageGroup: enrollment.ageGroup,
-          });
-        }
+      const player = playerMap.get(playerId);
+      const enrollment = enrollmentMap.get(playerId);
+      for (const injury of filteredInjuries) {
+        results.push({
+          ...injury,
+          player: player ?? null,
+          ageGroup: enrollment?.ageGroup,
+        });
       }
     }
 
@@ -447,6 +491,11 @@ export const getInjuryHistoryByBodyPart = query({
   },
   returns: v.array(injuryValidator),
   handler: async (ctx, args) => {
+    const user = await authComponent.safeGetAuthUser(ctx);
+    if (!user) {
+      throw new Error("Not authenticated");
+    }
+
     const injuries = await ctx.db
       .query("playerInjuries")
       .withIndex("by_playerIdentityId", (q) =>
@@ -489,6 +538,11 @@ export const getInjuryStats = query({
     ),
   }),
   handler: async (ctx, args) => {
+    const user = await authComponent.safeGetAuthUser(ctx);
+    if (!user) {
+      throw new Error("Not authenticated");
+    }
+
     const injuries = await ctx.db
       .query("playerInjuries")
       .withIndex("by_playerIdentityId", (q) =>
@@ -715,6 +769,11 @@ export const getOrgInjuryAnalytics = query({
   },
   returns: analyticsReturnValidator,
   handler: async (ctx, args) => {
+    const user = await authComponent.safeGetAuthUser(ctx);
+    if (!user) {
+      throw new Error("Not authenticated");
+    }
+
     // 1. Get all active enrollments for the org
     const enrollments = await ctx.db
       .query("orgPlayerEnrollments")
@@ -758,6 +817,16 @@ export const getOrgInjuryAnalytics = query({
 
 /** Compute summary stats for a set of injuries belonging to a team. */
 function computeTeamInjuryStats(injuries: Doc<"playerInjuries">[]) {
+  if (injuries.length === 0) {
+    return {
+      totalInjuries: 0,
+      activeCount: 0,
+      avgSeverity: "minor",
+      mostCommonBodyPart: "N/A",
+      mostCommonType: "N/A",
+    };
+  }
+
   const severityOrder: Record<string, number> = {
     minor: 1,
     moderate: 2,
@@ -833,6 +902,11 @@ export const getInjuriesByTeam = query({
     })
   ),
   handler: async (ctx, args) => {
+    const user = await authComponent.safeGetAuthUser(ctx);
+    if (!user) {
+      throw new Error("Not authenticated");
+    }
+
     // 1. Fetch all teams for the org via Better Auth adapter
     const teamsResult = await ctx.runQuery(
       components.betterAuth.adapter.findMany,
@@ -979,6 +1053,11 @@ export const getInjuryTrends = query({
     }),
   }),
   handler: async (ctx, args) => {
+    const user = await authComponent.safeGetAuthUser(ctx);
+    if (!user) {
+      throw new Error("Not authenticated");
+    }
+
     const days = args.periodDays ?? 30;
     const now = new Date();
 
@@ -1107,6 +1186,11 @@ export const getRecentInjuriesForAdmin = query({
     })
   ),
   handler: async (ctx, args) => {
+    const user = await authComponent.safeGetAuthUser(ctx);
+    if (!user) {
+      throw new Error("Not authenticated");
+    }
+
     const maxResults = args.limit ?? 50;
 
     // 1. Get all active enrollments
@@ -1286,6 +1370,11 @@ export const reportInjury = mutation({
   },
   returns: v.id("playerInjuries"),
   handler: async (ctx, args) => {
+    const user = await authComponent.safeGetAuthUser(ctx);
+    if (!user) {
+      throw new Error("Not authenticated");
+    }
+
     // Verify player exists
     const player = await ctx.db.get(args.playerIdentityId);
     if (!player) {
@@ -1357,6 +1446,11 @@ export const updateInjuryStatus = mutation({
   },
   returns: v.null(),
   handler: async (ctx, args) => {
+    const user = await authComponent.safeGetAuthUser(ctx);
+    if (!user) {
+      throw new Error("Not authenticated");
+    }
+
     const existing = await ctx.db.get(args.injuryId);
     if (!existing) {
       throw new Error("Injury not found");
@@ -1430,6 +1524,11 @@ export const updateInjuryDetails = mutation({
   },
   returns: v.null(),
   handler: async (ctx, args) => {
+    const user = await authComponent.safeGetAuthUser(ctx);
+    if (!user) {
+      throw new Error("Not authenticated");
+    }
+
     const existing = await ctx.db.get(args.injuryId);
     if (!existing) {
       throw new Error("Injury not found");
@@ -1478,6 +1577,11 @@ export const updateInjury = mutation({
   },
   returns: v.null(),
   handler: async (ctx, args) => {
+    const user = await authComponent.safeGetAuthUser(ctx);
+    if (!user) {
+      throw new Error("Not authenticated");
+    }
+
     const existing = await ctx.db.get(args.injuryId);
     if (!existing) {
       throw new Error("Injury not found");
@@ -1578,6 +1682,11 @@ export const updateInjuryVisibility = mutation({
   },
   returns: v.null(),
   handler: async (ctx, args) => {
+    const user = await authComponent.safeGetAuthUser(ctx);
+    if (!user) {
+      throw new Error("Not authenticated");
+    }
+
     const existing = await ctx.db.get(args.injuryId);
     if (!existing) {
       throw new Error("Injury not found");
@@ -1603,6 +1712,11 @@ export const setReturnToPlayProtocol = mutation({
   },
   returns: v.null(),
   handler: async (ctx, args) => {
+    const user = await authComponent.safeGetAuthUser(ctx);
+    if (!user) {
+      throw new Error("Not authenticated");
+    }
+
     const existing = await ctx.db.get(args.injuryId);
     if (!existing) {
       throw new Error("Injury not found");
@@ -1628,6 +1742,11 @@ export const completeProtocolStep = mutation({
   },
   returns: v.null(),
   handler: async (ctx, args) => {
+    const user = await authComponent.safeGetAuthUser(ctx);
+    if (!user) {
+      throw new Error("Not authenticated");
+    }
+
     const existing = await ctx.db.get(args.injuryId);
     if (!existing) {
       throw new Error("Injury not found");
@@ -1666,6 +1785,11 @@ export const deleteInjury = mutation({
   args: { injuryId: v.id("playerInjuries") },
   returns: v.null(),
   handler: async (ctx, args) => {
+    const user = await authComponent.safeGetAuthUser(ctx);
+    if (!user) {
+      throw new Error("Not authenticated");
+    }
+
     const existing = await ctx.db.get(args.injuryId);
     if (!existing) {
       throw new Error("Injury not found");
@@ -1728,6 +1852,11 @@ export const setRecoveryPlan = mutation({
   },
   returns: v.null(),
   handler: async (ctx, args) => {
+    const user = await authComponent.safeGetAuthUser(ctx);
+    if (!user) {
+      throw new Error("Not authenticated");
+    }
+
     const existing = await ctx.db.get(args.injuryId);
     if (!existing) {
       throw new Error("Injury not found");
@@ -1783,6 +1912,11 @@ export const addMilestone = mutation({
   },
   returns: v.string(), // Returns the new milestone ID
   handler: async (ctx, args) => {
+    const user = await authComponent.safeGetAuthUser(ctx);
+    if (!user) {
+      throw new Error("Not authenticated");
+    }
+
     const existing = await ctx.db.get(args.injuryId);
     if (!existing) {
       throw new Error("Injury not found");
@@ -1838,6 +1972,11 @@ export const updateMilestone = mutation({
   },
   returns: v.null(),
   handler: async (ctx, args) => {
+    const user = await authComponent.safeGetAuthUser(ctx);
+    if (!user) {
+      throw new Error("Not authenticated");
+    }
+
     const existing = await ctx.db.get(args.injuryId);
     if (!existing) {
       throw new Error("Injury not found");
@@ -1928,6 +2067,11 @@ export const removeMilestone = mutation({
   },
   returns: v.null(),
   handler: async (ctx, args) => {
+    const user = await authComponent.safeGetAuthUser(ctx);
+    if (!user) {
+      throw new Error("Not authenticated");
+    }
+
     const existing = await ctx.db.get(args.injuryId);
     if (!existing) {
       throw new Error("Injury not found");
@@ -1963,6 +2107,11 @@ export const addProgressUpdate = mutation({
   },
   returns: v.id("injuryProgressUpdates"),
   handler: async (ctx, args) => {
+    const user = await authComponent.safeGetAuthUser(ctx);
+    if (!user) {
+      throw new Error("Not authenticated");
+    }
+
     const existing = await ctx.db.get(args.injuryId);
     if (!existing) {
       throw new Error("Injury not found");
@@ -2014,6 +2163,11 @@ export const getProgressUpdates = query({
     })
   ),
   handler: async (ctx, args) => {
+    const user = await authComponent.safeGetAuthUser(ctx);
+    if (!user) {
+      throw new Error("Not authenticated");
+    }
+
     const limit = args.limit ?? 50;
 
     const updates = await ctx.db
@@ -2040,6 +2194,11 @@ export const recordMedicalClearance = mutation({
   },
   returns: v.null(),
   handler: async (ctx, args) => {
+    const user = await authComponent.safeGetAuthUser(ctx);
+    if (!user) {
+      throw new Error("Not authenticated");
+    }
+
     const existing = await ctx.db.get(args.injuryId);
     if (!existing) {
       throw new Error("Injury not found");

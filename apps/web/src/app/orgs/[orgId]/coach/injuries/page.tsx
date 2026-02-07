@@ -232,15 +232,21 @@ export default function InjuryTrackingPage() {
       : "skip"
   );
 
-  const activeInjuriesForOrg = useQuery(
-    api.models.playerInjuries.getAllActiveInjuriesForOrg,
-    { organizationId: orgId }
-  );
-
   const allInjuriesForOrg = useQuery(
     api.models.playerInjuries.getAllInjuriesForOrg,
     { organizationId: orgId }
   );
+
+  // Derive active injuries from allInjuriesForOrg to avoid redundant query
+  const activeInjuriesForOrg = useMemo(() => {
+    if (!allInjuriesForOrg) {
+      return;
+    }
+    return allInjuriesForOrg.filter(
+      (i: { status: string }) =>
+        i.status === "active" || i.status === "recovering"
+    );
+  }, [allInjuriesForOrg]);
 
   // Mutations
   const reportInjury = useMutation(api.models.playerInjuries.reportInjury);

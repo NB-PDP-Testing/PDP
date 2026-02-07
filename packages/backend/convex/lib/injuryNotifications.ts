@@ -233,20 +233,19 @@ export async function notifyInjuryReported(
 
   const message = `${playerName} - ${bodyPart} ${injuryType.toLowerCase()}`;
 
-  // Create notifications in parallel (no link - informational only for now)
-  await Promise.all(
-    uniqueRecipients.map((userId) =>
-      ctx.runMutation(internal.models.notifications.createNotification, {
-        userId,
-        organizationId,
-        type: notificationType,
-        title,
-        message,
-        relatedInjuryId: injuryId,
-        relatedPlayerId: playerIdentityId,
-      })
-    )
-  );
+  // Create notifications via direct db.insert (avoids ctx.runMutation overhead)
+  for (const userId of uniqueRecipients) {
+    await ctx.db.insert("notifications", {
+      userId,
+      organizationId,
+      type: notificationType,
+      title,
+      message,
+      relatedInjuryId: injuryId,
+      relatedPlayerId: playerIdentityId,
+      createdAt: Date.now(),
+    });
+  }
 
   console.log(
     `[notifyInjuryReported] Created ${uniqueRecipients.length} notifications for injury ${injuryId}`
@@ -318,20 +317,19 @@ export async function notifyStatusChanged(
       ? `${playerName} has been cleared to return to play (${bodyPart})`
       : `${playerName}'s ${bodyPart} injury has fully healed`;
 
-  // Create notifications in parallel (no link - informational only for now)
-  await Promise.all(
-    uniqueRecipients.map((userId) =>
-      ctx.runMutation(internal.models.notifications.createNotification, {
-        userId,
-        organizationId,
-        type: notificationType,
-        title,
-        message,
-        relatedInjuryId: injuryId,
-        relatedPlayerId: playerIdentityId,
-      })
-    )
-  );
+  // Create notifications via direct db.insert (avoids ctx.runMutation overhead)
+  for (const userId of uniqueRecipients) {
+    await ctx.db.insert("notifications", {
+      userId,
+      organizationId,
+      type: notificationType,
+      title,
+      message,
+      relatedInjuryId: injuryId,
+      relatedPlayerId: playerIdentityId,
+      createdAt: Date.now(),
+    });
+  }
 
   console.log(
     `[notifyStatusChanged] Created ${uniqueRecipients.length} notifications for status change to ${newStatus}`
@@ -403,19 +401,19 @@ export async function notifyMilestoneCompleted(
   const title = "Recovery Milestone Completed";
   const message = `${playerName} - ${milestoneDescription}`;
 
-  await Promise.all(
-    uniqueRecipients.map((userId) =>
-      ctx.runMutation(internal.models.notifications.createNotification, {
-        userId,
-        organizationId,
-        type: "milestone_completed",
-        title,
-        message,
-        relatedInjuryId: injuryId,
-        relatedPlayerId: playerIdentityId,
-      })
-    )
-  );
+  // Create notifications via direct db.insert (avoids ctx.runMutation overhead)
+  for (const userId of uniqueRecipients) {
+    await ctx.db.insert("notifications", {
+      userId,
+      organizationId,
+      type: "milestone_completed",
+      title,
+      message,
+      relatedInjuryId: injuryId,
+      relatedPlayerId: playerIdentityId,
+      createdAt: Date.now(),
+    });
+  }
 
   console.log(
     `[notifyMilestoneCompleted] Created ${uniqueRecipients.length} notifications for milestone completion`
@@ -472,19 +470,19 @@ export async function notifyMedicalClearance(
   const title = "Medical Clearance Received";
   const message = `${playerName} - medical clearance received for ${bodyPart} injury`;
 
-  await Promise.all(
-    uniqueRecipients.map((userId) =>
-      ctx.runMutation(internal.models.notifications.createNotification, {
-        userId,
-        organizationId,
-        type: "clearance_received",
-        title,
-        message,
-        relatedInjuryId: injuryId,
-        relatedPlayerId: playerIdentityId,
-      })
-    )
-  );
+  // Create notifications via direct db.insert (avoids ctx.runMutation overhead)
+  for (const userId of uniqueRecipients) {
+    await ctx.db.insert("notifications", {
+      userId,
+      organizationId,
+      type: "clearance_received",
+      title,
+      message,
+      relatedInjuryId: injuryId,
+      relatedPlayerId: playerIdentityId,
+      createdAt: Date.now(),
+    });
+  }
 
   console.log(
     `[notifyMedicalClearance] Created ${uniqueRecipients.length} notifications for medical clearance`

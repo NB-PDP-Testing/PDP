@@ -1,5 +1,6 @@
 import { v } from "convex/values";
 import { action, mutation, query } from "../_generated/server";
+import { authComponent } from "../auth";
 
 // ============================================================
 // INJURY DOCUMENTS - Phase 2 Issue #261
@@ -33,7 +34,13 @@ const uploaderRoleValidator = v.union(
 export const generateUploadUrl = action({
   args: {},
   returns: v.string(),
-  handler: async (ctx) => await ctx.storage.generateUploadUrl(),
+  handler: async (ctx) => {
+    const identity = await ctx.auth.getUserIdentity();
+    if (!identity) {
+      throw new Error("Not authenticated");
+    }
+    return await ctx.storage.generateUploadUrl();
+  },
 });
 
 /**
@@ -55,6 +62,11 @@ export const saveDocument = mutation({
   },
   returns: v.id("injuryDocuments"),
   handler: async (ctx, args) => {
+    const user = await authComponent.safeGetAuthUser(ctx);
+    if (!user) {
+      throw new Error("Not authenticated");
+    }
+
     // Verify injury exists
     const injury = await ctx.db.get(args.injuryId);
     if (!injury) {
@@ -126,18 +138,24 @@ export const getDocuments = query({
     })
   ),
   handler: async (ctx, args) => {
+    const user = await authComponent.safeGetAuthUser(ctx);
+    if (!user) {
+      throw new Error("Not authenticated");
+    }
+
     const documents = await ctx.db
       .query("injuryDocuments")
       .withIndex("by_injury", (q) => q.eq("injuryId", args.injuryId))
       .collect();
 
     // Filter out private documents not uploaded by the current user
+    // Use authenticated user ID for access control
+    const effectiveUserId = user._id;
     return documents.filter((doc) => {
       if (!doc.isPrivate) {
         return true;
       }
-      // Only show private docs to the uploader
-      return doc.uploadedBy === args.userId;
+      return doc.uploadedBy === effectiveUserId;
     });
   },
 });
@@ -167,11 +185,17 @@ export const getDocumentsAdmin = query({
       createdAt: v.number(),
     })
   ),
-  handler: async (ctx, args) =>
-    await ctx.db
+  handler: async (ctx, args) => {
+    const user = await authComponent.safeGetAuthUser(ctx);
+    if (!user) {
+      throw new Error("Not authenticated");
+    }
+
+    return await ctx.db
       .query("injuryDocuments")
       .withIndex("by_injury", (q) => q.eq("injuryId", args.injuryId))
-      .collect(),
+      .collect();
+  },
 });
 
 /**
@@ -184,13 +208,18 @@ export const getDownloadUrl = query({
   },
   returns: v.union(v.string(), v.null()),
   handler: async (ctx, args) => {
+    const user = await authComponent.safeGetAuthUser(ctx);
+    if (!user) {
+      throw new Error("Not authenticated");
+    }
+
     const document = await ctx.db.get(args.documentId);
     if (!document) {
       return null;
     }
 
-    // Check access for private documents
-    if (document.isPrivate && document.uploadedBy !== args.userId) {
+    // Check access for private documents using authenticated user ID
+    if (document.isPrivate && document.uploadedBy !== user._id) {
       return null;
     }
 
@@ -208,13 +237,18 @@ export const deleteDocument = mutation({
   },
   returns: v.null(),
   handler: async (ctx, args) => {
+    const user = await authComponent.safeGetAuthUser(ctx);
+    if (!user) {
+      throw new Error("Not authenticated");
+    }
+
     const document = await ctx.db.get(args.documentId);
     if (!document) {
       throw new Error("Document not found");
     }
 
-    // Only uploader can delete their own documents
-    if (document.uploadedBy !== args.userId) {
+    // Only uploader can delete their own documents (use authenticated user ID)
+    if (document.uploadedBy !== user._id) {
       throw new Error("Not authorized to delete this document");
     }
 
@@ -244,13 +278,18 @@ export const updateDocumentPrivacy = mutation({
   },
   returns: v.null(),
   handler: async (ctx, args) => {
+    const user = await authComponent.safeGetAuthUser(ctx);
+    if (!user) {
+      throw new Error("Not authenticated");
+    }
+
     const document = await ctx.db.get(args.documentId);
     if (!document) {
       throw new Error("Document not found");
     }
 
-    // Only uploader can change privacy
-    if (document.uploadedBy !== args.userId) {
+    // Only uploader can change privacy (use authenticated user ID)
+    if (document.uploadedBy !== user._id) {
       throw new Error("Not authorized to modify this document");
     }
 
@@ -279,6 +318,11 @@ export const getDocumentCounts = query({
     other: v.number(),
   }),
   handler: async (ctx, args) => {
+    const user = await authComponent.safeGetAuthUser(ctx);
+    if (!user) {
+      throw new Error("Not authenticated");
+    }
+
     const documents = await ctx.db
       .query("injuryDocuments")
       .withIndex("by_injury", (q) => q.eq("injuryId", args.injuryId))

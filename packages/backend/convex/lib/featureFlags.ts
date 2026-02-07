@@ -98,6 +98,82 @@ export const shouldUseV2Pipeline = internalQuery({
 });
 
 /**
+ * Evaluate whether entity resolution should run for a coach.
+ * Called from claimsExtraction.ts after claims are stored.
+ *
+ * Cascade (first match wins):
+ *   1. env var ENTITY_RESOLUTION_V2_GLOBAL === "true"/"false"
+ *   2. platform-scope flag for "entity_resolution_v2"
+ *   3. organization-scope flag for "entity_resolution_v2" + orgId
+ *   4. user-scope flag for "entity_resolution_v2" + userId
+ *   5. default: false
+ */
+export const shouldUseEntityResolution = internalQuery({
+  args: {
+    organizationId: v.string(),
+    userId: v.string(),
+  },
+  returns: v.boolean(),
+  handler: async (ctx, args) => {
+    const featureKey = "entity_resolution_v2";
+
+    // 1. Environment variable override (highest priority)
+    const envOverride = process.env.ENTITY_RESOLUTION_V2_GLOBAL;
+    if (envOverride === "true") {
+      return true;
+    }
+    if (envOverride === "false") {
+      return false;
+    }
+
+    // 2. Platform-wide flag
+    const platformFlag = await ctx.db
+      .query("featureFlags")
+      .withIndex("by_featureKey_and_scope", (q) =>
+        q.eq("featureKey", featureKey).eq("scope", "platform")
+      )
+      .first();
+
+    if (platformFlag) {
+      return platformFlag.enabled;
+    }
+
+    // 3. Organization-specific flag
+    const orgFlag = await ctx.db
+      .query("featureFlags")
+      .withIndex("by_featureKey_scope_org", (q) =>
+        q
+          .eq("featureKey", featureKey)
+          .eq("scope", "organization")
+          .eq("organizationId", args.organizationId)
+      )
+      .first();
+
+    if (orgFlag) {
+      return orgFlag.enabled;
+    }
+
+    // 4. User-specific flag
+    const userFlag = await ctx.db
+      .query("featureFlags")
+      .withIndex("by_featureKey_scope_user", (q) =>
+        q
+          .eq("featureKey", featureKey)
+          .eq("scope", "user")
+          .eq("userId", args.userId)
+      )
+      .first();
+
+    if (userFlag) {
+      return userFlag.enabled;
+    }
+
+    // 5. Default: disabled
+    return false;
+  },
+});
+
+/**
  * Generic feature flag lookup for any feature key.
  * Returns the enabled state or null if no flag is set.
  */

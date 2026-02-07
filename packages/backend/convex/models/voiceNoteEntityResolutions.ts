@@ -212,7 +212,29 @@ export const getResolutionsByClaim = query({
   },
 });
 
-// ── 7. getDisambiguationQueue (PUBLIC query) ─────────────────
+// ── 7a. getDisambiguationForArtifact (PUBLIC query) ──────────
+
+export const getDisambiguationForArtifact = query({
+  args: {
+    artifactId: v.id("voiceNoteArtifacts"),
+  },
+  returns: v.array(resolutionObjectValidator),
+  handler: async (ctx, args) => {
+    const identity = await ctx.auth.getUserIdentity();
+    if (!identity) {
+      return [];
+    }
+
+    return await ctx.db
+      .query("voiceNoteEntityResolutions")
+      .withIndex("by_artifactId_and_status", (q) =>
+        q.eq("artifactId", args.artifactId).eq("status", "needs_disambiguation")
+      )
+      .collect();
+  },
+});
+
+// ── 7b. getDisambiguationQueue (PUBLIC query) ─────────────────
 
 export const getDisambiguationQueue = query({
   args: {
@@ -365,6 +387,87 @@ export const resolveEntity = mutation({
         organizationId: resolution.organizationId,
         eventType: "disambiguate_accept" as const,
         confidenceScore: args.selectedScore,
+        category: claim?.topic ?? "unknown",
+      }
+    );
+
+    return null;
+  },
+});
+
+// ── 9. rejectResolution (PUBLIC mutation) ────────────────────
+// Marks resolution as unresolved (none of the candidates match)
+
+export const rejectResolution = mutation({
+  args: {
+    resolutionId: v.id("voiceNoteEntityResolutions"),
+    topCandidateScore: v.number(),
+  },
+  returns: v.null(),
+  handler: async (ctx, args) => {
+    const identity = await ctx.auth.getUserIdentity();
+    if (!identity) {
+      throw new Error("Authentication required");
+    }
+
+    const resolution = await ctx.db.get(args.resolutionId);
+    if (!resolution) {
+      throw new Error("Resolution not found");
+    }
+
+    await ctx.db.patch(args.resolutionId, {
+      status: "unresolved",
+      resolvedAt: Date.now(),
+    });
+
+    // [E3] Log analytics
+    const claim = await ctx.db.get(resolution.claimId);
+    await ctx.scheduler.runAfter(
+      0,
+      internal.models.reviewAnalytics.logReviewEvent,
+      {
+        coachUserId: identity.subject,
+        organizationId: resolution.organizationId,
+        eventType: "disambiguate_reject_all" as const,
+        confidenceScore: args.topCandidateScore,
+        category: claim?.topic ?? "unknown",
+      }
+    );
+
+    return null;
+  },
+});
+
+// ── 10. skipResolution (PUBLIC mutation) ─────────────────────
+// Logs analytics for skipped resolutions without changing status
+
+export const skipResolution = mutation({
+  args: {
+    resolutionId: v.id("voiceNoteEntityResolutions"),
+  },
+  returns: v.null(),
+  handler: async (ctx, args) => {
+    const identity = await ctx.auth.getUserIdentity();
+    if (!identity) {
+      throw new Error("Authentication required");
+    }
+
+    const resolution = await ctx.db.get(args.resolutionId);
+    if (!resolution) {
+      throw new Error("Resolution not found");
+    }
+
+    // [E3] Log skip analytics
+    const claim = await ctx.db.get(resolution.claimId);
+    await ctx.scheduler.runAfter(
+      0,
+      internal.models.reviewAnalytics.logReviewEvent,
+      {
+        coachUserId: identity.subject,
+        organizationId: resolution.organizationId,
+        eventType: "disambiguate_skip" as const,
+        confidenceScore:
+          resolution.candidates.length > 0 ? resolution.candidates[0].score : 0,
         category: claim?.topic ?? "unknown",
       }
     );

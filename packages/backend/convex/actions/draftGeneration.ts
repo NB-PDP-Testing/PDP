@@ -20,6 +20,7 @@ const SENSITIVE_TYPES = ["injury", "wellbeing", "recovery"];
 // ── Helper: find the resolved player from entity resolutions ────
 
 type ResolutionRecord = {
+  claimId: Id<"voiceNoteClaims">;
   mentionType: string;
   status: string;
   resolvedEntityId?: Id<"playerIdentities">;
@@ -51,8 +52,13 @@ function calculateConfidence(
 
   let resolutionConfidence = 1.0;
   if (resolution.status === "auto_resolved") {
-    resolutionConfidence =
-      resolution.candidates.length > 0 ? resolution.candidates[0].score : 1.0;
+    resolutionConfidence = Math.max(
+      0,
+      Math.min(
+        1,
+        resolution.candidates.length > 0 ? resolution.candidates[0].score : 1.0
+      )
+    );
   }
 
   const overallConfidence = Math.max(
@@ -132,7 +138,7 @@ function buildResolutionMap(
 ): Map<string, ResolutionRecord[]> {
   const map = new Map<string, ResolutionRecord[]>();
   for (const resolution of resolutions) {
-    const claimId = (resolution as Record<string, unknown>).claimId as string;
+    const claimId = resolution.claimId as string;
     const existing = map.get(claimId) ?? [];
     existing.push(resolution);
     map.set(claimId, existing);
@@ -189,7 +195,7 @@ export const generateDrafts = internalAction({
       { artifactId: args.artifactId }
     );
     const resolutionsByClaimId = buildResolutionMap(
-      resolutions as unknown as ResolutionRecord[]
+      resolutions as ResolutionRecord[]
     );
 
     // 5. Get coach trust level

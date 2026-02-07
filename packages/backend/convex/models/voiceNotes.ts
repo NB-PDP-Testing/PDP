@@ -2721,6 +2721,9 @@ export const getCompletedForMigration = internalQuery({
     })
   ),
   handler: async (ctx, args) => {
+    // Overfetch by 3x to compensate for post-query filtering, since we don't
+    // have a composite index on orgId+transcriptionStatus
+    const fetchLimit = args.limit * 3;
     let notes: Doc<"voiceNotes">[];
 
     // Filter by organization if provided - guard against undefined
@@ -2730,18 +2733,20 @@ export const getCompletedForMigration = internalQuery({
         .withIndex("by_orgId", (q) =>
           q.eq("orgId", args.organizationId as string)
         )
-        .take(args.limit);
+        .take(fetchLimit);
     } else {
       // No specific index for all orgs - take from default order
-      notes = await ctx.db.query("voiceNotes").take(args.limit);
+      notes = await ctx.db.query("voiceNotes").take(fetchLimit);
     }
 
-    // Filter to only completed transcriptions with transcripts
-    return notes.filter(
-      (note) =>
-        note.transcriptionStatus === "completed" &&
-        note.transcription &&
-        note.transcription.length > 0
-    );
+    // Filter to only completed transcriptions with transcripts, then limit
+    return notes
+      .filter(
+        (note) =>
+          note.transcriptionStatus === "completed" &&
+          note.transcription &&
+          note.transcription.length > 0
+      )
+      .slice(0, args.limit);
   },
 });

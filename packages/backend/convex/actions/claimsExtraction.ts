@@ -560,6 +560,20 @@ export const extractClaims = internalAction({
         await ctx.runMutation(internal.models.voiceNoteClaims.storeClaims, {
           claims: claimsToStore,
         });
+
+        // 9b. [E2] Schedule entity resolution (feature-flag gated)
+        const entityResolutionEnabled = await ctx.runQuery(
+          internal.lib.featureFlags.shouldUseEntityResolution,
+          { organizationId, userId: coachUserId }
+        );
+
+        if (entityResolutionEnabled) {
+          await ctx.scheduler.runAfter(
+            0,
+            internal.actions.entityResolution.resolveEntities,
+            { artifactId: args.artifactId }
+          );
+        }
       }
 
       await ctx.runMutation(

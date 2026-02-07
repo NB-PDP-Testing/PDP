@@ -119,7 +119,7 @@ const IRISH_NAME_ALIASES: string[][] = [
 ];
 
 // Build a reverse lookup: normalized name → canonical (first entry in each group)
-const ALIAS_TO_CANONICAL = new Map<string, string>();
+export const ALIAS_TO_CANONICAL = new Map<string, string>();
 for (const group of IRISH_NAME_ALIASES) {
   const canonical = group[0];
   for (const alias of group) {

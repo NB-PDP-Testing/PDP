@@ -18,11 +18,32 @@ import {
   XAxis,
   YAxis,
 } from "recharts";
+import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select";
 import { Skeleton } from "@/components/ui/skeleton";
+import {
+  Table,
+  TableBody,
+  TableCell,
+  TableHead,
+  TableHeader,
+  TableRow,
+} from "@/components/ui/table";
+
+// ============================================================
+// Constants
+// ============================================================
 
 type DatePreset = "30d" | "90d" | "season" | "all";
+type StatusFilter = "all" | "active" | "recovering" | "cleared" | "healed";
 
 function getDateRange(preset: DatePreset): {
   startDate?: string;
@@ -45,7 +66,6 @@ function getDateRange(preset: DatePreset): {
     return { startDate: start.toISOString().split("T")[0], endDate };
   }
 
-  // "season" - approximate as current calendar year
   return { startDate: `${now.getFullYear()}-01-01`, endDate };
 }
 
@@ -86,6 +106,20 @@ const CONTEXT_LABELS: Record<string, string> = {
   non_sport: "Non-Sport",
   unknown: "Unknown",
 };
+
+const STATUS_BADGE_VARIANTS: Record<
+  string,
+  "destructive" | "default" | "secondary" | "outline"
+> = {
+  active: "destructive",
+  recovering: "default",
+  cleared: "secondary",
+  healed: "outline",
+};
+
+// ============================================================
+// Skeleton Components
+// ============================================================
 
 function SkeletonCard() {
   return (
@@ -174,7 +208,6 @@ function BodyPartChart({
 }: {
   data: { bodyPart: string; count: number }[];
 }) {
-  // Limit to top 10
   const chartData = data.slice(0, 10);
 
   if (chartData.length === 0) {
@@ -336,6 +369,227 @@ function InjuryContextChart({
 }
 
 // ============================================================
+// Team Comparison Table (US-ANA-012)
+// ============================================================
+
+function TeamComparisonTable({
+  orgId,
+  startDate,
+  endDate,
+}: {
+  orgId: string;
+  startDate?: string;
+  endDate?: string;
+}) {
+  const teamData = useQuery(api.models.playerInjuries.getInjuriesByTeam, {
+    organizationId: orgId,
+    startDate,
+    endDate,
+  });
+
+  if (teamData === undefined) {
+    return <SkeletonChart />;
+  }
+
+  if (teamData.length === 0) {
+    return (
+      <Card>
+        <CardHeader>
+          <CardTitle className="text-base">Team Comparison</CardTitle>
+        </CardHeader>
+        <CardContent className="flex items-center justify-center py-12">
+          <p className="text-muted-foreground">No team injury data available</p>
+        </CardContent>
+      </Card>
+    );
+  }
+
+  const avgInjuries =
+    teamData.reduce((sum, t) => sum + t.totalInjuries, 0) / teamData.length;
+
+  return (
+    <Card>
+      <CardHeader>
+        <CardTitle className="text-base">Team Comparison</CardTitle>
+      </CardHeader>
+      <CardContent>
+        <Table>
+          <TableHeader>
+            <TableRow>
+              <TableHead>Team</TableHead>
+              <TableHead className="text-right">Total</TableHead>
+              <TableHead className="text-right">Active</TableHead>
+              <TableHead>Avg Severity</TableHead>
+              <TableHead>Common Body Part</TableHead>
+              <TableHead>Common Type</TableHead>
+            </TableRow>
+          </TableHeader>
+          <TableBody>
+            {teamData.map((team) => (
+              <TableRow
+                className={
+                  team.totalInjuries > avgInjuries ? "bg-red-50/50" : ""
+                }
+                key={team.teamId}
+              >
+                <TableCell className="font-medium">{team.teamName}</TableCell>
+                <TableCell className="text-right">
+                  {team.totalInjuries}
+                </TableCell>
+                <TableCell className="text-right">{team.activeCount}</TableCell>
+                <TableCell>
+                  <Badge
+                    variant={
+                      team.avgSeverity === "severe" ||
+                      team.avgSeverity === "long_term"
+                        ? "destructive"
+                        : "secondary"
+                    }
+                  >
+                    {team.avgSeverity.replace("_", " ")}
+                  </Badge>
+                </TableCell>
+                <TableCell className="capitalize">
+                  {team.mostCommonBodyPart}
+                </TableCell>
+                <TableCell className="capitalize">
+                  {team.mostCommonType}
+                </TableCell>
+              </TableRow>
+            ))}
+          </TableBody>
+        </Table>
+      </CardContent>
+    </Card>
+  );
+}
+
+// ============================================================
+// Recent Injuries Table (US-ANA-013)
+// ============================================================
+
+function RecentInjuriesTable({
+  orgId,
+  statusFilter,
+  onStatusFilterChange,
+}: {
+  orgId: string;
+  statusFilter: StatusFilter;
+  onStatusFilterChange: (value: StatusFilter) => void;
+}) {
+  const injuries = useQuery(
+    api.models.playerInjuries.getRecentInjuriesForAdmin,
+    {
+      organizationId: orgId,
+      status:
+        statusFilter === "all"
+          ? undefined
+          : (statusFilter as "active" | "recovering" | "cleared" | "healed"),
+    }
+  );
+
+  return (
+    <Card>
+      <CardHeader className="flex flex-row items-center justify-between">
+        <CardTitle className="text-base">Recent Injuries</CardTitle>
+        <Select
+          onValueChange={(v) => onStatusFilterChange(v as StatusFilter)}
+          value={statusFilter}
+        >
+          <SelectTrigger className="w-[140px]">
+            <SelectValue placeholder="Filter status" />
+          </SelectTrigger>
+          <SelectContent>
+            <SelectItem value="all">All Statuses</SelectItem>
+            <SelectItem value="active">Active</SelectItem>
+            <SelectItem value="recovering">Recovering</SelectItem>
+            <SelectItem value="cleared">Cleared</SelectItem>
+            <SelectItem value="healed">Healed</SelectItem>
+          </SelectContent>
+        </Select>
+      </CardHeader>
+      <CardContent>
+        {injuries === undefined ? (
+          <div className="space-y-2">
+            {Array.from({ length: 5 }, (_, i) => `skeleton-${i}`).map((key) => (
+              <Skeleton className="h-12 w-full" key={key} />
+            ))}
+          </div>
+        ) : injuries.length === 0 ? (
+          <div className="flex items-center justify-center py-12">
+            <p className="text-muted-foreground">No injuries found</p>
+          </div>
+        ) : (
+          <div className="overflow-x-auto">
+            <Table>
+              <TableHeader>
+                <TableRow>
+                  <TableHead>Player</TableHead>
+                  <TableHead>Team(s)</TableHead>
+                  <TableHead>Body Part</TableHead>
+                  <TableHead>Type</TableHead>
+                  <TableHead>Severity</TableHead>
+                  <TableHead>Status</TableHead>
+                  <TableHead>Date</TableHead>
+                  <TableHead className="text-right">Days Out</TableHead>
+                </TableRow>
+              </TableHeader>
+              <TableBody>
+                {injuries.map((injury) => (
+                  <TableRow key={injury.injuryId}>
+                    <TableCell className="font-medium">
+                      {injury.playerName}
+                    </TableCell>
+                    <TableCell>
+                      {injury.teamNames.length > 0
+                        ? injury.teamNames.join(", ")
+                        : "—"}
+                    </TableCell>
+                    <TableCell className="capitalize">
+                      {injury.bodyPart}
+                    </TableCell>
+                    <TableCell className="capitalize">
+                      {injury.injuryType}
+                    </TableCell>
+                    <TableCell>
+                      <Badge
+                        style={{
+                          backgroundColor:
+                            SEVERITY_COLORS[injury.severity] || "#6b7280",
+                          color: "white",
+                        }}
+                        variant="default"
+                      >
+                        {injury.severity.replace("_", " ")}
+                      </Badge>
+                    </TableCell>
+                    <TableCell>
+                      <Badge
+                        variant={
+                          STATUS_BADGE_VARIANTS[injury.status] || "outline"
+                        }
+                      >
+                        {injury.status}
+                      </Badge>
+                    </TableCell>
+                    <TableCell>
+                      {new Date(injury.dateOccurred).toLocaleDateString()}
+                    </TableCell>
+                    <TableCell className="text-right">
+                      {injury.daysOut ?? "—"}
+                    </TableCell>
+                  </TableRow>
+                ))}
+              </TableBody>
+            </Table>
+          </div>
+        )}
+      </CardContent>
+    </Card>
+  );
+}
+
+// ============================================================
 // Main Page
 // ============================================================
 
@@ -344,6 +598,7 @@ export default function AdminInjuriesPage() {
   const orgId = params.orgId as string;
 
   const [datePreset, setDatePreset] = useState<DatePreset>("all");
+  const [statusFilter, setStatusFilter] = useState<StatusFilter>("all");
   const dateRange = getDateRange(datePreset);
 
   const analytics = useQuery(api.models.playerInjuries.getOrgInjuryAnalytics, {
@@ -404,6 +659,8 @@ export default function AdminInjuriesPage() {
             <SkeletonChart />
             <SkeletonChart />
           </div>
+          <SkeletonChart />
+          <SkeletonChart />
         </>
       ) : analytics.totalInjuries === 0 ? (
         <Card>
@@ -479,11 +736,19 @@ export default function AdminInjuriesPage() {
             <InjuryContextChart data={analytics.byOccurredDuring} />
           </div>
 
-          {/* Team Comparison placeholder - US-ANA-012 */}
-          <SkeletonChart />
+          {/* Team Comparison */}
+          <TeamComparisonTable
+            endDate={dateRange.endDate}
+            orgId={orgId}
+            startDate={dateRange.startDate}
+          />
 
-          {/* Recent Injuries Table placeholder - US-ANA-013 */}
-          <SkeletonChart />
+          {/* Recent Injuries Table */}
+          <RecentInjuriesTable
+            onStatusFilterChange={setStatusFilter}
+            orgId={orgId}
+            statusFilter={statusFilter}
+          />
         </>
       )}
     </div>

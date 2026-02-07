@@ -76,52 +76,41 @@
 
 ---
 
-### Phase 5: Entity Resolution & Disambiguation (4 days) 🟢 START HERE
-**File**: `phases/PHASE5_PRD.json` (PRIMARY — updated with Phase 1-4 learnings + 6 enhancements)
-**Stories**: US-VN-017 to US-VN-018 (2 stories)
+### Phase 5: Entity Resolution & Disambiguation (4 days) ✅ COMPLETE
+**File**: `phases/PHASE5_PRD.json`
+**Stories**: US-VN-017 to US-VN-018 (2 stories) — ALL COMPLETE
 **Dependencies**: Phase 4 complete ✅, Phase 1 fuzzy matching ✅
 
-**CRITICAL — Read These First:**
-1. `phases/PHASE5_PRD.json` — updated PRD with corrected acceptance criteria + 6 enhancements
-2. `context/PHASE5_ENTITY_RESOLUTION.md` — **DETAILED implementation guide** with batch patterns, auth guards, threshold reference, enhancement integration
-3. `context/PHASE5_ENHANCEMENTS_CATALOG.md` — Full catalog of ALL 12 assessed enhancements (6 included, 6 deferred for future)
-4. `context/MAIN_CONTEXT.md` — project overview
-5. `context/PHASE3_V2_MIGRATION.md` — v2 migration context
+**What was built:**
+- `voiceNoteEntityResolutions` table + 10 functions (4 internal + 6 public with ownership checks)
+- `coachPlayerAliases` table + 3 functions (alias learning system)
+- `entityResolution.ts` action (resolveEntities with trust-adaptive thresholds, alias lookup, batch grouping, rich matchReason)
+- Disambiguation UI at `/orgs/[orgId]/coach/voice-notes/disambiguation/[artifactId]` (552 lines)
+- Navigation badge on voice notes list when disambiguation needed
 
-**6 ENHANCEMENTS INCLUDED (from Phases 1-4 infrastructure analysis):**
-- **E1**: Trust-Adaptive Threshold — use coach's `insightConfidenceThreshold` instead of hardcoded 0.9 (~1h)
-- **E2**: Feature Flag Gating — `entity_resolution_v2` flag controls entity resolution independently (~30m)
-- **E3**: Disambiguation Analytics — log `disambiguate_accept/reject_all/skip` events via existing `reviewAnalytics.ts` (~1h)
-- **E4**: Rich matchReason — show WHY a candidate matched (irish_alias, fuzzy_full_name, etc.) (~1h)
-- **E5**: Coach Alias Learning — `coachPlayerAliases` table, resolve once → remember forever (~3h)
-- **E6**: Batch Same-Name Resolution — group mentions by rawText, resolve all at once (~2h)
+**6 Enhancements delivered:**
+- **E1**: Trust-Adaptive Threshold (personalized via coachTrustLevels)
+- **E2**: Feature Flag Gating (entity_resolution_v2 flag cascade)
+- **E3**: Disambiguation Analytics (disambiguate_accept/reject_all/skip events)
+- **E4**: Rich matchReason badges (irish_alias, exact_first_name, fuzzy_full_name, etc.)
+- **E5**: Coach Alias Learning (resolve once → auto-resolve forever)
+- **E6**: Batch Same-Name Resolution (group by rawText, resolve all at once)
 
-**CRITICAL LEARNINGS FROM PHASE 4 (MUST FOLLOW):**
-- Phase 4 creates claims with status `"extracted"` — query for this status, NOT `"resolving"`
-- Phase 4 already does player matching (0.85 threshold) — SKIP claims with resolvedPlayerIdentityId set
-- `claimProcessing.ts` does NOT exist — the file is `claimsExtraction.ts`
-- `findSimilarPlayers` is an internalQuery — use `ctx.runQuery(internal.models...)`
-- ALL public queries/mutations MUST check `ctx.auth.getUserIdentity()`
-- Use BATCH pattern: collect unique names → query once per name → Map for O(1) lookup
-- Handle ALL entity types: player_name, team_name, group_reference, coach_name
+**Security hardening applied post-implementation:**
+- Artifact ownership verification on all 6 public functions
+- IDOR fix on getClaimsByOrgAndCoach (coachUserId verified against caller)
+- Score bounds validation on resolveEntity and rejectResolution
+- Type-safe claim updates by mentionType (player vs team)
+- Dead code removal (batchUpdateResolutionsByRawText)
+- Misleading team_context badge removed from computeMatchReason
 - Auto-resolve threshold: **personalized** via coach trust level (E1), fallback 0.9
-
-**Execution Order:**
-1. US-VN-017 (schema for both tables + models + resolution action with E1/E4/E5/E6 + integration with E2) — backend only
-2. US-VN-018 (disambiguation UI with E3 analytics + E4 matchReason badges + E6 batch display) — frontend + mutation
-
-**Context Files**:
-- `context/PHASE5_ENTITY_RESOLUTION.md` ← PRIMARY (detailed implementation guide with enhancements)
-- `context/PHASE5_ENHANCEMENTS_CATALOG.md` ← Full enhancement catalog (included + deferred)
-- `context/MAIN_CONTEXT.md`
-- `context/PHASE3_V2_MIGRATION.md`
 
 ---
 
-### Phase 6: Drafts & Confirmation Workflow (5 days)
+### Phase 6: Drafts & Confirmation Workflow (5 days) 🟢 START HERE
 **File**: `phases/PHASE6_PRD.json`
 **Stories**: US-VN-019 to US-VN-021 (3 stories)
-**Dependencies**: Phase 5 complete (needs resolved entities)
+**Dependencies**: Phase 5 complete ✅
 
 **Context Files**:
 - `context/MAIN_CONTEXT.md`
@@ -246,16 +235,17 @@ After completing each phase, update this checklist:
 - [x] Phase 2.5: Review Microsite Polish ✅ COMPLETE
 - [x] Phase 3: v2 Artifacts Foundation (3 days) ✅ COMPLETE
 - [x] Phase 4: Claims Extraction (3 days) ✅ COMPLETE
-- [ ] Phase 5: Entity Resolution & Disambiguation (4 days) 🟢 START HERE
-- [ ] Phase 6: Drafts & Confirmation Workflow (5 days)
+- [x] Phase 5: Entity Resolution & Disambiguation (4 days) ✅ COMPLETE (+ security hardening)
+- [ ] Phase 6: Drafts & Confirmation Workflow (5 days) 🟢 START HERE
 
-**Current Phase**: Phase 5 🟢
-**Overall Progress**: 91% (19/21 stories complete)
+**Current Phase**: Phase 6 🟢
+**Overall Progress**: 95% (20/21 stories complete, Phase 5 security-hardened)
 **Phase 1**: Complete (US-VN-001 to US-VN-006, 349 tests passing)
 **Phase 2**: Complete (US-VN-007 to US-VN-012, full mobile microsite)
 **Phase 2.5**: Complete (012a-012d, analytics + swipe + snooze + PWA)
 **Phase 3**: Complete (US-VN-013 + US-VN-014, v2 tables + feature flags + dual-path)
 **Phase 4**: Complete (US-VN-015 + US-VN-016, claims table + extraction action + viewer)
+**Phase 5**: Complete (US-VN-017 + US-VN-018, entity resolution + disambiguation UI + 6 enhancements + security hardening)
 
 ---
 

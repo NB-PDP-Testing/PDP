@@ -298,34 +298,71 @@ Updated players: Ella, Aoife, Saoirse, Emma, Niamh"
 
 ## Feature Flag Evaluation
 
-Phases 3-6 respect the multi-layered feature flag system from Phase 1:
+Phases 3-6 use a `featureFlags` table with cascading scope evaluation.
+
+**IMPORTANT**: The original design referenced APIs that don't exist in this codebase:
+- ~~`api.models.platformConfig.get`~~ — No platformConfig table exists
+- ~~`api.models.organizations.getById`~~ — No such function (Better Auth manages organizations)
+- ~~`api.models.coaches.getCoach`~~ — No such function (use member table)
+- ~~`member.betaFeatures`~~ — No betaFeatures field on member table
+- ~~`organization.settings.voiceNotesVersion`~~ — No such field
+
+**Correct approach**: Create a `featureFlags` table following the `aiModelConfig` pattern
+(see `packages/backend/convex/models/aiModelConfig.ts` for the feature/scope/org cascade).
 
 ```typescript
-async function shouldUseV2Pipeline(
-  ctx: ActionCtx,
-  orgId: string,
-  coachId: string
-): Promise<boolean> {
-  // 1. Platform config (global)
-  const platformConfig = await ctx.runQuery(
-    api.models.platformConfig.get,
-    { key: "voice_notes_v2_enabled" }
-  );
-  if (platformConfig?.value === false) return false;
-  if (platformConfig?.value === true) return true;
+// packages/backend/convex/lib/featureFlags.ts
+// This is an internalQuery — call via ctx.runQuery from actions
 
-  // 2. Organization settings
-  const org = await ctx.runQuery(api.models.organizations.getById, { orgId });
-  if (org?.settings?.voiceNotesVersion === "v2") return true;
-  if (org?.settings?.voiceNotesVersion === "v1") return false;
+export const shouldUseV2Pipeline = internalQuery({
+  args: {
+    organizationId: v.string(),
+    userId: v.string(),
+  },
+  returns: v.boolean(),
+  handler: async (ctx, args) => {
+    // 1. Environment variable (global kill switch / enable)
+    const envFlag = process.env.VOICE_NOTES_V2_GLOBAL;
+    if (envFlag === "true") return true;
+    if (envFlag === "false") return false;
 
-  // 3. Coach beta features
-  const coach = await ctx.runQuery(api.models.coaches.getCoach, { coachId });
-  if (coach?.betaFeatures?.includes("voice_notes_v2")) return true;
+    // 2. Platform-level flag
+    const platformFlag = await ctx.db
+      .query("featureFlags")
+      .withIndex("by_featureKey_and_scope", (q) =>
+        q.eq("featureKey", "voice_notes_v2").eq("scope", "platform")
+      )
+      .first();
+    if (platformFlag) return platformFlag.enabled;
 
-  // 4. Default to v1
-  return false;
-}
+    // 3. Organization-level flag
+    const orgFlag = await ctx.db
+      .query("featureFlags")
+      .withIndex("by_featureKey_scope_org", (q) =>
+        q
+          .eq("featureKey", "voice_notes_v2")
+          .eq("scope", "organization")
+          .eq("organizationId", args.organizationId)
+      )
+      .first();
+    if (orgFlag) return orgFlag.enabled;
+
+    // 4. User-level flag
+    const userFlag = await ctx.db
+      .query("featureFlags")
+      .withIndex("by_featureKey_scope_user", (q) =>
+        q
+          .eq("featureKey", "voice_notes_v2")
+          .eq("scope", "user")
+          .eq("userId", args.userId)
+      )
+      .first();
+    if (userFlag) return userFlag.enabled;
+
+    // 5. Default to v1
+    return false;
+  },
+});
 ```
 
 ---

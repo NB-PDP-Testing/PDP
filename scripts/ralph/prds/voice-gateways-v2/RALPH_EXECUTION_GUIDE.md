@@ -25,58 +25,61 @@
 
 ---
 
-### Phase 2: Coach Quick Review Microsite (7-9 days) 🟢 START HERE
-**File**: `phases/PHASE2_PRD.json` (REVISED v2 — aggregated no-auth microsite)
-**Stories**: US-VN-007 to US-VN-012 (6 stories)
+### Phase 2: Coach Quick Review Microsite (7-9 days) ✅ COMPLETE
+**File**: `phases/PHASE2_PRD.json`
+**Stories**: US-VN-007 to US-VN-012 (6 stories) — ALL COMPLETE
 **Dependencies**: Phase 1 complete ✅
 
-**CRITICAL — Read These First:**
-1. `context/MAIN_CONTEXT.md` — project overview
-2. `context/PHASE2_MOBILE_REVIEW.md` — REVISED implementation guide (v2 microsite approach)
-3. `scripts/ralph/agents/output/feedback.md` — architectural review guidance
-4. `scripts/ralph/prd.json` — working PRD with critical reminders
+---
 
-**Key Design Changes (v2 revision):**
-- NO AUTH on /r/[code] — public route, code = token (magic link pattern)
-- NO REDIRECT — /r/[code] renders the review UI directly
-- ONE LINK PER COACH — reuse active link, don't generate per voice note
-- AGGREGATED QUEUE — all pending items across all voice notes, grouped by priority
-- WhatsApp "OK" quick-reply to batch-apply matched insights
-- Inline edit on insight cards before applying
-- Security: device fingerprint binding, access audit log, access count monitoring
+### Phase 2.5: Review Microsite Polish ✅ COMPLETE
+**Stories**: US-VN-012a (analytics), 012b (swipe), 012c (snooze), 012d (PWA)
+**Key Learnings**: Never call public mutations from internalActions, never use v.any(), reuse existing components, bounds-check numeric inputs
+
+---
+
+### Phase 3: v2 Artifacts Foundation (3 days) ✅ COMPLETE
+**File**: `phases/PHASE3_PRD.json`
+**Stories**: US-VN-013 to US-VN-014 (2 stories) — ALL COMPLETE
+**Dependencies**: Phase 2 + 2.5 complete ✅
+
+**What was built:**
+- `voiceNoteArtifacts` table + 5 CRUD functions (createArtifact, linkToVoiceNote, updateArtifactStatus, getArtifactByArtifactId, getArtifactsByVoiceNote)
+- `voiceNoteTranscripts` table + 2 functions (createTranscript, getTranscriptByArtifact)
+- `featureFlags` table + 3 functions (shouldUseV2Pipeline, getFeatureFlag, setFeatureFlag)
+- Dual-path processing in whatsapp.ts (v2 creates artifact + v1 voiceNote, then links them)
+- v2 transcript storage in voiceNotes.ts (after transcription completes, stores in voiceNoteTranscripts + sets artifact status to "transcribed")
+
+---
+
+### Phase 4: Claims Extraction (3 days) 🟢 START HERE
+**File**: `scripts/ralph/prd.json` (PRIMARY — updated for Phase 4)
+**Stories**: US-VN-015 to US-VN-016 (2 stories)
+**Dependencies**: Phase 3 complete ✅
+
+**CRITICAL — Read These First:**
+1. `scripts/ralph/prd.json` — working PRD with Phase 4 stories + critical reminders
+2. `context/PHASE4_CLAIMS_EXTRACTION.md` — **DETAILED implementation guide** with code snippets, schema, prompt template
+3. `context/MAIN_CONTEXT.md` — project overview
+4. `context/PHASE3_V2_MIGRATION.md` — v2 migration context (Phase 3 decisions)
+
+**Key Design Decisions:**
+- Claims run ALONGSIDE v1 buildInsights (parallel, NOT replacing)
+- Separate action file `claimsExtraction.ts` (voiceNotes.ts is 1300+ lines)
+- Shared `coachContext.ts` helper (avoids duplicating 130+ lines from buildInsights)
+- 15 topic categories (8 more than v1's 7)
+- Denormalized org/coach on claims for efficient querying
+- Entity mentions preserved raw; resolved* fields are best-effort
+- Platform debug viewer at `/platform/v2-claims`
 
 **Execution Order:**
-1. US-VN-007 (backend links) → US-VN-008 (microsite shell) → US-VN-009 (sections) → US-VN-010 (unmatched cards)
-2. US-VN-011 (trust messages + WhatsApp quick actions) — can start after US-VN-007
-3. US-VN-012 (link expiry) — can start after US-VN-008
+1. US-VN-015 (schema + model + helper + extraction action) — backend only
+2. US-VN-016 (pipeline hook + claims viewer) — 3 lines in voiceNotes.ts + frontend page
 
 **Context Files**:
-- `context/MAIN_CONTEXT.md`
-- `context/PHASE2_MOBILE_REVIEW.md`
-
----
-
-### Phase 3: v2 Artifacts Foundation (3 days)
-**File**: `phases/PHASE3_PRD.json`
-**Stories**: US-VN-013 to US-VN-014 (2 stories)
-**Dependencies**: Phase 2 complete
-
-**Context Files**:
+- `context/PHASE4_CLAIMS_EXTRACTION.md` ← PRIMARY (detailed implementation guide)
 - `context/MAIN_CONTEXT.md`
 - `context/PHASE3_V2_MIGRATION.md`
-- `docs/architecture/voice-notes-pipeline-v2.md`
-
----
-
-### Phase 4: Claims Extraction (4 days)
-**File**: `phases/PHASE4_PRD.json`
-**Stories**: US-VN-015 to US-VN-016 (2 stories)
-**Dependencies**: Phase 3 complete (needs artifacts/transcripts tables)
-
-**Context Files**:
-- `context/MAIN_CONTEXT.md`
-- `context/PHASE3_V2_MIGRATION.md`
-- `docs/architecture/voice-notes-pipeline-v2.md`
 
 ---
 
@@ -170,7 +173,8 @@ voice-gateways-v2/
 │   ├── MAIN_CONTEXT.md              # Project overview (read first)
 │   ├── PHASE1_QUALITY_GATES.md      # Phase 1 implementation guide
 │   ├── PHASE2_MOBILE_REVIEW.md      # Phase 2 implementation guide
-│   └── PHASE3_V2_MIGRATION.md       # Phases 3-6 implementation guide
+│   ├── PHASE3_V2_MIGRATION.md       # Phases 3-6 implementation guide
+│   └── PHASE4_CLAIMS_EXTRACTION.md  # Phase 4 detailed implementation guide
 ├── phases/
 │   ├── README.md                    # Phase files overview
 │   ├── PHASE1_PRD.json             # Phase 1 stories only
@@ -216,15 +220,19 @@ voice-gateways-v2/
 After completing each phase, update this checklist:
 
 - [x] Phase 1: Quality Gates & Fuzzy Matching (2.5 days) ✅ COMPLETE
-- [ ] Phase 2: Coach Quick Review Microsite (7-9 days) 🟢 IN PROGRESS
-- [ ] Phase 3: v2 Artifacts Foundation (3 days)
-- [ ] Phase 4: Claims Extraction (4 days)
+- [x] Phase 2: Coach Quick Review Microsite (7-9 days) ✅ COMPLETE
+- [x] Phase 2.5: Review Microsite Polish ✅ COMPLETE
+- [x] Phase 3: v2 Artifacts Foundation (3 days) ✅ COMPLETE
+- [ ] Phase 4: Claims Extraction (3 days) 🟢 START HERE
 - [ ] Phase 5: Entity Resolution & Disambiguation (4 days)
 - [ ] Phase 6: Drafts & Confirmation Workflow (5 days)
 
-**Current Phase**: Phase 2 🟢
-**Overall Progress**: 29% (6/21 stories complete)
+**Current Phase**: Phase 4 🟢
+**Overall Progress**: 82% (18/22 stories complete)
 **Phase 1**: Complete (US-VN-001 to US-VN-006, 349 tests passing)
+**Phase 2**: Complete (US-VN-007 to US-VN-012, full mobile microsite)
+**Phase 2.5**: Complete (012a-012d, analytics + swipe + snooze + PWA)
+**Phase 3**: Complete (US-VN-013 + US-VN-014, v2 tables + feature flags + dual-path)
 
 ---
 
@@ -232,12 +240,12 @@ After completing each phase, update this checklist:
 
 Refer to:
 1. **Main Context**: `context/MAIN_CONTEXT.md`
-2. **Phase Guide**: Specific phase context file
+2. **Phase Guide**: `context/PHASE4_CLAIMS_EXTRACTION.md` (Phase 4)
 3. **Validation Reports**: `validation/` directory
 4. **Master PRD**: `PRD.json` (complete reference)
 
 ---
 
-**Ready to start? Begin with Phase 1! 🚀**
+**Ready to start Phase 4!**
 
-Read `phases/PHASE1_PRD.json` and `context/PHASE1_QUALITY_GATES.md` to begin.
+Read `scripts/ralph/prd.json` (the working PRD, updated for Phase 4) and `context/PHASE4_CLAIMS_EXTRACTION.md` to begin.

@@ -20,6 +20,8 @@ import {
   YAxis,
 } from "recharts";
 import { toast } from "sonner";
+
+// useEffect is used for auto-triggering CSV export when data loads
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
@@ -412,20 +414,20 @@ function InjuryContextChart({
 // ============================================================
 
 function TeamComparisonTable({
-  orgId,
-  startDate,
-  endDate,
+  teamData,
 }: {
-  orgId: string;
-  startDate?: string;
-  endDate?: string;
+  teamData:
+    | {
+        teamId: string;
+        teamName: string;
+        totalInjuries: number;
+        activeCount: number;
+        avgSeverity: string;
+        mostCommonBodyPart: string;
+        mostCommonType: string;
+      }[]
+    | undefined;
 }) {
-  const teamData = useQuery(api.models.playerInjuries.getInjuriesByTeam, {
-    organizationId: orgId,
-    startDate,
-    endDate,
-  });
-
   if (teamData === undefined) {
     return <SkeletonChart />;
   }
@@ -508,25 +510,31 @@ function TeamComparisonTable({
 // ============================================================
 
 function RecentInjuriesTable({
-  orgId,
+  injuries,
   statusFilter,
   onStatusFilterChange,
 }: {
-  orgId: string;
+  injuries:
+    | {
+        injuryId: string;
+        playerName: string;
+        teamNames: string[];
+        ageGroup: string;
+        bodyPart: string;
+        injuryType: string;
+        severity: string;
+        status: string;
+        dateOccurred: string;
+        daysOut?: number;
+        expectedReturn?: string;
+        treatment?: string;
+        medicalProvider?: string;
+        occurredDuring?: string;
+      }[]
+    | undefined;
   statusFilter: StatusFilter;
   onStatusFilterChange: (value: StatusFilter) => void;
 }) {
-  const injuries = useQuery(
-    api.models.playerInjuries.getRecentInjuriesForAdmin,
-    {
-      organizationId: orgId,
-      status:
-        statusFilter === "all"
-          ? undefined
-          : (statusFilter as "active" | "recovering" | "cleared" | "healed"),
-    }
-  );
-
   return (
     <Card>
       <CardHeader className="flex flex-row items-center justify-between">
@@ -548,17 +556,19 @@ function RecentInjuriesTable({
         </Select>
       </CardHeader>
       <CardContent>
-        {injuries === undefined ? (
+        {injuries === undefined && (
           <div className="space-y-2">
             {Array.from({ length: 5 }, (_, i) => `skeleton-${i}`).map((key) => (
               <Skeleton className="h-12 w-full" key={key} />
             ))}
           </div>
-        ) : injuries.length === 0 ? (
+        )}
+        {injuries !== undefined && injuries.length === 0 && (
           <div className="flex items-center justify-center py-12">
             <p className="text-muted-foreground">No injuries found</p>
           </div>
-        ) : (
+        )}
+        {injuries !== undefined && injuries.length > 0 && (
           <div className="overflow-x-auto">
             <Table>
               <TableHeader>
@@ -653,6 +663,7 @@ export default function AdminInjuriesPage() {
 
   const [datePreset, setDatePreset] = useState<DatePreset>("all");
   const [statusFilter, setStatusFilter] = useState<StatusFilter>("all");
+  const [exportRequested, setExportRequested] = useState(false);
   const dateRange = getDateRange(datePreset);
 
   const analytics = useQuery(api.models.playerInjuries.getOrgInjuryAnalytics, {
@@ -662,25 +673,49 @@ export default function AdminInjuriesPage() {
   });
 
   // Trend data for period comparison indicators on summary cards
-  const trendPeriodDays =
-    datePreset === "30d" ? 30 : datePreset === "90d" ? 90 : 30;
+  const PRESET_PERIOD_DAYS: Record<string, number> = { "30d": 30, "90d": 90 };
+  const trendPeriodDays = PRESET_PERIOD_DAYS[datePreset] ?? 30;
   const trends = useQuery(api.models.playerInjuries.getInjuryTrends, {
     organizationId: orgId,
     periodDays: trendPeriodDays,
   });
 
-  // Separate query for CSV export (all injuries, no status filter, higher limit)
-  const allInjuriesForExport = useQuery(
+  // Lifted queries: Team comparison data (was inside TeamComparisonTable)
+  const teamData = useQuery(api.models.playerInjuries.getInjuriesByTeam, {
+    organizationId: orgId,
+    startDate: dateRange.startDate,
+    endDate: dateRange.endDate,
+  });
+
+  // Lifted queries: Recent injuries data (was inside RecentInjuriesTable)
+  const recentInjuries = useQuery(
     api.models.playerInjuries.getRecentInjuriesForAdmin,
     {
       organizationId: orgId,
-      limit: 1000,
+      status:
+        statusFilter === "all"
+          ? undefined
+          : (statusFilter as "active" | "recovering" | "cleared" | "healed"),
     }
   );
 
+  // CSV export query - only fetches when user clicks Export (skip until requested)
+  const allInjuriesForExport = useQuery(
+    api.models.playerInjuries.getRecentInjuriesForAdmin,
+    exportRequested ? { organizationId: orgId, limit: 1000 } : "skip"
+  );
+
   const handleExportCsv = useCallback(() => {
+    if (!exportRequested) {
+      // First click: trigger the query
+      setExportRequested(true);
+      toast.info("Preparing export data...");
+      return;
+    }
+
     if (!allInjuriesForExport || allInjuriesForExport.length === 0) {
       toast.error("No injury data to export");
+      setExportRequested(false);
       return;
     }
 
@@ -729,7 +764,8 @@ export default function AdminInjuriesPage() {
     URL.revokeObjectURL(url);
 
     toast.success("Injury report exported successfully");
-  }, [allInjuriesForExport]);
+    setExportRequested(false);
+  }, [allInjuriesForExport, exportRequested]);
 
   const isLoading = analytics === undefined;
 
@@ -764,21 +800,21 @@ export default function AdminInjuriesPage() {
             </Button>
           ))}
           <Button
-            disabled={
-              !allInjuriesForExport || allInjuriesForExport.length === 0
-            }
+            disabled={exportRequested && !allInjuriesForExport}
             onClick={handleExportCsv}
             size="sm"
             variant="outline"
           >
             <Download className="mr-1 h-4 w-4" />
-            Export CSV
+            {exportRequested && !allInjuriesForExport
+              ? "Loading..."
+              : "Export CSV"}
           </Button>
         </div>
       </div>
 
       {/* Dashboard content */}
-      {isLoading ? (
+      {isLoading && (
         <>
           <div className="grid grid-cols-1 gap-4 md:grid-cols-2 lg:grid-cols-4">
             <SkeletonCard />
@@ -797,7 +833,8 @@ export default function AdminInjuriesPage() {
           <SkeletonChart />
           <SkeletonChart />
         </>
-      ) : analytics.totalInjuries === 0 ? (
+      )}
+      {!isLoading && analytics && analytics.totalInjuries === 0 && (
         <Card>
           <CardContent className="flex items-center justify-center py-12">
             <p className="text-muted-foreground">
@@ -805,7 +842,8 @@ export default function AdminInjuriesPage() {
             </p>
           </CardContent>
         </Card>
-      ) : (
+      )}
+      {!isLoading && analytics && analytics.totalInjuries > 0 && (
         <>
           {/* Summary Cards with Trend Indicators */}
           <div className="grid grid-cols-1 gap-4 md:grid-cols-2 lg:grid-cols-4">
@@ -903,16 +941,12 @@ export default function AdminInjuriesPage() {
           </div>
 
           {/* Team Comparison */}
-          <TeamComparisonTable
-            endDate={dateRange.endDate}
-            orgId={orgId}
-            startDate={dateRange.startDate}
-          />
+          <TeamComparisonTable teamData={teamData} />
 
           {/* Recent Injuries Table */}
           <RecentInjuriesTable
+            injuries={recentInjuries}
             onStatusFilterChange={setStatusFilter}
-            orgId={orgId}
             statusFilter={statusFilter}
           />
         </>

@@ -531,7 +531,7 @@ function resolveNonPlayerMention(
 function computeMatchReason(
   rawText: string,
   candidate: SimilarPlayerResult,
-  coachTeamIds: Set<string>
+  _coachTeamIds: Set<string>
 ): string {
   const normalizedSearch = rawText.toLowerCase().trim();
   const normalizedName = candidate.fullName.toLowerCase().trim();
@@ -567,15 +567,9 @@ function computeMatchReason(
     reason = "fuzzy_first_name";
   }
 
-  // Append team context bonus if player is on coach's team
-  // Note: We don't have direct teamId on SimilarPlayerResult,
-  // but we can infer from ageGroup/sport matching coach teams
-  // For now, check if any coach team matches the candidate's ageGroup
-  const isOnCoachTeam = coachTeamIds.size > 0;
-  if (isOnCoachTeam && candidate.similarity >= 0.8) {
-    // Only add if similarity is meaningful
-    reason += "+team_context";
-  }
+  // Team context badge removed: SimilarPlayerResult lacks teamId so we cannot
+  // verify if the candidate is actually on the coach's team. Will be re-added
+  // once SimilarPlayerResult includes teamIds for accurate matching.
 
   return reason;
 }

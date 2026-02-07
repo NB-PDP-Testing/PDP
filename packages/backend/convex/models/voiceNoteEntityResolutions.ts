@@ -4,7 +4,8 @@
  * Detailed resolution records for entity mentions in claims.
  * Captures multiple candidates with match reasons for disambiguation.
  *
- * 5 internal functions (pipeline use) + 3 public functions (UI).
+ * 4 internal functions (pipeline use) + 5 public functions (UI).
+ * All public functions verify artifact ownership (senderUserId === identity.subject).
  */
 
 import { v } from "convex/values";
@@ -157,42 +158,7 @@ export const updateResolutionStatus = internalMutation({
   },
 });
 
-// ── 5. batchUpdateResolutionsByRawText (internalMutation) ────
-
-export const batchUpdateResolutionsByRawText = internalMutation({
-  args: {
-    artifactId: v.id("voiceNoteArtifacts"),
-    rawText: v.string(),
-    status: resolutionStatusValidator,
-    resolvedEntityId: v.string(),
-    resolvedEntityName: v.string(),
-  },
-  returns: v.null(),
-  handler: async (ctx, args) => {
-    const normalizedRawText = args.rawText.toLowerCase().trim();
-    const now = Date.now();
-
-    const resolutions = await ctx.db
-      .query("voiceNoteEntityResolutions")
-      .withIndex("by_artifactId", (q) => q.eq("artifactId", args.artifactId))
-      .collect();
-
-    for (const resolution of resolutions) {
-      if (resolution.rawText.toLowerCase().trim() === normalizedRawText) {
-        await ctx.db.patch(resolution._id, {
-          status: args.status,
-          resolvedEntityId: args.resolvedEntityId,
-          resolvedEntityName: args.resolvedEntityName,
-          resolvedAt: now,
-        });
-      }
-    }
-
-    return null;
-  },
-});
-
-// ── 6. getResolutionsByClaim (PUBLIC query) ──────────────────
+// ── 5. getResolutionsByClaim (PUBLIC query) ──────────────────
 
 export const getResolutionsByClaim = query({
   args: {
@@ -205,6 +171,16 @@ export const getResolutionsByClaim = query({
       return [];
     }
 
+    // Verify ownership: claim → artifact → senderUserId
+    const claim = await ctx.db.get(args.claimId);
+    if (!claim) {
+      return [];
+    }
+    const artifact = await ctx.db.get(claim.artifactId);
+    if (!artifact || artifact.senderUserId !== identity.subject) {
+      return [];
+    }
+
     return await ctx.db
       .query("voiceNoteEntityResolutions")
       .withIndex("by_claimId", (q) => q.eq("claimId", args.claimId))
@@ -212,7 +188,7 @@ export const getResolutionsByClaim = query({
   },
 });
 
-// ── 7a. getDisambiguationForArtifact (PUBLIC query) ──────────
+// ── 6. getDisambiguationForArtifact (PUBLIC query) ───────────
 
 export const getDisambiguationForArtifact = query({
   args: {
@@ -225,6 +201,12 @@ export const getDisambiguationForArtifact = query({
       return [];
     }
 
+    // Verify artifact ownership
+    const artifact = await ctx.db.get(args.artifactId);
+    if (!artifact || artifact.senderUserId !== identity.subject) {
+      return [];
+    }
+
     return await ctx.db
       .query("voiceNoteEntityResolutions")
       .withIndex("by_artifactId_and_status", (q) =>
@@ -234,7 +216,7 @@ export const getDisambiguationForArtifact = query({
   },
 });
 
-// ── 7b. getDisambiguationQueue (PUBLIC query) ─────────────────
+// ── 7. getDisambiguationQueue (PUBLIC query) ─────────────────
 
 export const getDisambiguationQueue = query({
   args: {
@@ -253,7 +235,8 @@ export const getDisambiguationQueue = query({
       MAX_DISAMBIGUATION_LIMIT
     );
 
-    return await ctx.db
+    // Fetch resolutions then filter to current user's artifacts
+    const resolutions = await ctx.db
       .query("voiceNoteEntityResolutions")
       .withIndex("by_org_and_status", (q) =>
         q
@@ -261,7 +244,27 @@ export const getDisambiguationQueue = query({
           .eq("status", "needs_disambiguation")
       )
       .order("desc")
-      .take(limit);
+      .take(MAX_DISAMBIGUATION_LIMIT);
+
+    // Batch-fetch artifacts for ownership check
+    const uniqueArtifactIds = [
+      ...new Set(resolutions.map((r) => r.artifactId)),
+    ];
+    const artifacts = await Promise.all(
+      uniqueArtifactIds.map((id) => ctx.db.get(id))
+    );
+    const ownedArtifactIds = new Set(
+      artifacts
+        .filter(
+          (a): a is NonNullable<typeof a> =>
+            a !== null && a.senderUserId === identity.subject
+        )
+        .map((a) => a._id)
+    );
+
+    return resolutions
+      .filter((r) => ownedArtifactIds.has(r.artifactId))
+      .slice(0, limit);
   },
 });
 
@@ -284,15 +287,29 @@ export const resolveEntity = mutation({
       throw new Error("Authentication required");
     }
 
-    // 2. Get the resolution record
+    // 2. Validate score bounds
+    if (args.selectedScore < 0 || args.selectedScore > 1) {
+      throw new Error("selectedScore must be between 0 and 1");
+    }
+
+    // 3. Get the resolution record
     const resolution = await ctx.db.get(args.resolutionId);
     if (!resolution) {
       throw new Error("Resolution not found");
     }
 
+    // 4. Verify artifact ownership
+    const artifact = await ctx.db.get(resolution.artifactId);
+    if (!artifact) {
+      throw new Error("Artifact not found");
+    }
+    if (artifact.senderUserId !== identity.subject) {
+      throw new Error("Access denied: Resolution does not belong to you");
+    }
+
     const now = Date.now();
 
-    // 3. Update THIS resolution: user_resolved
+    // 5. Update THIS resolution: user_resolved
     await ctx.db.patch(args.resolutionId, {
       status: "user_resolved",
       resolvedEntityId: args.resolvedEntityId,
@@ -300,19 +317,25 @@ export const resolveEntity = mutation({
       resolvedAt: now,
     });
 
-    // 4. Update parent claim resolved fields
+    // 6. Update parent claim resolved fields (type-safe by mention type)
     const claim = await ctx.db.get(resolution.claimId);
     if (claim) {
-      await ctx.db.patch(resolution.claimId, {
-        resolvedPlayerIdentityId:
-          args.resolvedEntityId as Id<"playerIdentities">,
-        resolvedPlayerName: args.resolvedEntityName,
+      const claimPatch: Record<string, unknown> = {
         status: "resolved",
         updatedAt: now,
-      });
+      };
+      if (resolution.mentionType === "player_name") {
+        claimPatch.resolvedPlayerIdentityId =
+          args.resolvedEntityId as Id<"playerIdentities">;
+        claimPatch.resolvedPlayerName = args.resolvedEntityName;
+      } else if (resolution.mentionType === "team_name") {
+        claimPatch.resolvedTeamId = args.resolvedEntityId;
+        claimPatch.resolvedTeamName = args.resolvedEntityName;
+      }
+      await ctx.db.patch(resolution.claimId, claimPatch);
     }
 
-    // 5. [E6] Batch: update all other resolutions with same rawText
+    // 7. [E6] Batch: update all other resolutions with same rawText
     const normalizedRawText = resolution.rawText.toLowerCase().trim();
     const sameArtifactResolutions = await ctx.db
       .query("voiceNoteEntityResolutions")
@@ -336,18 +359,24 @@ export const resolveEntity = mutation({
 
         const batchClaim = await ctx.db.get(r.claimId);
         if (batchClaim) {
-          await ctx.db.patch(r.claimId, {
-            resolvedPlayerIdentityId:
-              args.resolvedEntityId as Id<"playerIdentities">,
-            resolvedPlayerName: args.resolvedEntityName,
+          const batchPatch: Record<string, unknown> = {
             status: "resolved",
             updatedAt: now,
-          });
+          };
+          if (r.mentionType === "player_name") {
+            batchPatch.resolvedPlayerIdentityId =
+              args.resolvedEntityId as Id<"playerIdentities">;
+            batchPatch.resolvedPlayerName = args.resolvedEntityName;
+          } else if (r.mentionType === "team_name") {
+            batchPatch.resolvedTeamId = args.resolvedEntityId;
+            batchPatch.resolvedTeamName = args.resolvedEntityName;
+          }
+          await ctx.db.patch(r.claimId, batchPatch);
         }
       }
     }
 
-    // 6. [E5] Store coach alias (inline upsert)
+    // 8. [E5] Store coach alias (inline upsert)
     const existingAlias = await ctx.db
       .query("coachPlayerAliases")
       .withIndex("by_coach_org_rawText", (q) =>
@@ -378,7 +407,7 @@ export const resolveEntity = mutation({
       });
     }
 
-    // 7. [E3] Log analytics event (fire-and-forget)
+    // 9. [E3] Log analytics event (fire-and-forget)
     await ctx.scheduler.runAfter(
       0,
       internal.models.reviewAnalytics.logReviewEvent,
@@ -410,9 +439,23 @@ export const rejectResolution = mutation({
       throw new Error("Authentication required");
     }
 
+    // Validate score bounds
+    if (args.topCandidateScore < 0 || args.topCandidateScore > 1) {
+      throw new Error("topCandidateScore must be between 0 and 1");
+    }
+
     const resolution = await ctx.db.get(args.resolutionId);
     if (!resolution) {
       throw new Error("Resolution not found");
+    }
+
+    // Verify artifact ownership
+    const artifact = await ctx.db.get(resolution.artifactId);
+    if (!artifact) {
+      throw new Error("Artifact not found");
+    }
+    if (artifact.senderUserId !== identity.subject) {
+      throw new Error("Access denied: Resolution does not belong to you");
     }
 
     await ctx.db.patch(args.resolutionId, {
@@ -455,6 +498,15 @@ export const skipResolution = mutation({
     const resolution = await ctx.db.get(args.resolutionId);
     if (!resolution) {
       throw new Error("Resolution not found");
+    }
+
+    // Verify artifact ownership
+    const artifact = await ctx.db.get(resolution.artifactId);
+    if (!artifact) {
+      throw new Error("Artifact not found");
+    }
+    if (artifact.senderUserId !== identity.subject) {
+      throw new Error("Access denied: Resolution does not belong to you");
     }
 
     // [E3] Log skip analytics

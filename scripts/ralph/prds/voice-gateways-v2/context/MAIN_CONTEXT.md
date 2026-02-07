@@ -3,7 +3,7 @@
 **Project**: Voice Enhance Gating-WAPP v2
 **Branch**: feat/voice-gateways-v2
 **Issue**: #423 - WhatsApp Voice Notes Quality Gates & Feedback Loops
-**Status**: Phase 4 (Claims Extraction) — Phases 1-3 COMPLETE
+**Status**: Phase 5 (Entity Resolution) — Phases 1-4 COMPLETE
 
 ---
 

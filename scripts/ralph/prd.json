@@ -269,7 +269,7 @@
         "  - Mobile: Touch targets work, scrolling smooth"
       ],
       "priority": 18,
-      "passes": false,
+      "passes": true,
       "effort": "1.5 days",
       "effortBreakdown": {
         "page": "3h (disambiguation page structure + queries lifted to parent)",

@@ -236,6 +236,10 @@ export const getClaimsByOrgAndCoach = query({
     if (!identity) {
       return [];
     }
+    // Verify caller can only access their own claims
+    if (args.coachUserId !== identity.subject) {
+      return [];
+    }
     const limit = Math.min(
       args.limit ?? DEFAULT_CLAIMS_LIMIT,
       MAX_CLAIMS_LIMIT
@@ -268,6 +272,14 @@ export const getRecentClaims = query({
       args.limit ?? DEFAULT_RECENT_CLAIMS,
       MAX_RECENT_CLAIMS
     );
-    return await ctx.db.query("voiceNoteClaims").order("desc").take(limit);
+    // Fetch recent claims then filter to current user's only.
+    // Platform staff debug: use an internal query if cross-org access is needed.
+    const allRecent = await ctx.db
+      .query("voiceNoteClaims")
+      .order("desc")
+      .take(MAX_RECENT_CLAIMS);
+    return allRecent
+      .filter((c) => c.coachUserId === identity.subject)
+      .slice(0, limit);
   },
 });

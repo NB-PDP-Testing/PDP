@@ -91,7 +91,37 @@
 - 7 biome-ignore suppressions in coachContext.ts (Better Auth untyped returns)
 - whatsapp.ts calls public mutations from internalAction (Phase 3 flagged, still open)
 
+## Phase 5 Post-Implementation Review (2026-02-07)
+
+### Review Result: GOOD -- 1 critical, 6 warnings, 8 suggestions
+### Pre-impl 3 critical API mismatches: ALL FIXED in implementation
+
+### Key Issues
+- C1: resolveEntity/rejectResolution/skipResolution lack org membership check (deferred Phase 5.5)
+- W1: Unsafe `as Id<"playerIdentities">` cast for non-player entity types (lines 308, 341)
+- W3: computeMatchReason "+team_context" always true (logic bug at line 436)
+
+### Schema
+- voiceNoteEntityResolutions: 4 indexes (by_claimId, by_artifactId, by_artifactId_and_status, by_org_and_status)
+- coachPlayerAliases: 2 indexes (by_coach_org_rawText, by_coach_org)
+- reviewAnalyticsEvents: linkCode now optional, 3 new disambiguate event types
+
+### ADRs (Phase 5): VN2-015 through VN2-022
+- 6/8 ALIGNED, 2 PARTIAL (015: not atomic writes, 021: org check deferred)
+
+### Enhancement Coverage: All E1-E6 implemented
+
+### Open Tech Debt (cumulative)
+- coachContext.ts firstName/lastName pattern (Phase 4, still open)
+- getCoachAssignments/getFellowCoachesForTeams public from internal context (Phase 4)
+- whatsapp.ts public mutations from internalAction (Phase 3, still open)
+- Stale aliases could resolve to removed players (Phase 5, defer to 5.5)
+- resolveEntity backend org membership check deferred to Phase 5.5
+- getRecentArtifacts/getRecentClaims no platform staff check (Phase 4, still open)
+- batchUpdateResolutionsByRawText appears unused (dead code)
+
 ## Files Reference
 - See `phase2-review.md` for detailed Phase 2 architectural review notes
 - See `phase3-review.md` for detailed Phase 3 architectural review notes
 - See `phase4-review.md` for detailed Phase 4 architectural review notes
+- See `phase5-review.md` for detailed Phase 5 architectural review notes

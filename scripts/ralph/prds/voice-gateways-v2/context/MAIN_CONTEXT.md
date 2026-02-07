@@ -3,7 +3,7 @@
 **Project**: Voice Enhance Gating-WAPP v2
 **Branch**: feat/voice-gateways-v2
 **Issue**: #423 - WhatsApp Voice Notes Quality Gates & Feedback Loops
-**Status**: Phase 1 (Quality Gates & Fuzzy Matching)
+**Status**: Phase 4 (Claims Extraction) — Phases 1-3 COMPLETE
 
 ---
 
@@ -135,76 +135,63 @@ Commit (apply to player records)
 
 ---
 
-## Feature Flags (Multi-Layered)
+## Feature Flags (featureFlags Table)
 
-**Evaluation Order**: (1) Platform Config → (2) Organization → (3) Coach → (4) PostHog → (5) Default (v1)
+**Evaluation Order** (cascade, first match wins):
+1. Environment variable `VOICE_NOTES_V2_GLOBAL` (global kill switch)
+2. `featureFlags` table — `platform` scope
+3. `featureFlags` table — `organization` scope (per-org)
+4. `featureFlags` table — `user` scope (per-coach)
+5. Default: `false` (v1)
 
-### Layer 1: Platform Config (Global Switch)
+**Implementation**: Uses a new `featureFlags` table (created in US-VN-014) following the `aiModelConfig` cascade pattern. There is NO `platformConfig` table, NO `organization.voiceNotesVersion` field, and NO `member.betaFeatures` field in this codebase.
+
 ```typescript
-// Database table: platformConfig
-{
-  key: "voice_notes_v2_enabled",
-  value: true,  // or false
-  updatedAt: timestamp
-}
-```
-**Use Case**: Emergency kill switch, global rollout control
+// packages/backend/convex/lib/featureFlags.ts — internalQuery
+// Called from actions via: ctx.runQuery(internal.lib.featureFlags.shouldUseV2Pipeline, { ... })
 
-### Layer 2: Organization Settings
-```typescript
-// organization.settings
-{
-  voiceNotesVersion: "v1" | "v2" | "hybrid"
-}
-```
-**Use Case**: Per-org beta testing, specific clubs opt-in
+export const shouldUseV2Pipeline = internalQuery({
+  args: { organizationId: v.string(), userId: v.string() },
+  returns: v.boolean(),
+  handler: async (ctx, args) => {
+    // 1. Env var (global kill switch)
+    const envFlag = process.env.VOICE_NOTES_V2_GLOBAL;
+    if (envFlag === "true") return true;
+    if (envFlag === "false") return false;
 
-### Layer 3: Coach Beta Features
-```typescript
-// member.betaFeatures
-["voice_notes_v2", "other_feature"]
-```
-**Use Case**: Individual coach opt-in, power users
+    // 2. Platform-level flag (featureFlags table)
+    const platformFlag = await ctx.db
+      .query("featureFlags")
+      .withIndex("by_featureKey_and_scope", (q) =>
+        q.eq("featureKey", "voice_notes_v2").eq("scope", "platform")
+      )
+      .first();
+    if (platformFlag) return platformFlag.enabled;
 
-### Layer 4: PostHog Feature Flag
-```typescript
-// Feature flag: "voice-notes-v2-rollout"
-// Gradual rollout: 10% → 50% → 100%
-```
-**Use Case**: A/B testing, analytics (less reliable with privacy filters)
+    // 3. Org-level flag
+    const orgFlag = await ctx.db
+      .query("featureFlags")
+      .withIndex("by_featureKey_scope_org", (q) =>
+        q.eq("featureKey", "voice_notes_v2").eq("scope", "organization")
+          .eq("organizationId", args.organizationId)
+      )
+      .first();
+    if (orgFlag) return orgFlag.enabled;
 
-### Feature Flag Helper Function
-```typescript
-// Usage in actions/whatsapp.ts
-async function shouldUseV2Pipeline(
-  ctx: ActionCtx,
-  orgId: string,
-  coachId: string
-): Promise<boolean> {
-  // 1. Check platform config
-  const platformConfig = await ctx.runQuery(
-    api.models.platformConfig.get,
-    { key: "voice_notes_v2_enabled" }
-  );
-  if (platformConfig?.value === false) return false;
-  if (platformConfig?.value === true) return true;
+    // 4. User-level flag
+    const userFlag = await ctx.db
+      .query("featureFlags")
+      .withIndex("by_featureKey_scope_user", (q) =>
+        q.eq("featureKey", "voice_notes_v2").eq("scope", "user")
+          .eq("userId", args.userId)
+      )
+      .first();
+    if (userFlag) return userFlag.enabled;
 
-  // 2. Check organization settings
-  const org = await ctx.runQuery(api.models.organizations.getById, { orgId });
-  if (org?.settings?.voiceNotesVersion === "v2") return true;
-  if (org?.settings?.voiceNotesVersion === "v1") return false;
-
-  // 3. Check coach beta features
-  const coach = await ctx.runQuery(api.models.coaches.getCoach, { coachId });
-  if (coach?.betaFeatures?.includes("voice_notes_v2")) return true;
-
-  // 4. Check PostHog (if SDK available)
-  // const posthogEnabled = await checkPostHogFlag("voice-notes-v2-rollout", coachId);
-  // if (posthogEnabled) return true;
-
-  // 5. Default to v1
-  return false;
-}
+    // 5. Default to v1
+    return false;
+  },
+});
 ```
 
 ---
@@ -422,12 +409,11 @@ npm run migrate:voice-notes-to-v2
 
 ## Next Steps (For Ralph)
 
-1. **Read Phase 1 Context**: `PHASE1_QUALITY_GATES.md`
-2. **Start Stream A**: US-VN-001 (Text Message Quality Gate)
-3. **Start Stream B**: US-VN-005 (Levenshtein Algorithm) - Parallel with A
-4. **Merge Streams**: After both complete
-5. **Run Tests**: Unit tests + Manual UAT
-6. **Commit**: "feat(voice-notes): Phase 1 - Quality Gates & Fuzzy Matching"
-7. **Move to Phase 2**: Mobile Quick Review UI
+1. **Read Phase 4 Context**: `context/PHASE4_CLAIMS_EXTRACTION.md`
+2. **Read Working PRD**: `scripts/ralph/prd.json` (updated for Phase 4)
+3. **US-VN-015**: Schema + model + helper + extraction action
+4. **US-VN-016**: Pipeline hook + claims viewer
+5. **Verify**: `npm run check-types` + `npm run build`
+6. **Commit**: `feat: US-VN-015 - Claims Table & Extraction Action` then `feat: US-VN-016 - Pipeline Integration & Claims Viewer`
 
-**Questions?** Check `context/PHASE1_QUALITY_GATES.md` for detailed implementation guidance.
+**Questions?** Check `context/PHASE4_CLAIMS_EXTRACTION.md` for detailed implementation guidance.

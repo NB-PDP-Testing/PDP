@@ -1,4 +1,4 @@
-# Security Report - 2026-02-06 08:16:25
+# Security Report - 2026-02-07 08:00:27
 
 **Phase:** P9
 **Critical:** 2 | **High:** 5 | **Medium:** 0
@@ -85,6 +85,7 @@ packages/backend/convex/actions/coachParentSummaries.ts:      "ANTHROPIC_API_KEY
   - packages/backend/convex/models/demoAsks.ts
   **Action**: Add rate limiting to prevent spam/abuse
 - ⚠️ **HIGH [P9]**: AI endpoints without input validation:
+  - packages/backend/convex/actions/claimsExtraction.ts
   - packages/backend/convex/actions/coachParentSummaries.ts
   - packages/backend/convex/actions/practicePlans.ts
   - packages/backend/convex/actions/voiceNotes.ts

@@ -77,6 +77,30 @@ if echo "$CHANGED_FILES" | grep -v "test\|spec" | xargs grep -l "console\.log" 2
   ((ISSUES_FOUND++))
 fi
 
+# Check for N+1 query anti-pattern in backend files
+N1_FILES=$(echo "$CHANGED_FILES" | grep "packages/backend/convex/.*\.ts$")
+if [ -n "$N1_FILES" ]; then
+  for file in $N1_FILES; do
+    if grep -q "Promise\.all" "$file" 2>/dev/null; then
+      if grep -A 5 "Promise\.all" "$file" | grep -qE "\.map\(async|\.map\(\s*async" 2>/dev/null; then
+        if grep -A 8 "Promise\.all" "$file" | grep -qE "ctx\.db\.(get|query)|ctx\.runQuery" 2>/dev/null; then
+          if [ $ISSUES_FOUND -eq 0 ]; then
+            echo "" >> "$FEEDBACK_FILE"
+            echo "## Auto Security Review - $(date '+%Y-%m-%d %H:%M:%S')" >> "$FEEDBACK_FILE"
+            echo "### Commit: $(git log -1 --oneline)" >> "$FEEDBACK_FILE"
+            echo "" >> "$FEEDBACK_FILE"
+          fi
+          echo "- ❌ **CRITICAL: N+1 query pattern in $file**" >> "$FEEDBACK_FILE"
+          echo "  - **Pattern:** \`Promise.all(items.map(async => query))\` makes N database calls" >> "$FEEDBACK_FILE"
+          echo "  - **Fix:** Batch fetch unique IDs, create Map for O(1) lookup" >> "$FEEDBACK_FILE"
+          ((ISSUES_FOUND++))
+          break
+        fi
+      fi
+    fi
+  done
+fi
+
 # Check for missing authorization in mutations (Convex specific)
 MUTATION_FILES=$(echo "$CHANGED_FILES" | grep "packages/backend/convex/models.*\.ts$")
 if [ -n "$MUTATION_FILES" ]; then

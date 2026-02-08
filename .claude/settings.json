@@ -18,6 +18,13 @@
           },
           {
             "type": "command",
+            "command": "cd \"$CLAUDE_PROJECT_DIR\" && npx tsc --noEmit --pretty 2>&1 | grep -A 2 \"$(basename \"$CLAUDE_FILE_PATH\")\" | head -20 || true",
+            "statusMessage": "Type checking...",
+            "timeout": 30,
+            "description": "TypeScript type check scoped to edited file"
+          },
+          {
+            "type": "command",
             "command": "\"$CLAUDE_PROJECT_DIR\"/.claude/hooks/quality-check.sh",
             "statusMessage": "🔍 Auto quality check...",
             "async": true,

@@ -1611,6 +1611,11 @@ export default defineSchema({
     assigneeUserId: v.optional(v.string()), // For todo insights
     assigneeName: v.optional(v.string()),
 
+    // v2 Pipeline Traceability (Phase 7C)
+    sourceArtifactId: v.optional(v.id("voiceNoteArtifacts")),
+    sourceClaimId: v.optional(v.id("voiceNoteClaims")),
+    sourceDraftId: v.optional(v.string()),
+
     // Trust & Automation (Phase 7)
     confidenceScore: v.number(), // 0.0-1.0, AI confidence in this insight
     wouldAutoApply: v.boolean(), // Prediction flag for preview mode
@@ -1666,7 +1671,7 @@ export default defineSchema({
     voiceNoteId: v.id("voiceNotes"),
 
     // Context (denormalized for audit trail)
-    playerId: v.id("orgPlayerEnrollments"), // DEPRECATED: Use playerIdentityId
+    playerId: v.optional(v.id("orgPlayerEnrollments")), // DEPRECATED: Use playerIdentityId
     playerIdentityId: v.id("playerIdentities"),
     coachId: v.string(),
     organizationId: v.string(),

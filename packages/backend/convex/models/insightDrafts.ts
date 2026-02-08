@@ -500,15 +500,14 @@ export const applyDraft = internalMutation({
 
     const now = Date.now();
 
-    // Create a voiceNoteInsight record
-    // Use the draft's data mapped to voiceNoteInsights schema
-    await ctx.db.insert("voiceNoteInsights", {
+    // Step 0: Create voiceNoteInsight record with v2 back-link fields
+    const insightRecordId = await ctx.db.insert("voiceNoteInsights", {
       voiceNoteId: artifact.voiceNoteId,
-      insightId: draft.draftId, // Use draftId as insightId for traceability
+      insightId: draft.draftId,
       title: draft.title,
       description: draft.description,
-      category: draft.insightType, // insightType maps to category
-      recommendedUpdate: claim.recommendedAction, // Map from claim if available
+      category: draft.insightType,
+      recommendedUpdate: claim.recommendedAction,
       playerIdentityId: draft.playerIdentityId,
       playerName: draft.resolvedPlayerName,
       teamId: claim.resolvedTeamId,
@@ -516,13 +515,103 @@ export const applyDraft = internalMutation({
       assigneeUserId: claim.resolvedAssigneeUserId,
       assigneeName: claim.resolvedAssigneeName,
       confidenceScore: draft.overallConfidence,
-      wouldAutoApply: !draft.requiresConfirmation, // If didn't require confirmation, it would have auto-applied
+      wouldAutoApply: !draft.requiresConfirmation,
       status: "applied",
       organizationId: draft.organizationId,
       coachId: draft.coachUserId,
+      sourceArtifactId: draft.artifactId,
+      sourceClaimId: draft.claimId,
+      sourceDraftId: draft.draftId,
       createdAt: now,
       updatedAt: now,
     });
+
+    // Step 1: Update voiceNotes.insights[] embedded array for backward compat
+    const note = await ctx.db.get(artifact.voiceNoteId);
+    if (note) {
+      const currentInsights = note.insights || [];
+      currentInsights.push({
+        id: draft.draftId,
+        playerIdentityId: draft.playerIdentityId,
+        playerName: draft.resolvedPlayerName,
+        title: draft.title,
+        description: draft.description,
+        category: draft.insightType,
+        recommendedUpdate: claim.recommendedAction || "",
+        confidence: draft.overallConfidence,
+        status: "applied" as const,
+        appliedAt: now,
+        appliedBy: draft.coachUserId,
+        appliedDate: new Date(now).toISOString(),
+      });
+      await ctx.db.patch(artifact.voiceNoteId, {
+        insights: currentInsights,
+        insightsStatus: "completed",
+      });
+    }
+
+    // Step 2: Schedule parent summary generation (with enablement check)
+    if (draft.playerIdentityId) {
+      const coachOrgPrefs = await ctx.db
+        .query("coachOrgPreferences")
+        .withIndex("by_coach_org", (q) =>
+          q
+            .eq("coachId", draft.coachUserId)
+            .eq("organizationId", draft.organizationId)
+        )
+        .first();
+      const parentSummariesEnabled =
+        coachOrgPrefs?.parentSummariesEnabled ?? true;
+
+      if (parentSummariesEnabled) {
+        await ctx.scheduler.runAfter(
+          0,
+          internal.actions.coachParentSummaries.processVoiceNoteInsight,
+          {
+            voiceNoteId: artifact.voiceNoteId,
+            insightId: draft.draftId,
+            insightTitle: draft.title,
+            insightDescription: draft.description,
+            playerIdentityId: draft.playerIdentityId,
+            organizationId: draft.organizationId,
+            coachId: artifact.senderUserId,
+          }
+        );
+      }
+    }
+
+    // Step 3B: Create autoAppliedInsights audit record for auto-confirmed drafts
+    try {
+      if (draft.requiresConfirmation === false && draft.playerIdentityId) {
+        await ctx.db.insert("autoAppliedInsights", {
+          insightId: insightRecordId,
+          voiceNoteId: artifact.voiceNoteId,
+          playerIdentityId: draft.playerIdentityId,
+          coachId: draft.coachUserId,
+          organizationId: draft.organizationId,
+          category: draft.insightType,
+          confidenceScore: draft.overallConfidence,
+          insightTitle: draft.title,
+          insightDescription: draft.description,
+          appliedAt: Date.now(),
+          autoAppliedByAI: true,
+          changeType: "insight_applied",
+          targetTable: "voiceNoteInsights",
+          targetRecordId: insightRecordId.toString(),
+          newValue: JSON.stringify({
+            title: draft.title,
+            description: draft.description,
+            category: draft.insightType,
+            confidence: draft.overallConfidence,
+          }),
+        });
+      }
+    } catch (e) {
+      console.error(
+        `[applyDraft] Step 3 audit record failed for ${args.draftId}:`,
+        e
+      );
+    }
 
     // Update draft status to applied
     await ctx.db.patch(draft._id, {

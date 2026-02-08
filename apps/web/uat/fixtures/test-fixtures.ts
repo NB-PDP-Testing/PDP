@@ -38,6 +38,10 @@ export const test = base.extend<{
       storageState: fs.existsSync(storageState) ? storageState : undefined,
     });
     const page = await context.newPage();
+    // Pre-dismiss the AI Coach Assistant help dialog
+    await page.addInitScript(() => {
+      localStorage.setItem("voice-notes-help-guide-seen", "true");
+    });
     await use(page);
     await context.close();
   },
@@ -50,6 +54,10 @@ export const test = base.extend<{
       storageState: fs.existsSync(storageState) ? storageState : undefined,
     });
     const page = await context.newPage();
+    // Pre-dismiss the AI Coach Assistant help dialog
+    await page.addInitScript(() => {
+      localStorage.setItem("voice-notes-help-guide-seen", "true");
+    });
     await use(page);
     await context.close();
   },
@@ -62,6 +70,10 @@ export const test = base.extend<{
       storageState: fs.existsSync(storageState) ? storageState : undefined,
     });
     const page = await context.newPage();
+    // Pre-dismiss the AI Coach Assistant help dialog that appears on first visit
+    await page.addInitScript(() => {
+      localStorage.setItem("voice-notes-help-guide-seen", "true");
+    });
     await use(page);
     await context.close();
   },
@@ -96,6 +108,79 @@ export async function dismissPWAPrompt(page: Page): Promise<void> {
  */
 export async function waitForPageLoad(page: Page): Promise<void> {
   await page.waitForLoadState("networkidle");
+}
+
+/**
+ * Helper to dismiss any blocking dialogs that appear after navigation.
+ *
+ * Known blocking dialogs:
+ * 1. Onboarding ChildLinkingStep - AlertDialog for parent child confirmation
+ *    (appears when a user with parent role has pending guardianPlayerLinks)
+ *    Has "Accept All" and optionally "Skip for Now" buttons.
+ *    "Skip for Now" has a max count of 3 so use "Accept All" as primary action.
+ * 2. PWA install prompt
+ *
+ * Call this after navigating to a page where blocking dialogs may appear.
+ */
+export async function dismissBlockingDialogs(page: Page): Promise<void> {
+  // Wait for the onboarding dialog to potentially appear.
+  // The dialog loads from an async Convex query (getOnboardingTasks).
+  // First wait briefly for data to load, then check for dialog.
+  await page.waitForTimeout(3000);
+
+  try {
+    const alertDialog = page.locator('[role="alertdialog"]');
+    // Quick check if dialog is already visible
+    if (!(await alertDialog.isVisible())) {
+      return; // No dialog, proceed immediately
+    }
+
+    // Dialog appeared — dismiss it by accepting all children (permanent fix)
+    // or skipping if accept all isn't available
+    const acceptAllButton = page.getByRole("button", { name: /accept all/i });
+    try {
+      await acceptAllButton.waitFor({ state: "visible", timeout: 2000 });
+      await acceptAllButton.click();
+      await page.waitForTimeout(1500);
+      return;
+    } catch {
+      // Accept All not visible, try Skip for Now
+    }
+
+    const skipButton = page.getByRole("button", { name: /skip for now/i });
+    try {
+      await skipButton.waitFor({ state: "visible", timeout: 2000 });
+      await skipButton.click();
+      await page.waitForTimeout(1500);
+      return;
+    } catch {
+      // Skip button not visible either, try individual Accept buttons
+    }
+
+    // Last resort: click the first Accept button for an individual child
+    const acceptButton = page.getByRole("button", { name: /accept link to/i }).first()
+      .or(page.getByRole("button", { name: /^accept$/i }).first());
+    try {
+      await acceptButton.waitFor({ state: "visible", timeout: 2000 });
+      await acceptButton.click();
+      await page.waitForTimeout(1000);
+      // Check if dialog closed, if not try again
+      if (await alertDialog.isVisible()) {
+        const nextAccept = page.getByRole("button", { name: /^accept$/i }).first();
+        if (await nextAccept.isVisible()) {
+          await nextAccept.click();
+          await page.waitForTimeout(1000);
+        }
+      }
+    } catch {
+      // No buttons found in dialog
+    }
+  } catch {
+    // No alertdialog appeared within timeout — that's fine, proceed
+  }
+
+  // Dismiss PWA prompt
+  await dismissPWAPrompt(page);
 }
 
 /**

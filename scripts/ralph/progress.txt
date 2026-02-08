@@ -3,7 +3,7 @@
 **Branch**: feat/voice-gateways-v2
 **Started**: 2026-02-04
 **Current Phase**: Phase 7C - Complete v2 → v1 Output Bridge
-**Overall Progress**: 25/29 stories complete (86%)
+**Overall Progress**: 27/29 stories complete (93%)
 **Architecture Review**: COMPLETE (ADR-VN2-040 to ADR-VN2-042 for Phase 7C)
 
 ---
@@ -117,7 +117,7 @@
 
 ---
 
-## Phase 7C: Complete v2 → v1 Output Bridge — STARTING NOW
+## Phase 7C: Complete v2 → v1 Output Bridge ✅ (US-VN-026 to US-VN-027)
 
 **PRD**: `phases/PHASE7C_PRD.json` (PRIMARY — read this FIRST)
 **Context**: `context/V2_MIGRATION_CONTEXT.md`
@@ -140,3 +140,75 @@
 - C1: Check coachOrgPreferences.parentSummariesEnabled BEFORE scheduling processVoiceNoteInsight
 - C2: Include appliedBy + appliedDate in voiceNotes.insights[] push object
 - C3: Schema changes FIRST, codegen, then code changes
+
+---
+
+## 2026-02-08 - US-VN-026 - applyDraft Output Bridge
+**Iteration**: 1
+**Commit**: 23ba0a55
+**Session**: 93182899-a99c-44eb-b848-b68743b0dcb4
+**Status**: Complete
+
+### What was implemented
+- Schema: Made autoAppliedInsights.playerId optional (v.optional(v.id('orgPlayerEnrollments')))
+- Schema: Added 3 back-link fields to voiceNoteInsights (sourceArtifactId, sourceClaimId, sourceDraftId)
+- Step 0: Capture insightRecordId from voiceNoteInsights insert, add back-link fields
+- Step 1: Update voiceNotes.insights[] embedded array with v1-format entry (appliedBy + appliedDate per C2)
+- Step 2: Schedule processVoiceNoteInsight with parentSummariesEnabled check (query coachOrgPreferences.by_coach_org per C1)
+- Step 3B: Create autoAppliedInsights audit record for auto-confirmed drafts, wrapped in try/catch per S1
+
+### Files changed
+- packages/backend/convex/schema.ts (+7, -1)
+- packages/backend/convex/models/insightDrafts.ts (+95, -7)
+
+### Quality checks
+- ✅ Type check: passed
+- ✅ Linting: passed (biome check on modified files clean)
+- ✅ Convex codegen: passed
+- ⬜ Browser verification: not applicable (backend-only)
+
+### Learnings for future iterations
+**Patterns discovered:**
+- applyDraft is internalMutation so ctx.db.get/patch/query all available directly
+- processVoiceNoteInsight takes 7 args, insightId is STRING not Convex _id
+- autoAppliedInsights has 15+ fields, many required — check schema carefully before insert
+- coachOrgPreferences uses by_coach_org index with (coachId, organizationId)
+
+**Gotchas encountered:**
+- Schema changes MUST happen before codegen, codegen before code — order matters
+
+---
+
+## 2026-02-08 - US-VN-027 - Auto-Confirm Integration + Quality Gates
+**Iteration**: 1
+**Commit**: a7c1f647
+**Session**: 93182899-a99c-44eb-b848-b68743b0dcb4
+**Status**: Complete
+
+### What was implemented
+- Verified auto-confirm logic in draftGeneration.ts (all 4 checkpoints pass, no changes needed)
+- Added validateTextMessage quality gate to createTypedNote in voiceNotes.ts
+- Import + usage added atomically (Python script) to prevent linter stripping
+
+### Files changed
+- packages/backend/convex/models/voiceNotes.ts (+7, -0)
+
+### Quality checks
+- ✅ Type check: passed
+- ✅ Linting: passed (biome check on modified files clean)
+- ⬜ Browser verification: not applicable (backend-only)
+
+### Learnings for future iterations
+**Patterns discovered:**
+- validateTextMessage is sync (no ctx needed), safe to call in mutations
+- Auto-confirm checkpoints: sensitive types, trust < 2, confidence below threshold, auto-apply prefs
+
+**Gotchas encountered:**
+- Linter aggressively strips unused imports BETWEEN Edit tool calls. When import and usage are in different parts of the file, must use Python/sed to apply both atomically in a single file write
+- sed with multi-line patterns is fragile — matched both createTypedNote AND createRecordedNote. Python is safer for targeted replacements
+
+**Mistakes made:**
+- First attempt: used separate Edit calls for import and usage — linter stripped import between edits
+- Second attempt: used sed which applied to wrong function too — had to git checkout and redo with Python
+
+---

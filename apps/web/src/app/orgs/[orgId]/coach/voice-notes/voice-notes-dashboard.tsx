@@ -9,6 +9,7 @@ import {
   BarChart3,
   ChevronDown,
   EyeOff,
+  FileCheck,
   History,
   Lightbulb,
   Loader2,
@@ -51,6 +52,7 @@ import {
 import { authClient } from "@/lib/auth-client";
 import { AutoApprovedTab } from "./components/auto-approved-tab";
 import { DisambiguationBanner } from "./components/disambiguation-banner";
+import { DraftsTab } from "./components/drafts-tab";
 import { HistoryTab } from "./components/history-tab";
 import { InsightsTab } from "./components/insights-tab";
 import { MyImpactTab } from "./components/my-impact-tab";
@@ -64,6 +66,7 @@ type TabId =
   | "new"
   | "parents"
   | "insights"
+  | "drafts"
   | "team"
   | "auto-sent"
   | "history"
@@ -113,6 +116,12 @@ export function VoiceNotesDashboard() {
   const _gateStatus = useQuery(
     api.models.trustGatePermissions.areTrustGatesActive,
     coachId && orgId ? { coachId, organizationId: orgId } : "skip"
+  );
+
+  // Phase 7B: Pending v2 insight drafts for coach
+  const pendingDrafts = useQuery(
+    api.models.insightDrafts.getPendingDraftsForCoach,
+    coachId ? { organizationId: orgId } : "skip"
   );
 
   // P8 Week 1.5: Comprehensive access check for self-service control
@@ -437,6 +446,15 @@ export function VoiceNotesDashboard() {
       });
     }
 
+    // Phase 7B: Drafts tab always shows (empty state handles no-data)
+    baseTabs.push({
+      id: "drafts" as TabId,
+      label: "Drafts",
+      icon: FileCheck,
+      badge:
+        (pendingDrafts?.length ?? 0) > 0 ? pendingDrafts?.length : undefined,
+    });
+
     // Only show Team tab if there are pending team insights
     if (pendingTeamInsightsCount > 0) {
       baseTabs.push({
@@ -476,6 +494,7 @@ export function VoiceNotesDashboard() {
     hasSensitiveSummaries,
     needsAttentionCount,
     shouldShowSentToParents,
+    pendingDrafts?.length,
   ]);
 
   // If current tab is no longer available (e.g., approved all summaries), switch to New
@@ -760,6 +779,9 @@ export function VoiceNotesDashboard() {
             onSuccess={showSuccessMessage}
             orgId={orgId}
           />
+        )}
+        {activeTab === "drafts" && (
+          <DraftsTab orgId={orgId} pendingDrafts={pendingDrafts || []} />
         )}
         {activeTab === "team" && (
           <TeamInsightsTab

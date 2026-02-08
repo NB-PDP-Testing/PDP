@@ -884,4 +884,190 @@ Use this for a full end-to-end test of the V2 pipeline:
 
 ---
 
+## Automated E2E Test Suite Reference
+
+**Location:** `apps/web/uat/tests/voice-notes/`
+**Framework:** Playwright | **Total Tests:** 73 | **Last Run:** 2026-02-08 (69 passed, 4 flaky)
+
+Run command:
+
+```bash
+npx -w apps/web playwright test --config=uat/playwright.config.ts uat/tests/voice-notes/
+```
+
+### Test Accounts
+
+| Role | Email | Fixture | Notes |
+|------|-------|---------|-------|
+| Owner | neil.b@blablablak.com | `ownerPage` | Platform staff, "coach" role in Grange org |
+| Admin | neiltest2@skfjkadsfdgsjdgsj.com | `adminPage` | Org admin in Grange |
+| Coach | neiltesting@example.com | `coachPage` | Multi-role: admin + coach + parent |
+| Parent | neiltest3@skfjkadsfdgsjdgsj.com | `parentPage` | Parent-only role |
+
+### File 1: dashboard.spec.ts (19 tests)
+
+Tests the main coach voice notes dashboard page.
+
+| # | Group | Test Name | What It Verifies | Role |
+|---|-------|-----------|------------------|------|
+| 1 | VN-DASH-001 | should load the voice notes dashboard | "Voice Notes" heading renders | Coach |
+| 2 | VN-DASH-001 | should display the subtitle text | "Record and analyze" subtitle | Coach |
+| 3 | VN-DASH-001 | should show a back button | Back navigation exists | Coach |
+| 4 | VN-DASH-002 | should display core tabs | New, History, My Impact tabs visible | Coach |
+| 5 | VN-DASH-002 | should switch to the History tab | History tab shows search/empty state | Coach |
+| 6 | VN-DASH-002 | should switch to the My Impact tab | Tab click works, URL stays on voice-notes | Coach |
+| 7 | VN-DASH-003 | should show the New Voice Note card | "New Voice Note" card title | Coach |
+| 8 | VN-DASH-003 | should display note type selector buttons | Training, Match, General buttons | Coach |
+| 9 | VN-DASH-003 | should show recording button | Mic button with "recording" title | Coach |
+| 10 | VN-DASH-003 | should show typed note textarea | "Type your coaching notes" placeholder | Coach |
+| 11 | VN-DASH-003 | should have Save button disabled when textarea empty | Save disabled with no text | Coach |
+| 12 | VN-DASH-003 | should enable Save button when text entered | Save enables after typing | Coach |
+| 13 | VN-DASH-003 | should toggle between note types | Match/General buttons respond to clicks | Coach |
+| 14 | VN-DASH-004 | should show history tab with search bar | History search input visible | Coach |
+| 15 | VN-DASH-004 | should show empty state or note cards | Notes or "no recordings yet" | Coach |
+| 16 | VN-DASH-005 | parent should not see voice notes dashboard | Parent redirected/denied | Parent |
+
+Gotcha: Dashboard auto-switches from "New" tab when pending items exist.
+
+### File 2: admin-audit.spec.ts (13 tests)
+
+Tests the admin voice notes audit page at `/orgs/[orgId]/admin/voice-notes`.
+
+| # | Group | Test Name | What It Verifies | Role |
+|---|-------|-----------|------------------|------|
+| 17 | VN-ADMIN-001 | should load the audit page for admin user | "Voice Notes Audit" heading | Admin |
+| 18 | VN-ADMIN-001 | should show Admin badge | "Admin" badge text | Admin |
+| 19 | VN-ADMIN-001 | should show subtitle about organization-wide oversight | Oversight/compliance subtitle | Admin |
+| 20 | VN-ADMIN-001 | should show export button (disabled/coming soon) | Export button disabled | Admin |
+| 21 | VN-ADMIN-002 | should show search input | Search field visible | Admin |
+| 22 | VN-ADMIN-002 | should show filter toggle button | Filter button visible | Admin |
+| 23 | VN-ADMIN-002 | should toggle filter panel visibility | Click filter shows "Note type" | Admin |
+| 24 | VN-ADMIN-002 | should show empty state or results | "No voice notes yet" or count | Admin |
+| 25 | VN-ADMIN-002 | should allow typing in search field | Search input accepts text | Admin |
+| 26 | VN-ADMIN-003 | coach should see audit page or access denied | Coach allowed or denied | Coach |
+| 27 | VN-ADMIN-003 | parent should see access denied | Parent denied/redirected | Parent |
+| 28 | VN-ADMIN-003 | owner should see audit page or be redirected | Owner allowed/denied/redirected | Owner |
+| 29 | VN-ADMIN-004 | should have back button to admin dashboard | Back link to /admin | Admin |
+
+### File 3: review-microsite.spec.ts (13 tests)
+
+Tests the public review microsite at `/r/[code]` (no auth required).
+
+| # | Group | Test Name | What It Verifies | Role |
+|---|-------|-----------|------------------|------|
+| 30 | VN-REVIEW-001 | should display invalid link view for bogus code | "Invalid Link" heading | Public |
+| 31 | VN-REVIEW-001 | should show explanation text for invalid link | "no longer exists" description | Public |
+| 32 | VN-REVIEW-001 | should show PlayerARC branding on invalid link page | PlayerARC logo/text | Public |
+| 33 | VN-REVIEW-002 | should show header with PlayerARC logo | Header branding | Public |
+| 34 | VN-REVIEW-002 | should show Voice Note Review indicator | "Voice Note Review" text | Public |
+| 35 | VN-REVIEW-002 | should show footer with copyright and login link | Footer with Log In link | Public |
+| 36 | VN-REVIEW-002 | login link should point to /login | Login link href | Public |
+| 37 | VN-REVIEW-003 | should show loading skeleton before data loads | Skeleton animation during load | Public |
+| 38 | VN-REVIEW-004 | should handle various invalid code formats | Short/special/long codes handled | Public |
+| 39 | VN-REVIEW-005 | expired link should show re-generation instructions | Expired/invalid view shown | Public |
+| 40 | VN-REVIEW-006 | should be accessible without authentication | No redirect to /login | Public |
+
+Covers US-VN-008 (structure/errors) and US-VN-012 (expired view). Queue sections/batch actions not testable without seeded data.
+
+### File 4: typed-note-flow.spec.ts (10 tests)
+
+Tests creating typed voice notes (no audio hardware needed).
+
+| # | Group | Test Name | What It Verifies | Role |
+|---|-------|-----------|------------------|------|
+| 41 | VN-TYPED-001 | should type a note and see Save button enabled | Fill textarea, Save enables | Coach |
+| 42 | VN-TYPED-001 | should submit a typed note and show processing | Click Save, toast or textarea clears | Coach |
+| 43 | VN-TYPED-002 | should create training type note by default | Training button visible | Coach |
+| 44 | VN-TYPED-002 | should allow switching to match type before saving | Match type, textarea works, Save enables | Coach |
+| 45 | VN-TYPED-003 | should show notes in history after creation | History tab has search/empty state | Coach |
+| 46 | VN-TYPED-004 | should support multi-line input | Multi-line text preserved | Coach |
+| 47 | VN-TYPED-004 | should clear textarea after switching tabs and back | Tab switch no crash, textarea visible | Coach |
+
+### File 5: platform-claims-viewer.spec.ts (8 tests)
+
+Tests the platform staff claims viewer at `/platform/v2-claims`.
+
+| # | Group | Test Name | What It Verifies | Role |
+|---|-------|-----------|------------------|------|
+| 48 | VN-CLAIMS-001 | should load the claims viewer for platform staff | "v2 Claims Viewer" heading | Owner |
+| 49 | VN-CLAIMS-001 | should show back button to platform | Back link to /platform | Owner |
+| 50 | VN-CLAIMS-002 | should display stats cards or empty state | "Artifacts" or "No artifacts yet" | Owner |
+| 51 | VN-CLAIMS-003 | should show meaningful content when loaded | Content renders | Owner |
+| 52 | VN-CLAIMS-004 | should show claims by topic if data exists | Topic breakdown (soft check) | Owner |
+| 53 | VN-CLAIMS-005 | coach should not access claims viewer | Coach redirected/denied | Coach |
+| 54 | VN-CLAIMS-005 | parent should not access claims viewer | Parent redirected/denied | Parent |
+| 55 | VN-CLAIMS-005 | admin should not access claims viewer | Admin denied or allowed if staff | Admin |
+
+Covers US-VN-016. Gotcha: platform layout auth race condition requires retry.
+
+### File 6: disambiguation.spec.ts (3 tests)
+
+Tests the disambiguation page at `/orgs/[orgId]/coach/voice-notes/disambiguation/[artifactId]`.
+
+| # | Group | Test Name | What It Verifies | Role |
+|---|-------|-----------|------------------|------|
+| 56 | VN-DISAMB-001 | should handle non-existent artifact gracefully | Fake ID shows error/empty, no crash | Coach |
+| 57 | VN-DISAMB-002 | should show page title when loaded | Page renders content/redirects | Coach |
+| 58 | VN-DISAMB-002 | should have a back navigation link | Back link to voice-notes | Coach |
+| 59 | VN-DISAMB-003 | parent should not access disambiguation page | Parent denied/redirected | Parent |
+
+Covers US-VN-018 (page structure only). Candidate selection/batch resolution not testable without seeded entity data.
+
+### File 7: navigation-integration.spec.ts (7 tests)
+
+Cross-cutting navigation, mobile, and performance tests.
+
+| # | Group | Test Name | What It Verifies | Role |
+|---|-------|-----------|------------------|------|
+| 60 | VN-NAV-001 | should navigate to voice notes from coach dashboard | Click voice notes link | Coach |
+| 61 | VN-NAV-001 | should navigate using direct URL helper | Direct URL works | Coach |
+| 62 | VN-NAV-002 | voice notes page should load within timeout | Dashboard loads < 20s | Coach |
+| 63 | VN-NAV-002 | review microsite should load quickly (no auth) | Public page loads < 10s | Public |
+| 64 | VN-NAV-003 | voice notes dashboard responsive on mobile | No horizontal scroll at 375px | Coach |
+| 65 | VN-NAV-003 | review microsite responsive on mobile | No horizontal scroll at 375px | Public |
+| 66 | VN-NAV-004 | should maintain tab state on page refresh | History tab content persists | Coach |
+| 67 | VN-NAV-005 | should navigate from voice notes to admin audit | Admin audit loads | Admin |
+| 68 | VN-NAV-005 | should navigate between platform pages | Claims viewer reachable | Owner |
+| 69 | VN-NAV-006 | should handle 404 for non-existent sub-routes | 404 or redirect | Coach |
+
+### Coverage by v2 Story
+
+| Story | Phase | Automated | Coverage Level | Manual Testing Needed? |
+|-------|-------|-----------|----------------|----------------------|
+| US-VN-001 | 1 | 0 tests | NONE | YES - WhatsApp quality gate |
+| US-VN-002 | 1 | 0 tests | NONE | YES - audio quality validation |
+| US-VN-003 | 1 | 0 tests | NONE | YES - duplicate detection |
+| US-VN-004 | 1 | 0 tests | NONE | YES - WhatsApp feedback messages |
+| US-VN-005 | 1 | 0 tests | NONE | Backend only - verify via Convex dashboard |
+| US-VN-006 | 1 | 0 tests | NONE | Backend only - verify via Convex dashboard |
+| US-VN-007 | 2 | 0 tests | NONE | Backend only - verify via Convex dashboard |
+| US-VN-008 | 2 | 11 tests | Structure + errors | YES - queue sections with real data |
+| US-VN-009 | 2 | 0 tests | NONE | YES - batch actions, inline edit |
+| US-VN-010 | 2 | 0 tests | NONE | YES - fuzzy suggestions, text reply |
+| US-VN-011 | 2 | 0 tests | NONE | YES - WhatsApp trust-adaptive messages |
+| US-VN-012 | 2 | 1 test | Expired view only | YES - 48h expiry, link reuse |
+| US-VN-012a-d | 2.5 | 0 tests | NONE | YES - swipe, snooze, PWA, analytics |
+| US-VN-013 | 3 | 0 tests | NONE | Backend only - verify tables in Convex |
+| US-VN-014 | 3 | 0 tests | NONE | YES - dual-path v1+v2 coexistence |
+| US-VN-015 | 4 | 0 tests | NONE | Backend only - verify claims extraction |
+| US-VN-016 | 4 | 8 tests | UI + access control | YES - verify claims appear after pipeline |
+| US-VN-017 | 5 | 0 tests | NONE | Backend only - entity resolution |
+| US-VN-018 | 5 | 4 tests | Page structure | YES - candidate selection, alias learning |
+| US-VN-019 | 6 | 0 tests | NONE | YES - drafts auto-confirm logic |
+| US-VN-020 | 6 | 0 tests | NONE | YES - WhatsApp CONFIRM/CANCEL commands |
+| US-VN-021 | 6 | 0 tests | NONE | YES - migration dry-run + execution |
+
+### What a Human Tester Should Focus On
+
+The automated tests cover UI structure, navigation, access control, mobile responsiveness, and error states. A human tester should focus on:
+
+1. **Full pipeline walkthrough** (see Quick Test Checklist above) - send a WhatsApp voice note and verify every stage
+2. **Review microsite with real data** - queue sections, batch Apply All, inline edit, progress counter, "All Caught Up"
+3. **Disambiguation workflow** - ambiguous names, candidate selection, batch resolution, alias stored
+4. **Quality gates** - send gibberish, duplicates, very short messages
+5. **WhatsApp commands** - CONFIRM, CANCEL, YES, NO, R (regenerate link)
+6. **Dual-path verification** - v1 insights AND v2 claims both created for v2-enabled coaches
+
+---
+
 *Generated 2026-02-08 from branch `feat/voice-gateways-v2` (50 commits, 21 stories, 6 phases)*

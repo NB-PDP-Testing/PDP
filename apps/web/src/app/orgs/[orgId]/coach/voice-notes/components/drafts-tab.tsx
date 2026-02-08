@@ -101,7 +101,7 @@ function groupDraftsByArtifact(drafts: DraftItem[]): Map<string, DraftItem[]> {
   return grouped;
 }
 
-export function DraftsTab({ orgId: _orgId, pendingDrafts }: DraftsTabProps) {
+export function DraftsTab({ orgId, pendingDrafts }: DraftsTabProps) {
   const [loadingIds, setLoadingIds] = useState<Set<string>>(new Set());
   const [batchLoadingArtifacts, setBatchLoadingArtifacts] = useState<
     Set<string>
@@ -153,7 +153,7 @@ export function DraftsTab({ orgId: _orgId, pendingDrafts }: DraftsTabProps) {
     const key = artifactId as string;
     setBatchLoadingArtifacts((prev) => new Set(prev).add(key));
     try {
-      await confirmAllDrafts({ artifactId });
+      await confirmAllDrafts({ artifactId, organizationId: orgId });
       toast.success(`Confirmed ${count} insight${count !== 1 ? "s" : ""}`);
     } catch {
       toast.error("Failed to confirm insights");
@@ -173,7 +173,7 @@ export function DraftsTab({ orgId: _orgId, pendingDrafts }: DraftsTabProps) {
     const key = artifactId as string;
     setBatchLoadingArtifacts((prev) => new Set(prev).add(key));
     try {
-      await rejectAllDrafts({ artifactId });
+      await rejectAllDrafts({ artifactId, organizationId: orgId });
       toast.success(`Rejected ${count} insight${count !== 1 ? "s" : ""}`);
     } catch {
       toast.error("Failed to reject insights");

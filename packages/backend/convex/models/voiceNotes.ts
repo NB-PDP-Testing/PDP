@@ -9,6 +9,7 @@ import {
   query,
 } from "../_generated/server";
 import { authComponent } from "../auth";
+import { validateTextMessage } from "../lib/messageValidation";
 
 // ============ REGEX PATTERNS (for skill rating parsing) ============
 // Patterns to match: "Rating: 4", "set to 3", "to three", "improved to 4/5", "level 3"
@@ -563,6 +564,12 @@ export const createTypedNote = mutation({
   },
   returns: v.id("voiceNotes"),
   handler: async (ctx, args) => {
+    // Quality gate: reject gibberish/too-short text
+    const validation = validateTextMessage(args.noteText);
+    if (!validation.isValid) {
+      throw new Error(validation.suggestion || "Message too short or unclear");
+    }
+
     const noteId = await ctx.db.insert("voiceNotes", {
       orgId: args.orgId,
       coachId: args.coachId,

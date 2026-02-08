@@ -1,129 +1,129 @@
 {
-  "description": "UAT Test Data Configuration",
-  "version": "2.0.0",
-  "lastUpdated": "2026-01-09",
-  "note": "Single source of truth for all UAT test accounts and data",
-  
+  "description": "LOCAL UAT Test Data - Neil's dev environment",
+  "version": "2.0.0-local",
+  "lastUpdated": "2026-02-08",
+  "note": "Local dev accounts for Grange org. Copy to test-data.json to use.",
+
   "users": {
     "owner": {
-      "email": "owner_pdp@outlook.com",
-      "password": "Password123!",
-      "name": "Owner User",
-      "description": "Platform owner - has platformStaff=true"
+      "email": "neil.b@blablablak.com",
+      "password": "lien1979",
+      "name": "NeilTEST",
+      "description": "Platform staff + coach in org"
     },
     "admin": {
-      "email": "adm1n_pdp@outlook.com",
-      "password": "Password123!",
-      "name": "Admin User",
-      "description": "Organization administrator"
+      "email": "neiltest2@skfjkadsfdgsjdgsj.com",
+      "password": "lien1979",
+      "name": "kjksajkjakj",
+      "description": "Organization admin & coach"
     },
     "coach": {
-      "email": "coach_pdp@outlook.com",
-      "password": "Password123!",
-      "name": "Coach User",
-      "description": "Team coach"
+      "email": "neiltesting@example.com",
+      "password": "lien1979",
+      "name": "Neil TEST ACCOUNT",
+      "description": "Multi-role: admin, coach, parent"
     },
     "parent": {
-      "email": "parent_pdp@outlook.com",
-      "password": "Password123!",
-      "name": "Parent User",
-      "description": "Player guardian/parent"
+      "email": "neiltest3@skfjkadsfdgsjdgsj.com",
+      "password": "lien1979",
+      "name": "neilparent",
+      "description": "Parent role only"
     },
     "newUser": {
-      "email": "newuser_pdp@outlook.com",
-      "password": "Password123!",
-      "name": "New Test User",
-      "description": "New user for signup tests"
+      "email": "tb-parent@example.com",
+      "password": "lien1979",
+      "name": "TB Parent TEST",
+      "description": "Additional parent account"
     },
     "multiRole": {
-      "email": "multi_pdp@outlook.com",
-      "password": "Password123!",
-      "name": "Multi Role User",
-      "description": "User with multiple roles"
+      "email": "neiltesting@example.com",
+      "password": "lien1979",
+      "name": "Neil TEST ACCOUNT",
+      "description": "Admin, coach, and parent roles"
     }
   },
-  
+
   "organization": {
-    "id": "jh7fc03thdh2hrzjvp0a6fh2tn7z1c36",
-    "name": "Test Club FC",
-    "editedname": "Test Club FC Updated",
-    "slug": "test-club-fc",
-    "editedslug": "test-club-fc-updated",
-    "sports": ["Soccer"],
-    "editedSports": ["Soccer", "Rugby"],
+    "id": "jh7f6k14jw7j4sj9rr9dfzekr97xm9j7",
+    "name": "Grange",
+    "editedname": "Grange Updated",
+    "slug": "grange",
+    "editedslug": "grange-updated",
+    "sports": ["GAA Football", "Rugby"],
+    "editedSports": ["GAA Football", "Rugby", "Soccer"],
     "colors": {
       "primary": "#2563EB",
       "secondary": "#059669",
       "editedPrimary": "#1a5f2a",
       "editedSecondary": "#f5f5dc"
     },
-    "description": "Test organization for UAT",
-    "Website": "https://www.testclubfc.com",
-    "FaceBook": "https://www.facebook.com/testclubfc",
-    "Twitter": "https://www.twitter.com/testclubfc",
-    "Instagram": "https://www.instagram.com/testclubfc",
-    "Linkedin": "https://www.linkedin.com/company/testclubfc"
+    "description": "Grange org for local UAT testing",
+    "Website": "",
+    "FaceBook": "",
+    "Twitter": "",
+    "Instagram": "",
+    "Linkedin": ""
   },
-  
+
   "teams": [
     {
-      "name": "Test Club FC U12 Boys",
-      "editedname": "Test Club FC U12 Boys Updated",
-      "ageGroup": "U12",
-      "sport": "Soccer",
-      "gender": "Boys",
-      "description": "First test team",
-      "trainingSchedule": "Sundays 10am-12pm",
-      "HomeVenue": "Test Club Stadium"
+      "name": "Senior Women",
+      "editedname": "Senior Women Updated",
+      "ageGroup": "Senior",
+      "sport": "GAA Football",
+      "gender": "Female",
+      "description": "Senior women's team",
+      "trainingSchedule": "",
+      "HomeVenue": ""
     },
     {
-      "name": "Test Club FC U14 Girls",
-      "editedname": "Test Club FC U14 Girls Updated",
-      "ageGroup": "U14",
-      "sport": "Soccer",
-      "gender": "Girls",
-      "description": "Second test team",
-      "trainingSchedule": "Saturdays 9am-11am",
-      "HomeVenue": "Test Club Stadium"
+      "name": "U18 Female",
+      "editedname": "U18 Female Updated",
+      "ageGroup": "U18",
+      "sport": "GAA Football",
+      "gender": "Female",
+      "description": "U18 female team",
+      "trainingSchedule": "",
+      "HomeVenue": ""
     }
   ],
-  
+
   "invitations": {
     "admin": {
-      "email": "adm1n_pdp@outlook.com",
+      "email": "neiltest2@skfjkadsfdgsjdgsj.com",
       "roles": ["admin"]
     },
     "coach": {
-      "email": "coach_pdp@outlook.com",
+      "email": "neiltesting@example.com",
       "roles": ["coach"]
     },
     "parent": {
-      "email": "parent_pdp@outlook.com",
+      "email": "neiltest3@skfjkadsfdgsjdgsj.com",
       "roles": ["parent"]
     }
   },
-  
+
   "players": [
     {
-      "firstName": "Liam",
-      "lastName": "Murphy",
-      "dateOfBirth": "2014-03-15",
-      "gender": "Male",
-      "ageGroup": "U12"
-    },
-    {
-      "firstName": "Noah",
-      "lastName": "O'Brien",
-      "dateOfBirth": "2014-06-22",
-      "gender": "Male",
-      "ageGroup": "U12"
-    },
-    {
-      "firstName": "Emma",
-      "lastName": "Kelly",
-      "dateOfBirth": "2012-01-10",
+      "firstName": "Clodagh",
+      "lastName": "Barlow",
       "gender": "Female",
-      "ageGroup": "U14"
+      "ageGroup": "U18",
+      "team": "U18 Female"
+    },
+    {
+      "firstName": "Sinead",
+      "lastName": "Haughey",
+      "gender": "Female",
+      "ageGroup": "U18",
+      "team": "U18 Female"
+    },
+    {
+      "firstName": "Eimear",
+      "lastName": "McDonagh",
+      "gender": "Female",
+      "ageGroup": "U18",
+      "team": "U18 Female"
     }
   ]
 }

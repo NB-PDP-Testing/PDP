@@ -4445,6 +4445,12 @@ export default defineSchema({
       "coachUserId",
       "status",
     ])
+    .index("by_org_coach_status_createdAt", [
+      "organizationId",
+      "coachUserId",
+      "status",
+      "createdAt",
+    ])
     .index("by_playerIdentityId_and_status", ["playerIdentityId", "status"]),
 
   // ============================================================

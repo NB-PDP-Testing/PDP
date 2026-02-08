@@ -152,16 +152,16 @@ export const getPendingDraftsForCoach = query({
 
     const drafts = await ctx.db
       .query("insightDrafts")
-      .withIndex("by_org_and_coach_and_status", (q) =>
+      .withIndex("by_org_coach_status_createdAt", (q) =>
         q
           .eq("organizationId", args.organizationId)
           .eq("coachUserId", identity.subject)
           .eq("status", "pending")
+          .gte("createdAt", expiryThreshold)
       )
       .collect();
 
-    // Filter out expired drafts (older than 7 days)
-    return drafts.filter((draft) => draft.createdAt >= expiryThreshold);
+    return drafts;
   },
 });
 
@@ -225,6 +225,7 @@ export const confirmDraft = mutation({
 export const confirmAllDrafts = mutation({
   args: {
     artifactId: v.id("voiceNoteArtifacts"),
+    organizationId: v.string(),
   },
   returns: v.null(),
   handler: async (ctx, args) => {
@@ -254,6 +255,9 @@ export const confirmAllDrafts = mutation({
 
     // Confirm all and schedule apply for each
     for (const draft of drafts) {
+      if (draft.organizationId !== args.organizationId) {
+        continue;
+      }
       await ctx.db.patch(draft._id, {
         status: "confirmed",
         confirmedAt: now,
@@ -322,6 +326,7 @@ export const rejectDraft = mutation({
 export const rejectAllDrafts = mutation({
   args: {
     artifactId: v.id("voiceNoteArtifacts"),
+    organizationId: v.string(),
   },
   returns: v.null(),
   handler: async (ctx, args) => {
@@ -351,6 +356,9 @@ export const rejectAllDrafts = mutation({
 
     // Reject all
     for (const draft of drafts) {
+      if (draft.organizationId !== args.organizationId) {
+        continue;
+      }
       await ctx.db.patch(draft._id, {
         status: "rejected",
         updatedAt: now,
@@ -374,17 +382,16 @@ export const getPendingDraftsInternal = internalQuery({
     const now = Date.now();
     const expiryThreshold = now - SEVEN_DAYS_MS;
 
-    const drafts = await ctx.db
+    return await ctx.db
       .query("insightDrafts")
-      .withIndex("by_org_and_coach_and_status", (q) =>
+      .withIndex("by_org_coach_status_createdAt", (q) =>
         q
           .eq("organizationId", args.organizationId)
           .eq("coachUserId", args.coachUserId)
           .eq("status", "pending")
+          .gte("createdAt", expiryThreshold)
       )
       .collect();
-
-    return drafts.filter((draft) => draft.createdAt >= expiryThreshold);
   },
 });
 

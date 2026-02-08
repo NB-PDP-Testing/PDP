@@ -2,8 +2,10 @@
 
 **Branch**: feat/voice-gateways-v2
 **Started**: 2026-02-04
-**Current Phase**: Phase 6 - Drafts, Confirmation & Migration (COMPLETE)
+**Current Phase**: Phase 7A - Wire In-App Notes to v2 Artifact Pipeline
 **Architecture Review**: COMPLETE (6 ADRs in docs/architecture/decisions/ADR-VN2-*)
+**Phases 1-6**: COMPLETE (US-VN-001 to US-VN-021, all 21 stories)
+**Phase 7 PRDs**: phases/PHASE7A_PRD.json, PHASE7B_PRD.json, PHASE7C_PRD.json, PHASE7D_PRD.json
 
 ---
 
@@ -1066,3 +1068,119 @@ All 3 stories (US-VN-019, US-VN-020, US-VN-021) implemented and passing.
 Overall progress: All stories complete for Phases 1-6.
 
 ---
+
+## Phase 7A: Wire In-App Notes to v2 Artifact Pipeline - READY TO START
+
+**PRD**: `phases/PHASE7A_PRD.json` (PRIMARY — read this first)
+**Context**: `context/V2_MIGRATION_CONTEXT.md` (verified function signatures)
+**Architecture Review**: COMPLETE (ADR-VN2-033 to ADR-VN2-038)
+
+### Stories:
+- US-VN-022: Wire In-App Note Creation to v2 Artifact Pipeline (1.5d) - PENDING
+- US-VN-023: Eliminate Duplicate v1+v2 Processing (1d) - PENDING
+
+### Execution Order: Sequential (US-VN-022 → US-VN-023)
+
+### Key Points:
+- createTypedNote + createRecordedNote get v2 artifact creation (feature-flagged)
+- Follow EXACT pattern from whatsapp.ts: createArtifact → [insert v1 note] → linkToVoiceNote
+- createArtifact does NOT accept voiceNoteId, status, or createdAt
+- linkToVoiceNote takes UUID string (not Convex _id)
+- v1 buildInsights continues as fallback when v2 is disabled
+- buildInsights gets skip check: if artifact exists → return null (safety net)
+- Fix any Convex .filter() anti-patterns in v2 backend files
+
+### Quality Criteria:
+- npm run check-types passes (0 errors)
+- npx -w packages/backend convex codegen succeeds
+- Manual test: typed note with v2 ON creates artifact + transcript + claims
+- Manual test: recorded note with v2 ON creates artifact (transcribeAudio handles rest)
+- Manual test: both note types with v2 OFF work as before (no artifacts)
+
+---
+
+## 2026-02-08 - US-VN-022 - Wire In-App Note Creation to v2 Artifact Pipeline
+**Iteration**: 1
+**Commit**: b7439a06baee733a92ed127b0fa120bcbd2527c6
+**Session**: fd18292b-4b7d-498f-992a-902c40972b0a
+**Status**: Complete
+
+### What was implemented
+- Modified `createTypedNote` (models/voiceNotes.ts) to create v2 artifacts when feature flag enabled:
+  - Checks `shouldUseV2Pipeline` feature flag after v1 note insert
+  - Creates artifact with `crypto.randomUUID()`, links to voice note
+  - Creates transcript with `fullText = noteText`, `modelUsed = 'user_typed'`
+  - Updates artifact status to `'transcribed'`
+  - Schedules `extractClaims` with artifact Convex _id
+- Modified `createRecordedNote` to create v2 artifacts when feature flag enabled:
+  - Creates artifact with `rawMediaStorageId`, links to voice note
+  - Does NOT create transcript or schedule extractClaims (transcribeAudio handles those)
+- Both mutations leave existing v1 scheduling (buildInsights/transcribeAudio) unchanged
+
+### Files changed
+- packages/backend/convex/models/voiceNotes.ts (+75)
+
+### Quality checks
+- ✅ Type check: passed (0 errors)
+- ✅ Convex codegen: passed
+- ✅ Biome lint: 0 new errors (17 pre-existing warnings)
+- ✅ Lint-staged: passed on commit
+- N/A Browser verification: backend-only changes
+
+### Learnings for future iterations
+**Patterns discovered:**
+- In-app notes create v1 note FIRST then v2 artifact (opposite of WhatsApp which creates artifact first)
+- `createArtifact` returns Convex `_id` — use for `createTranscript` and `extractClaims`
+- `linkToVoiceNote` and `updateArtifactStatus` take UUID string (not Convex `_id`)
+
+**Gotchas encountered:**
+- None — clean implementation following PRD step-by-step instructions
+
+**Mistakes made:**
+- None
+
+---
+
+## 2026-02-08 - US-VN-023 - Eliminate Duplicate v1+v2 Processing
+**Iteration**: 1
+**Commit**: (pending — will be committed with this progress update)
+**Session**: fd18292b-4b7d-498f-992a-902c40972b0a
+**Status**: Complete
+
+### What was implemented
+- Added v2 artifact-exists check at start of `buildInsights` handler (actions/voiceNotes.ts):
+  - Queries `getArtifactsByVoiceNote` for the note
+  - If artifacts exist, logs skip message and returns null (v2 pipeline handles it)
+  - If no artifacts, proceeds with full v1 extraction (fallback behavior)
+- Audited 4 v2 backend files for Convex `.filter()` anti-pattern:
+  - entityResolution.ts: `claims.filter()` → JS array filter (OK)
+  - draftGeneration.ts: `drafts.filter()` → JS array filter (OK)
+  - voiceNoteEntityResolutions.ts: `artifacts.filter()`, `resolutions.filter()` → JS array filters (OK)
+  - insightDrafts.ts: `drafts.filter()` → JS array filter (OK)
+  - Result: NO Convex query `.filter()` found — all are JavaScript array filters after `.collect()`
+
+### Files changed
+- packages/backend/convex/actions/voiceNotes.ts (+11)
+
+### Quality checks
+- ✅ Type check: passed (0 errors)
+- ✅ Convex codegen: passed
+- ✅ Biome lint: 0 new errors (10 pre-existing warnings)
+- N/A Browser verification: backend-only changes
+
+### Learnings for future iterations
+**Patterns discovered:**
+- The `.filter()` audit is straightforward: `ctx.db.query().filter()` = BAD, `array.filter()` = OK
+- All v2 backend files already use proper `.withIndex()` patterns — Phase 1-6 patterns were followed
+
+**Gotchas encountered:**
+- None
+
+**Mistakes made:**
+- None
+
+---
+
+## PHASE 7A COMPLETE
+All 2 stories (US-VN-022, US-VN-023) implemented and passing.
+Overall progress: All stories complete for Phases 1-7A.

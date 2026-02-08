@@ -324,6 +324,19 @@ export const buildInsights = internalAction({
       return null;
     }
 
+    // v2 skip check: if artifact exists, v2 pipeline handles this note
+    const artifacts = await ctx.runQuery(
+      internal.models.voiceNoteArtifacts.getArtifactsByVoiceNote,
+      { voiceNoteId: args.noteId }
+    );
+    if (artifacts.length > 0) {
+      console.info(
+        "[buildInsights] Skipping v1 extraction — v2 artifact exists for note:",
+        args.noteId
+      );
+      return null;
+    }
+
     const transcription = note.transcription;
     if (!transcription) {
       console.error("Voice note has no transcription:", args.noteId);

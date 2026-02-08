@@ -46,7 +46,9 @@
     "US-VN-022",
     "US-VN-023",
     "US-VN-024",
-    "US-VN-025"
+    "US-VN-025",
+    "US-VN-026",
+    "US-VN-027"
   ],
   "criticalLearnings": {
     "description": "Lessons from Phases 1-7B that MUST be followed:",
@@ -123,7 +125,7 @@
         "- S1: Wrap autoAppliedInsights insert (Step 3B) in try/catch"
       ],
       "priority": 26,
-      "passes": false,
+      "passes": true,
       "effort": "2 days",
       "dependencies": ["US-VN-024"],
       "files": {
@@ -150,7 +152,7 @@
         "3. Type check: npm run check-types"
       ],
       "priority": 27,
-      "passes": false,
+      "passes": true,
       "effort": "1 day",
       "dependencies": ["US-VN-026"],
       "files": {

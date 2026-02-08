@@ -575,6 +575,58 @@ export const createTypedNote = mutation({
       insightsStatus: "pending",
     });
 
+    // v2 pipeline: create artifact + transcript + schedule extractClaims
+    const useV2 = await ctx.runQuery(
+      internal.lib.featureFlags.shouldUseV2Pipeline,
+      { organizationId: args.orgId, userId: args.coachId }
+    );
+
+    if (useV2) {
+      const artifactIdStr = crypto.randomUUID();
+
+      const artifactConvexId = await ctx.runMutation(
+        internal.models.voiceNoteArtifacts.createArtifact,
+        {
+          artifactId: artifactIdStr,
+          sourceChannel: "app_typed" as const,
+          senderUserId: args.coachId,
+          orgContextCandidates: [
+            { organizationId: args.orgId, confidence: 1.0 },
+          ],
+        }
+      );
+
+      await ctx.runMutation(
+        internal.models.voiceNoteArtifacts.linkToVoiceNote,
+        { artifactId: artifactIdStr, voiceNoteId: noteId }
+      );
+
+      await ctx.runMutation(
+        internal.models.voiceNoteTranscripts.createTranscript,
+        {
+          artifactId: artifactConvexId,
+          fullText: args.noteText,
+          segments: [
+            { text: args.noteText, startTime: 0, endTime: 0, confidence: 1.0 },
+          ],
+          modelUsed: "user_typed",
+          language: "en",
+          duration: 0,
+        }
+      );
+
+      await ctx.runMutation(
+        internal.models.voiceNoteArtifacts.updateArtifactStatus,
+        { artifactId: artifactIdStr, status: "transcribed" }
+      );
+
+      await ctx.scheduler.runAfter(
+        0,
+        internal.actions.claimsExtraction.extractClaims,
+        { artifactId: artifactConvexId }
+      );
+    }
+
     // Schedule AI insights extraction
     await ctx.scheduler.runAfter(0, internal.actions.voiceNotes.buildInsights, {
       noteId,
@@ -611,6 +663,29 @@ export const createRecordedNote = mutation({
       insights: [],
       insightsStatus: "pending",
     });
+
+    // v2 pipeline: create artifact + link (transcribeAudio handles transcript + extractClaims)
+    const useV2 = await ctx.runQuery(
+      internal.lib.featureFlags.shouldUseV2Pipeline,
+      { organizationId: args.orgId, userId: args.coachId }
+    );
+
+    if (useV2) {
+      const artifactIdStr = crypto.randomUUID();
+
+      await ctx.runMutation(internal.models.voiceNoteArtifacts.createArtifact, {
+        artifactId: artifactIdStr,
+        sourceChannel: "app_recorded" as const,
+        senderUserId: args.coachId,
+        orgContextCandidates: [{ organizationId: args.orgId, confidence: 1.0 }],
+        rawMediaStorageId: args.audioStorageId,
+      });
+
+      await ctx.runMutation(
+        internal.models.voiceNoteArtifacts.linkToVoiceNote,
+        { artifactId: artifactIdStr, voiceNoteId: noteId }
+      );
+    }
 
     // Schedule transcription (which will then schedule insights)
     await ctx.scheduler.runAfter(

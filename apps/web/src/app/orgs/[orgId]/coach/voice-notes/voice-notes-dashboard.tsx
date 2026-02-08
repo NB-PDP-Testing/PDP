@@ -173,17 +173,26 @@ export function VoiceNotesDashboard() {
   const hasSensitiveSummaries = sensitiveSummariesCount > 0;
 
   // Auto-switch to first tab with pending items (only once on load)
+  // Priority: parents (most urgent) > drafts (needs review) > insights
   useEffect(() => {
     if (!hasAutoSwitched) {
       if (pendingSummariesCount > 0) {
         setActiveTab("parents");
+        setHasAutoSwitched(true);
+      } else if ((pendingDrafts?.length ?? 0) > 0) {
+        setActiveTab("drafts");
         setHasAutoSwitched(true);
       } else if (pendingInsightsCount > 0) {
         setActiveTab("insights");
         setHasAutoSwitched(true);
       }
     }
-  }, [pendingSummariesCount, pendingInsightsCount, hasAutoSwitched]);
+  }, [
+    pendingSummariesCount,
+    pendingDrafts,
+    pendingInsightsCount,
+    hasAutoSwitched,
+  ]);
 
   // Load nudge dismissed state from localStorage
   useEffect(() => {

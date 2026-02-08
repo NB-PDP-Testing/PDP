@@ -6,6 +6,17 @@ import { useMutation } from "convex/react";
 import { ChevronDown, FileCheck, Loader2 } from "lucide-react";
 import { useState } from "react";
 import { toast } from "sonner";
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+  AlertDialogTrigger,
+} from "@/components/ui/alert-dialog";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
@@ -92,9 +103,16 @@ function groupDraftsByArtifact(drafts: DraftItem[]): Map<string, DraftItem[]> {
 
 export function DraftsTab({ orgId: _orgId, pendingDrafts }: DraftsTabProps) {
   const [loadingIds, setLoadingIds] = useState<Set<string>>(new Set());
+  const [batchLoadingArtifacts, setBatchLoadingArtifacts] = useState<
+    Set<string>
+  >(new Set());
 
   const confirmDraft = useMutation(api.models.insightDrafts.confirmDraft);
   const rejectDraft = useMutation(api.models.insightDrafts.rejectDraft);
+  const confirmAllDrafts = useMutation(
+    api.models.insightDrafts.confirmAllDrafts
+  );
+  const rejectAllDrafts = useMutation(api.models.insightDrafts.rejectAllDrafts);
 
   const handleConfirm = async (draftId: string) => {
     setLoadingIds((prev) => new Set(prev).add(draftId));
@@ -123,6 +141,46 @@ export function DraftsTab({ orgId: _orgId, pendingDrafts }: DraftsTabProps) {
       setLoadingIds((prev) => {
         const next = new Set(prev);
         next.delete(draftId);
+        return next;
+      });
+    }
+  };
+
+  const handleConfirmAll = async (
+    artifactId: Id<"voiceNoteArtifacts">,
+    count: number
+  ) => {
+    const key = artifactId as string;
+    setBatchLoadingArtifacts((prev) => new Set(prev).add(key));
+    try {
+      await confirmAllDrafts({ artifactId });
+      toast.success(`Confirmed ${count} insight${count !== 1 ? "s" : ""}`);
+    } catch {
+      toast.error("Failed to confirm insights");
+    } finally {
+      setBatchLoadingArtifacts((prev) => {
+        const next = new Set(prev);
+        next.delete(key);
+        return next;
+      });
+    }
+  };
+
+  const handleRejectAll = async (
+    artifactId: Id<"voiceNoteArtifacts">,
+    count: number
+  ) => {
+    const key = artifactId as string;
+    setBatchLoadingArtifacts((prev) => new Set(prev).add(key));
+    try {
+      await rejectAllDrafts({ artifactId });
+      toast.success(`Rejected ${count} insight${count !== 1 ? "s" : ""}`);
+    } catch {
+      toast.error("Failed to reject insights");
+    } finally {
+      setBatchLoadingArtifacts((prev) => {
+        const next = new Set(prev);
+        next.delete(key);
         return next;
       });
     }
@@ -159,36 +217,96 @@ export function DraftsTab({ orgId: _orgId, pendingDrafts }: DraftsTabProps) {
 
   return (
     <div className="space-y-4">
-      {Array.from(grouped.entries()).map(([artifactId, drafts]) => (
-        <Card key={artifactId}>
-          <CardHeader className="pb-3">
-            <CardTitle className="flex items-center gap-2 text-base">
-              <FileCheck className="h-4 w-4 text-blue-600" />
-              <span>
-                {drafts.length} pending insight{drafts.length !== 1 ? "s" : ""}
-              </span>
-              <span className="font-normal text-muted-foreground text-sm">
-                {new Date(drafts[0].createdAt).toLocaleDateString(undefined, {
-                  month: "short",
-                  day: "numeric",
-                  year: "numeric",
-                })}
-              </span>
-            </CardTitle>
-          </CardHeader>
-          <CardContent className="space-y-3">
-            {drafts.map((draft) => (
-              <DraftCard
-                draft={draft}
-                isLoading={loadingIds.has(draft.draftId)}
-                key={draft._id}
-                onConfirm={handleConfirm}
-                onReject={handleReject}
-              />
-            ))}
-          </CardContent>
-        </Card>
-      ))}
+      {Array.from(grouped.entries()).map(([artifactId, drafts]) => {
+        const isBatchLoading = batchLoadingArtifacts.has(artifactId);
+        const typedArtifactId = drafts[0]
+          .artifactId as Id<"voiceNoteArtifacts">;
+
+        return (
+          <Card key={artifactId}>
+            <CardHeader className="pb-3">
+              <CardTitle className="flex flex-wrap items-center gap-2 text-base">
+                <div className="flex items-center gap-2">
+                  <FileCheck className="h-4 w-4 text-blue-600" />
+                  <span>
+                    {drafts.length} pending insight
+                    {drafts.length !== 1 ? "s" : ""}
+                  </span>
+                  <span className="font-normal text-muted-foreground text-sm">
+                    {new Date(drafts[0].createdAt).toLocaleDateString(
+                      undefined,
+                      {
+                        month: "short",
+                        day: "numeric",
+                        year: "numeric",
+                      }
+                    )}
+                  </span>
+                </div>
+                <div className="ml-auto flex gap-2">
+                  <Button
+                    className="h-8 bg-green-600 hover:bg-green-700"
+                    disabled={isBatchLoading}
+                    onClick={() =>
+                      handleConfirmAll(typedArtifactId, drafts.length)
+                    }
+                    size="sm"
+                  >
+                    {isBatchLoading ? (
+                      <Loader2 className="mr-1 h-3.5 w-3.5 animate-spin" />
+                    ) : null}
+                    Confirm All ({drafts.length})
+                  </Button>
+                  <AlertDialog>
+                    <AlertDialogTrigger asChild>
+                      <Button
+                        className="h-8"
+                        disabled={isBatchLoading}
+                        size="sm"
+                        variant="outline"
+                      >
+                        Reject All ({drafts.length})
+                      </Button>
+                    </AlertDialogTrigger>
+                    <AlertDialogContent>
+                      <AlertDialogHeader>
+                        <AlertDialogTitle>Reject all drafts?</AlertDialogTitle>
+                        <AlertDialogDescription>
+                          Are you sure you want to reject all {drafts.length}{" "}
+                          draft{drafts.length !== 1 ? "s" : ""} from this note?
+                          This action cannot be undone.
+                        </AlertDialogDescription>
+                      </AlertDialogHeader>
+                      <AlertDialogFooter>
+                        <AlertDialogCancel>Cancel</AlertDialogCancel>
+                        <AlertDialogAction
+                          className="bg-red-600 hover:bg-red-700"
+                          onClick={() =>
+                            handleRejectAll(typedArtifactId, drafts.length)
+                          }
+                        >
+                          Reject All
+                        </AlertDialogAction>
+                      </AlertDialogFooter>
+                    </AlertDialogContent>
+                  </AlertDialog>
+                </div>
+              </CardTitle>
+            </CardHeader>
+            <CardContent className="space-y-3">
+              {drafts.map((draft) => (
+                <DraftCard
+                  draft={draft}
+                  isLoading={loadingIds.has(draft.draftId) || isBatchLoading}
+                  key={draft._id}
+                  onConfirm={handleConfirm}
+                  onReject={handleReject}
+                />
+              ))}
+            </CardContent>
+          </Card>
+        );
+      })}
     </div>
   );
 }

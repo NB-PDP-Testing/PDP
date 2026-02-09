@@ -1,0 +1,96 @@
+# Ralph Progress Log
+Started: Wed  4 Feb 2026 13:33:28 GMT
+---
+
+## Codebase Patterns
+**Last Updated**: Wed 4 Feb 2026 - Iteration 1
+
+### Architecture
+- All routes scoped under `/orgs/[orgId]/`
+- Use Better Auth for authentication, Convex for backend
+- Organization data isolated via organizationId field
+
+### Convex Backend Patterns
+- NEVER use `.filter()` - always use `.withIndex()`
+- All functions need `args` and `returns` validators
+- Use `Id<"tableName">` types, not `string`
+- Index names include all fields: `by_orgId_and_status`
+- Use batch fetch with Map lookup pattern to avoid N+1 queries
+
+### Guardian Matching Module Patterns
+- Location: `packages/backend/convex/lib/matching/guardianMatcher.ts`
+- Weights are shared between import and onboarding
+- Use `normalizePostcode()` for consistent postcode comparison
+- When adding new matching signals, add to both `calculateMatchScore` and `findGuardianMatches`
+- Player postcode matching requires querying `guardianPlayerLinks` → `playerIdentities`
+- Declined links (status === 'declined') should be excluded from matching
+
+### Quality Checks
+- Run in order: `npm run check-types` → `npx ultracite fix` → `npm run check`
+- Ultracite must run before linting or you'll get false failures
+- Watch for non-null assertions (`!`) - Biome will reject them
+
+### File Locations (discovered during work)
+- Guardian matching: `packages/backend/convex/lib/matching/guardianMatcher.ts`
+- Guardian-player links: `guardianPlayerLinks` table
+- Player identities: `playerIdentities` table (has postcode field)
+- Tests: `packages/backend/convex/__tests__/`
+
+---
+
+## [Wed 4 Feb 2026 13:33] - Phase 0.5 Complete - Player Postcode Matching Enhancement
+**Iteration**: 1
+**Commit**: c1715122db693c04786874441edbf2cc220deffc
+**Session**: Ralph autonomous agent
+**Status**: Complete
+
+### What was implemented
+- Added PLAYER_POSTCODE_BONUS (10 points) to MATCHING_WEIGHTS constant
+- Created checkPlayerPostcodeMatch function that:
+  - Takes ctx, guardianIdentityId, and userPostcode parameters
+  - Queries guardianPlayerLinks by guardian ID using withIndex
+  - Filters out declined links
+  - Batch fetches linked player identities
+  - Compares normalized postcodes
+  - Returns { matches: boolean, matchedPlayers: string[] }
+- Updated calculateMatchScore to accept optional playerPostcodeMatch parameter
+- Added "Postcode matches linked player(s): [names]" match reason
+- Updated MatchResult type with postcodeMatchesUser field on linkedChildren items
+- Updated getLinkedChildren to populate postcodeMatchesUser field
+- Updated findGuardianMatches to batch compute player postcode matches for all candidates (avoiding N+1 queries)
+- Created comprehensive unit tests (24 tests passing)
+
+### Files changed
+- packages/backend/convex/lib/matching/guardianMatcher.ts (+130 lines)
+- packages/backend/convex/__tests__/US-P0.5-005.test.ts (+333 lines, new file)
+
+### Quality checks
+- ✅ Type check: passed (Convex codegen)
+- ✅ Linting: passed (after ultracite fix)
+- ✅ Unit tests: 24 tests passing
+- N/A Browser verification: Backend-only changes
+
+### **Learnings for future iterations** ⚠️ CRITICAL
+**Patterns discovered:**
+- When adding new matching signals to guardian matcher, need to:
+  1. Add weight constant to MATCHING_WEIGHTS
+  2. Implement check function (async if requires DB queries)
+  3. Call check in findGuardianMatches (batch compute to avoid N+1)
+  4. Pass result to calculateMatchScore
+  5. Update types if exposing new info in results
+- Pre-existing type errors in web app don't block backend development
+- Batch fetch pattern: collect IDs → Promise.all fetch → create Map → sync lookup
+
+**Gotchas encountered:**
+- Biome lint rejects non-null assertions (`params.postcode!`) - use const variable assignment instead
+- Import order is auto-fixed by ultracite - test files may be modified on lint
+
+**Dependencies found:**
+- checkPlayerPostcodeMatch depends on guardianPlayerLinks.by_guardian index
+- Player postcode comes from playerIdentities.postcode field
+- calculateMatchScore is called from findGuardianMatches with pre-computed match result
+
+**Mistakes made:**
+- Initially used `params.postcode!` but Biome rejected it - fixed by assigning to const first
+
+---

@@ -81,8 +81,7 @@ export default function AssessPlayerPage() {
   );
   const [selectedTeamId, setSelectedTeamId] = useState<string | null>(null);
   const [searchQuery, setSearchQuery] = useState("");
-  const [assessmentType, setAssessmentType] =
-    useState<AssessmentType>("training");
+  const [assessmentType] = useState<AssessmentType>("training");
   const [ratings, setRatings] = useState<Record<string, number>>({});
   const [notes, setNotes] = useState<Record<string, string>>({});
   const [generalNotes, setGeneralNotes] = useState("");
@@ -716,185 +715,93 @@ export default function AssessPlayerPage() {
         </div>
       </OrgThemedGradient>
 
-      {/* Search and Filter Bar */}
-      <Card
-        style={{
-          borderColor: "rgb(var(--org-primary-rgb) / 0.2)",
-          backgroundColor: "rgb(var(--org-primary-rgb) / 0.05)",
-        }}
-      >
+      {/* Search and Filters */}
+      <Card>
         <CardContent className="pt-6">
-          <div className="grid gap-4 md:grid-cols-2">
-            {/* Search Input */}
-            <div className="space-y-2">
-              <Label className="flex items-center gap-2">
-                <Search className="h-4 w-4" />
-                Search Players
-              </Label>
+          <div className="flex flex-col gap-4">
+            {/* Search */}
+            <div className="relative">
+              <Search className="-translate-y-1/2 absolute top-1/2 left-3 h-4 w-4 text-muted-foreground" />
               <Input
+                className="pl-9"
                 onChange={(e) => setSearchQuery(e.target.value)}
-                placeholder="Search by name..."
+                placeholder="Search by player name..."
                 value={searchQuery}
               />
             </div>
 
-            {/* Team Filter */}
-            <div className="space-y-2">
-              <Label className="flex items-center gap-2">
-                <Users className="h-4 w-4" />
-                Filter by Team
-              </Label>
-              <Select
-                onValueChange={(value) => {
-                  setSelectedTeamId(value === "all" ? null : value);
-                  // Reset to "All Sports" when "All Teams" is selected
-                  if (value === "all") {
-                    setSelectedSportCode("all");
-                  }
-                }}
-                value={selectedTeamId ?? "all"}
-              >
-                <SelectTrigger>
-                  <SelectValue placeholder="All teams" />
-                </SelectTrigger>
-                <SelectContent>
-                  <SelectItem value="all">All Teams</SelectItem>
-                  {(() => {
-                    const uniqueTeams =
-                      coachAssignments?.teams.filter(
-                        (team, index, self) =>
-                          index ===
-                          self.findIndex((t) => t.teamId === team.teamId)
-                      ) ?? [];
-                    return uniqueTeams.map((team, index) => (
-                      <SelectItem
-                        key={`${team.teamId}-${index}`}
-                        value={team.teamId}
-                      >
-                        {team.teamName}
-                        {team.sportCode && (
-                          <span className="ml-2 text-muted-foreground text-xs">
-                            ({getSportDisplayName(team.sportCode)})
-                          </span>
-                        )}
+            {/* Filters: Team and Sport side by side */}
+            <div className="flex flex-col gap-3 sm:flex-row">
+              <div className="w-full sm:w-56">
+                <Select
+                  onValueChange={(value) => {
+                    setSelectedTeamId(value === "all" ? null : value);
+                    if (value === "all") {
+                      setSelectedSportCode("all");
+                    }
+                  }}
+                  value={selectedTeamId ?? "all"}
+                >
+                  <SelectTrigger>
+                    <SelectValue placeholder="All teams" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="all">All Teams</SelectItem>
+                    {(() => {
+                      const uniqueTeams =
+                        coachAssignments?.teams.filter(
+                          (team, index, self) =>
+                            index ===
+                            self.findIndex((t) => t.teamId === team.teamId)
+                        ) ?? [];
+                      return uniqueTeams.map((team, index) => (
+                        <SelectItem
+                          key={`${team.teamId}-${index}`}
+                          value={team.teamId}
+                        >
+                          {team.teamName}
+                          {team.sportCode && (
+                            <span className="ml-2 text-muted-foreground text-xs">
+                              ({getSportDisplayName(team.sportCode)})
+                            </span>
+                          )}
+                        </SelectItem>
+                      ));
+                    })()}
+                  </SelectContent>
+                </Select>
+              </div>
+              <div className="w-full sm:w-48">
+                <Select
+                  onValueChange={(value) => {
+                    setSelectedSportCode(value);
+                    setRatings({});
+                    setSavedSkills(new Set());
+                  }}
+                  value={selectedSportCode ?? ""}
+                >
+                  <SelectTrigger>
+                    <SelectValue placeholder="Select a sport" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="all">All Sports</SelectItem>
+                    {sports?.map((sport) => (
+                      <SelectItem key={sport._id} value={sport.code}>
+                        {sport.name}
                       </SelectItem>
-                    ));
-                  })()}
-                </SelectContent>
-              </Select>
+                    ))}
+                  </SelectContent>
+                </Select>
+              </div>
             </div>
-          </div>
 
-          {/* Results count */}
-          <div className="mt-4 text-muted-foreground text-sm">
-            Showing {filteredPlayers.length} player
-            {filteredPlayers.length !== 1 ? "s" : ""}
-            {selectedTeamId && " in selected team"}
-            {searchQuery && " matching search"}
-          </div>
-        </CardContent>
-      </Card>
-
-      {/* Player & Sport Selection */}
-      <Card>
-        <CardHeader>
-          <CardTitle className="flex items-center gap-2">
-            <User className="h-5 w-5 text-emerald-600" />
-            Select Player & Sport
-          </CardTitle>
-          <CardDescription>
-            Choose a player and sport to begin the assessment
-          </CardDescription>
-        </CardHeader>
-        <CardContent className="grid gap-4 md:grid-cols-3">
-          {/* Player Select */}
-          <div className="space-y-2">
-            <Label>Player</Label>
-            <Select
-              onValueChange={(value) => {
-                setSelectedPlayerId(value);
-                setRatings({});
-                setSavedSkills(new Set());
-              }}
-              value={selectedPlayerId ?? ""}
-            >
-              <SelectTrigger>
-                <SelectValue placeholder="Select a player" />
-              </SelectTrigger>
-              <SelectContent>
-                {filteredPlayers.map(({ enrollment, player }, index) => (
-                  <SelectItem
-                    key={`${enrollment.playerIdentityId}-${index}`}
-                    value={enrollment.playerIdentityId}
-                  >
-                    {player.firstName} {player.lastName}
-                    {enrollment.ageGroup && (
-                      <span className="ml-2 text-muted-foreground">
-                        ({enrollment.ageGroup.toUpperCase()})
-                      </span>
-                    )}
-                  </SelectItem>
-                ))}
-              </SelectContent>
-            </Select>
-          </div>
-
-          {/* Sport Select */}
-          <div className="space-y-2">
-            <Label>Sport</Label>
-            <Select
-              onValueChange={(value) => {
-                setSelectedSportCode(value);
-                setRatings({});
-                setSavedSkills(new Set());
-              }}
-              value={selectedSportCode ?? ""}
-            >
-              <SelectTrigger>
-                <SelectValue placeholder="Select a sport" />
-              </SelectTrigger>
-              <SelectContent>
-                <SelectItem value="all">All Sports</SelectItem>
-                {sports?.map((sport) => (
-                  <SelectItem key={sport._id} value={sport.code}>
-                    {sport.name}
-                  </SelectItem>
-                ))}
-              </SelectContent>
-            </Select>
-            {selectedTeamId &&
-              coachAssignments &&
-              selectedSportCode !== "all" && (
-                <p className="text-muted-foreground text-xs">
-                  Auto-selected from team
-                </p>
-              )}
-            {selectedSportCode === "all" && (
-              <p className="text-muted-foreground text-xs">
-                Viewing all assessments across all sports
-              </p>
-            )}
-          </div>
-
-          {/* Assessment Type */}
-          <div className="space-y-2">
-            <Label>Assessment Type</Label>
-            <Select
-              onValueChange={(value) =>
-                setAssessmentType(value as AssessmentType)
-              }
-              value={assessmentType}
-            >
-              <SelectTrigger>
-                <SelectValue />
-              </SelectTrigger>
-              <SelectContent>
-                <SelectItem value="training">Training Session</SelectItem>
-                <SelectItem value="match">Match Observation</SelectItem>
-                <SelectItem value="formal_review">Formal Review</SelectItem>
-                <SelectItem value="trial">Trial/Tryout</SelectItem>
-              </SelectContent>
-            </Select>
+            {/* Results count */}
+            <div className="text-muted-foreground text-sm">
+              Showing {filteredPlayers.length} player
+              {filteredPlayers.length !== 1 ? "s" : ""}
+              {selectedTeamId && " in selected team"}
+              {searchQuery && " matching search"}
+            </div>
           </div>
         </CardContent>
       </Card>
@@ -1258,29 +1165,27 @@ export default function AssessPlayerPage() {
       )}
 
       {/* BATCH MODE: Team Session Assessment */}
-      {assessmentMode === "batch" &&
-        selectedSportCode &&
-        skills &&
-        skills.length > 0 && (
-          <BatchAssessmentSection
-            assessmentType={assessmentType}
-            batchSelectedSkills={batchSelectedSkills}
-            currentUser={currentUser}
-            filteredPlayers={filteredPlayers}
-            findOrCreatePassport={findOrCreatePassport}
-            isSaving={isSaving}
-            orgId={orgId}
-            recordAssessment={recordAssessment}
-            selectedBatchPlayers={selectedBatchPlayers}
-            selectedSportCode={selectedSportCode}
-            setBatchSavedCount={setBatchSavedCount}
-            setBatchSelectedSkills={setBatchSelectedSkills}
-            setIsSaving={setIsSaving}
-            setSelectedBatchPlayers={setSelectedBatchPlayers}
-            skills={skills}
-            skillsByCategory={skillsByCategory}
-          />
-        )}
+      {assessmentMode === "batch" && (
+        <BatchAssessmentSection
+          assessmentType={assessmentType}
+          batchSelectedSkills={batchSelectedSkills}
+          currentUser={currentUser}
+          filteredPlayers={filteredPlayers}
+          findOrCreatePassport={findOrCreatePassport}
+          hasSkills={!!skills && skills.length > 0}
+          isSaving={isSaving}
+          orgId={orgId}
+          recordAssessment={recordAssessment}
+          selectedBatchPlayers={selectedBatchPlayers}
+          selectedSportCode={selectedSportCode ?? "all"}
+          setBatchSavedCount={setBatchSavedCount}
+          setBatchSelectedSkills={setBatchSelectedSkills}
+          setIsSaving={setIsSaving}
+          setSelectedBatchPlayers={setSelectedBatchPlayers}
+          skills={skills ?? []}
+          skillsByCategory={skillsByCategory}
+        />
+      )}
 
       {/* INDIVIDUAL MODE: All Sports View (History Only) */}
       {assessmentMode === "individual" &&
@@ -1497,15 +1402,57 @@ export default function AssessPlayerPage() {
             </p>
           </CardContent>
         </Card>
+      ) : assessmentMode === "individual" && filteredPlayers.length > 0 ? (
+        <Card>
+          <CardHeader>
+            <CardTitle className="flex items-center gap-2">
+              <Users className="h-5 w-5 text-emerald-600" />
+              Players ({filteredPlayers.length})
+            </CardTitle>
+            <CardDescription>
+              Select a player to begin recording assessments
+            </CardDescription>
+          </CardHeader>
+          <CardContent>
+            <div className="grid gap-2 sm:grid-cols-2 lg:grid-cols-3">
+              {filteredPlayers.map(({ enrollment, player }, index) => (
+                <button
+                  className="flex items-center gap-3 rounded-lg border border-gray-200 p-3 text-left transition-colors hover:border-emerald-300 hover:bg-emerald-50/50"
+                  key={`${enrollment.playerIdentityId}-${index}`}
+                  onClick={() => {
+                    setSelectedPlayerId(enrollment.playerIdentityId);
+                    setRatings({});
+                    setSavedSkills(new Set());
+                  }}
+                  type="button"
+                >
+                  <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-full bg-emerald-100 font-semibold text-emerald-700 text-sm">
+                    {player.firstName?.[0]}
+                    {player.lastName?.[0]}
+                  </div>
+                  <div className="min-w-0 flex-1">
+                    <p className="truncate font-medium">
+                      {player.firstName} {player.lastName}
+                    </p>
+                    {enrollment.ageGroup && (
+                      <p className="text-muted-foreground text-xs">
+                        {enrollment.ageGroup.toUpperCase()}
+                      </p>
+                    )}
+                  </div>
+                  <ChevronRight className="h-4 w-4 shrink-0 text-muted-foreground" />
+                </button>
+              ))}
+            </div>
+          </CardContent>
+        </Card>
       ) : assessmentMode === "individual" ? (
         <Card className="border-dashed">
           <CardContent className="flex flex-col items-center justify-center py-12 text-center">
             <Target className="mb-4 h-12 w-12 text-muted-foreground" />
-            <h3 className="mb-2 font-semibold text-lg">
-              Select Player & Sport
-            </h3>
+            <h3 className="mb-2 font-semibold text-lg">No Players Found</h3>
             <p className="text-muted-foreground">
-              Choose a player and sport above to begin recording assessments
+              No players match your current filters
             </p>
           </CardContent>
         </Card>
@@ -1523,6 +1470,7 @@ function BatchAssessmentSection({
   setBatchSelectedSkills,
   skills,
   skillsByCategory,
+  hasSkills,
   assessmentType,
   orgId,
   selectedSportCode,
@@ -1556,6 +1504,7 @@ function BatchAssessmentSection({
       categoryId: Id<"skillCategories">;
     }>
   >;
+  hasSkills: boolean;
   assessmentType: AssessmentType;
   orgId: string;
   selectedSportCode: string;
@@ -1740,9 +1689,11 @@ function BatchAssessmentSection({
                       ? "text-green-600"
                       : "text-gray-400"
                 }`}
-                disabled={selectedBatchPlayers.size === 0}
+                disabled={selectedBatchPlayers.size === 0 || !hasSkills}
                 onClick={() =>
-                  selectedBatchPlayers.size > 0 && setBatchStep("skills")
+                  selectedBatchPlayers.size > 0 &&
+                  hasSkills &&
+                  setBatchStep("skills")
                 }
               >
                 <div
@@ -1776,11 +1727,13 @@ function BatchAssessmentSection({
                 }`}
                 disabled={
                   selectedBatchPlayers.size === 0 ||
-                  batchSelectedSkills.size === 0
+                  batchSelectedSkills.size === 0 ||
+                  !hasSkills
                 }
                 onClick={() =>
                   selectedBatchPlayers.size > 0 &&
                   batchSelectedSkills.size > 0 &&
+                  hasSkills &&
                   setBatchStep("rate")
                 }
               >
@@ -1881,8 +1834,16 @@ function BatchAssessmentSection({
             </div>
 
             {selectedBatchPlayers.size > 0 && (
-              <div className="mt-6 flex justify-end">
-                <Button onClick={() => setBatchStep("skills")}>
+              <div className="mt-6 flex items-center justify-end gap-3">
+                {!hasSkills && (
+                  <p className="text-muted-foreground text-sm">
+                    Select a specific sport to continue
+                  </p>
+                )}
+                <Button
+                  disabled={!hasSkills}
+                  onClick={() => setBatchStep("skills")}
+                >
                   Next: Select Skills
                   <ChevronRight className="ml-2 h-4 w-4" />
                 </Button>

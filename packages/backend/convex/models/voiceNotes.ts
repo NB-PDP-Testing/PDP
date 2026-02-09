@@ -28,6 +28,7 @@ const REGEX_SPECIAL_CHARS_PATTERN = /[.*+?^${}()|[\]\\]/g;
 const insightValidator = v.object({
   id: v.string(),
   playerIdentityId: v.optional(v.id("playerIdentities")),
+  playerId: v.optional(v.string()), // Legacy field for backwards compatibility with old voice notes
   playerName: v.optional(v.string()),
   title: v.string(),
   description: v.string(),
@@ -106,6 +107,15 @@ export const getAllVoiceNotes = query({
       insightsStatus: v.optional(statusValidator),
       insightsError: v.optional(v.string()),
       source: sourceValidator,
+      sessionPlanId: v.optional(v.id("sessionPlans")),
+      transcriptQuality: v.optional(v.number()),
+      transcriptValidation: v.optional(
+        v.object({
+          isValid: v.boolean(),
+          reason: v.string(),
+          suggestedAction: v.string(),
+        })
+      ),
     })
   ),
   handler: async (ctx, args) => {
@@ -182,6 +192,15 @@ export const getVoiceNoteById = query({
       insightsStatus: v.optional(statusValidator),
       insightsError: v.optional(v.string()),
       source: sourceValidator,
+      sessionPlanId: v.optional(v.id("sessionPlans")),
+      transcriptQuality: v.optional(v.number()),
+      transcriptValidation: v.optional(
+        v.object({
+          isValid: v.boolean(),
+          reason: v.string(),
+          suggestedAction: v.string(),
+        })
+      ),
     }),
     v.null()
   ),
@@ -229,6 +248,7 @@ export const getVoiceNotesByCoach = query({
       insightsStatus: v.optional(statusValidator),
       insightsError: v.optional(v.string()),
       source: sourceValidator,
+      sessionPlanId: v.optional(v.id("sessionPlans")),
     })
   ),
   handler: async (ctx, args) => {
@@ -2105,6 +2125,15 @@ export const getNote = internalQuery({
       insightsStatus: v.optional(statusValidator),
       insightsError: v.optional(v.string()),
       source: sourceValidator,
+      sessionPlanId: v.optional(v.id("sessionPlans")),
+      transcriptQuality: v.optional(v.number()),
+      transcriptValidation: v.optional(
+        v.object({
+          isValid: v.boolean(),
+          reason: v.string(),
+          suggestedAction: v.string(),
+        })
+      ),
     }),
     v.null()
   ),

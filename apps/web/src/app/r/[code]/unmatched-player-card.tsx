@@ -3,31 +3,44 @@
 /**
  * UnmatchedPlayerCard - Fuzzy player matching UI for unmatched insights.
  *
- * US-VN-010 (Phase 2)
+ * US-VN-010 (Phase 2), US-RMS-001 (Direct Autocomplete - 2026-02-09)
  *
- * Shows fuzzy-matched suggestions from findSimilarPlayersForReview,
- * inline radio selection, "Someone else..." text input for manual search,
- * and assigns player on confirm.
+ * Shows direct autocomplete search input with live fuzzy-matched suggestions
+ * from findSimilarPlayersForReview. Debounced search (300ms) provides
+ * real-time player matching as coach types. No extra clicks needed.
  */
 
 import { api } from "@pdp/backend/convex/_generated/api";
 import type { Id } from "@pdp/backend/convex/_generated/dataModel";
 import { useMutation, useQuery } from "convex/react";
-import {
-  Check,
-  HelpCircle,
-  Loader2,
-  Pencil,
-  Search,
-  User,
-  X,
-} from "lucide-react";
-import { useCallback, useState } from "react";
+import { Check, HelpCircle, Loader2, Pencil, Search, X } from "lucide-react";
+import { useCallback, useEffect, useState } from "react";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
+import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
+
+/**
+ * Custom hook for debouncing values.
+ * Returns the debounced value after the specified delay.
+ */
+function useDebounce<T>(value: T, delay: number): T {
+  const [debouncedValue, setDebouncedValue] = useState<T>(value);
+
+  useEffect(() => {
+    const handler = setTimeout(() => {
+      setDebouncedValue(value);
+    }, delay);
+
+    return () => {
+      clearTimeout(handler);
+    };
+  }, [value, delay]);
+
+  return debouncedValue;
+}
 
 type UnmatchedPlayerCardProps = {
   code: string;
@@ -75,20 +88,22 @@ export function UnmatchedPlayerCard({
 }: UnmatchedPlayerCardProps) {
   const [selectedPlayerId, setSelectedPlayerId] =
     useState<Id<"playerIdentities"> | null>(null);
-  const [showManualInput, setShowManualInput] = useState(false);
-  const [manualSearch, setManualSearch] = useState("");
-  const [activeSearch, setActiveSearch] = useState(playerName ?? "");
+  const [searchQuery, setSearchQuery] = useState(playerName ?? "");
   const [assigning, setAssigning] = useState(false);
   const [editing, setEditing] = useState(false);
+
+  // Debounce search query to avoid excessive queries (300ms delay)
+  const debouncedSearchQuery = useDebounce(searchQuery, 300);
 
   const assignPlayer = useMutation(
     api.models.whatsappReviewLinks.assignPlayerFromReview
   );
 
+  // Query with debounced search value
   const suggestionsResult = useQuery(
     api.models.whatsappReviewLinks.findSimilarPlayersForReview,
-    activeSearch.trim().length >= 2
-      ? { code, searchName: activeSearch.trim() }
+    debouncedSearchQuery.trim().length >= 2
+      ? { code, searchName: debouncedSearchQuery.trim() }
       : "skip"
   );
 
@@ -111,13 +126,11 @@ export function UnmatchedPlayerCard({
     }
   }, [assignPlayer, code, voiceNoteId, insightId, selectedPlayerId]);
 
-  const handleManualSearch = useCallback(() => {
-    if (manualSearch.trim().length >= 2) {
-      setActiveSearch(manualSearch.trim());
-      setShowManualInput(false);
-      setSelectedPlayerId(null);
-    }
-  }, [manualSearch]);
+  // Clear selection when search query changes
+  const handleSearchChange = useCallback((value: string) => {
+    setSearchQuery(value);
+    setSelectedPlayerId(null);
+  }, []);
 
   const formattedDate = formatNoteDate(noteDate);
 
@@ -149,20 +162,10 @@ export function UnmatchedPlayerCard({
         />
 
         <SuggestionsList
-          activeSearch={activeSearch}
-          manualSearch={manualSearch}
-          onManualSearch={handleManualSearch}
-          onManualSearchChange={setManualSearch}
-          onSelectPlayer={(id) => {
-            setSelectedPlayerId(id);
-            setShowManualInput(false);
-          }}
-          onShowManualInput={() => {
-            setShowManualInput(true);
-            setSelectedPlayerId(null);
-          }}
+          onSearchChange={handleSearchChange}
+          onSelectPlayer={setSelectedPlayerId}
+          searchQuery={searchQuery}
           selectedPlayerId={selectedPlayerId}
-          showManualInput={showManualInput}
           suggestions={suggestions}
           suggestionsLoading={suggestionsResult === undefined}
         />
@@ -262,94 +265,79 @@ function InsightHeader({
 function SuggestionsList({
   suggestions,
   suggestionsLoading,
-  activeSearch,
+  searchQuery,
   selectedPlayerId,
-  showManualInput,
-  manualSearch,
   onSelectPlayer,
-  onShowManualInput,
-  onManualSearch,
-  onManualSearchChange,
+  onSearchChange,
 }: {
   suggestions: SuggestionItem[];
   suggestionsLoading: boolean;
-  activeSearch: string;
+  searchQuery: string;
   selectedPlayerId: Id<"playerIdentities"> | null;
-  showManualInput: boolean;
-  manualSearch: string;
   onSelectPlayer: (id: Id<"playerIdentities">) => void;
-  onShowManualInput: () => void;
-  onManualSearch: () => void;
-  onManualSearchChange: (value: string) => void;
+  onSearchChange: (value: string) => void;
 }) {
   return (
-    <div className="mt-3 space-y-1.5">
-      <p className="font-medium text-muted-foreground text-xs uppercase tracking-wide">
-        Who is this?
-      </p>
+    <div className="mt-3 space-y-2">
+      {/* Search input always visible */}
+      <div className="space-y-1.5">
+        <Label className="text-xs" htmlFor="player-search">
+          Search for player
+        </Label>
+        <div className="relative">
+          <Search className="-translate-y-1/2 absolute top-1/2 left-3 h-4 w-4 text-muted-foreground" />
+          <Input
+            autoFocus
+            className="min-h-[44px] pl-9 text-sm"
+            id="player-search"
+            onChange={(e) => onSearchChange(e.target.value)}
+            placeholder="Start typing player name..."
+            value={searchQuery}
+          />
+        </div>
+      </div>
 
-      {suggestionsLoading && activeSearch.trim().length >= 2 && (
-        <div className="flex items-center gap-2 py-2 text-muted-foreground text-sm">
+      {/* Loading state */}
+      {suggestionsLoading && searchQuery.trim().length >= 2 && (
+        <div className="flex items-center gap-2 rounded-lg border border-gray-200 bg-gray-50 px-3 py-2 text-muted-foreground text-sm">
           <Loader2 className="h-4 w-4 animate-spin" />
           Searching...
         </div>
       )}
 
-      {suggestions.map((suggestion) => (
-        <SuggestionRadio
-          key={suggestion.playerId}
-          onClick={() => onSelectPlayer(suggestion.playerId)}
-          selected={selectedPlayerId === suggestion.playerId}
-          suggestion={suggestion}
-        />
-      ))}
+      {/* Suggestions list */}
+      {searchQuery.trim().length >= 2 && suggestions.length > 0 && (
+        <div className="space-y-1.5">
+          <p className="font-medium text-muted-foreground text-xs uppercase tracking-wide">
+            {suggestions.length}{" "}
+            {suggestions.length === 1 ? "Match" : "Matches"} Found
+          </p>
+          {suggestions.map((suggestion) => (
+            <SuggestionRadio
+              key={suggestion.playerId}
+              onClick={() => onSelectPlayer(suggestion.playerId)}
+              selected={selectedPlayerId === suggestion.playerId}
+              suggestion={suggestion}
+            />
+          ))}
+        </div>
+      )}
 
-      <button
-        className={`flex min-h-[44px] w-full items-center gap-3 rounded-lg border px-3 py-2 text-left transition-colors ${
-          showManualInput
-            ? "border-amber-500 bg-amber-50"
-            : "border-gray-200 hover:border-amber-300 hover:bg-amber-50/50"
-        }`}
-        onClick={onShowManualInput}
-        type="button"
-      >
-        <div
-          className={`flex h-5 w-5 shrink-0 items-center justify-center rounded-full border-2 ${
-            showManualInput
-              ? "border-amber-500 bg-amber-500"
-              : "border-gray-300"
-          }`}
-        >
-          {showManualInput && <Check className="h-3 w-3 text-white" />}
-        </div>
-        <div className="flex items-center gap-1.5">
-          <User className="h-3.5 w-3.5 text-muted-foreground" />
-          <span className="text-muted-foreground text-sm">Someone else...</span>
-        </div>
-      </button>
+      {/* No results state */}
+      {!suggestionsLoading &&
+        searchQuery.trim().length >= 2 &&
+        suggestions.length === 0 && (
+          <div className="rounded-lg border border-amber-200 bg-amber-50 px-3 py-2 text-amber-800 text-sm">
+            No players found matching "{searchQuery}". Try a different spelling
+            or check the player roster.
+          </div>
+        )}
 
-      {showManualInput && (
-        <div className="flex gap-2 pt-1">
-          <Input
-            className="min-h-[44px] flex-1 text-sm"
-            onChange={(e) => onManualSearchChange(e.target.value)}
-            onKeyDown={(e) => {
-              if (e.key === "Enter") {
-                onManualSearch();
-              }
-            }}
-            placeholder="Type player name..."
-            value={manualSearch}
-          />
-          <Button
-            className="min-h-[44px]"
-            disabled={manualSearch.trim().length < 2}
-            onClick={onManualSearch}
-            size="sm"
-          >
-            <Search className="h-4 w-4" />
-          </Button>
-        </div>
+      {/* Initial state hint */}
+      {searchQuery.trim().length < 2 && (
+        <p className="text-center text-muted-foreground text-xs">
+          Type at least 2 characters to search
+        </p>
       )}
     </div>
   );

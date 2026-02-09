@@ -1,0 +1,129 @@
+{
+  "description": "LOCAL UAT Test Data - Neil's dev environment",
+  "version": "2.0.0-local",
+  "lastUpdated": "2026-02-08",
+  "note": "Local dev accounts for Grange org. Copy to test-data.json to use.",
+
+  "users": {
+    "owner": {
+      "email": "neil.b@blablablak.com",
+      "password": "lien1979",
+      "name": "NeilTEST",
+      "description": "Platform staff + coach in org"
+    },
+    "admin": {
+      "email": "neiltest2@skfjkadsfdgsjdgsj.com",
+      "password": "lien1979",
+      "name": "kjksajkjakj",
+      "description": "Organization admin & coach"
+    },
+    "coach": {
+      "email": "neiltesting@example.com",
+      "password": "lien1979",
+      "name": "Neil TEST ACCOUNT",
+      "description": "Multi-role: admin, coach, parent"
+    },
+    "parent": {
+      "email": "neiltest3@skfjkadsfdgsjdgsj.com",
+      "password": "lien1979",
+      "name": "neilparent",
+      "description": "Parent role only"
+    },
+    "newUser": {
+      "email": "tb-parent@example.com",
+      "password": "lien1979",
+      "name": "TB Parent TEST",
+      "description": "Additional parent account"
+    },
+    "multiRole": {
+      "email": "neiltesting@example.com",
+      "password": "lien1979",
+      "name": "Neil TEST ACCOUNT",
+      "description": "Admin, coach, and parent roles"
+    }
+  },
+
+  "organization": {
+    "id": "jh7f6k14jw7j4sj9rr9dfzekr97xm9j7",
+    "name": "Grange",
+    "editedname": "Grange Updated",
+    "slug": "grange",
+    "editedslug": "grange-updated",
+    "sports": ["GAA Football", "Rugby"],
+    "editedSports": ["GAA Football", "Rugby", "Soccer"],
+    "colors": {
+      "primary": "#2563EB",
+      "secondary": "#059669",
+      "editedPrimary": "#1a5f2a",
+      "editedSecondary": "#f5f5dc"
+    },
+    "description": "Grange org for local UAT testing",
+    "Website": "",
+    "FaceBook": "",
+    "Twitter": "",
+    "Instagram": "",
+    "Linkedin": ""
+  },
+
+  "teams": [
+    {
+      "name": "Senior Women",
+      "editedname": "Senior Women Updated",
+      "ageGroup": "Senior",
+      "sport": "GAA Football",
+      "gender": "Female",
+      "description": "Senior women's team",
+      "trainingSchedule": "",
+      "HomeVenue": ""
+    },
+    {
+      "name": "U18 Female",
+      "editedname": "U18 Female Updated",
+      "ageGroup": "U18",
+      "sport": "GAA Football",
+      "gender": "Female",
+      "description": "U18 female team",
+      "trainingSchedule": "",
+      "HomeVenue": ""
+    }
+  ],
+
+  "invitations": {
+    "admin": {
+      "email": "neiltest2@skfjkadsfdgsjdgsj.com",
+      "roles": ["admin"]
+    },
+    "coach": {
+      "email": "neiltesting@example.com",
+      "roles": ["coach"]
+    },
+    "parent": {
+      "email": "neiltest3@skfjkadsfdgsjdgsj.com",
+      "roles": ["parent"]
+    }
+  },
+
+  "players": [
+    {
+      "firstName": "Clodagh",
+      "lastName": "Barlow",
+      "gender": "Female",
+      "ageGroup": "U18",
+      "team": "U18 Female"
+    },
+    {
+      "firstName": "Sinead",
+      "lastName": "Haughey",
+      "gender": "Female",
+      "ageGroup": "U18",
+      "team": "U18 Female"
+    },
+    {
+      "firstName": "Eimear",
+      "lastName": "McDonagh",
+      "gender": "Female",
+      "ageGroup": "U18",
+      "team": "U18 Female"
+    }
+  ]
+}

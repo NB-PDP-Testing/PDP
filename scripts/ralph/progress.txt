@@ -213,14 +213,14 @@
 
 ---
 
-## Phase 7D: Retire v1 Processing & Clean Up — NEXT
+## Phase 7D: Retire v1 Processing & Clean Up
 
 **PRD**: `phases/PHASE7D_PRD.json` (PRIMARY — read this FIRST)
 **Context**: `context/V2_MIGRATION_CONTEXT.md`
 
 ### Stories:
-- US-VN-028: Remove Dual Processing Path (gate buildInsights, add skipV2 param)
-- US-VN-029: Feature Flag Promotion Tooling (4 scripts: enable/disable/status/migrate)
+- US-VN-028: Remove Dual Processing Path (gate buildInsights, add skipV2 param) ✅
+- US-VN-029: Feature Flag Promotion Tooling (4 scripts: enable/disable/status/migrate) — NEXT
 
 ### Key Implementation Notes:
 - createTypedNote: wrap buildInsights in `if (!useV2)` — reuse EXISTING useV2 variable
@@ -229,5 +229,23 @@
 - skipV2: v.optional(v.boolean()) on public API — simpler than internal versions
 - Scripts: camelCase filenames, export query/mutation/action (NOT internal), for `convex run`
 - JS array .filter() after .collect() is FINE for tables without org indexes
+
+---
+
+## 2026-02-09 - US-VN-028 - Remove Dual Processing Path
+**Status**: Complete
+**Files changed**:
+- packages/backend/convex/models/voiceNotes.ts (gated buildInsights with !useV2 in createTypedNote, added skipV2 arg to both mutations)
+- packages/backend/convex/actions/voiceNotes.ts (gated buildInsights with artifacts.length === 0 in transcribeAudio, updated defense-in-depth log to console.warn)
+- packages/backend/convex/actions/whatsapp.ts (passed skipV2: true when calling createTypedNote/createRecordedNote)
+
+**Type check**: pass
+**Convex codegen**: pass
+
+### Implementation summary
+1. Change 1: Gated buildInsights in createTypedNote with `if (!useV2)` — reused existing useV2 variable from line 586
+2. Change 2: Gated buildInsights in transcribeAudio with `if (artifacts.length === 0)` — reused existing artifacts variable from line 229
+3. Change 3: Added skipV2: v.optional(v.boolean()) to both createTypedNote and createRecordedNote args. Modified handler to set useV2 = args.skipV2 ? false : await ctx.runQuery(...). Updated WhatsApp callers to pass skipV2: true.
+4. Change 4: Changed buildInsights defense-in-depth log from console.info to console.warn with "Defense-in-depth:" prefix
 
 ---

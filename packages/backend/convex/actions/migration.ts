@@ -7,7 +7,12 @@
  * Supports dry-run mode and batch processing.
  * Idempotent — skips voiceNotes that already have linked artifacts.
  *
- * Trigger from Convex dashboard (Run Action) or via scheduled job.
+ * Usage (via wrapper script):
+ *   npx -w packages/backend convex run scripts/runMigration '{"dryRun": true}'
+ *   npx -w packages/backend convex run scripts/runMigration '{"organizationId": "...", "dryRun": false}'
+ *   npx -w packages/backend convex run scripts/runMigration '{"dryRun": false}'
+ *
+ * Or trigger from Convex dashboard (Run Action) or via scheduled job.
  */
 
 import { v } from "convex/values";

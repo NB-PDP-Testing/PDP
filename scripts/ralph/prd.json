@@ -104,7 +104,7 @@
         "CRITICAL: skipV2 on public API is simpler than needing internal versions"
       ],
       "priority": 28,
-      "passes": false,
+      "passes": true,
       "effort": "1.5 days",
       "dependencies": ["US-VN-026", "US-VN-027"],
       "files": {
@@ -134,7 +134,7 @@
         "v2MigrationStatus may use JS array .filter() after .collect() for tables without org indexes"
       ],
       "priority": 29,
-      "passes": false,
+      "passes": true,
       "effort": "1.5 days",
       "dependencies": ["US-VN-028"],
       "files": {

@@ -2878,6 +2878,7 @@ export const getCompletedForMigration = internalQuery({
     }
 
     // Filter to only completed transcriptions with transcripts, then limit
+    // Map to only the fields the validator expects (strip _creationTime, date, etc.)
     return notes
       .filter(
         (note) =>
@@ -2885,6 +2886,15 @@ export const getCompletedForMigration = internalQuery({
           note.transcription &&
           note.transcription.length > 0
       )
-      .slice(0, args.limit);
+      .slice(0, args.limit)
+      .map((note) => ({
+        _id: note._id,
+        orgId: note.orgId,
+        coachId: note.coachId,
+        source: note.source,
+        transcription: note.transcription,
+        transcriptionStatus: note.transcriptionStatus,
+        insights: note.insights,
+      }));
   },
 });

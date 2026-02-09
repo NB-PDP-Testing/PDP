@@ -29,7 +29,7 @@ export const enableV2ForOrg = mutation({
       flagsSet.push(featureKey);
     }
 
-    console.log(
+    console.info(
       `[enableV2ForOrg] v2 pipeline enabled for org ${args.organizationId} by ${args.enabledBy ?? "script"}`
     );
     return { success: true, flagsSet };

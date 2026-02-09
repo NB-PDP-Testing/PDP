@@ -1,0 +1,14 @@
+# Ralph Progress Log - Phase 0.5: Player Postcode Matching Enhancement
+Started: $(date)
+Branch: ralph/phase-0.5-player-postcode-matching
+---
+
+## Stories to Complete
+1. US-P0.5-001 - Add PLAYER_POSTCODE_BONUS weight constant
+2. US-P0.5-002 - Implement checkPlayerPostcodeMatch function
+3. US-P0.5-003 - Update calculateMatchScore to include player postcode bonus
+4. US-P0.5-004 - Update GuardianMatch type for player postcode info
+5. US-P0.5-005 - Unit tests for player postcode matching
+6. US-P0.5-006 - End-to-end verification
+
+---

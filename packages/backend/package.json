@@ -24,6 +24,7 @@
     "better-auth": "1.3.34",
     "convex": "^1.25.4",
     "convex-helpers": "^0.1.106",
+    "libphonenumber-js": "^1.12.36",
     "openai": "^6.9.1",
     "resend": "^6.6.0",
     "satori": "^0.19.1"

@@ -24,7 +24,7 @@ const customUserTable = defineTable({
   lastName: v.optional(v.string()),
   phone: v.optional(v.string()),
 
-  // Profile completion fields (legacy - kept for prod data compat)
+  // Profile completion fields
   altEmail: v.optional(v.string()),
   address: v.optional(v.string()),
   address2: v.optional(v.string()),
@@ -37,11 +37,12 @@ const customUserTable = defineTable({
   ),
   profileCompletedAt: v.optional(v.number()),
   profileSkipCount: v.optional(v.number()),
-  wasInvited: v.optional(v.boolean()),
-  noChildrenAcknowledged: v.optional(v.boolean()),
 
   // onboarding
   onboardingComplete: v.optional(v.boolean()),
+
+  // Invitation tracking - true if user accepted an invitation
+  wasInvited: v.optional(v.boolean()),
 
   // Parent onboarding & notification tracking (Bug #293 fix)
   lastChildrenCheckAt: v.optional(v.number()), // Last time we checked for pending children notifications
@@ -50,6 +51,10 @@ const customUserTable = defineTable({
 
   // Child linking skip tracking (Phase 6)
   childLinkingSkipCount: v.optional(v.number()), // How many times user skipped child linking (max 3)
+
+  // No children found acknowledgement (Phase 0: Onboarding Sync)
+  // Set to true when user clicks "Continue Without Linking" in NoChildrenFoundStep
+  noChildrenAcknowledged: v.optional(v.boolean()),
 
   // Current organization tracking
   currentOrgId: v.optional(v.string()),
@@ -64,7 +69,10 @@ const customUserTable = defineTable({
 })
   .index("email_name", ["email", "name"])
   .index("name", ["name"])
-  .index("userId", ["userId"]);
+  .index("userId", ["userId"])
+  .index("by_phone", ["phone"])
+  .index("by_altEmail", ["altEmail"])
+  .index("by_postcode", ["postcode"]);
 
 export const customTeamTableSchema = {
   // Better Auth base fields

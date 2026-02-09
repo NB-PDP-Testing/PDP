@@ -1,0 +1,193 @@
+{
+  "project": "PlayerARC - Phase 0.8: Onboarding Flow Differentiation (Invited vs Self-Registered)",
+  "branchName": "ralph/phase-0.8-onboarding-flow-differentiation",
+  "description": "Differentiate onboarding flows for invited vs self-registered users. Add explicit wasInvited flag to track user origin. Self-registered users skip guardian matching during onboarding - matching happens at admin approval time. Remove no_children_found step. Update profile completion messaging. Fix approveJoinRequest to create proper guardianPlayerLinks.",
+  "prdFile": "scripts/ralph/prds/Importing Members/phase-0.8-onboarding-flow-differentiation.md",
+  "contextFiles": [
+    "packages/backend/convex/betterAuth/schema.ts",
+    "packages/backend/convex/models/onboarding.ts",
+    "packages/backend/convex/models/members.ts",
+    "packages/backend/convex/models/orgJoinRequests.ts",
+    "packages/backend/convex/models/guardianIdentities.ts",
+    "apps/web/src/components/onboarding/onboarding-orchestrator.tsx",
+    "apps/web/src/components/onboarding/profile-completion-step.tsx",
+    "apps/web/src/components/onboarding/no-children-found-step.tsx",
+    "CLAUDE.md"
+  ],
+  "mandatoryPatterns": [
+    "Use Convex function syntax with args and returns validators",
+    "Use .withIndex() never .filter() for queries",
+    "Use shadcn/ui components for all UI",
+    "Invited users: show guardian_claim task if matches found",
+    "Self-registered users: skip guardian_claim task entirely",
+    "Admin approval creates guardianPlayerLinks, not player.parentEmail patches",
+    "Run npx ultracite fix before completing any story"
+  ],
+  "successCriteria": [
+    "wasInvited flag added to user schema and set on invitation acceptance",
+    "Self-registered users see profile completion with neutral 'Additional Information' text",
+    "Self-registered users skip guardian_claim and no_children_found steps entirely",
+    "Invited parents still see guardian_claim to confirm children",
+    "approveJoinRequest creates guardianIdentity and guardianPlayerLinks correctly",
+    "No regression in invited user flows (coach, admin, parent)",
+    "Debug logging cleaned up from onboarding code"
+  ],
+  "userStories": [
+    {
+      "id": "US-P0.8-001",
+      "title": "Add wasInvited flag to user schema",
+      "description": "As a developer, I need to track whether a user was invited or self-registered to determine their onboarding flow.",
+      "acceptanceCriteria": [
+        "Add wasInvited: v.optional(v.boolean()) to user table in packages/backend/convex/betterAuth/schema.ts",
+        "Add comment: '// Invitation tracking - true if user accepted an invitation'",
+        "Place field near other tracking fields (around line 43, near onboardingComplete)",
+        "Run npx -w packages/backend convex codegen successfully",
+        "Typecheck passes: npm run check-types"
+      ],
+      "priority": 1,
+      "passes": false,
+      "notes": "Schema foundation for flow differentiation. Must be done first."
+    },
+    {
+      "id": "US-P0.8-002",
+      "title": "Set wasInvited flag when user accepts invitation",
+      "description": "As the system, I need to mark users as invited when they accept an invitation.",
+      "acceptanceCriteria": [
+        "Find where invitation acceptance updates user record in packages/backend/convex/models/members.ts",
+        "Locate syncFunctionalRolesFromInvitation or acceptInvitation logic",
+        "After successful invitation acceptance, patch user record with wasInvited: true",
+        "Use ctx.runMutation(components.betterAuth.adapter.updateOne, ...) pattern",
+        "Ensure this runs AFTER user joins organization successfully",
+        "Typecheck passes: npm run check-types",
+        "Test: Accept invitation -> Query user record -> Verify wasInvited = true"
+      ],
+      "priority": 2,
+      "passes": false,
+      "notes": "Critical for flow differentiation. Without this flag, we can't distinguish user types."
+    },
+    {
+      "id": "US-P0.8-003",
+      "title": "Skip guardian_claim for self-registered users in getOnboardingTasks",
+      "description": "As a self-registered user, I should NOT see guardian matching during onboarding - that happens at admin approval.",
+      "acceptanceCriteria": [
+        "Edit packages/backend/convex/models/onboarding.ts",
+        "In getOnboardingTasks query, fetch user.wasInvited flag",
+        "Add check: const wasInvited = user?.wasInvited === true;",
+        "Wrap guardian matching logic (Priority 2 section) with: if (wasInvited) { ... }",
+        "Guardian matching query and guardian_claim task creation only runs for invited users",
+        "Self-registered users skip directly to onboarding completion after profile_completion",
+        "Typecheck passes: npm run check-types",
+        "Test: Self-registered user completes profile -> No guardian_claim task shown"
+      ],
+      "priority": 3,
+      "passes": false,
+      "notes": "Core logic change. Self-reg users provide info, matching happens at admin approval."
+    },
+    {
+      "id": "US-P0.8-004",
+      "title": "Remove no_children_found task entirely",
+      "description": "As a self-registered user, I should not see 'No Children Found' message - this step is obsolete.",
+      "acceptanceCriteria": [
+        "Edit packages/backend/convex/models/onboarding.ts",
+        "Remove the no_children_found task creation code (Priority 2.5 section)",
+        "Remove any conditional logic that shows this task",
+        "Self-registered users: after profile_completion -> onboarding complete",
+        "Update onboarding-orchestrator.tsx to remove no_children_found case from step renderer",
+        "Keep NoChildrenFoundStep component file for now (can delete in cleanup phase)",
+        "Typecheck passes: npm run check-types"
+      ],
+      "priority": 4,
+      "passes": false,
+      "notes": "Simplifies flow. Self-reg users go straight to org join after profile completion."
+    },
+    {
+      "id": "US-P0.8-005",
+      "title": "Update profile completion step messaging",
+      "description": "As a self-registered user, I see neutral 'Additional Information' text, not child-finding messaging.",
+      "acceptanceCriteria": [
+        "Edit apps/web/src/components/onboarding/profile-completion-step.tsx",
+        "Change title from any child-related text to 'Additional Information'",
+        "Change subtitle/description to 'Please provide additional information to complete your profile'",
+        "Remove any text mentioning 'children', 'matching', 'finding your children', etc.",
+        "Keep all input fields: phone, postcode, address, alt email",
+        "Keep skip functionality (max 3 skips)",
+        "Update any analytics events to reflect neutral naming",
+        "Typecheck passes: npm run check-types",
+        "Visual test: Profile completion shows neutral messaging"
+      ],
+      "priority": 5,
+      "passes": false,
+      "notes": "UX clarity - self-reg users provide info for later admin use, not for immediate matching."
+    },
+    {
+      "id": "US-P0.8-006",
+      "title": "Fix approveJoinRequest to create guardianPlayerLinks",
+      "description": "As an admin approving a join request with child matches, proper guardian links should be created.",
+      "acceptanceCriteria": [
+        "Edit packages/backend/convex/models/orgJoinRequests.ts",
+        "Find approveJoinRequest mutation (around line 411)",
+        "Remove old code that patches 'players' table with parentEmail (BROKEN)",
+        "When linkedPlayerIds provided, get or create guardianIdentity for the user",
+        "Create guardianIdentity with: userId, email, firstName, lastName, phone, address from join request",
+        "For each linkedPlayerIds entry, create guardianPlayerLink record",
+        "Set relationship: 'parent' as default",
+        "Set acknowledgedByParentAt: Date.now() (admin approved = parent confirmed)",
+        "Set organizationId from join request",
+        "Typecheck passes: npm run check-types"
+      ],
+      "priority": 6,
+      "passes": false,
+      "notes": "Critical fix. Current code patches wrong table. Must use guardianPlayerLinks."
+    },
+    {
+      "id": "US-P0.8-007",
+      "title": "Clean up debug logging from onboarding code",
+      "description": "As a developer, I need production-ready code without excessive console logging.",
+      "acceptanceCriteria": [
+        "Remove console.log statements added during debugging from:",
+        "  - packages/backend/convex/models/onboarding.ts",
+        "  - apps/web/src/components/onboarding/onboarding-orchestrator.tsx",
+        "Keep any structured logging that uses proper logger (if exists)",
+        "Remove any temporary comments like '// DEBUG' or '// TODO: remove'",
+        "Run npx ultracite fix",
+        "Typecheck passes: npm run check-types"
+      ],
+      "priority": 7,
+      "passes": false,
+      "notes": "Cleanup task. Do after all functionality is verified working."
+    },
+    {
+      "id": "US-P0.8-008",
+      "title": "End-to-end testing and verification",
+      "description": "As QA, I need to verify all three user flows work correctly after changes.",
+      "acceptanceCriteria": [
+        "Test Flow 1 - Invited Coach:",
+        "  1. Admin invites coach@test.com",
+        "  2. Coach signs up -> GDPR -> Invitation acceptance -> Dashboard",
+        "  3. Verify wasInvited = true on user record",
+        "Test Flow 2 - Invited Parent with Child:",
+        "  1. Admin invites parent@test.com with child assigned",
+        "  2. Parent signs up -> GDPR -> Invitation with child confirmation -> Accept",
+        "  3. Verify guardianPlayerLink created with acknowledgedByParentAt set",
+        "  4. Verify child appears on parent dashboard",
+        "Test Flow 3 - Self-Registered User:",
+        "  1. New user signs up (no invitation)",
+        "  2. User sees GDPR consent -> Profile completion ('Additional Information')",
+        "  3. Verify NO guardian_claim step shown",
+        "  4. Verify NO no_children_found step shown",
+        "  5. User redirected to /orgs/join after profile completion",
+        "  6. User requests to join org as parent",
+        "  7. Admin sees suggested child matches in approval UI",
+        "  8. Admin approves with child selected",
+        "  9. Verify guardianIdentity created for user",
+        "  10. Verify guardianPlayerLink created correctly",
+        "  11. User can access org and sees child on dashboard",
+        "All tests pass",
+        "Document any issues found"
+      ],
+      "priority": 8,
+      "passes": false,
+      "notes": "Comprehensive testing of all flows before marking phase complete."
+    }
+  ]
+}

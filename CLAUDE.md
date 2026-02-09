@@ -91,6 +91,11 @@ npm run build
 npx -w packages/backend convex codegen
 ```
 
+### Testing
+- **E2E tests only:** Playwright in `apps/web/uat/tests/` -- do NOT create Vitest tests
+- Config: `apps/web/uat/playwright.config.ts`
+- Run with the `/e2e` command; dev server must be on `localhost:3000`
+
 ---
 
 ## Authentication & Authorization
@@ -557,6 +562,18 @@ All documentation is organized in the `docs/` folder. See `docs/README.md` for f
 
 ---
 
+## Before You Code (Pre-Implementation Checklist)
+
+Before implementing any fix or feature:
+
+1. **Map the architecture first.** Search for all related files using Glob and Grep before editing anything. Look for existing components that handle similar functionality to avoid creating duplicates.
+2. **Identify the correct file.** This project has multiple similar pages and components per role. If ambiguous, list the candidates and confirm with the user which to modify.
+3. **Check both table systems.** Better Auth component tables (`user`, `member`, `organization`, `team`) use the adapter. Application tables (`orgPlayerEnrollments`, `voiceNotes`, etc.) use `ctx.db`. Never mix these up.
+4. **Co-locate imports with usage.** Add imports in the same edit as the code that uses them -- the auto-formatter removes unused imports.
+5. **Consider mobile viewport.** All dialog/modal/form changes must work at 375px width. Buttons must be reachable without scrolling on small screens.
+
+---
+
 ## MVP Reference App
 
 There is an MVP version of the app in the `./mvp-app` folder. This is **for reference only**.
@@ -594,6 +611,7 @@ When the user indicates we're going to fix bugs, follow this process **before ma
 - Explore relevant code paths comprehensively
 - Determine if the bug is still active or already fixed
 - Identify the root cause (not just symptoms)
+- Search for ALL related files (e.g., multiple edit pages, duplicate components) and confirm the correct target with the user
 
 ### Step 3: Present Findings
 - Summarize the bug and its root cause
@@ -604,6 +622,10 @@ When the user indicates we're going to fix bugs, follow this process **before ma
 - **Do not make any code changes** until the user reviews the analysis
 - Wait for explicit direction on which fix to implement
 - Confirm next steps before proceeding
+
+### Step 5: Verify and Validate
+- Run `npx -w packages/backend convex codegen` and `npm run check-types` after implementing
+- When the user reports the fix didn't work, DO NOT dismiss the concern -- re-investigate thoroughly with actual command output as evidence
 
 ---
 

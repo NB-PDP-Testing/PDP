@@ -41,7 +41,7 @@ export const getCurrentUser = query({
       lastName: v.optional(v.string()),
       phone: v.optional(v.string()),
 
-      // Profile completion fields (legacy - kept for prod data compat)
+      // Profile completion fields
       altEmail: v.optional(v.string()),
       address: v.optional(v.string()),
       address2: v.optional(v.string()),
@@ -58,8 +58,6 @@ export const getCurrentUser = query({
       ),
       profileCompletedAt: v.optional(v.number()),
       profileSkipCount: v.optional(v.number()),
-      wasInvited: v.optional(v.boolean()),
-      noChildrenAcknowledged: v.optional(v.boolean()),
 
       // onboarding
       onboardingComplete: v.optional(v.boolean()),
@@ -72,6 +70,9 @@ export const getCurrentUser = query({
       // Child linking skip tracking (Phase 6)
       childLinkingSkipCount: v.optional(v.number()),
 
+      // No children found acknowledgement (Phase 0)
+      noChildrenAcknowledged: v.optional(v.boolean()),
+
       // Current organization tracking
       currentOrgId: v.optional(v.string()),
 
@@ -82,6 +83,9 @@ export const getCurrentUser = query({
       // First-user setup wizard tracking
       setupComplete: v.optional(v.boolean()),
       setupStep: v.optional(v.string()),
+
+      // Invitation tracking (Phase 0.8)
+      wasInvited: v.optional(v.boolean()),
     })
   ),
   handler: async (ctx) => {

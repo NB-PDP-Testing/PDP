@@ -959,23 +959,19 @@ export default function JoinRequestApprovalsPage() {
                 <div className="max-h-48 space-y-2 overflow-y-auto rounded-lg border p-3">
                   {teams && teams.length > 0 ? (
                     teams.map((team) => (
-                      <button
-                        className="flex w-full cursor-pointer items-center gap-3 rounded p-1 text-left hover:bg-muted"
+                      <div
+                        className="flex w-full items-center gap-3 rounded p-1 text-left hover:bg-muted"
                         key={team._id}
-                        onClick={() => toggleTeam(team.name)}
-                        type="button"
                       >
                         <Checkbox
                           checked={selectedTeams.includes(team.name)}
                           onCheckedChange={() => toggleTeam(team.name)}
                         />
-                        <div className="flex-1">
-                          <span className="font-medium">{team.name}</span>
-                        </div>
+                        <span className="flex-1 font-medium">{team.name}</span>
                         {selectedTeams.includes(team.name) && (
                           <Check className="h-4 w-4 text-green-600" />
                         )}
-                      </button>
+                      </div>
                     ))
                   ) : (
                     <p className="py-4 text-center text-muted-foreground text-sm">
@@ -1011,11 +1007,9 @@ export default function JoinRequestApprovalsPage() {
                     </p>
                     <div className="space-y-2 rounded-lg border border-green-200 bg-green-50 p-3">
                       {highConfidenceMatches.map((match) => (
-                        <button
-                          className="flex w-full cursor-pointer items-center gap-3 rounded p-2 text-left hover:bg-green-100"
+                        <div
+                          className="flex w-full items-center gap-3 rounded p-2 text-left hover:bg-green-100"
                           key={match.playerIdentityId}
-                          onClick={() => togglePlayer(match.playerIdentityId)}
-                          type="button"
                         >
                           <Checkbox
                             checked={selectedPlayerIds.includes(
@@ -1040,7 +1034,7 @@ export default function JoinRequestApprovalsPage() {
                           {selectedPlayerIds.includes(
                             match.playerIdentityId
                           ) && <Check className="h-4 w-4 text-green-600" />}
-                        </button>
+                        </div>
                       ))}
                     </div>
                   </div>
@@ -1064,11 +1058,9 @@ export default function JoinRequestApprovalsPage() {
                     {expandedMatches && (
                       <div className="max-h-48 space-y-2 overflow-y-auto rounded-lg border p-3">
                         {otherMatches.map((match) => (
-                          <button
-                            className="flex w-full cursor-pointer items-center gap-3 rounded p-2 text-left hover:bg-muted"
+                          <div
+                            className="flex w-full items-center gap-3 rounded p-2 text-left hover:bg-muted"
                             key={match.playerIdentityId}
-                            onClick={() => togglePlayer(match.playerIdentityId)}
-                            type="button"
                           >
                             <Checkbox
                               checked={selectedPlayerIds.includes(
@@ -1095,7 +1087,7 @@ export default function JoinRequestApprovalsPage() {
                             {selectedPlayerIds.includes(
                               match.playerIdentityId
                             ) && <Check className="h-4 w-4 text-green-600" />}
-                          </button>
+                          </div>
                         ))}
                       </div>
                     )}

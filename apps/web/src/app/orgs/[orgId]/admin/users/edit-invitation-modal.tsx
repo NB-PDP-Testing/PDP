@@ -52,18 +52,17 @@ export function EditInvitationModal({
     organizationId,
   });
 
-  // Initialize state from invitation metadata
+  // Initialize state from invitation data returned by getPendingInvitationsWithAssignments.
+  // The backend query flattens metadata into top-level fields (functionalRoles, teams, players).
   useEffect(() => {
-    if (invitation?.metadata) {
-      const metadata = invitation.metadata;
-      setFunctionalRoles(metadata.suggestedFunctionalRoles || []);
+    if (invitation) {
+      setFunctionalRoles(invitation.functionalRoles || []);
       setSelectedTeams(
-        metadata.roleSpecificData?.teams?.map(
-          (t: { _id?: string } & Record<string, unknown>) =>
-            t._id || (t as unknown as string)
-        ) || []
+        invitation.teams?.map((t: { _id: string }) => t._id) || []
       );
-      setSelectedPlayerIds(metadata.suggestedPlayerLinks || []);
+      setSelectedPlayerIds(
+        invitation.players?.map((p: { _id: string }) => p._id) || []
+      );
     }
   }, [invitation]);
 

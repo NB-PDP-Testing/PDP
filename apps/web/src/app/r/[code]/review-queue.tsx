@@ -938,19 +938,24 @@ function formatNoteDate(dateStr: string): string {
     const diffMs = now.getTime() - date.getTime();
     const diffDays = Math.floor(diffMs / (1000 * 60 * 60 * 24));
 
+    const time = date.toLocaleTimeString("en-IE", {
+      hour: "2-digit",
+      minute: "2-digit",
+    });
+
     if (diffDays === 0) {
-      return "Today";
+      return `Today ${time}`;
     }
     if (diffDays === 1) {
-      return "Yesterday";
+      return `Yesterday ${time}`;
     }
     if (diffDays < 7) {
-      return `${diffDays}d ago`;
+      return `${diffDays}d ago ${time}`;
     }
-    return date.toLocaleDateString("en-IE", {
+    return `${date.toLocaleDateString("en-IE", {
       day: "numeric",
       month: "short",
-    });
+    })} ${time}`;
   } catch {
     return dateStr;
   }

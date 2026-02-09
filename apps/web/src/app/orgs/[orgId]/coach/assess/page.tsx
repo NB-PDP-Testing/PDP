@@ -81,8 +81,7 @@ export default function AssessPlayerPage() {
   );
   const [selectedTeamId, setSelectedTeamId] = useState<string | null>(null);
   const [searchQuery, setSearchQuery] = useState("");
-  const [assessmentType, setAssessmentType] =
-    useState<AssessmentType>("training");
+  const [assessmentType] = useState<AssessmentType>("training");
   const [ratings, setRatings] = useState<Record<string, number>>({});
   const [notes, setNotes] = useState<Record<string, string>>({});
   const [generalNotes, setGeneralNotes] = useState("");
@@ -772,7 +771,7 @@ export default function AssessPlayerPage() {
               </div>
             </div>
 
-            {/* Secondary: Sport and Assessment Type */}
+            {/* Secondary: Sport */}
             <div className="flex flex-wrap gap-3">
               <div className="w-full sm:w-auto sm:min-w-[160px]">
                 <Select
@@ -793,24 +792,6 @@ export default function AssessPlayerPage() {
                         {sport.name}
                       </SelectItem>
                     ))}
-                  </SelectContent>
-                </Select>
-              </div>
-              <div className="w-full sm:w-auto sm:min-w-[180px]">
-                <Select
-                  onValueChange={(value) =>
-                    setAssessmentType(value as AssessmentType)
-                  }
-                  value={assessmentType}
-                >
-                  <SelectTrigger>
-                    <SelectValue />
-                  </SelectTrigger>
-                  <SelectContent>
-                    <SelectItem value="training">Training Session</SelectItem>
-                    <SelectItem value="match">Match Observation</SelectItem>
-                    <SelectItem value="formal_review">Formal Review</SelectItem>
-                    <SelectItem value="trial">Trial/Tryout</SelectItem>
                   </SelectContent>
                 </Select>
               </div>

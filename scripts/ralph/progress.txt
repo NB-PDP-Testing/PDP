@@ -2,9 +2,9 @@
 
 **Branch**: feat/voice-gateways-v2
 **Started**: 2026-02-04
-**Current Phase**: Phase 7C - Complete v2 → v1 Output Bridge
+**Current Phase**: Phase 7D - Retire v1 Processing & Clean Up
 **Overall Progress**: 27/29 stories complete (93%)
-**Architecture Review**: COMPLETE (ADR-VN2-040 to ADR-VN2-042 for Phase 7C)
+**Architecture Review**: COMPLETE (ADR-VN2-043 to ADR-VN2-047 for Phase 7D)
 
 ---
 
@@ -210,5 +210,24 @@
 **Mistakes made:**
 - First attempt: used separate Edit calls for import and usage — linter stripped import between edits
 - Second attempt: used sed which applied to wrong function too — had to git checkout and redo with Python
+
+---
+
+## Phase 7D: Retire v1 Processing & Clean Up — NEXT
+
+**PRD**: `phases/PHASE7D_PRD.json` (PRIMARY — read this FIRST)
+**Context**: `context/V2_MIGRATION_CONTEXT.md`
+
+### Stories:
+- US-VN-028: Remove Dual Processing Path (gate buildInsights, add skipV2 param)
+- US-VN-029: Feature Flag Promotion Tooling (4 scripts: enable/disable/status/migrate)
+
+### Key Implementation Notes:
+- createTypedNote: wrap buildInsights in `if (!useV2)` — reuse EXISTING useV2 variable
+- transcribeAudio: wrap buildInsights in `if (artifacts.length === 0)` — reuse EXISTING artifacts variable
+- DO NOT call shouldUseV2Pipeline twice
+- skipV2: v.optional(v.boolean()) on public API — simpler than internal versions
+- Scripts: camelCase filenames, export query/mutation/action (NOT internal), for `convex run`
+- JS array .filter() after .collect() is FINE for tables without org indexes
 
 ---

@@ -1,10 +1,10 @@
 {
   "project": "Voice Enhance Gating-WAPP v2",
   "branchName": "feat/voice-gateways-v2",
-  "description": "Phase 7C: Complete v2 → v1 Output Bridge. Confirmed v2 drafts produce identical downstream effects to v1 insights: parent summaries generated, autoAppliedInsights audit records created, voiceNotes.insights[] embedded array updated. Auto-confirm integration with trust levels verified. Quality gates added to in-app typed notes.",
+  "description": "Phase 7D: Retire v1 Processing & Clean Up. Remove dual-processing path so buildInsights is never scheduled when v2 is enabled. Add skipV2 parameter to prevent double artifacts from WhatsApp. Create feature flag promotion scripts and migration validation tooling.",
   "issueReference": "https://github.com/NB-PDP-Testing/PDP/issues/423",
   "contextFiles": [
-    "scripts/ralph/prds/voice-gateways-v2/phases/PHASE7C_PRD.json",
+    "scripts/ralph/prds/voice-gateways-v2/phases/PHASE7D_PRD.json",
     "scripts/ralph/prds/voice-gateways-v2/context/V2_MIGRATION_CONTEXT.md",
     "scripts/ralph/prds/voice-gateways-v2/context/MAIN_CONTEXT.md",
     "docs/architecture/voice-notes-pipeline-v2.md"
@@ -18,9 +18,10 @@
     "Phase 5",
     "Phase 6",
     "Phase 7A",
-    "Phase 7B"
+    "Phase 7B",
+    "Phase 7C"
   ],
-  "currentPhase": "Phase 7C - Complete v2 → v1 Output Bridge",
+  "currentPhase": "Phase 7D - Retire v1 Processing & Clean Up",
   "completedStories": [
     "US-VN-001",
     "US-VN-002",
@@ -51,173 +52,141 @@
     "US-VN-027"
   ],
   "criticalLearnings": {
-    "description": "Lessons from Phases 1-7B that MUST be followed:",
+    "description": "Lessons from Phases 1-7C that MUST be followed:",
     "patterns": [
       "ALL public queries/mutations MUST check ctx.auth.getUserIdentity() and verify artifact/data ownership",
       "NEVER accept caller-supplied userId params — derive from identity.subject",
       "Use .withIndex() for ALL queries — NEVER use .filter() on Convex query builder",
+      "JavaScript array .filter() after .collect() is FINE — only Convex query .filter() is banned",
       "Use batch fetch + Map lookup to avoid N+1 queries",
       "Include args AND returns validators on ALL Convex functions",
       "Use v.optional(v.string()) NOT v.string() | null — Convex rejects null for optional fields",
       "Actions cannot access ctx.db — use ctx.runQuery/ctx.runMutation",
       "InternalActions should call internal mutations, NOT public mutations",
-      "Score/confidence values must be bounds-checked (0-1 range)",
-      "All indexes should be org-scoped (by_org_and_X) — avoid unbounded table scans",
       "ALWAYS add imports AND usage in the SAME edit — linter removes unused imports between edits",
       "Schema changes MUST be applied and codegen run BEFORE code changes that depend on them",
-      "Batch mutations should verify organizationId for defense-in-depth (even when ownership checked)"
-    ],
-    "betterAuth": [
-      "Use user._id (NOT user.id) for user ID",
-      "Use user.name (NOT user.firstName/lastName) for display name",
-      "Use identity.subject for the authenticated user's ID in Convex handlers"
-    ],
-    "frontend": [
-      "Lift useQuery to parent components — pass data as props to children",
-      "Do NOT put useQuery inside list item components or child tabs",
-      "Use useMutation for confirm/reject — NOT useAction",
-      "Use 'skip' pattern for conditional queries: useQuery(api.fn, condition ? args : 'skip')",
-      "Use sonner toast for success/error notifications"
+      "Scripts use query/mutation/action (NOT internal variants) so they can run via 'convex run'",
+      "Scripts use camelCase filenames (e.g., enableV2ForOrg.ts)"
     ]
   },
   "existingInfrastructure": {
-    "description": "Key tables, functions, and UI components that Phase 7C depends on:",
-    "tables": [
-      "insightDrafts — pending insights with confidence scoring, status (pending/confirmed/rejected/applied/expired)",
-      "voiceNoteArtifacts — v2 pipeline source records (artifactId, senderUserId, orgContextCandidates, status)",
-      "voiceNoteInsights — applied insights (v1 read model, v2 writes to this via applyDraft)",
-      "voiceNotes — v1 pipeline main table, has insights[] embedded array",
-      "autoAppliedInsights — audit trail for auto-applied insights",
-      "coachParentSummaries — parent-visible summaries triggered by processVoiceNoteInsight",
-      "coachOrgPreferences — coach org settings including parentSummariesEnabled",
-      "coachTrustLevels — coach trust scoring for auto-confirm threshold"
-    ],
+    "description": "Key functions that Phase 7D modifies or depends on:",
     "keyFunctions": [
-      "insightDrafts.ts: applyDraft (line 462) — internalMutation, EXTEND THIS: currently only creates voiceNoteInsights record",
-      "coachParentSummaries.ts: processVoiceNoteInsight (line 586) — internalAction, 7 args, schedules parent summary pipeline",
-      "draftGeneration.ts: generateDrafts (line 150+) — internalAction, creates drafts with auto-confirm logic",
-      "draftGeneration.ts: requiresConfirmation (line 108) — checks sensitive types, trust level, confidence, auto-apply prefs",
-      "voiceNotes.ts: createTypedNote (line 554) — PUBLIC mutation, ADD quality gate here",
-      "lib/messageValidation.ts: validateTextMessage (line 30) — SYNC function, returns { isValid, suggestion }"
+      "voiceNotes.ts: createTypedNote — has useV2 check from Phase 7A, STILL unconditionally schedules buildInsights → GATE IT",
+      "voiceNotes.ts: createRecordedNote — has useV2 check from Phase 7A, schedules transcribeAudio (NOT buildInsights directly)",
+      "voiceNotes.ts (actions): transcribeAudio — has artifact check, STILL unconditionally schedules buildInsights → GATE IT",
+      "voiceNotes.ts (actions): buildInsights — has defense-in-depth artifact check from Phase 7A US-VN-023",
+      "whatsapp.ts: processAudioMessage — creates artifact, calls createRecordedNote → needs skipV2:true",
+      "whatsapp.ts: processTextMessage — creates artifact, calls createTypedNote → needs skipV2:true",
+      "featureFlags.ts: shouldUseV2Pipeline — internalQuery, cascade: env→platform→org→user→false",
+      "featureFlags.ts: setFeatureFlag — internalMutation, used by enableV2ForOrg script",
+      "migration.ts: migrateVoiceNotesToV2 — internalAction, needs public wrapper for 'convex run'"
     ]
   },
-  "criticalWarning": "READ scripts/ralph/prds/voice-gateways-v2/phases/PHASE7C_PRD.json FIRST — it contains verified function signatures, architect review corrections (C1: parentSummariesEnabled check, C2: appliedBy/appliedDate fields, C3: schema ordering), and step-by-step implementation instructions. The stories below are summaries.",
+  "criticalWarning": "READ scripts/ralph/prds/voice-gateways-v2/phases/PHASE7D_PRD.json FIRST — it contains verified code locations, the double-artifact problem analysis, and step-by-step instructions. The stories below are summaries.",
   "userStories": [
     {
-      "id": "US-VN-026",
-      "phase": "7C",
-      "title": "applyDraft Output Bridge — Parent Summaries, Audit Trail & Backward Compat",
-      "description": "Extend applyDraft to: (1) add back-link fields to voiceNoteInsights, (2) update voiceNotes.insights[] embedded array, (3) schedule processVoiceNoteInsight for parent summaries (with parentSummariesEnabled check), (4) create autoAppliedInsights audit records for auto-confirmed drafts.",
+      "id": "US-VN-028",
+      "phase": "7D",
+      "title": "Remove Dual Processing Path",
+      "description": "Gate buildInsights scheduling so it NEVER runs when v2 is active. Add skipV2 param to createTypedNote/createRecordedNote so WhatsApp callers don't create double artifacts.",
       "acceptanceCriteria": [
-        "=== FULL DETAILS IN: scripts/ralph/prds/voice-gateways-v2/phases/PHASE7C_PRD.json ===",
+        "=== FULL DETAILS IN: scripts/ralph/prds/voice-gateways-v2/phases/PHASE7D_PRD.json ===",
         "",
-        "EXECUTION ORDER (CRITICAL):",
-        "1. Schema: Make autoAppliedInsights.playerId optional",
-        "2. Schema: Add sourceArtifactId/sourceClaimId/sourceDraftId to voiceNoteInsights",
-        "3. Run codegen: npx -w packages/backend convex codegen",
-        "4. Code: Extend applyDraft with Steps 0-3B",
-        "5. Type check: npm run check-types",
+        "4 CHANGES:",
+        "1. createTypedNote: wrap buildInsights in if (!useV2) — reuse existing useV2 variable",
+        "2. transcribeAudio: wrap buildInsights in if (artifacts.length === 0) — reuse existing artifacts variable",
+        "3. Add skipV2: v.optional(v.boolean()) to createTypedNote & createRecordedNote, pass from WhatsApp callers",
+        "4. Update defense-in-depth log in buildInsights to say 'Defense-in-depth'",
         "",
-        "KEY ARCHITECT REVIEW CORRECTIONS:",
-        "- C1: Check coachOrgPreferences.parentSummariesEnabled BEFORE scheduling processVoiceNoteInsight",
-        "- C2: Include appliedBy + appliedDate in voiceNotes.insights[] push object",
-        "- C3: Schema changes FIRST, codegen, then code",
-        "- S1: Wrap autoAppliedInsights insert (Step 3B) in try/catch"
+        "CRITICAL: Do NOT call shouldUseV2Pipeline twice — reuse the useV2 variable from Phase 7A",
+        "CRITICAL: Quality gate checks MUST stay BEFORE buildInsights gating in transcribeAudio",
+        "CRITICAL: skipV2 on public API is simpler than needing internal versions"
       ],
-      "priority": 26,
-      "passes": true,
-      "effort": "2 days",
-      "dependencies": ["US-VN-024"],
+      "priority": 28,
+      "passes": false,
+      "effort": "1.5 days",
+      "dependencies": ["US-VN-026", "US-VN-027"],
       "files": {
         "create": [],
         "modify": [
-          "packages/backend/convex/schema.ts",
-          "packages/backend/convex/models/insightDrafts.ts"
+          "packages/backend/convex/models/voiceNotes.ts",
+          "packages/backend/convex/actions/voiceNotes.ts",
+          "packages/backend/convex/actions/whatsapp.ts"
         ]
       }
     },
     {
-      "id": "US-VN-027",
-      "phase": "7C",
-      "title": "Auto-Confirm Integration with Trust Levels & Quality Gates for In-App Notes",
-      "description": "Verify draftGeneration auto-confirm logic is correct (all 4 checkpoints PASSED in architect review). Add validateTextMessage quality gate to createTypedNote.",
+      "id": "US-VN-029",
+      "phase": "7D",
+      "title": "Feature Flag Promotion Tooling & Migration Validation",
+      "description": "Create 4 Convex scripts: enableV2ForOrg, disableV2ForOrg, v2MigrationStatus, runMigration. Validate existing migration.ts.",
       "acceptanceCriteria": [
-        "=== FULL DETAILS IN: scripts/ralph/prds/voice-gateways-v2/phases/PHASE7C_PRD.json ===",
+        "=== FULL DETAILS IN: scripts/ralph/prds/voice-gateways-v2/phases/PHASE7D_PRD.json ===",
         "",
-        "1. VERIFY auto-confirm logic in draftGeneration.ts (already verified by architect — all 4 checkpoints pass)",
-        "2. ADD validateTextMessage to createTypedNote in voiceNotes.ts:",
-        "   - Import validateTextMessage from '../lib/messageValidation'",
-        "   - Call BEFORE ctx.db.insert at line 566",
-        "   - Import AND usage in SAME edit",
-        "3. Type check: npm run check-types"
+        "4 SCRIPTS TO CREATE:",
+        "1. enableV2ForOrg.ts — mutation that enables voice_notes_v2 + entity_resolution_v2 flags for an org",
+        "2. disableV2ForOrg.ts — mutation that disables both flags (rollback)",
+        "3. v2MigrationStatus.ts — query that reports counts across all v2 tables for an org",
+        "4. runMigration.ts — public action wrapper around internal migrateVoiceNotesToV2",
+        "",
+        "PATTERNS: Scripts use camelCase filenames, export query/mutation/action (NOT internal)",
+        "v2MigrationStatus may use JS array .filter() after .collect() for tables without org indexes"
       ],
-      "priority": 27,
-      "passes": true,
-      "effort": "1 day",
-      "dependencies": ["US-VN-026"],
+      "priority": 29,
+      "passes": false,
+      "effort": "1.5 days",
+      "dependencies": ["US-VN-028"],
       "files": {
-        "create": [],
-        "modify": ["packages/backend/convex/models/voiceNotes.ts"]
+        "create": [
+          "packages/backend/convex/scripts/enableV2ForOrg.ts",
+          "packages/backend/convex/scripts/disableV2ForOrg.ts",
+          "packages/backend/convex/scripts/v2MigrationStatus.ts",
+          "packages/backend/convex/scripts/runMigration.ts"
+        ],
+        "modify": ["packages/backend/convex/actions/migration.ts"]
       }
     }
   ],
   "successCriteria": {
-    "backLinksPopulated": "voiceNoteInsights from v2 drafts have sourceArtifactId, sourceClaimId, sourceDraftId",
-    "insightsArrayUpdated": "voiceNotes.insights[] updated when draft confirmed (with appliedBy + appliedDate)",
-    "parentSummariesGenerated": "Confirmed drafts with playerIdentityId + parentSummariesEnabled trigger parent summaries",
-    "parentSummariesRespectPrefs": "Coach who disabled parent summaries does NOT get them from v2 drafts",
-    "auditTrailCreated": "Auto-confirmed drafts create autoAppliedInsights with autoAppliedByAI=true",
-    "manualConfirmNoAudit": "Manually confirmed drafts do NOT create autoAppliedInsights",
-    "qualityGateWorks": "Short/gibberish typed notes rejected before creation",
+    "noDualProcessing": "With v2 ON, buildInsights is never scheduled — only extractClaims runs",
+    "v1FallbackWorks": "With v2 OFF, buildInsights runs exactly as before, no artifacts created",
+    "noDuplicateArtifacts": "WhatsApp path creates ONE artifact (skipV2 prevents double)",
+    "defenseInDepthKept": "buildInsights still has artifact-exists check as safety net",
+    "enableDisableScripts": "enableV2ForOrg/disableV2ForOrg toggle both flags for an org",
+    "migrationStatusWorks": "v2MigrationStatus returns accurate counts for all v2 tables",
+    "migrationScriptAccessible": "runMigration wrapper allows 'convex run' of internal migration action",
     "typeCheckPasses": "npm run check-types passes with 0 errors"
-  },
-  "architectureReview": {
-    "status": "COMPLETED — 3 ADRs generated, 3 critical findings incorporated into Phase 7C PRD",
-    "adrs": [
-      "docs/architecture/decisions/ADR-VN2-040-parent-summary-enablement-check-in-applydraft.md",
-      "docs/architecture/decisions/ADR-VN2-041-applydraft-mutation-complexity-and-failure-modes.md",
-      "docs/architecture/decisions/ADR-VN2-042-validate-text-message-quality-gate-placement.md"
-    ],
-    "criticalFindings": [
-      "C1: Added parentSummariesEnabled check (coachOrgPreferences.by_coach_org) to Step 2",
-      "C2: Added appliedBy + appliedDate to voiceNotes.insights[] push object",
-      "C3: Emphasized schema change ordering (3A FIRST, codegen, then code)"
-    ],
-    "autoConfirmVerification": "ALL 4 CHECKPOINTS PASS — no changes needed to draftGeneration.ts"
   },
   "ralphInstructions": {
     "executionMode": "sequential",
-    "storyOrder": ["US-VN-026", "US-VN-027"],
+    "storyOrder": ["US-VN-028", "US-VN-029"],
     "contextToRead": [
-      "scripts/ralph/prds/voice-gateways-v2/phases/PHASE7C_PRD.json — PRIMARY: full implementation details with architect review corrections",
-      "scripts/ralph/prds/voice-gateways-v2/context/V2_MIGRATION_CONTEXT.md — v1 vs v2 architecture overview",
-      "packages/backend/convex/models/insightDrafts.ts — applyDraft function to extend",
-      "packages/backend/convex/actions/coachParentSummaries.ts — processVoiceNoteInsight (7 args)",
-      "packages/backend/convex/actions/draftGeneration.ts — auto-confirm logic (verify only)",
-      "packages/backend/convex/models/voiceNotes.ts — createTypedNote to add quality gate",
-      "packages/backend/convex/schema.ts — voiceNoteInsights, autoAppliedInsights, voiceNotes.insights[]"
-    ],
-    "beforeStarting": [
-      "Read PHASE7C_PRD.json thoroughly — it has architect review corrections embedded",
-      "Read applyDraft function (insightDrafts.ts:462-536) — understand what it already does",
-      "Read processVoiceNoteInsight signature (coachParentSummaries.ts:586-636) — note 7 required args",
-      "Read autoAppliedInsights schema (schema.ts:1663-1705) — note ALL required fields",
-      "Read voiceNotes.insights[] embedded array schema (schema.ts:1525-1554) — note appliedBy/appliedDate",
-      "Read coachOrgPreferences by_coach_org index (schema.ts:2590+) — needed for C1 fix"
+      "scripts/ralph/prds/voice-gateways-v2/phases/PHASE7D_PRD.json — PRIMARY: full implementation details",
+      "scripts/ralph/prds/voice-gateways-v2/context/V2_MIGRATION_CONTEXT.md — v1 vs v2 architecture",
+      "packages/backend/convex/models/voiceNotes.ts — createTypedNote/createRecordedNote to modify",
+      "packages/backend/convex/actions/voiceNotes.ts — transcribeAudio + buildInsights to modify",
+      "packages/backend/convex/actions/whatsapp.ts — processAudioMessage + processTextMessage to modify",
+      "packages/backend/convex/lib/featureFlags.ts — shouldUseV2Pipeline + setFeatureFlag signatures",
+      "packages/backend/convex/actions/migration.ts — existing migration script to validate + wrap"
     ],
     "implementationOrder": [
-      "1. Schema: Make autoAppliedInsights.playerId optional",
-      "2. Schema: Add 3 back-link fields to voiceNoteInsights",
-      "3. Run codegen",
-      "4. Code: Extend applyDraft (Steps 0, 1, 2, 3B)",
-      "5. Type check",
-      "6. Code: Add validateTextMessage to createTypedNote",
-      "7. Type check"
+      "1. Read createTypedNote — find useV2 variable, wrap buildInsights in if (!useV2)",
+      "2. Read transcribeAudio — find artifacts variable, wrap buildInsights in if (artifacts.length === 0)",
+      "3. Add skipV2: v.optional(v.boolean()) to createTypedNote args + handler",
+      "4. Add skipV2: v.optional(v.boolean()) to createRecordedNote args + handler",
+      "5. Update whatsapp.ts processTextMessage to pass skipV2: true",
+      "6. Update whatsapp.ts processAudioMessage to pass skipV2: true",
+      "7. Update buildInsights defense-in-depth log message",
+      "8. Type check",
+      "9. Create enableV2ForOrg.ts script",
+      "10. Create disableV2ForOrg.ts script",
+      "11. Create v2MigrationStatus.ts script",
+      "12. Create runMigration.ts wrapper script",
+      "13. Add usage docs to migration.ts",
+      "14. Type check"
     ],
-    "testingStrategy": "Manual testing — confirm drafts via Drafts tab, verify parent summaries, check autoAppliedInsights in Convex dashboard",
+    "testingStrategy": "Manual testing — enable/disable v2 via scripts, create notes, verify correct pipeline runs",
     "qualityCriteria": "npm run check-types passes, npx -w packages/backend convex codegen succeeds"
-  },
-  "upcomingPhases": {
-    "Phase7D": "Retire v1 Processing & Clean Up — remove dual processing, feature flag promotion, dead code removal"
   }
 }

@@ -1,6 +1,6 @@
 import { v } from "convex/values";
 import { components, internal } from "../_generated/api";
-import type { Id } from "../_generated/dataModel";
+import type { Doc, Id } from "../_generated/dataModel";
 import {
   action,
   internalMutation,
@@ -9,6 +9,7 @@ import {
   query,
 } from "../_generated/server";
 import { authComponent } from "../auth";
+import { validateTextMessage } from "../lib/messageValidation";
 
 // ============ REGEX PATTERNS (for skill rating parsing) ============
 // Patterns to match: "Rating: 4", "set to 3", "to three", "improved to 4/5", "level 3"
@@ -64,7 +65,9 @@ const statusValidator = v.union(
   v.literal("pending"),
   v.literal("processing"),
   v.literal("completed"),
-  v.literal("failed")
+  v.literal("failed"),
+  v.literal("awaiting_confirmation"),
+  v.literal("cancelled")
 );
 
 const sourceValidator = v.optional(
@@ -228,20 +231,24 @@ export const getVoiceNotesByCoach = query({
       transcription: v.optional(v.string()),
       transcriptionStatus: v.optional(statusValidator),
       transcriptionError: v.optional(v.string()),
+      transcriptQuality: v.optional(v.number()),
+      transcriptValidation: v.optional(
+        v.object({
+          isValid: v.boolean(),
+          reason: v.optional(v.string()),
+          suggestedAction: v.union(
+            v.literal("process"),
+            v.literal("ask_user"),
+            v.literal("reject")
+          ),
+        })
+      ),
       summary: v.optional(v.string()),
       insights: v.array(insightValidator),
       insightsStatus: v.optional(statusValidator),
       insightsError: v.optional(v.string()),
       source: sourceValidator,
       sessionPlanId: v.optional(v.id("sessionPlans")),
-      transcriptQuality: v.optional(v.number()),
-      transcriptValidation: v.optional(
-        v.object({
-          isValid: v.boolean(),
-          reason: v.string(),
-          suggestedAction: v.string(),
-        })
-      ),
     })
   ),
   handler: async (ctx, args) => {
@@ -586,9 +593,16 @@ export const createTypedNote = mutation({
     source: v.optional(
       v.union(v.literal("app_typed"), v.literal("whatsapp_text"))
     ),
+    skipV2: v.optional(v.boolean()),
   },
   returns: v.id("voiceNotes"),
   handler: async (ctx, args) => {
+    // Quality gate: reject gibberish/too-short text
+    const validation = validateTextMessage(args.noteText);
+    if (!validation.isValid) {
+      throw new Error(validation.suggestion || "Message too short or unclear");
+    }
+
     const noteId = await ctx.db.insert("voiceNotes", {
       orgId: args.orgId,
       coachId: args.coachId,
@@ -601,10 +615,71 @@ export const createTypedNote = mutation({
       insightsStatus: "pending",
     });
 
-    // Schedule AI insights extraction
-    await ctx.scheduler.runAfter(0, internal.actions.voiceNotes.buildInsights, {
-      noteId,
-    });
+    // v2 pipeline: create artifact + transcript + schedule extractClaims
+    // skipV2 is true when called from WhatsApp (which handles v2 artifacts externally)
+    const useV2 = args.skipV2
+      ? false
+      : await ctx.runQuery(internal.lib.featureFlags.shouldUseV2Pipeline, {
+          organizationId: args.orgId,
+          userId: args.coachId,
+        });
+
+    if (useV2) {
+      const artifactIdStr = crypto.randomUUID();
+
+      const artifactConvexId = await ctx.runMutation(
+        internal.models.voiceNoteArtifacts.createArtifact,
+        {
+          artifactId: artifactIdStr,
+          sourceChannel: "app_typed" as const,
+          senderUserId: args.coachId,
+          orgContextCandidates: [
+            { organizationId: args.orgId, confidence: 1.0 },
+          ],
+        }
+      );
+
+      await ctx.runMutation(
+        internal.models.voiceNoteArtifacts.linkToVoiceNote,
+        { artifactId: artifactIdStr, voiceNoteId: noteId }
+      );
+
+      await ctx.runMutation(
+        internal.models.voiceNoteTranscripts.createTranscript,
+        {
+          artifactId: artifactConvexId,
+          fullText: args.noteText,
+          segments: [
+            { text: args.noteText, startTime: 0, endTime: 0, confidence: 1.0 },
+          ],
+          modelUsed: "user_typed",
+          language: "en",
+          duration: 0,
+        }
+      );
+
+      await ctx.runMutation(
+        internal.models.voiceNoteArtifacts.updateArtifactStatus,
+        { artifactId: artifactIdStr, status: "transcribed" }
+      );
+
+      await ctx.scheduler.runAfter(
+        0,
+        internal.actions.claimsExtraction.extractClaims,
+        { artifactId: artifactConvexId }
+      );
+    }
+
+    // Schedule AI insights extraction (only if v2 is not active)
+    if (!useV2) {
+      await ctx.scheduler.runAfter(
+        0,
+        internal.actions.voiceNotes.buildInsights,
+        {
+          noteId,
+        }
+      );
+    }
 
     return noteId;
   },
@@ -623,6 +698,7 @@ export const createRecordedNote = mutation({
     source: v.optional(
       v.union(v.literal("app_recorded"), v.literal("whatsapp_audio"))
     ),
+    skipV2: v.optional(v.boolean()),
   },
   returns: v.id("voiceNotes"),
   handler: async (ctx, args) => {
@@ -637,6 +713,32 @@ export const createRecordedNote = mutation({
       insights: [],
       insightsStatus: "pending",
     });
+
+    // v2 pipeline: create artifact + link (transcribeAudio handles transcript + extractClaims)
+    // skipV2 is true when called from WhatsApp (which handles v2 artifacts externally)
+    const useV2 = args.skipV2
+      ? false
+      : await ctx.runQuery(internal.lib.featureFlags.shouldUseV2Pipeline, {
+          organizationId: args.orgId,
+          userId: args.coachId,
+        });
+
+    if (useV2) {
+      const artifactIdStr = crypto.randomUUID();
+
+      await ctx.runMutation(internal.models.voiceNoteArtifacts.createArtifact, {
+        artifactId: artifactIdStr,
+        sourceChannel: "app_recorded" as const,
+        senderUserId: args.coachId,
+        orgContextCandidates: [{ organizationId: args.orgId, confidence: 1.0 }],
+        rawMediaStorageId: args.audioStorageId,
+      });
+
+      await ctx.runMutation(
+        internal.models.voiceNoteArtifacts.linkToVoiceNote,
+        { artifactId: artifactIdStr, voiceNoteId: noteId }
+      );
+    }
 
     // Schedule transcription (which will then schedule insights)
     await ctx.scheduler.runAfter(
@@ -2565,6 +2667,18 @@ export const updateTranscription = internalMutation({
     transcription: v.optional(v.string()),
     status: statusValidator,
     error: v.optional(v.string()),
+    transcriptQuality: v.optional(v.number()),
+    transcriptValidation: v.optional(
+      v.object({
+        isValid: v.boolean(),
+        reason: v.optional(v.string()),
+        suggestedAction: v.union(
+          v.literal("process"),
+          v.literal("ask_user"),
+          v.literal("reject")
+        ),
+      })
+    ),
   },
   returns: v.null(),
   handler: async (ctx, args) => {
@@ -2578,6 +2692,14 @@ export const updateTranscription = internalMutation({
 
     if (args.error !== undefined) {
       updates.transcriptionError = args.error;
+    }
+
+    if (args.transcriptQuality !== undefined) {
+      updates.transcriptQuality = args.transcriptQuality;
+    }
+
+    if (args.transcriptValidation !== undefined) {
+      updates.transcriptValidation = args.transcriptValidation;
     }
 
     await ctx.db.patch(args.noteId, updates);
@@ -2667,5 +2789,101 @@ export const updateInsights = internalMutation({
     }
 
     return null;
+  },
+});
+
+/**
+ * Find the most recent voice note awaiting confirmation for a coach.
+ * Used by WhatsApp flow to detect pending CONFIRM/RETRY/CANCEL responses.
+ */
+export const getAwaitingConfirmation = internalQuery({
+  args: {
+    coachId: v.string(),
+  },
+  returns: v.union(v.id("voiceNotes"), v.null()),
+  handler: async (ctx, args) => {
+    // Query notes for this coach with awaiting_confirmation status.
+    // Uses filter because we don't have an index on insightsStatus.
+    // This is acceptable: only runs on WhatsApp text messages when a coach
+    // has a pending confirmation (rare), and we take the first match.
+    const note = await ctx.db
+      .query("voiceNotes")
+      .order("desc")
+      .filter((q) =>
+        q.and(
+          q.eq(q.field("coachId"), args.coachId),
+          q.eq(q.field("insightsStatus"), "awaiting_confirmation"),
+          q.or(
+            q.eq(q.field("source"), "whatsapp_audio"),
+            q.eq(q.field("source"), "whatsapp_text")
+          )
+        )
+      )
+      .first();
+
+    return note?._id ?? null;
+  },
+});
+
+/**
+ * Get completed voice notes for v1-to-v2 migration.
+ * Returns notes with completed transcriptions for backfilling to v2 pipeline.
+ * Internal use only - called by migration action.
+ */
+export const getCompletedForMigration = internalQuery({
+  args: {
+    organizationId: v.optional(v.string()),
+    limit: v.number(),
+  },
+  returns: v.array(
+    v.object({
+      _id: v.id("voiceNotes"),
+      orgId: v.string(),
+      coachId: v.optional(v.string()),
+      source: sourceValidator,
+      transcription: v.optional(v.string()),
+      transcriptionStatus: v.optional(statusValidator),
+      insights: v.array(
+        v.object({
+          id: v.string(),
+          playerIdentityId: v.optional(v.id("playerIdentities")),
+          playerName: v.optional(v.string()),
+          title: v.string(),
+          description: v.string(),
+          category: v.optional(v.string()),
+          severity: v.optional(v.string()),
+          sentiment: v.optional(v.string()),
+        })
+      ),
+    })
+  ),
+  handler: async (ctx, args) => {
+    // Overfetch by 3x to compensate for post-query filtering, since we don't
+    // have a composite index on orgId+transcriptionStatus
+    const fetchLimit = args.limit * 3;
+    let notes: Doc<"voiceNotes">[];
+
+    // Filter by organization if provided - guard against undefined
+    if (args.organizationId !== undefined) {
+      notes = await ctx.db
+        .query("voiceNotes")
+        .withIndex("by_orgId", (q) =>
+          q.eq("orgId", args.organizationId as string)
+        )
+        .take(fetchLimit);
+    } else {
+      // No specific index for all orgs - take from default order
+      notes = await ctx.db.query("voiceNotes").take(fetchLimit);
+    }
+
+    // Filter to only completed transcriptions with transcripts, then limit
+    return notes
+      .filter(
+        (note) =>
+          note.transcriptionStatus === "completed" &&
+          note.transcription &&
+          note.transcription.length > 0
+      )
+      .slice(0, args.limit);
   },
 });

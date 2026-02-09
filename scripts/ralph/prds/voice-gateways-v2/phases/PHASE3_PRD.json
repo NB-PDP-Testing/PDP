@@ -1,0 +1,169 @@
+{
+  "phaseNumber": 3,
+  "phaseName": "v2 Artifacts Foundation",
+  "duration": "3 days",
+  "storyCount": 2,
+  "contextFiles": [
+    "context/MAIN_CONTEXT.md",
+    "context/PHASE3_V2_MIGRATION.md",
+    "docs/architecture/voice-notes-pipeline-v2.md"
+  ],
+  "stories": [
+    {
+      "id": "US-VN-013",
+      "phase": 3,
+      "title": "Artifacts Tables",
+      "description": "Create v2 tables (voiceNoteArtifacts, voiceNoteTranscripts) to support source-agnostic voice note processing and detailed transcription storage with segments.",
+      "acceptanceCriteria": [
+        "Backend: Add voiceNoteArtifacts table to schema.ts",
+        "Schema fields:",
+        "  - artifactId: v.string() (unique identifier)",
+        "  - sourceChannel: v.union(v.literal('whatsapp_audio'), v.literal('whatsapp_text'), v.literal('app_recorded'), v.literal('app_typed'))",
+        "  - senderUserId: v.string()",
+        "  - orgContextCandidates: v.array(v.object({ organizationId: v.string(), confidence: v.number() }))",
+        "  - status: v.union(v.literal('received'), v.literal('transcribing'), v.literal('transcribed'), v.literal('processing'), v.literal('completed'), v.literal('failed'))",
+        "  - voiceNoteId: v.optional(v.id('voiceNotes')) (backward compat link)",
+        "  - createdAt: v.number()",
+        "  - updatedAt: v.number()",
+        "Indexes:",
+        "  - by_artifactId: ['artifactId']",
+        "  - by_senderUserId: ['senderUserId']",
+        "  - by_voiceNoteId: ['voiceNoteId']",
+        "  - by_status_and_createdAt: ['status', 'createdAt']",
+        "Backend: Add voiceNoteTranscripts table to schema.ts",
+        "Schema fields:",
+        "  - artifactId: v.id('voiceNoteArtifacts')",
+        "  - fullText: v.string()",
+        "  - segments: v.array(v.object({ text: v.string(), startTime: v.number(), endTime: v.number(), confidence: v.number() }))",
+        "  - modelUsed: v.string() (e.g., 'whisper-1')",
+        "  - language: v.string()",
+        "  - duration: v.number()",
+        "  - createdAt: v.number()",
+        "Indexes:",
+        "  - by_artifactId: ['artifactId']",
+        "Backend: Create models/voiceNoteArtifacts.ts",
+        "Function: createArtifact (internalMutation)",
+        "  args: { artifactId, sourceChannel, senderUserId, orgContextCandidates }",
+        "  returns: v.id('voiceNoteArtifacts')",
+        "Function: linkToVoiceNote (internalMutation)",
+        "  args: { artifactId, voiceNoteId }",
+        "  returns: v.null()",
+        "Function: updateArtifactStatus (internalMutation)",
+        "  args: { artifactId, status }",
+        "  returns: v.null()",
+        "Backend: Create models/voiceNoteTranscripts.ts",
+        "Function: createTranscript (internalMutation)",
+        "  args: { artifactId, fullText, segments, modelUsed, language, duration }",
+        "  returns: v.id('voiceNoteTranscripts')",
+        "Function: getTranscriptByArtifact (query)",
+        "  args: { artifactId }",
+        "  returns: transcript or null",
+        "Type check passes: npm run check-types"
+      ],
+      "priority": 13,
+      "passes": true,
+      "effort": "1.5 days",
+      "effortBreakdown": {
+        "schema": "2h (two tables + indexes)",
+        "artifacts": "2h (createArtifact, linkToVoiceNote, updateArtifactStatus)",
+        "transcripts": "2h (createTranscript, getTranscriptByArtifact)",
+        "tests": "3h (unit tests for both modules)",
+        "manual": "0.5h (test artifact creation flow)"
+      },
+      "dependencies": ["US-VN-012"],
+      "files": {
+        "create": [
+          "packages/backend/convex/models/voiceNoteArtifacts.ts",
+          "packages/backend/convex/models/voiceNoteTranscripts.ts",
+          "packages/backend/convex/__tests__/voiceNoteArtifacts.test.ts",
+          "packages/backend/convex/__tests__/voiceNoteTranscripts.test.ts"
+        ],
+        "modify": [
+          "packages/backend/convex/schema.ts (add voiceNoteArtifacts, voiceNoteTranscripts tables)"
+        ]
+      },
+      "testingRequirements": {
+        "unitTests": true,
+        "integrationTests": false,
+        "manualTesting": true,
+        "uatTestCases": []
+      }
+    },
+    {
+      "id": "US-VN-014",
+      "phase": 3,
+      "title": "Dual-Path Processing",
+      "description": "Implement feature flag evaluation and dual-path processing where v2-enabled coaches create artifacts while maintaining v1 backward compatibility.",
+      "acceptanceCriteria": [
+        "Backend: Create lib/featureFlags.ts",
+        "Function: shouldUseV2Pipeline (internal)",
+        "  args: { orgId, coachUserId }",
+        "  returns: v.boolean()",
+        "  Logic:",
+        "    1. Check platformConfig.voice_notes_v2_enabled (global on/off)",
+        "    2. Check organization.settings.voiceNotesVersion (org override: 'v1', 'v2', 'hybrid')",
+        "    3. Check member.betaFeatures includes 'voice_notes_v2' (coach opt-in)",
+        "    4. Return true if any layer enables v2, else false",
+        "Backend: Update actions/whatsapp.ts processIncomingMessage",
+        "Integration:",
+        "  - After message validation, call shouldUseV2Pipeline",
+        "  - If useV2:",
+        "    - Generate artifactId",
+        "    - Call internal.models.voiceNoteArtifacts.createArtifact",
+        "    - Still create v1 voiceNote (backward compat)",
+        "    - Call internal.models.voiceNoteArtifacts.linkToVoiceNote",
+        "  - Else:",
+        "    - Use existing v1 flow (unchanged)",
+        "  - Both paths continue to transcription as before",
+        "Backend: Update transcription completion hook",
+        "  - If v2 enabled:",
+        "    - Call internal.models.voiceNoteTranscripts.createTranscript with segments",
+        "    - Update artifact status to 'transcribed'",
+        "  - If v1:",
+        "    - Store transcript in voiceNote.transcript (existing behavior)",
+        "Unit tests: Create __tests__/featureFlags.test.ts",
+        "Test cases:",
+        "  - Platform disabled \u2192 returns false",
+        "  - Org v2 override \u2192 returns true",
+        "  - Coach beta opt-in \u2192 returns true",
+        "  - All disabled \u2192 returns false",
+        "Integration test: Create __tests__/dualPathProcessing.test.ts",
+        "Test cases:",
+        "  - v2 enabled coach \u2192 creates artifact + voiceNote",
+        "  - v1 coach \u2192 creates voiceNote only",
+        "  - v2 transcription \u2192 creates transcript with segments",
+        "Type check passes: npm run check-types",
+        "Manual test: Enable v2 for test coach \u2192 send voice note \u2192 verify artifact + transcript created"
+      ],
+      "priority": 14,
+      "passes": true,
+      "effort": "1.5 days",
+      "effortBreakdown": {
+        "featureFlags": "2h (shouldUseV2Pipeline logic)",
+        "integration": "3h (dual-path in processIncomingMessage)",
+        "transcription": "1.5h (update transcription completion hook)",
+        "tests": "3h (unit + integration tests)",
+        "manual": "1h (test v1 and v2 paths)"
+      },
+      "dependencies": ["US-VN-013"],
+      "files": {
+        "create": [
+          "packages/backend/convex/lib/featureFlags.ts",
+          "packages/backend/convex/__tests__/featureFlags.test.ts",
+          "packages/backend/convex/__tests__/dualPathProcessing.test.ts"
+        ],
+        "modify": [
+          "packages/backend/convex/actions/whatsapp.ts (add dual-path processing)",
+          "packages/backend/convex/models/voiceNotes.ts (update transcription hook)"
+        ]
+      },
+      "testingRequirements": {
+        "unitTests": true,
+        "integrationTests": true,
+        "manualTesting": true,
+        "uatTestCases": []
+      }
+    }
+  ],
+  "successCriteria": {}
+}

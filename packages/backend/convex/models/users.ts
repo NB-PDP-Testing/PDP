@@ -43,11 +43,11 @@ export const getCurrentUser = query({
 
       // Phase 0: Profile completion fields for multi-signal guardian matching
       altEmail: v.optional(v.string()),
-      postcode: v.optional(v.string()),
       address: v.optional(v.string()),
       address2: v.optional(v.string()),
       town: v.optional(v.string()),
       county: v.optional(v.string()),
+      postcode: v.optional(v.string()),
       country: v.optional(v.string()),
       profileCompletionStatus: v.optional(
         v.union(

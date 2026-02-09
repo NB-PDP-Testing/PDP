@@ -234,7 +234,7 @@ test_story() {
     local story_desc=$(jq -r --arg id "$story_id" '.userStories[] | select(.id == $id) | .description' "$PRD_FILE")
     local acceptance=$(jq -r --arg id "$story_id" '.userStories[] | select(.id == $id) | .acceptanceCriteria[]' "$PRD_FILE")
     local branch_name=$(jq -r '.branchName // "unknown"' "$PRD_FILE")
-    local feature_slug=$(echo "$branch_name" | sed 's|ralph/||')
+    local feature_slug=$(echo "$branch_name" | sed 's|/|-|g')
 
     local all_passed=true
     local critical_failure=false

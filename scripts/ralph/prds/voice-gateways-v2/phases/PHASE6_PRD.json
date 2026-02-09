@@ -1,0 +1,230 @@
+{
+  "phaseNumber": 6,
+  "phaseName": "Drafts & Confirmation Workflow",
+  "duration": "5 days",
+  "storyCount": 3,
+  "contextFiles": [
+    "context/MAIN_CONTEXT.md",
+    "context/PHASE3_V2_MIGRATION.md",
+    "docs/architecture/voice-notes-pipeline-v2.md"
+  ],
+  "stories": [
+    {
+      "id": "US-VN-019",
+      "phase": 6,
+      "title": "Drafts Table",
+      "description": "Create insightDrafts table to store pending insights awaiting confirmation before applying to player records, with confidence scores and evidence links.",
+      "acceptanceCriteria": [
+        "Backend: Add insightDrafts table to schema.ts",
+        "Schema fields:",
+        "  - draftId: v.string()",
+        "  - artifactId: v.id('voiceNoteArtifacts')",
+        "  - claimId: v.id('voiceNoteClaims')",
+        "  - playerIdentityId: v.optional(v.id('playerIdentities'))",
+        "  - insightType: v.union(v.literal('injury'), v.literal('wellbeing'), v.literal('performance'), v.literal('attendance'), v.literal('behavior'), v.literal('note'))",
+        "  - title: v.string()",
+        "  - description: v.string()",
+        "  - evidence: v.object({ transcriptSnippet: v.string(), timestampStart: v.optional(v.number()), audioClipStorageId: v.optional(v.id('_storage')) })",
+        "  - aiConfidence: v.number() (extraction confidence from claim)",
+        "  - resolutionConfidence: v.number() (entity match confidence)",
+        "  - overallConfidence: v.number() (aiConfidence * resolutionConfidence)",
+        "  - requiresConfirmation: v.boolean() (true if overallConfidence < 0.85)",
+        "  - status: v.union(v.literal('pending'), v.literal('confirmed'), v.literal('rejected'), v.literal('applied'))",
+        "  - createdAt: v.number()",
+        "Indexes:",
+        "  - by_artifactId: ['artifactId']",
+        "  - by_status: ['status']",
+        "  - by_playerIdentityId_and_status: ['playerIdentityId', 'status']",
+        "Backend: Create models/insightDrafts.ts",
+        "Function: createDraft (internalMutation)",
+        "  args: { draftId, artifactId, claimId, playerIdentityId, insightType, title, description, evidence, aiConfidence, resolutionConfidence }",
+        "  returns: v.id('insightDrafts')",
+        "  Logic: Calculate overallConfidence, set requiresConfirmation, insert draft",
+        "Function: getDraftsByArtifact (query)",
+        "  args: { artifactId }",
+        "  returns: v.array(draft objects)",
+        "Function: confirmDraft (mutation)",
+        "  args: { draftId }",
+        "  returns: v.null()",
+        "  Logic: Update status='confirmed'",
+        "Function: rejectDraft (mutation)",
+        "  args: { draftId }",
+        "  returns: v.null()",
+        "  Logic: Update status='rejected'",
+        "Integration: Add to entity resolution flow",
+        "  - After resolveEntities completes:",
+        "    - For each resolved claim, create draft",
+        "    - If overallConfidence >= 0.85 && trustLevel >= 2: auto-confirm",
+        "    - Else: leave as pending (requires confirmation)",
+        "Type check passes: npm run check-types"
+      ],
+      "priority": 19,
+      "passes": true,
+      "effort": "2 days",
+      "effortBreakdown": {
+        "schema": "1.5h (insightDrafts table with all fields)",
+        "models": "3h (createDraft, getDraftsByArtifact, confirmDraft, rejectDraft)",
+        "confidence": "1.5h (overallConfidence calculation logic)",
+        "integration": "2h (hook into entity resolution)",
+        "tests": "3h (unit tests)",
+        "manual": "1h (test draft creation scenarios)"
+      },
+      "dependencies": ["US-VN-018"],
+      "files": {
+        "create": [
+          "packages/backend/convex/models/insightDrafts.ts",
+          "packages/backend/convex/__tests__/insightDrafts.test.ts"
+        ],
+        "modify": [
+          "packages/backend/convex/schema.ts (add insightDrafts table)",
+          "packages/backend/convex/actions/entityResolution.ts (integrate draft creation)"
+        ]
+      },
+      "testingRequirements": {
+        "unitTests": true,
+        "integrationTests": false,
+        "manualTesting": true,
+        "uatTestCases": []
+      }
+    },
+    {
+      "id": "US-VN-020",
+      "phase": 6,
+      "title": "WhatsApp Commands",
+      "description": "Implement WhatsApp command parser and handlers for confirmation workflow (CONFIRM, CONFIRM 1,2,3, TWINS = Emma & Niamh, CANCEL) to approve or reject insight drafts.",
+      "acceptanceCriteria": [
+        "Backend: Create lib/whatsappCommands.ts",
+        "Function: parseCommand(text: string): Command | null",
+        "  Supported commands:",
+        "    - 'CONFIRM' (all pending drafts)",
+        "    - 'CONFIRM 1,2,3' (specific draft numbers)",
+        "    - 'CANCEL' (reject all pending drafts)",
+        "    - 'TWINS = Emma & Niamh' (custom entity mapping for group references)",
+        "    - 'TWINS = Emma and Niamh U12' (with team context)",
+        "  Return: { type: 'confirm' | 'cancel' | 'entity_mapping', draftNumbers?: number[], entityMapping?: { rawText, playerNames, teamContext } }",
+        "Backend: Create actions/whatsappCommandHandler.ts",
+        "Function: handleCommand (action)",
+        "  args: { phoneNumber, command, messageText }",
+        "  returns: v.string() (response message)",
+        "  Logic:",
+        "    1. Get pending drafts for coach (match phoneNumber to coachUserId)",
+        "    2. If command.type === 'confirm':",
+        "       - If draftNumbers: confirm those specific drafts",
+        "       - Else: confirm all pending drafts",
+        "       - Apply confirmed drafts to player records",
+        "       - Return: '\u2705 Saved {count} updates. Updated players: {names}'",
+        "    3. If command.type === 'cancel':",
+        "       - Reject all pending drafts",
+        "       - Return: '\u274c Cancelled all pending updates.'",
+        "    4. If command.type === 'entity_mapping':",
+        "       - Resolve group reference using provided names + fuzzy matching",
+        "       - Update resolutions with resolved entities",
+        "       - Return: '\u2705 {rawText} = {resolvedNames}. Use CONFIRM to save.'",
+        "Integration: Add to processIncomingMessage",
+        "  - If message is text, check if it's a command",
+        "  - If parseCommand returns command: call handleCommand, send response, return early",
+        "  - Else: continue normal processing",
+        "Unit tests: Create __tests__/whatsappCommands.test.ts",
+        "Test cases:",
+        "  - 'CONFIRM' \u2192 parsed as confirm all",
+        "  - 'CONFIRM 1,2,3' \u2192 parsed with draftNumbers [1,2,3]",
+        "  - 'CANCEL' \u2192 parsed as cancel",
+        "  - 'TWINS = Emma & Niamh' \u2192 parsed as entity_mapping",
+        "  - 'random text' \u2192 returns null (not a command)",
+        "Type check passes: npm run check-types",
+        "Manual test:",
+        "  - Send voice note \u2192 receive draft summary",
+        "  - Reply 'CONFIRM 1,2' \u2192 confirms those drafts",
+        "  - Reply 'TWINS = Emma and Niamh' \u2192 resolves group reference"
+      ],
+      "priority": 20,
+      "passes": true,
+      "effort": "2 days",
+      "effortBreakdown": {
+        "parser": "2h (parseCommand with regex patterns)",
+        "handler": "4h (handleCommand action logic for all command types)",
+        "integration": "1.5h (hook into processIncomingMessage)",
+        "tests": "3h (unit tests for parser + handler)",
+        "manual": "1.5h (test WhatsApp command flow)"
+      },
+      "dependencies": ["US-VN-019"],
+      "files": {
+        "create": [
+          "packages/backend/convex/lib/whatsappCommands.ts",
+          "packages/backend/convex/actions/whatsappCommandHandler.ts",
+          "packages/backend/convex/__tests__/whatsappCommands.test.ts"
+        ],
+        "modify": [
+          "packages/backend/convex/actions/whatsapp.ts (integrate command parsing)"
+        ]
+      },
+      "testingRequirements": {
+        "unitTests": true,
+        "integrationTests": false,
+        "manualTesting": true,
+        "uatTestCases": []
+      }
+    },
+    {
+      "id": "US-VN-021",
+      "phase": 6,
+      "title": "Migration Script",
+      "description": "Create optional migration script to backfill historical v1 voice notes into v2 artifacts, transcripts, and claims for data consistency and analysis.",
+      "acceptanceCriteria": [
+        "Script: Create scripts/migrations/voice-notes-to-v2.ts",
+        "Script usage: npm run migrate:voice-notes-to-v2",
+        "Migration logic:",
+        "  1. Query all voiceNotes with status='completed'",
+        "  2. For each voiceNote:",
+        "     - Generate artifactId",
+        "     - Create artifact with sourceChannel based on voiceNote.source",
+        "     - Link artifact to voiceNoteId",
+        "     - If transcript exists: create voiceNoteTranscripts (no segments, use fullText only)",
+        "     - If insights exist: best-effort create claims (one per insight)",
+        "     - Log migration results: { processed, artifacts, transcripts, claims, errors }",
+        "  3. Output summary report",
+        "Dry-run mode: --dry-run flag to preview without writing",
+        "Batch processing: Process 100 voice notes at a time to avoid timeout",
+        "Error handling: Log errors but continue processing remaining notes",
+        "Backend: Create actions/migration.ts",
+        "Function: migrateVoiceNoteToV2 (action)",
+        "  args: { voiceNoteId }",
+        "  returns: v.object({ success: v.boolean(), artifactId: v.optional(v.string()), error: v.optional(v.string()) })",
+        "Documentation: Add migration guide to docs/migrations/voice-notes-v2-migration.md",
+        "  - When to run migration",
+        "  - How to verify results",
+        "  - Rollback strategy (artifacts link back to voiceNotes)",
+        "Type check passes: npm run check-types",
+        "Manual test:",
+        "  - Run with --dry-run on test org",
+        "  - Run actual migration on 10 test voice notes",
+        "  - Verify artifacts, transcripts, claims created correctly"
+      ],
+      "priority": 21,
+      "passes": true,
+      "effort": "1 day",
+      "effortBreakdown": {
+        "script": "3h (migration script logic + batch processing)",
+        "action": "2h (migrateVoiceNoteToV2 action)",
+        "dryRun": "1h (dry-run mode + summary report)",
+        "docs": "1.5h (migration guide)",
+        "manual": "1h (test migration on sample data)"
+      },
+      "dependencies": ["US-VN-020"],
+      "files": {
+        "create": [
+          "scripts/migrations/voice-notes-to-v2.ts",
+          "packages/backend/convex/actions/migration.ts",
+          "docs/migrations/voice-notes-v2-migration.md"
+        ]
+      },
+      "testingRequirements": {
+        "unitTests": false,
+        "integrationTests": false,
+        "manualTesting": true,
+        "uatTestCases": []
+      }
+    }
+  ],
+  "successCriteria": {}
+}

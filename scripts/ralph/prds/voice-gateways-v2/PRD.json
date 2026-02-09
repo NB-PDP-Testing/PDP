@@ -1,0 +1,174 @@
+{
+  "project": "Voice Enhance Gating-WAPP v2",
+  "branchName": "feat/voice-gateways-v2",
+  "description": "Phase 7A: Wire In-App Notes to v2 Artifact Pipeline. Make ALL voice notes (in-app typed, in-app recorded) create v2 artifacts when the v2 feature flag is enabled. Eliminate duplicate v1+v2 processing. v1 buildInsights becomes fallback only.",
+  "issueReference": "https://github.com/NB-PDP-Testing/PDP/issues/423",
+  "contextFiles": [
+    "scripts/ralph/prds/voice-gateways-v2/context/V2_MIGRATION_CONTEXT.md",
+    "scripts/ralph/prds/voice-gateways-v2/context/MAIN_CONTEXT.md",
+    "docs/architecture/voice-notes-pipeline-v2.md"
+  ],
+  "previousPhases": [
+    "Phase 1",
+    "Phase 2",
+    "Phase 2.5",
+    "Phase 3",
+    "Phase 4",
+    "Phase 5",
+    "Phase 6"
+  ],
+  "currentPhase": "Phase 7A - Wire In-App Notes to v2 Artifact Pipeline",
+  "upcomingPhases": [
+    "Phase 7B - Draft Confirmation UI",
+    "Phase 7C - Complete v2 → v1 Output Bridge",
+    "Phase 7D - Retire v1 Processing & Clean Up"
+  ],
+  "completedStories": [
+    "US-VN-001",
+    "US-VN-002",
+    "US-VN-003",
+    "US-VN-004",
+    "US-VN-005",
+    "US-VN-006",
+    "US-VN-007",
+    "US-VN-008",
+    "US-VN-009",
+    "US-VN-010",
+    "US-VN-011",
+    "US-VN-012",
+    "US-VN-013",
+    "US-VN-014",
+    "US-VN-015",
+    "US-VN-016",
+    "US-VN-017",
+    "US-VN-018",
+    "US-VN-019",
+    "US-VN-020",
+    "US-VN-021"
+  ],
+
+  "IMPORTANT_READ_PHASE_PRD": "The detailed acceptance criteria for each story are in the phase PRD files (phases/PHASE7A_PRD.json). The summaries below are abbreviated. ALWAYS read the phase PRD for the full, verified implementation instructions including exact function signatures.",
+
+  "userStories": [
+    {
+      "id": "US-VN-022",
+      "phase": "7A",
+      "title": "Wire In-App Note Creation to v2 Artifact Pipeline",
+      "description": "Modify createTypedNote and createRecordedNote mutations to create voiceNoteArtifacts when the v2 pipeline is enabled. Follow the EXACT pattern from whatsapp.ts: createArtifact → [insert v1 note] → linkToVoiceNote. For typed notes, also create transcript and schedule extractClaims. For recorded notes, transcribeAudio already handles transcript + claims.",
+      "acceptanceCriteria": [
+        "FULL DETAILS: Read phases/PHASE7A_PRD.json — story US-VN-022",
+        "",
+        "SUMMARY:",
+        "1. createTypedNote: check shouldUseV2Pipeline → if v2: create artifact (NO voiceNoteId/status/createdAt in args!) → linkToVoiceNote → updateArtifactStatus('transcribed') → create transcript → schedule extractClaims",
+        "2. createRecordedNote: check shouldUseV2Pipeline → if v2: create artifact → linkToVoiceNote (transcript/claims handled by transcribeAudio)",
+        "3. createArtifact returns Convex _id (for createTranscript/extractClaims). linkToVoiceNote takes UUID string.",
+        "4. v1 buildInsights still runs as fallback (US-VN-023 will gate it)",
+        "",
+        "CRITICAL: createArtifact does NOT accept voiceNoteId, status, or createdAt. See V2_MIGRATION_CONTEXT.md for verified signatures.",
+        "CRITICAL: Add imports AND usage in SAME edit to prevent linter removal."
+      ],
+      "priority": 22,
+      "passes": false,
+      "effort": "1.5 days",
+      "dependencies": ["US-VN-021"],
+      "files": {
+        "create": [],
+        "modify": [
+          "packages/backend/convex/models/voiceNotes.ts (add v2 artifact creation to createTypedNote and createRecordedNote)"
+        ]
+      },
+      "testingRequirements": {
+        "unitTests": false,
+        "integrationTests": false,
+        "manualTesting": true,
+        "uatTestCases": [
+          "With v2 flag ON: create typed note → verify voiceNoteArtifact + voiceNoteTranscript + voiceNoteClaims created",
+          "With v2 flag ON: create recorded note → verify voiceNoteArtifact created → after transcription, verify transcript + claims",
+          "With v2 flag OFF: create typed note → verify NO artifact created, v1 buildInsights runs normally",
+          "With v2 flag OFF: create recorded note → verify NO artifact created, v1 pipeline runs normally"
+        ]
+      }
+    },
+    {
+      "id": "US-VN-023",
+      "phase": "7A",
+      "title": "Eliminate Duplicate v1+v2 Processing",
+      "description": "When v2 pipeline is active and an artifact exists for a voice note, skip the v1 buildInsights action. This prevents duplicate insights from both pipelines. Also fix .filter() usage in v2 backend code for Convex compliance.",
+      "acceptanceCriteria": [
+        "FULL DETAILS: Read phases/PHASE7A_PRD.json — story US-VN-023",
+        "",
+        "SUMMARY:",
+        "1. At START of buildInsights: check getArtifactsByVoiceNote → if artifact exists, log skip message + return null",
+        "2. Scan all v2 files for Convex .filter() anti-pattern → replace with .withIndex()",
+        "3. JavaScript array .filter() after .collect() is FINE — only Convex query .filter() is banned",
+        "",
+        "This is a SAFETY NET — Phase 7D will properly gate scheduling at the source."
+      ],
+      "priority": 23,
+      "passes": false,
+      "effort": "1 day",
+      "dependencies": ["US-VN-022"],
+      "files": {
+        "create": [],
+        "modify": [
+          "packages/backend/convex/actions/voiceNotes.ts (add v2 skip check to buildInsights)",
+          "packages/backend/convex/actions/entityResolution.ts (fix .filter() if present)",
+          "packages/backend/convex/actions/draftGeneration.ts (fix .filter() if present)",
+          "packages/backend/convex/models/voiceNoteEntityResolutions.ts (fix .filter() if present)",
+          "packages/backend/convex/models/insightDrafts.ts (fix .filter() if present)",
+          "packages/backend/convex/schema.ts (add new indexes if needed for .filter() replacements)"
+        ]
+      },
+      "testingRequirements": {
+        "unitTests": false,
+        "integrationTests": false,
+        "manualTesting": true,
+        "uatTestCases": [
+          "Create typed note with v2 ON → buildInsights should skip (check Convex logs for skip message)",
+          "Create recorded note with v2 ON → after transcription, buildInsights should skip",
+          "Create typed note with v2 OFF → buildInsights should run normally, insights appear in dashboard",
+          "No .filter() anti-patterns in grep of v2 backend files"
+        ]
+      }
+    }
+  ],
+
+  "successCriteria": {
+    "allSourcesCreateArtifacts": "In-app typed and recorded notes create v2 artifacts when feature flag is enabled",
+    "noDuplicateProcessing": "With v2 ON, only extractClaims runs (not buildInsights). With v2 OFF, only buildInsights runs (no artifacts created)",
+    "v1FallbackWorks": "With v2 flag OFF, createTypedNote and createRecordedNote work exactly as before",
+    "noFilterAntiPattern": "No Convex .query().filter() usage in v2 backend files — only .withIndex() or JS array .filter()",
+    "typecheckPasses": "npm run check-types passes with zero errors",
+    "featureFlagGated": "All v2 artifact creation is gated behind shouldUseV2Pipeline feature flag"
+  },
+
+  "mandatoryPatterns": [
+    "ALWAYS use .withIndex() — NEVER use Convex .filter()",
+    "ALWAYS include args and returns validators on ALL queries/mutations",
+    "ALWAYS use batch fetch with Map lookup to avoid N+1 queries",
+    "ALWAYS filter by organizationId for data isolation",
+    "ALWAYS add imports AND usage in the SAME edit to prevent linter removal",
+    "NEVER use getFeatureFlag for cascade evaluation — use shouldUseV2Pipeline (returns boolean)",
+    "NEVER pass voiceNoteId/status/createdAt to createArtifact — use linkToVoiceNote + updateArtifactStatus separately",
+    "NEVER call shouldUseV2Pipeline twice in the same function — store result in a variable"
+  ],
+
+  "ralphInstructions": {
+    "executionMode": "sequential",
+    "storyOrder": ["US-VN-022", "US-VN-023"],
+    "contextToRead": [
+      "phases/PHASE7A_PRD.json (PRIMARY — full implementation details with verified function signatures)",
+      "context/V2_MIGRATION_CONTEXT.md (ESSENTIAL — verified function signatures and architecture decisions)",
+      "context/MAIN_CONTEXT.md (REFERENCE — overall project context)"
+    ],
+    "testingStrategy": "Manual testing only — no unit tests required for Phase 7A",
+    "qualityCriteria": "npm run check-types passes, npx -w packages/backend convex codegen succeeds, manual test scenarios pass",
+    "phaseFiles": {
+      "phase7A": "phases/PHASE7A_PRD.json",
+      "phase7B": "phases/PHASE7B_PRD.json",
+      "phase7C": "phases/PHASE7C_PRD.json",
+      "phase7D": "phases/PHASE7D_PRD.json"
+    },
+    "criticalWarning": "The inline acceptance criteria in this file are ABBREVIATED. Ralph MUST read phases/PHASE7A_PRD.json for the FULL, VERIFIED implementation instructions. The phase PRD has exact function signatures, verified line numbers, and step-by-step code changes."
+  }
+}

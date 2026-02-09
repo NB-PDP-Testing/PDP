@@ -8,6 +8,7 @@ import {
   mutation,
   query,
 } from "../_generated/server";
+import { findSimilarPlayersLogic } from "../lib/playerMatching";
 
 // ============================================================
 // TYPE DEFINITIONS
@@ -1543,4 +1544,37 @@ export const getBulkChildData = query({
 
     return result;
   },
+});
+
+// ============================================================
+// FUZZY PLAYER MATCHING (US-VN-006)
+// Logic extracted to convex/lib/playerMatching.ts (shared with review microsite)
+// ============================================================
+
+/**
+ * Find players whose names are similar to a search term.
+ * Uses Levenshtein-based matching from stringMatching.ts (US-VN-005).
+ *
+ * Used by the WhatsApp voice note pipeline to resolve spoken player names.
+ * Logic lives in lib/playerMatching.ts so the public review wrapper can reuse it.
+ */
+export const findSimilarPlayers = internalQuery({
+  args: {
+    organizationId: v.string(),
+    coachUserId: v.string(),
+    searchName: v.string(),
+    limit: v.optional(v.number()),
+  },
+  returns: v.array(
+    v.object({
+      playerId: v.id("playerIdentities"),
+      firstName: v.string(),
+      lastName: v.string(),
+      fullName: v.string(),
+      similarity: v.number(),
+      ageGroup: v.string(),
+      sport: v.union(v.string(), v.null()),
+    })
+  ),
+  handler: async (ctx, args) => findSimilarPlayersLogic(ctx, args),
 });

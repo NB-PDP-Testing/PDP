@@ -774,6 +774,7 @@ async function processAudioMessage(
 
   // Create voice note (this triggers transcription -> insights pipeline)
   // Always runs for both v1 and v2 (backward compat)
+  // skipV2: true prevents duplicate artifact creation (WhatsApp already created it above)
   const noteId = await ctx.runMutation(
     api.models.voiceNotes.createRecordedNote,
     {
@@ -782,6 +783,7 @@ async function processAudioMessage(
       audioStorageId: storageId,
       noteType: "general",
       source: "whatsapp_audio",
+      skipV2: true,
     }
   );
 
@@ -886,12 +888,14 @@ async function processTextMessage(
 
   // Create voice note (this triggers insights pipeline)
   // Always runs for both v1 and v2 (backward compat)
+  // skipV2: true prevents duplicate artifact creation (WhatsApp already created it above)
   const noteId = await ctx.runMutation(api.models.voiceNotes.createTypedNote, {
     orgId: args.organizationId,
     coachId: args.coachId,
     noteText: args.text,
     noteType: "general",
     source: "whatsapp_text",
+    skipV2: true,
   });
 
   // v2 path: Link artifact to v1 voice note

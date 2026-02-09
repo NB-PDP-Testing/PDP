@@ -561,6 +561,7 @@ export const createTypedNote = mutation({
     source: v.optional(
       v.union(v.literal("app_typed"), v.literal("whatsapp_text"))
     ),
+    skipV2: v.optional(v.boolean()),
   },
   returns: v.id("voiceNotes"),
   handler: async (ctx, args) => {
@@ -583,10 +584,13 @@ export const createTypedNote = mutation({
     });
 
     // v2 pipeline: create artifact + transcript + schedule extractClaims
-    const useV2 = await ctx.runQuery(
-      internal.lib.featureFlags.shouldUseV2Pipeline,
-      { organizationId: args.orgId, userId: args.coachId }
-    );
+    // skipV2 is true when called from WhatsApp (which handles v2 artifacts externally)
+    const useV2 = args.skipV2
+      ? false
+      : await ctx.runQuery(internal.lib.featureFlags.shouldUseV2Pipeline, {
+          organizationId: args.orgId,
+          userId: args.coachId,
+        });
 
     if (useV2) {
       const artifactIdStr = crypto.randomUUID();
@@ -634,10 +638,16 @@ export const createTypedNote = mutation({
       );
     }
 
-    // Schedule AI insights extraction
-    await ctx.scheduler.runAfter(0, internal.actions.voiceNotes.buildInsights, {
-      noteId,
-    });
+    // Schedule AI insights extraction (only if v2 is not active)
+    if (!useV2) {
+      await ctx.scheduler.runAfter(
+        0,
+        internal.actions.voiceNotes.buildInsights,
+        {
+          noteId,
+        }
+      );
+    }
 
     return noteId;
   },
@@ -656,6 +666,7 @@ export const createRecordedNote = mutation({
     source: v.optional(
       v.union(v.literal("app_recorded"), v.literal("whatsapp_audio"))
     ),
+    skipV2: v.optional(v.boolean()),
   },
   returns: v.id("voiceNotes"),
   handler: async (ctx, args) => {
@@ -672,10 +683,13 @@ export const createRecordedNote = mutation({
     });
 
     // v2 pipeline: create artifact + link (transcribeAudio handles transcript + extractClaims)
-    const useV2 = await ctx.runQuery(
-      internal.lib.featureFlags.shouldUseV2Pipeline,
-      { organizationId: args.orgId, userId: args.coachId }
-    );
+    // skipV2 is true when called from WhatsApp (which handles v2 artifacts externally)
+    const useV2 = args.skipV2
+      ? false
+      : await ctx.runQuery(internal.lib.featureFlags.shouldUseV2Pipeline, {
+          organizationId: args.orgId,
+          userId: args.coachId,
+        });
 
     if (useV2) {
       const artifactIdStr = crypto.randomUUID();

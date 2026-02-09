@@ -283,14 +283,16 @@ export const transcribeAudio = internalAction({
         return null;
       }
 
-      // Quality OK - schedule insights extraction
-      await ctx.scheduler.runAfter(
-        0,
-        internal.actions.voiceNotes.buildInsights,
-        {
-          noteId: args.noteId,
-        }
-      );
+      // Quality OK - schedule insights extraction (only if v2 artifact doesn't exist)
+      if (artifacts.length === 0) {
+        await ctx.scheduler.runAfter(
+          0,
+          internal.actions.voiceNotes.buildInsights,
+          {
+            noteId: args.noteId,
+          }
+        );
+      }
     } catch (error) {
       console.error("Transcription failed:", error);
       await ctx.runMutation(internal.models.voiceNotes.updateTranscription, {
@@ -324,14 +326,15 @@ export const buildInsights = internalAction({
       return null;
     }
 
-    // v2 skip check: if artifact exists, v2 pipeline handles this note
+    // Defense-in-depth: if v2 artifact exists, skip v1 extraction
+    // (buildInsights should not be scheduled when v2 is active, but this catches edge cases)
     const artifacts = await ctx.runQuery(
       internal.models.voiceNoteArtifacts.getArtifactsByVoiceNote,
       { voiceNoteId: args.noteId }
     );
     if (artifacts.length > 0) {
-      console.info(
-        "[buildInsights] Skipping v1 extraction — v2 artifact exists for note:",
+      console.warn(
+        "[buildInsights] Defense-in-depth: v2 artifact found, skipping v1 extraction for note:",
         args.noteId
       );
       return null;

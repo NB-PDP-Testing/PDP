@@ -870,6 +870,115 @@ export const batchApplyInsightsFromReview = mutation({
   },
 });
 
+/**
+ * Batch dismiss insights from review microsite (US-RMS-003).
+ * Dismisses multiple insights at once with optimistic UI support.
+ */
+export const batchDismissInsightsFromReview = mutation({
+  args: {
+    code: v.string(),
+    items: v.array(
+      v.object({
+        voiceNoteId: v.id("voiceNotes"),
+        insightId: v.string(),
+      })
+    ),
+  },
+  returns: v.object({
+    successCount: v.number(),
+    failCount: v.number(),
+  }),
+  handler: async (ctx, args) => {
+    const result = await validateReviewCode(ctx, args.code);
+    if (!result || result.isExpired) {
+      return { successCount: 0, failCount: args.items.length };
+    }
+
+    const { link } = result;
+    let successCount = 0;
+    let failCount = 0;
+
+    // Group by voiceNoteId to batch DB reads
+    const byNote = new Map<string, string[]>();
+    for (const item of args.items) {
+      if (!link.voiceNoteIds.includes(item.voiceNoteId)) {
+        failCount += 1;
+        continue;
+      }
+      const noteKey = String(item.voiceNoteId);
+      const existing = byNote.get(noteKey) || [];
+      existing.push(item.insightId);
+      byNote.set(noteKey, existing);
+    }
+
+    // Batch fetch all notes at once, then process
+    const noteIds = [...byNote.keys()];
+    const notes = await Promise.all(
+      link.voiceNoteIds
+        .filter((id) => noteIds.includes(String(id)))
+        .map((id) => ctx.db.get(id))
+    );
+    const noteMap = new Map(
+      notes
+        .filter((n): n is NonNullable<typeof n> => n !== null)
+        .map((n) => [String(n._id), n])
+    );
+
+    const now = Date.now();
+    for (const [noteId, insightIds] of byNote) {
+      const note = noteMap.get(noteId);
+      if (!note) {
+        failCount += insightIds.length;
+        continue;
+      }
+
+      const pendingIds = new Set(
+        note.insights
+          .filter((i) => insightIds.includes(i.id) && i.status === "pending")
+          .map((i) => i.id)
+      );
+
+      if (pendingIds.size === 0) {
+        failCount += insightIds.length;
+        continue;
+      }
+
+      const updatedInsights = note.insights.map((i) => {
+        if (pendingIds.has(i.id)) {
+          return {
+            ...i,
+            status: "dismissed" as const,
+            dismissedAt: now,
+            dismissedDate: new Date().toISOString(),
+          };
+        }
+        return i;
+      });
+
+      successCount += pendingIds.size;
+      failCount += insightIds.length - pendingIds.size;
+      await ctx.db.patch(note._id, { insights: updatedInsights });
+    }
+
+    // Log batch analytics event
+    if (successCount > 0) {
+      await ctx.scheduler.runAfter(
+        0,
+        internal.models.reviewAnalytics.logReviewEvent,
+        {
+          linkCode: args.code,
+          coachUserId: link.coachUserId,
+          organizationId: link.organizationId,
+          eventType: "batch_dismiss",
+          metadata: { count: successCount },
+        }
+      );
+    }
+
+    return { successCount, failCount };
+  },
+});
+
 // ============================================================
 // PUBLIC MUTATIONS — Domain actions from review (US-VN-009)
 // ============================================================

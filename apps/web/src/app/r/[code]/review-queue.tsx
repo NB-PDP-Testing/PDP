@@ -755,8 +755,6 @@ function InsightCard({
                   ? "todo"
                   : "uncategorized"
           }
-          currentPlayerName={playerName}
-          currentTeamName={teamName}
           insightId={insightId}
           onOpenChange={setReassignDialogOpen}
           onSuccess={() => {

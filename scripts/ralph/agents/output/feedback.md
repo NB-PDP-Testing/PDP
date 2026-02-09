@@ -2419,3 +2419,58 @@ The component demonstrates good performance patterns with debounced search and q
   - **Problem:** Should use .withIndex() for better performance
   - **Fix:** Replace `.query().filter()` with `.query().withIndex()`
 
+
+## Code Review Gate - 2026-02-09 21:57:51
+
+🔍 **Code Review: BLOCK** (1 critical, 0 high, 0 medium) - 🚨 **CRITICAL**: `.filter()` usage in `packages/backend/convex/models/whatsappReviewLinks.ts` - use `.withIndex()` instead\n  ```\n300:    const validNotes = voiceNotes.filter(Boolean) as NonNullable<
+315:      .filter((i) => i.category === "injury" && i.status === "pending")
+333:      .filter(\n  ```\n\n**Verdict:** BLOCK - Fix CRITICAL/HIGH issues before continuing
+
+
+## Auto Quality Check - 2026-02-09 21:59:01
+### File: /Users/neil/Documents/GitHub/PDP/packages/backend/convex/models/whatsappReviewLinks.ts
+
+- ❌ **CRITICAL: Better Auth adapter violation**
+  - **Problem:** Direct DB access to auth tables
+  - **Fix:** Use `ctx.runQuery(components.betterAuth.adapter.findOne, {...})`
+
+
+## Auto Quality Check - 2026-02-09 21:59:01
+### File: /Users/neil/Documents/GitHub/PDP/packages/backend/convex/models/whatsappReviewLinks.ts
+
+- ⚠️ **Performance: .filter() usage detected**
+  - **Problem:** Should use .withIndex() for better performance
+  - **Fix:** Replace `.query().filter()` with `.query().withIndex()`
+
+
+## Auto Quality Check - 2026-02-09 21:59:13
+### File: /Users/neil/Documents/GitHub/PDP/packages/backend/convex/models/whatsappReviewLinks.ts
+
+- ❌ **CRITICAL: Better Auth adapter violation**
+  - **Problem:** Direct DB access to auth tables
+  - **Fix:** Use `ctx.runQuery(components.betterAuth.adapter.findOne, {...})`
+
+
+## Auto Quality Check - 2026-02-09 21:59:13
+### File: /Users/neil/Documents/GitHub/PDP/packages/backend/convex/models/whatsappReviewLinks.ts
+
+- ⚠️ **Performance: .filter() usage detected**
+  - **Problem:** Should use .withIndex() for better performance
+  - **Fix:** Replace `.query().filter()` with `.query().withIndex()`
+
+
+## Auto Quality Check - 2026-02-09 21:59:34
+### File: /Users/neil/Documents/GitHub/PDP/packages/backend/convex/models/whatsappReviewLinks.ts
+
+- ❌ **CRITICAL: Better Auth adapter violation**
+  - **Problem:** Direct DB access to auth tables
+  - **Fix:** Use `ctx.runQuery(components.betterAuth.adapter.findOne, {...})`
+
+
+## Auto Quality Check - 2026-02-09 21:59:34
+### File: /Users/neil/Documents/GitHub/PDP/packages/backend/convex/models/whatsappReviewLinks.ts
+
+- ⚠️ **Performance: .filter() usage detected**
+  - **Problem:** Should use .withIndex() for better performance
+  - **Fix:** Replace `.query().filter()` with `.query().withIndex()`
+

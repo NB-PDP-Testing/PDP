@@ -315,7 +315,7 @@
           "v2 OFF: typed note in app → buildInsights runs normally, no artifacts created",
           "v2 OFF: recorded note in app → transcribeAudio → buildInsights runs normally",
           "v2 ON: WhatsApp audio → artifact created in whatsapp.ts → createRecordedNote(skipV2:true) → transcribeAudio detects artifact → v2 path, buildInsights skipped",
-          "v2 ON: WhatsApp text → artifact created in whatsapp.ts → createTypedNote(skipV2:true) → NO duplicate artifact, NO buildInsights",
+          "v2 ON: WhatsApp text → artifact created in whatsapp.ts → createTypedNote(skipV2:true) → NO duplicate artifact, buildInsights IS scheduled (useV2=false due to skipV2) but caught by defense-in-depth artifact check",
           "v2 OFF: WhatsApp audio → no artifact → createRecordedNote → transcribeAudio → buildInsights runs normally",
           "v2 OFF: WhatsApp text → no artifact → createTypedNote → buildInsights runs normally",
           "Check Convex function logs: zero buildInsights calls with v2 ON for newly created notes",
@@ -449,7 +449,8 @@
         "  entityResolutions: Count voiceNoteEntityResolutions for org's claims",
         "    May need JS filter similar to artifacts",
         "",
-        "  drafts by status: ctx.db.query('insightDrafts') — filter by organizationId in JS after collect",
+        "  drafts by status: ctx.db.query('insightDrafts').withIndex('by_org_coach_status_createdAt', q => q.eq('organizationId', args.organizationId)).collect()",
+        "    NOTE: by_org_coach_status_createdAt has organizationId as first field — use partial prefix match instead of JS filter",
         "    Group by status field: 'pending_review', 'confirmed', 'rejected', 'auto_confirmed'",
         "",
         "  featureFlags: Call ctx.runQuery for shouldUseV2Pipeline and shouldUseEntityResolution",
@@ -600,7 +601,8 @@
       "US-VN-028 DEPENDS on Phase 7A (US-VN-022) having already added the useV2 check to createTypedNote. Verify this exists before adding the !useV2 gate.",
       "The double-artifact problem for WhatsApp text is SUBTLE. Without skipV2, createTypedNote would create a second artifact when called from whatsapp.ts processTextMessage.",
       "migration.ts migrateVoiceNotesToV2 is an internalAction — it CANNOT be run via 'convex run'. The runMigration wrapper script is REQUIRED.",
-      "v2MigrationStatus queries multiple tables. For tables without org-scoped indexes (voiceNoteArtifacts, insightDrafts), use .collect() then JavaScript array .filter() — this is allowed."
+      "v2MigrationStatus queries multiple tables. For tables without org-scoped indexes (voiceNoteArtifacts), use .collect() then JavaScript array .filter() — this is allowed. insightDrafts HAS by_org_coach_status_createdAt index — use partial prefix match with .eq('organizationId', orgId).",
+      "WhatsApp text edge case: skipV2:true forces useV2=false, so buildInsights IS scheduled. This is by design — the defense-in-depth check in buildInsights detects the artifact and returns null. ~200 wasted calls/month, acceptable tradeoff vs code complexity of checking artifacts in createTypedNote."
     ],
     "testingStrategy": "Manual testing only — run each script, verify Convex dashboard state changes, verify correct pipeline runs for all 4 input paths",
     "qualityCriteria": "npm run check-types passes, npx -w packages/backend convex codegen succeeds, all manual test scenarios pass"

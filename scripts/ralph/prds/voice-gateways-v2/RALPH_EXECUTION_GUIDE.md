@@ -150,29 +150,45 @@
 
 ---
 
-### Phase 7C: Complete v2 → v1 Output Bridge (2-3 days) 🟢 START HERE
-**File**: `phases/PHASE7C_PRD.json` (PRIMARY — read this FIRST)
-**Stories**: US-VN-026 to US-VN-027 (2 stories)
+### Phase 7C: Complete v2 → v1 Output Bridge (2-3 days) ✅ COMPLETE
+**File**: `phases/PHASE7C_PRD.json`
+**Stories**: US-VN-026 to US-VN-027 (2 stories) — ALL COMPLETE
 **Dependencies**: Phase 7B complete ✅
 
-**Context Files**:
-- `phases/PHASE7C_PRD.json` (PRIMARY — full implementation details with architect review corrections)
-- `context/V2_MIGRATION_CONTEXT.md` (ESSENTIAL — verified function signatures)
-- `context/MAIN_CONTEXT.md` (REFERENCE — overall project context)
-
-**CRITICAL WARNING**: The Phase 7C PRD has been updated with 3 architect review corrections:
-- C1: parentSummariesEnabled check before scheduling processVoiceNoteInsight
-- C2: appliedBy + appliedDate in voiceNotes.insights[] push object
-- C3: Schema changes FIRST, codegen, then code changes
-
-**EXECUTION ORDER**: Schema → codegen → code. See `implementationOrder` in PRD.
+**What was built:**
+- `applyDraft` output bridge: creates voiceNoteInsights with back-links (sourceArtifactId, sourceClaimId, sourceDraftId)
+- Updates voiceNotes.insights[] embedded array with appliedBy + appliedDate for v1 display compat
+- Schedules processVoiceNoteInsight with parentSummariesEnabled check (coachOrgPreferences.by_coach_org)
+- Creates autoAppliedInsights audit record for auto-confirmed drafts (playerId now optional)
+- validateTextMessage quality gate added to createTypedNote (sync, no ctx needed)
+- Auto-confirm logic verified (all 4 checkpoints pass, no changes needed to draftGeneration.ts)
 
 ---
 
-### Phase 7D: Retire v1 Processing & Clean Up (2-3 days) — UPCOMING
-**File**: `phases/PHASE7D_PRD.json`
+### Phase 7D: Retire v1 Processing & Clean Up (2-3 days) 🟢 START HERE
+**File**: `phases/PHASE7D_PRD.json` (PRIMARY — read this FIRST)
 **Stories**: US-VN-028 to US-VN-029 (2 stories)
-**Dependencies**: Phase 7A + 7B + 7C complete
+**Dependencies**: Phase 7A + 7B + 7C complete ✅
+
+**Context Files**:
+- `phases/PHASE7D_PRD.json` (PRIMARY — full implementation details, verified code locations, double-artifact analysis)
+- `context/V2_MIGRATION_CONTEXT.md` (ESSENTIAL — v1 vs v2 architecture)
+- `context/MAIN_CONTEXT.md` (REFERENCE — overall project context)
+
+**US-VN-028: Remove Dual Processing Path** (4 changes):
+1. createTypedNote: wrap buildInsights in `if (!useV2)` — reuse existing useV2 variable
+2. transcribeAudio: wrap buildInsights in `if (artifacts.length === 0)` — reuse existing artifacts variable
+3. Add `skipV2: v.optional(v.boolean())` to createTypedNote & createRecordedNote, pass from WhatsApp callers
+4. Update defense-in-depth log in buildInsights to say 'Defense-in-depth'
+
+**US-VN-029: Feature Flag Promotion Tooling** (4 scripts):
+1. enableV2ForOrg.ts — mutation that enables both v2 flags for an org
+2. disableV2ForOrg.ts — mutation that disables both flags (rollback)
+3. v2MigrationStatus.ts — query reporting counts across all v2 tables for an org
+4. runMigration.ts — public action wrapper around internal migrateVoiceNotesToV2
+
+**CRITICAL**: Do NOT call shouldUseV2Pipeline twice — reuse existing useV2 variable from Phase 7A.
+**PATTERNS**: Scripts use camelCase filenames, export query/mutation/action (NOT internal), for `convex run` compatibility.
 
 ---
 
@@ -298,20 +314,12 @@ After completing each phase, update this checklist:
 - [x] Phase 6: Drafts & Confirmation Workflow (5 days) ✅ COMPLETE
 - [x] Phase 7A: Wire In-App Notes to v2 (2-3 days) ✅ COMPLETE
 - [x] Phase 7B: Draft Confirmation UI (3-4 days) ✅ COMPLETE
-- [ ] Phase 7C: v2 → v1 Output Bridge (2-3 days) 🟢 START HERE
-- [ ] Phase 7D: Retire v1 Processing (2-3 days)
+- [x] Phase 7C: v2 → v1 Output Bridge (2-3 days) ✅ COMPLETE
+- [ ] Phase 7D: Retire v1 Processing (2-3 days) 🟢 START HERE
 
-**Current Phase**: Phase 7C 🟢
-**Overall Progress**: Phases 1-7B complete (25/29 stories, 86%). Phase 7C has 2 stories, Phase 7D has 2 stories.
-**Phase 1**: Complete (US-VN-001 to US-VN-006, 349 tests passing)
-**Phase 2**: Complete (US-VN-007 to US-VN-012, full mobile microsite)
-**Phase 2.5**: Complete (012a-012d, analytics + swipe + snooze + PWA)
-**Phase 3**: Complete (US-VN-013 + US-VN-014, v2 tables + feature flags + dual-path)
-**Phase 4**: Complete (US-VN-015 + US-VN-016, claims table + extraction action + viewer)
-**Phase 5**: Complete (US-VN-017 + US-VN-018, entity resolution + disambiguation UI + 6 enhancements)
-**Phase 6**: Complete (US-VN-019 + US-VN-020 + US-VN-021, drafts + WhatsApp commands + migration)
-**Phase 7A**: Complete (US-VN-022 + US-VN-023, in-app artifacts + duplicate elimination)
-**Phase 7B**: Complete (US-VN-024 + US-VN-025, drafts tab + batch operations + auto-switch)
+**Current Phase**: Phase 7D 🟢
+**Overall Progress**: Phases 1-7C complete (27/29 stories, 93%). Phase 7D has 2 stories remaining.
+**Phase 7C**: Complete (US-VN-026 + US-VN-027, applyDraft bridge + quality gates + auto-confirm verified)
 
 ---
 
@@ -326,6 +334,6 @@ Refer to:
 
 ---
 
-**Ready to start Phase 7C!**
+**Ready to start Phase 7D!**
 
-Read `phases/PHASE7C_PRD.json` (PRIMARY — full implementation details with architect review corrections) to begin. The master `PRD.json` has abbreviated summaries — always defer to the phase PRD for exact implementation instructions. Pay special attention to the `implementationOrder` section — schema changes MUST be applied before code changes.
+Read `phases/PHASE7D_PRD.json` (PRIMARY — full implementation details with verified code locations and double-artifact analysis) to begin. The master `PRD.json` has abbreviated summaries — always defer to the phase PRD for exact implementation instructions. Pay special attention to reusing existing variables (useV2, artifacts) — do NOT call shouldUseV2Pipeline twice.

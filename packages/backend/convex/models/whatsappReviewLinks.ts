@@ -322,7 +322,11 @@ export const getCoachPendingItems = query({
         category: i.category,
         status: i.status,
         noteDate: i.noteDate,
-      }));
+      }))
+      .sort(
+        (a, b) =>
+          new Date(b.noteDate).getTime() - new Date(a.noteDate).getTime()
+      );
 
     const unmatched = allInsights
       .filter(
@@ -341,7 +345,11 @@ export const getCoachPendingItems = query({
         category: i.category,
         status: i.status,
         noteDate: i.noteDate,
-      }));
+      }))
+      .sort(
+        (a, b) =>
+          new Date(b.noteDate).getTime() - new Date(a.noteDate).getTime()
+      );
 
     const needsReview = allInsights
       .filter(
@@ -362,7 +370,11 @@ export const getCoachPendingItems = query({
         category: i.category,
         status: i.status,
         noteDate: i.noteDate,
-      }));
+      }))
+      .sort(
+        (a, b) =>
+          new Date(b.noteDate).getTime() - new Date(a.noteDate).getTime()
+      );
 
     const todos = allInsights
       .filter((i) => i.category === "todo" && i.status === "pending")
@@ -375,7 +387,11 @@ export const getCoachPendingItems = query({
         status: i.status,
         noteDate: i.noteDate,
         assigneeName: i.assigneeName,
-      }));
+      }))
+      .sort(
+        (a, b) =>
+          new Date(b.noteDate).getTime() - new Date(a.noteDate).getTime()
+      );
 
     const teamNotes = allInsights
       .filter((i) => i.category === "team_culture" && i.status === "pending")
@@ -388,7 +404,11 @@ export const getCoachPendingItems = query({
         status: i.status,
         noteDate: i.noteDate,
         teamName: i.teamName,
-      }));
+      }))
+      .sort(
+        (a, b) =>
+          new Date(b.noteDate).getTime() - new Date(a.noteDate).getTime()
+      );
 
     const autoApplied = allInsights
       .filter((i) => i.status === "auto_applied")
@@ -401,7 +421,11 @@ export const getCoachPendingItems = query({
         category: i.category,
         status: i.status,
         noteDate: i.noteDate,
-      }));
+      }))
+      .sort(
+        (a, b) =>
+          new Date(b.noteDate).getTime() - new Date(a.noteDate).getTime()
+      );
 
     // Manually reviewed items (applied or dismissed by the coach)
     const recentlyReviewed = allInsights
@@ -416,7 +440,11 @@ export const getCoachPendingItems = query({
         category: i.category,
         status: i.status,
         noteDate: i.noteDate,
-      }));
+      }))
+      .sort(
+        (a, b) =>
+          new Date(b.noteDate).getTime() - new Date(a.noteDate).getTime()
+      );
 
     // Count actionable items (pending) vs reviewed (applied/dismissed/auto_applied)
     const actionable = allInsights.filter((i) => i.status === "pending").length;

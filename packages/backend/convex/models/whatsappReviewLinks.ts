@@ -10,9 +10,10 @@
  * ADR-VN2-003 (public queries with code validation).
  */
 
+import type { Doc as BetterAuthDoc } from "@pdp/backend/convex/betterAuth/_generated/dataModel";
 import { v } from "convex/values";
 // biome-ignore lint: Convex internal API import required for scheduler
-import { internal } from "../_generated/api";
+import { components, internal } from "../_generated/api";
 import type { Doc } from "../_generated/dataModel";
 import {
   internalMutation,
@@ -1776,5 +1777,238 @@ export const batchApplyMatchedFromWhatsApp = internalMutation({
       remainingPendingCount,
       reviewCode: remainingPendingCount > 0 ? link.code : undefined,
     };
+  },
+});
+
+// ============================================================
+// PUBLIC QUERIES — Entity Assignment (US-RMS-002)
+// ============================================================
+
+/**
+ * Get coach's teams for entity reassignment in review microsite.
+ * Returns teams the coach is assigned to for team selection dropdown.
+ */
+export const getCoachTeamsForReview = query({
+  args: { code: v.string() },
+  returns: v.union(
+    v.array(
+      v.object({
+        teamId: v.string(),
+        teamName: v.string(),
+        sport: v.optional(v.string()),
+        ageGroup: v.optional(v.string()),
+      })
+    ),
+    v.null()
+  ),
+  handler: async (ctx, args) => {
+    const result = await validateReviewCode(ctx, args.code);
+    if (!result || result.isExpired) {
+      return null;
+    }
+
+    const { link } = result;
+
+    // Get coach's team assignments
+    const assignment = await ctx.db
+      .query("coachAssignments")
+      .withIndex("by_user_and_org", (q) =>
+        q
+          .eq("userId", link.coachUserId)
+          .eq("organizationId", link.organizationId)
+      )
+      .first();
+
+    if (!assignment || assignment.teams.length === 0) {
+      return [];
+    }
+
+    // Fetch all teams for this organization using Better Auth adapter
+    const allTeamsResult = await ctx.runQuery(
+      components.betterAuth.adapter.findMany,
+      {
+        model: "team",
+        paginationOpts: {
+          cursor: null,
+          numItems: 1000,
+        },
+        where: [
+          {
+            field: "organizationId",
+            value: link.organizationId,
+            operator: "eq",
+          },
+        ],
+      }
+    );
+
+    const allTeams = allTeamsResult.page as BetterAuthDoc<"team">[];
+
+    // Create lookup map by team ID
+    const teamByIdMap = new Map(
+      allTeams.map((team) => [String(team._id), team])
+    );
+
+    // Map assignment teams to team details
+    const teams = assignment.teams
+      .map((teamId) => {
+        const team = teamByIdMap.get(teamId);
+        if (!team) {
+          return null;
+        }
+        return {
+          teamId: String(team._id),
+          teamName: team.name,
+          sport: team.sport ?? undefined,
+          ageGroup: team.ageGroup ?? undefined,
+        };
+      })
+      .filter((t): t is NonNullable<typeof t> => t !== null);
+
+    return teams;
+  },
+});
+
+// ============================================================
+// PUBLIC MUTATIONS — Entity Reassignment (US-RMS-002)
+// ============================================================
+
+/**
+ * Reassign insight entity type (player/team/todo) from the review microsite.
+ * Allows coaches to fix AI miscategorizations or reassign to different entities.
+ */
+export const reassignInsightEntity = mutation({
+  args: {
+    code: v.string(),
+    voiceNoteId: v.id("voiceNotes"),
+    insightId: v.string(),
+    entityType: v.union(
+      v.literal("player"),
+      v.literal("team"),
+      v.literal("todo"),
+      v.literal("uncategorized")
+    ),
+    playerIdentityId: v.optional(v.id("playerIdentities")),
+    teamId: v.optional(v.string()),
+    assigneeUserId: v.optional(v.string()),
+    category: v.optional(v.string()),
+  },
+  returns: v.union(
+    v.object({ success: v.literal(true) }),
+    v.object({ success: v.literal(false), reason: v.string() })
+  ),
+  handler: async (ctx, args) => {
+    const scope = await validateReviewScope(ctx, args.code, args.voiceNoteId);
+    if (!scope) {
+      return { success: false as const, reason: "invalid_or_expired" };
+    }
+
+    const { link, note } = scope;
+    const insight = note.insights.find((i) => i.id === args.insightId);
+    if (!insight) {
+      return { success: false as const, reason: "insight_not_found" };
+    }
+
+    // Validate entity-specific requirements
+    if (args.entityType === "player") {
+      if (!args.playerIdentityId) {
+        return { success: false as const, reason: "player_id_required" };
+      }
+      // Verify player exists
+      const player = await ctx.db.get(args.playerIdentityId);
+      if (!player) {
+        return { success: false as const, reason: "player_not_found" };
+      }
+    }
+
+    if (args.entityType === "team") {
+      if (!args.teamId) {
+        return { success: false as const, reason: "team_id_required" };
+      }
+      // Verify team exists
+      const team = await ctx.runQuery(components.betterAuth.adapter.findOne, {
+        model: "team",
+        where: [
+          {
+            field: "id",
+            value: args.teamId,
+            operator: "eq",
+          },
+        ],
+      });
+      if (!team) {
+        return { success: false as const, reason: "team_not_found" };
+      }
+    }
+
+    if (args.entityType === "todo" && !args.assigneeUserId) {
+      return { success: false as const, reason: "assignee_required" };
+    }
+
+    // Update insight with new entity assignment
+    const updatedInsights = note.insights.map((i) => {
+      if (i.id === args.insightId) {
+        // Base update: clear all entity-specific fields
+        const updated: any = {
+          ...i,
+          playerIdentityId: undefined,
+          playerName: undefined,
+          teamId: undefined,
+          teamName: undefined,
+          assigneeUserId: undefined,
+          assigneeName: undefined,
+        };
+
+        // Set entity-specific fields based on type
+        if (args.entityType === "player" && args.playerIdentityId) {
+          updated.playerIdentityId = args.playerIdentityId;
+          // Player name will be set by caller if needed
+        } else if (args.entityType === "team" && args.teamId) {
+          updated.teamId = args.teamId;
+          updated.category = "team_culture";
+        } else if (args.entityType === "todo" && args.assigneeUserId) {
+          updated.assigneeUserId = args.assigneeUserId;
+          updated.category = "todo";
+        } else if (args.entityType === "uncategorized") {
+          updated.category = undefined;
+        }
+
+        // Override category if explicitly provided
+        if (args.category) {
+          updated.category = args.category;
+        }
+
+        return updated;
+      }
+      return i;
+    });
+
+    await ctx.db.patch(note._id, { insights: updatedInsights });
+
+    // Log analytics event
+    await ctx.scheduler.runAfter(
+      0,
+      internal.models.reviewAnalytics.logReviewEvent,
+      {
+        linkCode: args.code,
+        coachUserId: link.coachUserId,
+        organizationId: link.organizationId,
+        eventType: "reassign_entity",
+        insightId: args.insightId,
+        voiceNoteId: args.voiceNoteId,
+        metadata: {
+          fromType: insight.playerIdentityId
+            ? "player"
+            : insight.teamId
+              ? "team"
+              : insight.assigneeUserId
+                ? "todo"
+                : "uncategorized",
+          toType: args.entityType,
+        },
+      }
+    );
+
+    return { success: true as const };
   },
 });

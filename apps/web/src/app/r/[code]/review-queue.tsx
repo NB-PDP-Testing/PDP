@@ -25,6 +25,7 @@ import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
+import { EditAssignmentDialog } from "./edit-assignment-dialog";
 import { UnmatchedPlayerCard } from "./unmatched-player-card";
 
 // Shared insight item types (matches getCoachPendingItems return)
@@ -576,9 +577,11 @@ type InsightCardProps = {
     insightId: string,
     updates: { title?: string; description?: string; category?: string }
   ) => Promise<void>;
+  onReassignSuccess?: () => void;
 };
 
 function InsightCard({
+  code,
   voiceNoteId,
   insightId,
   title,
@@ -593,9 +596,11 @@ function InsightCard({
   onApply,
   onDismiss,
   onEdit,
+  onReassignSuccess,
 }: InsightCardProps) {
   const formattedDate = formatNoteDate(noteDate);
   const [editing, setEditing] = useState(false);
+  const [reassignDialogOpen, setReassignDialogOpen] = useState(false);
   const [editTitle, setEditTitle] = useState(title);
   const [editDescription, setEditDescription] = useState(description);
   const [saving, setSaving] = useState(false);
@@ -708,7 +713,7 @@ function InsightCard({
             )}
           </div>
 
-          {/* Category badge + date + edit button */}
+          {/* Category badge + date + edit buttons */}
           <div className="flex shrink-0 flex-col items-end gap-1">
             {category && variant !== "todo" && variant !== "team" && (
               <Badge className="text-xs" variant={getBadgeVariant(variant)}>
@@ -718,16 +723,48 @@ function InsightCard({
             <span className="whitespace-nowrap text-muted-foreground text-xs">
               {formattedDate}
             </span>
-            <button
-              className="mt-0.5 rounded p-1 text-muted-foreground hover:bg-muted hover:text-foreground"
-              onClick={() => setEditing(true)}
-              title="Edit insight"
-              type="button"
-            >
-              <Pencil className="h-3.5 w-3.5" />
-            </button>
+            <div className="flex gap-1">
+              <button
+                className="mt-0.5 rounded p-1 text-muted-foreground hover:bg-muted hover:text-foreground"
+                onClick={() => setEditing(true)}
+                title="Edit text"
+                type="button"
+              >
+                <Pencil className="h-3.5 w-3.5" />
+              </button>
+              <button
+                className="mt-0.5 rounded p-1 text-muted-foreground hover:bg-muted hover:text-foreground"
+                onClick={() => setReassignDialogOpen(true)}
+                title="Reassign entity"
+                type="button"
+              >
+                <Users className="h-3.5 w-3.5" />
+              </button>
+            </div>
           </div>
         </div>
+
+        <EditAssignmentDialog
+          code={code}
+          currentEntityType={
+            playerName
+              ? "player"
+              : teamName
+                ? "team"
+                : assigneeName
+                  ? "todo"
+                  : "uncategorized"
+          }
+          currentPlayerName={playerName}
+          currentTeamName={teamName}
+          insightId={insightId}
+          onOpenChange={setReassignDialogOpen}
+          onSuccess={() => {
+            onReassignSuccess?.();
+          }}
+          open={reassignDialogOpen}
+          voiceNoteId={voiceNoteId}
+        />
 
         {/* Action buttons */}
         <div className="mt-2 flex gap-2">

@@ -126,7 +126,7 @@ export function BatchActionBar({
   return (
     <>
       <Button
-        className="min-h-[40px]"
+        className="min-h-[40px] flex-1"
         disabled={disabled || processing}
         onClick={() => setConfirmOpen(true)}
         size="sm"

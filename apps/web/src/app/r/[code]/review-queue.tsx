@@ -272,7 +272,7 @@ export function ReviewQueue({
       {injuries.length > 0 && (
         <ReviewSection
           batchAction={
-            <div className="flex gap-2">
+            <div className="flex flex-col gap-2 sm:flex-row">
               <BatchApplyButton
                 count={injuries.length}
                 loading={batchLoadingSection === "injuries"}
@@ -363,7 +363,7 @@ export function ReviewQueue({
       {needsReview.length > 0 && (
         <ReviewSection
           batchAction={
-            <div className="flex gap-2">
+            <div className="flex flex-col gap-2 sm:flex-row">
               <BatchApplyButton
                 count={needsReview.length}
                 loading={batchLoadingSection === "needsReview"}
@@ -417,7 +417,7 @@ export function ReviewQueue({
       {todos.length > 0 && (
         <ReviewSection
           batchAction={
-            <div className="flex gap-2">
+            <div className="flex flex-col gap-2 sm:flex-row">
               <BatchApplyButton
                 count={todos.length}
                 label="Add All to Tasks"
@@ -473,7 +473,7 @@ export function ReviewQueue({
       {teamNotes.length > 0 && (
         <ReviewSection
           batchAction={
-            <div className="flex gap-2">
+            <div className="flex flex-col gap-2 sm:flex-row">
               <BatchApplyButton
                 count={teamNotes.length}
                 label="Save All Team Notes"
@@ -552,7 +552,7 @@ function BatchApplyButton({
 }) {
   return (
     <Button
-      className="min-h-[44px] w-full"
+      className="min-h-[44px] flex-1"
       disabled={loading}
       onClick={onApply}
       size="sm"
@@ -708,7 +708,7 @@ function InsightCard({
           />
 
           {/* Save/Cancel */}
-          <div className="flex gap-2">
+          <div className="flex flex-col gap-2 sm:flex-row">
             <Button
               className="min-h-[44px] flex-1"
               disabled={saving}
@@ -1242,7 +1242,7 @@ function SnoozeBar({ code }: { code: string }) {
           </span>
         )}
       </div>
-      <div className="flex gap-2">
+      <div className="flex flex-col gap-2 sm:flex-row">
         {[
           { label: "1h", ms: 60 * 60 * 1000 },
           { label: "2h", ms: 2 * 60 * 60 * 1000 },

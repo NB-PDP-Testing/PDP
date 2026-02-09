@@ -331,20 +331,31 @@ export function ReviewQueue({
           title="Unmatched Players"
         >
           {unmatched.map((item) => (
-            <UnmatchedPlayerCard
-              category={item.category}
-              code={code}
-              description={item.description}
-              insightId={item.insightId}
+            <SwipeableReviewCard
               key={`${item.voiceNoteId}-${item.insightId}`}
-              loading={loadingIds.has(`${item.voiceNoteId}-${item.insightId}`)}
-              noteDate={item.noteDate}
-              onDismiss={handleDismiss}
-              onEdit={handleEdit}
-              playerName={item.playerName}
-              title={item.title}
-              voiceNoteId={item.voiceNoteId}
-            />
+              onSwipeLeft={() =>
+                handleDismiss(item.voiceNoteId, item.insightId)
+              }
+              onSwipeRight={() =>
+                handleDismiss(item.voiceNoteId, item.insightId)
+              }
+            >
+              <UnmatchedPlayerCard
+                category={item.category}
+                code={code}
+                description={item.description}
+                insightId={item.insightId}
+                loading={loadingIds.has(
+                  `${item.voiceNoteId}-${item.insightId}`
+                )}
+                noteDate={item.noteDate}
+                onDismiss={handleDismiss}
+                onEdit={handleEdit}
+                playerName={item.playerName}
+                title={item.title}
+                voiceNoteId={item.voiceNoteId}
+              />
+            </SwipeableReviewCard>
           ))}
         </ReviewSection>
       )}

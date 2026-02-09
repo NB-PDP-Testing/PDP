@@ -732,7 +732,7 @@ export default function AssessPlayerPage() {
 
             {/* Filters: Team and Sport side by side */}
             <div className="flex flex-col gap-3 sm:flex-row">
-              <div className="flex-1">
+              <div className="w-full sm:w-56">
                 <Select
                   onValueChange={(value) => {
                     setSelectedTeamId(value === "all" ? null : value);
@@ -771,7 +771,7 @@ export default function AssessPlayerPage() {
                   </SelectContent>
                 </Select>
               </div>
-              <div className="flex-1">
+              <div className="w-full sm:w-48">
                 <Select
                   onValueChange={(value) => {
                     setSelectedSportCode(value);
@@ -1165,29 +1165,27 @@ export default function AssessPlayerPage() {
       )}
 
       {/* BATCH MODE: Team Session Assessment */}
-      {assessmentMode === "batch" &&
-        selectedSportCode &&
-        skills &&
-        skills.length > 0 && (
-          <BatchAssessmentSection
-            assessmentType={assessmentType}
-            batchSelectedSkills={batchSelectedSkills}
-            currentUser={currentUser}
-            filteredPlayers={filteredPlayers}
-            findOrCreatePassport={findOrCreatePassport}
-            isSaving={isSaving}
-            orgId={orgId}
-            recordAssessment={recordAssessment}
-            selectedBatchPlayers={selectedBatchPlayers}
-            selectedSportCode={selectedSportCode}
-            setBatchSavedCount={setBatchSavedCount}
-            setBatchSelectedSkills={setBatchSelectedSkills}
-            setIsSaving={setIsSaving}
-            setSelectedBatchPlayers={setSelectedBatchPlayers}
-            skills={skills}
-            skillsByCategory={skillsByCategory}
-          />
-        )}
+      {assessmentMode === "batch" && (
+        <BatchAssessmentSection
+          assessmentType={assessmentType}
+          batchSelectedSkills={batchSelectedSkills}
+          currentUser={currentUser}
+          filteredPlayers={filteredPlayers}
+          findOrCreatePassport={findOrCreatePassport}
+          hasSkills={!!skills && skills.length > 0}
+          isSaving={isSaving}
+          orgId={orgId}
+          recordAssessment={recordAssessment}
+          selectedBatchPlayers={selectedBatchPlayers}
+          selectedSportCode={selectedSportCode ?? "all"}
+          setBatchSavedCount={setBatchSavedCount}
+          setBatchSelectedSkills={setBatchSelectedSkills}
+          setIsSaving={setIsSaving}
+          setSelectedBatchPlayers={setSelectedBatchPlayers}
+          skills={skills ?? []}
+          skillsByCategory={skillsByCategory}
+        />
+      )}
 
       {/* INDIVIDUAL MODE: All Sports View (History Only) */}
       {assessmentMode === "individual" &&
@@ -1472,6 +1470,7 @@ function BatchAssessmentSection({
   setBatchSelectedSkills,
   skills,
   skillsByCategory,
+  hasSkills,
   assessmentType,
   orgId,
   selectedSportCode,
@@ -1505,6 +1504,7 @@ function BatchAssessmentSection({
       categoryId: Id<"skillCategories">;
     }>
   >;
+  hasSkills: boolean;
   assessmentType: AssessmentType;
   orgId: string;
   selectedSportCode: string;
@@ -1689,9 +1689,11 @@ function BatchAssessmentSection({
                       ? "text-green-600"
                       : "text-gray-400"
                 }`}
-                disabled={selectedBatchPlayers.size === 0}
+                disabled={selectedBatchPlayers.size === 0 || !hasSkills}
                 onClick={() =>
-                  selectedBatchPlayers.size > 0 && setBatchStep("skills")
+                  selectedBatchPlayers.size > 0 &&
+                  hasSkills &&
+                  setBatchStep("skills")
                 }
               >
                 <div
@@ -1725,11 +1727,13 @@ function BatchAssessmentSection({
                 }`}
                 disabled={
                   selectedBatchPlayers.size === 0 ||
-                  batchSelectedSkills.size === 0
+                  batchSelectedSkills.size === 0 ||
+                  !hasSkills
                 }
                 onClick={() =>
                   selectedBatchPlayers.size > 0 &&
                   batchSelectedSkills.size > 0 &&
+                  hasSkills &&
                   setBatchStep("rate")
                 }
               >
@@ -1830,8 +1834,16 @@ function BatchAssessmentSection({
             </div>
 
             {selectedBatchPlayers.size > 0 && (
-              <div className="mt-6 flex justify-end">
-                <Button onClick={() => setBatchStep("skills")}>
+              <div className="mt-6 flex items-center justify-end gap-3">
+                {!hasSkills && (
+                  <p className="text-muted-foreground text-sm">
+                    Select a specific sport to continue
+                  </p>
+                )}
+                <Button
+                  disabled={!hasSkills}
+                  onClick={() => setBatchStep("skills")}
+                >
                   Next: Select Skills
                   <ChevronRight className="ml-2 h-4 w-4" />
                 </Button>

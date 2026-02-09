@@ -25,6 +25,7 @@ import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
+import { BatchActionBar } from "./batch-action-bar";
 import { EditAssignmentDialog } from "./edit-assignment-dialog";
 import { UnmatchedPlayerCard } from "./unmatched-player-card";
 
@@ -257,7 +258,7 @@ export function ReviewQueue({
       <div className="space-y-4">
         <AllCaughtUpView reviewedCount={reviewedCount} />
         {recentlyReviewed.length > 0 && (
-          <RecentlyReviewedSection items={recentlyReviewed} />
+          <RecentlyReviewedSection code={code} items={recentlyReviewed} />
         )}
         {autoApplied.length > 0 && <AutoAppliedSection items={autoApplied} />}
       </div>
@@ -271,11 +272,21 @@ export function ReviewQueue({
       {injuries.length > 0 && (
         <ReviewSection
           batchAction={
-            <BatchApplyButton
-              count={injuries.length}
-              loading={batchLoadingSection === "injuries"}
-              onApply={() => handleBatchApply("injuries", injuries)}
-            />
+            <div className="flex gap-2">
+              <BatchApplyButton
+                count={injuries.length}
+                loading={batchLoadingSection === "injuries"}
+                onApply={() => handleBatchApply("injuries", injuries)}
+              />
+              <BatchActionBar
+                code={code}
+                items={injuries.map((i) => ({
+                  voiceNoteId: i.voiceNoteId,
+                  insightId: i.insightId,
+                }))}
+                variant="dismiss"
+              />
+            </div>
           }
           borderColor="border-l-red-500"
           count={injuries.length}
@@ -341,11 +352,21 @@ export function ReviewQueue({
       {needsReview.length > 0 && (
         <ReviewSection
           batchAction={
-            <BatchApplyButton
-              count={needsReview.length}
-              loading={batchLoadingSection === "needsReview"}
-              onApply={() => handleBatchApply("needsReview", needsReview)}
-            />
+            <div className="flex gap-2">
+              <BatchApplyButton
+                count={needsReview.length}
+                loading={batchLoadingSection === "needsReview"}
+                onApply={() => handleBatchApply("needsReview", needsReview)}
+              />
+              <BatchActionBar
+                code={code}
+                items={needsReview.map((i) => ({
+                  voiceNoteId: i.voiceNoteId,
+                  insightId: i.insightId,
+                }))}
+                variant="dismiss"
+              />
+            </div>
           }
           borderColor="border-l-yellow-500"
           count={needsReview.length}
@@ -385,12 +406,22 @@ export function ReviewQueue({
       {todos.length > 0 && (
         <ReviewSection
           batchAction={
-            <BatchApplyButton
-              count={todos.length}
-              label="Add All to Tasks"
-              loading={batchLoadingSection === "todos"}
-              onApply={() => handleBatchAddTodos(todos)}
-            />
+            <div className="flex gap-2">
+              <BatchApplyButton
+                count={todos.length}
+                label="Add All to Tasks"
+                loading={batchLoadingSection === "todos"}
+                onApply={() => handleBatchAddTodos(todos)}
+              />
+              <BatchActionBar
+                code={code}
+                items={todos.map((i) => ({
+                  voiceNoteId: i.voiceNoteId,
+                  insightId: i.insightId,
+                }))}
+                variant="dismiss"
+              />
+            </div>
           }
           borderColor="border-l-blue-500"
           count={todos.length}
@@ -431,12 +462,22 @@ export function ReviewQueue({
       {teamNotes.length > 0 && (
         <ReviewSection
           batchAction={
-            <BatchApplyButton
-              count={teamNotes.length}
-              label="Save All Team Notes"
-              loading={batchLoadingSection === "teamNotes"}
-              onApply={() => handleBatchSaveTeamNotes(teamNotes)}
-            />
+            <div className="flex gap-2">
+              <BatchApplyButton
+                count={teamNotes.length}
+                label="Save All Team Notes"
+                loading={batchLoadingSection === "teamNotes"}
+                onApply={() => handleBatchSaveTeamNotes(teamNotes)}
+              />
+              <BatchActionBar
+                code={code}
+                items={teamNotes.map((i) => ({
+                  voiceNoteId: i.voiceNoteId,
+                  insightId: i.insightId,
+                }))}
+                variant="dismiss"
+              />
+            </div>
           }
           borderColor="border-l-green-500"
           count={teamNotes.length}
@@ -477,7 +518,7 @@ export function ReviewQueue({
       {autoApplied.length > 0 && <AutoAppliedSection items={autoApplied} />}
 
       {recentlyReviewed.length > 0 && (
-        <RecentlyReviewedSection items={recentlyReviewed} />
+        <RecentlyReviewedSection code={code} items={recentlyReviewed} />
       )}
     </div>
   );
@@ -857,7 +898,13 @@ function AutoAppliedSection({
 // Recently reviewed section (manually applied + dismissed by coach)
 // ============================================================
 
-function RecentlyReviewedSection({ items }: { items: ReviewedItem[] }) {
+function RecentlyReviewedSection({
+  code,
+  items,
+}: {
+  code: string;
+  items: ReviewedItem[];
+}) {
   const [expanded, setExpanded] = useState(false);
   const appliedCount = items.filter((i) => i.status === "applied").length;
   const dismissedCount = items.filter((i) => i.status === "dismissed").length;
@@ -899,47 +946,59 @@ function RecentlyReviewedSection({ items }: { items: ReviewedItem[] }) {
       </button>
 
       {expanded && (
-        <div className="mt-2 space-y-2">
-          {items.map((item) => (
-            <Card
-              className="border-gray-200 shadow-sm"
-              key={`${item.voiceNoteId}-${item.insightId}`}
-            >
-              <CardContent className="p-3">
-                <div className="flex items-start justify-between gap-2">
-                  <div className="min-w-0 flex-1">
-                    {item.playerName && (
-                      <p className="truncate font-medium text-muted-foreground text-sm">
-                        {item.playerName}
+        <>
+          <div className="mt-2 mb-2">
+            <BatchActionBar
+              code={code}
+              items={items.map((i) => ({
+                voiceNoteId: i.voiceNoteId,
+                insightId: i.insightId,
+              }))}
+              variant="clear-reviewed"
+            />
+          </div>
+          <div className="mt-2 space-y-2">
+            {items.map((item) => (
+              <Card
+                className="border-gray-200 shadow-sm"
+                key={`${item.voiceNoteId}-${item.insightId}`}
+              >
+                <CardContent className="p-3">
+                  <div className="flex items-start justify-between gap-2">
+                    <div className="min-w-0 flex-1">
+                      {item.playerName && (
+                        <p className="truncate font-medium text-muted-foreground text-sm">
+                          {item.playerName}
+                        </p>
+                      )}
+                      {item.teamName && (
+                        <p className="truncate font-medium text-muted-foreground text-sm">
+                          {item.teamName}
+                        </p>
+                      )}
+                      <p className="text-muted-foreground text-sm">
+                        {item.title}
                       </p>
-                    )}
-                    {item.teamName && (
-                      <p className="truncate font-medium text-muted-foreground text-sm">
-                        {item.teamName}
+                      <p className="mt-0.5 text-muted-foreground/70 text-xs">
+                        {formatNoteDate(item.noteDate)}
                       </p>
-                    )}
-                    <p className="text-muted-foreground text-sm">
-                      {item.title}
-                    </p>
-                    <p className="mt-0.5 text-muted-foreground/70 text-xs">
-                      {formatNoteDate(item.noteDate)}
-                    </p>
+                    </div>
+                    <Badge
+                      className={`shrink-0 text-xs ${
+                        item.status === "applied"
+                          ? "bg-green-100 text-green-700"
+                          : "bg-gray-100 text-gray-500"
+                      }`}
+                      variant="secondary"
+                    >
+                      {item.status === "applied" ? "Applied" : "Skipped"}
+                    </Badge>
                   </div>
-                  <Badge
-                    className={`shrink-0 text-xs ${
-                      item.status === "applied"
-                        ? "bg-green-100 text-green-700"
-                        : "bg-gray-100 text-gray-500"
-                    }`}
-                    variant="secondary"
-                  >
-                    {item.status === "applied" ? "Applied" : "Skipped"}
-                  </Badge>
-                </div>
-              </CardContent>
-            </Card>
-          ))}
-        </div>
+                </CardContent>
+              </Card>
+            ))}
+          </div>
+        </>
       )}
     </div>
   );

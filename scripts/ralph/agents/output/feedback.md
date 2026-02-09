@@ -2474,3 +2474,10 @@ The component demonstrates good performance patterns with debounced search and q
   - **Problem:** Should use .withIndex() for better performance
   - **Fix:** Replace `.query().filter()` with `.query().withIndex()`
 
+
+## Code Review Gate - 2026-02-09 22:03:06
+
+🔍 **Code Review: BLOCK** (1 critical, 0 high, 0 medium) - 🚨 **CRITICAL**: `.filter()` usage in `packages/backend/convex/models/whatsappReviewLinks.ts` - use `.withIndex()` instead\n  ```\n300:    const validNotes = voiceNotes.filter(Boolean) as NonNullable<
+315:      .filter((i) => i.category === "injury" && i.status === "pending")
+333:      .filter(\n  ```\n\n**Verdict:** BLOCK - Fix CRITICAL/HIGH issues before continuing
+

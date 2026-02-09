@@ -112,8 +112,12 @@ export const getAllVoiceNotes = query({
       transcriptValidation: v.optional(
         v.object({
           isValid: v.boolean(),
-          reason: v.string(),
-          suggestedAction: v.string(),
+          reason: v.optional(v.string()),
+          suggestedAction: v.union(
+            v.literal("process"),
+            v.literal("ask_user"),
+            v.literal("reject")
+          ),
         })
       ),
     })
@@ -197,8 +201,12 @@ export const getVoiceNoteById = query({
       transcriptValidation: v.optional(
         v.object({
           isValid: v.boolean(),
-          reason: v.string(),
-          suggestedAction: v.string(),
+          reason: v.optional(v.string()),
+          suggestedAction: v.union(
+            v.literal("process"),
+            v.literal("ask_user"),
+            v.literal("reject")
+          ),
         })
       ),
     }),
@@ -2130,8 +2138,12 @@ export const getNote = internalQuery({
       transcriptValidation: v.optional(
         v.object({
           isValid: v.boolean(),
-          reason: v.string(),
-          suggestedAction: v.string(),
+          reason: v.optional(v.string()),
+          suggestedAction: v.union(
+            v.literal("process"),
+            v.literal("ask_user"),
+            v.literal("reject")
+          ),
         })
       ),
     }),

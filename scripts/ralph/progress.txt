@@ -220,7 +220,7 @@
 
 ### Stories:
 - US-VN-028: Remove Dual Processing Path (gate buildInsights, add skipV2 param) ✅
-- US-VN-029: Feature Flag Promotion Tooling (4 scripts: enable/disable/status/migrate) — NEXT
+- US-VN-029: Feature Flag Promotion Tooling (4 scripts: enable/disable/status/migrate) ✅
 
 ### Key Implementation Notes:
 - createTypedNote: wrap buildInsights in `if (!useV2)` — reuse EXISTING useV2 variable
@@ -247,5 +247,57 @@
 2. Change 2: Gated buildInsights in transcribeAudio with `if (artifacts.length === 0)` — reused existing artifacts variable from line 229
 3. Change 3: Added skipV2: v.optional(v.boolean()) to both createTypedNote and createRecordedNote args. Modified handler to set useV2 = args.skipV2 ? false : await ctx.runQuery(...). Updated WhatsApp callers to pass skipV2: true.
 4. Change 4: Changed buildInsights defense-in-depth log from console.info to console.warn with "Defense-in-depth:" prefix
+
+---
+
+## 2026-02-09 - US-VN-029 - Feature Flag Promotion Tooling & Migration Validation
+**Iteration**: 1
+**Commit**: (pending)
+**Session**: 8e0e2379-ded2-409c-8dc3-d8d691e88dca
+**Status**: Complete
+
+### What was implemented
+- Created 4 Convex scripts for v2 feature flag management and migration tooling:
+  1. `enableV2ForOrg.ts` — mutation that sets voice_notes_v2 + entity_resolution_v2 flags to enabled
+  2. `disableV2ForOrg.ts` — mutation that sets both flags to disabled (rollback)
+  3. `v2MigrationStatus.ts` — query that reports counts across all v2 tables for an org
+  4. `runMigration.ts` — public action wrapper around internal migrateVoiceNotesToV2
+- Added usage documentation to migration.ts header comment
+- Updated PRD to mark both US-VN-028 and US-VN-029 as passing
+
+### Files changed
+- packages/backend/convex/scripts/enableV2ForOrg.ts (new, +38)
+- packages/backend/convex/scripts/disableV2ForOrg.ts (new, +38)
+- packages/backend/convex/scripts/v2MigrationStatus.ts (new, +130)
+- packages/backend/convex/scripts/runMigration.ts (new, +37)
+- packages/backend/convex/actions/migration.ts (+4, -1) — added usage docs
+- scripts/ralph/prd.json — marked US-VN-028 and US-VN-029 as passes: true
+
+### Quality checks
+- ✅ Type check: passed (convex codegen + npm run check-types)
+- ✅ Linting: passed (biome check on all 4 new scripts — 0 errors)
+- ⬜ Browser verification: not applicable (backend scripts only)
+
+### Learnings for future iterations
+**Patterns discovered:**
+- Convex action wrappers that call `ctx.runAction(internal...)` need explicit Promise return type to avoid TS7022 circular reference error
+- `insightDrafts.by_org_and_coach_and_status` index has `organizationId` as first field — can use partial prefix match for org-only queries
+- voiceNoteArtifacts has no organizationId index — must use JS `.filter()` on `orgContextCandidates` array after `.collect()`
+- voiceNoteTranscripts only has `by_artifactId` index — must iterate org's artifacts to count transcripts
+
+**Gotchas encountered:**
+- Biome requires block statements (no single-line if bodies) and `+= 1` instead of `++`
+- `"use node"` directive required for action files (runMigration.ts) that call `ctx.runAction`
+
+**Mistakes made:**
+- Initial runMigration.ts had circular type inference — fixed by adding explicit Promise return type annotation
+
+---
+
+## Phase 7D COMPLETE ✅
+
+All stories complete: US-VN-028, US-VN-029
+Total project progress: 29/29 stories (100%)
+The v2 voice notes pipeline is now the sole AI processing path (gated by feature flags).
 
 ---

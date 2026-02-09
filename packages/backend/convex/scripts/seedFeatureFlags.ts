@@ -10,14 +10,18 @@
 import { v } from "convex/values";
 import { internalMutation } from "../_generated/server";
 
-const DEFAULT_FLAGS = [
+const DEFAULT_FLAGS: Array<{
+  featureKey: string;
+  enabled: boolean;
+  scope: "platform" | "organization" | "user";
+}> = [
   {
-    name: "ENTITY_RESOLUTION_V2_GLOBAL",
+    featureKey: "entity_resolution_v2",
     enabled: true,
     scope: "platform",
   },
   {
-    name: "VOICE_NOTES_V2_GLOBAL",
+    featureKey: "voice_notes_v2",
     enabled: true,
     scope: "platform",
   },
@@ -36,7 +40,9 @@ export const seedFeatureFlags = internalMutation({
     for (const flag of DEFAULT_FLAGS) {
       const existing = await ctx.db
         .query("featureFlags")
-        .withIndex("by_name", (q) => q.eq("name", flag.name))
+        .withIndex("by_featureKey_and_scope", (q) =>
+          q.eq("featureKey", flag.featureKey).eq("scope", flag.scope)
+        )
         .first();
 
       if (existing) {
@@ -44,7 +50,10 @@ export const seedFeatureFlags = internalMutation({
         continue;
       }
 
-      await ctx.db.insert("featureFlags", flag);
+      await ctx.db.insert("featureFlags", {
+        ...flag,
+        updatedAt: Date.now(),
+      });
       created += 1;
     }
 

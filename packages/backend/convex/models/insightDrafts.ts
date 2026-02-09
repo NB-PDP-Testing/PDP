@@ -613,6 +613,53 @@ export const applyDraft = internalMutation({
       );
     }
 
+    // Step 4: Create coach task for TODO insights
+    if (draft.insightType === "todo") {
+      try {
+        // Determine assignee - use resolved assignee from claim, fallback to creating coach
+        const assignedToUserId =
+          claim.resolvedAssigneeUserId || draft.coachUserId;
+        const assignedToName = claim.resolvedAssigneeName;
+
+        // Determine priority from claim severity if available
+        let priority: "low" | "medium" | "high" = "medium";
+        if (claim.severity === "high" || claim.severity === "critical") {
+          priority = "high";
+        } else if (claim.severity === "low") {
+          priority = "low";
+        }
+
+        await ctx.db.insert("coachTasks", {
+          text: draft.title,
+          completed: false,
+          organizationId: draft.organizationId,
+          assignedToUserId,
+          assignedToName,
+          createdByUserId: draft.coachUserId,
+          source: "voice_note",
+          voiceNoteId: artifact.voiceNoteId,
+          insightId: draft.draftId,
+          priority,
+          playerIdentityId: draft.playerIdentityId as
+            | Id<"orgPlayerEnrollments">
+            | undefined,
+          playerName: draft.resolvedPlayerName,
+          teamId: claim.resolvedTeamId,
+          createdAt: now,
+        });
+
+        console.info(
+          `[applyDraft] Created coach task for TODO insight ${draft.draftId}, assigned to ${assignedToUserId}`
+        );
+      } catch (taskError) {
+        console.error(
+          `[applyDraft] Failed to create coach task for ${args.draftId}:`,
+          taskError
+        );
+        // Non-fatal - insight still applied even if task creation fails
+      }
+    }
+
     // Update draft status to applied
     await ctx.db.patch(draft._id, {
       status: "applied",

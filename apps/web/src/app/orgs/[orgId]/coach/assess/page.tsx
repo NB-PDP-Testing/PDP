@@ -716,185 +716,120 @@ export default function AssessPlayerPage() {
         </div>
       </OrgThemedGradient>
 
-      {/* Search and Filter Bar */}
-      <Card
-        style={{
-          borderColor: "rgb(var(--org-primary-rgb) / 0.2)",
-          backgroundColor: "rgb(var(--org-primary-rgb) / 0.05)",
-        }}
-      >
-        <CardContent className="pt-6">
-          <div className="grid gap-4 md:grid-cols-2">
-            {/* Search Input */}
-            <div className="space-y-2">
-              <Label className="flex items-center gap-2">
-                <Search className="h-4 w-4" />
-                Search Players
-              </Label>
-              <Input
-                onChange={(e) => setSearchQuery(e.target.value)}
-                placeholder="Search by name..."
-                value={searchQuery}
-              />
-            </div>
-
-            {/* Team Filter */}
-            <div className="space-y-2">
-              <Label className="flex items-center gap-2">
-                <Users className="h-4 w-4" />
-                Filter by Team
-              </Label>
-              <Select
-                onValueChange={(value) => {
-                  setSelectedTeamId(value === "all" ? null : value);
-                  // Reset to "All Sports" when "All Teams" is selected
-                  if (value === "all") {
-                    setSelectedSportCode("all");
-                  }
-                }}
-                value={selectedTeamId ?? "all"}
-              >
-                <SelectTrigger>
-                  <SelectValue placeholder="All teams" />
-                </SelectTrigger>
-                <SelectContent>
-                  <SelectItem value="all">All Teams</SelectItem>
-                  {(() => {
-                    const uniqueTeams =
-                      coachAssignments?.teams.filter(
-                        (team, index, self) =>
-                          index ===
-                          self.findIndex((t) => t.teamId === team.teamId)
-                      ) ?? [];
-                    return uniqueTeams.map((team, index) => (
-                      <SelectItem
-                        key={`${team.teamId}-${index}`}
-                        value={team.teamId}
-                      >
-                        {team.teamName}
-                        {team.sportCode && (
-                          <span className="ml-2 text-muted-foreground text-xs">
-                            ({getSportDisplayName(team.sportCode)})
-                          </span>
-                        )}
-                      </SelectItem>
-                    ));
-                  })()}
-                </SelectContent>
-              </Select>
-            </div>
-          </div>
-
-          {/* Results count */}
-          <div className="mt-4 text-muted-foreground text-sm">
-            Showing {filteredPlayers.length} player
-            {filteredPlayers.length !== 1 ? "s" : ""}
-            {selectedTeamId && " in selected team"}
-            {searchQuery && " matching search"}
-          </div>
-        </CardContent>
-      </Card>
-
-      {/* Player & Sport Selection */}
+      {/* Search, Filter & Assessment Options */}
       <Card>
-        <CardHeader>
-          <CardTitle className="flex items-center gap-2">
-            <User className="h-5 w-5 text-emerald-600" />
-            Select Player & Sport
-          </CardTitle>
-          <CardDescription>
-            Choose a player and sport to begin the assessment
-          </CardDescription>
-        </CardHeader>
-        <CardContent className="grid gap-4 md:grid-cols-3">
-          {/* Player Select */}
-          <div className="space-y-2">
-            <Label>Player</Label>
-            <Select
-              onValueChange={(value) => {
-                setSelectedPlayerId(value);
-                setRatings({});
-                setSavedSkills(new Set());
-              }}
-              value={selectedPlayerId ?? ""}
-            >
-              <SelectTrigger>
-                <SelectValue placeholder="Select a player" />
-              </SelectTrigger>
-              <SelectContent>
-                {filteredPlayers.map(({ enrollment, player }, index) => (
-                  <SelectItem
-                    key={`${enrollment.playerIdentityId}-${index}`}
-                    value={enrollment.playerIdentityId}
-                  >
-                    {player.firstName} {player.lastName}
-                    {enrollment.ageGroup && (
-                      <span className="ml-2 text-muted-foreground">
-                        ({enrollment.ageGroup.toUpperCase()})
-                      </span>
-                    )}
-                  </SelectItem>
-                ))}
-              </SelectContent>
-            </Select>
-          </div>
+        <CardContent className="pt-6">
+          <div className="flex flex-col gap-4">
+            {/* Primary: Search and Team */}
+            <div className="flex flex-col gap-3 sm:flex-row">
+              <div className="relative flex-1">
+                <Search className="-translate-y-1/2 absolute top-1/2 left-3 h-4 w-4 text-muted-foreground" />
+                <Input
+                  className="pl-9"
+                  onChange={(e) => setSearchQuery(e.target.value)}
+                  placeholder="Search by player name..."
+                  value={searchQuery}
+                />
+              </div>
+              <div className="sm:w-56">
+                <Select
+                  onValueChange={(value) => {
+                    setSelectedTeamId(value === "all" ? null : value);
+                    if (value === "all") {
+                      setSelectedSportCode("all");
+                    }
+                  }}
+                  value={selectedTeamId ?? "all"}
+                >
+                  <SelectTrigger>
+                    <SelectValue placeholder="All teams" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="all">All Teams</SelectItem>
+                    {(() => {
+                      const uniqueTeams =
+                        coachAssignments?.teams.filter(
+                          (team, index, self) =>
+                            index ===
+                            self.findIndex((t) => t.teamId === team.teamId)
+                        ) ?? [];
+                      return uniqueTeams.map((team, index) => (
+                        <SelectItem
+                          key={`${team.teamId}-${index}`}
+                          value={team.teamId}
+                        >
+                          {team.teamName}
+                          {team.sportCode && (
+                            <span className="ml-2 text-muted-foreground text-xs">
+                              ({getSportDisplayName(team.sportCode)})
+                            </span>
+                          )}
+                        </SelectItem>
+                      ));
+                    })()}
+                  </SelectContent>
+                </Select>
+              </div>
+            </div>
 
-          {/* Sport Select */}
-          <div className="space-y-2">
-            <Label>Sport</Label>
-            <Select
-              onValueChange={(value) => {
-                setSelectedSportCode(value);
-                setRatings({});
-                setSavedSkills(new Set());
-              }}
-              value={selectedSportCode ?? ""}
-            >
-              <SelectTrigger>
-                <SelectValue placeholder="Select a sport" />
-              </SelectTrigger>
-              <SelectContent>
-                <SelectItem value="all">All Sports</SelectItem>
-                {sports?.map((sport) => (
-                  <SelectItem key={sport._id} value={sport.code}>
-                    {sport.name}
-                  </SelectItem>
-                ))}
-              </SelectContent>
-            </Select>
-            {selectedTeamId &&
-              coachAssignments &&
-              selectedSportCode !== "all" && (
-                <p className="text-muted-foreground text-xs">
-                  Auto-selected from team
-                </p>
-              )}
-            {selectedSportCode === "all" && (
-              <p className="text-muted-foreground text-xs">
-                Viewing all assessments across all sports
-              </p>
-            )}
-          </div>
+            {/* Secondary: Sport and Assessment Type */}
+            <div className="flex flex-wrap gap-3">
+              <div className="w-full sm:w-auto sm:min-w-[160px]">
+                <Select
+                  onValueChange={(value) => {
+                    setSelectedSportCode(value);
+                    setRatings({});
+                    setSavedSkills(new Set());
+                  }}
+                  value={selectedSportCode ?? ""}
+                >
+                  <SelectTrigger>
+                    <SelectValue placeholder="Select a sport" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="all">All Sports</SelectItem>
+                    {sports?.map((sport) => (
+                      <SelectItem key={sport._id} value={sport.code}>
+                        {sport.name}
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+              </div>
+              <div className="w-full sm:w-auto sm:min-w-[180px]">
+                <Select
+                  onValueChange={(value) =>
+                    setAssessmentType(value as AssessmentType)
+                  }
+                  value={assessmentType}
+                >
+                  <SelectTrigger>
+                    <SelectValue />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="training">Training Session</SelectItem>
+                    <SelectItem value="match">Match Observation</SelectItem>
+                    <SelectItem value="formal_review">Formal Review</SelectItem>
+                    <SelectItem value="trial">Trial/Tryout</SelectItem>
+                  </SelectContent>
+                </Select>
+              </div>
+              {selectedTeamId &&
+                coachAssignments &&
+                selectedSportCode !== "all" && (
+                  <p className="self-center text-muted-foreground text-xs">
+                    Sport auto-selected from team
+                  </p>
+                )}
+            </div>
 
-          {/* Assessment Type */}
-          <div className="space-y-2">
-            <Label>Assessment Type</Label>
-            <Select
-              onValueChange={(value) =>
-                setAssessmentType(value as AssessmentType)
-              }
-              value={assessmentType}
-            >
-              <SelectTrigger>
-                <SelectValue />
-              </SelectTrigger>
-              <SelectContent>
-                <SelectItem value="training">Training Session</SelectItem>
-                <SelectItem value="match">Match Observation</SelectItem>
-                <SelectItem value="formal_review">Formal Review</SelectItem>
-                <SelectItem value="trial">Trial/Tryout</SelectItem>
-              </SelectContent>
-            </Select>
+            {/* Results count */}
+            <div className="text-muted-foreground text-sm">
+              Showing {filteredPlayers.length} player
+              {filteredPlayers.length !== 1 ? "s" : ""}
+              {selectedTeamId && " in selected team"}
+              {searchQuery && " matching search"}
+            </div>
           </div>
         </CardContent>
       </Card>

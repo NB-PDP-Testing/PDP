@@ -1,4 +1,4 @@
-# Security Report - 2026-02-05 23:57:05
+# Security Report - 2026-02-09 12:32:02
 
 **Phase:** P9
 **Critical:** 2 | **High:** 5 | **Medium:** 0
@@ -30,6 +30,7 @@ packages/backend/convex/actions/coachParentSummaries.ts:      "ANTHROPIC_API_KEY
   - packages/backend/convex/models/invitations.ts
   - packages/backend/convex/models/flows.ts
   - packages/backend/convex/models/notifications.ts
+  - packages/backend/convex/models/whatsappReviewLinks.ts
   - packages/backend/convex/models/teamObservations.ts
   - packages/backend/convex/models/passportGoals.ts
   - packages/backend/convex/models/players.ts
@@ -51,7 +52,6 @@ packages/backend/convex/actions/coachParentSummaries.ts:      "ANTHROPIC_API_KEY
   - packages/backend/convex/models/userPreferences.ts
   - packages/backend/convex/models/teams.ts
   - packages/backend/convex/models/gdpr.ts
-  - packages/backend/convex/models/userProfiles.ts
   - packages/backend/convex/models/emergencyContacts.ts
   - packages/backend/convex/models/coachTrustLevels.ts
   - packages/backend/convex/models/coachParentSummaries.ts
@@ -61,6 +61,7 @@ packages/backend/convex/actions/coachParentSummaries.ts:      "ANTHROPIC_API_KEY
   - packages/backend/convex/models/passportSharing.ts
   - packages/backend/convex/models/playerGraduations.ts
   - packages/backend/convex/models/members.ts
+  - packages/backend/convex/models/voiceNoteEntityResolutions.ts
   - packages/backend/convex/models/users.ts
   - packages/backend/convex/models/skillAssessments.ts
   - packages/backend/convex/models/playerSelfAccess.ts
@@ -70,6 +71,7 @@ packages/backend/convex/actions/coachParentSummaries.ts:      "ANTHROPIC_API_KEY
   - packages/backend/convex/models/playerIdentities.ts
   - packages/backend/convex/models/voiceNotes.ts
   - packages/backend/convex/models/guardianManagement.ts
+  - packages/backend/convex/models/insightDrafts.ts
   - packages/backend/convex/models/teamDecisions.ts
   - packages/backend/convex/models/playerInjuries.ts
   - packages/backend/convex/models/voiceNoteInsights.ts
@@ -85,6 +87,7 @@ packages/backend/convex/actions/coachParentSummaries.ts:      "ANTHROPIC_API_KEY
   - packages/backend/convex/models/demoAsks.ts
   **Action**: Add rate limiting to prevent spam/abuse
 - ⚠️ **HIGH [P9]**: AI endpoints without input validation:
+  - packages/backend/convex/actions/claimsExtraction.ts
   - packages/backend/convex/actions/coachParentSummaries.ts
   - packages/backend/convex/actions/practicePlans.ts
   - packages/backend/convex/actions/voiceNotes.ts

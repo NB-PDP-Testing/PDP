@@ -4,10 +4,11 @@ import { api } from "@pdp/backend/convex/_generated/api";
 import type { Id as BetterAuthId } from "@pdp/backend/convex/betterAuth/_generated/dataModel";
 import { useAction, useMutation } from "convex/react";
 import { Loader2, Mic, MicOff } from "lucide-react";
-import { useRef, useState } from "react";
+import { useCallback, useState } from "react";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Textarea } from "@/components/ui/textarea";
+import { useVoiceRecording } from "@/hooks/use-voice-recording";
 import { authClient } from "@/lib/auth-client";
 
 type NoteType = "training" | "match" | "general";
@@ -18,109 +19,102 @@ type NewNoteTabProps = {
   onError: (message: string) => void;
 };
 
+function formatTime(s: number) {
+  return `${Math.floor(s / 60)}:${String(s % 60).padStart(2, "0")}`;
+}
+
+const WAVEFORM_THRESHOLDS = [0.15, 0.3, 0.5, 0.7, 0.85];
+const WAVEFORM_HEIGHTS = ["40%", "55%", "70%", "85%", "100%"];
+
 export function NewNoteTab({ orgId, onSuccess, onError }: NewNoteTabProps) {
   const [noteText, setNoteText] = useState("");
   const [noteType, setNoteType] = useState<NoteType>("training");
-  const [isRecording, setIsRecording] = useState(false);
-  const [isUploading, setIsUploading] = useState(false);
+  const [uploadFailed, setUploadFailed] = useState(false);
 
-  // Audio recording refs
-  const mediaRecorderRef = useRef<MediaRecorder | null>(null);
-  const audioChunksRef = useRef<Blob[]>([]);
+  const {
+    isRecording,
+    isStarting,
+    isUploading,
+    setIsUploading,
+    liveTranscript,
+    interimText,
+    speechSupported,
+    elapsedSeconds,
+    audioLevel,
+    startRecording,
+    stopRecording,
+    resetTranscript,
+  } = useVoiceRecording();
 
-  // Get current user session for Better Auth user ID
   const { data: session } = authClient.useSession();
 
-  // Convex mutations
   const createTypedNote = useMutation(api.models.voiceNotes.createTypedNote);
   const createRecordedNote = useMutation(
     api.models.voiceNotes.createRecordedNote
   );
   const generateUploadUrl = useAction(api.models.voiceNotes.generateUploadUrl);
 
-  const startRecording = async () => {
-    try {
-      const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
-      const mediaRecorder = new MediaRecorder(stream, {
-        mimeType: "audio/webm",
-      });
+  const uploadAudio = useCallback(
+    async (audioBlob: Blob) => {
+      setIsUploading(true);
+      setUploadFailed(false);
+      try {
+        const uploadUrl = await generateUploadUrl();
 
-      audioChunksRef.current = [];
-
-      mediaRecorder.ondataavailable = (event) => {
-        if (event.data.size > 0) {
-          audioChunksRef.current.push(event.data);
-        }
-      };
-
-      mediaRecorder.onstop = async () => {
-        // Stop all tracks
-        for (const track of stream.getTracks()) {
-          track.stop();
-        }
-
-        // Create blob and upload
-        const audioBlob = new Blob(audioChunksRef.current, {
-          type: "audio/webm",
+        const response = await fetch(uploadUrl, {
+          method: "POST",
+          headers: { "Content-Type": audioBlob.type },
+          body: audioBlob,
         });
 
-        await uploadAudio(audioBlob);
-      };
+        if (!response.ok) {
+          throw new Error("Failed to upload audio");
+        }
 
-      mediaRecorderRef.current = mediaRecorder;
-      mediaRecorder.start();
-      setIsRecording(true);
-      onSuccess("Recording started...");
-    } catch (error) {
-      console.error("Failed to start recording:", error);
-      onError("Could not access microphone. Please check permissions.");
-    }
-  };
+        const { storageId } = await response.json();
 
-  const stopRecording = () => {
-    if (mediaRecorderRef.current && isRecording) {
-      mediaRecorderRef.current.stop();
-      setIsRecording(false);
-    }
-  };
+        if (!session?.user?.id) {
+          throw new Error("User not authenticated");
+        }
 
-  const uploadAudio = async (audioBlob: Blob) => {
-    setIsUploading(true);
+        await createRecordedNote({
+          orgId,
+          coachId: session.user.id,
+          noteType,
+          audioStorageId: storageId,
+        });
+
+        resetTranscript();
+        onSuccess("Recording saved! AI is transcribing and analyzing...");
+      } catch {
+        setUploadFailed(true);
+        onError(
+          "Failed to save recording. You can copy the preview text above and save as a typed note."
+        );
+      } finally {
+        setIsUploading(false);
+      }
+    },
+    [
+      generateUploadUrl,
+      session?.user?.id,
+      createRecordedNote,
+      orgId,
+      noteType,
+      resetTranscript,
+      onSuccess,
+      onError,
+      setIsUploading,
+    ]
+  );
+
+  const handleStartRecording = async () => {
+    setUploadFailed(false);
     try {
-      // Get upload URL
-      const uploadUrl = await generateUploadUrl();
-
-      // Upload the audio
-      const response = await fetch(uploadUrl, {
-        method: "POST",
-        headers: { "Content-Type": audioBlob.type },
-        body: audioBlob,
-      });
-
-      if (!response.ok) {
-        throw new Error("Failed to upload audio");
-      }
-
-      const { storageId } = await response.json();
-
-      // Create the voice note - use Better Auth user ID
-      if (!session?.user?.id) {
-        throw new Error("User not authenticated");
-      }
-
-      await createRecordedNote({
-        orgId,
-        coachId: session.user.id,
-        noteType,
-        audioStorageId: storageId,
-      });
-
-      onSuccess("Recording saved! AI is transcribing and analyzing...");
-    } catch (error) {
-      console.error("Failed to upload audio:", error);
-      onError("Failed to save recording. Please try again.");
-    } finally {
-      setIsUploading(false);
+      await startRecording(uploadAudio);
+      onSuccess("Recording started...");
+    } catch {
+      onError("Could not access microphone. Please check permissions.");
     }
   };
 
@@ -129,17 +123,10 @@ export function NewNoteTab({ orgId, onSuccess, onError }: NewNoteTabProps) {
       return;
     }
 
-    // Require Better Auth user ID
     if (!session?.user?.id) {
       onError("User not authenticated");
       return;
     }
-
-    console.log("🔥 FRONTEND: session.user.id =", session.user.id);
-    console.log(
-      "🔥 FRONTEND: Full session =",
-      JSON.stringify(session, null, 2)
-    );
 
     try {
       await createTypedNote({
@@ -151,11 +138,12 @@ export function NewNoteTab({ orgId, onSuccess, onError }: NewNoteTabProps) {
 
       setNoteText("");
       onSuccess("Note saved! AI is analyzing for insights...");
-    } catch (error) {
-      console.error("Failed to save note:", error);
+    } catch {
       onError("Failed to save note. Please try again.");
     }
   };
+
+  const showLivePreview = isRecording || liveTranscript || uploadFailed;
 
   return (
     <Card>
@@ -184,12 +172,12 @@ export function NewNoteTab({ orgId, onSuccess, onError }: NewNoteTabProps) {
             className={`relative rounded-full p-4 shadow-lg transition-all sm:p-6 ${
               isRecording
                 ? "bg-red-600 hover:bg-red-700"
-                : isUploading
+                : isUploading || isStarting
                   ? "cursor-not-allowed bg-gray-400"
                   : "bg-green-600 hover:bg-green-700"
             } text-white`}
-            disabled={isUploading}
-            onClick={isRecording ? stopRecording : startRecording}
+            disabled={isUploading || isStarting}
+            onClick={isRecording ? stopRecording : handleStartRecording}
             title={
               isRecording
                 ? "Click to stop recording"
@@ -197,7 +185,7 @@ export function NewNoteTab({ orgId, onSuccess, onError }: NewNoteTabProps) {
             }
             type="button"
           >
-            {isUploading ? (
+            {isUploading || isStarting ? (
               <Loader2 className="h-6 w-6 animate-spin sm:h-8 sm:w-8" />
             ) : isRecording ? (
               <MicOff className="h-6 w-6 sm:h-8 sm:w-8" />
@@ -210,12 +198,26 @@ export function NewNoteTab({ orgId, onSuccess, onError }: NewNoteTabProps) {
           </button>
         </div>
 
-        {/* Recording status */}
+        {/* Recording status with timer + waveform */}
         {isRecording && (
           <div className="text-center">
             <div className="inline-flex items-center gap-2 rounded-full bg-red-100 px-3 py-1.5 text-red-700 text-sm sm:gap-3 sm:px-4 sm:py-2">
               <div className="h-2 w-2 animate-pulse rounded-full bg-red-600" />
-              <span className="font-semibold">Recording... tap to stop</span>
+              <span className="font-mono font-semibold tabular-nums">
+                {formatTime(elapsedSeconds)}
+              </span>
+              <div className="flex h-4 items-end gap-0.5">
+                {WAVEFORM_THRESHOLDS.map((threshold, i) => (
+                  <div
+                    className={`w-1 rounded-full transition-all duration-75 ${
+                      audioLevel > threshold ? "bg-red-500" : "bg-red-200"
+                    }`}
+                    key={threshold}
+                    style={{ height: WAVEFORM_HEIGHTS[i] }}
+                  />
+                ))}
+              </div>
+              <span className="text-sm">tap to stop</span>
             </div>
           </div>
         )}
@@ -229,28 +231,57 @@ export function NewNoteTab({ orgId, onSuccess, onError }: NewNoteTabProps) {
           </div>
         )}
 
-        <div className="text-center text-gray-500 text-xs sm:text-sm">
-          or type your note below
-        </div>
-
-        <Textarea
-          className="h-32 text-sm sm:h-48 sm:text-base"
-          onChange={(e) => setNoteText(e.target.value)}
-          placeholder="Type your coaching notes here... Mention player names and the AI will extract insights automatically."
-          value={noteText}
-        />
+        {/* Live transcript preview during/after recording, or typed note textarea */}
+        {showLivePreview ? (
+          <div>
+            <div className="h-32 overflow-y-auto rounded-md border bg-gray-50 p-3 text-sm sm:h-48 sm:text-base">
+              {speechSupported ? (
+                <>
+                  <span>{liveTranscript}</span>
+                  <span className="text-gray-400 italic">{interimText}</span>
+                  {!(liveTranscript || interimText) && isRecording && (
+                    <span className="text-gray-400">
+                      Listening... start speaking
+                    </span>
+                  )}
+                </>
+              ) : isRecording ? (
+                <span className="text-gray-400">Recording audio...</span>
+              ) : null}
+            </div>
+            {isRecording && speechSupported && (
+              <p className="mt-1 text-center text-gray-400 text-xs">
+                Live preview — final transcription by AI after recording
+              </p>
+            )}
+          </div>
+        ) : (
+          <>
+            <div className="text-center text-gray-500 text-xs sm:text-sm">
+              or type your note below
+            </div>
+            <Textarea
+              className="h-32 text-sm sm:h-48 sm:text-base"
+              onChange={(e) => setNoteText(e.target.value)}
+              placeholder="Type your coaching notes here... Mention player names and the AI will extract insights automatically."
+              value={noteText}
+            />
+          </>
+        )}
 
         <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
           <p className="text-center text-gray-600 text-xs sm:text-left sm:text-sm">
             AI will extract player insights, injuries, and skill progress
           </p>
-          <Button
-            className="w-full bg-green-600 hover:bg-green-700 sm:w-auto"
-            disabled={!noteText.trim()}
-            onClick={handleSaveTypedNote}
-          >
-            Save & Analyze
-          </Button>
+          {!showLivePreview && (
+            <Button
+              className="w-full bg-green-600 hover:bg-green-700 sm:w-auto"
+              disabled={!noteText.trim()}
+              onClick={handleSaveTypedNote}
+            >
+              Save & Analyze
+            </Button>
+          )}
         </div>
       </CardContent>
     </Card>

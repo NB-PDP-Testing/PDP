@@ -206,21 +206,99 @@ export const transcribeAudio = internalAction({
         file,
       });
 
-      // Update with transcription
+      // US-VN-002: Validate transcript quality before insight extraction
+      const { validateTranscriptQuality } = await import(
+        "../lib/messageValidation"
+      );
+      const quality = validateTranscriptQuality(transcription.text);
+
+      // Update with transcription + quality results
       await ctx.runMutation(internal.models.voiceNotes.updateTranscription, {
         noteId: args.noteId,
         transcription: transcription.text,
         status: "completed",
+        transcriptQuality: quality.confidence,
+        transcriptValidation: {
+          isValid: quality.isValid,
+          reason: quality.reason,
+          suggestedAction: quality.suggestedAction,
+        },
       });
 
-      // Schedule insights extraction
-      await ctx.scheduler.runAfter(
-        0,
-        internal.actions.voiceNotes.buildInsights,
-        {
-          noteId: args.noteId,
-        }
+      // US-VN-014: v2 path — store transcript in voiceNoteTranscripts if artifact exists
+      const artifacts = await ctx.runQuery(
+        internal.models.voiceNoteArtifacts.getArtifactsByVoiceNote,
+        { voiceNoteId: args.noteId }
       );
+      if (artifacts.length > 0) {
+        const artifact = artifacts[0];
+        await ctx.runMutation(
+          internal.models.voiceNoteTranscripts.createTranscript,
+          {
+            artifactId: artifact._id,
+            fullText: transcription.text,
+            segments: [
+              {
+                text: transcription.text,
+                startTime: 0,
+                endTime: 0,
+                confidence: quality.confidence ?? 0,
+              },
+            ],
+            modelUsed: config.modelId,
+            language: "en",
+            duration: 0,
+          }
+        );
+        await ctx.runMutation(
+          internal.models.voiceNoteArtifacts.updateArtifactStatus,
+          { artifactId: artifact.artifactId, status: "transcribed" }
+        );
+
+        // US-VN-016: Schedule v2 claims extraction (runs in parallel with v1 buildInsights)
+        await ctx.scheduler.runAfter(
+          0,
+          internal.actions.claimsExtraction.extractClaims,
+          { artifactId: artifact._id }
+        );
+      }
+
+      // Branch on quality result
+      if (quality.suggestedAction === "reject") {
+        // Transcription worked but quality too low for insights
+        await ctx.runMutation(internal.models.voiceNotes.updateInsights, {
+          noteId: args.noteId,
+          status: "failed",
+          error: `Transcript quality rejected: ${quality.reason}`,
+        });
+        return null;
+      }
+
+      if (quality.suggestedAction === "ask_user") {
+        // In-app sources: user deliberately recorded/typed, so treat as processable
+        // WhatsApp sources: pause for confirmation (bot can ask "did you mean to send this?")
+        const isInAppSource =
+          note.source === "app_recorded" || note.source === "app_typed";
+        if (!isInAppSource) {
+          await ctx.runMutation(internal.models.voiceNotes.updateInsights, {
+            noteId: args.noteId,
+            status: "awaiting_confirmation",
+          });
+          return null;
+        }
+        // Fall through to schedule insights extraction for in-app sources
+      }
+
+      // Quality OK - schedule insights extraction (only if v2 artifact doesn't exist)
+      if (artifacts.length === 0) {
+        await ctx.scheduler.runAfter(
+          0,
+          internal.actions.voiceNotes.buildInsights,
+          {
+            noteId: args.noteId,
+          }
+        );
+      }
     } catch (error) {
       console.error("Transcription failed:", error);
       await ctx.runMutation(internal.models.voiceNotes.updateTranscription, {
@@ -251,6 +329,20 @@ export const buildInsights = internalAction({
 
     if (!note) {
       console.error("Voice note not found:", args.noteId);
+      return null;
+    }
+
+    // Defense-in-depth: if v2 artifact exists, skip v1 extraction
+    // (buildInsights should not be scheduled when v2 is active, but this catches edge cases)
+    const artifacts = await ctx.runQuery(
+      internal.models.voiceNoteArtifacts.getArtifactsByVoiceNote,
+      { voiceNoteId: args.noteId }
+    );
+    if (artifacts.length > 0) {
+      console.warn(
+        "[buildInsights] Defense-in-depth: v2 artifact found, skipping v1 extraction for note:",
+        args.noteId
+      );
       return null;
     }
 
@@ -569,7 +661,23 @@ IMPORTANT:
 
       // Resolve player IDs and build insights array
       // Now using playerIdentityId for the new identity system
-      const resolvedInsights = parsed.data.insights.map((insight) => {
+      // Uses for...of to allow async fuzzy matching fallback (US-VN-006)
+      const resolvedInsights: Array<{
+        id: string;
+        playerIdentityId: Id<"playerIdentities"> | undefined;
+        playerName: string | undefined;
+        title: string;
+        description: string;
+        category: string | undefined;
+        recommendedUpdate: string | undefined;
+        confidence: number;
+        teamId: string | undefined;
+        teamName: string | undefined;
+        assigneeUserId: string | undefined;
+        assigneeName: string | undefined;
+        status: "pending";
+      }> = [];
+      for (const insight of parsed.data.insights) {
         // Log what AI returned
         if (insight.playerName && !insight.playerId) {
           console.warn(
@@ -578,7 +686,33 @@ IMPORTANT:
         }
 
         // Use deduplicated roster for matching
-        const matchedPlayer = findMatchingPlayer(insight, uniquePlayers);
+        let matchedPlayer:
+          | { playerIdentityId: Id<"playerIdentities">; name: string }
+          | undefined = findMatchingPlayer(insight, uniquePlayers);
+
+        // US-VN-006: Fuzzy matching fallback when deterministic matching fails
+        if (!matchedPlayer && insight.playerName && note.coachId) {
+          const fuzzyResults = await ctx.runQuery(
+            internal.models.orgPlayerEnrollments.findSimilarPlayers,
+            {
+              organizationId: note.orgId,
+              coachUserId: note.coachId,
+              searchName: insight.playerName,
+              limit: 1,
+            }
+          );
+
+          if (fuzzyResults.length > 0 && fuzzyResults[0].similarity >= 0.85) {
+            const fuzzy = fuzzyResults[0];
+            console.log(
+              `[Fuzzy Match] ✅ "${insight.playerName}" → "${fuzzy.fullName}" (similarity: ${fuzzy.similarity.toFixed(2)})`
+            );
+            matchedPlayer = {
+              playerIdentityId: fuzzy.playerId,
+              name: fuzzy.fullName,
+            };
+          }
+        }
 
         // Log matching result
         if (insight.playerName && !matchedPlayer) {
@@ -601,7 +735,7 @@ IMPORTANT:
         const assigneeUserId = insight.assigneeUserId ?? undefined;
         const assigneeName = insight.assigneeName ?? undefined;
 
-        return {
+        resolvedInsights.push({
           id: `insight_${Date.now()}_${Math.random().toString(36).slice(2, 11)}`,
           playerIdentityId: matchedPlayer?.playerIdentityId ?? undefined,
           playerName: matchedPlayer?.name ?? insight.playerName ?? undefined,
@@ -609,14 +743,14 @@ IMPORTANT:
           description: insight.description,
           category: insight.category ?? undefined,
           recommendedUpdate: insight.recommendedUpdate ?? undefined,
-          confidence: insight.confidence ?? 0.7, // Phase 7: AI confidence score, default to 0.7 if not provided
+          confidence: insight.confidence ?? 0.7,
           teamId,
           teamName,
           assigneeUserId,
           assigneeName,
           status: "pending" as const,
-        };
-      });
+        });
+      }
 
       // Update the note with insights
       await ctx.runMutation(internal.models.voiceNotes.updateInsights, {

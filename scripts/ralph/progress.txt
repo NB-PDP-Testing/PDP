@@ -1,109 +1,303 @@
-# Ralph Progress Log
-Started: Thu  5 Feb 2026 18:29:45 GMT
+# Ralph Progress - Voice Gateways v2
 
-## Codebase Patterns
-**Last Updated**: 2026-02-05 - Iteration 1
-
-### Architecture
-- All routes scoped under `/orgs/[orgId]/`
-- Use Better Auth for authentication, Convex for backend
-- Organization data isolated via organizationId field
-- Monorepo: `apps/web/` (Next.js), `packages/backend/` (Convex)
-
-### Convex Backend Patterns
-- NEVER use `.filter()` - always use `.withIndex()`
-- All functions need `args` and `returns` validators
-- Use `Id<"tableName">` types, not `string`
-- Index names include all fields: `by_orgId_and_status`
-- User schema in `packages/backend/convex/betterAuth/schema.ts`
-- Domain logic in `packages/backend/convex/models/`
-- Use `authComponent.safeGetAuthUser(ctx)` to get current user
-- Update user with `ctx.runMutation(components.betterAuth.adapter.updateOne, ...)`
-- User ID is `user._id`, NOT `user.id`
-
-### Frontend Patterns
-- Use shadcn/ui components from `@/components/ui`
-- Organization theming via CSS variables: `--org-primary`, etc.
-- Onboarding orchestrator at `apps/web/src/components/onboarding/onboarding-orchestrator.tsx`
-
-### Quality Checks
-- Run in order: `npm run check-types` → `npx ultracite fix` → `npm run check`
-- Ultracite must run before linting or you'll get false failures
-- Run codegen: `npx -w packages/backend convex codegen`
-
-### File Locations (discovered during work)
-- User schema: `packages/backend/convex/betterAuth/schema.ts`
-- Onboarding logic: `packages/backend/convex/models/onboarding.ts`
-- Members/invitations: `packages/backend/convex/models/members.ts`
-- Join requests: `packages/backend/convex/models/orgJoinRequests.ts`
-- Guardian identities: `packages/backend/convex/models/guardianIdentities.ts`
-- Onboarding UI: `apps/web/src/components/onboarding/`
-- Profile completion step: `apps/web/src/components/onboarding/profile-completion-step.tsx`
-- Onboarding orchestrator: `apps/web/src/components/onboarding/onboarding-orchestrator.tsx`
-
-### Invitation Acceptance Flow
-- Two mutations handle invitation acceptance: `syncFunctionalRolesFromInvitation` and `syncFunctionalRolesWithChildSelections` (both in members.ts)
-- Both must be updated when adding post-acceptance user patches (e.g., wasInvited flag)
-- Guardian identity creation/linking during invitation: uses `findOrCreateGuardian` pattern
-
-### Guardian System
-- `guardianIdentities` table: platform-level parent identity (has userId when claimed)
-- `guardianPlayerLinks` table: links guardians to players with relationship, status, acknowledgement
-- To find existing guardian: check by_userId first, then by_email for unclaimed
-- Link status: "pending" → "active" (acknowledged) or "declined"
-- Admin approval of join request should set acknowledgedByParentAt on links
+**Branch**: feat/voice-gateways-v2
+**Started**: 2026-02-04
+**Current Phase**: Phase 7D - Retire v1 Processing & Clean Up
+**Overall Progress**: 27/29 stories complete (93%)
+**Architecture Review**: COMPLETE (ADR-VN2-043 to ADR-VN2-047 for Phase 7D)
 
 ---
 
-## 2026-02-05 - Phase 0.8 - All Stories (US-P0.8-001 through US-P0.8-008)
+## Completed Phases Summary
+
+### Phase 1: Quality Gates & Fuzzy Matching ✅ (US-VN-001 to US-VN-006)
+- 349 tests passing across 86 files
+- messageValidation, duplicateDetection, fuzzyMatching, playerMatching
+
+### Phase 2: Coach Quick Review Microsite ✅ (US-VN-007 to US-VN-012)
+- `/r/[code]` public review microsite (no auth, code = token)
+- whatsappReviewLinks model, priority-sorted queue, batch actions
+- Inline edit, trust-adaptive messages, link expiry crons
+
+### Phase 2.5: Review Microsite Polish ✅ (US-VN-012a to 012d)
+- Analytics, swipe gestures, snooze, PWA manifest
+
+### Phase 3: v2 Artifacts Foundation ✅ (US-VN-013 to US-VN-014)
+- voiceNoteArtifacts + voiceNoteTranscripts tables
+- featureFlags table + shouldUseV2Pipeline
+- Dual-path processing in whatsapp.ts
+
+### Phase 4: Claims Extraction ✅ (US-VN-015 to US-VN-016)
+- voiceNoteClaims table + claimsExtraction action (GPT-4, 15 categories)
+- coachContext.ts shared helper, deterministic + fuzzy player matching
+- Pipeline hook: scheduler.runAfter(0, extractClaims) after transcription
+
+### Phase 5: Entity Resolution & Disambiguation ✅ (US-VN-017 to US-VN-018)
+- voiceNoteEntityResolutions + coachPlayerAliases tables
+- entityResolution action (trust-adaptive thresholds, alias learning)
+- Disambiguation UI at /coach/voice-notes/disambiguation/[artifactId]
+- 6 enhancements: trust-adaptive threshold, feature flags, analytics, rich matchReason, alias learning, batch resolution
+
+### Phase 6: Drafts & Confirmation Workflow ✅ (US-VN-019 to US-VN-021)
+- insightDrafts table + 11 functions (4 internal + 7 public)
+- draftGeneration action (confidence scoring, auto-confirm gate)
+- WhatsApp command parser + handler (4 command types)
+- migration.ts action (batch, dry-run, idempotent)
+
+---
+
+## Phase 7A: Wire In-App Notes to v2 ✅ (US-VN-022 to US-VN-023)
+
+### US-VN-022: Wire In-App Note Creation to v2 Artifact Pipeline
+**Commit**: b7439a06
+- createTypedNote: creates artifact + transcript + schedules extractClaims (feature-flagged)
+- createRecordedNote: creates artifact only (transcribeAudio handles rest)
+- v1 scheduling (buildInsights/transcribeAudio) unchanged
+- Key pattern: in-app notes create v1 note FIRST then v2 artifact
+
+### US-VN-023: Eliminate Duplicate v1+v2 Processing
+**Commit**: (included in phase commit)
+- buildInsights: skip check added — if v2 artifact exists, return null
+- Audited 4 v2 files for .filter() anti-pattern — all clean (JS array filters)
+
+---
+
+## Phase 7B: Draft Confirmation UI ✅ (US-VN-024 to US-VN-025)
+
+### US-VN-024: Drafts Tab in Voice Notes Dashboard
+**Commit**: c3e59c0f
+- Created drafts-tab.tsx: DraftsTab component with DraftCard, grouped by artifact
+- 15 insight type colors, confidence bars, collapsible evidence snippets
+- Individual Confirm/Reject with loading states + toast
+- Dashboard: added "drafts" tab, pendingDrafts useQuery in parent
+
+### US-VN-025: Draft Batch Operations & Auto-Switch
+**Commit**: 9c0b37ce
+- Batch: confirmAllDrafts/rejectAllDrafts with AlertDialog for destructive reject
+- Auto-switch priority: parents > drafts > insights
+- Verified disambiguation-banner works for all artifact types
+
+### Security Hardening (Post Phase 7B)
+**Commit**: abdaa92d
+- Added by_org_coach_status_createdAt composite index for expiry range query
+- organizationId arg added to confirmAllDrafts/rejectAllDrafts (defense-in-depth)
+- getPendingDraftsInternal: replaced JS .filter() with index .gte("createdAt")
+
+---
+
+## Codebase Reference
+
+### Key File Locations
+- Voice notes model: `packages/backend/convex/models/voiceNotes.ts`
+- Insight drafts model: `packages/backend/convex/models/insightDrafts.ts`
+- Draft generation: `packages/backend/convex/actions/draftGeneration.ts`
+- Parent summaries: `packages/backend/convex/actions/coachParentSummaries.ts`
+- Claims extraction: `packages/backend/convex/actions/claimsExtraction.ts`
+- Entity resolution: `packages/backend/convex/actions/entityResolution.ts`
+- Feature flags: `packages/backend/convex/lib/featureFlags.ts`
+- Schema: `packages/backend/convex/schema.ts`
+- Voice notes dashboard: `apps/web/src/app/orgs/[orgId]/coach/voice-notes/voice-notes-dashboard.tsx`
+- Drafts tab: `apps/web/src/app/orgs/[orgId]/coach/voice-notes/components/drafts-tab.tsx`
+
+### Established Patterns
+- NEVER use `.filter()` on Convex query builder — always `.withIndex()`
+- All functions need `args` and `returns` validators
+- Better Auth: `user._id` (not `user.id`), `user.name` (not `user.firstName`)
+- Batch fetch + Map lookup (avoid N+1)
+- Import + usage in SAME edit (linter removes unused imports)
+- Schema changes FIRST → codegen → code changes
+- Public functions: auth check + ownership verification
+- InternalActions call internal mutations (NOT public)
+- `v.optional(v.string())` not `v.string() | null`
+
+### Quality Checks
+- `npm run check-types` → `npx ultracite fix` → `npm run check`
+- Biome: block statements required, `type` not `interface`, top-level regex
+- Biome suppression: `// biome-ignore lint/rule/name: reason`
+
+---
+
+## Phase 7C: Complete v2 → v1 Output Bridge ✅ (US-VN-026 to US-VN-027)
+
+**PRD**: `phases/PHASE7C_PRD.json` (PRIMARY — read this FIRST)
+**Context**: `context/V2_MIGRATION_CONTEXT.md`
+**Architecture Review**: COMPLETE (ADR-VN2-040, 041, 042)
+
+### Stories:
+- US-VN-026: applyDraft Output Bridge (parent summaries, audit trail, backward compat)
+- US-VN-027: Auto-Confirm Integration + Quality Gates for In-App Notes
+
+### Execution Order (CRITICAL):
+1. Schema: Make autoAppliedInsights.playerId optional
+2. Schema: Add sourceArtifactId/sourceClaimId/sourceDraftId to voiceNoteInsights
+3. Run codegen: npx -w packages/backend convex codegen
+4. Code: Extend applyDraft with Steps 0-3B
+5. Type check
+6. Code: Add validateTextMessage to createTypedNote
+7. Type check
+
+### Architect Review Corrections (MUST follow):
+- C1: Check coachOrgPreferences.parentSummariesEnabled BEFORE scheduling processVoiceNoteInsight
+- C2: Include appliedBy + appliedDate in voiceNotes.insights[] push object
+- C3: Schema changes FIRST, codegen, then code changes
+
+---
+
+## 2026-02-08 - US-VN-026 - applyDraft Output Bridge
 **Iteration**: 1
-**Commits**: e033d3f5, 28c65519, c7540072, 6bba4a5f, 2fcf65f3, 841b9903, 0fa4d2a2
-**Session**: c7081e5b-0423-4b3d-9b93-a1150a7396dc
+**Commit**: 23ba0a55
+**Session**: 93182899-a99c-44eb-b848-b68743b0dcb4
 **Status**: Complete
 
 ### What was implemented
-All 8 user stories completed in a single iteration:
-
-1. **US-P0.8-001** (e033d3f5): Added `wasInvited: v.optional(v.boolean())` to user table schema
-2. **US-P0.8-002** (28c65519): Set `wasInvited: true` in both invitation acceptance mutations (`syncFunctionalRolesFromInvitation` and `syncFunctionalRolesWithChildSelections`)
-3. **US-P0.8-003** (c7540072): Wrapped guardian matching logic in `getOnboardingTasks` with `if (wasInvited)` check - self-registered users skip guardian_claim entirely
-4. **US-P0.8-004** (6bba4a5f): Removed `no_children_found` task type from backend validator, tasks array type, orchestrator renderer, and switch statements
-5. **US-P0.8-005** (2fcf65f3): Updated profile completion messaging - title to "Additional Information", neutral info box text, neutral alt email helper text, neutral backend reason string
-6. **US-P0.8-006** (841b9903): Replaced broken `players` table patching with proper `guardianIdentity` creation/claiming and `guardianPlayerLink` creation in `approveJoinRequest`
-7. **US-P0.8-007** (0fa4d2a2): Removed all [PHONE DEBUG], [GUARDIAN DEBUG], [TASKS DEBUG], [ONBOARDING DEBUG] console.log statements; kept legitimate operational logs
-8. **US-P0.8-008**: Programmatic and visual verification - typecheck passes, codegen passes, linting passes, browser confirms neutral messaging
+- Schema: Made autoAppliedInsights.playerId optional (v.optional(v.id('orgPlayerEnrollments')))
+- Schema: Added 3 back-link fields to voiceNoteInsights (sourceArtifactId, sourceClaimId, sourceDraftId)
+- Step 0: Capture insightRecordId from voiceNoteInsights insert, add back-link fields
+- Step 1: Update voiceNotes.insights[] embedded array with v1-format entry (appliedBy + appliedDate per C2)
+- Step 2: Schedule processVoiceNoteInsight with parentSummariesEnabled check (query coachOrgPreferences.by_coach_org per C1)
+- Step 3B: Create autoAppliedInsights audit record for auto-confirmed drafts, wrapped in try/catch per S1
 
 ### Files changed
-- packages/backend/convex/betterAuth/schema.ts (+3 - wasInvited field)
-- packages/backend/convex/models/members.ts (+24 - wasInvited patches in both invitation mutations)
-- packages/backend/convex/models/onboarding.ts (+8, -130 - wasInvited guard, no_children_found removal, debug log cleanup)
-- packages/backend/convex/models/orgJoinRequests.ts (+99, -16 - guardianIdentity/guardianPlayerLink creation)
-- apps/web/src/components/onboarding/onboarding-orchestrator.tsx (-30 - no_children_found removal, debug log cleanup)
-- apps/web/src/components/onboarding/profile-completion-step.tsx (+5, -6 - neutral messaging)
+- packages/backend/convex/schema.ts (+7, -1)
+- packages/backend/convex/models/insightDrafts.ts (+95, -7)
 
 ### Quality checks
+- ✅ Type check: passed
+- ✅ Linting: passed (biome check on modified files clean)
 - ✅ Convex codegen: passed
-- ✅ Linting: passed (pre-commit hooks verified all 7 commits)
-- ⚠️ Type check: pre-existing errors in migration files + coachParentSummaries.ts, our changes have zero type errors
-- ✅ Browser verification: profile completion shows "Additional Information" title, neutral messaging, no debug logs in console
+- ⬜ Browser verification: not applicable (backend-only)
 
-### **Learnings for future iterations** ⚠️ CRITICAL
+### Learnings for future iterations
 **Patterns discovered:**
-- There are TWO invitation acceptance mutations in members.ts - both must be updated for any post-acceptance user patches
-- Wrapping large code blocks in `if` guards: add the guard, close it, let ultracite fix indentation
-- `approveJoinRequest` in orgJoinRequests.ts had broken code patching a non-existent `players` table - it now uses the proper guardianIdentity/guardianPlayerLink pattern
-- The onboarding task type validator must stay in sync with the inline tasks array type declaration
+- applyDraft is internalMutation so ctx.db.get/patch/query all available directly
+- processVoiceNoteInsight takes 7 args, insightId is STRING not Convex _id
+- autoAppliedInsights has 15+ fields, many required — check schema carefully before insert
+- coachOrgPreferences uses by_coach_org index with (coachId, organizationId)
 
 **Gotchas encountered:**
-- Pre-existing type errors: migrations/importGAAFootballBenchmarks.ts, migrations/importRugbyBenchmarks.ts, actions/coachParentSummaries.ts - these are NOT our fault
-- `git stash pop` can conflict with linter changes to files - need to `git checkout` conflicting file first
-- HMR errors in dev-browser on first load are transient - retry navigation resolves them
+- Schema changes MUST happen before codegen, codegen before code — order matters
 
-**Dependencies found:**
-- Removing a task type (no_children_found) requires updates in: backend validator, inline type, orchestrator handler, orchestrator switch cases, import statement
-- wasInvited flag check in onboarding.ts depends on the flag being set in members.ts during invitation acceptance
+---
+
+## 2026-02-08 - US-VN-027 - Auto-Confirm Integration + Quality Gates
+**Iteration**: 1
+**Commit**: a7c1f647
+**Session**: 93182899-a99c-44eb-b848-b68743b0dcb4
+**Status**: Complete
+
+### What was implemented
+- Verified auto-confirm logic in draftGeneration.ts (all 4 checkpoints pass, no changes needed)
+- Added validateTextMessage quality gate to createTypedNote in voiceNotes.ts
+- Import + usage added atomically (Python script) to prevent linter stripping
+
+### Files changed
+- packages/backend/convex/models/voiceNotes.ts (+7, -0)
+
+### Quality checks
+- ✅ Type check: passed
+- ✅ Linting: passed (biome check on modified files clean)
+- ⬜ Browser verification: not applicable (backend-only)
+
+### Learnings for future iterations
+**Patterns discovered:**
+- validateTextMessage is sync (no ctx needed), safe to call in mutations
+- Auto-confirm checkpoints: sensitive types, trust < 2, confidence below threshold, auto-apply prefs
+
+**Gotchas encountered:**
+- Linter aggressively strips unused imports BETWEEN Edit tool calls. When import and usage are in different parts of the file, must use Python/sed to apply both atomically in a single file write
+- sed with multi-line patterns is fragile — matched both createTypedNote AND createRecordedNote. Python is safer for targeted replacements
 
 **Mistakes made:**
-- None significant - the stories were well-defined and the implementation was straightforward
+- First attempt: used separate Edit calls for import and usage — linter stripped import between edits
+- Second attempt: used sed which applied to wrong function too — had to git checkout and redo with Python
+
+---
+
+## Phase 7D: Retire v1 Processing & Clean Up
+
+**PRD**: `phases/PHASE7D_PRD.json` (PRIMARY — read this FIRST)
+**Context**: `context/V2_MIGRATION_CONTEXT.md`
+
+### Stories:
+- US-VN-028: Remove Dual Processing Path (gate buildInsights, add skipV2 param) ✅
+- US-VN-029: Feature Flag Promotion Tooling (4 scripts: enable/disable/status/migrate) ✅
+
+### Key Implementation Notes:
+- createTypedNote: wrap buildInsights in `if (!useV2)` — reuse EXISTING useV2 variable
+- transcribeAudio: wrap buildInsights in `if (artifacts.length === 0)` — reuse EXISTING artifacts variable
+- DO NOT call shouldUseV2Pipeline twice
+- skipV2: v.optional(v.boolean()) on public API — simpler than internal versions
+- Scripts: camelCase filenames, export query/mutation/action (NOT internal), for `convex run`
+- JS array .filter() after .collect() is FINE for tables without org indexes
+
+---
+
+## 2026-02-09 - US-VN-028 - Remove Dual Processing Path
+**Status**: Complete
+**Files changed**:
+- packages/backend/convex/models/voiceNotes.ts (gated buildInsights with !useV2 in createTypedNote, added skipV2 arg to both mutations)
+- packages/backend/convex/actions/voiceNotes.ts (gated buildInsights with artifacts.length === 0 in transcribeAudio, updated defense-in-depth log to console.warn)
+- packages/backend/convex/actions/whatsapp.ts (passed skipV2: true when calling createTypedNote/createRecordedNote)
+
+**Type check**: pass
+**Convex codegen**: pass
+
+### Implementation summary
+1. Change 1: Gated buildInsights in createTypedNote with `if (!useV2)` — reused existing useV2 variable from line 586
+2. Change 2: Gated buildInsights in transcribeAudio with `if (artifacts.length === 0)` — reused existing artifacts variable from line 229
+3. Change 3: Added skipV2: v.optional(v.boolean()) to both createTypedNote and createRecordedNote args. Modified handler to set useV2 = args.skipV2 ? false : await ctx.runQuery(...). Updated WhatsApp callers to pass skipV2: true.
+4. Change 4: Changed buildInsights defense-in-depth log from console.info to console.warn with "Defense-in-depth:" prefix
+
+---
+
+## 2026-02-09 - US-VN-029 - Feature Flag Promotion Tooling & Migration Validation
+**Iteration**: 1
+**Commit**: (pending)
+**Session**: 8e0e2379-ded2-409c-8dc3-d8d691e88dca
+**Status**: Complete
+
+### What was implemented
+- Created 4 Convex scripts for v2 feature flag management and migration tooling:
+  1. `enableV2ForOrg.ts` — mutation that sets voice_notes_v2 + entity_resolution_v2 flags to enabled
+  2. `disableV2ForOrg.ts` — mutation that sets both flags to disabled (rollback)
+  3. `v2MigrationStatus.ts` — query that reports counts across all v2 tables for an org
+  4. `runMigration.ts` — public action wrapper around internal migrateVoiceNotesToV2
+- Added usage documentation to migration.ts header comment
+- Updated PRD to mark both US-VN-028 and US-VN-029 as passing
+
+### Files changed
+- packages/backend/convex/scripts/enableV2ForOrg.ts (new, +38)
+- packages/backend/convex/scripts/disableV2ForOrg.ts (new, +38)
+- packages/backend/convex/scripts/v2MigrationStatus.ts (new, +130)
+- packages/backend/convex/scripts/runMigration.ts (new, +37)
+- packages/backend/convex/actions/migration.ts (+4, -1) — added usage docs
+- scripts/ralph/prd.json — marked US-VN-028 and US-VN-029 as passes: true
+
+### Quality checks
+- ✅ Type check: passed (convex codegen + npm run check-types)
+- ✅ Linting: passed (biome check on all 4 new scripts — 0 errors)
+- ⬜ Browser verification: not applicable (backend scripts only)
+
+### Learnings for future iterations
+**Patterns discovered:**
+- Convex action wrappers that call `ctx.runAction(internal...)` need explicit Promise return type to avoid TS7022 circular reference error
+- `insightDrafts.by_org_and_coach_and_status` index has `organizationId` as first field — can use partial prefix match for org-only queries
+- voiceNoteArtifacts has no organizationId index — must use JS `.filter()` on `orgContextCandidates` array after `.collect()`
+- voiceNoteTranscripts only has `by_artifactId` index — must iterate org's artifacts to count transcripts
+
+**Gotchas encountered:**
+- Biome requires block statements (no single-line if bodies) and `+= 1` instead of `++`
+- `"use node"` directive required for action files (runMigration.ts) that call `ctx.runAction`
+
+**Mistakes made:**
+- Initial runMigration.ts had circular type inference — fixed by adding explicit Promise return type annotation
+
+---
+
+## Phase 7D COMPLETE ✅
+
+All stories complete: US-VN-028, US-VN-029
+Total project progress: 29/29 stories (100%)
+The v2 voice notes pipeline is now the sole AI processing path (gated by feature flags).
 
 ---

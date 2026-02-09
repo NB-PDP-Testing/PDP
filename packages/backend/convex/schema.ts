@@ -732,6 +732,7 @@ export default defineSchema({
     updatedAt: v.number(),
   })
     .index("by_teamId", ["teamId"])
+    .index("by_teamId_and_status", ["teamId", "status"])
     .index("by_playerIdentityId", ["playerIdentityId"])
     .index("by_team_and_player", ["teamId", "playerIdentityId"])
     .index("by_organizationId", ["organizationId"])
@@ -1560,21 +1561,27 @@ export default defineSchema({
         v.literal("pending"),
         v.literal("processing"),
         v.literal("completed"),
-        v.literal("failed")
+        v.literal("failed"),
+        v.literal("awaiting_confirmation"),
+        v.literal("cancelled")
       )
     ),
     insightsError: v.optional(v.string()),
-    // Optional session plan link for voice notes taken during sessions
-    sessionPlanId: v.optional(v.id("sessionPlans")),
-    // Transcript quality scoring (from transcription pipeline)
+    // Transcript quality tracking (US-VN-002)
     transcriptQuality: v.optional(v.number()),
     transcriptValidation: v.optional(
       v.object({
         isValid: v.boolean(),
-        reason: v.string(),
-        suggestedAction: v.string(),
+        reason: v.optional(v.string()),
+        suggestedAction: v.union(
+          v.literal("process"),
+          v.literal("ask_user"),
+          v.literal("reject")
+        ),
       })
     ),
+    // Optional session plan link for voice notes taken during sessions
+    sessionPlanId: v.optional(v.id("sessionPlans")),
   })
     .index("by_orgId", ["orgId"])
     .index("by_orgId_and_coachId", ["orgId", "coachId"])
@@ -1606,6 +1613,11 @@ export default defineSchema({
     teamName: v.optional(v.string()),
     assigneeUserId: v.optional(v.string()), // For todo insights
     assigneeName: v.optional(v.string()),
+
+    // v2 Pipeline Traceability (Phase 7C)
+    sourceArtifactId: v.optional(v.id("voiceNoteArtifacts")),
+    sourceClaimId: v.optional(v.id("voiceNoteClaims")),
+    sourceDraftId: v.optional(v.string()),
 
     // Trust & Automation (Phase 7)
     confidenceScore: v.number(), // 0.0-1.0, AI confidence in this insight
@@ -1662,7 +1674,7 @@ export default defineSchema({
     voiceNoteId: v.id("voiceNotes"),
 
     // Context (denormalized for audit trail)
-    playerId: v.id("orgPlayerEnrollments"), // DEPRECATED: Use playerIdentityId
+    playerId: v.optional(v.id("orgPlayerEnrollments")), // DEPRECATED: Use playerIdentityId
     playerIdentityId: v.id("playerIdentities"),
     coachId: v.string(),
     organizationId: v.string(),
@@ -3912,9 +3924,24 @@ export default defineSchema({
       v.literal("processing"),
       v.literal("completed"),
       v.literal("failed"),
-      v.literal("unmatched")
+      v.literal("unmatched"),
+      v.literal("rejected"),
+      v.literal("duplicate")
     ),
     errorMessage: v.optional(v.string()),
+
+    // Quality gate results (US-VN-001)
+    messageQualityCheck: v.optional(
+      v.object({
+        isValid: v.boolean(),
+        reason: v.optional(v.string()),
+        checkedAt: v.number(),
+      })
+    ),
+
+    // Duplicate detection (US-VN-003)
+    isDuplicate: v.optional(v.boolean()),
+    duplicateOfMessageId: v.optional(v.id("whatsappMessages")),
 
     // Link to created voice note
     voiceNoteId: v.optional(v.id("voiceNotes")),
@@ -3960,7 +3987,9 @@ export default defineSchema({
     .index("by_coachId", ["coachId"])
     .index("by_organizationId", ["organizationId"])
     .index("by_status", ["status"])
-    .index("by_receivedAt", ["receivedAt"]),
+    .index("by_receivedAt", ["receivedAt"])
+    .index("by_fromNumber_and_receivedAt", ["fromNumber", "receivedAt"])
+    .index("by_duplicateOfMessageId", ["duplicateOfMessageId"]),
 
   // WhatsApp session memory for multi-org coaches
   // Remembers which org a coach was recently messaging about (2-hour timeout)
@@ -4032,8 +4061,405 @@ export default defineSchema({
     expiresAt: v.number(), // 24 hours from creation
   })
     .index("by_phone", ["phoneNumber"])
+    .index("by_phone_and_status", ["phoneNumber", "status"])
     .index("by_status", ["status"])
     .index("by_messageSid", ["messageSid"]),
+
+  // WhatsApp review links for coach Quick Review microsite
+  // ONE active link per coach, reused across multiple voice notes (48h expiry)
+  whatsappReviewLinks: defineTable({
+    code: v.string(), // 8-char alphanumeric (excludes 0OIl)
+    organizationId: v.string(), // Better Auth org ID
+    coachUserId: v.string(), // Better Auth user ID of coach
+
+    // Voice notes aggregated under this link
+    voiceNoteIds: v.array(v.id("voiceNotes")),
+
+    // Lifecycle
+    status: v.union(
+      v.literal("active"),
+      v.literal("expired"),
+      v.literal("used")
+    ),
+    createdAt: v.number(),
+    expiresAt: v.number(), // 48h from creation
+    lastNoteAddedAt: v.number(), // Updated when new note appended
+
+    // Access tracking
+    accessedAt: v.optional(v.number()), // Last access timestamp
+    deviceFingerprint: v.optional(v.string()), // Cookie-based, set on first access
+    accessCount: v.number(), // Incremented on each access
+    accessLog: v.array(
+      v.object({
+        timestamp: v.number(),
+        ip: v.optional(v.string()),
+        userAgent: v.optional(v.string()),
+      })
+    ),
+    // Snooze/remind later (US-VN-012c)
+    snoozeRemindAt: v.optional(v.number()), // Timestamp to send reminder
+    snoozeCount: v.optional(v.number()), // Times snoozed (max 3)
+  })
+    .index("by_code", ["code"])
+    .index("by_coachUserId_and_status", ["coachUserId", "status"])
+    .index("by_expiresAt_and_status", ["expiresAt", "status"])
+    .index("by_status", ["status"]),
+
+  // ============================================================
+  // REVIEW ANALYTICS EVENTS (US-VN-012a)
+  // Tracks all coach actions on the /r/ review microsite
+  // ============================================================
+  reviewAnalyticsEvents: defineTable({
+    linkCode: v.optional(v.string()),
+    coachUserId: v.string(),
+    organizationId: v.string(),
+    eventType: v.union(
+      v.literal("apply"),
+      v.literal("dismiss"),
+      v.literal("edit"),
+      v.literal("snooze"),
+      v.literal("batch_apply"),
+      v.literal("batch_dismiss"),
+      v.literal("disambiguate_accept"),
+      v.literal("disambiguate_reject_all"),
+      v.literal("disambiguate_skip")
+    ),
+    insightId: v.optional(v.string()),
+    voiceNoteId: v.optional(v.id("voiceNotes")),
+    category: v.optional(v.string()),
+    confidenceScore: v.optional(v.number()),
+    wasAutoApplyCandidate: v.optional(v.boolean()),
+    metadata: v.optional(
+      v.union(
+        v.object({ count: v.number() }),
+        v.object({ delayMs: v.number(), snoozeCount: v.number() })
+      )
+    ),
+    timestamp: v.number(),
+  })
+    .index("by_coachUserId_and_timestamp", ["coachUserId", "timestamp"])
+    .index("by_organizationId_and_timestamp", ["organizationId", "timestamp"])
+    .index("by_linkCode", ["linkCode"]),
+
+  // ============================================================
+  // FEATURE FLAGS
+  // Cascading feature flags: env var → platform → org → user → default
+  // Follows aiModelConfig pattern for scope-based lookups
+  // ============================================================
+  featureFlags: defineTable({
+    featureKey: v.string(), // e.g. "voice_notes_v2"
+    scope: v.union(
+      v.literal("platform"),
+      v.literal("organization"),
+      v.literal("user")
+    ),
+    organizationId: v.optional(v.string()), // Set when scope = "organization"
+    userId: v.optional(v.string()), // Set when scope = "user"
+    enabled: v.boolean(),
+    updatedBy: v.optional(v.string()), // Admin who toggled
+    updatedAt: v.number(),
+    notes: v.optional(v.string()),
+  })
+    .index("by_featureKey_and_scope", ["featureKey", "scope"])
+    .index("by_featureKey_scope_org", ["featureKey", "scope", "organizationId"])
+    .index("by_featureKey_scope_user", ["featureKey", "scope", "userId"]),
+
+  // ============================================================
+  // VOICE NOTE ARTIFACTS (v2 Pipeline)
+  // Source-agnostic record for any voice/text input
+  // Links back to v1 voiceNotes for backward compat
+  // ============================================================
+  voiceNoteArtifacts: defineTable({
+    artifactId: v.string(), // Unique identifier (UUID)
+    sourceChannel: v.union(
+      v.literal("whatsapp_audio"),
+      v.literal("whatsapp_text"),
+      v.literal("app_recorded"),
+      v.literal("app_typed")
+    ),
+    senderUserId: v.string(), // Better Auth user ID
+    orgContextCandidates: v.array(
+      v.object({
+        organizationId: v.string(),
+        confidence: v.number(),
+      })
+    ),
+    status: v.union(
+      v.literal("received"),
+      v.literal("transcribing"),
+      v.literal("transcribed"),
+      v.literal("processing"),
+      v.literal("completed"),
+      v.literal("failed")
+    ),
+    voiceNoteId: v.optional(v.id("voiceNotes")), // Backward compat link to v1
+    rawMediaStorageId: v.optional(v.id("_storage")),
+    metadata: v.optional(
+      v.object({
+        mimeType: v.optional(v.string()),
+        fileSize: v.optional(v.number()),
+        whatsappMessageId: v.optional(v.string()),
+      })
+    ),
+    createdAt: v.number(),
+    updatedAt: v.number(),
+  })
+    .index("by_artifactId", ["artifactId"])
+    .index("by_senderUserId_and_createdAt", ["senderUserId", "createdAt"])
+    .index("by_voiceNoteId", ["voiceNoteId"])
+    .index("by_status_and_createdAt", ["status", "createdAt"]),
+
+  // ============================================================
+  // VOICE NOTE TRANSCRIPTS (v2 Pipeline)
+  // Detailed transcription with segments and per-segment confidence
+  // ============================================================
+  voiceNoteTranscripts: defineTable({
+    artifactId: v.id("voiceNoteArtifacts"),
+    fullText: v.string(),
+    segments: v.array(
+      v.object({
+        text: v.string(),
+        startTime: v.number(),
+        endTime: v.number(),
+        confidence: v.number(),
+      })
+    ),
+    modelUsed: v.string(),
+    language: v.string(),
+    duration: v.number(),
+    createdAt: v.number(),
+  }).index("by_artifactId", ["artifactId"]),
+
+  // ============================================================
+  // VOICE NOTE CLAIMS (v2 Pipeline)
+  // Atomic claims extracted from transcripts, one per entity mention
+  // 15 topic categories, best-effort entity resolution
+  // ============================================================
+  voiceNoteClaims: defineTable({
+    claimId: v.string(),
+    artifactId: v.id("voiceNoteArtifacts"),
+    sourceText: v.string(),
+    timestampStart: v.optional(v.number()),
+    timestampEnd: v.optional(v.number()),
+    topic: v.union(
+      v.literal("injury"),
+      v.literal("skill_rating"),
+      v.literal("skill_progress"),
+      v.literal("behavior"),
+      v.literal("performance"),
+      v.literal("attendance"),
+      v.literal("wellbeing"),
+      v.literal("recovery"),
+      v.literal("development_milestone"),
+      v.literal("physical_development"),
+      v.literal("parent_communication"),
+      v.literal("tactical"),
+      v.literal("team_culture"),
+      v.literal("todo"),
+      v.literal("session_plan")
+    ),
+    title: v.string(),
+    description: v.string(),
+    recommendedAction: v.optional(v.string()),
+    timeReference: v.optional(v.string()),
+
+    entityMentions: v.array(
+      v.object({
+        mentionType: v.union(
+          v.literal("player_name"),
+          v.literal("team_name"),
+          v.literal("group_reference"),
+          v.literal("coach_name")
+        ),
+        rawText: v.string(),
+        position: v.number(),
+      })
+    ),
+
+    resolvedPlayerIdentityId: v.optional(v.id("playerIdentities")),
+    resolvedPlayerName: v.optional(v.string()),
+    resolvedTeamId: v.optional(v.string()),
+    resolvedTeamName: v.optional(v.string()),
+    resolvedAssigneeUserId: v.optional(v.string()),
+    resolvedAssigneeName: v.optional(v.string()),
+
+    severity: v.optional(
+      v.union(
+        v.literal("low"),
+        v.literal("medium"),
+        v.literal("high"),
+        v.literal("critical")
+      )
+    ),
+    sentiment: v.optional(
+      v.union(
+        v.literal("positive"),
+        v.literal("neutral"),
+        v.literal("negative"),
+        v.literal("concerned")
+      )
+    ),
+    skillName: v.optional(v.string()),
+    skillRating: v.optional(v.number()),
+
+    extractionConfidence: v.number(),
+    organizationId: v.string(),
+    coachUserId: v.string(),
+
+    status: v.union(
+      v.literal("extracted"),
+      v.literal("resolving"),
+      v.literal("resolved"),
+      v.literal("needs_disambiguation"),
+      v.literal("merged"),
+      v.literal("discarded"),
+      v.literal("failed")
+    ),
+    createdAt: v.number(),
+    updatedAt: v.number(),
+  })
+    .index("by_artifactId", ["artifactId"])
+    .index("by_artifactId_and_status", ["artifactId", "status"])
+    .index("by_claimId", ["claimId"])
+    .index("by_topic", ["topic"])
+    .index("by_org_and_coach", ["organizationId", "coachUserId"])
+    .index("by_org_and_status", ["organizationId", "status"])
+    .index("by_resolvedPlayerIdentityId", ["resolvedPlayerIdentityId"])
+    .index("by_coachUserId", ["coachUserId"]),
+
+  // ============================================================
+  // VOICE NOTE ENTITY RESOLUTIONS (v2 Pipeline - Phase 5)
+  // Detailed resolution records for entity mentions in claims.
+  // Captures candidates with match reasons for disambiguation.
+  // ============================================================
+  voiceNoteEntityResolutions: defineTable({
+    claimId: v.id("voiceNoteClaims"),
+    artifactId: v.id("voiceNoteArtifacts"),
+    mentionIndex: v.number(),
+    mentionType: v.union(
+      v.literal("player_name"),
+      v.literal("team_name"),
+      v.literal("group_reference"),
+      v.literal("coach_name")
+    ),
+    rawText: v.string(),
+    candidates: v.array(
+      v.object({
+        entityType: v.union(
+          v.literal("player"),
+          v.literal("team"),
+          v.literal("coach")
+        ),
+        entityId: v.string(),
+        entityName: v.string(),
+        score: v.number(),
+        matchReason: v.string(),
+      })
+    ),
+    status: v.union(
+      v.literal("auto_resolved"),
+      v.literal("needs_disambiguation"),
+      v.literal("user_resolved"),
+      v.literal("unresolved")
+    ),
+    resolvedEntityId: v.optional(v.string()),
+    resolvedEntityName: v.optional(v.string()),
+    resolvedAt: v.optional(v.number()),
+    organizationId: v.string(),
+    createdAt: v.number(),
+  })
+    .index("by_claimId", ["claimId"])
+    .index("by_artifactId", ["artifactId"])
+    .index("by_artifactId_and_status", ["artifactId", "status"])
+    .index("by_org_and_status", ["organizationId", "status"]),
+
+  // ============================================================
+  // COACH PLAYER ALIASES (v2 Pipeline - Phase 5, Enhancement E5)
+  // Stores coach-specific name aliases for auto-resolution.
+  // Resolve once, remember forever.
+  // ============================================================
+  coachPlayerAliases: defineTable({
+    coachUserId: v.string(),
+    organizationId: v.string(),
+    rawText: v.string(),
+    resolvedEntityId: v.string(),
+    resolvedEntityName: v.string(),
+    useCount: v.number(),
+    lastUsedAt: v.number(),
+    createdAt: v.number(),
+  })
+    .index("by_coach_org_rawText", ["coachUserId", "organizationId", "rawText"])
+    .index("by_coach_org", ["coachUserId", "organizationId"]),
+
+  // ============================================================
+  // INSIGHT DRAFTS (v2 Pipeline - Phase 6)
+  // Pending insights awaiting coach confirmation before applying
+  // to player records. Each draft has confidence scoring and
+  // supports auto-confirm for trusted coaches.
+  // ============================================================
+  insightDrafts: defineTable({
+    draftId: v.string(),
+    artifactId: v.id("voiceNoteArtifacts"),
+    claimId: v.id("voiceNoteClaims"),
+    playerIdentityId: v.optional(v.id("playerIdentities")),
+    resolvedPlayerName: v.optional(v.string()),
+    insightType: v.union(
+      v.literal("injury"),
+      v.literal("skill_rating"),
+      v.literal("skill_progress"),
+      v.literal("behavior"),
+      v.literal("performance"),
+      v.literal("attendance"),
+      v.literal("wellbeing"),
+      v.literal("recovery"),
+      v.literal("development_milestone"),
+      v.literal("physical_development"),
+      v.literal("parent_communication"),
+      v.literal("tactical"),
+      v.literal("team_culture"),
+      v.literal("todo"),
+      v.literal("session_plan")
+    ),
+    title: v.string(),
+    description: v.string(),
+    evidence: v.object({
+      transcriptSnippet: v.string(),
+      timestampStart: v.optional(v.number()),
+    }),
+    displayOrder: v.number(),
+    aiConfidence: v.number(),
+    resolutionConfidence: v.number(),
+    overallConfidence: v.number(),
+    requiresConfirmation: v.boolean(),
+    status: v.union(
+      v.literal("pending"),
+      v.literal("confirmed"),
+      v.literal("rejected"),
+      v.literal("applied"),
+      v.literal("expired")
+    ),
+    organizationId: v.string(),
+    coachUserId: v.string(),
+    confirmedAt: v.optional(v.number()),
+    appliedAt: v.optional(v.number()),
+    createdAt: v.number(),
+    updatedAt: v.number(),
+  })
+    .index("by_draftId", ["draftId"])
+    .index("by_artifactId", ["artifactId"])
+    .index("by_artifactId_and_status", ["artifactId", "status"])
+    .index("by_org_and_coach_and_status", [
+      "organizationId",
+      "coachUserId",
+      "status",
+    ])
+    .index("by_org_coach_status_createdAt", [
+      "organizationId",
+      "coachUserId",
+      "status",
+      "createdAt",
+    ])
+    .index("by_playerIdentityId_and_status", ["playerIdentityId", "status"]),
 
   // ============================================================
   // PLATFORM STAFF INVITATIONS

@@ -196,6 +196,12 @@ Uses Better Auth's organization plugin with custom extensions:
 
 ## Important Patterns & Conventions
 
+### TypeScript Edit Rule (MANDATORY)
+When adding new imports to TypeScript files, **always add the import AND its usage in the same edit operation**. Never add an import in one edit and the usage in a separate edit — the linter will remove the "unused" import between edits, causing errors on the next edit.
+
+### Branch & Environment Verification
+Before making changes, always verify the current git branch with `git branch --show-current`. For database operations, migrations, or deployments: **always ASK** which environment (dev vs production) — never assume dev.
+
 ### Multi-Tenancy
 All routes are scoped under `/orgs/[orgId]`. Data is filtered by `organizationId` at the database level.
 
@@ -541,6 +547,7 @@ All documentation is organized in the `docs/` folder. See `docs/README.md` for f
 2. Add necessary indexes
 3. Run codegen to verify types
 4. Consider migration if production data exists
+5. **Before removing any field** from a schema or validator, grep for all usages across the codebase first (`grep -r "fieldName" apps/ packages/`). A removed field that's still referenced by API consumers will break production.
 
 ---
 
@@ -619,6 +626,36 @@ When the user indicates we're going to fix bugs, follow this process **before ma
 ### Step 5: Verify and Validate
 - Run `npx -w packages/backend convex codegen` and `npm run check-types` after implementing
 - When the user reports the fix didn't work, DO NOT dismiss the concern -- re-investigate thoroughly with actual command output as evidence
+
+---
+
+## Ralph Agent Orchestration
+
+This project uses **Ralph** — an autonomous coding agent orchestrated via PRD files and phase-based execution.
+
+### Key Paths
+- **PRDs:** `scripts/ralph/prds/` — JSON files defining phases, stories, and acceptance criteria
+- **Agent definitions:** `.claude/agents/` — Claude agent role definitions
+- **Agent output:** `scripts/ralph/agents/output/` — feedback.md, progress logs
+- **Hooks:** `.claude/hooks/` — session-start, quality-check, security-check scripts
+
+### Critical Rules
+- Hook scripts must output to **stdout** (not stderr) for Claude Code to see the output
+- Ralph branches follow naming: `ralph/<feature-name>`
+- Always verify PRD exists and is valid before launching Ralph (`bash scripts/ralph/validate-prd.sh`)
+- Monitor Ralph via git log and file changes, not process status
+
+### Monitoring Commands
+```bash
+# Check Ralph's recent commits
+git log --oneline -10
+
+# Check feedback pending for Ralph
+wc -l scripts/ralph/agents/output/feedback.md
+
+# Validate PRD before launch
+bash scripts/ralph/validate-prd.sh scripts/ralph/prds/<prd-file>.json
+```
 
 ---
 

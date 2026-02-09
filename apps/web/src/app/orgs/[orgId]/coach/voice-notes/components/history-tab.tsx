@@ -324,28 +324,72 @@ export function HistoryTab({
                       </span>
                     </div>
                     <div className="flex items-center gap-1.5 sm:gap-2">
-                      {/* Processing status */}
-                      {(note.transcriptionStatus === "processing" ||
-                        note.insightsStatus === "processing") && (
+                      {/* Processing status - descriptive per stage */}
+                      {note.transcriptionStatus === "pending" &&
+                        note.audioStorageId && (
+                          <Badge
+                            className="flex items-center gap-1 text-xs"
+                            variant="secondary"
+                          >
+                            <Loader2 className="h-3 w-3 animate-spin" />
+                            <span className="hidden sm:inline">Queued</span>
+                          </Badge>
+                        )}
+                      {note.transcriptionStatus === "processing" && (
                         <Badge
                           className="flex items-center gap-1 text-xs"
                           variant="secondary"
                         >
                           <Loader2 className="h-3 w-3 animate-spin" />
-                          <span className="hidden sm:inline">Processing</span>
+                          <span className="hidden sm:inline">Transcribing</span>
+                        </Badge>
+                      )}
+                      {note.transcriptionStatus !== "processing" &&
+                        note.insightsStatus === "pending" &&
+                        note.transcriptionStatus === "completed" && (
+                          <Badge
+                            className="flex items-center gap-1 text-xs"
+                            variant="secondary"
+                          >
+                            <Loader2 className="h-3 w-3 animate-spin" />
+                            <span className="hidden sm:inline">Analyzing</span>
+                          </Badge>
+                        )}
+                      {note.insightsStatus === "processing" && (
+                        <Badge
+                          className="flex items-center gap-1 text-xs"
+                          variant="secondary"
+                        >
+                          <Loader2 className="h-3 w-3 animate-spin" />
+                          <span className="hidden sm:inline">
+                            Extracting insights
+                          </span>
                         </Badge>
                       )}
                       {/* Error status */}
-                      {(note.transcriptionStatus === "failed" ||
-                        note.insightsStatus === "failed") && (
+                      {note.transcriptionStatus === "failed" && (
                         <Badge
                           className="flex items-center gap-1 text-xs"
                           variant="destructive"
                         >
                           <AlertTriangle className="h-3 w-3" />
-                          <span className="hidden sm:inline">Error</span>
+                          <span className="hidden sm:inline">
+                            Transcription failed
+                          </span>
                         </Badge>
                       )}
+                      {note.insightsStatus === "failed" &&
+                        note.transcriptionStatus !== "failed" && (
+                          <Badge
+                            className="flex items-center gap-1 text-xs"
+                            variant="destructive"
+                          >
+                            <AlertTriangle className="h-3 w-3" />
+                            <span className="hidden sm:inline">
+                              Analysis failed
+                            </span>
+                          </Badge>
+                        )}
                       {/* Insights count */}
                       {note.insights.length > 0 ? (
                         <Badge className="text-xs" variant="default">
@@ -353,8 +397,8 @@ export function HistoryTab({
                           {note.insights.length}
                         </Badge>
                       ) : note.insightsStatus === "completed" ? (
-                        <Badge className="text-xs" variant="secondary">
-                          No insights
+                        <Badge className="text-xs" variant="outline">
+                          Processed — no insights
                         </Badge>
                       ) : null}
 
@@ -395,19 +439,41 @@ export function HistoryTab({
                   </div>
 
                   {/* AI Summary & Insights - What the AI extracted */}
-                  {(note.summary || note.insights.length > 0) && (
-                    <div className="mb-3 rounded-lg border-blue-200 border-l-4 bg-blue-50 p-3">
-                      <div className="mb-1.5 flex items-center gap-1.5 text-blue-600 text-xs">
+                  {(note.summary ||
+                    note.insights.length > 0 ||
+                    (note.insightsStatus === "completed" &&
+                      note.insights.length === 0)) && (
+                    <div
+                      className={`mb-3 rounded-lg border-l-4 p-3 ${
+                        note.insights.length > 0
+                          ? "border-blue-200 bg-blue-50"
+                          : "border-gray-200 bg-gray-50"
+                      }`}
+                    >
+                      <div
+                        className={`mb-1.5 flex items-center gap-1.5 text-xs ${note.insights.length > 0 ? "text-blue-600" : "text-gray-500"}`}
+                      >
                         <Lightbulb className="h-3.5 w-3.5" />
                         <span className="font-medium uppercase tracking-wide">
-                          AI Insights
+                          {note.insights.length > 0
+                            ? "AI Insights"
+                            : "AI Analysis"}
                         </span>
                       </div>
                       {/* Summary */}
-                      {note.summary && (
-                        <p className="mb-2 text-blue-900 text-xs italic sm:text-sm">
+                      {note.summary ? (
+                        <p
+                          className={`text-xs italic sm:text-sm ${note.insights.length > 0 ? "mb-2 text-blue-900" : "text-gray-600"}`}
+                        >
                           {note.summary}
                         </p>
+                      ) : (
+                        note.insightsStatus === "completed" &&
+                        note.insights.length === 0 && (
+                          <p className="text-gray-500 text-xs italic sm:text-sm">
+                            No player-specific insights were found in this note.
+                          </p>
+                        )
                       )}
                       {/* Insights badges */}
                       {note.insights.length > 0 && (

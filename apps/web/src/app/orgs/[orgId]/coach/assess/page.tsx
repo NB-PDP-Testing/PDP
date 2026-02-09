@@ -1497,15 +1497,57 @@ export default function AssessPlayerPage() {
             </p>
           </CardContent>
         </Card>
+      ) : assessmentMode === "individual" && filteredPlayers.length > 0 ? (
+        <Card>
+          <CardHeader>
+            <CardTitle className="flex items-center gap-2">
+              <Users className="h-5 w-5 text-emerald-600" />
+              Players ({filteredPlayers.length})
+            </CardTitle>
+            <CardDescription>
+              Select a player to begin recording assessments
+            </CardDescription>
+          </CardHeader>
+          <CardContent>
+            <div className="grid gap-2 sm:grid-cols-2 lg:grid-cols-3">
+              {filteredPlayers.map(({ enrollment, player }, index) => (
+                <button
+                  className="flex items-center gap-3 rounded-lg border border-gray-200 p-3 text-left transition-colors hover:border-emerald-300 hover:bg-emerald-50/50"
+                  key={`${enrollment.playerIdentityId}-${index}`}
+                  onClick={() => {
+                    setSelectedPlayerId(enrollment.playerIdentityId);
+                    setRatings({});
+                    setSavedSkills(new Set());
+                  }}
+                  type="button"
+                >
+                  <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-full bg-emerald-100 font-semibold text-emerald-700 text-sm">
+                    {player.firstName?.[0]}
+                    {player.lastName?.[0]}
+                  </div>
+                  <div className="min-w-0 flex-1">
+                    <p className="truncate font-medium">
+                      {player.firstName} {player.lastName}
+                    </p>
+                    {enrollment.ageGroup && (
+                      <p className="text-muted-foreground text-xs">
+                        {enrollment.ageGroup.toUpperCase()}
+                      </p>
+                    )}
+                  </div>
+                  <ChevronRight className="h-4 w-4 shrink-0 text-muted-foreground" />
+                </button>
+              ))}
+            </div>
+          </CardContent>
+        </Card>
       ) : assessmentMode === "individual" ? (
         <Card className="border-dashed">
           <CardContent className="flex flex-col items-center justify-center py-12 text-center">
             <Target className="mb-4 h-12 w-12 text-muted-foreground" />
-            <h3 className="mb-2 font-semibold text-lg">
-              Select Player & Sport
-            </h3>
+            <h3 className="mb-2 font-semibold text-lg">No Players Found</h3>
             <p className="text-muted-foreground">
-              Choose a player and sport above to begin recording assessments
+              No players match your current filters
             </p>
           </CardContent>
         </Card>

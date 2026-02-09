@@ -172,7 +172,9 @@ export default defineSchema({
 
     // Address (optional)
     address: v.optional(v.string()),
+    address2: v.optional(v.string()), // Phase 0.7: Address line 2 (apt, unit, etc.)
     town: v.optional(v.string()),
+    county: v.optional(v.string()), // Phase 0.7: County/State/Province
     postcode: v.optional(v.string()),
     country: v.optional(v.string()),
 
@@ -202,6 +204,7 @@ export default defineSchema({
     .index("by_email", ["email"])
     .index("by_userId", ["userId"])
     .index("by_phone", ["phone"])
+    .index("by_postcode", ["postcode"])
     .index("by_name", ["lastName", "firstName"]),
 
   // Organization-level: Guardian preferences per org

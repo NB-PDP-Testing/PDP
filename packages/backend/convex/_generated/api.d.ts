@@ -8,14 +8,10 @@
  * @module
  */
 
-import type * as actions_claimsExtraction from "../actions/claimsExtraction.js";
 import type * as actions_coachParentSummaries from "../actions/coachParentSummaries.js";
-import type * as actions_draftGeneration from "../actions/draftGeneration.js";
-import type * as actions_entityResolution from "../actions/entityResolution.js";
 import type * as actions_guardianNotifications from "../actions/guardianNotifications.js";
 import type * as actions_invitations from "../actions/invitations.js";
 import type * as actions_messaging from "../actions/messaging.js";
-import type * as actions_migration from "../actions/migration.js";
 import type * as actions_platformStaffInvitations from "../actions/platformStaffInvitations.js";
 import type * as actions_practicePlans from "../actions/practicePlans.js";
 import type * as actions_sendDemoRequestNotification from "../actions/sendDemoRequestNotification.js";
@@ -35,19 +31,11 @@ import type * as lib_analytics from "../lib/analytics.js";
 import type * as lib_auditCoachAssignments from "../lib/auditCoachAssignments.js";
 import type * as lib_autoApprovalDecision from "../lib/autoApprovalDecision.js";
 import type * as lib_circuitBreaker from "../lib/circuitBreaker.js";
-import type * as lib_coachContext from "../lib/coachContext.js";
 import type * as lib_consentGateway from "../lib/consentGateway.js";
-import type * as lib_duplicateDetection from "../lib/duplicateDetection.js";
-import type * as lib_featureFlags from "../lib/featureFlags.js";
-import type * as lib_feedbackMessages from "../lib/feedbackMessages.js";
 import type * as lib_firstUserSetup from "../lib/firstUserSetup.js";
-import type * as lib_messageValidation from "../lib/messageValidation.js";
+import type * as lib_matching_guardianMatcher from "../lib/matching/guardianMatcher.js";
 import type * as lib_phoneUtils from "../lib/phoneUtils.js";
-import type * as lib_playerMatching from "../lib/playerMatching.js";
-import type * as lib_stringMatching from "../lib/stringMatching.js";
 import type * as lib_trustLevelCalculator from "../lib/trustLevelCalculator.js";
-import type * as lib_whatsappCommandHandler from "../lib/whatsappCommandHandler.js";
-import type * as lib_whatsappCommands from "../lib/whatsappCommands.js";
 import type * as migrations_cleanSlate from "../migrations/cleanSlate.js";
 import type * as migrations_compareIrishDancing from "../migrations/compareIrishDancing.js";
 import type * as migrations_deleteOldIrishDancingSport from "../migrations/deleteOldIrishDancingSport.js";
@@ -76,7 +64,6 @@ import type * as models_cleanupOldData from "../models/cleanupOldData.js";
 import type * as models_coachOverrideAnalytics from "../models/coachOverrideAnalytics.js";
 import type * as models_coachParentMessages from "../models/coachParentMessages.js";
 import type * as models_coachParentSummaries from "../models/coachParentSummaries.js";
-import type * as models_coachPlayerAliases from "../models/coachPlayerAliases.js";
 import type * as models_coachTasks from "../models/coachTasks.js";
 import type * as models_coachTrustLevels from "../models/coachTrustLevels.js";
 import type * as models_coaches from "../models/coaches.js";
@@ -89,7 +76,6 @@ import type * as models_gdpr from "../models/gdpr.js";
 import type * as models_guardianIdentities from "../models/guardianIdentities.js";
 import type * as models_guardianManagement from "../models/guardianManagement.js";
 import type * as models_guardianPlayerLinks from "../models/guardianPlayerLinks.js";
-import type * as models_insightDrafts from "../models/insightDrafts.js";
 import type * as models_invitations from "../models/invitations.js";
 import type * as models_medicalProfiles from "../models/medicalProfiles.js";
 import type * as models_members from "../models/members.js";
@@ -119,7 +105,6 @@ import type * as models_playerSelfAccess from "../models/playerSelfAccess.js";
 import type * as models_players from "../models/players.js";
 import type * as models_rateLimits from "../models/rateLimits.js";
 import type * as models_referenceData from "../models/referenceData.js";
-import type * as models_reviewAnalytics from "../models/reviewAnalytics.js";
 import type * as models_sessionPlans from "../models/sessionPlans.js";
 import type * as models_setup from "../models/setup.js";
 import type * as models_skillAssessments from "../models/skillAssessments.js";
@@ -134,15 +119,11 @@ import type * as models_teamPlayerIdentities from "../models/teamPlayerIdentitie
 import type * as models_teams from "../models/teams.js";
 import type * as models_trustGatePermissions from "../models/trustGatePermissions.js";
 import type * as models_userPreferences from "../models/userPreferences.js";
+import type * as models_userProfiles from "../models/userProfiles.js";
 import type * as models_users from "../models/users.js";
-import type * as models_voiceNoteArtifacts from "../models/voiceNoteArtifacts.js";
-import type * as models_voiceNoteClaims from "../models/voiceNoteClaims.js";
-import type * as models_voiceNoteEntityResolutions from "../models/voiceNoteEntityResolutions.js";
 import type * as models_voiceNoteInsights from "../models/voiceNoteInsights.js";
-import type * as models_voiceNoteTranscripts from "../models/voiceNoteTranscripts.js";
 import type * as models_voiceNotes from "../models/voiceNotes.js";
 import type * as models_whatsappMessages from "../models/whatsappMessages.js";
-import type * as models_whatsappReviewLinks from "../models/whatsappReviewLinks.js";
 import type * as privateData from "../privateData.js";
 import type * as scripts_analyzeReimport from "../scripts/analyzeReimport.js";
 import type * as scripts_bootstrapPlatformStaff from "../scripts/bootstrapPlatformStaff.js";
@@ -155,8 +136,6 @@ import type * as scripts_debugCoachUser from "../scripts/debugCoachUser.js";
 import type * as scripts_debugPlayerData from "../scripts/debugPlayerData.js";
 import type * as scripts_deleteAllPlayers from "../scripts/deleteAllPlayers.js";
 import type * as scripts_deleteUser from "../scripts/deleteUser.js";
-import type * as scripts_disableV2ForOrg from "../scripts/disableV2ForOrg.js";
-import type * as scripts_enableV2ForOrg from "../scripts/enableV2ForOrg.js";
 import type * as scripts_findPlayerByName from "../scripts/findPlayerByName.js";
 import type * as scripts_fixGAATeamSportCodes from "../scripts/fixGAATeamSportCodes.js";
 import type * as scripts_fullReset from "../scripts/fullReset.js";
@@ -167,7 +146,6 @@ import type * as scripts_migrateEnrollmentSport from "../scripts/migrateEnrollme
 import type * as scripts_passportSharingDiagnostics from "../scripts/passportSharingDiagnostics.js";
 import type * as scripts_previewOrgCleanup from "../scripts/previewOrgCleanup.js";
 import type * as scripts_queryExisting from "../scripts/queryExisting.js";
-import type * as scripts_runMigration from "../scripts/runMigration.js";
 import type * as scripts_seed_helpers_playerStages from "../scripts/seed/helpers/playerStages.js";
 import type * as scripts_seed_orchestrator from "../scripts/seed/orchestrator.js";
 import type * as scripts_seed_passports from "../scripts/seed/passports.js";
@@ -178,7 +156,6 @@ import type * as scripts_seedUATData from "../scripts/seedUATData.js";
 import type * as scripts_setCurrentOrg from "../scripts/setCurrentOrg.js";
 import type * as scripts_stagedReset from "../scripts/stagedReset.js";
 import type * as scripts_updateTeamObservationCoachNames from "../scripts/updateTeamObservationCoachNames.js";
-import type * as scripts_v2MigrationStatus from "../scripts/v2MigrationStatus.js";
 import type * as scripts_validateTeamAssignments from "../scripts/validateTeamAssignments.js";
 import type * as scripts_verifyUATSetup from "../scripts/verifyUATSetup.js";
 import type * as seed_defaultRateLimits from "../seed/defaultRateLimits.js";
@@ -192,14 +169,10 @@ import type {
 } from "convex/server";
 
 declare const fullApi: ApiFromModules<{
-  "actions/claimsExtraction": typeof actions_claimsExtraction;
   "actions/coachParentSummaries": typeof actions_coachParentSummaries;
-  "actions/draftGeneration": typeof actions_draftGeneration;
-  "actions/entityResolution": typeof actions_entityResolution;
   "actions/guardianNotifications": typeof actions_guardianNotifications;
   "actions/invitations": typeof actions_invitations;
   "actions/messaging": typeof actions_messaging;
-  "actions/migration": typeof actions_migration;
   "actions/platformStaffInvitations": typeof actions_platformStaffInvitations;
   "actions/practicePlans": typeof actions_practicePlans;
   "actions/sendDemoRequestNotification": typeof actions_sendDemoRequestNotification;
@@ -219,19 +192,11 @@ declare const fullApi: ApiFromModules<{
   "lib/auditCoachAssignments": typeof lib_auditCoachAssignments;
   "lib/autoApprovalDecision": typeof lib_autoApprovalDecision;
   "lib/circuitBreaker": typeof lib_circuitBreaker;
-  "lib/coachContext": typeof lib_coachContext;
   "lib/consentGateway": typeof lib_consentGateway;
-  "lib/duplicateDetection": typeof lib_duplicateDetection;
-  "lib/featureFlags": typeof lib_featureFlags;
-  "lib/feedbackMessages": typeof lib_feedbackMessages;
   "lib/firstUserSetup": typeof lib_firstUserSetup;
-  "lib/messageValidation": typeof lib_messageValidation;
+  "lib/matching/guardianMatcher": typeof lib_matching_guardianMatcher;
   "lib/phoneUtils": typeof lib_phoneUtils;
-  "lib/playerMatching": typeof lib_playerMatching;
-  "lib/stringMatching": typeof lib_stringMatching;
   "lib/trustLevelCalculator": typeof lib_trustLevelCalculator;
-  "lib/whatsappCommandHandler": typeof lib_whatsappCommandHandler;
-  "lib/whatsappCommands": typeof lib_whatsappCommands;
   "migrations/cleanSlate": typeof migrations_cleanSlate;
   "migrations/compareIrishDancing": typeof migrations_compareIrishDancing;
   "migrations/deleteOldIrishDancingSport": typeof migrations_deleteOldIrishDancingSport;
@@ -260,7 +225,6 @@ declare const fullApi: ApiFromModules<{
   "models/coachOverrideAnalytics": typeof models_coachOverrideAnalytics;
   "models/coachParentMessages": typeof models_coachParentMessages;
   "models/coachParentSummaries": typeof models_coachParentSummaries;
-  "models/coachPlayerAliases": typeof models_coachPlayerAliases;
   "models/coachTasks": typeof models_coachTasks;
   "models/coachTrustLevels": typeof models_coachTrustLevels;
   "models/coaches": typeof models_coaches;
@@ -273,7 +237,6 @@ declare const fullApi: ApiFromModules<{
   "models/guardianIdentities": typeof models_guardianIdentities;
   "models/guardianManagement": typeof models_guardianManagement;
   "models/guardianPlayerLinks": typeof models_guardianPlayerLinks;
-  "models/insightDrafts": typeof models_insightDrafts;
   "models/invitations": typeof models_invitations;
   "models/medicalProfiles": typeof models_medicalProfiles;
   "models/members": typeof models_members;
@@ -303,7 +266,6 @@ declare const fullApi: ApiFromModules<{
   "models/players": typeof models_players;
   "models/rateLimits": typeof models_rateLimits;
   "models/referenceData": typeof models_referenceData;
-  "models/reviewAnalytics": typeof models_reviewAnalytics;
   "models/sessionPlans": typeof models_sessionPlans;
   "models/setup": typeof models_setup;
   "models/skillAssessments": typeof models_skillAssessments;
@@ -318,15 +280,11 @@ declare const fullApi: ApiFromModules<{
   "models/teams": typeof models_teams;
   "models/trustGatePermissions": typeof models_trustGatePermissions;
   "models/userPreferences": typeof models_userPreferences;
+  "models/userProfiles": typeof models_userProfiles;
   "models/users": typeof models_users;
-  "models/voiceNoteArtifacts": typeof models_voiceNoteArtifacts;
-  "models/voiceNoteClaims": typeof models_voiceNoteClaims;
-  "models/voiceNoteEntityResolutions": typeof models_voiceNoteEntityResolutions;
   "models/voiceNoteInsights": typeof models_voiceNoteInsights;
-  "models/voiceNoteTranscripts": typeof models_voiceNoteTranscripts;
   "models/voiceNotes": typeof models_voiceNotes;
   "models/whatsappMessages": typeof models_whatsappMessages;
-  "models/whatsappReviewLinks": typeof models_whatsappReviewLinks;
   privateData: typeof privateData;
   "scripts/analyzeReimport": typeof scripts_analyzeReimport;
   "scripts/bootstrapPlatformStaff": typeof scripts_bootstrapPlatformStaff;
@@ -339,8 +297,6 @@ declare const fullApi: ApiFromModules<{
   "scripts/debugPlayerData": typeof scripts_debugPlayerData;
   "scripts/deleteAllPlayers": typeof scripts_deleteAllPlayers;
   "scripts/deleteUser": typeof scripts_deleteUser;
-  "scripts/disableV2ForOrg": typeof scripts_disableV2ForOrg;
-  "scripts/enableV2ForOrg": typeof scripts_enableV2ForOrg;
   "scripts/findPlayerByName": typeof scripts_findPlayerByName;
   "scripts/fixGAATeamSportCodes": typeof scripts_fixGAATeamSportCodes;
   "scripts/fullReset": typeof scripts_fullReset;
@@ -351,7 +307,6 @@ declare const fullApi: ApiFromModules<{
   "scripts/passportSharingDiagnostics": typeof scripts_passportSharingDiagnostics;
   "scripts/previewOrgCleanup": typeof scripts_previewOrgCleanup;
   "scripts/queryExisting": typeof scripts_queryExisting;
-  "scripts/runMigration": typeof scripts_runMigration;
   "scripts/seed/helpers/playerStages": typeof scripts_seed_helpers_playerStages;
   "scripts/seed/orchestrator": typeof scripts_seed_orchestrator;
   "scripts/seed/passports": typeof scripts_seed_passports;
@@ -362,7 +317,6 @@ declare const fullApi: ApiFromModules<{
   "scripts/setCurrentOrg": typeof scripts_setCurrentOrg;
   "scripts/stagedReset": typeof scripts_stagedReset;
   "scripts/updateTeamObservationCoachNames": typeof scripts_updateTeamObservationCoachNames;
-  "scripts/v2MigrationStatus": typeof scripts_v2MigrationStatus;
   "scripts/validateTeamAssignments": typeof scripts_validateTeamAssignments;
   "scripts/verifyUATSetup": typeof scripts_verifyUATSetup;
   "seed/defaultRateLimits": typeof seed_defaultRateLimits;
@@ -646,13 +600,13 @@ export declare const components: {
                     | "profileCompletionStatus"
                     | "profileCompletedAt"
                     | "profileSkipCount"
-                    | "wasInvited"
-                    | "noChildrenAcknowledged"
                     | "onboardingComplete"
+                    | "wasInvited"
                     | "lastChildrenCheckAt"
                     | "parentOnboardingDismissCount"
                     | "parentOnboardingLastDismissedAt"
                     | "childLinkingSkipCount"
+                    | "noChildrenAcknowledged"
                     | "currentOrgId"
                     | "gdprConsentVersion"
                     | "gdprConsentedAt"
@@ -1089,13 +1043,13 @@ export declare const components: {
                     | "profileCompletionStatus"
                     | "profileCompletedAt"
                     | "profileSkipCount"
-                    | "wasInvited"
-                    | "noChildrenAcknowledged"
                     | "onboardingComplete"
+                    | "wasInvited"
                     | "lastChildrenCheckAt"
                     | "parentOnboardingDismissCount"
                     | "parentOnboardingLastDismissedAt"
                     | "childLinkingSkipCount"
+                    | "noChildrenAcknowledged"
                     | "currentOrgId"
                     | "gdprConsentVersion"
                     | "gdprConsentedAt"
@@ -1655,13 +1609,13 @@ export declare const components: {
                     | "profileCompletionStatus"
                     | "profileCompletedAt"
                     | "profileSkipCount"
-                    | "wasInvited"
-                    | "noChildrenAcknowledged"
                     | "onboardingComplete"
+                    | "wasInvited"
                     | "lastChildrenCheckAt"
                     | "parentOnboardingDismissCount"
                     | "parentOnboardingLastDismissedAt"
                     | "childLinkingSkipCount"
+                    | "noChildrenAcknowledged"
                     | "currentOrgId"
                     | "gdprConsentVersion"
                     | "gdprConsentedAt"
@@ -2271,13 +2225,13 @@ export declare const components: {
                     | "profileCompletionStatus"
                     | "profileCompletedAt"
                     | "profileSkipCount"
-                    | "wasInvited"
-                    | "noChildrenAcknowledged"
                     | "onboardingComplete"
+                    | "wasInvited"
                     | "lastChildrenCheckAt"
                     | "parentOnboardingDismissCount"
                     | "parentOnboardingLastDismissedAt"
                     | "childLinkingSkipCount"
+                    | "noChildrenAcknowledged"
                     | "currentOrgId"
                     | "gdprConsentVersion"
                     | "gdprConsentedAt"
@@ -2841,11 +2795,33 @@ export declare const components: {
         { userId: string },
         any
       >;
+      skipProfileCompletionStep: FunctionReference<
+        "mutation",
+        "internal",
+        { currentSkipCount: number; userId: string },
+        { canSkipAgain: boolean; skipCount: number }
+      >;
       updateOnboardingComplete: FunctionReference<
         "mutation",
         "internal",
         { onboardingComplete: boolean; userId: string },
         null
+      >;
+      updateProfileCompletion: FunctionReference<
+        "mutation",
+        "internal",
+        {
+          address?: string;
+          address2?: string;
+          altEmail?: string;
+          country?: string;
+          county?: string;
+          phone?: string;
+          postcode?: string;
+          town?: string;
+          userId: string;
+        },
+        { profileCompletedAt: number; success: boolean }
       >;
       updateUserProfile: FunctionReference<
         "mutation",

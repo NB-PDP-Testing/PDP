@@ -32,6 +32,10 @@ import { authClient } from "@/lib/auth-client";
 import { type ChildLink, ChildLinkingStep } from "./child-linking-step";
 import { OnboardingErrorBoundary } from "./error-boundary";
 import { GdprConsentStep } from "./gdpr-consent-step";
+import {
+  type ProfileCompletionData,
+  ProfileCompletionStep,
+} from "./profile-completion-step";
 import { UnifiedGuardianClaimStep } from "./unified-guardian-claim-step";
 import { UnifiedInvitationStep } from "./unified-invitation-step";
 
@@ -40,6 +44,7 @@ type OnboardingTask = {
   type:
     | "gdpr_consent"
     | "accept_invitation"
+    | "profile_completion"
     | "guardian_claim"
     | "child_linking"
     | "player_graduation"
@@ -92,6 +97,21 @@ type ChildLinkingTaskData = {
   skipCount?: number; // Phase 6: How many times user has skipped (max 3)
 };
 
+// Type for profile_completion task data (Phase 0: Onboarding Sync, Phase 0.6: Address Collection)
+type ProfileCompletionTaskData = {
+  currentPhone?: string;
+  currentPostcode?: string;
+  currentAltEmail?: string;
+  currentAddress?: string;
+  currentAddress2?: string;
+  currentTown?: string;
+  currentCounty?: string;
+  currentCountry?: string;
+  skipCount: number;
+  canSkip: boolean;
+  reason: string;
+};
+
 // Type for accept_invitation task data
 type AcceptInvitationTaskData = {
   invitations: Array<{
@@ -125,11 +145,13 @@ function OnboardingStepRenderer({
   userId,
   userEmail,
   onComplete,
+  onSkip,
 }: {
   task: OnboardingTask;
   userId: string | undefined;
   userEmail: string | undefined;
   onComplete: () => void;
+  onSkip: () => void;
 }) {
   // Get current GDPR version for GDPR consent task
   const gdprVersion = useQuery(api.models.gdpr.getCurrentGdprVersion);
@@ -142,6 +164,33 @@ function OnboardingStepRenderer({
     }
 
     return <GdprConsentStep gdprVersion={gdprVersion} onAccept={onComplete} />;
+  }
+
+  // Handle profile_completion task (Phase 0: Onboarding Sync, Phase 0.6: Address Collection)
+  // This step collects phone, postcode, alternate email, and full address for multi-signal matching
+  if (task.type === "profile_completion") {
+    const data = task.data as ProfileCompletionTaskData;
+    const profileData: ProfileCompletionData = {
+      currentPhone: data.currentPhone,
+      currentPostcode: data.currentPostcode,
+      currentAltEmail: data.currentAltEmail,
+      currentAddress: data.currentAddress,
+      currentAddress2: data.currentAddress2,
+      currentTown: data.currentTown,
+      currentCounty: data.currentCounty,
+      currentCountry: data.currentCountry,
+      skipCount: data.skipCount,
+      canSkip: data.canSkip,
+      reason: data.reason,
+    };
+
+    return (
+      <ProfileCompletionStep
+        data={profileData}
+        onComplete={onComplete}
+        onSkip={onSkip}
+      />
+    );
   }
 
   // Handle accept_invitation task with UnifiedInvitationStep
@@ -241,6 +290,8 @@ function OnboardingStepRenderer({
         return "Privacy Policy";
       case "accept_invitation":
         return "Pending Invitation";
+      case "profile_completion":
+        return "Additional Information";
       case "guardian_claim":
         return "Claim Your Guardian Profile";
       case "child_linking":
@@ -260,6 +311,8 @@ function OnboardingStepRenderer({
         return "Please review and accept our privacy policy to continue.";
       case "accept_invitation":
         return "You have pending organization invitations to review.";
+      case "profile_completion":
+        return "Please provide additional information to complete your profile.";
       case "guardian_claim":
         return "We found a guardian profile that matches your email. Claim it to see your children.";
       case "child_linking":
@@ -327,10 +380,19 @@ export function OnboardingOrchestrator({
   children,
 }: OnboardingOrchestratorProps) {
   const { data: session } = authClient.useSession();
-  const tasks = useQuery(api.models.onboarding.getOnboardingTasks);
+  const rawTasks = useQuery(api.models.onboarding.getOnboardingTasks);
   const [currentStepIndex, setCurrentStepIndex] = useState(0);
-  const [dismissed, setDismissed] = useState(false);
+  const [sessionSkipped, setSessionSkipped] = useState<Set<string>>(() => {
+    if (typeof window === "undefined") {
+      return new Set();
+    }
+    const stored = sessionStorage.getItem("onboarding_skipped");
+    return stored ? new Set(JSON.parse(stored)) : new Set();
+  });
   const { track } = useAnalytics();
+
+  // Filter out tasks the user has already skipped this session
+  const tasks = rawTasks?.filter((t) => !sessionSkipped.has(t.type));
 
   // Track when onboarding starts and steps are shown
   const stepStartTimeRef = useRef<number>(Date.now());
@@ -341,6 +403,17 @@ export function OnboardingOrchestrator({
   const userId = session?.user?.id;
   const userEmail = session?.user?.email;
 
+  // Reset step index when tasks change (e.g., after completing a step, the query re-fetches)
+  // This handles the race condition where:
+  // 1. User completes step → currentStepIndex increments
+  // 2. Query re-fetches → returns shorter array (completed task removed)
+  // 3. currentStepIndex now points past the array bounds
+  useEffect(() => {
+    if (tasks && currentStepIndex >= tasks.length) {
+      setCurrentStepIndex(0);
+    }
+  }, [tasks, currentStepIndex]);
+
   // Track onboarding started (once when tasks first load)
   useEffect(() => {
     if (tasks && tasks.length > 0 && !onboardingTrackedRef.current) {
@@ -349,6 +422,26 @@ export function OnboardingOrchestrator({
         total_steps: tasks.length,
         first_step: tasks[0]?.type ?? "unknown",
       });
+    }
+  }, [tasks, track]);
+
+  // Track onboarding completed when tasks array becomes empty
+  // (after previously having tasks)
+  const prevTasksLengthRef = useRef<number | undefined>(undefined);
+  useEffect(() => {
+    if (tasks !== undefined) {
+      // If we previously had tasks and now have none, onboarding is complete
+      if (
+        prevTasksLengthRef.current !== undefined &&
+        prevTasksLengthRef.current > 0 &&
+        tasks.length === 0
+      ) {
+        track(AnalyticsEvents.ONBOARDING_COMPLETED, {
+          total_steps: prevTasksLengthRef.current,
+          steps_completed: prevTasksLengthRef.current,
+        });
+      }
+      prevTasksLengthRef.current = tasks.length;
     }
   }, [tasks, track]);
 
@@ -364,7 +457,10 @@ export function OnboardingOrchestrator({
     }
   }, [currentTask, currentStepIndex, tasks?.length, track]);
 
-  // Handle step completion - move to next step or finish
+  // Handle step completion - move to next step or let query re-fetch
+  // IMPORTANT: Don't dismiss immediately! The Convex query will re-fetch
+  // and may return new tasks (e.g., guardian_claim after profile_completion).
+  // We only dismiss when the query returns an empty array.
   const handleStepComplete = () => {
     const durationSeconds = Math.round(
       (Date.now() - stepStartTimeRef.current) / 1000
@@ -378,28 +474,36 @@ export function OnboardingOrchestrator({
       });
     }
 
-    if (tasks && currentStepIndex < tasks.length - 1) {
-      // Move to next task
-      setCurrentStepIndex((prev) => prev + 1);
-    } else {
-      // All tasks complete, dismiss the orchestrator
-      track(AnalyticsEvents.ONBOARDING_COMPLETED, {
-        total_steps: tasks?.length ?? 0,
-        steps_completed: currentStepIndex + 1,
+    // Always reset to step 0 - the query will re-fetch and return
+    // either new tasks or an empty array. The useEffect will handle
+    // updating the step index if needed.
+    setCurrentStepIndex(0);
+  };
+
+  // Handle step skip - dismiss for this browser session via sessionStorage
+  const handleStepSkipped = () => {
+    if (currentTask) {
+      const updated = new Set(sessionSkipped);
+      updated.add(currentTask.type);
+      setSessionSkipped(updated);
+      sessionStorage.setItem(
+        "onboarding_skipped",
+        JSON.stringify([...updated])
+      );
+
+      track(AnalyticsEvents.ONBOARDING_STEP_SKIPPED, {
+        step_id: currentTask.type,
+        step_number: currentStepIndex + 1,
       });
-      setDismissed(true);
     }
+    setCurrentStepIndex(0);
   };
 
   // Don't show anything if:
   // - Tasks are still loading (undefined)
-  // - No tasks to show
-  // - User has dismissed the orchestrator
+  // - No tasks to show (query returns empty array when all complete)
   const shouldShowModal =
-    tasks !== undefined &&
-    tasks.length > 0 &&
-    currentTask !== undefined &&
-    !dismissed;
+    tasks !== undefined && tasks.length > 0 && currentTask !== undefined;
 
   // Determine onboarding status for data attributes
   const isOnboardingComplete = tasks !== undefined && tasks.length === 0;
@@ -421,6 +525,7 @@ export function OnboardingOrchestrator({
           <div data-testid="onboarding-wizard">
             <OnboardingStepRenderer
               onComplete={handleStepComplete}
+              onSkip={handleStepSkipped}
               task={currentTask}
               userEmail={userEmail}
               userId={userId}

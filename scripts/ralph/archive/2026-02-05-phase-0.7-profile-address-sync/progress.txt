@@ -1,0 +1,113 @@
+# Ralph Progress Log
+Started: Thu  5 Feb 2026 08:22:23 GMT
+---
+
+## Codebase Patterns
+**Last Updated**: Thu  5 Feb 2026 - Iteration 1
+
+### Architecture
+- All routes scoped under `/orgs/[orgId]/`
+- Use Better Auth for authentication, Convex for backend
+- Organization data isolated via organizationId field
+- User table is single source of truth for profile data
+
+### Convex Backend Patterns
+- NEVER use `.filter()` - always use `.withIndex()`
+- All functions need `args` and `returns` validators
+- Use `Id<"tableName">` types, not `string`
+- Index names include all fields: `by_orgId_and_status`
+- Use `ctx.runMutation(components.betterAuth.adapter.updateOne, ...)` for Better Auth tables
+
+### Frontend Patterns
+- Use shadcn/ui components from `@/components/ui`
+- CurrentUser type in `current-user-provider.tsx` defines what fields are available from useCurrentUser hook
+- Address data constants in `@/lib/constants/address-data.ts` for country/county dropdowns
+- Profile Settings uses updateProfileWithSync mutation for address sync
+- Guardian Settings displays address read-only (editing via Profile Settings)
+
+### Quality Checks
+- Run in order: `npm run check-types` → `npx ultracite fix` → `npm run check`
+- Convex codegen: `npx -w packages/backend convex codegen`
+- Pre-existing type errors in remotion/framer-motion/react-hotkeys-hook (missing optional modules)
+
+### File Locations (discovered during work)
+- User table schema: `packages/backend/convex/betterAuth/schema.ts`
+- Guardian identities: `packages/backend/convex/models/guardianIdentities.ts`
+- Profile mutations: `packages/backend/convex/models/userProfiles.ts`
+- Address constants: `apps/web/src/lib/constants/address-data.ts`
+- Profile Settings: `apps/web/src/components/profile/profile-settings-dialog.tsx`
+- Guardian Settings: `apps/web/src/app/orgs/[orgId]/parents/components/guardian-settings.tsx`
+- CurrentUser type: `apps/web/src/providers/current-user-provider.tsx`
+
+---
+
+## Thu  5 Feb 2026 - Phase 0.7 - User Profile Address Management & Data Sync
+**Iteration**: 1
+**Commit**: 84fadfabb390c553a3935432f63f98b8a5dd8835
+**Status**: Complete
+
+### What was implemented
+All 6 user stories completed:
+
+1. **US-P0.7-001**: Added address2 and county fields to guardianIdentities schema
+   - Schema updated in schema.ts
+   - guardianIdentityValidator updated
+   - createGuardianIdentity, updateGuardianIdentity, findOrCreateGuardian mutations updated
+
+2. **US-P0.7-002**: Created updateProfileWithSync mutation
+   - New mutation in userProfiles.ts
+   - Updates user table and syncs to guardianIdentities automatically
+   - Uses normalizePhone and normalizePostcode for consistency
+
+3. **US-P0.7-003**: Updated linkGuardianToUser to copy address on claim
+   - When user claims guardian, address is copied if user has no existing address
+   - Respects existing user data (no overwrite)
+
+4. **US-P0.7-004**: Expanded ProfileSettingsDialog with address fields
+   - Full address editing section with Street, Line 2, Town, Postcode, County, Country
+   - Dynamic county dropdown (IE counties, US states, text input for others)
+   - Country dropdown with IE/UK/US at top
+   - Postcode auto-uppercase
+   - Uses updateProfileWithSync for automatic guardian sync
+
+5. **US-P0.7-005**: Updated Guardian Settings to display address
+   - Read-only address display in "Your Profile" card
+   - Only shows if any address field has data
+   - Country displayed as full name
+
+6. **US-P0.7-006**: End-to-end testing and verification
+   - All quality checks pass (linting, codegen)
+   - Type check passes (except pre-existing module errors)
+   - Added address fields to CurrentUser type
+
+### Files changed
+- packages/backend/convex/schema.ts (+6 lines - address2, county fields)
+- packages/backend/convex/models/guardianIdentities.ts (+80 lines - validators, mutations, linkGuardianToUser)
+- packages/backend/convex/models/userProfiles.ts (+147 lines - updateProfileWithSync mutation)
+- apps/web/src/components/profile/profile-settings-dialog.tsx (+246 lines - address UI)
+- apps/web/src/app/orgs/[orgId]/parents/components/guardian-settings.tsx (+59 lines - address display)
+- apps/web/src/providers/current-user-provider.tsx (+7 lines - address fields in type)
+
+### Quality checks
+- ✅ Convex codegen: passed
+- ✅ Linting: passed (ultracite fix applied)
+- ⚠️ Type check: pre-existing errors in remotion/framer-motion modules, our changes type-check correctly
+
+### **Learnings for future iterations** ⚠️ CRITICAL
+**Patterns discovered:**
+- Better Auth user table updates require `ctx.runMutation(components.betterAuth.adapter.updateOne, ...)`
+- CurrentUser type in `current-user-provider.tsx` must be updated when adding new user fields
+- Address form reusable pattern: use `getCountyOptions()` for IE/US dropdown logic, `getCountryName()` for display
+
+**Gotchas encountered:**
+- useCurrentUser hook returns typed object - must update CurrentUser type when adding new fields
+- Pre-existing type errors in codebase (remotion, framer-motion) - these are OK to ignore
+
+**Dependencies found:**
+- ProfileSettingsDialog depends on updateProfileWithSync mutation
+- Guardian Settings depends on guardianIdentity object having address fields in type
+
+**Mistakes made:**
+- Initially forgot to update CurrentUser type, caused TypeScript errors
+
+---

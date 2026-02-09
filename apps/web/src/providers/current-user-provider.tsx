@@ -21,6 +21,13 @@ type CurrentUser = {
   firstName?: string;
   lastName?: string;
   phone?: string;
+  // Address fields (Phase 0.7)
+  address?: string;
+  address2?: string;
+  town?: string;
+  county?: string;
+  postcode?: string;
+  country?: string;
   onboardingComplete?: boolean;
   lastChildrenCheckAt?: number;
   parentOnboardingDismissCount?: number;
@@ -31,6 +38,14 @@ type CurrentUser = {
   gdprConsentedAt?: number;
   setupComplete?: boolean;
   setupStep?: string;
+  // Profile completion fields (Phase 0)
+  altEmail?: string;
+  profileCompletionStatus?: "pending" | "completed" | "skipped";
+  profileCompletedAt?: number;
+  profileSkipCount?: number;
+  noChildrenAcknowledged?: boolean;
+  // Invitation tracking (Phase 0.8)
+  wasInvited?: boolean;
 } | null;
 
 type CurrentUserContextType = {

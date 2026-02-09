@@ -783,6 +783,13 @@ export const getFullPlayerPassportView = query({
       playerType: player.playerType, // "youth" or "adult"
       season: enrollment.season ?? primaryPassport?.currentSeason ?? "2024-25",
       dateOfBirth: player.dateOfBirth,
+      // Contact and address info
+      email: player.email,
+      phone: player.phone,
+      address: player.address,
+      town: player.town,
+      postcode: player.postcode,
+      country: player.country,
       // Position and fitness info
       preferredPosition: primaryPassport?.primaryPosition,
       secondaryPositions: primaryPassport?.secondaryPositions ?? [],

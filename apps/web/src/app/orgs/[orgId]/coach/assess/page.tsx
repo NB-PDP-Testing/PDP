@@ -715,22 +715,24 @@ export default function AssessPlayerPage() {
         </div>
       </OrgThemedGradient>
 
-      {/* Search, Filter & Assessment Options */}
+      {/* Search and Filters */}
       <Card>
         <CardContent className="pt-6">
           <div className="flex flex-col gap-4">
-            {/* Primary: Search and Team */}
+            {/* Search */}
+            <div className="relative">
+              <Search className="-translate-y-1/2 absolute top-1/2 left-3 h-4 w-4 text-muted-foreground" />
+              <Input
+                className="pl-9"
+                onChange={(e) => setSearchQuery(e.target.value)}
+                placeholder="Search by player name..."
+                value={searchQuery}
+              />
+            </div>
+
+            {/* Filters: Team and Sport side by side */}
             <div className="flex flex-col gap-3 sm:flex-row">
-              <div className="relative flex-1">
-                <Search className="-translate-y-1/2 absolute top-1/2 left-3 h-4 w-4 text-muted-foreground" />
-                <Input
-                  className="pl-9"
-                  onChange={(e) => setSearchQuery(e.target.value)}
-                  placeholder="Search by player name..."
-                  value={searchQuery}
-                />
-              </div>
-              <div className="sm:w-56">
+              <div className="flex-1">
                 <Select
                   onValueChange={(value) => {
                     setSelectedTeamId(value === "all" ? null : value);
@@ -769,11 +771,7 @@ export default function AssessPlayerPage() {
                   </SelectContent>
                 </Select>
               </div>
-            </div>
-
-            {/* Secondary: Sport */}
-            <div className="flex flex-wrap gap-3">
-              <div className="w-full sm:w-auto sm:min-w-[160px]">
+              <div className="flex-1">
                 <Select
                   onValueChange={(value) => {
                     setSelectedSportCode(value);
@@ -795,13 +793,6 @@ export default function AssessPlayerPage() {
                   </SelectContent>
                 </Select>
               </div>
-              {selectedTeamId &&
-                coachAssignments &&
-                selectedSportCode !== "all" && (
-                  <p className="self-center text-muted-foreground text-xs">
-                    Sport auto-selected from team
-                  </p>
-                )}
             </div>
 
             {/* Results count */}

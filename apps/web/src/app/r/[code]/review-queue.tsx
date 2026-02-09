@@ -23,6 +23,13 @@ import { useCallback, useEffect, useState } from "react";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
+import {
+  Empty,
+  EmptyContent,
+  EmptyDescription,
+  EmptyMedia,
+  EmptyTitle,
+} from "@/components/ui/empty";
 import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
 import { BatchActionBar } from "./batch-action-bar";
@@ -323,6 +330,20 @@ export function ReviewQueue({
         </ReviewSection>
       )}
 
+      {injuries.length === 0 && (
+        <Empty>
+          <EmptyContent>
+            <EmptyMedia variant="icon">
+              <Shield className="h-6 w-6" />
+            </EmptyMedia>
+            <EmptyTitle>All clear! 🎉</EmptyTitle>
+            <EmptyDescription>
+              No injuries to review right now.
+            </EmptyDescription>
+          </EmptyContent>
+        </Empty>
+      )}
+
       {unmatched.length > 0 && (
         <ReviewSection
           borderColor="border-l-amber-500"
@@ -358,6 +379,20 @@ export function ReviewQueue({
             </SwipeableReviewCard>
           ))}
         </ReviewSection>
+      )}
+
+      {unmatched.length === 0 && (
+        <Empty>
+          <EmptyContent>
+            <EmptyMedia variant="icon">
+              <CheckCircle2 className="h-6 w-6" />
+            </EmptyMedia>
+            <EmptyTitle>All players matched! 🎉</EmptyTitle>
+            <EmptyDescription>
+              All insights have been successfully matched to players.
+            </EmptyDescription>
+          </EmptyContent>
+        </Empty>
       )}
 
       {needsReview.length > 0 && (
@@ -412,6 +447,20 @@ export function ReviewQueue({
             </SwipeableReviewCard>
           ))}
         </ReviewSection>
+      )}
+
+      {needsReview.length === 0 && (
+        <Empty>
+          <EmptyContent>
+            <EmptyMedia variant="icon">
+              <CheckCircle2 className="h-6 w-6" />
+            </EmptyMedia>
+            <EmptyTitle>All caught up! ✅</EmptyTitle>
+            <EmptyDescription>
+              No items pending review at this time.
+            </EmptyDescription>
+          </EmptyContent>
+        </Empty>
       )}
 
       {todos.length > 0 && (
@@ -470,6 +519,20 @@ export function ReviewQueue({
         </ReviewSection>
       )}
 
+      {todos.length === 0 && (
+        <Empty>
+          <EmptyContent>
+            <EmptyMedia variant="icon">
+              <ClipboardList className="h-6 w-6" />
+            </EmptyMedia>
+            <EmptyTitle>No action items 🎯</EmptyTitle>
+            <EmptyDescription>
+              No todos or action items to review.
+            </EmptyDescription>
+          </EmptyContent>
+        </Empty>
+      )}
+
       {teamNotes.length > 0 && (
         <ReviewSection
           batchAction={
@@ -524,6 +587,20 @@ export function ReviewQueue({
             </SwipeableReviewCard>
           ))}
         </ReviewSection>
+      )}
+
+      {teamNotes.length === 0 && (
+        <Empty>
+          <EmptyContent>
+            <EmptyMedia variant="icon">
+              <Users className="h-6 w-6" />
+            </EmptyMedia>
+            <EmptyTitle>No team notes ✨</EmptyTitle>
+            <EmptyDescription>
+              No team notes to review at this time.
+            </EmptyDescription>
+          </EmptyContent>
+        </Empty>
       )}
 
       {autoApplied.length > 0 && <AutoAppliedSection items={autoApplied} />}

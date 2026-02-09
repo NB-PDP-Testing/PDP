@@ -174,11 +174,11 @@ describe("calculateMatchScore", () => {
     expect(score).toBeGreaterThanOrEqual(0.9);
   });
 
-  it("should handle Niamh vs Neeve with low similarity", () => {
-    // Levenshtein can't handle phonetic equivalence (Niamh="Neeve")
-    // This is a known limitation - phonetic matching is separate concern
+  it("should handle Niamh vs Neeve with Irish alias boost", () => {
+    // With Irish aliases, "Neeve" and "Niamh" both map to "niamh" canonical form
+    // calculateMatchScore checks alias equivalence and boosts to 0.9
     const score = calculateMatchScore("Neeve", "Niamh", "O'Sullivan");
-    expect(score).toBeGreaterThanOrEqual(0.1);
+    expect(score).toBeGreaterThanOrEqual(0.9);
   });
 
   it("should handle Pádraig vs Paddy", () => {
@@ -195,6 +195,251 @@ describe("calculateMatchScore", () => {
     // "Murphy John" matches reversed full name "murphy john" with 1.0
     const score = calculateMatchScore("Murphy John", "John", "Murphy");
     expect(score).toBeGreaterThanOrEqual(0.9);
+  });
+});
+
+// ============================================================
+// IRISH NAME ALIAS MATCHING (Expanded 2026-02-09)
+// ============================================================
+
+describe("Irish name aliases", () => {
+  describe("Girls' names", () => {
+    it("should match Niamh variations", () => {
+      expect(
+        calculateMatchScore("Neeve", "Niamh", "Kelly")
+      ).toBeGreaterThanOrEqual(0.9);
+      expect(
+        calculateMatchScore("Neve", "Niamh", "Kelly")
+      ).toBeGreaterThanOrEqual(0.9);
+      expect(
+        calculateMatchScore("Nieve", "Niamh", "Kelly")
+      ).toBeGreaterThanOrEqual(0.9);
+    });
+
+    it("should match Siobhán variations", () => {
+      expect(
+        calculateMatchScore("Shivawn", "Siobhan", "Murphy")
+      ).toBeGreaterThanOrEqual(0.9);
+      expect(
+        calculateMatchScore("Chevonne", "Siobhan", "Murphy")
+      ).toBeGreaterThanOrEqual(0.9);
+    });
+
+    it("should match Aoife variations", () => {
+      expect(
+        calculateMatchScore("Eefa", "Aoife", "O'Brien")
+      ).toBeGreaterThanOrEqual(0.9);
+    });
+
+    it("should match Caoimhe variations", () => {
+      expect(
+        calculateMatchScore("Keeva", "Caoimhe", "Ryan")
+      ).toBeGreaterThanOrEqual(0.9);
+      expect(
+        calculateMatchScore("Queeva", "Caoimhe", "Ryan")
+      ).toBeGreaterThanOrEqual(0.9);
+    });
+
+    it("should match Saoirse variations", () => {
+      expect(
+        calculateMatchScore("Seersha", "Saoirse", "Walsh")
+      ).toBeGreaterThanOrEqual(0.9);
+      expect(
+        calculateMatchScore("Sorsha", "Saoirse", "Walsh")
+      ).toBeGreaterThanOrEqual(0.9);
+    });
+
+    it("should match Clodagh variations (CRITICAL FIX)", () => {
+      expect(
+        calculateMatchScore("Cloda", "Clodagh", "Byrne")
+      ).toBeGreaterThanOrEqual(0.9);
+      expect(
+        calculateMatchScore("Kloda", "Clodagh", "Byrne")
+      ).toBeGreaterThanOrEqual(0.9);
+      expect(
+        calculateMatchScore("Chlodagh", "Clodagh", "Byrne")
+      ).toBeGreaterThanOrEqual(0.9);
+    });
+
+    it("should match Róisín variations", () => {
+      expect(
+        calculateMatchScore("Rosheen", "Roisin", "Doyle")
+      ).toBeGreaterThanOrEqual(0.9);
+    });
+
+    it("should match Gráinne variations", () => {
+      expect(
+        calculateMatchScore("Granya", "Grainne", "McCarthy")
+      ).toBeGreaterThanOrEqual(0.9);
+    });
+
+    it("should match Áine variations", () => {
+      expect(
+        calculateMatchScore("Anya", "Aine", "Quinn")
+      ).toBeGreaterThanOrEqual(0.9);
+    });
+
+    it("should match Máire variations", () => {
+      expect(
+        calculateMatchScore("Maura", "Maire", "Kennedy")
+      ).toBeGreaterThanOrEqual(0.9);
+      expect(
+        calculateMatchScore("Moira", "Maire", "Kennedy")
+      ).toBeGreaterThanOrEqual(0.9);
+    });
+
+    it("should match Ciara variations", () => {
+      expect(
+        calculateMatchScore("Kiera", "Ciara", "Daly")
+      ).toBeGreaterThanOrEqual(0.9);
+      expect(
+        calculateMatchScore("Kiara", "Ciara", "Daly")
+      ).toBeGreaterThanOrEqual(0.9);
+    });
+
+    it("should match Aisling variations", () => {
+      expect(
+        calculateMatchScore("Ashling", "Aisling", "Brennan")
+      ).toBeGreaterThanOrEqual(0.9);
+    });
+  });
+
+  describe("Boys' names", () => {
+    it("should match Seán variations (CRITICAL FIX)", () => {
+      expect(
+        calculateMatchScore("Shawn", "Sean", "Murphy")
+      ).toBeGreaterThanOrEqual(0.9);
+      expect(
+        calculateMatchScore("Shaun", "Sean", "Murphy")
+      ).toBeGreaterThanOrEqual(0.9);
+    });
+
+    it("should match Eoin/Eoghan variations", () => {
+      expect(
+        calculateMatchScore("Owen", "Eoin", "Kelly")
+      ).toBeGreaterThanOrEqual(0.9);
+      expect(
+        calculateMatchScore("Owen", "Eoghan", "Kelly")
+      ).toBeGreaterThanOrEqual(0.9);
+    });
+
+    it("should match Oisín variations", () => {
+      expect(
+        calculateMatchScore("Osheen", "Oisin", "Ryan")
+      ).toBeGreaterThanOrEqual(0.9);
+      expect(
+        calculateMatchScore("Usheen", "Oisin", "Ryan")
+      ).toBeGreaterThanOrEqual(0.9);
+    });
+
+    it("should match Ciarán variations", () => {
+      expect(
+        calculateMatchScore("Kieran", "Ciaran", "O'Neill")
+      ).toBeGreaterThanOrEqual(0.9);
+      expect(
+        calculateMatchScore("Keiran", "Ciaran", "O'Neill")
+      ).toBeGreaterThanOrEqual(0.9);
+    });
+
+    it("should match Tadhg variations", () => {
+      expect(
+        calculateMatchScore("Tige", "Tadhg", "Walsh")
+      ).toBeGreaterThanOrEqual(0.9);
+      expect(
+        calculateMatchScore("Teague", "Tadhg", "Walsh")
+      ).toBeGreaterThanOrEqual(0.9);
+    });
+
+    it("should match Cian variations", () => {
+      expect(
+        calculateMatchScore("Kian", "Cian", "Byrne")
+      ).toBeGreaterThanOrEqual(0.9);
+    });
+
+    it("should match Conor variations", () => {
+      expect(
+        calculateMatchScore("Connor", "Conor", "Doyle")
+      ).toBeGreaterThanOrEqual(0.9);
+    });
+
+    it("should match Darragh variations", () => {
+      expect(
+        calculateMatchScore("Dara", "Darragh", "Lynch")
+      ).toBeGreaterThanOrEqual(0.9);
+    });
+
+    it("should match Ruairí variations", () => {
+      expect(
+        calculateMatchScore("Rory", "Ruairi", "Carroll")
+      ).toBeGreaterThanOrEqual(0.9);
+    });
+
+    it("should match Fionn variations", () => {
+      expect(
+        calculateMatchScore("Finn", "Fionn", "Moran")
+      ).toBeGreaterThanOrEqual(0.9);
+    });
+
+    it("should match Pádraig variations", () => {
+      expect(
+        calculateMatchScore("Patrick", "Padraig", "Hayes")
+      ).toBeGreaterThanOrEqual(0.9);
+      expect(
+        calculateMatchScore("Paddy", "Padraig", "Hayes")
+      ).toBeGreaterThanOrEqual(0.9);
+    });
+
+    it("should match Diarmuid variations", () => {
+      expect(
+        calculateMatchScore("Dermot", "Diarmuid", "Gallagher")
+      ).toBeGreaterThanOrEqual(0.9);
+    });
+
+    it("should match Niall variations", () => {
+      expect(
+        calculateMatchScore("Neil", "Niall", "Burke")
+      ).toBeGreaterThanOrEqual(0.9);
+    });
+
+    it("should match Cathal variations", () => {
+      expect(
+        calculateMatchScore("Cahal", "Cathal", "Healy")
+      ).toBeGreaterThanOrEqual(0.9);
+    });
+  });
+
+  describe("Bidirectional matching", () => {
+    it("should match in both directions (database → voice)", () => {
+      // Database has "Niamh", voice note says "Neeve"
+      expect(
+        calculateMatchScore("Neeve", "Niamh", "Kelly")
+      ).toBeGreaterThanOrEqual(0.9);
+    });
+
+    it("should match in both directions (voice → database)", () => {
+      // Database has "Neeve" (anglicized), voice note says "Niamh" (Irish)
+      expect(
+        calculateMatchScore("Niamh", "Neeve", "Kelly")
+      ).toBeGreaterThanOrEqual(0.9);
+    });
+  });
+
+  describe("Edge cases", () => {
+    it("should not match unrelated names", () => {
+      expect(calculateMatchScore("John", "Niamh", "Kelly")).toBeLessThan(0.9);
+    });
+
+    it("should handle case insensitivity", () => {
+      expect(
+        calculateMatchScore("SHAWN", "sean", "Murphy")
+      ).toBeGreaterThanOrEqual(0.9);
+    });
+
+    it("should handle diacritics", () => {
+      expect(
+        calculateMatchScore("Seán", "Shawn", "Murphy")
+      ).toBeGreaterThanOrEqual(0.9);
+    });
   });
 });
 

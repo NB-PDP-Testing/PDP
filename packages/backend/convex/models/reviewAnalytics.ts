@@ -30,7 +30,8 @@ export const logReviewEvent = internalMutation({
       v.literal("batch_dismiss"),
       v.literal("disambiguate_accept"),
       v.literal("disambiguate_reject_all"),
-      v.literal("disambiguate_skip")
+      v.literal("disambiguate_skip"),
+      v.literal("reassign_entity")
     ),
     insightId: v.optional(v.string()),
     voiceNoteId: v.optional(v.id("voiceNotes")),
@@ -40,7 +41,8 @@ export const logReviewEvent = internalMutation({
     metadata: v.optional(
       v.union(
         v.object({ count: v.number() }),
-        v.object({ delayMs: v.number(), snoozeCount: v.number() })
+        v.object({ delayMs: v.number(), snoozeCount: v.number() }),
+        v.object({ fromType: v.string(), toType: v.string() })
       )
     ),
   },

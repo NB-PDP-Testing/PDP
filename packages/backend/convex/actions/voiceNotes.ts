@@ -225,6 +225,33 @@ export const transcribeAudio = internalAction({
         },
       });
 
+      // Branch on quality result FIRST before scheduling any processing
+      if (quality.suggestedAction === "reject") {
+        // Transcription worked but quality too low for insights
+        await ctx.runMutation(internal.models.voiceNotes.updateInsights, {
+          noteId: args.noteId,
+          status: "failed",
+          error: `Transcript quality rejected: ${quality.reason}`,
+        });
+        return null;
+      }
+
+      if (quality.suggestedAction === "ask_user") {
+        // In-app sources: user deliberately recorded/typed, so treat as processable
+        // WhatsApp sources: pause for confirmation (bot can ask "did you mean to send this?")
+        const isInAppSource =
+          note.source === "app_recorded" || note.source === "app_typed";
+        if (!isInAppSource) {
+          await ctx.runMutation(internal.models.voiceNotes.updateInsights, {
+            noteId: args.noteId,
+            status: "awaiting_confirmation",
+          });
+          return null;
+        }
+        // Fall through to schedule insights extraction for in-app sources
+      }
+
+      // Quality check passed - now proceed with v2/v1 processing
       // US-VN-014: v2 path — store transcript in voiceNoteTranscripts if artifact exists
       const artifacts = await ctx.runQuery(
         internal.models.voiceNoteArtifacts.getArtifactsByVoiceNote,
@@ -261,36 +288,8 @@ export const transcribeAudio = internalAction({
           internal.actions.claimsExtraction.extractClaims,
           { artifactId: artifact._id }
         );
-      }
-
-      // Branch on quality result
-      if (quality.suggestedAction === "reject") {
-        // Transcription worked but quality too low for insights
-        await ctx.runMutation(internal.models.voiceNotes.updateInsights, {
-          noteId: args.noteId,
-          status: "failed",
-          error: `Transcript quality rejected: ${quality.reason}`,
-        });
-        return null;
-      }
-
-      if (quality.suggestedAction === "ask_user") {
-        // In-app sources: user deliberately recorded/typed, so treat as processable
-        // WhatsApp sources: pause for confirmation (bot can ask "did you mean to send this?")
-        const isInAppSource =
-          note.source === "app_recorded" || note.source === "app_typed";
-        if (!isInAppSource) {
-          await ctx.runMutation(internal.models.voiceNotes.updateInsights, {
-            noteId: args.noteId,
-            status: "awaiting_confirmation",
-          });
-          return null;
-        }
-        // Fall through to schedule insights extraction for in-app sources
-      }
-
-      // Quality OK - schedule insights extraction (only if v2 artifact doesn't exist)
-      if (artifacts.length === 0) {
+      } else {
+        // v1 path - schedule buildInsights
         await ctx.scheduler.runAfter(
           0,
           internal.actions.voiceNotes.buildInsights,

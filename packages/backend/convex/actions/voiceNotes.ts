@@ -275,12 +275,18 @@ export const transcribeAudio = internalAction({
       }
 
       if (quality.suggestedAction === "ask_user") {
-        // Set insights to awaiting confirmation - WhatsApp flow will handle response
-        await ctx.runMutation(internal.models.voiceNotes.updateInsights, {
-          noteId: args.noteId,
-          status: "awaiting_confirmation",
-        });
-        return null;
+        // In-app sources: user deliberately recorded/typed, so treat as processable
+        // WhatsApp sources: pause for confirmation (bot can ask "did you mean to send this?")
+        const isInAppSource =
+          note.source === "app_recorded" || note.source === "app_typed";
+        if (!isInAppSource) {
+          await ctx.runMutation(internal.models.voiceNotes.updateInsights, {
+            noteId: args.noteId,
+            status: "awaiting_confirmation",
+          });
+          return null;
+        }
+        // Fall through to schedule insights extraction for in-app sources
       }
 
       // Quality OK - schedule insights extraction (only if v2 artifact doesn't exist)

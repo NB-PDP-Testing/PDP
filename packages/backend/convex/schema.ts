@@ -1566,6 +1566,15 @@ export default defineSchema({
     insightsError: v.optional(v.string()),
     // Optional session plan link for voice notes taken during sessions
     sessionPlanId: v.optional(v.id("sessionPlans")),
+    // Transcript quality scoring (from transcription pipeline)
+    transcriptQuality: v.optional(v.number()),
+    transcriptValidation: v.optional(
+      v.object({
+        isValid: v.boolean(),
+        reason: v.string(),
+        suggestedAction: v.string(),
+      })
+    ),
   })
     .index("by_orgId", ["orgId"])
     .index("by_orgId_and_coachId", ["orgId", "coachId"])

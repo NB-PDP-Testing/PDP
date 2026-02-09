@@ -105,6 +105,14 @@ export const getAllVoiceNotes = query({
       insightsError: v.optional(v.string()),
       source: sourceValidator,
       sessionPlanId: v.optional(v.id("sessionPlans")),
+      transcriptQuality: v.optional(v.number()),
+      transcriptValidation: v.optional(
+        v.object({
+          isValid: v.boolean(),
+          reason: v.string(),
+          suggestedAction: v.string(),
+        })
+      ),
     })
   ),
   handler: async (ctx, args) => {
@@ -182,6 +190,14 @@ export const getVoiceNoteById = query({
       insightsError: v.optional(v.string()),
       source: sourceValidator,
       sessionPlanId: v.optional(v.id("sessionPlans")),
+      transcriptQuality: v.optional(v.number()),
+      transcriptValidation: v.optional(
+        v.object({
+          isValid: v.boolean(),
+          reason: v.string(),
+          suggestedAction: v.string(),
+        })
+      ),
     }),
     v.null()
   ),
@@ -218,6 +234,14 @@ export const getVoiceNotesByCoach = query({
       insightsError: v.optional(v.string()),
       source: sourceValidator,
       sessionPlanId: v.optional(v.id("sessionPlans")),
+      transcriptQuality: v.optional(v.number()),
+      transcriptValidation: v.optional(
+        v.object({
+          isValid: v.boolean(),
+          reason: v.string(),
+          suggestedAction: v.string(),
+        })
+      ),
     })
   ),
   handler: async (ctx, args) => {
@@ -2000,6 +2024,14 @@ export const getNote = internalQuery({
       insightsError: v.optional(v.string()),
       source: sourceValidator,
       sessionPlanId: v.optional(v.id("sessionPlans")),
+      transcriptQuality: v.optional(v.number()),
+      transcriptValidation: v.optional(
+        v.object({
+          isValid: v.boolean(),
+          reason: v.string(),
+          suggestedAction: v.string(),
+        })
+      ),
     }),
     v.null()
   ),

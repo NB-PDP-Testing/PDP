@@ -297,12 +297,15 @@ export function VoiceNotesDashboard() {
     }
   };
 
-  // Count stats
+  // Count stats — include "pending" states since v2 pipeline may not
+  // set "processing" immediately (transcription pending or insights pending after transcription)
   const processingCount =
     voiceNotes?.filter(
       (n) =>
+        n.transcriptionStatus === "pending" ||
         n.transcriptionStatus === "processing" ||
-        n.insightsStatus === "processing"
+        (n.transcriptionStatus === "completed" &&
+          (n.insightsStatus === "pending" || n.insightsStatus === "processing"))
     ).length ?? 0;
 
   // Count pending insights that need attention (unmatched players or uncategorized)

@@ -212,6 +212,18 @@ export const getVoiceNotesByCoach = query({
       transcription: v.optional(v.string()),
       transcriptionStatus: v.optional(statusValidator),
       transcriptionError: v.optional(v.string()),
+      transcriptQuality: v.optional(v.number()),
+      transcriptValidation: v.optional(
+        v.object({
+          isValid: v.boolean(),
+          reason: v.optional(v.string()),
+          suggestedAction: v.union(
+            v.literal("process"),
+            v.literal("ask_user"),
+            v.literal("reject")
+          ),
+        })
+      ),
       summary: v.optional(v.string()),
       insights: v.array(insightValidator),
       insightsStatus: v.optional(statusValidator),

@@ -406,7 +406,25 @@ async function syncVoiceNoteStatus(
   ctx: ActionCtx,
   artifactId: Id<"voiceNoteArtifacts">,
   status: "processing" | "completed" | "failed",
-  error?: string
+  opts?: {
+    error?: string;
+    summary?: string;
+    insights?: Array<{
+      id: string;
+      playerIdentityId?: Id<"playerIdentities">;
+      playerName?: string;
+      title: string;
+      description: string;
+      category?: string;
+      recommendedUpdate?: string;
+      confidence?: number;
+      status: "pending" | "applied" | "dismissed" | "auto_applied";
+      teamId?: string;
+      teamName?: string;
+      assigneeUserId?: string;
+      assigneeName?: string;
+    }>;
+  }
 ): Promise<void> {
   try {
     const artifact = await ctx.runQuery(
@@ -417,7 +435,9 @@ async function syncVoiceNoteStatus(
       await ctx.runMutation(internal.models.voiceNotes.updateInsights, {
         noteId: artifact.voiceNoteId,
         status,
-        error,
+        error: opts?.error,
+        summary: opts?.summary,
+        insights: opts?.insights,
       });
     }
   } catch (syncError) {
@@ -443,12 +463,9 @@ async function markArtifactFailed(
       );
     }
     // Also sync failure to v1 voiceNote so UI shows error
-    await syncVoiceNoteStatus(
-      ctx,
-      artifactId,
-      "failed",
-      "v2 claims extraction failed"
-    );
+    await syncVoiceNoteStatus(ctx, artifactId, "failed", {
+      error: "v2 claims extraction failed",
+    });
   } catch {
     // Ignore secondary failure
   }
@@ -614,8 +631,27 @@ export const extractClaims = internalAction({
         { artifactId: artifact.artifactId, status: "completed" }
       );
 
-      // Sync completed status to v1 voiceNote so UI reflects v2 processing is done
-      await syncVoiceNoteStatus(ctx, args.artifactId, "completed");
+      // Sync completed status + bridge v2 claims → v1 insights for checkAndAutoApply
+      const v1Insights = claimsToStore.map((claim) => ({
+        id: claim.claimId,
+        playerIdentityId: claim.resolvedPlayerIdentityId,
+        playerName: claim.resolvedPlayerName,
+        title: claim.title,
+        description: claim.description,
+        category: claim.topic,
+        recommendedUpdate: claim.recommendedAction,
+        confidence: claim.extractionConfidence,
+        status: "pending" as const,
+        teamId: claim.resolvedTeamId,
+        teamName: claim.resolvedTeamName,
+        assigneeUserId: claim.resolvedAssigneeUserId,
+        assigneeName: claim.resolvedAssigneeName,
+      }));
+
+      await syncVoiceNoteStatus(ctx, args.artifactId, "completed", {
+        summary: parsed.data.summary,
+        insights: v1Insights,
+      });
 
       console.info(
         `[extractClaims] Extracted ${claimsToStore.length} claims for artifact ${artifact.artifactId}`

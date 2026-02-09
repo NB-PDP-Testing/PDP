@@ -30,23 +30,29 @@ export const v2MigrationStatus = query({
       .withIndex("by_orgId", (q) => q.eq("orgId", args.organizationId))
       .collect();
 
-    // Artifacts count (no org index — use JS filter on orgContextCandidates)
-    const allArtifacts = await ctx.db.query("voiceNoteArtifacts").collect();
-    const orgArtifacts = allArtifacts.filter((a) =>
-      a.orgContextCandidates.some(
-        (c) => c.organizationId === args.organizationId
+    // Artifacts count — batch fetch via voiceNoteId link (uses by_voiceNoteId index)
+    const uniqueNoteIds = [...new Set(voiceNotes.map((vn) => vn._id))];
+    const artifactResults = await Promise.all(
+      uniqueNoteIds.map((noteId) =>
+        ctx.db
+          .query("voiceNoteArtifacts")
+          .withIndex("by_voiceNoteId", (q) => q.eq("voiceNoteId", noteId))
+          .collect()
       )
     );
+    const orgArtifacts = artifactResults.flat();
 
-    // Transcripts count (query by each org artifact)
-    let transcriptCount = 0;
-    for (const artifact of orgArtifacts) {
-      const transcripts = await ctx.db
-        .query("voiceNoteTranscripts")
-        .withIndex("by_artifactId", (q) => q.eq("artifactId", artifact._id))
-        .collect();
-      transcriptCount += transcripts.length;
-    }
+    // Transcripts count — batch fetch via artifactId (uses by_artifactId index)
+    const uniqueArtifactIds = [...new Set(orgArtifacts.map((a) => a._id))];
+    const transcriptResults = await Promise.all(
+      uniqueArtifactIds.map((artifactId) =>
+        ctx.db
+          .query("voiceNoteTranscripts")
+          .withIndex("by_artifactId", (q) => q.eq("artifactId", artifactId))
+          .collect()
+      )
+    );
+    const transcriptCount = transcriptResults.flat().length;
 
     // Claims count (has by_org_and_coach index, use org prefix)
     const claims = await ctx.db

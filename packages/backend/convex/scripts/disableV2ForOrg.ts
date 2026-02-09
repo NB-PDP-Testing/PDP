@@ -29,7 +29,7 @@ export const disableV2ForOrg = mutation({
       flagsSet.push(featureKey);
     }
 
-    console.log(
+    console.info(
       `[disableV2ForOrg] v2 pipeline disabled for org ${args.organizationId} by ${args.disabledBy ?? "script"}`
     );
     return { success: true, flagsSet };

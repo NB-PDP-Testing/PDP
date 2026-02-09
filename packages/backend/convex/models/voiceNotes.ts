@@ -2855,18 +2855,7 @@ export const getCompletedForMigration = internalQuery({
       source: sourceValidator,
       transcription: v.optional(v.string()),
       transcriptionStatus: v.optional(statusValidator),
-      insights: v.array(
-        v.object({
-          id: v.string(),
-          playerIdentityId: v.optional(v.id("playerIdentities")),
-          playerName: v.optional(v.string()),
-          title: v.string(),
-          description: v.string(),
-          category: v.optional(v.string()),
-          severity: v.optional(v.string()),
-          sentiment: v.optional(v.string()),
-        })
-      ),
+      insights: v.array(insightValidator),
     })
   ),
   handler: async (ctx, args) => {

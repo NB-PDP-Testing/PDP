@@ -1334,11 +1334,11 @@ function SnoozeBar({ code }: { code: string }) {
           </span>
         )}
       </div>
-      <div className="flex flex-col gap-2 sm:flex-row">
+      <div className="flex flex-row gap-1.5">
         {[
           { label: "1h", ms: 60 * 60 * 1000 },
           { label: "2h", ms: 2 * 60 * 60 * 1000 },
-          { label: "Tomorrow 9am", ms: getTomorrow9amDelay() },
+          { label: "Tom 9am", ms: getTomorrow9amDelay() },
         ].map(({ label, ms }) => (
           <Button
             className="min-h-[36px] flex-1 text-xs"

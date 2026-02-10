@@ -1978,6 +1978,77 @@ export const getCoachTeamsForReview = query({
   },
 });
 
+/**
+ * Get coaches in the organization for todo assignment
+ * Returns list of coaches with their user IDs and names
+ */
+export const getCoachesForReview = query({
+  args: { code: v.string() },
+  returns: v.union(
+    v.array(
+      v.object({
+        userId: v.string(),
+        name: v.string(),
+        email: v.optional(v.string()),
+      })
+    ),
+    v.null()
+  ),
+  handler: async (ctx, args) => {
+    const result = await validateReviewCode(ctx, args.code);
+    if (!result || result.isExpired) {
+      return null;
+    }
+
+    const { link } = result;
+
+    // Get all coach assignments for this organization
+    const coachAssignments = await ctx.db
+      .query("coachAssignments")
+      .withIndex("by_organizationId", (q) =>
+        q.eq("organizationId", link.organizationId)
+      )
+      .collect();
+
+    if (coachAssignments.length === 0) {
+      return [];
+    }
+
+    // Get unique user IDs
+    const uniqueUserIds = [...new Set(coachAssignments.map((a) => a.userId))];
+
+    // Fetch user details from Better Auth
+    const usersResult = await Promise.all(
+      uniqueUserIds.map((userId) =>
+        ctx.runQuery(components.betterAuth.adapter.findOne, {
+          model: "user",
+          where: [{ field: "_id", value: userId, operator: "eq" }],
+        })
+      )
+    );
+
+    // Map to coach list with names
+    const coaches = usersResult
+      .map((userResult) => {
+        const user = userResult?.data as BetterAuthDoc<"user"> | undefined;
+        if (!user) {
+          return null;
+        }
+        return {
+          userId: String(user._id),
+          name: user.name || user.email || "Unknown",
+          email: user.email ?? undefined,
+        };
+      })
+      .filter((c): c is NonNullable<typeof c> => c !== null);
+
+    // Sort by name
+    coaches.sort((a, b) => a.name.localeCompare(b.name));
+
+    return coaches;
+  },
+});
+
 // ============================================================
 // PUBLIC MUTATIONS — Entity Reassignment (US-RMS-002)
 // ============================================================

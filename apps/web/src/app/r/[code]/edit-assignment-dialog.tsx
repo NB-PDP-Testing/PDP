@@ -82,6 +82,11 @@ export function EditAssignmentDialog({
     { code }
   );
 
+  // Fetch coaches for todo assignment
+  const coaches = useQuery(api.models.whatsappReviewLinks.getCoachesForReview, {
+    code,
+  });
+
   // Fetch player suggestions when searching
   const suggestionsResult = useQuery(
     api.models.whatsappReviewLinks.findSimilarPlayersForReview,
@@ -302,16 +307,40 @@ export function EditAssignmentDialog({
           {/* To-Do Assignee */}
           {entityType === "todo" && (
             <div className="space-y-2">
-              <Label htmlFor="assignee">Assignee (optional)</Label>
-              <Input
-                id="assignee"
-                onChange={(e) => setAssigneeUserId(e.target.value)}
-                placeholder="Enter assignee name or ID"
-                value={assigneeUserId}
-              />
-              <p className="text-muted-foreground text-xs">
-                Leave empty to create an unassigned action item
-              </p>
+              <Label htmlFor="assignee">Assign to coach (optional)</Label>
+              {coaches === undefined ? (
+                <div className="flex items-center gap-2 text-muted-foreground text-sm">
+                  <Loader2 className="h-4 w-4 animate-spin" />
+                  Loading coaches...
+                </div>
+              ) : coaches === null || coaches.length === 0 ? (
+                <p className="text-muted-foreground text-sm">
+                  No coaches found in this organization
+                </p>
+              ) : (
+                <>
+                  <Select
+                    onValueChange={setAssigneeUserId}
+                    value={assigneeUserId || undefined}
+                  >
+                    <SelectTrigger id="assignee">
+                      <SelectValue placeholder="Choose a coach" />
+                    </SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="">Unassigned</SelectItem>
+                      {coaches.map((coach) => (
+                        <SelectItem key={coach.userId} value={coach.userId}>
+                          {coach.name}
+                          {coach.email ? ` (${coach.email})` : ""}
+                        </SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+                  <p className="text-muted-foreground text-xs">
+                    Leave unassigned to create a general action item
+                  </p>
+                </>
+              )}
             </div>
           )}
 

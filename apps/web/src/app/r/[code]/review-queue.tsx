@@ -867,22 +867,22 @@ function InsightCard({
             <span className="whitespace-nowrap text-muted-foreground text-xs">
               {formattedDate}
             </span>
-            <div className="flex gap-1">
+            <div className="flex gap-1.5">
               <button
-                className="mt-0.5 rounded p-1 text-muted-foreground hover:bg-muted hover:text-foreground"
+                className="flex items-center gap-1 rounded px-2 py-1 text-muted-foreground text-xs hover:bg-muted hover:text-foreground"
                 onClick={() => setEditing(true)}
-                title="Edit text"
                 type="button"
               >
-                <Pencil className="h-3.5 w-3.5" />
+                <Pencil className="h-3 w-3" />
+                <span>Edit</span>
               </button>
               <button
-                className="mt-0.5 rounded p-1 text-muted-foreground hover:bg-muted hover:text-foreground"
+                className="flex items-center gap-1 rounded px-2 py-1 text-muted-foreground text-xs hover:bg-muted hover:text-foreground"
                 onClick={() => setReassignDialogOpen(true)}
-                title="Reassign entity"
                 type="button"
               >
-                <Users className="h-3.5 w-3.5" />
+                <Users className="h-3 w-3" />
+                <span>Reassign</span>
               </button>
             </div>
           </div>

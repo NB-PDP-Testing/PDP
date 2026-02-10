@@ -1981,6 +1981,7 @@ export const getCoachTeamsForReview = query({
 /**
  * Get coaches in the organization for todo assignment
  * Returns list of coaches with their user IDs and names
+ * Fetches from Better Auth members with "Coach" functional role
  */
 export const getCoachesForReview = query({
   args: { code: v.string() },
@@ -2002,20 +2003,41 @@ export const getCoachesForReview = query({
 
     const { link } = result;
 
-    // Get all coach assignments for this organization
-    const coachAssignments = await ctx.db
-      .query("coachAssignments")
-      .withIndex("by_organizationId", (q) =>
-        q.eq("organizationId", link.organizationId)
-      )
-      .collect();
+    // Fetch all members of this organization from Better Auth
+    const membersResult = await ctx.runQuery(
+      components.betterAuth.adapter.findMany,
+      {
+        model: "member",
+        paginationOpts: {
+          cursor: null,
+          numItems: 1000,
+        },
+        where: [
+          {
+            field: "organizationId",
+            value: link.organizationId,
+            operator: "eq",
+          },
+        ],
+      }
+    );
 
-    if (coachAssignments.length === 0) {
+    const allMembers = membersResult.page as BetterAuthDoc<"member">[];
+
+    // Filter members who have "Coach" in their functional roles
+    const coachMembers = allMembers.filter((member) => {
+      const functionalRoles = member.functionalRoles as string[] | undefined;
+      return functionalRoles?.includes("Coach");
+    });
+
+    if (coachMembers.length === 0) {
       return [];
     }
 
     // Get unique user IDs
-    const uniqueUserIds = [...new Set(coachAssignments.map((a) => a.userId))];
+    const uniqueUserIds = [
+      ...new Set(coachMembers.map((m) => String(m.userId))),
+    ];
 
     // Fetch user details from Better Auth
     const usersResult = await Promise.all(

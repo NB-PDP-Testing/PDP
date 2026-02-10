@@ -337,10 +337,7 @@ export function ReviewQueue({
               <Shield className="h-6 w-6" />
             </EmptyMedia>
             <EmptyTitle>No Injuries to Review</EmptyTitle>
-            <EmptyDescription>
-              All injury insights have been reviewed. Great work keeping your
-              players safe!
-            </EmptyDescription>
+            <EmptyDescription>All injury insights reviewed.</EmptyDescription>
           </EmptyContent>
         </Empty>
       )}
@@ -389,10 +386,7 @@ export function ReviewQueue({
               <CheckCircle2 className="h-6 w-6" />
             </EmptyMedia>
             <EmptyTitle>All Players Matched</EmptyTitle>
-            <EmptyDescription>
-              All player insights have been successfully matched. No action
-              needed.
-            </EmptyDescription>
+            <EmptyDescription>All insights have been matched.</EmptyDescription>
           </EmptyContent>
         </Empty>
       )}
@@ -458,10 +452,7 @@ export function ReviewQueue({
               <CheckCircle2 className="h-6 w-6" />
             </EmptyMedia>
             <EmptyTitle>All Caught Up</EmptyTitle>
-            <EmptyDescription>
-              No insights pending review at this time. Check back after your
-              next voice note.
-            </EmptyDescription>
+            <EmptyDescription>No insights pending review.</EmptyDescription>
           </EmptyContent>
         </Empty>
       )}
@@ -529,9 +520,7 @@ export function ReviewQueue({
               <ClipboardList className="h-6 w-6" />
             </EmptyMedia>
             <EmptyTitle>No Action Items</EmptyTitle>
-            <EmptyDescription>
-              No action items or tasks to review at this time.
-            </EmptyDescription>
+            <EmptyDescription>No action items to review.</EmptyDescription>
           </EmptyContent>
         </Empty>
       )}
@@ -599,9 +588,7 @@ export function ReviewQueue({
               <Users className="h-6 w-6" />
             </EmptyMedia>
             <EmptyTitle>No Team Notes</EmptyTitle>
-            <EmptyDescription>
-              No team-level notes to review at this time.
-            </EmptyDescription>
+            <EmptyDescription>No team notes to review.</EmptyDescription>
           </EmptyContent>
         </Empty>
       )}

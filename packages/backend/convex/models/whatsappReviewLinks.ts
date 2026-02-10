@@ -29,6 +29,10 @@ const LINK_EXPIRY_MS = 48 * 60 * 60 * 1000;
 // Max voice note IDs per link before creating a new link
 const MAX_VOICE_NOTES_PER_LINK = 50;
 
+// Text correction patterns
+const WHITESPACE_PATTERN = /\s+/;
+const REGEX_SPECIAL_CHARS_PATTERN = /[.*+?^${}()|[\]\\]/g;
+
 // Max access log entries to keep per link
 const MAX_ACCESS_LOG_ENTRIES = 100;
 
@@ -45,6 +49,74 @@ function generateCode(): string {
     code += CODE_CHARS[Math.floor(Math.random() * CODE_CHARS.length)];
   }
   return code;
+}
+
+/**
+ * Escape special regex characters in a string
+ */
+function escapeRegex(str: string): string {
+  return str.replace(REGEX_SPECIAL_CHARS_PATTERN, "\\$&");
+}
+
+/**
+ * Correct player name in text using pattern matching
+ * Handles full names, first names, possessives, and case variations
+ *
+ * Ported from desktop voiceNotes.ts for consistency
+ */
+function correctPlayerNameInText(
+  text: string,
+  wrongName: string | undefined,
+  correctFirstName: string,
+  correctLastName: string
+): { corrected: string; wasModified: boolean } {
+  if (!(wrongName && text)) {
+    return { corrected: text, wasModified: false };
+  }
+
+  const correctFullName = `${correctFirstName} ${correctLastName}`;
+  let corrected = text;
+  let wasModified = false;
+
+  // Build variations of the wrong name to search for
+  const wrongParts = wrongName.split(WHITESPACE_PATTERN);
+  const wrongFirstName = wrongParts[0] || "";
+
+  // Create search patterns (case insensitive)
+  const patterns: Array<{ search: RegExp; replacement: string }> = [];
+
+  // Full name patterns
+  if (wrongName.length > 1) {
+    // "Claudia Barlow" -> "Clodagh Barlow"
+    patterns.push({
+      search: new RegExp(escapeRegex(wrongName), "gi"),
+      replacement: correctFullName,
+    });
+  }
+
+  // First name only patterns (most common for voice transcription errors)
+  if (wrongFirstName.length > 1) {
+    // "Claudia's" -> "Clodagh's" (possessive)
+    patterns.push({
+      search: new RegExp(`${escapeRegex(wrongFirstName)}'s\\b`, "gi"),
+      replacement: `${correctFirstName}'s`,
+    });
+    // "Claudia" -> "Clodagh" (standalone, word boundary)
+    patterns.push({
+      search: new RegExp(`\\b${escapeRegex(wrongFirstName)}\\b`, "gi"),
+      replacement: correctFirstName,
+    });
+  }
+
+  // Apply patterns in order (most specific first)
+  for (const pattern of patterns) {
+    if (pattern.search.test(corrected)) {
+      corrected = corrected.replace(pattern.search, pattern.replacement);
+      wasModified = true;
+    }
+  }
+
+  return { corrected, wasModified };
 }
 
 /**
@@ -1980,7 +2052,7 @@ export const getCoachTeamsForReview = query({
 
 /**
  * Get coaches in the organization for todo assignment
- * Returns list of coaches with their user IDs and names
+ * Returns list of coaches who share at least one team with the current coach
  * Fetches from Better Auth members with "Coach" functional role
  */
 export const getCoachesForReview = query({
@@ -2003,40 +2075,48 @@ export const getCoachesForReview = query({
 
     const { link } = result;
 
-    // Fetch all members of this organization from Better Auth
-    const membersResult = await ctx.runQuery(
-      components.betterAuth.adapter.findMany,
-      {
-        model: "member",
-        paginationOpts: {
-          cursor: null,
-          numItems: 1000,
-        },
-        where: [
-          {
-            field: "organizationId",
-            value: link.organizationId,
-            operator: "eq",
-          },
-        ],
+    // Get current coach's team assignments
+    const currentCoachAssignment = await ctx.db
+      .query("coachAssignments")
+      .withIndex("by_user_and_org", (q) =>
+        q
+          .eq("userId", link.coachUserId)
+          .eq("organizationId", link.organizationId)
+      )
+      .first();
+
+    if (!currentCoachAssignment || currentCoachAssignment.teams.length === 0) {
+      // Current coach has no team assignments, return empty list
+      return [];
+    }
+
+    const currentCoachTeams = new Set(currentCoachAssignment.teams);
+
+    // Get all coach assignments in this organization
+    const allCoachAssignments = await ctx.db
+      .query("coachAssignments")
+      .withIndex("by_organizationId", (q) =>
+        q.eq("organizationId", link.organizationId)
+      )
+      .collect();
+
+    // Filter to coaches who share at least one team with current coach
+    const coachesWithSharedTeams = allCoachAssignments.filter((assignment) => {
+      // Don't include the current coach
+      if (assignment.userId === link.coachUserId) {
+        return false;
       }
-    );
-
-    const allMembers = membersResult.page as BetterAuthDoc<"member">[];
-
-    // Filter members who have "Coach" in their functional roles
-    const coachMembers = allMembers.filter((member) => {
-      const functionalRoles = member.functionalRoles as string[] | undefined;
-      return functionalRoles?.includes("Coach");
+      // Check if they share any teams
+      return assignment.teams.some((teamId) => currentCoachTeams.has(teamId));
     });
 
-    if (coachMembers.length === 0) {
+    if (coachesWithSharedTeams.length === 0) {
       return [];
     }
 
     // Get unique user IDs
     const uniqueUserIds = [
-      ...new Set(coachMembers.map((m) => String(m.userId))),
+      ...new Set(coachesWithSharedTeams.map((a) => a.userId)),
     ];
 
     // Fetch user details from Better Auth
@@ -2111,16 +2191,23 @@ export const reassignInsightEntity = mutation({
       return { success: false as const, reason: "insight_not_found" };
     }
 
-    // Validate entity-specific requirements
+    // Validate entity-specific requirements and fetch entity details
+    let newPlayerName: string | undefined;
+    let newPlayerFirstName: string | undefined;
+    let newPlayerLastName: string | undefined;
+
     if (args.entityType === "player") {
       if (!args.playerIdentityId) {
         return { success: false as const, reason: "player_id_required" };
       }
-      // Verify player exists
+      // Verify player exists and get name
       const player = await ctx.db.get(args.playerIdentityId);
       if (!player) {
         return { success: false as const, reason: "player_not_found" };
       }
+      newPlayerName = `${player.firstName} ${player.lastName}`;
+      newPlayerFirstName = player.firstName;
+      newPlayerLastName = player.lastName;
     }
 
     if (args.entityType === "team") {
@@ -2147,7 +2234,7 @@ export const reassignInsightEntity = mutation({
       return { success: false as const, reason: "assignee_required" };
     }
 
-    // Update insight with new entity assignment
+    // Update insight with new entity assignment and text correction
     const updatedInsights = note.insights.map((i) => {
       if (i.id === args.insightId) {
         // Base update: clear all entity-specific fields
@@ -2162,9 +2249,44 @@ export const reassignInsightEntity = mutation({
         };
 
         // Set entity-specific fields based on type
-        if (args.entityType === "player" && args.playerIdentityId) {
+        if (
+          args.entityType === "player" &&
+          args.playerIdentityId &&
+          newPlayerName
+        ) {
           updated.playerIdentityId = args.playerIdentityId;
-          // Player name will be set by caller if needed
+          updated.playerName = newPlayerName;
+
+          // TEXT CORRECTION: Automatically fix player name in title and description
+          if (newPlayerFirstName && newPlayerLastName) {
+            const oldPlayerName = i.playerName; // Original AI-detected name
+
+            // Correct title
+            if (i.title) {
+              const titleCorrection = correctPlayerNameInText(
+                i.title,
+                oldPlayerName,
+                newPlayerFirstName,
+                newPlayerLastName
+              );
+              if (titleCorrection.wasModified) {
+                updated.title = titleCorrection.corrected;
+              }
+            }
+
+            // Correct description
+            if (i.description) {
+              const descCorrection = correctPlayerNameInText(
+                i.description,
+                oldPlayerName,
+                newPlayerFirstName,
+                newPlayerLastName
+              );
+              if (descCorrection.wasModified) {
+                updated.description = descCorrection.corrected;
+              }
+            }
+          }
         } else if (args.entityType === "team" && args.teamId) {
           updated.teamId = args.teamId;
           updated.category = "team_culture";

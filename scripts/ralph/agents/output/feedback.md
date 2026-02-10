@@ -3388,3 +3388,739 @@ This is a well-structured frontend component that properly delegates data operat
   - **Problem:** Should use .withIndex() for better performance
   - **Fix:** Replace `.query().filter()` with `.query().withIndex()`
 
+
+## Auto Quality Check - 2026-02-10 12:12:48
+### File: /home/user/PDP/packages/backend/convex/lib/consentGateway.ts
+
+- ⚠️ **Performance: .filter() usage detected**
+  - **Problem:** Should use .withIndex() for better performance
+  - **Fix:** Replace `.query().filter()` with `.query().withIndex()`
+
+
+## Auto Quality Check - 2026-02-10 12:12:53
+### File: /home/user/PDP/packages/backend/convex/models/passportSharing.ts
+
+- ❌ **CRITICAL: Better Auth adapter violation**
+  - **Problem:** Direct DB access to auth tables
+  - **Fix:** Use `ctx.runQuery(components.betterAuth.adapter.findOne, {...})`
+
+
+## Auto Quality Check - 2026-02-10 12:12:53
+### File: /home/user/PDP/packages/backend/convex/models/passportSharing.ts
+
+- ⚠️ **Performance: .filter() usage detected**
+  - **Problem:** Should use .withIndex() for better performance
+  - **Fix:** Replace `.query().filter()` with `.query().withIndex()`
+
+
+## Auto Quality Check - 2026-02-10 12:12:53
+### File: /home/user/PDP/packages/backend/convex/models/passportSharing.ts
+
+- ❌ **CRITICAL: N+1 query pattern detected**
+  - **Problem:** `Promise.all(items.map(async => query))` makes N database calls
+  - **Fix:** Batch fetch all IDs first, create Map for O(1) lookup
+
+
+## Auto Quality Check - 2026-02-10 12:13:16
+### File: /home/user/PDP/packages/backend/convex/models/passportSharing.ts
+
+- ❌ **CRITICAL: Better Auth adapter violation**
+  - **Problem:** Direct DB access to auth tables
+  - **Fix:** Use `ctx.runQuery(components.betterAuth.adapter.findOne, {...})`
+
+
+## Auto Quality Check - 2026-02-10 12:13:16
+### File: /home/user/PDP/packages/backend/convex/models/passportSharing.ts
+
+- ⚠️ **Performance: .filter() usage detected**
+  - **Problem:** Should use .withIndex() for better performance
+  - **Fix:** Replace `.query().filter()` with `.query().withIndex()`
+
+
+## Auto Quality Check - 2026-02-10 12:13:16
+### File: /home/user/PDP/packages/backend/convex/models/passportSharing.ts
+
+- ❌ **CRITICAL: N+1 query pattern detected**
+  - **Problem:** `Promise.all(items.map(async => query))` makes N database calls
+  - **Fix:** Batch fetch all IDs first, create Map for O(1) lookup
+
+
+## Auto Quality Check - 2026-02-10 12:13:27
+### File: /home/user/PDP/packages/backend/convex/models/passportSharing.ts
+
+- ❌ **CRITICAL: Better Auth adapter violation**
+  - **Problem:** Direct DB access to auth tables
+  - **Fix:** Use `ctx.runQuery(components.betterAuth.adapter.findOne, {...})`
+
+
+## Auto Quality Check - 2026-02-10 12:13:27
+### File: /home/user/PDP/packages/backend/convex/models/passportSharing.ts
+
+- ⚠️ **Performance: .filter() usage detected**
+  - **Problem:** Should use .withIndex() for better performance
+  - **Fix:** Replace `.query().filter()` with `.query().withIndex()`
+
+
+## Auto Quality Check - 2026-02-10 12:13:27
+### File: /home/user/PDP/packages/backend/convex/models/passportSharing.ts
+
+- ❌ **CRITICAL: N+1 query pattern detected**
+  - **Problem:** `Promise.all(items.map(async => query))` makes N database calls
+  - **Fix:** Batch fetch all IDs first, create Map for O(1) lookup
+
+
+## Auto Quality Check - 2026-02-10 12:13:37
+### File: /home/user/PDP/packages/backend/convex/models/passportComparison.ts
+
+- ❌ **CRITICAL: Better Auth adapter violation**
+  - **Problem:** Direct DB access to auth tables
+  - **Fix:** Use `ctx.runQuery(components.betterAuth.adapter.findOne, {...})`
+
+
+## Auto Quality Check - 2026-02-10 12:13:37
+### File: /home/user/PDP/packages/backend/convex/models/passportComparison.ts
+
+- ⚠️ **Performance: .filter() usage detected**
+  - **Problem:** Should use .withIndex() for better performance
+  - **Fix:** Replace `.query().filter()` with `.query().withIndex()`
+
+
+## Auto Quality Check - 2026-02-10 12:13:37
+### File: /home/user/PDP/packages/backend/convex/models/passportComparison.ts
+
+- ❌ **CRITICAL: N+1 query pattern detected**
+  - **Problem:** `Promise.all(items.map(async => query))` makes N database calls
+  - **Fix:** Batch fetch all IDs first, create Map for O(1) lookup
+
+
+## Auto Quality Check - 2026-02-10 12:13:40
+### File: /home/user/PDP/packages/backend/convex/models/passportSharing.ts
+
+- ❌ **CRITICAL: Better Auth adapter violation**
+  - **Problem:** Direct DB access to auth tables
+  - **Fix:** Use `ctx.runQuery(components.betterAuth.adapter.findOne, {...})`
+
+
+## Auto Quality Check - 2026-02-10 12:13:40
+### File: /home/user/PDP/packages/backend/convex/models/passportSharing.ts
+
+- ⚠️ **Performance: .filter() usage detected**
+  - **Problem:** Should use .withIndex() for better performance
+  - **Fix:** Replace `.query().filter()` with `.query().withIndex()`
+
+
+## Auto Quality Check - 2026-02-10 12:13:40
+### File: /home/user/PDP/packages/backend/convex/models/passportSharing.ts
+
+- ❌ **CRITICAL: N+1 query pattern detected**
+  - **Problem:** `Promise.all(items.map(async => query))` makes N database calls
+  - **Fix:** Batch fetch all IDs first, create Map for O(1) lookup
+
+
+## Auto Quality Check - 2026-02-10 12:13:50
+### File: /home/user/PDP/packages/backend/convex/scripts/passportSharingDiagnostics.ts
+
+- ❌ **CRITICAL: N+1 query pattern detected**
+  - **Problem:** `Promise.all(items.map(async => query))` makes N database calls
+  - **Fix:** Batch fetch all IDs first, create Map for O(1) lookup
+
+
+## Auto Quality Check - 2026-02-10 12:13:51
+### File: /home/user/PDP/packages/backend/convex/models/guardianManagement.ts
+
+- ⚠️ **Performance: .filter() usage detected**
+  - **Problem:** Should use .withIndex() for better performance
+  - **Fix:** Replace `.query().filter()` with `.query().withIndex()`
+
+
+## Auto Quality Check - 2026-02-10 12:13:54
+### File: /home/user/PDP/packages/backend/convex/models/passportSharing.ts
+
+- ❌ **CRITICAL: Better Auth adapter violation**
+  - **Problem:** Direct DB access to auth tables
+  - **Fix:** Use `ctx.runQuery(components.betterAuth.adapter.findOne, {...})`
+
+
+## Auto Quality Check - 2026-02-10 12:13:54
+### File: /home/user/PDP/packages/backend/convex/models/passportSharing.ts
+
+- ⚠️ **Performance: .filter() usage detected**
+  - **Problem:** Should use .withIndex() for better performance
+  - **Fix:** Replace `.query().filter()` with `.query().withIndex()`
+
+
+## Auto Quality Check - 2026-02-10 12:13:54
+### File: /home/user/PDP/packages/backend/convex/models/passportSharing.ts
+
+- ❌ **CRITICAL: N+1 query pattern detected**
+  - **Problem:** `Promise.all(items.map(async => query))` makes N database calls
+  - **Fix:** Batch fetch all IDs first, create Map for O(1) lookup
+
+
+## Auto Quality Check - 2026-02-10 12:14:05
+### File: /home/user/PDP/packages/backend/convex/models/passportSharing.ts
+
+- ❌ **CRITICAL: Better Auth adapter violation**
+  - **Problem:** Direct DB access to auth tables
+  - **Fix:** Use `ctx.runQuery(components.betterAuth.adapter.findOne, {...})`
+
+
+## Auto Quality Check - 2026-02-10 12:14:05
+### File: /home/user/PDP/packages/backend/convex/models/passportSharing.ts
+
+- ⚠️ **Performance: .filter() usage detected**
+  - **Problem:** Should use .withIndex() for better performance
+  - **Fix:** Replace `.query().filter()` with `.query().withIndex()`
+
+
+## Auto Quality Check - 2026-02-10 12:14:06
+### File: /home/user/PDP/packages/backend/convex/models/passportSharing.ts
+
+- ❌ **CRITICAL: N+1 query pattern detected**
+  - **Problem:** `Promise.all(items.map(async => query))` makes N database calls
+  - **Fix:** Batch fetch all IDs first, create Map for O(1) lookup
+
+
+## Auto Quality Check - 2026-02-10 12:14:23
+### File: /home/user/PDP/packages/backend/convex/models/passportSharing.ts
+
+- ❌ **CRITICAL: Better Auth adapter violation**
+  - **Problem:** Direct DB access to auth tables
+  - **Fix:** Use `ctx.runQuery(components.betterAuth.adapter.findOne, {...})`
+
+
+## Auto Quality Check - 2026-02-10 12:14:23
+### File: /home/user/PDP/packages/backend/convex/models/passportSharing.ts
+
+- ⚠️ **Performance: .filter() usage detected**
+  - **Problem:** Should use .withIndex() for better performance
+  - **Fix:** Replace `.query().filter()` with `.query().withIndex()`
+
+
+## Auto Quality Check - 2026-02-10 12:14:23
+### File: /home/user/PDP/packages/backend/convex/models/passportSharing.ts
+
+- ❌ **CRITICAL: N+1 query pattern detected**
+  - **Problem:** `Promise.all(items.map(async => query))` makes N database calls
+  - **Fix:** Batch fetch all IDs first, create Map for O(1) lookup
+
+
+## Auto Quality Check - 2026-02-10 12:14:35
+### File: /home/user/PDP/packages/backend/convex/models/passportSharing.ts
+
+- ❌ **CRITICAL: Better Auth adapter violation**
+  - **Problem:** Direct DB access to auth tables
+  - **Fix:** Use `ctx.runQuery(components.betterAuth.adapter.findOne, {...})`
+
+
+## Auto Quality Check - 2026-02-10 12:14:35
+### File: /home/user/PDP/packages/backend/convex/models/passportSharing.ts
+
+- ⚠️ **Performance: .filter() usage detected**
+  - **Problem:** Should use .withIndex() for better performance
+  - **Fix:** Replace `.query().filter()` with `.query().withIndex()`
+
+
+## Auto Quality Check - 2026-02-10 12:14:35
+### File: /home/user/PDP/packages/backend/convex/models/passportSharing.ts
+
+- ❌ **CRITICAL: N+1 query pattern detected**
+  - **Problem:** `Promise.all(items.map(async => query))` makes N database calls
+  - **Fix:** Batch fetch all IDs first, create Map for O(1) lookup
+
+
+## Auto Quality Check - 2026-02-10 12:14:38
+### File: /home/user/PDP/packages/backend/convex/models/passportSharing.ts
+
+- ❌ **CRITICAL: Better Auth adapter violation**
+  - **Problem:** Direct DB access to auth tables
+  - **Fix:** Use `ctx.runQuery(components.betterAuth.adapter.findOne, {...})`
+
+
+## Auto Quality Check - 2026-02-10 12:14:38
+### File: /home/user/PDP/packages/backend/convex/models/passportSharing.ts
+
+- ⚠️ **Performance: .filter() usage detected**
+  - **Problem:** Should use .withIndex() for better performance
+  - **Fix:** Replace `.query().filter()` with `.query().withIndex()`
+
+
+## Auto Quality Check - 2026-02-10 12:14:38
+### File: /home/user/PDP/packages/backend/convex/models/passportSharing.ts
+
+- ❌ **CRITICAL: N+1 query pattern detected**
+  - **Problem:** `Promise.all(items.map(async => query))` makes N database calls
+  - **Fix:** Batch fetch all IDs first, create Map for O(1) lookup
+
+
+## Auto Quality Check - 2026-02-10 12:15:00
+### File: /home/user/PDP/packages/backend/convex/models/passportSharing.ts
+
+- ❌ **CRITICAL: Better Auth adapter violation**
+  - **Problem:** Direct DB access to auth tables
+  - **Fix:** Use `ctx.runQuery(components.betterAuth.adapter.findOne, {...})`
+
+
+## Auto Quality Check - 2026-02-10 12:15:00
+### File: /home/user/PDP/packages/backend/convex/models/passportSharing.ts
+
+- ⚠️ **Performance: .filter() usage detected**
+  - **Problem:** Should use .withIndex() for better performance
+  - **Fix:** Replace `.query().filter()` with `.query().withIndex()`
+
+
+## Auto Quality Check - 2026-02-10 12:15:00
+### File: /home/user/PDP/packages/backend/convex/models/passportSharing.ts
+
+- ❌ **CRITICAL: N+1 query pattern detected**
+  - **Problem:** `Promise.all(items.map(async => query))` makes N database calls
+  - **Fix:** Batch fetch all IDs first, create Map for O(1) lookup
+
+
+## Auto Quality Check - 2026-02-10 12:15:13
+### File: /home/user/PDP/packages/backend/convex/models/passportSharing.ts
+
+- ❌ **CRITICAL: Better Auth adapter violation**
+  - **Problem:** Direct DB access to auth tables
+  - **Fix:** Use `ctx.runQuery(components.betterAuth.adapter.findOne, {...})`
+
+
+## Auto Quality Check - 2026-02-10 12:15:13
+### File: /home/user/PDP/packages/backend/convex/models/passportSharing.ts
+
+- ⚠️ **Performance: .filter() usage detected**
+  - **Problem:** Should use .withIndex() for better performance
+  - **Fix:** Replace `.query().filter()` with `.query().withIndex()`
+
+
+## Auto Quality Check - 2026-02-10 12:15:13
+### File: /home/user/PDP/packages/backend/convex/models/passportSharing.ts
+
+- ❌ **CRITICAL: N+1 query pattern detected**
+  - **Problem:** `Promise.all(items.map(async => query))` makes N database calls
+  - **Fix:** Batch fetch all IDs first, create Map for O(1) lookup
+
+
+## Auto Quality Check - 2026-02-10 12:15:13
+### File: /home/user/PDP/packages/backend/convex/models/passportSharing.ts
+
+- ❌ **CRITICAL: Better Auth adapter violation**
+  - **Problem:** Direct DB access to auth tables
+  - **Fix:** Use `ctx.runQuery(components.betterAuth.adapter.findOne, {...})`
+
+
+## Auto Quality Check - 2026-02-10 12:15:13
+### File: /home/user/PDP/packages/backend/convex/models/passportSharing.ts
+
+- ⚠️ **Performance: .filter() usage detected**
+  - **Problem:** Should use .withIndex() for better performance
+  - **Fix:** Replace `.query().filter()` with `.query().withIndex()`
+
+
+## Auto Quality Check - 2026-02-10 12:15:13
+### File: /home/user/PDP/packages/backend/convex/models/passportSharing.ts
+
+- ❌ **CRITICAL: N+1 query pattern detected**
+  - **Problem:** `Promise.all(items.map(async => query))` makes N database calls
+  - **Fix:** Batch fetch all IDs first, create Map for O(1) lookup
+
+
+## Auto Quality Check - 2026-02-10 12:15:34
+### File: /home/user/PDP/packages/backend/convex/models/passportSharing.ts
+
+- ❌ **CRITICAL: Better Auth adapter violation**
+  - **Problem:** Direct DB access to auth tables
+  - **Fix:** Use `ctx.runQuery(components.betterAuth.adapter.findOne, {...})`
+
+
+## Auto Quality Check - 2026-02-10 12:15:34
+### File: /home/user/PDP/packages/backend/convex/models/passportSharing.ts
+
+- ⚠️ **Performance: .filter() usage detected**
+  - **Problem:** Should use .withIndex() for better performance
+  - **Fix:** Replace `.query().filter()` with `.query().withIndex()`
+
+
+## Auto Quality Check - 2026-02-10 12:15:34
+### File: /home/user/PDP/packages/backend/convex/models/passportSharing.ts
+
+- ❌ **CRITICAL: N+1 query pattern detected**
+  - **Problem:** `Promise.all(items.map(async => query))` makes N database calls
+  - **Fix:** Batch fetch all IDs first, create Map for O(1) lookup
+
+
+## Auto Quality Check - 2026-02-10 12:15:44
+### File: /home/user/PDP/packages/backend/convex/models/passportSharing.ts
+
+- ❌ **CRITICAL: Better Auth adapter violation**
+  - **Problem:** Direct DB access to auth tables
+  - **Fix:** Use `ctx.runQuery(components.betterAuth.adapter.findOne, {...})`
+
+
+## Auto Quality Check - 2026-02-10 12:15:44
+### File: /home/user/PDP/packages/backend/convex/models/passportSharing.ts
+
+- ⚠️ **Performance: .filter() usage detected**
+  - **Problem:** Should use .withIndex() for better performance
+  - **Fix:** Replace `.query().filter()` with `.query().withIndex()`
+
+
+## Auto Quality Check - 2026-02-10 12:15:44
+### File: /home/user/PDP/packages/backend/convex/models/passportSharing.ts
+
+- ❌ **CRITICAL: N+1 query pattern detected**
+  - **Problem:** `Promise.all(items.map(async => query))` makes N database calls
+  - **Fix:** Batch fetch all IDs first, create Map for O(1) lookup
+
+
+## Auto Quality Check - 2026-02-10 12:15:58
+### File: /home/user/PDP/packages/backend/convex/models/passportSharing.ts
+
+- ❌ **CRITICAL: Better Auth adapter violation**
+  - **Problem:** Direct DB access to auth tables
+  - **Fix:** Use `ctx.runQuery(components.betterAuth.adapter.findOne, {...})`
+
+
+## Auto Quality Check - 2026-02-10 12:15:58
+### File: /home/user/PDP/packages/backend/convex/models/passportSharing.ts
+
+- ⚠️ **Performance: .filter() usage detected**
+  - **Problem:** Should use .withIndex() for better performance
+  - **Fix:** Replace `.query().filter()` with `.query().withIndex()`
+
+
+## Auto Quality Check - 2026-02-10 12:15:58
+### File: /home/user/PDP/packages/backend/convex/models/passportSharing.ts
+
+- ❌ **CRITICAL: N+1 query pattern detected**
+  - **Problem:** `Promise.all(items.map(async => query))` makes N database calls
+  - **Fix:** Batch fetch all IDs first, create Map for O(1) lookup
+
+
+## Auto Quality Check - 2026-02-10 12:16:13
+### File: /home/user/PDP/packages/backend/convex/models/passportSharing.ts
+
+- ❌ **CRITICAL: Better Auth adapter violation**
+  - **Problem:** Direct DB access to auth tables
+  - **Fix:** Use `ctx.runQuery(components.betterAuth.adapter.findOne, {...})`
+
+
+## Auto Quality Check - 2026-02-10 12:16:13
+### File: /home/user/PDP/packages/backend/convex/models/passportSharing.ts
+
+- ⚠️ **Performance: .filter() usage detected**
+  - **Problem:** Should use .withIndex() for better performance
+  - **Fix:** Replace `.query().filter()` with `.query().withIndex()`
+
+
+## Auto Quality Check - 2026-02-10 12:16:13
+### File: /home/user/PDP/packages/backend/convex/models/passportSharing.ts
+
+- ❌ **CRITICAL: N+1 query pattern detected**
+  - **Problem:** `Promise.all(items.map(async => query))` makes N database calls
+  - **Fix:** Batch fetch all IDs first, create Map for O(1) lookup
+
+
+## Auto Quality Check - 2026-02-10 12:19:21
+### File: /home/user/PDP/packages/backend/convex/models/passportSharing.ts
+
+- ❌ **CRITICAL: Better Auth adapter violation**
+  - **Problem:** Direct DB access to auth tables
+  - **Fix:** Use `ctx.runQuery(components.betterAuth.adapter.findOne, {...})`
+
+
+## Auto Quality Check - 2026-02-10 12:19:21
+### File: /home/user/PDP/packages/backend/convex/models/passportSharing.ts
+
+- ⚠️ **Performance: .filter() usage detected**
+  - **Problem:** Should use .withIndex() for better performance
+  - **Fix:** Replace `.query().filter()` with `.query().withIndex()`
+
+
+## Auto Quality Check - 2026-02-10 12:19:21
+### File: /home/user/PDP/packages/backend/convex/models/passportSharing.ts
+
+- ❌ **CRITICAL: N+1 query pattern detected**
+  - **Problem:** `Promise.all(items.map(async => query))` makes N database calls
+  - **Fix:** Batch fetch all IDs first, create Map for O(1) lookup
+
+
+## Auto Quality Check - 2026-02-10 12:19:22
+### File: /home/user/PDP/packages/backend/convex/lib/consentGateway.ts
+
+- ⚠️ **Performance: .filter() usage detected**
+  - **Problem:** Should use .withIndex() for better performance
+  - **Fix:** Replace `.query().filter()` with `.query().withIndex()`
+
+
+## Auto Quality Check - 2026-02-10 12:19:35
+### File: /home/user/PDP/packages/backend/convex/models/passportSharing.ts
+
+- ❌ **CRITICAL: Better Auth adapter violation**
+  - **Problem:** Direct DB access to auth tables
+  - **Fix:** Use `ctx.runQuery(components.betterAuth.adapter.findOne, {...})`
+
+
+## Auto Quality Check - 2026-02-10 12:19:35
+### File: /home/user/PDP/packages/backend/convex/models/passportSharing.ts
+
+- ⚠️ **Performance: .filter() usage detected**
+  - **Problem:** Should use .withIndex() for better performance
+  - **Fix:** Replace `.query().filter()` with `.query().withIndex()`
+
+
+## Auto Quality Check - 2026-02-10 12:19:35
+### File: /home/user/PDP/packages/backend/convex/models/passportSharing.ts
+
+- ❌ **CRITICAL: N+1 query pattern detected**
+  - **Problem:** `Promise.all(items.map(async => query))` makes N database calls
+  - **Fix:** Batch fetch all IDs first, create Map for O(1) lookup
+
+
+## Auto Quality Check - 2026-02-10 12:19:59
+### File: /home/user/PDP/packages/backend/convex/models/passportSharing.ts
+
+- ❌ **CRITICAL: Better Auth adapter violation**
+  - **Problem:** Direct DB access to auth tables
+  - **Fix:** Use `ctx.runQuery(components.betterAuth.adapter.findOne, {...})`
+
+
+## Auto Quality Check - 2026-02-10 12:20:00
+### File: /home/user/PDP/packages/backend/convex/models/passportSharing.ts
+
+- ⚠️ **Performance: .filter() usage detected**
+  - **Problem:** Should use .withIndex() for better performance
+  - **Fix:** Replace `.query().filter()` with `.query().withIndex()`
+
+
+## Auto Quality Check - 2026-02-10 12:20:00
+### File: /home/user/PDP/packages/backend/convex/models/passportSharing.ts
+
+- ❌ **CRITICAL: N+1 query pattern detected**
+  - **Problem:** `Promise.all(items.map(async => query))` makes N database calls
+  - **Fix:** Batch fetch all IDs first, create Map for O(1) lookup
+
+
+## Auto Quality Check - 2026-02-10 12:20:00
+### File: /home/user/PDP/packages/backend/convex/models/passportComparison.ts
+
+- ❌ **CRITICAL: Better Auth adapter violation**
+  - **Problem:** Direct DB access to auth tables
+  - **Fix:** Use `ctx.runQuery(components.betterAuth.adapter.findOne, {...})`
+
+
+## Auto Quality Check - 2026-02-10 12:20:00
+### File: /home/user/PDP/packages/backend/convex/models/passportComparison.ts
+
+- ⚠️ **Performance: .filter() usage detected**
+  - **Problem:** Should use .withIndex() for better performance
+  - **Fix:** Replace `.query().filter()` with `.query().withIndex()`
+
+
+## Auto Quality Check - 2026-02-10 12:20:00
+### File: /home/user/PDP/packages/backend/convex/models/passportComparison.ts
+
+- ❌ **CRITICAL: N+1 query pattern detected**
+  - **Problem:** `Promise.all(items.map(async => query))` makes N database calls
+  - **Fix:** Batch fetch all IDs first, create Map for O(1) lookup
+
+
+## Auto Quality Check - 2026-02-10 12:20:27
+### File: /home/user/PDP/packages/backend/convex/models/passportSharing.ts
+
+- ❌ **CRITICAL: Better Auth adapter violation**
+  - **Problem:** Direct DB access to auth tables
+  - **Fix:** Use `ctx.runQuery(components.betterAuth.adapter.findOne, {...})`
+
+
+## Auto Quality Check - 2026-02-10 12:20:27
+### File: /home/user/PDP/packages/backend/convex/models/passportSharing.ts
+
+- ⚠️ **Performance: .filter() usage detected**
+  - **Problem:** Should use .withIndex() for better performance
+  - **Fix:** Replace `.query().filter()` with `.query().withIndex()`
+
+
+## Auto Quality Check - 2026-02-10 12:20:27
+### File: /home/user/PDP/packages/backend/convex/models/passportSharing.ts
+
+- ❌ **CRITICAL: N+1 query pattern detected**
+  - **Problem:** `Promise.all(items.map(async => query))` makes N database calls
+  - **Fix:** Batch fetch all IDs first, create Map for O(1) lookup
+
+
+## Auto Quality Check - 2026-02-10 12:20:27
+### File: /home/user/PDP/packages/backend/convex/models/passportSharing.ts
+
+- ❌ **CRITICAL: Better Auth adapter violation**
+  - **Problem:** Direct DB access to auth tables
+  - **Fix:** Use `ctx.runQuery(components.betterAuth.adapter.findOne, {...})`
+
+
+## Auto Quality Check - 2026-02-10 12:20:27
+### File: /home/user/PDP/packages/backend/convex/models/passportSharing.ts
+
+- ⚠️ **Performance: .filter() usage detected**
+  - **Problem:** Should use .withIndex() for better performance
+  - **Fix:** Replace `.query().filter()` with `.query().withIndex()`
+
+
+## Auto Quality Check - 2026-02-10 12:20:27
+### File: /home/user/PDP/packages/backend/convex/models/passportSharing.ts
+
+- ❌ **CRITICAL: N+1 query pattern detected**
+  - **Problem:** `Promise.all(items.map(async => query))` makes N database calls
+  - **Fix:** Batch fetch all IDs first, create Map for O(1) lookup
+
+
+## Auto Quality Check - 2026-02-10 12:20:28
+### File: /home/user/PDP/packages/backend/convex/models/passportSharing.ts
+
+- ❌ **CRITICAL: Better Auth adapter violation**
+  - **Problem:** Direct DB access to auth tables
+  - **Fix:** Use `ctx.runQuery(components.betterAuth.adapter.findOne, {...})`
+
+
+## Auto Quality Check - 2026-02-10 12:20:28
+### File: /home/user/PDP/packages/backend/convex/models/passportSharing.ts
+
+- ⚠️ **Performance: .filter() usage detected**
+  - **Problem:** Should use .withIndex() for better performance
+  - **Fix:** Replace `.query().filter()` with `.query().withIndex()`
+
+
+## Auto Quality Check - 2026-02-10 12:20:28
+### File: /home/user/PDP/packages/backend/convex/models/passportSharing.ts
+
+- ❌ **CRITICAL: N+1 query pattern detected**
+  - **Problem:** `Promise.all(items.map(async => query))` makes N database calls
+  - **Fix:** Batch fetch all IDs first, create Map for O(1) lookup
+
+
+## Auto Quality Check - 2026-02-10 12:20:29
+### File: /home/user/PDP/packages/backend/convex/models/passportSharing.ts
+
+- ❌ **CRITICAL: Better Auth adapter violation**
+  - **Problem:** Direct DB access to auth tables
+  - **Fix:** Use `ctx.runQuery(components.betterAuth.adapter.findOne, {...})`
+
+
+## Auto Quality Check - 2026-02-10 12:20:29
+### File: /home/user/PDP/packages/backend/convex/models/passportSharing.ts
+
+- ⚠️ **Performance: .filter() usage detected**
+  - **Problem:** Should use .withIndex() for better performance
+  - **Fix:** Replace `.query().filter()` with `.query().withIndex()`
+
+
+## Auto Quality Check - 2026-02-10 12:20:29
+### File: /home/user/PDP/packages/backend/convex/models/passportSharing.ts
+
+- ❌ **CRITICAL: N+1 query pattern detected**
+  - **Problem:** `Promise.all(items.map(async => query))` makes N database calls
+  - **Fix:** Batch fetch all IDs first, create Map for O(1) lookup
+
+
+## Auto Quality Check - 2026-02-10 12:20:42
+### File: /home/user/PDP/packages/backend/convex/models/passportSharing.ts
+
+- ❌ **CRITICAL: Better Auth adapter violation**
+  - **Problem:** Direct DB access to auth tables
+  - **Fix:** Use `ctx.runQuery(components.betterAuth.adapter.findOne, {...})`
+
+
+## Auto Quality Check - 2026-02-10 12:20:42
+### File: /home/user/PDP/packages/backend/convex/models/passportSharing.ts
+
+- ⚠️ **Performance: .filter() usage detected**
+  - **Problem:** Should use .withIndex() for better performance
+  - **Fix:** Replace `.query().filter()` with `.query().withIndex()`
+
+
+## Auto Quality Check - 2026-02-10 12:20:42
+### File: /home/user/PDP/packages/backend/convex/models/passportSharing.ts
+
+- ❌ **CRITICAL: N+1 query pattern detected**
+  - **Problem:** `Promise.all(items.map(async => query))` makes N database calls
+  - **Fix:** Batch fetch all IDs first, create Map for O(1) lookup
+
+
+## Auto Quality Check - 2026-02-10 12:20:43
+### File: /home/user/PDP/packages/backend/convex/models/passportSharing.ts
+
+- ❌ **CRITICAL: Better Auth adapter violation**
+  - **Problem:** Direct DB access to auth tables
+  - **Fix:** Use `ctx.runQuery(components.betterAuth.adapter.findOne, {...})`
+
+
+## Auto Quality Check - 2026-02-10 12:20:43
+### File: /home/user/PDP/packages/backend/convex/models/passportSharing.ts
+
+- ⚠️ **Performance: .filter() usage detected**
+  - **Problem:** Should use .withIndex() for better performance
+  - **Fix:** Replace `.query().filter()` with `.query().withIndex()`
+
+
+## Auto Quality Check - 2026-02-10 12:20:43
+### File: /home/user/PDP/packages/backend/convex/models/passportSharing.ts
+
+- ❌ **CRITICAL: N+1 query pattern detected**
+  - **Problem:** `Promise.all(items.map(async => query))` makes N database calls
+  - **Fix:** Batch fetch all IDs first, create Map for O(1) lookup
+
+
+## Auto Quality Check - 2026-02-10 12:20:43
+### File: /home/user/PDP/packages/backend/convex/models/passportSharing.ts
+
+- ❌ **CRITICAL: Better Auth adapter violation**
+  - **Problem:** Direct DB access to auth tables
+  - **Fix:** Use `ctx.runQuery(components.betterAuth.adapter.findOne, {...})`
+
+
+## Auto Quality Check - 2026-02-10 12:20:44
+### File: /home/user/PDP/packages/backend/convex/models/passportSharing.ts
+
+- ⚠️ **Performance: .filter() usage detected**
+  - **Problem:** Should use .withIndex() for better performance
+  - **Fix:** Replace `.query().filter()` with `.query().withIndex()`
+
+
+## Auto Quality Check - 2026-02-10 12:20:44
+### File: /home/user/PDP/packages/backend/convex/models/passportSharing.ts
+
+- ❌ **CRITICAL: N+1 query pattern detected**
+  - **Problem:** `Promise.all(items.map(async => query))` makes N database calls
+  - **Fix:** Batch fetch all IDs first, create Map for O(1) lookup
+
+
+## Auto Quality Check - 2026-02-10 13:15:53
+### File: /home/user/PDP/packages/backend/convex/models/passportComparison.ts
+
+- ❌ **CRITICAL: Better Auth adapter violation**
+  - **Problem:** Direct DB access to auth tables
+  - **Fix:** Use `ctx.runQuery(components.betterAuth.adapter.findOne, {...})`
+
+
+## Auto Quality Check - 2026-02-10 13:15:53
+### File: /home/user/PDP/packages/backend/convex/models/passportComparison.ts
+
+- ⚠️ **Performance: .filter() usage detected**
+  - **Problem:** Should use .withIndex() for better performance
+  - **Fix:** Replace `.query().filter()` with `.query().withIndex()`
+
+
+## Auto Quality Check - 2026-02-10 13:15:53
+### File: /home/user/PDP/packages/backend/convex/models/passportComparison.ts
+
+- ❌ **CRITICAL: N+1 query pattern detected**
+  - **Problem:** `Promise.all(items.map(async => query))` makes N database calls
+  - **Fix:** Batch fetch all IDs first, create Map for O(1) lookup
+
+
+## Auto Quality Check - 2026-02-10 13:16:07
+### File: /home/user/PDP/packages/backend/convex/lib/consentGateway.ts
+
+- ⚠️ **Performance: .filter() usage detected**
+  - **Problem:** Should use .withIndex() for better performance
+  - **Fix:** Replace `.query().filter()` with `.query().withIndex()`
+

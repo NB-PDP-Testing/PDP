@@ -336,9 +336,10 @@ export function ReviewQueue({
             <EmptyMedia variant="icon">
               <Shield className="h-6 w-6" />
             </EmptyMedia>
-            <EmptyTitle>All clear! 🎉</EmptyTitle>
+            <EmptyTitle>No Injuries to Review</EmptyTitle>
             <EmptyDescription>
-              No injuries to review right now.
+              All injury insights have been reviewed. Great work keeping your
+              players safe!
             </EmptyDescription>
           </EmptyContent>
         </Empty>
@@ -387,9 +388,10 @@ export function ReviewQueue({
             <EmptyMedia variant="icon">
               <CheckCircle2 className="h-6 w-6" />
             </EmptyMedia>
-            <EmptyTitle>All players matched! 🎉</EmptyTitle>
+            <EmptyTitle>All Players Matched</EmptyTitle>
             <EmptyDescription>
-              All insights have been successfully matched to players.
+              All player insights have been successfully matched. No action
+              needed.
             </EmptyDescription>
           </EmptyContent>
         </Empty>
@@ -455,9 +457,10 @@ export function ReviewQueue({
             <EmptyMedia variant="icon">
               <CheckCircle2 className="h-6 w-6" />
             </EmptyMedia>
-            <EmptyTitle>All caught up! ✅</EmptyTitle>
+            <EmptyTitle>All Caught Up</EmptyTitle>
             <EmptyDescription>
-              No items pending review at this time.
+              No insights pending review at this time. Check back after your
+              next voice note.
             </EmptyDescription>
           </EmptyContent>
         </Empty>
@@ -525,9 +528,9 @@ export function ReviewQueue({
             <EmptyMedia variant="icon">
               <ClipboardList className="h-6 w-6" />
             </EmptyMedia>
-            <EmptyTitle>No action items 🎯</EmptyTitle>
+            <EmptyTitle>No Action Items</EmptyTitle>
             <EmptyDescription>
-              No todos or action items to review.
+              No action items or tasks to review at this time.
             </EmptyDescription>
           </EmptyContent>
         </Empty>
@@ -595,9 +598,9 @@ export function ReviewQueue({
             <EmptyMedia variant="icon">
               <Users className="h-6 w-6" />
             </EmptyMedia>
-            <EmptyTitle>No team notes ✨</EmptyTitle>
+            <EmptyTitle>No Team Notes</EmptyTitle>
             <EmptyDescription>
-              No team notes to review at this time.
+              No team-level notes to review at this time.
             </EmptyDescription>
           </EmptyContent>
         </Empty>

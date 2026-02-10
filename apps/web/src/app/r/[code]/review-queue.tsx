@@ -272,10 +272,19 @@ export function ReviewQueue({
     );
   }
 
+  // Separate empty states from actionable content
+  const hasAnyEmptyStates =
+    injuries.length === 0 ||
+    unmatched.length === 0 ||
+    needsReview.length === 0 ||
+    todos.length === 0 ||
+    teamNotes.length === 0;
+
   return (
     <div className="space-y-4 pb-8">
       <SnoozeBar code={code} />
 
+      {/* Actionable sections (with items) render first */}
       {injuries.length > 0 && (
         <ReviewSection
           batchAction={
@@ -330,18 +339,6 @@ export function ReviewQueue({
         </ReviewSection>
       )}
 
-      {injuries.length === 0 && (
-        <Empty>
-          <EmptyContent>
-            <EmptyMedia variant="icon">
-              <Shield className="h-6 w-6" />
-            </EmptyMedia>
-            <EmptyTitle>No Injuries to Review</EmptyTitle>
-            <EmptyDescription>All injury insights reviewed.</EmptyDescription>
-          </EmptyContent>
-        </Empty>
-      )}
-
       {unmatched.length > 0 && (
         <ReviewSection
           borderColor="border-l-amber-500"
@@ -377,18 +374,6 @@ export function ReviewQueue({
             </SwipeableReviewCard>
           ))}
         </ReviewSection>
-      )}
-
-      {unmatched.length === 0 && (
-        <Empty>
-          <EmptyContent>
-            <EmptyMedia variant="icon">
-              <CheckCircle2 className="h-6 w-6" />
-            </EmptyMedia>
-            <EmptyTitle>All Players Matched</EmptyTitle>
-            <EmptyDescription>All insights have been matched.</EmptyDescription>
-          </EmptyContent>
-        </Empty>
       )}
 
       {needsReview.length > 0 && (
@@ -443,18 +428,6 @@ export function ReviewQueue({
             </SwipeableReviewCard>
           ))}
         </ReviewSection>
-      )}
-
-      {needsReview.length === 0 && (
-        <Empty>
-          <EmptyContent>
-            <EmptyMedia variant="icon">
-              <CheckCircle2 className="h-6 w-6" />
-            </EmptyMedia>
-            <EmptyTitle>All Caught Up</EmptyTitle>
-            <EmptyDescription>No insights pending review.</EmptyDescription>
-          </EmptyContent>
-        </Empty>
       )}
 
       {todos.length > 0 && (
@@ -513,18 +486,6 @@ export function ReviewQueue({
         </ReviewSection>
       )}
 
-      {todos.length === 0 && (
-        <Empty>
-          <EmptyContent>
-            <EmptyMedia variant="icon">
-              <ClipboardList className="h-6 w-6" />
-            </EmptyMedia>
-            <EmptyTitle>No Action Items</EmptyTitle>
-            <EmptyDescription>No action items to review.</EmptyDescription>
-          </EmptyContent>
-        </Empty>
-      )}
-
       {teamNotes.length > 0 && (
         <ReviewSection
           batchAction={
@@ -581,22 +542,86 @@ export function ReviewQueue({
         </ReviewSection>
       )}
 
-      {teamNotes.length === 0 && (
-        <Empty>
-          <EmptyContent>
-            <EmptyMedia variant="icon">
-              <Users className="h-6 w-6" />
-            </EmptyMedia>
-            <EmptyTitle>No Team Notes</EmptyTitle>
-            <EmptyDescription>No team notes to review.</EmptyDescription>
-          </EmptyContent>
-        </Empty>
-      )}
-
+      {/* Auto-applied and recently reviewed (collapsible) */}
       {autoApplied.length > 0 && <AutoAppliedSection items={autoApplied} />}
 
       {recentlyReviewed.length > 0 && (
         <RecentlyReviewedSection code={code} items={recentlyReviewed} />
+      )}
+
+      {/* Empty states render at the bottom (after all actionable sections) */}
+      {hasAnyEmptyStates && (
+        <div className="space-y-4 pt-4">
+          <div className="border-t pt-4">
+            <h3 className="mb-3 text-center text-muted-foreground text-sm">
+              Completed Sections
+            </h3>
+          </div>
+
+          {injuries.length === 0 && (
+            <Empty>
+              <EmptyContent>
+                <EmptyMedia variant="icon">
+                  <Shield className="h-6 w-6" />
+                </EmptyMedia>
+                <EmptyTitle>No Injuries to Review</EmptyTitle>
+                <EmptyDescription>
+                  All injury insights reviewed.
+                </EmptyDescription>
+              </EmptyContent>
+            </Empty>
+          )}
+
+          {unmatched.length === 0 && (
+            <Empty>
+              <EmptyContent>
+                <EmptyMedia variant="icon">
+                  <CheckCircle2 className="h-6 w-6" />
+                </EmptyMedia>
+                <EmptyTitle>All Players Matched</EmptyTitle>
+                <EmptyDescription>
+                  All insights have been matched.
+                </EmptyDescription>
+              </EmptyContent>
+            </Empty>
+          )}
+
+          {needsReview.length === 0 && (
+            <Empty>
+              <EmptyContent>
+                <EmptyMedia variant="icon">
+                  <CheckCircle2 className="h-6 w-6" />
+                </EmptyMedia>
+                <EmptyTitle>All Caught Up</EmptyTitle>
+                <EmptyDescription>No insights pending review.</EmptyDescription>
+              </EmptyContent>
+            </Empty>
+          )}
+
+          {todos.length === 0 && (
+            <Empty>
+              <EmptyContent>
+                <EmptyMedia variant="icon">
+                  <ClipboardList className="h-6 w-6" />
+                </EmptyMedia>
+                <EmptyTitle>No Action Items</EmptyTitle>
+                <EmptyDescription>No action items to review.</EmptyDescription>
+              </EmptyContent>
+            </Empty>
+          )}
+
+          {teamNotes.length === 0 && (
+            <Empty>
+              <EmptyContent>
+                <EmptyMedia variant="icon">
+                  <Users className="h-6 w-6" />
+                </EmptyMedia>
+                <EmptyTitle>No Team Notes</EmptyTitle>
+                <EmptyDescription>No team notes to review.</EmptyDescription>
+              </EmptyContent>
+            </Empty>
+          )}
+        </div>
       )}
     </div>
   );

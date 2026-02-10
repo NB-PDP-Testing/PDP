@@ -502,7 +502,11 @@ export const getCoachPendingItems = query({
 
     // Manually reviewed items (applied or dismissed by the coach)
     const recentlyReviewed = allInsights
-      .filter((i) => i.status === "applied" || i.status === "dismissed")
+      .filter(
+        (i) =>
+          (i.status === "applied" || i.status === "dismissed") &&
+          !i.clearedFromReview
+      )
       .map((i) => ({
         insightId: i.id,
         voiceNoteId: i.voiceNoteId,
@@ -1042,6 +1046,114 @@ export const batchDismissInsightsFromReview = mutation({
           coachUserId: link.coachUserId,
           organizationId: link.organizationId,
           eventType: "batch_dismiss",
+          metadata: { count: successCount },
+        }
+      );
+    }
+
+    return { successCount, failCount };
+  },
+});
+
+/**
+ * Batch clear reviewed insights from the review microsite (Bug #479).
+ * Sets clearedFromReview: true on already-reviewed insights so they
+ * no longer appear in the "Recently Reviewed" section. Does NOT change
+ * the insight status — all applied data remains intact.
+ */
+export const batchClearReviewedInsights = mutation({
+  args: {
+    code: v.string(),
+    items: v.array(
+      v.object({
+        voiceNoteId: v.id("voiceNotes"),
+        insightId: v.string(),
+      })
+    ),
+  },
+  returns: v.object({
+    successCount: v.number(),
+    failCount: v.number(),
+  }),
+  handler: async (ctx, args) => {
+    const result = await validateReviewCode(ctx, args.code);
+    if (!result || result.isExpired) {
+      return { successCount: 0, failCount: args.items.length };
+    }
+
+    const { link } = result;
+    let successCount = 0;
+    let failCount = 0;
+
+    // Group by voiceNoteId to batch DB reads
+    const byNote = new Map<string, string[]>();
+    for (const item of args.items) {
+      if (!link.voiceNoteIds.includes(item.voiceNoteId)) {
+        failCount += 1;
+        continue;
+      }
+      const noteKey = String(item.voiceNoteId);
+      const existing = byNote.get(noteKey) || [];
+      existing.push(item.insightId);
+      byNote.set(noteKey, existing);
+    }
+
+    // Batch fetch all notes at once
+    const noteIds = [...byNote.keys()];
+    const notes = await Promise.all(
+      link.voiceNoteIds
+        .filter((id) => noteIds.includes(String(id)))
+        .map((id) => ctx.db.get(id))
+    );
+    const noteMap = new Map(
+      notes
+        .filter((n): n is NonNullable<typeof n> => n !== null)
+        .map((n) => [String(n._id), n])
+    );
+
+    for (const [noteId, insightIds] of byNote) {
+      const note = noteMap.get(noteId);
+      if (!note) {
+        failCount += insightIds.length;
+        continue;
+      }
+
+      const reviewedIds = new Set(
+        note.insights
+          .filter(
+            (i) =>
+              insightIds.includes(i.id) &&
+              (i.status === "applied" || i.status === "dismissed")
+          )
+          .map((i) => i.id)
+      );
+
+      if (reviewedIds.size === 0) {
+        failCount += insightIds.length;
+        continue;
+      }
+
+      const updatedInsights = note.insights.map((i) => {
+        if (reviewedIds.has(i.id)) {
+          return { ...i, clearedFromReview: true };
+        }
+        return i;
+      });
+
+      successCount += reviewedIds.size;
+      failCount += insightIds.length - reviewedIds.size;
+      await ctx.db.patch(note._id, { insights: updatedInsights });
+    }
+
+    if (successCount > 0) {
+      await ctx.scheduler.runAfter(
+        0,
+        internal.models.reviewAnalytics.logReviewEvent,
+        {
+          linkCode: args.code,
+          coachUserId: link.coachUserId,
+          organizationId: link.organizationId,
+          eventType: "batch_clear",
           metadata: { count: successCount },
         }
       );

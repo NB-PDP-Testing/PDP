@@ -53,8 +53,8 @@ export function BatchActionBar({
   const batchDismiss = useMutation(
     api.models.whatsappReviewLinks.batchDismissInsightsFromReview
   );
-  const batchApply = useMutation(
-    api.models.whatsappReviewLinks.batchApplyInsightsFromReview
+  const batchClearReviewed = useMutation(
+    api.models.whatsappReviewLinks.batchClearReviewedInsights
   );
 
   const handleConfirm = async () => {
@@ -65,10 +65,10 @@ export function BatchActionBar({
     setProcessing(true);
     try {
       let result: { successCount: number; failCount: number };
-      if (variant === "dismiss" || variant === "clear-reviewed") {
-        result = await batchDismiss({ code, items });
+      if (variant === "clear-reviewed") {
+        result = await batchClearReviewed({ code, items });
       } else {
-        result = await batchApply({ code, items });
+        result = await batchDismiss({ code, items });
       }
 
       const { successCount, failCount } = result;

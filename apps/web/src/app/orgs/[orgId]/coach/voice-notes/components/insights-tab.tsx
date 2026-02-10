@@ -697,43 +697,35 @@ export function InsightsTab({ orgId, onSuccess, onError }: InsightsTabProps) {
   // 5. TODO insights WITH assignee: Ready to apply
   // 6. TODO insights WITHOUT assignee: Needs assignee (future)
   // 7. Uncategorized: No player and no team-level category (needs classification)
+  // Classify by category first — team_culture/todo take priority over playerName
+  // (AI may incorrectly include playerName on team-level insights)
+  const classifiedTeamInsights = insightsWithPrediction.filter(
+    (i) => i.category === "team_culture" && (i as any).teamId
+  );
+
+  const teamInsightsNeedingAssignment = insightsWithPrediction.filter(
+    (i) => i.category === "team_culture" && !(i as any).teamId
+  );
+
+  const assignedTodoInsights = insightsWithPrediction.filter(
+    (i) => i.category === "todo" && (i as any).assigneeUserId
+  );
+
+  const unassignedTodoInsights = insightsWithPrediction.filter(
+    (i) => i.category === "todo" && !(i as any).assigneeUserId
+  );
+
+  // Player insights — only for non-team-level categories
   const matchedInsights = insightsWithPrediction.filter(
-    (i) => i.playerIdentityId
+    (i) =>
+      i.playerIdentityId &&
+      !TEAM_LEVEL_CATEGORIES.includes(i.category as string)
   );
   const unmatchedInsights = insightsWithPrediction.filter(
-    (i) => !i.playerIdentityId && i.playerName
-  );
-
-  // Team insights WITH teamId - ready to apply
-  const classifiedTeamInsights = insightsWithPrediction.filter(
     (i) =>
-      !(i.playerIdentityId || i.playerName) &&
-      i.category === "team_culture" &&
-      (i as any).teamId
-  );
-
-  // Team insights WITHOUT teamId - needs team assignment
-  const teamInsightsNeedingAssignment = insightsWithPrediction.filter(
-    (i) =>
-      !(i.playerIdentityId || i.playerName) &&
-      i.category === "team_culture" &&
-      !(i as any).teamId
-  );
-
-  // TODO insights WITH assignee - ready to apply
-  const assignedTodoInsights = insightsWithPrediction.filter(
-    (i) =>
-      !(i.playerIdentityId || i.playerName) &&
-      i.category === "todo" &&
-      (i as any).assigneeUserId
-  );
-
-  // TODO insights WITHOUT assignee - needs coach assignment
-  const unassignedTodoInsights = insightsWithPrediction.filter(
-    (i) =>
-      !(i.playerIdentityId || i.playerName) &&
-      i.category === "todo" &&
-      !(i as any).assigneeUserId
+      !i.playerIdentityId &&
+      i.playerName &&
+      !TEAM_LEVEL_CATEGORIES.includes(i.category as string)
   );
 
   // Insights without player AND without team-level category need classification

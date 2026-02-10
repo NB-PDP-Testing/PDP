@@ -735,10 +735,19 @@ IMPORTANT:
         const assigneeUserId = insight.assigneeUserId ?? undefined;
         const assigneeName = insight.assigneeName ?? undefined;
 
+        // Sanitize: team_culture and todo insights should never have player fields
+        // (AI may incorrectly include playerName when team feedback mentions players)
+        const isTeamLevel =
+          insight.category === "team_culture" || insight.category === "todo";
+
         resolvedInsights.push({
           id: `insight_${Date.now()}_${Math.random().toString(36).slice(2, 11)}`,
-          playerIdentityId: matchedPlayer?.playerIdentityId ?? undefined,
-          playerName: matchedPlayer?.name ?? insight.playerName ?? undefined,
+          playerIdentityId: isTeamLevel
+            ? undefined
+            : (matchedPlayer?.playerIdentityId ?? undefined),
+          playerName: isTeamLevel
+            ? undefined
+            : (matchedPlayer?.name ?? insight.playerName ?? undefined),
           title: insight.title,
           description: insight.description,
           category: insight.category ?? undefined,

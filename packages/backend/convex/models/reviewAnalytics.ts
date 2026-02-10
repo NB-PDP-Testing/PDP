@@ -28,6 +28,7 @@ export const logReviewEvent = internalMutation({
       v.literal("snooze"),
       v.literal("batch_apply"),
       v.literal("batch_dismiss"),
+      v.literal("batch_clear"),
       v.literal("disambiguate_accept"),
       v.literal("disambiguate_reject_all"),
       v.literal("disambiguate_skip"),

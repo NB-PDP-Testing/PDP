@@ -252,7 +252,8 @@ export default function PlayerDashboardPage() {
             playerData.playerIdentityId &&
             playerData.sportCode && (
               <BenchmarkComparison
-                dateOfBirth={(playerData as any).dateOfBirth ?? ""}
+                ageGroup={(playerData as any).ageGroup}
+                dateOfBirth={(playerData as any).dateOfBirth}
                 playerId={playerData.playerIdentityId}
                 showAllSkills={true}
                 sportCode={playerData.sportCode}

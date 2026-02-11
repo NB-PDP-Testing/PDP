@@ -53,6 +53,8 @@ const insightValidator = v.object({
   assigneeName: v.optional(v.string()),
   // Task linking - set when TODO insight creates a task
   linkedTaskId: v.optional(v.id("coachTasks")),
+  // Review microsite - cleared after review
+  clearedFromReview: v.optional(v.boolean()),
 });
 
 const noteTypeValidator = v.union(

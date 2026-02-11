@@ -7,12 +7,19 @@ import {
   ArrowDown,
   ArrowRight,
   ArrowUp,
+  ChevronDown,
+  ChevronUp,
   Target,
   TrendingUp,
 } from "lucide-react";
-import { useMemo } from "react";
+import { useMemo, useState } from "react";
 import { Badge } from "@/components/ui/badge";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import {
+  Collapsible,
+  CollapsibleContent,
+  CollapsibleTrigger,
+} from "@/components/ui/collapsible";
 import { Progress } from "@/components/ui/progress";
 import { Skeleton } from "@/components/ui/skeleton";
 import {
@@ -75,24 +82,30 @@ function getRatingColors(rating: number) {
 type BenchmarkComparisonProps = {
   playerId: Id<"playerIdentities">;
   sportCode: string;
-  dateOfBirth: string;
+  dateOfBirth?: string;
+  ageGroup?: string;
   level?: "recreational" | "competitive" | "development" | "elite";
   showAllSkills?: boolean;
+  defaultExpanded?: boolean;
 };
 
 export function BenchmarkComparison({
   playerId,
   sportCode,
   dateOfBirth,
+  ageGroup,
   level = "recreational",
   showAllSkills = false,
+  defaultExpanded = true,
 }: BenchmarkComparisonProps) {
-  // Get benchmarks for this player
-  const benchmarks = useQuery(api.models.referenceData.getBenchmarksForPlayer, {
-    sportCode,
-    dateOfBirth,
-    level,
-  });
+  const [isExpanded, setIsExpanded] = useState(defaultExpanded);
+  // Get benchmarks for this player (skip only if BOTH DOB and ageGroup are missing)
+  const benchmarks = useQuery(
+    api.models.referenceData.getBenchmarksForPlayer,
+    dateOfBirth || ageGroup
+      ? { sportCode, dateOfBirth, ageGroup, level }
+      : "skip"
+  );
 
   // Get skill definitions to display names
   const skills = useQuery(api.models.referenceData.getSkillDefinitionsBySport, {
@@ -238,8 +251,8 @@ export function BenchmarkComparison({
     );
   }
 
-  // No date of birth provided
-  if (!dateOfBirth) {
+  // No date of birth or age group provided
+  if (!(dateOfBirth || ageGroup)) {
     return (
       <Card>
         <CardHeader>
@@ -250,8 +263,8 @@ export function BenchmarkComparison({
         </CardHeader>
         <CardContent>
           <p className="text-muted-foreground text-sm">
-            Date of birth is required to show benchmark comparisons. Please
-            update the player's profile with their date of birth.
+            Date of birth or age group is required to show benchmark
+            comparisons. Please update the player's profile.
           </p>
         </CardContent>
       </Card>
@@ -301,51 +314,67 @@ export function BenchmarkComparison({
 
   return (
     <TooltipProvider>
-      <Card>
-        <CardHeader>
-          <CardTitle className="flex items-center justify-between">
-            <div className="flex items-center gap-2">
-              <Target className="h-5 w-5" />
-              Benchmark Comparison
-            </div>
-            {summaryStats.total > 0 && (
-              <Badge className="font-normal" variant="outline">
-                {summaryStats.onTrack}/{summaryStats.total} on track or better
-              </Badge>
-            )}
-          </CardTitle>
-        </CardHeader>
-        <CardContent className="space-y-4">
-          {/* Summary */}
-          {summaryStats.average !== null && (
-            <div className="flex items-center gap-4 rounded-lg border bg-gray-50 p-3">
-              <TrendingUp className="h-5 w-5 text-muted-foreground" />
-              <div>
-                <p className="font-medium text-sm">Average Rating</p>
-                <p className="text-muted-foreground text-xs">
-                  {summaryStats.average.toFixed(1)} / 5.0 across{" "}
-                  {comparableSkills.filter((s) => s.rating > 0).length} skills
-                </p>
+      <Collapsible onOpenChange={setIsExpanded} open={isExpanded}>
+        <Card>
+          <CollapsibleTrigger className="w-full">
+            <CardHeader className="cursor-pointer transition-colors hover:bg-accent/50">
+              <div className="flex items-center justify-between">
+                <CardTitle className="flex items-center gap-2">
+                  <Target className="h-5 w-5" />
+                  Benchmark Comparison
+                </CardTitle>
+                <div className="flex items-center gap-2">
+                  {summaryStats.total > 0 && (
+                    <Badge className="font-normal" variant="outline">
+                      {summaryStats.onTrack}/{summaryStats.total} on track or
+                      better
+                    </Badge>
+                  )}
+                  {isExpanded ? (
+                    <ChevronUp className="h-5 w-5 text-muted-foreground" />
+                  ) : (
+                    <ChevronDown className="h-5 w-5 text-muted-foreground" />
+                  )}
+                </div>
               </div>
-            </div>
-          )}
+            </CardHeader>
+          </CollapsibleTrigger>
 
-          {/* Skill comparison grid */}
-          <div className="space-y-3">
-            {comparableSkills.map((skill) => (
-              <SkillBenchmarkRow key={skill.skillCode} {...skill} />
-            ))}
-          </div>
+          <CollapsibleContent>
+            <CardContent className="space-y-4">
+              {/* Summary */}
+              {summaryStats.average !== null && (
+                <div className="flex items-center gap-4 rounded-lg border bg-gray-50 p-3">
+                  <TrendingUp className="h-5 w-5 text-muted-foreground" />
+                  <div>
+                    <p className="font-medium text-sm">Average Rating</p>
+                    <p className="text-muted-foreground text-xs">
+                      {summaryStats.average.toFixed(1)} / 5.0 across{" "}
+                      {comparableSkills.filter((s) => s.rating > 0).length}{" "}
+                      skills
+                    </p>
+                  </div>
+                </div>
+              )}
 
-          {/* Age group note */}
-          {benchmarks.length > 0 && (
-            <p className="text-muted-foreground text-xs">
-              Benchmarks from {benchmarks[0].source} for age group{" "}
-              {benchmarks[0].ageGroup.toUpperCase()}
-            </p>
-          )}
-        </CardContent>
-      </Card>
+              {/* Skill comparison grid */}
+              <div className="space-y-3">
+                {comparableSkills.map((skill) => (
+                  <SkillBenchmarkRow key={skill.skillCode} {...skill} />
+                ))}
+              </div>
+
+              {/* Age group note */}
+              {benchmarks.length > 0 && (
+                <p className="text-muted-foreground text-xs">
+                  Benchmarks from {benchmarks[0].source} for age group{" "}
+                  {benchmarks[0].ageGroup.toUpperCase()}
+                </p>
+              )}
+            </CardContent>
+          </CollapsibleContent>
+        </Card>
+      </Collapsible>
     </TooltipProvider>
   );
 }

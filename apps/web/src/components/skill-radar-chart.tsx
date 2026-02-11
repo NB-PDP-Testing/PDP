@@ -30,6 +30,7 @@ type SkillRadarChartProps = {
   playerId: Id<"playerIdentities">;
   sportCode: string;
   dateOfBirth?: string;
+  ageGroup?: string;
   level?: "recreational" | "competitive" | "development" | "elite";
   defaultExpanded?: boolean;
 };
@@ -104,6 +105,7 @@ export function SkillRadarChart({
   playerId,
   sportCode,
   dateOfBirth,
+  ageGroup,
   level = "recreational",
   defaultExpanded = true,
 }: SkillRadarChartProps) {
@@ -125,10 +127,12 @@ export function SkillRadarChart({
     { playerIdentityId: playerId, sportCode }
   );
 
-  // Get benchmarks if DOB is available
+  // Get benchmarks if DOB or ageGroup is available
   const benchmarks = useQuery(
     api.models.referenceData.getBenchmarksForPlayer,
-    dateOfBirth ? { sportCode, dateOfBirth, level } : "skip"
+    dateOfBirth || ageGroup
+      ? { sportCode, dateOfBirth, ageGroup, level }
+      : "skip"
   );
 
   // Create lookup maps
@@ -491,6 +495,7 @@ export function SkillRadarChartCompact({
   playerId,
   sportCode,
   dateOfBirth,
+  ageGroup,
   level = "recreational",
   height = 250,
   showBenchmark = true,
@@ -507,10 +512,12 @@ export function SkillRadarChartCompact({
     { playerIdentityId: playerId, sportCode }
   );
 
-  // Get benchmarks if DOB is available
+  // Get benchmarks if DOB or ageGroup is available
   const benchmarks = useQuery(
     api.models.referenceData.getBenchmarksForPlayer,
-    dateOfBirth ? { sportCode, dateOfBirth, level } : "skip"
+    dateOfBirth || ageGroup
+      ? { sportCode, dateOfBirth, ageGroup, level }
+      : "skip"
   );
 
   // Create lookup maps

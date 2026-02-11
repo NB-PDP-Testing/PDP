@@ -218,7 +218,9 @@ export const getPlayersForOrg = query({
 
     // Filter by age group if provided
     if (args.ageGroup) {
-      enrollments = enrollments.filter((e) => e.ageGroup === args.ageGroup);
+      enrollments = enrollments.filter(
+        (e) => e.ageGroup?.toLowerCase() === args.ageGroup?.toLowerCase()
+      );
     }
 
     const results = [];

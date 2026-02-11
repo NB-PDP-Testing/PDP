@@ -3651,7 +3651,7 @@ export const getBenchmarksForPlayer = query({
       .filter(
         (b) =>
           b.isActive &&
-          b.ageGroup === ageGroupCode &&
+          b.ageGroup.toLowerCase() === ageGroupCode.toLowerCase() &&
           b.level === level &&
           b.gender === "all"
       )

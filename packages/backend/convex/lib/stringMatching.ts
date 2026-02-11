@@ -132,8 +132,7 @@ const IRISH_NAME_ALIASES: string[][] = [
 
   // ─── Boys' Names ─────────────────────────────────────────────
   ["sean", "shawn", "shaun"],
-  ["eoin", "owen"],
-  ["eoghan", "owen", "eoan"],
+  ["eoin", "eoghan", "owen", "eoan"],
   ["oisin", "osheen", "usheen", "ossian"],
   ["ciaran", "kieran", "keiran", "kieron"],
   ["tadhg", "taig", "tige", "teague", "tieg"],

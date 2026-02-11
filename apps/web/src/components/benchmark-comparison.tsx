@@ -75,7 +75,8 @@ function getRatingColors(rating: number) {
 type BenchmarkComparisonProps = {
   playerId: Id<"playerIdentities">;
   sportCode: string;
-  dateOfBirth: string;
+  dateOfBirth?: string;
+  ageGroup?: string;
   level?: "recreational" | "competitive" | "development" | "elite";
   showAllSkills?: boolean;
 };
@@ -84,15 +85,17 @@ export function BenchmarkComparison({
   playerId,
   sportCode,
   dateOfBirth,
+  ageGroup,
   level = "recreational",
   showAllSkills = false,
 }: BenchmarkComparisonProps) {
-  // Get benchmarks for this player
-  const benchmarks = useQuery(api.models.referenceData.getBenchmarksForPlayer, {
-    sportCode,
-    dateOfBirth,
-    level,
-  });
+  // Get benchmarks for this player (skip only if BOTH DOB and ageGroup are missing)
+  const benchmarks = useQuery(
+    api.models.referenceData.getBenchmarksForPlayer,
+    dateOfBirth || ageGroup
+      ? { sportCode, dateOfBirth, ageGroup, level }
+      : "skip"
+  );
 
   // Get skill definitions to display names
   const skills = useQuery(api.models.referenceData.getSkillDefinitionsBySport, {
@@ -238,8 +241,8 @@ export function BenchmarkComparison({
     );
   }
 
-  // No date of birth provided
-  if (!dateOfBirth) {
+  // No date of birth or age group provided
+  if (!(dateOfBirth || ageGroup)) {
     return (
       <Card>
         <CardHeader>
@@ -250,8 +253,8 @@ export function BenchmarkComparison({
         </CardHeader>
         <CardContent>
           <p className="text-muted-foreground text-sm">
-            Date of birth is required to show benchmark comparisons. Please
-            update the player's profile with their date of birth.
+            Date of birth or age group is required to show benchmark
+            comparisons. Please update the player's profile.
           </p>
         </CardContent>
       </Card>

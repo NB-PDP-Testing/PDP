@@ -312,6 +312,7 @@ function PlayerPassportPageContent() {
             {/* Skills Radar Chart - visual overview of player skills */}
             {playerData.sportCode && (
               <SkillRadarChart
+                ageGroup={(playerData as any).ageGroup}
                 dateOfBirth={(playerData as any).dateOfBirth}
                 playerId={playerId as Id<"playerIdentities">}
                 sportCode={playerData.sportCode}
@@ -323,7 +324,8 @@ function PlayerPassportPageContent() {
               playerData.playerIdentityId &&
               playerData.sportCode && (
                 <BenchmarkComparison
-                  dateOfBirth={(playerData as any).dateOfBirth ?? ""}
+                  ageGroup={(playerData as any).ageGroup}
+                  dateOfBirth={(playerData as any).dateOfBirth}
                   playerId={playerData.playerIdentityId}
                   showAllSkills={true}
                   sportCode={playerData.sportCode}
@@ -398,6 +400,7 @@ function PlayerPassportPageContent() {
           {/* Skills Radar Chart - visual overview of player skills */}
           {playerData.sportCode && (
             <SkillRadarChart
+              ageGroup={(playerData as any).ageGroup}
               dateOfBirth={(playerData as any).dateOfBirth}
               playerId={playerId as Id<"playerIdentities">}
               sportCode={playerData.sportCode}
@@ -409,7 +412,8 @@ function PlayerPassportPageContent() {
             playerData.playerIdentityId &&
             playerData.sportCode && (
               <BenchmarkComparison
-                dateOfBirth={(playerData as any).dateOfBirth ?? ""}
+                ageGroup={(playerData as any).ageGroup}
+                dateOfBirth={(playerData as any).dateOfBirth}
                 playerId={playerData.playerIdentityId}
                 showAllSkills={true}
                 sportCode={playerData.sportCode}

@@ -466,7 +466,8 @@ export default function ManagePlayersPage() {
       .toLowerCase()
       .includes(searchTerm.toLowerCase());
     const matchesAge =
-      ageGroupFilter === "all" || player.ageGroup === ageGroupFilter;
+      ageGroupFilter === "all" ||
+      player.ageGroup?.toLowerCase() === ageGroupFilter?.toLowerCase();
     const matchesSport = sportFilter === "all" || player.sport === sportFilter;
     const matchesGender =
       genderFilter === "all" || player.gender === genderFilter;

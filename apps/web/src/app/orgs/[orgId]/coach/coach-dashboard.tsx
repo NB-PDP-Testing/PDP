@@ -330,7 +330,9 @@ export function CoachDashboard() {
 
     // Filter by age group
     if (ageGroupFilter !== "all") {
-      filtered = filtered.filter((p) => p.ageGroup === ageGroupFilter);
+      filtered = filtered.filter(
+        (p) => p.ageGroup?.toLowerCase() === ageGroupFilter?.toLowerCase()
+      );
     }
 
     // Filter by sport

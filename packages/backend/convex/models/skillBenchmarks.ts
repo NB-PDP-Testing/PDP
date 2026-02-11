@@ -181,7 +181,8 @@ export const getBenchmarksForAgeGroup = query({
 
     // Filter by age group
     benchmarks = benchmarks.filter(
-      (b) => b.ageGroup === args.ageGroup && b.isActive
+      (b) =>
+        b.ageGroup.toLowerCase() === args.ageGroup.toLowerCase() && b.isActive
     );
 
     // Filter by gender if provided
@@ -211,10 +212,11 @@ export const getBenchmarksBySource = query({
   returns: v.array(benchmarkValidator),
   handler: async (ctx, args) => {
     if (args.sourceYear) {
+      const sourceYear = args.sourceYear;
       return await ctx.db
         .query("skillBenchmarks")
         .withIndex("by_source", (q) =>
-          q.eq("source", args.source).eq("sourceYear", args.sourceYear!)
+          q.eq("source", args.source).eq("sourceYear", sourceYear)
         )
         .collect();
     }
@@ -588,7 +590,7 @@ export const bulkImportBenchmarks = mutation({
           .first();
 
         if (existing?.isActive) {
-          skipped++;
+          skipped += 1;
           continue;
         }
 
@@ -601,7 +603,7 @@ export const bulkImportBenchmarks = mutation({
           createdAt: now,
           updatedAt: now,
         });
-        created++;
+        created += 1;
       } catch (error) {
         errors.push(
           `${benchmark.sportCode}/${benchmark.skillCode}/${benchmark.ageGroup}: ${error instanceof Error ? error.message : "Unknown error"}`

@@ -873,7 +873,7 @@ export const getTeamOverviewStats = query({
 
     // Count unread insights (insights not in user's readBy array)
     const unreadInsights = args.userId
-      ? insights.filter((i) => !i.readBy.includes(args.userId!)).length
+      ? insights.filter((i) => !i.readBy.includes(args.userId as string)).length
       : insights.length;
 
     // Count high priority insights
@@ -1117,7 +1117,7 @@ export const getTeamPlayersWithHealth = query({
       const isPlayingUp = Boolean(
         team?.ageGroup &&
           enrollment?.ageGroup &&
-          enrollment.ageGroup !== team.ageGroup
+          enrollment.ageGroup?.toLowerCase() !== team.ageGroup?.toLowerCase()
       );
 
       results.push({
@@ -1337,8 +1337,14 @@ export const getTeamInsights = query({
     const usePagination = args.paginationOpts;
 
     // Step 1: Fetch insights (with or without pagination)
-    let insights;
-    let paginationResult;
+    let insights: Doc<"teamInsights">[];
+    let paginationResult:
+      | {
+          page: Doc<"teamInsights">[];
+          continueCursor: string;
+          isDone: boolean;
+        }
+      | undefined;
 
     if (usePagination && args.paginationOpts) {
       const result = await ctx.db
@@ -1371,14 +1377,14 @@ export const getTeamInsights = query({
     );
 
     const voiceNoteMap = new Map<string, { title: string; summary?: string }>();
-    voiceNotes.forEach((vn) => {
+    for (const vn of voiceNotes) {
       if (vn && "title" in vn && "summary" in vn) {
         voiceNoteMap.set(vn._id, {
           title: vn.title as string,
           summary: vn.summary as string | undefined,
         });
       }
-    });
+    }
 
     // Step 3: Batch fetch players
     const playerIds = [
@@ -1388,11 +1394,11 @@ export const getTeamInsights = query({
     const players = await Promise.all(playerIds.map((id) => ctx.db.get(id)));
 
     const playerMap = new Map<string, string>();
-    players.forEach((p) => {
+    for (const p of players) {
       if (p && "name" in p) {
         playerMap.set(p._id, p.name as string);
       }
-    });
+    }
 
     // Step 4: Batch fetch creators
     const creatorIds = [...new Set(insights.map((i) => i.createdBy))];
@@ -1413,11 +1419,11 @@ export const getTeamInsights = query({
     );
 
     const creatorMap = new Map<string, string>();
-    creators.forEach((creator) => {
+    for (const creator of creators) {
       if (creator) {
         creatorMap.set(creator._id, creator.name || creator.email || "Unknown");
       }
-    });
+    }
 
     // Step 5: Enrich insights (synchronous, no await in loop!)
     const enrichedInsights = insights.map((insight) => ({

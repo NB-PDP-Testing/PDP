@@ -960,7 +960,10 @@ export const getClubBenchmarkAnalytics = query({
               .eq("organizationId", args.organizationId)
           )
           .first();
-        if (enrollment && enrollment.ageGroup === args.ageGroup) {
+        if (
+          enrollment &&
+          enrollment.ageGroup?.toLowerCase() === args.ageGroup?.toLowerCase()
+        ) {
           validPlayerIds.add(playerId);
         }
       }

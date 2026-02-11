@@ -220,8 +220,11 @@ voicePipelineEvents: defineTable({
     retryAttempt: v.optional(v.number()),       // Which retry attempt (0 = first try)
   })),
 
-  // Timestamp
+  // Timestamp + Time-Window Partition
   timestamp: v.number(),
+  timeWindow: v.string(),                   // Computed: "2026-02-11-09" (hourly bucket)
+                                            // Enables efficient time-bounded queries and cleanup
+                                            // Computed at insert time: `${date}-${hour.toString().padStart(2,'0')}`
 })
   .index("by_artifactId", ["artifactId"])
   .index("by_timestamp", ["timestamp"])
@@ -230,6 +233,8 @@ voicePipelineEvents: defineTable({
   .index("by_org_and_timestamp", ["organizationId", "timestamp"])
   .index("by_pipelineStage", ["pipelineStage"])
   .index("by_pipelineStage_and_timestamp", ["pipelineStage", "timestamp"])
+  .index("by_timeWindow", ["timeWindow"])
+  .index("by_timeWindow_and_eventType", ["timeWindow", "eventType"])
 ```
 
 **Why this table:** This is the single source of truth for pipeline observability. Every query in the monitoring harness derives from this table + the existing artifact/claim tables. It enables:
@@ -237,6 +242,11 @@ voicePipelineEvents: defineTable({
 - Error rate trending
 - Pipeline throughput measurement
 - Event-level debugging
+
+**Time-window partitioning:** The `timeWindow` field (e.g., `"2026-02-11-09"`) acts as a logical partition key. This enables:
+- **Efficient cleanup:** Delete all events in expired windows by querying `by_timeWindow` index, rather than scanning by timestamp
+- **Bounded queries:** Dashboard queries target specific hourly windows instead of open-ended timestamp ranges
+- **Retention:** Raw events are kept for **48 hours only** — snapshots handle historical data
 
 #### 4.1.2 `voicePipelineMetricsSnapshots` — Periodic Metrics Aggregation
 
@@ -298,6 +308,31 @@ voicePipelineMetricsSnapshots: defineTable({
 
 **Why this table:** Real-time event queries would scan the entire `voicePipelineEvents` table for historical views. Pre-aggregated snapshots give O(n) on number of time buckets instead of O(n) on number of events.
 
+#### 4.1.3 `voicePipelineCounters` — Rolling Real-Time Counters
+
+Atomically-incremented counters for real-time dashboard metrics. Avoids scanning `voicePipelineEvents` for live stats. Same pattern as the existing `rateLimits` table.
+
+```typescript
+voicePipelineCounters: defineTable({
+  counterType: v.string(),                  // "artifacts_received_1h", "failures_1h",
+                                            // "transcriptions_completed_1h", "claims_extracted_1h",
+                                            // "entities_resolved_1h", "drafts_generated_1h"
+  organizationId: v.optional(v.string()),   // null = platform-wide counter
+  currentValue: v.number(),                 // Incremented atomically in logEvent mutation
+  windowStart: v.number(),                  // Start of current time window
+  windowEnd: v.number(),                    // End of current time window
+})
+  .index("by_counterType", ["counterType"])
+  .index("by_counterType_and_org", ["counterType", "organizationId"])
+```
+
+**Why this table:** `getRealTimeMetrics` reads a handful of counter documents (O(1)) instead of scanning recent events (O(n)). The `logEvent` mutation increments the appropriate counter atomically in the same transaction. A cron job rotates windows (resets counters when `windowEnd` is reached).
+
+**Counter lifecycle:**
+1. `logEvent` mutation increments the relevant counter(s) in the same transaction as the event insert
+2. If the current window has expired (`Date.now() > windowEnd`), reset `currentValue` to 1 and set new window bounds
+3. `getRealTimeMetrics` reads counter documents directly — no event scanning
+
 ### 4.2 New Backend Functions
 
 #### 4.2.1 Pipeline Event Logging (Internal)
@@ -306,13 +341,31 @@ voicePipelineMetricsSnapshots: defineTable({
 
 ```
 Functions:
-- logEvent (internalMutation)          — Record a pipeline event
+- logEvent (internalMutation)          — Record a pipeline event + increment counters
 - getEventsByArtifact (internalQuery)  — Get all events for an artifact
-- getRecentEvents (query)              — Platform staff: get recent events with filters
+- getRecentEvents (query)              — Platform staff: paginated recent events with filters
 - getEventTimeline (query)             — Platform staff: artifact-specific event timeline
 - getActiveArtifacts (query)           — Platform staff: currently-in-progress artifacts
 - getFailedArtifacts (query)           — Platform staff: artifacts stuck in failed state
 ```
+
+**Pagination pattern (MANDATORY for list queries):**
+
+All list-returning queries (`getRecentEvents`, `getActiveArtifacts`, `getFailedArtifacts`, artifact grid)
+must use Convex cursor-based pagination — NOT `.take(limit)`:
+
+```typescript
+// ❌ BAD: .take() has no continuation — loses data beyond the limit
+.order("desc").take(50)
+
+// ✅ GOOD: .paginate() returns cursor for "load more" / infinite scroll
+// Args must include: paginationOpts: paginationOptsValidator
+// Returns: { page: [...], isDone: boolean, continueCursor: string }
+.order("desc").paginate(args.paginationOpts)
+```
+
+Frontend uses `usePaginatedQuery` hook for infinite scroll / load-more.
+See `teamCollaboration.ts` for the existing pattern in this codebase.
 
 #### 4.2.2 Pipeline Metrics (Query + Cron)
 
@@ -320,10 +373,10 @@ Functions:
 
 ```
 Functions:
-- getRealTimeMetrics (query)           — Live metrics from last N minutes
+- getRealTimeMetrics (query)           — Live metrics from voicePipelineCounters (O(1) reads, no event scan)
 - getHistoricalMetrics (query)         — Read from snapshots table
 - getStageBreakdown (query)            — Per-stage latency/error breakdown
-- getOrgBreakdown (query)              — Per-org volume/cost breakdown
+- getOrgBreakdown (query)              — Per-org volume/cost breakdown (reads from snapshots, NOT raw events)
 - aggregateHourlyMetrics (internalMutation) — Cron: hourly aggregation
 - aggregateDailyMetrics (internalMutation)  — Cron: daily aggregation
 - cleanupOldSnapshots (internalMutation)    — Cron: remove hourly > 7d, daily > 90d
@@ -746,17 +799,18 @@ On completion: log retry_succeeded or retry_failed event
 
 **Goal:** Get events flowing into the pipeline event log
 
-1. Add `voicePipelineEvents` table to schema
+1. Add `voicePipelineEvents` table to schema (with `timeWindow` partition field)
 2. Add `voicePipelineMetricsSnapshots` table to schema
-3. Create `voicePipelineEvents.ts` model file (logEvent + query functions)
-4. Instrument existing pipeline functions with event emission
-5. Run codegen and verify types
+3. Add `voicePipelineCounters` table to schema (rolling real-time counters)
+4. Create `voicePipelineEvents.ts` model file (logEvent + atomic counter increment + query functions)
+5. Instrument existing pipeline functions with event emission
+6. Run codegen and verify types
 
 **New files:**
 - `packages/backend/convex/models/voicePipelineEvents.ts`
 
 **Modified files:**
-- `packages/backend/convex/schema.ts` (add 2 tables)
+- `packages/backend/convex/schema.ts` (add 3 tables: events, snapshots, counters)
 - `packages/backend/convex/models/voiceNoteArtifacts.ts` (add event emissions)
 - `packages/backend/convex/models/voiceNoteTranscripts.ts` (add event emission)
 - `packages/backend/convex/models/voiceNoteClaims.ts` (add event emission)
@@ -875,23 +929,62 @@ On completion: log retry_succeeded or retry_failed event
 
 The `voicePipelineEvents` table will grow with every pipeline execution (~5-10 events per artifact). Mitigation:
 
-- **Cron cleanup:** Delete events older than 30 days (raw events)
+- **Time-window partitioning:** Events carry a `timeWindow` field (hourly bucket). Cleanup deletes entire expired windows via `by_timeWindow` index — no full-table scan
+- **48-hour retention:** Raw events are hot operational data only. Delete events older than 48h (not 30 days). Snapshots handle historical analytics
 - **Metrics snapshots:** Pre-aggregated data preserved longer (90 days daily, 7 days hourly)
-- **Index strategy:** All queries use indexes (by_artifactId, by_timestamp, by_eventType_and_timestamp)
-- **Pagination:** Event log and artifact grid use cursor-based pagination with `.take(limit)`
+- **Index strategy:** All queries use indexes (by_artifactId, by_timestamp, by_eventType_and_timestamp, by_timeWindow)
+- **Pagination:** Event log and artifact grid use Convex cursor-based pagination via `.paginate(paginationOpts)` — see Section 4.2.1 for pattern
 
 ### 8.2 Query Optimization
 
-- **Dashboard overview:** 4-5 real-time queries (active artifacts, recent events, metrics, alerts, service health)
+- **Dashboard overview:** Real-time metrics read from `voicePipelineCounters` (single document reads), NOT from event scans
+- **Cursor-based pagination:** All list views use `.paginate(paginationOpts)` — never `.take(limit)`. Frontend uses `usePaginatedQuery` for load-more
 - **Skip pattern:** All queries check `isPlatformStaff` and skip if not authorized
 - **Batch fetching:** Artifact grid uses bulk queries with Map lookups (per CLAUDE.md patterns)
 - **No N+1:** Event timeline fetches all events for an artifact in a single indexed query
+- **Org-scoped queries MUST use tight time bounds** — never query by org alone without a timestamp constraint:
+
+```typescript
+// ❌ BAD: unbounded org query — scans all events for this org
+.withIndex("by_org_and_timestamp", q =>
+  q.eq("organizationId", orgId)
+)
+.collect()
+
+// ✅ GOOD: bounded by org + time window
+.withIndex("by_org_and_timestamp", q =>
+  q.eq("organizationId", orgId)
+   .gte("timestamp", oneDayAgo)
+)
+.take(200)
+```
+
+This is critical at scale — without the time bound, a single org's query cost grows linearly with their total event history.
 
 ### 8.3 Event Emission
 
-- **Fire-and-forget:** All event emissions use `ctx.scheduler.runAfter(0, ...)` — never blocking the pipeline
+- **Atomic with counters:** `logEvent` is an `internalMutation` that inserts the event AND increments `voicePipelineCounters` in the same transaction. Pipeline functions call it via `ctx.scheduler.runAfter(0, ...)` — fire-and-forget, never blocking the pipeline
 - **Idempotent:** Events include `eventId` (UUID) for deduplication
 - **Lightweight:** Events carry minimal data — just enough for monitoring, not full payloads
+- **Counter rotation:** If `Date.now() > counter.windowEnd`, the counter is reset to 1 and new window bounds are set — no separate cron needed
+
+### 8.4 Scale Analysis
+
+The plan as written (with the four performance fixes above) targets the following scale tiers:
+
+| Tier | Coaches | Voice Notes/Day | Events/Day | Status |
+|------|---------|-----------------|------------|--------|
+| **Small** | ~50 | ~100 | ~500-1,000 | Comfortable — well within Convex limits |
+| **Medium** | ~500 | ~1,000 | ~5,000-10,000 | Comfortable — 48h retention keeps event table small |
+| **Large** | ~2,000 | ~5,000 | ~25,000-50,000 | Handled — counters, snapshots, and time-window partitioning keep queries fast |
+| **Scale** | ~10,000 | ~25,000+ | ~125,000-250,000 | **Requires architectural changes** (see below) |
+
+**At 10,000 coaches (Scale tier), this architecture needs to evolve:**
+- Move to external metrics storage (the deferred "Option A" from Decision Q10)
+- More aggressive event retention (6h instead of 48h)
+- Org-partitioned event tables (separate tables per high-volume org)
+
+**Bottom line:** The Convex-tables-only approach works comfortably through Large scale (~2,000 coaches, ~5,000 voice notes/day). Beyond that, evaluate external metrics infrastructure (DataDog, Prometheus, etc.) as the next step.
 
 ---
 
@@ -962,7 +1055,7 @@ The new voice monitoring harness is **voice-pipeline-specific** and complements 
 ### Modified Files (8)
 
 **Backend (7):**
-1. `packages/backend/convex/schema.ts` — Add 2 new tables
+1. `packages/backend/convex/schema.ts` — Add 3 new tables (events, snapshots, counters)
 2. `packages/backend/convex/crons.ts` — Add 4 cron jobs
 3. `packages/backend/convex/models/voiceNoteArtifacts.ts` — Add event emissions
 4. `packages/backend/convex/models/voiceNoteTranscripts.ts` — Add event emission
@@ -1015,10 +1108,10 @@ If this were to be broken into Ralph stories:
 ## Appendix B: Configuration Constants
 
 ```typescript
-// Event retention
-const EVENT_RETENTION_DAYS = 30;
-const HOURLY_SNAPSHOT_RETENTION_DAYS = 7;
-const DAILY_SNAPSHOT_RETENTION_DAYS = 90;
+// Event retention (raw events are hot operational data only)
+const EVENT_RETENTION_HOURS = 48;            // Raw events: 48h (not 30 days)
+const HOURLY_SNAPSHOT_RETENTION_DAYS = 7;    // Hourly snapshots: 7 days
+const DAILY_SNAPSHOT_RETENTION_DAYS = 90;    // Daily snapshots: 90 days
 
 // Alert thresholds
 const FAILURE_RATE_WARNING_THRESHOLD = 0.10;  // 10%

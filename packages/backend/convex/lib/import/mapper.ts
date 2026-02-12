@@ -667,6 +667,126 @@ export function suggestMappings(
 }
 
 // ============================================================
+// Historical Match (requires database access)
+// ============================================================
+
+/**
+ * Query importMappingHistory for a previously successful mapping.
+ * Returns 80% confidence when usageCount >= 3, 70% when < 3.
+ */
+export async function historicalMatch(
+  ctx: QueryCtx,
+  sourceColumn: string,
+  organizationId?: string
+): Promise<MappingSuggestion | null> {
+  const normalized = normalizeColumnName(sourceColumn);
+
+  const historyRecords = await ctx.db
+    .query("importMappingHistory")
+    .withIndex("by_normalizedColumnName", (q) =>
+      q.eq("normalizedColumnName", normalized)
+    )
+    .collect();
+
+  if (historyRecords.length === 0) {
+    return null;
+  }
+
+  // Prefer org-specific match, fall back to highest usage
+  const orgMatch = organizationId
+    ? historyRecords.find((r) => r.organizationId === organizationId)
+    : null;
+  const bestRecord =
+    orgMatch ??
+    historyRecords.reduce((best, r) =>
+      r.usageCount > best.usageCount ? r : best
+    );
+
+  const confidence = bestRecord.usageCount >= 3 ? 80 : 70;
+
+  return {
+    sourceColumn,
+    targetField: bestRecord.targetField,
+    confidence,
+    strategy: "historical",
+  };
+}
+
+// ============================================================
+// Full pipeline with history (requires QueryCtx)
+// ============================================================
+
+function tryFuzzyAndContentMatch(
+  column: string,
+  fields: FieldDefinition[],
+  sampleData: Record<string, string>[],
+  usedTargets: Set<string>
+): MappingSuggestion | null {
+  const fuzzy = fuzzyMatch(column, fields);
+  if (fuzzy && !usedTargets.has(fuzzy.targetField)) {
+    return fuzzy;
+  }
+
+  const sampleValues = sampleData.slice(0, 10).map((row) => row[column] ?? "");
+  return contentAnalysisMatch(column, sampleValues, fields, usedTargets);
+}
+
+/**
+ * Run all 5 matching strategies including historical lookup.
+ * Order: exact -> alias -> historical -> fuzzy -> content analysis.
+ */
+export async function suggestMappingsWithHistory(
+  ctx: QueryCtx,
+  sourceColumns: string[],
+  sampleData: Record<string, string>[],
+  options?: { organizationId?: string; targetFields?: FieldDefinition[] }
+): Promise<MappingSuggestion[]> {
+  const fields = options?.targetFields ?? DEFAULT_TARGET_FIELDS;
+  const suggestions: MappingSuggestion[] = [];
+  const usedTargets = new Set<string>();
+
+  for (const column of sourceColumns) {
+    const exact = exactMatch(column, fields);
+    if (exact && !usedTargets.has(exact.targetField)) {
+      suggestions.push(exact);
+      usedTargets.add(exact.targetField);
+      continue;
+    }
+
+    const alias = aliasMatch(column, fields);
+    if (alias && !usedTargets.has(alias.targetField)) {
+      suggestions.push(alias);
+      usedTargets.add(alias.targetField);
+      continue;
+    }
+
+    const historical = await historicalMatch(
+      ctx,
+      column,
+      options?.organizationId
+    );
+    if (historical && !usedTargets.has(historical.targetField)) {
+      suggestions.push(historical);
+      usedTargets.add(historical.targetField);
+      continue;
+    }
+
+    const fallback = tryFuzzyAndContentMatch(
+      column,
+      fields,
+      sampleData,
+      usedTargets
+    );
+    if (fallback) {
+      suggestions.push(fallback);
+      usedTargets.add(fallback.targetField);
+    }
+  }
+
+  return suggestions;
+}
+
+// ============================================================
 // Simple suggest (exact + alias only - no ctx needed)
 // ============================================================
 
@@ -683,7 +803,6 @@ export function suggestMappingsSimple(
   const usedTargets = new Set<string>();
 
   for (const column of sourceColumns) {
-    // Try exact match first
     const exact = exactMatch(column, fields);
     if (exact && !usedTargets.has(exact.targetField)) {
       suggestions.push(exact);
@@ -691,7 +810,6 @@ export function suggestMappingsSimple(
       continue;
     }
 
-    // Try alias match
     const alias = aliasMatch(column, fields);
     if (alias && !usedTargets.has(alias.targetField)) {
       suggestions.push(alias);

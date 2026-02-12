@@ -437,18 +437,27 @@ export default function ImportPage() {
       {/* Start Import Button */}
       <Card>
         <CardContent className="p-4">
-          <Link
-            href={
-              buildWizardUrl(orgId, selectedTemplateId, selectedSport) as Route
-            }
-          >
-            <Button className="w-full" disabled={!selectedTemplateId} size="lg">
+          {selectedTemplateId ? (
+            <Link
+              href={
+                buildWizardUrl(
+                  orgId,
+                  selectedTemplateId,
+                  selectedSport
+                ) as Route
+              }
+            >
+              <Button className="w-full" size="lg">
+                <Upload className="mr-2 h-5 w-5" />
+                {`Start Import with "${selectedTemplate?.name}"`}
+              </Button>
+            </Link>
+          ) : (
+            <Button className="w-full" disabled size="lg">
               <Upload className="mr-2 h-5 w-5" />
-              {selectedTemplate
-                ? `Start Import with "${selectedTemplate.name}"`
-                : "Select a template to begin"}
+              Select a template to begin
             </Button>
-          </Link>
+          )}
         </CardContent>
       </Card>
 

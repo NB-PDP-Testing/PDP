@@ -3,6 +3,12 @@ import type { Id } from "../_generated/dataModel";
 import { mutation } from "../_generated/server";
 import { calculateAge } from "./playerIdentities";
 
+// Top-level regex constants for linting compliance
+const WHITESPACE_REGEX = /\s+/;
+const LEADING_DIGITS_REGEX = /^\d+/;
+const NON_DIGIT_REGEX = /\D/g;
+const SPACE_REGEX = /\s/g;
+
 // ============================================================
 // PLAYER IMPORT WITH IDENTITY SYSTEM
 // ============================================================
@@ -22,7 +28,7 @@ function normalizeNameForMatching(name: string): {
   firstName: string;
   lastName: string;
 } {
-  const parts = name.trim().toLowerCase().split(/\s+/);
+  const parts = name.trim().toLowerCase().split(WHITESPACE_REGEX);
   if (parts.length === 0) {
     return { normalized: "", firstName: "", lastName: "" };
   }
@@ -39,14 +45,14 @@ function normalizeNameForMatching(name: string): {
  * Clean postcode for comparison (remove spaces, uppercase)
  */
 function cleanPostcode(postcode: string | undefined): string {
-  return (postcode || "").toUpperCase().replace(/\s/g, "");
+  return (postcode || "").toUpperCase().replace(SPACE_REGEX, "");
 }
 
 /**
  * Extract house number from address
  */
 function extractHouseNumber(address: string | undefined): string {
-  const match = (address || "").match(/^\d+/);
+  const match = (address || "").match(LEADING_DIGITS_REGEX);
   return match ? match[0] : "";
 }
 
@@ -174,8 +180,8 @@ function findGuardianMatchesInBatch(
 
       // 2. Phone match - 30 points (strong signal)
       if (youth.phone && adult.phone) {
-        const youthPhone = youth.phone.replace(/\D/g, "").slice(-10);
-        const adultPhone = adult.phone.replace(/\D/g, "").slice(-10);
+        const youthPhone = youth.phone.replace(NON_DIGIT_REGEX, "").slice(-10);
+        const adultPhone = adult.phone.replace(NON_DIGIT_REGEX, "").slice(-10);
         if (
           youthPhone.length >= 10 &&
           adultPhone.length >= 10 &&
@@ -370,6 +376,7 @@ export const importPlayerWithIdentity = mutation({
         ? args.parentEmail.toLowerCase().trim()
         : undefined;
 
+      // biome-ignore lint/suspicious/noEvolvingTypes: guardian queried from multiple paths
       let existingGuardian = null;
 
       // Try to find existing guardian by email first (if provided)
@@ -423,40 +430,42 @@ export const importPlayerWithIdentity = mutation({
 
       // ========== 3. CREATE GUARDIAN-PLAYER LINK ==========
 
-      // Check if link already exists
-      const existingLink = await ctx.db
-        .query("guardianPlayerLinks")
-        .withIndex("by_guardian_and_player", (q) =>
-          q
-            .eq("guardianIdentityId", guardianIdentityId!)
-            .eq("playerIdentityId", playerIdentityId)
-        )
-        .first();
-
-      if (existingLink) {
-        guardianLinkId = existingLink._id;
-      } else {
-        // Check if this is the first guardian for this player
-        const existingLinks = await ctx.db
+      if (guardianIdentityId) {
+        // Check if link already exists
+        const existingLink = await ctx.db
           .query("guardianPlayerLinks")
-          .withIndex("by_player", (q) =>
-            q.eq("playerIdentityId", playerIdentityId)
+          .withIndex("by_guardian_and_player", (q) =>
+            q
+              .eq("guardianIdentityId", guardianIdentityId)
+              .eq("playerIdentityId", playerIdentityId)
           )
-          .collect();
+          .first();
 
-        const isPrimary = existingLinks.length === 0;
+        if (existingLink) {
+          guardianLinkId = existingLink._id;
+        } else {
+          // Check if this is the first guardian for this player
+          const existingLinks = await ctx.db
+            .query("guardianPlayerLinks")
+            .withIndex("by_player", (q) =>
+              q.eq("playerIdentityId", playerIdentityId)
+            )
+            .collect();
 
-        guardianLinkId = await ctx.db.insert("guardianPlayerLinks", {
-          guardianIdentityId: guardianIdentityId!,
-          playerIdentityId,
-          relationship: args.parentRelationship ?? "guardian",
-          isPrimary,
-          hasParentalResponsibility: true,
-          canCollectFromTraining: true,
-          consentedToSharing: true,
-          createdAt: now,
-          updatedAt: now,
-        });
+          const isPrimary = existingLinks.length === 0;
+
+          guardianLinkId = await ctx.db.insert("guardianPlayerLinks", {
+            guardianIdentityId,
+            playerIdentityId,
+            relationship: args.parentRelationship ?? "guardian",
+            isPrimary,
+            hasParentalResponsibility: true,
+            canCollectFromTraining: true,
+            consentedToSharing: true,
+            createdAt: now,
+            updatedAt: now,
+          });
+        }
       }
     }
 
@@ -519,6 +528,8 @@ export const batchImportPlayersWithIdentity = mutation({
   args: {
     organizationId: v.string(),
     sportCode: v.optional(v.string()), // Optional: auto-create sport passports during enrollment
+    sessionId: v.optional(v.id("importSessions")), // Optional: track which import session created records
+    selectedRowIndices: v.optional(v.array(v.number())), // Optional: only import specific rows
     players: v.array(
       v.object({
         firstName: v.string(),
@@ -591,6 +602,22 @@ export const batchImportPlayersWithIdentity = mutation({
 
     const now = Date.now();
 
+    // ========== ROW SELECTION FILTER ==========
+    // When selectedRowIndices provided, only import those rows
+    const selectedSet = args.selectedRowIndices
+      ? new Set(args.selectedRowIndices)
+      : null;
+    const playersToImport = selectedSet
+      ? args.players.filter((_, idx) => selectedSet.has(idx))
+      : args.players;
+    // Build index mapping: position in playersToImport -> original index in args.players
+    const originalIndices: number[] = [];
+    for (let i = 0; i < args.players.length; i += 1) {
+      if (!selectedSet || selectedSet.has(i)) {
+        originalIndices.push(i);
+      }
+    }
+
     // ========== PHASE 1: CREATE ALL PLAYER IDENTITIES ==========
 
     // First pass: Create/find all player identities
@@ -598,8 +625,8 @@ export const batchImportPlayersWithIdentity = mutation({
     const playersForMatching: PlayerForMatching[] = [];
     const playerIdentityMap = new Map<number, Id<"playerIdentities">>(); // index -> playerIdentityId
 
-    for (let i = 0; i < args.players.length; i += 1) {
-      const playerData = args.players[i];
+    for (let i = 0; i < playersToImport.length; i += 1) {
+      const playerData = playersToImport[i];
       try {
         const existingPlayer = await ctx.db
           .query("playerIdentities")
@@ -632,6 +659,7 @@ export const batchImportPlayersWithIdentity = mutation({
             postcode: playerData.postcode?.trim(),
             country: playerData.country?.trim(),
             verificationStatus: "unverified",
+            importSessionId: args.sessionId,
             createdAt: now,
             updatedAt: now,
             createdFrom: "import",
@@ -643,7 +671,7 @@ export const batchImportPlayersWithIdentity = mutation({
         playerIdentityMap.set(i, playerIdentityId);
 
         results.playerIdentities.push({
-          index: i,
+          index: originalIndices[i],
           playerIdentityId,
           wasCreated,
         });
@@ -715,7 +743,7 @@ export const batchImportPlayersWithIdentity = mutation({
       const youthPlayerIdentityId = playerIdentityMap.get(
         match.youthPlayerIndex
       );
-      const adultPlayerData = args.players[match.adultPlayerIndex];
+      const adultPlayerData = playersToImport[match.adultPlayerIndex];
 
       if (!(youthPlayerIdentityId && adultPlayerData)) {
         continue;
@@ -779,41 +807,43 @@ export const batchImportPlayersWithIdentity = mutation({
           );
         }
 
-        // Check if link already exists
-        const existingLink = await ctx.db
-          .query("guardianPlayerLinks")
-          .withIndex("by_guardian_and_player", (q) =>
-            q
-              .eq("guardianIdentityId", guardianIdentityId!)
-              .eq("playerIdentityId", youthPlayerIdentityId)
-          )
-          .first();
-
-        if (!existingLink) {
-          const existingLinks = await ctx.db
+        if (guardianIdentityId) {
+          // Check if link already exists
+          const existingLink = await ctx.db
             .query("guardianPlayerLinks")
-            .withIndex("by_player", (q) =>
-              q.eq("playerIdentityId", youthPlayerIdentityId)
+            .withIndex("by_guardian_and_player", (q) =>
+              q
+                .eq("guardianIdentityId", guardianIdentityId)
+                .eq("playerIdentityId", youthPlayerIdentityId)
             )
-            .collect();
+            .first();
 
-          const isPrimary = existingLinks.length === 0;
+          if (!existingLink) {
+            const existingLinks = await ctx.db
+              .query("guardianPlayerLinks")
+              .withIndex("by_player", (q) =>
+                q.eq("playerIdentityId", youthPlayerIdentityId)
+              )
+              .collect();
 
-          await ctx.db.insert("guardianPlayerLinks", {
-            guardianIdentityId: guardianIdentityId!,
-            playerIdentityId: youthPlayerIdentityId,
-            relationship: "guardian",
-            isPrimary,
-            hasParentalResponsibility: true,
-            canCollectFromTraining: true,
-            consentedToSharing: true,
-            createdAt: now,
-            updatedAt: now,
-          });
+            const isPrimary = existingLinks.length === 0;
 
-          console.log(
-            `[Guardian Matching] ✓ Linked guardian ${adultPlayerData.firstName} ${adultPlayerData.lastName} to player at index ${match.youthPlayerIndex} (${match.score} points: ${match.matchReasons.join(", ")})`
-          );
+            await ctx.db.insert("guardianPlayerLinks", {
+              guardianIdentityId,
+              playerIdentityId: youthPlayerIdentityId,
+              relationship: "guardian",
+              isPrimary,
+              hasParentalResponsibility: true,
+              canCollectFromTraining: true,
+              consentedToSharing: true,
+              createdAt: now,
+              updatedAt: now,
+            });
+
+            console.log(
+              `[Guardian Matching] ✓ Linked guardian ${adultPlayerData.firstName} ${adultPlayerData.lastName} to player at index ${match.youthPlayerIndex} (${match.score} points: ${match.matchReasons.join(", ")})`
+            );
+          }
         }
       } catch (error) {
         console.error(
@@ -827,8 +857,8 @@ export const batchImportPlayersWithIdentity = mutation({
     // Process explicit parent info (parentFirstName, parentLastName, parentEmail/Phone)
     // This handles cases where parent info is provided in the CSV but parent isn't a member
     // Email is now optional - we can create guardians with just name + phone
-    for (let i = 0; i < args.players.length; i += 1) {
-      const playerData = args.players[i];
+    for (let i = 0; i < playersToImport.length; i += 1) {
+      const playerData = playersToImport[i];
       const playerIdentityId = playerIdentityMap.get(i);
 
       if (!playerIdentityId) {
@@ -846,6 +876,7 @@ export const batchImportPlayersWithIdentity = mutation({
           : undefined;
 
         try {
+          // biome-ignore lint/suspicious/noEvolvingTypes: guardian queried from multiple paths
           let existingGuardian = null;
 
           // Try to find existing guardian by email first (if provided)
@@ -953,8 +984,8 @@ export const batchImportPlayersWithIdentity = mutation({
 
     // ========== PHASE 4: CREATE ORG ENROLLMENTS ==========
 
-    for (let i = 0; i < args.players.length; i += 1) {
-      const playerData = args.players[i];
+    for (let i = 0; i < playersToImport.length; i += 1) {
+      const playerData = playersToImport[i];
       const playerIdentityId = playerIdentityMap.get(i);
 
       if (!playerIdentityId) {
@@ -989,6 +1020,7 @@ export const batchImportPlayersWithIdentity = mutation({
             ageGroup: playerData.ageGroup,
             season: playerData.season,
             status: "active",
+            importSessionId: args.sessionId,
             enrolledAt: now,
             updatedAt: now,
           });
@@ -1003,7 +1035,7 @@ export const batchImportPlayersWithIdentity = mutation({
             .withIndex("by_player_and_sport", (q) =>
               q
                 .eq("playerIdentityId", playerIdentityId)
-                .eq("sportCode", args.sportCode!)
+                .eq("sportCode", args.sportCode)
             )
             .first();
 

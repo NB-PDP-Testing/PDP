@@ -1,17 +1,20 @@
 {
-  "project": "PlayerARC - Phase 1.3: Import Frontend Wizard & Integration",
-  "branchName": "ralph/phase-1.3-import-frontend-wizard",
-  "description": "Build the generic import wizard UI with 7 steps (Upload, Map Columns, Select Players, Configure Benchmarks, Review, Import, Complete). Extract reusable components from the existing GAA import. Create the import entry page with template selection and recent imports. Add import navigation link for admins. Preserve all existing GAA import UX patterns.",
-  "prdFile": "scripts/ralph/prds/Importing Members/phase-1-foundation.md",
+  "project": "PlayerARC - Phase 1.4: Import Template Management UI",
+  "branchName": "ralph/phase-1.4-template-management",
+  "description": "Build a web UI for platform staff and org admins to create, edit, clone, and delete import templates. Key feature: upload a sample CSV to auto-generate template mappings using the existing mapper engine. Includes column mapping builder, age group mapping editor, skill initialization strategy selector, and template usage statistics. All backend CRUD mutations already exist — this phase is frontend-only plus one new query for usage stats.",
+  "prdFile": "scripts/ralph/prds/Importing Members/phase-1.4-template-management.md",
   "contextFiles": [
-    "apps/web/src/components/gaa-import.tsx",
     "packages/backend/convex/models/importTemplates.ts",
     "packages/backend/convex/models/importSessions.ts",
-    "packages/backend/convex/models/playerImport.ts",
-    "packages/backend/convex/lib/import/parser.ts",
     "packages/backend/convex/lib/import/mapper.ts",
-    "packages/backend/convex/lib/import/validator.ts",
+    "packages/backend/convex/lib/import/parser.ts",
     "packages/backend/convex/schema.ts",
+    "apps/web/src/components/import/import-wizard.tsx",
+    "apps/web/src/components/import/steps/upload-step.tsx",
+    "apps/web/src/components/import/steps/mapping-step.tsx",
+    "apps/web/src/components/layout/admin-sidebar.tsx",
+    "apps/web/src/app/orgs/[orgId]/import/page.tsx",
+    "apps/web/src/app/orgs/[orgId]/admin/layout.tsx",
     "CLAUDE.md"
   ],
   "mandatoryPatterns": [
@@ -23,180 +26,161 @@
     "All routes scoped under /orgs/[orgId]/",
     "Support mobile viewport (375px minimum)",
     "Run npx ultracite fix before completing any story",
-    "Preserve per-player selection UX from GAA import (checkbox, search, bulk actions)",
-    "Use useOrgTheme hook for organization branding where appropriate"
+    "Reuse parseCSV from parser.ts and suggestMappingsSimple from mapper.ts for sample upload",
+    "Use existing createTemplate/updateTemplate/deleteTemplate/cloneTemplate mutations",
+    "Import DEFAULT_TARGET_FIELDS from mapper.ts for target field dropdowns",
+    "Follow admin layout role check pattern (authClient.organization.getActiveMember)"
   ],
   "successCriteria": [
-    "Import wizard accessible at /orgs/[orgId]/import",
-    "Template selection UI shows platform and org-specific templates",
-    "Upload step supports CSV file drag-and-drop and paste",
-    "Mapping step shows auto-mapped columns with confidence indicators",
-    "Player selection step has checkbox, search, filter, bulk actions",
-    "Benchmark config step offers 5 strategies with preview",
-    "Review step shows duplicates and validation errors",
-    "Import step shows real-time progress",
-    "Complete step shows statistics and 'What Next' actions",
-    "Admin navigation includes import link",
+    "Template management page accessible at /orgs/[orgId]/admin/templates",
+    "Create template form with 5 sections: basic info, column mappings, age group mappings, skill initialization, defaults",
+    "Upload sample CSV auto-detects columns and pre-fills template column mappings",
+    "Column mapping rows have: source pattern, target field dropdown, required toggle, transform, aliases",
+    "Edit template loads existing data and saves changes via updateTemplate mutation",
+    "Clone template creates editable copy via cloneTemplate mutation",
+    "Delete template soft-deletes via deleteTemplate mutation",
+    "Template list shows usage count from importSessions",
+    "Admin sidebar includes Manage Templates link",
+    "Platform templates shown as read-only to org admins (clone only)",
     "All type checks pass: npm run check-types"
   ],
   "userStories": [
     {
-      "id": "US-P1.3-001",
-      "title": "Create import entry page with template selection",
-      "description": "As an admin, I need an import page where I can select a sport, choose a template, and start the import wizard.",
+      "id": "US-P1.4-001",
+      "title": "Create template management page with list view",
+      "description": "As an admin, I need a page to see all available import templates with their details and usage statistics.",
       "acceptanceCriteria": [
-        "Create apps/web/src/app/orgs/[orgId]/import/page.tsx",
-        "Show sport selection dropdown (query available sports)",
-        "Show template selection cards (platform + org templates, filtered by sport)",
-        "Show 'Start Import' button that launches the wizard",
-        "Show recent imports list (last 5 sessions)",
-        "Use shadcn/ui Card, Select, Button components",
-        "Mobile responsive layout"
+        "Create apps/web/src/app/orgs/[orgId]/admin/templates/page.tsx",
+        "Admin/owner role check with redirect (same pattern as admin/layout.tsx)",
+        "Fetch platform templates and org-specific templates using listTemplates query",
+        "Table with columns: Name, Sport, Scope badge, Source Type, # Mappings, Last Used, Actions",
+        "Search bar filtering by name and description",
+        "Filter dropdown by sport (All / GAA Football / Soccer / etc.)",
+        "Create Template button opens create form",
+        "Upload Sample button opens sample upload dialog",
+        "Mobile responsive: cards view on small screens, table on desktop",
+        "Use shadcn/ui Table, Badge, Button, Input, Select components"
       ],
       "priority": 1,
-      "passes": true,
-      "notes": "Entry point for the import feature."
+      "notes": "Entry point for template management. Show platform templates with a 'Platform' badge and org templates with an 'Organization' badge."
     },
     {
-      "id": "US-P1.3-002",
-      "title": "Create ImportWizard orchestrator component",
-      "description": "As the import system, I need a wizard component that orchestrates the multi-step import flow with state management.",
+      "id": "US-P1.4-002",
+      "title": "Create template usage stats query",
+      "description": "As the template list, I need to display how many times each template has been used and when it was last used.",
       "acceptanceCriteria": [
-        "Create apps/web/src/components/import/ImportWizard.tsx",
-        "Define 7 wizard steps with step indicator at top",
-        "Manage wizard state: currentStep, template, sportCode, parsedData, mappings, playerSelections, benchmarkSettings, sessionId",
-        "Support Next/Back navigation between steps",
-        "Conditional step skipping (skip Map Columns if 100% auto-mapped, skip Review if no issues)",
-        "Create import session on wizard start"
+        "Add getTemplateUsageStats query to packages/backend/convex/models/importSessions.ts",
+        "Accepts array of template IDs, returns usage count and last used date per template",
+        "Add index by_templateId on importSessions table if not already present",
+        "Batch fetch pattern: single query per template using index, not N+1",
+        "Include args and returns validators",
+        "Run npx -w packages/backend convex codegen to verify"
       ],
       "priority": 2,
-      "passes": true,
-      "notes": "State lifted to this component and passed down as props to step components."
+      "notes": "Called by the template list page to display stats. Use batch fetch + Map pattern."
     },
     {
-      "id": "US-P1.3-003",
-      "title": "Create UploadStep component",
-      "description": "As an admin, I need to upload a CSV file or paste data from a spreadsheet.",
+      "id": "US-P1.4-003",
+      "title": "Create template form component with all config sections",
+      "description": "As an admin, I need a form to configure all aspects of an import template: basic info, column mappings, age group mappings, skill initialization, and defaults.",
       "acceptanceCriteria": [
-        "Create apps/web/src/components/import/steps/UploadStep.tsx",
-        "File drag-and-drop zone accepting .csv files",
-        "File input fallback button",
-        "Clipboard paste textarea for pasting from Excel",
-        "Parse content using parser.ts parseCSV function",
-        "Show first 3 rows as preview table"
+        "Create apps/web/src/components/import/templates/template-form.tsx",
+        "Section 1 - Basic Info: name (required), description, sport dropdown, source type radio (csv/excel/paste), scope selector (platform/organization)",
+        "Section 2 - Column Mappings: dynamic table with add/remove rows. Each row has: source pattern input, target field dropdown (from DEFAULT_TARGET_FIELDS), required toggle, transform dropdown (optional: parseDate, normalizeGender, toUpperCase, toLowerCase, trim), aliases input",
+        "Section 3 - Age Group Mappings: optional dynamic table. Each row has: source value input, target age group input",
+        "Section 4 - Skill Initialization: radio group (blank, middle, age-appropriate, ngb-benchmarks, custom) + custom template selector when custom is selected",
+        "Section 5 - Defaults: createTeams toggle, createPassports toggle, season input",
+        "Form validates required fields before submission",
+        "Supports both create mode (empty form) and edit mode (pre-filled with existing template data)",
+        "Uses shadcn/ui Form components, Switch, RadioGroup, Select, Input, Button"
       ],
       "priority": 3,
-      "passes": true,
-      "notes": "CSV parsing happens client-side."
+      "notes": "This is the most complex component. Consider using Accordion or Tabs for the 5 sections to avoid overwhelming the user. Import DEFAULT_TARGET_FIELDS from @pdp/backend/convex/lib/import/mapper for the dropdown options."
     },
     {
-      "id": "US-P1.3-004",
-      "title": "Create MappingStep component",
-      "description": "As an admin, I need to review and adjust auto-mapped column assignments.",
+      "id": "US-P1.4-004",
+      "title": "Wire create and edit flows with mutations",
+      "description": "As an admin, I need to save new templates and update existing ones through the form.",
       "acceptanceCriteria": [
-        "Create apps/web/src/components/import/steps/MappingStep.tsx",
-        "Show each source column with sample values, confidence badge, and target field dropdown",
-        "Auto-mapped columns (>=95% confidence) show green checkmark and locked dropdown",
-        "Unmatched columns show red badge and empty dropdown",
-        "Override button to unlock auto-mapped columns",
-        "Validation warning if required fields not mapped"
+        "Create button on list page opens template-form in create mode (Dialog or dedicated page)",
+        "On form submit in create mode, call createTemplate mutation with all form data",
+        "Pass current user ID as createdBy field",
+        "Edit button on list row opens template-form in edit mode, pre-filled with getTemplate data",
+        "On form submit in edit mode, call updateTemplate mutation with changed fields",
+        "Success toast notification after create/edit",
+        "Error handling with toast for mutation failures",
+        "Redirect back to list after successful save"
       ],
       "priority": 4,
-      "passes": true,
-      "notes": "Call suggestMappings from mapper.ts on mount."
+      "notes": "Use useMutation from convex/react. The form component accepts an optional template prop for edit mode."
     },
     {
-      "id": "US-P1.3-005",
-      "title": "Create PlayerSelectionStep component",
-      "description": "As an admin, I need to select which players to import using checkboxes with search and bulk actions.",
+      "id": "US-P1.4-005",
+      "title": "Create sample CSV upload flow for auto-generating templates",
+      "description": "As an admin, I need to upload a sample CSV file and have the system auto-detect columns and pre-fill the template's column mappings.",
       "acceptanceCriteria": [
-        "Create apps/web/src/components/import/steps/PlayerSelectionStep.tsx",
-        "Player table with checkbox per row, sortable columns",
-        "Select All / Deselect All bulk action buttons",
-        "Search bar filtering by name, DOB, team",
-        "Filter tabs: All / Selected / Unselected with counts",
-        "All players selected by default"
+        "Create apps/web/src/components/import/templates/sample-upload-dialog.tsx",
+        "Dialog with file upload zone (reuse drag-drop pattern from upload-step.tsx)",
+        "Also support paste from clipboard (tab for file, tab for paste)",
+        "Parse uploaded CSV using parseCSV from parser.ts",
+        "Run suggestMappingsSimple on parsed headers to auto-detect target fields",
+        "Show mapping preview: each detected column with confidence badge and suggested target field",
+        "Confirm button opens template-form pre-filled with the detected column mappings",
+        "High confidence mappings (>=95%) show green, medium (70-94%) yellow, low (<70%) red",
+        "Unmapped columns included in form with empty target (user can assign manually)"
       ],
       "priority": 5,
-      "passes": true,
-      "notes": "Mirrors existing per-player selection in gaa-import.tsx."
+      "notes": "This is the key UX differentiator. Import parseCSV and suggestMappingsSimple from the backend lib/import/ modules. The dialog acts as a bridge between raw CSV data and the template form."
     },
     {
-      "id": "US-P1.3-006",
-      "title": "Create BenchmarkConfigStep component",
-      "description": "As an admin, I need to configure how initial skill ratings are set for imported players.",
+      "id": "US-P1.4-006",
+      "title": "Create clone and delete dialogs",
+      "description": "As an admin, I need to clone an existing template to create a customized copy, and delete templates I no longer need.",
       "acceptanceCriteria": [
-        "Create apps/web/src/components/import/steps/BenchmarkConfigStep.tsx",
-        "Toggle switch: 'Initialize skill ratings during import'",
-        "Strategy radio buttons: Blank, Middle, Age-Appropriate (Recommended), NGB Standards, Custom Template",
-        "Custom template selector dropdown when 'Custom Template' selected",
-        "Preview section showing sample ratings",
-        "Use shadcn/ui Switch, RadioGroup, Select components"
+        "Create apps/web/src/components/import/templates/clone-dialog.tsx",
+        "Clone dialog: text input for new name (pre-filled with 'Copy of [original name]'), confirm button",
+        "Clone calls cloneTemplate mutation with templateId, newName, createdBy",
+        "Create apps/web/src/components/import/templates/delete-dialog.tsx",
+        "Delete dialog: AlertDialog with warning that template will be deactivated",
+        "Delete calls deleteTemplate mutation",
+        "Platform templates: org admins see 'Clone to My Org' instead of Edit/Delete",
+        "Success toast after clone/delete",
+        "List refreshes automatically via Convex reactivity"
       ],
       "priority": 6,
-      "passes": true,
-      "notes": "Preview is informational to help admins understand strategy differences."
+      "notes": "Clone is especially important for org admins who want to customize a platform template. The cloned template should have scope='organization' and the current orgId."
     },
     {
-      "id": "US-P1.3-007",
-      "title": "Create ReviewStep with duplicate resolution",
-      "description": "As an admin, I need to review validation errors and resolve duplicate players before importing.",
+      "id": "US-P1.4-007",
+      "title": "Add Manage Templates link to admin sidebar",
+      "description": "As an admin, I need to access template management from the admin navigation.",
       "acceptanceCriteria": [
-        "Create apps/web/src/components/import/steps/ReviewStep.tsx",
-        "Validation error summary and error table with row number, field, error, suggested fix",
-        "Duplicate section with resolution options: Skip, Merge, Create New",
-        "Team creation preview",
-        "Summary cards: X valid, Y errors, Z duplicates",
-        "Allow proceeding with errors (with confirmation dialog)"
-      ],
-      "priority": 7,
-      "passes": true,
-      "notes": "Reference gaa-import.tsx lines 2066-2265 for existing duplicate resolution UX."
-    },
-    {
-      "id": "US-P1.3-008",
-      "title": "Create ImportStep and CompleteStep components",
-      "description": "As an admin, I need to see real-time import progress and a completion summary.",
-      "acceptanceCriteria": [
-        "Create apps/web/src/components/import/steps/ImportStep.tsx with phase-by-phase progress",
-        "Call batchImportPlayersWithIdentity mutation with all wizard data",
-        "Create apps/web/src/components/import/steps/CompleteStep.tsx",
-        "Show statistics cards and 'What Next' action cards",
-        "Return to import page link"
-      ],
-      "priority": 8,
-      "passes": true,
-      "notes": "Progress tracking may need session status updates for real-time feedback."
-    },
-    {
-      "id": "US-P1.3-009",
-      "title": "Add import link to admin navigation",
-      "description": "As an admin, I need to access the import page from the main navigation.",
-      "acceptanceCriteria": [
-        "Add 'Import Players' link to admin sidebar/navigation pointing to /orgs/[orgId]/import",
-        "Use Upload or FileUp Lucide icon",
-        "Link visible only to admin and owner roles",
+        "Add 'Manage Templates' link to admin sidebar under 'Data & Import' group",
+        "Use FileSpreadsheet Lucide icon",
+        "Link points to /orgs/[orgId]/admin/templates",
+        "Position after 'Import Wizard' and before 'Import Players'",
+        "Link visible in both desktop sidebar and mobile navigation drawer",
         "Typecheck passes: npm run check-types"
       ],
-      "priority": 9,
-      "passes": true,
-      "notes": "Place near team management and user management links."
+      "priority": 7,
+      "notes": "Keep consistent with existing sidebar patterns."
     },
     {
-      "id": "US-P1.3-010",
-      "title": "Integration testing of import wizard flow",
-      "description": "As a developer, I need to verify the complete import wizard works end-to-end.",
+      "id": "US-P1.4-008",
+      "title": "Integration testing and polish",
+      "description": "As a developer, I need to verify the complete template management flow works end-to-end and templates integrate with the import wizard.",
       "acceptanceCriteria": [
-        "Verify: Upload CSV -> auto-map -> select players -> configure benchmarks -> review -> import -> completion",
-        "Verify: Template selection pre-fills mappings correctly",
-        "Verify: Player selection checkboxes, search, and bulk actions work",
-        "Verify: Completion step shows accurate statistics",
+        "Verify: Create template manually -> appears in import wizard template selection",
+        "Verify: Upload sample CSV -> auto-detect mappings -> save template -> use in import",
+        "Verify: Clone platform template -> edit clone -> use in import",
+        "Verify: Delete template -> no longer appears in import wizard",
+        "Verify: Edit template column mappings -> changes reflected when template used in import",
+        "Verify: Platform templates read-only for org admins (can only clone)",
         "Run npx ultracite fix and npx -w packages/backend convex codegen",
         "Typecheck passes: npm run check-types"
       ],
-      "priority": 10,
-      "passes": true,
-      "notes": "Verification story - ensure all pieces connect properly."
+      "priority": 8,
+      "notes": "Verification story. The key integration point is that templates created here show up in the Phase 1.3 import entry page template selection cards."
     }
   ]
 }

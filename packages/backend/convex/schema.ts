@@ -4710,7 +4710,8 @@ export default defineSchema({
     .index("by_status", ["status"])
     .index("by_initiatedBy", ["initiatedBy"])
     .index("by_startedAt", ["startedAt"])
-    .index("by_org_and_status", ["organizationId", "status"]),
+    .index("by_org_and_status", ["organizationId", "status"])
+    .index("by_templateId", ["templateId"]),
 
   // Learns from past imports to improve auto-mapping
   importMappingHistory: defineTable({

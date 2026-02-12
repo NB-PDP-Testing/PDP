@@ -189,6 +189,10 @@ export const cloneTemplate = mutation({
     templateId: v.id("importTemplates"),
     newName: v.string(),
     createdBy: v.string(),
+    scope: v.optional(
+      v.union(v.literal("platform"), v.literal("organization"))
+    ),
+    organizationId: v.optional(v.string()),
   },
   returns: v.id("importTemplates"),
   handler: async (ctx, args) => {
@@ -203,8 +207,8 @@ export const cloneTemplate = mutation({
       description: existing.description,
       sportCode: existing.sportCode,
       sourceType: existing.sourceType,
-      scope: existing.scope,
-      organizationId: existing.organizationId,
+      scope: args.scope ?? existing.scope,
+      organizationId: args.organizationId ?? existing.organizationId,
       columnMappings: existing.columnMappings,
       ageGroupMappings: existing.ageGroupMappings,
       skillInitialization: existing.skillInitialization,

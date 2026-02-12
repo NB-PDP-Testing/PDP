@@ -1,166 +1,202 @@
 {
-  "project": "PlayerARC - Phase 1.1: Import Database Foundation",
-  "branchName": "ralph/phase-1.1-import-database-foundation",
-  "description": "Create the database foundation for the generic import framework. Add 4 new tables (importTemplates, importSessions, importMappingHistory, benchmarkTemplates), extend existing tables with import tracking fields, and implement CRUD mutations/queries for templates and sessions. Seed default GAA Foireann and Generic CSV templates.",
+  "project": "PlayerARC - Phase 1.3: Import Frontend Wizard & Integration",
+  "branchName": "ralph/phase-1.3-import-frontend-wizard",
+  "description": "Build the generic import wizard UI with 7 steps (Upload, Map Columns, Select Players, Configure Benchmarks, Review, Import, Complete). Extract reusable components from the existing GAA import. Create the import entry page with template selection and recent imports. Add import navigation link for admins. Preserve all existing GAA import UX patterns.",
   "prdFile": "scripts/ralph/prds/Importing Members/phase-1-foundation.md",
   "contextFiles": [
-    "packages/backend/convex/schema.ts",
+    "apps/web/src/components/gaa-import.tsx",
+    "packages/backend/convex/models/importTemplates.ts",
+    "packages/backend/convex/models/importSessions.ts",
     "packages/backend/convex/models/playerImport.ts",
-    "packages/backend/convex/betterAuth/schema.ts",
+    "packages/backend/convex/lib/import/parser.ts",
+    "packages/backend/convex/lib/import/mapper.ts",
+    "packages/backend/convex/lib/import/validator.ts",
+    "packages/backend/convex/schema.ts",
     "CLAUDE.md"
   ],
   "mandatoryPatterns": [
-    "Use Convex function syntax with args and returns validators",
-    "Use .withIndex() never .filter() for queries",
-    "All new tables must have appropriate indexes for every query pattern",
-    "Follow batch fetch + Map lookup pattern for related data (no N+1)",
-    "Use v.id() for all foreign key references to Convex tables",
-    "Use v.string() for Better Auth IDs (organizationId, userId)",
+    "Use shadcn/ui components for all UI elements",
+    "Use Tailwind CSS for styling",
+    "Use useQuery/useMutation from convex/react for data fetching",
+    "Lift queries to parent components - no useQuery in list item components",
+    "Use query skipping when data not needed",
+    "All routes scoped under /orgs/[orgId]/",
+    "Support mobile viewport (375px minimum)",
     "Run npx ultracite fix before completing any story",
-    "Run npx -w packages/backend convex codegen to verify schema changes"
+    "Preserve per-player selection UX from GAA import (checkbox, search, bulk actions)",
+    "Use useOrgTheme hook for organization branding where appropriate"
   ],
   "successCriteria": [
-    "4 new tables created in schema.ts with all required indexes",
-    "importTemplates CRUD mutations and queries work correctly",
-    "importSessions lifecycle mutations (create, update status, update selections, set benchmarks) work",
-    "importMappingHistory query/update functions work",
-    "Default GAA Foireann template is seeded and queryable",
-    "Default Generic CSV template is seeded and queryable",
-    "playerIdentities table extended with importSessionId and externalIds fields",
-    "orgPlayerEnrollments table extended with importSessionId, lastSyncedAt, syncSource fields",
-    "All type checks pass: npm run check-types",
-    "Convex codegen succeeds: npx -w packages/backend convex codegen"
+    "Import wizard accessible at /orgs/[orgId]/import",
+    "Template selection UI shows platform and org-specific templates",
+    "Upload step supports CSV file drag-and-drop and paste",
+    "Mapping step shows auto-mapped columns with confidence indicators",
+    "Player selection step has checkbox, search, filter, bulk actions",
+    "Benchmark config step offers 5 strategies with preview",
+    "Review step shows duplicates and validation errors",
+    "Import step shows real-time progress",
+    "Complete step shows statistics and 'What Next' actions",
+    "Admin navigation includes import link",
+    "All type checks pass: npm run check-types"
   ],
   "userStories": [
     {
-      "id": "US-P1.1-001",
-      "title": "Add importTemplates table to schema",
-      "description": "As a developer, I need a table to store sport-specific and organization-specific import configurations (column mappings, age group mappings, skill initialization strategy, defaults).",
+      "id": "US-P1.3-001",
+      "title": "Create import entry page with template selection",
+      "description": "As an admin, I need an import page where I can select a sport, choose a template, and start the import wizard.",
       "acceptanceCriteria": [
-        "Add importTemplates table to packages/backend/convex/schema.ts with all fields from Phase 1 PRD section 'New Tables > importTemplates'",
-        "Fields: name, description, sportCode, sourceType (csv/excel/paste), scope (platform/organization), organizationId, columnMappings array, ageGroupMappings array, skillInitialization object, defaults object, isActive, createdBy, createdAt, updatedAt",
-        "Add indexes: by_scope, by_sportCode, by_organizationId, by_scope_and_sport",
-        "Run npx -w packages/backend convex codegen successfully",
-        "Typecheck passes: npm run check-types"
+        "Create apps/web/src/app/orgs/[orgId]/import/page.tsx",
+        "Show sport selection dropdown (query available sports)",
+        "Show template selection cards (platform + org templates, filtered by sport)",
+        "Show 'Start Import' button that launches the wizard",
+        "Show recent imports list (last 5 sessions)",
+        "Use shadcn/ui Card, Select, Button components",
+        "Mobile responsive layout"
       ],
       "priority": 1,
-      "passes": true,
-      "notes": "Schema foundation. Reference phase-1-foundation.md for exact field definitions. The columnMappings array contains objects with sourcePattern, targetField, required, transform, aliases. The skillInitialization object contains strategy union (blank/middle/age-appropriate/ngb-benchmarks/custom), customBenchmarkTemplateId, applyToPassportStatus."
+      "passes": false,
+      "notes": "Entry point for the import feature."
     },
     {
-      "id": "US-P1.1-002",
-      "title": "Add importSessions table to schema",
-      "description": "As a developer, I need a table to track each import execution with full audit trail including status, source info, mappings, player selections, benchmark settings, stats, errors, and duplicates.",
+      "id": "US-P1.3-002",
+      "title": "Create ImportWizard orchestrator component",
+      "description": "As the import system, I need a wizard component that orchestrates the multi-step import flow with state management.",
       "acceptanceCriteria": [
-        "Add importSessions table to packages/backend/convex/schema.ts with all fields from Phase 1 PRD section 'New Tables > importSessions'",
-        "Status union: uploading, mapping, selecting, reviewing, importing, completed, failed, cancelled",
-        "Include sourceInfo object, mappings record, playerSelections array, benchmarkSettings object, stats object, errors array, duplicates array",
-        "Add indexes: by_organizationId, by_status, by_initiatedBy, by_startedAt, by_org_and_status",
-        "Run npx -w packages/backend convex codegen successfully"
+        "Create apps/web/src/components/import/ImportWizard.tsx",
+        "Define 7 wizard steps with step indicator at top",
+        "Manage wizard state: currentStep, template, sportCode, parsedData, mappings, playerSelections, benchmarkSettings, sessionId",
+        "Support Next/Back navigation between steps",
+        "Conditional step skipping (skip Map Columns if 100% auto-mapped, skip Review if no issues)",
+        "Create import session on wizard start"
       ],
       "priority": 2,
-      "passes": true,
-      "notes": "The duplicates array references v.id('playerIdentities') for existingPlayerId. The stats object tracks totalRows, selectedRows, validRows, errorRows, duplicateRows, playersCreated, playersUpdated, playersSkipped, guardiansCreated, guardiansLinked, teamsCreated, passportsCreated, benchmarksApplied."
+      "passes": false,
+      "notes": "State lifted to this component and passed down as props to step components."
     },
     {
-      "id": "US-P1.1-003",
-      "title": "Add importMappingHistory and benchmarkTemplates tables to schema",
-      "description": "As a developer, I need tables for learning from past imports (mapping history) and custom benchmark configurations per sport/organization.",
+      "id": "US-P1.3-003",
+      "title": "Create UploadStep component",
+      "description": "As an admin, I need to upload a CSV file or paste data from a spreadsheet.",
       "acceptanceCriteria": [
-        "Add importMappingHistory table with fields: organizationId, templateId, sourceColumnName, normalizedColumnName, targetField, usageCount, lastUsedAt, confidence, createdAt",
-        "Add importMappingHistory indexes: by_normalizedColumnName, by_organizationId, by_templateId, by_targetField",
-        "Add benchmarkTemplates table with fields: name, sportCode, scope (platform/organization), organizationId, benchmarks array (skillCode, ageGroup, expectedRating, minAcceptable, description), isActive, createdAt",
-        "Add benchmarkTemplates indexes: by_sportCode, by_scope, by_organizationId",
-        "Run npx -w packages/backend convex codegen successfully"
+        "Create apps/web/src/components/import/steps/UploadStep.tsx",
+        "File drag-and-drop zone accepting .csv files",
+        "File input fallback button",
+        "Clipboard paste textarea for pasting from Excel",
+        "Parse content using parser.ts parseCSV function",
+        "Show first 3 rows as preview table"
       ],
       "priority": 3,
-      "passes": true,
-      "notes": "benchmarkTemplates is different from the existing skillBenchmarks table. benchmarkTemplates stores custom templates for import initialization, while skillBenchmarks stores NGB standard benchmarks with percentile data. They serve different purposes."
+      "passes": false,
+      "notes": "CSV parsing happens client-side."
     },
     {
-      "id": "US-P1.1-004",
-      "title": "Extend existing tables with import tracking fields",
-      "description": "As a developer, I need to track which import session created each player identity and enrollment, plus external system IDs for deduplication.",
+      "id": "US-P1.3-004",
+      "title": "Create MappingStep component",
+      "description": "As an admin, I need to review and adjust auto-mapped column assignments.",
       "acceptanceCriteria": [
-        "Add to playerIdentities table: importSessionId: v.optional(v.id('importSessions')), externalIds: v.optional(v.record(v.string(), v.string()))",
-        "Add to orgPlayerEnrollments table: importSessionId: v.optional(v.id('importSessions')), lastSyncedAt: v.optional(v.number()), syncSource: v.optional(v.string())",
-        "Both fields are optional to maintain backward compatibility with existing data",
-        "Run npx -w packages/backend convex codegen successfully",
-        "Typecheck passes: npm run check-types"
+        "Create apps/web/src/components/import/steps/MappingStep.tsx",
+        "Show each source column with sample values, confidence badge, and target field dropdown",
+        "Auto-mapped columns (>=95% confidence) show green checkmark and locked dropdown",
+        "Unmatched columns show red badge and empty dropdown",
+        "Override button to unlock auto-mapped columns",
+        "Validation warning if required fields not mapped"
       ],
       "priority": 4,
-      "passes": true,
-      "notes": "externalIds is a record like {'foireann': '12345', 'pitchero': '67890'} for cross-system deduplication. syncSource examples: 'foireann', 'manual', 'csv_import'."
+      "passes": false,
+      "notes": "Call suggestMappings from mapper.ts on mount."
     },
     {
-      "id": "US-P1.1-005",
-      "title": "Create importTemplates CRUD mutations and queries",
-      "description": "As an admin, I need to create, read, update, delete, and clone import templates for my organization or the platform.",
+      "id": "US-P1.3-005",
+      "title": "Create PlayerSelectionStep component",
+      "description": "As an admin, I need to select which players to import using checkboxes with search and bulk actions.",
       "acceptanceCriteria": [
-        "Create packages/backend/convex/models/importTemplates.ts",
-        "Implement createTemplate mutation with full args validation and returns validator",
-        "Implement updateTemplate mutation (by template ID)",
-        "Implement deleteTemplate mutation (soft delete via isActive = false)",
-        "Implement cloneTemplate mutation (create copy with new name)",
-        "Implement getTemplate query (by ID)",
-        "Implement listTemplates query (by scope, with optional sportCode filter, using indexes)",
-        "All queries use .withIndex() - never .filter()",
-        "Run npx ultracite fix and npx -w packages/backend convex codegen"
+        "Create apps/web/src/components/import/steps/PlayerSelectionStep.tsx",
+        "Player table with checkbox per row, sortable columns",
+        "Select All / Deselect All bulk action buttons",
+        "Search bar filtering by name, DOB, team",
+        "Filter tabs: All / Selected / Unselected with counts",
+        "All players selected by default"
       ],
       "priority": 5,
-      "passes": true,
-      "notes": "listTemplates should support: list all platform templates, list org-specific templates, list by sport. Use by_scope_and_sport index for filtered queries. Include returns validators on all functions."
+      "passes": false,
+      "notes": "Mirrors existing per-player selection in gaa-import.tsx."
     },
     {
-      "id": "US-P1.1-006",
-      "title": "Create importSessions lifecycle mutations and queries",
-      "description": "As the import system, I need to create sessions, track status transitions, store player selections, and record import statistics.",
+      "id": "US-P1.3-006",
+      "title": "Create BenchmarkConfigStep component",
+      "description": "As an admin, I need to configure how initial skill ratings are set for imported players.",
       "acceptanceCriteria": [
-        "Create packages/backend/convex/models/importSessions.ts",
-        "Implement createImportSession mutation (creates with status 'uploading', returns session ID)",
-        "Implement updateSessionStatus mutation (validates status transitions)",
-        "Implement updatePlayerSelections mutation (stores array of row selections)",
-        "Implement setBenchmarkSettings mutation (stores benchmark configuration)",
-        "Implement recordSessionStats mutation (stores final import statistics)",
-        "Implement getSession query (by ID, returns full session data)",
-        "Implement listSessionsByOrg query (by organizationId, ordered by startedAt desc, using by_org_and_status index)",
-        "All queries use .withIndex() - never .filter()"
+        "Create apps/web/src/components/import/steps/BenchmarkConfigStep.tsx",
+        "Toggle switch: 'Initialize skill ratings during import'",
+        "Strategy radio buttons: Blank, Middle, Age-Appropriate (Recommended), NGB Standards, Custom Template",
+        "Custom template selector dropdown when 'Custom Template' selected",
+        "Preview section showing sample ratings",
+        "Use shadcn/ui Switch, RadioGroup, Select components"
       ],
       "priority": 6,
-      "passes": true,
-      "notes": "Status transitions should be validated: uploading -> mapping -> selecting -> reviewing -> importing -> completed/failed. Allow cancelled from any non-terminal state."
+      "passes": false,
+      "notes": "Preview is informational to help admins understand strategy differences."
     },
     {
-      "id": "US-P1.1-007",
-      "title": "Create importMappingHistory mutations and queries",
-      "description": "As the import system, I need to record column mapping decisions and query historical mappings to improve auto-mapping accuracy.",
+      "id": "US-P1.3-007",
+      "title": "Create ReviewStep with duplicate resolution",
+      "description": "As an admin, I need to review validation errors and resolve duplicate players before importing.",
       "acceptanceCriteria": [
-        "Add to packages/backend/convex/models/importSessions.ts (or create separate file if cleaner)",
-        "Implement recordMappingHistory mutation (upsert: increment usageCount if exists, create if new)",
-        "Implement getHistoricalMappings query (by normalizedColumnName and optional organizationId)",
-        "Implement getBestMapping query (returns highest confidence mapping for a given column name)",
-        "Normalize column names: lowercase, trim, remove special characters",
-        "All queries use .withIndex() - never .filter()"
+        "Create apps/web/src/components/import/steps/ReviewStep.tsx",
+        "Validation error summary and error table with row number, field, error, suggested fix",
+        "Duplicate section with resolution options: Skip, Merge, Create New",
+        "Team creation preview",
+        "Summary cards: X valid, Y errors, Z duplicates",
+        "Allow proceeding with errors (with confirmation dialog)"
       ],
       "priority": 7,
-      "passes": true,
-      "notes": "This enables the 'historical match' strategy in mapper.ts (Phase 1.2). The more imports an organization runs, the better auto-mapping becomes."
+      "passes": false,
+      "notes": "Reference gaa-import.tsx lines 2066-2265 for existing duplicate resolution UX."
     },
     {
-      "id": "US-P1.1-008",
-      "title": "Seed default import templates",
-      "description": "As the platform, I need pre-configured templates for GAA Foireann exports and generic CSV imports so users can import immediately.",
+      "id": "US-P1.3-008",
+      "title": "Create ImportStep and CompleteStep components",
+      "description": "As an admin, I need to see real-time import progress and a completion summary.",
       "acceptanceCriteria": [
-        "Create packages/backend/convex/models/importTemplateSeeds.ts with seed data",
-        "Create a seedDefaultTemplates mutation that inserts templates if they don't already exist",
-        "GAA Foireann template: sportCode 'gaa_football', sourceType 'csv', scope 'platform', with 10+ column mappings (Forename->firstName, Surname->lastName, DOB->dateOfBirth, gender->gender, email->parentEmail, Mobile Number->parentPhone, Address1->address, Postcode->postcode, Town->town)",
-        "Generic CSV template: sportCode null (works for all sports), sourceType 'csv', scope 'platform', with regex-based column mappings for common field patterns",
-        "Both templates have skillInitialization strategy 'age-appropriate' for GAA, 'blank' for generic",
-        "Templates marked isActive: true"
+        "Create apps/web/src/components/import/steps/ImportStep.tsx with phase-by-phase progress",
+        "Call batchImportPlayersWithIdentity mutation with all wizard data",
+        "Create apps/web/src/components/import/steps/CompleteStep.tsx",
+        "Show statistics cards and 'What Next' action cards",
+        "Return to import page link"
       ],
       "priority": 8,
-      "passes": true,
-      "notes": "The GAA template column mappings should match the existing patterns in gaa-import.tsx (apps/web/src/components/gaa-import.tsx). Check the two-pass CSV parsing headers used there. Generic template uses regex sourcePatterns like '/first.*name/i' for flexible matching."
+      "passes": false,
+      "notes": "Progress tracking may need session status updates for real-time feedback."
+    },
+    {
+      "id": "US-P1.3-009",
+      "title": "Add import link to admin navigation",
+      "description": "As an admin, I need to access the import page from the main navigation.",
+      "acceptanceCriteria": [
+        "Add 'Import Players' link to admin sidebar/navigation pointing to /orgs/[orgId]/import",
+        "Use Upload or FileUp Lucide icon",
+        "Link visible only to admin and owner roles",
+        "Typecheck passes: npm run check-types"
+      ],
+      "priority": 9,
+      "passes": false,
+      "notes": "Place near team management and user management links."
+    },
+    {
+      "id": "US-P1.3-010",
+      "title": "Integration testing of import wizard flow",
+      "description": "As a developer, I need to verify the complete import wizard works end-to-end.",
+      "acceptanceCriteria": [
+        "Verify: Upload CSV -> auto-map -> select players -> configure benchmarks -> review -> import -> completion",
+        "Verify: Template selection pre-fills mappings correctly",
+        "Verify: Player selection checkboxes, search, and bulk actions work",
+        "Verify: Completion step shows accurate statistics",
+        "Run npx ultracite fix and npx -w packages/backend convex codegen",
+        "Typecheck passes: npm run check-types"
+      ],
+      "priority": 10,
+      "passes": false,
+      "notes": "Verification story - ensure all pieces connect properly."
     }
   ]
 }

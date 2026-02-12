@@ -432,13 +432,14 @@ export const importPlayerWithIdentity = mutation({
 
       // ========== 3. CREATE GUARDIAN-PLAYER LINK ==========
 
-      if (guardianIdentityId) {
+      const guardianId = guardianIdentityId;
+      if (guardianId) {
         // Check if link already exists
         const existingLink = await ctx.db
           .query("guardianPlayerLinks")
           .withIndex("by_guardian_and_player", (q) =>
             q
-              .eq("guardianIdentityId", guardianIdentityId)
+              .eq("guardianIdentityId", guardianId)
               .eq("playerIdentityId", playerIdentityId)
           )
           .first();
@@ -457,7 +458,7 @@ export const importPlayerWithIdentity = mutation({
           const isPrimary = existingLinks.length === 0;
 
           guardianLinkId = await ctx.db.insert("guardianPlayerLinks", {
-            guardianIdentityId,
+            guardianIdentityId: guardianId,
             playerIdentityId,
             relationship: args.parentRelationship ?? "guardian",
             isPrimary,
@@ -1041,20 +1042,21 @@ export const batchImportPlayersWithIdentity = mutation({
 
         // Auto-create sport passport if sportCode provided
         // This is the source of truth for player's sport enrollment
-        if (args.sportCode) {
+        const sportCodeValue = args.sportCode;
+        if (sportCodeValue) {
           const existingPassport = await ctx.db
             .query("sportPassports")
             .withIndex("by_player_and_sport", (q) =>
               q
                 .eq("playerIdentityId", playerIdentityId)
-                .eq("sportCode", args.sportCode)
+                .eq("sportCode", sportCodeValue)
             )
             .first();
 
           if (!existingPassport) {
             await ctx.db.insert("sportPassports", {
               playerIdentityId,
-              sportCode: args.sportCode,
+              sportCode: sportCodeValue,
               organizationId: args.organizationId,
               status: "active",
               assessmentCount: 0,
@@ -1085,7 +1087,8 @@ export const batchImportPlayersWithIdentity = mutation({
 
     // ========== PHASE 5: APPLY BENCHMARKS ==========
     // After all passports created, apply benchmark ratings if configured
-    if (args.benchmarkSettings?.applyBenchmarks && args.sportCode) {
+    const benchSportCode = args.sportCode;
+    if (args.benchmarkSettings?.applyBenchmarks && benchSportCode) {
       const strategy = args.benchmarkSettings.strategy as BenchmarkStrategy;
 
       // Find all sport passports just created for these players
@@ -1100,7 +1103,7 @@ export const batchImportPlayersWithIdentity = mutation({
           .withIndex("by_player_and_sport", (q) =>
             q
               .eq("playerIdentityId", playerIdentityId)
-              .eq("sportCode", args.sportCode)
+              .eq("sportCode", benchSportCode)
           )
           .first();
 
@@ -1112,7 +1115,7 @@ export const batchImportPlayersWithIdentity = mutation({
               strategy,
               templateId: args.benchmarkSettings.templateId,
               ageGroup: args.benchmarkSettings.ageGroup,
-              sportCode: args.sportCode,
+              sportCode: benchSportCode,
             }
           );
           results.benchmarksApplied += benchResult.benchmarksApplied;

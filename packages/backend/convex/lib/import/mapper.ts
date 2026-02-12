@@ -7,6 +7,8 @@
  * No npm dependencies (Convex runtime restriction).
  */
 
+import type { QueryCtx } from "../../_generated/server";
+
 // ============================================================
 // Types
 // ============================================================

@@ -5,6 +5,17 @@ import type { MappingSuggestion } from "@pdp/backend/convex/lib/import/mapper";
 import type { ParseResult } from "@pdp/backend/convex/lib/import/parser";
 import { Check } from "lucide-react";
 import { useCallback, useState } from "react";
+import BenchmarkConfigStep from "@/components/import/steps/benchmark-config-step";
+import CompleteStep from "@/components/import/steps/complete-step";
+import ImportStep from "@/components/import/steps/import-step";
+import MappingStep from "@/components/import/steps/mapping-step";
+import PlayerSelectionStep from "@/components/import/steps/player-selection-step";
+import type {
+  DuplicateInfo,
+  ReviewValidationError,
+} from "@/components/import/steps/review-step";
+import ReviewStep from "@/components/import/steps/review-step";
+import UploadStep from "@/components/import/steps/upload-step";
 import { cn } from "@/lib/utils";
 
 // ============================================================
@@ -28,26 +39,12 @@ export type WizardState = {
   sportCode: string;
   parsedData: ParseResult | null;
   mappings: MappingSuggestion[];
-  /** Final confirmed mappings: sourceColumn -> targetField */
   confirmedMappings: Record<string, string>;
-  /** Set of selected row indices (all selected by default) */
   selectedRows: Set<number>;
   benchmarkSettings: BenchmarkSettings;
   sessionId: Id<"importSessions"> | null;
-  /** Validation errors from review step */
-  validationErrors: Array<{
-    rowNumber: number;
-    field: string;
-    error: string;
-    value?: string;
-  }>;
-  /** Duplicate info from review step */
-  duplicates: Array<{
-    rowNumber: number;
-    existingPlayerId: Id<"playerIdentities">;
-    resolution: "skip" | "merge" | "replace";
-  }>;
-  /** Import results */
+  validationErrors: ReviewValidationError[];
+  duplicates: DuplicateInfo[];
   importResult: {
     playersCreated: number;
     playersUpdated: number;
@@ -224,101 +221,89 @@ export default function ImportWizard({
       {/* Step Content */}
       <div className="min-h-[400px]">
         {currentStep === 1 && (
-          <StepPlaceholder
-            description="Upload a CSV file or paste data from a spreadsheet."
-            goNext={goNext}
-            name="Upload"
+          <UploadStep
+            goBack={goBack}
+            onDataParsed={(data) => {
+              // Select all rows by default
+              const allIndices = new Set(
+                Array.from({ length: data.rows.length }, (_, i) => i)
+              );
+              updateState({
+                parsedData: data,
+                selectedRows: allIndices,
+              });
+              goNext();
+            }}
           />
         )}
-        {currentStep === 2 && (
-          <StepPlaceholder
-            description="Review and adjust auto-mapped column assignments."
+        {currentStep === 2 && state.parsedData && (
+          <MappingStep
             goBack={goBack}
-            goNext={goNext}
-            name="Map Columns"
+            onMappingsConfirmed={(mappings) => {
+              updateState({ confirmedMappings: mappings });
+              goNext();
+            }}
+            parsedData={state.parsedData}
           />
         )}
-        {currentStep === 3 && (
-          <StepPlaceholder
-            description={`Select which players to import. (${state.selectedRows.size} selected)`}
+        {currentStep === 3 && state.parsedData && (
+          <PlayerSelectionStep
+            confirmedMappings={state.confirmedMappings}
             goBack={goBack}
             goNext={goNext}
-            name="Select Players"
+            onSelectionChange={(selected) =>
+              updateState({ selectedRows: selected })
+            }
+            parsedData={state.parsedData}
+            selectedRows={state.selectedRows}
           />
         )}
         {currentStep === 4 && (
-          <StepPlaceholder
-            description={`Configure skill ratings. Strategy: ${state.benchmarkSettings.strategy}`}
+          <BenchmarkConfigStep
             goBack={goBack}
             goNext={goNext}
-            name="Benchmarks"
+            onSettingsChange={(settings) =>
+              updateState({ benchmarkSettings: settings })
+            }
+            settings={state.benchmarkSettings}
           />
         )}
-        {currentStep === 5 && (
-          <StepPlaceholder
-            description="Review validation errors and duplicates."
+        {currentStep === 5 && state.parsedData && (
+          <ReviewStep
+            confirmedMappings={state.confirmedMappings}
+            duplicates={state.duplicates}
             goBack={goBack}
             goNext={() => {
               updateState({ importResult: null });
               goNext();
             }}
-            name="Review"
+            onDuplicatesChange={(duplicates) => updateState({ duplicates })}
+            onValidationErrorsChange={(validationErrors) =>
+              updateState({ validationErrors })
+            }
+            parsedData={state.parsedData}
+            selectedRows={state.selectedRows}
+            validationErrors={state.validationErrors}
           />
         )}
-        {currentStep === 6 && (
-          <StepPlaceholder
-            description="Importing players..."
+        {currentStep === 6 && state.parsedData && (
+          <ImportStep
+            benchmarkSettings={state.benchmarkSettings}
+            confirmedMappings={state.confirmedMappings}
             goNext={goNext}
-            name="Import"
+            onImportComplete={(result) => updateState({ importResult: result })}
+            organizationId={organizationId}
+            parsedData={state.parsedData}
+            selectedRows={state.selectedRows}
+            sessionId={state.sessionId}
+            sportCode={state.sportCode}
           />
         )}
         {currentStep === 7 && (
-          <StepPlaceholder
-            description="Import complete!"
-            name="Complete"
+          <CompleteStep
+            importResult={state.importResult}
             organizationId={organizationId}
           />
-        )}
-      </div>
-    </div>
-  );
-}
-
-// Placeholder component - will be replaced by real step components
-function StepPlaceholder({
-  name,
-  description,
-  goNext,
-  goBack,
-}: {
-  name: string;
-  description: string;
-  organizationId?: string;
-  goNext?: () => void;
-  goBack?: () => void;
-}) {
-  return (
-    <div className="flex flex-col items-center justify-center rounded-lg border border-dashed p-12 text-center">
-      <h2 className="mb-2 font-semibold text-xl">{name}</h2>
-      <p className="mb-6 text-muted-foreground">{description}</p>
-      <div className="flex gap-3">
-        {goBack && (
-          <button
-            className="rounded-md border px-4 py-2 text-sm hover:bg-accent"
-            onClick={goBack}
-            type="button"
-          >
-            Back
-          </button>
-        )}
-        {goNext && (
-          <button
-            className="rounded-md bg-primary px-4 py-2 text-primary-foreground text-sm hover:bg-primary/90"
-            onClick={goNext}
-            type="button"
-          >
-            Next
-          </button>
         )}
       </div>
     </div>

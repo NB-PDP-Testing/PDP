@@ -3,7 +3,22 @@
 **Branch:** `ralph/phase-1.2-backend-import-engine`
 **Dashboard:** https://dashboard.convex.dev/d/brazen-squirrel-35
 
-Phase 1.2 consists of **library utilities** (parser, mapper, validator, benchmarkApplicator, sportConfig) and **mutations** (playerImport.ts enhancements). The utilities are pure functions used by the frontend and backend — they can't be tested directly from the Dashboard. The mutations can be tested via Dashboard.
+## What Can Be Tested Now vs Phase 1.3
+
+Phase 1.2 created **5 library utility files** (parser, mapper, validator, benchmarkApplicator, sportConfig) and **enhanced playerImport.ts** with new parameters.
+
+| Component | Testable Now? | How |
+|-----------|---------------|-----|
+| parser.ts | No | Library function, needs Phase 1.3 frontend to call it |
+| mapper.ts | No | Library function, needs Phase 1.3 frontend to call it |
+| validator.ts | No | Library function, needs Phase 1.3 frontend to call it |
+| sportConfig.ts | No | Helper function, needs a Convex function caller |
+| benchmarkApplicator.ts | **Yes** | Called by playerImport mutation when benchmarkSettings provided |
+| playerImport.ts (new params) | **Yes** | Run `batchImportPlayersWithIdentity` via Dashboard |
+| Build verification | **Yes** | Codegen + type check |
+
+**This test suite covers only what can be verified now (12 tests).**
+Library tests (parser, mapper, validator, sportConfig) will be verified during Phase 1.3 when the frontend wizard calls them.
 
 ---
 
@@ -13,7 +28,8 @@ Phase 1.2 consists of **library utilities** (parser, mapper, validator, benchmar
 2. Run codegen: `npx -w packages/backend convex codegen`
 3. Run type check: `npm run check-types`
 4. Phase 1.1 templates must be seeded (run `importTemplateSeeds:seedDefaultTemplates` if not done)
-5. Open Convex Dashboard: https://dashboard.convex.dev/d/brazen-squirrel-35
+5. You need a valid `organizationId` — check Data tab > `organization` table and copy an ID
+6. Open Convex Dashboard: https://dashboard.convex.dev/d/brazen-squirrel-35
 
 ---
 
@@ -23,19 +39,16 @@ Phase 1.2 consists of **library utilities** (parser, mapper, validator, benchmar
 
 **Goal:** Verify all 5 new library files were created.
 
-#### Steps
-Run in terminal:
 ```bash
 ls -la packages/backend/convex/lib/import/
 ```
 
-#### Expected Result
-5 files present:
-- [ ] `parser.ts` (~330 lines) — CSV parser
-- [ ] `mapper.ts` (~823 lines) — Field mapper with 5 strategies
-- [ ] `validator.ts` (~438 lines) — Row validator with auto-fix
-- [ ] `benchmarkApplicator.ts` (~226 lines) — 5 benchmark strategies
-- [ ] `sportConfig.ts` (~146 lines) — Sport configuration helper
+**Expected:** 5 files present:
+- [ ] `parser.ts` — CSV parser
+- [ ] `mapper.ts` — Field mapper with 5 strategies
+- [ ] `validator.ts` — Row validator with auto-fix
+- [ ] `benchmarkApplicator.ts` — 5 benchmark strategies
+- [ ] `sportConfig.ts` — Sport configuration helper
 
 ---
 
@@ -57,300 +70,18 @@ npm run check-types
 
 ---
 
-## Part B: CSV Parser Tests (parser.ts)
+## Part B: playerImport.ts Enhancement Tests (via Dashboard)
 
-These tests verify parsing logic. Since `parseCSV` is a library function (not a Convex function), test via a Node script or browser console. Alternatively, verify by uploading a CSV through the existing GAA import UI and confirming it parses correctly.
+All tests below use the `playerImport:batchImportPlayersWithIdentity` mutation in the Dashboard Functions tab.
 
-### Test 4: Basic CSV Parsing
+**Replace `<your-org-id>` with a real organization ID from your Data tab.**
 
-**Goal:** Verify standard CSV parsing works.
-
-#### Test Input (paste into a file `test.csv`):
-```csv
-Forename,Surname,DOB,gender
-John,Smith,01/05/2012,Male
-Jane,Doe,15/03/2013,Female
-```
-
-#### Verification
-Upload through the GAA import page (`/orgs/[orgId]/admin/player-import`). The parser should detect:
-- [ ] Delimiter: comma
-- [ ] 2 columns detected correctly
-- [ ] 2 data rows parsed
-
----
-
-### Test 5: Tab-Delimited Content
-
-**Goal:** Verify tab delimiter auto-detection.
-
-#### Test Input (tab-separated):
-```
-First Name	Last Name	Date of Birth	Gender
-John	Smith	01/05/2012	Male
-```
-
-#### Expected
-- [ ] Parser detects tab delimiter
-- [ ] Headers parsed correctly despite spaces in names
-
----
-
-### Test 6: Quoted Fields with Commas
-
-**Goal:** Verify RFC 4180 compliant CSV parsing.
-
-#### Test Input:
-```csv
-Name,Address,Town
-"Smith, John","123 Main St, Apt 4",Dublin
-```
-
-#### Expected
-- [ ] Name field: `Smith, John` (comma preserved inside quotes)
-- [ ] Address field: `123 Main St, Apt 4`
-
----
-
-## Part C: Field Mapper Tests (mapper.ts)
-
-### Test 7: Exact Match Strategy
-
-**Goal:** Verify exact field name matching.
-
-#### Verification
-The mapper should map these source columns with 100% confidence:
-- [ ] `firstName` → `firstName` (exact match)
-- [ ] `lastName` → `lastName` (exact match)
-- [ ] `dateOfBirth` → `dateOfBirth` (exact match)
-
----
-
-### Test 8: Alias Match Strategy
-
-**Goal:** Verify alias database matches known column name variations.
-
-#### Key Alias Mappings to Verify
-Upload a CSV with these headers — the mapper should auto-map them:
-- [ ] `Forename` → `firstName` (GAA alias)
-- [ ] `Surname` → `lastName` (GAA alias)
-- [ ] `DOB` → `dateOfBirth` (common alias)
-- [ ] `Mobile Number` → `parentPhone` (GAA alias)
-- [ ] `Eircode` → `postcode` (Irish alias)
-- [ ] `E-mail` → `parentEmail` (common alias)
-
----
-
-### Test 9: Fuzzy Match Strategy
-
-**Goal:** Verify Levenshtein distance matching catches close misspellings.
-
-#### Test Cases
-Upload CSV with slightly misspelled headers:
-- [ ] `frstName` → `firstName` (1 char missing)
-- [ ] `lst_name` → `lastName` (fuzzy match)
-- [ ] `date_of_brith` → `dateOfBirth` (typo in "birth")
-
----
-
-### Test 10: Content Analysis Strategy
-
-**Goal:** Verify content-based pattern matching.
-
-#### Test Cases
-Upload CSV with ambiguous column headers but recognizable data patterns:
-- [ ] Column with values like `john@gmail.com, jane@yahoo.com` → detected as email field
-- [ ] Column with values like `087-1234567, 086-9876543` → detected as phone field
-- [ ] Column with values like `01/05/2012, 15/03/2013` → detected as date field
-
----
-
-## Part D: Row Validator Tests (validator.ts)
-
-### Test 11: Required Field Validation
-
-**Goal:** Verify required fields are checked.
-
-#### Verification via Import Flow
-Try to import a CSV missing required fields:
-```csv
-Forename,Surname,DOB,gender
-,Smith,01/05/2012,Male
-John,,01/05/2012,Male
-```
-
-#### Expected
-- [ ] Row 1 flagged: `firstName` is required
-- [ ] Row 2 flagged: `lastName` is required
-
----
-
-### Test 12: Email Validation with Auto-Fix
-
-**Goal:** Verify email format checking and typo suggestions.
-
-#### Test Input
-```csv
-Forename,Surname,DOB,gender,email
-John,Smith,01/05/2012,Male,john@gmial.com
-Jane,Doe,15/03/2013,Female,not-an-email
-```
-
-#### Expected
-- [ ] Row 1: Email warning with suggestion `john@gmail.com` (gmial→gmail typo fix)
-- [ ] Row 2: Email error - invalid format
-
----
-
-### Test 13: Date Format Validation
-
-**Goal:** Verify date parsing handles multiple formats.
-
-#### Test Input
-```csv
-Forename,Surname,DOB,gender
-John,Smith,01/05/2012,Male
-Jane,Doe,2013-03-15,Female
-Bob,Jones,15-Mar-2010,Male
-```
-
-#### Expected
-- [ ] Row 1: Valid (DD/MM/YYYY format)
-- [ ] Row 2: Valid (ISO format YYYY-MM-DD)
-- [ ] Row 3: Warning or auto-fix suggestion
-
----
-
-### Test 14: Gender Normalization
-
-**Goal:** Verify gender values are normalized.
-
-#### Test Values
-- [ ] `Male`, `M`, `m`, `boy` → normalized to `male`
-- [ ] `Female`, `F`, `f`, `girl` → normalized to `female`
-- [ ] `Other`, `Non-Binary`, `X` → normalized to `other`
-
----
-
-## Part E: Benchmark Applicator Tests (via Dashboard)
-
-### Test 15: Import with "blank" Benchmark Strategy
-
-**Goal:** Verify blank strategy sets all skills to rating 1.
-
-#### Steps
-1. Run `playerImport:batchImportPlayersWithIdentity` with:
-```json
-{
-  "organizationId": "<your-org-id>",
-  "sportCode": "gaa_football",
-  "benchmarkSettings": {
-    "applyBenchmarks": true,
-    "strategy": "blank",
-    "ageGroup": "u14"
-  },
-  "players": [
-    {
-      "firstName": "Bench",
-      "lastName": "TestBlank",
-      "dateOfBirth": "2011-05-15",
-      "gender": "male",
-      "ageGroup": "u14",
-      "season": "2025"
-    }
-  ]
-}
-```
-
-#### Expected Result
-- [ ] `benchmarksApplied` > 0 in response
-- [ ] Check `sportPassports` table — find the passport for "Bench TestBlank"
-- [ ] Check `skillRatings` table — all ratings should be `1`
-
----
-
-### Test 16: Import with "middle" Benchmark Strategy
-
-**Goal:** Verify middle strategy sets all skills to rating 3.
-
-#### Steps
-Same as Test 15 but with:
-```json
-{
-  "organizationId": "<your-org-id>",
-  "sportCode": "gaa_football",
-  "benchmarkSettings": {
-    "applyBenchmarks": true,
-    "strategy": "middle",
-    "ageGroup": "u14"
-  },
-  "players": [
-    {
-      "firstName": "Bench",
-      "lastName": "TestMiddle",
-      "dateOfBirth": "2011-05-15",
-      "gender": "male",
-      "ageGroup": "u14",
-      "season": "2025"
-    }
-  ]
-}
-```
-
-#### Expected Result
-- [ ] `benchmarksApplied` > 0
-- [ ] All `skillRatings` for this player should be `3`
-
----
-
-### Test 17: Import with "age-appropriate" Benchmark Strategy
-
-**Goal:** Verify age-appropriate strategy queries skillBenchmarks table.
-
-#### Steps
-Same as Test 15 but with `"strategy": "age-appropriate"`.
-
-#### Expected Result
-- [ ] `benchmarksApplied` > 0 (if skillBenchmarks data exists for gaa_football + u14)
-- [ ] Ratings pulled from `skillBenchmarks` table for the sport/ageGroup combination
-- [ ] If no benchmark data exists, falls back to middle (3)
-
----
-
-### Test 18: Import without Benchmarks
-
-**Goal:** Verify benchmarks are skipped when not configured.
-
-#### Steps
-```json
-{
-  "organizationId": "<your-org-id>",
-  "players": [
-    {
-      "firstName": "Bench",
-      "lastName": "TestNone",
-      "dateOfBirth": "2011-05-15",
-      "gender": "male",
-      "ageGroup": "u14",
-      "season": "2025"
-    }
-  ]
-}
-```
-
-#### Expected Result
-- [ ] `benchmarksApplied`: 0
-- [ ] No `skillRatings` created for this player
-
----
-
-## Part F: playerImport.ts Enhancement Tests (via Dashboard)
-
-### Test 19: sportCode Parameter
+### Test 4: sportCode Creates Sport Passport
 
 **Goal:** Verify sportCode creates a sport passport during import.
 
 #### Steps
+Run `playerImport:batchImportPlayersWithIdentity`:
 ```json
 {
   "organizationId": "<your-org-id>",
@@ -369,16 +100,16 @@ Same as Test 15 but with `"strategy": "age-appropriate"`.
 ```
 
 #### Expected Result
-- [ ] `playerIdentities` entry created
-- [ ] `orgPlayerEnrollments` entry created
-- [ ] `sportPassports` entry created with `sportCode: "gaa_football"`, `status: "active"`
-- [ ] Check Data tab > `sportPassports` for the new record
+- [ ] Returns `playersCreated: 1`
+- [ ] Data tab > `playerIdentities` — "Sport TestCode" exists
+- [ ] Data tab > `orgPlayerEnrollments` — enrollment exists for this player + org
+- [ ] Data tab > `sportPassports` — passport exists with `sportCode: "gaa_football"`, `status: "active"`
 
 ---
 
-### Test 20: sportCode Omitted (Backward Compatibility)
+### Test 5: Import Without sportCode (Backward Compatibility)
 
-**Goal:** Verify import still works without sportCode.
+**Goal:** Verify import still works without sportCode — no sport passport created.
 
 #### Steps
 ```json
@@ -398,14 +129,14 @@ Same as Test 15 but with `"strategy": "age-appropriate"`.
 ```
 
 #### Expected Result
-- [ ] Import succeeds
+- [ ] Returns successfully, no errors
 - [ ] `playerIdentities` and `orgPlayerEnrollments` created
-- [ ] No `sportPassports` created (sportCode was not provided)
-- [ ] No errors
+- [ ] **No** `sportPassports` record for this player
+- [ ] `benchmarksApplied: 0`
 
 ---
 
-### Test 21: Session Tracking (sessionId)
+### Test 6: Session Tracking (sessionId)
 
 **Goal:** Verify sessionId is stored on created records.
 
@@ -425,7 +156,7 @@ Same as Test 15 but with `"strategy": "age-appropriate"`.
 }
 ```
 2. Copy the returned session ID
-3. Run import with sessionId:
+3. Run `playerImport:batchImportPlayersWithIdentity`:
 ```json
 {
   "organizationId": "<your-org-id>",
@@ -444,12 +175,12 @@ Same as Test 15 but with `"strategy": "age-appropriate"`.
 ```
 
 #### Expected Result
-- [ ] `playerIdentities` record has `importSessionId` matching the session ID
-- [ ] `orgPlayerEnrollments` record has `importSessionId` matching the session ID
+- [ ] Data tab > `playerIdentities` — "Session TestTrack" has `importSessionId` matching the session ID
+- [ ] Data tab > `orgPlayerEnrollments` — enrollment has `importSessionId` matching the session ID
 
 ---
 
-### Test 22: Row Selection (selectedRowIndices)
+### Test 7: Row Selection (selectedRowIndices)
 
 **Goal:** Verify only selected rows are imported.
 
@@ -490,17 +221,113 @@ Same as Test 15 but with `"strategy": "age-appropriate"`.
 #### Expected Result
 - [ ] `totalProcessed`: 2 (not 3)
 - [ ] `playersCreated`: 2
-- [ ] "Selected RowZero" and "Selected RowTwo" created in `playerIdentities`
-- [ ] "Skipped RowOne" NOT created
+- [ ] "Selected RowZero" and "Selected RowTwo" exist in `playerIdentities`
+- [ ] "Skipped RowOne" does NOT exist
 
 ---
 
-### Test 23: Full Import with All New Parameters
+### Test 8: Blank Benchmark Strategy
 
-**Goal:** End-to-end test with sportCode + sessionId + selectedRows + benchmarks.
+**Goal:** Verify blank strategy sets all skill ratings to 1.
 
 #### Steps
-1. Create a session (as in Test 21, step 1)
+```json
+{
+  "organizationId": "<your-org-id>",
+  "sportCode": "gaa_football",
+  "benchmarkSettings": {
+    "applyBenchmarks": true,
+    "strategy": "blank",
+    "ageGroup": "u14"
+  },
+  "players": [
+    {
+      "firstName": "Bench",
+      "lastName": "TestBlank",
+      "dateOfBirth": "2011-05-15",
+      "gender": "male",
+      "ageGroup": "u14",
+      "season": "2025"
+    }
+  ]
+}
+```
+
+#### Expected Result
+- [ ] `benchmarksApplied` > 0 in response
+- [ ] Data tab > `sportPassports` — passport for "Bench TestBlank" with `sportCode: "gaa_football"`
+- [ ] Data tab > `skillAssessments` — assessments exist with `rating: 1`, `assessmentType: "import"`
+
+---
+
+### Test 9: Middle Benchmark Strategy
+
+**Goal:** Verify middle strategy sets all skill ratings to 3.
+
+#### Steps
+Same as Test 8 but change player name and strategy:
+```json
+{
+  "organizationId": "<your-org-id>",
+  "sportCode": "gaa_football",
+  "benchmarkSettings": {
+    "applyBenchmarks": true,
+    "strategy": "middle",
+    "ageGroup": "u14"
+  },
+  "players": [
+    {
+      "firstName": "Bench",
+      "lastName": "TestMiddle",
+      "dateOfBirth": "2011-05-15",
+      "gender": "female",
+      "ageGroup": "u14",
+      "season": "2025"
+    }
+  ]
+}
+```
+
+#### Expected Result
+- [ ] `benchmarksApplied` > 0
+- [ ] `skillAssessments` for this player have `rating: 3`
+
+---
+
+### Test 10: Import Without Benchmarks
+
+**Goal:** Verify benchmarks are skipped when not configured.
+
+#### Steps
+```json
+{
+  "organizationId": "<your-org-id>",
+  "sportCode": "gaa_football",
+  "players": [
+    {
+      "firstName": "Bench",
+      "lastName": "TestNone",
+      "dateOfBirth": "2011-05-15",
+      "gender": "male",
+      "ageGroup": "u14",
+      "season": "2025"
+    }
+  ]
+}
+```
+
+#### Expected Result
+- [ ] `benchmarksApplied: 0`
+- [ ] No `skillAssessments` created for this player
+
+---
+
+### Test 11: Full Import — All New Parameters
+
+**Goal:** End-to-end test combining sportCode + sessionId + row selection + benchmarks.
+
+#### Steps
+1. Create a session first (same as Test 6, step 1)
 2. Run:
 ```json
 {
@@ -543,83 +370,90 @@ Same as Test 15 but with `"strategy": "age-appropriate"`.
 ```
 
 #### Expected Result
-- [ ] `totalProcessed`: 2
+- [ ] `totalProcessed`: 2 (not 3)
 - [ ] `playersCreated`: 2 (Full TestOne + Full TestTwo)
 - [ ] `enrollmentsCreated`: 2
 - [ ] `benchmarksApplied` > 0
-- [ ] Each player has: `playerIdentities` + `orgPlayerEnrollments` (with importSessionId) + `sportPassports` (gaa_football) + `skillRatings` (rating 3)
 - [ ] "Excluded NotImported" NOT in any table
+- [ ] Each imported player has:
+  - `playerIdentities` record (with `importSessionId`)
+  - `orgPlayerEnrollments` record (with `importSessionId`)
+  - `sportPassports` record (`gaa_football`)
+  - `skillAssessments` records (rating 3, type "import")
 
 ---
 
-## Part G: Sport Config Tests (via Dashboard)
+### Test 12: Age-Appropriate Benchmark Strategy
 
-### Test 24: Sport Age Groups Query
-
-**Goal:** Verify sport configuration lookups work.
+**Goal:** Verify age-appropriate strategy queries skillBenchmarks table.
 
 #### Steps
-Check if `sportAgeGroupConfig` table has data:
-1. Go to Data tab > `sportAgeGroupConfig`
-2. If data exists for `gaa_football`, the sportConfig helper can query it
+```json
+{
+  "organizationId": "<your-org-id>",
+  "sportCode": "gaa_football",
+  "benchmarkSettings": {
+    "applyBenchmarks": true,
+    "strategy": "age-appropriate",
+    "ageGroup": "u14"
+  },
+  "players": [
+    {
+      "firstName": "Bench",
+      "lastName": "TestAgeAppropriate",
+      "dateOfBirth": "2011-05-15",
+      "gender": "male",
+      "ageGroup": "u14",
+      "season": "2025"
+    }
+  ]
+}
+```
 
-#### Expected
-- [ ] Table exists and is accessible
-- [ ] If data exists: age groups have `sportCode`, `ageGroupCode`, `minAge`, `maxAge`, `isActive` fields
-
----
-
-### Test 25: Skill Definitions Query
-
-**Goal:** Verify skill definitions can be queried by sport.
-
-#### Steps
-1. Go to Data tab > `skillDefinitions`
-2. Filter/search for `gaa_football` entries
-
-#### Expected
-- [ ] Table has skill definitions with `sportCode`, `code`, `name`, `isActive` fields
-- [ ] Skills are sport-specific (filtered by sportCode)
+#### Expected Result
+- [ ] If `skillBenchmarks` has data for gaa_football + u14: ratings pulled from those benchmarks
+- [ ] If no benchmark data exists: falls back gracefully (ratings default to 3)
+- [ ] `benchmarksApplied` > 0
 
 ---
 
 ## Cleanup
 
-After testing, clean up test data:
-1. Delete test `playerIdentities` records (those with firstName starting with "Bench", "Sport", "NoSport", "Session", "Selected", "Full", "Excluded")
+After testing, clean up test data from the Data tab:
+1. Delete `playerIdentities` records with firstName: "Sport", "NoSport", "Session", "Selected", "Skipped", "Bench", "Full", "Excluded"
 2. Delete corresponding `orgPlayerEnrollments` records
 3. Delete corresponding `sportPassports` records
-4. Delete corresponding `skillRatings` records
+4. Delete corresponding `skillAssessments` records (assessmentType: "import")
 5. Delete test import sessions
 
 ---
 
 ## Summary Checklist
 
-| # | Test | Area | Status |
-|---|------|------|--------|
-| 1 | All 5 lib files exist | Build | [ ] |
-| 2 | Codegen passes | Build | [ ] |
-| 3 | Type check passes | Build | [ ] |
-| 4 | Basic CSV parsing | Parser | [ ] |
-| 5 | Tab-delimited detection | Parser | [ ] |
-| 6 | Quoted fields with commas | Parser | [ ] |
-| 7 | Exact match strategy | Mapper | [ ] |
-| 8 | Alias match strategy | Mapper | [ ] |
-| 9 | Fuzzy match strategy | Mapper | [ ] |
-| 10 | Content analysis strategy | Mapper | [ ] |
-| 11 | Required field validation | Validator | [ ] |
-| 12 | Email validation + auto-fix | Validator | [ ] |
-| 13 | Date format validation | Validator | [ ] |
-| 14 | Gender normalization | Validator | [ ] |
-| 15 | Blank benchmark strategy | Benchmarks | [ ] |
-| 16 | Middle benchmark strategy | Benchmarks | [ ] |
-| 17 | Age-appropriate benchmarks | Benchmarks | [ ] |
-| 18 | Import without benchmarks | Benchmarks | [ ] |
-| 19 | sportCode parameter | playerImport | [ ] |
-| 20 | sportCode omitted (compat) | playerImport | [ ] |
-| 21 | Session tracking (sessionId) | playerImport | [ ] |
-| 22 | Row selection (selectedRowIndices) | playerImport | [ ] |
-| 23 | Full import all params | playerImport | [ ] |
-| 24 | Sport age groups query | SportConfig | [ ] |
-| 25 | Skill definitions query | SportConfig | [ ] |
+| # | Test | Status |
+|---|------|--------|
+| 1 | All 5 lib files exist | [ ] |
+| 2 | Codegen passes | [ ] |
+| 3 | Type check passes | [ ] |
+| 4 | sportCode creates sport passport | [ ] |
+| 5 | Import without sportCode (backward compat) | [ ] |
+| 6 | Session tracking (sessionId) | [ ] |
+| 7 | Row selection (selectedRowIndices) | [ ] |
+| 8 | Blank benchmark strategy (rating 1) | [ ] |
+| 9 | Middle benchmark strategy (rating 3) | [ ] |
+| 10 | Import without benchmarks | [ ] |
+| 11 | Full import — all new params combined | [ ] |
+| 12 | Age-appropriate benchmark strategy | [ ] |
+
+---
+
+## Deferred to Phase 1.3
+
+The following will be testable once the import wizard frontend is built:
+
+| Component | What to Test |
+|-----------|-------------|
+| parser.ts | Tab/semicolon delimiter detection, quoted fields, multi-line cells, header row detection |
+| mapper.ts | Exact match, alias match, fuzzy match (Levenshtein), content analysis, historical match |
+| validator.ts | Required field errors, email typo auto-fix, phone format, date parsing, gender normalization |
+| sportConfig.ts | Sport age group lookups, skill definitions query, age validation |

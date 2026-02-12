@@ -272,13 +272,13 @@ export type ComponentApi<Name extends string | undefined = string | undefined> =
                     | "profileCompletionStatus"
                     | "profileCompletedAt"
                     | "profileSkipCount"
-                    | "wasInvited"
-                    | "noChildrenAcknowledged"
                     | "onboardingComplete"
+                    | "wasInvited"
                     | "lastChildrenCheckAt"
                     | "parentOnboardingDismissCount"
                     | "parentOnboardingLastDismissedAt"
                     | "childLinkingSkipCount"
+                    | "noChildrenAcknowledged"
                     | "currentOrgId"
                     | "gdprConsentVersion"
                     | "gdprConsentedAt"
@@ -716,13 +716,13 @@ export type ComponentApi<Name extends string | undefined = string | undefined> =
                     | "profileCompletionStatus"
                     | "profileCompletedAt"
                     | "profileSkipCount"
-                    | "wasInvited"
-                    | "noChildrenAcknowledged"
                     | "onboardingComplete"
+                    | "wasInvited"
                     | "lastChildrenCheckAt"
                     | "parentOnboardingDismissCount"
                     | "parentOnboardingLastDismissedAt"
                     | "childLinkingSkipCount"
+                    | "noChildrenAcknowledged"
                     | "currentOrgId"
                     | "gdprConsentVersion"
                     | "gdprConsentedAt"
@@ -1285,13 +1285,13 @@ export type ComponentApi<Name extends string | undefined = string | undefined> =
                     | "profileCompletionStatus"
                     | "profileCompletedAt"
                     | "profileSkipCount"
-                    | "wasInvited"
-                    | "noChildrenAcknowledged"
                     | "onboardingComplete"
+                    | "wasInvited"
                     | "lastChildrenCheckAt"
                     | "parentOnboardingDismissCount"
                     | "parentOnboardingLastDismissedAt"
                     | "childLinkingSkipCount"
+                    | "noChildrenAcknowledged"
                     | "currentOrgId"
                     | "gdprConsentVersion"
                     | "gdprConsentedAt"
@@ -1902,13 +1902,13 @@ export type ComponentApi<Name extends string | undefined = string | undefined> =
                     | "profileCompletionStatus"
                     | "profileCompletedAt"
                     | "profileSkipCount"
-                    | "wasInvited"
-                    | "noChildrenAcknowledged"
                     | "onboardingComplete"
+                    | "wasInvited"
                     | "lastChildrenCheckAt"
                     | "parentOnboardingDismissCount"
                     | "parentOnboardingLastDismissedAt"
                     | "childLinkingSkipCount"
+                    | "noChildrenAcknowledged"
                     | "currentOrgId"
                     | "gdprConsentVersion"
                     | "gdprConsentedAt"
@@ -2475,11 +2475,35 @@ export type ComponentApi<Name extends string | undefined = string | undefined> =
         any,
         Name
       >;
+      skipProfileCompletionStep: FunctionReference<
+        "mutation",
+        "internal",
+        { currentSkipCount: number; userId: string },
+        { canSkipAgain: boolean; skipCount: number },
+        Name
+      >;
       updateOnboardingComplete: FunctionReference<
         "mutation",
         "internal",
         { onboardingComplete: boolean; userId: string },
         null,
+        Name
+      >;
+      updateProfileCompletion: FunctionReference<
+        "mutation",
+        "internal",
+        {
+          address?: string;
+          address2?: string;
+          altEmail?: string;
+          country?: string;
+          county?: string;
+          phone?: string;
+          postcode?: string;
+          town?: string;
+          userId: string;
+        },
+        { profileCompletedAt: number; success: boolean },
         Name
       >;
       updateUserProfile: FunctionReference<

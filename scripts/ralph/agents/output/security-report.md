@@ -1,4 +1,4 @@
-# Security Report - 2026-02-07 20:43:13
+# Security Report - 2026-02-12 16:12:41
 
 **Phase:** P9
 **Critical:** 2 | **High:** 5 | **Medium:** 0
@@ -16,6 +16,7 @@ packages/backend/convex/actions/coachParentSummaries.ts:      "ANTHROPIC_API_KEY
   Run `npm audit fix` to resolve
 - ⚠️ **HIGH**: Mutations without authorization checks:
   - packages/backend/convex/models/platformMessagingSettings.ts
+  - packages/backend/convex/models/importSessions.ts
   - packages/backend/convex/models/passportComparison.ts
   - packages/backend/convex/models/trustGatePermissions.ts
   - packages/backend/convex/models/ageGroupEligibilityOverrides.ts
@@ -48,10 +49,12 @@ packages/backend/convex/actions/coachParentSummaries.ts:      "ANTHROPIC_API_KEY
   - packages/backend/convex/models/orgJoinRequests.ts
   - packages/backend/convex/models/sportAgeGroupConfig.ts
   - packages/backend/convex/models/referenceData.ts
+  - packages/backend/convex/models/importMappingHistory.ts
   - packages/backend/convex/models/notificationPreferences.ts
   - packages/backend/convex/models/userPreferences.ts
   - packages/backend/convex/models/teams.ts
   - packages/backend/convex/models/gdpr.ts
+  - packages/backend/convex/models/userProfiles.ts
   - packages/backend/convex/models/emergencyContacts.ts
   - packages/backend/convex/models/coachTrustLevels.ts
   - packages/backend/convex/models/coachParentSummaries.ts
@@ -66,11 +69,13 @@ packages/backend/convex/actions/coachParentSummaries.ts:      "ANTHROPIC_API_KEY
   - packages/backend/convex/models/skillAssessments.ts
   - packages/backend/convex/models/playerSelfAccess.ts
   - packages/backend/convex/models/aiServiceHealth.ts
+  - packages/backend/convex/models/importTemplates.ts
   - packages/backend/convex/models/sports.ts
   - packages/backend/convex/models/fixNeilsRoles.ts
   - packages/backend/convex/models/playerIdentities.ts
   - packages/backend/convex/models/voiceNotes.ts
   - packages/backend/convex/models/guardianManagement.ts
+  - packages/backend/convex/models/importTemplateSeeds.ts
   - packages/backend/convex/models/insightDrafts.ts
   - packages/backend/convex/models/teamDecisions.ts
   - packages/backend/convex/models/playerInjuries.ts

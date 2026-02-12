@@ -44,8 +44,8 @@
         "Typecheck passes: npm run check-types"
       ],
       "priority": 1,
-      "passes": true,
-      "notes": "Schema foundation. Reference phase-1-foundation.md for exact field definitions. The columnMappings array contains objects with sourcePattern, targetField, required, transform, aliases. The skillInitialization object contains strategy union (blank/middle/age-appropriate/ngb-benchmarks/custom), customBenchmarkTemplateId, applyToPassportStatus."
+      "passes": false,
+      "notes": "Schema foundation. Reference phase-1-foundation.md for exact field definitions."
     },
     {
       "id": "US-P1.1-002",
@@ -59,8 +59,8 @@
         "Run npx -w packages/backend convex codegen successfully"
       ],
       "priority": 2,
-      "passes": true,
-      "notes": "The duplicates array references v.id('playerIdentities') for existingPlayerId. The stats object tracks totalRows, selectedRows, validRows, errorRows, duplicateRows, playersCreated, playersUpdated, playersSkipped, guardiansCreated, guardiansLinked, teamsCreated, passportsCreated, benchmarksApplied."
+      "passes": false,
+      "notes": "The duplicates array references v.id('playerIdentities') for existingPlayerId."
     },
     {
       "id": "US-P1.1-003",
@@ -74,8 +74,8 @@
         "Run npx -w packages/backend convex codegen successfully"
       ],
       "priority": 3,
-      "passes": true,
-      "notes": "benchmarkTemplates is different from the existing skillBenchmarks table. benchmarkTemplates stores custom templates for import initialization, while skillBenchmarks stores NGB standard benchmarks with percentile data. They serve different purposes."
+      "passes": false,
+      "notes": "benchmarkTemplates is different from the existing skillBenchmarks table."
     },
     {
       "id": "US-P1.1-004",
@@ -89,8 +89,8 @@
         "Typecheck passes: npm run check-types"
       ],
       "priority": 4,
-      "passes": true,
-      "notes": "externalIds is a record like {'foireann': '12345', 'pitchero': '67890'} for cross-system deduplication. syncSource examples: 'foireann', 'manual', 'csv_import'."
+      "passes": false,
+      "notes": "externalIds is a record like {'foireann': '12345'} for cross-system deduplication."
     },
     {
       "id": "US-P1.1-005",
@@ -108,8 +108,8 @@
         "Run npx ultracite fix and npx -w packages/backend convex codegen"
       ],
       "priority": 5,
-      "passes": true,
-      "notes": "listTemplates should support: list all platform templates, list org-specific templates, list by sport. Use by_scope_and_sport index for filtered queries. Include returns validators on all functions."
+      "passes": false,
+      "notes": "Include returns validators on all functions."
     },
     {
       "id": "US-P1.1-006",
@@ -127,8 +127,8 @@
         "All queries use .withIndex() - never .filter()"
       ],
       "priority": 6,
-      "passes": true,
-      "notes": "Status transitions should be validated: uploading -> mapping -> selecting -> reviewing -> importing -> completed/failed. Allow cancelled from any non-terminal state."
+      "passes": false,
+      "notes": "Status transitions: uploading -> mapping -> selecting -> reviewing -> importing -> completed/failed. Allow cancelled from any non-terminal state."
     },
     {
       "id": "US-P1.1-007",
@@ -143,8 +143,8 @@
         "All queries use .withIndex() - never .filter()"
       ],
       "priority": 7,
-      "passes": true,
-      "notes": "This enables the 'historical match' strategy in mapper.ts (Phase 1.2). The more imports an organization runs, the better auto-mapping becomes."
+      "passes": false,
+      "notes": "This enables the 'historical match' strategy in mapper.ts (Phase 1.2)."
     },
     {
       "id": "US-P1.1-008",
@@ -153,14 +153,14 @@
       "acceptanceCriteria": [
         "Create packages/backend/convex/models/importTemplateSeeds.ts with seed data",
         "Create a seedDefaultTemplates mutation that inserts templates if they don't already exist",
-        "GAA Foireann template: sportCode 'gaa_football', sourceType 'csv', scope 'platform', with 10+ column mappings (Forename->firstName, Surname->lastName, DOB->dateOfBirth, gender->gender, email->parentEmail, Mobile Number->parentPhone, Address1->address, Postcode->postcode, Town->town)",
-        "Generic CSV template: sportCode null (works for all sports), sourceType 'csv', scope 'platform', with regex-based column mappings for common field patterns",
+        "GAA Foireann template: sportCode 'gaa_football', sourceType 'csv', scope 'platform', with 10+ column mappings",
+        "Generic CSV template: sportCode null (works for all sports), sourceType 'csv', scope 'platform', with regex-based column mappings",
         "Both templates have skillInitialization strategy 'age-appropriate' for GAA, 'blank' for generic",
         "Templates marked isActive: true"
       ],
       "priority": 8,
-      "passes": true,
-      "notes": "The GAA template column mappings should match the existing patterns in gaa-import.tsx (apps/web/src/components/gaa-import.tsx). Check the two-pass CSV parsing headers used there. Generic template uses regex sourcePatterns like '/first.*name/i' for flexible matching."
+      "passes": false,
+      "notes": "Check gaa-import.tsx for existing CSV header patterns to match."
     }
   ]
 }

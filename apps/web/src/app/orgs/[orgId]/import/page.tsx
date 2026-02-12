@@ -44,6 +44,9 @@ const AVAILABLE_SPORTS = [
   { code: "basketball", name: "Basketball" },
 ] as const;
 
+// Sports that share templates (e.g., Foireann covers all GAA codes)
+const GAA_SPORTS = new Set(["gaa_football", "hurling"]);
+
 type ImportTemplate = {
   _id: Id<"importTemplates">;
   _creationTime: number;
@@ -317,9 +320,18 @@ export default function ImportPage() {
   const filteredTemplates =
     selectedSport === "all"
       ? allTemplates
-      : allTemplates.filter(
-          (t) => !t.sportCode || t.sportCode === selectedSport
-        );
+      : allTemplates.filter((t) => {
+          if (!t.sportCode) {
+            return true;
+          }
+          if (t.sportCode === selectedSport) {
+            return true;
+          }
+          if (GAA_SPORTS.has(selectedSport) && GAA_SPORTS.has(t.sportCode)) {
+            return true;
+          }
+          return false;
+        });
 
   const recentSessionsList = (recentSessions ?? []).slice(0, 5);
 

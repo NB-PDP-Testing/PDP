@@ -247,9 +247,12 @@
 5. Add validateTextMessage to createTypedNote
 6. Type check
 
+## Import Framework (2026-02-12)
+- Phase 1.4 reviewed: READY with 2 fixes needed (cloneTemplate scope bug, missing by_templateId index on importSessions)
+- See `import-framework-review.md` for details
+- listTemplates has .filter() anti-pattern (tech debt)
+
 ## Files Reference
 - See `phase2-review.md` through `phase6-review.md` for detailed notes
 - Phase 7A-7D review in feedback.md (appended 2026-02-08)
-- Phase 7A re-validation: `scripts/ralph/agents/output/phase7a-validation.md`
-- Phase 7B review: feedback.md "Phase 7B Architecture Review" section
-- Phase 7C review: feedback.md "Phase 7C Pre-Implementation Architecture Review" section
+- Import framework: `import-framework-review.md`

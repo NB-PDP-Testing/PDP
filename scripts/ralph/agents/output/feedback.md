@@ -54,3 +54,10 @@
   - **Problem:** Should use .withIndex() for better performance
   - **Fix:** Replace `.query().filter()` with `.query().withIndex()`
 
+
+## Code Review Gate - 2026-02-12 23:24:34
+
+🔍 **Code Review: BLOCK** (1 critical, 1 high, 0 medium) - 🚨 **CRITICAL**: `.filter()` usage in `packages/backend/convex/models/importTemplates.ts` - use `.withIndex()` instead\n  ```\n262:      return templates.filter((t) => t.isActive);
+273:      return templates.filter((t) => t.isActive);
+280:    return templates.filter((t) => t.isActive);\n  ```\n- ⚠️ **HIGH**: Mutation in `packages/backend/convex/models/importTemplates.ts` may be missing auth check\n\n**Verdict:** BLOCK - Fix CRITICAL/HIGH issues before continuing
+

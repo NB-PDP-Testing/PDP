@@ -41,7 +41,7 @@ export const getCurrentUser = query({
       lastName: v.optional(v.string()),
       phone: v.optional(v.string()),
 
-      // Profile completion fields
+      // Phase 0: Profile completion fields for multi-signal guardian matching
       altEmail: v.optional(v.string()),
       address: v.optional(v.string()),
       address2: v.optional(v.string()),

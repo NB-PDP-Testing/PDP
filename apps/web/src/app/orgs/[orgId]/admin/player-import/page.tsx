@@ -1,5 +1,7 @@
 "use client";
 
+const WHITESPACE_REGEX = /\s+/;
+
 import { api } from "@pdp/backend/convex/_generated/api";
 import { useMutation, useQuery } from "convex/react";
 import {
@@ -218,7 +220,7 @@ export default function PlayerImportPage() {
 
   // Split a name into first and last name
   const splitName = (name: string): { firstName: string; lastName: string } => {
-    const parts = name.trim().split(/\s+/);
+    const parts = name.trim().split(WHITESPACE_REGEX);
     if (parts.length === 1) {
       return { firstName: parts[0], lastName: "" };
     }
@@ -340,7 +342,7 @@ export default function PlayerImportPage() {
       const matchedTeam = allTeams.find(
         (team) =>
           team.sport === playerSportCode &&
-          team.ageGroup === player.ageGroup &&
+          team.ageGroup?.toLowerCase() === player.ageGroup?.toLowerCase() &&
           team.gender === teamGender &&
           team.season === player.season
       );
@@ -576,13 +578,13 @@ Emma,Johnson,U10,GAA Football,Female,2025,Sarah,Johnson,sarah.johnson@email.com,
             organizationId: orgId,
             currentSeason: originalPlayer.season,
           });
-          passportsCreated++;
+          passportsCreated += 1;
         } catch (error) {
           console.error(
             `   ❌ Failed to create passport for player ${identity.playerIdentityId}:`,
             error
           );
-          passportErrors++;
+          passportErrors += 1;
         }
       }
 

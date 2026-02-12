@@ -23,8 +23,17 @@ import { useCallback, useEffect, useState } from "react";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
+import {
+  Empty,
+  EmptyContent,
+  EmptyDescription,
+  EmptyMedia,
+  EmptyTitle,
+} from "@/components/ui/empty";
 import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
+import { BatchActionBar } from "./batch-action-bar";
+import { EditAssignmentDialog } from "./edit-assignment-dialog";
 import { UnmatchedPlayerCard } from "./unmatched-player-card";
 
 // Shared insight item types (matches getCoachPendingItems return)
@@ -256,25 +265,44 @@ export function ReviewQueue({
       <div className="space-y-4">
         <AllCaughtUpView reviewedCount={reviewedCount} />
         {recentlyReviewed.length > 0 && (
-          <RecentlyReviewedSection items={recentlyReviewed} />
+          <RecentlyReviewedSection code={code} items={recentlyReviewed} />
         )}
         {autoApplied.length > 0 && <AutoAppliedSection items={autoApplied} />}
       </div>
     );
   }
 
+  // Separate empty states from actionable content
+  const hasAnyEmptyStates =
+    injuries.length === 0 ||
+    unmatched.length === 0 ||
+    needsReview.length === 0 ||
+    todos.length === 0 ||
+    teamNotes.length === 0;
+
   return (
     <div className="space-y-4 pb-8">
       <SnoozeBar code={code} />
 
+      {/* Actionable sections (with items) render first */}
       {injuries.length > 0 && (
         <ReviewSection
           batchAction={
-            <BatchApplyButton
-              count={injuries.length}
-              loading={batchLoadingSection === "injuries"}
-              onApply={() => handleBatchApply("injuries", injuries)}
-            />
+            <div className="flex flex-col gap-2 sm:flex-row">
+              <BatchApplyButton
+                count={injuries.length}
+                loading={batchLoadingSection === "injuries"}
+                onApply={() => handleBatchApply("injuries", injuries)}
+              />
+              <BatchActionBar
+                code={code}
+                items={injuries.map((i) => ({
+                  voiceNoteId: i.voiceNoteId,
+                  insightId: i.insightId,
+                }))}
+                variant="dismiss"
+              />
+            </div>
           }
           borderColor="border-l-red-500"
           count={injuries.length}
@@ -319,20 +347,31 @@ export function ReviewQueue({
           title="Unmatched Players"
         >
           {unmatched.map((item) => (
-            <UnmatchedPlayerCard
-              category={item.category}
-              code={code}
-              description={item.description}
-              insightId={item.insightId}
+            <SwipeableReviewCard
               key={`${item.voiceNoteId}-${item.insightId}`}
-              loading={loadingIds.has(`${item.voiceNoteId}-${item.insightId}`)}
-              noteDate={item.noteDate}
-              onDismiss={handleDismiss}
-              onEdit={handleEdit}
-              playerName={item.playerName}
-              title={item.title}
-              voiceNoteId={item.voiceNoteId}
-            />
+              onSwipeLeft={() =>
+                handleDismiss(item.voiceNoteId, item.insightId)
+              }
+              onSwipeRight={() =>
+                handleDismiss(item.voiceNoteId, item.insightId)
+              }
+            >
+              <UnmatchedPlayerCard
+                category={item.category}
+                code={code}
+                description={item.description}
+                insightId={item.insightId}
+                loading={loadingIds.has(
+                  `${item.voiceNoteId}-${item.insightId}`
+                )}
+                noteDate={item.noteDate}
+                onDismiss={handleDismiss}
+                onEdit={handleEdit}
+                playerName={item.playerName}
+                title={item.title}
+                voiceNoteId={item.voiceNoteId}
+              />
+            </SwipeableReviewCard>
           ))}
         </ReviewSection>
       )}
@@ -340,11 +379,21 @@ export function ReviewQueue({
       {needsReview.length > 0 && (
         <ReviewSection
           batchAction={
-            <BatchApplyButton
-              count={needsReview.length}
-              loading={batchLoadingSection === "needsReview"}
-              onApply={() => handleBatchApply("needsReview", needsReview)}
-            />
+            <div className="flex flex-col gap-2 sm:flex-row">
+              <BatchApplyButton
+                count={needsReview.length}
+                loading={batchLoadingSection === "needsReview"}
+                onApply={() => handleBatchApply("needsReview", needsReview)}
+              />
+              <BatchActionBar
+                code={code}
+                items={needsReview.map((i) => ({
+                  voiceNoteId: i.voiceNoteId,
+                  insightId: i.insightId,
+                }))}
+                variant="dismiss"
+              />
+            </div>
           }
           borderColor="border-l-yellow-500"
           count={needsReview.length}
@@ -384,12 +433,22 @@ export function ReviewQueue({
       {todos.length > 0 && (
         <ReviewSection
           batchAction={
-            <BatchApplyButton
-              count={todos.length}
-              label="Add All to Tasks"
-              loading={batchLoadingSection === "todos"}
-              onApply={() => handleBatchAddTodos(todos)}
-            />
+            <div className="flex flex-col gap-2 sm:flex-row">
+              <BatchApplyButton
+                count={todos.length}
+                label="Add All to Tasks"
+                loading={batchLoadingSection === "todos"}
+                onApply={() => handleBatchAddTodos(todos)}
+              />
+              <BatchActionBar
+                code={code}
+                items={todos.map((i) => ({
+                  voiceNoteId: i.voiceNoteId,
+                  insightId: i.insightId,
+                }))}
+                variant="dismiss"
+              />
+            </div>
           }
           borderColor="border-l-blue-500"
           count={todos.length}
@@ -430,12 +489,22 @@ export function ReviewQueue({
       {teamNotes.length > 0 && (
         <ReviewSection
           batchAction={
-            <BatchApplyButton
-              count={teamNotes.length}
-              label="Save All Team Notes"
-              loading={batchLoadingSection === "teamNotes"}
-              onApply={() => handleBatchSaveTeamNotes(teamNotes)}
-            />
+            <div className="flex flex-col gap-2 sm:flex-row">
+              <BatchApplyButton
+                count={teamNotes.length}
+                label="Save All Team Notes"
+                loading={batchLoadingSection === "teamNotes"}
+                onApply={() => handleBatchSaveTeamNotes(teamNotes)}
+              />
+              <BatchActionBar
+                code={code}
+                items={teamNotes.map((i) => ({
+                  voiceNoteId: i.voiceNoteId,
+                  insightId: i.insightId,
+                }))}
+                variant="dismiss"
+              />
+            </div>
           }
           borderColor="border-l-green-500"
           count={teamNotes.length}
@@ -473,10 +542,86 @@ export function ReviewQueue({
         </ReviewSection>
       )}
 
+      {/* Auto-applied and recently reviewed (collapsible) */}
       {autoApplied.length > 0 && <AutoAppliedSection items={autoApplied} />}
 
       {recentlyReviewed.length > 0 && (
-        <RecentlyReviewedSection items={recentlyReviewed} />
+        <RecentlyReviewedSection code={code} items={recentlyReviewed} />
+      )}
+
+      {/* Empty states render at the bottom (after all actionable sections) */}
+      {hasAnyEmptyStates && (
+        <div className="space-y-4 pt-4">
+          <div className="border-t pt-4">
+            <h3 className="mb-3 text-center text-muted-foreground text-sm">
+              Completed Sections
+            </h3>
+          </div>
+
+          {injuries.length === 0 && (
+            <Empty>
+              <EmptyContent>
+                <EmptyMedia variant="icon">
+                  <Shield className="h-6 w-6" />
+                </EmptyMedia>
+                <EmptyTitle>No Injuries to Review</EmptyTitle>
+                <EmptyDescription>
+                  All injury insights reviewed.
+                </EmptyDescription>
+              </EmptyContent>
+            </Empty>
+          )}
+
+          {unmatched.length === 0 && (
+            <Empty>
+              <EmptyContent>
+                <EmptyMedia variant="icon">
+                  <CheckCircle2 className="h-6 w-6" />
+                </EmptyMedia>
+                <EmptyTitle>All Players Matched</EmptyTitle>
+                <EmptyDescription>
+                  All insights have been matched.
+                </EmptyDescription>
+              </EmptyContent>
+            </Empty>
+          )}
+
+          {needsReview.length === 0 && (
+            <Empty>
+              <EmptyContent>
+                <EmptyMedia variant="icon">
+                  <CheckCircle2 className="h-6 w-6" />
+                </EmptyMedia>
+                <EmptyTitle>All Caught Up</EmptyTitle>
+                <EmptyDescription>No insights pending review.</EmptyDescription>
+              </EmptyContent>
+            </Empty>
+          )}
+
+          {todos.length === 0 && (
+            <Empty>
+              <EmptyContent>
+                <EmptyMedia variant="icon">
+                  <ClipboardList className="h-6 w-6" />
+                </EmptyMedia>
+                <EmptyTitle>No Action Items</EmptyTitle>
+                <EmptyDescription>No action items to review.</EmptyDescription>
+              </EmptyContent>
+            </Empty>
+          )}
+
+          {teamNotes.length === 0 && (
+            <Empty>
+              <EmptyContent>
+                <EmptyMedia variant="icon">
+                  <Users className="h-6 w-6" />
+                </EmptyMedia>
+                <EmptyTitle>No Team Notes</EmptyTitle>
+                <EmptyDescription>No team notes to review.</EmptyDescription>
+              </EmptyContent>
+            </Empty>
+          )}
+        </div>
       )}
     </div>
   );
@@ -499,7 +644,7 @@ function BatchApplyButton({
 }) {
   return (
     <Button
-      className="min-h-[44px] w-full"
+      className="min-h-[44px] flex-1"
       disabled={loading}
       onClick={onApply}
       size="sm"
@@ -576,9 +721,11 @@ type InsightCardProps = {
     insightId: string,
     updates: { title?: string; description?: string; category?: string }
   ) => Promise<void>;
+  onReassignSuccess?: () => void;
 };
 
 function InsightCard({
+  code,
   voiceNoteId,
   insightId,
   title,
@@ -593,9 +740,11 @@ function InsightCard({
   onApply,
   onDismiss,
   onEdit,
+  onReassignSuccess,
 }: InsightCardProps) {
   const formattedDate = formatNoteDate(noteDate);
   const [editing, setEditing] = useState(false);
+  const [reassignDialogOpen, setReassignDialogOpen] = useState(false);
   const [editTitle, setEditTitle] = useState(title);
   const [editDescription, setEditDescription] = useState(description);
   const [saving, setSaving] = useState(false);
@@ -651,7 +800,7 @@ function InsightCard({
           />
 
           {/* Save/Cancel */}
-          <div className="flex gap-2">
+          <div className="flex flex-col gap-2 sm:flex-row">
             <Button
               className="min-h-[44px] flex-1"
               disabled={saving}
@@ -708,7 +857,7 @@ function InsightCard({
             )}
           </div>
 
-          {/* Category badge + date + edit button */}
+          {/* Category badge + date + edit buttons */}
           <div className="flex shrink-0 flex-col items-end gap-1">
             {category && variant !== "todo" && variant !== "team" && (
               <Badge className="text-xs" variant={getBadgeVariant(variant)}>
@@ -718,16 +867,46 @@ function InsightCard({
             <span className="whitespace-nowrap text-muted-foreground text-xs">
               {formattedDate}
             </span>
-            <button
-              className="mt-0.5 rounded p-1 text-muted-foreground hover:bg-muted hover:text-foreground"
-              onClick={() => setEditing(true)}
-              title="Edit insight"
-              type="button"
-            >
-              <Pencil className="h-3.5 w-3.5" />
-            </button>
+            <div className="flex gap-1.5">
+              <button
+                className="flex items-center gap-1 rounded px-2 py-1 text-muted-foreground text-xs hover:bg-muted hover:text-foreground"
+                onClick={() => setEditing(true)}
+                type="button"
+              >
+                <Pencil className="h-3 w-3" />
+                <span>Edit</span>
+              </button>
+              <button
+                className="flex items-center gap-1 rounded px-2 py-1 text-muted-foreground text-xs hover:bg-muted hover:text-foreground"
+                onClick={() => setReassignDialogOpen(true)}
+                type="button"
+              >
+                <Users className="h-3 w-3" />
+                <span>Reassign</span>
+              </button>
+            </div>
           </div>
         </div>
+
+        <EditAssignmentDialog
+          code={code}
+          currentEntityType={
+            playerName
+              ? "player"
+              : teamName
+                ? "team"
+                : assigneeName
+                  ? "todo"
+                  : "uncategorized"
+          }
+          insightId={insightId}
+          onOpenChange={setReassignDialogOpen}
+          onSuccess={() => {
+            onReassignSuccess?.();
+          }}
+          open={reassignDialogOpen}
+          voiceNoteId={voiceNoteId}
+        />
 
         {/* Action buttons */}
         <div className="mt-2 flex gap-2">
@@ -822,7 +1001,13 @@ function AutoAppliedSection({
 // Recently reviewed section (manually applied + dismissed by coach)
 // ============================================================
 
-function RecentlyReviewedSection({ items }: { items: ReviewedItem[] }) {
+function RecentlyReviewedSection({
+  code,
+  items,
+}: {
+  code: string;
+  items: ReviewedItem[];
+}) {
   const [expanded, setExpanded] = useState(false);
   const appliedCount = items.filter((i) => i.status === "applied").length;
   const dismissedCount = items.filter((i) => i.status === "dismissed").length;
@@ -864,47 +1049,59 @@ function RecentlyReviewedSection({ items }: { items: ReviewedItem[] }) {
       </button>
 
       {expanded && (
-        <div className="mt-2 space-y-2">
-          {items.map((item) => (
-            <Card
-              className="border-gray-200 shadow-sm"
-              key={`${item.voiceNoteId}-${item.insightId}`}
-            >
-              <CardContent className="p-3">
-                <div className="flex items-start justify-between gap-2">
-                  <div className="min-w-0 flex-1">
-                    {item.playerName && (
-                      <p className="truncate font-medium text-muted-foreground text-sm">
-                        {item.playerName}
+        <>
+          <div className="mt-2 mb-2">
+            <BatchActionBar
+              code={code}
+              items={items.map((i) => ({
+                voiceNoteId: i.voiceNoteId,
+                insightId: i.insightId,
+              }))}
+              variant="clear-reviewed"
+            />
+          </div>
+          <div className="mt-2 space-y-2">
+            {items.map((item) => (
+              <Card
+                className="border-gray-200 shadow-sm"
+                key={`${item.voiceNoteId}-${item.insightId}`}
+              >
+                <CardContent className="p-3">
+                  <div className="flex items-start justify-between gap-2">
+                    <div className="min-w-0 flex-1">
+                      {item.playerName && (
+                        <p className="truncate font-medium text-muted-foreground text-sm">
+                          {item.playerName}
+                        </p>
+                      )}
+                      {item.teamName && (
+                        <p className="truncate font-medium text-muted-foreground text-sm">
+                          {item.teamName}
+                        </p>
+                      )}
+                      <p className="text-muted-foreground text-sm">
+                        {item.title}
                       </p>
-                    )}
-                    {item.teamName && (
-                      <p className="truncate font-medium text-muted-foreground text-sm">
-                        {item.teamName}
+                      <p className="mt-0.5 text-muted-foreground/70 text-xs">
+                        {formatNoteDate(item.noteDate)}
                       </p>
-                    )}
-                    <p className="text-muted-foreground text-sm">
-                      {item.title}
-                    </p>
-                    <p className="mt-0.5 text-muted-foreground/70 text-xs">
-                      {formatNoteDate(item.noteDate)}
-                    </p>
+                    </div>
+                    <Badge
+                      className={`shrink-0 text-xs ${
+                        item.status === "applied"
+                          ? "bg-green-100 text-green-700"
+                          : "bg-gray-100 text-gray-500"
+                      }`}
+                      variant="secondary"
+                    >
+                      {item.status === "applied" ? "Applied" : "Skipped"}
+                    </Badge>
                   </div>
-                  <Badge
-                    className={`shrink-0 text-xs ${
-                      item.status === "applied"
-                        ? "bg-green-100 text-green-700"
-                        : "bg-gray-100 text-gray-500"
-                    }`}
-                    variant="secondary"
-                  >
-                    {item.status === "applied" ? "Applied" : "Skipped"}
-                  </Badge>
-                </div>
-              </CardContent>
-            </Card>
-          ))}
-        </div>
+                </CardContent>
+              </Card>
+            ))}
+          </div>
+        </>
       )}
     </div>
   );
@@ -938,19 +1135,24 @@ function formatNoteDate(dateStr: string): string {
     const diffMs = now.getTime() - date.getTime();
     const diffDays = Math.floor(diffMs / (1000 * 60 * 60 * 24));
 
+    const time = date.toLocaleTimeString("en-IE", {
+      hour: "2-digit",
+      minute: "2-digit",
+    });
+
     if (diffDays === 0) {
-      return "Today";
+      return `Today ${time}`;
     }
     if (diffDays === 1) {
-      return "Yesterday";
+      return `Yesterday ${time}`;
     }
     if (diffDays < 7) {
-      return `${diffDays}d ago`;
+      return `${diffDays}d ago ${time}`;
     }
-    return date.toLocaleDateString("en-IE", {
+    return `${date.toLocaleDateString("en-IE", {
       day: "numeric",
       month: "short",
-    });
+    })} ${time}`;
   } catch {
     return dateStr;
   }
@@ -1132,11 +1334,11 @@ function SnoozeBar({ code }: { code: string }) {
           </span>
         )}
       </div>
-      <div className="flex gap-2">
+      <div className="flex flex-row gap-1.5">
         {[
           { label: "1h", ms: 60 * 60 * 1000 },
           { label: "2h", ms: 2 * 60 * 60 * 1000 },
-          { label: "Tomorrow 9am", ms: getTomorrow9amDelay() },
+          { label: "Tom 9am", ms: getTomorrow9amDelay() },
         ].map(({ label, ms }) => (
           <Button
             className="min-h-[36px] flex-1 text-xs"

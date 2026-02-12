@@ -197,7 +197,7 @@ export function CoachPlayersView({ orgId }: CoachPlayersViewProps) {
       if (
         team &&
         team.sport === player.sport &&
-        team.ageGroup === player.ageGroup
+        team.ageGroup?.toLowerCase() === player.ageGroup?.toLowerCase()
       ) {
         return team.name;
       }

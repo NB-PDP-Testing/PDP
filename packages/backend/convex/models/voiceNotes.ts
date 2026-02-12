@@ -9,6 +9,7 @@ import {
   query,
 } from "../_generated/server";
 import { authComponent } from "../auth";
+import { validateTextMessage } from "../lib/messageValidation";
 
 // ============ REGEX PATTERNS (for skill rating parsing) ============
 // Patterns to match: "Rating: 4", "set to 3", "to three", "improved to 4/5", "level 3"
@@ -52,6 +53,8 @@ const insightValidator = v.object({
   assigneeName: v.optional(v.string()),
   // Task linking - set when TODO insight creates a task
   linkedTaskId: v.optional(v.id("coachTasks")),
+  // Review microsite - cleared after review
+  clearedFromReview: v.optional(v.boolean()),
 });
 
 const noteTypeValidator = v.union(
@@ -107,6 +110,18 @@ export const getAllVoiceNotes = query({
       insightsError: v.optional(v.string()),
       source: sourceValidator,
       sessionPlanId: v.optional(v.id("sessionPlans")),
+      transcriptQuality: v.optional(v.number()),
+      transcriptValidation: v.optional(
+        v.object({
+          isValid: v.boolean(),
+          reason: v.optional(v.string()),
+          suggestedAction: v.union(
+            v.literal("process"),
+            v.literal("ask_user"),
+            v.literal("reject")
+          ),
+        })
+      ),
     })
   ),
   handler: async (ctx, args) => {
@@ -184,6 +199,18 @@ export const getVoiceNoteById = query({
       insightsError: v.optional(v.string()),
       source: sourceValidator,
       sessionPlanId: v.optional(v.id("sessionPlans")),
+      transcriptQuality: v.optional(v.number()),
+      transcriptValidation: v.optional(
+        v.object({
+          isValid: v.boolean(),
+          reason: v.optional(v.string()),
+          suggestedAction: v.union(
+            v.literal("process"),
+            v.literal("ask_user"),
+            v.literal("reject")
+          ),
+        })
+      ),
     }),
     v.null()
   ),
@@ -214,6 +241,18 @@ export const getVoiceNotesByCoach = query({
       transcription: v.optional(v.string()),
       transcriptionStatus: v.optional(statusValidator),
       transcriptionError: v.optional(v.string()),
+      transcriptQuality: v.optional(v.number()),
+      transcriptValidation: v.optional(
+        v.object({
+          isValid: v.boolean(),
+          reason: v.optional(v.string()),
+          suggestedAction: v.union(
+            v.literal("process"),
+            v.literal("ask_user"),
+            v.literal("reject")
+          ),
+        })
+      ),
       summary: v.optional(v.string()),
       insights: v.array(insightValidator),
       insightsStatus: v.optional(statusValidator),
@@ -564,9 +603,16 @@ export const createTypedNote = mutation({
     source: v.optional(
       v.union(v.literal("app_typed"), v.literal("whatsapp_text"))
     ),
+    skipV2: v.optional(v.boolean()),
   },
   returns: v.id("voiceNotes"),
   handler: async (ctx, args) => {
+    // Quality gate: reject gibberish/too-short text
+    const validation = validateTextMessage(args.noteText);
+    if (!validation.isValid) {
+      throw new Error(validation.suggestion || "Message too short or unclear");
+    }
+
     const noteId = await ctx.db.insert("voiceNotes", {
       orgId: args.orgId,
       coachId: args.coachId,
@@ -579,10 +625,71 @@ export const createTypedNote = mutation({
       insightsStatus: "pending",
     });
 
-    // Schedule AI insights extraction
-    await ctx.scheduler.runAfter(0, internal.actions.voiceNotes.buildInsights, {
-      noteId,
-    });
+    // v2 pipeline: create artifact + transcript + schedule extractClaims
+    // skipV2 is true when called from WhatsApp (which handles v2 artifacts externally)
+    const useV2 = args.skipV2
+      ? false
+      : await ctx.runQuery(internal.lib.featureFlags.shouldUseV2Pipeline, {
+          organizationId: args.orgId,
+          userId: args.coachId,
+        });
+
+    if (useV2) {
+      const artifactIdStr = crypto.randomUUID();
+
+      const artifactConvexId = await ctx.runMutation(
+        internal.models.voiceNoteArtifacts.createArtifact,
+        {
+          artifactId: artifactIdStr,
+          sourceChannel: "app_typed" as const,
+          senderUserId: args.coachId,
+          orgContextCandidates: [
+            { organizationId: args.orgId, confidence: 1.0 },
+          ],
+        }
+      );
+
+      await ctx.runMutation(
+        internal.models.voiceNoteArtifacts.linkToVoiceNote,
+        { artifactId: artifactIdStr, voiceNoteId: noteId }
+      );
+
+      await ctx.runMutation(
+        internal.models.voiceNoteTranscripts.createTranscript,
+        {
+          artifactId: artifactConvexId,
+          fullText: args.noteText,
+          segments: [
+            { text: args.noteText, startTime: 0, endTime: 0, confidence: 1.0 },
+          ],
+          modelUsed: "user_typed",
+          language: "en",
+          duration: 0,
+        }
+      );
+
+      await ctx.runMutation(
+        internal.models.voiceNoteArtifacts.updateArtifactStatus,
+        { artifactId: artifactIdStr, status: "transcribed" }
+      );
+
+      await ctx.scheduler.runAfter(
+        0,
+        internal.actions.claimsExtraction.extractClaims,
+        { artifactId: artifactConvexId }
+      );
+    }
+
+    // Schedule AI insights extraction (only if v2 is not active)
+    if (!useV2) {
+      await ctx.scheduler.runAfter(
+        0,
+        internal.actions.voiceNotes.buildInsights,
+        {
+          noteId,
+        }
+      );
+    }
 
     return noteId;
   },
@@ -601,6 +708,7 @@ export const createRecordedNote = mutation({
     source: v.optional(
       v.union(v.literal("app_recorded"), v.literal("whatsapp_audio"))
     ),
+    skipV2: v.optional(v.boolean()),
   },
   returns: v.id("voiceNotes"),
   handler: async (ctx, args) => {
@@ -615,6 +723,32 @@ export const createRecordedNote = mutation({
       insights: [],
       insightsStatus: "pending",
     });
+
+    // v2 pipeline: create artifact + link (transcribeAudio handles transcript + extractClaims)
+    // skipV2 is true when called from WhatsApp (which handles v2 artifacts externally)
+    const useV2 = args.skipV2
+      ? false
+      : await ctx.runQuery(internal.lib.featureFlags.shouldUseV2Pipeline, {
+          organizationId: args.orgId,
+          userId: args.coachId,
+        });
+
+    if (useV2) {
+      const artifactIdStr = crypto.randomUUID();
+
+      await ctx.runMutation(internal.models.voiceNoteArtifacts.createArtifact, {
+        artifactId: artifactIdStr,
+        sourceChannel: "app_recorded" as const,
+        senderUserId: args.coachId,
+        orgContextCandidates: [{ organizationId: args.orgId, confidence: 1.0 }],
+        rawMediaStorageId: args.audioStorageId,
+      });
+
+      await ctx.runMutation(
+        internal.models.voiceNoteArtifacts.linkToVoiceNote,
+        { artifactId: artifactIdStr, voiceNoteId: noteId }
+      );
+    }
 
     // Schedule transcription (which will then schedule insights)
     await ctx.scheduler.runAfter(
@@ -2002,6 +2136,18 @@ export const getNote = internalQuery({
       insightsError: v.optional(v.string()),
       source: sourceValidator,
       sessionPlanId: v.optional(v.id("sessionPlans")),
+      transcriptQuality: v.optional(v.number()),
+      transcriptValidation: v.optional(
+        v.object({
+          isValid: v.boolean(),
+          reason: v.optional(v.string()),
+          suggestedAction: v.union(
+            v.literal("process"),
+            v.literal("ask_user"),
+            v.literal("reject")
+          ),
+        })
+      ),
     }),
     v.null()
   ),
@@ -2711,18 +2857,7 @@ export const getCompletedForMigration = internalQuery({
       source: sourceValidator,
       transcription: v.optional(v.string()),
       transcriptionStatus: v.optional(statusValidator),
-      insights: v.array(
-        v.object({
-          id: v.string(),
-          playerIdentityId: v.optional(v.id("playerIdentities")),
-          playerName: v.optional(v.string()),
-          title: v.string(),
-          description: v.string(),
-          category: v.optional(v.string()),
-          severity: v.optional(v.string()),
-          sentiment: v.optional(v.string()),
-        })
-      ),
+      insights: v.array(insightValidator),
     })
   ),
   handler: async (ctx, args) => {
@@ -2745,6 +2880,7 @@ export const getCompletedForMigration = internalQuery({
     }
 
     // Filter to only completed transcriptions with transcripts, then limit
+    // Map to only the fields the validator expects (strip _creationTime, date, etc.)
     return notes
       .filter(
         (note) =>
@@ -2752,6 +2888,15 @@ export const getCompletedForMigration = internalQuery({
           note.transcription &&
           note.transcription.length > 0
       )
-      .slice(0, args.limit);
+      .slice(0, args.limit)
+      .map((note) => ({
+        _id: note._id,
+        orgId: note.orgId,
+        coachId: note.coachId,
+        source: note.source,
+        transcription: note.transcription,
+        transcriptionStatus: note.transcriptionStatus,
+        insights: note.insights,
+      }));
   },
 });

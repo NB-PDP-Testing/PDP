@@ -774,6 +774,7 @@ async function processAudioMessage(
 
   // Create voice note (this triggers transcription -> insights pipeline)
   // Always runs for both v1 and v2 (backward compat)
+  // skipV2: true prevents duplicate artifact creation (WhatsApp already created it above)
   const noteId = await ctx.runMutation(
     api.models.voiceNotes.createRecordedNote,
     {
@@ -782,6 +783,7 @@ async function processAudioMessage(
       audioStorageId: storageId,
       noteType: "general",
       source: "whatsapp_audio",
+      skipV2: true,
     }
   );
 
@@ -872,34 +874,67 @@ async function processTextMessage(
 
   // v2 path: Create artifact before v1 voice note
   let artifactId: string | undefined;
+  let artifactConvexId: Id<"voiceNoteArtifacts"> | undefined;
   if (useV2) {
     artifactId = crypto.randomUUID();
-    await ctx.runMutation(internal.models.voiceNoteArtifacts.createArtifact, {
-      artifactId,
-      sourceChannel: "whatsapp_text",
-      senderUserId: args.coachId,
-      orgContextCandidates: [
-        { organizationId: args.organizationId, confidence: 1.0 },
-      ],
-    });
+    artifactConvexId = await ctx.runMutation(
+      internal.models.voiceNoteArtifacts.createArtifact,
+      {
+        artifactId,
+        sourceChannel: "whatsapp_text",
+        senderUserId: args.coachId,
+        orgContextCandidates: [
+          { organizationId: args.organizationId, confidence: 1.0 },
+        ],
+      }
+    );
   }
 
   // Create voice note (this triggers insights pipeline)
   // Always runs for both v1 and v2 (backward compat)
+  // skipV2: true prevents duplicate artifact creation (WhatsApp already created it above)
   const noteId = await ctx.runMutation(api.models.voiceNotes.createTypedNote, {
     orgId: args.organizationId,
     coachId: args.coachId,
     noteText: args.text,
     noteType: "general",
     source: "whatsapp_text",
+    skipV2: true,
   });
 
-  // v2 path: Link artifact to v1 voice note
-  if (useV2 && artifactId) {
+  // v2 path: Link artifact to v1 voice note + create transcript + schedule extractClaims
+  if (useV2 && artifactId && artifactConvexId) {
     await ctx.runMutation(internal.models.voiceNoteArtifacts.linkToVoiceNote, {
       artifactId,
       voiceNoteId: noteId,
     });
+
+    // Create transcript for the text note (extractClaims needs this)
+    await ctx.runMutation(
+      internal.models.voiceNoteTranscripts.createTranscript,
+      {
+        artifactId: artifactConvexId,
+        fullText: args.text,
+        segments: [
+          { text: args.text, startTime: 0, endTime: 0, confidence: 1.0 },
+        ],
+        modelUsed: "user_typed",
+        language: "en",
+        duration: 0,
+      }
+    );
+
+    await ctx.runMutation(
+      internal.models.voiceNoteArtifacts.updateArtifactStatus,
+      { artifactId, status: "transcribed" }
+    );
+
+    // Schedule v2 claims extraction
+    await ctx.scheduler.runAfter(
+      0,
+      internal.actions.claimsExtraction.extractClaims,
+      { artifactId: artifactConvexId }
+    );
   }
 
   // Link voice note to WhatsApp message
@@ -908,9 +943,9 @@ async function processTextMessage(
     voiceNoteId: noteId,
   });
 
-  // Schedule auto-apply check after insights are built (give it 15 seconds for text)
+  // Schedule auto-apply check after insights are built
   await ctx.scheduler.runAfter(
-    15_000,
+    useV2 ? 30_000 : 15_000,
     internal.actions.whatsapp.checkAndAutoApply,
     {
       messageId: args.messageId,

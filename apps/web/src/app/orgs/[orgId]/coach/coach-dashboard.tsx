@@ -2,7 +2,15 @@
 
 import { api } from "@pdp/backend/convex/_generated/api";
 import { useMutation, useQuery } from "convex/react";
-import { Brain, Share2 } from "lucide-react";
+import {
+  Brain,
+  ChevronDown,
+  ChevronUp,
+  Edit,
+  Eye,
+  Share2,
+  Users,
+} from "lucide-react";
 import { useParams, useRouter } from "next/navigation";
 import { useMemo, useState } from "react";
 import { toast } from "sonner";
@@ -12,6 +20,7 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { useCurrentUser } from "@/hooks/use-current-user";
 import { authClient } from "@/lib/auth-client";
 import { CoachNotesSection } from "./coach-notes-section";
+import { PlayerTeamBadges } from "./components/player-team-badges";
 
 export function CoachDashboard() {
   const params = useParams();
@@ -32,6 +41,10 @@ export function CoachDashboard() {
   const [reviewStatusFilter, setReviewStatusFilter] = useState<string>("all");
   const [selectedTeam, setSelectedTeam] = useState<string | null>(null);
   const [_selectedTeamId, _setSelectedTeamId] = useState<string | null>(null);
+  const [sortColumn, setSortColumn] = useState<
+    "name" | "team" | "ageGroup" | "lastReview"
+  >("name");
+  const [sortDirection, setSortDirection] = useState<"asc" | "desc">("asc");
 
   // Fallback: use session user ID if Convex user query returns null
   const userId = currentUser?._id || session?.user?.id;
@@ -317,7 +330,9 @@ export function CoachDashboard() {
 
     // Filter by age group
     if (ageGroupFilter !== "all") {
-      filtered = filtered.filter((p) => p.ageGroup === ageGroupFilter);
+      filtered = filtered.filter(
+        (p) => p.ageGroup?.toLowerCase() === ageGroupFilter?.toLowerCase()
+      );
     }
 
     // Filter by sport
@@ -355,6 +370,43 @@ export function CoachDashboard() {
     genderFilter,
     reviewStatusFilter,
   ]);
+
+  // Sort filtered players for the roster table
+  const sortedPlayers = useMemo(() => {
+    const sorted = [...filteredPlayers];
+    sorted.sort((a, b) => {
+      let comparison = 0;
+      if (sortColumn === "name") {
+        comparison = (a.name || "").localeCompare(b.name || "");
+      } else if (sortColumn === "team") {
+        const aTeam = a.teams?.[0] || a.teamName || "";
+        const bTeam = b.teams?.[0] || b.teamName || "";
+        comparison = aTeam.localeCompare(bTeam);
+      } else if (sortColumn === "ageGroup") {
+        comparison = (a.ageGroup || "").localeCompare(b.ageGroup || "");
+      } else if (sortColumn === "lastReview") {
+        const aDate = a.lastReviewDate
+          ? new Date(a.lastReviewDate).getTime()
+          : 0;
+        const bDate = b.lastReviewDate
+          ? new Date(b.lastReviewDate).getTime()
+          : 0;
+        comparison = aDate - bDate;
+      }
+      return sortDirection === "asc" ? comparison : -comparison;
+    });
+    return sorted;
+  }, [filteredPlayers, sortColumn, sortDirection]);
+
+  // Handle column sort toggle
+  const handleSort = (column: "name" | "team" | "ageGroup" | "lastReview") => {
+    if (sortColumn === column) {
+      setSortDirection(sortDirection === "asc" ? "desc" : "asc");
+    } else {
+      setSortColumn(column);
+      setSortDirection("asc");
+    }
+  };
 
   // Check if any filters are active
   const hasActiveFilters = useMemo(
@@ -660,6 +712,205 @@ export function CoachDashboard() {
         selectedTeam={selectedTeam}
         selectedTeamData={selectedTeamData}
       />
+
+      {/* Player Roster Table */}
+      {sortedPlayers.length > 0 && (
+        <Card>
+          <CardHeader>
+            <CardTitle className="flex items-center gap-2">
+              <Users className="text-green-600" size={20} />
+              Players ({sortedPlayers.length})
+            </CardTitle>
+          </CardHeader>
+          <CardContent>
+            <div className="overflow-x-auto">
+              <table className="w-full">
+                <thead className="border-gray-200 border-b">
+                  <tr>
+                    <th
+                      className="cursor-pointer px-4 py-3 text-left font-semibold text-gray-600 text-xs uppercase tracking-wider transition-colors hover:bg-gray-100"
+                      onClick={() => handleSort("name")}
+                    >
+                      <div className="flex items-center gap-1">
+                        Name
+                        {sortColumn === "name" &&
+                          (sortDirection === "asc" ? (
+                            <ChevronUp size={14} />
+                          ) : (
+                            <ChevronDown size={14} />
+                          ))}
+                      </div>
+                    </th>
+                    <th
+                      className="cursor-pointer px-4 py-3 text-left font-semibold text-gray-600 text-xs uppercase tracking-wider transition-colors hover:bg-gray-100"
+                      onClick={() => handleSort("team")}
+                    >
+                      <div className="flex items-center gap-1">
+                        Team(s)
+                        {sortColumn === "team" &&
+                          (sortDirection === "asc" ? (
+                            <ChevronUp size={14} />
+                          ) : (
+                            <ChevronDown size={14} />
+                          ))}
+                      </div>
+                    </th>
+                    <th
+                      className="hidden cursor-pointer px-4 py-3 text-left font-semibold text-gray-600 text-xs uppercase tracking-wider transition-colors hover:bg-gray-100 md:table-cell"
+                      onClick={() => handleSort("ageGroup")}
+                    >
+                      <div className="flex items-center gap-1">
+                        Age Group
+                        {sortColumn === "ageGroup" &&
+                          (sortDirection === "asc" ? (
+                            <ChevronUp size={14} />
+                          ) : (
+                            <ChevronDown size={14} />
+                          ))}
+                      </div>
+                    </th>
+                    <th
+                      className="hidden cursor-pointer px-4 py-3 text-left font-semibold text-gray-600 text-xs uppercase tracking-wider transition-colors hover:bg-gray-100 lg:table-cell"
+                      onClick={() => handleSort("lastReview")}
+                    >
+                      <div className="flex items-center gap-1">
+                        Last Review
+                        {sortColumn === "lastReview" &&
+                          (sortDirection === "asc" ? (
+                            <ChevronUp size={14} />
+                          ) : (
+                            <ChevronDown size={14} />
+                          ))}
+                      </div>
+                    </th>
+                    <th className="px-4 py-3 text-right font-semibold text-gray-600 text-xs uppercase tracking-wider">
+                      Actions
+                    </th>
+                  </tr>
+                </thead>
+                <tbody className="divide-y divide-gray-100">
+                  {sortedPlayers.map((player) => (
+                    <tr
+                      className="cursor-pointer transition-colors hover:bg-gray-50"
+                      key={player._id}
+                      onClick={() =>
+                        router.push(`/orgs/${orgId}/players/${player._id}`)
+                      }
+                    >
+                      <td className="px-4 py-3">
+                        <div className="flex items-center gap-3">
+                          <div className="flex h-8 w-8 shrink-0 items-center justify-center rounded-full bg-green-100">
+                            <span className="font-medium text-green-600 text-xs">
+                              {(player.name || "U")
+                                .split(" ")
+                                .map((n: string) => n[0])
+                                .join("")
+                                .slice(0, 2)
+                                .toUpperCase()}
+                            </span>
+                          </div>
+                          <div>
+                            <p className="font-medium text-gray-900">
+                              {player.name || "Unnamed"}
+                            </p>
+                            <p className="text-gray-500 text-xs md:hidden">
+                              {player.ageGroup}
+                            </p>
+                          </div>
+                        </div>
+                      </td>
+                      <td className="px-4 py-3 text-gray-600 text-sm">
+                        <PlayerTeamBadges
+                          coreTeamName={player.coreTeamName}
+                          teams={player.teams || []}
+                        />
+                      </td>
+                      <td className="hidden px-4 py-3 text-gray-600 text-sm md:table-cell">
+                        {player.ageGroup}
+                      </td>
+                      <td className="hidden px-4 py-3 text-sm lg:table-cell">
+                        {player.lastReviewDate ? (
+                          <span
+                            className={`inline-flex items-center rounded px-2 py-0.5 font-medium text-xs ${(() => {
+                              const days = Math.floor(
+                                (Date.now() -
+                                  new Date(player.lastReviewDate).getTime()) /
+                                  (1000 * 60 * 60 * 24)
+                              );
+                              if (days <= 60) {
+                                return "bg-green-100 text-green-700";
+                              }
+                              if (days <= 90) {
+                                return "bg-orange-100 text-orange-700";
+                              }
+                              return "bg-red-100 text-red-700";
+                            })()}`}
+                          >
+                            {new Date(
+                              player.lastReviewDate
+                            ).toLocaleDateString()}
+                          </span>
+                        ) : (
+                          <span className="text-gray-400 text-xs">
+                            Not reviewed
+                          </span>
+                        )}
+                      </td>
+                      {/* biome-ignore lint/a11y/noNoninteractiveElementInteractions: stopPropagation needed */}
+                      <td
+                        className="px-4 py-3 text-right"
+                        onClick={(e) => e.stopPropagation()}
+                        onKeyDown={(e) => e.stopPropagation()}
+                      >
+                        <div className="flex items-center justify-end gap-1">
+                          <Button
+                            className="h-8 w-8 rounded-lg p-0 text-blue-600 transition-colors hover:bg-blue-50"
+                            onClick={() =>
+                              router.push(
+                                `/orgs/${orgId}/players/${player._id}`
+                              )
+                            }
+                            size="icon"
+                            title="View Passport"
+                            variant="ghost"
+                          >
+                            <Eye size={16} />
+                          </Button>
+                          <Button
+                            className="h-8 w-8 rounded-lg p-0 text-green-600 transition-colors hover:bg-green-50"
+                            onClick={() =>
+                              router.push(
+                                `/orgs/${orgId}/players/${player._id}/edit`
+                              )
+                            }
+                            size="icon"
+                            title="Edit Passport"
+                            variant="ghost"
+                          >
+                            <Edit size={16} />
+                          </Button>
+                        </div>
+                      </td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
+            <div className="border-gray-200 border-t bg-gray-50 px-4 py-3 text-gray-600 text-sm">
+              {sortedPlayers.length} player
+              {sortedPlayers.length !== 1 ? "s" : ""} • Sorted by{" "}
+              {
+                {
+                  name: "name",
+                  team: "team",
+                  ageGroup: "age group",
+                  lastReview: "last review",
+                }[sortColumn]
+              }
+            </div>
+          </CardContent>
+        </Card>
+      )}
 
       {/* Coach Notes Section - shows all players with notes */}
       <CoachNotesSection players={playersWithTeams} />

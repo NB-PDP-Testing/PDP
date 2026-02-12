@@ -151,9 +151,105 @@
 - whatsapp.ts between line 373 and 375: v2 command check
 - schema.ts after line 4384: insightDrafts table
 
+## Phase 7A-7D Pre-Implementation Review (2026-02-08)
+
+### Review Result: GOOD -- 3 critical, 8 warnings, 5 suggestions
+### 6 ADRs generated (VN2-033 through VN2-038)
+
+### Critical Issues
+- C1: autoAppliedInsights.playerId is NOT optional but DEPRECATED + different table type
+  - Also missing from PRD: changeType, targetTable, newValue (required fields)
+  - Must fix schema or handle in Phase 7C US-VN-026
+- C2: V2_MIGRATION_CONTEXT.md has 5+ WRONG function signatures for insightDrafts
+  - getPendingDraftsForCoach, confirmAllDrafts, rejectAllDrafts all wrong
+  - Phase PRDs have CORRECT signatures -- Ralph should use phase PRDs as authoritative
+- C3: extractClaims scheduled before quality gates in transcribeAudio (pre-existing Phase 3)
+
+### Key Verified Patterns
+- createArtifact: does NOT accept voiceNoteId/status/createdAt (CONFIRMED)
+- processVoiceNoteInsight: takes 7 args (CONFIRMED)
+- shouldUseV2Pipeline: internalQuery, callable from mutation via ctx.runQuery (CONFIRMED)
+- All .filter() in v2 files are JavaScript array .filter() after .collect() (audit clean)
+- Feature flag cascade: env → platform → org → user → false (4-level, CONFIRMED correct)
+
+### Double-Artifact Problem (Phase 7D)
+- WhatsApp creates artifact in whatsapp.ts, then createTypedNote would create another
+- Solution: skipV2: v.optional(v.boolean()) on public mutations (ADR-VN2-035)
+- Harmless during Phase 7A-7C (duplicate artifacts don't corrupt data)
+
+### Cross-Phase Dependencies (Verified No Circular)
+- 7A → 7B (artifacts enable drafts for in-app notes)
+- 7B → 7C (draft confirmation UI enables output bridge testing)
+- 7C → 7D (output bridge enables safe scheduling gate + skipV2)
+
+### voiceNotes.insights[] Embedded Array Schema (schema.ts:1525-1555)
+- Required: id (string), title, description, status (4-literal union)
+- Optional: playerIdentityId, playerId (DEPRECATED), playerName, category, recommendedUpdate, confidence, appliedDate, appliedAt, appliedBy, dismissedAt, dismissedBy, teamId, teamName, assigneeUserId, assigneeName, linkedTaskId
+
+### ADRs (Phase 7A-7D)
+- ADR-VN2-033: In-app artifact creation pattern
+- ADR-VN2-034: Dual processing elimination strategy
+- ADR-VN2-035: skipV2 parameter for WhatsApp callers
+- ADR-VN2-036: Feature flag cascade for v2 rollout
+- ADR-VN2-037: applyDraft output bridge architecture
+- ADR-VN2-038: v2 migration status and rollout tooling
+- ADR-VN2-039: Drafts tab data flow pattern
+- ADR-VN2-040: Parent summary enablement check in applyDraft
+- ADR-VN2-041: applyDraft mutation complexity and failure modes
+- ADR-VN2-042: validateTextMessage quality gate placement
+
+## Phase 7A Re-Validation (2026-02-08)
+- Result: ALL PASS, 0 blocking concerns, READY for Ralph
+- Key validation: ctx.runQuery(internal....) in public mutation is valid (Convex docs + codebase precedent in members.ts:268)
+- Novel pattern: First time internal query called from public mutation in this codebase
+
+## Phase 7B Pre-Implementation Review (2026-02-08)
+- Result: GOOD -- 0 critical, 4 warnings, 5 suggestions
+- 1 ADR: VN2-039 (data flow pattern -- lift query to parent)
+- Key finding: ALL existing tabs query internally; DraftsTab is first to receive data as props
+- DisambiguationBanner: verified works with in-app artifacts (no sourceChannel filter)
+- .filter() false positive: insightDrafts.ts line 164 is JS Array.filter (not Convex)
+- FileCheck icon: exists in lucide-react, first usage in codebase
+- All shadcn components verified: Collapsible, Progress, AlertDialog
+- Tab always visible (unconditional), empty state handles no-drafts
+- Auto-switch priority: parents > drafts > insights (hasAutoSwitched guard correct)
+
+## Phase 7C Pre-Implementation Review (2026-02-08)
+
+### Review Result: 3 critical, 5 warnings, 4 suggestions
+### 3 ADRs generated (VN2-040 through VN2-042)
+
+### Critical Issues
+- C1: PRD omits parentSummariesEnabled check (v1 checks at buildInsights:940-951, v2 must check too)
+  - Fix: Query coachOrgPreferences.by_coach_org index in applyDraft before scheduling
+- C2: voiceNotes.insights[] push object missing appliedBy and appliedDate fields
+- C3: autoAppliedInsights.playerId is NOT optional -- schema change MUST be done FIRST (Step 3A before 0-3B)
+
+### Auto-Confirm Verification: ALL 4 CHECKPOINTS PASS
+- requiresConfirmation: sensitive types, trust < 2, confidence < threshold, category prefs
+- checkAutoApplyAllowed: skills, attendance, goals, performance mapping correct
+- Trust level fetch: coachId param correct
+- Auto-confirmed scheduling: filters confirmed, schedules applyDraft
+
+### Key Facts Verified
+- processVoiceNoteInsight: 7 args, insightId is STRING, playerIdentityId REQUIRED
+- autoAppliedInsights: 15 required fields (insightId is v.id, playerId needs schema change)
+- `internal` already imported in insightDrafts.ts (line 11)
+- applyDraft can schedule internalAction (precedent: voiceNotes.ts:631)
+- voiceNotes.insights[] embedded array status: "pending"|"applied"|"dismissed"|"auto_applied"
+- claim.recommendedAction is v.optional(v.string()) at schema.ts:4255
+
+### Implementation Order
+1. Schema change: make playerId optional in autoAppliedInsights
+2. Schema change: add 3 backlink fields to voiceNoteInsights
+3. Run codegen
+4. Extend applyDraft (Steps 0-3B)
+5. Add validateTextMessage to createTypedNote
+6. Type check
+
 ## Files Reference
-- See `phase2-review.md` for detailed Phase 2 architectural review notes
-- See `phase3-review.md` for detailed Phase 3 architectural review notes
-- See `phase4-review.md` for detailed Phase 4 architectural review notes
-- See `phase5-review.md` for detailed Phase 5 architectural review notes
-- See `phase6-review.md` for detailed Phase 6 architectural review notes
+- See `phase2-review.md` through `phase6-review.md` for detailed notes
+- Phase 7A-7D review in feedback.md (appended 2026-02-08)
+- Phase 7A re-validation: `scripts/ralph/agents/output/phase7a-validation.md`
+- Phase 7B review: feedback.md "Phase 7B Architecture Review" section
+- Phase 7C review: feedback.md "Phase 7C Pre-Implementation Architecture Review" section

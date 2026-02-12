@@ -176,18 +176,25 @@ function SkillBenchmarkCard({
 
   // Filter benchmarks by selected age group if any
   const filteredBenchmarks = selectedAgeGroup
-    ? benchmarks.filter((b) => b.ageGroup === selectedAgeGroup)
+    ? benchmarks.filter(
+        (b) => b.ageGroup?.toLowerCase() === selectedAgeGroup?.toLowerCase()
+      )
     : benchmarks;
 
   // Sort benchmarks by age group
   const sortedBenchmarks = [...filteredBenchmarks].sort((a, b) => {
-    const ageA = ageGroups.findIndex((ag) => ag.code === a.ageGroup);
-    const ageB = ageGroups.findIndex((ag) => ag.code === b.ageGroup);
+    const ageA = ageGroups.findIndex(
+      (ag) => ag.code?.toLowerCase() === a.ageGroup?.toLowerCase()
+    );
+    const ageB = ageGroups.findIndex(
+      (ag) => ag.code?.toLowerCase() === b.ageGroup?.toLowerCase()
+    );
     return ageA - ageB;
   });
 
   const getAgeGroupName = (code: string) =>
-    ageGroups.find((ag) => ag.code === code)?.name ?? code;
+    ageGroups.find((ag) => ag.code?.toLowerCase() === code?.toLowerCase())
+      ?.name ?? code;
 
   if (sortedBenchmarks.length === 0) {
     return null;

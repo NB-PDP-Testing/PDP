@@ -24,14 +24,16 @@ const customUserTable = defineTable({
   lastName: v.optional(v.string()),
   phone: v.optional(v.string()),
 
-  // Profile completion fields
-  altEmail: v.optional(v.string()),
+  // Profile completion fields (Phase 0: Onboarding Sync)
+  altEmail: v.optional(v.string()), // Alternative email for guardian matching
   address: v.optional(v.string()),
-  address2: v.optional(v.string()),
+  address2: v.optional(v.string()), // Phase 0.6: Address line 2 (apt, unit, etc.)
   town: v.optional(v.string()),
-  county: v.optional(v.string()),
+  county: v.optional(v.string()), // Phase 0.6: County/State/Province
   postcode: v.optional(v.string()),
   country: v.optional(v.string()),
+
+  // Profile completion tracking
   profileCompletionStatus: v.optional(
     v.union(v.literal("pending"), v.literal("completed"), v.literal("skipped"))
   ),

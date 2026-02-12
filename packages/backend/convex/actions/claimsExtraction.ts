@@ -91,8 +91,8 @@ const claimsExtractionSchema = z.object({
       ]),
       title: z.string().describe("Short descriptive title"),
       description: z.string().describe("Detailed description"),
-      recommendedAction: z.string().optional(),
-      timeReference: z.string().optional(),
+      recommendedAction: z.string().nullable(),
+      timeReference: z.string().nullable(),
       entityMentions: z.array(
         z.object({
           mentionType: z.enum([
@@ -105,19 +105,19 @@ const claimsExtractionSchema = z.object({
           position: z.number(),
         })
       ),
-      severity: z.enum(["low", "medium", "high", "critical"]).optional(),
+      severity: z.enum(["low", "medium", "high", "critical"]).nullable(),
       sentiment: z
         .enum(["positive", "neutral", "negative", "concerned"])
-        .optional(),
-      skillName: z.string().optional(),
-      skillRating: z.number().min(1).max(5).optional(),
+        .nullable(),
+      skillName: z.string().nullable(),
+      skillRating: z.number().min(1).max(5).nullable(),
       extractionConfidence: z.number().min(0).max(1),
-      playerId: z.string().nullable().optional(),
-      playerName: z.string().nullable().optional(),
-      teamId: z.string().nullable().optional(),
-      teamName: z.string().nullable().optional(),
-      assigneeUserId: z.string().nullable().optional(),
-      assigneeName: z.string().nullable().optional(),
+      playerId: z.string().nullable(),
+      playerName: z.string().nullable(),
+      teamId: z.string().nullable(),
+      teamName: z.string().nullable(),
+      assigneeUserId: z.string().nullable(),
+      assigneeName: z.string().nullable(),
     })
   ),
 });
@@ -378,8 +378,8 @@ function buildClaimRecord(opts: {
     topic: opts.claim.topic,
     title: opts.claim.title,
     description: opts.claim.description,
-    recommendedAction: opts.claim.recommendedAction,
-    timeReference: opts.claim.timeReference,
+    recommendedAction: opts.claim.recommendedAction ?? undefined,
+    timeReference: opts.claim.timeReference ?? undefined,
     entityMentions: opts.claim.entityMentions,
     resolvedPlayerIdentityId: opts.player.id,
     resolvedPlayerName: opts.player.name,
@@ -387,10 +387,10 @@ function buildClaimRecord(opts: {
     resolvedTeamName: opts.claim.teamName ?? undefined,
     resolvedAssigneeUserId: opts.claim.assigneeUserId ?? undefined,
     resolvedAssigneeName: opts.claim.assigneeName ?? undefined,
-    severity: opts.claim.severity,
-    sentiment: opts.claim.sentiment,
-    skillName: opts.claim.skillName,
-    skillRating: opts.claim.skillRating,
+    severity: opts.claim.severity ?? undefined,
+    sentiment: opts.claim.sentiment ?? undefined,
+    skillName: opts.claim.skillName ?? undefined,
+    skillRating: opts.claim.skillRating ?? undefined,
     extractionConfidence: opts.claim.extractionConfidence,
     organizationId: opts.organizationId,
     coachUserId: opts.coachUserId,
@@ -398,6 +398,51 @@ function buildClaimRecord(opts: {
     createdAt: opts.now,
     updatedAt: opts.now,
   };
+}
+
+// ── Sync v2 artifact status → v1 voiceNote (best-effort) ──────
+
+async function syncVoiceNoteStatus(
+  ctx: ActionCtx,
+  artifactId: Id<"voiceNoteArtifacts">,
+  status: "processing" | "completed" | "failed",
+  opts?: {
+    error?: string;
+    summary?: string;
+    insights?: Array<{
+      id: string;
+      playerIdentityId?: Id<"playerIdentities">;
+      playerName?: string;
+      title: string;
+      description: string;
+      category?: string;
+      recommendedUpdate?: string;
+      confidence?: number;
+      status: "pending" | "applied" | "dismissed" | "auto_applied";
+      teamId?: string;
+      teamName?: string;
+      assigneeUserId?: string;
+      assigneeName?: string;
+    }>;
+  }
+): Promise<void> {
+  try {
+    const artifact = await ctx.runQuery(
+      internal.models.voiceNoteArtifacts.getArtifactById,
+      { _id: artifactId }
+    );
+    if (artifact?.voiceNoteId) {
+      await ctx.runMutation(internal.models.voiceNotes.updateInsights, {
+        noteId: artifact.voiceNoteId,
+        status,
+        error: opts?.error,
+        summary: opts?.summary,
+        insights: opts?.insights,
+      });
+    }
+  } catch (syncError) {
+    console.error("[syncVoiceNoteStatus] Failed:", syncError);
+  }
 }
 
 // ── Mark artifact as failed (best-effort) ─────────────────────
@@ -417,6 +462,10 @@ async function markArtifactFailed(
         { artifactId: artifact.artifactId, status: "failed" }
       );
     }
+    // Also sync failure to v1 voiceNote so UI shows error
+    await syncVoiceNoteStatus(ctx, artifactId, "failed", {
+      error: "v2 claims extraction failed",
+    });
   } catch {
     // Ignore secondary failure
   }
@@ -442,11 +491,12 @@ export const extractClaims = internalAction({
         return null;
       }
 
-      // 2. Set artifact status to processing
+      // 2. Set artifact status to processing + sync to voiceNote
       await ctx.runMutation(
         internal.models.voiceNoteArtifacts.updateArtifactStatus,
         { artifactId: artifact.artifactId, status: "processing" }
       );
+      await syncVoiceNoteStatus(ctx, args.artifactId, "processing");
 
       // 3. Get transcript
       const transcript = await ctx.runQuery(
@@ -580,6 +630,28 @@ export const extractClaims = internalAction({
         internal.models.voiceNoteArtifacts.updateArtifactStatus,
         { artifactId: artifact.artifactId, status: "completed" }
       );
+
+      // Sync completed status + bridge v2 claims → v1 insights for checkAndAutoApply
+      const v1Insights = claimsToStore.map((claim) => ({
+        id: claim.claimId,
+        playerIdentityId: claim.resolvedPlayerIdentityId,
+        playerName: claim.resolvedPlayerName,
+        title: claim.title,
+        description: claim.description,
+        category: claim.topic,
+        recommendedUpdate: claim.recommendedAction,
+        confidence: claim.extractionConfidence,
+        status: "pending" as const,
+        teamId: claim.resolvedTeamId,
+        teamName: claim.resolvedTeamName,
+        assigneeUserId: claim.resolvedAssigneeUserId,
+        assigneeName: claim.resolvedAssigneeName,
+      }));
+
+      await syncVoiceNoteStatus(ctx, args.artifactId, "completed", {
+        summary: parsed.data.summary,
+        insights: v1Insights,
+      });
 
       console.info(
         `[extractClaims] Extracted ${claimsToStore.length} claims for artifact ${artifact.artifactId}`

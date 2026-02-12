@@ -9,6 +9,7 @@ import {
   BarChart3,
   ChevronDown,
   EyeOff,
+  FileCheck,
   History,
   Lightbulb,
   Loader2,
@@ -51,6 +52,7 @@ import {
 import { authClient } from "@/lib/auth-client";
 import { AutoApprovedTab } from "./components/auto-approved-tab";
 import { DisambiguationBanner } from "./components/disambiguation-banner";
+import { DraftsTab } from "./components/drafts-tab";
 import { HistoryTab } from "./components/history-tab";
 import { InsightsTab } from "./components/insights-tab";
 import { MyImpactTab } from "./components/my-impact-tab";
@@ -64,6 +66,7 @@ type TabId =
   | "new"
   | "parents"
   | "insights"
+  | "drafts"
   | "team"
   | "auto-sent"
   | "history"
@@ -115,6 +118,12 @@ export function VoiceNotesDashboard() {
     coachId && orgId ? { coachId, organizationId: orgId } : "skip"
   );
 
+  // Phase 7B: Pending v2 insight drafts for coach
+  const pendingDrafts = useQuery(
+    api.models.insightDrafts.getPendingDraftsForCoach,
+    coachId ? { organizationId: orgId } : "skip"
+  );
+
   // P8 Week 1.5: Comprehensive access check for self-service control
   const accessCheck = useQuery(
     api.models.trustGatePermissions.checkCoachParentAccess,
@@ -164,17 +173,26 @@ export function VoiceNotesDashboard() {
   const hasSensitiveSummaries = sensitiveSummariesCount > 0;
 
   // Auto-switch to first tab with pending items (only once on load)
+  // Priority: parents (most urgent) > drafts (needs review) > insights
   useEffect(() => {
     if (!hasAutoSwitched) {
       if (pendingSummariesCount > 0) {
         setActiveTab("parents");
+        setHasAutoSwitched(true);
+      } else if ((pendingDrafts?.length ?? 0) > 0) {
+        setActiveTab("drafts");
         setHasAutoSwitched(true);
       } else if (pendingInsightsCount > 0) {
         setActiveTab("insights");
         setHasAutoSwitched(true);
       }
     }
-  }, [pendingSummariesCount, pendingInsightsCount, hasAutoSwitched]);
+  }, [
+    pendingSummariesCount,
+    pendingDrafts,
+    pendingInsightsCount,
+    hasAutoSwitched,
+  ]);
 
   // Load nudge dismissed state from localStorage
   useEffect(() => {
@@ -279,12 +297,15 @@ export function VoiceNotesDashboard() {
     }
   };
 
-  // Count stats
+  // Count stats — include "pending" states since v2 pipeline may not
+  // set "processing" immediately (transcription pending or insights pending after transcription)
   const processingCount =
     voiceNotes?.filter(
       (n) =>
+        n.transcriptionStatus === "pending" ||
         n.transcriptionStatus === "processing" ||
-        n.insightsStatus === "processing"
+        (n.transcriptionStatus === "completed" &&
+          (n.insightsStatus === "pending" || n.insightsStatus === "processing"))
     ).length ?? 0;
 
   // Count pending insights that need attention (unmatched players or uncategorized)
@@ -437,6 +458,15 @@ export function VoiceNotesDashboard() {
       });
     }
 
+    // Phase 7B: Drafts tab always shows (empty state handles no-data)
+    baseTabs.push({
+      id: "drafts" as TabId,
+      label: "Drafts",
+      icon: FileCheck,
+      badge:
+        (pendingDrafts?.length ?? 0) > 0 ? pendingDrafts?.length : undefined,
+    });
+
     // Only show Team tab if there are pending team insights
     if (pendingTeamInsightsCount > 0) {
       baseTabs.push({
@@ -476,6 +506,7 @@ export function VoiceNotesDashboard() {
     hasSensitiveSummaries,
     needsAttentionCount,
     shouldShowSentToParents,
+    pendingDrafts?.length,
   ]);
 
   // If current tab is no longer available (e.g., approved all summaries), switch to New
@@ -760,6 +791,9 @@ export function VoiceNotesDashboard() {
             onSuccess={showSuccessMessage}
             orgId={orgId}
           />
+        )}
+        {activeTab === "drafts" && (
+          <DraftsTab orgId={orgId} pendingDrafts={pendingDrafts || []} />
         )}
         {activeTab === "team" && (
           <TeamInsightsTab

@@ -225,6 +225,33 @@ export const transcribeAudio = internalAction({
         },
       });
 
+      // Branch on quality result FIRST before scheduling any processing
+      if (quality.suggestedAction === "reject") {
+        // Transcription worked but quality too low for insights
+        await ctx.runMutation(internal.models.voiceNotes.updateInsights, {
+          noteId: args.noteId,
+          status: "failed",
+          error: `Transcript quality rejected: ${quality.reason}`,
+        });
+        return null;
+      }
+
+      if (quality.suggestedAction === "ask_user") {
+        // In-app sources: user deliberately recorded/typed, so treat as processable
+        // WhatsApp sources: pause for confirmation (bot can ask "did you mean to send this?")
+        const isInAppSource =
+          note.source === "app_recorded" || note.source === "app_typed";
+        if (!isInAppSource) {
+          await ctx.runMutation(internal.models.voiceNotes.updateInsights, {
+            noteId: args.noteId,
+            status: "awaiting_confirmation",
+          });
+          return null;
+        }
+        // Fall through to schedule insights extraction for in-app sources
+      }
+
+      // Quality check passed - now proceed with v2/v1 processing
       // US-VN-014: v2 path — store transcript in voiceNoteTranscripts if artifact exists
       const artifacts = await ctx.runQuery(
         internal.models.voiceNoteArtifacts.getArtifactsByVoiceNote,
@@ -261,36 +288,16 @@ export const transcribeAudio = internalAction({
           internal.actions.claimsExtraction.extractClaims,
           { artifactId: artifact._id }
         );
+      } else {
+        // v1 path - schedule buildInsights
+        await ctx.scheduler.runAfter(
+          0,
+          internal.actions.voiceNotes.buildInsights,
+          {
+            noteId: args.noteId,
+          }
+        );
       }
-
-      // Branch on quality result
-      if (quality.suggestedAction === "reject") {
-        // Transcription worked but quality too low for insights
-        await ctx.runMutation(internal.models.voiceNotes.updateInsights, {
-          noteId: args.noteId,
-          status: "failed",
-          error: `Transcript quality rejected: ${quality.reason}`,
-        });
-        return null;
-      }
-
-      if (quality.suggestedAction === "ask_user") {
-        // Set insights to awaiting confirmation - WhatsApp flow will handle response
-        await ctx.runMutation(internal.models.voiceNotes.updateInsights, {
-          noteId: args.noteId,
-          status: "awaiting_confirmation",
-        });
-        return null;
-      }
-
-      // Quality OK - schedule insights extraction
-      await ctx.scheduler.runAfter(
-        0,
-        internal.actions.voiceNotes.buildInsights,
-        {
-          noteId: args.noteId,
-        }
-      );
     } catch (error) {
       console.error("Transcription failed:", error);
       await ctx.runMutation(internal.models.voiceNotes.updateTranscription, {
@@ -321,6 +328,20 @@ export const buildInsights = internalAction({
 
     if (!note) {
       console.error("Voice note not found:", args.noteId);
+      return null;
+    }
+
+    // Defense-in-depth: if v2 artifact exists, skip v1 extraction
+    // (buildInsights should not be scheduled when v2 is active, but this catches edge cases)
+    const artifacts = await ctx.runQuery(
+      internal.models.voiceNoteArtifacts.getArtifactsByVoiceNote,
+      { voiceNoteId: args.noteId }
+    );
+    if (artifacts.length > 0) {
+      console.warn(
+        "[buildInsights] Defense-in-depth: v2 artifact found, skipping v1 extraction for note:",
+        args.noteId
+      );
       return null;
     }
 
@@ -713,10 +734,19 @@ IMPORTANT:
         const assigneeUserId = insight.assigneeUserId ?? undefined;
         const assigneeName = insight.assigneeName ?? undefined;
 
+        // Sanitize: team_culture and todo insights should never have player fields
+        // (AI may incorrectly include playerName when team feedback mentions players)
+        const isTeamLevel =
+          insight.category === "team_culture" || insight.category === "todo";
+
         resolvedInsights.push({
           id: `insight_${Date.now()}_${Math.random().toString(36).slice(2, 11)}`,
-          playerIdentityId: matchedPlayer?.playerIdentityId ?? undefined,
-          playerName: matchedPlayer?.name ?? insight.playerName ?? undefined,
+          playerIdentityId: isTeamLevel
+            ? undefined
+            : (matchedPlayer?.playerIdentityId ?? undefined),
+          playerName: isTeamLevel
+            ? undefined
+            : (matchedPlayer?.name ?? insight.playerName ?? undefined),
           title: insight.title,
           description: insight.description,
           category: insight.category ?? undefined,

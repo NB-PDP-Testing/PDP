@@ -1137,3 +1137,51 @@ These are JavaScript Array `.filter()`/`.find()` calls on already-collected resu
   - **Problem:** Queries should be scoped by organizationId for multi-tenant isolation
   - **Fix:** Add organizationId to query args and use in .withIndex()
 
+
+## Auto Quality Check - 2026-02-12 17:15:19
+### File: /Users/jkobrien/code/PDP/packages/backend/convex/models/importMappingHistory.ts
+
+- ⚠️ **Performance: .filter() usage detected**
+  - **Problem:** Should use .withIndex() for better performance
+  - **Fix:** Replace `.query().filter()` with `.query().withIndex()`
+
+
+## Auto Quality Check - 2026-02-12 17:15:35
+### File: /Users/jkobrien/code/PDP/packages/backend/convex/models/importMappingHistory.ts
+
+- ⚠️ **Performance: .filter() usage detected**
+  - **Problem:** Should use .withIndex() for better performance
+  - **Fix:** Replace `.query().filter()` with `.query().withIndex()`
+
+
+## Auto Quality Check - 2026-02-12 17:27:21
+### File: /Users/jkobrien/code/PDP/packages/backend/convex/models/importTemplateSeeds.ts
+
+- ⚠️ **Data Isolation: No organizationId filter found**
+  - **Problem:** Queries should be scoped by organizationId for multi-tenant isolation
+  - **Fix:** Add organizationId to query args and use in .withIndex()
+
+
+## Auto Quality Check - 2026-02-12 17:27:30
+### File: /Users/jkobrien/code/PDP/packages/backend/convex/models/importTemplateSeeds.ts
+
+- ⚠️ **Data Isolation: No organizationId filter found**
+  - **Problem:** Queries should be scoped by organizationId for multi-tenant isolation
+  - **Fix:** Add organizationId to query args and use in .withIndex()
+
+
+## Auto Quality Check - 2026-02-12 17:27:36
+### File: /Users/jkobrien/code/PDP/packages/backend/convex/models/importTemplateSeeds.ts
+
+- ⚠️ **Data Isolation: No organizationId filter found**
+  - **Problem:** Queries should be scoped by organizationId for multi-tenant isolation
+  - **Fix:** Add organizationId to query args and use in .withIndex()
+
+
+## Auto Quality Check - 2026-02-12 17:27:44
+### File: /Users/jkobrien/code/PDP/packages/backend/convex/models/importTemplateSeeds.ts
+
+- ⚠️ **Data Isolation: No organizationId filter found**
+  - **Problem:** Queries should be scoped by organizationId for multi-tenant isolation
+  - **Fix:** Add organizationId to query args and use in .withIndex()
+

@@ -1,4 +1,5 @@
 import { v } from "convex/values";
+import type { Id } from "../_generated/dataModel";
 import { mutation, query } from "../_generated/server";
 
 // ============================================================
@@ -208,12 +209,8 @@ export const seedDefaultTemplates = mutation({
       return { alreadyExisted: true };
     }
 
-    let gaaTemplateId:
-      | typeof undefined
-      | Awaited<ReturnType<typeof ctx.db.insert>>;
-    let genericTemplateId:
-      | typeof undefined
-      | Awaited<ReturnType<typeof ctx.db.insert>>;
+    let gaaTemplateId: Id<"importTemplates"> | undefined;
+    let genericTemplateId: Id<"importTemplates"> | undefined;
 
     if (!gaaExists) {
       gaaTemplateId = await ctx.db.insert("importTemplates", {

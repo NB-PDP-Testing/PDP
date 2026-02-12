@@ -460,8 +460,7 @@ Only sessions with status "completed" for that org.
 {
   "organizationId": "test-org-123",
   "sourceColumnName": "First Name",
-  "targetField": "firstName",
-  "confidence": 0.95
+  "targetField": "firstName"
 }
 ```
 
@@ -469,6 +468,7 @@ Only sessions with status "completed" for that org.
 Returns the mapping history record ID. Data tab > `importMappingHistory`:
 - [ ] normalizedColumnName: "first name" (lowercased, trimmed)
 - [ ] usageCount: 1
+- [ ] confidence: 65 (auto-calculated initial value)
 - [ ] lastUsedAt: populated
 
 ---
@@ -483,14 +483,14 @@ Returns the mapping history record ID. Data tab > `importMappingHistory`:
 {
   "organizationId": "test-org-123",
   "sourceColumnName": "First Name",
-  "targetField": "firstName",
-  "confidence": 0.95
+  "targetField": "firstName"
 }
 ```
 
 ### Expected Result
 Returns the SAME record ID. Data tab shows:
 - [ ] usageCount: 2 (incremented from 1)
+- [ ] confidence: 70 (auto-calculated: 60 + usageCount * 5)
 - [ ] lastUsedAt: updated timestamp
 
 ---
@@ -502,7 +502,7 @@ Returns the SAME record ID. Data tab shows:
 ### Steps
 1. Run `importMappingHistory:getHistoricalMappings`:
 ```json
-{ "normalizedColumnName": "first name" }
+{ "sourceColumnName": "First Name" }
 ```
 
 ### Expected Result
@@ -510,7 +510,7 @@ Array containing the mapping record from Tests 21-22.
 
 ### Also test with org filter:
 ```json
-{ "normalizedColumnName": "first name", "organizationId": "test-org-123" }
+{ "sourceColumnName": "First Name", "organizationId": "test-org-123" }
 ```
 
 ### Expected Result
@@ -523,22 +523,21 @@ Same record (matches org filter).
 **Goal:** Verify best mapping returns highest confidence.
 
 ### Steps
-1. First, create a second mapping with lower confidence:
+1. First, create a second mapping with a different target field:
 ```json
 {
   "organizationId": "test-org-123",
   "sourceColumnName": "First Name",
-  "targetField": "givenName",
-  "confidence": 0.60
+  "targetField": "givenName"
 }
 ```
 2. Run `importMappingHistory:getBestMapping`:
 ```json
-{ "normalizedColumnName": "first name" }
+{ "sourceColumnName": "First Name" }
 ```
 
 ### Expected Result
-Returns the mapping with targetField "firstName" (confidence 0.95), not "givenName" (0.60).
+Returns the mapping with targetField "firstName" (confidence 70, used twice), not "givenName" (confidence 65, used once).
 
 ---
 

@@ -1,10 +1,12 @@
 "use client";
 
+import { api } from "@pdp/backend/convex/_generated/api";
 import type { Id } from "@pdp/backend/convex/_generated/dataModel";
 import type { MappingSuggestion } from "@pdp/backend/convex/lib/import/mapper";
 import type { ParseResult } from "@pdp/backend/convex/lib/import/parser";
+import { useMutation } from "convex/react";
 import { Check } from "lucide-react";
-import { useCallback, useState } from "react";
+import { useCallback, useRef, useState } from "react";
 import BenchmarkConfigStep from "@/components/import/steps/benchmark-config-step";
 import CompleteStep from "@/components/import/steps/complete-step";
 import ImportStep from "@/components/import/steps/import-step";
@@ -16,6 +18,7 @@ import type {
 } from "@/components/import/steps/review-step";
 import ReviewStep from "@/components/import/steps/review-step";
 import UploadStep from "@/components/import/steps/upload-step";
+import { authClient } from "@/lib/auth-client";
 import { cn } from "@/lib/utils";
 
 // ============================================================
@@ -201,6 +204,12 @@ export default function ImportWizard({
     importResult: null,
   });
 
+  const createSession = useMutation(
+    api.models.importSessions.createImportSession
+  );
+  const { data: session } = authClient.useSession();
+  const sessionCreating = useRef(false);
+
   const goNext = useCallback(() => {
     setCurrentStep((prev) => Math.min(prev + 1, WIZARD_STEPS.length));
   }, []);
@@ -213,6 +222,50 @@ export default function ImportWizard({
     setState((prev) => ({ ...prev, ...updates }));
   }, []);
 
+  const handleDataParsed = useCallback(
+    async (data: ParseResult, fileName?: string) => {
+      // Select all rows by default
+      const allIndices = new Set(
+        Array.from({ length: data.rows.length }, (_, i) => i)
+      );
+      updateState({
+        parsedData: data,
+        selectedRows: allIndices,
+      });
+
+      // Create import session for tracking
+      if (!sessionCreating.current) {
+        sessionCreating.current = true;
+        try {
+          const sessionId = await createSession({
+            organizationId,
+            templateId: templateId ?? undefined,
+            initiatedBy: session?.user?.id ?? "unknown",
+            sourceInfo: {
+              type: "file" as const,
+              fileName,
+              rowCount: data.totalRows,
+              columnCount: data.headers.length,
+            },
+          });
+          updateState({ sessionId });
+        } catch {
+          // Session creation is non-blocking — import can proceed without it
+        }
+      }
+
+      goNext();
+    },
+    [
+      updateState,
+      goNext,
+      createSession,
+      organizationId,
+      templateId,
+      session?.user?.id,
+    ]
+  );
+
   return (
     <div className="mx-auto max-w-5xl space-y-6 p-4 md:p-6">
       {/* Step Indicator */}
@@ -221,20 +274,7 @@ export default function ImportWizard({
       {/* Step Content */}
       <div className="min-h-[400px]">
         {currentStep === 1 && (
-          <UploadStep
-            goBack={goBack}
-            onDataParsed={(data) => {
-              // Select all rows by default
-              const allIndices = new Set(
-                Array.from({ length: data.rows.length }, (_, i) => i)
-              );
-              updateState({
-                parsedData: data,
-                selectedRows: allIndices,
-              });
-              goNext();
-            }}
-          />
+          <UploadStep goBack={goBack} onDataParsed={handleDataParsed} />
         )}
         {currentStep === 2 && state.parsedData && (
           <MappingStep

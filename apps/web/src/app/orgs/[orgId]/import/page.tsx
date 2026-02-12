@@ -15,8 +15,8 @@ import {
 } from "lucide-react";
 import type { Route } from "next";
 import Link from "next/link";
-import { useParams } from "next/navigation";
-import { useState } from "react";
+import { useParams, useRouter } from "next/navigation";
+import { useEffect, useState } from "react";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import {
@@ -33,6 +33,7 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
+import { authClient } from "@/lib/auth-client";
 
 // Available sports (will be dynamic when sport config is ready)
 const AVAILABLE_SPORTS = [
@@ -215,27 +216,92 @@ function RecentSessionRow({
 
 export default function ImportPage() {
   const params = useParams();
+  const router = useRouter();
   const orgId = params.orgId as string;
 
+  const [hasAccess, setHasAccess] = useState<boolean | null>(null);
   const [selectedSport, setSelectedSport] = useState<string>("all");
   const [selectedTemplateId, setSelectedTemplateId] =
     useState<Id<"importTemplates"> | null>(null);
 
+  // Check if the user has admin/owner role
+  useEffect(() => {
+    const checkAccess = async () => {
+      try {
+        await authClient.organization.setActive({ organizationId: orgId });
+        const { data: member } =
+          await authClient.organization.getActiveMember();
+
+        if (!member) {
+          setHasAccess(false);
+          return;
+        }
+
+        const functionalRoles = (member as any).functionalRoles || [];
+        const hasAdminFunctionalRole = functionalRoles.includes("admin");
+        const hasBetterAuthAdminRole =
+          member.role === "admin" || member.role === "owner";
+
+        setHasAccess(hasAdminFunctionalRole || hasBetterAuthAdminRole);
+      } catch {
+        setHasAccess(false);
+      }
+    };
+
+    checkAccess();
+  }, [orgId]);
+
+  // Redirect if no access
+  useEffect(() => {
+    if (hasAccess === false) {
+      router.replace("/orgs");
+    }
+  }, [hasAccess, router]);
+
   // Fetch platform templates
-  const platformTemplates = useQuery(api.models.importTemplates.listTemplates, {
-    scope: "platform",
-  });
+  const platformTemplates = useQuery(
+    api.models.importTemplates.listTemplates,
+    hasAccess ? { scope: "platform" } : "skip"
+  );
 
   // Fetch org-specific templates
-  const orgTemplates = useQuery(api.models.importTemplates.listTemplates, {
-    scope: "organization",
-    organizationId: orgId,
-  });
+  const orgTemplates = useQuery(
+    api.models.importTemplates.listTemplates,
+    hasAccess ? { scope: "organization", organizationId: orgId } : "skip"
+  );
 
   // Fetch recent import sessions for this org (last 5)
-  const recentSessions = useQuery(api.models.importSessions.listSessionsByOrg, {
-    organizationId: orgId,
-  });
+  const recentSessions = useQuery(
+    api.models.importSessions.listSessionsByOrg,
+    hasAccess ? { organizationId: orgId } : "skip"
+  );
+
+  // Show loading while checking access
+  if (hasAccess === null) {
+    return (
+      <div className="flex min-h-[400px] items-center justify-center">
+        <div className="text-center">
+          <Loader2 className="mx-auto mb-4 h-8 w-8 animate-spin text-primary" />
+          <p className="text-muted-foreground">Checking access...</p>
+        </div>
+      </div>
+    );
+  }
+
+  // Access denied - redirect is happening via useEffect
+  if (hasAccess === false) {
+    return (
+      <div className="flex min-h-[400px] items-center justify-center">
+        <div className="space-y-4 text-center">
+          <h1 className="font-bold text-2xl">Access Denied</h1>
+          <p className="text-muted-foreground">
+            You don&apos;t have permission to access the import wizard.
+          </p>
+          <Loader2 className="mx-auto h-6 w-6 animate-spin text-muted-foreground" />
+        </div>
+      </div>
+    );
+  }
 
   const isLoading =
     platformTemplates === undefined ||

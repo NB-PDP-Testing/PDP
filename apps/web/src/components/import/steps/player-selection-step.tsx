@@ -1,7 +1,7 @@
 "use client";
 
 import type { ParseResult } from "@pdp/backend/convex/lib/import/parser";
-import { Search, Users } from "lucide-react";
+import { ArrowDown, ArrowUp, ArrowUpDown, Search, Users } from "lucide-react";
 import { useMemo, useState } from "react";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
@@ -28,6 +28,15 @@ type PlayerSelectionStepProps = {
 
 type FilterTab = "all" | "selected" | "unselected";
 
+type SortField =
+  | "name"
+  | "dob"
+  | "ageGroup"
+  | "gender"
+  | "parentEmail"
+  | "team";
+type SortDirection = "asc" | "desc";
+
 /** Look up a mapped value from a row using the confirmed mappings */
 function getMappedValue(
   row: Record<string, string>,
@@ -40,6 +49,50 @@ function getMappedValue(
     }
   }
   return "";
+}
+
+function getSortValue(
+  row: Record<string, string>,
+  field: SortField,
+  mappings: Record<string, string>
+): string {
+  switch (field) {
+    case "name":
+      return `${getMappedValue(row, "firstName", mappings)} ${getMappedValue(row, "lastName", mappings)}`.toLowerCase();
+    case "dob":
+      return getMappedValue(row, "dateOfBirth", mappings);
+    case "ageGroup":
+      return getMappedValue(row, "ageGroup", mappings).toLowerCase();
+    case "gender":
+      return getMappedValue(row, "gender", mappings).toLowerCase();
+    case "parentEmail":
+      return getMappedValue(row, "parentEmail", mappings).toLowerCase();
+    case "team":
+      return getMappedValue(row, "team", mappings).toLowerCase();
+    default:
+      return "";
+  }
+}
+
+function SortIcon({
+  field,
+  sortField,
+  sortDirection,
+}: {
+  field: SortField;
+  sortField: SortField | null;
+  sortDirection: SortDirection;
+}) {
+  if (sortField !== field) {
+    return (
+      <ArrowUpDown className="ml-1 inline h-3 w-3 text-muted-foreground/50" />
+    );
+  }
+  return sortDirection === "asc" ? (
+    <ArrowUp className="ml-1 inline h-3 w-3" />
+  ) : (
+    <ArrowDown className="ml-1 inline h-3 w-3" />
+  );
 }
 
 function PlayerRow({
@@ -95,12 +148,23 @@ export default function PlayerSelectionStep({
 }: PlayerSelectionStepProps) {
   const [searchQuery, setSearchQuery] = useState("");
   const [filterTab, setFilterTab] = useState<FilterTab>("all");
+  const [sortField, setSortField] = useState<SortField | null>(null);
+  const [sortDirection, setSortDirection] = useState<SortDirection>("asc");
 
   const totalCount = parsedData.rows.length;
   const selectedCount = selectedRows.size;
   const unselectedCount = totalCount - selectedCount;
 
-  // Filter rows based on search and tab
+  const handleSort = (field: SortField) => {
+    if (sortField === field) {
+      setSortDirection((prev) => (prev === "asc" ? "desc" : "asc"));
+    } else {
+      setSortField(field);
+      setSortDirection("asc");
+    }
+  };
+
+  // Filter and sort rows
   const filteredIndices = useMemo(() => {
     const query = searchQuery.toLowerCase().trim();
     const indices: number[] = [];
@@ -126,8 +190,34 @@ export default function PlayerSelectionStep({
       indices.push(i);
     }
 
+    // Sort
+    if (sortField) {
+      indices.sort((a, b) => {
+        const valA = getSortValue(
+          parsedData.rows[a],
+          sortField,
+          confirmedMappings
+        );
+        const valB = getSortValue(
+          parsedData.rows[b],
+          sortField,
+          confirmedMappings
+        );
+        const cmp = valA.localeCompare(valB);
+        return sortDirection === "asc" ? cmp : -cmp;
+      });
+    }
+
     return indices;
-  }, [parsedData.rows, searchQuery, filterTab, selectedRows]);
+  }, [
+    parsedData.rows,
+    searchQuery,
+    filterTab,
+    selectedRows,
+    sortField,
+    sortDirection,
+    confirmedMappings,
+  ]);
 
   const handleSelectAll = () => {
     const next = new Set(selectedRows);
@@ -237,12 +327,72 @@ export default function PlayerSelectionStep({
                     />
                   </TableHead>
                   <TableHead className="w-10 text-xs">#</TableHead>
-                  <TableHead className="text-xs">Name</TableHead>
-                  <TableHead className="text-xs">DOB</TableHead>
-                  <TableHead className="text-xs">Age Group</TableHead>
-                  <TableHead className="text-xs">Gender</TableHead>
-                  <TableHead className="text-xs">Parent Email</TableHead>
-                  <TableHead className="text-xs">Team</TableHead>
+                  <TableHead
+                    className="cursor-pointer select-none text-xs"
+                    onClick={() => handleSort("name")}
+                  >
+                    Name{" "}
+                    <SortIcon
+                      field="name"
+                      sortDirection={sortDirection}
+                      sortField={sortField}
+                    />
+                  </TableHead>
+                  <TableHead
+                    className="cursor-pointer select-none text-xs"
+                    onClick={() => handleSort("dob")}
+                  >
+                    DOB{" "}
+                    <SortIcon
+                      field="dob"
+                      sortDirection={sortDirection}
+                      sortField={sortField}
+                    />
+                  </TableHead>
+                  <TableHead
+                    className="cursor-pointer select-none text-xs"
+                    onClick={() => handleSort("ageGroup")}
+                  >
+                    Age Group{" "}
+                    <SortIcon
+                      field="ageGroup"
+                      sortDirection={sortDirection}
+                      sortField={sortField}
+                    />
+                  </TableHead>
+                  <TableHead
+                    className="cursor-pointer select-none text-xs"
+                    onClick={() => handleSort("gender")}
+                  >
+                    Gender{" "}
+                    <SortIcon
+                      field="gender"
+                      sortDirection={sortDirection}
+                      sortField={sortField}
+                    />
+                  </TableHead>
+                  <TableHead
+                    className="cursor-pointer select-none text-xs"
+                    onClick={() => handleSort("parentEmail")}
+                  >
+                    Parent Email{" "}
+                    <SortIcon
+                      field="parentEmail"
+                      sortDirection={sortDirection}
+                      sortField={sortField}
+                    />
+                  </TableHead>
+                  <TableHead
+                    className="cursor-pointer select-none text-xs"
+                    onClick={() => handleSort("team")}
+                  >
+                    Team{" "}
+                    <SortIcon
+                      field="team"
+                      sortDirection={sortDirection}
+                      sortField={sortField}
+                    />
+                  </TableHead>
                 </TableRow>
               </TableHeader>
               <TableBody>

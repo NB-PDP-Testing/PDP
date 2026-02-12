@@ -275,6 +275,10 @@ export default defineSchema({
       v.literal("document_verified") // ID document verified
     ),
 
+    // Import tracking
+    importSessionId: v.optional(v.id("importSessions")),
+    externalIds: v.optional(v.record(v.string(), v.string())), // {"foireann": "12345", "pitchero": "67890"}
+
     // Metadata
     createdAt: v.number(),
     updatedAt: v.number(),
@@ -431,6 +435,11 @@ export default defineSchema({
     // Notes (org-specific)
     coachNotes: v.optional(v.string()),
     adminNotes: v.optional(v.string()),
+
+    // Import tracking
+    importSessionId: v.optional(v.id("importSessions")),
+    lastSyncedAt: v.optional(v.number()),
+    syncSource: v.optional(v.string()), // "foireann", "manual", "csv_import"
 
     // Metadata
     enrolledAt: v.number(),
@@ -4521,4 +4530,213 @@ export default defineSchema({
   })
     .index("by_userId", ["userId"])
     .index("by_userId_orgId", ["userId", "organizationId"]),
+
+  // ============================================================
+  // IMPORT FRAMEWORK TABLES
+  // Tables supporting the generic import framework for importing
+  // players, guardians, and related data from external sources
+  // ============================================================
+
+  // Sport-specific or organization-specific import configurations
+  importTemplates: defineTable({
+    name: v.string(), // "GAA Foireann Export"
+    description: v.optional(v.string()),
+    sportCode: v.optional(v.string()), // null = works for all sports
+    sourceType: v.union(
+      v.literal("csv"),
+      v.literal("excel"),
+      v.literal("paste")
+    ),
+    scope: v.union(v.literal("platform"), v.literal("organization")),
+    organizationId: v.optional(v.string()),
+
+    // Column mappings
+    columnMappings: v.array(
+      v.object({
+        sourcePattern: v.string(), // "Forename" or "/first.*name/i"
+        targetField: v.string(), // "firstName"
+        required: v.boolean(),
+        transform: v.optional(v.string()), // "toUpperCase", "parseDate"
+        aliases: v.optional(v.array(v.string())),
+      })
+    ),
+
+    // Age group mappings
+    ageGroupMappings: v.optional(
+      v.array(
+        v.object({
+          sourceValue: v.string(), // "JUVENILE", "U12"
+          targetAgeGroup: v.string(), // "u12"
+        })
+      )
+    ),
+
+    // Skill/benchmark initialization
+    skillInitialization: v.object({
+      strategy: v.union(
+        v.literal("blank"), // All 1s
+        v.literal("middle"), // All 3s
+        v.literal("age-appropriate"), // Age group standards
+        v.literal("ngb-benchmarks"), // NGB benchmark data
+        v.literal("custom") // Custom template
+      ),
+      customBenchmarkTemplateId: v.optional(v.id("benchmarkTemplates")),
+      applyToPassportStatus: v.optional(v.array(v.string())),
+    }),
+
+    // Default behaviors
+    defaults: v.object({
+      createTeams: v.boolean(),
+      createPassports: v.boolean(),
+      season: v.optional(v.string()),
+    }),
+
+    isActive: v.boolean(),
+    createdBy: v.string(),
+    createdAt: v.number(),
+    updatedAt: v.number(),
+  })
+    .index("by_scope", ["scope"])
+    .index("by_sportCode", ["sportCode"])
+    .index("by_organizationId", ["organizationId"])
+    .index("by_scope_and_sport", ["scope", "sportCode"]),
+
+  // Tracks each import execution with full audit trail
+  importSessions: defineTable({
+    organizationId: v.string(),
+    templateId: v.optional(v.id("importTemplates")),
+    initiatedBy: v.string(),
+
+    status: v.union(
+      v.literal("uploading"),
+      v.literal("mapping"),
+      v.literal("selecting"), // Per-player selection
+      v.literal("reviewing"),
+      v.literal("importing"),
+      v.literal("completed"),
+      v.literal("failed"),
+      v.literal("cancelled")
+    ),
+
+    sourceInfo: v.object({
+      type: v.union(v.literal("file"), v.literal("paste"), v.literal("api")),
+      fileName: v.optional(v.string()),
+      fileSize: v.optional(v.number()),
+      rowCount: v.number(),
+      columnCount: v.number(),
+    }),
+
+    // Column mappings (source column -> target field)
+    mappings: v.record(v.string(), v.string()),
+
+    // Per-player selection
+    playerSelections: v.array(
+      v.object({
+        rowIndex: v.number(),
+        selected: v.boolean(),
+        reason: v.optional(v.string()),
+      })
+    ),
+
+    // Benchmark settings
+    benchmarkSettings: v.optional(
+      v.object({
+        applyBenchmarks: v.boolean(),
+        strategy: v.string(),
+        customTemplateId: v.optional(v.id("benchmarkTemplates")),
+        passportStatuses: v.array(v.string()),
+      })
+    ),
+
+    // Statistics
+    stats: v.object({
+      totalRows: v.number(),
+      selectedRows: v.number(),
+      validRows: v.number(),
+      errorRows: v.number(),
+      duplicateRows: v.number(),
+      playersCreated: v.number(),
+      playersUpdated: v.number(),
+      playersSkipped: v.number(),
+      guardiansCreated: v.number(),
+      guardiansLinked: v.number(),
+      teamsCreated: v.number(),
+      passportsCreated: v.number(),
+      benchmarksApplied: v.number(),
+    }),
+
+    errors: v.array(
+      v.object({
+        rowNumber: v.number(),
+        field: v.string(),
+        error: v.string(),
+        value: v.optional(v.string()),
+        resolved: v.boolean(),
+      })
+    ),
+
+    duplicates: v.array(
+      v.object({
+        rowNumber: v.number(),
+        existingPlayerId: v.id("playerIdentities"),
+        resolution: v.union(
+          v.literal("skip"),
+          v.literal("merge"),
+          v.literal("replace")
+        ),
+      })
+    ),
+
+    startedAt: v.number(),
+    completedAt: v.optional(v.number()),
+  })
+    .index("by_organizationId", ["organizationId"])
+    .index("by_status", ["status"])
+    .index("by_initiatedBy", ["initiatedBy"])
+    .index("by_startedAt", ["startedAt"])
+    .index("by_org_and_status", ["organizationId", "status"]),
+
+  // Learns from past imports to improve auto-mapping
+  importMappingHistory: defineTable({
+    organizationId: v.optional(v.string()),
+    templateId: v.optional(v.id("importTemplates")),
+
+    sourceColumnName: v.string(),
+    normalizedColumnName: v.string(),
+    targetField: v.string(),
+
+    usageCount: v.number(),
+    lastUsedAt: v.number(),
+    confidence: v.number(), // 0-100
+
+    createdAt: v.number(),
+  })
+    .index("by_normalizedColumnName", ["normalizedColumnName"])
+    .index("by_organizationId", ["organizationId"])
+    .index("by_templateId", ["templateId"])
+    .index("by_targetField", ["targetField"]),
+
+  // Custom benchmark configurations per sport/organization
+  benchmarkTemplates: defineTable({
+    name: v.string(),
+    sportCode: v.string(),
+    scope: v.union(v.literal("platform"), v.literal("organization")),
+    organizationId: v.optional(v.string()),
+
+    benchmarks: v.array(
+      v.object({
+        skillCode: v.string(),
+        ageGroup: v.string(),
+        expectedRating: v.number(), // 1-5 scale
+        minAcceptable: v.optional(v.number()),
+        description: v.optional(v.string()),
+      })
+    ),
+
+    isActive: v.boolean(),
+    createdAt: v.number(),
+  })
+    .index("by_sportCode", ["sportCode"])
+    .index("by_scope", ["scope"])
+    .index("by_organizationId", ["organizationId"]),
 });

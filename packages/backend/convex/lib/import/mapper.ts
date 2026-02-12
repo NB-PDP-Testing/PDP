@@ -384,6 +384,289 @@ export const DEFAULT_TARGET_FIELDS: FieldDefinition[] = [
 ];
 
 // ============================================================
+// Fuzzy Match (Levenshtein distance)
+// ============================================================
+
+/**
+ * Calculate the Levenshtein distance between two strings.
+ * Implemented inline - no npm dependency needed.
+ */
+export function levenshteinDistance(a: string, b: string): number {
+  const aLen = a.length;
+  const bLen = b.length;
+
+  // Use single-row optimization
+  let prev = Array.from({ length: bLen + 1 }, (_, i) => i);
+
+  for (let i = 1; i <= aLen; i += 1) {
+    const curr = [i];
+    for (let j = 1; j <= bLen; j += 1) {
+      const cost = a[i - 1] === b[j - 1] ? 0 : 1;
+      curr[j] = Math.min(
+        curr[j - 1] + 1, // insertion
+        prev[j] + 1, // deletion
+        prev[j - 1] + cost // substitution
+      );
+    }
+    prev = curr;
+  }
+
+  return prev[bLen];
+}
+
+function fuzzyConfidence(distance: number, isAlias: boolean): number {
+  if (isAlias) {
+    if (distance === 1) {
+      return 85;
+    }
+    return distance === 2 ? 75 : 65;
+  }
+  if (distance === 1) {
+    return 90;
+  }
+  return distance === 2 ? 80 : 70;
+}
+
+/**
+ * Fuzzy match: uses Levenshtein distance to find close matches.
+ * Threshold: distance <= 3 edits. Confidence scales 70-90% by distance.
+ */
+export function fuzzyMatch(
+  sourceColumn: string,
+  targetFields: FieldDefinition[]
+): MappingSuggestion | null {
+  const normalizedSource = normalizeColumnName(sourceColumn);
+  let bestMatch: MappingSuggestion | null = null;
+  let bestDistance = 4; // Threshold: must be <= 3
+
+  for (const field of targetFields) {
+    // Check field name directly
+    const fieldDistance = levenshteinDistance(
+      normalizedSource,
+      normalizeColumnName(field.name)
+    );
+    if (fieldDistance < bestDistance) {
+      bestDistance = fieldDistance;
+      bestMatch = {
+        sourceColumn,
+        targetField: field.name,
+        confidence: fuzzyConfidence(fieldDistance, false),
+        strategy: "fuzzy",
+      };
+    }
+
+    // Check aliases
+    const aliases = FIELD_ALIASES[field.name];
+    if (!aliases) {
+      continue;
+    }
+    for (const alias of aliases) {
+      const aliasDistance = levenshteinDistance(
+        normalizedSource,
+        normalizeColumnName(alias)
+      );
+      if (aliasDistance < bestDistance) {
+        bestDistance = aliasDistance;
+        bestMatch = {
+          sourceColumn,
+          targetField: field.name,
+          confidence: fuzzyConfidence(aliasDistance, true),
+          strategy: "fuzzy",
+        };
+      }
+    }
+  }
+
+  return bestMatch;
+}
+
+// ============================================================
+// Content Analysis
+// ============================================================
+
+const EMAIL_REGEX = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+const PHONE_REGEX = /^[+]?[\d\s()-]{7,}$/;
+const DATE_SLASH_REGEX = /^\d{1,2}[/-]\d{1,2}[/-]\d{2,4}$/;
+const DATE_ISO_REGEX = /^\d{4}-\d{2}-\d{2}$/;
+const GENDER_REGEX = /^(male|female|m|f|other|non-binary)$/i;
+const POSTCODE_REGEX = /^[A-Z0-9]{3,10}$/i;
+const NAME_REGEX = /^[A-Za-z'-]+$/;
+
+export type ContentAnalysis = {
+  inferredType:
+    | "email"
+    | "phone"
+    | "date"
+    | "gender"
+    | "name"
+    | "postcode"
+    | "unknown";
+  matchStrength: number; // 0-1, percentage of values matching the pattern
+};
+
+/**
+ * Analyze sample values from a column to infer field type.
+ * Examines regex patterns in sample data.
+ */
+export function analyzeColumnContent(values: string[]): ContentAnalysis {
+  const nonEmpty = values.filter((v) => v.trim() !== "");
+  if (nonEmpty.length === 0) {
+    return { inferredType: "unknown", matchStrength: 0 };
+  }
+
+  const checks: Array<{
+    type: ContentAnalysis["inferredType"];
+    test: (v: string) => boolean;
+  }> = [
+    { type: "email", test: (v) => EMAIL_REGEX.test(v.trim()) },
+    { type: "phone", test: (v) => PHONE_REGEX.test(v.trim()) },
+    {
+      type: "date",
+      test: (v) =>
+        DATE_SLASH_REGEX.test(v.trim()) || DATE_ISO_REGEX.test(v.trim()),
+    },
+    { type: "gender", test: (v) => GENDER_REGEX.test(v.trim()) },
+    { type: "postcode", test: (v) => POSTCODE_REGEX.test(v.trim()) },
+    { type: "name", test: (v) => NAME_REGEX.test(v.trim()) },
+  ];
+
+  let bestType: ContentAnalysis["inferredType"] = "unknown";
+  let bestStrength = 0;
+
+  for (const check of checks) {
+    const matchCount = nonEmpty.filter(check.test).length;
+    const strength = matchCount / nonEmpty.length;
+
+    if (strength > bestStrength && strength >= 0.5) {
+      bestStrength = strength;
+      bestType = check.type;
+    }
+  }
+
+  return { inferredType: bestType, matchStrength: bestStrength };
+}
+
+// Mapping from content analysis type to likely target fields
+const CONTENT_TYPE_TO_FIELDS: Record<string, string[]> = {
+  email: ["email", "parentEmail", "parent2Email"],
+  phone: ["phone", "parentPhone", "parent2Phone"],
+  date: ["dateOfBirth"],
+  gender: ["gender"],
+  postcode: ["playerPostcode", "guardian1Postcode", "guardian2Postcode"],
+  name: [
+    "firstName",
+    "lastName",
+    "parentFirstName",
+    "parentLastName",
+    "parent2FirstName",
+    "parent2LastName",
+  ],
+};
+
+/**
+ * Content analysis match: examines sample values to infer field type.
+ * Returns 60-80% confidence based on pattern match strength.
+ */
+export function contentAnalysisMatch(
+  sourceColumn: string,
+  sampleValues: string[],
+  targetFields: FieldDefinition[],
+  usedTargets: Set<string>
+): MappingSuggestion | null {
+  const analysis = analyzeColumnContent(sampleValues);
+  if (analysis.inferredType === "unknown") {
+    return null;
+  }
+
+  const candidateFieldNames = CONTENT_TYPE_TO_FIELDS[analysis.inferredType];
+  if (!candidateFieldNames) {
+    return null;
+  }
+
+  // Find first unused candidate that matches a target field
+  for (const candidateName of candidateFieldNames) {
+    if (usedTargets.has(candidateName)) {
+      continue;
+    }
+    const matchingField = targetFields.find((f) => f.name === candidateName);
+    if (matchingField) {
+      const confidence = Math.round(60 + analysis.matchStrength * 20);
+      return {
+        sourceColumn,
+        targetField: matchingField.name,
+        confidence,
+        strategy: "content_analysis",
+      };
+    }
+  }
+
+  return null;
+}
+
+// ============================================================
+// Full suggest pipeline (exact + alias + fuzzy + content)
+// ============================================================
+
+/**
+ * Run all pure-function matching strategies in order:
+ * exact -> alias -> fuzzy -> content analysis.
+ *
+ * For historical matching (requires db), see suggestMappingsWithHistory.
+ */
+export function suggestMappings(
+  sourceColumns: string[],
+  sampleData: Record<string, string>[],
+  targetFields?: FieldDefinition[]
+): MappingSuggestion[] {
+  const fields = targetFields ?? DEFAULT_TARGET_FIELDS;
+  const suggestions: MappingSuggestion[] = [];
+  const usedTargets = new Set<string>();
+
+  for (const column of sourceColumns) {
+    // 1. Exact match
+    const exact = exactMatch(column, fields);
+    if (exact && !usedTargets.has(exact.targetField)) {
+      suggestions.push(exact);
+      usedTargets.add(exact.targetField);
+      continue;
+    }
+
+    // 2. Alias match
+    const alias = aliasMatch(column, fields);
+    if (alias && !usedTargets.has(alias.targetField)) {
+      suggestions.push(alias);
+      usedTargets.add(alias.targetField);
+      continue;
+    }
+
+    // 3. Fuzzy match
+    const fuzzy = fuzzyMatch(column, fields);
+    if (fuzzy && !usedTargets.has(fuzzy.targetField)) {
+      suggestions.push(fuzzy);
+      usedTargets.add(fuzzy.targetField);
+      continue;
+    }
+
+    // 4. Content analysis (needs sample values)
+    const sampleValues = sampleData
+      .slice(0, 10)
+      .map((row) => row[column] ?? "");
+    const content = contentAnalysisMatch(
+      column,
+      sampleValues,
+      fields,
+      usedTargets
+    );
+    if (content) {
+      suggestions.push(content);
+      usedTargets.add(content.targetField);
+    }
+  }
+
+  return suggestions;
+}
+
+// ============================================================
 // Simple suggest (exact + alias only - no ctx needed)
 // ============================================================
 

@@ -1,151 +1,34 @@
 # Ralph Progress Log
-Started: Thu 12 Feb 2026 15:55:54 GMT
+Started: Thu 12 Feb 2026 19:12:06 GMT
 ---
 
-## Codebase Patterns
-**Last Updated**: 2026-02-12 - Iteration 1
+## Phase 1.3: Import Frontend Wizard & Integration
 
-### Architecture
-- All routes scoped under `/orgs/[orgId]/`
-- Better Auth for authentication, Convex for backend
-- Organization data isolated via organizationId field
-- Turborepo monorepo: `apps/web/` (Next.js 14), `packages/backend/` (Convex)
+### Session 1 (Stories 1-5)
+- US-P1.3-001: Import entry page with sport selection, template cards, recent imports
+- US-P1.3-002: ImportWizard orchestrator with 7-step state machine, StepIndicator
+- US-P1.3-003: UploadStep with drag-and-drop, paste, CSV parsing (client-side)
+- US-P1.3-004: MappingStep with auto-mapping, confidence badges, lock/unlock
+- US-P1.3-005: PlayerSelectionStep with checkboxes, search, filter tabs, bulk actions
 
-### Convex Backend Patterns
-- NEVER use `.filter()` - always use `.withIndex()`
-- All functions need `args` and `returns` validators
-- Use `Id<"tableName">` types, not `string`
-- Index names include all fields: `by_orgId_and_status`
-- Use `v.string()` for Better Auth IDs (organizationId, userId)
-- Use `v.id("tableName")` for Convex document references
+### Session 2 (Stories 6-10)
+- US-P1.3-006: BenchmarkConfigStep with toggle, 5 strategy radio buttons, rating preview
+- US-P1.3-007: ReviewStep with validation error table, duplicate resolution, team preview, confirmation dialog
+- US-P1.3-008: ImportStep (progress phases, retry) and CompleteStep (statistics, "What Next" cards)
+- US-P1.3-009: Admin sidebar nav link for Import Wizard (FileUp icon)
+- US-P1.3-010: Integration - wired all real step components into ImportWizard, removed StepPlaceholder
 
-### Linting Rules (Biome)
-- MUST use block statements (`{}`) for all `if` bodies - no single-line ifs
-- MUST use optional chaining (`?.`) instead of `&&` for null checks
-- MUST NOT use non-null assertion (`!`) - extract to local variable first
-- Run `npx ultracite fix` before committing to auto-fix formatting
+### Key Decisions
+- Backend import libs (parser.ts, mapper.ts) usable client-side (zero npm deps)
+- Used suggestMappingsSimple() for client-side mapping (no DB context needed)
+- Set<number> for selectedRows enables O(1) lookups during filtering
+- Extracted helper components to stay under biome complexity limit (15)
+- Installed shadcn AlertDialog and Progress components
 
-### Quality Checks
-- Run in order: `npx -w packages/backend convex codegen` → `npx ultracite fix` → commit
-- Pre-existing type errors in seedFeatureFlags.ts - ignore these
-- Pre-commit hook runs biome check on staged files
+### Quality Checks Passed
+- npx -w packages/backend convex codegen ✓
+- npm run check-types ✓
+- npx ultracite fix ✓
+- npx biome check --diagnostic-level=error (all 10 import files clean) ✓
 
-### File Locations (discovered during work)
-- Convex schema: `packages/backend/convex/schema.ts` (~4500 lines)
-- Convex queries/mutations: `packages/backend/convex/models/`
-- GAA import component: `apps/web/src/components/gaa-import.tsx`
-
----
-
-## 2026-02-12 - US-P1.1-001 through 008 - Import Database Foundation (ALL)
-**Iteration**: 1
-**Commit**: 2d2b08c59956dc8299d765043bd5798836aa7438
-**Session**: 4ae60bfa-946d-4ff7-9cc3-456a45dc8172
-**Status**: Complete
-
-### What was implemented
-- Added 4 new tables to schema.ts: importTemplates, importSessions, importMappingHistory, benchmarkTemplates
-- Extended playerIdentities with importSessionId and externalIds fields
-- Extended orgPlayerEnrollments with importSessionId, lastSyncedAt, syncSource fields
-- Created importTemplates.ts with full CRUD: create, update, delete (soft), clone, get, list (by scope/sport/org)
-- Created importSessions.ts with lifecycle: create, updateStatus (with transition validation), updateMappings, updatePlayerSelections, setBenchmarkSettings, recordSessionStats, getSession, listSessionsByOrg
-- Created importMappingHistory.ts with: recordMappingHistory (upsert), getHistoricalMappings, getBestMapping
-- Created importTemplateSeeds.ts with: seedDefaultTemplates (idempotent), hasDefaultTemplates
-- GAA Foireann template: 12 column mappings, 5 age group mappings, age-appropriate skill init
-- Generic CSV template: 10 regex-based column mappings, blank skill init
-
-### Files changed
-- packages/backend/convex/schema.ts (+218)
-- packages/backend/convex/models/importTemplates.ts (+255, new)
-- packages/backend/convex/models/importSessions.ts (+315, new)
-- packages/backend/convex/models/importMappingHistory.ts (+167, new)
-- packages/backend/convex/models/importTemplateSeeds.ts (+270, new)
-
-### Quality checks
-- ✅ Convex codegen: passed
-- ✅ Linting (biome): passed after fixes
-- ✅ Type check: pre-existing errors only (seedFeatureFlags.ts)
-- N/A Browser verification: backend-only changes
-
-### Learnings for future iterations
-**Patterns discovered:**
-- Schema file is ~4500 lines - use offset/limit when reading
-- Convex codegen is the fastest way to validate schema + model files together
-- Status transition validation pattern: use a `VALID_TRANSITIONS` record mapping current->allowed
-
-**Gotchas encountered:**
-- Biome requires block statements `{}` for ALL if bodies - single-line ifs fail lint
-- Non-null assertion (`args.status!`) fails lint - extract to local variable first
-- Optional chaining required: `template?.isActive` instead of `template && template.isActive`
-- `npx ultracite fix` auto-fixes formatting but NOT lint errors (block statements, non-null assertions)
-
-**Mistakes made:**
-- First commit attempt for model files failed due to biome lint errors (block statements, non-null assertion)
-- Should have run `npx ultracite fix` AND checked for biome errors before first commit attempt
-
----
-
-# Phase 1.2: Backend Import Engine - COMPLETE (10/10 stories)
-
-## Stories Completed
-- US-P1.2-001: CSV parser utility (parser.ts)
-- US-P1.2-002: Field alias database + exact/alias matching (mapper.ts)
-- US-P1.2-003: Fuzzy + content-analysis matching (mapper.ts)
-- US-P1.2-004: Historical mapping lookup (mapper.ts)
-- US-P1.2-005: Row validator with auto-fix (validator.ts)
-- US-P1.2-006: Benchmark applicator (benchmarkApplicator.ts)
-- US-P1.2-007: Sport configuration helper (sportConfig.ts)
-- US-P1.2-008: sportCode parameter (already existed)
-- US-P1.2-009: Session tracking + row selection (playerImport.ts)
-- US-P1.2-010: Benchmark application (playerImport.ts)
-
-## Files Created
-- packages/backend/convex/lib/import/parser.ts
-- packages/backend/convex/lib/import/mapper.ts
-- packages/backend/convex/lib/import/validator.ts
-- packages/backend/convex/lib/import/benchmarkApplicator.ts
-- packages/backend/convex/lib/import/sportConfig.ts
-
-## Files Modified
-- packages/backend/convex/models/playerImport.ts
-
----
-
-## 2026-02-12 - Type Error Fixes (Post Phase 1.2)
-**Iteration**: 2
-**Commit**: 7823adf5d6b7f56eb88768c3d70343115284b101
-**Session**: 9c414d87-9684-4f33-a179-3537395fdc4d
-**Status**: Complete
-
-### What was implemented
-- Fixed missing `QueryCtx` import in mapper.ts (historical match functions)
-- Fixed TypeScript narrowing issues in playerImport.ts where optional args
-  (sportCode, guardianIdentityId) weren't narrowed inside .withIndex() callbacks
-- Used local const variable pattern instead of non-null assertions
-
-### Files changed
-- packages/backend/convex/lib/import/mapper.ts (+2)
-- packages/backend/convex/models/playerImport.ts (+14, -9)
-
-### Quality checks
-- ✅ Convex codegen: passed
-- ✅ Type check: passed (0 new errors)
-- ✅ Linting: passed (only pre-existing warnings in other files)
-- ✅ Pre-commit hook: passed
-- N/A Browser verification: backend-only changes
-
-### Learnings for future iterations
-**Patterns discovered:**
-- TypeScript can't narrow optional args inside .withIndex() callback closures
-- Fix: assign `const localVar = args.optionalField` before the `if`, then use localVar
-- This is cleaner than non-null assertion and passes Biome lint
-
-**Gotchas encountered:**
-- prd.json can get overwritten by agent hooks - always re-read before editing
-- The `git stash` / `git stash pop` cycle can fail if there are tracked modified files
-
-**Mistakes made:**
-- Previous iterations left QueryCtx unimported in mapper.ts
-- Previous iterations used non-null assertion which Biome warns about
-
----
+### All 10 stories: COMPLETE

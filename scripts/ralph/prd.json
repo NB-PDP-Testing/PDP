@@ -54,7 +54,7 @@
         "Mobile responsive layout"
       ],
       "priority": 1,
-      "passes": false,
+      "passes": true,
       "notes": "Entry point for the import feature."
     },
     {
@@ -70,7 +70,7 @@
         "Create import session on wizard start"
       ],
       "priority": 2,
-      "passes": false,
+      "passes": true,
       "notes": "State lifted to this component and passed down as props to step components."
     },
     {
@@ -86,7 +86,7 @@
         "Show first 3 rows as preview table"
       ],
       "priority": 3,
-      "passes": false,
+      "passes": true,
       "notes": "CSV parsing happens client-side."
     },
     {
@@ -102,7 +102,7 @@
         "Validation warning if required fields not mapped"
       ],
       "priority": 4,
-      "passes": false,
+      "passes": true,
       "notes": "Call suggestMappings from mapper.ts on mount."
     },
     {
@@ -118,7 +118,7 @@
         "All players selected by default"
       ],
       "priority": 5,
-      "passes": false,
+      "passes": true,
       "notes": "Mirrors existing per-player selection in gaa-import.tsx."
     },
     {
@@ -134,7 +134,7 @@
         "Use shadcn/ui Switch, RadioGroup, Select components"
       ],
       "priority": 6,
-      "passes": false,
+      "passes": true,
       "notes": "Preview is informational to help admins understand strategy differences."
     },
     {
@@ -150,7 +150,7 @@
         "Allow proceeding with errors (with confirmation dialog)"
       ],
       "priority": 7,
-      "passes": false,
+      "passes": true,
       "notes": "Reference gaa-import.tsx lines 2066-2265 for existing duplicate resolution UX."
     },
     {
@@ -165,7 +165,7 @@
         "Return to import page link"
       ],
       "priority": 8,
-      "passes": false,
+      "passes": true,
       "notes": "Progress tracking may need session status updates for real-time feedback."
     },
     {
@@ -179,7 +179,7 @@
         "Typecheck passes: npm run check-types"
       ],
       "priority": 9,
-      "passes": false,
+      "passes": true,
       "notes": "Place near team management and user management links."
     },
     {
@@ -195,7 +195,7 @@
         "Typecheck passes: npm run check-types"
       ],
       "priority": 10,
-      "passes": false,
+      "passes": true,
       "notes": "Verification story - ensure all pieces connect properly."
     }
   ]

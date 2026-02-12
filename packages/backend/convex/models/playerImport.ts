@@ -1,6 +1,8 @@
 import { v } from "convex/values";
 import type { Id } from "../_generated/dataModel";
 import { mutation } from "../_generated/server";
+import type { BenchmarkStrategy } from "../lib/import/benchmarkApplicator";
+import { applyBenchmarksToPassport } from "../lib/import/benchmarkApplicator";
 import { calculateAge } from "./playerIdentities";
 
 // Top-level regex constants for linting compliance
@@ -530,6 +532,14 @@ export const batchImportPlayersWithIdentity = mutation({
     sportCode: v.optional(v.string()), // Optional: auto-create sport passports during enrollment
     sessionId: v.optional(v.id("importSessions")), // Optional: track which import session created records
     selectedRowIndices: v.optional(v.array(v.number())), // Optional: only import specific rows
+    benchmarkSettings: v.optional(
+      v.object({
+        applyBenchmarks: v.boolean(),
+        strategy: v.string(), // BenchmarkStrategy type
+        templateId: v.optional(v.id("benchmarkTemplates")),
+        ageGroup: v.string(),
+      })
+    ),
     players: v.array(
       v.object({
         firstName: v.string(),
@@ -568,6 +578,7 @@ export const batchImportPlayersWithIdentity = mutation({
     guardiansAwaitingClaim: v.number(), // Guardians without userId (holding accounts)
     enrollmentsCreated: v.number(),
     enrollmentsReused: v.number(),
+    benchmarksApplied: v.number(),
     errors: v.array(v.string()),
     // NEW: Return player identity IDs with their original index
     playerIdentities: v.array(
@@ -589,6 +600,7 @@ export const batchImportPlayersWithIdentity = mutation({
       guardiansAwaitingClaim: 0,
       enrollmentsCreated: 0,
       enrollmentsReused: 0,
+      benchmarksApplied: 0,
       errors: [] as string[],
       playerIdentities: [] as Array<{
         index: number;
@@ -1067,6 +1079,43 @@ export const batchImportPlayersWithIdentity = mutation({
           results.guardiansLinkedToVerifiedAccounts += 1;
         } else {
           results.guardiansAwaitingClaim += 1;
+        }
+      }
+    }
+
+    // ========== PHASE 5: APPLY BENCHMARKS ==========
+    // After all passports created, apply benchmark ratings if configured
+    if (args.benchmarkSettings?.applyBenchmarks && args.sportCode) {
+      const strategy = args.benchmarkSettings.strategy as BenchmarkStrategy;
+
+      // Find all sport passports just created for these players
+      for (let i = 0; i < playersToImport.length; i += 1) {
+        const playerIdentityId = playerIdentityMap.get(i);
+        if (!playerIdentityId) {
+          continue;
+        }
+
+        const passport = await ctx.db
+          .query("sportPassports")
+          .withIndex("by_player_and_sport", (q) =>
+            q
+              .eq("playerIdentityId", playerIdentityId)
+              .eq("sportCode", args.sportCode)
+          )
+          .first();
+
+        if (passport) {
+          const benchResult = await applyBenchmarksToPassport(
+            ctx,
+            passport._id,
+            {
+              strategy,
+              templateId: args.benchmarkSettings.templateId,
+              ageGroup: args.benchmarkSettings.ageGroup,
+              sportCode: args.sportCode,
+            }
+          );
+          results.benchmarksApplied += benchResult.benchmarksApplied;
         }
       }
     }

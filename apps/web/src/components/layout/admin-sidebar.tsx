@@ -8,6 +8,7 @@ import {
   ChevronDown,
   Clipboard,
   ClipboardList,
+  FileUp,
   Flag,
   GraduationCap,
   Heart,
@@ -180,6 +181,11 @@ export function getAdminNavGroups(
               },
             ]
           : []),
+        {
+          href: `/orgs/${orgId}/import`,
+          label: "Import Wizard",
+          icon: FileUp,
+        },
         {
           href: `/orgs/${orgId}/admin/player-import`,
           label: "Import Players",

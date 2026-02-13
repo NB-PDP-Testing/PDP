@@ -1,5 +1,7 @@
 import { v } from "convex/values";
+import { components } from "../_generated/api";
 import { mutation, query } from "../_generated/server";
+import { authComponent } from "../auth";
 
 // ============================================================
 // IMPORT SESSIONS LIFECYCLE
@@ -465,6 +467,244 @@ export const checkUndoEligibility = query({
       reasons,
       expiresAt: isExpired ? null : expiresAt,
       stats,
+    };
+  },
+});
+
+/**
+ * Undo a completed import by deleting all records created during that import session.
+ * HARD DELETE - permanently removes records from all 6 import tables.
+ */
+export const undoImport = mutation({
+  args: {
+    sessionId: v.id("importSessions"),
+    reason: v.string(),
+  },
+  returns: v.object({
+    success: v.boolean(),
+    rollbackStats: v.object({
+      playersRemoved: v.number(),
+      guardiansRemoved: v.number(),
+      guardianLinksRemoved: v.number(),
+      enrollmentsRemoved: v.number(),
+      passportsRemoved: v.number(),
+      assessmentsRemoved: v.number(),
+    }),
+    ineligibilityReasons: v.array(v.string()),
+  }),
+  handler: async (ctx, args) => {
+    // Step 1: Auth check - verify user is admin or owner
+    const user = await authComponent.getAuthUser(ctx);
+    if (!user) {
+      throw new Error("Not authenticated");
+    }
+
+    const session = await ctx.db.get(args.sessionId);
+    if (!session) {
+      return {
+        success: false,
+        rollbackStats: {
+          playersRemoved: 0,
+          guardiansRemoved: 0,
+          guardianLinksRemoved: 0,
+          enrollmentsRemoved: 0,
+          passportsRemoved: 0,
+          assessmentsRemoved: 0,
+        },
+        ineligibilityReasons: ["Session not found"],
+      };
+    }
+
+    // Check if user is admin or owner of the organization
+    const memberResult = await ctx.runQuery(
+      components.betterAuth.adapter.findOne,
+      {
+        model: "member",
+        where: [
+          {
+            field: "userId",
+            value: user._id,
+            operator: "eq",
+          },
+          {
+            field: "organizationId",
+            value: session.organizationId,
+            operator: "eq",
+            connector: "AND",
+          },
+        ],
+      }
+    );
+
+    // Check Better Auth role OR functional admin role
+    const betterAuthRole = memberResult?.role;
+    const functionalRoles = (memberResult as any)?.functionalRoles || [];
+    const hasAdminAccess =
+      betterAuthRole === "admin" ||
+      betterAuthRole === "owner" ||
+      functionalRoles.includes("admin");
+
+    if (!(memberResult && hasAdminAccess)) {
+      throw new Error("You must be an admin or owner to undo imports");
+    }
+
+    // Step 2: Run eligibility checks (same logic as checkUndoEligibility)
+    const reasons: string[] = [];
+
+    // Check 1: Session status must be 'completed'
+    if (session.status !== "completed") {
+      reasons.push(`Session status is '${session.status}', not 'completed'`);
+    }
+
+    // Check 2: 24-hour window
+    const TWENTY_FOUR_HOURS_MS = 24 * 60 * 60 * 1000;
+    const now = Date.now();
+    const completedAt = session.completedAt ?? session.startedAt;
+    const expiresAt = completedAt + TWENTY_FOUR_HOURS_MS;
+    const isExpired = now > expiresAt;
+
+    if (isExpired) {
+      reasons.push(
+        "24-hour undo window has expired (undo only available within 24 hours of import completion)"
+      );
+    }
+
+    // Step 3: Query each table by importSessionId index and collect all record IDs
+    const playerIdentities = await ctx.db
+      .query("playerIdentities")
+      .withIndex("by_importSessionId", (q) =>
+        q.eq("importSessionId", args.sessionId)
+      )
+      .collect();
+
+    const guardianIdentities = await ctx.db
+      .query("guardianIdentities")
+      .withIndex("by_importSessionId", (q) =>
+        q.eq("importSessionId", args.sessionId)
+      )
+      .collect();
+
+    const guardianPlayerLinks = await ctx.db
+      .query("guardianPlayerLinks")
+      .withIndex("by_importSessionId", (q) =>
+        q.eq("importSessionId", args.sessionId)
+      )
+      .collect();
+
+    const orgPlayerEnrollments = await ctx.db
+      .query("orgPlayerEnrollments")
+      .withIndex("by_importSessionId", (q) =>
+        q.eq("importSessionId", args.sessionId)
+      )
+      .collect();
+
+    const sportPassports = await ctx.db
+      .query("sportPassports")
+      .withIndex("by_importSessionId", (q) =>
+        q.eq("importSessionId", args.sessionId)
+      )
+      .collect();
+
+    const skillAssessments = await ctx.db
+      .query("skillAssessments")
+      .withIndex("by_importSessionId", (q) =>
+        q.eq("importSessionId", args.sessionId)
+      )
+      .collect();
+
+    // Check 3: Are there any assessments on imported players that were NOT created by this import?
+    const importedPlayerIds = new Set(playerIdentities.map((p) => p._id));
+
+    const allAssessmentsForPlayers = await Promise.all(
+      Array.from(importedPlayerIds).map(async (playerIdentityId) =>
+        ctx.db
+          .query("skillAssessments")
+          .withIndex("by_playerIdentityId", (q) =>
+            q.eq("playerIdentityId", playerIdentityId)
+          )
+          .collect()
+      )
+    );
+
+    const nonImportAssessments = allAssessmentsForPlayers
+      .flat()
+      .filter((a) => a.importSessionId !== args.sessionId);
+
+    if (nonImportAssessments.length > 0) {
+      reasons.push(
+        "Players have assessments created after import (cannot undo if players have been assessed)"
+      );
+    }
+
+    // If ineligible, return early with reasons
+    if (reasons.length > 0) {
+      return {
+        success: false,
+        rollbackStats: {
+          playersRemoved: 0,
+          guardiansRemoved: 0,
+          guardianLinksRemoved: 0,
+          enrollmentsRemoved: 0,
+          passportsRemoved: 0,
+          assessmentsRemoved: 0,
+        },
+        ineligibilityReasons: reasons,
+      };
+    }
+
+    // Step 4: Delete all records - order matters to avoid foreign key issues
+    // Delete leaf records first (assessments, passports), then middle (enrollments, links), then root (guardians, players)
+
+    // Delete assessments first
+    for (const assessment of skillAssessments) {
+      await ctx.db.delete(assessment._id);
+    }
+
+    // Delete passports
+    for (const passport of sportPassports) {
+      await ctx.db.delete(passport._id);
+    }
+
+    // Delete enrollments
+    for (const enrollment of orgPlayerEnrollments) {
+      await ctx.db.delete(enrollment._id);
+    }
+
+    // Delete guardian-player links
+    for (const link of guardianPlayerLinks) {
+      await ctx.db.delete(link._id);
+    }
+
+    // Delete guardians
+    for (const guardian of guardianIdentities) {
+      await ctx.db.delete(guardian._id);
+    }
+
+    // Delete players last
+    for (const player of playerIdentities) {
+      await ctx.db.delete(player._id);
+    }
+
+    // Step 5: Patch importSessions to mark as undone
+    await ctx.db.patch(args.sessionId, {
+      status: "undone",
+      undoneAt: now,
+      undoneBy: user._id,
+      undoReason: args.reason,
+    });
+
+    // Step 6: Return success with rollback stats
+    return {
+      success: true,
+      rollbackStats: {
+        playersRemoved: playerIdentities.length,
+        guardiansRemoved: guardianIdentities.length,
+        guardianLinksRemoved: guardianPlayerLinks.length,
+        enrollmentsRemoved: orgPlayerEnrollments.length,
+        passportsRemoved: sportPassports.length,
+        assessmentsRemoved: skillAssessments.length,
+      },
+      ineligibilityReasons: [],
     };
   },
 });

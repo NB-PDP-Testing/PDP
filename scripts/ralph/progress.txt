@@ -31,11 +31,62 @@ Started: Fri 13 Feb 2026 23:21:35 GMT
 - Tables: playerIdentities, guardianIdentities, guardianPlayerLinks, orgPlayerEnrollments, sportPassports, skillAssessments
 - Import sessions track state with status transitions in VALID_TRANSITIONS map
 - Schema already has 'undone' status literal + undo audit fields (undoneAt, undoneBy, undoReason)
+- skillAssessments uses `by_playerIdentityId` index (not `by_playerId`)
 
 ### Quality Checks
 - Run in order: `npm run check-types` → `npx ultracite fix` → `npm run check`
 - Ultracite must run before linting or you'll get false failures
 - For frontend changes: test in browser at http://localhost:3000
 - Codegen: `npx -w packages/backend convex codegen`
+
+---
+
+## 2026-02-13 23:35 - US-P2.4-001 - Create undo eligibility check query
+**Iteration**: 1
+**Commit**: b677e0e3b8ad1798e757cf33e227c6d75a6f674f
+**Session**: 41d60dc6-e522-4053-aaf7-d3f72ad2381b
+**Status**: Complete
+
+### What was implemented
+- Created `checkUndoEligibility` query in `packages/backend/convex/models/importSessions.ts`
+- Validates session status (must be 'completed')
+- Checks 24-hour time window from session.completedAt
+- Counts records across all 6 import tables using by_importSessionId index
+- Detects post-import assessments (assessments on imported players that were NOT created by this import)
+- Returns eligibility boolean, ineligibility reasons array, expiration timestamp, and impact stats
+
+### Files changed
+- packages/backend/convex/models/importSessions.ts (+144 lines)
+
+### Quality checks
+- ✅ Type check: passed (pre-existing errors in other files)
+- ✅ Codegen: passed
+- ✅ Linting: passed (pre-existing warnings in other files)
+- ✅ Pre-commit hooks: passed
+
+### **Learnings for future iterations** ⚠️ CRITICAL
+
+**Patterns discovered:**
+- Auth helper available at `authComponent.safeGetAuthUser(ctx)` from `../auth`
+- Import in files: `import { authComponent } from "../auth";`
+- Better Auth adapter accessed via `ctx.runQuery(components.betterAuth.adapter.findOne, ...)`
+
+**Gotchas encountered:**
+- ❌ skillAssessments uses `by_playerIdentityId` index, NOT `by_playerId`
+- Field name is `playerIdentityId`, not `playerId`
+- This caused initial type error, fixed by using correct index name
+- Added this pattern to Codebase Patterns section for future iterations
+
+**Dependencies found:**
+- checkUndoEligibility is read-only query - can be called reactively by frontend
+- Uses 6 table queries via by_importSessionId index (batch pattern)
+- Uses by_playerIdentityId index to query assessments per player (with Promise.all batch fetch)
+
+**What to do next**:
+- Implement US-P2.4-002: undoImport mutation (uses checkUndoEligibility logic + performs hard deletes)
+
+**Mistakes made**:
+- Initially used `by_playerId` instead of `by_playerIdentityId` - caught by type checker
+- Learned to check schema indexes before assuming field names
 
 ---

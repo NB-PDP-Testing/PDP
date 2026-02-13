@@ -54,6 +54,7 @@
         "Run npx ultracite fix and npx -w packages/backend convex codegen"
       ],
       "priority": 1,
+      "passes": true,
       "notes": "The eligibility check is a query (read-only) so it can be called reactively. The 24-hour countdown can update in real-time on the frontend. For the 'manual edits' check, compare record _creationTime against any subsequent patch timestamps — if the codebase doesn't track edit timestamps on these records, skip this check for now and note it as a future enhancement."
     },
     {
@@ -75,6 +76,7 @@
         "Run npx ultracite fix and npx -w packages/backend convex codegen"
       ],
       "priority": 2,
+      "passes": false,
       "notes": "Delete order matters to avoid foreign key issues — delete leaf records first (assessments, passports), then middle records (enrollments, guardian links), then root records (guardians, players). The VALID_TRANSITIONS map in importSessions.ts already includes 'completed' -> ['undone']. The schema already has 'undone' status literal and undo audit fields (undoneAt, undoneBy, undoReason) — do NOT re-add them."
     },
     {
@@ -96,6 +98,7 @@
         "Run npx ultracite fix"
       ],
       "priority": 3,
+      "passes": false,
       "notes": "The listSessionsByOrg query already exists with a limit parameter. Use it with a reasonable limit (20-50). For the undo eligibility check, call checkUndoEligibility for each 'completed' session that's within 24 hours — but batch this efficiently (don't call one query per row if possible)."
     },
     {
@@ -120,6 +123,7 @@
         "Run npx ultracite fix"
       ],
       "priority": 4,
+      "passes": false,
       "notes": "This dialog must feel intentionally weighty — the user is about to permanently delete imported data. The required reason field creates an audit trail. The countdown timer adds urgency awareness."
     },
     {
@@ -137,6 +141,7 @@
         "Run npx ultracite fix and npm run check-types"
       ],
       "priority": 5,
+      "passes": false,
       "notes": "The complete step already exists — just add the undo affordance. The import entry page may show the most recent import status as a convenience."
     }
   ]

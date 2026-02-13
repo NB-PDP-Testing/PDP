@@ -423,6 +423,7 @@ export const importPlayerWithIdentity = mutation({
           postcode: args.postcode?.trim(), // ✅ Copy from player
           country: args.country?.trim(), // ✅ Copy from player
           verificationStatus: "unverified",
+          importSessionId: args.sessionId,
           createdAt: now,
           updatedAt: now,
           createdFrom: "import",
@@ -465,6 +466,7 @@ export const importPlayerWithIdentity = mutation({
             hasParentalResponsibility: true,
             canCollectFromTraining: true,
             consentedToSharing: true,
+            importSessionId: args.sessionId,
             createdAt: now,
             updatedAt: now,
           });
@@ -806,6 +808,7 @@ export const batchImportPlayersWithIdentity = mutation({
               postcode: adultPlayerData.postcode?.trim(),
               country: adultPlayerData.country?.trim(),
               verificationStatus: "unverified",
+              importSessionId: args.sessionId,
               createdAt: now,
               updatedAt: now,
               createdFrom: "import",
@@ -849,6 +852,7 @@ export const batchImportPlayersWithIdentity = mutation({
               hasParentalResponsibility: true,
               canCollectFromTraining: true,
               consentedToSharing: true,
+              importSessionId: args.sessionId,
               createdAt: now,
               updatedAt: now,
             });
@@ -943,6 +947,7 @@ export const batchImportPlayersWithIdentity = mutation({
               postcode: playerData.postcode?.trim(), // ✅ Copy from player
               country: playerData.country?.trim(), // ✅ Copy from player
               verificationStatus: "unverified",
+              importSessionId: args.sessionId,
               createdAt: now,
               updatedAt: now,
               createdFrom: "import",
@@ -979,6 +984,7 @@ export const batchImportPlayersWithIdentity = mutation({
               hasParentalResponsibility: true,
               canCollectFromTraining: true,
               consentedToSharing: true,
+              importSessionId: args.sessionId,
               createdAt: now,
               updatedAt: now,
             });
@@ -1061,6 +1067,7 @@ export const batchImportPlayersWithIdentity = mutation({
               status: "active",
               assessmentCount: 0,
               currentSeason: playerData.season,
+              importSessionId: args.sessionId,
               createdAt: now,
               updatedAt: now,
             });
@@ -1116,6 +1123,7 @@ export const batchImportPlayersWithIdentity = mutation({
               templateId: args.benchmarkSettings.templateId,
               ageGroup: args.benchmarkSettings.ageGroup,
               sportCode: benchSportCode,
+              importSessionId: args.sessionId,
             }
           );
           results.benchmarksApplied += benchResult.benchmarksApplied;

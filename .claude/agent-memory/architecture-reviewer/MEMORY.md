@@ -26,8 +26,9 @@
 - `phase2-review.md` through `phase6-review.md` -- Voice Gateways v2 reviews
 
 ## ADRs Written
-- `ADR-VN2-001` through `ADR-VN2-042`: Voice Gateways v2 (Phases 2-7)
+- `ADR-VN2-001` through `ADR-VN2-047`: Voice Gateways v2 (Phases 2-7)
 - `ADR-phase-2.3-draft-storage-strategy.md`: Import wizard save/resume
+- `ADR-phase-2.4-undo-hard-delete-strategy.md`: Hard delete vs soft delete for undo
 
 ## Phase Reviews Summary
 
@@ -44,6 +45,17 @@
 - POST-IMPLEMENTATION review: 0 critical, 3 warnings, 4 suggestions
 - See `import-phases.md` for details
 - Key: Raw CSV not stored, header matching on resume, cron at 4 AM UTC
+
+### Import Undo (Phase 2.4, 2026-02-13) -- PRE-IMPLEMENTATION
+- **NO-GO**: 4 critical blockers (C1-C4), 3 warnings
+- C1: 4 tables missing `importSessionId` field (guardianIdentities, guardianPlayerLinks, sportPassports, skillAssessments)
+- C2: ALL 6 tables missing `by_importSessionId` index
+- C3: `batchImportPlayersWithIdentity` only sets importSessionId on 2/6 tables
+- C4: importSessions missing "undone" status + undo fields
+- Critical risk: shared identity records across imports (platform-level tables)
+- Convex limits: 16K writes/mutation, 32K scans/mutation -- safe for <1000 player imports
+- ADR: `ADR-phase-2.4-undo-hard-delete-strategy.md`
+- importSessions.ts has ZERO auth checks on any mutation (W1)
 
 ## Cron Time Slots
 See `import-phases.md` for complete cron schedule (updated 2026-02-13).

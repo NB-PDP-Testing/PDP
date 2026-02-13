@@ -16,7 +16,8 @@ const statusValidator = v.union(
   v.literal("importing"),
   v.literal("completed"),
   v.literal("failed"),
-  v.literal("cancelled")
+  v.literal("cancelled"),
+  v.literal("undone")
 );
 
 const sourceInfoValidator = v.object({
@@ -90,6 +91,9 @@ const sessionReturnValidator = v.object({
   duplicates: v.array(duplicateValidator),
   startedAt: v.number(),
   completedAt: v.optional(v.number()),
+  undoneAt: v.optional(v.number()),
+  undoneBy: v.optional(v.string()),
+  undoReason: v.optional(v.string()),
 });
 
 // Valid status transitions
@@ -99,7 +103,7 @@ const VALID_TRANSITIONS: Record<string, string[]> = {
   selecting: ["reviewing", "cancelled"],
   reviewing: ["importing", "cancelled"],
   importing: ["completed", "failed"],
-  completed: [],
+  completed: ["undone"],
   failed: [],
   cancelled: [],
 };

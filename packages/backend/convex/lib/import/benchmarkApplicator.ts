@@ -28,6 +28,7 @@ export type BenchmarkSettings = {
   strategy: BenchmarkStrategy;
   templateId?: Id<"benchmarkTemplates">;
   ageGroup: string;
+  importSessionId?: Id<"importSessions">;
   sportCode: string;
 };
 
@@ -175,6 +176,7 @@ export async function applyBenchmarksToPassport(
       assessorRole: "system",
       source: "manual",
       confidence: "medium",
+      importSessionId: settings.importSessionId,
       createdAt: now,
     });
 

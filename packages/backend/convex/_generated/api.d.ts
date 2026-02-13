@@ -44,6 +44,7 @@ import type * as lib_firstUserSetup from "../lib/firstUserSetup.js";
 import type * as lib_import_benchmarkApplicator from "../lib/import/benchmarkApplicator.js";
 import type * as lib_import_mapper from "../lib/import/mapper.js";
 import type * as lib_import_parser from "../lib/import/parser.js";
+import type * as lib_import_simulator from "../lib/import/simulator.js";
 import type * as lib_import_sportConfig from "../lib/import/sportConfig.js";
 import type * as lib_import_validator from "../lib/import/validator.js";
 import type * as lib_matching_guardianMatcher from "../lib/matching/guardianMatcher.js";
@@ -97,6 +98,7 @@ import type * as models_guardianManagement from "../models/guardianManagement.js
 import type * as models_guardianPlayerLinks from "../models/guardianPlayerLinks.js";
 import type * as models_importMappingHistory from "../models/importMappingHistory.js";
 import type * as models_importSessions from "../models/importSessions.js";
+import type * as models_importSimulation from "../models/importSimulation.js";
 import type * as models_importTemplateSeeds from "../models/importTemplateSeeds.js";
 import type * as models_importTemplates from "../models/importTemplates.js";
 import type * as models_insightDrafts from "../models/insightDrafts.js";
@@ -240,6 +242,7 @@ declare const fullApi: ApiFromModules<{
   "lib/import/benchmarkApplicator": typeof lib_import_benchmarkApplicator;
   "lib/import/mapper": typeof lib_import_mapper;
   "lib/import/parser": typeof lib_import_parser;
+  "lib/import/simulator": typeof lib_import_simulator;
   "lib/import/sportConfig": typeof lib_import_sportConfig;
   "lib/import/validator": typeof lib_import_validator;
   "lib/matching/guardianMatcher": typeof lib_matching_guardianMatcher;
@@ -293,6 +296,7 @@ declare const fullApi: ApiFromModules<{
   "models/guardianPlayerLinks": typeof models_guardianPlayerLinks;
   "models/importMappingHistory": typeof models_importMappingHistory;
   "models/importSessions": typeof models_importSessions;
+  "models/importSimulation": typeof models_importSimulation;
   "models/importTemplateSeeds": typeof models_importTemplateSeeds;
   "models/importTemplates": typeof models_importTemplates;
   "models/insightDrafts": typeof models_insightDrafts;

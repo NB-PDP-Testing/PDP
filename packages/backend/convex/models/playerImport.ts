@@ -1121,6 +1121,7 @@ export const batchImportPlayersWithIdentity = mutation({
               templateId: args.benchmarkSettings.templateId,
               ageGroup: args.benchmarkSettings.ageGroup,
               sportCode: benchSportCode,
+              importSessionId: args.sessionId,
             }
           );
           results.benchmarksApplied += benchResult.benchmarksApplied;

@@ -8,6 +8,7 @@ import {
   ChevronDown,
   Clipboard,
   ClipboardList,
+  FileSpreadsheet,
   FileUp,
   Flag,
   GraduationCap,
@@ -185,6 +186,11 @@ export function getAdminNavGroups(
           href: `/orgs/${orgId}/import`,
           label: "Import Wizard",
           icon: FileUp,
+        },
+        {
+          href: `/orgs/${orgId}/admin/templates`,
+          label: "Manage Templates",
+          icon: FileSpreadsheet,
         },
         {
           href: `/orgs/${orgId}/admin/player-import`,

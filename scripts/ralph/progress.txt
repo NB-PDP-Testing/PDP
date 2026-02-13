@@ -184,3 +184,44 @@ Started: Fri 13 Feb 2026 23:21:35 GMT
 - Will connect Undo button click handler to open dialog
 
 ---
+
+## 2026-02-14 00:25 - US-P2.4-004 - Create UndoImportDialog component
+**Iteration**: 1
+**Commit**: 0f468f6f3dbd08c4f3d65a1169a37bdab0897c34
+**Session**: dbf32b00-c423-4877-a9f8-d66fd653ff9e
+**Status**: Complete
+
+### What was implemented
+- Created UndoImportDialog component in `apps/web/src/components/import/undo-import-dialog.tsx`
+- Reactive eligibility check via checkUndoEligibility query (skip when sessionId null)
+- Countdown timer showing time remaining (hours/minutes)
+- Impact preview grid showing 6 table counts
+- Ineligibility reasons displayed as destructive Alert with bullet list
+- Required reason input (10 char minimum) with validation
+- Calls undoImport mutation with sessionId and reason
+- Success toast with rollback stats, error toast with reasons
+- Mobile responsive at 375px (sm:max-w-[500px])
+
+### Files changed
+- apps/web/src/components/import/undo-import-dialog.tsx (+246 lines, new file)
+
+### Quality checks
+- ✅ Type check: passed
+- ✅ Linting: passed (fixed block statement errors, array index key)
+- ✅ Pre-commit hooks: passed
+
+### **Learnings for future iterations** ⚠️ CRITICAL
+
+**Patterns discovered:**
+- AlertDialog controlled by prop: `open={!!sessionId}` and `onOpenChange={(open) => !open && onClose()}`
+- Query skipping: `useQuery(api.x, sessionId ? { sessionId } : "skip")`
+- Reactive countdown timer via getTimeRemaining helper (recalculates on re-render)
+
+**Gotchas encountered:**
+- ❌ Linting error: using `index` as key in map - use unique value instead (reasonText)
+- ❌ Linting error: block statements required for if returns - apply unsafe fix
+
+**What to do next**:
+- Implement US-P2.4-005: Wire up Undo buttons in history page and complete step
+
+---

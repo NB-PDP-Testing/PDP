@@ -123,7 +123,7 @@
         "Run npx ultracite fix"
       ],
       "priority": 4,
-      "passes": false,
+      "passes": true,
       "notes": "This dialog must feel intentionally weighty — the user is about to permanently delete imported data. The required reason field creates an audit trail. The countdown timer adds urgency awareness."
     },
     {

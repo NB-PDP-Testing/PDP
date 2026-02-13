@@ -9,6 +9,7 @@ import {
   CheckCircle2,
   Clock,
   FileSpreadsheet,
+  History,
   Loader2,
   Play,
   Trash2,
@@ -643,6 +644,14 @@ export default function ImportPage() {
               </div>
             </CardContent>
           </Card>
+          <div className="mt-3 flex justify-center">
+            <Link href={`/orgs/${orgId}/import/history` as Route}>
+              <Button size="sm" variant="outline">
+                <History className="mr-2 h-4 w-4" />
+                View Import History
+              </Button>
+            </Link>
+          </div>
         </div>
       )}
 

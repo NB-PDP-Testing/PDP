@@ -1,10 +1,12 @@
 "use client";
 
 import { api } from "@pdp/backend/convex/_generated/api";
+import type { Id } from "@pdp/backend/convex/_generated/dataModel";
 import { useQuery } from "convex/react";
 import { ChevronDown, ChevronRight, Undo2 } from "lucide-react";
 import { useParams, useRouter } from "next/navigation";
 import { useEffect, useState } from "react";
+import { UndoImportDialog } from "@/components/import/undo-import-dialog";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
@@ -75,6 +77,8 @@ export default function ImportHistoryPage() {
   const [expandedSessions, setExpandedSessions] = useState<Set<string>>(
     new Set()
   );
+  const [undoSessionId, setUndoSessionId] =
+    useState<Id<"importSessions"> | null>(null);
 
   // Check if the user has org:admin permission (same pattern as admin/layout.tsx)
   useEffect(() => {
@@ -256,7 +260,15 @@ export default function ImportHistoryPage() {
                           <TooltipProvider>
                             <Tooltip>
                               <TooltipTrigger asChild>
-                                <Button size="sm" variant="outline">
+                                <Button
+                                  onClick={() =>
+                                    setUndoSessionId(
+                                      session._id as Id<"importSessions">
+                                    )
+                                  }
+                                  size="sm"
+                                  variant="outline"
+                                >
                                   <Undo2 className="mr-2 h-4 w-4" />
                                   Undo
                                 </Button>
@@ -473,7 +485,16 @@ export default function ImportHistoryPage() {
                         )}
                       </Button>
                       {canUndo && (
-                        <Button className="flex-1" size="sm" variant="outline">
+                        <Button
+                          className="flex-1"
+                          onClick={() =>
+                            setUndoSessionId(
+                              session._id as Id<"importSessions">
+                            )
+                          }
+                          size="sm"
+                          variant="outline"
+                        >
                           <Undo2 className="mr-2 h-4 w-4" />
                           Undo
                         </Button>
@@ -486,6 +507,16 @@ export default function ImportHistoryPage() {
           })
         )}
       </div>
+
+      {/* Undo Import Dialog */}
+      <UndoImportDialog
+        onClose={() => setUndoSessionId(null)}
+        onSuccess={() => {
+          // Refresh sessions list (useQuery will automatically refetch)
+          setUndoSessionId(null);
+        }}
+        sessionId={undoSessionId}
+      />
     </div>
   );
 }

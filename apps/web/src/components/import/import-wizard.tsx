@@ -811,6 +811,7 @@ export default function ImportWizard({
           <CompleteStep
             importResult={state.importResult}
             organizationId={organizationId}
+            sessionId={state.sessionId}
           />
         )}
       </div>

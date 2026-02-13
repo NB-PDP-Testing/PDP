@@ -272,6 +272,48 @@ export const recordSessionStats = mutation({
 });
 
 /**
+ * Get usage stats for a batch of templates.
+ * Returns usage count and last used date per template.
+ */
+export const getTemplateUsageStats = query({
+  args: {
+    templateIds: v.array(v.id("importTemplates")),
+  },
+  returns: v.array(
+    v.object({
+      templateId: v.id("importTemplates"),
+      usageCount: v.number(),
+      lastUsedAt: v.union(v.number(), v.null()),
+    })
+  ),
+  handler: async (ctx, args) => {
+    const results = await Promise.all(
+      args.templateIds.map(async (templateId) => {
+        const sessions = await ctx.db
+          .query("importSessions")
+          .withIndex("by_templateId", (q) => q.eq("templateId", templateId))
+          .collect();
+
+        let lastUsedAt: number | null = null;
+        for (const session of sessions) {
+          if (lastUsedAt === null || session.startedAt > lastUsedAt) {
+            lastUsedAt = session.startedAt;
+          }
+        }
+
+        return {
+          templateId,
+          usageCount: sessions.length,
+          lastUsedAt,
+        };
+      })
+    );
+
+    return results;
+  },
+});
+
+/**
  * Get a single session by ID
  */
 export const getSession = query({

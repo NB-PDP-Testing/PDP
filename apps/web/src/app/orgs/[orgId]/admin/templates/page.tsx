@@ -2,7 +2,7 @@
 
 import { api } from "@pdp/backend/convex/_generated/api";
 import type { Id } from "@pdp/backend/convex/_generated/dataModel";
-import { useQuery } from "convex/react";
+import { useMutation, useQuery } from "convex/react";
 import {
   Copy,
   Edit,
@@ -14,6 +14,14 @@ import {
 } from "lucide-react";
 import { useParams } from "next/navigation";
 import { useMemo, useState } from "react";
+import { toast } from "sonner";
+import { CloneDialog } from "@/components/import/templates/clone-dialog";
+import { DeleteDialog } from "@/components/import/templates/delete-dialog";
+import {
+  getDefaultFormData,
+  TemplateForm,
+  type TemplateFormData,
+} from "@/components/import/templates/template-form";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import {
@@ -23,6 +31,13 @@ import {
   CardHeader,
   CardTitle,
 } from "@/components/ui/card";
+import {
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogHeader,
+  DialogTitle,
+} from "@/components/ui/dialog";
 import { Input } from "@/components/ui/input";
 import {
   Select,
@@ -41,6 +56,10 @@ import {
   TableRow,
 } from "@/components/ui/table";
 import { useCurrentUser } from "@/hooks/use-current-user";
+
+// ============================================================
+// Types
+// ============================================================
 
 type Template = {
   _id: Id<"importTemplates">;
@@ -77,6 +96,10 @@ type Template = {
   createdAt: number;
   updatedAt: number;
 };
+
+// ============================================================
+// Constants & Helpers
+// ============================================================
 
 const SPORT_OPTIONS = [
   { value: "all", label: "All Sports" },
@@ -116,6 +139,25 @@ function formatUsageStats(stats?: {
   const lastUsed = stats.lastUsedAt ? formatDate(stats.lastUsedAt) : "—";
   return `${stats.usageCount}x — ${lastUsed}`;
 }
+
+function templateToFormData(template: Template): TemplateFormData {
+  return {
+    name: template.name,
+    description: template.description ?? "",
+    sportCode: template.sportCode ?? "",
+    sourceType: template.sourceType,
+    scope: template.scope,
+    columnMappings: template.columnMappings,
+    ageGroupMappings: template.ageGroupMappings ?? [],
+    skillInitialization:
+      template.skillInitialization as TemplateFormData["skillInitialization"],
+    defaults: template.defaults,
+  };
+}
+
+// ============================================================
+// Table Row Component
+// ============================================================
 
 function TemplateTableRow({
   template,
@@ -193,6 +235,125 @@ function TemplateTableRow({
   );
 }
 
+function matchesSearch(t: Template, search: string): boolean {
+  if (!search) {
+    return true;
+  }
+  const q = search.toLowerCase();
+  return (
+    t.name.toLowerCase().includes(q) ||
+    (t.description?.toLowerCase().includes(q) ?? false)
+  );
+}
+
+function filterTemplates(
+  templates: Template[],
+  search: string,
+  sportFilter: string
+): Template[] {
+  return templates.filter((t) => {
+    if (!matchesSearch(t, search)) {
+      return false;
+    }
+    if (sportFilter !== "all" && t.sportCode !== sportFilter) {
+      return false;
+    }
+    return true;
+  });
+}
+
+// ============================================================
+// Mobile Card Component
+// ============================================================
+
+function TemplateMobileCard({
+  template,
+  stats,
+  canModify,
+  onEdit,
+  onClone,
+  onDelete,
+}: {
+  template: Template;
+  stats?: { usageCount: number; lastUsedAt: number | null };
+  canModify: boolean;
+  onEdit: () => void;
+  onClone: () => void;
+  onDelete: () => void;
+}) {
+  return (
+    <Card>
+      <CardHeader className="pb-3">
+        <div className="flex items-start justify-between">
+          <div className="space-y-1">
+            <CardTitle className="text-base">{template.name}</CardTitle>
+            {template.description && (
+              <CardDescription className="text-xs">
+                {template.description}
+              </CardDescription>
+            )}
+          </div>
+          <Badge
+            variant={template.scope === "platform" ? "default" : "secondary"}
+          >
+            {template.scope === "platform" ? "Platform" : "Org"}
+          </Badge>
+        </div>
+      </CardHeader>
+      <CardContent className="space-y-3">
+        <div className="flex flex-wrap gap-2">
+          <Badge variant="outline">{getSportLabel(template.sportCode)}</Badge>
+          <Badge className="capitalize" variant="outline">
+            {template.sourceType}
+          </Badge>
+          <Badge variant="outline">
+            {template.columnMappings.length} mappings
+          </Badge>
+        </div>
+        <p className="text-muted-foreground text-xs">
+          {formatUsageStats(stats)}
+        </p>
+        <div className="flex gap-2">
+          {canModify && (
+            <Button
+              className="flex-1"
+              onClick={onEdit}
+              size="sm"
+              variant="outline"
+            >
+              <Edit className="mr-1 h-3 w-3" />
+              Edit
+            </Button>
+          )}
+          <Button
+            className="flex-1"
+            onClick={onClone}
+            size="sm"
+            variant="outline"
+          >
+            <Copy className="mr-1 h-3 w-3" />
+            {canModify ? "Clone" : "Clone to Org"}
+          </Button>
+          {canModify && (
+            <Button
+              className="text-destructive"
+              onClick={onDelete}
+              size="sm"
+              variant="outline"
+            >
+              <Trash2 className="mr-1 h-3 w-3" />
+            </Button>
+          )}
+        </div>
+      </CardContent>
+    </Card>
+  );
+}
+
+// ============================================================
+// Main Page
+// ============================================================
+
 export default function TemplateManagementPage() {
   const params = useParams();
   const orgId = params.orgId as string;
@@ -200,19 +361,28 @@ export default function TemplateManagementPage() {
 
   const [search, setSearch] = useState("");
   const [sportFilter, setSportFilter] = useState("all");
-  const [_editingTemplate, setEditingTemplate] = useState<Template | null>(
+
+  // Dialog state
+  const [editingTemplate, setEditingTemplate] = useState<Template | null>(null);
+  const [creatingTemplate, setCreatingTemplate] = useState(false);
+  const [cloningTemplate, setCloningTemplate] = useState<Template | null>(null);
+  const [deletingTemplate, setDeletingTemplate] = useState<Template | null>(
     null
   );
-  const [_creatingTemplate, setCreatingTemplate] = useState(false);
-  const [_cloningTemplate, setCloningTemplate] = useState<Template | null>(
+
+  // Pre-filled form data from sample upload
+  const [prefilledData, setPrefilledData] = useState<TemplateFormData | null>(
     null
   );
-  const [_deletingTemplate, setDeletingTemplate] = useState<Template | null>(
-    null
-  );
-  const [_showSampleUpload, setShowSampleUpload] = useState(false);
+
+  const [isSubmitting, setIsSubmitting] = useState(false);
 
   const isPlatformStaff = user?.isPlatformStaff === true;
+  const userId = user?._id ?? "";
+
+  // Mutations
+  const createTemplate = useMutation(api.models.importTemplates.createTemplate);
+  const updateTemplate = useMutation(api.models.importTemplates.updateTemplate);
 
   // Fetch platform templates
   const platformTemplates = useQuery(api.models.importTemplates.listTemplates, {
@@ -265,33 +435,77 @@ export default function TemplateManagementPage() {
     if (!allTemplates) {
       return;
     }
-    return allTemplates.filter((t) => {
-      // Search filter
-      if (search) {
-        const q = search.toLowerCase();
-        const nameMatch = t.name.toLowerCase().includes(q);
-        const descMatch = t.description?.toLowerCase().includes(q) ?? false;
-        if (!(nameMatch || descMatch)) {
-          return false;
-        }
-      }
-      // Sport filter
-      if (sportFilter !== "all" && t.sportCode !== sportFilter) {
-        return false;
-      }
-      return true;
-    });
+    return filterTemplates(allTemplates, search, sportFilter);
   }, [allTemplates, search, sportFilter]);
 
   const isLoading = !allTemplates;
 
-  // Check if user can edit/delete a template
-  const canModify = (template: Template) => {
-    if (isPlatformStaff) {
-      return true;
+  const canModify = (template: Template) =>
+    isPlatformStaff || template.scope === "organization";
+
+  // ============================================================
+  // Create / Edit handlers
+  // ============================================================
+
+  const handleCreate = async (data: TemplateFormData) => {
+    setIsSubmitting(true);
+    try {
+      await createTemplate({
+        name: data.name,
+        description: data.description || undefined,
+        sportCode: data.sportCode || undefined,
+        sourceType: data.sourceType,
+        scope: data.scope,
+        organizationId: data.scope === "organization" ? orgId : undefined,
+        columnMappings: data.columnMappings,
+        ageGroupMappings:
+          data.ageGroupMappings.length > 0 ? data.ageGroupMappings : undefined,
+        skillInitialization: data.skillInitialization,
+        defaults: data.defaults,
+        createdBy: userId,
+      });
+      toast.success("Template created successfully");
+      setCreatingTemplate(false);
+      setPrefilledData(null);
+    } catch {
+      toast.error("Failed to create template");
+    } finally {
+      setIsSubmitting(false);
     }
-    return template.scope === "organization";
   };
+
+  const handleEdit = async (data: TemplateFormData) => {
+    if (!editingTemplate) {
+      return;
+    }
+    setIsSubmitting(true);
+    try {
+      await updateTemplate({
+        templateId: editingTemplate._id,
+        name: data.name,
+        description: data.description || undefined,
+        sportCode: data.sportCode || undefined,
+        sourceType: data.sourceType,
+        columnMappings: data.columnMappings,
+        ageGroupMappings:
+          data.ageGroupMappings.length > 0 ? data.ageGroupMappings : undefined,
+        skillInitialization: data.skillInitialization,
+        defaults: data.defaults,
+      });
+      toast.success("Template updated successfully");
+      setEditingTemplate(null);
+    } catch {
+      toast.error("Failed to update template");
+    } finally {
+      setIsSubmitting(false);
+    }
+  };
+
+  // Determine form dialog state
+  const showFormDialog = creatingTemplate || editingTemplate !== null;
+  const formInitialData = editingTemplate
+    ? templateToFormData(editingTemplate)
+    : (prefilledData ?? getDefaultFormData());
 
   return (
     <div className="space-y-6">
@@ -307,7 +521,7 @@ export default function TemplateManagementPage() {
         </div>
         <div className="flex gap-2">
           <Button
-            onClick={() => setShowSampleUpload(true)}
+            onClick={() => setCreatingTemplate(true)}
             size="sm"
             variant="outline"
           >
@@ -407,95 +621,90 @@ export default function TemplateManagementPage() {
 
           {/* Mobile card view */}
           <div className="space-y-3 md:hidden">
-            {filteredTemplates.map((template) => {
-              const stats = usageMap.get(template._id);
-              return (
-                <Card key={template._id}>
-                  <CardHeader className="pb-3">
-                    <div className="flex items-start justify-between">
-                      <div className="space-y-1">
-                        <CardTitle className="text-base">
-                          {template.name}
-                        </CardTitle>
-                        {template.description && (
-                          <CardDescription className="text-xs">
-                            {template.description}
-                          </CardDescription>
-                        )}
-                      </div>
-                      <Badge
-                        variant={
-                          template.scope === "platform"
-                            ? "default"
-                            : "secondary"
-                        }
-                      >
-                        {template.scope === "platform" ? "Platform" : "Org"}
-                      </Badge>
-                    </div>
-                  </CardHeader>
-                  <CardContent className="space-y-3">
-                    <div className="flex flex-wrap gap-2">
-                      <Badge variant="outline">
-                        {getSportLabel(template.sportCode)}
-                      </Badge>
-                      <Badge className="capitalize" variant="outline">
-                        {template.sourceType}
-                      </Badge>
-                      <Badge variant="outline">
-                        {template.columnMappings.length} mappings
-                      </Badge>
-                    </div>
-                    <p className="text-muted-foreground text-xs">
-                      {stats?.usageCount
-                        ? `Used ${stats.usageCount} times — last ${stats.lastUsedAt ? formatDate(stats.lastUsedAt) : "—"}`
-                        : "Never used"}
-                    </p>
-                    <div className="flex gap-2">
-                      {canModify(template) && (
-                        <Button
-                          className="flex-1"
-                          onClick={() => setEditingTemplate(template)}
-                          size="sm"
-                          variant="outline"
-                        >
-                          <Edit className="mr-1 h-3 w-3" />
-                          Edit
-                        </Button>
-                      )}
-                      <Button
-                        className="flex-1"
-                        onClick={() => setCloningTemplate(template)}
-                        size="sm"
-                        variant="outline"
-                      >
-                        <Copy className="mr-1 h-3 w-3" />
-                        {canModify(template) ? "Clone" : "Clone to Org"}
-                      </Button>
-                      {canModify(template) && (
-                        <Button
-                          className="text-destructive"
-                          onClick={() => setDeletingTemplate(template)}
-                          size="sm"
-                          variant="outline"
-                        >
-                          <Trash2 className="mr-1 h-3 w-3" />
-                        </Button>
-                      )}
-                    </div>
-                  </CardContent>
-                </Card>
-              );
-            })}
+            {filteredTemplates.map((template) => (
+              <TemplateMobileCard
+                canModify={canModify(template)}
+                key={template._id}
+                onClone={() => setCloningTemplate(template)}
+                onDelete={() => setDeletingTemplate(template)}
+                onEdit={() => setEditingTemplate(template)}
+                stats={usageMap.get(template._id)}
+                template={template}
+              />
+            ))}
           </div>
         </>
       )}
 
-      {/* Dialogs will be added in later stories */}
-      {/* Template form for create/edit - US-P1.4-003/004 */}
-      {/* Clone dialog - US-P1.4-006 */}
-      {/* Delete dialog - US-P1.4-006 */}
-      {/* Sample upload dialog - US-P1.4-005 */}
+      {/* Create/Edit Template Dialog */}
+      <Dialog
+        onOpenChange={(open) => {
+          if (!open) {
+            setCreatingTemplate(false);
+            setEditingTemplate(null);
+            setPrefilledData(null);
+          }
+        }}
+        open={showFormDialog}
+      >
+        <DialogContent className="max-h-[90vh] max-w-2xl overflow-y-auto">
+          <DialogHeader>
+            <DialogTitle>
+              {editingTemplate ? "Edit Template" : "Create Template"}
+            </DialogTitle>
+            <DialogDescription>
+              {editingTemplate
+                ? "Update the template configuration below."
+                : "Configure a new import template with column mappings and defaults."}
+            </DialogDescription>
+          </DialogHeader>
+          <TemplateForm
+            initialData={formInitialData}
+            isPlatformStaff={isPlatformStaff}
+            isSubmitting={isSubmitting}
+            onCancel={() => {
+              setCreatingTemplate(false);
+              setEditingTemplate(null);
+              setPrefilledData(null);
+            }}
+            onSubmit={editingTemplate ? handleEdit : handleCreate}
+            submitLabel={
+              editingTemplate ? "Update Template" : "Create Template"
+            }
+          />
+        </DialogContent>
+      </Dialog>
+
+      {/* Clone Dialog */}
+      {cloningTemplate && (
+        <CloneDialog
+          createdBy={userId}
+          isPlatformTemplate={cloningTemplate.scope === "platform"}
+          onOpenChange={(open) => {
+            if (!open) {
+              setCloningTemplate(null);
+            }
+          }}
+          open
+          organizationId={orgId}
+          templateId={cloningTemplate._id}
+          templateName={cloningTemplate.name}
+        />
+      )}
+
+      {/* Delete Dialog */}
+      {deletingTemplate && (
+        <DeleteDialog
+          onOpenChange={(open) => {
+            if (!open) {
+              setDeletingTemplate(null);
+            }
+          }}
+          open
+          templateId={deletingTemplate._id}
+          templateName={deletingTemplate.name}
+        />
+      )}
     </div>
   );
 }

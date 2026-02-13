@@ -2,11 +2,16 @@
 
 import { api } from "@pdp/backend/convex/_generated/api";
 import type { Id } from "@pdp/backend/convex/_generated/dataModel";
+import {
+  calculateDataQuality,
+  type QualityReport,
+} from "@pdp/backend/convex/lib/import/dataQuality";
 import type { MappingSuggestion } from "@pdp/backend/convex/lib/import/mapper";
 import type { ParseResult } from "@pdp/backend/convex/lib/import/parser";
 import { useMutation } from "convex/react";
 import { Check } from "lucide-react";
-import { useCallback, useRef, useState } from "react";
+import { useCallback, useMemo, useRef, useState } from "react";
+import DataQualityReport from "@/components/import/data-quality-report";
 import BenchmarkConfigStep from "@/components/import/steps/benchmark-config-step";
 import CompleteStep from "@/components/import/steps/complete-step";
 import ImportStep from "@/components/import/steps/import-step";
@@ -72,16 +77,21 @@ export const WIZARD_STEPS: WizardStep[] = [
   { id: 3, name: "Select Players", description: "Choose players to import" },
   {
     id: 4,
+    name: "Quality Check",
+    description: "Review data quality and fix issues",
+  },
+  {
+    id: 5,
     name: "Benchmarks",
     description: "Configure skill rating initialization",
   },
   {
-    id: 5,
+    id: 6,
     name: "Review",
     description: "Review validation and duplicates",
   },
-  { id: 6, name: "Import", description: "Import players" },
-  { id: 7, name: "Complete", description: "Import summary" },
+  { id: 7, name: "Import", description: "Import players" },
+  { id: 8, name: "Complete", description: "Import summary" },
 ];
 
 // ============================================================
@@ -171,6 +181,34 @@ function StepIndicator({
 }
 
 // ============================================================
+// Helpers
+// ============================================================
+
+/**
+ * Build mapped rows for quality scoring — applies column mappings to selected rows.
+ */
+function buildMappedRows(
+  parsedData: ParseResult,
+  confirmedMappings: Record<string, string>,
+  selectedRows: Set<number>
+): Record<string, string>[] {
+  const reverseMap: Record<string, string> = {};
+  for (const [sourceCol, targetField] of Object.entries(confirmedMappings)) {
+    reverseMap[targetField] = sourceCol;
+  }
+
+  return parsedData.rows
+    .filter((_, idx) => selectedRows.has(idx))
+    .map((row) => {
+      const mapped: Record<string, string> = {};
+      for (const [targetField, sourceCol] of Object.entries(reverseMap)) {
+        mapped[targetField] = row[sourceCol] ?? "";
+      }
+      return mapped;
+    });
+}
+
+// ============================================================
 // Import Wizard Component
 // ============================================================
 
@@ -204,6 +242,10 @@ export default function ImportWizard({
     importResult: null,
   });
 
+  const [qualityReport, setQualityReport] = useState<QualityReport | null>(
+    null
+  );
+
   const createSession = useMutation(
     api.models.importSessions.createImportSession
   );
@@ -221,6 +263,90 @@ export default function ImportWizard({
   const updateState = useCallback((updates: Partial<WizardState>) => {
     setState((prev) => ({ ...prev, ...updates }));
   }, []);
+
+  // Build mapped rows for quality scoring
+  const mappedSelectedRows = useMemo(() => {
+    if (!state.parsedData) {
+      return [];
+    }
+    return buildMappedRows(
+      state.parsedData,
+      state.confirmedMappings,
+      state.selectedRows
+    );
+  }, [state.parsedData, state.confirmedMappings, state.selectedRows]);
+
+  const runQualityCheck = useCallback(() => {
+    const report = calculateDataQuality(
+      mappedSelectedRows,
+      state.confirmedMappings,
+      state.sportCode
+    );
+    setQualityReport(report);
+  }, [mappedSelectedRows, state.confirmedMappings, state.sportCode]);
+
+  const handleFixIssue = useCallback(
+    (rowIndex: number, field: string, newValue: string) => {
+      if (!state.parsedData) {
+        return;
+      }
+
+      // Find the source column for this field
+      let sourceCol: string | undefined;
+      for (const [src, target] of Object.entries(state.confirmedMappings)) {
+        if (target === field) {
+          sourceCol = src;
+          break;
+        }
+      }
+      if (!sourceCol) {
+        return;
+      }
+
+      // Find the actual row index in parsedData (accounting for selectedRows filtering)
+      const selectedIndices = Array.from(state.selectedRows).sort(
+        (a, b) => a - b
+      );
+      const actualRowIndex = selectedIndices[rowIndex];
+      if (actualRowIndex === undefined) {
+        return;
+      }
+
+      // Update the row data
+      const updatedRows = [...state.parsedData.rows];
+      updatedRows[actualRowIndex] = {
+        ...updatedRows[actualRowIndex],
+        [sourceCol]: newValue,
+      };
+
+      const updatedParsedData = {
+        ...state.parsedData,
+        rows: updatedRows,
+      };
+
+      updateState({ parsedData: updatedParsedData });
+
+      // Re-run quality check with updated data
+      const updatedMapped = buildMappedRows(
+        updatedParsedData,
+        state.confirmedMappings,
+        state.selectedRows
+      );
+      const report = calculateDataQuality(
+        updatedMapped,
+        state.confirmedMappings,
+        state.sportCode
+      );
+      setQualityReport(report);
+    },
+    [
+      state.parsedData,
+      state.confirmedMappings,
+      state.selectedRows,
+      updateState,
+      state.sportCode,
+    ]
+  );
 
   const handleDataParsed = useCallback(
     async (data: ParseResult, fileName?: string) => {
@@ -290,7 +416,11 @@ export default function ImportWizard({
           <PlayerSelectionStep
             confirmedMappings={state.confirmedMappings}
             goBack={goBack}
-            goNext={goNext}
+            goNext={() => {
+              // Run quality check when entering the quality check step
+              runQualityCheck();
+              goNext();
+            }}
             onSelectionChange={(selected) =>
               updateState({ selectedRows: selected })
             }
@@ -298,7 +428,15 @@ export default function ImportWizard({
             selectedRows={state.selectedRows}
           />
         )}
-        {currentStep === 4 && (
+        {currentStep === 4 && qualityReport && (
+          <DataQualityReport
+            onBack={goBack}
+            onContinue={goNext}
+            onFixIssue={handleFixIssue}
+            qualityReport={qualityReport}
+          />
+        )}
+        {currentStep === 5 && (
           <BenchmarkConfigStep
             goBack={goBack}
             goNext={goNext}
@@ -308,7 +446,7 @@ export default function ImportWizard({
             settings={state.benchmarkSettings}
           />
         )}
-        {currentStep === 5 && state.parsedData && (
+        {currentStep === 6 && state.parsedData && (
           <ReviewStep
             confirmedMappings={state.confirmedMappings}
             duplicates={state.duplicates}
@@ -326,7 +464,7 @@ export default function ImportWizard({
             validationErrors={state.validationErrors}
           />
         )}
-        {currentStep === 6 && state.parsedData && (
+        {currentStep === 7 && state.parsedData && (
           <ImportStep
             benchmarkSettings={state.benchmarkSettings}
             confirmedMappings={state.confirmedMappings}
@@ -339,7 +477,7 @@ export default function ImportWizard({
             sportCode={state.sportCode}
           />
         )}
-        {currentStep === 7 && (
+        {currentStep === 8 && (
           <CompleteStep
             importResult={state.importResult}
             organizationId={organizationId}

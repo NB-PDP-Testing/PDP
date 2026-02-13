@@ -17,7 +17,14 @@ import {
   Users,
   XCircle,
 } from "lucide-react";
-import { useCallback, useEffect, useMemo, useState } from "react";
+import {
+  Component,
+  type ReactNode,
+  useCallback,
+  useEffect,
+  useMemo,
+  useState,
+} from "react";
 import type { BenchmarkSettings } from "@/components/import/import-wizard";
 import SimulationResults from "@/components/import/simulation-results";
 import {
@@ -41,6 +48,48 @@ import {
   CardTitle,
 } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
+
+// ============================================================
+// Simulation Error Boundary
+// ============================================================
+
+class SimulationErrorBoundary extends Component<
+  { children: ReactNode; onRetry: () => void },
+  { hasError: boolean }
+> {
+  state = { hasError: false };
+
+  static getDerivedStateFromError() {
+    return { hasError: true };
+  }
+
+  render() {
+    if (this.state.hasError) {
+      return (
+        <Card>
+          <CardContent className="py-8 text-center">
+            <XCircle className="mx-auto mb-3 h-8 w-8 text-red-500" />
+            <p className="font-medium">Simulation Failed</p>
+            <p className="mt-1 text-muted-foreground text-sm">
+              An error occurred while running the simulation. Please try again.
+            </p>
+            <Button
+              className="mt-4"
+              onClick={() => {
+                this.setState({ hasError: false });
+                this.props.onRetry();
+              }}
+              variant="outline"
+            >
+              Retry Simulation
+            </Button>
+          </CardContent>
+        </Card>
+      );
+    }
+    return this.props.children;
+  }
+}
 
 // ============================================================
 // Types
@@ -798,27 +847,31 @@ export default function ReviewStep({
   // Show simulation view: either actively requested or cached results available
   if (simulationRequested && (activeSimResult || isSimulating)) {
     return (
-      <SimulationResults
-        isLoading={isSimulating}
-        onBack={simBackHandler}
-        onProceed={goNext}
-        onRerun={handleRerunSimulation}
-        simulationResult={displayResult}
-        totalRows={selectedRows.size}
-      />
+      <SimulationErrorBoundary onRetry={handleRerunSimulation}>
+        <SimulationResults
+          isLoading={isSimulating}
+          onBack={simBackHandler}
+          onProceed={goNext}
+          onRerun={handleRerunSimulation}
+          simulationResult={displayResult}
+          totalRows={selectedRows.size}
+        />
+      </SimulationErrorBoundary>
     );
   }
 
   if (hasCachedResults && cachedSimulationResult) {
     return (
-      <SimulationResults
-        isLoading={false}
-        onBack={goBack}
-        onProceed={goNext}
-        onRerun={handleRerunSimulation}
-        simulationResult={cachedSimulationResult}
-        totalRows={selectedRows.size}
-      />
+      <SimulationErrorBoundary onRetry={handleRerunSimulation}>
+        <SimulationResults
+          isLoading={false}
+          onBack={goBack}
+          onProceed={goNext}
+          onRerun={handleRerunSimulation}
+          simulationResult={cachedSimulationResult}
+          totalRows={selectedRows.size}
+        />
+      </SimulationErrorBoundary>
     );
   }
 

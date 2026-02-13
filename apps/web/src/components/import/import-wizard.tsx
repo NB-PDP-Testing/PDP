@@ -448,6 +448,7 @@ export default function ImportWizard({
         )}
         {currentStep === 6 && state.parsedData && (
           <ReviewStep
+            benchmarkSettings={state.benchmarkSettings}
             confirmedMappings={state.confirmedMappings}
             duplicates={state.duplicates}
             goBack={goBack}
@@ -459,8 +460,10 @@ export default function ImportWizard({
             onValidationErrorsChange={(validationErrors) =>
               updateState({ validationErrors })
             }
+            organizationId={organizationId}
             parsedData={state.parsedData}
             selectedRows={state.selectedRows}
+            sportCode={state.sportCode}
             validationErrors={state.validationErrors}
           />
         )}

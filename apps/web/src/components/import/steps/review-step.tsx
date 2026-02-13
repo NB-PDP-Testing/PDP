@@ -1,20 +1,25 @@
 "use client";
 
+import { api } from "@pdp/backend/convex/_generated/api";
 import type { Id } from "@pdp/backend/convex/_generated/dataModel";
 import type { ParseResult } from "@pdp/backend/convex/lib/import/parser";
 import {
   type BatchValidationResult,
   validateBatch,
 } from "@pdp/backend/convex/lib/import/validator";
+import { useQuery } from "convex/react";
 import {
   AlertTriangle,
   CheckCircle2,
   ClipboardList,
+  PlayCircle,
   Search,
   Users,
   XCircle,
 } from "lucide-react";
-import { useEffect, useMemo, useState } from "react";
+import { useCallback, useEffect, useMemo, useState } from "react";
+import type { BenchmarkSettings } from "@/components/import/import-wizard";
+import SimulationResults from "@/components/import/simulation-results";
 import {
   AlertDialog,
   AlertDialogAction,
@@ -65,6 +70,9 @@ type ReviewStepProps = {
   onDuplicatesChange: (duplicates: DuplicateInfo[]) => void;
   goBack: () => void;
   goNext: () => void;
+  organizationId: string;
+  sportCode: string;
+  benchmarkSettings: BenchmarkSettings;
 };
 
 // ============================================================
@@ -82,6 +90,41 @@ function getMappedValue(
     }
   }
   return "";
+}
+
+// ============================================================
+// Player payload builder (for simulation query)
+// ============================================================
+
+function buildPlayerPayload(
+  row: Record<string, string>,
+  mappings: Record<string, string>
+) {
+  const get = (field: string) => getMappedValue(row, field, mappings);
+  const gender = get("gender").toLowerCase();
+  let normalizedGender: "male" | "female" | "other" = "other";
+  if (gender === "male" || gender === "m") {
+    normalizedGender = "male";
+  } else if (gender === "female" || gender === "f") {
+    normalizedGender = "female";
+  }
+
+  return {
+    firstName: get("firstName"),
+    lastName: get("lastName"),
+    dateOfBirth: get("dateOfBirth"),
+    gender: normalizedGender,
+    ageGroup: get("ageGroup") || "Unknown",
+    season: get("season") || new Date().getFullYear().toString(),
+    address: get("address") || undefined,
+    town: get("town") || undefined,
+    postcode: get("postcode") || undefined,
+    country: get("country") || undefined,
+    parentFirstName: get("parentFirstName") || undefined,
+    parentLastName: get("parentLastName") || undefined,
+    parentEmail: get("parentEmail") || undefined,
+    parentPhone: get("parentPhone") || undefined,
+  };
 }
 
 // ============================================================
@@ -383,9 +426,13 @@ export default function ReviewStep({
   onDuplicatesChange,
   goBack,
   goNext,
+  organizationId,
+  sportCode,
+  benchmarkSettings,
 }: ReviewStepProps) {
   const [errorSearch, setErrorSearch] = useState("");
   const [hasValidated, setHasValidated] = useState(false);
+  const [simulationRequested, setSimulationRequested] = useState(false);
 
   // Run validation on mount
   useEffect(() => {
@@ -411,6 +458,54 @@ export default function ReviewStep({
     onValidationErrorsChange,
   ]);
 
+  // Build player payloads for simulation
+  const simulationPlayers = useMemo(() => {
+    if (!simulationRequested) {
+      return null;
+    }
+    return [...selectedRows].map((idx) => {
+      const row = parsedData.rows[idx];
+      return buildPlayerPayload(row, confirmedMappings);
+    });
+  }, [simulationRequested, selectedRows, parsedData.rows, confirmedMappings]);
+
+  // Query args — "skip" until simulation is requested
+  const simulationArgs = useMemo(() => {
+    if (!simulationPlayers) {
+      return "skip" as const;
+    }
+    return {
+      organizationId,
+      sportCode: sportCode || undefined,
+      players: simulationPlayers,
+      applyBenchmarks: benchmarkSettings.applyBenchmarks,
+      benchmarkStrategy: benchmarkSettings.strategy,
+    };
+  }, [
+    simulationPlayers,
+    organizationId,
+    sportCode,
+    benchmarkSettings.applyBenchmarks,
+    benchmarkSettings.strategy,
+  ]);
+
+  const simulationResult = useQuery(
+    api.models.importSimulation.simulate,
+    simulationArgs
+  );
+
+  const isSimulating = simulationRequested && simulationResult === undefined;
+
+  const handleRunSimulation = useCallback(() => {
+    setSimulationRequested(true);
+  }, []);
+
+  const handleRerunSimulation = useCallback(() => {
+    setSimulationRequested(false);
+    // Reset and re-trigger on next render
+    requestAnimationFrame(() => setSimulationRequested(true));
+  }, []);
+
   // Count unique rows with errors
   const errorRowCount = useMemo(() => {
     const rowsWithErrors = new Set(validationErrors.map((e) => e.rowNumber));
@@ -431,11 +526,19 @@ export default function ReviewStep({
     onDuplicatesChange(updated);
   };
 
-  const proceedButton = (
-    <Button disabled={selectedRows.size === 0} onClick={goNext}>
-      Proceed to Import
-    </Button>
-  );
+  // If simulation has been run and has results, show SimulationResults
+  if (simulationRequested && (simulationResult || isSimulating)) {
+    return (
+      <SimulationResults
+        isLoading={isSimulating}
+        onBack={() => setSimulationRequested(false)}
+        onProceed={goNext}
+        onRerun={handleRerunSimulation}
+        simulationResult={simulationResult ?? null}
+        totalRows={selectedRows.size}
+      />
+    );
+  }
 
   return (
     <div className="space-y-4">
@@ -532,35 +635,43 @@ export default function ReviewStep({
         <Button onClick={goBack} variant="outline">
           Back
         </Button>
-        {hasErrors ? (
-          <AlertDialog>
-            <AlertDialogTrigger asChild>
-              <Button variant="destructive">
-                Proceed with Errors ({validationErrors.length})
-              </Button>
-            </AlertDialogTrigger>
-            <AlertDialogContent>
-              <AlertDialogHeader>
-                <AlertDialogTitle>
-                  Proceed with validation errors?
-                </AlertDialogTitle>
-                <AlertDialogDescription>
-                  There are {validationErrors.length} validation error(s) across{" "}
-                  {errorRowCount} row(s). Rows with errors may fail during
-                  import or have incomplete data.
-                </AlertDialogDescription>
-              </AlertDialogHeader>
-              <AlertDialogFooter>
-                <AlertDialogCancel>Go Back</AlertDialogCancel>
-                <AlertDialogAction onClick={goNext}>
-                  Continue Anyway
-                </AlertDialogAction>
-              </AlertDialogFooter>
-            </AlertDialogContent>
-          </AlertDialog>
-        ) : (
-          proceedButton
-        )}
+        <div className="flex gap-2">
+          {hasErrors ? (
+            <AlertDialog>
+              <AlertDialogTrigger asChild>
+                <Button variant="destructive">
+                  Proceed with Errors ({validationErrors.length})
+                </Button>
+              </AlertDialogTrigger>
+              <AlertDialogContent>
+                <AlertDialogHeader>
+                  <AlertDialogTitle>
+                    Proceed with validation errors?
+                  </AlertDialogTitle>
+                  <AlertDialogDescription>
+                    There are {validationErrors.length} validation error(s)
+                    across {errorRowCount} row(s). Rows with errors may fail
+                    during import or have incomplete data.
+                  </AlertDialogDescription>
+                </AlertDialogHeader>
+                <AlertDialogFooter>
+                  <AlertDialogCancel>Go Back</AlertDialogCancel>
+                  <AlertDialogAction onClick={handleRunSimulation}>
+                    Continue to Simulation
+                  </AlertDialogAction>
+                </AlertDialogFooter>
+              </AlertDialogContent>
+            </AlertDialog>
+          ) : (
+            <Button
+              disabled={selectedRows.size === 0}
+              onClick={handleRunSimulation}
+            >
+              <PlayCircle className="mr-1 h-4 w-4" />
+              Run Simulation
+            </Button>
+          )}
+        </div>
       </div>
     </div>
   );

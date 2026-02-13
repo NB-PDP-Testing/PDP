@@ -4712,6 +4712,39 @@ export default defineSchema({
     .index("by_startedAt", ["startedAt"])
     .index("by_org_and_status", ["organizationId", "status"]),
 
+  // Persists wizard draft state for save & resume across sessions
+  importSessionDrafts: defineTable({
+    userId: v.string(),
+    organizationId: v.string(),
+    step: v.number(),
+    parsedHeaders: v.optional(v.array(v.string())),
+    parsedRowCount: v.optional(v.number()),
+    mappings: v.optional(v.record(v.string(), v.string())),
+    playerSelections: v.optional(
+      v.array(
+        v.object({
+          rowIndex: v.number(),
+          selected: v.boolean(),
+          reason: v.optional(v.string()),
+        })
+      )
+    ),
+    benchmarkSettings: v.optional(
+      v.object({
+        applyBenchmarks: v.boolean(),
+        strategy: v.string(),
+        customTemplateId: v.optional(v.id("benchmarkTemplates")),
+        passportStatuses: v.array(v.string()),
+      })
+    ),
+    templateId: v.optional(v.id("importTemplates")),
+    sourceFileName: v.optional(v.string()),
+    expiresAt: v.number(),
+    lastSavedAt: v.number(),
+  })
+    .index("by_userId_and_orgId", ["userId", "organizationId"])
+    .index("by_expiresAt", ["expiresAt"]),
+
   // Learns from past imports to improve auto-mapping
   importMappingHistory: defineTable({
     organizationId: v.optional(v.string()),

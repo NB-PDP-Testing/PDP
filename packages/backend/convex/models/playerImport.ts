@@ -306,6 +306,9 @@ export const importPlayerWithIdentity = mutation({
         v.literal("other")
       )
     ),
+
+    // Optional import session tracking
+    sessionId: v.optional(v.id("importSessions")),
   },
   returns: v.object({
     playerIdentityId: v.id("playerIdentities"),
@@ -358,6 +361,7 @@ export const importPlayerWithIdentity = mutation({
         createdAt: now,
         updatedAt: now,
         createdFrom: "import",
+        importSessionId: args.sessionId,
       });
       playerWasCreated = true;
     }
@@ -426,6 +430,7 @@ export const importPlayerWithIdentity = mutation({
           createdAt: now,
           updatedAt: now,
           createdFrom: "import",
+          importSessionId: args.sessionId,
         });
         guardianWasCreated = true;
       }
@@ -467,6 +472,7 @@ export const importPlayerWithIdentity = mutation({
             consentedToSharing: true,
             createdAt: now,
             updatedAt: now,
+            importSessionId: args.sessionId,
           });
         }
       }
@@ -505,6 +511,7 @@ export const importPlayerWithIdentity = mutation({
         status: "active",
         enrolledAt: now,
         updatedAt: now,
+        importSessionId: args.sessionId,
       });
       enrollmentWasCreated = true;
     }

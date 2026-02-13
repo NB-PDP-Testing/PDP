@@ -1,5 +1,46 @@
 import { v } from "convex/values";
+import { components } from "../_generated/api";
+import type { MutationCtx } from "../_generated/server";
 import { mutation, query } from "../_generated/server";
+import { authComponent } from "../auth";
+
+/**
+ * Verify the caller is an authenticated admin/owner of the given organization.
+ * Throws if not authenticated or lacks admin/owner role.
+ */
+async function requireOrgAdmin(ctx: MutationCtx, organizationId: string) {
+  const user = await authComponent.getAuthUser(ctx);
+  if (!user) {
+    throw new Error("Not authenticated");
+  }
+
+  const memberResult = await ctx.runQuery(
+    components.betterAuth.adapter.findOne,
+    {
+      model: "member",
+      where: [
+        { field: "userId", value: user._id, operator: "eq" },
+        {
+          field: "organizationId",
+          value: organizationId,
+          operator: "eq",
+          connector: "AND",
+        },
+      ],
+    }
+  );
+
+  if (!memberResult) {
+    throw new Error("You are not a member of this organization");
+  }
+
+  const role = memberResult.role;
+  if (role !== "owner" && role !== "admin") {
+    throw new Error("Only organization owners and admins can manage imports");
+  }
+
+  return user;
+}
 
 // ============================================================
 // IMPORT SESSIONS LIFECYCLE
@@ -121,6 +162,7 @@ export const createImportSession = mutation({
   },
   returns: v.id("importSessions"),
   handler: async (ctx, args) => {
+    await requireOrgAdmin(ctx, args.organizationId);
     const now = Date.now();
     const id = await ctx.db.insert("importSessions", {
       organizationId: args.organizationId,
@@ -167,6 +209,7 @@ export const updateSessionStatus = mutation({
     if (!session) {
       throw new Error("Import session not found");
     }
+    await requireOrgAdmin(ctx, session.organizationId);
 
     const allowedTransitions = VALID_TRANSITIONS[session.status] ?? [];
     if (!allowedTransitions.includes(args.status)) {
@@ -199,6 +242,7 @@ export const updateSessionMappings = mutation({
     if (!session) {
       throw new Error("Import session not found");
     }
+    await requireOrgAdmin(ctx, session.organizationId);
     await ctx.db.patch(args.sessionId, { mappings: args.mappings });
     return null;
   },
@@ -218,6 +262,7 @@ export const updatePlayerSelections = mutation({
     if (!session) {
       throw new Error("Import session not found");
     }
+    await requireOrgAdmin(ctx, session.organizationId);
     await ctx.db.patch(args.sessionId, {
       playerSelections: args.selections,
     });
@@ -239,6 +284,7 @@ export const setBenchmarkSettings = mutation({
     if (!session) {
       throw new Error("Import session not found");
     }
+    await requireOrgAdmin(ctx, session.organizationId);
     await ctx.db.patch(args.sessionId, {
       benchmarkSettings: args.settings,
     });
@@ -262,6 +308,7 @@ export const recordSessionStats = mutation({
     if (!session) {
       throw new Error("Import session not found");
     }
+    await requireOrgAdmin(ctx, session.organizationId);
 
     const patch: Record<string, unknown> = { stats: args.stats };
     if (args.errors !== undefined) {

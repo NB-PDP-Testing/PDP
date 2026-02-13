@@ -144,3 +144,43 @@ Started: Fri 13 Feb 2026 23:21:35 GMT
 - Learned: ALWAYS co-locate imports with usage in same edit operation
 
 ---
+
+## 2026-02-14 00:10 - US-P2.4-003 - Create import history page
+**Iteration**: 1
+**Commit**: c43f83886799758a4c60aa45cbed70a124fedfb5
+**Session**: 837bf1b9-45ca-41f4-bc93-513a28ba5d4a
+**Status**: Complete
+
+### What was implemented
+- Created `/orgs/[orgId]/import/history` page showing all past imports
+- Admin/owner auth check (same pattern as admin/layout.tsx)
+- Desktop table view + mobile card view (responsive at md breakpoint)
+- Status badges with color coding (completed=green, failed=red, cancelled=gray, undone=amber)
+- Expandable details showing full stats (toggle with chevron button)
+- Undo button shown for completed sessions within 24 hours (isWithin24Hours helper)
+- Button currently non-functional (UndoImportDialog integration in US-P2.4-004)
+
+### Files changed
+- apps/web/src/app/orgs/[orgId]/import/history/page.tsx (+491 lines, new file)
+
+### Quality checks
+- ✅ Type check: passed
+- ✅ Linting: passed (1 warning: any type for functionalRoles - same pattern as admin/layout.tsx)
+- ✅ Pre-commit hooks: passed
+
+### **Learnings for future iterations** ⚠️ CRITICAL
+
+**Patterns discovered:**
+- Auth check: `authClient.organization.setActive()` then `getActiveMember()`, check `functionalRoles` or Better Auth role
+- Desktop/mobile responsive: hidden md:block for table, md:hidden for cards
+- shadcn/ui Table with expandable rows using state + conditional rendering
+
+**Gotchas encountered:**
+- Pre-commit hook failed due to unstaged changes in .autofix-count - had to `git add -A` before committing
+
+**What to do next**:
+- Implement US-P2.4-004: UndoImportDialog component
+- Will integrate checkUndoEligibility query to show full eligibility reasons
+- Will connect Undo button click handler to open dialog
+
+---

@@ -98,7 +98,7 @@
         "Run npx ultracite fix"
       ],
       "priority": 3,
-      "passes": false,
+      "passes": true,
       "notes": "The listSessionsByOrg query already exists with a limit parameter. Use it with a reasonable limit (20-50). For the undo eligibility check, call checkUndoEligibility for each 'completed' session that's within 24 hours — but batch this efficiently (don't call one query per row if possible)."
     },
     {

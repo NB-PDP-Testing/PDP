@@ -1,17 +1,8 @@
 "use client";
 
 import { api } from "@pdp/backend/convex/_generated/api";
-import type { Id } from "@pdp/backend/convex/_generated/dataModel";
 import { useMutation, useQuery } from "convex/react";
-import {
-  Copy,
-  Edit,
-  FileSpreadsheet,
-  FileUp,
-  Plus,
-  Search,
-  Trash2,
-} from "lucide-react";
+import { FileSpreadsheet, FileUp, Plus, Search } from "lucide-react";
 import { useParams } from "next/navigation";
 import { useMemo, useState } from "react";
 import { toast } from "sonner";
@@ -23,13 +14,19 @@ import {
   TemplateForm,
   type TemplateFormData,
 } from "@/components/import/templates/template-form";
-import { Badge } from "@/components/ui/badge";
+import {
+  filterTemplates,
+  SPORT_OPTIONS,
+  type Template,
+  TemplateMobileCard,
+  TemplateTableRow,
+  templateToFormData,
+} from "@/components/import/templates/template-list-helpers";
 import { Button } from "@/components/ui/button";
 import {
   Card,
   CardContent,
   CardDescription,
-  CardHeader,
   CardTitle,
 } from "@/components/ui/card";
 import {
@@ -51,309 +48,11 @@ import { Skeleton } from "@/components/ui/skeleton";
 import {
   Table,
   TableBody,
-  TableCell,
   TableHead,
   TableHeader,
   TableRow,
 } from "@/components/ui/table";
 import { useCurrentUser } from "@/hooks/use-current-user";
-
-// ============================================================
-// Types
-// ============================================================
-
-type Template = {
-  _id: Id<"importTemplates">;
-  _creationTime: number;
-  name: string;
-  description?: string;
-  sportCode?: string;
-  sourceType: "csv" | "excel" | "paste";
-  scope: "platform" | "organization";
-  organizationId?: string;
-  columnMappings: Array<{
-    sourcePattern: string;
-    targetField: string;
-    required: boolean;
-    transform?: string;
-    aliases?: string[];
-  }>;
-  ageGroupMappings?: Array<{
-    sourceValue: string;
-    targetAgeGroup: string;
-  }>;
-  skillInitialization: {
-    strategy: string;
-    customBenchmarkTemplateId?: Id<"benchmarkTemplates">;
-    applyToPassportStatus?: string[];
-  };
-  defaults: {
-    createTeams: boolean;
-    createPassports: boolean;
-    season?: string;
-  };
-  isActive: boolean;
-  createdBy: string;
-  createdAt: number;
-  updatedAt: number;
-};
-
-// ============================================================
-// Constants & Helpers
-// ============================================================
-
-const SPORT_OPTIONS = [
-  { value: "all", label: "All Sports" },
-  { value: "gaa_football", label: "GAA Football" },
-  { value: "hurling", label: "Hurling" },
-  { value: "camogie", label: "Camogie" },
-  { value: "ladies_football", label: "Ladies Football" },
-  { value: "soccer", label: "Soccer" },
-  { value: "rugby", label: "Rugby" },
-  { value: "basketball", label: "Basketball" },
-  { value: "athletics", label: "Athletics" },
-];
-
-function formatDate(timestamp: number): string {
-  return new Date(timestamp).toLocaleDateString("en-IE", {
-    day: "numeric",
-    month: "short",
-    year: "numeric",
-  });
-}
-
-function getSportLabel(sportCode?: string): string {
-  if (!sportCode) {
-    return "Any Sport";
-  }
-  const sport = SPORT_OPTIONS.find((s) => s.value === sportCode);
-  return sport?.label ?? sportCode;
-}
-
-function formatUsageStats(stats?: {
-  usageCount: number;
-  lastUsedAt: number | null;
-}): string {
-  if (!stats?.usageCount) {
-    return "Never";
-  }
-  const lastUsed = stats.lastUsedAt ? formatDate(stats.lastUsedAt) : "—";
-  return `${stats.usageCount}x — ${lastUsed}`;
-}
-
-function templateToFormData(template: Template): TemplateFormData {
-  return {
-    name: template.name,
-    description: template.description ?? "",
-    sportCode: template.sportCode ?? "",
-    sourceType: template.sourceType,
-    scope: template.scope,
-    columnMappings: template.columnMappings,
-    ageGroupMappings: template.ageGroupMappings ?? [],
-    skillInitialization:
-      template.skillInitialization as TemplateFormData["skillInitialization"],
-    defaults: template.defaults,
-  };
-}
-
-// ============================================================
-// Table Row Component
-// ============================================================
-
-function TemplateTableRow({
-  template,
-  stats,
-  canEdit,
-  canDelete,
-  onEdit,
-  onClone,
-  onDelete,
-}: {
-  template: Template;
-  stats?: { usageCount: number; lastUsedAt: number | null };
-  canEdit: boolean;
-  canDelete: boolean;
-  onEdit: () => void;
-  onClone: () => void;
-  onDelete: () => void;
-}) {
-  return (
-    <TableRow>
-      <TableCell>
-        <div>
-          <p className="font-medium">{template.name}</p>
-          {template.description && (
-            <p className="text-muted-foreground text-xs">
-              {template.description}
-            </p>
-          )}
-        </div>
-      </TableCell>
-      <TableCell>
-        <Badge variant="outline">{getSportLabel(template.sportCode)}</Badge>
-      </TableCell>
-      <TableCell>
-        <Badge
-          variant={template.scope === "platform" ? "default" : "secondary"}
-        >
-          {template.scope === "platform" ? "Platform" : "Organization"}
-        </Badge>
-      </TableCell>
-      <TableCell className="capitalize">{template.sourceType}</TableCell>
-      <TableCell className="text-center">
-        {template.columnMappings.length}
-      </TableCell>
-      <TableCell>{formatUsageStats(stats)}</TableCell>
-      <TableCell className="text-right">
-        <div className="flex justify-end gap-1">
-          {canEdit ? (
-            <Button onClick={onEdit} size="icon" title="Edit" variant="ghost">
-              <Edit className="h-4 w-4" />
-            </Button>
-          ) : null}
-          <Button
-            onClick={onClone}
-            size="icon"
-            title={canEdit ? "Clone" : "Clone to My Org"}
-            variant="ghost"
-          >
-            <Copy className="h-4 w-4" />
-          </Button>
-          {canDelete ? (
-            <Button
-              className="text-destructive hover:text-destructive"
-              onClick={onDelete}
-              size="icon"
-              title="Delete"
-              variant="ghost"
-            >
-              <Trash2 className="h-4 w-4" />
-            </Button>
-          ) : null}
-        </div>
-      </TableCell>
-    </TableRow>
-  );
-}
-
-function matchesSearch(t: Template, search: string): boolean {
-  if (!search) {
-    return true;
-  }
-  const q = search.toLowerCase();
-  return (
-    t.name.toLowerCase().includes(q) ||
-    (t.description?.toLowerCase().includes(q) ?? false)
-  );
-}
-
-function filterTemplates(
-  templates: Template[],
-  search: string,
-  sportFilter: string
-): Template[] {
-  return templates.filter((t) => {
-    if (!matchesSearch(t, search)) {
-      return false;
-    }
-    if (sportFilter !== "all" && t.sportCode !== sportFilter) {
-      return false;
-    }
-    return true;
-  });
-}
-
-// ============================================================
-// Mobile Card Component
-// ============================================================
-
-function TemplateMobileCard({
-  template,
-  stats,
-  canModify,
-  onEdit,
-  onClone,
-  onDelete,
-}: {
-  template: Template;
-  stats?: { usageCount: number; lastUsedAt: number | null };
-  canModify: boolean;
-  onEdit: () => void;
-  onClone: () => void;
-  onDelete: () => void;
-}) {
-  return (
-    <Card>
-      <CardHeader className="pb-3">
-        <div className="flex items-start justify-between">
-          <div className="space-y-1">
-            <CardTitle className="text-base">{template.name}</CardTitle>
-            {template.description && (
-              <CardDescription className="text-xs">
-                {template.description}
-              </CardDescription>
-            )}
-          </div>
-          <Badge
-            variant={template.scope === "platform" ? "default" : "secondary"}
-          >
-            {template.scope === "platform" ? "Platform" : "Org"}
-          </Badge>
-        </div>
-      </CardHeader>
-      <CardContent className="space-y-3">
-        <div className="flex flex-wrap gap-2">
-          <Badge variant="outline">{getSportLabel(template.sportCode)}</Badge>
-          <Badge className="capitalize" variant="outline">
-            {template.sourceType}
-          </Badge>
-          <Badge variant="outline">
-            {template.columnMappings.length} mappings
-          </Badge>
-        </div>
-        <p className="text-muted-foreground text-xs">
-          {formatUsageStats(stats)}
-        </p>
-        <div className="flex gap-2">
-          {canModify && (
-            <Button
-              className="flex-1"
-              onClick={onEdit}
-              size="sm"
-              variant="outline"
-            >
-              <Edit className="mr-1 h-3 w-3" />
-              Edit
-            </Button>
-          )}
-          <Button
-            className="flex-1"
-            onClick={onClone}
-            size="sm"
-            variant="outline"
-          >
-            <Copy className="mr-1 h-3 w-3" />
-            {canModify ? "Clone" : "Clone to Org"}
-          </Button>
-          {canModify && (
-            <Button
-              className="text-destructive"
-              onClick={onDelete}
-              size="sm"
-              variant="outline"
-            >
-              <Trash2 className="mr-1 h-3 w-3" />
-            </Button>
-          )}
-        </div>
-      </CardContent>
-    </Card>
-  );
-}
-
-// ============================================================
-// Main Page
-// ============================================================
 
 export default function TemplateManagementPage() {
   const params = useParams();
@@ -381,14 +80,13 @@ export default function TemplateManagementPage() {
 
   const [isSubmitting, setIsSubmitting] = useState(false);
 
-  const isPlatformStaff = user?.isPlatformStaff === true;
   const userId = user?._id ?? "";
 
   // Mutations
   const createTemplate = useMutation(api.models.importTemplates.createTemplate);
   const updateTemplate = useMutation(api.models.importTemplates.updateTemplate);
 
-  // Fetch platform templates
+  // Fetch platform templates (read-only for org admins)
   const platformTemplates = useQuery(api.models.importTemplates.listTemplates, {
     scope: "platform",
   });
@@ -439,13 +137,13 @@ export default function TemplateManagementPage() {
     if (!allTemplates) {
       return;
     }
-    return filterTemplates(allTemplates, search, sportFilter);
+    return filterTemplates(allTemplates as Template[], search, sportFilter);
   }, [allTemplates, search, sportFilter]);
 
   const isLoading = !allTemplates;
 
-  const canModify = (template: Template) =>
-    isPlatformStaff || template.scope === "organization";
+  // Org admins can only modify organization-scoped templates
+  const canModify = (template: Template) => template.scope === "organization";
 
   // ============================================================
   // Create / Edit handlers
@@ -459,8 +157,8 @@ export default function TemplateManagementPage() {
         description: data.description || undefined,
         sportCode: data.sportCode || undefined,
         sourceType: data.sourceType,
-        scope: data.scope,
-        organizationId: data.scope === "organization" ? orgId : undefined,
+        scope: "organization",
+        organizationId: orgId,
         columnMappings: data.columnMappings,
         ageGroupMappings:
           data.ageGroupMappings.length > 0 ? data.ageGroupMappings : undefined,
@@ -651,7 +349,7 @@ export default function TemplateManagementPage() {
         }}
         open={showFormDialog}
       >
-        <DialogContent className="max-h-[90vh] max-w-2xl overflow-y-auto">
+        <DialogContent className="h-[100dvh] max-h-[100dvh] w-full max-w-full overflow-y-auto rounded-none sm:h-auto sm:max-h-[90vh] sm:max-w-[1176px] sm:rounded-lg">
           <DialogHeader>
             <DialogTitle>
               {editingTemplate ? "Edit Template" : "Create Template"}
@@ -664,7 +362,7 @@ export default function TemplateManagementPage() {
           </DialogHeader>
           <TemplateForm
             initialData={formInitialData}
-            isPlatformStaff={isPlatformStaff}
+            isPlatformStaff={false}
             isSubmitting={isSubmitting}
             onCancel={() => {
               setCreatingTemplate(false);

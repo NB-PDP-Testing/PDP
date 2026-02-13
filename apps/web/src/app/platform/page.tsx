@@ -2,7 +2,7 @@
 
 import {
   Bot,
-  Database,
+  FileSpreadsheet,
   Flag,
   Key,
   Layers,
@@ -169,6 +169,18 @@ export default function PlatformDashboard() {
               </Card>
             </Link>
 
+            {/* Import Templates */}
+            <Link href={"/platform/templates" as "/platform"}>
+              <Card className="h-full cursor-pointer transition-all hover:shadow-md hover:ring-2 hover:ring-[#1E3A5F]/20">
+                <CardContent className="flex items-center gap-3 p-4">
+                  <div className="rounded-lg bg-teal-100 p-3">
+                    <FileSpreadsheet className="h-6 w-6 text-teal-600" />
+                  </div>
+                  <CardTitle className="text-base">Import Templates</CardTitle>
+                </CardContent>
+              </Card>
+            </Link>
+
             {/* Platform Settings - Coming Soon */}
             <Card className="h-full border-gray-300 border-dashed bg-gray-50/50">
               <CardContent className="flex flex-col gap-3 p-4">
@@ -182,29 +194,6 @@ export default function PlatformDashboard() {
                 </div>
                 <div className="flex flex-col gap-1.5 pl-1 text-gray-600 text-xs">
                   <p>Global platform configuration</p>
-                  <Badge
-                    className="w-fit border-gray-400 text-gray-700"
-                    variant="outline"
-                  >
-                    Coming soon
-                  </Badge>
-                </div>
-              </CardContent>
-            </Card>
-
-            {/* Data Management - Coming Soon */}
-            <Card className="h-full border-gray-300 border-dashed bg-gray-50/50">
-              <CardContent className="flex flex-col gap-3 p-4">
-                <div className="flex items-center gap-3">
-                  <div className="rounded-lg bg-gray-100 p-3">
-                    <Database className="h-6 w-6 text-gray-500" />
-                  </div>
-                  <CardTitle className="text-base text-gray-700">
-                    Data Management
-                  </CardTitle>
-                </div>
-                <div className="flex flex-col gap-1.5 pl-1 text-gray-600 text-xs">
-                  <p>Platform data and analytics</p>
                   <Badge
                     className="w-fit border-gray-400 text-gray-700"
                     variant="outline"

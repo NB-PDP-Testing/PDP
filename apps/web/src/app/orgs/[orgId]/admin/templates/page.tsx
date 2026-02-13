@@ -17,6 +17,7 @@ import { useMemo, useState } from "react";
 import { toast } from "sonner";
 import { CloneDialog } from "@/components/import/templates/clone-dialog";
 import { DeleteDialog } from "@/components/import/templates/delete-dialog";
+import { SampleUploadDialog } from "@/components/import/templates/sample-upload-dialog";
 import {
   getDefaultFormData,
   TemplateForm,
@@ -370,6 +371,9 @@ export default function TemplateManagementPage() {
     null
   );
 
+  // Sample upload dialog
+  const [sampleUploadOpen, setSampleUploadOpen] = useState(false);
+
   // Pre-filled form data from sample upload
   const [prefilledData, setPrefilledData] = useState<TemplateFormData | null>(
     null
@@ -521,7 +525,7 @@ export default function TemplateManagementPage() {
         </div>
         <div className="flex gap-2">
           <Button
-            onClick={() => setCreatingTemplate(true)}
+            onClick={() => setSampleUploadOpen(true)}
             size="sm"
             variant="outline"
           >
@@ -674,6 +678,16 @@ export default function TemplateManagementPage() {
           />
         </DialogContent>
       </Dialog>
+
+      {/* Sample Upload Dialog */}
+      <SampleUploadDialog
+        onMappingsDetected={(data) => {
+          setPrefilledData(data);
+          setCreatingTemplate(true);
+        }}
+        onOpenChange={setSampleUploadOpen}
+        open={sampleUploadOpen}
+      />
 
       {/* Clone Dialog */}
       {cloningTemplate && (

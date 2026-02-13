@@ -76,7 +76,7 @@
         "Run npx ultracite fix and npx -w packages/backend convex codegen"
       ],
       "priority": 2,
-      "passes": false,
+      "passes": true,
       "notes": "Delete order matters to avoid foreign key issues — delete leaf records first (assessments, passports), then middle records (enrollments, guardian links), then root records (guardians, players). The VALID_TRANSITIONS map in importSessions.ts already includes 'completed' -> ['undone']. The schema already has 'undone' status literal and undo audit fields (undoneAt, undoneBy, undoReason) — do NOT re-add them."
     },
     {

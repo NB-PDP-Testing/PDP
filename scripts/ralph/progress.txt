@@ -90,3 +90,57 @@ Started: Fri 13 Feb 2026 23:21:35 GMT
 - Learned to check schema indexes before assuming field names
 
 ---
+
+## 2026-02-13 23:50 - US-P2.4-002 - Create undoImport mutation
+**Iteration**: 1
+**Commit**: d2357b5cc95619e7289c7217fb9e377f8a5d6451
+**Session**: d5191b1d-1e18-4822-89a0-ed63bc19b809
+**Status**: Complete
+
+### What was implemented
+- Created `undoImport` mutation in `packages/backend/convex/models/importSessions.ts`
+- Auth check using `authComponent.getAuthUser(ctx)`
+- Admin/owner verification via Better Auth adapter member query (checks betterAuthRole and functionalRoles)
+- Reuses eligibility logic from checkUndoEligibility (status check, 24-hour window, post-import assessments)
+- Queries all 6 tables by importSessionId index
+- Deletes records in correct order to avoid foreign key issues: assessments → passports → enrollments → guardian links → guardians → players
+- Uses HARD DELETE (ctx.db.delete) - no soft delete pattern
+- Updates import session status to 'undone' with audit fields (undoneAt, undoneBy, undoReason)
+- Returns success boolean, rollbackStats with counts, and ineligibilityReasons array
+
+### Files changed
+- packages/backend/convex/models/importSessions.ts (+240 lines)
+
+### Quality checks
+- ✅ Type check: passed (pre-existing errors in other files)
+- ✅ Codegen: passed
+- ✅ Linting: passed (2 warnings expected: cognitive complexity 17, any type usage - both acceptable)
+- ✅ Pre-commit hooks: passed
+
+### **Learnings for future iterations** ⚠️ CRITICAL
+
+**Patterns discovered:**
+- Auth pattern: `authComponent.getAuthUser(ctx)` for user, then check membership via Better Auth adapter
+- Admin check: Query member table, check `betterAuthRole` (admin/owner) OR `functionalRoles.includes("admin")`
+- Use `(memberResult as any)?.functionalRoles` to access extended field (pattern from orgJoinRequests.ts)
+
+**Gotchas encountered:**
+- ⚠️ **CRITICAL**: Must add imports AND usage in SAME edit or linter removes "unused" imports!
+- Initially added imports separately, linter removed them, causing "undeclared variable" errors
+- This is the exact warning in CLAUDE.md "TypeScript Edit Rule (MANDATORY)"
+- Fixed by adding `import { components } from "../_generated/api"` and `import { authComponent } from "../auth"` together with the mutation that uses them
+
+**Dependencies found:**
+- undoImport reuses eligibility logic from checkUndoEligibility (24-hour window, assessment checks)
+- Delete order matters: leaf records first (assessments, passports), then middle (enrollments, links), then root (guardians, players)
+- All 6 tables queried via by_importSessionId index
+
+**What to do next**:
+- Implement US-P2.4-003: Import history page (frontend component)
+- Will need to use `useQuery` with checkUndoEligibility to show eligibility per session
+
+**Mistakes made**:
+- Added imports in separate edit from usage - linter removed them immediately
+- Learned: ALWAYS co-locate imports with usage in same edit operation
+
+---

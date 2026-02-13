@@ -321,3 +321,150 @@ export const listSessionsByOrg = query({
     return sessions.sort((a, b) => b.startedAt - a.startedAt);
   },
 });
+
+/**
+ * Check if an import session can be undone.
+ * Returns eligibility status, reasons for ineligibility, expiration time, and impact stats.
+ */
+export const checkUndoEligibility = query({
+  args: {
+    sessionId: v.id("importSessions"),
+  },
+  returns: v.object({
+    eligible: v.boolean(),
+    reasons: v.array(v.string()),
+    expiresAt: v.union(v.number(), v.null()),
+    stats: v.object({
+      playerCount: v.number(),
+      guardianCount: v.number(),
+      enrollmentCount: v.number(),
+      passportCount: v.number(),
+      assessmentCount: v.number(),
+      guardianLinkCount: v.number(),
+    }),
+  }),
+  handler: async (ctx, args) => {
+    const session = await ctx.db.get(args.sessionId);
+    if (!session) {
+      return {
+        eligible: false,
+        reasons: ["Session not found"],
+        expiresAt: null,
+        stats: {
+          playerCount: 0,
+          guardianCount: 0,
+          enrollmentCount: 0,
+          passportCount: 0,
+          assessmentCount: 0,
+          guardianLinkCount: 0,
+        },
+      };
+    }
+
+    const reasons: string[] = [];
+
+    // Check 1: Session status must be 'completed'
+    if (session.status !== "completed") {
+      reasons.push(`Session status is '${session.status}', not 'completed'`);
+    }
+
+    // Check 2: 24-hour window
+    const TWENTY_FOUR_HOURS_MS = 24 * 60 * 60 * 1000;
+    const now = Date.now();
+    const completedAt = session.completedAt ?? session.startedAt;
+    const expiresAt = completedAt + TWENTY_FOUR_HOURS_MS;
+    const isExpired = now > expiresAt;
+
+    if (isExpired) {
+      reasons.push(
+        "24-hour undo window has expired (undo only available within 24 hours of import completion)"
+      );
+    }
+
+    // Count records across all 6 tables using by_importSessionId index
+    const playerIdentities = await ctx.db
+      .query("playerIdentities")
+      .withIndex("by_importSessionId", (q) =>
+        q.eq("importSessionId", args.sessionId)
+      )
+      .collect();
+
+    const guardianIdentities = await ctx.db
+      .query("guardianIdentities")
+      .withIndex("by_importSessionId", (q) =>
+        q.eq("importSessionId", args.sessionId)
+      )
+      .collect();
+
+    const guardianPlayerLinks = await ctx.db
+      .query("guardianPlayerLinks")
+      .withIndex("by_importSessionId", (q) =>
+        q.eq("importSessionId", args.sessionId)
+      )
+      .collect();
+
+    const orgPlayerEnrollments = await ctx.db
+      .query("orgPlayerEnrollments")
+      .withIndex("by_importSessionId", (q) =>
+        q.eq("importSessionId", args.sessionId)
+      )
+      .collect();
+
+    const sportPassports = await ctx.db
+      .query("sportPassports")
+      .withIndex("by_importSessionId", (q) =>
+        q.eq("importSessionId", args.sessionId)
+      )
+      .collect();
+
+    const skillAssessments = await ctx.db
+      .query("skillAssessments")
+      .withIndex("by_importSessionId", (q) =>
+        q.eq("importSessionId", args.sessionId)
+      )
+      .collect();
+
+    // Check 3: Are there any assessments on imported players that were NOT created by this import?
+    // Get all player IDs from this import
+    const importedPlayerIds = new Set(playerIdentities.map((p) => p._id));
+
+    // Query all assessments for these players
+    const allAssessmentsForPlayers = await Promise.all(
+      Array.from(importedPlayerIds).map(async (playerIdentityId) =>
+        ctx.db
+          .query("skillAssessments")
+          .withIndex("by_playerIdentityId", (q) =>
+            q.eq("playerIdentityId", playerIdentityId)
+          )
+          .collect()
+      )
+    );
+
+    // Flatten and check if any assessments are NOT from this import
+    const nonImportAssessments = allAssessmentsForPlayers
+      .flat()
+      .filter((a) => a.importSessionId !== args.sessionId);
+
+    if (nonImportAssessments.length > 0) {
+      reasons.push(
+        "Players have assessments created after import (cannot undo if players have been assessed)"
+      );
+    }
+
+    const stats = {
+      playerCount: playerIdentities.length,
+      guardianCount: guardianIdentities.length,
+      enrollmentCount: orgPlayerEnrollments.length,
+      passportCount: sportPassports.length,
+      assessmentCount: skillAssessments.length,
+      guardianLinkCount: guardianPlayerLinks.length,
+    };
+
+    return {
+      eligible: reasons.length === 0,
+      reasons,
+      expiresAt: isExpired ? null : expiresAt,
+      stats,
+    };
+  },
+});

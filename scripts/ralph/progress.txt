@@ -1,60 +1,41 @@
 # Ralph Progress Log
-Started: Fri 13 Feb 2026 21:40:03 GMT
+Started: Fri 13 Feb 2026 23:21:35 GMT
 ---
 
-## Phase 2.3: Save & Resume — COMPLETE
+## Codebase Patterns
+**Last Updated**: 2026-02-13 23:30 - Iteration 1
 
-### US-P2.3-001: Create importSessionDrafts schema ✅
-- Added `importSessionDrafts` table to schema.ts
-- Fields: userId, organizationId, step, parsedHeaders, parsedRowCount, mappings, playerSelections, benchmarkSettings, templateId, sourceFileName, expiresAt, lastSavedAt
-- Indexes: by_userId_and_orgId, by_expiresAt
-- Commit: cead57d1
+### Architecture
+- All routes scoped under `/orgs/[orgId]/`
+- Better Auth for authentication, Convex for backend
+- Organization data isolated via organizationId field
+- Turborepo monorepo: `apps/web/` (Next.js 14), `packages/backend/` (Convex)
 
-### US-P2.3-002: Create draft persistence mutations and query ✅
-- Created packages/backend/convex/models/importSessionDrafts.ts
-- saveDraft mutation: upserts by userId+orgId, 7-day expiry
-- loadDraft query (read-only): finds non-expired draft
-- deleteDraft mutation: auth-checked deletion
-- listExpiredDrafts internalQuery + cleanupExpiredDrafts internalMutation
-- Commit: cead57d1
+### Convex Backend Patterns
+- NEVER use `.filter()` - always use `.withIndex()`
+- All functions need `args` and `returns` validators
+- Use `Id<"tableName">` types, not `string`
+- Index names include all fields: `by_orgId_and_status`
+- Auth check: `requireOrgAdmin` pattern in importSessions.ts for admin-only mutations
+- Use HARD DELETE (ctx.db.delete) - no soft delete pattern in this codebase
 
-### US-P2.3-003: Add cron job for expired draft cleanup ✅
-- Daily cron at 4 AM UTC in crons.ts
-- Calls cleanupExpiredDrafts internalMutation
-- Commit: cead57d1
+### Frontend Patterns
+- Use shadcn/ui components from `@/components/ui`
+- Use `useSearchParams` for filter state (URL persistence)
+- Organization theming via CSS variables: `--org-primary`, etc.
+- Admin pages: `apps/web/src/app/orgs/[orgId]/admin/`
+- Import components: `apps/web/src/components/import/`
 
-### US-P2.3-004: Add auto-save to import wizard ✅
-- Debounced auto-save (500ms) after each step transition
-- DraftData type exported for resume flow
-- Save status indicator ("Saving..." / "Draft saved") in StepIndicator
-- Draft cleanup on wizard completion (review -> import transition)
-- stateRef pattern for async save callbacks
-- Commit: 9b2d0246
-
-### US-P2.3-005: Add resume UI to import entry page ✅
-- ResumeDraftCard component on import entry page
-- Shows file name, step name, relative time, expiry countdown
-- Resume button links to wizard with ?resume=true
-- Discard button with AlertDialog confirmation
-- formatRelativeTime helper
-- Commit: c18da926
-
-### US-P2.3-006: Handle wizard resume with file re-upload ✅
-- Wizard page detects ?resume=true, queries loadDraft, passes DraftData to wizard
-- Resume prompt banner at step 1 with filename and row count
-- Header matching: exact match -> auto-restore state + jump to saved step
-- Header mismatch: AlertDialog with "Apply Anyway" / "Start Fresh" options
-- Start Fresh: deletes draft, proceeds normally
-- Commit: 59c57339
-
-### Learnings
-- Always add imports AND their usage in the same edit (biome removes unused imports)
-- internalMutation has ctx.db access — no need to call internalQuery separately
-- sourceFileNameRef pattern for storing filename across callbacks
-- stateRef.current pattern avoids stale closures in debounced async callbacks
-- Convex queries cannot be called from mutations via string path; use direct DB access instead
+### Import System (Phase 2.4 Context)
+- All 6 import tables have `importSessionId` field + `by_importSessionId` index
+- Tables: playerIdentities, guardianIdentities, guardianPlayerLinks, orgPlayerEnrollments, sportPassports, skillAssessments
+- Import sessions track state with status transitions in VALID_TRANSITIONS map
+- Schema already has 'undone' status literal + undo audit fields (undoneAt, undoneBy, undoReason)
 
 ### Quality Checks
-- npx -w packages/backend convex codegen: PASS
-- npm run check-types: Only pre-existing errors (validator.ts template pages)
-- npx ultracite fix: Auto-fixed formatting only
+- Run in order: `npm run check-types` → `npx ultracite fix` → `npm run check`
+- Ultracite must run before linting or you'll get false failures
+- For frontend changes: test in browser at http://localhost:3000
+- Codegen: `npx -w packages/backend convex codegen`
+
+---

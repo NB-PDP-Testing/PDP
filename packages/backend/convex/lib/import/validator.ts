@@ -32,10 +32,10 @@ export type BatchValidationResult = {
 // Top-level regex constants
 // ============================================================
 
-const EMAIL_REGEX = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
-const PHONE_REGEX = /^[+]?[\d\s()-]{7,20}$/;
-const DATE_SLASH_REGEX = /^(\d{1,2})[/-](\d{1,2})[/-](\d{2,4})$/;
-const DATE_ISO_REGEX = /^\d{4}-\d{2}-\d{2}$/;
+export const EMAIL_REGEX = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+export const PHONE_REGEX = /^[+]?[\d\s()-]{7,20}$/;
+export const DATE_SLASH_REGEX = /^(\d{1,2})[/-](\d{1,2})[/-](\d{2,4})$/;
+export const DATE_ISO_REGEX = /^\d{4}-\d{2}-\d{2}$/;
 const GENDER_MALE_REGEX = /^(m|male|boy)$/i;
 const GENDER_FEMALE_REGEX = /^(f|female|girl)$/i;
 const GENDER_OTHER_REGEX = /^(other|non-binary|nonbinary|nb|x)$/i;
@@ -58,7 +58,12 @@ const EMAIL_TYPO_FIXES: Record<string, string> = {
 };
 
 // Required fields for a valid import row
-const REQUIRED_FIELDS = ["firstName", "lastName", "dateOfBirth", "gender"];
+export const REQUIRED_FIELDS = [
+  "firstName",
+  "lastName",
+  "dateOfBirth",
+  "gender",
+];
 
 // Field category sets for auto-fix routing
 const EMAIL_FIELDS = new Set(["email", "parentEmail", "parent2Email"]);

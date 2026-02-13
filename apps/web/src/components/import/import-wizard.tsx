@@ -9,7 +9,7 @@ import {
 import type { MappingSuggestion } from "@pdp/backend/convex/lib/import/mapper";
 import type { ParseResult } from "@pdp/backend/convex/lib/import/parser";
 import { useMutation } from "convex/react";
-import { Check, Save } from "lucide-react";
+import { AlertTriangle, Check, Save } from "lucide-react";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import DataQualityReport from "@/components/import/data-quality-report";
 import type { SimulationResult } from "@/components/import/simulation-results";
@@ -24,6 +24,16 @@ import type {
 } from "@/components/import/steps/review-step";
 import ReviewStep from "@/components/import/steps/review-step";
 import UploadStep from "@/components/import/steps/upload-step";
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+} from "@/components/ui/alert-dialog";
 import { authClient } from "@/lib/auth-client";
 import { cn } from "@/lib/utils";
 
@@ -328,6 +338,13 @@ export default function ImportWizard({
     draftData?.sourceFileName
   );
 
+  // Header mismatch dialog state for resume flow
+  const [headerMismatchOpen, setHeaderMismatchOpen] = useState(false);
+  const pendingParseRef = useRef<{
+    data: ParseResult;
+    fileName?: string;
+  } | null>(null);
+
   const createSession = useMutation(
     api.models.importSessions.createImportSession
   );
@@ -519,10 +536,54 @@ export default function ImportWizard({
     ]
   );
 
-  const handleDataParsed = useCallback(
-    async (data: ParseResult, fileName?: string) => {
+  // Apply draft state (mappings, selections, settings) and jump to saved step
+  const applyDraftAndResume = useCallback(
+    (data: ParseResult, fileName?: string) => {
       sourceFileNameRef.current = fileName;
-      // Select all rows by default
+
+      // Restore selections from draft, or default to all selected
+      let selectedRows: Set<number>;
+      if (
+        draftData?.playerSelections &&
+        draftData.playerSelections.length > 0
+      ) {
+        selectedRows = new Set(
+          draftData.playerSelections
+            .filter((s) => s.selected)
+            .map((s) => s.rowIndex)
+        );
+      } else {
+        selectedRows = new Set(
+          Array.from({ length: data.rows.length }, (_, i) => i)
+        );
+      }
+
+      updateState({
+        parsedData: data,
+        selectedRows,
+        confirmedMappings: draftData?.mappings ?? {},
+        benchmarkSettings: draftData?.benchmarkSettings
+          ? {
+              applyBenchmarks: draftData.benchmarkSettings.applyBenchmarks,
+              strategy: draftData.benchmarkSettings
+                .strategy as BenchmarkSettings["strategy"],
+              customTemplateId: draftData.benchmarkSettings.customTemplateId,
+              passportStatuses: draftData.benchmarkSettings.passportStatuses,
+            }
+          : stateRef.current.benchmarkSettings,
+      });
+
+      // Jump to saved step (minimum step 2 since we just parsed)
+      const resumeStep = Math.max(draftData?.step ?? 2, 2);
+      setCurrentStep(resumeStep);
+    },
+    [draftData, updateState]
+  );
+
+  // Proceed fresh (no draft state) — just select all rows and go to step 2
+  const proceedFresh = useCallback(
+    (data: ParseResult, fileName?: string) => {
+      sourceFileNameRef.current = fileName;
       const allIndices = new Set(
         Array.from({ length: data.rows.length }, (_, i) => i)
       );
@@ -530,8 +591,14 @@ export default function ImportWizard({
         parsedData: data,
         selectedRows: allIndices,
       });
+      goNext();
+    },
+    [updateState, goNext]
+  );
 
-      // Create import session for tracking
+  const handleDataParsed = useCallback(
+    async (data: ParseResult, fileName?: string) => {
+      // Create import session for tracking (always, regardless of resume)
       if (!sessionCreating.current) {
         sessionCreating.current = true;
         try {
@@ -552,17 +619,67 @@ export default function ImportWizard({
         }
       }
 
-      goNext();
+      // If resuming from a draft, check header compatibility
+      if (draftData?.parsedHeaders && draftData.parsedHeaders.length > 0) {
+        const draftHeaders = draftData.parsedHeaders;
+        const uploadedHeaders = data.headers;
+
+        // Check for exact match (same columns in same order)
+        const headersMatch =
+          draftHeaders.length === uploadedHeaders.length &&
+          draftHeaders.every((h, i) => h === uploadedHeaders[i]);
+
+        if (headersMatch) {
+          // Headers match — auto-restore draft state and jump to saved step
+          applyDraftAndResume(data, fileName);
+          return;
+        }
+
+        // Headers don't match — show warning dialog
+        pendingParseRef.current = { data, fileName };
+        setHeaderMismatchOpen(true);
+        return;
+      }
+
+      // No draft or no saved headers — proceed normally
+      proceedFresh(data, fileName);
     },
     [
       updateState,
-      goNext,
       createSession,
       organizationId,
       templateId,
       session?.user?.id,
+      draftData,
+      applyDraftAndResume,
+      proceedFresh,
     ]
   );
+
+  // Handler: user chose "Apply Anyway" despite header mismatch
+  const handleApplyAnyway = useCallback(() => {
+    setHeaderMismatchOpen(false);
+    if (pendingParseRef.current) {
+      applyDraftAndResume(
+        pendingParseRef.current.data,
+        pendingParseRef.current.fileName
+      );
+      pendingParseRef.current = null;
+    }
+  }, [applyDraftAndResume]);
+
+  // Handler: user chose "Start Fresh" — discard draft and proceed normally
+  const handleStartFresh = useCallback(() => {
+    setHeaderMismatchOpen(false);
+    cleanupDraft();
+    if (pendingParseRef.current) {
+      proceedFresh(
+        pendingParseRef.current.data,
+        pendingParseRef.current.fileName
+      );
+      pendingParseRef.current = null;
+    }
+  }, [cleanupDraft, proceedFresh]);
 
   return (
     <div className="mx-auto max-w-5xl space-y-6 p-4 md:p-6">
@@ -692,6 +809,42 @@ export default function ImportWizard({
           />
         )}
       </div>
+
+      {/* Header mismatch dialog for resume flow */}
+      <AlertDialog
+        onOpenChange={setHeaderMismatchOpen}
+        open={headerMismatchOpen}
+      >
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle className="flex items-center gap-2">
+              <AlertTriangle className="h-5 w-5 text-amber-500" />
+              Column Headers Don&apos;t Match
+            </AlertDialogTitle>
+            <AlertDialogDescription asChild>
+              <div className="space-y-2">
+                <p>
+                  The uploaded file has different column headers than your saved
+                  draft. Your saved mappings and selections may not apply
+                  correctly.
+                </p>
+                <p className="font-medium text-foreground">
+                  Would you like to apply your saved settings anyway, or start
+                  fresh?
+                </p>
+              </div>
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel onClick={handleStartFresh}>
+              Start Fresh
+            </AlertDialogCancel>
+            <AlertDialogAction onClick={handleApplyAnyway}>
+              Apply Anyway
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
     </div>
   );
 }

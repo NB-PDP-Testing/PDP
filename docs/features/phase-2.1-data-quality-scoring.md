@@ -1,0 +1,91 @@
+# PlayerARC - Phase 2.1: Data Quality Scoring
+
+> Auto-generated documentation - Last updated: 2026-02-13 20:32
+
+## Status
+
+- **Branch**: `ralph/phase-2.1-data-quality-scoring`
+- **Progress**: 4 / 4 stories complete
+- **Phase Status**: ✅ Complete
+
+## Completed Features
+
+### US-P2.1-001: Create data quality scoring engine
+
+As the import system, I need a scoring engine that evaluates imported data across 5 dimensions and produces a quality report.
+
+**Acceptance Criteria:**
+- Create packages/backend/convex/lib/import/dataQuality.ts
+- Export calculateDataQuality(rows, mappings, sportCode) -> QualityReport
+- Export scoreCompleteness(rows, requiredFields) -> number (0-100): ratio of populated required fields
+- Export scoreConsistency(rows) -> number (0-100): pattern matching on phone/email/date formats within dataset
+- Export scoreAccuracy(rows) -> number (0-100): valid email syntax, phone format, date logic, age reasonableness
+- Export scoreUniqueness(rows) -> number (0-100): duplicate detection rate (name+DOB combos)
+- Export scoreTimeliness(rows, season) -> number (0-100): data freshness (DOBs within age range, current season)
+- Overall score = weighted average (completeness 30%, consistency 25%, accuracy 25%, uniqueness 15%, timeliness 5%)
+- Grade mapping: excellent (90-100), good (75-89), fair (60-74), poor (40-59), critical (0-39)
+- Reuse email/phone/date validation regexes from validator.ts — import and reuse, do NOT duplicate
+- Functions are pure (no Convex ctx) — operate on parsed row arrays
+- Run npx ultracite fix and verify types
+
+### US-P2.1-002: Create issue detection and categorization
+
+As the import system, I need to detect specific data issues and categorize them by severity for user review.
+
+**Acceptance Criteria:**
+- Add to packages/backend/convex/lib/import/dataQuality.ts
+- Export categorizeIssues(issues) -> { critical, warnings, suggestions }
+- Export type Issue = { rowIndex: number, field: string, severity: 'critical'|'warning'|'suggestion', message: string, value?: string, suggestedFix?: string }
+- Critical issues: missing required fields (firstName, lastName, dateOfBirth), invalid email format, duplicate rows within dataset
+- Warning issues: inconsistent phone format, missing optional but recommended fields (postcode, guardian email), inconsistent date formats across rows
+- Suggestion issues: names not title-cased, missing middle names, standardize capitalization
+- Each issue includes rowIndex for linking back to specific rows in the UI
+- suggestedFix field populated where auto-fix is possible (reuse autoFixValue patterns from validator.ts)
+- Run npx ultracite fix
+
+### US-P2.1-003: Create DataQualityReport frontend component
+
+As an admin reviewing import data, I need a visual report showing the quality score, dimension breakdown, and actionable issues.
+
+**Acceptance Criteria:**
+- Create apps/web/src/components/import/data-quality-report.tsx
+- Overall score display: large number (0-100), grade badge (Excellent/Good/Fair/Poor/Critical), color-coded (green/yellow/orange/red)
+- 5 dimension progress bars: Completeness, Consistency, Accuracy, Uniqueness, Timeliness — each with score and label
+- Issue breakdown sections: Critical (red), Warnings (amber), Suggestions (blue) — with count badges
+- Each issue section is collapsible (use shadcn/ui Collapsible or Accordion)
+- Each issue row shows: row number, field name, message, suggested fix (if available), and Apply Fix button
+- Apply Fix button calls onFixIssue callback prop — parent handles the actual data mutation
+- Continue button disabled when critical issues exist (count > 0)
+- Use shadcn/ui Card, Progress, Badge, Button, Collapsible, Alert components
+- Mobile responsive: stacked layout at 375px
+- Component accepts props: qualityReport, onFixIssue, onContinue, onBack
+
+### US-P2.1-004: Integrate quality report into import wizard
+
+As an admin using the import wizard, I need the data quality report to appear after I've mapped columns and selected players, before the final review.
+
+**Acceptance Criteria:**
+- Add a 'Quality Check' step to the import wizard between player selection and review
+- Update import-wizard.tsx step definitions to include the new step
+- When entering the quality check step, run calculateDataQuality on the parsed/selected data
+- Pass current mappings and selected rows to the scoring engine
+- Show DataQualityReport component with the results
+- When user clicks Apply Fix on an issue, update the row data in wizard state
+- After applying fixes, re-run calculateDataQuality to update scores
+- Continue button proceeds to review step
+- Back button returns to player selection step
+- If quality score is 'excellent' or 'good' (>=75), show optional skip message ('Quality looks great — skip to review?')
+- Step indicator in wizard header shows the new step
+- Run npx ultracite fix and npm run check-types
+
+
+## Implementation Notes
+
+### Key Patterns & Learnings
+
+
+## Key Files
+
+
+---
+*Documentation auto-generated by Ralph Documenter Agent*

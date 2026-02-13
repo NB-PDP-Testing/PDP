@@ -1,34 +1,153 @@
 # Ralph Progress Log
-Started: Thu 12 Feb 2026 19:12:06 GMT
+Started: Fri 13 Feb 2026 20:22:15 GMT
 ---
 
-## Phase 1.3: Import Frontend Wizard & Integration
+## Codebase Patterns
+**Last Updated**: 2026-02-13 - Iteration 1
 
-### Session 1 (Stories 1-5)
-- US-P1.3-001: Import entry page with sport selection, template cards, recent imports
-- US-P1.3-002: ImportWizard orchestrator with 7-step state machine, StepIndicator
-- US-P1.3-003: UploadStep with drag-and-drop, paste, CSV parsing (client-side)
-- US-P1.3-004: MappingStep with auto-mapping, confidence badges, lock/unlock
-- US-P1.3-005: PlayerSelectionStep with checkboxes, search, filter tabs, bulk actions
+### Architecture
+- All routes scoped under `/orgs/[orgId]/`
+- Use Better Auth for authentication, Convex for backend
+- Organization data isolated via organizationId field
+- Import framework in `packages/backend/convex/lib/import/` (parser, mapper, validator, sportConfig, dataQuality)
 
-### Session 2 (Stories 6-10)
-- US-P1.3-006: BenchmarkConfigStep with toggle, 5 strategy radio buttons, rating preview
-- US-P1.3-007: ReviewStep with validation error table, duplicate resolution, team preview, confirmation dialog
-- US-P1.3-008: ImportStep (progress phases, retry) and CompleteStep (statistics, "What Next" cards)
-- US-P1.3-009: Admin sidebar nav link for Import Wizard (FileUp icon)
-- US-P1.3-010: Integration - wired all real step components into ImportWizard, removed StepPlaceholder
+### Convex Backend Patterns
+- NEVER use `.filter()` - always use `.withIndex()`
+- All functions need `args` and `returns` validators
+- Use `Id<"tableName">` types, not `string`
+- Index names include all fields: `by_orgId_and_status`
+- Import lib files are pure TypeScript (no Convex ctx) — they run client-side too
 
-### Key Decisions
-- Backend import libs (parser.ts, mapper.ts) usable client-side (zero npm deps)
-- Used suggestMappingsSimple() for client-side mapping (no DB context needed)
-- Set<number> for selectedRows enables O(1) lookups during filtering
-- Extracted helper components to stay under biome complexity limit (15)
-- Installed shadcn AlertDialog and Progress components
+### Frontend Patterns
+- Use shadcn/ui components from `@/components/ui`
+- Import wizard at `apps/web/src/components/import/import-wizard.tsx`
+- Step components at `apps/web/src/components/import/steps/`
+- Organization theming via CSS variables: `--org-primary`, etc.
+- **CRITICAL**: When adding imports to TypeScript files, add import AND usage in the SAME edit — linter removes unused imports between edits
 
-### Quality Checks Passed
-- npx -w packages/backend convex codegen ✓
-- npm run check-types ✓
-- npx ultracite fix ✓
-- npx biome check --diagnostic-level=error (all 10 import files clean) ✓
+### Quality Checks
+- Run in order: `npm run check-types` → `npx ultracite fix` → `npm run check`
+- Ultracite/biome auto-fix: `npx biome check --write <file>` or `npx biome format --write <file>`
+- Biome requires block statements (no `if (x) return y;` — must be `if (x) { return y; }`)
+- Biome requires default switch clauses
+- Biome requires sorted JSX attributes (alphabetical)
+- Biome forbids non-null assertions (`!`) — use `?? ""` instead
+- Pre-existing type errors in `.next/dev/types/validator.ts` about template pages — ignore these (2 errors)
 
-### All 10 stories: COMPLETE
+### File Locations (discovered during work)
+- Validator: `packages/backend/convex/lib/import/validator.ts` — exports EMAIL_REGEX, PHONE_REGEX, DATE_SLASH_REGEX, DATE_ISO_REGEX, REQUIRED_FIELDS, autoFixValue
+- Mapper: `packages/backend/convex/lib/import/mapper.ts` — column mapping engine
+- Parser: `packages/backend/convex/lib/import/parser.ts` — CSV parsing
+- Data Quality: `packages/backend/convex/lib/import/dataQuality.ts` — scoring engine (NEW)
+- Import Wizard: `apps/web/src/components/import/import-wizard.tsx` — 8-step wizard
+- Quality Report UI: `apps/web/src/components/import/data-quality-report.tsx` (NEW)
+
+---
+
+## 2026-02-13 - US-P2.1-001 & US-P2.1-002 - Data quality scoring engine + issue detection
+**Iteration**: 1
+**Commit**: f64cb8f3a0dc3a2afc2ab4a325e7a1862ed1787f
+**Session**: b2e35e35-9a92-4416-9ce3-178c19423ac1
+**Status**: Complete
+
+### What was implemented
+- Created `packages/backend/convex/lib/import/dataQuality.ts`
+- 5 dimension scoring functions: scoreCompleteness, scoreConsistency, scoreAccuracy, scoreUniqueness, scoreTimeliness
+- Weighted average: completeness 30%, consistency 25%, accuracy 25%, uniqueness 15%, timeliness 5%
+- Grade mapping: excellent (90-100), good (75-89), fair (60-74), poor (40-59), critical (0-39)
+- Issue detection: missing required fields (critical), invalid email (critical), phone format (warning), date format (warning), missing recommended fields (warning), name casing (suggestion), duplicates (critical)
+- categorizeIssues() splits issues into critical/warnings/suggestions
+- All validation reuses patterns from validator.ts (EMAIL_REGEX, PHONE_REGEX, etc.)
+- Pure functions — no Convex ctx dependency
+
+### Files changed
+- packages/backend/convex/lib/import/dataQuality.ts (+788, new file)
+
+### Quality checks
+- ✅ Convex codegen: passed
+- ✅ Biome check: passed (after fixing block statements, complexity)
+- ✅ Type check: passed (only pre-existing template errors)
+
+### Learnings for future iterations
+**Patterns discovered:**
+- Biome has strict cognitive complexity limits (max 15) — must extract helper functions
+- Functions with many if/for blocks quickly exceed complexity — break into small focused helpers
+- `scoreAccuracy` needed to be split into `checkFieldAccuracy` + `checkDateAccuracy`
+- `detectIssues` needed to be split into 6 small detection functions
+
+**Gotchas encountered:**
+- Biome requires block statements everywhere — `if (x) return y` must be `if (x) { return y; }`
+- Biome removes trailing commas in function params (different from some other formatters)
+
+**Mistakes made:**
+- Initially wrote compact one-line returns that biome rejected — had to rewrite all early returns with block statements
+
+---
+
+## 2026-02-13 - US-P2.1-003 - DataQualityReport frontend component
+**Iteration**: 1
+**Commit**: c84b9d96a42a2037283b33e1f874467d314e9bc4
+**Session**: b2e35e35-9a92-4416-9ce3-178c19423ac1
+**Status**: Complete
+
+### What was implemented
+- Created `apps/web/src/components/import/data-quality-report.tsx`
+- Overall score display with large number, grade badge (color-coded)
+- 5 dimension progress bars with scores and weight labels
+- Collapsible issue sections: Critical (red), Warnings (amber), Suggestions (blue)
+- Per-issue rows: row number badge, field badge, message, current value, suggested fix, Apply Fix button
+- Continue button disabled when critical issues > 0
+- Skip message for high quality data (>=75 score)
+- Mobile responsive layout
+- Uses shadcn/ui Card, Progress, Badge, Button, Collapsible
+
+### Files changed
+- apps/web/src/components/import/data-quality-report.tsx (+375, new file)
+
+### Quality checks
+- ✅ Biome check: passed (after auto-fix and manual fixes)
+
+### Learnings for future iterations
+**Gotchas encountered:**
+- Biome requires sorted JSX attributes (alphabetical order) — `className` before `onClick` before `variant`
+- Biome forbids non-null assertions (`!`) — use `?? ""` or conditional rendering instead
+- Switch statements need `default:` clauses even when all cases are covered
+- `npx biome check --write` auto-fixes most issues but not switch defaults or non-null assertions
+
+---
+
+## 2026-02-13 - US-P2.1-004 - Integrate quality report into import wizard
+**Iteration**: 1
+**Commit**: 3ed7b8a34f6f868c2b3faf8f9d34343492a5dff5
+**Session**: b2e35e35-9a92-4416-9ce3-178c19423ac1
+**Status**: Complete
+
+### What was implemented
+- Added "Quality Check" as new step 4 in the 8-step import wizard
+- Step flow: Upload → Map → Select → Quality Check → Benchmarks → Review → Import → Complete
+- Quality check runs calculateDataQuality on mapped/selected data when entering step 4
+- Apply Fix updates row data in wizard state and re-runs scoring
+- Column mapping reversal (source→target → target→source) for building mapped rows
+- buildMappedRows helper for transforming raw CSV data through column mappings
+
+### Files changed
+- apps/web/src/components/import/import-wizard.tsx (+147, -9)
+
+### Quality checks
+- ✅ Biome check: passed
+- ✅ Type check: passed (only 2 pre-existing template errors)
+
+### Learnings for future iterations
+**Patterns discovered:**
+- When adding new imports in this codebase, MUST add import AND usage in same edit/write — linter hook strips unused imports between edits
+- If the linter runs between your import edit and usage edit, the import gets deleted
+- Safest approach: rewrite the entire file when making significant changes to import/usage patterns
+
+**Gotchas encountered:**
+- Linter hook auto-removes unused imports — had to rewrite entire file in one shot
+- confirmedMappings maps source→target, but quality engine needs target field names as keys — needed reverseMap
+
+**Mistakes made:**
+- First tried to add imports in one edit and usage in another — linter removed imports before I could add usage. Had to rewrite the full file.
+
+---

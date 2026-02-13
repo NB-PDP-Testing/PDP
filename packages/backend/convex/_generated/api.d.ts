@@ -42,6 +42,7 @@ import type * as lib_featureFlags from "../lib/featureFlags.js";
 import type * as lib_feedbackMessages from "../lib/feedbackMessages.js";
 import type * as lib_firstUserSetup from "../lib/firstUserSetup.js";
 import type * as lib_import_benchmarkApplicator from "../lib/import/benchmarkApplicator.js";
+import type * as lib_import_dataQuality from "../lib/import/dataQuality.js";
 import type * as lib_import_mapper from "../lib/import/mapper.js";
 import type * as lib_import_parser from "../lib/import/parser.js";
 import type * as lib_import_sportConfig from "../lib/import/sportConfig.js";
@@ -238,6 +239,7 @@ declare const fullApi: ApiFromModules<{
   "lib/feedbackMessages": typeof lib_feedbackMessages;
   "lib/firstUserSetup": typeof lib_firstUserSetup;
   "lib/import/benchmarkApplicator": typeof lib_import_benchmarkApplicator;
+  "lib/import/dataQuality": typeof lib_import_dataQuality;
   "lib/import/mapper": typeof lib_import_mapper;
   "lib/import/parser": typeof lib_import_parser;
   "lib/import/sportConfig": typeof lib_import_sportConfig;

@@ -57,7 +57,6 @@
         "Run npx ultracite fix and verify types"
       ],
       "priority": 1,
-      "passes": true,
       "notes": "This is a pure TypeScript library — no Convex queries/mutations. It operates on the already-parsed row data from the wizard. Import validation patterns from validator.ts to avoid duplication."
     },
     {
@@ -76,7 +75,6 @@
         "Run npx ultracite fix"
       ],
       "priority": 2,
-      "passes": true,
       "notes": "Issues should be actionable — each one tells the user exactly what's wrong and ideally suggests how to fix it. The suggestedFix field allows the frontend to offer one-click fixes."
     },
     {
@@ -97,7 +95,6 @@
         "Component accepts props: qualityReport, onFixIssue, onContinue, onBack"
       ],
       "priority": 3,
-      "passes": true,
       "notes": "This is a display component — it receives the QualityReport from the parent and renders it. The parent (wizard) handles running calculateDataQuality and managing state."
     },
     {
@@ -119,7 +116,6 @@
         "Run npx ultracite fix and npm run check-types"
       ],
       "priority": 4,
-      "passes": true,
       "notes": "The wizard currently has 7 steps. This adds an 8th between selection and review. Make sure the step indices and navigation logic are updated throughout. The quality check runs entirely client-side using already-parsed data — no new backend calls needed."
     }
   ]

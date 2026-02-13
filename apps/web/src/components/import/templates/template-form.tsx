@@ -453,7 +453,7 @@ export function TemplateForm({
               {formData.columnMappings.map((mapping, index) => (
                 <ColumnMappingRow
                   availableTargetFields={DEFAULT_TARGET_FIELDS}
-                  key={`mapping-${mapping.sourcePattern}-${mapping.targetField}-${index}`}
+                  key={`col-${mapping.sourcePattern}-${mapping.targetField}-${index}`}
                   mapping={mapping}
                   onRemove={() => removeColumnMapping(index)}
                   onUpdate={(field, value) =>
@@ -494,7 +494,7 @@ export function TemplateForm({
               {formData.ageGroupMappings.map((mapping, index) => (
                 <div
                   className="flex items-center gap-2"
-                  key={`age-${mapping.sourceValue}-${index}`}
+                  key={`age-${mapping.sourceValue}-${mapping.targetAgeGroup}-${index}`}
                 >
                   <Input
                     className="flex-1"
@@ -681,53 +681,60 @@ function ColumnMappingRow({
 
   return (
     <div className="space-y-2 rounded-lg border p-3">
+      {/* Row 1: Source + Target + controls — stacks on mobile */}
       <div className="flex items-center gap-2">
-        <GripVertical className="h-4 w-4 text-muted-foreground" />
-        <Input
-          className="flex-1"
-          onChange={(e) => onUpdate("sourcePattern", e.target.value)}
-          placeholder="Source column (e.g. Forename)"
-          value={mapping.sourcePattern}
-        />
-        <Select
-          onValueChange={(v) => onUpdate("targetField", v)}
-          value={mapping.targetField}
-        >
-          <SelectTrigger className="w-[180px]">
-            <SelectValue placeholder="Target field" />
-          </SelectTrigger>
-          <SelectContent>
-            {availableTargetFields.map((field) => {
-              const isUsed =
-                usedTargetFields.has(field.name) &&
-                field.name !== mapping.targetField;
-              return (
-                <SelectItem
-                  disabled={isUsed}
-                  key={field.name}
-                  value={field.name}
-                >
-                  {field.label}
-                  {field.required ? " *" : ""}
-                </SelectItem>
-              );
-            })}
-          </SelectContent>
-        </Select>
-        <div className="flex items-center gap-1">
+        <GripVertical className="hidden h-4 w-4 shrink-0 text-muted-foreground sm:block" />
+        <div className="grid min-w-0 flex-1 gap-2 sm:grid-cols-[1fr_180px]">
+          <Input
+            onChange={(e) => onUpdate("sourcePattern", e.target.value)}
+            placeholder="Source column (e.g. Forename)"
+            value={mapping.sourcePattern}
+          />
+          <Select
+            onValueChange={(v) => onUpdate("targetField", v)}
+            value={mapping.targetField}
+          >
+            <SelectTrigger>
+              <SelectValue placeholder="Target field" />
+            </SelectTrigger>
+            <SelectContent>
+              {availableTargetFields.map((field) => {
+                const isUsed =
+                  usedTargetFields.has(field.name) &&
+                  field.name !== mapping.targetField;
+                return (
+                  <SelectItem
+                    disabled={isUsed}
+                    key={field.name}
+                    value={field.name}
+                  >
+                    {field.label}
+                    {field.required ? " *" : ""}
+                  </SelectItem>
+                );
+              })}
+            </SelectContent>
+          </Select>
+        </div>
+        <div className="flex shrink-0 items-center gap-1">
           <Switch
             checked={mapping.required}
             onCheckedChange={(checked) => onUpdate("required", checked)}
           />
           <span className="text-muted-foreground text-xs">Req</span>
         </div>
-        <Button onClick={onRemove} size="icon" variant="ghost">
+        <Button
+          className="shrink-0"
+          onClick={onRemove}
+          size="icon"
+          variant="ghost"
+        >
           <Trash2 className="h-4 w-4" />
         </Button>
       </div>
 
-      {/* Transform + Aliases row */}
-      <div className="flex items-center gap-2 pl-6">
+      {/* Row 2: Transform + Aliases toggle */}
+      <div className="flex items-center gap-2 sm:pl-6">
         <Select
           onValueChange={(v) => onUpdate("transform", v || undefined)}
           value={mapping.transform ?? ""}
@@ -755,7 +762,7 @@ function ColumnMappingRow({
       </div>
 
       {showAliases && (
-        <div className="pl-6">
+        <div className="sm:pl-6">
           <Input
             onChange={(e) =>
               onUpdate(

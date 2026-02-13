@@ -1,0 +1,37 @@
+Phase 1.4: Import Template Management UI - COMPLETE
+
+Stories Completed:
+- US-P1.4-001: Template management page with list view (commit 92420086)
+- US-P1.4-002: Template usage stats query (commit 92420086)
+- US-P1.4-003: Template form component with 5 sections (commit afd29722)
+- US-P1.4-004: Wire create/edit flows with mutations (commit d3bd0ff7)
+- US-P1.4-005: Sample CSV upload dialog with auto-mapping (commit 517b6546)
+- US-P1.4-006: Clone and delete dialogs (commit d3bd0ff7)
+- US-P1.4-007: Admin sidebar link (commit e9186b96)
+- US-P1.4-008: Integration testing and polish (verified, all checks pass)
+
+Files Created:
+- apps/web/src/app/orgs/[orgId]/admin/templates/page.tsx
+- apps/web/src/components/import/templates/template-form.tsx
+- apps/web/src/components/import/templates/sample-upload-dialog.tsx
+- apps/web/src/components/import/templates/clone-dialog.tsx
+- apps/web/src/components/import/templates/delete-dialog.tsx
+
+Files Modified:
+- packages/backend/convex/models/importSessions.ts (added getTemplateUsageStats query)
+- apps/web/src/components/layout/admin-sidebar.tsx (added Manage Templates link)
+
+Quality Checks:
+- npx -w packages/backend convex codegen: PASS
+- npm run check-types: PASS
+- npx ultracite fix / npm run check: PASS (no new errors, pre-existing baseline maintained)
+
+Key Patterns Used:
+- Batch fetch + Map for usage stats (N+1 prevention)
+- Query skipping when templateIds empty
+- useQuery/useMutation from convex/react
+- Extracted sub-components for cognitive complexity (TemplateTableRow, TemplateMobileCard, ColumnMappingRow)
+- Co-located imports with usage to prevent linter removal
+- Semantic HTML (button instead of div[role=button])
+- Mobile responsive: table on desktop, cards on mobile
+- Platform vs org template distinction with role-based actions

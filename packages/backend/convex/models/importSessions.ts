@@ -16,7 +16,8 @@ const statusValidator = v.union(
   v.literal("importing"),
   v.literal("completed"),
   v.literal("failed"),
-  v.literal("cancelled")
+  v.literal("cancelled"),
+  v.literal("undone")
 );
 
 const sourceInfoValidator = v.object({
@@ -90,6 +91,9 @@ const sessionReturnValidator = v.object({
   duplicates: v.array(duplicateValidator),
   startedAt: v.number(),
   completedAt: v.optional(v.number()),
+  undoneAt: v.optional(v.number()),
+  undoneBy: v.optional(v.string()),
+  undoReason: v.optional(v.string()),
 });
 
 // Valid status transitions
@@ -99,9 +103,10 @@ const VALID_TRANSITIONS: Record<string, string[]> = {
   selecting: ["reviewing", "cancelled"],
   reviewing: ["importing", "cancelled"],
   importing: ["completed", "failed"],
-  completed: [],
+  completed: ["undone"],
   failed: [],
   cancelled: [],
+  undone: [],
 };
 
 /**
@@ -278,6 +283,7 @@ export const recordSessionStats = mutation({
 export const getTemplateUsageStats = query({
   args: {
     templateIds: v.array(v.id("importTemplates")),
+    organizationId: v.optional(v.string()),
   },
   returns: v.array(
     v.object({
@@ -287,29 +293,68 @@ export const getTemplateUsageStats = query({
     })
   ),
   handler: async (ctx, args) => {
-    const results = await Promise.all(
-      args.templateIds.map(async (templateId) => {
-        const sessions = await ctx.db
+    if (args.templateIds.length === 0) {
+      return [];
+    }
+
+    // Single fetch: get all sessions for this org, then group by templateId
+    const orgId = args.organizationId;
+    const sessions = orgId
+      ? await ctx.db
           .query("importSessions")
-          .withIndex("by_templateId", (q) => q.eq("templateId", templateId))
-          .collect();
+          .withIndex("by_organizationId", (q) => q.eq("organizationId", orgId))
+          .collect()
+      : // Fallback: fetch by each templateId (for platform-wide stats)
+        await Promise.all(
+          args.templateIds.map((tid) =>
+            ctx.db
+              .query("importSessions")
+              .withIndex("by_templateId", (q) => q.eq("templateId", tid))
+              .collect()
+          )
+        ).then((results) => results.flat());
 
-        let lastUsedAt: number | null = null;
-        for (const session of sessions) {
-          if (lastUsedAt === null || session.startedAt > lastUsedAt) {
-            lastUsedAt = session.startedAt;
-          }
+    // Build a lookup: templateId -> { count, lastUsedAt }
+    const templateIdSet = new Set(args.templateIds.map((id) => id.toString()));
+    const statsMap = new Map<
+      string,
+      { usageCount: number; lastUsedAt: number | null }
+    >();
+
+    for (const session of sessions) {
+      if (!session.templateId) {
+        continue;
+      }
+      const tidStr = session.templateId.toString();
+      if (!templateIdSet.has(tidStr)) {
+        continue;
+      }
+
+      const existing = statsMap.get(tidStr);
+      if (existing) {
+        existing.usageCount += 1;
+        if (
+          existing.lastUsedAt === null ||
+          session.startedAt > existing.lastUsedAt
+        ) {
+          existing.lastUsedAt = session.startedAt;
         }
+      } else {
+        statsMap.set(tidStr, {
+          usageCount: 1,
+          lastUsedAt: session.startedAt,
+        });
+      }
+    }
 
-        return {
-          templateId,
-          usageCount: sessions.length,
-          lastUsedAt,
-        };
-      })
-    );
-
-    return results;
+    return args.templateIds.map((templateId) => {
+      const stats = statsMap.get(templateId.toString());
+      return {
+        templateId,
+        usageCount: stats?.usageCount ?? 0,
+        lastUsedAt: stats?.lastUsedAt ?? null,
+      };
+    });
   },
 });
 

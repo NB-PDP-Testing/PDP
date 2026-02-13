@@ -196,6 +196,9 @@ export default defineSchema({
     // Passport Sharing Preferences (global)
     allowGlobalPassportDiscovery: v.optional(v.boolean()), // Allow coaches at any org to discover children's passports
 
+    // Import tracking
+    importSessionId: v.optional(v.id("importSessions")),
+
     // Metadata
     createdAt: v.number(),
     updatedAt: v.number(),
@@ -205,7 +208,8 @@ export default defineSchema({
     .index("by_userId", ["userId"])
     .index("by_phone", ["phone"])
     .index("by_postcode", ["postcode"])
-    .index("by_name", ["lastName", "firstName"]),
+    .index("by_name", ["lastName", "firstName"])
+    .index("by_importSessionId", ["importSessionId"]),
 
   // Organization-level: Guardian preferences per org
   orgGuardianProfiles: defineTable({
@@ -287,7 +291,8 @@ export default defineSchema({
     .index("by_name_dob", ["firstName", "lastName", "dateOfBirth"])
     .index("by_userId", ["userId"])
     .index("by_email", ["email"])
-    .index("by_playerType", ["playerType"]),
+    .index("by_playerType", ["playerType"])
+    .index("by_importSessionId", ["importSessionId"]),
 
   // Player Graduations - tracks players who have turned 18 and their graduation status
   playerGraduations: defineTable({
@@ -388,6 +393,9 @@ export default defineSchema({
     profileCompletedAt: v.optional(v.number()), // When parent completed required profile fields
     requiredProfileFields: v.optional(v.array(v.string())), // Which fields need completion (e.g. ['emergencyContact', 'medicalInfo'])
 
+    // Import tracking
+    importSessionId: v.optional(v.id("importSessions")),
+
     // Metadata
     createdAt: v.number(),
     updatedAt: v.number(),
@@ -398,7 +406,8 @@ export default defineSchema({
     .index("by_player", ["playerIdentityId"])
     .index("by_guardian_and_player", ["guardianIdentityId", "playerIdentityId"])
     .index("by_guardian_and_status", ["guardianIdentityId", "status"])
-    .index("by_status", ["status"]),
+    .index("by_status", ["status"])
+    .index("by_importSessionId", ["importSessionId"]),
 
   // Organization-level: Player enrollment
   orgPlayerEnrollments: defineTable({
@@ -455,7 +464,8 @@ export default defineSchema({
       "playerIdentityId",
       "organizationId",
       "sport",
-    ]),
+    ])
+    .index("by_importSessionId", ["importSessionId"]),
 
   // ============================================================
   // PHASE 4: ADULT PLAYER SUPPORT
@@ -542,6 +552,9 @@ export default defineSchema({
     currentSeason: v.optional(v.string()),
     seasonsPlayed: v.optional(v.array(v.string())),
 
+    // Import tracking
+    importSessionId: v.optional(v.id("importSessions")),
+
     // Timestamps
     createdAt: v.number(),
     updatedAt: v.number(),
@@ -557,7 +570,8 @@ export default defineSchema({
       "playerIdentityId",
       "organizationId",
       "status",
-    ]), // Added for filter() elimination
+    ]) // Added for filter() elimination
+    .index("by_importSessionId", ["importSessionId"]),
 
   // Skill Assessments - point-in-time skill records
   skillAssessments: defineTable({
@@ -626,6 +640,9 @@ export default defineSchema({
     source: v.optional(v.union(v.literal("manual"), v.literal("voice_note"))),
     voiceNoteId: v.optional(v.id("voiceNotes")), // If created from voice note
 
+    // Import tracking
+    importSessionId: v.optional(v.id("importSessions")),
+
     // Metadata
     confidence: v.optional(
       v.union(v.literal("low"), v.literal("medium"), v.literal("high"))
@@ -640,7 +657,8 @@ export default defineSchema({
     .index("by_date", ["passportId", "assessmentDate"])
     .index("by_assessor", ["assessedBy", "assessmentDate"])
     .index("by_organizationId", ["organizationId", "assessmentDate"])
-    .index("by_type", ["passportId", "assessmentType"]),
+    .index("by_type", ["passportId", "assessmentType"])
+    .index("by_importSessionId", ["importSessionId"]),
 
   // Passport Goals - Development goals linked to sport passports
   passportGoals: defineTable({
@@ -4615,7 +4633,10 @@ export default defineSchema({
     .index("by_scope", ["scope"])
     .index("by_sportCode", ["sportCode"])
     .index("by_organizationId", ["organizationId"])
-    .index("by_scope_and_sport", ["scope", "sportCode"]),
+    .index("by_scope_and_sport", ["scope", "sportCode"])
+    .index("by_scope_and_isActive", ["scope", "isActive"])
+    .index("by_organizationId_and_isActive", ["organizationId", "isActive"])
+    .index("by_scope_sport_and_isActive", ["scope", "sportCode", "isActive"]),
 
   // Tracks each import execution with full audit trail
   importSessions: defineTable({
@@ -4631,7 +4652,8 @@ export default defineSchema({
       v.literal("importing"),
       v.literal("completed"),
       v.literal("failed"),
-      v.literal("cancelled")
+      v.literal("cancelled"),
+      v.literal("undone")
     ),
 
     sourceInfo: v.object({
@@ -4705,6 +4727,11 @@ export default defineSchema({
 
     startedAt: v.number(),
     completedAt: v.optional(v.number()),
+
+    // Undo tracking
+    undoneAt: v.optional(v.number()),
+    undoneBy: v.optional(v.string()),
+    undoReason: v.optional(v.string()),
   })
     .index("by_organizationId", ["organizationId"])
     .index("by_status", ["status"])

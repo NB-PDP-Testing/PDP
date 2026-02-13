@@ -809,6 +809,7 @@ export const batchImportPlayersWithIdentity = mutation({
               createdAt: now,
               updatedAt: now,
               createdFrom: "import",
+              importSessionId: args.sessionId,
             });
             results.guardiansCreated += 1;
             guardianIdsProcessed.add(guardianIdentityId);
@@ -851,6 +852,7 @@ export const batchImportPlayersWithIdentity = mutation({
               consentedToSharing: true,
               createdAt: now,
               updatedAt: now,
+              importSessionId: args.sessionId,
             });
 
             console.log(
@@ -946,6 +948,7 @@ export const batchImportPlayersWithIdentity = mutation({
               createdAt: now,
               updatedAt: now,
               createdFrom: "import",
+              importSessionId: args.sessionId,
             });
             results.guardiansCreated += 1;
             guardianIdsProcessed.add(guardianIdentityId);
@@ -981,6 +984,7 @@ export const batchImportPlayersWithIdentity = mutation({
               consentedToSharing: true,
               createdAt: now,
               updatedAt: now,
+              importSessionId: args.sessionId,
             });
 
             console.log(
@@ -1063,6 +1067,7 @@ export const batchImportPlayersWithIdentity = mutation({
               currentSeason: playerData.season,
               createdAt: now,
               updatedAt: now,
+              importSessionId: args.sessionId,
             });
           }
         }

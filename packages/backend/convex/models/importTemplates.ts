@@ -251,32 +251,33 @@ export const listTemplates = query({
   },
   returns: v.array(templateReturnValidator),
   handler: async (ctx, args) => {
-    // Use the composite scope+sport index when sportCode is provided
+    // Use composite indexes that include isActive to avoid .filter()
     if (args.sportCode) {
-      const templates = await ctx.db
+      return await ctx.db
         .query("importTemplates")
-        .withIndex("by_scope_and_sport", (q) =>
-          q.eq("scope", args.scope).eq("sportCode", args.sportCode)
+        .withIndex("by_scope_sport_and_isActive", (q) =>
+          q
+            .eq("scope", args.scope)
+            .eq("sportCode", args.sportCode)
+            .eq("isActive", true)
         )
         .collect();
-      return templates.filter((t) => t.isActive);
     }
 
-    // Use scope-only index when no sportCode filter
     if (args.scope === "organization" && args.organizationId) {
-      const templates = await ctx.db
+      return await ctx.db
         .query("importTemplates")
-        .withIndex("by_organizationId", (q) =>
-          q.eq("organizationId", args.organizationId)
+        .withIndex("by_organizationId_and_isActive", (q) =>
+          q.eq("organizationId", args.organizationId).eq("isActive", true)
         )
         .collect();
-      return templates.filter((t) => t.isActive);
     }
 
-    const templates = await ctx.db
+    return await ctx.db
       .query("importTemplates")
-      .withIndex("by_scope", (q) => q.eq("scope", args.scope))
+      .withIndex("by_scope_and_isActive", (q) =>
+        q.eq("scope", args.scope).eq("isActive", true)
+      )
       .collect();
-    return templates.filter((t) => t.isActive);
   },
 });

@@ -374,15 +374,18 @@ export const getSession = query({
 
 /**
  * List sessions by organization, ordered by startedAt desc.
- * Uses by_org_and_status index.
+ * Uses by_org_and_status index. Defaults to 50 results max.
  */
 export const listSessionsByOrg = query({
   args: {
     organizationId: v.string(),
     status: v.optional(statusValidator),
+    limit: v.optional(v.number()),
   },
   returns: v.array(sessionReturnValidator),
   handler: async (ctx, args) => {
+    const maxResults = args.limit ?? 50;
+
     if (args.status) {
       const status = args.status;
       const sessions = await ctx.db
@@ -391,7 +394,9 @@ export const listSessionsByOrg = query({
           q.eq("organizationId", args.organizationId).eq("status", status)
         )
         .collect();
-      return sessions;
+      return sessions
+        .sort((a, b) => b.startedAt - a.startedAt)
+        .slice(0, maxResults);
     }
 
     const sessions = await ctx.db
@@ -401,6 +406,8 @@ export const listSessionsByOrg = query({
       )
       .collect();
     // Sort by startedAt desc in memory since we can't sort by non-index fields
-    return sessions.sort((a, b) => b.startedAt - a.startedAt);
+    return sessions
+      .sort((a, b) => b.startedAt - a.startedAt)
+      .slice(0, maxResults);
   },
 });

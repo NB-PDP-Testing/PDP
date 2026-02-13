@@ -276,7 +276,7 @@ export default function ImportPage() {
   // Fetch recent import sessions for this org (last 5)
   const recentSessions = useQuery(
     api.models.importSessions.listSessionsByOrg,
-    hasAccess ? { organizationId: orgId } : "skip"
+    hasAccess ? { organizationId: orgId, limit: 5 } : "skip"
   );
 
   // Show loading while checking access

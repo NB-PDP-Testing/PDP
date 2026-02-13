@@ -1,41 +1,60 @@
 # Ralph Progress Log
-Started: Fri 13 Feb 2026 20:46:55 GMT
+Started: Fri 13 Feb 2026 21:40:03 GMT
 ---
 
-## Phase 2.2: Import Simulation Frontend
+## Phase 2.3: Save & Resume — COMPLETE
 
-### US-P2.2-001: Create SimulationResults display component ✅
-- Created `apps/web/src/components/import/simulation-results.tsx`
-- Summary stats grid with color-coded cards (green/blue/purple/amber)
-- Player preview cards with action badges (Create/Update) and guardian info
-- Warnings (amber Alert) and errors (red Alert) sections
-- Loading skeleton state with animated spinner
-- Navigation: Back, Re-run Simulation, Run Live Import buttons
-- Errors block the proceed button
-- Mobile responsive: 1-col at 375px, 2-col at md breakpoint
+### US-P2.3-001: Create importSessionDrafts schema ✅
+- Added `importSessionDrafts` table to schema.ts
+- Fields: userId, organizationId, step, parsedHeaders, parsedRowCount, mappings, playerSelections, benchmarkSettings, templateId, sourceFileName, expiresAt, lastSavedAt
+- Indexes: by_userId_and_orgId, by_expiresAt
+- Commit: cead57d1
 
-### US-P2.2-002: Integrate simulation into wizard review step ✅
-- Updated `apps/web/src/components/import/steps/review-step.tsx`
-- Added `useQuery` with "skip" pattern for on-demand simulation
-- `buildPlayerPayload` transforms CSV mapped data → simulate query args
-- "Run Simulation" button triggers the query
-- Shows SimulationResults component with results or loading skeleton
-- Error dialog for proceeding with validation errors
-- Added new props: organizationId, sportCode, benchmarkSettings
-- Updated import-wizard.tsx to pass new props to ReviewStep
+### US-P2.3-002: Create draft persistence mutations and query ✅
+- Created packages/backend/convex/models/importSessionDrafts.ts
+- saveDraft mutation: upserts by userId+orgId, 7-day expiry
+- loadDraft query (read-only): finds non-expired draft
+- deleteDraft mutation: auth-checked deletion
+- listExpiredDrafts internalQuery + cleanupExpiredDrafts internalMutation
+- Commit: cead57d1
 
-### US-P2.2-003: Polish simulation UX and edge cases ✅
-- Empty state when no rows selected (informative message + back button)
-- Data fingerprinting via `currentDataHash` memo (indices + mappings + settings)
-- Cached simulation results persist in wizard state across navigation
-- Data-changed banner with re-run button when underlying data changes
-- Estimated time hint for larger imports (>50 rows) in loading state
-- Extracted ReviewForm, ReviewNavigation, DataChangedBanner components
-  to satisfy biome cognitive complexity limits (max 15)
+### US-P2.3-003: Add cron job for expired draft cleanup ✅
+- Daily cron at 4 AM UTC in crons.ts
+- Calls cleanupExpiredDrafts internalMutation
+- Commit: cead57d1
+
+### US-P2.3-004: Add auto-save to import wizard ✅
+- Debounced auto-save (500ms) after each step transition
+- DraftData type exported for resume flow
+- Save status indicator ("Saving..." / "Draft saved") in StepIndicator
+- Draft cleanup on wizard completion (review -> import transition)
+- stateRef pattern for async save callbacks
+- Commit: 9b2d0246
+
+### US-P2.3-005: Add resume UI to import entry page ✅
+- ResumeDraftCard component on import entry page
+- Shows file name, step name, relative time, expiry countdown
+- Resume button links to wizard with ?resume=true
+- Discard button with AlertDialog confirmation
+- formatRelativeTime helper
+- Commit: c18da926
+
+### US-P2.3-006: Handle wizard resume with file re-upload ✅
+- Wizard page detects ?resume=true, queries loadDraft, passes DraftData to wizard
+- Resume prompt banner at step 1 with filename and row count
+- Header matching: exact match -> auto-restore state + jump to saved step
+- Header mismatch: AlertDialog with "Apply Anyway" / "Start Fresh" options
+- Start Fresh: deletes draft, proceeds normally
+- Commit: 59c57339
 
 ### Learnings
-- Convex `useQuery` skip pattern: pass `"skip" as const` as args
-- Biome cognitive complexity max is 15 — plan for component extraction early
-- `npx ultracite fix` may crash; `npx biome check --write --unsafe` is a reliable fallback
-- Pre-existing type errors in `.next/dev/types/validator.ts` — not our files
-- Backend simulator needed to be created despite PRD claiming it existed
+- Always add imports AND their usage in the same edit (biome removes unused imports)
+- internalMutation has ctx.db access — no need to call internalQuery separately
+- sourceFileNameRef pattern for storing filename across callbacks
+- stateRef.current pattern avoids stale closures in debounced async callbacks
+- Convex queries cannot be called from mutations via string path; use direct DB access instead
+
+### Quality Checks
+- npx -w packages/backend convex codegen: PASS
+- npm run check-types: Only pre-existing errors (validator.ts template pages)
+- npx ultracite fix: Auto-fixed formatting only

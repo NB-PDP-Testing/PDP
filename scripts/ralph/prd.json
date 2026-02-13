@@ -1,99 +1,145 @@
 {
-  "project": "PlayerARC - Phase 2.2: Import Simulation Frontend",
-  "branchName": "ralph/phase-2.2-simulation-frontend",
-  "description": "Build the frontend for import simulation (dry-run preview). The backend simulator already exists at lib/import/simulator.ts and is exposed as a Convex query at models/importSimulation.ts. This phase builds the SimulationResults component showing preview counts, sample player cards, and a 'Run Live Import' button. Integrates into the import wizard review step.",
+  "project": "PlayerARC - Phase 2.3: Save & Resume",
+  "branchName": "ralph/phase-2.3-save-and-resume",
+  "description": "Enable saving import wizard progress and resuming later, even from a different device. Adds an importSessionDrafts table to Convex with auto-save after each wizard step, a resume UI on the import entry page, and a cron job to clean up expired drafts after 7 days. The loadDraft function MUST be a query (not mutation) since it only reads data.",
   "prdFile": "scripts/ralph/prds/Importing Members/phase-2-enhanced-ux.md",
   "contextFiles": [
-    "packages/backend/convex/lib/import/simulator.ts",
-    "packages/backend/convex/models/importSimulation.ts",
-    "apps/web/src/components/import/import-wizard.tsx",
-    "apps/web/src/components/import/steps/review-step.tsx",
-    "apps/web/src/components/import/steps/import-step.tsx",
-    "packages/backend/convex/models/playerImport.ts",
     "packages/backend/convex/schema.ts",
+    "packages/backend/convex/models/importSessions.ts",
+    "apps/web/src/components/import/import-wizard.tsx",
+    "apps/web/src/app/orgs/[orgId]/import/page.tsx",
+    "packages/backend/convex/crons.ts",
     "CLAUDE.md"
   ],
   "mandatoryPatterns": [
     "Use shadcn/ui components for all UI elements",
     "Use Tailwind CSS for styling",
-    "Use useQuery from convex/react to call the simulate query",
-    "Use query skipping — only run simulation when user clicks 'Run Simulation'",
+    "Use useQuery/useMutation from convex/react for data fetching",
+    "NEVER use .filter() in Convex — always .withIndex()",
+    "loadDraft MUST be a query function, NOT a mutation — it only reads data",
+    "saveDraft and deleteDraft are mutations",
+    "All routes scoped under /orgs/[orgId]/",
     "Support mobile viewport (375px minimum)",
     "Run npx ultracite fix before completing any story",
-    "The simulate query is at api.models.importSimulation.simulate",
-    "Do NOT modify the backend simulator or importSimulation model — they already work",
+    "Auto-save should be debounced (500ms) to avoid excessive writes",
     "Do NOT add unit tests — E2E only per CLAUDE.md"
   ],
   "successCriteria": [
-    "SimulationResults component displays preview stats from the simulate query",
-    "Sample player cards show name, DOB, age group, and action (create/update)",
-    "Summary shows counts: players to create/update, guardians, enrollments, passports, benchmarks",
-    "Run Simulation button triggers the query with current wizard data",
-    "Loading state shown while simulation runs",
-    "Error state handles simulation failures gracefully",
-    "Run Live Import button proceeds to the actual import step",
-    "Simulation integrates naturally into the review step of the wizard",
+    "importSessionDrafts table in schema with proper indexes",
+    "saveDraft mutation saves wizard state after each step completion",
+    "loadDraft query retrieves the most recent draft for a user in an org",
+    "deleteDraft mutation removes a draft when import completes or user discards",
+    "Cron job deletes expired drafts (>7 days) daily",
+    "Import entry page shows 'Resume Draft' card when a draft exists",
+    "Clicking resume opens wizard at the saved step with all data restored",
+    "Auto-save fires after each wizard step transition (debounced)",
     "All type checks pass: npm run check-types"
   ],
   "userStories": [
     {
-      "id": "US-P2.2-001",
-      "title": "Create SimulationResults display component",
-      "description": "As an admin reviewing an import, I need to see a dry-run preview showing exactly what will be created, updated, or linked.",
+      "id": "US-P2.3-001",
+      "title": "Create importSessionDrafts schema and model",
+      "description": "As the import system, I need a table to persist wizard draft state across sessions.",
       "acceptanceCriteria": [
-        "Create apps/web/src/components/import/simulation-results.tsx",
-        "Summary stats grid showing: Players to Create, Players to Update, Guardians to Create, Guardians to Link, Enrollments to Create, Passports to Create, Benchmarks to Apply",
-        "Each stat shown as a Card with large number and descriptive label",
-        "Stats cards color-coded: creates in green, updates in blue, links in purple",
-        "Sample player cards section: show up to 5 player previews from playerPreviews array",
-        "Each player card shows: name, DOB, age group, action badge (Create/Update), guardian info if present",
-        "Warnings section: show any warnings from the simulation (amber Alert components)",
-        "Errors section: show any errors from the simulation (red Alert components)",
-        "Component accepts props: simulationResult (from simulate query), onProceed, onBack, isLoading",
-        "Use shadcn/ui Card, Badge, Alert, Button, Skeleton (for loading state) components",
-        "Mobile responsive: 1-column layout at 375px, 2-column at md breakpoint"
+        "Add importSessionDrafts table to packages/backend/convex/schema.ts",
+        "Fields: userId (v.string()), organizationId (v.string()), step (v.number()), parsedHeaders (v.optional(v.array(v.string()))), parsedRowCount (v.optional(v.number())), mappings (v.optional(v.record(v.string(), v.string()))), playerSelections (v.optional(v.array(v.object({ rowIndex: v.number(), selected: v.boolean(), reason: v.optional(v.string()) })))), benchmarkSettings (v.optional(v.object({ applyBenchmarks: v.boolean(), strategy: v.string(), customTemplateId: v.optional(v.id('benchmarkTemplates')), passportStatuses: v.array(v.string()) }))), templateId (v.optional(v.id('importTemplates'))), sourceFileName (v.optional(v.string())), expiresAt (v.number()), lastSavedAt (v.number())",
+        "Indexes: by_userId_and_orgId on [userId, organizationId], by_expiresAt on [expiresAt]",
+        "Do NOT store raw parsed CSV data in the draft — too large. Store headers, row count, mappings, and selections only. User re-uploads the file on resume.",
+        "Run npx -w packages/backend convex codegen to verify schema"
       ],
       "priority": 1,
       "passes": true,
-      "notes": "This is a display component. It receives the simulation result and renders it. The parent handles calling the simulate query."
+      "notes": "Storing full parsed CSV data would be expensive and hit Convex document size limits for large imports. Instead, store the metadata (headers, row count, file name) so the resume flow can prompt the user to re-upload the same file."
     },
     {
-      "id": "US-P2.2-002",
-      "title": "Integrate simulation into wizard review step",
-      "description": "As an admin in the import wizard, I need to run a simulation from the review step and see the preview before committing to the live import.",
+      "id": "US-P2.3-002",
+      "title": "Create draft persistence mutations and query",
+      "description": "As the import system, I need mutations to save and delete drafts, and a query to load the most recent draft.",
       "acceptanceCriteria": [
-        "Update review-step.tsx to include a 'Run Simulation' button",
-        "On click, call the simulate query via useQuery with the current wizard data (organizationId, sportCode, players, selectedRowIndices, benchmarkSettings)",
-        "Use query skipping: pass 'skip' to useQuery until user clicks Run Simulation",
-        "Show loading skeleton while simulation is running",
-        "On success, show SimulationResults component with the results",
-        "On error, show error Alert with retry button",
-        "SimulationResults 'Proceed to Import' button transitions to the import step",
-        "If simulation shows errors (result.errors.length > 0), disable proceed and show 'Fix errors before importing'",
-        "Back button returns to quality check or selection step",
-        "Transform wizard state into the simulate query's expected args shape (match the v.array(v.object({...})) from importSimulation.ts)",
-        "Run npx ultracite fix and npm run check-types"
+        "Create packages/backend/convex/models/importSessionDrafts.ts",
+        "saveDraft mutation: upserts draft by userId + organizationId (delete old draft first, then insert new). Sets expiresAt to 7 days from now. Requires auth check.",
+        "loadDraft query (NOT mutation): finds most recent non-expired draft for userId + organizationId using by_userId_and_orgId index. Returns null if no draft exists.",
+        "deleteDraft mutation: deletes draft by ID. Requires auth check.",
+        "listExpiredDrafts internalQuery: finds drafts where expiresAt < Date.now() using by_expiresAt index, returns up to 100 at a time",
+        "cleanupExpiredDrafts internalMutation: calls listExpiredDrafts and deletes them in batch",
+        "Include args and returns validators on all functions",
+        "Auth check on saveDraft and deleteDraft: verify user is authenticated via authComponent.getAuthUser",
+        "Run npx ultracite fix and npx -w packages/backend convex codegen"
       ],
       "priority": 2,
       "passes": true,
-      "notes": "The simulate query at api.models.importSimulation.simulate accepts: organizationId, sportCode, players (array of player objects), selectedRowIndices, applyBenchmarks, benchmarkStrategy. You need to transform the wizard's parsed CSV data + mappings into the player objects the query expects. Review the args validator in importSimulation.ts for the exact shape."
+      "notes": "loadDraft is a query because it only reads. saveDraft upserts — there should only be one active draft per user per org. The cleanup functions are internal (not exposed to clients)."
     },
     {
-      "id": "US-P2.2-003",
-      "title": "Polish simulation UX and edge cases",
-      "description": "As an admin, I need the simulation flow to handle edge cases gracefully and feel polished.",
+      "id": "US-P2.3-003",
+      "title": "Add cron job for expired draft cleanup",
+      "description": "As the system, I need to automatically clean up expired drafts to prevent storage bloat.",
       "acceptanceCriteria": [
-        "Show estimated time if simulation takes >2 seconds (based on row count)",
-        "If no rows are selected, show empty state instead of running simulation",
-        "If wizard data hasn't changed since last simulation, show cached results instead of re-running",
-        "Add a 'Re-run Simulation' button if user goes back and changes data, then returns",
-        "Simulation results persist in wizard state so navigating back and forward doesn't lose them",
-        "Clear simulation results when underlying data changes (mappings, selections, benchmark settings)",
-        "Run npx ultracite fix and npm run check-types"
+        "Add daily cron job to packages/backend/convex/crons.ts",
+        "Cron runs cleanupExpiredDrafts internalMutation once per day",
+        "Use the existing crons.ts pattern (check if file exists, follow existing cron registration pattern)",
+        "If crons.ts does not exist, create it following Convex cron documentation: import { cronJobs } from 'convex/server', define crons, export default",
+        "Run npx -w packages/backend convex codegen to verify"
       ],
       "priority": 3,
       "passes": true,
-      "notes": "This is a polish story. Focus on the common edge cases: empty data, stale results, re-running after changes."
+      "notes": "Check if crons.ts already exists. If it does, add to the existing cron definitions. If not, create it. Convex crons use cronJobs() from 'convex/server'."
+    },
+    {
+      "id": "US-P2.3-004",
+      "title": "Add auto-save to import wizard",
+      "description": "As an admin using the import wizard, I need my progress to be automatically saved after each step so I can resume later.",
+      "acceptanceCriteria": [
+        "Update import-wizard.tsx to call saveDraft mutation after each step transition",
+        "Debounce saves by 500ms to avoid rapid-fire mutations during fast navigation",
+        "Save includes: current step number, mappings, player selections, benchmark settings, template ID, source file name, parsed headers, parsed row count",
+        "Do NOT save raw parsed CSV data — too large for Convex documents",
+        "Show subtle 'Saved' indicator (small text or icon) after successful save",
+        "On wizard completion (import step succeeds), call deleteDraft to clean up",
+        "On wizard cancellation, call deleteDraft to clean up",
+        "Use useMutation from convex/react for saveDraft and deleteDraft",
+        "Run npx ultracite fix"
+      ],
+      "priority": 4,
+      "passes": true,
+      "notes": "The key UX decision: we don't save parsed data because it can be very large. On resume, the user re-uploads the file but all their mappings, selections, and settings are restored. This is a good trade-off between storage cost and user experience."
+    },
+    {
+      "id": "US-P2.3-005",
+      "title": "Add resume UI to import entry page",
+      "description": "As an admin returning to the import page, I need to see if I have a saved draft and be able to resume from where I left off.",
+      "acceptanceCriteria": [
+        "Update apps/web/src/app/orgs/[orgId]/import/page.tsx",
+        "Query for existing draft using loadDraft query (pass current userId and orgId)",
+        "If draft exists, show a 'Resume Import' card above or alongside the new import options",
+        "Resume card shows: source file name, step reached, last saved time (relative: '2 hours ago'), expiry countdown",
+        "Resume button navigates to wizard with draft data pre-loaded",
+        "Discard button opens confirmation dialog, then calls deleteDraft",
+        "If no draft exists, page renders as before (no changes)",
+        "Use shadcn/ui Card, Button, AlertDialog components",
+        "Mobile responsive: full-width card at 375px",
+        "Run npx ultracite fix and npm run check-types"
+      ],
+      "priority": 5,
+      "passes": true,
+      "notes": "The resume flow: user clicks Resume -> wizard opens at the saved step -> user is prompted to re-upload the same CSV file (name shown) -> after re-upload, mappings and selections are restored from the draft. The wizard needs to handle this 're-upload on resume' flow gracefully."
+    },
+    {
+      "id": "US-P2.3-006",
+      "title": "Handle wizard resume with file re-upload",
+      "description": "As an admin resuming a draft, I need the wizard to restore my previous settings after I re-upload the CSV file.",
+      "acceptanceCriteria": [
+        "When wizard opens with draft data, start at upload step (step 0) regardless of saved step",
+        "Show message: 'Please re-upload [filename] to continue where you left off'",
+        "After file upload and parsing, verify headers match the saved draft headers",
+        "If headers match: auto-apply saved mappings, selections, and settings — jump to saved step",
+        "If headers don't match: show warning 'The uploaded file has different columns than the original. Your previous mappings may not apply.' Let user choose: apply anyway or start fresh",
+        "If user chooses start fresh, delete the draft and proceed normally",
+        "Run npx ultracite fix and npm run check-types"
+      ],
+      "priority": 6,
+      "passes": true,
+      "notes": "Header matching is important to prevent confusion. Compare the parsed headers array against the draft's parsedHeaders. An exact match means the same file; a partial match might be a new version of the same file."
     }
   ]
 }

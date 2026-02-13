@@ -73,6 +73,14 @@ type ReviewStepProps = {
   organizationId: string;
   sportCode: string;
   benchmarkSettings: BenchmarkSettings;
+  cachedSimulationResult:
+    | import("@/components/import/simulation-results").SimulationResult
+    | null;
+  cachedSimulationDataHash: string | null;
+  onSimulationComplete: (
+    result: import("@/components/import/simulation-results").SimulationResult,
+    dataHash: string
+  ) => void;
 };
 
 // ============================================================
@@ -413,6 +421,225 @@ function extractErrors(
 }
 
 // ============================================================
+// Review Form (validation errors, duplicates, teams, nav)
+// ============================================================
+
+function ReviewForm({
+  validationErrors,
+  validCount,
+  errorRowCount,
+  hasErrors,
+  duplicates,
+  onDuplicateResolution,
+  parsedData,
+  confirmedMappings,
+  selectedRows,
+  goBack,
+  onRunSimulation,
+  dataChanged,
+}: {
+  validationErrors: ReviewValidationError[];
+  validCount: number;
+  errorRowCount: number;
+  hasErrors: boolean;
+  duplicates: DuplicateInfo[];
+  onDuplicateResolution: (
+    rowNumber: number,
+    resolution: DuplicateInfo["resolution"]
+  ) => void;
+  parsedData: ParseResult;
+  confirmedMappings: Record<string, string>;
+  selectedRows: Set<number>;
+  goBack: () => void;
+  onRunSimulation: () => void;
+  dataChanged: boolean;
+}) {
+  const [errorSearch, setErrorSearch] = useState("");
+  const hasDuplicates = duplicates.length > 0;
+
+  return (
+    <div className="space-y-4">
+      {dataChanged && <DataChangedBanner onRerun={onRunSimulation} />}
+
+      <SummaryCards
+        duplicateCount={duplicates.length}
+        errorCount={errorRowCount}
+        selectedCount={selectedRows.size}
+        validCount={validCount}
+      />
+
+      <Card>
+        <CardHeader className="pb-3">
+          <div className="flex items-center justify-between">
+            <CardTitle className="flex items-center gap-2 text-lg">
+              <ClipboardList className="h-5 w-5" />
+              Validation Errors
+              {hasErrors && (
+                <Badge variant="destructive">{validationErrors.length}</Badge>
+              )}
+            </CardTitle>
+          </div>
+          {hasErrors && (
+            <CardDescription>
+              These rows have validation issues. You can still proceed, but
+              affected rows may fail during import.
+            </CardDescription>
+          )}
+        </CardHeader>
+        <CardContent>
+          {hasErrors && (
+            <div className="relative mb-3">
+              <Search className="absolute top-2.5 left-3 h-4 w-4 text-muted-foreground" />
+              <Input
+                className="pl-9"
+                onChange={(e) => setErrorSearch(e.target.value)}
+                placeholder="Search errors..."
+                value={errorSearch}
+              />
+            </div>
+          )}
+          <ErrorTable errors={validationErrors} searchQuery={errorSearch} />
+        </CardContent>
+      </Card>
+
+      {hasDuplicates && (
+        <Card>
+          <CardHeader className="pb-3">
+            <CardTitle className="flex items-center gap-2 text-lg">
+              <AlertTriangle className="h-5 w-5 text-amber-600" />
+              Duplicate Players
+              <Badge variant="secondary">{duplicates.length}</Badge>
+            </CardTitle>
+            <CardDescription>
+              These players may already exist in the system. Choose how to
+              handle each one.
+            </CardDescription>
+          </CardHeader>
+          <CardContent>
+            <div className="max-h-72 space-y-2 overflow-auto">
+              {duplicates.map((dup) => {
+                const row = parsedData.rows[dup.rowNumber];
+                if (!row) {
+                  return null;
+                }
+                return (
+                  <DuplicateCard
+                    duplicate={dup}
+                    key={dup.rowNumber}
+                    mappings={confirmedMappings}
+                    onResolutionChange={(res) =>
+                      onDuplicateResolution(dup.rowNumber, res)
+                    }
+                    row={row}
+                  />
+                );
+              })}
+            </div>
+          </CardContent>
+        </Card>
+      )}
+
+      <TeamCreationPreview
+        confirmedMappings={confirmedMappings}
+        parsedData={parsedData}
+        selectedRows={selectedRows}
+      />
+
+      <ReviewNavigation
+        errorCount={validationErrors.length}
+        errorRowCount={errorRowCount}
+        hasErrors={hasErrors}
+        onBack={goBack}
+        onRunSimulation={onRunSimulation}
+      />
+    </div>
+  );
+}
+
+// ============================================================
+// Data Changed Banner
+// ============================================================
+
+function DataChangedBanner({ onRerun }: { onRerun: () => void }) {
+  return (
+    <Card className="border-amber-200 bg-amber-50 dark:border-amber-900 dark:bg-amber-950">
+      <CardContent className="flex items-center justify-between p-3">
+        <div className="flex items-center gap-2">
+          <AlertTriangle className="h-4 w-4 text-amber-600" />
+          <span className="text-sm">
+            Data has changed since the last simulation. Results may be outdated.
+          </span>
+        </div>
+        <Button onClick={onRerun} size="sm" variant="outline">
+          <PlayCircle className="mr-1 h-3 w-3" />
+          Re-run
+        </Button>
+      </CardContent>
+    </Card>
+  );
+}
+
+// ============================================================
+// Navigation Actions
+// ============================================================
+
+function ReviewNavigation({
+  hasErrors,
+  errorCount,
+  errorRowCount,
+  onBack,
+  onRunSimulation,
+}: {
+  hasErrors: boolean;
+  errorCount: number;
+  errorRowCount: number;
+  onBack: () => void;
+  onRunSimulation: () => void;
+}) {
+  return (
+    <div className="flex justify-between pt-2">
+      <Button onClick={onBack} variant="outline">
+        Back
+      </Button>
+      <div className="flex gap-2">
+        {hasErrors ? (
+          <AlertDialog>
+            <AlertDialogTrigger asChild>
+              <Button variant="destructive">
+                Proceed with Errors ({errorCount})
+              </Button>
+            </AlertDialogTrigger>
+            <AlertDialogContent>
+              <AlertDialogHeader>
+                <AlertDialogTitle>
+                  Proceed with validation errors?
+                </AlertDialogTitle>
+                <AlertDialogDescription>
+                  There are {errorCount} validation error(s) across{" "}
+                  {errorRowCount} row(s). Rows with errors may fail during
+                  import or have incomplete data.
+                </AlertDialogDescription>
+              </AlertDialogHeader>
+              <AlertDialogFooter>
+                <AlertDialogCancel>Go Back</AlertDialogCancel>
+                <AlertDialogAction onClick={onRunSimulation}>
+                  Continue to Simulation
+                </AlertDialogAction>
+              </AlertDialogFooter>
+            </AlertDialogContent>
+          </AlertDialog>
+        ) : (
+          <Button onClick={onRunSimulation}>
+            <PlayCircle className="mr-1 h-4 w-4" />
+            Run Simulation
+          </Button>
+        )}
+      </div>
+    </div>
+  );
+}
+
+// ============================================================
 // Main ReviewStep
 // ============================================================
 
@@ -429,10 +656,33 @@ export default function ReviewStep({
   organizationId,
   sportCode,
   benchmarkSettings,
+  cachedSimulationResult,
+  cachedSimulationDataHash,
+  onSimulationComplete,
 }: ReviewStepProps) {
-  const [errorSearch, setErrorSearch] = useState("");
   const [hasValidated, setHasValidated] = useState(false);
   const [simulationRequested, setSimulationRequested] = useState(false);
+
+  // Compute data fingerprint to detect changes since last simulation
+  const currentDataHash = useMemo(() => {
+    const indices = [...selectedRows].sort((a, b) => a - b).join(",");
+    const mappings = Object.entries(confirmedMappings)
+      .sort(([a], [b]) => a.localeCompare(b))
+      .map(([k, vv]) => `${k}:${vv}`)
+      .join(",");
+    return `${indices}|${mappings}|${sportCode}|${String(benchmarkSettings.applyBenchmarks)}|${benchmarkSettings.strategy}`;
+  }, [
+    selectedRows,
+    confirmedMappings,
+    sportCode,
+    benchmarkSettings.applyBenchmarks,
+    benchmarkSettings.strategy,
+  ]);
+
+  // Use cached results if data hasn't changed
+  const hasCachedResults =
+    cachedSimulationResult !== null &&
+    cachedSimulationDataHash === currentDataHash;
 
   // Run validation on mount
   useEffect(() => {
@@ -494,6 +744,18 @@ export default function ReviewStep({
     simulationArgs
   );
 
+  // Cache simulation result in wizard state when it arrives
+  useEffect(() => {
+    if (simulationResult && simulationRequested) {
+      onSimulationComplete(simulationResult, currentDataHash);
+    }
+  }, [
+    simulationResult,
+    simulationRequested,
+    onSimulationComplete,
+    currentDataHash,
+  ]);
+
   const isSimulating = simulationRequested && simulationResult === undefined;
 
   const handleRunSimulation = useCallback(() => {
@@ -502,7 +764,6 @@ export default function ReviewStep({
 
   const handleRerunSimulation = useCallback(() => {
     setSimulationRequested(false);
-    // Reset and re-trigger on next render
     requestAnimationFrame(() => setSimulationRequested(true));
   }, []);
 
@@ -514,7 +775,6 @@ export default function ReviewStep({
 
   const validCount = selectedRows.size - errorRowCount;
   const hasErrors = validationErrors.length > 0;
-  const hasDuplicates = duplicates.length > 0;
 
   const handleDuplicateResolution = (
     rowNumber: number,
@@ -526,153 +786,77 @@ export default function ReviewStep({
     onDuplicatesChange(updated);
   };
 
-  // If simulation has been run and has results, show SimulationResults
-  if (simulationRequested && (simulationResult || isSimulating)) {
+  // Determine which simulation result to display
+  const activeSimResult =
+    simulationResult ?? (hasCachedResults ? cachedSimulationResult : null);
+  const dataChanged = cachedSimulationResult !== null && !hasCachedResults;
+  const simBackHandler = simulationRequested
+    ? () => setSimulationRequested(false)
+    : goBack;
+  const displayResult = activeSimResult ?? cachedSimulationResult;
+
+  // Show simulation view: either actively requested or cached results available
+  if (simulationRequested && (activeSimResult || isSimulating)) {
     return (
       <SimulationResults
         isLoading={isSimulating}
-        onBack={() => setSimulationRequested(false)}
+        onBack={simBackHandler}
         onProceed={goNext}
         onRerun={handleRerunSimulation}
-        simulationResult={simulationResult ?? null}
+        simulationResult={displayResult}
         totalRows={selectedRows.size}
       />
     );
   }
 
-  return (
-    <div className="space-y-4">
-      {/* Summary */}
-      <SummaryCards
-        duplicateCount={duplicates.length}
-        errorCount={errorRowCount}
-        selectedCount={selectedRows.size}
-        validCount={validCount}
+  if (hasCachedResults && cachedSimulationResult) {
+    return (
+      <SimulationResults
+        isLoading={false}
+        onBack={goBack}
+        onProceed={goNext}
+        onRerun={handleRerunSimulation}
+        simulationResult={cachedSimulationResult}
+        totalRows={selectedRows.size}
       />
+    );
+  }
 
-      {/* Validation Errors */}
-      <Card>
-        <CardHeader className="pb-3">
-          <div className="flex items-center justify-between">
-            <CardTitle className="flex items-center gap-2 text-lg">
-              <ClipboardList className="h-5 w-5" />
-              Validation Errors
-              {hasErrors && (
-                <Badge variant="destructive">{validationErrors.length}</Badge>
-              )}
-            </CardTitle>
-          </div>
-          {hasErrors && (
-            <CardDescription>
-              These rows have validation issues. You can still proceed, but
-              affected rows may fail during import.
-            </CardDescription>
-          )}
-        </CardHeader>
-        <CardContent>
-          {hasErrors && (
-            <div className="relative mb-3">
-              <Search className="absolute top-2.5 left-3 h-4 w-4 text-muted-foreground" />
-              <Input
-                className="pl-9"
-                onChange={(e) => setErrorSearch(e.target.value)}
-                placeholder="Search errors..."
-                value={errorSearch}
-              />
-            </div>
-          )}
-          <ErrorTable errors={validationErrors} searchQuery={errorSearch} />
-        </CardContent>
-      </Card>
-
-      {/* Duplicates */}
-      {hasDuplicates && (
+  // Empty state: no rows selected
+  if (selectedRows.size === 0) {
+    return (
+      <div className="space-y-4">
         <Card>
-          <CardHeader className="pb-3">
-            <CardTitle className="flex items-center gap-2 text-lg">
-              <AlertTriangle className="h-5 w-5 text-amber-600" />
-              Duplicate Players
-              <Badge variant="secondary">{duplicates.length}</Badge>
-            </CardTitle>
-            <CardDescription>
-              These players may already exist in the system. Choose how to
-              handle each one.
-            </CardDescription>
-          </CardHeader>
-          <CardContent>
-            <div className="max-h-72 space-y-2 overflow-auto">
-              {duplicates.map((dup) => {
-                const row = parsedData.rows[dup.rowNumber];
-                if (!row) {
-                  return null;
-                }
-                return (
-                  <DuplicateCard
-                    duplicate={dup}
-                    key={dup.rowNumber}
-                    mappings={confirmedMappings}
-                    onResolutionChange={(res) =>
-                      handleDuplicateResolution(dup.rowNumber, res)
-                    }
-                    row={row}
-                  />
-                );
-              })}
-            </div>
+          <CardContent className="py-12 text-center">
+            <Users className="mx-auto mb-3 h-10 w-10 text-muted-foreground" />
+            <p className="font-medium text-lg">No Players Selected</p>
+            <p className="mt-1 text-muted-foreground text-sm">
+              Go back and select at least one player to review and simulate the
+              import.
+            </p>
+            <Button className="mt-4" onClick={goBack} variant="outline">
+              Back to Selection
+            </Button>
           </CardContent>
         </Card>
-      )}
-
-      {/* Team Creation Preview */}
-      <TeamCreationPreview
-        confirmedMappings={confirmedMappings}
-        parsedData={parsedData}
-        selectedRows={selectedRows}
-      />
-
-      {/* Navigation */}
-      <div className="flex justify-between pt-2">
-        <Button onClick={goBack} variant="outline">
-          Back
-        </Button>
-        <div className="flex gap-2">
-          {hasErrors ? (
-            <AlertDialog>
-              <AlertDialogTrigger asChild>
-                <Button variant="destructive">
-                  Proceed with Errors ({validationErrors.length})
-                </Button>
-              </AlertDialogTrigger>
-              <AlertDialogContent>
-                <AlertDialogHeader>
-                  <AlertDialogTitle>
-                    Proceed with validation errors?
-                  </AlertDialogTitle>
-                  <AlertDialogDescription>
-                    There are {validationErrors.length} validation error(s)
-                    across {errorRowCount} row(s). Rows with errors may fail
-                    during import or have incomplete data.
-                  </AlertDialogDescription>
-                </AlertDialogHeader>
-                <AlertDialogFooter>
-                  <AlertDialogCancel>Go Back</AlertDialogCancel>
-                  <AlertDialogAction onClick={handleRunSimulation}>
-                    Continue to Simulation
-                  </AlertDialogAction>
-                </AlertDialogFooter>
-              </AlertDialogContent>
-            </AlertDialog>
-          ) : (
-            <Button
-              disabled={selectedRows.size === 0}
-              onClick={handleRunSimulation}
-            >
-              <PlayCircle className="mr-1 h-4 w-4" />
-              Run Simulation
-            </Button>
-          )}
-        </div>
       </div>
-    </div>
+    );
+  }
+
+  return (
+    <ReviewForm
+      confirmedMappings={confirmedMappings}
+      dataChanged={dataChanged}
+      duplicates={duplicates}
+      errorRowCount={errorRowCount}
+      goBack={goBack}
+      hasErrors={hasErrors}
+      onDuplicateResolution={handleDuplicateResolution}
+      onRunSimulation={handleRunSimulation}
+      parsedData={parsedData}
+      selectedRows={selectedRows}
+      validationErrors={validationErrors}
+      validCount={validCount}
+    />
   );
 }

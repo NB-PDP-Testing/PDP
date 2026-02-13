@@ -12,6 +12,7 @@ import { useMutation } from "convex/react";
 import { Check } from "lucide-react";
 import { useCallback, useMemo, useRef, useState } from "react";
 import DataQualityReport from "@/components/import/data-quality-report";
+import type { SimulationResult } from "@/components/import/simulation-results";
 import BenchmarkConfigStep from "@/components/import/steps/benchmark-config-step";
 import CompleteStep from "@/components/import/steps/complete-step";
 import ImportStep from "@/components/import/steps/import-step";
@@ -63,6 +64,8 @@ export type WizardState = {
     passportsCreated: number;
     benchmarksApplied: number;
   } | null;
+  simulationResult: SimulationResult | null;
+  simulationDataHash: string | null;
 };
 
 export type WizardStep = {
@@ -240,6 +243,8 @@ export default function ImportWizard({
     validationErrors: [],
     duplicates: [],
     importResult: null,
+    simulationResult: null,
+    simulationDataHash: null,
   });
 
   const [qualityReport, setQualityReport] = useState<QualityReport | null>(
@@ -449,6 +454,8 @@ export default function ImportWizard({
         {currentStep === 6 && state.parsedData && (
           <ReviewStep
             benchmarkSettings={state.benchmarkSettings}
+            cachedSimulationDataHash={state.simulationDataHash}
+            cachedSimulationResult={state.simulationResult}
             confirmedMappings={state.confirmedMappings}
             duplicates={state.duplicates}
             goBack={goBack}
@@ -457,6 +464,12 @@ export default function ImportWizard({
               goNext();
             }}
             onDuplicatesChange={(duplicates) => updateState({ duplicates })}
+            onSimulationComplete={(result, dataHash) =>
+              updateState({
+                simulationResult: result,
+                simulationDataHash: dataHash,
+              })
+            }
             onValidationErrorsChange={(validationErrors) =>
               updateState({ validationErrors })
             }

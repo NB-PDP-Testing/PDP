@@ -196,6 +196,11 @@ export default function SimulationResults({
             <CardDescription>
               Analyzing {totalRows} player record{totalRows !== 1 ? "s" : ""} to
               preview what will happen during import.
+              {totalRows > 50 && (
+                <span className="mt-1 block text-muted-foreground text-xs">
+                  Larger imports may take a few seconds...
+                </span>
+              )}
             </CardDescription>
           </CardHeader>
         </Card>

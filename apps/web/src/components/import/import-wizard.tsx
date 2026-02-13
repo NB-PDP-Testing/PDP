@@ -9,8 +9,8 @@ import {
 import type { MappingSuggestion } from "@pdp/backend/convex/lib/import/mapper";
 import type { ParseResult } from "@pdp/backend/convex/lib/import/parser";
 import { useMutation } from "convex/react";
-import { Check } from "lucide-react";
-import { useCallback, useMemo, useRef, useState } from "react";
+import { Check, Save } from "lucide-react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import DataQualityReport from "@/components/import/data-quality-report";
 import type { SimulationResult } from "@/components/import/simulation-results";
 import BenchmarkConfigStep from "@/components/import/steps/benchmark-config-step";
@@ -98,15 +98,42 @@ export const WIZARD_STEPS: WizardStep[] = [
 ];
 
 // ============================================================
+// Draft data type for resume flow
+// ============================================================
+
+export type DraftData = {
+  _id: Id<"importSessionDrafts">;
+  step: number;
+  parsedHeaders?: string[];
+  parsedRowCount?: number;
+  mappings?: Record<string, string>;
+  playerSelections?: Array<{
+    rowIndex: number;
+    selected: boolean;
+    reason?: string;
+  }>;
+  benchmarkSettings?: {
+    applyBenchmarks: boolean;
+    strategy: string;
+    customTemplateId?: Id<"benchmarkTemplates">;
+    passportStatuses: string[];
+  };
+  templateId?: Id<"importTemplates">;
+  sourceFileName?: string;
+};
+
+// ============================================================
 // Step Indicator
 // ============================================================
 
 function StepIndicator({
   steps,
   currentStep,
+  saveStatus,
 }: {
   steps: WizardStep[];
   currentStep: number;
+  saveStatus: "idle" | "saving" | "saved";
 }) {
   return (
     <nav aria-label="Import wizard progress" className="w-full">
@@ -164,9 +191,17 @@ function StepIndicator({
         <span className="font-medium text-sm">
           Step {currentStep} of {steps.length}
         </span>
-        <span className="text-muted-foreground text-sm">
-          {steps.find((s) => s.id === currentStep)?.name}
-        </span>
+        <div className="flex items-center gap-2">
+          {saveStatus !== "idle" && (
+            <span className="flex items-center gap-1 text-muted-foreground text-xs">
+              <Save className="h-3 w-3" />
+              {saveStatus === "saving" ? "Saving..." : "Saved"}
+            </span>
+          )}
+          <span className="text-muted-foreground text-sm">
+            {steps.find((s) => s.id === currentStep)?.name}
+          </span>
+        </div>
       </div>
       <div className="mt-2 flex gap-1 md:hidden">
         {steps.map((step) => (
@@ -179,6 +214,16 @@ function StepIndicator({
           />
         ))}
       </div>
+
+      {/* Desktop save indicator */}
+      {saveStatus !== "idle" && (
+        <div className="mt-2 hidden justify-end md:flex">
+          <span className="flex items-center gap-1 text-muted-foreground text-xs">
+            <Save className="h-3 w-3" />
+            {saveStatus === "saving" ? "Saving draft..." : "Draft saved"}
+          </span>
+        </div>
+      )}
     </nav>
   );
 }
@@ -215,55 +260,176 @@ function buildMappedRows(
 // Import Wizard Component
 // ============================================================
 
+const SAVE_DEBOUNCE_MS = 500;
+
 type ImportWizardProps = {
   organizationId: string;
   templateId: Id<"importTemplates"> | null;
   sportCode: string;
+  draftData?: DraftData | null;
 };
 
 export default function ImportWizard({
   organizationId,
   templateId,
   sportCode,
+  draftData,
 }: ImportWizardProps) {
   const [currentStep, setCurrentStep] = useState(1);
-  const [state, setState] = useState<WizardState>({
-    templateId,
+  const [state, setState] = useState<WizardState>(() => ({
+    templateId: draftData?.templateId ?? templateId,
     sportCode: sportCode || "gaa_football",
     parsedData: null,
     mappings: [],
-    confirmedMappings: {},
-    selectedRows: new Set(),
-    benchmarkSettings: {
-      applyBenchmarks: true,
-      strategy: "age-appropriate",
-      passportStatuses: ["active"],
-    },
+    confirmedMappings: draftData?.mappings ?? {},
+    selectedRows: new Set(
+      draftData?.playerSelections
+        ?.filter((s) => s.selected)
+        .map((s) => s.rowIndex) ?? []
+    ),
+    benchmarkSettings: draftData?.benchmarkSettings
+      ? {
+          applyBenchmarks: draftData.benchmarkSettings.applyBenchmarks,
+          strategy: draftData.benchmarkSettings
+            .strategy as BenchmarkSettings["strategy"],
+          customTemplateId: draftData.benchmarkSettings.customTemplateId,
+          passportStatuses: draftData.benchmarkSettings.passportStatuses,
+        }
+      : {
+          applyBenchmarks: true,
+          strategy: "age-appropriate",
+          passportStatuses: ["active"],
+        },
     sessionId: null,
     validationErrors: [],
     duplicates: [],
     importResult: null,
     simulationResult: null,
     simulationDataHash: null,
-  });
+  }));
 
   const [qualityReport, setQualityReport] = useState<QualityReport | null>(
     null
   );
 
+  // Draft save state
+  const [saveStatus, setSaveStatus] = useState<"idle" | "saving" | "saved">(
+    "idle"
+  );
+  const draftIdRef = useRef<Id<"importSessionDrafts"> | null>(
+    draftData?._id ?? null
+  );
+  const saveTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  // Keep a ref to the latest state for async save callbacks
+  const stateRef = useRef(state);
+  stateRef.current = state;
+  // Store source file name for drafts
+  const sourceFileNameRef = useRef<string | undefined>(
+    draftData?.sourceFileName
+  );
+
   const createSession = useMutation(
     api.models.importSessions.createImportSession
+  );
+  const saveDraftMutation = useMutation(
+    api.models.importSessionDrafts.saveDraft
+  );
+  const deleteDraftMutation = useMutation(
+    api.models.importSessionDrafts.deleteDraft
   );
   const { data: session } = authClient.useSession();
   const sessionCreating = useRef(false);
 
+  // Debounced auto-save after step transitions
+  const triggerSave = useCallback(
+    (step: number) => {
+      // Don't save on step 7 (importing) or 8 (complete)
+      if (step >= 7) {
+        return;
+      }
+
+      if (saveTimerRef.current) {
+        clearTimeout(saveTimerRef.current);
+      }
+
+      saveTimerRef.current = setTimeout(async () => {
+        const currentState = stateRef.current;
+        setSaveStatus("saving");
+        try {
+          const selections = Array.from(currentState.selectedRows).map(
+            (rowIndex) => ({
+              rowIndex,
+              selected: true,
+            })
+          );
+
+          const id = await saveDraftMutation({
+            organizationId,
+            step,
+            parsedHeaders: currentState.parsedData?.headers,
+            parsedRowCount: currentState.parsedData?.totalRows,
+            mappings:
+              Object.keys(currentState.confirmedMappings).length > 0
+                ? currentState.confirmedMappings
+                : undefined,
+            playerSelections: selections.length > 0 ? selections : undefined,
+            benchmarkSettings: currentState.benchmarkSettings,
+            templateId: currentState.templateId ?? undefined,
+            sourceFileName: sourceFileNameRef.current,
+          });
+          draftIdRef.current = id;
+          setSaveStatus("saved");
+          // Reset "saved" indicator after 2 seconds
+          setTimeout(() => setSaveStatus("idle"), 2000);
+        } catch {
+          setSaveStatus("idle");
+        }
+      }, SAVE_DEBOUNCE_MS);
+    },
+    [organizationId, saveDraftMutation]
+  );
+
+  // Cleanup save timer on unmount
+  useEffect(
+    () => () => {
+      if (saveTimerRef.current) {
+        clearTimeout(saveTimerRef.current);
+      }
+    },
+    []
+  );
+
+  // Delete draft on completion or cancellation
+  const cleanupDraft = useCallback(async () => {
+    if (draftIdRef.current) {
+      try {
+        await deleteDraftMutation({ draftId: draftIdRef.current });
+        draftIdRef.current = null;
+      } catch {
+        // Non-blocking — draft will expire on its own
+      }
+    }
+  }, [deleteDraftMutation]);
+
   const goNext = useCallback(() => {
-    setCurrentStep((prev) => Math.min(prev + 1, WIZARD_STEPS.length));
+    setCurrentStep((prev) => {
+      const next = Math.min(prev + 1, WIZARD_STEPS.length);
+      return next;
+    });
   }, []);
 
   const goBack = useCallback(() => {
     setCurrentStep((prev) => Math.max(prev - 1, 1));
   }, []);
+
+  // Trigger save whenever step changes (after initial render)
+  const prevStepRef = useRef(currentStep);
+  useEffect(() => {
+    if (prevStepRef.current !== currentStep) {
+      prevStepRef.current = currentStep;
+      triggerSave(currentStep);
+    }
+  }, [currentStep, triggerSave]);
 
   const updateState = useCallback((updates: Partial<WizardState>) => {
     setState((prev) => ({ ...prev, ...updates }));
@@ -355,6 +521,7 @@ export default function ImportWizard({
 
   const handleDataParsed = useCallback(
     async (data: ParseResult, fileName?: string) => {
+      sourceFileNameRef.current = fileName;
       // Select all rows by default
       const allIndices = new Set(
         Array.from({ length: data.rows.length }, (_, i) => i)
@@ -399,8 +566,31 @@ export default function ImportWizard({
 
   return (
     <div className="mx-auto max-w-5xl space-y-6 p-4 md:p-6">
-      {/* Step Indicator */}
-      <StepIndicator currentStep={currentStep} steps={WIZARD_STEPS} />
+      {/* Step Indicator with save status */}
+      <StepIndicator
+        currentStep={currentStep}
+        saveStatus={saveStatus}
+        steps={WIZARD_STEPS}
+      />
+
+      {/* Resume prompt for re-upload */}
+      {draftData && currentStep === 1 && (
+        <div className="rounded-lg border border-blue-200 bg-blue-50 p-4 dark:border-blue-800 dark:bg-blue-950/30">
+          <p className="text-sm">
+            Please re-upload{" "}
+            <span className="font-medium">
+              {draftData.sourceFileName ?? "your CSV file"}
+            </span>{" "}
+            to continue where you left off.
+            {draftData.parsedRowCount != null && (
+              <span className="text-muted-foreground">
+                {" "}
+                ({draftData.parsedRowCount} rows expected)
+              </span>
+            )}
+          </p>
+        </div>
+      )}
 
       {/* Step Content */}
       <div className="min-h-[400px]">
@@ -461,6 +651,8 @@ export default function ImportWizard({
             goBack={goBack}
             goNext={() => {
               updateState({ importResult: null });
+              // Delete draft before importing — the import is about to happen
+              cleanupDraft();
               goNext();
             }}
             onDuplicatesChange={(duplicates) => updateState({ duplicates })}

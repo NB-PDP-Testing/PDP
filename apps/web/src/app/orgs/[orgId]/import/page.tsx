@@ -2,7 +2,7 @@
 
 import { api } from "@pdp/backend/convex/_generated/api";
 import type { Id } from "@pdp/backend/convex/_generated/dataModel";
-import { useQuery } from "convex/react";
+import { useMutation, useQuery } from "convex/react";
 import {
   ArrowLeft,
   Calendar,
@@ -10,6 +10,8 @@ import {
   Clock,
   FileSpreadsheet,
   Loader2,
+  Play,
+  Trash2,
   Upload,
   XCircle,
 } from "lucide-react";
@@ -17,6 +19,18 @@ import type { Route } from "next";
 import Link from "next/link";
 import { useParams, useRouter } from "next/navigation";
 import { useEffect, useState } from "react";
+import { WIZARD_STEPS } from "@/components/import/import-wizard";
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+  AlertDialogTrigger,
+} from "@/components/ui/alert-dialog";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import {
@@ -106,6 +120,25 @@ function formatDate(timestamp: number) {
     hour: "2-digit",
     minute: "2-digit",
   });
+}
+
+function formatRelativeTime(timestamp: number) {
+  const now = Date.now();
+  const diff = now - timestamp;
+  const minutes = Math.floor(diff / 60_000);
+  const hours = Math.floor(diff / 3_600_000);
+  const days = Math.floor(diff / 86_400_000);
+
+  if (minutes < 1) {
+    return "just now";
+  }
+  if (minutes < 60) {
+    return `${minutes}m ago`;
+  }
+  if (hours < 24) {
+    return `${hours}h ago`;
+  }
+  return `${days}d ago`;
 }
 
 function getSportName(sportCode?: string) {
@@ -217,6 +250,112 @@ function RecentSessionRow({
   );
 }
 
+function ResumeDraftCard({
+  draft,
+  orgId,
+  onDiscard,
+}: {
+  draft: {
+    _id: Id<"importSessionDrafts">;
+    step: number;
+    sourceFileName?: string;
+    lastSavedAt: number;
+    expiresAt: number;
+    parsedRowCount?: number;
+    templateId?: Id<"importTemplates">;
+  };
+  orgId: string;
+  onDiscard: () => void;
+}) {
+  const stepName =
+    WIZARD_STEPS.find((s) => s.id === draft.step)?.name ?? `Step ${draft.step}`;
+  const expiresIn = Math.max(
+    0,
+    Math.ceil((draft.expiresAt - Date.now()) / 86_400_000)
+  );
+
+  return (
+    <Card className="border-amber-200 bg-amber-50/50 dark:border-amber-800 dark:bg-amber-950/20">
+      <CardHeader className="pb-2">
+        <CardTitle className="flex items-center gap-2 text-lg">
+          <Play className="h-5 w-5 text-amber-600 dark:text-amber-400" />
+          Resume Import
+        </CardTitle>
+        <CardDescription>
+          You have an unfinished import. Pick up where you left off.
+        </CardDescription>
+      </CardHeader>
+      <CardContent>
+        <div className="space-y-3">
+          <div className="flex flex-wrap gap-x-6 gap-y-1 text-sm">
+            {draft.sourceFileName && (
+              <span>
+                <span className="text-muted-foreground">File:</span>{" "}
+                <span className="font-medium">{draft.sourceFileName}</span>
+              </span>
+            )}
+            <span>
+              <span className="text-muted-foreground">Progress:</span>{" "}
+              <span className="font-medium">{stepName}</span>
+            </span>
+            <span>
+              <span className="text-muted-foreground">Saved:</span>{" "}
+              <span className="font-medium">
+                {formatRelativeTime(draft.lastSavedAt)}
+              </span>
+            </span>
+            {draft.parsedRowCount != null && (
+              <span>
+                <span className="text-muted-foreground">Rows:</span>{" "}
+                <span className="font-medium">{draft.parsedRowCount}</span>
+              </span>
+            )}
+            <span className="text-muted-foreground text-xs">
+              Expires in {expiresIn} day{expiresIn !== 1 ? "s" : ""}
+            </span>
+          </div>
+
+          <div className="flex flex-col gap-2 sm:flex-row">
+            <Link
+              className="flex-1"
+              href={`/orgs/${orgId}/import/wizard?resume=true` as Route}
+            >
+              <Button className="w-full" size="lg">
+                <Play className="mr-2 h-4 w-4" />
+                Resume Import
+              </Button>
+            </Link>
+
+            <AlertDialog>
+              <AlertDialogTrigger asChild>
+                <Button size="lg" variant="outline">
+                  <Trash2 className="mr-2 h-4 w-4" />
+                  Discard
+                </Button>
+              </AlertDialogTrigger>
+              <AlertDialogContent>
+                <AlertDialogHeader>
+                  <AlertDialogTitle>Discard saved import?</AlertDialogTitle>
+                  <AlertDialogDescription>
+                    This will permanently delete your saved import progress. You
+                    will need to start a new import from scratch.
+                  </AlertDialogDescription>
+                </AlertDialogHeader>
+                <AlertDialogFooter>
+                  <AlertDialogCancel>Cancel</AlertDialogCancel>
+                  <AlertDialogAction onClick={onDiscard}>
+                    Discard
+                  </AlertDialogAction>
+                </AlertDialogFooter>
+              </AlertDialogContent>
+            </AlertDialog>
+          </div>
+        </div>
+      </CardContent>
+    </Card>
+  );
+}
+
 export default function ImportPage() {
   const params = useParams();
   const router = useRouter();
@@ -278,6 +417,26 @@ export default function ImportPage() {
     api.models.importSessions.listSessionsByOrg,
     hasAccess ? { organizationId: orgId } : "skip"
   );
+
+  // Check for existing draft
+  const existingDraft = useQuery(
+    api.models.importSessionDrafts.loadDraft,
+    hasAccess ? { organizationId: orgId } : "skip"
+  );
+
+  const deleteDraftMutation = useMutation(
+    api.models.importSessionDrafts.deleteDraft
+  );
+
+  const handleDiscardDraft = async () => {
+    if (existingDraft) {
+      try {
+        await deleteDraftMutation({ draftId: existingDraft._id });
+      } catch {
+        // Non-blocking
+      }
+    }
+  };
 
   // Show loading while checking access
   if (hasAccess === null) {
@@ -368,6 +527,15 @@ export default function ImportPage() {
           </p>
         </div>
       </div>
+
+      {/* Resume Draft Card */}
+      {existingDraft && (
+        <ResumeDraftCard
+          draft={existingDraft}
+          onDiscard={handleDiscardDraft}
+          orgId={orgId}
+        />
+      )}
 
       {/* Sport Selection */}
       <Card>

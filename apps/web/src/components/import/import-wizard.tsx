@@ -418,6 +418,11 @@ export default function ImportWizard({
 
   // Delete draft on completion or cancellation
   const cleanupDraft = useCallback(async () => {
+    // Cancel any pending debounced save to prevent re-creating a deleted draft
+    if (saveTimerRef.current) {
+      clearTimeout(saveTimerRef.current);
+      saveTimerRef.current = null;
+    }
     if (draftIdRef.current) {
       try {
         await deleteDraftMutation({ draftId: draftIdRef.current });

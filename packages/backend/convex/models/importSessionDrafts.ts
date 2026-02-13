@@ -1,10 +1,5 @@
 import { v } from "convex/values";
-import {
-  internalMutation,
-  internalQuery,
-  mutation,
-  query,
-} from "../_generated/server";
+import { internalMutation, mutation, query } from "../_generated/server";
 import { authComponent } from "../auth";
 
 // ============================================================
@@ -163,24 +158,8 @@ export const deleteDraft = mutation({
 });
 
 /**
- * List expired drafts (internal — used by the cron cleanup job).
- * Returns up to 100 expired drafts at a time.
- */
-export const listExpiredDrafts = internalQuery({
-  args: {},
-  returns: v.array(v.id("importSessionDrafts")),
-  handler: async (ctx) => {
-    const now = Date.now();
-    const expired = await ctx.db
-      .query("importSessionDrafts")
-      .withIndex("by_expiresAt", (q) => q.lt("expiresAt", now))
-      .take(100);
-    return expired.map((d) => d._id);
-  },
-});
-
-/**
  * Delete expired drafts in batch (internal — called by cron).
+ * Reads and deletes up to 100 expired drafts per invocation.
  */
 export const cleanupExpiredDrafts = internalMutation({
   args: {},

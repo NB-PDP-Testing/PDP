@@ -468,7 +468,8 @@ export default function ImportPage() {
   const isLoading =
     platformTemplates === undefined ||
     orgTemplates === undefined ||
-    recentSessions === undefined;
+    recentSessions === undefined ||
+    existingDraft === undefined;
 
   // Combine and filter templates by sport
   const allTemplates: ImportTemplate[] = [

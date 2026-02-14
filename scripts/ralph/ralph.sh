@@ -107,9 +107,10 @@ for i in $(seq 1 $MAX_ITERATIONS); do
 
   # Show current PRD status
   if [ -f "$PRD_FILE" ]; then
-    INCOMPLETE_COUNT=$(jq '[.userStories[] | select(.passes == false)] | length' "$PRD_FILE" 2>/dev/null || echo "?")
+    # Count stories with passes == true (explicitly complete)
+    COMPLETE_COUNT=$(jq '[.userStories[] | select(.passes == true)] | length' "$PRD_FILE" 2>/dev/null || echo "?")
     TOTAL_COUNT=$(jq '.userStories | length' "$PRD_FILE" 2>/dev/null || echo "?")
-    COMPLETE_COUNT=$((TOTAL_COUNT - INCOMPLETE_COUNT))
+    INCOMPLETE_COUNT=$((TOTAL_COUNT - COMPLETE_COUNT))
     echo "📋 Stories: $COMPLETE_COUNT complete, $INCOMPLETE_COUNT remaining (of $TOTAL_COUNT total)"
   fi
 

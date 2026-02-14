@@ -1583,3 +1583,245 @@ export const getRemovalImpact = query({
     };
   },
 });
+
+// ============================================================
+// US-P3.1-008: Atomic removal transaction
+// ============================================================
+
+export const removePlayersFromImport = mutation({
+  args: {
+    sessionId: v.id("importSessions"),
+    playerIdentityIds: v.array(v.id("playerIdentities")),
+  },
+  returns: v.object({
+    playersRemoved: v.number(),
+    enrollmentsRemoved: v.number(),
+    passportsRemoved: v.number(),
+    teamAssignmentsRemoved: v.number(),
+    assessmentsRemoved: v.number(),
+    guardianLinksRemoved: v.number(),
+    guardiansOrphaned: v.number(),
+    errors: v.array(v.string()),
+  }),
+  handler: async (ctx, args) => {
+    const { sessionId, playerIdentityIds } = args;
+
+    // Track counts for return value
+    let enrollmentsRemoved = 0;
+    let passportsRemoved = 0;
+    let teamAssignmentsRemoved = 0;
+    let assessmentsRemoved = 0;
+    let guardianLinksRemoved = 0;
+    let guardiansOrphaned = 0;
+    const errors: string[] = [];
+
+    try {
+      // Step 1: Remove skill assessments (reverse order - most dependent first)
+      for (const playerId of playerIdentityIds) {
+        try {
+          const passports = await ctx.db
+            .query("sportPassports")
+            .withIndex("by_playerIdentityId", (q) =>
+              q.eq("playerIdentityId", playerId)
+            )
+            .collect();
+
+          for (const passport of passports) {
+            const assessments = await ctx.db
+              .query("skillAssessments")
+              .withIndex("by_passportId", (q) =>
+                q.eq("passportId", passport._id)
+              )
+              .collect();
+
+            for (const assessment of assessments) {
+              await ctx.db.delete(assessment._id);
+              assessmentsRemoved += 1;
+            }
+          }
+        } catch (error) {
+          errors.push(
+            `Error removing assessments for player ${playerId}: ${error instanceof Error ? error.message : String(error)}`
+          );
+        }
+      }
+
+      // Step 2: Remove team assignments
+      for (const playerId of playerIdentityIds) {
+        try {
+          const teamAssignments = await ctx.db
+            .query("teamPlayerIdentities")
+            .withIndex("by_playerIdentityId", (q) =>
+              q.eq("playerIdentityId", playerId)
+            )
+            .collect();
+
+          for (const assignment of teamAssignments) {
+            await ctx.db.delete(assignment._id);
+            teamAssignmentsRemoved += 1;
+          }
+        } catch (error) {
+          errors.push(
+            `Error removing team assignments for player ${playerId}: ${error instanceof Error ? error.message : String(error)}`
+          );
+        }
+      }
+
+      // Step 3: Remove sport passports
+      for (const playerId of playerIdentityIds) {
+        try {
+          const passports = await ctx.db
+            .query("sportPassports")
+            .withIndex("by_playerIdentityId", (q) =>
+              q.eq("playerIdentityId", playerId)
+            )
+            .collect();
+
+          for (const passport of passports) {
+            await ctx.db.delete(passport._id);
+            passportsRemoved += 1;
+          }
+        } catch (error) {
+          errors.push(
+            `Error removing passports for player ${playerId}: ${error instanceof Error ? error.message : String(error)}`
+          );
+        }
+      }
+
+      // Step 4: Remove guardian links and orphaned guardians
+      const orphanedGuardianIds: Id<"guardianIdentities">[] = [];
+
+      for (const playerId of playerIdentityIds) {
+        try {
+          const guardianLinks = await ctx.db
+            .query("guardianPlayerLinks")
+            .withIndex("by_player", (q) => q.eq("playerIdentityId", playerId))
+            .collect();
+
+          for (const link of guardianLinks) {
+            await ctx.db.delete(link._id);
+            guardianLinksRemoved += 1;
+
+            // Check if guardian is now orphaned
+            const remainingLinks = await ctx.db
+              .query("guardianPlayerLinks")
+              .withIndex("by_guardian", (q) =>
+                q.eq("guardianIdentityId", link.guardianIdentityId)
+              )
+              .collect();
+
+            if (remainingLinks.length === 0) {
+              orphanedGuardianIds.push(link.guardianIdentityId);
+            }
+          }
+        } catch (error) {
+          errors.push(
+            `Error removing guardian links for player ${playerId}: ${error instanceof Error ? error.message : String(error)}`
+          );
+        }
+      }
+
+      // Remove orphaned guardian records
+      for (const guardianId of orphanedGuardianIds) {
+        try {
+          await ctx.db.delete(guardianId);
+          guardiansOrphaned += 1;
+        } catch (error) {
+          errors.push(
+            `Error removing orphaned guardian ${guardianId}: ${error instanceof Error ? error.message : String(error)}`
+          );
+        }
+      }
+
+      // Step 5: Remove enrollments
+      for (const playerId of playerIdentityIds) {
+        try {
+          const enrollments = await ctx.db
+            .query("orgPlayerEnrollments")
+            .withIndex("by_playerIdentityId", (q) =>
+              q.eq("playerIdentityId", playerId)
+            )
+            .collect();
+
+          for (const enrollment of enrollments) {
+            await ctx.db.delete(enrollment._id);
+            enrollmentsRemoved += 1;
+          }
+        } catch (error) {
+          errors.push(
+            `Error removing enrollments for player ${playerId}: ${error instanceof Error ? error.message : String(error)}`
+          );
+        }
+      }
+
+      // Step 6: Remove player identities
+      for (const playerId of playerIdentityIds) {
+        try {
+          // Check if player has any remaining links (safety check)
+          const hasEnrollments = await ctx.db
+            .query("orgPlayerEnrollments")
+            .withIndex("by_playerIdentityId", (q) =>
+              q.eq("playerIdentityId", playerId)
+            )
+            .first();
+
+          if (hasEnrollments) {
+            errors.push(
+              `Cannot remove player identity ${playerId}: still has linked records`
+            );
+          } else {
+            await ctx.db.delete(playerId);
+          }
+        } catch (error) {
+          errors.push(
+            `Error removing player identity ${playerId}: ${error instanceof Error ? error.message : String(error)}`
+          );
+        }
+      }
+
+      // Step 7: Update importSession stats
+      try {
+        const session = await ctx.db.get(sessionId);
+        if (session) {
+          await ctx.db.patch(sessionId, {
+            stats: {
+              ...session.stats,
+              playersCreated: Math.max(
+                0,
+                session.stats.playersCreated - playerIdentityIds.length
+              ),
+              guardiansCreated: Math.max(
+                0,
+                session.stats.guardiansCreated - guardiansOrphaned
+              ),
+              passportsCreated: Math.max(
+                0,
+                session.stats.passportsCreated - passportsRemoved
+              ),
+            },
+          });
+        }
+      } catch (error) {
+        errors.push(
+          `Error updating import session stats: ${error instanceof Error ? error.message : String(error)}`
+        );
+      }
+
+      return {
+        playersRemoved: playerIdentityIds.length,
+        enrollmentsRemoved,
+        passportsRemoved,
+        teamAssignmentsRemoved,
+        assessmentsRemoved,
+        guardianLinksRemoved,
+        guardiansOrphaned,
+        errors,
+      };
+    } catch (error) {
+      // Top-level error handler
+      throw new Error(
+        `Failed to remove players from import: ${error instanceof Error ? error.message : String(error)}`
+      );
+    }
+  },
+});

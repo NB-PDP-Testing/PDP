@@ -2,15 +2,17 @@
 
 import { api } from "@pdp/backend/convex/_generated/api";
 import type { Id } from "@pdp/backend/convex/_generated/dataModel";
-import { useQuery } from "convex/react";
+import { useMutation, useQuery } from "convex/react";
 import {
   AlertTriangle,
   CheckSquare,
   Loader2,
+  Search,
   Square,
   Users,
 } from "lucide-react";
-import { useState } from "react";
+import { useMemo, useState } from "react";
+import { toast } from "sonner";
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
 import {
   AlertDialog,
@@ -24,7 +26,16 @@ import {
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Checkbox } from "@/components/ui/checkbox";
+import { Input } from "@/components/ui/input";
 import { ScrollArea } from "@/components/ui/scroll-area";
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select";
+import { useDebounce } from "@/hooks/use-debounce";
 
 // ============================================================
 // Types
@@ -61,6 +72,19 @@ export function PartialUndoDialog({
   const [selectedPlayerIds, setSelectedPlayerIds] = useState<Set<string>>(
     new Set()
   );
+  const [isRemoving, setIsRemoving] = useState(false);
+
+  // Search and filter state
+  const [searchQuery, setSearchQuery] = useState("");
+  const [statusFilter, setStatusFilter] = useState<
+    "all" | "active" | "inactive"
+  >("all");
+  const [errorFilter, setErrorFilter] = useState<"all" | "errors" | "warnings">(
+    "all"
+  );
+
+  // Debounce search query (300ms)
+  const debouncedSearchQuery = useDebounce(searchQuery, 300);
 
   // Fetch imported players from this session
   const importedPlayers = useQuery(
@@ -79,6 +103,59 @@ export function PartialUndoDialog({
       : "skip"
   );
 
+  // Mutation for removing players
+  const removePlayersMutation = useMutation(
+    api.models.playerImport.removePlayersFromImport
+  );
+
+  // Filter and search players
+  const filteredPlayers = useMemo(() => {
+    if (!importedPlayers) {
+      return [];
+    }
+
+    let filtered = [...importedPlayers];
+
+    // Search by name (case-insensitive)
+    if (debouncedSearchQuery) {
+      const query = debouncedSearchQuery.toLowerCase();
+      filtered = filtered.filter((player: ImportedPlayer) => {
+        const firstName = player.firstName.toLowerCase();
+        const lastName = player.lastName.toLowerCase();
+        const fullName = `${firstName} ${lastName}`;
+        return (
+          firstName.includes(query) ||
+          lastName.includes(query) ||
+          fullName.includes(query)
+        );
+      });
+    }
+
+    // Filter by enrollment status
+    if (statusFilter !== "all") {
+      filtered = filtered.filter((player: ImportedPlayer) => {
+        const status = player.enrollmentStatus.toLowerCase();
+        if (statusFilter === "active") {
+          return status === "active";
+        }
+        if (statusFilter === "inactive") {
+          return status === "inactive";
+        }
+        return true;
+      });
+    }
+
+    // Filter by error/warning status
+    if (errorFilter !== "all") {
+      // Note: Players don't currently have error/warning flags in the schema
+      // This is a placeholder for future enhancement when error tracking is added
+      // For now, we'll keep all players when filtering by errors/warnings
+      // TODO: Add errorStatus or warnings field to ImportedPlayer type
+    }
+
+    return filtered;
+  }, [importedPlayers, debouncedSearchQuery, statusFilter, errorFilter]);
+
   const handleTogglePlayer = (playerId: string) => {
     setSelectedPlayerIds((prev) => {
       const next = new Set(prev);
@@ -92,27 +169,65 @@ export function PartialUndoDialog({
   };
 
   const handleSelectAll = () => {
-    if (!importedPlayers) {
+    if (filteredPlayers.length === 0) {
       return;
     }
-    if (selectedPlayerIds.size === importedPlayers.length) {
-      // Deselect all
-      setSelectedPlayerIds(new Set());
+
+    // Check if all FILTERED players are selected
+    const allFilteredSelected = filteredPlayers.every((p: ImportedPlayer) =>
+      selectedPlayerIds.has(p._id)
+    );
+
+    if (allFilteredSelected) {
+      // Deselect all filtered players
+      const newSelection = new Set(selectedPlayerIds);
+      for (const player of filteredPlayers) {
+        newSelection.delete(player._id);
+      }
+      setSelectedPlayerIds(newSelection);
     } else {
-      // Select all
-      setSelectedPlayerIds(
-        new Set(importedPlayers.map((p: ImportedPlayer) => p._id))
-      );
+      // Select all filtered players
+      const newSelection = new Set(selectedPlayerIds);
+      for (const player of filteredPlayers) {
+        newSelection.add(player._id);
+      }
+      setSelectedPlayerIds(newSelection);
     }
   };
 
-  const handleRemove = () => {
+  const handleRemove = async () => {
     if (!sessionId || selectedPlayerIds.size === 0) {
       return;
     }
 
-    // TODO: Wire up mutation in US-P3.1-008
-    console.log("Remove players:", Array.from(selectedPlayerIds));
+    setIsRemoving(true);
+    try {
+      const result = await removePlayersMutation({
+        sessionId,
+        playerIdentityIds: selectedPlayerIdsArray,
+      });
+
+      if (result.errors.length > 0) {
+        toast.error("Some players could not be removed", {
+          description: `${result.playersRemoved} of ${selectedPlayerIds.size} players removed. ${result.errors.length} errors occurred.`,
+        });
+      } else {
+        toast.success("Players removed successfully", {
+          description: `Removed ${result.playersRemoved} players and ${result.enrollmentsRemoved} enrollments.`,
+        });
+      }
+
+      // Reset selection and close dialog
+      setSelectedPlayerIds(new Set());
+      onClose();
+    } catch (error) {
+      toast.error("Failed to remove players", {
+        description:
+          error instanceof Error ? error.message : "Unknown error occurred",
+      });
+    } finally {
+      setIsRemoving(false);
+    }
   };
 
   if (!sessionId) {
@@ -120,9 +235,12 @@ export function PartialUndoDialog({
   }
 
   const isLoading = importedPlayers === undefined;
-  const players = importedPlayers || [];
+  const totalPlayers = importedPlayers?.length || 0;
+  const players = filteredPlayers;
   const selectedCount = selectedPlayerIds.size;
-  const allSelected = players.length > 0 && selectedCount === players.length;
+  const allFilteredSelected =
+    players.length > 0 &&
+    players.every((p: ImportedPlayer) => selectedPlayerIds.has(p._id));
 
   return (
     <AlertDialog onOpenChange={(open) => !open && onClose()} open={!!sessionId}>
@@ -146,6 +264,66 @@ export function PartialUndoDialog({
             </div>
           )}
 
+          {/* Search and Filters */}
+          {!isLoading && totalPlayers > 0 && (
+            <div className="space-y-3">
+              {/* Search Input */}
+              <div className="relative">
+                <Search className="absolute top-2.5 left-2.5 h-4 w-4 text-muted-foreground" />
+                <Input
+                  className="pl-9"
+                  onChange={(e) => setSearchQuery(e.target.value)}
+                  placeholder="Search by name..."
+                  value={searchQuery}
+                />
+              </div>
+
+              {/* Filters */}
+              <div className="flex flex-col gap-3 sm:flex-row">
+                {/* Status Filter */}
+                <Select
+                  onValueChange={(value) =>
+                    setStatusFilter(value as "all" | "active" | "inactive")
+                  }
+                  value={statusFilter}
+                >
+                  <SelectTrigger className="flex-1">
+                    <SelectValue placeholder="Filter by status" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="all">All Statuses</SelectItem>
+                    <SelectItem value="active">Active</SelectItem>
+                    <SelectItem value="inactive">Inactive</SelectItem>
+                  </SelectContent>
+                </Select>
+
+                {/* Error/Warning Filter */}
+                <Select
+                  onValueChange={(value) =>
+                    setErrorFilter(value as "all" | "errors" | "warnings")
+                  }
+                  value={errorFilter}
+                >
+                  <SelectTrigger className="flex-1">
+                    <SelectValue placeholder="Filter by issues" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="all">All Players</SelectItem>
+                    <SelectItem value="errors">Players with Errors</SelectItem>
+                    <SelectItem value="warnings">
+                      Players with Warnings
+                    </SelectItem>
+                  </SelectContent>
+                </Select>
+              </div>
+
+              {/* Result Count */}
+              <p className="text-muted-foreground text-sm">
+                Showing {players.length} of {totalPlayers} players
+              </p>
+            </div>
+          )}
+
           {/* Player List */}
           {!isLoading && players.length > 0 && (
             <div className="space-y-3">
@@ -153,7 +331,7 @@ export function PartialUndoDialog({
               <div className="flex items-center justify-between rounded-md border p-3">
                 <div className="flex items-center gap-3">
                   <Checkbox
-                    checked={allSelected}
+                    checked={allFilteredSelected}
                     id="select-all"
                     onCheckedChange={handleSelectAll}
                   />
@@ -161,7 +339,7 @@ export function PartialUndoDialog({
                     className="cursor-pointer font-medium text-sm"
                     htmlFor="select-all"
                   >
-                    {allSelected ? "Deselect All" : "Select All"}
+                    {allFilteredSelected ? "Deselect All" : "Select All"}
                   </label>
                 </div>
                 <Badge variant={selectedCount > 0 ? "default" : "secondary"}>
@@ -231,7 +409,14 @@ export function PartialUndoDialog({
           )}
 
           {/* Empty State */}
-          {!isLoading && players.length === 0 && (
+          {!isLoading && players.length === 0 && totalPlayers > 0 && (
+            <div className="py-8 text-center text-muted-foreground">
+              No players match your search or filter criteria.
+            </div>
+          )}
+
+          {/* Empty State - No Players */}
+          {!isLoading && totalPlayers === 0 && (
             <div className="py-8 text-center text-muted-foreground">
               No players found in this import.
             </div>
@@ -307,13 +492,22 @@ export function PartialUndoDialog({
         </div>
 
         <AlertDialogFooter>
-          <AlertDialogCancel>Cancel</AlertDialogCancel>
+          <AlertDialogCancel disabled={isRemoving}>Cancel</AlertDialogCancel>
           <Button
-            disabled={selectedCount === 0 || isLoading}
+            disabled={selectedCount === 0 || isLoading || isRemoving}
             onClick={handleRemove}
             variant="destructive"
           >
-            Remove {selectedCount} Player{selectedCount !== 1 ? "s" : ""}
+            {isRemoving ? (
+              <>
+                <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                Removing...
+              </>
+            ) : (
+              <>
+                Remove {selectedCount} Player{selectedCount !== 1 ? "s" : ""}
+              </>
+            )}
           </Button>
         </AlertDialogFooter>
       </AlertDialogContent>

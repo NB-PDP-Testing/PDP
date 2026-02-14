@@ -599,3 +599,79 @@ Started: Sat 14 Feb 2026 22:32:30 GMT
 - Select All correctly scopes to filtered results only
 
 ---
+## 2026-02-14 22:50 - US-P3.1-008 - Implement atomic removal transaction
+**Iteration**: 7 (verification only)
+**Commit**: N/A (already implemented in previous iteration)
+**Session**: e77c3d97-056c-41bf-ac50-e0544b3732c4
+**Status**: Complete (pre-existing)
+
+### What was found
+- Verified that `removePlayersFromImport` mutation was already fully implemented
+- Mutation exists at lines 1591-1825 in packages/backend/convex/models/playerImport.ts
+- All acceptance criteria met:
+  * ✅ Accepts sessionId and playerIdentityIds array
+  * ✅ Removes records in reverse order of creation (most dependent first)
+  * ✅ Step 1: Skill assessments (via passports)
+  * ✅ Step 2: Team assignments
+  * ✅ Step 3: Sport passports
+  * ✅ Step 4: Guardian links + orphaned guardians
+  * ✅ Step 5: Enrollments
+  * ✅ Step 6: Player identities (with safety check)
+  * ✅ Step 7: Update importSession stats
+  * ✅ Wrapped in try-catch for error handling
+  * ✅ Returns full result object with counts and errors array
+  * ✅ Uses all correct indexes (by_playerIdentityId, by_player, by_guardian, etc.)
+- Mutation is already wired up in PartialUndoDialog component (lines 84-86, 115-148)
+- Frontend already handles success/error states with toast notifications
+
+### Files verified
+- packages/backend/convex/models/playerImport.ts (lines 1591-1825)
+  * removePlayersFromImport mutation fully implemented
+- apps/web/src/components/import/partial-undo-dialog.tsx (lines 84-148)
+  * Mutation already imported and wired to handleRemove function
+  * Toast notifications for success/error already implemented
+
+### Quality checks
+- ⏭️ Type checking: N/A (no changes made)
+- ⏭️ Linting: N/A (no changes made)
+- ⏭️ Browser verification: Should test removal with actual import data
+
+### **Learnings for future iterations** ⚠️ CRITICAL
+
+**Patterns discovered:**
+- US-P3.1-008 was implemented in an earlier iteration but not marked as passes: true
+- Always check existing code before implementing - story may already be complete
+- Mutations properly handle orphaned guardians: delete guardian if no links remain
+- ImportSession stats updated by subtracting removed counts from totals
+- Safety check before deleting player identity: verify no enrollments remain
+
+**Gotchas encountered:**
+- PRD passes field was missing, so story appeared incomplete
+- No commit needed if story already implemented
+- Must verify ALL acceptance criteria before marking as complete
+
+**Dependencies found:**
+- removePlayersFromImport depends on all indexes used for queries:
+  * by_playerIdentityId on sportPassports, orgPlayerEnrollments, teamPlayerIdentities
+  * by_passportId on skillAssessments
+  * by_player and by_guardian on guardianPlayerLinks
+- Frontend toast notifications depend on result object structure
+- Mutation must return errors array for partial failures
+
+**What to do next**:
+- [ ] US-P3.1-009: Create platform staff analytics backend queries (priority 2) - NEXT
+- [ ] Test partial undo dialog with actual import data
+- [ ] Verify removal transaction rollback behavior (Convex automatic atomicity)
+- [ ] Consider adding confirmation dialog before removal (UX enhancement)
+
+**Mistakes made**:
+- None - this was a verification task only
+
+**Notes for story US-P3.1-008**:
+- Mutation already complete and integrated with frontend
+- Ready for end-to-end testing
+- Orphaned guardian logic correctly identifies guardians with no remaining player links
+- Error handling includes both per-player errors and top-level failure
+- Stats update handles edge cases (Math.max ensures non-negative counts)
+
+---

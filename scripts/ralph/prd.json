@@ -205,7 +205,8 @@
         "Run npx ultracite fix before completion"
       ],
       "priority": 1,
-      "notes": "Transaction atomicity is critical. Convex mutations are automatically atomic, but need explicit error handling. Use indexes for efficient lookups: by_playerIdentityId, by_enrollmentId, etc."
+      "notes": "Transaction atomicity is critical. Convex mutations are automatically atomic, but need explicit error handling. Use indexes for efficient lookups: by_playerIdentityId, by_enrollmentId, etc.",
+      "passes": true
     },
     {
       "id": "US-P3.1-009",

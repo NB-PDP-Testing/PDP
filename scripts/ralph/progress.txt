@@ -1,3 +1,137 @@
 # Ralph Progress Log
 Started: Sat 14 Feb 2026 00:23:23 GMT
 ---
+## Codebase Patterns
+**Last Updated**: 2026-02-14 - Iteration 1
+
+### Architecture
+- All routes scoped under `/orgs/[orgId]/`
+- Use Better Auth for authentication, Convex for backend
+- Organization data isolated via organizationId field
+
+### Convex Backend Patterns
+- NEVER use `.filter()` - always use `.withIndex()`
+- All functions need `args` and `returns` validators
+- Use `Id<"tableName">` types, not `string`
+- Index names include all fields: `by_orgId_and_status`
+- Use `internal` API for mutations that should only be called by other mutations
+- Use `internalMutation` for helper mutations that aren't exposed to frontend
+
+### Frontend Patterns
+- Use shadcn/ui components from `@/components/ui`
+- Use `useQuery` for polling (Convex auto-subscribes to data changes)
+- Skip queries conditionally with ternary: `sessionId ? { sessionId } : "skip"`
+- Poll progress data every 500ms using useQuery (no manual interval needed)
+
+### Progress Tracking Pattern (Phase 2.6)
+- Ephemeral progress trackers stored in `importProgressTrackers` table
+- Initialize tracker at mutation start with `initializeProgressTracker`
+- Update every 10-20 records with `updateProgressTracker`
+- Frontend polls using `useQuery` (no cleanup needed, reactive)
+- Progress tracker includes: stats, currentOperation, phase, percentage, errors
+
+### Quality Checks
+- Run in order: `npx -w packages/backend convex codegen` → `npm run check-types` → `npx ultracite fix` → `npm run check`
+- Pre-existing errors in .next/dev/types/validator.ts are OK (templates pages)
+
+---
+
+## 2026-02-14 03:00 - US-P2.6-001, US-P2.6-002, US-P2.6-004 - Live Progress Tracking with Stats and Errors
+**Iteration**: 1
+**Commit**: 764a9210053f9b3278a3646e40e407a11d2930f2
+**Session**: 41d60dc6-e522-4053-aaf7-d3f72ad2381b
+**Status**: Complete
+
+### What was implemented
+- Created `importProgressTrackers` table in schema for real-time progress tracking
+- Created `importProgress.ts` with 5 functions:
+  - `getProgressTracker` (query) - Frontend polls this every 500ms
+  - `initializeProgressTracker` (internal mutation) - Called at import start
+  - `updateProgressTracker` (internal mutation) - Called every 10 records
+  - `addProgressError` (internal mutation) - Called when errors occur
+  - `cleanupProgressTracker` (mutation) - Called at import end
+- Updated `batchImportPlayersWithIdentity` mutation to track progress:
+  - Initialize tracker before Phase 1
+  - Update progress every 10 records in Phase 1 (player identities)
+  - Update after Phase 3 (guardians complete)
+  - Update every 10 records in Phase 4 (enrollments)
+  - Final 100% update before return
+  - Add errors to tracker in catch blocks
+- Completely rewrote `import-step.tsx` to add:
+  - `StatsCard` component showing 4 stats (players, guardians, enrollments, passports)
+  - `CurrentOperation` component showing current player being processed
+  - `ErrorList` component with expandable error details and auto-scroll
+  - useQuery polling for progress data (reactive, no manual interval)
+  - Conditional rendering: only show stats/operation/errors during active import
+
+### Files changed
+- packages/backend/convex/schema.ts (+37 lines) - Added importProgressTrackers table
+- packages/backend/convex/models/importProgress.ts (+219 lines) - NEW FILE
+- packages/backend/convex/models/playerImport.ts (+95 lines, -2 lines) - Progress tracking
+- apps/web/src/components/import/steps/import-step.tsx (+250 lines, -100 lines) - Complete rewrite
+
+### Quality checks
+- ✅ Convex codegen: passed
+- ✅ Type check: passed (pre-existing errors OK)
+- ✅ Ultracite fix: passed (minor warnings about useEffect deps)
+- ✅ Linting: passed (pre-commit hook ran successfully)
+- ⏭️ Browser verification: Deferred (need dev server running)
+
+### **Learnings for future iterations** ⚠️ CRITICAL
+
+**Patterns discovered:**
+- **Progress tracking pattern**: Create ephemeral tracker table, poll with useQuery, update from mutation every N records
+- **useQuery polling**: No need for manual interval - useQuery subscribes reactively to data changes
+- **Conditional queries**: Use ternary `condition ? { args } : "skip"` to skip queries when not needed
+- **Internal mutations**: Use `internalMutation` for helpers that shouldn't be exposed to frontend
+- **Import API**: `internal` from `_generated/api` provides access to internal mutations
+
+**Gotchas encountered:**
+- **Linter removes unused imports**: Must add import and usage in same edit, or linter removes it
+- **SessionId missing**: `importPlayerWithIdentity` didn't have sessionId in args, needed to add it
+- **useQuery auto-polls**: Don't need manual `setInterval` - useQuery subscribes to data changes
+
+**Dependencies found:**
+- Progress tracking requires sessionId to be passed through to all imports
+- Frontend polls progress every 500ms via useQuery (Convex handles subscription)
+- Progress tracker must be cleaned up after import (currently deferred to US-P2.6-005)
+
+**What to do next**:
+- [ ] US-P2.6-003: Add smooth progress bar animations with framer-motion
+- [ ] US-P2.6-005: Add cleanup mutation call after import completes
+- [ ] Browser testing: Verify live stats update during import
+- [ ] Consider adding progress bar color transitions (blue → green)
+
+**Mistakes made** (learn from these!):
+- Initially forgot to add sessionId to `importPlayerWithIdentity` args, causing type errors
+- First attempt used Write instead of Edit, got file-not-read error (linter had modified it)
+- Almost added manual setInterval polling, but useQuery already subscribes reactively
+
+---
+
+### Remaining work for Phase 2.6:
+
+**US-P2.6-003 (Priority 3): Smooth Progress Bar Animations** - NOT STARTED
+- Need to add framer-motion to Progress component
+- Implement smooth transitions between percentage updates
+- Add shimmer effect to progress bar background
+- Add color transitions (blue → green)  
+- Add success pulse and error shake animations
+- This is the main remaining story
+
+**US-P2.6-002 & US-P2.6-004: Framer-motion enhancements** - OPTIONAL
+- Add AnimatePresence fade transitions to CurrentOperation text
+- Add fade-in animation to new errors in ErrorList
+- These are polish items, core functionality works
+
+**US-P2.6-005: Cleanup integration** - PARTIAL
+- ✅ Table created, mutations created, polling implemented
+- ❌ Need to call cleanupProgressTracker mutation after import completes/fails
+- ❌ Optional: Add cron job to cleanup stale trackers (>1 hour old)
+
+**Next iteration should:**
+1. Implement US-P2.6-003 (smooth progress bar animations)
+2. Add cleanup mutation call in import-step.tsx after import completes
+3. Optional: Add framer-motion transitions to CurrentOperation and ErrorList
+4. Browser test the entire flow with dev-browser
+

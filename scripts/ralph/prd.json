@@ -75,7 +75,8 @@
         "Run npx ultracite fix before completion"
       ],
       "priority": 1,
-      "notes": "Visual design is critical. Use existing Progress component from shadcn/ui with custom colors. Ensure color contrast meets WCAG 2.2 AA (4.5:1 ratio). Icons from lucide-react."
+      "notes": "Visual design is critical. Use existing Progress component from shadcn/ui with custom colors. Ensure color contrast meets WCAG 2.2 AA (4.5:1 ratio). Icons from lucide-react.",
+      "passes": true
     },
     {
       "id": "US-P3.1-003",

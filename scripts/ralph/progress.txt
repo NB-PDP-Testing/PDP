@@ -102,3 +102,61 @@ Started: Sat 14 Feb 2026 22:32:30 GMT
 - None - straightforward implementation aligned with existing patterns
 
 ---
+## 2026-02-14 23:15 - US-P3.1-002 - Add color-coded confidence indicators to duplicate resolution UI
+**Iteration**: 2
+**Commit**: 040916c2a00605405f4169c5c335c4f5a67022a5
+**Session**: [current-session]
+**Status**: Complete
+
+### What was implemented
+- Added three-tier confidence badge system to DuplicateCard component:
+  * High (60+): Green badge with checkmark icon and "High Confidence" label
+  * Medium (40-59): Yellow badge with alert icon and "Review Required" label
+  * Low (<40): Red badge with X icon and "Low Confidence" label
+- Implemented custom progress bar with color-coded backgrounds matching confidence levels
+- Badge displays prominently at top of duplicate card with percentage score
+- Progress bar uses CSS transitions for smooth visual rendering
+- Added helper function `getConfidenceBadgeProps(score)` to calculate badge properties
+- Dark mode support with appropriate color variants for all three levels
+- Mobile-responsive design using existing Tailwind patterns
+
+### Files changed
+- apps/web/src/components/import/steps/review-step.tsx (+62, -7)
+  * Added lucide-react icons: Check, AlertCircle, X
+  * Added getConfidenceBadgeProps helper function
+  * Updated DuplicateCard component with conditional rendering of confidence UI
+
+### Quality checks
+- ✅ Type checking: passed (npm run check-types)
+- ✅ Linting: passed (npx ultracite fix, npm run check)
+- ✅ Pre-commit hooks: passed
+- ⏭️ Browser verification: Should be tested with actual import data containing guardian matches
+
+### **Learnings for future iterations** ⚠️ CRITICAL
+
+**Patterns discovered:**
+- Confidence indicators only display when `duplicate.guardianConfidence` exists (optional field)
+- Badge uses custom className prop to override default variants
+- Progress bar implemented as custom div with CSS transitions (300ms) for smooth UX
+- Dark mode variants use `dark:` prefix with appropriate color-950 backgrounds
+
+**Gotchas encountered:**
+- Initially added Progress component import but removed in favor of custom implementation
+- Linter auto-removed unused import (expected behavior)
+- Must check for confidence existence before rendering to avoid errors on non-guardian duplicates
+
+**Dependencies found:**
+- Confidence data must be present in importSession duplicates array (populated by US-P3.1-001)
+- Guardian matcher must return confidence object with score, level, matchReasons
+- DuplicateInfo type already extended with guardianConfidence field (done in US-P3.1-001)
+
+**What to do next**:
+- [ ] US-P3.1-003: Add match score breakdown and explanation (expandable details)
+- [ ] Test confidence indicators with actual import data containing guardian matches
+- [ ] Verify mobile responsiveness at 375px width
+- [ ] Check WCAG 2.2 AA color contrast ratios for accessibility
+
+**Mistakes made**:
+- None - straightforward implementation following existing component patterns
+
+---

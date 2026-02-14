@@ -9,12 +9,15 @@ import {
 } from "@pdp/backend/convex/lib/import/validator";
 import { useQuery } from "convex/react";
 import {
+  AlertCircle,
   AlertTriangle,
+  Check,
   CheckCircle2,
   ClipboardList,
   PlayCircle,
   Search,
   Users,
+  X,
   XCircle,
 } from "lucide-react";
 import {
@@ -336,6 +339,38 @@ function getResolutionVariant(
   return "default";
 }
 
+// Helper: Get confidence badge properties based on score
+function getConfidenceBadgeProps(score: number) {
+  if (score >= 60) {
+    return {
+      label: "High Confidence",
+      icon: Check,
+      className:
+        "border-green-200 bg-green-50 text-green-700 dark:border-green-800 dark:bg-green-950 dark:text-green-400",
+      progressClassName: "bg-green-100 dark:bg-green-950",
+      progressBarColor: "bg-green-600",
+    };
+  }
+  if (score >= 40) {
+    return {
+      label: "Review Required",
+      icon: AlertCircle,
+      className:
+        "border-yellow-200 bg-yellow-50 text-yellow-700 dark:border-yellow-800 dark:bg-yellow-950 dark:text-yellow-400",
+      progressClassName: "bg-yellow-100 dark:bg-yellow-950",
+      progressBarColor: "bg-yellow-600",
+    };
+  }
+  return {
+    label: "Low Confidence",
+    icon: X,
+    className:
+      "border-red-200 bg-red-50 text-red-700 dark:border-red-800 dark:bg-red-950 dark:text-red-400",
+    progressClassName: "bg-red-100 dark:bg-red-950",
+    progressBarColor: "bg-red-600",
+  };
+}
+
 function DuplicateCard({
   duplicate,
   row,
@@ -351,8 +386,40 @@ function DuplicateCard({
   const lastName = getMappedValue(row, "lastName", mappings);
   const dob = getMappedValue(row, "dateOfBirth", mappings);
 
+  // Get confidence data if available (Phase 3.1)
+  const confidence = duplicate.guardianConfidence;
+  const badgeProps = confidence
+    ? getConfidenceBadgeProps(confidence.score)
+    : null;
+  const ConfidenceIcon = badgeProps?.icon;
+
   return (
     <div className="rounded-lg border p-3">
+      {/* Phase 3.1: Confidence Badge at top if guardian matching used */}
+      {confidence && badgeProps && ConfidenceIcon && (
+        <div className="mb-2 flex items-center gap-2">
+          <Badge className={badgeProps.className}>
+            <ConfidenceIcon className="h-3 w-3" />
+            {badgeProps.label}
+          </Badge>
+          <span className="text-muted-foreground text-xs">
+            {confidence.score}%
+          </span>
+        </div>
+      )}
+
+      {/* Phase 3.1: Confidence Progress Bar */}
+      {confidence && badgeProps && (
+        <div
+          className={`mb-3 ${badgeProps.progressClassName} rounded-full p-0.5`}
+        >
+          <div
+            className={`h-2 rounded-full transition-all duration-300 ${badgeProps.progressBarColor}`}
+            style={{ width: `${confidence.score}%` }}
+          />
+        </div>
+      )}
+
       <div className="flex items-center justify-between">
         <div>
           <p className="font-medium text-sm">

@@ -47,7 +47,8 @@
         "Run npx ultracite fix and npx -w packages/backend convex codegen"
       ],
       "priority": 1,
-      "notes": "Convex mutations can't stream data, but they can write to a progress tracker table that the frontend polls. Use importSessionId as the key. Clean up progress tracker on import completion or failure. Consider using ctx.scheduler for progress updates if mutation gets too slow."
+      "notes": "Convex mutations can't stream data, but they can write to a progress tracker table that the frontend polls. Use importSessionId as the key. Clean up progress tracker on import completion or failure. Consider using ctx.scheduler for progress updates if mutation gets too slow.",
+      "passes": true
     },
     {
       "id": "US-P2.6-002",
@@ -66,7 +67,8 @@
         "Run npx ultracite fix"
       ],
       "priority": 2,
-      "notes": "Current operation provides granular feedback. Use framer-motion's AnimatePresence for smooth text transitions. Consider showing last 3 operations in a scrolling list if you want more detail (optional enhancement)."
+      "notes": "Current operation provides granular feedback. Use framer-motion's AnimatePresence for smooth text transitions. Consider showing last 3 operations in a scrolling list if you want more detail (optional enhancement).",
+      "passes": true
     },
     {
       "id": "US-P2.6-003",
@@ -85,7 +87,8 @@
         "Run npx ultracite fix"
       ],
       "priority": 3,
-      "notes": "Smooth animations make the wait feel shorter. Use framer-motion for declarative animations. Consider using CSS custom properties for dynamic progress percentage. The shimmer effect should be subtle (don't distract from the progress number)."
+      "notes": "Smooth animations make the wait feel shorter. Use framer-motion for declarative animations. Consider using CSS custom properties for dynamic progress percentage. The shimmer effect should be subtle (don't distract from the progress number).",
+      "passes": true
     },
     {
       "id": "US-P2.6-004",
@@ -107,7 +110,8 @@
         "Run npx ultracite fix"
       ],
       "priority": 4,
-      "notes": "Real-time error visibility allows users to cancel bad imports early. Keep error messages concise (truncate if >100 chars). Consider adding 'Download Error Log' button if >10 errors (optional enhancement)."
+      "notes": "Real-time error visibility allows users to cancel bad imports early. Keep error messages concise (truncate if >100 chars). Consider adding 'Download Error Log' button if >10 errors (optional enhancement).",
+      "passes": true
     },
     {
       "id": "US-P2.6-005",
@@ -127,7 +131,8 @@
         "Run npx ultracite fix and npm run check-types"
       ],
       "priority": 5,
-      "notes": "Progress trackers are ephemeral — they only exist during active imports. Cleanup is important to avoid table bloat. The 500ms poll interval balances responsiveness with Convex query costs. Consider WebSocket in future if Convex supports it."
+      "notes": "Progress trackers are ephemeral — they only exist during active imports. Cleanup is important to avoid table bloat. The 500ms poll interval balances responsiveness with Convex query costs. Consider WebSocket in future if Convex supports it.",
+      "passes": true
     }
   ]
 }

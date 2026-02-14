@@ -55,7 +55,8 @@
         "Run npx ultracite fix before completion"
       ],
       "priority": 1,
-      "notes": "Foundation for all confidence indicator features. Guardian matcher already exists in lib/import/guardianMatcher.ts - extend it to calculate weighted confidence scores. This enables Features 2-4."
+      "notes": "Foundation for all confidence indicator features. Guardian matcher already exists in lib/import/guardianMatcher.ts - extend it to calculate weighted confidence scores. This enables Features 2-4.",
+      "passes": true
     },
     {
       "id": "US-P3.1-002",

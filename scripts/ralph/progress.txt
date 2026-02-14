@@ -1,3 +1,104 @@
 # Ralph Progress Log
 Started: Sat 14 Feb 2026 22:32:30 GMT
 ---
+
+## Codebase Patterns
+**Last Updated**: 2026-02-14 22:35 - Iteration 1
+
+### Architecture
+- All routes scoped under `/orgs/[orgId]/`
+- Use Better Auth for authentication, Convex for backend
+- Organization data isolated via organizationId field
+
+### Convex Backend Patterns
+- NEVER use `.filter()` - always use `.withIndex()`
+- All functions need `args` and `returns` validators
+- Use `Id<"tableName">` types, not `string`
+- Index names include all fields: `by_orgId_and_status`
+
+### Guardian Matching System
+- Guardian matcher located in `packages/backend/convex/lib/matching/guardianMatcher.ts`
+- Shared between import and onboarding flows
+- Weights on 100-point scale: Email 40%, Phone 30%, Name 20%, Address 10%
+- Confidence levels: High (60+), Medium (40-59), Low (20-39)
+- Returns `MatchResult` with score, confidence level, and matchReasons array
+
+### Import Session Schema
+- Located in `packages/backend/convex/models/importSessions.ts`
+- Uses validators for all data structures
+- Duplicate info includes confidence scoring as of Phase 3.1
+- Frontend types in `apps/web/src/components/import/steps/review-step.tsx`
+
+### Frontend Patterns
+- Use shadcn/ui components from `@/components/ui`
+- Import step components in `apps/web/src/components/import/steps/`
+- DuplicateInfo type shared via import from review-step.tsx
+
+### Quality Checks
+- Run in order: `npx -w packages/backend convex codegen` → `npm run check-types` → `npx ultracite fix` → `npm run check`
+- Ultracite must run before linting or you'll get false failures
+- Pre-commit hooks run automatically on commit
+
+---
+
+## 2026-02-14 22:35 - US-P3.1-001 - Add confidence score display to guardian matching
+**Iteration**: 1
+**Commit**: 041c2d910b96664f7e019f4857512e14c0d1e085
+**Session**: 71a2030c-5512-4cbf-b518-529d0cc2543c
+**Status**: Complete
+
+### What was implemented
+- Updated guardian matching weights in `guardianMatcher.ts` to align with PRD specification:
+  * Email match: 40% (reduced from 50%)
+  * Phone match: 30% (unchanged)
+  * Name similarity: 20% (added SURNAME_ONLY weight for name-only matches)
+  * Address match: 10% (postcode/town)
+- Adjusted composite weights:
+  * SURNAME_POSTCODE: 30 (20% name + 10% address)
+  * SURNAME_TOWN: 25 (20% name + 5% partial address)
+- Extended `duplicateValidator` in importSessions.ts to include optional `guardianConfidence` object:
+  * score: 0-100 confidence score
+  * level: "high" | "medium" | "low"
+  * matchReasons: array of string explanations
+- Updated frontend `DuplicateInfo` type in review-step.tsx to match backend schema
+- Type propagates automatically to import-wizard.tsx via import
+
+### Files changed
+- packages/backend/convex/lib/matching/guardianMatcher.ts (+10, -5)
+- packages/backend/convex/models/importSessions.ts (+8, -1)
+- apps/web/src/components/import/steps/review-step.tsx (+7, -1)
+
+### Quality checks
+- ✅ Convex codegen: passed
+- ✅ Type checking: passed (no new errors)
+- ✅ Linting: passed (pre-existing warnings only)
+- ✅ Pre-commit hooks: passed
+- ⏭️ Browser verification: not applicable (backend-only changes)
+
+### **Learnings for future iterations** ⚠️ CRITICAL
+
+**Patterns discovered:**
+- Guardian matcher uses multi-signal scoring on 100-point scale
+- Confidence levels calculated by `getConfidenceLevel(score)` helper
+- Match reasons stored as human-readable strings for UI display
+- Weights defined as constants at top of guardianMatcher.ts for easy tuning
+
+**Gotchas encountered:**
+- None - existing guardian matcher already had scoring infrastructure
+- Only needed to adjust weights and persist scores in schema
+
+**Dependencies found:**
+- Frontend DuplicateInfo type must match backend duplicateValidator
+- Both use optional guardianConfidence field (not all duplicates have guardian matches)
+- Import from review-step.tsx propagates type to import-wizard.tsx
+
+**What to do next**:
+- [ ] US-P3.1-002: Add color-coded confidence badges to duplicate resolution UI
+- [ ] Display confidence indicators in review-step.tsx DuplicateCard component
+- [ ] Add Progress component for visual score bar
+- [ ] Mobile-test the confidence indicators
+
+**Mistakes made**:
+- None - straightforward implementation aligned with existing patterns
+
+---

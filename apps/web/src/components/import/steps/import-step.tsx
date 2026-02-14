@@ -4,6 +4,7 @@ import { api } from "@pdp/backend/convex/_generated/api";
 import type { Id } from "@pdp/backend/convex/_generated/dataModel";
 import type { ParseResult } from "@pdp/backend/convex/lib/import/parser";
 import { useMutation, useQuery } from "convex/react";
+import { AnimatePresence, motion } from "framer-motion";
 import { AlertCircle, CheckCircle2, Loader2, XCircle } from "lucide-react";
 import { useCallback, useEffect, useRef, useState } from "react";
 import type {
@@ -165,7 +166,7 @@ function StatsCard({ stats }: { stats: ProgressStats | null }) {
   );
 }
 
-// Current operation display
+// Current operation display with smooth fade transitions
 function CurrentOperation({ operation }: { operation: string | null }) {
   if (!operation) {
     return null;
@@ -174,7 +175,18 @@ function CurrentOperation({ operation }: { operation: string | null }) {
   return (
     <div className="mb-4 flex items-center gap-2 text-muted-foreground text-sm">
       <Loader2 className="h-4 w-4 animate-spin" />
-      <span className="truncate">Currently: {operation}</span>
+      <AnimatePresence mode="wait">
+        <motion.span
+          animate={{ opacity: 1, y: 0 }}
+          className="truncate"
+          exit={{ opacity: 0, y: 10 }}
+          initial={{ opacity: 0, y: -10 }}
+          key={operation}
+          transition={{ duration: 0.2 }}
+        >
+          Currently: {operation}
+        </motion.span>
+      </AnimatePresence>
     </div>
   );
 }
@@ -189,7 +201,7 @@ function ErrorList({ errors }: { errors: ProgressError[] }) {
     if (isExpanded && errorListRef.current) {
       errorListRef.current.scrollTop = errorListRef.current.scrollHeight;
     }
-  }, [errors.length, isExpanded]);
+  }, [errors, isExpanded]);
 
   if (errors.length === 0) {
     return (
@@ -213,24 +225,37 @@ function ErrorList({ errors }: { errors: ProgressError[] }) {
         </span>
         <span className="text-xs">{isExpanded ? "Hide" : "Show"}</span>
       </button>
-      {isExpanded && (
-        <div
-          className="mt-2 max-h-48 overflow-y-auto rounded-md border border-red-200 bg-white"
-          ref={errorListRef}
-        >
-          <div className="space-y-1 p-2">
-            {errors.map((err, idx) => (
-              <div
-                className="rounded-sm bg-red-50 px-2 py-1.5 text-xs"
-                key={`${err.rowNumber}-${idx}`}
-              >
-                <span className="font-semibold">Row #{err.rowNumber}:</span>{" "}
-                {err.playerName} - {err.error}
+      <AnimatePresence>
+        {isExpanded && (
+          <motion.div
+            animate={{ height: "auto", opacity: 1 }}
+            className="overflow-hidden"
+            exit={{ height: 0, opacity: 0 }}
+            initial={{ height: 0, opacity: 0 }}
+            transition={{ duration: 0.2 }}
+          >
+            <div
+              className="mt-2 max-h-48 overflow-y-auto rounded-md border border-red-200 bg-white"
+              ref={errorListRef}
+            >
+              <div className="space-y-1 p-2">
+                {errors.map((err, idx) => (
+                  <motion.div
+                    animate={{ opacity: 1, x: 0 }}
+                    className="rounded-sm bg-red-50 px-2 py-1.5 text-xs"
+                    initial={{ opacity: 0, x: -10 }}
+                    key={`${err.rowNumber}-${idx}`}
+                    transition={{ duration: 0.2, delay: idx * 0.05 }}
+                  >
+                    <span className="font-semibold">Row #{err.rowNumber}:</span>{" "}
+                    {err.playerName} - {err.error}
+                  </motion.div>
+                ))}
               </div>
-            ))}
-          </div>
-        </div>
-      )}
+            </div>
+          </motion.div>
+        )}
+      </AnimatePresence>
     </div>
   );
 }
@@ -244,6 +269,17 @@ function PhaseIndicator({
   error: string | null;
   progress: number;
 }) {
+  // Determine progress bar variant based on phase
+  const getProgressVariant = () => {
+    if (phase === "complete") {
+      return "success";
+    }
+    if (phase === "failed") {
+      return "error";
+    }
+    return "default";
+  };
+
   return (
     <Card>
       <CardHeader className="pb-3">
@@ -262,7 +298,11 @@ function PhaseIndicator({
         </CardDescription>
       </CardHeader>
       <CardContent>
-        <Progress className="h-2" value={progress} />
+        <Progress
+          className="h-2"
+          value={progress}
+          variant={getProgressVariant()}
+        />
         <p className="mt-2 text-center text-muted-foreground text-xs">
           {Math.round(progress)}%
         </p>
@@ -294,6 +334,9 @@ export default function ImportStep({
 
   const batchImport = useMutation(
     api.models.playerImport.batchImportPlayersWithIdentity
+  );
+  const cleanupProgress = useMutation(
+    api.models.importProgress.cleanupProgressTracker
   );
 
   // Poll progress tracker during import
@@ -369,16 +412,27 @@ export default function ImportStep({
         passportsCreated: result.enrollmentsCreated,
         benchmarksApplied: result.benchmarksApplied,
       });
+
+      // Cleanup progress tracker after successful import
+      if (sessionId) {
+        await cleanupProgress({ sessionId });
+      }
     } catch (err) {
       setPhase("failed");
       setIsImporting(false);
       setError(err instanceof Error ? err.message : "Import failed");
+
+      // Cleanup progress tracker after failed import
+      if (sessionId) {
+        await cleanupProgress({ sessionId });
+      }
     }
   }, [
     selectedRows,
     parsedData.rows,
     confirmedMappings,
     batchImport,
+    cleanupProgress,
     organizationId,
     sportCode,
     sessionId,

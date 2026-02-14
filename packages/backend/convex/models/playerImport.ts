@@ -1470,3 +1470,116 @@ export const getImportedPlayers = query({
     });
   },
 });
+
+// ============================================================
+// PHASE 3.1: PARTIAL UNDO - GET REMOVAL IMPACT PREVIEW
+// ============================================================
+
+/**
+ * Calculate the impact of removing specific players from an import.
+ * Shows cascading deletions and warnings for orphaned guardians.
+ *
+ * @param playerIdentityIds - Array of player IDs to remove
+ * @returns Impact summary with counts and warnings
+ */
+export const getRemovalImpact = query({
+  args: {
+    playerIdentityIds: v.array(v.id("playerIdentities")),
+  },
+  returns: v.object({
+    playerCount: v.number(),
+    enrollmentCount: v.number(),
+    passportCount: v.number(),
+    teamAssignmentCount: v.number(),
+    assessmentCount: v.number(),
+    guardianLinkCount: v.number(),
+    orphanedGuardianCount: v.number(),
+    orphanedGuardianIds: v.array(v.id("guardianIdentities")),
+  }),
+  handler: async (ctx, args) => {
+    const { playerIdentityIds } = args;
+
+    // Batch fetch all related records
+    const allEnrollments = await Promise.all(
+      playerIdentityIds.map((id) =>
+        ctx.db
+          .query("orgPlayerEnrollments")
+          .withIndex("by_playerIdentityId", (q) => q.eq("playerIdentityId", id))
+          .collect()
+      )
+    );
+
+    const allPassports = await Promise.all(
+      playerIdentityIds.map((id) =>
+        ctx.db
+          .query("sportPassports")
+          .withIndex("by_playerIdentityId", (q) => q.eq("playerIdentityId", id))
+          .collect()
+      )
+    );
+
+    const allTeamAssignments = await Promise.all(
+      playerIdentityIds.map((id) =>
+        ctx.db
+          .query("teamPlayerIdentities")
+          .withIndex("by_playerIdentityId", (q) => q.eq("playerIdentityId", id))
+          .collect()
+      )
+    );
+
+    const allGuardianLinks = await Promise.all(
+      playerIdentityIds.map((id) =>
+        ctx.db
+          .query("guardianPlayerLinks")
+          .withIndex("by_player", (q) => q.eq("playerIdentityId", id))
+          .collect()
+      )
+    );
+
+    // Fetch assessments for all passports
+    const flatPassports = allPassports.flat();
+    const allAssessments = await Promise.all(
+      flatPassports.map((passport) =>
+        ctx.db
+          .query("skillAssessments")
+          .withIndex("by_passportId", (q) => q.eq("passportId", passport._id))
+          .collect()
+      )
+    );
+
+    // Identify guardians that will be orphaned
+    const flatGuardianLinks = allGuardianLinks.flat();
+    const guardianIds = new Set(
+      flatGuardianLinks.map((link) => link.guardianIdentityId)
+    );
+
+    // For each guardian, check if they have other player links
+    const orphanedGuardianIds: Id<"guardianIdentities">[] = [];
+    for (const guardianId of guardianIds) {
+      const allLinksForGuardian = await ctx.db
+        .query("guardianPlayerLinks")
+        .withIndex("by_guardian", (q) => q.eq("guardianIdentityId", guardianId))
+        .collect();
+
+      // If all links are to players being removed, guardian will be orphaned
+      const nonRemovedLinks = allLinksForGuardian.filter(
+        (link) => !playerIdentityIds.includes(link.playerIdentityId)
+      );
+
+      if (nonRemovedLinks.length === 0) {
+        orphanedGuardianIds.push(guardianId);
+      }
+    }
+
+    return {
+      playerCount: playerIdentityIds.length,
+      enrollmentCount: allEnrollments.flat().length,
+      passportCount: flatPassports.length,
+      teamAssignmentCount: allTeamAssignments.flat().length,
+      assessmentCount: allAssessments.flat().length,
+      guardianLinkCount: flatGuardianLinks.length,
+      orphanedGuardianCount: orphanedGuardianIds.length,
+      orphanedGuardianIds,
+    };
+  },
+});

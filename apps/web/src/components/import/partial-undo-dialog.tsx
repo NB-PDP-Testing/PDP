@@ -3,8 +3,15 @@
 import { api } from "@pdp/backend/convex/_generated/api";
 import type { Id } from "@pdp/backend/convex/_generated/dataModel";
 import { useQuery } from "convex/react";
-import { CheckSquare, Loader2, Square, Users } from "lucide-react";
+import {
+  AlertTriangle,
+  CheckSquare,
+  Loader2,
+  Square,
+  Users,
+} from "lucide-react";
 import { useState } from "react";
+import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
 import {
   AlertDialog,
   AlertDialogCancel,
@@ -56,10 +63,20 @@ export function PartialUndoDialog({
   );
 
   // Fetch imported players from this session
-  // TODO: Add backend query in US-P3.1-008
   const importedPlayers = useQuery(
     api.models.playerImport.getImportedPlayers,
     sessionId ? { sessionId } : "skip"
+  );
+
+  // Fetch removal impact for selected players
+  const selectedPlayerIdsArray = Array.from(
+    selectedPlayerIds
+  ) as Id<"playerIdentities">[];
+  const impactPreview = useQuery(
+    api.models.playerImport.getRemovalImpact,
+    selectedPlayerIdsArray.length > 0
+      ? { playerIdentityIds: selectedPlayerIdsArray }
+      : "skip"
   );
 
   const handleTogglePlayer = (playerId: string) => {
@@ -217,6 +234,74 @@ export function PartialUndoDialog({
           {!isLoading && players.length === 0 && (
             <div className="py-8 text-center text-muted-foreground">
               No players found in this import.
+            </div>
+          )}
+
+          {/* Impact Preview */}
+          {!isLoading && selectedCount > 0 && impactPreview && (
+            <div className="space-y-3">
+              <h3 className="font-semibold text-sm">Impact Preview</h3>
+              <div className="rounded-md border p-4">
+                <p className="mb-3 font-medium text-sm">
+                  This will permanently delete:
+                </p>
+                <div className="grid grid-cols-2 gap-2 text-sm">
+                  <div>
+                    <span className="text-muted-foreground">Players:</span>
+                    <span className="ml-2 font-medium">
+                      {impactPreview.playerCount}
+                    </span>
+                  </div>
+                  <div>
+                    <span className="text-muted-foreground">Enrollments:</span>
+                    <span className="ml-2 font-medium">
+                      {impactPreview.enrollmentCount}
+                    </span>
+                  </div>
+                  <div>
+                    <span className="text-muted-foreground">Passports:</span>
+                    <span className="ml-2 font-medium">
+                      {impactPreview.passportCount}
+                    </span>
+                  </div>
+                  <div>
+                    <span className="text-muted-foreground">
+                      Team Assignments:
+                    </span>
+                    <span className="ml-2 font-medium">
+                      {impactPreview.teamAssignmentCount}
+                    </span>
+                  </div>
+                  <div>
+                    <span className="text-muted-foreground">Assessments:</span>
+                    <span className="ml-2 font-medium">
+                      {impactPreview.assessmentCount}
+                    </span>
+                  </div>
+                  <div>
+                    <span className="text-muted-foreground">
+                      Guardian Links:
+                    </span>
+                    <span className="ml-2 font-medium">
+                      {impactPreview.guardianLinkCount}
+                    </span>
+                  </div>
+                </div>
+              </div>
+
+              {/* Orphaned Guardian Warning */}
+              {impactPreview.orphanedGuardianCount > 0 && (
+                <Alert variant="destructive">
+                  <AlertTriangle className="h-4 w-4" />
+                  <AlertTitle>Warning: Orphaned Guardians</AlertTitle>
+                  <AlertDescription>
+                    {impactPreview.orphanedGuardianCount} guardian
+                    {impactPreview.orphanedGuardianCount !== 1 ? "s" : ""} will
+                    have no linked players after this removal. These guardian
+                    records will also be deleted.
+                  </AlertDescription>
+                </Alert>
+              )}
             </div>
           )}
         </div>

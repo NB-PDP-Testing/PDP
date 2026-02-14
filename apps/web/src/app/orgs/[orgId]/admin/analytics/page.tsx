@@ -597,11 +597,15 @@ export default function AnalyticsDashboard() {
               Skills where &gt;25% of players are below benchmark
             </CardDescription>
           </CardHeader>
-          <CardContent>
+          <CardContent className="px-2 sm:px-6">
             <div className="h-[300px]">
               {skillsBarData.length > 0 ? (
                 <ResponsiveContainer height="100%" width="100%">
-                  <BarChart data={skillsBarData} layout="vertical">
+                  <BarChart
+                    data={skillsBarData}
+                    layout="vertical"
+                    margin={{ top: 5, right: 10, left: 0, bottom: 5 }}
+                  >
                     <CartesianGrid strokeDasharray="3 3" />
                     <XAxis
                       domain={[0, 100]}
@@ -615,7 +619,7 @@ export default function AnalyticsDashboard() {
                         <CustomYAxisTick payload={{ value: "" }} x={0} y={0} />
                       }
                       type="category"
-                      width={150}
+                      width={110}
                     />
                     <Tooltip formatter={(value) => `${value}%`} />
                     <Bar

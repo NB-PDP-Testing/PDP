@@ -197,11 +197,12 @@ function ErrorList({ errors }: { errors: ProgressError[] }) {
   const errorListRef = useRef<HTMLDivElement>(null);
 
   // Auto-scroll to bottom when new errors added
+  // eslint-disable-next-line react-hooks/exhaustive-deps
   useEffect(() => {
     if (isExpanded && errorListRef.current) {
       errorListRef.current.scrollTop = errorListRef.current.scrollHeight;
     }
-  }, [errors, isExpanded]);
+  }, [isExpanded]);
 
   if (errors.length === 0) {
     return (

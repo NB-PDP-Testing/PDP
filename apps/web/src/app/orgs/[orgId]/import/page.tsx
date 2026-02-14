@@ -21,6 +21,7 @@ import Link from "next/link";
 import { useParams, useRouter } from "next/navigation";
 import { useEffect, useState } from "react";
 import { WIZARD_STEPS } from "@/components/import/import-wizard";
+import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
 import {
   AlertDialog,
   AlertDialogAction,
@@ -538,6 +539,52 @@ export default function ImportPage() {
           orgId={orgId}
         />
       )}
+
+      {/* Recent Import Undo Notification */}
+      {(() => {
+        const mostRecentSession = recentSessionsList[0];
+        if (!mostRecentSession || mostRecentSession.status !== "completed") {
+          return null;
+        }
+
+        const TWENTY_FOUR_HOURS_MS = 24 * 60 * 60 * 1000;
+        const completedAt =
+          mostRecentSession.completedAt ?? mostRecentSession.startedAt;
+        const now = Date.now();
+        const isWithin24Hours = now - completedAt < TWENTY_FOUR_HOURS_MS;
+
+        if (!isWithin24Hours) {
+          return null;
+        }
+
+        const timeRemaining = completedAt + TWENTY_FOUR_HOURS_MS - now;
+        const hoursRemaining = Math.floor(timeRemaining / (1000 * 60 * 60));
+        const minutesRemaining = Math.floor(
+          (timeRemaining % (1000 * 60 * 60)) / (1000 * 60)
+        );
+
+        return (
+          <Alert className="border-amber-200 bg-amber-50 dark:border-amber-900 dark:bg-amber-950/30">
+            <Clock className="h-4 w-4 text-amber-600 dark:text-amber-400" />
+            <AlertTitle className="text-amber-900 dark:text-amber-200">
+              Last import can be undone
+            </AlertTitle>
+            <AlertDescription className="text-amber-800 dark:text-amber-300">
+              Your most recent import can be undone within the next{" "}
+              {hoursRemaining > 0
+                ? `${hoursRemaining}h ${minutesRemaining}m`
+                : `${minutesRemaining} minutes`}
+              .{" "}
+              <Link
+                className="font-medium underline"
+                href={`/orgs/${orgId}/import/history` as Route}
+              >
+                View Import History
+              </Link>
+            </AlertDescription>
+          </Alert>
+        );
+      })()}
 
       {/* Sport Selection */}
       <Card>

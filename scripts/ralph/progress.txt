@@ -225,3 +225,40 @@ Started: Fri 13 Feb 2026 23:21:35 GMT
 - Implement US-P2.4-005: Wire up Undo buttons in history page and complete step
 
 ---
+
+## 2026-02-14 00:40 - US-P2.4-005 - Add undo link to complete step and import page
+**Iteration**: 1
+**Commit**: 629daf41df9736bdbeb4cf46bd8225a5630f542a
+**Session**: dbf32b00-c423-4877-a9f8-d66fd653ff9e
+**Status**: Complete
+
+### What was implemented
+- Wired UndoImportDialog to all 3 locations: history page, complete step, import entry page
+- History page: added undoSessionId state, onClick handlers for both desktop + mobile Undo buttons
+- Complete step: added sessionId prop (from import-wizard), Undo Import button with destructive styling
+- Import entry page: added "View Import History" link below Recent Imports
+- Dialog state controlled via sessionId prop (null = closed, Id = open)
+- Auto-refetch after undo via useQuery reactivity
+
+### Files changed
+- apps/web/src/app/orgs/[orgId]/import/history/page.tsx (+35 lines)
+- apps/web/src/app/orgs/[orgId]/import/page.tsx (+9 lines)
+- apps/web/src/components/import/import-wizard.tsx (+1 line)
+- apps/web/src/components/import/steps/complete-step.tsx (+32 lines)
+
+### Quality checks
+- ✅ Type check: passed
+- ✅ Linting: passed (2 warnings: any type for functionalRoles - acceptable)
+- ✅ Pre-commit hooks: passed
+
+### **Learnings for future iterations** ⚠️ CRITICAL
+
+**Patterns discovered:**
+- Dialog state via lifted sessionId: parent controls via useState, passes to dialog as prop
+- Auto-refetch after mutation: no manual refetch needed, useQuery handles it
+
+**What to do next**:
+- ALL 5 STORIES COMPLETE ✅
+- Phase 2.4 ready for testing
+
+---

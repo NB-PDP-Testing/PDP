@@ -141,7 +141,7 @@
         "Run npx ultracite fix and npm run check-types"
       ],
       "priority": 5,
-      "passes": false,
+      "passes": true,
       "notes": "The complete step already exists — just add the undo affordance. The import entry page may show the most recent import status as a convenience."
     }
   ]

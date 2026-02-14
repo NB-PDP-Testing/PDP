@@ -193,3 +193,22 @@ html.theme-transitions *::after {
     transition: none !important;
   }
 }
+
+/**
+ * Progress Bar Shimmer Animation (Phase 2.6)
+ * Subtle loading shimmer effect for progress bars
+ */
+@keyframes shimmer {
+  0% {
+    transform: translateX(-100%);
+  }
+  100% {
+    transform: translateX(100%);
+  }
+}
+
+@layer utilities {
+  .animate-shimmer {
+    animation: shimmer 2s infinite;
+  }
+}

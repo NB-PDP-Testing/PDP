@@ -1,0 +1,41 @@
+# Ralph Progress Log
+Started: Fri 13 Feb 2026 20:46:55 GMT
+---
+
+## Phase 2.2: Import Simulation Frontend
+
+### US-P2.2-001: Create SimulationResults display component ✅
+- Created `apps/web/src/components/import/simulation-results.tsx`
+- Summary stats grid with color-coded cards (green/blue/purple/amber)
+- Player preview cards with action badges (Create/Update) and guardian info
+- Warnings (amber Alert) and errors (red Alert) sections
+- Loading skeleton state with animated spinner
+- Navigation: Back, Re-run Simulation, Run Live Import buttons
+- Errors block the proceed button
+- Mobile responsive: 1-col at 375px, 2-col at md breakpoint
+
+### US-P2.2-002: Integrate simulation into wizard review step ✅
+- Updated `apps/web/src/components/import/steps/review-step.tsx`
+- Added `useQuery` with "skip" pattern for on-demand simulation
+- `buildPlayerPayload` transforms CSV mapped data → simulate query args
+- "Run Simulation" button triggers the query
+- Shows SimulationResults component with results or loading skeleton
+- Error dialog for proceeding with validation errors
+- Added new props: organizationId, sportCode, benchmarkSettings
+- Updated import-wizard.tsx to pass new props to ReviewStep
+
+### US-P2.2-003: Polish simulation UX and edge cases ✅
+- Empty state when no rows selected (informative message + back button)
+- Data fingerprinting via `currentDataHash` memo (indices + mappings + settings)
+- Cached simulation results persist in wizard state across navigation
+- Data-changed banner with re-run button when underlying data changes
+- Estimated time hint for larger imports (>50 rows) in loading state
+- Extracted ReviewForm, ReviewNavigation, DataChangedBanner components
+  to satisfy biome cognitive complexity limits (max 15)
+
+### Learnings
+- Convex `useQuery` skip pattern: pass `"skip" as const` as args
+- Biome cognitive complexity max is 15 — plan for component extraction early
+- `npx ultracite fix` may crash; `npx biome check --write --unsafe` is a reliable fallback
+- Pre-existing type errors in `.next/dev/types/validator.ts` — not our files
+- Backend simulator needed to be created despite PRD claiming it existed

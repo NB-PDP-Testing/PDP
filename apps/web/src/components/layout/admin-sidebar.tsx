@@ -8,9 +8,11 @@ import {
   ChevronDown,
   Clipboard,
   ClipboardList,
+  FileUp,
   Flag,
   GraduationCap,
   Heart,
+  History as HistoryIcon,
   Home,
   Inbox,
   Key,
@@ -180,6 +182,16 @@ export function getAdminNavGroups(
               },
             ]
           : []),
+        {
+          href: `/orgs/${orgId}/import`,
+          label: "Import Wizard",
+          icon: FileUp,
+        },
+        {
+          href: `/orgs/${orgId}/import/history`,
+          label: "Import History",
+          icon: HistoryIcon,
+        },
         {
           href: `/orgs/${orgId}/admin/player-import`,
           label: "Import Players",

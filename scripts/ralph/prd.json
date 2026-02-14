@@ -1,192 +1,138 @@
 {
-  "project": "Voice Enhance Gating-WAPP v2",
-  "branchName": "feat/voice-gateways-v2",
-  "description": "Phase 7D: Retire v1 Processing & Clean Up. Remove dual-processing path so buildInsights is never scheduled when v2 is enabled. Add skipV2 parameter to prevent double artifacts from WhatsApp. Create feature flag promotion scripts and migration validation tooling.",
-  "issueReference": "https://github.com/NB-PDP-Testing/PDP/issues/423",
+  "project": "PlayerARC - Phase 2.6: Professional Progress Animations",
+  "branchName": "ralph/phase-2.6-progress-animations",
+  "description": "Complete the missing professional progress animations from Phase 2.5. Add live stats counter, current operation display, smooth progress bar animations, and enhanced error collection UI during import. This provides real-time feedback to users as imports execute, improving UX and making long imports feel faster.",
+  "prdFile": "scripts/ralph/prds/Importing Members/phase-2-enhanced-ux.md",
   "contextFiles": [
-    "scripts/ralph/prds/voice-gateways-v2/phases/PHASE7D_PRD.json",
-    "scripts/ralph/prds/voice-gateways-v2/context/V2_MIGRATION_CONTEXT.md",
-    "scripts/ralph/prds/voice-gateways-v2/context/MAIN_CONTEXT.md",
-    "docs/architecture/voice-notes-pipeline-v2.md"
+    "apps/web/src/components/import/steps/import-step.tsx",
+    "packages/backend/convex/models/playerImport.ts",
+    "apps/web/src/components/import/import-wizard.tsx",
+    "CLAUDE.md"
   ],
-  "previousPhases": [
-    "Phase 1",
-    "Phase 2",
-    "Phase 2.5",
-    "Phase 3",
-    "Phase 4",
-    "Phase 5",
-    "Phase 6",
-    "Phase 7A",
-    "Phase 7B",
-    "Phase 7C"
+  "mandatoryPatterns": [
+    "Use shadcn/ui components for all UI elements",
+    "Use Tailwind CSS for styling",
+    "Use useQuery/useMutation from convex/react for data fetching",
+    "NEVER use .filter() in Convex — always .withIndex()",
+    "All routes scoped under /orgs/[orgId]/",
+    "Support mobile viewport (375px minimum)",
+    "Run npx ultracite fix before completing any story",
+    "Do NOT add unit tests — E2E only per CLAUDE.md",
+    "Use framer-motion for smooth animations (already in package.json)",
+    "Import mutations should yield progress updates without blocking"
   ],
-  "currentPhase": "Phase 7D - Retire v1 Processing & Clean Up",
-  "completedStories": [
-    "US-VN-001",
-    "US-VN-002",
-    "US-VN-003",
-    "US-VN-004",
-    "US-VN-005",
-    "US-VN-006",
-    "US-VN-007",
-    "US-VN-008",
-    "US-VN-009",
-    "US-VN-010",
-    "US-VN-011",
-    "US-VN-012",
-    "US-VN-013",
-    "US-VN-014",
-    "US-VN-015",
-    "US-VN-016",
-    "US-VN-017",
-    "US-VN-018",
-    "US-VN-019",
-    "US-VN-020",
-    "US-VN-021",
-    "US-VN-022",
-    "US-VN-023",
-    "US-VN-024",
-    "US-VN-025",
-    "US-VN-026",
-    "US-VN-027"
+  "successCriteria": [
+    "Live stats counter displays during import: 'Creating 45/120 players...'",
+    "Current operation shows player name being processed: 'Processing: Emma Walsh'",
+    "Progress bar animates smoothly between percentages (no jumps)",
+    "Errors appear in scrollable list as they occur (not just at end)",
+    "All animations feel professional (no gimmicks, smooth 60fps)",
+    "Mobile responsive at 375px width",
+    "All type checks pass: npm run check-types"
   ],
-  "criticalLearnings": {
-    "description": "Lessons from Phases 1-7C that MUST be followed:",
-    "patterns": [
-      "ALL public queries/mutations MUST check ctx.auth.getUserIdentity() and verify artifact/data ownership",
-      "NEVER accept caller-supplied userId params — derive from identity.subject",
-      "Use .withIndex() for ALL queries — NEVER use .filter() on Convex query builder",
-      "JavaScript array .filter() after .collect() is FINE — only Convex query .filter() is banned",
-      "Use batch fetch + Map lookup to avoid N+1 queries",
-      "Include args AND returns validators on ALL Convex functions",
-      "Use v.optional(v.string()) NOT v.string() | null — Convex rejects null for optional fields",
-      "Actions cannot access ctx.db — use ctx.runQuery/ctx.runMutation",
-      "InternalActions should call internal mutations, NOT public mutations",
-      "ALWAYS add imports AND usage in the SAME edit — linter removes unused imports between edits",
-      "Schema changes MUST be applied and codegen run BEFORE code changes that depend on them",
-      "Scripts use query/mutation/action (NOT internal variants) so they can run via 'convex run'",
-      "Scripts use camelCase filenames (e.g., enableV2ForOrg.ts)"
-    ]
-  },
-  "existingInfrastructure": {
-    "description": "Key functions that Phase 7D modifies or depends on:",
-    "keyFunctions": [
-      "voiceNotes.ts: createTypedNote — has useV2 check from Phase 7A, STILL unconditionally schedules buildInsights → GATE IT",
-      "voiceNotes.ts: createRecordedNote — has useV2 check from Phase 7A, schedules transcribeAudio (NOT buildInsights directly)",
-      "voiceNotes.ts (actions): transcribeAudio — has artifact check, STILL unconditionally schedules buildInsights → GATE IT",
-      "voiceNotes.ts (actions): buildInsights — has defense-in-depth artifact check from Phase 7A US-VN-023",
-      "whatsapp.ts: processAudioMessage — creates artifact, calls createRecordedNote → needs skipV2:true",
-      "whatsapp.ts: processTextMessage — creates artifact, calls createTypedNote → needs skipV2:true",
-      "featureFlags.ts: shouldUseV2Pipeline — internalQuery, cascade: env→platform→org→user→false",
-      "featureFlags.ts: setFeatureFlag — internalMutation, used by enableV2ForOrg script",
-      "migration.ts: migrateVoiceNotesToV2 — internalAction, needs public wrapper for 'convex run'"
-    ]
-  },
-  "criticalWarning": "READ scripts/ralph/prds/voice-gateways-v2/phases/PHASE7D_PRD.json FIRST — it contains verified code locations, the double-artifact problem analysis, and step-by-step instructions. The stories below are summaries.",
   "userStories": [
     {
-      "id": "US-VN-028",
-      "phase": "7D",
-      "title": "Remove Dual Processing Path",
-      "description": "Gate buildInsights scheduling so it NEVER runs when v2 is active. Add skipV2 param to createTypedNote/createRecordedNote so WhatsApp callers don't create double artifacts.",
+      "id": "US-P2.6-001",
+      "title": "Add live stats counter to import progress",
+      "description": "As a user running an import, I need to see live statistics updating in real-time so I know how many records have been created.",
       "acceptanceCriteria": [
-        "=== FULL DETAILS IN: scripts/ralph/prds/voice-gateways-v2/phases/PHASE7D_PRD.json ===",
-        "",
-        "4 CHANGES:",
-        "1. createTypedNote: wrap buildInsights in if (!useV2) — reuse existing useV2 variable",
-        "2. transcribeAudio: wrap buildInsights in if (artifacts.length === 0) — reuse existing artifacts variable",
-        "3. Add skipV2: v.optional(v.boolean()) to createTypedNote & createRecordedNote, pass from WhatsApp callers",
-        "4. Update defense-in-depth log in buildInsights to say 'Defense-in-depth'",
-        "",
-        "CRITICAL: Do NOT call shouldUseV2Pipeline twice — reuse the useV2 variable from Phase 7A",
-        "CRITICAL: Quality gate checks MUST stay BEFORE buildInsights gating in transcribeAudio",
-        "CRITICAL: skipV2 on public API is simpler than needing internal versions"
+        "Update batchImportPlayersWithIdentity mutation to yield progress updates every 10-20 records",
+        "Add internal mutation helper: yieldProgress(stats) that updates a progress tracker",
+        "Progress tracker stores: { playersCreated, guardiansCreated, enrollmentsCreated, passportsCreated, currentPlayerName, phase, percentage }",
+        "Frontend polls progress tracker during import (every 500ms) using a query",
+        "Update import-step.tsx to display live stats in a stats card above progress bar",
+        "Stats card shows: 'Players: X/Y • Guardians: A/B • Enrollments: C/D • Passports: E/F'",
+        "Stats update smoothly without flickering",
+        "On import completion, final stats displayed match actual created counts",
+        "Run npx ultracite fix and npx -w packages/backend convex codegen"
       ],
-      "priority": 28,
-      "passes": true,
-      "effort": "1.5 days",
-      "dependencies": ["US-VN-026", "US-VN-027"],
-      "files": {
-        "create": [],
-        "modify": [
-          "packages/backend/convex/models/voiceNotes.ts",
-          "packages/backend/convex/actions/voiceNotes.ts",
-          "packages/backend/convex/actions/whatsapp.ts"
-        ]
-      }
+      "priority": 1,
+      "notes": "Convex mutations can't stream data, but they can write to a progress tracker table that the frontend polls. Use importSessionId as the key. Clean up progress tracker on import completion or failure. Consider using ctx.scheduler for progress updates if mutation gets too slow.",
+      "passes": true
     },
     {
-      "id": "US-VN-029",
-      "phase": "7D",
-      "title": "Feature Flag Promotion Tooling & Migration Validation",
-      "description": "Create 4 Convex scripts: enableV2ForOrg, disableV2ForOrg, v2MigrationStatus, runMigration. Validate existing migration.ts.",
+      "id": "US-P2.6-002",
+      "title": "Add current operation display",
+      "description": "As a user watching an import, I need to see which player is currently being processed so I have detailed progress feedback.",
       "acceptanceCriteria": [
-        "=== FULL DETAILS IN: scripts/ralph/prds/voice-gateways-v2/phases/PHASE7D_PRD.json ===",
-        "",
-        "4 SCRIPTS TO CREATE:",
-        "1. enableV2ForOrg.ts — mutation that enables voice_notes_v2 + entity_resolution_v2 flags for an org",
-        "2. disableV2ForOrg.ts — mutation that disables both flags (rollback)",
-        "3. v2MigrationStatus.ts — query that reports counts across all v2 tables for an org",
-        "4. runMigration.ts — public action wrapper around internal migrateVoiceNotesToV2",
-        "",
-        "PATTERNS: Scripts use camelCase filenames, export query/mutation/action (NOT internal)",
-        "v2MigrationStatus may use JS array .filter() after .collect() for tables without org indexes"
+        "Extend progress tracker from US-P2.6-001 to include currentOperation field",
+        "currentOperation format: 'Creating identity for [FirstName LastName]'",
+        "Update batchImportPlayersWithIdentity mutation to set currentOperation before processing each player",
+        "Update import-step.tsx to display current operation below stats card",
+        "Current operation text should be: 'Currently: Creating identity for Emma Walsh'",
+        "Text updates smoothly (fade transition between names using framer-motion)",
+        "On import completion, current operation shows 'Import complete!'",
+        "On import failure, current operation shows 'Import stopped at [PlayerName]'",
+        "Mobile responsive: truncate long names with ellipsis at small widths",
+        "Run npx ultracite fix"
       ],
-      "priority": 29,
-      "passes": true,
-      "effort": "1.5 days",
-      "dependencies": ["US-VN-028"],
-      "files": {
-        "create": [
-          "packages/backend/convex/scripts/enableV2ForOrg.ts",
-          "packages/backend/convex/scripts/disableV2ForOrg.ts",
-          "packages/backend/convex/scripts/v2MigrationStatus.ts",
-          "packages/backend/convex/scripts/runMigration.ts"
-        ],
-        "modify": ["packages/backend/convex/actions/migration.ts"]
-      }
+      "priority": 2,
+      "notes": "Current operation provides granular feedback. Use framer-motion's AnimatePresence for smooth text transitions. Consider showing last 3 operations in a scrolling list if you want more detail (optional enhancement).",
+      "passes": true
+    },
+    {
+      "id": "US-P2.6-003",
+      "title": "Add smooth progress bar animations",
+      "description": "As a user watching the progress bar, I need smooth animated transitions between percentages rather than jarring jumps.",
+      "acceptanceCriteria": [
+        "Wrap progress bar in framer-motion motion.div component",
+        "Add smooth transition to width property: transition={{ duration: 0.5, ease: 'easeInOut' }}",
+        "Progress bar animates between percentage updates (e.g., 45% → 50% animates over 0.5s)",
+        "Use CSS transform for animation (not width) for better performance: transform: scaleX(percentage/100)",
+        "Add loading shimmer effect to progress bar background (subtle gradient animation)",
+        "Progress bar color transitions: blue (0-50%), green (50-100%)",
+        "On completion, progress bar fills to 100% with success pulse animation",
+        "On error, progress bar shows red color with error shake animation",
+        "All animations run at 60fps (no jank, test on low-end device if possible)",
+        "Run npx ultracite fix"
+      ],
+      "priority": 3,
+      "notes": "Smooth animations make the wait feel shorter. Use framer-motion for declarative animations. Consider using CSS custom properties for dynamic progress percentage. The shimmer effect should be subtle (don't distract from the progress number).",
+      "passes": true
+    },
+    {
+      "id": "US-P2.6-004",
+      "title": "Add enhanced error collection UI",
+      "description": "As a user running an import with errors, I need to see errors as they occur (not just at the end) so I can decide whether to cancel the import.",
+      "acceptanceCriteria": [
+        "Extend progress tracker to include errors array: { rowNumber, playerName, error, timestamp }[]",
+        "Update batchImportPlayersWithIdentity mutation to append errors to progress tracker as they occur",
+        "Add collapsible 'Errors' section below current operation in import-step.tsx",
+        "Errors section shows count badge: 'Errors (3)' with red background",
+        "Click to expand shows scrollable error list (max height 200px)",
+        "Each error item shows: Row #X: [PlayerName] - [Error message]",
+        "Errors appear in real-time as import progresses (poll updates them)",
+        "New errors fade in with framer-motion animation",
+        "Error list auto-scrolls to bottom when new error added",
+        "On import completion, error section stays expanded if errors exist",
+        "If no errors, 'Errors' section shows 'No errors (0)' with green checkmark",
+        "Mobile responsive: error list scrolls, text wraps properly",
+        "Run npx ultracite fix"
+      ],
+      "priority": 4,
+      "notes": "Real-time error visibility allows users to cancel bad imports early. Keep error messages concise (truncate if >100 chars). Consider adding 'Download Error Log' button if >10 errors (optional enhancement).",
+      "passes": true
+    },
+    {
+      "id": "US-P2.6-005",
+      "title": "Create progress tracker cleanup and integration",
+      "description": "As the import system, I need to clean up progress trackers after imports complete and integrate all progress features into the wizard.",
+      "acceptanceCriteria": [
+        "Create importProgressTrackers table in schema.ts with fields: sessionId (primary), stats, currentOperation, errors, phase, percentage, updatedAt",
+        "Add index: by_sessionId",
+        "Add cleanup mutation: cleanupProgressTracker(sessionId) that deletes tracker record",
+        "Call cleanup mutation in batchImportPlayersWithIdentity on completion or failure",
+        "Add cron job (optional): delete progress trackers older than 1 hour (cleanup stale records)",
+        "Update import-step.tsx to poll getProgressTracker query every 500ms during active import",
+        "Stop polling when import completes (phase = 'completed' or 'failed')",
+        "Show loading skeleton for stats/operation until first progress update received",
+        "Handle edge case: if progress tracker not found, show graceful fallback (basic progress only)",
+        "Mobile: ensure all progress UI components stack vertically, no overflow",
+        "Run npx ultracite fix and npm run check-types"
+      ],
+      "priority": 5,
+      "notes": "Progress trackers are ephemeral — they only exist during active imports. Cleanup is important to avoid table bloat. The 500ms poll interval balances responsiveness with Convex query costs. Consider WebSocket in future if Convex supports it.",
+      "passes": true
     }
-  ],
-  "successCriteria": {
-    "noDualProcessing": "With v2 ON, buildInsights is never scheduled — only extractClaims runs",
-    "v1FallbackWorks": "With v2 OFF, buildInsights runs exactly as before, no artifacts created",
-    "noDuplicateArtifacts": "WhatsApp path creates ONE artifact (skipV2 prevents double)",
-    "defenseInDepthKept": "buildInsights still has artifact-exists check as safety net",
-    "enableDisableScripts": "enableV2ForOrg/disableV2ForOrg toggle both flags for an org",
-    "migrationStatusWorks": "v2MigrationStatus returns accurate counts for all v2 tables",
-    "migrationScriptAccessible": "runMigration wrapper allows 'convex run' of internal migration action",
-    "typeCheckPasses": "npm run check-types passes with 0 errors"
-  },
-  "ralphInstructions": {
-    "executionMode": "sequential",
-    "storyOrder": ["US-VN-028", "US-VN-029"],
-    "contextToRead": [
-      "scripts/ralph/prds/voice-gateways-v2/phases/PHASE7D_PRD.json — PRIMARY: full implementation details",
-      "scripts/ralph/prds/voice-gateways-v2/context/V2_MIGRATION_CONTEXT.md — v1 vs v2 architecture",
-      "packages/backend/convex/models/voiceNotes.ts — createTypedNote/createRecordedNote to modify",
-      "packages/backend/convex/actions/voiceNotes.ts — transcribeAudio + buildInsights to modify",
-      "packages/backend/convex/actions/whatsapp.ts — processAudioMessage + processTextMessage to modify",
-      "packages/backend/convex/lib/featureFlags.ts — shouldUseV2Pipeline + setFeatureFlag signatures",
-      "packages/backend/convex/actions/migration.ts — existing migration script to validate + wrap"
-    ],
-    "implementationOrder": [
-      "1. Read createTypedNote — find useV2 variable, wrap buildInsights in if (!useV2)",
-      "2. Read transcribeAudio — find artifacts variable, wrap buildInsights in if (artifacts.length === 0)",
-      "3. Add skipV2: v.optional(v.boolean()) to createTypedNote args + handler",
-      "4. Add skipV2: v.optional(v.boolean()) to createRecordedNote args + handler",
-      "5. Update whatsapp.ts processTextMessage to pass skipV2: true",
-      "6. Update whatsapp.ts processAudioMessage to pass skipV2: true",
-      "7. Update buildInsights defense-in-depth log message",
-      "8. Type check",
-      "9. Create enableV2ForOrg.ts script",
-      "10. Create disableV2ForOrg.ts script",
-      "11. Create v2MigrationStatus.ts script",
-      "12. Create runMigration.ts wrapper script",
-      "13. Add usage docs to migration.ts",
-      "14. Type check"
-    ],
-    "testingStrategy": "Manual testing — enable/disable v2 via scripts, create notes, verify correct pipeline runs",
-    "qualityCriteria": "npm run check-types passes, npx -w packages/backend convex codegen succeeds"
-  }
+  ]
 }

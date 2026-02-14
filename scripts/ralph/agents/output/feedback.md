@@ -1534,3 +1534,351 @@ packages/backend/convex/actions/coachParentSummaries.ts:      "ANTHROPIC_API_KEY
   - **Problem:** Should use .withIndex() for better performance
   - **Fix:** Replace `.query().filter()` with `.query().withIndex()`
 
+
+## Security Tester - 2026-02-14 01:08:28
+- 🚨 **CRITICAL**: Hardcoded secrets detected
+```
+apps/web/src/app/api/comparison-insights/route.ts:      console.error("❌ ANTHROPIC_API_KEY not found in environment variables");
+apps/web/src/app/api/recommendations/route.ts:      console.error("❌ ANTHROPIC_API_KEY not found in environment variables");
+apps/web/src/app/api/session-plan/route.ts:      console.error("❌ ANTHROPIC_API_KEY not found in environment variables");
+packages/backend/convex/actions/coachParentSummaries.ts: * Throws if ANTHROPIC_API_KEY is not configured
+packages/backend/convex/actions/coachParentSummaries.ts:      "ANTHROPIC_API_KEY environment variable is not set. Please configure it in Convex dashboard."
+```
+- ⚠️ **HIGH**: 4 high-severity dependency vulnerabilities
+  Run `npm audit fix` to resolve
+- ⚠️ **HIGH**: Mutations without authorization checks:
+  - packages/backend/convex/models/platformMessagingSettings.ts
+  - packages/backend/convex/models/importSessions.ts
+  - packages/backend/convex/models/passportComparison.ts
+  - packages/backend/convex/models/trustGatePermissions.ts
+  - packages/backend/convex/models/ageGroupEligibilityOverrides.ts
+  - packages/backend/convex/models/teamCollaboration.ts
+  - packages/backend/convex/models/guardianIdentities.ts
+  - packages/backend/convex/models/sessionPlans.ts
+  - packages/backend/convex/models/adultPlayers.ts
+  - packages/backend/convex/models/demoAsks.ts
+  - packages/backend/convex/models/skillBenchmarks.ts
+  - packages/backend/convex/models/coaches.ts
+  - packages/backend/convex/models/medicalProfiles.ts
+  - packages/backend/convex/models/invitations.ts
+  - packages/backend/convex/models/flows.ts
+  - packages/backend/convex/models/notifications.ts
+  - packages/backend/convex/models/whatsappReviewLinks.ts
+  - packages/backend/convex/models/teamObservations.ts
+  - packages/backend/convex/models/passportGoals.ts
+  - packages/backend/convex/models/players.ts
+  - packages/backend/convex/models/orgInjuryNotes.ts
+  - packages/backend/convex/models/playerImport.ts
+  - packages/backend/convex/models/passportEnquiries.ts
+  - packages/backend/convex/models/setup.ts
+  - packages/backend/convex/models/teamPlayerIdentities.ts
+  - packages/backend/convex/models/rateLimits.ts
+  - packages/backend/convex/models/platformStaffInvitations.ts
+  - packages/backend/convex/models/coachParentMessages.ts
+  - packages/backend/convex/models/aiModelConfig.ts
+  - packages/backend/convex/models/orgPlayerEnrollments.ts
+  - packages/backend/convex/models/sportPassports.ts
+  - packages/backend/convex/models/orgJoinRequests.ts
+  - packages/backend/convex/models/sportAgeGroupConfig.ts
+  - packages/backend/convex/models/referenceData.ts
+  - packages/backend/convex/models/importMappingHistory.ts
+  - packages/backend/convex/models/notificationPreferences.ts
+  - packages/backend/convex/models/userPreferences.ts
+  - packages/backend/convex/models/teams.ts
+  - packages/backend/convex/models/gdpr.ts
+  - packages/backend/convex/models/userProfiles.ts
+  - packages/backend/convex/models/emergencyContacts.ts
+  - packages/backend/convex/models/coachTrustLevels.ts
+  - packages/backend/convex/models/coachParentSummaries.ts
+  - packages/backend/convex/models/onboarding.ts
+  - packages/backend/convex/models/guardianPlayerLinks.ts
+  - packages/backend/convex/models/orgGuardianProfiles.ts
+  - packages/backend/convex/models/passportSharing.ts
+  - packages/backend/convex/models/playerGraduations.ts
+  - packages/backend/convex/models/members.ts
+  - packages/backend/convex/models/voiceNoteEntityResolutions.ts
+  - packages/backend/convex/models/users.ts
+  - packages/backend/convex/models/skillAssessments.ts
+  - packages/backend/convex/models/playerSelfAccess.ts
+  - packages/backend/convex/models/aiServiceHealth.ts
+  - packages/backend/convex/models/importTemplates.ts
+  - packages/backend/convex/models/sports.ts
+  - packages/backend/convex/models/importProgress.ts
+  - packages/backend/convex/models/fixNeilsRoles.ts
+  - packages/backend/convex/models/playerIdentities.ts
+  - packages/backend/convex/models/voiceNotes.ts
+  - packages/backend/convex/models/guardianManagement.ts
+  - packages/backend/convex/models/importTemplateSeeds.ts
+  - packages/backend/convex/models/insightDrafts.ts
+  - packages/backend/convex/models/importSessionDrafts.ts
+  - packages/backend/convex/models/teamDecisions.ts
+  - packages/backend/convex/models/playerInjuries.ts
+  - packages/backend/convex/models/voiceNoteInsights.ts
+  - packages/backend/convex/models/playerEmergencyContacts.ts
+  - packages/backend/convex/models/coachTasks.ts
+  **Action**: Add `getUserOrgRole()` or mark as `// @public`
+- 🚨 **CRITICAL [P9]**: XSS risk - dangerouslySetInnerHTML without sanitization:
+    apps/web/src/components/ui/confetti.tsx:        dangerouslySetInnerHTML={{
+  apps/web/src/components/ui/chart.tsx:      dangerouslySetInnerHTML={{
+  apps/web/src/components/onboarding/gdpr-policy-viewer.tsx: * Uses dangerouslySetInnerHTML to avoid React key issues with static content.
+  **Action**: Use DOMPurify or remove dangerouslySetInnerHTML
+- ⚠️ **HIGH [P9]**: No rate limiting on notification/activity endpoints:
+  - packages/backend/convex/models/demoAsks.ts
+  **Action**: Add rate limiting to prevent spam/abuse
+- ⚠️ **HIGH [P9]**: AI endpoints without input validation:
+  - packages/backend/convex/actions/claimsExtraction.ts
+  - packages/backend/convex/actions/coachParentSummaries.ts
+  - packages/backend/convex/actions/practicePlans.ts
+  - packages/backend/convex/actions/voiceNotes.ts
+  - packages/backend/convex/models/aiServiceHealth.ts
+  **Action**: Validate/sanitize user input before AI prompts
+- ⚠️ **HIGH [P9]**: Notification functions without permission checks:
+  - packages/backend/convex/models/notifications.ts
+  **Action**: Verify user can send notifications to recipient
+
+
+## PRD Audit - US-P2.6-005 - 2026-02-14 01:05:53
+Perfect. Now let me create a summary of my audit:
+
+## AUDIT REPORT: US-P2.6-005
+
+### Status: **PARTIAL**
+
+### Evidence Found:
+
+✅ **Implemented:**
+1. **Schema table created** - `importProgressTrackers` exists in schema.ts with all required fields (sessionId, stats, currentOperation, errors, phase, percentage, updatedAt)
+2. **Index created** - `by_sessionId` index exists
+3. **Cleanup mutation exists** - `cleanupProgressTracker` in `importProgress.ts` (lines 200-217)
+4. **Cleanup called on completion** - Line 419 in `import-step.tsx` calls cleanup after success
+5. **Cleanup called on failure** - Line 428 in `import-step.tsx` calls cleanup after error
+6. **Frontend polling implemented** - Line 344-347 uses `useQuery` with skip condition
+7. **Polling stops correctly** - Lines 353-361 detect "completed" or "failed" phase and set `isImporting=false`, which triggers skip
+8. **Loading skeleton shown** - Lines 124-136 show skeleton when `stats` is null
+9. **Graceful fallback** - Lines 454-465 use `?? null` and `?? []` for missing data
+10. **Mobile responsive** - Lines 142, 209, 223 use flex/grid with gap-4 for vertical stacking
+11. **Convex codegen runs** - Successfully generates types
+12. **Type check passes** - Pre-existing errors unrelated to this story (templates pages)
+
+❌ **Missing:**
+1. **500ms polling interval** - Convex `useQuery` uses default real-time subscriptions, NOT explicit 500ms polling. This is actually BETTER (WebSocket-based live updates vs HTTP polling), but doesn't match acceptance criteria letter.
+2. **Cron job for cleanup** - No cron job exists to delete trackers older than 1 hour (optional per AC, but recommended for preventing stale data buildup)
+
+⚠️ **Pre-existing Issues (not story-related):**
+- TypeScript errors in `.next/dev/types/validator.ts` for missing template pages
+- Ultracite linting errors (334 errors, 1700 warnings) - pre-existing
+- These errors existed before Phase 2.6
+
+### Analysis:
+
+The implementation is functionally **superior** to the acceptance criteria in one key area: instead of polling every 500ms via HTTP, it uses Convex's real-time WebSocket subscriptions for instant updates with lower latency and bandwidth. The `useQuery` hook automatically receives updates when the backend calls `updateProgressTracker`, eliminating the need for manual polling intervals.
+
+The missing cron job is marked "optional" in the AC, but should be implemented to prevent stale progress trackers from accumulating if cleanup fails (e.g., browser crash, network error).
+
+### Recommendation:
+
+**PARTIAL** - Core functionality complete and working better than specified, but missing optional cron job. Story is production-ready but should add the cleanup cron for operational hygiene.
+
+## Security Tester - 2026-02-14 01:10:34
+- 🚨 **CRITICAL**: Hardcoded secrets detected
+```
+apps/web/src/app/api/comparison-insights/route.ts:      console.error("❌ ANTHROPIC_API_KEY not found in environment variables");
+apps/web/src/app/api/recommendations/route.ts:      console.error("❌ ANTHROPIC_API_KEY not found in environment variables");
+apps/web/src/app/api/session-plan/route.ts:      console.error("❌ ANTHROPIC_API_KEY not found in environment variables");
+packages/backend/convex/actions/coachParentSummaries.ts: * Throws if ANTHROPIC_API_KEY is not configured
+packages/backend/convex/actions/coachParentSummaries.ts:      "ANTHROPIC_API_KEY environment variable is not set. Please configure it in Convex dashboard."
+```
+- ⚠️ **HIGH**: 4 high-severity dependency vulnerabilities
+  Run `npm audit fix` to resolve
+- ⚠️ **HIGH**: Mutations without authorization checks:
+  - packages/backend/convex/models/platformMessagingSettings.ts
+  - packages/backend/convex/models/importSessions.ts
+  - packages/backend/convex/models/passportComparison.ts
+  - packages/backend/convex/models/trustGatePermissions.ts
+  - packages/backend/convex/models/ageGroupEligibilityOverrides.ts
+  - packages/backend/convex/models/teamCollaboration.ts
+  - packages/backend/convex/models/guardianIdentities.ts
+  - packages/backend/convex/models/sessionPlans.ts
+  - packages/backend/convex/models/adultPlayers.ts
+  - packages/backend/convex/models/demoAsks.ts
+  - packages/backend/convex/models/skillBenchmarks.ts
+  - packages/backend/convex/models/coaches.ts
+  - packages/backend/convex/models/medicalProfiles.ts
+  - packages/backend/convex/models/invitations.ts
+  - packages/backend/convex/models/flows.ts
+  - packages/backend/convex/models/notifications.ts
+  - packages/backend/convex/models/whatsappReviewLinks.ts
+  - packages/backend/convex/models/teamObservations.ts
+  - packages/backend/convex/models/passportGoals.ts
+  - packages/backend/convex/models/players.ts
+  - packages/backend/convex/models/orgInjuryNotes.ts
+  - packages/backend/convex/models/playerImport.ts
+  - packages/backend/convex/models/passportEnquiries.ts
+  - packages/backend/convex/models/setup.ts
+  - packages/backend/convex/models/teamPlayerIdentities.ts
+  - packages/backend/convex/models/rateLimits.ts
+  - packages/backend/convex/models/platformStaffInvitations.ts
+  - packages/backend/convex/models/coachParentMessages.ts
+  - packages/backend/convex/models/aiModelConfig.ts
+  - packages/backend/convex/models/orgPlayerEnrollments.ts
+  - packages/backend/convex/models/sportPassports.ts
+  - packages/backend/convex/models/orgJoinRequests.ts
+  - packages/backend/convex/models/sportAgeGroupConfig.ts
+  - packages/backend/convex/models/referenceData.ts
+  - packages/backend/convex/models/importMappingHistory.ts
+  - packages/backend/convex/models/notificationPreferences.ts
+  - packages/backend/convex/models/userPreferences.ts
+  - packages/backend/convex/models/teams.ts
+  - packages/backend/convex/models/gdpr.ts
+  - packages/backend/convex/models/userProfiles.ts
+  - packages/backend/convex/models/emergencyContacts.ts
+  - packages/backend/convex/models/coachTrustLevels.ts
+  - packages/backend/convex/models/coachParentSummaries.ts
+  - packages/backend/convex/models/onboarding.ts
+  - packages/backend/convex/models/guardianPlayerLinks.ts
+  - packages/backend/convex/models/orgGuardianProfiles.ts
+  - packages/backend/convex/models/passportSharing.ts
+  - packages/backend/convex/models/playerGraduations.ts
+  - packages/backend/convex/models/members.ts
+  - packages/backend/convex/models/voiceNoteEntityResolutions.ts
+  - packages/backend/convex/models/users.ts
+  - packages/backend/convex/models/skillAssessments.ts
+  - packages/backend/convex/models/playerSelfAccess.ts
+  - packages/backend/convex/models/aiServiceHealth.ts
+  - packages/backend/convex/models/importTemplates.ts
+  - packages/backend/convex/models/sports.ts
+  - packages/backend/convex/models/importProgress.ts
+  - packages/backend/convex/models/fixNeilsRoles.ts
+  - packages/backend/convex/models/playerIdentities.ts
+  - packages/backend/convex/models/voiceNotes.ts
+  - packages/backend/convex/models/guardianManagement.ts
+  - packages/backend/convex/models/importTemplateSeeds.ts
+  - packages/backend/convex/models/insightDrafts.ts
+  - packages/backend/convex/models/importSessionDrafts.ts
+  - packages/backend/convex/models/teamDecisions.ts
+  - packages/backend/convex/models/playerInjuries.ts
+  - packages/backend/convex/models/voiceNoteInsights.ts
+  - packages/backend/convex/models/playerEmergencyContacts.ts
+  - packages/backend/convex/models/coachTasks.ts
+  **Action**: Add `getUserOrgRole()` or mark as `// @public`
+- 🚨 **CRITICAL [P9]**: XSS risk - dangerouslySetInnerHTML without sanitization:
+    apps/web/src/components/ui/confetti.tsx:        dangerouslySetInnerHTML={{
+  apps/web/src/components/ui/chart.tsx:      dangerouslySetInnerHTML={{
+  apps/web/src/components/onboarding/gdpr-policy-viewer.tsx: * Uses dangerouslySetInnerHTML to avoid React key issues with static content.
+  **Action**: Use DOMPurify or remove dangerouslySetInnerHTML
+- ⚠️ **HIGH [P9]**: No rate limiting on notification/activity endpoints:
+  - packages/backend/convex/models/demoAsks.ts
+  **Action**: Add rate limiting to prevent spam/abuse
+- ⚠️ **HIGH [P9]**: AI endpoints without input validation:
+  - packages/backend/convex/actions/claimsExtraction.ts
+  - packages/backend/convex/actions/coachParentSummaries.ts
+  - packages/backend/convex/actions/practicePlans.ts
+  - packages/backend/convex/actions/voiceNotes.ts
+  - packages/backend/convex/models/aiServiceHealth.ts
+  **Action**: Validate/sanitize user input before AI prompts
+- ⚠️ **HIGH [P9]**: Notification functions without permission checks:
+  - packages/backend/convex/models/notifications.ts
+  **Action**: Verify user can send notifications to recipient
+
+
+## Security Tester - 2026-02-14 01:12:36
+- 🚨 **CRITICAL**: Hardcoded secrets detected
+```
+apps/web/src/app/api/comparison-insights/route.ts:      console.error("❌ ANTHROPIC_API_KEY not found in environment variables");
+apps/web/src/app/api/recommendations/route.ts:      console.error("❌ ANTHROPIC_API_KEY not found in environment variables");
+apps/web/src/app/api/session-plan/route.ts:      console.error("❌ ANTHROPIC_API_KEY not found in environment variables");
+packages/backend/convex/actions/coachParentSummaries.ts: * Throws if ANTHROPIC_API_KEY is not configured
+packages/backend/convex/actions/coachParentSummaries.ts:      "ANTHROPIC_API_KEY environment variable is not set. Please configure it in Convex dashboard."
+```
+- ⚠️ **HIGH**: 4 high-severity dependency vulnerabilities
+  Run `npm audit fix` to resolve
+- ⚠️ **HIGH**: Mutations without authorization checks:
+  - packages/backend/convex/models/platformMessagingSettings.ts
+  - packages/backend/convex/models/importSessions.ts
+  - packages/backend/convex/models/passportComparison.ts
+  - packages/backend/convex/models/trustGatePermissions.ts
+  - packages/backend/convex/models/ageGroupEligibilityOverrides.ts
+  - packages/backend/convex/models/teamCollaboration.ts
+  - packages/backend/convex/models/guardianIdentities.ts
+  - packages/backend/convex/models/sessionPlans.ts
+  - packages/backend/convex/models/adultPlayers.ts
+  - packages/backend/convex/models/demoAsks.ts
+  - packages/backend/convex/models/skillBenchmarks.ts
+  - packages/backend/convex/models/coaches.ts
+  - packages/backend/convex/models/medicalProfiles.ts
+  - packages/backend/convex/models/invitations.ts
+  - packages/backend/convex/models/flows.ts
+  - packages/backend/convex/models/notifications.ts
+  - packages/backend/convex/models/whatsappReviewLinks.ts
+  - packages/backend/convex/models/teamObservations.ts
+  - packages/backend/convex/models/passportGoals.ts
+  - packages/backend/convex/models/players.ts
+  - packages/backend/convex/models/orgInjuryNotes.ts
+  - packages/backend/convex/models/playerImport.ts
+  - packages/backend/convex/models/passportEnquiries.ts
+  - packages/backend/convex/models/setup.ts
+  - packages/backend/convex/models/teamPlayerIdentities.ts
+  - packages/backend/convex/models/rateLimits.ts
+  - packages/backend/convex/models/platformStaffInvitations.ts
+  - packages/backend/convex/models/coachParentMessages.ts
+  - packages/backend/convex/models/aiModelConfig.ts
+  - packages/backend/convex/models/orgPlayerEnrollments.ts
+  - packages/backend/convex/models/sportPassports.ts
+  - packages/backend/convex/models/orgJoinRequests.ts
+  - packages/backend/convex/models/sportAgeGroupConfig.ts
+  - packages/backend/convex/models/referenceData.ts
+  - packages/backend/convex/models/importMappingHistory.ts
+  - packages/backend/convex/models/notificationPreferences.ts
+  - packages/backend/convex/models/userPreferences.ts
+  - packages/backend/convex/models/teams.ts
+  - packages/backend/convex/models/gdpr.ts
+  - packages/backend/convex/models/userProfiles.ts
+  - packages/backend/convex/models/emergencyContacts.ts
+  - packages/backend/convex/models/coachTrustLevels.ts
+  - packages/backend/convex/models/coachParentSummaries.ts
+  - packages/backend/convex/models/onboarding.ts
+  - packages/backend/convex/models/guardianPlayerLinks.ts
+  - packages/backend/convex/models/orgGuardianProfiles.ts
+  - packages/backend/convex/models/passportSharing.ts
+  - packages/backend/convex/models/playerGraduations.ts
+  - packages/backend/convex/models/members.ts
+  - packages/backend/convex/models/voiceNoteEntityResolutions.ts
+  - packages/backend/convex/models/users.ts
+  - packages/backend/convex/models/skillAssessments.ts
+  - packages/backend/convex/models/playerSelfAccess.ts
+  - packages/backend/convex/models/aiServiceHealth.ts
+  - packages/backend/convex/models/importTemplates.ts
+  - packages/backend/convex/models/sports.ts
+  - packages/backend/convex/models/importProgress.ts
+  - packages/backend/convex/models/fixNeilsRoles.ts
+  - packages/backend/convex/models/playerIdentities.ts
+  - packages/backend/convex/models/voiceNotes.ts
+  - packages/backend/convex/models/guardianManagement.ts
+  - packages/backend/convex/models/importTemplateSeeds.ts
+  - packages/backend/convex/models/insightDrafts.ts
+  - packages/backend/convex/models/importSessionDrafts.ts
+  - packages/backend/convex/models/teamDecisions.ts
+  - packages/backend/convex/models/playerInjuries.ts
+  - packages/backend/convex/models/voiceNoteInsights.ts
+  - packages/backend/convex/models/playerEmergencyContacts.ts
+  - packages/backend/convex/models/coachTasks.ts
+  **Action**: Add `getUserOrgRole()` or mark as `// @public`
+- 🚨 **CRITICAL [P9]**: XSS risk - dangerouslySetInnerHTML without sanitization:
+    apps/web/src/components/ui/confetti.tsx:        dangerouslySetInnerHTML={{
+  apps/web/src/components/ui/chart.tsx:      dangerouslySetInnerHTML={{
+  apps/web/src/components/onboarding/gdpr-policy-viewer.tsx: * Uses dangerouslySetInnerHTML to avoid React key issues with static content.
+  **Action**: Use DOMPurify or remove dangerouslySetInnerHTML
+- ⚠️ **HIGH [P9]**: No rate limiting on notification/activity endpoints:
+  - packages/backend/convex/models/demoAsks.ts
+  **Action**: Add rate limiting to prevent spam/abuse
+- ⚠️ **HIGH [P9]**: AI endpoints without input validation:
+  - packages/backend/convex/actions/claimsExtraction.ts
+  - packages/backend/convex/actions/coachParentSummaries.ts
+  - packages/backend/convex/actions/practicePlans.ts
+  - packages/backend/convex/actions/voiceNotes.ts
+  - packages/backend/convex/models/aiServiceHealth.ts
+  **Action**: Validate/sanitize user input before AI prompts
+- ⚠️ **HIGH [P9]**: Notification functions without permission checks:
+  - packages/backend/convex/models/notifications.ts
+  **Action**: Verify user can send notifications to recipient
+

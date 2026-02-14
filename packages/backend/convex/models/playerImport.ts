@@ -1295,3 +1295,57 @@ export const batchImportPlayersWithIdentity = mutation({
     return results;
   },
 });
+
+// ============================================================
+// PHASE 3.1: ADMIN OVERRIDE FOR GUARDIAN MATCHING
+// ============================================================
+
+/**
+ * Records an admin override decision for guardian matching confidence.
+ * Admins can force-link low-confidence matches or reject high-confidence matches.
+ * Creates an audit trail entry in adminOverrides table.
+ *
+ * @param importSessionId - The import session ID
+ * @param playerId - Player identity ID
+ * @param guardianId - Guardian identity ID
+ * @param action - "force_link" or "reject_link"
+ * @param reason - Optional admin explanation for the override
+ * @param originalConfidenceScore - The confidence score that was overridden
+ * @returns The created override record ID
+ */
+export const recordAdminOverride = mutation({
+  args: {
+    importSessionId: v.id("importSessions"),
+    playerId: v.id("playerIdentities"),
+    guardianId: v.id("guardianIdentities"),
+    action: v.union(v.literal("force_link"), v.literal("reject_link")),
+    reason: v.optional(v.string()),
+    originalConfidenceScore: v.optional(v.number()),
+  },
+  returns: v.id("adminOverrides"),
+  handler: async (ctx, args) => {
+    // Get current user from Better Auth session
+    const user = await ctx.auth.getUserIdentity();
+    if (!user) {
+      throw new Error("Unauthorized: Must be logged in to record override");
+    }
+
+    // Record the override with timestamp
+    const overrideId = await ctx.db.insert("adminOverrides", {
+      importSessionId: args.importSessionId,
+      playerId: args.playerId,
+      guardianId: args.guardianId,
+      action: args.action,
+      reason: args.reason,
+      overriddenBy: user.subject, // Better Auth user ID
+      originalConfidenceScore: args.originalConfidenceScore,
+      timestamp: Date.now(),
+    });
+
+    console.log(
+      `[Admin Override] ${args.action} recorded by ${user.subject} for player ${args.playerId} and guardian ${args.guardianId}`
+    );
+
+    return overrideId;
+  },
+});

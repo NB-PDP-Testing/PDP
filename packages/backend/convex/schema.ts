@@ -4736,6 +4736,22 @@ export default defineSchema({
     .index("by_startedAt", ["startedAt"])
     .index("by_org_and_status", ["organizationId", "status"]),
 
+  // Phase 3.1: Admin overrides for guardian matching confidence decisions
+  // Tracks when admins force-link low-confidence or reject high-confidence matches
+  adminOverrides: defineTable({
+    importSessionId: v.id("importSessions"),
+    playerId: v.id("playerIdentities"),
+    guardianId: v.id("guardianIdentities"),
+    action: v.union(v.literal("force_link"), v.literal("reject_link")),
+    reason: v.optional(v.string()), // Optional admin explanation
+    overriddenBy: v.string(), // User ID of admin who overrode
+    originalConfidenceScore: v.optional(v.number()), // Confidence score that was overridden
+    timestamp: v.number(),
+  })
+    .index("by_importSession", ["importSessionId"])
+    .index("by_user", ["overriddenBy"])
+    .index("by_player_and_guardian", ["playerId", "guardianId"]),
+
   // Persists wizard draft state for save & resume across sessions
   importSessionDrafts: defineTable({
     userId: v.string(),

@@ -17,6 +17,7 @@ import {
   ClipboardList,
   PlayCircle,
   Search,
+  Shield,
   Users,
   X,
   XCircle,
@@ -57,6 +58,7 @@ import {
   CollapsibleTrigger,
 } from "@/components/ui/collapsible";
 import { Input } from "@/components/ui/input";
+import { useMembershipContext } from "@/providers/membership-provider";
 
 // ============================================================
 // Simulation Error Boundary
@@ -122,6 +124,13 @@ export type DuplicateInfo = {
     level: "high" | "medium" | "low"; // Confidence level
     matchReasons: string[]; // Reasons for the match (email, phone, address, etc.)
     signalBreakdown?: SignalBreakdown[]; // Phase 3.1.003: Detailed signal breakdown
+  };
+  // Phase 3.1.004: Admin override tracking
+  adminOverride?: {
+    action: "force_link" | "reject_link";
+    reason?: string;
+    overriddenBy: string; // User ID
+    timestamp: number;
   };
 };
 
@@ -391,11 +400,13 @@ function DuplicateCard({
   row,
   mappings,
   onResolutionChange,
+  organizationId,
 }: {
   duplicate: DuplicateInfo;
   row: Record<string, string>;
   mappings: Record<string, string>;
   onResolutionChange: (resolution: DuplicateInfo["resolution"]) => void;
+  organizationId: string;
 }) {
   const firstName = getMappedValue(row, "firstName", mappings);
   const lastName = getMappedValue(row, "lastName", mappings);
@@ -411,8 +422,38 @@ function DuplicateCard({
   // Phase 3.1.003: Collapsible state for match details
   const [detailsOpen, setDetailsOpen] = useState(false);
 
+  // Phase 3.1.004: Admin override functionality
+  const { getMembershipForOrg } = useMembershipContext();
+  const membership = getMembershipForOrg(organizationId);
+  const isAdminOrOwner =
+    membership?.betterAuthRole === "admin" ||
+    membership?.betterAuthRole === "owner";
+
+  // Check if confidence score qualifies for override buttons
+  const canForceLink = confidence && confidence.score < 40; // Low confidence
+  const canRejectLink = confidence && confidence.score >= 60; // High confidence
+  const showOverrideButtons = isAdminOrOwner && (canForceLink || canRejectLink);
+
   return (
     <div className="rounded-lg border p-3">
+      {/* Phase 3.1.004: Admin Override Badge */}
+      {duplicate.adminOverride && (
+        <div className="mb-2">
+          <Badge className="border-purple-200 bg-purple-50 text-purple-700 dark:border-purple-800 dark:bg-purple-950 dark:text-purple-400">
+            <Shield className="h-3 w-3" />
+            Admin Override:{" "}
+            {duplicate.adminOverride.action === "force_link"
+              ? "Force Linked"
+              : "Rejected"}
+          </Badge>
+          {duplicate.adminOverride.reason && (
+            <p className="mt-1 text-muted-foreground text-xs">
+              Reason: {duplicate.adminOverride.reason}
+            </p>
+          )}
+        </div>
+      )}
+
       {/* Phase 3.1: Confidence Badge at top if guardian matching used */}
       {confidence && badgeProps && ConfidenceIcon && (
         <div className="mb-2 flex items-center gap-2">
@@ -503,7 +544,7 @@ function DuplicateCard({
           {duplicate.resolution}
         </Badge>
       </div>
-      <div className="mt-2 flex gap-1">
+      <div className="mt-2 flex flex-wrap gap-1">
         <Button
           onClick={() => onResolutionChange("skip")}
           size="sm"
@@ -525,6 +566,32 @@ function DuplicateCard({
         >
           Replace
         </Button>
+
+        {/* Phase 3.1.004: Admin Override Buttons */}
+        {showOverrideButtons && (
+          <>
+            {canForceLink && (
+              <Button
+                className="border-green-200 bg-green-50 text-green-700 hover:bg-green-100 dark:border-green-800 dark:bg-green-950 dark:text-green-400"
+                size="sm"
+                variant="outline"
+              >
+                <Shield className="h-3 w-3" />
+                Force Link
+              </Button>
+            )}
+            {canRejectLink && (
+              <Button
+                className="border-red-200 bg-red-50 text-red-700 hover:bg-red-100 dark:border-red-800 dark:bg-red-950 dark:text-red-400"
+                size="sm"
+                variant="outline"
+              >
+                <Shield className="h-3 w-3" />
+                Reject Link
+              </Button>
+            )}
+          </>
+        )}
       </div>
     </div>
   );
@@ -647,6 +714,7 @@ function ReviewForm({
   goBack,
   onRunSimulation,
   dataChanged,
+  organizationId,
 }: {
   validationErrors: ReviewValidationError[];
   validCount: number;
@@ -663,6 +731,7 @@ function ReviewForm({
   goBack: () => void;
   onRunSimulation: () => void;
   dataChanged: boolean;
+  organizationId: string;
 }) {
   const [errorSearch, setErrorSearch] = useState("");
   const hasDuplicates = duplicates.length > 0;
@@ -745,6 +814,7 @@ function ReviewForm({
                     onResolutionChange={(res) =>
                       onDuplicateResolution(dup.rowNumber, res)
                     }
+                    organizationId={organizationId}
                     row={row}
                   />
                 );
@@ -1072,6 +1142,7 @@ export default function ReviewStep({
       hasErrors={hasErrors}
       onDuplicateResolution={handleDuplicateResolution}
       onRunSimulation={handleRunSimulation}
+      organizationId={organizationId}
       parsedData={parsedData}
       selectedRows={selectedRows}
       validationErrors={validationErrors}

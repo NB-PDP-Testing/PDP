@@ -13,6 +13,7 @@ import {
   AlertTriangle,
   Check,
   CheckCircle2,
+  ChevronDown,
   ClipboardList,
   PlayCircle,
   Search,
@@ -50,6 +51,11 @@ import {
   CardHeader,
   CardTitle,
 } from "@/components/ui/card";
+import {
+  Collapsible,
+  CollapsibleContent,
+  CollapsibleTrigger,
+} from "@/components/ui/collapsible";
 import { Input } from "@/components/ui/input";
 
 // ============================================================
@@ -98,6 +104,14 @@ class SimulationErrorBoundary extends Component<
 // Types
 // ============================================================
 
+export type SignalBreakdown = {
+  signal: string;
+  matched: boolean;
+  weight: number; // Percentage (0-100)
+  contribution: number; // Actual score contributed (0-weight)
+  explanation: string;
+};
+
 export type DuplicateInfo = {
   rowNumber: number;
   existingPlayerId: Id<"playerIdentities">;
@@ -107,6 +121,7 @@ export type DuplicateInfo = {
     score: number; // 0-100 confidence score
     level: "high" | "medium" | "low"; // Confidence level
     matchReasons: string[]; // Reasons for the match (email, phone, address, etc.)
+    signalBreakdown?: SignalBreakdown[]; // Phase 3.1.003: Detailed signal breakdown
   };
 };
 
@@ -393,6 +408,9 @@ function DuplicateCard({
     : null;
   const ConfidenceIcon = badgeProps?.icon;
 
+  // Phase 3.1.003: Collapsible state for match details
+  const [detailsOpen, setDetailsOpen] = useState(false);
+
   return (
     <div className="rounded-lg border p-3">
       {/* Phase 3.1: Confidence Badge at top if guardian matching used */}
@@ -418,6 +436,58 @@ function DuplicateCard({
             style={{ width: `${confidence.score}%` }}
           />
         </div>
+      )}
+
+      {/* Phase 3.1.003: Expandable Match Details */}
+      {confidence?.signalBreakdown && (
+        <Collapsible
+          className="mb-3"
+          onOpenChange={setDetailsOpen}
+          open={detailsOpen}
+        >
+          <CollapsibleTrigger asChild>
+            <Button
+              className="h-auto w-full justify-between p-2 text-xs"
+              size="sm"
+              variant="ghost"
+            >
+              <span>Match Details</span>
+              <ChevronDown
+                className={`h-3 w-3 transition-transform ${detailsOpen ? "rotate-180" : ""}`}
+              />
+            </Button>
+          </CollapsibleTrigger>
+          <CollapsibleContent className="space-y-2 px-2 pt-2">
+            {confidence.signalBreakdown.map((signal) => (
+              <div
+                className="flex items-center justify-between text-xs"
+                key={signal.signal}
+              >
+                <div className="flex items-center gap-2">
+                  {signal.matched ? (
+                    <Check className="h-3 w-3 text-green-600" />
+                  ) : (
+                    <X className="h-3 w-3 text-red-600" />
+                  )}
+                  <span className="font-medium">{signal.signal}:</span>
+                  <span className="text-muted-foreground">
+                    {signal.weight}%
+                  </span>
+                </div>
+                <span
+                  className={
+                    signal.matched ? "text-green-600" : "text-muted-foreground"
+                  }
+                >
+                  {signal.contribution} pts
+                </span>
+              </div>
+            ))}
+            <div className="mt-2 border-t pt-2 text-muted-foreground text-xs">
+              Total Score: {confidence.score} / 100
+            </div>
+          </CollapsibleContent>
+        </Collapsible>
       )}
 
       <div className="flex items-center justify-between">

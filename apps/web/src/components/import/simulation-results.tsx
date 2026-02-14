@@ -337,24 +337,28 @@ export default function SimulationResults({
       )}
 
       {/* Navigation */}
-      <div className="flex items-center justify-between pt-2">
-        <Button onClick={onBack} variant="outline">
+      <div className="flex flex-col gap-3 pt-2 pb-4 sm:flex-row sm:items-center sm:justify-between">
+        <Button className="w-full sm:w-auto" onClick={onBack} variant="outline">
           <ChevronLeft className="mr-1 h-4 w-4" />
           Back
         </Button>
-        <div className="flex gap-2">
+        <div className="flex flex-col gap-2 sm:flex-row">
           {onRerun && (
-            <Button onClick={onRerun} variant="outline">
+            <Button
+              className="w-full sm:w-auto"
+              onClick={onRerun}
+              variant="outline"
+            >
               <RefreshCw className="mr-1 h-4 w-4" />
               Re-run Simulation
             </Button>
           )}
           {hasErrors ? (
-            <Button disabled variant="destructive">
+            <Button className="w-full sm:w-auto" disabled variant="destructive">
               Fix errors before importing
             </Button>
           ) : (
-            <Button onClick={onProceed}>
+            <Button className="w-full sm:w-auto" onClick={onProceed}>
               Run Live Import
               <ArrowRight className="ml-1 h-4 w-4" />
             </Button>

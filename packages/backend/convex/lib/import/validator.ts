@@ -348,6 +348,31 @@ function titleCase(str: string): string {
       if (word.length === 0) {
         return word;
       }
+
+      const lower = word.toLowerCase();
+
+      // Handle Irish O' prefix (O'Connor, O'Brien, etc.)
+      if (word.length > 2 && word[1] === "'") {
+        return (
+          word[0].toUpperCase() +
+          "'" +
+          word[2].toUpperCase() +
+          word.slice(3).toLowerCase()
+        );
+      }
+
+      // Handle Irish Mac prefix (MacDonald, MacLeod, etc.)
+      // Check Mac before Mc since "mac" starts with "mc"
+      if (word.length > 3 && lower.startsWith("mac")) {
+        return `Mac${word[3].toUpperCase()}${word.slice(4).toLowerCase()}`;
+      }
+
+      // Handle Irish Mc prefix (McCarthy, McConnell, etc.)
+      if (word.length > 2 && lower.startsWith("mc")) {
+        return `Mc${word[2].toUpperCase()}${word.slice(3).toLowerCase()}`;
+      }
+
+      // Standard title case
       return word[0].toUpperCase() + word.slice(1).toLowerCase();
     })
     .join(" ");

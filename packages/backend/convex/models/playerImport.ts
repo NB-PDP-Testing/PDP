@@ -768,12 +768,20 @@ export const batchImportPlayersWithIdentity = mutation({
 
         // Add error to progress tracker
         if (args.sessionId) {
+          // Build player name, handling missing firstName or lastName
+          const firstName = playerData.firstName?.trim() || "";
+          const lastName = playerData.lastName?.trim() || "";
+          const playerName =
+            firstName && lastName
+              ? `${firstName} ${lastName}`
+              : firstName || lastName || "(Unknown)";
+
           await ctx.runMutation(
             internal.models.importProgress.addProgressError,
             {
               sessionId: args.sessionId,
               rowNumber: i + 1,
-              playerName: `${playerData.firstName} ${playerData.lastName}`,
+              playerName,
               error: error instanceof Error ? error.message : "Unknown error",
             }
           );
@@ -1187,12 +1195,20 @@ export const batchImportPlayersWithIdentity = mutation({
 
         // Add error to progress tracker
         if (args.sessionId) {
+          // Build player name, handling missing firstName or lastName
+          const firstName = playerData.firstName?.trim() || "";
+          const lastName = playerData.lastName?.trim() || "";
+          const playerName =
+            firstName && lastName
+              ? `${firstName} ${lastName}`
+              : firstName || lastName || "(Unknown)";
+
           await ctx.runMutation(
             internal.models.importProgress.addProgressError,
             {
               sessionId: args.sessionId,
               rowNumber: i + 1,
-              playerName: `${playerData.firstName} ${playerData.lastName}`,
+              playerName,
               error: error instanceof Error ? error.message : "Unknown error",
             }
           );

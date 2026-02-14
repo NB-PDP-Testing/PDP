@@ -35,6 +35,8 @@ type DataQualityReportProps = {
   onFixIssue: (rowIndex: number, field: string, newValue: string) => void;
   onContinue: () => void;
   onBack: () => void;
+  parsedData: { rows: Record<string, string>[] };
+  confirmedMappings: Record<string, string>;
 };
 
 // ============================================================
@@ -166,9 +168,11 @@ function DimensionBars({ report }: { report: QualityReport }) {
 function IssueRow({
   issue,
   onFix,
+  playerName,
 }: {
   issue: Issue;
   onFix: (rowIndex: number, field: string, newValue: string) => void;
+  playerName?: string;
 }) {
   return (
     <div className="flex items-start justify-between gap-2 border-b py-2 last:border-b-0">
@@ -177,6 +181,11 @@ function IssueRow({
           <Badge className="text-xs" variant="outline">
             Row {issue.rowIndex + 1}
           </Badge>
+          {playerName && (
+            <Badge className="text-xs" variant="default">
+              {playerName}
+            </Badge>
+          )}
           <Badge className="text-xs" variant="secondary">
             {issue.field}
           </Badge>
@@ -226,6 +235,8 @@ function IssueSection({
   badgeVariant,
   onFix,
   defaultOpen,
+  parsedData,
+  confirmedMappings,
 }: {
   title: string;
   issues: Issue[];
@@ -234,8 +245,18 @@ function IssueSection({
   badgeVariant: "destructive" | "default" | "secondary";
   onFix: (rowIndex: number, field: string, newValue: string) => void;
   defaultOpen?: boolean;
+  parsedData: { rows: Record<string, string>[] };
+  confirmedMappings: Record<string, string>;
 }) {
   const [isOpen, setIsOpen] = useState(defaultOpen ?? false);
+
+  // Helper to get mapped value from row
+  const getMappedValue = (row: Record<string, string>, targetField: string) => {
+    const sourceColumn = Object.entries(confirmedMappings).find(
+      ([_, target]) => target === targetField
+    )?.[0];
+    return sourceColumn ? row[sourceColumn] : "";
+  };
 
   if (issues.length === 0) {
     return null;
@@ -267,13 +288,21 @@ function IssueSection({
       </CollapsibleTrigger>
       <CollapsibleContent>
         <div className="mt-1 rounded-lg border px-3">
-          {issues.map((issue, idx) => (
-            <IssueRow
-              issue={issue}
-              key={`${issue.rowIndex}-${issue.field}-${idx}`}
-              onFix={onFix}
-            />
-          ))}
+          {issues.map((issue, idx) => {
+            const row = parsedData.rows[issue.rowIndex];
+            const firstName = row ? getMappedValue(row, "firstName") : "";
+            const lastName = row ? getMappedValue(row, "lastName") : "";
+            const playerName = [firstName, lastName].filter(Boolean).join(" ");
+
+            return (
+              <IssueRow
+                issue={issue}
+                key={`${issue.rowIndex}-${issue.field}-${idx}`}
+                onFix={onFix}
+                playerName={playerName}
+              />
+            );
+          })}
         </div>
       </CollapsibleContent>
     </Collapsible>
@@ -289,6 +318,8 @@ export default function DataQualityReport({
   onFixIssue,
   onContinue,
   onBack,
+  parsedData,
+  confirmedMappings,
 }: DataQualityReportProps) {
   const hasCriticalIssues = qualityReport.summary.criticalCount > 0;
   const canSkip =
@@ -322,26 +353,32 @@ export default function DataQualityReport({
               <IssueSection
                 badgeVariant="destructive"
                 colorClass="border-red-200 bg-red-50"
+                confirmedMappings={confirmedMappings}
                 defaultOpen
                 icon={<XCircle className="h-4 w-4 text-red-600" />}
                 issues={qualityReport.categorized.critical}
                 onFix={onFixIssue}
+                parsedData={parsedData}
                 title="Critical Issues"
               />
               <IssueSection
                 badgeVariant="default"
                 colorClass="border-amber-200 bg-amber-50"
+                confirmedMappings={confirmedMappings}
                 icon={<AlertTriangle className="h-4 w-4 text-amber-600" />}
                 issues={qualityReport.categorized.warnings}
                 onFix={onFixIssue}
+                parsedData={parsedData}
                 title="Warnings"
               />
               <IssueSection
                 badgeVariant="secondary"
                 colorClass="border-blue-200 bg-blue-50"
+                confirmedMappings={confirmedMappings}
                 icon={<Info className="h-4 w-4 text-blue-600" />}
                 issues={qualityReport.categorized.suggestions}
                 onFix={onFixIssue}
+                parsedData={parsedData}
                 title="Suggestions"
               />
             </>

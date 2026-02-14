@@ -77,7 +77,9 @@ const DIMENSION_WEIGHTS = {
   timeliness: 0.05,
 };
 
-const TITLE_CASE_REGEX = /^[A-Z][a-z]+(?:\s[A-Z][a-z]+)*$/;
+// Accepts standard title case (Murphy) plus Irish patterns: O'Connor, McCarthy, MacDonald
+const TITLE_CASE_REGEX =
+  /^(?:[A-Z][a-z]+|[A-Z]'[A-Z][a-z]*|Mc[A-Z][a-z]*|Mac[A-Z][a-z]*)(?:\s(?:[A-Z][a-z]+|[A-Z]'[A-Z][a-z]*|Mc[A-Z][a-z]*|Mac[A-Z][a-z]*))*$/;
 const NAME_FIELDS = new Set(["firstName", "lastName"]);
 const OPTIONAL_RECOMMENDED_FIELDS = [
   "playerPostcode",

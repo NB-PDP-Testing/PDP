@@ -457,6 +457,17 @@ export default function ImportWizard({
     setState((prev) => ({ ...prev, ...updates }));
   }, []);
 
+  // Stable callback for simulation complete
+  const handleSimulationComplete = useCallback(
+    (result: SimulationResult, dataHash: string) => {
+      updateState({
+        simulationResult: result,
+        simulationDataHash: dataHash,
+      });
+    },
+    [updateState]
+  );
+
   // Build mapped rows for quality scoring
   const mappedSelectedRows = useMemo(() => {
     if (!state.parsedData) {
@@ -715,7 +726,7 @@ export default function ImportWizard({
       )}
 
       {/* Step Content */}
-      <div className="min-h-[400px]">
+      <div className="min-h-[400px] pb-8">
         {currentStep === 1 && (
           <UploadStep goBack={goBack} onDataParsed={handleDataParsed} />
         )}
@@ -745,11 +756,13 @@ export default function ImportWizard({
             selectedRows={state.selectedRows}
           />
         )}
-        {currentStep === 4 && qualityReport && (
+        {currentStep === 4 && qualityReport && state.parsedData && (
           <DataQualityReport
+            confirmedMappings={state.confirmedMappings}
             onBack={goBack}
             onContinue={goNext}
             onFixIssue={handleFixIssue}
+            parsedData={state.parsedData}
             qualityReport={qualityReport}
           />
         )}
@@ -778,12 +791,7 @@ export default function ImportWizard({
               goNext();
             }}
             onDuplicatesChange={(duplicates) => updateState({ duplicates })}
-            onSimulationComplete={(result, dataHash) =>
-              updateState({
-                simulationResult: result,
-                simulationDataHash: dataHash,
-              })
-            }
+            onSimulationComplete={handleSimulationComplete}
             onValidationErrorsChange={(validationErrors) =>
               updateState({ validationErrors })
             }

@@ -236,9 +236,13 @@ function SummaryCards({
 function ErrorTable({
   errors,
   searchQuery,
+  parsedData,
+  confirmedMappings,
 }: {
   errors: ReviewValidationError[];
   searchQuery: string;
+  parsedData: ParseResult;
+  confirmedMappings: Record<string, string>;
 }) {
   const filtered = useMemo(() => {
     if (!searchQuery.trim()) {
@@ -269,6 +273,7 @@ function ErrorTable({
         <thead className="sticky top-0 bg-background">
           <tr className="border-b text-left text-muted-foreground text-xs">
             <th className="px-3 py-2">Row</th>
+            <th className="px-3 py-2">Player Name</th>
             <th className="px-3 py-2">Field</th>
             <th className="px-3 py-2">Error</th>
             <th className="px-3 py-2">Value</th>
@@ -276,24 +281,37 @@ function ErrorTable({
           </tr>
         </thead>
         <tbody>
-          {filtered.map((err) => (
-            <tr
-              className="border-b last:border-0"
-              key={`${String(err.rowNumber)}-${err.field}`}
-            >
-              <td className="px-3 py-2 text-muted-foreground">
-                {err.rowNumber + 1}
-              </td>
-              <td className="px-3 py-2 font-medium">{err.field}</td>
-              <td className="px-3 py-2 text-red-600">{err.error}</td>
-              <td className="max-w-[100px] truncate px-3 py-2">
-                {err.value ?? "—"}
-              </td>
-              <td className="px-3 py-2 text-green-600">
-                {err.suggestedFix ?? "—"}
-              </td>
-            </tr>
-          ))}
+          {filtered.map((err) => {
+            const row = parsedData.rows[err.rowNumber];
+            const firstName = row
+              ? getMappedValue(row, "firstName", confirmedMappings)
+              : "";
+            const lastName = row
+              ? getMappedValue(row, "lastName", confirmedMappings)
+              : "";
+            const playerName =
+              [firstName, lastName].filter(Boolean).join(" ") || "—";
+
+            return (
+              <tr
+                className="border-b last:border-0"
+                key={`${String(err.rowNumber)}-${err.field}`}
+              >
+                <td className="px-3 py-2 text-muted-foreground">
+                  {err.rowNumber + 1}
+                </td>
+                <td className="px-3 py-2 font-medium">{playerName}</td>
+                <td className="px-3 py-2 font-medium">{err.field}</td>
+                <td className="px-3 py-2 text-red-600">{err.error}</td>
+                <td className="max-w-[100px] truncate px-3 py-2">
+                  {err.value ?? "—"}
+                </td>
+                <td className="px-3 py-2 text-green-600">
+                  {err.suggestedFix ?? "—"}
+                </td>
+              </tr>
+            );
+          })}
         </tbody>
       </table>
     </div>
@@ -547,7 +565,12 @@ function ReviewForm({
               />
             </div>
           )}
-          <ErrorTable errors={validationErrors} searchQuery={errorSearch} />
+          <ErrorTable
+            confirmedMappings={confirmedMappings}
+            errors={validationErrors}
+            parsedData={parsedData}
+            searchQuery={errorSearch}
+          />
         </CardContent>
       </Card>
 

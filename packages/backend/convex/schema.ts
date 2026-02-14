@@ -4789,6 +4789,45 @@ export default defineSchema({
     .index("by_templateId", ["templateId"])
     .index("by_targetField", ["targetField"]),
 
+  // Real-time progress tracking for active imports
+  importProgressTrackers: defineTable({
+    sessionId: v.id("importSessions"),
+    organizationId: v.string(),
+
+    // Current stats
+    stats: v.object({
+      playersCreated: v.number(),
+      playersReused: v.number(),
+      guardiansCreated: v.number(),
+      guardiansLinked: v.number(),
+      enrollmentsCreated: v.number(),
+      passportsCreated: v.number(),
+      benchmarksApplied: v.number(),
+      totalPlayers: v.number(),
+    }),
+
+    // Current operation being performed
+    currentOperation: v.optional(v.string()),
+
+    // Phase and percentage
+    phase: v.string(), // "preparing", "importing", "completed", "failed"
+    percentage: v.number(),
+
+    // Real-time error collection
+    errors: v.array(
+      v.object({
+        rowNumber: v.number(),
+        playerName: v.string(),
+        error: v.string(),
+        timestamp: v.number(),
+      })
+    ),
+
+    updatedAt: v.number(),
+  })
+    .index("by_sessionId", ["sessionId"])
+    .index("by_organizationId", ["organizationId"]),
+
   // Custom benchmark configurations per sport/organization
   benchmarkTemplates: defineTable({
     name: v.string(),

@@ -98,6 +98,7 @@ import type * as models_guardianIdentities from "../models/guardianIdentities.js
 import type * as models_guardianManagement from "../models/guardianManagement.js";
 import type * as models_guardianPlayerLinks from "../models/guardianPlayerLinks.js";
 import type * as models_importMappingHistory from "../models/importMappingHistory.js";
+import type * as models_importProgress from "../models/importProgress.js";
 import type * as models_importSessionDrafts from "../models/importSessionDrafts.js";
 import type * as models_importSessions from "../models/importSessions.js";
 import type * as models_importSimulation from "../models/importSimulation.js";
@@ -298,6 +299,7 @@ declare const fullApi: ApiFromModules<{
   "models/guardianManagement": typeof models_guardianManagement;
   "models/guardianPlayerLinks": typeof models_guardianPlayerLinks;
   "models/importMappingHistory": typeof models_importMappingHistory;
+  "models/importProgress": typeof models_importProgress;
   "models/importSessionDrafts": typeof models_importSessionDrafts;
   "models/importSessions": typeof models_importSessions;
   "models/importSimulation": typeof models_importSimulation;

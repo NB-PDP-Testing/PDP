@@ -1,4 +1,5 @@
 import { v } from "convex/values";
+import { internal } from "../_generated/api";
 import type { Id } from "../_generated/dataModel";
 import { mutation } from "../_generated/server";
 import type { BenchmarkStrategy } from "../lib/import/benchmarkApplicator";
@@ -306,6 +307,9 @@ export const importPlayerWithIdentity = mutation({
         v.literal("other")
       )
     ),
+
+    // Optional session tracking
+    sessionId: v.optional(v.id("importSessions")),
   },
   returns: v.object({
     playerIdentityId: v.id("playerIdentities"),
@@ -617,6 +621,25 @@ export const batchImportPlayersWithIdentity = mutation({
 
     const now = Date.now();
 
+    // Initialize progress tracker if sessionId provided
+    if (args.sessionId) {
+      const selectedSet = args.selectedRowIndices
+        ? new Set(args.selectedRowIndices)
+        : null;
+      const playersToImport = selectedSet
+        ? args.players.filter((_, idx) => selectedSet.has(idx))
+        : args.players;
+
+      await ctx.runMutation(
+        internal.models.importProgress.initializeProgressTracker,
+        {
+          sessionId: args.sessionId,
+          organizationId: args.organizationId,
+          totalPlayers: playersToImport.length,
+        }
+      );
+    }
+
     // ========== ROW SELECTION FILTER ==========
     // When selectedRowIndices provided, only import those rows
     const selectedSet = args.selectedRowIndices
@@ -713,10 +736,48 @@ export const batchImportPlayersWithIdentity = mutation({
         });
 
         results.totalProcessed += 1;
+
+        // Update progress tracker every 10 records
+        if (args.sessionId && i % 10 === 0) {
+          const percentage = Math.floor(
+            (results.totalProcessed / playersToImport.length) * 30
+          ); // Phase 1 is 0-30%
+          await ctx.runMutation(
+            internal.models.importProgress.updateProgressTracker,
+            {
+              sessionId: args.sessionId,
+              stats: {
+                playersCreated: results.playersCreated,
+                playersReused: results.playersReused,
+                guardiansCreated: results.guardiansCreated,
+                guardiansLinked: results.guardiansReused,
+                enrollmentsCreated: results.enrollmentsCreated,
+                passportsCreated: 0,
+                benchmarksApplied: results.benchmarksApplied,
+                totalPlayers: playersToImport.length,
+              },
+              currentOperation: `Creating identity for ${playerData.firstName} ${playerData.lastName}`,
+              phase: "importing",
+              percentage,
+            }
+          );
+        }
       } catch (error) {
-        results.errors.push(
-          `${playerData.firstName} ${playerData.lastName}: ${error instanceof Error ? error.message : "Unknown error"}`
-        );
+        const errorMsg = `${playerData.firstName} ${playerData.lastName}: ${error instanceof Error ? error.message : "Unknown error"}`;
+        results.errors.push(errorMsg);
+
+        // Add error to progress tracker
+        if (args.sessionId) {
+          await ctx.runMutation(
+            internal.models.importProgress.addProgressError,
+            {
+              sessionId: args.sessionId,
+              rowNumber: i + 1,
+              playerName: `${playerData.firstName} ${playerData.lastName}`,
+              error: error instanceof Error ? error.message : "Unknown error",
+            }
+          );
+        }
       }
     }
 
@@ -1001,6 +1062,29 @@ export const batchImportPlayersWithIdentity = mutation({
       }
     }
 
+    // Update progress after Phase 3 (guardians complete)
+    if (args.sessionId) {
+      await ctx.runMutation(
+        internal.models.importProgress.updateProgressTracker,
+        {
+          sessionId: args.sessionId,
+          stats: {
+            playersCreated: results.playersCreated,
+            playersReused: results.playersReused,
+            guardiansCreated: results.guardiansCreated,
+            guardiansLinked: results.guardiansReused,
+            enrollmentsCreated: results.enrollmentsCreated,
+            passportsCreated: 0,
+            benchmarksApplied: results.benchmarksApplied,
+            totalPlayers: playersToImport.length,
+          },
+          currentOperation: "Creating enrollments...",
+          phase: "importing",
+          percentage: 60, // Phase 3 complete = 60%
+        }
+      );
+    }
+
     // ========== PHASE 4: CREATE ORG ENROLLMENTS ==========
 
     for (let i = 0; i < playersToImport.length; i += 1) {
@@ -1073,10 +1157,46 @@ export const batchImportPlayersWithIdentity = mutation({
             });
           }
         }
+
+        // Update progress tracker every 10 records
+        if (args.sessionId && i % 10 === 0) {
+          const percentage = 60 + Math.floor((i / playersToImport.length) * 30); // Phase 4 is 60-90%
+          await ctx.runMutation(
+            internal.models.importProgress.updateProgressTracker,
+            {
+              sessionId: args.sessionId,
+              stats: {
+                playersCreated: results.playersCreated,
+                playersReused: results.playersReused,
+                guardiansCreated: results.guardiansCreated,
+                guardiansLinked: results.guardiansReused,
+                enrollmentsCreated: results.enrollmentsCreated,
+                passportsCreated: 0,
+                benchmarksApplied: results.benchmarksApplied,
+                totalPlayers: playersToImport.length,
+              },
+              currentOperation: `Creating enrollment for ${playerData.firstName} ${playerData.lastName}`,
+              phase: "importing",
+              percentage,
+            }
+          );
+        }
       } catch (error) {
-        results.errors.push(
-          `Enrollment for ${playerData.firstName} ${playerData.lastName}: ${error instanceof Error ? error.message : "Unknown error"}`
-        );
+        const errorMsg = `Enrollment for ${playerData.firstName} ${playerData.lastName}: ${error instanceof Error ? error.message : "Unknown error"}`;
+        results.errors.push(errorMsg);
+
+        // Add error to progress tracker
+        if (args.sessionId) {
+          await ctx.runMutation(
+            internal.models.importProgress.addProgressError,
+            {
+              sessionId: args.sessionId,
+              rowNumber: i + 1,
+              playerName: `${playerData.firstName} ${playerData.lastName}`,
+              error: error instanceof Error ? error.message : "Unknown error",
+            }
+          );
+        }
       }
     }
 
@@ -1129,6 +1249,31 @@ export const batchImportPlayersWithIdentity = mutation({
           results.benchmarksApplied += benchResult.benchmarksApplied;
         }
       }
+    }
+
+    // Final progress update
+    if (args.sessionId) {
+      await ctx.runMutation(
+        internal.models.importProgress.updateProgressTracker,
+        {
+          sessionId: args.sessionId,
+          stats: {
+            playersCreated: results.playersCreated,
+            playersReused: results.playersReused,
+            guardiansCreated: results.guardiansCreated,
+            guardiansLinked:
+              results.guardiansLinkedToVerifiedAccounts +
+              results.guardiansReused,
+            enrollmentsCreated: results.enrollmentsCreated,
+            passportsCreated: results.enrollmentsCreated, // 1:1 with enrollments
+            benchmarksApplied: results.benchmarksApplied,
+            totalPlayers: playersToImport.length,
+          },
+          currentOperation: "Import complete!",
+          phase: "completed",
+          percentage: 100,
+        }
+      );
     }
 
     return results;

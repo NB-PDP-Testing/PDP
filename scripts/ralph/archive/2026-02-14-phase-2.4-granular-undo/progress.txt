@@ -1,0 +1,264 @@
+# Ralph Progress Log
+Started: Fri 13 Feb 2026 23:21:35 GMT
+---
+
+## Codebase Patterns
+**Last Updated**: 2026-02-13 23:30 - Iteration 1
+
+### Architecture
+- All routes scoped under `/orgs/[orgId]/`
+- Better Auth for authentication, Convex for backend
+- Organization data isolated via organizationId field
+- Turborepo monorepo: `apps/web/` (Next.js 14), `packages/backend/` (Convex)
+
+### Convex Backend Patterns
+- NEVER use `.filter()` - always use `.withIndex()`
+- All functions need `args` and `returns` validators
+- Use `Id<"tableName">` types, not `string`
+- Index names include all fields: `by_orgId_and_status`
+- Auth check: `requireOrgAdmin` pattern in importSessions.ts for admin-only mutations
+- Use HARD DELETE (ctx.db.delete) - no soft delete pattern in this codebase
+
+### Frontend Patterns
+- Use shadcn/ui components from `@/components/ui`
+- Use `useSearchParams` for filter state (URL persistence)
+- Organization theming via CSS variables: `--org-primary`, etc.
+- Admin pages: `apps/web/src/app/orgs/[orgId]/admin/`
+- Import components: `apps/web/src/components/import/`
+
+### Import System (Phase 2.4 Context)
+- All 6 import tables have `importSessionId` field + `by_importSessionId` index
+- Tables: playerIdentities, guardianIdentities, guardianPlayerLinks, orgPlayerEnrollments, sportPassports, skillAssessments
+- Import sessions track state with status transitions in VALID_TRANSITIONS map
+- Schema already has 'undone' status literal + undo audit fields (undoneAt, undoneBy, undoReason)
+- skillAssessments uses `by_playerIdentityId` index (not `by_playerId`)
+
+### Quality Checks
+- Run in order: `npm run check-types` → `npx ultracite fix` → `npm run check`
+- Ultracite must run before linting or you'll get false failures
+- For frontend changes: test in browser at http://localhost:3000
+- Codegen: `npx -w packages/backend convex codegen`
+
+---
+
+## 2026-02-13 23:35 - US-P2.4-001 - Create undo eligibility check query
+**Iteration**: 1
+**Commit**: b677e0e3b8ad1798e757cf33e227c6d75a6f674f
+**Session**: 41d60dc6-e522-4053-aaf7-d3f72ad2381b
+**Status**: Complete
+
+### What was implemented
+- Created `checkUndoEligibility` query in `packages/backend/convex/models/importSessions.ts`
+- Validates session status (must be 'completed')
+- Checks 24-hour time window from session.completedAt
+- Counts records across all 6 import tables using by_importSessionId index
+- Detects post-import assessments (assessments on imported players that were NOT created by this import)
+- Returns eligibility boolean, ineligibility reasons array, expiration timestamp, and impact stats
+
+### Files changed
+- packages/backend/convex/models/importSessions.ts (+144 lines)
+
+### Quality checks
+- ✅ Type check: passed (pre-existing errors in other files)
+- ✅ Codegen: passed
+- ✅ Linting: passed (pre-existing warnings in other files)
+- ✅ Pre-commit hooks: passed
+
+### **Learnings for future iterations** ⚠️ CRITICAL
+
+**Patterns discovered:**
+- Auth helper available at `authComponent.safeGetAuthUser(ctx)` from `../auth`
+- Import in files: `import { authComponent } from "../auth";`
+- Better Auth adapter accessed via `ctx.runQuery(components.betterAuth.adapter.findOne, ...)`
+
+**Gotchas encountered:**
+- ❌ skillAssessments uses `by_playerIdentityId` index, NOT `by_playerId`
+- Field name is `playerIdentityId`, not `playerId`
+- This caused initial type error, fixed by using correct index name
+- Added this pattern to Codebase Patterns section for future iterations
+
+**Dependencies found:**
+- checkUndoEligibility is read-only query - can be called reactively by frontend
+- Uses 6 table queries via by_importSessionId index (batch pattern)
+- Uses by_playerIdentityId index to query assessments per player (with Promise.all batch fetch)
+
+**What to do next**:
+- Implement US-P2.4-002: undoImport mutation (uses checkUndoEligibility logic + performs hard deletes)
+
+**Mistakes made**:
+- Initially used `by_playerId` instead of `by_playerIdentityId` - caught by type checker
+- Learned to check schema indexes before assuming field names
+
+---
+
+## 2026-02-13 23:50 - US-P2.4-002 - Create undoImport mutation
+**Iteration**: 1
+**Commit**: d2357b5cc95619e7289c7217fb9e377f8a5d6451
+**Session**: d5191b1d-1e18-4822-89a0-ed63bc19b809
+**Status**: Complete
+
+### What was implemented
+- Created `undoImport` mutation in `packages/backend/convex/models/importSessions.ts`
+- Auth check using `authComponent.getAuthUser(ctx)`
+- Admin/owner verification via Better Auth adapter member query (checks betterAuthRole and functionalRoles)
+- Reuses eligibility logic from checkUndoEligibility (status check, 24-hour window, post-import assessments)
+- Queries all 6 tables by importSessionId index
+- Deletes records in correct order to avoid foreign key issues: assessments → passports → enrollments → guardian links → guardians → players
+- Uses HARD DELETE (ctx.db.delete) - no soft delete pattern
+- Updates import session status to 'undone' with audit fields (undoneAt, undoneBy, undoReason)
+- Returns success boolean, rollbackStats with counts, and ineligibilityReasons array
+
+### Files changed
+- packages/backend/convex/models/importSessions.ts (+240 lines)
+
+### Quality checks
+- ✅ Type check: passed (pre-existing errors in other files)
+- ✅ Codegen: passed
+- ✅ Linting: passed (2 warnings expected: cognitive complexity 17, any type usage - both acceptable)
+- ✅ Pre-commit hooks: passed
+
+### **Learnings for future iterations** ⚠️ CRITICAL
+
+**Patterns discovered:**
+- Auth pattern: `authComponent.getAuthUser(ctx)` for user, then check membership via Better Auth adapter
+- Admin check: Query member table, check `betterAuthRole` (admin/owner) OR `functionalRoles.includes("admin")`
+- Use `(memberResult as any)?.functionalRoles` to access extended field (pattern from orgJoinRequests.ts)
+
+**Gotchas encountered:**
+- ⚠️ **CRITICAL**: Must add imports AND usage in SAME edit or linter removes "unused" imports!
+- Initially added imports separately, linter removed them, causing "undeclared variable" errors
+- This is the exact warning in CLAUDE.md "TypeScript Edit Rule (MANDATORY)"
+- Fixed by adding `import { components } from "../_generated/api"` and `import { authComponent } from "../auth"` together with the mutation that uses them
+
+**Dependencies found:**
+- undoImport reuses eligibility logic from checkUndoEligibility (24-hour window, assessment checks)
+- Delete order matters: leaf records first (assessments, passports), then middle (enrollments, links), then root (guardians, players)
+- All 6 tables queried via by_importSessionId index
+
+**What to do next**:
+- Implement US-P2.4-003: Import history page (frontend component)
+- Will need to use `useQuery` with checkUndoEligibility to show eligibility per session
+
+**Mistakes made**:
+- Added imports in separate edit from usage - linter removed them immediately
+- Learned: ALWAYS co-locate imports with usage in same edit operation
+
+---
+
+## 2026-02-14 00:10 - US-P2.4-003 - Create import history page
+**Iteration**: 1
+**Commit**: c43f83886799758a4c60aa45cbed70a124fedfb5
+**Session**: 837bf1b9-45ca-41f4-bc93-513a28ba5d4a
+**Status**: Complete
+
+### What was implemented
+- Created `/orgs/[orgId]/import/history` page showing all past imports
+- Admin/owner auth check (same pattern as admin/layout.tsx)
+- Desktop table view + mobile card view (responsive at md breakpoint)
+- Status badges with color coding (completed=green, failed=red, cancelled=gray, undone=amber)
+- Expandable details showing full stats (toggle with chevron button)
+- Undo button shown for completed sessions within 24 hours (isWithin24Hours helper)
+- Button currently non-functional (UndoImportDialog integration in US-P2.4-004)
+
+### Files changed
+- apps/web/src/app/orgs/[orgId]/import/history/page.tsx (+491 lines, new file)
+
+### Quality checks
+- ✅ Type check: passed
+- ✅ Linting: passed (1 warning: any type for functionalRoles - same pattern as admin/layout.tsx)
+- ✅ Pre-commit hooks: passed
+
+### **Learnings for future iterations** ⚠️ CRITICAL
+
+**Patterns discovered:**
+- Auth check: `authClient.organization.setActive()` then `getActiveMember()`, check `functionalRoles` or Better Auth role
+- Desktop/mobile responsive: hidden md:block for table, md:hidden for cards
+- shadcn/ui Table with expandable rows using state + conditional rendering
+
+**Gotchas encountered:**
+- Pre-commit hook failed due to unstaged changes in .autofix-count - had to `git add -A` before committing
+
+**What to do next**:
+- Implement US-P2.4-004: UndoImportDialog component
+- Will integrate checkUndoEligibility query to show full eligibility reasons
+- Will connect Undo button click handler to open dialog
+
+---
+
+## 2026-02-14 00:25 - US-P2.4-004 - Create UndoImportDialog component
+**Iteration**: 1
+**Commit**: 0f468f6f3dbd08c4f3d65a1169a37bdab0897c34
+**Session**: dbf32b00-c423-4877-a9f8-d66fd653ff9e
+**Status**: Complete
+
+### What was implemented
+- Created UndoImportDialog component in `apps/web/src/components/import/undo-import-dialog.tsx`
+- Reactive eligibility check via checkUndoEligibility query (skip when sessionId null)
+- Countdown timer showing time remaining (hours/minutes)
+- Impact preview grid showing 6 table counts
+- Ineligibility reasons displayed as destructive Alert with bullet list
+- Required reason input (10 char minimum) with validation
+- Calls undoImport mutation with sessionId and reason
+- Success toast with rollback stats, error toast with reasons
+- Mobile responsive at 375px (sm:max-w-[500px])
+
+### Files changed
+- apps/web/src/components/import/undo-import-dialog.tsx (+246 lines, new file)
+
+### Quality checks
+- ✅ Type check: passed
+- ✅ Linting: passed (fixed block statement errors, array index key)
+- ✅ Pre-commit hooks: passed
+
+### **Learnings for future iterations** ⚠️ CRITICAL
+
+**Patterns discovered:**
+- AlertDialog controlled by prop: `open={!!sessionId}` and `onOpenChange={(open) => !open && onClose()}`
+- Query skipping: `useQuery(api.x, sessionId ? { sessionId } : "skip")`
+- Reactive countdown timer via getTimeRemaining helper (recalculates on re-render)
+
+**Gotchas encountered:**
+- ❌ Linting error: using `index` as key in map - use unique value instead (reasonText)
+- ❌ Linting error: block statements required for if returns - apply unsafe fix
+
+**What to do next**:
+- Implement US-P2.4-005: Wire up Undo buttons in history page and complete step
+
+---
+
+## 2026-02-14 00:40 - US-P2.4-005 - Add undo link to complete step and import page
+**Iteration**: 1
+**Commit**: 629daf41df9736bdbeb4cf46bd8225a5630f542a
+**Session**: dbf32b00-c423-4877-a9f8-d66fd653ff9e
+**Status**: Complete
+
+### What was implemented
+- Wired UndoImportDialog to all 3 locations: history page, complete step, import entry page
+- History page: added undoSessionId state, onClick handlers for both desktop + mobile Undo buttons
+- Complete step: added sessionId prop (from import-wizard), Undo Import button with destructive styling
+- Import entry page: added "View Import History" link below Recent Imports
+- Dialog state controlled via sessionId prop (null = closed, Id = open)
+- Auto-refetch after undo via useQuery reactivity
+
+### Files changed
+- apps/web/src/app/orgs/[orgId]/import/history/page.tsx (+35 lines)
+- apps/web/src/app/orgs/[orgId]/import/page.tsx (+9 lines)
+- apps/web/src/components/import/import-wizard.tsx (+1 line)
+- apps/web/src/components/import/steps/complete-step.tsx (+32 lines)
+
+### Quality checks
+- ✅ Type check: passed
+- ✅ Linting: passed (2 warnings: any type for functionalRoles - acceptable)
+- ✅ Pre-commit hooks: passed
+
+### **Learnings for future iterations** ⚠️ CRITICAL
+
+**Patterns discovered:**
+- Dialog state via lifted sessionId: parent controls via useState, passes to dialog as prop
+- Auto-refetch after mutation: no manual refetch needed, useQuery handles it
+
+**What to do next**:
+- ALL 5 STORIES COMPLETE ✅
+- Phase 2.4 ready for testing
+
+---

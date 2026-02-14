@@ -160,3 +160,77 @@ Started: Sat 14 Feb 2026 22:32:30 GMT
 - None - straightforward implementation following existing component patterns
 
 ---
+## 2026-02-14 23:45 - US-P3.1-003 - Add match score breakdown and explanation
+**Iteration**: 3
+**Commit**: a572b7ba3544b4f44c03bec197d7db6b3e025201
+**Session**: [current-session]
+**Status**: Complete
+
+### What was implemented
+- Extended guardian matcher with `SignalBreakdown` type for transparency:
+  * signal: Human-readable name (Email Match, Phone Match, Name Similarity, Address Match)
+  * matched: Boolean status
+  * weight: Percentage weight (40%, 30%, 20%, 10%)
+  * contribution: Actual points contributed (0-weight)
+  * explanation: Detailed reasoning
+- Updated `calculateMatchScore` to return signal breakdown array
+- Modified `findGuardianMatches` to propagate signal breakdown through match results
+- Added Collapsible UI component to DuplicateCard:
+  * Expandable "Match Details" button with chevron icon
+  * Signal breakdown display with checkmark (✓) for matched, X for unmatched
+  * Shows weight percentage and contribution points for each signal
+  * Total score summary at bottom
+- Mobile-responsive collapsible with touch-friendly expand/collapse
+- Used signal name as unique key (not array index) for React reconciliation
+
+### Files changed
+- packages/backend/convex/lib/matching/guardianMatcher.ts (+48, -6)
+  * Added SignalBreakdown type export
+  * Updated MatchResult type with signalBreakdown field
+  * Updated calculateMatchScore to build and return signalBreakdown
+  * Added Boolean() conversion for matched fields to fix type errors
+  * Propagated signalBreakdown through findGuardianMatches
+- apps/web/src/components/import/steps/review-step.tsx (+65, -4)
+  * Added SignalBreakdown type (matches backend)
+  * Updated DuplicateInfo.guardianConfidence to include signalBreakdown
+  * Added Collapsible, CollapsibleContent, CollapsibleTrigger imports
+  * Added ChevronDown icon import
+  * Added useState for collapsible open state
+  * Rendered expandable match details section with signal breakdown
+
+### Quality checks
+- ✅ Type checking: passed (npm run check-types)
+- ✅ Linting: passed (only pre-existing warnings on function complexity)
+- ✅ Pre-commit hooks: passed
+- ⏭️ Browser verification: Should test with import data containing guardian matches
+
+### **Learnings for future iterations** ⚠️ CRITICAL
+
+**Patterns discovered:**
+- Signal breakdown uses 4 core signals matching PRD weights (Email 40%, Phone 30%, Name 20%, Address 10%)
+- Each signal has matched/unmatched status, weight, contribution, and explanation
+- Collapsible component uses trigger/content pattern with asChild prop
+- ChevronDown icon rotates 180deg when expanded using transition-transform
+- Signal name makes a good unique key for map() instead of array index
+
+**Gotchas encountered:**
+- Must use `Boolean()` to convert potentially-string values to boolean for type safety
+- Linter removes unused imports between edits - must add imports and usage together
+- Use optional chaining `confidence?.signalBreakdown` instead of double ampersand check
+- React key should be signal.signal (unique string) not idx (array index)
+
+**Dependencies found:**
+- Signal breakdown must be propagated through guardian matcher → importSessions → frontend
+- Collapsible component exists in ui/collapsible.tsx (shadcn/ui component)
+- Match details only shown when confidence.signalBreakdown exists (optional field)
+
+**What to do next**:
+- [ ] US-P3.1-004: Add admin override controls with audit trail (priority 2)
+- [ ] Test confidence indicators + match details with actual import containing guardian matches
+- [ ] Verify mobile responsiveness of collapsible at 375px width
+
+**Mistakes made**:
+- Initially forgot to add Boolean() conversion causing type errors
+- Had to re-add imports multiple times due to linter removing them when unused
+
+---

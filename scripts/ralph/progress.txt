@@ -675,3 +675,30 @@ Started: Sat 14 Feb 2026 22:32:30 GMT
 - Stats update handles edge cases (Math.max ensures non-negative counts)
 
 ---
+## 2026-02-14 23:15 - US-P3.1-009 - Create platform staff analytics backend queries
+**Iteration**: 7
+**Commit**: b4818a35b98efee38b1f52fff72b76e3de101cca
+**Session**: e77c3d97-056c-41bf-ac50-e0544b3732c4
+**Status**: Complete
+
+### What was implemented
+- Created `packages/backend/convex/models/importAnalytics.ts` with three queries:
+  * getPlatformImportAnalytics: Cross-org metrics with time ranges
+  * getOrgImportHistory: Org-specific history with pagination
+  * getCommonErrors: Platform-wide error aggregation
+- All queries properly authenticated (platform staff checks)
+- Used batch fetching with Map lookups (N+1 prevention)
+- Fixed schema field names: initiatedBy (not importedBy), by_startedAt index
+- Fixed Better Auth integration: import components from _generated/api
+- Fixed error handling: errors are objects with .error field, not strings
+- Used correct where clause syntax: array of objects with operator
+
+### Files changed
+- packages/backend/convex/models/importAnalytics.ts (+352 new file)
+
+### Quality checks
+- ✅ Convex codegen: passed
+- ✅ Type checking: passed
+- ✅ Linting: passed
+
+---

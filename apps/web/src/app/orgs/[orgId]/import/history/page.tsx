@@ -5,7 +5,7 @@ import type { Id } from "@pdp/backend/convex/_generated/dataModel";
 import { useQuery } from "convex/react";
 import { ChevronDown, ChevronRight, Undo2 } from "lucide-react";
 import { useParams, useRouter } from "next/navigation";
-import { useEffect, useState } from "react";
+import React, { useEffect, useState } from "react";
 import { UndoImportDialog } from "@/components/import/undo-import-dialog";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
@@ -222,8 +222,8 @@ export default function ImportHistoryPage() {
                   isWithin24Hours(session.completedAt);
 
                 return (
-                  <>
-                    <TableRow key={session._id}>
+                  <React.Fragment key={session._id}>
+                    <TableRow>
                       <TableCell>
                         <Button
                           onClick={() => toggleExpanded(session._id)}
@@ -355,7 +355,7 @@ export default function ImportHistoryPage() {
                         </TableCell>
                       </TableRow>
                     )}
-                  </>
+                  </React.Fragment>
                 );
               })
             )}

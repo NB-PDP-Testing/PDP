@@ -1,7 +1,7 @@
 import { v } from "convex/values";
 import { internal } from "../_generated/api";
 import type { Id } from "../_generated/dataModel";
-import { mutation } from "../_generated/server";
+import { mutation, query } from "../_generated/server";
 import type { BenchmarkStrategy } from "../lib/import/benchmarkApplicator";
 import { applyBenchmarksToPassport } from "../lib/import/benchmarkApplicator";
 import { calculateAge } from "./playerIdentities";
@@ -1347,5 +1347,126 @@ export const recordAdminOverride = mutation({
     );
 
     return overrideId;
+  },
+});
+
+// ============================================================
+// PHASE 3.1: PARTIAL UNDO - GET IMPORTED PLAYERS
+// ============================================================
+
+/**
+ * Get all players imported in a specific session for selective removal.
+ * Returns player identity info with related record counts.
+ *
+ * @param sessionId - The import session ID
+ * @returns Array of imported players with related record counts
+ */
+export const getImportedPlayers = query({
+  args: {
+    sessionId: v.id("importSessions"),
+  },
+  returns: v.array(
+    v.object({
+      _id: v.id("playerIdentities"),
+      firstName: v.string(),
+      lastName: v.string(),
+      dateOfBirth: v.string(),
+      enrollmentStatus: v.string(),
+      relatedRecords: v.object({
+        enrollments: v.number(),
+        passports: v.number(),
+        teamAssignments: v.number(),
+        assessments: v.number(),
+      }),
+    })
+  ),
+  handler: async (ctx, args) => {
+    // Find all player identities created in this import session
+    const playerIdentities = await ctx.db
+      .query("playerIdentities")
+      .withIndex("by_importSessionId", (q) =>
+        q.eq("importSessionId", args.sessionId)
+      )
+      .collect();
+
+    // Batch fetch related records for all players
+    const playerIds = playerIdentities.map((p) => p._id);
+
+    // Fetch enrollments
+    const allEnrollments = await Promise.all(
+      playerIds.map((id) =>
+        ctx.db
+          .query("orgPlayerEnrollments")
+          .withIndex("by_playerIdentityId", (q) => q.eq("playerIdentityId", id))
+          .collect()
+      )
+    );
+
+    // Fetch sport passports
+    const allPassports = await Promise.all(
+      playerIds.map((id) =>
+        ctx.db
+          .query("sportPassports")
+          .withIndex("by_playerIdentityId", (q) => q.eq("playerIdentityId", id))
+          .collect()
+      )
+    );
+
+    // Fetch team assignments
+    const allTeamAssignments = await Promise.all(
+      playerIds.map((id) =>
+        ctx.db
+          .query("teamPlayerIdentities")
+          .withIndex("by_playerIdentityId", (q) => q.eq("playerIdentityId", id))
+          .collect()
+      )
+    );
+
+    // Fetch skill assessments (via passports)
+    const allAssessments = await Promise.all(
+      playerIds.map(async (id) => {
+        const passports = await ctx.db
+          .query("sportPassports")
+          .withIndex("by_playerIdentityId", (q) => q.eq("playerIdentityId", id))
+          .collect();
+        const assessmentCounts = await Promise.all(
+          passports.map((passport) =>
+            ctx.db
+              .query("skillAssessments")
+              .withIndex("by_passportId", (q) =>
+                q.eq("passportId", passport._id)
+              )
+              .collect()
+          )
+        );
+        return assessmentCounts.flat();
+      })
+    );
+
+    // Build result with counts
+    return playerIdentities.map((player, index) => {
+      const enrollments = allEnrollments[index] || [];
+      const passports = allPassports[index] || [];
+      const teamAssignments = allTeamAssignments[index] || [];
+      const assessments = allAssessments[index] || [];
+
+      // Get enrollment status from first enrollment (default to "active")
+      const enrollmentStatus =
+        enrollments.length > 0 ? enrollments[0].status : "active";
+
+      return {
+        _id: player._id,
+        firstName: player.firstName,
+        lastName: player.lastName,
+        dateOfBirth: player.dateOfBirth,
+        enrollmentStatus,
+        relatedRecords: {
+          enrollments: enrollments.length,
+          passports: passports.length,
+          teamAssignments: teamAssignments.length,
+          assessments: assessments.length,
+        },
+      };
+    });
   },
 });

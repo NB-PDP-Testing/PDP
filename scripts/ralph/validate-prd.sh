@@ -4,7 +4,7 @@
 
 set -e
 
-PRD_FILE="${1:-scripts/ralph/prd.json}"
+PRD_FILE="${1:-prd.json}"
 
 if [ ! -f "$PRD_FILE" ]; then
   echo "❌ PRD file not found: $PRD_FILE"

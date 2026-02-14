@@ -1,0 +1,86 @@
+# Ralph Progress Log
+Started: Thu 12 Feb 2026 15:55:54 GMT
+---
+
+## Codebase Patterns
+**Last Updated**: 2026-02-12 - Iteration 1
+
+### Architecture
+- All routes scoped under `/orgs/[orgId]/`
+- Better Auth for authentication, Convex for backend
+- Organization data isolated via organizationId field
+- Turborepo monorepo: `apps/web/` (Next.js 14), `packages/backend/` (Convex)
+
+### Convex Backend Patterns
+- NEVER use `.filter()` - always use `.withIndex()`
+- All functions need `args` and `returns` validators
+- Use `Id<"tableName">` types, not `string`
+- Index names include all fields: `by_orgId_and_status`
+- Use `v.string()` for Better Auth IDs (organizationId, userId)
+- Use `v.id("tableName")` for Convex document references
+
+### Linting Rules (Biome)
+- MUST use block statements (`{}`) for all `if` bodies - no single-line ifs
+- MUST use optional chaining (`?.`) instead of `&&` for null checks
+- MUST NOT use non-null assertion (`!`) - extract to local variable first
+- Run `npx ultracite fix` before committing to auto-fix formatting
+
+### Quality Checks
+- Run in order: `npx -w packages/backend convex codegen` → `npx ultracite fix` → commit
+- Pre-existing type errors in seedFeatureFlags.ts - ignore these
+- Pre-commit hook runs biome check on staged files
+
+### File Locations (discovered during work)
+- Convex schema: `packages/backend/convex/schema.ts` (~4500 lines)
+- Convex queries/mutations: `packages/backend/convex/models/`
+- GAA import component: `apps/web/src/components/gaa-import.tsx`
+
+---
+
+## 2026-02-12 - US-P1.1-001 through 008 - Import Database Foundation (ALL)
+**Iteration**: 1
+**Commit**: 2d2b08c59956dc8299d765043bd5798836aa7438
+**Session**: 4ae60bfa-946d-4ff7-9cc3-456a45dc8172
+**Status**: Complete
+
+### What was implemented
+- Added 4 new tables to schema.ts: importTemplates, importSessions, importMappingHistory, benchmarkTemplates
+- Extended playerIdentities with importSessionId and externalIds fields
+- Extended orgPlayerEnrollments with importSessionId, lastSyncedAt, syncSource fields
+- Created importTemplates.ts with full CRUD: create, update, delete (soft), clone, get, list (by scope/sport/org)
+- Created importSessions.ts with lifecycle: create, updateStatus (with transition validation), updateMappings, updatePlayerSelections, setBenchmarkSettings, recordSessionStats, getSession, listSessionsByOrg
+- Created importMappingHistory.ts with: recordMappingHistory (upsert), getHistoricalMappings, getBestMapping
+- Created importTemplateSeeds.ts with: seedDefaultTemplates (idempotent), hasDefaultTemplates
+- GAA Foireann template: 12 column mappings, 5 age group mappings, age-appropriate skill init
+- Generic CSV template: 10 regex-based column mappings, blank skill init
+
+### Files changed
+- packages/backend/convex/schema.ts (+218)
+- packages/backend/convex/models/importTemplates.ts (+255, new)
+- packages/backend/convex/models/importSessions.ts (+315, new)
+- packages/backend/convex/models/importMappingHistory.ts (+167, new)
+- packages/backend/convex/models/importTemplateSeeds.ts (+270, new)
+
+### Quality checks
+- ✅ Convex codegen: passed
+- ✅ Linting (biome): passed after fixes
+- ✅ Type check: pre-existing errors only (seedFeatureFlags.ts)
+- N/A Browser verification: backend-only changes
+
+### Learnings for future iterations
+**Patterns discovered:**
+- Schema file is ~4500 lines - use offset/limit when reading
+- Convex codegen is the fastest way to validate schema + model files together
+- Status transition validation pattern: use a `VALID_TRANSITIONS` record mapping current->allowed
+
+**Gotchas encountered:**
+- Biome requires block statements `{}` for ALL if bodies - single-line ifs fail lint
+- Non-null assertion (`args.status!`) fails lint - extract to local variable first
+- Optional chaining required: `template?.isActive` instead of `template && template.isActive`
+- `npx ultracite fix` auto-fixes formatting but NOT lint errors (block statements, non-null assertions)
+
+**Mistakes made:**
+- First commit attempt for model files failed due to biome lint errors (block statements, non-null assertion)
+- Should have run `npx ultracite fix` AND checked for biome errors before first commit attempt
+
+---

@@ -46,89 +46,80 @@
       "description": "As an admin, I need an import page where I can select a sport, choose a template, and start the import wizard.",
       "acceptanceCriteria": [
         "Create apps/web/src/app/orgs/[orgId]/import/page.tsx",
-        "Show sport selection dropdown (query available sports from backend)",
-        "Show template selection cards (platform + org templates, filtered by sport) using useQuery to importTemplates.listTemplates",
-        "Show 'Start Import' button that navigates to the wizard with selected template",
-        "Show recent imports list (last 5 sessions) using useQuery to importSessions.listSessionsByOrg",
+        "Show sport selection dropdown (query available sports)",
+        "Show template selection cards (platform + org templates, filtered by sport)",
+        "Show 'Start Import' button that launches the wizard",
+        "Show recent imports list (last 5 sessions)",
         "Use shadcn/ui Card, Select, Button components",
-        "Mobile responsive layout (stack cards vertically on small screens)"
+        "Mobile responsive layout"
       ],
       "priority": 1,
       "passes": false,
-      "notes": "This is the entry point. Template selection determines which column mappings are pre-configured. If no template is selected, the wizard starts with manual mapping. Recent imports show status, date, and row count."
+      "notes": "Entry point for the import feature."
     },
     {
       "id": "US-P1.3-002",
       "title": "Create ImportWizard orchestrator component",
-      "description": "As the import system, I need a wizard component that orchestrates the multi-step import flow with state management and step navigation.",
+      "description": "As the import system, I need a wizard component that orchestrates the multi-step import flow with state management.",
       "acceptanceCriteria": [
         "Create apps/web/src/components/import/ImportWizard.tsx",
-        "Define 7 wizard steps: Upload, Map Columns, Select Players, Configure Benchmarks, Review, Import, Complete",
+        "Define 7 wizard steps with step indicator at top",
         "Manage wizard state: currentStep, template, sportCode, parsedData, mappings, playerSelections, benchmarkSettings, sessionId",
-        "Show step indicator at top (numbered steps with current highlighted)",
         "Support Next/Back navigation between steps",
-        "Conditional step skipping: skip Map Columns if 100% auto-mapped, skip Review if no duplicates and no errors",
-        "Create import session on wizard start using useMutation to importSessions.createImportSession",
-        "Pass step-specific props down to each step component"
+        "Conditional step skipping (skip Map Columns if 100% auto-mapped, skip Review if no issues)",
+        "Create import session on wizard start"
       ],
       "priority": 2,
       "passes": false,
-      "notes": "State should be lifted to this component and passed down. Each step component receives data and callbacks. The wizard does NOT use URL-based routing for steps - it's all client-side state."
+      "notes": "State lifted to this component and passed down as props to step components."
     },
     {
       "id": "US-P1.3-003",
       "title": "Create UploadStep component",
-      "description": "As an admin, I need to upload a CSV file or paste data from a spreadsheet to start the import.",
+      "description": "As an admin, I need to upload a CSV file or paste data from a spreadsheet.",
       "acceptanceCriteria": [
         "Create apps/web/src/components/import/steps/UploadStep.tsx",
-        "File drag-and-drop zone accepting .csv files (use native HTML drag events)",
-        "File input fallback button for manual file selection",
+        "File drag-and-drop zone accepting .csv files",
+        "File input fallback button",
         "Clipboard paste textarea for pasting from Excel",
-        "Parse uploaded/pasted content using parser.ts parseCSV function",
-        "Show parsing results: header count, row count, detected delimiter",
-        "Show first 3 rows as preview table",
-        "Call onComplete callback with ParseResult when ready to proceed"
+        "Parse content using parser.ts parseCSV function",
+        "Show first 3 rows as preview table"
       ],
       "priority": 3,
       "passes": false,
-      "notes": "CSV parsing happens client-side (imported from lib/import/parser.ts). Excel parsing is out of scope for Phase 1.3 - only CSV supported initially. The drag zone should show visual feedback on dragover."
+      "notes": "CSV parsing happens client-side."
     },
     {
       "id": "US-P1.3-004",
       "title": "Create MappingStep component",
-      "description": "As an admin, I need to review and adjust the auto-mapped column assignments before importing.",
+      "description": "As an admin, I need to review and adjust auto-mapped column assignments.",
       "acceptanceCriteria": [
         "Create apps/web/src/components/import/steps/MappingStep.tsx",
-        "Show each source column with: column name, 3 sample values, confidence badge, target field dropdown",
-        "Auto-mapped columns (confidence >= 95%) show green checkmark and locked dropdown",
-        "Partially matched columns (70-94%) show yellow badge with suggested mapping",
+        "Show each source column with sample values, confidence badge, and target field dropdown",
+        "Auto-mapped columns (>=95% confidence) show green checkmark and locked dropdown",
         "Unmatched columns show red badge and empty dropdown",
-        "Target field dropdown includes all importable fields plus 'Don't Import' option",
-        "Override button to unlock auto-mapped columns for manual adjustment",
-        "Validation: show warning if required fields (firstName, lastName, dateOfBirth) are not mapped",
-        "Call suggestMappings from mapper.ts on mount to compute initial mappings"
+        "Override button to unlock auto-mapped columns",
+        "Validation warning if required fields not mapped"
       ],
       "priority": 4,
       "passes": false,
-      "notes": "The mapping UI is a table/list of rows - one per source column. Use shadcn/ui Select for dropdowns, Badge for confidence. Required fields that are unmapped should prevent proceeding to next step."
+      "notes": "Call suggestMappings from mapper.ts on mount."
     },
     {
       "id": "US-P1.3-005",
       "title": "Create PlayerSelectionStep component",
-      "description": "As an admin, I need to select which players to import using checkboxes with search and bulk actions - matching the existing GAA import UX.",
+      "description": "As an admin, I need to select which players to import using checkboxes with search and bulk actions.",
       "acceptanceCriteria": [
         "Create apps/web/src/components/import/steps/PlayerSelectionStep.tsx",
-        "Show player table with checkbox per row, sortable columns (Name, DOB, Age Group, Gender, Parent Contact, Team)",
+        "Player table with checkbox per row, sortable columns",
         "Select All / Deselect All bulk action buttons",
-        "Search bar filtering by name, DOB, team (client-side filter)",
+        "Search bar filtering by name, DOB, team",
         "Filter tabs: All / Selected / Unselected with counts",
-        "Selected count summary at top: 'X of Y players selected'",
-        "All players selected by default on first render",
-        "Call onComplete with Map<number, boolean> of selections when proceeding"
+        "All players selected by default"
       ],
       "priority": 5,
       "passes": false,
-      "notes": "This mirrors the existing per-player selection in gaa-import.tsx. Reference lines 1600-1800 of that file for the UX patterns. Use shadcn/ui Table, Checkbox, Input components. The search should be debounced (300ms)."
+      "notes": "Mirrors existing per-player selection in gaa-import.tsx."
     },
     {
       "id": "US-P1.3-006",
@@ -136,16 +127,15 @@
       "description": "As an admin, I need to configure how initial skill ratings are set for imported players.",
       "acceptanceCriteria": [
         "Create apps/web/src/components/import/steps/BenchmarkConfigStep.tsx",
-        "Toggle switch: 'Initialize skill ratings during import' (default on)",
-        "When enabled, show strategy radio buttons: Blank (All 1s), Middle (All 3s), Age-Appropriate (Recommended), NGB Standards, Custom Template",
-        "When 'Custom Template' selected, show template selector dropdown (query benchmarkTemplates)",
-        "Show preview section: sample skill ratings for the selected strategy and a sample age group",
-        "Passport status checkboxes: Active (checked), Inactive (unchecked), Archived (unchecked)",
+        "Toggle switch: 'Initialize skill ratings during import'",
+        "Strategy radio buttons: Blank, Middle, Age-Appropriate (Recommended), NGB Standards, Custom Template",
+        "Custom template selector dropdown when 'Custom Template' selected",
+        "Preview section showing sample ratings",
         "Use shadcn/ui Switch, RadioGroup, Select components"
       ],
       "priority": 6,
       "passes": false,
-      "notes": "The preview is informational - it shows what ratings would look like for a sample U12 player. This helps admins understand the difference between strategies before committing."
+      "notes": "Preview is informational to help admins understand strategy differences."
     },
     {
       "id": "US-P1.3-007",
@@ -153,70 +143,60 @@
       "description": "As an admin, I need to review validation errors and resolve duplicate players before importing.",
       "acceptanceCriteria": [
         "Create apps/web/src/components/import/steps/ReviewStep.tsx",
-        "Show validation error summary: count of errors by type",
-        "Show error table with: row number, field, error message, current value, suggested fix (if available)",
-        "Show duplicate section: players that match existing records (by name+DOB)",
-        "Duplicate resolution options per player: Skip (don't import), Merge (update existing), Create New",
-        "Show team creation preview: list of teams that will be created",
-        "Summary cards at top: X valid, Y errors, Z duplicates",
-        "Allow proceeding even with errors (with confirmation dialog)"
+        "Validation error summary and error table with row number, field, error, suggested fix",
+        "Duplicate section with resolution options: Skip, Merge, Create New",
+        "Team creation preview",
+        "Summary cards: X valid, Y errors, Z duplicates",
+        "Allow proceeding with errors (with confirmation dialog)"
       ],
       "priority": 7,
       "passes": false,
-      "notes": "Duplicate detection is done client-side by querying existing playerIdentities. Reference gaa-import.tsx lines 2066-2265 for the existing duplicate resolution UX patterns. Use shadcn/ui Alert, Table, Dialog components."
+      "notes": "Reference gaa-import.tsx lines 2066-2265 for existing duplicate resolution UX."
     },
     {
       "id": "US-P1.3-008",
       "title": "Create ImportStep and CompleteStep components",
-      "description": "As an admin, I need to see real-time import progress and a completion summary with next steps.",
+      "description": "As an admin, I need to see real-time import progress and a completion summary.",
       "acceptanceCriteria": [
-        "Create apps/web/src/components/import/steps/ImportStep.tsx",
-        "Show phase-by-phase progress: Creating Players, Matching Guardians, Creating Enrollments, Creating Passports, Applying Benchmarks",
-        "Live counter: X of Y players processed",
-        "Show current operation description",
+        "Create apps/web/src/components/import/steps/ImportStep.tsx with phase-by-phase progress",
         "Call batchImportPlayersWithIdentity mutation with all wizard data",
         "Create apps/web/src/components/import/steps/CompleteStep.tsx",
-        "Show statistics cards: players created, guardians linked, teams created, passports created, benchmarks applied",
-        "Show 'What Next' action cards: View Players, Start Another Import, Download Import Log",
+        "Show statistics cards and 'What Next' action cards",
         "Return to import page link"
       ],
       "priority": 8,
       "passes": false,
-      "notes": "The import mutation is called from ImportStep. Progress tracking may need to use session status updates. If the mutation is too large for a single call, consider batching (100 players per call). Reference gaa-import.tsx lines 2554-2568 for progress tracking patterns."
+      "notes": "Progress tracking may need session status updates for real-time feedback."
     },
     {
       "id": "US-P1.3-009",
       "title": "Add import link to admin navigation",
       "description": "As an admin, I need to access the import page from the main navigation.",
       "acceptanceCriteria": [
-        "Find the admin sidebar/navigation component (likely in apps/web/src/components/ or the layout file)",
-        "Add 'Import Players' link pointing to /orgs/[orgId]/import",
-        "Use appropriate Lucide icon (Upload or FileUp)",
+        "Add 'Import Players' link to admin sidebar/navigation pointing to /orgs/[orgId]/import",
+        "Use Upload or FileUp Lucide icon",
         "Link visible only to admin and owner roles",
-        "Link appears in the management section of navigation",
         "Typecheck passes: npm run check-types"
       ],
       "priority": 9,
       "passes": false,
-      "notes": "Check the existing navigation structure to find where team management and user management links are. Place the import link near those. Use the same access control pattern as other admin-only links."
+      "notes": "Place near team management and user management links."
     },
     {
       "id": "US-P1.3-010",
-      "title": "Integration testing of full import wizard flow",
-      "description": "As a developer, I need to verify the complete import wizard works end-to-end with the backend.",
+      "title": "Integration testing of import wizard flow",
+      "description": "As a developer, I need to verify the complete import wizard works end-to-end.",
       "acceptanceCriteria": [
-        "Verify: Upload CSV -> columns auto-mapped -> select players -> configure benchmarks -> review -> import -> completion",
+        "Verify: Upload CSV -> auto-map -> select players -> configure benchmarks -> review -> import -> completion",
         "Verify: Template selection pre-fills mappings correctly",
         "Verify: Player selection checkboxes, search, and bulk actions work",
-        "Verify: Import mutation receives correct sportCode, sessionId, selectedRowIndices, benchmarkSettings",
         "Verify: Completion step shows accurate statistics",
-        "Run npx ultracite fix",
-        "Run npx -w packages/backend convex codegen",
+        "Run npx ultracite fix and npx -w packages/backend convex codegen",
         "Typecheck passes: npm run check-types"
       ],
       "priority": 10,
       "passes": false,
-      "notes": "This is a verification story - ensure all pieces connect. Check that the wizard state flows correctly between steps and that the final mutation call includes all necessary data."
+      "notes": "Verification story - ensure all pieces connect properly."
     }
   ]
 }

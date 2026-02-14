@@ -166,4 +166,12 @@ crons.daily(
   {}
 );
 
+// Phase 2.3: Clean up expired import wizard drafts daily at 4 AM UTC
+crons.daily(
+  "cleanup-expired-import-drafts",
+  { hourUTC: 4, minuteUTC: 0 },
+  internal.models.importSessionDrafts.cleanupExpiredDrafts,
+  {}
+);
+
 export default crons;

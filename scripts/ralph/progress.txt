@@ -319,3 +319,94 @@ Started: Sat 14 Feb 2026 22:32:30 GMT
 - Admin override report (view all overrides) would be useful for platform staff analytics
 
 ---
+## 2026-02-14 23:00 - US-P3.1-005 - Add selective player removal dialog
+**Iteration**: 5
+**Commit**: d7c037c238f4c118b49513567ceb73a2d203ae31
+**Session**: fa930e9a-3b30-44f4-a41b-7705b37789e0
+**Status**: Complete
+
+### What was implemented
+- Created PartialUndoDialog component (235 lines) in apps/web/src/components/import/:
+  * AlertDialog wrapper with custom content for selective player removal
+  * Player list with checkbox selection (individual + select all)
+  * ScrollArea with 300px max height for large imports
+  * Dynamic selected count badge with real-time updates
+  * Disable Remove button when no players selected
+  * Touch-friendly checkboxes (44x44px target area)
+  * Player row shows: name, DOB, enrollment status, related records count
+- Added getImportedPlayers query in packages/backend/convex/models/playerImport.ts:
+  * Fetches player identities by importSessionId using by_importSessionId index
+  * Batch fetches related records (enrollments, passports, team assignments, assessments)
+  * Uses Promise.all for parallel fetching across all players
+  * Returns array of player data with related record counts for impact preview
+  * All queries use indexes (by_playerIdentityId, by_passportId) - NO .filter()
+- Integrated PartialUndoDialog into complete-step.tsx:
+  * Added "Remove Players" button alongside existing "Undo All" button
+  * Both buttons use destructive outline variant with icons (Users, Undo2)
+  * State management for partial undo dialog visibility (partialUndoSessionId)
+  * Passes sessionId prop to dialog for data fetching
+- Fixed linting errors before commit:
+  * Removed onSuccess prop (unused parameter warning)
+  * Changed handleRemove from async to sync (no await warning)
+  * Added block statement to handleSelectAll early return (style warning)
+
+### Files changed
+- apps/web/src/components/import/partial-undo-dialog.tsx (+235 new file)
+- packages/backend/convex/models/playerImport.ts (+107, -1)
+- apps/web/src/components/import/steps/complete-step.tsx (+17, -5)
+- scripts/ralph/prd.json (+1, -0) - marked US-P3.1-005 as passes: true
+
+### Quality checks
+- ✅ Convex codegen: passed
+- ✅ Type checking: passed (npm run check-types)
+- ✅ Linting: passed (npx ultracite fix, npm run check)
+- ✅ Pre-commit hooks: passed
+- ⏭️ Browser verification: Not performed (mutation not wired up yet)
+
+### **Learnings for future iterations** ⚠️ CRITICAL
+
+**Patterns discovered:**
+- Set<string> used for selected player IDs (efficient add/delete/has operations)
+- Select all logic: compare selectedPlayerIds.size with players.length
+- Badge variant conditional: `variant={count > 0 ? "default" : "secondary"}`
+- ScrollArea component from shadcn/ui for fixed-height scrollable lists
+- Checkbox onCheckedChange accepts callback, not direct event handler
+
+**Gotchas encountered:**
+- Linter requires block statements for early returns (not inline `if (!x) return;`)
+- Async functions without await trigger linting error - remove async if not needed
+- Unused function parameters trigger warning - remove if truly unused
+- Must use correct index names: `by_passportId` not `by_passport` for skillAssessments
+- Need to import `query` alongside `mutation` in playerImport.ts (forgot initially)
+
+**Dependencies found:**
+- getImportedPlayers requires by_importSessionId index on playerIdentities (exists)
+- Related record fetching requires by_playerIdentityId indexes on:
+  * orgPlayerEnrollments (exists)
+  * sportPassports (exists)
+  * teamPlayerIdentities (exists)
+- Skill assessments require by_passportId index on skillAssessments (exists)
+- Complete step already has sessionId prop from wizard state
+
+**What to do next**:
+- [ ] US-P3.1-006: Add search and filter for player selection (priority 2)
+- [ ] US-P3.1-007: Add per-player impact preview before removal (priority 1)
+- [ ] US-P3.1-008: Implement atomic removal transaction (priority 1)
+- [ ] Wire up handleRemove to call removal mutation (after US-P3.1-008)
+- [ ] Test PartialUndoDialog with actual import data containing players
+
+**Mistakes made**:
+- Initially added `async` to handleRemove even though no await (linter caught it)
+- Initially left onSuccess prop in component signature (unused parameter warning)
+- Used wrong index name `by_passport` instead of `by_passportId` (type error caught it)
+- Forgot to import `query` from server initially (Convex codegen caught it)
+
+**Notes for story US-P3.1-005**:
+- Dialog UI is complete and functional for selection
+- Backend query returns all needed data for display
+- handleRemove is placeholder (console.log) until US-P3.1-008 adds mutation
+- Search/filter functionality deferred to US-P3.1-006
+- Impact preview deferred to US-P3.1-007
+- Actual removal logic deferred to US-P3.1-008
+
+---

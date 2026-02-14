@@ -136,7 +136,8 @@
         "Run npx ultracite fix before completion"
       ],
       "priority": 1,
-      "notes": "Extend existing undo-import-dialog.tsx as reference. Use Checkbox component from shadcn/ui. Ensure performance with large imports (100+ players) by virtualizing list if needed."
+      "notes": "Extend existing undo-import-dialog.tsx as reference. Use Checkbox component from shadcn/ui. Ensure performance with large imports (100+ players) by virtualizing list if needed.",
+      "passes": true
     },
     {
       "id": "US-P3.1-006",

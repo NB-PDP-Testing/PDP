@@ -14,22 +14,29 @@ import type { QueryCtx } from "../../_generated/server";
 // ============================================================
 // MATCHING WEIGHTS - Shared between import and onboarding
 // ============================================================
+// Updated to match Phase 3.1 confidence scoring requirements:
+// - Email: 40% (highest confidence)
+// - Phone: 30% (strong signal)
+// - Name similarity: 20% (surname matching)
+// - Address: 10% (postcode/town matching)
+// Total: 100-point scale
 
 export const MATCHING_WEIGHTS = {
-  EMAIL_EXACT: 50, // Highest confidence - exact email match
-  SURNAME_POSTCODE: 45, // Strong family signal - same household
-  SURNAME_TOWN: 35, // Medium family signal - same area
-  PHONE: 30, // Strong signal - shared contact
-  POSTCODE_ONLY: 20, // Moderate signal - same area
+  EMAIL_EXACT: 40, // Email match - 40% of total score
+  PHONE: 30, // Phone match - 30% of total score
+  SURNAME_POSTCODE: 20, // Surname + Postcode - full name+address score (20% + 10%)
+  SURNAME_TOWN: 25, // Surname + Town - partial name+address score (20% + 5%)
+  SURNAME_ONLY: 20, // Surname match only - name similarity score
+  POSTCODE_ONLY: 10, // Postcode only - full address score
+  TOWN_ONLY: 5, // Town only - partial address score
   PLAYER_POSTCODE_BONUS: 10, // Bonus when postcode matches linked player's postcode
-  TOWN_ONLY: 10, // Weak signal - same general area
   HOUSE_NUMBER: 5, // Tiebreaker - same exact address
 } as const;
 
 export const CONFIDENCE_THRESHOLDS = {
-  HIGH: 60, // Auto-link - high confidence match
-  MEDIUM: 40, // Suggest - require user confirmation
-  LOW: 20, // Possible - show as option
+  HIGH: 60, // Auto-link - high confidence match (60+ / 100)
+  MEDIUM: 40, // Suggest - require user confirmation (40-59 / 100)
+  LOW: 20, // Possible - show as option (20-39 / 100)
 } as const;
 
 export type ConfidenceLevel = "high" | "medium" | "low";
@@ -266,7 +273,7 @@ export function calculateMatchScore(
     guardianPostcode && userPostcode && guardianPostcode === userPostcode;
 
   if (surnameMatch && postcodeMatch) {
-    // Surname + Postcode - 45 points (strong family signal)
+    // Surname + Postcode - 30 points (20% name + 10% address)
     score += MATCHING_WEIGHTS.SURNAME_POSTCODE;
     matchReasons.push("Surname + Postcode match (same household)");
   } else if (surnameMatch) {
@@ -276,9 +283,13 @@ export function calculateMatchScore(
     const townMatch = guardianTown && userTown && guardianTown === userTown;
 
     if (townMatch) {
-      // Surname + Town - 35 points
+      // Surname + Town - 25 points (20% name + 5% address)
       score += MATCHING_WEIGHTS.SURNAME_TOWN;
       matchReasons.push("Surname + Town match (same area)");
+    } else {
+      // Surname only - 20 points (name similarity only)
+      score += MATCHING_WEIGHTS.SURNAME_ONLY;
+      matchReasons.push("Surname match");
     }
   } else if (postcodeMatch) {
     // Postcode only - 20 points

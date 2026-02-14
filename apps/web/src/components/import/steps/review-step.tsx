@@ -99,6 +99,12 @@ export type DuplicateInfo = {
   rowNumber: number;
   existingPlayerId: Id<"playerIdentities">;
   resolution: "skip" | "merge" | "replace";
+  // Phase 3.1: Confidence scoring for guardian matches
+  guardianConfidence?: {
+    score: number; // 0-100 confidence score
+    level: "high" | "medium" | "low"; // Confidence level
+    matchReasons: string[]; // Reasons for the match (email, phone, address, etc.)
+  };
 };
 
 export type ReviewValidationError = {

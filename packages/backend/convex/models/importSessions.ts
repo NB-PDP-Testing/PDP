@@ -75,6 +75,14 @@ const duplicateValidator = v.object({
     v.literal("merge"),
     v.literal("replace")
   ),
+  // Phase 3.1: Confidence scoring for guardian matches
+  guardianConfidence: v.optional(
+    v.object({
+      score: v.number(), // 0-100 confidence score
+      level: v.union(v.literal("high"), v.literal("medium"), v.literal("low")), // Confidence level
+      matchReasons: v.array(v.string()), // Reasons for the match (email, phone, address, etc.)
+    })
+  ),
 });
 
 const sessionReturnValidator = v.object({

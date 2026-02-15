@@ -97,7 +97,12 @@ James,Kennedy,2014-06-14,Male,james.parent@example.com,0864567890
 1. Log in as org admin
 2. Navigate to `/orgs/[orgId]/import`
 3. Upload `duplicate-guardians.csv`
-4. Complete mapping step (map all columns including Parent Email, Phone, Name, Address)
+4. Complete mapping step (map ALL guardian columns):
+   - Parent Email → parentEmail
+   - Parent Phone → parentPhone
+   - **Parent First Name** → parentFirstName
+   - **Parent Last Name** → parentLastName
+   - Parent Address → parentAddress
 5. Complete selection step (select all players)
 
 **Steps**:

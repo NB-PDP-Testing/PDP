@@ -20,9 +20,16 @@ This directory contains CSV test data files for Phase 3.1 manual UAT testing.
 | Niamh McCarthy & Cian O'Sullivan | Lisa McCarthy | **Medium (40-59)** | ✅ Email exact match<br>✅ Phone match (format variation)<br>✅ Name exact match<br>✅ Address exact match<br>(Expected: 55-65%) |
 | Saoirse Doyle & Finn Gallagher | Katie Doyle | **Low (<40)** | ✅ Email exact match<br>❌ Phone missing<br>✅ Name exact match<br>❌ Address missing<br>(Expected: 30-40%) |
 
+**CSV Columns**:
+- First Name, Last Name, Date of Birth, Gender (player fields)
+- Parent Email, Parent Phone (guardian contact)
+- Parent First Name, Parent Last Name (guardian name - **split into 2 fields**)
+- Parent Address (guardian address)
+
 **Usage**:
 ```bash
 # Upload this file during import wizard
+# Map columns: Parent First Name → parentFirstName, Parent Last Name → parentLastName
 # On Review step, verify confidence scores match expectations
 # Test admin override on low/high confidence matches
 ```

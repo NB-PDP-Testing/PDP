@@ -46,7 +46,9 @@
 1. Log in as org admin
 2. Navigate to `/orgs/[orgId]/import`
 3. Upload `duplicate-guardians.csv`
-4. Complete mapping step (map ALL columns: First Name, Last Name, DOB, Gender, Parent Email, Phone, Name, Address)
+4. Complete mapping step (map ALL columns):
+   - Player fields: First Name, Last Name, DOB, Gender
+   - Guardian fields: Parent Email, Parent Phone, **Parent First Name**, **Parent Last Name**, Parent Address
 5. Select all players in selection step
 6. On Review step, locate **Emma Walsh & Sophie O'Connor** duplicate
 
@@ -283,7 +285,7 @@
 
 **Critical Path Test**:
 1. Upload `duplicate-guardians.csv`
-2. Complete mapping (all columns)
+2. Complete mapping (ALL columns - especially Parent First Name + Parent Last Name)
 3. Select all players
 4. Review step: Verify at least one green and one red badge visible
 5. Force link one low confidence match

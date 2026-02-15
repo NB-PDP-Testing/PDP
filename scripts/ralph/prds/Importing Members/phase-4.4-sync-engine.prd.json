@@ -1,0 +1,307 @@
+{
+  "project": "PlayerARC - Phase 4.4: Sync Engine & Automation",
+  "branchName": "ralph/phase-4.4-sync-engine",
+  "description": "Implement automated sync engine with cron scheduling, change detection, conflict resolution, and webhook receiver. Enables scheduled nightly syncs from federation systems, detects and resolves data conflicts, and handles push updates via webhooks. This makes federation data stay automatically up-to-date without manual intervention.",
+  "prdFile": "scripts/ralph/prds/Importing Members/phase-4-federation-connectors.md",
+  "contextFiles": [
+    "packages/backend/convex/crons.ts",
+    "packages/backend/convex/models/federationConnectors.ts",
+    "packages/backend/convex/actions/gaaFoireann.ts",
+    "packages/backend/convex/models/importSessions.ts",
+    "packages/backend/convex/http.ts",
+    "CLAUDE.md"
+  ],
+  "mandatoryPatterns": [
+    "Use Convex crons for scheduled syncs (not external schedulers)",
+    "Cron expressions follow standard format: '0 2 * * *' = 2 AM daily",
+    "Implement change detection: compare federation data vs local data",
+    "Conflict resolution strategies: federation_wins, local_wins, merge",
+    "Use HTTP actions for webhook receivers",
+    "Validate webhook signatures to prevent unauthorized updates",
+    "Use .withIndex() never .filter() for queries",
+    "Atomic updates: use Convex transactions for multi-record changes",
+    "Run npx ultracite fix before completing any story",
+    "Run npx -w packages/backend convex codegen to verify changes"
+  ],
+  "successCriteria": [
+    "Cron scheduler runs nightly syncs at 2 AM",
+    "Change detection identifies updated fields correctly",
+    "Conflict resolution applies strategy (federation wins by default)",
+    "Merge strategy combines non-conflicting changes",
+    "Webhook receiver validates signatures and processes updates",
+    "Sync queue prevents concurrent syncs for same organization",
+    "Failed syncs retry automatically with exponential backoff",
+    "Sync history tracks all changes for audit trail",
+    "All type checks pass: npm run check-types",
+    "Convex codegen succeeds: npx -w packages/backend convex codegen"
+  ],
+  "userStories": [
+    {
+      "id": "US-P4.4-001",
+      "title": "Create cron scheduler for automated syncs",
+      "description": "As the platform, I need to automatically sync federation data nightly for all connected organizations without manual triggering.",
+      "acceptanceCriteria": [
+        "Update packages/backend/convex/crons.ts",
+        "Add federationSync cron job with schedule: '0 2 * * *' (2 AM daily)",
+        "Cron calls scheduledFederationSync action",
+        "scheduledFederationSync queries all active connectors with syncConfig.enabled = true",
+        "For each enabled connector, get all connectedOrganizations",
+        "Queue sync job for each organization (don't run all at once)",
+        "Use rate limiting: sync max 5 organizations concurrently",
+        "Call syncGAAMembers action from Phase 4.2 for each org",
+        "Update connector's lastSyncAt timestamp after completion",
+        "Log sync results: success/failure, duration, records synced",
+        "Send notification to org admins on sync failures",
+        "Run npx -w packages/backend convex codegen"
+      ],
+      "priority": 1,
+      "notes": "2 AM is chosen to minimize impact on users. Rate limiting prevents overwhelming federation APIs and Convex function limits. Stagger syncs: wait 1 minute between each to spread load."
+    },
+    {
+      "id": "US-P4.4-002",
+      "title": "Implement change detection for federation data",
+      "description": "As the sync engine, I need to detect which fields changed between federation data and local data to avoid unnecessary updates.",
+      "acceptanceCriteria": [
+        "Create packages/backend/convex/lib/federation/changeDetector.ts",
+        "Implement detectChanges function: (federationData, localData) => ChangeSummary",
+        "Compare each field: firstName, lastName, DOB, email, phone, address",
+        "Return ChangeSummary: { hasChanges: boolean, changedFields: string[], conflicts: Conflict[] }",
+        "A conflict occurs when: both federation and local modified since last sync, values differ",
+        "Changed field = federation value differs from local value AND local not modified since last sync",
+        "Use lastSyncedAt timestamp to determine if local data modified",
+        "Handle null/undefined gracefully: null vs empty string = no change",
+        "Normalize before comparing: trim whitespace, lowercase emails, normalize phone numbers",
+        "Add TypeScript types: ChangeSummary, Conflict",
+        "Run npx ultracite fix"
+      ],
+      "priority": 2,
+      "notes": "Change detection prevents overwriting local edits with stale federation data. Normalization prevents false positives (e.g., 'John' vs 'john '). Track lastSyncedAt and updatedAt to detect local modifications."
+    },
+    {
+      "id": "US-P4.4-003",
+      "title": "Implement conflict resolution strategies",
+      "description": "As an organization admin, I need configurable conflict resolution so I can choose whether federation or local data takes precedence when conflicts occur.",
+      "acceptanceCriteria": [
+        "Add to packages/backend/convex/lib/federation/changeDetector.ts",
+        "Implement resolveConflicts function: (conflicts, strategy) => ResolvedData",
+        "Strategy 'federation_wins': always use federation value (default)",
+        "Strategy 'local_wins': always keep local value",
+        "Strategy 'merge': use federation for unmodified fields, local for modified fields",
+        "merge strategy requires lastModifiedBy field to track who made changes",
+        "Return ResolvedData: merged object with resolved values and resolution notes",
+        "Resolution notes explain which strategy was used for each conflict",
+        "Add validation: ensure strategy is one of: federation_wins, local_wins, merge",
+        "Add TypeScript types: ConflictResolutionStrategy, ResolvedData",
+        "Run npx ultracite fix and npm run check-types"
+      ],
+      "priority": 3,
+      "notes": "Most orgs should use federation_wins since federation is source of truth. local_wins useful for testing or when federation has bad data. merge is most complex but preserves both federation and local edits."
+    },
+    {
+      "id": "US-P4.4-004",
+      "title": "Create sync engine orchestrator with conflict resolution",
+      "description": "As the sync engine, I need to orchestrate the full sync process including change detection, conflict resolution, and atomic updates.",
+      "acceptanceCriteria": [
+        "Create packages/backend/convex/actions/federationSyncEngine.ts",
+        "Implement syncWithConflictResolution action with args: connectorId, organizationId, strategy",
+        "Fetch federation data using connector's sync action (e.g., syncGAAMembers)",
+        "For each federation member, find matching local player by externalIds",
+        "If no match, create new player (no conflict)",
+        "If match found, call detectChanges to identify changed fields and conflicts",
+        "If conflicts exist, call resolveConflicts with configured strategy",
+        "Apply resolved changes to local data atomically (all or nothing)",
+        "Update player's lastSyncedAt timestamp",
+        "Record sync in import session with conflict details",
+        "Track stats: playersCreated, playersUpdated, conflictsDetected, conflictsResolved",
+        "On error, rollback all changes and log failure",
+        "Run npx -w packages/backend convex codegen and npm run check-types"
+      ],
+      "priority": 4,
+      "notes": "Atomic updates critical - partial syncs can corrupt data. Use Convex transactions to ensure all-or-nothing. Log all conflicts for audit trail. Conflict resolution notes help users understand what changed and why."
+    },
+    {
+      "id": "US-P4.4-005",
+      "title": "Add sync queue to prevent concurrent syncs",
+      "description": "As the platform, I need to prevent multiple syncs running concurrently for the same organization to avoid race conditions and data corruption.",
+      "acceptanceCriteria": [
+        "Create packages/backend/convex/models/syncQueue.ts",
+        "Add syncQueue table to schema: organizationId, connectorId, status (pending/running/completed/failed), startedAt, completedAt, error",
+        "Add indexes: by_organizationId, by_status, by_org_and_status",
+        "Implement enqueueSyncJob mutation: creates pending sync job",
+        "Implement claimSyncJob mutation: atomically marks pending job as running",
+        "claimSyncJob fails if another job already running for same org+connector",
+        "Implement completeSyncJob mutation: marks job as completed, updates stats",
+        "Implement failSyncJob mutation: marks job as failed, logs error",
+        "Sync engine checks queue before starting: skip if job already running",
+        "Add timeout: mark jobs as failed if running >30 minutes (likely stuck)",
+        "Add getSyncQueueStatus query: returns queue status for organization",
+        "Run npx -w packages/backend convex codegen"
+      ],
+      "priority": 5,
+      "notes": "Queue prevents race conditions where two syncs update same player simultaneously. Atomic claim operation ensures only one sync runs at a time. Timeout prevents zombie jobs from blocking queue forever."
+    },
+    {
+      "id": "US-P4.4-006",
+      "title": "Implement webhook receiver for federation push updates",
+      "description": "As the platform, I need to receive webhook notifications from federations when member data changes so I can sync immediately instead of waiting for nightly batch.",
+      "acceptanceCriteria": [
+        "Create packages/backend/convex/http.ts webhook endpoint: POST /webhooks/federation",
+        "Endpoint expects: { connectorId, federationOrgId, memberId, event (created/updated/deleted), signature }",
+        "Validate webhook signature using connector's webhookSecret (HMAC-SHA256)",
+        "Reject requests with invalid signatures (401 Unauthorized)",
+        "Parse event type: created, updated, deleted",
+        "For created/updated: enqueue sync job for that specific member (not full sync)",
+        "For deleted: mark player as inactive, don't delete (audit trail)",
+        "Return 200 OK immediately (don't block webhook sender)",
+        "Process webhook asynchronously using Convex action",
+        "Log all webhook events for debugging",
+        "Add rate limiting: max 100 webhooks per minute per connector",
+        "Run npx ultracite fix and npm run check-types"
+      ],
+      "priority": 6,
+      "notes": "Webhooks enable real-time sync instead of nightly batch. HMAC signature validation prevents spoofed webhooks. Async processing prevents webhook timeout. Rate limiting prevents webhook flooding attacks."
+    },
+    {
+      "id": "US-P4.4-007",
+      "title": "Add sync retry logic with exponential backoff",
+      "description": "As the sync engine, I need to automatically retry failed syncs with exponential backoff so transient errors don't require manual intervention.",
+      "acceptanceCriteria": [
+        "Add to packages/backend/convex/actions/federationSyncEngine.ts",
+        "Add maxRetries field to syncQueue: default 3",
+        "Add retryCount field to syncQueue: increments on each retry",
+        "Add nextRetryAt field to syncQueue: timestamp for next retry attempt",
+        "On sync failure, check if retryCount < maxRetries",
+        "If retriable, calculate nextRetryAt using exponential backoff: 2^retryCount minutes",
+        "Update syncQueue job with new retryCount and nextRetryAt",
+        "Add cron job: processRetryQueue runs every 5 minutes",
+        "processRetryQueue finds jobs with nextRetryAt < now and status=pending",
+        "Retry each job by calling sync action again",
+        "If maxRetries exhausted, mark job as permanently failed and notify admin",
+        "Run npx -w packages/backend convex codegen"
+      ],
+      "priority": 7,
+      "notes": "Exponential backoff: retry after 2 min, 4 min, 8 min. Prevents retry storms. Only retry transient errors (network, timeout, 500). Don't retry permanent errors (401, 404). Notify admin after 3 failed retries."
+    },
+    {
+      "id": "US-P4.4-008",
+      "title": "Create sync history and audit trail",
+      "description": "As an organization admin, I need to view sync history to understand what data was synced, when, and what conflicts occurred.",
+      "acceptanceCriteria": [
+        "Create packages/backend/convex/models/syncHistory.ts",
+        "Add syncHistory table: connectorId, organizationId, syncType (scheduled/manual/webhook), startedAt, completedAt, status, stats (created/updated/conflicts), conflictDetails array, errors array",
+        "Add indexes: by_organizationId, by_connectorId, by_startedAt",
+        "Implement createSyncHistoryEntry mutation: creates entry at sync start",
+        "Implement updateSyncHistoryEntry mutation: updates with results at sync end",
+        "conflictDetails array stores: playerId, fieldName, federationValue, localValue, resolvedValue, strategy",
+        "Implement getSyncHistory query: returns paginated history for organization",
+        "Implement getSyncHistoryDetails query: returns full details including conflicts for a single sync",
+        "Add export sync history: download JSON or CSV report",
+        "Run npx -w packages/backend convex codegen and npm run check-types"
+      ],
+      "priority": 8,
+      "notes": "Audit trail is critical for compliance and debugging. Conflict details help admins understand and review merge decisions. Export enables offline analysis. Paginate history (50 per page) for large organizations."
+    }
+  ],
+  "technicalNotes": {
+    "database": {
+      "newTables": [
+        "syncQueue - manages sync job execution and prevents concurrency",
+        "syncHistory - audit trail of all sync operations"
+      ],
+      "newIndexes": [
+        "syncQueue.by_organizationId - find sync jobs by org",
+        "syncQueue.by_status - find pending/running jobs",
+        "syncQueue.by_org_and_status - prevent concurrent syncs",
+        "syncHistory.by_organizationId - query history by org",
+        "syncHistory.by_connectorId - query history by connector",
+        "syncHistory.by_startedAt - sort history by time"
+      ],
+      "mutations": [
+        "enqueueSyncJob - create pending sync job",
+        "claimSyncJob - atomically start sync job",
+        "completeSyncJob - mark job complete",
+        "failSyncJob - mark job failed",
+        "createSyncHistoryEntry - start audit trail",
+        "updateSyncHistoryEntry - finish audit trail"
+      ],
+      "queries": [
+        "getSyncQueueStatus - get current queue status",
+        "getSyncHistory - get paginated history",
+        "getSyncHistoryDetails - get full details for one sync"
+      ],
+      "actions": [
+        "scheduledFederationSync - cron-triggered nightly sync",
+        "syncWithConflictResolution - main sync orchestrator",
+        "processRetryQueue - retry failed syncs",
+        "processFederationWebhook - handle webhook push updates"
+      ]
+    },
+    "backend": {
+      "newFiles": [
+        "packages/backend/convex/lib/federation/changeDetector.ts - change detection and conflict resolution",
+        "packages/backend/convex/actions/federationSyncEngine.ts - sync orchestration",
+        "packages/backend/convex/models/syncQueue.ts - sync job queue",
+        "packages/backend/convex/models/syncHistory.ts - audit trail"
+      ],
+      "modifiedFiles": [
+        "packages/backend/convex/crons.ts - add scheduled sync jobs",
+        "packages/backend/convex/http.ts - add webhook endpoint"
+      ]
+    },
+    "crons": {
+      "federationSync": "0 2 * * * - Run nightly at 2 AM",
+      "processRetryQueue": "*/5 * * * * - Every 5 minutes",
+      "cleanupSyncQueue": "0 3 * * * - Daily at 3 AM, remove old completed jobs"
+    }
+  },
+  "risks": [
+    {
+      "risk": "Nightly sync may take too long for large organizations (1000+ members)",
+      "mitigation": "Batch process in chunks of 100 members. Add timeout protection. Consider moving large syncs to off-peak hours (3-4 AM)."
+    },
+    {
+      "risk": "Conflict resolution may overwrite important local edits",
+      "mitigation": "Default to federation_wins is safest. Track all overwrites in audit trail. Send notification when conflicts detected. Allow admins to revert via partial undo."
+    },
+    {
+      "risk": "Webhook spam could overwhelm the system",
+      "mitigation": "Rate limit: max 100 webhooks/min. Validate signatures strictly. Log suspicious webhook patterns. Auto-disable connector if >1000 webhooks/hour."
+    },
+    {
+      "risk": "Failed syncs might go unnoticed for days",
+      "mitigation": "Send email notification on first failure. Escalate to platform admin after 3 consecutive failures. Dashboard widget shows sync health."
+    }
+  ],
+  "outOfScope": [
+    "Platform admin connector UI - Phase 4.5",
+    "Custom conflict resolution rules per field - future enhancement",
+    "Bi-directional sync (PlayerARC → Federation) - separate project",
+    "Real-time sync (< 1 minute latency) - webhooks provide near real-time",
+    "Sync scheduling per organization (custom cron) - all use platform schedule",
+    "Manual conflict resolution UI - admins must use partial undo for now"
+  ],
+  "completionChecklist": [
+    "syncQueue and syncHistory tables created with indexes",
+    "Cron job runs nightly at 2 AM (verified with test cron)",
+    "Change detection correctly identifies changed fields",
+    "Conflict resolution strategies work (federation_wins, local_wins, merge tested)",
+    "Merge strategy preserves local modifications correctly",
+    "Sync queue prevents concurrent syncs (tested with parallel triggers)",
+    "Queue timeout marks stuck jobs as failed after 30 minutes",
+    "Webhook receiver validates HMAC signatures",
+    "Invalid webhook signatures rejected with 401",
+    "Webhook events processed asynchronously without blocking",
+    "Retry logic implements exponential backoff (verified with logs)",
+    "Failed syncs retry automatically up to 3 times",
+    "Admin notification sent after 3 failed retries",
+    "Sync history records all syncs with conflict details",
+    "Sync history query returns paginated results (50 per page)",
+    "Export sync history generates valid JSON/CSV",
+    "All type checks pass: npm run check-types",
+    "All linting passes: npx ultracite fix && npm run check",
+    "Convex codegen succeeds: npx -w packages/backend convex codegen",
+    "Manual testing: triggered sync, observed cron execution, tested webhook",
+    "No console errors or warnings",
+    "Git commit messages follow conventional commits format"
+  ]
+}

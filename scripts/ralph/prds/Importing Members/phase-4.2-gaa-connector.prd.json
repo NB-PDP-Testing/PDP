@@ -1,0 +1,300 @@
+{
+  "project": "PlayerARC - Phase 4.2: GAA Foireann Connector",
+  "branchName": "ralph/phase-4.2-gaa-connector",
+  "description": "Implement the GAA Foireann API connector to fetch membership data from the GAA Foireann system. Includes membership list endpoint integration, member detail fetching, data mapping to PlayerARC schema, and sync testing infrastructure. This enables GAA clubs to automatically sync their member data from Foireann.",
+  "prdFile": "scripts/ralph/prds/Importing Members/phase-4-federation-connectors.md",
+  "contextFiles": [
+    "packages/backend/convex/models/federationConnectors.ts",
+    "packages/backend/convex/lib/federation/apiClient.ts",
+    "packages/backend/convex/models/importSessions.ts",
+    "packages/backend/convex/models/playerImport.ts",
+    "packages/backend/convex/lib/import/mapper.ts",
+    "CLAUDE.md"
+  ],
+  "mandatoryPatterns": [
+    "Use Convex actions for external API calls (FederationApiClient)",
+    "Use .withIndex() never .filter() for queries",
+    "Follow batch fetch + Map lookup pattern for related data (no N+1)",
+    "Map GAA Foireann field names to PlayerARC schema using import templates",
+    "Handle pagination for large membership lists (100+ members)",
+    "Validate GAA membership numbers (format: XXX-XXXXX-XXX)",
+    "Store federation member IDs in playerIdentities.externalIds",
+    "Use import session tracking for audit trail",
+    "Run npx ultracite fix before completing any story",
+    "Run npx -w packages/backend convex codegen to verify changes"
+  ],
+  "successCriteria": [
+    "GAA Foireann connector created and configured in database",
+    "Membership list endpoint returns all members with pagination",
+    "Member detail endpoint returns complete member profile",
+    "Field mapping converts GAA data to PlayerARC schema correctly",
+    "Duplicate detection works with GAA membership numbers",
+    "Import session created from GAA sync with all stats",
+    "Sync action handles API errors gracefully (retries, error logging)",
+    "Test suite validates GAA API responses",
+    "All type checks pass: npm run check-types",
+    "Convex codegen succeeds: npx -w packages/backend convex codegen"
+  ],
+  "userStories": [
+    {
+      "id": "US-P4.2-001",
+      "title": "Create GAA Foireann connector configuration",
+      "description": "As a platform admin, I need to configure the GAA Foireann connector with API endpoints and default settings so clubs can connect to Foireann.",
+      "acceptanceCriteria": [
+        "Create seed data for GAA Foireann connector in importTemplateSeeds.ts",
+        "Connector name: 'GAA Foireann'",
+        "federationCode: 'gaa_foireann'",
+        "authType: 'oauth2' (Foireann uses OAuth 2.0)",
+        "endpoints.membershipList: 'https://api.foireann.ie/v2/clubs/{clubId}/members'",
+        "endpoints.memberDetail: 'https://api.foireann.ie/v2/members/{memberId}'",
+        "syncConfig.conflictStrategy: 'federation_wins' (Foireann is source of truth)",
+        "Link to GAA Foireann import template (created in Phase 1.1)",
+        "status: 'inactive' (requires OAuth setup per club)",
+        "Add seedGAAConnector mutation to create connector if not exists",
+        "Run npx -w packages/backend convex codegen"
+      ],
+      "priority": 1,
+      "notes": "The actual Foireann API endpoints are placeholders - replace with real endpoints when API documentation available. OAuth client ID and secret will be configured per club when they connect."
+    },
+    {
+      "id": "US-P4.2-002",
+      "title": "Implement GAA membership list fetcher action",
+      "description": "As the sync engine, I need to fetch the full membership list from GAA Foireann API with pagination support.",
+      "acceptanceCriteria": [
+        "Create packages/backend/convex/actions/gaaFoireann.ts",
+        "Implement fetchMembershipList action with args: connectorId, organizationId",
+        "Load connector using getConnector query",
+        "Find organization's federationOrgId from connectedOrganizations array",
+        "Create FederationApiClient instance with connectorId",
+        "Call GET /clubs/{clubId}/members endpoint",
+        "Handle pagination: fetch all pages (max 100 members per page)",
+        "Parse response to extract member array",
+        "Expected response fields: memberId, firstName, lastName, dateOfBirth, email, phone, address, membershipNumber, membershipStatus, joinDate",
+        "Return: { members: GAAMember[], totalCount: number, fetchedAt: number }",
+        "Add error handling for 401 (auth), 404 (club not found), 429 (rate limit), 500 (server error)",
+        "Log sync attempt with timestamp and result",
+        "Run npx ultracite fix"
+      ],
+      "priority": 2,
+      "notes": "Pagination is critical for clubs with 100+ members. Foireann API likely uses cursor or offset pagination - adapt based on actual API docs. Cache fetched data for 5 minutes to avoid duplicate fetches."
+    },
+    {
+      "id": "US-P4.2-003",
+      "title": "Implement GAA member detail fetcher action",
+      "description": "As the sync engine, I need to fetch detailed member information for individual members to get complete profile data.",
+      "acceptanceCriteria": [
+        "Add to packages/backend/convex/actions/gaaFoireann.ts",
+        "Implement fetchMemberDetail action with args: connectorId, memberId",
+        "Create FederationApiClient instance",
+        "Call GET /members/{memberId} endpoint",
+        "Parse detailed response including: full address, emergency contacts, medical info, player positions, teams",
+        "Return: { member: GAAMemberDetail, fetchedAt: number }",
+        "Add caching: store fetched details in temporary cache (5 min TTL) to avoid duplicate API calls",
+        "Handle errors: 404 (member not found), 403 (no access to member)",
+        "TypeScript type: GAAMemberDetail extends GAAMember with additional fields",
+        "Run npx ultracite fix and npm run check-types"
+      ],
+      "priority": 3,
+      "notes": "Member detail endpoint provides richer data than membership list (e.g., emergency contacts, medical info). Use for initial import or when syncing specific members. Bulk sync should use membership list endpoint for performance."
+    },
+    {
+      "id": "US-P4.2-004",
+      "title": "Create GAA field mapping transformer",
+      "description": "As a developer, I need to transform GAA Foireann field names and formats to match PlayerARC's schema for seamless import.",
+      "acceptanceCriteria": [
+        "Create packages/backend/convex/lib/federation/gaaMapper.ts",
+        "Implement transformGAAMember function: (gaaMember: GAAMember) => ImportRowData",
+        "Field mappings:",
+        "  - memberId → externalIds.foireann",
+        "  - firstName → firstName (trim, titlecase)",
+        "  - lastName → lastName (trim, titlecase)",
+        "  - dateOfBirth → dateOfBirth (parse ISO date, validate YYYY-MM-DD)",
+        "  - email → email (lowercase, validate format)",
+        "  - phone → phone (normalize: remove spaces/dashes, add +353 if missing country code)",
+        "  - address → parse into street1, city, county, postcode, country='Ireland'",
+        "  - membershipNumber → validate format XXX-XXXXX-XXX",
+        "  - membershipStatus → map to enrollment status (Active/Lapsed → active/inactive)",
+        "  - joinDate → enrollmentDate (parse ISO date)",
+        "Add validation errors to ImportRowData.errors array if any field invalid",
+        "Handle missing required fields gracefully (firstName, lastName required)",
+        "Add TypeScript types: GAAMember, ImportRowData",
+        "Run npx ultracite fix"
+      ],
+      "priority": 4,
+      "notes": "GAA addresses are often in single-line format: 'Street, Town, County, Postcode'. Parse carefully. Membership numbers are unique identifiers - store in externalIds for deduplication. Some members may not have email/phone - mark as warnings, not errors."
+    },
+    {
+      "id": "US-P4.2-005",
+      "title": "Implement GAA sync orchestrator action",
+      "description": "As an organization admin, I need to trigger a full sync from GAA Foireann that creates an import session and imports all members.",
+      "acceptanceCriteria": [
+        "Add to packages/backend/convex/actions/gaaFoireann.ts",
+        "Implement syncGAAMembers action with args: connectorId, organizationId",
+        "Create import session with status 'importing' and sourceType 'federation_sync'",
+        "Fetch membership list using fetchMembershipList",
+        "Transform all members using transformGAAMember",
+        "Run duplicate detection: check externalIds.foireann against existing players",
+        "For duplicates, check if any fields changed (name, DOB, email, phone, address)",
+        "If changes detected, mark player for update in import session",
+        "Store transformed data in import session with mapped fields",
+        "Call existing import pipeline to create/update players",
+        "Update import session stats: playersCreated, playersUpdated, duplicatesFound, errors",
+        "Update connector's lastSyncAt timestamp",
+        "On success, set session status to 'completed' and return session ID",
+        "On error, set session status to 'failed' and log error details",
+        "Run npx -w packages/backend convex codegen and npm run check-types"
+      ],
+      "priority": 5,
+      "notes": "This is the main sync orchestrator - ties together fetching, mapping, and importing. Reuses existing import logic from Phase 1-3 where possible. Should be idempotent - running multiple times shouldn't create duplicates."
+    },
+    {
+      "id": "US-P4.2-006",
+      "title": "Add GAA membership number validation and deduplication",
+      "description": "As the import system, I need to use GAA membership numbers as the primary deduplication key to prevent duplicate player records.",
+      "acceptanceCriteria": [
+        "Add to packages/backend/convex/lib/import/deduplicator.ts",
+        "Add checkGAAMembershipNumber function: (membershipNumber: string) => PlayerIdentity | null",
+        "Query playerIdentities by externalIds.foireann using index",
+        "If index doesn't exist, add by_externalIds index to playerIdentities table",
+        "Validate membership number format: XXX-XXXXX-XXX (3 digits - 5 digits - 3 digits)",
+        "Return matching player identity if found, null otherwise",
+        "Update deduplication pipeline to prioritize membership number over name/DOB matching",
+        "If membership number matches, auto-link with HIGH confidence",
+        "If no membership number match but name+DOB match, use existing confidence scoring",
+        "Store membership number in playerIdentities.externalIds.foireann field",
+        "Run npx -w packages/backend convex codegen"
+      ],
+      "priority": 6,
+      "notes": "GAA membership numbers are unique per person across Ireland - strongest deduplication signal. Some members may not have membership numbers (new/unregistered) - fallback to name+DOB matching for those."
+    },
+    {
+      "id": "US-P4.2-007",
+      "title": "Create GAA sync testing infrastructure",
+      "description": "As a developer, I need test utilities and mock data to validate GAA connector functionality without hitting the real Foireann API.",
+      "acceptanceCriteria": [
+        "Create packages/backend/convex/lib/federation/gaaTestData.ts",
+        "Export mockGAAMembers array with 10+ realistic test members",
+        "Include variety: valid members, missing email, invalid phone, malformed address, lapsed membership",
+        "Export mockGAAMembershipListResponse: paginated API response format",
+        "Export mockGAAMemberDetailResponse: detailed member API response",
+        "Create mockFoireannClient: mock implementation of FederationApiClient for testing",
+        "mockFoireannClient returns test data instead of making real API calls",
+        "Add test mutation: testGAASync({ useMockData: boolean }) to run sync with mock or real API",
+        "Add validation test: validateGAAFieldMapping() to verify all field transformations",
+        "Add duplicate detection test: testGAADeduplication() with known duplicates",
+        "Run npx ultracite fix"
+      ],
+      "priority": 7,
+      "notes": "Mock data enables testing without Foireann API access. Include edge cases: unicode names (Seán, Niamh), missing fields, malformed data. Test data should cover: new members, updated members, lapsed members, duplicates."
+    },
+    {
+      "id": "US-P4.2-008",
+      "title": "Add GAA sync error handling and recovery",
+      "description": "As the platform, I need robust error handling for GAA sync failures so partial failures don't corrupt data or leave orphaned records.",
+      "acceptanceCriteria": [
+        "Add error handling in syncGAAMembers action",
+        "Catch and log all errors with context: connectorId, organizationId, error message, stack trace",
+        "On API errors (401, 403, 429, 500): record in connector error log, update consecutiveFailures",
+        "On mapping errors: skip invalid member, log to import session errors array, continue processing",
+        "On import errors: rollback import session if <50% success rate, else mark as partial success",
+        "Implement retry logic for transient failures (500, 429): use exponential backoff from Phase 4.1",
+        "Send notification to org admins if sync fails",
+        "Update connector status to 'error' if 5 consecutive syncs fail",
+        "Add recoverFromFailedSync mutation to retry a failed sync session",
+        "Run npx ultracite fix and npm run check-types"
+      ],
+      "priority": 8,
+      "notes": "GAA Foireann API may be unreliable (downtime, rate limits). Sync should be resilient to partial failures. If 80%+ members sync successfully, mark as success with warnings. Log all errors for debugging."
+    }
+  ],
+  "technicalNotes": {
+    "database": {
+      "existingTables": [
+        "federationConnectors - configured in Phase 4.1",
+        "importSessions - reuse for GAA sync audit trail",
+        "playerIdentities - store GAA membership numbers in externalIds.foireann"
+      ],
+      "newIndexes": [
+        "playerIdentities.by_externalIds - lookup by federation member IDs (if not exists)"
+      ],
+      "mutations": [
+        "seedGAAConnector - create GAA Foireann connector configuration",
+        "testGAASync - test sync with mock data",
+        "recoverFromFailedSync - retry failed sync"
+      ],
+      "actions": [
+        "fetchMembershipList - fetch paginated membership list from Foireann API",
+        "fetchMemberDetail - fetch detailed member profile",
+        "syncGAAMembers - full sync orchestrator (fetch + map + import)"
+      ]
+    },
+    "backend": {
+      "newFiles": [
+        "packages/backend/convex/actions/gaaFoireann.ts - GAA API integration actions",
+        "packages/backend/convex/lib/federation/gaaMapper.ts - field mapping transformer",
+        "packages/backend/convex/lib/federation/gaaTestData.ts - mock data for testing"
+      ],
+      "modifiedFiles": [
+        "packages/backend/convex/lib/import/deduplicator.ts - add GAA membership number deduplication",
+        "packages/backend/convex/models/importTemplateSeeds.ts - add GAA connector seed"
+      ]
+    },
+    "api": {
+      "gaaFoireannEndpoints": [
+        "GET /clubs/{clubId}/members - list all members (paginated)",
+        "GET /members/{memberId} - get member detail",
+        "Pagination: likely uses ?page=1&limit=100 or ?cursor=xxx",
+        "Auth: OAuth 2.0 Bearer token in Authorization header",
+        "Rate limit: likely 100 requests/minute per club"
+      ]
+    }
+  },
+  "risks": [
+    {
+      "risk": "GAA Foireann API documentation may be incomplete or outdated",
+      "mitigation": "Create flexible field mapping that tolerates missing/extra fields. Log unknown fields for investigation. Contact GAA Foireann support for official API docs."
+    },
+    {
+      "risk": "Large clubs (500+ members) may timeout during sync",
+      "mitigation": "Implement batching: sync 100 members at a time, update progress. Add resume capability for interrupted syncs."
+    },
+    {
+      "risk": "GAA data quality issues (malformed emails, missing DOBs) may cause import failures",
+      "mitigation": "Validate and sanitize all fields. Skip invalid members with warnings rather than failing entire sync. Generate data quality report for org admins."
+    },
+    {
+      "risk": "OAuth tokens may expire mid-sync",
+      "mitigation": "Check token expiry before starting sync. Refresh if <5 min remaining. Handle 401 errors by refreshing token and retrying."
+    }
+  ],
+  "outOfScope": [
+    "AI-powered column mapping - Phase 4.3",
+    "Scheduled automatic syncs - Phase 4.4",
+    "Webhook receiver for Foireann push updates - Phase 4.4",
+    "Platform admin connector management UI - Phase 4.5",
+    "Manual field mapping overrides - future enhancement",
+    "Bi-directional sync (PlayerARC → Foireann) - future enhancement",
+    "Other federation connectors (FAI, IRFU, etc.) - future phases"
+  ],
+  "completionChecklist": [
+    "GAA Foireann connector seeded in database",
+    "Membership list fetcher handles pagination correctly",
+    "Member detail fetcher returns complete profile",
+    "Field mapping transforms all GAA fields to PlayerARC schema",
+    "GAA membership number validation works (format XXX-XXXXX-XXX)",
+    "Deduplication prioritizes membership numbers over name+DOB",
+    "Sync orchestrator creates import session and imports members",
+    "Error handling logs failures and retries transient errors",
+    "Mock data suite covers 10+ test scenarios",
+    "Test sync with mock data completes successfully",
+    "Validated field mappings with manual review of test output",
+    "Address parsing correctly splits into street/city/county/postcode",
+    "Phone normalization adds +353 country code correctly",
+    "Duplicate detection prevents duplicate players when re-syncing",
+    "All type checks pass: npm run check-types",
+    "All linting passes: npx ultracite fix && npm run check",
+    "Convex codegen succeeds: npx -w packages/backend convex codegen",
+    "No console errors or warnings",
+    "Git commit messages follow conventional commits format"
+  ]
+}

@@ -590,3 +590,88 @@ Logging:
 - Forgot to add ALL required stats fields (only added subset)
 
 ---
+## Sun 15 Feb 2026 23:30 - US-P4.2-008 - Add GAA sync error handling and recovery
+**Iteration**: 1
+**Commit**: ffa6e2dc50a7929dd5e3761090cd33a7f086e8e4
+**Session**: session-id-not-available
+**Status**: Complete
+
+### What was implemented
+- Created `packages/backend/convex/actions/gaaSync.ts` with enhanced sync actions
+- Implemented `syncGAAMembersEnhanced` action with comprehensive error handling:
+  - Retry logic for transient failures (429, 500, network errors) using exponential backoff
+  - Mapping error handling: separates valid/invalid rows, skips invalid members, logs errors
+  - Success rate calculation with 3 outcomes:
+    - Completed: ≥80% success
+    - Partial: 50-80% success (continues with warnings)
+    - Failed: <50% success (aborts sync)
+  - Connector error tracking via recordConnectorError mutation
+  - Stack trace logging for debugging
+  - Detailed console logging with prefixes `[GAA Sync Enhanced]`
+- Implemented `recoverFromFailedSync` action:
+  - Checks connector health before retrying
+  - Warns if 3+ consecutive failures
+  - Warns if connector is in 'error' status (5+ failures)
+  - Triggers new sync with enhanced error handling
+- Used existing retry logic from `lib/federation/backoff.ts` (withRetry, isRetryableError)
+- Integrated with existing connector error tracking (recordConnectorError, recordConnectorSuccess)
+- Integrated with existing import session error tracking
+
+### Files changed
+- packages/backend/convex/actions/gaaSync.ts (+455 lines, new file)
+  - syncGAAMembersEnhanced action with enhanced error handling
+  - recoverFromFailedSync action for retry logic
+- packages/backend/convex/actions/gaaFoireann.ts (+1 line, -0 lines)
+  - Added import for withRetry from backoff.ts
+- packages/backend/convex/_generated/api.d.ts (auto-generated)
+
+### Quality checks
+- ✅ Convex codegen: passed
+- ✅ Type check: passed (pre-existing admin errors OK per MEMORY.md)
+- ✅ Pre-commit hook: passed (biome check)
+- ⚠️ Browser verification: N/A (backend-only action)
+
+### **Learnings for future iterations** ⚠️ CRITICAL
+
+**Patterns discovered:**
+- Error handling should separate valid/invalid data BEFORE importing
+- Success rate thresholds: 80% = success, 50-80% = partial, <50% = fail
+- Connector error tracking already has auto-disable logic (5 consecutive failures)
+- Retry logic already exists in backoff.ts - no need to reimplement
+- Stack traces should be truncated for error logging (max 200 chars)
+- Use prefixes in console logs to distinguish between different sync modes
+
+**Gotchas encountered:**
+- Must use `withRetry` wrapper around entire fetch action, not individual calls
+- Error handling should try/catch session status updates separately (avoid double failures)
+- Connector error tracking uses recordConnectorError/recordConnectorSuccess mutations
+- Import session status should be set to "completed" even for "partial" status (business logic)
+
+**Dependencies found:**
+- syncGAAMembersEnhanced depends on:
+  - withRetry from lib/federation/backoff.ts
+  - fetchMembershipList from actions/gaaFoireann.ts
+  - transformGAAMembers from lib/federation/gaaMapper.ts
+  - batchImportPlayersWithIdentity from models/playerImport.ts
+  - recordConnectorError/recordConnectorSuccess from models/federationConnectors.ts
+  - updateSessionStatus/recordSessionStats from models/importSessions.ts
+- recoverFromFailedSync depends on:
+  - getConnector query to check connector health
+  - syncGAAMembersEnhanced action to retry sync
+
+**What's NOT implemented (marked as TODO in code):**
+- Send notification to org admins on sync failure (Phase 4.4)
+- Resume partial sync progress (would require storing intermediate state)
+
+**Mistakes made** (learn from these!):
+- Initially tried to replace existing syncGAAMembers - better to create separate file
+- First attempt didn't separate valid/invalid rows before importing
+- Almost forgot to add stack trace logging for debugging
+- Initially used "partial" as import session status - should be "completed" with warnings
+
+**Performance considerations:**
+- Retry logic adds latency: 3 attempts with exponential backoff can take 30+ seconds
+- Valid data separation requires filtering transformed data twice (valid and invalid)
+- Success rate calculation happens after import completes (no way to stop mid-import)
+
+---

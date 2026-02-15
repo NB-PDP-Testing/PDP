@@ -1188,3 +1188,35 @@ packages/backend/convex/actions/coachParentSummaries.ts:      "ANTHROPIC_API_KEY
   - **Problem:** `Promise.all(items.map(async => query))` makes N database calls
   - **Fix:** Batch fetch all IDs first, create Map for O(1) lookup
 
+
+## Auto Quality Check - 2026-02-15 01:15:01
+### File: /Users/jkobrien/code/PDP/packages/backend/convex/models/importAnalytics.ts
+
+- ⚠️ **Performance: .filter() usage detected**
+  - **Problem:** Should use .withIndex() for better performance
+  - **Fix:** Replace `.query().filter()` with `.query().withIndex()`
+
+
+## Auto Quality Check - 2026-02-15 01:15:01
+### File: /Users/jkobrien/code/PDP/packages/backend/convex/models/importAnalytics.ts
+
+- ❌ **CRITICAL: N+1 query pattern detected**
+  - **Problem:** `Promise.all(items.map(async => query))` makes N database calls
+  - **Fix:** Batch fetch all IDs first, create Map for O(1) lookup
+
+
+## Auto Quality Check - 2026-02-15 01:15:37
+### File: /Users/jkobrien/code/PDP/packages/backend/convex/models/importAnalytics.ts
+
+- ⚠️ **Performance: .filter() usage detected**
+  - **Problem:** Should use .withIndex() for better performance
+  - **Fix:** Replace `.query().filter()` with `.query().withIndex()`
+
+
+## Auto Quality Check - 2026-02-15 01:15:37
+### File: /Users/jkobrien/code/PDP/packages/backend/convex/models/importAnalytics.ts
+
+- ❌ **CRITICAL: N+1 query pattern detected**
+  - **Problem:** `Promise.all(items.map(async => query))` makes N database calls
+  - **Fix:** Batch fetch all IDs first, create Map for O(1) lookup
+

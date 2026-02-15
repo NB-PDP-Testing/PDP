@@ -131,7 +131,7 @@ export const getPlatformImportAnalytics = query({
 
 export const getOrgImportHistory = query({
   args: {
-    organizationId: v.id("organization"),
+    organizationId: v.string(), // Better Auth stores org IDs as strings, not Convex IDs
     limit: v.optional(v.number()),
     offset: v.optional(v.number()),
   },

@@ -55,14 +55,18 @@ export default function ImportHistoryPage() {
   const pageSize = 20;
 
   // Validate that user has access to this organization
-  // If memberships are loaded and this org is not in the list, it's invalid
-  const membership = getMembershipForOrg(orgId);
-  const isValidOrgId = memberships === undefined || membership !== undefined;
+  // Wait for memberships to load, then check if org exists in user's memberships
+  const membership = memberships ? getMembershipForOrg(orgId) : null;
+  const hasLoadedMemberships = memberships !== undefined;
+  const hasValidMembership = membership !== undefined && membership !== null;
 
-  // Fetch import history (skip if invalid orgId or still loading)
+  // Only query if memberships are loaded AND user has valid membership
+  const shouldQuery = hasLoadedMemberships && hasValidMembership;
+
+  // Fetch import history (skip if no valid membership)
   const historyData = useQuery(
     api.models.importAnalytics.getOrgImportHistory,
-    isValidOrgId && memberships !== undefined
+    shouldQuery
       ? {
           organizationId: orgId as any,
           limit: pageSize,
@@ -128,7 +132,7 @@ export default function ImportHistoryPage() {
   }
 
   // Show error if orgId is invalid (user doesn't have membership to this org)
-  if (!isValidOrgId) {
+  if (hasLoadedMemberships && !hasValidMembership) {
     const validOrgs = memberships || [];
 
     return (

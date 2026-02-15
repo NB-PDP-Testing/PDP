@@ -106,3 +106,62 @@ Started: Sun 15 Feb 2026 23:15:16 GMT
 - Fixed by using `+= 1` syntax instead
 
 ---
+
+## 2026-02-16 00:15 - US-P4.4-002/003 - Implement change detection and conflict resolution
+**Iteration**: 1
+**Commit**: 3992fae73f34b98c1872b5093f56da2a94dd6f4b
+**Session**: 28d554da-c69f-4334-9606-0515ca527995
+**Status**: Complete
+
+### What was implemented
+- Created `packages/backend/convex/lib/federation/changeDetector.ts` with comprehensive change detection logic
+- Implemented `detectChanges()` function:
+  - Compares federation data vs local data field-by-field
+  - Uses lastSyncedData to differentiate changes from conflicts
+  - Changed field = federation modified but local unchanged since last sync
+  - Conflict = both federation AND local modified since last sync
+  - Normalizes values to prevent false positives (whitespace, email case, phone formatting)
+  - Compares: firstName, lastName, dateOfBirth, email, phone, address
+- Implemented `resolveConflicts()` function:
+  - Supports three strategies: federation_wins, local_wins, merge
+  - federation_wins: always use federation value (default, safest)
+  - local_wins: always keep local value (for testing/bad federation data)
+  - merge: prefer local value (keeps user edits)
+  - Returns ResolvedData with merged values and resolution notes
+- Added TypeScript types and Convex validators for all data structures
+
+### Files changed
+- packages/backend/convex/lib/federation/changeDetector.ts (+295 new file)
+
+### Quality checks
+- ✅ Type check: passed (no new errors)
+- ✅ Convex codegen: passed
+- ✅ Linting: passed (biome converted interface to type)
+- ✅ Browser verification: N/A (library code, no UI)
+
+### **Learnings for future iterations** ⚠️ CRITICAL
+
+**Patterns discovered:**
+- Biome prefers `type` over `interface` for TypeScript types
+- Convex `v.record()` does NOT support optional values - must use `v.any()` instead
+- For library code, export both types AND validators for use in mutations/actions
+- Normalization is critical: emails (lowercase), phones (remove formatting), strings (trim)
+
+**Gotchas encountered:**
+- Initial error: `v.record(v.string(), v.optional(v.string()))` is invalid
+- Fix: Use `v.any()` with TypeScript type hint for Records with optional values
+- Biome unsafe fixes can auto-convert interface to type declarations
+
+**Dependencies found:**
+- None - this is pure library code with no external dependencies
+- Will be used by sync engine orchestrator (US-P4.4-004)
+
+**What to do next**:
+- ✅ Both stories complete (US-P4.4-002 and US-P4.4-003)
+- Next story: US-P4.4-004 (Create sync engine orchestrator)
+
+**Mistakes made** (learn from these!):
+- Used `interface` instead of `type` - biome prefers type declarations
+- Tried to use `v.record()` with optional values - not supported by Convex
+
+---

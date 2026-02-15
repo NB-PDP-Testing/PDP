@@ -76,6 +76,7 @@
         "Run npx ultracite fix"
       ],
       "priority": 2,
+      "passes": true,
       "notes": "Change detection prevents overwriting local edits with stale federation data. Normalization prevents false positives (e.g., 'John' vs 'john '). Track lastSyncedAt and updatedAt to detect local modifications."
     },
     {
@@ -96,6 +97,7 @@
         "Run npx ultracite fix and npm run check-types"
       ],
       "priority": 3,
+      "passes": true,
       "notes": "Most orgs should use federation_wins since federation is source of truth. local_wins useful for testing or when federation has bad data. merge is most complex but preserves both federation and local edits."
     },
     {

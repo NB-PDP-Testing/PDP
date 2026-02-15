@@ -4494,6 +4494,140 @@ export default defineSchema({
     .index("by_playerIdentityId_and_status", ["playerIdentityId", "status"]),
 
   // ============================================================
+  // VOICE PIPELINE MONITORING (Phase M1)
+  // Event logging, metrics snapshots, and real-time counters
+  // for monitoring the v2 voice note processing pipeline
+  // ============================================================
+
+  // Pipeline event log - single source of truth for all pipeline activity
+  voicePipelineEvents: defineTable({
+    eventId: v.string(), // UUID for deduplication
+    eventType: v.union(
+      v.literal("artifact_received"),
+      v.literal("artifact_status_changed"),
+      v.literal("artifact_completed"),
+      v.literal("artifact_failed"),
+      v.literal("transcription_started"),
+      v.literal("transcription_completed"),
+      v.literal("transcription_failed"),
+      v.literal("claims_extraction_started"),
+      v.literal("claims_extracted"),
+      v.literal("claims_extraction_failed"),
+      v.literal("entity_resolution_started"),
+      v.literal("entity_resolution_completed"),
+      v.literal("entity_resolution_failed"),
+      v.literal("entity_needs_disambiguation"),
+      v.literal("draft_generation_started"),
+      v.literal("drafts_generated"),
+      v.literal("draft_generation_failed"),
+      v.literal("draft_confirmed"),
+      v.literal("draft_rejected"),
+      v.literal("circuit_breaker_opened"),
+      v.literal("circuit_breaker_closed"),
+      v.literal("retry_initiated"),
+      v.literal("retry_succeeded"),
+      v.literal("retry_failed"),
+      v.literal("budget_threshold_reached"),
+      v.literal("budget_exceeded"),
+      v.literal("rate_limit_hit")
+    ),
+    artifactId: v.optional(v.id("voiceNoteArtifacts")),
+    voiceNoteId: v.optional(v.id("voiceNotes")),
+    organizationId: v.optional(v.string()),
+    coachUserId: v.optional(v.string()),
+    pipelineStage: v.optional(
+      v.union(
+        v.literal("ingestion"),
+        v.literal("transcription"),
+        v.literal("claims_extraction"),
+        v.literal("entity_resolution"),
+        v.literal("draft_generation"),
+        v.literal("confirmation")
+      )
+    ),
+    stageStartedAt: v.optional(v.number()),
+    stageCompletedAt: v.optional(v.number()),
+    durationMs: v.optional(v.number()),
+    previousStatus: v.optional(v.string()),
+    newStatus: v.optional(v.string()),
+    errorMessage: v.optional(v.string()),
+    errorCode: v.optional(v.string()),
+    metadata: v.optional(
+      v.object({
+        claimCount: v.optional(v.number()),
+        entityCount: v.optional(v.number()),
+        disambiguationCount: v.optional(v.number()),
+        confidenceScore: v.optional(v.number()),
+        transcriptDuration: v.optional(v.number()),
+        transcriptWordCount: v.optional(v.number()),
+        aiModel: v.optional(v.string()),
+        aiCost: v.optional(v.number()),
+        retryAttempt: v.optional(v.number()),
+        sourceChannel: v.optional(v.string()),
+      })
+    ),
+    timestamp: v.number(),
+    timeWindow: v.string(), // Format: 'YYYY-MM-DD-HH' for hourly partitioning
+  })
+    .index("by_artifactId", ["artifactId"])
+    .index("by_timestamp", ["timestamp"])
+    .index("by_eventType", ["eventType"])
+    .index("by_eventType_and_timestamp", ["eventType", "timestamp"])
+    .index("by_org_and_timestamp", ["organizationId", "timestamp"])
+    .index("by_pipelineStage", ["pipelineStage"])
+    .index("by_pipelineStage_and_timestamp", ["pipelineStage", "timestamp"])
+    .index("by_timeWindow", ["timeWindow"])
+    .index("by_timeWindow_and_eventType", ["timeWindow", "eventType"]),
+
+  // Pre-aggregated metrics snapshots for historical analytics
+  voicePipelineMetricsSnapshots: defineTable({
+    periodStart: v.number(), // Start of period timestamp
+    periodEnd: v.number(), // End of period timestamp
+    periodType: v.union(v.literal("hourly"), v.literal("daily")),
+    organizationId: v.optional(v.string()), // null = platform-wide
+    artifactsReceived: v.number(),
+    artifactsCompleted: v.number(),
+    artifactsFailed: v.number(),
+    avgTranscriptionLatency: v.number(),
+    avgClaimsExtractionLatency: v.number(),
+    avgEntityResolutionLatency: v.number(),
+    avgDraftGenerationLatency: v.number(),
+    avgEndToEndLatency: v.number(),
+    p95EndToEndLatency: v.number(),
+    avgTranscriptConfidence: v.number(),
+    avgClaimConfidence: v.number(),
+    autoResolutionRate: v.number(),
+    disambiguationRate: v.number(),
+    transcriptionFailureRate: v.number(),
+    claimsExtractionFailureRate: v.number(),
+    entityResolutionFailureRate: v.number(),
+    overallFailureRate: v.number(),
+    totalClaimsExtracted: v.number(),
+    totalEntitiesResolved: v.number(),
+    totalDraftsGenerated: v.number(),
+    totalAICost: v.number(),
+    avgCostPerArtifact: v.number(),
+    createdAt: v.number(),
+  })
+    .index("by_periodType_and_start", ["periodType", "periodStart"])
+    .index("by_org_periodType_start", [
+      "organizationId",
+      "periodType",
+      "periodStart",
+    ]),
+
+  // Real-time atomic counters for O(1) metrics queries
+  voicePipelineCounters: defineTable({
+    counterType: v.string(), // e.g., 'artifacts_received_1h', 'failures_1h'
+    organizationId: v.optional(v.string()), // null = platform-wide counter
+    currentValue: v.number(), // Incremented atomically in logEvent mutation
+    windowStart: v.number(), // Start of current time window
+    windowEnd: v.number(), // End of current time window
+  })
+    .index("by_counterType", ["counterType"])
+    .index("by_counterType_and_org", ["counterType", "organizationId"]),
+
+  // ============================================================
   // PLATFORM STAFF INVITATIONS
   // Invitations for granting platform staff access to new users
   // ============================================================

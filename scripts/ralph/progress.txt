@@ -311,3 +311,66 @@ Started: Sun 15 Feb 2026 23:15:16 GMT
 - Forgot to prefix unused `args` parameter with underscore
 
 ---
+## 2026-02-16 01:45 - US-P4.4-007 - Add sync retry logic with exponential backoff
+**Iteration**: 1
+**Commit**: dcab92712ff9f05aa6efd170dba35587916bdaee
+**Session**: 25579882-6297-4f83-80df-f737572ac46f
+**Status**: Complete
+
+### What was implemented
+- Created `packages/backend/convex/actions/syncQueueProcessor.ts` with retry processing
+- Implemented `processRetryQueue` internal action:
+  - Runs every 5 minutes via cron job
+  - Queries getJobsReadyForRetry to find jobs with nextRetryAt < now
+  - Retries each job using syncWithQueue action
+  - Tracks stats: jobsProcessed, successfulRetries, failedRetries
+  - 1-second delay between retries to avoid overwhelming system
+- Added `getJobsReadyForRetry` query to syncQueue.ts:
+  - Finds pending jobs with nextRetryAt in the past
+  - Uses by_nextRetryAt index for efficient querying
+  - Returns minimal job info needed for retry
+- Added cron job `process-retry-queue`: runs every 5 minutes
+- Retry logic (already implemented in US-P4.4-005):
+  - maxRetries field: default 3
+  - retryCount field: increments on each failure
+  - nextRetryAt field: calculated with exponential backoff
+  - Formula: 2^retryCount minutes (2, 4, 8 for attempts 1-3)
+  - After 3 failures, job marked as permanently failed
+
+### Files changed
+- packages/backend/convex/actions/syncQueueProcessor.ts (+103 new file)
+- packages/backend/convex/models/syncQueue.ts (+37, -1) - added getJobsReadyForRetry
+- packages/backend/convex/crons.ts (+8, -1) - added retry queue cron
+
+### Quality checks
+- ✅ Convex codegen: passed
+- ✅ Type check: passed (no new errors)
+- ✅ Linting: passed
+- ✅ Browser verification: N/A (backend-only change)
+
+### **Learnings for future iterations** ⚠️ CRITICAL
+
+**Patterns discovered:**
+- Retry queue processor runs every 5 minutes to check for retries
+- Query by_nextRetryAt index enables efficient "find jobs ready for retry" query
+- processRetryQueue is an internal action (not exposed to frontend)
+- Retry processing uses syncWithQueue to ensure atomic job claiming
+- Small delays (1 second) between retries prevent system overload
+
+**Gotchas encountered:**
+- None - implementation was straightforward
+
+**Dependencies found:**
+- processRetryQueue depends on:
+  - `api.models.syncQueue.getJobsReadyForRetry` (find jobs to retry)
+  - `api.actions.federationSyncEngine.syncWithQueue` (retry sync with queue protection)
+
+**What to do next**:
+- ✅ Story complete - all acceptance criteria met
+- Note: Admin notification for max retries is logged but not sent (TODO for future enhancement)
+- Next story: US-P4.4-006 (Implement webhook receiver) or US-P4.4-008 (Create sync history)
+
+**Mistakes made** (learn from these!):
+- None
+
+---

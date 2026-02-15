@@ -5014,4 +5014,68 @@ export default defineSchema({
     .index("by_org_and_connector", ["organizationId", "connectorId"])
     .index("by_org_and_status", ["organizationId", "status"])
     .index("by_nextRetryAt", ["nextRetryAt"]),
+
+  // Sync history and audit trail for federation syncs
+  syncHistory: defineTable({
+    connectorId: v.id("federationConnectors"),
+    organizationId: v.string(), // Better Auth organization ID
+    syncType: v.union(
+      v.literal("scheduled"), // Nightly cron sync
+      v.literal("manual"), // Admin-triggered sync
+      v.literal("webhook") // Webhook-triggered sync
+    ),
+
+    // Timing
+    startedAt: v.number(),
+    completedAt: v.optional(v.number()),
+
+    // Results
+    status: v.union(v.literal("completed"), v.literal("failed")),
+
+    // Statistics
+    stats: v.object({
+      playersProcessed: v.number(),
+      playersCreated: v.number(),
+      playersUpdated: v.number(),
+      conflictsDetected: v.number(),
+      conflictsResolved: v.number(),
+      errors: v.number(),
+    }),
+
+    // Conflict details for audit trail
+    conflictDetails: v.array(
+      v.object({
+        playerId: v.string(), // Player identity ID
+        playerName: v.string(), // For display
+        conflicts: v.array(
+          v.object({
+            field: v.string(), // Field name (firstName, lastName, etc.)
+            federationValue: v.optional(v.string()),
+            localValue: v.optional(v.string()),
+            resolvedValue: v.optional(v.string()),
+            strategy: v.string(), // "federation_wins", "local_wins", "merge"
+          })
+        ),
+      })
+    ),
+
+    // Errors encountered during sync
+    errors: v.optional(
+      v.array(
+        v.object({
+          playerId: v.optional(v.string()),
+          playerName: v.optional(v.string()),
+          error: v.string(),
+          timestamp: v.number(),
+        })
+      )
+    ),
+
+    // Link to import session if applicable
+    importSessionId: v.optional(v.id("importSessions")),
+  })
+    .index("by_organizationId", ["organizationId"])
+    .index("by_connectorId", ["connectorId"])
+    .index("by_startedAt", ["startedAt"])
+    .index("by_org_and_startedAt", ["organizationId", "startedAt"]),
 });

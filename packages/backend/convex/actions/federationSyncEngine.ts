@@ -152,9 +152,25 @@ export const syncWithConflictResolution = action({
     }> = [];
 
     let sessionId: Id<"importSessions"> | undefined;
+    let historyId: Id<"syncHistory"> | undefined;
 
     try {
-      // ========== STEP 1: CREATE IMPORT SESSION ==========
+      // ========== STEP 1: CREATE SYNC HISTORY ENTRY ==========
+
+      console.log("[Sync Engine] Creating sync history entry...");
+
+      historyId = await ctx.runMutation(
+        api.models.syncHistory.createSyncHistoryEntry,
+        {
+          connectorId: args.connectorId,
+          organizationId: args.organizationId,
+          syncType: "manual", // Default - will be updated by caller if scheduled
+        }
+      );
+
+      console.log(`[Sync Engine] Created sync history: ${historyId}`);
+
+      // ========== STEP 2: CREATE IMPORT SESSION ==========
 
       console.log("[Sync Engine] Creating import session...");
 

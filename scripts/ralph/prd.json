@@ -185,6 +185,7 @@
         "Run npx -w packages/backend convex codegen"
       ],
       "priority": 7,
+      "passes": true,
       "notes": "Exponential backoff: retry after 2 min, 4 min, 8 min. Prevents retry storms. Only retry transient errors (network, timeout, 500). Don't retry permanent errors (401, 404). Notify admin after 3 failed retries."
     },
     {

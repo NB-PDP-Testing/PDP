@@ -1,4 +1,4 @@
-# Security Report - 2026-02-15 23:40:49
+# Security Report - 2026-02-15 23:44:53
 
 **Phase:** P9
 **Critical:** 2 | **High:** 5 | **Medium:** 0
@@ -44,6 +44,7 @@ packages/backend/convex/actions/aiMapping.ts:        "ANTHROPIC_API_KEY not conf
   - packages/backend/convex/models/setup.ts
   - packages/backend/convex/models/teamPlayerIdentities.ts
   - packages/backend/convex/models/rateLimits.ts
+  - packages/backend/convex/models/syncHistory.ts
   - packages/backend/convex/models/platformStaffInvitations.ts
   - packages/backend/convex/models/coachParentMessages.ts
   - packages/backend/convex/models/aiModelConfig.ts

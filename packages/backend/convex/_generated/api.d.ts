@@ -162,6 +162,7 @@ import type * as models_skillBenchmarks from "../models/skillBenchmarks.js";
 import type * as models_sportAgeGroupConfig from "../models/sportAgeGroupConfig.js";
 import type * as models_sportPassports from "../models/sportPassports.js";
 import type * as models_sports from "../models/sports.js";
+import type * as models_syncHistory from "../models/syncHistory.js";
 import type * as models_syncQueue from "../models/syncQueue.js";
 import type * as models_teamCollaboration from "../models/teamCollaboration.js";
 import type * as models_teamDecisions from "../models/teamDecisions.js";
@@ -384,6 +385,7 @@ declare const fullApi: ApiFromModules<{
   "models/sportAgeGroupConfig": typeof models_sportAgeGroupConfig;
   "models/sportPassports": typeof models_sportPassports;
   "models/sports": typeof models_sports;
+  "models/syncHistory": typeof models_syncHistory;
   "models/syncQueue": typeof models_syncQueue;
   "models/teamCollaboration": typeof models_teamCollaboration;
   "models/teamDecisions": typeof models_teamDecisions;

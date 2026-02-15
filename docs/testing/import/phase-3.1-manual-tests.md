@@ -25,6 +25,48 @@ This guide provides step-by-step manual testing procedures for Phase 3.1: Confid
 
 ---
 
+## Testing Status (Updated 2026-02-15)
+
+### Fixes Applied During Testing Session
+
+✅ **Import History Stats Persistence** (Fixed)
+- Issue: Import history showed 0 players and disabled buttons
+- Fix: Added `recordSessionStats` mutation call to persist stats after import completes
+- Status: Import history now displays correct player counts and button states work properly
+
+✅ **History Page Filtering** (Fixed)
+- Issue: Incomplete/in-progress imports were showing in history
+- Fix: Filtered history query to only show completed/failed/cancelled/undone sessions
+- Status: Discard button behavior now correct - incomplete imports hidden from view
+
+✅ **Test Data for Confidence Testing** (Improved)
+- Issue: Single CSV file couldn't test varied confidence levels (duplicate detection checks EXISTING guardians in DB)
+- Fix: Created 2-step testing approach with separate files:
+  - `step1-base-guardians.csv` - Creates guardians with specific patterns
+  - `step2-duplicate-test.csv` - Matches those guardians with HIGH/MEDIUM/LOW confidence
+- Documentation: `docs/testing/import/test-data/README-CONFIDENCE-TESTING.md`
+- Status: Confidence testing now properly demonstrates all three confidence levels in one session
+
+✅ **Database Cleanup** (Implemented)
+- Cleared 11 test guardians, 88 players, 88 enrollments, 18 guardian-player links
+- Clean database state for fresh UAT testing
+
+### Known Issues
+
+⚠️ **Placeholder Buttons in Import History**
+- "Details" button uses console.log (Biome linter blocks alert())
+- Needs proper implementation to show import details modal/page
+
+### Ready for Testing
+
+The following features are ready for manual UAT:
+1. ✅ Confidence indicators with proper test data (2-step approach)
+2. ✅ Import history with correct stats and filtering
+3. ⏳ Partial undo functionality (needs testing)
+4. ⏳ Analytics dashboard (needs testing with platform staff account)
+
+---
+
 ## Test Data Preparation
 
 ### Test Accounts Required
@@ -40,34 +82,54 @@ This guide provides step-by-step manual testing procedures for Phase 3.1: Confid
 
 ### Sample CSV Files
 
-Create these test files before starting:
+**IMPORTANT**: Confidence level testing requires a **2-step import process** because duplicate detection checks uploaded players against EXISTING guardians in the database, NOT within the same CSV file.
 
-#### 1. **duplicate-guardians.csv** (For confidence testing)
+See `docs/testing/import/test-data/README-CONFIDENCE-TESTING.md` for complete instructions.
 
-This file contains intentional duplicate guardians to test confidence matching:
+#### 1. **step1-base-guardians.csv** (Create base guardians FIRST)
+
+Located at: `docs/testing/import/test-data/step1-base-guardians.csv`
+
+This file creates 4 guardians with specific data patterns for confidence testing:
 
 ```csv
-First Name,Last Name,Date of Birth,Gender,Parent Email,Parent Phone,Parent Name,Parent Address
-Emma,Walsh,2015-03-15,Female,sarah.walsh@email.com,0871234567,Sarah Walsh,12 Oak Street Dublin
-Jack,Murphy,2014-07-22,Male,john.murphy@email.com,0869876543,John Murphy,45 Main Road Cork
-Sophie,O'Connor,2015-11-08,Female,sarah.walsh@email.com,0857654321,Sarah Walsh,12 Oak Street Dublin
-Liam,Kelly,2014-05-20,Male,john.murphy@gmail.com,0869876543,John Murphy,45 Main Road Cork
-Aoife,Ryan,2015-09-12,Female,mary.ryan@email.com,0863334444,Mary Ryan,8 Church Lane Galway
-Conor,Brennan,2014-11-30,Male,mary.ryan@email.com,0863334444,M. Ryan,8 Church Lane Galway
-Niamh,McCarthy,2015-02-14,Female,lisa.mc@email.com,0877778888,Lisa McCarthy,22 Park View Limerick
-Cian,O'Sullivan,2014-08-25,Male,lisa.mc@email.com,087-777-8888,Lisa McCarthy,22 Park View Limerick
-Saoirse,Doyle,2015-06-18,Female,katie.d@email.com,0851112233,Katie Doyle,15 Hill Street Waterford
-Finn,Gallagher,2014-12-05,Male,katie.d@email.com,,Katie Doyle,
+First Name,Last Name,Date of Birth,Gender,Parent Email,Parent Phone,Parent First Name,Parent Last Name,Parent Address
+TestPlayer1,Walsh,2015-01-10,Male,guardian.full@test.com,0871111111,Guardian,Full,10 Test Street Dublin
+TestPlayer2,Murphy,2015-02-15,Female,guardian.emailname@test.com,,,Guardian,EmailName,
+TestPlayer3,Ryan,2015-03-20,Male,,0872222222,Guardian,PhoneOnly,
+TestPlayer4,McCarthy,2015-04-25,Female,guardian.emailonly@test.com,,,Different,Name,
+```
+
+**Instructions**:
+1. Upload this file first
+2. Complete the full import wizard
+3. Verify 4 players imported successfully
+
+#### 2. **step2-duplicate-test.csv** (Test duplicate confidence SECOND)
+
+Located at: `docs/testing/import/test-data/step2-duplicate-test.csv`
+
+This file will match against the guardians created in Step 1:
+
+```csv
+First Name,Last Name,Date of Birth,Gender,Parent Email,Parent Phone,Parent First Name,Parent Last Name,Parent Address
+DupTest1,FullMatch,2015-05-10,Male,guardian.full@test.com,0871111111,Guardian,Full,10 Test Street Dublin
+DupTest2,EmailNameMatch,2015-06-15,Female,guardian.emailname@test.com,,,Guardian,EmailName,
+DupTest3,PhoneMatch,2015-07-20,Male,,0872222222,Guardian,PhoneOnly,
+DupTest4,EmailDiffName,2015-08-25,Female,guardian.emailonly@test.com,,,Different,Name,
 ```
 
 **Expected Duplicate Patterns**:
-- **High Confidence (60+)**: Emma & Sophie (same email + name + address)
-- **Medium Confidence (40-59)**: Jack & Liam (same email domain + phone + address)
-- **Medium Confidence**: Aoife & Conor (exact email, similar name)
-- **Medium Confidence**: Niamh & Cian (exact email, phone format variation)
-- **Low Confidence (<40)**: Saoirse & Finn (same email, missing data)
+- **DupTest1 FullMatch**: HIGH confidence (100%) - Email + Phone + Name + Address all match
+- **DupTest2 EmailNameMatch**: HIGH confidence (60%) - Email + Name match
+- **DupTest3 PhoneMatch**: LOW confidence (30%) - Phone only
+- **DupTest4 EmailDiffName**: MEDIUM confidence (40%) - Email only, different name
 
-#### 2. **clean-players.csv** (For partial undo testing)
+#### 3. **clean-players.csv** (For partial undo testing)
+
+Located at: `docs/testing/import/test-data/` (create if not exists)
+
+This file has no duplicate guardians - used for testing partial undo functionality:
 
 ```csv
 First Name,Last Name,Date of Birth,Gender,Parent Email,Parent Phone
@@ -83,6 +145,11 @@ Kate,Nolan,2015-05-16,Female,kate.parent@example.com,0871234321
 James,Kennedy,2014-06-14,Male,james.parent@example.com,0864567890
 ```
 
+**Instructions**:
+1. Upload this file for testing partial undo features
+2. Complete import wizard normally (no duplicates will be detected)
+3. Use for testing selective player removal (Tests 3.1.5.x through 3.1.8.x)
+
 ---
 
 ## FEATURE 1: Confidence Indicators
@@ -93,28 +160,40 @@ James,Kennedy,2014-06-14,Male,james.parent@example.com,0864567890
 
 #### Test 3.1.1.1: High Confidence Match (Green Badge)
 
-**Setup**:
+**Setup** (2-Step Process):
+
+**STEP 1: Create Base Guardians**
 1. Log in as org admin
 2. Navigate to `/orgs/[orgId]/import`
-3. Upload `duplicate-guardians.csv`
-4. Complete mapping step (map ALL guardian columns):
+3. Upload `step1-base-guardians.csv`
+4. Complete mapping step (map ALL guardian columns)
+5. Complete selection step (select all 4 players)
+6. Complete import wizard - verify 4 players imported successfully
+
+**STEP 2: Test Duplicate Confidence**
+1. Navigate back to `/orgs/[orgId]/import`
+2. Upload `step2-duplicate-test.csv`
+3. Complete mapping step (map ALL guardian columns):
    - Parent Email → parentEmail
    - Parent Phone → parentPhone
    - **Parent First Name** → parentFirstName
    - **Parent Last Name** → parentLastName
    - Parent Address → parentAddress
-5. Complete selection step (select all players)
+4. Complete selection step (select all 4 players)
 
 **Steps**:
-1. On Review step, locate the duplicate for **Emma Walsh & Sophie O'Connor**
-2. Observe the confidence indicator at top of duplicate card
+1. On Review step, you should see **4 duplicate players detected**
+2. Locate the duplicate for **DupTest1 FullMatch** (matching Guardian Full)
+3. Observe the confidence indicator at top of duplicate card
 
 **Expected Results**:
 - [ ] **Green badge** displays with text **"High Confidence"**
 - [ ] Badge shows checkmark icon (✓)
-- [ ] Confidence score shows **60+** (exact score may be 80-100)
+- [ ] Confidence score shows **100%** (all signals match)
 - [ ] Progress bar below badge is **green**
 - [ ] Badge is clearly visible and prominent at top of card
+
+**Note**: There's also a second HIGH confidence match in this test: **DupTest2 EmailNameMatch** (60% - email + name match). You can verify both show green badges.
 
 **Actual Results**: _______________________________________________
 
@@ -125,13 +204,13 @@ James,Kennedy,2014-06-14,Male,james.parent@example.com,0864567890
 #### Test 3.1.1.2: Medium Confidence Match (Yellow Badge)
 
 **Steps**:
-1. On same Review step, locate duplicate for **Jack Murphy & Liam Kelly**
+1. On same Review step, locate duplicate for **DupTest4 EmailDiffName** (matching Different Name)
 2. Observe the confidence indicator
 
 **Expected Results**:
 - [ ] **Yellow/amber badge** displays with text **"Review Required"**
 - [ ] Badge shows alert/warning icon (⚠)
-- [ ] Confidence score shows **40-59** range
+- [ ] Confidence score shows **40%** (email only, no name match)
 - [ ] Progress bar below badge is **yellow**
 - [ ] Badge color contrasts clearly with green/red badges
 
@@ -144,13 +223,13 @@ James,Kennedy,2014-06-14,Male,james.parent@example.com,0864567890
 #### Test 3.1.1.3: Low Confidence Match (Red Badge)
 
 **Steps**:
-1. On same Review step, locate duplicate for **Saoirse Doyle & Finn Gallagher**
+1. On same Review step, locate duplicate for **DupTest3 PhoneMatch** (matching Guardian PhoneOnly)
 2. Observe the confidence indicator
 
 **Expected Results**:
 - [ ] **Red badge** displays with text **"Low Confidence"**
 - [ ] Badge shows X icon (✗)
-- [ ] Confidence score shows **<40** (likely 20-39)
+- [ ] Confidence score shows **30%** (phone only, no other signals)
 - [ ] Progress bar below badge is **red**
 - [ ] Badge clearly indicates manual review needed
 
@@ -191,15 +270,17 @@ James,Kennedy,2014-06-14,Male,james.parent@example.com,0864567890
 #### Test 3.1.3.2: Verify Weighted Calculation
 
 **Steps**:
-1. Find duplicate with **email match only** (e.g., Aoife & Conor)
+1. Find duplicate **DupTest4 EmailDiffName** (email match only)
 2. Expand Match Details
 3. Verify calculation logic
 
 **Expected Results**:
 - [ ] Email match shows ✓ contributing **40%**
-- [ ] Other signals show ✗ or low percentage
-- [ ] Total confidence score reflects weighted formula
-- [ ] If only email matches, score should be around 40-50
+- [ ] Phone match shows ✗ (0%)
+- [ ] Name similarity shows low percentage (0-10%)
+- [ ] Address match shows ✗ (0%)
+- [ ] Total confidence score = **40%** (email only)
+- [ ] Calculation breakdown clearly explains how 40% was reached
 
 **Actual Results**: _______________________________________________
 

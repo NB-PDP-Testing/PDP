@@ -1516,3 +1516,59 @@ packages/backend/convex/actions/coachParentSummaries.ts:      "ANTHROPIC_API_KEY
   - **Problem:** Should use .withIndex() for better performance
   - **Fix:** Replace `.query().filter()` with `.query().withIndex()`
 
+
+## Auto Quality Check - 2026-02-15 02:21:56
+### File: /Users/jkobrien/code/PDP/packages/backend/convex/models/importSessions.ts
+
+- ⚠️ **Performance: .filter() usage detected**
+  - **Problem:** Should use .withIndex() for better performance
+  - **Fix:** Replace `.query().filter()` with `.query().withIndex()`
+
+
+## Auto Quality Check - 2026-02-15 02:22:15
+### File: /Users/jkobrien/code/PDP/packages/backend/convex/models/importSessions.ts
+
+- ⚠️ **Performance: .filter() usage detected**
+  - **Problem:** Should use .withIndex() for better performance
+  - **Fix:** Replace `.query().filter()` with `.query().withIndex()`
+
+
+## Auto Quality Check - 2026-02-15 02:24:49
+### File: /Users/jkobrien/code/PDP/packages/backend/convex/models/importSessions.ts
+
+- ⚠️ **Performance: .filter() usage detected**
+  - **Problem:** Should use .withIndex() for better performance
+  - **Fix:** Replace `.query().filter()` with `.query().withIndex()`
+
+
+## Auto Quality Check - 2026-02-15 02:25:22
+### File: /Users/jkobrien/code/PDP/packages/backend/convex/models/importSessions.ts
+
+- ⚠️ **Performance: .filter() usage detected**
+  - **Problem:** Should use .withIndex() for better performance
+  - **Fix:** Replace `.query().filter()` with `.query().withIndex()`
+
+
+## Auto Quality Check - 2026-02-15 02:25:58
+### File: /Users/jkobrien/code/PDP/packages/backend/convex/models/importSessions.ts
+
+- ⚠️ **Performance: .filter() usage detected**
+  - **Problem:** Should use .withIndex() for better performance
+  - **Fix:** Replace `.query().filter()` with `.query().withIndex()`
+
+
+## Auto Quality Check - 2026-02-15 02:26:06
+### File: /Users/jkobrien/code/PDP/packages/backend/convex/models/importSessions.ts
+
+- ⚠️ **Performance: .filter() usage detected**
+  - **Problem:** Should use .withIndex() for better performance
+  - **Fix:** Replace `.query().filter()` with `.query().withIndex()`
+
+
+## Auto Quality Check - 2026-02-15 02:26:21
+### File: /Users/jkobrien/code/PDP/packages/backend/convex/models/importSessions.ts
+
+- ⚠️ **Performance: .filter() usage detected**
+  - **Problem:** Should use .withIndex() for better performance
+  - **Fix:** Replace `.query().filter()` with `.query().withIndex()`
+

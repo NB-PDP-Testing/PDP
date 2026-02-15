@@ -4815,6 +4815,20 @@ export default defineSchema({
     .index("by_templateId", ["templateId"])
     .index("by_targetField", ["targetField"]),
 
+  // Phase 4.3: AI-powered column mapping cache
+  // Caches Claude API mapping suggestions to reduce costs (30-day TTL)
+  aiMappingCache: defineTable({
+    columnPattern: v.string(), // Normalized column name (lowercase, trimmed, special chars removed)
+    sampleValues: v.array(v.string()), // First 3 sample values for context
+    suggestedField: v.string(), // Target field name (e.g., "firstName", "dateOfBirth")
+    confidence: v.number(), // 0-100 confidence score
+    reasoning: v.string(), // AI explanation for the mapping
+    createdAt: v.number(),
+    expiresAt: v.number(), // createdAt + 30 days (2592000000 ms)
+  })
+    .index("by_columnPattern", ["columnPattern"])
+    .index("by_expiresAt", ["expiresAt"]),
+
   // Real-time progress tracking for active imports
   importProgressTrackers: defineTable({
     sessionId: v.id("importSessions"),

@@ -37,6 +37,7 @@ import {
   TableHeader,
   TableRow,
 } from "@/components/ui/table";
+import { useMembershipContext } from "@/providers/membership-provider";
 
 type StatusFilter = "all" | "success" | "partial" | "failed";
 type DateRangeFilter = "7days" | "30days" | "all";
@@ -44,6 +45,7 @@ type DateRangeFilter = "7days" | "30days" | "all";
 export default function ImportHistoryPage() {
   const params = useParams();
   const orgId = params.orgId as string;
+  const { getMembershipForOrg, memberships } = useMembershipContext();
 
   const [statusFilter, setStatusFilter] = useState<StatusFilter>("all");
   const [dateRangeFilter, setDateRangeFilter] =
@@ -52,15 +54,15 @@ export default function ImportHistoryPage() {
 
   const pageSize = 20;
 
-  // Validate that orgId is actually an organization ID (starts with "j" followed by org table prefix)
-  // Organization IDs from Better Auth start with specific prefixes
-  // If the ID is from wrong table (e.g., injuries), show helpful error
-  const isValidOrgId = orgId && !orgId.includes("injuries");
+  // Validate that user has access to this organization
+  // If memberships are loaded and this org is not in the list, it's invalid
+  const membership = getMembershipForOrg(orgId);
+  const isValidOrgId = memberships === undefined || membership !== undefined;
 
-  // Fetch import history (skip if invalid orgId)
+  // Fetch import history (skip if invalid orgId or still loading)
   const historyData = useQuery(
     api.models.importAnalytics.getOrgImportHistory,
-    isValidOrgId
+    isValidOrgId && memberships !== undefined
       ? {
           organizationId: orgId as any,
           limit: pageSize,
@@ -116,7 +118,16 @@ export default function ImportHistoryPage() {
     return { variant: "secondary", label: "Partial" };
   };
 
-  // Show error if orgId is invalid
+  // Show loading while memberships are loading
+  if (memberships === undefined) {
+    return (
+      <div className="flex min-h-screen items-center justify-center">
+        <Loader />
+      </div>
+    );
+  }
+
+  // Show error if orgId is invalid (user doesn't have membership to this org)
   if (!isValidOrgId) {
     return (
       <div className="flex min-h-screen items-center justify-center p-4">
@@ -124,11 +135,11 @@ export default function ImportHistoryPage() {
           <CardHeader>
             <div className="flex items-center gap-2">
               <AlertTriangle className="h-5 w-5 text-destructive" />
-              <CardTitle>Invalid Organization ID</CardTitle>
+              <CardTitle>Invalid Organization</CardTitle>
             </div>
             <CardDescription>
-              The URL contains an invalid organization ID. This usually happens
-              when navigating from an incorrect link.
+              You don't have access to this organization, or the URL contains an
+              invalid organization ID.
             </CardDescription>
           </CardHeader>
           <CardContent className="space-y-4">

@@ -50,6 +50,7 @@ const assessmentValidator = v.object({
   sportCode: v.string(),
   skillCode: v.string(),
   organizationId: v.string(),
+  importSessionId: v.optional(v.id("importSessions")),
   rating: v.number(),
   previousRating: v.optional(v.number()),
   assessmentDate: v.string(),

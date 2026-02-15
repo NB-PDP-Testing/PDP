@@ -181,7 +181,7 @@ export function ImportDetailsDialog({
 
   return (
     <Dialog onOpenChange={(open) => !open && onClose()} open={!!sessionId}>
-      <DialogContent className="max-h-[90vh] max-w-3xl">
+      <DialogContent className="flex max-h-[90vh] w-[95vw] max-w-7xl flex-col">
         <DialogHeader>
           <DialogTitle className="flex items-center gap-2">
             <FileText className="h-5 w-5 text-primary" />
@@ -202,7 +202,10 @@ export function ImportDetailsDialog({
         )}
 
         {!isLoading && session && (
-          <Tabs className="flex-1" defaultValue="overview">
+          <Tabs
+            className="flex min-h-0 flex-1 flex-col"
+            defaultValue="overview"
+          >
             <TabsList>
               <TabsTrigger value="overview">Overview</TabsTrigger>
               <TabsTrigger value="players">
@@ -210,8 +213,8 @@ export function ImportDetailsDialog({
               </TabsTrigger>
             </TabsList>
 
-            <TabsContent value="overview">
-              <ScrollArea className="max-h-[calc(90vh-200px)]">
+            <TabsContent className="flex-1 overflow-hidden" value="overview">
+              <ScrollArea className="h-full">
                 <div className="space-y-6 pr-4">
                   {/* Import Metadata */}
                   <Card>
@@ -221,7 +224,7 @@ export function ImportDetailsDialog({
                       </CardTitle>
                     </CardHeader>
                     <CardContent className="grid gap-3 text-sm">
-                      <div className="grid grid-cols-[120px_1fr] gap-2">
+                      <div className="grid grid-cols-1 gap-1 sm:grid-cols-[120px_1fr] sm:gap-2">
                         <span className="text-muted-foreground">
                           Import ID:
                         </span>
@@ -229,15 +232,15 @@ export function ImportDetailsDialog({
                           {session._id}
                         </code>
                       </div>
-                      <div className="grid grid-cols-[120px_1fr] gap-2">
+                      <div className="grid grid-cols-1 gap-1 sm:grid-cols-[120px_1fr] sm:gap-2">
                         <span className="text-muted-foreground">
                           Started by:
                         </span>
                         <span className="font-medium">
-                          {session.initiatedBy}
+                          {session.initiatedByName || session.initiatedBy}
                         </span>
                       </div>
-                      <div className="grid grid-cols-[120px_1fr] gap-2">
+                      <div className="grid grid-cols-1 gap-1 sm:grid-cols-[120px_1fr] sm:gap-2">
                         <span className="text-muted-foreground">
                           Started at:
                         </span>
@@ -247,7 +250,7 @@ export function ImportDetailsDialog({
                       </div>
                       {session.completedAt && (
                         <>
-                          <div className="grid grid-cols-[120px_1fr] gap-2">
+                          <div className="grid grid-cols-1 gap-1 sm:grid-cols-[120px_1fr] sm:gap-2">
                             <span className="text-muted-foreground">
                               Completed at:
                             </span>
@@ -255,7 +258,7 @@ export function ImportDetailsDialog({
                               {new Date(session.completedAt).toLocaleString()}
                             </span>
                           </div>
-                          <div className="grid grid-cols-[120px_1fr] gap-2">
+                          <div className="grid grid-cols-1 gap-1 sm:grid-cols-[120px_1fr] sm:gap-2">
                             <span className="text-muted-foreground">
                               Duration:
                             </span>
@@ -263,17 +266,15 @@ export function ImportDetailsDialog({
                           </div>
                         </>
                       )}
-                      <div className="grid grid-cols-[120px_1fr] gap-2">
+                      <div className="grid grid-cols-1 gap-1 sm:grid-cols-[120px_1fr] sm:gap-2">
                         <span className="text-muted-foreground">Template:</span>
-                        <span>
-                          {session.templateId ? session.templateId : "Custom"}
-                        </span>
+                        <span>{session.templateName || "Custom"}</span>
                       </div>
-                      <div className="grid grid-cols-[120px_1fr] gap-2">
+                      <div className="grid grid-cols-1 gap-1 sm:grid-cols-[120px_1fr] sm:gap-2">
                         <span className="text-muted-foreground">
                           Source file:
                         </span>
-                        <span>
+                        <span className="break-all">
                           {session.sourceInfo.fileName || "Unknown file"}
                         </span>
                       </div>
@@ -288,9 +289,9 @@ export function ImportDetailsDialog({
                       </CardTitle>
                     </CardHeader>
                     <CardContent className="grid gap-3 text-sm">
-                      <div className="grid grid-cols-2 gap-4">
+                      <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
                         <div>
-                          <span className="text-muted-foreground">
+                          <span className="text-muted-foreground text-xs sm:text-sm">
                             Total rows processed:
                           </span>
                           <p className="mt-1 font-semibold text-lg">
@@ -298,7 +299,7 @@ export function ImportDetailsDialog({
                           </p>
                         </div>
                         <div>
-                          <span className="text-muted-foreground">
+                          <span className="text-muted-foreground text-xs sm:text-sm">
                             Selected rows:
                           </span>
                           <p className="mt-1 font-semibold text-lg">
@@ -520,8 +521,11 @@ export function ImportDetailsDialog({
               </ScrollArea>
             </TabsContent>
 
-            <TabsContent value="players">
-              <div className="space-y-4">
+            <TabsContent
+              className="flex min-h-0 flex-1 flex-col"
+              value="players"
+            >
+              <div className="flex min-h-0 flex-1 flex-col space-y-4">
                 {/* Search input */}
                 <div className="flex items-center gap-2">
                   <div className="relative flex-1">
@@ -545,12 +549,12 @@ export function ImportDetailsDialog({
                 </div>
 
                 {/* Desktop table */}
-                <div className="hidden md:block">
-                  <ScrollArea className="max-h-[calc(90vh-300px)]">
+                <div className="hidden min-h-0 flex-1 md:block">
+                  <ScrollArea className="h-full">
                     <Table>
                       <TableHeader>
                         <TableRow>
-                          <TableHead>
+                          <TableHead className="w-[200px]">
                             <Button
                               className="h-auto p-0 font-medium hover:bg-transparent"
                               onClick={() => handleSort("name")}
@@ -560,7 +564,7 @@ export function ImportDetailsDialog({
                               <ArrowUpDown className="ml-2 h-4 w-4" />
                             </Button>
                           </TableHead>
-                          <TableHead>
+                          <TableHead className="w-[130px]">
                             <Button
                               className="h-auto p-0 font-medium hover:bg-transparent"
                               onClick={() => handleSort("dob")}
@@ -570,9 +574,11 @@ export function ImportDetailsDialog({
                               <ArrowUpDown className="ml-2 h-4 w-4" />
                             </Button>
                           </TableHead>
-                          <TableHead>Gender</TableHead>
-                          <TableHead>Guardian</TableHead>
-                          <TableHead>
+                          <TableHead className="w-[100px]">Gender</TableHead>
+                          <TableHead className="min-w-[280px]">
+                            Guardian
+                          </TableHead>
+                          <TableHead className="w-[130px]">
                             <Button
                               className="h-auto p-0 font-medium hover:bg-transparent"
                               onClick={() => handleSort("status")}
@@ -582,7 +588,7 @@ export function ImportDetailsDialog({
                               <ArrowUpDown className="ml-2 h-4 w-4" />
                             </Button>
                           </TableHead>
-                          <TableHead>Teams</TableHead>
+                          <TableHead className="w-[120px]">Teams</TableHead>
                         </TableRow>
                       </TableHeader>
                       <TableBody>
@@ -595,7 +601,7 @@ export function ImportDetailsDialog({
                         ) : (
                           paginatedPlayers.map((player) => (
                             <TableRow key={player._id}>
-                              <TableCell>
+                              <TableCell className="w-[200px]">
                                 <Link
                                   className="font-medium hover:underline"
                                   href={`/orgs/${orgId}/players/${player._id}`}
@@ -603,18 +609,24 @@ export function ImportDetailsDialog({
                                   {player.firstName} {player.lastName}
                                 </Link>
                               </TableCell>
-                              <TableCell>
+                              <TableCell className="w-[130px]">
                                 {new Date(
                                   player.dateOfBirth
                                 ).toLocaleDateString()}
                               </TableCell>
-                              <TableCell className="capitalize">
+                              <TableCell className="w-[100px] capitalize">
                                 {player.gender}
                               </TableCell>
-                              <TableCell>
-                                {player.guardianName || "No Guardian"}
+                              <TableCell className="min-w-[280px]">
+                                <div className="line-clamp-2">
+                                  {player.guardianName || (
+                                    <span className="text-muted-foreground italic">
+                                      No Guardian
+                                    </span>
+                                  )}
+                                </div>
                               </TableCell>
-                              <TableCell>
+                              <TableCell className="w-[130px]">
                                 <Badge
                                   variant={
                                     player.enrollmentStatus === "active"
@@ -625,7 +637,7 @@ export function ImportDetailsDialog({
                                   {player.enrollmentStatus}
                                 </Badge>
                               </TableCell>
-                              <TableCell>
+                              <TableCell className="w-[120px]">
                                 {player.teamCount > 0 ? (
                                   <Badge variant="outline">
                                     {player.teamCount} team
@@ -646,8 +658,8 @@ export function ImportDetailsDialog({
                 </div>
 
                 {/* Mobile card list */}
-                <div className="md:hidden">
-                  <ScrollArea className="max-h-[calc(90vh-300px)]">
+                <div className="min-h-0 flex-1 md:hidden">
+                  <ScrollArea className="h-full">
                     <div className="space-y-3">
                       {paginatedPlayers.length === 0 ? (
                         <div className="rounded-md border p-8 text-center">

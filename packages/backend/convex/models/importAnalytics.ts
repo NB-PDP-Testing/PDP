@@ -250,7 +250,23 @@ export const getOrgImportHistory = query({
       }
     }
 
-    // Map sessions with user data
+    // Batch fetch template data for templateId field
+    const templateIds = paginatedSessions
+      .map((s) => s.templateId)
+      .filter((id): id is string => id !== undefined);
+
+    const templates = await Promise.all(
+      templateIds.map((templateId) => ctx.db.get(templateId))
+    );
+
+    const templateMap = new Map();
+    for (const template of templates) {
+      if (template) {
+        templateMap.set(template._id, template);
+      }
+    }
+
+    // Map sessions with user data and template names
     const imports = paginatedSessions.map((session) => {
       // Only include unresolved errors for status determination
       const unresolvedErrors = session.errors.filter((err) => !err.resolved);
@@ -259,7 +275,12 @@ export const getOrgImportHistory = query({
         _id: session._id,
         _creationTime: session._creationTime,
         status: session.status,
-        templateUsed: session.templateId ? String(session.templateId) : null,
+        templateUsed: session.templateId
+          ? (() => {
+              const template = templateMap.get(session.templateId);
+              return template?.name || null;
+            })()
+          : null,
         playersImported: session.stats.playersCreated || 0,
         guardiansCreated: session.stats.guardiansCreated || 0,
         errors: unresolvedErrors.map((err) => err.error), // Only unresolved errors

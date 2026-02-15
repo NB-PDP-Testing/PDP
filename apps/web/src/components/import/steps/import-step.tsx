@@ -386,6 +386,14 @@ export default function ImportStep({
       setProgress(20);
       setPhase("importing");
 
+      // Update session status to "importing" before starting import
+      if (sessionId) {
+        await updateStatus({
+          sessionId,
+          status: "importing",
+        });
+      }
+
       const result = await batchImport({
         organizationId,
         sportCode: sportCode || undefined,

@@ -1317,7 +1317,8 @@ export default function ReviewStep({
 
     onDuplicatesChange(detectedDuplicates);
     hasSetDuplicatesRef.current = true;
-  }, [duplicateDetectionResult, onDuplicatesChange]);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [duplicateDetectionResult]);
 
   // Build player payloads for simulation
   const simulationPlayers = useMemo(() => {
@@ -1360,12 +1361,8 @@ export default function ReviewStep({
     if (simulationResult && simulationRequested) {
       onSimulationComplete(simulationResult, currentDataHash);
     }
-  }, [
-    simulationResult,
-    simulationRequested,
-    onSimulationComplete,
-    currentDataHash,
-  ]);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [simulationResult, simulationRequested, currentDataHash]);
 
   const isSimulating = simulationRequested && simulationResult === undefined;
 

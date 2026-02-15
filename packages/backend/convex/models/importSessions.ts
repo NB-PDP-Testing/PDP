@@ -109,9 +109,9 @@ const sessionReturnValidator = v.object({
 
 // Valid status transitions
 const VALID_TRANSITIONS: Record<string, string[]> = {
-  uploading: ["mapping", "cancelled"],
-  mapping: ["selecting", "cancelled"],
-  selecting: ["reviewing", "cancelled"],
+  uploading: ["mapping", "importing", "cancelled"],
+  mapping: ["selecting", "importing", "cancelled"],
+  selecting: ["reviewing", "importing", "cancelled"],
   reviewing: ["importing", "cancelled"],
   importing: ["completed", "failed"],
   completed: ["undone"],
@@ -293,10 +293,50 @@ export const getSession = query({
   args: {
     sessionId: v.id("importSessions"),
   },
-  returns: v.union(sessionReturnValidator, v.null()),
+  returns: v.union(
+    v.object({
+      ...sessionReturnValidator.fields,
+      initiatedByName: v.optional(v.string()),
+      templateName: v.optional(v.string()),
+    }),
+    v.null()
+  ),
   handler: async (ctx, args) => {
     const session = await ctx.db.get(args.sessionId);
-    return session ?? null;
+    if (!session) {
+      return null;
+    }
+
+    // Fetch user name for initiatedBy
+    let initiatedByName: string | undefined;
+    try {
+      const user = await ctx.runQuery(components.betterAuth.adapter.findOne, {
+        model: "user",
+        where: [
+          {
+            field: "_id",
+            value: session.initiatedBy,
+            operator: "eq",
+          },
+        ],
+      });
+      initiatedByName = user?.name || user?.email || undefined;
+    } catch {
+      // If user not found, leave undefined
+    }
+
+    // Fetch template name if templateId exists
+    let templateName: string | undefined;
+    if (session.templateId) {
+      const template = await ctx.db.get(session.templateId);
+      templateName = template?.name || undefined;
+    }
+
+    return {
+      ...session,
+      initiatedByName,
+      templateName,
+    };
   },
 });
 

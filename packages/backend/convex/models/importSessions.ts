@@ -2,6 +2,7 @@ import { v } from "convex/values";
 import { components } from "../_generated/api";
 import { mutation, query } from "../_generated/server";
 import { authComponent } from "../auth";
+import { findGuardianMatches } from "../lib/matching/guardianMatcher";
 
 // ============================================================
 // IMPORT SESSIONS LIFECYCLE
@@ -773,11 +774,6 @@ export const detectDuplicateGuardians = query({
     })
   ),
   handler: async (ctx, args) => {
-    // Import guardian matcher
-    const { findGuardianMatches } = await import(
-      "../lib/matching/guardianMatcher"
-    );
-
     const duplicates = [];
 
     // Check each player for existing guardian matches

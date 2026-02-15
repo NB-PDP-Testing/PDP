@@ -3,7 +3,7 @@ Started: Sat 14 Feb 2026 22:32:30 GMT
 ---
 
 ## Codebase Patterns
-**Last Updated**: 2026-02-14 22:35 - Iteration 1
+**Last Updated**: 2026-02-15 01:20 - Iteration 10 (Phase 3.1 Complete)
 
 ### Architecture
 - All routes scoped under `/orgs/[orgId]/`
@@ -38,6 +38,21 @@ Started: Sat 14 Feb 2026 22:32:30 GMT
 - Run in order: `npx -w packages/backend convex codegen` → `npm run check-types` → `npx ultracite fix` → `npm run check`
 - Ultracite must run before linting or you'll get false failures
 - Pre-commit hooks run automatically on commit
+
+### Import Management Patterns
+- NEVER add imports and usage in separate Edit calls - linter removes "unused" imports
+- Solution: Use Bash cat with HEREDOC to replace entire file when adding new icons/components
+- Dynamic route params (params.orgId) are `string` type, cast to `any` for Convex queries
+- Platform staff check: `user.isPlatformStaff === true`
+- CSV export pattern: Blob → createObjectURL → link.click() → revokeObjectURL
+
+### Analytics & Dashboard Patterns
+- Platform-wide analytics route: `/platform/analytics/import` (staff only)
+- Org-level history route: `/orgs/[orgId]/import/history` (org members + staff)
+- Use recharts for data visualization (LineChart, ResponsiveContainer)
+- Mobile responsive tables: desktop table (hidden sm:block), mobile cards (sm:hidden)
+- Export CSV: escape quotes with `replace(/"/g, '""')`, filename with ISO date
+- Show More/Less pattern: useMemo for slicing + boolean toggle state
 
 ---
 

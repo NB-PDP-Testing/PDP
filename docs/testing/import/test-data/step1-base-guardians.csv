@@ -1,0 +1,5 @@
+First Name,Last Name,Date of Birth,Gender,Parent Email,Parent Phone,Parent First Name,Parent Last Name,Parent Address
+TestPlayer1,Walsh,2015-01-10,Male,guardian.full@test.com,0871111111,Guardian,Full,10 Test Street Dublin
+TestPlayer2,Murphy,2015-02-15,Female,guardian.emailname@test.com,,,Guardian,EmailName,
+TestPlayer3,Ryan,2015-03-20,Male,,0872222222,Guardian,PhoneOnly,
+TestPlayer4,McCarthy,2015-04-25,Female,guardian.emailonly@test.com,,,Different,Name,

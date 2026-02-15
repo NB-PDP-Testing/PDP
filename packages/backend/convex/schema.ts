@@ -4877,4 +4877,60 @@ export default defineSchema({
     .index("by_sportCode", ["sportCode"])
     .index("by_scope", ["scope"])
     .index("by_organizationId", ["organizationId"]),
+
+  // Federation connector configurations for external sports management systems
+  federationConnectors: defineTable({
+    name: v.string(), // "GAA Foireann API"
+    federationCode: v.string(), // Unique identifier: "gaa_foireann"
+    status: v.union(
+      v.literal("active"),
+      v.literal("inactive"),
+      v.literal("error")
+    ),
+
+    // Authentication configuration
+    authType: v.union(
+      v.literal("oauth2"),
+      v.literal("api_key"),
+      v.literal("basic")
+    ),
+    credentialsStorageId: v.id("_storage"), // Reference to encrypted credentials file
+
+    // API endpoints
+    endpoints: v.object({
+      membershipList: v.string(), // URL to fetch member list
+      memberDetail: v.optional(v.string()), // URL to fetch individual member details
+      webhookSecret: v.optional(v.string()), // Webhook verification secret
+    }),
+
+    // Sync configuration
+    syncConfig: v.object({
+      enabled: v.boolean(),
+      schedule: v.optional(v.string()), // Cron expression (e.g., "0 2 * * *")
+      conflictStrategy: v.string(), // "federation_wins", "local_wins", "manual"
+    }),
+
+    // Default import template for this connector
+    templateId: v.id("importTemplates"),
+
+    // Organizations connected to this federation
+    connectedOrganizations: v.array(
+      v.object({
+        organizationId: v.string(), // Better Auth organization ID
+        federationOrgId: v.string(), // External federation organization ID
+        enabledAt: v.number(), // Timestamp when connection was enabled
+        lastSyncAt: v.optional(v.number()), // Last successful sync timestamp
+      })
+    ),
+
+    // Error tracking
+    lastErrorAt: v.optional(v.number()),
+    lastSuccessAt: v.optional(v.number()),
+    consecutiveFailures: v.optional(v.number()),
+
+    createdAt: v.number(),
+    updatedAt: v.number(),
+  })
+    .index("by_federationCode", ["federationCode"])
+    .index("by_status", ["status"]),
 });

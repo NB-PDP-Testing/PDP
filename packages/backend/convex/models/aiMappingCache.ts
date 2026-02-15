@@ -4,12 +4,63 @@
  */
 
 import { v } from "convex/values";
-import { mutation, query } from "../_generated/server";
+import { internal } from "../_generated/api";
+import {
+  internalMutation,
+  internalQuery,
+  mutation,
+  query,
+} from "../_generated/server";
 
 /**
- * Get a cached mapping by column pattern and sample values
+ * Get a cached mapping by column pattern and sample values (public)
  */
 export const getCachedMapping = query({
+  args: {
+    columnPattern: v.string(),
+    sampleValues: v.array(v.string()),
+  },
+  returns: v.union(
+    v.object({
+      _id: v.id("aiMappingCache"),
+      columnPattern: v.string(),
+      sampleValues: v.array(v.string()),
+      suggestedField: v.string(),
+      confidence: v.number(),
+      reasoning: v.string(),
+      createdAt: v.number(),
+      expiresAt: v.number(),
+    }),
+    v.null()
+  ),
+  handler: async (ctx, args) => {
+    // Look up by column pattern first (indexed)
+    const results = await ctx.db
+      .query("aiMappingCache")
+      .withIndex("by_columnPattern", (q) =>
+        q.eq("columnPattern", args.columnPattern)
+      )
+      .collect();
+
+    // Filter by sample values (array comparison)
+    // We compare the first 3 sample values
+    for (const result of results) {
+      const resultSamples = result.sampleValues.slice(0, 3).join("|");
+      const argSamples = args.sampleValues.slice(0, 3).join("|");
+
+      if (resultSamples === argSamples) {
+        return result;
+      }
+    }
+
+    return null;
+  },
+});
+
+/**
+ * Get a cached mapping by column pattern and sample values (internal)
+ */
+export const getCachedMappingInternal = internalQuery({
   args: {
     columnPattern: v.string(),
     sampleValues: v.array(v.string()),
@@ -67,10 +118,13 @@ export const storeCachedMapping = mutation({
   returns: v.id("aiMappingCache"),
   handler: async (ctx, args) => {
     // Check if entry already exists (avoid duplicates)
-    const existing = await getCachedMapping(ctx, {
-      columnPattern: args.columnPattern,
-      sampleValues: args.sampleValues,
-    });
+    const existing = await ctx.runQuery(
+      internal.models.aiMappingCache.getCachedMappingInternal,
+      {
+        columnPattern: args.columnPattern,
+        sampleValues: args.sampleValues,
+      }
+    );
 
     if (existing) {
       // Update existing entry
@@ -102,7 +156,7 @@ export const storeCachedMapping = mutation({
 /**
  * Delete expired cache entries (called by cron job)
  */
-export const cleanupExpiredCache = mutation({
+export const cleanupExpiredCache = internalMutation({
   args: {},
   returns: v.number(), // Number of entries deleted
   handler: async (ctx) => {

@@ -1,12 +1,12 @@
 # PlayerARC - Phase 4.3: AI-Powered Column Mapping
 
-> Auto-generated documentation - Last updated: 2026-02-15 22:36
+> Auto-generated documentation - Last updated: 2026-02-15 22:42
 
 ## Status
 
 - **Branch**: `ralph/phase-4.3-ai-column-mapping`
-- **Progress**: 5 / 8 stories complete
-- **Phase Status**: 🔄 In Progress
+- **Progress**: 8 / 8 stories complete
+- **Phase Status**: ✅ Complete
 
 ## Completed Features
 
@@ -94,6 +94,61 @@ As the import system, I need to suggest mappings for all CSV columns at once to 
 - Sort results by confidence: HIGH → MEDIUM → LOW for UI display
 - Add TypeScript types: BatchMappingRequest, BatchMappingResult
 - Run npx ultracite fix and npm run check-types
+
+### US-P4.3-006: Add AI suggestions to mapping step UI
+
+As an org admin during CSV import, I want to see AI-suggested column mappings so I can quickly review and accept them instead of mapping manually.
+
+**Acceptance Criteria:**
+- Update apps/web/src/components/import/steps/mapping-step.tsx
+- Add 'Get AI Suggestions' button above mapping table
+- Button disabled if no CSV uploaded or columns already mapped
+- On click, call suggestAllMappings action with column names and sample values
+- Show loading spinner: 'AI is analyzing your columns...'
+- On response, update UI to show AI suggestions:
+-   - HIGH confidence (80%+): green badge 'AI Suggested' with checkmark icon
+-   - MEDIUM confidence (50-79%): yellow badge 'AI Suggested' with warning icon
+-   - LOW confidence (<50%): red badge 'AI Suggested' with question icon
+- Display confidence percentage and reasoning in tooltip (hover over badge)
+- Add 'Accept' button next to each suggestion (green checkmark icon)
+- Add 'Reject' button next to each suggestion (red X icon)
+- On Accept: update mapping, mark column as mapped, remove suggestion badge
+- On Reject: clear suggestion, show manual dropdown for that column
+- Add 'Accept All High Confidence' button to bulk-accept 80%+ suggestions
+- Show summary: 'AI suggested X of Y columns (Z% confidence)'
+- Run npx ultracite fix
+
+### US-P4.3-007: Update mapping history with AI suggestions
+
+As the import system, I need to record accepted AI mappings in mapping history so the system learns from user corrections.
+
+**Acceptance Criteria:**
+- Update recordMappingHistory mutation in packages/backend/convex/models/importSessions.ts
+- Add optional aiSuggested field: boolean (true if mapping was AI-suggested)
+- Add optional aiConfidence field: number (0-100, original AI confidence score)
+- When user accepts AI suggestion, call recordMappingHistory with aiSuggested=true
+- When user rejects AI suggestion and manually maps, call recordMappingHistory with aiSuggested=false
+- Track correction rate: count rejections vs acceptances for each confidence level
+- Add getCorrectionStats query: returns correction rates by confidence level (for monitoring AI accuracy)
+- Use correction stats to adjust confidence thresholds over time (future enhancement)
+- Run npx -w packages/backend convex codegen and npm run check-types
+
+### US-P4.3-008: Add AI mapping analytics and monitoring
+
+As a platform admin, I need to monitor AI mapping performance (accuracy, cache hit rate, costs) to optimize the system.
+
+**Acceptance Criteria:**
+- Create packages/backend/convex/models/aiMappingAnalytics.ts
+- Implement trackAIMappingUsage mutation: logs each AI mapping call
+- Fields: timestamp, columnName, cached (boolean), confidence, accepted (boolean), correctedTo (string if rejected)
+- Add index: by_timestamp for time-based queries
+- Implement getAIMappingStats query: returns analytics for date range
+- Stats: totalMappings, cacheHitRate, avgConfidence, acceptanceRate, topCorrectedMappings
+- Implement getAICostEstimate query: estimates API costs based on usage
+- Cost calculation: uncached mappings * $0.003 per request (Sonnet pricing)
+- Add cache cleanup mutation: deletes expired cache entries older than 30 days
+- Schedule cache cleanup in crons.ts: run daily at 2 AM
+- Run npx -w packages/backend convex codegen
 
 
 ## Implementation Notes

@@ -182,4 +182,12 @@ crons.daily(
   {}
 );
 
+// Phase 4.3: Clean up expired AI mapping cache daily at 2 AM UTC
+crons.daily(
+  "cleanup-expired-ai-cache",
+  { hourUTC: 2, minuteUTC: 0 },
+  internal.models.aiMappingCache.cleanupExpiredCache,
+  {}
+);
+
 export default crons;

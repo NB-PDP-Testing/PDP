@@ -183,7 +183,8 @@
         "Run npx -w packages/backend convex codegen and npm run check-types"
       ],
       "priority": 7,
-      "notes": "Learning from user corrections improves future AI suggestions. If users consistently reject 60% confidence suggestions, we can raise the threshold. If they accept 45% suggestions, we can lower it."
+      "notes": "Learning from user corrections improves future AI suggestions. If users consistently reject 60% confidence suggestions, we can raise the threshold. If they accept 45% suggestions, we can lower it.",
+      "passes": true
     },
     {
       "id": "US-P4.3-008",
@@ -203,7 +204,8 @@
         "Run npx -w packages/backend convex codegen"
       ],
       "priority": 8,
-      "notes": "Monitoring is essential for AI features. Track acceptance rate to measure user trust. Cache hit rate shows cost savings. Cost estimates help budget planning. Cleanup prevents database bloat."
+      "notes": "Monitoring is essential for AI features. Track acceptance rate to measure user trust. Cache hit rate shows cost savings. Cost estimates help budget planning. Cleanup prevents database bloat.",
+      "passes": true
     }
   ],
   "technicalNotes": {

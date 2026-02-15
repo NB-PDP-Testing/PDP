@@ -156,6 +156,7 @@
       "id": "US-P4.2-006",
       "title": "Add GAA membership number validation and deduplication",
       "description": "As the import system, I need to use GAA membership numbers as the primary deduplication key to prevent duplicate player records.",
+      "passes": true,
       "acceptanceCriteria": [
         "Add to packages/backend/convex/lib/import/deduplicator.ts",
         "Add checkGAAMembershipNumber function: (membershipNumber: string) => PlayerIdentity | null",

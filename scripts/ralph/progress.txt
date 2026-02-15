@@ -402,3 +402,93 @@ Logging:
 - [ ] Update deduplication pipeline to prioritize membership number over name+DOB
 
 ---
+## Sun 15 Feb 2026 23:59 - US-P4.2-006 - Add GAA membership number validation and deduplication
+**Iteration**: 1
+**Commit**: ba67f87bab7fcb49becd944e3643220c7ae80276
+**Session**: 87c3472f-be85-4d65-b4df-042771405025
+**Status**: Complete
+
+### What was implemented
+- Created `packages/backend/convex/lib/import/deduplicator.ts` with GAA membership number validation
+- Validates GAA membership number format: XXX-XXXXX-XXX (3 digits - 5 digits - 3 digits)
+- Added `checkGAAMembershipNumber` internal query for single player lookup by externalIds.foireann
+- Added `batchCheckGAAMembershipNumbers` internal query for efficient bulk lookups
+- Added `findPlayerByGAAMembershipNumber` public query for admin UI
+- Updated deduplication priority in `batchImportPlayersWithIdentity`:
+  - PRIORITY 1: Check externalIds.foireann match (strongest deduplication signal)
+  - PRIORITY 2: Check name+DOB match (fallback if no external ID)
+- Added `externalIds` field to `batchImportPlayersWithIdentity` args validator
+- Store `externalIds` when creating new player identities
+- Update existing players with new external IDs if matched by name+DOB
+- Updated `syncGAAMembers` to pass externalIds in player data
+- GAA membership number now flows: Foireann API → transformer → import → storage
+
+### Files changed
+- packages/backend/convex/lib/import/deduplicator.ts (+217 lines, new file)
+  - GAA membership number validation (regex: /^\d{3}-\d{5}-\d{3}$/)
+  - checkGAAMembershipNumber internal query
+  - batchCheckGAAMembershipNumbers internal query (more efficient for bulk)
+  - findPlayerByGAAMembershipNumber public query
+- packages/backend/convex/models/playerImport.ts (+55 lines, -9 lines)
+  - Added externalIds field to player object validator
+  - Added explicit type annotation for existingPlayer variable
+  - Added externalIds priority matching logic
+  - Store externalIds when creating player identities
+  - Patch existing players with new external IDs if matched by name+DOB
+- packages/backend/convex/actions/gaaFoireann.ts (+1 line)
+  - Pass externalIds in playersToImport array
+- packages/backend/convex/_generated/api.d.ts (auto-generated from codegen)
+
+### Quality checks
+- ✅ Convex codegen: passed
+- ✅ Type check: passed (pre-existing errors in other files OK)
+- ✅ Linting: passed (pre-commit hook biome check passed)
+- ⚠️ Browser verification: N/A (backend-only feature)
+
+### **Learnings for future iterations** ⚠️ CRITICAL
+
+**Patterns discovered:**
+- Convex doesn't support indexes on nested object fields (externalIds.foireann)
+- Must use full table scan to search by externalIds - O(n) performance
+- Batch queries more efficient than multiple single queries (scan table once)
+- Use explicit type annotations for variables to avoid "evolving type" linter errors
+- Priority-based matching: check strongest signal first, fallback to weaker signals
+- Can patch existing records with new data when matched by secondary key
+
+**Gotchas encountered:**
+- Biome formatter requires specific line breaks for long function signatures
+- Pre-commit hook runs `biome check --diagnostic-level=error` - must pass to commit
+- TypeScript `noEvolvingTypes` rule requires explicit type on variables that start as null
+- Return type unions with literal types need `as const` assertions
+- Full table scan performance OK for now but consider lookup table for scale
+
+**Dependencies found:**
+- deduplicator.ts depends on:
+  - Convex internalQuery and query from server
+  - Id<"playerIdentities"> type from dataModel
+- playerImport.ts depends on:
+  - internal.lib.import.deduplicator.checkGAAMembershipNumber
+  - Must call via ctx.runQuery (actions/mutations can't directly call internal queries)
+- GAA sync depends on:
+  - externalIds field in transformed data (from gaaMapper.ts)
+  - playerImport accepting externalIds field
+
+**What to do next**:
+- [ ] Implement US-P4.2-007: Create GAA sync testing infrastructure
+- [ ] Will create packages/backend/convex/lib/federation/gaaTestData.ts
+- [ ] Mock GAA member data for testing without real API
+- [ ] Test utilities to validate field mapping and deduplication
+
+**Mistakes made** (learn from these!):
+- Initially didn't add explicit type to `existingPlayer` variable - linter error
+- First commit failed due to formatting (handler signature line breaks)
+- Almost forgot to use `as const` for literal types in return statements
+
+**Performance considerations for future:**
+- Full table scan is O(n) - fine for small/medium clubs (<10k players)
+- For large clubs (10k+ players), consider:
+  - Separate externalPlayerIds lookup table with indexes
+  - Caching layer for recently queried membership numbers
+  - Limit queries to specific organizationId if available
+
+---

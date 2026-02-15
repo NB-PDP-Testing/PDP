@@ -52,12 +52,22 @@ export default function ImportHistoryPage() {
 
   const pageSize = 20;
 
-  // Fetch import history
-  const historyData = useQuery(api.models.importAnalytics.getOrgImportHistory, {
-    organizationId: orgId as any,
-    limit: pageSize,
-    offset: currentPage * pageSize,
-  });
+  // Validate that orgId is actually an organization ID (starts with "j" followed by org table prefix)
+  // Organization IDs from Better Auth start with specific prefixes
+  // If the ID is from wrong table (e.g., injuries), show helpful error
+  const isValidOrgId = orgId && !orgId.includes("injuries");
+
+  // Fetch import history (skip if invalid orgId)
+  const historyData = useQuery(
+    api.models.importAnalytics.getOrgImportHistory,
+    isValidOrgId
+      ? {
+          organizationId: orgId as any,
+          limit: pageSize,
+          offset: currentPage * pageSize,
+        }
+      : "skip"
+  );
 
   // Filter imports by status and date range
   const filteredImports = historyData?.imports.filter((imp) => {
@@ -105,6 +115,49 @@ export default function ImportHistoryPage() {
     }
     return { variant: "secondary", label: "Partial" };
   };
+
+  // Show error if orgId is invalid
+  if (!isValidOrgId) {
+    return (
+      <div className="flex min-h-screen items-center justify-center p-4">
+        <Card className="max-w-md">
+          <CardHeader>
+            <div className="flex items-center gap-2">
+              <AlertTriangle className="h-5 w-5 text-destructive" />
+              <CardTitle>Invalid Organization ID</CardTitle>
+            </div>
+            <CardDescription>
+              The URL contains an invalid organization ID. This usually happens
+              when navigating from an incorrect link.
+            </CardDescription>
+          </CardHeader>
+          <CardContent className="space-y-4">
+            <p className="text-sm">
+              <strong>Current ID:</strong>{" "}
+              <code className="rounded bg-muted px-1 py-0.5 text-xs">
+                {orgId}
+              </code>
+            </p>
+            <p className="text-muted-foreground text-sm">
+              To access import history:
+            </p>
+            <ol className="ml-4 list-decimal space-y-1 text-muted-foreground text-sm">
+              <li>Go to your organization dashboard</li>
+              <li>Navigate to the Import section</li>
+              <li>Click "View History"</li>
+            </ol>
+            <Button
+              className="w-full"
+              onClick={() => window.history.back()}
+              variant="outline"
+            >
+              Go Back
+            </Button>
+          </CardContent>
+        </Card>
+      </div>
+    );
+  }
 
   if (!historyData) {
     return (

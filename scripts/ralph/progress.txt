@@ -129,3 +129,39 @@ Started: Sun 15 Feb 2026 20:33:18 GMT
   - Fix: `for (const byte of combined)` instead of `for (let i = 0...)`
 
 ---
+
+## 2026-02-15 21:15 - US-P4.1-004 - OAuth 2.0 Flow
+**Iteration**: 1 (continued)
+**Commit**: 6d2578518eab81f747b8f163ab791b6c07643fc1
+**Session**: 28965a72-3e5e-4f06-966f-e567b685ad7b
+**Status**: Complete
+
+### What was implemented
+- `startOAuthFlow` action: Generates authorization URL with random CSRF state token
+- `completeOAuthFlow` action: Exchanges authorization code for access/refresh tokens
+- `refreshOAuthToken` action: Refreshes expired access tokens using refresh token
+- All OAuth operations store encrypted credentials in file storage
+- Token expiry calculated from `expires_in` response field
+
+### Files changed
+- `packages/backend/convex/actions/federationAuth.ts` (+274 lines) - NEW: OAuth flow actions
+- `scripts/ralph/progress.txt` (+150 lines) - Documented iteration 1 learnings
+
+### Quality checks
+- ✅ Type check: passed (no federationAuth errors)
+- ✅ Convex codegen: passed
+- ✅ Commit hook: passed
+
+### **Learnings for future iterations**
+
+**Gotchas encountered:**
+- Linter auto-removes unused imports - must use imported symbols immediately
+- Adding `api` import but using it later in file causes linter to remove it
+- Fix: Add import statement in same edit as first usage
+
+**Patterns confirmed:**
+- Use `api.models.X` for public queries from actions
+- Use `internal.models.X` for internal mutations from actions
+- Explicit return types prevent circular reference errors: `handler: async (ctx, args): Promise<ReturnType> =>`
+
+---

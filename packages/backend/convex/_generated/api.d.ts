@@ -40,6 +40,7 @@ import type * as lib_coachContext from "../lib/coachContext.js";
 import type * as lib_consentGateway from "../lib/consentGateway.js";
 import type * as lib_duplicateDetection from "../lib/duplicateDetection.js";
 import type * as lib_featureFlags from "../lib/featureFlags.js";
+import type * as lib_federation_backoff from "../lib/federation/backoff.js";
 import type * as lib_federation_encryption from "../lib/federation/encryption.js";
 import type * as lib_feedbackMessages from "../lib/feedbackMessages.js";
 import type * as lib_firstUserSetup from "../lib/firstUserSetup.js";
@@ -245,6 +246,7 @@ declare const fullApi: ApiFromModules<{
   "lib/consentGateway": typeof lib_consentGateway;
   "lib/duplicateDetection": typeof lib_duplicateDetection;
   "lib/featureFlags": typeof lib_featureFlags;
+  "lib/federation/backoff": typeof lib_federation_backoff;
   "lib/federation/encryption": typeof lib_federation_encryption;
   "lib/feedbackMessages": typeof lib_feedbackMessages;
   "lib/firstUserSetup": typeof lib_firstUserSetup;

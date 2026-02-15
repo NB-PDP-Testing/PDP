@@ -190,4 +190,12 @@ crons.daily(
   {}
 );
 
+// Phase 4.4: Run scheduled federation syncs nightly at 2:15 AM UTC (US-P4.4-001)
+crons.daily(
+  "scheduled-federation-sync",
+  { hourUTC: 2, minuteUTC: 15 },
+  internal.actions.federationScheduler.scheduledFederationSync,
+  {}
+);
+
 export default crons;

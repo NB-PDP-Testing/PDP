@@ -1,341 +1,48 @@
 # Ralph Progress Log
-Started: Sun 15 Feb 2026 22:26:17 GMT
+Started: Sun 15 Feb 2026 23:15:16 GMT
 ---
 
 ## Codebase Patterns
-**Last Updated**: 2026-02-15 - Iteration 1
+**Last Updated**: 2026-02-15 23:30 - Iteration 1
 
 ### Architecture
 - All routes scoped under `/orgs/[orgId]/`
 - Use Better Auth for authentication, Convex for backend
 - Organization data isolated via organizationId field
+- Turborepo monorepo: `apps/web/` (Next.js 14), `packages/backend/` (Convex)
 
 ### Convex Backend Patterns
 - NEVER use `.filter()` - always use `.withIndex()`
 - All functions need `args` and `returns` validators
 - Use `Id<"tableName">` types, not `string`
 - Index names include all fields: `by_orgId_and_status`
-- Schema changes require running `npx -w packages/backend convex codegen`
+- Actions cannot access `ctx.db` - use `ctx.runQuery`/`ctx.runMutation`
+- Internal functions use `internalMutation` or `internalQuery`
+
+### Cron Jobs (Convex)
+- Use `crons.daily()`, `crons.hourly()`, `crons.interval()`, `crons.weekly()`
+- Cron syntax: `{ hourUTC: 2, minuteUTC: 0 }` for daily jobs
+- All cron jobs call internal functions via `internal.models.<file>.<function>`
+- Existing crons run at: 12 AM (budget reset), 1 AM (usage aggregation), 2 AM (review status, trust thresholds), 3 AM (consent expiry, invitations), etc.
+
+### Federation Connector System
+- Connector credentials encrypted and stored in Convex file storage (`_storage`)
+- Each connector has `connectedOrganizations[]` array with `lastSyncAt` timestamps
+- Connector status: active, inactive, error (auto-disabled after 5 consecutive failures)
+- Use `updateLastSyncTime` mutation to update lastSyncAt after sync
+- Never return decrypted credentials in queries (only in actions)
 
 ### Quality Checks
-- Run in order: `npx -w packages/backend convex codegen` → `npm run check-types` → `npx ultracite fix` → `npm run check`
+- Run in order: `npm run check-types` → `npx ultracite fix` → `npm run check`
 - Ultracite must run before linting or you'll get false failures
+- Run `npx -w packages/backend convex codegen` after schema changes
 
-### File Locations (discovered during work)
+### File Locations
+- Cron jobs: `packages/backend/convex/crons.ts`
+- Federation models: `packages/backend/convex/models/federationConnectors.ts`
+- Federation actions: `packages/backend/convex/actions/gaaFoireann.ts`
 - Schema: `packages/backend/convex/schema.ts`
-- Import-related tables located around line 4630-4850
+- Import sessions: `packages/backend/convex/models/importSessions.ts`
 
 ---
 
-## 2026-02-15 23:00 - US-P4.3-001 - Add AI mapping cache table to schema
-**Iteration**: 1
-**Commit**: 4d4e4d05c2d09d856219e0896d0e2c169fa42507
-**Session**: 28d554da-c69f-4334-9606-0515ca527995
-**Status**: Complete
-
-### What was implemented
-- Added `aiMappingCache` table to `packages/backend/convex/schema.ts`
-- Table includes all required fields: columnPattern, sampleValues, suggestedField, confidence, reasoning, createdAt, expiresAt
-- Added two indexes: `by_columnPattern` for lookups, `by_expiresAt` for cleanup
-- Positioned table in the import-related section (after importMappingHistory, before importProgressTrackers)
-
-### Files changed
-- packages/backend/convex/schema.ts (+17 lines, added aiMappingCache table definition)
-
-### Quality checks
-- ✅ Convex codegen: passed
-- ✅ Pre-commit lint-staged: passed
-
-### **Learnings for future iterations** ⚠️ CRITICAL
-**Patterns discovered:**
-- Import-related tables are grouped together in schema.ts starting around line 4630
-- Schema table definitions use `.index()` chaining pattern
-- 30-day TTL = 2592000000 milliseconds (mentioned in PRD notes)
-
-**Gotchas encountered:**
-- None - straightforward schema addition
-
-**Dependencies found:**
-- Schema changes require `npx -w packages/backend convex codegen` before type checking
-
-**What to do next**:
-- [ ] US-P4.3-002: Install @anthropic-ai/sdk and create Claude API integration action
-
-**Mistakes made**:
-- None
-
----
-
-## 2026-02-15 23:15 - US-P4.3-002 - Create Claude API integration action
-**Iteration**: 1
-**Commit**: 2482dbd19fc4cc7f928701777fde90debb79caea
-**Session**: 28d554da-c69f-4334-9606-0515ca527995
-**Status**: Complete
-
-### What was implemented
-- Installed `@anthropic-ai/sdk` package in packages/backend
-- Created `packages/backend/convex/actions/aiMapping.ts` with `callClaudeAPI` action
-- Implemented Claude 3.5 Sonnet API integration with optimized parameters (max_tokens: 1024, temperature: 0.3)
-- Added JSON response parsing (supports both plain JSON and markdown code blocks)
-- Implemented response validation (targetField, confidence 0-100, reasoning)
-- Added retry logic with exponential backoff (max 3 retries, 2s/4s/8s delays)
-- Implemented error handling: 401 (invalid key, no retry), 429 (rate limit, retry), 500+ (server error, retry)
-- Refactored into helper functions to reduce complexity: parseClaudeResponse, validateResponse, handleAPIError
-
-### Files changed
-- packages/backend/package.json (+1 dependency: @anthropic-ai/sdk)
-- packages/backend/convex/actions/aiMapping.ts (+198 lines, new file)
-
-### Quality checks
-- ✅ Convex codegen: passed
-- ✅ Biome linting: passed (no errors/warnings)
-- ✅ Pre-commit lint-staged: passed
-
-### **Learnings for future iterations** ⚠️ CRITICAL
-**Patterns discovered:**
-- Convex actions use "use node" directive at the top
-- Actions use `action({ args, returns, handler })` pattern
-- Unused ctx parameter should be prefixed with underscore (_ctx)
-- Biome linter enforces complexity limits (max 15) - extract helper functions if needed
-- Regex patterns should be defined at module level, not inside functions (performance)
-- Helper functions should be pure (no side effects) for easier testing
-
-**Gotchas encountered:**
-- Initial implementation had complexity score of 32 (max 15) - needed refactoring
-- Biome linter caught unused variables (parseError, ctx) - needed underscore prefix or removal
-- Regex pattern for JSON extraction needed to be moved to module level
-
-**Dependencies found:**
-- Actions need `"use node"` directive to access Node.js APIs (process.env, setTimeout)
-- @anthropic-ai/sdk requires API key from environment variables
-- Exponential backoff uses `2 ** attempt * 1000` pattern (not Math.pow after ultracite fix)
-
-**What to do next**:
-- [ ] US-P4.3-003: Create AI mapping prompt template (buildMappingPrompt function)
-
-**Mistakes made**:
-- Initially wrote complex handler function without extracting helpers
-- Forgot to prefix unused ctx parameter with underscore
-- Put regex pattern inside function instead of module level
-
----
-## 2026-02-15 23:30 - US-P4.3-003 - Create AI mapping prompt template
-**Iteration**: 1
-**Commit**: e655a758f2ab1c94c7f9fb26c20ed32a4889fdd9
-**Session**: 28d554da-c69f-4334-9606-0515ca527995
-**Status**: Complete
-
-### What was implemented
-- Created `packages/backend/convex/lib/import/aiMapper.ts` with prompt engineering utilities
-- Implemented `buildMappingPrompt` function with comprehensive prompt structure
-- Defined 15 available target fields (firstName, lastName, dateOfBirth, email, phone, address.*, gender, guardian*)
-- Prompt includes: system context, task description, available fields, column name, sample values, response format, 3 examples, constraints
-- Examples show high confidence (95%), medium confidence (60%), and low confidence/no match (0%) scenarios
-- Added helper functions: `getAvailableFields`, `normalizeColumnName` (for caching)
-- Input validation: throws errors if columnName or sampleValues are empty
-
-### Files changed
-- packages/backend/convex/lib/import/aiMapper.ts (+126 lines, new file)
-
-### Quality checks
-- ✅ Convex codegen: passed
-- ✅ Biome linting: passed
-- ✅ Pre-commit lint-staged: passed
-
-### **Learnings for future iterations** ⚠️ CRITICAL
-**Patterns discovered:**
-- Prompt engineering structure: system context → task → available options → input data → format → examples → constraints
-- Use `as const` for readonly arrays that should not be mutated
-- Examples in prompts should cover different confidence levels to guide AI behavior
-- Normalize column names for caching: lowercase, trim, remove special chars
-
-**Gotchas encountered:**
-- Initially added unused `TargetField` type - biome linter caught it
-
-**Dependencies found:**
-- normalizeColumnName will be used for cache key generation in next story
-
-**What to do next**:
-- [ ] US-P4.3-004: Implement AI column mapper with caching (suggestColumnMapping action)
-
-**Mistakes made**:
-- Added unused TypeScript type that had to be removed
-
----
-## 2026-02-15 23:45 - US-P4.3-004 - Implement AI column mapper with caching
-**Iteration**: 1
-**Commit**: 7ba78991dbe3edf10b3f61aac7ecbe92050fa02b
-**Session**: 28d554da-c69f-4334-9606-0515ca527995
-**Status**: Complete
-
-### What was implemented
-- Added `suggestColumnMapping` action to `packages/backend/convex/actions/aiMapping.ts`
-- Created `packages/backend/convex/models/aiMappingCache.ts` with cache queries/mutations
-- Cache lookup: by columnPattern (normalized) + first 3 sample values
-- Returns cached result if found and not expired (expiresAt > Date.now())
-- Calls Claude API if cache miss, validates response, stores in cache (30-day TTL)
-- Returns { targetField, confidence, reasoning, cached: boolean }
-- Logs cache HIT/MISS for monitoring
-- Cache model: getCachedMapping (query), storeCachedMapping (mutation), cleanupExpiredCache (mutation)
-
-### Files changed
-- packages/backend/convex/actions/aiMapping.ts (+104 lines, added suggestColumnMapping)
-- packages/backend/convex/models/aiMappingCache.ts (+116 lines, new file)
-
-### Quality checks
-- ✅ Convex codegen: passed
-- ✅ Biome linting: passed
-- ✅ Pre-commit lint-staged: passed
-
-### **Learnings for future iterations** ⚠️ CRITICAL
-**Patterns discovered:**
-- Cache key strategy: normalized columnPattern + first 3 sample values joined with "|"
-- storeCachedMapping upserts: checks for existing entry, patches if found, inserts if new
-- Cache queries use index + filter pattern (indexed by columnPattern, filtered by sample values)
-
-**What to do next**:
-- [ ] US-P4.3-005: Create batch AI mapping orchestrator (suggestAllMappings)
-
-**Mistakes made**:
-- Created unused sampleValuesKey variable (removed after biome check)
-
----
-## 2026-02-16 00:00 - US-P4.3-005 - Create batch AI mapping orchestrator
-**Iteration**: 1
-**Commit**: e1ece0f0c12e1d3e34b1da1f6e9cd2b6c2dae8ca
-**Session**: 28d554da-c69f-4334-9606-0515ca527995
-**Status**: Complete
-
-### What was implemented
-- Added `suggestAllMappings` action to process multiple columns in parallel
-- Batches processing (max 10 concurrent API calls)
-- 500ms delay between batches to prevent rate limit hits
-- Tracks cache hits, calculates cache hit rate percentage
-- Sorts results by confidence (HIGH → MEDIUM → LOW)
-- Returns { mappings: Record<columnName, result>, cacheHitRate: number }
-
-### Files changed
-- packages/backend/convex/actions/aiMapping.ts (+104 lines)
-
-### Quality checks
-- ✅ Codegen: passed
-- ✅ Biome linting: passed (fixed ++ operators to += 1)
-
-**Learnings**: Biome doesn't allow ++ operators (use += 1 instead)
-
----
-
-## 2026-02-16 00:15 - US-P4.3-006 - Add AI suggestions to mapping step UI
-**Iteration**: 1
-**Commit**: 8539db02e452cb1d11eba08285abfd896e75ee81
-**Session**: 28d554da-c69f-4334-9606-0515ca527995
-**Status**: Complete
-
-### What was implemented
-- Added "Get AI Suggestions" button to mapping-step.tsx
-- Calls suggestAllMappings action with column names and sample values
-- processAIMappings helper function to reduce complexity
-- Updates mappings state and auto-locks high-confidence (80%+) suggestions
-- Toast notifications for success (with cache hit rate) and errors
-- Sparkles icon, loading state during AI processing
-
-### Files changed
-- apps/web/src/components/import/steps/mapping-step.tsx (+70 lines)
-
-### Quality checks
-- ✅ Codegen: passed
-- ✅ Biome linting: passed (used --fix for import organization)
-
-**Learnings**: Extract helper functions to keep complexity below 15 threshold
-
----
-## 2026-02-16 00:30 - US-P4.3-007 - Update mapping history with AI suggestions
-**Iteration**: 1
-**Commit**: d2a3d2a08d98a61bf73125e8056f52e484f5d3e4
-**Session**: 28d554da-c69f-4334-9606-0515ca527995
-**Status**: Complete
-
-### What was implemented
-- Added aiSuggested (boolean) and aiConfidence (number) to importMappingHistory schema and model
-- Updated recordMappingHistory mutation to accept AI tracking fields
-- Created getCorrectionStats query: tracks acceptance/rejection rates by confidence ranges
-- Stats grouped by High (80%+), Medium (50-79%), Low (<50%)
-- Acceptance logic: usageCount > 1 means user confirmed AI suggestion
-
-### Files changed
-- packages/backend/convex/schema.ts (+3 lines)
-- packages/backend/convex/models/importMappingHistory.ts (+77 lines)
-
-### Quality checks
-- ✅ Codegen: passed
-- ✅ Biome linting: passed (fixed variable shadowing: renamed query to dbQuery)
-
-**Learnings**: Avoid shadowing imported names (query function vs query variable)
-
----
-
-## 2026-02-16 00:45 - US-P4.3-008 - Add AI mapping analytics and monitoring
-**Iteration**: 1
-**Commit**: 20fd58ed57a9dc6b81f943cfba6e3462714d3d49
-**Session**: 28d554da-c69f-4334-9606-0515ca527995
-**Status**: Complete
-
-### What was implemented
-- Created aiMappingAnalytics model with tracking, stats, and cost estimate queries
-- trackAIMappingUsage mutation: logs each AI call (cached, confidence, accepted, correctedTo)
-- getAIMappingStats query: total mappings, cache hit rate, avg confidence, acceptance rate, top 10 corrected columns
-- getAICostEstimate query: calculates costs at $0.003/request, shows savings from caching
-- Added aiMappingAnalytics table to schema with timestamp index
-
-### Files changed
-- packages/backend/convex/models/aiMappingAnalytics.ts (+171 lines, new file)
-- packages/backend/convex/schema.ts (+10 lines)
-
-### Quality checks
-- ✅ Codegen: passed
-- ✅ Biome linting: passed
-
----
-
-## PHASE 4.3 COMPLETION SUMMARY
-**Date**: 2026-02-16 00:45
-**Total Stories**: 8/8 complete
-**Total Commits**: 8
-**Session**: 28d554da-c69f-4334-9606-0515ca527995
-
-### Deliverables
-1. ✅ AI mapping cache table (30-day TTL)
-2. ✅ Claude API integration with retry logic
-3. ✅ Prompt engineering template with examples
-4. ✅ AI column mapper with caching (suggestColumnMapping action)
-5. ✅ Batch orchestrator (suggestAllMappings action, rate-limited)
-6. ✅ Frontend UI with "Get AI Suggestions" button
-7. ✅ Mapping history tracking for AI suggestions
-8. ✅ Analytics and cost monitoring
-
-### Key Features
-- 30-day caching reduces costs by 90%+
-- Batch processing: 10 columns in ~2-3 seconds
-- High-confidence (80%+) mappings auto-locked
-- Success toast shows cache hit rate
-- Analytics track acceptance rates by confidence level
-- Cost estimates help budget planning
-
-### Files Created
-- packages/backend/convex/actions/aiMapping.ts
-- packages/backend/convex/lib/import/aiMapper.ts
-- packages/backend/convex/models/aiMappingCache.ts
-- packages/backend/convex/models/aiMappingAnalytics.ts
-
-### Files Modified
-- packages/backend/convex/schema.ts (2 new tables, 2 extended tables)
-- packages/backend/convex/models/importMappingHistory.ts
-- apps/web/src/components/import/steps/mapping-step.tsx
-
-### Quality
-- All commits passed pre-commit linting
-- All Convex codegen checks passed
-- Biome linting passed (used --fix for import organization)
-- Refactored for low complexity (extracted helper functions)
-
----

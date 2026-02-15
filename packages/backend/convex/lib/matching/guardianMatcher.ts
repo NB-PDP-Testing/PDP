@@ -24,7 +24,7 @@ import type { QueryCtx } from "../../_generated/server";
 export const MATCHING_WEIGHTS = {
   EMAIL_EXACT: 40, // Email match - 40% of total score
   PHONE: 30, // Phone match - 30% of total score
-  SURNAME_POSTCODE: 20, // Surname + Postcode - full name+address score (20% + 10%)
+  SURNAME_POSTCODE: 30, // Surname + Postcode - full name+address score (20% + 10%)
   SURNAME_TOWN: 25, // Surname + Town - partial name+address score (20% + 5%)
   SURNAME_ONLY: 20, // Surname match only - name similarity score
   POSTCODE_ONLY: 10, // Postcode only - full address score
@@ -330,7 +330,7 @@ export function calculateMatchScore(
       matchReasons.push("Surname match");
     }
   } else if (postcodeMatch) {
-    // Postcode only - 20 points
+    // Postcode only - 10 points
     score += MATCHING_WEIGHTS.POSTCODE_ONLY;
     matchReasons.push("Postcode match");
   } else {

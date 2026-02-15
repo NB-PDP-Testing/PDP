@@ -71,7 +71,8 @@
         "Run npx ultracite fix and npm run check-types"
       ],
       "priority": 2,
-      "notes": "Claude API key is sensitive - store in environment variables, never commit to code. Use Sonnet model (good balance of speed/quality). Haiku is too fast/cheap but less accurate. Opus is overkill for this task."
+      "notes": "Claude API key is sensitive - store in environment variables, never commit to code. Use Sonnet model (good balance of speed/quality). Haiku is too fast/cheap but less accurate. Opus is overkill for this task.",
+      "passes": true
     },
     {
       "id": "US-P4.3-003",

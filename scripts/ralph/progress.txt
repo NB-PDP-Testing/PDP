@@ -65,3 +65,57 @@ Started: Sun 15 Feb 2026 22:26:17 GMT
 - None
 
 ---
+
+## 2026-02-15 23:15 - US-P4.3-002 - Create Claude API integration action
+**Iteration**: 1
+**Commit**: 2482dbd19fc4cc7f928701777fde90debb79caea
+**Session**: 28d554da-c69f-4334-9606-0515ca527995
+**Status**: Complete
+
+### What was implemented
+- Installed `@anthropic-ai/sdk` package in packages/backend
+- Created `packages/backend/convex/actions/aiMapping.ts` with `callClaudeAPI` action
+- Implemented Claude 3.5 Sonnet API integration with optimized parameters (max_tokens: 1024, temperature: 0.3)
+- Added JSON response parsing (supports both plain JSON and markdown code blocks)
+- Implemented response validation (targetField, confidence 0-100, reasoning)
+- Added retry logic with exponential backoff (max 3 retries, 2s/4s/8s delays)
+- Implemented error handling: 401 (invalid key, no retry), 429 (rate limit, retry), 500+ (server error, retry)
+- Refactored into helper functions to reduce complexity: parseClaudeResponse, validateResponse, handleAPIError
+
+### Files changed
+- packages/backend/package.json (+1 dependency: @anthropic-ai/sdk)
+- packages/backend/convex/actions/aiMapping.ts (+198 lines, new file)
+
+### Quality checks
+- ✅ Convex codegen: passed
+- ✅ Biome linting: passed (no errors/warnings)
+- ✅ Pre-commit lint-staged: passed
+
+### **Learnings for future iterations** ⚠️ CRITICAL
+**Patterns discovered:**
+- Convex actions use "use node" directive at the top
+- Actions use `action({ args, returns, handler })` pattern
+- Unused ctx parameter should be prefixed with underscore (_ctx)
+- Biome linter enforces complexity limits (max 15) - extract helper functions if needed
+- Regex patterns should be defined at module level, not inside functions (performance)
+- Helper functions should be pure (no side effects) for easier testing
+
+**Gotchas encountered:**
+- Initial implementation had complexity score of 32 (max 15) - needed refactoring
+- Biome linter caught unused variables (parseError, ctx) - needed underscore prefix or removal
+- Regex pattern for JSON extraction needed to be moved to module level
+
+**Dependencies found:**
+- Actions need `"use node"` directive to access Node.js APIs (process.env, setTimeout)
+- @anthropic-ai/sdk requires API key from environment variables
+- Exponential backoff uses `2 ** attempt * 1000` pattern (not Math.pow after ultracite fix)
+
+**What to do next**:
+- [ ] US-P4.3-003: Create AI mapping prompt template (buildMappingPrompt function)
+
+**Mistakes made**:
+- Initially wrote complex handler function without extracting helpers
+- Forgot to prefix unused ctx parameter with underscore
+- Put regex pattern inside function instead of module level
+
+---

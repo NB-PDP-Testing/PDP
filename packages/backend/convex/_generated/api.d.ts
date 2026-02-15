@@ -50,6 +50,7 @@ import type * as lib_federation_gaaMapper from "../lib/federation/gaaMapper.js";
 import type * as lib_federation_gaaTestData from "../lib/federation/gaaTestData.js";
 import type * as lib_feedbackMessages from "../lib/feedbackMessages.js";
 import type * as lib_firstUserSetup from "../lib/firstUserSetup.js";
+import type * as lib_import_aiMapper from "../lib/import/aiMapper.js";
 import type * as lib_import_benchmarkApplicator from "../lib/import/benchmarkApplicator.js";
 import type * as lib_import_dataQuality from "../lib/import/dataQuality.js";
 import type * as lib_import_deduplicator from "../lib/import/deduplicator.js";
@@ -264,6 +265,7 @@ declare const fullApi: ApiFromModules<{
   "lib/federation/gaaTestData": typeof lib_federation_gaaTestData;
   "lib/feedbackMessages": typeof lib_feedbackMessages;
   "lib/firstUserSetup": typeof lib_firstUserSetup;
+  "lib/import/aiMapper": typeof lib_import_aiMapper;
   "lib/import/benchmarkApplicator": typeof lib_import_benchmarkApplicator;
   "lib/import/dataQuality": typeof lib_import_dataQuality;
   "lib/import/deduplicator": typeof lib_import_deduplicator;

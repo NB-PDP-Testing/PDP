@@ -1,4 +1,4 @@
-# Security Report - 2026-02-15 22:28:51
+# Security Report - 2026-02-15 22:30:53
 
 **Phase:** P9
 **Critical:** 2 | **High:** 5 | **Medium:** 0
@@ -9,8 +9,8 @@
 apps/web/src/app/api/comparison-insights/route.ts:      console.error("❌ ANTHROPIC_API_KEY not found in environment variables");
 apps/web/src/app/api/recommendations/route.ts:      console.error("❌ ANTHROPIC_API_KEY not found in environment variables");
 apps/web/src/app/api/session-plan/route.ts:      console.error("❌ ANTHROPIC_API_KEY not found in environment variables");
+packages/backend/convex/actions/aiMapping.ts:      "Invalid Anthropic API key. Check ANTHROPIC_API_KEY environment variable."
 packages/backend/convex/actions/aiMapping.ts:        "ANTHROPIC_API_KEY not configured in Convex environment variables"
-packages/backend/convex/actions/aiMapping.ts:              "Invalid Anthropic API key. Check ANTHROPIC_API_KEY environment variable."
 ```
 - ⚠️ **HIGH**: 4 high-severity dependency vulnerabilities
   Run `npm audit fix` to resolve

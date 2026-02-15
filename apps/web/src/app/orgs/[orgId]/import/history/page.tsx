@@ -1,6 +1,7 @@
 "use client";
 
 import { api } from "@pdp/backend/convex/_generated/api";
+import type { Id } from "@pdp/backend/convex/_generated/dataModel";
 import { useQuery } from "convex/react";
 import {
   AlertTriangle,
@@ -12,6 +13,7 @@ import {
 } from "lucide-react";
 import { useParams } from "next/navigation";
 import { useState } from "react";
+import { PartialUndoDialog } from "@/components/import/partial-undo-dialog";
 import Loader from "@/components/loader";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
@@ -51,6 +53,8 @@ export default function ImportHistoryPage() {
   const [dateRangeFilter, setDateRangeFilter] =
     useState<DateRangeFilter>("30days");
   const [currentPage, setCurrentPage] = useState(0);
+  const [partialUndoSessionId, setPartialUndoSessionId] =
+    useState<Id<"importSessions"> | null>(null);
 
   const pageSize = 20;
 
@@ -349,10 +353,7 @@ export default function ImportHistoryPage() {
                                     imp.playersImported === 0
                                   }
                                   onClick={() => {
-                                    // TODO: Open partial undo dialog
-                                    console.log(
-                                      `Undo import ${imp._id}\nThis will remove ${imp.playersImported} players`
-                                    );
+                                    setPartialUndoSessionId(imp._id);
                                   }}
                                   size="sm"
                                   variant="outline"
@@ -490,10 +491,7 @@ export default function ImportHistoryPage() {
                           imp.playersImported === 0
                         }
                         onClick={() => {
-                          // TODO: Open partial undo dialog
-                          console.log(
-                            `Undo import ${imp._id}\nThis will remove ${imp.playersImported} players`
-                          );
+                          setPartialUndoSessionId(imp._id);
                         }}
                         size="sm"
                         variant="outline"
@@ -520,6 +518,12 @@ export default function ImportHistoryPage() {
             </Card>
           )}
         </div>
+
+        {/* Partial Undo Dialog */}
+        <PartialUndoDialog
+          onClose={() => setPartialUndoSessionId(null)}
+          sessionId={partialUndoSessionId}
+        />
       </div>
     </div>
   );

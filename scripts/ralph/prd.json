@@ -54,7 +54,8 @@
         "Run npx -w packages/backend convex codegen successfully"
       ],
       "priority": 1,
-      "notes": "Reference Phase 4 PRD 'Database Schema' section. The credentialsStorageId points to an encrypted JSON blob in Convex file storage containing OAuth tokens, API keys, or basic auth credentials."
+      "notes": "Reference Phase 4 PRD 'Database Schema' section. The credentialsStorageId points to an encrypted JSON blob in Convex file storage containing OAuth tokens, API keys, or basic auth credentials.",
+      "passes": true
     },
     {
       "id": "US-P4.1-002",
@@ -73,7 +74,8 @@
         "Run npx ultracite fix"
       ],
       "priority": 2,
-      "notes": "Security critical. Use AES-GCM with 256-bit key. Never log decrypted credentials. The encryption key should be generated once and stored in Convex environment variables (not in code). Reference: https://developer.mozilla.org/en-US/docs/Web/API/SubtleCrypto"
+      "notes": "Security critical. Use AES-GCM with 256-bit key. Never log decrypted credentials. The encryption key should be generated once and stored in Convex environment variables (not in code). Reference: https://developer.mozilla.org/en-US/docs/Web/API/SubtleCrypto",
+      "passes": true
     },
     {
       "id": "US-P4.1-003",
@@ -94,7 +96,8 @@
         "Run npx -w packages/backend convex codegen and npm run check-types"
       ],
       "priority": 3,
-      "notes": "IMPORTANT: NEVER return decrypted credentials in queries - only actions should decrypt when needed for API calls. Credentials are sensitive and should only be decrypted in memory when making federation API requests."
+      "notes": "IMPORTANT: NEVER return decrypted credentials in queries - only actions should decrypt when needed for API calls. Credentials are sensitive and should only be decrypted in memory when making federation API requests.",
+      "passes": true
     },
     {
       "id": "US-P4.1-004",
@@ -116,7 +119,8 @@
         "Run npx ultracite fix and npm run check-types"
       ],
       "priority": 4,
-      "notes": "OAuth 2.0 flow: 1) Generate auth URL → 2) User authorizes in browser → 3) Callback with code → 4) Exchange code for token → 5) Store encrypted. Refresh tokens are long-lived and used to obtain new access tokens when they expire. Reference: https://oauth.net/2/"
+      "notes": "OAuth 2.0 flow: 1) Generate auth URL → 2) User authorizes in browser → 3) Callback with code → 4) Exchange code for token → 5) Store encrypted. Refresh tokens are long-lived and used to obtain new access tokens when they expire. Reference: https://oauth.net/2/",
+      "passes": true
     },
     {
       "id": "US-P4.1-005",
@@ -139,7 +143,8 @@
         "Run npx ultracite fix"
       ],
       "priority": 5,
-      "notes": "This is the core abstraction used by all federation sync actions. Must support all 3 auth types. Rate limiting prevents hitting federation API limits and getting blocked. Exponential backoff: wait 1s, 2s, 4s between retries."
+      "notes": "This is the core abstraction used by all federation sync actions. Must support all 3 auth types. Rate limiting prevents hitting federation API limits and getting blocked. Exponential backoff: wait 1s, 2s, 4s between retries.",
+      "passes": false
     },
     {
       "id": "US-P4.1-006",
@@ -158,7 +163,8 @@
         "Run npx ultracite fix and npm run check-types"
       ],
       "priority": 6,
-      "notes": "Jitter prevents multiple clients from retrying at the exact same time (thundering herd). Formula with jitter: delay = delay * (0.5 + Math.random() * 0.5). Used by apiClient.ts for retry logic."
+      "notes": "Jitter prevents multiple clients from retrying at the exact same time (thundering herd). Formula with jitter: delay = delay * (0.5 + Math.random() * 0.5). Used by apiClient.ts for retry logic.",
+      "passes": true
     },
     {
       "id": "US-P4.1-007",
@@ -179,7 +185,8 @@
         "Run npx -w packages/backend convex codegen and npm run check-types"
       ],
       "priority": 7,
-      "notes": "Multiple organizations can connect to the same connector (e.g., multiple GAA clubs using GAA Foireann). The federationOrgId is the organization's ID in the external federation system, used to filter API calls to that org's data only."
+      "notes": "Multiple organizations can connect to the same connector (e.g., multiple GAA clubs using GAA Foireann). The federationOrgId is the organization's ID in the external federation system, used to filter API calls to that org's data only.",
+      "passes": false
     },
     {
       "id": "US-P4.1-008",
@@ -199,7 +206,8 @@
         "Run npx ultracite fix and npm run check-types"
       ],
       "priority": 8,
-      "notes": "Auto-disabling failing connectors prevents infinite retry loops and alert fatigue. Platform admins can investigate and manually re-enable with clearConnectorErrors. Error log should be capped at last 50 errors to prevent unbounded growth."
+      "notes": "Auto-disabling failing connectors prevents infinite retry loops and alert fatigue. Platform admins can investigate and manually re-enable with clearConnectorErrors. Error log should be capped at last 50 errors to prevent unbounded growth.",
+      "passes": false
     }
   ],
   "technicalNotes": {

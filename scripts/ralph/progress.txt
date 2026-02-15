@@ -165,3 +165,51 @@ Started: Sun 15 Feb 2026 20:33:18 GMT
 - Explicit return types prevent circular reference errors: `handler: async (ctx, args): Promise<ReturnType> =>`
 
 ---
+
+## 2026-02-15 21:30 - US-P4.1-006 - Exponential Backoff Utility
+**Iteration**: 1 (continued)
+**Commit**: 0fafe0babec253d01eda4da8168cf79aabec32bf
+**Session**: 28965a72-3e5e-4f06-966f-e567b685ad7b
+**Status**: Complete
+
+### What was implemented
+- `exponentialBackoff()`: Calculates delay with jitter (50-100% randomization)
+- `withRetry()`: Generic retry wrapper with configurable max attempts
+- `isRetryableError()`: Helper to identify network/HTTP errors worth retrying
+- Pure TypeScript utility - no Convex dependencies
+
+### Files changed
+- `packages/backend/convex/lib/federation/backoff.ts` (+164 lines) - NEW: Backoff utilities
+
+### Quality checks
+- ✅ Type check: passed
+- ✅ Linting: passed (biome reformatted 30000 -> 30_000)
+- ✅ Commit hook: passed
+
+---
+
+## Iteration 1 Summary
+**Total commits**: 3
+**Stories completed**: US-P4.1-001, US-P4.1-002, US-P4.1-003, US-P4.1-004, US-P4.1-006 (5/8)
+**Stories remaining**: US-P4.1-005 (API client), US-P4.1-007 (org management), US-P4.1-008 (status tracking)
+**Context used**: ~116k / 200k tokens
+
+### Files created this iteration
+1. `packages/backend/convex/schema.ts` - federationConnectors table
+2. `packages/backend/convex/lib/federation/encryption.ts` - AES-GCM encryption
+3. `packages/backend/convex/models/federationConnectors.ts` - CRUD operations
+4. `packages/backend/convex/actions/federationAuth.ts` - OAuth 2.0 flow
+5. `packages/backend/convex/lib/federation/backoff.ts` - Exponential backoff
+
+### Key accomplishments
+✅ Database foundation for federation connectors
+✅ Secure credential storage with encryption
+✅ Complete OAuth 2.0 flow with token refresh
+✅ Retry utilities for robust API calls
+✅ All quality checks passing
+
+### Recommended next steps
+1. Implement API client abstraction (US-P4.1-005) - uses backoff and encryption
+2. Add connector organization management (US-P4.1-007) - extends existing CRUD
+3. Add status/error tracking (US-P4.1-008) - extends schema with health metrics
+

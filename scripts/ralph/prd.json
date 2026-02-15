@@ -137,7 +137,8 @@
         "Run npx ultracite fix and npm run check-types"
       ],
       "priority": 5,
-      "notes": "Parallel processing reduces total mapping time from 10s per column to ~2s total. Rate limiting prevents API abuse. Sorting by confidence helps users review high-confidence mappings first."
+      "notes": "Parallel processing reduces total mapping time from 10s per column to ~2s total. Rate limiting prevents API abuse. Sorting by confidence helps users review high-confidence mappings first.",
+      "passes": true
     },
     {
       "id": "US-P4.3-006",

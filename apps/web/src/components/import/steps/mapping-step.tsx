@@ -1,5 +1,6 @@
 "use client";
 
+import { api } from "@pdp/backend/convex/_generated/api";
 import type {
   FieldDefinition,
   MappingSuggestion,
@@ -9,8 +10,10 @@ import {
   suggestMappingsSimple,
 } from "@pdp/backend/convex/lib/import/mapper";
 import type { ParseResult } from "@pdp/backend/convex/lib/import/parser";
-import { AlertTriangle, Check, Lock, Unlock, X } from "lucide-react";
+import { useAction } from "convex/react";
+import { AlertTriangle, Check, Lock, Sparkles, Unlock, X } from "lucide-react";
 import { useEffect, useMemo, useState } from "react";
+import { toast } from "sonner";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
@@ -178,6 +181,12 @@ export default function MappingStep({
     return locked;
   });
 
+  // AI suggestions state
+  const [isLoadingAI, setIsLoadingAI] = useState(false);
+  const suggestAllMappings = useAction(
+    api.actions.aiMapping.suggestAllMappings
+  );
+
   // Update mappings if autoSuggestions change
   useEffect(() => {
     const map = new Map<string, MappingSuggestion>();
@@ -243,6 +252,58 @@ export default function MappingStep({
     });
   };
 
+  const processAIMappings = (result: {
+    mappings: Record<
+      string,
+      { targetField: string | null; confidence: number; cached: boolean }
+    >;
+  }) => {
+    const aiMappings = new Map<string, MappingSuggestion>();
+    const highConfidence = new Set<string>();
+
+    for (const [columnName, aiResult] of Object.entries(result.mappings)) {
+      if (aiResult.targetField) {
+        aiMappings.set(columnName, {
+          sourceColumn: columnName,
+          targetField: aiResult.targetField,
+          confidence: aiResult.confidence,
+          strategy: aiResult.cached ? "ai-cached" : "ai",
+        });
+      }
+
+      if (aiResult.confidence >= 80) {
+        highConfidence.add(columnName);
+      }
+    }
+
+    return { aiMappings, highConfidence };
+  };
+
+  const handleGetAISuggestions = async () => {
+    setIsLoadingAI(true);
+    try {
+      const columns = parsedData.headers.map((header) => ({
+        name: header,
+        sampleValues: getSampleValues(header),
+      }));
+
+      const result = await suggestAllMappings({ columns });
+      const { aiMappings, highConfidence } = processAIMappings(result);
+
+      setMappings(aiMappings);
+      setLockedColumns(highConfidence);
+
+      toast.success(
+        `AI suggested ${aiMappings.size} mappings (${result.cacheHitRate.toFixed(0)}% from cache)`
+      );
+    } catch (error) {
+      console.error("AI mapping failed:", error);
+      toast.error("Failed to get AI suggestions. Please map columns manually.");
+    } finally {
+      setIsLoadingAI(false);
+    }
+  };
+
   const handleConfirm = () => {
     const confirmed: Record<string, string> = {};
     const suggestions: MappingSuggestion[] = [];
@@ -262,9 +323,20 @@ export default function MappingStep({
         <CardHeader className="pb-3">
           <div className="flex items-center justify-between">
             <CardTitle className="text-lg">Column Mapping</CardTitle>
-            <Badge variant="outline">
-              {mappedCount} of {parsedData.headers.length} mapped
-            </Badge>
+            <div className="flex items-center gap-2">
+              <Button
+                disabled={isLoadingAI || parsedData.headers.length === 0}
+                onClick={handleGetAISuggestions}
+                size="sm"
+                variant="outline"
+              >
+                <Sparkles className="mr-2 h-4 w-4" />
+                {isLoadingAI ? "AI is analyzing..." : "Get AI Suggestions"}
+              </Button>
+              <Badge variant="outline">
+                {mappedCount} of {parsedData.headers.length} mapped
+              </Badge>
+            </div>
           </div>
         </CardHeader>
         <CardContent>

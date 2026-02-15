@@ -129,34 +129,61 @@ export default function ImportHistoryPage() {
 
   // Show error if orgId is invalid (user doesn't have membership to this org)
   if (!isValidOrgId) {
+    const validOrgs = memberships || [];
+
     return (
       <div className="flex min-h-screen items-center justify-center p-4">
-        <Card className="max-w-md">
+        <Card className="max-w-2xl">
           <CardHeader>
             <div className="flex items-center gap-2">
               <AlertTriangle className="h-5 w-5 text-destructive" />
-              <CardTitle>Invalid Organization</CardTitle>
+              <CardTitle>Invalid Organization ID in URL</CardTitle>
             </div>
             <CardDescription>
-              You don't have access to this organization, or the URL contains an
-              invalid organization ID.
+              The URL contains an ID that doesn't match any of your
+              organizations.
             </CardDescription>
           </CardHeader>
           <CardContent className="space-y-4">
-            <p className="text-sm">
-              <strong>Current ID:</strong>{" "}
-              <code className="rounded bg-muted px-1 py-0.5 text-xs">
+            <div className="rounded border border-destructive/50 bg-destructive/10 p-3">
+              <p className="font-medium text-sm">Invalid ID in URL:</p>
+              <code className="mt-1 block rounded bg-muted px-2 py-1 font-mono text-xs">
                 {orgId}
               </code>
-            </p>
-            <p className="text-muted-foreground text-sm">
-              To access import history:
-            </p>
-            <ol className="ml-4 list-decimal space-y-1 text-muted-foreground text-sm">
-              <li>Go to your organization dashboard</li>
-              <li>Navigate to the Import section</li>
-              <li>Click "View History"</li>
-            </ol>
+            </div>
+
+            {validOrgs.length > 0 ? (
+              <div>
+                <p className="mb-2 font-medium text-sm">
+                  Your Valid Organizations:
+                </p>
+                <div className="space-y-2">
+                  {validOrgs.map((org) => (
+                    <div
+                      className="flex items-center justify-between rounded border p-3"
+                      key={org.organizationId}
+                    >
+                      <div>
+                        <p className="font-medium">{org.organizationName}</p>
+                        <code className="font-mono text-muted-foreground text-xs">
+                          {org.organizationId}
+                        </code>
+                      </div>
+                      <Button asChild size="sm" variant="outline">
+                        <a href={`/orgs/${org.organizationId}/import/history`}>
+                          Go to History
+                        </a>
+                      </Button>
+                    </div>
+                  ))}
+                </div>
+              </div>
+            ) : (
+              <p className="text-muted-foreground text-sm">
+                You don't belong to any organizations yet.
+              </p>
+            )}
+
             <Button
               className="w-full"
               onClick={() => window.history.back()}

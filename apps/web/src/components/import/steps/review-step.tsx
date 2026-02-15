@@ -909,7 +909,7 @@ function ReviewForm({
                 return (
                   <DuplicateCard
                     duplicate={dup}
-                    key={dup.rowNumber}
+                    key={`${dup.rowNumber}-${dup.existingPlayerId}`}
                     mappings={confirmedMappings}
                     onResolutionChange={(res) =>
                       onDuplicateResolution(dup.rowNumber, res)

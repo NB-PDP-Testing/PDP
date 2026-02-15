@@ -55,27 +55,30 @@ export const getPlatformImportAnalytics = query({
     }
 
     // Calculate date cutoff based on time range
-    let cutoffDate: number | null = null;
     const now = Date.now();
-    if (timeRange === "7days") {
-      cutoffDate = now - 7 * 24 * 60 * 60 * 1000;
-    } else if (timeRange === "30days") {
-      cutoffDate = now - 30 * 24 * 60 * 60 * 1000;
-    } else if (timeRange === "90days") {
-      cutoffDate = now - 90 * 24 * 60 * 60 * 1000;
-    }
 
-    // Fetch all import sessions (filtered by date if applicable)
-    // Using by_startedAt index for chronological ordering
-    const allSessions = await ctx.db
-      .query("importSessions")
-      .withIndex("by_startedAt")
-      .collect();
+    // Fetch sessions with index-based filtering based on time range
+    const sessions =
+      timeRange === "all"
+        ? await ctx.db
+            .query("importSessions")
+            .withIndex("by_startedAt")
+            .collect()
+        : await (async () => {
+            // Calculate cutoff and use index-based filtering
+            const cutoffDate =
+              timeRange === "7days"
+                ? now - 7 * 24 * 60 * 60 * 1000
+                : timeRange === "30days"
+                  ? now - 30 * 24 * 60 * 60 * 1000
+                  : now - 90 * 24 * 60 * 60 * 1000; // 90days
 
-    // Filter by date range (use startedAt for chronological filtering)
-    const sessions = cutoffDate
-      ? allSessions.filter((s) => s.startedAt >= cutoffDate)
-      : allSessions;
+            // Use index-based filtering with .gte() for date range
+            return await ctx.db
+              .query("importSessions")
+              .withIndex("by_startedAt", (q) => q.gte("startedAt", cutoffDate))
+              .collect();
+          })();
 
     // Calculate metrics
     const totalImports = sessions.length;
@@ -211,6 +214,11 @@ export const getOrgImportHistory = query({
     const paginatedSessions = allSessions.slice(offset, offset + limit);
 
     // Batch fetch user data for initiatedBy field
+    // Note: Better Auth adapter doesn't support batch queries, so we use Promise.all
+    // This is acceptable here because:
+    // 1. Limited to paginated results (typically max 20 users)
+    // 2. Deduped to unique user IDs only
+    // 3. Platform staff analytics query (low frequency)
     const userIds = [
       ...new Set(
         paginatedSessions
@@ -219,6 +227,7 @@ export const getOrgImportHistory = query({
       ),
     ];
 
+    // Parallel fetch all unique users (N queries, but N is small due to pagination)
     const users = await Promise.all(
       userIds.map(async (userId) => {
         const userData = await ctx.runQuery(
@@ -304,8 +313,11 @@ export const getCommonErrors = query({
       throw new Error("Platform staff access required");
     }
 
-    // Fetch all import sessions
-    const allSessions = await ctx.db.query("importSessions").collect();
+    // Fetch all import sessions using index for efficient scanning
+    const allSessions = await ctx.db
+      .query("importSessions")
+      .withIndex("by_startedAt")
+      .collect();
 
     // Aggregate errors with org tracking
     const errorData = new Map<string, { count: number; orgIds: Set<string> }>();

@@ -337,6 +337,9 @@ export default function ImportStep({
     api.models.playerImport.batchImportPlayersWithIdentity
   );
   const recordStats = useMutation(api.models.importSessions.recordSessionStats);
+  const updateStatus = useMutation(
+    api.models.importSessions.updateSessionStatus
+  );
   const cleanupProgress = useMutation(
     api.models.importProgress.cleanupProgressTracker
   );
@@ -436,6 +439,12 @@ export default function ImportStep({
             benchmarksApplied: result.benchmarksApplied,
           },
         });
+
+        // Mark session as completed
+        await updateStatus({
+          sessionId,
+          status: "completed",
+        });
       }
 
       // Cleanup progress tracker after successful import
@@ -458,6 +467,7 @@ export default function ImportStep({
     confirmedMappings,
     batchImport,
     recordStats,
+    updateStatus,
     cleanupProgress,
     organizationId,
     sportCode,

@@ -13,6 +13,7 @@ import {
 } from "lucide-react";
 import { useParams } from "next/navigation";
 import { useState } from "react";
+import { ImportDetailsDialog } from "@/components/import/import-details-dialog";
 import { PartialUndoDialog } from "@/components/import/partial-undo-dialog";
 import Loader from "@/components/loader";
 import { Badge } from "@/components/ui/badge";
@@ -54,6 +55,8 @@ export default function ImportHistoryPage() {
     useState<DateRangeFilter>("30days");
   const [currentPage, setCurrentPage] = useState(0);
   const [partialUndoSessionId, setPartialUndoSessionId] =
+    useState<Id<"importSessions"> | null>(null);
+  const [detailsSessionId, setDetailsSessionId] =
     useState<Id<"importSessions"> | null>(null);
 
   const pageSize = 20;
@@ -336,10 +339,7 @@ export default function ImportHistoryPage() {
                                 <Button
                                   disabled={imp.status !== "completed"}
                                   onClick={() => {
-                                    // TODO: Navigate to import details
-                                    console.log(
-                                      `Details for import ${imp._id}\nPlayers: ${imp.playersImported}\nGuardians: ${imp.guardiansCreated}`
-                                    );
+                                    setDetailsSessionId(imp._id);
                                   }}
                                   size="sm"
                                   variant="outline"
@@ -473,10 +473,7 @@ export default function ImportHistoryPage() {
                         className="flex-1"
                         disabled={imp.status !== "completed"}
                         onClick={() => {
-                          // TODO: Navigate to import details
-                          console.log(
-                            `Details for import ${imp._id}\nPlayers: ${imp.playersImported}\nGuardians: ${imp.guardiansCreated}`
-                          );
+                          setDetailsSessionId(imp._id);
                         }}
                         size="sm"
                         variant="outline"
@@ -523,6 +520,12 @@ export default function ImportHistoryPage() {
         <PartialUndoDialog
           onClose={() => setPartialUndoSessionId(null)}
           sessionId={partialUndoSessionId}
+        />
+
+        {/* Import Details Dialog */}
+        <ImportDetailsDialog
+          onClose={() => setDetailsSessionId(null)}
+          sessionId={detailsSessionId}
         />
       </div>
     </div>

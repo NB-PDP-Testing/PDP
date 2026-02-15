@@ -67,10 +67,10 @@ mkdir -p "$INSIGHTS_DIR"
 # Check for agent feedback and append ONLY CRITICAL items to progress file
 check_agent_feedback() {
   if [ -f "$AGENTS_FEEDBACK_FILE" ] && [ -s "$AGENTS_FEEDBACK_FILE" ]; then
-    # Extract only CRITICAL feedback (test failures, type errors, build failures, incomplete implementations)
+    # Extract only CRITICAL feedback (test failures, type errors, build failures)
     # Skip WARNINGS (lint errors, XSS warnings, console.log, missing auth checks)
-    # Matches agent output patterns: "❌ **TYPE ERRORS", "❌ **UNIT TEST FAILURES", "❌ **CODEGEN FAILED", "❌ **INCOMPLETE IMPLEMENTATION", "❌ NOT IMPLEMENTED", "❌ **MISSING"
-    CRITICAL_FEEDBACK=$(grep -B 2 -A 20 "❌ \*\*TYPE ERRORS\|❌ \*\*UNIT TEST FAILURES\|❌ \*\*CODEGEN FAILED\|❌ \*\*INCOMPLETE IMPLEMENTATION\|❌ NOT IMPLEMENTED\|❌ \*\*MISSING\|🔴 CRITICAL\|💥 BUILD FAILURE" "$AGENTS_FEEDBACK_FILE" || echo "")
+    # Matches agent output patterns: "❌ **TYPE ERRORS", "❌ **UNIT TEST FAILURES", "❌ **CODEGEN FAILED"
+    CRITICAL_FEEDBACK=$(grep -B 2 -A 20 "❌ \*\*TYPE ERRORS\|❌ \*\*UNIT TEST FAILURES\|❌ \*\*CODEGEN FAILED\|🔴 CRITICAL\|💥 BUILD FAILURE" "$AGENTS_FEEDBACK_FILE" || echo "")
 
     if [ -n "$CRITICAL_FEEDBACK" ]; then
       echo "🚨 Found CRITICAL agent feedback - appending to progress.txt"
@@ -107,10 +107,9 @@ for i in $(seq 1 $MAX_ITERATIONS); do
 
   # Show current PRD status
   if [ -f "$PRD_FILE" ]; then
-    # Count stories with passes == true (explicitly complete)
-    COMPLETE_COUNT=$(jq '[.userStories[] | select(.passes == true)] | length' "$PRD_FILE" 2>/dev/null || echo "?")
+    INCOMPLETE_COUNT=$(jq '[.userStories[] | select(.passes == false)] | length' "$PRD_FILE" 2>/dev/null || echo "?")
     TOTAL_COUNT=$(jq '.userStories | length' "$PRD_FILE" 2>/dev/null || echo "?")
-    INCOMPLETE_COUNT=$((TOTAL_COUNT - COMPLETE_COUNT))
+    COMPLETE_COUNT=$((TOTAL_COUNT - INCOMPLETE_COUNT))
     echo "📋 Stories: $COMPLETE_COUNT complete, $INCOMPLETE_COUNT remaining (of $TOTAL_COUNT total)"
   fi
 

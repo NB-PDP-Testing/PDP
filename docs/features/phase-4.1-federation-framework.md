@@ -1,12 +1,12 @@
 # PlayerARC - Phase 4.1: Federation Connector Framework
 
-> Auto-generated documentation - Last updated: 2026-02-15 20:56
+> Auto-generated documentation - Last updated: 2026-02-15 21:12
 
 ## Status
 
 - **Branch**: `ralph/phase-4.1-federation-framework`
-- **Progress**: 5 / 8 stories complete
-- **Phase Status**: 🔄 In Progress
+- **Progress**: 8 / 8 stories complete
+- **Phase Status**: ✅ Complete
 
 ## Completed Features
 
@@ -80,6 +80,26 @@ As a platform admin, I need to complete the OAuth 2.0 authorization flow with a 
 - Add error handling for invalid codes, expired tokens, network failures
 - Run npx ultracite fix and npm run check-types
 
+### US-P4.1-005: Create API client abstraction for federation requests
+
+As a developer, I need a reusable API client that handles authentication, retries, and rate limiting for all federation API calls.
+
+**Acceptance Criteria:**
+- Create packages/backend/convex/lib/federation/apiClient.ts
+- Export FederationApiClient class with constructor(connectorId)
+- Implement request method: async request<T>(endpoint, options) => Promise<T>
+- Loads connector from database, decrypts credentials
+- Adds authentication headers based on authType:
+-   - OAuth2: Authorization: Bearer {access_token}
+-   - API Key: X-API-Key: {api_key}
+-   - Basic: Authorization: Basic {base64(username:password)}
+- Checks if OAuth token expired, refreshes if needed before request
+- Implements retry logic with exponential backoff (3 retries max)
+- Implements rate limiting: tracks requests per minute, delays if limit exceeded
+- Throws FederationApiError with status code and error message on failure
+- Add TypeScript types: FederationApiOptions, FederationApiError
+- Run npx ultracite fix
+
 ### US-P4.1-006: Implement exponential backoff with jitter utility
 
 As a developer, I need a reusable exponential backoff utility with jitter to prevent thundering herd problems when retrying failed requests.
@@ -96,6 +116,41 @@ As a developer, I need a reusable exponential backoff utility with jitter to pre
 - Add TypeScript types and JSDoc comments
 - Run npx ultracite fix and npm run check-types
 
+### US-P4.1-007: Add connector organization management mutations
+
+As an organization admin, I need to connect my organization to a federation connector and manage the connection settings.
+
+**Acceptance Criteria:**
+- Add to packages/backend/convex/models/federationConnectors.ts
+- Implement connectOrganization mutation: adds organization to connector's connectedOrganizations array
+- Args: connectorId, organizationId, federationOrgId (external federation organization ID)
+- Sets enabledAt to current timestamp, lastSyncAt to null initially
+- Validates organization not already connected to this connector
+- Implement disconnectOrganization mutation: removes organization from connectedOrganizations array
+- Does NOT delete sync history (keep audit trail)
+- Implement updateLastSyncTime mutation: updates lastSyncAt timestamp after successful sync
+- Implement getConnectedOrganizations query: returns organizations connected to a connector
+- Implement getOrganizationConnectors query: returns connectors enabled for an organization
+- All queries use .withIndex() or direct lookups
+- Run npx -w packages/backend convex codegen and npm run check-types
+
+### US-P4.1-008: Add connector status management and error tracking
+
+As the platform, I need to track connector health, sync errors, and automatically disable failing connectors.
+
+**Acceptance Criteria:**
+- Add to packages/backend/convex/models/federationConnectors.ts
+- Implement updateConnectorStatus mutation: updates status (active/inactive/error)
+- Implement recordConnectorError mutation: appends error to connector's error log
+- Add lastErrorAt, lastSuccessAt, consecutiveFailures fields to federationConnectors schema
+- recordConnectorError increments consecutiveFailures counter
+- If consecutiveFailures >= 5, automatically set status to 'error'
+- Implement clearConnectorErrors mutation: resets error counters, sets status back to 'active'
+- Implement getConnectorHealth query: returns connector with health metrics
+- Health metrics: uptime percentage, last sync time, error rate, status
+- Update schema.ts with new fields and re-run codegen
+- Run npx ultracite fix and npm run check-types
+
 
 ## Implementation Notes
 
@@ -110,6 +165,8 @@ As a developer, I need a reusable exponential backoff utility with jitter to pre
 - Fix: Convert createConnector and updateConnectorCredentials to actions
 - Actions call internal mutations (`createConnectorInternal`, `updateConnectorCredentialsInternal`)
 - Files in `/actions` folder MUST have `"use node";` directive at top of file
+--
+- Actions referenced in internal API need full path: `(internal as any)["actions/federationAuth"].functionName`
 
 **Gotchas encountered:**
 - Initial error: tried to use `ctx.storage.store` in mutation - not allowed

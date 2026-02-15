@@ -144,7 +144,7 @@
       ],
       "priority": 5,
       "notes": "This is the core abstraction used by all federation sync actions. Must support all 3 auth types. Rate limiting prevents hitting federation API limits and getting blocked. Exponential backoff: wait 1s, 2s, 4s between retries.",
-      "passes": false
+      "passes": true
     },
     {
       "id": "US-P4.1-006",
@@ -186,7 +186,7 @@
       ],
       "priority": 7,
       "notes": "Multiple organizations can connect to the same connector (e.g., multiple GAA clubs using GAA Foireann). The federationOrgId is the organization's ID in the external federation system, used to filter API calls to that org's data only.",
-      "passes": false
+      "passes": true
     },
     {
       "id": "US-P4.1-008",
@@ -207,7 +207,7 @@
       ],
       "priority": 8,
       "notes": "Auto-disabling failing connectors prevents infinite retry loops and alert fatigue. Platform admins can investigate and manually re-enable with clearConnectorErrors. Error log should be capped at last 50 errors to prevent unbounded growth.",
-      "passes": false
+      "passes": true
     }
   ],
   "technicalNotes": {

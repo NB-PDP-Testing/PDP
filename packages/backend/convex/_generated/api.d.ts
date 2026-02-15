@@ -15,6 +15,7 @@ import type * as actions_draftGeneration from "../actions/draftGeneration.js";
 import type * as actions_entityResolution from "../actions/entityResolution.js";
 import type * as actions_federationAuth from "../actions/federationAuth.js";
 import type * as actions_federationScheduler from "../actions/federationScheduler.js";
+import type * as actions_federationSyncEngine from "../actions/federationSyncEngine.js";
 import type * as actions_gaaFoireann from "../actions/gaaFoireann.js";
 import type * as actions_gaaSync from "../actions/gaaSync.js";
 import type * as actions_guardianNotifications from "../actions/guardianNotifications.js";
@@ -234,6 +235,7 @@ declare const fullApi: ApiFromModules<{
   "actions/entityResolution": typeof actions_entityResolution;
   "actions/federationAuth": typeof actions_federationAuth;
   "actions/federationScheduler": typeof actions_federationScheduler;
+  "actions/federationSyncEngine": typeof actions_federationSyncEngine;
   "actions/gaaFoireann": typeof actions_gaaFoireann;
   "actions/gaaSync": typeof actions_gaaSync;
   "actions/guardianNotifications": typeof actions_guardianNotifications;

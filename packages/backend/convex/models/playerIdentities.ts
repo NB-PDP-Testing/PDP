@@ -56,6 +56,15 @@ export const getPlayerById = query({
 });
 
 /**
+ * Get a player identity by ID (alias for getPlayerById)
+ */
+export const getPlayerIdentity = query({
+  args: { identityId: v.id("playerIdentities") },
+  returns: v.union(playerIdentityValidator, v.null()),
+  handler: async (ctx, args) => await ctx.db.get(args.identityId),
+});
+
+/**
  * Find a player by name and date of birth
  */
 export const findPlayerByNameAndDob = query({
@@ -566,6 +575,8 @@ export const updatePlayerIdentity = mutation({
     postcode: v.optional(v.string()),
     country: v.optional(v.string()),
     verificationStatus: v.optional(verificationStatusValidator),
+    lastSyncedAt: v.optional(v.number()),
+    lastSyncedData: v.optional(v.any()),
   },
   returns: v.null(),
   handler: async (ctx, args) => {
@@ -610,6 +621,12 @@ export const updatePlayerIdentity = mutation({
     }
     if (args.verificationStatus !== undefined) {
       updates.verificationStatus = args.verificationStatus;
+    }
+    if (args.lastSyncedAt !== undefined) {
+      updates.lastSyncedAt = args.lastSyncedAt;
+    }
+    if (args.lastSyncedData !== undefined) {
+      updates.lastSyncedData = args.lastSyncedData;
     }
 
     await ctx.db.patch(args.playerIdentityId, updates);

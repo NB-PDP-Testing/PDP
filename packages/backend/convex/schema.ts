@@ -283,6 +283,10 @@ export default defineSchema({
     importSessionId: v.optional(v.id("importSessions")),
     externalIds: v.optional(v.record(v.string(), v.string())), // {"foireann": "12345", "pitchero": "67890"}
 
+    // Federation sync tracking
+    lastSyncedAt: v.optional(v.number()), // Timestamp of last federation sync
+    lastSyncedData: v.optional(v.any()), // Data as it was at last sync (for conflict detection)
+
     // Metadata
     createdAt: v.number(),
     updatedAt: v.number(),

@@ -77,6 +77,12 @@ export default function ImportHistoryPage() {
 
   // Filter imports by status and date range
   const filteredImports = historyData?.imports.filter((imp) => {
+    // Only show completed, failed, or cancelled imports (hide in-progress)
+    const completedStatuses = ["completed", "failed", "cancelled", "undone"];
+    if (!completedStatuses.includes(imp.status)) {
+      return false;
+    }
+
     // Status filter
     if (
       statusFilter === "success" &&

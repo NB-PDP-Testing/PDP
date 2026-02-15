@@ -492,3 +492,101 @@ Logging:
   - Limit queries to specific organizationId if available
 
 ---
+## Sun 15 Feb 2026 22:20 - US-P4.2-007 - Create GAA sync testing infrastructure
+**Iteration**: 1
+**Commit**: 56a9bccdb6ea55c7b6262611e405fe63608560d4
+**Session**: session-id-not-available
+**Status**: Complete
+
+### What was implemented
+- Created comprehensive test data file: `packages/backend/convex/lib/federation/gaaTestData.ts`
+- 13 realistic mock GAA members covering edge cases:
+  - Valid members with complete data (Seán Murphy, Niamh O'Brien)
+  - Missing optional fields (no email, no phone)
+  - Invalid data (malformed email: "aoife.kelly@invalid", invalid phone: "not-a-phone-number")
+  - Lapsed membership (Patrick Fitzgerald)
+  - Irish unicode characters in names (Seán, Niamh, Ciarán, Sinéad, Tadhg, Róisín)
+  - Various address formats (single-line, malformed)
+  - Missing membership number (Liam Brennan)
+  - Invalid membership number format (Emma Doyle: "INVALID-FORMAT")
+  - Missing required field (Daniel - empty lastName)
+  - Invalid date format (Grace Byrne: "2010/13/45")
+  - Phone variations (+353 prefix, no prefix, no spaces)
+- Mock API response functions:
+  - `mockGAAMembershipListResponse(page, perPage)` - paginated responses
+  - `mockGAAMemberDetailResponse(memberId)` - detailed member with emergency contacts, positions, teams
+- Mock error responses for testing error handling (401, 403, 404, 429, 500)
+- Duplicate test cases: 3 scenarios (membership number match, name+DOB match, similar name)
+
+- Created test mutations file: `packages/backend/convex/models/gaaTestMutations.ts`
+- `testGAAFieldMapping` mutation: Validates field transformation for all test cases
+  - Returns: totalMembers, validMembers, membersWithWarnings, membersWithErrors
+  - Includes: error details, warning details, sample transformed data (first 3 valid members)
+- `testGAADeduplication` mutation: Validates duplicate detection test case structure
+  - Verifies test data has required fields for deduplication testing
+  - Returns: testCases count, passed/failed counts, results array
+- `testGAAMockResponses` mutation: Validates mock API response formats
+  - Tests membership list structure, member detail structure, pagination logic
+  - Returns: validation flags, sample data for review
+- `testGAASyncWithMockData` action: Full sync simulation with mock data
+  - Creates test import session with correct stats schema (all required fields)
+  - Transforms all mock members using gaaMapper
+  - Reports: success flag, sessionId, member counts, transformation report
+- `createTestSyncSession` internal mutation: Helper to create test import sessions
+
+### Files changed
+- packages/backend/convex/lib/federation/gaaTestData.ts (+415 lines, new file)
+  - mockGAAMembers array with 13 test members
+  - Mock API response functions
+  - Mock error responses
+  - Duplicate test cases
+- packages/backend/convex/models/gaaTestMutations.ts (+438 lines, new file)
+  - 4 test mutations + 1 test action + 1 internal mutation
+  - Comprehensive validation reports
+
+### Quality checks
+- ✅ Convex codegen: passed
+- ✅ Type check: passed (no errors in new files)
+- ✅ Pre-commit hook: passed (removed async from non-async handlers)
+- ⚠️ Browser verification: N/A (backend-only testing infrastructure)
+
+### **Learnings for future iterations** ⚠️ CRITICAL
+
+**Patterns discovered:**
+- Test mutations should NOT use async handler if they don't await anything
+- Biome linter enforces `lint/suspicious/useAwait` - remove async if no await
+- Import session stats schema has ALL fields required:
+  - totalRows, selectedRows, validRows, errorRows, duplicateRows (NOT "duplicates")
+  - playersCreated, playersUpdated, playersSkipped
+  - guardiansCreated, guardiansLinked
+  - teamsCreated, passportsCreated, benchmarksApplied
+- Test data should cover POSITIVE and NEGATIVE cases (valid + invalid)
+- Mock functions should return realistic edge cases (unicode, malformed data, etc.)
+
+**Gotchas encountered:**
+- Initial commit failed: async handlers without await rejected by pre-commit hook
+- Must use `internal.models.moduleName.functionName` to reference internal mutations from actions
+- Import session stats uses `duplicateRows` not `duplicates`
+- Test mutations need all import session stats fields even for test data
+- Pre-commit hook runs biome with --diagnostic-level=error (stricter than ultracite)
+
+**Dependencies found:**
+- gaaTestMutations depends on:
+  - transformGAAMembers from gaaMapper.ts
+  - Mock data from gaaTestData.ts
+  - internal.models.gaaTestMutations.createTestSyncSession
+  - Import session schema (must match all required fields)
+
+**What to do next**:
+- [ ] Implement US-P4.2-008: Add GAA sync error handling and recovery
+- [ ] Will add error handling in syncGAAMembers action
+- [ ] Implement retry logic, error logging, notifications
+- [ ] Handle partial sync failures gracefully
+
+**Mistakes made** (learn from these!):
+- Initially used async handlers for non-async mutations - pre-commit hook rejected
+- First attempt at import session stats used "duplicates" instead of "duplicateRows"
+- Tried to use `ctx.mutations.functionName` instead of `internal.models.moduleName.functionName`
+- Forgot to add ALL required stats fields (only added subset)
+
+---

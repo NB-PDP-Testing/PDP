@@ -177,6 +177,7 @@
       "id": "US-P4.2-007",
       "title": "Create GAA sync testing infrastructure",
       "description": "As a developer, I need test utilities and mock data to validate GAA connector functionality without hitting the real Foireann API.",
+      "passes": true,
       "acceptanceCriteria": [
         "Create packages/backend/convex/lib/federation/gaaTestData.ts",
         "Export mockGAAMembers array with 10+ realistic test members",

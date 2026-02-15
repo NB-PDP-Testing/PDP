@@ -77,9 +77,7 @@
     }
   ],
   "completedStories": [],
-
   "IMPORTANT_READ_PHASE_PRD": "The detailed acceptance criteria for each story are in the phase PRD files (phases/PHASE_M1.json through phases/PHASE_M9.json). The summaries below are abbreviated. ALWAYS read the phase PRD for the full, verified implementation instructions including exact function signatures.",
-
   "userStories": [
     {
       "id": "US-VNM-001",
@@ -104,7 +102,8 @@
       "dependencies": [],
       "files": {
         "modify": ["packages/backend/convex/schema.ts"]
-      }
+      },
+      "passes": false
     },
     {
       "id": "US-VNM-002",
@@ -129,7 +128,8 @@
       "dependencies": ["US-VNM-001"],
       "files": {
         "create": ["packages/backend/convex/models/voicePipelineEvents.ts"]
-      }
+      },
+      "passes": false
     },
     {
       "id": "US-VNM-003",
@@ -166,7 +166,8 @@
           "packages/backend/convex/actions/entityResolution.ts",
           "packages/backend/convex/actions/draftGeneration.ts"
         ]
-      }
+      },
+      "passes": false
     },
     {
       "id": "US-VNM-004",
@@ -193,7 +194,8 @@
       "dependencies": ["US-VNM-003"],
       "files": {
         "create": ["packages/backend/convex/models/voicePipelineMetrics.ts"]
-      }
+      },
+      "passes": false
     },
     {
       "id": "US-VNM-005",
@@ -217,7 +219,8 @@
       "dependencies": ["US-VNM-004"],
       "files": {
         "modify": ["packages/backend/convex/crons.ts"]
-      }
+      },
+      "passes": false
     },
     {
       "id": "US-VNM-006",
@@ -245,7 +248,8 @@
       "dependencies": ["US-VNM-003"],
       "files": {
         "create": ["packages/backend/convex/models/voicePipelineRetry.ts"]
-      }
+      },
+      "passes": false
     },
     {
       "id": "US-VNM-007",
@@ -273,7 +277,8 @@
       "files": {
         "create": ["packages/backend/convex/models/voicePipelineAlerts.ts"],
         "modify": ["packages/backend/convex/crons.ts"]
-      }
+      },
+      "passes": false
     },
     {
       "id": "US-VNM-008",
@@ -305,7 +310,8 @@
           "apps/web/src/app/platform/voice-monitoring/layout.tsx"
         ],
         "modify": ["apps/web/src/app/platform/page.tsx"]
-      }
+      },
+      "passes": false
     },
     {
       "id": "US-VNM-009",
@@ -334,7 +340,8 @@
         "create": [
           "apps/web/src/app/platform/voice-monitoring/artifacts/page.tsx"
         ]
-      }
+      },
+      "passes": false
     },
     {
       "id": "US-VNM-010",
@@ -363,7 +370,8 @@
         "create": [
           "apps/web/src/app/platform/voice-monitoring/artifacts/[artifactId]/page.tsx"
         ]
-      }
+      },
+      "passes": false
     },
     {
       "id": "US-VNM-011",
@@ -395,7 +403,8 @@
         "create": [
           "apps/web/src/app/platform/voice-monitoring/metrics/page.tsx"
         ]
-      }
+      },
+      "passes": false
     },
     {
       "id": "US-VNM-012",
@@ -421,7 +430,8 @@
       "dependencies": ["US-VNM-008"],
       "files": {
         "create": ["apps/web/src/app/platform/voice-monitoring/events/page.tsx"]
-      }
+      },
+      "passes": false
     },
     {
       "id": "US-VNM-013",
@@ -449,7 +459,8 @@
         "create": [
           "apps/web/src/app/platform/voice-monitoring/pipeline/page.tsx"
         ]
-      }
+      },
+      "passes": false
     },
     {
       "id": "US-VNM-014",
@@ -474,7 +485,8 @@
       "dependencies": ["US-VNM-007", "US-VNM-008"],
       "files": {
         "create": ["apps/web/src/app/platform/voice-monitoring/alerts/page.tsx"]
-      }
+      },
+      "passes": false
     },
     {
       "id": "US-VNM-015",
@@ -510,10 +522,10 @@
       "files": {
         "delete": ["apps/web/src/app/platform/v2-claims/"],
         "modify": ["apps/web/src/app/platform/page.tsx"]
-      }
+      },
+      "passes": false
     }
   ],
-
   "successCriteria": {
     "backendInstrumentation": "All v2 pipeline stages emit events with proper metadata",
     "eventLogging": "voicePipelineEvents table captures 25+ event types with timeWindow partitioning",
@@ -528,7 +540,6 @@
     "authorization": "ALL routes and queries verify platform staff access",
     "scaleTarget": "System performs well up to ~2000 coaches, ~5000 voice notes/day"
   },
-
   "mandatoryPatterns": [
     "ALWAYS use cursor-based pagination (.paginate()) for list queries - NEVER .take()",
     "ALWAYS use time-window partitioning for event cleanup (query by timeWindow, not timestamp scan)",
@@ -541,7 +552,6 @@
     "NEVER use external charting libraries - CSS-based visualizations only (reuse messaging dashboard pattern)",
     "NEVER store events indefinitely - 48-hour retention, rely on snapshots for history"
   ],
-
   "ralphInstructions": {
     "executionMode": "parallel",
     "agentDelegation": {
@@ -584,7 +594,6 @@
     "qualityCriteria": "All cursor-based pagination enforced, platform staff auth on all routes, dashboard loads < 2s, real-time updates work, v2-claims feature parity before removal",
     "criticalWarning": "The inline acceptance criteria in this file are ABBREVIATED. Ralph MUST read phases/PHASE_MX.json files for FULL implementation instructions with exact schemas, function signatures, and performance patterns."
   },
-
   "performanceTargets": {
     "dashboardPageLoad": "< 2 seconds (full page with Overview tab)",
     "realTimeMetricsQuery": "< 50ms (reads counters only, no event scan)",
@@ -594,7 +603,6 @@
     "metricsAggregationCron": "< 30 seconds (hourly aggregation)",
     "alertCheckCron": "< 10 seconds (health check every 5 min)"
   },
-
   "scaleTargets": {
     "small": "~50 coaches, ~100 voice notes/day - Comfortable",
     "medium": "~500 coaches, ~1000 voice notes/day - Comfortable",

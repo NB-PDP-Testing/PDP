@@ -67,10 +67,10 @@ mkdir -p "$INSIGHTS_DIR"
 # Check for agent feedback and append ONLY CRITICAL items to progress file
 check_agent_feedback() {
   if [ -f "$AGENTS_FEEDBACK_FILE" ] && [ -s "$AGENTS_FEEDBACK_FILE" ]; then
-    # Extract only CRITICAL feedback (test failures, type errors, build failures)
+    # Extract only CRITICAL feedback (test failures, type errors, build failures, incomplete implementations)
     # Skip WARNINGS (lint errors, XSS warnings, console.log, missing auth checks)
-    # Matches agent output patterns: "❌ **TYPE ERRORS", "❌ **UNIT TEST FAILURES", "❌ **CODEGEN FAILED"
-    CRITICAL_FEEDBACK=$(grep -B 2 -A 20 "❌ \*\*TYPE ERRORS\|❌ \*\*UNIT TEST FAILURES\|❌ \*\*CODEGEN FAILED\|🔴 CRITICAL\|💥 BUILD FAILURE" "$AGENTS_FEEDBACK_FILE" || echo "")
+    # Matches agent output patterns: "❌ **TYPE ERRORS", "❌ **UNIT TEST FAILURES", "❌ **CODEGEN FAILED", "❌ **INCOMPLETE IMPLEMENTATION", "❌ NOT IMPLEMENTED", "❌ **MISSING"
+    CRITICAL_FEEDBACK=$(grep -B 2 -A 20 "❌ \*\*TYPE ERRORS\|❌ \*\*UNIT TEST FAILURES\|❌ \*\*CODEGEN FAILED\|❌ \*\*INCOMPLETE IMPLEMENTATION\|❌ NOT IMPLEMENTED\|❌ \*\*MISSING\|🔴 CRITICAL\|💥 BUILD FAILURE" "$AGENTS_FEEDBACK_FILE" || echo "")
 
     if [ -n "$CRITICAL_FEEDBACK" ]; then
       echo "🚨 Found CRITICAL agent feedback - appending to progress.txt"

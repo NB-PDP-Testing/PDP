@@ -336,6 +336,7 @@ export default function ImportStep({
   const batchImport = useMutation(
     api.models.playerImport.batchImportPlayersWithIdentity
   );
+  const recordStats = useMutation(api.models.importSessions.recordSessionStats);
   const cleanupProgress = useMutation(
     api.models.importProgress.cleanupProgressTracker
   );
@@ -414,6 +415,29 @@ export default function ImportStep({
         benchmarksApplied: result.benchmarksApplied,
       });
 
+      // Record final stats to import session before cleanup
+      if (sessionId) {
+        await recordStats({
+          sessionId,
+          stats: {
+            totalRows: parsedData.rows.length,
+            selectedRows: selectedRows.size,
+            validRows: selectedRows.size - result.errors.length,
+            errorRows: result.errors.length,
+            duplicateRows: 0, // TODO: Track duplicates if needed
+            playersCreated: result.playersCreated,
+            playersUpdated: result.playersReused,
+            playersSkipped: 0,
+            guardiansCreated: result.guardiansCreated,
+            guardiansLinked:
+              result.guardiansLinkedToVerifiedAccounts + result.guardiansReused,
+            teamsCreated: 0,
+            passportsCreated: result.enrollmentsCreated,
+            benchmarksApplied: result.benchmarksApplied,
+          },
+        });
+      }
+
       // Cleanup progress tracker after successful import
       if (sessionId) {
         await cleanupProgress({ sessionId });
@@ -433,6 +457,7 @@ export default function ImportStep({
     parsedData.rows,
     confirmedMappings,
     batchImport,
+    recordStats,
     cleanupProgress,
     organizationId,
     sportCode,

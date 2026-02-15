@@ -329,11 +329,34 @@ export default function ImportHistoryPage() {
                             </TableCell>
                             <TableCell className="text-right">
                               <div className="flex justify-end gap-2">
-                                <Button disabled size="sm" variant="outline">
+                                <Button
+                                  disabled={imp.status !== "completed"}
+                                  onClick={() => {
+                                    // TODO: Navigate to import details
+                                    console.log(
+                                      `Details for import ${imp._id}\nPlayers: ${imp.playersImported}\nGuardians: ${imp.guardiansCreated}`
+                                    );
+                                  }}
+                                  size="sm"
+                                  variant="outline"
+                                >
                                   <FileText className="mr-1 h-3 w-3" />
                                   Details
                                 </Button>
-                                <Button disabled size="sm" variant="outline">
+                                <Button
+                                  disabled={
+                                    imp.status !== "completed" ||
+                                    imp.playersImported === 0
+                                  }
+                                  onClick={() => {
+                                    // TODO: Open partial undo dialog
+                                    console.log(
+                                      `Undo import ${imp._id}\nThis will remove ${imp.playersImported} players`
+                                    );
+                                  }}
+                                  size="sm"
+                                  variant="outline"
+                                >
                                   <Undo2 className="mr-1 h-3 w-3" />
                                   Undo
                                 </Button>
@@ -447,7 +470,13 @@ export default function ImportHistoryPage() {
                     <div className="flex gap-2">
                       <Button
                         className="flex-1"
-                        disabled
+                        disabled={imp.status !== "completed"}
+                        onClick={() => {
+                          // TODO: Navigate to import details
+                          console.log(
+                            `Details for import ${imp._id}\nPlayers: ${imp.playersImported}\nGuardians: ${imp.guardiansCreated}`
+                          );
+                        }}
                         size="sm"
                         variant="outline"
                       >
@@ -456,7 +485,16 @@ export default function ImportHistoryPage() {
                       </Button>
                       <Button
                         className="flex-1"
-                        disabled
+                        disabled={
+                          imp.status !== "completed" ||
+                          imp.playersImported === 0
+                        }
+                        onClick={() => {
+                          // TODO: Open partial undo dialog
+                          console.log(
+                            `Undo import ${imp._id}\nThis will remove ${imp.playersImported} players`
+                          );
+                        }}
                         size="sm"
                         variant="outline"
                       >

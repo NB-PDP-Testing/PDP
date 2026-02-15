@@ -1,3 +1,67 @@
 # Ralph Progress Log
 Started: Sun 15 Feb 2026 22:26:17 GMT
 ---
+
+## Codebase Patterns
+**Last Updated**: 2026-02-15 - Iteration 1
+
+### Architecture
+- All routes scoped under `/orgs/[orgId]/`
+- Use Better Auth for authentication, Convex for backend
+- Organization data isolated via organizationId field
+
+### Convex Backend Patterns
+- NEVER use `.filter()` - always use `.withIndex()`
+- All functions need `args` and `returns` validators
+- Use `Id<"tableName">` types, not `string`
+- Index names include all fields: `by_orgId_and_status`
+- Schema changes require running `npx -w packages/backend convex codegen`
+
+### Quality Checks
+- Run in order: `npx -w packages/backend convex codegen` → `npm run check-types` → `npx ultracite fix` → `npm run check`
+- Ultracite must run before linting or you'll get false failures
+
+### File Locations (discovered during work)
+- Schema: `packages/backend/convex/schema.ts`
+- Import-related tables located around line 4630-4850
+
+---
+
+## 2026-02-15 23:00 - US-P4.3-001 - Add AI mapping cache table to schema
+**Iteration**: 1
+**Commit**: 4d4e4d05c2d09d856219e0896d0e2c169fa42507
+**Session**: 28d554da-c69f-4334-9606-0515ca527995
+**Status**: Complete
+
+### What was implemented
+- Added `aiMappingCache` table to `packages/backend/convex/schema.ts`
+- Table includes all required fields: columnPattern, sampleValues, suggestedField, confidence, reasoning, createdAt, expiresAt
+- Added two indexes: `by_columnPattern` for lookups, `by_expiresAt` for cleanup
+- Positioned table in the import-related section (after importMappingHistory, before importProgressTrackers)
+
+### Files changed
+- packages/backend/convex/schema.ts (+17 lines, added aiMappingCache table definition)
+
+### Quality checks
+- ✅ Convex codegen: passed
+- ✅ Pre-commit lint-staged: passed
+
+### **Learnings for future iterations** ⚠️ CRITICAL
+**Patterns discovered:**
+- Import-related tables are grouped together in schema.ts starting around line 4630
+- Schema table definitions use `.index()` chaining pattern
+- 30-day TTL = 2592000000 milliseconds (mentioned in PRD notes)
+
+**Gotchas encountered:**
+- None - straightforward schema addition
+
+**Dependencies found:**
+- Schema changes require `npx -w packages/backend convex codegen` before type checking
+
+**What to do next**:
+- [ ] US-P4.3-002: Install @anthropic-ai/sdk and create Claude API integration action
+
+**Mistakes made**:
+- None
+
+---

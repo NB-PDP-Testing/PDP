@@ -49,7 +49,8 @@
         "Run npx -w packages/backend convex codegen successfully"
       ],
       "priority": 1,
-      "notes": "30-day cache balances cost savings with data freshness. Caching key is (columnPattern + first 3 sample values) to handle similar columns across imports."
+      "notes": "30-day cache balances cost savings with data freshness. Caching key is (columnPattern + first 3 sample values) to handle similar columns across imports.",
+      "passes": true
     },
     {
       "id": "US-P4.3-002",

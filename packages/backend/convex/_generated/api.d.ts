@@ -8,6 +8,7 @@
  * @module
  */
 
+import type * as actions_aiMapping from "../actions/aiMapping.js";
 import type * as actions_claimsExtraction from "../actions/claimsExtraction.js";
 import type * as actions_coachParentSummaries from "../actions/coachParentSummaries.js";
 import type * as actions_draftGeneration from "../actions/draftGeneration.js";
@@ -221,6 +222,7 @@ import type {
 } from "convex/server";
 
 declare const fullApi: ApiFromModules<{
+  "actions/aiMapping": typeof actions_aiMapping;
   "actions/claimsExtraction": typeof actions_claimsExtraction;
   "actions/coachParentSummaries": typeof actions_coachParentSummaries;
   "actions/draftGeneration": typeof actions_draftGeneration;

@@ -13627,3 +13627,427 @@ packages/backend/convex/actions/coachParentSummaries.ts:      "ANTHROPIC_API_KEY
   - packages/backend/convex/models/notifications.ts
   **Action**: Verify user can send notifications to recipient
 
+
+## Auto Quality Check - 2026-02-15 16:52:46
+### File: /Users/jkobrien/code/PDP/packages/backend/convex/models/importSessions.ts
+
+- ⚠️ **Performance: .filter() usage detected**
+  - **Problem:** Should use .withIndex() for better performance
+  - **Fix:** Replace `.query().filter()` with `.query().withIndex()`
+
+
+## Auto Quality Check - 2026-02-15 16:52:59
+### File: /Users/jkobrien/code/PDP/packages/backend/convex/models/importSessions.ts
+
+- ⚠️ **Performance: .filter() usage detected**
+  - **Problem:** Should use .withIndex() for better performance
+  - **Fix:** Replace `.query().filter()` with `.query().withIndex()`
+
+
+## Auto Quality Check - 2026-02-15 16:54:50
+### File: /Users/jkobrien/code/PDP/packages/backend/convex/models/importSessions.ts
+
+- ⚠️ **Performance: .filter() usage detected**
+  - **Problem:** Should use .withIndex() for better performance
+  - **Fix:** Replace `.query().filter()` with `.query().withIndex()`
+
+
+## Auto Quality Check - 2026-02-15 16:55:21
+### File: /Users/jkobrien/code/PDP/packages/backend/convex/models/importSessions.ts
+
+- ⚠️ **Performance: .filter() usage detected**
+  - **Problem:** Should use .withIndex() for better performance
+  - **Fix:** Replace `.query().filter()` with `.query().withIndex()`
+
+
+## Auto Quality Check - 2026-02-15 16:56:18
+### File: /Users/jkobrien/code/PDP/packages/backend/convex/models/importSessions.ts
+
+- ⚠️ **Performance: .filter() usage detected**
+  - **Problem:** Should use .withIndex() for better performance
+  - **Fix:** Replace `.query().filter()` with `.query().withIndex()`
+
+
+## Auto Quality Check - 2026-02-15 17:20:34
+### File: /Users/jkobrien/code/PDP/packages/backend/convex/models/importSessions.ts
+
+- ⚠️ **Performance: .filter() usage detected**
+  - **Problem:** Should use .withIndex() for better performance
+  - **Fix:** Replace `.query().filter()` with `.query().withIndex()`
+
+
+## Auto Quality Check - 2026-02-15 17:20:54
+### File: /Users/jkobrien/code/PDP/packages/backend/convex/models/importSessions.ts
+
+- ⚠️ **Performance: .filter() usage detected**
+  - **Problem:** Should use .withIndex() for better performance
+  - **Fix:** Replace `.query().filter()` with `.query().withIndex()`
+
+
+## Auto Quality Check - 2026-02-15 17:22:42
+### File: /Users/jkobrien/code/PDP/packages/backend/convex/models/importSessions.ts
+
+- ⚠️ **Performance: .filter() usage detected**
+  - **Problem:** Should use .withIndex() for better performance
+  - **Fix:** Replace `.query().filter()` with `.query().withIndex()`
+
+
+## Auto Quality Check - 2026-02-15 17:27:14
+### File: /Users/jkobrien/code/PDP/packages/backend/convex/models/importAnalytics.ts
+
+- ⚠️ **Performance: .filter() usage detected**
+  - **Problem:** Should use .withIndex() for better performance
+  - **Fix:** Replace `.query().filter()` with `.query().withIndex()`
+
+
+## Auto Quality Check - 2026-02-15 17:27:14
+### File: /Users/jkobrien/code/PDP/packages/backend/convex/models/importAnalytics.ts
+
+- ❌ **CRITICAL: N+1 query pattern detected**
+  - **Problem:** `Promise.all(items.map(async => query))` makes N database calls
+  - **Fix:** Batch fetch all IDs first, create Map for O(1) lookup
+
+
+## Auto Quality Check - 2026-02-15 17:27:35
+### File: /Users/jkobrien/code/PDP/packages/backend/convex/models/importSessions.ts
+
+- ⚠️ **Performance: .filter() usage detected**
+  - **Problem:** Should use .withIndex() for better performance
+  - **Fix:** Replace `.query().filter()` with `.query().withIndex()`
+
+
+## Auto Quality Check - 2026-02-15 17:28:33
+### File: /Users/jkobrien/code/PDP/packages/backend/convex/models/importAnalytics.ts
+
+- ⚠️ **Performance: .filter() usage detected**
+  - **Problem:** Should use .withIndex() for better performance
+  - **Fix:** Replace `.query().filter()` with `.query().withIndex()`
+
+
+## Auto Quality Check - 2026-02-15 17:28:33
+### File: /Users/jkobrien/code/PDP/packages/backend/convex/models/importAnalytics.ts
+
+- ❌ **CRITICAL: N+1 query pattern detected**
+  - **Problem:** `Promise.all(items.map(async => query))` makes N database calls
+  - **Fix:** Batch fetch all IDs first, create Map for O(1) lookup
+
+
+## Auto Quality Check - 2026-02-15 17:28:51
+### File: /Users/jkobrien/code/PDP/packages/backend/convex/models/importAnalytics.ts
+
+- ⚠️ **Performance: .filter() usage detected**
+  - **Problem:** Should use .withIndex() for better performance
+  - **Fix:** Replace `.query().filter()` with `.query().withIndex()`
+
+
+## Auto Quality Check - 2026-02-15 17:28:51
+### File: /Users/jkobrien/code/PDP/packages/backend/convex/models/importAnalytics.ts
+
+- ❌ **CRITICAL: N+1 query pattern detected**
+  - **Problem:** `Promise.all(items.map(async => query))` makes N database calls
+  - **Fix:** Batch fetch all IDs first, create Map for O(1) lookup
+
+
+## Auto Quality Check - 2026-02-15 17:29:38
+### File: /Users/jkobrien/code/PDP/packages/backend/convex/models/importAnalytics.ts
+
+- ⚠️ **Performance: .filter() usage detected**
+  - **Problem:** Should use .withIndex() for better performance
+  - **Fix:** Replace `.query().filter()` with `.query().withIndex()`
+
+
+## Auto Quality Check - 2026-02-15 17:29:38
+### File: /Users/jkobrien/code/PDP/packages/backend/convex/models/importAnalytics.ts
+
+- ❌ **CRITICAL: N+1 query pattern detected**
+  - **Problem:** `Promise.all(items.map(async => query))` makes N database calls
+  - **Fix:** Batch fetch all IDs first, create Map for O(1) lookup
+
+
+## Auto Quality Check - 2026-02-15 17:29:48
+### File: /Users/jkobrien/code/PDP/packages/backend/convex/models/importAnalytics.ts
+
+- ⚠️ **Performance: .filter() usage detected**
+  - **Problem:** Should use .withIndex() for better performance
+  - **Fix:** Replace `.query().filter()` with `.query().withIndex()`
+
+
+## Auto Quality Check - 2026-02-15 17:29:48
+### File: /Users/jkobrien/code/PDP/packages/backend/convex/models/importAnalytics.ts
+
+- ❌ **CRITICAL: N+1 query pattern detected**
+  - **Problem:** `Promise.all(items.map(async => query))` makes N database calls
+  - **Fix:** Batch fetch all IDs first, create Map for O(1) lookup
+
+
+## Auto Quality Check - 2026-02-15 18:15:43
+### File: /Users/jkobrien/code/PDP/packages/backend/convex/models/importAnalytics.ts
+
+- ⚠️ **Performance: .filter() usage detected**
+  - **Problem:** Should use .withIndex() for better performance
+  - **Fix:** Replace `.query().filter()` with `.query().withIndex()`
+
+
+## Auto Quality Check - 2026-02-15 18:15:43
+### File: /Users/jkobrien/code/PDP/packages/backend/convex/models/importAnalytics.ts
+
+- ❌ **CRITICAL: N+1 query pattern detected**
+  - **Problem:** `Promise.all(items.map(async => query))` makes N database calls
+  - **Fix:** Batch fetch all IDs first, create Map for O(1) lookup
+
+
+## Auto Quality Check - 2026-02-15 18:17:12
+### File: /Users/jkobrien/code/PDP/packages/backend/convex/models/importAnalytics.ts
+
+- ⚠️ **Performance: .filter() usage detected**
+  - **Problem:** Should use .withIndex() for better performance
+  - **Fix:** Replace `.query().filter()` with `.query().withIndex()`
+
+
+## Auto Quality Check - 2026-02-15 18:17:12
+### File: /Users/jkobrien/code/PDP/packages/backend/convex/models/importAnalytics.ts
+
+- ❌ **CRITICAL: N+1 query pattern detected**
+  - **Problem:** `Promise.all(items.map(async => query))` makes N database calls
+  - **Fix:** Batch fetch all IDs first, create Map for O(1) lookup
+
+
+## Auto Quality Check - 2026-02-15 18:17:23
+### File: /Users/jkobrien/code/PDP/packages/backend/convex/models/importAnalytics.ts
+
+- ⚠️ **Performance: .filter() usage detected**
+  - **Problem:** Should use .withIndex() for better performance
+  - **Fix:** Replace `.query().filter()` with `.query().withIndex()`
+
+
+## Auto Quality Check - 2026-02-15 18:17:23
+### File: /Users/jkobrien/code/PDP/packages/backend/convex/models/importAnalytics.ts
+
+- ❌ **CRITICAL: N+1 query pattern detected**
+  - **Problem:** `Promise.all(items.map(async => query))` makes N database calls
+  - **Fix:** Batch fetch all IDs first, create Map for O(1) lookup
+
+
+## Auto Quality Check - 2026-02-15 18:17:45
+### File: /Users/jkobrien/code/PDP/packages/backend/convex/models/importAnalytics.ts
+
+- ⚠️ **Performance: .filter() usage detected**
+  - **Problem:** Should use .withIndex() for better performance
+  - **Fix:** Replace `.query().filter()` with `.query().withIndex()`
+
+
+## Auto Quality Check - 2026-02-15 18:17:45
+### File: /Users/jkobrien/code/PDP/packages/backend/convex/models/importAnalytics.ts
+
+- ❌ **CRITICAL: N+1 query pattern detected**
+  - **Problem:** `Promise.all(items.map(async => query))` makes N database calls
+  - **Fix:** Batch fetch all IDs first, create Map for O(1) lookup
+
+
+## Auto Quality Check - 2026-02-15 18:17:54
+### File: /Users/jkobrien/code/PDP/packages/backend/convex/models/importAnalytics.ts
+
+- ⚠️ **Performance: .filter() usage detected**
+  - **Problem:** Should use .withIndex() for better performance
+  - **Fix:** Replace `.query().filter()` with `.query().withIndex()`
+
+
+## Auto Quality Check - 2026-02-15 18:17:54
+### File: /Users/jkobrien/code/PDP/packages/backend/convex/models/importAnalytics.ts
+
+- ❌ **CRITICAL: N+1 query pattern detected**
+  - **Problem:** `Promise.all(items.map(async => query))` makes N database calls
+  - **Fix:** Batch fetch all IDs first, create Map for O(1) lookup
+
+
+## Auto Quality Check - 2026-02-15 18:18:02
+### File: /Users/jkobrien/code/PDP/packages/backend/convex/models/importAnalytics.ts
+
+- ⚠️ **Performance: .filter() usage detected**
+  - **Problem:** Should use .withIndex() for better performance
+  - **Fix:** Replace `.query().filter()` with `.query().withIndex()`
+
+
+## Auto Quality Check - 2026-02-15 18:18:02
+### File: /Users/jkobrien/code/PDP/packages/backend/convex/models/importAnalytics.ts
+
+- ❌ **CRITICAL: N+1 query pattern detected**
+  - **Problem:** `Promise.all(items.map(async => query))` makes N database calls
+  - **Fix:** Batch fetch all IDs first, create Map for O(1) lookup
+
+
+## Auto Quality Check - 2026-02-15 18:38:35
+### File: /Users/jkobrien/code/PDP/packages/backend/convex/models/sportPassports.ts
+
+- ❌ **CRITICAL: Better Auth adapter violation**
+  - **Problem:** Direct DB access to auth tables
+  - **Fix:** Use `ctx.runQuery(components.betterAuth.adapter.findOne, {...})`
+
+
+## Auto Quality Check - 2026-02-15 18:38:35
+### File: /Users/jkobrien/code/PDP/packages/backend/convex/models/sportPassports.ts
+
+- ⚠️ **Performance: .filter() usage detected**
+  - **Problem:** Should use .withIndex() for better performance
+  - **Fix:** Replace `.query().filter()` with `.query().withIndex()`
+
+
+## Auto Quality Check - 2026-02-15 18:38:52
+### File: /Users/jkobrien/code/PDP/packages/backend/convex/models/sportPassports.ts
+
+- ❌ **CRITICAL: Better Auth adapter violation**
+  - **Problem:** Direct DB access to auth tables
+  - **Fix:** Use `ctx.runQuery(components.betterAuth.adapter.findOne, {...})`
+
+
+## Auto Quality Check - 2026-02-15 18:38:52
+### File: /Users/jkobrien/code/PDP/packages/backend/convex/models/sportPassports.ts
+
+- ⚠️ **Performance: .filter() usage detected**
+  - **Problem:** Should use .withIndex() for better performance
+  - **Fix:** Replace `.query().filter()` with `.query().withIndex()`
+
+
+## Auto Quality Check - 2026-02-15 18:41:57
+### File: /Users/jkobrien/code/PDP/packages/backend/convex/models/skillAssessments.ts
+
+- ⚠️ **Performance: .filter() usage detected**
+  - **Problem:** Should use .withIndex() for better performance
+  - **Fix:** Replace `.query().filter()` with `.query().withIndex()`
+
+
+## Auto Quality Check - 2026-02-15 18:42:13
+### File: /Users/jkobrien/code/PDP/packages/backend/convex/models/skillAssessments.ts
+
+- ⚠️ **Performance: .filter() usage detected**
+  - **Problem:** Should use .withIndex() for better performance
+  - **Fix:** Replace `.query().filter()` with `.query().withIndex()`
+
+
+## Auto Quality Check - 2026-02-15 19:37:26
+### File: /Users/jkobrien/code/PDP/packages/backend/convex/models/importAnalytics.ts
+
+- ⚠️ **Performance: .filter() usage detected**
+  - **Problem:** Should use .withIndex() for better performance
+  - **Fix:** Replace `.query().filter()` with `.query().withIndex()`
+
+
+## Auto Quality Check - 2026-02-15 19:37:26
+### File: /Users/jkobrien/code/PDP/packages/backend/convex/models/importAnalytics.ts
+
+- ❌ **CRITICAL: N+1 query pattern detected**
+  - **Problem:** `Promise.all(items.map(async => query))` makes N database calls
+  - **Fix:** Batch fetch all IDs first, create Map for O(1) lookup
+
+
+## Auto Quality Check - 2026-02-15 19:37:35
+### File: /Users/jkobrien/code/PDP/packages/backend/convex/models/importAnalytics.ts
+
+- ⚠️ **Performance: .filter() usage detected**
+  - **Problem:** Should use .withIndex() for better performance
+  - **Fix:** Replace `.query().filter()` with `.query().withIndex()`
+
+
+## Auto Quality Check - 2026-02-15 19:37:35
+### File: /Users/jkobrien/code/PDP/packages/backend/convex/models/importAnalytics.ts
+
+- ❌ **CRITICAL: N+1 query pattern detected**
+  - **Problem:** `Promise.all(items.map(async => query))` makes N database calls
+  - **Fix:** Batch fetch all IDs first, create Map for O(1) lookup
+
+
+## Auto Quality Check - 2026-02-15 19:37:55
+### File: /Users/jkobrien/code/PDP/packages/backend/convex/models/importAnalytics.ts
+
+- ⚠️ **Performance: .filter() usage detected**
+  - **Problem:** Should use .withIndex() for better performance
+  - **Fix:** Replace `.query().filter()` with `.query().withIndex()`
+
+
+## Auto Quality Check - 2026-02-15 19:37:55
+### File: /Users/jkobrien/code/PDP/packages/backend/convex/models/importAnalytics.ts
+
+- ❌ **CRITICAL: N+1 query pattern detected**
+  - **Problem:** `Promise.all(items.map(async => query))` makes N database calls
+  - **Fix:** Batch fetch all IDs first, create Map for O(1) lookup
+
+
+## Auto Quality Check - 2026-02-15 19:47:22
+### File: /Users/jkobrien/code/PDP/packages/backend/convex/models/importSessions.ts
+
+- ⚠️ **Performance: .filter() usage detected**
+  - **Problem:** Should use .withIndex() for better performance
+  - **Fix:** Replace `.query().filter()` with `.query().withIndex()`
+
+
+## Auto Quality Check - 2026-02-15 19:47:38
+### File: /Users/jkobrien/code/PDP/packages/backend/convex/models/importSessions.ts
+
+- ⚠️ **Performance: .filter() usage detected**
+  - **Problem:** Should use .withIndex() for better performance
+  - **Fix:** Replace `.query().filter()` with `.query().withIndex()`
+
+
+## Auto Quality Check - 2026-02-15 19:47:54
+### File: /Users/jkobrien/code/PDP/packages/backend/convex/models/importSessions.ts
+
+- ⚠️ **Performance: .filter() usage detected**
+  - **Problem:** Should use .withIndex() for better performance
+  - **Fix:** Replace `.query().filter()` with `.query().withIndex()`
+
+
+## Auto Quality Check - 2026-02-15 19:51:44
+### File: /Users/jkobrien/code/PDP/packages/backend/convex/models/importSessions.ts
+
+- ⚠️ **Performance: .filter() usage detected**
+  - **Problem:** Should use .withIndex() for better performance
+  - **Fix:** Replace `.query().filter()` with `.query().withIndex()`
+
+
+## Auto Quality Check - 2026-02-15 19:51:53
+### File: /Users/jkobrien/code/PDP/packages/backend/convex/models/importSessions.ts
+
+- ⚠️ **Performance: .filter() usage detected**
+  - **Problem:** Should use .withIndex() for better performance
+  - **Fix:** Replace `.query().filter()` with `.query().withIndex()`
+
+
+## Auto Quality Check - 2026-02-15 19:52:03
+### File: /Users/jkobrien/code/PDP/packages/backend/convex/models/importSessions.ts
+
+- ⚠️ **Performance: .filter() usage detected**
+  - **Problem:** Should use .withIndex() for better performance
+  - **Fix:** Replace `.query().filter()` with `.query().withIndex()`
+
+
+## Auto Quality Check - 2026-02-15 19:52:18
+### File: /Users/jkobrien/code/PDP/packages/backend/convex/models/importSessions.ts
+
+- ⚠️ **Performance: .filter() usage detected**
+  - **Problem:** Should use .withIndex() for better performance
+  - **Fix:** Replace `.query().filter()` with `.query().withIndex()`
+
+
+## Auto Quality Check - 2026-02-15 19:52:29
+### File: /Users/jkobrien/code/PDP/packages/backend/convex/models/importSessions.ts
+
+- ⚠️ **Performance: .filter() usage detected**
+  - **Problem:** Should use .withIndex() for better performance
+  - **Fix:** Replace `.query().filter()` with `.query().withIndex()`
+
+
+## Auto Quality Check - 2026-02-15 19:58:42
+### File: /Users/jkobrien/code/PDP/packages/backend/convex/models/importSessions.ts
+
+- ⚠️ **Performance: .filter() usage detected**
+  - **Problem:** Should use .withIndex() for better performance
+  - **Fix:** Replace `.query().filter()` with `.query().withIndex()`
+
+
+## Auto Quality Check - 2026-02-15 19:58:51
+### File: /Users/jkobrien/code/PDP/packages/backend/convex/models/importSessions.ts
+
+- ⚠️ **Performance: .filter() usage detected**
+  - **Problem:** Should use .withIndex() for better performance
+  - **Fix:** Replace `.query().filter()` with `.query().withIndex()`
+

@@ -26,6 +26,7 @@ import type * as actions_whatsapp from "../actions/whatsapp.js";
 import type * as auth from "../auth.js";
 import type * as crons from "../crons.js";
 import type * as debug from "../debug.js";
+import type * as debug_voiceNote from "../debug_voiceNote.js";
 import type * as healthCheck from "../healthCheck.js";
 import type * as http from "../http.js";
 import type * as jobs_graduations from "../jobs/graduations.js";
@@ -227,6 +228,7 @@ declare const fullApi: ApiFromModules<{
   auth: typeof auth;
   crons: typeof crons;
   debug: typeof debug;
+  debug_voiceNote: typeof debug_voiceNote;
   healthCheck: typeof healthCheck;
   http: typeof http;
   "jobs/graduations": typeof jobs_graduations;

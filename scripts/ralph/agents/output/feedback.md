@@ -2254,3 +2254,778 @@ packages/backend/convex/actions/coachParentSummaries.ts:      "ANTHROPIC_API_KEY
   - **Problem:** Should use .withIndex() for better performance
   - **Fix:** Replace `.query().filter()` with `.query().withIndex()`
 
+
+## Code Review Gate - 2026-02-10 11:56:50
+
+🔍 **Code Review: BLOCK** (1 critical, 0 high, 0 medium) - 🚨 **CRITICAL**: `.filter()` usage in `packages/backend/convex/models/whatsappReviewLinks.ts` - use `.withIndex()` instead\n  ```\n372:    const validNotes = voiceNotes.filter(Boolean) as NonNullable<
+387:      .filter((i) => i.category === "injury" && i.status === "pending")
+405:      .filter(\n  ```\n\n**Verdict:** BLOCK - Fix CRITICAL/HIGH issues before continuing
+
+
+## Auto Quality Check - 2026-02-10 13:42:45
+### File: /Users/neil/Documents/GitHub/PDP/packages/backend/convex/lib/consentGateway.ts
+
+- ⚠️ **Performance: .filter() usage detected**
+  - **Problem:** Should use .withIndex() for better performance
+  - **Fix:** Replace `.query().filter()` with `.query().withIndex()`
+
+
+## Auto Quality Check - 2026-02-10 13:44:00
+### File: /Users/neil/Documents/GitHub/PDP/packages/backend/convex/models/passportSharing.ts
+
+- ❌ **CRITICAL: Better Auth adapter violation**
+  - **Problem:** Direct DB access to auth tables
+  - **Fix:** Use `ctx.runQuery(components.betterAuth.adapter.findOne, {...})`
+
+
+## Auto Quality Check - 2026-02-10 13:44:00
+### File: /Users/neil/Documents/GitHub/PDP/packages/backend/convex/models/passportSharing.ts
+
+- ⚠️ **Performance: .filter() usage detected**
+  - **Problem:** Should use .withIndex() for better performance
+  - **Fix:** Replace `.query().filter()` with `.query().withIndex()`
+
+
+## Auto Quality Check - 2026-02-10 13:44:00
+### File: /Users/neil/Documents/GitHub/PDP/packages/backend/convex/models/passportSharing.ts
+
+- ❌ **CRITICAL: N+1 query pattern detected**
+  - **Problem:** `Promise.all(items.map(async => query))` makes N database calls
+  - **Fix:** Batch fetch all IDs first, create Map for O(1) lookup
+
+
+## Auto Quality Check - 2026-02-10 13:44:00
+### File: /Users/neil/Documents/GitHub/PDP/packages/backend/convex/models/passportSharing.ts
+
+- ❌ **CRITICAL: Better Auth adapter violation**
+  - **Problem:** Direct DB access to auth tables
+  - **Fix:** Use `ctx.runQuery(components.betterAuth.adapter.findOne, {...})`
+
+
+## Auto Quality Check - 2026-02-10 13:44:00
+### File: /Users/neil/Documents/GitHub/PDP/packages/backend/convex/models/passportSharing.ts
+
+- ⚠️ **Performance: .filter() usage detected**
+  - **Problem:** Should use .withIndex() for better performance
+  - **Fix:** Replace `.query().filter()` with `.query().withIndex()`
+
+
+## Auto Quality Check - 2026-02-10 13:44:01
+### File: /Users/neil/Documents/GitHub/PDP/packages/backend/convex/models/passportSharing.ts
+
+- ❌ **CRITICAL: N+1 query pattern detected**
+  - **Problem:** `Promise.all(items.map(async => query))` makes N database calls
+  - **Fix:** Batch fetch all IDs first, create Map for O(1) lookup
+
+
+## Auto Quality Check - 2026-02-10 14:04:49
+### File: /Users/neil/Documents/GitHub/PDP/packages/backend/convex/lib/consentGateway.ts
+
+- ⚠️ **Performance: .filter() usage detected**
+  - **Problem:** Should use .withIndex() for better performance
+  - **Fix:** Replace `.query().filter()` with `.query().withIndex()`
+
+
+## Auto Quality Check - 2026-02-10 14:10:08
+### File: /Users/neil/Documents/GitHub/PDP/packages/backend/convex/models/passportSharing.ts
+
+- ❌ **CRITICAL: Better Auth adapter violation**
+  - **Problem:** Direct DB access to auth tables
+  - **Fix:** Use `ctx.runQuery(components.betterAuth.adapter.findOne, {...})`
+
+
+## Auto Quality Check - 2026-02-10 14:10:08
+### File: /Users/neil/Documents/GitHub/PDP/packages/backend/convex/models/passportSharing.ts
+
+- ⚠️ **Performance: .filter() usage detected**
+  - **Problem:** Should use .withIndex() for better performance
+  - **Fix:** Replace `.query().filter()` with `.query().withIndex()`
+
+
+## Auto Quality Check - 2026-02-10 14:10:08
+### File: /Users/neil/Documents/GitHub/PDP/packages/backend/convex/models/passportSharing.ts
+
+- ❌ **CRITICAL: N+1 query pattern detected**
+  - **Problem:** `Promise.all(items.map(async => query))` makes N database calls
+  - **Fix:** Batch fetch all IDs first, create Map for O(1) lookup
+
+
+## Auto Quality Check - 2026-02-10 14:10:09
+### File: /Users/neil/Documents/GitHub/PDP/packages/backend/convex/lib/consentGateway.ts
+
+- ⚠️ **Performance: .filter() usage detected**
+  - **Problem:** Should use .withIndex() for better performance
+  - **Fix:** Replace `.query().filter()` with `.query().withIndex()`
+
+
+## Auto Quality Check - 2026-02-10 14:10:18
+### File: /Users/neil/Documents/GitHub/PDP/packages/backend/convex/models/passportSharing.ts
+
+- ❌ **CRITICAL: Better Auth adapter violation**
+  - **Problem:** Direct DB access to auth tables
+  - **Fix:** Use `ctx.runQuery(components.betterAuth.adapter.findOne, {...})`
+
+
+## Auto Quality Check - 2026-02-10 14:10:18
+### File: /Users/neil/Documents/GitHub/PDP/packages/backend/convex/models/passportSharing.ts
+
+- ⚠️ **Performance: .filter() usage detected**
+  - **Problem:** Should use .withIndex() for better performance
+  - **Fix:** Replace `.query().filter()` with `.query().withIndex()`
+
+
+## Auto Quality Check - 2026-02-10 14:10:18
+### File: /Users/neil/Documents/GitHub/PDP/packages/backend/convex/models/passportSharing.ts
+
+- ❌ **CRITICAL: N+1 query pattern detected**
+  - **Problem:** `Promise.all(items.map(async => query))` makes N database calls
+  - **Fix:** Batch fetch all IDs first, create Map for O(1) lookup
+
+
+## Auto Quality Check - 2026-02-10 14:15:30
+### File: /Users/neil/Documents/GitHub/PDP/packages/backend/convex/lib/consentGateway.ts
+
+- ⚠️ **Performance: .filter() usage detected**
+  - **Problem:** Should use .withIndex() for better performance
+  - **Fix:** Replace `.query().filter()` with `.query().withIndex()`
+
+
+## Auto Quality Check - 2026-02-10 14:17:31
+### File: /Users/neil/Documents/GitHub/PDP/packages/backend/convex/models/passportSharing.ts
+
+- ❌ **CRITICAL: Better Auth adapter violation**
+  - **Problem:** Direct DB access to auth tables
+  - **Fix:** Use `ctx.runQuery(components.betterAuth.adapter.findOne, {...})`
+
+
+## Auto Quality Check - 2026-02-10 14:17:31
+### File: /Users/neil/Documents/GitHub/PDP/packages/backend/convex/models/passportSharing.ts
+
+- ⚠️ **Performance: .filter() usage detected**
+  - **Problem:** Should use .withIndex() for better performance
+  - **Fix:** Replace `.query().filter()` with `.query().withIndex()`
+
+
+## Auto Quality Check - 2026-02-10 14:17:31
+### File: /Users/neil/Documents/GitHub/PDP/packages/backend/convex/models/passportSharing.ts
+
+- ❌ **CRITICAL: N+1 query pattern detected**
+  - **Problem:** `Promise.all(items.map(async => query))` makes N database calls
+  - **Fix:** Batch fetch all IDs first, create Map for O(1) lookup
+
+
+## Auto Quality Check - 2026-02-10 14:17:32
+### File: /Users/neil/Documents/GitHub/PDP/packages/backend/convex/models/passportSharing.ts
+
+- ❌ **CRITICAL: Better Auth adapter violation**
+  - **Problem:** Direct DB access to auth tables
+  - **Fix:** Use `ctx.runQuery(components.betterAuth.adapter.findOne, {...})`
+
+
+## Auto Quality Check - 2026-02-10 14:17:32
+### File: /Users/neil/Documents/GitHub/PDP/packages/backend/convex/models/passportSharing.ts
+
+- ⚠️ **Performance: .filter() usage detected**
+  - **Problem:** Should use .withIndex() for better performance
+  - **Fix:** Replace `.query().filter()` with `.query().withIndex()`
+
+
+## Auto Quality Check - 2026-02-10 14:17:32
+### File: /Users/neil/Documents/GitHub/PDP/packages/backend/convex/models/passportSharing.ts
+
+- ❌ **CRITICAL: N+1 query pattern detected**
+  - **Problem:** `Promise.all(items.map(async => query))` makes N database calls
+  - **Fix:** Batch fetch all IDs first, create Map for O(1) lookup
+
+
+
+## Auto Quality Check - 2026-02-10 14:22:14
+## Auto Quality Check - 2026-02-10 14:22:14
+### File: /Users/neil/Documents/GitHub/PDP/packages/backend/convex/models/passportSharing.ts
+
+- ❌ **CRITICAL: Better Auth adapter violation**
+  - **Problem:** Direct DB access to auth tables
+  - **Fix:** Use `ctx.runQuery(components.betterAuth.adapter.findOne, {...})`
+
+### File: /Users/neil/Documents/GitHub/PDP/packages/backend/convex/models/passportSharing.ts
+
+- ❌ **CRITICAL: Better Auth adapter violation**
+  - **Problem:** Direct DB access to auth tables
+  - **Fix:** Use `ctx.runQuery(components.betterAuth.adapter.findOne, {...})`
+
+
+
+## Auto Quality Check - 2026-02-10 14:22:14
+### File: /Users/neil/Documents/GitHub/PDP/packages/backend/convex/models/passportSharing.ts
+
+- ⚠️ **Performance: .filter() usage detected**
+  - **Problem:** Should use .withIndex() for better performance
+  - **Fix:** Replace `.query().filter()` with `.query().withIndex()`
+
+## Auto Quality Check - 2026-02-10 14:22:14
+### File: /Users/neil/Documents/GitHub/PDP/packages/backend/convex/models/passportSharing.ts
+
+- ⚠️ **Performance: .filter() usage detected**
+  - **Problem:** Should use .withIndex() for better performance
+  - **Fix:** Replace `.query().filter()` with `.query().withIndex()`
+
+
+
+## Auto Quality Check - 2026-02-10 14:22:14
+### File: /Users/neil/Documents/GitHub/PDP/packages/backend/convex/models/passportSharing.ts
+
+- ❌ **CRITICAL: Better Auth adapter violation**
+  - **Problem:** Direct DB access to auth tables
+  - **Fix:** Use `ctx.runQuery(components.betterAuth.adapter.findOne, {...})`
+
+
+## Auto Quality Check - 2026-02-10 14:22:14
+
+### File: /Users/neil/Documents/GitHub/PDP/packages/backend/convex/models/passportSharing.ts
+## Auto Quality Check - 2026-02-10 14:22:14
+
+- ❌ **CRITICAL: N+1 query pattern detected**
+  - **Problem:** `Promise.all(items.map(async => query))` makes N database calls
+  - **Fix:** Batch fetch all IDs first, create Map for O(1) lookup
+
+### File: /Users/neil/Documents/GitHub/PDP/packages/backend/convex/models/passportSharing.ts
+
+- ❌ **CRITICAL: N+1 query pattern detected**
+  - **Problem:** `Promise.all(items.map(async => query))` makes N database calls
+  - **Fix:** Batch fetch all IDs first, create Map for O(1) lookup
+
+## Auto Quality Check - 2026-02-10 14:22:14
+### File: /Users/neil/Documents/GitHub/PDP/packages/backend/convex/models/passportSharing.ts
+
+- ⚠️ **Performance: .filter() usage detected**
+  - **Problem:** Should use .withIndex() for better performance
+  - **Fix:** Replace `.query().filter()` with `.query().withIndex()`
+
+
+## Auto Quality Check - 2026-02-10 14:22:14
+### File: /Users/neil/Documents/GitHub/PDP/packages/backend/convex/models/passportSharing.ts
+
+- ❌ **CRITICAL: N+1 query pattern detected**
+  - **Problem:** `Promise.all(items.map(async => query))` makes N database calls
+  - **Fix:** Batch fetch all IDs first, create Map for O(1) lookup
+
+
+## Auto Quality Check - 2026-02-10 14:25:56
+### File: /Users/neil/Documents/GitHub/PDP/packages/backend/convex/models/passportSharing.ts
+
+- ❌ **CRITICAL: Better Auth adapter violation**
+  - **Problem:** Direct DB access to auth tables
+  - **Fix:** Use `ctx.runQuery(components.betterAuth.adapter.findOne, {...})`
+
+
+## Auto Quality Check - 2026-02-10 14:25:56
+### File: /Users/neil/Documents/GitHub/PDP/packages/backend/convex/models/passportSharing.ts
+
+- ⚠️ **Performance: .filter() usage detected**
+  - **Problem:** Should use .withIndex() for better performance
+  - **Fix:** Replace `.query().filter()` with `.query().withIndex()`
+
+
+## Auto Quality Check - 2026-02-10 14:25:56
+### File: /Users/neil/Documents/GitHub/PDP/packages/backend/convex/models/passportSharing.ts
+
+- ❌ **CRITICAL: N+1 query pattern detected**
+  - **Problem:** `Promise.all(items.map(async => query))` makes N database calls
+  - **Fix:** Batch fetch all IDs first, create Map for O(1) lookup
+
+
+## Auto Quality Check - 2026-02-10 20:03:26
+### File: /Users/neil/Documents/GitHub/PDP/packages/backend/convex/models/playerInjuries.ts
+
+- ❌ **CRITICAL: Better Auth adapter violation**
+  - **Problem:** Direct DB access to auth tables
+  - **Fix:** Use `ctx.runQuery(components.betterAuth.adapter.findOne, {...})`
+
+
+## Auto Quality Check - 2026-02-10 20:03:26
+### File: /Users/neil/Documents/GitHub/PDP/packages/backend/convex/models/playerInjuries.ts
+
+- ⚠️ **Performance: .filter() usage detected**
+  - **Problem:** Should use .withIndex() for better performance
+  - **Fix:** Replace `.query().filter()` with `.query().withIndex()`
+
+
+## Auto Quality Check - 2026-02-10 20:08:52
+### File: /Users/neil/Documents/GitHub/project-feature-injury/packages/backend/convex/models/playerInjuries.ts
+
+- ❌ **CRITICAL: Better Auth adapter violation**
+  - **Problem:** Direct DB access to auth tables
+  - **Fix:** Use `ctx.runQuery(components.betterAuth.adapter.findOne, {...})`
+
+
+## Auto Quality Check - 2026-02-10 20:08:52
+### File: /Users/neil/Documents/GitHub/project-feature-injury/packages/backend/convex/models/playerInjuries.ts
+
+- ⚠️ **Performance: .filter() usage detected**
+  - **Problem:** Should use .withIndex() for better performance
+  - **Fix:** Replace `.query().filter()` with `.query().withIndex()`
+
+
+## Auto Quality Check - 2026-02-10 20:09:05
+### File: /Users/neil/Documents/GitHub/project-feature-injury/packages/backend/convex/models/playerInjuries.ts
+
+- ❌ **CRITICAL: Better Auth adapter violation**
+  - **Problem:** Direct DB access to auth tables
+  - **Fix:** Use `ctx.runQuery(components.betterAuth.adapter.findOne, {...})`
+
+
+## Auto Quality Check - 2026-02-10 20:09:05
+### File: /Users/neil/Documents/GitHub/project-feature-injury/packages/backend/convex/models/playerInjuries.ts
+
+- ⚠️ **Performance: .filter() usage detected**
+  - **Problem:** Should use .withIndex() for better performance
+  - **Fix:** Replace `.query().filter()` with `.query().withIndex()`
+
+
+## Auto Quality Check - 2026-02-10 20:09:22
+### File: /Users/neil/Documents/GitHub/project-feature-injury/packages/backend/convex/models/playerInjuries.ts
+
+- ❌ **CRITICAL: Better Auth adapter violation**
+  - **Problem:** Direct DB access to auth tables
+  - **Fix:** Use `ctx.runQuery(components.betterAuth.adapter.findOne, {...})`
+
+
+## Auto Quality Check - 2026-02-10 20:09:22
+### File: /Users/neil/Documents/GitHub/project-feature-injury/packages/backend/convex/models/playerInjuries.ts
+
+- ⚠️ **Performance: .filter() usage detected**
+  - **Problem:** Should use .withIndex() for better performance
+  - **Fix:** Replace `.query().filter()` with `.query().withIndex()`
+
+
+## Auto Quality Check - 2026-02-10 20:10:50
+### File: /Users/neil/Documents/GitHub/project-feature-injury/packages/backend/convex/models/playerInjuries.ts
+
+- ❌ **CRITICAL: Better Auth adapter violation**
+  - **Problem:** Direct DB access to auth tables
+  - **Fix:** Use `ctx.runQuery(components.betterAuth.adapter.findOne, {...})`
+
+
+## Auto Quality Check - 2026-02-10 20:10:50
+### File: /Users/neil/Documents/GitHub/project-feature-injury/packages/backend/convex/models/playerInjuries.ts
+
+- ⚠️ **Performance: .filter() usage detected**
+  - **Problem:** Should use .withIndex() for better performance
+  - **Fix:** Replace `.query().filter()` with `.query().withIndex()`
+
+
+## Auto Quality Check - 2026-02-10 20:57:17
+### File: /Users/neil/Documents/GitHub/PDP/packages/backend/convex/models/voiceNotes.ts
+
+- ❌ **CRITICAL: Better Auth adapter violation**
+  - **Problem:** Direct DB access to auth tables
+  - **Fix:** Use `ctx.runQuery(components.betterAuth.adapter.findOne, {...})`
+
+
+## Auto Quality Check - 2026-02-10 20:57:17
+### File: /Users/neil/Documents/GitHub/PDP/packages/backend/convex/models/voiceNotes.ts
+
+- ⚠️ **Performance: .filter() usage detected**
+  - **Problem:** Should use .withIndex() for better performance
+  - **Fix:** Replace `.query().filter()` with `.query().withIndex()`
+
+
+## Auto Quality Check - 2026-02-10 20:57:17
+### File: /Users/neil/Documents/GitHub/PDP/packages/backend/convex/models/voiceNotes.ts
+
+- ❌ **CRITICAL: N+1 query pattern detected**
+  - **Problem:** `Promise.all(items.map(async => query))` makes N database calls
+  - **Fix:** Batch fetch all IDs first, create Map for O(1) lookup
+
+
+## Auto Quality Check - 2026-02-10 20:57:47
+### File: /Users/neil/Documents/GitHub/PDP/packages/backend/convex/debug_voiceNote.ts
+
+- ❌ **CRITICAL: Better Auth adapter violation**
+  - **Problem:** Direct DB access to auth tables
+  - **Fix:** Use `ctx.runQuery(components.betterAuth.adapter.findOne, {...})`
+
+
+## Auto Quality Check - 2026-02-10 20:57:47
+### File: /Users/neil/Documents/GitHub/PDP/packages/backend/convex/debug_voiceNote.ts
+
+- ⚠️ **Performance: .filter() usage detected**
+  - **Problem:** Should use .withIndex() for better performance
+  - **Fix:** Replace `.query().filter()` with `.query().withIndex()`
+
+
+## Auto Quality Check - 2026-02-10 20:57:47
+### File: /Users/neil/Documents/GitHub/PDP/packages/backend/convex/debug_voiceNote.ts
+
+- ⚠️ **Data Isolation: No organizationId filter found**
+  - **Problem:** Queries should be scoped by organizationId for multi-tenant isolation
+  - **Fix:** Add organizationId to query args and use in .withIndex()
+
+
+## Auto Quality Check - 2026-02-10 21:13:12
+### File: /Users/neil/Documents/GitHub/PDP/packages/backend/convex/models/voiceNoteEntityResolutions.ts
+
+- ⚠️ **Performance: .filter() usage detected**
+  - **Problem:** Should use .withIndex() for better performance
+  - **Fix:** Replace `.query().filter()` with `.query().withIndex()`
+
+
+## Auto Quality Check - 2026-02-10 21:13:48
+### File: /Users/neil/Documents/GitHub/PDP/packages/backend/convex/actions/entityResolution.ts
+
+- ⚠️ **Performance: .filter() usage detected**
+  - **Problem:** Should use .withIndex() for better performance
+  - **Fix:** Replace `.query().filter()` with `.query().withIndex()`
+
+
+## Auto Quality Check - 2026-02-10 21:14:00
+### File: /Users/neil/Documents/GitHub/PDP/packages/backend/convex/actions/entityResolution.ts
+
+- ⚠️ **Performance: .filter() usage detected**
+  - **Problem:** Should use .withIndex() for better performance
+  - **Fix:** Replace `.query().filter()` with `.query().withIndex()`
+
+
+## Auto Quality Check - 2026-02-10 21:14:31
+### File: /Users/neil/Documents/GitHub/PDP/packages/backend/convex/actions/entityResolution.ts
+
+- ⚠️ **Performance: .filter() usage detected**
+  - **Problem:** Should use .withIndex() for better performance
+  - **Fix:** Replace `.query().filter()` with `.query().withIndex()`
+
+
+## Auto Quality Check - 2026-02-10 21:14:58
+### File: /Users/neil/Documents/GitHub/PDP/packages/backend/convex/actions/claimsExtraction.ts
+
+- ⚠️ **Performance: .filter() usage detected**
+  - **Problem:** Should use .withIndex() for better performance
+  - **Fix:** Replace `.query().filter()` with `.query().withIndex()`
+
+
+## Auto Quality Check - 2026-02-10 21:15:10
+### File: /Users/neil/Documents/GitHub/PDP/packages/backend/convex/actions/claimsExtraction.ts
+
+- ⚠️ **Performance: .filter() usage detected**
+  - **Problem:** Should use .withIndex() for better performance
+  - **Fix:** Replace `.query().filter()` with `.query().withIndex()`
+
+
+## Auto Quality Check - 2026-02-10 22:04:52
+### File: /Users/neil/Documents/GitHub/PDP/packages/backend/convex/models/voiceNotes.ts
+
+- ❌ **CRITICAL: Better Auth adapter violation**
+  - **Problem:** Direct DB access to auth tables
+  - **Fix:** Use `ctx.runQuery(components.betterAuth.adapter.findOne, {...})`
+
+
+## Auto Quality Check - 2026-02-10 22:04:52
+### File: /Users/neil/Documents/GitHub/PDP/packages/backend/convex/models/voiceNotes.ts
+
+- ⚠️ **Performance: .filter() usage detected**
+  - **Problem:** Should use .withIndex() for better performance
+  - **Fix:** Replace `.query().filter()` with `.query().withIndex()`
+
+
+## Auto Quality Check - 2026-02-10 22:04:52
+### File: /Users/neil/Documents/GitHub/PDP/packages/backend/convex/models/voiceNotes.ts
+
+- ❌ **CRITICAL: N+1 query pattern detected**
+  - **Problem:** `Promise.all(items.map(async => query))` makes N database calls
+  - **Fix:** Batch fetch all IDs first, create Map for O(1) lookup
+
+
+## Auto Quality Check - 2026-02-10 22:05:32
+### File: /Users/neil/Documents/GitHub/PDP/packages/backend/convex/models/voiceNotes.ts
+
+- ❌ **CRITICAL: Better Auth adapter violation**
+  - **Problem:** Direct DB access to auth tables
+  - **Fix:** Use `ctx.runQuery(components.betterAuth.adapter.findOne, {...})`
+
+
+## Auto Quality Check - 2026-02-10 22:05:32
+### File: /Users/neil/Documents/GitHub/PDP/packages/backend/convex/models/voiceNotes.ts
+
+- ⚠️ **Performance: .filter() usage detected**
+  - **Problem:** Should use .withIndex() for better performance
+  - **Fix:** Replace `.query().filter()` with `.query().withIndex()`
+
+
+## Auto Quality Check - 2026-02-10 22:05:32
+### File: /Users/neil/Documents/GitHub/PDP/packages/backend/convex/models/voiceNotes.ts
+
+- ❌ **CRITICAL: N+1 query pattern detected**
+  - **Problem:** `Promise.all(items.map(async => query))` makes N database calls
+  - **Fix:** Batch fetch all IDs first, create Map for O(1) lookup
+
+
+## Auto Quality Check - 2026-02-10 22:05:48
+### File: /Users/neil/Documents/GitHub/PDP/packages/backend/convex/models/voiceNotes.ts
+
+- ❌ **CRITICAL: Better Auth adapter violation**
+  - **Problem:** Direct DB access to auth tables
+  - **Fix:** Use `ctx.runQuery(components.betterAuth.adapter.findOne, {...})`
+
+
+## Auto Quality Check - 2026-02-10 22:05:48
+### File: /Users/neil/Documents/GitHub/PDP/packages/backend/convex/models/voiceNotes.ts
+
+- ⚠️ **Performance: .filter() usage detected**
+  - **Problem:** Should use .withIndex() for better performance
+  - **Fix:** Replace `.query().filter()` with `.query().withIndex()`
+
+
+## Auto Quality Check - 2026-02-10 22:05:48
+### File: /Users/neil/Documents/GitHub/PDP/packages/backend/convex/models/voiceNotes.ts
+
+- ❌ **CRITICAL: N+1 query pattern detected**
+  - **Problem:** `Promise.all(items.map(async => query))` makes N database calls
+  - **Fix:** Batch fetch all IDs first, create Map for O(1) lookup
+
+
+## Auto Quality Check - 2026-02-10 22:13:23
+### File: /Users/neil/Documents/GitHub/PDP/packages/backend/convex/models/voiceNotes.ts
+
+- ❌ **CRITICAL: Better Auth adapter violation**
+  - **Problem:** Direct DB access to auth tables
+  - **Fix:** Use `ctx.runQuery(components.betterAuth.adapter.findOne, {...})`
+
+
+## Auto Quality Check - 2026-02-10 22:13:23
+### File: /Users/neil/Documents/GitHub/PDP/packages/backend/convex/models/voiceNotes.ts
+
+- ⚠️ **Performance: .filter() usage detected**
+  - **Problem:** Should use .withIndex() for better performance
+  - **Fix:** Replace `.query().filter()` with `.query().withIndex()`
+
+
+## Auto Quality Check - 2026-02-10 22:13:23
+### File: /Users/neil/Documents/GitHub/PDP/packages/backend/convex/models/voiceNotes.ts
+
+- ❌ **CRITICAL: N+1 query pattern detected**
+  - **Problem:** `Promise.all(items.map(async => query))` makes N database calls
+  - **Fix:** Batch fetch all IDs first, create Map for O(1) lookup
+
+
+## Auto Quality Check - 2026-02-10 22:13:24
+### File: /Users/neil/Documents/GitHub/PDP/packages/backend/convex/actions/voiceNotes.ts
+
+- ⚠️ **Performance: .filter() usage detected**
+  - **Problem:** Should use .withIndex() for better performance
+  - **Fix:** Replace `.query().filter()` with `.query().withIndex()`
+
+
+## Auto Quality Check - 2026-02-10 22:15:09
+### File: /Users/neil/Documents/GitHub/PDP/packages/backend/convex/actions/voiceNotes.ts
+
+- ⚠️ **Performance: .filter() usage detected**
+  - **Problem:** Should use .withIndex() for better performance
+  - **Fix:** Replace `.query().filter()` with `.query().withIndex()`
+
+
+## Auto Quality Check - 2026-02-10 22:15:10
+### File: /Users/neil/Documents/GitHub/PDP/packages/backend/convex/actions/claimsExtraction.ts
+
+- ⚠️ **Performance: .filter() usage detected**
+  - **Problem:** Should use .withIndex() for better performance
+  - **Fix:** Replace `.query().filter()` with `.query().withIndex()`
+
+
+## Auto Quality Check - 2026-02-10 22:15:11
+### File: /Users/neil/Documents/GitHub/PDP/packages/backend/convex/lib/whatsappCommands.ts
+
+- ⚠️ **Performance: .filter() usage detected**
+  - **Problem:** Should use .withIndex() for better performance
+  - **Fix:** Replace `.query().filter()` with `.query().withIndex()`
+
+
+## Auto Quality Check - 2026-02-10 22:15:11
+### File: /Users/neil/Documents/GitHub/PDP/packages/backend/convex/lib/whatsappCommandHandler.ts
+
+- ⚠️ **Performance: .filter() usage detected**
+  - **Problem:** Should use .withIndex() for better performance
+  - **Fix:** Replace `.query().filter()` with `.query().withIndex()`
+
+
+## Auto Quality Check - 2026-02-10 22:15:12
+### File: /Users/neil/Documents/GitHub/PDP/packages/backend/convex/models/whatsappReviewLinks.ts
+
+- ❌ **CRITICAL: Better Auth adapter violation**
+  - **Problem:** Direct DB access to auth tables
+  - **Fix:** Use `ctx.runQuery(components.betterAuth.adapter.findOne, {...})`
+
+
+## Auto Quality Check - 2026-02-10 22:15:12
+### File: /Users/neil/Documents/GitHub/PDP/packages/backend/convex/models/whatsappReviewLinks.ts
+
+- ⚠️ **Performance: .filter() usage detected**
+  - **Problem:** Should use .withIndex() for better performance
+  - **Fix:** Replace `.query().filter()` with `.query().withIndex()`
+
+
+## Auto Quality Check - 2026-02-10 22:15:12
+### File: /Users/neil/Documents/GitHub/PDP/packages/backend/convex/models/whatsappMessages.ts
+
+- ⚠️ **Performance: .filter() usage detected**
+  - **Problem:** Should use .withIndex() for better performance
+  - **Fix:** Replace `.query().filter()` with `.query().withIndex()`
+
+
+## Auto Quality Check - 2026-02-10 22:18:01
+### File: /Users/neil/Documents/GitHub/PDP/packages/backend/convex/actions/voiceNotes.ts
+
+- ⚠️ **Performance: .filter() usage detected**
+  - **Problem:** Should use .withIndex() for better performance
+  - **Fix:** Replace `.query().filter()` with `.query().withIndex()`
+
+
+## Auto Quality Check - 2026-02-10 22:18:06
+### File: /Users/neil/Documents/GitHub/PDP/packages/backend/convex/actions/entityResolution.ts
+
+- ⚠️ **Performance: .filter() usage detected**
+  - **Problem:** Should use .withIndex() for better performance
+  - **Fix:** Replace `.query().filter()` with `.query().withIndex()`
+
+
+## Auto Quality Check - 2026-02-10 22:18:06
+### File: /Users/neil/Documents/GitHub/PDP/packages/backend/convex/actions/draftGeneration.ts
+
+- ⚠️ **Performance: .filter() usage detected**
+  - **Problem:** Should use .withIndex() for better performance
+  - **Fix:** Replace `.query().filter()` with `.query().withIndex()`
+
+
+## Auto Quality Check - 2026-02-10 22:19:25
+### File: /Users/neil/Documents/GitHub/PDP/packages/backend/convex/actions/voiceNotes.ts
+
+- ⚠️ **Performance: .filter() usage detected**
+  - **Problem:** Should use .withIndex() for better performance
+  - **Fix:** Replace `.query().filter()` with `.query().withIndex()`
+
+
+## Auto Quality Check - 2026-02-10 22:19:26
+### File: /Users/neil/Documents/GitHub/PDP/packages/backend/convex/models/whatsappMessages.ts
+
+- ⚠️ **Performance: .filter() usage detected**
+  - **Problem:** Should use .withIndex() for better performance
+  - **Fix:** Replace `.query().filter()` with `.query().withIndex()`
+
+
+## Auto Quality Check - 2026-02-10 22:24:23
+### File: /Users/neil/Documents/GitHub/PDP/packages/backend/convex/actions/claimsExtraction.ts
+
+- ⚠️ **Performance: .filter() usage detected**
+  - **Problem:** Should use .withIndex() for better performance
+  - **Fix:** Replace `.query().filter()` with `.query().withIndex()`
+
+
+## Auto Quality Check - 2026-02-10 22:26:36
+### File: /Users/neil/Documents/GitHub/PDP/packages/backend/convex/actions/claimsExtraction.ts
+
+- ⚠️ **Performance: .filter() usage detected**
+  - **Problem:** Should use .withIndex() for better performance
+  - **Fix:** Replace `.query().filter()` with `.query().withIndex()`
+
+
+## Auto Quality Check - 2026-02-10 22:26:36
+### File: /Users/neil/Documents/GitHub/PDP/packages/backend/convex/actions/entityResolution.ts
+
+- ⚠️ **Performance: .filter() usage detected**
+  - **Problem:** Should use .withIndex() for better performance
+  - **Fix:** Replace `.query().filter()` with `.query().withIndex()`
+
+
+## Auto Quality Check - 2026-02-10 22:27:37
+### File: /Users/neil/Documents/GitHub/PDP/packages/backend/convex/actions/voiceNotes.ts
+
+- ⚠️ **Performance: .filter() usage detected**
+  - **Problem:** Should use .withIndex() for better performance
+  - **Fix:** Replace `.query().filter()` with `.query().withIndex()`
+
+
+## Auto Quality Check - 2026-02-10 22:28:32
+### File: /Users/neil/Documents/GitHub/PDP/packages/backend/convex/actions/voiceNotes.ts
+
+- ⚠️ **Performance: .filter() usage detected**
+  - **Problem:** Should use .withIndex() for better performance
+  - **Fix:** Replace `.query().filter()` with `.query().withIndex()`
+
+
+## Auto Quality Check - 2026-02-10 22:28:33
+### File: /Users/neil/Documents/GitHub/PDP/packages/backend/convex/actions/claimsExtraction.ts
+
+- ⚠️ **Performance: .filter() usage detected**
+  - **Problem:** Should use .withIndex() for better performance
+  - **Fix:** Replace `.query().filter()` with `.query().withIndex()`
+
+
+## Auto Quality Check - 2026-02-10 22:29:52
+### File: /Users/neil/Documents/GitHub/PDP/packages/backend/convex/actions/claimsExtraction.ts
+
+- ⚠️ **Performance: .filter() usage detected**
+  - **Problem:** Should use .withIndex() for better performance
+  - **Fix:** Replace `.query().filter()` with `.query().withIndex()`
+
+
+## Auto Quality Check - 2026-02-10 22:36:29
+### File: /Users/neil/Documents/GitHub/PDP/packages/backend/convex/models/voiceNotes.ts
+
+- ❌ **CRITICAL: Better Auth adapter violation**
+  - **Problem:** Direct DB access to auth tables
+  - **Fix:** Use `ctx.runQuery(components.betterAuth.adapter.findOne, {...})`
+
+
+## Auto Quality Check - 2026-02-10 22:36:29
+### File: /Users/neil/Documents/GitHub/PDP/packages/backend/convex/models/voiceNotes.ts
+
+- ⚠️ **Performance: .filter() usage detected**
+  - **Problem:** Should use .withIndex() for better performance
+  - **Fix:** Replace `.query().filter()` with `.query().withIndex()`
+
+
+## Auto Quality Check - 2026-02-10 22:36:29
+### File: /Users/neil/Documents/GitHub/PDP/packages/backend/convex/models/voiceNotes.ts
+
+- ❌ **CRITICAL: N+1 query pattern detected**
+  - **Problem:** `Promise.all(items.map(async => query))` makes N database calls
+  - **Fix:** Batch fetch all IDs first, create Map for O(1) lookup
+
+
+## Auto Quality Check - 2026-02-10 22:36:30
+### File: /Users/neil/Documents/GitHub/PDP/packages/backend/convex/models/whatsappReviewLinks.ts
+
+- ❌ **CRITICAL: Better Auth adapter violation**
+  - **Problem:** Direct DB access to auth tables
+  - **Fix:** Use `ctx.runQuery(components.betterAuth.adapter.findOne, {...})`
+
+
+## Auto Quality Check - 2026-02-10 22:36:30
+### File: /Users/neil/Documents/GitHub/PDP/packages/backend/convex/models/whatsappReviewLinks.ts
+
+- ⚠️ **Performance: .filter() usage detected**
+  - **Problem:** Should use .withIndex() for better performance
+  - **Fix:** Replace `.query().filter()` with `.query().withIndex()`
+
+
+## Auto Quality Check - 2026-02-10 22:45:30
+### File: /Users/neil/Documents/GitHub/PDP/packages/backend/convex/models/whatsappMessages.ts
+
+- ⚠️ **Performance: .filter() usage detected**
+  - **Problem:** Should use .withIndex() for better performance
+  - **Fix:** Replace `.query().filter()` with `.query().withIndex()`
+
+
+## Auto Quality Check - 2026-02-10 22:45:56
+### File: /Users/neil/Documents/GitHub/PDP/packages/backend/convex/models/whatsappMessages.ts
+
+- ⚠️ **Performance: .filter() usage detected**
+  - **Problem:** Should use .withIndex() for better performance
+  - **Fix:** Replace `.query().filter()` with `.query().withIndex()`
+
+
+## Auto Quality Check - 2026-02-10 22:46:14
+### File: /Users/neil/Documents/GitHub/PDP/packages/backend/convex/models/whatsappMessages.ts
+
+- ⚠️ **Performance: .filter() usage detected**
+  - **Problem:** Should use .withIndex() for better performance
+  - **Fix:** Replace `.query().filter()` with `.query().withIndex()`
+

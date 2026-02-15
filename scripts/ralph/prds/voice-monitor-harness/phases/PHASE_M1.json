@@ -1,0 +1,795 @@
+{
+  "phase": "M1",
+  "name": "Foundation - Backend Instrumentation",
+  "description": "Create database tables, event logging infrastructure, and instrument existing pipeline functions to emit events. This phase establishes the core observability foundation that all other phases depend on.",
+  "duration": "4-5 days",
+  "dependencies": [],
+  "architectureReference": "docs/architecture/voice-flow-monitoring-harness.md (lines 800-819)",
+
+  "goals": [
+    "Get events flowing into the pipeline event log",
+    "Establish time-window partitioning for efficient cleanup",
+    "Build atomic counter infrastructure for real-time metrics",
+    "Instrument all v2 pipeline stages with event emissions",
+    "Verify non-blocking fire-and-forget event logging"
+  ],
+
+  "userStories": [
+    {
+      "id": "US-VNM-001",
+      "title": "Create Pipeline Event Log Schema",
+      "description": "Add voicePipelineEvents, voicePipelineMetricsSnapshots, and voicePipelineCounters tables to schema with proper indexes and time-window partitioning support",
+      "effort": "1 day",
+      "priority": 1,
+      "dependencies": [],
+
+      "detailedAcceptanceCriteria": {
+        "overview": "Add 3 new tables to packages/backend/convex/schema.ts with complete schema definitions, indexes, and validators as specified in the architecture document",
+
+        "table1_voicePipelineEvents": {
+          "location": "packages/backend/convex/schema.ts",
+          "schema": {
+            "eventId": "v.string() - UUID for deduplication",
+            "eventType": "v.union() - 25 event type literals (see below)",
+            "artifactId": "v.optional(v.id('voiceNoteArtifacts'))",
+            "voiceNoteId": "v.optional(v.id('voiceNotes'))",
+            "organizationId": "v.optional(v.string())",
+            "coachUserId": "v.optional(v.string())",
+            "pipelineStage": "v.optional(v.union(v.literal('ingestion'), v.literal('transcription'), v.literal('claims_extraction'), v.literal('entity_resolution'), v.literal('draft_generation'), v.literal('confirmation')))",
+            "stageStartedAt": "v.optional(v.number())",
+            "stageCompletedAt": "v.optional(v.number())",
+            "durationMs": "v.optional(v.number())",
+            "previousStatus": "v.optional(v.string())",
+            "newStatus": "v.optional(v.string())",
+            "errorMessage": "v.optional(v.string())",
+            "errorCode": "v.optional(v.string())",
+            "metadata": "v.optional(v.object({ claimCount, entityCount, disambiguationCount, confidenceScore, transcriptDuration, transcriptWordCount, aiModel, aiCost, retryAttempt }))",
+            "timestamp": "v.number()",
+            "timeWindow": "v.string() - CRITICAL: format 'YYYY-MM-DD-HH' for hourly partitioning"
+          },
+          "eventTypes": [
+            "artifact_received",
+            "artifact_status_changed",
+            "artifact_completed",
+            "artifact_failed",
+            "transcription_started",
+            "transcription_completed",
+            "transcription_failed",
+            "claims_extraction_started",
+            "claims_extracted",
+            "claims_extraction_failed",
+            "entity_resolution_started",
+            "entity_resolution_completed",
+            "entity_resolution_failed",
+            "entity_needs_disambiguation",
+            "draft_generation_started",
+            "drafts_generated",
+            "draft_generation_failed",
+            "draft_confirmed",
+            "draft_rejected",
+            "circuit_breaker_opened",
+            "circuit_breaker_closed",
+            "retry_initiated",
+            "retry_succeeded",
+            "retry_failed",
+            "budget_threshold_reached",
+            "budget_exceeded",
+            "rate_limit_hit"
+          ],
+          "indexes": [
+            ".index('by_artifactId', ['artifactId'])",
+            ".index('by_timestamp', ['timestamp'])",
+            ".index('by_eventType', ['eventType'])",
+            ".index('by_eventType_and_timestamp', ['eventType', 'timestamp'])",
+            ".index('by_org_and_timestamp', ['organizationId', 'timestamp'])",
+            ".index('by_pipelineStage', ['pipelineStage'])",
+            ".index('by_pipelineStage_and_timestamp', ['pipelineStage', 'timestamp'])",
+            ".index('by_timeWindow', ['timeWindow'])",
+            ".index('by_timeWindow_and_eventType', ['timeWindow', 'eventType'])"
+          ],
+          "timeWindowLogic": "Computed at event insert time: `${year}-${month.padStart(2,'0')}-${day.padStart(2,'0')}-${hour.padStart(2,'0')}` - Example: '2026-02-15-14' for Feb 15 2026 at 2pm"
+        },
+
+        "table2_voicePipelineMetricsSnapshots": {
+          "location": "packages/backend/convex/schema.ts",
+          "schema": {
+            "periodStart": "v.number() - Start of period timestamp",
+            "periodEnd": "v.number() - End of period timestamp",
+            "periodType": "v.union(v.literal('hourly'), v.literal('daily'))",
+            "organizationId": "v.optional(v.string()) - null = platform-wide",
+            "artifactsReceived": "v.number()",
+            "artifactsCompleted": "v.number()",
+            "artifactsFailed": "v.number()",
+            "avgTranscriptionLatency": "v.number()",
+            "avgClaimsExtractionLatency": "v.number()",
+            "avgEntityResolutionLatency": "v.number()",
+            "avgDraftGenerationLatency": "v.number()",
+            "avgEndToEndLatency": "v.number()",
+            "p95EndToEndLatency": "v.number()",
+            "avgTranscriptConfidence": "v.number()",
+            "avgClaimConfidence": "v.number()",
+            "autoResolutionRate": "v.number()",
+            "disambiguationRate": "v.number()",
+            "transcriptionFailureRate": "v.number()",
+            "claimsExtractionFailureRate": "v.number()",
+            "entityResolutionFailureRate": "v.number()",
+            "overallFailureRate": "v.number()",
+            "totalClaimsExtracted": "v.number()",
+            "totalEntitiesResolved": "v.number()",
+            "totalDraftsGenerated": "v.number()",
+            "totalAICost": "v.number()",
+            "avgCostPerArtifact": "v.number()",
+            "createdAt": "v.number()"
+          },
+          "indexes": [
+            ".index('by_periodType_and_start', ['periodType', 'periodStart'])",
+            ".index('by_org_periodType_start', ['organizationId', 'periodType', 'periodStart'])"
+          ],
+          "retentionPolicy": "Hourly snapshots kept 7 days, daily snapshots kept 90 days (cleanup in Phase M2)"
+        },
+
+        "table3_voicePipelineCounters": {
+          "location": "packages/backend/convex/schema.ts",
+          "schema": {
+            "counterType": "v.string() - Examples: 'artifacts_received_1h', 'failures_1h', 'transcriptions_completed_1h', 'claims_extracted_1h', 'entities_resolved_1h', 'drafts_generated_1h'",
+            "organizationId": "v.optional(v.string()) - null = platform-wide counter",
+            "currentValue": "v.number() - Incremented atomically in logEvent mutation",
+            "windowStart": "v.number() - Start of current time window",
+            "windowEnd": "v.number() - End of current time window"
+          },
+          "indexes": [
+            ".index('by_counterType', ['counterType'])",
+            ".index('by_counterType_and_org', ['counterType', 'organizationId'])"
+          ],
+          "counterLifecycle": [
+            "1. logEvent mutation increments the relevant counter(s) in the same transaction as event insert",
+            "2. If current window has expired (Date.now() > windowEnd), reset currentValue to 1 and set new window bounds",
+            "3. getRealTimeMetrics reads counter documents directly - no event scanning"
+          ]
+        },
+
+        "verificationSteps": [
+          "1. Run: npx -w packages/backend convex codegen",
+          "2. Verify no TypeScript errors",
+          "3. Check generated API types include all 3 new tables",
+          "4. Verify timeWindow field is v.string() not v.number()",
+          "5. Verify all indexes are properly defined",
+          "6. Commit schema changes before proceeding to US-VNM-002"
+        ]
+      },
+
+      "implementationNotes": {
+        "criticalPatterns": [
+          "timeWindow field format: 'YYYY-MM-DD-HH' for hourly buckets (enables efficient cleanup)",
+          "eventId is v.string() for UUID deduplication (not v.id())",
+          "All optional fields use v.optional() wrapper",
+          "Counter atomic increment happens in logEvent mutation (US-VNM-002)"
+        ],
+        "commonMistakes": [
+          "Using v.number() for timeWindow instead of v.string()",
+          "Forgetting v.optional() wrapper on nullable fields",
+          "Missing indexes for common query patterns",
+          "Using v.id() for eventId instead of v.string() (eventId is UUID, not Convex ID)"
+        ]
+      },
+
+      "testingRequirements": {
+        "unitTests": false,
+        "integrationTests": false,
+        "manualTesting": true,
+        "verificationCommands": [
+          "npx -w packages/backend convex codegen",
+          "npm run check-types"
+        ]
+      },
+
+      "files": {
+        "modify": ["packages/backend/convex/schema.ts"]
+      }
+    },
+
+    {
+      "id": "US-VNM-002",
+      "title": "Build Event Logging Infrastructure",
+      "description": "Create voicePipelineEvents.ts model file with logEvent mutation (including atomic counter increment), event queries, and cursor-based pagination support",
+      "effort": "2 days",
+      "priority": 2,
+      "dependencies": ["US-VNM-001"],
+
+      "detailedAcceptanceCriteria": {
+        "overview": "Create packages/backend/convex/models/voicePipelineEvents.ts with internal mutations for logging and public queries for retrieval. All queries use cursor-based pagination and platform staff authorization.",
+
+        "function1_logEvent": {
+          "type": "internalMutation",
+          "signature": {
+            "args": {
+              "eventType": "v.union(...25 event type literals)",
+              "artifactId": "v.optional(v.id('voiceNoteArtifacts'))",
+              "voiceNoteId": "v.optional(v.id('voiceNotes'))",
+              "organizationId": "v.optional(v.string())",
+              "coachUserId": "v.optional(v.string())",
+              "pipelineStage": "v.optional(v.union(...6 stage literals))",
+              "stageStartedAt": "v.optional(v.number())",
+              "stageCompletedAt": "v.optional(v.number())",
+              "previousStatus": "v.optional(v.string())",
+              "newStatus": "v.optional(v.string())",
+              "errorMessage": "v.optional(v.string())",
+              "errorCode": "v.optional(v.string())",
+              "metadata": "v.optional(v.object({...}))"
+            },
+            "returns": "v.string() - The inserted event's _id"
+          },
+          "implementation": [
+            "1. Generate UUID for eventId (crypto.randomUUID())",
+            "2. Compute timeWindow from Date.now(): const date = new Date(); const timeWindow = `${date.getFullYear()}-${(date.getMonth()+1).toString().padStart(2,'0')}-${date.getDate().toString().padStart(2,'0')}-${date.getHours().toString().padStart(2,'0')}`",
+            "3. Compute durationMs if stageStartedAt and stageCompletedAt provided: durationMs = stageCompletedAt - stageStartedAt",
+            "4. Insert event into voicePipelineEvents table",
+            "5. ATOMIC COUNTER INCREMENT (same transaction):",
+            "   a. Determine which counter(s) to increment based on eventType (e.g., 'artifact_received' → 'artifacts_received_1h')",
+            "   b. Query voicePipelineCounters by_counterType_and_org index",
+            "   c. If counter exists and Date.now() < windowEnd: patch counter to increment currentValue by 1",
+            "   d. If counter exists and Date.now() >= windowEnd (window expired):",
+            "      - ATOMIC RESET: Use ctx.db.patch(counter._id, { currentValue: 1, windowStart: Date.now(), windowEnd: Date.now() + 3600000 })",
+            "      - This handles race condition: if another event already reset the window, this will correctly set to 1 for new window",
+            "      - DO NOT read-then-increment at window boundary - use patch for atomic operation",
+            "   e. If counter doesn't exist: insert new counter with currentValue=1, windowStart=Date.now(), windowEnd=Date.now()+3600000",
+            "   f. Code example for race-safe window rotation:",
+            "      const now = Date.now();",
+            "      if (counter && now >= counter.windowEnd) {",
+            "        await ctx.db.patch(counter._id, {",
+            "          currentValue: 1,  // Reset to 1, not increment",
+            "          windowStart: now,",
+            "          windowEnd: now + 3600000",
+            "        });",
+            "      } else if (counter) {",
+            "        await ctx.db.patch(counter._id, {",
+            "          currentValue: counter.currentValue + 1",
+            "        });",
+            "      }",
+            "6. Return event _id"
+          ],
+          "counterMapping": {
+            "artifact_received": "artifacts_received_1h",
+            "artifact_completed": "artifacts_completed_1h",
+            "artifact_failed": "artifacts_failed_1h",
+            "transcription_completed": "transcriptions_completed_1h",
+            "claims_extracted": "claims_extracted_1h",
+            "entity_resolution_completed": "entities_resolved_1h",
+            "drafts_generated": "drafts_generated_1h"
+          },
+          "criticalPatterns": [
+            "Event insert + counter increment MUST be in same transaction",
+            "Counter window rotation logic handles expired windows automatically",
+            "Use crypto.randomUUID() for eventId (deduplication)",
+            "timeWindow format: 'YYYY-MM-DD-HH' (4-digit year, 2-digit month/day/hour with leading zeros)"
+          ]
+        },
+
+        "function2_getRecentEvents": {
+          "type": "query",
+          "signature": {
+            "args": {
+              "paginationOpts": "paginationOptsValidator",
+              "filters": "v.optional(v.object({ eventType, pipelineStage, organizationId, startTime, endTime }))"
+            },
+            "returns": "PaginationResult<Event> - { page: Event[], isDone: boolean, continueCursor: string }"
+          },
+          "implementation": [
+            "1. Verify platform staff: const user = await authComponent.safeGetAuthUser(ctx); if (!user?.isPlatformStaff) throw new Error('Unauthorized')",
+            "2. Start with base query using by_timestamp index",
+            "3. Apply filters if provided:",
+            "   - If eventType: use by_eventType_and_timestamp index",
+            "   - If pipelineStage: use by_pipelineStage_and_timestamp index",
+            "   - If organizationId + time bound: use by_org_and_timestamp index with .gte('timestamp', startTime)",
+            "4. Order by timestamp descending (.order('desc'))",
+            "5. MANDATORY: Use .paginate(paginationOpts) - NEVER .take()",
+            "6. Return pagination result"
+          ],
+          "criticalPatterns": [
+            "ALWAYS use .paginate() for pagination - NEVER .take()",
+            "Platform staff authorization required",
+            "Org queries MUST include time bounds (never unbounded org queries)",
+            "Use correct composite index for filter combinations"
+          ]
+        },
+
+        "function3_getEventsByArtifact": {
+          "type": "internalQuery",
+          "signature": {
+            "args": {
+              "artifactId": "v.id('voiceNoteArtifacts')"
+            },
+            "returns": "v.array(v.object({...})) - All events for this artifact, ordered chronologically"
+          },
+          "implementation": [
+            "1. Query by_artifactId index with .eq('artifactId', args.artifactId)",
+            "2. Order by timestamp ascending (.order('asc'))",
+            "3. Collect all (this is internal query, not paginated - artifact event count is bounded)",
+            "4. Return events"
+          ],
+          "notes": "Internal query (no auth check) - used by getEventTimeline public query"
+        },
+
+        "function4_getEventTimeline": {
+          "type": "query",
+          "signature": {
+            "args": {
+              "artifactId": "v.id('voiceNoteArtifacts')"
+            },
+            "returns": "v.array(v.object({...})) - Chronological event timeline for artifact detail page"
+          },
+          "implementation": [
+            "1. Verify platform staff authorization",
+            "2. Call ctx.runQuery(internal.models.voicePipelineEvents.getEventsByArtifact, { artifactId })",
+            "3. Return timeline"
+          ]
+        },
+
+        "function5_getActiveArtifacts": {
+          "type": "query",
+          "signature": {
+            "args": {
+              "paginationOpts": "paginationOptsValidator"
+            },
+            "returns": "PaginationResult - Active artifacts (status !== 'completed' && status !== 'failed')"
+          },
+          "implementation": [
+            "1. Verify platform staff authorization",
+            "2. Query voiceNoteArtifacts table with by_status_and_createdAt index",
+            "3. Filter for in-progress statuses: 'received', 'transcribing', 'transcribed', 'processing'",
+            "4. Use .paginate(paginationOpts)",
+            "5. Return result"
+          ],
+          "notes": "This queries voiceNoteArtifacts table, not voicePipelineEvents - used by dashboard active artifacts panel"
+        },
+
+        "function6_getFailedArtifacts": {
+          "type": "query",
+          "signature": {
+            "args": {
+              "paginationOpts": "paginationOptsValidator",
+              "sinceTimestamp": "v.optional(v.number()) - Only failures since this time"
+            },
+            "returns": "PaginationResult - Failed artifacts with retry eligibility"
+          },
+          "implementation": [
+            "1. Verify platform staff authorization",
+            "2. Query voiceNoteArtifacts by_status_and_createdAt with .eq('status', 'failed')",
+            "3. If sinceTimestamp provided: .gte('createdAt', sinceTimestamp)",
+            "4. Use .paginate(paginationOpts)",
+            "5. Return result"
+          ]
+        },
+
+        "additionalHelpers": {
+          "computeTimeWindow": "Helper function to compute timeWindow string from timestamp",
+          "getCounterForEventType": "Helper function to map event types to counter types",
+          "shouldIncrementCounter": "Helper function to determine if event type should increment a counter"
+        }
+      },
+
+      "implementationNotes": {
+        "criticalPatterns": [
+          "logEvent is INTERNAL mutation - only called via ctx.scheduler from pipeline functions",
+          "Counter increment MUST be atomic (same transaction as event insert)",
+          "All public queries verify platform staff authorization",
+          "Cursor-based pagination is MANDATORY for all list queries",
+          "Org queries MUST include time bounds to prevent unbounded scans"
+        ],
+        "performanceRequirements": [
+          "logEvent execution: < 10ms (fire-and-forget, non-blocking)",
+          "getRecentEvents: < 200ms for 50 events",
+          "getEventTimeline: < 100ms (single artifact, all events)",
+          "Counter reads: < 50ms (O(1) document lookups)"
+        ],
+        "errorHandling": [
+          "logEvent should catch and log errors, never throw (fire-and-forget)",
+          "Public queries should throw ConvexError with user-friendly messages",
+          "Platform staff auth failures should return clear 'Unauthorized' message"
+        ]
+      },
+
+      "testingRequirements": {
+        "unitTests": false,
+        "integrationTests": false,
+        "manualTesting": true,
+        "verificationSteps": [
+          "1. Run codegen: npx -w packages/backend convex codegen",
+          "2. Verify no type errors: npm run check-types",
+          "3. Test logEvent via Convex dashboard (insert test event, verify counter incremented)",
+          "4. Test getRecentEvents with pagination (verify cursor continuation)",
+          "5. Verify timeWindow format: query voicePipelineEvents and inspect timeWindow field",
+          "6. Verify counter rotation: insert events across hour boundary, check counter reset"
+        ]
+      },
+
+      "files": {
+        "create": ["packages/backend/convex/models/voicePipelineEvents.ts"]
+      }
+    },
+
+    {
+      "id": "US-VNM-003",
+      "title": "Instrument Pipeline with Event Emissions",
+      "description": "Add event logging calls to all existing v2 pipeline functions using ctx.scheduler.runAfter pattern (fire-and-forget, non-blocking)",
+      "effort": "2 days",
+      "priority": 3,
+      "dependencies": ["US-VNM-002"],
+
+      "detailedAcceptanceCriteria": {
+        "overview": "Instrument 9 existing v2 pipeline files with event emission calls. All emissions use ctx.scheduler.runAfter(0, internal.models.voicePipelineEvents.logEvent, {...}) pattern for fire-and-forget non-blocking logging.",
+
+        "file1_voiceNoteArtifacts": {
+          "location": "packages/backend/convex/models/voiceNoteArtifacts.ts",
+          "instrumentationPoints": {
+            "createArtifact": {
+              "eventType": "artifact_received",
+              "triggerPoint": "After successful insert into voiceNoteArtifacts table",
+              "metadata": {
+                "sourceChannel": "args.sourceChannel (whatsapp, web, mobile)",
+                "organizationId": "newArtifact.orgContextCandidates[0]?.organizationId (highest confidence candidate)",
+                "coachUserId": "args.senderUserId"
+              },
+              "code": "await ctx.scheduler.runAfter(0, internal.models.voicePipelineEvents.logEvent, { eventType: 'artifact_received', artifactId: newArtifact._id, organizationId: newArtifact.orgContextCandidates[0]?.organizationId, coachUserId: args.senderUserId, pipelineStage: 'ingestion', metadata: { sourceChannel: args.sourceChannel } });",
+              "notes": "CRITICAL: voiceNoteArtifacts uses orgContextCandidates array, not flat organizationId field. Extract from highest confidence candidate."
+            },
+            "updateArtifactStatus": {
+              "eventTypes": [
+                "artifact_status_changed",
+                "artifact_completed",
+                "artifact_failed"
+              ],
+              "triggerPoint": "After status update",
+              "logic": [
+                "If newStatus === 'completed': emit 'artifact_completed'",
+                "If newStatus === 'failed': emit 'artifact_failed' with errorMessage/errorCode",
+                "Otherwise: emit 'artifact_status_changed'"
+              ],
+              "metadata": {
+                "previousStatus": "current artifact.status before update",
+                "newStatus": "args.newStatus",
+                "errorMessage": "args.errorMessage (if failed)",
+                "errorCode": "args.errorCode (if failed)"
+              }
+            }
+          }
+        },
+
+        "file2_voiceNoteTranscripts": {
+          "location": "packages/backend/convex/models/voiceNoteTranscripts.ts",
+          "instrumentationPoints": {
+            "createTranscript": {
+              "eventType": "transcription_completed",
+              "triggerPoint": "After successful transcript insert",
+              "metadata": {
+                "transcriptDuration": "args.duration (audio duration in seconds)",
+                "transcriptWordCount": "args.fullText.split(/\\s+/).length",
+                "aiModel": "args.modelUsed (e.g., 'whisper-1')",
+                "confidenceScore": "Average of args.segments confidence scores (if available)"
+              },
+              "code": "await ctx.scheduler.runAfter(0, internal.models.voicePipelineEvents.logEvent, { eventType: 'transcription_completed', artifactId: args.artifactId, organizationId: artifact.organizationId, pipelineStage: 'transcription', stageCompletedAt: Date.now(), metadata: { transcriptDuration: args.duration, transcriptWordCount: args.fullText.split(/\\s+/).length, aiModel: args.modelUsed } });"
+            }
+          },
+          "notes": "Need to fetch artifact to get organizationId - use batch pattern if multiple transcripts"
+        },
+
+        "file3_voiceNoteClaims": {
+          "location": "packages/backend/convex/models/voiceNoteClaims.ts",
+          "instrumentationPoints": {
+            "storeClaims": {
+              "eventType": "claims_extracted",
+              "triggerPoint": "After all claims inserted",
+              "metadata": {
+                "claimCount": "claims.length",
+                "aiModel": "args.modelUsed (e.g., 'gpt-4o')",
+                "aiCost": "Estimated cost based on tokens (if available from aiUsageLog)",
+                "confidenceScore": "Average extractionConfidence across claims"
+              },
+              "code": "await ctx.scheduler.runAfter(0, internal.models.voicePipelineEvents.logEvent, { eventType: 'claims_extracted', artifactId: args.artifactId, organizationId: artifact.organizationId, pipelineStage: 'claims_extraction', stageCompletedAt: Date.now(), metadata: { claimCount: claims.length, aiModel: args.modelUsed, confidenceScore: avgConfidence } });"
+            }
+          }
+        },
+
+        "file4_voiceNoteEntityResolutions": {
+          "location": "packages/backend/convex/models/voiceNoteEntityResolutions.ts",
+          "instrumentationPoints": {
+            "storeResolutions": {
+              "eventTypes": [
+                "entity_resolution_completed",
+                "entity_needs_disambiguation"
+              ],
+              "triggerPoint": "After all resolutions stored",
+              "logic": [
+                "Count how many resolutions have status 'auto_resolved'",
+                "Count how many have status 'needs_disambiguation'",
+                "If any need disambiguation: emit 'entity_needs_disambiguation'",
+                "If all auto-resolved: emit 'entity_resolution_completed'"
+              ],
+              "metadata": {
+                "entityCount": "resolutions.length",
+                "autoResolvedCount": "resolutions.filter(r => r.status === 'auto_resolved').length",
+                "disambiguationCount": "resolutions.filter(r => r.status === 'needs_disambiguation').length"
+              }
+            }
+          }
+        },
+
+        "file5_insightDrafts": {
+          "location": "packages/backend/convex/models/insightDrafts.ts",
+          "instrumentationPoints": {
+            "createDrafts": {
+              "eventType": "drafts_generated",
+              "triggerPoint": "After all drafts inserted",
+              "metadata": {
+                "draftCount": "drafts.length",
+                "avgConfidence": "Average aiConfidence across drafts"
+              }
+            },
+            "confirmDraft": {
+              "eventType": "draft_confirmed",
+              "triggerPoint": "After draft status updated to confirmed",
+              "metadata": {
+                "draftId": "args.draftId",
+                "claimId": "draft.claimId"
+              }
+            },
+            "rejectDraft": {
+              "eventType": "draft_rejected",
+              "triggerPoint": "After draft status updated to rejected",
+              "metadata": {
+                "draftId": "args.draftId",
+                "claimId": "draft.claimId"
+              }
+            }
+          }
+        },
+
+        "file6_actions_voiceNotes": {
+          "location": "packages/backend/convex/actions/voiceNotes.ts",
+          "instrumentationPoints": {
+            "transcribeAudio": {
+              "startEvent": "transcription_started",
+              "endEvent": "transcription_completed OR transcription_failed",
+              "triggerPoints": [
+                "START: Before Whisper API call - emit 'transcription_started' with stageStartedAt",
+                "SUCCESS: After createTranscript mutation - already handled by createTranscript",
+                "FAILURE: In catch block - emit 'transcription_failed' with errorMessage"
+              ],
+              "metadata": {
+                "stageStartedAt": "Date.now() at function start",
+                "stageCompletedAt": "Date.now() at success/failure",
+                "durationMs": "stageCompletedAt - stageStartedAt",
+                "errorMessage": "error.message (on failure)",
+                "errorCode": "error.code || 'TRANSCRIPTION_ERROR'"
+              }
+            }
+          },
+          "notes": "Actions use ctx.scheduler.runMutation (not runAfter) since they don't have direct scheduler access - call via runMutation"
+        },
+
+        "file7_actions_claimsExtraction": {
+          "location": "packages/backend/convex/actions/claimsExtraction.ts",
+          "instrumentationPoints": {
+            "extractClaims": {
+              "startEvent": "claims_extraction_started",
+              "endEvent": "claims_extracted OR claims_extraction_failed",
+              "triggerPoints": [
+                "START: Before GPT-4o API call - emit 'claims_extraction_started'",
+                "SUCCESS: After storeClaims - already handled by storeClaims",
+                "FAILURE: In catch block - emit 'claims_extraction_failed'"
+              ],
+              "metadata": {
+                "stageStartedAt": "Date.now()",
+                "aiModel": "gpt-4o",
+                "errorMessage": "error.message (on failure)"
+              }
+            }
+          }
+        },
+
+        "file8_actions_entityResolution": {
+          "location": "packages/backend/convex/actions/entityResolution.ts",
+          "instrumentationPoints": {
+            "resolveEntities": {
+              "startEvent": "entity_resolution_started",
+              "endEvent": "entity_resolution_completed OR entity_needs_disambiguation",
+              "triggerPoints": [
+                "START: At function start - emit 'entity_resolution_started'",
+                "END: After storeResolutions - already handled by storeResolutions"
+              ]
+            }
+          }
+        },
+
+        "file9_actions_draftGeneration": {
+          "location": "packages/backend/convex/actions/draftGeneration.ts",
+          "instrumentationPoints": {
+            "generateDrafts": {
+              "startEvent": "draft_generation_started",
+              "endEvent": "drafts_generated",
+              "triggerPoints": [
+                "START: At function start - emit 'draft_generation_started'",
+                "END: After createDrafts - already handled by createDrafts"
+              ]
+            }
+          }
+        },
+
+        "criticalPatterns": {
+          "fireAndForget": [
+            "Mutations use: ctx.scheduler.runAfter(0, internal.models.voicePipelineEvents.logEvent, {...}) - TRUE fire-and-forget, returns immediately",
+            "Actions use: await ctx.runMutation(internal.models.voicePipelineEvents.logEvent, {...}) - MUST await (actions have no scheduler), wrap in try/catch",
+            "Event logging failures should NOT crash the pipeline - logEvent mutation catches errors internally and never throws",
+            "Example for actions:",
+            "  try {",
+            "    await ctx.runMutation(internal.models.voicePipelineEvents.logEvent, {",
+            "      eventType: 'transcription_started',",
+            "      artifactId,",
+            "      pipelineStage: 'transcription',",
+            "      stageStartedAt: Date.now()",
+            "    });",
+            "  } catch (logError) {",
+            "    console.error('Event logging failed:', logError);",
+            "    // Don't throw - continue pipeline execution",
+            "  }"
+          ],
+          "metadataInclusion": [
+            "ALWAYS include stageStartedAt/stageCompletedAt for latency calculation",
+            "ALWAYS include counts (claimCount, entityCount, draftCount) for metrics",
+            "ALWAYS include costs when available (aiCost from aiUsageLog)",
+            "ALWAYS include confidence scores for quality metrics",
+            "ALWAYS include error details (message, code) on failures"
+          ],
+          "atomicImports": [
+            "Add import for internal.models.voicePipelineEvents AND usage in SAME edit",
+            "Linter removes unused imports between edits - causes build errors"
+          ]
+        }
+      },
+
+      "implementationNotes": {
+        "emissionPattern": {
+          "mutations": "ctx.scheduler.runAfter(0, internal.models.voicePipelineEvents.logEvent, {...})",
+          "actions": "ctx.runMutation(internal.models.voicePipelineEvents.logEvent, {...})",
+          "errorHandling": "Wrap in try/catch only if needed, but prefer letting logEvent handle errors internally"
+        },
+        "stageTracking": {
+          "ingestion": "createArtifact",
+          "transcription": "transcribeAudio → createTranscript",
+          "claims_extraction": "extractClaims → storeClaims",
+          "entity_resolution": "resolveEntities → storeResolutions",
+          "draft_generation": "generateDrafts → createDrafts",
+          "confirmation": "confirmDraft / rejectDraft"
+        },
+        "testingApproach": [
+          "1. Create a test voice note via WhatsApp or web",
+          "2. Monitor Convex dashboard logs for event emissions",
+          "3. Query voicePipelineEvents table to see all events created",
+          "4. Verify counters incremented: query voicePipelineCounters table",
+          "5. Check timeWindow format is correct",
+          "6. Verify metadata fields populated correctly",
+          "7. Test failure path: force transcription error, verify transcription_failed event"
+        ]
+      },
+
+      "testingRequirements": {
+        "unitTests": false,
+        "integrationTests": false,
+        "manualTesting": true,
+        "verificationSteps": [
+          "1. Create typed note (in-app) → verify artifact_received event",
+          "2. Create recorded note (in-app) → verify artifact_received, then transcription_started → transcription_completed events",
+          "3. Create WhatsApp voice note → verify full pipeline events (artifact → transcription → claims → resolution → drafts)",
+          "4. Force a failure (invalid audio file) → verify transcription_failed event with errorMessage",
+          "5. Query voicePipelineEvents table: verify all expected event types present",
+          "6. Query voicePipelineCounters table: verify counters incremented for each stage",
+          "7. Check timeWindow values: verify format 'YYYY-MM-DD-HH'",
+          "8. Verify metadata populated: claimCount, aiCost, confidence, etc.",
+          "9. Performance test: verify event logging doesn't slow down pipeline (< 10ms overhead)"
+        ]
+      },
+
+      "files": {
+        "modify": [
+          "packages/backend/convex/models/voiceNoteArtifacts.ts",
+          "packages/backend/convex/models/voiceNoteTranscripts.ts",
+          "packages/backend/convex/models/voiceNoteClaims.ts",
+          "packages/backend/convex/models/voiceNoteEntityResolutions.ts",
+          "packages/backend/convex/models/insightDrafts.ts",
+          "packages/backend/convex/actions/voiceNotes.ts",
+          "packages/backend/convex/actions/claimsExtraction.ts",
+          "packages/backend/convex/actions/entityResolution.ts",
+          "packages/backend/convex/actions/draftGeneration.ts"
+        ]
+      }
+    }
+  ],
+
+  "successCriteria": {
+    "schemaComplete": "All 3 tables added to schema with correct validators and indexes",
+    "codegenPasses": "npx -w packages/backend convex codegen succeeds with no errors",
+    "eventLoggingWorks": "logEvent mutation successfully inserts events and increments counters atomically",
+    "paginationEnforced": "All list queries use .paginate() - zero .take() usage in voicePipelineEvents.ts",
+    "pipelineInstrumented": "All 9 pipeline files emit events at correct points",
+    "fireAndForgetVerified": "Event emissions use ctx.scheduler.runAfter / ctx.runMutation (non-blocking)",
+    "countersIncrement": "voicePipelineCounters table shows incremented values after event emissions",
+    "timeWindowCorrect": "timeWindow field format verified: 'YYYY-MM-DD-HH'",
+    "metadataPopulated": "Event metadata includes counts, costs, confidence, duration where applicable",
+    "authorizationWorks": "Platform staff can query events, non-staff get 'Unauthorized' error",
+    "performanceAcceptable": "Event logging adds < 10ms overhead to pipeline execution"
+  },
+
+  "testingStrategy": {
+    "approach": "Manual testing with real voice notes and Convex dashboard inspection",
+    "testScenarios": [
+      "Create typed note → verify artifact_received event",
+      "Create recorded note → verify transcription events",
+      "Create WhatsApp note → verify full pipeline events",
+      "Force failure → verify error events",
+      "Check counters → verify atomic increment",
+      "Check pagination → verify cursor continuation",
+      "Check authorization → verify platform staff only"
+    ],
+    "verificationTools": [
+      "Convex dashboard (query voicePipelineEvents, voicePipelineCounters)",
+      "Convex logs (verify event emissions in real-time)",
+      "TypeScript compiler (npm run check-types)",
+      "Convex codegen (npx -w packages/backend convex codegen)"
+    ]
+  },
+
+  "ralphGuidance": {
+    "executionOrder": [
+      "1. US-VNM-001: Add schema tables (30 min - 1 hour)",
+      "2. Run codegen and verify (10 min)",
+      "3. Commit schema changes",
+      "4. US-VNM-002: Create voicePipelineEvents.ts (1-2 days)",
+      "5. Test logEvent and queries in Convex dashboard (30 min)",
+      "6. Commit event logging infrastructure",
+      "7. US-VNM-003: Instrument pipeline files (2 days - DO IN ORDER):",
+      "   a. Start with voiceNoteArtifacts.ts (createArtifact, updateArtifactStatus)",
+      "   b. Test artifact events work",
+      "   c. Add voiceNoteTranscripts.ts (createTranscript)",
+      "   d. Test transcription events",
+      "   e. Add voiceNoteClaims.ts (storeClaims)",
+      "   f. Test claims events",
+      "   g. Add voiceNoteEntityResolutions.ts (storeResolutions)",
+      "   h. Test resolution events",
+      "   i. Add insightDrafts.ts (createDrafts, confirmDraft, rejectDraft)",
+      "   j. Test draft events",
+      "   k. Add actions/*.ts (start events for each action)",
+      "   l. Test full pipeline events end-to-end",
+      "8. Final verification: create test voice note, check all events emitted",
+      "9. Commit instrumentation changes",
+      "10. Phase M1 complete - ready for M2 (metrics aggregation)"
+    ],
+    "commonPitfalls": [
+      "Forgetting to add imports AND usage in same edit (linter removes unused imports)",
+      "Using .take() instead of .paginate() for list queries",
+      "Using v.number() for timeWindow instead of v.string()",
+      "Blocking pipeline on event logging (should be fire-and-forget)",
+      "Missing platform staff authorization checks",
+      "Unbounded org queries without time constraints",
+      "Not incrementing counters atomically with event insert",
+      "Wrong counter window rotation logic (should reset on windowEnd expiry)"
+    ],
+    "successIndicators": [
+      "Convex dashboard shows events in voicePipelineEvents table",
+      "voicePipelineCounters table shows incremented values",
+      "timeWindow values formatted correctly: 'YYYY-MM-DD-HH'",
+      "Event metadata populated (counts, costs, confidence, duration)",
+      "Platform staff can query events successfully",
+      "Non-staff users get 'Unauthorized' error",
+      "Pipeline execution time not significantly impacted (<10ms overhead)",
+      "npm run check-types passes",
+      "npx -w packages/backend convex codegen succeeds"
+    ]
+  },
+
+  "nextPhase": {
+    "phase": "M2",
+    "name": "Metrics & Aggregation",
+    "description": "Build metrics aggregation system with hourly/daily snapshots and cleanup crons",
+    "readyWhen": "All Phase M1 success criteria met, events flowing into voicePipelineEvents table, counters incrementing correctly"
+  }
+}

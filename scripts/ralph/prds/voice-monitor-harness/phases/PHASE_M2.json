@@ -1,0 +1,537 @@
+{
+  "phase": "M2",
+  "name": "Metrics & Aggregation",
+  "description": "Build metrics aggregation system with hourly/daily snapshots and cleanup crons. This phase creates pre-computed metric snapshots for fast historical queries and establishes the real-time metrics query layer.",
+  "duration": "3-4 days",
+  "dependencies": ["M1"],
+  "architectureReference": "docs/architecture/voice-flow-monitoring-harness.md (lines 820-833)",
+
+  "goals": [
+    "Enable fast real-time metrics queries reading from voicePipelineCounters (O(1), no event scanning)",
+    "Create hourly and daily metric snapshot aggregations from voicePipelineEvents",
+    "Establish automated cron jobs for periodic aggregation",
+    "Implement retention policy cleanup (hourly snapshots 7 days, daily snapshots 90 days)",
+    "Provide per-org and platform-wide metrics breakdown"
+  ],
+
+  "userStories": [
+    {
+      "id": "US-VNM-004",
+      "title": "Build Metrics Aggregation System",
+      "description": "Create voicePipelineMetrics.ts with hourly/daily aggregation logic and real-time counter queries",
+      "effort": "3 days",
+      "priority": 4,
+      "dependencies": ["US-VNM-003"],
+
+      "detailedAcceptanceCriteria": {
+        "overview": "Create packages/backend/convex/models/voicePipelineMetrics.ts with queries for real-time metrics (from counters) and historical metrics (from snapshots), plus internal mutations for periodic aggregation",
+
+        "function1_getRealTimeMetrics": {
+          "type": "query",
+          "signature": {
+            "args": {
+              "organizationId": "v.optional(v.string()) - null = platform-wide"
+            },
+            "returns": "v.object({ artifactsReceived1h, artifactsCompleted1h, artifactsFailed1h, transcriptionsCompleted1h, claimsExtracted1h, entitiesResolved1h, draftsGenerated1h, failures1h, windowStart, windowEnd })"
+          },
+          "implementation": [
+            "1. Verify platform staff authorization",
+            "2. Query voicePipelineCounters by_counterType_and_org index for each counter type:",
+            "   - 'artifacts_received_1h'",
+            "   - 'artifacts_completed_1h'",
+            "   - 'artifacts_failed_1h'",
+            "   - 'transcriptions_completed_1h'",
+            "   - 'claims_extracted_1h'",
+            "   - 'entities_resolved_1h'",
+            "   - 'drafts_generated_1h'",
+            "   - 'failures_1h' (sum of all failure event counters)",
+            "3. Return object with all counter values + window bounds",
+            "4. If counter doesn't exist for a type: return 0"
+          ],
+          "criticalPatterns": [
+            "NEVER scan voicePipelineEvents for real-time metrics - ONLY read counters",
+            "This is O(1) query - reads 7-8 counter documents total",
+            "Target latency: < 50ms"
+          ]
+        },
+
+        "function2_getHistoricalMetrics": {
+          "type": "query",
+          "signature": {
+            "args": {
+              "periodType": "v.union(v.literal('hourly'), v.literal('daily'))",
+              "startTime": "v.number() - Period start timestamp",
+              "endTime": "v.number() - Period end timestamp",
+              "organizationId": "v.optional(v.string())"
+            },
+            "returns": "v.array(v.object({...})) - Array of metric snapshots for time range"
+          },
+          "implementation": [
+            "1. Verify platform staff authorization",
+            "2. If organizationId provided:",
+            "   - Query by_org_periodType_start index",
+            "   - .eq('organizationId', args.organizationId)",
+            "   - .eq('periodType', args.periodType)",
+            "   - .gte('periodStart', args.startTime)",
+            "   - .lte('periodStart', args.endTime)",
+            "3. If no organizationId (platform-wide):",
+            "   - Query by_periodType_and_start index",
+            "   - .eq('periodType', args.periodType)",
+            "   - .gte('periodStart', args.startTime)",
+            "   - .lte('periodStart', args.endTime)",
+            "4. Order by periodStart ascending",
+            "5. Collect and return (bounded by time range, safe without pagination)"
+          ],
+          "notes": "For dashboard time ranges > 7 days: use periodType='daily'. For < 7 days: use periodType='hourly' if available, else 'daily'"
+        },
+
+        "function3_getStageBreakdown": {
+          "type": "query",
+          "signature": {
+            "args": {
+              "periodType": "v.union(v.literal('hourly'), v.literal('daily'))",
+              "startTime": "v.number()",
+              "endTime": "v.number()"
+            },
+            "returns": "v.object({ stages: v.array({ stage, avgLatency, failureRate, count }) })"
+          },
+          "implementation": [
+            "1. Verify platform staff authorization",
+            "2. Query historical snapshots for time range",
+            "3. Extract per-stage metrics from snapshots:",
+            "   - Transcription: avgTranscriptionLatency, transcriptionFailureRate",
+            "   - Claims: avgClaimsExtractionLatency, claimsExtractionFailureRate",
+            "   - Entity Resolution: avgEntityResolutionLatency, entityResolutionFailureRate",
+            "   - Drafts: avgDraftGenerationLatency",
+            "4. Aggregate across snapshots (average latency, sum counts)",
+            "5. Return per-stage breakdown"
+          ]
+        },
+
+        "function4_getOrgBreakdown": {
+          "type": "query",
+          "signature": {
+            "args": {
+              "periodType": "v.union(v.literal('hourly'), v.literal('daily'))",
+              "startTime": "v.number()",
+              "endTime": "v.number()"
+            },
+            "returns": "v.array(v.object({ organizationId, orgName, artifactsReceived, artifactsCompleted, artifactsFailed, totalAICost, avgLatency, failureRate }))"
+          },
+          "implementation": [
+            "1. Verify platform staff authorization",
+            "2. Query voicePipelineMetricsSnapshots for time range",
+            "3. Group snapshots by organizationId",
+            "4. For each org: sum volumes, costs; average latencies, failure rates",
+            "5. Batch fetch organization names (use Map pattern, avoid N+1)",
+            "6. Return sorted by volume descending"
+          ],
+          "criticalPatterns": [
+            "NEVER query snapshots per org in a loop (N+1 anti-pattern)",
+            "Batch fetch org names: collect unique orgIds → Promise.all → Map lookup",
+            "Use snapshot data ONLY - do not scan raw events for org breakdown"
+          ],
+          "batchFetchCodeExample": {
+            "description": "Mandatory pattern to avoid N+1 queries when enriching org breakdown with org names",
+            "code": [
+              "// ✅ GOOD: Batch fetch with Map lookup",
+              "// Step 1: Collect unique org IDs from snapshots",
+              "const uniqueOrgIds = [...new Set(snapshots.map(s => s.organizationId).filter(Boolean))];",
+              "",
+              "// Step 2: Batch fetch all orgs at once using Better Auth adapter",
+              "const orgs = await Promise.all(",
+              "  uniqueOrgIds.map(id =>",
+              "    adapter.findOne({",
+              "      model: 'organization',",
+              "      where: { field: '_id', value: id }",
+              "    })",
+              "  )",
+              ");",
+              "",
+              "// Step 3: Create Map for O(1) lookup",
+              "const orgMap = new Map();",
+              "for (const org of orgs) {",
+              "  if (org) orgMap.set(org._id, org.name);",
+              "}",
+              "",
+              "// Step 4: Synchronous map using pre-fetched data (no await)",
+              "const enrichedBreakdown = orgBreakdown.map(item => ({",
+              "  ...item,",
+              "  orgName: orgMap.get(item.organizationId) || 'Unknown'",
+              "}));",
+              "",
+              "// ❌ BAD: Query per org in loop (N+1 anti-pattern)",
+              "// const enriched = await Promise.all(",
+              "//   orgBreakdown.map(async (item) => {",
+              "//     const org = await adapter.findOne({ ... });  // Query per item!",
+              "//     return { ...item, orgName: org.name };",
+              "//   })",
+              "// );"
+            ]
+          }
+        },
+
+        "function5_aggregateHourlyMetrics": {
+          "type": "internalMutation",
+          "signature": {
+            "args": {
+              "hourTimestamp": "v.number() - Start of hour to aggregate (default: previous hour)"
+            },
+            "returns": "v.null()"
+          },
+          "implementation": [
+            "1. Determine time range: hourStart = args.hourTimestamp, hourEnd = hourStart + 3600000 (1 hour)",
+            "2. Query voicePipelineEvents by_timeWindow index for this hour's timeWindow",
+            "3. Aggregate metrics from events:",
+            "   Throughput: count artifact_received, artifact_completed, artifact_failed",
+            "   Latency: extract durationMs from events, compute avg/p95 per stage",
+            "   Quality: extract confidenceScore from transcription/claims events, compute avg",
+            "   Errors: count transcription_failed, claims_extraction_failed, etc., compute failure rates",
+            "   Volume: count claims_extracted events, sum metadata.claimCount",
+            "   Cost: sum metadata.aiCost from all events with cost data",
+            "4. Compute derived metrics:",
+            "   - avgEndToEndLatency: sum of avg stage latencies",
+            "   - p95EndToEndLatency: sum of p95 stage latencies (approximation)",
+            "   - P95 calculation: Sort all durationMs values ascending, take value at index Math.floor(count * 0.95)",
+            "   - overallFailureRate: artifactsFailed / artifactsReceived",
+            "   - autoResolutionRate: (entityResolutionCompleted - needsDisambiguation) / entityResolutionCompleted",
+            "   - avgCostPerArtifact: totalAICost / artifactsReceived",
+            "5. Create platform-wide snapshot (organizationId=null)",
+            "6. For each unique org in events: create org-specific snapshot",
+            "7. Insert all snapshots into voicePipelineMetricsSnapshots with periodType='hourly'"
+          ],
+          "criticalPatterns": [
+            "Query events by timeWindow (efficient) - not by timestamp range (full scan)",
+            "Batch insert snapshots (platform + all orgs) in single transaction if possible",
+            "Handle missing data gracefully (divide-by-zero checks, default to 0)",
+            "This mutation is called by cron AFTER hour completes (e.g., at :30 min of next hour)"
+          ],
+          "performanceTarget": "< 30 seconds for 1 hour of events (~500-1000 events at Medium scale)"
+        },
+
+        "function6_aggregateDailyMetrics": {
+          "type": "internalMutation",
+          "signature": {
+            "args": {
+              "dayTimestamp": "v.number() - Start of day to aggregate (default: previous day)"
+            },
+            "returns": "v.null()"
+          },
+          "implementation": [
+            "1. Determine day range: dayStart = args.dayTimestamp, dayEnd = dayStart + 86400000 (24 hours)",
+            "2. Query voicePipelineMetricsSnapshots by_periodType_and_start",
+            "   - .eq('periodType', 'hourly')",
+            "   - .gte('periodStart', dayStart)",
+            "   - .lte('periodStart', dayEnd)",
+            "3. Aggregate hourly snapshots into daily snapshot:",
+            "   - Sum throughput metrics",
+            "   - Average latency metrics: weighted_avg = sum(hourlyAvg * hourlyCount) / sum(hourlyCount)",
+            "   - Average quality metrics (weighted by volume using same formula)",
+            "   - Recompute failure rates from sums",
+            "   - Sum costs",
+            "4. Create platform-wide daily snapshot",
+            "5. For each unique org in hourly snapshots: create org-specific daily snapshot",
+            "6. Insert into voicePipelineMetricsSnapshots with periodType='daily'"
+          ],
+          "notes": "This aggregates from hourly snapshots (not raw events) - faster and cleaner"
+        },
+
+        "function7_cleanupOldSnapshots": {
+          "type": "internalMutation",
+          "signature": {
+            "args": {},
+            "returns": "v.object({ hourlyDeleted: v.number(), dailyDeleted: v.number() })"
+          },
+          "implementation": [
+            "1. Compute retention cutoffs:",
+            "   - hourlyRetentionCutoff = Date.now() - (7 * 86400000) // 7 days",
+            "   - dailyRetentionCutoff = Date.now() - (90 * 86400000) // 90 days",
+            "2. Delete expired hourly snapshots:",
+            "   - Query by_periodType_and_start with .eq('periodType', 'hourly').lt('periodStart', hourlyRetentionCutoff)",
+            "   - Delete all results",
+            "3. Delete expired daily snapshots:",
+            "   - Query by_periodType_and_start with .eq('periodType', 'daily').lt('periodStart', dailyRetentionCutoff)",
+            "   - Delete all results",
+            "4. Return counts of deleted snapshots"
+          ],
+          "retentionPolicy": [
+            "Hourly snapshots: kept for 7 days (168 hours = ~168 snapshots per org)",
+            "Daily snapshots: kept for 90 days (90 snapshots per org)",
+            "At 10 orgs: ~1,680 hourly + 900 daily = 2,580 total snapshot documents",
+            "At 100 orgs: ~16,800 hourly + 9,000 daily = 25,800 documents (manageable)"
+          ]
+        },
+
+        "function8_cleanupOldEvents": {
+          "type": "internalMutation",
+          "signature": {
+            "args": {},
+            "returns": "v.object({ eventsDeleted: v.number() })"
+          },
+          "implementation": [
+            "1. Compute 48-hour cutoff: retentionCutoff = Date.now() - (48 * 3600000)",
+            "2. Compute expired timeWindows (all hours before cutoff):",
+            "   - Example: if now is 2026-02-15-14, cutoff is 2026-02-13-14",
+            "   - Expired windows: 2026-02-13-13, 2026-02-13-12, ..., (going back indefinitely)",
+            "3. Query voicePipelineEvents by_timeWindow for each expired window",
+            "4. Delete all events in expired windows",
+            "5. Return count of deleted events"
+          ],
+          "criticalPatterns": [
+            "Delete by timeWindow (efficient) - NOT by timestamp (full table scan)",
+            "Batch delete in chunks if needed (avoid timeout on large deletes)",
+            "This cleanup runs weekly, but 48-hour retention means only ~2 days of old events to delete each run"
+          ],
+          "notes": "Added in Phase M2 (not M1) - ensures raw events don't accumulate indefinitely"
+        }
+      },
+
+      "implementationNotes": {
+        "aggregationLogic": {
+          "avgLatency": "Sum all durationMs for stage events, divide by count",
+          "p95Latency": "Sort durations ascending, take value at 95th percentile index",
+          "failureRate": "Count of failure events / count of total events for that stage",
+          "autoResolutionRate": "Events with all entities auto-resolved / total resolution events",
+          "confidenceScore": "Average of metadata.confidenceScore across all events with confidence data"
+        },
+        "performanceOptimizations": [
+          "Real-time metrics: O(1) counter reads (7-8 document lookups)",
+          "Historical metrics: O(n) on number of snapshots (not events), n bounded by time range",
+          "Hourly aggregation: O(n) on events in 1 hour (~500-1000 events at Medium scale)",
+          "Daily aggregation: O(24) on hourly snapshots (aggregates from snapshots, not events)",
+          "Cleanup: O(n) on expired snapshots/events, bounded by retention window"
+        ],
+        "errorHandling": [
+          "Handle division by zero: if artifactsReceived === 0, set rates to 0 (not NaN)",
+          "Handle missing metadata: if aiCost not present, default to 0",
+          "Handle missing events: if no events for a stage, set latency to 0",
+          "Log aggregation errors but don't throw (cron should succeed even if partial data)"
+        ]
+      },
+
+      "testingRequirements": {
+        "unitTests": false,
+        "integrationTests": false,
+        "manualTesting": true,
+        "verificationSteps": [
+          "1. Create test events spanning 2 hours",
+          "2. Manually call aggregateHourlyMetrics for hour 1",
+          "3. Query voicePipelineMetricsSnapshots → verify snapshot created with correct metrics",
+          "4. Call aggregateHourlyMetrics for hour 2",
+          "5. Call aggregateDailyMetrics → verify daily snapshot aggregates both hours",
+          "6. Call getRealTimeMetrics → verify returns counter values",
+          "7. Call getHistoricalMetrics(periodType='hourly') → verify returns hourly snapshots",
+          "8. Call getHistoricalMetrics(periodType='daily') → verify returns daily snapshot",
+          "9. Call cleanupOldSnapshots → verify deletes snapshots older than retention",
+          "10. Call cleanupOldEvents → verify deletes events older than 48h"
+        ]
+      },
+
+      "files": {
+        "create": ["packages/backend/convex/models/voicePipelineMetrics.ts"]
+      }
+    },
+
+    {
+      "id": "US-VNM-005",
+      "title": "Add Metrics Aggregation Crons",
+      "description": "Add 3 cron jobs for hourly aggregation, daily aggregation, and snapshot cleanup",
+      "effort": "0.5 day",
+      "priority": 5,
+      "dependencies": ["US-VNM-004"],
+
+      "detailedAcceptanceCriteria": {
+        "overview": "Modify packages/backend/convex/crons.ts to add 4 new cron jobs that call the metrics aggregation and cleanup functions",
+
+        "cron1_aggregatePipelineHourlyMetrics": {
+          "name": "aggregate-pipeline-hourly-metrics",
+          "schedule": "hourly at :30 (runs at 00:30, 01:30, 02:30, etc.)",
+          "cronExpression": "30 * * * *",
+          "action": "Call internal.models.voicePipelineMetrics.aggregateHourlyMetrics with previous hour timestamp",
+          "implementation": {
+            "args": "hourTimestamp = Date.now() - 3600000 (previous hour)",
+            "notes": "Runs at :30 to ensure full hour of data is available before aggregating"
+          }
+        },
+
+        "cron2_aggregatePipelineDailyMetrics": {
+          "name": "aggregate-pipeline-daily-metrics",
+          "schedule": "daily at 1:30 AM UTC",
+          "cronExpression": "30 1 * * *",
+          "action": "Call internal.models.voicePipelineMetrics.aggregateDailyMetrics with previous day timestamp",
+          "implementation": {
+            "args": "dayTimestamp = start of previous UTC day",
+            "notes": "Runs at 1:30 AM to ensure all hourly snapshots for previous day are complete"
+          }
+        },
+
+        "cron3_cleanupPipelineSnapshots": {
+          "name": "cleanup-pipeline-snapshots",
+          "schedule": "weekly on Sunday at 4:30 AM UTC",
+          "cronExpression": "30 4 * * 0",
+          "action": "Call internal.models.voicePipelineMetrics.cleanupOldSnapshots",
+          "implementation": {
+            "args": "none (retention cutoffs computed in function)",
+            "notes": "Weekly cleanup sufficient - hourly snapshots > 7 days deleted, daily snapshots > 90 days deleted"
+          }
+        },
+
+        "cron4_cleanupPipelineEvents": {
+          "name": "cleanup-pipeline-events",
+          "schedule": "weekly on Sunday at 5:00 AM UTC",
+          "cronExpression": "0 5 * * 0",
+          "action": "Call internal.models.voicePipelineMetrics.cleanupOldEvents",
+          "implementation": {
+            "args": "none (48-hour retention cutoff computed in function)",
+            "notes": "Runs after snapshot cleanup - deletes raw events older than 48 hours"
+          }
+        },
+
+        "existingCronsReference": {
+          "aggregate-daily-usage": "Daily at 1 AM UTC (AI usage rollups)",
+          "check-cost-alerts": "Every 10 minutes (budget threshold checks)",
+          "reset-rate-limit-windows": "Hourly (rate limit counters)",
+          "adjust-insight-thresholds": "Daily at 2 AM (confidence calibration)"
+        },
+
+        "verificationSteps": [
+          "1. Add all 4 cron jobs to crons.ts",
+          "2. Run codegen: npx -w packages/backend convex codegen",
+          "3. Verify cron syntax is correct (no TypeScript errors)",
+          "4. Deploy to Convex: npx convex deploy",
+          "5. Check Convex dashboard → Crons tab → verify all 4 crons listed",
+          "6. Manually trigger each cron from dashboard to test",
+          "7. Verify aggregation runs successfully and creates snapshots",
+          "8. Verify cleanup runs successfully and deletes old data"
+        ]
+      },
+
+      "implementationNotes": {
+        "cronSyntax": {
+          "format": "minute hour dayOfMonth month dayOfWeek",
+          "hourly": "30 * * * * (every hour at 30 minutes past)",
+          "daily": "30 1 * * * (every day at 1:30 AM UTC)",
+          "weekly": "30 4 * * 0 (every Sunday at 4:30 AM UTC)"
+        },
+        "cronPattern": {
+          "defineCron": "export const cronName = { ..., handler: async (ctx) => { await ctx.runMutation(internal.models.voicePipelineMetrics.functionName, { args }) } }",
+          "schedule": "crons.hourly('cron-name', { minuteUTC: 30 }, cronName)",
+          "weeklySchedule": "crons.weekly('cron-name', { dayOfWeek: 'sunday', hourUTC: 4, minuteUTC: 30 }, cronName)"
+        },
+        "timingRationale": [
+          "Hourly at :30 ensures full hour of data collected before aggregation",
+          "Daily at 1:30 AM ensures all 24 hourly snapshots exist before daily aggregation",
+          "Weekly cleanup on Sunday off-peak hours minimizes performance impact",
+          "Event cleanup at 5 AM runs after snapshot cleanup (ensures snapshots captured before event deletion)"
+        ]
+      },
+
+      "testingRequirements": {
+        "unitTests": false,
+        "integrationTests": false,
+        "manualTesting": true,
+        "verificationSteps": [
+          "1. Deploy crons to Convex",
+          "2. Open Convex dashboard → Crons tab",
+          "3. Manually trigger 'aggregate-pipeline-hourly-metrics' → check logs for success",
+          "4. Query voicePipelineMetricsSnapshots → verify new hourly snapshot created",
+          "5. Manually trigger 'aggregate-pipeline-daily-metrics' → check logs",
+          "6. Query voicePipelineMetricsSnapshots → verify new daily snapshot created",
+          "7. Manually trigger 'cleanup-pipeline-snapshots' → check logs for delete count",
+          "8. Manually trigger 'cleanup-pipeline-events' → check logs for delete count",
+          "9. Wait for next automatic cron run → verify executes on schedule"
+        ]
+      },
+
+      "files": {
+        "modify": ["packages/backend/convex/crons.ts"]
+      }
+    }
+  ],
+
+  "successCriteria": {
+    "realTimeMetricsWork": "getRealTimeMetrics returns counter values in < 50ms (O(1) query)",
+    "historicalMetricsWork": "getHistoricalMetrics returns snapshots for time range (no raw event scanning)",
+    "hourlyAggregationWorks": "aggregateHourlyMetrics creates platform + org snapshots from events",
+    "dailyAggregationWorks": "aggregateDailyMetrics creates daily snapshots from hourly snapshots",
+    "cronsScheduled": "All 4 cron jobs added to crons.ts and visible in Convex dashboard",
+    "snapshotCleanupWorks": "cleanupOldSnapshots deletes snapshots older than retention policy",
+    "eventCleanupWorks": "cleanupOldEvents deletes events older than 48 hours",
+    "noEventScanning": "Real-time metrics NEVER scan voicePipelineEvents - only read counters",
+    "performanceTargets": "Real-time query < 50ms, hourly aggregation < 30s, daily aggregation < 10s"
+  },
+
+  "testingStrategy": {
+    "approach": "Manual testing with Convex dashboard and synthetic event generation",
+    "testScenarios": [
+      "Create events spanning multiple hours → run hourly aggregation → verify snapshots",
+      "Run daily aggregation → verify aggregates hourly snapshots correctly",
+      "Query real-time metrics → verify returns counter values (no event scan)",
+      "Query historical metrics for last 7 days → verify returns hourly snapshots",
+      "Query historical metrics for last 30 days → verify returns daily snapshots",
+      "Trigger cleanup crons → verify deletes old snapshots and events",
+      "Load test: 1000 events in 1 hour → verify aggregation completes < 30s"
+    ],
+    "verificationTools": [
+      "Convex dashboard → Crons tab (manual trigger, view logs)",
+      "Convex dashboard → Data tab (query voicePipelineMetricsSnapshots)",
+      "Convex dashboard → Logs (check aggregation execution time)",
+      "Convex dashboard → Functions tab (test queries directly)"
+    ]
+  },
+
+  "ralphGuidance": {
+    "executionOrder": [
+      "1. US-VNM-004: Create voicePipelineMetrics.ts (3 days)",
+      "   a. Implement getRealTimeMetrics first (reads counters)",
+      "   b. Test real-time metrics with existing counter data from M1",
+      "   c. Implement aggregateHourlyMetrics (aggregates events into snapshots)",
+      "   d. Test hourly aggregation with manual call",
+      "   e. Implement getHistoricalMetrics (reads snapshots)",
+      "   f. Test historical metrics query",
+      "   g. Implement aggregateDailyMetrics (aggregates hourly snapshots)",
+      "   h. Test daily aggregation",
+      "   i. Implement cleanupOldSnapshots and cleanupOldEvents",
+      "   j. Test cleanup functions",
+      "2. US-VNM-005: Add cron jobs to crons.ts (0.5 day)",
+      "   a. Add all 4 cron definitions",
+      "   b. Deploy to Convex",
+      "   c. Verify crons appear in dashboard",
+      "   d. Manually trigger each cron to test",
+      "3. Final verification:",
+      "   a. Let crons run on schedule for 24 hours",
+      "   b. Verify hourly snapshots created every hour",
+      "   c. Verify daily snapshot created at 1:30 AM UTC",
+      "   d. Verify cleanup runs on Sunday",
+      "4. Phase M2 complete"
+    ],
+    "commonPitfalls": [
+      "Scanning voicePipelineEvents for real-time metrics (use counters instead)",
+      "Unbounded queries on snapshots (always include time range)",
+      "Not handling divide-by-zero in failure rate calculations",
+      "Hourly cron running at :00 instead of :30 (hour incomplete at :00)",
+      "Daily cron running before all hourly snapshots exist (run at 1:30, not 12:00)",
+      "Cleanup deleting snapshots still needed (check retention cutoff math)",
+      "N+1 queries for org names in getOrgBreakdown (use batch fetch + Map)"
+    ],
+    "successIndicators": [
+      "voicePipelineMetricsSnapshots table contains hourly and daily snapshots",
+      "getRealTimeMetrics returns in < 50ms",
+      "getHistoricalMetrics returns snapshots (not scanning events)",
+      "Crons visible in Convex dashboard and running on schedule",
+      "Hourly snapshots created every hour at :30",
+      "Daily snapshots created daily at 1:30 AM UTC",
+      "Old snapshots deleted weekly (hourly > 7d, daily > 90d)",
+      "Old events deleted weekly (> 48h)",
+      "npm run check-types passes",
+      "npx -w packages/backend convex codegen succeeds"
+    ]
+  },
+
+  "nextPhase": {
+    "phase": "M3",
+    "name": "Retry Operations",
+    "description": "Manual retry capability for failed artifacts with audit logging",
+    "readyWhen": "All Phase M2 success criteria met, metrics snapshots generating correctly, crons running on schedule"
+  }
+}

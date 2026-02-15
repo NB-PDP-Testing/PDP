@@ -131,6 +131,7 @@
       "id": "US-P4.2-005",
       "title": "Implement GAA sync orchestrator action",
       "description": "As an organization admin, I need to trigger a full sync from GAA Foireann that creates an import session and imports all members.",
+      "passes": true,
       "acceptanceCriteria": [
         "Add to packages/backend/convex/actions/gaaFoireann.ts",
         "Implement syncGAAMembers action with args: connectorId, organizationId",

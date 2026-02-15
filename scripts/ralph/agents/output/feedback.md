@@ -1428,3 +1428,91 @@ packages/backend/convex/actions/coachParentSummaries.ts:      "ANTHROPIC_API_KEY
   - **Problem:** Queries should be scoped by organizationId for multi-tenant isolation
   - **Fix:** Add organizationId to query args and use in .withIndex()
 
+
+## Auto Quality Check - 2026-02-15 01:57:23
+### File: /Users/jkobrien/code/PDP/packages/backend/convex/models/importAnalytics.ts
+
+- ⚠️ **Performance: .filter() usage detected**
+  - **Problem:** Should use .withIndex() for better performance
+  - **Fix:** Replace `.query().filter()` with `.query().withIndex()`
+
+
+## Auto Quality Check - 2026-02-15 01:57:23
+### File: /Users/jkobrien/code/PDP/packages/backend/convex/models/importAnalytics.ts
+
+- ❌ **CRITICAL: N+1 query pattern detected**
+  - **Problem:** `Promise.all(items.map(async => query))` makes N database calls
+  - **Fix:** Batch fetch all IDs first, create Map for O(1) lookup
+
+
+## Auto Quality Check - 2026-02-15 01:57:31
+### File: /Users/jkobrien/code/PDP/packages/backend/convex/models/importAnalytics.ts
+
+- ⚠️ **Performance: .filter() usage detected**
+  - **Problem:** Should use .withIndex() for better performance
+  - **Fix:** Replace `.query().filter()` with `.query().withIndex()`
+
+
+## Auto Quality Check - 2026-02-15 01:57:31
+### File: /Users/jkobrien/code/PDP/packages/backend/convex/models/importAnalytics.ts
+
+- ❌ **CRITICAL: N+1 query pattern detected**
+  - **Problem:** `Promise.all(items.map(async => query))` makes N database calls
+  - **Fix:** Batch fetch all IDs first, create Map for O(1) lookup
+
+
+## Auto Quality Check - 2026-02-15 01:58:25
+### File: /Users/jkobrien/code/PDP/packages/backend/convex/models/importSessions.ts
+
+- ⚠️ **Performance: .filter() usage detected**
+  - **Problem:** Should use .withIndex() for better performance
+  - **Fix:** Replace `.query().filter()` with `.query().withIndex()`
+
+
+## Auto Quality Check - 2026-02-15 01:58:59
+### File: /Users/jkobrien/code/PDP/packages/backend/convex/models/playerImport.ts
+
+- ❌ **CRITICAL: Better Auth adapter violation**
+  - **Problem:** Direct DB access to auth tables
+  - **Fix:** Use `ctx.runQuery(components.betterAuth.adapter.findOne, {...})`
+
+
+## Auto Quality Check - 2026-02-15 01:58:59
+### File: /Users/jkobrien/code/PDP/packages/backend/convex/models/playerImport.ts
+
+- ⚠️ **Performance: .filter() usage detected**
+  - **Problem:** Should use .withIndex() for better performance
+  - **Fix:** Replace `.query().filter()` with `.query().withIndex()`
+
+
+## Auto Quality Check - 2026-02-15 02:04:42
+### File: /Users/jkobrien/code/PDP/packages/backend/convex/models/importSessions.ts
+
+- ⚠️ **Performance: .filter() usage detected**
+  - **Problem:** Should use .withIndex() for better performance
+  - **Fix:** Replace `.query().filter()` with `.query().withIndex()`
+
+
+## Auto Quality Check - 2026-02-15 02:04:58
+### File: /Users/jkobrien/code/PDP/packages/backend/convex/models/importSessions.ts
+
+- ⚠️ **Performance: .filter() usage detected**
+  - **Problem:** Should use .withIndex() for better performance
+  - **Fix:** Replace `.query().filter()` with `.query().withIndex()`
+
+
+## Auto Quality Check - 2026-02-15 02:05:10
+### File: /Users/jkobrien/code/PDP/packages/backend/convex/models/importSessions.ts
+
+- ⚠️ **Performance: .filter() usage detected**
+  - **Problem:** Should use .withIndex() for better performance
+  - **Fix:** Replace `.query().filter()` with `.query().withIndex()`
+
+
+## Auto Quality Check - 2026-02-15 02:06:05
+### File: /Users/jkobrien/code/PDP/packages/backend/convex/models/importSessions.ts
+
+- ⚠️ **Performance: .filter() usage detected**
+  - **Problem:** Should use .withIndex() for better performance
+  - **Fix:** Replace `.query().filter()` with `.query().withIndex()`
+

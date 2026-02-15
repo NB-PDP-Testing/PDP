@@ -71,6 +71,69 @@ This directory contains CSV test data files for Phase 3.1 manual UAT testing.
 
 ---
 
+### 3. large-import.csv
+
+**Purpose**: Test performance with moderate dataset (20 players)
+
+**Contents**: 20 unique players with unique guardians
+
+**Usage**:
+```bash
+# Import this file to test performance with larger batches
+# Verify import completes successfully
+# Check that stats are properly recorded
+```
+
+---
+
+### 4. error-testing.csv
+
+**Purpose**: Test error handling and validation (US-P3.1-009 to 012)
+
+**Contents**: 10 players with intentional errors
+
+**Error Types**:
+- Missing Date of Birth (row 3)
+- Invalid date format - month 13 (row 4)
+- Missing First Name (row 5)
+- Missing Last Name (row 6)
+- Invalid gender value (row 8)
+- Future date of birth (row 9)
+- Player too young - born 2024 (row 10)
+
+**Usage**:
+```bash
+# Upload this file during import wizard
+# On Review step, verify error messages are clear
+# Check that valid rows can still be imported
+# Test "Import Valid Only" option
+```
+
+---
+
+### 5. mixed-confidence.csv
+
+**Purpose**: Test admin override functionality with various confidence levels
+
+**Contents**: 10 players with different duplicate patterns
+
+**Confidence Patterns**:
+- Tommy & Billy Smith: HIGH (100%) - email + phone + name + address match
+- Anna Jones & Emma Brown: HIGH (60%) - email + name match only
+- Sarah Wilson & Katie Taylor: LOW (30%) - phone match only
+- Mark Davis & Luke Evans: MEDIUM (40%) - email match with different names
+- Amy Moore & Zoe White: HIGH (100%) - full match
+
+**Usage**:
+```bash
+# Upload to test admin override features
+# Test Force Link on low confidence matches
+# Test Reject Link on high confidence matches
+# Verify override audit trail is created
+```
+
+---
+
 ## Creating Additional Test Data
 
 ### Large Import Test (50+ players)
@@ -108,9 +171,12 @@ To test error handling, create files with:
 These files are located at:
 ```
 docs/testing/import/test-data/
-├── duplicate-guardians.csv
-├── clean-players.csv
-└── README.md (this file)
+├── duplicate-guardians.csv    # Confidence indicator testing
+├── clean-players.csv          # Partial undo testing
+├── large-import.csv           # Performance testing (20 players)
+├── error-testing.csv          # Error handling validation
+├── mixed-confidence.csv       # Admin override testing
+└── README.md                  # This file
 ```
 
 Reference from test guide: `docs/testing/import/phase-3.1-manual-tests.md`

@@ -1,15 +1,34 @@
 "use client";
 
 import { api } from "@pdp/backend/convex/_generated/api";
-import type { Id } from "@pdp/backend/convex/_generated/dataModel";
 import { useQuery } from "convex/react";
-import { ChevronDown, ChevronRight, Undo2 } from "lucide-react";
-import { useParams, useRouter } from "next/navigation";
-import React, { useEffect, useState } from "react";
-import { UndoImportDialog } from "@/components/import/undo-import-dialog";
+import {
+  AlertTriangle,
+  CheckCircle,
+  Clock,
+  FileText,
+  Undo2,
+  XCircle,
+} from "lucide-react";
+import { useParams } from "next/navigation";
+import { useState } from "react";
+import Loader from "@/components/loader";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
-import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import {
+  Card,
+  CardContent,
+  CardDescription,
+  CardHeader,
+  CardTitle,
+} from "@/components/ui/card";
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select";
 import {
   Table,
   TableBody,
@@ -18,505 +37,357 @@ import {
   TableHeader,
   TableRow,
 } from "@/components/ui/table";
-import {
-  Tooltip,
-  TooltipContent,
-  TooltipProvider,
-  TooltipTrigger,
-} from "@/components/ui/tooltip";
-import { authClient } from "@/lib/auth-client";
 
-type ImportSession = {
-  _id: string;
-  _creationTime: number;
-  organizationId: string;
-  status:
-    | "uploading"
-    | "mapping"
-    | "selecting"
-    | "reviewing"
-    | "importing"
-    | "completed"
-    | "failed"
-    | "cancelled"
-    | "undone";
-  sourceInfo: {
-    type: "file" | "paste" | "api";
-    fileName?: string;
-    fileSize?: number;
-    rowCount: number;
-    columnCount: number;
-  };
-  stats: {
-    totalRows: number;
-    selectedRows: number;
-    validRows: number;
-    errorRows: number;
-    duplicateRows: number;
-    playersCreated: number;
-    playersUpdated: number;
-    playersSkipped: number;
-    guardiansCreated: number;
-    guardiansLinked: number;
-    teamsCreated: number;
-    passportsCreated: number;
-    benchmarksApplied: number;
-  };
-  startedAt: number;
-  completedAt?: number;
-  undoneAt?: number;
-  undoneBy?: string;
-  undoReason?: string;
-};
+type StatusFilter = "all" | "success" | "partial" | "failed";
+type DateRangeFilter = "7days" | "30days" | "all";
 
 export default function ImportHistoryPage() {
   const params = useParams();
-  const router = useRouter();
   const orgId = params.orgId as string;
-  const [hasAccess, setHasAccess] = useState<boolean | null>(null);
-  const [expandedSessions, setExpandedSessions] = useState<Set<string>>(
-    new Set()
-  );
-  const [undoSessionId, setUndoSessionId] =
-    useState<Id<"importSessions"> | null>(null);
 
-  // Check if the user has org:admin permission (same pattern as admin/layout.tsx)
-  useEffect(() => {
-    const checkAccess = async () => {
-      try {
-        await authClient.organization.setActive({ organizationId: orgId });
-        const { data: member } =
-          await authClient.organization.getActiveMember();
+  const [statusFilter, setStatusFilter] = useState<StatusFilter>("all");
+  const [dateRangeFilter, setDateRangeFilter] =
+    useState<DateRangeFilter>("30days");
+  const [currentPage, setCurrentPage] = useState(0);
 
-        if (!member) {
-          setHasAccess(false);
-          return;
-        }
+  const pageSize = 20;
 
-        const functionalRoles = (member as any).functionalRoles || [];
-        const hasAdminFunctionalRole = functionalRoles.includes("admin");
-        const hasBetterAuthAdminRole =
-          member.role === "admin" || member.role === "owner";
-
-        setHasAccess(hasAdminFunctionalRole || hasBetterAuthAdminRole);
-      } catch (error) {
-        console.error("Error checking access:", error);
-        setHasAccess(false);
-      }
-    };
-
-    checkAccess();
-  }, [orgId]);
-
-  // Redirect if no access
-  useEffect(() => {
-    if (hasAccess === false) {
-      router.replace("/orgs");
-    }
-  }, [hasAccess, router]);
-
-  // Fetch import sessions
-  const sessions = useQuery(api.models.importSessions.listSessionsByOrg, {
-    organizationId: orgId,
+  // Fetch import history
+  const historyData = useQuery(api.models.importAnalytics.getOrgImportHistory, {
+    organizationId: orgId as any,
+    limit: pageSize,
+    offset: currentPage * pageSize,
   });
 
-  if (hasAccess === null || !sessions) {
+  // Filter imports by status and date range
+  const filteredImports = historyData?.imports.filter((imp) => {
+    // Status filter
+    if (
+      statusFilter === "success" &&
+      (imp.status !== "completed" || imp.errors.length > 0)
+    ) {
+      return false;
+    }
+    if (
+      statusFilter === "partial" &&
+      (imp.status !== "completed" || imp.errors.length === 0)
+    ) {
+      return false;
+    }
+    if (statusFilter === "failed" && imp.status !== "failed") {
+      return false;
+    }
+
+    // Date range filter
+    if (dateRangeFilter !== "all") {
+      const now = Date.now();
+      const cutoff =
+        dateRangeFilter === "7days"
+          ? now - 7 * 24 * 60 * 60 * 1000
+          : now - 30 * 24 * 60 * 60 * 1000;
+      if (imp._creationTime < cutoff) {
+        return false;
+      }
+    }
+
+    return true;
+  });
+
+  const getStatusBadge = (
+    status: string,
+    errors: string[]
+  ): { variant: "default" | "destructive" | "secondary"; label: string } => {
+    if (status === "failed") {
+      return { variant: "destructive", label: "Failed" };
+    }
+    if (status === "completed" && errors.length === 0) {
+      return { variant: "default", label: "Success" };
+    }
+    return { variant: "secondary", label: "Partial" };
+  };
+
+  if (!historyData) {
     return (
-      <div className="flex h-screen items-center justify-center">
-        <div className="text-center">
-          <div className="h-8 w-8 animate-spin rounded-full border-4 border-primary border-t-transparent" />
-          <p className="mt-4 text-muted-foreground text-sm">
-            Loading import history...
-          </p>
-        </div>
+      <div className="flex min-h-screen items-center justify-center">
+        <Loader />
       </div>
     );
   }
 
-  const toggleExpanded = (sessionId: string) => {
-    const newExpanded = new Set(expandedSessions);
-    if (newExpanded.has(sessionId)) {
-      newExpanded.delete(sessionId);
-    } else {
-      newExpanded.add(sessionId);
-    }
-    setExpandedSessions(newExpanded);
-  };
-
-  const getStatusBadge = (
-    status: ImportSession["status"]
-  ): { variant: "default" | "destructive" | "secondary"; label: string } => {
-    switch (status) {
-      case "completed":
-        return { variant: "default", label: "Completed" };
-      case "failed":
-        return { variant: "destructive", label: "Failed" };
-      case "cancelled":
-        return { variant: "secondary", label: "Cancelled" };
-      case "undone":
-        return { variant: "secondary", label: "Undone" };
-      case "importing":
-        return { variant: "default", label: "Importing..." };
-      default:
-        return { variant: "secondary", label: status };
-    }
-  };
-
-  const formatDate = (timestamp: number) =>
-    new Date(timestamp).toLocaleString("en-US", {
-      month: "short",
-      day: "numeric",
-      year: "numeric",
-      hour: "numeric",
-      minute: "2-digit",
-    });
-
-  const isWithin24Hours = (completedAt: number | undefined) => {
-    if (!completedAt) {
-      return false;
-    }
-    const now = Date.now();
-    const TWENTY_FOUR_HOURS_MS = 24 * 60 * 60 * 1000;
-    return now - completedAt < TWENTY_FOUR_HOURS_MS;
-  };
+  const totalPages = Math.ceil((historyData.totalCount || 0) / pageSize);
 
   return (
-    <div className="container mx-auto px-4 py-8">
-      <div className="mb-6">
-        <h1 className="font-bold text-3xl">Import History</h1>
-        <p className="text-muted-foreground">
-          View all past player imports and their status
-        </p>
-      </div>
+    <div className="min-h-screen bg-background p-4 sm:p-6 lg:p-8">
+      <div className="mx-auto max-w-7xl space-y-6">
+        {/* Header */}
+        <div>
+          <h1 className="font-bold text-3xl tracking-tight">Import History</h1>
+          <p className="text-muted-foreground">
+            View and manage all player imports for your organization
+          </p>
+        </div>
 
-      {/* Desktop Table View */}
-      <div className="hidden md:block">
-        <Table>
-          <TableHeader>
-            <TableRow>
-              <TableHead className="w-12" />
-              <TableHead>Date</TableHead>
-              <TableHead>Source</TableHead>
-              <TableHead>Status</TableHead>
-              <TableHead className="text-right">Rows Imported</TableHead>
-              <TableHead className="text-right">Players Created</TableHead>
-              <TableHead className="text-right">Guardians Created</TableHead>
-              <TableHead className="text-right">Actions</TableHead>
-            </TableRow>
-          </TableHeader>
-          <TableBody>
-            {sessions.length === 0 ? (
-              <TableRow>
-                <TableCell className="py-8 text-center" colSpan={8}>
-                  <p className="text-muted-foreground">
-                    No import history found
-                  </p>
-                </TableCell>
-              </TableRow>
-            ) : (
-              sessions.map((session) => {
-                const statusBadge = getStatusBadge(session.status);
-                const isExpanded = expandedSessions.has(session._id);
-                const canUndo =
-                  session.status === "completed" &&
-                  isWithin24Hours(session.completedAt);
+        {/* Filters */}
+        <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
+          <div className="flex flex-col gap-2 sm:flex-row sm:items-center sm:gap-4">
+            <Select
+              onValueChange={(value) => setStatusFilter(value as StatusFilter)}
+              value={statusFilter}
+            >
+              <SelectTrigger className="w-full sm:w-[180px]">
+                <SelectValue placeholder="Filter by status" />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="all">All Statuses</SelectItem>
+                <SelectItem value="success">Success</SelectItem>
+                <SelectItem value="partial">Partial</SelectItem>
+                <SelectItem value="failed">Failed</SelectItem>
+              </SelectContent>
+            </Select>
 
-                return (
-                  <React.Fragment key={session._id}>
-                    <TableRow>
-                      <TableCell>
-                        <Button
-                          onClick={() => toggleExpanded(session._id)}
-                          size="sm"
-                          variant="ghost"
-                        >
-                          {isExpanded ? (
-                            <ChevronDown className="h-4 w-4" />
-                          ) : (
-                            <ChevronRight className="h-4 w-4" />
-                          )}
-                        </Button>
-                      </TableCell>
-                      <TableCell>{formatDate(session.startedAt)}</TableCell>
-                      <TableCell>
-                        {session.sourceInfo.fileName || "Manual paste"}
-                      </TableCell>
-                      <TableCell>
-                        <Badge variant={statusBadge.variant}>
-                          {statusBadge.label}
-                        </Badge>
-                      </TableCell>
-                      <TableCell className="text-right">
-                        {session.stats.totalRows}
-                      </TableCell>
-                      <TableCell className="text-right">
-                        {session.stats.playersCreated}
-                      </TableCell>
-                      <TableCell className="text-right">
-                        {session.stats.guardiansCreated}
-                      </TableCell>
-                      <TableCell className="text-right">
-                        {canUndo && (
-                          <TooltipProvider>
-                            <Tooltip>
-                              <TooltipTrigger asChild>
-                                <Button
-                                  onClick={() =>
-                                    setUndoSessionId(
-                                      session._id as Id<"importSessions">
-                                    )
-                                  }
-                                  size="sm"
-                                  variant="outline"
-                                >
-                                  <Undo2 className="mr-2 h-4 w-4" />
+            <Select
+              onValueChange={(value) =>
+                setDateRangeFilter(value as DateRangeFilter)
+              }
+              value={dateRangeFilter}
+            >
+              <SelectTrigger className="w-full sm:w-[180px]">
+                <SelectValue placeholder="Filter by date" />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="7days">Last 7 Days</SelectItem>
+                <SelectItem value="30days">Last 30 Days</SelectItem>
+                <SelectItem value="all">All Time</SelectItem>
+              </SelectContent>
+            </Select>
+          </div>
+
+          {/* Summary Stats */}
+          <div className="flex gap-4 text-sm">
+            <div className="flex items-center gap-2">
+              <CheckCircle className="h-4 w-4 text-green-500" />
+              <span>{historyData.successCount} Success</span>
+            </div>
+            <div className="flex items-center gap-2">
+              <XCircle className="h-4 w-4 text-destructive" />
+              <span>{historyData.failureCount} Failed</span>
+            </div>
+          </div>
+        </div>
+
+        {/* Desktop Table */}
+        <Card className="hidden sm:block">
+          <CardHeader>
+            <CardTitle>Import History</CardTitle>
+            <CardDescription>
+              {filteredImports && filteredImports.length > 0
+                ? `Showing ${filteredImports.length} of ${historyData.totalCount} imports`
+                : "No imports found"}
+            </CardDescription>
+          </CardHeader>
+          <CardContent>
+            {filteredImports && filteredImports.length > 0 ? (
+              <>
+                <div className="overflow-x-auto">
+                  <Table>
+                    <TableHeader>
+                      <TableRow>
+                        <TableHead>Date/Time</TableHead>
+                        <TableHead>Imported By</TableHead>
+                        <TableHead className="text-right">Players</TableHead>
+                        <TableHead>Status</TableHead>
+                        <TableHead>Template</TableHead>
+                        <TableHead className="text-right">Actions</TableHead>
+                      </TableRow>
+                    </TableHeader>
+                    <TableBody>
+                      {filteredImports.map((imp) => {
+                        const statusBadge = getStatusBadge(
+                          imp.status,
+                          imp.errors
+                        );
+                        return (
+                          <TableRow key={imp._id}>
+                            <TableCell className="font-medium">
+                              <div className="flex items-center gap-2">
+                                <Clock className="h-4 w-4 text-muted-foreground" />
+                                <span>
+                                  {new Date(imp._creationTime).toLocaleString()}
+                                </span>
+                              </div>
+                            </TableCell>
+                            <TableCell>
+                              {imp.importedBy?.name ||
+                                imp.importedBy?.email ||
+                                "Unknown"}
+                            </TableCell>
+                            <TableCell className="text-right">
+                              {imp.playersImported}
+                            </TableCell>
+                            <TableCell>
+                              <Badge variant={statusBadge.variant}>
+                                {statusBadge.label}
+                              </Badge>
+                            </TableCell>
+                            <TableCell className="text-muted-foreground">
+                              {imp.templateUsed || "—"}
+                            </TableCell>
+                            <TableCell className="text-right">
+                              <div className="flex justify-end gap-2">
+                                <Button disabled size="sm" variant="outline">
+                                  <FileText className="mr-1 h-3 w-3" />
+                                  Details
+                                </Button>
+                                <Button disabled size="sm" variant="outline">
+                                  <Undo2 className="mr-1 h-3 w-3" />
                                   Undo
                                 </Button>
-                              </TooltipTrigger>
-                              <TooltipContent>
-                                <p>Undo this import within 24 hours</p>
-                              </TooltipContent>
-                            </Tooltip>
-                          </TooltipProvider>
-                        )}
-                      </TableCell>
-                    </TableRow>
-                    {isExpanded && (
-                      <TableRow>
-                        <TableCell className="bg-muted/50" colSpan={8}>
-                          <div className="grid grid-cols-2 gap-4 p-4 md:grid-cols-4">
-                            <div>
-                              <p className="font-medium text-sm">
-                                Players Updated
-                              </p>
-                              <p className="font-bold text-2xl">
-                                {session.stats.playersUpdated}
-                              </p>
-                            </div>
-                            <div>
-                              <p className="font-medium text-sm">
-                                Guardians Linked
-                              </p>
-                              <p className="font-bold text-2xl">
-                                {session.stats.guardiansLinked}
-                              </p>
-                            </div>
-                            <div>
-                              <p className="font-medium text-sm">
-                                Passports Created
-                              </p>
-                              <p className="font-bold text-2xl">
-                                {session.stats.passportsCreated}
-                              </p>
-                            </div>
-                            <div>
-                              <p className="font-medium text-sm">
-                                Benchmarks Applied
-                              </p>
-                              <p className="font-bold text-2xl">
-                                {session.stats.benchmarksApplied}
-                              </p>
-                            </div>
-                            <div>
-                              <p className="font-medium text-sm">Error Rows</p>
-                              <p className="font-bold text-2xl text-destructive">
-                                {session.stats.errorRows}
-                              </p>
-                            </div>
-                            <div>
-                              <p className="font-medium text-sm">
-                                Duplicate Rows
-                              </p>
-                              <p className="font-bold text-2xl text-amber-600">
-                                {session.stats.duplicateRows}
-                              </p>
-                            </div>
-                            {session.undoneAt && (
-                              <>
-                                <div className="col-span-2">
-                                  <p className="font-medium text-sm">
-                                    Undone At
-                                  </p>
-                                  <p className="text-sm">
-                                    {formatDate(session.undoneAt)}
-                                  </p>
-                                </div>
-                                <div className="col-span-2">
-                                  <p className="font-medium text-sm">
-                                    Undo Reason
-                                  </p>
-                                  <p className="text-sm">
-                                    {session.undoReason || "No reason provided"}
-                                  </p>
-                                </div>
-                              </>
-                            )}
-                          </div>
-                        </TableCell>
-                      </TableRow>
-                    )}
-                  </React.Fragment>
-                );
-              })
-            )}
-          </TableBody>
-        </Table>
-      </div>
+                              </div>
+                            </TableCell>
+                          </TableRow>
+                        );
+                      })}
+                    </TableBody>
+                  </Table>
+                </div>
 
-      {/* Mobile Card View */}
-      <div className="space-y-4 md:hidden">
-        {sessions.length === 0 ? (
-          <Card>
-            <CardContent className="py-8 text-center">
-              <p className="text-muted-foreground">No import history found</p>
-            </CardContent>
-          </Card>
-        ) : (
-          sessions.map((session) => {
-            const statusBadge = getStatusBadge(session.status);
-            const isExpanded = expandedSessions.has(session._id);
-            const canUndo =
-              session.status === "completed" &&
-              isWithin24Hours(session.completedAt);
-
-            return (
-              <Card key={session._id}>
-                <CardHeader>
-                  <div className="flex items-start justify-between">
-                    <div className="flex-1">
-                      <CardTitle className="text-lg">
-                        {session.sourceInfo.fileName || "Manual paste"}
-                      </CardTitle>
-                      <p className="text-muted-foreground text-sm">
-                        {formatDate(session.startedAt)}
-                      </p>
-                    </div>
-                    <Badge variant={statusBadge.variant}>
-                      {statusBadge.label}
-                    </Badge>
-                  </div>
-                </CardHeader>
-                <CardContent>
-                  <div className="space-y-4">
-                    <div className="grid grid-cols-3 gap-4 text-center">
-                      <div>
-                        <p className="text-muted-foreground text-xs">
-                          Rows Imported
-                        </p>
-                        <p className="font-bold text-xl">
-                          {session.stats.totalRows}
-                        </p>
-                      </div>
-                      <div>
-                        <p className="text-muted-foreground text-xs">Players</p>
-                        <p className="font-bold text-xl">
-                          {session.stats.playersCreated}
-                        </p>
-                      </div>
-                      <div>
-                        <p className="text-muted-foreground text-xs">
-                          Guardians
-                        </p>
-                        <p className="font-bold text-xl">
-                          {session.stats.guardiansCreated}
-                        </p>
-                      </div>
-                    </div>
-
-                    {isExpanded && (
-                      <div className="space-y-2 border-t pt-4">
-                        <div className="grid grid-cols-2 gap-2 text-sm">
-                          <div>
-                            <p className="text-muted-foreground">Updated</p>
-                            <p className="font-medium">
-                              {session.stats.playersUpdated}
-                            </p>
-                          </div>
-                          <div>
-                            <p className="text-muted-foreground">Linked</p>
-                            <p className="font-medium">
-                              {session.stats.guardiansLinked}
-                            </p>
-                          </div>
-                          <div>
-                            <p className="text-muted-foreground">Passports</p>
-                            <p className="font-medium">
-                              {session.stats.passportsCreated}
-                            </p>
-                          </div>
-                          <div>
-                            <p className="text-muted-foreground">Benchmarks</p>
-                            <p className="font-medium">
-                              {session.stats.benchmarksApplied}
-                            </p>
-                          </div>
-                        </div>
-                        {session.undoneAt && (
-                          <div className="mt-2 border-t pt-2">
-                            <p className="font-medium text-sm">Undo Details</p>
-                            <p className="text-muted-foreground text-xs">
-                              {formatDate(session.undoneAt)}
-                            </p>
-                            <p className="text-sm">
-                              {session.undoReason || "No reason provided"}
-                            </p>
-                          </div>
-                        )}
-                      </div>
-                    )}
-
+                {/* Pagination */}
+                {totalPages > 1 && (
+                  <div className="mt-4 flex items-center justify-between">
+                    <p className="text-muted-foreground text-sm">
+                      Page {currentPage + 1} of {totalPages}
+                    </p>
                     <div className="flex gap-2">
                       <Button
-                        className="flex-1"
-                        onClick={() => toggleExpanded(session._id)}
+                        disabled={currentPage === 0}
+                        onClick={() => setCurrentPage((p) => p - 1)}
                         size="sm"
                         variant="outline"
                       >
-                        {isExpanded ? (
-                          <>
-                            <ChevronDown className="mr-2 h-4 w-4" />
-                            Hide Details
-                          </>
-                        ) : (
-                          <>
-                            <ChevronRight className="mr-2 h-4 w-4" />
-                            View Details
-                          </>
-                        )}
+                        Previous
                       </Button>
-                      {canUndo && (
-                        <Button
-                          className="flex-1"
-                          onClick={() =>
-                            setUndoSessionId(
-                              session._id as Id<"importSessions">
-                            )
-                          }
-                          size="sm"
-                          variant="outline"
-                        >
-                          <Undo2 className="mr-2 h-4 w-4" />
-                          Undo
-                        </Button>
-                      )}
+                      <Button
+                        disabled={currentPage >= totalPages - 1}
+                        onClick={() => setCurrentPage((p) => p + 1)}
+                        size="sm"
+                        variant="outline"
+                      >
+                        Next
+                      </Button>
                     </div>
                   </div>
-                </CardContent>
-              </Card>
-            );
-          })
-        )}
-      </div>
+                )}
+              </>
+            ) : (
+              <div className="flex flex-col items-center justify-center gap-2 py-8 text-center">
+                <FileText className="h-12 w-12 text-muted-foreground" />
+                <p className="font-medium text-muted-foreground">
+                  No imports found
+                </p>
+                <p className="text-muted-foreground text-sm">
+                  Try adjusting your filters or create a new import
+                </p>
+              </div>
+            )}
+          </CardContent>
+        </Card>
 
-      {/* Undo Import Dialog */}
-      <UndoImportDialog
-        onClose={() => setUndoSessionId(null)}
-        onSuccess={() => {
-          // Refresh sessions list (useQuery will automatically refetch)
-          setUndoSessionId(null);
-        }}
-        sessionId={undoSessionId}
-      />
+        {/* Mobile Card View */}
+        <div className="space-y-4 sm:hidden">
+          {filteredImports && filteredImports.length > 0 ? (
+            filteredImports.map((imp) => {
+              const statusBadge = getStatusBadge(imp.status, imp.errors);
+              return (
+                <Card key={imp._id}>
+                  <CardHeader>
+                    <div className="flex items-start justify-between">
+                      <div className="space-y-1">
+                        <CardTitle className="text-base">
+                          {imp.playersImported} Players
+                        </CardTitle>
+                        <CardDescription>
+                          <div className="flex items-center gap-2">
+                            <Clock className="h-3 w-3" />
+                            {new Date(imp._creationTime).toLocaleString()}
+                          </div>
+                        </CardDescription>
+                      </div>
+                      <Badge variant={statusBadge.variant}>
+                        {statusBadge.label}
+                      </Badge>
+                    </div>
+                  </CardHeader>
+                  <CardContent className="space-y-3">
+                    <div className="flex flex-col gap-2 text-sm">
+                      <div className="flex justify-between">
+                        <span className="text-muted-foreground">
+                          Imported by:
+                        </span>
+                        <span className="font-medium">
+                          {imp.importedBy?.name ||
+                            imp.importedBy?.email ||
+                            "Unknown"}
+                        </span>
+                      </div>
+                      {imp.templateUsed && (
+                        <div className="flex justify-between">
+                          <span className="text-muted-foreground">
+                            Template:
+                          </span>
+                          <span className="font-medium">
+                            {imp.templateUsed}
+                          </span>
+                        </div>
+                      )}
+                      {imp.errors.length > 0 && (
+                        <div className="flex items-start gap-2 rounded-md bg-destructive/10 p-2">
+                          <AlertTriangle className="mt-0.5 h-4 w-4 shrink-0 text-destructive" />
+                          <span className="text-destructive text-xs">
+                            {imp.errors.length} error
+                            {imp.errors.length !== 1 ? "s" : ""} occurred
+                          </span>
+                        </div>
+                      )}
+                    </div>
+                    <div className="flex gap-2">
+                      <Button
+                        className="flex-1"
+                        disabled
+                        size="sm"
+                        variant="outline"
+                      >
+                        <FileText className="mr-1 h-3 w-3" />
+                        Details
+                      </Button>
+                      <Button
+                        className="flex-1"
+                        disabled
+                        size="sm"
+                        variant="outline"
+                      >
+                        <Undo2 className="mr-1 h-3 w-3" />
+                        Undo
+                      </Button>
+                    </div>
+                  </CardContent>
+                </Card>
+              );
+            })
+          ) : (
+            <Card>
+              <CardContent className="flex flex-col items-center justify-center gap-2 py-8 text-center">
+                <FileText className="h-12 w-12 text-muted-foreground" />
+                <p className="font-medium text-muted-foreground">
+                  No imports found
+                </p>
+                <p className="text-muted-foreground text-sm">
+                  Try adjusting your filters or create a new import
+                </p>
+              </CardContent>
+            </Card>
+          )}
+        </div>
+      </div>
     </div>
   );
 }

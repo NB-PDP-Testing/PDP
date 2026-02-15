@@ -29,6 +29,7 @@ import {
   useCallback,
   useEffect,
   useMemo,
+  useRef,
   useState,
 } from "react";
 import type { BenchmarkSettings } from "@/components/import/import-wizard";
@@ -1119,9 +1120,12 @@ export default function ReviewStep({
     duplicateDetectionArgs
   );
 
+  // Track if we've already set duplicates to avoid infinite loop
+  const hasSetDuplicatesRef = useRef(false);
+
   // Update duplicates when detection results arrive
   useEffect(() => {
-    if (!duplicateDetectionResult) {
+    if (!duplicateDetectionResult || hasSetDuplicatesRef.current) {
       return;
     }
 
@@ -1141,6 +1145,7 @@ export default function ReviewStep({
     );
 
     onDuplicatesChange(detectedDuplicates);
+    hasSetDuplicatesRef.current = true;
   }, [duplicateDetectionResult, onDuplicatesChange]);
 
   // Build player payloads for simulation

@@ -200,3 +200,52 @@ Started: Sun 15 Feb 2026 22:26:17 GMT
 - Created unused sampleValuesKey variable (removed after biome check)
 
 ---
+## 2026-02-16 00:00 - US-P4.3-005 - Create batch AI mapping orchestrator
+**Iteration**: 1
+**Commit**: e1ece0f0c12e1d3e34b1da1f6e9cd2b6c2dae8ca
+**Session**: 28d554da-c69f-4334-9606-0515ca527995
+**Status**: Complete
+
+### What was implemented
+- Added `suggestAllMappings` action to process multiple columns in parallel
+- Batches processing (max 10 concurrent API calls)
+- 500ms delay between batches to prevent rate limit hits
+- Tracks cache hits, calculates cache hit rate percentage
+- Sorts results by confidence (HIGH → MEDIUM → LOW)
+- Returns { mappings: Record<columnName, result>, cacheHitRate: number }
+
+### Files changed
+- packages/backend/convex/actions/aiMapping.ts (+104 lines)
+
+### Quality checks
+- ✅ Codegen: passed
+- ✅ Biome linting: passed (fixed ++ operators to += 1)
+
+**Learnings**: Biome doesn't allow ++ operators (use += 1 instead)
+
+---
+
+## 2026-02-16 00:15 - US-P4.3-006 - Add AI suggestions to mapping step UI
+**Iteration**: 1
+**Commit**: 8539db02e452cb1d11eba08285abfd896e75ee81
+**Session**: 28d554da-c69f-4334-9606-0515ca527995
+**Status**: Complete
+
+### What was implemented
+- Added "Get AI Suggestions" button to mapping-step.tsx
+- Calls suggestAllMappings action with column names and sample values
+- processAIMappings helper function to reduce complexity
+- Updates mappings state and auto-locks high-confidence (80%+) suggestions
+- Toast notifications for success (with cache hit rate) and errors
+- Sparkles icon, loading state during AI processing
+
+### Files changed
+- apps/web/src/components/import/steps/mapping-step.tsx (+70 lines)
+
+### Quality checks
+- ✅ Codegen: passed
+- ✅ Biome linting: passed (used --fix for import organization)
+
+**Learnings**: Extract helper functions to keep complexity below 15 threshold
+
+---

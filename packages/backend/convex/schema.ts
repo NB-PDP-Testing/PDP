@@ -4809,6 +4809,10 @@ export default defineSchema({
     confidence: v.number(), // 0-100
 
     createdAt: v.number(),
+
+    // Phase 4.3: AI mapping tracking
+    aiSuggested: v.optional(v.boolean()), // true if mapping was AI-suggested
+    aiConfidence: v.optional(v.number()), // Original AI confidence (0-100)
   })
     .index("by_normalizedColumnName", ["normalizedColumnName"])
     .index("by_organizationId", ["organizationId"])

@@ -7,7 +7,11 @@ import {
   AlertCircle,
   ArrowDown,
   ArrowUp,
+  Building2,
   CheckCircle,
+  ChevronDown,
+  ChevronUp,
+  Download,
   FileText,
   TrendingUp,
   Users,
@@ -25,6 +29,7 @@ import {
 } from "recharts";
 import Loader from "@/components/loader";
 import { Badge } from "@/components/ui/badge";
+import { Button } from "@/components/ui/button";
 import {
   Card,
   CardContent,
@@ -52,12 +57,63 @@ type TimeRange = "7days" | "30days" | "90days" | "all";
 
 export default function ImportAnalyticsDashboard() {
   const [timeRange, setTimeRange] = useState<TimeRange>("30days");
+  const [showAllErrors, setShowAllErrors] = useState(false);
 
   // Fetch analytics data
   const analytics = useQuery(
     api.models.importAnalytics.getPlatformImportAnalytics,
     { timeRange }
   );
+
+  // Fetch detailed common errors
+  const commonErrorsData = useQuery(
+    api.models.importAnalytics.getCommonErrors,
+    {}
+  );
+
+  // Export errors to CSV
+  const exportErrorsToCSV = () => {
+    if (!commonErrorsData?.errors || commonErrorsData.errors.length === 0) {
+      return;
+    }
+
+    const headers = [
+      "Error Message",
+      "Occurrences",
+      "Affected Organizations",
+      "Percentage",
+    ];
+    const csvRows = [headers.join(",")];
+
+    for (const error of commonErrorsData.errors) {
+      const row = [
+        `"${error.errorMessage.replace(/"/g, '""')}"`,
+        error.occurrences.toString(),
+        error.affectedOrgs.toString(),
+        `${error.percentage.toFixed(2)}%`,
+      ];
+      csvRows.push(row.join(","));
+    }
+
+    const csvContent = csvRows.join("\n");
+    const blob = new Blob([csvContent], { type: "text/csv;charset=utf-8;" });
+    const url = URL.createObjectURL(blob);
+    const link = document.createElement("a");
+    link.href = url;
+    link.download = `import-errors-${new Date().toISOString().split("T")[0]}.csv`;
+    link.click();
+    URL.revokeObjectURL(url);
+  };
+
+  // Determine displayed errors (top 10 or all)
+  const displayedErrors = useMemo(() => {
+    if (!commonErrorsData?.errors) {
+      return [];
+    }
+    return showAllErrors
+      ? commonErrorsData.errors
+      : commonErrorsData.errors.slice(0, 10);
+  }, [commonErrorsData, showAllErrors]);
 
   // Generate trend data for chart
   const chartData = useMemo(() => {
@@ -89,7 +145,7 @@ export default function ImportAnalyticsDashboard() {
     return mockData;
   }, [analytics, timeRange]);
 
-  if (!analytics) {
+  if (!(analytics && commonErrorsData)) {
     return (
       <div className="flex min-h-screen items-center justify-center">
         <Loader />
@@ -288,13 +344,31 @@ export default function ImportAnalyticsDashboard() {
         {/* Common Errors Table */}
         <Card>
           <CardHeader>
-            <CardTitle>Common Errors</CardTitle>
-            <CardDescription>
-              Most frequently encountered errors across all imports (top 10)
-            </CardDescription>
+            <div className="flex flex-col gap-4 sm:flex-row sm:items-start sm:justify-between">
+              <div>
+                <CardTitle>Common Errors</CardTitle>
+                <CardDescription>
+                  Most frequently encountered errors across all imports{" "}
+                  {showAllErrors
+                    ? `(showing all ${commonErrorsData.errors.length})`
+                    : "(top 10)"}
+                </CardDescription>
+              </div>
+              <div className="flex gap-2">
+                <Button
+                  disabled={commonErrorsData.errors.length === 0}
+                  onClick={exportErrorsToCSV}
+                  size="sm"
+                  variant="outline"
+                >
+                  <Download className="mr-2 h-4 w-4" />
+                  Export CSV
+                </Button>
+              </div>
+            </div>
           </CardHeader>
           <CardContent>
-            {analytics.commonErrors.length === 0 ? (
+            {commonErrorsData.errors.length === 0 ? (
               <div className="flex flex-col items-center justify-center gap-2 py-8 text-center">
                 <CheckCircle className="h-12 w-12 text-green-500" />
                 <p className="font-medium text-muted-foreground">
@@ -305,50 +379,84 @@ export default function ImportAnalyticsDashboard() {
                 </p>
               </div>
             ) : (
-              <div className="overflow-x-auto">
-                <Table>
-                  <TableHeader>
-                    <TableRow>
-                      <TableHead className="w-full">Error Message</TableHead>
-                      <TableHead className="text-right">Occurrences</TableHead>
-                      <TableHead className="text-right">Percentage</TableHead>
-                    </TableRow>
-                  </TableHeader>
-                  <TableBody>
-                    {analytics.commonErrors.map((error) => (
-                      <TableRow key={error.errorMessage}>
-                        <TableCell className="font-mono text-xs">
-                          <div className="flex items-start gap-2">
-                            <AlertCircle className="mt-0.5 h-4 w-4 shrink-0 text-destructive" />
-                            <span
-                              className="line-clamp-2"
-                              title={error.errorMessage}
-                            >
-                              {error.errorMessage}
-                            </span>
+              <>
+                <div className="overflow-x-auto">
+                  <Table>
+                    <TableHeader>
+                      <TableRow>
+                        <TableHead className="w-full">Error Message</TableHead>
+                        <TableHead className="text-right">
+                          Occurrences
+                        </TableHead>
+                        <TableHead className="text-right">
+                          <div className="flex items-center justify-end gap-1">
+                            <Building2 className="h-3 w-3" />
+                            <span>Orgs</span>
                           </div>
-                        </TableCell>
-                        <TableCell className="text-right font-medium">
-                          {error.count}
-                        </TableCell>
-                        <TableCell className="text-right">
-                          <Badge
-                            variant={
-                              error.percentage > 10
-                                ? "destructive"
-                                : error.percentage > 5
-                                  ? "secondary"
-                                  : "outline"
-                            }
-                          >
-                            {error.percentage.toFixed(1)}%
-                          </Badge>
-                        </TableCell>
+                        </TableHead>
+                        <TableHead className="text-right">Percentage</TableHead>
                       </TableRow>
-                    ))}
-                  </TableBody>
-                </Table>
-              </div>
+                    </TableHeader>
+                    <TableBody>
+                      {displayedErrors.map((error) => (
+                        <TableRow key={error.errorMessage}>
+                          <TableCell className="font-mono text-xs">
+                            <div className="flex items-start gap-2">
+                              <AlertCircle className="mt-0.5 h-4 w-4 shrink-0 text-destructive" />
+                              <span
+                                className="line-clamp-2"
+                                title={error.errorMessage}
+                              >
+                                {error.errorMessage}
+                              </span>
+                            </div>
+                          </TableCell>
+                          <TableCell className="text-right font-medium">
+                            {error.occurrences}
+                          </TableCell>
+                          <TableCell className="text-right text-muted-foreground">
+                            {error.affectedOrgs}
+                          </TableCell>
+                          <TableCell className="text-right">
+                            <Badge
+                              variant={
+                                error.percentage > 10
+                                  ? "destructive"
+                                  : error.percentage > 5
+                                    ? "secondary"
+                                    : "outline"
+                              }
+                            >
+                              {error.percentage.toFixed(1)}%
+                            </Badge>
+                          </TableCell>
+                        </TableRow>
+                      ))}
+                    </TableBody>
+                  </Table>
+                </div>
+                {commonErrorsData.errors.length > 10 && (
+                  <div className="mt-4 flex justify-center">
+                    <Button
+                      onClick={() => setShowAllErrors(!showAllErrors)}
+                      size="sm"
+                      variant="outline"
+                    >
+                      {showAllErrors ? (
+                        <>
+                          <ChevronUp className="mr-2 h-4 w-4" />
+                          Show Less
+                        </>
+                      ) : (
+                        <>
+                          <ChevronDown className="mr-2 h-4 w-4" />
+                          Show More ({commonErrorsData.errors.length - 10} more)
+                        </>
+                      )}
+                    </Button>
+                  </div>
+                )}
+              </>
             )}
           </CardContent>
         </Card>

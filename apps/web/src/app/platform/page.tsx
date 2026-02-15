@@ -1,6 +1,7 @@
 "use client";
 
 import {
+  BarChart3,
   Bot,
   Database,
   Flag,
@@ -165,6 +166,18 @@ export default function PlatformDashboard() {
                     <Layers className="h-6 w-6 text-rose-600" />
                   </div>
                   <CardTitle className="text-base">v2 Claims Viewer</CardTitle>
+                </CardContent>
+              </Card>
+            </Link>
+
+            {/* Import Analytics */}
+            <Link href="/platform/analytics/import">
+              <Card className="h-full cursor-pointer transition-all hover:shadow-md hover:ring-2 hover:ring-[#1E3A5F]/20">
+                <CardContent className="flex items-center gap-3 p-4">
+                  <div className="rounded-lg bg-teal-100 p-3">
+                    <BarChart3 className="h-6 w-6 text-teal-600" />
+                  </div>
+                  <CardTitle className="text-base">Import Analytics</CardTitle>
                 </CardContent>
               </Card>
             </Link>

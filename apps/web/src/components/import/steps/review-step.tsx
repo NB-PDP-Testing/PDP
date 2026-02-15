@@ -15,6 +15,7 @@ import {
   CheckCircle2,
   ChevronDown,
   ClipboardList,
+  Info,
   PlayCircle,
   Search,
   Shield,
@@ -58,7 +59,76 @@ import {
   CollapsibleTrigger,
 } from "@/components/ui/collapsible";
 import { Input } from "@/components/ui/input";
+import {
+  Popover,
+  PopoverContent,
+  PopoverTrigger,
+} from "@/components/ui/popover";
 import { useMembershipContext } from "@/providers/membership-provider";
+
+// ============================================================
+// Resolution Options Info Component
+// ============================================================
+
+function ResolutionOptionsInfo() {
+  return (
+    <Popover>
+      <PopoverTrigger asChild>
+        <Button className="h-6 w-6 p-0" size="sm" variant="ghost">
+          <Info className="h-4 w-4 text-muted-foreground" />
+          <span className="sr-only">Show resolution options help</span>
+        </Button>
+      </PopoverTrigger>
+      <PopoverContent align="start" className="w-96">
+        <div className="space-y-3">
+          <h4 className="font-semibold text-sm">Resolution Options</h4>
+
+          <div className="space-y-2 text-sm">
+            <div>
+              <p className="font-medium">Skip</p>
+              <p className="text-muted-foreground text-xs">
+                Create a new guardian record. Use when this is NOT a duplicate.
+              </p>
+            </div>
+
+            <div>
+              <p className="font-medium">Merge</p>
+              <p className="text-muted-foreground text-xs">
+                Link player to existing guardian. Use for confirmed matches.
+              </p>
+            </div>
+
+            <div>
+              <p className="font-medium">Replace</p>
+              <p className="text-muted-foreground text-xs">
+                Link to existing guardian AND update their information with new
+                CSV data.
+              </p>
+            </div>
+          </div>
+
+          <div className="border-t pt-2">
+            <p className="font-medium text-sm">Admin Override</p>
+            <div className="mt-1 space-y-2 text-xs">
+              <div>
+                <p className="font-medium">Force Link (Low confidence)</p>
+                <p className="text-muted-foreground">
+                  Override low match score to force linking.
+                </p>
+              </div>
+              <div>
+                <p className="font-medium">Reject Link (High confidence)</p>
+                <p className="text-muted-foreground">
+                  Override high match score to prevent linking.
+                </p>
+              </div>
+            </div>
+          </div>
+        </div>
+      </PopoverContent>
+    </Popover>
+  );
+}
 
 // ============================================================
 // Simulation Error Boundary
@@ -813,18 +883,23 @@ function ReviewForm({
       {hasDuplicates && (
         <Card>
           <CardHeader className="pb-3">
-            <CardTitle className="flex items-center gap-2 text-lg">
-              <AlertTriangle className="h-5 w-5 text-amber-600" />
-              Duplicate Players
-              <Badge variant="secondary">{duplicates.length}</Badge>
-            </CardTitle>
-            <CardDescription>
-              These players may already exist in the system. Choose how to
-              handle each one.
-            </CardDescription>
+            <div className="flex items-start justify-between">
+              <div>
+                <CardTitle className="flex items-center gap-2 text-lg">
+                  <AlertTriangle className="h-5 w-5 text-amber-600" />
+                  Duplicate Players
+                  <Badge variant="secondary">{duplicates.length}</Badge>
+                </CardTitle>
+                <CardDescription className="mt-1">
+                  These players may already exist in the system. Choose how to
+                  handle each one.
+                </CardDescription>
+              </div>
+              <ResolutionOptionsInfo />
+            </div>
           </CardHeader>
           <CardContent>
-            <div className="max-h-72 space-y-2 overflow-auto">
+            <div className="space-y-2">
               {duplicates.map((dup) => {
                 const row = parsedData.rows[dup.rowNumber];
                 if (!row) {

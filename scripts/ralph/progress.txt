@@ -213,3 +213,57 @@ Started: Sun 15 Feb 2026 20:33:18 GMT
 2. Add connector organization management (US-P4.1-007) - extends existing CRUD
 3. Add status/error tracking (US-P4.1-008) - extends schema with health metrics
 
+
+## 2026-02-15 22:00 - US-P4.1-005 - API Client Abstraction
+**Iteration**: 2
+**Commit**: a15660cdc92ee2da6afe5ae4c22a5d25ed33cae2
+**Session**: 28d554da-c69f-4334-9606-0515ca527995
+**Status**: Complete
+
+### What was implemented
+- **FederationApiClient**: Reusable HTTP client for authenticated federation API requests
+- Supports all 3 auth types: OAuth2 (Bearer token), API Key, Basic Auth
+- Automatic OAuth token refresh when expired (calls `refreshOAuthToken` action)
+- Rate limiting: tracks requests per connector, delays when limit exceeded (60 req/min default)
+- Retry logic with exponential backoff (3 attempts, uses `withRetry` utility)
+- Request timeout handling (30s default, configurable)
+- Comprehensive error handling with `FederationApiError` class
+
+### Files changed
+- `packages/backend/convex/lib/federation/apiClient.ts` (+254 lines) - NEW: API client utility
+
+### Quality checks
+- ✅ Type check: passed
+- ✅ Convex codegen: passed
+- ✅ Linting: passed (after fixing parameter properties)
+
+### **Learnings for future iterations** ⚠️ CRITICAL
+
+**Patterns discovered:**
+- Actions referenced in internal API need full path: `(internal as any)["actions/federationAuth"].functionName`
+- Not `internal.actions.federationAuth.functionName` (TypeScript doesn't like the dot notation)
+- Using `(internal as any)["path/to/file"]` bypasses type checking but works at runtime
+
+**Gotchas encountered:**
+- Biome linter doesn't allow `public` parameter properties in constructors
+- Fix: Declare properties explicitly, then assign in constructor body
+- Constructor must be on one line if parameters are short (formatter preference)
+- `decryptCredentials` is async - must `await` it (missed initially, caught by type checker)
+
+**Dependencies found:**
+- API client depends on:
+  - `encryption.ts` for decrypting credentials from storage
+  - `backoff.ts` for `withRetry` utility
+  - `federationAuth.ts` for `refreshOAuthToken` action
+  - Convex storage API (`ctx.storage.get`)
+
+**What to do next:**
+- [ ] Implement connector organization management (US-P4.1-007)
+- [ ] Implement status/error tracking (US-P4.1-008)
+
+**Mistakes made** (learn from these!):
+- Forgot to `await decryptCredentials` initially - type checker caught it
+- Used `internal.actions.federationAuth` instead of `(internal as any)["actions/federationAuth"]`
+- Initially used parameter properties (`public statusCode`) which Biome rejects
+
+---

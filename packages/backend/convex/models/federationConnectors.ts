@@ -358,3 +358,199 @@ export const listConnectors = query({
     return await ctx.db.query("federationConnectors").collect();
   },
 });
+
+// ===== Connect Organization to Connector =====
+
+export const connectOrganization = mutation({
+  args: {
+    connectorId: v.id("federationConnectors"),
+    organizationId: v.string(), // Better Auth organization ID
+    federationOrgId: v.string(), // External federation organization ID
+  },
+  returns: v.null(),
+  handler: async (ctx, args) => {
+    const connector = await ctx.db.get(args.connectorId);
+    if (!connector) {
+      throw new Error("Connector not found");
+    }
+
+    // Check if organization already connected
+    const alreadyConnected = connector.connectedOrganizations.some(
+      (org) => org.organizationId === args.organizationId
+    );
+
+    if (alreadyConnected) {
+      throw new Error("Organization already connected to this connector");
+    }
+
+    // Add organization to connectedOrganizations array
+    const updatedOrgs = [
+      ...connector.connectedOrganizations,
+      {
+        organizationId: args.organizationId,
+        federationOrgId: args.federationOrgId,
+        enabledAt: Date.now(),
+        // lastSyncAt is optional and starts undefined
+      },
+    ];
+
+    await ctx.db.patch(args.connectorId, {
+      connectedOrganizations: updatedOrgs,
+      updatedAt: Date.now(),
+    });
+
+    return null;
+  },
+});
+
+// ===== Disconnect Organization from Connector =====
+
+export const disconnectOrganization = mutation({
+  args: {
+    connectorId: v.id("federationConnectors"),
+    organizationId: v.string(),
+  },
+  returns: v.null(),
+  handler: async (ctx, args) => {
+    const connector = await ctx.db.get(args.connectorId);
+    if (!connector) {
+      throw new Error("Connector not found");
+    }
+
+    // Remove organization from array
+    // Note: Does NOT delete sync history (keep audit trail)
+    const updatedOrgs = connector.connectedOrganizations.filter(
+      (org) => org.organizationId !== args.organizationId
+    );
+
+    await ctx.db.patch(args.connectorId, {
+      connectedOrganizations: updatedOrgs,
+      updatedAt: Date.now(),
+    });
+
+    return null;
+  },
+});
+
+// ===== Update Last Sync Time =====
+
+export const updateLastSyncTime = mutation({
+  args: {
+    connectorId: v.id("federationConnectors"),
+    organizationId: v.string(),
+    lastSyncAt: v.number(), // Unix timestamp
+  },
+  returns: v.null(),
+  handler: async (ctx, args) => {
+    const connector = await ctx.db.get(args.connectorId);
+    if (!connector) {
+      throw new Error("Connector not found");
+    }
+
+    // Update lastSyncAt for specific organization
+    const updatedOrgs = connector.connectedOrganizations.map((org) => {
+      if (org.organizationId === args.organizationId) {
+        return {
+          ...org,
+          lastSyncAt: args.lastSyncAt,
+        };
+      }
+      return org;
+    });
+
+    await ctx.db.patch(args.connectorId, {
+      connectedOrganizations: updatedOrgs,
+      updatedAt: Date.now(),
+    });
+
+    return null;
+  },
+});
+
+// ===== Get Connected Organizations =====
+
+export const getConnectedOrganizations = query({
+  args: {
+    connectorId: v.id("federationConnectors"),
+  },
+  returns: v.array(
+    v.object({
+      organizationId: v.string(),
+      federationOrgId: v.string(),
+      enabledAt: v.number(),
+      lastSyncAt: v.optional(v.number()),
+    })
+  ),
+  handler: async (ctx, args) => {
+    const connector = await ctx.db.get(args.connectorId);
+    if (!connector) {
+      return [];
+    }
+
+    return connector.connectedOrganizations;
+  },
+});
+
+// ===== Get Organization Connectors =====
+
+export const getOrganizationConnectors = query({
+  args: {
+    organizationId: v.string(),
+  },
+  returns: v.array(
+    v.object({
+      _id: v.id("federationConnectors"),
+      _creationTime: v.number(),
+      name: v.string(),
+      federationCode: v.string(),
+      status: v.union(
+        v.literal("active"),
+        v.literal("inactive"),
+        v.literal("error")
+      ),
+      authType: v.union(
+        v.literal("oauth2"),
+        v.literal("api_key"),
+        v.literal("basic")
+      ),
+      credentialsStorageId: v.id("_storage"),
+      endpoints: v.object({
+        membershipList: v.string(),
+        memberDetail: v.optional(v.string()),
+        webhookSecret: v.optional(v.string()),
+      }),
+      syncConfig: v.object({
+        enabled: v.boolean(),
+        schedule: v.optional(v.string()),
+        conflictStrategy: v.string(),
+      }),
+      templateId: v.id("importTemplates"),
+      connectedOrganizations: v.array(
+        v.object({
+          organizationId: v.string(),
+          federationOrgId: v.string(),
+          enabledAt: v.number(),
+          lastSyncAt: v.optional(v.number()),
+        })
+      ),
+      lastErrorAt: v.optional(v.number()),
+      lastSuccessAt: v.optional(v.number()),
+      consecutiveFailures: v.optional(v.number()),
+      createdAt: v.number(),
+      updatedAt: v.number(),
+    })
+  ),
+  handler: async (ctx, args) => {
+    // Get all connectors
+    const allConnectors = await ctx.db.query("federationConnectors").collect();
+
+    // Filter to those connected to this organization
+    const connectedConnectors = allConnectors.filter((connector) =>
+      connector.connectedOrganizations.some(
+        (org) => org.organizationId === args.organizationId
+      )
+    );
+
+    return connectedConnectors;
+  },
+});

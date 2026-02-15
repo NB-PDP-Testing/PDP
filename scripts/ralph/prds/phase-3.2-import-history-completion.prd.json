@@ -1,0 +1,268 @@
+{
+  "project": "PlayerARC - Phase 3.2: Import History Completion",
+  "branchName": "ralph/phase-3.2-import-history-completion",
+  "description": "Complete the missing import history features from Phase 3.1: partial undo functionality and import details view. This allows users to selectively remove players from completed imports and view detailed import session information.",
+  "prdFile": "scripts/ralph/prds/phase-3.2-import-history-completion.prd.json",
+  "contextFiles": [
+    "apps/web/src/app/orgs/[orgId]/import/history/page.tsx",
+    "apps/web/src/components/import/steps/import-step.tsx",
+    "packages/backend/convex/models/importSessions.ts",
+    "packages/backend/convex/models/playerImport.ts",
+    "docs/testing/import/phase-3.1-manual-tests.md",
+    "CLAUDE.md"
+  ],
+  "mandatoryPatterns": [
+    "Use shadcn/ui components for all UI elements (Dialog, AlertDialog, Table, Badge, etc.)",
+    "Use Tailwind CSS for styling",
+    "Use useQuery/useMutation from convex/react for data fetching",
+    "NEVER use .filter() in Convex — always .withIndex()",
+    "All routes scoped under /orgs/[orgId]/",
+    "Support mobile viewport (375px minimum)",
+    "Run npx ultracite fix before completing any story",
+    "Do NOT add unit tests — E2E only per CLAUDE.md",
+    "All mutations must be atomic (use Convex transactions)",
+    "Update import session status after any modifications"
+  ],
+  "successCriteria": [
+    "Undo button opens partial undo dialog with player selection",
+    "Search and filter work correctly in undo dialog",
+    "Impact preview shows accurate cascading deletion counts",
+    "Partial undo executes atomically (all or nothing)",
+    "Details button shows comprehensive import session information",
+    "Import history stats update correctly after partial undo",
+    "All dialogs work on mobile (375px width)",
+    "All type checks pass: npm run check-types",
+    "All linting passes: npx ultracite fix"
+  ],
+  "userStories": [
+    {
+      "id": "US-P3.2-001",
+      "title": "Partial Undo Dialog - Player Selection",
+      "description": "As an org admin, I need to selectively remove specific players from a completed import so I can fix mistakes without undoing the entire import.",
+      "acceptanceCriteria": [
+        "Undo button in import history opens AlertDialog with partial undo UI",
+        "Dialog title: 'Remove Players from Import'",
+        "Dialog shows list of all players from that import session",
+        "Each player row displays: Checkbox, Full Name, DOB, Status, Related Records Count",
+        "Related Records Count shows: 'X enrollments, Y passports, Z assessments'",
+        "Select All checkbox at top of list selects/deselects all players",
+        "Selected count badge displays: 'X players selected'",
+        "Remove button is disabled when no players selected",
+        "Remove button is enabled when at least 1 player selected",
+        "Dialog is scrollable on mobile (max height fits 375px viewport)",
+        "Checkboxes are touch-friendly (44x44px minimum)",
+        "Cancel button closes dialog without changes",
+        "Query import session players using withIndex('by_importSession', sessionId)",
+        "Run npx ultracite fix and npm run check-types"
+      ],
+      "priority": 1,
+      "notes": "Use AlertDialog from shadcn/ui for the modal. Query players by importSessionId using the existing index. Display related records count by querying enrollments, passports, and assessments for each player. This is the foundation for the partial undo feature."
+    },
+    {
+      "id": "US-P3.2-002",
+      "title": "Partial Undo Dialog - Search and Filter",
+      "description": "As an org admin reviewing a large import, I need to search and filter players so I can quickly find specific players to remove.",
+      "acceptanceCriteria": [
+        "Add search input at top of player list: 'Search players...'",
+        "Search filters by player first name, last name, or full name (case-insensitive)",
+        "Search is debounced (300ms delay before filtering)",
+        "Add status filter dropdown: 'All Players', 'Active', 'Inactive'",
+        "Filter by enrollment status (active/inactive)",
+        "Search and filter work together (AND logic)",
+        "Result count displays: 'Showing X of Y players'",
+        "Clearing search shows all players again",
+        "Resetting filter shows all players again",
+        "Selected players remain selected when filtering",
+        "Search input has clear button (X icon) when text entered",
+        "Filters persist during selection (don't reset when checking boxes)",
+        "Mobile responsive: search and filter stack vertically at <640px",
+        "Run npx ultracite fix"
+      ],
+      "priority": 2,
+      "notes": "Use Input component from shadcn/ui for search. Use Select component for status filter. Implement client-side filtering for performance (all players already loaded). Consider adding DOB range filter if needed (optional enhancement)."
+    },
+    {
+      "id": "US-P3.2-003",
+      "title": "Partial Undo Dialog - Impact Preview",
+      "description": "As an org admin, I need to see what will be deleted before removing players so I can avoid accidentally deleting important data.",
+      "acceptanceCriteria": [
+        "Add 'Preview Impact' section below player list",
+        "Preview section uses Alert component (warning variant)",
+        "Shows cascading deletions for selected players:",
+        "- Player identities: X records",
+        "- Player enrollments: X records",
+        "- Guardian links: X records (if orphaning guardians)",
+        "- Sport passports: X records",
+        "- Team assignments: X records",
+        "- Skill assessments: X records",
+        "- Development goals: X records",
+        "- Voice notes: X records",
+        "If any guardians will be orphaned, show warning: '⚠️ Warning: X guardians will have no linked players'",
+        "Preview updates dynamically as player selection changes",
+        "Impact counts are accurate (query actual records, don't estimate)",
+        "Show total impact summary at bottom: 'Total: X records will be deleted'",
+        "On mobile, preview section is always visible (sticky at bottom)",
+        "Run npx ultracite fix"
+      ],
+      "priority": 3,
+      "notes": "Query all related records for selected players to show accurate counts. Check for orphaned guardians by querying guardianPlayerLinks and checking if guardian has other linked players. Use Alert component with destructive variant for orphan warning. This prevents accidental data loss."
+    },
+    {
+      "id": "US-P3.2-004",
+      "title": "Partial Undo Dialog - Atomic Removal Execution",
+      "description": "As an org admin, I need the partial undo to execute atomically so either all selected players are removed or none are (no partial failures).",
+      "acceptanceCriteria": [
+        "Create backend mutation: partialUndoImport({ sessionId, playerIds[] })",
+        "Mutation deletes in this order: assessments → goals → voice notes → passports → team assignments → enrollments → guardian links → players",
+        "All deletions happen in a single Convex transaction (atomic)",
+        "If any deletion fails, entire transaction rolls back (no partial deletions)",
+        "After successful deletion, update import session stats: playersCreated -= deletedCount",
+        "If import session has 0 players remaining, mark session status as 'undone'",
+        "Frontend shows loading spinner during deletion: 'Removing X players...'",
+        "On success, show toast: 'Successfully removed X players'",
+        "On error, show toast with error message: 'Failed to remove players: [error]'",
+        "Dialog closes on success",
+        "Import history refreshes to show updated stats",
+        "Orphaned guardians are NOT deleted (just unlinked)",
+        "Run npx -w packages/backend convex codegen and npm run check-types"
+      ],
+      "priority": 4,
+      "notes": "Convex mutations are automatically transactional. Delete related records first to avoid orphaned data. Do NOT delete guardians even if orphaned (they may have other data or be linked to other imports). Update session stats after deletion so history shows accurate counts. Consider adding audit log entry for partial undo (optional)."
+    },
+    {
+      "id": "US-P3.2-005",
+      "title": "Import Details View",
+      "description": "As an org admin, I need to view detailed information about a completed import so I can review what was imported and diagnose issues.",
+      "acceptanceCriteria": [
+        "Details button in import history opens Dialog with import details",
+        "Dialog title: 'Import Details - [Date/Time]'",
+        "Show import metadata section:",
+        "- Import ID (for support reference)",
+        "- Started by: [User Name]",
+        "- Started at: [Date/Time]",
+        "- Completed at: [Date/Time]",
+        "- Duration: [X minutes Y seconds]",
+        "- Template used: [Template Name] or 'Custom'",
+        "- Source file: [filename.csv]",
+        "Show stats breakdown section:",
+        "- Total rows processed",
+        "- Players created / updated / skipped",
+        "- Guardians created / linked",
+        "- Enrollments created",
+        "- Sport passports created",
+        "- Benchmarks applied",
+        "Show errors section (if any):",
+        "- Error count badge",
+        "- Scrollable error list: 'Row X: [PlayerName] - [Error]'",
+        "- Errors are collapsible (click to expand/collapse)",
+        "Show duplicates section (if any):",
+        "- Duplicate count badge",
+        "- List of duplicates with confidence scores",
+        "- Show resolution applied (merged/skipped/force linked)",
+        "Add 'Export Details' button to download JSON report",
+        "Dialog is responsive on mobile (scrollable content)",
+        "Close button returns to history page",
+        "Run npx ultracite fix"
+      ],
+      "priority": 5,
+      "notes": "Use Dialog component from shadcn/ui. Query import session by ID to get all details. Use Card components for each section (metadata, stats, errors, duplicates). Export button should generate JSON file with full import session data for debugging. This helps admins understand what happened during an import."
+    },
+    {
+      "id": "US-P3.2-006",
+      "title": "Import Details View - Player List Tab",
+      "description": "As an org admin viewing import details, I need to see the full list of players imported so I can verify the import was successful.",
+      "acceptanceCriteria": [
+        "Add Tabs component to details dialog: 'Overview' and 'Players' tabs",
+        "Overview tab shows the metadata/stats/errors from US-P3.2-005",
+        "Players tab shows table of all players from this import",
+        "Player table columns: Name, DOB, Gender, Guardian, Status, Teams",
+        "Guardian column shows guardian name (or 'No Guardian' if none)",
+        "Status column shows enrollment status badge (Active/Inactive)",
+        "Teams column shows team names (comma-separated or count badge)",
+        "Add search input above table: 'Search players...'",
+        "Search filters by player name or guardian name",
+        "Table is sortable by Name, DOB, Status (click column headers)",
+        "Pagination if more than 50 players (show 50 per page)",
+        "Click player row navigates to player passport: /orgs/[orgId]/players/[playerId]",
+        "Mobile: table becomes card list on <768px",
+        "Empty state if import has 0 players: 'No players in this import'",
+        "Run npx ultracite fix and npm run check-types"
+      ],
+      "priority": 6,
+      "notes": "Use Tabs, Table components from shadcn/ui. Query players by importSessionId. Join with enrollments to get status and teams. Use withIndex for all queries. Player list allows admins to quickly verify and access imported players. Consider adding export to CSV button (optional enhancement)."
+    }
+  ],
+  "technicalNotes": {
+    "database": {
+      "existingIndexes": [
+        "playerIdentities has index: by_importSession (if not, add it)",
+        "orgPlayerEnrollments has index: by_playerIdentityId",
+        "guardianPlayerLinks has index: by_player and by_guardian"
+      ],
+      "newIndexes": [],
+      "mutations": [
+        "partialUndoImport - atomic deletion of selected players and related records",
+        "getImportSessionDetails - fetch full session data with stats/errors/duplicates",
+        "getImportSessionPlayers - fetch all players from a session with related data"
+      ]
+    },
+    "frontend": {
+      "newComponents": [
+        "PartialUndoDialog - main dialog for selective player removal",
+        "PlayerSelectionList - searchable/filterable list with checkboxes",
+        "ImpactPreview - cascading deletion preview component",
+        "ImportDetailsDialog - full import session details view",
+        "ImportPlayerList - tabbed player list within details dialog"
+      ],
+      "existingComponents": [
+        "apps/web/src/app/orgs/[orgId]/import/history/page.tsx - add onClick handlers for Details and Undo buttons"
+      ]
+    },
+    "testing": {
+      "manualTests": "Update docs/testing/import/phase-3.1-manual-tests.md with new test cases for US-P3.2-001 to 006",
+      "e2eTests": "Optional: Add Playwright test for partial undo flow (low priority)",
+      "dataSetup": "Use existing test data from phase-3.1: step1-base-guardians.csv and step2-duplicate-test.csv"
+    }
+  },
+  "risks": [
+    {
+      "risk": "Partial undo might orphan guardians",
+      "mitigation": "Show orphan warning in impact preview. Do NOT delete orphaned guardians - just unlink them."
+    },
+    {
+      "risk": "Large imports (100+ players) might make dialog slow",
+      "mitigation": "Use pagination (50 players per page). Optimize queries with proper indexes. Consider virtualized list if still slow."
+    },
+    {
+      "risk": "Concurrent partial undo operations might conflict",
+      "mitigation": "Convex mutations are serialized per document. Lock import session during undo operation (optional)."
+    },
+    {
+      "risk": "User accidentally deletes wrong players",
+      "mitigation": "Require confirmation dialog before executing removal. Show impact preview so user can review. Consider adding undo-undo feature (re-import deleted players) in future phase."
+    }
+  ],
+  "outOfScope": [
+    "Full import undo (delete entire import) - use partial undo with 'Select All'",
+    "Undo history/audit log - just update import session stats",
+    "Re-importing deleted players - would require Phase 3.3",
+    "Bulk operations across multiple imports - only single import at a time",
+    "Import comparison (diff between two imports) - future enhancement",
+    "Import templates management UI - separate feature"
+  ],
+  "completionChecklist": [
+    "All 6 user stories implemented and tested",
+    "Undo button opens partial undo dialog with full functionality",
+    "Details button opens import details dialog with all sections",
+    "Search, filter, and impact preview work correctly",
+    "Partial undo executes atomically (tested with deliberate failures)",
+    "Import history stats update correctly after partial undo",
+    "All dialogs responsive on mobile (375px minimum)",
+    "All type checks pass: npm run check-types",
+    "All linting passes: npx ultracite fix && npm run check",
+    "Updated phase-3.1-manual-tests.md with new test cases",
+    "Tested with step1/step2 CSV files from phase-3.1",
+    "No console errors or warnings in browser",
+    "Git commit messages follow conventional commits format"
+  ]
+}

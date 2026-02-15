@@ -58,7 +58,7 @@
       ],
       "priority": 1,
       "notes": "CRITICAL: Read phases/PHASE_M1.json for FULL schema details including exact field names and validators. The summary above is abbreviated.",
-      "passes": false
+      "passes": true
     },
     {
       "id": "US-VNM-002",
@@ -80,7 +80,7 @@
       ],
       "priority": 2,
       "notes": "CRITICAL: Read phases/PHASE_M1.json function1_logEvent for EXACT implementation steps including counter mapping and race condition handling.",
-      "passes": false
+      "passes": true
     },
     {
       "id": "US-VNM-003",

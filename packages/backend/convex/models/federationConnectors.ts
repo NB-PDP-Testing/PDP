@@ -554,3 +554,179 @@ export const getOrganizationConnectors = query({
     return connectedConnectors;
   },
 });
+
+// ===== Update Connector Status =====
+
+export const updateConnectorStatus = mutation({
+  args: {
+    connectorId: v.id("federationConnectors"),
+    status: v.union(
+      v.literal("active"),
+      v.literal("inactive"),
+      v.literal("error")
+    ),
+  },
+  returns: v.null(),
+  handler: async (ctx, args) => {
+    await ctx.db.patch(args.connectorId, {
+      status: args.status,
+      updatedAt: Date.now(),
+    });
+
+    return null;
+  },
+});
+
+// ===== Record Connector Error =====
+
+export const recordConnectorError = mutation({
+  args: {
+    connectorId: v.id("federationConnectors"),
+    errorMessage: v.string(),
+  },
+  returns: v.null(),
+  handler: async (ctx, args) => {
+    const connector = await ctx.db.get(args.connectorId);
+    if (!connector) {
+      throw new Error("Connector not found");
+    }
+
+    const consecutiveFailures = (connector.consecutiveFailures || 0) + 1;
+    const updates: {
+      lastErrorAt: number;
+      consecutiveFailures: number;
+      updatedAt: number;
+      status?: "error";
+    } = {
+      lastErrorAt: Date.now(),
+      consecutiveFailures,
+      updatedAt: Date.now(),
+    };
+
+    // Auto-disable connector after 5 consecutive failures
+    if (consecutiveFailures >= 5) {
+      updates.status = "error";
+    }
+
+    await ctx.db.patch(args.connectorId, updates);
+
+    // TODO: Log error message to error log (capped at 50 errors)
+    // For now, just tracking the count and timestamp
+
+    return null;
+  },
+});
+
+// ===== Record Connector Success =====
+
+export const recordConnectorSuccess = mutation({
+  args: {
+    connectorId: v.id("federationConnectors"),
+  },
+  returns: v.null(),
+  handler: async (ctx, args) => {
+    await ctx.db.patch(args.connectorId, {
+      lastSuccessAt: Date.now(),
+      consecutiveFailures: 0, // Reset failure counter on success
+      updatedAt: Date.now(),
+    });
+
+    return null;
+  },
+});
+
+// ===== Clear Connector Errors =====
+
+export const clearConnectorErrors = mutation({
+  args: {
+    connectorId: v.id("federationConnectors"),
+  },
+  returns: v.null(),
+  handler: async (ctx, args) => {
+    await ctx.db.patch(args.connectorId, {
+      consecutiveFailures: 0,
+      status: "active", // Re-enable connector
+      updatedAt: Date.now(),
+    });
+
+    return null;
+  },
+});
+
+// ===== Get Connector Health =====
+
+export const getConnectorHealth = query({
+  args: {
+    connectorId: v.id("federationConnectors"),
+  },
+  returns: v.union(
+    v.object({
+      connectorId: v.id("federationConnectors"),
+      name: v.string(),
+      status: v.union(
+        v.literal("active"),
+        v.literal("inactive"),
+        v.literal("error")
+      ),
+      lastErrorAt: v.optional(v.number()),
+      lastSuccessAt: v.optional(v.number()),
+      consecutiveFailures: v.number(),
+      // Health metrics
+      uptimePercentage: v.number(), // Percentage of successful syncs
+      lastSyncTime: v.optional(v.number()), // Most recent sync across all connected orgs
+      errorRate: v.number(), // Failures in last 24 hours
+    }),
+    v.null()
+  ),
+  handler: async (ctx, args) => {
+    const connector = await ctx.db.get(args.connectorId);
+    if (!connector) {
+      return null;
+    }
+
+    // Calculate health metrics
+    const now = Date.now();
+    const dayAgo = now - 24 * 60 * 60 * 1000;
+
+    // Find most recent sync time across all connected organizations
+    const lastSyncTimes = connector.connectedOrganizations
+      .map((org) => org.lastSyncAt)
+      .filter((t): t is number => t !== undefined);
+    const lastSyncTime =
+      lastSyncTimes.length > 0 ? Math.max(...lastSyncTimes) : undefined;
+
+    // Simple uptime calculation based on recent activity
+    // If no recent errors, 100%; if currently in error state, calculate based on failure count
+    let uptimePercentage = 100;
+    if (connector.status === "error") {
+      uptimePercentage = Math.max(
+        0,
+        100 - (connector.consecutiveFailures || 0) * 20
+      );
+    } else if (connector.consecutiveFailures) {
+      uptimePercentage = Math.max(
+        0,
+        100 - (connector.consecutiveFailures || 0) * 10
+      );
+    }
+
+    // Error rate: approximate based on consecutive failures and timestamps
+    // (In production, would track detailed error log)
+    let errorRate = 0;
+    if (connector.lastErrorAt && connector.lastErrorAt > dayAgo) {
+      errorRate = connector.consecutiveFailures || 0;
+    }
+
+    return {
+      connectorId: connector._id,
+      name: connector.name,
+      status: connector.status,
+      lastErrorAt: connector.lastErrorAt,
+      lastSuccessAt: connector.lastSuccessAt,
+      consecutiveFailures: connector.consecutiveFailures || 0,
+      uptimePercentage,
+      lastSyncTime,
+      errorRate,
+    };
+  },
+});

@@ -203,12 +203,14 @@ export const getOrgImportHistory = query({
       .collect();
 
     const totalCount = allSessions.length;
-    const successCount = allSessions.filter(
-      (s) => s.status === "completed" && s.errors.length === 0
-    ).length;
-    const failureCount = allSessions.filter(
-      (s) => s.status === "failed" || s.errors.length > 0
-    ).length;
+    const successCount = allSessions.filter((s) => {
+      const unresolvedErrors = s.errors.filter((err) => !err.resolved);
+      return s.status === "completed" && unresolvedErrors.length === 0;
+    }).length;
+    const failureCount = allSessions.filter((s) => {
+      const unresolvedErrors = s.errors.filter((err) => !err.resolved);
+      return s.status === "failed" || unresolvedErrors.length > 0;
+    }).length;
 
     // Paginate
     const paginatedSessions = allSessions.slice(offset, offset + limit);
@@ -249,27 +251,32 @@ export const getOrgImportHistory = query({
     }
 
     // Map sessions with user data
-    const imports = paginatedSessions.map((session) => ({
-      _id: session._id,
-      _creationTime: session._creationTime,
-      status: session.status,
-      templateUsed: session.templateId ? String(session.templateId) : null,
-      playersImported: session.stats.playersCreated || 0,
-      guardiansCreated: session.stats.guardiansCreated || 0,
-      errors: session.errors.map((err) => err.error), // Extract error messages from error objects
-      importedBy: session.initiatedBy
-        ? (() => {
-            const userData = userMap.get(session.initiatedBy);
-            return userData
-              ? {
-                  _id: userData._id,
-                  name: userData.name || null,
-                  email: userData.email,
-                }
-              : null;
-          })()
-        : null,
-    }));
+    const imports = paginatedSessions.map((session) => {
+      // Only include unresolved errors for status determination
+      const unresolvedErrors = session.errors.filter((err) => !err.resolved);
+
+      return {
+        _id: session._id,
+        _creationTime: session._creationTime,
+        status: session.status,
+        templateUsed: session.templateId ? String(session.templateId) : null,
+        playersImported: session.stats.playersCreated || 0,
+        guardiansCreated: session.stats.guardiansCreated || 0,
+        errors: unresolvedErrors.map((err) => err.error), // Only unresolved errors
+        importedBy: session.initiatedBy
+          ? (() => {
+              const userData = userMap.get(session.initiatedBy);
+              return userData
+                ? {
+                    _id: userData._id,
+                    name: userData.name || null,
+                    email: userData.email,
+                  }
+                : null;
+            })()
+          : null,
+      };
+    });
 
     return {
       imports,

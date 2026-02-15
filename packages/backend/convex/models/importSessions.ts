@@ -887,3 +887,72 @@ export const detectDuplicateGuardians = query({
     return duplicates;
   },
 });
+
+// ============================================================
+// PHASE 3.2: ADMIN OVERRIDES FOR GUARDIAN MATCHING
+// ============================================================
+
+/**
+ * Apply admin override to a duplicate guardian match decision.
+ * Allows admins to force-link low-confidence matches or reject high-confidence matches.
+ *
+ * @param sessionId - Import session ID
+ * @param duplicateIndex - Index of duplicate in session's duplicates array
+ * @param action - Override action ("force_link" or "reject_link")
+ * @param reason - Optional reason for override
+ * @param overriddenBy - User ID of admin applying override
+ * @param originalConfidenceScore - Original confidence score being overridden
+ */
+export const applyAdminOverride = mutation({
+  args: {
+    sessionId: v.id("importSessions"),
+    duplicateIndex: v.number(),
+    action: v.union(v.literal("force_link"), v.literal("reject_link")),
+    reason: v.optional(v.string()),
+    overriddenBy: v.string(),
+    originalConfidenceScore: v.optional(v.number()),
+  },
+  returns: v.null(),
+  handler: async (ctx, args) => {
+    const {
+      sessionId,
+      duplicateIndex,
+      action,
+      reason,
+      overriddenBy,
+      originalConfidenceScore,
+    } = args;
+
+    // Get the import session
+    const session = await ctx.db.get(sessionId);
+    if (!session) {
+      throw new Error("Import session not found");
+    }
+
+    // Validate duplicate index
+    if (duplicateIndex < 0 || duplicateIndex >= session.duplicates.length) {
+      throw new Error("Invalid duplicate index");
+    }
+
+    // Create new duplicates array with override applied
+    const updatedDuplicates = [...session.duplicates];
+    const duplicate = updatedDuplicates[duplicateIndex];
+
+    // Add admin override to the duplicate
+    updatedDuplicates[duplicateIndex] = {
+      ...duplicate,
+      adminOverride: {
+        action,
+        reason,
+        overriddenBy,
+        originalConfidenceScore,
+        timestamp: Date.now(),
+      },
+    };
+
+    // Update the session
+    await ctx.db.patch(sessionId, {
+      duplicates: updatedDuplicates,
+    });
+  },
+});

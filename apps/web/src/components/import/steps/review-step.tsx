@@ -60,11 +60,14 @@ import {
   CollapsibleTrigger,
 } from "@/components/ui/collapsible";
 import { Input } from "@/components/ui/input";
+import { Label } from "@/components/ui/label";
 import {
   Popover,
   PopoverContent,
   PopoverTrigger,
 } from "@/components/ui/popover";
+import { Textarea } from "@/components/ui/textarea";
+import { useCurrentUser } from "@/hooks/use-current-user";
 import { useMembershipContext } from "@/providers/membership-provider";
 
 // ============================================================
@@ -495,12 +498,17 @@ function DuplicateCard({
   row,
   mappings,
   onResolutionChange,
+  onAdminOverride,
   organizationId,
 }: {
   duplicate: DuplicateInfo;
   row: Record<string, string>;
   mappings: Record<string, string>;
   onResolutionChange: (resolution: DuplicateInfo["resolution"]) => void;
+  onAdminOverride?: (
+    action: "force_link" | "reject_link",
+    reason?: string
+  ) => void;
   organizationId: string;
 }) {
   const firstName = getMappedValue(row, "firstName", mappings);
@@ -517,6 +525,11 @@ function DuplicateCard({
   // Phase 3.1.003: Collapsible state for match details
   const [detailsOpen, setDetailsOpen] = useState(false);
 
+  // Phase 3.2.007: Admin override confirmation dialogs
+  const [showForceLinkDialog, setShowForceLinkDialog] = useState(false);
+  const [showRejectLinkDialog, setShowRejectLinkDialog] = useState(false);
+  const [overrideReason, setOverrideReason] = useState("");
+
   // Phase 3.1.004: Admin override functionality
   const { getMembershipForOrg } = useMembershipContext();
   const membership = getMembershipForOrg(organizationId);
@@ -528,6 +541,22 @@ function DuplicateCard({
   const canForceLink = confidence && confidence.score < 40; // Low confidence
   const canRejectLink = confidence && confidence.score >= 60; // High confidence
   const showOverrideButtons = isAdminOrOwner && (canForceLink || canRejectLink);
+
+  const handleForceLink = () => {
+    if (onAdminOverride) {
+      onAdminOverride("force_link", overrideReason || undefined);
+    }
+    setShowForceLinkDialog(false);
+    setOverrideReason("");
+  };
+
+  const handleRejectLink = () => {
+    if (onAdminOverride) {
+      onAdminOverride("reject_link", overrideReason || undefined);
+    }
+    setShowRejectLinkDialog(false);
+    setOverrideReason("");
+  };
 
   return (
     <div className="rounded-lg border p-3">
@@ -662,28 +691,130 @@ function DuplicateCard({
           Replace
         </Button>
 
-        {/* Phase 3.1.004: Admin Override Buttons */}
+        {/* Phase 3.2.007: Admin Override Buttons with Confirmation Dialogs */}
         {showOverrideButtons && (
           <>
             {canForceLink && (
-              <Button
-                className="border-green-200 bg-green-50 text-green-700 hover:bg-green-100 dark:border-green-800 dark:bg-green-950 dark:text-green-400"
-                size="sm"
-                variant="outline"
+              <AlertDialog
+                onOpenChange={setShowForceLinkDialog}
+                open={showForceLinkDialog}
               >
-                <Shield className="h-3 w-3" />
-                Force Link
-              </Button>
+                <AlertDialogTrigger asChild>
+                  <Button
+                    className="border-green-200 bg-green-50 text-green-700 hover:bg-green-100 dark:border-green-800 dark:bg-green-950 dark:text-green-400"
+                    size="sm"
+                    variant="outline"
+                  >
+                    <Shield className="h-3 w-3" />
+                    Force Link
+                  </Button>
+                </AlertDialogTrigger>
+                <AlertDialogContent>
+                  <AlertDialogHeader>
+                    <AlertDialogTitle>
+                      Force Link Guardian Despite Low Confidence?
+                    </AlertDialogTitle>
+                    <AlertDialogDescription>
+                      This will override the low confidence score (
+                      {confidence?.score}%) and force this guardian to be linked
+                      to the player.
+                    </AlertDialogDescription>
+                  </AlertDialogHeader>
+                  <div className="space-y-3 py-4">
+                    <div className="rounded-md border bg-muted p-3 text-sm">
+                      <p className="font-medium">Guardian Match Details:</p>
+                      <p className="mt-1 text-muted-foreground">
+                        Player: {firstName} {lastName} (DOB: {dob})
+                      </p>
+                      {confidence?.matchReasons && (
+                        <ul className="mt-2 space-y-1 text-xs">
+                          {confidence.matchReasons.map((reason) => (
+                            <li key={reason}>• {reason}</li>
+                          ))}
+                        </ul>
+                      )}
+                    </div>
+                    <div className="space-y-2">
+                      <Label htmlFor="force-reason">
+                        Reason for override (optional)
+                      </Label>
+                      <Textarea
+                        id="force-reason"
+                        onChange={(e) => setOverrideReason(e.target.value)}
+                        placeholder="Why are you forcing this link?"
+                        value={overrideReason}
+                      />
+                    </div>
+                  </div>
+                  <AlertDialogFooter>
+                    <AlertDialogCancel>Cancel</AlertDialogCancel>
+                    <AlertDialogAction onClick={handleForceLink}>
+                      Force Link
+                    </AlertDialogAction>
+                  </AlertDialogFooter>
+                </AlertDialogContent>
+              </AlertDialog>
             )}
             {canRejectLink && (
-              <Button
-                className="border-red-200 bg-red-50 text-red-700 hover:bg-red-100 dark:border-red-800 dark:bg-red-950 dark:text-red-400"
-                size="sm"
-                variant="outline"
+              <AlertDialog
+                onOpenChange={setShowRejectLinkDialog}
+                open={showRejectLinkDialog}
               >
-                <Shield className="h-3 w-3" />
-                Reject Link
-              </Button>
+                <AlertDialogTrigger asChild>
+                  <Button
+                    className="border-red-200 bg-red-50 text-red-700 hover:bg-red-100 dark:border-red-800 dark:bg-red-950 dark:text-red-400"
+                    size="sm"
+                    variant="outline"
+                  >
+                    <Shield className="h-3 w-3" />
+                    Reject Link
+                  </Button>
+                </AlertDialogTrigger>
+                <AlertDialogContent>
+                  <AlertDialogHeader>
+                    <AlertDialogTitle>
+                      Reject Guardian Link Despite High Confidence?
+                    </AlertDialogTitle>
+                    <AlertDialogDescription>
+                      This will override the high confidence score (
+                      {confidence?.score}%) and prevent this guardian from being
+                      linked to the player.
+                    </AlertDialogDescription>
+                  </AlertDialogHeader>
+                  <div className="space-y-3 py-4">
+                    <div className="rounded-md border bg-muted p-3 text-sm">
+                      <p className="font-medium">Guardian Match Details:</p>
+                      <p className="mt-1 text-muted-foreground">
+                        Player: {firstName} {lastName} (DOB: {dob})
+                      </p>
+                      {confidence?.matchReasons && (
+                        <ul className="mt-2 space-y-1 text-xs">
+                          {confidence.matchReasons.map((reason) => (
+                            <li key={reason}>• {reason}</li>
+                          ))}
+                        </ul>
+                      )}
+                    </div>
+                    <div className="space-y-2">
+                      <Label htmlFor="reject-reason">
+                        Reason for rejection (optional)
+                      </Label>
+                      <Textarea
+                        id="reject-reason"
+                        onChange={(e) => setOverrideReason(e.target.value)}
+                        placeholder="Why are you rejecting this match?"
+                        value={overrideReason}
+                      />
+                    </div>
+                  </div>
+                  <AlertDialogFooter>
+                    <AlertDialogCancel>Cancel</AlertDialogCancel>
+                    <AlertDialogAction onClick={handleRejectLink}>
+                      Reject Link
+                    </AlertDialogAction>
+                  </AlertDialogFooter>
+                </AlertDialogContent>
+              </AlertDialog>
             )}
           </>
         )}
@@ -803,6 +934,7 @@ function ReviewForm({
   hasErrors,
   duplicates,
   onDuplicateResolution,
+  onAdminOverride,
   parsedData,
   confirmedMappings,
   selectedRows,
@@ -819,6 +951,11 @@ function ReviewForm({
   onDuplicateResolution: (
     rowNumber: number,
     resolution: DuplicateInfo["resolution"]
+  ) => void;
+  onAdminOverride: (
+    rowNumber: number,
+    action: "force_link" | "reject_link",
+    reason?: string
   ) => void;
   parsedData: ParseResult;
   confirmedMappings: Record<string, string>;
@@ -911,6 +1048,9 @@ function ReviewForm({
                     duplicate={dup}
                     key={`${dup.rowNumber}-${dup.existingPlayerId}`}
                     mappings={confirmedMappings}
+                    onAdminOverride={(action, reason) =>
+                      onAdminOverride(dup.rowNumber, action, reason)
+                    }
                     onResolutionChange={(res) =>
                       onDuplicateResolution(dup.rowNumber, res)
                     }
@@ -1047,6 +1187,37 @@ export default function ReviewStep({
 }: ReviewStepProps) {
   const [hasValidated, setHasValidated] = useState(false);
   const [simulationRequested, setSimulationRequested] = useState(false);
+
+  // Phase 3.2.007: Get current user for admin override tracking
+  const user = useCurrentUser();
+  const userEmail = user?.email || "unknown";
+
+  // Phase 3.2.007: Handle admin overrides for duplicate guardians
+  const handleAdminOverride = useCallback(
+    (
+      rowNumber: number,
+      action: "force_link" | "reject_link",
+      reason?: string
+    ) => {
+      const updatedDuplicates = duplicates.map((dup) => {
+        if (dup.rowNumber === rowNumber) {
+          return {
+            ...dup,
+            adminOverride: {
+              action,
+              reason,
+              overriddenBy: userEmail,
+              originalConfidenceScore: dup.guardianConfidence?.score,
+              timestamp: Date.now(),
+            },
+          };
+        }
+        return dup;
+      });
+      onDuplicatesChange(updatedDuplicates);
+    },
+    [duplicates, onDuplicatesChange, userEmail]
+  );
 
   // Compute data fingerprint to detect changes since last simulation
   const currentDataHash = useMemo(() => {
@@ -1295,6 +1466,7 @@ export default function ReviewStep({
       errorRowCount={errorRowCount}
       goBack={goBack}
       hasErrors={hasErrors}
+      onAdminOverride={handleAdminOverride}
       onDuplicateResolution={handleDuplicateResolution}
       onRunSimulation={handleRunSimulation}
       organizationId={organizationId}

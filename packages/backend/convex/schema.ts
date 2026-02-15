@@ -4719,6 +4719,16 @@ export default defineSchema({
           v.literal("merge"),
           v.literal("replace")
         ),
+        // Phase 3.2.007: Admin override for guardian matching decisions
+        adminOverride: v.optional(
+          v.object({
+            action: v.union(v.literal("force_link"), v.literal("reject_link")),
+            reason: v.optional(v.string()),
+            overriddenBy: v.string(),
+            originalConfidenceScore: v.optional(v.number()),
+            timestamp: v.number(),
+          })
+        ),
       })
     ),
 

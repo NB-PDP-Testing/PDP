@@ -1,0 +1,271 @@
+{
+  "note": "This file contains Phases M6, M7, M8, and M9 in a single document for efficiency. Ralph should extract the relevant phase details when executing.",
+
+  "phases": [
+    {
+      "phase": "M6",
+      "name": "Artifacts Grid & Detail",
+      "description": "Enhanced grid view subsuming v2-claims, with expandable rows and artifact detail timeline",
+      "duration": "4-5 days",
+      "dependencies": ["M1", "M3", "M5"],
+
+      "userStories": [
+        {
+          "id": "US-VNM-009",
+          "title": "Build Artifacts Grid View",
+          "summary": "Create artifacts/page.tsx with filters, expandable rows, pagination, and retry buttons (subsumes v2-claims functionality)",
+          "effort": "3 days",
+          "implementation": [
+            "1. Create apps/web/src/app/platform/voice-monitoring/artifacts/page.tsx",
+            "2. Build filter bar: status, org, date range, source channel, artifactId search",
+            "3. Build table with columns: Artifact ID, Status, Source, Coach, Org, Claims, Disambig, Latency, Cost, Created, Actions",
+            "4. Use usePaginatedQuery for cursor-based pagination (MANDATORY)",
+            "5. Implement expandable rows (click to show claims, resolutions, drafts inline)",
+            "6. Migrate ClaimRow component from v2-claims page (reuse, don't duplicate)",
+            "7. Wire retry buttons (call voicePipelineRetry mutations)",
+            "8. Use shadcn/ui Table, Button, Badge components",
+            "9. Add export to CSV button (optional enhancement)"
+          ],
+          "criticalPatterns": [
+            "MUST use usePaginatedQuery (not useQuery with .take())",
+            "Feature parity with v2-claims required before removal",
+            "Expandable rows should be client-side (no re-query on expand)",
+            "Retry buttons only visible for failed artifacts"
+          ],
+          "v2ClaimsFeatureParity": [
+            "View all claims with status badges (extracted, resolved, needs_disambiguation)",
+            "Filter by status, organization, coach, date range",
+            "Display claim confidence scores",
+            "Show entity resolution candidates",
+            "Manual resolution capability (for needs_disambiguation claims)",
+            "Expandable claim details (show full text, raw text, topic)",
+            "Display timestamps (created, resolved)",
+            "Sort by confidence, created date",
+            "Pagination with load more"
+          ],
+          "expandableRowPattern": "Use shadcn/ui Collapsible component OR custom state with row[artifactId].expanded boolean. Store expanded state in React.useState<Set<string>>(). Click row → toggle expanded state → render claims/resolutions inline (no re-query, data already loaded).",
+          "csvExportFormat": "Headers: Artifact ID, Status, Source, Coach, Org, Claims, Disambig, Latency, Cost, Created. Use browser download via Blob URL. Library: papa-parse OR manual CSV string generation."
+        },
+        {
+          "id": "US-VNM-010",
+          "title": "Build Artifact Detail Page with Event Timeline",
+          "summary": "Create artifacts/[artifactId]/page.tsx with vertical event timeline, claims section, and retry panel",
+          "effort": "2 days",
+          "implementation": [
+            "1. Create apps/web/src/app/platform/voice-monitoring/artifacts/[artifactId]/page.tsx",
+            "2. Build header: artifact ID, status badge, source icon, coach name, org name, timestamps",
+            "3. Build vertical event timeline (chronological, all events for artifact)",
+            "4. Display event metadata: duration, confidence, counts, costs in timeline",
+            "5. Build claims section (reuse v2-claims components: ClaimRow, ResolutionCard)",
+            "6. Build retry panel: show available retry options based on failure state, retry history",
+            "7. Use shadcn/ui Timeline component (or custom CSS vertical line)",
+            "8. Add breadcrumb: Voice Monitoring > Artifacts > [ID]"
+          ]
+        }
+      ],
+
+      "successCriteria": [
+        "Artifacts grid displays with filters and pagination",
+        "Cursor-based pagination works (load more button)",
+        "Expandable rows show claims/resolutions/drafts inline",
+        "Retry buttons functional and wire to retry mutations",
+        "Artifact detail page shows complete event timeline",
+        "Claims section shows all claims with resolution status",
+        "Retry panel shows retry history and available options",
+        "Feature parity with v2-claims achieved"
+      ]
+    },
+
+    {
+      "phase": "M7",
+      "name": "Metrics & Events Pages",
+      "description": "Historical analytics dashboard and raw event log viewer with filters",
+      "duration": "3-4 days",
+      "dependencies": ["M2", "M5"],
+
+      "userStories": [
+        {
+          "id": "US-VNM-011",
+          "title": "Build Metrics Dashboard UI",
+          "summary": "Create metrics/page.tsx with time range selector, metric cards, and CSS-based charts (NO external charting library)",
+          "effort": "3 days",
+          "implementation": [
+            "1. Create apps/web/src/app/platform/voice-monitoring/metrics/page.tsx",
+            "2. Build time range selector: 1h, 6h, 24h, 7d, 30d buttons",
+            "3. Build 6 metric cards: Total Artifacts, Completion Rate, Avg Latency, Total Cost, Auto-Resolution Rate, Disambig Backlog",
+            "4. Build CSS-based charts (reuse /platform/messaging pattern):",
+            "   - Throughput over time (bar chart using div widths)",
+            "   - Latency by stage (stacked bar using nested divs)",
+            "   - Error rate trend (line chart using CSS polygons or divs)",
+            "   - Cost trend (area chart using gradients)",
+            "5. Build org breakdown table: per-org volume, latency, cost, error rate",
+            "6. Query getHistoricalMetrics with periodType based on time range",
+            "7. Use hourly snapshots for < 7d, daily snapshots for > 7d"
+          ],
+          "criticalPatterns": [
+            "NEVER use external charting library - CSS-based visualizations ONLY",
+            "Query snapshots (not raw events) for historical data",
+            "Use correct periodType: hourly for < 7d, daily for > 7d"
+          ],
+          "cssChartExamples": {
+            "barChart": "<div className='bar' style={{ width: `${(value/max)*100}%`, height: '20px', background: 'blue' }} />",
+            "stackedBar": "<div className='bar'><div style={{ width: `${pct1}%` }} /><div style={{ width: `${pct2}%` }} /></div>",
+            "lineChart": "Use positioned divs or CSS clip-path polygon for line path",
+            "reference": "See apps/web/src/app/platform/messaging/* for existing CSS chart patterns"
+          }
+        },
+        {
+          "id": "US-VNM-012",
+          "title": "Build Event Log Viewer UI",
+          "summary": "Create events/page.tsx with filters and structured log viewer",
+          "effort": "2 days",
+          "implementation": [
+            "1. Create apps/web/src/app/platform/voice-monitoring/events/page.tsx",
+            "2. Build filter bar: event type (multi-select), pipeline stage, org, date range, artifactId search, errors-only toggle",
+            "3. Build event table: Timestamp, Event, Stage, Artifact, Org, Duration, Details",
+            "4. Newest events at top (real-time updates via useQuery)",
+            "5. Click event row to expand and show full event payload (JSON)",
+            "6. Use usePaginatedQuery for cursor-based pagination",
+            "7. Add export to CSV button"
+          ]
+        }
+      ],
+
+      "successCriteria": [
+        "Metrics dashboard shows time range selector and charts",
+        "CSS-based charts render correctly (no external libraries)",
+        "Org breakdown table shows per-org metrics",
+        "Event log viewer shows paginated events with filters",
+        "Real-time updates for newest events",
+        "Event details expandable on click"
+      ]
+    },
+
+    {
+      "phase": "M8",
+      "name": "Pipeline View & Alerts UI",
+      "description": "Expanded pipeline visualization and alert management interface",
+      "duration": "3-4 days",
+      "dependencies": ["M4", "M5"],
+
+      "userStories": [
+        {
+          "id": "US-VNM-013",
+          "title": "Build Pipeline View UI",
+          "summary": "Create pipeline/page.tsx with expanded flow graph and stage drill-down",
+          "effort": "3 days",
+          "implementation": [
+            "1. Create apps/web/src/app/platform/voice-monitoring/pipeline/page.tsx",
+            "2. Build expanded flow graph (larger version of dashboard graph)",
+            "3. Implement stage drill-down: click stage → modal showing all artifacts at that stage",
+            "   modalImplementation: Use shadcn/ui Dialog component. On stage click: open modal, query getActiveArtifacts filtered by status for that stage (e.g., status='transcribing' for Transcription stage). Display table with columns: Artifact ID, Coach, Org, Time Elapsed, Actions (retry button).",
+            "4. In drill-down modal: show latency distribution, error breakdown, retry queue",
+            "5. Build active artifacts panel: cards for in-flight artifacts with progress bar",
+            "6. Show time elapsed per stage, coach/org info, source channel icon",
+            "7. OPTIONAL: Add Sankey diagram (defer if time constrained) showing flow volume between stages"
+          ]
+        },
+        {
+          "id": "US-VNM-014",
+          "title": "Build Alerts Management UI",
+          "summary": "Create alerts/page.tsx with active alerts panel and alert history table",
+          "effort": "2 days",
+          "implementation": [
+            "1. Create apps/web/src/app/platform/voice-monitoring/alerts/page.tsx",
+            "2. Build active alerts panel: cards with severity badges, alert message, trigger details",
+            "3. Build acknowledge button (calls acknowledgeAlert mutation)",
+            "4. Build alert history table with filters: severity, type, date range",
+            "5. Wire toast notifications for new alerts (real-time via useQuery)",
+            "   toastPattern: Use useQuery(api.models.voicePipelineAlerts.getActiveAlerts). In useEffect, compare previous alerts.length to current. If new critical alert detected (previous < current), show toast via sonner: toast.error('Critical Alert', { description: alert.message }).",
+            "6. Use shadcn/ui Alert, Badge components"
+          ]
+        }
+      ],
+
+      "successCriteria": [
+        "Pipeline view shows expanded flow graph",
+        "Stage drill-down modal works (shows artifacts at stage)",
+        "Active artifacts panel shows in-flight items",
+        "Alerts page shows unacknowledged alerts",
+        "Acknowledge button marks alerts as resolved",
+        "Alert history table shows past alerts with filters",
+        "Toast notifications appear for new critical alerts"
+      ]
+    },
+
+    {
+      "phase": "M9",
+      "name": "Cleanup & Polish",
+      "description": "Remove v2-claims page, update platform hub, mobile adjustments, performance optimization",
+      "duration": "2-3 days",
+      "dependencies": ["M6", "M7", "M8"],
+
+      "userStories": [
+        {
+          "id": "US-VNM-015",
+          "title": "Remove v2-Claims Page and Polish",
+          "summary": "Delete old v2-claims page after verifying feature parity, final optimizations",
+          "effort": "2 days",
+          "implementation": [
+            "1. VERIFY FIRST: All v2-claims functionality present in artifacts grid",
+            "2. Delete apps/web/src/app/platform/v2-claims/ directory",
+            "3. Update platform hub page.tsx (remove v2-claims link if not already done in M5)",
+            "4. Verify all 8 monitoring pages accessible via tab navigation",
+            "5. Add skip patterns to queries (isPlatformStaff check for query skipping)",
+            "6. Add loading states to all pages (skeleton loaders)",
+            "7. Test cursor-based pagination (load more functionality) on all paginated pages",
+            "8. Performance audit: verify dashboard loads < 2 seconds",
+            "9. Mobile responsive audit: test all pages at 375px width",
+            "10. Run E2E tests for all pages (using Playwright)"
+          ],
+          "verificationChecklist": [
+            "[ ] v2-claims functionality fully replaced in artifacts grid",
+            "[ ] All 8 pages accessible via tab navigation",
+            "[ ] Platform staff authorization on all routes",
+            "[ ] Dashboard loads < 2 seconds",
+            "[ ] All queries use skip pattern for non-staff users",
+            "[ ] All loading states functional",
+            "[ ] All cursor-based pagination tested",
+            "[ ] Mobile responsive on all pages",
+            "[ ] E2E tests passing"
+          ]
+        }
+      ],
+
+      "successCriteria": [
+        "v2-claims page deleted (directory removed)",
+        "All functionality migrated to artifacts grid",
+        "All 8 monitoring pages accessible and functional",
+        "Platform staff auth enforced on all routes",
+        "Dashboard loads < 2 seconds (performance target met)",
+        "All queries skip when user not platform staff",
+        "Loading states on all pages",
+        "Cursor-based pagination verified on all list views",
+        "Mobile responsive design verified",
+        "E2E tests passing for all pages"
+      ]
+    }
+  ],
+
+  "ralphGuidance": {
+    "parallelExecution": {
+      "agent2_frontend": "Executes M6, M7, M8 in parallel after M5 complete",
+      "suggestedOrder": "M6 (artifacts) parallel with M7 (metrics/events), then M8 (pipeline/alerts), finally M9 (cleanup)"
+    },
+    "commonPitfalls": [
+      "Using .take() instead of cursor-based pagination",
+      "Using external charting library (should use CSS-based)",
+      "Deleting v2-claims before verifying feature parity",
+      "Not adding skip patterns to queries (causes errors for non-staff)",
+      "Not testing mobile responsive design",
+      "Not adding loading states (poor UX)"
+    ],
+    "successIndicators": [
+      "All 8 pages functional and accessible",
+      "v2-claims removed without feature loss",
+      "Dashboard performance < 2s",
+      "Mobile responsive verified",
+      "E2E tests passing"
+    ]
+  }
+}

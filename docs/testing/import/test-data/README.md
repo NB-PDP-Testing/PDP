@@ -14,11 +14,11 @@ This directory contains CSV test data files for Phase 3.1 manual UAT testing.
 
 | Players | Guardian | Expected Confidence | Match Signals |
 |---------|----------|---------------------|---------------|
-| Emma Walsh & Sophie O'Connor | Sarah Walsh | **High (60+)** | ✅ Email exact match<br>✅ Name exact match<br>✅ Address exact match<br>✅ Phone different (expected: 80-90%) |
-| Jack Murphy & Liam Kelly | John Murphy | **Medium (40-59)** | ✅ Email domain match<br>✅ Phone exact match<br>✅ Name exact match<br>✅ Address exact match<br>(Expected: 50-60%) |
-| Aoife Ryan & Conor Brennan | Mary Ryan / M. Ryan | **Medium (40-59)** | ✅ Email exact match<br>✅ Phone exact match<br>⚠️ Name similarity (Mary vs M.)<br>✅ Address exact match<br>(Expected: 50-60%) |
-| Niamh McCarthy & Cian O'Sullivan | Lisa McCarthy | **Medium (40-59)** | ✅ Email exact match<br>✅ Phone match (format variation)<br>✅ Name exact match<br>✅ Address exact match<br>(Expected: 55-65%) |
-| Saoirse Doyle & Finn Gallagher | Katie Doyle | **Low (<40)** | ✅ Email exact match<br>❌ Phone missing<br>✅ Name exact match<br>❌ Address missing<br>(Expected: 30-40%) |
+| Emma Walsh & Sophie O'Connor | Sarah Walsh | **High (100%)** | ✅ Email exact match (40)<br>✅ Phone exact match (30)<br>✅ Name+Address exact match (30)<br>**Total: 100%** |
+| Jack Murphy & Liam Kelly | John Murphy | **High (60%)** | ✅ Email exact match (40)<br>❌ Phone missing (0)<br>✅ Name exact match (20)<br>❌ Address missing (0)<br>**Total: 60%** |
+| Aoife Ryan & Conor Brennan | Mary Ryan | **Low (20%)** | ❌ Email different (0)<br>❌ Phone missing (0)<br>✅ Name exact match (20)<br>❌ Address missing (0)<br>**Total: 20%** |
+| Niamh McCarthy & Cian O'Sullivan | Lisa McCarthy | **High (100%)** | ✅ Email exact match (40)<br>✅ Phone exact match (30)<br>✅ Name+Address exact match (30)<br>**Total: 100%** |
+| Saoirse Doyle & Finn Gallagher | Katie Doyle vs Different Name | **Medium (40%)** | ✅ Email exact match (40)<br>❌ Phone missing (0)<br>❌ Name different (0)<br>❌ Address missing (0)<br>**Total: 40%** |
 
 **CSV Columns**:
 - First Name, Last Name, Date of Birth, Gender (player fields)

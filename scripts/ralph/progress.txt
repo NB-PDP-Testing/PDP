@@ -3,7 +3,7 @@ Started: Sun 15 Feb 2026 20:33:18 GMT
 ---
 
 ## Codebase Patterns
-**Last Updated**: 2026-02-15 20:40 - Iteration 1
+**Last Updated**: 2026-02-15 21:00 - Iteration 1
 
 ### Architecture
 - Turborepo monorepo: `apps/web/` (Next.js 14), `packages/backend/` (Convex)
@@ -18,6 +18,10 @@ Started: Sun 15 Feb 2026 20:33:18 GMT
 - Index names include all fields: `by_orgId_and_status`
 - Use batch fetch + Map lookup pattern for related data (no N+1 queries)
 - Actions cannot access `ctx.db` - use `ctx.runQuery`/`ctx.runMutation`
+- **Storage operations (`ctx.storage.store`) only work in actions, not mutations**
+- Actions in `/actions` folder MUST have `"use node";` directive at top
+- Use `internal.models.X` for internal mutations, `api.models.X` for queries
+- To avoid circular reference type errors, add explicit return types to handlers
 
 ### Frontend Patterns
 - Use shadcn/ui components from `@/components/ui`
@@ -37,5 +41,91 @@ Started: Sun 15 Feb 2026 20:33:18 GMT
 - Convex utilities: `packages/backend/convex/lib/`
 - Import templates: `importTemplates` table (existing)
 - Import sessions: `importSessions` table (existing)
+
+### Security Patterns (Federation Connectors)
+- Credentials encrypted with AES-GCM before storage
+- Never expose decrypted credentials in queries (only actions)
+- Credentials stored as encrypted blobs in Convex `_storage`
+- Use Web Crypto API (`crypto.subtle`) for encryption
+- Encryption key in `FEDERATION_ENCRYPTION_KEY` environment variable
+
+---
+
+## 2026-02-15 21:00 - US-P4.1-001, US-P4.1-002, US-P4.1-003 - Federation Foundation
+**Iteration**: 1
+**Commit**: 2dbdb4e02770a596ebe7fa3b81cb5be898df9c1e
+**Session**: 28965a72-3e5e-4f06-966f-e567b685ad7b
+**Status**: Complete
+
+### What was implemented
+- **US-P4.1-001**: Added `federationConnectors` table to schema with all required fields
+  - Fields: name, federationCode, status, authType, credentialsStorageId, endpoints, syncConfig, templateId, connectedOrganizations, error tracking fields
+  - Indexes: `by_federationCode`, `by_status`
+  - Table tracks OAuth2/API key/basic auth configs
+- **US-P4.1-002**: Credential encryption utilities with AES-GCM
+  - `encryptCredentials()` and `decryptCredentials()` functions
+  - Uses Web Crypto API with 256-bit key
+  - Random IV per encryption, prepended to ciphertext
+  - Returns base64-encoded strings for storage
+  - TypeScript types: `OAuth2Credentials`, `ApiKeyCredentials`, `BasicAuthCredentials`
+- **US-P4.1-003**: Connector CRUD mutations
+  - `createConnector` (action) - encrypts credentials, stores in file storage, creates DB record
+  - `updateConnector` (mutation) - updates config fields
+  - `updateConnectorCredentials` (action) - re-encrypts and replaces credentials
+  - `deleteConnector` (mutation) - soft delete (status = inactive)
+  - `getConnector` (query) - returns connector WITHOUT decrypted credentials
+  - `listConnectors` (query) - filter by status using index
+  - Internal mutations for DB operations called from actions
+
+### Files changed
+- `packages/backend/convex/schema.ts` (+60 lines) - Added federationConnectors table
+- `packages/backend/convex/lib/federation/encryption.ts` (+235 lines) - NEW: Encryption utilities
+- `packages/backend/convex/models/federationConnectors.ts` (+360 lines) - NEW: CRUD operations
+- `scripts/ralph/progress.txt` (+40 lines) - Added codebase patterns section
+
+### Quality checks
+- ✅ Type check: passed (no federationConnectors errors)
+- ✅ Linting: passed (pre-existing errors only)
+- ✅ Convex codegen: passed
+- ✅ Commit hook: passed
+
+### **Learnings for future iterations** ⚠️ CRITICAL
+
+**Patterns discovered:**
+- Storage operations (`ctx.storage.store`) only available in actions, not mutations
+- Must use `ctx.runMutation(internal.models.X)` from actions to write to DB
+- Create internal mutations for DB writes that are called from actions
+- Use `api.models.X` for queries (from actions), `internal.models.X` for internal mutations
+
+**Gotchas encountered:**
+- Initial error: tried to use `ctx.storage.store` in mutation - not allowed
+- Fix: Convert createConnector and updateConnectorCredentials to actions
+- Actions call internal mutations (`createConnectorInternal`, `updateConnectorCredentialsInternal`)
+- Files in `/actions` folder MUST have `"use node";` directive at top of file
+- Circular reference type errors when referencing `internal.models.X` before export
+  - Fix: Add explicit return type to handler: `handler: async (ctx, args): Promise<ReturnType> =>`
+  - Alternative: Use variable assignment `const x = await ...` with explicit type
+
+**Dependencies found:**
+- Encryption utilities depend on `FEDERATION_ENCRYPTION_KEY` environment variable
+- Must be base64-encoded 32-byte key (256 bits)
+- Generate with: `node -e "console.log(require('crypto').randomBytes(32).toString('base64'))"`
+
+**What to do next:**
+- [ ] Fix OAuth flow type errors (circular references in federationAuth.ts)
+- [ ] Implement exponential backoff utility (US-P4.1-006)
+- [ ] Implement API client abstraction (US-P4.1-005)
+- [ ] Add connector organization management (US-P4.1-007)
+- [ ] Add connector status/error tracking (US-P4.1-008)
+
+**Mistakes made** (learn from these!):
+- Forgot `"use node";` directive - codegen failed
+- Used duplicate variable names (`encryptedData`, `credentialsBlob`) in same scope
+- Tried to call `internal.models.X.getConnector` but getConnector is a query, not internal mutation
+  - Fix: Use `api.models.X.getConnector` for queries from actions
+- Used non-null assertion (`args.status!`) - linter error
+  - Fix: Assign to variable first: `const status = args.status;`
+- Used traditional for loop - linter prefers for-of
+  - Fix: `for (const byte of combined)` instead of `for (let i = 0...)`
 
 ---

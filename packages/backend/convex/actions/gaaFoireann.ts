@@ -535,6 +535,7 @@ export const syncGAAMembers = action({
         country: row.country,
         parentEmail: row.email, // GAA member email becomes parent email
         parentPhone: row.phone,
+        externalIds: row.externalIds, // GAA membership number stored in externalIds.foireann
       }));
 
       // Call existing batch import mutation

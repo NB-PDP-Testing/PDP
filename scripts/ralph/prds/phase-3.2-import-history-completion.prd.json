@@ -29,6 +29,9 @@
     "Impact preview shows accurate cascading deletion counts",
     "Partial undo executes atomically (all or nothing)",
     "Details button shows comprehensive import session information",
+    "Force Link button overrides low confidence matches (admin only)",
+    "Reject Link button overrides high confidence matches (admin only)",
+    "Admin overrides persist in import session and apply during import",
     "Import history stats update correctly after partial undo",
     "All dialogs work on mobile (375px width)",
     "All type checks pass: npm run check-types",
@@ -190,6 +193,34 @@
       ],
       "priority": 6,
       "notes": "Use Tabs, Table components from shadcn/ui. Query players by importSessionId. Join with enrollments to get status and teams. Use withIndex for all queries. Player list allows admins to quickly verify and access imported players. Consider adding export to CSV button (optional enhancement)."
+    },
+    {
+      "id": "US-P3.2-007",
+      "title": "Admin Override Controls - Force Link and Reject Link",
+      "description": "As an org admin reviewing duplicate guardians during import, I need to override confidence-based decisions so I can force link low-confidence matches or reject high-confidence matches when I have additional context.",
+      "acceptanceCriteria": [
+        "Force Link button appears on LOW and MEDIUM confidence duplicate cards",
+        "Reject Link button appears on HIGH and MEDIUM confidence duplicate cards",
+        "Force Link is only visible to users with Admin or Owner role",
+        "Reject Link is only visible to users with Admin or Owner role",
+        "Clicking Force Link shows confirmation dialog: 'Force link this guardian despite low confidence?'",
+        "Confirmation dialog shows guardian details and match signals for review",
+        "Clicking Reject Link shows confirmation dialog: 'Reject this guardian match?'",
+        "Confirmation dialog includes optional reason text field: 'Why are you rejecting this match?'",
+        "On Force Link confirm, create adminOverride record with action='force_link'",
+        "On Reject Link confirm, create adminOverride record with action='reject_link'",
+        "adminOverride record includes: importSessionId, playerId, guardianId, action, overriddenBy (userId), timestamp, originalConfidenceScore, reason (optional)",
+        "After override, duplicate card shows badge: 'Admin Override: Force Linked' or 'Admin Override: Rejected'",
+        "Force Linked players will link to guardian during import (ignore low confidence)",
+        "Rejected players will NOT link to guardian during import (ignore high confidence)",
+        "Override badges are color-coded: blue for force link, red for reject link",
+        "Override persists in import session duplicates array for audit trail",
+        "Backend mutation: applyAdminOverride({ sessionId, duplicateIndex, action, reason? })",
+        "Mobile responsive: confirmation dialogs fit 375px viewport",
+        "Run npx -w packages/backend convex codegen and npm run check-types"
+      ],
+      "priority": 7,
+      "notes": "This implements the missing admin override functionality from Phase 3.1 (US-P3.1-004). The Force Link and Reject Link buttons currently exist in review-step.tsx but do nothing (just placeholders). Admin overrides are stored in the duplicates array of the import session for audit purposes. The batchImportPlayersWithIdentity mutation should check for admin overrides and apply them during guardian linking. IMPORTANT: Only allow overrides during the review step, before import executes. Once import completes, overrides cannot be changed."
     }
   ],
   "technicalNotes": {
@@ -203,7 +234,9 @@
       "mutations": [
         "partialUndoImport - atomic deletion of selected players and related records",
         "getImportSessionDetails - fetch full session data with stats/errors/duplicates",
-        "getImportSessionPlayers - fetch all players from a session with related data"
+        "getImportSessionPlayers - fetch all players from a session with related data",
+        "applyAdminOverride - apply force link or reject link override to duplicate",
+        "getAdminOverrides - fetch all overrides for an import session (for audit)"
       ]
     },
     "frontend": {
@@ -212,10 +245,12 @@
         "PlayerSelectionList - searchable/filterable list with checkboxes",
         "ImpactPreview - cascading deletion preview component",
         "ImportDetailsDialog - full import session details view",
-        "ImportPlayerList - tabbed player list within details dialog"
+        "ImportPlayerList - tabbed player list within details dialog",
+        "AdminOverrideConfirmDialog - confirmation dialog for force/reject link actions"
       ],
       "existingComponents": [
-        "apps/web/src/app/orgs/[orgId]/import/history/page.tsx - add onClick handlers for Details and Undo buttons"
+        "apps/web/src/app/orgs/[orgId]/import/history/page.tsx - add onClick handlers for Details and Undo buttons",
+        "apps/web/src/components/import/steps/review-step.tsx - implement Force Link and Reject Link button handlers"
       ]
     },
     "testing": {
@@ -251,9 +286,11 @@
     "Import templates management UI - separate feature"
   ],
   "completionChecklist": [
-    "All 6 user stories implemented and tested",
+    "All 7 user stories implemented and tested",
     "Undo button opens partial undo dialog with full functionality",
     "Details button opens import details dialog with all sections",
+    "Force Link and Reject Link buttons functional with admin role check",
+    "Admin overrides persist and apply correctly during import",
     "Search, filter, and impact preview work correctly",
     "Partial undo executes atomically (tested with deliberate failures)",
     "Import history stats update correctly after partial undo",
@@ -262,6 +299,7 @@
     "All linting passes: npx ultracite fix && npm run check",
     "Updated phase-3.1-manual-tests.md with new test cases",
     "Tested with step1/step2 CSV files from phase-3.1",
+    "Tested admin overrides on HIGH, MEDIUM, and LOW confidence duplicates",
     "No console errors or warnings in browser",
     "Git commit messages follow conventional commits format"
   ]

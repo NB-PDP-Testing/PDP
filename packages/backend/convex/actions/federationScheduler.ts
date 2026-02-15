@@ -56,7 +56,8 @@ export const scheduledFederationSync = internalAction({
 
       // Filter to only those with sync enabled
       const enabledConnectors = activeConnectors.filter(
-        (connector) => connector.syncConfig.enabled === true
+        (connector: (typeof activeConnectors)[number]) =>
+          connector.syncConfig.enabled === true
       );
 
       console.log(
@@ -79,27 +80,52 @@ export const scheduledFederationSync = internalAction({
           `[Scheduled Sync] Connector ${connector.name} has ${connectedOrgs.length} connected organizations`
         );
 
-        // ===== STEP 3: Sync each organization (with rate limiting) =====
+        // ===== STEP 3: Queue sync jobs for each organization =====
 
         for (const org of connectedOrgs) {
           organizationsSynced += 1;
 
           console.log(
-            `[Scheduled Sync] Syncing organization ${org.organizationId} via connector ${connector.name}`
+            `[Scheduled Sync] Queueing sync job for organization ${org.organizationId} via connector ${connector.name}`
           );
 
+          // Enqueue sync job
+          const jobId = await ctx.runMutation(
+            api.models.syncQueue.enqueueSyncJob,
+            {
+              organizationId: org.organizationId,
+              connectorId: connector._id,
+              syncType: "scheduled",
+            }
+          );
+
+          if (!jobId) {
+            console.warn(
+              `[Scheduled Sync] Skipped org ${org.organizationId} - sync already in progress or queued`
+            );
+            // Don't count as failed - just already running
+            continue;
+          }
+
+          console.log(
+            `[Scheduled Sync] Queued sync job ${jobId} for org ${org.organizationId}`
+          );
+
+          // Process the sync job immediately (claim and run)
           try {
-            // Call the GAA sync action
-            // TODO: This assumes all connectors use GAA sync - in future, make this dynamic based on connectorType
             const syncResult = await ctx.runAction(
-              api.actions.gaaFoireann.syncGAAMembers,
+              api.actions.federationSyncEngine.syncWithQueue,
               {
                 connectorId: connector._id,
                 organizationId: org.organizationId,
+                strategy: connector.syncConfig.conflictStrategy as
+                  | "federation_wins"
+                  | "local_wins"
+                  | "merge",
               }
             );
 
-            if (syncResult.status === "completed") {
+            if (syncResult.success) {
               successfulSyncs += 1;
 
               console.log(
@@ -130,17 +156,19 @@ export const scheduledFederationSync = internalAction({
 
               console.error(
                 `[Scheduled Sync] FAILED - Org ${org.organizationId}`,
-                { status: syncResult.status }
+                { error: syncResult.error, reason: syncResult.reason }
               );
 
-              // Record connector error
-              await ctx.runMutation(
-                api.models.federationConnectors.recordConnectorError,
-                {
-                  connectorId: connector._id,
-                  errorMessage: "Sync failed with status: failed",
-                }
-              );
+              // Only record error if sync actually failed (not just already running)
+              if (syncResult.reason === "sync_failed") {
+                await ctx.runMutation(
+                  api.models.federationConnectors.recordConnectorError,
+                  {
+                    connectorId: connector._id,
+                    errorMessage: syncResult.error,
+                  }
+                );
+              }
 
               // TODO: Send notification to org admins about failed sync
             }

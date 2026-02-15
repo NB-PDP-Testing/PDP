@@ -198,4 +198,20 @@ crons.daily(
   {}
 );
 
+// Phase 4.4: Clean up old sync queue jobs daily at 3 AM UTC (US-P4.4-005)
+crons.daily(
+  "cleanup-old-sync-jobs",
+  { hourUTC: 3, minuteUTC: 0 },
+  internal.models.syncQueue.cleanupOldSyncJobs,
+  { olderThanDays: 30 }
+);
+
+// Phase 4.4: Mark stuck sync jobs as failed every 10 minutes (US-P4.4-005)
+crons.interval(
+  "fail-stuck-sync-jobs",
+  { minutes: 10 },
+  internal.models.syncQueue.failStuckJobs,
+  {}
+);
+
 export default crons;

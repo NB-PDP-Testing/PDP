@@ -4966,4 +4966,52 @@ export default defineSchema({
   })
     .index("by_federationCode", ["federationCode"])
     .index("by_status", ["status"]),
+
+  // Sync queue for preventing concurrent syncs
+  syncQueue: defineTable({
+    organizationId: v.string(), // Better Auth organization ID
+    connectorId: v.id("federationConnectors"),
+    status: v.union(
+      v.literal("pending"),
+      v.literal("running"),
+      v.literal("completed"),
+      v.literal("failed")
+    ),
+
+    // Job metadata
+    syncType: v.union(
+      v.literal("scheduled"), // Nightly cron sync
+      v.literal("manual"), // Admin-triggered sync
+      v.literal("webhook") // Webhook-triggered sync
+    ),
+    importSessionId: v.optional(v.id("importSessions")),
+
+    // Timing
+    startedAt: v.optional(v.number()), // When job started running
+    completedAt: v.optional(v.number()), // When job finished
+    queuedAt: v.number(), // When job was queued
+
+    // Results and error tracking
+    error: v.optional(v.string()),
+    stats: v.optional(
+      v.object({
+        playersProcessed: v.number(),
+        playersCreated: v.number(),
+        playersUpdated: v.number(),
+        conflictsDetected: v.number(),
+        conflictsResolved: v.number(),
+        duration: v.optional(v.number()), // Milliseconds
+      })
+    ),
+
+    // Retry logic (for US-P4.4-007)
+    retryCount: v.optional(v.number()),
+    maxRetries: v.optional(v.number()),
+    nextRetryAt: v.optional(v.number()),
+  })
+    .index("by_organizationId", ["organizationId"])
+    .index("by_status", ["status"])
+    .index("by_org_and_connector", ["organizationId", "connectorId"])
+    .index("by_org_and_status", ["organizationId", "status"])
+    .index("by_nextRetryAt", ["nextRetryAt"]),
 });

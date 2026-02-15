@@ -547,3 +547,133 @@ async function processExistingPlayer(
 
   return changeSummary;
 }
+
+// ===== Sync Queue Integration =====
+
+/**
+ * Sync with queue management
+ *
+ * Wrapper around syncWithConflictResolution that integrates with the sync queue:
+ * 1. Claims a sync job from the queue (atomically)
+ * 2. Runs the sync
+ * 3. Updates the queue with results (success or failure)
+ *
+ * This ensures only one sync runs at a time for each org+connector combination.
+ */
+export const syncWithQueue = action({
+  args: {
+    connectorId: v.id("federationConnectors"),
+    organizationId: v.string(),
+    strategy: v.optional(conflictResolutionStrategyValidator),
+  },
+  returns: v.union(
+    v.object({
+      success: v.literal(true),
+      sessionId: v.id("importSessions"),
+      stats: v.object({
+        playersProcessed: v.number(),
+        playersCreated: v.number(),
+        playersUpdated: v.number(),
+        conflictsDetected: v.number(),
+        conflictsResolved: v.number(),
+        errors: v.number(),
+      }),
+    }),
+    v.object({
+      success: v.literal(false),
+      error: v.string(),
+      reason: v.union(
+        v.literal("already_running"),
+        v.literal("no_pending_job"),
+        v.literal("sync_failed")
+      ),
+    })
+  ),
+  handler: async (ctx, args) => {
+    const startTime = Date.now();
+
+    console.log(
+      `[Sync Queue] Attempting to claim sync job - org: ${args.organizationId}, connector: ${args.connectorId}`
+    );
+
+    // Claim a pending sync job atomically
+    const job = await ctx.runMutation(api.models.syncQueue.claimSyncJob, {
+      organizationId: args.organizationId,
+      connectorId: args.connectorId,
+    });
+
+    if (!job) {
+      console.warn(
+        `[Sync Queue] No pending job or job already running - org: ${args.organizationId}, connector: ${args.connectorId}`
+      );
+      return {
+        success: false,
+        error: "Cannot start sync - no pending job or sync already in progress",
+        reason: "already_running",
+      };
+    }
+
+    console.log(`[Sync Queue] Claimed sync job: ${job._id}`);
+
+    try {
+      // Run the sync
+      const result = await ctx.runAction(
+        api.actions.federationSyncEngine.syncWithConflictResolution,
+        {
+          connectorId: args.connectorId,
+          organizationId: args.organizationId,
+          strategy: args.strategy,
+        }
+      );
+
+      // Mark job as completed
+      await ctx.runMutation(api.models.syncQueue.completeSyncJob, {
+        jobId: job._id,
+        stats: {
+          playersProcessed: result.stats.playersProcessed,
+          playersCreated: result.stats.playersCreated,
+          playersUpdated: result.stats.playersUpdated,
+          conflictsDetected: result.stats.conflictsDetected,
+          conflictsResolved: result.stats.conflictsResolved,
+          duration: Date.now() - startTime,
+        },
+      });
+
+      console.log(
+        `[Sync Queue] Sync completed successfully - job: ${job._id}, duration: ${Date.now() - startTime}ms`
+      );
+
+      return {
+        success: true,
+        sessionId: result.sessionId,
+        stats: {
+          playersProcessed: result.stats.playersProcessed,
+          playersCreated: result.stats.playersCreated,
+          playersUpdated: result.stats.playersUpdated,
+          conflictsDetected: result.stats.conflictsDetected,
+          conflictsResolved: result.stats.conflictsResolved,
+          errors: result.stats.errors,
+        },
+      };
+    } catch (error) {
+      const errorMessage =
+        error instanceof Error ? error.message : String(error);
+
+      console.error(
+        `[Sync Queue] Sync failed - job: ${job._id}, error: ${errorMessage}`
+      );
+
+      // Mark job as failed (will retry with exponential backoff)
+      await ctx.runMutation(api.models.syncQueue.failSyncJob, {
+        jobId: job._id,
+        error: errorMessage,
+      });
+
+      return {
+        success: false,
+        error: errorMessage,
+        reason: "sync_failed",
+      };
+    }
+  },
+});

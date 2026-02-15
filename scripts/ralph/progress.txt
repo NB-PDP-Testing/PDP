@@ -245,3 +245,71 @@ Logging:
 - [ ] Phone normalization (add +353 if missing country code)
 
 ---
+## Sun 15 Feb 2026 22:52 - US-P4.2-004 - Create GAA field mapping transformer
+**Iteration**: 1
+**Commit**: c85f49a632e82208d502ca4033a31ce91be465f8
+**Session**: b2ee1cce-0789-408c-a3de-b60c1f7b1b24
+**Status**: Complete
+
+### What was implemented
+- Created `packages/backend/convex/lib/federation/gaaMapper.ts` with comprehensive field mapping
+- Implemented `transformGAAMember()` function to convert GAA member data to PlayerARC import schema
+- Implemented `transformGAAMembers()` bulk transform function
+- Field mappings with validation:
+  - Name fields: trim and titlecase (John Doe format)
+  - Email: lowercase, validate format
+  - Phone: normalize to +353 format (Irish country code)
+  - Address: parse single-line GAA format into street1, city, county, postcode
+  - Date fields: validate ISO YYYY-MM-DD format
+  - Membership number: validate XXX-XXXXX-XXX format
+  - Status: map Active/Current/Registered → active, others → inactive
+- Validation system:
+  - `errors` array for critical issues (missing required fields, invalid dates)
+  - `warnings` array for non-fatal issues (invalid email/phone, malformed membership number)
+- External ID mapping: stores GAA membership number in `externalIds.foireann` for deduplication
+- Country auto-set to "Ireland" for all GAA members
+
+### Files changed
+- packages/backend/convex/lib/federation/gaaMapper.ts (+397 lines, new file)
+  - GAAMember interface (re-declared to avoid circular deps)
+  - ImportRowData interface (matching PlayerARC import schema)
+  - Helper functions: toTitleCase, validateEmail, normalizePhone, parseAddress
+  - Validation functions: validateMembershipNumber, validateISODate
+  - Main transformers: transformGAAMember, transformGAAMembers
+
+### Quality checks
+- ✅ Convex codegen: passed
+- ✅ Type check: passed (pre-existing admin errors OK)
+- ✅ Linting: passed (fixed block statement and top-level regex issues)
+- ⚠️ Browser verification: N/A (backend-only library)
+
+### **Learnings for future iterations** ⚠️ CRITICAL
+
+**Patterns discovered:**
+- Import system expects data with fields matching DEFAULT_TARGET_FIELDS from mapper.ts
+- Validation should distinguish between errors (block import) and warnings (log but continue)
+- GAA addresses use comma-separated format: "Street, Town, County, Postcode"
+- Phone normalization must handle multiple formats: 087, (01), +353 87, etc.
+
+**Gotchas encountered:**
+- Biome linter requires block statements for single-line if returns: `if (!x) return;` → `if (!x) { return; }`
+- Biome requires regex literals to be top-level constants (not declared in functions)
+- Must use `return;` (not `return undefined;`) for consistent style
+- Pre-commit hooks run biome with --diagnostic-level=error (catches more than ultracite)
+
+**Dependencies found:**
+- Import row data structure matches fields from lib/import/mapper.ts
+- Errors/warnings arrays expected by import session tracking
+- externalIds field used for deduplication (next story US-P4.2-006)
+
+**What to do next**:
+- [ ] Implement US-P4.2-005: GAA sync orchestrator action
+- [ ] Will tie together fetchMembershipList, transformGAAMembers, and import pipeline
+- [ ] Create import session, handle duplicates, update stats
+
+**Mistakes made** (learn from these!):
+- Initially used inline regex in functions - had to move to top-level constants
+- First attempt didn't use block statements for early returns - biome rejected
+- Forgot about playerCounty field (Ireland-specific) - added to address parsing
+
+---

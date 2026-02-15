@@ -104,6 +104,7 @@
       "id": "US-P4.2-004",
       "title": "Create GAA field mapping transformer",
       "description": "As a developer, I need to transform GAA Foireann field names and formats to match PlayerARC's schema for seamless import.",
+      "passes": true,
       "acceptanceCriteria": [
         "Create packages/backend/convex/lib/federation/gaaMapper.ts",
         "Implement transformGAAMember function: (gaaMember: GAAMember) => ImportRowData",

@@ -54,6 +54,7 @@
         "Run npx -w packages/backend convex codegen"
       ],
       "priority": 1,
+      "passes": true,
       "notes": "The actual Foireann API endpoints are placeholders - replace with real endpoints when API documentation available. OAuth client ID and secret will be configured per club when they connect."
     },
     {

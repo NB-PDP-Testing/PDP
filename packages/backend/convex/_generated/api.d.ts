@@ -13,6 +13,7 @@ import type * as actions_coachParentSummaries from "../actions/coachParentSummar
 import type * as actions_draftGeneration from "../actions/draftGeneration.js";
 import type * as actions_entityResolution from "../actions/entityResolution.js";
 import type * as actions_federationAuth from "../actions/federationAuth.js";
+import type * as actions_gaaFoireann from "../actions/gaaFoireann.js";
 import type * as actions_guardianNotifications from "../actions/guardianNotifications.js";
 import type * as actions_invitations from "../actions/invitations.js";
 import type * as actions_messaging from "../actions/messaging.js";
@@ -220,6 +221,7 @@ declare const fullApi: ApiFromModules<{
   "actions/draftGeneration": typeof actions_draftGeneration;
   "actions/entityResolution": typeof actions_entityResolution;
   "actions/federationAuth": typeof actions_federationAuth;
+  "actions/gaaFoireann": typeof actions_gaaFoireann;
   "actions/guardianNotifications": typeof actions_guardianNotifications;
   "actions/invitations": typeof actions_invitations;
   "actions/messaging": typeof actions_messaging;

@@ -1,3 +1,110 @@
 # Ralph Progress Log
 Started: Sun 15 Feb 2026 21:29:25 GMT
 ---
+
+## Codebase Patterns
+**Last Updated**: Sun 15 Feb 2026 - Iteration 1
+
+### Architecture
+- All routes scoped under `/orgs/[orgId]/`
+- Use Better Auth for authentication, Convex for backend
+- Organization data isolated via organizationId field
+- Federation connectors link to importTemplates via templateId
+
+### Convex Backend Patterns
+- NEVER use `.filter()` - always use `.withIndex()`
+- All functions need `args` and `returns` validators
+- Use `Id<"tableName">` types, not `string`
+- Index names include all fields: `by_orgId_and_status`
+- Actions can use `ctx.storage` and `ctx.runMutation/runQuery`
+- Mutations have direct `ctx.db` access
+
+### Import System Patterns
+- Import templates stored in `importTemplates` table
+- Templates have `scope` (platform/organization) and `sportCode`
+- Seed mutations should be idempotent - check for existing records
+- Federation connectors link to templates via `templateId` field
+
+### Encryption & Storage
+- Federation credentials encrypted using `lib/federation/encryption.ts`
+- OAuth credentials stored as encrypted blobs in `ctx.storage`
+- Use `encryptCredentials()` to encrypt before storing
+- Placeholder credentials allowed for seed data
+
+### Quality Checks
+- Run in order: `npx -w packages/backend convex codegen` → `npx ultracite fix` → `npm run check-types`
+- Ultracite may fail but still apply fixes - check git diff to confirm
+- Pre-existing type errors in migrations/ and admin pages are OK
+
+### File Locations (discovered during work)
+- Import template seeds: `packages/backend/convex/models/importTemplateSeeds.ts`
+- Federation connector CRUD: `packages/backend/convex/models/federationConnectors.ts`
+- Federation API client: `packages/backend/convex/lib/federation/apiClient.ts`
+- Encryption utilities: `packages/backend/convex/lib/federation/encryption.ts`
+
+---
+
+## Sun 15 Feb 2026 21:45 - US-P4.2-001 - Create GAA Foireann connector configuration seed
+**Iteration**: 1
+**Commit**: 8cf4cb648dbe943d31264fa392bd187bcb1ea834
+**Session**: 58f28692-5087-4431-ab96-e1dc7e836e5e
+**Status**: Complete
+
+### What was implemented
+- Added `seedGAAConnector` action to `packages/backend/convex/models/importTemplateSeeds.ts`
+- Creates GAA Foireann connector with encrypted placeholder OAuth credentials
+- Links connector to existing GAA Foireann import template (auto-created if missing)
+- Connector configuration:
+  - name: "GAA Foireann"
+  - federationCode: "gaa_foireann"
+  - authType: oauth2
+  - Endpoints:
+    - membershipList: "https://api.foireann.ie/v2/clubs/{clubId}/members"
+    - memberDetail: "https://api.foireann.ie/v2/members/{memberId}"
+  - syncConfig.conflictStrategy: "federation_wins" (Foireann is source of truth)
+  - status: inactive (until OAuth configured per organization)
+- Implementation is idempotent - returns existing connector if already exists
+
+### Files changed
+- packages/backend/convex/models/importTemplateSeeds.ts (+113 lines)
+  - Added seedGAAConnector action
+  - Added findGAATemplate internal query
+  - Added createGAAConnectorInternal internal mutation
+
+### Quality checks
+- ✅ Convex codegen: passed
+- ✅ Type check: passed (pre-existing errors OK per MEMORY.md)
+- ✅ Linting: passed (ultracite fix applied)
+- ⚠️ Browser verification: N/A (backend-only change)
+
+### **Learnings for future iterations** ⚠️ CRITICAL
+
+**Patterns discovered:**
+- Actions can use `ctx.storage.store()` to save encrypted credentials as blobs
+- Seed mutations should be actions (not mutations) when they need storage access
+- Import templates must exist before creating connectors that link to them
+- Use internal mutations for database operations from actions
+
+**Gotchas encountered:**
+- Initial attempt used placeholder string for `credentialsStorageId` - WRONG
+- Must create actual encrypted blob in storage, even for placeholder credentials
+- Actions cannot directly call mutations - must use `ctx.runMutation(internal.*)`
+- Need to import encryption utilities dynamically in actions: `await import("../lib/federation/encryption")`
+
+**Dependencies found:**
+- GAA connector depends on GAA import template existing first
+- Must call `seedDefaultTemplates` before creating connector
+- Connector schema requires valid `credentialsStorageId` of type `Id<"_storage">`
+
+**What to do next**:
+- [ ] Implement US-P4.2-002: GAA membership list fetcher action
+- [ ] Will need to create `packages/backend/convex/actions/gaaFoireann.ts`
+- [ ] Use `FederationApiClient` from Phase 4.1 for API calls
+- [ ] Handle pagination (Foireann likely returns 100 members per page)
+
+**Mistakes made** (learn from these!):
+- Initially tried to use `v.literal("placeholder")` for credentialsStorageId - type error
+- Forgot that actions need to use `ctx.runMutation` for database writes
+- Almost forgot to make seed idempotent - added existence check in mutation
+
+---

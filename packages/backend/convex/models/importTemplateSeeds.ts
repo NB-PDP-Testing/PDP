@@ -1,6 +1,12 @@
 import { v } from "convex/values";
+import { internal } from "../_generated/api";
 import type { Id } from "../_generated/dataModel";
-import { mutation, query } from "../_generated/server";
+import {
+  action,
+  internalMutation,
+  mutation,
+  query,
+} from "../_generated/server";
 
 // ============================================================
 // DEFAULT IMPORT TEMPLATE SEEDS
@@ -263,5 +269,158 @@ export const hasDefaultTemplates = query({
         (t) => t.name === "Generic CSV/Excel" && t.isActive
       ),
     };
+  },
+});
+
+// ============================================================
+// GAA FOIREANN CONNECTOR SEED
+// ============================================================
+// Creates the GAA Foireann federation connector with OAuth 2.0
+// authentication and links it to the GAA import template.
+// ============================================================
+
+/**
+ * Seed GAA Foireann connector if it doesn't already exist.
+ * Creates placeholder connector without real credentials.
+ * Credentials will be set per-organization when they connect.
+ * Idempotent: safe to call multiple times.
+ */
+export const seedGAAConnector = action({
+  args: {},
+  returns: v.object({
+    connectorId: v.optional(v.id("federationConnectors")),
+    templateId: v.optional(v.id("importTemplates")),
+    alreadyExisted: v.boolean(),
+  }),
+  handler: async (ctx) => {
+    // First, ensure the GAA template exists
+    const templateResult = await ctx.runMutation(
+      internal.models.importTemplateSeeds.seedDefaultTemplates,
+      {}
+    );
+
+    // Get the GAA template ID (either newly created or existing)
+    let gaaTemplateId: Id<"importTemplates"> | undefined =
+      templateResult.gaaTemplateId;
+
+    // If template already existed, we need to find it
+    if (!gaaTemplateId) {
+      const existingTemplates = await ctx.runQuery(
+        internal.models.importTemplateSeeds.findGAATemplate,
+        {}
+      );
+      gaaTemplateId = existingTemplates;
+    }
+
+    if (!gaaTemplateId) {
+      throw new Error("Failed to create or find GAA Foireann template");
+    }
+
+    // Create placeholder credentials file
+    // Real credentials will be set when organizations connect
+    const placeholderCredentials = {
+      type: "oauth2" as const,
+      accessToken: "placeholder",
+      refreshToken: "placeholder",
+    };
+
+    // Import encryption utilities
+    const { encryptCredentials } = await import("../lib/federation/encryption");
+
+    // Encrypt placeholder credentials
+    const encryptedData = await encryptCredentials(placeholderCredentials);
+
+    // Store encrypted credentials in file storage
+    const credentialsBlob = new Blob([encryptedData], {
+      type: "application/octet-stream",
+    });
+    const credentialsStorageId = await ctx.storage.store(credentialsBlob);
+
+    // Create connector via internal mutation
+    const connectorId = await ctx.runMutation(
+      internal.models.importTemplateSeeds.createGAAConnectorInternal,
+      {
+        templateId: gaaTemplateId,
+        credentialsStorageId,
+      }
+    );
+
+    return {
+      connectorId,
+      templateId: gaaTemplateId,
+      alreadyExisted: !connectorId,
+    };
+  },
+});
+
+/**
+ * Internal query to find existing GAA template
+ */
+export const findGAATemplate = query({
+  args: {},
+  returns: v.union(v.id("importTemplates"), v.null()),
+  handler: async (ctx) => {
+    const platformTemplates = await ctx.db
+      .query("importTemplates")
+      .withIndex("by_scope", (q) => q.eq("scope", "platform"))
+      .collect();
+
+    const gaaTemplate = platformTemplates.find(
+      (t) => t.name === "GAA Foireann Export" && t.isActive
+    );
+
+    return gaaTemplate?._id ?? null;
+  },
+});
+
+/**
+ * Internal mutation to create GAA connector
+ */
+export const createGAAConnectorInternal = internalMutation({
+  args: {
+    templateId: v.id("importTemplates"),
+    credentialsStorageId: v.id("_storage"),
+  },
+  returns: v.union(v.id("federationConnectors"), v.null()),
+  handler: async (ctx, args) => {
+    // Check if connector already exists
+    const existingConnectors = await ctx.db
+      .query("federationConnectors")
+      .collect();
+
+    const gaaConnectorExists = existingConnectors.some(
+      (c) => c.federationCode === "gaa_foireann"
+    );
+
+    if (gaaConnectorExists) {
+      return null; // Already exists
+    }
+
+    const now = Date.now();
+
+    // Create connector with encrypted placeholder credentials
+    // Real credentials will be set when organizations connect
+    const connectorId = await ctx.db.insert("federationConnectors", {
+      name: "GAA Foireann",
+      federationCode: "gaa_foireann",
+      status: "inactive", // Start inactive until OAuth configured
+      authType: "oauth2",
+      credentialsStorageId: args.credentialsStorageId,
+      endpoints: {
+        membershipList: "https://api.foireann.ie/v2/clubs/{clubId}/members",
+        memberDetail: "https://api.foireann.ie/v2/members/{memberId}",
+      },
+      syncConfig: {
+        enabled: false, // Disabled until OAuth configured
+        conflictStrategy: "federation_wins", // Foireann is source of truth
+      },
+      templateId: args.templateId,
+      connectedOrganizations: [],
+      consecutiveFailures: 0,
+      createdAt: now,
+      updatedAt: now,
+    });
+
+    return connectorId;
   },
 });

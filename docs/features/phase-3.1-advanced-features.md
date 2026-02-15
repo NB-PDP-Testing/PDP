@@ -1,12 +1,12 @@
 # PlayerARC - Phase 3.1: Confidence Indicators, Partial Undo & Analytics
 
-> Auto-generated documentation - Last updated: 2026-02-14 23:01
+> Auto-generated documentation - Last updated: 2026-02-15 00:11
 
 ## Status
 
 - **Branch**: `ralph/phase-3.1-advanced-features`
-- **Progress**: 5 / 12 stories complete
-- **Phase Status**: 🔄 In Progress
+- **Progress**: 12 / 12 stories complete
+- **Phase Status**: ✅ Complete
 
 ## Completed Features
 
@@ -87,6 +87,153 @@ As an admin who imported incorrect data, I need to selectively remove specific p
 - Disable 'Remove' button if no players selected
 - Use AlertDialog from shadcn/ui with custom content
 - Mobile: Player list scrollable, checkboxes touch-friendly (44x44px)
+- Run npx ultracite fix before completion
+
+### US-P3.1-006: Add search and filter for player selection in partial undo
+
+As an admin with a large import, I need to search and filter the player list so I can quickly find specific players to remove.
+
+**Acceptance Criteria:**
+- Add search input at top of player list in PartialUndoDialog
+- Search filters by: firstName, lastName, or combination (case-insensitive)
+- Add filter dropdown: 'All Players' | 'Players with Errors' | 'Players with Warnings'
+- Filter by enrollment status: 'Active' | 'Inactive' | 'All'
+- Search and filters work together (AND logic)
+- Search debounced 300ms to avoid performance issues
+- Display result count: 'Showing X of Y players'
+- Use Input component from shadcn/ui for search
+- Use Select component from shadcn/ui for filters
+- Mobile: Search and filters stack vertically at <640px
+- Run npx ultracite fix before completion
+
+### US-P3.1-007: Add per-player impact preview before removal
+
+As an admin about to remove players, I need to see what data will be deleted so I can avoid unintended data loss.
+
+**Acceptance Criteria:**
+- Add 'Preview Impact' section in PartialUndoDialog below player list
+- Preview shows cascading deletions for selected players:
+-   - Player enrollments: X records
+-   - Guardian links: X records (show if guardian will become orphaned)
+-   - Sport passports: X records
+-   - Team assignments: X records
+-   - Skill assessments: X records
+- Warning badge if action will orphan guardians: 'Warning: 3 guardians will have no linked players'
+- Preview updates dynamically as selection changes
+- Use Alert component from shadcn/ui for warnings
+- Backend query: getRemovalImpact(playerIds) returns impact summary
+- Run npx -w packages/backend convex codegen after adding query
+- Run npx ultracite fix before completion
+
+### US-P3.1-008: Implement atomic removal transaction
+
+As a system, I need to remove selected players and all related data in a single transaction so the database remains consistent even if removal fails.
+
+**Acceptance Criteria:**
+- Create removePlayersFromImport mutation in playerImport.ts
+- Mutation accepts: sessionId, playerIdentityIds[] to remove
+- Transaction removes in order (reverse of creation):
+-   1. Skill assessments for these players
+-   2. Team assignments (teamPlayerIdentities)
+-   3. Sport passports
+-   4. Guardian links (guardianToPlayerLinks) - only if guardian orphaned
+-   5. Enrollments (orgPlayerEnrollments)
+-   6. Player identities (if not linked elsewhere)
+- Use ctx.db.delete() for each record, wrapped in try-catch
+- Roll back on any error (Convex mutations are atomic)
+- Update importSession stats: subtract removed counts from totals
+- Return removal result: { playersRemoved, enrollmentsRemoved, passportsRemoved, guardiansOrphaned, errors[] }
+- Run npx -w packages/backend convex codegen after adding mutation
+- Run npx ultracite fix before completion
+
+### US-P3.1-009: Create platform staff analytics backend queries
+
+As platform staff, I need backend queries to fetch cross-org import analytics so I can monitor platform health and identify systemic issues.
+
+**Acceptance Criteria:**
+- Create importAnalytics.ts in packages/backend/convex/models/
+- Add getPlatformImportAnalytics query (platform staff only):
+-   - Total imports across all orgs (last 30 days, last 90 days, all time)
+-   - Success rate: (successful imports / total imports) * 100
+-   - Average players per import
+-   - Total players imported platform-wide
+-   - Common error types with counts
+- Add getOrgImportHistory query (org admins + platform staff):
+-   - Org-specific import list with dates, player counts, status
+-   - Success/failure breakdown
+-   - Template usage statistics
+- Add getCommonErrors query (platform staff only):
+-   - Aggregated error messages across all imports
+-   - Error frequency counts
+-   - Top 10 most common errors
+- Add by_organizationId and by_createdAt indexes to importSessions
+- Use .withIndex() for all queries - NEVER .filter()
+- Return validators for all queries with v.object() schemas
+- Run npx -w packages/backend convex codegen after completion
+- Run npx ultracite fix before completion
+
+### US-P3.1-010: Create analytics dashboard page for platform staff
+
+As platform staff, I need a visual analytics dashboard so I can monitor import performance and identify trends at a glance.
+
+**Acceptance Criteria:**
+- Create apps/web/src/app/platform/analytics/import/page.tsx
+- Route protected: redirect non-platform-staff to /orgs/[orgId]/dashboard
+- Display key metrics cards at top:
+-   - Total Imports (with trend arrow: ↑↓)
+-   - Success Rate (percentage with colored badge: green >90%, yellow 70-89%, red <70%)
+-   - Total Players Imported (with breakdown by time period)
+-   - Average Import Size (players per import)
+- Add time period selector: Last 7 Days | Last 30 Days | Last 90 Days | All Time
+- Display import activity chart (line chart showing imports over time)
+- Display common errors table with error message, count, percentage
+- Use Card component from shadcn/ui for metric cards
+- Use recharts library for charts (already in package.json)
+- Mobile: Metrics stack vertically, chart scrolls horizontally if needed
+- Run npx ultracite fix before completion
+
+### US-P3.1-011: Add org-level import history view
+
+As an org admin, I need to see my organization's import history so I can track what data was imported and when.
+
+**Acceptance Criteria:**
+- Create apps/web/src/app/orgs/[orgId]/import/history/page.tsx
+- Display table of all imports for current org:
+-   - Date/time
+-   - Imported by (user name)
+-   - Players imported (count)
+-   - Status (Success | Partial | Failed)
+-   - Template used (if any)
+-   - Actions column with 'View Details' and 'Undo' buttons
+- Sort by date descending (most recent first)
+- Pagination: 20 imports per page
+- Filter by status: All | Success | Partial | Failed
+- Filter by date range: Last 7 Days | Last 30 Days | Custom Range
+- Use Table component from shadcn/ui
+- Use Pagination component from shadcn/ui
+- Status badge colors: green (success), yellow (partial), red (failed)
+- Mobile: Table scrolls horizontally, cards view on <640px
+- Run npx ultracite fix before completion
+
+### US-P3.1-012: Add common error patterns display to analytics
+
+As platform staff, I need to see common error patterns across all orgs so I can improve templates, documentation, and the import wizard.
+
+**Acceptance Criteria:**
+- Add 'Common Errors' section to platform analytics dashboard (from US-P3.1-010)
+- Display table showing:
+-   - Error message (truncated with tooltip for full message)
+-   - Occurrences (count)
+-   - Affected Orgs (count of unique organizations)
+-   - Percentage of total errors
+-   - Trend (↑↓ compared to previous period)
+- Sort by occurrences descending (most common first)
+- Limit to top 10 errors by default, with 'Show More' expansion
+- Color-code by severity: critical errors in red, warnings in yellow
+- Add 'Export CSV' button for full error report
+- Use getCommonErrors query from US-P3.1-009
+- Use Table component from shadcn/ui
+- Mobile: Table becomes accordion list at <640px
 - Run npx ultracite fix before completion
 
 

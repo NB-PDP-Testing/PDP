@@ -716,3 +716,178 @@ export const undoImport = mutation({
     };
   },
 });
+
+// ============================================================
+// PHASE 3.1: DUPLICATE GUARDIAN DETECTION FOR REVIEW STEP
+// ============================================================
+
+/**
+ * Detect duplicate guardians BEFORE import to show on Review step
+ * with confidence indicators.
+ *
+ * This query takes selected player data and checks for existing guardians
+ * that match based on email, phone, name, and address signals.
+ */
+export const detectDuplicateGuardians = query({
+  args: {
+    organizationId: v.string(),
+    players: v.array(
+      v.object({
+        rowIndex: v.number(),
+        firstName: v.string(),
+        lastName: v.string(),
+        dateOfBirth: v.string(),
+        parentEmail: v.optional(v.string()),
+        parentPhone: v.optional(v.string()),
+        parentFirstName: v.optional(v.string()),
+        parentLastName: v.optional(v.string()),
+        parentAddress: v.optional(v.string()),
+      })
+    ),
+  },
+  returns: v.array(
+    v.object({
+      rowNumber: v.number(),
+      existingGuardianId: v.id("guardianIdentities"),
+      guardianName: v.string(),
+      guardianEmail: v.optional(v.string()),
+      guardianPhone: v.optional(v.string()),
+      confidence: v.object({
+        score: v.number(),
+        level: v.union(
+          v.literal("high"),
+          v.literal("medium"),
+          v.literal("low")
+        ),
+        matchReasons: v.array(v.string()),
+        signalBreakdown: v.array(
+          v.object({
+            signal: v.string(),
+            matched: v.boolean(),
+            weight: v.number(),
+            contribution: v.number(),
+            explanation: v.string(),
+          })
+        ),
+      }),
+    })
+  ),
+  handler: async (ctx, args) => {
+    // Import guardian matcher
+    const { findGuardianMatches } = await import(
+      "../lib/matching/guardianMatcher"
+    );
+
+    const duplicates = [];
+
+    // Check each player for existing guardian matches
+    for (const player of args.players) {
+      // Skip if no guardian info provided
+      if (
+        !(player.parentEmail || player.parentPhone || player.parentFirstName)
+      ) {
+        continue;
+      }
+
+      // Call guardian matcher to find existing guardians
+      const matches = await findGuardianMatches(ctx, {
+        email: player.parentEmail || "",
+        firstName: player.parentFirstName || "",
+        lastName: player.parentLastName || "",
+        phone: player.parentPhone,
+        address: player.parentAddress,
+      });
+
+      // If matches found, add to duplicates with confidence data
+      for (const match of matches) {
+        // Build signal breakdown for transparency
+        const signalBreakdown = [];
+
+        // Email signal (40%)
+        const emailMatched = !!(
+          player.parentEmail &&
+          match.guardian.email &&
+          player.parentEmail.toLowerCase().trim() ===
+            match.guardian.email.toLowerCase().trim()
+        );
+        signalBreakdown.push({
+          signal: "Email",
+          matched: emailMatched,
+          weight: 40,
+          contribution: emailMatched ? 40 : 0,
+          explanation: emailMatched
+            ? "Email addresses match exactly"
+            : "Email addresses do not match",
+        });
+
+        // Phone signal (30%)
+        const phoneMatched = !!(
+          player.parentPhone &&
+          match.guardian.phone &&
+          player.parentPhone.replace(/\D/g, "").slice(-10) ===
+            match.guardian.phone.replace(/\D/g, "").slice(-10)
+        );
+        signalBreakdown.push({
+          signal: "Phone",
+          matched: phoneMatched,
+          weight: 30,
+          contribution: phoneMatched ? 30 : 0,
+          explanation: phoneMatched
+            ? "Phone numbers match"
+            : "Phone numbers do not match",
+        });
+
+        // Name signal (20%)
+        const nameMatched = !!(
+          player.parentLastName &&
+          match.guardian.lastName &&
+          player.parentLastName.toLowerCase().trim() ===
+            match.guardian.lastName.toLowerCase().trim()
+        );
+        signalBreakdown.push({
+          signal: "Name",
+          matched: nameMatched,
+          weight: 20,
+          contribution: nameMatched ? 20 : 0,
+          explanation: nameMatched
+            ? "Last names match exactly"
+            : "Last names do not match",
+        });
+
+        // Address signal (10%)
+        // Note: Address matching is complex, using matchReasons as proxy
+        const addressMatched = match.matchReasons.some(
+          (r) =>
+            r.includes("address") ||
+            r.includes("postcode") ||
+            r.includes("town")
+        );
+        signalBreakdown.push({
+          signal: "Address",
+          matched: addressMatched,
+          weight: 10,
+          contribution: addressMatched ? 10 : 0,
+          explanation: addressMatched
+            ? "Address components match"
+            : "Address does not match",
+        });
+
+        duplicates.push({
+          rowNumber: player.rowIndex,
+          existingGuardianId: match.guardianIdentityId,
+          guardianName: `${match.guardian.firstName} ${match.guardian.lastName}`,
+          guardianEmail: match.guardian.email,
+          guardianPhone: match.guardian.phone,
+          confidence: {
+            score: match.score,
+            level: match.confidence,
+            matchReasons: match.matchReasons,
+            signalBreakdown,
+          },
+        });
+      }
+    }
+
+    return duplicates;
+  },
+});

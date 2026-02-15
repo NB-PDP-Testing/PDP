@@ -218,6 +218,30 @@ function buildPlayerPayload(
 }
 
 // ============================================================
+// Player payload builder (for duplicate detection query)
+// ============================================================
+
+function buildDuplicateDetectionPayload(
+  row: Record<string, string>,
+  rowIndex: number,
+  mappings: Record<string, string>
+) {
+  const get = (field: string) => getMappedValue(row, field, mappings);
+
+  return {
+    rowIndex,
+    firstName: get("firstName"),
+    lastName: get("lastName"),
+    dateOfBirth: get("dateOfBirth"),
+    parentEmail: get("parentEmail") || undefined,
+    parentPhone: get("parentPhone") || undefined,
+    parentFirstName: get("parentFirstName") || undefined,
+    parentLastName: get("parentLastName") || undefined,
+    parentAddress: get("parentAddress") || undefined,
+  };
+}
+
+// ============================================================
 // Sub-components
 // ============================================================
 
@@ -992,6 +1016,57 @@ export default function ReviewStep({
     confirmedMappings,
     onValidationErrorsChange,
   ]);
+
+  // Build player payloads for duplicate detection (Phase 3.1)
+  const duplicateDetectionPlayers = useMemo(
+    () =>
+      [...selectedRows].map((idx) => {
+        const row = parsedData.rows[idx];
+        return buildDuplicateDetectionPayload(row, idx, confirmedMappings);
+      }),
+    [selectedRows, parsedData.rows, confirmedMappings]
+  );
+
+  // Query args for duplicate detection
+  const duplicateDetectionArgs = useMemo(() => {
+    if (duplicateDetectionPlayers.length === 0) {
+      return "skip" as const;
+    }
+    return {
+      organizationId,
+      players: duplicateDetectionPlayers,
+    };
+  }, [duplicateDetectionPlayers, organizationId]);
+
+  // Detect duplicate guardians (Phase 3.1: Confidence Indicators)
+  const duplicateDetectionResult = useQuery(
+    api.models.importSessions.detectDuplicateGuardians,
+    duplicateDetectionArgs
+  );
+
+  // Update duplicates when detection results arrive
+  useEffect(() => {
+    if (!duplicateDetectionResult) {
+      return;
+    }
+
+    const detectedDuplicates: DuplicateInfo[] = duplicateDetectionResult.map(
+      (dup) => ({
+        rowNumber: dup.rowNumber,
+        existingPlayerId:
+          dup.existingGuardianId as unknown as Id<"playerIdentities">,
+        resolution: "skip",
+        guardianConfidence: {
+          score: dup.confidence.score,
+          level: dup.confidence.level,
+          matchReasons: dup.confidence.matchReasons,
+          signalBreakdown: dup.confidence.signalBreakdown,
+        },
+      })
+    );
+
+    onDuplicatesChange(detectedDuplicates);
+  }, [duplicateDetectionResult, onDuplicatesChange]);
 
   // Build player payloads for simulation
   const simulationPlayers = useMemo(() => {

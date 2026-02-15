@@ -46,3 +46,63 @@ Started: Sun 15 Feb 2026 23:15:16 GMT
 
 ---
 
+
+## 2026-02-15 23:45 - US-P4.4-001 - Create cron scheduler for automated syncs
+**Iteration**: 1
+**Commit**: cb4b30f2e69d216a90edd7d3f79c5aa770fb19eb
+**Session**: 28d554da-c69f-4334-9606-0515ca527995
+**Status**: Complete
+
+### What was implemented
+- Created `packages/backend/convex/actions/federationScheduler.ts` with scheduledFederationSync internal action
+- Added cron job to `packages/backend/convex/crons.ts` to run nightly at 2:15 AM UTC
+- Implemented sync orchestration logic:
+  - Queries all active connectors with `syncConfig.enabled = true`
+  - For each connector, syncs all connected organizations
+  - Rate limiting: 60-second delay between each organization sync to avoid overwhelming APIs
+  - Tracks comprehensive stats: connectors processed, orgs synced, success/failure counts
+- Integrated with existing GAA sync action (`api.actions.gaaFoireann.syncGAAMembers`)
+- Updates connector health tracking (lastSyncAt timestamps, success/error recording)
+- Comprehensive logging for monitoring and debugging
+
+### Files changed
+- packages/backend/convex/actions/federationScheduler.ts (+215 new file)
+- packages/backend/convex/crons.ts (+8, -1)
+
+### Quality checks
+- ✅ Type check: passed (no new errors)
+- ✅ Convex codegen: passed
+- ✅ Linting: passed (fixed increment operators to use += instead of ++)
+- ✅ Browser verification: N/A (backend-only change)
+
+### **Learnings for future iterations** ⚠️ CRITICAL
+
+**Patterns discovered:**
+- Convex cron jobs use `crons.daily()`, `crons.hourly()`, `crons.interval()`, `crons.weekly()`
+- Cron syntax: `{ hourUTC: 2, minuteUTC: 15 }` for daily jobs at specific times
+- All cron jobs must call internal functions via `internal.<path>.<function>`
+- Existing crons run at various times: 12 AM (budget), 1 AM (usage), 2 AM (reviews), 3 AM (cleanup), etc.
+- Chose 2:15 AM to spread load from other 2 AM jobs
+
+**Gotchas encountered:**
+- Biome linter rejects `++` and `--` operators - must use `+= 1` instead
+- Pre-commit hook runs lint-staged which enforces this
+- Import paths for internal functions: `internal.actions.federationScheduler` (note: "actions" not "models")
+
+**Dependencies found:**
+- scheduledFederationSync depends on:
+  - `api.models.federationConnectors.listConnectors` (get active connectors)
+  - `api.actions.gaaFoireann.syncGAAMembers` (perform sync for each org)
+  - `api.models.federationConnectors.updateLastSyncTime` (update timestamps)
+  - `api.models.federationConnectors.recordConnectorSuccess` (health tracking)
+  - `api.models.federationConnectors.recordConnectorError` (error tracking)
+
+**What to do next**:
+- ✅ Story complete - all acceptance criteria met
+- Next story: US-P4.4-002 (Implement change detection for federation data)
+
+**Mistakes made** (learn from these!):
+- Initially used `++` increment operators, caught by pre-commit hook
+- Fixed by using `+= 1` syntax instead
+
+---

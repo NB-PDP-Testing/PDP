@@ -55,6 +55,7 @@
         "Run npx -w packages/backend convex codegen"
       ],
       "priority": 1,
+      "passes": true,
       "notes": "2 AM is chosen to minimize impact on users. Rate limiting prevents overwhelming federation APIs and Convex function limits. Stagger syncs: wait 1 minute between each to spread load."
     },
     {

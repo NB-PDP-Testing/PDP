@@ -46,6 +46,7 @@ import type * as lib_duplicateDetection from "../lib/duplicateDetection.js";
 import type * as lib_featureFlags from "../lib/featureFlags.js";
 import type * as lib_federation_apiClient from "../lib/federation/apiClient.js";
 import type * as lib_federation_backoff from "../lib/federation/backoff.js";
+import type * as lib_federation_changeDetector from "../lib/federation/changeDetector.js";
 import type * as lib_federation_encryption from "../lib/federation/encryption.js";
 import type * as lib_federation_gaaMapper from "../lib/federation/gaaMapper.js";
 import type * as lib_federation_gaaTestData from "../lib/federation/gaaTestData.js";
@@ -264,6 +265,7 @@ declare const fullApi: ApiFromModules<{
   "lib/featureFlags": typeof lib_featureFlags;
   "lib/federation/apiClient": typeof lib_federation_apiClient;
   "lib/federation/backoff": typeof lib_federation_backoff;
+  "lib/federation/changeDetector": typeof lib_federation_changeDetector;
   "lib/federation/encryption": typeof lib_federation_encryption;
   "lib/federation/gaaMapper": typeof lib_federation_gaaMapper;
   "lib/federation/gaaTestData": typeof lib_federation_gaaTestData;

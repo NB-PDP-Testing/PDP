@@ -188,3 +188,104 @@ export const callClaudeAPI = action({
     );
   },
 });
+
+/**
+ * Suggest a column mapping using AI with caching
+ * Checks cache first, calls Claude API if needed, then stores result
+ */
+export const suggestColumnMapping = action({
+  args: {
+    columnName: v.string(),
+    sampleValues: v.array(v.string()), // 3-5 sample values
+  },
+  returns: v.object({
+    targetField: v.union(v.string(), v.null()),
+    confidence: v.number(),
+    reasoning: v.string(),
+    cached: v.boolean(),
+  }),
+  handler: async (ctx, args) => {
+    // Import helper functions
+    const { buildMappingPrompt, normalizeColumnName, getAvailableFields } =
+      await import("../lib/import/aiMapper");
+
+    // Normalize column name for cache lookup
+    const columnPattern = normalizeColumnName(args.columnName);
+
+    // Check cache for existing mapping
+    const cached = await ctx.runQuery(
+      (await import("../_generated/api")).default.models.aiMappingCache
+        .getCachedMapping,
+      {
+        columnPattern,
+        sampleValues: args.sampleValues.slice(0, 3),
+      }
+    );
+
+    // If cached and not expired, return cached result
+    if (cached && cached.expiresAt > Date.now()) {
+      console.log(`Cache HIT for column: ${args.columnName}`);
+      return {
+        targetField: cached.suggestedField,
+        confidence: cached.confidence,
+        reasoning: cached.reasoning,
+        cached: true,
+      };
+    }
+
+    console.log(`Cache MISS for column: ${args.columnName}`);
+
+    // Not cached or expired - call Claude API
+    const availableFields = getAvailableFields();
+    const prompt = buildMappingPrompt(
+      args.columnName,
+      args.sampleValues,
+      availableFields
+    );
+
+    // Call Claude API
+    const response = await ctx.runAction(
+      (await import("../_generated/api")).default.actions.aiMapping
+        .callClaudeAPI,
+      { prompt }
+    );
+
+    // Validate targetField is in allowed fields list
+    if (
+      response.targetField !== null &&
+      !availableFields.includes(response.targetField)
+    ) {
+      console.warn(
+        `AI suggested invalid field: ${response.targetField}. Treating as null.`
+      );
+      response.targetField = null;
+      response.confidence = 0;
+      response.reasoning = `Invalid field suggested: ${response.targetField}`;
+    }
+
+    // Store in cache (30 days = 2592000000 ms)
+    const now = Date.now();
+    const expiresAt = now + 2_592_000_000;
+
+    await ctx.runMutation(
+      (await import("../_generated/api")).default.models.aiMappingCache
+        .storeCachedMapping,
+      {
+        columnPattern,
+        sampleValues: args.sampleValues.slice(0, 3),
+        suggestedField: response.targetField || "", // Store empty string if null
+        confidence: response.confidence,
+        reasoning: response.reasoning,
+        createdAt: now,
+        expiresAt,
+      }
+    );
+
+    return {
+      targetField: response.targetField,
+      confidence: response.confidence,
+      reasoning: response.reasoning,
+      cached: false,
+    };
+  },
+});

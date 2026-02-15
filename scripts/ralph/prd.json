@@ -94,7 +94,8 @@
         "Run npx ultracite fix"
       ],
       "priority": 3,
-      "notes": "Prompt engineering is critical for accuracy. Include examples to guide Claude's responses. Be explicit about JSON format to ensure parseable output. Conservative confidence scores reduce false positives."
+      "notes": "Prompt engineering is critical for accuracy. Include examples to guide Claude's responses. Be explicit about JSON format to ensure parseable output. Conservative confidence scores reduce false positives.",
+      "passes": true
     },
     {
       "id": "US-P4.3-004",

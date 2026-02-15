@@ -119,3 +119,46 @@ Started: Sun 15 Feb 2026 22:26:17 GMT
 - Put regex pattern inside function instead of module level
 
 ---
+## 2026-02-15 23:30 - US-P4.3-003 - Create AI mapping prompt template
+**Iteration**: 1
+**Commit**: e655a758f2ab1c94c7f9fb26c20ed32a4889fdd9
+**Session**: 28d554da-c69f-4334-9606-0515ca527995
+**Status**: Complete
+
+### What was implemented
+- Created `packages/backend/convex/lib/import/aiMapper.ts` with prompt engineering utilities
+- Implemented `buildMappingPrompt` function with comprehensive prompt structure
+- Defined 15 available target fields (firstName, lastName, dateOfBirth, email, phone, address.*, gender, guardian*)
+- Prompt includes: system context, task description, available fields, column name, sample values, response format, 3 examples, constraints
+- Examples show high confidence (95%), medium confidence (60%), and low confidence/no match (0%) scenarios
+- Added helper functions: `getAvailableFields`, `normalizeColumnName` (for caching)
+- Input validation: throws errors if columnName or sampleValues are empty
+
+### Files changed
+- packages/backend/convex/lib/import/aiMapper.ts (+126 lines, new file)
+
+### Quality checks
+- ✅ Convex codegen: passed
+- ✅ Biome linting: passed
+- ✅ Pre-commit lint-staged: passed
+
+### **Learnings for future iterations** ⚠️ CRITICAL
+**Patterns discovered:**
+- Prompt engineering structure: system context → task → available options → input data → format → examples → constraints
+- Use `as const` for readonly arrays that should not be mutated
+- Examples in prompts should cover different confidence levels to guide AI behavior
+- Normalize column names for caching: lowercase, trim, remove special chars
+
+**Gotchas encountered:**
+- Initially added unused `TargetField` type - biome linter caught it
+
+**Dependencies found:**
+- normalizeColumnName will be used for cache key generation in next story
+
+**What to do next**:
+- [ ] US-P4.3-004: Implement AI column mapper with caching (suggestColumnMapping action)
+
+**Mistakes made**:
+- Added unused TypeScript type that had to be removed
+
+---

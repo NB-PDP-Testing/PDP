@@ -8,6 +8,7 @@
  */
 
 import { v } from "convex/values";
+import { internal } from "../_generated/api";
 import { internalMutation, internalQuery, query } from "../_generated/server";
 
 const MAX_RECENT_ARTIFACTS = 200;
@@ -82,7 +83,7 @@ export const createArtifact = internalMutation({
   returns: v.id("voiceNoteArtifacts"),
   handler: async (ctx, args) => {
     const now = Date.now();
-    return await ctx.db.insert("voiceNoteArtifacts", {
+    const newArtifactId = await ctx.db.insert("voiceNoteArtifacts", {
       artifactId: args.artifactId,
       sourceChannel: args.sourceChannel,
       senderUserId: args.senderUserId,
@@ -93,6 +94,20 @@ export const createArtifact = internalMutation({
       createdAt: now,
       updatedAt: now,
     });
+
+    // Log artifact_received event (fire-and-forget)
+    ctx.scheduler.runAfter(0, internal.models.voicePipelineEvents.logEvent, {
+      eventType: "artifact_received",
+      artifactId: newArtifactId,
+      organizationId: args.orgContextCandidates[0]?.organizationId,
+      coachUserId: args.senderUserId,
+      pipelineStage: "ingestion",
+      metadata: {
+        sourceChannel: args.sourceChannel,
+      },
+    });
+
+    return newArtifactId;
   },
 });
 
@@ -133,6 +148,8 @@ export const updateArtifactStatus = internalMutation({
   args: {
     artifactId: v.string(),
     status: statusValidator,
+    errorMessage: v.optional(v.string()),
+    errorCode: v.optional(v.string()),
   },
   returns: v.null(),
   handler: async (ctx, args) => {
@@ -145,9 +162,35 @@ export const updateArtifactStatus = internalMutation({
       throw new Error(`Artifact not found: ${args.artifactId}`);
     }
 
+    const previousStatus = artifact.status;
+
     await ctx.db.patch(artifact._id, {
       status: args.status,
       updatedAt: Date.now(),
+    });
+
+    // Log status change event (fire-and-forget)
+    let eventType:
+      | "artifact_completed"
+      | "artifact_failed"
+      | "artifact_status_changed";
+    if (args.status === "completed") {
+      eventType = "artifact_completed";
+    } else if (args.status === "failed") {
+      eventType = "artifact_failed";
+    } else {
+      eventType = "artifact_status_changed";
+    }
+
+    ctx.scheduler.runAfter(0, internal.models.voicePipelineEvents.logEvent, {
+      eventType,
+      artifactId: artifact._id,
+      organizationId: artifact.orgContextCandidates[0]?.organizationId,
+      coachUserId: artifact.senderUserId,
+      previousStatus,
+      newStatus: args.status,
+      errorMessage: args.errorMessage,
+      errorCode: args.errorCode,
     });
 
     return null;

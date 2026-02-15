@@ -244,7 +244,7 @@ export function PartialUndoDialog({
 
   return (
     <AlertDialog onOpenChange={(open) => !open && onClose()} open={!!sessionId}>
-      <AlertDialogContent className="max-w-2xl">
+      <AlertDialogContent className="flex max-h-[85vh] w-[95vw] max-w-2xl flex-col sm:max-h-[90vh]">
         <AlertDialogHeader>
           <AlertDialogTitle className="flex items-center gap-2">
             <Users className="h-5 w-5 text-primary" />
@@ -256,240 +256,250 @@ export function PartialUndoDialog({
           </AlertDialogDescription>
         </AlertDialogHeader>
 
-        <div className="space-y-4">
-          {/* Loading State */}
-          {isLoading && (
-            <div className="flex items-center justify-center py-8">
-              <Loader2 className="h-6 w-6 animate-spin text-muted-foreground" />
-            </div>
-          )}
-
-          {/* Search and Filters */}
-          {!isLoading && totalPlayers > 0 && (
-            <div className="space-y-3">
-              {/* Search Input */}
-              <div className="relative">
-                <Search className="absolute top-2.5 left-2.5 h-4 w-4 text-muted-foreground" />
-                <Input
-                  className="pl-9"
-                  onChange={(e) => setSearchQuery(e.target.value)}
-                  placeholder="Search by name..."
-                  value={searchQuery}
-                />
+        <ScrollArea className="flex-1 overflow-y-auto">
+          <div className="space-y-4 pr-2 sm:pr-4">
+            {/* Loading State */}
+            {isLoading && (
+              <div className="flex items-center justify-center py-8">
+                <Loader2 className="h-6 w-6 animate-spin text-muted-foreground" />
               </div>
+            )}
 
-              {/* Filters */}
-              <div className="flex flex-col gap-3 sm:flex-row">
-                {/* Status Filter */}
-                <Select
-                  onValueChange={(value) =>
-                    setStatusFilter(value as "all" | "active" | "inactive")
-                  }
-                  value={statusFilter}
-                >
-                  <SelectTrigger className="flex-1">
-                    <SelectValue placeholder="Filter by status" />
-                  </SelectTrigger>
-                  <SelectContent>
-                    <SelectItem value="all">All Statuses</SelectItem>
-                    <SelectItem value="active">Active</SelectItem>
-                    <SelectItem value="inactive">Inactive</SelectItem>
-                  </SelectContent>
-                </Select>
-
-                {/* Error/Warning Filter */}
-                <Select
-                  onValueChange={(value) =>
-                    setErrorFilter(value as "all" | "errors" | "warnings")
-                  }
-                  value={errorFilter}
-                >
-                  <SelectTrigger className="flex-1">
-                    <SelectValue placeholder="Filter by issues" />
-                  </SelectTrigger>
-                  <SelectContent>
-                    <SelectItem value="all">All Players</SelectItem>
-                    <SelectItem value="errors">Players with Errors</SelectItem>
-                    <SelectItem value="warnings">
-                      Players with Warnings
-                    </SelectItem>
-                  </SelectContent>
-                </Select>
-              </div>
-
-              {/* Result Count */}
-              <p className="text-muted-foreground text-sm">
-                Showing {players.length} of {totalPlayers} players
-              </p>
-            </div>
-          )}
-
-          {/* Player List */}
-          {!isLoading && players.length > 0 && (
-            <div className="space-y-3">
-              {/* Select All + Count */}
-              <div className="flex items-center justify-between rounded-md border p-3">
-                <div className="flex items-center gap-3">
-                  <Checkbox
-                    checked={allFilteredSelected}
-                    id="select-all"
-                    onCheckedChange={handleSelectAll}
+            {/* Search and Filters */}
+            {!isLoading && totalPlayers > 0 && (
+              <div className="space-y-3">
+                {/* Search Input */}
+                <div className="relative">
+                  <Search className="absolute top-2.5 left-2.5 h-4 w-4 text-muted-foreground" />
+                  <Input
+                    className="pl-9"
+                    onChange={(e) => setSearchQuery(e.target.value)}
+                    placeholder="Search by name..."
+                    value={searchQuery}
                   />
-                  <label
-                    className="cursor-pointer font-medium text-sm"
-                    htmlFor="select-all"
+                </div>
+
+                {/* Filters */}
+                <div className="flex flex-col gap-3 sm:flex-row">
+                  {/* Status Filter */}
+                  <Select
+                    onValueChange={(value) =>
+                      setStatusFilter(value as "all" | "active" | "inactive")
+                    }
+                    value={statusFilter}
                   >
-                    {allFilteredSelected ? "Deselect All" : "Select All"}
-                  </label>
+                    <SelectTrigger className="flex-1">
+                      <SelectValue placeholder="Filter by status" />
+                    </SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="all">All Statuses</SelectItem>
+                      <SelectItem value="active">Active</SelectItem>
+                      <SelectItem value="inactive">Inactive</SelectItem>
+                    </SelectContent>
+                  </Select>
+
+                  {/* Error/Warning Filter */}
+                  <Select
+                    onValueChange={(value) =>
+                      setErrorFilter(value as "all" | "errors" | "warnings")
+                    }
+                    value={errorFilter}
+                  >
+                    <SelectTrigger className="flex-1">
+                      <SelectValue placeholder="Filter by issues" />
+                    </SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="all">All Players</SelectItem>
+                      <SelectItem value="errors">
+                        Players with Errors
+                      </SelectItem>
+                      <SelectItem value="warnings">
+                        Players with Warnings
+                      </SelectItem>
+                    </SelectContent>
+                  </Select>
                 </div>
-                <Badge variant={selectedCount > 0 ? "default" : "secondary"}>
-                  {selectedCount} player{selectedCount !== 1 ? "s" : ""}{" "}
-                  selected
-                </Badge>
-              </div>
 
-              {/* Player Rows */}
-              <ScrollArea className="h-[300px] rounded-md border">
-                <div className="space-y-2 p-3">
-                  {players.map((player: ImportedPlayer) => {
-                    const isSelected = selectedPlayerIds.has(player._id);
-                    return (
-                      <div
-                        className="flex items-center gap-3 rounded-md border p-3 transition-colors hover:bg-accent/50"
-                        key={player._id}
-                      >
-                        <Checkbox
-                          checked={isSelected}
-                          id={`player-${player._id}`}
-                          onCheckedChange={() => handleTogglePlayer(player._id)}
-                        />
-                        <label
-                          className="flex-1 cursor-pointer"
-                          htmlFor={`player-${player._id}`}
-                        >
-                          <div className="flex items-center justify-between gap-2">
-                            <div>
-                              <p className="font-medium text-sm">
-                                {player.firstName} {player.lastName}
-                              </p>
-                              <p className="text-muted-foreground text-xs">
-                                DOB: {player.dateOfBirth}
-                              </p>
-                            </div>
-                            <div className="flex items-center gap-4 text-xs">
-                              <Badge variant="outline">
-                                {player.enrollmentStatus}
-                              </Badge>
-                              <span className="text-muted-foreground">
-                                {player.relatedRecords.enrollments} enrollment
-                                {player.relatedRecords.enrollments !== 1
-                                  ? "s"
-                                  : ""}
-                              </span>
-                            </div>
-                          </div>
-                        </label>
-                        <button
-                          className="p-2"
-                          onClick={() => handleTogglePlayer(player._id)}
-                          type="button"
-                        >
-                          {isSelected ? (
-                            <CheckSquare className="h-5 w-5 text-primary" />
-                          ) : (
-                            <Square className="h-5 w-5 text-muted-foreground" />
-                          )}
-                        </button>
-                      </div>
-                    );
-                  })}
-                </div>
-              </ScrollArea>
-            </div>
-          )}
-
-          {/* Empty State */}
-          {!isLoading && players.length === 0 && totalPlayers > 0 && (
-            <div className="py-8 text-center text-muted-foreground">
-              No players match your search or filter criteria.
-            </div>
-          )}
-
-          {/* Empty State - No Players */}
-          {!isLoading && totalPlayers === 0 && (
-            <div className="py-8 text-center text-muted-foreground">
-              No players found in this import.
-            </div>
-          )}
-
-          {/* Impact Preview */}
-          {!isLoading && selectedCount > 0 && impactPreview && (
-            <div className="space-y-3">
-              <h3 className="font-semibold text-sm">Impact Preview</h3>
-              <div className="rounded-md border p-4">
-                <p className="mb-3 font-medium text-sm">
-                  This will permanently delete:
+                {/* Result Count */}
+                <p className="text-muted-foreground text-sm">
+                  Showing {players.length} of {totalPlayers} players
                 </p>
-                <div className="grid grid-cols-2 gap-2 text-sm">
-                  <div>
-                    <span className="text-muted-foreground">Players:</span>
-                    <span className="ml-2 font-medium">
-                      {impactPreview.playerCount}
-                    </span>
+              </div>
+            )}
+
+            {/* Player List */}
+            {!isLoading && players.length > 0 && (
+              <div className="space-y-3">
+                {/* Select All + Count */}
+                <div className="flex items-center justify-between rounded-md border p-3">
+                  <div className="flex items-center gap-3">
+                    <Checkbox
+                      checked={allFilteredSelected}
+                      id="select-all"
+                      onCheckedChange={handleSelectAll}
+                    />
+                    <label
+                      className="cursor-pointer font-medium text-sm"
+                      htmlFor="select-all"
+                    >
+                      {allFilteredSelected ? "Deselect All" : "Select All"}
+                    </label>
                   </div>
-                  <div>
-                    <span className="text-muted-foreground">Enrollments:</span>
-                    <span className="ml-2 font-medium">
-                      {impactPreview.enrollmentCount}
-                    </span>
+                  <Badge variant={selectedCount > 0 ? "default" : "secondary"}>
+                    {selectedCount} player{selectedCount !== 1 ? "s" : ""}{" "}
+                    selected
+                  </Badge>
+                </div>
+
+                {/* Player Rows */}
+                <ScrollArea className="h-[350px] rounded-md border sm:h-[400px]">
+                  <div className="space-y-2 p-3">
+                    {players.map((player: ImportedPlayer) => {
+                      const isSelected = selectedPlayerIds.has(player._id);
+                      return (
+                        <div
+                          className="flex items-center gap-3 rounded-md border p-3 transition-colors hover:bg-accent/50"
+                          key={player._id}
+                        >
+                          <Checkbox
+                            checked={isSelected}
+                            id={`player-${player._id}`}
+                            onCheckedChange={() =>
+                              handleTogglePlayer(player._id)
+                            }
+                          />
+                          <label
+                            className="flex-1 cursor-pointer"
+                            htmlFor={`player-${player._id}`}
+                          >
+                            <div className="flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
+                              <div>
+                                <p className="font-medium text-sm">
+                                  {player.firstName} {player.lastName}
+                                </p>
+                                <p className="text-muted-foreground text-xs">
+                                  DOB: {player.dateOfBirth}
+                                </p>
+                              </div>
+                              <div className="flex items-center gap-2 text-xs">
+                                <Badge variant="outline">
+                                  {player.enrollmentStatus}
+                                </Badge>
+                                <span className="text-muted-foreground">
+                                  {player.relatedRecords.enrollments} enrollment
+                                  {player.relatedRecords.enrollments !== 1
+                                    ? "s"
+                                    : ""}
+                                </span>
+                              </div>
+                            </div>
+                          </label>
+                          <button
+                            className="p-2"
+                            onClick={() => handleTogglePlayer(player._id)}
+                            type="button"
+                          >
+                            {isSelected ? (
+                              <CheckSquare className="h-5 w-5 text-primary" />
+                            ) : (
+                              <Square className="h-5 w-5 text-muted-foreground" />
+                            )}
+                          </button>
+                        </div>
+                      );
+                    })}
                   </div>
-                  <div>
-                    <span className="text-muted-foreground">Passports:</span>
-                    <span className="ml-2 font-medium">
-                      {impactPreview.passportCount}
-                    </span>
-                  </div>
-                  <div>
-                    <span className="text-muted-foreground">
-                      Team Assignments:
-                    </span>
-                    <span className="ml-2 font-medium">
-                      {impactPreview.teamAssignmentCount}
-                    </span>
-                  </div>
-                  <div>
-                    <span className="text-muted-foreground">Assessments:</span>
-                    <span className="ml-2 font-medium">
-                      {impactPreview.assessmentCount}
-                    </span>
-                  </div>
-                  <div>
-                    <span className="text-muted-foreground">
-                      Guardian Links:
-                    </span>
-                    <span className="ml-2 font-medium">
-                      {impactPreview.guardianLinkCount}
-                    </span>
+                </ScrollArea>
+              </div>
+            )}
+
+            {/* Empty State */}
+            {!isLoading && players.length === 0 && totalPlayers > 0 && (
+              <div className="py-8 text-center text-muted-foreground">
+                No players match your search or filter criteria.
+              </div>
+            )}
+
+            {/* Empty State - No Players */}
+            {!isLoading && totalPlayers === 0 && (
+              <div className="py-8 text-center text-muted-foreground">
+                No players found in this import.
+              </div>
+            )}
+
+            {/* Impact Preview */}
+            {!isLoading && selectedCount > 0 && impactPreview && (
+              <div className="space-y-3">
+                <h3 className="font-semibold text-sm">Impact Preview</h3>
+                <div className="rounded-md border p-4">
+                  <p className="mb-3 font-medium text-sm">
+                    This will permanently delete:
+                  </p>
+                  <div className="grid grid-cols-2 gap-2 text-sm">
+                    <div>
+                      <span className="text-muted-foreground">Players:</span>
+                      <span className="ml-2 font-medium">
+                        {impactPreview.playerCount}
+                      </span>
+                    </div>
+                    <div>
+                      <span className="text-muted-foreground">
+                        Enrollments:
+                      </span>
+                      <span className="ml-2 font-medium">
+                        {impactPreview.enrollmentCount}
+                      </span>
+                    </div>
+                    <div>
+                      <span className="text-muted-foreground">Passports:</span>
+                      <span className="ml-2 font-medium">
+                        {impactPreview.passportCount}
+                      </span>
+                    </div>
+                    <div>
+                      <span className="text-muted-foreground">
+                        Team Assignments:
+                      </span>
+                      <span className="ml-2 font-medium">
+                        {impactPreview.teamAssignmentCount}
+                      </span>
+                    </div>
+                    <div>
+                      <span className="text-muted-foreground">
+                        Assessments:
+                      </span>
+                      <span className="ml-2 font-medium">
+                        {impactPreview.assessmentCount}
+                      </span>
+                    </div>
+                    <div>
+                      <span className="text-muted-foreground">
+                        Guardian Links:
+                      </span>
+                      <span className="ml-2 font-medium">
+                        {impactPreview.guardianLinkCount}
+                      </span>
+                    </div>
                   </div>
                 </div>
-              </div>
 
-              {/* Orphaned Guardian Warning */}
-              {impactPreview.orphanedGuardianCount > 0 && (
-                <Alert variant="destructive">
-                  <AlertTriangle className="h-4 w-4" />
-                  <AlertTitle>Warning: Orphaned Guardians</AlertTitle>
-                  <AlertDescription>
-                    {impactPreview.orphanedGuardianCount} guardian
-                    {impactPreview.orphanedGuardianCount !== 1 ? "s" : ""} will
-                    have no linked players after this removal. These guardian
-                    records will also be deleted.
-                  </AlertDescription>
-                </Alert>
-              )}
-            </div>
-          )}
-        </div>
+                {/* Orphaned Guardian Warning */}
+                {impactPreview.orphanedGuardianCount > 0 && (
+                  <Alert variant="destructive">
+                    <AlertTriangle className="h-4 w-4" />
+                    <AlertTitle>Warning: Orphaned Guardians</AlertTitle>
+                    <AlertDescription>
+                      {impactPreview.orphanedGuardianCount} guardian
+                      {impactPreview.orphanedGuardianCount !== 1 ? "s" : ""}{" "}
+                      will have no linked players after this removal. These
+                      guardian records will also be deleted.
+                    </AlertDescription>
+                  </Alert>
+                )}
+              </div>
+            )}
+          </div>
+        </ScrollArea>
 
         <AlertDialogFooter>
           <AlertDialogCancel disabled={isRemoving}>Cancel</AlertDialogCancel>

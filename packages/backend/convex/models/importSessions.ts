@@ -1,6 +1,6 @@
 import { v } from "convex/values";
 import { components } from "../_generated/api";
-import { mutation, query } from "../_generated/server";
+import { internalMutation, mutation, query } from "../_generated/server";
 import { authComponent } from "../auth";
 import { findGuardianMatches } from "../lib/matching/guardianMatcher";
 
@@ -994,5 +994,133 @@ export const applyAdminOverride = mutation({
     await ctx.db.patch(sessionId, {
       duplicates: updatedDuplicates,
     });
+  },
+});
+
+// ============================================================
+// Delete Incomplete Import Session
+// ============================================================
+
+export const deleteIncompleteSession = mutation({
+  args: {
+    sessionId: v.id("importSessions"),
+  },
+  returns: v.object({
+    success: v.boolean(),
+    message: v.string(),
+  }),
+  handler: async (ctx, args) => {
+    const { sessionId } = args;
+
+    // Check authentication
+    const identity = await ctx.auth.getUserIdentity();
+    if (!identity) {
+      throw new Error("Not authenticated");
+    }
+
+    // Get the session
+    const session = await ctx.db.get(sessionId);
+    if (!session) {
+      throw new Error("Import session not found");
+    }
+
+    // Get user to check permissions
+    const user = await ctx.runQuery(components.betterAuth.adapter.findOne, {
+      model: "user",
+      where: [{ field: "_id", value: identity.subject, operator: "eq" }],
+    });
+
+    if (!user) {
+      throw new Error("User not found");
+    }
+
+    // Check if user has access (platform staff OR member of the organization)
+    if (!user.isPlatformStaff) {
+      const membership = await ctx.runQuery(
+        components.betterAuth.adapter.findOne,
+        {
+          model: "member",
+          where: [{ field: "userId", value: user._id, operator: "eq" }],
+        }
+      );
+
+      if (!membership || membership.organizationId !== session.organizationId) {
+        throw new Error("Access denied");
+      }
+    }
+
+    // Only allow deletion of incomplete sessions
+    const incompleteStatuses = [
+      "uploading",
+      "mapping",
+      "selecting",
+      "reviewing",
+      "importing",
+    ];
+
+    if (!incompleteStatuses.includes(session.status)) {
+      return {
+        success: false,
+        message: `Cannot delete session with status "${session.status}". Only incomplete sessions can be deleted.`,
+      };
+    }
+
+    // Delete the session
+    await ctx.db.delete(sessionId);
+
+    return {
+      success: true,
+      message: "Import session deleted successfully",
+    };
+  },
+});
+
+// ============================================================
+// Automatic Cleanup of Expired Incomplete Sessions
+// ============================================================
+
+export const cleanupExpiredIncompleteSessions = internalMutation({
+  args: {},
+  returns: v.object({
+    deletedCount: v.number(),
+    deletedSessionIds: v.array(v.id("importSessions")),
+  }),
+  handler: async (ctx) => {
+    // Define incomplete statuses that should expire
+    const incompleteStatuses = [
+      "uploading",
+      "mapping",
+      "selecting",
+      "reviewing",
+      "importing",
+    ];
+
+    // Calculate cutoff time (48 hours ago)
+    const cutoffTime = Date.now() - 48 * 60 * 60 * 1000; // 48 hours in milliseconds
+
+    // Fetch all import sessions
+    const allSessions = await ctx.db
+      .query("importSessions")
+      .withIndex("by_startedAt")
+      .collect();
+
+    // Filter for incomplete sessions older than 48 hours
+    const expiredSessions = allSessions.filter(
+      (session) =>
+        incompleteStatuses.includes(session.status) &&
+        session.startedAt < cutoffTime
+    );
+
+    // Delete expired sessions
+    const deletedSessionIds: (typeof expiredSessions)[0]["_id"][] = [];
+    for (const session of expiredSessions) {
+      await ctx.db.delete(session._id);
+      deletedSessionIds.push(session._id);
+    }
+
+    return {
+      deletedCount: deletedSessionIds.length,
+      deletedSessionIds,
+    };
   },
 });

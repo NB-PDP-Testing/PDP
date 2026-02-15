@@ -27,6 +27,7 @@ const passportValidator = v.object({
   sportCode: v.string(),
   organizationId: v.string(),
   status: passportStatusValidator,
+  importSessionId: v.optional(v.id("importSessions")),
   primaryPosition: v.optional(v.string()),
   secondaryPositions: v.optional(v.array(v.string())),
   coachPreferredPosition: v.optional(v.string()),

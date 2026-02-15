@@ -71,6 +71,12 @@ export default function ImportAnalyticsDashboard() {
     {}
   );
 
+  // Fetch import activity over time for chart
+  const activityData = useQuery(
+    api.models.importAnalytics.getImportActivityOverTime,
+    { timeRange }
+  );
+
   // Export errors to CSV
   const exportErrorsToCSV = () => {
     if (!commonErrorsData?.errors || commonErrorsData.errors.length === 0) {
@@ -115,37 +121,10 @@ export default function ImportAnalyticsDashboard() {
       : commonErrorsData.errors.slice(0, 10);
   }, [commonErrorsData, showAllErrors]);
 
-  // Generate trend data for chart
-  const chartData = useMemo(() => {
-    if (!analytics) {
-      return [];
-    }
+  // Use real activity data for chart
+  const chartData = activityData || [];
 
-    // For now, create mock trend data based on total imports
-    // In a real implementation, this would come from a backend query with daily/weekly aggregates
-    const periods =
-      timeRange === "7days" ? 7 : timeRange === "30days" ? 30 : 90;
-    const mockData = [];
-
-    for (let i = periods; i >= 0; i--) {
-      const date = new Date();
-      date.setDate(date.getDate() - i);
-
-      mockData.push({
-        date: date.toLocaleDateString("en-US", {
-          month: "short",
-          day: "numeric",
-        }),
-        imports: Math.floor(
-          Math.random() * (analytics.totalImports / periods) * 2
-        ),
-      });
-    }
-
-    return mockData;
-  }, [analytics, timeRange]);
-
-  if (!(analytics && commonErrorsData)) {
+  if (!(analytics && commonErrorsData && activityData)) {
     return (
       <div className="flex min-h-screen items-center justify-center">
         <Loader />
@@ -330,8 +309,24 @@ export default function ImportAnalyticsDashboard() {
                   <Line
                     dataKey="imports"
                     dot={{ fill: "hsl(var(--primary))" }}
-                    name="Imports"
+                    name="Total Imports"
                     stroke="hsl(var(--primary))"
+                    strokeWidth={2}
+                    type="monotone"
+                  />
+                  <Line
+                    dataKey="successfulImports"
+                    dot={{ fill: "hsl(142 76% 36%)" }}
+                    name="Successful"
+                    stroke="hsl(142 76% 36%)"
+                    strokeWidth={2}
+                    type="monotone"
+                  />
+                  <Line
+                    dataKey="failedImports"
+                    dot={{ fill: "hsl(var(--destructive))" }}
+                    name="Failed"
+                    stroke="hsl(var(--destructive))"
                     strokeWidth={2}
                     type="monotone"
                   />

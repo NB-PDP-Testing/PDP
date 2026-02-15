@@ -63,6 +63,9 @@ export function ImportDetailsDialog({
     sessionId ? { sessionId } : "skip"
   );
 
+  const [activeTab, setActiveTab] = useState<"overview" | "players">(
+    "overview"
+  );
   const [searchQuery, setSearchQuery] = useState("");
   const [sortField, setSortField] = useState<"name" | "dob" | "status" | null>(
     null
@@ -181,7 +184,13 @@ export function ImportDetailsDialog({
 
   return (
     <Dialog onOpenChange={(open) => !open && onClose()} open={!!sessionId}>
-      <DialogContent className="flex max-h-[90vh] w-[95vw] max-w-7xl flex-col">
+      <DialogContent
+        className={`flex max-h-[90vh] flex-col ${
+          activeTab === "players"
+            ? "w-[95vw] sm:max-w-[90vw] lg:max-w-[1800px]"
+            : "w-full sm:max-w-3xl"
+        }`}
+      >
         <DialogHeader>
           <DialogTitle className="flex items-center gap-2">
             <FileText className="h-5 w-5 text-primary" />
@@ -204,7 +213,10 @@ export function ImportDetailsDialog({
         {!isLoading && session && (
           <Tabs
             className="flex min-h-0 flex-1 flex-col"
-            defaultValue="overview"
+            onValueChange={(value) =>
+              setActiveTab(value as "overview" | "players")
+            }
+            value={activeTab}
           >
             <TabsList>
               <TabsTrigger value="overview">Overview</TabsTrigger>
@@ -549,177 +561,181 @@ export function ImportDetailsDialog({
                 </div>
 
                 {/* Desktop table */}
-                <div className="hidden min-h-0 flex-1 md:block">
-                  <ScrollArea className="h-full">
-                    <Table>
-                      <TableHeader>
-                        <TableRow>
-                          <TableHead className="w-[200px]">
-                            <Button
-                              className="h-auto p-0 font-medium hover:bg-transparent"
-                              onClick={() => handleSort("name")}
-                              variant="ghost"
-                            >
-                              Name
-                              <ArrowUpDown className="ml-2 h-4 w-4" />
-                            </Button>
-                          </TableHead>
-                          <TableHead className="w-[130px]">
-                            <Button
-                              className="h-auto p-0 font-medium hover:bg-transparent"
-                              onClick={() => handleSort("dob")}
-                              variant="ghost"
-                            >
-                              DOB
-                              <ArrowUpDown className="ml-2 h-4 w-4" />
-                            </Button>
-                          </TableHead>
-                          <TableHead className="w-[100px]">Gender</TableHead>
-                          <TableHead className="min-w-[280px]">
-                            Guardian
-                          </TableHead>
-                          <TableHead className="w-[130px]">
-                            <Button
-                              className="h-auto p-0 font-medium hover:bg-transparent"
-                              onClick={() => handleSort("status")}
-                              variant="ghost"
-                            >
-                              Status
-                              <ArrowUpDown className="ml-2 h-4 w-4" />
-                            </Button>
-                          </TableHead>
-                          <TableHead className="w-[120px]">Teams</TableHead>
-                        </TableRow>
-                      </TableHeader>
-                      <TableBody>
-                        {paginatedPlayers.length === 0 ? (
+                <Card className="hidden min-h-0 flex-1 md:flex md:flex-col">
+                  <CardContent className="flex-1 overflow-hidden p-0">
+                    <ScrollArea className="h-full">
+                      <Table className="min-w-[1400px]">
+                        <TableHeader>
                           <TableRow>
-                            <TableCell className="text-center" colSpan={6}>
-                              No players in this import
-                            </TableCell>
+                            <TableHead className="w-[250px]">
+                              <Button
+                                className="h-auto p-0 font-medium hover:bg-transparent"
+                                onClick={() => handleSort("name")}
+                                variant="ghost"
+                              >
+                                Name
+                                <ArrowUpDown className="ml-2 h-4 w-4" />
+                              </Button>
+                            </TableHead>
+                            <TableHead className="w-[140px]">
+                              <Button
+                                className="h-auto p-0 font-medium hover:bg-transparent"
+                                onClick={() => handleSort("dob")}
+                                variant="ghost"
+                              >
+                                DOB
+                                <ArrowUpDown className="ml-2 h-4 w-4" />
+                              </Button>
+                            </TableHead>
+                            <TableHead className="w-[120px]">Gender</TableHead>
+                            <TableHead className="w-[220px]">
+                              Guardian
+                            </TableHead>
+                            <TableHead className="w-[150px]">
+                              <Button
+                                className="h-auto p-0 font-medium hover:bg-transparent"
+                                onClick={() => handleSort("status")}
+                                variant="ghost"
+                              >
+                                Status
+                                <ArrowUpDown className="ml-2 h-4 w-4" />
+                              </Button>
+                            </TableHead>
+                            <TableHead className="w-[140px]">Teams</TableHead>
                           </TableRow>
-                        ) : (
-                          paginatedPlayers.map((player) => (
-                            <TableRow key={player._id}>
-                              <TableCell className="w-[200px]">
-                                <Link
-                                  className="font-medium hover:underline"
-                                  href={`/orgs/${orgId}/players/${player._id}`}
-                                >
-                                  {player.firstName} {player.lastName}
-                                </Link>
-                              </TableCell>
-                              <TableCell className="w-[130px]">
-                                {new Date(
-                                  player.dateOfBirth
-                                ).toLocaleDateString()}
-                              </TableCell>
-                              <TableCell className="w-[100px] capitalize">
-                                {player.gender}
-                              </TableCell>
-                              <TableCell className="min-w-[280px]">
-                                <div className="line-clamp-2">
-                                  {player.guardianName || (
-                                    <span className="text-muted-foreground italic">
-                                      No Guardian
-                                    </span>
-                                  )}
-                                </div>
-                              </TableCell>
-                              <TableCell className="w-[130px]">
-                                <Badge
-                                  variant={
-                                    player.enrollmentStatus === "active"
-                                      ? "default"
-                                      : "secondary"
-                                  }
-                                >
-                                  {player.enrollmentStatus}
-                                </Badge>
-                              </TableCell>
-                              <TableCell className="w-[120px]">
-                                {player.teamCount > 0 ? (
-                                  <Badge variant="outline">
-                                    {player.teamCount} team
-                                    {player.teamCount !== 1 ? "s" : ""}
-                                  </Badge>
-                                ) : (
-                                  <span className="text-muted-foreground text-xs">
-                                    No teams
-                                  </span>
-                                )}
+                        </TableHeader>
+                        <TableBody>
+                          {paginatedPlayers.length === 0 ? (
+                            <TableRow>
+                              <TableCell className="text-center" colSpan={6}>
+                                No players in this import
                               </TableCell>
                             </TableRow>
-                          ))
-                        )}
-                      </TableBody>
-                    </Table>
-                  </ScrollArea>
-                </div>
-
-                {/* Mobile card list */}
-                <div className="min-h-0 flex-1 md:hidden">
-                  <ScrollArea className="h-full">
-                    <div className="space-y-3">
-                      {paginatedPlayers.length === 0 ? (
-                        <div className="rounded-md border p-8 text-center">
-                          <p className="text-muted-foreground">
-                            No players in this import
-                          </p>
-                        </div>
-                      ) : (
-                        paginatedPlayers.map((player) => (
-                          <Link
-                            href={`/orgs/${orgId}/players/${player._id}`}
-                            key={player._id}
-                          >
-                            <Card className="cursor-pointer transition-colors hover:bg-muted/50">
-                              <CardContent className="p-4">
-                                <div className="flex items-start justify-between">
-                                  <div className="space-y-1">
-                                    <p className="font-medium">
-                                      {player.firstName} {player.lastName}
-                                    </p>
-                                    <p className="text-muted-foreground text-xs">
-                                      DOB:{" "}
-                                      {new Date(
-                                        player.dateOfBirth
-                                      ).toLocaleDateString()}
-                                    </p>
-                                    <p className="text-muted-foreground text-xs capitalize">
-                                      {player.gender}
-                                    </p>
-                                    <p className="text-muted-foreground text-xs">
-                                      Guardian:{" "}
-                                      {player.guardianName || "No Guardian"}
-                                    </p>
-                                  </div>
-                                  <div className="flex flex-col items-end gap-2">
-                                    <Badge
-                                      variant={
-                                        player.enrollmentStatus === "active"
-                                          ? "default"
-                                          : "secondary"
-                                      }
-                                    >
-                                      {player.enrollmentStatus}
-                                    </Badge>
-                                    {player.teamCount > 0 && (
-                                      <Badge variant="outline">
-                                        {player.teamCount} team
-                                        {player.teamCount !== 1 ? "s" : ""}
-                                      </Badge>
+                          ) : (
+                            paginatedPlayers.map((player) => (
+                              <TableRow key={player._id}>
+                                <TableCell className="w-[250px]">
+                                  <Link
+                                    className="font-medium hover:underline"
+                                    href={`/orgs/${orgId}/players/${player._id}`}
+                                  >
+                                    {player.firstName} {player.lastName}
+                                  </Link>
+                                </TableCell>
+                                <TableCell className="w-[140px]">
+                                  {new Date(
+                                    player.dateOfBirth
+                                  ).toLocaleDateString()}
+                                </TableCell>
+                                <TableCell className="w-[120px] capitalize">
+                                  {player.gender}
+                                </TableCell>
+                                <TableCell className="w-[220px]">
+                                  <div className="whitespace-normal py-1">
+                                    {player.guardianName || (
+                                      <span className="text-muted-foreground italic">
+                                        No Guardian
+                                      </span>
                                     )}
                                   </div>
-                                </div>
-                              </CardContent>
-                            </Card>
-                          </Link>
-                        ))
-                      )}
-                    </div>
-                  </ScrollArea>
-                </div>
+                                </TableCell>
+                                <TableCell className="w-[150px]">
+                                  <Badge
+                                    variant={
+                                      player.enrollmentStatus === "active"
+                                        ? "default"
+                                        : "secondary"
+                                    }
+                                  >
+                                    {player.enrollmentStatus}
+                                  </Badge>
+                                </TableCell>
+                                <TableCell className="w-[140px]">
+                                  {player.teamCount > 0 ? (
+                                    <Badge variant="outline">
+                                      {player.teamCount} team
+                                      {player.teamCount !== 1 ? "s" : ""}
+                                    </Badge>
+                                  ) : (
+                                    <span className="text-muted-foreground text-xs">
+                                      No teams
+                                    </span>
+                                  )}
+                                </TableCell>
+                              </TableRow>
+                            ))
+                          )}
+                        </TableBody>
+                      </Table>
+                    </ScrollArea>
+                  </CardContent>
+                </Card>
+
+                {/* Mobile card list */}
+                <Card className="md:hidden">
+                  <CardContent className="p-4">
+                    <ScrollArea className="h-[250px]">
+                      <div className="space-y-3 pr-4">
+                        {paginatedPlayers.length === 0 ? (
+                          <div className="rounded-md border p-8 text-center">
+                            <p className="text-muted-foreground">
+                              No players in this import
+                            </p>
+                          </div>
+                        ) : (
+                          paginatedPlayers.map((player) => (
+                            <Link
+                              href={`/orgs/${orgId}/players/${player._id}`}
+                              key={player._id}
+                            >
+                              <Card className="cursor-pointer transition-colors hover:bg-muted/50">
+                                <CardContent className="p-4">
+                                  <div className="flex items-start justify-between">
+                                    <div className="space-y-1">
+                                      <p className="font-medium">
+                                        {player.firstName} {player.lastName}
+                                      </p>
+                                      <p className="text-muted-foreground text-xs">
+                                        DOB:{" "}
+                                        {new Date(
+                                          player.dateOfBirth
+                                        ).toLocaleDateString()}
+                                      </p>
+                                      <p className="text-muted-foreground text-xs capitalize">
+                                        {player.gender}
+                                      </p>
+                                      <p className="text-muted-foreground text-xs">
+                                        Guardian:{" "}
+                                        {player.guardianName || "No Guardian"}
+                                      </p>
+                                    </div>
+                                    <div className="flex flex-col items-end gap-2">
+                                      <Badge
+                                        variant={
+                                          player.enrollmentStatus === "active"
+                                            ? "default"
+                                            : "secondary"
+                                        }
+                                      >
+                                        {player.enrollmentStatus}
+                                      </Badge>
+                                      {player.teamCount > 0 && (
+                                        <Badge variant="outline">
+                                          {player.teamCount} team
+                                          {player.teamCount !== 1 ? "s" : ""}
+                                        </Badge>
+                                      )}
+                                    </div>
+                                  </div>
+                                </CardContent>
+                              </Card>
+                            </Link>
+                          ))
+                        )}
+                      </div>
+                    </ScrollArea>
+                  </CardContent>
+                </Card>
 
                 {/* Pagination */}
                 {totalPages > 1 && (

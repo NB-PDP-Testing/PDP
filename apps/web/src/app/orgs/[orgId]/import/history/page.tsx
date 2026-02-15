@@ -2,17 +2,19 @@
 
 import { api } from "@pdp/backend/convex/_generated/api";
 import type { Id } from "@pdp/backend/convex/_generated/dataModel";
-import { useQuery } from "convex/react";
+import { useMutation, useQuery } from "convex/react";
 import {
   AlertTriangle,
   CheckCircle,
   Clock,
   FileText,
+  Trash2,
   Undo2,
   XCircle,
 } from "lucide-react";
 import { useParams } from "next/navigation";
 import { useState } from "react";
+import { toast } from "sonner";
 import { ImportDetailsDialog } from "@/components/import/import-details-dialog";
 import { PartialUndoDialog } from "@/components/import/partial-undo-dialog";
 import Loader from "@/components/loader";
@@ -60,6 +62,26 @@ export default function ImportHistoryPage() {
     useState<Id<"importSessions"> | null>(null);
 
   const pageSize = 20;
+
+  // Delete mutation
+  const deleteSessionMutation = useMutation(
+    api.models.importSessions.deleteIncompleteSession
+  );
+
+  const handleDelete = async (sessionId: Id<"importSessions">) => {
+    try {
+      const result = await deleteSessionMutation({ sessionId });
+      if (result.success) {
+        toast.success(result.message);
+      } else {
+        toast.error(result.message);
+      }
+    } catch (error) {
+      toast.error(
+        error instanceof Error ? error.message : "Failed to delete session"
+      );
+    }
+  };
 
   // Validate that user has access to this organization
   // Wait for memberships to load, then check if org exists in user's memberships
@@ -361,6 +383,19 @@ export default function ImportHistoryPage() {
                                   <Undo2 className="mr-1 h-3 w-3" />
                                   Undo
                                 </Button>
+                                {/* Delete button for incomplete sessions */}
+                                {imp.status !== "completed" &&
+                                  imp.status !== "failed" &&
+                                  imp.status !== "undone" && (
+                                    <Button
+                                      onClick={() => handleDelete(imp._id)}
+                                      size="sm"
+                                      variant="destructive"
+                                    >
+                                      <Trash2 className="mr-1 h-3 w-3" />
+                                      Delete
+                                    </Button>
+                                  )}
                               </div>
                             </TableCell>
                           </TableRow>
@@ -496,6 +531,20 @@ export default function ImportHistoryPage() {
                         <Undo2 className="mr-1 h-3 w-3" />
                         Undo
                       </Button>
+                      {/* Delete button for incomplete sessions */}
+                      {imp.status !== "completed" &&
+                        imp.status !== "failed" &&
+                        imp.status !== "undone" && (
+                          <Button
+                            className="flex-1"
+                            onClick={() => handleDelete(imp._id)}
+                            size="sm"
+                            variant="destructive"
+                          >
+                            <Trash2 className="mr-1 h-3 w-3" />
+                            Delete
+                          </Button>
+                        )}
                     </div>
                   </CardContent>
                 </Card>

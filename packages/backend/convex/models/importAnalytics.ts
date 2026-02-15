@@ -7,6 +7,7 @@
 
 import { v } from "convex/values";
 import { components } from "../_generated/api";
+import type { Id } from "../_generated/dataModel";
 import { query } from "../_generated/server";
 
 // ============================================================
@@ -253,7 +254,7 @@ export const getOrgImportHistory = query({
     // Batch fetch template data for templateId field
     const templateIds = paginatedSessions
       .map((s) => s.templateId)
-      .filter((id): id is string => id !== undefined);
+      .filter((id): id is Id<"importTemplates"> => id !== undefined);
 
     const templates = await Promise.all(
       templateIds.map((templateId) => ctx.db.get(templateId))
@@ -385,5 +386,119 @@ export const getCommonErrors = query({
       errors,
       totalErrors: totalErrorCount,
     };
+  },
+});
+
+// ============================================================
+// Import Activity Over Time (Platform Staff Only)
+// ============================================================
+
+export const getImportActivityOverTime = query({
+  args: {
+    timeRange: v.union(
+      v.literal("7days"),
+      v.literal("30days"),
+      v.literal("90days"),
+      v.literal("all")
+    ),
+  },
+  returns: v.array(
+    v.object({
+      date: v.string(),
+      imports: v.number(),
+      successfulImports: v.number(),
+      failedImports: v.number(),
+    })
+  ),
+  handler: async (ctx, args) => {
+    const { timeRange } = args;
+
+    // Check if user is platform staff
+    const identity = await ctx.auth.getUserIdentity();
+    if (!identity) {
+      throw new Error("Not authenticated");
+    }
+
+    const user = await ctx.runQuery(components.betterAuth.adapter.findOne, {
+      model: "user",
+      where: [{ field: "_id", value: identity.subject, operator: "eq" }],
+    });
+
+    if (!user?.isPlatformStaff) {
+      throw new Error("Platform staff access required");
+    }
+
+    // Calculate date cutoff based on time range
+    const now = Date.now();
+
+    // Fetch sessions with index-based filtering
+    const sessions =
+      timeRange === "all"
+        ? await ctx.db
+            .query("importSessions")
+            .withIndex("by_startedAt")
+            .collect()
+        : await (async () => {
+            const cutoffDate =
+              timeRange === "7days"
+                ? now - 7 * 24 * 60 * 60 * 1000
+                : timeRange === "30days"
+                  ? now - 30 * 24 * 60 * 60 * 1000
+                  : now - 90 * 24 * 60 * 60 * 1000; // 90days
+
+            return await ctx.db
+              .query("importSessions")
+              .withIndex("by_startedAt", (q) => q.gte("startedAt", cutoffDate))
+              .collect();
+          })();
+
+    // Group sessions by date
+    const dateMap = new Map<
+      string,
+      { total: number; successful: number; failed: number }
+    >();
+
+    for (const session of sessions) {
+      const date = new Date(session.startedAt);
+      const dateKey = date.toISOString().split("T")[0]; // YYYY-MM-DD format
+
+      const existing = dateMap.get(dateKey) || {
+        total: 0,
+        successful: 0,
+        failed: 0,
+      };
+
+      existing.total += 1;
+
+      // Count as successful if status is completed and no errors
+      if (session.status === "completed" && session.errors.length === 0) {
+        existing.successful += 1;
+      } else if (session.status === "failed") {
+        existing.failed += 1;
+      }
+
+      dateMap.set(dateKey, existing);
+    }
+
+    // Convert to array and sort by date
+    const activityData = Array.from(dateMap.entries())
+      .map(([dateKey, counts]) => {
+        const date = new Date(dateKey);
+        return {
+          date: date.toLocaleDateString("en-US", {
+            month: "short",
+            day: "numeric",
+          }),
+          imports: counts.total,
+          successfulImports: counts.successful,
+          failedImports: counts.failed,
+        };
+      })
+      .sort((a, b) => {
+        // Sort by original date string
+        return a.date.localeCompare(b.date);
+      });
+
+    return activityData;
   },
 });

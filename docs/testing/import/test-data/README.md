@@ -16,7 +16,7 @@ This directory contains CSV test data files for Phase 3.1 manual UAT testing.
 |---------|----------|---------------------|---------------|
 | Emma Walsh & Sophie O'Connor | Sarah Walsh | **High (100%)** | ✅ Email exact match (40)<br>✅ Phone exact match (30)<br>✅ Name+Address exact match (30)<br>**Total: 100%** |
 | Jack Murphy & Liam Kelly | John Murphy | **High (60%)** | ✅ Email exact match (40)<br>❌ Phone missing (0)<br>✅ Name exact match (20)<br>❌ Address missing (0)<br>**Total: 60%** |
-| Aoife Ryan & Conor Brennan | Mary Ryan | **Low (20%)** | ❌ Email different (0)<br>❌ Phone missing (0)<br>✅ Name exact match (20)<br>❌ Address missing (0)<br>**Total: 20%** |
+| Aoife Ryan & Conor Brennan | Mary Ryan vs Different LastName | **Low (30%)** | ❌ Email missing (0)<br>✅ Phone exact match (30)<br>❌ Name different (0)<br>❌ Address missing (0)<br>**Total: 30%** |
 | Niamh McCarthy & Cian O'Sullivan | Lisa McCarthy | **High (100%)** | ✅ Email exact match (40)<br>✅ Phone exact match (30)<br>✅ Name+Address exact match (30)<br>**Total: 100%** |
 | Saoirse Doyle & Finn Gallagher | Katie Doyle vs Different Name | **Medium (40%)** | ✅ Email exact match (40)<br>❌ Phone missing (0)<br>❌ Name different (0)<br>❌ Address missing (0)<br>**Total: 40%** |
 

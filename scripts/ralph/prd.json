@@ -61,6 +61,7 @@
       "id": "US-P4.2-002",
       "title": "Implement GAA membership list fetcher action",
       "description": "As the sync engine, I need to fetch the full membership list from GAA Foireann API with pagination support.",
+      "passes": true,
       "acceptanceCriteria": [
         "Create packages/backend/convex/actions/gaaFoireann.ts",
         "Implement fetchMembershipList action with args: connectorId, organizationId",
@@ -83,6 +84,7 @@
       "id": "US-P4.2-003",
       "title": "Implement GAA member detail fetcher action",
       "description": "As the sync engine, I need to fetch detailed member information for individual members to get complete profile data.",
+      "passes": true,
       "acceptanceCriteria": [
         "Add to packages/backend/convex/actions/gaaFoireann.ts",
         "Implement fetchMemberDetail action with args: connectorId, memberId",

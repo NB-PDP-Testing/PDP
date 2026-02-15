@@ -44,6 +44,7 @@ import type * as lib_featureFlags from "../lib/featureFlags.js";
 import type * as lib_federation_apiClient from "../lib/federation/apiClient.js";
 import type * as lib_federation_backoff from "../lib/federation/backoff.js";
 import type * as lib_federation_encryption from "../lib/federation/encryption.js";
+import type * as lib_federation_gaaMapper from "../lib/federation/gaaMapper.js";
 import type * as lib_feedbackMessages from "../lib/feedbackMessages.js";
 import type * as lib_firstUserSetup from "../lib/firstUserSetup.js";
 import type * as lib_import_benchmarkApplicator from "../lib/import/benchmarkApplicator.js";
@@ -252,6 +253,7 @@ declare const fullApi: ApiFromModules<{
   "lib/federation/apiClient": typeof lib_federation_apiClient;
   "lib/federation/backoff": typeof lib_federation_backoff;
   "lib/federation/encryption": typeof lib_federation_encryption;
+  "lib/federation/gaaMapper": typeof lib_federation_gaaMapper;
   "lib/feedbackMessages": typeof lib_feedbackMessages;
   "lib/firstUserSetup": typeof lib_firstUserSetup;
   "lib/import/benchmarkApplicator": typeof lib_import_benchmarkApplicator;

@@ -18,6 +18,7 @@ Started: Sun 15 Feb 2026 21:29:25 GMT
 - Index names include all fields: `by_orgId_and_status`
 - Actions can use `ctx.storage` and `ctx.runMutation/runQuery`
 - Mutations have direct `ctx.db` access
+- Actions run in "use node" runtime (can use Node.js APIs)
 
 ### Import System Patterns
 - Import templates stored in `importTemplates` table
@@ -31,6 +32,17 @@ Started: Sun 15 Feb 2026 21:29:25 GMT
 - Use `encryptCredentials()` to encrypt before storing
 - Placeholder credentials allowed for seed data
 
+### Federation API Client
+- Use `createFederationApiClient(ctx, connectorId)` for all federation API calls
+- Client handles authentication (OAuth/API Key/Basic), retries, and rate limiting
+- Returns typed responses via `client.request<ResponseType>(endpoint)`
+- Automatically refreshes OAuth tokens if expired
+
+### Linting Rules
+- Biome linter enforces `nursery/noIncrementDecrement` - use `page += 1` NOT `page++`
+- Pre-commit hooks run biome check - must pass to commit
+- Ultracite may fail but still apply fixes - check git status after running
+
 ### Quality Checks
 - Run in order: `npx -w packages/backend convex codegen` → `npx ultracite fix` → `npm run check-types`
 - Ultracite may fail but still apply fixes - check git diff to confirm
@@ -41,6 +53,7 @@ Started: Sun 15 Feb 2026 21:29:25 GMT
 - Federation connector CRUD: `packages/backend/convex/models/federationConnectors.ts`
 - Federation API client: `packages/backend/convex/lib/federation/apiClient.ts`
 - Encryption utilities: `packages/backend/convex/lib/federation/encryption.ts`
+- GAA Foireann actions: `packages/backend/convex/actions/gaaFoireann.ts`
 
 ---
 
@@ -96,15 +109,139 @@ Started: Sun 15 Feb 2026 21:29:25 GMT
 - Must call `seedDefaultTemplates` before creating connector
 - Connector schema requires valid `credentialsStorageId` of type `Id<"_storage">`
 
-**What to do next**:
-- [ ] Implement US-P4.2-002: GAA membership list fetcher action
-- [ ] Will need to create `packages/backend/convex/actions/gaaFoireann.ts`
-- [ ] Use `FederationApiClient` from Phase 4.1 for API calls
-- [ ] Handle pagination (Foireann likely returns 100 members per page)
-
 **Mistakes made** (learn from these!):
 - Initially tried to use `v.literal("placeholder")` for credentialsStorageId - type error
 - Forgot that actions need to use `ctx.runMutation` for database writes
 - Almost forgot to make seed idempotent - added existence check in mutation
+
+---
+
+## Sun 15 Feb 2026 22:15 - US-P4.2-002 - Implement GAA membership list fetcher action
+**Iteration**: 1
+**Commit**: 5027ea6e (feat: US-P4.2-002 - Implement GAA membership list fetcher action)
+**Session**: 58f28692-5087-4431-ab96-e1dc7e836e5e
+**Status**: Complete
+
+### What was implemented
+- Created `packages/backend/convex/actions/gaaFoireann.ts` with `fetchMembershipList` action
+- Fetches complete membership list from GAA Foireann API with automatic pagination
+- Handles 100 members per page, fetches all pages automatically
+- Safety limit of 100 pages to prevent infinite loops
+- Uses FederationApiClient for authenticated requests with retry/rate limiting
+- Returns array of members with totalCount and fetchedAt timestamp
+
+Member fields fetched:
+- memberId, firstName, lastName, dateOfBirth
+- email, phone, address (all optional)
+- membershipNumber (XXX-XXXXX-XXX format)
+- membershipStatus, joinDate
+
+Error handling for specific HTTP status codes:
+- 401: "Authentication failed: Invalid or expired credentials..."
+- 404: "Club not found: The club ID X does not exist..."
+- 429: "Rate limit exceeded: Too many requests..."
+- 500: "GAA Foireann API server error: The Foireann service is experiencing issues..."
+
+Logging:
+- Logs sync start with connector ID, org ID, club ID, timestamp
+- Logs each page fetch with member count
+- Logs sync success/failure with duration and total member count
+- All logs prefixed with `[GAA Foireann]`
+
+### Files changed
+- packages/backend/convex/actions/gaaFoireann.ts (new file, +223 lines)
+  - Added GAAMember and MembershipListResponse TypeScript types
+  - Added fetchMembershipList action with pagination logic
+
+### Quality checks
+- ✅ Convex codegen: passed
+- ✅ Type check: passed
+- ✅ Linting: passed (fixed page++ → page += 1 for noIncrementDecrement rule)
+- ⚠️ Browser verification: N/A (backend-only action)
+
+### **Learnings for future iterations** ⚠️ CRITICAL
+
+**Patterns discovered:**
+- Federation API client handles all auth, retries, rate limiting automatically
+- Use `createFederationApiClient(ctx, connectorId)` in actions
+- Client auto-loads connector config and decrypts credentials
+- Pagination pattern: loop while `hasMore` is true, increment `page += 1`
+- Safety checks needed to prevent infinite loops (max 100 pages)
+
+**Gotchas encountered:**
+- Biome linter rejects `page++` - must use `page += 1`
+- Pre-commit hook runs biome check - commit fails if linting errors exist
+- API client throws FederationApiError with status codes - check error.message.toLowerCase()
+- Must find organization's `federationOrgId` from connector.connectedOrganizations array
+
+**Dependencies found:**
+- Requires connector to be in "active" status (FederationApiClient checks this)
+- Organization must be in connector.connectedOrganizations array
+- Connector must have valid encrypted credentials stored
+
+**Mistakes made** (learn from these!):
+- First commit failed due to `page++` linting error
+- Initial error handling only threw generic errors - enhanced with specific status code messages
+
+---
+
+## Sun 15 Feb 2026 22:30 - US-P4.2-003 - Implement GAA member detail fetcher action
+**Iteration**: 1
+**Commit**: 777684fe (feat: US-P4.2-003 - Implement GAA member detail fetcher action)
+**Session**: 58f28692-5087-4431-ab96-e1dc7e836e5e
+**Status**: Complete
+
+### What was implemented
+- Added `fetchMemberDetail` action to `packages/backend/convex/actions/gaaFoireann.ts`
+- Fetches detailed member profile from GAA Foireann API
+- Endpoint: `/members/{memberId}`
+- Returns GAAMemberDetail with all base member fields PLUS:
+  - emergencyContactName, emergencyContactPhone
+  - medicalConditions, allergies
+  - playerPositions (array of position names, e.g., ["Full Forward", "Midfielder"])
+  - teams (array with teamId, teamName, ageGroup)
+
+Error handling:
+- 404: "Member not found: The member ID X does not exist..."
+- 403: "Access denied: You do not have permission to view details for member X..."
+- 401: "Authentication failed: Invalid or expired credentials..."
+
+Logging:
+- Logs fetch start with member ID and timestamp
+- Logs success with fetch duration
+- Logs failure with error details
+- All logs prefixed with `[GAA Foireann]`
+
+### Files changed
+- packages/backend/convex/actions/gaaFoireann.ts (+151 lines)
+  - Added GAAMemberDetail interface (extends GAAMember)
+  - Added MemberDetailResponse interface
+  - Added fetchMemberDetail action
+
+### Quality checks
+- ✅ Convex codegen: passed
+- ✅ Type check: passed
+- ✅ Linting: passed
+- ⚠️ Browser verification: N/A (backend-only action)
+
+### **Learnings for future iterations** ⚠️ CRITICAL
+
+**Patterns discovered:**
+- Member detail endpoint provides richer data than membership list
+- Use for initial import or when syncing specific members
+- TypeScript interfaces can extend base interfaces for detail types
+- Single member fetch doesn't need pagination logic
+
+**Gotchas encountered:**
+- Member detail endpoint has additional error case: 403 Forbidden (no access to member)
+- Must handle this separately from 401 (auth failed) and 404 (not found)
+
+**What to do next**:
+- [ ] Implement US-P4.2-004: Create GAA field mapping transformer
+- [ ] Will create `packages/backend/convex/lib/federation/gaaMapper.ts`
+- [ ] Transform GAA field names/formats to match PlayerARC schema
+- [ ] Handle address parsing (GAA uses single-line addresses)
+- [ ] Validate membership numbers (XXX-XXXXX-XXX format)
+- [ ] Phone normalization (add +353 if missing country code)
 
 ---

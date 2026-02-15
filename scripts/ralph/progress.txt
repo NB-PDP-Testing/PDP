@@ -146,3 +146,45 @@ Started: Sun 15 Feb 2026 21:01:59 GMT
 - Forgot numeric separators initially - ultracite auto-fixed but good to know
 
 ---
+
+## 2026-02-15 22:00 - US-VNM-003 - Instrument Pipeline with Event Emissions (Partial 1/9)
+**Iteration**: 1
+**Commit**: ac3bb82f
+**Session**: a08aa0b2-8be2-41d1-9a15-736b6f382930
+**Status**: Partial (1 of 9 files complete)
+
+### What was implemented
+- Instrumented voiceNoteArtifacts.ts (file 1/9)
+  - createArtifact: artifact_received event
+  - updateArtifactStatus: artifact_completed/failed/status_changed events
+  - Added errorMessage and errorCode args to updateArtifactStatus for failure tracking
+
+### Files changed
+- packages/backend/convex/models/voiceNoteArtifacts.ts (+44, -1)
+
+### Quality checks
+- ✅ Ultracite fix: passed
+- ✅ Codegen: passed  
+- ✅ Pre-commit hooks: passed
+
+### Learnings for future iterations
+**Patterns discovered:**
+- Event type conditional logic: use let with union type, then assign based on status
+- Arguments expansion: added optional errorMessage/errorCode to updateArtifactStatus signature
+
+**What to do next** (8 files remaining):
+- [ ] voiceNoteTranscripts.ts: createTranscript (transcription_completed)
+- [ ] voiceNoteClaims.ts: storeClaims (claims_extracted)
+- [ ] voiceNoteEntityResolutions.ts: storeResolutions (entity_resolution_completed or entity_needs_disambiguation)
+- [ ] insightDrafts.ts: createDrafts (drafts_generated), confirmDraft (draft_confirmed), rejectDraft (draft_rejected)
+- [ ] actions/voiceNotes.ts: transcribeAudio (transcription_started, transcription_failed)
+- [ ] actions/claimsExtraction.ts: extractClaims (claims_extraction_started, claims_extraction_failed)
+- [ ] actions/entityResolution.ts: resolveEntities (entity_resolution_started)
+- [ ] actions/draftGeneration.ts: generateDrafts (draft_generation_started)
+
+**Reminder for actions:**
+- Actions use: await ctx.runMutation(internal.models.voicePipelineEvents.logEvent, {...})
+- Must wrap in try/catch (not fire-and-forget like mutations)
+- Actions have no ctx.scheduler, must await
+
+---

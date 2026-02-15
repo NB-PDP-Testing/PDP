@@ -4833,6 +4833,17 @@ export default defineSchema({
     .index("by_columnPattern", ["columnPattern"])
     .index("by_expiresAt", ["expiresAt"]),
 
+  // Phase 4.3: AI mapping analytics
+  // Tracks usage, costs, and performance metrics for AI column mapping
+  aiMappingAnalytics: defineTable({
+    timestamp: v.number(),
+    columnName: v.string(),
+    cached: v.boolean(),
+    confidence: v.number(),
+    accepted: v.boolean(), // true if user accepted, false if rejected
+    correctedTo: v.optional(v.string()), // If rejected, what field user manually selected
+  }).index("by_timestamp", ["timestamp"]),
+
   // Real-time progress tracking for active imports
   importProgressTrackers: defineTable({
     sessionId: v.id("importSessions"),

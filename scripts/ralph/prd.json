@@ -120,6 +120,7 @@
         "Run npx -w packages/backend convex codegen and npm run check-types"
       ],
       "priority": 4,
+      "passes": true,
       "notes": "Atomic updates critical - partial syncs can corrupt data. Use Convex transactions to ensure all-or-nothing. Log all conflicts for audit trail. Conflict resolution notes help users understand what changed and why."
     },
     {
@@ -141,6 +142,7 @@
         "Run npx -w packages/backend convex codegen"
       ],
       "priority": 5,
+      "passes": true,
       "notes": "Queue prevents race conditions where two syncs update same player simultaneously. Atomic claim operation ensures only one sync runs at a time. Timeout prevents zombie jobs from blocking queue forever."
     },
     {

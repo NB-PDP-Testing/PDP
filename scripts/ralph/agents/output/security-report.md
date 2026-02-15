@@ -1,4 +1,4 @@
-# Security Report - 2026-02-15 23:28:32
+# Security Report - 2026-02-15 23:40:49
 
 **Phase:** P9
 **Critical:** 2 | **High:** 5 | **Medium:** 0
@@ -16,6 +16,7 @@ packages/backend/convex/actions/aiMapping.ts:        "ANTHROPIC_API_KEY not conf
   Run `npm audit fix` to resolve
 - ⚠️ **HIGH**: Mutations without authorization checks:
   - packages/backend/convex/models/platformMessagingSettings.ts
+  - packages/backend/convex/models/syncQueue.ts
   - packages/backend/convex/models/importSessions.ts
   - packages/backend/convex/models/passportComparison.ts
   - packages/backend/convex/models/trustGatePermissions.ts

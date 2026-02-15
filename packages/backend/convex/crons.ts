@@ -214,4 +214,12 @@ crons.interval(
   {}
 );
 
+// Phase 4.4: Process retry queue every 5 minutes (US-P4.4-007)
+crons.interval(
+  "process-retry-queue",
+  { minutes: 5 },
+  internal.actions.syncQueueProcessor.processRetryQueue,
+  {}
+);
+
 export default crons;

@@ -26,6 +26,7 @@ import type * as actions_platformStaffInvitations from "../actions/platformStaff
 import type * as actions_practicePlans from "../actions/practicePlans.js";
 import type * as actions_sendDemoRequestNotification from "../actions/sendDemoRequestNotification.js";
 import type * as actions_sessionPlans from "../actions/sessionPlans.js";
+import type * as actions_syncQueueProcessor from "../actions/syncQueueProcessor.js";
 import type * as actions_teamInsights from "../actions/teamInsights.js";
 import type * as actions_voiceNotes from "../actions/voiceNotes.js";
 import type * as actions_whatsapp from "../actions/whatsapp.js";
@@ -161,6 +162,7 @@ import type * as models_skillBenchmarks from "../models/skillBenchmarks.js";
 import type * as models_sportAgeGroupConfig from "../models/sportAgeGroupConfig.js";
 import type * as models_sportPassports from "../models/sportPassports.js";
 import type * as models_sports from "../models/sports.js";
+import type * as models_syncQueue from "../models/syncQueue.js";
 import type * as models_teamCollaboration from "../models/teamCollaboration.js";
 import type * as models_teamDecisions from "../models/teamDecisions.js";
 import type * as models_teamObservations from "../models/teamObservations.js";
@@ -246,6 +248,7 @@ declare const fullApi: ApiFromModules<{
   "actions/practicePlans": typeof actions_practicePlans;
   "actions/sendDemoRequestNotification": typeof actions_sendDemoRequestNotification;
   "actions/sessionPlans": typeof actions_sessionPlans;
+  "actions/syncQueueProcessor": typeof actions_syncQueueProcessor;
   "actions/teamInsights": typeof actions_teamInsights;
   "actions/voiceNotes": typeof actions_voiceNotes;
   "actions/whatsapp": typeof actions_whatsapp;
@@ -381,6 +384,7 @@ declare const fullApi: ApiFromModules<{
   "models/sportAgeGroupConfig": typeof models_sportAgeGroupConfig;
   "models/sportPassports": typeof models_sportPassports;
   "models/sports": typeof models_sports;
+  "models/syncQueue": typeof models_syncQueue;
   "models/teamCollaboration": typeof models_teamCollaboration;
   "models/teamDecisions": typeof models_teamDecisions;
   "models/teamObservations": typeof models_teamObservations;

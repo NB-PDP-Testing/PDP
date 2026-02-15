@@ -367,3 +367,48 @@ export const failStuckJobs = mutation({
     return failedCount;
   },
 });
+
+/**
+ * Get pending jobs ready for retry
+ * Returns jobs with nextRetryAt < now and status=pending
+ */
+export const getJobsReadyForRetry = query({
+  args: {},
+  returns: v.array(
+    v.object({
+      _id: v.id("syncQueue"),
+      organizationId: v.string(),
+      connectorId: v.id("federationConnectors"),
+      retryCount: v.optional(v.number()),
+      maxRetries: v.optional(v.number()),
+      nextRetryAt: v.optional(v.number()),
+      error: v.optional(v.string()),
+    })
+  ),
+  handler: async (ctx, _args) => {
+    const now = Date.now();
+
+    // Find pending jobs with nextRetryAt in the past
+    const jobs = await ctx.db
+      .query("syncQueue")
+      .withIndex("by_nextRetryAt")
+      .filter((q) =>
+        q.and(
+          q.eq(q.field("status"), "pending"),
+          q.neq(q.field("nextRetryAt"), undefined),
+          q.lte(q.field("nextRetryAt"), now)
+        )
+      )
+      .collect();
+
+    return jobs.map((job) => ({
+      _id: job._id,
+      organizationId: job.organizationId,
+      connectorId: job.connectorId,
+      retryCount: job.retryCount,
+      maxRetries: job.maxRetries,
+      nextRetryAt: job.nextRetryAt,
+      error: job.error,
+    }));
+  },
+});

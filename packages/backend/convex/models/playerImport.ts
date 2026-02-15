@@ -1472,6 +1472,124 @@ export const getImportedPlayers = query({
 });
 
 // ============================================================
+// PHASE 3.2: IMPORT DETAILS - GET DETAILED PLAYER LIST
+// ============================================================
+
+/**
+ * Get detailed player list for import session - includes guardian, teams, gender.
+ * Used in the Import Details dialog Players tab.
+ *
+ * @param sessionId - Import session ID
+ * @returns Array of players with full details for display
+ */
+export const getImportSessionPlayersDetailed = query({
+  args: {
+    sessionId: v.id("importSessions"),
+  },
+  returns: v.array(
+    v.object({
+      _id: v.id("playerIdentities"),
+      firstName: v.string(),
+      lastName: v.string(),
+      dateOfBirth: v.string(),
+      gender: v.union(
+        v.literal("male"),
+        v.literal("female"),
+        v.literal("other")
+      ),
+      enrollmentStatus: v.string(),
+      guardianName: v.union(v.string(), v.null()),
+      teamCount: v.number(),
+    })
+  ),
+  handler: async (ctx, args) => {
+    // Find all player identities from this import session
+    const playerIdentities = await ctx.db
+      .query("playerIdentities")
+      .withIndex("by_importSessionId", (q) =>
+        q.eq("importSessionId", args.sessionId)
+      )
+      .collect();
+
+    const playerIds = playerIdentities.map((p) => p._id);
+
+    // Batch fetch enrollments for status
+    const enrollmentsByPlayer = await Promise.all(
+      playerIds.map((id) =>
+        ctx.db
+          .query("orgPlayerEnrollments")
+          .withIndex("by_playerIdentityId", (q) => q.eq("playerIdentityId", id))
+          .first()
+      )
+    );
+
+    // Batch fetch guardian links
+    const guardianLinksByPlayer = await Promise.all(
+      playerIds.map((id) =>
+        ctx.db
+          .query("guardianPlayerLinks")
+          .withIndex("by_player", (q) => q.eq("playerIdentityId", id))
+          .first()
+      )
+    );
+
+    // Get unique guardian IDs
+    const guardianIds = guardianLinksByPlayer
+      .filter((link) => link !== null)
+      .map((link) => link?.guardianIdentityId);
+
+    // Batch fetch guardians
+    const guardians = await Promise.all(
+      guardianIds.map((id) => ctx.db.get(id))
+    );
+
+    // Create guardian map for lookup
+    const guardianMap = new Map();
+    for (const guardian of guardians) {
+      if (guardian) {
+        guardianMap.set(guardian._id, guardian);
+      }
+    }
+
+    // Batch fetch team assignments
+    const teamAssignmentsByPlayer = await Promise.all(
+      playerIds.map((id) =>
+        ctx.db
+          .query("teamPlayerIdentities")
+          .withIndex("by_playerIdentityId", (q) => q.eq("playerIdentityId", id))
+          .collect()
+      )
+    );
+
+    // Build result with all details
+    return playerIdentities.map((player, index) => {
+      const enrollment = enrollmentsByPlayer[index];
+      const guardianLink = guardianLinksByPlayer[index];
+      const teamAssignments = teamAssignmentsByPlayer[index] || [];
+
+      const guardian = guardianLink
+        ? guardianMap.get(guardianLink.guardianIdentityId)
+        : null;
+
+      const guardianName = guardian
+        ? `${guardian.firstName} ${guardian.lastName}`
+        : null;
+
+      return {
+        _id: player._id,
+        firstName: player.firstName,
+        lastName: player.lastName,
+        dateOfBirth: player.dateOfBirth,
+        gender: player.gender,
+        enrollmentStatus: enrollment?.status || "active",
+        guardianName,
+        teamCount: teamAssignments.length,
+      };
+    });
+  },
+});
+
+// ============================================================
 // PHASE 3.1: PARTIAL UNDO - GET REMOVAL IMPACT PREVIEW
 // ============================================================
 

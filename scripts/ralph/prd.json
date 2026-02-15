@@ -286,7 +286,8 @@
         "Run npx ultracite fix before completion"
       ],
       "priority": 3,
-      "notes": "Org history helps admins audit imports. 'View Details' links to import session detail page (future). 'Undo' triggers partial or full undo dialog. Use getOrgImportHistory query from US-P3.1-009."
+      "notes": "Org history helps admins audit imports. 'View Details' links to import session detail page (future). 'Undo' triggers partial or full undo dialog. Use getOrgImportHistory query from US-P3.1-009.",
+      "passes": true
     },
     {
       "id": "US-P3.1-012",

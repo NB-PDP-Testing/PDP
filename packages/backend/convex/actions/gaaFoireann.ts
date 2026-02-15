@@ -45,6 +45,31 @@ interface MembershipListResponse {
   hasMore: boolean;
 }
 
+/**
+ * Detailed GAA member data from member detail endpoint
+ * Includes additional fields not in membership list
+ */
+interface GAAMemberDetail extends GAAMember {
+  // Additional fields from detail endpoint
+  emergencyContactName?: string;
+  emergencyContactPhone?: string;
+  medicalConditions?: string;
+  allergies?: string;
+  playerPositions?: string[]; // e.g., ["Full Forward", "Midfielder"]
+  teams?: Array<{
+    teamId: string;
+    teamName: string;
+    ageGroup: string;
+  }>;
+}
+
+/**
+ * Response from member detail endpoint
+ */
+interface MemberDetailResponse {
+  member: GAAMemberDetail;
+}
+
 // ===== Fetch Membership List =====
 
 /**
@@ -229,6 +254,147 @@ export const fetchMembershipList = action({
         error instanceof Error ? error.message : "Unknown error";
       console.error(
         `[GAA Foireann] Sync failed - Error: ${errorMessage}, Timestamp: ${now}`
+      );
+
+      throw error;
+    }
+  },
+});
+
+// ===== Fetch Member Detail =====
+
+/**
+ * Fetch detailed information for a specific member from GAA Foireann API.
+ *
+ * Returns richer data than membership list including emergency contacts,
+ * medical info, player positions, and team assignments.
+ */
+export const fetchMemberDetail = action({
+  args: {
+    connectorId: v.id("federationConnectors"),
+    memberId: v.string(),
+  },
+  returns: v.object({
+    member: v.object({
+      memberId: v.string(),
+      firstName: v.string(),
+      lastName: v.string(),
+      dateOfBirth: v.string(),
+      email: v.optional(v.string()),
+      phone: v.optional(v.string()),
+      address: v.optional(v.string()),
+      membershipNumber: v.optional(v.string()),
+      membershipStatus: v.string(),
+      joinDate: v.optional(v.string()),
+      // Additional detail fields
+      emergencyContactName: v.optional(v.string()),
+      emergencyContactPhone: v.optional(v.string()),
+      medicalConditions: v.optional(v.string()),
+      allergies: v.optional(v.string()),
+      playerPositions: v.optional(v.array(v.string())),
+      teams: v.optional(
+        v.array(
+          v.object({
+            teamId: v.string(),
+            teamName: v.string(),
+            ageGroup: v.string(),
+          })
+        )
+      ),
+    }),
+    fetchedAt: v.number(),
+  }),
+  handler: async (ctx, args) => {
+    const now = Date.now();
+
+    console.log(
+      `[GAA Foireann] Fetching member detail - connector: ${args.connectorId}, member: ${args.memberId}, timestamp: ${now}`
+    );
+
+    try {
+      // Load connector configuration
+      const connector = await ctx.runQuery(
+        api.models.federationConnectors.getConnector,
+        { connectorId: args.connectorId }
+      );
+
+      if (!connector) {
+        console.error("[GAA Foireann] Connector not found");
+        throw new Error("Connector not found");
+      }
+
+      // Create API client
+      const apiClient = createFederationApiClient(ctx, args.connectorId);
+
+      // Build endpoint URL
+      const endpoint = `/members/${args.memberId}`;
+
+      console.log(
+        `[GAA Foireann] Requesting member detail for ${args.memberId}`
+      );
+
+      try {
+        // Make API request
+        const response =
+          await apiClient.request<MemberDetailResponse>(endpoint);
+
+        const fetchDuration = Date.now() - now;
+        console.log(
+          `[GAA Foireann] Member detail fetched successfully in ${fetchDuration}ms`
+        );
+
+        return {
+          member: response.member,
+          fetchedAt: now,
+        };
+      } catch (error) {
+        console.error("[GAA Foireann] Error fetching member detail:", error);
+
+        // Handle specific error cases
+        if (error instanceof Error) {
+          const errorMessage = error.message.toLowerCase();
+
+          // 404 Not Found - member not found
+          if (
+            errorMessage.includes("404") ||
+            errorMessage.includes("not found")
+          ) {
+            throw new Error(
+              `Member not found: The member ID ${args.memberId} does not exist in GAA Foireann system.`
+            );
+          }
+
+          // 403 Forbidden - no access to this member
+          if (
+            errorMessage.includes("403") ||
+            errorMessage.includes("forbidden")
+          ) {
+            throw new Error(
+              `Access denied: You do not have permission to view details for member ${args.memberId}.`
+            );
+          }
+
+          // 401 Unauthorized - authentication failed
+          if (
+            errorMessage.includes("401") ||
+            errorMessage.includes("unauthorized")
+          ) {
+            throw new Error(
+              "Authentication failed: Invalid or expired credentials. Please reconnect to GAA Foireann."
+            );
+          }
+        }
+
+        throw new Error(
+          `Failed to fetch member detail: ${error instanceof Error ? error.message : "Unknown error"}`
+        );
+      }
+    } catch (error) {
+      // Log failed fetch attempt
+      const errorMessage =
+        error instanceof Error ? error.message : "Unknown error";
+      console.error(
+        `[GAA Foireann] Member detail fetch failed - Error: ${errorMessage}, Timestamp: ${now}`
       );
 
       throw error;

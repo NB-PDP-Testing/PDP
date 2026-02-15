@@ -289,3 +289,116 @@ export const suggestColumnMapping = action({
     };
   },
 });
+
+/**
+ * Batch process: suggest mappings for all columns in a CSV
+ * Calls suggestColumnMapping for each column in parallel with rate limiting
+ */
+export const suggestAllMappings = action({
+  args: {
+    columns: v.array(
+      v.object({
+        name: v.string(),
+        sampleValues: v.array(v.string()),
+      })
+    ),
+  },
+  returns: v.object({
+    mappings: v.record(
+      v.string(),
+      v.object({
+        targetField: v.union(v.string(), v.null()),
+        confidence: v.number(),
+        reasoning: v.string(),
+        cached: v.boolean(),
+      })
+    ),
+    cacheHitRate: v.number(), // Percentage of cached results (0-100)
+  }),
+  handler: async (ctx, args) => {
+    // Rate limiting: process max 10 columns concurrently
+    const MAX_CONCURRENT = 10;
+    const results: Record<
+      string,
+      {
+        targetField: string | null;
+        confidence: number;
+        reasoning: string;
+        cached: boolean;
+      }
+    > = {};
+
+    let cacheHits = 0;
+    let totalProcessed = 0;
+
+    // Process columns in batches to avoid overwhelming Claude API
+    for (let i = 0; i < args.columns.length; i += MAX_CONCURRENT) {
+      const batch = args.columns.slice(i, i + MAX_CONCURRENT);
+
+      // Call suggestColumnMapping for each column in parallel
+      const batchResults = await Promise.all(
+        batch.map(async (column) => {
+          const result = await ctx.runAction(
+            (await import("../_generated/api")).default.actions.aiMapping
+              .suggestColumnMapping,
+            {
+              columnName: column.name,
+              sampleValues: column.sampleValues,
+            }
+          );
+
+          return {
+            columnName: column.name,
+            result,
+          };
+        })
+      );
+
+      // Collect results and track cache hits
+      for (const { columnName, result } of batchResults) {
+        results[columnName] = result;
+        if (result.cached) {
+          cacheHits += 1;
+        }
+        totalProcessed += 1;
+      }
+
+      // If there's another batch, add small delay to avoid rate limiting
+      if (i + MAX_CONCURRENT < args.columns.length) {
+        await new Promise((resolve) => setTimeout(resolve, 500)); // 500ms delay between batches
+      }
+    }
+
+    // Calculate cache hit rate
+    const cacheHitRate =
+      totalProcessed > 0 ? (cacheHits / totalProcessed) * 100 : 0;
+
+    // Sort results by confidence (HIGH → MEDIUM → LOW)
+    const sortedMappings: Record<
+      string,
+      {
+        targetField: string | null;
+        confidence: number;
+        reasoning: string;
+        cached: boolean;
+      }
+    > = {};
+
+    const sortedColumns = Object.entries(results).sort(
+      ([_a, resultA], [_b, resultB]) => resultB.confidence - resultA.confidence
+    );
+
+    for (const [columnName, result] of sortedColumns) {
+      sortedMappings[columnName] = result;
+    }
+
+    console.log(
+      `Batch mapping complete: ${totalProcessed} columns, ${cacheHits} cached (${cacheHitRate.toFixed(1)}%)`
+    );
+
+    return {
+      mappings: sortedMappings,
+      cacheHitRate,
+    };
+  },
+});

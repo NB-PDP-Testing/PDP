@@ -117,7 +117,8 @@
         "Run npx -w packages/backend convex codegen and npm run check-types"
       ],
       "priority": 4,
-      "notes": "Caching dramatically reduces costs. With 30-day cache, repeated imports of same CSV format cost 0 additional API calls. Hash sample values (first 3) to create cache key - handles different data but same column structure."
+      "notes": "Caching dramatically reduces costs. With 30-day cache, repeated imports of same CSV format cost 0 additional API calls. Hash sample values (first 3) to create cache key - handles different data but same column structure.",
+      "passes": true
     },
     {
       "id": "US-P4.3-005",

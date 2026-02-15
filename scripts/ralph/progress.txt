@@ -162,3 +162,41 @@ Started: Sun 15 Feb 2026 22:26:17 GMT
 - Added unused TypeScript type that had to be removed
 
 ---
+## 2026-02-15 23:45 - US-P4.3-004 - Implement AI column mapper with caching
+**Iteration**: 1
+**Commit**: 7ba78991dbe3edf10b3f61aac7ecbe92050fa02b
+**Session**: 28d554da-c69f-4334-9606-0515ca527995
+**Status**: Complete
+
+### What was implemented
+- Added `suggestColumnMapping` action to `packages/backend/convex/actions/aiMapping.ts`
+- Created `packages/backend/convex/models/aiMappingCache.ts` with cache queries/mutations
+- Cache lookup: by columnPattern (normalized) + first 3 sample values
+- Returns cached result if found and not expired (expiresAt > Date.now())
+- Calls Claude API if cache miss, validates response, stores in cache (30-day TTL)
+- Returns { targetField, confidence, reasoning, cached: boolean }
+- Logs cache HIT/MISS for monitoring
+- Cache model: getCachedMapping (query), storeCachedMapping (mutation), cleanupExpiredCache (mutation)
+
+### Files changed
+- packages/backend/convex/actions/aiMapping.ts (+104 lines, added suggestColumnMapping)
+- packages/backend/convex/models/aiMappingCache.ts (+116 lines, new file)
+
+### Quality checks
+- ✅ Convex codegen: passed
+- ✅ Biome linting: passed
+- ✅ Pre-commit lint-staged: passed
+
+### **Learnings for future iterations** ⚠️ CRITICAL
+**Patterns discovered:**
+- Cache key strategy: normalized columnPattern + first 3 sample values joined with "|"
+- storeCachedMapping upserts: checks for existing entry, patches if found, inserts if new
+- Cache queries use index + filter pattern (indexed by columnPattern, filtered by sample values)
+
+**What to do next**:
+- [ ] US-P4.3-005: Create batch AI mapping orchestrator (suggestAllMappings)
+
+**Mistakes made**:
+- Created unused sampleValuesKey variable (removed after biome check)
+
+---

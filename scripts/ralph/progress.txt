@@ -458,3 +458,69 @@ Started: Mon 16 Feb 2026 11:08:52 GMT
 - Extracted helper functions after linting - should have done this from the start
 
 ---
+## 2026-02-16 23:30 - US-P4.5-006 - Create sync log details modal
+**Iteration**: 3
+**Commit**: 0ed4dd388aaa3c86f083dc42f4aa7d0e877a1fe6
+**Session**: cc27c7be-f042-4658-8194-9ff72012a037
+**Status**: Complete
+
+### What was implemented
+- Created SyncLogDetailsDialog component at `apps/web/src/components/connectors/sync-log-details-dialog.tsx`
+- Comprehensive sync metadata display: Sync ID, connector, organization, type, timing, status badge
+- Statistics section with 6 colored cards: Players Created (blue), Updated (green), Processed (gray), Conflicts Detected (yellow), Resolved (orange), Errors (red)
+- Expandable conflicts section: click to expand/collapse each player's conflicts
+- Conflict detail grid: Federation value, Local value, Resolved value (color-coded by strategy)
+- Scrollable errors section with player context and timestamps
+- Export Details button: downloads full sync history as JSON blob
+- Retry Sync button: shows for failed syncs (placeholder mutation, shows toast)
+- Close button with X icon
+- Loading state while fetching sync details (with spinner message)
+- Mobile responsive: max height 90vh, scrollable content area
+- Wired up "View Details" buttons from sync logs page (both desktop table and mobile cards)
+- State management: selectedLogId and isDetailsOpen
+
+### Files changed
+- apps/web/src/components/connectors/sync-log-details-dialog.tsx (+371 lines, new file)
+- apps/web/src/app/platform/connectors/sync-logs/page.tsx (+18 lines, -4 lines)
+
+### Quality checks
+- ✅ Convex codegen: passed
+- ✅ Linting: passed (no errors)
+- ✅ Pre-commit hooks: passed
+- ⏭️ Browser verification: N/A (requires backend data)
+
+### Learnings for future iterations ⚠️ CRITICAL
+
+**Patterns discovered:**
+- Dialog component pattern: separate reusable component in `components/<feature>/`
+- Helper functions at top of file for badge variants and color coding
+- Expandable sections: Set state + toggle function pattern
+- Export functionality: create Blob → URL.createObjectURL → programmatic link click
+- getSyncHistoryDetails query uses `"skip"` when syncHistoryId is null
+- format() from date-fns for full date formatting (PPpp format)
+- ScrollArea component for long content sections
+
+**Gotchas encountered:**
+- Auto-formatter removes unused imports - must import AND use in same commit/edit
+- Nested ternaries still trigger warnings in mobile card view (missed initially)
+- Helper functions need to be extracted even if they're called from different sections
+- Dialog onOpenChange expects boolean, so `onClose` handler just sets false
+
+**Dependencies found:**
+- ScrollArea component from shadcn/ui (already exists)
+- format() from date-fns for detailed timestamp formatting
+- Download icon from lucide-react
+- RefreshCw icon for retry button
+
+**What to do next**:
+- [ ] US-P4.5-007: Connector health dashboard
+- [ ] US-P4.5-008: Analytics and cost monitoring
+- [ ] Implement retry sync mutation (currently placeholder)
+
+**Mistakes made** (learn from these!):
+- Initially forgot to wire up onClick handlers on View Details buttons
+- Formatter removed import before it was used (added import after adding usage)
+- Missed nested ternaries in mobile card section on first pass
+- Should have extracted all helper functions before writing any JSX
+
+---

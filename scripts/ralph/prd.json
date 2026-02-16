@@ -205,7 +205,7 @@
       ],
       "priority": 6,
       "notes": "Use getSyncHistoryDetails query. Conflict details help understand merge decisions. Error section aids debugging. Export useful for sharing with support. Retry button calls sync action again.",
-      "passes": false
+      "passes": true
     },
     {
       "id": "US-P4.5-007",

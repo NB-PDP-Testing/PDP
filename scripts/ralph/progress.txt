@@ -392,3 +392,69 @@ Started: Mon 16 Feb 2026 11:08:52 GMT
 - Git workflow confusion: tried to pop stash while staged changes existed
 
 ---
+## 2026-02-16 22:00 - US-P4.5-005 - Create sync logs viewer
+**Iteration**: 3
+**Commit**: 9df8ba1c45d2c939dd31e4881413b8728b3b41e3
+**Session**: c8e07c55-4679-4903-bf31-7d9ebe418a44
+**Status**: Complete
+
+### What was implemented
+- Created `/platform/connectors/sync-logs` page for platform-wide sync monitoring
+- Desktop table view with 8 columns: Timestamp, Connector, Organization, Type, Status, Duration, Stats, Actions
+- Mobile responsive card list view (switches at 768px breakpoint)
+- Comprehensive filtering: connector dropdown, status dropdown (All/Completed/Failed/Running), date range picker (Last 7/30 days, All)
+- Search functionality filters by organization ID
+- Pagination with Next/Previous navigation using cursor-based approach
+- Duration formatting: "Xm Ys" display
+- Badge variants for sync type (scheduled=blue, manual=purple, webhook=green)
+- Badge variants for status (completed=green, failed=red, running=yellow)
+- Stats display showing created/updated counts and conflict highlighting
+- Empty state: "No sync logs found. Try adjusting filters."
+- View Details button placeholder (wired up in next story)
+- Backend: getAllSyncHistory query for platform admin access to all organizations
+
+### Files changed
+- packages/backend/convex/models/syncHistory.ts (+93 lines) - Added getAllSyncHistory query
+- apps/web/src/app/platform/connectors/sync-logs/page.tsx (+424 lines, new file)
+
+### Quality checks
+- ✅ Convex codegen: passed
+- ✅ Type check: passed (no new errors)
+- ✅ Linting: passed (with helper functions to avoid nested ternaries)
+- ✅ Pre-commit hooks: passed
+- ⏭️ Browser verification: N/A (requires backend data)
+
+### Learnings for future iterations ⚠️ CRITICAL
+
+**Patterns discovered:**
+- .gitignore has generic `logs` entry - renamed directory to `sync-logs` to avoid conflict
+- Helper functions reduce complexity and avoid nested ternaries:
+  * getSyncTypeBadgeVariant(syncType) for badge variants
+  * getStatusBadgeVariant(status) for badge variants
+- getAllSyncHistory query pattern for platform-wide data access (no org filtering)
+- Uses `by_startedAt` index for efficient pagination without org filter
+- Cursor-based pagination: fetch limit+1, check hasMore, use last item's timestamp as nextCursor
+
+**Gotchas encountered:**
+- .gitignore `logs` pattern catches `logs/` directories anywhere in project
+- Nested ternaries trigger lint warnings (noNestedTernary) - extract to functions instead
+- Excessive cognitive complexity (16>15) in map callbacks - extract helper functions
+- Date range filtering done client-side after fetch (could optimize with backend filter)
+
+**Dependencies found:**
+- getAllSyncHistory query uses by_startedAt index (already exists in schema)
+- formatDistanceToNow from date-fns for relative time display
+- Badge, Select, Card components from shadcn/ui
+
+**What to do next**:
+- [ ] US-P4.5-006: Sync log details modal (View Details button functionality)
+- [ ] US-P4.5-007: Connector health dashboard
+- [ ] US-P4.5-008: Analytics and cost monitoring
+
+**Mistakes made** (learn from these!):
+- Initially created directory named `logs/` which was caught by .gitignore
+- Should have checked gitignore patterns before naming directories
+- Initially used nested ternaries which triggered lint warnings
+- Extracted helper functions after linting - should have done this from the start
+
+---

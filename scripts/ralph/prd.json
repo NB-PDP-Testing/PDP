@@ -170,7 +170,7 @@
       ],
       "priority": 5,
       "notes": "Use getSyncHistory query with pagination. Default view: last 7 days, all statuses. Failed syncs highlighted in red for visibility. 'Running' status helps identify stuck syncs.",
-      "passes": false
+      "passes": true
     },
     {
       "id": "US-P4.5-006",

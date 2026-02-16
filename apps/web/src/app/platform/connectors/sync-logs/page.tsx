@@ -10,6 +10,7 @@ import {
   Search,
 } from "lucide-react";
 import { useMemo, useState } from "react";
+import { SyncLogDetailsDialog } from "@/components/connectors/sync-log-details-dialog";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import {
@@ -66,6 +67,10 @@ export default function SyncLogsPage() {
   const [selectedStatus, setSelectedStatus] = useState<SyncStatus>("all");
   const [dateRange, setDateRange] = useState<DateRange>("last7");
   const [cursor, setCursor] = useState<number | undefined>(undefined);
+  const [selectedLogId, setSelectedLogId] = useState<Id<"syncHistory"> | null>(
+    null
+  );
+  const [isDetailsOpen, setIsDetailsOpen] = useState(false);
 
   // Fetch connectors for filter dropdown
   const connectors = useQuery(
@@ -140,6 +145,17 @@ export default function SyncLogsPage() {
     const minutes = Math.floor(durationMs / 60_000);
     const seconds = Math.floor((durationMs % 60_000) / 1000);
     return `${minutes}m ${seconds}s`;
+  };
+
+  // Handle view details
+  const handleViewDetails = (logId: Id<"syncHistory">) => {
+    setSelectedLogId(logId);
+    setIsDetailsOpen(true);
+  };
+
+  const handleCloseDetails = () => {
+    setIsDetailsOpen(false);
+    setSelectedLogId(null);
   };
 
   return (
@@ -324,7 +340,11 @@ export default function SyncLogsPage() {
                               </div>
                             </td>
                             <td className="px-4 py-3">
-                              <Button size="sm" variant="outline">
+                              <Button
+                                onClick={() => handleViewDetails(log._id)}
+                                size="sm"
+                                variant="outline"
+                              >
                                 View Details
                               </Button>
                             </td>
@@ -354,15 +374,7 @@ export default function SyncLogsPage() {
                           <CardTitle className="text-base">
                             {connectorName}
                           </CardTitle>
-                          <Badge
-                            variant={
-                              log.status === "completed"
-                                ? "default"
-                                : log.status === "failed"
-                                  ? "destructive"
-                                  : "secondary"
-                            }
-                          >
+                          <Badge variant={getStatusBadgeVariant(log.status)}>
                             {log.status}
                           </Badge>
                         </div>
@@ -382,13 +394,7 @@ export default function SyncLogsPage() {
                         <div className="flex justify-between text-sm">
                           <span className="text-gray-600">Type:</span>
                           <Badge
-                            variant={
-                              log.syncType === "scheduled"
-                                ? "default"
-                                : log.syncType === "manual"
-                                  ? "secondary"
-                                  : "outline"
-                            }
+                            variant={getSyncTypeBadgeVariant(log.syncType)}
                           >
                             {log.syncType}
                           </Badge>
@@ -412,6 +418,7 @@ export default function SyncLogsPage() {
                         </div>
                         <Button
                           className="mt-2 w-full"
+                          onClick={() => handleViewDetails(log._id)}
                           size="sm"
                           variant="outline"
                         >
@@ -453,6 +460,13 @@ export default function SyncLogsPage() {
           </CardContent>
         </Card>
       </div>
+
+      {/* Sync Log Details Dialog */}
+      <SyncLogDetailsDialog
+        isOpen={isDetailsOpen}
+        onClose={handleCloseDetails}
+        syncHistoryId={selectedLogId}
+      />
     </div>
   );
 }

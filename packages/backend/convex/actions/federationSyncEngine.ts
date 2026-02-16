@@ -91,6 +91,9 @@ export const syncWithConflictResolution = action({
     connectorId: v.id("federationConnectors"),
     organizationId: v.string(),
     strategy: v.optional(conflictResolutionStrategyValidator),
+    syncType: v.optional(
+      v.union(v.literal("scheduled"), v.literal("manual"), v.literal("webhook"))
+    ),
   },
   returns: v.object({
     sessionId: v.id("importSessions"),
@@ -123,9 +126,10 @@ export const syncWithConflictResolution = action({
     const now = Date.now();
     const strategy: ConflictResolutionStrategy =
       args.strategy || "federation_wins";
+    const syncType = args.syncType || "manual";
 
     console.log(
-      `[Sync Engine] Starting sync with conflict resolution - connector: ${args.connectorId}, org: ${args.organizationId}, strategy: ${strategy}, timestamp: ${now}`
+      `[Sync Engine] Starting sync with conflict resolution - connector: ${args.connectorId}, org: ${args.organizationId}, strategy: ${strategy}, syncType: ${syncType}, timestamp: ${now}`
     );
 
     // Initialize stats
@@ -155,22 +159,7 @@ export const syncWithConflictResolution = action({
     let historyId: Id<"syncHistory"> | undefined;
 
     try {
-      // ========== STEP 1: CREATE SYNC HISTORY ENTRY ==========
-
-      console.log("[Sync Engine] Creating sync history entry...");
-
-      historyId = await ctx.runMutation(
-        api.models.syncHistory.createSyncHistoryEntry,
-        {
-          connectorId: args.connectorId,
-          organizationId: args.organizationId,
-          syncType: "manual", // Default - will be updated by caller if scheduled
-        }
-      );
-
-      console.log(`[Sync Engine] Created sync history: ${historyId}`);
-
-      // ========== STEP 2: CREATE IMPORT SESSION ==========
+      // ========== STEP 1: CREATE IMPORT SESSION ==========
 
       console.log("[Sync Engine] Creating import session...");
 
@@ -198,6 +187,22 @@ export const syncWithConflictResolution = action({
       });
 
       console.log(`[Sync Engine] Created import session: ${sessionId}`);
+
+      // ========== STEP 2: CREATE SYNC HISTORY ENTRY ==========
+
+      console.log("[Sync Engine] Creating sync history entry...");
+
+      historyId = await ctx.runMutation(
+        api.models.syncHistory.createSyncHistoryEntry,
+        {
+          connectorId: args.connectorId,
+          organizationId: args.organizationId,
+          syncType,
+          importSessionId: sessionId,
+        }
+      );
+
+      console.log(`[Sync Engine] Created sync history: ${historyId}`);
 
       // ========== STEP 2: FETCH FEDERATION DATA ==========
 
@@ -314,6 +319,28 @@ export const syncWithConflictResolution = action({
         `[Sync Engine] ✓ Sync completed successfully in ${syncDuration}ms - Processed: ${stats.playersProcessed}, Created: ${stats.playersCreated}, Updated: ${stats.playersUpdated}, Conflicts: ${stats.conflictsDetected}`
       );
 
+      // ========== STEP 7: UPDATE SYNC HISTORY WITH RESULTS ==========
+
+      if (historyId) {
+        console.log("[Sync Engine] Updating sync history with results...");
+
+        await ctx.runMutation(api.models.syncHistory.updateSyncHistoryEntry, {
+          historyId,
+          status: "completed",
+          stats: {
+            playersProcessed: stats.playersProcessed,
+            playersCreated: stats.playersCreated,
+            playersUpdated: stats.playersUpdated,
+            conflictsDetected: stats.conflictsDetected,
+            conflictsResolved: stats.conflictsResolved,
+            errors: stats.errors,
+          },
+          conflictDetails,
+        });
+
+        console.log("[Sync Engine] Sync history updated");
+      }
+
       return {
         sessionId,
         stats,
@@ -338,6 +365,37 @@ export const syncWithConflictResolution = action({
         } catch (statusError) {
           console.error(
             `[Sync Engine] Failed to update session status: ${statusError instanceof Error ? statusError.message : "Unknown error"}`
+          );
+        }
+      }
+
+      // Update sync history to failed if history was created
+      if (historyId) {
+        try {
+          await ctx.runMutation(api.models.syncHistory.updateSyncHistoryEntry, {
+            historyId,
+            status: "failed",
+            stats: {
+              playersProcessed: stats.playersProcessed,
+              playersCreated: stats.playersCreated,
+              playersUpdated: stats.playersUpdated,
+              conflictsDetected: stats.conflictsDetected,
+              conflictsResolved: stats.conflictsResolved,
+              errors: stats.errors,
+            },
+            conflictDetails,
+            errors: [
+              {
+                playerId: "",
+                playerName: "System Error",
+                error: errorMessage,
+                timestamp: Date.now(),
+              },
+            ],
+          });
+        } catch (historyError) {
+          console.error(
+            `[Sync Engine] Failed to update sync history: ${historyError instanceof Error ? historyError.message : "Unknown error"}`
           );
         }
       }
@@ -581,6 +639,9 @@ export const syncWithQueue = action({
     connectorId: v.id("federationConnectors"),
     organizationId: v.string(),
     strategy: v.optional(conflictResolutionStrategyValidator),
+    syncType: v.optional(
+      v.union(v.literal("scheduled"), v.literal("manual"), v.literal("webhook"))
+    ),
   },
   returns: v.union(
     v.object({
@@ -639,6 +700,7 @@ export const syncWithQueue = action({
           connectorId: args.connectorId,
           organizationId: args.organizationId,
           strategy: args.strategy,
+          syncType: args.syncType,
         }
       );
 

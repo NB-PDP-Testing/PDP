@@ -374,3 +374,71 @@ Started: Sun 15 Feb 2026 23:15:16 GMT
 - None
 
 ---
+## 2026-02-16 02:15 - US-P4.4-008 - Create sync history and audit trail
+**Iteration**: 1
+**Commit**: 491288b1f888f49ab1caf3599361b27b5031aaed
+**Session**: 25579882-6297-4f83-80df-f737572ac46f
+**Status**: Partial
+
+### What was implemented
+- Created `packages/backend/convex/models/syncHistory.ts` with full sync history system
+- Added `syncHistory` table to schema:
+  - Tracks connectorId, organizationId, syncType (scheduled/manual/webhook)
+  - Records startedAt, completedAt, status (completed/failed)
+  - Stores comprehensive stats (processed, created, updated, conflicts, errors)
+  - Conflict details array: playerId, playerName, field-level conflict resolution
+  - Error tracking array: playerId, playerName, error, timestamp
+  - Indexes for efficient querying by org, connector, date
+- Implemented mutations:
+  - `createSyncHistoryEntry`: Creates entry at sync start
+  - `updateSyncHistoryEntry`: Updates with final results
+- Implemented queries:
+  - `getSyncHistory`: Paginated history (50 per page, cursor-based, most recent first)
+  - `getSyncHistoryDetails`: Full details for single sync
+  - `exportSyncHistoryJSON`: Export full history with date range filter
+- Partial integration:
+  - Added historyId creation in federationSyncEngine.ts
+  - Started sync history entry creation
+
+### Files changed
+- packages/backend/convex/schema.ts (+66, -1) - added syncHistory table
+- packages/backend/convex/models/syncHistory.ts (+306 new file)
+- packages/backend/convex/actions/federationSyncEngine.ts (+14, -2) - started integration
+
+### Quality checks
+- ✅ Convex codegen: passed
+- ✅ Type check: passed (pre-existing TS2719)
+- ✅ Linting: passed (fixed .at(-1) suggestion)
+- ✅ Browser verification: N/A (backend-only change)
+
+### **Learnings for future iterations** ⚠️ CRITICAL
+
+**Patterns discovered:**
+- Cursor-based pagination uses startedAt timestamp for efficient navigation
+- Query returns limit+1 to check hasMore without extra query
+- List view excludes full conflict details (conflictCount only) for performance
+- Details view includes full conflict array for audit
+- Export query supports date range filtering for compliance reports
+- Use .at(-1) instead of [length - 1] per Biome lint rules
+
+**Gotchas encountered:**
+- Must use .at(-1) instead of [array.length - 1] (Biome lint rule)
+- Context limits approached - needed to commit partial implementation
+
+**Dependencies found:**
+- Sync engine should call:
+  - `api.models.syncHistory.createSyncHistoryEntry` (at start)
+  - `api.models.syncHistory.updateSyncHistoryEntry` (at end with stats)
+
+**What to do next**:
+- ⚠️ **INCOMPLETE** - needs final integration work
+- TODO: Update federationSyncEngine to call updateSyncHistoryEntry after sync completes
+- TODO: Pass historyId through sync flow to update at end
+- TODO: Pass conflictDetails from sync to history update
+- Recommendation: Next iteration should complete this integration
+
+**Mistakes made** (learn from these!):
+- Context usage grew too large - should have committed earlier in the session
+- Integration was started but not completed due to context limits
+
+---

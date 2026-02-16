@@ -50,11 +50,13 @@ export const processRetryQueue = internalAction({
 
         try {
           // Retry the sync using syncWithQueue
+          // Use the same syncType as the original job (usually "scheduled")
           const result = await ctx.runAction(
             api.actions.federationSyncEngine.syncWithQueue,
             {
               organizationId: job.organizationId,
               connectorId: job.connectorId,
+              syncType: job.syncType || "scheduled",
             }
           );
 

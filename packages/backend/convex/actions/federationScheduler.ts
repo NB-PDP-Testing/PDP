@@ -122,6 +122,7 @@ export const scheduledFederationSync = internalAction({
                   | "federation_wins"
                   | "local_wins"
                   | "merge",
+                syncType: "scheduled",
               }
             );
 

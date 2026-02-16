@@ -379,6 +379,11 @@ export const getJobsReadyForRetry = query({
       _id: v.id("syncQueue"),
       organizationId: v.string(),
       connectorId: v.id("federationConnectors"),
+      syncType: v.union(
+        v.literal("scheduled"),
+        v.literal("manual"),
+        v.literal("webhook")
+      ),
       retryCount: v.optional(v.number()),
       maxRetries: v.optional(v.number()),
       nextRetryAt: v.optional(v.number()),
@@ -405,6 +410,7 @@ export const getJobsReadyForRetry = query({
       _id: job._id,
       organizationId: job.organizationId,
       connectorId: job.connectorId,
+      syncType: job.syncType,
       retryCount: job.retryCount,
       maxRetries: job.maxRetries,
       nextRetryAt: job.nextRetryAt,

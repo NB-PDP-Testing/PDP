@@ -1,12 +1,12 @@
 # PlayerARC - Phase 4.4: Sync Engine & Automation
 
-> Auto-generated documentation - Last updated: 2026-02-15 23:40
+> Auto-generated documentation - Last updated: 2026-02-16 00:15
 
 ## Status
 
 - **Branch**: `ralph/phase-4.4-sync-engine`
-- **Progress**: 5 / 8 stories complete
-- **Phase Status**: 🔄 In Progress
+- **Progress**: 8 / 8 stories complete
+- **Phase Status**: ✅ Complete
 
 ## Completed Features
 
@@ -98,6 +98,58 @@ As the platform, I need to prevent multiple syncs running concurrently for the s
 - Add timeout: mark jobs as failed if running >30 minutes (likely stuck)
 - Add getSyncQueueStatus query: returns queue status for organization
 - Run npx -w packages/backend convex codegen
+
+### US-P4.4-006: Implement webhook receiver for federation push updates
+
+As the platform, I need to receive webhook notifications from federations when member data changes so I can sync immediately instead of waiting for nightly batch.
+
+**Acceptance Criteria:**
+- Create packages/backend/convex/http.ts webhook endpoint: POST /webhooks/federation
+- Endpoint expects: { connectorId, federationOrgId, memberId, event (created/updated/deleted), signature }
+- Validate webhook signature using connector's webhookSecret (HMAC-SHA256)
+- Reject requests with invalid signatures (401 Unauthorized)
+- Parse event type: created, updated, deleted
+- For created/updated: enqueue sync job for that specific member (not full sync)
+- For deleted: mark player as inactive, don't delete (audit trail)
+- Return 200 OK immediately (don't block webhook sender)
+- Process webhook asynchronously using Convex action
+- Log all webhook events for debugging
+- Add rate limiting: max 100 webhooks per minute per connector
+- Run npx ultracite fix and npm run check-types
+
+### US-P4.4-007: Add sync retry logic with exponential backoff
+
+As the sync engine, I need to automatically retry failed syncs with exponential backoff so transient errors don't require manual intervention.
+
+**Acceptance Criteria:**
+- Add to packages/backend/convex/actions/federationSyncEngine.ts
+- Add maxRetries field to syncQueue: default 3
+- Add retryCount field to syncQueue: increments on each retry
+- Add nextRetryAt field to syncQueue: timestamp for next retry attempt
+- On sync failure, check if retryCount < maxRetries
+- If retriable, calculate nextRetryAt using exponential backoff: 2^retryCount minutes
+- Update syncQueue job with new retryCount and nextRetryAt
+- Add cron job: processRetryQueue runs every 5 minutes
+- processRetryQueue finds jobs with nextRetryAt < now and status=pending
+- Retry each job by calling sync action again
+- If maxRetries exhausted, mark job as permanently failed and notify admin
+- Run npx -w packages/backend convex codegen
+
+### US-P4.4-008: Create sync history and audit trail
+
+As an organization admin, I need to view sync history to understand what data was synced, when, and what conflicts occurred.
+
+**Acceptance Criteria:**
+- Create packages/backend/convex/models/syncHistory.ts
+- Add syncHistory table: connectorId, organizationId, syncType (scheduled/manual/webhook), startedAt, completedAt, status, stats (created/updated/conflicts), conflictDetails array, errors array
+- Add indexes: by_organizationId, by_connectorId, by_startedAt
+- Implement createSyncHistoryEntry mutation: creates entry at sync start
+- Implement updateSyncHistoryEntry mutation: updates with results at sync end
+- conflictDetails array stores: playerId, fieldName, federationValue, localValue, resolvedValue, strategy
+- Implement getSyncHistory query: returns paginated history for organization
+- Implement getSyncHistoryDetails query: returns full details including conflicts for a single sync
+- Add export sync history: download JSON or CSV report
+- Run npx -w packages/backend convex codegen and npm run check-types
 
 
 ## Implementation Notes

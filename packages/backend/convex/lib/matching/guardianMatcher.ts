@@ -14,31 +14,47 @@ import type { QueryCtx } from "../../_generated/server";
 // ============================================================
 // MATCHING WEIGHTS - Shared between import and onboarding
 // ============================================================
+// Updated to match Phase 3.1 confidence scoring requirements:
+// - Email: 40% (highest confidence)
+// - Phone: 30% (strong signal)
+// - Name similarity: 20% (surname matching)
+// - Address: 10% (postcode/town matching)
+// Total: 100-point scale
 
 export const MATCHING_WEIGHTS = {
-  EMAIL_EXACT: 50, // Highest confidence - exact email match
-  SURNAME_POSTCODE: 45, // Strong family signal - same household
-  SURNAME_TOWN: 35, // Medium family signal - same area
-  PHONE: 30, // Strong signal - shared contact
-  POSTCODE_ONLY: 20, // Moderate signal - same area
+  EMAIL_EXACT: 40, // Email match - 40% of total score
+  PHONE: 30, // Phone match - 30% of total score
+  SURNAME_POSTCODE: 30, // Surname + Postcode - full name+address score (20% + 10%)
+  SURNAME_TOWN: 25, // Surname + Town - partial name+address score (20% + 5%)
+  SURNAME_ONLY: 20, // Surname match only - name similarity score
+  POSTCODE_ONLY: 10, // Postcode only - full address score
+  TOWN_ONLY: 5, // Town only - partial address score
   PLAYER_POSTCODE_BONUS: 10, // Bonus when postcode matches linked player's postcode
-  TOWN_ONLY: 10, // Weak signal - same general area
   HOUSE_NUMBER: 5, // Tiebreaker - same exact address
 } as const;
 
 export const CONFIDENCE_THRESHOLDS = {
-  HIGH: 60, // Auto-link - high confidence match
-  MEDIUM: 40, // Suggest - require user confirmation
-  LOW: 20, // Possible - show as option
+  HIGH: 60, // Auto-link - high confidence match (60+ / 100)
+  MEDIUM: 40, // Suggest - require user confirmation (40-59 / 100)
+  LOW: 20, // Possible - show as option (20-39 / 100)
 } as const;
 
 export type ConfidenceLevel = "high" | "medium" | "low";
+
+export type SignalBreakdown = {
+  signal: string;
+  matched: boolean;
+  weight: number; // Percentage (0-100)
+  contribution: number; // Actual score contributed (0-weight)
+  explanation: string;
+};
 
 export type MatchResult = {
   guardianIdentityId: Id<"guardianIdentities">;
   score: number;
   confidence: ConfidenceLevel;
   matchReasons: string[];
+  signalBreakdown?: SignalBreakdown[]; // Phase 3.1: Detailed signal breakdown for transparency
   guardian: {
     firstName: string;
     lastName: string;
@@ -214,14 +230,21 @@ export function calculateMatchScore(
   guardian: Doc<"guardianIdentities">,
   params: MatchParams,
   playerPostcodeMatch?: PlayerPostcodeMatchResult
-): { score: number; matchReasons: string[] } {
+): {
+  score: number;
+  matchReasons: string[];
+  signalBreakdown: SignalBreakdown[];
+} {
   let score = 0;
   const matchReasons: string[] = [];
+  const signalBreakdown: SignalBreakdown[] = [];
 
   const paramsSurname = params.lastName.toLowerCase().trim();
   const guardianSurname = (guardian.lastName || "").toLowerCase().trim();
 
-  // 1. Email match (primary or alt) - 50 points
+  // 1. Email match (primary or alt) - 40% weight
+  let emailMatched = false;
+  let emailExplanation = "No email match";
   if (guardian.email) {
     const guardianEmail = guardian.email.toLowerCase().trim();
     const userEmail = params.email.toLowerCase().trim();
@@ -230,13 +253,26 @@ export function calculateMatchScore(
     if (guardianEmail === userEmail) {
       score += MATCHING_WEIGHTS.EMAIL_EXACT;
       matchReasons.push("Email match (primary)");
+      emailMatched = true;
+      emailExplanation = `Email addresses match: ${guardianEmail}`;
     } else if (userAltEmail && guardianEmail === userAltEmail) {
       score += MATCHING_WEIGHTS.EMAIL_EXACT;
       matchReasons.push("Email match (alternate)");
+      emailMatched = true;
+      emailExplanation = `Alternate email matches: ${guardianEmail}`;
     }
   }
+  signalBreakdown.push({
+    signal: "Email Match",
+    matched: emailMatched,
+    weight: 40,
+    contribution: emailMatched ? MATCHING_WEIGHTS.EMAIL_EXACT : 0,
+    explanation: emailExplanation,
+  });
 
-  // 2. Phone match - 30 points
+  // 2. Phone match - 30% weight
+  let phoneMatched = false;
+  let phoneExplanation = "No phone match";
   if (guardian.phone && params.phone) {
     const guardianPhone = normalizePhone(guardian.phone);
     const userPhone = normalizePhone(params.phone);
@@ -249,9 +285,18 @@ export function calculateMatchScore(
       if (guardianSuffix === userSuffix) {
         score += MATCHING_WEIGHTS.PHONE;
         matchReasons.push("Phone match");
+        phoneMatched = true;
+        phoneExplanation = "Phone numbers match";
       }
     }
   }
+  signalBreakdown.push({
+    signal: "Phone Match",
+    matched: phoneMatched,
+    weight: 30,
+    contribution: phoneMatched ? MATCHING_WEIGHTS.PHONE : 0,
+    explanation: phoneExplanation,
+  });
 
   // 3. Surname + Address matching
   const surnameMatch = paramsSurname && paramsSurname === guardianSurname;
@@ -266,7 +311,7 @@ export function calculateMatchScore(
     guardianPostcode && userPostcode && guardianPostcode === userPostcode;
 
   if (surnameMatch && postcodeMatch) {
-    // Surname + Postcode - 45 points (strong family signal)
+    // Surname + Postcode - 30 points (20% name + 10% address)
     score += MATCHING_WEIGHTS.SURNAME_POSTCODE;
     matchReasons.push("Surname + Postcode match (same household)");
   } else if (surnameMatch) {
@@ -276,12 +321,16 @@ export function calculateMatchScore(
     const townMatch = guardianTown && userTown && guardianTown === userTown;
 
     if (townMatch) {
-      // Surname + Town - 35 points
+      // Surname + Town - 25 points (20% name + 5% address)
       score += MATCHING_WEIGHTS.SURNAME_TOWN;
       matchReasons.push("Surname + Town match (same area)");
+    } else {
+      // Surname only - 20 points (name similarity only)
+      score += MATCHING_WEIGHTS.SURNAME_ONLY;
+      matchReasons.push("Surname match");
     }
   } else if (postcodeMatch) {
-    // Postcode only - 20 points
+    // Postcode only - 10 points
     score += MATCHING_WEIGHTS.POSTCODE_ONLY;
     matchReasons.push("Postcode match");
   } else {
@@ -315,7 +364,32 @@ export function calculateMatchScore(
     matchReasons.push(`Postcode matches linked player(s): ${playerNames}`);
   }
 
-  return { score, matchReasons };
+  // Phase 3.1: Add simplified signal breakdown for transparency
+  // Use the core 4 signals matching PRD (Email 40%, Phone 30%, Name 20%, Address 10%)
+  const nameMatched = Boolean(surnameMatch);
+  const addressMatched = Boolean(postcodeMatch);
+
+  signalBreakdown.push({
+    signal: "Name Similarity",
+    matched: nameMatched,
+    weight: 20,
+    contribution: nameMatched ? 20 : 0,
+    explanation: nameMatched
+      ? `Surnames match: ${guardianSurname}`
+      : "Surnames do not match",
+  });
+
+  signalBreakdown.push({
+    signal: "Address Match",
+    matched: addressMatched,
+    weight: 10,
+    contribution: addressMatched ? 10 : 0,
+    explanation: addressMatched
+      ? `Postcode matches: ${guardianPostcode}`
+      : "No postcode match",
+  });
+
+  return { score, matchReasons, signalBreakdown };
 }
 
 /**
@@ -409,7 +483,7 @@ export async function findGuardianMatches(
   // Score each candidate
   for (const guardian of emailMatches) {
     const playerPostcodeMatch = playerPostcodeMatchMap.get(guardian._id);
-    const { score, matchReasons } = calculateMatchScore(
+    const { score, matchReasons, signalBreakdown } = calculateMatchScore(
       guardian,
       params,
       playerPostcodeMatch
@@ -428,6 +502,7 @@ export async function findGuardianMatches(
         score,
         confidence: getConfidenceLevel(score),
         matchReasons,
+        signalBreakdown, // Phase 3.1: Detailed signal breakdown for transparency
         guardian: {
           firstName: guardian.firstName,
           lastName: guardian.lastName,

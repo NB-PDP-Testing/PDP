@@ -16,6 +16,7 @@ import type { Route } from "next";
 import Link from "next/link";
 import { useState } from "react";
 import type { WizardState } from "@/components/import/import-wizard";
+import { PartialUndoDialog } from "@/components/import/partial-undo-dialog";
 import { UndoImportDialog } from "@/components/import/undo-import-dialog";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
@@ -102,6 +103,8 @@ export default function CompleteStep({
   sessionId,
 }: CompleteStepProps) {
   const [undoSessionId, setUndoSessionId] =
+    useState<Id<"importSessions"> | null>(null);
+  const [partialUndoSessionId, setPartialUndoSessionId] =
     useState<Id<"importSessions"> | null>(null);
   if (!importResult) {
     return (
@@ -225,14 +228,22 @@ export default function CompleteStep({
 
       {/* Undo Import */}
       {sessionId && (
-        <div className="flex justify-center pt-2">
+        <div className="flex justify-center gap-3 pt-2">
+          <Button
+            className="text-destructive hover:bg-destructive/10"
+            onClick={() => setPartialUndoSessionId(sessionId)}
+            variant="outline"
+          >
+            <Users className="mr-2 h-4 w-4" />
+            Remove Players
+          </Button>
           <Button
             className="text-destructive hover:bg-destructive/10"
             onClick={() => setUndoSessionId(sessionId)}
             variant="outline"
           >
             <Undo2 className="mr-2 h-4 w-4" />
-            Undo Import
+            Undo All
           </Button>
         </div>
       )}
@@ -248,6 +259,16 @@ export default function CompleteStep({
           </Button>
         </Link>
       </div>
+
+      {/* Partial Undo Dialog */}
+      <PartialUndoDialog
+        onClose={() => setPartialUndoSessionId(null)}
+        onSuccess={() => {
+          setPartialUndoSessionId(null);
+          // User can see updated player list
+        }}
+        sessionId={partialUndoSessionId}
+      />
 
       {/* Undo Import Dialog */}
       <UndoImportDialog

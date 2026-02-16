@@ -174,4 +174,12 @@ crons.daily(
   {}
 );
 
+// Phase 3.2: Clean up incomplete import sessions older than 48 hours daily at 4:30 AM UTC
+crons.daily(
+  "cleanup-expired-incomplete-sessions",
+  { hourUTC: 4, minuteUTC: 30 },
+  internal.models.importSessions.cleanupExpiredIncompleteSessions,
+  {}
+);
+
 export default crons;

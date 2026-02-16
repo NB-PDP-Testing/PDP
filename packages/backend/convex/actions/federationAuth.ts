@@ -277,3 +277,145 @@ export const refreshOAuthToken = action({
     };
   },
 });
+
+// ===== Test Connection =====
+
+export const testConnection = action({
+  args: {
+    connectorId: v.id("federationConnectors"),
+  },
+  returns: v.object({
+    success: v.boolean(),
+    message: v.string(),
+    responseTime: v.number(),
+  }),
+  handler: async (
+    ctx,
+    args
+  ): Promise<{ success: boolean; message: string; responseTime: number }> => {
+    const startTime = Date.now();
+
+    try {
+      // Get connector configuration
+      const connector = await ctx.runQuery(
+        api.models.federationConnectors.getConnector,
+        { connectorId: args.connectorId }
+      );
+
+      if (!connector) {
+        return {
+          success: false,
+          message: "Connector not found",
+          responseTime: Date.now() - startTime,
+        };
+      }
+
+      // Get encrypted credentials from storage
+      const credentialsBlob = await ctx.storage.get(
+        connector.credentialsStorageId
+      );
+      if (!credentialsBlob) {
+        return {
+          success: false,
+          message: "Credentials not found in storage",
+          responseTime: Date.now() - startTime,
+        };
+      }
+
+      const encryptedData = await credentialsBlob.text();
+      const credentials = await decryptCredentials(encryptedData);
+
+      // Build test request to membership list endpoint (limit 1 for speed)
+      const testUrl = new URL(connector.endpoints.membershipList);
+      testUrl.searchParams.set("limit", "1"); // Only fetch 1 record for testing
+
+      const headers: Record<string, string> = {
+        "Content-Type": "application/json",
+      };
+
+      // Add authentication based on type
+      if (credentials.type === "oauth2") {
+        headers.Authorization = `${credentials.tokenType} ${credentials.accessToken}`;
+      } else if (credentials.type === "api_key") {
+        headers[credentials.headerName] = credentials.apiKey;
+      } else if (credentials.type === "basic") {
+        const base64Creds = btoa(
+          `${credentials.username}:${credentials.password}`
+        );
+        headers.Authorization = `Basic ${base64Creds}`;
+      }
+
+      // Make test API call
+      const response = await fetch(testUrl.toString(), {
+        method: "GET",
+        headers,
+        signal: AbortSignal.timeout(10_000), // 10 second timeout
+      });
+
+      const responseTime = Date.now() - startTime;
+
+      if (!response.ok) {
+        let errorMessage = `HTTP ${response.status}`;
+
+        // Provide helpful error messages for common cases
+        if (response.status === 401) {
+          errorMessage = "Invalid credentials (401 Unauthorized)";
+        } else if (response.status === 403) {
+          errorMessage = "Access forbidden (403 Forbidden)";
+        } else if (response.status === 404) {
+          errorMessage = "Endpoint not found (404 Not Found)";
+        } else if (response.status === 429) {
+          errorMessage = "Rate limit exceeded (429 Too Many Requests)";
+        } else if (response.status >= 500) {
+          errorMessage = `Server error (${response.status})`;
+        }
+
+        return {
+          success: false,
+          message: errorMessage,
+          responseTime,
+        };
+      }
+
+      // Connection successful
+      return {
+        success: true,
+        message: `Connection successful! Fetched data from ${connector.name}`,
+        responseTime,
+      };
+    } catch (error) {
+      const responseTime = Date.now() - startTime;
+
+      if (error instanceof Error) {
+        // Handle specific error types
+        if (error.name === "TimeoutError") {
+          return {
+            success: false,
+            message: "Request timed out after 10 seconds",
+            responseTime,
+          };
+        }
+
+        if (error.message.includes("fetch failed")) {
+          return {
+            success: false,
+            message: "Network error - could not reach endpoint",
+            responseTime,
+          };
+        }
+
+        return {
+          success: false,
+          message: error.message,
+          responseTime,
+        };
+      }
+
+      return {
+        success: false,
+        message: "Unknown error occurred",
+        responseTime,
+      };
+    }
+  },
+});

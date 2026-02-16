@@ -3,12 +3,13 @@
 import { api } from "@pdp/backend/convex/_generated/api";
 import type { Id } from "@pdp/backend/convex/_generated/dataModel";
 import { useMutation, useQuery } from "convex/react";
-import { ChevronDown, Loader2 } from "lucide-react";
+import { ChevronDown, Loader2, TestTube2 } from "lucide-react";
 import Link from "next/link";
 import { useParams, useRouter } from "next/navigation";
 import { useEffect, useState } from "react";
 import { useForm } from "react-hook-form";
 import { toast } from "sonner";
+import { ConnectionTestDialog } from "@/components/connectors/connection-test-dialog";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Checkbox } from "@/components/ui/checkbox";
@@ -61,6 +62,7 @@ export default function EditConnectorPage() {
   const [authType, setAuthType] = useState<AuthType>("api_key");
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [credentialsChanged, setCredentialsChanged] = useState(false);
+  const [testDialogOpen, setTestDialogOpen] = useState(false);
 
   const {
     register,
@@ -620,7 +622,7 @@ export default function EditConnectorPage() {
             </Card>
 
             {/* Actions */}
-            <div className="flex gap-4">
+            <div className="flex flex-col gap-2 sm:flex-row">
               <Button className="flex-1" disabled={isSubmitting} type="submit">
                 {isSubmitting ? (
                   <>
@@ -634,6 +636,16 @@ export default function EditConnectorPage() {
               <Button
                 className="flex-1"
                 disabled={isSubmitting}
+                onClick={() => setTestDialogOpen(true)}
+                type="button"
+                variant="secondary"
+              >
+                <TestTube2 className="mr-2 h-4 w-4" />
+                Test Connection
+              </Button>
+              <Button
+                className="flex-1"
+                disabled={isSubmitting}
                 onClick={() => router.push("/platform/connectors")}
                 type="button"
                 variant="outline"
@@ -643,6 +655,16 @@ export default function EditConnectorPage() {
             </div>
           </div>
         </form>
+
+        {/* Connection Test Dialog */}
+        {connector && (
+          <ConnectionTestDialog
+            connectorId={connectorId}
+            connectorName={connector.name}
+            onOpenChange={setTestDialogOpen}
+            open={testDialogOpen}
+          />
+        )}
       </div>
     </div>
   );

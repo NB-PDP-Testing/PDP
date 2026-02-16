@@ -1,6 +1,7 @@
 "use client";
 
 import { api } from "@pdp/backend/convex/_generated/api";
+import type { Id } from "@pdp/backend/convex/_generated/dataModel";
 import { useQuery } from "convex/react";
 import { formatDistanceToNow } from "date-fns";
 import {
@@ -17,6 +18,7 @@ import {
 } from "lucide-react";
 import Link from "next/link";
 import { useMemo, useState } from "react";
+import { ConnectionTestDialog } from "@/components/connectors/connection-test-dialog";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
@@ -48,6 +50,10 @@ export default function ConnectorsPage() {
   const [statusFilter, setStatusFilter] = useState<
     "all" | "active" | "inactive" | "error"
   >("all");
+  const [testingConnector, setTestingConnector] = useState<{
+    id: Id<"federationConnectors">;
+    name: string;
+  } | null>(null);
 
   // Fetch all connectors
   const connectors = useQuery(api.models.federationConnectors.listConnectors, {
@@ -343,7 +349,16 @@ export default function ConnectorsPage() {
                           <TooltipProvider>
                             <Tooltip>
                               <TooltipTrigger asChild>
-                                <Button size="icon" variant="ghost">
+                                <Button
+                                  onClick={() =>
+                                    setTestingConnector({
+                                      id: connector._id,
+                                      name: connector.name,
+                                    })
+                                  }
+                                  size="icon"
+                                  variant="ghost"
+                                >
                                   <TestTube className="h-4 w-4" />
                                 </Button>
                               </TooltipTrigger>
@@ -431,11 +446,30 @@ export default function ConnectorsPage() {
                       </div>
                     </div>
                     <div className="flex gap-2">
-                      <Button className="flex-1" size="sm" variant="outline">
-                        <Edit className="mr-2 h-4 w-4" />
-                        Edit
+                      <Button
+                        asChild
+                        className="flex-1"
+                        size="sm"
+                        variant="outline"
+                      >
+                        <Link
+                          href={`/platform/connectors/${connector._id}/edit`}
+                        >
+                          <Edit className="mr-2 h-4 w-4" />
+                          Edit
+                        </Link>
                       </Button>
-                      <Button className="flex-1" size="sm" variant="outline">
+                      <Button
+                        className="flex-1"
+                        onClick={() =>
+                          setTestingConnector({
+                            id: connector._id,
+                            name: connector.name,
+                          })
+                        }
+                        size="sm"
+                        variant="outline"
+                      >
                         <TestTube className="mr-2 h-4 w-4" />
                         Test
                       </Button>
@@ -447,6 +481,20 @@ export default function ConnectorsPage() {
           )}
         </div>
       </div>
+
+      {/* Connection Test Dialog */}
+      {testingConnector && (
+        <ConnectionTestDialog
+          connectorId={testingConnector.id}
+          connectorName={testingConnector.name}
+          onOpenChange={(open) => {
+            if (!open) {
+              setTestingConnector(null);
+            }
+          }}
+          open={testingConnector !== null}
+        />
+      )}
     </div>
   );
 }

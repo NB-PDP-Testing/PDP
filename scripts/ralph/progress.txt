@@ -174,3 +174,71 @@ Started: Mon 16 Feb 2026 11:08:52 GMT
   * createConnectorPayload(data, credentials) - returns API payload
 
 ---
+## 2026-02-16 18:30 - US-P4.5-002 - Create connector edit form
+**Iteration**: 2
+**Commit**: d584fcb099d17d7b1e2d03b5c1917a28ce3c165b
+**Session**: 95322656-d7c9-44df-8e83-7f5006984153
+**Status**: Complete
+
+### What was implemented
+- Created `/platform/connectors/[connectorId]/edit` page for editing existing connectors
+- Loads existing connector data using getConnector query
+- Pre-populates all form fields with current values from the connector
+- Federation code field is read-only (disabled input with muted background)
+- Credentials never shown for security - user must re-enter to update
+- Smart credential tracking: only updates credentials if user enters new values
+- Uses updateConnector mutation for basic info (name, endpoints, sync config, template)
+- Uses updateConnectorCredentials action separately for auth updates
+- All three auth types supported: OAuth 2.0, API Key, Basic Auth
+- Conditional validation: credentials only required if credentialsChanged flag is true
+- Form validation matching create form
+- Responsive design with blue gradient header matching platform admin style
+- Loading state while fetching connector data
+- 404 state if connector not found
+
+### Files changed
+- apps/web/src/app/platform/connectors/[connectorId]/edit/page.tsx (+629 lines, new file)
+
+### Quality checks
+- ✅ Type check: passed (no new errors introduced)
+- ✅ Convex codegen: passed
+- ✅ Linting: passed
+- ✅ Pre-commit hooks: passed
+- ⏭️ Browser verification: N/A (requires backend data setup)
+
+### Learnings for future iterations ⚠️ CRITICAL
+
+**Patterns discovered:**
+- Edit forms should use `useEffect` to populate form with fetched data via `reset()`
+- Credentials should NEVER be returned from backend for security
+- Track credential changes with separate state flag (`credentialsChanged`)
+- Split updates: basic info via mutation, credentials via action
+- Use `disabled` attribute on immutable fields (like federation code)
+- `useParams` to extract dynamic route params: `connectorId`
+- Type casting for Convex IDs: `connectorId as Id<"federationConnectors">`
+
+**Gotchas encountered:**
+- Unused constants trigger linting errors even if they make semantic sense
+- In edit form, federation code validation regex not needed (field is read-only)
+- Must remove unused constants before committing or pre-commit hook fails
+- Pre-commit hook creates stash on failure - must pop stash to restore changes
+- Linter auto-fixes some issues (like negation grouping) during pre-commit
+
+**Dependencies found:**
+- `getConnector` query returns full connector object with all fields
+- `updateConnector` mutation only accepts non-credential fields
+- `updateConnectorCredentials` action handles credential encryption separately
+- Both mutations/actions already exist in federationConnectors.ts
+
+**What to do next**:
+- [ ] US-P4.5-003: OAuth 2.0 setup wizard
+- [ ] Wire up Edit button from connector list page (link to edit route)
+- [ ] Wire up Delete functionality from connector list page
+- [ ] Test edit form with actual connector data
+
+**Mistakes made** (learn from these!):
+- Initially copied `FEDERATION_CODE_PATTERN` constant from create form but didn't need it
+- Should have checked if constants are actually used before copying code
+- Pre-commit hook caught the unused constant - good safety net
+
+---

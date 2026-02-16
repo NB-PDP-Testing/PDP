@@ -2411,20 +2411,35 @@ export default defineSchema({
       v.literal("org_daily_exceeded"), // Critical: daily limit exceeded
       v.literal("org_monthly_threshold"), // Warning: approaching monthly limit
       v.literal("org_monthly_exceeded"), // Critical: monthly limit exceeded
-      v.literal("platform_spike") // Critical: unusual platform-wide spike
+      v.literal("platform_spike"), // Critical: unusual platform-wide spike
+      // Voice Pipeline Monitoring Alerts (M4)
+      v.literal("PIPELINE_HIGH_FAILURE_RATE"), // High: Failure rate > 10%
+      v.literal("PIPELINE_HIGH_LATENCY"), // Medium: Latency > 2x average
+      v.literal("PIPELINE_HIGH_QUEUE_DEPTH"), // Medium: Queue depth > 50
+      v.literal("PIPELINE_DISAMBIGUATION_BACKLOG"), // Low: Backlog > 100
+      v.literal("PIPELINE_CIRCUIT_BREAKER_OPEN"), // Critical: Circuit breaker open
+      v.literal("PIPELINE_INACTIVITY") // Low: No activity in 60+ minutes
     ),
     organizationId: v.optional(v.string()), // Which org (null for platform-wide alerts)
 
     // Alert severity
-    severity: v.union(v.literal("warning"), v.literal("critical")),
+    severity: v.union(
+      v.literal("warning"),
+      v.literal("critical"),
+      v.literal("high"),
+      v.literal("medium"),
+      v.literal("low")
+    ),
 
     // Alert details
     message: v.string(), // Human-readable alert message
-    triggerValue: v.number(), // Current value that triggered alert (e.g., current spend)
-    thresholdValue: v.number(), // Threshold value that was exceeded
+    triggerValue: v.optional(v.number()), // Current value that triggered alert (e.g., current spend)
+    thresholdValue: v.optional(v.number()), // Threshold value that was exceeded
+    metadata: v.optional(v.any()), // Additional alert metadata (pipeline alerts)
 
     // Timestamps
-    timestamp: v.number(), // When alert was created
+    timestamp: v.optional(v.number()), // When alert was created (legacy field)
+    createdAt: v.optional(v.number()), // When alert was created (new field)
 
     // Acknowledgment tracking
     acknowledged: v.boolean(), // Has this been reviewed by platform staff?
@@ -2433,7 +2448,8 @@ export default defineSchema({
   })
     .index("by_timestamp", ["timestamp"])
     .index("by_org", ["organizationId"])
-    .index("by_severity_ack", ["severity", "acknowledged"]),
+    .index("by_severity_ack", ["severity", "acknowledged"])
+    .index("by_acknowledged", ["acknowledged"]),
 
   // Rate limiting infrastructure (Phase 6.1)
   // Tracks API usage limits to prevent abuse or runaway loops
@@ -4403,7 +4419,8 @@ export default defineSchema({
     .index("by_claimId", ["claimId"])
     .index("by_artifactId", ["artifactId"])
     .index("by_artifactId_and_status", ["artifactId", "status"])
-    .index("by_org_and_status", ["organizationId", "status"]),
+    .index("by_org_and_status", ["organizationId", "status"])
+    .index("by_status", ["status"]),
 
   // ============================================================
   // COACH PLAYER ALIASES (v2 Pipeline - Phase 5, Enhancement E5)

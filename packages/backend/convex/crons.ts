@@ -214,4 +214,14 @@ crons.weekly(
   {}
 );
 
+// Voice Monitor Harness M4: Pipeline health checks and alerts
+
+// Check pipeline health every 5 minutes for anomalies
+crons.interval(
+  "check-pipeline-health",
+  { minutes: 5 },
+  internal.models.voicePipelineAlerts.checkPipelineHealth,
+  {}
+);
+
 export default crons;

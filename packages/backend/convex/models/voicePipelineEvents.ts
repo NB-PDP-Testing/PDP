@@ -13,10 +13,8 @@
  */
 
 import { v } from "convex/values";
-import { components } from "../_generated/api";
 import { internalMutation, internalQuery, query } from "../_generated/server";
-
-const authComponent = components.betterAuth;
+import { authComponent } from "../auth";
 
 // ============================================================
 // EVENT TYPE VALIDATORS
@@ -75,6 +73,8 @@ const eventMetadataValidator = v.optional(
     aiCost: v.optional(v.number()),
     retryAttempt: v.optional(v.number()),
     sourceChannel: v.optional(v.string()),
+    draftCount: v.optional(v.number()),
+    autoResolvedCount: v.optional(v.number()),
   })
 );
 
@@ -89,10 +89,10 @@ const eventMetadataValidator = v.optional(
  */
 function computeTimeWindow(timestamp: number): string {
   const date = new Date(timestamp);
-  const year = date.getFullYear();
-  const month = (date.getMonth() + 1).toString().padStart(2, "0");
-  const day = date.getDate().toString().padStart(2, "0");
-  const hour = date.getHours().toString().padStart(2, "0");
+  const year = date.getUTCFullYear();
+  const month = String(date.getUTCMonth() + 1).padStart(2, "0");
+  const day = String(date.getUTCDate()).padStart(2, "0");
+  const hour = String(date.getUTCHours()).padStart(2, "0");
 
   return `${year}-${month}-${day}-${hour}`;
 }
@@ -189,7 +189,7 @@ export const logEvent = internalMutation({
           .withIndex("by_counterType_and_org", (q) =>
             q
               .eq("counterType", counterType)
-              .eq("organizationId", args.organizationId ?? null)
+              .eq("organizationId", args.organizationId ?? undefined)
           )
           .first();
 
@@ -209,7 +209,7 @@ export const logEvent = internalMutation({
           // Counter doesn't exist - create new one
           await ctx.db.insert("voicePipelineCounters", {
             counterType,
-            organizationId: args.organizationId ?? null,
+            organizationId: args.organizationId,
             currentValue: 1,
             windowStart: now,
             windowEnd: now + 3_600_000,
@@ -239,7 +239,7 @@ export const getRecentEvents = query({
   args: {
     paginationOpts: v.object({
       numItems: v.number(),
-      cursor: v.optional(v.string()),
+      cursor: v.union(v.string(), v.null()),
     }),
     filters: v.optional(
       v.object({
@@ -263,35 +263,49 @@ export const getRecentEvents = query({
       throw new Error("Unauthorized: Platform staff only");
     }
 
-    // Build query based on filters
-    let eventsQuery = ctx.db.query("voicePipelineEvents");
-
+    // Build query based on filters - use appropriate index
     const eventType = args.filters?.eventType;
     const pipelineStage = args.filters?.pipelineStage;
     const organizationId = args.filters?.organizationId;
     const startTime = args.filters?.startTime;
 
-    if (eventType) {
-      eventsQuery = eventsQuery.withIndex("by_eventType_and_timestamp", (q) =>
-        q.eq("eventType", eventType)
-      );
-    } else if (pipelineStage) {
-      eventsQuery = eventsQuery.withIndex(
-        "by_pipelineStage_and_timestamp",
-        (q) => q.eq("pipelineStage", pipelineStage)
-      );
-    } else if (organizationId && startTime) {
-      eventsQuery = eventsQuery.withIndex("by_org_and_timestamp", (q) =>
-        q.eq("organizationId", organizationId).gte("timestamp", startTime)
-      );
-    } else {
-      eventsQuery = eventsQuery.withIndex("by_timestamp");
-    }
+    let result: {
+      page: unknown[];
+      isDone: boolean;
+      continueCursor: string;
+    };
 
-    // Order by timestamp descending (newest first)
-    const result = await eventsQuery
-      .order("desc")
-      .paginate(args.paginationOpts);
+    if (eventType) {
+      result = await ctx.db
+        .query("voicePipelineEvents")
+        .withIndex("by_eventType_and_timestamp", (q) =>
+          q.eq("eventType", eventType)
+        )
+        .order("desc")
+        .paginate(args.paginationOpts);
+    } else if (pipelineStage) {
+      result = await ctx.db
+        .query("voicePipelineEvents")
+        .withIndex("by_pipelineStage_and_timestamp", (q) =>
+          q.eq("pipelineStage", pipelineStage)
+        )
+        .order("desc")
+        .paginate(args.paginationOpts);
+    } else if (organizationId && startTime) {
+      result = await ctx.db
+        .query("voicePipelineEvents")
+        .withIndex("by_org_and_timestamp", (q) =>
+          q.eq("organizationId", organizationId).gte("timestamp", startTime)
+        )
+        .order("desc")
+        .paginate(args.paginationOpts);
+    } else {
+      result = await ctx.db
+        .query("voicePipelineEvents")
+        .withIndex("by_timestamp")
+        .order("desc")
+        .paginate(args.paginationOpts);
+    }
 
     return result;
   },
@@ -334,12 +348,12 @@ export const getEventTimeline = query({
       throw new Error("Unauthorized: Platform staff only");
     }
 
-    // Call internal query
-    const internal = (await import("../_generated/server")).internal;
-    return await ctx.runQuery(
-      internal.models.voicePipelineEvents.getEventsByArtifact,
-      { artifactId: args.artifactId }
-    );
+    // Get chronological event timeline for artifact
+    return await ctx.db
+      .query("voicePipelineEvents")
+      .withIndex("by_artifactId", (q) => q.eq("artifactId", args.artifactId))
+      .order("asc") // Chronological order
+      .collect();
   },
 });
 
@@ -353,7 +367,7 @@ export const getActiveArtifacts = query({
   args: {
     paginationOpts: v.object({
       numItems: v.number(),
-      cursor: v.optional(v.string()),
+      cursor: v.union(v.string(), v.null()),
     }),
   },
   returns: v.object({
@@ -428,7 +442,7 @@ export const getFailedArtifacts = query({
   args: {
     paginationOpts: v.object({
       numItems: v.number(),
-      cursor: v.optional(v.string()),
+      cursor: v.union(v.string(), v.null()),
     }),
     sinceTimestamp: v.optional(v.number()),
   },
@@ -444,17 +458,16 @@ export const getFailedArtifacts = query({
       throw new Error("Unauthorized: Platform staff only");
     }
 
-    // Query failed artifacts
-    let failedQuery = ctx.db
+    // Query failed artifacts using index range query (no .filter() allowed)
+    const failedQuery = ctx.db
       .query("voiceNoteArtifacts")
-      .withIndex("by_status_and_createdAt", (q) => q.eq("status", "failed"));
-
-    // Apply time filter if provided
-    if (args.sinceTimestamp) {
-      failedQuery = failedQuery.filter((q) =>
-        q.gte(q.field("createdAt"), args.sinceTimestamp)
-      );
-    }
+      .withIndex("by_status_and_createdAt", (q) => {
+        const statusQuery = q.eq("status", "failed");
+        // Use index range query if sinceTimestamp provided
+        return args.sinceTimestamp
+          ? statusQuery.gte("createdAt", args.sinceTimestamp)
+          : statusQuery;
+      });
 
     // Paginate results
     const result = await failedQuery

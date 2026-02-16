@@ -4564,6 +4564,8 @@ export default defineSchema({
         aiCost: v.optional(v.number()),
         retryAttempt: v.optional(v.number()),
         sourceChannel: v.optional(v.string()),
+        draftCount: v.optional(v.number()),
+        autoResolvedCount: v.optional(v.number()),
       })
     ),
     timestamp: v.number(),

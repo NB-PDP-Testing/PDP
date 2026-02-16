@@ -121,6 +121,19 @@ export const resolveEntities = internalAction({
         return null;
       }
 
+      // v2 monitoring: emit entity_resolution_started event
+      try {
+        await ctx.runMutation(internal.models.voicePipelineEvents.logEvent, {
+          eventType: "entity_resolution_started",
+          artifactId: args.artifactId,
+          organizationId,
+          pipelineStage: "entity_resolution",
+          stageStartedAt: Date.now(),
+        });
+      } catch (error) {
+        console.warn("Failed to log entity_resolution_started event:", error);
+      }
+
       // 2. [E2] Feature flag already checked at integration point
       // (claimsExtraction.ts checks shouldUseEntityResolution before scheduling)
 

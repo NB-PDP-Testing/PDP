@@ -917,23 +917,13 @@ IMPORTANT:
                 );
 
                 // Attempt auto-apply using internal mutation (Phase 7.3 US-009.5)
-                const result = await ctx.runMutation(
+                await ctx.runMutation(
                   internal.models.voiceNoteInsights.autoApplyInsightInternal,
                   {
                     insightId: insight._id,
                     coachId: note.coachId,
                   }
                 );
-
-                if (result.success) {
-                  console.log(
-                    `[Auto-Apply] ✅ SUCCESS: ${insight.title} - ${result.message}`
-                  );
-                } else {
-                  console.log(
-                    `[Auto-Apply] ⚠️ SKIPPED: ${insight.title} - ${result.message}`
-                  );
-                }
               } else {
                 // Log why not eligible
                 const reasons: string[] = [];
@@ -1359,23 +1349,13 @@ export const recheckAutoApply = internalAction({
     );
 
     // 7. Attempt auto-apply
-    const result = await ctx.runMutation(
+    await ctx.runMutation(
       internal.models.voiceNoteInsights.autoApplyInsightInternal,
       {
         insightId: insight._id,
         coachId: insight.coachId,
       }
     );
-
-    if (result.success) {
-      console.log(
-        `[recheckAutoApply] ✅ SUCCESS: ${insight.title} - ${result.message}`
-      );
-    } else {
-      console.log(
-        `[recheckAutoApply] ⚠️ FAILED: ${insight.title} - ${result.message}`
-      );
-    }
 
     return null;
   },

@@ -15,7 +15,7 @@
  */
 
 import { v } from "convex/values";
-import { components } from "../_generated/api";
+import { components, internal } from "../_generated/api";
 import { internalMutation, query } from "../_generated/server";
 import { authComponent } from "../auth";
 
@@ -1352,5 +1352,58 @@ export const cleanupOldEvents = internalMutation({
       console.error("[cleanupOldEvents] Error:", error);
       return { eventsDeleted: 0 };
     }
+  },
+});
+
+// ============================================================
+// CRON WRAPPER FUNCTIONS (Calculate timestamps at runtime)
+// ============================================================
+
+/**
+ * Wrapper for hourly aggregation cron
+ * Calculates previous hour timestamp at runtime
+ */
+export const aggregateHourlyMetricsWrapper = internalMutation({
+  args: {},
+  returns: v.null(),
+  handler: async (ctx) => {
+    const now = Date.now();
+    // Calculate start of previous hour
+    const currentHourStart = now - (now % 3_600_000);
+    const previousHourStart = currentHourStart - 3_600_000;
+
+    await ctx.runMutation(
+      internal.models.voicePipelineMetrics.aggregateHourlyMetrics,
+      {
+        hourTimestamp: previousHourStart,
+      }
+    );
+
+    return null;
+  },
+});
+
+/**
+ * Wrapper for daily aggregation cron
+ * Calculates previous day timestamp at runtime (UTC day start)
+ */
+export const aggregateDailyMetricsWrapper = internalMutation({
+  args: {},
+  returns: v.null(),
+  handler: async (ctx) => {
+    const now = Date.now();
+    // Calculate start of today (UTC)
+    const todayStart = now - (now % 86_400_000);
+    // Previous day start
+    const previousDayStart = todayStart - 86_400_000;
+
+    await ctx.runMutation(
+      internal.models.voicePipelineMetrics.aggregateDailyMetrics,
+      {
+        dayTimestamp: previousDayStart,
+      }
+    );
+
+    return null;
   },
 });

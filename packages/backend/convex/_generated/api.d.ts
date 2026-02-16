@@ -98,6 +98,7 @@ import type * as models_gdpr from "../models/gdpr.js";
 import type * as models_guardianIdentities from "../models/guardianIdentities.js";
 import type * as models_guardianManagement from "../models/guardianManagement.js";
 import type * as models_guardianPlayerLinks from "../models/guardianPlayerLinks.js";
+import type * as models_importAnalytics from "../models/importAnalytics.js";
 import type * as models_importMappingHistory from "../models/importMappingHistory.js";
 import type * as models_importProgress from "../models/importProgress.js";
 import type * as models_importSessionDrafts from "../models/importSessionDrafts.js";
@@ -301,6 +302,7 @@ declare const fullApi: ApiFromModules<{
   "models/guardianIdentities": typeof models_guardianIdentities;
   "models/guardianManagement": typeof models_guardianManagement;
   "models/guardianPlayerLinks": typeof models_guardianPlayerLinks;
+  "models/importAnalytics": typeof models_importAnalytics;
   "models/importMappingHistory": typeof models_importMappingHistory;
   "models/importProgress": typeof models_importProgress;
   "models/importSessionDrafts": typeof models_importSessionDrafts;

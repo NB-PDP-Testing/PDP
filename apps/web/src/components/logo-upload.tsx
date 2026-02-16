@@ -73,9 +73,7 @@ export function LogoUpload({
   const generateUploadUrlForCreation = useMutation(
     api.models.organizations.generateLogoUploadUrlForCreation
   );
-  const getStorageUrl = useMutation(
-    api.models.organizations.getStorageUrl
-  );
+  const getStorageUrl = useMutation(api.models.organizations.getStorageUrl);
 
   /**
    * Resize image to max dimensions while preserving aspect ratio

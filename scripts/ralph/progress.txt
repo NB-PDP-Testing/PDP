@@ -524,3 +524,80 @@ Started: Mon 16 Feb 2026 11:08:52 GMT
 - Should have extracted all helper functions before writing any JSX
 
 ---
+## 2026-02-16 (Time unknown) - US-P4.5-007 - Create connector health dashboard
+**Iteration**: 4
+**Commit**: 685f8ff1e90b9a3ca4616333fe04e3f56f32c5db
+**Session**: [Current session ID not captured]
+**Status**: Complete
+
+### What was implemented
+- Created comprehensive connector health dashboard at `/platform/connectors/dashboard`
+- Four summary cards at top showing key metrics:
+  * Total Connectors (with breakdown: X active, Y inactive, Z error)
+  * Connected Organizations count
+  * Syncs Last 24h (completed vs failed)
+  * Estimated Monthly Cost based on API usage
+- Sync trend chart (last 30 days) using recharts LineChart
+  * Two lines: successful syncs (green), failed syncs (red)
+  * Groups data by day with proper date formatting
+  * Responsive chart with cartesian grid and tooltips
+- Connector health table showing top 5 connectors by priority (worst health first)
+  * Columns: Connector name, Uptime %, Last Error timestamp
+  * Color-coded uptime badges: green (>95%), yellow (80-95%), red (<80%)
+  * Links to "Manage Connectors" page
+- Recent errors panel showing last 10 failed syncs
+  * Displays organization ID, timestamp, error count
+  * AlertCircle icon with red color for visual emphasis
+  * Links to "View All Logs" page
+- Auto-refresh every 60 seconds to keep data current
+- Last updated timestamp with manual "Refresh" button
+- Mobile responsive: cards stack vertically, chart is scrollable, two-column layout on desktop
+
+### Files changed
+- apps/web/src/app/platform/connectors/dashboard/page.tsx (+561 lines, new file)
+- package.json (+1 recharts dependency)
+- package-lock.json (updated with recharts and dependencies)
+
+### Quality checks
+- ✅ Type check: passed (no new errors in dashboard file)
+- ✅ Linting: passed (after extracting helper functions)
+- ✅ Convex codegen: passed
+- ✅ Pre-commit hooks: passed
+- ⏭️ Browser verification: N/A (requires backend data)
+
+### Learnings for future iterations ⚠️ CRITICAL
+
+**Patterns discovered:**
+- recharts library for React chart visualizations (LineChart, ResponsiveContainer)
+- Helper functions reduce complexity: formatDayKey, updateDayMap
+- Type definitions for complex mapped arrays: define explicit type, use typed map function
+- Auto-refresh pattern: useEffect with setInterval, cleanup with clearInterval
+- Date grouping for charts: use Map with formatted date keys (YYYY-MM-DD)
+- Uptime calculation formula: `100 - (consecutiveFailures * penalty)`
+- Cost estimation placeholder formula: sync count * API cost per sync
+
+**Gotchas encountered:**
+- Unused state variable (setAutoRefresh) triggered linting error - changed to constant
+- Excessive complexity (19>15) in getChartData - extracted helper functions
+- Type errors with inline parameter types in .map() - needed explicit type definition
+- Must use typed parameters or explicit type for arrays returned from queries
+- Empty dependency array `[]` for useEffect when variable is constant (no dependency needed)
+
+**Dependencies found:**
+- recharts installed via npm (LineChart, ResponsiveContainer, CartesianGrid, etc.)
+- format-distance-to-now from date-fns (already installed)
+- getAllSyncHistory query for platform-wide sync data
+- listConnectors query for all connectors
+
+**What to do next**:
+- [ ] US-P4.5-008: Add analytics and cost monitoring (final story)
+- [ ] Wire up dashboard link from platform home page
+- [ ] Test dashboard with actual connector data in dev environment
+
+**Mistakes made** (learn from these!):
+- Initially had autoRefresh as state with unused setter - should have been constant from start
+- Complex chart data processing initially in single function (complexity 19) - extracted helpers
+- Type errors from implicit any in array callbacks - added explicit types throughout
+- Should have defined types at function level instead of inline in callbacks
+
+---

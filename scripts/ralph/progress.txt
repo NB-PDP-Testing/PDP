@@ -601,3 +601,79 @@ Started: Mon 16 Feb 2026 11:08:52 GMT
 - Should have defined types at function level instead of inline in callbacks
 
 ---
+## 2026-02-16 23:00 - US-P4.5-008 - Add analytics and cost monitoring
+**Iteration**: 4
+**Commit**: 9eaf82228e66e75c4af91bd5e935b5ba02e7ce0d
+**Session**: 6ae0cfc4-ebc0-4a4e-a4b4-6c7f330265c6
+**Status**: Complete
+
+### What was implemented
+- Created `/platform/connectors/analytics` page with comprehensive analytics dashboard
+- Time range selector: Last 7 days, 30 days, 90 days
+- Connector filter dropdown: All Connectors or specific connector
+- Four summary cards showing key metrics:
+  * Total Syncs (in selected time range)
+  * Cache Hit Rate (AI mapping cache efficiency %)
+  * Estimated Cost (API costs for period)
+  * Cache Savings ($ saved via caching)
+- Sync volume bar chart: daily sync counts stacked by type (scheduled=blue, manual=purple, webhook=green)
+- API cost line chart: estimated daily costs for AI mappings
+- Cache hit rate pie chart: cached (green) vs uncached (red) AI mappings
+- Connector performance table:
+  * Columns: Connector, Avg Duration, Success Rate, API Cost, Total Syncs
+  * Highlights slow syncs (>5 min) in yellow background
+  * Success rate badges: green (>95%), yellow (80-95%), red (<80%)
+- Organization leaderboard: Top 10 organizations by sync count with ranking
+- Export Analytics button: downloads JSON report with all data
+- Mobile responsive: cards stack vertically, charts scrollable, 2-column grid on desktop
+
+### Files changed
+- apps/web/src/app/platform/connectors/analytics/page.tsx (+676 lines, new file)
+
+### Quality checks
+- ✅ Convex codegen: passed
+- ✅ Type check: passed (all implicit any types fixed)
+- ✅ Linting: passed (extracted helper functions, fixed labels, fixed array key)
+- ✅ Pre-commit hooks: passed
+
+### Learnings for future iterations ⚠️ CRITICAL
+
+**Patterns discovered:**
+- Correct import path: `@pdp/backend/convex/_generated/api` (NOT `@/convex`)
+- Helper functions to avoid nested ternaries: getDaysFromTimeRange, getSuccessRateBadgeVariant
+- Use `div` instead of `label` for Select components (accessibility requirement)
+- Use unique identifiers (e.g., perf.name) instead of array index for keys
+- recharts components: BarChart (stacked bars), LineChart, PieChart with Cell for colors
+- Date grouping for charts: Map with formatted date keys (YYYY-MM-DD)
+- Cost estimation formula: uncached syncs × $0.003 per AI call × ~10 calls per sync
+- Export functionality: create Blob → URL.createObjectURL → programmatic link click
+- ResponsiveContainer from recharts for responsive chart sizing
+
+**Gotchas encountered:**
+- listConnectors query requires args object even if status is optional: `listConnectors, {}`
+- Implicit any types in map callbacks need explicit type annotations
+- Nested ternaries trigger lint errors - extract to helper functions instead
+- Label elements without associated controls fail accessibility lint
+- Using array index as key triggers noArrayIndexKey lint warning
+
+**Dependencies found:**
+- recharts already installed (version 3.7.0)
+- date-fns format() for date formatting
+- getAIMappingStats query returns totalMappings, cacheHitRate, avgConfidence, acceptanceRate
+- getAICostEstimate query returns totalMappings, cachedMappings, uncachedMappings, estimatedCost, savings
+- getAllSyncHistory query with optional connectorId and limit parameters
+
+**What to do next**:
+- [ ] All stories complete! Phase 4.5 is DONE.
+- [ ] Add navigation link to analytics page from platform dashboard
+- [ ] Test analytics page with actual connector data in dev environment
+
+**Mistakes made** (learn from these!):
+- Initially used wrong import path `@/convex` instead of `@pdp/backend/convex`
+- Forgot to pass empty args object to listConnectors query (type error)
+- Used nested ternaries initially which triggered linting errors
+- Used label elements with Select components (accessibility issue)
+- Used array index as key in map (anti-pattern)
+- All fixed by: checking existing pages for patterns, extracting helper functions, using divs, using unique keys
+
+---

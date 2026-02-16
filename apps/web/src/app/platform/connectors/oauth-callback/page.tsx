@@ -73,26 +73,18 @@ export default function OAuthCallbackPage() {
           throw new Error("Connector not found");
         }
 
-        // Get OAuth configuration from connector
-        // Note: In a real implementation, these would come from the connector's encrypted credentials
-        // For now, we'll use placeholder values that should be configured in the connector
-        const tokenEndpoint =
-          connector.endpoints.memberDetail || "https://oauth.example.com/token";
-        const clientId = "placeholder_client_id"; // Should come from connector config
-        const clientSecret = "placeholder_client_secret"; // Should come from connector config
-
+        // Build callback URL
         const callbackUrl = `${window.location.origin}/platform/connectors/oauth-callback`;
 
         // Complete OAuth flow
+        // Note: OAuth configuration (clientId, clientSecret, tokenUrl) is retrieved
+        // and decrypted on the backend for security. Never pass credentials from frontend.
         await completeOAuth({
           connectorId: connectorId as Id<"federationConnectors">,
           code,
           state,
           expectedState,
-          tokenEndpoint,
           redirectUri: callbackUrl,
-          clientId,
-          clientSecret,
         });
 
         // Clean up session storage

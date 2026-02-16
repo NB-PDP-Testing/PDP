@@ -80,10 +80,7 @@ export const completeOAuthFlow = action({
     code: v.string(),
     state: v.string(),
     expectedState: v.string(),
-    tokenEndpoint: v.string(),
     redirectUri: v.string(),
-    clientId: v.string(),
-    clientSecret: v.string(),
   },
   returns: v.null(),
   handler: async (ctx, args) => {
@@ -92,8 +89,52 @@ export const completeOAuthFlow = action({
       throw new Error("Invalid state parameter - possible CSRF attack");
     }
 
+    // Get connector configuration
+    const connector = await ctx.runQuery(
+      api.models.federationConnectors.getConnector,
+      { connectorId: args.connectorId }
+    );
+
+    if (!connector) {
+      throw new Error("Connector not found");
+    }
+
+    if (connector.authType !== "oauth2") {
+      throw new Error("Connector is not configured for OAuth 2.0");
+    }
+
+    // Get encrypted credentials from storage
+    const storedCredentialsBlob = await ctx.storage.get(
+      connector.credentialsStorageId
+    );
+    if (!storedCredentialsBlob) {
+      throw new Error("Credentials not found in storage");
+    }
+
+    const storedCredentialsData = await storedCredentialsBlob.text();
+
+    // Decrypt credentials to get OAuth config
+    // Note: For OAuth2, initial credentials contain clientId, clientSecret, authorizationUrl, tokenUrl
+    // After completion, they'll be replaced with accessToken, refreshToken, etc.
+    const initialCredentials = JSON.parse(storedCredentialsData) as {
+      clientId?: string;
+      clientSecret?: string;
+      tokenUrl?: string;
+      authorizationUrl?: string;
+    };
+
+    if (!(initialCredentials.clientId && initialCredentials.clientSecret)) {
+      throw new Error(
+        "OAuth configuration missing. Please configure client credentials in connector settings."
+      );
+    }
+
+    if (!initialCredentials.tokenUrl) {
+      throw new Error("OAuth token URL not configured in connector settings.");
+    }
+
     // Exchange authorization code for access token
-    const tokenResponse = await fetch(args.tokenEndpoint, {
+    const tokenResponse = await fetch(initialCredentials.tokenUrl, {
       method: "POST",
       headers: {
         "Content-Type": "application/x-www-form-urlencoded",
@@ -102,8 +143,8 @@ export const completeOAuthFlow = action({
         grant_type: "authorization_code",
         code: args.code,
         redirect_uri: args.redirectUri,
-        client_id: args.clientId,
-        client_secret: args.clientSecret,
+        client_id: initialCredentials.clientId,
+        client_secret: initialCredentials.clientSecret,
       }),
     });
 

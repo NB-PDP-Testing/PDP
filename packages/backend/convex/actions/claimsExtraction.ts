@@ -491,6 +491,23 @@ export const extractClaims = internalAction({
         return null;
       }
 
+      // v2 monitoring: emit claims_extraction_started event
+      try {
+        await ctx.runMutation(internal.models.voicePipelineEvents.logEvent, {
+          eventType: "claims_extraction_started",
+          artifactId: args.artifactId,
+          organizationId:
+            artifact.orgContextCandidates?.[0]?.organizationId ?? undefined,
+          pipelineStage: "claims_extraction",
+          stageStartedAt: Date.now(),
+          metadata: {
+            aiModel: "gpt-4o",
+          },
+        });
+      } catch (error) {
+        console.warn("Failed to log claims_extraction_started event:", error);
+      }
+
       // 2. Set artifact status to processing + sync to voiceNote
       await ctx.runMutation(
         internal.models.voiceNoteArtifacts.updateArtifactStatus,
@@ -659,6 +676,29 @@ export const extractClaims = internalAction({
     } catch (error) {
       console.error("[extractClaims] Failed:", error);
       await markArtifactFailed(ctx, args.artifactId);
+
+      // v2 monitoring: emit claims_extraction_failed event
+      try {
+        const artifact = await ctx.runQuery(
+          internal.models.voiceNoteArtifacts.getArtifactById,
+          { _id: args.artifactId }
+        );
+        if (artifact) {
+          await ctx.runMutation(internal.models.voicePipelineEvents.logEvent, {
+            eventType: "claims_extraction_failed",
+            artifactId: args.artifactId,
+            organizationId:
+              artifact.orgContextCandidates?.[0]?.organizationId ?? undefined,
+            pipelineStage: "claims_extraction",
+            stageCompletedAt: Date.now(),
+            errorMessage:
+              error instanceof Error ? error.message : "Unknown error",
+            errorCode: "CLAIMS_EXTRACTION_ERROR",
+          });
+        }
+      } catch (logError) {
+        console.warn("Failed to log claims_extraction_failed event:", logError);
+      }
     }
 
     return null;

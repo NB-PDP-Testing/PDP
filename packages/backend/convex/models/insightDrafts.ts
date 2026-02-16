@@ -114,6 +114,35 @@ export const createDrafts = internalMutation({
       const id = await ctx.db.insert("insightDrafts", draft);
       ids.push(id);
     }
+
+    // Calculate average confidence
+    const avgConfidence =
+      args.drafts.length > 0
+        ? args.drafts.reduce((sum, draft) => sum + draft.aiConfidence, 0) /
+          args.drafts.length
+        : undefined;
+
+    // Fire-and-forget event logging
+    if (args.drafts.length > 0) {
+      const firstDraft = args.drafts[0];
+      await ctx.scheduler.runAfter(
+        0,
+        internal.models.voicePipelineEvents.logEvent,
+        {
+          eventType: "drafts_generated",
+          artifactId: firstDraft.artifactId,
+          organizationId: firstDraft.organizationId,
+          coachUserId: firstDraft.coachUserId,
+          pipelineStage: "draft_generation",
+          stageCompletedAt: Date.now(),
+          metadata: {
+            draftCount: args.drafts.length,
+            confidenceScore: avgConfidence,
+          },
+        }
+      );
+    }
+
     return ids;
   },
 });
@@ -210,6 +239,23 @@ export const confirmDraft = mutation({
       confirmedAt: now,
       updatedAt: now,
     });
+
+    // Fire-and-forget event logging
+    await ctx.scheduler.runAfter(
+      0,
+      internal.models.voicePipelineEvents.logEvent,
+      {
+        eventType: "draft_confirmed",
+        artifactId: draft.artifactId,
+        organizationId: draft.organizationId,
+        coachUserId: draft.coachUserId,
+        pipelineStage: "confirmation",
+        stageCompletedAt: now,
+        metadata: {
+          confidenceScore: draft.overallConfidence,
+        },
+      }
+    );
 
     // Schedule apply so the confirmed draft gets applied to player records
     await ctx.scheduler.runAfter(0, internal.models.insightDrafts.applyDraft, {
@@ -311,11 +357,30 @@ export const rejectDraft = mutation({
       throw new Error("Access denied: Draft does not belong to you");
     }
 
+    const now = Date.now();
+
     // Update status
     await ctx.db.patch(draft._id, {
       status: "rejected",
-      updatedAt: Date.now(),
+      updatedAt: now,
     });
+
+    // Fire-and-forget event logging
+    await ctx.scheduler.runAfter(
+      0,
+      internal.models.voicePipelineEvents.logEvent,
+      {
+        eventType: "draft_rejected",
+        artifactId: draft.artifactId,
+        organizationId: draft.organizationId,
+        coachUserId: draft.coachUserId,
+        pipelineStage: "confirmation",
+        stageCompletedAt: now,
+        metadata: {
+          confidenceScore: draft.overallConfidence,
+        },
+      }
+    );
 
     return null;
   },

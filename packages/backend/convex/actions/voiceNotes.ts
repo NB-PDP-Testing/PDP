@@ -259,6 +259,22 @@ export const transcribeAudio = internalAction({
       );
       if (artifacts.length > 0) {
         const artifact = artifacts[0];
+
+        // v2 monitoring: emit transcription_started event (retrospectively after success)
+        // This is logged after transcription completes since we don't have artifactId at start
+        try {
+          await ctx.runMutation(internal.models.voicePipelineEvents.logEvent, {
+            eventType: "transcription_started",
+            artifactId: artifact._id,
+            organizationId:
+              artifact.orgContextCandidates?.[0]?.organizationId ?? undefined,
+            pipelineStage: "transcription",
+            stageStartedAt: Date.now(),
+          });
+        } catch (error) {
+          console.warn("Failed to log transcription_started event:", error);
+        }
+
         await ctx.runMutation(
           internal.models.voiceNoteTranscripts.createTranscript,
           {
@@ -305,6 +321,30 @@ export const transcribeAudio = internalAction({
         status: "failed",
         error: error instanceof Error ? error.message : "Unknown error",
       });
+
+      // v2 monitoring: emit transcription_failed event if artifact exists
+      try {
+        const artifacts = await ctx.runQuery(
+          internal.models.voiceNoteArtifacts.getArtifactsByVoiceNote,
+          { voiceNoteId: args.noteId }
+        );
+        if (artifacts.length > 0) {
+          const artifact = artifacts[0];
+          await ctx.runMutation(internal.models.voicePipelineEvents.logEvent, {
+            eventType: "transcription_failed",
+            artifactId: artifact._id,
+            organizationId:
+              artifact.orgContextCandidates?.[0]?.organizationId ?? undefined,
+            pipelineStage: "transcription",
+            stageCompletedAt: Date.now(),
+            errorMessage:
+              error instanceof Error ? error.message : "Unknown error",
+            errorCode: "TRANSCRIPTION_ERROR",
+          });
+        }
+      } catch (logError) {
+        console.warn("Failed to log transcription_failed event:", logError);
+      }
     }
 
     return null;

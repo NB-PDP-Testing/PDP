@@ -730,3 +730,144 @@ export const getConnectorHealth = query({
     };
   },
 });
+
+// ===== Webhook Support =====
+
+/**
+ * Log webhook event for debugging and audit trail
+ */
+export const logWebhook = internalMutation({
+  args: {
+    connectorId: v.id("federationConnectors"),
+    organizationId: v.string(),
+    event: v.union(
+      v.literal("created"),
+      v.literal("updated"),
+      v.literal("deleted")
+    ),
+    memberId: v.string(),
+    federationOrgId: v.string(),
+    receivedAt: v.number(),
+    processedAt: v.number(),
+    success: v.boolean(),
+    error: v.optional(v.string()),
+  },
+  returns: v.id("webhookLogs"),
+  handler: async (ctx, args) => {
+    const logId = await ctx.db.insert("webhookLogs", {
+      connectorId: args.connectorId,
+      organizationId: args.organizationId,
+      event: args.event,
+      memberId: args.memberId,
+      federationOrgId: args.federationOrgId,
+      receivedAt: args.receivedAt,
+      processedAt: args.processedAt,
+      processingTimeMs: args.processedAt - args.receivedAt,
+      success: args.success,
+      error: args.error,
+    });
+
+    console.log(`[Webhook Log] Logged webhook event: ${logId}`, {
+      connector: args.connectorId,
+      event: args.event,
+      success: args.success,
+    });
+
+    return logId;
+  },
+});
+
+/**
+ * Log webhook security event (invalid signature, rate limit exceeded)
+ */
+export const logWebhookSecurityEvent = internalMutation({
+  args: {
+    connectorId: v.id("federationConnectors"),
+    event: v.union(
+      v.literal("invalid_signature"),
+      v.literal("rate_limit_exceeded")
+    ),
+    details: v.any(),
+  },
+  returns: v.null(),
+  handler: async (ctx, args) => {
+    console.warn(
+      `[Webhook Security] ${args.event} for connector ${args.connectorId}`,
+      {
+        details: args.details,
+      }
+    );
+
+    // Could store in security log table if needed
+    // For now, just log to console
+
+    // Update connector health if too many invalid signatures
+    if (args.event === "invalid_signature") {
+      const connector = await ctx.db.get(args.connectorId);
+      if (!connector) {
+        return null;
+      }
+
+      // Auto-disable connector after 10 invalid signatures in a row
+      const invalidSignatureCount = (connector.invalidSignatureCount || 0) + 1;
+      if (invalidSignatureCount >= 10) {
+        await ctx.db.patch(args.connectorId, {
+          status: "error",
+          lastErrorAt: Date.now(),
+          lastError:
+            "Too many invalid webhook signatures - connector auto-disabled",
+          invalidSignatureCount,
+        });
+        console.error(
+          `[Webhook Security] Auto-disabled connector ${args.connectorId} after ${invalidSignatureCount} invalid signatures`
+        );
+      } else {
+        await ctx.db.patch(args.connectorId, {
+          invalidSignatureCount,
+        });
+      }
+    }
+
+    return null;
+  },
+});
+
+/**
+ * Check webhook rate limit for connector
+ * Returns true if within limit, false if exceeded
+ */
+export const checkWebhookRateLimit = internalMutation({
+  args: {
+    connectorId: v.id("federationConnectors"),
+    limit: v.number(), // max webhooks per window
+    windowMs: v.number(), // time window in milliseconds
+  },
+  returns: v.boolean(),
+  handler: async (ctx, args) => {
+    const now = Date.now();
+    const windowStart = now - args.windowMs;
+
+    // Count recent webhook events for this connector
+    const recentWebhooks = await ctx.db
+      .query("webhookLogs")
+      .withIndex("by_connector_and_time", (q) =>
+        q.eq("connectorId", args.connectorId).gte("receivedAt", windowStart)
+      )
+      .collect();
+
+    const count = recentWebhooks.length;
+
+    if (count >= args.limit) {
+      console.warn(
+        `[Rate Limit] Connector ${args.connectorId} exceeded webhook rate limit: ${count}/${args.limit} in last ${args.windowMs}ms`
+      );
+      return false;
+    }
+
+    console.log(
+      `[Rate Limit] Connector ${args.connectorId} webhook count: ${count}/${args.limit}`
+    );
+
+    return true;
+  },
+});

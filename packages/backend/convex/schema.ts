@@ -287,6 +287,9 @@ export default defineSchema({
     lastSyncedAt: v.optional(v.number()), // Timestamp of last federation sync
     lastSyncedData: v.optional(v.any()), // Data as it was at last sync (for conflict detection)
 
+    // Active status (for federation webhook deletions)
+    isActive: v.optional(v.boolean()), // Defaults to true, set to false when deleted from federation
+
     // Metadata
     createdAt: v.number(),
     updatedAt: v.number(),
@@ -4958,8 +4961,13 @@ export default defineSchema({
 
     // Error tracking
     lastErrorAt: v.optional(v.number()),
+    lastError: v.optional(v.string()),
     lastSuccessAt: v.optional(v.number()),
     consecutiveFailures: v.optional(v.number()),
+
+    // Webhook configuration
+    webhookSecret: v.optional(v.string()), // HMAC secret for webhook signature validation
+    invalidSignatureCount: v.optional(v.number()), // Track invalid webhook signatures
 
     createdAt: v.number(),
     updatedAt: v.number(),
@@ -5078,4 +5086,30 @@ export default defineSchema({
     .index("by_connectorId", ["connectorId"])
     .index("by_startedAt", ["startedAt"])
     .index("by_org_and_startedAt", ["organizationId", "startedAt"]),
+
+  // Webhook event logs for debugging and security monitoring
+  webhookLogs: defineTable({
+    connectorId: v.id("federationConnectors"),
+    organizationId: v.string(), // Better Auth organization ID
+    federationOrgId: v.string(), // External federation organization ID
+    memberId: v.string(), // External member ID
+    event: v.union(
+      v.literal("created"),
+      v.literal("updated"),
+      v.literal("deleted")
+    ),
+
+    // Timing
+    receivedAt: v.number(), // When webhook was received
+    processedAt: v.number(), // When processing completed
+    processingTimeMs: v.number(), // Processing duration
+
+    // Result
+    success: v.boolean(),
+    error: v.optional(v.string()), // Error message if failed
+  })
+    .index("by_connectorId", ["connectorId"])
+    .index("by_organizationId", ["organizationId"])
+    .index("by_connector_and_time", ["connectorId", "receivedAt"]) // For rate limiting
+    .index("by_receivedAt", ["receivedAt"]), // For cleanup/archival
 });

@@ -933,3 +933,85 @@ export const getById = internalQuery({
   returns: v.union(playerIdentityValidator, v.null()),
   handler: async (ctx, args) => await ctx.db.get(args.id),
 });
+
+/**
+ * Find player by external ID
+ * Used by webhook processor to find player for deletion
+ */
+export const findByExternalId = query({
+  args: {
+    organizationId: v.string(),
+    externalIdType: v.string(), // e.g., "foireann"
+    externalIdValue: v.string(),
+  },
+  returns: v.union(
+    v.object({
+      _id: v.id("playerIdentities"),
+      firstName: v.optional(v.string()),
+      lastName: v.optional(v.string()),
+      isActive: v.optional(v.boolean()),
+    }),
+    v.null()
+  ),
+  handler: async (ctx, args) => {
+    // Get all enrollments for this organization
+    const enrollments = await ctx.db
+      .query("orgPlayerEnrollments")
+      .withIndex("by_organizationId", (q) =>
+        q.eq("organizationId", args.organizationId)
+      )
+      .collect();
+
+    // For each enrollment, check playerIdentity's externalIds
+    for (const enrollment of enrollments) {
+      const identity = await ctx.db.get(enrollment.playerIdentityId);
+      if (!identity) {
+        continue;
+      }
+
+      // Check if externalIds[externalIdType] matches
+      const externalIds = identity.externalIds as
+        | Record<string, string>
+        | undefined;
+      if (externalIds?.[args.externalIdType] === args.externalIdValue) {
+        return {
+          _id: identity._id,
+          firstName: identity.firstName,
+          lastName: identity.lastName,
+          isActive: identity.isActive,
+        };
+      }
+    }
+
+    return null;
+  },
+});
+
+/**
+ * Mark player as inactive
+ * Used by webhook processor when member deleted from federation
+ */
+export const markPlayerInactive = mutation({
+  args: {
+    playerIdentityId: v.id("playerIdentities"),
+    reason: v.string(),
+  },
+  returns: v.null(),
+  handler: async (ctx, args) => {
+    const player = await ctx.db.get(args.playerIdentityId);
+    if (!player) {
+      throw new Error(`Player not found: ${args.playerIdentityId}`);
+    }
+
+    console.log(
+      `[Player Identity] Marking player ${args.playerIdentityId} as inactive: ${args.reason}`
+    );
+
+    await ctx.db.patch(args.playerIdentityId, {
+      isActive: false,
+      updatedAt: Date.now(),
+    });
+
+    return null;
+  },
+});

@@ -205,6 +205,7 @@
         "Run npx -w packages/backend convex codegen and npm run check-types"
       ],
       "priority": 8,
+      "passes": true,
       "notes": "Audit trail is critical for compliance and debugging. Conflict details help admins understand and review merge decisions. Export enables offline analysis. Paginate history (50 per page) for large organizations."
     }
   ],

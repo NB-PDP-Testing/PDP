@@ -442,3 +442,62 @@ Started: Sun 15 Feb 2026 23:15:16 GMT
 - Integration was started but not completed due to context limits
 
 ---
+## 2026-02-16 02:45 - US-P4.4-008 - Create sync history and audit trail (COMPLETION)
+**Iteration**: 2
+**Commit**: 255dbf3dc7e1b0be4c11229ded79f5ce4166fc87
+**Session**: ac79c7aa-a68c-44d6-8eb0-5e286ba72175
+**Status**: Complete
+
+### What was implemented
+- Completed full integration of sync history with sync engine
+- Updated `syncWithConflictResolution` to call `updateSyncHistoryEntry` on completion
+- Added sync history update in failure case with error details
+- Added `syncType` parameter to distinguish scheduled/manual/webhook syncs
+- Updated `federationScheduler` to pass `syncType: "scheduled"`
+- Updated `syncQueueProcessor` to preserve original `syncType` on retries
+- Added `syncType` to `getJobsReadyForRetry` query return type
+- Linked import session to sync history via `importSessionId`
+- Reordered sync flow: create import session first, then sync history (for proper linking)
+
+### Files changed
+- packages/backend/convex/actions/federationSyncEngine.ts (+44, -12) - added history integration
+- packages/backend/convex/actions/federationScheduler.ts (+1, -0) - pass syncType
+- packages/backend/convex/actions/syncQueueProcessor.ts (+2, -0) - preserve syncType on retry
+- packages/backend/convex/models/syncQueue.ts (+8, -0) - return syncType from getJobsReadyForRetry
+
+### Quality checks
+- ✅ Convex codegen: passed
+- ✅ Type check: passed (pre-existing errors only - 607 errors total, all in whatsapp/gaaTestMutations/importMappingHistory)
+- ✅ Linting: passed (pre-commit hook verified)
+- ✅ Browser verification: N/A (backend-only change)
+
+### **Learnings for future iterations** ⚠️ CRITICAL
+
+**Patterns discovered:**
+- Sync history is created AFTER import session so we can link them via importSessionId
+- syncType parameter flows through: scheduler → syncWithQueue → syncWithConflictResolution → history
+- Retry queue processor must preserve original syncType (from job record)
+- Query return types must include all fields used by callers (syncType needed for retry processor)
+
+**Gotchas encountered:**
+- Initially created sync history before import session, but needed to reverse order for proper linking
+- getJobsReadyForRetry didn't return syncType field, causing type error in syncQueueProcessor
+- Must include syncType in both args validator AND return type of getJobsReadyForRetry
+
+**Dependencies found:**
+- Sync history integration depends on:
+  - Import session (created first for linking)
+  - updateSyncHistoryEntry mutation (called on success and failure)
+  - syncType parameter passed through all sync actions
+  - getJobsReadyForRetry must return syncType field
+
+**What to do next**:
+- ✅ Story complete - all acceptance criteria met
+- Next story: US-P4.4-006 (Implement webhook receiver for federation push updates)
+- Note: US-P4.4-006 is the last remaining story in Phase 4.4
+
+**Mistakes made** (learn from these!):
+- Initially forgot to update getJobsReadyForRetry to return syncType field
+- Fixed by adding syncType to both return validator and map function
+
+---

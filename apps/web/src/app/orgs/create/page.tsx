@@ -545,6 +545,7 @@ export default function CreateOrganizationPage() {
                           </Button>
                         </div>
                         <div className="flex items-center gap-2">
+                          {/* biome-ignore lint/a11y/noNoninteractiveElementInteractions: onError hides broken image gracefully */}
                           <img
                             alt="Extracted logo"
                             className="h-10 w-10 rounded object-contain"

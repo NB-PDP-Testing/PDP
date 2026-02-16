@@ -101,6 +101,103 @@ export const updateSyncHistoryEntry = mutation({
 });
 
 /**
+ * Get ALL sync history across all organizations (platform admin only)
+ */
+export const getAllSyncHistory = query({
+  args: {
+    connectorId: v.optional(v.id("federationConnectors")),
+    status: v.optional(
+      v.union(v.literal("completed"), v.literal("failed"), v.literal("running"))
+    ),
+    limit: v.optional(v.number()), // Default 50
+    cursor: v.optional(v.number()), // Timestamp cursor for pagination
+  },
+  returns: v.object({
+    entries: v.array(
+      v.object({
+        _id: v.id("syncHistory"),
+        _creationTime: v.number(),
+        connectorId: v.id("federationConnectors"),
+        organizationId: v.string(),
+        syncType: v.union(
+          v.literal("scheduled"),
+          v.literal("manual"),
+          v.literal("webhook")
+        ),
+        startedAt: v.number(),
+        completedAt: v.optional(v.number()),
+        status: v.union(v.literal("completed"), v.literal("failed")),
+        stats: v.object({
+          playersProcessed: v.number(),
+          playersCreated: v.number(),
+          playersUpdated: v.number(),
+          conflictsDetected: v.number(),
+          conflictsResolved: v.number(),
+          errors: v.number(),
+        }),
+        conflictCount: v.number(),
+      })
+    ),
+    hasMore: v.boolean(),
+    nextCursor: v.optional(v.number()),
+  }),
+  handler: async (ctx, args) => {
+    const limit = args.limit ?? 50;
+    const cursor = args.cursor ?? Date.now() + 1000; // Start from now if no cursor
+
+    // Query all history sorted by startedAt descending (most recent first)
+    const historyQuery = ctx.db
+      .query("syncHistory")
+      .withIndex("by_startedAt", (q) => q.lt("startedAt", cursor))
+      .order("desc");
+
+    // Fetch limit + 1 to determine if there are more results
+    const results = await historyQuery.take(limit + 1);
+
+    // Filter by connector if specified
+    let filteredResults = results;
+    if (args.connectorId) {
+      filteredResults = results.filter(
+        (entry) => entry.connectorId === args.connectorId
+      );
+    }
+
+    // Filter by status if specified
+    if (args.status !== undefined) {
+      filteredResults = filteredResults.filter(
+        (entry) => entry.status === args.status
+      );
+    }
+
+    const hasMore = filteredResults.length > limit;
+    const entries = hasMore ? filteredResults.slice(0, limit) : filteredResults;
+
+    const nextCursor =
+      hasMore && entries.length > 0 ? entries.at(-1)?.startedAt : undefined;
+
+    // Map to response format (exclude full conflict details for list view)
+    const formattedEntries = entries.map((entry) => ({
+      _id: entry._id,
+      _creationTime: entry._creationTime,
+      connectorId: entry.connectorId,
+      organizationId: entry.organizationId,
+      syncType: entry.syncType,
+      startedAt: entry.startedAt,
+      completedAt: entry.completedAt,
+      status: entry.status,
+      stats: entry.stats,
+      conflictCount: entry.conflictDetails.length,
+    }));
+
+    return {
+      entries: formattedEntries,
+      hasMore,
+      nextCursor,
+    };
+  },
+});
+
+/**
  * Get paginated sync history for an organization
  */
 export const getSyncHistory = query({

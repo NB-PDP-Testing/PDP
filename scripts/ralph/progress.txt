@@ -323,3 +323,72 @@ Started: Mon 16 Feb 2026 11:08:52 GMT
 - Should have planned helper functions: validateOAuthParams, fetchConnectorConfig, exchangeToken
 
 ---
+## 2026-02-16 21:00 - US-P4.5-004 - Add connection test functionality
+**Iteration**: 2
+**Commit**: 30da48ee53c59d043cf6e0feb7c39a16a9c98c03
+**Session**: 95322656-d7c9-44df-8e83-7f5006984153
+**Status**: Complete
+
+### What was implemented
+- Created testConnection action in federationAuth.ts
+- Action makes lightweight API call to federation endpoint (limits to 1 result)
+- Tests all 3 auth types: OAuth 2.0 (Bearer token), API Key (custom header), Basic Auth (Authorization header)
+- Returns success boolean, descriptive message, response time in milliseconds
+- 10-second timeout using AbortSignal.timeout()
+- Comprehensive error handling for common HTTP status codes and network errors
+- Created ConnectionTestDialog component (connection-test-dialog.tsx - kebab-case)
+- Dialog auto-tests connection when opened
+- Visual states: Loading (spinner), Success (green alert), Error (red alert with retry)
+- Added Test Connection button to connector edit page (secondary button with TestTube2 icon)
+- Added Test Connection button to connector list page Actions column (desktop tooltip, mobile card button)
+- Responsive button layout in edit page (flex-col on mobile, flex-row on desktop)
+- Connected both buttons to dialog via state management
+
+### Files changed
+- packages/backend/convex/actions/federationAuth.ts (+140 lines)
+- apps/web/src/components/connectors/connection-test-dialog.tsx (+165 lines, new file)
+- apps/web/src/app/platform/connectors/[connectorId]/edit/page.tsx (+25, -7)
+- apps/web/src/app/platform/connectors/page.tsx (+31, -5)
+
+### Quality checks
+- ✅ Convex codegen: passed
+- ✅ Linting: passed (after kebab-case rename and shadow fix)
+- ✅ Type check: passed
+- ✅ Pre-commit hooks: passed
+
+### Learnings for future iterations ⚠️ CRITICAL
+
+**Patterns discovered:**
+- Component filenames must be kebab-case (connection-test-dialog.tsx, not ConnectionTestDialog.tsx)
+- AbortSignal.timeout() for request timeouts (native browser API)
+- Variable naming: avoid shadowing - use descriptive names like `isOpen` instead of `open` when parameter name conflicts with prop
+- Auto-trigger actions when dialogs open: use onOpenChange handler with status check
+- fetch() with signal parameter for cancelable requests
+- btoa() for Base64 encoding in Basic Auth headers
+
+**Gotchas encountered:**
+- Linter rejected PascalCase component filename (must be kebab-case)
+- Variable shadowing: `open` parameter conflicted with `open` prop
+- Pre-commit hook fails if linting errors exist - must fix before committing
+- File rename requires git rm --cached old-name, then mv to new name
+- Import paths must be updated after file rename
+
+**Dependencies found:**
+- testConnection action uses existing decryptCredentials helper
+- All error handling built-in to fetch API and try/catch
+- Alert component from shadcn/ui for success/error states
+- Dialog component from shadcn/ui for modal overlay
+
+**What to do next**:
+- [ ] US-P4.5-005: Sync logs viewer
+- [ ] US-P4.5-006: Sync log details modal
+- [ ] US-P4.5-007: Connector health dashboard
+- [ ] US-P4.5-008: Analytics and cost monitoring
+
+**Mistakes made** (learn from these!):
+- Initially used PascalCase filename (ConnectionTestDialog.tsx) - linter requires kebab-case
+- Initially shadowed `open` prop with `open` parameter in handler
+- Should have checked linting rules for filenames before creating component
+- Git workflow confusion: tried to pop stash while staged changes existed
+
+---

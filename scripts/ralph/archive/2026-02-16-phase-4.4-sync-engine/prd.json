@@ -36,7 +36,6 @@
     "All type checks pass: npm run check-types",
     "All linting passes: npx ultracite fix && npm run check"
   ],
-  "phase": "phase-4.5-platform-admin-ui",
   "userStories": [
     {
       "id": "US-P4.5-001",
@@ -61,8 +60,7 @@
         "Run npx ultracite fix"
       ],
       "priority": 1,
-      "notes": "Use listConnectors query to fetch data. Health metrics from getConnectorHealth query. Uptime = (successfulSyncs / totalSyncs) * 100. Card list on mobile shows key info: name, status, last sync.",
-      "passes": true
+      "notes": "Use listConnectors query to fetch data. Health metrics from getConnectorHealth query. Uptime = (successfulSyncs / totalSyncs) * 100. Card list on mobile shows key info: name, status, last sync."
     },
     {
       "id": "US-P4.5-002",
@@ -90,8 +88,7 @@
         "Run npx ultracite fix and npm run check-types"
       ],
       "priority": 2,
-      "notes": "Use React Hook Form for validation. Credentials never shown in edit form (re-enter to update). Federation code immutable after creation (can't change). OAuth setup requires additional flow - show 'Setup OAuth' button instead of manual entry.",
-      "passes": true
+      "notes": "Use React Hook Form for validation. Credentials never shown in edit form (re-enter to update). Federation code immutable after creation (can't change). OAuth setup requires additional flow - show 'Setup OAuth' button instead of manual entry."
     },
     {
       "id": "US-P4.5-003",
@@ -116,8 +113,7 @@
         "Run npx ultracite fix"
       ],
       "priority": 3,
-      "notes": "OAuth flow: admin clicks button → opens auth URL → user authorizes → callback with code → exchange for token → stored encrypted. State parameter prevents CSRF. Callback URL must be registered in federation app settings.",
-      "passes": true
+      "notes": "OAuth flow: admin clicks button → opens auth URL → user authorizes → callback with code → exchange for token → stored encrypted. State parameter prevents CSRF. Callback URL must be registered in federation app settings."
     },
     {
       "id": "US-P4.5-004",
@@ -141,8 +137,7 @@
         "Run npx ultracite fix and npm run check-types"
       ],
       "priority": 4,
-      "notes": "Test connection validates credentials without running full sync. Helpful for troubleshooting auth issues. Response time helps identify slow APIs. Test endpoint should be lightweight (1 result) to avoid rate limits.",
-      "passes": true
+      "notes": "Test connection validates credentials without running full sync. Helpful for troubleshooting auth issues. Response time helps identify slow APIs. Test endpoint should be lightweight (1 result) to avoid rate limits."
     },
     {
       "id": "US-P4.5-005",
@@ -169,8 +164,7 @@
         "Run npx ultracite fix"
       ],
       "priority": 5,
-      "notes": "Use getSyncHistory query with pagination. Default view: last 7 days, all statuses. Failed syncs highlighted in red for visibility. 'Running' status helps identify stuck syncs.",
-      "passes": false
+      "notes": "Use getSyncHistory query with pagination. Default view: last 7 days, all statuses. Failed syncs highlighted in red for visibility. 'Running' status helps identify stuck syncs."
     },
     {
       "id": "US-P4.5-006",
@@ -204,8 +198,7 @@
         "Run npx ultracite fix"
       ],
       "priority": 6,
-      "notes": "Use getSyncHistoryDetails query. Conflict details help understand merge decisions. Error section aids debugging. Export useful for sharing with support. Retry button calls sync action again.",
-      "passes": false
+      "notes": "Use getSyncHistoryDetails query. Conflict details help understand merge decisions. Error section aids debugging. Export useful for sharing with support. Retry button calls sync action again."
     },
     {
       "id": "US-P4.5-007",
@@ -237,8 +230,7 @@
         "Run npx ultracite fix and npm run check-types"
       ],
       "priority": 7,
-      "notes": "Dashboard provides at-a-glance visibility. Red highlights draw attention to problems. Auto-refresh keeps data current. Cost estimation formula: (uncached API calls * $0.003) + (sync job executions * minimal cost).",
-      "passes": false
+      "notes": "Dashboard provides at-a-glance visibility. Red highlights draw attention to problems. Auto-refresh keeps data current. Cost estimation formula: (uncached API calls * $0.003) + (sync job executions * minimal cost)."
     },
     {
       "id": "US-P4.5-008",
@@ -270,8 +262,7 @@
         "Run npx ultracite fix and npm run check-types"
       ],
       "priority": 8,
-      "notes": "Use getAIMappingStats and getSyncHistory queries. Recharts for visualizations. Cost estimation helps budget planning. Cache hit rate validates 30-day caching strategy. Performance table identifies optimization opportunities.",
-      "passes": false
+      "notes": "Use getAIMappingStats and getSyncHistory queries. Recharts for visualizations. Cost estimation helps budget planning. Cache hit rate validates 30-day caching strategy. Performance table identifies optimization opportunities."
     }
   ],
   "technicalNotes": {

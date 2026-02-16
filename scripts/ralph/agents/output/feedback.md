@@ -14051,3 +14051,219 @@ packages/backend/convex/actions/coachParentSummaries.ts:      "ANTHROPIC_API_KEY
   - **Problem:** Should use .withIndex() for better performance
   - **Fix:** Replace `.query().filter()` with `.query().withIndex()`
 
+
+## Auto Quality Check - 2026-02-15 21:53:58
+### File: /home/user/PDP/packages/backend/convex/models/organizations.ts
+
+- ❌ **CRITICAL: Better Auth adapter violation**
+  - **Problem:** Direct DB access to auth tables
+  - **Fix:** Use `ctx.runQuery(components.betterAuth.adapter.findOne, {...})`
+
+
+## Auto Quality Check - 2026-02-15 21:53:58
+### File: /home/user/PDP/packages/backend/convex/models/organizations.ts
+
+- ⚠️ **Performance: .filter() usage detected**
+  - **Problem:** Should use .withIndex() for better performance
+  - **Fix:** Replace `.query().filter()` with `.query().withIndex()`
+
+
+## Auto Quality Check - 2026-02-15 21:53:58
+### File: /home/user/PDP/packages/backend/convex/models/organizations.ts
+
+- ❌ **CRITICAL: N+1 query pattern detected**
+  - **Problem:** `Promise.all(items.map(async => query))` makes N database calls
+  - **Fix:** Batch fetch all IDs first, create Map for O(1) lookup
+
+
+## Auto Quality Check - 2026-02-15 21:55:34
+### File: /home/user/PDP/packages/backend/convex/models/organizations.ts
+
+- ❌ **CRITICAL: Better Auth adapter violation**
+  - **Problem:** Direct DB access to auth tables
+  - **Fix:** Use `ctx.runQuery(components.betterAuth.adapter.findOne, {...})`
+
+
+## Auto Quality Check - 2026-02-15 21:55:34
+### File: /home/user/PDP/packages/backend/convex/models/organizations.ts
+
+- ⚠️ **Performance: .filter() usage detected**
+  - **Problem:** Should use .withIndex() for better performance
+  - **Fix:** Replace `.query().filter()` with `.query().withIndex()`
+
+
+## Auto Quality Check - 2026-02-15 21:55:34
+### File: /home/user/PDP/packages/backend/convex/models/organizations.ts
+
+- ❌ **CRITICAL: N+1 query pattern detected**
+  - **Problem:** `Promise.all(items.map(async => query))` makes N database calls
+  - **Fix:** Batch fetch all IDs first, create Map for O(1) lookup
+
+
+## Auto Quality Check - 2026-02-16 17:53:46
+### File: /home/user/PDP/packages/backend/convex/models/organizations.ts
+
+- ❌ **CRITICAL: Better Auth adapter violation**
+  - **Problem:** Direct DB access to auth tables
+  - **Fix:** Use `ctx.runQuery(components.betterAuth.adapter.findOne, {...})`
+
+
+## Auto Quality Check - 2026-02-16 17:53:46
+### File: /home/user/PDP/packages/backend/convex/models/organizations.ts
+
+- ⚠️ **Performance: .filter() usage detected**
+  - **Problem:** Should use .withIndex() for better performance
+  - **Fix:** Replace `.query().filter()` with `.query().withIndex()`
+
+
+## Auto Quality Check - 2026-02-16 17:53:46
+### File: /home/user/PDP/packages/backend/convex/models/organizations.ts
+
+- ❌ **CRITICAL: N+1 query pattern detected**
+  - **Problem:** `Promise.all(items.map(async => query))` makes N database calls
+  - **Fix:** Batch fetch all IDs first, create Map for O(1) lookup
+
+
+## Auto Quality Check - 2026-02-16 17:53:54
+### File: /home/user/PDP/packages/backend/convex/models/organizations.ts
+
+- ❌ **CRITICAL: Better Auth adapter violation**
+  - **Problem:** Direct DB access to auth tables
+  - **Fix:** Use `ctx.runQuery(components.betterAuth.adapter.findOne, {...})`
+
+
+## Auto Quality Check - 2026-02-16 17:53:54
+### File: /home/user/PDP/packages/backend/convex/models/organizations.ts
+
+- ⚠️ **Performance: .filter() usage detected**
+  - **Problem:** Should use .withIndex() for better performance
+  - **Fix:** Replace `.query().filter()` with `.query().withIndex()`
+
+
+## Auto Quality Check - 2026-02-16 17:53:54
+### File: /home/user/PDP/packages/backend/convex/models/organizations.ts
+
+- ❌ **CRITICAL: N+1 query pattern detected**
+  - **Problem:** `Promise.all(items.map(async => query))` makes N database calls
+  - **Fix:** Batch fetch all IDs first, create Map for O(1) lookup
+
+
+## Auto Quality Check - 2026-02-16 17:54:04
+### File: /home/user/PDP/packages/backend/convex/models/organizations.ts
+
+- ❌ **CRITICAL: Better Auth adapter violation**
+  - **Problem:** Direct DB access to auth tables
+  - **Fix:** Use `ctx.runQuery(components.betterAuth.adapter.findOne, {...})`
+
+
+## Auto Quality Check - 2026-02-16 17:54:04
+### File: /home/user/PDP/packages/backend/convex/models/organizations.ts
+
+- ⚠️ **Performance: .filter() usage detected**
+  - **Problem:** Should use .withIndex() for better performance
+  - **Fix:** Replace `.query().filter()` with `.query().withIndex()`
+
+
+## Auto Quality Check - 2026-02-16 17:54:04
+### File: /home/user/PDP/packages/backend/convex/models/organizations.ts
+
+- ❌ **CRITICAL: N+1 query pattern detected**
+  - **Problem:** `Promise.all(items.map(async => query))` makes N database calls
+  - **Fix:** Batch fetch all IDs first, create Map for O(1) lookup
+
+
+## Auto Quality Check - 2026-02-16 17:55:02
+### File: /home/user/PDP/packages/backend/convex/models/organizations.ts
+
+- ❌ **CRITICAL: Better Auth adapter violation**
+  - **Problem:** Direct DB access to auth tables
+  - **Fix:** Use `ctx.runQuery(components.betterAuth.adapter.findOne, {...})`
+
+
+## Auto Quality Check - 2026-02-16 17:55:02
+### File: /home/user/PDP/packages/backend/convex/models/organizations.ts
+
+- ⚠️ **Performance: .filter() usage detected**
+  - **Problem:** Should use .withIndex() for better performance
+  - **Fix:** Replace `.query().filter()` with `.query().withIndex()`
+
+
+## Auto Quality Check - 2026-02-16 17:55:02
+### File: /home/user/PDP/packages/backend/convex/models/organizations.ts
+
+- ❌ **CRITICAL: N+1 query pattern detected**
+  - **Problem:** `Promise.all(items.map(async => query))` makes N database calls
+  - **Fix:** Batch fetch all IDs first, create Map for O(1) lookup
+
+
+## Auto Quality Check - 2026-02-16 17:55:32
+### File: /home/user/PDP/packages/backend/convex/models/organizations.ts
+
+- ❌ **CRITICAL: Better Auth adapter violation**
+  - **Problem:** Direct DB access to auth tables
+  - **Fix:** Use `ctx.runQuery(components.betterAuth.adapter.findOne, {...})`
+
+
+## Auto Quality Check - 2026-02-16 17:55:32
+### File: /home/user/PDP/packages/backend/convex/models/organizations.ts
+
+- ⚠️ **Performance: .filter() usage detected**
+  - **Problem:** Should use .withIndex() for better performance
+  - **Fix:** Replace `.query().filter()` with `.query().withIndex()`
+
+
+## Auto Quality Check - 2026-02-16 17:55:32
+### File: /home/user/PDP/packages/backend/convex/models/organizations.ts
+
+- ❌ **CRITICAL: N+1 query pattern detected**
+  - **Problem:** `Promise.all(items.map(async => query))` makes N database calls
+  - **Fix:** Batch fetch all IDs first, create Map for O(1) lookup
+
+
+## Auto Quality Check - 2026-02-16 17:55:58
+### File: /home/user/PDP/packages/backend/convex/models/organizations.ts
+
+- ❌ **CRITICAL: Better Auth adapter violation**
+  - **Problem:** Direct DB access to auth tables
+  - **Fix:** Use `ctx.runQuery(components.betterAuth.adapter.findOne, {...})`
+
+
+## Auto Quality Check - 2026-02-16 17:55:58
+### File: /home/user/PDP/packages/backend/convex/models/organizations.ts
+
+- ⚠️ **Performance: .filter() usage detected**
+  - **Problem:** Should use .withIndex() for better performance
+  - **Fix:** Replace `.query().filter()` with `.query().withIndex()`
+
+
+## Auto Quality Check - 2026-02-16 17:55:58
+### File: /home/user/PDP/packages/backend/convex/models/organizations.ts
+
+- ❌ **CRITICAL: N+1 query pattern detected**
+  - **Problem:** `Promise.all(items.map(async => query))` makes N database calls
+  - **Fix:** Batch fetch all IDs first, create Map for O(1) lookup
+
+
+## Auto Quality Check - 2026-02-16 18:00:42
+### File: /home/user/PDP/packages/backend/convex/models/organizations.ts
+
+- ❌ **CRITICAL: Better Auth adapter violation**
+  - **Problem:** Direct DB access to auth tables
+  - **Fix:** Use `ctx.runQuery(components.betterAuth.adapter.findOne, {...})`
+
+
+## Auto Quality Check - 2026-02-16 18:00:42
+### File: /home/user/PDP/packages/backend/convex/models/organizations.ts
+
+- ⚠️ **Performance: .filter() usage detected**
+  - **Problem:** Should use .withIndex() for better performance
+  - **Fix:** Replace `.query().filter()` with `.query().withIndex()`
+
+
+## Auto Quality Check - 2026-02-16 18:00:42
+### File: /home/user/PDP/packages/backend/convex/models/organizations.ts
+
+- ❌ **CRITICAL: N+1 query pattern detected**
+  - **Problem:** `Promise.all(items.map(async => query))` makes N database calls
+  - **Fix:** Batch fetch all IDs first, create Map for O(1) lookup
+

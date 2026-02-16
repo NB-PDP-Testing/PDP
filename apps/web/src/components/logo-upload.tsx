@@ -4,7 +4,7 @@ import { api } from "@pdp/backend/convex/_generated/api";
 import type { Id } from "@pdp/backend/convex/_generated/dataModel";
 import { useMutation } from "convex/react";
 import { Building2, Loader2, Upload, X } from "lucide-react";
-import { useCallback, useRef, useState } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
 import { toast } from "sonner";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -13,8 +13,8 @@ import { Separator } from "@/components/ui/separator";
 import { cn } from "@/lib/utils";
 
 type LogoUploadProps = {
-  /** Organization ID for upload permissions */
-  organizationId: string;
+  /** Organization ID for upload permissions. When undefined, uses creation-mode upload (no org required). */
+  organizationId?: string;
   /** Current logo URL or storage ID URL */
   currentLogo?: string | null;
   /** Callback when logo upload completes */
@@ -56,12 +56,25 @@ export function LogoUpload({
   const [urlInput, setUrlInput] = useState("");
   const fileInputRef = useRef<HTMLInputElement>(null);
 
-  // Convex mutations
+  // Sync preview when currentLogo prop changes externally
+  // (e.g. scraped logo applied on the create page)
+  useEffect(() => {
+    setPreview(currentLogo || null);
+  }, [currentLogo]);
+
+  // Convex mutations — org-scoped (settings page)
   const generateUploadUrl = useMutation(
     api.models.organizations.generateLogoUploadUrl
   );
   const saveLogoMutation = useMutation(
     api.models.organizations.saveUploadedLogo
+  );
+  // Convex mutations — creation mode (no org yet)
+  const generateUploadUrlForCreation = useMutation(
+    api.models.organizations.generateLogoUploadUrlForCreation
+  );
+  const getStorageUrl = useMutation(
+    api.models.organizations.getStorageUrl
   );
 
   /**
@@ -148,7 +161,11 @@ export function LogoUpload({
         setPreview(tempPreviewUrl);
 
         // Step 1: Get upload URL from Convex
-        const uploadUrl = await generateUploadUrl({ organizationId });
+        // Use org-scoped mutation when editing an existing org,
+        // or creation-mode mutation when creating a new org (no orgId yet)
+        const uploadUrl = organizationId
+          ? await generateUploadUrl({ organizationId })
+          : await generateUploadUrlForCreation({});
 
         // Step 2: Upload to Convex storage
         const uploadResponse = await fetch(uploadUrl, {
@@ -165,8 +182,16 @@ export function LogoUpload({
           storageId: Id<"_storage">;
         };
 
-        // Step 3: Save storage ID to organization and get the correct URL
-        const finalUrl = await saveLogoMutation({ organizationId, storageId });
+        // Step 3: Get the public URL
+        // When org exists, save to org and get URL back.
+        // In creation mode, just convert storageId to a public URL.
+        const finalUrl = organizationId
+          ? await saveLogoMutation({ organizationId, storageId })
+          : await getStorageUrl({ storageId });
+
+        if (!finalUrl) {
+          throw new Error("Could not generate URL for uploaded logo");
+        }
 
         // Step 4: Update preview with the URL returned from the backend
         setPreview(finalUrl);
@@ -187,7 +212,9 @@ export function LogoUpload({
       resizeImage,
       onUploadComplete,
       generateUploadUrl,
+      generateUploadUrlForCreation,
       saveLogoMutation,
+      getStorageUrl,
       organizationId,
     ]
   );

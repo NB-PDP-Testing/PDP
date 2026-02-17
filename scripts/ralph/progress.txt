@@ -73,21 +73,24 @@ Started: Mon 16 Feb 2026 19:11:28 GMT
 
 ## BLOCKING PRE-WORK (Required Before M6)
 
-⚠️ **These MUST be completed before starting US-VNM-009** (~0.5 day effort)
+✅ **ALL PRE-WORK COMPLETE** (Completed: 2026-02-17 21:50)
 
 1. **Create 5 new backend queries** (per ADR-VNM-026):
-   - [ ] `getPlatformArtifacts` - Platform staff, cursor pagination, org/status filters
-   - [ ] `getArtifactById` - Platform staff, single artifact with full details
-   - [ ] `getClaimsByArtifact` - Public version of internal query
-   - [ ] `getDisambiguationForArtifact` - Public version
-   - [ ] `getDraftsByArtifact` - Public version
+   - ✅ `getPlatformArtifacts` - voiceNoteArtifacts.ts (status/date filters, cursor pagination)
+   - ✅ `getPlatformArtifactById` - voiceNoteArtifacts.ts (single artifact lookup)
+   - ✅ `getPlatformClaimsByArtifact` - voiceNoteClaims.ts (public platform staff query)
+   - ✅ `getPlatformDisambiguationForArtifact` - voiceNoteEntityResolutions.ts (public platform staff)
+   - ✅ `getPlatformDraftsByArtifact` - insightDrafts.ts (public platform staff)
 
 2. **Modify existing backend query:**
-   - [ ] Update `getRecentEvents` to use `paginationOptsValidator` from `convex/server`
+   - ✅ Updated `getRecentEvents` to use `paginationOptsValidator` from `convex/server`
 
 3. **Extract shared configs from v2-claims** (per ADR-VNM-023):
-   - [ ] Extract `TOPIC_CONFIG`, `STATUS_CONFIG`, `ARTIFACT_STATUS_CONFIG` to shared file
-   - [ ] Location: `apps/web/src/lib/voice-notes/configs.ts`
+   - ✅ Created `apps/web/src/lib/voice-notes/configs.ts`
+   - ✅ Extracted `TOPIC_CONFIG`, `STATUS_CONFIG`, `ARTIFACT_STATUS_CONFIG`
+   - ✅ Updated v2-claims page.tsx to import from shared location
+
+**Type Checks:** ✅ PASSING (npm run check-types)
 
 ---
 
@@ -151,9 +154,17 @@ Started: Mon 16 Feb 2026 19:11:28 GMT
 
 ## NEXT STORY TO EXECUTE
 
-**PREP WORK** (blocking M6)
+**US-VNM-009: Build Artifacts Grid View** (M6, 3 days)
 
-Complete the 3 pre-work tasks above, then move to US-VNM-009.
+✅ Pre-work complete - Ready to begin artifacts grid implementation.
+
+**Key Requirements:**
+- Use `getPlatformArtifacts` query (NOT `getRecentArtifacts`)
+- Use `usePaginatedQuery` for cursor-based pagination (MANDATORY)
+- Migrate ClaimRow component from v2-claims
+- Implement expandable rows showing claims/resolutions/drafts
+- Wire retry buttons to voicePipelineRetry mutations
+- Must achieve v2-claims feature parity (critical for M9 deletion)
 
 ---
 
@@ -169,3 +180,43 @@ Complete the 3 pre-work tasks above, then move to US-VNM-009.
 | `PRD.json` | Main PRD with all phases |
 
 **For implementation details, ALWAYS read feedback.md first.**
+
+---
+
+## 🔐 SECURITY FINDINGS (2026-02-17 21:49)
+
+**From security-tester agent - FOR AWARENESS (not blocking M6-M9):**
+
+These are existing codebase issues, NOT related to M6-M9 work:
+
+- 🚨 **CRITICAL**: No hardcoded secrets found (false positive - only error messages referencing env vars)
+- ⚠️ **HIGH**: 4 high-severity dependency vulnerabilities → Run `npm audit fix`
+- ⚠️ **HIGH**: Mutations without authorization checks in 84 files (mostly legacy code)
+- 🚨 **CRITICAL**: XSS risk - dangerouslySetInnerHTML in 3 UI components (confetti, chart, gdpr-viewer)
+
+**Action for Ralph:** Note these issues but DO NOT fix during M6-M9 implementation. Focus on monitoring pages only.
+
+---
+
+## ⚠️ M5 DASHBOARD GAPS (DEFERRED)
+
+**From QA review - Deferred to post-M9 cleanup:**
+
+1. **Tab count**: Only 7 tabs (Overview, Artifacts, Metrics, Events, Pipeline, Alerts, Settings)
+   - Acceptance criteria specified 8 tabs - missing tab not identified in PRD
+   - **Status:** DEFERRED (investigate in M9)
+
+2. **Layout auth**: Client-side auth check instead of server-side
+   - Works but doesn't match acceptance criteria
+   - **Status:** DEFERRED (acceptable defense-in-depth)
+
+3. **v2-claims link**: Still present in platform page
+   - Should be removed when v2-claims page is deleted
+   - **Status:** WILL BE FIXED in US-VNM-015 (M9)
+
+4. **Activity Feed grouping**: Missing time grouping features
+   - No "Today, Yesterday, This Week" grouping
+   - No auto-scroll to top on new events
+   - **Status:** DEFERRED (out of scope for M6-M9)
+
+**Impact:** M5 Dashboard is 85% complete, functional, and acceptable for now. These gaps are tracked for future cleanup.

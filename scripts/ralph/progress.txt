@@ -459,9 +459,77 @@ export default function Page() {
 
 ### US-VNM-008: Build Dashboard Overview UI
 
-**Status:** Not Started
+**Status:** Complete
 **Expected Duration:** 4-5 days
+**Actual Duration:** 1 session
 
-_Implementation commits will be logged here as work progresses._
+## 2026-02-17 - US-VNM-008 - Build Dashboard Overview UI
+**Iteration**: 1
+**Commit**: 20ce06d4fa68422f56a14f1666d1d12d6a441ff8
+**Session**: 67e19e09-d915-4b36-823e-c218ca79a2b2
+**Status**: Complete
+
+### What was implemented
+- Created route structure at `/platform/voice-monitoring` with client-side layout
+- Implemented tab navigation with 7 tabs (Overview, Artifacts, Metrics, Events, Pipeline, Alerts, Settings)
+- Built dashboard overview page with 3 real-time sections:
+  1. PipelineFlowGraph - SVG-based 5-stage flow (horizontal desktop, vertical mobile)
+  2. StatusCards - 6 metric cards with responsive grid layout
+  3. ActivityFeed - Last 20 events with icons and relative timestamps
+- Added Voice Monitoring link to platform hub
+- Removed v2-claims link from platform hub
+- All queries lifted to page level (getRealTimeMetrics, getRecentEvents, getActiveAlerts)
+- Components receive data via props only (no queries inside components)
+- Platform staff auth enforced in layout with defense-in-depth redirect
+- Created 6 placeholder pages for future tabs
+
+### Files changed
+- apps/web/src/app/platform/voice-monitoring/layout.tsx (new, +103 lines)
+- apps/web/src/app/platform/voice-monitoring/page.tsx (new, +62 lines)
+- apps/web/src/app/platform/voice-monitoring/_components/pipeline-flow-graph.tsx (new, +240 lines)
+- apps/web/src/app/platform/voice-monitoring/_components/status-cards.tsx (new, +150 lines)
+- apps/web/src/app/platform/voice-monitoring/_components/activity-feed.tsx (new, +176 lines)
+- apps/web/src/app/platform/voice-monitoring/{artifacts,metrics,events,pipeline,alerts,settings}/page.tsx (6 placeholder pages)
+- apps/web/src/app/platform/page.tsx (+10, -7 lines - added Voice Monitoring link, removed v2-claims)
+
+### Quality checks
+- ✅ Type check: passed (npm run check-types)
+- ✅ Linting: passed (biome check)
+- ✅ File naming: components renamed to kebab-case
+- ✅ Atomic imports: all imports + usage in same edit
+- ⏭️ Browser verification: deferred to testing phase (M5 testing will validate real-time updates)
+
+### Learnings for future iterations ⚠️ CRITICAL
+
+**Patterns discovered:**
+- Client layout required: Parent /platform/layout.tsx is client component, must use 'use client' in child layouts too
+- Tab navigation: Use Link + usePathname for URL routing, NOT shadcn/ui Tabs (state-based, not URL-based)
+- Query lifting: ALL useQuery calls in page.tsx, components get props - prevents N+1 subscriptions
+- Responsive SVG: Two separate SVG variants (horizontal/vertical) toggled via Tailwind classes
+- Type fixes: Use `as any` for Next.js Link href when typing is overly strict
+- Array keys: Use unique strings instead of index (e.g., `Array.from({length}, (_, i) => \`skeleton-${i}\`)`)
+
+**Gotchas encountered:**
+- File must be read before Edit tool can modify it (linter auto-formats after Write)
+- Linter moves imports alphabetically and formats SVG attributes
+- Type alias preferred over interface (biome lint rule)
+- Early return statements need block braces (biome lint rule)
+- Component files must use kebab-case naming
+
+**Dependencies found:**
+- Three backend queries used: getRealTimeMetrics, getRecentEvents, getActiveAlerts
+- All queries return correct types, recentEvents returns {page, isDone, continueCursor}
+- useCurrentUser hook reads from context (zero additional queries)
+
+**What to do next** (M6):
+- [ ] Implement Artifacts grid page (subsuming v2-claims functionality)
+- [ ] Add artifact detail timeline view
+- [ ] Test real-time dashboard updates with actual voice notes
+- [ ] Test responsive layout at 375px, 768px, 1024px viewports
+
+**Mistakes made** (learn from these!):
+- Initially didn't know parent layout was client component - tried server component first
+- Forgot to remove 'as const' from TABS array (caused type errors with Link href)
+- Used Array index as key in skeleton loop (lint warning)
 
 ---

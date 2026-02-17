@@ -528,6 +528,49 @@
     ]
   },
 
+  "m1LessonsIntegration": {
+    "source": "scripts/ralph/prds/voice-monitor-harness/context/M1_LESSONS_LEARNED.md",
+    "critical Patterns": [
+      "READ M1_LESSONS_LEARNED.md BEFORE starting M2 - contains 10 critical patterns",
+      "UTC time handling: Use getUTCHours(), getUTCMonth(), getUTCDate() (NOT local time methods)",
+      "N+1 prevention: Batch fetch org names using Map pattern (see M1_LESSONS section)",
+      "Safe division: ALWAYS check denominator > 0 before dividing (prevent NaN/Infinity)",
+      "No event scanning: Real-time metrics ONLY read counters, NEVER scan voicePipelineEvents",
+      "Platform-wide counters/snapshots: OMIT organizationId field (not null, use undefined)",
+      "Atomic imports: Add import + usage in SAME edit (linter removes unused imports)",
+      "Cron timing: hourly at :30 (not :00), daily at 1:30 AM (not 12:00 AM)",
+      "Error handling: Log errors but return successfully with partial data",
+      "Retention cutoffs: Use .lt() not .lte() (prevent off-by-one deletion errors)"
+    ],
+    "mandatoryReading": {
+      "beforeCoding": "READ scripts/ralph/prds/voice-monitor-harness/context/M1_LESSONS_LEARNED.md",
+      "referenceWhileCoding": "Keep M1_LESSONS_LEARNED.md open while implementing M2",
+      "keySection": "CRITICAL PATTERNS section (lines 13-160)",
+      "mustImplement": [
+        "UTC time handling in computeTimeWindow",
+        "Batch fetch + Map pattern for org names in getOrgBreakdown",
+        "Safe division helper for all rate calculations",
+        "No event scanning in getRealTimeMetrics"
+      ]
+    },
+    "codeExamplesFromM1": {
+      "utcTimeHandling": {
+        "file": "M1_LESSONS_LEARNED.md",
+        "section": "1. UTC Time Handling",
+        "pattern": "Use date.getUTCHours() not date.getHours()"
+      },
+      "batchFetch": {
+        "file": "PHASE_M2.json",
+        "section": "function4_getOrgBreakdown.batchFetchCodeExample",
+        "pattern": "Collect IDs → Promise.all → Map lookup"
+      },
+      "safeDivision": {
+        "example": "const rate = denominator > 0 ? numerator / denominator : 0;",
+        "apply": "ALL failure rate, average, percentage calculations"
+      }
+    }
+  },
+
   "nextPhase": {
     "phase": "M3",
     "name": "Retry Operations",

@@ -82,7 +82,7 @@
       "priority": 9,
       "effort": "3 days",
       "notes": "CRITICAL: Read PHASE_M6_M7_M8_M9.json for EXACT v2-claims feature parity checklist. This page replaces v2-claims. Read ADR-VNM-021 (pagination), ADR-VNM-023 (component reuse), ADR-VNM-026 (backend queries).",
-      "passes": false
+      "passes": true
     },
     {
       "id": "US-VNM-010",
@@ -102,7 +102,7 @@
       "priority": 10,
       "effort": "2 days",
       "notes": "CRITICAL: Read PHASE_M6_M7_M8_M9.json for timeline implementation. Read ADR-VNM-024 (event timeline pattern).",
-      "passes": false
+      "passes": true
     },
     {
       "id": "US-VNM-011",
@@ -125,7 +125,7 @@
       "priority": 11,
       "effort": "3 days",
       "notes": "CRITICAL: Read PHASE_M6_M7_M8_M9.json for CSS chart examples. Read ADR-VNM-022 (CSS chart implementation). Reference apps/web/src/app/platform/messaging/* for existing patterns.",
-      "passes": false
+      "passes": true
     },
     {
       "id": "US-VNM-012",
@@ -144,7 +144,7 @@
       "priority": 12,
       "effort": "2 days",
       "notes": "CRITICAL: Read PHASE_M6_M7_M8_M9.json for filter implementation. Read ADR-VNM-021 (pagination).",
-      "passes": false
+      "passes": true
     },
     {
       "id": "US-VNM-013",
@@ -164,7 +164,7 @@
       "priority": 13,
       "effort": "3 days",
       "notes": "CRITICAL: Read PHASE_M6_M7_M8_M9.json for drill-down modal implementation. Reuse PipelineFlowGraph component from M5.",
-      "passes": false
+      "passes": true
     },
     {
       "id": "US-VNM-014",
@@ -183,7 +183,7 @@
       "priority": 14,
       "effort": "2 days",
       "notes": "CRITICAL: Read PHASE_M6_M7_M8_M9.json for toast notification pattern. Read ADR-VNM-027 (alert toast pattern).",
-      "passes": false
+      "passes": true
     },
     {
       "id": "US-VNM-015",
@@ -206,7 +206,7 @@
       "priority": 15,
       "effort": "2 days",
       "notes": "CRITICAL: Read PHASE_M6_M7_M8_M9.json for v2-claims feature parity verification checklist. Do NOT delete v2-claims until ALL features migrated.",
-      "passes": false
+      "passes": true
     }
   ],
   "ralphGuidance": {

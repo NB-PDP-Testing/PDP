@@ -194,6 +194,7 @@ export const getHistoricalMetrics = query({
   returns: v.array(
     v.object({
       _id: v.id("voicePipelineMetricsSnapshots"),
+      _creationTime: v.number(),
       periodStart: v.number(),
       periodEnd: v.number(),
       periodType: v.union(v.literal("hourly"), v.literal("daily")),

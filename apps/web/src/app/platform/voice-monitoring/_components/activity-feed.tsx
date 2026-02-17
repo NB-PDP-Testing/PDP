@@ -130,6 +130,7 @@ export function ActivityFeed({ events }: ActivityFeedProps) {
           return (
             <div
               className="flex items-start gap-3 rounded-lg border p-3 transition-colors hover:bg-muted/50"
+              data-event-item
               key={event._id}
             >
               <div className="mt-0.5 rounded-full bg-muted p-2">

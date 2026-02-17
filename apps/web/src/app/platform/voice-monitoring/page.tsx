@@ -2,6 +2,8 @@
 
 import { api } from "@pdp/backend/convex/_generated/api";
 import { useQuery } from "convex/react";
+import { useRouter } from "next/navigation";
+import { useEffect } from "react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { useCurrentUser } from "@/hooks/use-current-user";
 import { ActivityFeed } from "./_components/activity-feed";
@@ -11,6 +13,14 @@ import { StatusCards } from "./_components/status-cards";
 export default function VoiceMonitoringOverviewPage() {
   const user = useCurrentUser();
   const isPlatformStaff = user?.isPlatformStaff === true;
+  const router = useRouter();
+
+  // Redirect non-platform staff users
+  useEffect(() => {
+    if (user && !isPlatformStaff) {
+      router.push("/orgs/current");
+    }
+  }, [user, isPlatformStaff, router]);
 
   // Query 1: Real-time metrics from counters (O(1))
   const realTimeMetrics = useQuery(

@@ -1,0 +1,143 @@
+{
+  "project": "PlayerARC - Phase 2.4: Granular Undo",
+  "branchName": "ralph/phase-2.4-granular-undo",
+  "description": "Add the ability to undo a completed import within a 24-hour window. Uses HARD DELETE (not soft delete) — query all records by importSessionId across 6 tables and delete them. This is consistent with the existing codebase which uses hard deletes exclusively. Includes eligibility checks (time window, dependent data, manual edits), an import history page, and an undo confirmation dialog.",
+  "prdFile": "scripts/ralph/prds/Importing Members/phase-2-enhanced-ux.md",
+  "contextFiles": [
+    "packages/backend/convex/models/importSessions.ts",
+    "packages/backend/convex/models/playerImport.ts",
+    "packages/backend/convex/schema.ts",
+    "apps/web/src/components/import/import-wizard.tsx",
+    "apps/web/src/components/import/steps/complete-step.tsx",
+    "apps/web/src/app/orgs/[orgId]/import/page.tsx",
+    "CLAUDE.md"
+  ],
+  "mandatoryPatterns": [
+    "Use shadcn/ui components for all UI elements",
+    "Use Tailwind CSS for styling",
+    "Use useQuery/useMutation from convex/react for data fetching",
+    "NEVER use .filter() in Convex — always .withIndex()",
+    "Use HARD DELETE for undo — NOT soft delete. The codebase has no soft delete pattern.",
+    "All 6 import tables have importSessionId field + by_importSessionId index — use these for undo queries",
+    "Batch fetch, never N+1 — collect IDs, delete in batch",
+    "All routes scoped under /orgs/[orgId]/",
+    "Support mobile viewport (375px minimum)",
+    "Run npx ultracite fix before completing any story",
+    "Auth check required on all mutations — use requireOrgAdmin pattern from importSessions.ts",
+    "Do NOT add unit tests — E2E only per CLAUDE.md"
+  ],
+  "successCriteria": [
+    "undoImport mutation deletes all records created by an import session across 6 tables",
+    "checkUndoEligibility query checks 24-hour window, dependent data, and returns eligibility status",
+    "Import history page at /orgs/[orgId]/import/history shows past imports with undo eligibility",
+    "UndoImportDialog shows impact preview and requires confirmation before proceeding",
+    "Undo blocked when: >24 hours elapsed, assessments exist on imported players, records manually edited",
+    "Session status transitions from 'completed' to 'undone' with audit fields (undoneAt, undoneBy, undoReason)",
+    "Undo returns rollback stats (counts of deleted records per table)",
+    "All type checks pass: npm run check-types"
+  ],
+  "userStories": [
+    {
+      "id": "US-P2.4-001",
+      "title": "Create undo eligibility check query",
+      "description": "As the import system, I need to check whether a completed import can be undone based on time window and dependent data.",
+      "acceptanceCriteria": [
+        "Add checkUndoEligibility query to packages/backend/convex/models/importSessions.ts",
+        "Args: sessionId (v.id('importSessions'))",
+        "Returns: { eligible: boolean, reasons: string[], expiresAt: number | null, stats: { playerCount, guardianCount, enrollmentCount, passportCount, assessmentCount } }",
+        "Check 1: Session status must be 'completed' — if not, return ineligible with reason",
+        "Check 2: 24-hour window — if (Date.now() - session.completedAt) > 24*60*60*1000, return ineligible",
+        "Check 3: Query skillAssessments by importSessionId index — if any assessments exist on imported players that were NOT created by this import, return ineligible with 'Players have assessments created after import'",
+        "Check 4: Count records per table using by_importSessionId index on: playerIdentities, guardianIdentities, guardianPlayerLinks, orgPlayerEnrollments, sportPassports, skillAssessments",
+        "Stats object returns counts so the UI can show impact preview",
+        "expiresAt = session.completedAt + 24*60*60*1000 (or null if already expired)",
+        "Run npx ultracite fix and npx -w packages/backend convex codegen"
+      ],
+      "priority": 1,
+      "notes": "The eligibility check is a query (read-only) so it can be called reactively. The 24-hour countdown can update in real-time on the frontend. For the 'manual edits' check, compare record _creationTime against any subsequent patch timestamps — if the codebase doesn't track edit timestamps on these records, skip this check for now and note it as a future enhancement."
+    },
+    {
+      "id": "US-P2.4-002",
+      "title": "Create undoImport mutation",
+      "description": "As an admin, I need to undo a completed import which deletes all records created by that import session.",
+      "acceptanceCriteria": [
+        "Add undoImport mutation to packages/backend/convex/models/importSessions.ts",
+        "Args: sessionId (v.id('importSessions')), reason (v.string())",
+        "Returns: { success: boolean, rollbackStats: { playersRemoved, guardiansRemoved, guardianLinksRemoved, enrollmentsRemoved, passportsRemoved, assessmentsRemoved }, ineligibilityReasons: string[] }",
+        "Step 1: Call requireOrgAdmin to verify auth",
+        "Step 2: Run eligibility checks (same logic as checkUndoEligibility). If ineligible, return { success: false, ineligibilityReasons }",
+        "Step 3: Query each table by importSessionId index and collect all record IDs",
+        "Step 4: Delete all records using ctx.db.delete() — order matters: delete assessments first, then passports, then enrollments, then guardian links, then guardians, then players",
+        "Step 5: Patch importSessions: status='undone', undoneAt=Date.now(), undoneBy=user._id, undoReason=args.reason",
+        "Step 6: Return { success: true, rollbackStats: { counts per table } }",
+        "Use HARD DELETE (ctx.db.delete) — NOT soft delete",
+        "Tables to query: playerIdentities, guardianIdentities, guardianPlayerLinks, orgPlayerEnrollments, sportPassports, skillAssessments — all have by_importSessionId index",
+        "Run npx ultracite fix and npx -w packages/backend convex codegen"
+      ],
+      "priority": 2,
+      "notes": "Delete order matters to avoid foreign key issues — delete leaf records first (assessments, passports), then middle records (enrollments, guardian links), then root records (guardians, players). The VALID_TRANSITIONS map in importSessions.ts already includes 'completed' -> ['undone']."
+    },
+    {
+      "id": "US-P2.4-003",
+      "title": "Create import history page",
+      "description": "As an admin, I need a page showing all past imports with their status, stats, and undo eligibility.",
+      "acceptanceCriteria": [
+        "Create apps/web/src/app/orgs/[orgId]/import/history/page.tsx",
+        "Admin/owner role check with redirect (same pattern as admin/layout.tsx)",
+        "Fetch import sessions using listSessionsByOrg query (already exists)",
+        "Table with columns: Date, Source (file name), Status badge, Rows Imported, Players Created, Guardians Created, Actions",
+        "Status badges: completed (green), failed (red), cancelled (gray), undone (amber), importing (blue animated)",
+        "For 'completed' sessions, show Undo button if within 24-hour window",
+        "Undo button calls checkUndoEligibility to verify — show tooltip if ineligible",
+        "Clicking Undo opens UndoImportDialog",
+        "View Details link expands row to show full stats breakdown",
+        "Mobile responsive: card view on small screens",
+        "Use shadcn/ui Table, Badge, Button, Tooltip, Card components",
+        "Run npx ultracite fix"
+      ],
+      "priority": 3,
+      "notes": "The listSessionsByOrg query already exists with a limit parameter. Use it with a reasonable limit (20-50). For the undo eligibility check, call checkUndoEligibility for each 'completed' session that's within 24 hours — but batch this efficiently (don't call one query per row if possible)."
+    },
+    {
+      "id": "US-P2.4-004",
+      "title": "Create UndoImportDialog component",
+      "description": "As an admin, I need a confirmation dialog before undoing an import that shows the impact and requires explicit confirmation.",
+      "acceptanceCriteria": [
+        "Create apps/web/src/components/import/undo-import-dialog.tsx",
+        "Dialog shows session details: date, source file, rows imported",
+        "Impact preview section: 'This will permanently delete: X players, Y guardians, Z enrollments, N passports, M assessments'",
+        "Warning text: 'This action cannot be undone. All records created by this import will be permanently removed.'",
+        "Reason input: required text field for why they're undoing (min 10 chars)",
+        "Countdown timer showing time remaining in 24-hour window",
+        "If ineligible, show reasons list and disable Undo button",
+        "Undo button with destructive styling (red variant)",
+        "On confirm, call undoImport mutation with sessionId and reason",
+        "Show loading state during mutation",
+        "On success, show success toast with rollback stats and close dialog",
+        "On error, show error toast with message",
+        "Use shadcn/ui AlertDialog, Input, Button, Alert components",
+        "Mobile responsive at 375px",
+        "Run npx ultracite fix"
+      ],
+      "priority": 4,
+      "notes": "This dialog must feel intentionally weighty — the user is about to permanently delete imported data. The required reason field creates an audit trail. The countdown timer adds urgency awareness."
+    },
+    {
+      "id": "US-P2.4-005",
+      "title": "Add undo link to complete step and import page",
+      "description": "As an admin who just completed an import, I need easy access to undo from the completion screen and import entry page.",
+      "acceptanceCriteria": [
+        "Update complete-step.tsx: add 'Undo Import' link/button below the success message",
+        "Undo link only shown for the just-completed import session",
+        "Clicking opens UndoImportDialog with the session ID",
+        "Update import entry page (apps/web/src/app/orgs/[orgId]/import/page.tsx): add 'View Import History' link",
+        "History link navigates to /orgs/[orgId]/import/history",
+        "If the most recent session was completed <24h ago, show a subtle 'Last import can be undone' notification",
+        "Add 'Import History' link to admin sidebar (same section as Import Wizard)",
+        "Run npx ultracite fix and npm run check-types"
+      ],
+      "priority": 5,
+      "notes": "The complete step already exists — just add the undo affordance. The import entry page may show the most recent import status as a convenience."
+    }
+  ]
+}

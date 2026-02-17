@@ -27,6 +27,7 @@ import { useRouter } from "next/navigation";
 import { useEffect, useState } from "react";
 import { toast } from "sonner";
 import Loader from "@/components/loader";
+import { LogoUpload } from "@/components/logo-upload";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import {
@@ -544,6 +545,7 @@ export default function CreateOrganizationPage() {
                           </Button>
                         </div>
                         <div className="flex items-center gap-2">
+                          {/* biome-ignore lint/a11y/noNoninteractiveElementInteractions: onError hides broken image gracefully */}
                           <img
                             alt="Extracted logo"
                             className="h-10 w-10 rounded object-contain"
@@ -783,32 +785,16 @@ export default function CreateOrganizationPage() {
                   )}
                 </div>
 
-                {/* Logo URL (Optional) */}
+                {/* Logo Upload (Optional) */}
                 <div className="space-y-2">
-                  <Label htmlFor="logo">Logo URL (Optional)</Label>
-                  <Input
+                  <Label>Logo (Optional)</Label>
+                  <LogoUpload
+                    currentLogo={logo || null}
                     disabled={loading}
-                    id="logo"
-                    onChange={(e) => setLogo(e.target.value)}
-                    placeholder="https://example.com/logo.png"
-                    type="url"
-                    value={logo}
+                    onUploadComplete={(url) => setLogo(url)}
+                    onUrlChange={(url) => setLogo(url)}
+                    showUrlFallback
                   />
-                  {logo && (
-                    <div className="mt-2 flex items-center gap-3 rounded-lg border bg-muted/30 p-2">
-                      <img
-                        alt="Logo preview"
-                        className="h-10 w-10 rounded object-contain"
-                        onError={(e) => {
-                          (e.target as HTMLImageElement).style.display = "none";
-                        }}
-                        src={logo}
-                      />
-                      <span className="truncate text-muted-foreground text-xs">
-                        {logo}
-                      </span>
-                    </div>
-                  )}
                 </div>
 
                 {/* Supported Sports Selection */}

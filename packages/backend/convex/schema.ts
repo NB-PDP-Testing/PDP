@@ -4897,6 +4897,7 @@ export default defineSchema({
     .index("by_status", ["status"])
     .index("by_initiatedBy", ["initiatedBy"])
     .index("by_startedAt", ["startedAt"])
+    .index("by_templateId", ["templateId"])
     .index("by_org_and_status", ["organizationId", "status"]),
 
   // Phase 3.1: Admin overrides for guardian matching confidence decisions

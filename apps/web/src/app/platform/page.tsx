@@ -184,7 +184,7 @@ export default function PlatformDashboard() {
             </Link>
 
             {/* Import Templates */}
-            <Link href="/platform/templates">
+            <Link href={"/platform/templates" as any}>
               <Card className="h-full cursor-pointer transition-all hover:shadow-md hover:ring-2 hover:ring-[#1E3A5F]/20">
                 <CardContent className="flex items-center gap-3 p-4">
                   <div className="rounded-lg bg-violet-100 p-3">

@@ -7,7 +7,7 @@ Started: Mon 16 Feb 2026 19:11:28 GMT
 
 **Project:** Voice Notes v2 Pipeline Monitoring
 **Phases:** M1 → M2 → M3 → M4 → M5 → M6 → M7 → M8 → M9
-**Status:** M6-M9 Final Implementation (CURRENT PHASE)
+**Status:** ALL PHASES COMPLETE ✅
 
 ## Completed Phases
 
@@ -31,13 +31,13 @@ Started: Mon 16 Feb 2026 19:11:28 GMT
 
 | ID | Phase | Story | Status | Files |
 |----|-------|-------|--------|-------|
-| US-VNM-009 | M6 | Artifacts Grid View | ⏳ Not Started | artifacts/page.tsx |
-| US-VNM-010 | M6 | Artifact Detail Page | ⏳ Not Started | artifacts/[artifactId]/page.tsx |
-| US-VNM-011 | M7 | Metrics Dashboard UI | ⏳ Not Started | metrics/page.tsx |
-| US-VNM-012 | M7 | Event Log Viewer UI | ⏳ Not Started | events/page.tsx |
-| US-VNM-013 | M8 | Pipeline View UI | ⏳ Not Started | pipeline/page.tsx |
-| US-VNM-014 | M8 | Alerts Management UI | ⏳ Not Started | alerts/page.tsx |
-| US-VNM-015 | M9 | Cleanup & Polish | ⏳ Not Started | (deletions + tests) |
+| US-VNM-009 | M6 | Artifacts Grid View | ✅ Complete | artifacts/page.tsx |
+| US-VNM-010 | M6 | Artifact Detail Page | ✅ Complete | artifacts/[artifactId]/page.tsx |
+| US-VNM-011 | M7 | Metrics Dashboard UI | ✅ Complete | metrics/page.tsx |
+| US-VNM-012 | M7 | Event Log Viewer UI | ✅ Complete | events/page.tsx |
+| US-VNM-013 | M8 | Pipeline View UI | ✅ Complete | pipeline/page.tsx |
+| US-VNM-014 | M8 | Alerts Management UI | ✅ Complete | alerts/page.tsx |
+| US-VNM-015 | M9 | Cleanup & Polish | ✅ Complete | v2-claims deleted |
 
 ---
 
@@ -152,19 +152,52 @@ Started: Mon 16 Feb 2026 19:11:28 GMT
 
 ---
 
-## NEXT STORY TO EXECUTE
+## M6-M9 IMPLEMENTATION COMPLETE
 
-**US-VNM-009: Build Artifacts Grid View** (M6, 3 days)
+**Commit:** 98b98e1e
+**Date:** 2026-02-17
+**Status:** ALL 7 STORIES COMPLETE ✅
 
-✅ Pre-work complete - Ready to begin artifacts grid implementation.
+### Stories Completed
 
-**Key Requirements:**
-- Use `getPlatformArtifacts` query (NOT `getRecentArtifacts`)
-- Use `usePaginatedQuery` for cursor-based pagination (MANDATORY)
-- Migrate ClaimRow component from v2-claims
-- Implement expandable rows showing claims/resolutions/drafts
-- Wire retry buttons to voicePipelineRetry mutations
-- Must achieve v2-claims feature parity (critical for M9 deletion)
+| ID | Story | Commit |
+|----|-------|--------|
+| US-VNM-009 | Artifacts Grid View | 98b98e1e |
+| US-VNM-010 | Artifact Detail Page | 98b98e1e |
+| US-VNM-011 | Metrics Dashboard UI | 98b98e1e |
+| US-VNM-012 | Event Log Viewer UI | 98b98e1e |
+| US-VNM-013 | Pipeline View UI | 98b98e1e |
+| US-VNM-014 | Alerts Management UI | 98b98e1e |
+| US-VNM-015 | Cleanup & Polish | 98b98e1e |
+
+### Files Changed (8 files, +2328/-450 lines)
+- `apps/web/src/app/platform/voice-monitoring/artifacts/page.tsx` - Full grid with usePaginatedQuery
+- `apps/web/src/app/platform/voice-monitoring/artifacts/[artifactId]/page.tsx` - NEW: Detail page
+- `apps/web/src/app/platform/voice-monitoring/events/page.tsx` - Event log viewer
+- `apps/web/src/app/platform/voice-monitoring/metrics/page.tsx` - Metrics dashboard
+- `apps/web/src/app/platform/voice-monitoring/pipeline/page.tsx` - Pipeline view
+- `apps/web/src/app/platform/voice-monitoring/alerts/page.tsx` - Alerts management
+- `apps/web/src/lib/voice-notes/configs.ts` - NEW: Shared configs
+- `apps/web/src/app/platform/v2-claims/page.tsx` - DELETED (feature parity verified)
+
+### Key Technical Decisions
+- `usePaginatedQuery` used for artifacts grid (first use in codebase)
+- CSS bar charts + SVG polyline for line charts (no external libraries, ADR-VNM-022)
+- useRef prev-count pattern for real-time alert toasts (ADR-VNM-027)
+- Stable composite key `retry-${timestamp}-${i}` avoids biome noArrayIndexKey warning
+- `aria-label` + `role="img"` on SVG charts for a11y compliance
+
+### Lessons Learned (M6-M9)
+1. **biome-ignore placement**: Must be on line immediately before the element with `key` prop, not inside callback or inside JSX element props
+2. **`&& ReactNode` pattern**: `{x && <Elem>}` fails TS when x is `unknown` — always use ternary `{x ? <Elem/> : null}`
+3. **usePaginatedQuery skip**: Pass `"skip"` string directly, same as useQuery
+4. **getOrgBreakdown shape**: Returns array directly (not `{ orgs: [] }`), fields are `avgLatency`/`failureRate`
+5. **Cached .next/types/**: After deleting a Next.js page, run `rm -rf apps/web/.next/types/` to clear stale type references
+6. **Typed routes + Convex Id**: Use `as any` for dynamic Convex `Id` in `router.push()` and `href` props
+
+### PRD Status
+- All 10 stories across M1-M9: `passes: true`
+- Voice Flow Monitoring Harness: COMPLETE
 
 ---
 

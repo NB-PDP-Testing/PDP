@@ -112,7 +112,7 @@ export default function TemplateManagementPage() {
   );
   const usageStats = useQuery(
     api.models.importSessions.getTemplateUsageStats,
-    templateIds.length > 0 ? { templateIds, organizationId: orgId } : "skip"
+    templateIds.length > 0 ? { templateIds } : "skip"
   );
 
   // Build usage stats map for O(1) lookup

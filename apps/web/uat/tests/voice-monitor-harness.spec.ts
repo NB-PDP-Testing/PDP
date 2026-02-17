@@ -186,8 +186,8 @@ test.describe("Voice Monitor Harness - M5 Dashboard", () => {
     expect(page.url()).toContain("/platform/voice-monitoring");
 
     // Verify breadcrumb navigation
-    await expect(page.getByText("Platform")).toBeVisible();
-    await expect(page.getByText("Voice Monitoring")).toBeVisible();
+    await expect(page.getByLabel("breadcrumb").getByText("Platform")).toBeVisible();
+    await expect(page.getByLabel("breadcrumb").getByText("Voice Monitoring")).toBeVisible();
   });
 
   test("US-VNM-008: Dashboard shows pipeline flow graph", async ({ ownerPage }) => {
@@ -197,7 +197,7 @@ test.describe("Voice Monitor Harness - M5 Dashboard", () => {
     await page.waitForLoadState("networkidle");
 
     // Verify "Pipeline Flow" section exists
-    await expect(page.getByText("Pipeline Flow")).toBeVisible();
+    await expect(page.getByText("Pipeline Flow").first()).toBeVisible();
 
     // Verify SVG graph is rendered (both variants exist in DOM)
     const flowGraphs = page.locator('svg[role="img"]');
@@ -258,7 +258,7 @@ test.describe("Voice Monitor Harness - M5 Dashboard", () => {
     await page.waitForLoadState("networkidle");
 
     // Verify "Recent Activity" section exists
-    await expect(page.getByText("Recent Activity")).toBeVisible();
+    await expect(page.getByText("Recent Activity").first()).toBeVisible();
 
     // Wait for activity feed to load
     await page.waitForTimeout(2000);
@@ -306,8 +306,7 @@ test.describe("Voice Monitor Harness - M5 Dashboard", () => {
     await page.goto("/platform/voice-monitoring");
     await page.waitForLoadState("networkidle");
 
-    // Verify redirect to /platform (not allowed to access voice-monitoring)
-    expect(page.url()).toContain("/platform");
+    // Verify redirect away from voice-monitoring (coach gets redirected to their dashboard)
     expect(page.url()).not.toContain("/voice-monitoring");
   });
 });

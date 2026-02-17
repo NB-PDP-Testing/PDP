@@ -1,12 +1,12 @@
 "use client";
 
 import {
+  Activity,
   BarChart3,
   Bot,
   Database,
   Flag,
   Key,
-  Layers,
   Megaphone,
   MessageSquare,
   Settings,
@@ -158,20 +158,20 @@ export default function PlatformDashboard() {
               </Card>
             </Link>
 
-            {/* v2 Claims Viewer */}
-            <Link href={"/platform/v2-claims" as "/platform"}>
+            {/* Voice Monitoring */}
+            <Link href={"/platform/voice-monitoring" as any}>
               <Card className="h-full cursor-pointer transition-all hover:shadow-md hover:ring-2 hover:ring-[#1E3A5F]/20">
                 <CardContent className="flex items-center gap-3 p-4">
                   <div className="rounded-lg bg-rose-100 p-3">
-                    <Layers className="h-6 w-6 text-rose-600" />
+                    <Activity className="h-6 w-6 text-rose-600" />
                   </div>
-                  <CardTitle className="text-base">v2 Claims Viewer</CardTitle>
+                  <CardTitle className="text-base">Voice Monitoring</CardTitle>
                 </CardContent>
               </Card>
             </Link>
 
             {/* Import Analytics */}
-            <Link href="/platform/analytics/import">
+            <Link href={"/platform/analytics/import" as "/platform"}>
               <Card className="h-full cursor-pointer transition-all hover:shadow-md hover:ring-2 hover:ring-[#1E3A5F]/20">
                 <CardContent className="flex items-center gap-3 p-4">
                   <div className="rounded-lg bg-teal-100 p-3">

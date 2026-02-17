@@ -10,7 +10,7 @@
     "scripts/ralph/prds/voice-monitor-harness/context/PERFORMANCE_PATTERNS.md"
   ],
   "baseArchitecture": "docs/architecture/voice-flow-monitoring-harness.md",
-  "currentPhase": "Phase M1 - Foundation (Backend Instrumentation)",
+  "currentPhase": "Phase M6-M9 - Final Implementation",
   "phases": [
     {
       "id": "M1",
@@ -76,7 +76,16 @@
       "dependencies": ["M6", "M7", "M8"]
     }
   ],
-  "completedStories": [],
+  "completedStories": [
+    "US-VNM-001",
+    "US-VNM-002",
+    "US-VNM-003",
+    "US-VNM-004",
+    "US-VNM-005",
+    "US-VNM-006",
+    "US-VNM-007",
+    "US-VNM-008"
+  ],
   "IMPORTANT_READ_PHASE_PRD": "The detailed acceptance criteria for each story are in the phase PRD files (phases/PHASE_M1.json through phases/PHASE_M9.json). The summaries below are abbreviated. ALWAYS read the phase PRD for the full, verified implementation instructions including exact function signatures.",
   "userStories": [
     {
@@ -85,7 +94,7 @@
       "title": "Create Pipeline Event Log Schema",
       "description": "Add voicePipelineEvents, voicePipelineMetricsSnapshots, and voicePipelineCounters tables to schema with proper indexes and time-window partitioning support",
       "acceptanceCriteria": [
-        "FULL DETAILS: Read phases/PHASE_M1.json — story US-VNM-001",
+        "FULL DETAILS: Read phases/PHASE_M1.json \u2014 story US-VNM-001",
         "",
         "SUMMARY:",
         "1. Add voicePipelineEvents table with 25+ event types, timeWindow field, proper indexes",
@@ -103,7 +112,7 @@
       "files": {
         "modify": ["packages/backend/convex/schema.ts"]
       },
-      "passes": false
+      "passes": true
     },
     {
       "id": "US-VNM-002",
@@ -111,7 +120,7 @@
       "title": "Build Event Logging Infrastructure",
       "description": "Create voicePipelineEvents.ts model file with logEvent mutation (including atomic counter increment), event queries, and pagination support",
       "acceptanceCriteria": [
-        "FULL DETAILS: Read phases/PHASE_M1.json — story US-VNM-002",
+        "FULL DETAILS: Read phases/PHASE_M1.json \u2014 story US-VNM-002",
         "",
         "SUMMARY:",
         "1. Create voicePipelineEvents.ts with logEvent internalMutation",
@@ -129,7 +138,7 @@
       "files": {
         "create": ["packages/backend/convex/models/voicePipelineEvents.ts"]
       },
-      "passes": false
+      "passes": true
     },
     {
       "id": "US-VNM-003",
@@ -137,15 +146,15 @@
       "title": "Instrument Pipeline with Event Emissions",
       "description": "Add event logging calls to all existing v2 pipeline functions using ctx.scheduler.runAfter pattern (fire-and-forget, non-blocking)",
       "acceptanceCriteria": [
-        "FULL DETAILS: Read phases/PHASE_M1.json — story US-VNM-003",
+        "FULL DETAILS: Read phases/PHASE_M1.json \u2014 story US-VNM-003",
         "",
         "SUMMARY:",
-        "1. Instrument createArtifact → emit 'artifact_received'",
-        "2. Instrument updateArtifactStatus → emit 'artifact_status_changed', 'artifact_completed', 'artifact_failed'",
-        "3. Instrument createTranscript → emit 'transcription_completed'",
-        "4. Instrument storeClaims → emit 'claims_extracted' with metadata (claimCount, aiCost)",
-        "5. Instrument storeResolutions → emit 'entity_resolution_completed' or 'entity_needs_disambiguation'",
-        "6. Instrument pipeline actions → emit stage start events ('transcription_started', etc.)",
+        "1. Instrument createArtifact \u2192 emit 'artifact_received'",
+        "2. Instrument updateArtifactStatus \u2192 emit 'artifact_status_changed', 'artifact_completed', 'artifact_failed'",
+        "3. Instrument createTranscript \u2192 emit 'transcription_completed'",
+        "4. Instrument storeClaims \u2192 emit 'claims_extracted' with metadata (claimCount, aiCost)",
+        "5. Instrument storeResolutions \u2192 emit 'entity_resolution_completed' or 'entity_needs_disambiguation'",
+        "6. Instrument pipeline actions \u2192 emit stage start events ('transcription_started', etc.)",
         "7. All emissions via ctx.scheduler.runAfter(0, internal.models.voicePipelineEvents.logEvent, {...})",
         "",
         "CRITICAL: Fire-and-forget pattern - NEVER block pipeline on event logging",
@@ -167,7 +176,7 @@
           "packages/backend/convex/actions/draftGeneration.ts"
         ]
       },
-      "passes": false
+      "passes": true
     },
     {
       "id": "US-VNM-004",
@@ -175,7 +184,7 @@
       "title": "Build Metrics Aggregation System",
       "description": "Create voicePipelineMetrics.ts with hourly/daily aggregation logic and real-time counter queries",
       "acceptanceCriteria": [
-        "FULL DETAILS: Read phases/PHASE_M2.json — story US-VNM-004",
+        "FULL DETAILS: Read phases/PHASE_M2.json \u2014 story US-VNM-004",
         "",
         "SUMMARY:",
         "1. Create voicePipelineMetrics.ts model file",
@@ -195,7 +204,7 @@
       "files": {
         "create": ["packages/backend/convex/models/voicePipelineMetrics.ts"]
       },
-      "passes": false
+      "passes": true
     },
     {
       "id": "US-VNM-005",
@@ -203,7 +212,7 @@
       "title": "Add Metrics Aggregation Crons",
       "description": "Add 3 cron jobs for hourly aggregation, daily aggregation, and snapshot cleanup",
       "acceptanceCriteria": [
-        "FULL DETAILS: Read phases/PHASE_M2.json — story US-VNM-005",
+        "FULL DETAILS: Read phases/PHASE_M2.json \u2014 story US-VNM-005",
         "",
         "SUMMARY:",
         "1. Add 'aggregate-pipeline-hourly-metrics' cron (hourly at :30)",
@@ -220,7 +229,7 @@
       "files": {
         "modify": ["packages/backend/convex/crons.ts"]
       },
-      "passes": false
+      "passes": true
     },
     {
       "id": "US-VNM-006",
@@ -228,7 +237,7 @@
       "title": "Build Retry Operations Backend",
       "description": "Create voicePipelineRetry.ts with manual retry mutations for failed pipeline stages",
       "acceptanceCriteria": [
-        "FULL DETAILS: Read phases/PHASE_M3.json — story US-VNM-006",
+        "FULL DETAILS: Read phases/PHASE_M3.json \u2014 story US-VNM-006",
         "",
         "SUMMARY:",
         "1. Create voicePipelineRetry.ts model file",
@@ -236,7 +245,7 @@
         "3. Implement retryClaimsExtraction mutation",
         "4. Implement retryEntityResolution mutation",
         "5. Implement retryFullPipeline mutation",
-        "6. All retry mutations: log 'retry_initiated' → reset artifact status → schedule pipeline action → log result",
+        "6. All retry mutations: log 'retry_initiated' \u2192 reset artifact status \u2192 schedule pipeline action \u2192 log result",
         "7. Implement getRetryHistory query",
         "",
         "CRITICAL: Platform staff authorization on ALL retry mutations",
@@ -249,7 +258,7 @@
       "files": {
         "create": ["packages/backend/convex/models/voicePipelineRetry.ts"]
       },
-      "passes": false
+      "passes": true
     },
     {
       "id": "US-VNM-007",
@@ -257,7 +266,7 @@
       "title": "Build Pipeline Alerts Backend",
       "description": "Create voicePipelineAlerts.ts with automated health check cron and alert queries",
       "acceptanceCriteria": [
-        "FULL DETAILS: Read phases/PHASE_M4.json — story US-VNM-007",
+        "FULL DETAILS: Read phases/PHASE_M4.json \u2014 story US-VNM-007",
         "",
         "SUMMARY:",
         "1. Create voicePipelineAlerts.ts model file",
@@ -278,7 +287,7 @@
         "create": ["packages/backend/convex/models/voicePipelineAlerts.ts"],
         "modify": ["packages/backend/convex/crons.ts"]
       },
-      "passes": false
+      "passes": true
     },
     {
       "id": "US-VNM-008",
@@ -286,13 +295,13 @@
       "title": "Build Dashboard Overview UI",
       "description": "Create main monitoring dashboard at /platform/voice-monitoring with flow graph, real-time status cards, and activity feed",
       "acceptanceCriteria": [
-        "FULL DETAILS: Read phases/PHASE_M5.json — story US-VNM-008",
+        "FULL DETAILS: Read phases/PHASE_M5.json \u2014 story US-VNM-008",
         "",
         "SUMMARY:",
         "1. Create route structure: apps/web/src/app/platform/voice-monitoring/",
         "2. Create page.tsx (dashboard overview)",
         "3. Create layout.tsx (tab navigation for 8 pages)",
-        "4. Build PipelineFlowGraph component (SVG-based, 5 stages: Ingestion → Transcription → Claims → Resolution → Drafts)",
+        "4. Build PipelineFlowGraph component (SVG-based, 5 stages: Ingestion \u2192 Transcription \u2192 Claims \u2192 Resolution \u2192 Drafts)",
         "5. Build 6 real-time status cards (Active Artifacts, Completed Today, Failed Today, Avg Latency, AI Service Status, Total Cost Today)",
         "6. Build Recent Activity Feed (last 20 events, real-time via useQuery)",
         "7. Add link to /platform hub, remove v2-claims link",
@@ -311,7 +320,7 @@
         ],
         "modify": ["apps/web/src/app/platform/page.tsx"]
       },
-      "passes": false
+      "passes": true
     },
     {
       "id": "US-VNM-009",
@@ -319,7 +328,7 @@
       "title": "Build Artifacts Grid View",
       "description": "Create artifacts grid page with filters, expandable rows, and enhanced table (subsumes v2-claims functionality)",
       "acceptanceCriteria": [
-        "FULL DETAILS: Read phases/PHASE_M6.json — story US-VNM-009",
+        "FULL DETAILS: Read phases/PHASE_M6.json \u2014 story US-VNM-009",
         "",
         "SUMMARY:",
         "1. Create artifacts/page.tsx",
@@ -349,7 +358,7 @@
       "title": "Build Artifact Detail Page with Event Timeline",
       "description": "Create single artifact deep-dive page with vertical event timeline, claims section, and retry panel",
       "acceptanceCriteria": [
-        "FULL DETAILS: Read phases/PHASE_M6.json — story US-VNM-010",
+        "FULL DETAILS: Read phases/PHASE_M6.json \u2014 story US-VNM-010",
         "",
         "SUMMARY:",
         "1. Create artifacts/[artifactId]/page.tsx",
@@ -379,7 +388,7 @@
       "title": "Build Metrics Dashboard UI",
       "description": "Create metrics dashboard page with time range selector, metric cards, and CSS-based charts",
       "acceptanceCriteria": [
-        "FULL DETAILS: Read phases/PHASE_M7.json — story US-VNM-011",
+        "FULL DETAILS: Read phases/PHASE_M7.json \u2014 story US-VNM-011",
         "",
         "SUMMARY:",
         "1. Create metrics/page.tsx",
@@ -412,7 +421,7 @@
       "title": "Build Event Log Viewer UI",
       "description": "Create raw pipeline event log page with filters and structured log viewer",
       "acceptanceCriteria": [
-        "FULL DETAILS: Read phases/PHASE_M7.json — story US-VNM-012",
+        "FULL DETAILS: Read phases/PHASE_M7.json \u2014 story US-VNM-012",
         "",
         "SUMMARY:",
         "1. Create events/page.tsx",
@@ -439,12 +448,12 @@
       "title": "Build Pipeline View UI",
       "description": "Create expanded pipeline visualization page with stage drill-down and active artifacts panel",
       "acceptanceCriteria": [
-        "FULL DETAILS: Read phases/PHASE_M8.json — story US-VNM-013",
+        "FULL DETAILS: Read phases/PHASE_M8.json \u2014 story US-VNM-013",
         "",
         "SUMMARY:",
         "1. Create pipeline/page.tsx",
         "2. Build expanded flow graph (larger version of dashboard graph)",
-        "3. Implement stage drill-down (click stage → see all artifacts at stage, latency chart, error breakdown, retry queue)",
+        "3. Implement stage drill-down (click stage \u2192 see all artifacts at stage, latency chart, error breakdown, retry queue)",
         "4. Build active artifacts panel (cards for in-flight artifacts with animated progress)",
         "5. Show time elapsed per stage, coach/org info, source channel icon",
         "6. Add Sankey diagram (optional enhancement: shows flow volume between stages)",
@@ -468,7 +477,7 @@
       "title": "Build Alerts Management UI",
       "description": "Create alerts page with active alerts panel and alert history table",
       "acceptanceCriteria": [
-        "FULL DETAILS: Read phases/PHASE_M8.json — story US-VNM-014",
+        "FULL DETAILS: Read phases/PHASE_M8.json \u2014 story US-VNM-014",
         "",
         "SUMMARY:",
         "1. Create alerts/page.tsx",
@@ -494,7 +503,7 @@
       "title": "Remove v2-Claims Page and Polish",
       "description": "Remove old v2-claims page, update platform hub links, mobile adjustments, performance optimization",
       "acceptanceCriteria": [
-        "FULL DETAILS: Read phases/PHASE_M9.json — story US-VNM-015",
+        "FULL DETAILS: Read phases/PHASE_M9.json \u2014 story US-VNM-015",
         "",
         "SUMMARY:",
         "1. Delete apps/web/src/app/platform/v2-claims/ (functionality now in artifacts grid)",
@@ -577,8 +586,8 @@
       }
     },
     "executionOrder": [
-      "M1 (Agent 1) → M2 (Agent 1) parallel with M3 (Agent 1)",
-      "M4 (Agent 1) → M5 (Agent 2)",
+      "M1 (Agent 1) \u2192 M2 (Agent 1) parallel with M3 (Agent 1)",
+      "M4 (Agent 1) \u2192 M5 (Agent 2)",
       "M6 (Agent 2) parallel with M7 (Agent 2) parallel with M8 (Agent 2)",
       "M9 (Agent 4) after all frontend pages complete",
       "Agent 3 runs continuously throughout all phases"

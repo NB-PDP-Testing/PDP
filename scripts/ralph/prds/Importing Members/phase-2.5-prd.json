@@ -1,0 +1,121 @@
+{
+  "project": "PlayerARC - Phase 2.5: Enhanced Progress & UX",
+  "branchName": "ralph/phase-2.5-enhanced-progress-ux",
+  "description": "Polish the import experience with professional progress animations during import execution and an enhanced 'What's Next' workflow after completion. The import step gets phase-by-phase progress breakdown with live stats. The complete step gets actionable next-step cards. Depends on Phase 2.2 (simulation) being complete so the review step has the full flow.",
+  "prdFile": "scripts/ralph/prds/Importing Members/phase-2-enhanced-ux.md",
+  "contextFiles": [
+    "apps/web/src/components/import/import-wizard.tsx",
+    "apps/web/src/components/import/steps/import-step.tsx",
+    "apps/web/src/components/import/steps/complete-step.tsx",
+    "packages/backend/convex/models/importSessions.ts",
+    "packages/backend/convex/models/playerImport.ts",
+    "apps/web/src/app/orgs/[orgId]/import/page.tsx",
+    "CLAUDE.md"
+  ],
+  "mandatoryPatterns": [
+    "Use shadcn/ui components for all UI elements",
+    "Use Tailwind CSS for styling",
+    "Use useQuery from convex/react for reactive session status updates",
+    "Support mobile viewport (375px minimum)",
+    "Run npx ultracite fix before completing any story",
+    "Progress animations must use CSS transitions/Tailwind animate — no heavy animation libraries",
+    "Do NOT add unit tests — E2E only per CLAUDE.md",
+    "Keep animations subtle and professional — no gimmicks, no confetti"
+  ],
+  "successCriteria": [
+    "Import step shows phase-by-phase progress (not just a single percentage bar)",
+    "Live stats counter updates in real-time during import",
+    "Current operation display shows what's happening (e.g., 'Creating player records...')",
+    "Progress bar animates smoothly between phases",
+    "Error collection shown inline during import (not blocking)",
+    "Complete step shows actionable 'What's Next' cards",
+    "What's Next cards link to relevant pages (team management, assessments, parent invitations)",
+    "All type checks pass: npm run check-types"
+  ],
+  "userStories": [
+    {
+      "id": "US-P2.5-001",
+      "title": "Create enhanced import progress component",
+      "description": "As an admin watching an import run, I need to see detailed phase-by-phase progress instead of just a single progress bar.",
+      "acceptanceCriteria": [
+        "Update apps/web/src/components/import/steps/import-step.tsx",
+        "Replace single progress bar with phase-by-phase breakdown",
+        "Import phases shown as a vertical stepper: 1) Creating Identities, 2) Matching Guardians, 3) Creating Enrollments, 4) Creating Passports, 5) Applying Benchmarks",
+        "Current phase highlighted with animated indicator",
+        "Completed phases show green checkmark with count (e.g., '42 identities created')",
+        "Active phase shows animated progress bar with current count",
+        "Pending phases shown as gray/dimmed",
+        "Live stats sidebar: total processed / total rows, time elapsed, estimated time remaining",
+        "Current operation text: 'Creating identity for [name]...' (use data from session stats, updated reactively)",
+        "Use useQuery to subscribe to the import session status/stats for reactive updates",
+        "Smooth CSS transitions between phase changes (use Tailwind transition classes)",
+        "Error count badge: if errors accumulate during import, show count with expandable details",
+        "Use shadcn/ui Progress, Badge, Card, Collapsible components",
+        "Mobile responsive: single column, stats below progress",
+        "Run npx ultracite fix"
+      ],
+      "priority": 1,
+      "notes": "The import session stats field tracks per-entity counts (playersCreated, guardiansCreated, etc.). Subscribe to the session document via useQuery(api.models.importSessions.getSession, { sessionId }) — Convex reactivity will push updates as the batch mutation updates the session stats. The phase mapping is: identities -> guardiansLinked -> enrollments -> passports -> benchmarks."
+    },
+    {
+      "id": "US-P2.5-002",
+      "title": "Add progress reporting to batch import mutation",
+      "description": "As the import system, I need the batch import mutation to update session stats incrementally so the frontend can show real-time progress.",
+      "acceptanceCriteria": [
+        "Update batchImportPlayersWithIdentity in packages/backend/convex/models/playerImport.ts",
+        "After each major phase completes for a batch of players, patch the importSession stats",
+        "Phase 1 (identities): update playersCreated/playersUpdated count",
+        "Phase 2 (guardians): update guardiansCreated/guardiansLinked count",
+        "Phase 3 (enrollments): update related counts",
+        "Phase 4 (passports): update passportsCreated count",
+        "Phase 5 (benchmarks): update benchmarksApplied count",
+        "Use ctx.db.patch(sessionId, { stats: { ...currentStats, ...phaseStats } }) after each phase",
+        "Only patch if sessionId was provided (backward compatible)",
+        "Do NOT patch after every single record — batch updates per phase to minimize write overhead",
+        "Run npx ultracite fix and npx -w packages/backend convex codegen"
+      ],
+      "priority": 2,
+      "notes": "The batch import already has clear phases in its handler. Add a stats patch at the end of each phase section. This enables real-time progress on the frontend via Convex reactivity. Be careful not to over-patch — one update per phase per batch call is sufficient."
+    },
+    {
+      "id": "US-P2.5-003",
+      "title": "Create enhanced What's Next completion step",
+      "description": "As an admin who just completed an import, I need actionable next steps to continue setting up the imported players.",
+      "acceptanceCriteria": [
+        "Update apps/web/src/components/import/steps/complete-step.tsx",
+        "Show import summary stats: players created/updated, guardians created/linked, teams created, passports created, benchmarks applied",
+        "What's Next section with actionable cards:",
+        "Card 1: 'Manage Teams' — link to team management page, show count of teams created, icon: Users",
+        "Card 2: 'Start Assessments' — link to assessment page, show count of players ready, icon: ClipboardCheck",
+        "Card 3: 'Invite Parents' — link to invitations page, show count of guardians with email, icon: Mail",
+        "Card 4: 'View Players' — link to player list filtered by this import, icon: UserCheck",
+        "Each card shows: icon, title, brief description, count/stat, arrow link",
+        "Cards laid out in 2x2 grid on desktop, single column on mobile",
+        "Show 'Import Another' button to start a new import",
+        "Show 'View Import History' link",
+        "Use shadcn/ui Card, Button, Badge components",
+        "Run npx ultracite fix"
+      ],
+      "priority": 3,
+      "notes": "The What's Next cards should link to actual pages in the app. Check existing route structure for team management, assessments, and player list pages. If some pages don't exist yet, link to the closest available page and note it."
+    },
+    {
+      "id": "US-P2.5-004",
+      "title": "Polish wizard step indicators and transitions",
+      "description": "As an admin using the import wizard, I need smooth transitions between steps and clear visual indicators of progress.",
+      "acceptanceCriteria": [
+        "Update import-wizard.tsx step header/indicator",
+        "Step indicator shows: step number, step name, status (completed/active/pending)",
+        "Completed steps show green checkmark, active step shows blue ring, pending steps show gray",
+        "Smooth slide transition when moving between steps (use CSS transform + transition)",
+        "Step names update to reflect wizard configuration: if quality check is enabled, show 8 steps; if not, show 7",
+        "On mobile: show current step name + 'Step X of Y' (not all step labels — too wide)",
+        "Step transitions should feel snappy (<300ms animation duration)",
+        "Use Tailwind transition/animation utilities — no external animation libraries",
+        "Run npx ultracite fix and npm run check-types"
+      ],
+      "priority": 4,
+      "notes": "This is a polish story. The existing wizard likely has basic step indicators — enhance them rather than rebuilding. Focus on making the transitions feel smooth and professional."
+    }
+  ]
+}

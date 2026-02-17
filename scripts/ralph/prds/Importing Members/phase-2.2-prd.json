@@ -1,0 +1,96 @@
+{
+  "project": "PlayerARC - Phase 2.2: Import Simulation Frontend",
+  "branchName": "ralph/phase-2.2-simulation-frontend",
+  "description": "Build the frontend for import simulation (dry-run preview). The backend simulator already exists at lib/import/simulator.ts and is exposed as a Convex query at models/importSimulation.ts. This phase builds the SimulationResults component showing preview counts, sample player cards, and a 'Run Live Import' button. Integrates into the import wizard review step.",
+  "prdFile": "scripts/ralph/prds/Importing Members/phase-2-enhanced-ux.md",
+  "contextFiles": [
+    "packages/backend/convex/lib/import/simulator.ts",
+    "packages/backend/convex/models/importSimulation.ts",
+    "apps/web/src/components/import/import-wizard.tsx",
+    "apps/web/src/components/import/steps/review-step.tsx",
+    "apps/web/src/components/import/steps/import-step.tsx",
+    "packages/backend/convex/models/playerImport.ts",
+    "packages/backend/convex/schema.ts",
+    "CLAUDE.md"
+  ],
+  "mandatoryPatterns": [
+    "Use shadcn/ui components for all UI elements",
+    "Use Tailwind CSS for styling",
+    "Use useQuery from convex/react to call the simulate query",
+    "Use query skipping — only run simulation when user clicks 'Run Simulation'",
+    "Support mobile viewport (375px minimum)",
+    "Run npx ultracite fix before completing any story",
+    "The simulate query is at api.models.importSimulation.simulate",
+    "Do NOT modify the backend simulator or importSimulation model — they already work",
+    "Do NOT add unit tests — E2E only per CLAUDE.md"
+  ],
+  "successCriteria": [
+    "SimulationResults component displays preview stats from the simulate query",
+    "Sample player cards show name, DOB, age group, and action (create/update)",
+    "Summary shows counts: players to create/update, guardians, enrollments, passports, benchmarks",
+    "Run Simulation button triggers the query with current wizard data",
+    "Loading state shown while simulation runs",
+    "Error state handles simulation failures gracefully",
+    "Run Live Import button proceeds to the actual import step",
+    "Simulation integrates naturally into the review step of the wizard",
+    "All type checks pass: npm run check-types"
+  ],
+  "userStories": [
+    {
+      "id": "US-P2.2-001",
+      "title": "Create SimulationResults display component",
+      "description": "As an admin reviewing an import, I need to see a dry-run preview showing exactly what will be created, updated, or linked.",
+      "acceptanceCriteria": [
+        "Create apps/web/src/components/import/simulation-results.tsx",
+        "Summary stats grid showing: Players to Create, Players to Update, Guardians to Create, Guardians to Link, Enrollments to Create, Passports to Create, Benchmarks to Apply",
+        "Each stat shown as a Card with large number and descriptive label",
+        "Stats cards color-coded: creates in green, updates in blue, links in purple",
+        "Sample player cards section: show up to 5 player previews from playerPreviews array",
+        "Each player card shows: name, DOB, age group, action badge (Create/Update), guardian info if present",
+        "Warnings section: show any warnings from the simulation (amber Alert components)",
+        "Errors section: show any errors from the simulation (red Alert components)",
+        "Component accepts props: simulationResult (from simulate query), onProceed, onBack, isLoading",
+        "Use shadcn/ui Card, Badge, Alert, Button, Skeleton (for loading state) components",
+        "Mobile responsive: 1-column layout at 375px, 2-column at md breakpoint"
+      ],
+      "priority": 1,
+      "notes": "This is a display component. It receives the simulation result and renders it. The parent handles calling the simulate query."
+    },
+    {
+      "id": "US-P2.2-002",
+      "title": "Integrate simulation into wizard review step",
+      "description": "As an admin in the import wizard, I need to run a simulation from the review step and see the preview before committing to the live import.",
+      "acceptanceCriteria": [
+        "Update review-step.tsx to include a 'Run Simulation' button",
+        "On click, call the simulate query via useQuery with the current wizard data (organizationId, sportCode, players, selectedRowIndices, benchmarkSettings)",
+        "Use query skipping: pass 'skip' to useQuery until user clicks Run Simulation",
+        "Show loading skeleton while simulation is running",
+        "On success, show SimulationResults component with the results",
+        "On error, show error Alert with retry button",
+        "SimulationResults 'Proceed to Import' button transitions to the import step",
+        "If simulation shows errors (result.errors.length > 0), disable proceed and show 'Fix errors before importing'",
+        "Back button returns to quality check or selection step",
+        "Transform wizard state into the simulate query's expected args shape (match the v.array(v.object({...})) from importSimulation.ts)",
+        "Run npx ultracite fix and npm run check-types"
+      ],
+      "priority": 2,
+      "notes": "The simulate query at api.models.importSimulation.simulate accepts: organizationId, sportCode, players (array of player objects), selectedRowIndices, applyBenchmarks, benchmarkStrategy. You need to transform the wizard's parsed CSV data + mappings into the player objects the query expects. Review the args validator in importSimulation.ts for the exact shape."
+    },
+    {
+      "id": "US-P2.2-003",
+      "title": "Polish simulation UX and edge cases",
+      "description": "As an admin, I need the simulation flow to handle edge cases gracefully and feel polished.",
+      "acceptanceCriteria": [
+        "Show estimated time if simulation takes >2 seconds (based on row count)",
+        "If no rows are selected, show empty state instead of running simulation",
+        "If wizard data hasn't changed since last simulation, show cached results instead of re-running",
+        "Add a 'Re-run Simulation' button if user goes back and changes data, then returns",
+        "Simulation results persist in wizard state so navigating back and forward doesn't lose them",
+        "Clear simulation results when underlying data changes (mappings, selections, benchmark settings)",
+        "Run npx ultracite fix and npm run check-types"
+      ],
+      "priority": 3,
+      "notes": "This is a polish story. Focus on the common edge cases: empty data, stale results, re-running after changes."
+    }
+  ]
+}

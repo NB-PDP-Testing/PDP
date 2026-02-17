@@ -35,12 +35,45 @@ type Alert = {
   acknowledged: boolean;
 };
 
+// Type for active artifacts from getActiveArtifacts
+type ActiveArtifact = {
+  _id: string;
+  status: string;
+};
+
+// Type for historical metrics from getHistoricalMetrics
+type HistoricalMetric = {
+  _id: string;
+  periodType: string;
+  avgEndToEndLatency?: number;
+  periodStart: number;
+  periodEnd: number;
+};
+
+// Type for pipeline events
+type PipelineEvent = {
+  _id: string;
+  eventType: string;
+  metadata?: {
+    aiCost?: number;
+  };
+};
+
 type StatusCardsProps = {
   metrics: RealTimeMetrics | undefined;
   alerts: Alert[] | undefined;
+  activeArtifacts: ActiveArtifact[] | undefined;
+  historicalMetrics: HistoricalMetric[] | undefined;
+  recentEvents: PipelineEvent[] | undefined;
 };
 
-export function StatusCards({ metrics, alerts }: StatusCardsProps) {
+export function StatusCards({
+  metrics,
+  alerts,
+  activeArtifacts,
+  historicalMetrics,
+  recentEvents,
+}: StatusCardsProps) {
   if (!metrics) {
     return <StatusCardsSkeleton />;
   }
@@ -51,13 +84,21 @@ export function StatusCards({ metrics, alerts }: StatusCardsProps) {
     totalProcessed > 0 ? metrics.artifactsFailed1h / totalProcessed : 0;
   const failureRatePercent = Math.round(failureRate * 100);
 
-  // Active artifacts = received - completed - failed (clamp to 0)
-  const activeArtifacts = Math.max(
-    0,
-    metrics.artifactsReceived1h -
-      metrics.artifactsCompleted1h -
-      metrics.artifactsFailed1h
-  );
+  // Active artifacts count from actual DB query
+  const activeCount = activeArtifacts?.length ?? 0;
+
+  // Calculate average latency from last 24 hours of snapshots
+  const avgLatency =
+    historicalMetrics && historicalMetrics.length > 0
+      ? historicalMetrics.reduce(
+          (sum, m) => sum + (m.avgEndToEndLatency ?? 0),
+          0
+        ) / historicalMetrics.length
+      : 0;
+
+  // Calculate total AI cost from recent events
+  const totalCost =
+    recentEvents?.reduce((sum, e) => sum + (e.metadata?.aiCost ?? 0), 0) ?? 0;
 
   // Circuit breaker state from alerts
   const circuitBreakerAlert = alerts?.find(
@@ -69,23 +110,23 @@ export function StatusCards({ metrics, alerts }: StatusCardsProps) {
     {
       title: "Active Artifacts",
       icon: Activity,
-      value: activeArtifacts.toString(),
+      value: activeCount.toString(),
       subtitle: "Currently processing",
       color: "text-blue-600",
       bgColor: "bg-blue-100",
     },
     {
-      title: "Completed (1h)",
+      title: "Completed Today",
       icon: CheckCircle,
-      value: metrics.artifactsCompleted1h.toString(),
-      subtitle: "Last hour",
+      value: Math.round(metrics.artifactsCompleted1h * 24).toString(),
+      subtitle: "Last 24 hours (est)",
       color: "text-green-600",
       bgColor: "bg-green-100",
     },
     {
-      title: "Failed (1h)",
+      title: "Failed Today",
       icon: XCircle,
-      value: metrics.artifactsFailed1h.toString(),
+      value: Math.round(metrics.artifactsFailed1h * 24).toString(),
       subtitle: `Failure rate: ${failureRatePercent}%`,
       color: failureRate > 0.1 ? "text-red-600" : "text-orange-600",
       bgColor: failureRate > 0.1 ? "bg-red-100" : "bg-orange-100",
@@ -93,8 +134,8 @@ export function StatusCards({ metrics, alerts }: StatusCardsProps) {
     {
       title: "Avg Latency",
       icon: Clock,
-      value: "--",
-      subtitle: "Available in M7",
+      value: avgLatency > 0 ? `${avgLatency.toFixed(1)}s` : "--",
+      subtitle: "End-to-end (24h avg)",
       color: "text-purple-600",
       bgColor: "bg-purple-100",
     },
@@ -107,10 +148,10 @@ export function StatusCards({ metrics, alerts }: StatusCardsProps) {
       bgColor: circuitBreakerState === "open" ? "bg-red-100" : "bg-green-100",
     },
     {
-      title: "Total Cost",
+      title: "Total Cost Today",
       icon: DollarSign,
-      value: "--",
-      subtitle: "Available in M7",
+      value: totalCost > 0 ? `$${totalCost.toFixed(2)}` : "$0.00",
+      subtitle: "Pipeline AI costs (est)",
       color: "text-cyan-600",
       bgColor: "bg-cyan-100",
     },

@@ -165,7 +165,10 @@ export function StatusCards({
             <div className={cn("rounded-lg p-3", card.bgColor)}>
               <card.icon className={cn("h-6 w-6", card.color)} />
             </div>
-            <div>
+            <div className="flex-1">
+              <p className="mb-1 font-medium text-muted-foreground text-sm">
+                {card.title}
+              </p>
               <p className="font-bold text-2xl">{card.value}</p>
               <p className="text-muted-foreground text-sm">{card.subtitle}</p>
             </div>

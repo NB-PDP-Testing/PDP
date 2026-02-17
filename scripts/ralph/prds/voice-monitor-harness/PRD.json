@@ -350,7 +350,7 @@
           "apps/web/src/app/platform/voice-monitoring/artifacts/page.tsx"
         ]
       },
-      "passes": false
+      "passes": true
     },
     {
       "id": "US-VNM-010",
@@ -380,7 +380,7 @@
           "apps/web/src/app/platform/voice-monitoring/artifacts/[artifactId]/page.tsx"
         ]
       },
-      "passes": false
+      "passes": true
     },
     {
       "id": "US-VNM-011",
@@ -413,7 +413,7 @@
           "apps/web/src/app/platform/voice-monitoring/metrics/page.tsx"
         ]
       },
-      "passes": false
+      "passes": true
     },
     {
       "id": "US-VNM-012",
@@ -440,7 +440,7 @@
       "files": {
         "create": ["apps/web/src/app/platform/voice-monitoring/events/page.tsx"]
       },
-      "passes": false
+      "passes": true
     },
     {
       "id": "US-VNM-013",
@@ -469,7 +469,7 @@
           "apps/web/src/app/platform/voice-monitoring/pipeline/page.tsx"
         ]
       },
-      "passes": false
+      "passes": true
     },
     {
       "id": "US-VNM-014",
@@ -495,7 +495,7 @@
       "files": {
         "create": ["apps/web/src/app/platform/voice-monitoring/alerts/page.tsx"]
       },
-      "passes": false
+      "passes": true
     },
     {
       "id": "US-VNM-015",
@@ -532,7 +532,7 @@
         "delete": ["apps/web/src/app/platform/v2-claims/"],
         "modify": ["apps/web/src/app/platform/page.tsx"]
       },
-      "passes": false
+      "passes": true
     }
   ],
   "successCriteria": {

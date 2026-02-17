@@ -68,3 +68,94 @@
 - Cron schedules: 4 crons match (hourly, daily, weekly cleanup, health check)
 - Counter mapping: 7 counter types match
 - Retention policy: 48h events, 7d hourly, 90d daily -- consistent
+
+## M3 Pre-Implementation Review (2026-02-15)
+
+### ADRs Generated
+- ADR-VNM-005: Retry mutation scheduling (fire-and-forget via ctx.scheduler.runAfter)
+- ADR-VNM-006: Full pipeline retry cleanup (sequential delete with try/catch, Convex atomic)
+- ADR-VNM-007: Retry event logging timing (log BEFORE status reset and action scheduling)
+
+### Critical Findings
+- C1: voiceNoteId is OPTIONAL on artifacts (v.optional(v.id("voiceNotes"))). MUST guard.
+- C2: Auth pattern inconsistency: M1 single-step vs M2 two-step. Recommended M2 pattern.
+- C3: JavaScript .filter() on collected arrays is ACCEPTABLE (quality hook will false-positive)
+- C4: Use direct ctx.db.patch() for status reset, NOT updateArtifactStatus internal mutation
+
+### Action Signatures (Verified from Source)
+- transcribeAudio: `{ noteId: v.id("voiceNotes") }` -- artifact.voiceNoteId, NOT artifactId
+- extractClaims: `{ artifactId: v.id("voiceNoteArtifacts") }` -- artifact._id
+- resolveEntities: `{ artifactId: v.id("voiceNoteArtifacts") }` -- artifact._id
+
+### Index Coverage (All Exist -- No Schema Changes Needed for M3)
+- voiceNoteTranscripts.by_artifactId (schema.ts:4263)
+- voiceNoteClaims.by_artifactId (schema.ts:4353)
+- voiceNoteEntityResolutions.by_artifactId (schema.ts:4404)
+- insightDrafts.by_artifactId (schema.ts:4481)
+- voicePipelineEvents.by_artifactId (schema.ts:4574)
+
+### Status Reset Mapping
+- retryTranscription -> "transcribing"
+- retryClaimsExtraction -> "transcribed"
+- retryEntityResolution -> (no status change, just delete resolutions)
+- retryFullPipeline -> "received"
+
+### Implementation Guidance Delivered
+- Full guidance appended to scripts/ralph/agents/output/feedback.md
+- Includes security, performance, risks, and pre-implementation checklist
+
+## M4 Pre-Implementation Review (2026-02-15, UPDATED 2026-02-16)
+
+### ADRs Generated (6 total)
+- ADR-VNM-008: Alert storage strategy -- NEW voicePipelineAlerts table (not platformCostAlerts)
+- ADR-VNM-009: Health check execution model -- single internalMutation, per-check try/catch
+- ADR-VNM-010: Alert deduplication -- state-based (unacknowledged alert blocks duplicates)
+- ADR-VNM-011: Latency baseline calculation -- bounded .collect() on 168 hourly snapshots
+- ADR-VNM-012: Alert severity classification -- 4-level (critical/high/medium/low), static mapping
+- ADR-VNM-013: Cron scheduling strategy -- 5-minute interval, no wrapper needed
+
+### Critical Findings
+
+#### C1: platformCostAlerts is Incompatible (RESOLVED by ADR-VNM-008)
+- Severity union: only "warning"|"critical" (M4 needs 4 levels)
+- AlertType union: only 5 cost literals (M4 needs 6 PIPELINE_ types)
+- Fields: triggerValue/thresholdValue required (M4 uses metadata object)
+- Decision: Create NEW voicePipelineAlerts table with proper schema
+
+#### C2: CORRECTED -- by_status Index ALREADY EXISTS on voiceNoteEntityResolutions
+- **Previous finding was WRONG.** Index exists at schema.ts line 4407: `.index("by_status", ["status"])`
+- NO schema change needed for disambiguation backlog query
+- Supports: `.withIndex("by_status", q => q.eq("status", "needs_disambiguation"))`
+
+#### C3: Counter organizationId null vs undefined
+- Platform-wide counters stored with organizationId = undefined
+- M1/M2 implementation verified: uses `undefined` (omits field), NOT null
+- Query pattern: `.eq("organizationId", undefined)` is correct
+
+#### C4: Queue Depth Query Requires 4 Index Queries
+- voiceNoteArtifacts.by_status_and_createdAt supports single status eq
+- Must query received, transcribing, transcribed, processing separately
+- Each query uses .collect() -- acceptable for MVP since threshold is 50
+
+### Schema Changes Required for M4
+1. ADD voicePipelineAlerts table (see ADR-VNM-008 for full definition)
+   - 3 indexes: by_alertType_and_acknowledged, by_acknowledged_and_createdAt, by_createdAt
+2. ~~ADD by_status index to voiceNoteEntityResolutions~~ **NOT NEEDED -- already exists**
+
+### Index Coverage for M4 Queries (ALL VERIFIED)
+- voicePipelineCounters.by_counterType_and_org -- EXISTS (M1)
+- voicePipelineMetricsSnapshots.by_periodType_and_start -- EXISTS (M2)
+- voiceNoteArtifacts.by_status_and_createdAt -- EXISTS
+- voiceNoteEntityResolutions.by_status -- EXISTS (line 4407) **CORRECTED**
+- voicePipelineEvents.by_eventType_and_timestamp -- EXISTS (M1)
+- aiServiceHealth -- singleton, no index needed
+
+### Cron Scheduling
+- check-pipeline-health: every 5 minutes (crons.interval), no wrapper (ADR-VNM-013)
+- Position: after M2 cron entries in crons.ts, before `export default crons;`
+
+### Implementation Guidance Delivered
+- Comprehensive guide: scripts/ralph/agents/output/m4-implementation-guide.md
+- Also appended to scripts/ralph/agents/output/feedback.md
+- Covers: schema, security, all 6 health checks, dedup, cron, risks, checklist
+- Includes complete code examples for all 6 checks + helpers

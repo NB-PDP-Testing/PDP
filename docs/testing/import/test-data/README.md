@@ -1,0 +1,182 @@
+# Phase 3.1 Test Data Files
+
+This directory contains CSV test data files for Phase 3.1 manual UAT testing.
+
+## Test Files
+
+### 1. duplicate-guardians.csv
+
+**Purpose**: Test confidence indicator features (US-P3.1-001 to 004)
+
+**Contents**: 10 players with intentional duplicate guardians
+
+**Expected Duplicate Patterns**:
+
+| Players | Guardian | Expected Confidence | Match Signals |
+|---------|----------|---------------------|---------------|
+| Emma Walsh & Sophie O'Connor | Sarah Walsh | **High (100%)** | ✅ Email exact match (40)<br>✅ Phone exact match (30)<br>✅ Name+Address exact match (30)<br>**Total: 100%** |
+| Jack Murphy & Liam Kelly | John Murphy | **High (60%)** | ✅ Email exact match (40)<br>❌ Phone missing (0)<br>✅ Name exact match (20)<br>❌ Address missing (0)<br>**Total: 60%** |
+| Aoife Ryan & Conor Brennan | Mary Ryan vs Different LastName | **Low (30%)** | ❌ Email missing (0)<br>✅ Phone exact match (30)<br>❌ Name different (0)<br>❌ Address missing (0)<br>**Total: 30%** |
+| Niamh McCarthy & Cian O'Sullivan | Lisa McCarthy | **High (100%)** | ✅ Email exact match (40)<br>✅ Phone exact match (30)<br>✅ Name+Address exact match (30)<br>**Total: 100%** |
+| Saoirse Doyle & Finn Gallagher | Katie Doyle vs Different Name | **Medium (40%)** | ✅ Email exact match (40)<br>❌ Phone missing (0)<br>❌ Name different (0)<br>❌ Address missing (0)<br>**Total: 40%** |
+
+**CSV Columns**:
+- First Name, Last Name, Date of Birth, Gender (player fields)
+- Parent Email, Parent Phone (guardian contact)
+- Parent First Name, Parent Last Name (guardian name - **split into 2 fields**)
+- Parent Address (guardian address)
+
+**Usage**:
+```bash
+# Upload this file during import wizard
+# Map columns: Parent First Name → parentFirstName, Parent Last Name → parentLastName
+# On Review step, verify confidence scores match expectations
+# Test admin override on low/high confidence matches
+```
+
+---
+
+### 2. clean-players.csv
+
+**Purpose**: Test partial undo functionality (US-P3.1-005 to 008)
+
+**Contents**: 10 players with unique guardians (no duplicates)
+
+**Players**:
+1. Ava Byrne (F, 2015-04-22)
+2. Sean O'Brien (M, 2014-10-15)
+3. Ella Donnelly (F, 2015-01-28)
+4. Ryan Kavanagh (M, 2014-07-08)
+5. Grace Lynch (F, 2015-08-11)
+6. Dylan Murray (M, 2014-03-19)
+7. Lucy Quinn (F, 2015-11-03)
+8. Adam Dunne (M, 2014-09-27)
+9. Kate Nolan (F, 2015-05-16)
+10. James Kennedy (M, 2014-06-14)
+
+**Usage**:
+```bash
+# Import this file completely (all players)
+# After import completes, test Partial Undo dialog
+# Select 3-5 players for removal
+# Verify remaining players stay intact
+```
+
+**Test Scenarios**:
+- Search for "Sean" → should find "Sean O'Brien"
+- Search for "o'br" → should find "Sean O'Brien" (case-insensitive)
+- Filter by "Active" status
+- Select Ava, Sean, Ella for removal
+- Verify Ryan, Grace, Dylan, Lucy, Adam, Kate, James remain
+
+---
+
+### 3. large-import.csv
+
+**Purpose**: Test performance with moderate dataset (20 players)
+
+**Contents**: 20 unique players with unique guardians
+
+**Usage**:
+```bash
+# Import this file to test performance with larger batches
+# Verify import completes successfully
+# Check that stats are properly recorded
+```
+
+---
+
+### 4. error-testing.csv
+
+**Purpose**: Test error handling and validation (US-P3.1-009 to 012)
+
+**Contents**: 10 players with intentional errors
+
+**Error Types**:
+- Missing Date of Birth (row 3)
+- Invalid date format - month 13 (row 4)
+- Missing First Name (row 5)
+- Missing Last Name (row 6)
+- Invalid gender value (row 8)
+- Future date of birth (row 9)
+- Player too young - born 2024 (row 10)
+
+**Usage**:
+```bash
+# Upload this file during import wizard
+# On Review step, verify error messages are clear
+# Check that valid rows can still be imported
+# Test "Import Valid Only" option
+```
+
+---
+
+### 5. mixed-confidence.csv
+
+**Purpose**: Test admin override functionality with various confidence levels
+
+**Contents**: 10 players with different duplicate patterns
+
+**Confidence Patterns**:
+- Tommy & Billy Smith: HIGH (100%) - email + phone + name + address match
+- Anna Jones & Emma Brown: HIGH (60%) - email + name match only
+- Sarah Wilson & Katie Taylor: LOW (30%) - phone match only
+- Mark Davis & Luke Evans: MEDIUM (40%) - email match with different names
+- Amy Moore & Zoe White: HIGH (100%) - full match
+
+**Usage**:
+```bash
+# Upload to test admin override features
+# Test Force Link on low confidence matches
+# Test Reject Link on high confidence matches
+# Verify override audit trail is created
+```
+
+---
+
+## Creating Additional Test Data
+
+### Large Import Test (50+ players)
+
+To test performance with larger datasets, duplicate the clean-players.csv data and modify names:
+
+```csv
+First Name,Last Name,Date of Birth,Gender,Parent Email,Parent Phone
+Ava,Byrne,2015-04-22,Female,ava.parent@example.com,0867778899
+Sean,O'Brien,2014-10-15,Male,sean.parent@example.com,0850001122
+... (repeat with variations like Ava2, Sean2, etc.)
+```
+
+### Error Testing Data
+
+To test error handling, create files with:
+- Invalid dates: `2015-13-45` (month > 12)
+- Missing required fields
+- Invalid phone formats
+- Special characters in names
+
+---
+
+## Notes
+
+- All phone numbers use Irish format (087/086/085 prefixes)
+- Email addresses use @example.com or @email.com domains
+- Date format: YYYY-MM-DD (ISO 8601)
+- Gender values: Male, Female
+
+---
+
+## File Locations
+
+These files are located at:
+```
+docs/testing/import/test-data/
+├── duplicate-guardians.csv    # Confidence indicator testing
+├── clean-players.csv          # Partial undo testing
+├── large-import.csv           # Performance testing (20 players)
+├── error-testing.csv          # Error handling validation
+├── mixed-confidence.csv       # Admin override testing
+└── README.md                  # This file
+```
+
+Reference from test guide: `docs/testing/import/phase-3.1-manual-tests.md`

@@ -1,18 +1,23 @@
 "use client";
 
+import type { Id } from "@pdp/backend/convex/_generated/dataModel";
 import {
   BarChart3,
   CheckCircle2,
   ClipboardList,
   PartyPopper,
   Shield,
+  Undo2,
   Upload,
   UserPlus,
   Users,
 } from "lucide-react";
 import type { Route } from "next";
 import Link from "next/link";
+import { useState } from "react";
 import type { WizardState } from "@/components/import/import-wizard";
+import { PartialUndoDialog } from "@/components/import/partial-undo-dialog";
+import { UndoImportDialog } from "@/components/import/undo-import-dialog";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import {
@@ -30,6 +35,7 @@ import {
 type CompleteStepProps = {
   organizationId: string;
   importResult: WizardState["importResult"];
+  sessionId: Id<"importSessions"> | null;
 };
 
 // ============================================================
@@ -94,7 +100,12 @@ function WhatNextCard({
 export default function CompleteStep({
   organizationId,
   importResult,
+  sessionId,
 }: CompleteStepProps) {
+  const [undoSessionId, setUndoSessionId] =
+    useState<Id<"importSessions"> | null>(null);
+  const [partialUndoSessionId, setPartialUndoSessionId] =
+    useState<Id<"importSessions"> | null>(null);
   if (!importResult) {
     return (
       <div className="py-12 text-center text-muted-foreground">
@@ -215,6 +226,28 @@ export default function CompleteStep({
         </div>
       </div>
 
+      {/* Undo Import */}
+      {sessionId && (
+        <div className="flex justify-center gap-3 pt-2">
+          <Button
+            className="text-destructive hover:bg-destructive/10"
+            onClick={() => setPartialUndoSessionId(sessionId)}
+            variant="outline"
+          >
+            <Users className="mr-2 h-4 w-4" />
+            Remove Players
+          </Button>
+          <Button
+            className="text-destructive hover:bg-destructive/10"
+            onClick={() => setUndoSessionId(sessionId)}
+            variant="outline"
+          >
+            <Undo2 className="mr-2 h-4 w-4" />
+            Undo All
+          </Button>
+        </div>
+      )}
+
       {/* Return to Import */}
       <div className="flex justify-center pt-2">
         <Link href={`/orgs/${organizationId}/import` as Route}>
@@ -226,6 +259,26 @@ export default function CompleteStep({
           </Button>
         </Link>
       </div>
+
+      {/* Partial Undo Dialog */}
+      <PartialUndoDialog
+        onClose={() => setPartialUndoSessionId(null)}
+        onSuccess={() => {
+          setPartialUndoSessionId(null);
+          // User can see updated player list
+        }}
+        sessionId={partialUndoSessionId}
+      />
+
+      {/* Undo Import Dialog */}
+      <UndoImportDialog
+        onClose={() => setUndoSessionId(null)}
+        onSuccess={() => {
+          setUndoSessionId(null);
+          // User can navigate to history page to see undone status
+        }}
+        sessionId={undoSessionId}
+      />
     </div>
   );
 }

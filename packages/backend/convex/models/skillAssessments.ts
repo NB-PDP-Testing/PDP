@@ -50,6 +50,7 @@ const assessmentValidator = v.object({
   sportCode: v.string(),
   skillCode: v.string(),
   organizationId: v.string(),
+  importSessionId: v.optional(v.id("importSessions")),
   rating: v.number(),
   previousRating: v.optional(v.number()),
   assessmentDate: v.string(),
@@ -915,6 +916,10 @@ export const recordAssessmentWithBenchmark = mutation({
 /**
  * Get club-wide benchmark analytics
  * Returns aggregated stats showing how players compare to benchmarks
+ *
+ * NOTE: This query calculates benchmark comparisons DYNAMICALLY (like passport view)
+ * rather than using stored benchmarkStatus. This ensures analytics work with both
+ * imported and manually-recorded assessments, and always reflect current benchmarks.
  */
 export const getClubBenchmarkAnalytics = query({
   args: {
@@ -924,7 +929,7 @@ export const getClubBenchmarkAnalytics = query({
   },
   returns: v.any(),
   handler: async (ctx, args) => {
-    // Get all assessments for this org that have benchmark data
+    // Get all assessments for this org (no benchmarkStatus filter - we'll calculate dynamically)
     let assessments = await ctx.db
       .query("skillAssessments")
       .withIndex("by_organizationId", (q) =>
@@ -937,31 +942,42 @@ export const getClubBenchmarkAnalytics = query({
       assessments = assessments.filter((a) => a.sportCode === args.sportCode);
     }
 
-    // Filter to only assessments with benchmark data
-    assessments = assessments.filter(
-      (a) => a.benchmarkStatus !== undefined && a.benchmarkStatus !== null
-    );
-
-    // Get unique player IDs to filter by age group if needed
-    let playerIds = new Set<Id<"playerIdentities">>();
+    // Get unique player IDs
+    const playerIds = new Set<Id<"playerIdentities">>();
     for (const a of assessments) {
       playerIds.add(a.playerIdentityId);
     }
 
-    // If age group filter, get enrollments and filter by age group
-    if (args.ageGroup) {
-      const validPlayerIds = new Set<string>();
-      for (const playerId of playerIds) {
-        const enrollment = await ctx.db
+    // Fetch all player identities (for DOB to calculate age groups)
+    const playerIdentities = await Promise.all(
+      Array.from(playerIds).map((id) => ctx.db.get(id))
+    );
+    const playerMap = new Map(
+      playerIdentities.filter((p) => p != null).map((p) => [p._id, p])
+    );
+
+    // Fetch all enrollments (for age group filtering)
+    const enrollments = await Promise.all(
+      Array.from(playerIds).map((playerId) =>
+        ctx.db
           .query("orgPlayerEnrollments")
           .withIndex("by_player_and_org", (q) =>
             q
               .eq("playerIdentityId", playerId)
               .eq("organizationId", args.organizationId)
           )
-          .first();
+          .first()
+      )
+    );
+    const enrollmentMap = new Map(
+      enrollments.filter((e) => e != null).map((e) => [e.playerIdentityId, e])
+    );
+
+    // Filter by age group if provided
+    if (args.ageGroup) {
+      const validPlayerIds = new Set<string>();
+      for (const [playerId, enrollment] of enrollmentMap.entries()) {
         if (
-          enrollment &&
           enrollment.ageGroup?.toLowerCase() === args.ageGroup?.toLowerCase()
         ) {
           validPlayerIds.add(playerId);
@@ -969,9 +985,6 @@ export const getClubBenchmarkAnalytics = query({
       }
       assessments = assessments.filter((a) =>
         validPlayerIds.has(a.playerIdentityId)
-      );
-      playerIds = new Set(
-        Array.from(validPlayerIds) as Id<"playerIdentities">[]
       );
     }
 
@@ -987,7 +1000,109 @@ export const getClubBenchmarkAnalytics = query({
 
     const uniqueAssessments = Array.from(latestAssessments.values());
 
-    // Calculate status distribution
+    // Fetch all benchmarks for relevant sports
+    const sportsInAssessments = new Set(
+      uniqueAssessments.map((a) => a.sportCode)
+    );
+    const allBenchmarks = await Promise.all(
+      Array.from(sportsInAssessments).map((sportCode) =>
+        ctx.db
+          .query("skillBenchmarks")
+          .withIndex("by_sportCode", (q) => q.eq("sportCode", sportCode))
+          .filter((q) => q.eq(q.field("isActive"), true))
+          .collect()
+      )
+    );
+    const benchmarks = allBenchmarks.flat();
+
+    // Helper function to calculate age from DOB
+    const calculateAge = (dateOfBirth: string): number => {
+      const dob = new Date(dateOfBirth);
+      const today = new Date();
+      let age = today.getFullYear() - dob.getFullYear();
+      const monthDiff = today.getMonth() - dob.getMonth();
+      if (
+        monthDiff < 0 ||
+        (monthDiff === 0 && today.getDate() < dob.getDate())
+      ) {
+        age -= 1;
+      }
+      return age;
+    };
+
+    // Helper function to get age group from age
+    const getAgeGroup = (age: number): string => {
+      if (age < 7) {
+        return "u7";
+      }
+      if (age < 8) {
+        return "u8";
+      }
+      if (age < 9) {
+        return "u9";
+      }
+      if (age < 10) {
+        return "u10";
+      }
+      if (age < 11) {
+        return "u11";
+      }
+      if (age < 12) {
+        return "u12";
+      }
+      if (age < 13) {
+        return "u13";
+      }
+      if (age < 14) {
+        return "u14";
+      }
+      if (age < 15) {
+        return "u15";
+      }
+      if (age < 16) {
+        return "u16";
+      }
+      if (age < 17) {
+        return "u17";
+      }
+      if (age < 18) {
+        return "u18";
+      }
+      if (age < 19) {
+        return "u19";
+      }
+      if (age < 20) {
+        return "u20";
+      }
+      if (age < 21) {
+        return "u21";
+      }
+      return "senior";
+    };
+
+    // Helper function to calculate benchmark status dynamically
+    const calculateBenchmarkStatus = (
+      rating: number,
+      benchmark: {
+        expectedRating: number;
+        minAcceptable: number;
+        developingThreshold: number;
+        excellentThreshold: number;
+      }
+    ): "below" | "developing" | "on_track" | "exceeding" | "exceptional" => {
+      if (rating < benchmark.minAcceptable) {
+        return "below";
+      }
+      if (rating < benchmark.developingThreshold) {
+        return "developing";
+      }
+      if (rating < benchmark.excellentThreshold) {
+        return "on_track";
+      }
+      return "exceeding";
+    };
+
+    // Calculate status distribution and skill stats dynamically
     const statusCounts: Record<string, number> = {
       below: 0,
       developing: 0,
@@ -996,14 +1111,6 @@ export const getClubBenchmarkAnalytics = query({
       exceptional: 0,
     };
 
-    for (const a of uniqueAssessments) {
-      if (a.benchmarkStatus) {
-        statusCounts[a.benchmarkStatus] =
-          (statusCounts[a.benchmarkStatus] || 0) + 1;
-      }
-    }
-
-    // Calculate skill-level stats
     const skillStats = new Map<
       string,
       {
@@ -1015,11 +1122,52 @@ export const getClubBenchmarkAnalytics = query({
         total: number;
       }
     >();
-    for (const a of uniqueAssessments) {
-      if (!a.benchmarkStatus) {
+
+    const playerBelowCounts = new Map<string, number>();
+
+    // Process each assessment and calculate benchmark status dynamically
+    for (const assessment of uniqueAssessments) {
+      const player = playerMap.get(assessment.playerIdentityId);
+      if (!player) {
         continue;
       }
-      const stats = skillStats.get(a.skillCode) ?? {
+
+      // Calculate age group (from DOB or enrollment)
+      let ageGroup: string | undefined;
+      if (player.dateOfBirth) {
+        const age = calculateAge(player.dateOfBirth);
+        ageGroup = getAgeGroup(age);
+      } else {
+        const enrollment = enrollmentMap.get(assessment.playerIdentityId);
+        ageGroup = enrollment?.ageGroup?.toLowerCase();
+      }
+
+      if (!ageGroup) {
+        continue;
+      }
+
+      // Find matching benchmark
+      const benchmark = benchmarks.find(
+        (b) =>
+          b.sportCode === assessment.sportCode &&
+          b.skillCode === assessment.skillCode &&
+          b.ageGroup.toLowerCase() === ageGroup.toLowerCase() &&
+          (b.gender === "all" || b.gender === player.gender) &&
+          b.level === "recreational" // Default to recreational level
+      );
+
+      if (!benchmark) {
+        continue;
+      }
+
+      // Calculate status dynamically
+      const status = calculateBenchmarkStatus(assessment.rating, benchmark);
+
+      // Update status counts
+      statusCounts[status] = (statusCounts[status] || 0) + 1;
+
+      // Update skill-level stats
+      const stats = skillStats.get(assessment.skillCode) ?? {
         below: 0,
         developing: 0,
         on_track: 0,
@@ -1027,9 +1175,17 @@ export const getClubBenchmarkAnalytics = query({
         exceptional: 0,
         total: 0,
       };
-      stats[a.benchmarkStatus] += 1;
+      stats[status] += 1;
       stats.total += 1;
-      skillStats.set(a.skillCode, stats);
+      skillStats.set(assessment.skillCode, stats);
+
+      // Track players below benchmark
+      if (status === "below") {
+        playerBelowCounts.set(
+          assessment.playerIdentityId,
+          (playerBelowCounts.get(assessment.playerIdentityId) || 0) + 1
+        );
+      }
     }
 
     // Find skills with most players below benchmark (problem areas)
@@ -1048,16 +1204,6 @@ export const getClubBenchmarkAnalytics = query({
       .slice(0, 10);
 
     // Get players needing attention (multiple skills below benchmark)
-    const playerBelowCounts = new Map<string, number>();
-    for (const a of uniqueAssessments) {
-      if (a.benchmarkStatus === "below") {
-        playerBelowCounts.set(
-          a.playerIdentityId,
-          (playerBelowCounts.get(a.playerIdentityId) || 0) + 1
-        );
-      }
-    }
-
     const playersNeedingAttention: Array<{
       playerIdentityId: string;
       belowCount: number;
@@ -1082,13 +1228,21 @@ export const getClubBenchmarkAnalytics = query({
     playersNeedingAttention.sort((a, b) => b.belowCount - a.belowCount);
 
     // Calculate overall "on track" percentage
-    const total = uniqueAssessments.length;
+    const totalWithBenchmarks =
+      statusCounts.below +
+      statusCounts.developing +
+      statusCounts.on_track +
+      statusCounts.exceeding +
+      statusCounts.exceptional;
     const onTrackOrBetter =
       statusCounts.on_track + statusCounts.exceeding + statusCounts.exceptional;
-    const onTrackPercentage = total > 0 ? (onTrackOrBetter / total) * 100 : 0;
+    const onTrackPercentage =
+      totalWithBenchmarks > 0
+        ? (onTrackOrBetter / totalWithBenchmarks) * 100
+        : 0;
 
     return {
-      totalAssessments: uniqueAssessments.length,
+      totalAssessments: totalWithBenchmarks,
       totalPlayers: playerIds.size,
       statusDistribution: statusCounts,
       onTrackPercentage,

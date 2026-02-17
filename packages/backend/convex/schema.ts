@@ -460,12 +460,12 @@ export default defineSchema({
     .index("by_org_and_status", ["organizationId", "status"])
     .index("by_org_and_ageGroup", ["organizationId", "ageGroup"])
     .index("by_org_sport_status", ["organizationId", "sport", "status"])
+    .index("by_importSessionId", ["importSessionId"])
     .index("by_player_org_sport", [
       "playerIdentityId",
       "organizationId",
       "sport",
-    ])
-    .index("by_importSessionId", ["importSessionId"]),
+    ]),
 
   // ============================================================
   // PHASE 4: ADULT PLAYER SUPPORT
@@ -4633,10 +4633,7 @@ export default defineSchema({
     .index("by_scope", ["scope"])
     .index("by_sportCode", ["sportCode"])
     .index("by_organizationId", ["organizationId"])
-    .index("by_scope_and_sport", ["scope", "sportCode"])
-    .index("by_scope_and_isActive", ["scope", "isActive"])
-    .index("by_organizationId_and_isActive", ["organizationId", "isActive"])
-    .index("by_scope_sport_and_isActive", ["scope", "sportCode", "isActive"]),
+    .index("by_scope_and_sport", ["scope", "sportCode"]),
 
   // Tracks each import execution with full audit trail
   importSessions: defineTable({
@@ -4722,6 +4719,16 @@ export default defineSchema({
           v.literal("merge"),
           v.literal("replace")
         ),
+        // Phase 3.2.007: Admin override for guardian matching decisions
+        adminOverride: v.optional(
+          v.object({
+            action: v.union(v.literal("force_link"), v.literal("reject_link")),
+            reason: v.optional(v.string()),
+            overriddenBy: v.string(),
+            originalConfidenceScore: v.optional(v.number()),
+            timestamp: v.number(),
+          })
+        ),
       })
     ),
 
@@ -4737,8 +4744,56 @@ export default defineSchema({
     .index("by_status", ["status"])
     .index("by_initiatedBy", ["initiatedBy"])
     .index("by_startedAt", ["startedAt"])
-    .index("by_org_and_status", ["organizationId", "status"])
-    .index("by_templateId", ["templateId"]),
+    .index("by_org_and_status", ["organizationId", "status"]),
+
+  // Phase 3.1: Admin overrides for guardian matching confidence decisions
+  // Tracks when admins force-link low-confidence or reject high-confidence matches
+  adminOverrides: defineTable({
+    importSessionId: v.id("importSessions"),
+    playerId: v.id("playerIdentities"),
+    guardianId: v.id("guardianIdentities"),
+    action: v.union(v.literal("force_link"), v.literal("reject_link")),
+    reason: v.optional(v.string()), // Optional admin explanation
+    overriddenBy: v.string(), // User ID of admin who overrode
+    originalConfidenceScore: v.optional(v.number()), // Confidence score that was overridden
+    timestamp: v.number(),
+  })
+    .index("by_importSession", ["importSessionId"])
+    .index("by_user", ["overriddenBy"])
+    .index("by_player_and_guardian", ["playerId", "guardianId"]),
+
+  // Persists wizard draft state for save & resume across sessions
+  importSessionDrafts: defineTable({
+    userId: v.string(),
+    organizationId: v.string(),
+    step: v.number(),
+    parsedHeaders: v.optional(v.array(v.string())),
+    parsedRowCount: v.optional(v.number()),
+    mappings: v.optional(v.record(v.string(), v.string())),
+    playerSelections: v.optional(
+      v.array(
+        v.object({
+          rowIndex: v.number(),
+          selected: v.boolean(),
+          reason: v.optional(v.string()),
+        })
+      )
+    ),
+    benchmarkSettings: v.optional(
+      v.object({
+        applyBenchmarks: v.boolean(),
+        strategy: v.string(),
+        customTemplateId: v.optional(v.id("benchmarkTemplates")),
+        passportStatuses: v.array(v.string()),
+      })
+    ),
+    templateId: v.optional(v.id("importTemplates")),
+    sourceFileName: v.optional(v.string()),
+    expiresAt: v.number(),
+    lastSavedAt: v.number(),
+  })
+    .index("by_userId_and_orgId", ["userId", "organizationId"])
+    .index("by_expiresAt", ["expiresAt"]),
 
   // Learns from past imports to improve auto-mapping
   importMappingHistory: defineTable({
@@ -4759,6 +4814,45 @@ export default defineSchema({
     .index("by_organizationId", ["organizationId"])
     .index("by_templateId", ["templateId"])
     .index("by_targetField", ["targetField"]),
+
+  // Real-time progress tracking for active imports
+  importProgressTrackers: defineTable({
+    sessionId: v.id("importSessions"),
+    organizationId: v.string(),
+
+    // Current stats
+    stats: v.object({
+      playersCreated: v.number(),
+      playersReused: v.number(),
+      guardiansCreated: v.number(),
+      guardiansLinked: v.number(),
+      enrollmentsCreated: v.number(),
+      passportsCreated: v.number(),
+      benchmarksApplied: v.number(),
+      totalPlayers: v.number(),
+    }),
+
+    // Current operation being performed
+    currentOperation: v.optional(v.string()),
+
+    // Phase and percentage
+    phase: v.string(), // "preparing", "importing", "completed", "failed"
+    percentage: v.number(),
+
+    // Real-time error collection
+    errors: v.array(
+      v.object({
+        rowNumber: v.number(),
+        playerName: v.string(),
+        error: v.string(),
+        timestamp: v.number(),
+      })
+    ),
+
+    updatedAt: v.number(),
+  })
+    .index("by_sessionId", ["sessionId"])
+    .index("by_organizationId", ["organizationId"]),
 
   // Custom benchmark configurations per sport/organization
   benchmarkTemplates: defineTable({

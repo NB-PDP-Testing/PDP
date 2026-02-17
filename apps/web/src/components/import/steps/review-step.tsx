@@ -1,20 +1,39 @@
 "use client";
 
+import { api } from "@pdp/backend/convex/_generated/api";
 import type { Id } from "@pdp/backend/convex/_generated/dataModel";
 import type { ParseResult } from "@pdp/backend/convex/lib/import/parser";
 import {
   type BatchValidationResult,
   validateBatch,
 } from "@pdp/backend/convex/lib/import/validator";
+import { useQuery } from "convex/react";
 import {
+  AlertCircle,
   AlertTriangle,
+  Check,
   CheckCircle2,
+  ChevronDown,
   ClipboardList,
+  Info,
+  PlayCircle,
   Search,
+  Shield,
   Users,
+  X,
   XCircle,
 } from "lucide-react";
-import { useEffect, useMemo, useState } from "react";
+import {
+  Component,
+  type ReactNode,
+  useCallback,
+  useEffect,
+  useMemo,
+  useRef,
+  useState,
+} from "react";
+import type { BenchmarkSettings } from "@/components/import/import-wizard";
+import SimulationResults from "@/components/import/simulation-results";
 import {
   AlertDialog,
   AlertDialogAction,
@@ -35,16 +54,158 @@ import {
   CardHeader,
   CardTitle,
 } from "@/components/ui/card";
+import {
+  Collapsible,
+  CollapsibleContent,
+  CollapsibleTrigger,
+} from "@/components/ui/collapsible";
 import { Input } from "@/components/ui/input";
+import { Label } from "@/components/ui/label";
+import {
+  Popover,
+  PopoverContent,
+  PopoverTrigger,
+} from "@/components/ui/popover";
+import { Textarea } from "@/components/ui/textarea";
+import { useCurrentUser } from "@/hooks/use-current-user";
+import { useMembershipContext } from "@/providers/membership-provider";
+
+// ============================================================
+// Resolution Options Info Component
+// ============================================================
+
+function ResolutionOptionsInfo() {
+  return (
+    <Popover>
+      <PopoverTrigger asChild>
+        <Button className="h-6 w-6 p-0" size="sm" variant="ghost">
+          <Info className="h-4 w-4 text-muted-foreground" />
+          <span className="sr-only">Show resolution options help</span>
+        </Button>
+      </PopoverTrigger>
+      <PopoverContent align="start" className="w-96">
+        <div className="space-y-3">
+          <h4 className="font-semibold text-sm">Resolution Options</h4>
+
+          <div className="space-y-2 text-sm">
+            <div>
+              <p className="font-medium">Skip</p>
+              <p className="text-muted-foreground text-xs">
+                Create a new guardian record. Use when this is NOT a duplicate.
+              </p>
+            </div>
+
+            <div>
+              <p className="font-medium">Merge</p>
+              <p className="text-muted-foreground text-xs">
+                Link player to existing guardian. Use for confirmed matches.
+              </p>
+            </div>
+
+            <div>
+              <p className="font-medium">Replace</p>
+              <p className="text-muted-foreground text-xs">
+                Link to existing guardian AND update their information with new
+                CSV data.
+              </p>
+            </div>
+          </div>
+
+          <div className="border-t pt-2">
+            <p className="font-medium text-sm">Admin Override</p>
+            <div className="mt-1 space-y-2 text-xs">
+              <div>
+                <p className="font-medium">Force Link (Low confidence)</p>
+                <p className="text-muted-foreground">
+                  Override low match score to force linking.
+                </p>
+              </div>
+              <div>
+                <p className="font-medium">Reject Link (High confidence)</p>
+                <p className="text-muted-foreground">
+                  Override high match score to prevent linking.
+                </p>
+              </div>
+            </div>
+          </div>
+        </div>
+      </PopoverContent>
+    </Popover>
+  );
+}
+
+// ============================================================
+// Simulation Error Boundary
+// ============================================================
+
+class SimulationErrorBoundary extends Component<
+  { children: ReactNode; onRetry: () => void },
+  { hasError: boolean }
+> {
+  state = { hasError: false };
+
+  static getDerivedStateFromError() {
+    return { hasError: true };
+  }
+
+  render() {
+    if (this.state.hasError) {
+      return (
+        <Card>
+          <CardContent className="py-8 text-center">
+            <XCircle className="mx-auto mb-3 h-8 w-8 text-red-500" />
+            <p className="font-medium">Simulation Failed</p>
+            <p className="mt-1 text-muted-foreground text-sm">
+              An error occurred while running the simulation. Please try again.
+            </p>
+            <Button
+              className="mt-4"
+              onClick={() => {
+                this.setState({ hasError: false });
+                this.props.onRetry();
+              }}
+              variant="outline"
+            >
+              Retry Simulation
+            </Button>
+          </CardContent>
+        </Card>
+      );
+    }
+    return this.props.children;
+  }
+}
 
 // ============================================================
 // Types
 // ============================================================
 
+export type SignalBreakdown = {
+  signal: string;
+  matched: boolean;
+  weight: number; // Percentage (0-100)
+  contribution: number; // Actual score contributed (0-weight)
+  explanation: string;
+};
+
 export type DuplicateInfo = {
   rowNumber: number;
   existingPlayerId: Id<"playerIdentities">;
   resolution: "skip" | "merge" | "replace";
+  // Phase 3.1: Confidence scoring for guardian matches
+  guardianConfidence?: {
+    score: number; // 0-100 confidence score
+    level: "high" | "medium" | "low"; // Confidence level
+    matchReasons: string[]; // Reasons for the match (email, phone, address, etc.)
+    signalBreakdown?: SignalBreakdown[]; // Phase 3.1.003: Detailed signal breakdown
+  };
+  // Phase 3.1.004: Admin override tracking
+  adminOverride?: {
+    action: "force_link" | "reject_link";
+    reason?: string;
+    overriddenBy: string; // User ID
+    timestamp: number;
+  };
 };
 
 export type ReviewValidationError = {
@@ -65,6 +226,17 @@ type ReviewStepProps = {
   onDuplicatesChange: (duplicates: DuplicateInfo[]) => void;
   goBack: () => void;
   goNext: () => void;
+  organizationId: string;
+  sportCode: string;
+  benchmarkSettings: BenchmarkSettings;
+  cachedSimulationResult:
+    | import("@/components/import/simulation-results").SimulationResult
+    | null;
+  cachedSimulationDataHash: string | null;
+  onSimulationComplete: (
+    result: import("@/components/import/simulation-results").SimulationResult,
+    dataHash: string
+  ) => void;
 };
 
 // ============================================================
@@ -82,6 +254,65 @@ function getMappedValue(
     }
   }
   return "";
+}
+
+// ============================================================
+// Player payload builder (for simulation query)
+// ============================================================
+
+function buildPlayerPayload(
+  row: Record<string, string>,
+  mappings: Record<string, string>
+) {
+  const get = (field: string) => getMappedValue(row, field, mappings);
+  const gender = get("gender").toLowerCase();
+  let normalizedGender: "male" | "female" | "other" = "other";
+  if (gender === "male" || gender === "m") {
+    normalizedGender = "male";
+  } else if (gender === "female" || gender === "f") {
+    normalizedGender = "female";
+  }
+
+  return {
+    firstName: get("firstName"),
+    lastName: get("lastName"),
+    dateOfBirth: get("dateOfBirth"),
+    gender: normalizedGender,
+    ageGroup: get("ageGroup") || "Unknown",
+    season: get("season") || new Date().getFullYear().toString(),
+    address: get("address") || undefined,
+    town: get("town") || undefined,
+    postcode: get("postcode") || undefined,
+    country: get("country") || undefined,
+    parentFirstName: get("parentFirstName") || undefined,
+    parentLastName: get("parentLastName") || undefined,
+    parentEmail: get("parentEmail") || undefined,
+    parentPhone: get("parentPhone") || undefined,
+  };
+}
+
+// ============================================================
+// Player payload builder (for duplicate detection query)
+// ============================================================
+
+function buildDuplicateDetectionPayload(
+  row: Record<string, string>,
+  rowIndex: number,
+  mappings: Record<string, string>
+) {
+  const get = (field: string) => getMappedValue(row, field, mappings);
+
+  return {
+    rowIndex,
+    firstName: get("firstName"),
+    lastName: get("lastName"),
+    dateOfBirth: get("dateOfBirth"),
+    parentEmail: get("parentEmail") || undefined,
+    parentPhone: get("parentPhone") || undefined,
+    parentFirstName: get("parentFirstName") || undefined,
+    parentLastName: get("parentLastName") || undefined,
+    parentAddress: get("parentAddress") || undefined,
+  };
 }
 
 // ============================================================
@@ -136,9 +367,13 @@ function SummaryCards({
 function ErrorTable({
   errors,
   searchQuery,
+  parsedData,
+  confirmedMappings,
 }: {
   errors: ReviewValidationError[];
   searchQuery: string;
+  parsedData: ParseResult;
+  confirmedMappings: Record<string, string>;
 }) {
   const filtered = useMemo(() => {
     if (!searchQuery.trim()) {
@@ -169,6 +404,7 @@ function ErrorTable({
         <thead className="sticky top-0 bg-background">
           <tr className="border-b text-left text-muted-foreground text-xs">
             <th className="px-3 py-2">Row</th>
+            <th className="px-3 py-2">Player Name</th>
             <th className="px-3 py-2">Field</th>
             <th className="px-3 py-2">Error</th>
             <th className="px-3 py-2">Value</th>
@@ -176,24 +412,37 @@ function ErrorTable({
           </tr>
         </thead>
         <tbody>
-          {filtered.map((err) => (
-            <tr
-              className="border-b last:border-0"
-              key={`${String(err.rowNumber)}-${err.field}`}
-            >
-              <td className="px-3 py-2 text-muted-foreground">
-                {err.rowNumber + 1}
-              </td>
-              <td className="px-3 py-2 font-medium">{err.field}</td>
-              <td className="px-3 py-2 text-red-600">{err.error}</td>
-              <td className="max-w-[100px] truncate px-3 py-2">
-                {err.value ?? "—"}
-              </td>
-              <td className="px-3 py-2 text-green-600">
-                {err.suggestedFix ?? "—"}
-              </td>
-            </tr>
-          ))}
+          {filtered.map((err) => {
+            const row = parsedData.rows[err.rowNumber];
+            const firstName = row
+              ? getMappedValue(row, "firstName", confirmedMappings)
+              : "";
+            const lastName = row
+              ? getMappedValue(row, "lastName", confirmedMappings)
+              : "";
+            const playerName =
+              [firstName, lastName].filter(Boolean).join(" ") || "—";
+
+            return (
+              <tr
+                className="border-b last:border-0"
+                key={`${String(err.rowNumber)}-${err.field}`}
+              >
+                <td className="px-3 py-2 text-muted-foreground">
+                  {err.rowNumber + 1}
+                </td>
+                <td className="px-3 py-2 font-medium">{playerName}</td>
+                <td className="px-3 py-2 font-medium">{err.field}</td>
+                <td className="px-3 py-2 text-red-600">{err.error}</td>
+                <td className="max-w-[100px] truncate px-3 py-2">
+                  {err.value ?? "—"}
+                </td>
+                <td className="px-3 py-2 text-green-600">
+                  {err.suggestedFix ?? "—"}
+                </td>
+              </tr>
+            );
+          })}
         </tbody>
       </table>
     </div>
@@ -212,23 +461,200 @@ function getResolutionVariant(
   return "default";
 }
 
+// Helper: Get confidence badge properties based on score
+function getConfidenceBadgeProps(score: number) {
+  if (score >= 60) {
+    return {
+      label: "High Confidence",
+      icon: Check,
+      className:
+        "border-green-200 bg-green-50 text-green-700 dark:border-green-800 dark:bg-green-950 dark:text-green-400",
+      progressClassName: "bg-green-100 dark:bg-green-950",
+      progressBarColor: "bg-green-600",
+    };
+  }
+  if (score >= 40) {
+    return {
+      label: "Review Required",
+      icon: AlertCircle,
+      className:
+        "border-yellow-200 bg-yellow-50 text-yellow-700 dark:border-yellow-800 dark:bg-yellow-950 dark:text-yellow-400",
+      progressClassName: "bg-yellow-100 dark:bg-yellow-950",
+      progressBarColor: "bg-yellow-600",
+    };
+  }
+  return {
+    label: "Low Confidence",
+    icon: X,
+    className:
+      "border-red-200 bg-red-50 text-red-700 dark:border-red-800 dark:bg-red-950 dark:text-red-400",
+    progressClassName: "bg-red-100 dark:bg-red-950",
+    progressBarColor: "bg-red-600",
+  };
+}
+
 function DuplicateCard({
   duplicate,
   row,
   mappings,
   onResolutionChange,
+  onAdminOverride,
+  organizationId,
 }: {
   duplicate: DuplicateInfo;
   row: Record<string, string>;
   mappings: Record<string, string>;
   onResolutionChange: (resolution: DuplicateInfo["resolution"]) => void;
+  onAdminOverride?: (
+    action: "force_link" | "reject_link",
+    reason?: string
+  ) => void;
+  organizationId: string;
 }) {
   const firstName = getMappedValue(row, "firstName", mappings);
   const lastName = getMappedValue(row, "lastName", mappings);
   const dob = getMappedValue(row, "dateOfBirth", mappings);
 
+  // Get confidence data if available (Phase 3.1)
+  const confidence = duplicate.guardianConfidence;
+  const badgeProps = confidence
+    ? getConfidenceBadgeProps(confidence.score)
+    : null;
+  const ConfidenceIcon = badgeProps?.icon;
+
+  // Phase 3.1.003: Collapsible state for match details
+  const [detailsOpen, setDetailsOpen] = useState(false);
+
+  // Phase 3.2.007: Admin override confirmation dialogs
+  const [showForceLinkDialog, setShowForceLinkDialog] = useState(false);
+  const [showRejectLinkDialog, setShowRejectLinkDialog] = useState(false);
+  const [overrideReason, setOverrideReason] = useState("");
+
+  // Phase 3.1.004: Admin override functionality
+  const { getMembershipForOrg } = useMembershipContext();
+  const membership = getMembershipForOrg(organizationId);
+  const isAdminOrOwner =
+    membership?.betterAuthRole === "admin" ||
+    membership?.betterAuthRole === "owner";
+
+  // Check if confidence score qualifies for override buttons
+  const canForceLink = confidence && confidence.score < 40; // Low confidence
+  const canRejectLink = confidence && confidence.score >= 60; // High confidence
+  const showOverrideButtons = isAdminOrOwner && (canForceLink || canRejectLink);
+
+  const handleForceLink = () => {
+    if (onAdminOverride) {
+      onAdminOverride("force_link", overrideReason || undefined);
+    }
+    setShowForceLinkDialog(false);
+    setOverrideReason("");
+  };
+
+  const handleRejectLink = () => {
+    if (onAdminOverride) {
+      onAdminOverride("reject_link", overrideReason || undefined);
+    }
+    setShowRejectLinkDialog(false);
+    setOverrideReason("");
+  };
+
   return (
     <div className="rounded-lg border p-3">
+      {/* Phase 3.1.004: Admin Override Badge */}
+      {duplicate.adminOverride && (
+        <div className="mb-2">
+          <Badge className="border-purple-200 bg-purple-50 text-purple-700 dark:border-purple-800 dark:bg-purple-950 dark:text-purple-400">
+            <Shield className="h-3 w-3" />
+            Admin Override:{" "}
+            {duplicate.adminOverride.action === "force_link"
+              ? "Force Linked"
+              : "Rejected"}
+          </Badge>
+          {duplicate.adminOverride.reason && (
+            <p className="mt-1 text-muted-foreground text-xs">
+              Reason: {duplicate.adminOverride.reason}
+            </p>
+          )}
+        </div>
+      )}
+
+      {/* Phase 3.1: Confidence Badge at top if guardian matching used */}
+      {confidence && badgeProps && ConfidenceIcon && (
+        <div className="mb-2 flex items-center gap-2">
+          <Badge className={badgeProps.className}>
+            <ConfidenceIcon className="h-3 w-3" />
+            {badgeProps.label}
+          </Badge>
+          <span className="text-muted-foreground text-xs">
+            {confidence.score}%
+          </span>
+        </div>
+      )}
+
+      {/* Phase 3.1: Confidence Progress Bar */}
+      {confidence && badgeProps && (
+        <div
+          className={`mb-3 ${badgeProps.progressClassName} rounded-full p-0.5`}
+        >
+          <div
+            className={`h-2 rounded-full transition-all duration-300 ${badgeProps.progressBarColor}`}
+            style={{ width: `${confidence.score}%` }}
+          />
+        </div>
+      )}
+
+      {/* Phase 3.1.003: Expandable Match Details */}
+      {confidence?.signalBreakdown && (
+        <Collapsible
+          className="mb-3"
+          onOpenChange={setDetailsOpen}
+          open={detailsOpen}
+        >
+          <CollapsibleTrigger asChild>
+            <Button
+              className="h-auto w-full justify-between p-2 text-xs"
+              size="sm"
+              variant="ghost"
+            >
+              <span>Match Details</span>
+              <ChevronDown
+                className={`h-3 w-3 transition-transform ${detailsOpen ? "rotate-180" : ""}`}
+              />
+            </Button>
+          </CollapsibleTrigger>
+          <CollapsibleContent className="space-y-2 px-2 pt-2">
+            {confidence.signalBreakdown.map((signal) => (
+              <div
+                className="flex items-center justify-between text-xs"
+                key={signal.signal}
+              >
+                <div className="flex items-center gap-2">
+                  {signal.matched ? (
+                    <Check className="h-3 w-3 text-green-600" />
+                  ) : (
+                    <X className="h-3 w-3 text-red-600" />
+                  )}
+                  <span className="font-medium">{signal.signal}:</span>
+                  <span className="text-muted-foreground">
+                    {signal.weight}%
+                  </span>
+                </div>
+                <span
+                  className={
+                    signal.matched ? "text-green-600" : "text-muted-foreground"
+                  }
+                >
+                  {signal.contribution} pts
+                </span>
+              </div>
+            ))}
+            <div className="mt-2 border-t pt-2 text-muted-foreground text-xs">
+              Total Score: {confidence.score} / 100
+            </div>
+          </CollapsibleContent>
+        </Collapsible>
+      )}
+
       <div className="flex items-center justify-between">
         <div>
           <p className="font-medium text-sm">
@@ -242,7 +668,7 @@ function DuplicateCard({
           {duplicate.resolution}
         </Badge>
       </div>
-      <div className="mt-2 flex gap-1">
+      <div className="mt-2 flex flex-wrap gap-1">
         <Button
           onClick={() => onResolutionChange("skip")}
           size="sm"
@@ -264,6 +690,134 @@ function DuplicateCard({
         >
           Replace
         </Button>
+
+        {/* Phase 3.2.007: Admin Override Buttons with Confirmation Dialogs */}
+        {showOverrideButtons && (
+          <>
+            {canForceLink && (
+              <AlertDialog
+                onOpenChange={setShowForceLinkDialog}
+                open={showForceLinkDialog}
+              >
+                <AlertDialogTrigger asChild>
+                  <Button
+                    className="border-green-200 bg-green-50 text-green-700 hover:bg-green-100 dark:border-green-800 dark:bg-green-950 dark:text-green-400"
+                    size="sm"
+                    variant="outline"
+                  >
+                    <Shield className="h-3 w-3" />
+                    Force Link
+                  </Button>
+                </AlertDialogTrigger>
+                <AlertDialogContent>
+                  <AlertDialogHeader>
+                    <AlertDialogTitle>
+                      Force Link Guardian Despite Low Confidence?
+                    </AlertDialogTitle>
+                    <AlertDialogDescription>
+                      This will override the low confidence score (
+                      {confidence?.score}%) and force this guardian to be linked
+                      to the player.
+                    </AlertDialogDescription>
+                  </AlertDialogHeader>
+                  <div className="space-y-3 py-4">
+                    <div className="rounded-md border bg-muted p-3 text-sm">
+                      <p className="font-medium">Guardian Match Details:</p>
+                      <p className="mt-1 text-muted-foreground">
+                        Player: {firstName} {lastName} (DOB: {dob})
+                      </p>
+                      {confidence?.matchReasons && (
+                        <ul className="mt-2 space-y-1 text-xs">
+                          {confidence.matchReasons.map((reason) => (
+                            <li key={reason}>• {reason}</li>
+                          ))}
+                        </ul>
+                      )}
+                    </div>
+                    <div className="space-y-2">
+                      <Label htmlFor="force-reason">
+                        Reason for override (optional)
+                      </Label>
+                      <Textarea
+                        id="force-reason"
+                        onChange={(e) => setOverrideReason(e.target.value)}
+                        placeholder="Why are you forcing this link?"
+                        value={overrideReason}
+                      />
+                    </div>
+                  </div>
+                  <AlertDialogFooter>
+                    <AlertDialogCancel>Cancel</AlertDialogCancel>
+                    <AlertDialogAction onClick={handleForceLink}>
+                      Force Link
+                    </AlertDialogAction>
+                  </AlertDialogFooter>
+                </AlertDialogContent>
+              </AlertDialog>
+            )}
+            {canRejectLink && (
+              <AlertDialog
+                onOpenChange={setShowRejectLinkDialog}
+                open={showRejectLinkDialog}
+              >
+                <AlertDialogTrigger asChild>
+                  <Button
+                    className="border-red-200 bg-red-50 text-red-700 hover:bg-red-100 dark:border-red-800 dark:bg-red-950 dark:text-red-400"
+                    size="sm"
+                    variant="outline"
+                  >
+                    <Shield className="h-3 w-3" />
+                    Reject Link
+                  </Button>
+                </AlertDialogTrigger>
+                <AlertDialogContent>
+                  <AlertDialogHeader>
+                    <AlertDialogTitle>
+                      Reject Guardian Link Despite High Confidence?
+                    </AlertDialogTitle>
+                    <AlertDialogDescription>
+                      This will override the high confidence score (
+                      {confidence?.score}%) and prevent this guardian from being
+                      linked to the player.
+                    </AlertDialogDescription>
+                  </AlertDialogHeader>
+                  <div className="space-y-3 py-4">
+                    <div className="rounded-md border bg-muted p-3 text-sm">
+                      <p className="font-medium">Guardian Match Details:</p>
+                      <p className="mt-1 text-muted-foreground">
+                        Player: {firstName} {lastName} (DOB: {dob})
+                      </p>
+                      {confidence?.matchReasons && (
+                        <ul className="mt-2 space-y-1 text-xs">
+                          {confidence.matchReasons.map((reason) => (
+                            <li key={reason}>• {reason}</li>
+                          ))}
+                        </ul>
+                      )}
+                    </div>
+                    <div className="space-y-2">
+                      <Label htmlFor="reject-reason">
+                        Reason for rejection (optional)
+                      </Label>
+                      <Textarea
+                        id="reject-reason"
+                        onChange={(e) => setOverrideReason(e.target.value)}
+                        placeholder="Why are you rejecting this match?"
+                        value={overrideReason}
+                      />
+                    </div>
+                  </div>
+                  <AlertDialogFooter>
+                    <AlertDialogCancel>Cancel</AlertDialogCancel>
+                    <AlertDialogAction onClick={handleRejectLink}>
+                      Reject Link
+                    </AlertDialogAction>
+                  </AlertDialogFooter>
+                </AlertDialogContent>
+              </AlertDialog>
+            )}
+          </>
+        )}
       </div>
     </div>
   );
@@ -370,76 +924,54 @@ function extractErrors(
 }
 
 // ============================================================
-// Main ReviewStep
+// Review Form (validation errors, duplicates, teams, nav)
 // ============================================================
 
-export default function ReviewStep({
+function ReviewForm({
+  validationErrors,
+  validCount,
+  errorRowCount,
+  hasErrors,
+  duplicates,
+  onDuplicateResolution,
+  onAdminOverride,
   parsedData,
   confirmedMappings,
   selectedRows,
-  validationErrors,
-  onValidationErrorsChange,
-  duplicates,
-  onDuplicatesChange,
   goBack,
-  goNext,
-}: ReviewStepProps) {
-  const [errorSearch, setErrorSearch] = useState("");
-  const [hasValidated, setHasValidated] = useState(false);
-
-  // Run validation on mount
-  useEffect(() => {
-    if (hasValidated) {
-      return;
-    }
-
-    const mappedRows = buildMappedRows(
-      parsedData,
-      selectedRows,
-      confirmedMappings
-    );
-    const result = validateBatch(mappedRows);
-    const errors = extractErrors(result, [...selectedRows]);
-
-    onValidationErrorsChange(errors);
-    setHasValidated(true);
-  }, [
-    hasValidated,
-    parsedData,
-    selectedRows,
-    confirmedMappings,
-    onValidationErrorsChange,
-  ]);
-
-  // Count unique rows with errors
-  const errorRowCount = useMemo(() => {
-    const rowsWithErrors = new Set(validationErrors.map((e) => e.rowNumber));
-    return rowsWithErrors.size;
-  }, [validationErrors]);
-
-  const validCount = selectedRows.size - errorRowCount;
-  const hasErrors = validationErrors.length > 0;
-  const hasDuplicates = duplicates.length > 0;
-
-  const handleDuplicateResolution = (
+  onRunSimulation,
+  dataChanged,
+  organizationId,
+}: {
+  validationErrors: ReviewValidationError[];
+  validCount: number;
+  errorRowCount: number;
+  hasErrors: boolean;
+  duplicates: DuplicateInfo[];
+  onDuplicateResolution: (
     rowNumber: number,
     resolution: DuplicateInfo["resolution"]
-  ) => {
-    const updated = duplicates.map((d) =>
-      d.rowNumber === rowNumber ? { ...d, resolution } : d
-    );
-    onDuplicatesChange(updated);
-  };
-
-  const proceedButton = (
-    <Button disabled={selectedRows.size === 0} onClick={goNext}>
-      Proceed to Import
-    </Button>
-  );
+  ) => void;
+  onAdminOverride: (
+    rowNumber: number,
+    action: "force_link" | "reject_link",
+    reason?: string
+  ) => void;
+  parsedData: ParseResult;
+  confirmedMappings: Record<string, string>;
+  selectedRows: Set<number>;
+  goBack: () => void;
+  onRunSimulation: () => void;
+  dataChanged: boolean;
+  organizationId: string;
+}) {
+  const [errorSearch, setErrorSearch] = useState("");
+  const hasDuplicates = duplicates.length > 0;
 
   return (
     <div className="space-y-4">
-      {/* Summary */}
+      {dataChanged && <DataChangedBanner onRerun={onRunSimulation} />}
+
       <SummaryCards
         duplicateCount={duplicates.length}
         errorCount={errorRowCount}
@@ -447,7 +979,6 @@ export default function ReviewStep({
         validCount={validCount}
       />
 
-      {/* Validation Errors */}
       <Card>
         <CardHeader className="pb-3">
           <div className="flex items-center justify-between">
@@ -478,26 +1009,35 @@ export default function ReviewStep({
               />
             </div>
           )}
-          <ErrorTable errors={validationErrors} searchQuery={errorSearch} />
+          <ErrorTable
+            confirmedMappings={confirmedMappings}
+            errors={validationErrors}
+            parsedData={parsedData}
+            searchQuery={errorSearch}
+          />
         </CardContent>
       </Card>
 
-      {/* Duplicates */}
       {hasDuplicates && (
         <Card>
           <CardHeader className="pb-3">
-            <CardTitle className="flex items-center gap-2 text-lg">
-              <AlertTriangle className="h-5 w-5 text-amber-600" />
-              Duplicate Players
-              <Badge variant="secondary">{duplicates.length}</Badge>
-            </CardTitle>
-            <CardDescription>
-              These players may already exist in the system. Choose how to
-              handle each one.
-            </CardDescription>
+            <div className="flex items-start justify-between">
+              <div>
+                <CardTitle className="flex items-center gap-2 text-lg">
+                  <AlertTriangle className="h-5 w-5 text-amber-600" />
+                  Duplicate Players
+                  <Badge variant="secondary">{duplicates.length}</Badge>
+                </CardTitle>
+                <CardDescription className="mt-1">
+                  These players may already exist in the system. Choose how to
+                  handle each one.
+                </CardDescription>
+              </div>
+              <ResolutionOptionsInfo />
+            </div>
           </CardHeader>
           <CardContent>
-            <div className="max-h-72 space-y-2 overflow-auto">
+            <div className="space-y-2">
               {duplicates.map((dup) => {
                 const row = parsedData.rows[dup.rowNumber];
                 if (!row) {
@@ -506,11 +1046,15 @@ export default function ReviewStep({
                 return (
                   <DuplicateCard
                     duplicate={dup}
-                    key={dup.rowNumber}
+                    key={`${dup.rowNumber}-${dup.existingPlayerId}`}
                     mappings={confirmedMappings}
-                    onResolutionChange={(res) =>
-                      handleDuplicateResolution(dup.rowNumber, res)
+                    onAdminOverride={(action, reason) =>
+                      onAdminOverride(dup.rowNumber, action, reason)
                     }
+                    onResolutionChange={(res) =>
+                      onDuplicateResolution(dup.rowNumber, res)
+                    }
+                    organizationId={organizationId}
                     row={row}
                   />
                 );
@@ -520,23 +1064,74 @@ export default function ReviewStep({
         </Card>
       )}
 
-      {/* Team Creation Preview */}
       <TeamCreationPreview
         confirmedMappings={confirmedMappings}
         parsedData={parsedData}
         selectedRows={selectedRows}
       />
 
-      {/* Navigation */}
-      <div className="flex justify-between pt-2">
-        <Button onClick={goBack} variant="outline">
-          Back
+      <ReviewNavigation
+        errorCount={validationErrors.length}
+        errorRowCount={errorRowCount}
+        hasErrors={hasErrors}
+        onBack={goBack}
+        onRunSimulation={onRunSimulation}
+      />
+    </div>
+  );
+}
+
+// ============================================================
+// Data Changed Banner
+// ============================================================
+
+function DataChangedBanner({ onRerun }: { onRerun: () => void }) {
+  return (
+    <Card className="border-amber-200 bg-amber-50 dark:border-amber-900 dark:bg-amber-950">
+      <CardContent className="flex items-center justify-between p-3">
+        <div className="flex items-center gap-2">
+          <AlertTriangle className="h-4 w-4 text-amber-600" />
+          <span className="text-sm">
+            Data has changed since the last simulation. Results may be outdated.
+          </span>
+        </div>
+        <Button onClick={onRerun} size="sm" variant="outline">
+          <PlayCircle className="mr-1 h-3 w-3" />
+          Re-run
         </Button>
+      </CardContent>
+    </Card>
+  );
+}
+
+// ============================================================
+// Navigation Actions
+// ============================================================
+
+function ReviewNavigation({
+  hasErrors,
+  errorCount,
+  errorRowCount,
+  onBack,
+  onRunSimulation,
+}: {
+  hasErrors: boolean;
+  errorCount: number;
+  errorRowCount: number;
+  onBack: () => void;
+  onRunSimulation: () => void;
+}) {
+  return (
+    <div className="flex justify-between pt-2">
+      <Button onClick={onBack} variant="outline">
+        Back
+      </Button>
+      <div className="flex gap-2">
         {hasErrors ? (
           <AlertDialog>
             <AlertDialogTrigger asChild>
               <Button variant="destructive">
-                Proceed with Errors ({validationErrors.length})
+                Proceed with Errors ({errorCount})
               </Button>
             </AlertDialogTrigger>
             <AlertDialogContent>
@@ -545,23 +1140,337 @@ export default function ReviewStep({
                   Proceed with validation errors?
                 </AlertDialogTitle>
                 <AlertDialogDescription>
-                  There are {validationErrors.length} validation error(s) across{" "}
+                  There are {errorCount} validation error(s) across{" "}
                   {errorRowCount} row(s). Rows with errors may fail during
                   import or have incomplete data.
                 </AlertDialogDescription>
               </AlertDialogHeader>
               <AlertDialogFooter>
                 <AlertDialogCancel>Go Back</AlertDialogCancel>
-                <AlertDialogAction onClick={goNext}>
-                  Continue Anyway
+                <AlertDialogAction onClick={onRunSimulation}>
+                  Continue to Simulation
                 </AlertDialogAction>
               </AlertDialogFooter>
             </AlertDialogContent>
           </AlertDialog>
         ) : (
-          proceedButton
+          <Button onClick={onRunSimulation}>
+            <PlayCircle className="mr-1 h-4 w-4" />
+            Run Simulation
+          </Button>
         )}
       </div>
     </div>
+  );
+}
+
+// ============================================================
+// Main ReviewStep
+// ============================================================
+
+export default function ReviewStep({
+  parsedData,
+  confirmedMappings,
+  selectedRows,
+  validationErrors,
+  onValidationErrorsChange,
+  duplicates,
+  onDuplicatesChange,
+  goBack,
+  goNext,
+  organizationId,
+  sportCode,
+  benchmarkSettings,
+  cachedSimulationResult,
+  cachedSimulationDataHash,
+  onSimulationComplete,
+}: ReviewStepProps) {
+  const [hasValidated, setHasValidated] = useState(false);
+  const [simulationRequested, setSimulationRequested] = useState(false);
+
+  // Phase 3.2.007: Get current user for admin override tracking
+  const user = useCurrentUser();
+  const userEmail = user?.email || "unknown";
+
+  // Phase 3.2.007: Handle admin overrides for duplicate guardians
+  const handleAdminOverride = useCallback(
+    (
+      rowNumber: number,
+      action: "force_link" | "reject_link",
+      reason?: string
+    ) => {
+      const updatedDuplicates = duplicates.map((dup) => {
+        if (dup.rowNumber === rowNumber) {
+          return {
+            ...dup,
+            adminOverride: {
+              action,
+              reason,
+              overriddenBy: userEmail,
+              originalConfidenceScore: dup.guardianConfidence?.score,
+              timestamp: Date.now(),
+            },
+          };
+        }
+        return dup;
+      });
+      onDuplicatesChange(updatedDuplicates);
+    },
+    [duplicates, onDuplicatesChange, userEmail]
+  );
+
+  // Compute data fingerprint to detect changes since last simulation
+  const currentDataHash = useMemo(() => {
+    const indices = [...selectedRows].sort((a, b) => a - b).join(",");
+    const mappings = Object.entries(confirmedMappings)
+      .sort(([a], [b]) => a.localeCompare(b))
+      .map(([k, vv]) => `${k}:${vv}`)
+      .join(",");
+    return `${indices}|${mappings}|${sportCode}|${String(benchmarkSettings.applyBenchmarks)}|${benchmarkSettings.strategy}`;
+  }, [
+    selectedRows,
+    confirmedMappings,
+    sportCode,
+    benchmarkSettings.applyBenchmarks,
+    benchmarkSettings.strategy,
+  ]);
+
+  // Use cached results if data hasn't changed
+  const hasCachedResults =
+    cachedSimulationResult !== null &&
+    cachedSimulationDataHash === currentDataHash;
+
+  // Run validation on mount
+  useEffect(() => {
+    if (hasValidated) {
+      return;
+    }
+
+    const mappedRows = buildMappedRows(
+      parsedData,
+      selectedRows,
+      confirmedMappings
+    );
+    const result = validateBatch(mappedRows);
+    const errors = extractErrors(result, [...selectedRows]);
+
+    onValidationErrorsChange(errors);
+    setHasValidated(true);
+  }, [
+    hasValidated,
+    parsedData,
+    selectedRows,
+    confirmedMappings,
+    onValidationErrorsChange,
+  ]);
+
+  // Build player payloads for duplicate detection (Phase 3.1)
+  const duplicateDetectionPlayers = useMemo(
+    () =>
+      [...selectedRows].map((idx) => {
+        const row = parsedData.rows[idx];
+        return buildDuplicateDetectionPayload(row, idx, confirmedMappings);
+      }),
+    [selectedRows, parsedData.rows, confirmedMappings]
+  );
+
+  // Query args for duplicate detection
+  const duplicateDetectionArgs = useMemo(() => {
+    if (duplicateDetectionPlayers.length === 0) {
+      return "skip" as const;
+    }
+    return {
+      organizationId,
+      players: duplicateDetectionPlayers,
+    };
+  }, [duplicateDetectionPlayers, organizationId]);
+
+  // Detect duplicate guardians (Phase 3.1: Confidence Indicators)
+  const duplicateDetectionResult = useQuery(
+    api.models.importSessions.detectDuplicateGuardians,
+    duplicateDetectionArgs
+  );
+
+  // Track if we've already set duplicates to avoid infinite loop
+  const hasSetDuplicatesRef = useRef(false);
+
+  // Update duplicates when detection results arrive
+  useEffect(() => {
+    if (!duplicateDetectionResult || hasSetDuplicatesRef.current) {
+      return;
+    }
+
+    const detectedDuplicates: DuplicateInfo[] = duplicateDetectionResult.map(
+      (dup) => ({
+        rowNumber: dup.rowNumber,
+        existingPlayerId:
+          dup.existingGuardianId as unknown as Id<"playerIdentities">,
+        resolution: "skip",
+        guardianConfidence: {
+          score: dup.confidence.score,
+          level: dup.confidence.level,
+          matchReasons: dup.confidence.matchReasons,
+          signalBreakdown: dup.confidence.signalBreakdown,
+        },
+      })
+    );
+
+    onDuplicatesChange(detectedDuplicates);
+    hasSetDuplicatesRef.current = true;
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [duplicateDetectionResult]);
+
+  // Build player payloads for simulation
+  const simulationPlayers = useMemo(() => {
+    if (!simulationRequested) {
+      return null;
+    }
+    return [...selectedRows].map((idx) => {
+      const row = parsedData.rows[idx];
+      return buildPlayerPayload(row, confirmedMappings);
+    });
+  }, [simulationRequested, selectedRows, parsedData.rows, confirmedMappings]);
+
+  // Query args — "skip" until simulation is requested
+  const simulationArgs = useMemo(() => {
+    if (!simulationPlayers) {
+      return "skip" as const;
+    }
+    return {
+      organizationId,
+      sportCode: sportCode || undefined,
+      players: simulationPlayers,
+      applyBenchmarks: benchmarkSettings.applyBenchmarks,
+      benchmarkStrategy: benchmarkSettings.strategy,
+    };
+  }, [
+    simulationPlayers,
+    organizationId,
+    sportCode,
+    benchmarkSettings.applyBenchmarks,
+    benchmarkSettings.strategy,
+  ]);
+
+  const simulationResult = useQuery(
+    api.models.importSimulation.simulate,
+    simulationArgs
+  );
+
+  // Cache simulation result in wizard state when it arrives
+  useEffect(() => {
+    if (simulationResult && simulationRequested) {
+      onSimulationComplete(simulationResult, currentDataHash);
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [simulationResult, simulationRequested, currentDataHash]);
+
+  const isSimulating = simulationRequested && simulationResult === undefined;
+
+  const handleRunSimulation = useCallback(() => {
+    setSimulationRequested(true);
+  }, []);
+
+  const handleRerunSimulation = useCallback(() => {
+    setSimulationRequested(false);
+    requestAnimationFrame(() => setSimulationRequested(true));
+  }, []);
+
+  // Count unique rows with errors
+  const errorRowCount = useMemo(() => {
+    const rowsWithErrors = new Set(validationErrors.map((e) => e.rowNumber));
+    return rowsWithErrors.size;
+  }, [validationErrors]);
+
+  const validCount = selectedRows.size - errorRowCount;
+  const hasErrors = validationErrors.length > 0;
+
+  const handleDuplicateResolution = (
+    rowNumber: number,
+    resolution: DuplicateInfo["resolution"]
+  ) => {
+    const updated = duplicates.map((d) =>
+      d.rowNumber === rowNumber ? { ...d, resolution } : d
+    );
+    onDuplicatesChange(updated);
+  };
+
+  // Determine which simulation result to display
+  const activeSimResult =
+    simulationResult ?? (hasCachedResults ? cachedSimulationResult : null);
+  const dataChanged = cachedSimulationResult !== null && !hasCachedResults;
+  const simBackHandler = simulationRequested
+    ? () => setSimulationRequested(false)
+    : goBack;
+  const displayResult = activeSimResult ?? cachedSimulationResult;
+
+  // Show simulation view: either actively requested or cached results available
+  if (simulationRequested && (activeSimResult || isSimulating)) {
+    return (
+      <SimulationErrorBoundary onRetry={handleRerunSimulation}>
+        <SimulationResults
+          isLoading={isSimulating}
+          onBack={simBackHandler}
+          onProceed={goNext}
+          onRerun={handleRerunSimulation}
+          simulationResult={displayResult}
+          totalRows={selectedRows.size}
+        />
+      </SimulationErrorBoundary>
+    );
+  }
+
+  if (hasCachedResults && cachedSimulationResult) {
+    return (
+      <SimulationErrorBoundary onRetry={handleRerunSimulation}>
+        <SimulationResults
+          isLoading={false}
+          onBack={goBack}
+          onProceed={goNext}
+          onRerun={handleRerunSimulation}
+          simulationResult={cachedSimulationResult}
+          totalRows={selectedRows.size}
+        />
+      </SimulationErrorBoundary>
+    );
+  }
+
+  // Empty state: no rows selected
+  if (selectedRows.size === 0) {
+    return (
+      <div className="space-y-4">
+        <Card>
+          <CardContent className="py-12 text-center">
+            <Users className="mx-auto mb-3 h-10 w-10 text-muted-foreground" />
+            <p className="font-medium text-lg">No Players Selected</p>
+            <p className="mt-1 text-muted-foreground text-sm">
+              Go back and select at least one player to review and simulate the
+              import.
+            </p>
+            <Button className="mt-4" onClick={goBack} variant="outline">
+              Back to Selection
+            </Button>
+          </CardContent>
+        </Card>
+      </div>
+    );
+  }
+
+  return (
+    <ReviewForm
+      confirmedMappings={confirmedMappings}
+      dataChanged={dataChanged}
+      duplicates={duplicates}
+      errorRowCount={errorRowCount}
+      goBack={goBack}
+      hasErrors={hasErrors}
+      onAdminOverride={handleAdminOverride}
+      onDuplicateResolution={handleDuplicateResolution}
+      onRunSimulation={handleRunSimulation}
+      organizationId={organizationId}
+      parsedData={parsedData}
+      selectedRows={selectedRows}
+      validationErrors={validationErrors}
+      validCount={validCount}
+    />
   );
 }

@@ -62,6 +62,55 @@ const COLORS = {
 
 const _STATUS_COLORS = ["#ef4444", "#f59e0b", "#22c55e", "#3b82f6", "#8b5cf6"];
 
+// Custom tick component for wrapped text with proper spacing
+const CustomYAxisTick = ({
+  x,
+  y,
+  payload,
+}: {
+  x: number;
+  y: number;
+  payload: { value: string };
+}) => {
+  const words = payload.value.split(" ");
+  const lines: string[] = [];
+  let currentLine = "";
+
+  // Group words into lines (max ~15 characters per line)
+  for (const word of words) {
+    if (currentLine.length + word.length + 1 <= 15) {
+      currentLine = currentLine ? `${currentLine} ${word}` : word;
+    } else {
+      if (currentLine) {
+        lines.push(currentLine);
+      }
+      currentLine = word;
+    }
+  }
+  if (currentLine) {
+    lines.push(currentLine);
+  }
+
+  return (
+    <g transform={`translate(${x},${y})`}>
+      <text
+        dy={lines.length === 1 ? 4 : -((lines.length - 1) * 6)}
+        fill="#666"
+        fontSize={12}
+        textAnchor="end"
+        x={0}
+        y={0}
+      >
+        {lines.map((line, index) => (
+          <tspan dy={index === 0 ? 0 : 14} key={line} x={0}>
+            {line}
+          </tspan>
+        ))}
+      </text>
+    </g>
+  );
+};
+
 export default function AnalyticsDashboard() {
   const params = useParams();
   const orgId = params.orgId as string;
@@ -235,7 +284,7 @@ export default function AnalyticsDashboard() {
         avgRating: 0,
         totalRating: 0,
       };
-      existing.count++;
+      existing.count += 1;
       existing.totalRating += assessment.rating;
       existing.avgRating = existing.totalRating / existing.count;
       weeklyData.set(weekKey, existing);
@@ -528,8 +577,8 @@ export default function AnalyticsDashboard() {
                     outerRadius={100}
                     paddingAngle={2}
                   >
-                    {statusDistributionData.map((entry, index) => (
-                      <Cell fill={entry.color} key={`cell-${index}`} />
+                    {statusDistributionData.map((entry) => (
+                      <Cell fill={entry.color} key={entry.name} />
                     ))}
                   </Pie>
                   <Tooltip />
@@ -548,18 +597,30 @@ export default function AnalyticsDashboard() {
               Skills where &gt;25% of players are below benchmark
             </CardDescription>
           </CardHeader>
-          <CardContent>
+          <CardContent className="px-2 sm:px-6">
             <div className="h-[300px]">
               {skillsBarData.length > 0 ? (
                 <ResponsiveContainer height="100%" width="100%">
-                  <BarChart data={skillsBarData} layout="vertical">
+                  <BarChart
+                    data={skillsBarData}
+                    layout="vertical"
+                    margin={{ top: 5, right: 10, left: 0, bottom: 5 }}
+                  >
                     <CartesianGrid strokeDasharray="3 3" />
                     <XAxis
                       domain={[0, 100]}
                       tickFormatter={(v) => `${v}%`}
                       type="number"
                     />
-                    <YAxis dataKey="skill" type="category" width={120} />
+                    <YAxis
+                      dataKey="skill"
+                      interval={0}
+                      tick={
+                        <CustomYAxisTick payload={{ value: "" }} x={0} y={0} />
+                      }
+                      type="category"
+                      width={110}
+                    />
                     <Tooltip formatter={(value) => `${value}%`} />
                     <Bar
                       dataKey="belowPercent"

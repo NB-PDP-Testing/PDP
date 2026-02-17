@@ -13,6 +13,7 @@ import {
   Flag,
   GraduationCap,
   Heart,
+  History as HistoryIcon,
   Home,
   Inbox,
   Key,
@@ -191,6 +192,11 @@ export function getAdminNavGroups(
           href: `/orgs/${orgId}/admin/templates`,
           label: "Manage Templates",
           icon: FileSpreadsheet,
+        },
+        {
+          href: `/orgs/${orgId}/import/history`,
+          label: "Import History",
+          icon: HistoryIcon,
         },
         {
           href: `/orgs/${orgId}/admin/player-import`,

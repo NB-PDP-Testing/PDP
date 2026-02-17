@@ -1591,3 +1591,54 @@ export const updateOrganizationLogo = mutation({
     return null;
   },
 });
+
+/**
+ * Generate a logo upload URL for organization creation.
+ *
+ * This is used during the "create organization" flow where no org exists yet,
+ * so we cannot check org membership. Instead, we verify the user is
+ * authenticated and is platform staff (only platform staff can create orgs).
+ *
+ * The uploaded file lives in Convex _storage. The returned storageId is held
+ * in client state and passed to organization.create() as a URL.
+ */
+export const generateLogoUploadUrlForCreation = mutation({
+  args: {},
+  returns: v.string(),
+  handler: async (ctx) => {
+    const user = await authComponent.getAuthUser(ctx);
+    if (!user) {
+      throw new Error("Not authenticated");
+    }
+
+    // Only platform staff can create organizations
+    if (!user.isPlatformStaff) {
+      throw new Error(
+        "Only platform staff can upload logos for new organizations"
+      );
+    }
+
+    return await ctx.storage.generateUploadUrl();
+  },
+});
+
+/**
+ * Get the public URL for a Convex storage ID.
+ *
+ * Used during org creation to convert a storageId (from file upload)
+ * into a public URL that can be passed to Better Auth's organization.create().
+ */
+export const getStorageUrl = mutation({
+  args: {
+    storageId: v.id("_storage"),
+  },
+  returns: v.union(v.string(), v.null()),
+  handler: async (ctx, args) => {
+    const user = await authComponent.getAuthUser(ctx);
+    if (!user) {
+      throw new Error("Not authenticated");
+    }
+
+    return await ctx.storage.getUrl(args.storageId);
+  },
+});

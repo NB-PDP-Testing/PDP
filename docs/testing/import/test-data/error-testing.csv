@@ -1,0 +1,11 @@
+First Name,Last Name,Date of Birth,Gender,Parent Email,Parent Phone
+Valid,Player,2015-01-10,Male,valid@example.com,0871234567
+Missing,DOB,,Female,missing.dob@example.com,0872345678
+Invalid,Date,2015-13-45,Male,invalid.date@example.com,0873456789
+,MissingFirstName,2015-02-15,Female,missing.first@example.com,0874567890
+MissingLastName,,2015-03-20,Male,missing.last@example.com,0875678901
+Valid,Player2,2014-06-10,Female,valid2@example.com,0876789012
+Invalid,Gender,2015-04-25,Unknown,invalid.gender@example.com,0877890123
+Future,Date,2030-01-01,Male,future@example.com,0878901234
+Too,Young,2024-01-01,Female,too.young@example.com,0879012345
+Valid,Player3,2014-09-15,Male,valid3@example.com,0870123456

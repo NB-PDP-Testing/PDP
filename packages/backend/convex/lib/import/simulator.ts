@@ -1,367 +1,236 @@
-/**
- * Import Simulator - Query-only dry run for import preview.
- *
- * Replicates the 5-phase import logic from batchImportPlayersWithIdentity
- * as a read-only query, returning accurate preview statistics without
- * writing to the database.
- *
- * This solves C2: the PRD's original approach of "replacing ctx.db.insert
- * with preview ID generation" is infeasible in Convex because:
- * - Intra-batch dedup breaks (second sibling's guardian won't be found)
- * - Convex mutations either fully commit or fully reject; no rollback
- * - Mock IDs break downstream relational queries
- *
- * A query function is inherently read-only in Convex, making it safe.
- */
-
-import type { Id } from "../../_generated/dataModel";
-import type { QueryCtx } from "../../_generated/server";
+import type { GenericDatabaseReader } from "convex/server";
+import type { DataModel } from "../../_generated/dataModel";
 import { calculateAge } from "../../models/playerIdentities";
 
 // ============================================================
 // Types
 // ============================================================
 
-type SimulationPlayer = {
+export type Db = GenericDatabaseReader<DataModel>;
+
+export type PlayerInput = {
   firstName: string;
   lastName: string;
   dateOfBirth: string;
   gender: "male" | "female" | "other";
   ageGroup: string;
   season: string;
-  address?: string;
-  town?: string;
-  postcode?: string;
-  country?: string;
   parentFirstName?: string;
   parentLastName?: string;
   parentEmail?: string;
   parentPhone?: string;
-  parentRelationship?: string;
 };
 
-export type SimulationSettings = {
-  organizationId: string;
-  sportCode?: string;
-  selectedRowIndices?: number[];
-  applyBenchmarks?: boolean;
-  benchmarkStrategy?: string;
+export type SimSummary = {
+  playersToCreate: number;
+  playersToUpdate: number;
+  guardiansToCreate: number;
+  guardiansToLink: number;
+  enrollmentsToCreate: number;
+  passportsToCreate: number;
+  benchmarksToApply: number;
 };
 
-type PlayerPreview = {
-  index: number;
+export type PlayerPreview = {
   name: string;
   dateOfBirth: string;
+  age: number;
   ageGroup: string;
+  gender: string;
   action: "create" | "update";
-  guardianAction?: "create" | "link_existing" | "none";
   guardianName?: string;
-  enrollmentAction: "create" | "update";
-  passportAction?: "create" | "exists" | "none";
+  guardianAction?: "create" | "link";
 };
 
-export type SimulationResult = {
-  success: boolean;
-  preview: {
-    playersToCreate: number;
-    playersToUpdate: number;
-    guardiansToCreate: number;
-    guardiansToLink: number;
-    enrollmentsToCreate: number;
-    enrollmentsToUpdate: number;
-    passportsToCreate: number;
-    passportsExisting: number;
-    benchmarksToApply: number;
-    playerPreviews: PlayerPreview[];
-  };
-  warnings: string[];
-  errors: string[];
+export type PlayerAnalysis = {
+  age: number;
+  action: "create" | "update";
+  newEnrollment: boolean;
+  newPassport: boolean;
+  guardian: { name: string; action: "create" | "link" } | null;
+  warning: string | null;
 };
 
 // ============================================================
-// Simulator
+// Helper Functions
 // ============================================================
 
-/**
- * Simulate an import without writing to the database.
- *
- * Runs the same logic as batchImportPlayersWithIdentity but only
- * reads existing records to predict create vs update outcomes.
- */
-export async function simulateImport(
-  ctx: QueryCtx,
-  players: SimulationPlayer[],
-  settings: SimulationSettings
-): Promise<SimulationResult> {
-  const warnings: string[] = [];
-  const errors: string[] = [];
-  const playerPreviews: PlayerPreview[] = [];
+export function parsePlayerAge(
+  player: PlayerInput
+): { age: number } | { error: string } {
+  try {
+    const age = calculateAge(player.dateOfBirth);
+    if (Number.isNaN(age) || age < 0 || age > 120) {
+      return {
+        error: `${player.firstName} ${player.lastName}: Invalid date of birth "${player.dateOfBirth}"`,
+      };
+    }
+    return { age };
+  } catch {
+    return {
+      error: `${player.firstName} ${player.lastName}: Cannot parse date of birth "${player.dateOfBirth}"`,
+    };
+  }
+}
 
-  let playersToCreate = 0;
-  let playersToUpdate = 0;
-  let guardiansToCreate = 0;
-  let guardiansToLink = 0;
-  let enrollmentsToCreate = 0;
-  let enrollmentsToUpdate = 0;
-  let passportsToCreate = 0;
-  let passportsExisting = 0;
-  let benchmarksToApply = 0;
+export async function analyzeGuardian(
+  db: Db,
+  player: PlayerInput
+): Promise<{ name: string; action: "create" | "link" } | null> {
+  const hasInfo =
+    player.parentFirstName &&
+    player.parentLastName &&
+    (player.parentEmail || player.parentPhone);
 
-  // Apply row selection filter
-  const selectedSet = settings.selectedRowIndices
-    ? new Set(settings.selectedRowIndices)
-    : null;
-  const playersToImport = selectedSet
-    ? players.filter((_, idx) => selectedSet.has(idx))
-    : players;
+  if (!hasInfo) {
+    return null;
+  }
 
-  // Track guardians we've "seen" in this simulation to handle
-  // intra-batch dedup (e.g. siblings sharing same parent email)
-  const simulatedGuardianEmails = new Set<string>();
+  const name = `${player.parentFirstName} ${player.parentLastName}`;
+  const emailLower = player.parentEmail?.toLowerCase().trim();
 
-  // ========== PHASE 1: CHECK PLAYER IDENTITIES ==========
+  if (emailLower) {
+    const existing = await db
+      .query("guardianIdentities")
+      .withIndex("by_email", (q) => q.eq("email", emailLower))
+      .first();
 
-  // Batch-fetch existing player identities for all players
-  const existingPlayers = await Promise.all(
-    playersToImport.map((p) =>
-      ctx.db
-        .query("playerIdentities")
-        .withIndex("by_name_dob", (q) =>
-          q
-            .eq("firstName", p.firstName.trim())
-            .eq("lastName", p.lastName.trim())
-            .eq("dateOfBirth", p.dateOfBirth)
-        )
-        .first()
-    )
-  );
-
-  // Map of simulation index -> existing player identity ID (if found)
-  const playerIdentityMap = new Map<number, Id<"playerIdentities">>();
-
-  for (let i = 0; i < playersToImport.length; i += 1) {
-    const existing = existingPlayers[i];
     if (existing) {
-      playerIdentityMap.set(i, existing._id);
-      playersToUpdate += 1;
-    } else {
-      playersToCreate += 1;
+      return { name, action: "link" };
     }
   }
 
-  // ========== PHASE 2 & 3: CHECK GUARDIANS ==========
+  return { name, action: "create" };
+}
 
-  for (let i = 0; i < playersToImport.length; i += 1) {
-    const playerData = playersToImport[i];
-    const age = calculateAge(playerData.dateOfBirth);
+export async function analyzeExistingPlayer(
+  db: Db,
+  existingPlayerId: string,
+  organizationId: string,
+  sportCode: string | undefined
+): Promise<{ newEnrollment: boolean; newPassport: boolean }> {
+  const enrollment = await db
+    .query("orgPlayerEnrollments")
+    .withIndex("by_player_and_org", (q) =>
+      q
+        .eq("playerIdentityId", existingPlayerId as never)
+        .eq("organizationId", organizationId)
+    )
+    .first();
 
-    // Only youth players get guardian processing
-    if (age >= 18) {
-      continue;
-    }
-
-    const hasExplicitParent =
-      playerData.parentFirstName && playerData.parentLastName;
-    const parentEmail = playerData.parentEmail?.toLowerCase().trim();
-
-    if (!(hasExplicitParent || parentEmail)) {
-      continue;
-    }
-
-    let guardianAction: "create" | "link_existing" | "none" = "none";
-    let guardianName: string | undefined;
-
-    if (parentEmail) {
-      // Check if guardian already exists in DB
-      const existingGuardian = await ctx.db
-        .query("guardianIdentities")
-        .withIndex("by_email", (q) => q.eq("email", parentEmail))
-        .first();
-
-      if (existingGuardian) {
-        guardianAction = "link_existing";
-        guardianName = `${existingGuardian.firstName} ${existingGuardian.lastName}`;
-        guardiansToLink += 1;
-      } else if (simulatedGuardianEmails.has(parentEmail)) {
-        // Already "created" in this batch (sibling scenario)
-        guardianAction = "link_existing";
-        guardianName = hasExplicitParent
-          ? `${playerData.parentFirstName} ${playerData.parentLastName}`
-          : undefined;
-        guardiansToLink += 1;
-      } else {
-        guardianAction = "create";
-        guardianName = hasExplicitParent
-          ? `${playerData.parentFirstName} ${playerData.parentLastName}`
-          : undefined;
-        simulatedGuardianEmails.add(parentEmail);
-        guardiansToCreate += 1;
-      }
-    } else if (hasExplicitParent) {
-      // No email — will create a new guardian (can't dedup without email)
-      guardianAction = "create";
-      guardianName = `${playerData.parentFirstName} ${playerData.parentLastName}`;
-      guardiansToCreate += 1;
-      warnings.push(
-        `Guardian for ${playerData.firstName} ${playerData.lastName} has no email — cannot deduplicate`
-      );
-    }
-
-    // Store for preview
-    const previewIdx = playerPreviews.findIndex((p) => p.index === i);
-    if (previewIdx !== -1) {
-      playerPreviews[previewIdx].guardianAction = guardianAction;
-      playerPreviews[previewIdx].guardianName = guardianName;
-    }
-  }
-
-  // ========== PHASE 4: CHECK ENROLLMENTS ==========
-
-  for (let i = 0; i < playersToImport.length; i += 1) {
-    const playerData = playersToImport[i];
-    const playerIdentityId = playerIdentityMap.get(i);
-
-    let enrollmentAction: "create" | "update" = "create";
-
-    if (playerIdentityId) {
-      const existingEnrollment = await ctx.db
-        .query("orgPlayerEnrollments")
-        .withIndex("by_player_and_org", (q) =>
-          q
-            .eq("playerIdentityId", playerIdentityId)
-            .eq("organizationId", settings.organizationId)
-        )
-        .first();
-
-      if (existingEnrollment) {
-        enrollmentAction = "update";
-        enrollmentsToUpdate += 1;
-      } else {
-        enrollmentsToCreate += 1;
-      }
-    } else {
-      // New player = new enrollment
-      enrollmentsToCreate += 1;
-    }
-
-    // ========== PHASE 4b: CHECK SPORT PASSPORTS ==========
-
-    let passportAction: "create" | "exists" | "none" = "none";
-
-    const sportCodeForPassport = settings.sportCode;
-    if (sportCodeForPassport && playerIdentityId) {
-      const existingPassport = await ctx.db
-        .query("sportPassports")
-        .withIndex("by_player_and_sport", (q) =>
-          q
-            .eq("playerIdentityId", playerIdentityId)
-            .eq("sportCode", sportCodeForPassport)
-        )
-        .first();
-
-      if (existingPassport) {
-        passportAction = "exists";
-        passportsExisting += 1;
-      } else {
-        passportAction = "create";
-        passportsToCreate += 1;
-      }
-    } else if (settings.sportCode && !playerIdentityId) {
-      // New player with sport = new passport
-      passportAction = "create";
-      passportsToCreate += 1;
-    }
-
-    // Build preview entry
-    const age = calculateAge(playerData.dateOfBirth);
-    playerPreviews.push({
-      index: selectedSet ? Array.from(selectedSet)[i] : i,
-      name: `${playerData.firstName} ${playerData.lastName}`,
-      dateOfBirth: playerData.dateOfBirth,
-      ageGroup: playerData.ageGroup,
-      action: playerIdentityId ? "update" : "create",
-      enrollmentAction,
-      passportAction,
-      guardianAction: age < 18 ? undefined : "none", // Filled in Phase 2/3 for youth
-    });
-  }
-
-  // ========== PHASE 5: ESTIMATE BENCHMARKS ==========
-
-  const sportCodeForBenchmarks = settings.sportCode;
-  if (settings.applyBenchmarks && sportCodeForBenchmarks) {
-    const skillDefs = await ctx.db
-      .query("skillDefinitions")
-      .withIndex("by_sportCode", (q) =>
-        q.eq("sportCode", sportCodeForBenchmarks)
+  let newPassport = false;
+  if (sportCode) {
+    const passport = await db
+      .query("sportPassports")
+      .withIndex("by_player_and_sport", (q) =>
+        q
+          .eq("playerIdentityId", existingPlayerId as never)
+          .eq("sportCode", sportCode)
       )
-      .collect();
-
-    const activeSkillCount = skillDefs.filter((s) => s.isActive).length;
-
-    // Each new passport gets benchmarks; existing passports may already have them
-    const passportsNeedingBenchmarks = passportsToCreate;
-    benchmarksToApply = passportsNeedingBenchmarks * activeSkillCount;
-
-    // Also check existing passports that might not have assessments yet
-    for (let i = 0; i < playersToImport.length; i += 1) {
-      const playerIdentityId = playerIdentityMap.get(i);
-      if (!playerIdentityId) {
-        continue;
-      }
-
-      const existingPassport = await ctx.db
-        .query("sportPassports")
-        .withIndex("by_player_and_sport", (q) =>
-          q
-            .eq("playerIdentityId", playerIdentityId)
-            .eq("sportCode", sportCodeForBenchmarks)
-        )
-        .first();
-
-      if (existingPassport) {
-        // Check if import assessments already exist
-        const existingAssessments = await ctx.db
-          .query("skillAssessments")
-          .withIndex("by_type", (q) =>
-            q
-              .eq("passportId", existingPassport._id)
-              .eq("assessmentType", "import")
-          )
-          .collect();
-
-        if (existingAssessments.length === 0) {
-          benchmarksToApply += activeSkillCount;
-        }
-      }
-    }
+      .first();
+    newPassport = !passport;
   }
 
-  // Update guardian info on youth player previews
-  // (Phase 2/3 processing happens before previews are built for enrollments,
-  // so we merge guardian info into the final previews here)
-  for (let i = 0; i < playersToImport.length; i += 1) {
-    const age = calculateAge(playersToImport[i].dateOfBirth);
-    if (age < 18 && playerPreviews[i] && !playerPreviews[i].guardianAction) {
-      playerPreviews[i].guardianAction = "none";
-    }
+  return { newEnrollment: !enrollment, newPassport };
+}
+
+export function checkDuplicateInBatch(
+  player: PlayerInput,
+  seenNames: Map<string, number>
+): string | null {
+  const nameKey = `${player.firstName.trim().toLowerCase()}|${player.lastName.trim().toLowerCase()}|${player.dateOfBirth}`;
+  const prevCount = seenNames.get(nameKey) ?? 0;
+  seenNames.set(nameKey, prevCount + 1);
+  if (prevCount > 0) {
+    return `${player.firstName} ${player.lastName} (DOB: ${player.dateOfBirth}) appears ${prevCount + 1} times in the import`;
+  }
+  return null;
+}
+
+export function validatePlayerFields(player: PlayerInput): string | null {
+  if (!(player.firstName.trim() && player.lastName.trim())) {
+    return `Row with empty name: "${player.firstName} ${player.lastName}"`;
+  }
+  if (!player.dateOfBirth.trim()) {
+    return `${player.firstName} ${player.lastName}: Missing date of birth`;
+  }
+  return null;
+}
+
+export async function analyzePlayer(
+  db: Db,
+  player: PlayerInput,
+  organizationId: string,
+  sportCode: string | undefined
+): Promise<PlayerAnalysis | { error: string }> {
+  const ageResult = parsePlayerAge(player);
+  if ("error" in ageResult) {
+    return ageResult;
+  }
+  const { age } = ageResult;
+
+  const existingPlayer = await db
+    .query("playerIdentities")
+    .withIndex("by_name_dob", (q) =>
+      q
+        .eq("firstName", player.firstName.trim())
+        .eq("lastName", player.lastName.trim())
+        .eq("dateOfBirth", player.dateOfBirth)
+    )
+    .first();
+
+  let newEnrollment: boolean;
+  let newPassport: boolean;
+  const action: "create" | "update" = existingPlayer ? "update" : "create";
+
+  if (existingPlayer) {
+    const ep = await analyzeExistingPlayer(
+      db,
+      existingPlayer._id,
+      organizationId,
+      sportCode
+    );
+    newEnrollment = ep.newEnrollment;
+    newPassport = ep.newPassport;
+  } else {
+    newEnrollment = true;
+    newPassport = !!sportCode;
   }
 
-  return {
-    success: errors.length === 0,
-    preview: {
-      playersToCreate,
-      playersToUpdate,
-      guardiansToCreate,
-      guardiansToLink,
-      enrollmentsToCreate,
-      enrollmentsToUpdate,
-      passportsToCreate,
-      passportsExisting,
-      benchmarksToApply,
-      playerPreviews,
-    },
-    warnings,
-    errors,
-  };
+  const guardian = await analyzeGuardian(db, player);
+
+  const warning =
+    age >= 18 && player.ageGroup.toLowerCase().startsWith("u")
+      ? `${player.firstName} ${player.lastName}: Adult (age ${age}) assigned to youth age group "${player.ageGroup}"`
+      : null;
+
+  return { age, action, newEnrollment, newPassport, guardian, warning };
+}
+
+export function accumulateResult(
+  summary: SimSummary,
+  result: PlayerAnalysis,
+  applyBenchmarks: boolean
+) {
+  if (result.action === "update") {
+    summary.playersToUpdate += 1;
+  } else {
+    summary.playersToCreate += 1;
+  }
+  if (result.newEnrollment) {
+    summary.enrollmentsToCreate += 1;
+  }
+  if (result.newPassport) {
+    summary.passportsToCreate += 1;
+  }
+  if (result.guardian) {
+    if (result.guardian.action === "link") {
+      summary.guardiansToLink += 1;
+    } else {
+      summary.guardiansToCreate += 1;
+    }
+  }
+  if (applyBenchmarks) {
+    summary.benchmarksToApply += 1;
+  }
 }

@@ -1,6 +1,6 @@
 # PlayerARC - Phase 1.3: Import Frontend Wizard & Integration
 
-> Auto-generated documentation - Last updated: 2026-02-12 19:41
+> Auto-generated documentation - Last updated: 2026-02-13 20:16
 
 ## Status
 

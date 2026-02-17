@@ -32,10 +32,10 @@ export type BatchValidationResult = {
 // Top-level regex constants
 // ============================================================
 
-const EMAIL_REGEX = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
-const PHONE_REGEX = /^[+]?[\d\s()-]{7,20}$/;
-const DATE_SLASH_REGEX = /^(\d{1,2})[/-](\d{1,2})[/-](\d{2,4})$/;
-const DATE_ISO_REGEX = /^\d{4}-\d{2}-\d{2}$/;
+export const EMAIL_REGEX = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+export const PHONE_REGEX = /^[+]?[\d\s()-]{7,20}$/;
+export const DATE_SLASH_REGEX = /^(\d{1,2})[/-](\d{1,2})[/-](\d{2,4})$/;
+export const DATE_ISO_REGEX = /^\d{4}-\d{2}-\d{2}$/;
 const GENDER_MALE_REGEX = /^(m|male|boy)$/i;
 const GENDER_FEMALE_REGEX = /^(f|female|girl)$/i;
 const GENDER_OTHER_REGEX = /^(other|non-binary|nonbinary|nb|x)$/i;
@@ -58,7 +58,12 @@ const EMAIL_TYPO_FIXES: Record<string, string> = {
 };
 
 // Required fields for a valid import row
-const REQUIRED_FIELDS = ["firstName", "lastName", "dateOfBirth", "gender"];
+export const REQUIRED_FIELDS = [
+  "firstName",
+  "lastName",
+  "dateOfBirth",
+  "gender",
+];
 
 // Field category sets for auto-fix routing
 const EMAIL_FIELDS = new Set(["email", "parentEmail", "parent2Email"]);
@@ -343,6 +348,31 @@ function titleCase(str: string): string {
       if (word.length === 0) {
         return word;
       }
+
+      const lower = word.toLowerCase();
+
+      // Handle Irish O' prefix (O'Connor, O'Brien, etc.)
+      if (word.length > 2 && word[1] === "'") {
+        return (
+          word[0].toUpperCase() +
+          "'" +
+          word[2].toUpperCase() +
+          word.slice(3).toLowerCase()
+        );
+      }
+
+      // Handle Irish Mac prefix (MacDonald, MacLeod, etc.)
+      // Check Mac before Mc since "mac" starts with "mc"
+      if (word.length > 3 && lower.startsWith("mac")) {
+        return `Mac${word[3].toUpperCase()}${word.slice(4).toLowerCase()}`;
+      }
+
+      // Handle Irish Mc prefix (McCarthy, McConnell, etc.)
+      if (word.length > 2 && lower.startsWith("mc")) {
+        return `Mc${word[2].toUpperCase()}${word.slice(3).toLowerCase()}`;
+      }
+
+      // Standard title case
       return word[0].toUpperCase() + word.slice(1).toLowerCase();
     })
     .join(" ");

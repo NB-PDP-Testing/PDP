@@ -166,4 +166,20 @@ crons.daily(
   {}
 );
 
+// Phase 2.3: Clean up expired import wizard drafts daily at 4 AM UTC
+crons.daily(
+  "cleanup-expired-import-drafts",
+  { hourUTC: 4, minuteUTC: 0 },
+  internal.models.importSessionDrafts.cleanupExpiredDrafts,
+  {}
+);
+
+// Phase 3.2: Clean up incomplete import sessions older than 48 hours daily at 4:30 AM UTC
+crons.daily(
+  "cleanup-expired-incomplete-sessions",
+  { hourUTC: 4, minuteUTC: 30 },
+  internal.models.importSessions.cleanupExpiredIncompleteSessions,
+  {}
+);
+
 export default crons;

@@ -1,6 +1,6 @@
 # UAT Test: US-P1.3-009 - Add import link to admin navigation
 
-> Auto-generated: 2026-02-12 19:38
+> Auto-generated: 2026-02-13 20:16
 > Status: ⏳ Pending Execution
 
 ## Story

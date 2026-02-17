@@ -189,10 +189,6 @@ export const cloneTemplate = mutation({
     templateId: v.id("importTemplates"),
     newName: v.string(),
     createdBy: v.string(),
-    scope: v.optional(
-      v.union(v.literal("platform"), v.literal("organization"))
-    ),
-    organizationId: v.optional(v.string()),
   },
   returns: v.id("importTemplates"),
   handler: async (ctx, args) => {
@@ -207,8 +203,8 @@ export const cloneTemplate = mutation({
       description: existing.description,
       sportCode: existing.sportCode,
       sourceType: existing.sourceType,
-      scope: args.scope ?? existing.scope,
-      organizationId: args.organizationId ?? existing.organizationId,
+      scope: existing.scope,
+      organizationId: existing.organizationId,
       columnMappings: existing.columnMappings,
       ageGroupMappings: existing.ageGroupMappings,
       skillInitialization: existing.skillInitialization,
@@ -251,33 +247,32 @@ export const listTemplates = query({
   },
   returns: v.array(templateReturnValidator),
   handler: async (ctx, args) => {
-    // Use composite indexes that include isActive to avoid .filter()
+    // Use the composite scope+sport index when sportCode is provided
     if (args.sportCode) {
-      return await ctx.db
+      const templates = await ctx.db
         .query("importTemplates")
-        .withIndex("by_scope_sport_and_isActive", (q) =>
-          q
-            .eq("scope", args.scope)
-            .eq("sportCode", args.sportCode)
-            .eq("isActive", true)
+        .withIndex("by_scope_and_sport", (q) =>
+          q.eq("scope", args.scope).eq("sportCode", args.sportCode)
         )
         .collect();
+      return templates.filter((t) => t.isActive);
     }
 
+    // Use scope-only index when no sportCode filter
     if (args.scope === "organization" && args.organizationId) {
-      return await ctx.db
+      const templates = await ctx.db
         .query("importTemplates")
-        .withIndex("by_organizationId_and_isActive", (q) =>
-          q.eq("organizationId", args.organizationId).eq("isActive", true)
+        .withIndex("by_organizationId", (q) =>
+          q.eq("organizationId", args.organizationId)
         )
         .collect();
+      return templates.filter((t) => t.isActive);
     }
 
-    return await ctx.db
+    const templates = await ctx.db
       .query("importTemplates")
-      .withIndex("by_scope_and_isActive", (q) =>
-        q.eq("scope", args.scope).eq("isActive", true)
-      )
+      .withIndex("by_scope", (q) => q.eq("scope", args.scope))
       .collect();
+    return templates.filter((t) => t.isActive);
   },
 });

@@ -32,6 +32,28 @@ export default function VoiceMonitoringOverviewPage() {
     isPlatformStaff ? {} : "skip"
   );
 
+  // Query 4: Active artifacts (for accurate count)
+  const activeArtifactsResult = useQuery(
+    api.models.voicePipelineEvents.getActiveArtifacts,
+    isPlatformStaff
+      ? { paginationOpts: { numItems: 100, cursor: null } }
+      : "skip"
+  );
+
+  // Query 5: Historical metrics (for latency calculation - last 24 hours)
+  const now = Date.now();
+  const twentyFourHoursAgo = now - 24 * 60 * 60 * 1000;
+  const historicalMetrics = useQuery(
+    api.models.voicePipelineMetrics.getHistoricalMetrics,
+    isPlatformStaff
+      ? {
+          periodType: "hourly" as const,
+          startTime: twentyFourHoursAgo,
+          endTime: now,
+        }
+      : "skip"
+  );
+
   return (
     <div className="container mx-auto space-y-6 px-4 py-6">
       {/* Section 1: Pipeline Flow Graph */}
@@ -45,7 +67,13 @@ export default function VoiceMonitoringOverviewPage() {
       </Card>
 
       {/* Section 2: Status Cards */}
-      <StatusCards alerts={activeAlerts} metrics={realTimeMetrics} />
+      <StatusCards
+        activeArtifacts={activeArtifactsResult?.page as any}
+        alerts={activeAlerts}
+        historicalMetrics={historicalMetrics}
+        metrics={realTimeMetrics}
+        recentEvents={recentEvents?.page as any}
+      />
 
       {/* Section 3: Activity Feed */}
       <Card>

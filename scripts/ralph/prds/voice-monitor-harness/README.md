@@ -2,8 +2,8 @@
 
 **Project**: Voice Notes Performance Monitoring & Insights Tooling
 **Issue**: [#495 - Voice Notes Performance Harness / Monitoring Tooling](https://github.com/NB-PDP-Testing/PDP/issues/495)
-**Branch**: `feat/voice-monitor-harness`
-**Status**: Planning Complete - Ready for Ralph Execution
+**Branch**: `ralph/voice-monitor-harness`
+**Status**: M1-M5 Complete ✅ | M6-M9 Ready for Execution
 
 ---
 
@@ -33,19 +33,21 @@ Think of this as "observability for voice notes" - the same way DataDog/New Reli
 4. ❌ **Can't assess model quality** - No metrics on claim accuracy, resolution success
 5. ❌ **No proactive monitoring** - Issues discovered reactively when users complain
 
-### Solution: 7-Phase Monitoring Harness
+### Solution: 9-Phase Monitoring Harness
 
-| Phase | Name | Duration | Key Deliverables |
-|-------|------|----------|------------------|
-| **1** | MVP - Data Capture & Basic Views | 4-5 days | Event tables, list view, drill-down timeline |
-| **2** | Flow Visualization | 3-4 days | Sankey diagram, timeline view, interactive drill-down |
-| **3** | Performance Metrics & Analytics | 4-5 days | Cost tracking, success rates, quality metrics |
-| **4** | Admin Dashboard UI | 5-6 days | Real-time dashboard at `/platform/voice-monitor` |
-| **5** | Alerts & Monitoring | 3-4 days | Alert config, visual indicators, degradation detection |
-| **6** | Model Performance & A/B Testing | 4-5 days | Model metrics, variant comparison, cohort analysis |
-| **7** | Advanced Features | 4-5 days | Interactive retry, historical analysis, export |
+| Phase | Name | Duration | Status | Key Deliverables |
+|-------|------|----------|--------|------------------|
+| **M1** | Backend Instrumentation | 4-5 days | ✅ Complete | Event tables, logging infrastructure, pipeline instrumentation |
+| **M2** | Metrics & Aggregation | 3-4 days | ✅ Complete | Hourly/daily snapshots, real-time counters, metrics queries |
+| **M3** | Retry Operations | 2-3 days | ✅ Complete | Manual retry mutations, audit logging, retry tracking |
+| **M4** | Pipeline Alerts | 2-3 days | ✅ Complete | Health check cron, anomaly detection, alert queries |
+| **M5** | Dashboard UI | 4-5 days | ✅ Complete | Main dashboard, flow graph, status cards, activity feed |
+| **M6** | Artifacts Grid & Detail | 4-5 days | 🚧 Next | Artifacts grid, detail page, subsume v2-claims |
+| **M7** | Metrics & Events Pages | 3-4 days | ⏳ Pending | Historical metrics, event log viewer, CSS charts |
+| **M8** | Pipeline View & Alerts UI | 3-4 days | ⏳ Pending | Expanded flow graph, alerts management, drill-down |
+| **M9** | Cleanup & Polish | 2-3 days | ⏳ Pending | Remove v2-claims, E2E tests, mobile responsive, performance |
 
-**Total**: 27-33 days for complete harness
+**Total**: 28-34 days | **Progress**: 5/9 phases complete (56%)
 
 ---
 

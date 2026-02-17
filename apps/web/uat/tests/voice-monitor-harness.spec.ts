@@ -204,7 +204,7 @@ test.describe("Voice Monitor Harness - M5 Dashboard", () => {
     await expect(flowGraphs.first()).toBeVisible({ timeout: 10000 });
 
     // Verify at least one pipeline stage is shown (e.g., "Ingestion")
-    await expect(page.getByText("Ingestion")).toBeVisible();
+    await expect(page.getByText("Ingestion").first()).toBeVisible();
   });
 
   test("US-VNM-008: Dashboard shows all 6 status cards", async ({ ownerPage }) => {
@@ -247,8 +247,8 @@ test.describe("Voice Monitor Harness - M5 Dashboard", () => {
     expect(await twentyFourHourLabels.count()).toBeGreaterThanOrEqual(1);
 
     // Verify circuit breaker status shows "Closed" or "Open" (not "--")
-    const circuitBreakerCard = page.locator('text=AI Service Status').locator('..');
-    await expect(circuitBreakerCard.getByText(/Closed|Open/)).toBeVisible();
+    // Both values are unique to the AI Service Status card
+    await expect(page.getByText("Closed").or(page.getByText("Open"))).toBeVisible();
   });
 
   test("US-VNM-008: Activity feed shows recent events", async ({ ownerPage }) => {
@@ -282,7 +282,9 @@ test.describe("Voice Monitor Harness - M5 Dashboard", () => {
 
     await page.goto("/platform/voice-monitoring");
     await page.waitForLoadState("networkidle");
-    await page.waitForTimeout(2000);
+
+    // Wait for skeleton to disappear and cards to load
+    await page.waitForTimeout(3000);
 
     // Verify page doesn't have horizontal scroll
     const hasHorizontalScroll = await page.evaluate(() => {
@@ -294,9 +296,9 @@ test.describe("Voice Monitor Harness - M5 Dashboard", () => {
     const cards = page.locator('[class*="grid"]').first();
     await expect(cards).toBeVisible();
 
-    // Verify all 6 cards are still visible
-    await expect(page.getByText("Active Artifacts")).toBeVisible();
-    await expect(page.getByText("Total Cost Today")).toBeVisible();
+    // Verify all 6 cards are still visible (with longer timeout for mobile rendering)
+    await expect(page.getByText("Active Artifacts")).toBeVisible({ timeout: 10000 });
+    await expect(page.getByText("Total Cost Today")).toBeVisible({ timeout: 10000 });
   });
 
   test("US-VNM-008: Non-platform staff cannot access dashboard", async ({ coachPage }) => {
@@ -304,7 +306,9 @@ test.describe("Voice Monitor Harness - M5 Dashboard", () => {
 
     // Try to access voice monitoring dashboard as coach (non-platform staff)
     await page.goto("/platform/voice-monitoring");
-    await page.waitForLoadState("networkidle");
+
+    // Wait for redirect to complete (useEffect redirect is async)
+    await page.waitForURL((url) => !url.pathname.includes("/voice-monitoring"), { timeout: 10000 });
 
     // Verify redirect away from voice-monitoring (coach gets redirected to their dashboard)
     expect(page.url()).not.toContain("/voice-monitoring");

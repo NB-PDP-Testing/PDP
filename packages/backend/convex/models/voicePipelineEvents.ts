@@ -255,8 +255,14 @@ export const getRecentEvents = query({
     page: v.array(v.any()), // Full event objects
     isDone: v.boolean(),
     continueCursor: v.string(),
-    pageStatus: v.union(v.literal("SplitRecommended"), v.null()),
-    splitCursor: v.union(v.string(), v.null()),
+    pageStatus: v.optional(
+      v.union(
+        v.literal("SplitRecommended"),
+        v.literal("SplitRequired"),
+        v.null()
+      )
+    ),
+    splitCursor: v.optional(v.union(v.string(), v.null())),
   }),
   handler: async (ctx, args) => {
     // Platform staff authorization
@@ -275,6 +281,8 @@ export const getRecentEvents = query({
       page: unknown[];
       isDone: boolean;
       continueCursor: string;
+      pageStatus?: "SplitRecommended" | "SplitRequired" | null;
+      splitCursor?: string | null;
     };
 
     if (eventType) {

@@ -7,7 +7,7 @@ Started: Mon 16 Feb 2026 19:11:28 GMT
 
 **Project:** Voice Notes v2 Pipeline Monitoring
 **Phases:** M1 → M2 → M3 → M4 → M5 → M6 → M7 → M8 → M9
-**Status:** M5 Dashboard UI (CURRENT PHASE)
+**Status:** M6-M9 Final Implementation (CURRENT PHASE)
 
 ## Completed Phases
 
@@ -17,519 +17,512 @@ Started: Mon 16 Feb 2026 19:11:28 GMT
 | M2 | Metrics & Aggregation | ✅ Complete | M2_LESSONS_LEARNED.md |
 | M3 | Retry Operations | ✅ Complete | M3_LESSONS_LEARNED.md |
 | M4 | Pipeline Alerts | ✅ Complete | M4_LESSONS_LEARNED.md |
-| M5 | Dashboard UI | 🚧 In Progress | See below |
+| M5 | Dashboard UI | ✅ Complete | M5_LESSONS_LEARNED.md |
 
-**Archive:** Full M1-M4 implementation details in `scripts/ralph/archive/progress-archive/progress-full-through-M4.txt`
+**Archive:** Full M1-M5 implementation details in `scripts/ralph/archive/progress-archive/`
 
 ---
 
-## PHASE M5 - Dashboard UI (CURRENT PHASE)
+## PHASE M6-M9 - FINAL IMPLEMENTATION (CURRENT PHASE)
 ## ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
 
 **Phase Start:** 2026-02-17
-**Phase Goal:** Main monitoring dashboard UI with flow graph, real-time status cards, and activity feed
-**PRD:** /Users/neil/Documents/GitHub/PDP/scripts/ralph/prds/voice-monitor-harness/phases/PHASE_M5.json
-**Dependencies:** M1 ✅ | M2 ✅ | M3 ✅ | M4 ✅
+**Phase Goal:** Complete voice monitoring harness with all 8 pages
+**PRD:** /Users/neil/Documents/GitHub/PDP/scripts/ralph/prds/voice-monitor-harness/phases/PHASE_M6_M7_M8_M9.json
+**Dependencies:** M1 ✅ | M2 ✅ | M3 ✅ | M4 ✅ | M5 ✅
 
-### Phase M5 Overview
+### Combined Phases Overview
 
-**What we're building:**
-- Route structure at /platform/voice-monitoring
-- Dashboard overview page with 3 sections:
-  1. Pipeline Flow Graph (5 stages, SVG-based)
-  2. Real-Time Status Cards (6 metrics)
-  3. Recent Activity Feed (last 20 events)
-- Tab navigation layout (8 tabs)
-- Platform staff authorization
-- Real-time Convex subscriptions
+**M6 - Artifacts Grid & Detail** (4-5 days)
+- Artifacts grid view with expandable rows
+- Artifact detail page with event timeline
+- Subsumes v2-claims functionality
+- User Stories: US-VNM-009, US-VNM-010
 
-**Files to create:**
-- /Users/neil/Documents/GitHub/PDP/apps/web/src/app/platform/voice-monitoring/layout.tsx (client component)
-- /Users/neil/Documents/GitHub/PDP/apps/web/src/app/platform/voice-monitoring/page.tsx (client component)
-- /Users/neil/Documents/GitHub/PDP/apps/web/src/app/platform/voice-monitoring/_components/PipelineFlowGraph.tsx
-- /Users/neil/Documents/GitHub/PDP/apps/web/src/app/platform/voice-monitoring/_components/StatusCards.tsx
-- /Users/neil/Documents/GitHub/PDP/apps/web/src/app/platform/voice-monitoring/_components/ActivityFeed.tsx
-- 6 placeholder pages for tabs: artifacts/, metrics/, events/, pipeline/, alerts/, settings/
+**M7 - Metrics & Events Pages** (3-4 days)
+- Historical metrics dashboard with CSS-based charts
+- Raw event log viewer with filters
+- User Stories: US-VNM-011, US-VNM-012
 
-**Files to modify:**
-- /Users/neil/Documents/GitHub/PDP/apps/web/src/app/platform/page.tsx (add Voice Monitoring link, remove v2-claims)
+**M8 - Pipeline View & Alerts UI** (3-4 days)
+- Expanded pipeline visualization with drill-down
+- Alert management interface
+- User Stories: US-VNM-013, US-VNM-014
 
-### US-VNM-008: Build Dashboard Overview UI
+**M9 - Cleanup & Polish** (2-3 days)
+- Remove v2-claims page
+- Final optimizations and E2E testing
+- User Story: US-VNM-015
 
-**Functions to implement:**
+---
 
-1. **layout.tsx** (Client Component)
-   - USE CLIENT directive ('use client')
-   - NOT server component (parent /platform/layout.tsx is client)
-   - useCurrentUser() hook for auth (from context, zero queries)
-   - Redirect to /platform if not platform staff
-   - Tab navigation bar with 8 tabs using Link + usePathname()
-   - Do NOT use shadcn/ui Tabs component (designed for state, not URL routing)
-   - Breadcrumb: Platform > Voice Monitoring
-   - Render {children}
+## IMPLEMENTATION ORDER - EXECUTE SEQUENTIALLY
 
-2. **page.tsx** (Client Component)
-   - USE CLIENT directive ('use client')
-   - Three useQuery calls (ALL at page level):
-     - `api.models.voicePipelineMetrics.getRealTimeMetrics()` with skip pattern
-     - `api.models.voicePipelineEvents.getRecentEvents({ filters: {}, paginationOpts: { numItems: 20, cursor: null } })` with skip
-     - `api.models.voicePipelineAlerts.getActiveAlerts()` with skip
-   - Pass data as props to components (NO queries in components)
-   - Render PipelineFlowGraph, StatusCards, ActivityFeed
-   - Show skeleton loaders while data loading
+### ✅ STEP 1: M6 - Artifacts Grid (US-VNM-009)
+**File:** apps/web/src/app/platform/voice-monitoring/artifacts/page.tsx
 
-3. **PipelineFlowGraph** (Component)
-   - TWO inline SVG variants (horizontal desktop, vertical mobile)
-   - Toggle via Tailwind: `hidden md:block` and `block md:hidden`
-   - 5 pipeline stages with real-time counts
-   - Color logic: green (active), gray (zero), red (failures detected)
-   - ViewBox for responsive scaling
-   - Arrowhead markers in <defs>
-   - Prepared for M8 click-to-navigate (onClick handler stub)
+**What to build:**
+1. Filter bar with inputs for: status dropdown, org search, date range picker, source channel filter, artifactId search
+2. Table with columns: Artifact ID, Status (badge), Source (icon), Coach, Org, Claims Count, Disambig Count, Latency, Cost, Created At, Actions
+3. Expandable rows: Click row → show claims/resolutions/drafts inline (data already loaded, no re-query)
+4. Pagination: MUST use usePaginatedQuery with "Load More" button (cursor-based)
+5. Retry buttons: Only visible for failed artifacts, calls voicePipelineRetry mutations
+6. CSV Export button (optional): Export table data to CSV file
 
-4. **StatusCards** (Component)
-   - Grid of 6 cards with responsive layout: `grid-cols-1 md:grid-cols-2 lg:grid-cols-3`
-   - Query counters by counterType, access currentValue
-   - Card 1: Active Artifacts (Activity icon)
-   - Card 2: Completed Today (CheckCircle icon)
-   - Card 3: Failed Today (XCircle icon, red if > 10%)
-   - Card 4: Avg Latency (Clock icon)
-   - Card 5: AI Service Status (Cpu icon, color by state)
-   - Card 6: Total Cost Today (DollarSign icon)
-   - Each card handles undefined props with inline Skeleton
-
-5. **ActivityFeed** (Component)
-   - List of last 20 events
-   - Relative timestamps using date-fns
-   - Event type icons (mapping provided in implementation guide)
-   - Human-readable messages
-   - Metadata badges
-   - Empty state: "No recent activity"
-   - ScrollArea component from shadcn/ui
-
-6. **Platform Hub Update**
-   - Add Voice Monitoring card with link
-   - Remove v2-claims link (moved to artifacts grid in M6)
-
-### M5 Critical Patterns (READ BEFORE IMPLEMENTING!)
-
-**1. Client Component Pattern (MANDATORY for layout.tsx and page.tsx)**
-
-**CRITICAL:** The parent `/platform/layout.tsx` is a CLIENT component. You CANNOT nest server components inside client layouts.
-
+**CRITICAL PATTERNS:**
 ```typescript
-// ✅ CORRECT: Client component
-"use client";
-
-import { useCurrentUser } from "@/hooks/useCurrentUser";
-
-export default function VoiceMonitoringLayout({ children }) {
-  const { user } = useCurrentUser();
-
-  if (!user?.isPlatformStaff) {
-    redirect("/platform");
-  }
-
-  // Tab navigation with Link + usePathname()
-}
-```
-
-**2. Tab Navigation Pattern (NOT shadcn/ui Tabs)**
-
-**WRONG (PRD suggestion):**
-```typescript
-// ❌ shadcn/ui Tabs for URL routing
-<Tabs defaultValue="overview">
-  <TabsList>
-    <TabsTrigger value="overview">Overview</TabsTrigger>
-  </TabsList>
-  <TabsContent value="overview">{children}</TabsContent>
-</Tabs>
-```
-
-**CORRECT:**
-```typescript
-// ✅ Link + usePathname for URL routing
-"use client";
-import Link from "next/link";
-import { usePathname } from "next/navigation";
-
-const pathname = usePathname();
-const isActive = (path: string) => {
-  if (path === "/platform/voice-monitoring") {
-    return pathname === path;
-  }
-  return pathname.startsWith(path);
-};
-
-<div className="border-b">
-  <nav className="flex space-x-4">
-    <Link
-      href="/platform/voice-monitoring"
-      className={isActive("/platform/voice-monitoring") ? "active" : ""}
-    >
-      Overview
-    </Link>
-    <Link
-      href="/platform/voice-monitoring/artifacts"
-      className={isActive("/platform/voice-monitoring/artifacts") ? "active" : ""}
-    >
-      Artifacts
-    </Link>
-    {/* More tabs... */}
-  </nav>
-</div>
-```
-
-**3. Query Lifting Pattern (MANDATORY)**
-
-**WRONG:**
-```typescript
-// ❌ Queries inside components (N+1 problem)
-function StatusCards() {
-  const metrics = useQuery(api.models.voicePipelineMetrics.getRealTimeMetrics);
-  // ...
-}
-```
-
-**CORRECT:**
-```typescript
-// ✅ Query at page level, pass as props
-function Page() {
-  const metrics = useQuery(
-    api.models.voicePipelineMetrics.getRealTimeMetrics,
-    isStaff ? {} : "skip"
-  );
-
-  return <StatusCards metrics={metrics} />;
-}
-
-function StatusCards({ metrics }) {
-  if (!metrics) return <Skeleton />;
-  // Use metrics
-}
-```
-
-**4. Counter Schema Query Pattern**
-
-**WRONG:**
-```typescript
-// ❌ Accessing non-existent fields
-const completed = metrics.completed;
-```
-
-**CORRECT:**
-```typescript
-// ✅ Query counters by type, access currentValue
-// From M4 lessons: counters have { counterType, currentValue }
-// getRealTimeMetrics already aggregates these for you
-const completed = metrics?.artifactsCompleted1h ?? 0;
-```
-
-**5. Pagination Pattern for Events**
-
-**WRONG:**
-```typescript
-// ❌ usePaginatedQuery (not compatible)
-const events = usePaginatedQuery(api.models.voicePipelineEvents.getRecentEvents, {
-  filters: {},
-  initialNumItems: 20
-});
-```
-
-**CORRECT:**
-```typescript
-// ✅ Regular useQuery with cursor: null
-const eventsResult = useQuery(
+// ✅ CORRECT: Use usePaginatedQuery
+const { results, status, loadMore } = usePaginatedQuery(
   api.models.voicePipelineEvents.getRecentEvents,
-  isStaff ? { filters: {}, paginationOpts: { numItems: 20, cursor: null } } : "skip"
+  { paginationOpts: { numItems: 20, cursor: null }, filters: {} },
+  { initialNumItems: 20 }
 );
 
-const events = eventsResult?.page ?? [];
+// ❌ WRONG: Do NOT use useQuery with .take()
+const events = useQuery(api.models.voicePipelineEvents.getRecentEvents);
+
+// ✅ Expandable rows state
+const [expandedRows, setExpandedRows] = useState<Set<string>>(new Set());
+const toggleRow = (artifactId: string) => {
+  setExpandedRows(prev => {
+    const next = new Set(prev);
+    next.has(artifactId) ? next.delete(artifactId) : next.add(artifactId);
+    return next;
+  });
+};
 ```
 
-**6. Responsive SVG Pattern**
+**V2-Claims Feature Parity Requirements:**
+- ✅ View all claims with status badges (extracted, resolved, needs_disambiguation)
+- ✅ Filter by status, organization, coach, date range
+- ✅ Display claim confidence scores
+- ✅ Show entity resolution candidates
+- ✅ Manual resolution capability (for needs_disambiguation claims)
+- ✅ Expandable claim details (full text, raw text, topic)
+- ✅ Display timestamps (created, resolved)
+- ✅ Sort by confidence, created date
+- ✅ Pagination with load more
 
-**CRITICAL:** Two separate SVG variants for horizontal (desktop) and vertical (mobile) layouts.
+**Components to reuse from v2-claims:**
+- ClaimRow component (migrate, don't duplicate)
+- ResolutionCard component
+- Status badge mappings
 
+**Success Criteria:**
+- [ ] Artifacts grid displays with all filters working
+- [ ] Cursor-based pagination functional (Load More button)
+- [ ] Expandable rows show claims inline (no re-query)
+- [ ] Retry buttons call retry mutations
+- [ ] All v2-claims features present
+
+---
+
+### ✅ STEP 2: M6 - Artifact Detail Page (US-VNM-010)
+**File:** apps/web/src/app/platform/voice-monitoring/artifacts/[artifactId]/page.tsx
+
+**What to build:**
+1. Header section: Artifact ID (large), status badge, source icon, coach name, org name, created/updated timestamps
+2. Vertical event timeline: All events for this artifact in chronological order (use getEventTimeline query)
+3. Event cards: Each event shows type, timestamp, duration, metadata (confidence, counts, costs)
+4. Claims section: Reuse ClaimRow components from grid view, show all claims for artifact
+5. Retry panel: Show retry history, available retry options based on failure state
+6. Breadcrumb: Voice Monitoring > Artifacts > [Artifact ID]
+
+**Event Timeline Pattern:**
 ```typescript
-// ✅ Horizontal (desktop)
-<svg
-  viewBox="0 0 1200 300"
-  className="hidden md:block w-full h-auto"
->
-  {/* Horizontal layout */}
-</svg>
+// Query for event timeline
+const events = useQuery(
+  api.models.voicePipelineEvents.getEventTimeline,
+  artifactId ? { artifactId } : "skip"
+);
 
-// ✅ Vertical (mobile)
-<svg
-  viewBox="0 0 400 900"
-  className="block md:hidden w-full h-auto"
->
-  {/* Vertical layout */}
+// Timeline rendering
+{events?.map((event, index) => (
+  <div key={event._id} className="relative pl-8 pb-8">
+    {/* Vertical line */}
+    {index < events.length - 1 && (
+      <div className="absolute left-2 top-8 bottom-0 w-0.5 bg-gray-300" />
+    )}
+
+    {/* Event dot */}
+    <div className="absolute left-0 top-1 h-4 w-4 rounded-full border-2 bg-white"
+         style={{ borderColor: getEventColor(event.eventType) }} />
+
+    {/* Event card */}
+    <Card>
+      <CardContent className="p-4">
+        <div className="flex items-center gap-2">
+          <Badge>{event.eventType}</Badge>
+          <span className="text-sm text-muted-foreground">
+            {formatTimestamp(event.timestamp)}
+          </span>
+        </div>
+        {/* Event metadata */}
+      </CardContent>
+    </Card>
+  </div>
+))}
+```
+
+**Success Criteria:**
+- [ ] Artifact detail page loads with all sections
+- [ ] Event timeline shows complete history
+- [ ] Event metadata displayed correctly
+- [ ] Claims section functional
+- [ ] Retry panel shows history and options
+- [ ] Breadcrumb navigation works
+
+---
+
+### ✅ STEP 3: M7 - Metrics Dashboard (US-VNM-011)
+**File:** apps/web/src/app/platform/voice-monitoring/metrics/page.tsx
+
+**What to build:**
+1. Time range selector: Buttons for 1h, 6h, 24h, 7d, 30d (updates all charts)
+2. Metric cards: Total Artifacts, Completion Rate, Avg Latency, Total Cost, Auto-Resolution Rate, Disambig Backlog
+3. CSS-based charts (NO external charting library):
+   - Throughput over time (bar chart using div widths)
+   - Latency by stage (stacked bar using nested divs)
+   - Error rate trend (line chart using CSS polygons or divs)
+   - Cost trend (area chart using gradients)
+4. Org breakdown table: Per-org metrics with sorting
+
+**CSS Chart Pattern (from /platform/messaging):**
+```typescript
+// Bar chart example
+{data.map(item => (
+  <div key={item.period} className="flex items-end gap-2">
+    <span className="text-xs">{item.label}</span>
+    <div
+      className="bg-blue-500 rounded-t"
+      style={{
+        width: '40px',
+        height: `${(item.value / maxValue) * 100}px`
+      }}
+    />
+    <span className="text-xs">{item.value}</span>
+  </div>
+))}
+
+// Line chart using SVG path
+<svg viewBox="0 0 400 200">
+  <polyline
+    points={dataPoints.map((p, i) => `${i * 40},${200 - p.value}`).join(' ')}
+    fill="none"
+    stroke="blue"
+    strokeWidth="2"
+  />
 </svg>
 ```
 
-**7. Loading State Pattern**
+**CRITICAL: No external charting libraries**
+- Use CSS, SVG, and div heights only
+- Follow /platform/messaging patterns
+- Keep it simple and fast
 
-**Each component handles own undefined props:**
+**Success Criteria:**
+- [ ] Time range selector updates all charts
+- [ ] 6 metric cards display correctly
+- [ ] 4 CSS-based charts render properly
+- [ ] Org breakdown table functional
+- [ ] No external chart libraries used
+
+---
+
+### ✅ STEP 4: M7 - Events Log Viewer (US-VNM-012)
+**File:** apps/web/src/app/platform/voice-monitoring/events/page.tsx
+
+**What to build:**
+1. Filter bar: Event type dropdown, pipeline stage dropdown, date range, org filter
+2. Event table: Timestamp, Event Type (badge), Artifact ID (link), Org, Pipeline Stage, Duration, Metadata preview, Actions
+3. Expandable event details: Click row → show full metadata JSON
+4. Real-time updates: Auto-refresh every 5s for newest events
+5. Pagination: usePaginatedQuery with cursor-based pagination
+
+**Real-time Pattern:**
 ```typescript
-function StatusCards({ metrics }) {
-  if (!metrics) {
-    return (
-      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
-        {Array.from({ length: 6 }).map((_, i) => (
-          <Card key={i}>
-            <CardContent className="p-6">
-              <Skeleton className="h-20" />
-            </CardContent>
-          </Card>
-        ))}
-      </div>
-    );
+// Auto-refresh for newest events
+useEffect(() => {
+  const interval = setInterval(() => {
+    // Re-query for events newer than latest timestamp
+    refetch();
+  }, 5000);
+  return () => clearInterval(interval);
+}, [refetch]);
+```
+
+**Success Criteria:**
+- [ ] Event log displays with filters
+- [ ] Pagination works (cursor-based)
+- [ ] Expandable event details functional
+- [ ] Real-time updates every 5s
+- [ ] Event filtering works correctly
+
+---
+
+### ✅ STEP 5: M8 - Pipeline View (US-VNM-013)
+**File:** apps/web/src/app/platform/voice-monitoring/pipeline/page.tsx
+
+**What to build:**
+1. Expanded flow graph: Larger version of dashboard flow graph
+2. Stage drill-down: Click stage → modal shows all artifacts at that stage
+3. Drill-down modal implementation:
+   - Use shadcn/ui Dialog component
+   - Query getActiveArtifacts filtered by status for clicked stage
+   - Table columns: Artifact ID, Coach, Org, Time Elapsed, Actions (retry button)
+   - Show latency distribution, error breakdown, retry queue
+4. Active artifacts panel: Cards for in-flight artifacts with progress bars
+5. Show time elapsed per stage, coach/org info, source channel icon
+
+**Stage Drill-down Pattern:**
+```typescript
+const [selectedStage, setSelectedStage] = useState<string | null>(null);
+
+// Map stage to artifact status
+const stageToStatus: Record<string, string> = {
+  'Ingestion': 'received',
+  'Transcription': 'transcribing',
+  'Claims': 'transcribed',
+  'Resolution': 'processing',
+  'Drafts': 'processing'
+};
+
+// Query artifacts for selected stage
+const stageArtifacts = useQuery(
+  api.models.voicePipelineEvents.getActiveArtifacts,
+  selectedStage ? {
+    paginationOpts: { numItems: 100, cursor: null },
+    filters: { status: stageToStatus[selectedStage] }
+  } : "skip"
+);
+
+// Render modal
+<Dialog open={!!selectedStage} onOpenChange={() => setSelectedStage(null)}>
+  <DialogContent>
+    <DialogHeader>
+      <DialogTitle>{selectedStage} - Active Artifacts</DialogTitle>
+    </DialogHeader>
+    {/* Table with artifacts */}
+  </DialogContent>
+</Dialog>
+```
+
+**Success Criteria:**
+- [ ] Expanded flow graph displays
+- [ ] Stage drill-down modal functional
+- [ ] Modal shows artifacts at clicked stage
+- [ ] Active artifacts panel displays
+- [ ] Progress bars and time elapsed shown
+
+---
+
+### ✅ STEP 6: M8 - Alerts Management (US-VNM-014)
+**File:** apps/web/src/app/platform/voice-monitoring/alerts/page.tsx
+
+**What to build:**
+1. Active alerts panel: Cards with severity badges (critical, warning, info), alert message, trigger details
+2. Acknowledge button: Calls acknowledgeAlert mutation, removes from active panel
+3. Alert history table: All alerts with filters (severity, type, date range)
+4. Toast notifications: Show toast for new critical alerts (real-time)
+
+**Toast Notification Pattern:**
+```typescript
+// Track previous alerts for comparison
+const prevAlertsRef = useRef<number>(0);
+
+useEffect(() => {
+  if (!activeAlerts) return;
+
+  // Check for new critical alerts
+  const criticalAlerts = activeAlerts.filter(a =>
+    a.severity === 'critical' && !a.acknowledged
+  );
+
+  if (criticalAlerts.length > prevAlertsRef.current) {
+    // New critical alert detected
+    const newAlert = criticalAlerts[criticalAlerts.length - 1];
+    toast.error('Critical Alert', {
+      description: newAlert.message,
+      action: {
+        label: 'View',
+        onClick: () => window.location.href = '/platform/voice-monitoring/alerts'
+      }
+    });
   }
 
-  // Render actual cards
-}
+  prevAlertsRef.current = criticalAlerts.length;
+}, [activeAlerts]);
 ```
 
-**8. Atomic Imports (MANDATORY from M1-M4)**
-
-```typescript
-// ✅ CORRECT: Import + usage in SAME edit
-import { Card } from "@/components/ui/card";
-
-export default function Page() {
-  return <Card>...</Card>;  // Used immediately
-}
-```
-
-**9. Responsive Grid Pattern**
-
-```typescript
-// ✅ Mobile-first Tailwind classes
-<div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
-  {/* 1 column on mobile, 2 on tablet, 3 on desktop */}
-</div>
-```
-
-**10. Tab Navigation Responsive (Horizontal Scroll)**
-
-```typescript
-// ✅ Horizontal scroll on mobile
-<div className="border-b overflow-x-auto">
-  <nav className="flex space-x-4 min-w-max px-4">
-    {/* Tabs */}
-  </nav>
-</div>
-```
-
-### M5 Gotchas to Avoid
-
-1. **❌ Don't use server components for layout.tsx**
-   - Parent /platform/layout.tsx is client component
-   - Must use 'use client' directive
-
-2. **❌ Don't use shadcn/ui Tabs for URL routing**
-   - Tabs component manages internal state, not URLs
-   - Use Link + usePathname instead
-
-3. **❌ Don't query inside components**
-   - Causes N+1 subscriptions
-   - Lift all useQuery to page level
-
-4. **❌ Don't use usePaginatedQuery for getRecentEvents**
-   - Custom pagination format, not Convex native
-   - Use regular useQuery with cursor: null
-
-5. **❌ Don't forget responsive SVG variants**
-   - Need both horizontal and vertical SVGs
-   - Toggle via hidden/block classes
-
-6. **❌ Don't forget skip pattern on queries**
-   - Query only when user is platform staff
-   - `isStaff ? args : "skip"`
-
-7. **❌ Don't access counter fields directly**
-   - Query by counterType, access currentValue
-   - getRealTimeMetrics already aggregates for you
-
-8. **❌ Don't test only on desktop**
-   - MUST test at 375px minimum (iPhone SE)
-   - Use Chrome DevTools responsive mode
-
-### M5 Execution Order
-
-**CRITICAL: Read these files IN ORDER before implementing:**
-
-1. /Users/neil/Documents/GitHub/PDP/scripts/ralph/prds/voice-monitor-harness/context/M1_LESSONS_LEARNED.md
-2. /Users/neil/Documents/GitHub/PDP/scripts/ralph/prds/voice-monitor-harness/context/M2_LESSONS_LEARNED.md
-3. /Users/neil/Documents/GitHub/PDP/scripts/ralph/prds/voice-monitor-harness/context/M3_LESSONS_LEARNED.md
-4. /Users/neil/Documents/GitHub/PDP/scripts/ralph/prds/voice-monitor-harness/context/M4_LESSONS_LEARNED.md
-5. /Users/neil/Documents/GitHub/PDP/scripts/ralph/prds/voice-monitor-harness/phases/PHASE_M5.json (FULL DETAILS)
-6. /Users/neil/Documents/GitHub/PDP/scripts/ralph/agents/output/m5-implementation-guide.md (COMPLETE CODE EXAMPLES)
-
-**Implementation steps:**
-
-1. Create placeholder pages (artifacts/, metrics/, events/, pipeline/, alerts/, settings/) with "Coming in M6/M7/M8" messages
-2. Create /Users/neil/Documents/GitHub/PDP/apps/web/src/app/platform/voice-monitoring/layout.tsx
-   - Client component ('use client')
-   - useCurrentUser() hook
-   - Redirect if not platform staff
-   - Tab navigation with Link + usePathname()
-3. Create /Users/neil/Documents/GitHub/PDP/apps/web/src/app/platform/voice-monitoring/page.tsx
-   - Client component ('use client')
-   - Three useQuery calls at top level with skip pattern
-   - Pass data as props to components
-   - Show loading skeletons
-4. Create PipelineFlowGraph component
-   - Two SVG variants (horizontal + vertical)
-   - Toggle via Tailwind classes
-   - 5 stages with color logic
-5. Create StatusCards component
-   - 6 cards with responsive grid
-   - Each card handles undefined with Skeleton
-   - Query counter data from metrics prop
-6. Create ActivityFeed component
-   - Event list with icons and timestamps
-   - Empty state
-   - ScrollArea component
-7. Update /Users/neil/Documents/GitHub/PDP/apps/web/src/app/platform/page.tsx
-   - Add Voice Monitoring link
-   - Remove v2-claims link
-8. Run type check: npm run check-types
-9. Test with dev-browser at 375px, 768px, 1024px
-10. Test real-time updates with voice note creation
-
-### M5 Testing Checklist
-
-**Manual testing via dev-browser:**
-
-- [ ] Navigate to /platform/voice-monitoring as platform staff → verify dashboard loads
-- [ ] Navigate as non-staff → verify redirect to /platform
-- [ ] Verify tab navigation shows 8 tabs (horizontal scroll on mobile)
-- [ ] Verify flow graph displays 5 stages (horizontal on desktop, vertical on mobile)
-- [ ] Verify 6 status cards show real-time data
-- [ ] Verify activity feed shows last 20 events
-- [ ] Create voice note → verify dashboard updates in real-time (< 10 seconds)
-- [ ] Verify loading states show skeletons
-- [ ] Test mobile layout at 375px width
-- [ ] Test tablet layout at 768px width
-- [ ] Test desktop layout at 1024px width
-- [ ] Click tab links → verify navigation works
-- [ ] Verify Voice Monitoring link on platform hub
-- [ ] Verify v2-claims link removed
-
-### M5 Success Criteria
-
-**From PRD (all must pass):**
-
-- ✅ Route created at /platform/voice-monitoring
-- ✅ Layout with tab navigation (8 tabs)
-- ✅ Page with 3 useQuery calls
-- ✅ PipelineFlowGraph displays 5 stages
-- ✅ StatusCards shows 6 metrics
-- ✅ ActivityFeed shows 20 events
-- ✅ Platform hub has Voice Monitoring link
-- ✅ v2-claims link removed
-- ✅ Platform staff auth enforced
-- ✅ Real-time updates work
-- ✅ Loading states show
-- ✅ Responsive design works
-- ✅ Type check passes
+**Success Criteria:**
+- [ ] Active alerts panel displays
+- [ ] Acknowledge button functional
+- [ ] Alert history table with filters
+- [ ] Toast notifications for new critical alerts
+- [ ] Real-time alert updates
 
 ---
 
-## ADR References for M5
+### ✅ STEP 7: M9 - Cleanup & Polish (US-VNM-015)
 
-**Architectural Decision Records:**
-- ADR-VNM-014: Frontend Route Structure (client layout required)
-- ADR-VNM-015: Real-Time Data Fetching (3 useQuery, skip pattern)
-- ADR-VNM-016: Component Hierarchy (no queries in components)
-- ADR-VNM-017: Responsive Design (375px minimum, mobile-first)
-- ADR-VNM-018: SVG Flow Graph (2 variants)
-- ADR-VNM-019: Tab Navigation (Link + usePathname)
-- ADR-VNM-020: Loading States (progressive skeleton)
+**VERIFICATION CHECKLIST (Complete BEFORE removing v2-claims):**
+- [ ] All v2-claims functionality present in artifacts grid
+- [ ] Manual claim resolution working in artifacts grid
+- [ ] Claim confidence scores displayed
+- [ ] Entity resolution candidates shown
+- [ ] Claim filtering functional
+- [ ] Claim sorting functional
+- [ ] Pagination working correctly
 
-**Full ADR details:** `docs/architecture/decisions/ADR-VNM-014-*.md` through `ADR-VNM-020-*.md`
+**Implementation Steps:**
+1. **Verify feature parity** - Test artifacts grid against v2-claims checklist above
+2. **Delete v2-claims** - Remove apps/web/src/app/platform/v2-claims/ directory
+3. **Update platform hub** - Verify voice-monitoring link exists (should already be done in M5)
+4. **Tab navigation** - Verify all 8 pages accessible: Overview, Artifacts, Metrics, Events, Pipeline, Alerts, Settings (placeholder)
+5. **Add skip patterns:**
+   ```typescript
+   const user = useCurrentUser();
+   const isPlatformStaff = user?.isPlatformStaff === true;
+
+   const data = useQuery(
+     api.models.someQuery,
+     isPlatformStaff ? { args } : "skip"
+   );
+   ```
+6. **Add loading states** - Use shadcn/ui Skeleton component for all queries
+7. **Test pagination** - Verify Load More button works on all paginated pages
+8. **Performance audit** - Dashboard should load < 2 seconds
+9. **Mobile responsive** - Test all pages at 375px width
+10. **E2E tests** - Create Playwright tests for all pages
+
+**Success Criteria:**
+- [ ] v2-claims deleted (after verification)
+- [ ] All 8 pages accessible via tabs
+- [ ] Platform staff auth on all routes
+- [ ] All queries use skip pattern
+- [ ] All loading states functional
+- [ ] All pagination tested
+- [ ] Dashboard loads < 2 seconds
+- [ ] Mobile responsive verified
+- [ ] E2E tests passing
+
+---
+
+## CRITICAL PATTERNS - READ BEFORE STARTING
+
+### 1. Pagination (MANDATORY)
+```typescript
+// ✅ ALWAYS use usePaginatedQuery
+const { results, status, loadMore } = usePaginatedQuery(
+  api.models.query,
+  { paginationOpts: { numItems: 20, cursor: null } },
+  { initialNumItems: 20 }
+);
+
+// Render
+{results.map(item => <Row key={item._id} data={item} />)}
+{status === "CanLoadMore" && (
+  <Button onClick={() => loadMore(20)}>Load More</Button>
+)}
+```
+
+### 2. Access Control (MANDATORY)
+```typescript
+// Page-level redirect
+useEffect(() => {
+  if (user && !isPlatformStaff) {
+    router.push("/orgs/current");
+  }
+}, [user, isPlatformStaff, router]);
+
+// Query skip pattern
+const data = useQuery(
+  api.models.query,
+  isPlatformStaff ? { args } : "skip"
+);
+```
+
+### 3. No External Chart Libraries
+- Use CSS for bar charts (div widths/heights)
+- Use SVG for line/area charts (polyline, path)
+- Follow /platform/messaging patterns
+- Keep it simple and fast
+
+### 4. Component Reuse
+- Migrate v2-claims components (don't duplicate)
+- Reuse M5 components where possible
+- Use shadcn/ui components consistently
+
+### 5. Real-time Updates
+```typescript
+// Auto-refresh pattern
+useEffect(() => {
+  const interval = setInterval(() => refetch(), 5000);
+  return () => clearInterval(interval);
+}, [refetch]);
+```
 
 ---
 
-## Implementation Log
+## FILES TO CREATE - CHECKLIST
 
-### US-VNM-008: Build Dashboard Overview UI
+### M6 - Artifacts (2 files)
+- [ ] apps/web/src/app/platform/voice-monitoring/artifacts/page.tsx
+- [ ] apps/web/src/app/platform/voice-monitoring/artifacts/[artifactId]/page.tsx
 
-**Status:** Complete
-**Expected Duration:** 4-5 days
-**Actual Duration:** 1 session
+### M7 - Metrics & Events (2 files)
+- [ ] apps/web/src/app/platform/voice-monitoring/metrics/page.tsx
+- [ ] apps/web/src/app/platform/voice-monitoring/events/page.tsx
 
-## 2026-02-17 - US-VNM-008 - Build Dashboard Overview UI
-**Iteration**: 1
-**Commit**: 20ce06d4fa68422f56a14f1666d1d12d6a441ff8
-**Session**: 67e19e09-d915-4b36-823e-c218ca79a2b2
-**Status**: Complete
+### M8 - Pipeline & Alerts (2 files)
+- [ ] apps/web/src/app/platform/voice-monitoring/pipeline/page.tsx
+- [ ] apps/web/src/app/platform/voice-monitoring/alerts/page.tsx
 
-### What was implemented
-- Created route structure at `/platform/voice-monitoring` with client-side layout
-- Implemented tab navigation with 7 tabs (Overview, Artifacts, Metrics, Events, Pipeline, Alerts, Settings)
-- Built dashboard overview page with 3 real-time sections:
-  1. PipelineFlowGraph - SVG-based 5-stage flow (horizontal desktop, vertical mobile)
-  2. StatusCards - 6 metric cards with responsive grid layout
-  3. ActivityFeed - Last 20 events with icons and relative timestamps
-- Added Voice Monitoring link to platform hub
-- Removed v2-claims link from platform hub
-- All queries lifted to page level (getRealTimeMetrics, getRecentEvents, getActiveAlerts)
-- Components receive data via props only (no queries inside components)
-- Platform staff auth enforced in layout with defense-in-depth redirect
-- Created 6 placeholder pages for future tabs
+### M9 - Cleanup (deletions + tests)
+- [ ] Delete apps/web/src/app/platform/v2-claims/ directory
+- [ ] Create E2E tests for all 8 pages
+- [ ] Mobile responsive verification
+- [ ] Performance audit
 
-### Files changed
-- apps/web/src/app/platform/voice-monitoring/layout.tsx (new, +103 lines)
-- apps/web/src/app/platform/voice-monitoring/page.tsx (new, +62 lines)
-- apps/web/src/app/platform/voice-monitoring/_components/pipeline-flow-graph.tsx (new, +240 lines)
-- apps/web/src/app/platform/voice-monitoring/_components/status-cards.tsx (new, +150 lines)
-- apps/web/src/app/platform/voice-monitoring/_components/activity-feed.tsx (new, +176 lines)
-- apps/web/src/app/platform/voice-monitoring/{artifacts,metrics,events,pipeline,alerts,settings}/page.tsx (6 placeholder pages)
-- apps/web/src/app/platform/page.tsx (+10, -7 lines - added Voice Monitoring link, removed v2-claims)
-
-### Quality checks
-- ✅ Type check: passed (npm run check-types)
-- ✅ Linting: passed (biome check)
-- ✅ File naming: components renamed to kebab-case
-- ✅ Atomic imports: all imports + usage in same edit
-- ⏭️ Browser verification: deferred to testing phase (M5 testing will validate real-time updates)
-
-### Learnings for future iterations ⚠️ CRITICAL
-
-**Patterns discovered:**
-- Client layout required: Parent /platform/layout.tsx is client component, must use 'use client' in child layouts too
-- Tab navigation: Use Link + usePathname for URL routing, NOT shadcn/ui Tabs (state-based, not URL-based)
-- Query lifting: ALL useQuery calls in page.tsx, components get props - prevents N+1 subscriptions
-- Responsive SVG: Two separate SVG variants (horizontal/vertical) toggled via Tailwind classes
-- Type fixes: Use `as any` for Next.js Link href when typing is overly strict
-- Array keys: Use unique strings instead of index (e.g., `Array.from({length}, (_, i) => \`skeleton-${i}\`)`)
-
-**Gotchas encountered:**
-- File must be read before Edit tool can modify it (linter auto-formats after Write)
-- Linter moves imports alphabetically and formats SVG attributes
-- Type alias preferred over interface (biome lint rule)
-- Early return statements need block braces (biome lint rule)
-- Component files must use kebab-case naming
-
-**Dependencies found:**
-- Three backend queries used: getRealTimeMetrics, getRecentEvents, getActiveAlerts
-- All queries return correct types, recentEvents returns {page, isDone, continueCursor}
-- useCurrentUser hook reads from context (zero additional queries)
-
-**What to do next** (M6):
-- [ ] Implement Artifacts grid page (subsuming v2-claims functionality)
-- [ ] Add artifact detail timeline view
-- [ ] Test real-time dashboard updates with actual voice notes
-- [ ] Test responsive layout at 375px, 768px, 1024px viewports
-
-**Mistakes made** (learn from these!):
-- Initially didn't know parent layout was client component - tried server component first
-- Forgot to remove 'as const' from TABS array (caused type errors with Link href)
-- Used Array index as key in skeleton loop (lint warning)
+**Total new pages: 6**
+**Total monitoring pages after M9: 8** (Overview, Artifacts, Artifact Detail, Metrics, Events, Pipeline, Alerts, Settings)
 
 ---
+
+## EXECUTION STRATEGY
+
+**Recommended approach:**
+1. **M6 first** - Complete both artifacts pages before moving on
+2. **M7 next** - Build metrics and events pages
+3. **M8 third** - Add pipeline and alerts pages
+4. **M9 last** - Verify everything, cleanup, polish
+
+**Daily goals:**
+- Day 1-2: M6 Artifacts Grid (US-VNM-009)
+- Day 3-4: M6 Artifact Detail (US-VNM-010)
+- Day 5-6: M7 Metrics Dashboard (US-VNM-011)
+- Day 7: M7 Events Log (US-VNM-012)
+- Day 8-9: M8 Pipeline View (US-VNM-013)
+- Day 10: M8 Alerts Management (US-VNM-014)
+- Day 11-12: M9 Cleanup & Polish (US-VNM-015)
+
+**Estimated total time: 12 days**
+
+---
+
+## READY TO START?
+
+Ralph should now execute M6-M9 sequentially, following this guide.
+
+**Before starting:**
+1. Read full PRD at /Users/neil/Documents/GitHub/PDP/scripts/ralph/prds/voice-monitor-harness/phases/PHASE_M6_M7_M8_M9.json
+2. Review M1-M5 lessons learned documents
+3. Verify M5 is fully complete and deployed
+
+**Execute in order:**
+1. M6 - Artifacts Grid & Detail
+2. M7 - Metrics & Events Pages
+3. M8 - Pipeline View & Alerts UI
+4. M9 - Cleanup & Polish
+
+Good luck! 🚀

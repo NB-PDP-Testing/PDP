@@ -1,0 +1,154 @@
+{
+  "project": "Voice Flow Monitoring Harness - Phase M2",
+  "branchName": "ralph/voice-monitor-harness",
+  "description": "Build metrics aggregation system with hourly/daily snapshots and cleanup crons. Create pre-computed metric snapshots for fast historical queries and establish real-time metrics query layer reading from counters.",
+  "prdFile": "scripts/ralph/prds/voice-monitor-harness/phases/PHASE_M2.json",
+  "mainPRD": "scripts/ralph/prds/voice-monitor-harness/PRD.json",
+  "contextFiles": [
+    "scripts/ralph/prds/voice-monitor-harness/context/MAIN_CONTEXT.md",
+    "scripts/ralph/prds/voice-monitor-harness/context/PERFORMANCE_PATTERNS.md",
+    "scripts/ralph/prds/voice-monitor-harness/context/M1_LESSONS_LEARNED.md",
+    "docs/architecture/voice-flow-monitoring-harness.md",
+    "docs/architecture/voice-notes-v2-technical-reference.md",
+    "CLAUDE.md"
+  ],
+  "mandatoryPatterns": [
+    "READ M1_LESSONS_LEARNED.md BEFORE starting ANY M2 work",
+    "NEVER use .filter() in Convex — always .withIndex()",
+    "NEVER scan voicePipelineEvents for real-time metrics — ONLY read counters",
+    "N+1 prevention: batch fetch + Map lookup pattern (CRITICAL for getOrgBreakdown)",
+    "Safe division: ALWAYS check denominator > 0 before dividing (prevent NaN/Infinity)",
+    "UTC time handling: getUTCHours(), getUTCMonth(), getUTCDate() (NOT local time methods)",
+    "Platform-wide data: OMIT organizationId field (not null, use undefined)",
+    "Cron timing: hourly at :30 (NOT :00), daily at 1:30 AM (NOT 12:00 AM)",
+    "Cursor-based pagination: .paginate() not .take()",
+    "Platform staff auth required on all monitoring queries",
+    "Time-window partitioning: timeWindow format 'YYYY-MM-DD-HH'",
+    "ATOMIC IMPORTS: Add import + usage in SAME edit (linter removes unused)",
+    "Better Auth: user._id (not user.id), user.name (not user.firstName)",
+    "Error handling in crons: log errors but return successfully (don't throw)",
+    "Run npx ultracite fix before completing any story",
+    "Run npx -w packages/backend convex codegen after changes"
+  ],
+  "successCriteria": [
+    "voicePipelineMetrics.ts created with 8 functions (real-time, historical, aggregation, cleanup)",
+    "getRealTimeMetrics returns counter values in < 50ms (O(1) query, no event scanning)",
+    "getHistoricalMetrics returns snapshots for time range (no raw event scanning)",
+    "aggregateHourlyMetrics creates platform + org snapshots from events (< 30s)",
+    "aggregateDailyMetrics creates daily snapshots from hourly snapshots (< 10s)",
+    "All 4 cron jobs added to crons.ts and visible in Convex dashboard",
+    "Hourly cron runs at :30 (not :00), daily cron runs at 1:30 AM UTC",
+    "cleanupOldSnapshots deletes snapshots older than retention (7d hourly, 90d daily)",
+    "cleanupOldEvents deletes events older than 48 hours",
+    "No N+1 queries in getOrgBreakdown (batch fetch + Map pattern used)",
+    "All rate calculations use safe division (no NaN/Infinity)",
+    "UTC time handling used throughout (getUTCHours, not getHours)",
+    "Codegen passes: npx -w packages/backend convex codegen",
+    "All type checks pass: npm run check-types"
+  ],
+  "userStories": [
+    {
+      "id": "US-VNM-004",
+      "title": "Build Metrics Aggregation System",
+      "description": "Create voicePipelineMetrics.ts with hourly/daily aggregation logic and real-time counter queries. READ FULL DETAILS in phases/PHASE_M2.json.",
+      "acceptanceCriteria": [
+        "Create packages/backend/convex/models/voicePipelineMetrics.ts",
+        "Implement getRealTimeMetrics query (O(1) counter reads, < 50ms, NEVER scan events)",
+        "Implement getHistoricalMetrics query (reads snapshots by time range, no raw event scanning)",
+        "Implement getStageBreakdown query (per-stage latency/failure rates from snapshots)",
+        "Implement getOrgBreakdown query (CRITICAL: batch fetch org names, NO N+1 queries)",
+        "Implement aggregateHourlyMetrics internalMutation (aggregates events → snapshots, < 30s)",
+        "Implement aggregateDailyMetrics internalMutation (aggregates hourly → daily snapshots, < 10s)",
+        "Implement cleanupOldSnapshots internalMutation (7d hourly, 90d daily retention)",
+        "Implement cleanupOldEvents internalMutation (48h event retention)",
+        "All rate calculations use safe division (denominator > 0 check, no NaN/Infinity)",
+        "UTC time handling: getUTCHours(), getUTCMonth(), getUTCDate() (NOT local time methods)",
+        "Platform-wide data: OMIT organizationId field (not null, use undefined)",
+        "Test getRealTimeMetrics with existing M1 counter data",
+        "Test aggregateHourlyMetrics with manual call → verify snapshots created",
+        "Run: npx -w packages/backend convex codegen && npm run check-types"
+      ],
+      "priority": 4,
+      "notes": "CRITICAL: Read M1_LESSONS_LEARNED.md FIRST. Read phases/PHASE_M2.json for EXACT implementation including batch fetch pattern for org names. Never scan voicePipelineEvents for real-time metrics.",
+      "passes": false
+    },
+    {
+      "id": "US-VNM-005",
+      "title": "Add Metrics Aggregation Crons",
+      "description": "Add 4 cron jobs for hourly aggregation, daily aggregation, and cleanup. READ FULL DETAILS in phases/PHASE_M2.json.",
+      "acceptanceCriteria": [
+        "Modify packages/backend/convex/crons.ts to add 4 new cron jobs",
+        "Cron 1: aggregate-pipeline-hourly-metrics (hourly at :30 - ensures full hour available)",
+        "Cron 2: aggregate-pipeline-daily-metrics (daily at 1:30 AM UTC - ensures 24 hourly snapshots exist)",
+        "Cron 3: cleanup-pipeline-snapshots (weekly Sunday 4:30 AM UTC)",
+        "Cron 4: cleanup-pipeline-events (weekly Sunday 5:00 AM UTC - runs AFTER snapshot cleanup)",
+        "CRITICAL TIMING: Hourly at :30 (NOT :00), Daily at 1:30 AM (NOT 12:00 AM)",
+        "All crons call corresponding internal mutations from voicePipelineMetrics.ts",
+        "Deploy to Convex: npx convex deploy",
+        "Verify all 4 crons visible in Convex dashboard → Crons tab",
+        "Manually trigger each cron from dashboard to test execution",
+        "Verify hourly aggregation creates snapshots correctly",
+        "Verify cleanup deletes old data without errors",
+        "Run: npx -w packages/backend convex codegen"
+      ],
+      "priority": 5,
+      "notes": "CRITICAL: Read phases/PHASE_M2.json cron timing rationale. Hourly at :30 ensures hour is complete. Daily at 1:30 ensures all 24 hourly snapshots exist before daily aggregation.",
+      "passes": false
+    }
+  ],
+  "ralphGuidance": {
+    "executionOrder": [
+      "1. US-VNM-004: Create voicePipelineMetrics.ts (3 days)",
+      "   a. Implement getRealTimeMetrics first (reads counters) - test with M1 data",
+      "   b. Implement aggregateHourlyMetrics (aggregates events → snapshots) - test manually",
+      "   c. Implement getHistoricalMetrics (reads snapshots) - test with snapshots from step b",
+      "   d. Implement getStageBreakdown and getOrgBreakdown (CRITICAL: use batch fetch pattern)",
+      "   e. Implement aggregateDailyMetrics (aggregates hourly → daily snapshots)",
+      "   f. Implement cleanupOldSnapshots and cleanupOldEvents",
+      "   g. Test all cleanup functions",
+      "2. US-VNM-005: Add cron jobs to crons.ts (0.5 day)",
+      "   a. Add all 4 cron definitions with CORRECT timing (:30 for hourly, 1:30 AM for daily)",
+      "   b. Deploy to Convex: npx convex deploy",
+      "   c. Verify crons visible in dashboard and manually trigger each to test",
+      "3. Final verification: Let crons run 24h, verify snapshots created on schedule"
+    ],
+    "commonPitfalls": [
+      "❌ Scanning voicePipelineEvents for real-time metrics (use counters instead)",
+      "❌ Unbounded queries on snapshots (always include time range)",
+      "❌ Not handling divide-by-zero in failure rate calculations",
+      "❌ Hourly cron at :00 instead of :30 (hour incomplete at :00)",
+      "❌ Daily cron before all hourly snapshots exist (run at 1:30 AM, not 12:00 AM)",
+      "❌ Cleanup deleting snapshots still needed (check retention cutoff math)",
+      "❌ N+1 queries for org names in getOrgBreakdown (use batch fetch + Map)"
+    ],
+    "successIndicators": [
+      "✅ voicePipelineMetricsSnapshots table contains hourly and daily snapshots",
+      "✅ getRealTimeMetrics returns in < 50ms (verified in Convex logs)",
+      "✅ getHistoricalMetrics returns snapshots (not scanning events)",
+      "✅ Crons visible in Convex dashboard and running on schedule",
+      "✅ Hourly snapshots created every hour at :30",
+      "✅ Daily snapshots created daily at 1:30 AM UTC",
+      "✅ Old snapshots deleted weekly (hourly > 7d, daily > 90d)",
+      "✅ Old events deleted weekly (> 48h)",
+      "✅ npm run check-types passes",
+      "✅ npx -w packages/backend convex codegen succeeds"
+    ]
+  },
+  "testingStrategy": {
+    "approach": "Manual testing with Convex dashboard and synthetic event generation",
+    "keyScenarios": [
+      "Create test events spanning 2 hours → run hourly aggregation → verify snapshots created",
+      "Run daily aggregation → verify aggregates hourly snapshots correctly",
+      "Query real-time metrics → verify returns counter values (no event scan)",
+      "Trigger cleanup crons → verify deletes old snapshots and events per retention policy",
+      "Load test: 1000 events in 1 hour → verify aggregation completes < 30s"
+    ],
+    "verificationTools": [
+      "Convex dashboard → Crons tab (manual trigger, view logs)",
+      "Convex dashboard → Data tab (query voicePipelineMetricsSnapshots)",
+      "Convex dashboard → Logs (check aggregation execution time)",
+      "Convex dashboard → Functions tab (test queries directly)"
+    ],
+    "detailedTestPlan": "See phases/PHASE_M2.json testingStrategy section for complete test scenarios"
+  }
+}

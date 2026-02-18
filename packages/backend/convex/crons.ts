@@ -182,4 +182,46 @@ crons.daily(
   {}
 );
 
+// Voice Monitor Harness M2: Metrics aggregation and cleanup crons
+
+// Aggregate hourly pipeline metrics at :30 past each hour (ensures full hour complete)
+crons.hourly(
+  "aggregate-pipeline-hourly-metrics",
+  { minuteUTC: 30 },
+  internal.models.voicePipelineMetrics.aggregateHourlyMetricsWrapper
+);
+
+// Aggregate daily pipeline metrics at 1:30 AM UTC (ensures all 24 hourly snapshots exist)
+crons.daily(
+  "aggregate-pipeline-daily-metrics",
+  { hourUTC: 1, minuteUTC: 30 },
+  internal.models.voicePipelineMetrics.aggregateDailyMetricsWrapper
+);
+
+// Cleanup old pipeline snapshots weekly (7d hourly, 90d daily)
+crons.weekly(
+  "cleanup-pipeline-snapshots",
+  { dayOfWeek: "sunday", hourUTC: 4, minuteUTC: 30 },
+  internal.models.voicePipelineMetrics.cleanupOldSnapshots,
+  {}
+);
+
+// Cleanup old pipeline events weekly (48h retention) - runs after snapshot cleanup
+crons.weekly(
+  "cleanup-pipeline-events",
+  { dayOfWeek: "sunday", hourUTC: 5, minuteUTC: 0 },
+  internal.models.voicePipelineMetrics.cleanupOldEvents,
+  {}
+);
+
+// Voice Monitor Harness M4: Pipeline health checks and alerts
+
+// Check pipeline health every 5 minutes for anomalies
+crons.interval(
+  "check-pipeline-health",
+  { minutes: 5 },
+  internal.models.voicePipelineAlerts.checkPipelineHealth,
+  {}
+);
+
 export default crons;

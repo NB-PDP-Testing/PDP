@@ -176,6 +176,19 @@ export const generateDrafts = internalAction({
     }
     const organizationId = artifact.orgContextCandidates[0].organizationId;
 
+    // v2 monitoring: emit draft_generation_started event
+    try {
+      await ctx.runMutation(internal.models.voicePipelineEvents.logEvent, {
+        eventType: "draft_generation_started",
+        artifactId: args.artifactId,
+        organizationId,
+        pipelineStage: "draft_generation",
+        stageStartedAt: Date.now(),
+      });
+    } catch (error) {
+      console.warn("Failed to log draft_generation_started event:", error);
+    }
+
     // 3. Get all claims for this artifact
     const claims = await ctx.runQuery(
       internal.models.voiceNoteClaims.getClaimsByArtifact,

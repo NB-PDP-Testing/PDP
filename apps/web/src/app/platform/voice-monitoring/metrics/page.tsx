@@ -44,8 +44,11 @@ function BarChart({
   return (
     <div className="space-y-2">
       <p className="font-medium text-muted-foreground text-xs">{label}</p>
-      {data.map((item) => (
-        <div className="flex items-center gap-2 text-sm" key={item.label}>
+      {data.map((item, index) => (
+        <div
+          className="flex items-center gap-2 text-sm"
+          key={`${item.label}-${index}`}
+        >
           <div className="w-24 truncate text-muted-foreground text-xs">
             {item.label}
           </div>
@@ -62,6 +65,74 @@ function BarChart({
           </div>
         </div>
       ))}
+    </div>
+  );
+}
+
+// ── CSS Stacked Bar Chart (ADR-VNM-022) ──────────────────────
+
+function StackedBarChart({
+  data,
+  label,
+}: {
+  data: { label: string; value: number; color: string }[];
+  label: string;
+}) {
+  if (data.length === 0) {
+    return (
+      <p className="py-4 text-center text-muted-foreground text-sm">
+        No data available
+      </p>
+    );
+  }
+
+  const total = data.reduce((sum, d) => sum + d.value, 0);
+
+  return (
+    <div className="space-y-2">
+      <p className="font-medium text-muted-foreground text-xs">{label}</p>
+
+      {/* Stacked bar showing cumulative latency */}
+      <div className="relative h-10 w-full overflow-hidden rounded bg-gray-100">
+        {data.map((item, index) => {
+          const widthPercent = total > 0 ? (item.value / total) * 100 : 0;
+          const leftPercent = data
+            .slice(0, index)
+            .reduce((sum, d) => sum + (d.value / total) * 100, 0);
+
+          return (
+            <div
+              className="absolute h-full transition-all"
+              key={item.label}
+              style={{
+                backgroundColor: item.color,
+                left: `${leftPercent}%`,
+                width: `${widthPercent}%`,
+              }}
+              title={`${item.label}: ${Math.round(item.value)}ms`}
+            />
+          );
+        })}
+      </div>
+
+      {/* Legend */}
+      <div className="flex flex-wrap gap-3 pt-2">
+        {data.map((item) => (
+          <div className="flex items-center gap-1.5" key={item.label}>
+            <div
+              className="h-3 w-3 rounded"
+              style={{ backgroundColor: item.color }}
+            />
+            <span className="text-muted-foreground text-xs">
+              {item.label}: {Math.round(item.value)}ms
+            </span>
+          </div>
+        ))}
+      </div>
+
+      <p className="pt-1 text-right text-muted-foreground text-xs">
+        Total: {Math.round(total)}ms
+      </p>
     </div>
   );
 }
@@ -117,6 +188,73 @@ function LineChart({
   );
 }
 
+// ── SVG Area Chart with Gradient (ADR-VNM-022) ───────────────
+
+function AreaChart({
+  data,
+  label,
+  color = "text-green-500",
+  gradientId = "areaGradient",
+}: {
+  data: number[];
+  label: string;
+  color?: string;
+  gradientId?: string;
+}) {
+  const width = 400;
+  const height = 80;
+  const maxValue = Math.max(...data, 1);
+
+  if (data.length === 0) {
+    return (
+      <p className="py-4 text-center text-muted-foreground text-sm">
+        No data available
+      </p>
+    );
+  }
+
+  // Build path for area (line + close to bottom)
+  const linePoints = data.map(
+    (d, i) =>
+      `${(i / Math.max(data.length - 1, 1)) * width},${height - (d / maxValue) * height}`
+  );
+
+  // Path: start at bottom-left, draw line, end at bottom-right, close path
+  const pathData = `
+    M 0,${height}
+    L ${linePoints.join(" L ")}
+    L ${width},${height}
+    Z
+  `;
+
+  return (
+    <div className="space-y-1">
+      <p className="font-medium text-muted-foreground text-xs">{label}</p>
+      <svg
+        aria-label={label}
+        className={`w-full ${color}`}
+        preserveAspectRatio="none"
+        role="img"
+        viewBox={`0 0 ${width} ${height}`}
+      >
+        <defs>
+          <linearGradient id={gradientId} x1="0%" x2="0%" y1="0%" y2="100%">
+            <stop offset="0%" stopColor="currentColor" stopOpacity="0.3" />
+            <stop offset="100%" stopColor="currentColor" stopOpacity="0.05" />
+          </linearGradient>
+        </defs>
+        <path d={pathData} fill={`url(#${gradientId})`} />
+        <polyline
+          fill="none"
+          points={linePoints.join(" ")}
+          stroke="currentColor"
+          strokeWidth="2"
+        />
+      </svg>
+    </div>
+  );
+}
+
 // ── Metric Card ───────────────────────────────────────────────
 
 function MetricCard({
@@ -159,6 +297,8 @@ export default function MetricsPage() {
   const isPlatformStaff = user?.isPlatformStaff === true;
   const router = useRouter();
   const [timeRange, setTimeRange] = useState<TimeRange>("24h");
+  // Store timestamp in state to prevent recalculation on every render
+  const [baseTimestamp] = useState(() => Date.now());
 
   useEffect(() => {
     if (user && !isPlatformStaff) {
@@ -166,10 +306,9 @@ export default function MetricsPage() {
     }
   }, [user, isPlatformStaff, router]);
 
-  const now = Date.now();
   const rangeMs =
     TIME_RANGES.find((r) => r.value === timeRange)?.ms ?? 24 * 60 * 60 * 1000;
-  const startTime = now - rangeMs;
+  const startTime = baseTimestamp - rangeMs;
   const periodType: "hourly" | "daily" =
     timeRange === "7d" || timeRange === "30d" ? "daily" : "hourly";
 
@@ -180,17 +319,17 @@ export default function MetricsPage() {
 
   const historicalMetrics = useQuery(
     api.models.voicePipelineMetrics.getHistoricalMetrics,
-    isPlatformStaff ? { periodType, startTime, endTime: now } : "skip"
+    isPlatformStaff ? { periodType, startTime, endTime: baseTimestamp } : "skip"
   );
 
   const stageBreakdown = useQuery(
     api.models.voicePipelineMetrics.getStageBreakdown,
-    isPlatformStaff ? { periodType, startTime, endTime: now } : "skip"
+    isPlatformStaff ? { periodType, startTime, endTime: baseTimestamp } : "skip"
   );
 
   const orgBreakdown = useQuery(
     api.models.voicePipelineMetrics.getOrgBreakdown,
-    isPlatformStaff ? { periodType, startTime, endTime: now } : "skip"
+    isPlatformStaff ? { periodType, startTime, endTime: baseTimestamp } : "skip"
   );
 
   const isLoading =
@@ -325,12 +464,24 @@ export default function MetricsPage() {
             {stageBreakdown === undefined ? (
               <Skeleton className="h-40 w-full" />
             ) : (
-              <BarChart
-                data={stageBreakdown.stages.map((s) => ({
-                  label: s.stage.replace(/_/g, " "),
-                  value: Math.round(s.avgLatency),
-                }))}
-                label="Avg latency (ms)"
+              <StackedBarChart
+                data={stageBreakdown.stages.map((s, i) => {
+                  // Assign distinct colors to each stage
+                  const colors = [
+                    "#3b82f6", // blue-500
+                    "#8b5cf6", // violet-500
+                    "#ec4899", // pink-500
+                    "#f97316", // orange-500
+                    "#10b981", // emerald-500
+                    "#06b6d4", // cyan-500
+                  ];
+                  return {
+                    label: s.stage.replace(/_/g, " "),
+                    value: Math.round(s.avgLatency),
+                    color: colors[i % colors.length],
+                  };
+                })}
+                label="End-to-end latency breakdown"
               />
             )}
           </CardContent>
@@ -363,9 +514,10 @@ export default function MetricsPage() {
             {isLoading ? (
               <Skeleton className="h-24 w-full" />
             ) : (
-              <LineChart
+              <AreaChart
                 color="text-green-600"
                 data={costData}
+                gradientId="costGradient"
                 label="Total AI cost ($)"
               />
             )}

@@ -33,6 +33,7 @@ type RealTimeMetrics = {
 
 type PipelineFlowGraphProps = {
   metrics: RealTimeMetrics | undefined;
+  onStageClick?: (stageId: string, stageLabel: string) => void;
 };
 
 function getStageColor(count: number, failCount: number): string {
@@ -45,7 +46,10 @@ function getStageColor(count: number, failCount: number): string {
   return "#22c55e"; // green-500
 }
 
-export function PipelineFlowGraph({ metrics }: PipelineFlowGraphProps) {
+export function PipelineFlowGraph({
+  metrics,
+  onStageClick,
+}: PipelineFlowGraphProps) {
   if (!metrics) {
     return <PipelineFlowGraphSkeleton />;
   }
@@ -81,48 +85,75 @@ export function PipelineFlowGraph({ metrics }: PipelineFlowGraphProps) {
             const color = getStageColor(count, failCount);
             return (
               <g key={stage.id}>
-                {/* Stage box */}
-                <rect
-                  fill={color}
-                  fillOpacity="0.15"
-                  height="100"
-                  rx="12"
-                  stroke={color}
-                  strokeWidth="2"
-                  width="200"
-                  x={x}
-                  y={50}
-                />
-                {/* Stage label */}
-                <text
-                  className="fill-foreground font-medium text-sm"
-                  fontSize="14"
-                  textAnchor="middle"
-                  x={x + 100}
-                  y={85}
+                {/* Clickable stage box */}
+                {/* biome-ignore lint/a11y/noStaticElementInteractions: SVG group used as interactive button */}
+                {/* biome-ignore lint/a11y/useSemanticElements: Cannot use button element in SVG context */}
+                <g
+                  aria-label={`View ${stage.label} stage details`}
+                  className={onStageClick ? "cursor-pointer" : ""}
+                  onClick={
+                    onStageClick
+                      ? () => onStageClick(stage.id, stage.label)
+                      : undefined
+                  }
+                  onKeyDown={
+                    onStageClick
+                      ? (e) => {
+                          if (e.key === "Enter" || e.key === " ") {
+                            e.preventDefault();
+                            onStageClick(stage.id, stage.label);
+                          }
+                        }
+                      : undefined
+                  }
+                  role="button"
+                  tabIndex={onStageClick ? 0 : -1}
                 >
-                  {stage.label}
-                </text>
-                {/* Count */}
-                <text
-                  className="fill-foreground font-bold"
-                  fontSize="24"
-                  textAnchor="middle"
-                  x={x + 100}
-                  y={115}
-                >
-                  {count}
-                </text>
-                {/* Subtitle */}
-                <text
-                  fill="#6b7280"
-                  fontSize="11"
-                  textAnchor="middle"
-                  x={x + 100}
-                  y={138}
-                >
-                  last hour
-                </text>
+                  <rect
+                    fill={color}
+                    fillOpacity="0.15"
+                    height="100"
+                    rx="12"
+                    stroke={color}
+                    strokeWidth="2"
+                    width="200"
+                    x={x}
+                    y={50}
+                  />
+                  {/* Stage label */}
+                  <text
+                    className="fill-foreground font-medium text-sm"
+                    fontSize="14"
+                    pointerEvents="none"
+                    textAnchor="middle"
+                    x={x + 100}
+                    y={85}
+                  >
+                    {stage.label}
+                  </text>
+                  {/* Count */}
+                  <text
+                    className="fill-foreground font-bold"
+                    fontSize="24"
+                    pointerEvents="none"
+                    textAnchor="middle"
+                    x={x + 100}
+                    y={115}
+                  >
+                    {count}
+                  </text>
+                  {/* Subtitle */}
+                  <text
+                    fill="#6b7280"
+                    fontSize="11"
+                    pointerEvents="none"
+                    textAnchor="middle"
+                    x={x + 100}
+                    y={138}
+                  >
+                    last hour
+                  </text>
+                </g>
                 {/* Arrow to next stage */}
                 {i < PIPELINE_STAGES.length - 1 && (
                   <line
@@ -168,44 +199,72 @@ export function PipelineFlowGraph({ metrics }: PipelineFlowGraphProps) {
             const color = getStageColor(count, failCount);
             return (
               <g key={stage.id}>
-                <rect
-                  fill={color}
-                  fillOpacity="0.15"
-                  height="110"
-                  rx="12"
-                  stroke={color}
-                  strokeWidth="2"
-                  width="260"
-                  x={20}
-                  y={y}
-                />
-                <text
-                  className="fill-foreground font-medium"
-                  fontSize="15"
-                  textAnchor="middle"
-                  x={150}
-                  y={y + 35}
+                {/* Clickable stage box */}
+                {/* biome-ignore lint/a11y/noStaticElementInteractions: SVG group used as interactive button */}
+                {/* biome-ignore lint/a11y/useSemanticElements: Cannot use button element in SVG context */}
+                <g
+                  aria-label={`View ${stage.label} stage details`}
+                  className={onStageClick ? "cursor-pointer" : ""}
+                  onClick={
+                    onStageClick
+                      ? () => onStageClick(stage.id, stage.label)
+                      : undefined
+                  }
+                  onKeyDown={
+                    onStageClick
+                      ? (e) => {
+                          if (e.key === "Enter" || e.key === " ") {
+                            e.preventDefault();
+                            onStageClick(stage.id, stage.label);
+                          }
+                        }
+                      : undefined
+                  }
+                  role="button"
+                  tabIndex={onStageClick ? 0 : -1}
                 >
-                  {stage.label}
-                </text>
-                <text
-                  className="fill-foreground font-bold"
-                  fontSize="28"
-                  textAnchor="middle"
-                  x={150}
-                  y={y + 70}
-                >
-                  {count}
-                </text>
-                <text
-                  fill="#6b7280"
-                  fontSize="12"
-                  textAnchor="middle"
-                  x={150}
-                  y={y + 95}
-                >
-                  last hour
-                </text>
+                  <rect
+                    fill={color}
+                    fillOpacity="0.15"
+                    height="110"
+                    rx="12"
+                    stroke={color}
+                    strokeWidth="2"
+                    width="260"
+                    x={20}
+                    y={y}
+                  />
+                  <text
+                    className="fill-foreground font-medium"
+                    fontSize="15"
+                    pointerEvents="none"
+                    textAnchor="middle"
+                    x={150}
+                    y={y + 35}
+                  >
+                    {stage.label}
+                  </text>
+                  <text
+                    className="fill-foreground font-bold"
+                    fontSize="28"
+                    pointerEvents="none"
+                    textAnchor="middle"
+                    x={150}
+                    y={y + 70}
+                  >
+                    {count}
+                  </text>
+                  <text
+                    fill="#6b7280"
+                    fontSize="12"
+                    pointerEvents="none"
+                    textAnchor="middle"
+                    x={150}
+                    y={y + 95}
+                  >
+                    last hour
+                  </text>
+                </g>
                 {i < PIPELINE_STAGES.length - 1 && (
                   <line
                     markerEnd="url(#arrowhead-v)"

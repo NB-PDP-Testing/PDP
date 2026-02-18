@@ -49,7 +49,6 @@ function EventRow({ event }: { event: Record<string, unknown> }) {
   const timestamp = event.timestamp as number;
   const pipelineStage = event.pipelineStage as string | undefined;
   const artifactId = event.artifactId as string | undefined;
-  const organizationId = event.organizationId as string | undefined;
 
   const isError =
     eventType.includes("failed") || eventType.includes("exceeded");
@@ -82,9 +81,7 @@ function EventRow({ event }: { event: Record<string, unknown> }) {
         <td className="px-4 py-2.5 font-mono text-xs">
           {artifactId ? `${String(artifactId).slice(0, 12)}...` : "—"}
         </td>
-        <td className="px-4 py-2.5 font-mono text-xs">
-          {organizationId ? `${organizationId.slice(0, 10)}...` : "—"}
-        </td>
+        <td className="px-4 py-2.5 text-xs">{(event as any).orgName || "—"}</td>
         <td className="px-4 py-2.5 text-xs">
           {event.durationMs ? `${String(event.durationMs)}ms` : "—"}
         </td>

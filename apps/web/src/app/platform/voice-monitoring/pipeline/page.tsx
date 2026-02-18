@@ -35,12 +35,23 @@ function StageDrillDown({
   stage: StageInfo;
   onClose: () => void;
 }) {
+  const hasData = stage.count > 0;
+
   return (
     <Dialog onOpenChange={(open) => !open && onClose()} open>
       <DialogContent className="max-w-lg">
         <DialogHeader>
           <DialogTitle>{stage.label} Stage Details</DialogTitle>
         </DialogHeader>
+        {!hasData && (
+          <div className="rounded-md border border-blue-200 bg-blue-50 p-3 text-blue-700 text-sm">
+            <p className="font-medium">No data available yet</p>
+            <p className="mt-1 text-xs">
+              Metrics will appear once voice notes are processed through the v2
+              pipeline.
+            </p>
+          </div>
+        )}
         <div className="space-y-4">
           <div className="grid grid-cols-3 gap-4">
             <div className="text-center">
@@ -144,6 +155,8 @@ export default function PipelinePage() {
   const isPlatformStaff = user?.isPlatformStaff === true;
   const router = useRouter();
   const [selectedStage, setSelectedStage] = useState<StageInfo | null>(null);
+  // Store timestamp in state to prevent recalculation on every render
+  const [now] = useState(() => Date.now());
 
   useEffect(() => {
     if (user && !isPlatformStaff) {
@@ -151,7 +164,6 @@ export default function PipelinePage() {
     }
   }, [user, isPlatformStaff, router]);
 
-  const now = Date.now();
   const twentyFourHoursAgo = now - 24 * 60 * 60 * 1000;
 
   const realTimeMetrics = useQuery(
@@ -211,6 +223,37 @@ export default function PipelinePage() {
     });
   };
 
+  // Handler for clicking stage boxes in the flow graph
+  const handleFlowGraphStageClick = (stageId: string, stageLabel: string) => {
+    // Map flow graph stage IDs to breakdown stage IDs
+    const stageMap: Record<string, string> = {
+      ingestion: "ingestion",
+      transcription: "transcription",
+      claims: "claims_extraction",
+      resolution: "entity_resolution",
+      drafts: "draft_generation",
+    };
+
+    // Find the stage data from stageBreakdown
+    const stageData = stageBreakdown?.stages.find(
+      (s) => s.stage === stageMap[stageId]
+    );
+
+    // Open modal with data if available, or with zeros if not
+    if (stageData) {
+      handleStageClick(stageData);
+    } else {
+      // No data yet - show modal with zeros
+      setSelectedStage({
+        id: stageMap[stageId] || stageId,
+        label: stageLabel,
+        avgLatency: 0,
+        failureRate: 0,
+        count: 0,
+      });
+    }
+  };
+
   return (
     <div className="container mx-auto space-y-6 px-4 py-6">
       <div>
@@ -226,7 +269,10 @@ export default function PipelinePage() {
           <CardTitle className="text-sm">Pipeline Flow</CardTitle>
         </CardHeader>
         <CardContent>
-          <PipelineFlowGraph metrics={realTimeMetrics} />
+          <PipelineFlowGraph
+            metrics={realTimeMetrics}
+            onStageClick={handleFlowGraphStageClick}
+          />
         </CardContent>
       </Card>
 

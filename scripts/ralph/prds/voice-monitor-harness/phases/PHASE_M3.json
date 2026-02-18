@@ -1,0 +1,251 @@
+{
+  "phase": "M3",
+  "name": "Retry Operations",
+  "description": "Manual retry capability for failed artifacts with audit logging. Enables platform staff to manually re-trigger failed pipeline stages from the monitoring dashboard.",
+  "duration": "2-3 days",
+  "dependencies": ["M1"],
+  "architectureReference": "docs/architecture/voice-flow-monitoring-harness.md (lines 834-843)",
+
+  "goals": [
+    "Enable manual retry for transcription failures",
+    "Enable manual retry for claims extraction failures",
+    "Enable manual retry for entity resolution failures",
+    "Enable full pipeline retry from beginning",
+    "Audit log all retry operations with retry_initiated/retry_succeeded/retry_failed events",
+    "Track retry history per artifact"
+  ],
+
+  "userStories": [
+    {
+      "id": "US-VNM-006",
+      "title": "Build Retry Operations Backend",
+      "description": "Create voicePipelineRetry.ts with manual retry mutations for failed pipeline stages",
+      "effort": "2 days",
+      "priority": 6,
+      "dependencies": ["US-VNM-003"],
+
+      "detailedAcceptanceCriteria": {
+        "overview": "Create packages/backend/convex/models/voicePipelineRetry.ts with platform-staff-only mutations for retrying failed pipeline stages. Each retry logs events, resets artifact status, and schedules the appropriate pipeline action.",
+
+        "function1_retryTranscription": {
+          "type": "mutation",
+          "signature": {
+            "args": {
+              "artifactId": "v.id('voiceNoteArtifacts')"
+            },
+            "returns": "v.object({ success: v.boolean(), message: v.string() })"
+          },
+          "implementation": [
+            "1. Verify platform staff authorization",
+            "2. Fetch artifact by ID",
+            "3. Verify artifact exists and has transcription failure (check status or error state)",
+            "4. Log retry_initiated event with metadata.retryAttempt (count previous retries + 1)",
+            "5. Reset artifact status to 'transcribing'",
+            "6. Fetch artifact to get linked voiceNoteId: const artifact = await ctx.db.get(args.artifactId)",
+            "7. Schedule transcribeAudio action with noteId: await ctx.scheduler.runAfter(0, internal.actions.voiceNotes.transcribeAudio, { noteId: artifact.voiceNoteId })",
+            "8. NOTE: transcribeAudio action takes v1 noteId (v.id('voiceNotes')), not v2 artifactId",
+            "9. Return { success: true, message: 'Transcription retry initiated' }"
+          ],
+          "errorHandling": [
+            "If artifact not found: return { success: false, message: 'Artifact not found' }",
+            "If not in failed state: return { success: false, message: 'Artifact not in failed state' }",
+            "If scheduling fails: log retry_failed event, return error"
+          ]
+        },
+
+        "function2_retryClaimsExtraction": {
+          "type": "mutation",
+          "signature": {
+            "args": {
+              "artifactId": "v.id('voiceNoteArtifacts')"
+            },
+            "returns": "v.object({ success: v.boolean(), message: v.string() })"
+          },
+          "implementation": [
+            "1. Verify platform staff authorization",
+            "2. Fetch artifact, verify claims extraction failed",
+            "3. Log retry_initiated event",
+            "4. Reset artifact status to 'transcribed' (ready for claims extraction)",
+            "5. Schedule extractClaims action",
+            "6. Return success"
+          ]
+        },
+
+        "function3_retryEntityResolution": {
+          "type": "mutation",
+          "signature": {
+            "args": {
+              "artifactId": "v.id('voiceNoteArtifacts')"
+            },
+            "returns": "v.object({ success: v.boolean(), message: v.string() })"
+          },
+          "implementation": [
+            "1. Verify platform staff authorization",
+            "2. Fetch artifact, verify entity resolution failed or needs manual review",
+            "3. Log retry_initiated event",
+            "4. Delete existing voiceNoteEntityResolutions for this artifact (clean slate)",
+            "5. Schedule resolveEntities action",
+            "6. Return success"
+          ]
+        },
+
+        "function4_retryFullPipeline": {
+          "type": "mutation",
+          "signature": {
+            "args": {
+              "artifactId": "v.id('voiceNoteArtifacts')"
+            },
+            "returns": "v.object({ success: v.boolean(), message: v.string() })"
+          },
+          "implementation": [
+            "1. Verify platform staff authorization",
+            "2. Fetch artifact",
+            "3. Log retry_initiated event with metadata: { retryType: 'full_pipeline' }",
+            "4. Delete all derived data (in order, check each step succeeds):",
+            "   a. Try to delete voiceNoteTranscripts - if fails, abort and return error",
+            "   b. Try to delete voiceNoteClaims - if fails, abort",
+            "   c. Try to delete voiceNoteEntityResolutions - if fails, abort",
+            "   d. Try to delete insightDrafts - if fails, abort",
+            "   e. Only if all deletes succeed: reset artifact status",
+            "   NOTE: Wrap deletion sequence in try/catch - if any step fails, return error without partial cleanup",
+            "5. Reset artifact status to 'received'",
+            "6. Fetch artifact.voiceNoteId for transcribeAudio action (same as retryTranscription fix)",
+            "7. Schedule transcribeAudio action with noteId: await ctx.scheduler.runAfter(0, internal.actions.voiceNotes.transcribeAudio, { noteId: artifact.voiceNoteId })",
+            "8. Return success"
+          ],
+          "notes": "Full pipeline retry is destructive - deletes all derived data and starts fresh. Use for complete failures or data corruption."
+        },
+
+        "function5_getRetryHistory": {
+          "type": "query",
+          "signature": {
+            "args": {
+              "artifactId": "v.id('voiceNoteArtifacts')"
+            },
+            "returns": "v.array(v.object({ timestamp, eventType, retryAttempt, succeeded, errorMessage }))"
+          },
+          "implementation": [
+            "1. Verify platform staff authorization",
+            "2. Query voicePipelineEvents by_artifactId index",
+            "3. Filter for retry events: eventType in ['retry_initiated', 'retry_succeeded', 'retry_failed']",
+            "4. Order by timestamp ascending",
+            "5. Map to simplified retry history format",
+            "6. Return array"
+          ]
+        },
+
+        "criticalPatterns": {
+          "authorization": "ALL retry mutations MUST verify isPlatformStaff before proceeding",
+          "eventLogging": "ALWAYS log retry_initiated event BEFORE scheduling action",
+          "fireAndForget": "Use ctx.scheduler.runAfter(0, ...) to schedule actions (non-blocking)",
+          "retryTracking": "Increment metadata.retryAttempt with each retry (query previous retry events to count)",
+          "cleanupOnFullRetry": "Full pipeline retry MUST delete all derived data (transcripts, claims, resolutions, drafts) for clean slate",
+          "statusReset": "Reset artifact status to appropriate stage BEFORE scheduling action (e.g., 'transcribing' for retry transcription)"
+        }
+      },
+
+      "implementationNotes": {
+        "retryAttemptTracking": {
+          "logic": [
+            "Query voicePipelineEvents for this artifact",
+            "Filter for eventType='retry_initiated'",
+            "Count results",
+            "retryAttempt = count + 1 (this is the Nth retry)"
+          ],
+          "usage": "Include in retry_initiated event metadata: { retryAttempt: N }"
+        },
+        "actionScheduling": {
+          "transcription": "internal.actions.voiceNotes.transcribeAudio",
+          "claimsExtraction": "internal.actions.claimsExtraction.extractClaims",
+          "entityResolution": "internal.actions.entityResolution.resolveEntities",
+          "draftGeneration": "internal.actions.draftGeneration.generateDrafts"
+        },
+        "errorRecovery": [
+          "If retry scheduling fails: log retry_failed event immediately",
+          "If artifact in unexpected state: return error without changing state",
+          "If cleanup fails on full retry: abort and return error (don't leave partial state)"
+        ]
+      },
+
+      "testingRequirements": {
+        "unitTests": false,
+        "integrationTests": false,
+        "manualTesting": true,
+        "verificationSteps": [
+          "1. Create artifact with transcription failure (or manually set status to 'failed')",
+          "2. Call retryTranscription mutation via Convex dashboard",
+          "3. Verify retry_initiated event logged",
+          "4. Verify artifact status reset to 'transcribing'",
+          "5. Verify transcribeAudio action scheduled (check logs)",
+          "6. If transcription succeeds: verify retry_succeeded event (logged by pipeline)",
+          "7. Test retryClaimsExtraction similarly",
+          "8. Test retryEntityResolution",
+          "9. Test retryFullPipeline → verify all derived data deleted, artifact reset to 'received'",
+          "10. Call getRetryHistory → verify shows all retry attempts"
+        ]
+      },
+
+      "files": {
+        "create": ["packages/backend/convex/models/voicePipelineRetry.ts"]
+      }
+    }
+  ],
+
+  "successCriteria": {
+    "retryFunctionsExist": "All 4 retry mutations (transcription, claims, resolution, full) implemented",
+    "authorizationEnforced": "All retry mutations verify platform staff access",
+    "eventLoggingWorks": "retry_initiated, retry_succeeded, retry_failed events logged correctly",
+    "retrySchedulingWorks": "Retry mutations successfully schedule pipeline actions",
+    "retryHistoryWorks": "getRetryHistory returns complete retry timeline for artifact",
+    "fullRetryCleans": "retryFullPipeline deletes all derived data (transcripts, claims, resolutions, drafts)",
+    "statusResetsCorrectly": "Artifact status reset to appropriate stage before action scheduled",
+    "retryAttemptsTracked": "Each retry increments metadata.retryAttempt counter"
+  },
+
+  "testingStrategy": {
+    "approach": "Manual testing with Convex dashboard and synthetic failures",
+    "testScenarios": [
+      "Transcription failure → retry → success",
+      "Claims extraction failure → retry → success",
+      "Entity resolution failure → retry → success",
+      "Complete pipeline failure → full retry → success",
+      "Multiple retry attempts → verify retryAttempt increments",
+      "Retry history → verify shows all attempts with timestamps"
+    ]
+  },
+
+  "ralphGuidance": {
+    "executionOrder": [
+      "1. Create voicePipelineRetry.ts with all 5 functions",
+      "2. Implement retryTranscription first (test with manual failure)",
+      "3. Implement retryClaimsExtraction, retryEntityResolution",
+      "4. Implement retryFullPipeline (DESTRUCTIVE - test carefully)",
+      "5. Implement getRetryHistory",
+      "6. Test each retry type end-to-end",
+      "7. Commit and proceed to M4"
+    ],
+    "commonPitfalls": [
+      "Forgetting platform staff authorization check",
+      "Not logging retry_initiated event before scheduling",
+      "Not resetting artifact status before retry",
+      "Not incrementing retryAttempt in event metadata",
+      "Not deleting derived data on full pipeline retry (leaves corrupt state)",
+      "Using ctx.runAction instead of ctx.scheduler.runAfter (blocks mutation)"
+    ],
+    "successIndicators": [
+      "Retry mutations return success when called from dashboard",
+      "retry_initiated events appear in voicePipelineEvents",
+      "Pipeline actions scheduled and execute successfully",
+      "Artifact status resets correctly before retry",
+      "Retry history shows all attempts chronologically",
+      "Full pipeline retry clears all derived data"
+    ]
+  },
+
+  "nextPhase": {
+    "phase": "M4",
+    "name": "Pipeline Alerts",
+    "description": "Automated anomaly detection with health check cron",
+    "readyWhen": "All Phase M3 success criteria met, retry operations functional"
+  }
+}

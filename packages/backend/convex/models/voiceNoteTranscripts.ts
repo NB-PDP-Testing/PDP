@@ -9,6 +9,7 @@
  */
 
 import { v } from "convex/values";
+import { internal } from "../_generated/api";
 import { internalMutation, internalQuery } from "../_generated/server";
 
 const segmentValidator = v.object({
@@ -17,6 +18,9 @@ const segmentValidator = v.object({
   endTime: v.number(),
   confidence: v.number(),
 });
+
+// Regex for word splitting (top-level for performance)
+const WORD_SPLIT_REGEX = /\s+/;
 
 /**
  * Store a completed transcription for an artifact.
@@ -32,8 +36,8 @@ export const createTranscript = internalMutation({
     duration: v.number(),
   },
   returns: v.id("voiceNoteTranscripts"),
-  handler: async (ctx, args) =>
-    await ctx.db.insert("voiceNoteTranscripts", {
+  handler: async (ctx, args) => {
+    const transcriptId = await ctx.db.insert("voiceNoteTranscripts", {
       artifactId: args.artifactId,
       fullText: args.fullText,
       segments: args.segments,
@@ -41,7 +45,39 @@ export const createTranscript = internalMutation({
       language: args.language,
       duration: args.duration,
       createdAt: Date.now(),
-    }),
+    });
+
+    // Fetch artifact to get organizationId for event logging
+    const artifact = await ctx.db.get(args.artifactId);
+
+    // Calculate average confidence score from segments
+    const avgConfidence =
+      args.segments.length > 0
+        ? args.segments.reduce((sum, seg) => sum + seg.confidence, 0) /
+          args.segments.length
+        : undefined;
+
+    // Fire-and-forget event logging
+    await ctx.scheduler.runAfter(
+      0,
+      internal.models.voicePipelineEvents.logEvent,
+      {
+        eventType: "transcription_completed",
+        artifactId: args.artifactId,
+        organizationId: artifact?.orgContextCandidates?.[0]?.organizationId,
+        pipelineStage: "transcription",
+        stageCompletedAt: Date.now(),
+        metadata: {
+          transcriptDuration: args.duration,
+          transcriptWordCount: args.fullText.split(WORD_SPLIT_REGEX).length,
+          aiModel: args.modelUsed,
+          confidenceScore: avgConfidence,
+        },
+      }
+    );
+
+    return transcriptId;
+  },
 });
 
 /**

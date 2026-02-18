@@ -1,0 +1,446 @@
+# Ralph Progress Log
+Started: Sun 15 Feb 2026 21:01:59 GMT
+---
+
+## Codebase Patterns
+**Last Updated**: 2026-02-16 - Phase M2 Setup
+
+### Voice Notes v2 Pipeline Architecture
+- Pipeline stages: Ingestion → Transcription → Claims → Entity Resolution → Drafts → Confirmation
+- v2 tables: voiceNoteArtifacts, voiceNoteTranscripts, voiceNoteClaims, voiceNoteEntityResolutions, insightDrafts
+- **CRITICAL: Artifacts use orgContextCandidates[] array** (not flat organizationId field)
+  - Extract orgId: `artifact.orgContextCandidates[0]?.organizationId`
+- All other v2 tables have flat organizationId field
+- Better Auth integration: user._id (not user.id), user.name (not user.firstName/lastName)
+
+### Voice Monitor Harness - M1 Patterns (Backend Instrumentation)
+- **Event Logging Infrastructure** (voicePipelineEvents table):
+  - Fire-and-forget pattern: Mutations use `ctx.scheduler.runAfter(0, ...)`
+  - Actions use: `await ctx.runMutation(...)` wrapped in try/catch
+  - Never block pipeline execution on event logging
+  - timeWindow format: 'YYYY-MM-DD-HH' (v.string, not v.number)
+  - eventId: UUID string (v.string, not v.id)
+
+- **Atomic Counter Increment** (voicePipelineCounters table):
+  - Counter increment MUST be in same transaction as event insert
+  - Counter rotation: If `Date.now() >= windowEnd`, patch to `currentValue: 1` (atomic, never read-then-increment)
+  - Counter mapping: artifact_received → artifacts_received_1h, etc.
+  - 7 counter types: artifacts_received_1h, artifacts_completed_1h, failures_1h, transcriptions_completed_1h, claims_extracted_1h, entities_resolved_1h, drafts_generated_1h
+
+- **Platform Staff Authorization**:
+  - All monitoring queries require `isPlatformStaff` check
+  - Use `safeGetAuthUser()` to get current user
+  - Return 'Unauthorized' error if not platform staff
+
+### Voice Monitor Harness - M2 Critical Patterns (READ BEFORE STARTING M2!)
+**Source:** scripts/ralph/prds/voice-monitor-harness/context/M1_LESSONS_LEARNED.md
+
+1. **UTC Time Handling** - ALWAYS use UTC methods:
+   - ✅ `date.getUTCHours()`, `date.getUTCMonth()`, `date.getUTCDate()`
+   - ❌ NEVER `date.getHours()`, `date.getMonth()`, `date.getDate()` (local time varies)
+
+2. **N+1 Prevention** - Batch fetch + Map pattern:
+   - ✅ Collect unique IDs → Promise.all → Map for O(1) lookup
+   - ❌ NEVER `Promise.all(items.map(async item => query(item.id)))` (N+1 anti-pattern)
+   - Example: getOrgBreakdown MUST batch fetch org names (see M1_LESSONS_LEARNED.md)
+
+3. **Safe Division** - Prevent NaN/Infinity:
+   - ✅ `const rate = denominator > 0 ? numerator / denominator : 0`
+   - ❌ NEVER `const rate = numerator / denominator` (can produce NaN if denominator is 0)
+   - Apply to ALL: failure rates, averages, percentages, cost calculations
+
+4. **No Event Scanning for Real-Time Metrics**:
+   - ✅ getRealTimeMetrics ONLY reads counters (O(1), < 50ms target)
+   - ❌ NEVER scan voicePipelineEvents table for real-time data (slow, defeats counter purpose)
+
+5. **Platform-Wide Data** - Omit organizationId field:
+   - ✅ Platform-wide counters/snapshots: OMIT organizationId field (use undefined)
+   - ❌ NEVER use `organizationId: null` (won't match index, query will fail)
+
+6. **Cron Timing**:
+   - ✅ Hourly cron at :30 (ensures full hour of data available)
+   - ❌ NEVER hourly at :00 (hour incomplete, missing last minute of data)
+   - ✅ Daily cron at 1:30 AM UTC (ensures all 24 hourly snapshots exist)
+   - ❌ NEVER daily at 12:00 AM (hourly snapshots incomplete)
+
+7. **Error Handling in Crons**:
+   - ✅ Log errors but return successfully (don't throw)
+   - Crons should succeed even with partial data
+   - Throwing errors causes cron failures and retry loops
+
+### Convex Backend Patterns (General)
+- NEVER use `.filter()` - always use `.withIndex()`
+- All functions need `args` and `returns` validators
+- Use `Id<"tableName">` types, not `string`
+- Index names include all fields: `by_orgId_and_status`
+- Cursor-based pagination: `.paginate()` not `.take()`
+- Numeric separators: `3_600_000` instead of `3600000`
+
+### Code Quality Patterns
+- ATOMIC IMPORTS: Add import + usage in SAME edit (linter removes unused imports between edits)
+- Variable naming: Never shadow imports (don't name variable `query` when importing `query` from server)
+- Non-null assertions: Destructure values to avoid `args.filters!.eventType!` (linter rejects)
+- Import order: Alphabetical (components before server imports)
+
+### Quality Checks
+- Run in order: `npm run check-types` → `npx ultracite fix` → `npm run check`
+- Ultracite must run before linting or you'll get false failures
+
+---
+
+# PHASE M1: Backend Instrumentation (COMPLETE ✅)
+**Completed:** 2026-02-15
+**Stories:** US-VNM-001, US-VNM-002, US-VNM-003
+**Status:** 100% Complete (13/13 acceptance criteria met)
+
+---
+
+## 2026-02-15 21:15 - US-VNM-001 - Create Pipeline Event Log Schema
+**Iteration**: 1
+**Commit**: 77772d9ca0d6f3b6c9af2e77a8c4b8b857421e16
+**Session**: a08aa0b2-8be2-41d1-9a15-736b6f382930
+**Status**: Complete
+
+### What was implemented
+- Added voicePipelineEvents table with 27 event types covering the full pipeline lifecycle
+  - Event types: artifact_received, artifact_completed, transcription_started/completed/failed, claims_extracted, entity_resolution_completed, drafts_generated, circuit_breaker events, retry events, budget events
+  - 9 indexes: by_artifactId, by_timestamp, by_eventType, by_eventType_and_timestamp, by_org_and_timestamp, by_pipelineStage, by_pipelineStage_and_timestamp, by_timeWindow, by_timeWindow_and_eventType
+  - timeWindow field is v.string() format 'YYYY-MM-DD-HH' for hourly partitioning (not v.number())
+  - eventId is v.string() for UUID deduplication (not v.id())
+  
+- Added voicePipelineMetricsSnapshots table with 24 metric fields
+  - Supports both hourly and daily aggregation periods
+  - Metrics include: throughput (received/completed/failed), latency (avg/p95), quality (confidence, auto-resolution rate), errors (failure rates), volume (claims/entities/drafts), cost (total/avg per artifact)
+  - 2 indexes: by_periodType_and_start, by_org_periodType_start
+  
+- Added voicePipelineCounters table for real-time atomic counters
+  - Counter types: artifacts_received_1h, artifacts_completed_1h, failures_1h, transcriptions_completed_1h, claims_extracted_1h, entities_resolved_1h, drafts_generated_1h
+  - 2 indexes: by_counterType, by_counterType_and_org
+  - windowStart/windowEnd fields for automatic window rotation
+
+### Files changed
+- packages/backend/convex/schema.ts (+134)
+
+### Quality checks
+- ✅ Codegen: npx -w packages/backend convex codegen - passed
+- ✅ Schema TypeScript: npx tsc --noEmit convex/schema.ts - passed
+- ✅ Pre-commit linting: passed
+- ⚠️ Full type check has pre-existing errors in debug_voiceNote.ts (unrelated to schema changes)
+
+### Learnings for future iterations ⚠️ CRITICAL
+**Patterns discovered:**
+- Schema tables added in v2 pipeline section after insightDrafts, before platformStaffInvitations
+- Used v.optional() wrapper for all nullable fields as per Convex pattern
+- All event type literals defined inline (not as separate const)
+- timeWindow is v.string() not v.number() - critical for efficient cleanup
+
+**Gotchas encountered:**
+- Must use v.string() for timeWindow field (format 'YYYY-MM-DD-HH'), not v.number()
+- Must use v.string() for eventId (UUID), not v.id() (Convex ID)
+- Metadata object fields all need v.optional() wrapper
+- Pre-existing type errors in debug_voiceNote.ts are not related to schema changes
+
+**Dependencies found:**
+- None - this is the foundation story
+
+**What to do next**:
+- [ ] US-VNM-002: Create voicePipelineEvents.ts model file
+- [ ] Implement logEvent internalMutation with atomic counter increment
+- [ ] Implement query functions with platform staff authorization
+- [ ] Use cursor-based pagination (.paginate()) for all list queries
+
+**Mistakes made** (learn from these!):
+- None - schema implementation was straightforward following PRD specs exactly
+
+---
+
+## 2026-02-15 21:45 - US-VNM-002 - Build Event Logging Infrastructure
+**Iteration**: 1
+**Commit**: 1f0c4ee94cc9e2310c5468c4d8fca4c0772865ac
+**Session**: a08aa0b2-8be2-41d1-9a15-736b6f382930
+**Status**: Complete
+
+### What was implemented
+- Created voicePipelineEvents.ts with 6 functions for complete event logging infrastructure
+
+- logEvent (internalMutation) - Fire-and-forget event logging with atomic counter increment
+  - UUID generation for eventId (crypto.randomUUID())
+  - timeWindow computation: 'YYYY-MM-DD-HH' format
+  - Duration calculation when both stageStartedAt and stageCompletedAt provided
+  - Atomic counter increment in same transaction as event insert
+  - Counter window rotation: if Date.now() >= windowEnd, patch counter to reset to 1 (not read-then-increment, fully atomic)
+  - Counter mapping: artifact_received → artifacts_received_1h, etc. (7 counter types)
+  - Error handling: try/catch returns empty string on error, never throws
+  
+- getRecentEvents (query) - Paginated event list with filters
+  - Platform staff authorization (safeGetAuthUser + isPlatformStaff check)
+  - Cursor-based pagination using .paginate(args.paginationOpts)
+  - Smart index selection based on filters (eventType → by_eventType_and_timestamp, etc.)
+  - Filter destructuring to avoid non-null assertions (linter compliance)
+  
+- getEventsByArtifact (internalQuery) - Single artifact timeline
+  - Chronological order (oldest first) using .order("asc")
+  - No pagination (bounded by single artifact)
+  
+- getEventTimeline (query) - Public wrapper with auth
+  - Platform staff authorization
+  - Calls internal getEventsByArtifact via ctx.runQuery
+  
+- getActiveArtifacts (query) - In-progress artifacts
+  - Queries voiceNoteArtifacts table (not events)
+  - Manual pagination (combining 4 status queries: received, transcribing, transcribed, processing)
+  - Platform staff only
+  
+- getFailedArtifacts (query) - Failed artifacts with optional time filter
+  - Cursor-based pagination
+  - Optional sinceTimestamp filter using .filter()
+  - Platform staff only
+
+### Files changed
+- packages/backend/convex/models/voicePipelineEvents.ts (+466)
+
+### Quality checks
+- ✅ Codegen: npx -w packages/backend convex codegen - passed
+- ✅ Linting: npx ultracite fix - passed (after fixes)
+- ✅ Pre-commit hooks: passed
+
+### Learnings for future iterations ⚠️ CRITICAL
+**Patterns discovered:**
+- Variable shadowing: Don't name local variables `query` when you've imported `query` from server
+  - Use descriptive names like `eventsQuery`, `failedQuery` instead
+- Non-null assertions: Biome linter rejects `args.filters!.eventType!` even after checking `args.filters?.eventType`
+  - Solution: Destructure filter values first into local consts to avoid assertions
+- Numeric separators: Biome requires `3_600_000` instead of `3600000` for readability
+- Import order: Biome wants `components` import before `server` imports (alphabetical)
+
+**Gotchas encountered:**
+- `crypto.randomUUID()` is available in Convex runtime (no import needed)
+- Counter window rotation MUST be atomic patch (not read currentValue + 1)
+  - Race condition: if windowEnd just expired, multiple events could try to set to 1
+  - Solution: Always patch with `currentValue: 1` when window expired
+- getActiveArtifacts manual pagination pattern (combining multiple status queries)
+  - Can't use single .paginate() across multiple statuses
+  - Take fixed limit from each status, combine, sort, slice
+
+**Dependencies found:**
+- Must have schema (US-VNM-001) before creating model file
+- Helper functions (computeTimeWindow, getCounterTypeForEvent) are critical for maintainability
+
+**What to do next**:
+- [ ] US-VNM-003: Instrument pipeline files with event emissions
+- [ ] Start with voiceNoteArtifacts.ts (createArtifact, updateArtifactStatus)
+- [ ] Remember ATOMIC IMPORTS pattern: add import + usage in SAME edit
+- [ ] Use ctx.scheduler.runAfter(0, ...) for mutations
+- [ ] Use await ctx.runMutation(...) wrapped in try/catch for actions
+
+**Mistakes made** (learn from these!):
+- Initially used variable name `query` which shadowed import - linter caught it
+- Used non-null assertions `args.filters!.eventType!` - linter rejected
+- Forgot numeric separators initially - ultracite auto-fixed but good to know
+
+---
+
+## 2026-02-15 22:00 - US-VNM-003 - Instrument Pipeline with Event Emissions (Partial 1/9)
+**Iteration**: 1
+**Commit**: ac3bb82f
+**Session**: a08aa0b2-8be2-41d1-9a15-736b6f382930
+**Status**: Partial (1 of 9 files complete)
+
+### What was implemented
+- Instrumented voiceNoteArtifacts.ts (file 1/9)
+  - createArtifact: artifact_received event
+  - updateArtifactStatus: artifact_completed/failed/status_changed events
+  - Added errorMessage and errorCode args to updateArtifactStatus for failure tracking
+
+### Files changed
+- packages/backend/convex/models/voiceNoteArtifacts.ts (+44, -1)
+
+### Quality checks
+- ✅ Ultracite fix: passed
+- ✅ Codegen: passed  
+- ✅ Pre-commit hooks: passed
+
+### Learnings for future iterations
+**Patterns discovered:**
+- Event type conditional logic: use let with union type, then assign based on status
+- Arguments expansion: added optional errorMessage/errorCode to updateArtifactStatus signature
+
+**What to do next** (8 files remaining):
+- [ ] voiceNoteTranscripts.ts: createTranscript (transcription_completed)
+- [ ] voiceNoteClaims.ts: storeClaims (claims_extracted)
+- [ ] voiceNoteEntityResolutions.ts: storeResolutions (entity_resolution_completed or entity_needs_disambiguation)
+- [ ] insightDrafts.ts: createDrafts (drafts_generated), confirmDraft (draft_confirmed), rejectDraft (draft_rejected)
+- [ ] actions/voiceNotes.ts: transcribeAudio (transcription_started, transcription_failed)
+- [ ] actions/claimsExtraction.ts: extractClaims (claims_extraction_started, claims_extraction_failed)
+- [ ] actions/entityResolution.ts: resolveEntities (entity_resolution_started)
+- [ ] actions/draftGeneration.ts: generateDrafts (draft_generation_started)
+
+**Reminder for actions:**
+- Actions use: await ctx.runMutation(internal.models.voicePipelineEvents.logEvent, {...})
+- Must wrap in try/catch (not fire-and-forget like mutations)
+- Actions have no ctx.scheduler, must await
+
+---
+
+## 2026-02-15 23:30 - US-VNM-003 - Instrument Pipeline with Event Emissions (COMPLETE)
+**Iteration**: Multiple (completed by Ralph)
+**Status**: Complete ✅
+
+### What was implemented
+All 9 pipeline files successfully instrumented with event logging:
+
+1. ✅ voiceNoteArtifacts.ts - artifact_received, artifact_completed, artifact_failed, artifact_status_changed
+2. ✅ voiceNoteTranscripts.ts - transcription_completed
+3. ✅ voiceNoteClaims.ts - claims_extracted
+4. ✅ voiceNoteEntityResolutions.ts - entity_resolution_completed, entity_needs_disambiguation
+5. ✅ insightDrafts.ts - drafts_generated, draft_confirmed, draft_rejected
+6. ✅ actions/voiceNotes.ts - transcription_started, transcription_failed
+7. ✅ actions/claimsExtraction.ts - claims_extraction_started, claims_extraction_failed
+8. ✅ actions/entityResolution.ts - entity_resolution_started
+9. ✅ actions/draftGeneration.ts - draft_generation_started
+
+### Quality checks
+- ✅ All instrumentation verified (see docs/testing/m1-instrumentation-review.md)
+- ✅ All 9 files use correct patterns (mutations: scheduler, actions: runMutation)
+- ✅ organizationId extraction correct: artifact.orgContextCandidates[0]?.organizationId
+- ✅ Event metadata populated (counts, costs, confidence, duration)
+- ✅ Fire-and-forget pattern confirmed (non-blocking pipeline execution)
+- ✅ Type checks pass: npm run check-types
+- ✅ Codegen passes: npx -w packages/backend convex codegen
+
+### M1 Final Summary
+**All 3 M1 User Stories Complete:**
+- US-VNM-001: Schema ✅
+- US-VNM-002: Event Logging Infrastructure ✅
+- US-VNM-003: Pipeline Instrumentation ✅
+
+**M1 Achievement:** 13/13 acceptance criteria met (100%)
+
+**Key Learnings Documented:**
+- Atomic counter increment patterns
+- Fire-and-forget event logging
+- UTC time handling for timeWindow
+- organizationId extraction from orgContextCandidates
+- Platform staff authorization patterns
+- All patterns consolidated in M1_LESSONS_LEARNED.md
+
+---
+
+═══════════════════════════════════════════════════════════════
+# PHASE M2: Metrics & Aggregation - STARTS HERE
+═══════════════════════════════════════════════════════════════
+
+**Phase:** M2 - Metrics & Aggregation
+**Started:** 2026-02-16
+**Stories:** US-VNM-004 (Build Metrics Aggregation System), US-VNM-005 (Add Crons)
+**Estimated Duration:** 3-4 days
+
+## 🎯 M2 Goals
+1. Enable fast real-time metrics queries (< 50ms, O(1) counter reads)
+2. Create hourly/daily metric snapshots for historical analytics
+3. Establish automated aggregation crons
+4. Implement retention cleanup (7d hourly, 90d daily, 48h events)
+5. Provide per-org and platform-wide metrics breakdown
+
+## ⚠️ CRITICAL: M1 Lessons to Apply in M2
+
+**BEFORE starting ANY M2 work, read:**
+- scripts/ralph/prds/voice-monitor-harness/context/M1_LESSONS_LEARNED.md (10 critical patterns)
+- .claude/agent-memory/architecture-reviewer/voice-monitor-m2-review.md (function-by-function analysis)
+
+**Top 5 Critical Patterns for M2:**
+1. **UTC Time Handling** - Use getUTCHours() not getHours() (timeWindow consistency)
+2. **N+1 Prevention** - Batch fetch org names in getOrgBreakdown (see M1_LESSONS_LEARNED.md for code example)
+3. **Safe Division** - ALWAYS check denominator > 0 before dividing (prevent NaN/Infinity in rates)
+4. **No Event Scanning** - getRealTimeMetrics ONLY reads counters, NEVER scans voicePipelineEvents
+5. **Platform-Wide Data** - OMIT organizationId field (not null) for platform-wide counters/snapshots
+
+**Performance Targets:**
+- getRealTimeMetrics: < 50ms (O(1) counter reads)
+- aggregateHourlyMetrics: < 30s (Medium scale: 500-1000 events/hour)
+- aggregateDailyMetrics: < 10s (aggregates from hourly snapshots, not raw events)
+
+## 📋 M2 User Stories
+
+### US-VNM-004: Build Metrics Aggregation System (3 days)
+**Priority:** 4
+**Status:** Not started (passes: false)
+
+**Functions to implement (8 total):**
+1. getRealTimeMetrics - O(1) counter reads (< 50ms)
+2. getHistoricalMetrics - Query snapshots by time range
+3. getStageBreakdown - Per-stage latency/failure rates
+4. getOrgBreakdown - Per-org metrics (CRITICAL: batch fetch pattern)
+5. aggregateHourlyMetrics - Events → hourly snapshots (< 30s)
+6. aggregateDailyMetrics - Hourly → daily snapshots (< 10s)
+7. cleanupOldSnapshots - 7d/90d retention
+8. cleanupOldEvents - 48h retention
+
+**Implementation order (from ralphGuidance in prd.json):**
+  a. getRealTimeMetrics first (test with M1 counter data)
+  b. aggregateHourlyMetrics (test with manual call)
+  c. getHistoricalMetrics (test with snapshots from step b)
+  d. getStageBreakdown and getOrgBreakdown (use batch fetch!)
+  e. aggregateDailyMetrics
+  f. cleanupOldSnapshots and cleanupOldEvents
+
+### US-VNM-005: Add Metrics Aggregation Crons (0.5 day)
+**Priority:** 5
+**Status:** Not started (passes: false)
+
+**Crons to add (4 total):**
+1. aggregate-pipeline-hourly-metrics - Hourly at :30 (NOT :00!)
+2. aggregate-pipeline-daily-metrics - Daily at 1:30 AM UTC (NOT 12:00 AM!)
+3. cleanup-pipeline-snapshots - Weekly Sunday 4:30 AM UTC
+4. cleanup-pipeline-events - Weekly Sunday 5:00 AM UTC
+
+**Critical Timing Rationale:**
+- Hourly at :30 ensures full hour of data collected before aggregation
+- Daily at 1:30 AM ensures all 24 hourly snapshots exist before daily aggregation
+- Event cleanup runs AFTER snapshot cleanup (ensures snapshots captured before event deletion)
+
+## 🚫 Common Pitfalls to Avoid (from PHASE_M2.json)
+
+❌ Scanning voicePipelineEvents for real-time metrics (use counters instead)
+❌ Unbounded queries on snapshots (always include time range)
+❌ Not handling divide-by-zero in failure rate calculations
+❌ Hourly cron at :00 instead of :30 (hour incomplete at :00)
+❌ Daily cron before all hourly snapshots exist (run at 1:30, not 12:00)
+❌ Cleanup deleting snapshots still needed (check retention cutoff math)
+❌ N+1 queries for org names in getOrgBreakdown (use batch fetch + Map)
+
+## 📚 M2 Context Files (All Available)
+✅ scripts/ralph/prds/voice-monitor-harness/context/MAIN_CONTEXT.md
+✅ scripts/ralph/prds/voice-monitor-harness/context/PERFORMANCE_PATTERNS.md
+✅ scripts/ralph/prds/voice-monitor-harness/context/M1_LESSONS_LEARNED.md
+✅ docs/architecture/voice-flow-monitoring-harness.md
+✅ docs/architecture/voice-notes-v2-technical-reference.md
+✅ CLAUDE.md
+
+## 🎯 M2 Success Indicators
+
+When M2 is complete, verify:
+✅ voicePipelineMetrics.ts created with 8 functions
+✅ getRealTimeMetrics returns in < 50ms (verified in Convex logs)
+✅ getHistoricalMetrics returns snapshots (not scanning events)
+✅ Crons visible in Convex dashboard and running on schedule
+✅ Hourly snapshots created every hour at :30
+✅ Daily snapshots created daily at 1:30 AM UTC
+✅ Old snapshots deleted weekly (hourly > 7d, daily > 90d)
+✅ Old events deleted weekly (> 48h)
+✅ No N+1 queries in getOrgBreakdown (code review confirms batch fetch)
+✅ All rate calculations use safe division (no NaN/Infinity in snapshots)
+✅ npm run check-types passes
+✅ npx -w packages/backend convex codegen succeeds
+
+---
+
+## What to do next (M2 - First Story):
+- [ ] Read M1_LESSONS_LEARNED.md BEFORE starting any code
+- [ ] Read M2 architectural review
+- [ ] Start US-VNM-004: Create voicePipelineMetrics.ts
+- [ ] Implement getRealTimeMetrics first (test with M1 counter data)
+- [ ] Follow implementation order from ralphGuidance section above
+
+---
+

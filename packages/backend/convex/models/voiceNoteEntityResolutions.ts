@@ -96,6 +96,42 @@ export const storeResolutions = internalMutation({
       const id = await ctx.db.insert("voiceNoteEntityResolutions", resolution);
       ids.push(id);
     }
+
+    // Calculate metrics for event metadata
+    const autoResolvedCount = args.resolutions.filter(
+      (r) => r.status === "auto_resolved"
+    ).length;
+    const disambiguationCount = args.resolutions.filter(
+      (r) => r.status === "needs_disambiguation"
+    ).length;
+
+    // Determine event type based on resolution status
+    const eventType =
+      disambiguationCount > 0
+        ? "entity_needs_disambiguation"
+        : "entity_resolution_completed";
+
+    // Fire-and-forget event logging
+    if (args.resolutions.length > 0) {
+      const firstResolution = args.resolutions[0];
+      await ctx.scheduler.runAfter(
+        0,
+        internal.models.voicePipelineEvents.logEvent,
+        {
+          eventType,
+          artifactId: firstResolution.artifactId,
+          organizationId: firstResolution.organizationId,
+          pipelineStage: "entity_resolution",
+          stageCompletedAt: Date.now(),
+          metadata: {
+            entityCount: args.resolutions.length,
+            autoResolvedCount,
+            disambiguationCount,
+          },
+        }
+      );
+    }
+
     return ids;
   },
 });

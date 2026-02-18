@@ -1,0 +1,266 @@
+{
+  "phase": "M4",
+  "name": "Pipeline Alerts",
+  "description": "Automated anomaly detection with health check cron. Detects pipeline issues like high failure rates, latency spikes, queue depth problems, and circuit breaker state changes.",
+  "duration": "2-3 days",
+  "dependencies": ["M1", "M2"],
+  "architectureReference": "docs/architecture/voice-flow-monitoring-harness.md (lines 844-857)",
+
+  "goals": [
+    "Detect pipeline health anomalies automatically",
+    "Alert on failure rate > 10%",
+    "Alert on latency > 2x average",
+    "Alert on queue depth > 50 artifacts",
+    "Alert on disambiguation backlog > 100",
+    "Alert on circuit breaker state changes",
+    "Alert on pipeline inactivity > 60 minutes",
+    "Reuse existing platformCostAlerts table for alert storage"
+  ],
+
+  "userStories": [
+    {
+      "id": "US-VNM-007",
+      "title": "Build Pipeline Alerts Backend",
+      "description": "Create voicePipelineAlerts.ts with automated health check cron and alert queries",
+      "effort": "2 days",
+      "priority": 7,
+      "dependencies": ["US-VNM-004"],
+
+      "detailedAcceptanceCriteria": {
+        "overview": "Create packages/backend/convex/models/voicePipelineAlerts.ts with health check logic that runs every 5 minutes, detects anomalies, and inserts alerts into the existing platformCostAlerts table.",
+
+        "function1_checkPipelineHealth": {
+          "type": "internalMutation",
+          "signature": {
+            "args": {},
+            "returns": "v.object({ alertsCreated: v.number(), checksPerformed: v.array(v.string()) })"
+          },
+          "implementation": [
+            "1. Query real-time metrics from voicePipelineCounters",
+            "2. Query most recent hourly snapshot from voicePipelineMetricsSnapshots",
+            "3. Query active artifacts count (voiceNoteArtifacts with status != 'completed' && != 'failed')",
+            "4. Query disambiguation backlog (voiceNoteEntityResolutions with status='needs_disambiguation')",
+            "5. Query AI service health (aiServiceHealth table)",
+            "6. Perform health checks:",
+            "",
+            "   CHECK 1: Failure Rate",
+            "   - Calculate: failures_1h / (completed_1h + failures_1h)",
+            "   - Threshold: > 0.10 (10%)",
+            "   - If exceeded: insert alert { alertType: 'PIPELINE_HIGH_FAILURE_RATE', severity: 'high', message: 'Pipeline failure rate is XX% (threshold: 10%)', metadata: { failureRate, threshold: 0.10 } }",
+            "",
+            "   CHECK 2: Latency Spike",
+            "   - Compare: current avgEndToEndLatency vs historical avg (from snapshots)",
+            "   - Baseline calculation: Query last 168 hourly snapshots (7 days), compute avg(avgEndToEndLatency), compare to current",
+            "   - Threshold: current > 2x historical average",
+            "   - If exceeded: insert alert { alertType: 'PIPELINE_HIGH_LATENCY', severity: 'medium', message: 'End-to-end latency is XXms (2x normal)', metadata: { currentLatency, avgLatency, threshold: 2.0 } }",
+            "",
+            "   CHECK 3: Queue Depth",
+            "   - Count: active artifacts in 'received', 'transcribing', 'processing' statuses",
+            "   - Threshold: > 50",
+            "   - If exceeded: insert alert { alertType: 'PIPELINE_HIGH_QUEUE_DEPTH', severity: 'medium', message: 'XX artifacts queued (threshold: 50)', metadata: { queueDepth, threshold: 50 } }",
+            "",
+            "   CHECK 4: Disambiguation Backlog",
+            "   - Count: entityResolutions with status='needs_disambiguation'",
+            "   - Threshold: > 100",
+            "   - If exceeded: insert alert { alertType: 'PIPELINE_DISAMBIGUATION_BACKLOG', severity: 'low', message: 'XX entities awaiting manual review (threshold: 100)', metadata: { backlogCount, threshold: 100 } }",
+            "",
+            "   CHECK 5: Circuit Breaker",
+            "   - Check: aiServiceHealth.circuitBreakerState",
+            "   - If 'open' or 'half_open': insert alert { alertType: 'PIPELINE_CIRCUIT_BREAKER_OPEN', severity: 'critical', message: 'AI service circuit breaker is open', metadata: { state, recentFailureCount } }",
+            "   - On state change from previous check: log circuit_breaker_opened or circuit_breaker_closed event",
+            "",
+            "   CHECK 6: Pipeline Inactivity",
+            "   - Check: last artifact_received event timestamp",
+            "   - Threshold: > 60 minutes ago",
+            "   - If exceeded: insert alert { alertType: 'PIPELINE_INACTIVITY', severity: 'low', message: 'No voice notes received in XX minutes', metadata: { minutesSinceLastArtifact, threshold: 60 } }",
+            "",
+            "7. Deduplicate alerts (15-minute window): before inserting, check if same alertType exists with acknowledged=false AND createdAt > (Date.now() - 900000). Only create new alert if no recent unacknowledged alert of same type.",
+            "8. Return { alertsCreated: count, checksPerformed: ['failure_rate', 'latency', ...] }"
+          ],
+          "alertTypes": [
+            "PIPELINE_HIGH_FAILURE_RATE (severity: high)",
+            "PIPELINE_HIGH_LATENCY (severity: medium)",
+            "PIPELINE_HIGH_QUEUE_DEPTH (severity: medium)",
+            "PIPELINE_DISAMBIGUATION_BACKLOG (severity: low)",
+            "PIPELINE_CIRCUIT_BREAKER_OPEN (severity: critical)",
+            "PIPELINE_INACTIVITY (severity: low)"
+          ],
+          "deduplicationLogic": "Before inserting new alert: query platformCostAlerts for same alertType with acknowledged=false. If exists, skip insert (don't spam). Only create new alert if previous alert was acknowledged or doesn't exist."
+        },
+
+        "function2_getActiveAlerts": {
+          "type": "query",
+          "signature": {
+            "args": {},
+            "returns": "v.array(v.object({ _id, alertType, severity, message, metadata, createdAt, acknowledged }))"
+          },
+          "implementation": [
+            "1. Verify platform staff authorization",
+            "2. Query platformCostAlerts table",
+            "3. Filter: acknowledged=false AND alertType starts with 'PIPELINE_'",
+            "4. Order by severity (critical > high > medium > low), then by createdAt desc",
+            "5. Return array"
+          ]
+        },
+
+        "function3_acknowledgeAlert": {
+          "type": "mutation",
+          "signature": {
+            "args": {
+              "alertId": "v.id('platformCostAlerts')"
+            },
+            "returns": "v.object({ success: v.boolean() })"
+          },
+          "implementation": [
+            "1. Verify platform staff authorization",
+            "2. Fetch alert by ID",
+            "3. Update: acknowledged=true, acknowledgedAt=Date.now(), acknowledgedBy=user._id",
+            "4. Return success"
+          ]
+        },
+
+        "function4_getAlertHistory": {
+          "type": "query",
+          "signature": {
+            "args": {
+              "filters": "v.optional(v.object({ severity, alertType, startDate, endDate }))",
+              "paginationOpts": "paginationOptsValidator"
+            },
+            "returns": "PaginationResult<Alert>"
+          },
+          "implementation": [
+            "1. Verify platform staff authorization",
+            "2. Query platformCostAlerts",
+            "3. Filter: alertType starts with 'PIPELINE_'",
+            "4. Apply optional filters (severity, alertType, date range)",
+            "5. Order by createdAt desc",
+            "6. Use .paginate(paginationOpts)",
+            "7. Return result"
+          ]
+        },
+
+        "cronJob": {
+          "name": "check-pipeline-health",
+          "schedule": "Every 5 minutes",
+          "cronExpression": "*/5 * * * *",
+          "action": "Call internal.models.voicePipelineAlerts.checkPipelineHealth",
+          "implementation": "Add to crons.ts: crons.interval('check-pipeline-health', { minutes: 5 }, async (ctx) => { await ctx.runMutation(internal.models.voicePipelineAlerts.checkPipelineHealth, {}) })"
+        },
+
+        "tableExtension": {
+          "note": "RECOMMENDATION: Create dedicated voicePipelineAlerts table instead of extending platformCostAlerts",
+          "reason": "platformCostAlerts has closed union validators (severity: 'warning'|'critical', alertType: 5 literals). EXTENDING IT REQUIRES: Schema migration to expand unions + add metadata field. ALTERNATIVE (CLEANER): New table with pipeline-specific fields, 4-level severity (critical/high/medium/low), metadata object. For MVP: If time-constrained, can reuse platformCostAlerts by mapping 4 severities to 2 (low/medium->warning, high/critical->critical)",
+          "newAlertTypes": [
+            "PIPELINE_HIGH_FAILURE_RATE",
+            "PIPELINE_HIGH_LATENCY",
+            "PIPELINE_HIGH_QUEUE_DEPTH",
+            "PIPELINE_DISAMBIGUATION_BACKLOG",
+            "PIPELINE_CIRCUIT_BREAKER_OPEN",
+            "PIPELINE_INACTIVITY"
+          ],
+          "existingFields": "alertType, severity, message, metadata, createdAt, acknowledged, acknowledgedAt, acknowledgedBy"
+        }
+      },
+
+      "implementationNotes": {
+        "healthCheckLogic": {
+          "failureRateCalc": "failures / (completed + failures) - handle divide by zero",
+          "latencySpikeCalc": "Compare current avgLatency to 7-day rolling average from snapshots",
+          "queueDepthCalc": "Count artifacts with status in ['received', 'transcribing', 'transcribed', 'processing']",
+          "disambiguationBacklogCalc": "Count entityResolutions with status='needs_disambiguation' and createdAt > 24h ago (filter out fresh ones)"
+        },
+        "severityLevels": {
+          "critical": "Circuit breaker open (AI service unavailable)",
+          "high": "Failure rate > 10% (significant pipeline degradation)",
+          "medium": "Latency spike or queue depth high (performance degradation)",
+          "low": "Disambiguation backlog or inactivity (operational issues)"
+        },
+        "deduplication": "Only create new alert if previous alert of same type was acknowledged or doesn't exist - prevents alert spam",
+        "eventEmission": "Log circuit_breaker_opened/closed events when state changes (detect via comparison with previous state)"
+      },
+
+      "testingRequirements": {
+        "unitTests": false,
+        "integrationTests": false,
+        "manualTesting": true,
+        "verificationSteps": [
+          "1. Force high failure rate (create many failed artifacts)",
+          "2. Run checkPipelineHealth manually",
+          "3. Verify PIPELINE_HIGH_FAILURE_RATE alert created in platformCostAlerts",
+          "4. Call getActiveAlerts → verify alert appears",
+          "5. Call acknowledgeAlert → verify alert marked acknowledged",
+          "6. Run checkPipelineHealth again → verify doesn't create duplicate alert (deduplication works)",
+          "7. Test latency spike: manually create snapshot with high latency",
+          "8. Test queue depth: create 51+ active artifacts",
+          "9. Test circuit breaker: set aiServiceHealth.circuitBreakerState='open'",
+          "10. Verify all alert types can be triggered",
+          "11. Deploy cron, wait 5 minutes, verify runs automatically"
+        ]
+      },
+
+      "files": {
+        "create": ["packages/backend/convex/models/voicePipelineAlerts.ts"],
+        "modify": ["packages/backend/convex/crons.ts"]
+      }
+    }
+  ],
+
+  "successCriteria": {
+    "healthCheckRuns": "checkPipelineHealth executes successfully every 5 minutes",
+    "alertsDetected": "All 6 alert types can be triggered and inserted correctly",
+    "deduplicationWorks": "Duplicate alerts not created for same unacknowledged issue",
+    "activeAlertsQuery": "getActiveAlerts returns only unacknowledged pipeline alerts",
+    "acknowledgeWorks": "acknowledgeAlert updates alert to acknowledged=true",
+    "alertHistoryWorks": "getAlertHistory returns paginated historical alerts",
+    "cronScheduled": "check-pipeline-health cron visible in Convex dashboard and runs every 5 min",
+    "severityCorrect": "Alerts created with correct severity levels (critical/high/medium/low)"
+  },
+
+  "testingStrategy": {
+    "approach": "Manual testing with synthetic anomalies",
+    "testScenarios": [
+      "Create failed artifacts to trigger high failure rate",
+      "Create many active artifacts to trigger queue depth alert",
+      "Set circuit breaker to open state → verify critical alert",
+      "Stop creating artifacts for 60+ minutes → verify inactivity alert",
+      "Create many disambiguation resolutions → verify backlog alert",
+      "Acknowledge alert → verify doesn't reappear on next health check"
+    ]
+  },
+
+  "ralphGuidance": {
+    "executionOrder": [
+      "1. Create voicePipelineAlerts.ts with all functions",
+      "2. Implement checkPipelineHealth with all 6 health checks",
+      "3. Test each health check individually (force conditions)",
+      "4. Implement getActiveAlerts, acknowledgeAlert, getAlertHistory",
+      "5. Add cron job to crons.ts (every 5 minutes)",
+      "6. Deploy and test cron runs automatically",
+      "7. Verify deduplication works (don't spam alerts)",
+      "8. Phase M4 complete"
+    ],
+    "commonPitfalls": [
+      "Not handling divide-by-zero in failure rate calculation",
+      "Not deduplicating alerts (creates spam on every health check)",
+      "Wrong severity levels (should match criticality of issue)",
+      "Not filtering for pipeline alerts in getActiveAlerts (shows all platform alerts)",
+      "Cron interval too frequent (5 min is appropriate, 1 min is overkill)",
+      "Not verifying platform staff auth on query/mutation functions"
+    ],
+    "successIndicators": [
+      "Cron runs every 5 minutes in Convex dashboard",
+      "Alerts created in platformCostAlerts with correct alertType",
+      "getActiveAlerts shows unacknowledged pipeline alerts only",
+      "acknowledgeAlert marks alerts as acknowledged",
+      "No duplicate alerts for same unacknowledged issue",
+      "All 6 alert types can be triggered"
+    ]
+  },
+
+  "nextPhase": {
+    "phase": "M5",
+    "name": "Dashboard UI",
+    "description": "Main monitoring dashboard with flow graph, real-time status cards, and activity feed",
+    "readyWhen": "All backend phases (M1-M4) complete, alerts functional, ready for frontend development"
+  }
+}

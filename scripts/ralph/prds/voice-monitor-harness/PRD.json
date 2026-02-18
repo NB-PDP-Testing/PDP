@@ -1,0 +1,621 @@
+{
+  "project": "Voice Flow Monitoring Harness",
+  "branchName": "feat/voice-monitor-harness",
+  "description": "Platform-staff monitoring system for the voice note processing pipeline, providing real-time visibility, historical analytics, flow visualization, and debugging capabilities. Subsumes the existing v2-claims page into a unified monitoring interface.",
+  "issueReference": "https://github.com/NB-PDP-Testing/PDP/issues/495",
+  "contextFiles": [
+    "scripts/ralph/prds/voice-monitor-harness/context/MAIN_CONTEXT.md",
+    "docs/architecture/voice-flow-monitoring-harness.md",
+    "docs/architecture/voice-notes-v2-technical-reference.md",
+    "scripts/ralph/prds/voice-monitor-harness/context/PERFORMANCE_PATTERNS.md"
+  ],
+  "baseArchitecture": "docs/architecture/voice-flow-monitoring-harness.md",
+  "currentPhase": "Phase M6-M9 - Final Implementation",
+  "phases": [
+    {
+      "id": "M1",
+      "name": "Foundation - Backend Instrumentation",
+      "description": "Create database tables, event logging infrastructure, and instrument existing pipeline functions to emit events",
+      "duration": "4-5 days",
+      "dependencies": []
+    },
+    {
+      "id": "M2",
+      "name": "Metrics & Aggregation",
+      "description": "Build metrics aggregation system with hourly/daily snapshots and cleanup crons",
+      "duration": "3-4 days",
+      "dependencies": ["M1"]
+    },
+    {
+      "id": "M3",
+      "name": "Retry Operations",
+      "description": "Manual retry capability for failed artifacts with audit logging",
+      "duration": "2-3 days",
+      "dependencies": ["M1"]
+    },
+    {
+      "id": "M4",
+      "name": "Pipeline Alerts",
+      "description": "Automated anomaly detection with health check cron",
+      "duration": "2-3 days",
+      "dependencies": ["M1", "M2"]
+    },
+    {
+      "id": "M5",
+      "name": "Dashboard UI",
+      "description": "Main monitoring dashboard with flow graph, real-time status cards, and activity feed",
+      "duration": "4-5 days",
+      "dependencies": ["M1", "M2"]
+    },
+    {
+      "id": "M6",
+      "name": "Artifacts Grid & Detail",
+      "description": "Enhanced grid view subsuming v2-claims, with expandable rows and artifact detail timeline",
+      "duration": "4-5 days",
+      "dependencies": ["M1", "M3", "M5"]
+    },
+    {
+      "id": "M7",
+      "name": "Metrics & Events Pages",
+      "description": "Historical analytics dashboard and raw event log viewer with filters",
+      "duration": "3-4 days",
+      "dependencies": ["M2", "M5"]
+    },
+    {
+      "id": "M8",
+      "name": "Pipeline View & Alerts UI",
+      "description": "Expanded pipeline visualization and alert management interface",
+      "duration": "3-4 days",
+      "dependencies": ["M4", "M5"]
+    },
+    {
+      "id": "M9",
+      "name": "Cleanup & Polish",
+      "description": "Remove v2-claims page, update platform hub, mobile adjustments, performance optimization",
+      "duration": "2-3 days",
+      "dependencies": ["M6", "M7", "M8"]
+    }
+  ],
+  "completedStories": [
+    "US-VNM-001",
+    "US-VNM-002",
+    "US-VNM-003",
+    "US-VNM-004",
+    "US-VNM-005",
+    "US-VNM-006",
+    "US-VNM-007",
+    "US-VNM-008"
+  ],
+  "IMPORTANT_READ_PHASE_PRD": "The detailed acceptance criteria for each story are in the phase PRD files (phases/PHASE_M1.json through phases/PHASE_M9.json). The summaries below are abbreviated. ALWAYS read the phase PRD for the full, verified implementation instructions including exact function signatures.",
+  "userStories": [
+    {
+      "id": "US-VNM-001",
+      "phase": "M1",
+      "title": "Create Pipeline Event Log Schema",
+      "description": "Add voicePipelineEvents, voicePipelineMetricsSnapshots, and voicePipelineCounters tables to schema with proper indexes and time-window partitioning support",
+      "acceptanceCriteria": [
+        "FULL DETAILS: Read phases/PHASE_M1.json \u2014 story US-VNM-001",
+        "",
+        "SUMMARY:",
+        "1. Add voicePipelineEvents table with 25+ event types, timeWindow field, proper indexes",
+        "2. Add voicePipelineMetricsSnapshots table with hourly/daily periodType",
+        "3. Add voicePipelineCounters table for real-time atomic counters",
+        "4. All tables include proper indexes per architecture doc",
+        "5. Run codegen successfully",
+        "",
+        "CRITICAL: timeWindow field format: 'YYYY-MM-DD-HH' for hourly partitioning",
+        "CRITICAL: Counter atomic increment pattern must be followed"
+      ],
+      "priority": 1,
+      "effort": "1 day",
+      "dependencies": [],
+      "files": {
+        "modify": ["packages/backend/convex/schema.ts"]
+      },
+      "passes": true
+    },
+    {
+      "id": "US-VNM-002",
+      "phase": "M1",
+      "title": "Build Event Logging Infrastructure",
+      "description": "Create voicePipelineEvents.ts model file with logEvent mutation (including atomic counter increment), event queries, and pagination support",
+      "acceptanceCriteria": [
+        "FULL DETAILS: Read phases/PHASE_M1.json \u2014 story US-VNM-002",
+        "",
+        "SUMMARY:",
+        "1. Create voicePipelineEvents.ts with logEvent internalMutation",
+        "2. logEvent atomically: inserts event + increments voicePipelineCounters in same transaction",
+        "3. Implement cursor-based pagination for getRecentEvents (MANDATORY - use .paginate())",
+        "4. Create getEventsByArtifact, getEventTimeline, getActiveArtifacts, getFailedArtifacts",
+        "5. All queries include platform staff authorization check",
+        "",
+        "CRITICAL: NEVER use .take(limit) - ALWAYS use .paginate(paginationOpts)",
+        "CRITICAL: Counter rotation logic - if windowEnd expired, reset counter to 1"
+      ],
+      "priority": 2,
+      "effort": "2 days",
+      "dependencies": ["US-VNM-001"],
+      "files": {
+        "create": ["packages/backend/convex/models/voicePipelineEvents.ts"]
+      },
+      "passes": true
+    },
+    {
+      "id": "US-VNM-003",
+      "phase": "M1",
+      "title": "Instrument Pipeline with Event Emissions",
+      "description": "Add event logging calls to all existing v2 pipeline functions using ctx.scheduler.runAfter pattern (fire-and-forget, non-blocking)",
+      "acceptanceCriteria": [
+        "FULL DETAILS: Read phases/PHASE_M1.json \u2014 story US-VNM-003",
+        "",
+        "SUMMARY:",
+        "1. Instrument createArtifact \u2192 emit 'artifact_received'",
+        "2. Instrument updateArtifactStatus \u2192 emit 'artifact_status_changed', 'artifact_completed', 'artifact_failed'",
+        "3. Instrument createTranscript \u2192 emit 'transcription_completed'",
+        "4. Instrument storeClaims \u2192 emit 'claims_extracted' with metadata (claimCount, aiCost)",
+        "5. Instrument storeResolutions \u2192 emit 'entity_resolution_completed' or 'entity_needs_disambiguation'",
+        "6. Instrument pipeline actions \u2192 emit stage start events ('transcription_started', etc.)",
+        "7. All emissions via ctx.scheduler.runAfter(0, internal.models.voicePipelineEvents.logEvent, {...})",
+        "",
+        "CRITICAL: Fire-and-forget pattern - NEVER block pipeline on event logging",
+        "CRITICAL: Include metadata in events (duration, cost, confidence, counts)"
+      ],
+      "priority": 3,
+      "effort": "2 days",
+      "dependencies": ["US-VNM-002"],
+      "files": {
+        "modify": [
+          "packages/backend/convex/models/voiceNoteArtifacts.ts",
+          "packages/backend/convex/models/voiceNoteTranscripts.ts",
+          "packages/backend/convex/models/voiceNoteClaims.ts",
+          "packages/backend/convex/models/voiceNoteEntityResolutions.ts",
+          "packages/backend/convex/models/insightDrafts.ts",
+          "packages/backend/convex/actions/voiceNotes.ts",
+          "packages/backend/convex/actions/claimsExtraction.ts",
+          "packages/backend/convex/actions/entityResolution.ts",
+          "packages/backend/convex/actions/draftGeneration.ts"
+        ]
+      },
+      "passes": true
+    },
+    {
+      "id": "US-VNM-004",
+      "phase": "M2",
+      "title": "Build Metrics Aggregation System",
+      "description": "Create voicePipelineMetrics.ts with hourly/daily aggregation logic and real-time counter queries",
+      "acceptanceCriteria": [
+        "FULL DETAILS: Read phases/PHASE_M2.json \u2014 story US-VNM-004",
+        "",
+        "SUMMARY:",
+        "1. Create voicePipelineMetrics.ts model file",
+        "2. Implement getRealTimeMetrics (reads from voicePipelineCounters - O(1) no event scan)",
+        "3. Implement getHistoricalMetrics (reads from snapshots table)",
+        "4. Implement aggregateHourlyMetrics internalMutation (cron-called)",
+        "5. Implement aggregateDailyMetrics internalMutation (cron-called)",
+        "6. Implement cleanupOldSnapshots internalMutation (weekly cron)",
+        "7. Calculate: latency per stage, success rates, error rates, costs, quality metrics",
+        "",
+        "CRITICAL: Real-time metrics read counters ONLY - never scan voicePipelineEvents",
+        "CRITICAL: Retention: hourly snapshots 7 days, daily snapshots 90 days"
+      ],
+      "priority": 4,
+      "effort": "3 days",
+      "dependencies": ["US-VNM-003"],
+      "files": {
+        "create": ["packages/backend/convex/models/voicePipelineMetrics.ts"]
+      },
+      "passes": true
+    },
+    {
+      "id": "US-VNM-005",
+      "phase": "M2",
+      "title": "Add Metrics Aggregation Crons",
+      "description": "Add 3 cron jobs for hourly aggregation, daily aggregation, and snapshot cleanup",
+      "acceptanceCriteria": [
+        "FULL DETAILS: Read phases/PHASE_M2.json \u2014 story US-VNM-005",
+        "",
+        "SUMMARY:",
+        "1. Add 'aggregate-pipeline-hourly-metrics' cron (hourly at :30)",
+        "2. Add 'aggregate-pipeline-daily-metrics' cron (daily 1:30 AM UTC)",
+        "3. Add 'cleanup-pipeline-snapshots' cron (weekly Sunday 4:30 AM UTC)",
+        "4. All crons call voicePipelineMetrics functions",
+        "",
+        "CRITICAL: Hourly cron MUST run AFTER the hour completes (:30 min mark)",
+        "CRITICAL: Cleanup removes hourly > 7d, daily > 90d"
+      ],
+      "priority": 5,
+      "effort": "0.5 day",
+      "dependencies": ["US-VNM-004"],
+      "files": {
+        "modify": ["packages/backend/convex/crons.ts"]
+      },
+      "passes": true
+    },
+    {
+      "id": "US-VNM-006",
+      "phase": "M3",
+      "title": "Build Retry Operations Backend",
+      "description": "Create voicePipelineRetry.ts with manual retry mutations for failed pipeline stages",
+      "acceptanceCriteria": [
+        "FULL DETAILS: Read phases/PHASE_M3.json \u2014 story US-VNM-006",
+        "",
+        "SUMMARY:",
+        "1. Create voicePipelineRetry.ts model file",
+        "2. Implement retryTranscription mutation (platform staff only)",
+        "3. Implement retryClaimsExtraction mutation",
+        "4. Implement retryEntityResolution mutation",
+        "5. Implement retryFullPipeline mutation",
+        "6. All retry mutations: log 'retry_initiated' \u2192 reset artifact status \u2192 schedule pipeline action \u2192 log result",
+        "7. Implement getRetryHistory query",
+        "",
+        "CRITICAL: Platform staff authorization on ALL retry mutations",
+        "CRITICAL: Use ctx.scheduler.runAfter(0, ...) to trigger pipeline actions",
+        "CRITICAL: Log retry_succeeded or retry_failed events on completion"
+      ],
+      "priority": 6,
+      "effort": "2 days",
+      "dependencies": ["US-VNM-003"],
+      "files": {
+        "create": ["packages/backend/convex/models/voicePipelineRetry.ts"]
+      },
+      "passes": true
+    },
+    {
+      "id": "US-VNM-007",
+      "phase": "M4",
+      "title": "Build Pipeline Alerts Backend",
+      "description": "Create voicePipelineAlerts.ts with automated health check cron and alert queries",
+      "acceptanceCriteria": [
+        "FULL DETAILS: Read phases/PHASE_M4.json \u2014 story US-VNM-007",
+        "",
+        "SUMMARY:",
+        "1. Create voicePipelineAlerts.ts model file",
+        "2. Implement checkPipelineHealth internalMutation (cron-called every 5 min)",
+        "3. Check conditions: failure rate > 10%, latency > 2x avg, queue depth > 50, disambiguation backlog > 100, circuit breaker changes, inactivity > 60min",
+        "4. Insert alerts into platformCostAlerts table (reuse existing, add new alertTypes)",
+        "5. Implement getActiveAlerts query (platform staff)",
+        "6. Implement acknowledgeAlert mutation",
+        "7. Implement getAlertHistory query",
+        "",
+        "CRITICAL: Reuse platformCostAlerts table - add pipeline alert types",
+        "CRITICAL: Health check every 5 minutes (interval cron)"
+      ],
+      "priority": 7,
+      "effort": "2 days",
+      "dependencies": ["US-VNM-004"],
+      "files": {
+        "create": ["packages/backend/convex/models/voicePipelineAlerts.ts"],
+        "modify": ["packages/backend/convex/crons.ts"]
+      },
+      "passes": true
+    },
+    {
+      "id": "US-VNM-008",
+      "phase": "M5",
+      "title": "Build Dashboard Overview UI",
+      "description": "Create main monitoring dashboard at /platform/voice-monitoring with flow graph, real-time status cards, and activity feed",
+      "acceptanceCriteria": [
+        "FULL DETAILS: Read phases/PHASE_M5.json \u2014 story US-VNM-008",
+        "",
+        "SUMMARY:",
+        "1. Create route structure: apps/web/src/app/platform/voice-monitoring/",
+        "2. Create page.tsx (dashboard overview)",
+        "3. Create layout.tsx (tab navigation for 8 pages)",
+        "4. Build PipelineFlowGraph component (SVG-based, 5 stages: Ingestion \u2192 Transcription \u2192 Claims \u2192 Resolution \u2192 Drafts)",
+        "5. Build 6 real-time status cards (Active Artifacts, Completed Today, Failed Today, Avg Latency, AI Service Status, Total Cost Today)",
+        "6. Build Recent Activity Feed (last 20 events, real-time via useQuery)",
+        "7. Add link to /platform hub, remove v2-claims link",
+        "",
+        "CRITICAL: Platform staff authorization on route",
+        "CRITICAL: Real-time updates via Convex useQuery",
+        "CRITICAL: Flow graph uses real-time counter data (not event scans)"
+      ],
+      "priority": 8,
+      "effort": "4 days",
+      "dependencies": ["US-VNM-004"],
+      "files": {
+        "create": [
+          "apps/web/src/app/platform/voice-monitoring/page.tsx",
+          "apps/web/src/app/platform/voice-monitoring/layout.tsx"
+        ],
+        "modify": ["apps/web/src/app/platform/page.tsx"]
+      },
+      "passes": true
+    },
+    {
+      "id": "US-VNM-009",
+      "phase": "M6",
+      "title": "Build Artifacts Grid View",
+      "description": "Create artifacts grid page with filters, expandable rows, and enhanced table (subsumes v2-claims functionality)",
+      "acceptanceCriteria": [
+        "FULL DETAILS: Read phases/PHASE_M6.json \u2014 story US-VNM-009",
+        "",
+        "SUMMARY:",
+        "1. Create artifacts/page.tsx",
+        "2. Build filter bar (status, org, date range, source channel, search by artifactId)",
+        "3. Build grid table with columns: Artifact ID, Status, Source, Coach, Org, Claims, Disambig, Latency, Cost, Created, Actions",
+        "4. Implement expandable rows (click to show claims, resolutions, drafts, timeline)",
+        "5. Migrate ClaimRow component from v2-claims (reuse, don't duplicate)",
+        "6. Use cursor-based pagination (usePaginatedQuery hook)",
+        "7. Wire retry buttons (call voicePipelineRetry mutations)",
+        "",
+        "CRITICAL: MUST use cursor-based pagination - usePaginatedQuery, NOT .take()",
+        "CRITICAL: This page SUBSUMES v2-claims - feature parity required"
+      ],
+      "priority": 9,
+      "effort": "3 days",
+      "dependencies": ["US-VNM-006", "US-VNM-008"],
+      "files": {
+        "create": [
+          "apps/web/src/app/platform/voice-monitoring/artifacts/page.tsx"
+        ]
+      },
+      "passes": true
+    },
+    {
+      "id": "US-VNM-010",
+      "phase": "M6",
+      "title": "Build Artifact Detail Page with Event Timeline",
+      "description": "Create single artifact deep-dive page with vertical event timeline, claims section, and retry panel",
+      "acceptanceCriteria": [
+        "FULL DETAILS: Read phases/PHASE_M6.json \u2014 story US-VNM-010",
+        "",
+        "SUMMARY:",
+        "1. Create artifacts/[artifactId]/page.tsx",
+        "2. Build header (artifact ID, status badge, source, coach, org, timestamps)",
+        "3. Build vertical event timeline (all events for this artifact, chronological)",
+        "4. Display event metadata (duration, confidence, counts, costs)",
+        "5. Build claims section (reuse v2-claims components)",
+        "6. Build retry panel (available retry options based on failure state, retry history)",
+        "7. Query getEventTimeline for artifact events",
+        "",
+        "CRITICAL: Timeline shows EVERY event for the artifact",
+        "CRITICAL: Include event metadata in timeline (not just event type)"
+      ],
+      "priority": 10,
+      "effort": "2 days",
+      "dependencies": ["US-VNM-009"],
+      "files": {
+        "create": [
+          "apps/web/src/app/platform/voice-monitoring/artifacts/[artifactId]/page.tsx"
+        ]
+      },
+      "passes": true
+    },
+    {
+      "id": "US-VNM-011",
+      "phase": "M7",
+      "title": "Build Metrics Dashboard UI",
+      "description": "Create metrics dashboard page with time range selector, metric cards, and CSS-based charts",
+      "acceptanceCriteria": [
+        "FULL DETAILS: Read phases/PHASE_M7.json \u2014 story US-VNM-011",
+        "",
+        "SUMMARY:",
+        "1. Create metrics/page.tsx",
+        "2. Build time range selector (1h, 6h, 24h, 7d, 30d)",
+        "3. Build 6 metric cards (Total Artifacts, Completion Rate, Avg Latency, Total Cost, Auto-Resolution Rate, Disambig Backlog)",
+        "4. Build CSS-based charts (NO external library - reuse /platform/messaging pattern):",
+        "   - Throughput over time (bar chart)",
+        "   - Latency by stage (stacked bar)",
+        "   - Error rate trend (line chart via CSS)",
+        "   - Cost trend (area chart via CSS)",
+        "5. Build org breakdown table (per-org volume, latency, cost, error rate)",
+        "6. Add cohort analysis section (Irish names vs English names resolution success)",
+        "",
+        "CRITICAL: Use CSS-based visualizations ONLY (div widths, like existing messaging dashboard)",
+        "CRITICAL: Queries use snapshots for historical data (>7 days)"
+      ],
+      "priority": 11,
+      "effort": "3 days",
+      "dependencies": ["US-VNM-004", "US-VNM-008"],
+      "files": {
+        "create": [
+          "apps/web/src/app/platform/voice-monitoring/metrics/page.tsx"
+        ]
+      },
+      "passes": true
+    },
+    {
+      "id": "US-VNM-012",
+      "phase": "M7",
+      "title": "Build Event Log Viewer UI",
+      "description": "Create raw pipeline event log page with filters and structured log viewer",
+      "acceptanceCriteria": [
+        "FULL DETAILS: Read phases/PHASE_M7.json \u2014 story US-VNM-012",
+        "",
+        "SUMMARY:",
+        "1. Create events/page.tsx",
+        "2. Build filter bar (event type multi-select, pipeline stage, org, date range, artifact ID search, errors-only toggle)",
+        "3. Build event table (Timestamp, Event, Stage, Artifact, Org, Duration, Details)",
+        "4. Newest events at top (real-time updates via useQuery)",
+        "5. Click event row to see full event payload",
+        "6. Use cursor-based pagination (usePaginatedQuery)",
+        "",
+        "CRITICAL: MUST use cursor-based pagination",
+        "CRITICAL: Real-time updates for newest events"
+      ],
+      "priority": 12,
+      "effort": "2 days",
+      "dependencies": ["US-VNM-008"],
+      "files": {
+        "create": ["apps/web/src/app/platform/voice-monitoring/events/page.tsx"]
+      },
+      "passes": true
+    },
+    {
+      "id": "US-VNM-013",
+      "phase": "M8",
+      "title": "Build Pipeline View UI",
+      "description": "Create expanded pipeline visualization page with stage drill-down and active artifacts panel",
+      "acceptanceCriteria": [
+        "FULL DETAILS: Read phases/PHASE_M8.json \u2014 story US-VNM-013",
+        "",
+        "SUMMARY:",
+        "1. Create pipeline/page.tsx",
+        "2. Build expanded flow graph (larger version of dashboard graph)",
+        "3. Implement stage drill-down (click stage \u2192 see all artifacts at stage, latency chart, error breakdown, retry queue)",
+        "4. Build active artifacts panel (cards for in-flight artifacts with animated progress)",
+        "5. Show time elapsed per stage, coach/org info, source channel icon",
+        "6. Add Sankey diagram (optional enhancement: shows flow volume between stages)",
+        "",
+        "CRITICAL: Stage drill-down must query artifacts at specific status",
+        "OPTIONAL: Sankey diagram using D3.js or Recharts (defer if time constrained)"
+      ],
+      "priority": 13,
+      "effort": "3 days",
+      "dependencies": ["US-VNM-008"],
+      "files": {
+        "create": [
+          "apps/web/src/app/platform/voice-monitoring/pipeline/page.tsx"
+        ]
+      },
+      "passes": true
+    },
+    {
+      "id": "US-VNM-014",
+      "phase": "M8",
+      "title": "Build Alerts Management UI",
+      "description": "Create alerts page with active alerts panel and alert history table",
+      "acceptanceCriteria": [
+        "FULL DETAILS: Read phases/PHASE_M8.json \u2014 story US-VNM-014",
+        "",
+        "SUMMARY:",
+        "1. Create alerts/page.tsx",
+        "2. Build active alerts panel (cards with severity badges, alert message, trigger details)",
+        "3. Build acknowledge button (calls acknowledgeAlert mutation)",
+        "4. Build alert history table (past alerts with filter by severity, type, date range)",
+        "5. Wire toast notifications for new alerts (real-time via useQuery)",
+        "",
+        "CRITICAL: Real-time alert updates via Convex useQuery",
+        "CRITICAL: Toast notification on new critical alerts"
+      ],
+      "priority": 14,
+      "effort": "2 days",
+      "dependencies": ["US-VNM-007", "US-VNM-008"],
+      "files": {
+        "create": ["apps/web/src/app/platform/voice-monitoring/alerts/page.tsx"]
+      },
+      "passes": true
+    },
+    {
+      "id": "US-VNM-015",
+      "phase": "M9",
+      "title": "Remove v2-Claims Page and Polish",
+      "description": "Remove old v2-claims page, update platform hub links, mobile adjustments, performance optimization",
+      "acceptanceCriteria": [
+        "FULL DETAILS: Read phases/PHASE_M9.json \u2014 story US-VNM-015",
+        "",
+        "SUMMARY:",
+        "1. Delete apps/web/src/app/platform/v2-claims/ (functionality now in artifacts grid)",
+        "2. Update platform hub page.tsx (remove v2-claims link, already added voice-monitoring link in M5)",
+        "3. Verify all 8 monitoring pages accessible via tab navigation",
+        "4. Add skip patterns to queries (isPlatformStaff check)",
+        "5. Add loading states to all pages",
+        "6. Test cursor-based pagination (load more functionality)",
+        "7. Verify dashboard loads < 2 seconds",
+        "8. Run E2E tests for all pages",
+        "",
+        "CRITICAL: Verify v2-claims functionality fully replaced before deleting",
+        "CRITICAL: Check authorization on ALL routes"
+      ],
+      "priority": 15,
+      "effort": "2 days",
+      "dependencies": [
+        "US-VNM-009",
+        "US-VNM-010",
+        "US-VNM-011",
+        "US-VNM-012",
+        "US-VNM-013",
+        "US-VNM-014"
+      ],
+      "files": {
+        "delete": ["apps/web/src/app/platform/v2-claims/"],
+        "modify": ["apps/web/src/app/platform/page.tsx"]
+      },
+      "passes": true
+    }
+  ],
+  "successCriteria": {
+    "backendInstrumentation": "All v2 pipeline stages emit events with proper metadata",
+    "eventLogging": "voicePipelineEvents table captures 25+ event types with timeWindow partitioning",
+    "realTimeMetrics": "Dashboard displays live metrics from voicePipelineCounters (no event scanning)",
+    "historicalAnalytics": "Metrics dashboard uses pre-aggregated snapshots for fast queries",
+    "eventRetention": "Raw events retained 48 hours, hourly snapshots 7 days, daily snapshots 90 days",
+    "pagination": "ALL list queries use cursor-based .paginate() - zero .take() usage",
+    "retryCapability": "Platform staff can manually retry failed artifacts at any stage",
+    "alerting": "Automated health checks detect anomalies every 5 minutes",
+    "v2ClaimsSubsumed": "v2-claims page removed, functionality in artifacts grid with feature parity",
+    "dashboardPerformance": "Dashboard overview loads < 2 seconds, real-time updates < 10s lag",
+    "authorization": "ALL routes and queries verify platform staff access",
+    "scaleTarget": "System performs well up to ~2000 coaches, ~5000 voice notes/day"
+  },
+  "mandatoryPatterns": [
+    "ALWAYS use cursor-based pagination (.paginate()) for list queries - NEVER .take()",
+    "ALWAYS use time-window partitioning for event cleanup (query by timeWindow, not timestamp scan)",
+    "ALWAYS increment counters atomically in logEvent mutation (event insert + counter increment same transaction)",
+    "ALWAYS emit events via ctx.scheduler.runAfter(0, ...) - fire-and-forget, never block pipeline",
+    "ALWAYS verify isPlatformStaff in public queries and mutations",
+    "ALWAYS query events with time bounds - NEVER unbounded org queries",
+    "ALWAYS use voicePipelineCounters for real-time metrics - NEVER scan voicePipelineEvents",
+    "ALWAYS use snapshots for historical metrics (>7 days) - NEVER raw event aggregation",
+    "NEVER use external charting libraries - CSS-based visualizations only (reuse messaging dashboard pattern)",
+    "NEVER store events indefinitely - 48-hour retention, rely on snapshots for history"
+  ],
+  "ralphInstructions": {
+    "executionMode": "parallel",
+    "agentDelegation": {
+      "agent1": {
+        "name": "Backend Infrastructure Agent",
+        "phases": ["M1", "M2", "M3", "M4"],
+        "focus": "Database tables, event logging, metrics aggregation, retry operations, alerts backend"
+      },
+      "agent2": {
+        "name": "Frontend Dashboard Agent",
+        "phases": ["M5", "M6", "M7", "M8"],
+        "focus": "Dashboard UI, artifacts grid, metrics pages, pipeline view, alerts UI"
+      },
+      "agent3": {
+        "name": "Testing & QA Agent",
+        "phases": ["All"],
+        "focus": "E2E tests, data seeding, verification scripts, performance testing"
+      },
+      "agent4": {
+        "name": "Cleanup & Integration Agent",
+        "phases": ["M9"],
+        "focus": "Remove v2-claims, polish UI, performance optimization, final integration"
+      }
+    },
+    "executionOrder": [
+      "M1 (Agent 1) \u2192 M2 (Agent 1) parallel with M3 (Agent 1)",
+      "M4 (Agent 1) \u2192 M5 (Agent 2)",
+      "M6 (Agent 2) parallel with M7 (Agent 2) parallel with M8 (Agent 2)",
+      "M9 (Agent 4) after all frontend pages complete",
+      "Agent 3 runs continuously throughout all phases"
+    ],
+    "contextToRead": [
+      "docs/architecture/voice-flow-monitoring-harness.md (PRIMARY - complete architecture)",
+      "phases/PHASE_M1.json through phases/PHASE_M9.json (DETAILED - implementation specs)",
+      "context/MAIN_CONTEXT.md (OVERVIEW - project concepts)",
+      "context/PERFORMANCE_PATTERNS.md (CRITICAL - performance requirements)",
+      "docs/architecture/voice-notes-v2-technical-reference.md (REFERENCE - existing v2 pipeline)"
+    ],
+    "testingStrategy": "E2E tests using Playwright for all 8 dashboard pages + monitoring test harness for synthetic voice note generation",
+    "qualityCriteria": "All cursor-based pagination enforced, platform staff auth on all routes, dashboard loads < 2s, real-time updates work, v2-claims feature parity before removal",
+    "criticalWarning": "The inline acceptance criteria in this file are ABBREVIATED. Ralph MUST read phases/PHASE_MX.json files for FULL implementation instructions with exact schemas, function signatures, and performance patterns."
+  },
+  "performanceTargets": {
+    "dashboardPageLoad": "< 2 seconds (full page with Overview tab)",
+    "realTimeMetricsQuery": "< 50ms (reads counters only, no event scan)",
+    "artifactListQuery": "< 200ms (last 50 artifacts with pagination)",
+    "eventTimelineQuery": "< 100ms (single artifact, all events)",
+    "eventLoggingLatency": "< 10ms (fire-and-forget, non-blocking)",
+    "metricsAggregationCron": "< 30 seconds (hourly aggregation)",
+    "alertCheckCron": "< 10 seconds (health check every 5 min)"
+  },
+  "scaleTargets": {
+    "small": "~50 coaches, ~100 voice notes/day - Comfortable",
+    "medium": "~500 coaches, ~1000 voice notes/day - Comfortable",
+    "large": "~2000 coaches, ~5000 voice notes/day - Supported with current architecture",
+    "scale": "~10,000 coaches, ~25,000 voice notes/day - Requires external metrics (deferred)"
+  }
+}

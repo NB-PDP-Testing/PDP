@@ -165,11 +165,6 @@ function ArtifactRow({
   const artifactId = artifact.artifactId as string;
   const docId = artifact._id as Id<"voiceNoteArtifacts">;
 
-  const orgCandidates = artifact.orgContextCandidates as Array<{
-    organizationId: string;
-    confidence: number;
-  }>;
-
   return (
     <>
       <tr className="border-b transition-colors hover:bg-muted/30">
@@ -208,11 +203,11 @@ function ArtifactRow({
         <td className="px-4 py-3 text-xs">
           {artifact.sourceChannel as string}
         </td>
-        <td className="px-4 py-3 font-mono text-xs">
-          {(artifact.senderUserId as string).slice(0, 10)}...
+        <td className="px-4 py-3 text-xs">
+          {(artifact as any).coachName || "Unknown"}
         </td>
         <td className="px-4 py-3 text-xs">
-          {orgCandidates[0]?.organizationId.slice(0, 10) ?? "—"}...
+          {(artifact as any).orgName || "—"}
         </td>
         <td className="px-4 py-3 text-xs">
           {new Date(artifact.createdAt as number).toLocaleString()}

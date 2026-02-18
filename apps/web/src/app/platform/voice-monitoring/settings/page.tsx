@@ -4,7 +4,12 @@ export default function SettingsPage() {
       <h2 className="font-semibold text-lg text-muted-foreground">
         Voice Monitoring Settings
       </h2>
-      <p className="mt-2 text-muted-foreground text-sm">Coming in Phase M9</p>
+      <p className="mt-2 text-muted-foreground text-sm">
+        Settings and configuration options for voice monitoring
+      </p>
+      <p className="mt-4 text-muted-foreground text-xs">
+        Additional configuration options coming soon
+      </p>
     </div>
   );
 }

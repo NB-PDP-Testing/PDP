@@ -3,7 +3,7 @@
 import { api } from "@pdp/backend/convex/_generated/api";
 import { useQuery } from "convex/react";
 import { useRouter } from "next/navigation";
-import { useEffect } from "react";
+import { useEffect, useState } from "react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { useCurrentUser } from "@/hooks/use-current-user";
 import { ActivityFeed } from "./_components/activity-feed";
@@ -51,7 +51,8 @@ export default function VoiceMonitoringOverviewPage() {
   );
 
   // Query 5: Historical metrics (for latency calculation - last 24 hours)
-  const now = Date.now();
+  // Store timestamp in state to prevent recalculation on every render
+  const [now] = useState(() => Date.now());
   const twentyFourHoursAgo = now - 24 * 60 * 60 * 1000;
   const historicalMetrics = useQuery(
     api.models.voicePipelineMetrics.getHistoricalMetrics,

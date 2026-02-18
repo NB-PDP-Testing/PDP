@@ -12,6 +12,7 @@
  * - timeWindow format: 'YYYY-MM-DD-HH' for efficient cleanup
  */
 
+import { paginationOptsValidator } from "convex/server";
 import { v } from "convex/values";
 import { internalMutation, internalQuery, query } from "../_generated/server";
 import { authComponent } from "../auth";
@@ -237,10 +238,7 @@ export const logEvent = internalMutation({
  */
 export const getRecentEvents = query({
   args: {
-    paginationOpts: v.object({
-      numItems: v.number(),
-      cursor: v.union(v.string(), v.null()),
-    }),
+    paginationOpts: paginationOptsValidator,
     filters: v.optional(
       v.object({
         eventType: v.optional(eventTypeValidator),
@@ -315,6 +313,45 @@ export const getRecentEvents = query({
         .withIndex("by_timestamp")
         .order("desc")
         .paginate(args.paginationOpts);
+    }
+
+    // Enrich events with org names
+    const { components: betterAuthComponents } = require("../_generated/api");
+
+    // Batch fetch unique orgs
+    const uniqueOrgIds = [
+      ...new Set(
+        result.page
+          .map((e: any) => e.organizationId)
+          .filter((id): id is string => !!id)
+      ),
+    ];
+
+    if (uniqueOrgIds.length > 0) {
+      const orgsResult = await ctx.runQuery(
+        betterAuthComponents.betterAuth.adapter.findMany,
+        {
+          model: "organization",
+          paginationOpts: { cursor: null, numItems: 1000 },
+        }
+      );
+      const orgMap = new Map();
+      for (const org of (orgsResult.page || []) as any[]) {
+        if (uniqueOrgIds.includes(org._id)) {
+          orgMap.set(org._id, org.name || "Unknown");
+        }
+      }
+
+      // Return enriched events
+      return {
+        ...result,
+        page: result.page.map((event: any) => ({
+          ...event,
+          orgName: event.organizationId
+            ? orgMap.get(event.organizationId)
+            : undefined,
+        })),
+      };
     }
 
     return result;
@@ -460,6 +497,14 @@ export const getFailedArtifacts = query({
     page: v.array(v.any()),
     isDone: v.boolean(),
     continueCursor: v.string(),
+    pageStatus: v.optional(
+      v.union(
+        v.literal("SplitRecommended"),
+        v.literal("SplitRequired"),
+        v.null()
+      )
+    ),
+    splitCursor: v.optional(v.union(v.string(), v.null())),
   }),
   handler: async (ctx, args) => {
     // Platform staff authorization

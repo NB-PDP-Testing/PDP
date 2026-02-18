@@ -10,6 +10,7 @@
 import { paginationOptsValidator } from "convex/server";
 import { v } from "convex/values";
 import { internal } from "../_generated/api";
+import type { Doc } from "../_generated/dataModel";
 import { internalMutation, internalQuery, query } from "../_generated/server";
 import { authComponent } from "../auth";
 
@@ -402,7 +403,11 @@ export const getPlatformArtifacts = query({
     const { components: betterAuthComponents } = require("../_generated/api");
 
     // Batch fetch unique users
-    const uniqueUserIds = [...new Set(result.page.map((a) => a.senderUserId))];
+    const uniqueUserIds = [
+      ...new Set(
+        result.page.map((a: Doc<"voiceNoteArtifacts">) => a.senderUserId)
+      ),
+    ];
     const usersResult = await ctx.runQuery(
       betterAuthComponents.betterAuth.adapter.findMany,
       {
@@ -410,7 +415,7 @@ export const getPlatformArtifacts = query({
         paginationOpts: { cursor: null, numItems: 1000 },
       }
     );
-    const userMap = new Map();
+    const userMap = new Map<string, string>();
     // biome-ignore lint/suspicious/noExplicitAny: Dynamic Better Auth user type
     for (const userData of (usersResult.page || []) as any[]) {
       if (uniqueUserIds.includes(userData._id)) {
@@ -421,8 +426,10 @@ export const getPlatformArtifacts = query({
     // Batch fetch unique orgs
     const uniqueOrgIds = [
       ...new Set(
-        result.page.flatMap((a) =>
-          a.orgContextCandidates.map((c) => c.organizationId)
+        result.page.flatMap((a: Doc<"voiceNoteArtifacts">) =>
+          a.orgContextCandidates.map(
+            (c: { organizationId: string }) => c.organizationId
+          )
         )
       ),
     ];
@@ -433,7 +440,7 @@ export const getPlatformArtifacts = query({
         paginationOpts: { cursor: null, numItems: 1000 },
       }
     );
-    const orgMap = new Map();
+    const orgMap = new Map<string, string>();
     // biome-ignore lint/suspicious/noExplicitAny: Dynamic Better Auth org type
     for (const org of (orgsResult.page || []) as any[]) {
       if (uniqueOrgIds.includes(org._id)) {
@@ -444,7 +451,7 @@ export const getPlatformArtifacts = query({
     // Return enriched artifacts
     return {
       ...result,
-      page: result.page.map((artifact) => ({
+      page: result.page.map((artifact: Doc<"voiceNoteArtifacts">) => ({
         ...artifact,
         coachName: userMap.get(artifact.senderUserId),
         orgName: orgMap.get(artifact.orgContextCandidates[0]?.organizationId),

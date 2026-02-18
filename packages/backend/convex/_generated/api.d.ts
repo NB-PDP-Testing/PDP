@@ -158,6 +158,7 @@ import type * as models_voiceNoteEntityResolutions from "../models/voiceNoteEnti
 import type * as models_voiceNoteInsights from "../models/voiceNoteInsights.js";
 import type * as models_voiceNoteTranscripts from "../models/voiceNoteTranscripts.js";
 import type * as models_voiceNotes from "../models/voiceNotes.js";
+import type * as models_voicePipelineAlerts from "../models/voicePipelineAlerts.js";
 import type * as models_voicePipelineEvents from "../models/voicePipelineEvents.js";
 import type * as models_voicePipelineMetrics from "../models/voicePipelineMetrics.js";
 import type * as models_voicePipelineRetry from "../models/voicePipelineRetry.js";
@@ -363,6 +364,7 @@ declare const fullApi: ApiFromModules<{
   "models/voiceNoteInsights": typeof models_voiceNoteInsights;
   "models/voiceNoteTranscripts": typeof models_voiceNoteTranscripts;
   "models/voiceNotes": typeof models_voiceNotes;
+  "models/voicePipelineAlerts": typeof models_voicePipelineAlerts;
   "models/voicePipelineEvents": typeof models_voicePipelineEvents;
   "models/voicePipelineMetrics": typeof models_voicePipelineMetrics;
   "models/voicePipelineRetry": typeof models_voicePipelineRetry;

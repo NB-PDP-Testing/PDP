@@ -306,3 +306,17 @@ export const getRecentClaims = query({
       .take(limit);
   },
 });
+
+// ── 8. getPlatformClaimsByArtifact (PUBLIC query — platform staff) ──
+
+export const getPlatformClaimsByArtifact = query({
+  args: {
+    artifactId: v.id("voiceNoteArtifacts"),
+  },
+  returns: v.array(claimObjectValidator),
+  handler: async (ctx, args) =>
+    await ctx.db
+      .query("voiceNoteClaims")
+      .withIndex("by_artifactId", (q) => q.eq("artifactId", args.artifactId))
+      .collect(),
+});

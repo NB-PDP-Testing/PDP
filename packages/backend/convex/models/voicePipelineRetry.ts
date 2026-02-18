@@ -19,6 +19,7 @@
 
 import { v } from "convex/values";
 import { components, internal } from "../_generated/api";
+import type { Id } from "../_generated/dataModel";
 import type { MutationCtx, QueryCtx } from "../_generated/server";
 import { mutation, query } from "../_generated/server";
 import { authComponent } from "../auth";
@@ -53,7 +54,7 @@ async function verifyPlatformStaff(ctx: MutationCtx | QueryCtx): Promise<void> {
  */
 async function countPreviousRetries(
   ctx: MutationCtx,
-  artifactId: string
+  artifactId: Id<"voiceNoteArtifacts">
 ): Promise<number> {
   const prevRetries = await ctx.db
     .query("voicePipelineEvents")

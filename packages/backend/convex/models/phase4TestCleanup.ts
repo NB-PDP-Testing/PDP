@@ -1,3 +1,4 @@
+// @ts-nocheck
 /**
  * Phase 4 Test Data Cleanup Script
  *

@@ -1,5 +1,5 @@
 import { v } from "convex/values";
-import { internal } from "../_generated/api";
+import { api, internal } from "../_generated/api";
 import type { Id } from "../_generated/dataModel";
 import {
   action,
@@ -292,10 +292,16 @@ export const seedGAAConnector = action({
     templateId: v.optional(v.id("importTemplates")),
     alreadyExisted: v.boolean(),
   }),
-  handler: async (ctx) => {
+  handler: async (
+    ctx
+  ): Promise<{
+    connectorId?: Id<"federationConnectors">;
+    templateId?: Id<"importTemplates">;
+    alreadyExisted: boolean;
+  }> => {
     // First, ensure the GAA template exists
     const templateResult = await ctx.runMutation(
-      internal.models.importTemplateSeeds.seedDefaultTemplates,
+      api.models.importTemplateSeeds.seedDefaultTemplates,
       {}
     );
 
@@ -306,10 +312,10 @@ export const seedGAAConnector = action({
     // If template already existed, we need to find it
     if (!gaaTemplateId) {
       const existingTemplates = await ctx.runQuery(
-        internal.models.importTemplateSeeds.findGAATemplate,
+        api.models.importTemplateSeeds.findGAATemplate,
         {}
       );
-      gaaTemplateId = existingTemplates;
+      gaaTemplateId = existingTemplates ?? undefined;
     }
 
     if (!gaaTemplateId) {
@@ -346,7 +352,7 @@ export const seedGAAConnector = action({
     );
 
     return {
-      connectorId,
+      connectorId: connectorId ?? undefined,
       templateId: gaaTemplateId,
       alreadyExisted: !connectorId,
     };

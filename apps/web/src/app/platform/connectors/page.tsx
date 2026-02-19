@@ -134,7 +134,9 @@ export default function ConnectorsPage() {
   };
 
   // Calculate uptime percentage (simplified - would fetch from health query in real impl)
-  const getUptimePercentage = (connector: (typeof connectors)[number]) => {
+  const getUptimePercentage = (
+    connector: NonNullable<typeof connectors>[number]
+  ) => {
     if (!connector) {
       return 0;
     }
@@ -165,14 +167,23 @@ export default function ConnectorsPage() {
   };
 
   // Format last sync time
-  const formatLastSync = (connector: (typeof connectors)[number]) => {
+  const formatLastSync = (
+    connector: NonNullable<typeof connectors>[number]
+  ) => {
     if (!connector) {
       return "Never";
     }
 
     const lastSyncTimes = connector.connectedOrganizations
-      .map((org) => org.lastSyncAt)
-      .filter((t): t is number => t !== undefined);
+      .map(
+        (org: {
+          organizationId: string;
+          federationOrgId: string;
+          enabledAt: number;
+          lastSyncAt?: number;
+        }) => org.lastSyncAt
+      )
+      .filter((t: number | undefined): t is number => t !== undefined);
 
     if (lastSyncTimes.length === 0) {
       return "Never";

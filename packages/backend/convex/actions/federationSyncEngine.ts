@@ -122,7 +122,32 @@ export const syncWithConflictResolution = action({
       })
     ),
   }),
-  handler: async (ctx, args) => {
+  handler: async (
+    ctx,
+    args
+  ): Promise<{
+    sessionId: Id<"importSessions">;
+    stats: {
+      playersProcessed: number;
+      playersCreated: number;
+      playersUpdated: number;
+      conflictsDetected: number;
+      conflictsResolved: number;
+      errors: number;
+    };
+    status: "completed" | "failed";
+    conflictDetails: Array<{
+      playerId: string;
+      playerName: string;
+      conflicts: Array<{
+        field: string;
+        federationValue?: string;
+        localValue?: string;
+        resolvedValue?: string;
+        strategy: string;
+      }>;
+    }>;
+  }> => {
     const now = Date.now();
     const strategy: ConflictResolutionStrategy =
       args.strategy || "federation_wins";
@@ -666,7 +691,28 @@ export const syncWithQueue = action({
       ),
     })
   ),
-  handler: async (ctx, args) => {
+  handler: async (
+    ctx,
+    args
+  ): Promise<
+    | {
+        success: true;
+        sessionId: Id<"importSessions">;
+        stats: {
+          playersProcessed: number;
+          playersCreated: number;
+          playersUpdated: number;
+          conflictsDetected: number;
+          conflictsResolved: number;
+          errors: number;
+        };
+      }
+    | {
+        success: false;
+        error: string;
+        reason: "already_running" | "no_pending_job" | "sync_failed";
+      }
+  > => {
     const startTime = Date.now();
 
     console.log(

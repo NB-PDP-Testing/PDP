@@ -192,7 +192,15 @@ export const suggestColumnMapping = action({
     reasoning: v.string(),
     cached: v.boolean(),
   }),
-  handler: async (ctx, args) => {
+  handler: async (
+    ctx,
+    args
+  ): Promise<{
+    targetField: string | null;
+    confidence: number;
+    reasoning: string;
+    cached: boolean;
+  }> => {
     // Import helper functions
     const { buildMappingPrompt, normalizeColumnName, getAvailableFields } =
       await import("../lib/import/aiMapper");
@@ -302,7 +310,21 @@ export const suggestAllMappings = action({
     ),
     cacheHitRate: v.number(), // Percentage of cached results (0-100)
   }),
-  handler: async (ctx, args) => {
+  handler: async (
+    ctx,
+    args
+  ): Promise<{
+    mappings: Record<
+      string,
+      {
+        targetField: string | null;
+        confidence: number;
+        reasoning: string;
+        cached: boolean;
+      }
+    >;
+    cacheHitRate: number;
+  }> => {
     // Rate limiting: process max 10 columns concurrently
     const MAX_CONCURRENT = 10;
     const results: Record<

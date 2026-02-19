@@ -1,6 +1,7 @@
 "use client";
 
 import { api } from "@pdp/backend/convex/_generated/api";
+import type { Id } from "@pdp/backend/convex/_generated/dataModel";
 import { useAction, useQuery } from "convex/react";
 import { ChevronDown, Loader2 } from "lucide-react";
 import Link from "next/link";
@@ -152,7 +153,7 @@ export default function CreateConnectorPage() {
           schedule: data.syncEnabled ? data.cronSchedule : undefined,
           conflictStrategy: data.conflictStrategy,
         },
-        templateId: data.templateId as unknown, // Will be typed as Id<"importTemplates">
+        templateId: data.templateId as unknown as Id<"importTemplates">,
       });
 
       toast.success("Connector created successfully");
@@ -343,7 +344,6 @@ export default function CreateConnectorPage() {
                       <Label htmlFor="scopes">OAuth Scopes</Label>
                       <Input
                         id="scopes"
-                        name="scopes"
                         placeholder="e.g., read:members write:members"
                         {...register("oauth_scopes")}
                       />

@@ -2,7 +2,7 @@
 
 import { api } from "@pdp/backend/convex/_generated/api";
 import type { Id } from "@pdp/backend/convex/_generated/dataModel";
-import { useMutation } from "convex/react";
+import { useAction } from "convex/react";
 import { AlertCircle, CheckCircle2, Loader2 } from "lucide-react";
 import { useState } from "react";
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
@@ -37,7 +37,7 @@ export function ConnectionTestDialog({
     responseTime: number;
   } | null>(null);
 
-  const testConnection = useMutation(api.actions.federationAuth.testConnection);
+  const testConnection = useAction(api.actions.federationAuth.testConnection);
 
   const handleTest = async () => {
     setStatus("testing");

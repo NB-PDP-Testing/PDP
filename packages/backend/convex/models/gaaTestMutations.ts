@@ -11,6 +11,7 @@
 
 import { v } from "convex/values";
 import { internal } from "../_generated/api";
+import type { Id } from "../_generated/dataModel";
 import { action, internalMutation, mutation } from "../_generated/server";
 import { transformGAAMembers } from "../lib/federation/gaaMapper";
 import {
@@ -216,7 +217,7 @@ export const testGAADeduplication = mutation({
         scenario: testCase.scenario,
         expected: testCase.expectedMatch,
         result: hasRequiredFields ? "TEST_CASE_VALID" : "TEST_CASE_INVALID",
-        passed: hasRequiredFields,
+        passed: Boolean(hasRequiredFields),
       };
     });
 
@@ -329,16 +330,18 @@ export const createTestSyncSession = internalMutation({
     const sessionId = await ctx.db.insert("importSessions", {
       organizationId: args.organizationId,
       status: "completed",
-      createdBy: "test-system",
-      createdAt: Date.now(),
-      updatedAt: Date.now(),
-      sourceType: "api",
+      initiatedBy: "test-system",
       sourceInfo: {
         type: "api",
         fileName: args.fileName,
         rowCount: mockGAAMembers.length,
         columnCount: 10,
       },
+      startedAt: Date.now(),
+      mappings: {},
+      playerSelections: [],
+      errors: [],
+      duplicates: [],
       stats: {
         totalRows: mockGAAMembers.length,
         selectedRows: mockGAAMembers.length,
@@ -389,7 +392,18 @@ export const testGAASyncWithMockData = action({
       warnings: v.number(),
     }),
   }),
-  handler: async (ctx, args) => {
+  handler: async (
+    ctx,
+    args
+  ): Promise<{
+    success: boolean;
+    sessionId?: Id<"importSessions">;
+    totalMembers: number;
+    validMembers: number;
+    membersWithErrors: number;
+    membersWithWarnings: number;
+    transformationReport: { errors: number; warnings: number };
+  }> => {
     // Transform mock members
     const transformed = transformGAAMembers(mockGAAMembers);
 

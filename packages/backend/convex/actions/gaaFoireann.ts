@@ -442,7 +442,21 @@ export const syncGAAMembers = action({
     }),
     status: v.union(v.literal("completed"), v.literal("failed")),
   }),
-  handler: async (ctx, args) => {
+  handler: async (
+    ctx,
+    args
+  ): Promise<{
+    sessionId: Id<"importSessions">;
+    stats: {
+      totalMembers: number;
+      playersCreated: number;
+      playersUpdated: number;
+      guardiansCreated: number;
+      duplicatesFound: number;
+      errors: number;
+    };
+    status: "completed" | "failed";
+  }> => {
     const now = Date.now();
 
     console.log(

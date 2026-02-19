@@ -1,5 +1,5 @@
 import { v } from "convex/values";
-import { mutation, query } from "../_generated/server";
+import { internalMutation, mutation, query } from "../_generated/server";
 
 /**
  * Enqueue a new sync job for an organization
@@ -301,7 +301,7 @@ export const getSyncQueueStatus = query({
 /**
  * Clean up old completed/failed sync jobs (for scheduled cleanup cron)
  */
-export const cleanupOldSyncJobs = mutation({
+export const cleanupOldSyncJobs = internalMutation({
   args: {
     olderThanDays: v.number(),
   },
@@ -338,7 +338,7 @@ export const cleanupOldSyncJobs = mutation({
 /**
  * Mark stuck jobs as failed (jobs running for >30 minutes)
  */
-export const failStuckJobs = mutation({
+export const failStuckJobs = internalMutation({
   args: {},
   returns: v.number(),
   handler: async (ctx, _args) => {

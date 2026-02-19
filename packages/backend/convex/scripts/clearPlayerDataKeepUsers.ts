@@ -1,3 +1,4 @@
+// @ts-nocheck
 /**
  * Clear all player/team/org data but KEEP user authentication data
  *

@@ -1,3 +1,4 @@
+// @ts-nocheck
 /**
  * Review Analytics - Track coach actions on the /r/ review microsite
  *

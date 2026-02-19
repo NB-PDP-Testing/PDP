@@ -2,7 +2,7 @@
 
 import { api } from "@pdp/backend/convex/_generated/api";
 import type { Id } from "@pdp/backend/convex/_generated/dataModel";
-import { useMutation, useQuery } from "convex/react";
+import { useAction, useMutation, useQuery } from "convex/react";
 import { ChevronDown, Loader2, TestTube2 } from "lucide-react";
 import Link from "next/link";
 import { useParams, useRouter } from "next/navigation";
@@ -95,7 +95,7 @@ export default function EditConnectorPage() {
   const updateConnector = useMutation(
     api.models.federationConnectors.updateConnector
   );
-  const updateCredentials = useMutation(
+  const updateCredentials = useAction(
     api.models.federationConnectors.updateConnectorCredentials
   );
 
@@ -108,7 +108,9 @@ export default function EditConnectorPage() {
       reset({
         name: connector.name,
         federationCode: connector.federationCode,
-        status: connector.status,
+        status: (connector.status === "error"
+          ? "inactive"
+          : connector.status) as "active" | "inactive",
         authType: connector.authType,
         membershipListUrl: connector.endpoints.membershipList,
         memberDetailUrl: connector.endpoints.memberDetail || "",

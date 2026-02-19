@@ -2,7 +2,7 @@
 
 import { api } from "@pdp/backend/convex/_generated/api";
 import type { Id } from "@pdp/backend/convex/_generated/dataModel";
-import { useMutation, useQuery } from "convex/react";
+import { useAction, useQuery } from "convex/react";
 import {
   AlertCircle,
   CheckCircle2,
@@ -39,7 +39,7 @@ export default function OAuthSetupPage() {
     connectorId,
   });
 
-  const startOAuth = useMutation(api.actions.federationAuth.startOAuthFlow);
+  const startOAuth = useAction(api.actions.federationAuth.startOAuthFlow);
 
   const handleStartAuthorization = async () => {
     if (!connector) {

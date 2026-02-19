@@ -5,6 +5,7 @@
 
 import { v } from "convex/values";
 import { internal } from "../_generated/api";
+import type { Id } from "../_generated/dataModel";
 import {
   internalMutation,
   internalQuery,
@@ -116,7 +117,7 @@ export const storeCachedMapping = mutation({
     expiresAt: v.number(),
   },
   returns: v.id("aiMappingCache"),
-  handler: async (ctx, args) => {
+  handler: async (ctx, args): Promise<Id<"aiMappingCache">> => {
     // Check if entry already exists (avoid duplicates)
     const existing = await ctx.runQuery(
       internal.models.aiMappingCache.getCachedMappingInternal,

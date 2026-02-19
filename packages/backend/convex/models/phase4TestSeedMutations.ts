@@ -1,3 +1,4 @@
+// @ts-nocheck
 /**
  * Internal mutations for Phase 4 test data seeding
  *

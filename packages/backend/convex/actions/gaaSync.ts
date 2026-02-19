@@ -65,7 +65,21 @@ export const syncGAAMembersEnhanced = action({
       v.literal("partial")
     ),
   }),
-  handler: async (ctx, args) => {
+  handler: async (
+    ctx,
+    args
+  ): Promise<{
+    sessionId: Id<"importSessions">;
+    stats: {
+      totalMembers: number;
+      playersCreated: number;
+      playersUpdated: number;
+      guardiansCreated: number;
+      duplicatesFound: number;
+      errors: number;
+    };
+    status: "completed" | "failed" | "partial";
+  }> => {
     const now = Date.now();
 
     console.log(
@@ -417,7 +431,21 @@ export const recoverFromFailedSync = action({
       v.literal("partial")
     ),
   }),
-  handler: async (ctx, args) => {
+  handler: async (
+    ctx,
+    args
+  ): Promise<{
+    sessionId: Id<"importSessions">;
+    stats: {
+      totalMembers: number;
+      playersCreated: number;
+      playersUpdated: number;
+      guardiansCreated: number;
+      duplicatesFound: number;
+      errors: number;
+    };
+    status: "completed" | "failed" | "partial";
+  }> => {
     console.log(
       `[GAA Sync Recovery] Attempting to recover from failed sync - connector: ${args.connectorId}, org: ${args.organizationId}`
     );

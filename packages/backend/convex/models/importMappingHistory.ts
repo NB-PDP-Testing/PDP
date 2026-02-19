@@ -197,14 +197,14 @@ export const getCorrectionStats = query({
   }),
   handler: async (ctx, args) => {
     // Get all mappings (optionally filtered by org)
-    let dbQuery = ctx.db.query("importMappingHistory");
-    if (args.organizationId) {
-      dbQuery = dbQuery.withIndex("by_organizationId", (q) =>
-        q.eq("organizationId", args.organizationId)
-      );
-    }
-
-    const allMappings = await dbQuery.collect();
+    const allMappings = args.organizationId
+      ? await ctx.db
+          .query("importMappingHistory")
+          .withIndex("by_organizationId", (q) =>
+            q.eq("organizationId", args.organizationId)
+          )
+          .collect()
+      : await ctx.db.query("importMappingHistory").collect();
 
     // Filter AI-suggested mappings
     const aiSuggested = allMappings.filter((m) => m.aiSuggested === true);

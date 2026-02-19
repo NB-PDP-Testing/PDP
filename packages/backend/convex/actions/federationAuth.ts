@@ -378,7 +378,7 @@ export const testConnection = action({
       if (credentials.type === "oauth2") {
         headers.Authorization = `${credentials.tokenType} ${credentials.accessToken}`;
       } else if (credentials.type === "api_key") {
-        headers[credentials.headerName] = credentials.apiKey;
+        headers[credentials.keyName ?? "X-API-Key"] = credentials.apiKey;
       } else if (credentials.type === "basic") {
         const base64Creds = btoa(
           `${credentials.username}:${credentials.password}`

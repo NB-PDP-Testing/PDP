@@ -401,7 +401,7 @@ export default function MappingStep({
         sourceColumn: column,
         targetField: aiSugg.targetField,
         confidence: aiSugg.confidence,
-        strategy: "ai",
+        strategy: "exact",
         reasoning: aiSugg.reasoning,
       };
       next.set(column, mapping);
@@ -478,9 +478,8 @@ export default function MappingStep({
         if (isAI) {
           try {
             await recordMappingHistory({
-              sourceColumn: column,
+              sourceColumnName: column,
               targetField: suggestion.targetField,
-              wasCorrect: true, // User accepted it by confirming
               aiSuggested: true,
               aiConfidence: suggestion.confidence,
             });

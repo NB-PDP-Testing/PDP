@@ -2,7 +2,7 @@
 
 import { api } from "@pdp/backend/convex/_generated/api";
 import type { Id } from "@pdp/backend/convex/_generated/dataModel";
-import { useMutation, useQuery } from "convex/react";
+import { useAction, useQuery } from "convex/react";
 import { Loader2 } from "lucide-react";
 import { useSearchParams } from "next/navigation";
 import { useEffect, useState } from "react";
@@ -17,9 +17,7 @@ export default function OAuthCallbackPage() {
   const code = searchParams.get("code");
   const state = searchParams.get("state");
 
-  const completeOAuth = useMutation(
-    api.actions.federationAuth.completeOAuthFlow
-  );
+  const completeOAuth = useAction(api.actions.federationAuth.completeOAuthFlow);
 
   // Get stored state and connector ID from session storage
   const expectedState =

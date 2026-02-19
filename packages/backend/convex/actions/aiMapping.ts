@@ -102,8 +102,67 @@ async function handleAPIError(
 }
 
 /**
+ * Core Claude API call logic — shared by callClaudeAPI and suggestColumnMapping.
+ * Extracted as a plain async function to avoid circular Convex action references.
+ */
+async function callClaudeAPIInternal(
+  prompt: string
+): Promise<AIMappingResponse> {
+  const apiKey = process.env.ANTHROPIC_API_KEY;
+  if (!apiKey) {
+    throw new Error(
+      "ANTHROPIC_API_KEY not configured in Convex environment variables"
+    );
+  }
+
+  const anthropic = new Anthropic({ apiKey });
+  const maxRetries = 3;
+  let lastError: Error | null = null;
+
+  for (let attempt = 1; attempt <= maxRetries; attempt++) {
+    try {
+      const message = await anthropic.messages.create({
+        model: "claude-haiku-4-5-20251001",
+        max_tokens: 1024,
+        temperature: 0.3,
+        messages: [{ role: "user", content: prompt }],
+      });
+
+      const content = message.content[0];
+      if (content.type !== "text") {
+        throw new Error("Unexpected response type from Claude API");
+      }
+
+      const parsed = parseClaudeResponse(content.text);
+      validateResponse(parsed);
+
+      return {
+        targetField: parsed.targetField,
+        confidence: parsed.confidence,
+        reasoning: parsed.reasoning,
+      };
+    } catch (error) {
+      lastError = error as Error;
+      const shouldRetry = await handleAPIError(error, attempt, maxRetries);
+      if (shouldRetry) {
+        continue;
+      }
+      if (attempt === maxRetries) {
+        throw new Error(
+          `Claude API call failed after ${maxRetries} attempts: ${lastError.message}`
+        );
+      }
+    }
+  }
+
+  throw new Error(
+    `Claude API call failed: ${lastError?.message || "Unknown error"}`
+  );
+}
+
+/**
  * Call Claude API with a prompt and parse the response
- * Uses Claude 3.5 Sonnet for column mapping suggestions
+ * Exposed as a public action for external callers.
  */
 export const callClaudeAPI = action({
   args: {
@@ -114,79 +173,8 @@ export const callClaudeAPI = action({
     confidence: v.number(),
     reasoning: v.string(),
   }),
-  handler: async (_ctx, args): Promise<AIMappingResponse> => {
-    // Get API key from environment
-    const apiKey = process.env.ANTHROPIC_API_KEY;
-    if (!apiKey) {
-      throw new Error(
-        "ANTHROPIC_API_KEY not configured in Convex environment variables"
-      );
-    }
-
-    // Initialize Anthropic client
-    const anthropic = new Anthropic({
-      apiKey,
-    });
-
-    // Retry configuration
-    const maxRetries = 3;
-    let lastError: Error | null = null;
-
-    for (let attempt = 1; attempt <= maxRetries; attempt++) {
-      try {
-        // Call Claude API
-        const message = await anthropic.messages.create({
-          model: "claude-3-5-sonnet-20241022",
-          max_tokens: 1024,
-          temperature: 0.3,
-          messages: [
-            {
-              role: "user",
-              content: args.prompt,
-            },
-          ],
-        });
-
-        // Extract text from response
-        const content = message.content[0];
-        if (content.type !== "text") {
-          throw new Error("Unexpected response type from Claude API");
-        }
-
-        const responseText = content.text;
-
-        // Parse and validate response
-        const parsed = parseClaudeResponse(responseText);
-        validateResponse(parsed);
-
-        return {
-          targetField: parsed.targetField,
-          confidence: parsed.confidence,
-          reasoning: parsed.reasoning,
-        };
-      } catch (error) {
-        lastError = error as Error;
-
-        // Handle API errors with retry logic
-        const shouldRetry = await handleAPIError(error, attempt, maxRetries);
-        if (shouldRetry) {
-          continue;
-        }
-
-        // If it's not a retryable error or we've exhausted retries, throw
-        if (attempt === maxRetries) {
-          throw new Error(
-            `Claude API call failed after ${maxRetries} attempts: ${lastError.message}`
-          );
-        }
-      }
-    }
-
-    // This should never be reached, but TypeScript needs it
-    throw new Error(
-      `Claude API call failed: ${lastError?.message || "Unknown error"}`
-    );
-  },
+  handler: async (_ctx, args): Promise<AIMappingResponse> =>
+    callClaudeAPIInternal(args.prompt),
 });
 
 /**
@@ -213,9 +201,9 @@ export const suggestColumnMapping = action({
     const columnPattern = normalizeColumnName(args.columnName);
 
     // Check cache for existing mapping
+    const { api: apiForCache } = await import("../_generated/api");
     const cached = await ctx.runQuery(
-      (await import("../_generated/api")).default.models.aiMappingCache
-        .getCachedMapping,
+      apiForCache.models.aiMappingCache.getCachedMapping,
       {
         columnPattern,
         sampleValues: args.sampleValues.slice(0, 3),
@@ -244,11 +232,10 @@ export const suggestColumnMapping = action({
     );
 
     // Call Claude API
-    const response = await ctx.runAction(
-      (await import("../_generated/api")).default.actions.aiMapping
-        .callClaudeAPI,
-      { prompt }
-    );
+    const { api } = await import("../_generated/api");
+    const response = await ctx.runAction(api.actions.aiMapping.callClaudeAPI, {
+      prompt,
+    });
 
     // Validate targetField is in allowed fields list
     if (
@@ -267,9 +254,9 @@ export const suggestColumnMapping = action({
     const now = Date.now();
     const expiresAt = now + 2_592_000_000;
 
+    const { api: apiForStore } = await import("../_generated/api");
     await ctx.runMutation(
-      (await import("../_generated/api")).default.models.aiMappingCache
-        .storeCachedMapping,
+      apiForStore.models.aiMappingCache.storeCachedMapping,
       {
         columnPattern,
         sampleValues: args.sampleValues.slice(0, 3),
@@ -338,9 +325,9 @@ export const suggestAllMappings = action({
       // Call suggestColumnMapping for each column in parallel
       const batchResults = await Promise.all(
         batch.map(async (column) => {
+          const { api } = await import("../_generated/api");
           const result = await ctx.runAction(
-            (await import("../_generated/api")).default.actions.aiMapping
-              .suggestColumnMapping,
+            api.actions.aiMapping.suggestColumnMapping,
             {
               columnName: column.name,
               sampleValues: column.sampleValues,

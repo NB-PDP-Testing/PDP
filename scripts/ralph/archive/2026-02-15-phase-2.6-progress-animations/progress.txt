@@ -1,0 +1,87 @@
+# Ralph Progress Log - Voice Flow Monitoring Harness
+Started: 2026-02-15
+Branch: ralph/voice-monitor-harness
+Project: Voice Notes v2 Pipeline - Monitoring & Observability
+---
+
+## Codebase Patterns
+**Last Updated**: 2026-02-15 - Iteration 0 (Pre-launch)
+
+### Voice Notes v2 Pipeline Architecture
+- Pipeline stages: Ingestion → Transcription → Claims → Resolution → Drafts → Confirmation
+- v2 tables: voiceNoteArtifacts, voiceNoteTranscripts, voiceNoteClaims, voiceNoteEntityResolutions, insightDrafts
+- **CRITICAL: Artifacts use orgContextCandidates[] array** (not flat organizationId field)
+  - Extract orgId: artifact.orgContextCandidates[0]?.organizationId
+- All other v2 tables have flat organizationId field
+- Better Auth integration: user._id (not user.id), user.name (not user.firstName/lastName)
+
+### New Monitoring Tables (Phase M1)
+- voicePipelineEvents: Single source of truth for all pipeline activity (48h retention)
+- voicePipelineMetricsSnapshots: Pre-aggregated metrics (hourly 7 days, daily 90 days)
+- voicePipelineCounters: Real-time atomic counters (1-hour rolling windows)
+
+### Performance Patterns (MANDATORY - See PERFORMANCE_PATTERNS.md)
+
+**Pattern 1: Cursor-Based Pagination**
+- ALWAYS use .paginate(paginationOpts) - NEVER .take()
+- Returns { page, isDone, continueCursor } for infinite scroll
+
+**Pattern 2: N+1 Prevention**
+- Batch fetch all IDs first, create Map for O(1) lookup
+- NEVER: Promise.all(items.map(async => query))
+- ALWAYS: Collect IDs → batch fetch → Map lookup → synchronous map
+
+**Pattern 3: Counter-Based Real-Time Metrics**
+- Read counters directly (O(1)) - NEVER scan events for real-time counts
+- Counters updated atomically in same transaction as event insert
+
+**Pattern 4: Snapshot-Based Historical Queries**
+- Query pre-computed snapshots (not raw events)
+- For < 7 days: query hourly snapshots (168 documents max)
+- For > 7 days: query daily snapshots (30-90 documents)
+
+**Pattern 5: Time-Window Partitioning**
+- timeWindow field format: 'YYYY-MM-DD-HH' (4-digit year, 2-digit month/day/hour)
+- Enables efficient cleanup: delete WHERE timeWindow IN (expired_windows)
+
+**Pattern 6: Query Skip Pattern**
+- Skip queries when user not authorized (prevent unnecessary Convex calls)
+
+**Pattern 7: Fire-and-Forget Event Logging**
+- Mutations: ctx.scheduler.runAfter(0, internal.models.voicePipelineEvents.logEvent, {...})
+- Actions: await ctx.runMutation(internal.models.voicePipelineEvents.logEvent, {...}) - wrap in try/catch
+
+### Convex Backend Patterns
+- NEVER use .filter() - always use .withIndex()
+- All functions need args and returns validators
+- Use Id<"tableName"> types, not string
+- Index names include all fields: by_orgId_and_status
+- Actions cannot access ctx.db - use ctx.runQuery/ctx.runMutation
+- Public queries MUST check isPlatformStaff for voice monitoring routes
+
+### Critical Gotchas
+
+**Atomic Imports (CAUSES 90% OF FAILURES)**
+- Linter removes unused imports between edits
+- ALWAYS add import AND usage in SAME edit operation
+
+**Counter Race Condition Handling**
+- At window boundary: reset to 1, not increment
+- Use atomic patch operation (see PHASE_M1.json step 5d)
+
+**Better Auth User Fields**
+- Use user._id (not user.id or userId in queries)
+- Use user.name (not user.firstName/lastName - these don't exist!)
+
+### Quality Checks (Run in Order)
+1. npm run check-types - Must pass with no errors
+2. npx ultracite fix - Auto-fixes formatting (run BEFORE linting)
+3. npm run check - Linting check
+4. npx -w packages/backend convex codegen - After schema changes
+
+### File Locations
+- Backend queries/mutations: packages/backend/convex/models/
+- Backend actions: packages/backend/convex/actions/
+- Backend schema: packages/backend/convex/schema.ts
+
+---

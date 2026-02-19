@@ -8,6 +8,7 @@
  */
 
 import { v } from "convex/values";
+import { internal } from "../_generated/api";
 import type { Id } from "../_generated/dataModel";
 import { internalMutation, internalQuery, query } from "../_generated/server";
 
@@ -141,6 +142,37 @@ export const storeClaims = internalMutation({
       const id = await ctx.db.insert("voiceNoteClaims", claim);
       ids.push(id);
     }
+
+    // Calculate average confidence score
+    const avgConfidence =
+      args.claims.length > 0
+        ? args.claims.reduce(
+            (sum, claim) => sum + claim.extractionConfidence,
+            0
+          ) / args.claims.length
+        : undefined;
+
+    // Fire-and-forget event logging
+    if (args.claims.length > 0) {
+      const firstClaim = args.claims[0];
+      await ctx.scheduler.runAfter(
+        0,
+        internal.models.voicePipelineEvents.logEvent,
+        {
+          eventType: "claims_extracted",
+          artifactId: firstClaim.artifactId,
+          organizationId: firstClaim.organizationId,
+          coachUserId: firstClaim.coachUserId,
+          pipelineStage: "claims_extraction",
+          stageCompletedAt: Date.now(),
+          metadata: {
+            claimCount: args.claims.length,
+            confidenceScore: avgConfidence,
+          },
+        }
+      );
+    }
+
     return ids;
   },
 });
@@ -273,4 +305,18 @@ export const getRecentClaims = query({
       .order("desc")
       .take(limit);
   },
+});
+
+// ── 8. getPlatformClaimsByArtifact (PUBLIC query — platform staff) ──
+
+export const getPlatformClaimsByArtifact = query({
+  args: {
+    artifactId: v.id("voiceNoteArtifacts"),
+  },
+  returns: v.array(claimObjectValidator),
+  handler: async (ctx, args) =>
+    await ctx.db
+      .query("voiceNoteClaims")
+      .withIndex("by_artifactId", (q) => q.eq("artifactId", args.artifactId))
+      .collect(),
 });

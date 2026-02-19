@@ -1,0 +1,115 @@
+{
+  "project": "Voice Flow Monitoring Harness - Phase M1",
+  "branchName": "ralph/voice-monitor-harness",
+  "description": "Backend instrumentation for voice notes v2 pipeline monitoring. Create event logging tables, implement atomic counters, and instrument all pipeline stages to emit events. This establishes the observability foundation for real-time monitoring and historical analytics.",
+  "prdFile": "scripts/ralph/prds/voice-monitor-harness/phases/PHASE_M1.json",
+  "mainPRD": "scripts/ralph/prds/voice-monitor-harness/PRD.json",
+  "contextFiles": [
+    "scripts/ralph/prds/voice-monitor-harness/context/MAIN_CONTEXT.md",
+    "scripts/ralph/prds/voice-monitor-harness/context/PERFORMANCE_PATTERNS.md",
+    "docs/architecture/voice-flow-monitoring-harness.md",
+    "docs/architecture/voice-notes-v2-technical-reference.md",
+    "CLAUDE.md"
+  ],
+  "mandatoryPatterns": [
+    "NEVER use .filter() in Convex — always .withIndex()",
+    "Counter increment MUST be atomic (same transaction as event insert)",
+    "Cursor-based pagination: .paginate() not .take()",
+    "Fire-and-forget event logging (non-blocking pipeline execution)",
+    "Platform staff auth required on all monitoring queries",
+    "Time-window partitioning: timeWindow format 'YYYY-MM-DD-HH'",
+    "N+1 prevention: batch fetch + Map lookup pattern",
+    "organizationId extraction: artifact.orgContextCandidates[0]?.organizationId",
+    "Actions: await ctx.runMutation() wrapped in try/catch",
+    "Mutations: ctx.scheduler.runAfter(0, ...) for fire-and-forget",
+    "ATOMIC IMPORTS: Add import + usage in SAME edit (linter removes unused)",
+    "Better Auth: user._id (not user.id), user.name (not user.firstName)",
+    "Run npx ultracite fix before completing any story",
+    "Run npx -w packages/backend convex codegen after schema changes"
+  ],
+  "successCriteria": [
+    "All 3 tables added to schema: voicePipelineEvents, voicePipelineMetricsSnapshots, voicePipelineCounters",
+    "Codegen passes: npx -w packages/backend convex codegen",
+    "logEvent mutation inserts events and increments counters atomically",
+    "All list queries use .paginate() - zero .take() usage",
+    "All 9 pipeline files emit events at correct instrumentation points",
+    "Event emissions are fire-and-forget (non-blocking)",
+    "voicePipelineCounters show incremented values after event emissions",
+    "timeWindow field format verified: 'YYYY-MM-DD-HH'",
+    "Event metadata populated (counts, costs, confidence, duration)",
+    "Platform staff authorization works - non-staff get 'Unauthorized'",
+    "Event logging overhead < 10ms (pipeline performance not impacted)",
+    "All type checks pass: npm run check-types"
+  ],
+  "userStories": [
+    {
+      "id": "US-VNM-001",
+      "title": "Create Pipeline Event Log Schema",
+      "description": "Add voicePipelineEvents, voicePipelineMetricsSnapshots, and voicePipelineCounters tables to schema with proper indexes and time-window partitioning support. READ FULL DETAILS in phases/PHASE_M1.json.",
+      "acceptanceCriteria": [
+        "Add voicePipelineEvents table with 27 event types (including entity_resolution_failed, draft_generation_failed)",
+        "timeWindow field: v.string() format 'YYYY-MM-DD-HH' for hourly partitioning",
+        "eventId: v.string() for UUID deduplication (not v.id())",
+        "Add 9 indexes: by_artifactId, by_timestamp, by_eventType, by_eventType_and_timestamp, by_org_and_timestamp, by_pipelineStage, by_pipelineStage_and_timestamp, by_timeWindow, by_timeWindow_and_eventType",
+        "Add voicePipelineMetricsSnapshots table with periodType ('hourly' | 'daily'), 2 indexes",
+        "Add voicePipelineCounters table with counterType, organizationId, currentValue, windowStart, windowEnd, 2 indexes",
+        "Run: npx -w packages/backend convex codegen",
+        "Verify no TypeScript errors: npm run check-types"
+      ],
+      "priority": 1,
+      "notes": "CRITICAL: Read phases/PHASE_M1.json for FULL schema details including exact field names and validators. The summary above is abbreviated.",
+      "passes": false
+    },
+    {
+      "id": "US-VNM-002",
+      "title": "Build Event Logging Infrastructure",
+      "description": "Create voicePipelineEvents.ts with logEvent mutation (atomic counter increment), event queries, and cursor-based pagination. READ FULL DETAILS in phases/PHASE_M1.json.",
+      "acceptanceCriteria": [
+        "Create packages/backend/convex/models/voicePipelineEvents.ts",
+        "Implement logEvent internalMutation with atomic counter increment (steps 1-6 in PHASE_M1.json)",
+        "Counter increment MUST be in same transaction as event insert",
+        "Counter window rotation: reset to 1 when Date.now() >= windowEnd (atomic patch)",
+        "Implement getRecentEvents query with .paginate() - NEVER .take()",
+        "Implement getEventsByArtifact internalQuery (no pagination - bounded by artifact)",
+        "Implement getEventTimeline query with platform staff auth",
+        "Implement getActiveArtifacts query (queries voiceNoteArtifacts, not events)",
+        "Implement getFailedArtifacts query with optional sinceTimestamp filter",
+        "All public queries verify isPlatformStaff authorization",
+        "Test logEvent via Convex dashboard - verify counter incremented",
+        "Run: npx -w packages/backend convex codegen && npm run check-types"
+      ],
+      "priority": 2,
+      "notes": "CRITICAL: Read phases/PHASE_M1.json function1_logEvent for EXACT implementation steps including counter mapping and race condition handling.",
+      "passes": false
+    },
+    {
+      "id": "US-VNM-003",
+      "title": "Instrument Pipeline with Event Emissions",
+      "description": "Add event logging to all 9 existing v2 pipeline files using ctx.scheduler.runAfter (mutations) or await ctx.runMutation (actions). READ FULL DETAILS in phases/PHASE_M1.json.",
+      "acceptanceCriteria": [
+        "Instrument voiceNoteArtifacts.ts: createArtifact (artifact_received), updateArtifactStatus (artifact_completed/failed/status_changed)",
+        "CRITICAL: Use artifact.orgContextCandidates[0]?.organizationId for organizationId (not args.organizationId)",
+        "Instrument voiceNoteTranscripts.ts: createTranscript (transcription_completed)",
+        "Instrument voiceNoteClaims.ts: storeClaims (claims_extracted)",
+        "Instrument voiceNoteEntityResolutions.ts: storeResolutions (entity_resolution_completed or entity_needs_disambiguation)",
+        "Instrument insightDrafts.ts: createDrafts (drafts_generated), confirmDraft (draft_confirmed), rejectDraft (draft_rejected)",
+        "Instrument actions/voiceNotes.ts: transcribeAudio (transcription_started, transcription_failed)",
+        "Instrument actions/claimsExtraction.ts: extractClaims (claims_extraction_started, claims_extraction_failed)",
+        "Instrument actions/entityResolution.ts: resolveEntities (entity_resolution_started)",
+        "Instrument actions/draftGeneration.ts: generateDrafts (draft_generation_started)",
+        "Mutations use: ctx.scheduler.runAfter(0, internal.models.voicePipelineEvents.logEvent, {...})",
+        "Actions use: await ctx.runMutation(internal.models.voicePipelineEvents.logEvent, {...}) wrapped in try/catch",
+        "ATOMIC IMPORTS: Add import AND usage in SAME edit (linter removes unused imports)",
+        "Test: Create voice note → verify all events logged in voicePipelineEvents",
+        "Verify: counters incremented in voicePipelineCounters table",
+        "Verify: timeWindow format correct 'YYYY-MM-DD-HH'",
+        "Verify: event metadata populated (counts, costs, confidence, duration)",
+        "Verify: pipeline execution time not impacted (< 10ms overhead)",
+        "Run: npm run check-types && npx ultracite fix"
+      ],
+      "priority": 3,
+      "notes": "CRITICAL: Read phases/PHASE_M1.json for EXACT instrumentation points per file. Fire-and-forget pattern differs for mutations vs actions. Never block pipeline on event logging.",
+      "passes": false
+    }
+  ]
+}

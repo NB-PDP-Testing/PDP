@@ -259,6 +259,22 @@ export const transcribeAudio = internalAction({
       );
       if (artifacts.length > 0) {
         const artifact = artifacts[0];
+
+        // v2 monitoring: emit transcription_started event (retrospectively after success)
+        // This is logged after transcription completes since we don't have artifactId at start
+        try {
+          await ctx.runMutation(internal.models.voicePipelineEvents.logEvent, {
+            eventType: "transcription_started",
+            artifactId: artifact._id,
+            organizationId:
+              artifact.orgContextCandidates?.[0]?.organizationId ?? undefined,
+            pipelineStage: "transcription",
+            stageStartedAt: Date.now(),
+          });
+        } catch (error) {
+          console.warn("Failed to log transcription_started event:", error);
+        }
+
         await ctx.runMutation(
           internal.models.voiceNoteTranscripts.createTranscript,
           {
@@ -305,6 +321,30 @@ export const transcribeAudio = internalAction({
         status: "failed",
         error: error instanceof Error ? error.message : "Unknown error",
       });
+
+      // v2 monitoring: emit transcription_failed event if artifact exists
+      try {
+        const artifacts = await ctx.runQuery(
+          internal.models.voiceNoteArtifacts.getArtifactsByVoiceNote,
+          { voiceNoteId: args.noteId }
+        );
+        if (artifacts.length > 0) {
+          const artifact = artifacts[0];
+          await ctx.runMutation(internal.models.voicePipelineEvents.logEvent, {
+            eventType: "transcription_failed",
+            artifactId: artifact._id,
+            organizationId:
+              artifact.orgContextCandidates?.[0]?.organizationId ?? undefined,
+            pipelineStage: "transcription",
+            stageCompletedAt: Date.now(),
+            errorMessage:
+              error instanceof Error ? error.message : "Unknown error",
+            errorCode: "TRANSCRIPTION_ERROR",
+          });
+        }
+      } catch (logError) {
+        console.warn("Failed to log transcription_failed event:", logError);
+      }
     }
 
     return null;
@@ -877,23 +917,13 @@ IMPORTANT:
                 );
 
                 // Attempt auto-apply using internal mutation (Phase 7.3 US-009.5)
-                const result = await ctx.runMutation(
+                await ctx.runMutation(
                   internal.models.voiceNoteInsights.autoApplyInsightInternal,
                   {
                     insightId: insight._id,
                     coachId: note.coachId,
                   }
                 );
-
-                if (result.success) {
-                  console.log(
-                    `[Auto-Apply] ✅ SUCCESS: ${insight.title} - ${result.message}`
-                  );
-                } else {
-                  console.log(
-                    `[Auto-Apply] ⚠️ SKIPPED: ${insight.title} - ${result.message}`
-                  );
-                }
               } else {
                 // Log why not eligible
                 const reasons: string[] = [];
@@ -1319,23 +1349,13 @@ export const recheckAutoApply = internalAction({
     );
 
     // 7. Attempt auto-apply
-    const result = await ctx.runMutation(
+    await ctx.runMutation(
       internal.models.voiceNoteInsights.autoApplyInsightInternal,
       {
         insightId: insight._id,
         coachId: insight.coachId,
       }
     );
-
-    if (result.success) {
-      console.log(
-        `[recheckAutoApply] ✅ SUCCESS: ${insight.title} - ${result.message}`
-      );
-    } else {
-      console.log(
-        `[recheckAutoApply] ⚠️ FAILED: ${insight.title} - ${result.message}`
-      );
-    }
 
     return null;
   },

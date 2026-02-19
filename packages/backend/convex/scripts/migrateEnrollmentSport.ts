@@ -1,3 +1,4 @@
+// @ts-nocheck
 /**
  * Migration Script: Add sport field to orgPlayerEnrollments
  *

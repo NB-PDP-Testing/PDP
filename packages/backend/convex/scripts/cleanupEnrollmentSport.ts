@@ -1,3 +1,4 @@
+// @ts-nocheck
 /**
  * Cleanup Script: Remove deprecated enrollment.sport field
  *

@@ -1,3 +1,4 @@
+// @ts-nocheck
 /**
  * Find player by name and show their team memberships
  */

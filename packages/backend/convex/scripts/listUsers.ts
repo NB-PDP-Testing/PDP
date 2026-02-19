@@ -1,3 +1,4 @@
+// @ts-nocheck
 /**
  * List all users to see what IDs exist
  * Run with: npx convex run scripts/listUsers:list

@@ -283,6 +283,13 @@ export default defineSchema({
     importSessionId: v.optional(v.id("importSessions")),
     externalIds: v.optional(v.record(v.string(), v.string())), // {"foireann": "12345", "pitchero": "67890"}
 
+    // Federation sync tracking
+    lastSyncedAt: v.optional(v.number()), // Timestamp of last federation sync
+    lastSyncedData: v.optional(v.any()), // Data as it was at last sync (for conflict detection)
+
+    // Active status (for federation webhook deletions)
+    isActive: v.optional(v.boolean()), // Defaults to true, set to false when deleted from federation
+
     // Metadata
     createdAt: v.number(),
     updatedAt: v.number(),
@@ -4963,11 +4970,40 @@ export default defineSchema({
     confidence: v.number(), // 0-100
 
     createdAt: v.number(),
+
+    // Phase 4.3: AI mapping tracking
+    aiSuggested: v.optional(v.boolean()), // true if mapping was AI-suggested
+    aiConfidence: v.optional(v.number()), // Original AI confidence (0-100)
   })
     .index("by_normalizedColumnName", ["normalizedColumnName"])
     .index("by_organizationId", ["organizationId"])
     .index("by_templateId", ["templateId"])
     .index("by_targetField", ["targetField"]),
+
+  // Phase 4.3: AI-powered column mapping cache
+  // Caches Claude API mapping suggestions to reduce costs (30-day TTL)
+  aiMappingCache: defineTable({
+    columnPattern: v.string(), // Normalized column name (lowercase, trimmed, special chars removed)
+    sampleValues: v.array(v.string()), // First 3 sample values for context
+    suggestedField: v.string(), // Target field name (e.g., "firstName", "dateOfBirth")
+    confidence: v.number(), // 0-100 confidence score
+    reasoning: v.string(), // AI explanation for the mapping
+    createdAt: v.number(),
+    expiresAt: v.number(), // createdAt + 30 days (2592000000 ms)
+  })
+    .index("by_columnPattern", ["columnPattern"])
+    .index("by_expiresAt", ["expiresAt"]),
+
+  // Phase 4.3: AI mapping analytics
+  // Tracks usage, costs, and performance metrics for AI column mapping
+  aiMappingAnalytics: defineTable({
+    timestamp: v.number(),
+    columnName: v.string(),
+    cached: v.boolean(),
+    confidence: v.number(),
+    accepted: v.boolean(), // true if user accepted, false if rejected
+    correctedTo: v.optional(v.string()), // If rejected, what field user manually selected
+  }).index("by_timestamp", ["timestamp"]),
 
   // Real-time progress tracking for active imports
   importProgressTrackers: defineTable({
@@ -5031,4 +5067,203 @@ export default defineSchema({
     .index("by_sportCode", ["sportCode"])
     .index("by_scope", ["scope"])
     .index("by_organizationId", ["organizationId"]),
+
+  // Federation connector configurations for external sports management systems
+  federationConnectors: defineTable({
+    name: v.string(), // "GAA Foireann API"
+    federationCode: v.string(), // Unique identifier: "gaa_foireann"
+    status: v.union(
+      v.literal("active"),
+      v.literal("inactive"),
+      v.literal("error")
+    ),
+
+    // Authentication configuration
+    authType: v.union(
+      v.literal("oauth2"),
+      v.literal("api_key"),
+      v.literal("basic")
+    ),
+    credentialsStorageId: v.id("_storage"), // Reference to encrypted credentials file
+
+    // API endpoints
+    endpoints: v.object({
+      membershipList: v.string(), // URL to fetch member list
+      memberDetail: v.optional(v.string()), // URL to fetch individual member details
+      webhookSecret: v.optional(v.string()), // Webhook verification secret
+    }),
+
+    // Sync configuration
+    syncConfig: v.object({
+      enabled: v.boolean(),
+      schedule: v.optional(v.string()), // Cron expression (e.g., "0 2 * * *")
+      conflictStrategy: v.string(), // "federation_wins", "local_wins", "manual"
+    }),
+
+    // Default import template for this connector
+    templateId: v.id("importTemplates"),
+
+    // Organizations connected to this federation
+    connectedOrganizations: v.array(
+      v.object({
+        organizationId: v.string(), // Better Auth organization ID
+        federationOrgId: v.string(), // External federation organization ID
+        enabledAt: v.number(), // Timestamp when connection was enabled
+        lastSyncAt: v.optional(v.number()), // Last successful sync timestamp
+      })
+    ),
+
+    // Error tracking
+    lastErrorAt: v.optional(v.number()),
+    lastError: v.optional(v.string()),
+    lastSuccessAt: v.optional(v.number()),
+    consecutiveFailures: v.optional(v.number()),
+
+    // Webhook configuration
+    webhookSecret: v.optional(v.string()), // HMAC secret for webhook signature validation
+    invalidSignatureCount: v.optional(v.number()), // Track invalid webhook signatures
+
+    createdAt: v.number(),
+    updatedAt: v.number(),
+  })
+    .index("by_federationCode", ["federationCode"])
+    .index("by_status", ["status"]),
+
+  // Sync queue for preventing concurrent syncs
+  syncQueue: defineTable({
+    organizationId: v.string(), // Better Auth organization ID
+    connectorId: v.id("federationConnectors"),
+    status: v.union(
+      v.literal("pending"),
+      v.literal("running"),
+      v.literal("completed"),
+      v.literal("failed")
+    ),
+
+    // Job metadata
+    syncType: v.union(
+      v.literal("scheduled"), // Nightly cron sync
+      v.literal("manual"), // Admin-triggered sync
+      v.literal("webhook") // Webhook-triggered sync
+    ),
+    importSessionId: v.optional(v.id("importSessions")),
+
+    // Timing
+    startedAt: v.optional(v.number()), // When job started running
+    completedAt: v.optional(v.number()), // When job finished
+    queuedAt: v.number(), // When job was queued
+
+    // Results and error tracking
+    error: v.optional(v.string()),
+    stats: v.optional(
+      v.object({
+        playersProcessed: v.number(),
+        playersCreated: v.number(),
+        playersUpdated: v.number(),
+        conflictsDetected: v.number(),
+        conflictsResolved: v.number(),
+        duration: v.optional(v.number()), // Milliseconds
+      })
+    ),
+
+    // Retry logic (for US-P4.4-007)
+    retryCount: v.optional(v.number()),
+    maxRetries: v.optional(v.number()),
+    nextRetryAt: v.optional(v.number()),
+  })
+    .index("by_organizationId", ["organizationId"])
+    .index("by_status", ["status"])
+    .index("by_org_and_connector", ["organizationId", "connectorId"])
+    .index("by_org_and_status", ["organizationId", "status"])
+    .index("by_nextRetryAt", ["nextRetryAt"]),
+
+  // Sync history and audit trail for federation syncs
+  syncHistory: defineTable({
+    connectorId: v.id("federationConnectors"),
+    organizationId: v.string(), // Better Auth organization ID
+    syncType: v.union(
+      v.literal("scheduled"), // Nightly cron sync
+      v.literal("manual"), // Admin-triggered sync
+      v.literal("webhook") // Webhook-triggered sync
+    ),
+
+    // Timing
+    startedAt: v.number(),
+    completedAt: v.optional(v.number()),
+
+    // Results
+    status: v.union(v.literal("completed"), v.literal("failed")),
+
+    // Statistics
+    stats: v.object({
+      playersProcessed: v.number(),
+      playersCreated: v.number(),
+      playersUpdated: v.number(),
+      conflictsDetected: v.number(),
+      conflictsResolved: v.number(),
+      errors: v.number(),
+    }),
+
+    // Conflict details for audit trail
+    conflictDetails: v.array(
+      v.object({
+        playerId: v.string(), // Player identity ID
+        playerName: v.string(), // For display
+        conflicts: v.array(
+          v.object({
+            field: v.string(), // Field name (firstName, lastName, etc.)
+            federationValue: v.optional(v.string()),
+            localValue: v.optional(v.string()),
+            resolvedValue: v.optional(v.string()),
+            strategy: v.string(), // "federation_wins", "local_wins", "merge"
+          })
+        ),
+      })
+    ),
+
+    // Errors encountered during sync
+    errors: v.optional(
+      v.array(
+        v.object({
+          playerId: v.optional(v.string()),
+          playerName: v.optional(v.string()),
+          error: v.string(),
+          timestamp: v.number(),
+        })
+      )
+    ),
+
+    // Link to import session if applicable
+    importSessionId: v.optional(v.id("importSessions")),
+  })
+    .index("by_organizationId", ["organizationId"])
+    .index("by_connectorId", ["connectorId"])
+    .index("by_startedAt", ["startedAt"])
+    .index("by_org_and_startedAt", ["organizationId", "startedAt"]),
+
+  // Webhook event logs for debugging and security monitoring
+  webhookLogs: defineTable({
+    connectorId: v.id("federationConnectors"),
+    organizationId: v.string(), // Better Auth organization ID
+    federationOrgId: v.string(), // External federation organization ID
+    memberId: v.string(), // External member ID
+    event: v.union(
+      v.literal("created"),
+      v.literal("updated"),
+      v.literal("deleted")
+    ),
+
+    // Timing
+    receivedAt: v.number(), // When webhook was received
+    processedAt: v.number(), // When processing completed
+    processingTimeMs: v.number(), // Processing duration
+
+    // Result
+    success: v.boolean(),
+    error: v.optional(v.string()), // Error message if failed
+  })
+    .index("by_connectorId", ["connectorId"])
+    .index("by_organizationId", ["organizationId"])
+    .index("by_connector_and_time", ["connectorId", "receivedAt"]) // For rate limiting
+    .index("by_receivedAt", ["receivedAt"]), // For cleanup/archival
 });

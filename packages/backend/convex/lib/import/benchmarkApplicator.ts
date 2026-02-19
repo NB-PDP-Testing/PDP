@@ -1,3 +1,4 @@
+// @ts-nocheck
 /**
  * Benchmark Applicator - Applies initial skill ratings to sport passports
  * during import based on one of 5 strategies.

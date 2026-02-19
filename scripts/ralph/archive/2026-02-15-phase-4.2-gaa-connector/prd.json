@@ -1,0 +1,300 @@
+{
+  "project": "PlayerARC - Phase 4.3: AI-Powered Column Mapping",
+  "branchName": "ralph/phase-4.3-ai-column-mapping",
+  "description": "Implement AI-powered column mapping using Claude API to automatically infer CSV column mappings from column names and sample data. Includes prompt engineering, response parsing, confidence scoring, caching layer, and frontend UI for reviewing/accepting AI suggestions. This dramatically reduces manual mapping effort when importing from new CSV formats.",
+  "prdFile": "scripts/ralph/prds/Importing Members/phase-4-federation-connectors.md",
+  "contextFiles": [
+    "packages/backend/convex/lib/import/mapper.ts",
+    "packages/backend/convex/models/importSessions.ts",
+    "packages/backend/convex/models/importMappingHistory.ts",
+    "apps/web/src/components/import/steps/mapping-step.tsx",
+    "CLAUDE.md"
+  ],
+  "mandatoryPatterns": [
+    "Use Anthropic SDK (@anthropic-ai/sdk) for Claude API calls",
+    "Use Convex actions for external API calls (Claude API)",
+    "Cache AI mapping results for 30 days using Convex database",
+    "Include prompt engineering best practices (examples, constraints, output format)",
+    "Parse and validate AI responses (expect JSON with field/confidence/reasoning)",
+    "Support confidence thresholds: HIGH (80%+), MEDIUM (50-79%), LOW (<50%)",
+    "Use shadcn/ui components for AI suggestion UI",
+    "Run npx ultracite fix before completing any story",
+    "Run npx -w packages/backend convex codegen to verify changes"
+  ],
+  "successCriteria": [
+    "Claude API integration returns column mapping suggestions",
+    "Prompt template achieves 70%+ accuracy on test CSVs",
+    "Response parser extracts field/confidence/reasoning correctly",
+    "Caching reduces API calls (30-day TTL per column pattern)",
+    "Frontend displays AI suggestions with confidence badges",
+    "User can accept/reject individual AI mappings",
+    "Accepted mappings update import session mappings",
+    "Rejected mappings fall back to manual selection",
+    "AI suggestions update mapping history for learning",
+    "All type checks pass: npm run check-types",
+    "Convex codegen succeeds: npx -w packages/backend convex codegen"
+  ],
+  "userStories": [
+    {
+      "id": "US-P4.3-001",
+      "title": "Add AI mapping cache table to schema",
+      "description": "As a developer, I need a table to cache AI column mapping results to avoid duplicate API calls and reduce costs.",
+      "acceptanceCriteria": [
+        "Add aiMappingCache table to packages/backend/convex/schema.ts",
+        "Fields: columnPattern (string - normalized column name), sampleValues (array of strings), suggestedField (string), confidence (number 0-100), reasoning (string), createdAt (number), expiresAt (number)",
+        "columnPattern is normalized: lowercase, trim, remove special chars (e.g., 'First Name' → 'firstname')",
+        "expiresAt = createdAt + 30 days (2592000000 ms)",
+        "Add indexes: by_columnPattern, by_expiresAt",
+        "Add cache cleanup index: by_expiresAt for periodic deletion of expired entries",
+        "Run npx -w packages/backend convex codegen successfully"
+      ],
+      "priority": 1,
+      "notes": "30-day cache balances cost savings with data freshness. Caching key is (columnPattern + first 3 sample values) to handle similar columns across imports."
+    },
+    {
+      "id": "US-P4.3-002",
+      "title": "Create Claude API integration action",
+      "description": "As a developer, I need to call Claude API with a prompt and parse the response for column mapping suggestions.",
+      "acceptanceCriteria": [
+        "Create packages/backend/convex/actions/aiMapping.ts",
+        "Install @anthropic-ai/sdk package: npm install @anthropic-ai/sdk",
+        "Add ANTHROPIC_API_KEY to Convex environment variables",
+        "Implement callClaudeAPI action: accepts prompt (string), returns parsed response",
+        "Use Claude 3.5 Sonnet model: 'claude-3-5-sonnet-20241022'",
+        "Set max_tokens: 1024 (sufficient for mapping response)",
+        "Set temperature: 0.3 (deterministic but creative enough)",
+        "Parse response: expect JSON with { targetField, confidence, reasoning }",
+        "Add error handling for API errors: 401 (invalid key), 429 (rate limit), 500 (server error)",
+        "Implement retry logic with exponential backoff (3 retries max)",
+        "Add TypeScript types: AIMappingRequest, AIMappingResponse",
+        "Run npx ultracite fix and npm run check-types"
+      ],
+      "priority": 2,
+      "notes": "Claude API key is sensitive - store in environment variables, never commit to code. Use Sonnet model (good balance of speed/quality). Haiku is too fast/cheap but less accurate. Opus is overkill for this task."
+    },
+    {
+      "id": "US-P4.3-003",
+      "title": "Create AI mapping prompt template",
+      "description": "As a developer, I need a well-engineered prompt template that instructs Claude to map CSV columns to PlayerARC fields with high accuracy.",
+      "acceptanceCriteria": [
+        "Create packages/backend/convex/lib/import/aiMapper.ts",
+        "Export buildMappingPrompt function: (columnName, sampleValues, availableFields) => string",
+        "Prompt structure:",
+        "  1. System context: 'You are a data mapping expert for a sports player management system.'",
+        "  2. Task description: 'Map CSV column to target field based on column name and sample values.'",
+        "  3. Available target fields: firstName, lastName, dateOfBirth, email, phone, address.street1, address.city, address.county, address.postcode, address.country, gender, guardianFirstName, guardianLastName, guardianEmail, guardianPhone",
+        "  4. Column name: '{columnName}'",
+        "  5. Sample values: ['{value1}', '{value2}', '{value3}']",
+        "  6. Instructions: 'Return JSON with targetField (one of available fields or null if no match), confidence (0-100), reasoning (1 sentence explaining your choice).'",
+        "  7. Examples: 3 example mappings showing high/medium/low confidence cases",
+        "  8. Constraints: 'Only use provided target fields. Return null if unsure. Be conservative with confidence scores.'",
+        "Add validation: ensure columnName and sampleValues are provided",
+        "Run npx ultracite fix"
+      ],
+      "priority": 3,
+      "notes": "Prompt engineering is critical for accuracy. Include examples to guide Claude's responses. Be explicit about JSON format to ensure parseable output. Conservative confidence scores reduce false positives."
+    },
+    {
+      "id": "US-P4.3-004",
+      "title": "Implement AI column mapper with caching",
+      "description": "As the import system, I need to get AI-suggested mappings for CSV columns, using cached results when available.",
+      "acceptanceCriteria": [
+        "Add to packages/backend/convex/actions/aiMapping.ts",
+        "Implement suggestColumnMapping action with args: columnName, sampleValues (array of 3-5 values)",
+        "Normalize columnName: lowercase, trim, remove special chars",
+        "Check aiMappingCache for existing mapping (by columnPattern + sampleValues hash)",
+        "If cached and not expired (expiresAt > now), return cached result",
+        "If not cached or expired, build prompt using buildMappingPrompt",
+        "Call Claude API with prompt",
+        "Parse response JSON: { targetField, confidence, reasoning }",
+        "Validate confidence is 0-100, targetField is in allowed fields list",
+        "Store result in aiMappingCache with expiresAt = now + 30 days",
+        "Return: { targetField, confidence, reasoning, cached: boolean }",
+        "Log cache hit/miss for monitoring",
+        "Run npx -w packages/backend convex codegen and npm run check-types"
+      ],
+      "priority": 4,
+      "notes": "Caching dramatically reduces costs. With 30-day cache, repeated imports of same CSV format cost 0 additional API calls. Hash sample values (first 3) to create cache key - handles different data but same column structure."
+    },
+    {
+      "id": "US-P4.3-005",
+      "title": "Create batch AI mapping orchestrator",
+      "description": "As the import system, I need to suggest mappings for all CSV columns at once to minimize latency and provide a complete suggestion set.",
+      "acceptanceCriteria": [
+        "Add to packages/backend/convex/actions/aiMapping.ts",
+        "Implement suggestAllMappings action with args: columns (array of { name, sampleValues })",
+        "Call suggestColumnMapping for each column in parallel (use Promise.all)",
+        "Return: { mappings: Record<columnName, AIMappingResult>, cacheHitRate: number }",
+        "cacheHitRate = (cached / total) * 100 for monitoring",
+        "Add rate limiting: max 10 concurrent API calls to avoid overwhelming Claude API",
+        "If rate limit hit (429), use exponential backoff and retry",
+        "Sort results by confidence: HIGH → MEDIUM → LOW for UI display",
+        "Add TypeScript types: BatchMappingRequest, BatchMappingResult",
+        "Run npx ultracite fix and npm run check-types"
+      ],
+      "priority": 5,
+      "notes": "Parallel processing reduces total mapping time from 10s per column to ~2s total. Rate limiting prevents API abuse. Sorting by confidence helps users review high-confidence mappings first."
+    },
+    {
+      "id": "US-P4.3-006",
+      "title": "Add AI suggestions to mapping step UI",
+      "description": "As an org admin during CSV import, I want to see AI-suggested column mappings so I can quickly review and accept them instead of mapping manually.",
+      "acceptanceCriteria": [
+        "Update apps/web/src/components/import/steps/mapping-step.tsx",
+        "Add 'Get AI Suggestions' button above mapping table",
+        "Button disabled if no CSV uploaded or columns already mapped",
+        "On click, call suggestAllMappings action with column names and sample values",
+        "Show loading spinner: 'AI is analyzing your columns...'",
+        "On response, update UI to show AI suggestions:",
+        "  - HIGH confidence (80%+): green badge 'AI Suggested' with checkmark icon",
+        "  - MEDIUM confidence (50-79%): yellow badge 'AI Suggested' with warning icon",
+        "  - LOW confidence (<50%): red badge 'AI Suggested' with question icon",
+        "Display confidence percentage and reasoning in tooltip (hover over badge)",
+        "Add 'Accept' button next to each suggestion (green checkmark icon)",
+        "Add 'Reject' button next to each suggestion (red X icon)",
+        "On Accept: update mapping, mark column as mapped, remove suggestion badge",
+        "On Reject: clear suggestion, show manual dropdown for that column",
+        "Add 'Accept All High Confidence' button to bulk-accept 80%+ suggestions",
+        "Show summary: 'AI suggested X of Y columns (Z% confidence)'",
+        "Run npx ultracite fix"
+      ],
+      "priority": 6,
+      "notes": "Make it easy to accept good suggestions and reject bad ones. Color-coding helps users quickly identify which suggestions to review. Reasoning tooltip builds trust in AI suggestions."
+    },
+    {
+      "id": "US-P4.3-007",
+      "title": "Update mapping history with AI suggestions",
+      "description": "As the import system, I need to record accepted AI mappings in mapping history so the system learns from user corrections.",
+      "acceptanceCriteria": [
+        "Update recordMappingHistory mutation in packages/backend/convex/models/importSessions.ts",
+        "Add optional aiSuggested field: boolean (true if mapping was AI-suggested)",
+        "Add optional aiConfidence field: number (0-100, original AI confidence score)",
+        "When user accepts AI suggestion, call recordMappingHistory with aiSuggested=true",
+        "When user rejects AI suggestion and manually maps, call recordMappingHistory with aiSuggested=false",
+        "Track correction rate: count rejections vs acceptances for each confidence level",
+        "Add getCorrectionStats query: returns correction rates by confidence level (for monitoring AI accuracy)",
+        "Use correction stats to adjust confidence thresholds over time (future enhancement)",
+        "Run npx -w packages/backend convex codegen and npm run check-types"
+      ],
+      "priority": 7,
+      "notes": "Learning from user corrections improves future AI suggestions. If users consistently reject 60% confidence suggestions, we can raise the threshold. If they accept 45% suggestions, we can lower it."
+    },
+    {
+      "id": "US-P4.3-008",
+      "title": "Add AI mapping analytics and monitoring",
+      "description": "As a platform admin, I need to monitor AI mapping performance (accuracy, cache hit rate, costs) to optimize the system.",
+      "acceptanceCriteria": [
+        "Create packages/backend/convex/models/aiMappingAnalytics.ts",
+        "Implement trackAIMappingUsage mutation: logs each AI mapping call",
+        "Fields: timestamp, columnName, cached (boolean), confidence, accepted (boolean), correctedTo (string if rejected)",
+        "Add index: by_timestamp for time-based queries",
+        "Implement getAIMappingStats query: returns analytics for date range",
+        "Stats: totalMappings, cacheHitRate, avgConfidence, acceptanceRate, topCorrectedMappings",
+        "Implement getAICostEstimate query: estimates API costs based on usage",
+        "Cost calculation: uncached mappings * $0.003 per request (Sonnet pricing)",
+        "Add cache cleanup mutation: deletes expired cache entries older than 30 days",
+        "Schedule cache cleanup in crons.ts: run daily at 2 AM",
+        "Run npx -w packages/backend convex codegen"
+      ],
+      "priority": 8,
+      "notes": "Monitoring is essential for AI features. Track acceptance rate to measure user trust. Cache hit rate shows cost savings. Cost estimates help budget planning. Cleanup prevents database bloat."
+    }
+  ],
+  "technicalNotes": {
+    "database": {
+      "newTables": [
+        "aiMappingCache - stores AI mapping suggestions with 30-day TTL",
+        "aiMappingAnalytics - tracks AI mapping usage for monitoring (optional)"
+      ],
+      "newIndexes": [
+        "aiMappingCache.by_columnPattern - lookup cached mappings",
+        "aiMappingCache.by_expiresAt - find expired entries for cleanup",
+        "aiMappingAnalytics.by_timestamp - time-based analytics queries"
+      ],
+      "mutations": [
+        "trackAIMappingUsage - log AI mapping calls",
+        "cleanupExpiredCache - delete old cache entries",
+        "getCorrectionStats - get correction rates by confidence level"
+      ],
+      "queries": [
+        "getAIMappingStats - get analytics for date range",
+        "getAICostEstimate - estimate API costs"
+      ],
+      "actions": [
+        "callClaudeAPI - call Anthropic API with prompt",
+        "suggestColumnMapping - get AI suggestion for single column",
+        "suggestAllMappings - get AI suggestions for all columns"
+      ]
+    },
+    "backend": {
+      "newFiles": [
+        "packages/backend/convex/actions/aiMapping.ts - Claude API integration",
+        "packages/backend/convex/lib/import/aiMapper.ts - prompt engineering",
+        "packages/backend/convex/models/aiMappingAnalytics.ts - usage tracking"
+      ],
+      "modifiedFiles": [
+        "packages/backend/convex/models/importSessions.ts - update mapping history with AI fields",
+        "apps/web/src/components/import/steps/mapping-step.tsx - add AI suggestions UI"
+      ],
+      "newDependencies": [
+        "@anthropic-ai/sdk - official Anthropic SDK for Claude API"
+      ]
+    },
+    "environment": {
+      "newVariables": [
+        "ANTHROPIC_API_KEY - Anthropic API key for Claude access"
+      ]
+    },
+    "costs": {
+      "claudeAPI": "Claude 3.5 Sonnet: ~$0.003 per mapping (input + output tokens). With 30-day caching, 1000 mappings/month ≈ $3/month (90% cache hit rate).",
+      "cacheStorage": "Minimal - ~1KB per cached mapping, 1000 entries = 1MB"
+    }
+  },
+  "risks": [
+    {
+      "risk": "Claude API may be slow (2-3s per mapping) causing UI delays",
+      "mitigation": "Use parallel batch processing. Show loading states. Cache results for instant future mappings."
+    },
+    {
+      "risk": "AI may suggest incorrect mappings with high confidence",
+      "mitigation": "Display reasoning to build user trust. Allow easy rejection. Track correction rates to identify problematic patterns."
+    },
+    {
+      "risk": "Claude API costs may exceed budget with heavy usage",
+      "mitigation": "30-day caching reduces recurring costs by 90%+. Set monthly budget alert. Consider switching to cheaper model (Haiku) if accuracy acceptable."
+    },
+    {
+      "risk": "API key leak could result in unauthorized usage and charges",
+      "mitigation": "Store key in Convex environment variables. Never log key. Monitor usage for anomalies. Set spending limits in Anthropic console."
+    }
+  ],
+  "outOfScope": [
+    "Training custom ML model for mapping - use Claude API instead",
+    "Multi-language column name support - English only for now",
+    "User-editable prompt templates - future enhancement",
+    "A/B testing different prompts - future optimization",
+    "Integration with other LLM providers (OpenAI, Gemini) - future enhancement"
+  ],
+  "completionChecklist": [
+    "aiMappingCache table created with indexes",
+    "Anthropic SDK installed and API key configured",
+    "Claude API integration works (tested with example prompt)",
+    "Prompt template returns valid JSON with targetField/confidence/reasoning",
+    "Caching reduces duplicate API calls (verified with logs)",
+    "AI suggestions display correctly in mapping step UI",
+    "Confidence badges color-coded: green (high), yellow (medium), red (low)",
+    "Accept/Reject buttons update mappings correctly",
+    "Accepted mappings recorded in mapping history with AI metadata",
+    "Rejected mappings fall back to manual dropdown",
+    "Batch mapping processes 10 columns in <5 seconds",
+    "Cache hit rate >80% on second import of same CSV format",
+    "Analytics track usage, costs, acceptance rates",
+    "Cache cleanup runs daily and deletes expired entries",
+    "All type checks pass: npm run check-types",
+    "All linting passes: npx ultracite fix && npm run check",
+    "Convex codegen succeeds: npx -w packages/backend convex codegen",
+    "Manual testing with 5 different CSV formats shows 70%+ accuracy",
+    "No console errors or warnings",
+    "Git commit messages follow conventional commits format"
+  ]
+}

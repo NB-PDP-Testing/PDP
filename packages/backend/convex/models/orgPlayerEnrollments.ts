@@ -152,6 +152,35 @@ export const getEnrollmentsForOrg = query({
 });
 
 /**
+ * List enrollments by organization (alias for getEnrollmentsForOrg)
+ */
+export const listEnrollmentsByOrganization = query({
+  args: {
+    organizationId: v.string(),
+    status: v.optional(enrollmentStatusValidator),
+  },
+  returns: v.array(enrollmentValidator),
+  handler: async (ctx, args) => {
+    const status = args.status;
+    if (status) {
+      return await ctx.db
+        .query("orgPlayerEnrollments")
+        .withIndex("by_org_and_status", (q) =>
+          q.eq("organizationId", args.organizationId).eq("status", status)
+        )
+        .collect();
+    }
+
+    return await ctx.db
+      .query("orgPlayerEnrollments")
+      .withIndex("by_organizationId", (q) =>
+        q.eq("organizationId", args.organizationId)
+      )
+      .collect();
+  },
+});
+
+/**
  * Get enrollments for an org filtered by age group
  */
 export const getEnrollmentsByAgeGroup = query({

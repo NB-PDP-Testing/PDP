@@ -2,7 +2,7 @@
 
 import { api } from "@pdp/backend/convex/_generated/api";
 import type { Id } from "@pdp/backend/convex/_generated/dataModel";
-import { useQuery } from "convex/react";
+import { useMutation, useQuery } from "convex/react";
 import { formatDistanceToNow } from "date-fns";
 import {
   Activity,
@@ -17,8 +17,20 @@ import {
   Trash2,
 } from "lucide-react";
 import Link from "next/link";
+import { useRouter } from "next/navigation";
 import { useMemo, useState } from "react";
+import { toast } from "sonner";
 import { ConnectionTestDialog } from "@/components/connectors/connection-test-dialog";
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+} from "@/components/ui/alert-dialog";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
@@ -46,6 +58,7 @@ import {
 } from "@/components/ui/tooltip";
 
 export default function ConnectorsPage() {
+  const router = useRouter();
   const [searchQuery, setSearchQuery] = useState("");
   const [statusFilter, setStatusFilter] = useState<
     "all" | "active" | "inactive" | "error"
@@ -54,6 +67,14 @@ export default function ConnectorsPage() {
     id: Id<"federationConnectors">;
     name: string;
   } | null>(null);
+  const [deletingConnector, setDeletingConnector] = useState<{
+    id: Id<"federationConnectors">;
+    name: string;
+  } | null>(null);
+
+  const deleteConnector = useMutation(
+    api.models.federationConnectors.deleteConnector
+  );
 
   // Fetch all connectors
   const connectors = useQuery(api.models.federationConnectors.listConnectors, {
@@ -159,6 +180,22 @@ export default function ConnectorsPage() {
 
     const mostRecent = Math.max(...lastSyncTimes);
     return formatDistanceToNow(mostRecent, { addSuffix: true });
+  };
+
+  const handleDelete = async () => {
+    if (!deletingConnector) {
+      return;
+    }
+    try {
+      await deleteConnector({ connectorId: deletingConnector.id });
+      toast.success(`"${deletingConnector.name}" has been deleted`);
+    } catch (error) {
+      toast.error(
+        `Failed to delete connector: ${error instanceof Error ? error.message : "Unknown error"}`
+      );
+    } finally {
+      setDeletingConnector(null);
+    }
   };
 
   if (connectors === undefined) {
@@ -339,7 +376,15 @@ export default function ConnectorsPage() {
                           <TooltipProvider>
                             <Tooltip>
                               <TooltipTrigger asChild>
-                                <Button size="icon" variant="ghost">
+                                <Button
+                                  onClick={() =>
+                                    router.push(
+                                      `/platform/connectors/${connector._id}/edit`
+                                    )
+                                  }
+                                  size="icon"
+                                  variant="ghost"
+                                >
                                   <Edit className="h-4 w-4" />
                                 </Button>
                               </TooltipTrigger>
@@ -370,6 +415,12 @@ export default function ConnectorsPage() {
                               <TooltipTrigger asChild>
                                 <Button
                                   className="text-destructive hover:text-destructive"
+                                  onClick={() =>
+                                    setDeletingConnector({
+                                      id: connector._id,
+                                      name: connector.name,
+                                    })
+                                  }
                                   size="icon"
                                   variant="ghost"
                                 >
@@ -473,6 +524,20 @@ export default function ConnectorsPage() {
                         <TestTube className="mr-2 h-4 w-4" />
                         Test
                       </Button>
+                      <Button
+                        className="flex-1 text-destructive hover:text-destructive"
+                        onClick={() =>
+                          setDeletingConnector({
+                            id: connector._id,
+                            name: connector.name,
+                          })
+                        }
+                        size="sm"
+                        variant="outline"
+                      >
+                        <Trash2 className="mr-2 h-4 w-4" />
+                        Delete
+                      </Button>
                     </div>
                   </CardContent>
                 </Card>
@@ -495,6 +560,36 @@ export default function ConnectorsPage() {
           open={testingConnector !== null}
         />
       )}
+
+      {/* Delete Confirmation Dialog */}
+      <AlertDialog
+        onOpenChange={(open) => {
+          if (!open) {
+            setDeletingConnector(null);
+          }
+        }}
+        open={deletingConnector !== null}
+      >
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>Delete Connector</AlertDialogTitle>
+            <AlertDialogDescription>
+              Are you sure you want to delete &quot;{deletingConnector?.name}
+              &quot;? This will deactivate the connector and disconnect it from
+              all linked organizations. This action cannot be undone.
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel>Cancel</AlertDialogCancel>
+            <AlertDialogAction
+              className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
+              onClick={handleDelete}
+            >
+              Delete
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
     </div>
   );
 }

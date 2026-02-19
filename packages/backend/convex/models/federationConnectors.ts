@@ -215,7 +215,7 @@ export const updateConnectorCredentialsInternal = internalMutation({
   },
 });
 
-// ===== Delete Connector (Soft Delete) =====
+// ===== Delete Connector =====
 
 export const deleteConnector = mutation({
   args: {
@@ -223,12 +223,9 @@ export const deleteConnector = mutation({
   },
   returns: v.null(),
   handler: async (ctx, args) => {
-    // Soft delete: set status to inactive
-    // Do NOT delete credentials file (keep for audit trail)
-    await ctx.db.patch(args.connectorId, {
-      status: "inactive",
-      updatedAt: Date.now(),
-    });
+    // Hard delete the connector record.
+    // Do NOT delete the credentials file in storage (keep for audit trail).
+    await ctx.db.delete(args.connectorId);
 
     return null;
   },

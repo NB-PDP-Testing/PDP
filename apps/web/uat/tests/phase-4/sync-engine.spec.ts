@@ -27,7 +27,7 @@ import {
 } from "../../fixtures/test-fixtures";
 
 const CONNECTORS_URL = "/platform/connectors";
-const SYNC_LOGS_URL = "/platform/connectors/logs";
+const SYNC_LOGS_URL = "/platform/connectors/sync-logs";
 const DASHBOARD_URL = "/platform/connectors/dashboard";
 
 /**
@@ -511,7 +511,7 @@ test.describe("Phase 4.4: Sync Engine", () => {
 		});
 
 		test("should show queue status in dashboard", async ({ ownerPage }) => {
-			await page.goto(DASHBOARD_URL);
+			await ownerPage.goto(DASHBOARD_URL);
 			await waitForPageLoad(ownerPage);
 			await dismissBlockingDialogs(ownerPage);
 
@@ -749,13 +749,12 @@ test.describe("Dashboard Integration", () => {
 		await waitForPageLoad(ownerPage);
 		await dismissBlockingDialogs(ownerPage);
 
-		// Look for recent sync information
-		const recentSyncs = ownerPage
-			.getByText(/recent.*sync|last.*sync/i)
-			.or(ownerPage.getByText(/syncs.*24.*h/i));
-
-		const hasRecent = await recentSyncs
-			.isVisible({ timeout: 10000 })
+		// Dashboard shows "Syncs Last 24h" card - wait for Convex data to load
+		const hasRecent = await ownerPage
+			.getByText("Syncs Last 24h")
+			.first()
+			.waitFor({ state: "visible", timeout: 15000 })
+			.then(() => true)
 			.catch(() => false);
 
 		expect(hasRecent).toBeTruthy();

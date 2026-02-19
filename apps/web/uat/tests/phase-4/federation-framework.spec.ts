@@ -142,7 +142,12 @@ test.describe("Phase 4.1: Federation Framework", () => {
 				);
 				const hasError = (await error.count()) > 0;
 
-				expect(true).toBeTruthy();
+				// Federation code validation error should be shown (or button remains disabled)
+				const submitDisabled = !(await ownerPage
+					.getByRole("button", { name: /save|create/i })
+					.first()
+					.isEnabled());
+				expect(hasError || submitDisabled).toBeTruthy();
 			} else {
 				expect(true).toBeTruthy();
 			}
@@ -219,28 +224,26 @@ test.describe("Phase 4.1: Federation Framework", () => {
 		}) => {
 			await navigateToCreate(ownerPage);
 
-			// Select OAuth 2.0 auth type
-			const authTypeSelect = ownerPage
-				.locator('select[name="authType"]')
-				.or(ownerPage.getByLabel(/auth.*type/i).first());
+			// Auth type is a shadcn Select (role="combobox"), defaults to "API Key"
+			const authTrigger = ownerPage
+				.getByRole("combobox")
+				.filter({ hasText: /api key/i })
+				.first();
 
 			if (
-				await authTypeSelect.isVisible({ timeout: 5000 }).catch(() => false)
+				await authTrigger.isVisible({ timeout: 5000 }).catch(() => false)
 			) {
-				try {
-					await authTypeSelect.selectOption("oauth2");
-				} catch {
-					await ownerPage.getByText(/oauth/i).first().click();
-				}
-
+				await authTrigger.click();
+				await ownerPage.waitForTimeout(300);
+				await ownerPage.getByRole("option", { name: "OAuth 2.0" }).click();
 				await ownerPage.waitForTimeout(500);
 
-				// OAuth fields should appear
+				// OAuth fields should appear (registered as oauth_clientId, oauth_authUrl, etc.)
 				const oauthFields = [
-					ownerPage.getByLabel(/client id/i),
-					ownerPage.getByLabel(/client secret/i),
-					ownerPage.getByLabel(/authorization.*url/i),
-					ownerPage.getByLabel(/token.*url/i),
+					ownerPage.locator('#oauth_clientId, input[name="oauth_clientId"]'),
+					ownerPage.locator('#oauth_clientSecret, input[name="oauth_clientSecret"]'),
+					ownerPage.locator('#oauth_authUrl, input[name="oauth_authUrl"]'),
+					ownerPage.locator('#oauth_tokenUrl, input[name="oauth_tokenUrl"]'),
 				];
 
 				let visibleFields = 0;
@@ -264,36 +267,16 @@ test.describe("Phase 4.1: Federation Framework", () => {
 		}) => {
 			await navigateToCreate(ownerPage);
 
-			const authTypeSelect = ownerPage
-				.locator('select[name="authType"]')
-				.or(ownerPage.getByLabel(/auth.*type/i).first());
+			// Auth type defaults to "API Key" so the apikey_key field should already be visible
+			const apiKeyField = ownerPage.locator(
+				'input[name="apikey_key"], #apikey_key'
+			);
+			const hasApiKey = await apiKeyField
+				.isVisible({ timeout: 5000 })
+				.catch(() => false);
 
-			if (
-				await authTypeSelect.isVisible({ timeout: 5000 }).catch(() => false)
-			) {
-				try {
-					await authTypeSelect.selectOption("apiKey");
-				} catch {
-					await ownerPage.getByText(/api key/i).first().click();
-				}
-
-				await ownerPage.waitForTimeout(500);
-
-				// API Key fields should appear
-				const apiKeyField = ownerPage.getByLabel(/^api key/i);
-				const headerField = ownerPage.getByLabel(/header.*name/i);
-
-				const hasApiKey = await apiKeyField
-					.isVisible({ timeout: 3000 })
-					.catch(() => false);
-				const hasHeader = await headerField
-					.isVisible({ timeout: 3000 })
-					.catch(() => false);
-
-				expect(hasApiKey || hasHeader).toBeTruthy();
-			} else {
-				expect(true).toBeTruthy();
-			}
+			// API Key field should be visible as it's the default auth type
+			expect(hasApiKey).toBeTruthy();
 		});
 
 		test("should show Basic Auth configuration fields", async ({
@@ -301,24 +284,27 @@ test.describe("Phase 4.1: Federation Framework", () => {
 		}) => {
 			await navigateToCreate(ownerPage);
 
-			const authTypeSelect = ownerPage
-				.locator('select[name="authType"]')
-				.or(ownerPage.getByLabel(/auth.*type/i).first());
+			// Auth type is a shadcn Select (role="combobox"), defaults to "API Key"
+			const authTrigger = ownerPage
+				.getByRole("combobox")
+				.filter({ hasText: /api key/i })
+				.first();
 
 			if (
-				await authTypeSelect.isVisible({ timeout: 5000 }).catch(() => false)
+				await authTrigger.isVisible({ timeout: 5000 }).catch(() => false)
 			) {
-				try {
-					await authTypeSelect.selectOption("basicAuth");
-				} catch {
-					await ownerPage.getByText(/basic auth/i).first().click();
-				}
-
+				await authTrigger.click();
+				await ownerPage.waitForTimeout(300);
+				await ownerPage.getByRole("option", { name: "Basic Auth" }).click();
 				await ownerPage.waitForTimeout(500);
 
 				// Basic Auth fields should appear
-				const usernameField = ownerPage.getByLabel(/username/i);
-				const passwordField = ownerPage.getByLabel(/password/i);
+				const usernameField = ownerPage
+					.locator('input[name="basic_username"], #basic_username')
+					.or(ownerPage.getByLabel(/username/i));
+				const passwordField = ownerPage
+					.locator('input[name="basic_password"], #basic_password')
+					.or(ownerPage.getByLabel(/^password/i));
 
 				const hasUsername = await usernameField
 					.isVisible({ timeout: 3000 })
@@ -401,15 +387,14 @@ test.describe("Phase 4.1: Federation Framework", () => {
 		test("should navigate to OAuth setup page", async ({ ownerPage }) => {
 			await navigateToConnectors(ownerPage);
 
-			// Look for connector with OAuth
-			const editButton = ownerPage
-				.getByRole("button", { name: /edit/i })
-				.first();
+			// Edit buttons are icon-only on desktop - navigate via hidden mobile link href
+			const editLinks = ownerPage.locator(
+				'a[href*="/platform/connectors/"][href*="/edit"]'
+			);
+			const editHref = await editLinks.first().getAttribute("href").catch(() => null);
 
-			if (
-				await editButton.isVisible({ timeout: 5000 }).catch(() => false)
-			) {
-				await editButton.click();
+			if (editHref) {
+				await ownerPage.goto(editHref);
 				await ownerPage.waitForTimeout(2000);
 
 				// Look for OAuth setup button
@@ -490,15 +475,14 @@ test.describe("Phase 4.1: Federation Framework", () => {
 		test("should mask credentials in edit form", async ({ ownerPage }) => {
 			await navigateToConnectors(ownerPage);
 
-			// Edit existing connector
-			const editButton = ownerPage
-				.getByRole("button", { name: /edit/i })
-				.first();
+			// Edit buttons are icon-only on desktop - navigate via hidden mobile link href
+			const editLinks = ownerPage.locator(
+				'a[href*="/platform/connectors/"][href*="/edit"]'
+			);
+			const editHref = await editLinks.first().getAttribute("href").catch(() => null);
 
-			if (
-				await editButton.isVisible({ timeout: 5000 }).catch(() => false)
-			) {
-				await editButton.click();
+			if (editHref) {
+				await ownerPage.goto(editHref);
 				await ownerPage.waitForTimeout(2000);
 
 				// Look for credential fields (should be masked)
@@ -663,15 +647,14 @@ test.describe("Phase 4.1: Federation Framework", () => {
 		test("should allow configuring rate limits", async ({ ownerPage }) => {
 			await navigateToConnectors(ownerPage);
 
-			// Edit connector
-			const editButton = ownerPage
-				.getByRole("button", { name: /edit/i })
-				.first();
+			// Edit buttons are icon-only on desktop - navigate via hidden mobile link href
+			const editLinks = ownerPage.locator(
+				'a[href*="/platform/connectors/"][href*="/edit"]'
+			);
+			const editHref = await editLinks.first().getAttribute("href").catch(() => null);
 
-			if (
-				await editButton.isVisible({ timeout: 5000 }).catch(() => false)
-			) {
-				await editButton.click();
+			if (editHref) {
+				await ownerPage.goto(editHref);
 				await ownerPage.waitForTimeout(2000);
 
 				// Look for rate limit configuration
@@ -706,10 +689,42 @@ test.describe("Phase 4.1: Federation Framework", () => {
 				(await nameField.isVisible({ timeout: 5000 }).catch(() => false)) &&
 				(await codeField.isVisible({ timeout: 5000 }).catch(() => false))
 			) {
-				// Fill minimum required fields
+				// Fill all required fields
 				const timestamp = Date.now();
 				await nameField.fill(`E2E Test Connector ${timestamp}`);
 				await codeField.fill(`e2e_test_${timestamp}`);
+
+				// Fill API Key (required for API Key auth type which is default)
+				const apiKeyField = ownerPage
+					.locator('input[name="apikey_key"]')
+					.or(ownerPage.getByLabel(/^API Key/i).first());
+				if (await apiKeyField.isVisible({ timeout: 2000 }).catch(() => false)) {
+					await apiKeyField.fill('test-api-key-12345');
+				}
+
+				// Fill Membership List URL (required)
+				const membershipUrlField = ownerPage
+					.locator('input[name="membershipListUrl"]')
+					.or(ownerPage.getByLabel(/Membership List URL/i).first());
+				if (await membershipUrlField.isVisible({ timeout: 2000 }).catch(() => false)) {
+					await membershipUrlField.fill('https://api.example.com/members');
+				}
+
+				// Select Import Template (required)
+				const templateCombobox = ownerPage
+					.locator('[role="combobox"]')
+					.filter({ hasText: /Select a template|Import Template/i });
+				if (await templateCombobox.isVisible({ timeout: 2000 }).catch(() => false)) {
+					await templateCombobox.click();
+					await ownerPage.waitForTimeout(500);
+					// Select first option
+					const firstOption = ownerPage.getByRole('option').first();
+					if (await firstOption.isVisible({ timeout: 2000 }).catch(() => false)) {
+						await firstOption.click();
+					}
+				}
+
+				await ownerPage.waitForTimeout(1000);
 
 				// Submit
 				const submitButton = ownerPage
@@ -738,15 +753,14 @@ test.describe("Phase 4.1: Federation Framework", () => {
 		test("should update existing connector", async ({ ownerPage }) => {
 			await navigateToConnectors(ownerPage);
 
-			// Edit first connector
-			const editButton = ownerPage
-				.getByRole("button", { name: /edit/i })
-				.first();
+			// Edit buttons are icon-only on desktop - navigate via hidden mobile link href
+			const editLinks = ownerPage.locator(
+				'a[href*="/platform/connectors/"][href*="/edit"]'
+			);
+			const editHref = await editLinks.first().getAttribute("href").catch(() => null);
 
-			if (
-				await editButton.isVisible({ timeout: 5000 }).catch(() => false)
-			) {
-				await editButton.click();
+			if (editHref) {
+				await ownerPage.goto(editHref);
 				await ownerPage.waitForTimeout(2000);
 
 				// Update name

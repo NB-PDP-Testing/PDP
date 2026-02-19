@@ -1,7 +1,7 @@
 "use client";
 
 import { api } from "@pdp/backend/convex/_generated/api";
-import { useMutation, useQuery } from "convex/react";
+import { useAction, useQuery } from "convex/react";
 import { ChevronDown, Loader2 } from "lucide-react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
@@ -38,6 +38,7 @@ type ConnectorFormData = {
   oauth_clientSecret?: string;
   oauth_authUrl?: string;
   oauth_tokenUrl?: string;
+  oauth_scopes?: string;
   // API Key fields
   apikey_key?: string;
   apikey_headerName?: string;
@@ -77,7 +78,7 @@ export default function CreateConnectorPage() {
     },
   });
 
-  const createConnector = useMutation(
+  const createConnector = useAction(
     api.models.federationConnectors.createConnector
   );
 
@@ -121,6 +122,7 @@ export default function CreateConnectorPage() {
           clientSecret: data.oauth_clientSecret || "",
           authorizationUrl: data.oauth_authUrl || "",
           tokenUrl: data.oauth_tokenUrl || "",
+          ...(data.oauth_scopes && { scope: data.oauth_scopes }),
         };
       } else if (data.authType === "api_key") {
         credentials = {
@@ -336,6 +338,18 @@ export default function CreateConnectorPage() {
                         placeholder="https://..."
                         {...register("oauth_tokenUrl")}
                       />
+                    </div>
+                    <div className="space-y-2">
+                      <Label htmlFor="scopes">OAuth Scopes</Label>
+                      <Input
+                        id="scopes"
+                        name="scopes"
+                        placeholder="e.g., read:members write:members"
+                        {...register("oauth_scopes")}
+                      />
+                      <p className="text-muted-foreground text-sm">
+                        Space-separated list of OAuth scopes to request
+                      </p>
                     </div>
                   </div>
                 )}

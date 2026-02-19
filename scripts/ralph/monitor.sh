@@ -42,7 +42,7 @@ while true; do
     echo -e "   Total Stories: $TOTAL"
     echo -e "   ${GREEN}✓ Complete: $COMPLETE${NC}"
     echo -e "   ${YELLOW}⧖ Remaining: $INCOMPLETE${NC}"
-    echo -e "   Progress: ${PERCENT}%"
+    echo -e "   Progress: ${PERCENT}% "
 
     # Show progress bar
     BAR_WIDTH=40
@@ -50,7 +50,7 @@ while true; do
     printf "   ["
     printf "%${FILLED}s" | tr ' ' '█'
     printf "%$((BAR_WIDTH - FILLED))s" | tr ' ' '░'
-    printf "] ${PERCENT}%%\n"
+    printf "] ${PERCENT}%% \n"
 
     # Detect change
     if [ "$COMPLETE" != "$PREV_COMPLETE_COUNT" ]; then

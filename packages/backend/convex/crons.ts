@@ -182,6 +182,46 @@ crons.daily(
   {}
 );
 
+// Phase 4.3: Clean up expired AI mapping cache daily at 2 AM UTC
+crons.daily(
+  "cleanup-expired-ai-cache",
+  { hourUTC: 2, minuteUTC: 0 },
+  internal.models.aiMappingCache.cleanupExpiredCache,
+  {}
+);
+
+// Phase 4.4: Run scheduled federation syncs nightly at 2:15 AM UTC (US-P4.4-001)
+crons.daily(
+  "scheduled-federation-sync",
+  { hourUTC: 2, minuteUTC: 15 },
+  internal.actions.federationScheduler.scheduledFederationSync,
+  {}
+);
+
+// Phase 4.4: Clean up old sync queue jobs daily at 3 AM UTC (US-P4.4-005)
+crons.daily(
+  "cleanup-old-sync-jobs",
+  { hourUTC: 3, minuteUTC: 0 },
+  internal.models.syncQueue.cleanupOldSyncJobs,
+  { olderThanDays: 30 }
+);
+
+// Phase 4.4: Mark stuck sync jobs as failed every 10 minutes (US-P4.4-005)
+crons.interval(
+  "fail-stuck-sync-jobs",
+  { minutes: 10 },
+  internal.models.syncQueue.failStuckJobs,
+  {}
+);
+
+// Phase 4.4: Process retry queue every 5 minutes (US-P4.4-007)
+crons.interval(
+  "process-retry-queue",
+  { minutes: 5 },
+  internal.actions.syncQueueProcessor.processRetryQueue,
+  {}
+);
+
 // Voice Monitor Harness M2: Metrics aggregation and cleanup crons
 
 // Aggregate hourly pipeline metrics at :30 past each hour (ensures full hour complete)

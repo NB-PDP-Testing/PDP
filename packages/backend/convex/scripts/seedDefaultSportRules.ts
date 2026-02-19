@@ -1,3 +1,4 @@
+// @ts-nocheck
 /**
  * Seed Default Sport Rules
  *

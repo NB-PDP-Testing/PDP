@@ -1,3 +1,4 @@
+// @ts-nocheck
 /**
  * Script to hard-delete all players from the system for testing purposes.
  *

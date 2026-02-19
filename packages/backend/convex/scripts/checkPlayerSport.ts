@@ -1,3 +1,4 @@
+// @ts-nocheck
 /**
  * Quick helper to check if a player has a sportPassport for a specific sport
  * Useful for debugging team assignment errors

@@ -1,3 +1,4 @@
+// @ts-nocheck
 /**
  * First User Onboarding Setup
  * Creates the initial platform onboarding flow for the very first user

@@ -163,6 +163,43 @@ npm run test:setup -w web -- --headed
 
 > **Note:** The `test:setup` script uses a separate config (`scripts/playwright.config.ts`) that does NOT use globalSetup, since users don't exist yet.
 
+## Authentication Setup
+
+**Authentication happens automatically!** You don't need to run a separate auth setup command.
+
+### How It Works
+
+1. When you run `npx playwright test`, the **global-setup.ts** file runs first
+2. Global setup:
+   - Runs linting checks on changed files
+   - Calls **auth.setup.ts** to authenticate all test users
+3. Auth setup:
+   - Verifies the dev server is running
+   - Logs in as each test user (owner, admin, coach, parent)
+   - Saves authenticated session states to `.auth/` directory
+4. Tests use these pre-authenticated sessions via `storageState`
+
+### Refreshing Auth States
+
+If you need to refresh authentication (e.g., after password changes or auth errors):
+
+**Option 1: Delete auth cache and re-run**
+```bash
+rm -rf apps/web/uat/.auth
+npm run test -w web
+```
+
+**Option 2: Run any single test** (global setup will run first and refresh auth)
+```bash
+npm run test:admin -w web -- -g "ADMIN-001"
+```
+
+The `.auth/` directory is gitignored and contains JSON files with session cookies for each role:
+- `owner.json` - Platform staff session
+- `admin.json` - Organization admin session
+- `coach.json` - Coach session
+- `parent.json` - Parent session
+
 ## Test Data Configuration
 
 `test-data.json` contains:

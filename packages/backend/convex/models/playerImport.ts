@@ -572,6 +572,7 @@ export const batchImportPlayersWithIdentity = mutation({
             v.literal("other")
           )
         ),
+        externalIds: v.optional(v.record(v.string(), v.string())), // {"foireann": "123-45678-901", "pitchero": "12345"}
       })
     ),
   },
@@ -666,15 +667,44 @@ export const batchImportPlayersWithIdentity = mutation({
     for (let i = 0; i < playersToImport.length; i += 1) {
       const playerData = playersToImport[i];
       try {
-        const existingPlayer = await ctx.db
-          .query("playerIdentities")
-          .withIndex("by_name_dob", (q) =>
-            q
-              .eq("firstName", playerData.firstName.trim())
-              .eq("lastName", playerData.lastName.trim())
-              .eq("dateOfBirth", playerData.dateOfBirth)
-          )
-          .first();
+        let existingPlayer: {
+          _id: Id<"playerIdentities">;
+          firstName: string;
+          lastName: string;
+          dateOfBirth: string;
+          gender: "male" | "female" | "other";
+          playerType: "youth" | "adult";
+          externalIds?: Record<string, string>;
+          createdAt: number;
+          updatedAt: number;
+        } | null = null;
+
+        // PRIORITY 1: Check for externalIds match (strongest signal)
+        // If player has a GAA membership number, check that FIRST
+        if (playerData.externalIds?.foireann) {
+          const gaaResult = await ctx.runQuery(
+            internal.lib.import.deduplicator.checkGAAMembershipNumber,
+            {
+              membershipNumber: playerData.externalIds.foireann,
+            }
+          );
+          if (gaaResult) {
+            existingPlayer = gaaResult;
+          }
+        }
+
+        // PRIORITY 2: Check for name+DOB match (fallback if no external ID match)
+        if (!existingPlayer) {
+          existingPlayer = await ctx.db
+            .query("playerIdentities")
+            .withIndex("by_name_dob", (q) =>
+              q
+                .eq("firstName", playerData.firstName.trim())
+                .eq("lastName", playerData.lastName.trim())
+                .eq("dateOfBirth", playerData.dateOfBirth)
+            )
+            .first();
+        }
 
         let playerIdentityId: NonNullable<typeof existingPlayer>["_id"];
         let wasCreated = false;
@@ -682,6 +712,17 @@ export const batchImportPlayersWithIdentity = mutation({
         if (existingPlayer) {
           playerIdentityId = existingPlayer._id;
           results.playersReused += 1;
+
+          // Update externalIds if player was matched by name+DOB but has new external ID
+          if (playerData.externalIds && !existingPlayer.externalIds?.foireann) {
+            await ctx.db.patch(playerIdentityId, {
+              externalIds: {
+                ...existingPlayer.externalIds,
+                ...playerData.externalIds,
+              },
+              updatedAt: now,
+            });
+          }
         } else {
           const playerType =
             calculateAge(playerData.dateOfBirth) >= 18 ? "adult" : "youth";
@@ -696,6 +737,7 @@ export const batchImportPlayersWithIdentity = mutation({
             town: playerData.town?.trim(),
             postcode: playerData.postcode?.trim(),
             country: playerData.country?.trim(),
+            externalIds: playerData.externalIds, // Store external IDs (e.g., GAA membership number)
             verificationStatus: "unverified",
             importSessionId: args.sessionId,
             createdAt: now,

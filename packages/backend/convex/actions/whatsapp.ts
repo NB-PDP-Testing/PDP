@@ -1189,12 +1189,14 @@ async function applyInsightsWithTrust(
       continue;
     }
 
-    // Unmatched team: team_culture insight with no team assigned
+    // Team insight with no team assigned: needs review so coach can assign team
     if (isTeamCulture && !hasTeam) {
-      results.unmatched.push({
+      results.needsReview.push({
         insightId: insight.id,
-        mentionedName: insight.teamName,
+        playerName: insight.teamName ?? undefined,
+        category,
         title: insight.title,
+        reason: "team_unassigned",
       });
       continue;
     }
@@ -1493,7 +1495,7 @@ function formatTL01Message(opts: {
   if (results.needsReview.length > 0) {
     lines.push(`Needs review (${results.needsReview.length}):`);
     for (const insight of results.needsReview.slice(0, 3)) {
-      const name = insight.playerName || "Unknown";
+      const name = insight.playerName || "Team";
       const categoryDisplay = formatCategory(insight.category);
       lines.push(`- ${name}: ${categoryDisplay}`);
     }
@@ -1560,6 +1562,7 @@ function formatCategory(category: string): string {
     todo: "Task",
     injury: "Injury",
     behavior: "Behavior",
+    tactical: "Tactical",
   };
   return categoryMap[category] || category;
 }

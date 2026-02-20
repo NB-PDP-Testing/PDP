@@ -323,6 +323,7 @@ export const getCoachPendingItems = query({
           category: v.optional(v.string()),
           status: v.string(),
           noteDate: v.string(),
+          teamId: v.optional(v.string()),
           teamName: v.optional(v.string()),
         })
       ),
@@ -484,6 +485,7 @@ export const getCoachPendingItems = query({
         category: i.category,
         status: i.status,
         noteDate: i.noteDate,
+        teamId: i.teamId,
         teamName: i.teamName,
       }))
       .sort(
@@ -1251,6 +1253,8 @@ export const saveTeamNoteFromReview = mutation({
     code: v.string(),
     voiceNoteId: v.id("voiceNotes"),
     insightId: v.string(),
+    teamId: v.optional(v.string()),
+    teamName: v.optional(v.string()),
   },
   returns: v.union(
     v.object({ success: v.literal(true), message: v.string() }),
@@ -1277,8 +1281,8 @@ export const saveTeamNoteFromReview = mutation({
     // Create teamObservation record
     await ctx.db.insert("teamObservations", {
       organizationId: link.organizationId,
-      teamId: "unspecified",
-      teamName: insight.teamName ?? "Team",
+      teamId: args.teamId ?? insight.teamId ?? "unspecified",
+      teamName: args.teamName ?? insight.teamName ?? "Team",
       source: "voice_note",
       coachId: link.coachUserId,
       coachName: "Coach",

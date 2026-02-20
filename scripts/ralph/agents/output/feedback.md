@@ -741,3 +741,699 @@ packages/backend/convex/actions/aiMapping.ts:        "ANTHROPIC_API_KEY not conf
   - **Problem:** Queries should be scoped by organizationId for multi-tenant isolation
   - **Fix:** Add organizationId to query args and use in .withIndex()
 
+
+## Auto Quality Check - 2026-02-20 09:05:25
+### File: /Users/jkobrien/code/PDP/packages/backend/convex/models/orgPlayerEnrollments.ts
+
+- ❌ **CRITICAL: Better Auth adapter violation**
+  - **Problem:** Direct DB access to auth tables
+  - **Fix:** Use `ctx.runQuery(components.betterAuth.adapter.findOne, {...})`
+
+
+## Auto Quality Check - 2026-02-20 09:05:25
+### File: /Users/jkobrien/code/PDP/packages/backend/convex/models/orgPlayerEnrollments.ts
+
+- ⚠️ **Performance: .filter() usage detected**
+  - **Problem:** Should use .withIndex() for better performance
+  - **Fix:** Replace `.query().filter()` with `.query().withIndex()`
+
+
+## Auto Quality Check - 2026-02-20 09:07:47
+### File: /Users/jkobrien/code/PDP/packages/backend/convex/models/orgPlayerEnrollments.ts
+
+- ❌ **CRITICAL: Better Auth adapter violation**
+  - **Problem:** Direct DB access to auth tables
+  - **Fix:** Use `ctx.runQuery(components.betterAuth.adapter.findOne, {...})`
+
+
+## Auto Quality Check - 2026-02-20 09:07:47
+### File: /Users/jkobrien/code/PDP/packages/backend/convex/models/orgPlayerEnrollments.ts
+
+- ⚠️ **Performance: .filter() usage detected**
+  - **Problem:** Should use .withIndex() for better performance
+  - **Fix:** Replace `.query().filter()` with `.query().withIndex()`
+
+
+## Auto Quality Check - 2026-02-20 10:26:04
+### File: /Users/jkobrien/code/PDP/packages/backend/convex/models/whatsappReviewLinks.ts
+
+- ❌ **CRITICAL: Better Auth adapter violation**
+  - **Problem:** Direct DB access to auth tables
+  - **Fix:** Use `ctx.runQuery(components.betterAuth.adapter.findOne, {...})`
+
+
+## Auto Quality Check - 2026-02-20 10:26:04
+### File: /Users/jkobrien/code/PDP/packages/backend/convex/models/whatsappReviewLinks.ts
+
+- ⚠️ **Performance: .filter() usage detected**
+  - **Problem:** Should use .withIndex() for better performance
+  - **Fix:** Replace `.query().filter()` with `.query().withIndex()`
+
+
+## Auto Quality Check - 2026-02-20 10:28:07
+### File: /Users/jkobrien/code/PDP/packages/backend/convex/models/whatsappReviewLinks.ts
+
+- ❌ **CRITICAL: Better Auth adapter violation**
+  - **Problem:** Direct DB access to auth tables
+  - **Fix:** Use `ctx.runQuery(components.betterAuth.adapter.findOne, {...})`
+
+
+## Auto Quality Check - 2026-02-20 10:28:07
+### File: /Users/jkobrien/code/PDP/packages/backend/convex/models/whatsappReviewLinks.ts
+
+- ⚠️ **Performance: .filter() usage detected**
+  - **Problem:** Should use .withIndex() for better performance
+  - **Fix:** Replace `.query().filter()` with `.query().withIndex()`
+
+
+## Auto Quality Check - 2026-02-20 11:04:22
+### File: /Users/jkobrien/code/PDP/packages/backend/convex/models/whatsappReviewLinks.ts
+
+- ❌ **CRITICAL: Better Auth adapter violation**
+  - **Problem:** Direct DB access to auth tables
+  - **Fix:** Use `ctx.runQuery(components.betterAuth.adapter.findOne, {...})`
+
+
+## Auto Quality Check - 2026-02-20 11:04:22
+### File: /Users/jkobrien/code/PDP/packages/backend/convex/models/whatsappReviewLinks.ts
+
+- ⚠️ **Performance: .filter() usage detected**
+  - **Problem:** Should use .withIndex() for better performance
+  - **Fix:** Replace `.query().filter()` with `.query().withIndex()`
+
+
+## Auto Quality Check - 2026-02-20 11:04:59
+### File: /Users/jkobrien/code/PDP/packages/backend/convex/models/whatsappReviewLinks.ts
+
+- ❌ **CRITICAL: Better Auth adapter violation**
+  - **Problem:** Direct DB access to auth tables
+  - **Fix:** Use `ctx.runQuery(components.betterAuth.adapter.findOne, {...})`
+
+
+## Auto Quality Check - 2026-02-20 11:04:59
+### File: /Users/jkobrien/code/PDP/packages/backend/convex/models/whatsappReviewLinks.ts
+
+- ⚠️ **Performance: .filter() usage detected**
+  - **Problem:** Should use .withIndex() for better performance
+  - **Fix:** Replace `.query().filter()` with `.query().withIndex()`
+
+
+## Auto Quality Check - 2026-02-20 11:07:59
+### File: /Users/jkobrien/code/PDP/packages/backend/convex/models/whatsappReviewLinks.ts
+
+- ❌ **CRITICAL: Better Auth adapter violation**
+  - **Problem:** Direct DB access to auth tables
+  - **Fix:** Use `ctx.runQuery(components.betterAuth.adapter.findOne, {...})`
+
+
+## Auto Quality Check - 2026-02-20 11:07:59
+### File: /Users/jkobrien/code/PDP/packages/backend/convex/models/whatsappReviewLinks.ts
+
+- ⚠️ **Performance: .filter() usage detected**
+  - **Problem:** Should use .withIndex() for better performance
+  - **Fix:** Replace `.query().filter()` with `.query().withIndex()`
+
+
+## Auto Quality Check - 2026-02-20 11:08:09
+### File: /Users/jkobrien/code/PDP/packages/backend/convex/models/whatsappReviewLinks.ts
+
+- ❌ **CRITICAL: Better Auth adapter violation**
+  - **Problem:** Direct DB access to auth tables
+  - **Fix:** Use `ctx.runQuery(components.betterAuth.adapter.findOne, {...})`
+
+
+## Auto Quality Check - 2026-02-20 11:08:09
+### File: /Users/jkobrien/code/PDP/packages/backend/convex/models/whatsappReviewLinks.ts
+
+- ⚠️ **Performance: .filter() usage detected**
+  - **Problem:** Should use .withIndex() for better performance
+  - **Fix:** Replace `.query().filter()` with `.query().withIndex()`
+
+
+## Auto Quality Check - 2026-02-20 11:08:19
+### File: /Users/jkobrien/code/PDP/packages/backend/convex/models/whatsappReviewLinks.ts
+
+- ❌ **CRITICAL: Better Auth adapter violation**
+  - **Problem:** Direct DB access to auth tables
+  - **Fix:** Use `ctx.runQuery(components.betterAuth.adapter.findOne, {...})`
+
+
+## Auto Quality Check - 2026-02-20 11:08:19
+### File: /Users/jkobrien/code/PDP/packages/backend/convex/models/whatsappReviewLinks.ts
+
+- ⚠️ **Performance: .filter() usage detected**
+  - **Problem:** Should use .withIndex() for better performance
+  - **Fix:** Replace `.query().filter()` with `.query().withIndex()`
+
+
+## Auto Quality Check - 2026-02-20 11:59:39
+### File: /Users/jkobrien/code/PDP/packages/backend/convex/actions/voiceNotes.ts
+
+- ⚠️ **Performance: .filter() usage detected**
+  - **Problem:** Should use .withIndex() for better performance
+  - **Fix:** Replace `.query().filter()` with `.query().withIndex()`
+
+
+## Auto Quality Check - 2026-02-20 11:59:47
+### File: /Users/jkobrien/code/PDP/packages/backend/convex/actions/voiceNotes.ts
+
+- ⚠️ **Performance: .filter() usage detected**
+  - **Problem:** Should use .withIndex() for better performance
+  - **Fix:** Replace `.query().filter()` with `.query().withIndex()`
+
+
+## Auto Quality Check - 2026-02-20 11:59:58
+### File: /Users/jkobrien/code/PDP/packages/backend/convex/actions/voiceNotes.ts
+
+- ⚠️ **Performance: .filter() usage detected**
+  - **Problem:** Should use .withIndex() for better performance
+  - **Fix:** Replace `.query().filter()` with `.query().withIndex()`
+
+
+## Auto Quality Check - 2026-02-20 12:01:49
+### File: /Users/jkobrien/code/PDP/packages/backend/convex/actions/voiceNotes.ts
+
+- ⚠️ **Performance: .filter() usage detected**
+  - **Problem:** Should use .withIndex() for better performance
+  - **Fix:** Replace `.query().filter()` with `.query().withIndex()`
+
+
+## Auto Quality Check - 2026-02-20 12:02:07
+### File: /Users/jkobrien/code/PDP/packages/backend/convex/actions/voiceNotes.ts
+
+- ⚠️ **Performance: .filter() usage detected**
+  - **Problem:** Should use .withIndex() for better performance
+  - **Fix:** Replace `.query().filter()` with `.query().withIndex()`
+
+
+## Auto Quality Check - 2026-02-20 12:02:08
+### File: /Users/jkobrien/code/PDP/packages/backend/convex/actions/voiceNotes.ts
+
+- ⚠️ **Performance: .filter() usage detected**
+  - **Problem:** Should use .withIndex() for better performance
+  - **Fix:** Replace `.query().filter()` with `.query().withIndex()`
+
+
+## Auto Quality Check - 2026-02-20 12:02:21
+### File: /Users/jkobrien/code/PDP/packages/backend/convex/actions/voiceNotes.ts
+
+- ⚠️ **Performance: .filter() usage detected**
+  - **Problem:** Should use .withIndex() for better performance
+  - **Fix:** Replace `.query().filter()` with `.query().withIndex()`
+
+
+## Auto Quality Check - 2026-02-20 12:02:29
+### File: /Users/jkobrien/code/PDP/packages/backend/convex/actions/voiceNotes.ts
+
+- ⚠️ **Performance: .filter() usage detected**
+  - **Problem:** Should use .withIndex() for better performance
+  - **Fix:** Replace `.query().filter()` with `.query().withIndex()`
+
+
+## Auto Quality Check - 2026-02-20 12:02:46
+### File: /Users/jkobrien/code/PDP/packages/backend/convex/actions/voiceNotes.ts
+
+- ⚠️ **Performance: .filter() usage detected**
+  - **Problem:** Should use .withIndex() for better performance
+  - **Fix:** Replace `.query().filter()` with `.query().withIndex()`
+
+
+## Auto Quality Check - 2026-02-20 12:03:04
+### File: /Users/jkobrien/code/PDP/packages/backend/convex/actions/voiceNotes.ts
+
+- ⚠️ **Performance: .filter() usage detected**
+  - **Problem:** Should use .withIndex() for better performance
+  - **Fix:** Replace `.query().filter()` with `.query().withIndex()`
+
+
+## Auto Quality Check - 2026-02-20 12:06:42
+### File: /Users/jkobrien/code/PDP/packages/backend/convex/models/voiceNotes.ts
+
+- ❌ **CRITICAL: Better Auth adapter violation**
+  - **Problem:** Direct DB access to auth tables
+  - **Fix:** Use `ctx.runQuery(components.betterAuth.adapter.findOne, {...})`
+
+
+## Auto Quality Check - 2026-02-20 12:06:42
+### File: /Users/jkobrien/code/PDP/packages/backend/convex/models/voiceNotes.ts
+
+- ⚠️ **Performance: .filter() usage detected**
+  - **Problem:** Should use .withIndex() for better performance
+  - **Fix:** Replace `.query().filter()` with `.query().withIndex()`
+
+
+## Auto Quality Check - 2026-02-20 12:06:42
+### File: /Users/jkobrien/code/PDP/packages/backend/convex/models/voiceNotes.ts
+
+- ❌ **CRITICAL: N+1 query pattern detected**
+  - **Problem:** `Promise.all(items.map(async => query))` makes N database calls
+  - **Fix:** Batch fetch all IDs first, create Map for O(1) lookup
+
+
+## Auto Quality Check - 2026-02-20 12:08:39
+### File: /Users/jkobrien/code/PDP/packages/backend/convex/actions/voiceNotes.ts
+
+- ⚠️ **Performance: .filter() usage detected**
+  - **Problem:** Should use .withIndex() for better performance
+  - **Fix:** Replace `.query().filter()` with `.query().withIndex()`
+
+
+## Auto Quality Check - 2026-02-20 12:08:48
+### File: /Users/jkobrien/code/PDP/packages/backend/convex/actions/voiceNotes.ts
+
+- ⚠️ **Performance: .filter() usage detected**
+  - **Problem:** Should use .withIndex() for better performance
+  - **Fix:** Replace `.query().filter()` with `.query().withIndex()`
+
+
+## Auto Quality Check - 2026-02-20 12:08:59
+### File: /Users/jkobrien/code/PDP/packages/backend/convex/models/voiceNotes.ts
+
+- ❌ **CRITICAL: Better Auth adapter violation**
+  - **Problem:** Direct DB access to auth tables
+  - **Fix:** Use `ctx.runQuery(components.betterAuth.adapter.findOne, {...})`
+
+
+## Auto Quality Check - 2026-02-20 12:08:59
+### File: /Users/jkobrien/code/PDP/packages/backend/convex/models/voiceNotes.ts
+
+- ⚠️ **Performance: .filter() usage detected**
+  - **Problem:** Should use .withIndex() for better performance
+  - **Fix:** Replace `.query().filter()` with `.query().withIndex()`
+
+
+## Auto Quality Check - 2026-02-20 12:08:59
+### File: /Users/jkobrien/code/PDP/packages/backend/convex/models/voiceNotes.ts
+
+- ❌ **CRITICAL: N+1 query pattern detected**
+  - **Problem:** `Promise.all(items.map(async => query))` makes N database calls
+  - **Fix:** Batch fetch all IDs first, create Map for O(1) lookup
+
+
+## Auto Quality Check - 2026-02-20 12:39:54
+### File: /Users/jkobrien/code/PDP/packages/backend/convex/actions/voiceNotes.ts
+
+- ⚠️ **Performance: .filter() usage detected**
+  - **Problem:** Should use .withIndex() for better performance
+  - **Fix:** Replace `.query().filter()` with `.query().withIndex()`
+
+
+## Auto Quality Check - 2026-02-20 12:40:03
+### File: /Users/jkobrien/code/PDP/packages/backend/convex/actions/voiceNotes.ts
+
+- ⚠️ **Performance: .filter() usage detected**
+  - **Problem:** Should use .withIndex() for better performance
+  - **Fix:** Replace `.query().filter()` with `.query().withIndex()`
+
+
+## Auto Quality Check - 2026-02-20 12:40:11
+### File: /Users/jkobrien/code/PDP/packages/backend/convex/actions/voiceNotes.ts
+
+- ⚠️ **Performance: .filter() usage detected**
+  - **Problem:** Should use .withIndex() for better performance
+  - **Fix:** Replace `.query().filter()` with `.query().withIndex()`
+
+
+## Auto Quality Check - 2026-02-20 12:41:37
+### File: /Users/jkobrien/code/PDP/packages/backend/convex/actions/claimsExtraction.ts
+
+- ⚠️ **Performance: .filter() usage detected**
+  - **Problem:** Should use .withIndex() for better performance
+  - **Fix:** Replace `.query().filter()` with `.query().withIndex()`
+
+
+## Auto Quality Check - 2026-02-20 12:49:27
+### File: /Users/jkobrien/code/PDP/packages/backend/convex/models/whatsappReviewLinks.ts
+
+- ❌ **CRITICAL: Better Auth adapter violation**
+  - **Problem:** Direct DB access to auth tables
+  - **Fix:** Use `ctx.runQuery(components.betterAuth.adapter.findOne, {...})`
+
+
+## Auto Quality Check - 2026-02-20 12:49:27
+### File: /Users/jkobrien/code/PDP/packages/backend/convex/models/whatsappReviewLinks.ts
+
+- ⚠️ **Performance: .filter() usage detected**
+  - **Problem:** Should use .withIndex() for better performance
+  - **Fix:** Replace `.query().filter()` with `.query().withIndex()`
+
+
+## Auto Quality Check - 2026-02-20 12:50:02
+### File: /Users/jkobrien/code/PDP/packages/backend/convex/models/whatsappReviewLinks.ts
+
+- ❌ **CRITICAL: Better Auth adapter violation**
+  - **Problem:** Direct DB access to auth tables
+  - **Fix:** Use `ctx.runQuery(components.betterAuth.adapter.findOne, {...})`
+
+
+## Auto Quality Check - 2026-02-20 12:50:02
+### File: /Users/jkobrien/code/PDP/packages/backend/convex/models/whatsappReviewLinks.ts
+
+- ⚠️ **Performance: .filter() usage detected**
+  - **Problem:** Should use .withIndex() for better performance
+  - **Fix:** Replace `.query().filter()` with `.query().withIndex()`
+
+
+## Auto Quality Check - 2026-02-20 12:50:44
+### File: /Users/jkobrien/code/PDP/packages/backend/convex/models/whatsappReviewLinks.ts
+
+- ❌ **CRITICAL: Better Auth adapter violation**
+  - **Problem:** Direct DB access to auth tables
+  - **Fix:** Use `ctx.runQuery(components.betterAuth.adapter.findOne, {...})`
+
+
+## Auto Quality Check - 2026-02-20 12:50:45
+### File: /Users/jkobrien/code/PDP/packages/backend/convex/models/whatsappReviewLinks.ts
+
+- ⚠️ **Performance: .filter() usage detected**
+  - **Problem:** Should use .withIndex() for better performance
+  - **Fix:** Replace `.query().filter()` with `.query().withIndex()`
+
+
+## Auto Quality Check - 2026-02-20 12:50:45
+### File: /Users/jkobrien/code/PDP/packages/backend/convex/models/whatsappReviewLinks.ts
+
+- ❌ **CRITICAL: Better Auth adapter violation**
+  - **Problem:** Direct DB access to auth tables
+  - **Fix:** Use `ctx.runQuery(components.betterAuth.adapter.findOne, {...})`
+
+
+## Auto Quality Check - 2026-02-20 12:50:45
+### File: /Users/jkobrien/code/PDP/packages/backend/convex/models/whatsappReviewLinks.ts
+
+- ⚠️ **Performance: .filter() usage detected**
+  - **Problem:** Should use .withIndex() for better performance
+  - **Fix:** Replace `.query().filter()` with `.query().withIndex()`
+
+
+## Auto Quality Check - 2026-02-20 12:51:16
+### File: /Users/jkobrien/code/PDP/packages/backend/convex/models/whatsappReviewLinks.ts
+
+- ❌ **CRITICAL: Better Auth adapter violation**
+  - **Problem:** Direct DB access to auth tables
+  - **Fix:** Use `ctx.runQuery(components.betterAuth.adapter.findOne, {...})`
+
+
+## Auto Quality Check - 2026-02-20 12:51:16
+### File: /Users/jkobrien/code/PDP/packages/backend/convex/models/whatsappReviewLinks.ts
+
+- ⚠️ **Performance: .filter() usage detected**
+  - **Problem:** Should use .withIndex() for better performance
+  - **Fix:** Replace `.query().filter()` with `.query().withIndex()`
+
+
+## Auto Quality Check - 2026-02-20 12:51:26
+### File: /Users/jkobrien/code/PDP/packages/backend/convex/models/whatsappReviewLinks.ts
+
+- ❌ **CRITICAL: Better Auth adapter violation**
+  - **Problem:** Direct DB access to auth tables
+  - **Fix:** Use `ctx.runQuery(components.betterAuth.adapter.findOne, {...})`
+
+
+## Auto Quality Check - 2026-02-20 12:51:26
+### File: /Users/jkobrien/code/PDP/packages/backend/convex/models/whatsappReviewLinks.ts
+
+- ⚠️ **Performance: .filter() usage detected**
+  - **Problem:** Should use .withIndex() for better performance
+  - **Fix:** Replace `.query().filter()` with `.query().withIndex()`
+
+
+## Auto Quality Check - 2026-02-20 12:51:39
+### File: /Users/jkobrien/code/PDP/packages/backend/convex/models/whatsappReviewLinks.ts
+
+- ❌ **CRITICAL: Better Auth adapter violation**
+  - **Problem:** Direct DB access to auth tables
+  - **Fix:** Use `ctx.runQuery(components.betterAuth.adapter.findOne, {...})`
+
+
+## Auto Quality Check - 2026-02-20 12:51:39
+### File: /Users/jkobrien/code/PDP/packages/backend/convex/models/whatsappReviewLinks.ts
+
+- ⚠️ **Performance: .filter() usage detected**
+  - **Problem:** Should use .withIndex() for better performance
+  - **Fix:** Replace `.query().filter()` with `.query().withIndex()`
+
+
+## Auto Quality Check - 2026-02-20 12:51:49
+### File: /Users/jkobrien/code/PDP/packages/backend/convex/models/whatsappReviewLinks.ts
+
+- ❌ **CRITICAL: Better Auth adapter violation**
+  - **Problem:** Direct DB access to auth tables
+  - **Fix:** Use `ctx.runQuery(components.betterAuth.adapter.findOne, {...})`
+
+
+## Auto Quality Check - 2026-02-20 12:51:49
+### File: /Users/jkobrien/code/PDP/packages/backend/convex/models/whatsappReviewLinks.ts
+
+- ⚠️ **Performance: .filter() usage detected**
+  - **Problem:** Should use .withIndex() for better performance
+  - **Fix:** Replace `.query().filter()` with `.query().withIndex()`
+
+
+## Auto Quality Check - 2026-02-20 12:52:00
+### File: /Users/jkobrien/code/PDP/packages/backend/convex/models/whatsappReviewLinks.ts
+
+- ❌ **CRITICAL: Better Auth adapter violation**
+  - **Problem:** Direct DB access to auth tables
+  - **Fix:** Use `ctx.runQuery(components.betterAuth.adapter.findOne, {...})`
+
+
+## Auto Quality Check - 2026-02-20 12:52:00
+### File: /Users/jkobrien/code/PDP/packages/backend/convex/models/whatsappReviewLinks.ts
+
+- ⚠️ **Performance: .filter() usage detected**
+  - **Problem:** Should use .withIndex() for better performance
+  - **Fix:** Replace `.query().filter()` with `.query().withIndex()`
+
+
+## Auto Quality Check - 2026-02-20 13:15:13
+### File: /Users/jkobrien/code/PDP/packages/backend/convex/models/whatsappMessages.ts
+
+- ⚠️ **Performance: .filter() usage detected**
+  - **Problem:** Should use .withIndex() for better performance
+  - **Fix:** Replace `.query().filter()` with `.query().withIndex()`
+
+
+## Auto Quality Check - 2026-02-20 13:18:58
+### File: /Users/jkobrien/code/PDP/packages/backend/convex/models/whatsappMessages.ts
+
+- ⚠️ **Performance: .filter() usage detected**
+  - **Problem:** Should use .withIndex() for better performance
+  - **Fix:** Replace `.query().filter()` with `.query().withIndex()`
+
+
+## Auto Quality Check - 2026-02-20 13:20:53
+### File: /Users/jkobrien/code/PDP/packages/backend/convex/models/whatsappMessages.ts
+
+- ⚠️ **Performance: .filter() usage detected**
+  - **Problem:** Should use .withIndex() for better performance
+  - **Fix:** Replace `.query().filter()` with `.query().withIndex()`
+
+
+## Auto Quality Check - 2026-02-20 13:22:03
+### File: /Users/jkobrien/code/PDP/packages/backend/convex/models/whatsappMessages.ts
+
+- ⚠️ **Performance: .filter() usage detected**
+  - **Problem:** Should use .withIndex() for better performance
+  - **Fix:** Replace `.query().filter()` with `.query().withIndex()`
+
+
+## Auto Quality Check - 2026-02-20 13:27:52
+### File: /Users/jkobrien/code/PDP/packages/backend/convex/models/whatsappMessages.ts
+
+- ⚠️ **Performance: .filter() usage detected**
+  - **Problem:** Should use .withIndex() for better performance
+  - **Fix:** Replace `.query().filter()` with `.query().withIndex()`
+
+
+## Auto Quality Check - 2026-02-20 14:43:35
+### File: /Users/jkobrien/code/PDP/packages/backend/convex/models/whatsappReviewLinks.ts
+
+- ❌ **CRITICAL: Better Auth adapter violation**
+  - **Problem:** Direct DB access to auth tables
+  - **Fix:** Use `ctx.runQuery(components.betterAuth.adapter.findOne, {...})`
+
+
+## Auto Quality Check - 2026-02-20 14:43:35
+### File: /Users/jkobrien/code/PDP/packages/backend/convex/models/whatsappReviewLinks.ts
+
+- ⚠️ **Performance: .filter() usage detected**
+  - **Problem:** Should use .withIndex() for better performance
+  - **Fix:** Replace `.query().filter()` with `.query().withIndex()`
+
+
+## Auto Quality Check - 2026-02-20 14:43:57
+### File: /Users/jkobrien/code/PDP/packages/backend/convex/models/whatsappReviewLinks.ts
+
+- ❌ **CRITICAL: Better Auth adapter violation**
+  - **Problem:** Direct DB access to auth tables
+  - **Fix:** Use `ctx.runQuery(components.betterAuth.adapter.findOne, {...})`
+
+
+## Auto Quality Check - 2026-02-20 14:43:57
+### File: /Users/jkobrien/code/PDP/packages/backend/convex/models/whatsappReviewLinks.ts
+
+- ⚠️ **Performance: .filter() usage detected**
+  - **Problem:** Should use .withIndex() for better performance
+  - **Fix:** Replace `.query().filter()` with `.query().withIndex()`
+
+
+## Auto Quality Check - 2026-02-20 14:47:15
+### File: /Users/jkobrien/code/PDP/packages/backend/convex/actions/voiceNotes.ts
+
+- ⚠️ **Performance: .filter() usage detected**
+  - **Problem:** Should use .withIndex() for better performance
+  - **Fix:** Replace `.query().filter()` with `.query().withIndex()`
+
+
+## Auto Quality Check - 2026-02-20 14:56:05
+### File: /Users/jkobrien/code/PDP/packages/backend/convex/actions/voiceNotes.ts
+
+- ⚠️ **Performance: .filter() usage detected**
+  - **Problem:** Should use .withIndex() for better performance
+  - **Fix:** Replace `.query().filter()` with `.query().withIndex()`
+
+
+## Auto Quality Check - 2026-02-20 15:16:33
+### File: /Users/jkobrien/code/PDP/packages/backend/convex/actions/voiceNotes.ts
+
+- ⚠️ **Performance: .filter() usage detected**
+  - **Problem:** Should use .withIndex() for better performance
+  - **Fix:** Replace `.query().filter()` with `.query().withIndex()`
+
+
+## Auto Quality Check - 2026-02-20 15:16:34
+### File: /Users/jkobrien/code/PDP/packages/backend/convex/models/whatsappReviewLinks.ts
+
+- ❌ **CRITICAL: Better Auth adapter violation**
+  - **Problem:** Direct DB access to auth tables
+  - **Fix:** Use `ctx.runQuery(components.betterAuth.adapter.findOne, {...})`
+
+
+## Auto Quality Check - 2026-02-20 15:16:34
+### File: /Users/jkobrien/code/PDP/packages/backend/convex/models/whatsappReviewLinks.ts
+
+- ⚠️ **Performance: .filter() usage detected**
+  - **Problem:** Should use .withIndex() for better performance
+  - **Fix:** Replace `.query().filter()` with `.query().withIndex()`
+
+
+## Auto Quality Check - 2026-02-20 15:20:58
+### File: /Users/jkobrien/code/PDP/packages/backend/convex/actions/voiceNotes.ts
+
+- ⚠️ **Performance: .filter() usage detected**
+  - **Problem:** Should use .withIndex() for better performance
+  - **Fix:** Replace `.query().filter()` with `.query().withIndex()`
+
+
+## Auto Quality Check - 2026-02-20 15:21:09
+### File: /Users/jkobrien/code/PDP/packages/backend/convex/models/whatsappReviewLinks.ts
+
+- ❌ **CRITICAL: Better Auth adapter violation**
+  - **Problem:** Direct DB access to auth tables
+  - **Fix:** Use `ctx.runQuery(components.betterAuth.adapter.findOne, {...})`
+
+
+## Auto Quality Check - 2026-02-20 15:21:09
+### File: /Users/jkobrien/code/PDP/packages/backend/convex/models/whatsappReviewLinks.ts
+
+- ⚠️ **Performance: .filter() usage detected**
+  - **Problem:** Should use .withIndex() for better performance
+  - **Fix:** Replace `.query().filter()` with `.query().withIndex()`
+
+
+## Auto Quality Check - 2026-02-20 15:21:22
+### File: /Users/jkobrien/code/PDP/packages/backend/convex/models/whatsappReviewLinks.ts
+
+- ❌ **CRITICAL: Better Auth adapter violation**
+  - **Problem:** Direct DB access to auth tables
+  - **Fix:** Use `ctx.runQuery(components.betterAuth.adapter.findOne, {...})`
+
+
+## Auto Quality Check - 2026-02-20 15:21:22
+### File: /Users/jkobrien/code/PDP/packages/backend/convex/models/whatsappReviewLinks.ts
+
+- ⚠️ **Performance: .filter() usage detected**
+  - **Problem:** Should use .withIndex() for better performance
+  - **Fix:** Replace `.query().filter()` with `.query().withIndex()`
+
+
+## Auto Quality Check - 2026-02-20 16:40:27
+### File: /Users/jkobrien/code/PDP/packages/backend/convex/models/whatsappMessages.ts
+
+- ⚠️ **Performance: .filter() usage detected**
+  - **Problem:** Should use .withIndex() for better performance
+  - **Fix:** Replace `.query().filter()` with `.query().withIndex()`
+
+
+## Auto Quality Check - 2026-02-20 16:50:49
+### File: /Users/jkobrien/code/PDP/packages/backend/convex/models/whatsappMessages.ts
+
+- ⚠️ **Performance: .filter() usage detected**
+  - **Problem:** Should use .withIndex() for better performance
+  - **Fix:** Replace `.query().filter()` with `.query().withIndex()`
+
+
+## Auto Quality Check - 2026-02-20 18:16:21
+### File: /Users/jkobrien/code/PDP/packages/backend/convex/models/sessionPlans.ts
+
+- ❌ **CRITICAL: Better Auth adapter violation**
+  - **Problem:** Direct DB access to auth tables
+  - **Fix:** Use `ctx.runQuery(components.betterAuth.adapter.findOne, {...})`
+
+
+## Auto Quality Check - 2026-02-20 18:16:21
+### File: /Users/jkobrien/code/PDP/packages/backend/convex/models/sessionPlans.ts
+
+- ⚠️ **Performance: .filter() usage detected**
+  - **Problem:** Should use .withIndex() for better performance
+  - **Fix:** Replace `.query().filter()` with `.query().withIndex()`
+
+
+## Auto Quality Check - 2026-02-20 19:07:13
+### File: /Users/jkobrien/code/PDP/packages/backend/convex/models/coaches.ts
+
+- ⚠️ **Performance: .filter() usage detected**
+  - **Problem:** Should use .withIndex() for better performance
+  - **Fix:** Replace `.query().filter()` with `.query().withIndex()`
+
+
+## Auto Quality Check - 2026-02-20 19:07:20
+### File: /Users/jkobrien/code/PDP/packages/backend/convex/models/coaches.ts
+
+- ⚠️ **Performance: .filter() usage detected**
+  - **Problem:** Should use .withIndex() for better performance
+  - **Fix:** Replace `.query().filter()` with `.query().withIndex()`
+
+
+## Auto Quality Check - 2026-02-20 19:08:13
+### File: /Users/jkobrien/code/PDP/packages/backend/convex/models/sessionPlans.ts
+
+- ❌ **CRITICAL: Better Auth adapter violation**
+  - **Problem:** Direct DB access to auth tables
+  - **Fix:** Use `ctx.runQuery(components.betterAuth.adapter.findOne, {...})`
+
+
+## Auto Quality Check - 2026-02-20 19:08:13
+### File: /Users/jkobrien/code/PDP/packages/backend/convex/models/sessionPlans.ts
+
+- ⚠️ **Performance: .filter() usage detected**
+  - **Problem:** Should use .withIndex() for better performance
+  - **Fix:** Replace `.query().filter()` with `.query().withIndex()`
+
+
+## Auto Quality Check - 2026-02-20 19:08:23
+### File: /Users/jkobrien/code/PDP/packages/backend/convex/models/sessionPlans.ts
+
+- ❌ **CRITICAL: Better Auth adapter violation**
+  - **Problem:** Direct DB access to auth tables
+  - **Fix:** Use `ctx.runQuery(components.betterAuth.adapter.findOne, {...})`
+
+
+## Auto Quality Check - 2026-02-20 19:08:23
+### File: /Users/jkobrien/code/PDP/packages/backend/convex/models/sessionPlans.ts
+
+- ⚠️ **Performance: .filter() usage detected**
+  - **Problem:** Should use .withIndex() for better performance
+  - **Fix:** Replace `.query().filter()` with `.query().withIndex()`
+

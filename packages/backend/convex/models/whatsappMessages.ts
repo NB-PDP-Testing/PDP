@@ -21,8 +21,8 @@ import { normalizePhoneNumber } from "../lib/phoneUtils";
  * 5. If still ambiguous → ask for clarification via WhatsApp
  */
 
-// Session timeout: 24 hours (prevents repeated org-confirmation prompts within a working day)
-const SESSION_TIMEOUT_MS = 24 * 60 * 60 * 1000;
+// Session timeout: 2 hours
+const SESSION_TIMEOUT_MS = 2 * 60 * 60 * 1000;
 
 // ============================================================
 // REGEX PATTERNS (top-level for performance)

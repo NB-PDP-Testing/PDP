@@ -543,7 +543,10 @@ export function ReviewQueue({
             return (
               <div key={`${item.voiceNoteId}-${item.insightId}`}>
                 {needsTeamSelection && (
-                  <div className="mb-1 px-1">
+                  <div className="mb-2 px-1">
+                    <p className="mb-1 text-muted-foreground text-xs">
+                      Assign to team:
+                    </p>
                     <Select
                       onValueChange={(value) => {
                         const team = coachTeams.find((t) => t.teamId === value);
@@ -559,8 +562,8 @@ export function ReviewQueue({
                       }}
                       value={selectedTeam?.teamId ?? ""}
                     >
-                      <SelectTrigger className="h-8 text-xs">
-                        <SelectValue placeholder="Select team to assign…" />
+                      <SelectTrigger className="h-10 text-sm">
+                        <SelectValue placeholder="Select team…" />
                       </SelectTrigger>
                       <SelectContent>
                         {coachTeams.map((team) => (

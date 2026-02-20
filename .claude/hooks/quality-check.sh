@@ -85,6 +85,21 @@ if grep -qE "\.query\(|\.withIndex\(" "$FILE_PATH" 2>/dev/null; then
   fi
 fi
 
+# Check for wrong phone normalization function in profile updates (Issue #469)
+if [[ "$FILE_PATH" =~ (userProfiles|userFunctions|userPreferences)\.ts$ ]]; then
+  if grep -q "normalizePhone(" "$FILE_PATH" 2>/dev/null; then
+    echo "" >> "$FEEDBACK_FILE"
+    echo "## Auto Quality Check - $(date '+%Y-%m-%d %H:%M:%S')" >> "$FEEDBACK_FILE"
+    echo "### File: $FILE_PATH" >> "$FEEDBACK_FILE"
+    echo "" >> "$FEEDBACK_FILE"
+    echo "- ❌ **CRITICAL: Wrong phone normalization function (Issue #469)**" >> "$FEEDBACK_FILE"
+    echo "  - **Problem:** \`normalizePhone()\` strips '+' prefix, breaking WhatsApp matching" >> "$FEEDBACK_FILE"
+    echo "  - **Fix:** Use \`normalizePhoneNumber()\` from \`phoneUtils.ts\` for database storage" >> "$FEEDBACK_FILE"
+    echo "  - **Reference:** Bug fixes #434, #469" >> "$FEEDBACK_FILE"
+    echo "" >> "$FEEDBACK_FILE"
+  fi
+fi
+
 # Pass through the input unchanged
 echo "$INPUT"
 exit 0

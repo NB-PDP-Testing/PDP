@@ -172,7 +172,9 @@ export default defineSchema({
 
     // Address (optional)
     address: v.optional(v.string()),
+    address2: v.optional(v.string()), // Phase 0.7: Address line 2 (apt, unit, etc.)
     town: v.optional(v.string()),
+    county: v.optional(v.string()), // Phase 0.7: County/State/Province
     postcode: v.optional(v.string()),
     country: v.optional(v.string()),
 
@@ -194,6 +196,9 @@ export default defineSchema({
     // Passport Sharing Preferences (global)
     allowGlobalPassportDiscovery: v.optional(v.boolean()), // Allow coaches at any org to discover children's passports
 
+    // Import tracking
+    importSessionId: v.optional(v.id("importSessions")),
+
     // Metadata
     createdAt: v.number(),
     updatedAt: v.number(),
@@ -202,7 +207,9 @@ export default defineSchema({
     .index("by_email", ["email"])
     .index("by_userId", ["userId"])
     .index("by_phone", ["phone"])
-    .index("by_name", ["lastName", "firstName"]),
+    .index("by_postcode", ["postcode"])
+    .index("by_name", ["lastName", "firstName"])
+    .index("by_importSessionId", ["importSessionId"]),
 
   // Organization-level: Guardian preferences per org
   orgGuardianProfiles: defineTable({
@@ -272,6 +279,17 @@ export default defineSchema({
       v.literal("document_verified") // ID document verified
     ),
 
+    // Import tracking
+    importSessionId: v.optional(v.id("importSessions")),
+    externalIds: v.optional(v.record(v.string(), v.string())), // {"foireann": "12345", "pitchero": "67890"}
+
+    // Federation sync tracking
+    lastSyncedAt: v.optional(v.number()), // Timestamp of last federation sync
+    lastSyncedData: v.optional(v.any()), // Data as it was at last sync (for conflict detection)
+
+    // Active status (for federation webhook deletions)
+    isActive: v.optional(v.boolean()), // Defaults to true, set to false when deleted from federation
+
     // Metadata
     createdAt: v.number(),
     updatedAt: v.number(),
@@ -280,7 +298,8 @@ export default defineSchema({
     .index("by_name_dob", ["firstName", "lastName", "dateOfBirth"])
     .index("by_userId", ["userId"])
     .index("by_email", ["email"])
-    .index("by_playerType", ["playerType"]),
+    .index("by_playerType", ["playerType"])
+    .index("by_importSessionId", ["importSessionId"]),
 
   // Player Graduations - tracks players who have turned 18 and their graduation status
   playerGraduations: defineTable({
@@ -381,6 +400,9 @@ export default defineSchema({
     profileCompletedAt: v.optional(v.number()), // When parent completed required profile fields
     requiredProfileFields: v.optional(v.array(v.string())), // Which fields need completion (e.g. ['emergencyContact', 'medicalInfo'])
 
+    // Import tracking
+    importSessionId: v.optional(v.id("importSessions")),
+
     // Metadata
     createdAt: v.number(),
     updatedAt: v.number(),
@@ -391,7 +413,8 @@ export default defineSchema({
     .index("by_player", ["playerIdentityId"])
     .index("by_guardian_and_player", ["guardianIdentityId", "playerIdentityId"])
     .index("by_guardian_and_status", ["guardianIdentityId", "status"])
-    .index("by_status", ["status"]),
+    .index("by_status", ["status"])
+    .index("by_importSessionId", ["importSessionId"]),
 
   // Organization-level: Player enrollment
   orgPlayerEnrollments: defineTable({
@@ -429,6 +452,11 @@ export default defineSchema({
     coachNotes: v.optional(v.string()),
     adminNotes: v.optional(v.string()),
 
+    // Import tracking
+    importSessionId: v.optional(v.id("importSessions")),
+    lastSyncedAt: v.optional(v.number()),
+    syncSource: v.optional(v.string()), // "foireann", "manual", "csv_import"
+
     // Metadata
     enrolledAt: v.number(),
     updatedAt: v.number(),
@@ -439,6 +467,7 @@ export default defineSchema({
     .index("by_org_and_status", ["organizationId", "status"])
     .index("by_org_and_ageGroup", ["organizationId", "ageGroup"])
     .index("by_org_sport_status", ["organizationId", "sport", "status"])
+    .index("by_importSessionId", ["importSessionId"])
     .index("by_player_org_sport", [
       "playerIdentityId",
       "organizationId",
@@ -530,6 +559,9 @@ export default defineSchema({
     currentSeason: v.optional(v.string()),
     seasonsPlayed: v.optional(v.array(v.string())),
 
+    // Import tracking
+    importSessionId: v.optional(v.id("importSessions")),
+
     // Timestamps
     createdAt: v.number(),
     updatedAt: v.number(),
@@ -539,12 +571,14 @@ export default defineSchema({
     .index("by_player_and_org", ["playerIdentityId", "organizationId"]) // Added Phase 3: Optimize sport validation JOINs
     .index("by_organizationId", ["organizationId"])
     .index("by_org_and_sport", ["organizationId", "sportCode"])
+    .index("by_sportCode", ["sportCode"]) // For migration scripts
     .index("by_status", ["organizationId", "sportCode", "status"])
     .index("by_player_org_status", [
       "playerIdentityId",
       "organizationId",
       "status",
-    ]), // Added for filter() elimination
+    ]) // Added for filter() elimination
+    .index("by_importSessionId", ["importSessionId"]),
 
   // Skill Assessments - point-in-time skill records
   skillAssessments: defineTable({
@@ -613,6 +647,9 @@ export default defineSchema({
     source: v.optional(v.union(v.literal("manual"), v.literal("voice_note"))),
     voiceNoteId: v.optional(v.id("voiceNotes")), // If created from voice note
 
+    // Import tracking
+    importSessionId: v.optional(v.id("importSessions")),
+
     // Metadata
     confidence: v.optional(
       v.union(v.literal("low"), v.literal("medium"), v.literal("high"))
@@ -622,11 +659,13 @@ export default defineSchema({
     .index("by_passportId", ["passportId"])
     .index("by_playerIdentityId", ["playerIdentityId"])
     .index("by_player_and_sport", ["playerIdentityId", "sportCode"])
+    .index("by_sportCode", ["sportCode"]) // For migration scripts
     .index("by_skill", ["passportId", "skillCode"])
     .index("by_date", ["passportId", "assessmentDate"])
     .index("by_assessor", ["assessedBy", "assessmentDate"])
     .index("by_organizationId", ["organizationId", "assessmentDate"])
-    .index("by_type", ["passportId", "assessmentType"]),
+    .index("by_type", ["passportId", "assessmentType"])
+    .index("by_importSessionId", ["importSessionId"]),
 
   // Passport Goals - Development goals linked to sport passports
   passportGoals: defineTable({
@@ -727,6 +766,7 @@ export default defineSchema({
     updatedAt: v.number(),
   })
     .index("by_teamId", ["teamId"])
+    .index("by_teamId_and_status", ["teamId", "status"])
     .index("by_playerIdentityId", ["playerIdentityId"])
     .index("by_team_and_player", ["teamId", "playerIdentityId"])
     .index("by_organizationId", ["organizationId"])
@@ -1027,6 +1067,9 @@ export default defineSchema({
       v.union(v.literal("low"), v.literal("medium"), v.literal("high"))
     ),
     dueDate: v.optional(v.number()), // Timestamp
+    status: v.optional(
+      v.union(v.literal("open"), v.literal("in-progress"), v.literal("done"))
+    ), // Task status (granular alternative to completed boolean)
 
     // Source tracking - where did this task come from?
     source: v.union(v.literal("manual"), v.literal("voice_note")),
@@ -1632,6 +1675,8 @@ export default defineSchema({
         assigneeName: v.optional(v.string()),
         // Task linking - set when TODO insight creates a task
         linkedTaskId: v.optional(v.id("coachTasks")),
+        // Bug #479: Boolean flag to hide from "Recently Reviewed" without changing status
+        clearedFromReview: v.optional(v.boolean()),
       })
     ),
     insightsStatus: v.optional(
@@ -1639,13 +1684,31 @@ export default defineSchema({
         v.literal("pending"),
         v.literal("processing"),
         v.literal("completed"),
-        v.literal("failed")
+        v.literal("failed"),
+        v.literal("awaiting_confirmation"),
+        v.literal("cancelled")
       )
     ),
     insightsError: v.optional(v.string()),
+    // Transcript quality tracking (US-VN-002)
+    transcriptQuality: v.optional(v.number()),
+    transcriptValidation: v.optional(
+      v.object({
+        isValid: v.boolean(),
+        reason: v.optional(v.string()),
+        suggestedAction: v.union(
+          v.literal("process"),
+          v.literal("ask_user"),
+          v.literal("reject")
+        ),
+      })
+    ),
+    // Optional session plan link for voice notes taken during sessions
+    sessionPlanId: v.optional(v.id("sessionPlans")),
   })
     .index("by_orgId", ["orgId"])
-    .index("by_orgId_and_coachId", ["orgId", "coachId"]),
+    .index("by_orgId_and_coachId", ["orgId", "coachId"])
+    .index("by_session", ["sessionPlanId"]),
 
   // ============================================================
   // PHASE 7: COACH INSIGHT AUTO-APPLY
@@ -1673,6 +1736,11 @@ export default defineSchema({
     teamName: v.optional(v.string()),
     assigneeUserId: v.optional(v.string()), // For todo insights
     assigneeName: v.optional(v.string()),
+
+    // v2 Pipeline Traceability (Phase 7C)
+    sourceArtifactId: v.optional(v.id("voiceNoteArtifacts")),
+    sourceClaimId: v.optional(v.id("voiceNoteClaims")),
+    sourceDraftId: v.optional(v.string()),
 
     // Trust & Automation (Phase 7)
     confidenceScore: v.number(), // 0.0-1.0, AI confidence in this insight
@@ -1729,7 +1797,7 @@ export default defineSchema({
     voiceNoteId: v.id("voiceNotes"),
 
     // Context (denormalized for audit trail)
-    playerId: v.id("orgPlayerEnrollments"), // DEPRECATED: Use playerIdentityId
+    playerId: v.optional(v.id("orgPlayerEnrollments")), // DEPRECATED: Use playerIdentityId
     playerIdentityId: v.id("playerIdentities"),
     coachId: v.string(),
     organizationId: v.string(),
@@ -1772,6 +1840,198 @@ export default defineSchema({
     .index("by_applied_at", ["appliedAt"])
     .index("by_undo_status", ["undoneAt"]) // null = active, non-null = undone
     .index("by_coach_org_applied", ["coachId", "organizationId", "appliedAt"]),
+
+  // ============================================================
+  // PHASE 9: TEAM COLLABORATION HUB
+  // Real-time collaboration features for coaches
+  // ============================================================
+
+  // Comments on voice note insights
+  insightComments: defineTable({
+    insightId: v.id("voiceNoteInsights"),
+    userId: v.string(), // Better Auth user ID
+    content: v.string(),
+    priority: v.union(
+      v.literal("critical"),
+      v.literal("important"),
+      v.literal("normal")
+    ),
+    parentCommentId: v.optional(v.id("insightComments")), // For threading
+    organizationId: v.string(), // Denormalized for access control
+  })
+    .index("by_insight", ["insightId"])
+    .index("by_user", ["userId"])
+    .index("by_org", ["organizationId"])
+    .index("by_insight_and_priority", ["insightId", "priority"])
+    .index("by_parent", ["parentCommentId"]),
+
+  // Reactions to voice note insights
+  insightReactions: defineTable({
+    insightId: v.id("voiceNoteInsights"),
+    userId: v.string(), // Better Auth user ID
+    type: v.union(v.literal("like"), v.literal("helpful"), v.literal("flag")),
+    organizationId: v.string(), // Denormalized for access control
+  })
+    .index("by_insight", ["insightId"])
+    .index("by_user", ["userId"])
+    .index("by_org", ["organizationId"])
+    .index("by_insight_and_user", ["insightId", "userId"])
+    .index("by_insight_and_type", ["insightId", "type"]),
+
+  // Team activity feed (aggregated events for dashboards)
+  teamActivityFeed: defineTable({
+    organizationId: v.string(), // Better Auth organization ID
+    teamId: v.string(), // Better Auth team ID
+    actorId: v.string(), // User who performed the action
+    actorName: v.string(), // Denormalized for display
+    actionType: v.union(
+      v.literal("voice_note_added"),
+      v.literal("insight_applied"),
+      v.literal("comment_added"),
+      v.literal("player_assessed"),
+      v.literal("goal_created"),
+      v.literal("injury_logged"),
+      v.literal("decision_created"),
+      v.literal("vote_cast"),
+      v.literal("decision_finalized"),
+      v.literal("task_created"),
+      v.literal("task_completed"),
+      v.literal("task_assigned"),
+      v.literal("insight_generated")
+    ),
+    entityType: v.union(
+      v.literal("voice_note"),
+      v.literal("insight"),
+      v.literal("comment"),
+      v.literal("skill_assessment"),
+      v.literal("goal"),
+      v.literal("injury"),
+      v.literal("decision"),
+      v.literal("task"),
+      v.literal("team_insight")
+    ),
+    entityId: v.string(), // ID of the related entity
+    summary: v.string(), // Human-readable description
+    priority: v.union(
+      v.literal("critical"),
+      v.literal("important"),
+      v.literal("normal")
+    ),
+    metadata: v.optional(
+      v.object({
+        playerName: v.optional(v.string()),
+        insightTitle: v.optional(v.string()),
+        commentPreview: v.optional(v.string()),
+      })
+    ),
+  })
+    .index("by_team", ["teamId"])
+    .index("by_org", ["organizationId"])
+    .index("by_actor", ["actorId"])
+    .index("by_team_and_priority", ["teamId", "priority"])
+    .index("by_team_and_actionType", ["teamId", "actionType"]),
+
+  // Team insights - AI-generated insights from voice notes and analysis
+  teamInsights: defineTable({
+    teamId: v.string(), // Better Auth team ID
+    organizationId: v.string(), // Better Auth organization ID
+    type: v.union(
+      v.literal("voice-note"),
+      v.literal("ai-generated"),
+      v.literal("manual")
+    ),
+    title: v.string(),
+    summary: v.string(), // 2-3 sentence summary
+    fullText: v.optional(v.string()), // Full insight text
+    voiceNoteId: v.optional(v.id("voiceNotes")), // Source voice note if applicable
+    playerIds: v.array(v.id("orgPlayerEnrollments")), // Related players
+    topic: v.union(
+      v.literal("technical"),
+      v.literal("tactical"),
+      v.literal("fitness"),
+      v.literal("behavioral"),
+      v.literal("other")
+    ),
+    priority: v.union(v.literal("high"), v.literal("medium"), v.literal("low")),
+    createdBy: v.string(), // Better Auth user ID
+    createdAt: v.number(),
+    readBy: v.array(v.string()), // User IDs who have viewed this insight
+  })
+    .index("by_team", ["teamId"])
+    .index("by_org", ["organizationId"])
+    .index("by_team_and_type", ["teamId", "type"])
+    .index("by_voice_note", ["voiceNoteId"])
+    .index("by_team_and_date", ["teamId", "createdAt"]),
+
+  // Real-time presence tracking (who's viewing what)
+  teamHubPresence: defineTable({
+    userId: v.string(), // Better Auth user ID
+    organizationId: v.string(), // Better Auth organization ID
+    teamId: v.string(), // Better Auth team ID
+    currentView: v.optional(v.string()), // e.g., "voice_notes", "player_passport:123"
+    lastActive: v.number(), // Timestamp of last activity
+  })
+    .index("by_user", ["userId"])
+    .index("by_team", ["teamId"])
+    .index("by_org", ["organizationId"])
+    .index("by_user_and_team", ["userId", "teamId"])
+    .index("by_team_and_active", ["teamId", "lastActive"]),
+
+  // Activity read status tracking (for notification center)
+  activityReadStatus: defineTable({
+    userId: v.string(), // User who read the activity
+    activityId: v.id("teamActivityFeed"), // Activity that was read
+    organizationId: v.string(), // Organization context
+    readAt: v.number(), // Timestamp when marked as read
+  })
+    .index("by_user", ["userId"])
+    .index("by_activity", ["activityId"])
+    .index("by_user_and_activity", ["userId", "activityId"]),
+
+  // Team Decisions - Democratic voting on team matters (P9 Week 3)
+  teamDecisions: defineTable({
+    organizationId: v.string(),
+    teamId: v.string(),
+    createdBy: v.string(),
+    title: v.string(),
+    description: v.optional(v.string()),
+    options: v.array(
+      v.object({
+        id: v.string(),
+        label: v.string(),
+        description: v.optional(v.string()),
+      })
+    ),
+    votingType: v.union(v.literal("simple"), v.literal("weighted")),
+    status: v.union(
+      v.literal("open"),
+      v.literal("closed"),
+      v.literal("finalized")
+    ),
+    deadline: v.optional(v.number()),
+    finalizedAt: v.optional(v.number()),
+    finalizedBy: v.optional(v.string()),
+    winningOption: v.optional(v.string()),
+    createdAt: v.number(),
+    updatedAt: v.number(),
+  })
+    .index("by_team", ["teamId"])
+    .index("by_team_and_status", ["teamId", "status"])
+    .index("by_org", ["organizationId"])
+    .index("by_org_and_status", ["organizationId", "status"]),
+
+  // Decision Votes - Individual votes on team decisions (P9 Week 3)
+  decisionVotes: defineTable({
+    decisionId: v.id("teamDecisions"),
+    userId: v.string(),
+    optionId: v.string(),
+    weight: v.number(),
+    comment: v.optional(v.string()),
+    votedAt: v.number(),
+  })
+    .index("by_decision", ["decisionId"])
+    .index("by_decision_and_user", ["decisionId", "userId"])
+    .index("by_user", ["userId"]),
 
   // ============================================================
   // TEAM OBSERVATIONS
@@ -2141,7 +2401,8 @@ export default defineSchema({
       "playerIdentityId",
       "status",
       "createdAt",
-    ]), // Added for N+1 query optimization
+    ]) // Added for N+1 query optimization
+    .index("by_status_scheduledDeliveryAt", ["status", "scheduledDeliveryAt"]), // Added for scheduled delivery processing
 
   // AI usage tracking for cost visibility and analytics (Phase 5.3)
   // Logs every AI API call with token counts and costs
@@ -2244,20 +2505,35 @@ export default defineSchema({
       v.literal("org_daily_exceeded"), // Critical: daily limit exceeded
       v.literal("org_monthly_threshold"), // Warning: approaching monthly limit
       v.literal("org_monthly_exceeded"), // Critical: monthly limit exceeded
-      v.literal("platform_spike") // Critical: unusual platform-wide spike
+      v.literal("platform_spike"), // Critical: unusual platform-wide spike
+      // Voice Pipeline Monitoring Alerts (M4)
+      v.literal("PIPELINE_HIGH_FAILURE_RATE"), // High: Failure rate > 10%
+      v.literal("PIPELINE_HIGH_LATENCY"), // Medium: Latency > 2x average
+      v.literal("PIPELINE_HIGH_QUEUE_DEPTH"), // Medium: Queue depth > 50
+      v.literal("PIPELINE_DISAMBIGUATION_BACKLOG"), // Low: Backlog > 100
+      v.literal("PIPELINE_CIRCUIT_BREAKER_OPEN"), // Critical: Circuit breaker open
+      v.literal("PIPELINE_INACTIVITY") // Low: No activity in 60+ minutes
     ),
     organizationId: v.optional(v.string()), // Which org (null for platform-wide alerts)
 
     // Alert severity
-    severity: v.union(v.literal("warning"), v.literal("critical")),
+    severity: v.union(
+      v.literal("warning"),
+      v.literal("critical"),
+      v.literal("high"),
+      v.literal("medium"),
+      v.literal("low")
+    ),
 
     // Alert details
     message: v.string(), // Human-readable alert message
-    triggerValue: v.number(), // Current value that triggered alert (e.g., current spend)
-    thresholdValue: v.number(), // Threshold value that was exceeded
+    triggerValue: v.optional(v.number()), // Current value that triggered alert (e.g., current spend)
+    thresholdValue: v.optional(v.number()), // Threshold value that was exceeded
+    metadata: v.optional(v.any()), // Additional alert metadata (pipeline alerts)
 
     // Timestamps
-    timestamp: v.number(), // When alert was created
+    timestamp: v.optional(v.number()), // When alert was created (legacy field)
+    createdAt: v.optional(v.number()), // When alert was created (new field)
 
     // Acknowledgment tracking
     acknowledged: v.boolean(), // Has this been reviewed by platform staff?
@@ -2266,7 +2542,8 @@ export default defineSchema({
   })
     .index("by_timestamp", ["timestamp"])
     .index("by_org", ["organizationId"])
-    .index("by_severity_ack", ["severity", "acknowledged"]),
+    .index("by_severity_ack", ["severity", "acknowledged"])
+    .index("by_acknowledged", ["acknowledged"]),
 
   // Rate limiting infrastructure (Phase 6.1)
   // Tracks API usage limits to prevent abuse or runaway loops
@@ -2464,6 +2741,9 @@ export default defineSchema({
     aiInsightMatchingEnabled: v.optional(v.boolean()), // Auto-match players, classify insights (default true)
     autoApplyInsightsEnabled: v.optional(v.boolean()), // Auto-apply skill ratings, injuries (default true)
     skipSensitiveInsights: v.optional(v.boolean()), // Skip injury/behavior from summaries (default false)
+    parentSummaryTone: v.optional(
+      v.union(v.literal("warm"), v.literal("professional"), v.literal("brief"))
+    ), // Tone for AI-generated parent summaries (default warm)
 
     // Trust Gate Individual Override (P8 Week 1.5)
     trustGateOverride: v.optional(v.boolean()), // true = bypass gates, false/null = follow org
@@ -2488,6 +2768,51 @@ export default defineSchema({
     blockReason: v.optional(v.string()), // Why admin blocked
     blockedBy: v.optional(v.string()), // User ID who blocked
     blockedAt: v.optional(v.number()), // When blocked
+
+    // Notification Preferences (P9 Week 2)
+    // Channels per priority level: critical, important, normal
+    // Values: "push", "email", "digest", "none"
+    notificationChannels: v.optional(
+      v.object({
+        critical: v.array(v.string()), // Default: ["push", "email"]
+        important: v.array(v.string()), // Default: ["push", "email"]
+        normal: v.array(v.string()), // Default: ["push", "email"]
+      })
+    ),
+    // Daily digest schedule (e.g., send batched notifications at 08:00)
+    digestSchedule: v.optional(
+      v.object({
+        enabled: v.boolean(), // Default: false
+        time: v.string(), // 24h format (e.g., "08:00")
+      })
+    ),
+    // Quiet hours - suppress notifications during specified time range
+    quietHours: v.optional(
+      v.object({
+        enabled: v.boolean(), // Default: false
+        start: v.string(), // 24h format (e.g., "22:00")
+        end: v.string(), // 24h format (e.g., "08:00")
+      })
+    ),
+
+    // Team Insights View Preference (P9 Week 3)
+    teamInsightsViewPreference: v.optional(
+      v.union(
+        v.literal("list"),
+        v.literal("board"),
+        v.literal("calendar"),
+        v.literal("players")
+      )
+    ), // Default: "list"
+
+    // Mobile Gesture Preferences (P9 Week 3)
+    gesturesEnabled: v.optional(v.boolean()), // Default: true
+    swipeRightAction: v.optional(
+      v.union(v.literal("apply"), v.literal("dismiss"), v.literal("disabled"))
+    ), // Default: "apply"
+    swipeLeftAction: v.optional(
+      v.union(v.literal("apply"), v.literal("dismiss"), v.literal("disabled"))
+    ), // Default: "dismiss"
 
     createdAt: v.number(),
     updatedAt: v.number(),
@@ -3752,9 +4077,24 @@ export default defineSchema({
       v.literal("processing"),
       v.literal("completed"),
       v.literal("failed"),
-      v.literal("unmatched")
+      v.literal("unmatched"),
+      v.literal("rejected"),
+      v.literal("duplicate")
     ),
     errorMessage: v.optional(v.string()),
+
+    // Quality gate results (US-VN-001)
+    messageQualityCheck: v.optional(
+      v.object({
+        isValid: v.boolean(),
+        reason: v.optional(v.string()),
+        checkedAt: v.number(),
+      })
+    ),
+
+    // Duplicate detection (US-VN-003)
+    isDuplicate: v.optional(v.boolean()),
+    duplicateOfMessageId: v.optional(v.id("whatsappMessages")),
 
     // Link to created voice note
     voiceNoteId: v.optional(v.id("voiceNotes")),
@@ -3800,7 +4140,9 @@ export default defineSchema({
     .index("by_coachId", ["coachId"])
     .index("by_organizationId", ["organizationId"])
     .index("by_status", ["status"])
-    .index("by_receivedAt", ["receivedAt"]),
+    .index("by_receivedAt", ["receivedAt"])
+    .index("by_fromNumber_and_receivedAt", ["fromNumber", "receivedAt"])
+    .index("by_duplicateOfMessageId", ["duplicateOfMessageId"]),
 
   // WhatsApp session memory for multi-org coaches
   // Remembers which org a coach was recently messaging about (2-hour timeout)
@@ -3872,8 +4214,545 @@ export default defineSchema({
     expiresAt: v.number(), // 24 hours from creation
   })
     .index("by_phone", ["phoneNumber"])
+    .index("by_phone_and_status", ["phoneNumber", "status"])
     .index("by_status", ["status"])
     .index("by_messageSid", ["messageSid"]),
+
+  // WhatsApp review links for coach Quick Review microsite
+  // ONE active link per coach, reused across multiple voice notes (48h expiry)
+  whatsappReviewLinks: defineTable({
+    code: v.string(), // 8-char alphanumeric (excludes 0OIl)
+    organizationId: v.string(), // Better Auth org ID
+    coachUserId: v.string(), // Better Auth user ID of coach
+
+    // Voice notes aggregated under this link
+    voiceNoteIds: v.array(v.id("voiceNotes")),
+
+    // Lifecycle
+    status: v.union(
+      v.literal("active"),
+      v.literal("expired"),
+      v.literal("used")
+    ),
+    createdAt: v.number(),
+    expiresAt: v.number(), // 48h from creation
+    lastNoteAddedAt: v.number(), // Updated when new note appended
+
+    // Access tracking
+    accessedAt: v.optional(v.number()), // Last access timestamp
+    deviceFingerprint: v.optional(v.string()), // Cookie-based, set on first access
+    accessCount: v.number(), // Incremented on each access
+    accessLog: v.array(
+      v.object({
+        timestamp: v.number(),
+        ip: v.optional(v.string()),
+        userAgent: v.optional(v.string()),
+      })
+    ),
+    // Snooze/remind later (US-VN-012c)
+    snoozeRemindAt: v.optional(v.number()), // Timestamp to send reminder
+    snoozeCount: v.optional(v.number()), // Times snoozed (max 3)
+  })
+    .index("by_code", ["code"])
+    .index("by_coachUserId_and_status", ["coachUserId", "status"])
+    .index("by_expiresAt_and_status", ["expiresAt", "status"])
+    .index("by_status", ["status"]),
+
+  // ============================================================
+  // REVIEW ANALYTICS EVENTS (US-VN-012a)
+  // Tracks all coach actions on the /r/ review microsite
+  // ============================================================
+  reviewAnalyticsEvents: defineTable({
+    linkCode: v.optional(v.string()),
+    coachUserId: v.string(),
+    organizationId: v.string(),
+    eventType: v.union(
+      v.literal("apply"),
+      v.literal("dismiss"),
+      v.literal("edit"),
+      v.literal("snooze"),
+      v.literal("batch_apply"),
+      v.literal("batch_dismiss"),
+      v.literal("batch_clear"),
+      v.literal("disambiguate_accept"),
+      v.literal("disambiguate_reject_all"),
+      v.literal("disambiguate_skip"),
+      v.literal("reassign_entity")
+    ),
+    insightId: v.optional(v.string()),
+    voiceNoteId: v.optional(v.id("voiceNotes")),
+    category: v.optional(v.string()),
+    confidenceScore: v.optional(v.number()),
+    wasAutoApplyCandidate: v.optional(v.boolean()),
+    metadata: v.optional(
+      v.union(
+        v.object({ count: v.number() }),
+        v.object({ delayMs: v.number(), snoozeCount: v.number() }),
+        v.object({ fromType: v.string(), toType: v.string() })
+      )
+    ),
+    timestamp: v.number(),
+  })
+    .index("by_coachUserId_and_timestamp", ["coachUserId", "timestamp"])
+    .index("by_organizationId_and_timestamp", ["organizationId", "timestamp"])
+    .index("by_linkCode", ["linkCode"]),
+
+  // ============================================================
+  // FEATURE FLAGS
+  // Cascading feature flags: env var → platform → org → user → default
+  // Follows aiModelConfig pattern for scope-based lookups
+  // ============================================================
+  featureFlags: defineTable({
+    featureKey: v.string(), // e.g. "voice_notes_v2"
+    scope: v.union(
+      v.literal("platform"),
+      v.literal("organization"),
+      v.literal("user")
+    ),
+    organizationId: v.optional(v.string()), // Set when scope = "organization"
+    userId: v.optional(v.string()), // Set when scope = "user"
+    enabled: v.boolean(),
+    updatedBy: v.optional(v.string()), // Admin who toggled
+    updatedAt: v.number(),
+    notes: v.optional(v.string()),
+  })
+    .index("by_featureKey_and_scope", ["featureKey", "scope"])
+    .index("by_featureKey_scope_org", ["featureKey", "scope", "organizationId"])
+    .index("by_featureKey_scope_user", ["featureKey", "scope", "userId"]),
+
+  // ============================================================
+  // VOICE NOTE ARTIFACTS (v2 Pipeline)
+  // Source-agnostic record for any voice/text input
+  // Links back to v1 voiceNotes for backward compat
+  // ============================================================
+  voiceNoteArtifacts: defineTable({
+    artifactId: v.string(), // Unique identifier (UUID)
+    sourceChannel: v.union(
+      v.literal("whatsapp_audio"),
+      v.literal("whatsapp_text"),
+      v.literal("app_recorded"),
+      v.literal("app_typed")
+    ),
+    senderUserId: v.string(), // Better Auth user ID
+    orgContextCandidates: v.array(
+      v.object({
+        organizationId: v.string(),
+        confidence: v.number(),
+      })
+    ),
+    status: v.union(
+      v.literal("received"),
+      v.literal("transcribing"),
+      v.literal("transcribed"),
+      v.literal("processing"),
+      v.literal("completed"),
+      v.literal("failed")
+    ),
+    voiceNoteId: v.optional(v.id("voiceNotes")), // Backward compat link to v1
+    rawMediaStorageId: v.optional(v.id("_storage")),
+    metadata: v.optional(
+      v.object({
+        mimeType: v.optional(v.string()),
+        fileSize: v.optional(v.number()),
+        whatsappMessageId: v.optional(v.string()),
+      })
+    ),
+    createdAt: v.number(),
+    updatedAt: v.number(),
+  })
+    .index("by_artifactId", ["artifactId"])
+    .index("by_senderUserId_and_createdAt", ["senderUserId", "createdAt"])
+    .index("by_voiceNoteId", ["voiceNoteId"])
+    .index("by_status_and_createdAt", ["status", "createdAt"]),
+
+  // ============================================================
+  // VOICE NOTE TRANSCRIPTS (v2 Pipeline)
+  // Detailed transcription with segments and per-segment confidence
+  // ============================================================
+  voiceNoteTranscripts: defineTable({
+    artifactId: v.id("voiceNoteArtifacts"),
+    fullText: v.string(),
+    segments: v.array(
+      v.object({
+        text: v.string(),
+        startTime: v.number(),
+        endTime: v.number(),
+        confidence: v.number(),
+      })
+    ),
+    modelUsed: v.string(),
+    language: v.string(),
+    duration: v.number(),
+    createdAt: v.number(),
+  }).index("by_artifactId", ["artifactId"]),
+
+  // ============================================================
+  // VOICE NOTE CLAIMS (v2 Pipeline)
+  // Atomic claims extracted from transcripts, one per entity mention
+  // 15 topic categories, best-effort entity resolution
+  // ============================================================
+  voiceNoteClaims: defineTable({
+    claimId: v.string(),
+    artifactId: v.id("voiceNoteArtifacts"),
+    sourceText: v.string(),
+    timestampStart: v.optional(v.number()),
+    timestampEnd: v.optional(v.number()),
+    topic: v.union(
+      v.literal("injury"),
+      v.literal("skill_rating"),
+      v.literal("skill_progress"),
+      v.literal("behavior"),
+      v.literal("performance"),
+      v.literal("attendance"),
+      v.literal("wellbeing"),
+      v.literal("recovery"),
+      v.literal("development_milestone"),
+      v.literal("physical_development"),
+      v.literal("parent_communication"),
+      v.literal("tactical"),
+      v.literal("team_culture"),
+      v.literal("todo"),
+      v.literal("session_plan")
+    ),
+    title: v.string(),
+    description: v.string(),
+    recommendedAction: v.optional(v.string()),
+    timeReference: v.optional(v.string()),
+
+    entityMentions: v.array(
+      v.object({
+        mentionType: v.union(
+          v.literal("player_name"),
+          v.literal("team_name"),
+          v.literal("group_reference"),
+          v.literal("coach_name")
+        ),
+        rawText: v.string(),
+        position: v.number(),
+      })
+    ),
+
+    resolvedPlayerIdentityId: v.optional(v.id("playerIdentities")),
+    resolvedPlayerName: v.optional(v.string()),
+    resolvedTeamId: v.optional(v.string()),
+    resolvedTeamName: v.optional(v.string()),
+    resolvedAssigneeUserId: v.optional(v.string()),
+    resolvedAssigneeName: v.optional(v.string()),
+
+    severity: v.optional(
+      v.union(
+        v.literal("low"),
+        v.literal("medium"),
+        v.literal("high"),
+        v.literal("critical")
+      )
+    ),
+    sentiment: v.optional(
+      v.union(
+        v.literal("positive"),
+        v.literal("neutral"),
+        v.literal("negative"),
+        v.literal("concerned")
+      )
+    ),
+    skillName: v.optional(v.string()),
+    skillRating: v.optional(v.number()),
+
+    extractionConfidence: v.number(),
+    organizationId: v.string(),
+    coachUserId: v.string(),
+
+    status: v.union(
+      v.literal("extracted"),
+      v.literal("resolving"),
+      v.literal("resolved"),
+      v.literal("needs_disambiguation"),
+      v.literal("merged"),
+      v.literal("discarded"),
+      v.literal("failed")
+    ),
+    createdAt: v.number(),
+    updatedAt: v.number(),
+  })
+    .index("by_artifactId", ["artifactId"])
+    .index("by_artifactId_and_status", ["artifactId", "status"])
+    .index("by_claimId", ["claimId"])
+    .index("by_topic", ["topic"])
+    .index("by_org_and_coach", ["organizationId", "coachUserId"])
+    .index("by_org_and_status", ["organizationId", "status"])
+    .index("by_resolvedPlayerIdentityId", ["resolvedPlayerIdentityId"])
+    .index("by_coachUserId", ["coachUserId"]),
+
+  // ============================================================
+  // VOICE NOTE ENTITY RESOLUTIONS (v2 Pipeline - Phase 5)
+  // Detailed resolution records for entity mentions in claims.
+  // Captures candidates with match reasons for disambiguation.
+  // ============================================================
+  voiceNoteEntityResolutions: defineTable({
+    claimId: v.id("voiceNoteClaims"),
+    artifactId: v.id("voiceNoteArtifacts"),
+    mentionIndex: v.number(),
+    mentionType: v.union(
+      v.literal("player_name"),
+      v.literal("team_name"),
+      v.literal("group_reference"),
+      v.literal("coach_name")
+    ),
+    rawText: v.string(),
+    candidates: v.array(
+      v.object({
+        entityType: v.union(
+          v.literal("player"),
+          v.literal("team"),
+          v.literal("coach")
+        ),
+        entityId: v.string(),
+        entityName: v.string(),
+        score: v.number(),
+        matchReason: v.string(),
+      })
+    ),
+    status: v.union(
+      v.literal("auto_resolved"),
+      v.literal("needs_disambiguation"),
+      v.literal("user_resolved"),
+      v.literal("unresolved")
+    ),
+    resolvedEntityId: v.optional(v.string()),
+    resolvedEntityName: v.optional(v.string()),
+    resolvedAt: v.optional(v.number()),
+    organizationId: v.string(),
+    createdAt: v.number(),
+  })
+    .index("by_claimId", ["claimId"])
+    .index("by_artifactId", ["artifactId"])
+    .index("by_artifactId_and_status", ["artifactId", "status"])
+    .index("by_org_and_status", ["organizationId", "status"])
+    .index("by_status", ["status"]),
+
+  // ============================================================
+  // COACH PLAYER ALIASES (v2 Pipeline - Phase 5, Enhancement E5)
+  // Stores coach-specific name aliases for auto-resolution.
+  // Resolve once, remember forever.
+  // ============================================================
+  coachPlayerAliases: defineTable({
+    coachUserId: v.string(),
+    organizationId: v.string(),
+    rawText: v.string(),
+    resolvedEntityId: v.string(),
+    resolvedEntityName: v.string(),
+    useCount: v.number(),
+    lastUsedAt: v.number(),
+    createdAt: v.number(),
+  })
+    .index("by_coach_org_rawText", ["coachUserId", "organizationId", "rawText"])
+    .index("by_coach_org", ["coachUserId", "organizationId"]),
+
+  // ============================================================
+  // INSIGHT DRAFTS (v2 Pipeline - Phase 6)
+  // Pending insights awaiting coach confirmation before applying
+  // to player records. Each draft has confidence scoring and
+  // supports auto-confirm for trusted coaches.
+  // ============================================================
+  insightDrafts: defineTable({
+    draftId: v.string(),
+    artifactId: v.id("voiceNoteArtifacts"),
+    claimId: v.id("voiceNoteClaims"),
+    playerIdentityId: v.optional(v.id("playerIdentities")),
+    resolvedPlayerName: v.optional(v.string()),
+    insightType: v.union(
+      v.literal("injury"),
+      v.literal("skill_rating"),
+      v.literal("skill_progress"),
+      v.literal("behavior"),
+      v.literal("performance"),
+      v.literal("attendance"),
+      v.literal("wellbeing"),
+      v.literal("recovery"),
+      v.literal("development_milestone"),
+      v.literal("physical_development"),
+      v.literal("parent_communication"),
+      v.literal("tactical"),
+      v.literal("team_culture"),
+      v.literal("todo"),
+      v.literal("session_plan")
+    ),
+    title: v.string(),
+    description: v.string(),
+    evidence: v.object({
+      transcriptSnippet: v.string(),
+      timestampStart: v.optional(v.number()),
+    }),
+    displayOrder: v.number(),
+    aiConfidence: v.number(),
+    resolutionConfidence: v.number(),
+    overallConfidence: v.number(),
+    requiresConfirmation: v.boolean(),
+    status: v.union(
+      v.literal("pending"),
+      v.literal("confirmed"),
+      v.literal("rejected"),
+      v.literal("applied"),
+      v.literal("expired")
+    ),
+    organizationId: v.string(),
+    coachUserId: v.string(),
+    confirmedAt: v.optional(v.number()),
+    appliedAt: v.optional(v.number()),
+    createdAt: v.number(),
+    updatedAt: v.number(),
+  })
+    .index("by_draftId", ["draftId"])
+    .index("by_artifactId", ["artifactId"])
+    .index("by_artifactId_and_status", ["artifactId", "status"])
+    .index("by_org_and_coach_and_status", [
+      "organizationId",
+      "coachUserId",
+      "status",
+    ])
+    .index("by_org_coach_status_createdAt", [
+      "organizationId",
+      "coachUserId",
+      "status",
+      "createdAt",
+    ])
+    .index("by_playerIdentityId_and_status", ["playerIdentityId", "status"]),
+
+  // ============================================================
+  // VOICE PIPELINE MONITORING (Phase M1)
+  // Event logging, metrics snapshots, and real-time counters
+  // for monitoring the v2 voice note processing pipeline
+  // ============================================================
+
+  // Pipeline event log - single source of truth for all pipeline activity
+  voicePipelineEvents: defineTable({
+    eventId: v.string(), // UUID for deduplication
+    eventType: v.union(
+      v.literal("artifact_received"),
+      v.literal("artifact_status_changed"),
+      v.literal("artifact_completed"),
+      v.literal("artifact_failed"),
+      v.literal("transcription_started"),
+      v.literal("transcription_completed"),
+      v.literal("transcription_failed"),
+      v.literal("claims_extraction_started"),
+      v.literal("claims_extracted"),
+      v.literal("claims_extraction_failed"),
+      v.literal("entity_resolution_started"),
+      v.literal("entity_resolution_completed"),
+      v.literal("entity_resolution_failed"),
+      v.literal("entity_needs_disambiguation"),
+      v.literal("draft_generation_started"),
+      v.literal("drafts_generated"),
+      v.literal("draft_generation_failed"),
+      v.literal("draft_confirmed"),
+      v.literal("draft_rejected"),
+      v.literal("circuit_breaker_opened"),
+      v.literal("circuit_breaker_closed"),
+      v.literal("retry_initiated"),
+      v.literal("retry_succeeded"),
+      v.literal("retry_failed"),
+      v.literal("budget_threshold_reached"),
+      v.literal("budget_exceeded"),
+      v.literal("rate_limit_hit")
+    ),
+    artifactId: v.optional(v.id("voiceNoteArtifacts")),
+    voiceNoteId: v.optional(v.id("voiceNotes")),
+    organizationId: v.optional(v.string()),
+    coachUserId: v.optional(v.string()),
+    pipelineStage: v.optional(
+      v.union(
+        v.literal("ingestion"),
+        v.literal("transcription"),
+        v.literal("claims_extraction"),
+        v.literal("entity_resolution"),
+        v.literal("draft_generation"),
+        v.literal("confirmation")
+      )
+    ),
+    stageStartedAt: v.optional(v.number()),
+    stageCompletedAt: v.optional(v.number()),
+    durationMs: v.optional(v.number()),
+    previousStatus: v.optional(v.string()),
+    newStatus: v.optional(v.string()),
+    errorMessage: v.optional(v.string()),
+    errorCode: v.optional(v.string()),
+    metadata: v.optional(
+      v.object({
+        claimCount: v.optional(v.number()),
+        entityCount: v.optional(v.number()),
+        disambiguationCount: v.optional(v.number()),
+        confidenceScore: v.optional(v.number()),
+        transcriptDuration: v.optional(v.number()),
+        transcriptWordCount: v.optional(v.number()),
+        aiModel: v.optional(v.string()),
+        aiCost: v.optional(v.number()),
+        retryAttempt: v.optional(v.number()),
+        sourceChannel: v.optional(v.string()),
+        draftCount: v.optional(v.number()),
+        autoResolvedCount: v.optional(v.number()),
+      })
+    ),
+    timestamp: v.number(),
+    timeWindow: v.string(), // Format: 'YYYY-MM-DD-HH' for hourly partitioning
+  })
+    .index("by_artifactId", ["artifactId"])
+    .index("by_timestamp", ["timestamp"])
+    .index("by_eventType", ["eventType"])
+    .index("by_eventType_and_timestamp", ["eventType", "timestamp"])
+    .index("by_org_and_timestamp", ["organizationId", "timestamp"])
+    .index("by_pipelineStage", ["pipelineStage"])
+    .index("by_pipelineStage_and_timestamp", ["pipelineStage", "timestamp"])
+    .index("by_timeWindow", ["timeWindow"])
+    .index("by_timeWindow_and_eventType", ["timeWindow", "eventType"]),
+
+  // Pre-aggregated metrics snapshots for historical analytics
+  voicePipelineMetricsSnapshots: defineTable({
+    periodStart: v.number(), // Start of period timestamp
+    periodEnd: v.number(), // End of period timestamp
+    periodType: v.union(v.literal("hourly"), v.literal("daily")),
+    organizationId: v.optional(v.string()), // null = platform-wide
+    artifactsReceived: v.number(),
+    artifactsCompleted: v.number(),
+    artifactsFailed: v.number(),
+    avgTranscriptionLatency: v.number(),
+    avgClaimsExtractionLatency: v.number(),
+    avgEntityResolutionLatency: v.number(),
+    avgDraftGenerationLatency: v.number(),
+    avgEndToEndLatency: v.number(),
+    p95EndToEndLatency: v.number(),
+    avgTranscriptConfidence: v.number(),
+    avgClaimConfidence: v.number(),
+    autoResolutionRate: v.number(),
+    disambiguationRate: v.number(),
+    transcriptionFailureRate: v.number(),
+    claimsExtractionFailureRate: v.number(),
+    entityResolutionFailureRate: v.number(),
+    overallFailureRate: v.number(),
+    totalClaimsExtracted: v.number(),
+    totalEntitiesResolved: v.number(),
+    totalDraftsGenerated: v.number(),
+    totalAICost: v.number(),
+    avgCostPerArtifact: v.number(),
+    createdAt: v.number(),
+  })
+    .index("by_periodType_and_start", ["periodType", "periodStart"])
+    .index("by_org_periodType_start", [
+      "organizationId",
+      "periodType",
+      "periodStart",
+    ]),
+
+  // Real-time atomic counters for O(1) metrics queries
+  voicePipelineCounters: defineTable({
+    counterType: v.string(), // e.g., 'artifacts_received_1h', 'failures_1h'
+    organizationId: v.optional(v.string()), // null = platform-wide counter
+    currentValue: v.number(), // Incremented atomically in logEvent mutation
+    windowStart: v.number(), // Start of current time window
+    windowEnd: v.number(), // End of current time window
+  })
+    .index("by_counterType", ["counterType"])
+    .index("by_counterType_and_org", ["counterType", "organizationId"]),
 
   // ============================================================
   // PLATFORM STAFF INVITATIONS
@@ -3946,4 +4825,546 @@ export default defineSchema({
   })
     .index("by_userId", ["userId"])
     .index("by_userId_orgId", ["userId", "organizationId"]),
+
+  // ============================================================
+  // IMPORT FRAMEWORK TABLES
+  // Tables supporting the generic import framework for importing
+  // players, guardians, and related data from external sources
+  // ============================================================
+
+  // Sport-specific or organization-specific import configurations
+  importTemplates: defineTable({
+    name: v.string(), // "GAA Foireann Export"
+    description: v.optional(v.string()),
+    sportCode: v.optional(v.string()), // null = works for all sports
+    sourceType: v.union(
+      v.literal("csv"),
+      v.literal("excel"),
+      v.literal("paste")
+    ),
+    scope: v.union(v.literal("platform"), v.literal("organization")),
+    organizationId: v.optional(v.string()),
+
+    // Column mappings
+    columnMappings: v.array(
+      v.object({
+        sourcePattern: v.string(), // "Forename" or "/first.*name/i"
+        targetField: v.string(), // "firstName"
+        required: v.boolean(),
+        transform: v.optional(v.string()), // "toUpperCase", "parseDate"
+        aliases: v.optional(v.array(v.string())),
+      })
+    ),
+
+    // Age group mappings
+    ageGroupMappings: v.optional(
+      v.array(
+        v.object({
+          sourceValue: v.string(), // "JUVENILE", "U12"
+          targetAgeGroup: v.string(), // "u12"
+        })
+      )
+    ),
+
+    // Skill/benchmark initialization
+    skillInitialization: v.object({
+      strategy: v.union(
+        v.literal("blank"), // All 1s
+        v.literal("middle"), // All 3s
+        v.literal("age-appropriate"), // Age group standards
+        v.literal("ngb-benchmarks"), // NGB benchmark data
+        v.literal("custom") // Custom template
+      ),
+      customBenchmarkTemplateId: v.optional(v.id("benchmarkTemplates")),
+      applyToPassportStatus: v.optional(v.array(v.string())),
+    }),
+
+    // Default behaviors
+    defaults: v.object({
+      createTeams: v.boolean(),
+      createPassports: v.boolean(),
+      season: v.optional(v.string()),
+    }),
+
+    isActive: v.boolean(),
+    createdBy: v.string(),
+    createdAt: v.number(),
+    updatedAt: v.number(),
+  })
+    .index("by_scope", ["scope"])
+    .index("by_sportCode", ["sportCode"])
+    .index("by_organizationId", ["organizationId"])
+    .index("by_scope_and_sport", ["scope", "sportCode"]),
+
+  // Tracks each import execution with full audit trail
+  importSessions: defineTable({
+    organizationId: v.string(),
+    templateId: v.optional(v.id("importTemplates")),
+    initiatedBy: v.string(),
+
+    status: v.union(
+      v.literal("uploading"),
+      v.literal("mapping"),
+      v.literal("selecting"), // Per-player selection
+      v.literal("reviewing"),
+      v.literal("importing"),
+      v.literal("completed"),
+      v.literal("failed"),
+      v.literal("cancelled"),
+      v.literal("undone")
+    ),
+
+    sourceInfo: v.object({
+      type: v.union(v.literal("file"), v.literal("paste"), v.literal("api")),
+      fileName: v.optional(v.string()),
+      fileSize: v.optional(v.number()),
+      rowCount: v.number(),
+      columnCount: v.number(),
+    }),
+
+    // Column mappings (source column -> target field)
+    mappings: v.record(v.string(), v.string()),
+
+    // Per-player selection
+    playerSelections: v.array(
+      v.object({
+        rowIndex: v.number(),
+        selected: v.boolean(),
+        reason: v.optional(v.string()),
+      })
+    ),
+
+    // Benchmark settings
+    benchmarkSettings: v.optional(
+      v.object({
+        applyBenchmarks: v.boolean(),
+        strategy: v.string(),
+        customTemplateId: v.optional(v.id("benchmarkTemplates")),
+        passportStatuses: v.array(v.string()),
+      })
+    ),
+
+    // Statistics
+    stats: v.object({
+      totalRows: v.number(),
+      selectedRows: v.number(),
+      validRows: v.number(),
+      errorRows: v.number(),
+      duplicateRows: v.number(),
+      playersCreated: v.number(),
+      playersUpdated: v.number(),
+      playersSkipped: v.number(),
+      guardiansCreated: v.number(),
+      guardiansLinked: v.number(),
+      teamsCreated: v.number(),
+      passportsCreated: v.number(),
+      benchmarksApplied: v.number(),
+    }),
+
+    errors: v.array(
+      v.object({
+        rowNumber: v.number(),
+        field: v.string(),
+        error: v.string(),
+        value: v.optional(v.string()),
+        resolved: v.boolean(),
+      })
+    ),
+
+    duplicates: v.array(
+      v.object({
+        rowNumber: v.number(),
+        existingPlayerId: v.id("playerIdentities"),
+        resolution: v.union(
+          v.literal("skip"),
+          v.literal("merge"),
+          v.literal("replace")
+        ),
+        // Phase 3.2.007: Admin override for guardian matching decisions
+        adminOverride: v.optional(
+          v.object({
+            action: v.union(v.literal("force_link"), v.literal("reject_link")),
+            reason: v.optional(v.string()),
+            overriddenBy: v.string(),
+            originalConfidenceScore: v.optional(v.number()),
+            timestamp: v.number(),
+          })
+        ),
+      })
+    ),
+
+    startedAt: v.number(),
+    completedAt: v.optional(v.number()),
+
+    // Undo tracking
+    undoneAt: v.optional(v.number()),
+    undoneBy: v.optional(v.string()),
+    undoReason: v.optional(v.string()),
+  })
+    .index("by_organizationId", ["organizationId"])
+    .index("by_status", ["status"])
+    .index("by_initiatedBy", ["initiatedBy"])
+    .index("by_startedAt", ["startedAt"])
+    .index("by_templateId", ["templateId"])
+    .index("by_org_and_status", ["organizationId", "status"]),
+
+  // Phase 3.1: Admin overrides for guardian matching confidence decisions
+  // Tracks when admins force-link low-confidence or reject high-confidence matches
+  adminOverrides: defineTable({
+    importSessionId: v.id("importSessions"),
+    playerId: v.id("playerIdentities"),
+    guardianId: v.id("guardianIdentities"),
+    action: v.union(v.literal("force_link"), v.literal("reject_link")),
+    reason: v.optional(v.string()), // Optional admin explanation
+    overriddenBy: v.string(), // User ID of admin who overrode
+    originalConfidenceScore: v.optional(v.number()), // Confidence score that was overridden
+    timestamp: v.number(),
+  })
+    .index("by_importSession", ["importSessionId"])
+    .index("by_user", ["overriddenBy"])
+    .index("by_player_and_guardian", ["playerId", "guardianId"]),
+
+  // Persists wizard draft state for save & resume across sessions
+  importSessionDrafts: defineTable({
+    userId: v.string(),
+    organizationId: v.string(),
+    step: v.number(),
+    parsedHeaders: v.optional(v.array(v.string())),
+    parsedRowCount: v.optional(v.number()),
+    mappings: v.optional(v.record(v.string(), v.string())),
+    playerSelections: v.optional(
+      v.array(
+        v.object({
+          rowIndex: v.number(),
+          selected: v.boolean(),
+          reason: v.optional(v.string()),
+        })
+      )
+    ),
+    benchmarkSettings: v.optional(
+      v.object({
+        applyBenchmarks: v.boolean(),
+        strategy: v.string(),
+        customTemplateId: v.optional(v.id("benchmarkTemplates")),
+        passportStatuses: v.array(v.string()),
+      })
+    ),
+    templateId: v.optional(v.id("importTemplates")),
+    sourceFileName: v.optional(v.string()),
+    expiresAt: v.number(),
+    lastSavedAt: v.number(),
+  })
+    .index("by_userId_and_orgId", ["userId", "organizationId"])
+    .index("by_expiresAt", ["expiresAt"]),
+
+  // Learns from past imports to improve auto-mapping
+  importMappingHistory: defineTable({
+    organizationId: v.optional(v.string()),
+    templateId: v.optional(v.id("importTemplates")),
+
+    sourceColumnName: v.string(),
+    normalizedColumnName: v.string(),
+    targetField: v.string(),
+
+    usageCount: v.number(),
+    lastUsedAt: v.number(),
+    confidence: v.number(), // 0-100
+
+    createdAt: v.number(),
+
+    // Phase 4.3: AI mapping tracking
+    aiSuggested: v.optional(v.boolean()), // true if mapping was AI-suggested
+    aiConfidence: v.optional(v.number()), // Original AI confidence (0-100)
+  })
+    .index("by_normalizedColumnName", ["normalizedColumnName"])
+    .index("by_organizationId", ["organizationId"])
+    .index("by_templateId", ["templateId"])
+    .index("by_targetField", ["targetField"]),
+
+  // Phase 4.3: AI-powered column mapping cache
+  // Caches Claude API mapping suggestions to reduce costs (30-day TTL)
+  aiMappingCache: defineTable({
+    columnPattern: v.string(), // Normalized column name (lowercase, trimmed, special chars removed)
+    sampleValues: v.array(v.string()), // First 3 sample values for context
+    suggestedField: v.string(), // Target field name (e.g., "firstName", "dateOfBirth")
+    confidence: v.number(), // 0-100 confidence score
+    reasoning: v.string(), // AI explanation for the mapping
+    createdAt: v.number(),
+    expiresAt: v.number(), // createdAt + 30 days (2592000000 ms)
+  })
+    .index("by_columnPattern", ["columnPattern"])
+    .index("by_expiresAt", ["expiresAt"]),
+
+  // Phase 4.3: AI mapping analytics
+  // Tracks usage, costs, and performance metrics for AI column mapping
+  aiMappingAnalytics: defineTable({
+    timestamp: v.number(),
+    columnName: v.string(),
+    cached: v.boolean(),
+    confidence: v.number(),
+    accepted: v.boolean(), // true if user accepted, false if rejected
+    correctedTo: v.optional(v.string()), // If rejected, what field user manually selected
+  }).index("by_timestamp", ["timestamp"]),
+
+  // Real-time progress tracking for active imports
+  importProgressTrackers: defineTable({
+    sessionId: v.id("importSessions"),
+    organizationId: v.string(),
+
+    // Current stats
+    stats: v.object({
+      playersCreated: v.number(),
+      playersReused: v.number(),
+      guardiansCreated: v.number(),
+      guardiansLinked: v.number(),
+      enrollmentsCreated: v.number(),
+      passportsCreated: v.number(),
+      benchmarksApplied: v.number(),
+      totalPlayers: v.number(),
+    }),
+
+    // Current operation being performed
+    currentOperation: v.optional(v.string()),
+
+    // Phase and percentage
+    phase: v.string(), // "preparing", "importing", "completed", "failed"
+    percentage: v.number(),
+
+    // Real-time error collection
+    errors: v.array(
+      v.object({
+        rowNumber: v.number(),
+        playerName: v.string(),
+        error: v.string(),
+        timestamp: v.number(),
+      })
+    ),
+
+    updatedAt: v.number(),
+  })
+    .index("by_sessionId", ["sessionId"])
+    .index("by_organizationId", ["organizationId"]),
+
+  // Custom benchmark configurations per sport/organization
+  benchmarkTemplates: defineTable({
+    name: v.string(),
+    sportCode: v.string(),
+    scope: v.union(v.literal("platform"), v.literal("organization")),
+    organizationId: v.optional(v.string()),
+
+    benchmarks: v.array(
+      v.object({
+        skillCode: v.string(),
+        ageGroup: v.string(),
+        expectedRating: v.number(), // 1-5 scale
+        minAcceptable: v.optional(v.number()),
+        description: v.optional(v.string()),
+      })
+    ),
+
+    isActive: v.boolean(),
+    createdAt: v.number(),
+  })
+    .index("by_sportCode", ["sportCode"])
+    .index("by_scope", ["scope"])
+    .index("by_organizationId", ["organizationId"]),
+
+  // Federation connector configurations for external sports management systems
+  federationConnectors: defineTable({
+    name: v.string(), // "GAA Foireann API"
+    federationCode: v.string(), // Unique identifier: "gaa_foireann"
+    status: v.union(
+      v.literal("active"),
+      v.literal("inactive"),
+      v.literal("error")
+    ),
+
+    // Authentication configuration
+    authType: v.union(
+      v.literal("oauth2"),
+      v.literal("api_key"),
+      v.literal("basic")
+    ),
+    credentialsStorageId: v.id("_storage"), // Reference to encrypted credentials file
+
+    // API endpoints
+    endpoints: v.object({
+      membershipList: v.string(), // URL to fetch member list
+      memberDetail: v.optional(v.string()), // URL to fetch individual member details
+      webhookSecret: v.optional(v.string()), // Webhook verification secret
+    }),
+
+    // Sync configuration
+    syncConfig: v.object({
+      enabled: v.boolean(),
+      schedule: v.optional(v.string()), // Cron expression (e.g., "0 2 * * *")
+      conflictStrategy: v.string(), // "federation_wins", "local_wins", "manual"
+    }),
+
+    // Default import template for this connector
+    templateId: v.id("importTemplates"),
+
+    // Organizations connected to this federation
+    connectedOrganizations: v.array(
+      v.object({
+        organizationId: v.string(), // Better Auth organization ID
+        federationOrgId: v.string(), // External federation organization ID
+        enabledAt: v.number(), // Timestamp when connection was enabled
+        lastSyncAt: v.optional(v.number()), // Last successful sync timestamp
+      })
+    ),
+
+    // Error tracking
+    lastErrorAt: v.optional(v.number()),
+    lastError: v.optional(v.string()),
+    lastSuccessAt: v.optional(v.number()),
+    consecutiveFailures: v.optional(v.number()),
+
+    // Webhook configuration
+    webhookSecret: v.optional(v.string()), // HMAC secret for webhook signature validation
+    invalidSignatureCount: v.optional(v.number()), // Track invalid webhook signatures
+
+    createdAt: v.number(),
+    updatedAt: v.number(),
+  })
+    .index("by_federationCode", ["federationCode"])
+    .index("by_status", ["status"]),
+
+  // Sync queue for preventing concurrent syncs
+  syncQueue: defineTable({
+    organizationId: v.string(), // Better Auth organization ID
+    connectorId: v.id("federationConnectors"),
+    status: v.union(
+      v.literal("pending"),
+      v.literal("running"),
+      v.literal("completed"),
+      v.literal("failed")
+    ),
+
+    // Job metadata
+    syncType: v.union(
+      v.literal("scheduled"), // Nightly cron sync
+      v.literal("manual"), // Admin-triggered sync
+      v.literal("webhook") // Webhook-triggered sync
+    ),
+    importSessionId: v.optional(v.id("importSessions")),
+
+    // Timing
+    startedAt: v.optional(v.number()), // When job started running
+    completedAt: v.optional(v.number()), // When job finished
+    queuedAt: v.number(), // When job was queued
+
+    // Results and error tracking
+    error: v.optional(v.string()),
+    stats: v.optional(
+      v.object({
+        playersProcessed: v.number(),
+        playersCreated: v.number(),
+        playersUpdated: v.number(),
+        conflictsDetected: v.number(),
+        conflictsResolved: v.number(),
+        duration: v.optional(v.number()), // Milliseconds
+      })
+    ),
+
+    // Retry logic (for US-P4.4-007)
+    retryCount: v.optional(v.number()),
+    maxRetries: v.optional(v.number()),
+    nextRetryAt: v.optional(v.number()),
+  })
+    .index("by_organizationId", ["organizationId"])
+    .index("by_status", ["status"])
+    .index("by_org_and_connector", ["organizationId", "connectorId"])
+    .index("by_org_and_status", ["organizationId", "status"])
+    .index("by_nextRetryAt", ["nextRetryAt"]),
+
+  // Sync history and audit trail for federation syncs
+  syncHistory: defineTable({
+    connectorId: v.id("federationConnectors"),
+    organizationId: v.string(), // Better Auth organization ID
+    syncType: v.union(
+      v.literal("scheduled"), // Nightly cron sync
+      v.literal("manual"), // Admin-triggered sync
+      v.literal("webhook") // Webhook-triggered sync
+    ),
+
+    // Timing
+    startedAt: v.number(),
+    completedAt: v.optional(v.number()),
+
+    // Results
+    status: v.union(v.literal("completed"), v.literal("failed")),
+
+    // Statistics
+    stats: v.object({
+      playersProcessed: v.number(),
+      playersCreated: v.number(),
+      playersUpdated: v.number(),
+      conflictsDetected: v.number(),
+      conflictsResolved: v.number(),
+      errors: v.number(),
+    }),
+
+    // Conflict details for audit trail
+    conflictDetails: v.array(
+      v.object({
+        playerId: v.string(), // Player identity ID
+        playerName: v.string(), // For display
+        conflicts: v.array(
+          v.object({
+            field: v.string(), // Field name (firstName, lastName, etc.)
+            federationValue: v.optional(v.string()),
+            localValue: v.optional(v.string()),
+            resolvedValue: v.optional(v.string()),
+            strategy: v.string(), // "federation_wins", "local_wins", "merge"
+          })
+        ),
+      })
+    ),
+
+    // Errors encountered during sync
+    errors: v.optional(
+      v.array(
+        v.object({
+          playerId: v.optional(v.string()),
+          playerName: v.optional(v.string()),
+          error: v.string(),
+          timestamp: v.number(),
+        })
+      )
+    ),
+
+    // Link to import session if applicable
+    importSessionId: v.optional(v.id("importSessions")),
+  })
+    .index("by_organizationId", ["organizationId"])
+    .index("by_connectorId", ["connectorId"])
+    .index("by_startedAt", ["startedAt"])
+    .index("by_org_and_startedAt", ["organizationId", "startedAt"]),
+
+  // Webhook event logs for debugging and security monitoring
+  webhookLogs: defineTable({
+    connectorId: v.id("federationConnectors"),
+    organizationId: v.string(), // Better Auth organization ID
+    federationOrgId: v.string(), // External federation organization ID
+    memberId: v.string(), // External member ID
+    event: v.union(
+      v.literal("created"),
+      v.literal("updated"),
+      v.literal("deleted")
+    ),
+
+    // Timing
+    receivedAt: v.number(), // When webhook was received
+    processedAt: v.number(), // When processing completed
+    processingTimeMs: v.number(), // Processing duration
+
+    // Result
+    success: v.boolean(),
+    error: v.optional(v.string()), // Error message if failed
+  })
+    .index("by_connectorId", ["connectorId"])
+    .index("by_organizationId", ["organizationId"])
+    .index("by_connector_and_time", ["connectorId", "receivedAt"]) // For rate limiting
+    .index("by_receivedAt", ["receivedAt"]), // For cleanup/archival
 });

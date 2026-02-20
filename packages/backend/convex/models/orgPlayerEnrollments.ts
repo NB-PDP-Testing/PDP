@@ -8,6 +8,7 @@ import {
   mutation,
   query,
 } from "../_generated/server";
+import { findSimilarPlayersLogic } from "../lib/playerMatching";
 
 // ============================================================
 // TYPE DEFINITIONS
@@ -42,6 +43,9 @@ const enrollmentValidator = v.object({
   ),
   coachNotes: v.optional(v.string()),
   adminNotes: v.optional(v.string()),
+  importSessionId: v.optional(v.id("importSessions")),
+  lastSyncedAt: v.optional(v.number()),
+  syncSource: v.optional(v.string()),
   enrolledAt: v.number(),
   updatedAt: v.number(),
 });
@@ -151,6 +155,35 @@ export const getEnrollmentsForOrg = query({
 });
 
 /**
+ * List enrollments by organization (alias for getEnrollmentsForOrg)
+ */
+export const listEnrollmentsByOrganization = query({
+  args: {
+    organizationId: v.string(),
+    status: v.optional(enrollmentStatusValidator),
+  },
+  returns: v.array(enrollmentValidator),
+  handler: async (ctx, args) => {
+    const status = args.status;
+    if (status) {
+      return await ctx.db
+        .query("orgPlayerEnrollments")
+        .withIndex("by_org_and_status", (q) =>
+          q.eq("organizationId", args.organizationId).eq("status", status)
+        )
+        .collect();
+    }
+
+    return await ctx.db
+      .query("orgPlayerEnrollments")
+      .withIndex("by_organizationId", (q) =>
+        q.eq("organizationId", args.organizationId)
+      )
+      .collect();
+  },
+});
+
+/**
  * Get enrollments for an org filtered by age group
  */
 export const getEnrollmentsByAgeGroup = query({
@@ -217,7 +250,9 @@ export const getPlayersForOrg = query({
 
     // Filter by age group if provided
     if (args.ageGroup) {
-      enrollments = enrollments.filter((e) => e.ageGroup === args.ageGroup);
+      enrollments = enrollments.filter(
+        (e) => e.ageGroup?.toLowerCase() === args.ageGroup?.toLowerCase()
+      );
     }
 
     const results = [];
@@ -1543,4 +1578,37 @@ export const getBulkChildData = query({
 
     return result;
   },
+});
+
+// ============================================================
+// FUZZY PLAYER MATCHING (US-VN-006)
+// Logic extracted to convex/lib/playerMatching.ts (shared with review microsite)
+// ============================================================
+
+/**
+ * Find players whose names are similar to a search term.
+ * Uses Levenshtein-based matching from stringMatching.ts (US-VN-005).
+ *
+ * Used by the WhatsApp voice note pipeline to resolve spoken player names.
+ * Logic lives in lib/playerMatching.ts so the public review wrapper can reuse it.
+ */
+export const findSimilarPlayers = internalQuery({
+  args: {
+    organizationId: v.string(),
+    coachUserId: v.string(),
+    searchName: v.string(),
+    limit: v.optional(v.number()),
+  },
+  returns: v.array(
+    v.object({
+      playerId: v.id("playerIdentities"),
+      firstName: v.string(),
+      lastName: v.string(),
+      fullName: v.string(),
+      similarity: v.number(),
+      ageGroup: v.string(),
+      sport: v.union(v.string(), v.null()),
+    })
+  ),
+  handler: async (ctx, args) => findSimilarPlayersLogic(ctx, args),
 });

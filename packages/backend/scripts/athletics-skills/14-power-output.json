@@ -1,0 +1,28 @@
+{
+  "skillName": "Power Output",
+  "category": "Speed & Power",
+  "description": "Ability to generate high force rapidly, determining acceleration capacity and maximum velocity potential. Power is the product of force and velocity. Trained through plyometrics, Olympic weightlifting, resistance training, and sprint-specific drills. Rate of force development (how quickly maximum force is achieved) distinguishes elite from sub-elite sprinters. Essential for all explosive running movements including starts, acceleration, and sprinting.",
+  "levels": {
+    "1": {
+      "label": "Developing",
+      "description": "Low power output with weak force production and slow movement speeds. Cannot generate explosive movements in any context - starts, jumps, throws, or sprints all appear labored and weak. Demonstrates poor rate of force development, taking excessive time to achieve even moderate force levels. Triple extension weak and incomplete during running, jumping, or explosive drills. Shows minimal reactive strength in plyometric activities - lands heavily, cannot rebound quickly. Strength levels low for age and body weight. No training history in power development activities. Appears slow and unathletic across all explosive movements. Cannot execute basic plyometric exercises (box jumps, bounding, depth jumps) with any proficiency or power."
+    },
+    "2": {
+      "label": "Emerging",
+      "description": "Moderate power output developing with some explosive capability emerging. Can generate reasonable force but rate of force development slow - takes time to achieve peak force. Shows improvement with power training (plyometrics, Olympic lift variations, sprints) but still well below advanced levels. Triple extension improving but not powerful or explosive. Reactive strength developing - can complete basic plyometric exercises but contacts prolonged and rebound limited. Strength improving toward moderate levels. Power visible in some contexts but inconsistent and not competition-level. Demonstrates understanding of explosive intent but execution limited by current neuromuscular development. Shows clear improvement trajectory with appropriate training."
+    },
+    "3": {
+      "label": "Competent",
+      "description": "Good power output for competition level enabling competitive acceleration and sprinting. Demonstrates solid force production with reasonable rate of force development. Can execute explosive movements competently - powerful starts, good acceleration, adequate jumping ability. Triple extension strong during running and explosive activities. Reactive strength good - demonstrates reasonable plyometric ability with moderate ground contact times and adequate rebound height. Strength levels appropriate for body weight and sport demands. Power training experience evident in movement quality. Enables club-regional level performance in speed-power events. Can complete advanced plyometric exercises (depth jumps, multiple bounds, hurdle hops) with reasonable proficiency."
+    },
+    "4": {
+      "label": "Advanced",
+      "description": "Excellent power output with high force production and rapid rate of force development. Demonstrates explosive capability across all movements - exceptional starts, rapid acceleration, powerful jumping and bounding. Triple extension highly powerful and complete, generating elite-level forces. Reactive strength exceptional - minimal ground contact times, maximal rebound heights, elastic quality evident. Strength levels high relative to body weight. Extensive power training background evident. Can execute advanced plyometrics (depth jumps from high boxes, single-leg bounding, complex sequences) with explosive power. Competitive advantage through superior power production. Movement quality explosive and athletic. Approaching elite-level power capacity for chosen events."
+    },
+    "5": {
+      "label": "Elite",
+      "description": "World-class power output among the highest globally for athletics. Exceptional force production combined with maximum rate of force development. Demonstrates elite-level explosive capability in all contexts - starts among fastest globally, acceleration exceptional, jumping ability outstanding. Triple extension generates maximum possible forces with perfect technique. Reactive strength at international level - ground contact times minimal, rebound heights maximal, elastic qualities perfect. Strength-to-weight ratio exceptional. Power training optimized over years creating elite neuromuscular qualities. Can demonstrate plyometric exercises at teaching level with maximum power. Serves as international model for power production. Enables Olympic or World Championship performance in power-dependent events. Among most powerful athletes globally in chosen specialization."
+    }
+  },
+  "assessmentGuidance": "Assess through multiple methods: observe sprint starts and acceleration (explosiveness visible), measure vertical jump height and broad jump distance (pure power output), evaluate plyometric exercise execution quality (reactive strength), test maximum strength relative to body weight. Video analysis of ground contact times during bounding or running. Note rate of force development - how quickly athlete reaches maximum force during jumps or starts. Observe triple extension completeness and power during all explosive movements. Compare performance in power activities to age/weight norms and competitive standards."
+}

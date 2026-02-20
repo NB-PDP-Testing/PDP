@@ -95,6 +95,76 @@ async function getAIConfig(
 const JSON_EXTRACT_REGEX = /\{[\s\S]*\}/;
 
 /**
+ * Build system prompt for parent summary generation based on coach's tone preference
+ */
+function buildSystemPromptForTone(
+  tone: "warm" | "professional" | "brief"
+): string {
+  const baseInstruction = `You are a youth sports communication assistant helping coaches share feedback with parents.
+
+Your task: Transform the coach's internal insight into a parent-friendly message.
+
+TRANSFORMATION RULES:
+- "struggling with X" → "working on developing X"
+- "weak at X" → "building strength in X"
+- "poor X" → "developing X skills"
+- "can't do X" → "learning X"
+- "needs improvement" → "showing progress in"
+- Focus on growth mindset and effort
+- Be specific about what the player is working on`;
+
+  // Tone-specific instructions
+  const toneInstructions = {
+    warm: `
+
+TONE: WARM AND ENCOURAGING
+- Use warm, friendly, enthusiastic language
+- Show genuine excitement for player's development
+- Include encouraging phrases ("Great news!", "We're so proud", "Fantastic progress")
+- Create emotional connection with parents
+- Length: 2-3 sentences with personal touch
+- Example: "Great news! Emma's tackling skills have really improved from 3/5 to 4/5. She's showing fantastic progress and we're so proud of her development!"`,
+
+    professional: `
+
+TONE: PROFESSIONAL AND OBJECTIVE
+- Use clear, formal, professional language
+- Focus on facts and measurable progress
+- Maintain objective, respectful tone
+- Avoid overly emotional or casual language
+- Length: 2-3 sentences, concise and clear
+- Example: "Emma's tackling rating has improved from 3/5 to 4/5. This demonstrates consistent progress in defensive fundamentals."`,
+
+    brief: `
+
+TONE: BRIEF AND DIRECT
+- Use direct, concise language
+- Include only essential facts
+- No elaboration, context, or emotional language
+- Maximum efficiency for busy parents
+- Length: 1 sentence maximum
+- Example: "Emma: Tackling 3/5 → 4/5. Good progress."`,
+  };
+
+  const flagsInstruction = `
+
+QUALITY FLAGS:
+Identify any issues that might need coach review:
+- "needs_context": Summary is too vague, needs more specifics
+- "overly_positive": May be glossing over important issues
+- "technical_jargon": Contains terms parents may not understand
+
+Respond in JSON format:
+{
+  "summary": "Parent-friendly message here",
+  "confidenceScore": 0.0-1.0,
+  "flags": ["flag1", "flag2"] or []
+}`;
+
+  return baseInstruction + toneInstructions[tone] + flagsInstruction;
+}
+
+/**
  * Classify insight sensitivity category
  * Determines if an insight is NORMAL, INJURY, or BEHAVIOR
  * INJURY and BEHAVIOR insights always require manual coach approval
@@ -346,33 +416,18 @@ export const generateParentSummary = internalAction({
       args.organizationId
     );
 
-    // System prompt - this will be cached (static content)
-    const systemPrompt = `You are a youth sports communication assistant helping coaches share feedback with parents.
+    // Fetch coach preferences to get tone setting
+    const preferences = await ctx.runQuery(
+      internal.models.coaches.getCoachPreferencesInternal,
+      {
+        coachId: args.coachId,
+        organizationId: args.organizationId,
+      }
+    );
+    const tone = preferences?.parentSummaryTone || "warm";
 
-Your task: Transform the coach's internal insight into a positive, encouraging message for parents.
-
-TRANSFORMATION RULES:
-- "struggling with X" → "working on developing X"
-- "weak at X" → "building strength in X"
-- "poor X" → "developing X skills"
-- "can't do X" → "learning X"
-- "needs improvement" → "showing progress in"
-- Focus on growth mindset and effort
-- Keep it concise (2-3 sentences max)
-- Be specific about what the player is working on
-- Always include a positive note
-
-Generate a parent-friendly summary. Also identify any flags that might need coach review:
-- "needs_context": Summary is too vague, needs more specifics
-- "overly_positive": May be glossing over important issues
-- "technical_jargon": Contains terms parents may not understand
-
-Respond in JSON format:
-{
-  "summary": "Parent-friendly message here",
-  "confidenceScore": 0.0-1.0,
-  "flags": ["flag1", "flag2"] or []
-}`;
+    // Build system prompt based on coach's tone preference
+    const systemPrompt = buildSystemPromptForTone(tone);
 
     // Player context - this will be cached (semi-static)
     const playerContext = `Player: ${args.playerFirstName}
@@ -540,6 +595,9 @@ export const processVoiceNoteInsight = internalAction({
   },
   returns: v.null(),
   handler: async (ctx, args) => {
+    console.log(
+      `🔄 processVoiceNoteInsight started for insightId=${args.insightId}, playerId=${args.playerIdentityId}`
+    );
     try {
       // Step 0.1: Check rate limits FIRST (US-009)
       // Prevents abuse or runaway loops
@@ -613,6 +671,9 @@ export const processVoiceNoteInsight = internalAction({
         );
 
         if (shouldSkip) {
+          console.log(
+            `⏭️  Skipping ${classification.category} insight for coachId=${args.coachId} (skipSensitiveInsights enabled)`
+          );
           return null;
         }
       }
@@ -692,6 +753,10 @@ export const processVoiceNoteInsight = internalAction({
           playerIdentityId: args.playerIdentityId,
           sportId: sport._id,
         }
+      );
+
+      console.log(
+        `✅ Parent summary created successfully for insightId=${args.insightId}, category=${classification.category}`
       );
 
       // Step 6: Increment rate limit counters (US-009)

@@ -10,6 +10,7 @@ import {
   FileText,
   HeartPulse,
   Home,
+  LayoutDashboard,
   Menu,
   MessageSquare,
   Mic,
@@ -103,6 +104,11 @@ export function getCoachNavGroups(orgId: string): NavGroup[] {
           href: `/orgs/${orgId}/coach/team-insights`,
           label: "Team Insights",
           icon: Users,
+        },
+        {
+          href: `/orgs/${orgId}/coach/team-hub`,
+          label: "Team Hub",
+          icon: LayoutDashboard,
         },
         {
           href: `/orgs/${orgId}/coach/messages`,

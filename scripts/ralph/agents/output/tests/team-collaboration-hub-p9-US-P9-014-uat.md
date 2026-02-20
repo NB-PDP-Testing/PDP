@@ -1,6 +1,6 @@
 # UAT Test: US-P9-014 - Extend coachOrgPreferences (Notifications)
 
-> Auto-generated: 2026-01-31 09:13
+> Auto-generated: 2026-01-31 14:36
 > Status: ⏳ Pending Execution
 
 ## Story

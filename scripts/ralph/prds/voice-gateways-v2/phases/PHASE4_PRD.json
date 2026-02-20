@@ -1,0 +1,356 @@
+{
+  "phaseNumber": 4,
+  "phaseName": "Claims Extraction",
+  "duration": "3 days",
+  "storyCount": 2,
+  "contextFiles": [
+    "scripts/ralph/prds/voice-gateways-v2/context/MAIN_CONTEXT.md",
+    "scripts/ralph/prds/voice-gateways-v2/context/PHASE3_V2_MIGRATION.md",
+    "scripts/ralph/prds/voice-gateways-v2/context/PHASE4_CLAIMS_EXTRACTION.md"
+  ],
+  "previousPhasesSummary": "Phase 3 created voiceNoteArtifacts + voiceNoteTranscripts tables, featureFlags table with shouldUseV2Pipeline cascade, and dual-path processing in whatsapp.ts. The v2 path creates artifacts alongside v1 voiceNotes. After transcription completes, artifact status is set to 'transcribed' (voiceNotes.ts line 255). buildInsights is scheduled immediately after (line 280-286). Phase 4 hooks into this same point to run claims extraction IN PARALLEL with v1 buildInsights.",
+  "executionStrategy": {
+    "parallelStreams": false,
+    "sequential": {
+      "name": "Claims Extraction Pipeline",
+      "order": ["US-VN-015", "US-VN-016"],
+      "notes": "Sequential: US-VN-015 creates the voiceNoteClaims table, model functions, coachContext helper, and extraction action. US-VN-016 hooks it into the pipeline and adds the debug viewer. US-VN-015 must be fully complete before US-VN-016."
+    }
+  },
+  "designPrinciples": [
+    "Claims run ALONGSIDE v1 buildInsights, NOT replacing it. Both are scheduled in parallel after transcription.",
+    "v1 insights still power the review microsite, auto-apply, and parent summaries. Claims are the v2 data structure for Phase 5-6.",
+    "Separate action file (claimsExtraction.ts) instead of adding to voiceNotes.ts (already 1300+ lines).",
+    "Shared coachContext helper (coachContext.ts) avoids duplicating roster/teams gathering logic from buildInsights.",
+    "Denormalized org/coach on claims avoids joins back to artifact for queries. Matches voiceNoteInsights pattern.",
+    "Entity mentions preserved raw in entityMentions[]. resolved* fields capture best-effort match. Phase 5 re-processes raw mentions.",
+    "Non-v2 coaches are completely unaffected (no artifact = no claims extraction scheduled)."
+  ],
+  "stories": [
+    {
+      "id": "US-VN-015",
+      "phase": 4,
+      "title": "Claims Table & Extraction Action",
+      "description": "Add the voiceNoteClaims table with 15 topic categories, create the model CRUD functions, extract shared coach context gathering into a reusable helper, and implement the GPT-4 claims extraction action with Zod structured output parsing.",
+      "acceptanceCriteria": [
+        "SCHEMA: Add voiceNoteClaims table to packages/backend/convex/schema.ts (after voiceNoteTranscripts, before platformStaffInvitations)",
+        "SCHEMA FIELDS:",
+        "  claimId: v.string() — UUID, unique per claim",
+        "  artifactId: v.id('voiceNoteArtifacts') — parent artifact",
+        "  sourceText: v.string() — exact transcript quote this claim was extracted from",
+        "  timestampStart: v.optional(v.number()) — start time in transcript if available",
+        "  timestampEnd: v.optional(v.number()) — end time in transcript if available",
+        "  topic: v.union(v.literal('injury'), v.literal('skill_rating'), v.literal('skill_progress'), v.literal('behavior'), v.literal('performance'), v.literal('attendance'), v.literal('wellbeing'), v.literal('recovery'), v.literal('development_milestone'), v.literal('physical_development'), v.literal('parent_communication'), v.literal('tactical'), v.literal('team_culture'), v.literal('todo'), v.literal('session_plan'))",
+        "  title: v.string() — short descriptive title following v1 title format rules",
+        "  description: v.string() — detailed description of the claim",
+        "  recommendedAction: v.optional(v.string()) — suggested action for the coach",
+        "  timeReference: v.optional(v.string()) — temporal context like 'today', 'yesterday', 'last week'",
+        "  entityMentions: v.array(v.object({ mentionType: v.union(v.literal('player_name'), v.literal('team_name'), v.literal('group_reference'), v.literal('coach_name')), rawText: v.string(), position: v.number() }))",
+        "  resolvedPlayerIdentityId: v.optional(v.id('playerIdentities')) — best-effort player match",
+        "  resolvedPlayerName: v.optional(v.string()) — matched player full name",
+        "  resolvedTeamId: v.optional(v.string()) — matched team ID (Better Auth string)",
+        "  resolvedTeamName: v.optional(v.string()) — matched team name",
+        "  resolvedAssigneeUserId: v.optional(v.string()) — for todo claims, who should do it",
+        "  resolvedAssigneeName: v.optional(v.string()) — assignee display name",
+        "  severity: v.optional(v.union(v.literal('low'), v.literal('medium'), v.literal('high'), v.literal('critical'))) — for injury/wellbeing claims",
+        "  sentiment: v.optional(v.union(v.literal('positive'), v.literal('neutral'), v.literal('negative'), v.literal('concerned'))) — emotional tone",
+        "  skillName: v.optional(v.string()) — for skill_rating claims only",
+        "  skillRating: v.optional(v.number()) — for skill_rating claims only (1-5 scale)",
+        "  extractionConfidence: v.number() — 0.0 to 1.0 from AI",
+        "  organizationId: v.string() — denormalized from artifact for queries",
+        "  coachUserId: v.string() — denormalized from artifact for queries",
+        "  status: v.union(v.literal('extracted'), v.literal('resolving'), v.literal('resolved'), v.literal('needs_disambiguation'), v.literal('merged'), v.literal('discarded'), v.literal('failed'))",
+        "  createdAt: v.number()",
+        "  updatedAt: v.number()",
+        "INDEXES (7 total):",
+        "  by_artifactId: ['artifactId']",
+        "  by_artifactId_and_status: ['artifactId', 'status']",
+        "  by_claimId: ['claimId']",
+        "  by_topic: ['topic']",
+        "  by_org_and_coach: ['organizationId', 'coachUserId']",
+        "  by_org_and_status: ['organizationId', 'status']",
+        "  by_resolvedPlayerIdentityId: ['resolvedPlayerIdentityId']",
+        "Run npx -w packages/backend convex codegen after schema changes",
+        "",
+        "MODEL: Create packages/backend/convex/models/voiceNoteClaims.ts",
+        "Function 1: storeClaims (internalMutation)",
+        "  args: { claims: v.array(v.object({ ... all claim fields ... })) }",
+        "  returns: v.array(v.id('voiceNoteClaims'))",
+        "  Logic: Insert each claim into voiceNoteClaims table, return array of inserted IDs",
+        "Function 2: getClaimsByArtifact (internalQuery)",
+        "  args: { artifactId: v.id('voiceNoteArtifacts') }",
+        "  returns: v.array(claim objects)",
+        "  Logic: Query by_artifactId index, collect all",
+        "Function 3: getClaimsByArtifactAndStatus (internalQuery)",
+        "  args: { artifactId: v.id('voiceNoteArtifacts'), status: statusValidator }",
+        "  returns: v.array(claim objects)",
+        "  Logic: Query by_artifactId_and_status composite index",
+        "Function 4: updateClaimStatus (internalMutation)",
+        "  args: { claimId: v.string(), status: statusValidator }",
+        "  returns: v.null()",
+        "  Logic: Look up by by_claimId index, patch status + updatedAt",
+        "Function 5: getClaimByClaimId (internalQuery)",
+        "  args: { claimId: v.string() }",
+        "  returns: v.union(claim object, v.null())",
+        "  Logic: Query by_claimId index, first()",
+        "Function 6: getClaimsByOrgAndCoach (query — PUBLIC)",
+        "  args: { organizationId: v.string(), coachUserId: v.string(), limit: v.optional(v.number()) }",
+        "  returns: v.array(claim objects)",
+        "  Logic: Query by_org_and_coach index. Apply limit (default 50, max 200). Used by claims viewer.",
+        "ALL functions MUST have args AND returns validators. ALL use .withIndex(), never .filter().",
+        "",
+        "HELPER: Create packages/backend/convex/lib/coachContext.ts",
+        "Function: gatherCoachContext (exported async function, NOT a Convex function — takes QueryCtx)",
+        "  args: ctx: QueryCtx, { organizationId: string, coachUserId: string }",
+        "  returns: Promise<{ players: PlayerInfo[], teams: TeamInfo[], coaches: CoachInfo[], recordingCoachName: string }>",
+        "  Logic: Reuse the roster/teams/coaches gathering pattern from voiceNotes.ts buildInsights lines 340-471:",
+        "    1. Fetch players via internal.models.orgPlayerEnrollments.getPlayersForCoachTeamsInternal",
+        "    2. Fetch coach teams via api.models.coaches.getCoachAssignments",
+        "    3. Resolve team details from Better Auth adapter (findMany team model)",
+        "    4. Fetch recording coach name via components.betterAuth.userFunctions.getUserByStringId",
+        "    5. Fetch fellow coaches via api.models.coaches.getFellowCoachesForTeams",
+        "    6. Deduplicate players by playerIdentityId",
+        "  IMPORTANT: This is a plain async function that takes QueryCtx, NOT an internalQuery. It needs both ctx.db AND ctx.runQuery access.",
+        "  Both v1 buildInsights and v2 claimsExtraction can call this. v1 refactor to use it is OPTIONAL (not required in this phase).",
+        "",
+        "ACTION: Create packages/backend/convex/actions/claimsExtraction.ts",
+        "Must have 'use node' directive at top (same as voiceNotes.ts)",
+        "Function: extractClaims (internalAction)",
+        "  args: { artifactId: v.id('voiceNoteArtifacts') }",
+        "  returns: v.null()",
+        "  Logic (10 steps):",
+        "    1. Fetch artifact via ctx.runQuery(internal.models.voiceNoteArtifacts.getArtifactByArtifactId) — BUT this takes artifactId STRING, so first need to get the artifact doc. Actually the arg IS the Convex _id, so use ctx.runQuery with a query that takes _id. OR: use getArtifactsByVoiceNote pattern. SIMPLEST: add a new getArtifactById internalQuery to voiceNoteArtifacts.ts that takes _id directly, OR just ctx.db.get() from an internalQuery. Since we're in an action (no ctx.db), call an internalQuery. See integration note below.",
+        "    2. Set artifact status to 'processing' via updateArtifactStatus",
+        "    3. Fetch transcript via ctx.runQuery(internal.models.voiceNoteTranscripts.getTranscriptByArtifact, { artifactId: artifact._id })",
+        "    4. Determine org: pick highest confidence orgContextCandidate from artifact",
+        "    5. Gather coach context: since this is an action (no ctx.db), we need to call an internalQuery that wraps gatherCoachContext. Create gatherCoachContextQuery in coachContext.ts as an internalQuery that calls gatherCoachContext.",
+        "    6. Build system prompt (15 categories, matching rules ported from v1 buildInsights prompt)",
+        "    7. Get AI model config via getAIConfig pattern (feature: 'voice_insights')",
+        "    8. Call OpenAI client.responses.create() with zodTextFormat(claimsExtractionSchema)",
+        "    9. Parse response with Zod, resolve players: deterministic match first, fuzzy fallback via findSimilarPlayers",
+        "    10. Store all claims via ctx.runMutation(internal.models.voiceNoteClaims.storeClaims)",
+        "    11. Set artifact status to 'completed' on success, 'failed' on error",
+        "",
+        "  ERROR HANDLING: Wrap entire handler in try/catch. On error: set artifact status to 'failed', log error. v1 pipeline is unaffected.",
+        "",
+        "  ZOD SCHEMA (claimsExtractionSchema):",
+        "    z.object({ summary: z.string(), claims: z.array(z.object({ sourceText, topic (enum of 15), title, description, recommendedAction (optional), timeReference (optional), entityMentions (array), severity (optional enum), sentiment (optional enum), skillName (optional), skillRating (optional number 1-5), extractionConfidence (number 0-1), playerId (optional string — AI's best guess from roster), playerName (optional string), teamId (optional string), teamName (optional string), assigneeUserId (optional string), assigneeName (optional string) })) })",
+        "",
+        "  GPT-4 PROMPT: Must cover all 15 categories with atomicity rules, player/team/coach matching instructions ported from v1 buildInsights (voiceNotes.ts lines 486-604). See PHASE4_CLAIMS_EXTRACTION.md context file for the full prompt template.",
+        "",
+        "  INTEGRATION NOTE (artifactId resolution): The extractClaims action receives artifactId as v.id('voiceNoteArtifacts') (the Convex doc _id). To get the artifact, add a new internalQuery 'getArtifactById' to voiceNoteArtifacts.ts that takes { _id: v.id('voiceNoteArtifacts') } and returns the artifact doc. This is simpler than the existing getArtifactByArtifactId which takes the string artifactId.",
+        "",
+        "  AI MODEL: Use the same getAIConfig() pattern from voiceNotes.ts (lines 29-70). Feature key: 'voice_insights'. Falls back to env var OPENAI_MODEL_INSIGHTS or default 'gpt-4o'.",
+        "",
+        "  PLAYER MATCHING: For each claim with player entity mentions:",
+        "    a. Try deterministic match against roster (exact firstName/lastName/fullName)",
+        "    b. If no match, try fuzzy via ctx.runQuery(internal.models.orgPlayerEnrollments.findSimilarPlayers) with threshold >= 0.85",
+        "    c. Set resolvedPlayerIdentityId + resolvedPlayerName on match, leave null if no match",
+        "",
+        "Type check passes: npm run check-types",
+        "Codegen passes: npx -w packages/backend convex codegen"
+      ],
+      "priority": 15,
+      "effort": "2 days",
+      "effortBreakdown": {
+        "schema": "30min (voiceNoteClaims table + 7 indexes)",
+        "model": "1.5h (voiceNoteClaims.ts — 6 functions with validators)",
+        "coachContext": "1h (coachContext.ts — extract from buildInsights)",
+        "extraction_action": "3h (claimsExtraction.ts — action + Zod schema + prompt)",
+        "player_matching": "1h (deterministic + fuzzy fallback in extraction)",
+        "artifact_query": "15min (add getArtifactById to voiceNoteArtifacts.ts)",
+        "testing": "1h (type checks, codegen, manual verification)"
+      },
+      "dependencies": ["US-VN-014"],
+      "files": {
+        "create": [
+          "packages/backend/convex/models/voiceNoteClaims.ts",
+          "packages/backend/convex/lib/coachContext.ts",
+          "packages/backend/convex/actions/claimsExtraction.ts"
+        ],
+        "modify": [
+          "packages/backend/convex/schema.ts (add voiceNoteClaims table after voiceNoteTranscripts)",
+          "packages/backend/convex/models/voiceNoteArtifacts.ts (add getArtifactById internalQuery)"
+        ]
+      },
+      "testingRequirements": {
+        "typeCheck": "npm run check-types must pass",
+        "codegen": "npx -w packages/backend convex codegen must pass",
+        "manualTesting": false,
+        "notes": "No manual testing needed for US-VN-015 — extraction is not wired into pipeline yet (that's US-VN-016)"
+      }
+    },
+    {
+      "id": "US-VN-016",
+      "phase": 4,
+      "title": "Pipeline Integration & Claims Viewer",
+      "description": "Hook claims extraction into the v2 pipeline after transcription (parallel with v1 buildInsights). Add a platform-staff debug page to view extracted claims. Add a public getRecentArtifacts query for the viewer.",
+      "acceptanceCriteria": [
+        "PIPELINE HOOK: Modify packages/backend/convex/actions/voiceNotes.ts",
+        "  Location: After artifact status is set to 'transcribed' (line ~255-257), and BEFORE the quality check branching (line ~260)",
+        "  Add scheduler call to run claims extraction in parallel with buildInsights:",
+        "    // US-VN-016: v2 claims extraction — runs in parallel with v1 buildInsights",
+        "    await ctx.scheduler.runAfter(",
+        "      0,",
+        "      internal.actions.claimsExtraction.extractClaims,",
+        "      { artifactId: artifact._id }",
+        "    );",
+        "  This MUST be inside the 'if (artifacts.length > 0)' block (line 233)",
+        "  This runs BEFORE the quality check branching, so claims extraction fires regardless of quality outcome",
+        "  v1 buildInsights still runs at line 280-286 (UNCHANGED)",
+        "  If no artifact exists (v1 coach), nothing is scheduled (zero regression)",
+        "",
+        "ARTIFACTS QUERY: Add to packages/backend/convex/models/voiceNoteArtifacts.ts",
+        "Function: getRecentArtifacts (query — PUBLIC)",
+        "  args: { limit: v.optional(v.number()) }",
+        "  returns: v.array(artifact objects with voiceNoteId populated)",
+        "  Logic: Query by_status_and_createdAt index, take(limit || 50). This is a platform debug tool.",
+        "  NOTE: This is a PUBLIC query (not internal) because the frontend claims viewer needs it.",
+        "",
+        "CLAIMS VIEWER: Create apps/web/src/app/platform/v2-claims/page.tsx",
+        "  Pattern: Follow apps/web/src/app/platform/ai-config/page.tsx pattern",
+        "  'use client' component",
+        "  Uses useCurrentUser() for auth check",
+        "  Uses useQuery(api.models.voiceNoteArtifacts.getRecentArtifacts) to list artifacts",
+        "  Uses useQuery(api.models.voiceNoteClaims.getClaimsByOrgAndCoach) for claims — OR a new getAllRecentClaims public query",
+        "  Layout:",
+        "    - Header with back link to /platform, title 'v2 Claims Viewer', description",
+        "    - Stats cards: total artifacts, total claims, by status",
+        "    - Artifact list with expandable claims per artifact",
+        "    - Each claim shows: topic badge (color-coded), sourceText, title, entity mentions, resolvedPlayerName, confidence, status",
+        "  Uses shadcn/ui: Card, Badge, Table, Skeleton",
+        "  No org theming (platform admin tool)",
+        "  IMPORTANT: May need an additional public query 'getRecentClaims' in voiceNoteClaims.ts that doesn't require org/coach params (platform debug query)",
+        "",
+        "Type check passes: npm run check-types",
+        "Build succeeds: npm run build",
+        "Manual test: v2-enabled coach sends voice note -> verify BOTH v1 insights AND v2 claims are created",
+        "Manual test: non-v2 coach sends voice note -> verify ONLY v1 insights created (no claims)",
+        "Manual test: Visit /platform/v2-claims -> verify claims are displayed with topic badges and entity info"
+      ],
+      "priority": 16,
+      "effort": "1 day",
+      "effortBreakdown": {
+        "pipeline_hook": "15min (3 lines in voiceNotes.ts)",
+        "artifacts_query": "30min (getRecentArtifacts public query)",
+        "claims_viewer": "3h (frontend page with claims display)",
+        "additional_query": "30min (getRecentClaims public query if needed)",
+        "testing": "1h (type check, build, manual tests)"
+      },
+      "dependencies": ["US-VN-015"],
+      "files": {
+        "create": ["apps/web/src/app/platform/v2-claims/page.tsx"],
+        "modify": [
+          "packages/backend/convex/actions/voiceNotes.ts (add scheduler call after 'transcribed', ~3 lines)",
+          "packages/backend/convex/models/voiceNoteArtifacts.ts (add getRecentArtifacts public query)",
+          "packages/backend/convex/models/voiceNoteClaims.ts (optionally add getRecentClaims public query for viewer)"
+        ]
+      },
+      "testingRequirements": {
+        "typeCheck": "npm run check-types must pass",
+        "build": "npm run build must succeed",
+        "manualTesting": true,
+        "manualTestCases": [
+          "v2 coach voice note creates BOTH v1 insights AND v2 claims",
+          "non-v2 coach voice note creates ONLY v1 insights (no claims)",
+          "/platform/v2-claims page loads and displays claims with topic badges"
+        ]
+      }
+    }
+  ],
+  "topicCategories": {
+    "description": "All 15 claim topic categories with scope and what they capture",
+    "categories": [
+      {
+        "topic": "injury",
+        "scope": "Player",
+        "captures": "Physical injuries, knocks, strains"
+      },
+      {
+        "topic": "skill_rating",
+        "scope": "Player",
+        "captures": "Specific numeric rating (e.g. 'hand_pass is 4/5')"
+      },
+      {
+        "topic": "skill_progress",
+        "scope": "Player",
+        "captures": "General skill improvement without numbers"
+      },
+      {
+        "topic": "behavior",
+        "scope": "Player",
+        "captures": "Attitude, effort, teamwork, discipline"
+      },
+      {
+        "topic": "performance",
+        "scope": "Player",
+        "captures": "Match/training performance"
+      },
+      {
+        "topic": "attendance",
+        "scope": "Player",
+        "captures": "Presence/absence at sessions"
+      },
+      {
+        "topic": "wellbeing",
+        "scope": "Player",
+        "captures": "Mental health, stress, anxiety, emotional state"
+      },
+      {
+        "topic": "recovery",
+        "scope": "Player",
+        "captures": "Rehab progress, return-to-play (distinct from injury incident)"
+      },
+      {
+        "topic": "development_milestone",
+        "scope": "Player",
+        "captures": "Achievements, selections, personal bests"
+      },
+      {
+        "topic": "physical_development",
+        "scope": "Player",
+        "captures": "Growth spurts, conditioning, fitness benchmarks"
+      },
+      {
+        "topic": "parent_communication",
+        "scope": "Player",
+        "captures": "Things to discuss with parents"
+      },
+      {
+        "topic": "tactical",
+        "scope": "Player/Team",
+        "captures": "Position changes, formations, role assignments"
+      },
+      {
+        "topic": "team_culture",
+        "scope": "Team",
+        "captures": "Team morale, collective behavior"
+      },
+      {
+        "topic": "todo",
+        "scope": "Coach",
+        "captures": "Action items, equipment, scheduling"
+      },
+      {
+        "topic": "session_plan",
+        "scope": "Team/None",
+        "captures": "Training focus areas, drill ideas"
+      }
+    ]
+  },
+  "successCriteria": [
+    "voiceNoteClaims table exists in schema with ALL 15 topic literals and 7 indexes",
+    "npx -w packages/backend convex codegen passes cleanly",
+    "voiceNoteClaims.ts has 6 functions: storeClaims (internalMutation), getClaimsByArtifact (internalQuery), getClaimsByArtifactAndStatus (internalQuery), updateClaimStatus (internalMutation), getClaimByClaimId (internalQuery), getClaimsByOrgAndCoach (public query)",
+    "coachContext.ts has gatherCoachContext function that extracts roster/teams/coaches logic",
+    "claimsExtraction.ts has extractClaims internalAction with GPT-4 prompt covering all 15 categories",
+    "Player matching uses existing lib/playerMatching.ts findSimilarPlayersLogic (or the internalQuery wrapper)",
+    "AI model configurable via aiModelConfig table (feature: 'voice_insights')",
+    "Scheduler call added in voiceNotes.ts after 'transcribed' status, inside artifact check block",
+    "v1 buildInsights still runs in parallel (line 280-286 unchanged)",
+    "Non-v2 coaches completely unaffected",
+    "Claims viewer page exists at /platform/v2-claims",
+    "npm run check-types passes with 0 errors",
+    "npm run build succeeds"
+  ]
+}

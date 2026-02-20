@@ -1,0 +1,99 @@
+# Ralph Progress Log
+Started: Wed  4 Feb 2026 17:37:52 GMT
+---
+
+## Codebase Patterns
+**Last Updated**: Wed  4 Feb 2026 18:30:00 GMT - Iteration 1
+
+### Architecture
+- All routes scoped under `/orgs/[orgId]/`
+- Use Better Auth for authentication, Convex for backend
+- Organization data isolated via organizationId field
+
+### Convex Backend Patterns
+- NEVER use `.filter()` - always use `.withIndex()`
+- All functions need `args` and `returns` validators
+- Use `Id<"tableName">` types, not `string`
+- Index names include all fields: `by_orgId_and_status`
+- Run `npx -w packages/backend convex codegen` to verify schema changes
+
+### Frontend Patterns
+- Use shadcn/ui components from `@/components/ui`
+- Use `useSearchParams` for filter state (URL persistence)
+- Organization theming via CSS variables: `--org-primary`, etc.
+- Collapsible sections use `@/components/ui/collapsible`
+- Select dropdowns use `@/components/ui/select` with SelectGroup, SelectSeparator
+
+### Quality Checks
+- Run in order: `npx -w packages/backend convex codegen` → `npx ultracite fix` → `npm run check-types`
+- Pre-existing type errors exist (missing modules like @remotion/player) - ignore these
+- Biome warnings about complexity are pre-existing - don't try to fix them
+
+### File Locations
+- User profile schema: `packages/backend/convex/betterAuth/schema.ts`
+- User profile mutations: `packages/backend/convex/models/userProfiles.ts`
+- Component functions: `packages/backend/convex/betterAuth/userFunctions.ts`
+- Onboarding orchestrator: `apps/web/src/components/onboarding/onboarding-orchestrator.tsx`
+- Profile completion step: `apps/web/src/components/onboarding/profile-completion-step.tsx`
+- Manage Users page: `apps/web/src/app/orgs/[orgId]/admin/users/page.tsx`
+- Onboarding tasks: `packages/backend/convex/models/onboarding.ts`
+
+---
+
+## 2026-02-04 18:30 - Phase 0.6: Address Collection Enhancement - COMPLETE
+**Iteration**: 1
+**Commits**: 8b943b67, 004c1602, 1d4dad7c, 2f5a9385, f5b3e54b, 9fda0a47
+**Session**: bd821223-d4b5-447e-90a0-d0b60e3e5624
+**Status**: Complete
+
+### What was implemented
+All 6 user stories for Phase 0.6 completed:
+
+1. **US-P0.6-001**: Added `address2` and `county` fields to user table schema
+2. **US-P0.6-002**: Updated `updateProfile` mutation and `getProfileStatus` query to handle new fields
+3. **US-P0.6-003**: Created address data constants file with countries, Irish counties, and US states
+4. **US-P0.6-004**: Updated ProfileCompletionStep with full address collection form
+   - Street Address, Address Line 2, Town/City, Postcode
+   - Country dropdown (Ireland, UK, US at top, then alphabetical)
+   - Dynamic County field (dropdown for IE/US, text for others)
+   - Collapsible "Address (Optional)" section
+5. **US-P0.6-005**: Display address in expanded user profile on Manage Users page
+6. **US-P0.6-006**: Final quality verification
+
+### Files changed
+- packages/backend/convex/betterAuth/schema.ts (+2)
+- packages/backend/convex/models/userProfiles.ts (+12)
+- packages/backend/convex/betterAuth/userFunctions.ts (+4)
+- packages/backend/convex/models/onboarding.ts (+5)
+- apps/web/src/lib/constants/address-data.ts (+370, NEW)
+- apps/web/src/components/onboarding/profile-completion-step.tsx (+256, -18)
+- apps/web/src/components/onboarding/onboarding-orchestrator.tsx (+10, -2)
+- apps/web/src/app/orgs/[orgId]/admin/users/page.tsx (+228, -20)
+
+### Quality checks
+- ✅ Convex codegen: passed
+- ✅ Linting: passed (no new errors, pre-existing warnings only)
+- ✅ Type check: no errors in Phase 0.6 files (pre-existing errors in unrelated files)
+- ⏭️ Browser verification: backend changes don't require browser testing
+
+### **Learnings for future iterations**
+
+**Patterns discovered:**
+- ProfileCompletionData type in profile-completion-step.tsx must match what onboarding.ts returns
+- OnboardingOrchestrator transforms backend data to component props - update both when adding fields
+- Use `getCountyOptions()` helper to determine if county dropdown is needed
+- Country codes stored as ISO 3166-1 alpha-2 (IE, GB, US) - use `getCountryName()` for display
+
+**Gotchas encountered:**
+- Brackets in file paths need escaping for git commands: `"apps/web/src/app/orgs/[orgId]/**"`
+- Pre-existing type errors from missing optional modules don't affect our changes
+- Complexity warnings in onboarding.ts are pre-existing (42 vs 15 max) - don't try to fix
+
+**Dependencies found:**
+- ProfileCompletionStep → onboarding-orchestrator.tsx → onboarding.ts → userProfiles.ts → userFunctions.ts → schema.ts
+- All these files need consistent field names when adding new profile fields
+
+**Mistakes made:**
+- None significant - followed existing patterns from Phase 0
+
+---

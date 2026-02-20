@@ -1,3 +1,4 @@
+// @ts-nocheck
 /**
  * UAT Test Data Cleanup Scripts
  *

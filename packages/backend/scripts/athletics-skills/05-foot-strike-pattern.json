@@ -1,0 +1,28 @@
+{
+  "skillName": "Foot Strike Pattern",
+  "category": "Running Mechanics",
+  "description": "Where and how the foot makes initial contact with ground during running. Three primary patterns: heel strike (heel first), midfoot strike (relatively flat landing), and forefoot strike (ball of foot first). More important than specific strike type is landing with foot close to center of mass to minimize braking forces. Optimal pattern varies by event - sprinters universally forefoot strike while distance runners vary individually.",
+  "levels": {
+    "1": {
+      "label": "Developing",
+      "description": "Heavy heel strike with pronounced overstriding, landing well ahead of center of mass. Creates loud, audible footfalls indicating excessive impact forces. Generates significant braking forces with each stride, reducing efficiency and increasing injury risk. No awareness of foot strike pattern or its importance. Consistent overstriding regardless of running speed. Cannot modify strike pattern even with coaching cues. Inappropriate strike pattern for event specialization - may heel strike while attempting to sprint. Excessive force on landing visible and audible with each step. Demonstrates no understanding of proper foot placement relative to body position."
+    },
+    "2": {
+      "label": "Emerging",
+      "description": "Heel strike still present but less pronounced with reduced overstriding compared to beginner level. Awareness of foot placement developing through coaching. Can modify strike pattern temporarily with constant cueing (\"land on ball of foot,\" \"put feet down underneath you\") but reverts to heel strike without reminders. Footfalls still moderately loud but improving. Beginning to understand that strike pattern should vary with running speed but inconsistent execution. Shows slight improvement in foot placement relative to center of mass. May achieve appropriate strike pattern in drills but struggles to maintain during continuous running."
+    },
+    "3": {
+      "label": "Competent",
+      "description": "Appropriate strike pattern for event and running speed with good understanding of biomechanical principles. Midfoot strike during distance running with relatively flat landing near center of mass. Forefoot strike during sprint efforts with proper technique. Relatively quiet footfalls indicating reasonable landing efficiency. Foot lands near or slightly ahead of center of mass with minimal braking forces. Consistent strike pattern within individual running sessions. Can self-correct if strike pattern degrades during fatigue. Demonstrates competent foot placement appropriate for club-level competition. Makes sound decisions about strike pattern based on speed, terrain, and fatigue state."
+    },
+    "4": {
+      "label": "Advanced",
+      "description": "Optimal strike pattern automatic across all running situations with excellent biomechanical efficiency. Very economical foot placement with minimal ground contact time. Quiet, efficient landing technique with virtually no audible footfall. Minimal braking forces due to perfect foot placement relative to center of mass. Strike pattern adjusts appropriately and automatically as pace changes - smooth transition from midfoot at easy pace to forefoot at sprint speeds. Maintains optimal mechanics even when severely fatigued. Demonstrates teaching-level understanding and execution. Competitive advantage through superior landing mechanics reducing energy cost and injury risk. Serves as model for proper strike pattern technique."
+    },
+    "5": {
+      "label": "Elite",
+      "description": "Biomechanically perfect foot strike for event specialization at world-class level. Exceptionally quick ground contact time with maximum propulsion efficiency. Minimal to zero braking forces with foot placement precisely optimized relative to center of mass. Silent, effortless-appearing landing despite elite-level speeds. Perfect forefoot strike during sprint events or optimal midfoot strike during distance events depending on specialization. Maintains flawless technique during Olympic or World Championship competition under extreme fatigue and pressure. Serves as global technical model for foot strike pattern. Landing mechanics among the most efficient globally, contributing to elite performance capability."
+    }
+  },
+  "assessmentGuidance": "Observe and listen during running at various speeds. Note which part of foot makes initial ground contact (heel, midfoot, or forefoot). Listen for footfall volume - quiet indicates efficient landing, loud suggests heavy impact. Watch foot placement relative to body - should land near center of mass, not far ahead. Assess appropriateness for running speed (forefoot expected in sprints, midfoot or forefoot in distance). Video analysis helpful for slow-motion review of exact contact point. Observe on different surfaces and at different fatigue levels."
+}

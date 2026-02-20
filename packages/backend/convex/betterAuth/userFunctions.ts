@@ -1,4 +1,5 @@
 import { v } from "convex/values";
+import { normalizePhoneNumber } from "../lib/phoneUtils";
 import { mutation, query } from "./_generated/server";
 
 /**
@@ -87,7 +88,8 @@ export const updateUserProfile = mutation({
         updates.lastName = args.lastName;
       }
       if (args.phone !== undefined) {
-        updates.phone = args.phone;
+        // Normalize phone to E.164 format for WhatsApp compatibility
+        updates.phone = normalizePhoneNumber(args.phone);
       }
 
       // Also update the combined name field if first/last name changed
@@ -105,6 +107,80 @@ export const updateUserProfile = mutation({
       console.error("[updateUserProfile] Error:", error);
       return { success: false };
     }
+  },
+});
+
+/**
+ * Update profile completion fields for multi-signal guardian matching.
+ * Part of Phase 0: Onboarding Sync
+ */
+export const updateProfileCompletion = mutation({
+  args: {
+    userId: v.id("user"),
+    phone: v.optional(v.string()),
+    altEmail: v.optional(v.string()),
+    postcode: v.optional(v.string()),
+    address: v.optional(v.string()),
+    address2: v.optional(v.string()), // Phase 0.6: Address line 2
+    town: v.optional(v.string()),
+    county: v.optional(v.string()), // Phase 0.6: County/State/Province
+    country: v.optional(v.string()),
+  },
+  returns: v.object({
+    success: v.boolean(),
+    profileCompletedAt: v.number(),
+  }),
+  handler: async (ctx, args) => {
+    const now = Date.now();
+
+    await ctx.db.patch(args.userId, {
+      phone: args.phone,
+      altEmail: args.altEmail,
+      postcode: args.postcode,
+      address: args.address,
+      address2: args.address2,
+      town: args.town,
+      county: args.county,
+      country: args.country,
+      profileCompletionStatus: "completed" as const,
+      profileCompletedAt: now,
+      updatedAt: now,
+    });
+
+    return {
+      success: true,
+      profileCompletedAt: now,
+    };
+  },
+});
+
+/**
+ * Skip profile completion step (with tracking).
+ * Part of Phase 0: Onboarding Sync
+ */
+export const skipProfileCompletionStep = mutation({
+  args: {
+    userId: v.id("user"),
+    currentSkipCount: v.number(),
+  },
+  returns: v.object({
+    skipCount: v.number(),
+    canSkipAgain: v.boolean(),
+  }),
+  handler: async (ctx, args) => {
+    const newSkipCount = args.currentSkipCount + 1;
+    const now = Date.now();
+
+    await ctx.db.patch(args.userId, {
+      profileSkipCount: newSkipCount,
+      profileCompletionStatus: "skipped" as const,
+      updatedAt: now,
+    });
+
+    return {
+      skipCount: newSkipCount,
+      canSkipAgain: newSkipCount < 3,
+    };
   },
 });
 

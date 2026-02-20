@@ -5,16 +5,22 @@ import type { Id } from "@pdp/backend/convex/_generated/dataModel";
 import { useMutation, useQuery } from "convex/react";
 import {
   AlertTriangle,
+  CheckCircle2,
   ChevronDown,
   ChevronUp,
+  Clock,
   Crown,
   Eye,
+  Home,
   Loader2,
   Mail,
+  MapPin,
+  Phone,
   Save,
   Search,
   Send,
   Shield,
+  SkipForward,
   Trash2,
   UserCheck,
   UserCircle,
@@ -56,8 +62,10 @@ import {
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Skeleton } from "@/components/ui/skeleton";
+import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { useOrgTheme } from "@/hooks/use-org-theme";
 import { authClient } from "@/lib/auth-client";
+import { getCountryName } from "@/lib/constants/address-data";
 import { DisableMemberDialog } from "./disable-member-dialog";
 import { EditInvitationModal } from "./edit-invitation-modal";
 import { InvitationDetailModal } from "./invitation-detail-modal";
@@ -94,6 +102,18 @@ export default function ManageUsersPage() {
   // Get pending invitations with detailed assignments
   const pendingInvitations = useQuery(
     api.models.members.getPendingInvitationsWithAssignments,
+    { organizationId: orgId }
+  );
+
+  // Get pending re-invite requests (merged from invitations page)
+  const pendingRequests = useQuery(
+    api.models.invitations.getPendingInvitationRequests,
+    { organizationId: orgId }
+  );
+
+  // Get declined child links (merged from invitations page)
+  const declinedLinks = useQuery(
+    api.models.guardianPlayerLinks.getDeclinedChildLinks,
     { organizationId: orgId }
   );
 
@@ -137,6 +157,17 @@ export default function ManageUsersPage() {
     api.models.members.updateInvitationMetadata
   );
 
+  // New mutations for invitation management (merged from invitations page)
+  const approveInvitationRequest = useMutation(
+    api.models.invitations.approveInvitationRequest
+  );
+  const denyInvitationRequest = useMutation(
+    api.models.invitations.denyInvitationRequest
+  );
+  const resendChildLink = useMutation(
+    api.models.guardianPlayerLinks.resendChildLink
+  );
+
   // Transform enrollment data to match expected player format
   const allPlayers =
     allPlayersData?.map((enrollment: any) => ({
@@ -150,6 +181,7 @@ export default function ManageUsersPage() {
   const [loading, setLoading] = useState<string | null>(null);
   const [searchTerm, setSearchTerm] = useState("");
   const [roleFilter, setRoleFilter] = useState<string>("all");
+  const [profileStatusFilter, setProfileStatusFilter] = useState<string>("all");
   const [playerSearchTerms, setPlayerSearchTerms] = useState<{
     [userId: string]: string;
   }>({});
@@ -193,6 +225,9 @@ export default function ManageUsersPage() {
     name: string;
     email: string;
   } | null>(null);
+
+  // Invitation tab state (merged from invitations page)
+  const [invitationTab, setInvitationTab] = useState<string>("active");
 
   // Helper function to infer Better Auth role from functional roles
   // If functional roles include "admin", Better Auth role should be "admin"
@@ -466,28 +501,14 @@ export default function ManageUsersPage() {
 
       // Update coach assignments if they have coach role
       if (state.functionalRoles.includes("coach")) {
-        // Convert team IDs to team names for consistency
-        const teamNames = (state.teams || [])
-          .map((teamIdOrName: string) => {
-            // Check if it's already a name (exists in teams array by name)
-            const teamByName = teams?.find((t: any) => t.name === teamIdOrName);
-            if (teamByName) {
-              return teamIdOrName; // It's already a name
-            }
-            // Check if it's a team ID and convert to name
-            const teamById = teams?.find((t: any) => t._id === teamIdOrName);
-            if (teamById) {
-              return teamById.name; // Convert ID to name
-            }
-            // Fallback: return as-is (might be a name that doesn't match)
-            return teamIdOrName;
-          })
-          .filter(Boolean);
+        // Pass team IDs directly (do NOT convert to names)
+        // Schema expects team IDs, not team names
+        const teamIds = (state.teams || []).filter(Boolean);
 
         await updateCoachAssignments({
           userId,
           organizationId: orgId,
-          teams: teamNames,
+          teams: teamIds,
           ageGroups: state.ageGroups,
         });
       }
@@ -803,6 +824,80 @@ export default function ManageUsersPage() {
     }
   };
 
+  // Invitation tab handlers (merged from invitations page)
+  const handleInvitationTabChange = (value: string) => {
+    setInvitationTab(value);
+  };
+
+  const handleApproveRequest = async (requestId: string) => {
+    setLoading(requestId);
+    try {
+      const result = await approveInvitationRequest({
+        requestId: requestId as Id<"invitationRequests">,
+      });
+      if (result.success) {
+        toast.success("Request approved. New invitation sent.");
+      } else {
+        toast.error(result.message || "Failed to approve request");
+      }
+    } catch (error: any) {
+      console.error("Failed to approve request:", error);
+      toast.error(error.message || "Failed to approve request");
+    } finally {
+      setLoading(null);
+    }
+  };
+
+  const handleDenyRequest = async (requestId: string) => {
+    setLoading(requestId);
+    try {
+      await denyInvitationRequest({
+        requestId: requestId as Id<"invitationRequests">,
+      });
+      toast.success("Request denied");
+    } catch (error: any) {
+      console.error("Failed to deny request:", error);
+      toast.error(error.message || "Failed to deny request");
+    } finally {
+      setLoading(null);
+    }
+  };
+
+  const handleResendChildLink = async (linkId: string) => {
+    setLoading(linkId);
+    try {
+      await resendChildLink({
+        linkId: linkId as Id<"guardianPlayerLinks">,
+      });
+      toast.success("Child link resent. Guardian will see it on next login.");
+    } catch (error: any) {
+      console.error("Failed to resend child link:", error);
+      toast.error(error.message || "Failed to resend child link");
+    } finally {
+      setLoading(null);
+    }
+  };
+
+  // Format relative time helper
+  const formatRelativeTime = (timestamp: number | null): string => {
+    if (!timestamp) {
+      return "Unknown";
+    }
+    const now = Date.now();
+    const diff = now - timestamp;
+    const days = Math.floor(diff / (1000 * 60 * 60 * 24));
+    const hours = Math.floor(diff / (1000 * 60 * 60));
+    const minutes = Math.floor(diff / (1000 * 60));
+
+    if (days > 0) {
+      return `${days} day${days > 1 ? "s" : ""} ago`;
+    }
+    if (hours > 0) {
+      return `${hours} hour${hours > 1 ? "s" : ""} ago`;
+    }
+    return `${minutes} minute${minutes > 1 ? "s" : ""} ago`;
+  };
+
   const getInitials = (name?: string | null) => {
     if (!name) {
       return "??";
@@ -821,11 +916,26 @@ export default function ManageUsersPage() {
     if (roleFilter !== "all" && !functionalRoles.includes(roleFilter)) {
       return false;
     }
+    // Profile status filter
+    if (profileStatusFilter !== "all") {
+      const user = member.user || {};
+      const userProfileStatus = user.profileCompletionStatus || "pending";
+      if (profileStatusFilter !== userProfileStatus) {
+        return false;
+      }
+    }
     if (!searchTerm) {
       return true;
     }
     const user = member.user || {};
-    const searchable = [user.name, user.email, ...functionalRoles]
+    // Search by name, email, phone, postcode, and functional roles
+    const searchable = [
+      user.name,
+      user.email,
+      user.phone,
+      user.postcode,
+      ...functionalRoles,
+    ]
       .filter(Boolean)
       .join(" ")
       .toLowerCase();
@@ -994,321 +1104,528 @@ export default function ManageUsersPage() {
           </CardContent>
         </Card>
       </div>
-      {/* Pending Invitations */}
-      {pendingInvitations && pendingInvitations.length > 0 && (
-        <Card className="border-orange-200">
-          <CardHeader>
-            <div className="flex items-center justify-between">
-              <div>
-                <CardTitle className="flex items-center gap-2">
-                  <Mail className="h-5 w-5 text-orange-600" />
-                  Pending Invitations ({pendingInvitations.length})
-                </CardTitle>
-                <CardDescription>
-                  Invitations that have been sent but not yet accepted
-                </CardDescription>
-              </div>
-              {/* Bulk re-invite button - only show if there are expired invitations */}
-              {pendingInvitations.filter((inv: any) => inv.isExpired).length >
-                0 && (
-                <Button
-                  disabled={loading === "bulk-reinvite"}
-                  onClick={handleBulkReInviteExpired}
-                  size="sm"
-                  variant="outline"
-                >
-                  {loading === "bulk-reinvite" ? (
-                    <Loader2 className="mr-2 h-4 w-4 animate-spin" />
-                  ) : (
-                    <Send className="mr-2 h-4 w-4" />
-                  )}
-                  Re-invite All Expired (
-                  {
-                    pendingInvitations.filter((inv: any) => inv.isExpired)
-                      .length
-                  }
-                  )
-                </Button>
-              )}
-            </div>
-          </CardHeader>
-          <CardContent>
-            <div className="space-y-3">
-              {pendingInvitations.map((invitation: any) => {
-                const isExpired = invitation.isExpired;
-                const daysUntilExpiry = Math.ceil(
-                  (invitation.expiresAt - Date.now()) / (1000 * 60 * 60 * 24)
-                );
+      {/* Pending Invitations - Tabbed Interface (merged from invitations page) */}
+      {(() => {
+        // Compute filtered invitation lists
+        const allInvitations = pendingInvitations || [];
+        const activeInvitations = allInvitations.filter(
+          (inv: any) => !inv.isExpired
+        );
+        const expiringSoonInvitations = allInvitations.filter((inv: any) => {
+          if (inv.isExpired) {
+            return false;
+          }
+          const hoursUntilExpiry =
+            (inv.expiresAt - Date.now()) / (1000 * 60 * 60);
+          return hoursUntilExpiry <= 48;
+        });
+        const expiredInvitations = allInvitations.filter(
+          (inv: any) => inv.isExpired
+        );
+        const requests = pendingRequests || [];
+        const declined = declinedLinks || [];
 
-                return (
-                  <div
-                    className={`flex flex-col gap-2 rounded-lg border p-3 ${
-                      isExpired
-                        ? "border-red-200 bg-red-50"
-                        : "border-orange-200 bg-orange-50"
-                    }`}
-                    key={invitation._id}
+        // Render an invitation row
+        const renderInvitationRow = (invitation: any) => {
+          const isExpired = invitation.isExpired;
+          const daysUntilExpiry = Math.ceil(
+            (invitation.expiresAt - Date.now()) / (1000 * 60 * 60 * 24)
+          );
+
+          return (
+            <div
+              className={`flex flex-col gap-2 rounded-lg border p-3 ${
+                isExpired
+                  ? "border-red-200 bg-red-50"
+                  : "border-orange-200 bg-orange-50"
+              }`}
+              key={invitation._id}
+            >
+              {/* Row 1: Icon + Email (+ Action Buttons on desktop) */}
+              <div className="flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
+                <div className="flex min-w-0 items-center gap-3">
+                  <div className="flex h-10 w-10 flex-shrink-0 items-center justify-center rounded-full bg-orange-100">
+                    <Mail className="h-5 w-5 text-orange-600" />
+                  </div>
+                  <div className="min-w-0 flex-1">
+                    <p className="truncate font-medium">{invitation.email}</p>
+                    <p className="truncate text-muted-foreground text-xs">
+                      Invited by {invitation.inviter?.name || "Unknown"}
+                    </p>
+                  </div>
+                </div>
+                {/* Action buttons - stacked below on mobile, inline on desktop */}
+                <div className="flex flex-wrap items-center gap-1 pl-[52px] sm:flex-shrink-0 sm:pl-0">
+                  <Button
+                    className="h-8 w-8 p-0 sm:h-auto sm:w-auto sm:px-3"
+                    onClick={() => setEditingInvitation(invitation)}
+                    size="sm"
+                    title="Edit invitation roles and assignments"
+                    variant="ghost"
                   >
-                    {/* Row 1: Icon + Email (+ Action Buttons on desktop) */}
-                    <div className="flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
-                      <div className="flex min-w-0 items-center gap-3">
-                        <div className="flex h-10 w-10 flex-shrink-0 items-center justify-center rounded-full bg-orange-100">
-                          <Mail className="h-5 w-5 text-orange-600" />
-                        </div>
-                        <div className="min-w-0 flex-1">
-                          <p className="font-medium sm:truncate">
-                            {invitation.email}
-                          </p>
-                          <p className="truncate text-muted-foreground text-xs">
-                            Invited by {invitation.inviter?.name || "Unknown"}
-                          </p>
-                        </div>
-                      </div>
-                      {/* Action buttons - stacked below on mobile, inline on desktop */}
-                      <div className="flex flex-wrap items-center gap-1 pl-[52px] sm:flex-shrink-0 sm:pl-0">
-                        <Button
-                          className="h-8 w-8 p-0 sm:h-auto sm:w-auto sm:px-3"
-                          onClick={() => setEditingInvitation(invitation)}
-                          size="sm"
-                          title="Edit invitation roles and assignments"
-                          variant="ghost"
-                        >
-                          <svg
-                            aria-hidden="true"
-                            className="h-4 w-4 sm:mr-2"
-                            fill="none"
-                            stroke="currentColor"
-                            strokeWidth={2}
-                            viewBox="0 0 24 24"
-                            xmlns="http://www.w3.org/2000/svg"
-                          >
-                            <path
-                              d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z"
-                              strokeLinecap="round"
-                              strokeLinejoin="round"
-                            />
-                          </svg>
-                          <span className="hidden sm:inline">Edit</span>
-                        </Button>
-                        <Button
-                          className="h-8 w-8 p-0 sm:h-auto sm:w-auto sm:px-3"
-                          onClick={() =>
-                            setHistoryInvitation({
-                              invitationId: invitation._id,
-                              email: invitation.email,
-                            })
-                          }
-                          size="sm"
-                          title="View invitation history"
-                          variant="ghost"
-                        >
-                          <svg
-                            aria-hidden="true"
-                            className="h-4 w-4 sm:mr-2"
-                            fill="none"
-                            stroke="currentColor"
-                            strokeWidth={2}
-                            viewBox="0 0 24 24"
-                            xmlns="http://www.w3.org/2000/svg"
-                          >
-                            <path
-                              d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z"
-                              strokeLinecap="round"
-                              strokeLinejoin="round"
-                            />
-                          </svg>
-                          <span className="hidden sm:inline">History</span>
-                        </Button>
-                        <Button
-                          className="h-8 w-8 p-0 sm:h-auto sm:w-auto sm:px-3"
-                          onClick={() =>
-                            setSelectedInvitationId(invitation._id)
-                          }
-                          size="sm"
-                          title="View invitation details"
-                          variant="ghost"
-                        >
-                          <Eye className="h-4 w-4 sm:mr-2" />
-                          <span className="hidden sm:inline">Details</span>
-                        </Button>
-                        {!isExpired && (
-                          <Button
-                            className="h-8 w-8 p-0 sm:h-auto sm:w-auto sm:px-3"
-                            disabled={loading === invitation._id}
-                            onClick={() =>
-                              handleResendInvitation(invitation._id)
-                            }
-                            size="sm"
-                            title="Resend invitation"
-                            variant="outline"
-                          >
-                            {loading === invitation._id ? (
-                              <Loader2 className="h-4 w-4 animate-spin sm:mr-2" />
-                            ) : (
-                              <Send className="h-4 w-4 sm:mr-2" />
-                            )}
-                            <span className="hidden sm:inline">Resend</span>
-                          </Button>
-                        )}
-                        {isExpired && (
-                          <Button
-                            className="h-8 w-8 p-0 sm:h-auto sm:w-auto sm:px-3"
-                            disabled={loading === invitation._id}
-                            onClick={() =>
-                              handleReInviteExpired(invitation._id)
-                            }
-                            size="sm"
-                            title="Send new invitation with same settings"
-                            variant="outline"
-                          >
-                            {loading === invitation._id ? (
-                              <Loader2 className="h-4 w-4 animate-spin sm:mr-2" />
-                            ) : (
-                              <Send className="h-4 w-4 sm:mr-2" />
-                            )}
-                            <span className="hidden sm:inline">Re-invite</span>
-                          </Button>
-                        )}
-                        <Button
-                          className="h-8 w-8 p-0 sm:h-auto sm:w-auto sm:px-3"
-                          disabled={loading === invitation._id}
-                          onClick={() => handleCancelInvitation(invitation._id)}
-                          size="sm"
-                          title="Cancel invitation"
-                          variant="destructive"
-                        >
-                          {loading === invitation._id ? (
-                            <Loader2 className="h-4 w-4 animate-spin sm:mr-2" />
-                          ) : (
-                            <X className="h-4 w-4 sm:mr-2" />
-                          )}
-                          <span className="hidden sm:inline">Cancel</span>
-                        </Button>
-                      </div>
-                    </div>
+                    <svg
+                      aria-hidden="true"
+                      className="h-4 w-4 sm:mr-2"
+                      fill="none"
+                      stroke="currentColor"
+                      strokeWidth={2}
+                      viewBox="0 0 24 24"
+                      xmlns="http://www.w3.org/2000/svg"
+                    >
+                      <path
+                        d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z"
+                        strokeLinecap="round"
+                        strokeLinejoin="round"
+                      />
+                    </svg>
+                    <span className="hidden sm:inline">Edit</span>
+                  </Button>
+                  <Button
+                    className="h-8 w-8 p-0 sm:h-auto sm:w-auto sm:px-3"
+                    onClick={() =>
+                      setHistoryInvitation({
+                        invitationId: invitation._id,
+                        email: invitation.email,
+                      })
+                    }
+                    size="sm"
+                    title="View invitation history"
+                    variant="ghost"
+                  >
+                    <svg
+                      aria-hidden="true"
+                      className="h-4 w-4 sm:mr-2"
+                      fill="none"
+                      stroke="currentColor"
+                      strokeWidth={2}
+                      viewBox="0 0 24 24"
+                      xmlns="http://www.w3.org/2000/svg"
+                    >
+                      <path
+                        d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z"
+                        strokeLinecap="round"
+                        strokeLinejoin="round"
+                      />
+                    </svg>
+                    <span className="hidden sm:inline">History</span>
+                  </Button>
+                  <Button
+                    className="h-8 w-8 p-0 sm:h-auto sm:w-auto sm:px-3"
+                    onClick={() => setSelectedInvitationId(invitation._id)}
+                    size="sm"
+                    title="View invitation details"
+                    variant="ghost"
+                  >
+                    <Eye className="h-4 w-4 sm:mr-2" />
+                    <span className="hidden sm:inline">Details</span>
+                  </Button>
+                  {!isExpired && (
+                    <Button
+                      className="h-8 w-8 p-0 sm:h-auto sm:w-auto sm:px-3"
+                      disabled={loading === invitation._id}
+                      onClick={() => handleResendInvitation(invitation._id)}
+                      size="sm"
+                      title="Resend invitation"
+                      variant="outline"
+                    >
+                      {loading === invitation._id ? (
+                        <Loader2 className="h-4 w-4 animate-spin sm:mr-2" />
+                      ) : (
+                        <Send className="h-4 w-4 sm:mr-2" />
+                      )}
+                      <span className="hidden sm:inline">Resend</span>
+                    </Button>
+                  )}
+                  {isExpired && (
+                    <Button
+                      className="h-8 w-8 p-0 sm:h-auto sm:w-auto sm:px-3"
+                      disabled={loading === invitation._id}
+                      onClick={() => handleReInviteExpired(invitation._id)}
+                      size="sm"
+                      title="Send new invitation with same settings"
+                      variant="outline"
+                    >
+                      {loading === invitation._id ? (
+                        <Loader2 className="h-4 w-4 animate-spin sm:mr-2" />
+                      ) : (
+                        <Send className="h-4 w-4 sm:mr-2" />
+                      )}
+                      <span className="hidden sm:inline">Re-invite</span>
+                    </Button>
+                  )}
+                  <Button
+                    className="h-8 w-8 p-0 sm:h-auto sm:w-auto sm:px-3"
+                    disabled={loading === invitation._id}
+                    onClick={() => handleCancelInvitation(invitation._id)}
+                    size="sm"
+                    title="Cancel invitation"
+                    variant="destructive"
+                  >
+                    {loading === invitation._id ? (
+                      <Loader2 className="h-4 w-4 animate-spin sm:mr-2" />
+                    ) : (
+                      <X className="h-4 w-4 sm:mr-2" />
+                    )}
+                    <span className="hidden sm:inline">Cancel</span>
+                  </Button>
+                </div>
+              </div>
 
-                    {/* Row 2: Roles, Badges, Expiry Info - with left padding to align with text */}
-                    <div className="flex flex-wrap items-center gap-2 pl-[52px] text-muted-foreground text-sm">
-                      {(() => {
-                        // Use functional roles from backend query (already extracted from metadata)
-                        const functionalRoles =
-                          invitation.functionalRoles || [];
-
-                        // Show functional roles if available with inline assignments
-                        if (functionalRoles.length > 0) {
-                          return functionalRoles.map((role: string) => (
-                            <span
-                              className="flex items-center gap-1.5"
-                              key={role}
-                            >
-                              <Badge className="text-xs" variant="outline">
-                                {role.charAt(0).toUpperCase() + role.slice(1)}
-                              </Badge>
-                              {/* Show teams inline if coach role */}
-                              {role === "coach" &&
-                                invitation.teams?.length > 0 && (
-                                  <span className="flex items-center gap-1 text-blue-600 text-xs">
-                                    →
-                                    <span className="max-w-[150px] truncate">
-                                      {invitation.teams
-                                        .map((t: any) => t.name)
-                                        .join(", ")}
-                                    </span>
-                                  </span>
-                                )}
-                              {/* Show players inline if parent role */}
-                              {role === "parent" &&
-                                invitation.players?.length > 0 && (
-                                  <span className="flex items-center gap-1 text-green-600 text-xs">
-                                    →
-                                    <span className="max-w-[150px] truncate">
-                                      {invitation.players
-                                        .map(
-                                          (p: any) =>
-                                            `${p.firstName} ${p.lastName}`
-                                        )
-                                        .join(", ")}
-                                    </span>
-                                  </span>
-                                )}
+              {/* Row 2: Roles, Badges, Expiry Info - with left padding to align with text */}
+              <div className="flex flex-wrap items-center gap-2 pl-[52px] text-muted-foreground text-sm">
+                {(() => {
+                  const functionalRoles = invitation.functionalRoles || [];
+                  if (functionalRoles.length > 0) {
+                    return functionalRoles.map((role: string) => (
+                      <span className="flex items-center gap-1.5" key={role}>
+                        <Badge className="text-xs" variant="outline">
+                          {role.charAt(0).toUpperCase() + role.slice(1)}
+                        </Badge>
+                        {role === "coach" && invitation.teams?.length > 0 && (
+                          <span className="flex items-center gap-1 text-blue-600 text-xs">
+                            →
+                            <span className="max-w-[150px] truncate">
+                              {invitation.teams
+                                .map((t: any) => t.name)
+                                .join(", ")}
                             </span>
-                          ));
-                        }
-                        if (invitation.role) {
-                          return (
-                            <>
-                              <Badge className="text-xs" variant="secondary">
-                                {invitation.role}
-                              </Badge>
-                              <Badge className="text-xs" variant="destructive">
-                                No functional role
-                              </Badge>
-                            </>
-                          );
-                        }
-                        return null;
-                      })()}
-                      <span className="text-xs">
-                        •{" "}
-                        {isExpired ? (
-                          <span className="text-red-600">Expired</span>
-                        ) : (
-                          <span>
-                            Expires in {daysUntilExpiry}{" "}
-                            {daysUntilExpiry === 1 ? "day" : "days"}
                           </span>
                         )}
-                      </span>
-                      {(() => {
-                        // Show resend tracking if available
-                        const resendHistory =
-                          invitation.metadata?.resendHistory || [];
-                        if (resendHistory.length > 0) {
-                          const lastResend = resendHistory.at(-1);
-                          const daysAgo = Math.floor(
-                            (Date.now() - lastResend.resentAt) /
-                              (1000 * 60 * 60 * 24)
-                          );
-                          return (
-                            <span className="text-xs">
-                              • Resent {resendHistory.length}×
-                              {daysAgo === 0
-                                ? " today"
-                                : daysAgo === 1
-                                  ? " yesterday"
-                                  : ` ${daysAgo}d ago`}
+                        {role === "parent" &&
+                          invitation.players?.length > 0 && (
+                            <span className="flex items-center gap-1 text-green-600 text-xs">
+                              →
+                              <span className="max-w-[150px] truncate">
+                                {invitation.players
+                                  .map(
+                                    (p: any) => `${p.firstName} ${p.lastName}`
+                                  )
+                                  .join(", ")}
+                              </span>
                             </span>
-                          );
-                        }
-                        return null;
-                      })()}
-                    </div>
-                  </div>
-                );
-              })}
+                          )}
+                      </span>
+                    ));
+                  }
+                  if (invitation.role) {
+                    return (
+                      <>
+                        <Badge className="text-xs" variant="secondary">
+                          {invitation.role}
+                        </Badge>
+                        <Badge className="text-xs" variant="destructive">
+                          No functional role
+                        </Badge>
+                      </>
+                    );
+                  }
+                  return null;
+                })()}
+                <span className="text-xs">
+                  •{" "}
+                  {isExpired ? (
+                    <span className="text-red-600">Expired</span>
+                  ) : (
+                    <span>
+                      Expires in {daysUntilExpiry}{" "}
+                      {daysUntilExpiry === 1 ? "day" : "days"}
+                    </span>
+                  )}
+                </span>
+                {(() => {
+                  const resendHistory =
+                    invitation.metadata?.resendHistory || [];
+                  if (resendHistory.length > 0) {
+                    const lastResend = resendHistory.at(-1);
+                    const daysAgo = Math.floor(
+                      (Date.now() - lastResend.resentAt) / (1000 * 60 * 60 * 24)
+                    );
+                    return (
+                      <span className="text-xs">
+                        • Resent {resendHistory.length}×
+                        {daysAgo === 0
+                          ? " today"
+                          : daysAgo === 1
+                            ? " yesterday"
+                            : ` ${daysAgo}d ago`}
+                      </span>
+                    );
+                  }
+                  return null;
+                })()}
+              </div>
             </div>
-          </CardContent>
-        </Card>
-      )}
+          );
+        };
+
+        return (
+          <Card className="border-orange-200">
+            <CardHeader>
+              <div className="flex items-center justify-between">
+                <div>
+                  <CardTitle className="flex items-center gap-2">
+                    <Mail className="h-5 w-5 text-orange-600" />
+                    Invitation Management
+                  </CardTitle>
+                  <CardDescription>
+                    Manage pending invitations, requests, and declined links
+                  </CardDescription>
+                </div>
+                {/* Bulk re-invite button - only show if there are expired invitations */}
+                {expiredInvitations.length > 0 &&
+                  invitationTab === "expired" && (
+                    <Button
+                      disabled={loading === "bulk-reinvite"}
+                      onClick={handleBulkReInviteExpired}
+                      size="sm"
+                      variant="outline"
+                    >
+                      {loading === "bulk-reinvite" ? (
+                        <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                      ) : (
+                        <Send className="mr-2 h-4 w-4" />
+                      )}
+                      Re-invite All ({expiredInvitations.length})
+                    </Button>
+                  )}
+              </div>
+            </CardHeader>
+            <CardContent>
+              <Tabs
+                onValueChange={handleInvitationTabChange}
+                value={invitationTab}
+              >
+                <TabsList className="mb-4 flex-wrap">
+                  <TabsTrigger value="active">
+                    Pending ({activeInvitations.length})
+                  </TabsTrigger>
+                  <TabsTrigger value="expiring_soon">
+                    <AlertTriangle className="mr-1 h-3 w-3 text-amber-500" />
+                    Expiring Soon ({expiringSoonInvitations.length})
+                  </TabsTrigger>
+                  <TabsTrigger value="expired">
+                    Expired ({expiredInvitations.length})
+                  </TabsTrigger>
+                  <TabsTrigger value="requests">
+                    Requests ({requests.length})
+                  </TabsTrigger>
+                  <TabsTrigger className="text-red-600" value="declined">
+                    Declined ({declined.length})
+                  </TabsTrigger>
+                </TabsList>
+
+                {/* Active/Pending, Expiring Soon, Expired tabs - show invitations */}
+                <TabsContent className="space-y-3" value="active">
+                  {activeInvitations.length === 0 ? (
+                    <Empty>
+                      <EmptyContent>
+                        <EmptyMedia variant="icon">
+                          <Mail className="h-6 w-6" />
+                        </EmptyMedia>
+                        <EmptyTitle>No pending invitations</EmptyTitle>
+                        <EmptyDescription>
+                          All invitations have been accepted, expired, or
+                          cancelled.
+                        </EmptyDescription>
+                      </EmptyContent>
+                    </Empty>
+                  ) : (
+                    activeInvitations.map(renderInvitationRow)
+                  )}
+                </TabsContent>
+
+                <TabsContent className="space-y-3" value="expiring_soon">
+                  {expiringSoonInvitations.length === 0 ? (
+                    <Empty>
+                      <EmptyContent>
+                        <EmptyMedia variant="icon">
+                          <AlertTriangle className="h-6 w-6" />
+                        </EmptyMedia>
+                        <EmptyTitle>No invitations expiring soon</EmptyTitle>
+                        <EmptyDescription>
+                          No invitations are expiring within the next 48 hours.
+                        </EmptyDescription>
+                      </EmptyContent>
+                    </Empty>
+                  ) : (
+                    expiringSoonInvitations.map(renderInvitationRow)
+                  )}
+                </TabsContent>
+
+                <TabsContent className="space-y-3" value="expired">
+                  {expiredInvitations.length === 0 ? (
+                    <Empty>
+                      <EmptyContent>
+                        <EmptyMedia variant="icon">
+                          <Mail className="h-6 w-6" />
+                        </EmptyMedia>
+                        <EmptyTitle>No expired invitations</EmptyTitle>
+                        <EmptyDescription>
+                          All invitations are still valid.
+                        </EmptyDescription>
+                      </EmptyContent>
+                    </Empty>
+                  ) : (
+                    expiredInvitations.map(renderInvitationRow)
+                  )}
+                </TabsContent>
+
+                {/* Requests tab */}
+                <TabsContent className="space-y-3" value="requests">
+                  {requests.length === 0 ? (
+                    <Empty>
+                      <EmptyContent>
+                        <EmptyMedia variant="icon">
+                          <Mail className="h-6 w-6" />
+                        </EmptyMedia>
+                        <EmptyTitle>No pending requests</EmptyTitle>
+                        <EmptyDescription>
+                          No users have requested new invitations.
+                        </EmptyDescription>
+                      </EmptyContent>
+                    </Empty>
+                  ) : (
+                    requests.map((request: any) => (
+                      <div
+                        className="flex flex-col gap-2 rounded-lg border border-blue-200 bg-blue-50 p-3 sm:flex-row sm:items-center sm:justify-between"
+                        key={request._id}
+                      >
+                        <div className="flex min-w-0 items-center gap-3">
+                          <div className="flex h-10 w-10 flex-shrink-0 items-center justify-center rounded-full bg-blue-100">
+                            <Mail className="h-5 w-5 text-blue-600" />
+                          </div>
+                          <div className="min-w-0 flex-1">
+                            <p className="truncate font-medium">
+                              {request.userEmail}
+                            </p>
+                            <p className="truncate text-muted-foreground text-xs">
+                              Request #{request.requestNumber} •{" "}
+                              {formatRelativeTime(request.requestedAt)}
+                            </p>
+                          </div>
+                        </div>
+                        <div className="flex items-center gap-2 pl-[52px] sm:pl-0">
+                          <Button
+                            disabled={loading === request._id}
+                            onClick={() => handleApproveRequest(request._id)}
+                            size="sm"
+                            variant="outline"
+                          >
+                            {loading === request._id ? (
+                              <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                            ) : null}
+                            Approve
+                          </Button>
+                          <Button
+                            disabled={loading === request._id}
+                            onClick={() => handleDenyRequest(request._id)}
+                            size="sm"
+                            variant="ghost"
+                          >
+                            <X className="h-4 w-4" />
+                          </Button>
+                        </div>
+                      </div>
+                    ))
+                  )}
+                </TabsContent>
+
+                {/* Declined tab */}
+                <TabsContent className="space-y-3" value="declined">
+                  {declined.length === 0 ? (
+                    <Empty>
+                      <EmptyContent>
+                        <EmptyMedia variant="icon">
+                          <UserCircle className="h-6 w-6" />
+                        </EmptyMedia>
+                        <EmptyTitle>No declined child links</EmptyTitle>
+                        <EmptyDescription>
+                          No parents have declined child links.
+                        </EmptyDescription>
+                      </EmptyContent>
+                    </Empty>
+                  ) : (
+                    declined.map((link: any) => (
+                      <div
+                        className="flex flex-col gap-2 rounded-lg border border-red-200 bg-red-50 p-3 sm:flex-row sm:items-center sm:justify-between"
+                        key={link.linkId}
+                      >
+                        <div className="flex min-w-0 items-center gap-3">
+                          <div className="flex h-10 w-10 flex-shrink-0 items-center justify-center rounded-full bg-red-100">
+                            <UserCircle className="h-5 w-5 text-red-600" />
+                          </div>
+                          <div className="min-w-0 flex-1">
+                            <p className="truncate font-medium">
+                              {link.guardianName}{" "}
+                              <span className="text-muted-foreground">
+                                ({link.guardianEmail})
+                              </span>
+                            </p>
+                            <p className="truncate text-muted-foreground text-xs">
+                              Declined link to{" "}
+                              <strong>{link.playerName}</strong> •{" "}
+                              {formatRelativeTime(link.declinedAt)}
+                            </p>
+                          </div>
+                        </div>
+                        <div className="flex items-center gap-2 pl-[52px] sm:pl-0">
+                          <Button
+                            disabled={loading === link.linkId}
+                            onClick={() => handleResendChildLink(link.linkId)}
+                            size="sm"
+                            variant="outline"
+                          >
+                            {loading === link.linkId ? (
+                              <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                            ) : (
+                              <Send className="mr-2 h-4 w-4" />
+                            )}
+                            Resend
+                          </Button>
+                        </div>
+                      </div>
+                    ))
+                  )}
+                </TabsContent>
+              </Tabs>
+            </CardContent>
+          </Card>
+        );
+      })()}
       {/* Search and Filter */}
-      <div className="flex flex-col gap-4 sm:flex-row">
+      <div className="flex flex-col gap-4 sm:flex-row sm:items-center">
         <div className="relative max-w-md flex-1">
           <Search className="-translate-y-1/2 absolute top-1/2 left-3 h-4 w-4 text-muted-foreground" />
           <Input
             className="pl-10"
             onChange={(e) => setSearchTerm(e.target.value)}
-            placeholder="Search users by name or email..."
+            placeholder="Search by name, email, phone, or postcode..."
             value={searchTerm}
           />
         </div>
-        {roleFilter !== "all" && (
+        {/* Profile Status Filter */}
+        <select
+          className="h-10 rounded-md border border-input bg-background px-3 py-2 text-sm ring-offset-background focus:outline-none focus:ring-2 focus:ring-ring focus:ring-offset-2"
+          onChange={(e) => setProfileStatusFilter(e.target.value)}
+          value={profileStatusFilter}
+        >
+          <option value="all">All Profile Status</option>
+          <option value="completed">Profile Completed</option>
+          <option value="pending">Profile Pending</option>
+          <option value="skipped">Profile Skipped</option>
+        </select>
+        {/* Clear Filters */}
+        {(roleFilter !== "all" || profileStatusFilter !== "all") && (
           <Button
-            onClick={() => setRoleFilter("all")}
+            onClick={() => {
+              setRoleFilter("all");
+              setProfileStatusFilter("all");
+            }}
             size="sm"
             variant="ghost"
           >
             <X className="mr-2 h-4 w-4" />
-            Clear filter: {roleFilter}
+            Clear filters
           </Button>
         )}
       </div>
@@ -1321,21 +1638,27 @@ export default function ManageUsersPage() {
                 <Users className="h-6 w-6" />
               </EmptyMedia>
               <EmptyTitle>
-                {searchTerm || roleFilter !== "all"
+                {searchTerm ||
+                roleFilter !== "all" ||
+                profileStatusFilter !== "all"
                   ? "No results found"
                   : "No users yet"}
               </EmptyTitle>
               <EmptyDescription>
-                {searchTerm || roleFilter !== "all"
+                {searchTerm ||
+                roleFilter !== "all" ||
+                profileStatusFilter !== "all"
                   ? "Try adjusting your search or filter criteria"
                   : "Get started by inviting your first team member to join this organization"}
               </EmptyDescription>
-              {!searchTerm && roleFilter === "all" && (
-                <Button onClick={() => setInviteDialogOpen(true)}>
-                  <UserPlus className="mr-2 h-4 w-4" />
-                  Invite Member
-                </Button>
-              )}
+              {!searchTerm &&
+                roleFilter === "all" &&
+                profileStatusFilter === "all" && (
+                  <Button onClick={() => setInviteDialogOpen(true)}>
+                    <UserPlus className="mr-2 h-4 w-4" />
+                    Invite Member
+                  </Button>
+                )}
             </EmptyContent>
           </Empty>
         ) : (
@@ -1381,12 +1704,26 @@ export default function ManageUsersPage() {
                           <CardTitle className="truncate text-base">
                             {user.name || "Unknown"}
                           </CardTitle>
-                          <CardDescription className="flex min-w-0 items-center gap-1 text-sm">
-                            <Mail className="h-3 w-3 flex-shrink-0" />
-                            <span className="truncate">
-                              {user.email || "No email"}
-                            </span>
-                          </CardDescription>
+                          <div className="flex flex-wrap items-center gap-x-3 gap-y-1">
+                            <CardDescription className="flex min-w-0 items-center gap-1 text-sm">
+                              <Mail className="h-3 w-3 flex-shrink-0" />
+                              <span className="truncate">
+                                {user.email || "No email"}
+                              </span>
+                            </CardDescription>
+                            {user.phone && (
+                              <CardDescription className="flex items-center gap-1 text-sm">
+                                <Phone className="h-3 w-3 flex-shrink-0" />
+                                <span>{user.phone}</span>
+                              </CardDescription>
+                            )}
+                            {user.postcode && (
+                              <CardDescription className="flex items-center gap-1 text-sm">
+                                <MapPin className="h-3 w-3 flex-shrink-0" />
+                                <span>{user.postcode}</span>
+                              </CardDescription>
+                            )}
+                          </div>
                         </div>
                       </div>
 
@@ -1565,6 +1902,156 @@ export default function ManageUsersPage() {
                         also be a parent.
                       </p>
                     </div>
+
+                    {/* Profile Information (Phase 0: Onboarding Sync) */}
+                    <div className="space-y-3 rounded-lg border border-slate-200 bg-slate-50 p-4">
+                      <div className="flex items-center justify-between">
+                        <div className="flex items-center gap-2">
+                          <UserCircle className="h-4 w-4 text-slate-600" />
+                          <span className="font-semibold text-slate-700 text-sm">
+                            Profile Information
+                          </span>
+                        </div>
+                        {/* Profile completion status badge */}
+                        {(() => {
+                          const profileStatus =
+                            user.profileCompletionStatus || "pending";
+                          if (profileStatus === "completed") {
+                            return (
+                              <Badge className="border-green-300 bg-green-100 text-green-700">
+                                <CheckCircle2 className="mr-1 h-3 w-3" />
+                                Completed
+                              </Badge>
+                            );
+                          }
+                          if (profileStatus === "skipped") {
+                            return (
+                              <Badge className="border-amber-300 bg-amber-100 text-amber-700">
+                                <SkipForward className="mr-1 h-3 w-3" />
+                                Skipped ({user.profileSkipCount || 0}/3)
+                              </Badge>
+                            );
+                          }
+                          return (
+                            <Badge className="border-slate-300 bg-slate-100 text-slate-700">
+                              <Clock className="mr-1 h-3 w-3" />
+                              Pending
+                            </Badge>
+                          );
+                        })()}
+                      </div>
+
+                      <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
+                        {/* Phone */}
+                        <div className="flex items-start gap-2">
+                          <Phone className="mt-0.5 h-4 w-4 text-slate-500" />
+                          <div>
+                            <p className="font-medium text-slate-600 text-xs">
+                              Phone
+                            </p>
+                            <p className="text-sm">
+                              {user.phone || (
+                                <span className="text-muted-foreground italic">
+                                  Not provided
+                                </span>
+                              )}
+                            </p>
+                          </div>
+                        </div>
+
+                        {/* Postcode */}
+                        <div className="flex items-start gap-2">
+                          <MapPin className="mt-0.5 h-4 w-4 text-slate-500" />
+                          <div>
+                            <p className="font-medium text-slate-600 text-xs">
+                              Postcode
+                            </p>
+                            <p className="text-sm">
+                              {user.postcode || (
+                                <span className="text-muted-foreground italic">
+                                  Not provided
+                                </span>
+                              )}
+                            </p>
+                          </div>
+                        </div>
+
+                        {/* Alt Email */}
+                        <div className="flex items-start gap-2">
+                          <Mail className="mt-0.5 h-4 w-4 text-slate-500" />
+                          <div>
+                            <p className="font-medium text-slate-600 text-xs">
+                              Alternate Email
+                            </p>
+                            <p className="text-sm">
+                              {user.altEmail || (
+                                <span className="text-muted-foreground italic">
+                                  Not provided
+                                </span>
+                              )}
+                            </p>
+                          </div>
+                        </div>
+
+                        {/* Profile Completed At */}
+                        {user.profileCompletedAt && (
+                          <div className="flex items-start gap-2">
+                            <CheckCircle2 className="mt-0.5 h-4 w-4 text-slate-500" />
+                            <div>
+                              <p className="font-medium text-slate-600 text-xs">
+                                Completed At
+                              </p>
+                              <p className="text-sm">
+                                {new Date(
+                                  user.profileCompletedAt
+                                ).toLocaleDateString()}
+                              </p>
+                            </div>
+                          </div>
+                        )}
+                      </div>
+                    </div>
+
+                    {/* Address Section (Phase 0.6) */}
+                    {(user.address ||
+                      user.address2 ||
+                      user.town ||
+                      user.county ||
+                      user.country) && (
+                      <div className="space-y-3 rounded-lg border border-slate-200 bg-slate-50 p-4">
+                        <div className="flex items-center gap-2">
+                          <Home className="h-4 w-4 text-slate-600" />
+                          <span className="font-semibold text-slate-700 text-sm">
+                            Address
+                          </span>
+                        </div>
+                        <div className="text-sm">
+                          {/* Address Line 1 (with optional Line 2) */}
+                          {user.address && (
+                            <p>
+                              {user.address}
+                              {user.address2 && `, ${user.address2}`}
+                            </p>
+                          )}
+                          {/* Town/City and Postcode */}
+                          {(user.town || user.postcode) && (
+                            <p>
+                              {user.town}
+                              {user.town && user.postcode && ", "}
+                              {user.postcode}
+                            </p>
+                          )}
+                          {/* County and Country */}
+                          {(user.county || user.country) && (
+                            <p>
+                              {user.county && `County ${user.county}`}
+                              {user.county && user.country && ", "}
+                              {user.country && getCountryName(user.country)}
+                            </p>
+                          )}
+                        </div>
+                      </div>
+                    )}
 
                     {/* Coach Settings */}
                     {state.functionalRoles.includes("coach") && (

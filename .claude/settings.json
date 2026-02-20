@@ -2,30 +2,125 @@
   "hooks": {
     "PostToolUse": [
       {
-        "matcher": "Edit|Write",
+        "matcher": "tool == \"Edit\" || tool == \"Write\"",
         "hooks": [
           {
             "type": "command",
-            "command": "npx ultracite fix $CLAUDE_FILE_PATH 2>/dev/null || true",
-            "statusMessage": "Formatting file..."
+            "command": "npx ultracite fix \"$CLAUDE_FILE_PATH\" 2>/dev/null || true",
+            "statusMessage": "Formatting file...",
+            "description": "Auto-format with ultracite"
           },
           {
             "type": "command",
-            "command": "npx biome check --max-diagnostics=10 $CLAUDE_FILE_PATH 2>&1 | head -40",
-            "statusMessage": "Checking linting..."
+            "command": "npx biome check --max-diagnostics=10 \"$CLAUDE_FILE_PATH\" 2>&1 | head -40 || true",
+            "statusMessage": "Checking linting...",
+            "description": "Lint check with biome"
+          },
+          {
+            "type": "command",
+            "command": "cd \"$CLAUDE_PROJECT_DIR\" && npx tsc --noEmit --pretty 2>&1 | grep -A 2 \"$(basename \"$CLAUDE_FILE_PATH\")\" | head -20 || true",
+            "statusMessage": "Type checking...",
+            "timeout": 30,
+            "description": "TypeScript type check scoped to edited file"
+          },
+          {
+            "type": "command",
+            "command": "\"$CLAUDE_PROJECT_DIR\"/.claude/hooks/quality-check.sh",
+            "statusMessage": "🔍 Auto quality check...",
+            "async": true,
+            "timeout": 30,
+            "description": "Intelligent quality analysis for backend files"
           }
-        ]
+        ],
+        "description": "Format, lint, and quality check on file write/edit"
+      },
+      {
+        "matcher": "tool == \"Bash\" && tool_input.command matches \"git commit\"",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "\"$CLAUDE_PROJECT_DIR\"/.claude/hooks/security-check.sh",
+            "statusMessage": "🔒 Auto security review...",
+            "async": true,
+            "timeout": 60,
+            "description": "Security review of committed changes"
+          }
+        ],
+        "description": "Security review on git commits"
       }
     ],
     "PreToolUse": [
       {
-        "matcher": "Bash",
+        "matcher": "tool == \"Bash\" && tool_input.command matches \"(git reset --hard|git clean -f|rm -rf)\"",
         "hooks": [
           {
             "type": "command",
-            "command": "if echo \"$CLAUDE_BASH_COMMAND\" | grep -qE 'git commit'; then echo '⚠️  PRE-COMMIT: Checking staged files...' && git diff --cached --name-only 2>/dev/null | grep -E '\\.(ts|tsx)$' | head -3 | while read f; do npx biome check --max-diagnostics=5 \"$f\" 2>&1 | head -15; done; fi || true"
+            "command": "\"$CLAUDE_PROJECT_DIR\"/.claude/hooks/dangerous-command-check.sh",
+            "timeout": 5,
+            "description": "Block dangerous commands"
           }
-        ]
+        ],
+        "description": "Prevent destructive operations"
+      },
+      {
+        "matcher": "tool == \"Write\" && tool_input.file_path matches \"\\.(md|MD)$\" && !(tool_input.file_path matches \"(\\.claude/|docs/|scripts/ralph/|CLAUDE\\.md|\\.ruler/)\")",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "echo '⚠️  Creating a new markdown file outside docs/, scripts/ralph/, or .claude/. Ralph tends to create excessive documentation files. Consider whether this file is truly necessary or if the content belongs in an existing doc.' && exit 0",
+            "timeout": 3,
+            "description": "Warn about unnecessary markdown file creation"
+          }
+        ],
+        "description": "Warn when creating markdown files outside expected locations"
+      }
+    ],
+    "SessionStart": [
+      {
+        "matcher": "*",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "\"$CLAUDE_PROJECT_DIR\"/.claude/hooks/session-start.sh",
+            "timeout": 10,
+            "description": "Ralph project status check on session start"
+          },
+          {
+            "type": "command",
+            "command": "\"$CLAUDE_PROJECT_DIR\"/.claude/hooks/check-new-prd.sh",
+            "timeout": 5,
+            "description": "Check for new PRD phases and notify user"
+          }
+        ],
+        "description": "Check Ralph and agent status at session start"
+      }
+    ],
+    "Stop": [
+      {
+        "matcher": "*",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "cd \"$CLAUDE_PROJECT_DIR\" && CONSOLE_LOGS=$(git diff --name-only HEAD 2>/dev/null | xargs grep -l 'console\\.log' 2>/dev/null | grep -v node_modules | grep -v '\\.test\\.' | grep -v '__tests__' || true) && if [ -n \"$CONSOLE_LOGS\" ]; then echo \"⚠️  console.log found in changed files:\" && echo \"$CONSOLE_LOGS\" && echo \"Remove before committing.\"; fi && exit 0",
+            "timeout": 5,
+            "description": "Check for leftover console.log in changed files"
+          }
+        ],
+        "description": "Detect console.log statements before session ends"
+      }
+    ],
+    "SessionEnd": [
+      {
+        "matcher": "*",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "\"$CLAUDE_PROJECT_DIR\"/.claude/hooks/session-end.sh",
+            "timeout": 5,
+            "description": "Ralph session summary"
+          }
+        ],
+        "description": "Show session summary on exit"
       }
     ]
   }

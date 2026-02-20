@@ -50,9 +50,12 @@ type PlayerData = {
   teams?: Team[];
   injuryNotes?: string;
   dateOfBirth?: string;
+  email?: string;
+  phone?: string;
   address?: string;
   town?: string;
   postcode?: string;
+  country?: string;
 };
 
 type Props = {
@@ -209,21 +212,76 @@ export function BasicInformationSection({ player }: Props) {
                 </div>
               )}
 
+              {/* Contact Information */}
+              {(player.email || player.phone) && (
+                <div className="border-t pt-4">
+                  <h4 className="mb-3 font-semibold text-muted-foreground text-sm uppercase tracking-wide">
+                    Contact Information
+                  </h4>
+                  <div className="grid grid-cols-1 gap-4 md:grid-cols-2">
+                    {player.email && (
+                      <div>
+                        <dt className="font-medium text-muted-foreground text-xs uppercase tracking-wide">
+                          Email
+                        </dt>
+                        <dd className="mt-1">
+                          <a
+                            className="flex items-center gap-2 font-medium text-sm transition-colors hover:text-blue-600"
+                            href={`mailto:${player.email}`}
+                          >
+                            <Mail className="h-4 w-4 text-muted-foreground" />
+                            <span>{player.email}</span>
+                          </a>
+                        </dd>
+                      </div>
+                    )}
+                    {player.phone && (
+                      <div>
+                        <dt className="font-medium text-muted-foreground text-xs uppercase tracking-wide">
+                          Phone
+                        </dt>
+                        <dd className="mt-1">
+                          <a
+                            className="flex items-center gap-2 font-medium text-sm transition-colors hover:text-blue-600"
+                            href={`tel:${player.phone}`}
+                          >
+                            <Phone className="h-4 w-4 text-muted-foreground" />
+                            <span>{player.phone}</span>
+                          </a>
+                        </dd>
+                      </div>
+                    )}
+                  </div>
+                </div>
+              )}
+
               {/* Address Information */}
-              {(player.address || player.town || player.postcode) && (
+              {(player.address ||
+                player.town ||
+                player.postcode ||
+                player.country) && (
                 <div className="border-t pt-4">
                   <h4 className="mb-3 font-semibold text-muted-foreground text-sm uppercase tracking-wide">
                     Address
                   </h4>
                   <div className="grid grid-cols-1 gap-4 md:grid-cols-2">
                     {player.address && (
-                      <InfoField label="Address" value={player.address} />
+                      <InfoField
+                        label="Street Address"
+                        value={player.address}
+                      />
                     )}
                     {player.town && (
-                      <InfoField label="Town" value={player.town} />
+                      <InfoField label="Town / City" value={player.town} />
                     )}
                     {player.postcode && (
-                      <InfoField label="Postcode" value={player.postcode} />
+                      <InfoField
+                        label="Postcode / Eircode"
+                        value={player.postcode}
+                      />
+                    )}
+                    {player.country && (
+                      <InfoField label="Country" value={player.country} />
                     )}
                   </div>
                 </div>

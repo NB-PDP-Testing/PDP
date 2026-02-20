@@ -64,10 +64,16 @@ export default function Home() {
       return;
     }
 
-    // If member not found, user might not be part of this org
+    // If member not found, user is not part of this org
+    // Redirect to home which will route them appropriately:
+    // - Platform staff → /orgs
+    // - Users with other org memberships → their org
+    // - Users with no memberships → /orgs/join
     if (member === null) {
-      console.log("[OrgDashboard] User is not a member, redirecting to orgs");
-      router.push("/orgs");
+      console.log(
+        "[OrgDashboard] User is not a member of this org, redirecting to home for re-routing"
+      );
+      router.push("/");
       return;
     }
 
@@ -164,10 +170,10 @@ export default function Home() {
               </button>
               <button
                 className="rounded-md border border-red-300 px-4 py-2 font-medium text-red-700 text-sm hover:bg-red-100"
-                onClick={() => router.push("/orgs")}
+                onClick={() => router.push("/")}
                 type="button"
               >
-                Back to Organizations
+                Back to Home
               </button>
             </div>
           </div>

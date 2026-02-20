@@ -199,13 +199,27 @@ export const checkCoachParentAccess = query({
       };
     }
 
-    // PRIORITY 7: Individual override (admin approved)
-    if (coachPref?.trustGateOverride === true) {
-      // Check if expired
+    // PRIORITY 7: Individual override OR AI control rights (admin approved)
+    if (
+      coachPref?.trustGateOverride === true ||
+      coachPref?.aiControlRightsEnabled === true
+    ) {
+      // Check if override expired (only applies to trustGateOverride, not aiControlRights)
       if (
+        coachPref?.trustGateOverride === true &&
         coachPref.overrideExpiresAt &&
         coachPref.overrideExpiresAt < Date.now()
       ) {
+        // If trust override expired but they have AI control rights, still give access
+        if (coachPref?.aiControlRightsEnabled === true) {
+          return {
+            hasAccess: true,
+            reason: "AI control rights enabled",
+            canRequest: false,
+            canToggle: true,
+          };
+        }
+
         return {
           hasAccess: false,
           reason: "Your override access has expired",
@@ -217,7 +231,9 @@ export const checkCoachParentAccess = query({
       return {
         hasAccess: true,
         reason:
-          coachPref.overrideReason || "Admin granted you temporary access",
+          coachPref?.trustGateOverride === true
+            ? coachPref.overrideReason || "Admin granted you temporary access"
+            : "AI control rights enabled",
         canRequest: false,
         canToggle: true, // Can toggle off if they want
       };
@@ -1733,6 +1749,23 @@ export const getCoachOrgPreferences = query({
       aiInsightMatchingEnabled: v.optional(v.boolean()),
       autoApplyInsightsEnabled: v.optional(v.boolean()),
       parentSummariesEnabled: v.optional(v.boolean()),
+      // View preferences
+      teamInsightsViewPreference: v.optional(
+        v.union(
+          v.literal("list"),
+          v.literal("board"),
+          v.literal("calendar"),
+          v.literal("players")
+        )
+      ),
+      // Mobile gesture preferences
+      gesturesEnabled: v.optional(v.boolean()),
+      swipeRightAction: v.optional(
+        v.union(v.literal("apply"), v.literal("dismiss"), v.literal("disabled"))
+      ),
+      swipeLeftAction: v.optional(
+        v.union(v.literal("apply"), v.literal("dismiss"), v.literal("disabled"))
+      ),
     }),
     v.null()
   ),
@@ -1766,6 +1799,12 @@ export const getCoachOrgPreferences = query({
       aiInsightMatchingEnabled: coachPref.aiInsightMatchingEnabled,
       autoApplyInsightsEnabled: coachPref.autoApplyInsightsEnabled,
       parentSummariesEnabled: coachPref.parentSummariesEnabled,
+      // View preferences
+      teamInsightsViewPreference: coachPref.teamInsightsViewPreference,
+      // Mobile gesture preferences
+      gesturesEnabled: coachPref.gesturesEnabled,
+      swipeRightAction: coachPref.swipeRightAction,
+      swipeLeftAction: coachPref.swipeLeftAction,
     };
   },
 });
@@ -1821,6 +1860,87 @@ export const toggleAIFeatureSetting = mutation({
       [args.feature]: args.enabled,
       updatedAt: Date.now(),
     });
+
+    return { success: true };
+  },
+});
+
+/**
+ * Update coach org preferences (view preferences, etc.)
+ * Used by coaches to persist UI preferences
+ */
+export const updateCoachOrgPreference = mutation({
+  args: {
+    organizationId: v.string(),
+    teamInsightsViewPreference: v.optional(
+      v.union(
+        v.literal("list"),
+        v.literal("board"),
+        v.literal("calendar"),
+        v.literal("players")
+      )
+    ),
+    gesturesEnabled: v.optional(v.boolean()),
+    swipeRightAction: v.optional(
+      v.union(v.literal("apply"), v.literal("dismiss"), v.literal("disabled"))
+    ),
+    swipeLeftAction: v.optional(
+      v.union(v.literal("apply"), v.literal("dismiss"), v.literal("disabled"))
+    ),
+  },
+  returns: v.object({
+    success: v.boolean(),
+  }),
+  handler: async (ctx, args) => {
+    // Verify authenticated
+    const currentUser = await authComponent.safeGetAuthUser(ctx);
+    if (!currentUser) {
+      throw new Error("User not found");
+    }
+
+    // Get or create coach preferences
+    const coachPref = await ctx.db
+      .query("coachOrgPreferences")
+      .withIndex("by_coach_org", (q) =>
+        q
+          .eq("coachId", currentUser._id)
+          .eq("organizationId", args.organizationId)
+      )
+      .first();
+
+    if (coachPref) {
+      // Update existing preferences
+      const updates: Record<string, unknown> = {
+        updatedAt: Date.now(),
+      };
+
+      if (args.teamInsightsViewPreference !== undefined) {
+        updates.teamInsightsViewPreference = args.teamInsightsViewPreference;
+      }
+      if (args.gesturesEnabled !== undefined) {
+        updates.gesturesEnabled = args.gesturesEnabled;
+      }
+      if (args.swipeRightAction !== undefined) {
+        updates.swipeRightAction = args.swipeRightAction;
+      }
+      if (args.swipeLeftAction !== undefined) {
+        updates.swipeLeftAction = args.swipeLeftAction;
+      }
+
+      await ctx.db.patch(coachPref._id, updates);
+    } else {
+      // Create new preferences record
+      await ctx.db.insert("coachOrgPreferences", {
+        coachId: currentUser._id,
+        organizationId: args.organizationId,
+        teamInsightsViewPreference: args.teamInsightsViewPreference,
+        gesturesEnabled: args.gesturesEnabled,
+        swipeRightAction: args.swipeRightAction,
+        swipeLeftAction: args.swipeLeftAction,
+        createdAt: Date.now(),
+        updatedAt: Date.now(),
+      });
+    }
 
     return { success: true };
   },

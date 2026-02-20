@@ -38,6 +38,10 @@ export const test = base.extend<{
       storageState: fs.existsSync(storageState) ? storageState : undefined,
     });
     const page = await context.newPage();
+    // Pre-dismiss the AI Coach Assistant help dialog
+    await page.addInitScript(() => {
+      localStorage.setItem("voice-notes-help-guide-seen", "true");
+    });
     await use(page);
     await context.close();
   },
@@ -50,6 +54,10 @@ export const test = base.extend<{
       storageState: fs.existsSync(storageState) ? storageState : undefined,
     });
     const page = await context.newPage();
+    // Pre-dismiss the AI Coach Assistant help dialog
+    await page.addInitScript(() => {
+      localStorage.setItem("voice-notes-help-guide-seen", "true");
+    });
     await use(page);
     await context.close();
   },
@@ -62,6 +70,10 @@ export const test = base.extend<{
       storageState: fs.existsSync(storageState) ? storageState : undefined,
     });
     const page = await context.newPage();
+    // Pre-dismiss the AI Coach Assistant help dialog that appears on first visit
+    await page.addInitScript(() => {
+      localStorage.setItem("voice-notes-help-guide-seen", "true");
+    });
     await use(page);
     await context.close();
   },
@@ -96,6 +108,116 @@ export async function dismissPWAPrompt(page: Page): Promise<void> {
  */
 export async function waitForPageLoad(page: Page): Promise<void> {
   await page.waitForLoadState("networkidle");
+}
+
+/**
+ * Helper to dismiss any blocking dialogs that appear after navigation.
+ *
+ * Known blocking dialogs:
+ * 1. Onboarding ChildLinkingStep - AlertDialog for parent child confirmation
+ *    (appears when a user with parent role has pending guardianPlayerLinks)
+ *    Has "Accept All" and optionally "Skip for Now" buttons.
+ *    "Skip for Now" has a max count of 3 so use "Accept All" as primary action.
+ * 2. PWA install prompt
+ *
+ * Call this after navigating to a page where blocking dialogs may appear.
+ */
+export async function dismissBlockingDialogs(page: Page): Promise<void> {
+  // Wait for the onboarding dialog to potentially appear.
+  // The dialog loads from an async Convex query (getOnboardingTasks).
+  // First wait briefly for data to load, then check for dialog.
+  await page.waitForTimeout(1500);
+
+  // Handle up to 3 sequential dialogs (privacy, additional info, onboarding)
+  for (let i = 0; i < 3; i++) {
+    try {
+      const alertDialog = page.locator('[role="alertdialog"]');
+      // Quick check if dialog is already visible
+      if (!(await alertDialog.isVisible({ timeout: 2000 }).catch(() => false))) {
+        break; // No dialog, we're done
+      }
+
+      // Check if this is the privacy consent dialog
+      const privacyCheckbox = page.getByRole("checkbox", { name: /privacy policy/i });
+      if (await privacyCheckbox.isVisible({ timeout: 1000 }).catch(() => false)) {
+        // Privacy consent dialog - check the required checkbox
+        await privacyCheckbox.click();
+        await page.waitForTimeout(500);
+
+        // Click the Accept & Continue button (should now be enabled)
+        const acceptButton = page.getByRole("button", { name: /accept.*continue/i });
+        await acceptButton.click();
+        await page.waitForTimeout(2000);
+        continue; // Check for next dialog
+      }
+
+      // Check if this is the "Additional Information" dialog (profile completion)
+      const additionalInfoHeading = page.getByRole("heading", { name: /additional information/i });
+      if (await additionalInfoHeading.isVisible({ timeout: 1000 }).catch(() => false)) {
+        // Fill required fields: phone, address, city, postcode
+        const phoneInput = page.getByPlaceholder("Enter phone number");
+        if (await phoneInput.count() > 0) {
+          const currentVal = await phoneInput.inputValue().catch(() => "");
+          if (!currentVal || currentVal === "+353") await phoneInput.fill("0871234567");
+        }
+        const addrInput = page.getByPlaceholder("123 Main Street");
+        if (await addrInput.count() > 0) await addrInput.fill("123 Test Street");
+        const cityInput = page.getByPlaceholder("Dublin");
+        if (await cityInput.count() > 0) await cityInput.fill("Dublin");
+        const postcodeInput = page.getByPlaceholder(/d02 xy45/i);
+        if (await postcodeInput.count() > 0) await postcodeInput.fill("D02 XY45");
+        await page.waitForTimeout(300);
+
+        // Click Save & Continue (use exact text)
+        const saveButton = page.getByRole("button", { name: "Save & Continue" });
+        await saveButton.click({ timeout: 5000 });
+        await page.waitForTimeout(1500);
+        continue; // Check for next dialog
+      }
+
+      // Other onboarding dialogs — dismiss them by accepting all children (permanent fix)
+      // or skipping if accept all isn't available
+      const acceptAllButton = page.getByRole("button", { name: /accept all/i });
+      if (await acceptAllButton.isVisible({ timeout: 1000 }).catch(() => false)) {
+        await acceptAllButton.click();
+        await page.waitForTimeout(1500);
+        continue;
+      }
+
+      const skipButton = page.getByRole("button", { name: /skip for now/i });
+      if (await skipButton.isVisible({ timeout: 1000 }).catch(() => false)) {
+        await skipButton.click();
+        await page.waitForTimeout(1500);
+        continue;
+      }
+
+      // Last resort: click the first Accept button for an individual child
+      const acceptButton = page.getByRole("button", { name: /accept link to/i }).first()
+        .or(page.getByRole("button", { name: /^accept$/i }).first());
+      if (await acceptButton.isVisible({ timeout: 1000 }).catch(() => false)) {
+        await acceptButton.click();
+        await page.waitForTimeout(1000);
+        // Check if dialog closed, if not try again
+        if (await alertDialog.isVisible({ timeout: 500 }).catch(() => false)) {
+          const nextAccept = page.getByRole("button", { name: /^accept$/i }).first();
+          if (await nextAccept.isVisible({ timeout: 500 }).catch(() => false)) {
+            await nextAccept.click();
+            await page.waitForTimeout(1000);
+          }
+        }
+        continue;
+      }
+
+      // No known dialog type found, break to avoid infinite loop
+      break;
+    } catch (error) {
+      // Error handling dialog, continue to next iteration
+      console.log(`Dialog handling error (iteration ${i}):`, error);
+    }
+  }
+
+  // Dismiss PWA prompt
+  await dismissPWAPrompt(page);
 }
 
 /**

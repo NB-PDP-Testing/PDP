@@ -1,0 +1,166 @@
+{
+  "project": "PlayerARC - Phase 1.1: Import Database Foundation",
+  "branchName": "ralph/phase-1.1-import-database-foundation",
+  "description": "Create the database foundation for the generic import framework. Add 4 new tables (importTemplates, importSessions, importMappingHistory, benchmarkTemplates), extend existing tables with import tracking fields, and implement CRUD mutations/queries for templates and sessions. Seed default GAA Foireann and Generic CSV templates.",
+  "prdFile": "scripts/ralph/prds/Importing Members/phase-1-foundation.md",
+  "contextFiles": [
+    "packages/backend/convex/schema.ts",
+    "packages/backend/convex/models/playerImport.ts",
+    "packages/backend/convex/betterAuth/schema.ts",
+    "CLAUDE.md"
+  ],
+  "mandatoryPatterns": [
+    "Use Convex function syntax with args and returns validators",
+    "Use .withIndex() never .filter() for queries",
+    "All new tables must have appropriate indexes for every query pattern",
+    "Follow batch fetch + Map lookup pattern for related data (no N+1)",
+    "Use v.id() for all foreign key references to Convex tables",
+    "Use v.string() for Better Auth IDs (organizationId, userId)",
+    "Run npx ultracite fix before completing any story",
+    "Run npx -w packages/backend convex codegen to verify schema changes"
+  ],
+  "successCriteria": [
+    "4 new tables created in schema.ts with all required indexes",
+    "importTemplates CRUD mutations and queries work correctly",
+    "importSessions lifecycle mutations (create, update status, update selections, set benchmarks) work",
+    "importMappingHistory query/update functions work",
+    "Default GAA Foireann template is seeded and queryable",
+    "Default Generic CSV template is seeded and queryable",
+    "playerIdentities table extended with importSessionId and externalIds fields",
+    "orgPlayerEnrollments table extended with importSessionId, lastSyncedAt, syncSource fields",
+    "All type checks pass: npm run check-types",
+    "Convex codegen succeeds: npx -w packages/backend convex codegen"
+  ],
+  "userStories": [
+    {
+      "id": "US-P1.1-001",
+      "title": "Add importTemplates table to schema",
+      "description": "As a developer, I need a table to store sport-specific and organization-specific import configurations (column mappings, age group mappings, skill initialization strategy, defaults).",
+      "acceptanceCriteria": [
+        "Add importTemplates table to packages/backend/convex/schema.ts with all fields from Phase 1 PRD section 'New Tables > importTemplates'",
+        "Fields: name, description, sportCode, sourceType (csv/excel/paste), scope (platform/organization), organizationId, columnMappings array, ageGroupMappings array, skillInitialization object, defaults object, isActive, createdBy, createdAt, updatedAt",
+        "Add indexes: by_scope, by_sportCode, by_organizationId, by_scope_and_sport",
+        "Run npx -w packages/backend convex codegen successfully",
+        "Typecheck passes: npm run check-types"
+      ],
+      "priority": 1,
+      "passes": false,
+      "notes": "Schema foundation. Reference phase-1-foundation.md for exact field definitions."
+    },
+    {
+      "id": "US-P1.1-002",
+      "title": "Add importSessions table to schema",
+      "description": "As a developer, I need a table to track each import execution with full audit trail including status, source info, mappings, player selections, benchmark settings, stats, errors, and duplicates.",
+      "acceptanceCriteria": [
+        "Add importSessions table to packages/backend/convex/schema.ts with all fields from Phase 1 PRD section 'New Tables > importSessions'",
+        "Status union: uploading, mapping, selecting, reviewing, importing, completed, failed, cancelled",
+        "Include sourceInfo object, mappings record, playerSelections array, benchmarkSettings object, stats object, errors array, duplicates array",
+        "Add indexes: by_organizationId, by_status, by_initiatedBy, by_startedAt, by_org_and_status",
+        "Run npx -w packages/backend convex codegen successfully"
+      ],
+      "priority": 2,
+      "passes": false,
+      "notes": "The duplicates array references v.id('playerIdentities') for existingPlayerId."
+    },
+    {
+      "id": "US-P1.1-003",
+      "title": "Add importMappingHistory and benchmarkTemplates tables to schema",
+      "description": "As a developer, I need tables for learning from past imports (mapping history) and custom benchmark configurations per sport/organization.",
+      "acceptanceCriteria": [
+        "Add importMappingHistory table with fields: organizationId, templateId, sourceColumnName, normalizedColumnName, targetField, usageCount, lastUsedAt, confidence, createdAt",
+        "Add importMappingHistory indexes: by_normalizedColumnName, by_organizationId, by_templateId, by_targetField",
+        "Add benchmarkTemplates table with fields: name, sportCode, scope (platform/organization), organizationId, benchmarks array (skillCode, ageGroup, expectedRating, minAcceptable, description), isActive, createdAt",
+        "Add benchmarkTemplates indexes: by_sportCode, by_scope, by_organizationId",
+        "Run npx -w packages/backend convex codegen successfully"
+      ],
+      "priority": 3,
+      "passes": false,
+      "notes": "benchmarkTemplates is different from the existing skillBenchmarks table."
+    },
+    {
+      "id": "US-P1.1-004",
+      "title": "Extend existing tables with import tracking fields",
+      "description": "As a developer, I need to track which import session created each player identity and enrollment, plus external system IDs for deduplication.",
+      "acceptanceCriteria": [
+        "Add to playerIdentities table: importSessionId: v.optional(v.id('importSessions')), externalIds: v.optional(v.record(v.string(), v.string()))",
+        "Add to orgPlayerEnrollments table: importSessionId: v.optional(v.id('importSessions')), lastSyncedAt: v.optional(v.number()), syncSource: v.optional(v.string())",
+        "Both fields are optional to maintain backward compatibility with existing data",
+        "Run npx -w packages/backend convex codegen successfully",
+        "Typecheck passes: npm run check-types"
+      ],
+      "priority": 4,
+      "passes": false,
+      "notes": "externalIds is a record like {'foireann': '12345'} for cross-system deduplication."
+    },
+    {
+      "id": "US-P1.1-005",
+      "title": "Create importTemplates CRUD mutations and queries",
+      "description": "As an admin, I need to create, read, update, delete, and clone import templates for my organization or the platform.",
+      "acceptanceCriteria": [
+        "Create packages/backend/convex/models/importTemplates.ts",
+        "Implement createTemplate mutation with full args validation and returns validator",
+        "Implement updateTemplate mutation (by template ID)",
+        "Implement deleteTemplate mutation (soft delete via isActive = false)",
+        "Implement cloneTemplate mutation (create copy with new name)",
+        "Implement getTemplate query (by ID)",
+        "Implement listTemplates query (by scope, with optional sportCode filter, using indexes)",
+        "All queries use .withIndex() - never .filter()",
+        "Run npx ultracite fix and npx -w packages/backend convex codegen"
+      ],
+      "priority": 5,
+      "passes": false,
+      "notes": "Include returns validators on all functions."
+    },
+    {
+      "id": "US-P1.1-006",
+      "title": "Create importSessions lifecycle mutations and queries",
+      "description": "As the import system, I need to create sessions, track status transitions, store player selections, and record import statistics.",
+      "acceptanceCriteria": [
+        "Create packages/backend/convex/models/importSessions.ts",
+        "Implement createImportSession mutation (creates with status 'uploading', returns session ID)",
+        "Implement updateSessionStatus mutation (validates status transitions)",
+        "Implement updatePlayerSelections mutation (stores array of row selections)",
+        "Implement setBenchmarkSettings mutation (stores benchmark configuration)",
+        "Implement recordSessionStats mutation (stores final import statistics)",
+        "Implement getSession query (by ID, returns full session data)",
+        "Implement listSessionsByOrg query (by organizationId, ordered by startedAt desc, using by_org_and_status index)",
+        "All queries use .withIndex() - never .filter()"
+      ],
+      "priority": 6,
+      "passes": false,
+      "notes": "Status transitions: uploading -> mapping -> selecting -> reviewing -> importing -> completed/failed. Allow cancelled from any non-terminal state."
+    },
+    {
+      "id": "US-P1.1-007",
+      "title": "Create importMappingHistory mutations and queries",
+      "description": "As the import system, I need to record column mapping decisions and query historical mappings to improve auto-mapping accuracy.",
+      "acceptanceCriteria": [
+        "Add to packages/backend/convex/models/importSessions.ts (or create separate file if cleaner)",
+        "Implement recordMappingHistory mutation (upsert: increment usageCount if exists, create if new)",
+        "Implement getHistoricalMappings query (by normalizedColumnName and optional organizationId)",
+        "Implement getBestMapping query (returns highest confidence mapping for a given column name)",
+        "Normalize column names: lowercase, trim, remove special characters",
+        "All queries use .withIndex() - never .filter()"
+      ],
+      "priority": 7,
+      "passes": false,
+      "notes": "This enables the 'historical match' strategy in mapper.ts (Phase 1.2)."
+    },
+    {
+      "id": "US-P1.1-008",
+      "title": "Seed default import templates",
+      "description": "As the platform, I need pre-configured templates for GAA Foireann exports and generic CSV imports so users can import immediately.",
+      "acceptanceCriteria": [
+        "Create packages/backend/convex/models/importTemplateSeeds.ts with seed data",
+        "Create a seedDefaultTemplates mutation that inserts templates if they don't already exist",
+        "GAA Foireann template: sportCode 'gaa_football', sourceType 'csv', scope 'platform', with 10+ column mappings",
+        "Generic CSV template: sportCode null (works for all sports), sourceType 'csv', scope 'platform', with regex-based column mappings",
+        "Both templates have skillInitialization strategy 'age-appropriate' for GAA, 'blank' for generic",
+        "Templates marked isActive: true"
+      ],
+      "priority": 8,
+      "passes": false,
+      "notes": "Check gaa-import.tsx for existing CSV header patterns to match."
+    }
+  ]
+}

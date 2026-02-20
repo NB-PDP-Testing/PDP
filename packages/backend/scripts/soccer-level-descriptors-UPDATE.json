@@ -1,0 +1,263 @@
+{
+  "sports": [
+    {
+      "sportCode": "soccer",
+      "categories": [
+        {
+          "name": "Ball Mastery",
+          "skills": [
+            {
+              "name": "Ball Control",
+              "level1Descriptor": "Learning fundamental control technique with 2-3 touches typically required. Inconsistent execution in practice with frequent ball loss. Cannot maintain control under any pressure and requires constant coaching support on body shape and receiving surface.",
+              "level2Descriptor": "Basic technique established with 1-2 touches in controlled environments. Moderate consistency in practice but struggles under light pressure. Can receive ground balls reliably but inconsistent with varied heights, requiring periodic coaching cues.",
+              "level3Descriptor": "Good technique with consistent 1-touch control in most situations, showing directional awareness. Effective under moderate pressure in matches with good body positioning. Can receive balls at various heights with minimal coaching needed.",
+              "level4Descriptor": "Excellent technique with high consistency under heavy pressure, using optimal receiving surface instinctively. Controls ball effectively in all match situations regardless of ball trajectory or height. Can self-correct technique and demonstrates proper form to others.",
+              "level5Descriptor": "Mastery-level execution with near-perfect first touch in any condition (speed, height, pressure, surface). Exceptional control under extreme pressure in elite competition, instantly preparing ball for next action. Can teach technique comprehensively and demonstrate across all scenarios."
+            },
+            {
+              "name": "Ball Control Under Pressure",
+              "level1Descriptor": "Collapses under any defensive pressure, losing possession immediately. Cannot maintain composure when defender approaches, often panicking and miscontrolling. Requires constant coaching on awareness and shielding concepts.",
+              "level2Descriptor": "Can maintain basic control with passive defender nearby but struggles when actively pressed. Limited ability to shield ball or use body positioning. Occasional success under light pressure in training but rarely in matches.",
+              "level3Descriptor": "Maintains good control with active defender applying moderate pressure. Uses body positioning effectively to shield ball and can turn away from pressure. Regularly successful in competitive matches under normal pressing intensity.",
+              "level4Descriptor": "Excellent control under heavy pressure from multiple defenders, rarely losing possession. Uses body effectively to protect ball, can turn and accelerate away from tight marking. Consistently high-level performance in competitive matches.",
+              "level5Descriptor": "Exceptional control under extreme pressure in elite competition, seeming unaffected by defensive intensity. Dominates physical challenges while maintaining perfect touch, can receive and turn in tightest spaces. Creates opportunities through superior composure under pressure."
+            },
+            {
+              "name": "Ball Protection",
+              "level1Descriptor": "Cannot shield ball from defender, often losing possession in physical challenges. No understanding of body positioning to protect ball. Ball position too far from body, making it easy for defenders to steal.",
+              "level2Descriptor": "Basic awareness of shielding but inconsistent execution. Can protect ball momentarily with passive defender but loses possession under active pressure. Learning to position body between ball and opponent but technique unreliable.",
+              "level3Descriptor": "Effective use of body to shield ball from defender, maintaining low center of gravity. Can protect possession for several seconds while scanning for passing options. Good balance and strength in holding off moderate pressure.",
+              "level4Descriptor": "Excellent ball protection using optimal body positioning and core strength. Rarely dispossessed in 1v1 situations, can hold ball under heavy pressure while teammates support. Strong physical presence combined with technical security.",
+              "level5Descriptor": "Mastery of shielding technique, virtually impossible to dispossess in physical challenges. Can protect ball under extreme pressure from multiple defenders while maintaining composure. Uses body positioning, strength, and balance at elite level to dominate possession battles."
+            },
+            {
+              "name": "Dribbling",
+              "level1Descriptor": "Learning basic dribbling with ball frequently rolling away from feet. Cannot maintain control while moving at speed, looking down at ball constantly. Rarely progresses forward effectively and loses possession easily in open play.",
+              "level2Descriptor": "Basic dribbling technique in straight lines with moderate consistency. Can dribble in open space but struggles with direction changes or when defender approaches. Occasionally effective in unopposed situations but limited success beating defenders 1v1.",
+              "level3Descriptor": "Effective dribbling for progression, maintaining good ball control while scanning field. Can change direction with ball and beat defender in 1v1 situations regularly. Makes good decisions about when to dribble versus pass, with head up most of the time.",
+              "level4Descriptor": "Excellent dribbling ability at game speed, consistently beating defenders in 1v1. Creates space and opportunities through superior ball mastery, can accelerate explosively with ball at feet. High success rate in competitive matches with effective use of both feet.",
+              "level5Descriptor": "Elite dribbling that dominates opponents in high-level competition, beating multiple defenders. Exceptional control at maximum speed with instant direction changes. Creates goal-scoring opportunities through outstanding dribbling ability, teaching-level demonstration of all techniques."
+            },
+            {
+              "name": "First Touch",
+              "level1Descriptor": "First touch often results in 3+ additional touches needed to control ball. Inconsistent direction and distance of touch, frequently losing possession. Cannot adjust technique based on ball speed or height, requiring constant coaching intervention.",
+              "level2Descriptor": "Improved first touch with 2-touch control typical in practice. Can direct ball somewhat but inconsistent under pressure. Moderate success with ground balls but struggles with varied heights and speeds, needs periodic coaching reminders on technique.",
+              "level3Descriptor": "Consistent 1-touch control that sets up next action effectively. Good directional first touch away from pressure, opening body to see field while receiving. Reliable across different ball heights and speeds with minimal coaching needed.",
+              "level4Descriptor": "Excellent first touch quality that immediately prepares optimal next action. High consistency under heavy pressure, can receive and turn in tight spaces. Self-correcting technique with ability to demonstrate proper form across all receiving scenarios.",
+              "level5Descriptor": "Exceptional first touch that appears effortless in elite competition, instantly controlling any delivery. Perfect cushioning and direction regardless of pressure, speed, or trajectory. Mastery-level execution that creates time and space through superior technical quality."
+            }
+          ]
+        },
+        {
+          "name": "Passing & Distribution",
+          "skills": [
+            {
+              "name": "Passing",
+              "level1Descriptor": "Learning basic passing technique with inconsistent accuracy and weight. Passes frequently miss target or arrive too hard/soft for teammate to control. Supporting foot positioning and follow-through inconsistent, requiring constant coaching on fundamentals.",
+              "level2Descriptor": "Basic passing technique established with 60-65% accuracy in controlled training. Can complete short passes reliably but medium/long passes inconsistent. Moderate success in matches without pressure but accuracy drops significantly when pressed.",
+              "level3Descriptor": "Good passing technique with 70-75% accuracy in competitive matches. Consistent execution of short and medium passes with appropriate weight. Effective under moderate pressure, making sound decisions about pass selection and timing.",
+              "level4Descriptor": "Excellent passing ability with 75-80% accuracy in high-pressure matches. Can execute all pass types (short, medium, long) with precision and appropriate weight. High consistency under heavy pressure with both feet, demonstrating advanced vision and execution.",
+              "level5Descriptor": "Elite passing mastery with 80%+ accuracy in top-level competition. Exceptional vision and execution of all pass types, threading passes through tight spaces. Dominates possession phases through superior passing quality, can teach and demonstrate comprehensive passing technique."
+            },
+            {
+              "name": "Passing Under Pressure",
+              "level1Descriptor": "Cannot complete passes when defender approaches, often panicking and misplacing ball. No composure under pressure, technique breaks down completely. Success rate drops to below 40% with any defensive presence.",
+              "level2Descriptor": "Can complete basic passes with passive defender but struggles when actively pressed. Accuracy drops to 50-60% under light pressure. Decision-making slows significantly when defender closes down, often choosing safe backward passes.",
+              "level3Descriptor": "Maintains good passing accuracy (65-70%) under moderate pressure in matches. Keeps composure when pressed, can execute quick passes to evade pressure. Makes sound decisions about pass selection even with defender approaching.",
+              "level4Descriptor": "Excellent passing under heavy pressure, maintaining 70-75% accuracy with multiple defenders nearby. Quick decision-making and execution, rarely panics. Can play difficult passes (through balls, switches) while being pressed, creating advantages for team.",
+              "level5Descriptor": "Exceptional composure and execution under extreme pressure in elite matches. Maintains 75%+ accuracy with defenders converging, playing decisive passes in tightest spaces. Dominates high-pressure situations through superior technical quality and mental strength."
+            },
+            {
+              "name": "Crossing",
+              "level1Descriptor": "Learning to cross with most deliveries missing target area completely. Cannot generate appropriate height or distance consistently. Technique breaks down under pressure, rarely creating goal-scoring opportunities from wide positions.",
+              "level2Descriptor": "Basic crossing technique with occasional successful deliveries. Can get ball into general penalty area but lacks precision on target area. Limited success under pressure, moderate consistency in training but reduced effectiveness in matches.",
+              "level3Descriptor": "Good crossing ability with regular dangerous deliveries into target areas. Can vary trajectory (driven, lofted, cut-back) based on situation. Effective under moderate pressure, creating goal-scoring chances consistently in matches.",
+              "level4Descriptor": "Excellent crossing technique with high accuracy to intended target areas. Can deliver quality crosses under heavy pressure, using weak foot competently. Creates multiple goal-scoring opportunities through superior crossing ability in competitive matches.",
+              "level5Descriptor": "Elite crossing ability that consistently creates high-quality chances in top competition. Perfect weight, trajectory, and placement regardless of pressure or position. Can execute all crossing variations (in-swinging, out-swinging, driven, chipped) at mastery level."
+            },
+            {
+              "name": "Throw Ins",
+              "level1Descriptor": "Learning proper throw-in technique with frequent fouls (foot lifting, wrong motion). Cannot generate distance or accuracy consistently. Often throws ball directly to opponents or out of play, requiring constant coaching on legal technique.",
+              "level2Descriptor": "Basic legal throw-in technique established but limited distance and accuracy. Can complete short throws to nearby teammates but struggles with longer throws or under pressure. Moderate success in uncontested situations.",
+              "level3Descriptor": "Good throw-in technique with consistent legal form and accuracy to targets. Can generate appropriate distance (15m+) and vary throws based on situation. Effective under pressure, makes sound decisions about throw-in options.",
+              "level4Descriptor": "Excellent throw-in ability with long-distance capability (20m+) and pinpoint accuracy. Quick execution under pressure, can throw to feet or space as situation demands. Uses throw-ins tactically to create advantages, rarely wasting possession.",
+              "level5Descriptor": "Elite throw-in technique that creates attacking opportunities in high-level competition. Exceptional distance and accuracy, can execute quick throws to maintain tempo. Mastery of tactical throw-in situations, virtually never losing possession from throw-ins."
+            }
+          ]
+        },
+        {
+          "name": "Shooting & Finishing",
+          "skills": [
+            {
+              "name": "Shot Accuracy",
+              "level1Descriptor": "Learning shooting technique with most attempts missing target completely. Cannot consistently strike through center of ball or follow through toward goal. Accuracy below 30% on target in training, rarely creates dangerous shots in matches.",
+              "level2Descriptor": "Basic shooting technique with 30-40% accuracy on target in practice. Can occasionally hit target from favorable positions but inconsistent power and placement. Limited success under pressure, technique deteriorates significantly in match situations.",
+              "level3Descriptor": "Good shooting accuracy with 50-60% of attempts on target in matches. Consistent technique from various positions, can place shots into corners when time allows. Effective from inside penalty area, making sound decisions about shooting opportunities.",
+              "level4Descriptor": "Excellent shot accuracy with 60-70% on target in competitive matches. Can place shots precisely even under heavy pressure, regularly testing goalkeeper. High-quality shooting from various angles and distances with both feet.",
+              "level5Descriptor": "Elite shooting accuracy of 70%+ on target in top-level competition. Exceptional precision under extreme pressure, consistently threatening goal. Dominates shooting opportunities through superior technique and composure, rarely wasting good chances."
+            },
+            {
+              "name": "Shot Power",
+              "level1Descriptor": "Minimal shot power, most attempts easily saved or reaching goalkeeper slowly. Cannot generate force through proper hip rotation and follow-through. Weak strikes pose little threat to goalkeepers, requiring development of leg strength and technique.",
+              "level2Descriptor": "Moderate shot power in training but inconsistent in matches. Can generate decent power from favorable positions but technique breaks down under pressure. Shots occasionally trouble goalkeeper but lack consistent velocity to beat quality shot-stoppers.",
+              "level3Descriptor": "Good shot power that regularly tests goalkeepers from appropriate distances. Proper hip rotation and follow-through generate sufficient velocity to score. Effective power from inside 18m, can trouble goalkeepers with driven shots.",
+              "level4Descriptor": "Excellent shot power that frequently beats goalkeepers with velocity. Can generate significant force even under pressure or from difficult angles. Powerful strikes from 20m+ distance threaten goal, using instep and body mechanics effectively.",
+              "level5Descriptor": "Elite shot power that dominates at highest level, consistently beating goalkeepers with velocity. Exceptional force generation through perfect technique and strength. Powerful strikes from long distance pose constant threat, combining power with accuracy at mastery level."
+            },
+            {
+              "name": "Finishing Ability",
+              "level1Descriptor": "Rarely converts goal-scoring opportunities, missing most clear chances. Poor decision-making in final third (wrong technique selection, wrong choice to shoot). Conversion rate below 20% in training, minimal goal threat in matches.",
+              "level2Descriptor": "Converts 20-30% of clear chances in training and matches. Basic finishing technique but inconsistent under pressure. Can score from favorable positions but misses many opportunities, needs significant improvement in composure and technique selection.",
+              "level3Descriptor": "Good finishing ability with 30-40% conversion of clear chances in matches. Consistent technique selection (side-foot accuracy vs instep power) based on situation. Calm under pressure inside box, regular goal threat in competitive play.",
+              "level4Descriptor": "Excellent finishing with 40-50% conversion of chances in competitive matches. Can score from difficult positions and under heavy pressure. High-quality decision-making in final third, uses weak foot competently, creates goals through superior finishing technique.",
+              "level5Descriptor": "Elite finishing ability converting 50%+ of chances in top-level competition. Exceptional composure and technique under extreme pressure, scores from any angle or distance. Dominates finishing opportunities through mastery-level execution, clinical goal-scorer."
+            },
+            {
+              "name": "Heading",
+              "level1Descriptor": "Learning heading technique with poor contact point (not forehead) and weak power generation. Cannot direct ball accurately, often heading away from target. Afraid of contact or poor timing on jumps, minimal effectiveness in aerial situations.",
+              "level2Descriptor": "Basic heading technique established with forehead contact improving. Can win some aerial duels but limited power and direction control. Moderate success in uncontested headers but struggles under pressure or with movement required.",
+              "level3Descriptor": "Good heading ability with consistent power and direction from set pieces. Proper forehead contact and neck stiffness generating effective headers. Can compete in aerial duels successfully, directs headers toward target regularly in matches.",
+              "level4Descriptor": "Excellent heading technique winning majority of aerial duels and directing headers accurately. Strong power generation and precise placement even under pressure. Threat from crosses and set pieces, uses heading both defensively and offensively at high level.",
+              "level5Descriptor": "Elite heading ability dominating aerial situations in top-level competition. Exceptional power, accuracy, and timing on all headers regardless of pressure. Mastery-level technique in attacking and defensive headers, consistent goal threat from aerial situations."
+            }
+          ]
+        },
+        {
+          "name": "Tactical & Awareness",
+          "skills": [
+            {
+              "name": "Offensive Positioning",
+              "level1Descriptor": "No developed awareness of offensive positioning, often bunching with teammates. Cannot recognize when or where to move to receive pass. Consistently caught in poor positions, making it difficult for teammates to find passing options.",
+              "level2Descriptor": "Basic understanding of spacing concepts but inconsistent application. Can position adequately in structured drills but struggles in dynamic game situations. Occasional good positioning but often caught flat or too deep, needs constant coaching reminders.",
+              "level3Descriptor": "Good offensive positioning with consistent creation of passing angles and support options. Understands depth and width principles, maintains good spacing from teammates. Regularly available to receive in dangerous areas, effective movement timing in matches.",
+              "level4Descriptor": "Excellent positioning that consistently creates advantages and goal-scoring opportunities. Instinctive understanding of space and timing, constantly offering passing options. Superior movement off-ball, reads game flow to position optimally in high-pressure matches.",
+              "level5Descriptor": "Elite offensive positioning dominating space creation in top-level competition. Exceptional tactical intelligence positioning in perfect locations to exploit defensive weaknesses. Mastery-level understanding of when/where to move, creates constant goal threats through superior positioning."
+            },
+            {
+              "name": "Defensive Positioning",
+              "level1Descriptor": "No understanding of defensive shape or positioning responsibilities. Often caught out of position leaving dangerous spaces. Cannot read when to press versus when to hold position, requiring constant coaching on defensive concepts.",
+              "level2Descriptor": "Basic defensive positioning awareness but inconsistent execution in matches. Can maintain shape in simple situations but struggles when play becomes dynamic. Occasionally caught out of position, needs regular coaching cues to maintain discipline.",
+              "level3Descriptor": "Good defensive positioning maintaining shape and covering dangerous spaces consistently. Understands when to press, when to drop, and how to position relative to ball and teammates. Rarely caught out of position, effective defensive organization in matches.",
+              "level4Descriptor": "Excellent defensive positioning reading play and adjusting position proactively. Anticipates opponent movements, maintains perfect defensive shape under heavy pressure. Organizes teammates, rarely beaten by runs in behind, consistent high-level defensive discipline.",
+              "level5Descriptor": "Elite defensive positioning dominating tactical battles in top-level competition. Exceptional reading of game flow, positioning perfectly to intercept and cover. Mastery of defensive principles, organizes entire defensive structure through superior positioning intelligence."
+            },
+            {
+              "name": "Defensive Aggressiveness",
+              "level1Descriptor": "Passive defensive approach, rarely closing down opponents or challenging for ball. Allows attackers time and space, not engaging in physical challenges. Lacks intensity and commitment required for effective defending.",
+              "level2Descriptor": "Inconsistent defensive aggression, occasionally pressing but often too passive. Can engage in challenges when coached to do so but lacks instinctive intensity. Moderate success in 1v1 situations, needs encouragement to maintain aggressive approach.",
+              "level3Descriptor": "Good defensive aggression with consistent high-intensity pressing when appropriate. Engages physically in challenges, times tackles well, forces errors through pressure. Effective in winning 50-50 balls, maintains aggressive mindset throughout matches.",
+              "level4Descriptor": "Excellent defensive intensity applying constant pressure without fouling. Aggressive in all defending situations, wins majority of physical challenges. Superior timing on tackles and interceptions, forces turnovers through relentless pressure in competitive matches.",
+              "level5Descriptor": "Elite defensive aggression dominating physical battles in top-level competition. Exceptional intensity and timing, wins ball cleanly in all situations. Mastery of aggressive defending without fouling, sets defensive tone through superior physical presence and commitment."
+            },
+            {
+              "name": "Transitional Play",
+              "level1Descriptor": "Slow reactions to possession changes, often jogging or unaware transition occurred. Cannot quickly shift between attacking and defending mindset. Rarely positioned to support counter-attacks or recovery runs, requiring constant coaching on transition urgency.",
+              "level2Descriptor": "Basic awareness of transitions but inconsistent speed of reaction. Can transition adequately in structured situations but struggles in chaotic match play. Occasional good transition play but often caught between attack and defense, moderate intensity in recovery.",
+              "level3Descriptor": "Good transition play with quick reactions to possession changes. Immediately supports counter-attacks or recovery runs with appropriate intensity. Effective in both attack-to-defense and defense-to-attack transitions, maintains good position throughout transitions.",
+              "level4Descriptor": "Excellent transition play reacting instantly to possession changes. Explosive counter-attacking runs or intense defensive recovery as situation demands. Superior reading of transition moments, consistently provides numerical advantage through quick reactions.",
+              "level5Descriptor": "Elite transitional play dominating counter-attacks and defensive recovery in top competition. Exceptional speed of thought and execution in transition moments. Mastery-level anticipation of turnovers, creates/prevents goals through superior transition play."
+            },
+            {
+              "name": "Off Ball Movement",
+              "level1Descriptor": "Static off-ball, standing and watching play develop. No understanding of when or where to move to create space or passing options. Rarely makes runs in behind or checks to ball, making team possession play difficult.",
+              "level2Descriptor": "Basic off-ball movement with occasional runs but poor timing and positioning. Can make simple supporting runs in structured drills but limited creativity in matches. Inconsistent movement, often moving at wrong times or into covered spaces.",
+              "level3Descriptor": "Good off-ball movement with regular well-timed runs creating space and opportunities. Understands when to check short versus run in behind, varies movement effectively. Creates passing options consistently, effective movement opens up defensive lines.",
+              "level4Descriptor": "Excellent off-ball movement with constant intelligent running creating advantages. Superior timing and positioning on runs, rarely offside, creates space for teammates through decoy runs. Exceptional understanding of movement patterns in high-level matches.",
+              "level5Descriptor": "Elite off-ball movement dominating space creation in top-level competition. Exceptional timing, direction, and purpose on all runs. Mastery-level understanding of movement patterns, creates constant goal threats and space through superior movement intelligence."
+            },
+            {
+              "name": "Awareness",
+              "level1Descriptor": "Limited awareness of surroundings, frequently surprised by opponents or game situations. Cannot scan effectively before receiving ball, often dribbling into pressure. Unaware of teammates' positions or available passing options, tunnel vision on ball.",
+              "level2Descriptor": "Basic awareness developing with occasional scanning before receiving ball. Can identify obvious passing options but misses subtle opportunities. Moderate spatial awareness but often caught by pressure from blind side, needs coaching reminders to scan.",
+              "level3Descriptor": "Good game awareness with consistent scanning and understanding of space around them. Recognizes pressure before it arrives, identifies multiple passing options quickly. Effective spatial awareness allows good decisions, rarely surprised by opponents' movements.",
+              "level4Descriptor": "Excellent awareness with constant scanning creating superior understanding of game state. Anticipates pressure and opportunities before they develop, sees entire field. Exceptional spatial intelligence, makes optimal decisions through superior awareness in competitive matches.",
+              "level5Descriptor": "Elite game awareness demonstrating complete understanding of all 22 players' positions and intentions. Exceptional scanning and processing creating extra time on ball. Mastery-level field vision and spatial intelligence dominating matches through superior awareness."
+            },
+            {
+              "name": "Decision Making",
+              "level1Descriptor": "Poor decision-making, often choosing wrong option (shooting when should pass, dribbling when should release). Slow processing of situations, hesitant execution. Decision quality leads to frequent turnovers, requires constant coaching on when to pass/shoot/dribble.",
+              "level2Descriptor": "Basic decision-making with simple choices executed correctly but struggles with complex situations. Can make obvious decisions (wide-open pass) but often chooses poorly under pressure. Moderate success rate, improving but inconsistent in matches.",
+              "level3Descriptor": "Good decision-making with consistent selection of appropriate actions. Quick processing of situations, rarely hesitates. Makes sound tactical choices under moderate pressure, balancing risk and reward effectively in competitive play.",
+              "level4Descriptor": "Excellent decision-making with rapid, optimal choices in complex situations. Consistently selects best option even under heavy pressure, high success rate. Superior processing speed and tactical understanding, rarely makes poor decisions in high-level matches.",
+              "level5Descriptor": "Elite decision-making with instantaneous optimal choices in all situations. Exceptional tactical intelligence and processing speed. Mastery-level judgment under extreme pressure, consistently makes game-changing decisions in top-level competition."
+            }
+          ]
+        },
+        {
+          "name": "Physical & Athletic",
+          "skills": [
+            {
+              "name": "Speed",
+              "level1Descriptor": "Below-average speed for age/gender group, struggles to cover ground quickly. Cannot close down opponents or make recovery runs effectively. Frequently beaten in foot races, lacks acceleration or top-end speed relative to peers.",
+              "level2Descriptor": "Average speed for age/gender group with moderate acceleration and top-end velocity. Can compete in most foot races but not dominant. Adequate pace for general play but not a weapon or advantage in matches.",
+              "level3Descriptor": "Good speed that creates advantages in matches, above-average acceleration and top velocity. Can beat opponents in foot races regularly, makes effective recovery runs. Speed is noticeable asset in open play and transitional situations.",
+              "level4Descriptor": "Excellent speed that dominates physical matchups, exceptional acceleration (0-10m) and top velocity. Consistently wins foot races, closes down opponents rapidly. Speed creates regular goal-scoring or defensive opportunities in competitive matches.",
+              "level5Descriptor": "Elite speed dominating at highest level of competition, exceptional both acceleration and maximum velocity. Speed creates constant advantages in all phases. Among fastest players on field, using speed to dominate physical matchups and create/prevent goals."
+            },
+            {
+              "name": "Agility",
+              "level1Descriptor": "Limited agility, struggles with direction changes and maintaining balance at speed. Slow to accelerate after changes of direction, often stumbling. Poor body control in dynamic situations, frequently beaten by agile opponents.",
+              "level2Descriptor": "Average agility for age/gender group with basic ability to change direction. Can execute simple cuts and turns but limited explosiveness. Moderate success in agility situations but not a dominant trait in matches.",
+              "level3Descriptor": "Good agility with quick direction changes and balance maintained at speed. Can evade challenges effectively, explosive out of cuts. Agility creates advantages in 1v1 situations and tight spaces in matches.",
+              "level4Descriptor": "Excellent agility dominating direction changes and body control at high speed. Explosive acceleration after cuts, maintains perfect balance. Superior agility creates regular advantages in 1v1 matchups and possession battles in competitive play.",
+              "level5Descriptor": "Elite agility demonstrating exceptional body control, balance, and explosiveness in all situations. Dominates quick-change scenarios in top-level competition. Mastery-level movement quality, agility creates constant advantages and goal-threatening situations."
+            },
+            {
+              "name": "Strength",
+              "level1Descriptor": "Below-average strength for age/gender group, loses most physical battles. Cannot hold off opponents in shielding situations or win aerial duels. Pushed off ball easily, lacks core strength and lower body power to compete physically.",
+              "level2Descriptor": "Average strength for age/gender group with moderate success in physical challenges. Can hold own in some battles but loses against stronger opponents. Adequate for general play but physical disadvantage in contested situations.",
+              "level3Descriptor": "Good strength that wins majority of physical battles in matches. Can shield ball effectively, competes well in aerial duels. Strength creates advantages in 50-50 situations and allows effective physical play without fouling.",
+              "level4Descriptor": "Excellent strength dominating physical matchups in competitive play. Wins vast majority of strength battles, rarely dispossessed in physical challenges. Superior core and lower body strength allows consistent physical dominance in matches.",
+              "level5Descriptor": "Elite strength at highest level of competition, overpowering opponents in all physical battles. Exceptional core, lower body, and upper body strength. Mastery of using strength effectively without fouling, dominates physical aspects of game at elite level."
+            },
+            {
+              "name": "Endurance",
+              "level1Descriptor": "Poor endurance showing significant fatigue in first half, often substituted early. Cannot maintain work rate throughout match, frequently hands on knees. Performance deteriorates dramatically with fatigue, limiting effectiveness to short periods.",
+              "level2Descriptor": "Average endurance for age/gender group, can complete match but work rate drops in final periods. Shows fatigue signs in second half, reduced intensity and speed. Adequate for recreational level but needs improvement for competitive play.",
+              "level3Descriptor": "Good endurance maintaining consistent work rate throughout full match. Can execute repeated high-intensity efforts without significant performance drop. Effective in all phases for full 90 minutes, rarely needs substitution due to fitness.",
+              "level4Descriptor": "Excellent endurance with sustained high intensity throughout extended play. Can execute repeated sprints and high-intensity work with minimal fatigue impact. Superior aerobic and anaerobic capacity allows consistent elite performance in competitive matches.",
+              "level5Descriptor": "Elite endurance dominating physical demands of top-level competition. Exceptional aerobic capacity with ability to maintain maximum intensity for entire match plus extra time. Mastery-level fitness allows relentless work rate that wears down opponents."
+            }
+          ]
+        },
+        {
+          "name": "Character & Team",
+          "skills": [
+            {
+              "name": "Communication",
+              "level1Descriptor": "Silent on field, does not communicate with teammates or respond to others. Cannot provide defensive warnings or call for ball effectively. No verbal leadership or organization, requires constant coaching on importance of communication.",
+              "level2Descriptor": "Basic communication with occasional calls for ball or simple warnings. Limited vocal presence, quiet demeanor on field. Can communicate in structured situations but inconsistent during dynamic play, needs encouragement to maintain communication.",
+              "level3Descriptor": "Good communication providing regular vocal support and organization. Calls for ball appropriately, warns teammates of pressure, communicates defensive assignments. Effective voice on field contributing to team organization and cohesion in matches.",
+              "level4Descriptor": "Excellent communication organizing teammates constantly throughout match. Clear, decisive vocal presence in all situations. Provides defensive warnings, directs positioning, encourages teammates. Superior communication leadership in high-pressure competitive matches.",
+              "level5Descriptor": "Elite communication dominating team organization through exceptional vocal leadership. Constant, clear, purposeful communication directing entire team. Mastery-level ability to organize, encourage, and direct teammates in top-level competition."
+            },
+            {
+              "name": "Coachability",
+              "level1Descriptor": "Resistant to coaching, does not implement feedback or shows poor attitude when corrected. Argues with coaches or ignores instruction. Makes same mistakes repeatedly without adjustment, limiting development potential significantly.",
+              "level2Descriptor": "Basic coachability accepting feedback when delivered positively. Can implement simple corrections but struggles with complex concepts. Moderate receptiveness to coaching, occasionally defensive but generally willing to learn with patience.",
+              "level3Descriptor": "Good coachability actively seeking feedback and implementing corrections quickly. Accepts criticism professionally, makes adjustments between sessions. Effective learner who values coaching input and shows consistent improvement through receptiveness.",
+              "level4Descriptor": "Excellent coachability with eager reception of all feedback and rapid implementation. Asks clarifying questions, self-reflects on performance, seeks additional coaching. Superior learning speed and attitude, coachable mindset drives rapid development.",
+              "level5Descriptor": "Elite coachability with exceptional receptiveness and self-directed learning. Implements feedback immediately, anticipates coaching points through self-awareness. Mastery-level learning attitude, helps coach others through understanding gained from superior coachability."
+            },
+            {
+              "name": "Leadership",
+              "level1Descriptor": "No leadership qualities demonstrated, quiet follower with no initiative. Does not encourage teammates or organize play. Passive presence, waits for others to lead, shows no confidence in directing teammates.",
+              "level2Descriptor": "Emerging leadership with occasional vocal presence and positive support. Can encourage teammates in good situations but disappears when team struggles. Limited organizational ability, inconsistent confidence in taking leadership role.",
+              "level3Descriptor": "Good leadership providing consistent encouragement and organizational presence. Leads by example through work rate and attitude. Vocal in organizing teammates, maintains positivity in difficult situations, effective leadership in matches.",
+              "level4Descriptor": "Excellent leadership commanding respect through example, communication, and decision-making. Organizes teammates constantly, maintains positivity under pressure. Superior captain qualities with tactical communication and motivational presence in competitive matches.",
+              "level5Descriptor": "Elite leadership dominating team culture and performance through exceptional example and communication. Inspires teammates through actions and words, organizes entire team tactically. Mastery-level leadership qualities elevating team performance in top-level competition."
+            },
+            {
+              "name": "Team Orientation",
+              "level1Descriptor": "Self-focused player prioritizing individual success over team goals. Rarely passes to open teammates, attempts low-percentage plays for personal glory. Poor celebration of teammates' success, negative body language when not personally involved.",
+              "level2Descriptor": "Basic team orientation with some selfishness remaining. Can play for team in structured situations but default to individual play under pressure. Moderate celebration of teammates' success, inconsistent commitment to team-first mentality.",
+              "level3Descriptor": "Good team orientation consistently making decisions that benefit team. Celebrates teammates' success enthusiastically, provides support when not directly involved. Effective team player balancing personal ability with team needs in matches.",
+              "level4Descriptor": "Excellent team orientation with complete commitment to team success over individual achievement. Sacrifices personal statistics for team benefit, ultimate team player. Superior support of teammates in all situations, leads culture of team-first mentality.",
+              "level5Descriptor": "Elite team orientation setting standard for selfless play and team commitment. Exceptional sacrifice of personal glory for team success at highest level. Mastery-level understanding that team success requires individual sacrifice, elevates all teammates through superior team-first approach."
+            }
+          ]
+        }
+      ]
+    }
+  ]
+}

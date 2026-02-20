@@ -45,6 +45,9 @@ export function createAuth(
     plugins: [
       convex(),
       organization({
+        // Invitation expiration: 7 days (default is 48 hours)
+        invitationExpiresIn: 60 * 60 * 24 * 7,
+
         // Enable teams within organizations
         teams: {
           enabled: true,
@@ -114,11 +117,12 @@ export function createAuth(
         },
 
         async allowUserToCreateOrganization(user) {
+          // Use getUserByStringId since user.id from Better Auth is a string
           const fullUser = await ctx.runQuery(
-            components.betterAuth.userFunctions.getUserById,
+            components.betterAuth.userFunctions.getUserByStringId,
             { userId: user.id }
           );
-          console.log("user", fullUser);
+          console.log("[allowUserToCreateOrganization] user:", fullUser);
           return fullUser?.isPlatformStaff ?? false;
         },
         // Add access control and organizational roles

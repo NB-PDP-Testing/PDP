@@ -82,32 +82,15 @@ export function AdminPlanCard({
     }
   };
 
-  // Get gradient top border based on intensity
-  const getIntensityGradient = (intensity?: "low" | "medium" | "high") => {
-    switch (intensity) {
-      case "low":
-        return "from-[#43e97b] to-[#38f9d7]"; // Green
-      case "medium":
-        return "from-[#f093fb] to-[#f5576c]"; // Pink/Red
-      case "high":
-        return "from-[#ff6b6b] to-[#feca57]"; // Red/Orange
-      default:
-        return "from-[#667eea] to-[#764ba2]"; // Purple (default)
-    }
-  };
-
-  // Get background gradient based on visibility/status
-  const getCardBackground = () => {
+  // Get border color based on status/visibility
+  const getBorderClass = () => {
     if (plan.pinnedByAdmin) {
-      return "bg-gradient-to-br from-amber-50/50 to-yellow-50/30"; // Featured - gold tint
+      return "border-l-4 border-l-amber-500"; // Featured - amber border
     }
     if (isModerated) {
-      return "bg-gradient-to-br from-red-50/50 to-rose-50/30"; // Rejected - red tint
+      return "border-l-4 border-l-red-500"; // Rejected - red border
     }
-    if (plan.visibility === "club") {
-      return "bg-gradient-to-br from-[#667eea]/5 to-[#764ba2]/5"; // Shared - purple tint
-    }
-    return "bg-gradient-to-br from-slate-50/50 to-gray-50/30"; // Default - subtle gray
+    return ""; // Default - no special border
   };
 
   const getVisibilityBadge = () => {
@@ -162,12 +145,11 @@ export function AdminPlanCard({
     onView(plan._id);
   };
 
-  const intensityGradient = getIntensityGradient(plan.extractedTags?.intensity);
-  const cardBackground = getCardBackground();
+  const borderClass = getBorderClass();
 
   return (
     <Card
-      className={`group relative flex h-full cursor-pointer flex-col overflow-hidden transition-all hover:shadow-lg hover:ring-2 hover:ring-primary/20 active:scale-[0.98] ${cardBackground}`}
+      className={`group relative flex h-full cursor-pointer flex-col overflow-hidden transition-all hover:shadow-md ${borderClass}`}
       onClick={handleCardClick}
       onKeyDown={(e) => {
         if (e.key === "Enter" || e.key === " ") {
@@ -178,9 +160,6 @@ export function AdminPlanCard({
       role="button"
       tabIndex={0}
     >
-      {/* Gradient top border */}
-      <div className={`h-1 w-full bg-gradient-to-r ${intensityGradient}`} />
-
       {/* Header with badges */}
       <CardHeader className="pb-3">
         <div className="mb-2 flex flex-wrap items-start justify-between gap-2">

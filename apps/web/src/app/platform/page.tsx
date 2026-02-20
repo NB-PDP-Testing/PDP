@@ -1,10 +1,14 @@
 "use client";
 
 import {
+  Activity,
+  BarChart3,
   Bot,
   Database,
+  FileSpreadsheet,
   Flag,
   Key,
+  Link2,
   Megaphone,
   MessageSquare,
   Settings,
@@ -12,6 +16,7 @@ import {
   Target,
   Trophy,
 } from "lucide-react";
+
 import Image from "next/image";
 import Link from "next/link";
 import { Badge } from "@/components/ui/badge";
@@ -152,6 +157,56 @@ export default function PlatformDashboard() {
                     <Flag className="h-6 w-6 text-orange-600" />
                   </div>
                   <CardTitle className="text-base">Feature Flags</CardTitle>
+                </CardContent>
+              </Card>
+            </Link>
+
+            {/* Voice Monitoring */}
+            <Link href={"/platform/voice-monitoring" as any}>
+              <Card className="h-full cursor-pointer transition-all hover:shadow-md hover:ring-2 hover:ring-[#1E3A5F]/20">
+                <CardContent className="flex items-center gap-3 p-4">
+                  <div className="rounded-lg bg-rose-100 p-3">
+                    <Activity className="h-6 w-6 text-rose-600" />
+                  </div>
+                  <CardTitle className="text-base">Voice Monitoring</CardTitle>
+                </CardContent>
+              </Card>
+            </Link>
+
+            {/* Import Analytics */}
+            <Link href={"/platform/analytics/import" as "/platform"}>
+              <Card className="h-full cursor-pointer transition-all hover:shadow-md hover:ring-2 hover:ring-[#1E3A5F]/20">
+                <CardContent className="flex items-center gap-3 p-4">
+                  <div className="rounded-lg bg-teal-100 p-3">
+                    <BarChart3 className="h-6 w-6 text-teal-600" />
+                  </div>
+                  <CardTitle className="text-base">Import Analytics</CardTitle>
+                </CardContent>
+              </Card>
+            </Link>
+
+            {/* Federation Connectors */}
+            <Link href="/platform/connectors">
+              <Card className="h-full cursor-pointer transition-all hover:shadow-md hover:ring-2 hover:ring-[#1E3A5F]/20">
+                <CardContent className="flex items-center gap-3 p-4">
+                  <div className="rounded-lg bg-violet-100 p-3">
+                    <Link2 className="h-6 w-6 text-violet-600" />
+                  </div>
+                  <CardTitle className="text-base">
+                    Federation Connectors
+                  </CardTitle>
+                </CardContent>
+              </Card>
+            </Link>
+
+            {/* Import Templates */}
+            <Link href={"/platform/templates" as any}>
+              <Card className="h-full cursor-pointer transition-all hover:shadow-md hover:ring-2 hover:ring-[#1E3A5F]/20">
+                <CardContent className="flex items-center gap-3 p-4">
+                  <div className="rounded-lg bg-violet-100 p-3">
+                    <FileSpreadsheet className="h-6 w-6 text-violet-600" />
+                  </div>
+                  <CardTitle className="text-base">Import Templates</CardTitle>
                 </CardContent>
               </Card>
             </Link>

@@ -1,0 +1,28 @@
+{
+  "skillName": "Ground Contact Time",
+  "category": "Running Mechanics",
+  "description": "Duration the foot remains in contact with the ground during each running stride and the efficiency of force application during that contact. Shorter ground contact time generally associated with faster running speeds and better running economy. Ankle-foot stiffness affects force transmission. Elite sprinters achieve ground contact times under 0.10 seconds at maximum velocity.",
+  "levels": {
+    "1": {
+      "label": "Developing",
+      "description": "Prolonged ground contact time with slow, labored push-off from each stride. Appears to stick to ground rather than bounce off quickly. Foot remains in contact excessively long (250+ milliseconds even during faster efforts). Poor ankle stiffness allows excessive dorsiflexion upon landing, absorbing force rather than returning it. Appears to \"slog\" rather than \"bounce\" when running. Cannot execute quick feet patterns even with maximal effort. Low running cadence (under 160 steps per minute) reflects long ground contact times. Requires coaching on reactive foot strike concept but struggles to execute. Minimal elastic energy return from tendons due to poor stiffness and technique."
+    },
+    "2": {
+      "label": "Emerging",
+      "description": "Moderate ground contact time with some quickness developing. Can achieve quicker contacts during short bursts when specifically focusing on foot speed but cannot maintain during continuous running. Responds temporarily to coaching cues (\"quick feet,\" \"hot coals,\" \"bounce off the ground\") but reverts to longer contact times without constant reminding. Ground contact around 200-220 milliseconds during moderate-pace running. Some improvement in ankle stiffness but still allows excessive collapse upon landing. Beginning to understand reactive foot strike concept and can demonstrate briefly in drills. Cadence improving toward 170 steps per minute but inconsistent."
+    },
+    "3": {
+      "label": "Competent",
+      "description": "Good ground contact time appropriate for training level and event. Quick, reactive foot strikes during sprint work with contact times around 150-180 milliseconds at faster paces. Reasonable ankle stiffness provides adequate elastic energy return. Demonstrates bouncy, springy running quality rather than plodding appearance. Maintains 180+ step per minute cadence during distance running. Can execute quick feet drills properly and transfer partially to continuous running. Contact time increases with fatigue but remains reasonable throughout most efforts. Biomechanically efficient for club-level competition with competent force application during stance phase."
+    },
+    "4": {
+      "label": "Advanced",
+      "description": "Excellent ground contact time across all running speeds with highly efficient force application. Very quick, reactive foot strikes with optimal ankle stiffness generating superior elastic energy return. Ground contact times approach 120-150 milliseconds during sprint efforts, under 180 milliseconds during distance running. Maintains exceptional quickness even when fatigued. Visibly bouncy, springy running appearance indicating high running economy. Cadence optimal for event (180-185 for distance, very high frequency for sprints). Demonstrates teaching-level foot mechanics and can explain ankle stiffness concept. Competitive advantage through superior ground contact efficiency. Self-corrects if contact time lengthens during fatigue."
+    },
+    "5": {
+      "label": "Elite",
+      "description": "World-class ground contact time demonstrating elite-level reactive strength. Exceptionally quick contacts under 100 milliseconds during maximum velocity sprinting (0.08-0.10 seconds for elite sprinters). Optimal contact times during distance events maximizing running economy. Perfect ankle-foot stiffness generates maximum elastic energy return with minimal energy absorption. Maintains elite-level quickness during Olympic or World Championship finals under extreme fatigue. Demonstrates biomechanical perfection in force application and ground contact efficiency. Serves as global model for reactive foot strike mechanics. Among the quickest ground contact times in the world for chosen event specialization, contributing to international-level performance."
+    }
+  },
+  "assessmentGuidance": "Observe the overall running cadence and listen to rhythm of foot strikes. Quick, light contacts indicate short ground contact time; slow, heavy contacts indicate prolonged time. Watch ankle behavior during landing - stiff ankle that doesn't collapse excessively suggests good reactive strength. Note running appearance: bouncy and springy versus plodding and stuck. Count steps per minute (cadence) as indirect measure - higher cadence generally correlates with shorter ground contact. Advanced assessment uses force plates or high-speed video to measure actual contact duration. Observe across different speeds and fatigue states."
+}

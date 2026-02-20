@@ -1818,14 +1818,13 @@ export const processScheduledDeliveries = internalMutation({
 
     // Query for summaries ready to be delivered
     // Status = auto_approved AND scheduledDeliveryAt <= now
+    // Using index for efficient querying (no full table scan)
     const autoApprovedSummaries = await ctx.db
       .query("coachParentSummaries")
-      .filter((q) =>
-        q.and(
-          q.eq(q.field("status"), "auto_approved"),
-          q.lte(q.field("scheduledDeliveryAt"), now)
-        )
+      .withIndex("by_status_scheduledDeliveryAt", (q) =>
+        q.eq("status", "auto_approved")
       )
+      .filter((q) => q.lte(q.field("scheduledDeliveryAt"), now))
       .collect();
 
     console.log(

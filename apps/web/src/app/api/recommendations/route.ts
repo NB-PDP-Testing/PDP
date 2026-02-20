@@ -17,20 +17,20 @@ const DEFAULT_MODEL = "claude-3-5-haiku-20241022";
 const DEFAULT_MAX_TOKENS = 1500;
 const DEFAULT_TEMPERATURE = 0.7;
 
-interface TeamDataPlayer {
+type TeamDataPlayer = {
   name: string;
   ageGroup?: string;
   attendance?: { training?: string | number };
   skills?: Record<string, unknown>;
   reviewStatus?: string;
-}
+};
 
-interface TeamDataSkill {
+type TeamDataSkill = {
   skill: string;
   avg?: number;
-}
+};
 
-interface TeamData {
+type TeamData = {
   teamName: string;
   playerCount?: number;
   avgSkillLevel?: number;
@@ -39,7 +39,7 @@ interface TeamData {
   attendanceIssues?: number;
   overdueReviews?: number;
   players?: TeamDataPlayer[];
-}
+};
 
 function getConfig() {
   return {

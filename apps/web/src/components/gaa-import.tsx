@@ -363,7 +363,7 @@ const GAAMembershipWizard = ({
     const team = localTeams.find(
       (t) =>
         t.sport === sport &&
-        t.ageGroup === ageGroup &&
+        t.ageGroup?.toLowerCase() === ageGroup?.toLowerCase() &&
         t.gender === gender &&
         t.season === season
     );

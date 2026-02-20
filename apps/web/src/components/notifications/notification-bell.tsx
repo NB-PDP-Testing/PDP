@@ -248,11 +248,11 @@ export function NotificationBell() {
               </div>
               <div className="space-y-1">
                 {recentNotifications.map((notification) => (
-                  <div
-                    className={`rounded-lg border p-3 transition-colors ${
+                  <button
+                    className={`w-full rounded-lg border p-3 text-left transition-colors ${
                       notification.link
                         ? "cursor-pointer hover:bg-muted/50"
-                        : ""
+                        : "cursor-default"
                     } ${
                       notification.seenAt
                         ? "bg-card"
@@ -260,13 +260,7 @@ export function NotificationBell() {
                     }`}
                     key={notification._id}
                     onClick={() => handleNotificationClick(notification)}
-                    onKeyDown={(e) => {
-                      if (e.key === "Enter" || e.key === " ") {
-                        handleNotificationClick(notification);
-                      }
-                    }}
-                    role={notification.link ? "button" : undefined}
-                    tabIndex={notification.link ? 0 : undefined}
+                    type="button"
                   >
                     <div className="flex items-start gap-3">
                       <div className="mt-0.5 flex-shrink-0">
@@ -293,7 +287,7 @@ export function NotificationBell() {
                         </p>
                       </div>
                     </div>
-                  </div>
+                  </button>
                 ))}
               </div>
             </div>

@@ -55,7 +55,13 @@ type VoiceNote = {
     status: "pending" | "applied" | "dismissed" | "auto_applied";
     appliedDate?: string;
   }>;
-  insightsStatus?: "pending" | "processing" | "completed" | "failed";
+  insightsStatus?:
+    | "pending"
+    | "processing"
+    | "completed"
+    | "failed"
+    | "awaiting_confirmation"
+    | "cancelled";
 };
 
 type Props = {

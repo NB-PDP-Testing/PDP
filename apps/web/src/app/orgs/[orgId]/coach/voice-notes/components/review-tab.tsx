@@ -26,6 +26,7 @@ import {
 } from "@/components/ui/empty";
 import { authClient } from "@/lib/auth-client";
 import { SummaryApprovalCard } from "./summary-approval-card";
+import { SwipeableInsightCard } from "./swipeable-insight-card";
 
 const { useSession } = authClient;
 
@@ -267,79 +268,84 @@ export function ReviewTab({ orgId, onSuccess, onError }: ReviewTabProps) {
           </CardHeader>
           <CardContent className="space-y-3">
             {pendingInsights.map((insight) => (
-              <div
-                className="flex flex-col gap-3 rounded-lg border-2 border-blue-200 bg-blue-50 p-3 sm:flex-row sm:items-start sm:justify-between sm:p-4"
+              <SwipeableInsightCard
                 key={insight.id}
+                onApply={() => handleApplyInsight(insight.noteId, insight.id)}
+                onDismiss={() =>
+                  handleDismissInsight(insight.noteId, insight.id)
+                }
               >
-                <div className="flex-1">
-                  <div className="mb-1 flex flex-wrap items-center gap-1.5 sm:gap-2">
-                    <span className="font-semibold text-gray-800 text-sm sm:text-base">
-                      {insight.title}
-                    </span>
-                    {insight.playerName ? (
-                      <Badge className="text-xs" variant="secondary">
-                        {insight.playerName}
-                      </Badge>
-                    ) : (
-                      <Badge className="bg-purple-100 text-purple-700 text-xs">
-                        Team
-                      </Badge>
-                    )}
-                    {insight.category && (
-                      <Badge className="text-xs" variant="outline">
-                        {insight.category}
-                      </Badge>
+                <div className="flex flex-col gap-3 rounded-lg border-2 border-blue-200 bg-blue-50 p-3 sm:flex-row sm:items-start sm:justify-between sm:p-4">
+                  <div className="flex-1">
+                    <div className="mb-1 flex flex-wrap items-center gap-1.5 sm:gap-2">
+                      <span className="font-semibold text-gray-800 text-sm sm:text-base">
+                        {insight.title}
+                      </span>
+                      {insight.playerName ? (
+                        <Badge className="text-xs" variant="secondary">
+                          {insight.playerName}
+                        </Badge>
+                      ) : (
+                        <Badge className="bg-purple-100 text-purple-700 text-xs">
+                          Team
+                        </Badge>
+                      )}
+                      {insight.category && (
+                        <Badge className="text-xs" variant="outline">
+                          {insight.category}
+                        </Badge>
+                      )}
+                    </div>
+                    <p className="mb-2 text-gray-700 text-xs sm:text-sm">
+                      {insight.description}
+                    </p>
+                    {insight.recommendedUpdate && (
+                      <p className="text-gray-500 text-xs italic">
+                        {insight.recommendedUpdate}
+                      </p>
                     )}
                   </div>
-                  <p className="mb-2 text-gray-700 text-xs sm:text-sm">
-                    {insight.description}
-                  </p>
-                  {insight.recommendedUpdate && (
-                    <p className="text-gray-500 text-xs italic">
-                      {insight.recommendedUpdate}
-                    </p>
-                  )}
-                </div>
-                <div className="flex justify-end gap-2">
-                  {insight.playerIdentityId && (
+                  <div className="flex justify-end gap-2">
+                    {insight.playerIdentityId && (
+                      <Button
+                        className="h-8 px-2 sm:h-9 sm:px-3"
+                        onClick={() => {
+                          router.push(
+                            `/orgs/${orgId}/coach/messages/compose?type=insight&voiceNoteId=${insight.noteId}&insightId=${insight.id}&playerIdentityId=${insight.playerIdentityId}` as Route
+                          );
+                        }}
+                        size="sm"
+                        title="Share with Parent"
+                        variant="secondary"
+                      >
+                        <Send className="h-4 w-4" />
+                      </Button>
+                    )}
                     <Button
                       className="h-8 px-2 sm:h-9 sm:px-3"
-                      onClick={() => {
-                        router.push(
-                          `/orgs/${orgId}/coach/messages/compose?type=insight&voiceNoteId=${insight.noteId}&insightId=${insight.id}&playerIdentityId=${insight.playerIdentityId}` as Route
-                        );
-                      }}
+                      onClick={() =>
+                        handleApplyInsight(insight.noteId, insight.id)
+                      }
                       size="sm"
-                      title="Share with Parent"
-                      variant="secondary"
+                      title="Apply insight"
+                      variant="default"
                     >
-                      <Send className="h-4 w-4" />
+                      <CheckCircle className="h-4 w-4" />
                     </Button>
-                  )}
-                  <Button
-                    className="h-8 px-2 sm:h-9 sm:px-3"
-                    onClick={() =>
-                      handleApplyInsight(insight.noteId, insight.id)
-                    }
-                    size="sm"
-                    title="Apply insight"
-                    variant="default"
-                  >
-                    <CheckCircle className="h-4 w-4" />
-                  </Button>
-                  <Button
-                    className="h-8 px-2 sm:h-9 sm:px-3"
-                    onClick={() =>
-                      handleDismissInsight(insight.noteId, insight.id)
-                    }
-                    size="sm"
-                    title="Dismiss insight"
-                    variant="outline"
-                  >
-                    <XCircle className="h-4 w-4" />
-                  </Button>
+                    <Button
+                      className="h-8 px-2 sm:h-9 sm:px-3"
+                      onClick={() =>
+                        handleDismissInsight(insight.noteId, insight.id)
+                      }
+                      size="sm"
+                      title="Dismiss insight"
+                      variant="outline"
+                    >
+                      <XCircle className="h-4 w-4" />
+                    </Button>
+                  </div>
                 </div>
-              </div>
+              </SwipeableInsightCard>
             ))}
           </CardContent>
         </Card>

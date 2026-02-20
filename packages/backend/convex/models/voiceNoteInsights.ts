@@ -847,7 +847,54 @@ export const autoApplyInsightInternal = internalMutation({
       };
     }
 
-    // 4. For non-skill insights, just mark as auto_applied (no data update needed)
+    // 4. CRITICAL VALIDATION: Check if player exists and is in coach's teams
+    // Auto-apply should ONLY work for players in teams that the coach coaches
+    if (insight.playerName && !insight.playerIdentityId) {
+      return {
+        success: false,
+        message: "Player not matched - requires manual assignment",
+      };
+    }
+
+    // If playerIdentityId exists, verify player is in a team the coach coaches
+    if (insight.playerIdentityId) {
+      const playerIdentityId = insight.playerIdentityId; // Type narrowing for TypeScript
+
+      // Get coach's team assignments
+      const coachAssignments = await ctx.db
+        .query("coachAssignments")
+        .withIndex("by_user_and_org", (q) =>
+          q
+            .eq("userId", args.coachId)
+            .eq("organizationId", insight.organizationId)
+        )
+        .collect();
+
+      // Flatten teams array from all coach assignments
+      const coachTeamIds = new Set(coachAssignments.flatMap((a) => a.teams));
+
+      // Get player's team memberships
+      const playerTeams = await ctx.db
+        .query("teamPlayerIdentities")
+        .withIndex("by_playerIdentityId", (q) =>
+          q.eq("playerIdentityId", playerIdentityId)
+        )
+        .collect();
+
+      // Check if player is in any of the coach's teams
+      const playerInCoachTeam = playerTeams.some((pt) =>
+        coachTeamIds.has(pt.teamId)
+      );
+
+      if (!playerInCoachTeam) {
+        return {
+          success: false,
+          message: "Player not in your teams - requires manual review",
+        };
+      }
+    }
+
+    // 5. For non-skill insights, just mark as auto_applied (no data update needed)
     // Only skill_rating insights actually update player data
     if (insight.category !== "skill_rating") {
       // Mark as auto_applied in voiceNoteInsights table
@@ -1307,5 +1354,72 @@ export const getUndoReasonStats = query({
       byReason,
       topInsights,
     };
+  },
+});
+
+/**
+ * Get voiceNoteInsights record ID by voiceNoteId and string insightId
+ * Used to map embedded insight array IDs to voiceNoteInsights table Convex IDs
+ * for features like reactions and suggestions.
+ */
+export const getInsightRecordId = query({
+  args: {
+    voiceNoteId: v.id("voiceNotes"),
+    insightId: v.string(), // String ID from embedded array
+  },
+  returns: v.union(v.id("voiceNoteInsights"), v.null()),
+  handler: async (ctx, args) => {
+    const record = await ctx.db
+      .query("voiceNoteInsights")
+      .withIndex("by_voice_note_and_insight", (q) =>
+        q.eq("voiceNoteId", args.voiceNoteId).eq("insightId", args.insightId)
+      )
+      .first();
+
+    return record?._id ?? null;
+  },
+});
+
+/**
+ * Get all voiceNoteInsights records for a list of voice note IDs
+ * Used to batch-fetch insight records for ID mapping in the frontend
+ */
+export const getInsightsByVoiceNotes = query({
+  args: {
+    voiceNoteIds: v.array(v.id("voiceNotes")),
+  },
+  returns: v.array(
+    v.object({
+      _id: v.id("voiceNoteInsights"),
+      voiceNoteId: v.id("voiceNotes"),
+      insightId: v.string(),
+      title: v.string(),
+      status: v.union(
+        v.literal("pending"),
+        v.literal("applied"),
+        v.literal("dismissed"),
+        v.literal("auto_applied")
+      ),
+    })
+  ),
+  handler: async (ctx, args) => {
+    // Batch fetch all insights for the given voice notes
+    const allInsights = await Promise.all(
+      args.voiceNoteIds.map((voiceNoteId) =>
+        ctx.db
+          .query("voiceNoteInsights")
+          .withIndex("by_voice_note", (q) => q.eq("voiceNoteId", voiceNoteId))
+          .collect()
+      )
+    );
+
+    // Flatten and return with only the fields needed for mapping
+    return allInsights.flat().map((insight) => ({
+      _id: insight._id,
+      voiceNoteId: insight.voiceNoteId,
+      insightId: insight.insightId,
+      title: insight.title,
+      status: insight.status,
+    }));
   },
 });

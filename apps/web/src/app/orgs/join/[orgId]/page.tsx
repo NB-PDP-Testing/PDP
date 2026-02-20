@@ -1,23 +1,20 @@
 "use client";
 
 import { api } from "@pdp/backend/convex/_generated/api";
-import { useMutation } from "convex/react";
+import { useMutation, useQuery } from "convex/react";
 import {
   Building2,
   Check,
   Loader2,
-  MapPin,
   Phone,
-  Plus,
   Send,
   Shield,
-  Trash2,
   UserCircle,
   Users,
 } from "lucide-react";
 import Link from "next/link";
 import { useParams, useRouter } from "next/navigation";
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { toast } from "sonner";
 import { Button } from "@/components/ui/button";
 import {
@@ -40,12 +37,6 @@ import { Textarea } from "@/components/ui/textarea";
 
 type FunctionalRole = "coach" | "parent" | "admin" | "player";
 
-type ChildEntry = {
-  name: string;
-  age: string;
-  team: string;
-};
-
 const SPORTS = ["GAA Football", "Soccer", "Rugby", "GAA Hurling"] as const;
 const GENDERS = ["male", "female", "mixed"] as const;
 
@@ -53,6 +44,9 @@ export default function JoinOrganizationRequestPage() {
   const params = useParams();
   const router = useRouter();
   const orgId = params.orgId as string;
+
+  // Fetch current user to pre-fill phone from profile
+  const currentUser = useQuery(api.models.users.getCurrentUser);
 
   // Users can select multiple functional roles
   const [selectedRoles, setSelectedRoles] = useState<FunctionalRole[]>([]);
@@ -62,11 +56,12 @@ export default function JoinOrganizationRequestPage() {
   // Common field - phone (used by both parent and coach)
   const [phone, setPhone] = useState("");
 
-  // Parent-specific fields
-  const [address, setAddress] = useState("");
-  const [children, setChildren] = useState<ChildEntry[]>([
-    { name: "", age: "", team: "" },
-  ]);
+  // Pre-fill phone from user profile when data loads
+  useEffect(() => {
+    if (currentUser?.phone && !phone) {
+      setPhone(currentUser.phone);
+    }
+  }, [currentUser?.phone, phone]);
 
   // Coach-specific fields
   const [coachSport, setCoachSport] = useState("");
@@ -90,36 +85,6 @@ export default function JoinOrganizationRequestPage() {
   ): "member" | "admin" =>
     functionalRoles.includes("admin") ? "admin" : "member";
 
-  // Child management functions
-  const addChild = () => {
-    setChildren([...children, { name: "", age: "", team: "" }]);
-  };
-
-  const removeChild = (index: number) => {
-    if (children.length > 1) {
-      setChildren(children.filter((_, i) => i !== index));
-    }
-  };
-
-  const updateChild = (
-    index: number,
-    field: keyof ChildEntry,
-    value: string
-  ) => {
-    const updated = [...children];
-    updated[index] = { ...updated[index], [field]: value };
-    setChildren(updated);
-  };
-
-  // Check if parent fields are valid (at least one child with name)
-  const isParentDataValid = () => {
-    if (!selectedRoles.includes("parent")) {
-      return true;
-    }
-    // At least one child must have a name
-    return children.some((child) => child.name.trim().length > 0);
-  };
-
   // Check if coach fields are valid
   const isCoachDataValid = () => {
     if (!selectedRoles.includes("coach")) {
@@ -136,11 +101,6 @@ export default function JoinOrganizationRequestPage() {
     try {
       const betterAuthRole = inferBetterAuthRole(selectedRoles);
 
-      // Filter children to only include those with names
-      const validChildren = children.filter(
-        (child) => child.name.trim().length > 0
-      );
-
       await createJoinRequest({
         organizationId: orgId,
         requestedRole: betterAuthRole,
@@ -149,21 +109,6 @@ export default function JoinOrganizationRequestPage() {
 
         // Common field
         phone: phone || undefined,
-
-        // Parent-specific fields
-        address: selectedRoles.includes("parent")
-          ? address || undefined
-          : undefined,
-        children:
-          selectedRoles.includes("parent") && validChildren.length > 0
-            ? JSON.stringify(
-                validChildren.map((c) => ({
-                  name: c.name.trim(),
-                  age: c.age ? Number.parseInt(c.age, 10) : undefined,
-                  team: c.team.trim() || undefined,
-                }))
-              )
-            : undefined,
 
         // Coach-specific fields
         coachSport: selectedRoles.includes("coach")
@@ -180,8 +125,10 @@ export default function JoinOrganizationRequestPage() {
           : undefined,
       });
 
-      toast.success("Join request submitted successfully!");
-      router.push("/orgs");
+      toast.success(
+        "Join request submitted successfully! An admin will review your request."
+      );
+      router.push("/orgs/join");
     } catch (error: unknown) {
       console.error("Error submitting join request:", error);
       const errorMessage =
@@ -192,8 +139,7 @@ export default function JoinOrganizationRequestPage() {
     }
   };
 
-  const canSubmit =
-    selectedRoles.length > 0 && isParentDataValid() && isCoachDataValid();
+  const canSubmit = selectedRoles.length > 0 && isCoachDataValid();
 
   return (
     <div className="container mx-auto max-w-2xl space-y-6 py-8">
@@ -397,107 +343,6 @@ export default function JoinOrganizationRequestPage() {
                 <p className="text-muted-foreground text-xs">
                   Helps verify your identity and for contact purposes
                 </p>
-              </div>
-            )}
-
-            {/* Parent-specific fields */}
-            {selectedRoles.includes("parent") && (
-              <div className="space-y-4 rounded-lg border border-blue-200 bg-blue-50/50 p-4 dark:border-blue-800 dark:bg-blue-950/20">
-                <h3 className="flex items-center gap-2 font-medium text-blue-800 dark:text-blue-200">
-                  <UserCircle className="h-4 w-4" />
-                  Parent Information
-                </h3>
-
-                {/* Address */}
-                <div className="space-y-2">
-                  <Label htmlFor="address">
-                    <MapPin className="mr-2 inline h-4 w-4" />
-                    Home Address
-                  </Label>
-                  <Textarea
-                    className="min-h-20"
-                    disabled={isSubmitting}
-                    id="address"
-                    onChange={(e) => setAddress(e.target.value)}
-                    placeholder="Enter your full address including postcode..."
-                    value={address}
-                  />
-                  <p className="text-muted-foreground text-xs">
-                    Used to help match you with your children in the system
-                  </p>
-                </div>
-
-                {/* Children */}
-                <div className="space-y-3">
-                  <Label>
-                    Your Children <span className="text-destructive">*</span>
-                  </Label>
-                  <p className="text-muted-foreground text-xs">
-                    Add details about your children to help us match them to
-                    their records
-                  </p>
-
-                  {children.map((child, index) => (
-                    <div
-                      className="flex items-start gap-2 rounded border bg-white p-3 dark:bg-gray-900"
-                      key={index}
-                    >
-                      <div className="grid flex-1 grid-cols-3 gap-2">
-                        <Input
-                          disabled={isSubmitting}
-                          onChange={(e) =>
-                            updateChild(index, "name", e.target.value)
-                          }
-                          placeholder="Child's name *"
-                          value={child.name}
-                        />
-                        <Input
-                          disabled={isSubmitting}
-                          max={18}
-                          min={4}
-                          onChange={(e) =>
-                            updateChild(index, "age", e.target.value)
-                          }
-                          placeholder="Age"
-                          type="number"
-                          value={child.age}
-                        />
-                        <Input
-                          disabled={isSubmitting}
-                          onChange={(e) =>
-                            updateChild(index, "team", e.target.value)
-                          }
-                          placeholder="Team (optional)"
-                          value={child.team}
-                        />
-                      </div>
-                      {children.length > 1 && (
-                        <Button
-                          className="shrink-0"
-                          disabled={isSubmitting}
-                          onClick={() => removeChild(index)}
-                          size="icon"
-                          type="button"
-                          variant="ghost"
-                        >
-                          <Trash2 className="h-4 w-4 text-destructive" />
-                        </Button>
-                      )}
-                    </div>
-                  ))}
-
-                  <Button
-                    className="w-full"
-                    disabled={isSubmitting}
-                    onClick={addChild}
-                    size="sm"
-                    type="button"
-                    variant="outline"
-                  >
-                    <Plus className="mr-2 h-4 w-4" />
-                    Add Another Child
-                  </Button>
-                </div>
               </div>
             )}
 

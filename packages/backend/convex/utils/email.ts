@@ -29,6 +29,7 @@ type InvitationEmailData = {
   teams?: TeamInfo[]; // For coach role - shows which teams they'll manage
   players?: PlayerInfo[]; // For parent role - shows which players they're linked to
   hasPendingChildren?: boolean; // For guardian invitation - indicates pending child acknowledgments
+  expiresInDays?: number; // How many days until invitation expires (default: 7)
 };
 
 /**
@@ -84,6 +85,7 @@ export async function sendOrganizationInvitation(
     teams,
     players,
     hasPendingChildren,
+    expiresInDays = 7,
   } = data;
 
   // Format roles for display - NEVER show Better Auth role
@@ -301,7 +303,7 @@ export async function sendOrganizationInvitation(
             <a href="${inviteLink}" style="color: #1E3A5F; word-break: break-all;">${inviteLink}</a>
           </p>
           <p style="font-size: 12px; color: #999;">
-            This invitation will expire in 7 days. If you didn't expect this invitation,
+            This invitation will expire in ${expiresInDays} days. If you didn't expect this invitation,
             you can safely ignore this email.
           </p>
         </div>
@@ -373,7 +375,7 @@ ${hasPendingChildren ? "Once you accept, you'll need to review and acknowledge y
 Questions? Reply to this email and we'll help you get started.
 
 ---
-This invitation will expire in 7 days. If you didn't expect this invitation, you can safely ignore this email.
+This invitation will expire in ${expiresInDays} days. If you didn't expect this invitation, you can safely ignore this email.
 
 © ${new Date().getFullYear()} PlayerARC. All rights reserved.
   `.trim();
@@ -444,8 +446,13 @@ This invitation will expire in 7 days. If you didn't expect this invitation, you
 export function generateWhatsAppInvitationMessage(
   data: InvitationEmailData
 ): string {
-  const { invitedByUsername, organizationName, inviteLink, functionalRoles } =
-    data;
+  const {
+    invitedByUsername,
+    organizationName,
+    inviteLink,
+    functionalRoles,
+    expiresInDays = 7,
+  } = data;
 
   // Format roles for display
   const rolesDisplay =
@@ -463,7 +470,7 @@ export function generateWhatsAppInvitationMessage(
   message +=
     "PlayerARC helps coaches and parents collaborate to support young athletes.\n\n";
   message += `Accept your invitation:\n${inviteLink}\n\n`;
-  message += "This invitation expires in 7 days.";
+  message += `This invitation expires in ${expiresInDays} days.`;
 
   return message;
 }

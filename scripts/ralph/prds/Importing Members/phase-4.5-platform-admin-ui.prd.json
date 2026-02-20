@@ -1,0 +1,362 @@
+{
+  "project": "PlayerARC - Phase 4.5: Platform Admin UI & Monitoring",
+  "branchName": "ralph/phase-4.5-platform-admin-ui",
+  "description": "Create platform admin dashboard for managing federation connectors, monitoring sync health, viewing sync logs, testing connections, and analyzing performance. Provides visibility and control over the entire federation connector system. This completes the federation connector feature with a comprehensive management interface.",
+  "prdFile": "scripts/ralph/prds/Importing Members/phase-4-federation-connectors.md",
+  "contextFiles": [
+    "packages/backend/convex/models/federationConnectors.ts",
+    "packages/backend/convex/models/syncHistory.ts",
+    "packages/backend/convex/actions/federationAuth.ts",
+    "apps/web/src/app/platform-admin/layout.tsx",
+    "apps/web/src/components/ui/*",
+    "CLAUDE.md"
+  ],
+  "mandatoryPatterns": [
+    "Use shadcn/ui components for all UI elements",
+    "Platform admin pages under /platform-admin/connectors/",
+    "Check isPlatformStaff before rendering admin UI",
+    "Use useQuery/useMutation from convex/react for data fetching",
+    "Use Tailwind CSS for styling",
+    "Support mobile viewport (375px minimum) for monitoring pages",
+    "Use DataTable component for sortable, filterable tables",
+    "Use Charts (recharts) for analytics visualization",
+    "Run npx ultracite fix before completing any story",
+    "Do NOT add unit tests — E2E only per CLAUDE.md"
+  ],
+  "successCriteria": [
+    "Platform admin can view all federation connectors",
+    "Platform admin can create/edit/delete connectors",
+    "OAuth 2.0 setup flow works end-to-end",
+    "Connection test validates API credentials",
+    "Sync logs display with filtering and search",
+    "Health metrics dashboard shows uptime and error rates",
+    "Analytics show sync trends over time",
+    "Cost estimation displays monthly API costs",
+    "All pages responsive on mobile (375px+)",
+    "All type checks pass: npm run check-types",
+    "All linting passes: npx ultracite fix && npm run check"
+  ],
+  "userStories": [
+    {
+      "id": "US-P4.5-001",
+      "title": "Create connector list page",
+      "description": "As a platform admin, I need to view all federation connectors with their status, health, and connected organizations.",
+      "acceptanceCriteria": [
+        "Create apps/web/src/app/platform-admin/connectors/page.tsx",
+        "Page title: 'Federation Connectors'",
+        "Use DataTable component to display connectors",
+        "Table columns: Name, Federation Code, Status, Connected Orgs, Last Sync, Health, Actions",
+        "Status badge: green (active), yellow (inactive), red (error)",
+        "Health badge: uptime % (green >95%, yellow 80-95%, red <80%)",
+        "Connected Orgs column shows count with tooltip listing org names",
+        "Last Sync column shows relative time: '2 hours ago' or 'Never'",
+        "Actions column: Edit button, Test Connection button, Delete button",
+        "Add 'Create Connector' button at top right",
+        "Table sortable by Name, Status, Last Sync, Health",
+        "Table filterable by Status: All, Active, Inactive, Error",
+        "Search bar filters by name or federation code",
+        "Empty state if no connectors: 'No connectors configured. Create one to get started.'",
+        "Mobile responsive: table becomes card list on <768px",
+        "Run npx ultracite fix"
+      ],
+      "priority": 1,
+      "notes": "Use listConnectors query to fetch data. Health metrics from getConnectorHealth query. Uptime = (successfulSyncs / totalSyncs) * 100. Card list on mobile shows key info: name, status, last sync."
+    },
+    {
+      "id": "US-P4.5-002",
+      "title": "Create connector creation/edit form",
+      "description": "As a platform admin, I need to create new federation connectors and edit existing ones including setting up authentication.",
+      "acceptanceCriteria": [
+        "Create apps/web/src/app/platform-admin/connectors/create/page.tsx",
+        "Create apps/web/src/app/platform-admin/connectors/[connectorId]/edit/page.tsx",
+        "Form fields: Name (required), Federation Code (required, unique), Status (active/inactive)",
+        "Auth Type dropdown: OAuth 2.0, API Key, Basic Auth",
+        "If OAuth 2.0 selected, show: Client ID, Client Secret, Authorization URL, Token URL",
+        "If API Key selected, show: API Key field, Header Name (default: X-API-Key)",
+        "If Basic Auth selected, show: Username, Password",
+        "Endpoints section: Membership List URL (required), Member Detail URL (optional), Webhook Secret (optional)",
+        "Sync Config section: Enable Scheduled Sync (checkbox), Cron Schedule (text input, default: '0 2 * * *'), Conflict Strategy (dropdown: federation_wins, local_wins, merge)",
+        "Template dropdown: select default import template for this connector",
+        "Validate: federation code matches pattern [a-z0-9_]+",
+        "Validate: cron schedule is valid expression",
+        "Validate: URLs are valid HTTPS endpoints",
+        "On save, call createConnector or updateConnector mutation",
+        "Show toast on success: 'Connector created/updated successfully'",
+        "Show toast on error: 'Failed to save connector: [error]'",
+        "Credentials are encrypted before storage (handled by backend)",
+        "Cancel button returns to connector list",
+        "Run npx ultracite fix and npm run check-types"
+      ],
+      "priority": 2,
+      "notes": "Use React Hook Form for validation. Credentials never shown in edit form (re-enter to update). Federation code immutable after creation (can't change). OAuth setup requires additional flow - show 'Setup OAuth' button instead of manual entry."
+    },
+    {
+      "id": "US-P4.5-003",
+      "title": "Implement OAuth 2.0 setup wizard",
+      "description": "As a platform admin, I need to complete OAuth 2.0 authorization flow with a federation API to obtain and store access tokens.",
+      "acceptanceCriteria": [
+        "Create apps/web/src/app/platform-admin/connectors/[connectorId]/oauth-setup/page.tsx",
+        "Step 1: Display connector info and OAuth endpoints",
+        "Show 'Start Authorization' button",
+        "On click, call startOAuthFlow action to get authorization URL",
+        "Open authorization URL in new window/tab",
+        "Step 2: User authorizes in federation system",
+        "Callback URL: /platform-admin/connectors/oauth-callback",
+        "Callback page extracts code and state from URL params",
+        "Call completeOAuthFlow action with code and state",
+        "Show loading spinner: 'Completing authorization...'",
+        "Step 3: Display success or error",
+        "On success, show: 'OAuth setup complete! Access token obtained and stored.'",
+        "On error, show error message and 'Retry' button",
+        "Validate state parameter matches to prevent CSRF attacks",
+        "After success, redirect to connector edit page",
+        "Run npx ultracite fix"
+      ],
+      "priority": 3,
+      "notes": "OAuth flow: admin clicks button → opens auth URL → user authorizes → callback with code → exchange for token → stored encrypted. State parameter prevents CSRF. Callback URL must be registered in federation app settings."
+    },
+    {
+      "id": "US-P4.5-004",
+      "title": "Add connection test functionality",
+      "description": "As a platform admin, I need to test a connector's API credentials to verify they work before saving or after troubleshooting.",
+      "acceptanceCriteria": [
+        "Add 'Test Connection' button to connector edit page",
+        "Add 'Test Connection' button to connector list (Actions column)",
+        "On click, show dialog: 'Testing connection to [ConnectorName]...'",
+        "Create testConnection action: makes simple API call to federation endpoint",
+        "For OAuth: call membership list endpoint with 1 result",
+        "For API Key: call membership list endpoint with 1 result",
+        "For Basic Auth: call membership list endpoint with 1 result",
+        "Action returns: { success: boolean, message: string, responseTime: number }",
+        "Display result in dialog:",
+        "  - Success: '✓ Connection successful! Response time: 234ms'",
+        "  - Failure: '✗ Connection failed: [error message]'",
+        "Common errors: Invalid credentials (401), Not found (404), Rate limit (429), Timeout, Network error",
+        "Show 'Retry' button on failure",
+        "Close button returns to previous page",
+        "Run npx ultracite fix and npm run check-types"
+      ],
+      "priority": 4,
+      "notes": "Test connection validates credentials without running full sync. Helpful for troubleshooting auth issues. Response time helps identify slow APIs. Test endpoint should be lightweight (1 result) to avoid rate limits."
+    },
+    {
+      "id": "US-P4.5-005",
+      "title": "Create sync logs viewer",
+      "description": "As a platform admin, I need to view detailed sync logs with filtering and search to troubleshoot sync issues.",
+      "acceptanceCriteria": [
+        "Create apps/web/src/app/platform-admin/connectors/logs/page.tsx",
+        "Page title: 'Federation Sync Logs'",
+        "Use DataTable to display sync history from syncHistory table",
+        "Table columns: Timestamp, Connector, Organization, Type, Status, Duration, Stats, Actions",
+        "Type badge: scheduled (blue), manual (purple), webhook (green)",
+        "Status badge: completed (green), failed (red), running (yellow)",
+        "Duration column: 'X min Y sec'",
+        "Stats column: 'Created: X, Updated: Y, Conflicts: Z'",
+        "Actions column: 'View Details' button",
+        "Filter by connector dropdown (All Connectors or specific)",
+        "Filter by status dropdown (All, Completed, Failed, Running)",
+        "Filter by date range picker (Last 7 days, Last 30 days, Custom range)",
+        "Search bar filters by organization name",
+        "Sort by Timestamp (default: newest first)",
+        "Pagination: 50 logs per page",
+        "Empty state if no logs: 'No sync logs found. Try adjusting filters.'",
+        "Mobile responsive: table becomes card list on <768px",
+        "Run npx ultracite fix"
+      ],
+      "priority": 5,
+      "notes": "Use getSyncHistory query with pagination. Default view: last 7 days, all statuses. Failed syncs highlighted in red for visibility. 'Running' status helps identify stuck syncs."
+    },
+    {
+      "id": "US-P4.5-006",
+      "title": "Create sync log details modal",
+      "description": "As a platform admin viewing sync logs, I need to see detailed information about a specific sync including conflicts, errors, and changes.",
+      "acceptanceCriteria": [
+        "Create sync log details dialog (modal)",
+        "Opened by clicking 'View Details' in sync logs table",
+        "Dialog title: 'Sync Details - [Organization] - [Timestamp]'",
+        "Show sync metadata section:",
+        "  - Sync ID (for support reference)",
+        "  - Connector name and type",
+        "  - Organization name",
+        "  - Sync type (scheduled/manual/webhook)",
+        "  - Started at, Completed at, Duration",
+        "  - Status badge",
+        "Show stats section:",
+        "  - Players created, updated, skipped",
+        "  - Conflicts detected and resolved",
+        "  - Errors encountered",
+        "Show conflicts section (if any):",
+        "  - Expandable list of conflicts",
+        "  - Each conflict shows: Player Name, Field, Federation Value, Local Value, Resolved Value, Strategy",
+        "  - Color-coded resolution: green (no conflict), yellow (merged), red (overwritten)",
+        "Show errors section (if any):",
+        "  - Scrollable error list with timestamps",
+        "  - Each error: 'Row X: [PlayerName] - [Error message]'",
+        "Add 'Export Details' button to download JSON report",
+        "Add 'Retry Sync' button if status = failed",
+        "Close button returns to logs page",
+        "Run npx ultracite fix"
+      ],
+      "priority": 6,
+      "notes": "Use getSyncHistoryDetails query. Conflict details help understand merge decisions. Error section aids debugging. Export useful for sharing with support. Retry button calls sync action again."
+    },
+    {
+      "id": "US-P4.5-007",
+      "title": "Create connector health dashboard",
+      "description": "As a platform admin, I need a dashboard showing connector health metrics, sync trends, and alerts to monitor system status at a glance.",
+      "acceptanceCriteria": [
+        "Create apps/web/src/app/platform-admin/connectors/dashboard/page.tsx",
+        "Page title: 'Federation Connector Dashboard'",
+        "Show summary cards at top:",
+        "  - Total Connectors (count by status: X active, Y inactive, Z error)",
+        "  - Total Organizations Connected (unique org count)",
+        "  - Syncs Last 24h (completed vs failed)",
+        "  - API Cost This Month (estimated from usage)",
+        "Show sync trend chart (last 30 days):",
+        "  - Line chart using recharts library",
+        "  - X-axis: date, Y-axis: sync count",
+        "  - Two lines: successful syncs (green), failed syncs (red)",
+        "Show connector health table:",
+        "  - Mini table with top 5 connectors sorted by health (worst first)",
+        "  - Columns: Connector, Uptime %, Last Error, Actions",
+        "  - Red highlight if uptime <80%",
+        "Show recent errors panel:",
+        "  - Last 10 sync errors with timestamps",
+        "  - Click error to view full sync log details",
+        "Add 'View All Logs' button → links to sync logs page",
+        "Add 'Manage Connectors' button → links to connector list page",
+        "Auto-refresh every 60 seconds (show last updated timestamp)",
+        "Mobile responsive: cards stack vertically, chart scrollable",
+        "Run npx ultracite fix and npm run check-types"
+      ],
+      "priority": 7,
+      "notes": "Dashboard provides at-a-glance visibility. Red highlights draw attention to problems. Auto-refresh keeps data current. Cost estimation formula: (uncached API calls * $0.003) + (sync job executions * minimal cost)."
+    },
+    {
+      "id": "US-P4.5-008",
+      "title": "Add analytics and cost monitoring",
+      "description": "As a platform admin, I need to analyze federation connector usage, costs, and performance trends to optimize the system.",
+      "acceptanceCriteria": [
+        "Create apps/web/src/app/platform-admin/connectors/analytics/page.tsx",
+        "Page title: 'Federation Analytics'",
+        "Time range selector: Last 7 days, Last 30 days, Last 90 days, Custom",
+        "Sync volume chart:",
+        "  - Bar chart by day showing sync counts",
+        "  - Stacked bars: scheduled (blue), manual (purple), webhook (green)",
+        "API cost chart:",
+        "  - Line chart showing estimated daily costs",
+        "  - Tooltip shows breakdown: Claude API calls, other costs",
+        "Cache hit rate chart:",
+        "  - Pie chart showing cached vs uncached AI mappings",
+        "  - Display cache savings: '$X saved this month'",
+        "Connector performance table:",
+        "  - Columns: Connector, Avg Sync Duration, Success Rate, API Cost",
+        "  - Sort by any column",
+        "  - Highlight slow syncs (>5 min) in yellow",
+        "Organization leaderboard:",
+        "  - Top 10 organizations by sync count",
+        "  - Useful for identifying heavy users",
+        "Export analytics: download CSV or JSON report",
+        "Add filter: by connector, by organization",
+        "Mobile responsive: charts stack vertically, scrollable tables",
+        "Run npx ultracite fix and npm run check-types"
+      ],
+      "priority": 8,
+      "notes": "Use getAIMappingStats and getSyncHistory queries. Recharts for visualizations. Cost estimation helps budget planning. Cache hit rate validates 30-day caching strategy. Performance table identifies optimization opportunities."
+    }
+  ],
+  "technicalNotes": {
+    "frontend": {
+      "newPages": [
+        "apps/web/src/app/platform-admin/connectors/page.tsx - connector list",
+        "apps/web/src/app/platform-admin/connectors/create/page.tsx - create connector",
+        "apps/web/src/app/platform-admin/connectors/[connectorId]/edit/page.tsx - edit connector",
+        "apps/web/src/app/platform-admin/connectors/[connectorId]/oauth-setup/page.tsx - OAuth wizard",
+        "apps/web/src/app/platform-admin/connectors/oauth-callback/page.tsx - OAuth callback",
+        "apps/web/src/app/platform-admin/connectors/logs/page.tsx - sync logs viewer",
+        "apps/web/src/app/platform-admin/connectors/dashboard/page.tsx - health dashboard",
+        "apps/web/src/app/platform-admin/connectors/analytics/page.tsx - analytics page"
+      ],
+      "newComponents": [
+        "apps/web/src/components/connectors/ConnectorForm.tsx - shared form for create/edit",
+        "apps/web/src/components/connectors/SyncLogDetails.tsx - sync details modal",
+        "apps/web/src/components/connectors/ConnectionTestDialog.tsx - test connection dialog",
+        "apps/web/src/components/connectors/HealthBadge.tsx - health status indicator",
+        "apps/web/src/components/connectors/SyncTrendChart.tsx - recharts line chart",
+        "apps/web/src/components/connectors/CostChart.tsx - recharts cost visualization"
+      ]
+    },
+    "backend": {
+      "newActions": [
+        "testConnection - validate API credentials with test call"
+      ],
+      "existingQueries": [
+        "listConnectors - fetch all connectors (Phase 4.1)",
+        "getConnector - fetch single connector (Phase 4.1)",
+        "getConnectorHealth - fetch health metrics (Phase 4.1)",
+        "getSyncHistory - fetch paginated sync logs (Phase 4.4)",
+        "getSyncHistoryDetails - fetch single sync details (Phase 4.4)",
+        "getAIMappingStats - fetch AI mapping analytics (Phase 4.3)"
+      ]
+    },
+    "dependencies": {
+      "newPackages": [
+        "recharts - charting library for analytics visualization",
+        "date-fns - date formatting and manipulation"
+      ]
+    },
+    "navigation": {
+      "platformAdminNav": "Add 'Connectors' menu item under Platform Admin section"
+    }
+  },
+  "risks": [
+    {
+      "risk": "OAuth callback may not work if callback URL not registered with federation",
+      "mitigation": "Provide clear setup instructions in docs. Show exact callback URL in OAuth setup wizard. Validate callback works in test environment before production."
+    },
+    {
+      "risk": "Charts may be slow with 90 days of data (thousands of data points)",
+      "mitigation": "Aggregate data by day (not hour). Limit to 90 days max. Use chart library's built-in optimization (recharts has good performance)."
+    },
+    {
+      "risk": "Cost estimates may be inaccurate if API pricing changes",
+      "mitigation": "Make pricing configurable in environment variables. Update monthly. Show as estimates, not exact costs. Add disclaimer: 'Estimated costs based on current API pricing'."
+    },
+    {
+      "risk": "Platform admins may accidentally delete active connectors",
+      "mitigation": "Require confirmation dialog before deletion. Show warning if connector has connected orgs. Consider soft delete (status=inactive) instead of hard delete."
+    }
+  ],
+  "outOfScope": [
+    "Organization admin connector management - only platform admins for now",
+    "Connector marketplace (browse/install pre-built connectors) - future feature",
+    "Custom connector development UI (no-code builder) - future feature",
+    "Real-time sync monitoring (live tail of logs) - future enhancement",
+    "Alerting system (email/Slack on sync failures) - implement in Phase 4.4 retry logic",
+    "Multi-tenant connector sharing (one connector, many orgs) - already supported in Phase 4.1"
+  ],
+  "completionChecklist": [
+    "Connector list page displays all connectors with health badges",
+    "Create connector form works for all 3 auth types (OAuth, API Key, Basic)",
+    "Edit connector form loads existing data correctly",
+    "OAuth setup wizard completes authorization flow successfully",
+    "OAuth callback extracts code and state, completes token exchange",
+    "Connection test validates credentials and shows response time",
+    "Sync logs page displays paginated history with filters",
+    "Sync log details modal shows conflicts and errors",
+    "Health dashboard displays summary cards and trend chart",
+    "Analytics page shows sync volume, costs, cache hit rate",
+    "Export sync details generates valid JSON report",
+    "Export analytics generates CSV report",
+    "Retry sync button re-triggers failed sync",
+    "All pages responsive on mobile (375px+)",
+    "Platform staff role check prevents unauthorized access",
+    "All forms validate inputs and show error messages",
+    "All type checks pass: npm run check-types",
+    "All linting passes: npx ultracite fix && npm run check",
+    "Manual testing: created connector, tested connection, viewed logs, checked analytics",
+    "Charts render correctly with sample data (7, 30, 90 days)",
+    "No console errors or warnings",
+    "Git commit messages follow conventional commits format"
+  ]
+}

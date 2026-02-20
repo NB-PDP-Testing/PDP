@@ -1,0 +1,194 @@
+# PlayerARC - Phase 0: Onboarding Sync
+
+> Auto-generated documentation - Last updated: 2026-02-04 08:34
+
+## Status
+
+- **Branch**: `ralph/phase-0-onboarding-sync`
+- **Progress**: 10 / 10 stories complete
+- **Phase Status**: ✅ Complete
+
+## Completed Features
+
+### US-P0-001: Add profile fields to user table schema
+
+As a developer, I need to store additional profile fields on the user table to enable multi-signal matching.
+
+**Acceptance Criteria:**
+- Add optional fields to user table in schema.ts: phone, altEmail, postcode, address, town, country
+- Add profileCompletionStatus field: 'pending' | 'completed' | 'skipped'
+- Add profileCompletedAt (optional number) and profileSkipCount (optional number) fields
+- Add indexes: by_phone, by_altEmail, by_postcode
+- Run npx -w packages/backend convex codegen successfully
+- Typecheck passes: npm run check-types
+
+### US-P0-002: Create unified guardian matching module
+
+As a developer, I need a shared matching module so both import and onboarding use identical scoring logic.
+
+**Acceptance Criteria:**
+- Create /packages/backend/convex/lib/matching/guardianMatcher.ts
+- Export MATCHING_WEIGHTS constant: EMAIL_EXACT=50, SURNAME_POSTCODE=45, PHONE=30, SURNAME_TOWN=35, POSTCODE_ONLY=20, TOWN_ONLY=10, HOUSE_NUMBER=5
+- Export CONFIDENCE_THRESHOLDS: HIGH=60, MEDIUM=40, LOW=20
+- Implement normalizePhone() function that handles Irish (+353) and UK (+44) formats
+- Implement normalizePostcode() function that removes whitespace and uppercases
+- Implement findGuardianMatches() query function with multi-signal scoring
+- Implement calculateMatchScore() helper function
+- Implement getConfidenceLevel() helper function returning 'high' | 'medium' | 'low'
+- Typecheck passes
+
+### US-P0-003: Create user profile mutations
+
+As a user, I need backend mutations to save my profile completion data so it persists and can be used for matching.
+
+**Acceptance Criteria:**
+- Create /packages/backend/convex/models/userProfiles.ts
+- Implement updateProfile mutation with args: phone?, altEmail?, postcode?, address?, town?, country?
+- updateProfile normalizes phone and postcode before saving
+- updateProfile sets profileCompletionStatus to 'completed' and profileCompletedAt to Date.now()
+- Implement skipProfileCompletion mutation that increments profileSkipCount
+- skipProfileCompletion returns { skipCount, canSkipAgain } where canSkipAgain is false after 3 skips
+- Implement getProfileStatus query returning status, phone, altEmail, postcode, skipCount, canSkip
+- All mutations require authentication (check ctx.auth.getUserIdentity())
+- Typecheck passes
+
+### US-P0-004: Add profile completion onboarding task
+
+As a user, I need the profile completion step to appear in my onboarding flow before the guardian claiming step.
+
+**Acceptance Criteria:**
+- Modify /packages/backend/convex/models/onboarding.ts getOnboardingTasks query
+- Add 'profile_completion' task type to the task types
+- Insert profile_completion task at priority 1.5 (after accept_invitations, before guardian_claiming)
+- Task only appears if profileCompletionStatus is 'pending' or undefined
+- Task data includes: currentPhone, currentPostcode, skipCount, canSkip, reason
+- canSkip is false if profileSkipCount >= 3
+- Typecheck passes
+
+### US-P0-005: Enhance checkForClaimableIdentity with multi-signal matching
+
+As a user, I need the claiming check to use all my profile data so I can find my children even with different emails.
+
+**Acceptance Criteria:**
+- Modify checkForClaimableIdentity query in guardianIdentities.ts
+- Add optional args: phone?, altEmail?, postcode?
+- Import and use findGuardianMatches from guardianMatcher.ts
+- Return matches with confidence scores and match reasons
+- Filter to only unclaimed guardians (no userId) with linked children
+- Sort matches by score descending
+- Maintain backward compatibility - email-only matching still works
+- Typecheck passes
+
+### US-P0-006: Create ProfileCompletionStep frontend component
+
+As a user, I need a clear UI to enter my phone, postcode, and alternate email so the system can find my children.
+
+**Acceptance Criteria:**
+- Create /apps/web/src/components/onboarding/ProfileCompletionStep.tsx
+- Use shadcn/ui Card, Input, Label, Button components
+- Include phone input with placeholder '+353 87 123 4567'
+- Include postcode input with auto-uppercase
+- Include optional alternate email input
+- Include info box explaining why we ask for this data
+- Show 'Skip for Now' button if canSkip is true with remaining skips count
+- Show 'Save & Continue' button that calls updateProfile mutation
+- Handle loading state with Loader2 spinner
+- Show toast on success/error using sonner
+- Call onComplete callback after successful save
+- Call onSkip callback after skip
+- Typecheck passes
+
+### US-P0-007: Create NoChildrenFoundStep fallback component
+
+As a user who couldn't be matched, I need helpful guidance on what to do next.
+
+**Acceptance Criteria:**
+- Create /apps/web/src/components/onboarding/NoChildrenFoundStep.tsx
+- Display what signals were searched (email, phone if provided, postcode if provided)
+- List possible reasons: club hasn't imported, different contact details, new to club
+- Provide 'Try Different Details' button that expands a retry form
+- Retry form has inputs for altEmail, phone, postcode
+- Provide 'Contact Club' button (can be placeholder action for now)
+- Provide 'Continue Without Linking' button
+- Use shadcn/ui components consistently
+- Typecheck passes
+
+### US-P0-008: Integrate profile completion into onboarding wizard
+
+As a user, I need the profile completion step to appear in the correct order in my onboarding experience.
+
+**Acceptance Criteria:**
+- Locate existing onboarding wizard/modal component
+- Import ProfileCompletionStep and NoChildrenFoundStep components
+- Add case for 'profile_completion' task type that renders ProfileCompletionStep
+- After profile completion, re-run checkForClaimableIdentity with new data
+- If matches found after profile completion, proceed to guardian claiming
+- If no matches found, show NoChildrenFoundStep
+- Handle onComplete to advance to next task
+- Handle onSkip to mark task as skipped and advance
+- Typecheck passes
+
+### US-P0-009: Update sign-up flow to trigger profile completion
+
+As a new user, I need the onboarding flow to include profile completion when I first sign up.
+
+**Acceptance Criteria:**
+- Review sign-up-form.tsx post-signup flow
+- Ensure onboarding tasks are checked after signup
+- Profile completion task should appear for new users
+- Existing claiming logic still works but now uses enhanced matching
+- No changes to OAuth flows (Google, Microsoft) - profile completion appears in onboarding
+- Typecheck passes
+
+### US-P0-010: End-to-end testing and verification
+
+As a developer, I need to verify the complete flow works correctly across all scenarios.
+
+**Acceptance Criteria:**
+- Test scenario 1: User signs up with same email as import -> immediate match (no profile completion needed)
+- Test scenario 2: User signs up with different email, provides matching phone -> finds children
+- Test scenario 3: User signs up with different email, provides matching postcode + surname -> finds children
+- Test scenario 4: User skips profile completion -> proceeds with email-only matching
+- Test scenario 5: User skips 3 times -> cannot skip again
+- Test scenario 6: No signals match -> NoChildrenFoundStep appears
+- All linting passes: npx ultracite fix
+- All type checks pass: npm run check-types
+- Manual browser verification of happy path
+
+
+## Implementation Notes
+
+### Key Patterns & Learnings
+
+**Patterns discovered:**
+- User schema extensions go in `packages/backend/convex/betterAuth/schema.ts`, not main schema.ts
+- The `phone` field already exists on the user table - didn't need to add it
+- Convex codegen validates the schema - if it passes, schema is valid
+- Pre-existing type errors in migration files and frontend modules (remotion, framer-motion) - these are not related to current work
+- Generated files (api.d.ts, component.ts) must be committed along with schema changes
+
+**Gotchas encountered:**
+- Pre-existing type errors in migration files and frontend modules (remotion, framer-motion) - these are not related to current work
+- Generated files (api.d.ts, component.ts) must be committed along with schema changes
+---
+
+### Files Changed
+
+- packages/backend/convex/betterAuth/schema.ts (+17)
+- packages/backend/convex/_generated/api.d.ts (auto-generated)
+- packages/backend/convex/betterAuth/_generated/component.ts (auto-generated)
+- ✅ Convex codegen: passed
+- ✅ Lint-staged on commit: passed
+- ⚠️ npm run check-types: Pre-existing errors in migration files and frontend code (not related to changes)
+- User schema extensions go in `packages/backend/convex/betterAuth/schema.ts`, not main schema.ts
+- The `phone` field already exists on the user table - didn't need to add it
+- Convex codegen validates the schema - if it passes, schema is valid
+- Pre-existing type errors in migration files and frontend modules (remotion, framer-motion) - these are not related to current work
+- Generated files (api.d.ts, component.ts) must be committed along with schema changes
+
+
+## Key Files
+
+
+---
+*Documentation auto-generated by Ralph Documenter Agent*

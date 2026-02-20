@@ -16,13 +16,11 @@ fi
 
 # Check monitoring agents
 AGENTS=0
-[ -f scripts/ralph/agents/output/quality-monitor.pid ] && kill -0 $(cat scripts/ralph/agents/output/quality-monitor.pid) 2>/dev/null && ((AGENTS++))
-[ -f scripts/ralph/agents/output/prd-auditor.pid ] && kill -0 $(cat scripts/ralph/agents/output/prd-auditor.pid) 2>/dev/null && ((AGENTS++))
-[ -f scripts/ralph/agents/output/documenter.pid ] && kill -0 $(cat scripts/ralph/agents/output/documenter.pid) 2>/dev/null && ((AGENTS++))
-[ -f scripts/ralph/agents/output/security-tester.pid ] && kill -0 $(cat scripts/ralph/agents/output/security-tester.pid) 2>/dev/null && ((AGENTS++))
-[ -f scripts/ralph/agents/output/test-runner.pid ] && kill -0 $(cat scripts/ralph/agents/output/test-runner.pid) 2>/dev/null && ((AGENTS++))
+for agent in quality-monitor prd-auditor documenter test-runner security-tester code-review-gate; do
+  [ -f "scripts/ralph/agents/output/${agent}.pid" ] && kill -0 $(cat "scripts/ralph/agents/output/${agent}.pid") 2>/dev/null && ((AGENTS++))
+done
 
-echo "Agents: $AGENTS/5 running"
+echo "Agents: $AGENTS/6 running"
 
 # Check PRD progress
 if [ -f scripts/ralph/prd.json ]; then

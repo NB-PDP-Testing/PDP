@@ -1,6 +1,11 @@
 import { v } from "convex/values";
 import { components } from "../_generated/api";
 import { mutation, query } from "../_generated/server";
+import {
+  findGuardianMatches,
+  parseFullName,
+} from "../lib/matching/guardianMatcher";
+import { normalizePhoneNumber } from "../lib/phoneUtils";
 
 // ============================================================
 // TYPE DEFINITIONS
@@ -29,7 +34,9 @@ const guardianIdentityValidator = v.object({
   email: v.optional(v.string()),
   phone: v.optional(v.string()),
   address: v.optional(v.string()),
+  address2: v.optional(v.string()), // Phase 0.7: Address line 2
   town: v.optional(v.string()),
+  county: v.optional(v.string()), // Phase 0.7: County/State/Province
   postcode: v.optional(v.string()),
   country: v.optional(v.string()),
   userId: v.optional(v.string()),
@@ -80,7 +87,7 @@ export const findGuardianByPhone = query({
   args: { phone: v.string() },
   returns: v.union(guardianIdentityValidator, v.null()),
   handler: async (ctx, args) => {
-    const normalizedPhone = normalizePhone(args.phone);
+    const normalizedPhone = normalizePhoneNumber(args.phone);
     return await ctx.db
       .query("guardianIdentities")
       .withIndex("by_phone", (q) => q.eq("phone", normalizedPhone))
@@ -905,7 +912,9 @@ export const createGuardianIdentity = mutation({
     email: v.string(),
     phone: v.optional(v.string()),
     address: v.optional(v.string()),
+    address2: v.optional(v.string()), // Phase 0.7: Address line 2
     town: v.optional(v.string()),
+    county: v.optional(v.string()), // Phase 0.7: County/State/Province
     postcode: v.optional(v.string()),
     country: v.optional(v.string()),
     userId: v.optional(v.string()),
@@ -928,7 +937,9 @@ export const createGuardianIdentity = mutation({
     }
 
     const now = Date.now();
-    const normalizedPhone = args.phone ? normalizePhone(args.phone) : undefined;
+    const normalizedPhone = args.phone
+      ? normalizePhoneNumber(args.phone)
+      : undefined;
 
     return await ctx.db.insert("guardianIdentities", {
       firstName: args.firstName.trim(),
@@ -936,7 +947,9 @@ export const createGuardianIdentity = mutation({
       email: normalizedEmail,
       phone: normalizedPhone,
       address: args.address?.trim(),
+      address2: args.address2?.trim(),
       town: args.town?.trim(),
+      county: args.county?.trim(),
       postcode: args.postcode?.trim(),
       country: args.country?.trim(),
       userId: args.userId,
@@ -960,7 +973,9 @@ export const updateGuardianIdentity = mutation({
     email: v.optional(v.string()),
     phone: v.optional(v.string()),
     address: v.optional(v.string()),
+    address2: v.optional(v.string()), // Phase 0.7: Address line 2
     town: v.optional(v.string()),
+    county: v.optional(v.string()), // Phase 0.7: County/State/Province
     postcode: v.optional(v.string()),
     country: v.optional(v.string()),
     verificationStatus: v.optional(verificationStatusValidator),
@@ -1000,13 +1015,19 @@ export const updateGuardianIdentity = mutation({
       updates.email = normalizedEmail;
     }
     if (args.phone !== undefined) {
-      updates.phone = normalizePhone(args.phone);
+      updates.phone = normalizePhoneNumber(args.phone);
     }
     if (args.address !== undefined) {
       updates.address = args.address.trim();
     }
+    if (args.address2 !== undefined) {
+      updates.address2 = args.address2.trim();
+    }
     if (args.town !== undefined) {
       updates.town = args.town.trim();
+    }
+    if (args.county !== undefined) {
+      updates.county = args.county.trim();
     }
     if (args.postcode !== undefined) {
       updates.postcode = args.postcode.trim();
@@ -1028,6 +1049,7 @@ export const updateGuardianIdentity = mutation({
 
 /**
  * Link a guardian identity to a Better Auth user
+ * Phase 0.7: Also pre-populate user address from guardian if user has no address
  */
 export const linkGuardianToUser = mutation({
   args: {
@@ -1061,6 +1083,59 @@ export const linkGuardianToUser = mutation({
           : existing.verificationStatus,
       updatedAt: Date.now(),
     });
+
+    // Phase 0.7: Pre-populate user address from guardian if user has no address
+    // User table is single source of truth, but when claiming a guardian,
+    // we copy imported address data to give user a starting point
+    const user = await ctx.runQuery(components.betterAuth.adapter.findOne, {
+      model: "user",
+      where: [{ field: "_id", value: args.userId, operator: "eq" }],
+    });
+
+    if (user) {
+      const userAddress = (user as any).address;
+      const guardianHasAddress = existing.address;
+
+      // Only copy if user has NO address and guardian HAS address
+      if (!userAddress && guardianHasAddress) {
+        const addressUpdates: Record<string, string | number | undefined> = {
+          updatedAt: Date.now(),
+        };
+
+        // Copy all address fields from guardian to user
+        if (existing.address) {
+          addressUpdates.address = existing.address;
+        }
+        if (existing.address2) {
+          addressUpdates.address2 = existing.address2;
+        }
+        if (existing.town) {
+          addressUpdates.town = existing.town;
+        }
+        if (existing.county) {
+          addressUpdates.county = existing.county;
+        }
+        if (existing.postcode) {
+          addressUpdates.postcode = existing.postcode;
+        }
+        if (existing.country) {
+          addressUpdates.country = existing.country;
+        }
+
+        await ctx.runMutation(components.betterAuth.adapter.updateOne, {
+          input: {
+            model: "user",
+            where: [{ field: "_id", value: args.userId, operator: "eq" }],
+            update: addressUpdates,
+          },
+        });
+
+        console.log(
+          "[linkGuardianToUser] Copied address from guardian to user:",
+          args.userId
+        );
+      }
+    }
 
     return null;
   },
@@ -1102,7 +1177,9 @@ export const findOrCreateGuardian = mutation({
     email: v.string(),
     phone: v.optional(v.string()),
     address: v.optional(v.string()),
+    address2: v.optional(v.string()), // Phase 0.7: Address line 2
     town: v.optional(v.string()),
+    county: v.optional(v.string()), // Phase 0.7: County/State/Province
     postcode: v.optional(v.string()),
     country: v.optional(v.string()),
     createdFrom: v.optional(v.string()),
@@ -1159,7 +1236,9 @@ export const findOrCreateGuardian = mutation({
 
     // No match found, create new guardian
     const now = Date.now();
-    const normalizedPhone = args.phone ? normalizePhone(args.phone) : undefined;
+    const normalizedPhone = args.phone
+      ? normalizePhoneNumber(args.phone)
+      : undefined;
 
     // Build guardian data - NEVER auto-link
     const guardianData: any = {
@@ -1168,7 +1247,9 @@ export const findOrCreateGuardian = mutation({
       email: normalizedEmail,
       phone: normalizedPhone,
       address: args.address?.trim(),
+      address2: args.address2?.trim(),
       town: args.town?.trim(),
+      county: args.county?.trim(),
       postcode: args.postcode?.trim(),
       country: args.country?.trim(),
       verificationStatus: "unverified", // Always unverified - must claim via modal
@@ -1249,7 +1330,7 @@ export const findMatchingGuardian = query({
 
     // 2. Phone match (if no email match)
     if (args.phone) {
-      const normalizedPhone = normalizePhone(args.phone);
+      const normalizedPhone = normalizePhoneNumber(args.phone);
       const byPhone = await ctx.db
         .query("guardianIdentities")
         .withIndex("by_phone", (q) => q.eq("phone", normalizedPhone))
@@ -1768,6 +1849,155 @@ export const checkForClaimableIdentity = query({
 });
 
 /**
+ * Enhanced check for claimable guardian identity with multi-signal matching
+ *
+ * Phase 0: Onboarding Sync - This enhanced version uses phone, postcode, and altEmail
+ * for matching in addition to the primary email. This enables matching even when
+ * the user signs up with a different email than what the club has on file.
+ *
+ * Scoring:
+ * - EMAIL_EXACT: 50 points
+ * - SURNAME_POSTCODE: 45 points
+ * - PHONE: 30 points
+ * - SURNAME_TOWN: 35 points
+ * - POSTCODE_ONLY: 20 points
+ * - TOWN_ONLY: 10 points
+ *
+ * Confidence thresholds:
+ * - HIGH (60+): Auto-link
+ * - MEDIUM (40-59): Suggest, require confirmation
+ * - LOW (20-39): Show as possible match
+ */
+export const checkForClaimableIdentityEnhanced = query({
+  args: {
+    email: v.string(),
+    name: v.optional(v.string()),
+    // NEW: Additional matching signals from profile completion
+    phone: v.optional(v.string()),
+    altEmail: v.optional(v.string()),
+    postcode: v.optional(v.string()),
+  },
+  returns: v.union(
+    v.object({
+      hasClaimableIdentity: v.literal(true),
+      matches: v.array(
+        v.object({
+          guardianIdentityId: v.id("guardianIdentities"),
+          confidence: v.number(),
+          confidenceLevel: v.union(
+            v.literal("high"),
+            v.literal("medium"),
+            v.literal("low")
+          ),
+          matchReasons: v.array(v.string()),
+          guardian: v.object({
+            firstName: v.string(),
+            lastName: v.string(),
+            email: v.optional(v.string()),
+            phone: v.optional(v.string()),
+          }),
+          linkedChildren: v.array(
+            v.object({
+              playerIdentityId: v.id("playerIdentities"),
+              firstName: v.string(),
+              lastName: v.string(),
+              dateOfBirth: v.string(),
+            })
+          ),
+          organizations: v.array(
+            v.object({
+              organizationId: v.string(),
+              organizationName: v.optional(v.string()),
+            })
+          ),
+        })
+      ),
+    }),
+    v.object({
+      hasClaimableIdentity: v.literal(false),
+      reason: v.string(),
+    })
+  ),
+  handler: async (ctx, args) => {
+    // Parse name into first/last if provided
+    const { firstName, lastName } = args.name
+      ? parseFullName(args.name)
+      : { firstName: "", lastName: "" };
+
+    // Use the unified matching module
+    const allMatches = await findGuardianMatches(ctx, {
+      email: args.email,
+      firstName,
+      lastName,
+      phone: args.phone,
+      altEmail: args.altEmail,
+      postcode: args.postcode,
+    });
+
+    // Filter to only unclaimed guardians (no userId) with linked children
+    const claimableMatches = [];
+
+    for (const match of allMatches) {
+      // Check if guardian is unclaimed
+      const guardian = await ctx.db.get(match.guardianIdentityId);
+      if (!guardian || guardian.userId) {
+        continue; // Skip claimed guardians
+      }
+
+      // Check if has linked children
+      if (match.linkedChildren.length === 0) {
+        continue; // Skip guardians without children
+      }
+
+      // Get organizations for this guardian's children
+      const orgSet = new Set<string>();
+      for (const child of match.linkedChildren) {
+        const enrollments = await ctx.db
+          .query("orgPlayerEnrollments")
+          .withIndex("by_playerIdentityId", (q) =>
+            q.eq("playerIdentityId", child.playerIdentityId)
+          )
+          .collect();
+
+        for (const enrollment of enrollments) {
+          orgSet.add(enrollment.organizationId);
+        }
+      }
+
+      const organizations = Array.from(orgSet).map((orgId) => ({
+        organizationId: orgId,
+        organizationName: undefined, // Will be fetched from Better Auth on frontend
+      }));
+
+      claimableMatches.push({
+        guardianIdentityId: match.guardianIdentityId,
+        confidence: match.score,
+        confidenceLevel: match.confidence,
+        matchReasons: match.matchReasons,
+        guardian: match.guardian,
+        linkedChildren: match.linkedChildren,
+        organizations,
+      });
+    }
+
+    // Sort by confidence descending
+    claimableMatches.sort((a, b) => b.confidence - a.confidence);
+
+    if (claimableMatches.length === 0) {
+      return {
+        hasClaimableIdentity: false as const,
+        reason: "No matching guardian profiles found with linked children",
+      };
+    }
+
+    return {
+      hasClaimableIdentity: true as const,
+      matches: claimableMatches,
+    };
+  },
+});
+
+/**
  * Batch acknowledge parent actions - handle multiple actions in one transaction
  * Supports: claiming identities, acknowledging links, declining links, updating consents
  * This is the primary mutation for the batched parent onboarding system
@@ -2171,19 +2401,50 @@ export const trackParentOnboardingDismissal = mutation({
   },
 });
 
+/**
+ * Admin function to unlink a guardian identity from a user
+ * Used for testing/cleanup purposes
+ * WARNING: No auth check - only use in dev environment
+ */
+export const adminUnlinkGuardian = mutation({
+  args: {
+    guardianIdentityId: v.id("guardianIdentities"),
+  },
+  returns: v.null(),
+  handler: async (ctx, args) => {
+    const guardian = await ctx.db.get(args.guardianIdentityId);
+    if (!guardian) {
+      throw new Error("Guardian identity not found");
+    }
+
+    // Remove userId from guardian identity
+    await ctx.db.patch(args.guardianIdentityId, {
+      userId: undefined,
+    });
+
+    // Reset acknowledgedByParentAt on all links for this guardian
+    const links = await ctx.db
+      .query("guardianPlayerLinks")
+      .withIndex("by_guardian", (q) =>
+        q.eq("guardianIdentityId", args.guardianIdentityId)
+      )
+      .collect();
+
+    for (const link of links) {
+      await ctx.db.patch(link._id, {
+        acknowledgedByParentAt: undefined,
+      });
+    }
+
+    console.log(
+      `[Admin] Unlinked guardian ${args.guardianIdentityId}, reset ${links.length} links`
+    );
+
+    return null;
+  },
+});
+
 // ============================================================
 // HELPER FUNCTIONS
 // ============================================================
-
-/**
- * Normalize a phone number for consistent storage and matching
- * Removes spaces, dashes, and common formatting characters
- */
-function normalizePhone(phone: string): string {
-  // Remove all non-digit characters except leading +
-  const hasPlus = phone.startsWith("+");
-  const digits = phone.replace(/\D/g, "");
-
-  // Add back the + if it was there
-  return hasPlus ? `+${digits}` : digits;
-}
+// Phone normalization moved to shared utility: lib/phoneUtils.ts

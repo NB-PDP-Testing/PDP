@@ -1,0 +1,9 @@
+FirstName,LastName,AgeGroup,Sport,Gender,Season,ParentFirstName,ParentLastName,ParentEmail,ParentPhone,ParentRelationship,DateOfBirth,Address,Town,Postcode,Country
+Emma,Murphy,U12,Soccer,Female,2025-2026,Sarah,Murphy,sarah.murphy.uat@example.com,+447700100001,mother,2014-03-15,42 Oak Street,Armagh,BT61 7PQ,GB
+Liam,O'Connor,U14,Soccer,Male,2025-2026,Patrick,O'Connor,patrick.oconnor.uat@example.com,+447700100002,father,2013-07-22,,,,
+Aoife,Kelly,U14,Soccer,Female,2025-2026,Mary,Kelly,mary.kelly.uat@example.com,+447700100003,mother,2012-01-10,15 Church Road,Dungannon,BT70 1AB,GB
+Cian,Kelly,U10,Soccer,Male,2025-2026,Mary,Kelly,mary.kelly.uat@example.com,+447700100003,mother,2015-09-05,15 Church Road,Dungannon,BT70 1AB,GB
+Noah,Walsh,U12,Soccer,Male,2025-2026,Fiona,Walsh,fiona.walsh.uat@example.com,+447700100004,mother,2014-11-30,8 Mill Lane,Portadown,BT62 3CD,GB
+Saoirse,Byrne,U10,Soccer,Female,2025-2026,Margaret,Byrne,margaret.byrne.uat@example.com,+447700100005,grandparent,2016-04-18,23 Main Street,Lurgan,,GB
+Oscar,Doyle,U16,Soccer,Male,2025-2026,Michael,Doyle,michael.doyle.uat@example.com,+447700100006,father,2011-08-25,101 Station Road,Newry,BT35 6EF,GB
+Niamh,Ryan,U14,Soccer,Female,2025-2026,Louise,Ryan,louise.ryan.uat@example.com,+447700100007,guardian,2013-12-03,7 Park View,Craigavon,BT65 5GH,GB

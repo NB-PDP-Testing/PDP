@@ -2,8 +2,11 @@
 
 import { api } from "@pdp/backend/convex/_generated/api";
 import { useMutation, useQuery } from "convex/react";
-import { Camera, Info, Loader2, User, X } from "lucide-react";
-import { useState } from "react";
+import type { CountryCode } from "libphonenumber-js";
+import { parsePhoneNumber } from "libphonenumber-js";
+import { Camera, Info, Loader2, MapPin, User, X } from "lucide-react";
+
+import { useEffect, useState } from "react";
 import { toast } from "sonner";
 import { ResponsiveDialog } from "@/components/interactions";
 import { Alert, AlertDescription } from "@/components/ui/alert";
@@ -19,10 +22,27 @@ import {
 } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
-import { useCurrentUser } from "@/hooks/use-current-user";
 
-// Phone validation regex (top-level for performance)
-const PHONE_REGEX = /^[\d\s\-+()]+$/;
+import { PhoneInput } from "@/components/ui/phone-input";
+import {
+  Select,
+  SelectContent,
+  SelectGroup,
+  SelectItem,
+  SelectLabel,
+  SelectSeparator,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select";
+
+import { useCurrentUser } from "@/hooks/use-current-user";
+import {
+  ALL_COUNTRIES,
+  getCountyOptions,
+  IRISH_COUNTIES,
+  TOP_COUNTRIES,
+  US_STATES,
+} from "@/lib/constants/address-data";
 
 /**
  * Profile Settings Dialog
@@ -41,7 +61,9 @@ export function ProfileSettingsDialog({
   onOpenChange: (open: boolean) => void;
 }) {
   const user = useCurrentUser();
-  const updateProfile = useMutation(api.models.userPreferences.updateProfile);
+  const updateProfileWithSync = useMutation(
+    api.models.userProfiles.updateProfileWithSync
+  );
 
   // Check if user has OAuth account
   const authMethod = useQuery(
@@ -49,11 +71,54 @@ export function ProfileSettingsDialog({
     user?._id ? { userId: user._id } : "skip"
   );
 
-  // Form state
+  // Normalize phone to E.164 format (must start with +)
+  const initialPhone = user?.phone
+    ? user.phone.startsWith("+")
+      ? user.phone
+      : `+${user.phone}`
+    : "";
+
+  // Form state - Personal Information
   const [firstName, setFirstName] = useState(user?.firstName || "");
   const [lastName, setLastName] = useState(user?.lastName || "");
-  const [phone, setPhone] = useState(user?.phone || "");
+  const [phone, setPhone] = useState(initialPhone);
+
+  // Form state - Address (Phase 0.7)
+  const [address, setAddress] = useState(user?.address || "");
+  const [address2, setAddress2] = useState(user?.address2 || "");
+  const [town, setTown] = useState(user?.town || "");
+  const [county, setCounty] = useState(user?.county || "");
+  const [postcode, setPostcode] = useState(user?.postcode || "");
+  const [country, setCountry] = useState(user?.country || "");
+
+  // Track if "Other" was selected for county dropdown
+  const [isCountyOther, setIsCountyOther] = useState(false);
+
   const [isSaving, setIsSaving] = useState(false);
+
+  // Sync form state with latest user data when the dialog opens.
+  // useState only captures the initial value at mount time, so if
+  // the user record updates (e.g. after onboarding profile completion),
+  // the form fields would still show stale values without this.
+  useEffect(() => {
+    if (open && user) {
+      let phoneValue = "";
+      if (user.phone) {
+        phoneValue = user.phone.startsWith("+") ? user.phone : `+${user.phone}`;
+      }
+      setFirstName(user.firstName || "");
+      setLastName(user.lastName || "");
+      setPhone(phoneValue);
+      setAddress(user.address || "");
+      setAddress2(user.address2 || "");
+      setTown(user.town || "");
+      setCounty(user.county || "");
+      setPostcode(user.postcode || "");
+      setCountry(user.country || "");
+      setIsCountyOther(false);
+      setErrors({});
+    }
+  }, [open, user]);
 
   // Validation errors
   const [errors, setErrors] = useState<{
@@ -94,14 +159,59 @@ export function ProfileSettingsDialog({
       }
     }
 
-    if (phone.length > 0 && (!PHONE_REGEX.test(phone) || phone.length < 10)) {
-      newErrors.phone =
-        "Phone must be at least 10 characters and contain only digits and formatting characters";
+    // Validate phone number format
+    if (phone.length > 0) {
+      try {
+        const phoneNumber = parsePhoneNumber(phone);
+        if (phoneNumber?.isValid()) {
+          // Check if it's a mobile number (not landline)
+          const type = phoneNumber.getType();
+          if (type === "FIXED_LINE") {
+            newErrors.phone =
+              "Please enter a mobile number. Landlines cannot receive WhatsApp messages or SMS.";
+          }
+        } else {
+          newErrors.phone = "Please enter a valid phone number";
+        }
+      } catch {
+        newErrors.phone = "Please enter a valid phone number";
+      }
     }
 
     setErrors(newErrors);
     return Object.keys(newErrors).length === 0;
   };
+
+  // Determine county field type based on country
+  const countyOptions = getCountyOptions(country);
+  const showCountyDropdown = countyOptions && !isCountyOther;
+
+  // Handle postcode change - auto uppercase
+  const handlePostcodeChange = (value: string) => {
+    setPostcode(value.toUpperCase());
+  };
+
+  // Handle country change - reset county
+  const handleCountryChange = (value: string) => {
+    setCountry(value);
+    setCounty("");
+    setIsCountyOther(false);
+  };
+
+  // Handle county select change
+  const handleCountySelectChange = (value: string) => {
+    if (value === "__other__") {
+      setIsCountyOther(true);
+      setCounty("");
+    } else {
+      setCounty(value);
+    }
+  };
+
+  // Filter out top countries from the full list to avoid duplicates
+  const otherCountries = ALL_COUNTRIES.filter(
+    (c) => !TOP_COUNTRIES.some((tc) => tc.code === c.code)
+  );
 
   // Handle save
   const handleSave = async () => {
@@ -117,24 +227,34 @@ export function ProfileSettingsDialog({
 
     setIsSaving(true);
     try {
-      // Only send fields that can be edited
+      // Build update data - use updateProfileWithSync which syncs to guardianIdentities
       const updateData: {
-        userId: string;
         firstName?: string;
         lastName?: string;
         phone?: string;
+        address?: string;
+        address2?: string;
+        town?: string;
+        county?: string;
+        postcode?: string;
+        country?: string;
       } = {
-        userId: user._id,
-        phone,
+        phone: phone.trim() || undefined,
+        address: address.trim() || undefined,
+        address2: address2.trim() || undefined,
+        town: town.trim() || undefined,
+        county: county.trim() || undefined,
+        postcode: postcode.trim() || undefined,
+        country: country || undefined,
       };
 
       // Only include name fields if user can edit them (not OAuth)
       if (canEditName) {
-        updateData.firstName = firstName;
-        updateData.lastName = lastName;
+        updateData.firstName = firstName.trim();
+        updateData.lastName = lastName.trim();
       }
 
-      await updateProfile(updateData);
+      await updateProfileWithSync(updateData);
 
       toast.success("Profile updated successfully");
       onOpenChange(false);
@@ -309,20 +429,193 @@ export function ProfileSettingsDialog({
 
             {/* Phone */}
             <div className="space-y-2">
-              <Label htmlFor="phone">Phone Number (Optional)</Label>
-              <Input
+              <Label htmlFor="phone">
+                Mobile Number <span className="text-destructive">*</span>
+              </Label>
+              <PhoneInput
+                countries={["IE", "GB", "US"] as CountryCode[]}
+                defaultCountry={"IE" as CountryCode}
                 id="phone"
-                onChange={(e) => {
-                  setPhone(e.target.value);
+                onChange={(value) => {
+                  setPhone(value || "");
                   setErrors({ ...errors, phone: undefined });
                 }}
-                placeholder="+353 123 456 7890"
-                type="tel"
+                placeholder="Enter mobile number"
                 value={phone}
               />
+              <p className="text-muted-foreground text-xs">
+                Used for WhatsApp messages and SMS notifications. Must be a
+                mobile number.
+              </p>
               {errors.phone && (
                 <p className="text-destructive text-sm">{errors.phone}</p>
               )}
+            </div>
+          </CardContent>
+        </Card>
+
+        {/* Address Section (Phase 0.7) */}
+        <Card>
+          <CardHeader>
+            <div className="flex items-center gap-2">
+              <MapPin className="h-5 w-5 text-muted-foreground" />
+              <div>
+                <CardTitle>Address</CardTitle>
+                <CardDescription>
+                  Your home address for club records
+                </CardDescription>
+              </div>
+            </div>
+          </CardHeader>
+          <CardContent className="space-y-4">
+            {/* Street Address */}
+            <div className="space-y-2">
+              <Label htmlFor="address">Street Address</Label>
+              <Input
+                id="address"
+                onChange={(e) => setAddress(e.target.value)}
+                placeholder="123 Main Street"
+                value={address}
+              />
+            </div>
+
+            {/* Address Line 2 */}
+            <div className="space-y-2">
+              <Label htmlFor="address2">Address Line 2</Label>
+              <Input
+                id="address2"
+                onChange={(e) => setAddress2(e.target.value)}
+                placeholder="Apartment, unit, building, etc."
+                value={address2}
+              />
+            </div>
+
+            {/* Town / City and Postcode row */}
+            <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
+              <div className="space-y-2">
+                <Label htmlFor="town">Town / City</Label>
+                <Input
+                  id="town"
+                  onChange={(e) => setTown(e.target.value)}
+                  placeholder="Dublin"
+                  value={town}
+                />
+              </div>
+              <div className="space-y-2">
+                <Label htmlFor="postcode">
+                  Postcode / Eircode <span className="text-destructive">*</span>
+                </Label>
+                <Input
+                  id="postcode"
+                  onChange={(e) => handlePostcodeChange(e.target.value)}
+                  placeholder="D02 XY45"
+                  value={postcode}
+                />
+              </div>
+            </div>
+
+            {/* County and Country row */}
+            <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
+              {/* County Field - Dynamic based on country */}
+              <div className="space-y-2">
+                <Label htmlFor="county">
+                  {country === "US" ? "State" : "County"}
+                </Label>
+                {showCountyDropdown ? (
+                  <Select
+                    onValueChange={handleCountySelectChange}
+                    value={county}
+                  >
+                    <SelectTrigger className="w-full">
+                      <SelectValue
+                        placeholder={
+                          country === "US" ? "Select state" : "Select county"
+                        }
+                      />
+                    </SelectTrigger>
+                    <SelectContent>
+                      <SelectGroup>
+                        {country === "IE" && (
+                          <>
+                            <SelectLabel>Irish Counties</SelectLabel>
+                            {IRISH_COUNTIES.map((c) => (
+                              <SelectItem key={c} value={c}>
+                                {c}
+                              </SelectItem>
+                            ))}
+                          </>
+                        )}
+                        {country === "US" && (
+                          <>
+                            <SelectLabel>US States</SelectLabel>
+                            {US_STATES.map((s) => (
+                              <SelectItem key={s} value={s}>
+                                {s}
+                              </SelectItem>
+                            ))}
+                          </>
+                        )}
+                        <SelectSeparator />
+                        <SelectItem value="__other__">
+                          Other (enter manually)
+                        </SelectItem>
+                      </SelectGroup>
+                    </SelectContent>
+                  </Select>
+                ) : (
+                  <Input
+                    id="county"
+                    onChange={(e) => setCounty(e.target.value)}
+                    placeholder={
+                      country === "US" ? "Enter state" : "Enter county/region"
+                    }
+                    value={county}
+                  />
+                )}
+                {isCountyOther && countyOptions && (
+                  <button
+                    className="text-primary text-xs hover:underline"
+                    onClick={() => {
+                      setIsCountyOther(false);
+                      setCounty("");
+                    }}
+                    type="button"
+                  >
+                    Back to dropdown
+                  </button>
+                )}
+              </div>
+
+              {/* Country Dropdown */}
+              <div className="space-y-2">
+                <Label htmlFor="country">Country</Label>
+                <Select onValueChange={handleCountryChange} value={country}>
+                  <SelectTrigger className="w-full">
+                    <SelectValue placeholder="Select country" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    {/* Top countries */}
+                    <SelectGroup>
+                      <SelectLabel>Common</SelectLabel>
+                      {TOP_COUNTRIES.map((c) => (
+                        <SelectItem key={c.code} value={c.code}>
+                          {c.name}
+                        </SelectItem>
+                      ))}
+                    </SelectGroup>
+                    <SelectSeparator />
+                    {/* All other countries */}
+                    <SelectGroup>
+                      <SelectLabel>All Countries</SelectLabel>
+                      {otherCountries.map((c) => (
+                        <SelectItem key={c.code} value={c.code}>
+                          {c.name}
+                        </SelectItem>
+                      ))}
+                    </SelectGroup>
+                  </SelectContent>
+                </Select>
+              </div>
             </div>
           </CardContent>
         </Card>

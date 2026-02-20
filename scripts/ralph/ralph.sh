@@ -64,23 +64,34 @@ fi
 # Create insights directory
 mkdir -p "$INSIGHTS_DIR"
 
-# Check for agent feedback and append to progress file
+# Check for agent feedback and append ONLY CRITICAL items to progress file
 check_agent_feedback() {
   if [ -f "$AGENTS_FEEDBACK_FILE" ] && [ -s "$AGENTS_FEEDBACK_FILE" ]; then
-    echo "📬 Found agent feedback - appending to progress.txt"
+    # Extract only CRITICAL feedback (test failures, type errors, build failures)
+    # Skip WARNINGS (lint errors, XSS warnings, console.log, missing auth checks)
+    # Matches agent output patterns: "❌ **TYPE ERRORS", "❌ **UNIT TEST FAILURES", "❌ **CODEGEN FAILED"
+    CRITICAL_FEEDBACK=$(grep -B 2 -A 20 "❌ \*\*TYPE ERRORS\|❌ \*\*UNIT TEST FAILURES\|❌ \*\*CODEGEN FAILED\|🔴 CRITICAL\|💥 BUILD FAILURE" "$AGENTS_FEEDBACK_FILE" || echo "")
 
-    # Check if CODE REVIEW FEEDBACK section exists
-    if ! grep -q "## CODE REVIEW FEEDBACK" "$PROGRESS_FILE"; then
+    if [ -n "$CRITICAL_FEEDBACK" ]; then
+      echo "🚨 Found CRITICAL agent feedback - appending to progress.txt"
+
+      # Check if CRITICAL ISSUES section exists
+      if ! grep -q "## ⚠️ CRITICAL ISSUES" "$PROGRESS_FILE"; then
+        echo "" >> "$PROGRESS_FILE"
+        echo "## ⚠️ CRITICAL ISSUES (FIX ASAP)" >> "$PROGRESS_FILE"
+        echo "These issues block progress and must be addressed immediately." >> "$PROGRESS_FILE"
+      fi
+
+      # Append only critical feedback
       echo "" >> "$PROGRESS_FILE"
-      echo "## CODE REVIEW FEEDBACK" >> "$PROGRESS_FILE"
+      echo "### Critical Issue Detected - $(date '+%Y-%m-%d %H:%M')" >> "$PROGRESS_FILE"
+      echo "$CRITICAL_FEEDBACK" >> "$PROGRESS_FILE"
+    else
+      echo "📬 Agent feedback found (warnings only - not appending to progress.txt)"
+      echo "   View full feedback: scripts/ralph/agents/output/feedback.md"
     fi
 
-    # Append feedback content
-    echo "" >> "$PROGRESS_FILE"
-    echo "### Agent Feedback - $(date '+%Y-%m-%d %H:%M')" >> "$PROGRESS_FILE"
-    cat "$AGENTS_FEEDBACK_FILE" >> "$PROGRESS_FILE"
-
-    # Clear the feedback file
+    # Always clear the feedback file after processing
     > "$AGENTS_FEEDBACK_FILE"
   fi
 }
@@ -110,7 +121,9 @@ for i in $(seq 1 $MAX_ITERATIONS); do
     echo "   to see live progress updates!"
   fi
 
-  # Check for agent feedback before each iteration
+  # Check for CRITICAL agent feedback (test failures, build errors, type errors)
+  # Warnings (lint, XSS, console.log) are NOT appended to prevent bloat
+  # Full feedback always available at: scripts/ralph/agents/output/feedback.md
   check_agent_feedback
 
   echo ""

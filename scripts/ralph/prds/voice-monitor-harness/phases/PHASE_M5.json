@@ -1,0 +1,307 @@
+{
+  "phase": "M5",
+  "name": "Dashboard UI",
+  "description": "Main monitoring dashboard with flow graph, real-time status cards, and activity feed. Creates the foundation for all frontend monitoring pages.",
+  "duration": "4-5 days",
+  "dependencies": ["M1", "M2"],
+  "architectureReference": "docs/architecture/voice-flow-monitoring-harness.md (lines 858-876)",
+
+  "goals": [
+    "Create route structure at /platform/voice-monitoring",
+    "Build dashboard overview page with flow graph",
+    "Build real-time status cards (6 metrics)",
+    "Build recent activity feed (last 20 events)",
+    "Create tab navigation layout for all 8 pages",
+    "Add link to platform hub, remove v2-claims link",
+    "Verify platform staff authorization on route"
+  ],
+
+  "userStories": [
+    {
+      "id": "US-VNM-008",
+      "title": "Build Dashboard Overview UI",
+      "description": "Create main monitoring dashboard at /platform/voice-monitoring with flow graph, real-time status cards, and activity feed",
+      "effort": "4 days",
+      "priority": 8,
+      "dependencies": ["US-VNM-004"],
+
+      "detailedAcceptanceCriteria": {
+        "overview": "Create Next.js route at apps/web/src/app/platform/voice-monitoring/ with dashboard page, layout for tab navigation, and real-time Convex queries for live metrics.",
+
+        "file1_layout": {
+          "location": "apps/web/src/app/platform/voice-monitoring/layout.tsx",
+          "implementation": [
+            "1. Create server component layout",
+            "2. Verify platform staff authorization (redirect if not authorized)",
+            "3. Build tab navigation bar with 8 tabs:",
+            "   - Overview (/) - default",
+            "   - Artifacts (/artifacts)",
+            "   - Metrics (/metrics)",
+            "   - Events (/events)",
+            "   - Pipeline (/pipeline)",
+            "   - Alerts (/alerts)",
+            "   - Settings (/settings) - DEFERRED for now",
+            "4. Use shadcn/ui Tabs component",
+            "5. Render {children} content below tabs",
+            "6. Add breadcrumb: Platform > Voice Monitoring"
+          ],
+          "authPattern": "import { authClient } from '@/lib/auth-client'; const session = await authClient.getSession(); if (!session?.user?.isPlatformStaff) redirect('/platform');"
+        },
+
+        "file2_page": {
+          "location": "apps/web/src/app/platform/voice-monitoring/page.tsx",
+          "implementation": [
+            "1. Client component (use 'use client' directive)",
+            "2. Import useQuery from convex/react",
+            "3. Query real-time metrics: const realTimeMetrics = useQuery(api.models.voicePipelineMetrics.getRealTimeMetrics)",
+            "4. Query recent events: const recentEvents = useQuery(api.models.voicePipelineEvents.getRecentEvents, { filters: {}, paginationOpts: { numItems: 20 } })",
+            "5. Build 3 main sections:",
+            "   - Pipeline Flow Graph (top section)",
+            "   - Real-Time Status Cards (middle grid)",
+            "   - Recent Activity Feed (bottom section)",
+            "6. Use loading states while data loading",
+            "7. Use shadcn/ui Card components for layout"
+          ]
+        },
+
+        "component1_PipelineFlowGraph": {
+          "location": "apps/web/src/app/platform/voice-monitoring/_components/PipelineFlowGraph.tsx",
+          "implementation": [
+            "1. SVG-based flow visualization",
+            "2. 5 pipeline stages:",
+            "   - Ingestion (artifact_received)",
+            "   - Transcription (transcription_completed)",
+            "   - Claims (claims_extracted)",
+            "   - Resolution (entity_resolution_completed)",
+            "   - Drafts (drafts_generated)",
+            "3. For each stage: show current count from realTimeMetrics",
+            "4. Arrows between stages showing flow direction",
+            "5. Color-code stages:",
+            "   - Green: normal operation",
+            "   - Yellow: latency > average",
+            "   - Red: failures detected",
+            "6. Click stage → navigate to /pipeline with stage filter (Phase M8)",
+            "7. Responsive: horizontal flow on desktop, vertical on mobile"
+          ],
+          "svgStructure": [
+            "ViewBox: 0 0 1200 300",
+            "5 rect elements for stages (positioned horizontally)",
+            "4 arrow paths connecting stages",
+            "Text labels for stage names and counts"
+          ],
+          "codeExample": "<svg viewBox='0 0 1200 300' className='w-full h-auto'><rect x='50' y='100' width='200' height='100' fill='green'/><text x='150' y='150' textAnchor='middle'>Ingestion ({count})</text><!-- More stages... --></svg>"
+        },
+
+        "component2_StatusCards": {
+          "location": "apps/web/src/app/platform/voice-monitoring/_components/StatusCards.tsx",
+          "implementation": [
+            "1. Grid of 6 cards (3x2 on desktop, 2x3 on tablet, 1x6 on mobile)",
+            "2. Card 1: Active Artifacts",
+            "   - Icon: Activity",
+            "   - Value: count of artifacts with status != 'completed' && != 'failed'",
+            "   - Subtitle: 'Currently processing'",
+            "3. Card 2: Completed Today",
+            "   - Icon: CheckCircle",
+            "   - Value: realTimeMetrics.artifactsCompleted1h * 24 (estimate)",
+            "   - Subtitle: 'Last 24 hours'",
+            "4. Card 3: Failed Today",
+            "   - Icon: XCircle",
+            "   - Value: realTimeMetrics.artifactsFailed1h * 24",
+            "   - Subtitle: 'Failure rate: X%'",
+            "   - Color: red if failure rate > 10%",
+            "5. Card 4: Avg Latency",
+            "   - Icon: Clock",
+            "   - Value: avgEndToEndLatency from last hourly snapshot",
+            "   - Subtitle: 'End-to-end (seconds)'",
+            "6. Card 5: AI Service Status",
+            "   - Icon: Cpu",
+            "   - Value: circuitBreakerState from aiServiceHealth",
+            "   - Subtitle: 'Circuit breaker'",
+            "   - Color: green if closed, yellow if half_open, red if open",
+            "7. Card 6: Total Cost Today",
+            "   - Icon: DollarSign",
+            "   - Value: sum of aiCost from events today",
+            "   - Subtitle: 'Pipeline AI costs'",
+            "8. Real-time updates via Convex useQuery (live data)"
+          ]
+        },
+
+        "component3_ActivityFeed": {
+          "location": "apps/web/src/app/platform/voice-monitoring/_components/ActivityFeed.tsx",
+          "implementation": [
+            "1. List of last 20 pipeline events",
+            "2. For each event:",
+            "   - Timestamp (relative: '5 minutes ago')",
+            "   - Event type icon (different icon per event type)",
+            "   - Event message (human-readable: 'Artifact ABC123 completed successfully')",
+            "   - Metadata badges (claim count, cost, duration, etc.)",
+            "   - Click event → navigate to artifact detail page",
+            "3. Group events by time (Today, Yesterday, This Week)",
+            "4. Auto-scroll to top when new events arrive (real-time)",
+            "5. Use shadcn/ui ScrollArea component",
+            "6. Empty state: 'No recent activity' with illustration"
+          ],
+          "eventIcons": {
+            "artifact_received": "Inbox",
+            "artifact_completed": "CheckCircle",
+            "artifact_failed": "XCircle",
+            "transcription_completed": "Mic",
+            "claims_extracted": "FileText",
+            "entity_resolution_completed": "Users",
+            "drafts_generated": "Edit",
+            "retry_initiated": "RotateCw"
+          }
+        },
+
+        "file3_platformHubUpdate": {
+          "location": "apps/web/src/app/platform/page.tsx",
+          "implementation": [
+            "1. Add link to Voice Monitoring section:",
+            "   <Card>",
+            "     <CardHeader>",
+            "       <CardTitle>Voice Monitoring</CardTitle>",
+            "       <CardDescription>Monitor voice note processing pipeline</CardDescription>",
+            "     </CardHeader>",
+            "     <CardContent>",
+            "       <Link href='/platform/voice-monitoring'>View Dashboard</Link>",
+            "     </CardContent>",
+            "   </Card>",
+            "2. Remove v2-claims link (functionality will be in artifacts grid in M6)"
+          ]
+        },
+
+        "criticalPatterns": {
+          "authorization": "Layout MUST verify isPlatformStaff on server side before rendering",
+          "realTimeUpdates": "Use Convex useQuery for live data (NOT static data or polling)",
+          "loadingStates": "Show skeleton loaders while queries loading (use shadcn/ui Skeleton)",
+          "responsiveDesign": "Dashboard must work on desktop, tablet, and mobile",
+          "responsiveBreakpoints": {
+            "desktop": ">= 1024px - 3-column status cards, horizontal flow graph",
+            "tablet": "768-1023px - 2-column status cards, horizontal flow graph",
+            "mobile": "< 768px - 1-column status cards, vertical flow graph",
+            "mobileTabNav": "Horizontal scroll for tabs (not stacked)",
+            "mobileFilters": "Collapse to drawer/accordion",
+            "testWidth": "375px minimum (iPhone SE)"
+          },
+          "querySkipping": "If user not platform staff, skip queries to avoid errors"
+        }
+      },
+
+      "implementationNotes": {
+        "shadcnComponents": [
+          "Card, CardHeader, CardTitle, CardContent",
+          "Tabs, TabsList, TabsTrigger",
+          "ScrollArea",
+          "Skeleton (for loading states)",
+          "Badge (for metadata tags)"
+        ],
+        "convexQueries": [
+          "api.models.voicePipelineMetrics.getRealTimeMetrics (no args)",
+          "api.models.voicePipelineMetrics.getHistoricalMetrics (for latency card)",
+          "api.models.voicePipelineEvents.getRecentEvents ({ filters: {}, paginationOpts: { numItems: 20 } })",
+          "api.models.voiceNoteArtifacts.getActiveArtifacts (for active count)"
+        ],
+        "performanceOptimizations": [
+          "Lift useQuery calls to page level (pass data as props to components)",
+          "Use React.memo for static components",
+          "Debounce real-time updates if needed (Convex handles this automatically)",
+          "Lazy load activity feed if > 20 events (use pagination in M6)"
+        ]
+      },
+
+      "testingRequirements": {
+        "unitTests": false,
+        "integrationTests": false,
+        "manualTesting": true,
+        "verificationSteps": [
+          "1. Navigate to /platform/voice-monitoring as platform staff → verify dashboard loads",
+          "2. Verify tab navigation shows all 8 tabs",
+          "3. Verify flow graph displays 5 stages with counts",
+          "4. Verify 6 status cards show real-time data",
+          "5. Verify activity feed shows last 20 events",
+          "6. Create new voice note → verify dashboard updates in real-time",
+          "7. Verify loading states while queries loading",
+          "8. Test as non-platform-staff user → verify redirect to /platform",
+          "9. Test mobile responsive layout (375px width)",
+          "10. Test tab switching between Overview, Artifacts, etc."
+        ]
+      },
+
+      "files": {
+        "create": [
+          "apps/web/src/app/platform/voice-monitoring/layout.tsx",
+          "apps/web/src/app/platform/voice-monitoring/page.tsx",
+          "apps/web/src/app/platform/voice-monitoring/_components/PipelineFlowGraph.tsx",
+          "apps/web/src/app/platform/voice-monitoring/_components/StatusCards.tsx",
+          "apps/web/src/app/platform/voice-monitoring/_components/ActivityFeed.tsx"
+        ],
+        "modify": ["apps/web/src/app/platform/page.tsx"]
+      }
+    }
+  ],
+
+  "successCriteria": {
+    "routeCreated": "Route /platform/voice-monitoring accessible to platform staff only",
+    "tabNavigationWorks": "Layout shows 8 tabs, switching works correctly",
+    "flowGraphDisplays": "Pipeline flow graph shows 5 stages with real-time counts",
+    "statusCardsWork": "All 6 status cards display real-time metrics from Convex",
+    "activityFeedWorks": "Recent activity feed shows last 20 events with real-time updates",
+    "platformLinkAdded": "Platform hub page has link to voice monitoring",
+    "v2ClaimsLinkRemoved": "v2-claims link removed from platform hub (feature moved to artifacts grid)",
+    "authorizationWorks": "Non-platform-staff users redirected to /platform",
+    "realTimeUpdates": "Dashboard updates within 10 seconds when new events occur",
+    "loadingStates": "Skeleton loaders show while data loading",
+    "responsiveDesign": "Dashboard works on desktop, tablet, mobile viewports"
+  },
+
+  "testingStrategy": {
+    "approach": "Manual testing with dev-browser and real voice notes",
+    "testScenarios": [
+      "Platform staff access → verify full dashboard",
+      "Non-staff access → verify redirect",
+      "Create voice note → verify real-time update",
+      "Mobile viewport → verify responsive layout",
+      "Tab switching → verify navigation works",
+      "Loading states → verify skeletons show"
+    ]
+  },
+
+  "ralphGuidance": {
+    "executionOrder": [
+      "1. Create layout.tsx with auth check and tab navigation",
+      "2. Create page.tsx with useQuery calls",
+      "3. Build PipelineFlowGraph component (SVG-based)",
+      "4. Build StatusCards component (6 cards)",
+      "5. Build ActivityFeed component (event list)",
+      "6. Update platform hub page (add link, remove v2-claims)",
+      "7. Test end-to-end with real voice notes",
+      "8. Test responsive design on mobile",
+      "9. Phase M5 complete"
+    ],
+    "commonPitfalls": [
+      "Forgetting 'use client' directive on page.tsx (useQuery requires client component)",
+      "Not verifying platform staff auth on layout (security issue)",
+      "Using .take() instead of pagination in getRecentEvents query",
+      "Not lifting useQuery to page level (causes N+1 queries in components)",
+      "SVG not responsive (use viewBox and CSS width: 100%)",
+      "Activity feed not showing real-time updates (ensure useQuery, not static data)"
+    ],
+    "successIndicators": [
+      "Dashboard loads at /platform/voice-monitoring",
+      "Tab navigation functional",
+      "Flow graph displays with stage counts",
+      "Status cards show real-time metrics",
+      "Activity feed shows recent events",
+      "Real-time updates work (< 10s lag)",
+      "Mobile responsive layout works",
+      "Platform staff auth enforced"
+    ]
+  },
+
+  "nextPhase": {
+    "phase": "M6",
+    "name": "Artifacts Grid & Detail",
+    "description": "Enhanced grid view subsuming v2-claims, with expandable rows and artifact detail timeline",
+    "readyWhen": "Phase M5 complete, dashboard foundation established"
+  }
+}

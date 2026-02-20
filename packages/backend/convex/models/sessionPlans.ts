@@ -352,6 +352,161 @@ export const updateTitle = mutation({
 });
 
 /**
+ * Update session plan content (for real-time editing)
+ */
+export const updateContent = mutation({
+  args: {
+    planId: v.id("sessionPlans"),
+    rawContent: v.string(),
+  },
+  returns: v.null(),
+  handler: async (ctx, args) => {
+    const identity = await ctx.auth.getUserIdentity();
+    if (!identity) {
+      throw new Error("Not authenticated");
+    }
+
+    const plan = await ctx.db.get(args.planId);
+    if (!plan) {
+      throw new Error("Plan not found");
+    }
+
+    // Verify ownership
+    if (plan.coachId !== identity.subject) {
+      throw new Error("Not authorized to edit this plan");
+    }
+
+    await ctx.db.patch(args.planId, {
+      rawContent: args.rawContent,
+      updatedAt: Date.now(),
+    });
+  },
+});
+
+/**
+ * Update presence for session plan editor
+ * Reuses teamHubPresence table with planId in currentView field
+ */
+export const updateSessionPlanPresence = mutation({
+  args: {
+    userId: v.string(),
+    organizationId: v.string(),
+    planId: v.id("sessionPlans"),
+  },
+  returns: v.null(),
+  handler: async (ctx, args) => {
+    const now = Date.now();
+    const plan = await ctx.db.get(args.planId);
+
+    if (!plan?.teamId) {
+      // Plan doesn't exist or has no team - can't track presence
+      return null;
+    }
+
+    // TypeScript narrowing: plan.teamId is guaranteed to exist after the check
+    const teamId = plan.teamId;
+    const currentView = `session_plan:${args.planId}`;
+
+    // Check if presence record exists for this user/team
+    const existing = await ctx.db
+      .query("teamHubPresence")
+      .withIndex("by_user_and_team", (q) =>
+        q.eq("userId", args.userId).eq("teamId", teamId)
+      )
+      .first();
+
+    if (existing) {
+      // Update existing presence
+      await ctx.db.patch(existing._id, {
+        currentView,
+        lastActive: now,
+      });
+    } else {
+      // Create new presence record
+      await ctx.db.insert("teamHubPresence", {
+        userId: args.userId,
+        organizationId: args.organizationId,
+        teamId: plan.teamId,
+        currentView,
+        lastActive: now,
+      });
+    }
+
+    return null;
+  },
+});
+
+/**
+ * Get presence for a session plan (who's viewing/editing)
+ */
+export const getSessionPlanPresence = query({
+  args: {
+    planId: v.id("sessionPlans"),
+  },
+  returns: v.array(
+    v.object({
+      userId: v.string(),
+      userName: v.string(),
+      userAvatar: v.optional(v.string()),
+      lastActive: v.number(),
+    })
+  ),
+  handler: async (ctx, args) => {
+    const now = Date.now();
+    const ONE_MINUTE = 60 * 1000;
+
+    const plan = await ctx.db.get(args.planId);
+    if (!plan?.teamId) {
+      return [];
+    }
+
+    // TypeScript narrowing: plan.teamId is guaranteed to exist after the check
+    const teamId = plan.teamId;
+    const currentView = `session_plan:${args.planId}`;
+
+    // Get all presence records for this team viewing this specific plan
+    const presenceRecords = await ctx.db
+      .query("teamHubPresence")
+      .withIndex("by_team", (q) => q.eq("teamId", teamId))
+      .collect();
+
+    // Filter for this specific plan and active users (last 60s)
+    const activePresence = [];
+
+    for (const record of presenceRecords) {
+      if (record.currentView !== currentView) {
+        continue;
+      }
+
+      const timeSinceActive = now - record.lastActive;
+      if (timeSinceActive >= ONE_MINUTE) {
+        continue;
+      }
+
+      // Use Better Auth adapter to get user details
+      const user = await ctx.runQuery(components.betterAuth.adapter.findOne, {
+        model: "user",
+        where: [{ field: "_id", value: record.userId, operator: "eq" }],
+      });
+
+      if (user) {
+        activePresence.push({
+          userId: record.userId,
+          userName:
+            `${user.firstName || ""} ${user.lastName || ""}`.trim() ||
+            user.email ||
+            "Unknown User",
+          userAvatar: user.image || undefined,
+          lastActive: record.lastActive,
+        });
+      }
+    }
+
+    return activePresence;
+  },
+});
+
+/**
  * Duplicate an existing plan
  */
 export const duplicatePlan = mutation({
@@ -2505,6 +2660,183 @@ export const getQualityScore = query({
         successRate: successRateScore,
         feedback: feedbackScore,
       },
+    };
+  },
+});
+
+/**
+ * List session plans for a specific team
+ * Returns upcoming and past sessions
+ */
+export const listByTeam = query({
+  args: {
+    teamId: v.string(),
+    organizationId: v.string(),
+  },
+  returns: v.array(
+    v.object({
+      _id: v.id("sessionPlans"),
+      title: v.optional(v.string()),
+      teamName: v.string(),
+      coachName: v.optional(v.string()),
+      status: v.string(),
+      createdAt: v.number(),
+      updatedAt: v.number(),
+      usedInSession: v.boolean(),
+      duration: v.optional(v.number()),
+      focusArea: v.optional(v.string()),
+    })
+  ),
+  handler: async (ctx, args) => {
+    const identity = await ctx.auth.getUserIdentity();
+    if (!identity) {
+      throw new Error("Not authenticated");
+    }
+
+    // Verify user is member of organization
+    const member = await ctx.runQuery(components.betterAuth.adapter.findOne, {
+      model: "member",
+      where: [
+        { field: "userId", value: identity.subject, operator: "eq" },
+        { field: "organizationId", value: args.organizationId, operator: "eq" },
+      ],
+    });
+
+    if (!member) {
+      throw new Error("Not a member of this organization");
+    }
+
+    // Fetch all session plans for the team using composite index
+    const allPlans = await ctx.db
+      .query("sessionPlans")
+      .withIndex("by_org_and_team", (q) =>
+        q.eq("organizationId", args.organizationId).eq("teamId", args.teamId)
+      )
+      .filter((q) => q.neq(q.field("status"), "deleted"))
+      .collect();
+
+    // Map to return type with only needed fields
+    const sessions = allPlans.map((plan) => ({
+      _id: plan._id,
+      title: plan.title,
+      teamName: plan.teamName,
+      coachName: plan.coachName,
+      status: plan.status || "draft",
+      createdAt: plan.createdAt,
+      updatedAt: plan.updatedAt,
+      usedInSession: plan.usedInSession ?? false,
+      duration: plan.duration,
+      focusArea: plan.focusArea,
+    }));
+
+    // Sort by creation date (most recent first)
+    return sessions.sort((a, b) => b.createdAt - a.createdAt);
+  },
+});
+
+// Regex for parsing season year from string
+const YEAR_REGEX = /(\d{4})/;
+
+/**
+ * Get season milestones for a team
+ * Calculates key dates based on team season information
+ */
+export const getSeasonMilestones = query({
+  args: {
+    teamId: v.string(),
+  },
+  returns: v.object({
+    seasonStart: v.union(v.number(), v.null()),
+    seasonEnd: v.union(v.number(), v.null()),
+    keyDates: v.array(
+      v.object({
+        date: v.number(),
+        title: v.string(),
+        type: v.union(
+          v.literal("game"),
+          v.literal("tournament"),
+          v.literal("review"),
+          v.literal("milestone")
+        ),
+      })
+    ),
+  }),
+  handler: async (ctx, args) => {
+    const identity = await ctx.auth.getUserIdentity();
+    if (!identity) {
+      throw new Error("Not authenticated");
+    }
+
+    // Fetch team data using Better Auth adapter
+    const team = await ctx.runQuery(components.betterAuth.adapter.findOne, {
+      model: "team",
+      where: [{ field: "_id", value: args.teamId, operator: "eq" }],
+    });
+
+    if (!team) {
+      return {
+        seasonStart: null,
+        seasonEnd: null,
+        keyDates: [],
+      };
+    }
+
+    // Parse season field if exists (e.g., "2024", "2024-2025", "Spring 2024")
+    // This is a simplified implementation - enhance based on actual season format
+    const seasonString = team.season;
+    let seasonStart: number | null = null;
+    let seasonEnd: number | null = null;
+    const keyDates: Array<{
+      date: number;
+      title: string;
+      type: "game" | "tournament" | "review" | "milestone";
+    }> = [];
+
+    if (seasonString) {
+      // Try to parse season string (basic implementation)
+      // Format: "2024" or "2024-2025" or "Spring 2024"
+      const yearMatch = seasonString.match(YEAR_REGEX);
+      if (yearMatch) {
+        const year = Number.parseInt(yearMatch[1], 10);
+        // Default to September start, June end (typical school year)
+        seasonStart = new Date(year, 8, 1).getTime(); // September 1
+        seasonEnd = new Date(year + 1, 5, 30).getTime(); // June 30 next year
+      }
+    }
+
+    // Calculate mid-season review if we have start and end
+    if (seasonStart && seasonEnd) {
+      const midpoint = seasonStart + (seasonEnd - seasonStart) / 2;
+      keyDates.push({
+        date: midpoint,
+        title: "Mid-Season Review",
+        type: "review",
+      });
+    }
+
+    // Add season start/end as milestones
+    if (seasonStart) {
+      keyDates.push({
+        date: seasonStart,
+        title: "Season Start",
+        type: "milestone",
+      });
+    }
+    if (seasonEnd) {
+      keyDates.push({
+        date: seasonEnd,
+        title: "Season End",
+        type: "milestone",
+      });
+    }
+
+    // Sort key dates by date
+    keyDates.sort((a, b) => a.date - b.date);
+
+    return {
+      seasonStart,
+      seasonEnd,
+      keyDates,
     };
   },
 });

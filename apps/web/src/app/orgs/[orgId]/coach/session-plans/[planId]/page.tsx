@@ -6,12 +6,14 @@ import { useMutation, useQuery } from "convex/react";
 import {
   AlertTriangle,
   ArrowLeft,
+  Check,
   CheckCircle,
   Clock,
   Dumbbell,
   Loader2,
   MoreVertical,
   Pencil,
+  Save,
   Star,
   ThumbsUp,
   Trash2,
@@ -19,8 +21,9 @@ import {
   Users,
 } from "lucide-react";
 import { useParams, useRouter } from "next/navigation";
-import { useState } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
 import { toast } from "sonner";
+import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import {
@@ -47,6 +50,13 @@ import {
 } from "@/components/ui/dropdown-menu";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
+import { Textarea } from "@/components/ui/textarea";
+import {
+  Tooltip,
+  TooltipContent,
+  TooltipProvider,
+  TooltipTrigger,
+} from "@/components/ui/tooltip";
 import { authClient } from "@/lib/auth-client";
 
 // Get gradient based on intensity
@@ -111,21 +121,159 @@ export default function SessionPlanDetailPage() {
   const userId = session?.user?.id;
 
   const plan = useQuery(api.models.sessionPlans.getPlanById, { planId });
+  const presence = useQuery(api.models.sessionPlans.getSessionPlanPresence, {
+    planId,
+  });
 
-  const updateVisibility = useMutation(
-    api.models.sessionPlans.updateVisibility
-  );
   const updateTitle = useMutation(api.models.sessionPlans.updateTitle);
+  const updateContent = useMutation(api.models.sessionPlans.updateContent);
+  const updatePresence = useMutation(
+    api.models.sessionPlans.updateSessionPlanPresence
+  );
   const deletePlan = useMutation(api.models.sessionPlans.deletePlan);
+
+  // Edit mode state
+  const [isEditing, setIsEditing] = useState(false);
+  const [editedContent, setEditedContent] = useState("");
+  const [hasUnsavedChanges, setHasUnsavedChanges] = useState(false);
+  const [saveStatus, setSaveStatus] = useState<"idle" | "saving" | "saved">(
+    "idle"
+  );
 
   // Dialog states
   const [renameDialogOpen, setRenameDialogOpen] = useState(false);
   const [newTitle, setNewTitle] = useState("");
   const [isSubmitting, setIsSubmitting] = useState(false);
 
+  // Refs for auto-save debounce and presence updates
+  const saveTimeoutRef = useRef<NodeJS.Timeout | null>(null);
+  const presenceIntervalRef = useRef<NodeJS.Timeout | null>(null);
+
   const isOwner = plan && userId && plan.coachId === userId;
   const intensity = plan?.extractedTags?.intensity;
   const gradientClass = getIntensityGradient(intensity);
+
+  // Initialize edited content when plan loads or edit mode changes
+  useEffect(() => {
+    if (plan?.rawContent && isEditing && !editedContent) {
+      setEditedContent(plan.rawContent);
+    }
+  }, [plan?.rawContent, isEditing, editedContent]);
+
+  // Update presence on mount and interval
+  useEffect(() => {
+    if (!(userId && orgId && planId)) {
+      return;
+    }
+
+    // Update presence immediately
+    updatePresence({ userId, organizationId: orgId, planId }).catch((error) =>
+      console.error("Failed to update presence:", error)
+    );
+
+    // Update presence every 30s
+    presenceIntervalRef.current = setInterval(() => {
+      updatePresence({ userId, organizationId: orgId, planId }).catch((error) =>
+        console.error("Failed to update presence:", error)
+      );
+    }, 30 * 1000);
+
+    return () => {
+      if (presenceIntervalRef.current) {
+        clearInterval(presenceIntervalRef.current);
+      }
+    };
+  }, [userId, orgId, planId, updatePresence]);
+
+  // Detect when other coaches are editing and show notification
+  const previousOtherViewersRef = useRef<Set<string>>(new Set());
+  useEffect(() => {
+    if (!(presence && userId)) {
+      return;
+    }
+
+    const currentOtherViewers = new Set(
+      presence.filter((p) => p.userId !== userId).map((p) => p.userId)
+    );
+
+    // Check for new viewers (coaches who just started viewing)
+    const newViewers = Array.from(currentOtherViewers).filter(
+      (id) => !previousOtherViewersRef.current.has(id)
+    );
+
+    // Only show notification if user is actively editing (not just viewing)
+    if (newViewers.length > 0 && isEditing) {
+      const newViewerNames = presence
+        .filter((p) => newViewers.includes(p.userId))
+        .map((p) => p.userName)
+        .join(", ");
+
+      toast.info(`${newViewerNames} is now viewing this plan`, {
+        description:
+          "Changes are auto-saved. Last write wins if editing simultaneously.",
+        duration: 5000,
+      });
+    }
+
+    previousOtherViewersRef.current = currentOtherViewers;
+  }, [presence, userId, isEditing]);
+
+  // Auto-save with 300ms debounce
+  const debouncedSave = useCallback(
+    (content: string) => {
+      if (saveTimeoutRef.current) {
+        clearTimeout(saveTimeoutRef.current);
+      }
+
+      setSaveStatus("saving");
+
+      saveTimeoutRef.current = setTimeout(async () => {
+        try {
+          await updateContent({ planId, rawContent: content });
+          setSaveStatus("saved");
+          setHasUnsavedChanges(false);
+
+          // Reset to idle after 2s
+          setTimeout(() => {
+            setSaveStatus("idle");
+          }, 2000);
+        } catch (error) {
+          console.error("Failed to save content:", error);
+          toast.error("Failed to save changes");
+          setSaveStatus("idle");
+        }
+      }, 300);
+    },
+    [planId, updateContent]
+  );
+
+  // Handle content change
+  const handleContentChange = useCallback(
+    (newContent: string) => {
+      setEditedContent(newContent);
+      setHasUnsavedChanges(true);
+      debouncedSave(newContent);
+    },
+    [debouncedSave]
+  );
+
+  // Warn before navigation if unsaved changes
+  useEffect(() => {
+    if (!hasUnsavedChanges) {
+      return;
+    }
+
+    const handleBeforeUnload = (e: BeforeUnloadEvent) => {
+      e.preventDefault();
+      e.returnValue = "";
+    };
+
+    window.addEventListener("beforeunload", handleBeforeUnload);
+
+    return () => {
+      window.removeEventListener("beforeunload", handleBeforeUnload);
+    };
+  }, [hasUnsavedChanges]);
 
   // Rename handler
   const handleRename = async () => {
@@ -154,17 +302,12 @@ export default function SessionPlanDetailPage() {
     setRenameDialogOpen(true);
   };
 
-  const _handleShareToClub = async () => {
-    try {
-      await updateVisibility({ planId, visibility: "club" });
-      toast.success("Plan shared to club library!");
-    } catch (error) {
-      console.error("Failed to share plan:", error);
-      toast.error("Failed to share plan");
-    }
-  };
-
   const handleDelete = async () => {
+    if (hasUnsavedChanges) {
+      toast.error("Please save or discard changes before deleting");
+      return;
+    }
+
     // biome-ignore lint/suspicious/noAlert: TODO: Replace with proper dialog component
     if (!confirm("Are you sure you want to delete this plan?")) {
       return;
@@ -180,6 +323,22 @@ export default function SessionPlanDetailPage() {
     }
   };
 
+  // Toggle edit mode
+  const toggleEditMode = () => {
+    if (isEditing && hasUnsavedChanges) {
+      // biome-ignore lint/suspicious/noAlert: Quick confirmation for discarding changes
+      if (!confirm("You have unsaved changes. Discard them?")) {
+        return;
+      }
+      setHasUnsavedChanges(false);
+    }
+
+    setIsEditing(!isEditing);
+    if (!isEditing && plan?.rawContent) {
+      setEditedContent(plan.rawContent);
+    }
+  };
+
   if (!plan) {
     return (
       <div className="flex h-96 items-center justify-center">
@@ -189,12 +348,14 @@ export default function SessionPlanDetailPage() {
   }
 
   const isNew =
-    plan._creationTime &&
-    Date.now() - plan._creationTime < 7 * 24 * 60 * 60 * 1000;
+    plan._creationTime && Date.now() - plan._creationTime < 7 * 24 * 60 * 1000;
   const isTrending =
     (plan.timesUsed ?? 0) > 5 &&
     plan._creationTime &&
     Date.now() - plan._creationTime < 30 * 24 * 60 * 60 * 1000;
+
+  // Filter out current user from presence list
+  const otherViewers = (presence || []).filter((p) => p.userId !== userId);
 
   return (
     <div className="min-h-screen bg-gradient-to-b from-slate-50 to-white">
@@ -260,37 +421,106 @@ export default function SessionPlanDetailPage() {
                     </span>
                   )}
                 </div>
+
+                {/* Presence Indicators */}
+                {otherViewers.length > 0 && (
+                  <div className="mt-3 flex items-center gap-2">
+                    <div className="-space-x-2 flex">
+                      <TooltipProvider>
+                        {otherViewers.slice(0, 3).map((viewer) => (
+                          <Tooltip key={viewer.userId}>
+                            <TooltipTrigger asChild>
+                              <Avatar className="h-8 w-8 border-2 border-white">
+                                <AvatarImage src={viewer.userAvatar} />
+                                <AvatarFallback className="bg-white/20 text-white text-xs">
+                                  {viewer.userName.charAt(0).toUpperCase()}
+                                </AvatarFallback>
+                              </Avatar>
+                            </TooltipTrigger>
+                            <TooltipContent>
+                              <p>{viewer.userName} is viewing this plan</p>
+                            </TooltipContent>
+                          </Tooltip>
+                        ))}
+                      </TooltipProvider>
+                    </div>
+                    {otherViewers.length > 3 && (
+                      <span className="text-sm text-white/80">
+                        +{otherViewers.length - 3} more
+                      </span>
+                    )}
+                  </div>
+                )}
               </div>
             </div>
 
-            {/* 3-dot menu for owner actions */}
-            {isOwner && (
-              <DropdownMenu>
-                <DropdownMenuTrigger asChild>
-                  <Button
-                    className="border-white/30 bg-white/20 text-white hover:bg-white/30"
-                    size="icon"
-                    variant="outline"
-                  >
-                    <MoreVertical className="h-4 w-4" />
-                  </Button>
-                </DropdownMenuTrigger>
-                <DropdownMenuContent align="end">
-                  <DropdownMenuItem onClick={openRenameDialog}>
-                    <Pencil className="mr-2 h-4 w-4" />
-                    Rename
-                  </DropdownMenuItem>
-                  <DropdownMenuSeparator />
-                  <DropdownMenuItem
-                    className="text-red-600"
-                    onClick={handleDelete}
-                  >
-                    <Trash2 className="mr-2 h-4 w-4" />
-                    Delete
-                  </DropdownMenuItem>
-                </DropdownMenuContent>
-              </DropdownMenu>
-            )}
+            {/* Action buttons */}
+            <div className="flex items-center gap-2">
+              {/* Saving indicator */}
+              {saveStatus === "saving" && (
+                <div className="flex items-center gap-2 rounded-full border border-white/30 bg-white/20 px-3 py-1.5 text-sm backdrop-blur-sm">
+                  <Loader2 className="h-3 w-3 animate-spin" />
+                  <span>Saving...</span>
+                </div>
+              )}
+              {saveStatus === "saved" && (
+                <div className="flex items-center gap-2 rounded-full border border-white/30 bg-white/20 px-3 py-1.5 text-sm backdrop-blur-sm">
+                  <Check className="h-3 w-3" />
+                  <span>Saved</span>
+                </div>
+              )}
+
+              {/* Edit/Save button (owner only) */}
+              {isOwner && (
+                <Button
+                  className="border-white/30 bg-white/20 text-white hover:bg-white/30"
+                  onClick={toggleEditMode}
+                  size="sm"
+                  variant="outline"
+                >
+                  {isEditing ? (
+                    <>
+                      <Save className="mr-2 h-4 w-4" />
+                      Done Editing
+                    </>
+                  ) : (
+                    <>
+                      <Pencil className="mr-2 h-4 w-4" />
+                      Edit
+                    </>
+                  )}
+                </Button>
+              )}
+
+              {/* 3-dot menu for owner actions */}
+              {isOwner && (
+                <DropdownMenu>
+                  <DropdownMenuTrigger asChild>
+                    <Button
+                      className="border-white/30 bg-white/20 text-white hover:bg-white/30"
+                      size="icon"
+                      variant="outline"
+                    >
+                      <MoreVertical className="h-4 w-4" />
+                    </Button>
+                  </DropdownMenuTrigger>
+                  <DropdownMenuContent align="end">
+                    <DropdownMenuItem onClick={openRenameDialog}>
+                      <Pencil className="mr-2 h-4 w-4" />
+                      Rename
+                    </DropdownMenuItem>
+                    <DropdownMenuSeparator />
+                    <DropdownMenuItem
+                      className="text-red-600"
+                      onClick={handleDelete}
+                    >
+                      <Trash2 className="mr-2 h-4 w-4" />
+                      Delete
+                    </DropdownMenuItem>
+                  </DropdownMenuContent>
+                </DropdownMenu>
+              )}
+            </div>
           </div>
 
           {/* Quick Stats Row */}
@@ -456,15 +686,26 @@ export default function SessionPlanDetailPage() {
               >
                 <CardTitle className="text-lg">Session Plan</CardTitle>
                 <CardDescription className="text-white/80">
-                  AI-generated training session structure
+                  {isEditing
+                    ? "Edit your training session structure"
+                    : "AI-generated training session structure"}
                 </CardDescription>
               </CardHeader>
               <CardContent className="p-6">
-                <div className="prose prose-sm dark:prose-invert max-w-none">
-                  <pre className="whitespace-pre-wrap rounded-lg bg-slate-50 p-4 font-sans text-[15px] leading-relaxed">
-                    {plan.rawContent}
-                  </pre>
-                </div>
+                {isEditing ? (
+                  <Textarea
+                    className="min-h-[400px] font-mono text-sm leading-relaxed"
+                    onChange={(e) => handleContentChange(e.target.value)}
+                    placeholder="Enter session plan content..."
+                    value={editedContent}
+                  />
+                ) : (
+                  <div className="prose prose-sm dark:prose-invert max-w-none">
+                    <pre className="whitespace-pre-wrap rounded-lg bg-slate-50 p-4 font-sans text-[15px] leading-relaxed">
+                      {plan.rawContent}
+                    </pre>
+                  </div>
+                )}
               </CardContent>
             </Card>
 

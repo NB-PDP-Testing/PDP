@@ -41,6 +41,24 @@ export const getCurrentUser = query({
       lastName: v.optional(v.string()),
       phone: v.optional(v.string()),
 
+      // Phase 0: Profile completion fields for multi-signal guardian matching
+      altEmail: v.optional(v.string()),
+      address: v.optional(v.string()),
+      address2: v.optional(v.string()),
+      town: v.optional(v.string()),
+      county: v.optional(v.string()),
+      postcode: v.optional(v.string()),
+      country: v.optional(v.string()),
+      profileCompletionStatus: v.optional(
+        v.union(
+          v.literal("pending"),
+          v.literal("completed"),
+          v.literal("skipped")
+        )
+      ),
+      profileCompletedAt: v.optional(v.number()),
+      profileSkipCount: v.optional(v.number()),
+
       // onboarding
       onboardingComplete: v.optional(v.boolean()),
 
@@ -52,6 +70,9 @@ export const getCurrentUser = query({
       // Child linking skip tracking (Phase 6)
       childLinkingSkipCount: v.optional(v.number()),
 
+      // No children found acknowledgement (Phase 0)
+      noChildrenAcknowledged: v.optional(v.boolean()),
+
       // Current organization tracking
       currentOrgId: v.optional(v.string()),
 
@@ -62,6 +83,9 @@ export const getCurrentUser = query({
       // First-user setup wizard tracking
       setupComplete: v.optional(v.boolean()),
       setupStep: v.optional(v.string()),
+
+      // Invitation tracking (Phase 0.8)
+      wasInvited: v.optional(v.boolean()),
     })
   ),
   handler: async (ctx) => {

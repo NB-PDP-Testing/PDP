@@ -88,6 +88,32 @@ crons.interval(
   {}
 );
 
+// Voice Gateways v2 Phase 2: Review link lifecycle (US-VN-012)
+
+// Expire active review links that have passed their 48h expiry (daily at 2:30 AM UTC)
+crons.daily(
+  "expire-active-review-links",
+  { hourUTC: 2, minuteUTC: 30 },
+  internal.models.whatsappReviewLinks.expireActiveLinks,
+  {}
+);
+
+// Process snoozed review reminders every 15 minutes (US-VN-012c)
+crons.interval(
+  "process-snoozed-review-reminders",
+  { minutes: 15 },
+  internal.models.whatsappReviewLinks.processSnoozedReminders,
+  {}
+);
+
+// Delete expired review links older than 7 days past expiry (daily at 3:15 AM UTC)
+crons.daily(
+  "cleanup-expired-review-links",
+  { hourUTC: 3, minuteUTC: 15 },
+  internal.models.whatsappReviewLinks.cleanupExpiredLinks,
+  {}
+);
+
 // Onboarding Phase 6: Invitation lifecycle jobs
 
 // Mark expired invitations hourly
@@ -137,6 +163,104 @@ crons.daily(
   "detect-player-graduations",
   { hourUTC: 6, minuteUTC: 0 },
   internal.jobs.graduations.detectPlayerGraduations,
+  {}
+);
+
+// Phase 2.3: Clean up expired import wizard drafts daily at 4 AM UTC
+crons.daily(
+  "cleanup-expired-import-drafts",
+  { hourUTC: 4, minuteUTC: 0 },
+  internal.models.importSessionDrafts.cleanupExpiredDrafts,
+  {}
+);
+
+// Phase 3.2: Clean up incomplete import sessions older than 48 hours daily at 4:30 AM UTC
+crons.daily(
+  "cleanup-expired-incomplete-sessions",
+  { hourUTC: 4, minuteUTC: 30 },
+  internal.models.importSessions.cleanupExpiredIncompleteSessions,
+  {}
+);
+
+// Phase 4.3: Clean up expired AI mapping cache daily at 2 AM UTC
+crons.daily(
+  "cleanup-expired-ai-cache",
+  { hourUTC: 2, minuteUTC: 0 },
+  internal.models.aiMappingCache.cleanupExpiredCache,
+  {}
+);
+
+// Phase 4.4: Run scheduled federation syncs nightly at 2:15 AM UTC (US-P4.4-001)
+crons.daily(
+  "scheduled-federation-sync",
+  { hourUTC: 2, minuteUTC: 15 },
+  internal.actions.federationScheduler.scheduledFederationSync,
+  {}
+);
+
+// Phase 4.4: Clean up old sync queue jobs daily at 3 AM UTC (US-P4.4-005)
+crons.daily(
+  "cleanup-old-sync-jobs",
+  { hourUTC: 3, minuteUTC: 0 },
+  internal.models.syncQueue.cleanupOldSyncJobs,
+  { olderThanDays: 30 }
+);
+
+// Phase 4.4: Mark stuck sync jobs as failed every 10 minutes (US-P4.4-005)
+crons.interval(
+  "fail-stuck-sync-jobs",
+  { minutes: 10 },
+  internal.models.syncQueue.failStuckJobs,
+  {}
+);
+
+// Phase 4.4: Process retry queue every 5 minutes (US-P4.4-007)
+crons.interval(
+  "process-retry-queue",
+  { minutes: 5 },
+  internal.actions.syncQueueProcessor.processRetryQueue,
+  {}
+);
+
+// Voice Monitor Harness M2: Metrics aggregation and cleanup crons
+
+// Aggregate hourly pipeline metrics at :30 past each hour (ensures full hour complete)
+crons.hourly(
+  "aggregate-pipeline-hourly-metrics",
+  { minuteUTC: 30 },
+  internal.models.voicePipelineMetrics.aggregateHourlyMetricsWrapper
+);
+
+// Aggregate daily pipeline metrics at 1:30 AM UTC (ensures all 24 hourly snapshots exist)
+crons.daily(
+  "aggregate-pipeline-daily-metrics",
+  { hourUTC: 1, minuteUTC: 30 },
+  internal.models.voicePipelineMetrics.aggregateDailyMetricsWrapper
+);
+
+// Cleanup old pipeline snapshots weekly (7d hourly, 90d daily)
+crons.weekly(
+  "cleanup-pipeline-snapshots",
+  { dayOfWeek: "sunday", hourUTC: 4, minuteUTC: 30 },
+  internal.models.voicePipelineMetrics.cleanupOldSnapshots,
+  {}
+);
+
+// Cleanup old pipeline events weekly (48h retention) - runs after snapshot cleanup
+crons.weekly(
+  "cleanup-pipeline-events",
+  { dayOfWeek: "sunday", hourUTC: 5, minuteUTC: 0 },
+  internal.models.voicePipelineMetrics.cleanupOldEvents,
+  {}
+);
+
+// Voice Monitor Harness M4: Pipeline health checks and alerts
+
+// Check pipeline health every 5 minutes for anomalies
+crons.interval(
+  "check-pipeline-health",
+  { minutes: 5 },
+  internal.models.voicePipelineAlerts.checkPipelineHealth,
   {}
 );
 

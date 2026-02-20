@@ -1,7 +1,16 @@
 import { v } from "convex/values";
+import { internal } from "../_generated/api";
 import type { Id } from "../_generated/dataModel";
-import { mutation } from "../_generated/server";
+import { mutation, query } from "../_generated/server";
+import type { BenchmarkStrategy } from "../lib/import/benchmarkApplicator";
+import { applyBenchmarksToPassport } from "../lib/import/benchmarkApplicator";
 import { calculateAge } from "./playerIdentities";
+
+// Top-level regex constants for linting compliance
+const WHITESPACE_REGEX = /\s+/;
+const LEADING_DIGITS_REGEX = /^\d+/;
+const NON_DIGIT_REGEX = /\D/g;
+const SPACE_REGEX = /\s/g;
 
 // ============================================================
 // PLAYER IMPORT WITH IDENTITY SYSTEM
@@ -22,7 +31,7 @@ function normalizeNameForMatching(name: string): {
   firstName: string;
   lastName: string;
 } {
-  const parts = name.trim().toLowerCase().split(/\s+/);
+  const parts = name.trim().toLowerCase().split(WHITESPACE_REGEX);
   if (parts.length === 0) {
     return { normalized: "", firstName: "", lastName: "" };
   }
@@ -39,14 +48,14 @@ function normalizeNameForMatching(name: string): {
  * Clean postcode for comparison (remove spaces, uppercase)
  */
 function cleanPostcode(postcode: string | undefined): string {
-  return (postcode || "").toUpperCase().replace(/\s/g, "");
+  return (postcode || "").toUpperCase().replace(SPACE_REGEX, "");
 }
 
 /**
  * Extract house number from address
  */
 function extractHouseNumber(address: string | undefined): string {
-  const match = (address || "").match(/^\d+/);
+  const match = (address || "").match(LEADING_DIGITS_REGEX);
   return match ? match[0] : "";
 }
 
@@ -174,8 +183,8 @@ function findGuardianMatchesInBatch(
 
       // 2. Phone match - 30 points (strong signal)
       if (youth.phone && adult.phone) {
-        const youthPhone = youth.phone.replace(/\D/g, "").slice(-10);
-        const adultPhone = adult.phone.replace(/\D/g, "").slice(-10);
+        const youthPhone = youth.phone.replace(NON_DIGIT_REGEX, "").slice(-10);
+        const adultPhone = adult.phone.replace(NON_DIGIT_REGEX, "").slice(-10);
         if (
           youthPhone.length >= 10 &&
           adultPhone.length >= 10 &&
@@ -298,6 +307,9 @@ export const importPlayerWithIdentity = mutation({
         v.literal("other")
       )
     ),
+
+    // Optional session tracking
+    sessionId: v.optional(v.id("importSessions")),
   },
   returns: v.object({
     playerIdentityId: v.id("playerIdentities"),
@@ -370,6 +382,7 @@ export const importPlayerWithIdentity = mutation({
         ? args.parentEmail.toLowerCase().trim()
         : undefined;
 
+      // biome-ignore lint/suspicious/noEvolvingTypes: guardian queried from multiple paths
       let existingGuardian = null;
 
       // Try to find existing guardian by email first (if provided)
@@ -414,6 +427,7 @@ export const importPlayerWithIdentity = mutation({
           postcode: args.postcode?.trim(), // ✅ Copy from player
           country: args.country?.trim(), // ✅ Copy from player
           verificationStatus: "unverified",
+          importSessionId: args.sessionId,
           createdAt: now,
           updatedAt: now,
           createdFrom: "import",
@@ -423,40 +437,44 @@ export const importPlayerWithIdentity = mutation({
 
       // ========== 3. CREATE GUARDIAN-PLAYER LINK ==========
 
-      // Check if link already exists
-      const existingLink = await ctx.db
-        .query("guardianPlayerLinks")
-        .withIndex("by_guardian_and_player", (q) =>
-          q
-            .eq("guardianIdentityId", guardianIdentityId!)
-            .eq("playerIdentityId", playerIdentityId)
-        )
-        .first();
-
-      if (existingLink) {
-        guardianLinkId = existingLink._id;
-      } else {
-        // Check if this is the first guardian for this player
-        const existingLinks = await ctx.db
+      const guardianId = guardianIdentityId;
+      if (guardianId) {
+        // Check if link already exists
+        const existingLink = await ctx.db
           .query("guardianPlayerLinks")
-          .withIndex("by_player", (q) =>
-            q.eq("playerIdentityId", playerIdentityId)
+          .withIndex("by_guardian_and_player", (q) =>
+            q
+              .eq("guardianIdentityId", guardianId)
+              .eq("playerIdentityId", playerIdentityId)
           )
-          .collect();
+          .first();
 
-        const isPrimary = existingLinks.length === 0;
+        if (existingLink) {
+          guardianLinkId = existingLink._id;
+        } else {
+          // Check if this is the first guardian for this player
+          const existingLinks = await ctx.db
+            .query("guardianPlayerLinks")
+            .withIndex("by_player", (q) =>
+              q.eq("playerIdentityId", playerIdentityId)
+            )
+            .collect();
 
-        guardianLinkId = await ctx.db.insert("guardianPlayerLinks", {
-          guardianIdentityId: guardianIdentityId!,
-          playerIdentityId,
-          relationship: args.parentRelationship ?? "guardian",
-          isPrimary,
-          hasParentalResponsibility: true,
-          canCollectFromTraining: true,
-          consentedToSharing: true,
-          createdAt: now,
-          updatedAt: now,
-        });
+          const isPrimary = existingLinks.length === 0;
+
+          guardianLinkId = await ctx.db.insert("guardianPlayerLinks", {
+            guardianIdentityId: guardianId,
+            playerIdentityId,
+            relationship: args.parentRelationship ?? "guardian",
+            isPrimary,
+            hasParentalResponsibility: true,
+            canCollectFromTraining: true,
+            consentedToSharing: true,
+            importSessionId: args.sessionId,
+            createdAt: now,
+            updatedAt: now,
+          });
+        }
       }
     }
 
@@ -519,6 +537,16 @@ export const batchImportPlayersWithIdentity = mutation({
   args: {
     organizationId: v.string(),
     sportCode: v.optional(v.string()), // Optional: auto-create sport passports during enrollment
+    sessionId: v.optional(v.id("importSessions")), // Optional: track which import session created records
+    selectedRowIndices: v.optional(v.array(v.number())), // Optional: only import specific rows
+    benchmarkSettings: v.optional(
+      v.object({
+        applyBenchmarks: v.boolean(),
+        strategy: v.string(), // BenchmarkStrategy type
+        templateId: v.optional(v.id("benchmarkTemplates")),
+        ageGroup: v.string(),
+      })
+    ),
     players: v.array(
       v.object({
         firstName: v.string(),
@@ -544,6 +572,7 @@ export const batchImportPlayersWithIdentity = mutation({
             v.literal("other")
           )
         ),
+        externalIds: v.optional(v.record(v.string(), v.string())), // {"foireann": "123-45678-901", "pitchero": "12345"}
       })
     ),
   },
@@ -557,6 +586,7 @@ export const batchImportPlayersWithIdentity = mutation({
     guardiansAwaitingClaim: v.number(), // Guardians without userId (holding accounts)
     enrollmentsCreated: v.number(),
     enrollmentsReused: v.number(),
+    benchmarksApplied: v.number(),
     errors: v.array(v.string()),
     // NEW: Return player identity IDs with their original index
     playerIdentities: v.array(
@@ -578,6 +608,7 @@ export const batchImportPlayersWithIdentity = mutation({
       guardiansAwaitingClaim: 0,
       enrollmentsCreated: 0,
       enrollmentsReused: 0,
+      benchmarksApplied: 0,
       errors: [] as string[],
       playerIdentities: [] as Array<{
         index: number;
@@ -591,6 +622,41 @@ export const batchImportPlayersWithIdentity = mutation({
 
     const now = Date.now();
 
+    // Initialize progress tracker if sessionId provided
+    if (args.sessionId) {
+      const selectedSet = args.selectedRowIndices
+        ? new Set(args.selectedRowIndices)
+        : null;
+      const playersToImport = selectedSet
+        ? args.players.filter((_, idx) => selectedSet.has(idx))
+        : args.players;
+
+      await ctx.runMutation(
+        internal.models.importProgress.initializeProgressTracker,
+        {
+          sessionId: args.sessionId,
+          organizationId: args.organizationId,
+          totalPlayers: playersToImport.length,
+        }
+      );
+    }
+
+    // ========== ROW SELECTION FILTER ==========
+    // When selectedRowIndices provided, only import those rows
+    const selectedSet = args.selectedRowIndices
+      ? new Set(args.selectedRowIndices)
+      : null;
+    const playersToImport = selectedSet
+      ? args.players.filter((_, idx) => selectedSet.has(idx))
+      : args.players;
+    // Build index mapping: position in playersToImport -> original index in args.players
+    const originalIndices: number[] = [];
+    for (let i = 0; i < args.players.length; i += 1) {
+      if (!selectedSet || selectedSet.has(i)) {
+        originalIndices.push(i);
+      }
+    }
+
     // ========== PHASE 1: CREATE ALL PLAYER IDENTITIES ==========
 
     // First pass: Create/find all player identities
@@ -598,18 +664,47 @@ export const batchImportPlayersWithIdentity = mutation({
     const playersForMatching: PlayerForMatching[] = [];
     const playerIdentityMap = new Map<number, Id<"playerIdentities">>(); // index -> playerIdentityId
 
-    for (let i = 0; i < args.players.length; i += 1) {
-      const playerData = args.players[i];
+    for (let i = 0; i < playersToImport.length; i += 1) {
+      const playerData = playersToImport[i];
       try {
-        const existingPlayer = await ctx.db
-          .query("playerIdentities")
-          .withIndex("by_name_dob", (q) =>
-            q
-              .eq("firstName", playerData.firstName.trim())
-              .eq("lastName", playerData.lastName.trim())
-              .eq("dateOfBirth", playerData.dateOfBirth)
-          )
-          .first();
+        let existingPlayer: {
+          _id: Id<"playerIdentities">;
+          firstName: string;
+          lastName: string;
+          dateOfBirth: string;
+          gender: "male" | "female" | "other";
+          playerType: "youth" | "adult";
+          externalIds?: Record<string, string>;
+          createdAt: number;
+          updatedAt: number;
+        } | null = null;
+
+        // PRIORITY 1: Check for externalIds match (strongest signal)
+        // If player has a GAA membership number, check that FIRST
+        if (playerData.externalIds?.foireann) {
+          const gaaResult = await ctx.runQuery(
+            internal.lib.import.deduplicator.checkGAAMembershipNumber,
+            {
+              membershipNumber: playerData.externalIds.foireann,
+            }
+          );
+          if (gaaResult) {
+            existingPlayer = gaaResult;
+          }
+        }
+
+        // PRIORITY 2: Check for name+DOB match (fallback if no external ID match)
+        if (!existingPlayer) {
+          existingPlayer = await ctx.db
+            .query("playerIdentities")
+            .withIndex("by_name_dob", (q) =>
+              q
+                .eq("firstName", playerData.firstName.trim())
+                .eq("lastName", playerData.lastName.trim())
+                .eq("dateOfBirth", playerData.dateOfBirth)
+            )
+            .first();
+        }
 
         let playerIdentityId: NonNullable<typeof existingPlayer>["_id"];
         let wasCreated = false;
@@ -617,6 +712,17 @@ export const batchImportPlayersWithIdentity = mutation({
         if (existingPlayer) {
           playerIdentityId = existingPlayer._id;
           results.playersReused += 1;
+
+          // Update externalIds if player was matched by name+DOB but has new external ID
+          if (playerData.externalIds && !existingPlayer.externalIds?.foireann) {
+            await ctx.db.patch(playerIdentityId, {
+              externalIds: {
+                ...existingPlayer.externalIds,
+                ...playerData.externalIds,
+              },
+              updatedAt: now,
+            });
+          }
         } else {
           const playerType =
             calculateAge(playerData.dateOfBirth) >= 18 ? "adult" : "youth";
@@ -631,7 +737,9 @@ export const batchImportPlayersWithIdentity = mutation({
             town: playerData.town?.trim(),
             postcode: playerData.postcode?.trim(),
             country: playerData.country?.trim(),
+            externalIds: playerData.externalIds, // Store external IDs (e.g., GAA membership number)
             verificationStatus: "unverified",
+            importSessionId: args.sessionId,
             createdAt: now,
             updatedAt: now,
             createdFrom: "import",
@@ -643,7 +751,7 @@ export const batchImportPlayersWithIdentity = mutation({
         playerIdentityMap.set(i, playerIdentityId);
 
         results.playerIdentities.push({
-          index: i,
+          index: originalIndices[i],
           playerIdentityId,
           wasCreated,
         });
@@ -670,10 +778,56 @@ export const batchImportPlayersWithIdentity = mutation({
         });
 
         results.totalProcessed += 1;
+
+        // Update progress tracker every 10 records
+        if (args.sessionId && i % 10 === 0) {
+          const percentage = Math.floor(
+            (results.totalProcessed / playersToImport.length) * 30
+          ); // Phase 1 is 0-30%
+          await ctx.runMutation(
+            internal.models.importProgress.updateProgressTracker,
+            {
+              sessionId: args.sessionId,
+              stats: {
+                playersCreated: results.playersCreated,
+                playersReused: results.playersReused,
+                guardiansCreated: results.guardiansCreated,
+                guardiansLinked: results.guardiansReused,
+                enrollmentsCreated: results.enrollmentsCreated,
+                passportsCreated: 0,
+                benchmarksApplied: results.benchmarksApplied,
+                totalPlayers: playersToImport.length,
+              },
+              currentOperation: `Creating identity for ${playerData.firstName} ${playerData.lastName}`,
+              phase: "importing",
+              percentage,
+            }
+          );
+        }
       } catch (error) {
-        results.errors.push(
-          `${playerData.firstName} ${playerData.lastName}: ${error instanceof Error ? error.message : "Unknown error"}`
-        );
+        const errorMsg = `${playerData.firstName} ${playerData.lastName}: ${error instanceof Error ? error.message : "Unknown error"}`;
+        results.errors.push(errorMsg);
+
+        // Add error to progress tracker
+        if (args.sessionId) {
+          // Build player name, handling missing firstName or lastName
+          const firstName = playerData.firstName?.trim() || "";
+          const lastName = playerData.lastName?.trim() || "";
+          const playerName =
+            firstName && lastName
+              ? `${firstName} ${lastName}`
+              : firstName || lastName || "(Unknown)";
+
+          await ctx.runMutation(
+            internal.models.importProgress.addProgressError,
+            {
+              sessionId: args.sessionId,
+              rowNumber: i + 1,
+              playerName,
+              error: error instanceof Error ? error.message : "Unknown error",
+            }
+          );
+        }
       }
     }
 
@@ -715,7 +869,7 @@ export const batchImportPlayersWithIdentity = mutation({
       const youthPlayerIdentityId = playerIdentityMap.get(
         match.youthPlayerIndex
       );
-      const adultPlayerData = args.players[match.adultPlayerIndex];
+      const adultPlayerData = playersToImport[match.adultPlayerIndex];
 
       if (!(youthPlayerIdentityId && adultPlayerData)) {
         continue;
@@ -765,6 +919,7 @@ export const batchImportPlayersWithIdentity = mutation({
               postcode: adultPlayerData.postcode?.trim(),
               country: adultPlayerData.country?.trim(),
               verificationStatus: "unverified",
+              importSessionId: args.sessionId,
               createdAt: now,
               updatedAt: now,
               createdFrom: "import",
@@ -779,41 +934,44 @@ export const batchImportPlayersWithIdentity = mutation({
           );
         }
 
-        // Check if link already exists
-        const existingLink = await ctx.db
-          .query("guardianPlayerLinks")
-          .withIndex("by_guardian_and_player", (q) =>
-            q
-              .eq("guardianIdentityId", guardianIdentityId!)
-              .eq("playerIdentityId", youthPlayerIdentityId)
-          )
-          .first();
-
-        if (!existingLink) {
-          const existingLinks = await ctx.db
+        if (guardianIdentityId) {
+          // Check if link already exists
+          const existingLink = await ctx.db
             .query("guardianPlayerLinks")
-            .withIndex("by_player", (q) =>
-              q.eq("playerIdentityId", youthPlayerIdentityId)
+            .withIndex("by_guardian_and_player", (q) =>
+              q
+                .eq("guardianIdentityId", guardianIdentityId)
+                .eq("playerIdentityId", youthPlayerIdentityId)
             )
-            .collect();
+            .first();
 
-          const isPrimary = existingLinks.length === 0;
+          if (!existingLink) {
+            const existingLinks = await ctx.db
+              .query("guardianPlayerLinks")
+              .withIndex("by_player", (q) =>
+                q.eq("playerIdentityId", youthPlayerIdentityId)
+              )
+              .collect();
 
-          await ctx.db.insert("guardianPlayerLinks", {
-            guardianIdentityId: guardianIdentityId!,
-            playerIdentityId: youthPlayerIdentityId,
-            relationship: "guardian",
-            isPrimary,
-            hasParentalResponsibility: true,
-            canCollectFromTraining: true,
-            consentedToSharing: true,
-            createdAt: now,
-            updatedAt: now,
-          });
+            const isPrimary = existingLinks.length === 0;
 
-          console.log(
-            `[Guardian Matching] ✓ Linked guardian ${adultPlayerData.firstName} ${adultPlayerData.lastName} to player at index ${match.youthPlayerIndex} (${match.score} points: ${match.matchReasons.join(", ")})`
-          );
+            await ctx.db.insert("guardianPlayerLinks", {
+              guardianIdentityId,
+              playerIdentityId: youthPlayerIdentityId,
+              relationship: "guardian",
+              isPrimary,
+              hasParentalResponsibility: true,
+              canCollectFromTraining: true,
+              consentedToSharing: true,
+              importSessionId: args.sessionId,
+              createdAt: now,
+              updatedAt: now,
+            });
+
+            console.log(
+              `[Guardian Matching] ✓ Linked guardian ${adultPlayerData.firstName} ${adultPlayerData.lastName} to player at index ${match.youthPlayerIndex} (${match.score} points: ${match.matchReasons.join(", ")})`
+            );
+          }
         }
       } catch (error) {
         console.error(
@@ -827,8 +985,8 @@ export const batchImportPlayersWithIdentity = mutation({
     // Process explicit parent info (parentFirstName, parentLastName, parentEmail/Phone)
     // This handles cases where parent info is provided in the CSV but parent isn't a member
     // Email is now optional - we can create guardians with just name + phone
-    for (let i = 0; i < args.players.length; i += 1) {
-      const playerData = args.players[i];
+    for (let i = 0; i < playersToImport.length; i += 1) {
+      const playerData = playersToImport[i];
       const playerIdentityId = playerIdentityMap.get(i);
 
       if (!playerIdentityId) {
@@ -846,6 +1004,7 @@ export const batchImportPlayersWithIdentity = mutation({
           : undefined;
 
         try {
+          // biome-ignore lint/suspicious/noEvolvingTypes: guardian queried from multiple paths
           let existingGuardian = null;
 
           // Try to find existing guardian by email first (if provided)
@@ -899,6 +1058,7 @@ export const batchImportPlayersWithIdentity = mutation({
               postcode: playerData.postcode?.trim(), // ✅ Copy from player
               country: playerData.country?.trim(), // ✅ Copy from player
               verificationStatus: "unverified",
+              importSessionId: args.sessionId,
               createdAt: now,
               updatedAt: now,
               createdFrom: "import",
@@ -935,6 +1095,7 @@ export const batchImportPlayersWithIdentity = mutation({
               hasParentalResponsibility: true,
               canCollectFromTraining: true,
               consentedToSharing: true,
+              importSessionId: args.sessionId,
               createdAt: now,
               updatedAt: now,
             });
@@ -951,10 +1112,33 @@ export const batchImportPlayersWithIdentity = mutation({
       }
     }
 
+    // Update progress after Phase 3 (guardians complete)
+    if (args.sessionId) {
+      await ctx.runMutation(
+        internal.models.importProgress.updateProgressTracker,
+        {
+          sessionId: args.sessionId,
+          stats: {
+            playersCreated: results.playersCreated,
+            playersReused: results.playersReused,
+            guardiansCreated: results.guardiansCreated,
+            guardiansLinked: results.guardiansReused,
+            enrollmentsCreated: results.enrollmentsCreated,
+            passportsCreated: 0,
+            benchmarksApplied: results.benchmarksApplied,
+            totalPlayers: playersToImport.length,
+          },
+          currentOperation: "Creating enrollments...",
+          phase: "importing",
+          percentage: 60, // Phase 3 complete = 60%
+        }
+      );
+    }
+
     // ========== PHASE 4: CREATE ORG ENROLLMENTS ==========
 
-    for (let i = 0; i < args.players.length; i += 1) {
-      const playerData = args.players[i];
+    for (let i = 0; i < playersToImport.length; i += 1) {
+      const playerData = playersToImport[i];
       const playerIdentityId = playerIdentityMap.get(i);
 
       if (!playerIdentityId) {
@@ -989,6 +1173,7 @@ export const batchImportPlayersWithIdentity = mutation({
             ageGroup: playerData.ageGroup,
             season: playerData.season,
             status: "active",
+            importSessionId: args.sessionId,
             enrolledAt: now,
             updatedAt: now,
           });
@@ -997,33 +1182,79 @@ export const batchImportPlayersWithIdentity = mutation({
 
         // Auto-create sport passport if sportCode provided
         // This is the source of truth for player's sport enrollment
-        if (args.sportCode) {
+        const sportCodeValue = args.sportCode;
+        if (sportCodeValue) {
           const existingPassport = await ctx.db
             .query("sportPassports")
             .withIndex("by_player_and_sport", (q) =>
               q
                 .eq("playerIdentityId", playerIdentityId)
-                .eq("sportCode", args.sportCode!)
+                .eq("sportCode", sportCodeValue)
             )
             .first();
 
           if (!existingPassport) {
             await ctx.db.insert("sportPassports", {
               playerIdentityId,
-              sportCode: args.sportCode,
+              sportCode: sportCodeValue,
               organizationId: args.organizationId,
               status: "active",
               assessmentCount: 0,
               currentSeason: playerData.season,
+              importSessionId: args.sessionId,
               createdAt: now,
               updatedAt: now,
             });
           }
         }
+
+        // Update progress tracker every 10 records
+        if (args.sessionId && i % 10 === 0) {
+          const percentage = 60 + Math.floor((i / playersToImport.length) * 30); // Phase 4 is 60-90%
+          await ctx.runMutation(
+            internal.models.importProgress.updateProgressTracker,
+            {
+              sessionId: args.sessionId,
+              stats: {
+                playersCreated: results.playersCreated,
+                playersReused: results.playersReused,
+                guardiansCreated: results.guardiansCreated,
+                guardiansLinked: results.guardiansReused,
+                enrollmentsCreated: results.enrollmentsCreated,
+                passportsCreated: 0,
+                benchmarksApplied: results.benchmarksApplied,
+                totalPlayers: playersToImport.length,
+              },
+              currentOperation: `Creating enrollment for ${playerData.firstName} ${playerData.lastName}`,
+              phase: "importing",
+              percentage,
+            }
+          );
+        }
       } catch (error) {
-        results.errors.push(
-          `Enrollment for ${playerData.firstName} ${playerData.lastName}: ${error instanceof Error ? error.message : "Unknown error"}`
-        );
+        const errorMsg = `Enrollment for ${playerData.firstName} ${playerData.lastName}: ${error instanceof Error ? error.message : "Unknown error"}`;
+        results.errors.push(errorMsg);
+
+        // Add error to progress tracker
+        if (args.sessionId) {
+          // Build player name, handling missing firstName or lastName
+          const firstName = playerData.firstName?.trim() || "";
+          const lastName = playerData.lastName?.trim() || "";
+          const playerName =
+            firstName && lastName
+              ? `${firstName} ${lastName}`
+              : firstName || lastName || "(Unknown)";
+
+          await ctx.runMutation(
+            internal.models.importProgress.addProgressError,
+            {
+              sessionId: args.sessionId,
+              rowNumber: i + 1,
+              playerName,
+              error: error instanceof Error ? error.message : "Unknown error",
+            }
+          );
+        }
       }
     }
 
@@ -1039,6 +1270,718 @@ export const batchImportPlayersWithIdentity = mutation({
       }
     }
 
+    // ========== PHASE 5: APPLY BENCHMARKS ==========
+    // After all passports created, apply benchmark ratings if configured
+    const benchSportCode = args.sportCode;
+    if (args.benchmarkSettings?.applyBenchmarks && benchSportCode) {
+      const strategy = args.benchmarkSettings.strategy as BenchmarkStrategy;
+
+      // Find all sport passports just created for these players
+      for (let i = 0; i < playersToImport.length; i += 1) {
+        const playerIdentityId = playerIdentityMap.get(i);
+        if (!playerIdentityId) {
+          continue;
+        }
+
+        const passport = await ctx.db
+          .query("sportPassports")
+          .withIndex("by_player_and_sport", (q) =>
+            q
+              .eq("playerIdentityId", playerIdentityId)
+              .eq("sportCode", benchSportCode)
+          )
+          .first();
+
+        if (passport) {
+          const benchResult = await applyBenchmarksToPassport(
+            ctx,
+            passport._id,
+            {
+              strategy,
+              templateId: args.benchmarkSettings.templateId,
+              ageGroup: args.benchmarkSettings.ageGroup,
+              sportCode: benchSportCode,
+              importSessionId: args.sessionId,
+            }
+          );
+          results.benchmarksApplied += benchResult.benchmarksApplied;
+        }
+      }
+    }
+
+    // Final progress update
+    if (args.sessionId) {
+      await ctx.runMutation(
+        internal.models.importProgress.updateProgressTracker,
+        {
+          sessionId: args.sessionId,
+          stats: {
+            playersCreated: results.playersCreated,
+            playersReused: results.playersReused,
+            guardiansCreated: results.guardiansCreated,
+            guardiansLinked:
+              results.guardiansLinkedToVerifiedAccounts +
+              results.guardiansReused,
+            enrollmentsCreated: results.enrollmentsCreated,
+            passportsCreated: results.enrollmentsCreated, // 1:1 with enrollments
+            benchmarksApplied: results.benchmarksApplied,
+            totalPlayers: playersToImport.length,
+          },
+          currentOperation: "Import complete!",
+          phase: "completed",
+          percentage: 100,
+        }
+      );
+    }
+
     return results;
+  },
+});
+
+// ============================================================
+// PHASE 3.1: ADMIN OVERRIDE FOR GUARDIAN MATCHING
+// ============================================================
+
+/**
+ * Records an admin override decision for guardian matching confidence.
+ * Admins can force-link low-confidence matches or reject high-confidence matches.
+ * Creates an audit trail entry in adminOverrides table.
+ *
+ * @param importSessionId - The import session ID
+ * @param playerId - Player identity ID
+ * @param guardianId - Guardian identity ID
+ * @param action - "force_link" or "reject_link"
+ * @param reason - Optional admin explanation for the override
+ * @param originalConfidenceScore - The confidence score that was overridden
+ * @returns The created override record ID
+ */
+export const recordAdminOverride = mutation({
+  args: {
+    importSessionId: v.id("importSessions"),
+    playerId: v.id("playerIdentities"),
+    guardianId: v.id("guardianIdentities"),
+    action: v.union(v.literal("force_link"), v.literal("reject_link")),
+    reason: v.optional(v.string()),
+    originalConfidenceScore: v.optional(v.number()),
+  },
+  returns: v.id("adminOverrides"),
+  handler: async (ctx, args) => {
+    // Get current user from Better Auth session
+    const user = await ctx.auth.getUserIdentity();
+    if (!user) {
+      throw new Error("Unauthorized: Must be logged in to record override");
+    }
+
+    // Record the override with timestamp
+    const overrideId = await ctx.db.insert("adminOverrides", {
+      importSessionId: args.importSessionId,
+      playerId: args.playerId,
+      guardianId: args.guardianId,
+      action: args.action,
+      reason: args.reason,
+      overriddenBy: user.subject, // Better Auth user ID
+      originalConfidenceScore: args.originalConfidenceScore,
+      timestamp: Date.now(),
+    });
+
+    console.log(
+      `[Admin Override] ${args.action} recorded by ${user.subject} for player ${args.playerId} and guardian ${args.guardianId}`
+    );
+
+    return overrideId;
+  },
+});
+
+// ============================================================
+// PHASE 3.1: PARTIAL UNDO - GET IMPORTED PLAYERS
+// ============================================================
+
+/**
+ * Get all players imported in a specific session for selective removal.
+ * Returns player identity info with related record counts.
+ *
+ * @param sessionId - The import session ID
+ * @returns Array of imported players with related record counts
+ */
+export const getImportedPlayers = query({
+  args: {
+    sessionId: v.id("importSessions"),
+  },
+  returns: v.array(
+    v.object({
+      _id: v.id("playerIdentities"),
+      firstName: v.string(),
+      lastName: v.string(),
+      dateOfBirth: v.string(),
+      enrollmentStatus: v.string(),
+      relatedRecords: v.object({
+        enrollments: v.number(),
+        passports: v.number(),
+        teamAssignments: v.number(),
+        assessments: v.number(),
+      }),
+    })
+  ),
+  handler: async (ctx, args) => {
+    // Find all player identities created in this import session
+    const playerIdentities = await ctx.db
+      .query("playerIdentities")
+      .withIndex("by_importSessionId", (q) =>
+        q.eq("importSessionId", args.sessionId)
+      )
+      .collect();
+
+    // Batch fetch related records for all players
+    const playerIds = playerIdentities.map((p) => p._id);
+
+    // Fetch enrollments
+    const allEnrollments = await Promise.all(
+      playerIds.map((id) =>
+        ctx.db
+          .query("orgPlayerEnrollments")
+          .withIndex("by_playerIdentityId", (q) => q.eq("playerIdentityId", id))
+          .collect()
+      )
+    );
+
+    // Fetch sport passports
+    const allPassports = await Promise.all(
+      playerIds.map((id) =>
+        ctx.db
+          .query("sportPassports")
+          .withIndex("by_playerIdentityId", (q) => q.eq("playerIdentityId", id))
+          .collect()
+      )
+    );
+
+    // Fetch team assignments
+    const allTeamAssignments = await Promise.all(
+      playerIds.map((id) =>
+        ctx.db
+          .query("teamPlayerIdentities")
+          .withIndex("by_playerIdentityId", (q) => q.eq("playerIdentityId", id))
+          .collect()
+      )
+    );
+
+    // Fetch skill assessments (via passports)
+    const allAssessments = await Promise.all(
+      playerIds.map(async (id) => {
+        const passports = await ctx.db
+          .query("sportPassports")
+          .withIndex("by_playerIdentityId", (q) => q.eq("playerIdentityId", id))
+          .collect();
+        const assessmentCounts = await Promise.all(
+          passports.map((passport) =>
+            ctx.db
+              .query("skillAssessments")
+              .withIndex("by_passportId", (q) =>
+                q.eq("passportId", passport._id)
+              )
+              .collect()
+          )
+        );
+        return assessmentCounts.flat();
+      })
+    );
+
+    // Build result with counts
+    return playerIdentities.map((player, index) => {
+      const enrollments = allEnrollments[index] || [];
+      const passports = allPassports[index] || [];
+      const teamAssignments = allTeamAssignments[index] || [];
+      const assessments = allAssessments[index] || [];
+
+      // Get enrollment status from first enrollment (default to "active")
+      const enrollmentStatus =
+        enrollments.length > 0 ? enrollments[0].status : "active";
+
+      return {
+        _id: player._id,
+        firstName: player.firstName,
+        lastName: player.lastName,
+        dateOfBirth: player.dateOfBirth,
+        enrollmentStatus,
+        relatedRecords: {
+          enrollments: enrollments.length,
+          passports: passports.length,
+          teamAssignments: teamAssignments.length,
+          assessments: assessments.length,
+        },
+      };
+    });
+  },
+});
+
+// ============================================================
+// PHASE 3.2: IMPORT DETAILS - GET DETAILED PLAYER LIST
+// ============================================================
+
+/**
+ * Get detailed player list for import session - includes guardian, teams, gender.
+ * Used in the Import Details dialog Players tab.
+ *
+ * @param sessionId - Import session ID
+ * @returns Array of players with full details for display
+ */
+export const getImportSessionPlayersDetailed = query({
+  args: {
+    sessionId: v.id("importSessions"),
+  },
+  returns: v.array(
+    v.object({
+      _id: v.id("playerIdentities"),
+      firstName: v.string(),
+      lastName: v.string(),
+      dateOfBirth: v.string(),
+      gender: v.union(
+        v.literal("male"),
+        v.literal("female"),
+        v.literal("other")
+      ),
+      enrollmentStatus: v.string(),
+      guardianName: v.union(v.string(), v.null()),
+      teamCount: v.number(),
+    })
+  ),
+  handler: async (ctx, args) => {
+    // Find all player identities from this import session
+    const playerIdentities = await ctx.db
+      .query("playerIdentities")
+      .withIndex("by_importSessionId", (q) =>
+        q.eq("importSessionId", args.sessionId)
+      )
+      .collect();
+
+    const playerIds = playerIdentities.map((p) => p._id);
+
+    // Batch fetch enrollments for status
+    const enrollmentsByPlayer = await Promise.all(
+      playerIds.map((id) =>
+        ctx.db
+          .query("orgPlayerEnrollments")
+          .withIndex("by_playerIdentityId", (q) => q.eq("playerIdentityId", id))
+          .first()
+      )
+    );
+
+    // Batch fetch guardian links
+    const guardianLinksByPlayer = await Promise.all(
+      playerIds.map((id) =>
+        ctx.db
+          .query("guardianPlayerLinks")
+          .withIndex("by_player", (q) => q.eq("playerIdentityId", id))
+          .first()
+      )
+    );
+
+    // Get unique guardian IDs
+    const guardianIds = guardianLinksByPlayer
+      .filter((link) => link !== null)
+      .map((link) => link?.guardianIdentityId);
+
+    // Batch fetch guardians
+    const guardians = await Promise.all(
+      guardianIds.map((id) => ctx.db.get(id))
+    );
+
+    // Create guardian map for lookup
+    const guardianMap = new Map();
+    for (const guardian of guardians) {
+      if (guardian) {
+        guardianMap.set(guardian._id, guardian);
+      }
+    }
+
+    // Batch fetch team assignments
+    const teamAssignmentsByPlayer = await Promise.all(
+      playerIds.map((id) =>
+        ctx.db
+          .query("teamPlayerIdentities")
+          .withIndex("by_playerIdentityId", (q) => q.eq("playerIdentityId", id))
+          .collect()
+      )
+    );
+
+    // Build result with all details
+    return playerIdentities.map((player, index) => {
+      const enrollment = enrollmentsByPlayer[index];
+      const guardianLink = guardianLinksByPlayer[index];
+      const teamAssignments = teamAssignmentsByPlayer[index] || [];
+
+      const guardian = guardianLink
+        ? guardianMap.get(guardianLink.guardianIdentityId)
+        : null;
+
+      const guardianName = guardian
+        ? `${guardian.firstName} ${guardian.lastName}`
+        : null;
+
+      return {
+        _id: player._id,
+        firstName: player.firstName,
+        lastName: player.lastName,
+        dateOfBirth: player.dateOfBirth,
+        gender: player.gender,
+        enrollmentStatus: enrollment?.status || "active",
+        guardianName,
+        teamCount: teamAssignments.length,
+      };
+    });
+  },
+});
+
+// ============================================================
+// PHASE 3.1: PARTIAL UNDO - GET REMOVAL IMPACT PREVIEW
+// ============================================================
+
+/**
+ * Calculate the impact of removing specific players from an import.
+ * Shows cascading deletions and warnings for orphaned guardians.
+ *
+ * @param playerIdentityIds - Array of player IDs to remove
+ * @returns Impact summary with counts and warnings
+ */
+export const getRemovalImpact = query({
+  args: {
+    playerIdentityIds: v.array(v.id("playerIdentities")),
+  },
+  returns: v.object({
+    playerCount: v.number(),
+    enrollmentCount: v.number(),
+    passportCount: v.number(),
+    teamAssignmentCount: v.number(),
+    assessmentCount: v.number(),
+    guardianLinkCount: v.number(),
+    orphanedGuardianCount: v.number(),
+    orphanedGuardianIds: v.array(v.id("guardianIdentities")),
+  }),
+  handler: async (ctx, args) => {
+    const { playerIdentityIds } = args;
+
+    // Batch fetch all related records
+    const allEnrollments = await Promise.all(
+      playerIdentityIds.map((id) =>
+        ctx.db
+          .query("orgPlayerEnrollments")
+          .withIndex("by_playerIdentityId", (q) => q.eq("playerIdentityId", id))
+          .collect()
+      )
+    );
+
+    const allPassports = await Promise.all(
+      playerIdentityIds.map((id) =>
+        ctx.db
+          .query("sportPassports")
+          .withIndex("by_playerIdentityId", (q) => q.eq("playerIdentityId", id))
+          .collect()
+      )
+    );
+
+    const allTeamAssignments = await Promise.all(
+      playerIdentityIds.map((id) =>
+        ctx.db
+          .query("teamPlayerIdentities")
+          .withIndex("by_playerIdentityId", (q) => q.eq("playerIdentityId", id))
+          .collect()
+      )
+    );
+
+    const allGuardianLinks = await Promise.all(
+      playerIdentityIds.map((id) =>
+        ctx.db
+          .query("guardianPlayerLinks")
+          .withIndex("by_player", (q) => q.eq("playerIdentityId", id))
+          .collect()
+      )
+    );
+
+    // Fetch assessments for all passports
+    const flatPassports = allPassports.flat();
+    const allAssessments = await Promise.all(
+      flatPassports.map((passport) =>
+        ctx.db
+          .query("skillAssessments")
+          .withIndex("by_passportId", (q) => q.eq("passportId", passport._id))
+          .collect()
+      )
+    );
+
+    // Identify guardians that will be orphaned
+    const flatGuardianLinks = allGuardianLinks.flat();
+    const guardianIds = new Set(
+      flatGuardianLinks.map((link) => link.guardianIdentityId)
+    );
+
+    // For each guardian, check if they have other player links
+    const orphanedGuardianIds: Id<"guardianIdentities">[] = [];
+    for (const guardianId of guardianIds) {
+      const allLinksForGuardian = await ctx.db
+        .query("guardianPlayerLinks")
+        .withIndex("by_guardian", (q) => q.eq("guardianIdentityId", guardianId))
+        .collect();
+
+      // If all links are to players being removed, guardian will be orphaned
+      const nonRemovedLinks = allLinksForGuardian.filter(
+        (link) => !playerIdentityIds.includes(link.playerIdentityId)
+      );
+
+      if (nonRemovedLinks.length === 0) {
+        orphanedGuardianIds.push(guardianId);
+      }
+    }
+
+    return {
+      playerCount: playerIdentityIds.length,
+      enrollmentCount: allEnrollments.flat().length,
+      passportCount: flatPassports.length,
+      teamAssignmentCount: allTeamAssignments.flat().length,
+      assessmentCount: allAssessments.flat().length,
+      guardianLinkCount: flatGuardianLinks.length,
+      orphanedGuardianCount: orphanedGuardianIds.length,
+      orphanedGuardianIds,
+    };
+  },
+});
+
+// ============================================================
+// US-P3.1-008: Atomic removal transaction
+// ============================================================
+
+export const removePlayersFromImport = mutation({
+  args: {
+    sessionId: v.id("importSessions"),
+    playerIdentityIds: v.array(v.id("playerIdentities")),
+  },
+  returns: v.object({
+    playersRemoved: v.number(),
+    enrollmentsRemoved: v.number(),
+    passportsRemoved: v.number(),
+    teamAssignmentsRemoved: v.number(),
+    assessmentsRemoved: v.number(),
+    guardianLinksRemoved: v.number(),
+    guardiansOrphaned: v.number(),
+    errors: v.array(v.string()),
+  }),
+  handler: async (ctx, args) => {
+    const { sessionId, playerIdentityIds } = args;
+
+    // Track counts for return value
+    let enrollmentsRemoved = 0;
+    let passportsRemoved = 0;
+    let teamAssignmentsRemoved = 0;
+    let assessmentsRemoved = 0;
+    let guardianLinksRemoved = 0;
+    let guardiansOrphaned = 0;
+    const errors: string[] = [];
+
+    try {
+      // Step 1: Remove skill assessments (reverse order - most dependent first)
+      for (const playerId of playerIdentityIds) {
+        try {
+          const passports = await ctx.db
+            .query("sportPassports")
+            .withIndex("by_playerIdentityId", (q) =>
+              q.eq("playerIdentityId", playerId)
+            )
+            .collect();
+
+          for (const passport of passports) {
+            const assessments = await ctx.db
+              .query("skillAssessments")
+              .withIndex("by_passportId", (q) =>
+                q.eq("passportId", passport._id)
+              )
+              .collect();
+
+            for (const assessment of assessments) {
+              await ctx.db.delete(assessment._id);
+              assessmentsRemoved += 1;
+            }
+          }
+        } catch (error) {
+          errors.push(
+            `Error removing assessments for player ${playerId}: ${error instanceof Error ? error.message : String(error)}`
+          );
+        }
+      }
+
+      // Step 2: Remove team assignments
+      for (const playerId of playerIdentityIds) {
+        try {
+          const teamAssignments = await ctx.db
+            .query("teamPlayerIdentities")
+            .withIndex("by_playerIdentityId", (q) =>
+              q.eq("playerIdentityId", playerId)
+            )
+            .collect();
+
+          for (const assignment of teamAssignments) {
+            await ctx.db.delete(assignment._id);
+            teamAssignmentsRemoved += 1;
+          }
+        } catch (error) {
+          errors.push(
+            `Error removing team assignments for player ${playerId}: ${error instanceof Error ? error.message : String(error)}`
+          );
+        }
+      }
+
+      // Step 3: Remove sport passports
+      for (const playerId of playerIdentityIds) {
+        try {
+          const passports = await ctx.db
+            .query("sportPassports")
+            .withIndex("by_playerIdentityId", (q) =>
+              q.eq("playerIdentityId", playerId)
+            )
+            .collect();
+
+          for (const passport of passports) {
+            await ctx.db.delete(passport._id);
+            passportsRemoved += 1;
+          }
+        } catch (error) {
+          errors.push(
+            `Error removing passports for player ${playerId}: ${error instanceof Error ? error.message : String(error)}`
+          );
+        }
+      }
+
+      // Step 4: Remove guardian links and orphaned guardians
+      const orphanedGuardianIds: Id<"guardianIdentities">[] = [];
+
+      for (const playerId of playerIdentityIds) {
+        try {
+          const guardianLinks = await ctx.db
+            .query("guardianPlayerLinks")
+            .withIndex("by_player", (q) => q.eq("playerIdentityId", playerId))
+            .collect();
+
+          for (const link of guardianLinks) {
+            await ctx.db.delete(link._id);
+            guardianLinksRemoved += 1;
+
+            // Check if guardian is now orphaned
+            const remainingLinks = await ctx.db
+              .query("guardianPlayerLinks")
+              .withIndex("by_guardian", (q) =>
+                q.eq("guardianIdentityId", link.guardianIdentityId)
+              )
+              .collect();
+
+            if (remainingLinks.length === 0) {
+              orphanedGuardianIds.push(link.guardianIdentityId);
+            }
+          }
+        } catch (error) {
+          errors.push(
+            `Error removing guardian links for player ${playerId}: ${error instanceof Error ? error.message : String(error)}`
+          );
+        }
+      }
+
+      // Remove orphaned guardian records
+      for (const guardianId of orphanedGuardianIds) {
+        try {
+          await ctx.db.delete(guardianId);
+          guardiansOrphaned += 1;
+        } catch (error) {
+          errors.push(
+            `Error removing orphaned guardian ${guardianId}: ${error instanceof Error ? error.message : String(error)}`
+          );
+        }
+      }
+
+      // Step 5: Remove enrollments
+      for (const playerId of playerIdentityIds) {
+        try {
+          const enrollments = await ctx.db
+            .query("orgPlayerEnrollments")
+            .withIndex("by_playerIdentityId", (q) =>
+              q.eq("playerIdentityId", playerId)
+            )
+            .collect();
+
+          for (const enrollment of enrollments) {
+            await ctx.db.delete(enrollment._id);
+            enrollmentsRemoved += 1;
+          }
+        } catch (error) {
+          errors.push(
+            `Error removing enrollments for player ${playerId}: ${error instanceof Error ? error.message : String(error)}`
+          );
+        }
+      }
+
+      // Step 6: Remove player identities
+      for (const playerId of playerIdentityIds) {
+        try {
+          // Check if player has any remaining links (safety check)
+          const hasEnrollments = await ctx.db
+            .query("orgPlayerEnrollments")
+            .withIndex("by_playerIdentityId", (q) =>
+              q.eq("playerIdentityId", playerId)
+            )
+            .first();
+
+          if (hasEnrollments) {
+            errors.push(
+              `Cannot remove player identity ${playerId}: still has linked records`
+            );
+          } else {
+            await ctx.db.delete(playerId);
+          }
+        } catch (error) {
+          errors.push(
+            `Error removing player identity ${playerId}: ${error instanceof Error ? error.message : String(error)}`
+          );
+        }
+      }
+
+      // Step 7: Update importSession stats
+      try {
+        const session = await ctx.db.get(sessionId);
+        if (session) {
+          await ctx.db.patch(sessionId, {
+            stats: {
+              ...session.stats,
+              playersCreated: Math.max(
+                0,
+                session.stats.playersCreated - playerIdentityIds.length
+              ),
+              guardiansCreated: Math.max(
+                0,
+                session.stats.guardiansCreated - guardiansOrphaned
+              ),
+              passportsCreated: Math.max(
+                0,
+                session.stats.passportsCreated - passportsRemoved
+              ),
+            },
+          });
+        }
+      } catch (error) {
+        errors.push(
+          `Error updating import session stats: ${error instanceof Error ? error.message : String(error)}`
+        );
+      }
+
+      return {
+        playersRemoved: playerIdentityIds.length,
+        enrollmentsRemoved,
+        passportsRemoved,
+        teamAssignmentsRemoved,
+        assessmentsRemoved,
+        guardianLinksRemoved,
+        guardiansOrphaned,
+        errors,
+      };
+    } catch (error) {
+      // Top-level error handler
+      throw new Error(
+        `Failed to remove players from import: ${error instanceof Error ? error.message : String(error)}`
+      );
+    }
   },
 });

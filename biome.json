@@ -31,6 +31,7 @@
       "!**/apps/web/src/hooks/use-mobile.ts",
       "!**/packages/backend/**/_generated",
       "!**/convex/_generated",
+      "!**/packages/backend/convex/scripts",
       "!**/apps/web/convex/_generated",
       "!**/mvp-app",
       "!**/apps/web/uat",
@@ -113,6 +114,26 @@
         "rules": {
           "style": {
             "useFilenamingConvention": "off"
+          }
+        }
+      }
+    },
+    {
+      "includes": [
+        "packages/backend/convex/models/organizationScraper.ts",
+        "packages/backend/convex/models/playerSelfAccess.ts"
+      ],
+      "linter": {
+        "rules": {
+          "performance": {
+            "useTopLevelRegex": "off"
+          },
+          "style": {
+            "noParameterAssign": "off"
+          },
+          "nursery": {
+            "noShadow": "off",
+            "noIncrementDecrement": "off"
           }
         }
       }

@@ -8,14 +8,16 @@ import {
   ChevronDown,
   Clipboard,
   ClipboardList,
+  FileSpreadsheet,
+  FileUp,
   Flag,
   GraduationCap,
   Heart,
+  History as HistoryIcon,
   Home,
   Inbox,
   Key,
   LineChart,
-  Mail,
   Megaphone,
   Menu,
   MessageSquare,
@@ -104,11 +106,6 @@ export function getAdminNavGroups(
           icon: UserCheck,
         },
         {
-          href: `/orgs/${orgId}/admin/invitations`,
-          label: "Invitations",
-          icon: Mail,
-        },
-        {
           href: `/orgs/${orgId}/admin/unclaimed-guardians`,
           label: "Unclaimed Guardians",
           icon: UserX,
@@ -191,6 +188,21 @@ export function getAdminNavGroups(
               },
             ]
           : []),
+        {
+          href: `/orgs/${orgId}/import`,
+          label: "Import Wizard",
+          icon: FileUp,
+        },
+        {
+          href: `/orgs/${orgId}/admin/templates`,
+          label: "Manage Templates",
+          icon: FileSpreadsheet,
+        },
+        {
+          href: `/orgs/${orgId}/import/history`,
+          label: "Import History",
+          icon: HistoryIcon,
+        },
         {
           href: `/orgs/${orgId}/admin/player-import`,
           label: "Import Players",

@@ -1,0 +1,133 @@
+{
+  "project": "PlayerARC - Phase 0.6: Address Collection Enhancement",
+  "branchName": "ralph/phase-0.6-address-collection",
+  "description": "Extend the Profile Completion onboarding step to collect full address information (Street Address, Address Line 2, Town/City, County, Country) following e-commerce best practices. All fields remain optional. Display collected address in expanded user profile on Manage Users page.",
+  "prdFile": "scripts/ralph/prds/Importing Members/phase-0.6-address-collection.md",
+  "contextFiles": [
+    "packages/backend/convex/betterAuth/schema.ts",
+    "packages/backend/convex/models/userProfiles.ts",
+    "packages/backend/convex/betterAuth/userFunctions.ts",
+    "apps/web/src/components/onboarding/profile-completion-step.tsx",
+    "apps/web/src/app/orgs/[orgId]/admin/users/page.tsx",
+    "CLAUDE.md"
+  ],
+  "mandatoryPatterns": [
+    "Use Convex function syntax with args and returns validators",
+    "Use .withIndex() never .filter() for queries",
+    "Use shadcn/ui components for all UI",
+    "All address fields must be optional",
+    "Store country as ISO 3166-1 alpha-2 code (IE, GB, US)",
+    "Run npx ultracite fix before completing any story"
+  ],
+  "successCriteria": [
+    "address2 and county fields added to user table schema",
+    "ProfileCompletionStep collects full address with country dropdown",
+    "County field is dynamic: dropdown for IE/US, text for others",
+    "Irish counties dropdown shows 26 counties + Other option",
+    "Address displayed in expanded user profile on Manage Users (NOT collapsed card)",
+    "All existing profile completion functionality still works",
+    "No regression in guardian matching"
+  ],
+  "userStories": [
+    {
+      "id": "US-P0.6-001",
+      "title": "Add address2 and county fields to user table schema",
+      "description": "As a developer, I need additional address fields in the user table to store complete address information.",
+      "acceptanceCriteria": [
+        "Add address2: v.optional(v.string()) to customUserTable in betterAuth/schema.ts",
+        "Add county: v.optional(v.string()) to customUserTable in betterAuth/schema.ts",
+        "Run npx -w packages/backend convex codegen successfully",
+        "Typecheck passes: npm run check-types"
+      ],
+      "priority": 1,
+      "passes": false,
+      "notes": "Schema foundation - must be done first."
+    },
+    {
+      "id": "US-P0.6-002",
+      "title": "Update userProfiles mutations and queries",
+      "description": "As a developer, I need the backend to accept and return the new address fields.",
+      "acceptanceCriteria": [
+        "Update updateProfile mutation args to include address2 and county",
+        "Update getProfileStatus query returns to include address2 and county",
+        "Update updateProfileCompletion component function in userFunctions.ts",
+        "All new fields are passed through and saved correctly",
+        "Typecheck passes"
+      ],
+      "priority": 2,
+      "passes": false,
+      "notes": "Backend changes to support new fields."
+    },
+    {
+      "id": "US-P0.6-003",
+      "title": "Create address data constants file",
+      "description": "As a developer, I need reference data for countries, Irish counties, and US states.",
+      "acceptanceCriteria": [
+        "Create apps/web/src/lib/constants/address-data.ts",
+        "Export TOP_COUNTRIES array: Ireland, United Kingdom, United States",
+        "Export ALL_COUNTRIES array with ISO 3166-1 codes and names",
+        "Export IRISH_COUNTIES array with 26 Republic of Ireland counties",
+        "Export US_STATES array with 50 states + DC + territories",
+        "Typecheck passes"
+      ],
+      "priority": 3,
+      "passes": false,
+      "notes": "Reference data for dropdowns."
+    },
+    {
+      "id": "US-P0.6-004",
+      "title": "Update ProfileCompletionStep with address fields",
+      "description": "As a user, I need to be able to enter my full address during onboarding.",
+      "acceptanceCriteria": [
+        "Add Street Address (address) input field",
+        "Add Address Line 2 (address2) input field",
+        "Add Town/City (town) input field - already exists, ensure visible",
+        "Add Country dropdown with Ireland, UK, US at top, then alphabetical",
+        "Add dynamic County field: dropdown for IE (26 counties + Other), dropdown for US (states + Other), text input for GB and others",
+        "Postcode field already exists - ensure it remains",
+        "All fields optional - no required validation",
+        "Address fields in collapsible section labeled 'Address (Optional)'",
+        "Form submission includes all new fields",
+        "Typecheck passes"
+      ],
+      "priority": 4,
+      "passes": false,
+      "notes": "Main UI changes to profile completion form."
+    },
+    {
+      "id": "US-P0.6-005",
+      "title": "Display address in expanded user profile",
+      "description": "As an admin, I need to see user addresses in the expanded profile on the Manage Users page.",
+      "acceptanceCriteria": [
+        "Add Address section to expanded user profile in Manage Users page",
+        "Display address fields in formatted layout (see PRD section 3.4)",
+        "Address does NOT appear on collapsed user card",
+        "Handle missing/partial address gracefully (only show fields that have values)",
+        "Country code (IE, GB, US) displayed as full name (Ireland, United Kingdom, United States)",
+        "Typecheck passes"
+      ],
+      "priority": 5,
+      "passes": false,
+      "notes": "Admin visibility of collected addresses."
+    },
+    {
+      "id": "US-P0.6-006",
+      "title": "End-to-end testing and verification",
+      "description": "As a developer, I need to verify the complete address collection flow works correctly.",
+      "acceptanceCriteria": [
+        "Test: User enters full Irish address with county dropdown",
+        "Test: User enters UK address with free text county",
+        "Test: User enters US address with state dropdown",
+        "Test: User enters partial address (only some fields)",
+        "Test: Address displays correctly in expanded profile on Manage Users",
+        "Test: Existing phone/postcode/altEmail collection still works",
+        "Test: Guardian matching not affected by changes",
+        "All linting passes: npx ultracite fix",
+        "All type checks pass: npm run check-types"
+      ],
+      "priority": 6,
+      "passes": false,
+      "notes": "Final verification before marking phase complete."
+    }
+  ]
+}

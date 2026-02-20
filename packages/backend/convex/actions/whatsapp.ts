@@ -4,9 +4,18 @@ import { v } from "convex/values";
 import { api, internal } from "../_generated/api";
 import type { Id } from "../_generated/dataModel";
 import { internalAction } from "../_generated/server";
+import { handleCommand } from "../lib/whatsappCommandHandler";
+import { parseCommand } from "../lib/whatsappCommands";
 
-// Regex patterns at top level for performance
+// Regex patterns at top level for performance (Biome: useTopLevelRegex)
 const WHATSAPP_PREFIX_REGEX = /^whatsapp:/;
+const TRAILING_SLASH_REGEX = /\/+$/;
+
+// US-VN-011: WhatsApp quick-reply command patterns (exact match only)
+const OK_COMMAND_REGEX = /^(ok|yes|apply|go)$/i;
+const RESEND_COMMAND_REGEX = /^r$/i;
+// US-VN-012c: Snooze command pattern
+const SNOOZE_COMMAND_REGEX = /^(snooze|later|remind)/i;
 
 /**
  * WhatsApp Integration via Twilio
@@ -115,6 +124,36 @@ export const processIncomingMessage = internalAction({
       }
     );
 
+    // US-VN-003: Duplicate message detection (exclude the message we just created)
+    const duplicateCheck = await ctx.runQuery(
+      internal.models.whatsappMessages.checkForDuplicateMessage,
+      {
+        fromNumber: phoneNumber,
+        messageType,
+        body: args.body,
+        mediaContentType: args.mediaContentType,
+        excludeMessageId: messageId,
+      }
+    );
+
+    if (duplicateCheck?.isDuplicate && duplicateCheck.originalMessageId) {
+      await ctx.runMutation(internal.models.whatsappMessages.markAsDuplicate, {
+        messageId,
+        originalMessageId: duplicateCheck.originalMessageId,
+      });
+      // Look up what happened with the original message
+      const originalStatus = await ctx.runQuery(
+        internal.models.whatsappMessages.getOriginalMessageStatus,
+        { messageId: duplicateCheck.originalMessageId }
+      );
+      const replyMsg = buildDuplicateReply(
+        duplicateCheck.timeSinceOriginal,
+        originalStatus
+      );
+      await sendWhatsAppMessage(phoneNumber, replyMsg);
+      return { success: true, messageId };
+    }
+
     // Look up coach with org context detection
     const coachContext = await ctx.runQuery(
       internal.models.whatsappMessages.findCoachWithOrgContext,
@@ -139,8 +178,6 @@ export const processIncomingMessage = internalAction({
 
     // Handle multi-org ambiguity
     if (coachContext.needsClarification) {
-      console.log("[WhatsApp] Multi-org coach, need clarification");
-
       // Store media if present (for audio messages)
       let mediaStorageId: Id<"_storage"> | undefined;
       if (messageType === "audio" && args.mediaUrl) {
@@ -216,6 +253,151 @@ export const processIncomingMessage = internalAction({
       coachName: coachContext.coachName,
       organizationId: organization.id,
     });
+
+    // ============================================================
+    // US-VN-011: WhatsApp Quick-Reply Command Priority Chain
+    // Priority: OK → R → CONFIRM/RETRY/CANCEL → normal processing
+    // See ADR-VN2-005 for design rationale
+    // ============================================================
+    if (messageType === "text" && args.body) {
+      const trimmedBody = args.body.trim();
+
+      // Priority 1: "OK" — batch-apply all matched pending insights
+      if (OK_COMMAND_REGEX.test(trimmedBody)) {
+        const okResult = await handleOkCommand(ctx, {
+          messageId,
+          coachId: coachContext.coachId,
+          organizationId: organization.id,
+          phoneNumber,
+        });
+        if (okResult) {
+          return { success: true, messageId };
+        }
+        // No active link or no pending matched — fall through to normal processing
+      }
+
+      // Priority 2: "R" — resend review link with pending summary
+      if (RESEND_COMMAND_REGEX.test(trimmedBody)) {
+        const resendResult = await handleResendCommand(ctx, {
+          messageId,
+          coachId: coachContext.coachId,
+          organizationId: organization.id,
+          phoneNumber,
+        });
+        if (resendResult) {
+          return { success: true, messageId };
+        }
+        // No active link — fall through to normal processing
+      }
+
+      // Priority 2.5: SNOOZE/LATER — defer review with 2h default (US-VN-012c)
+      if (SNOOZE_COMMAND_REGEX.test(trimmedBody)) {
+        const snoozeResult = await handleSnoozeCommand(ctx, {
+          messageId,
+          coachId: coachContext.coachId,
+          organizationId: organization.id,
+          phoneNumber,
+        });
+        if (snoozeResult) {
+          return { success: true, messageId };
+        }
+        // No active link — fall through to normal processing
+      }
+    }
+
+    // Priority 3: US-VN-002: Check for pending confirmation before processing text
+    if (messageType === "text" && args.body) {
+      const awaitingNoteId = await ctx.runQuery(
+        internal.models.voiceNotes.getAwaitingConfirmation,
+        { coachId: coachContext.coachId }
+      );
+
+      if (awaitingNoteId) {
+        const { parseConfirmationResponse, generateConfirmationResponse } =
+          await import("../lib/feedbackMessages");
+        const action = parseConfirmationResponse(args.body);
+
+        if (action === "confirm") {
+          // Resume insight extraction
+          await ctx.runMutation(internal.models.voiceNotes.updateInsights, {
+            noteId: awaitingNoteId,
+            status: "pending",
+          });
+          await ctx.scheduler.runAfter(
+            0,
+            internal.actions.voiceNotes.buildInsights,
+            { noteId: awaitingNoteId }
+          );
+          await ctx.scheduler.runAfter(
+            15_000,
+            internal.actions.whatsapp.checkAndAutoApply,
+            {
+              messageId,
+              voiceNoteId: awaitingNoteId,
+              coachId: coachContext.coachId,
+              organizationId: organization.id,
+              phoneNumber,
+            }
+          );
+          await sendWhatsAppMessage(
+            phoneNumber,
+            generateConfirmationResponse("confirm")
+          );
+          return { success: true, messageId };
+        }
+
+        if (action === "retry") {
+          await ctx.runMutation(internal.models.voiceNotes.updateInsights, {
+            noteId: awaitingNoteId,
+            status: "cancelled",
+          });
+          await sendWhatsAppMessage(
+            phoneNumber,
+            generateConfirmationResponse("retry")
+          );
+          return { success: true, messageId };
+        }
+
+        if (action === "cancel") {
+          await ctx.runMutation(internal.models.voiceNotes.updateInsights, {
+            noteId: awaitingNoteId,
+            status: "cancelled",
+          });
+          await sendWhatsAppMessage(
+            phoneNumber,
+            generateConfirmationResponse("cancel")
+          );
+          return { success: true, messageId };
+        }
+
+        // Not a confirmation command - fall through to normal text processing
+      }
+    }
+
+    // v2 Pipeline: Check for draft management commands
+    if (messageType === "text" && args.body) {
+      const command = parseCommand(args.body);
+      if (command) {
+        try {
+          const response = await handleCommand(
+            ctx,
+            coachContext.coachId,
+            organization.id,
+            command
+          );
+          await sendWhatsAppMessage(phoneNumber, response);
+          // Update message status
+          await ctx.runMutation(internal.models.whatsappMessages.updateStatus, {
+            messageId,
+            status: "completed",
+          });
+          return { success: true, messageId };
+        } catch (error) {
+          console.error("[whatsapp] Command handler error:", error);
+          // Fall through to normal processing
+        }
+      }
+    }
 
     // Send immediate acknowledgment (include org name for multi-org coaches)
     const isMultiOrg = coachContext.availableOrgs.length > 1;
@@ -324,8 +506,6 @@ async function handleOrgSelectionResponse(
 
     return { success: false, error: "Invalid org selection" };
   }
-
-  console.log("[WhatsApp] Org selected:", selectedOrg.name);
 
   // Mark pending message as resolved
   await ctx.runMutation(
@@ -570,7 +750,31 @@ async function processAudioMessage(
     mediaStorageId: storageId,
   });
 
+  // US-VN-014: Check if v2 pipeline is enabled for this coach/org
+  const useV2 = await ctx.runQuery(
+    internal.lib.featureFlags.shouldUseV2Pipeline,
+    { organizationId: args.organizationId, userId: args.coachId }
+  );
+
+  // v2 path: Create artifact before v1 voice note
+  let artifactId: string | undefined;
+  if (useV2) {
+    artifactId = crypto.randomUUID();
+    await ctx.runMutation(internal.models.voiceNoteArtifacts.createArtifact, {
+      artifactId,
+      sourceChannel: "whatsapp_audio",
+      senderUserId: args.coachId,
+      orgContextCandidates: [
+        { organizationId: args.organizationId, confidence: 1.0 },
+      ],
+      rawMediaStorageId: storageId,
+      metadata: { mimeType: "audio/ogg" },
+    });
+  }
+
   // Create voice note (this triggers transcription -> insights pipeline)
+  // Always runs for both v1 and v2 (backward compat)
+  // skipV2: true prevents duplicate artifact creation (WhatsApp already created it above)
   const noteId = await ctx.runMutation(
     api.models.voiceNotes.createRecordedNote,
     {
@@ -579,8 +783,17 @@ async function processAudioMessage(
       audioStorageId: storageId,
       noteType: "general",
       source: "whatsapp_audio",
+      skipV2: true,
     }
   );
+
+  // v2 path: Link artifact to v1 voice note
+  if (useV2 && artifactId) {
+    await ctx.runMutation(internal.models.voiceNoteArtifacts.linkToVoiceNote, {
+      artifactId,
+      voiceNoteId: noteId,
+    });
+  }
 
   // Link voice note to WhatsApp message
   await ctx.runMutation(internal.models.whatsappMessages.linkVoiceNote, {
@@ -603,7 +816,7 @@ async function processAudioMessage(
 }
 
 /**
- * Process a text message - create typed voice note
+ * Process a text message - validate quality then create typed voice note
  */
 async function processTextMessage(
   // biome-ignore lint/suspicious/noExplicitAny: Convex action context type
@@ -616,14 +829,113 @@ async function processTextMessage(
     phoneNumber: string;
   }
 ) {
+  // US-VN-001: Quality gate - validate text before processing
+  const { validateTextMessage } = await import("../lib/messageValidation");
+  const qualityCheck = validateTextMessage(args.text);
+
+  if (!qualityCheck.isValid) {
+    // Update message with quality check result and reject
+    await ctx.runMutation(internal.models.whatsappMessages.updateStatus, {
+      messageId: args.messageId,
+      status: "rejected",
+      errorMessage: `Quality check failed: ${qualityCheck.reason}`,
+    });
+
+    await ctx.runMutation(internal.models.whatsappMessages.updateQualityCheck, {
+      messageId: args.messageId,
+      qualityCheck: {
+        isValid: false,
+        reason: qualityCheck.reason,
+        checkedAt: Date.now(),
+      },
+    });
+
+    // Send helpful feedback to coach
+    if (qualityCheck.suggestion) {
+      await sendWhatsAppMessage(args.phoneNumber, qualityCheck.suggestion);
+    }
+    return;
+  }
+
+  // Quality check passed - store result
+  await ctx.runMutation(internal.models.whatsappMessages.updateQualityCheck, {
+    messageId: args.messageId,
+    qualityCheck: {
+      isValid: true,
+      checkedAt: Date.now(),
+    },
+  });
+
+  // US-VN-014: Check if v2 pipeline is enabled for this coach/org
+  const useV2 = await ctx.runQuery(
+    internal.lib.featureFlags.shouldUseV2Pipeline,
+    { organizationId: args.organizationId, userId: args.coachId }
+  );
+
+  // v2 path: Create artifact before v1 voice note
+  let artifactId: string | undefined;
+  let artifactConvexId: Id<"voiceNoteArtifacts"> | undefined;
+  if (useV2) {
+    artifactId = crypto.randomUUID();
+    artifactConvexId = await ctx.runMutation(
+      internal.models.voiceNoteArtifacts.createArtifact,
+      {
+        artifactId,
+        sourceChannel: "whatsapp_text",
+        senderUserId: args.coachId,
+        orgContextCandidates: [
+          { organizationId: args.organizationId, confidence: 1.0 },
+        ],
+      }
+    );
+  }
+
   // Create voice note (this triggers insights pipeline)
+  // Always runs for both v1 and v2 (backward compat)
+  // skipV2: true prevents duplicate artifact creation (WhatsApp already created it above)
   const noteId = await ctx.runMutation(api.models.voiceNotes.createTypedNote, {
     orgId: args.organizationId,
     coachId: args.coachId,
     noteText: args.text,
     noteType: "general",
     source: "whatsapp_text",
+    skipV2: true,
   });
+
+  // v2 path: Link artifact to v1 voice note + create transcript + schedule extractClaims
+  if (useV2 && artifactId && artifactConvexId) {
+    await ctx.runMutation(internal.models.voiceNoteArtifacts.linkToVoiceNote, {
+      artifactId,
+      voiceNoteId: noteId,
+    });
+
+    // Create transcript for the text note (extractClaims needs this)
+    await ctx.runMutation(
+      internal.models.voiceNoteTranscripts.createTranscript,
+      {
+        artifactId: artifactConvexId,
+        fullText: args.text,
+        segments: [
+          { text: args.text, startTime: 0, endTime: 0, confidence: 1.0 },
+        ],
+        modelUsed: "user_typed",
+        language: "en",
+        duration: 0,
+      }
+    );
+
+    await ctx.runMutation(
+      internal.models.voiceNoteArtifacts.updateArtifactStatus,
+      { artifactId, status: "transcribed" }
+    );
+
+    // Schedule v2 claims extraction
+    await ctx.scheduler.runAfter(
+      0,
+      internal.actions.claimsExtraction.extractClaims,
+      { artifactId: artifactConvexId }
+    );
+  }
 
   // Link voice note to WhatsApp message
   await ctx.runMutation(internal.models.whatsappMessages.linkVoiceNote, {
@@ -631,9 +943,9 @@ async function processTextMessage(
     voiceNoteId: noteId,
   });
 
-  // Schedule auto-apply check after insights are built (give it 15 seconds for text)
+  // Schedule auto-apply check after insights are built
   await ctx.scheduler.runAfter(
-    15_000,
+    useV2 ? 30_000 : 15_000,
     internal.actions.whatsapp.checkAndAutoApply,
     {
       messageId: args.messageId,
@@ -681,6 +993,18 @@ export const checkAndAutoApply = internalAction({
       return null;
     }
 
+    // US-VN-004: Check for failure conditions and send detailed feedback
+    const { determineFeedbackCategory, generateFeedbackMessage } = await import(
+      "../lib/feedbackMessages"
+    );
+    const feedbackCategory = determineFeedbackCategory(voiceNote, retryCount);
+
+    if (feedbackCategory && feedbackCategory !== "still_processing") {
+      const feedbackMsg = generateFeedbackMessage(feedbackCategory, voiceNote);
+      await sendWhatsAppMessage(args.phoneNumber, feedbackMsg);
+      return null;
+    }
+
     // Check if insights are ready
     if (voiceNote.insightsStatus !== "completed") {
       if (retryCount < maxRetries) {
@@ -696,12 +1020,13 @@ export const checkAndAutoApply = internalAction({
         return null;
       }
 
-      // Send status update even if insights failed
-      if (voiceNote.insightsStatus === "failed") {
-        await sendWhatsAppMessage(
-          args.phoneNumber,
-          "Your note was saved but AI analysis failed. You can view it in the app."
+      // Max retries reached - send detailed feedback
+      if (feedbackCategory === "still_processing") {
+        const feedbackMsg = generateFeedbackMessage(
+          feedbackCategory,
+          voiceNote
         );
+        await sendWhatsAppMessage(args.phoneNumber, feedbackMsg);
       } else {
         await sendWhatsAppMessage(
           args.phoneNumber,
@@ -725,6 +1050,16 @@ export const checkAndAutoApply = internalAction({
       organizationId: args.organizationId,
     });
 
+    // Generate review link for the coach (reuses active link if exists)
+    const reviewLink = await ctx.runMutation(
+      internal.models.whatsappReviewLinks.generateReviewLink,
+      {
+        voiceNoteId: args.voiceNoteId,
+        organizationId: args.organizationId,
+        coachUserId: args.coachId,
+      }
+    );
+
     // Update WhatsApp message with processing results
     await ctx.runMutation(
       internal.models.whatsappMessages.updateProcessingResults,
@@ -734,8 +1069,22 @@ export const checkAndAutoApply = internalAction({
       }
     );
 
-    // Send detailed follow-up message
-    const replyMessage = formatResultsMessage(results, trustLevel.currentLevel);
+    // US-VN-011: Get running totals across all notes for this coach
+    const activeLink = await ctx.runQuery(
+      internal.models.whatsappReviewLinks.getActiveLinkForCoach,
+      {
+        coachUserId: args.coachId,
+        organizationId: args.organizationId,
+      }
+    );
+
+    // Send detailed follow-up message with review link and running totals
+    const replyMessage = formatResultsMessage(
+      results,
+      trustLevel.currentLevel,
+      reviewLink.code,
+      activeLink?.totalPendingCount
+    );
     await sendWhatsAppMessage(args.phoneNumber, replyMessage);
 
     return null;
@@ -825,10 +1174,13 @@ async function applyInsightsWithTrust(
     // Check if player/team is matched
     const hasPlayer = !!insight.playerIdentityId;
     const hasTeam = !!insight.teamId;
-    const isTeamInsight = category === "team_culture";
+    const isTeamCulture = category === "team_culture";
+    // Team-level: no player identity and no player name mentioned (note is about the team, not a specific player)
+    const isTeamLevel =
+      isTeamCulture || !(insight.playerIdentityId || insight.playerName);
 
-    // Unmatched insights (no player for player insights, no team for team insights)
-    if (!(hasPlayer || isTeamInsight)) {
+    // Unmatched player: AI mentioned a player by name but couldn't match them to the roster
+    if (!(hasPlayer || isTeamLevel)) {
       results.unmatched.push({
         insightId: insight.id,
         mentionedName: insight.playerName,
@@ -837,7 +1189,8 @@ async function applyInsightsWithTrust(
       continue;
     }
 
-    if (isTeamInsight && !hasTeam) {
+    // Unmatched team: team_culture insight with no team assigned
+    if (isTeamCulture && !hasTeam) {
       results.unmatched.push({
         insightId: insight.id,
         mentionedName: insight.teamName,
@@ -930,9 +1283,11 @@ async function applyInsightsWithTrust(
 }
 
 /**
- * Format the results into a WhatsApp-friendly message
+ * Format the results into a WhatsApp-friendly message.
+ * Trust-adaptive: TL0 verbose, TL1 standard, TL2 compact, TL3 minimal.
+ *
+ * US-VN-011: Trust-Adaptive Messages
  */
-// biome-ignore lint/complexity/noExcessiveCognitiveComplexity: Message formatting requires handling multiple result types
 function formatResultsMessage(
   results: {
     autoApplied: Array<{
@@ -956,22 +1311,180 @@ function formatResultsMessage(
       title: string;
     }>;
   },
-  _trustLevel: number
+  trustLevel: number,
+  reviewCode?: string,
+  runningTotalPending?: number
 ): string {
+  const siteUrl = (process.env.SITE_URL ?? "http://localhost:3000").replace(
+    TRAILING_SLASH_REGEX,
+    ""
+  );
+  const reviewUrl = reviewCode ? `${siteUrl}/r/${reviewCode}` : undefined;
+  const totalPending = results.needsReview.length + results.unmatched.length;
+  const appliedCount = results.autoApplied.length;
+
+  // TL3: Minimal — just counts and link
+  if (trustLevel >= 3) {
+    return formatTL3Message(
+      appliedCount,
+      totalPending,
+      reviewUrl,
+      runningTotalPending
+    );
+  }
+
+  // TL2: Compact — summary counts with link
+  if (trustLevel >= 2) {
+    return formatTL2Message({
+      results,
+      appliedCount,
+      totalPending,
+      reviewUrl,
+      runningTotalPending,
+    });
+  }
+
+  // TL0-1: Detailed — list items with explanations
+  return formatTL01Message({
+    results,
+    trustLevel,
+    appliedCount,
+    totalPending,
+    reviewUrl,
+    runningTotalPending,
+  });
+}
+
+/**
+ * TL3: Minimal message format for highly trusted coaches.
+ */
+function formatTL3Message(
+  appliedCount: number,
+  totalPending: number,
+  reviewUrl?: string,
+  runningTotalPending?: number
+): string {
+  const lines: string[] = [];
+
+  if (appliedCount > 0) {
+    lines.push(`Applied ${appliedCount}.`);
+  }
+
+  if (totalPending > 0 && reviewUrl) {
+    lines.push(`${totalPending} pending: ${reviewUrl}`);
+  } else if (appliedCount === 0) {
+    lines.push("No actionable insights found.");
+  }
+
+  // Running total if there are more pending items across all notes
+  if (runningTotalPending && runningTotalPending > totalPending) {
+    lines.push(
+      `${runningTotalPending} total pending. Reply OK to apply matched.`
+    );
+  }
+
+  return lines.join("\n");
+}
+
+/**
+ * TL2: Compact message format for trusted coaches.
+ */
+function formatTL2Message(opts: {
+  results: {
+    autoApplied: Array<{
+      playerName?: string;
+      teamName?: string;
+      category: string;
+    }>;
+    needsReview: Array<{ playerName?: string; category: string }>;
+    unmatched: Array<{ mentionedName?: string }>;
+  };
+  appliedCount: number;
+  totalPending: number;
+  reviewUrl?: string;
+  runningTotalPending?: number;
+}): string {
+  const {
+    results,
+    appliedCount,
+    totalPending,
+    reviewUrl,
+    runningTotalPending,
+  } = opts;
+  const lines: string[] = [];
+
+  if (appliedCount > 0) {
+    lines.push(`Applied ${appliedCount} insights.`);
+  }
+
+  if (results.unmatched.length > 0) {
+    lines.push(`${results.unmatched.length} unmatched player(s).`);
+  }
+
+  if (results.needsReview.length > 0) {
+    lines.push(`${results.needsReview.length} need(s) review.`);
+  }
+
+  if (totalPending > 0 && reviewUrl) {
+    lines.push("");
+    lines.push(`Review: ${reviewUrl}`);
+    lines.push("Reply OK to apply matched.");
+  } else if (appliedCount === 0) {
+    lines.push("No actionable insights found.");
+  }
+
+  // Running total
+  if (runningTotalPending && runningTotalPending > totalPending) {
+    lines.push("");
+    lines.push(`You have ${runningTotalPending} total pending items.`);
+  }
+
+  return lines.join("\n");
+}
+
+/**
+ * TL0-1: Detailed message format for new/building-trust coaches.
+ */
+// biome-ignore lint/complexity/noExcessiveCognitiveComplexity: Detailed formatting across multiple result types
+function formatTL01Message(opts: {
+  results: {
+    autoApplied: Array<{
+      playerName?: string;
+      teamName?: string;
+      category: string;
+      parentSummaryQueued: boolean;
+    }>;
+    needsReview: Array<{ playerName?: string; category: string }>;
+    unmatched: Array<{ mentionedName?: string }>;
+  };
+  trustLevel: number;
+  appliedCount: number;
+  totalPending: number;
+  reviewUrl?: string;
+  runningTotalPending?: number;
+}): string {
+  const {
+    results,
+    trustLevel,
+    appliedCount,
+    totalPending,
+    reviewUrl,
+    runningTotalPending,
+  } = opts;
   const lines: string[] = ["Analysis complete!"];
   lines.push("");
 
   // Auto-applied insights
-  if (results.autoApplied.length > 0) {
-    lines.push(`Auto-applied (${results.autoApplied.length}):`);
+  if (appliedCount > 0) {
+    lines.push(`Auto-applied (${appliedCount}):`);
     for (const insight of results.autoApplied.slice(0, 5)) {
       const name = insight.playerName || insight.teamName || "Unknown";
       const categoryDisplay = formatCategory(insight.category);
       const parentNote = insight.parentSummaryQueued ? " -> Parent" : "";
       lines.push(`- ${name}: ${categoryDisplay}${parentNote}`);
     }
-    if (results.autoApplied.length > 5) {
-      lines.push(`  ...and ${results.autoApplied.length - 5} more`);
+    if (appliedCount > 5) {
+      lines.push(`  ...and ${appliedCount - 5} more`);
     }
     lines.push("");
   }
@@ -1003,18 +1516,32 @@ function formatResultsMessage(
     lines.push("");
   }
 
-  // Summary based on what needs attention
-  const totalPending = results.needsReview.length + results.unmatched.length;
+  // Summary with review link
   if (totalPending > 0) {
-    const siteUrl = process.env.SITE_URL;
-    const reviewMessage = siteUrl
-      ? `Review ${totalPending} pending in PlayerARC: ${siteUrl}`
-      : `Review ${totalPending} pending in PlayerARC.`;
-    lines.push(reviewMessage);
-  } else if (results.autoApplied.length > 0) {
+    if (reviewUrl) {
+      lines.push(`Review ${totalPending} pending: ${reviewUrl}`);
+    } else {
+      lines.push(`Review ${totalPending} pending in PlayerARC.`);
+    }
+
+    // TL0 gets extra guidance
+    if (trustLevel === 0) {
+      lines.push("");
+      lines.push("Reply OK to apply all matched insights.");
+      lines.push("Reply R to get your review link again.");
+    }
+  } else if (appliedCount > 0) {
     lines.push("All insights applied!");
   } else {
     lines.push("No actionable insights found.");
+  }
+
+  // Running total
+  if (runningTotalPending && runningTotalPending > totalPending) {
+    lines.push("");
+    lines.push(
+      `You have ${runningTotalPending} total pending items across all notes.`
+    );
   }
 
   return lines.join("\n");
@@ -1038,6 +1565,68 @@ function formatCategory(category: string): string {
 }
 
 // ============================================================
+// DUPLICATE REPLY BUILDER
+// ============================================================
+
+function buildDuplicateReply(
+  timeSinceOriginal: number | undefined,
+  originalStatus: {
+    messageStatus: string;
+    hasVoiceNote: boolean;
+    insightsStatus?: string;
+    insightCount: number;
+    playerNames: string[];
+  } | null
+): string {
+  const secsAgo = timeSinceOriginal ? Math.round(timeSinceOriginal / 1000) : 0;
+  const timeLabel =
+    secsAgo < 60 ? `${secsAgo}s ago` : `${Math.round(secsAgo / 60)}m ago`;
+
+  // If we couldn't look up the original, send a basic reply
+  if (!originalStatus) {
+    return `We received this message already (${timeLabel}). No need to resend.`;
+  }
+
+  const { messageStatus, insightsStatus, insightCount, playerNames } =
+    originalStatus;
+  const playerList =
+    playerNames.length > 0 ? playerNames.join(", ") : undefined;
+
+  // Message still being processed (not yet completed)
+  if (messageStatus === "processing" || messageStatus === "received") {
+    return (
+      `We received this message ${timeLabel} and it's currently being processed.` +
+      ` No need to resend — we'll update you when it's done.`
+    );
+  }
+
+  // Message completed — check insight status
+  if (insightsStatus === "completed" && insightCount > 0) {
+    const playerInfo = playerList ? ` about ${playerList}` : "";
+    return (
+      `We already processed this note${playerInfo} (${timeLabel}) and extracted ${insightCount} insight${insightCount !== 1 ? "s" : ""}.` +
+      " Check your review link or type R for a new one."
+    );
+  }
+
+  if (insightsStatus === "processing" || insightsStatus === "pending") {
+    return (
+      `We received this message ${timeLabel} — insights are being extracted now.` +
+      " No need to resend."
+    );
+  }
+
+  if (insightsStatus === "failed") {
+    return (
+      `We received this message ${timeLabel} but had trouble extracting insights.` +
+      " Try sending a new, clearer message instead of resending."
+    );
+  }
+
+  // Default fallback
+  return `We received this message already (${timeLabel}). No need to resend.`;
+}
+
 // TWILIO API
 // ============================================================
 
@@ -1085,3 +1674,238 @@ async function sendWhatsAppMessage(to: string, body: string): Promise<boolean> {
     return false;
   }
 }
+
+// ============================================================
+// WHATSAPP QUICK-REPLY COMMAND HANDLERS (US-VN-011)
+// ============================================================
+
+/**
+ * Handle "OK" quick-reply: batch-apply all matched pending insights.
+ * Returns true if handled (active link with pending matched insights),
+ * false if should fall through to normal processing.
+ */
+async function handleOkCommand(
+  // biome-ignore lint/suspicious/noExplicitAny: Convex action context type
+  ctx: any,
+  args: {
+    messageId: Id<"whatsappMessages">;
+    coachId: string;
+    organizationId: string;
+    phoneNumber: string;
+  }
+): Promise<boolean> {
+  // Check for active link with pending matched insights
+  const activeLink = await ctx.runQuery(
+    internal.models.whatsappReviewLinks.getActiveLinkForCoach,
+    {
+      coachUserId: args.coachId,
+      organizationId: args.organizationId,
+    }
+  );
+
+  if (!activeLink || activeLink.pendingMatchedCount === 0) {
+    return false;
+  }
+
+  // Batch-apply all matched pending insights
+  const result = await ctx.runMutation(
+    internal.models.whatsappReviewLinks.batchApplyMatchedFromWhatsApp,
+    {
+      coachUserId: args.coachId,
+      organizationId: args.organizationId,
+    }
+  );
+
+  const siteUrl = (process.env.SITE_URL ?? "http://localhost:3000").replace(
+    TRAILING_SLASH_REGEX,
+    ""
+  );
+
+  // Build reply message
+  const lines: string[] = [];
+  if (result.appliedCount > 0) {
+    lines.push(`Applied ${result.appliedCount} insight(s)!`);
+  }
+
+  if (result.remainingPendingCount > 0 && result.reviewCode) {
+    lines.push(
+      `${result.remainingPendingCount} item(s) still need review: ${siteUrl}/r/${result.reviewCode}`
+    );
+  } else if (result.appliedCount > 0) {
+    lines.push("All caught up!");
+  }
+
+  await sendWhatsAppMessage(args.phoneNumber, lines.join("\n"));
+  return true;
+}
+
+/**
+ * Handle "R" quick-reply: resend review link with pending summary.
+ * Returns true if handled (active link exists), false if should fall through.
+ */
+async function handleResendCommand(
+  // biome-ignore lint/suspicious/noExplicitAny: Convex action context type
+  ctx: any,
+  args: {
+    messageId: Id<"whatsappMessages">;
+    coachId: string;
+    organizationId: string;
+    phoneNumber: string;
+  }
+): Promise<boolean> {
+  const activeLink = await ctx.runQuery(
+    internal.models.whatsappReviewLinks.getActiveLinkForCoach,
+    {
+      coachUserId: args.coachId,
+      organizationId: args.organizationId,
+    }
+  );
+
+  if (!activeLink) {
+    return false;
+  }
+
+  const siteUrl = (process.env.SITE_URL ?? "http://localhost:3000").replace(
+    TRAILING_SLASH_REGEX,
+    ""
+  );
+
+  // Calculate time until expiry
+  const hoursLeft = Math.max(
+    0,
+    Math.round((activeLink.expiresAt - Date.now()) / (1000 * 60 * 60))
+  );
+
+  // Build pending summary
+  const pendingParts: string[] = [];
+  if (activeLink.pendingInjuryCount > 0) {
+    pendingParts.push(
+      `${activeLink.pendingInjuryCount} injur${activeLink.pendingInjuryCount === 1 ? "y" : "ies"}`
+    );
+  }
+  if (activeLink.pendingUnmatchedCount > 0) {
+    pendingParts.push(`${activeLink.pendingUnmatchedCount} unmatched`);
+  }
+  if (activeLink.pendingMatchedCount > 0) {
+    pendingParts.push(`${activeLink.pendingMatchedCount} needs review`);
+  }
+  if (activeLink.pendingTodoCount > 0) {
+    pendingParts.push(`${activeLink.pendingTodoCount} task(s)`);
+  }
+  if (activeLink.pendingTeamNoteCount > 0) {
+    pendingParts.push(`${activeLink.pendingTeamNoteCount} team note(s)`);
+  }
+
+  const lines: string[] = [];
+  lines.push("Here's your review link:");
+  lines.push(`${siteUrl}/r/${activeLink.code} (expires in ${hoursLeft}h)`);
+
+  if (pendingParts.length > 0) {
+    lines.push("");
+    lines.push(
+      `${activeLink.totalPendingCount} pending: ${pendingParts.join(", ")}`
+    );
+  }
+
+  await sendWhatsAppMessage(args.phoneNumber, lines.join("\n"));
+  return true;
+}
+
+/**
+ * Handle "SNOOZE/LATER/REMIND" quick-reply: defer review with 2h default.
+ * Returns true if handled (active link exists), false if should fall through.
+ */
+async function handleSnoozeCommand(
+  // biome-ignore lint/suspicious/noExplicitAny: Convex action context type
+  ctx: any,
+  args: {
+    messageId: Id<"whatsappMessages">;
+    coachId: string;
+    organizationId: string;
+    phoneNumber: string;
+  }
+): Promise<boolean> {
+  const activeLink = await ctx.runQuery(
+    internal.models.whatsappReviewLinks.getActiveLinkForCoach,
+    {
+      coachUserId: args.coachId,
+      organizationId: args.organizationId,
+    }
+  );
+
+  if (!activeLink) {
+    return false;
+  }
+
+  // Default 2h delay
+  const twoHoursMs = 2 * 60 * 60 * 1000;
+
+  const result = await ctx.runMutation(
+    internal.models.whatsappReviewLinks.snoozeReviewLinkInternal,
+    {
+      code: activeLink.code,
+      delayMs: twoHoursMs,
+    }
+  );
+
+  if (result.success) {
+    await sendWhatsAppMessage(
+      args.phoneNumber,
+      `Got it! I'll remind you in 2 hours. (${result.snoozeCount}/3 reminders used)`
+    );
+  } else {
+    const reason =
+      result.reason === "max_snoozes_reached"
+        ? "You've used all 3 reminders."
+        : "Could not set reminder.";
+    await sendWhatsAppMessage(args.phoneNumber, reason);
+  }
+
+  return true;
+}
+
+// ============================================================
+// SNOOZE REMINDER (US-VN-012c)
+// ============================================================
+
+/**
+ * Send a WhatsApp reminder for a snoozed review link.
+ * Called by the processSnoozedReminders cron via scheduler.
+ */
+export const sendSnoozeReminder = internalAction({
+  args: {
+    coachUserId: v.string(),
+    organizationId: v.string(),
+    linkCode: v.string(),
+  },
+  returns: v.null(),
+  handler: async (ctx, args) => {
+    // Look up coach's phone number
+    const coachPhone = await ctx.runQuery(
+      internal.models.whatsappMessages.getCoachPhoneNumber,
+      { coachUserId: args.coachUserId }
+    );
+
+    if (!coachPhone) {
+      console.error(
+        "[WhatsApp] No phone number found for coach:",
+        args.coachUserId
+      );
+      return null;
+    }
+
+    const siteUrl = (process.env.SITE_URL ?? "http://localhost:3000").replace(
+      TRAILING_SLASH_REGEX,
+      ""
+    );
+
+    const reviewUrl = `${siteUrl}/r/${args.linkCode}`;
+
+    await sendWhatsAppMessage(
+      coachPhone,
+      `Reminder: You have pending voice note insights to review.\n\n${reviewUrl}\n\nReply OK to apply all matched insights.`
+    );
+
+    return null;
+  },
+});

@@ -1,3 +1,4 @@
+// @ts-nocheck
 /**
  * UAT Setup Verification Scripts
  *

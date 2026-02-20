@@ -1148,9 +1148,7 @@ export default function ManageUsersPage() {
                     <Mail className="h-5 w-5 text-orange-600" />
                   </div>
                   <div className="min-w-0 flex-1">
-                    <p className="font-medium sm:truncate">
-                      {invitation.email}
-                    </p>
+                    <p className="truncate font-medium">{invitation.email}</p>
                     <p className="truncate text-muted-foreground text-xs">
                       Invited by {invitation.inviter?.name || "Unknown"}
                     </p>
@@ -1497,7 +1495,7 @@ export default function ManageUsersPage() {
                             <Mail className="h-5 w-5 text-blue-600" />
                           </div>
                           <div className="min-w-0 flex-1">
-                            <p className="font-medium sm:truncate">
+                            <p className="truncate font-medium">
                               {request.userEmail}
                             </p>
                             <p className="truncate text-muted-foreground text-xs">
@@ -1557,7 +1555,7 @@ export default function ManageUsersPage() {
                             <UserCircle className="h-5 w-5 text-red-600" />
                           </div>
                           <div className="min-w-0 flex-1">
-                            <p className="font-medium sm:truncate">
+                            <p className="truncate font-medium">
                               {link.guardianName}{" "}
                               <span className="text-muted-foreground">
                                 ({link.guardianEmail})

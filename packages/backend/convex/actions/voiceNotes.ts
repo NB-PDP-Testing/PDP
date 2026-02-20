@@ -558,31 +558,34 @@ Your task is to:
 2. Extract specific insights about individual players or the team — create ONE separate insight per distinct topic or issue. NEVER combine multiple separate issues into a single insight. For example, if a coach mentions poor passing AND poor positional play AND poor attitude, create THREE separate insights, not one.
 3. Match player names to the roster when possible
 4. Categorize insights:
-   - injury: physical injuries, knocks, strains (PLAYER-SPECIFIC)
-   - skill_rating: when coach mentions a specific numeric rating/score for a skill (PLAYER-SPECIFIC)
-   - skill_progress: general skill improvement comments without specific numeric ratings (PLAYER-SPECIFIC)
-   - behavior: attitude, effort, teamwork issues (PLAYER-SPECIFIC)
-   - performance: match/training performance observations (PLAYER-SPECIFIC)
-   - attendance: presence/absence at sessions (PLAYER-SPECIFIC)
-   - team_culture: team morale, culture, collective behavior (TEAM-WIDE, no player)
+   - injury: physical injuries, knocks, strains (PLAYER-SPECIFIC — must have playerName)
+   - skill_rating: when coach mentions a specific numeric rating/score for a skill (PLAYER-SPECIFIC — must have playerName)
+   - skill_progress: general skill improvement comments without specific numeric ratings (PLAYER-SPECIFIC — must have playerName)
+   - behavior: attitude, effort, teamwork issues (PLAYER-SPECIFIC — must have playerName)
+   - performance: individual player match/training performance (PLAYER-SPECIFIC — must have playerName; if the observation is about the WHOLE TEAM rather than a specific player, use team_culture instead)
+   - attendance: presence/absence at sessions (PLAYER-SPECIFIC — must have playerName)
+   - tactical: positional, formation, or game-plan observations (can be PLAYER-SPECIFIC with playerName, OR TEAM-WIDE with teamName and no playerName)
+   - team_culture: team morale, culture, collective behavior, or team-wide performance (TEAM-WIDE — playerName must be null; teamId/teamName if explicitly mentioned)
    - todo: action items the coach needs to do - NOT about players (e.g., "order new cones", "book pitch", "schedule parent meeting", "prepare training plan")
 5. Suggest concrete actions the coach should take
 
 INSIGHT TITLE FORMAT RULES:
-- For PLAYER-SPECIFIC insights (injury, skill_rating, skill_progress, behavior, performance, attendance):
+- For PLAYER-SPECIFIC insights (injury, skill_rating, skill_progress, behavior, performance, attendance, and tactical with playerName):
   * ALWAYS include the player's name in the title
   * Format: "{Player Name}'s {Skill/Topic} {Action/Status}"
   * Examples: "Niamh's Tackling Improvement", "Sinead's Tackling Skill Rating", "Clodagh's Fitness Struggle"
   * DO NOT create generic titles like "Improved Tackling Skill" or "Injury Update"
-- For TEAM-WIDE insights (team_culture):
+- For TEAM-WIDE insights (team_culture, and tactical with no playerName):
   * Use team name if available: "U18 Female Team Spirit"
   * Otherwise use "Team" prefix: "Team Morale Improvement"
 - For TODO insights:
   * Start with action verb: "Order New Equipment", "Schedule Parent Meeting"
 
 CATEGORIZATION RULES:
-- If it's about a specific player → must have playerName
-- If it's about the whole team → use team_culture, playerName should be null
+- If it's about a specific player → must have playerName (use injury/skill_rating/skill_progress/behavior/performance/attendance/tactical)
+- If it's about the whole team's performance, morale, or behavior → use team_culture, playerName must be null
+- If it's a tactical observation about the whole team (formation, shape, pressing) → use tactical, playerName must be null, include teamName if mentioned
+- If a single block of speech mentions BOTH a player AND a team observation → create TWO SEPARATE insights: one player insight with playerName, one team_culture or tactical insight with teamName
 - If it's a task/action for the coach to do → use todo, playerName should be null
 - skill_rating: include the rating number in recommendedUpdate (e.g., "Set to 3/5")
 

@@ -96,11 +96,18 @@ const NON_DIGIT_PLUS_REGEX = /[^\d+]/g;
 // ============================================================
 
 /**
- * Normalize phone number for comparison.
+ * Normalize phone number for MATCHING COMPARISONS ONLY.
+ *
+ * ⚠️ DO NOT USE for storing phone numbers in database!
+ * This function strips '+' for consistent comparison between different formats.
+ *
+ * Use normalizePhoneNumber() from phoneUtils.ts instead for storing phone numbers.
+ *
+ * Returns format: "353871234567" (NO '+' prefix, digits only)
  * Handles Irish (+353) and UK (+44) mobile formats.
  *
  * @param phone - Raw phone number string
- * @returns Normalized digits-only string
+ * @returns Normalized digits-only string for comparison
  */
 export function normalizePhone(phone: string): string {
   // Remove all non-digits

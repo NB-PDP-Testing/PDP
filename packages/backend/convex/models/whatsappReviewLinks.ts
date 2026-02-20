@@ -1025,7 +1025,6 @@ export const batchDismissInsightsFromReview = mutation({
             ...i,
             status: "dismissed" as const,
             dismissedAt: now,
-            dismissedDate: new Date().toISOString(),
           };
         }
         return i;

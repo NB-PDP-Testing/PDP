@@ -17,7 +17,7 @@ import { internalAction } from "../_generated/server";
 
 const ANTHROPIC_API_URL = "https://api.anthropic.com/v1/messages";
 const ANTHROPIC_VERSION = "2023-06-01";
-const DEFAULT_MODEL = "claude-3-5-haiku-20241022";
+const DEFAULT_MODEL = "claude-haiku-4-5-20251001";
 
 // Top-level regex constants
 const RE_HEADING2 = /^##\s+(.+)/;

@@ -894,8 +894,16 @@ function InsightCard({
     );
   }
 
+  const cardBg = {
+    injury: "border-red-200 bg-red-50",
+    unmatched: "border-amber-200 bg-amber-50",
+    review: "border-yellow-200 bg-yellow-50",
+    todo: "border-blue-200 bg-blue-50",
+    team: "border-green-200 bg-green-50",
+  }[variant];
+
   return (
-    <Card className="shadow-sm">
+    <Card className={`shadow-sm ${cardBg}`}>
       <CardContent className="p-3">
         <div className="flex items-start justify-between gap-2">
           <div className="min-w-0 flex-1">
@@ -911,7 +919,7 @@ function InsightCard({
             )}
 
             {/* Title */}
-            <p className="text-foreground text-sm">{title}</p>
+            <p className="font-semibold text-foreground text-sm">{title}</p>
 
             {/* Description (truncated) */}
             {description && (

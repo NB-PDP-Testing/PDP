@@ -11,7 +11,7 @@ import {
   Shield,
   User,
 } from "lucide-react";
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { ResponsiveDialog } from "@/components/interactions";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
@@ -439,12 +439,15 @@ function ChildSelectionStep({
   selectedChildId,
   onSelectChild,
 }: ChildSelectionStepProps) {
+  useEffect(() => {
+    if (childrenList.length === 1 && !selectedChildId) {
+      onSelectChild(childrenList[0]._id);
+    }
+  }, [childrenList, selectedChildId, onSelectChild]);
+
   // Single child: auto-select and show confirmation
   if (childrenList.length === 1) {
     const child = childrenList[0];
-    if (!selectedChildId) {
-      onSelectChild(child._id);
-    }
 
     return (
       <div className="space-y-4">

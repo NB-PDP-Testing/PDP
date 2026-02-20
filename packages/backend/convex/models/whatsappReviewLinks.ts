@@ -405,6 +405,7 @@ export const getCoachPendingItems = query({
       .filter(
         (i) =>
           !i.playerIdentityId &&
+          !!i.playerName &&
           i.status === "pending" &&
           i.category !== "team_culture" &&
           i.category !== "todo"
@@ -467,7 +468,14 @@ export const getCoachPendingItems = query({
       );
 
     const teamNotes = allInsights
-      .filter((i) => i.category === "team_culture" && i.status === "pending")
+      .filter(
+        (i) =>
+          i.status === "pending" &&
+          (i.category === "team_culture" ||
+            (!(i.playerIdentityId || i.playerName) &&
+              i.category !== "injury" &&
+              i.category !== "todo"))
+      )
       .map((i) => ({
         insightId: i.id,
         voiceNoteId: i.voiceNoteId,

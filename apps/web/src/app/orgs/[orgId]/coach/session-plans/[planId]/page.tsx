@@ -679,35 +679,27 @@ export default function SessionPlanDetailPage() {
               </Card>
             ) : null}
 
-            {/* Content - Main Session Plan */}
-            <Card className="overflow-hidden border-0 shadow-md">
-              <CardHeader
-                className={`bg-gradient-to-r ${gradientClass} text-white`}
-              >
-                <CardTitle className="text-lg">Session Plan</CardTitle>
-                <CardDescription className="text-white/80">
-                  {isEditing
-                    ? "Edit your training session structure"
-                    : "AI-generated training session structure"}
-                </CardDescription>
-              </CardHeader>
-              <CardContent className="p-6">
-                {isEditing ? (
+            {/* Content - Raw editor, only shown in edit mode */}
+            {isEditing && (
+              <Card className="overflow-hidden border-0 shadow-md">
+                <CardHeader
+                  className={`bg-gradient-to-r ${gradientClass} text-white`}
+                >
+                  <CardTitle className="text-lg">Session Plan</CardTitle>
+                  <CardDescription className="text-white/80">
+                    Edit your training session structure
+                  </CardDescription>
+                </CardHeader>
+                <CardContent className="p-6">
                   <Textarea
                     className="min-h-[400px] font-mono text-sm leading-relaxed"
                     onChange={(e) => handleContentChange(e.target.value)}
                     placeholder="Enter session plan content..."
                     value={editedContent}
                   />
-                ) : (
-                  <div className="prose prose-sm dark:prose-invert max-w-none">
-                    <pre className="whitespace-pre-wrap rounded-lg bg-slate-50 p-4 font-sans text-[15px] leading-relaxed">
-                      {plan.rawContent}
-                    </pre>
-                  </div>
-                )}
-              </CardContent>
-            </Card>
+                </CardContent>
+              </Card>
+            )}
 
             {/* Sections */}
             {plan.sections && plan.sections.length > 0 && (

@@ -15,10 +15,8 @@ import { v } from "convex/values";
 import { components } from "../_generated/api";
 import { mutation, query } from "../_generated/server";
 import { authComponent } from "../auth";
-import {
-  normalizePhone,
-  normalizePostcode,
-} from "../lib/matching/guardianMatcher";
+import { normalizePostcode } from "../lib/matching/guardianMatcher";
+import { normalizePhoneNumber } from "../lib/phoneUtils";
 
 const MAX_SKIPS = 3;
 
@@ -52,8 +50,10 @@ export const updateProfile = mutation({
       throw new Error("Not authenticated");
     }
 
-    // Normalize phone number if provided
-    const normalizedPhone = args.phone ? normalizePhone(args.phone) : undefined;
+    // Normalize phone number to E.164 format (with '+' prefix) for WhatsApp compatibility
+    const normalizedPhone = args.phone
+      ? normalizePhoneNumber(args.phone)
+      : undefined;
 
     // Normalize postcode if provided
     const normalizedPostcode = args.postcode
@@ -117,8 +117,10 @@ export const updateProfileWithSync = mutation({
       throw new Error("Not authenticated");
     }
 
-    // Normalize phone and postcode if provided
-    const normalizedPhone = args.phone ? normalizePhone(args.phone) : undefined;
+    // Normalize phone to E.164 format (with '+' prefix) and postcode if provided
+    const normalizedPhone = args.phone
+      ? normalizePhoneNumber(args.phone)
+      : undefined;
     const normalizedPostcode = args.postcode
       ? normalizePostcode(args.postcode)
       : undefined;

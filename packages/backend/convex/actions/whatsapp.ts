@@ -1174,10 +1174,13 @@ async function applyInsightsWithTrust(
     // Check if player/team is matched
     const hasPlayer = !!insight.playerIdentityId;
     const hasTeam = !!insight.teamId;
-    const isTeamInsight = category === "team_culture";
+    const isTeamCulture = category === "team_culture";
+    // Team-level: no player identity and no player name mentioned (note is about the team, not a specific player)
+    const isTeamLevel =
+      isTeamCulture || !(insight.playerIdentityId || insight.playerName);
 
-    // Unmatched insights (no player for player insights, no team for team insights)
-    if (!(hasPlayer || isTeamInsight)) {
+    // Unmatched player: AI mentioned a player by name but couldn't match them to the roster
+    if (!(hasPlayer || isTeamLevel)) {
       results.unmatched.push({
         insightId: insight.id,
         mentionedName: insight.playerName,
@@ -1186,7 +1189,8 @@ async function applyInsightsWithTrust(
       continue;
     }
 
-    if (isTeamInsight && !hasTeam) {
+    // Unmatched team: team_culture insight with no team assigned
+    if (isTeamCulture && !hasTeam) {
       results.unmatched.push({
         insightId: insight.id,
         mentionedName: insight.teamName,

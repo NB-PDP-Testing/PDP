@@ -204,6 +204,7 @@ import type * as scripts_deleteUser from "../scripts/deleteUser.js";
 import type * as scripts_disableV2ForOrg from "../scripts/disableV2ForOrg.js";
 import type * as scripts_enableV2ForOrg from "../scripts/enableV2ForOrg.js";
 import type * as scripts_findPlayerByName from "../scripts/findPlayerByName.js";
+import type * as scripts_fixBrokenPhoneNumbers from "../scripts/fixBrokenPhoneNumbers.js";
 import type * as scripts_fixGAATeamSportCodes from "../scripts/fixGAATeamSportCodes.js";
 import type * as scripts_fullReset from "../scripts/fullReset.js";
 import type * as scripts_fullResetOptimized from "../scripts/fullResetOptimized.js";
@@ -435,6 +436,7 @@ declare const fullApi: ApiFromModules<{
   "scripts/disableV2ForOrg": typeof scripts_disableV2ForOrg;
   "scripts/enableV2ForOrg": typeof scripts_enableV2ForOrg;
   "scripts/findPlayerByName": typeof scripts_findPlayerByName;
+  "scripts/fixBrokenPhoneNumbers": typeof scripts_fixBrokenPhoneNumbers;
   "scripts/fixGAATeamSportCodes": typeof scripts_fixGAATeamSportCodes;
   "scripts/fullReset": typeof scripts_fullReset;
   "scripts/fullResetOptimized": typeof scripts_fullResetOptimized;

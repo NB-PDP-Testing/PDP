@@ -555,7 +555,7 @@ export const buildInsights = internalAction({
 
 Your task is to:
 1. Summarize the key points from the voice note
-2. Extract specific insights about individual players or the team
+2. Extract specific insights about individual players or the team — create ONE separate insight per distinct topic or issue. NEVER combine multiple separate issues into a single insight. For example, if a coach mentions poor passing AND poor positional play AND poor attitude, create THREE separate insights, not one.
 3. Match player names to the roster when possible
 4. Categorize insights:
    - injury: physical injuries, knocks, strains (PLAYER-SPECIFIC)

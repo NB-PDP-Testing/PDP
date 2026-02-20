@@ -6,6 +6,7 @@ import { useMutation, useQuery } from "convex/react";
 import {
   AlertTriangle,
   ArrowLeft,
+  BookMarked,
   Check,
   CheckCircle,
   Clock,
@@ -131,6 +132,9 @@ export default function SessionPlanDetailPage() {
     api.models.sessionPlans.updateSessionPlanPresence
   );
   const deletePlan = useMutation(api.models.sessionPlans.deletePlan);
+  const markSavedToLibrary = useMutation(
+    api.models.sessionPlans.markSavedToLibrary
+  );
 
   // Edit mode state
   const [isEditing, setIsEditing] = useState(false);
@@ -323,6 +327,17 @@ export default function SessionPlanDetailPage() {
     }
   };
 
+  // Save to library handler
+  const handleSaveToLibrary = async () => {
+    try {
+      await markSavedToLibrary({ planId });
+      toast.success("Plan saved to your library!");
+    } catch (error) {
+      console.error("Failed to save plan to library:", error);
+      toast.error("Failed to save plan. Please try again.");
+    }
+  };
+
   // Toggle edit mode
   const toggleEditMode = () => {
     if (isEditing && hasUnsavedChanges) {
@@ -467,6 +482,25 @@ export default function SessionPlanDetailPage() {
                 <div className="flex items-center gap-2 rounded-full border border-white/30 bg-white/20 px-3 py-1.5 text-sm backdrop-blur-sm">
                   <Check className="h-3 w-3" />
                   <span>Saved</span>
+                </div>
+              )}
+
+              {/* Save to Library button (owner only, not yet saved) */}
+              {isOwner && !plan.savedToLibrary && (
+                <Button
+                  className="border-white/30 bg-white/20 text-white hover:bg-white/30"
+                  onClick={handleSaveToLibrary}
+                  size="sm"
+                  variant="outline"
+                >
+                  <BookMarked className="mr-2 h-4 w-4" />
+                  Save to Library
+                </Button>
+              )}
+              {isOwner && plan.savedToLibrary && (
+                <div className="flex items-center gap-2 rounded-full border border-white/30 bg-white/20 px-3 py-1.5 text-sm text-white backdrop-blur-sm">
+                  <Check className="h-3 w-3" />
+                  <span>In Library</span>
                 </div>
               )}
 

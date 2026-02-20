@@ -43,6 +43,9 @@ const enrollmentValidator = v.object({
   ),
   coachNotes: v.optional(v.string()),
   adminNotes: v.optional(v.string()),
+  importSessionId: v.optional(v.id("importSessions")),
+  lastSyncedAt: v.optional(v.number()),
+  syncSource: v.optional(v.string()),
   enrolledAt: v.number(),
   updatedAt: v.number(),
 });

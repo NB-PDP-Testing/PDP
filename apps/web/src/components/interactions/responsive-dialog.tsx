@@ -1,6 +1,6 @@
 "use client";
 
-import * as React from "react";
+import { type ReactNode, useState } from "react";
 import {
   Dialog,
   DialogClose,
@@ -33,15 +33,15 @@ export type ResponsiveDialogProps = {
   /** Callback when open state changes */
   onOpenChange?: (open: boolean) => void;
   /** Trigger element */
-  trigger?: React.ReactNode;
+  trigger?: ReactNode;
   /** Dialog title */
   title?: string;
   /** Dialog description */
   description?: string;
   /** Dialog content */
-  children: React.ReactNode;
+  children: ReactNode;
   /** Footer content (buttons, etc) */
-  footer?: React.ReactNode;
+  footer?: ReactNode;
   /** Additional class name for content */
   className?: string;
   /** Content class name */
@@ -105,7 +105,10 @@ export function ResponsiveDialog({
     <Dialog onOpenChange={onOpenChange} open={open}>
       {trigger && <DialogTrigger asChild>{trigger}</DialogTrigger>}
       <DialogContent
-        className={cn("sm:max-w-[425px]", contentClassName)}
+        className={cn(
+          "flex max-h-[90vh] flex-col sm:max-w-[425px]",
+          contentClassName
+        )}
         showCloseButton={showCloseButton}
       >
         {(title || description) && (
@@ -116,7 +119,7 @@ export function ResponsiveDialog({
             )}
           </DialogHeader>
         )}
-        <div className={className}>{children}</div>
+        <div className={cn("overflow-y-auto", className)}>{children}</div>
         {footer && <DialogFooter>{footer}</DialogFooter>}
       </DialogContent>
     </Dialog>
@@ -131,7 +134,7 @@ export function ResponsiveDialogClose({
   className,
   asChild = true,
 }: {
-  children: React.ReactNode;
+  children: ReactNode;
   className?: string;
   asChild?: boolean;
 }) {
@@ -178,7 +181,7 @@ export type ConfirmationDialogProps = {
   /** Whether this is a destructive action */
   destructive?: boolean;
   /** Icon to show (optional) */
-  icon?: React.ReactNode;
+  icon?: ReactNode;
 };
 
 export function ConfirmationDialog({
@@ -194,7 +197,7 @@ export function ConfirmationDialog({
   icon,
 }: ConfirmationDialogProps) {
   const isMobile = useIsMobile();
-  const [isPending, setIsPending] = React.useState(false);
+  const [isPending, setIsPending] = useState(false);
 
   const handleConfirm = async () => {
     setIsPending(true);
@@ -243,8 +246,10 @@ export function ConfirmationDialog({
         {loading ? (
           <span className="flex items-center gap-2">
             <svg
+              aria-label="Loading"
               className="h-4 w-4 animate-spin"
               fill="none"
+              role="img"
               viewBox="0 0 24 24"
               xmlns="http://www.w3.org/2000/svg"
             >

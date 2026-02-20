@@ -1347,6 +1347,26 @@ export const updateSession = internalMutation({
 });
 
 /**
+ * Clear (delete) the session for a phone number.
+ * Used by the RESET command so the next message triggers fresh org detection.
+ */
+export const clearSession = internalMutation({
+  args: { phoneNumber: v.string() },
+  returns: v.null(),
+  handler: async (ctx, args) => {
+    const normalizedPhone = normalizePhoneNumber(args.phoneNumber);
+    const session = await ctx.db
+      .query("whatsappSessions")
+      .withIndex("by_phone", (q) => q.eq("phoneNumber", normalizedPhone))
+      .first();
+    if (session) {
+      await ctx.db.delete(session._id);
+    }
+    return null;
+  },
+});
+
+/**
  * Get current session for a phone number.
  */
 export const getSession = internalQuery({

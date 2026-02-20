@@ -14,6 +14,16 @@ const E164_REGEX = /^\+[1-9]\d{1,14}$/;
  * Normalize a phone number to E.164 format for consistent storage and matching
  * Uses libphonenumber-js to parse with country context
  *
+ * **USE THIS** for storing phone numbers in:
+ * - user.phone
+ * - guardianIdentities.phone
+ * - Any field used for WhatsApp, SMS, or international calling
+ *
+ * Returns format: "+353871234567" (WITH '+' prefix)
+ *
+ * ⚠️ DO NOT confuse with normalizePhone() from guardianMatcher.ts
+ * which strips '+' and is ONLY for matching comparisons!
+ *
  * Supports UK, Ireland, and US numbers with proper country-specific formatting
  *
  * @param phone - Phone number to normalize

@@ -741,3 +741,91 @@ packages/backend/convex/actions/aiMapping.ts:        "ANTHROPIC_API_KEY not conf
   - **Problem:** Queries should be scoped by organizationId for multi-tenant isolation
   - **Fix:** Add organizationId to query args and use in .withIndex()
 
+
+## Auto Quality Check - 2026-02-20 08:23:45
+### File: /Users/neil/Documents/GitHub/PDP/packages/backend/convex/models/userProfiles.ts
+
+- ⚠️ **Data Isolation: No organizationId filter found**
+  - **Problem:** Queries should be scoped by organizationId for multi-tenant isolation
+  - **Fix:** Add organizationId to query args and use in .withIndex()
+
+
+## Auto Quality Check - 2026-02-20 08:23:57
+### File: /Users/neil/Documents/GitHub/PDP/packages/backend/convex/models/userProfiles.ts
+
+- ⚠️ **Data Isolation: No organizationId filter found**
+  - **Problem:** Queries should be scoped by organizationId for multi-tenant isolation
+  - **Fix:** Add organizationId to query args and use in .withIndex()
+
+
+## Auto Quality Check - 2026-02-20 08:24:31
+### File: /Users/neil/Documents/GitHub/PDP/packages/backend/convex/models/userProfiles.ts
+
+- ⚠️ **Data Isolation: No organizationId filter found**
+  - **Problem:** Queries should be scoped by organizationId for multi-tenant isolation
+  - **Fix:** Add organizationId to query args and use in .withIndex()
+
+
+## Auto Quality Check - 2026-02-20 08:24:44
+### File: /Users/neil/Documents/GitHub/PDP/packages/backend/convex/models/userProfiles.ts
+
+- ⚠️ **Data Isolation: No organizationId filter found**
+  - **Problem:** Queries should be scoped by organizationId for multi-tenant isolation
+  - **Fix:** Add organizationId to query args and use in .withIndex()
+
+
+## Auto Quality Check - 2026-02-20 08:25:13
+### File: /Users/neil/Documents/GitHub/PDP/packages/backend/convex/models/userProfiles.ts
+
+- ⚠️ **Data Isolation: No organizationId filter found**
+  - **Problem:** Queries should be scoped by organizationId for multi-tenant isolation
+  - **Fix:** Add organizationId to query args and use in .withIndex()
+
+
+## Auto Quality Check - 2026-02-20 08:25:25
+### File: /Users/neil/Documents/GitHub/PDP/packages/backend/convex/models/userProfiles.ts
+
+- ⚠️ **Data Isolation: No organizationId filter found**
+  - **Problem:** Queries should be scoped by organizationId for multi-tenant isolation
+  - **Fix:** Add organizationId to query args and use in .withIndex()
+
+
+## Auto Quality Check - 2026-02-20 08:25:54
+### File: /Users/neil/Documents/GitHub/PDP/packages/backend/convex/models/userProfiles.ts
+
+- ⚠️ **Data Isolation: No organizationId filter found**
+  - **Problem:** Queries should be scoped by organizationId for multi-tenant isolation
+  - **Fix:** Add organizationId to query args and use in .withIndex()
+
+
+## Auto Quality Check - 2026-02-20 08:26:06
+### File: /Users/neil/Documents/GitHub/PDP/packages/backend/convex/models/userProfiles.ts
+
+- ⚠️ **Data Isolation: No organizationId filter found**
+  - **Problem:** Queries should be scoped by organizationId for multi-tenant isolation
+  - **Fix:** Add organizationId to query args and use in .withIndex()
+
+
+## Auto Quality Check - 2026-02-20 08:27:44
+### File: /Users/neil/Documents/GitHub/PDP/packages/backend/convex/scripts/fixBrokenPhoneNumbers.ts
+
+- ⚠️ **Data Isolation: No organizationId filter found**
+  - **Problem:** Queries should be scoped by organizationId for multi-tenant isolation
+  - **Fix:** Add organizationId to query args and use in .withIndex()
+
+
+## Auto Quality Check - 2026-02-20 08:46:47
+### File: /Users/neil/Documents/GitHub/PDP/packages/backend/convex/lib/matching/guardianMatcher.ts
+
+- ⚠️ **Performance: .filter() usage detected**
+  - **Problem:** Should use .withIndex() for better performance
+  - **Fix:** Replace `.query().filter()` with `.query().withIndex()`
+
+
+## Auto Quality Check - 2026-02-20 08:46:48
+### File: /Users/neil/Documents/GitHub/PDP/packages/backend/convex/lib/matching/guardianMatcher.ts
+
+- ⚠️ **Data Isolation: No organizationId filter found**
+  - **Problem:** Queries should be scoped by organizationId for multi-tenant isolation
+  - **Fix:** Add organizationId to query args and use in .withIndex()
+

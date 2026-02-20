@@ -1,0 +1,99 @@
+# Voice Flow Monitoring Harness - Phase M2
+
+> Auto-generated documentation - Last updated: 2026-02-16 19:26
+
+## Status
+
+- **Branch**: `ralph/voice-monitor-harness`
+- **Progress**: 2 / 2 stories complete
+- **Phase Status**: ✅ Complete
+
+## Completed Features
+
+### US-VNM-004: Build Metrics Aggregation System
+
+Create voicePipelineMetrics.ts with hourly/daily aggregation logic and real-time counter queries. READ FULL DETAILS in phases/PHASE_M2.json.
+
+**Acceptance Criteria:**
+- Create packages/backend/convex/models/voicePipelineMetrics.ts
+- Implement getRealTimeMetrics query (O(1) counter reads, < 50ms, NEVER scan events)
+- Implement getHistoricalMetrics query (reads snapshots by time range, no raw event scanning)
+- Implement getStageBreakdown query (per-stage latency/failure rates from snapshots)
+- Implement getOrgBreakdown query (CRITICAL: batch fetch org names, NO N+1 queries)
+- Implement aggregateHourlyMetrics internalMutation (aggregates events → snapshots, < 30s)
+- Implement aggregateDailyMetrics internalMutation (aggregates hourly → daily snapshots, < 10s)
+- Implement cleanupOldSnapshots internalMutation (7d hourly, 90d daily retention)
+- Implement cleanupOldEvents internalMutation (48h event retention)
+- All rate calculations use safe division (denominator > 0 check, no NaN/Infinity)
+- UTC time handling: getUTCHours(), getUTCMonth(), getUTCDate() (NOT local time methods)
+- Platform-wide data: OMIT organizationId field (not null, use undefined)
+- Test getRealTimeMetrics with existing M1 counter data
+- Test aggregateHourlyMetrics with manual call → verify snapshots created
+- Run: npx -w packages/backend convex codegen && npm run check-types
+
+### US-VNM-005: Add Metrics Aggregation Crons
+
+Add 4 cron jobs for hourly aggregation, daily aggregation, and cleanup. READ FULL DETAILS in phases/PHASE_M2.json.
+
+**Acceptance Criteria:**
+- Modify packages/backend/convex/crons.ts to add 4 new cron jobs
+- Cron 1: aggregate-pipeline-hourly-metrics (hourly at :30 - ensures full hour available)
+- Cron 2: aggregate-pipeline-daily-metrics (daily at 1:30 AM UTC - ensures 24 hourly snapshots exist)
+- Cron 3: cleanup-pipeline-snapshots (weekly Sunday 4:30 AM UTC)
+- Cron 4: cleanup-pipeline-events (weekly Sunday 5:00 AM UTC - runs AFTER snapshot cleanup)
+- CRITICAL TIMING: Hourly at :30 (NOT :00), Daily at 1:30 AM (NOT 12:00 AM)
+- All crons call corresponding internal mutations from voicePipelineMetrics.ts
+- Deploy to Convex: npx convex deploy
+- Verify all 4 crons visible in Convex dashboard → Crons tab
+- Manually trigger each cron from dashboard to test execution
+- Verify hourly aggregation creates snapshots correctly
+- Verify cleanup deletes old data without errors
+- Run: npx -w packages/backend convex codegen
+
+
+## Implementation Notes
+
+### Key Patterns & Learnings
+
+**Patterns discovered:**
+- Better Auth adapter queries need `where` as array: `[{ field: "_id", value: id }]`
+- ctx.runQuery must be used for adapter methods (findOne, findMany, etc.)
+- Cron args with Date.now() evaluate once at deployment, not per-execution
+- Wrapper functions needed to calculate timestamps at runtime
+- Ternary operator for snapshots query avoided `let snapshots` implicit any
+- Atomic imports: Added import + first usage in same edit (linter removed unused)
+- Linter removed unused import when added separately from usage
+- Non-null assertions (!), optional chain + non-null (?.x!), and ++ operator not allowed
+
+**Gotchas encountered:**
+- Linter removed unused import when added separately from usage
+- Non-null assertions (!), optional chain + non-null (?.x!), and ++ operator not allowed
+- Must use block statements for single-line if: `if (x) { return; }`
+- Safe division pattern: `denominator > 0 ? n / d : 0` prevents NaN/Infinity
+- internal.models.voicePipelineMetrics.* exported functions visible in crons
+- components.betterAuth.adapter.findOne for org name batch fetch
+- ctx.runMutation for calling internal functions from wrapper functions
+
+### Files Changed
+
+- packages/backend/convex/models/voicePipelineMetrics.ts (+1356 lines, new file)
+- packages/backend/convex/crons.ts (+36, -1)
+- ✅ Type check: passed (codegen succeeded)
+- ✅ Linting: passed (biome check clean)
+- ✅ Pre-commit hooks: passed
+- ✅ Better Auth adapter: Used ctx.runQuery with correct where array syntax
+- ✅ UTC time handling: All time calculations use getUTCHours(), getUTCMonth(), getUTCDate()
+- ✅ Safe division: All rate calculations check denominator > 0
+- ✅ N+1 prevention: Batch fetch org names using Map pattern
+- ✅ No event scanning: Real-time metrics only read counters
+- ✅ Platform staff auth: All queries verify isPlatformStaff
+- Better Auth adapter queries need `where` as array: `[{ field: "_id", value: id }]`
+- ctx.runQuery must be used for adapter methods (findOne, findMany, etc.)
+- Cron args with Date.now() evaluate once at deployment, not per-execution
+
+
+## Key Files
+
+
+---
+*Documentation auto-generated by Ralph Documenter Agent*

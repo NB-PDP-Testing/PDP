@@ -2241,6 +2241,16 @@ export const getInsightById = internalQuery({
       appliedBy: v.optional(v.string()),
       dismissedAt: v.optional(v.number()),
       dismissedBy: v.optional(v.string()),
+      wasManuallyCorrected: v.optional(v.boolean()),
+      manuallyCorrectedAt: v.optional(v.number()),
+      correctionType: v.optional(
+        v.union(
+          v.literal("player_assigned"),
+          v.literal("team_classified"),
+          v.literal("todo_classified"),
+          v.literal("content_edited")
+        )
+      ),
       organizationId: v.string(),
       coachId: v.string(),
       createdAt: v.number(),

@@ -264,6 +264,9 @@ export function EnableSharingWizard({
       // At least one element must be selected
       return Object.values(sharedElements).some((value) => value);
     }
+    if (currentStep === "cross-sport-visibility") {
+      return true;
+    }
     if (currentStep === "org-selection") {
       // If specific_orgs mode, at least one org must be selected
       if (sourceOrgMode === "specific_orgs") {

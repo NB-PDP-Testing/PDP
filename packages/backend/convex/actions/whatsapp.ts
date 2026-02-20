@@ -16,6 +16,39 @@ const OK_COMMAND_REGEX = /^(ok|yes|apply|go)$/i;
 const RESEND_COMMAND_REGEX = /^r$/i;
 // US-VN-012c: Snooze command pattern
 const SNOOZE_COMMAND_REGEX = /^(snooze|later|remind)/i;
+// Issue #490: Session reset and help commands (exact match)
+const RESET_COMMAND_REGEX = /^(reset|switch club|change club|switch org)$/i;
+const HELP_COMMAND_REGEX = /^help$/i;
+
+const HELP_MESSAGE = `*PlayerARC Coach Assistant* 🏆
+
+PlayerARC captures your coaching observations via voice note or text and turns them into player insights, team notes, and action items — automatically filed to the right player's profile.
+
+*📣 How to send a note*
+
+Send a voice note or type your observation. Mention players by name, reference a team, or describe a team-wide observation.
+
+*Examples:*
+• _"Clodagh had great positioning today but is still struggling with her first touch"_
+• _"John and Rory both looked fatigued in the second half — worth monitoring"_
+• _"U14 girls showed excellent pressing as a unit"_
+• _"Remind me to book the pitch for Thursday"_
+• _"Sinead twisted her ankle in training — keep an eye on her this week"_
+• _"I'd rate Ciarán's passing at 4 out of 5 — big improvement over last month"_
+
+*⚡ Quick commands*
+
+*OK* — Apply all matched insights from your last note
+*R* — Resend the review link for pending items
+*SNOOZE* — Remind you again in 2 hours
+*RESET* — Clear your current club session (use this to switch between clubs)
+*HELP* — Show this message
+
+*🔗 Reviewing your notes*
+
+After each note you'll receive a link to review unmatched players or items that need your approval before they're saved.
+
+Need help? Visit https://playerarc.io or contact your club administrator.`;
 
 /**
  * WhatsApp Integration via Twilio
@@ -88,6 +121,43 @@ export const processIncomingMessage = internalAction({
       } else {
         messageType = "document";
       }
+    }
+
+    // HELP command: send usage guide (works regardless of session/org state)
+    if (
+      messageType === "text" &&
+      args.body &&
+      HELP_COMMAND_REGEX.test(args.body.trim())
+    ) {
+      await sendWhatsAppMessage(phoneNumber, HELP_MESSAGE);
+      return { success: true };
+    }
+
+    // RESET command: clear session so next message triggers fresh org detection
+    if (
+      messageType === "text" &&
+      args.body &&
+      RESET_COMMAND_REGEX.test(args.body.trim())
+    ) {
+      await ctx.runMutation(internal.models.whatsappMessages.clearSession, {
+        phoneNumber,
+      });
+      // Also resolve any pending org selection so the coach isn't stuck
+      const pendingToCancel = await ctx.runMutation(
+        internal.models.whatsappMessages.getPendingMessage,
+        { phoneNumber }
+      );
+      if (pendingToCancel) {
+        await ctx.runMutation(
+          internal.models.whatsappMessages.resolvePendingMessage,
+          { pendingMessageId: pendingToCancel._id }
+        );
+      }
+      await sendWhatsAppMessage(
+        phoneNumber,
+        "Session cleared ✓ Your next voice note will ask you to select a club."
+      );
+      return { success: true };
     }
 
     // Check if there's a pending message awaiting org selection

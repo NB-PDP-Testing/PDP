@@ -88,6 +88,9 @@ export default function AssessPlayerPage() {
   const [savedSkills, setSavedSkills] = useState<Set<string>>(new Set());
   const [showBenchmarks, setShowBenchmarks] = useState(false);
   const [playerSportCodes, setPlayerSportCodes] = useState<string[]>([]);
+  const [collapsedCategories, setCollapsedCategories] = useState<Set<string>>(
+    new Set()
+  );
 
   // Batch assessment mode state
   const [assessmentMode, setAssessmentMode] =
@@ -1263,111 +1266,144 @@ export default function AssessPlayerPage() {
       skills.length > 0 ? (
         <div className="space-y-6">
           {Array.from(skillsByCategory.entries()).map(
-            ([categoryName, categorySkills]) => (
-              <Card key={categoryName}>
-                <CardHeader>
-                  <CardTitle className="flex items-center gap-2">
-                    <Award className="h-5 w-5 text-emerald-600" />
-                    {categoryName}
-                  </CardTitle>
-                  <CardDescription>
-                    {categorySkills.length} skills in this category
-                  </CardDescription>
-                </CardHeader>
-                <CardContent className="space-y-6">
-                  {categorySkills.map((skill) => {
-                    const currentRating =
-                      ratings[skill.code] ??
-                      existingRatings.get(skill.code) ??
-                      0;
-                    const isSaved = savedSkills.has(skill.code);
-                    const hasExisting = existingRatings.has(skill.code);
-
-                    return (
-                      <div
-                        className={`rounded-lg border p-4 transition-colors ${
-                          isSaved
-                            ? "border-green-200 bg-green-50/50"
-                            : "border-gray-200 hover:border-emerald-200"
-                        }`}
-                        key={skill.code}
-                      >
-                        <div className="mb-3 flex items-center justify-between">
-                          <div>
-                            <p className="font-medium">{skill.name}</p>
-                            {skill.description && (
-                              <p className="text-muted-foreground text-sm">
-                                {skill.description}
-                              </p>
-                            )}
-                          </div>
-                          <div className="flex items-center gap-2">
-                            {hasExisting && !ratings[skill.code] && (
-                              <Badge className="text-xs" variant="outline">
-                                <TrendingUp className="mr-1 h-3 w-3" />
-                                Previous: {existingRatings.get(skill.code)}
-                              </Badge>
-                            )}
-                            {isSaved && (
-                              <Badge className="bg-green-100 text-green-700">
-                                <Check className="mr-1 h-3 w-3" />
-                                Saved
-                              </Badge>
-                            )}
-                          </div>
-                        </div>
-
-                        {/* Rating Slider */}
-                        <div className="space-y-3">
-                          <RatingSlider
-                            benchmarkValue={
-                              showBenchmarks
-                                ? benchmarksMap.get(skill.code)
-                                : undefined
-                            }
-                            compact={true}
-                            isSaved={isSaved}
-                            label=""
-                            onChange={(value) =>
-                              handleRatingChange(skill.code, value)
-                            }
-                            previousValue={existingRatings.get(skill.code)}
-                            showLabels={true}
-                            value={currentRating as Rating}
+            ([categoryName, categorySkills]) => {
+              const isCollapsed = collapsedCategories.has(categoryName);
+              const savedCount = categorySkills.filter((s) =>
+                savedSkills.has(s.code)
+              ).length;
+              return (
+                <Card key={categoryName}>
+                  <button
+                    className="w-full cursor-pointer text-left"
+                    onClick={() =>
+                      setCollapsedCategories((prev) => {
+                        const next = new Set(prev);
+                        if (next.has(categoryName)) {
+                          next.delete(categoryName);
+                        } else {
+                          next.add(categoryName);
+                        }
+                        return next;
+                      })
+                    }
+                    type="button"
+                  >
+                    <CardHeader className="transition-colors hover:bg-accent/50">
+                      <div className="flex items-center justify-between">
+                        <CardTitle className="flex items-center gap-2">
+                          <Award className="h-5 w-5 text-emerald-600" />
+                          {categoryName}
+                        </CardTitle>
+                        <div className="flex items-center gap-2">
+                          {savedCount > 0 && (
+                            <span className="text-emerald-600 text-xs">
+                              {savedCount}/{categorySkills.length} saved
+                            </span>
+                          )}
+                          <ChevronRight
+                            className={`h-5 w-5 text-muted-foreground transition-transform ${isCollapsed ? "" : "rotate-90"}`}
                           />
-
-                          {/* Notes */}
-                          <div className="flex items-start gap-2">
-                            <Textarea
-                              className="min-h-[60px] flex-1 text-sm"
-                              onChange={(e) =>
-                                handleNoteChange(skill.code, e.target.value)
-                              }
-                              placeholder="Add notes for this skill (optional)"
-                              value={notes[skill.code] ?? ""}
-                            />
-                            <Button
-                              disabled={!currentRating || isSaving}
-                              onClick={() => handleSaveSkill(skill.code)}
-                              size="sm"
-                              variant={isSaved ? "outline" : "default"}
-                            >
-                              {isSaving ? (
-                                <Loader2 className="h-4 w-4 animate-spin" />
-                              ) : isSaved ? (
-                                <Check className="h-4 w-4" />
-                              ) : (
-                                <ChevronRight className="h-4 w-4" />
-                              )}
-                            </Button>
-                          </div>
                         </div>
                       </div>
-                    );
-                  })}
-                </CardContent>
-              </Card>
-            )
+                    </CardHeader>
+                  </button>
+                  {!isCollapsed && (
+                    <CardContent className="space-y-6">
+                      {categorySkills.map((skill) => {
+                        const currentRating =
+                          ratings[skill.code] ??
+                          existingRatings.get(skill.code) ??
+                          0;
+                        const isSaved = savedSkills.has(skill.code);
+                        const hasExisting = existingRatings.has(skill.code);
+
+                        return (
+                          <div
+                            className={`rounded-lg border p-4 transition-colors ${
+                              isSaved
+                                ? "border-green-200 bg-green-50/50"
+                                : "border-gray-200 hover:border-emerald-200"
+                            }`}
+                            key={skill.code}
+                          >
+                            <div className="mb-3 flex items-center justify-between">
+                              <div>
+                                <p className="font-medium">{skill.name}</p>
+                                {skill.description && (
+                                  <p className="text-muted-foreground text-sm">
+                                    {skill.description}
+                                  </p>
+                                )}
+                              </div>
+                              <div className="flex items-center gap-2">
+                                {hasExisting && !ratings[skill.code] && (
+                                  <Badge className="text-xs" variant="outline">
+                                    <TrendingUp className="mr-1 h-3 w-3" />
+                                    Previous: {existingRatings.get(skill.code)}
+                                  </Badge>
+                                )}
+                                {isSaved && (
+                                  <Badge className="bg-green-100 text-green-700">
+                                    <Check className="mr-1 h-3 w-3" />
+                                    Saved
+                                  </Badge>
+                                )}
+                              </div>
+                            </div>
+
+                            {/* Rating Slider */}
+                            <div className="space-y-3">
+                              <RatingSlider
+                                benchmarkValue={
+                                  showBenchmarks
+                                    ? benchmarksMap.get(skill.code)
+                                    : undefined
+                                }
+                                compact={true}
+                                isSaved={isSaved}
+                                label=""
+                                onChange={(value) =>
+                                  handleRatingChange(skill.code, value)
+                                }
+                                previousValue={existingRatings.get(skill.code)}
+                                showLabels={true}
+                                value={currentRating as Rating}
+                              />
+
+                              {/* Notes */}
+                              <div className="flex items-start gap-2">
+                                <Textarea
+                                  className="min-h-[60px] flex-1 text-sm"
+                                  onChange={(e) =>
+                                    handleNoteChange(skill.code, e.target.value)
+                                  }
+                                  placeholder="Add notes for this skill (optional)"
+                                  value={notes[skill.code] ?? ""}
+                                />
+                                <Button
+                                  disabled={!currentRating || isSaving}
+                                  onClick={() => handleSaveSkill(skill.code)}
+                                  size="sm"
+                                  variant={isSaved ? "outline" : "default"}
+                                >
+                                  {isSaving ? (
+                                    <Loader2 className="h-4 w-4 animate-spin" />
+                                  ) : isSaved ? (
+                                    <Check className="h-4 w-4" />
+                                  ) : (
+                                    <ChevronRight className="h-4 w-4" />
+                                  )}
+                                </Button>
+                              </div>
+                            </div>
+                          </div>
+                        );
+                      })}
+                    </CardContent>
+                  )}
+                </Card>
+              );
+            }
           )}
 
           {/* General Notes */}
@@ -1617,7 +1653,7 @@ function BatchAssessmentSection({
     );
     if (unratedSkills.length > 0) {
       toast.error("Please rate all selected skills", {
-        description: `${unratedSkills.length} skills need ratings`,
+        description: "$unratedSkills.lengthskills need ratings",
       });
       return;
     }
@@ -1665,7 +1701,7 @@ function BatchAssessmentSection({
 
     if (errors === 0) {
       toast.success("Team assessment complete!", {
-        description: `${saved} assessments saved for ${selectedBatchPlayers.size} players`,
+        description: `$savedassessments saved for ${selectedBatchPlayers.size} players`,
       });
       // Reset batch mode
       setSelectedBatchPlayers(new Set());
@@ -1675,7 +1711,7 @@ function BatchAssessmentSection({
       setBatchStep("players");
     } else {
       toast.warning("Batch save completed with some errors", {
-        description: `${saved} saved, ${errors} failed`,
+        description: "$savedsaved, $errorsfailed",
       });
     }
   };
@@ -1689,23 +1725,11 @@ function BatchAssessmentSection({
             <div className="flex items-center gap-2 sm:gap-4 md:gap-8">
               {/* Step 1: Players */}
               <button
-                className={`flex items-center gap-1 sm:gap-2 ${
-                  batchStep === "players"
-                    ? "font-bold text-blue-700"
-                    : selectedBatchPlayers.size > 0
-                      ? "text-green-600"
-                      : "text-gray-400"
-                }`}
+                className={`$ batchStep === "players" ? "font-bold : selectedBatchPlayers.size > 0 ? "text-green-600" : "text-gray-400" flex items-center gap-1 text-blue-700" sm:gap-2`}
                 onClick={() => setBatchStep("players")}
               >
                 <div
-                  className={`flex h-8 w-8 shrink-0 items-center justify-center rounded-full ${
-                    batchStep === "players"
-                      ? "bg-blue-600 text-white"
-                      : selectedBatchPlayers.size > 0
-                        ? "bg-green-500 text-white"
-                        : "bg-gray-200 text-gray-500"
-                  }`}
+                  className={`$ batchStep === "players" ? "bg-blue-600 : selectedBatchPlayers.size > 0 ? "bg-green-500 : "bg-gray-200 flex h-8 w-8 shrink-0 items-center justify-center rounded-full text-gray-500" text-white" text-white"`}
                 >
                   {selectedBatchPlayers.size > 0 ? (
                     <Check className="h-4 w-4" />
@@ -1722,13 +1746,7 @@ function BatchAssessmentSection({
 
               {/* Step 2: Skills */}
               <button
-                className={`flex items-center gap-1 sm:gap-2 ${
-                  batchStep === "skills"
-                    ? "font-bold text-blue-700"
-                    : batchSelectedSkills.size > 0
-                      ? "text-green-600"
-                      : "text-gray-400"
-                }`}
+                className={`$ batchStep === "skills" ? "font-bold : batchSelectedSkills.size > 0 ? "text-green-600" : "text-gray-400" flex items-center gap-1 text-blue-700" sm:gap-2`}
                 disabled={selectedBatchPlayers.size === 0 || !hasSkills}
                 onClick={() =>
                   selectedBatchPlayers.size > 0 &&
@@ -1737,13 +1755,7 @@ function BatchAssessmentSection({
                 }
               >
                 <div
-                  className={`flex h-8 w-8 shrink-0 items-center justify-center rounded-full ${
-                    batchStep === "skills"
-                      ? "bg-blue-600 text-white"
-                      : batchSelectedSkills.size > 0
-                        ? "bg-green-500 text-white"
-                        : "bg-gray-200 text-gray-500"
-                  }`}
+                  className={`$ batchStep === "skills" ? "bg-blue-600 : batchSelectedSkills.size > 0 ? "bg-green-500 : "bg-gray-200 flex h-8 w-8 shrink-0 items-center justify-center rounded-full text-gray-500" text-white" text-white"`}
                 >
                   {batchSelectedSkills.size > 0 ? (
                     <Check className="h-4 w-4" />
@@ -1760,11 +1772,7 @@ function BatchAssessmentSection({
 
               {/* Step 3: Rate */}
               <button
-                className={`flex items-center gap-1 sm:gap-2 ${
-                  batchStep === "rate"
-                    ? "font-bold text-blue-700"
-                    : "text-gray-400"
-                }`}
+                className={`$ batchStep === "rate" ? "font-bold : "text-gray-400" flex items-center gap-1 text-blue-700" sm:gap-2`}
                 disabled={
                   selectedBatchPlayers.size === 0 ||
                   batchSelectedSkills.size === 0 ||
@@ -1778,11 +1786,7 @@ function BatchAssessmentSection({
                 }
               >
                 <div
-                  className={`flex h-8 w-8 shrink-0 items-center justify-center rounded-full ${
-                    batchStep === "rate"
-                      ? "bg-blue-600 text-white"
-                      : "bg-gray-200 text-gray-500"
-                  }`}
+                  className={`$ batchStep === "rate" ? "bg-blue-600 : "bg-gray-200 flex h-8 w-8 shrink-0 items-center justify-center rounded-full text-gray-500" text-white"`}
                 >
                   3
                 </div>
@@ -1823,18 +1827,14 @@ function BatchAssessmentSection({
           </CardHeader>
           <CardContent>
             <div className="grid gap-2 sm:grid-cols-2 lg:grid-cols-3">
-              {filteredPlayers.map(({ enrollment, player }, index) => {
+              {filteredPlayers.map(({ enrollment, player }, _index) => {
                 const isSelected = selectedBatchPlayers.has(
                   enrollment.playerIdentityId
                 );
                 return (
                   <button
-                    className={`flex items-center gap-3 rounded-lg border p-3 text-left transition-colors ${
-                      isSelected
-                        ? "border-blue-500 bg-blue-50"
-                        : "border-gray-200 hover:border-blue-300"
-                    }`}
-                    key={`${enrollment.playerIdentityId}-${index}`}
+                    className={`$ isSelected ? "border-blue-500 : "border-gray-200 flex items-center gap-3 rounded-lg border bg-blue-50" p-3 text-left transition-colors hover:border-blue-300"`}
+                    key={"$enrollment.playerIdentityId-$index"}
                     onClick={() => {
                       setSelectedBatchPlayers((prev) => {
                         const next = new Set(prev);
@@ -1848,9 +1848,7 @@ function BatchAssessmentSection({
                     }}
                   >
                     <div
-                      className={`flex h-8 w-8 items-center justify-center rounded-full ${
-                        isSelected ? "bg-blue-600" : "bg-gray-200"
-                      }`}
+                      className={`$ isSelected ? "bg-blue-600" : "bg-gray-200" flex h-8 w-8 items-center justify-center rounded-full`}
                     >
                       {isSelected ? (
                         <Check className="h-4 w-4 text-white" />
@@ -1936,11 +1934,7 @@ function BatchAssessmentSection({
                         const isSelected = batchSelectedSkills.has(skill.code);
                         return (
                           <Badge
-                            className={`cursor-pointer px-3 py-1.5 text-sm transition-colors ${
-                              isSelected
-                                ? "bg-blue-600 text-white hover:bg-blue-700"
-                                : "bg-gray-100 text-gray-700 hover:bg-gray-200"
-                            }`}
+                            className={`$ isSelected ? "bg-blue-600 : "bg-gray-100 cursor-pointer px-3 py-1.5 text-gray-700 text-sm text-white transition-colors hover:bg-blue-700" hover:bg-gray-200"`}
                             key={skill.code}
                             onClick={() => {
                               setBatchSelectedSkills((prev) => {

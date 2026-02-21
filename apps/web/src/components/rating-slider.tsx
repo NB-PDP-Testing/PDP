@@ -3,14 +3,20 @@
 import { useMemo } from "react";
 import { cn } from "@/lib/utils";
 
-// Rating type (1-5 scale)
-export type Rating = 1 | 2 | 3 | 4 | 5;
+// Rating type (0-5 scale, where 0 = not assessed)
+export type Rating = 0 | 1 | 2 | 3 | 4 | 5;
 
 // Rating configuration with colors and labels
 const RATING_CONFIG: Record<
   number,
   { label: string; color: string; bgColor: string; borderColor: string }
 > = {
+  0: {
+    label: "Not Assessed",
+    color: "text-gray-400",
+    bgColor: "bg-gray-300",
+    borderColor: "border-gray-300",
+  },
   1: {
     label: "Developing",
     color: "text-red-600",
@@ -45,6 +51,9 @@ const RATING_CONFIG: Record<
 
 // Helper functions
 export function getColorForRating(rating: number): string {
+  if (rating === 0) {
+    return "#9ca3af"; // gray-400
+  }
   if (rating <= 1) {
     return "#dc2626"; // red-600
   }
@@ -87,6 +96,8 @@ type RatingSliderProps = {
   compact?: boolean;
   /** Show labels below slider */
   showLabels?: boolean;
+  /** Benchmark expected rating to display as a marker on the slider */
+  benchmarkValue?: number;
   /** Custom class name */
   className?: string;
 };
@@ -101,13 +112,14 @@ export function RatingSlider({
   disabled = false,
   compact = false,
   showLabels = true,
+  benchmarkValue,
   className,
 }: RatingSliderProps) {
   const config = useMemo(() => getRatingConfig(value), [value]);
   const color = useMemo(() => getColorForRating(value), [value]);
 
-  // Calculate percentage for progress bar
-  const percentage = ((value - 1) / 4) * 100;
+  // Calculate percentage for progress overlay (0-5 scale: value/5 * 100%)
+  const percentage = (value / 5) * 100;
 
   // Determine if there's an improvement or decline from previous
   const change = previousValue ? value - previousValue : null;
@@ -122,14 +134,14 @@ export function RatingSlider({
         )}
       >
         <div className="min-w-0 flex-1">
-          <label
+          <span
             className={cn(
               "font-medium text-gray-700",
               compact ? "text-sm" : "text-base"
             )}
           >
             {label}
-          </label>
+          </span>
           {description && (
             <p className="truncate text-gray-500 text-xs">{description}</p>
           )}
@@ -178,7 +190,7 @@ export function RatingSlider({
           )}
           disabled={disabled}
           max="5"
-          min="1"
+          min="0"
           onChange={(e) =>
             onChange(Number.parseInt(e.target.value, 10) as Rating)
           }
@@ -195,6 +207,15 @@ export function RatingSlider({
           value={value}
         />
 
+        {/* Benchmark marker */}
+        {benchmarkValue !== undefined && (
+          <div
+            className="pointer-events-none absolute top-0 h-3 w-0.5 bg-blue-600"
+            style={{ left: `${(benchmarkValue / 5) * 100}%` }}
+            title={`Benchmark: ${benchmarkValue}`}
+          />
+        )}
+
         {/* Progress indicator overlay */}
         <div
           className="pointer-events-none absolute top-0 left-0 h-3 rounded-lg"
@@ -210,6 +231,7 @@ export function RatingSlider({
         {/* Rating labels */}
         {showLabels && (
           <div className="mt-1 flex justify-between text-gray-500 text-xs">
+            <span>0</span>
             <span>1</span>
             <span>2</span>
             <span>3</span>

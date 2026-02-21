@@ -8,7 +8,6 @@ import {
   Award,
   BarChart3,
   Check,
-  CheckCircle,
   ChevronRight,
   History,
   Loader2,
@@ -87,6 +86,11 @@ export default function AssessPlayerPage() {
   const [generalNotes, setGeneralNotes] = useState("");
   const [isSaving, setIsSaving] = useState(false);
   const [savedSkills, setSavedSkills] = useState<Set<string>>(new Set());
+  const [showBenchmarks, setShowBenchmarks] = useState(false);
+  const [playerSportCodes, setPlayerSportCodes] = useState<string[]>([]);
+  const [collapsedCategories, setCollapsedCategories] = useState<Set<string>>(
+    new Set()
+  );
 
   // Batch assessment mode state
   const [assessmentMode, setAssessmentMode] =
@@ -242,6 +246,25 @@ export default function AssessPlayerPage() {
       : "skip"
   );
 
+  // Get benchmarks for selected player and sport
+  const benchmarksData = useQuery(
+    api.models.referenceData.getBenchmarksForPlayer,
+    selectedPlayerId && selectedSportCode && selectedSportCode !== "all"
+      ? {
+          sportCode: selectedSportCode,
+          dateOfBirth: selectedPlayer?.player.dateOfBirth ?? undefined,
+          ageGroup: selectedPlayer?.enrollment.ageGroup ?? undefined,
+        }
+      : "skip"
+  );
+
+  const benchmarksMap = useMemo(() => {
+    if (!benchmarksData) {
+      return new Map<string, number>();
+    }
+    return new Map(benchmarksData.map((b) => [b.skillCode, b.expectedRating]));
+  }, [benchmarksData]);
+
   // Get existing assessments for this player/sport
   const existingAssessments = useQuery(
     api.models.skillAssessments.getLatestAssessmentsForPassport,
@@ -329,6 +352,30 @@ export default function AssessPlayerPage() {
       );
     }
 
+    // Filter by sport if one is selected
+    if (
+      selectedSportCode &&
+      selectedSportCode !== "all" &&
+      allCoachTeamPlayers &&
+      coachAssignments
+    ) {
+      // Find which teams play this sport
+      const sportTeamIds = new Set(
+        coachAssignments.teams
+          .filter((t) => t.sportCode === selectedSportCode)
+          .map((t) => t.teamId)
+      );
+      // Keep players who are on at least one of those teams
+      const sportPlayerIds = new Set(
+        allCoachTeamPlayers
+          .filter((m) => sportTeamIds.has(m.teamId))
+          .map((m) => m.playerIdentityId)
+      );
+      filtered = filtered.filter((p) =>
+        sportPlayerIds.has(p.enrollment.playerIdentityId)
+      );
+    }
+
     // FINALLY: Filter by search query
     if (searchQuery.trim()) {
       const query = searchQuery.toLowerCase();
@@ -357,6 +404,7 @@ export default function AssessPlayerPage() {
     coachTeamIds,
     selectedTeamId,
     selectedTeamPlayers,
+    selectedSportCode,
     searchQuery,
   ]);
 
@@ -366,34 +414,42 @@ export default function AssessPlayerPage() {
       return null;
     }
 
-    const totalAssessments = assessmentHistory.length;
-    const skillsAssessed = new Set(assessmentHistory.map((a) => a.skillCode))
+    // Sessions = distinct assessment dates
+    const sessions = new Set(assessmentHistory.map((a) => a.assessmentDate))
       .size;
+    // Skills rated = distinct skill codes with at least one rating
+    const skillsRated = new Set(assessmentHistory.map((a) => a.skillCode)).size;
 
-    // Calculate average rating
+    // Average rating across all records
     const avgRating =
-      totalAssessments > 0
+      assessmentHistory.length > 0
         ? assessmentHistory.reduce((sum, a) => sum + a.rating, 0) /
-          totalAssessments
+          assessmentHistory.length
         : 0;
 
-    // Find recent improvements (skills that improved in last 30 days)
-    const thirtyDaysAgo = Date.now() - 30 * 24 * 60 * 60 * 1000;
-    const recentAssessments = assessmentHistory.filter(
-      (a) => new Date(a.assessmentDate).getTime() > thirtyDaysAgo
-    );
-
     return {
-      totalAssessments,
-      skillsAssessed,
+      sessions,
+      skillsRated,
       avgRating: avgRating.toFixed(1),
-      recentAssessments: recentAssessments.length,
       lastAssessmentDate:
         assessmentHistory.length > 0
           ? assessmentHistory[0].assessmentDate
           : null,
     };
   }, [assessmentHistory]);
+
+  // Derive teams and sports for selected player (for display in info card)
+  const playerTeams = useMemo(() => {
+    if (!(selectedPlayerId && allCoachTeamPlayers && coachAssignments)) {
+      return [];
+    }
+    const playerTeamIds = new Set(
+      allCoachTeamPlayers
+        .filter((m) => m.playerIdentityId === selectedPlayerId)
+        .map((m) => m.teamId)
+    );
+    return coachAssignments.teams.filter((t) => playerTeamIds.has(t.teamId));
+  }, [selectedPlayerId, allCoachTeamPlayers, coachAssignments]);
 
   // Auto-select sport from team (only when team is explicitly selected)
   useMemo(() => {
@@ -488,7 +544,8 @@ export default function AssessPlayerPage() {
   // Save individual skill assessment
   const handleSaveSkill = useCallback(
     async (skillCode: string) => {
-      if (!(selectedPlayerId && selectedSportCode && ratings[skillCode])) {
+      const ratingToSave = ratings[skillCode] ?? existingRatings.get(skillCode);
+      if (!(selectedPlayerId && selectedSportCode && ratingToSave)) {
         toast.error("Cannot save", {
           description: "Please select a rating first",
         });
@@ -512,7 +569,7 @@ export default function AssessPlayerPage() {
         const result = await recordAssessment({
           passportId,
           skillCode,
-          rating: ratings[skillCode],
+          rating: ratingToSave,
           assessmentDate: new Date().toISOString().split("T")[0],
           assessmentType,
           assessedBy: currentUser?._id,
@@ -540,6 +597,7 @@ export default function AssessPlayerPage() {
       selectedPlayerId,
       selectedSportCode,
       ratings,
+      existingRatings,
       notes,
       passport,
       findOrCreatePassport,
@@ -550,13 +608,14 @@ export default function AssessPlayerPage() {
     ]
   );
 
-  // Save all assessments
+  // Save all assessments and mark review complete
   const handleSaveAll = useCallback(async () => {
     const skillsToSave = Object.entries(ratings).filter(
       ([code]) => !savedSkills.has(code)
     );
+    const hasNotes = !!generalNotes.trim();
 
-    if (skillsToSave.length === 0) {
+    if (skillsToSave.length === 0 && !hasNotes) {
       toast.info("Nothing to save", {
         description: "All ratings have already been saved",
       });
@@ -576,41 +635,61 @@ export default function AssessPlayerPage() {
       }
     }
 
+    // Save development notes to player profile if present
+    if (hasNotes && passport) {
+      try {
+        const timestamp = new Date().toLocaleDateString();
+        const newNote = `[${timestamp}] ${generalNotes.trim()}`;
+        await updatePassportNotes({
+          passportId: passport._id,
+          coachNotes: passport.coachNotes
+            ? `${passport.coachNotes}\n\n${newNote}`
+            : newNote,
+        });
+        setGeneralNotes("");
+      } catch {
+        // Non-critical
+      }
+    }
+
+    // Mark review as complete after saving
+    let nextReviewDue: string | null = null;
+    if (selectedPlayerId && errors === 0) {
+      try {
+        const result = await markReviewComplete({
+          playerIdentityId: selectedPlayerId as Id<"playerIdentities">,
+          organizationId: orgId,
+          reviewPeriodDays: 90,
+        });
+        nextReviewDue = result.nextReviewDue;
+      } catch {
+        // Non-critical — ratings are saved, just log silently
+      }
+    }
+
     setIsSaving(false);
-    toast.success("Batch save complete", {
-      description: `Saved ${saved} assessments${errors > 0 ? `, ${errors} failed` : ""}`,
+    toast.success("Assessment complete", {
+      description: nextReviewDue
+        ? `${saved} ratings saved · Next review due ${new Date(nextReviewDue).toLocaleDateString()}${errors > 0 ? ` · ${errors} failed` : ""}`
+        : `Saved ${saved} assessments${errors > 0 ? `, ${errors} failed` : ""}`,
     });
-  }, [ratings, savedSkills, handleSaveSkill]);
+  }, [
+    ratings,
+    savedSkills,
+    generalNotes,
+    passport,
+    updatePassportNotes,
+    handleSaveSkill,
+    selectedPlayerId,
+    markReviewComplete,
+    orgId,
+  ]);
 
   // Count unsaved changes
   const unsavedCount = useMemo(
     () => Object.keys(ratings).filter((code) => !savedSkills.has(code)).length,
     [ratings, savedSkills]
   );
-
-  // Handle marking review as complete
-  const handleCompleteReview = useCallback(async () => {
-    if (!selectedPlayerId) {
-      toast.error("No player selected");
-      return;
-    }
-
-    try {
-      const result = await markReviewComplete({
-        playerIdentityId: selectedPlayerId as Id<"playerIdentities">,
-        organizationId: orgId,
-        reviewPeriodDays: 90, // Default to 90 days
-      });
-
-      toast.success("Review marked as complete!", {
-        description: `Next review due: ${new Date(result.nextReviewDue).toLocaleDateString()}`,
-      });
-    } catch (error) {
-      toast.error("Failed to complete review", {
-        description: error instanceof Error ? error.message : "Unknown error",
-      });
-    }
-  }, [selectedPlayerId, markReviewComplete, orgId]);
 
   // Loading state
   const isLoading = sports === undefined || allPlayers === undefined;
@@ -630,31 +709,46 @@ export default function AssessPlayerPage() {
         className="rounded-lg p-6 shadow-lg"
         style={{ filter: "brightness(0.95)" }}
       >
-        <div className="flex items-center justify-between">
+        <div className="flex flex-col gap-3">
+          {/* Top row: Back + Title */}
           <div className="flex items-center gap-4">
             <Button
               className="border-current/20 bg-current/10 hover:bg-current/20"
-              onClick={() => router.back()}
+              onClick={() => {
+                if (selectedPlayerId) {
+                  setSelectedPlayerId(null);
+                  setRatings({});
+                  setSavedSkills(new Set());
+                  setSearchQuery("");
+                  setSelectedTeamId(null);
+                  setSelectedSportCode("all");
+                  setPlayerSportCodes([]);
+                } else {
+                  router.back();
+                }
+              }}
               size="sm"
               variant="outline"
             >
               <ArrowLeft className="mr-2 h-4 w-4" />
-              Back
+              {selectedPlayerId ? "Players" : "Back"}
             </Button>
             <div>
-              <h1 className="font-bold text-2xl">
+              <h1 className="font-bold text-xl sm:text-2xl">
                 {assessmentMode === "batch"
                   ? "Team Session Assessment"
                   : "Assess Player Skills"}
               </h1>
-              <p className="text-sm opacity-80">
+              <p className="hidden text-sm opacity-80 sm:block">
                 {assessmentMode === "batch"
                   ? "Record the same assessment for multiple players at once"
                   : "Record skill assessments with automatic benchmark comparison"}
               </p>
             </div>
           </div>
-          <div className="flex items-center gap-2">
+
+          {/* Controls row: Mode toggle + Benchmarks + Save All */}
+          <div className="flex flex-wrap items-center gap-2">
             {/* Mode Toggle */}
             <div className="flex rounded-lg border border-current/30 bg-current/10 p-1">
               <Button
@@ -695,6 +789,20 @@ export default function AssessPlayerPage() {
                 Team Session
               </Button>
             </div>
+
+            <Button
+              className={`text-sm ${
+                showBenchmarks
+                  ? "bg-blue-600 text-white hover:bg-blue-700"
+                  : "border-current/30 bg-current/10 hover:bg-current/20"
+              }`}
+              onClick={() => setShowBenchmarks((prev) => !prev)}
+              size="sm"
+              variant="outline"
+            >
+              <BarChart3 className="mr-1 h-4 w-4" />
+              Benchmarks {showBenchmarks ? "On" : "Off"}
+            </Button>
 
             {assessmentMode === "individual" && unsavedCount > 0 && (
               <Button
@@ -785,7 +893,10 @@ export default function AssessPlayerPage() {
                   </SelectTrigger>
                   <SelectContent>
                     <SelectItem value="all">All Sports</SelectItem>
-                    {sports?.map((sport) => (
+                    {(playerSportCodes.length > 0
+                      ? sports?.filter((s) => playerSportCodes.includes(s.code))
+                      : sports
+                    )?.map((sport) => (
                       <SelectItem key={sport._id} value={sport.code}>
                         {sport.name}
                       </SelectItem>
@@ -808,7 +919,7 @@ export default function AssessPlayerPage() {
 
       {/* Player Stats & Info */}
       {selectedPlayer && selectedSportCode && (
-        <div className="grid gap-4 md:grid-cols-3">
+        <div className="grid gap-4 md:grid-cols-2">
           {/* Player Info Card */}
           <Card className="border-blue-200 bg-blue-50/50">
             <CardContent className="flex items-center gap-4 py-4">
@@ -824,13 +935,24 @@ export default function AssessPlayerPage() {
                   {selectedPlayer.enrollment.ageGroup?.toUpperCase()} | DOB:{" "}
                   {selectedPlayer.player.dateOfBirth ?? "Not set"}
                 </p>
+                {playerTeams.length > 0 && (
+                  <div className="mt-1.5 flex flex-wrap gap-1">
+                    {playerTeams.map((t) => (
+                      <span
+                        className="inline-flex items-center rounded-full bg-blue-100 px-2 py-0.5 text-blue-700 text-xs"
+                        key={t.teamId}
+                      >
+                        {t.teamName}
+                        {t.sportCode && (
+                          <span className="ml-1 text-blue-500">
+                            · {t.sportCode.toUpperCase()}
+                          </span>
+                        )}
+                      </span>
+                    ))}
+                  </div>
+                )}
               </div>
-              {passport && (
-                <Badge className="bg-white" variant="outline">
-                  <Target className="mr-1 h-3 w-3" />
-                  {passport.assessmentCount} assessments
-                </Badge>
-              )}
             </CardContent>
           </Card>
 
@@ -842,22 +964,20 @@ export default function AssessPlayerPage() {
                   <BarChart3 className="h-6 w-6 text-purple-600" />
                 </div>
                 <div className="flex-1">
-                  {playerStats && playerStats.totalAssessments > 0 ? (
+                  {playerStats && playerStats.sessions > 0 ? (
                     <div className="grid grid-cols-2 gap-2 text-sm">
                       <div>
                         <p className="text-muted-foreground text-xs">
-                          Total Assessments
+                          Times Assessed
                         </p>
-                        <p className="font-semibold">
-                          {playerStats.totalAssessments}
-                        </p>
+                        <p className="font-semibold">{playerStats.sessions}</p>
                       </div>
                       <div>
                         <p className="text-muted-foreground text-xs">
-                          Skills Assessed
+                          Skills Rated
                         </p>
                         <p className="font-semibold">
-                          {playerStats.skillsAssessed}
+                          {playerStats.skillsRated}
                         </p>
                       </div>
                       <div>
@@ -878,6 +998,18 @@ export default function AssessPlayerPage() {
                                 playerStats.lastAssessmentDate
                               ).toLocaleDateString()
                             : "Never"}
+                        </p>
+                      </div>
+                      <div className="col-span-2">
+                        <p className="text-muted-foreground text-xs">
+                          Next Assessment Due
+                        </p>
+                        <p className="font-semibold text-xs">
+                          {selectedPlayer.enrollment.nextReviewDue
+                            ? new Date(
+                                selectedPlayer.enrollment.nextReviewDue
+                              ).toLocaleDateString()
+                            : "Not scheduled"}
                         </p>
                       </div>
                     </div>
@@ -901,29 +1033,6 @@ export default function AssessPlayerPage() {
                   )}
                 </div>
               </div>
-            </CardContent>
-          </Card>
-
-          {/* Complete Review Card */}
-          <Card className="border-green-200 bg-green-50/50">
-            <CardContent className="flex flex-col items-center justify-center gap-3 py-4">
-              <div className="flex h-12 w-12 items-center justify-center rounded-full bg-green-100">
-                <CheckCircle className="h-6 w-6 text-green-600" />
-              </div>
-              <div className="text-center">
-                <p className="font-semibold text-sm">Mark Review Complete</p>
-                <p className="text-muted-foreground text-xs">
-                  Formal assessment done
-                </p>
-              </div>
-              <Button
-                className="w-full bg-green-600 hover:bg-green-700"
-                onClick={handleCompleteReview}
-                size="sm"
-              >
-                <CheckCircle className="mr-2 h-4 w-4" />
-                Complete Review
-              </Button>
             </CardContent>
           </Card>
         </div>
@@ -1223,106 +1332,147 @@ export default function AssessPlayerPage() {
       skills.length > 0 ? (
         <div className="space-y-6">
           {Array.from(skillsByCategory.entries()).map(
-            ([categoryName, categorySkills]) => (
-              <Card key={categoryName}>
-                <CardHeader>
-                  <CardTitle className="flex items-center gap-2">
-                    <Award className="h-5 w-5 text-emerald-600" />
-                    {categoryName}
-                  </CardTitle>
-                  <CardDescription>
-                    {categorySkills.length} skills in this category
-                  </CardDescription>
-                </CardHeader>
-                <CardContent className="space-y-6">
-                  {categorySkills.map((skill) => {
-                    const currentRating =
-                      ratings[skill.code] ??
-                      existingRatings.get(skill.code) ??
-                      0;
-                    const isSaved = savedSkills.has(skill.code);
-                    const hasExisting = existingRatings.has(skill.code);
-
-                    return (
-                      <div
-                        className={`rounded-lg border p-4 transition-colors ${
-                          isSaved
-                            ? "border-green-200 bg-green-50/50"
-                            : "border-gray-200 hover:border-emerald-200"
-                        }`}
-                        key={skill.code}
-                      >
-                        <div className="mb-3 flex items-center justify-between">
-                          <div>
-                            <p className="font-medium">{skill.name}</p>
-                            {skill.description && (
-                              <p className="text-muted-foreground text-sm">
-                                {skill.description}
-                              </p>
-                            )}
-                          </div>
-                          <div className="flex items-center gap-2">
-                            {hasExisting && !ratings[skill.code] && (
-                              <Badge className="text-xs" variant="outline">
-                                <TrendingUp className="mr-1 h-3 w-3" />
-                                Previous: {existingRatings.get(skill.code)}
-                              </Badge>
-                            )}
-                            {isSaved && (
-                              <Badge className="bg-green-100 text-green-700">
-                                <Check className="mr-1 h-3 w-3" />
-                                Saved
-                              </Badge>
-                            )}
-                          </div>
-                        </div>
-
-                        {/* Rating Slider */}
-                        <div className="space-y-3">
-                          <RatingSlider
-                            compact={true}
-                            isSaved={isSaved}
-                            label=""
-                            onChange={(value) =>
-                              handleRatingChange(skill.code, value)
-                            }
-                            previousValue={existingRatings.get(skill.code)}
-                            showLabels={true}
-                            value={(currentRating || 1) as Rating}
+            ([categoryName, categorySkills]) => {
+              const isCollapsed = collapsedCategories.has(categoryName);
+              const savedCount = categorySkills.filter((s) =>
+                savedSkills.has(s.code)
+              ).length;
+              return (
+                <Card key={categoryName}>
+                  <button
+                    className="w-full cursor-pointer text-left"
+                    onClick={() =>
+                      setCollapsedCategories((prev) => {
+                        const next = new Set(prev);
+                        if (next.has(categoryName)) {
+                          next.delete(categoryName);
+                        } else {
+                          next.add(categoryName);
+                        }
+                        return next;
+                      })
+                    }
+                    type="button"
+                  >
+                    <CardHeader className="transition-colors hover:bg-accent/50">
+                      <div className="flex items-center justify-between">
+                        <CardTitle className="flex items-center gap-2">
+                          <Award className="h-5 w-5 text-emerald-600" />
+                          {categoryName}
+                          <span className="font-normal text-muted-foreground text-sm">
+                            ({categorySkills.length})
+                          </span>
+                        </CardTitle>
+                        <div className="flex items-center gap-2">
+                          {savedCount > 0 && (
+                            <span className="text-emerald-600 text-xs">
+                              {savedCount}/{categorySkills.length} saved
+                            </span>
+                          )}
+                          <ChevronRight
+                            className={`h-5 w-5 text-muted-foreground transition-transform ${isCollapsed ? "" : "rotate-90"}`}
                           />
-
-                          {/* Notes */}
-                          <div className="flex items-start gap-2">
-                            <Textarea
-                              className="min-h-[60px] flex-1 text-sm"
-                              onChange={(e) =>
-                                handleNoteChange(skill.code, e.target.value)
-                              }
-                              placeholder="Add notes for this skill (optional)"
-                              value={notes[skill.code] ?? ""}
-                            />
-                            <Button
-                              disabled={!currentRating || isSaving}
-                              onClick={() => handleSaveSkill(skill.code)}
-                              size="sm"
-                              variant={isSaved ? "outline" : "default"}
-                            >
-                              {isSaving ? (
-                                <Loader2 className="h-4 w-4 animate-spin" />
-                              ) : isSaved ? (
-                                <Check className="h-4 w-4" />
-                              ) : (
-                                <ChevronRight className="h-4 w-4" />
-                              )}
-                            </Button>
-                          </div>
                         </div>
                       </div>
-                    );
-                  })}
-                </CardContent>
-              </Card>
-            )
+                    </CardHeader>
+                  </button>
+                  {!isCollapsed && (
+                    <CardContent className="space-y-6">
+                      {categorySkills.map((skill) => {
+                        const currentRating =
+                          ratings[skill.code] ??
+                          existingRatings.get(skill.code) ??
+                          0;
+                        const isSaved = savedSkills.has(skill.code);
+                        const hasExisting = existingRatings.has(skill.code);
+
+                        return (
+                          <div
+                            className={`rounded-lg border p-4 transition-colors ${
+                              isSaved
+                                ? "border-green-200 bg-green-50/50"
+                                : "border-gray-200 hover:border-emerald-200"
+                            }`}
+                            key={skill.code}
+                          >
+                            <div className="mb-3 flex items-center justify-between">
+                              <div>
+                                <p className="font-medium">{skill.name}</p>
+                                {skill.description && (
+                                  <p className="text-muted-foreground text-sm">
+                                    {skill.description}
+                                  </p>
+                                )}
+                              </div>
+                              <div className="flex items-center gap-2">
+                                {hasExisting && !ratings[skill.code] && (
+                                  <Badge className="text-xs" variant="outline">
+                                    <TrendingUp className="mr-1 h-3 w-3" />
+                                    Previous: {existingRatings.get(skill.code)}
+                                  </Badge>
+                                )}
+                                {isSaved && (
+                                  <Badge className="bg-green-100 text-green-700">
+                                    <Check className="mr-1 h-3 w-3" />
+                                    Saved
+                                  </Badge>
+                                )}
+                              </div>
+                            </div>
+
+                            {/* Rating Slider */}
+                            <div className="space-y-3">
+                              <RatingSlider
+                                benchmarkValue={
+                                  showBenchmarks
+                                    ? benchmarksMap.get(skill.code)
+                                    : undefined
+                                }
+                                compact={true}
+                                isSaved={isSaved}
+                                label=""
+                                onChange={(value) =>
+                                  handleRatingChange(skill.code, value)
+                                }
+                                previousValue={existingRatings.get(skill.code)}
+                                showLabels={true}
+                                value={currentRating as Rating}
+                              />
+
+                              {/* Notes */}
+                              <div className="flex items-start gap-2">
+                                <Textarea
+                                  className="min-h-[60px] flex-1 text-sm"
+                                  onChange={(e) =>
+                                    handleNoteChange(skill.code, e.target.value)
+                                  }
+                                  placeholder="Add notes for this skill (optional)"
+                                  value={notes[skill.code] ?? ""}
+                                />
+                                <Button
+                                  disabled={!currentRating || isSaving}
+                                  onClick={() => handleSaveSkill(skill.code)}
+                                  size="sm"
+                                  variant={isSaved ? "outline" : "default"}
+                                >
+                                  {isSaving ? (
+                                    <Loader2 className="h-4 w-4 animate-spin" />
+                                  ) : isSaved ? (
+                                    <Check className="h-4 w-4" />
+                                  ) : (
+                                    <ChevronRight className="h-4 w-4" />
+                                  )}
+                                </Button>
+                              </div>
+                            </div>
+                          </div>
+                        );
+                      })}
+                    </CardContent>
+                  )}
+                </Card>
+              );
+            }
           )}
 
           {/* General Notes */}
@@ -1330,8 +1480,8 @@ export default function AssessPlayerPage() {
             <CardHeader>
               <CardTitle>Development Notes</CardTitle>
               <CardDescription>
-                Add overall observations - these will be saved to the player's
-                profile
+                Any notes entered here will be saved to the player's profile
+                when you click Save All
               </CardDescription>
             </CardHeader>
             <CardContent className="space-y-4">
@@ -1341,48 +1491,20 @@ export default function AssessPlayerPage() {
                 placeholder="Overall observations, areas for improvement, notable strengths..."
                 value={generalNotes}
               />
-              <div className="flex justify-end">
+              <div className="flex items-center justify-end">
                 <Button
-                  disabled={!(generalNotes.trim() && passport) || isSaving}
-                  onClick={async () => {
-                    if (!passport) {
-                      toast.error("No passport found for this player");
-                      return;
-                    }
-                    setIsSaving(true);
-                    try {
-                      // Append to existing notes with timestamp
-                      const timestamp = new Date().toLocaleDateString();
-                      const newNote = `[${timestamp}] ${generalNotes.trim()}`;
-                      await updatePassportNotes({
-                        passportId: passport._id,
-                        coachNotes: passport.coachNotes
-                          ? `${passport.coachNotes}\n\n${newNote}`
-                          : newNote,
-                      });
-                      toast.success("Development notes saved!", {
-                        description: "Notes added to player profile",
-                      });
-                      setGeneralNotes("");
-                    } catch (error) {
-                      toast.error("Failed to save notes", {
-                        description:
-                          error instanceof Error
-                            ? error.message
-                            : "Unknown error",
-                      });
-                    } finally {
-                      setIsSaving(false);
-                    }
-                  }}
-                  variant="outline"
+                  disabled={
+                    (unsavedCount === 0 && !generalNotes.trim()) || isSaving
+                  }
+                  onClick={handleSaveAll}
                 >
                   {isSaving ? (
                     <Loader2 className="mr-2 h-4 w-4 animate-spin" />
                   ) : (
                     <Save className="mr-2 h-4 w-4" />
                   )}
-                  Save to Player Profile
+                  Save All
+                  {unsavedCount > 0 && ` (${unsavedCount})`}
                 </Button>
               </div>
             </CardContent>
@@ -1420,9 +1542,32 @@ export default function AssessPlayerPage() {
                   className="flex items-center gap-3 rounded-lg border border-gray-200 p-3 text-left transition-colors hover:border-emerald-300 hover:bg-emerald-50/50"
                   key={`${enrollment.playerIdentityId}-${index}`}
                   onClick={() => {
-                    setSelectedPlayerId(enrollment.playerIdentityId);
+                    const playerId = enrollment.playerIdentityId;
+                    setSelectedPlayerId(playerId);
                     setRatings({});
                     setSavedSkills(new Set());
+
+                    // Auto-select sport based on this player's team memberships
+                    if (allCoachTeamPlayers && coachAssignments) {
+                      const playerTeamIds = new Set(
+                        allCoachTeamPlayers
+                          .filter((m) => m.playerIdentityId === playerId)
+                          .map((m) => m.teamId)
+                      );
+                      const playerSports = [
+                        ...new Set(
+                          coachAssignments.teams
+                            .filter(
+                              (t) => playerTeamIds.has(t.teamId) && t.sportCode
+                            )
+                            .map((t) => t.sportCode as string)
+                        ),
+                      ];
+                      setPlayerSportCodes(playerSports);
+                      if (playerSports.length >= 1) {
+                        setSelectedSportCode(playerSports[0]);
+                      }
+                    }
                   }}
                   type="button"
                 >
@@ -1577,7 +1722,7 @@ function BatchAssessmentSection({
     );
     if (unratedSkills.length > 0) {
       toast.error("Please rate all selected skills", {
-        description: `${unratedSkills.length} skills need ratings`,
+        description: "$unratedSkills.lengthskills need ratings",
       });
       return;
     }
@@ -1625,7 +1770,7 @@ function BatchAssessmentSection({
 
     if (errors === 0) {
       toast.success("Team assessment complete!", {
-        description: `${saved} assessments saved for ${selectedBatchPlayers.size} players`,
+        description: `$savedassessments saved for ${selectedBatchPlayers.size} players`,
       });
       // Reset batch mode
       setSelectedBatchPlayers(new Set());
@@ -1635,7 +1780,7 @@ function BatchAssessmentSection({
       setBatchStep("players");
     } else {
       toast.warning("Batch save completed with some errors", {
-        description: `${saved} saved, ${errors} failed`,
+        description: "$savedsaved, $errorsfailed",
       });
     }
   };
@@ -1649,23 +1794,11 @@ function BatchAssessmentSection({
             <div className="flex items-center gap-2 sm:gap-4 md:gap-8">
               {/* Step 1: Players */}
               <button
-                className={`flex items-center gap-1 sm:gap-2 ${
-                  batchStep === "players"
-                    ? "font-bold text-blue-700"
-                    : selectedBatchPlayers.size > 0
-                      ? "text-green-600"
-                      : "text-gray-400"
-                }`}
+                className={`$ batchStep === "players" ? "font-bold : selectedBatchPlayers.size > 0 ? "text-green-600" : "text-gray-400" flex items-center gap-1 text-blue-700" sm:gap-2`}
                 onClick={() => setBatchStep("players")}
               >
                 <div
-                  className={`flex h-8 w-8 shrink-0 items-center justify-center rounded-full ${
-                    batchStep === "players"
-                      ? "bg-blue-600 text-white"
-                      : selectedBatchPlayers.size > 0
-                        ? "bg-green-500 text-white"
-                        : "bg-gray-200 text-gray-500"
-                  }`}
+                  className={`$ batchStep === "players" ? "bg-blue-600 : selectedBatchPlayers.size > 0 ? "bg-green-500 : "bg-gray-200 flex h-8 w-8 shrink-0 items-center justify-center rounded-full text-gray-500" text-white" text-white"`}
                 >
                   {selectedBatchPlayers.size > 0 ? (
                     <Check className="h-4 w-4" />
@@ -1682,13 +1815,7 @@ function BatchAssessmentSection({
 
               {/* Step 2: Skills */}
               <button
-                className={`flex items-center gap-1 sm:gap-2 ${
-                  batchStep === "skills"
-                    ? "font-bold text-blue-700"
-                    : batchSelectedSkills.size > 0
-                      ? "text-green-600"
-                      : "text-gray-400"
-                }`}
+                className={`$ batchStep === "skills" ? "font-bold : batchSelectedSkills.size > 0 ? "text-green-600" : "text-gray-400" flex items-center gap-1 text-blue-700" sm:gap-2`}
                 disabled={selectedBatchPlayers.size === 0 || !hasSkills}
                 onClick={() =>
                   selectedBatchPlayers.size > 0 &&
@@ -1697,13 +1824,7 @@ function BatchAssessmentSection({
                 }
               >
                 <div
-                  className={`flex h-8 w-8 shrink-0 items-center justify-center rounded-full ${
-                    batchStep === "skills"
-                      ? "bg-blue-600 text-white"
-                      : batchSelectedSkills.size > 0
-                        ? "bg-green-500 text-white"
-                        : "bg-gray-200 text-gray-500"
-                  }`}
+                  className={`$ batchStep === "skills" ? "bg-blue-600 : batchSelectedSkills.size > 0 ? "bg-green-500 : "bg-gray-200 flex h-8 w-8 shrink-0 items-center justify-center rounded-full text-gray-500" text-white" text-white"`}
                 >
                   {batchSelectedSkills.size > 0 ? (
                     <Check className="h-4 w-4" />
@@ -1720,11 +1841,7 @@ function BatchAssessmentSection({
 
               {/* Step 3: Rate */}
               <button
-                className={`flex items-center gap-1 sm:gap-2 ${
-                  batchStep === "rate"
-                    ? "font-bold text-blue-700"
-                    : "text-gray-400"
-                }`}
+                className={`$ batchStep === "rate" ? "font-bold : "text-gray-400" flex items-center gap-1 text-blue-700" sm:gap-2`}
                 disabled={
                   selectedBatchPlayers.size === 0 ||
                   batchSelectedSkills.size === 0 ||
@@ -1738,11 +1855,7 @@ function BatchAssessmentSection({
                 }
               >
                 <div
-                  className={`flex h-8 w-8 shrink-0 items-center justify-center rounded-full ${
-                    batchStep === "rate"
-                      ? "bg-blue-600 text-white"
-                      : "bg-gray-200 text-gray-500"
-                  }`}
+                  className={`$ batchStep === "rate" ? "bg-blue-600 : "bg-gray-200 flex h-8 w-8 shrink-0 items-center justify-center rounded-full text-gray-500" text-white"`}
                 >
                   3
                 </div>
@@ -1783,18 +1896,14 @@ function BatchAssessmentSection({
           </CardHeader>
           <CardContent>
             <div className="grid gap-2 sm:grid-cols-2 lg:grid-cols-3">
-              {filteredPlayers.map(({ enrollment, player }, index) => {
+              {filteredPlayers.map(({ enrollment, player }, _index) => {
                 const isSelected = selectedBatchPlayers.has(
                   enrollment.playerIdentityId
                 );
                 return (
                   <button
-                    className={`flex items-center gap-3 rounded-lg border p-3 text-left transition-colors ${
-                      isSelected
-                        ? "border-blue-500 bg-blue-50"
-                        : "border-gray-200 hover:border-blue-300"
-                    }`}
-                    key={`${enrollment.playerIdentityId}-${index}`}
+                    className={`$ isSelected ? "border-blue-500 : "border-gray-200 flex items-center gap-3 rounded-lg border bg-blue-50" p-3 text-left transition-colors hover:border-blue-300"`}
+                    key={"$enrollment.playerIdentityId-$index"}
                     onClick={() => {
                       setSelectedBatchPlayers((prev) => {
                         const next = new Set(prev);
@@ -1808,9 +1917,7 @@ function BatchAssessmentSection({
                     }}
                   >
                     <div
-                      className={`flex h-8 w-8 items-center justify-center rounded-full ${
-                        isSelected ? "bg-blue-600" : "bg-gray-200"
-                      }`}
+                      className={`$ isSelected ? "bg-blue-600" : "bg-gray-200" flex h-8 w-8 items-center justify-center rounded-full`}
                     >
                       {isSelected ? (
                         <Check className="h-4 w-4 text-white" />
@@ -1896,11 +2003,7 @@ function BatchAssessmentSection({
                         const isSelected = batchSelectedSkills.has(skill.code);
                         return (
                           <Badge
-                            className={`cursor-pointer px-3 py-1.5 text-sm transition-colors ${
-                              isSelected
-                                ? "bg-blue-600 text-white hover:bg-blue-700"
-                                : "bg-gray-100 text-gray-700 hover:bg-gray-200"
-                            }`}
+                            className={`$ isSelected ? "bg-blue-600 : "bg-gray-100 cursor-pointer px-3 py-1.5 text-gray-700 text-sm text-white transition-colors hover:bg-blue-700" hover:bg-gray-200"`}
                             key={skill.code}
                             onClick={() => {
                               setBatchSelectedSkills((prev) => {

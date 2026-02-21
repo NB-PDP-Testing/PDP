@@ -60,7 +60,13 @@ import { useSession } from "@/lib/auth-client";
 import { AddGuardianModal } from "./components/add-guardian-modal";
 import { EditGuardianModal } from "./components/edit-guardian-modal";
 
-type StatusFilter = "all" | "accepted" | "pending" | "declined" | "missing";
+type StatusFilter =
+  | "all"
+  | "accepted"
+  | "pending"
+  | "declined"
+  | "missing"
+  | "incomplete";
 type ActiveSection = "links" | "unclaimed";
 
 export default function GuardianManagementPage() {
@@ -273,7 +279,7 @@ export default function GuardianManagementPage() {
         title: "Incomplete Contact Information",
         description: `${totalMissing} guardian record${totalMissing > 1 ? "s" : ""} missing email or phone details.`,
         action: "Review Contacts",
-        onClick: () => setStatusFilter("all"),
+        onClick: () => setStatusFilter("incomplete"),
         priority: "medium",
       });
     }
@@ -373,8 +379,11 @@ export default function GuardianManagementPage() {
     });
 
     // Only include guardians that have at least one child after filtering
+    // For "incomplete": also restrict to guardians with missing email or phone
     const validGuardians = guardiansWithFilteredChildren.filter(
-      (guardian: any) => guardian.players.length > 0
+      (guardian: any) =>
+        guardian.players.length > 0 &&
+        (statusFilter !== "incomplete" || !guardian.email || !guardian.phone)
     );
 
     // Group by family
@@ -471,8 +480,15 @@ export default function GuardianManagementPage() {
               p.playerName.toLowerCase().includes(searchQuery.toLowerCase())
             );
 
-          // For link-based filtering, we just need to ensure guardian has children after filtering
-          // No additional status check needed since we already filtered children
+          // For "incomplete": restrict to guardians with missing email or phone
+          if (
+            statusFilter === "incomplete" &&
+            guardian.email &&
+            guardian.phone
+          ) {
+            return false;
+          }
+
           return matchesSearch;
         });
       return filtered;
@@ -930,6 +946,18 @@ export default function GuardianManagementPage() {
                 <span className="hidden sm:inline">⚠️ </span>
                 <span className="hidden md:inline">Missing Contact</span>
                 <span className="md:hidden">Missing</span>
+              </button>
+              <button
+                className={`flex-shrink-0 border-b-2 px-2 py-2 font-medium text-sm transition-colors md:px-4 ${
+                  statusFilter === "incomplete"
+                    ? "border-primary text-primary"
+                    : "border-transparent text-muted-foreground hover:text-foreground"
+                }`}
+                onClick={() => setStatusFilter("incomplete")}
+              >
+                <span className="hidden sm:inline">📋 </span>
+                <span className="hidden md:inline">Missing Info</span>
+                <span className="md:hidden">Info</span>
               </button>
             </div>
           </div>
@@ -1768,8 +1796,11 @@ export default function GuardianManagementPage() {
                   "Declined Guardian-Player Links"}
                 {statusFilter === "missing" &&
                   "Players Without Guardian Contacts"}
+                {statusFilter === "incomplete" &&
+                  "Guardians With Incomplete Information"}
                 {groupByFamily &&
                   statusFilter !== "missing" &&
+                  statusFilter !== "incomplete" &&
                   "Family Grouping View"}
               </div>
               <div className="space-y-2 text-purple-800 dark:text-purple-200">
@@ -1846,6 +1877,22 @@ export default function GuardianManagementPage() {
                     <div>
                       • Missing guardian information prevents important
                       communications
+                    </div>
+                  </>
+                )}
+                {statusFilter === "incomplete" && (
+                  <>
+                    <div>
+                      <strong>Priority Action:</strong> Update contact details
+                      for these guardians
+                    </div>
+                    <div>
+                      • Click a guardian to expand and use the Edit button to
+                      add missing email or phone
+                    </div>
+                    <div>
+                      • Incomplete contact info limits the ability to send
+                      notifications and reminders
                     </div>
                   </>
                 )}

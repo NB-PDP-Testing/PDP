@@ -653,7 +653,8 @@ export default function AssessPlayerPage() {
         className="rounded-lg p-6 shadow-lg"
         style={{ filter: "brightness(0.95)" }}
       >
-        <div className="flex items-center justify-between">
+        <div className="flex flex-col gap-3">
+          {/* Top row: Back + Title */}
           <div className="flex items-center gap-4">
             <Button
               className="border-current/20 bg-current/10 hover:bg-current/20"
@@ -665,19 +666,21 @@ export default function AssessPlayerPage() {
               Back
             </Button>
             <div>
-              <h1 className="font-bold text-2xl">
+              <h1 className="font-bold text-xl sm:text-2xl">
                 {assessmentMode === "batch"
                   ? "Team Session Assessment"
                   : "Assess Player Skills"}
               </h1>
-              <p className="text-sm opacity-80">
+              <p className="hidden text-sm opacity-80 sm:block">
                 {assessmentMode === "batch"
                   ? "Record the same assessment for multiple players at once"
                   : "Record skill assessments with automatic benchmark comparison"}
               </p>
             </div>
           </div>
-          <div className="flex items-center gap-2">
+
+          {/* Controls row: Mode toggle + Benchmarks + Save All */}
+          <div className="flex flex-wrap items-center gap-2">
             {/* Mode Toggle */}
             <div className="flex rounded-lg border border-current/30 bg-current/10 p-1">
               <Button

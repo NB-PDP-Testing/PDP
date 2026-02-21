@@ -8,7 +8,7 @@ import {
   Check,
   ChevronRight,
   Loader2,
-  SkipForward,
+  Search,
   UserSearch,
   X,
 } from "lucide-react";
@@ -25,6 +25,7 @@ import {
   CardHeader,
   CardTitle,
 } from "@/components/ui/card";
+import { Input } from "@/components/ui/input";
 import { Skeleton } from "@/components/ui/skeleton";
 import { useOrgTheme } from "@/hooks/use-org-theme";
 
@@ -102,6 +103,16 @@ type MentionGroup = {
   candidates: Resolution["candidates"];
 };
 
+type OrgPlayer = {
+  _id: Id<"playerIdentities">;
+  name: string;
+  firstName: string;
+  lastName: string;
+  playerIdentityId: Id<"playerIdentities">;
+  ageGroup?: string;
+  sportCode?: string;
+};
+
 // ── Page component ───────────────────────────────────────────
 
 export default function DisambiguationPage({
@@ -118,14 +129,16 @@ export default function DisambiguationPage({
     { artifactId: artifactId as Id<"voiceNoteArtifacts"> }
   );
 
+  const orgPlayers = useQuery(
+    api.models.orgPlayerEnrollments.getPlayersForOrg,
+    { organizationId: orgId }
+  );
+
   const resolveEntity = useMutation(
     api.models.voiceNoteEntityResolutions.resolveEntity
   );
   const rejectResolution = useMutation(
     api.models.voiceNoteEntityResolutions.rejectResolution
-  );
-  const skipResolution = useMutation(
-    api.models.voiceNoteEntityResolutions.skipResolution
   );
 
   const [loadingId, setLoadingId] = useState<string | null>(null);
@@ -161,31 +174,34 @@ export default function DisambiguationPage({
   const handleReject = async (group: MentionGroup) => {
     setLoadingId(group.rawText);
     try {
-      // Reject each resolution individually
       for (const r of group.resolutions) {
         await rejectResolution({
           resolutionId: r._id,
           topCandidateScore: r.candidates[0]?.score ?? 0,
         });
       }
-      toast.success(`Marked "${group.rawText}" as unresolved`);
+      toast.success(`Dismissed "${group.rawText}"`);
     } catch {
-      toast.error("Failed to reject");
+      toast.error("Failed to dismiss");
     } finally {
       setLoadingId(null);
     }
   };
 
-  const handleSkipAll = async () => {
-    setLoadingId("skip-all");
+  const handleDismissAll = async () => {
+    setLoadingId("dismiss-all");
     try {
-      const allResolutions = mentionGroups.flatMap((g) => g.resolutions);
-      for (const r of allResolutions) {
-        await skipResolution({ resolutionId: r._id });
+      for (const group of mentionGroups) {
+        for (const r of group.resolutions) {
+          await rejectResolution({
+            resolutionId: r._id,
+            topCandidateScore: r.candidates[0]?.score ?? 0,
+          });
+        }
       }
-      toast.success("Skipped all remaining mentions");
+      toast.success("Dismissed all remaining mentions");
     } catch {
-      toast.error("Failed to skip");
+      toast.error("Failed to dismiss");
     } finally {
       setLoadingId(null);
     }
@@ -251,6 +267,7 @@ export default function DisambiguationPage({
           key={group.rawText}
           onReject={() => handleReject(group)}
           onResolve={(candidate) => handleResolve(group, candidate)}
+          orgPlayers={(orgPlayers ?? []) as OrgPlayer[]}
           theme={theme}
         />
       ))}
@@ -262,15 +279,15 @@ export default function DisambiguationPage({
             <Button
               className="flex-1"
               disabled={loadingId !== null}
-              onClick={handleSkipAll}
+              onClick={handleDismissAll}
               variant="outline"
             >
-              {loadingId === "skip-all" ? (
+              {loadingId === "dismiss-all" ? (
                 <Loader2 className="mr-2 h-4 w-4 animate-spin" />
               ) : (
-                <SkipForward className="mr-2 h-4 w-4" />
+                <X className="mr-2 h-4 w-4" />
               )}
-              Skip All Remaining
+              Dismiss All Remaining
             </Button>
           </div>
         </div>
@@ -334,19 +351,44 @@ function MentionGroupCard({
   onResolve,
   onReject,
   isLoading,
+  orgPlayers,
   theme,
 }: {
   group: MentionGroup;
   onResolve: (candidate: MentionGroup["candidates"][0]) => void;
   onReject: () => void;
   isLoading: boolean;
+  orgPlayers: OrgPlayer[];
   theme: ReturnType<typeof useOrgTheme>["theme"];
 }) {
   const [selectedId, setSelectedId] = useState<string | null>(null);
+  const [showSearch, setShowSearch] = useState(false);
+  const [searchTerm, setSearchTerm] = useState("");
 
   const selectedCandidate = group.candidates.find(
     (c) => c.entityId === selectedId
   );
+
+  const searchResults =
+    searchTerm.length >= 2
+      ? orgPlayers
+          .filter((p) =>
+            p.name.toLowerCase().includes(searchTerm.toLowerCase())
+          )
+          .slice(0, 8)
+      : [];
+
+  const handleSelectFromSearch = (player: OrgPlayer) => {
+    onResolve({
+      entityType: "player",
+      entityId: player.playerIdentityId as string,
+      entityName: player.name,
+      score: 1.0,
+      matchReason: "manual_search",
+    });
+    setShowSearch(false);
+    setSearchTerm("");
+  };
 
   return (
     <Card className={isLoading ? "pointer-events-none opacity-60" : ""}>
@@ -367,7 +409,7 @@ function MentionGroupCard({
         </CardDescription>
       </CardHeader>
       <CardContent className="space-y-2">
-        {/* Candidate options */}
+        {/* AI candidate options */}
         {group.candidates.map((candidate) => (
           <CandidateOption
             candidate={candidate}
@@ -378,59 +420,126 @@ function MentionGroupCard({
           />
         ))}
 
-        {/* None of these option */}
-        <button
-          className={`flex w-full items-center gap-3 rounded-lg border p-3 text-left transition-colors ${
-            selectedId === "none"
-              ? "border-red-300 bg-red-50"
-              : "hover:bg-muted/50"
-          }`}
-          onClick={() => setSelectedId("none")}
-          type="button"
-        >
-          <div
-            className={`flex h-5 w-5 shrink-0 items-center justify-center rounded-full border-2 ${
-              selectedId === "none"
-                ? "border-red-500 bg-red-500"
-                : "border-muted-foreground/30"
-            }`}
-          >
-            {selectedId === "none" && <X className="h-3 w-3 text-white" />}
-          </div>
-          <span className="text-muted-foreground text-sm">
-            None of these match
-          </span>
-        </button>
-
-        {/* Confirm button */}
-        {selectedId && (
+        {/* Confirm button for selected AI candidate */}
+        {selectedId && selectedCandidate && (
           <Button
             className="mt-3 w-full"
             disabled={isLoading}
-            onClick={() => {
-              if (selectedId === "none") {
-                onReject();
-              } else if (selectedCandidate) {
-                onResolve(selectedCandidate);
-              }
-            }}
+            onClick={() => onResolve(selectedCandidate)}
             style={
-              selectedId !== "none" && theme.primary
+              theme.primary
                 ? {
                     backgroundColor: theme.primary,
                     color: theme.primaryContrast,
                   }
                 : undefined
             }
-            variant={selectedId === "none" ? "destructive" : "default"}
           >
             {isLoading ? (
               <Loader2 className="mr-2 h-4 w-4 animate-spin" />
             ) : (
               <Check className="mr-2 h-4 w-4" />
             )}
-            {selectedId === "none" ? "Mark as Unresolved" : "Confirm Selection"}
+            Confirm Selection
           </Button>
+        )}
+
+        {/* Divider */}
+        <div className="border-t pt-1" />
+
+        {/* Search / dismiss section */}
+        {showSearch ? (
+          <div className="space-y-2">
+            <div className="flex items-center gap-2">
+              <div className="relative flex-1">
+                <Search className="-translate-y-1/2 absolute top-1/2 left-2.5 h-3.5 w-3.5 text-muted-foreground" />
+                <Input
+                  autoFocus
+                  className="h-8 pl-8 text-sm"
+                  onChange={(e) => setSearchTerm(e.target.value)}
+                  placeholder="Search by player name..."
+                  value={searchTerm}
+                />
+              </div>
+              <Button
+                onClick={() => {
+                  setShowSearch(false);
+                  setSearchTerm("");
+                }}
+                size="icon"
+                variant="ghost"
+              >
+                <X className="h-4 w-4" />
+              </Button>
+            </div>
+
+            {searchResults.length > 0 && (
+              <div className="space-y-1">
+                {searchResults.map((player) => (
+                  <button
+                    className="flex w-full items-center gap-3 rounded-lg border p-2.5 text-left text-sm transition-colors hover:bg-muted/50"
+                    key={player.playerIdentityId}
+                    onClick={() => handleSelectFromSearch(player)}
+                    type="button"
+                  >
+                    <div className="min-w-0 flex-1">
+                      <p className="font-medium">{player.name}</p>
+                      {(player.ageGroup ?? player.sportCode) && (
+                        <p className="text-muted-foreground text-xs">
+                          {[player.ageGroup, player.sportCode]
+                            .filter(Boolean)
+                            .join(" · ")}
+                        </p>
+                      )}
+                    </div>
+                    <ChevronRight className="h-4 w-4 shrink-0 text-muted-foreground" />
+                  </button>
+                ))}
+              </div>
+            )}
+
+            {searchTerm.length >= 2 && searchResults.length === 0 && (
+              <p className="py-2 text-center text-muted-foreground text-sm">
+                No players found for &ldquo;{searchTerm}&rdquo;
+              </p>
+            )}
+
+            {searchTerm.length < 2 && (
+              <p className="text-center text-muted-foreground text-xs">
+                Type at least 2 characters to search
+              </p>
+            )}
+          </div>
+        ) : (
+          <div className="flex gap-2">
+            <Button
+              className="flex-1 text-sm"
+              disabled={isLoading}
+              onClick={() => {
+                setShowSearch(true);
+                setSelectedId(null);
+              }}
+              size="sm"
+              variant="outline"
+            >
+              <Search className="mr-2 h-3.5 w-3.5" />
+              Search all players
+            </Button>
+            <Button
+              className="text-muted-foreground text-sm"
+              disabled={isLoading}
+              onClick={onReject}
+              size="sm"
+              variant="ghost"
+            >
+              {isLoading ? (
+                <Loader2 className="h-3.5 w-3.5 animate-spin" />
+              ) : (
+                <X className="mr-1.5 h-3.5 w-3.5" />
+              )}
+              Dismiss
+            </Button>
+          </div>
         )}
       </CardContent>
     </Card>

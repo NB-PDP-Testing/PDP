@@ -118,8 +118,8 @@ export function RatingSlider({
   const config = useMemo(() => getRatingConfig(value), [value]);
   const color = useMemo(() => getColorForRating(value), [value]);
 
-  // Calculate percentage for progress bar (0 = 0%, 1-5 mapped across 0-100%)
-  const percentage = value === 0 ? 0 : ((value - 1) / 4) * 100;
+  // Calculate percentage for progress overlay (0-5 scale: value/5 * 100%)
+  const percentage = (value / 5) * 100;
 
   // Determine if there's an improvement or decline from previous
   const change = previousValue ? value - previousValue : null;

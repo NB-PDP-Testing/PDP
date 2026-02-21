@@ -31,7 +31,7 @@ type PWAInstallPromptProps = {
 const VISIT_THRESHOLD = 5;
 
 /** Number of days to wait before showing prompt again after dismissal */
-const DISMISSAL_COOLDOWN_DAYS = 7;
+const DISMISSAL_COOLDOWN_DAYS = 30;
 
 // Top-level regex patterns for performance (Issue #274)
 const IOS_REGEX = /iPad|iPhone|iPod/;
@@ -310,6 +310,14 @@ export function PWAInstallPrompt({
                   <Plus className="h-4 w-4" />
                   <span>Add to Home Screen</span>
                 </div>
+                <Button
+                  className="mt-1"
+                  onClick={handleDismiss}
+                  size="sm"
+                  variant="ghost"
+                >
+                  Not now
+                </Button>
               </div>
             ) : (
               <div className="mt-3 flex gap-2">
@@ -325,7 +333,7 @@ export function PWAInstallPrompt({
 
           {/* Close button */}
           <Button
-            className="-mr-1 -mt-1 h-6 w-6 flex-shrink-0"
+            className="-mr-2 -mt-2 h-10 w-10 flex-shrink-0"
             onClick={handleDismiss}
             size="icon"
             variant="ghost"

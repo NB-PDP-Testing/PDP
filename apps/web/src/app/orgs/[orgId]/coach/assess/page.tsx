@@ -389,28 +389,23 @@ export default function AssessPlayerPage() {
       return null;
     }
 
-    const totalAssessments = assessmentHistory.length;
-    const skillsAssessed = new Set(assessmentHistory.map((a) => a.skillCode))
+    // Sessions = distinct assessment dates
+    const sessions = new Set(assessmentHistory.map((a) => a.assessmentDate))
       .size;
+    // Skills rated = distinct skill codes with at least one rating
+    const skillsRated = new Set(assessmentHistory.map((a) => a.skillCode)).size;
 
-    // Calculate average rating
+    // Average rating across all records
     const avgRating =
-      totalAssessments > 0
+      assessmentHistory.length > 0
         ? assessmentHistory.reduce((sum, a) => sum + a.rating, 0) /
-          totalAssessments
+          assessmentHistory.length
         : 0;
 
-    // Find recent improvements (skills that improved in last 30 days)
-    const thirtyDaysAgo = Date.now() - 30 * 24 * 60 * 60 * 1000;
-    const recentAssessments = assessmentHistory.filter(
-      (a) => new Date(a.assessmentDate).getTime() > thirtyDaysAgo
-    );
-
     return {
-      totalAssessments,
-      skillsAssessed,
+      sessions,
+      skillsRated,
       avgRating: avgRating.toFixed(1),
-      recentAssessments: recentAssessments.length,
       lastAssessmentDate:
         assessmentHistory.length > 0
           ? assessmentHistory[0].assessmentDate
@@ -890,12 +885,6 @@ export default function AssessPlayerPage() {
                   {selectedPlayer.enrollment.ageGroup?.toUpperCase()} | DOB:{" "}
                   {selectedPlayer.player.dateOfBirth ?? "Not set"}
                 </p>
-                {passport && (
-                  <Badge className="mt-1 bg-white" variant="outline">
-                    <Target className="mr-1 h-3 w-3" />
-                    {passport.assessmentCount} assessments
-                  </Badge>
-                )}
               </div>
             </CardContent>
           </Card>
@@ -908,22 +897,20 @@ export default function AssessPlayerPage() {
                   <BarChart3 className="h-6 w-6 text-purple-600" />
                 </div>
                 <div className="flex-1">
-                  {playerStats && playerStats.totalAssessments > 0 ? (
+                  {playerStats && playerStats.sessions > 0 ? (
                     <div className="grid grid-cols-2 gap-2 text-sm">
                       <div>
                         <p className="text-muted-foreground text-xs">
-                          Total Assessments
+                          Times Assessed
                         </p>
-                        <p className="font-semibold">
-                          {playerStats.totalAssessments}
-                        </p>
+                        <p className="font-semibold">{playerStats.sessions}</p>
                       </div>
                       <div>
                         <p className="text-muted-foreground text-xs">
-                          Skills Assessed
+                          Skills Rated
                         </p>
                         <p className="font-semibold">
-                          {playerStats.skillsAssessed}
+                          {playerStats.skillsRated}
                         </p>
                       </div>
                       <div>
@@ -944,6 +931,18 @@ export default function AssessPlayerPage() {
                                 playerStats.lastAssessmentDate
                               ).toLocaleDateString()
                             : "Never"}
+                        </p>
+                      </div>
+                      <div className="col-span-2">
+                        <p className="text-muted-foreground text-xs">
+                          Next Assessment Due
+                        </p>
+                        <p className="font-semibold text-xs">
+                          {selectedPlayer.enrollment.nextReviewDue
+                            ? new Date(
+                                selectedPlayer.enrollment.nextReviewDue
+                              ).toLocaleDateString()
+                            : "Not scheduled"}
                         </p>
                       </div>
                     </div>

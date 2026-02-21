@@ -31,7 +31,6 @@ import {
   UserPlus,
   Users,
   UsersRound,
-  UserX,
   Wrench,
 } from "lucide-react";
 import type { Route } from "next";
@@ -104,11 +103,6 @@ export function getAdminNavGroups(
           href: `/orgs/${orgId}/admin/users/approvals`,
           label: "Approvals",
           icon: UserCheck,
-        },
-        {
-          href: `/orgs/${orgId}/admin/unclaimed-guardians`,
-          label: "Unclaimed Guardians",
-          icon: UserX,
         },
         {
           href: `/orgs/${orgId}/admin/medical`,

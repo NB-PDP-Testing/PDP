@@ -24,6 +24,7 @@ import {
   UserCheck,
   Users,
   Users2,
+  UserX,
   X,
 } from "lucide-react";
 import Link from "next/link";
@@ -60,7 +61,13 @@ import { useSession } from "@/lib/auth-client";
 import { AddGuardianModal } from "./components/add-guardian-modal";
 import { EditGuardianModal } from "./components/edit-guardian-modal";
 
-type StatusFilter = "all" | "accepted" | "pending" | "declined" | "missing";
+type StatusFilter =
+  | "all"
+  | "accepted"
+  | "pending"
+  | "declined"
+  | "missing"
+  | "unclaimed";
 
 export default function GuardianManagementPage() {
   const params = useParams();
@@ -102,6 +109,10 @@ export default function GuardianManagementPage() {
   });
   const playersWithoutGuardians = useQuery(
     api.models.guardianManagement.getPlayersWithoutGuardians,
+    { organizationId: orgId }
+  );
+  const unclaimedGuardians = useQuery(
+    api.models.guardianIdentities.getUnclaimedGuardians,
     { organizationId: orgId }
   );
 
@@ -589,7 +600,7 @@ export default function GuardianManagementPage() {
       </div>
 
       {/* Stats Cards */}
-      <div className="grid gap-4 md:grid-cols-4">
+      <div className="grid gap-4 md:grid-cols-5">
         <Card>
           <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
             <CardTitle className="font-medium text-sm">Total Players</CardTitle>
@@ -655,6 +666,26 @@ export default function GuardianManagementPage() {
             </div>
             <p className="text-muted-foreground text-xs">
               Players with no guardian
+            </p>
+          </CardContent>
+        </Card>
+
+        <Card
+          className="cursor-pointer transition-colors hover:border-orange-600"
+          onClick={() => setStatusFilter("unclaimed")}
+        >
+          <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+            <CardTitle className="font-medium text-sm">
+              Unclaimed Guardians
+            </CardTitle>
+            <UserX className="h-4 w-4 text-orange-600" />
+          </CardHeader>
+          <CardContent>
+            <div className="font-bold text-2xl">
+              {unclaimedGuardians?.length ?? 0}
+            </div>
+            <p className="text-muted-foreground text-xs">
+              Awaiting account claim
             </p>
           </CardContent>
         </Card>
@@ -774,7 +805,7 @@ export default function GuardianManagementPage() {
               </div>
 
               {/* Group by Family Toggle */}
-              {statusFilter !== "missing" && (
+              {statusFilter !== "missing" && statusFilter !== "unclaimed" && (
                 <Button
                   onClick={() => setGroupByFamily(!groupByFamily)}
                   size="sm"
@@ -886,498 +917,522 @@ export default function GuardianManagementPage() {
             <span className="hidden md:inline">Missing Contact</span>
             <span className="md:hidden">Missing</span>
           </button>
+          <button
+            className={`flex-shrink-0 border-b-2 px-2 py-2 font-medium text-sm transition-colors md:px-4 ${
+              statusFilter === "unclaimed"
+                ? "border-primary text-primary"
+                : "border-transparent text-muted-foreground hover:text-foreground"
+            }`}
+            onClick={() => setStatusFilter("unclaimed")}
+          >
+            <span className="hidden sm:inline">🔓 </span>
+            <span className="hidden md:inline">Unclaimed</span>
+            <span className="md:hidden">Unclaimed</span>
+          </button>
         </div>
       </div>
 
       {/* Data Display */}
       <div className="space-y-4">
-        {statusFilter !== "missing" && !groupByFamily && (
-          <div className="space-y-2">
-            {filteredData.length === 0 ? (
-              <Card>
-                <CardContent className="flex min-h-[200px] items-center justify-center">
-                  <Empty>
-                    <EmptyHeader>
-                      <EmptyTitle>No Guardians Found</EmptyTitle>
-                      <EmptyDescription>
-                        No guardians match your current filters
-                      </EmptyDescription>
-                    </EmptyHeader>
-                  </Empty>
-                </CardContent>
-              </Card>
-            ) : (
-              filteredData.map((guardian: any) => (
-                <Card className="overflow-hidden" key={guardian.guardianId}>
-                  <CardContent className="p-0">
-                    <button
-                      className="flex w-full cursor-pointer items-center justify-between border-0 bg-transparent p-4 text-left hover:bg-muted/50"
-                      onClick={() => toggleRow(guardian.guardianId)}
-                      type="button"
-                    >
-                      <div className="flex items-center gap-4">
-                        <div className="text-muted-foreground">
-                          {expandedRows.has(guardian.guardianId) ? (
-                            <ChevronDown className="h-5 w-5" />
-                          ) : (
-                            <ChevronRight className="h-5 w-5" />
-                          )}
-                        </div>
-                        <div>
-                          <div className="font-medium">
-                            {guardian.firstName} {guardian.lastName}
+        {statusFilter !== "missing" &&
+          statusFilter !== "unclaimed" &&
+          !groupByFamily && (
+            <div className="space-y-2">
+              {filteredData.length === 0 ? (
+                <Card>
+                  <CardContent className="flex min-h-[200px] items-center justify-center">
+                    <Empty>
+                      <EmptyHeader>
+                        <EmptyTitle>No Guardians Found</EmptyTitle>
+                        <EmptyDescription>
+                          No guardians match your current filters
+                        </EmptyDescription>
+                      </EmptyHeader>
+                    </Empty>
+                  </CardContent>
+                </Card>
+              ) : (
+                filteredData.map((guardian: any) => (
+                  <Card className="overflow-hidden" key={guardian.guardianId}>
+                    <CardContent className="p-0">
+                      <button
+                        className="flex w-full cursor-pointer items-center justify-between border-0 bg-transparent p-4 text-left hover:bg-muted/50"
+                        onClick={() => toggleRow(guardian.guardianId)}
+                        type="button"
+                      >
+                        <div className="flex items-center gap-4">
+                          <div className="text-muted-foreground">
+                            {expandedRows.has(guardian.guardianId) ? (
+                              <ChevronDown className="h-5 w-5" />
+                            ) : (
+                              <ChevronRight className="h-5 w-5" />
+                            )}
                           </div>
-                          <div className="text-muted-foreground text-sm">
-                            {guardian.email} • {guardian.players.length} player
-                            {guardian.players.length !== 1 ? "s" : ""}
-                          </div>
-                        </div>
-                      </div>
-                      <div className="flex items-center gap-2">
-                        {getGuardianStatusBadge(guardian.hasUserAccount)}
-                      </div>
-                    </button>
-
-                    {expandedRows.has(guardian.guardianId) && (
-                      <div className="border-t bg-muted/20 p-4">
-                        <div className="space-y-3">
-                          <div className="text-sm">
-                            <div className="mb-2 font-medium">
-                              Contact Information:
+                          <div>
+                            <div className="font-medium">
+                              {guardian.firstName} {guardian.lastName}
                             </div>
-                            <div className="space-y-1 text-muted-foreground">
-                              <div className="flex items-center gap-2">
-                                <Mail className="h-3 w-3" />
-                                {guardian.email || "No email"}
+                            <div className="text-muted-foreground text-sm">
+                              {guardian.email} • {guardian.players.length}{" "}
+                              player
+                              {guardian.players.length !== 1 ? "s" : ""}
+                            </div>
+                          </div>
+                        </div>
+                        <div className="flex items-center gap-2">
+                          {getGuardianStatusBadge(guardian.hasUserAccount)}
+                        </div>
+                      </button>
+
+                      {expandedRows.has(guardian.guardianId) && (
+                        <div className="border-t bg-muted/20 p-4">
+                          <div className="space-y-3">
+                            <div className="text-sm">
+                              <div className="mb-2 font-medium">
+                                Contact Information:
                               </div>
-                              {guardian.phone && (
+                              <div className="space-y-1 text-muted-foreground">
                                 <div className="flex items-center gap-2">
-                                  <Phone className="h-3 w-3" />
-                                  {guardian.phone}
+                                  <Mail className="h-3 w-3" />
+                                  {guardian.email || "No email"}
                                 </div>
-                              )}
-                            </div>
-                          </div>
-
-                          <div className="text-sm">
-                            <div className="mb-2 font-medium">
-                              Linked Players:
-                            </div>
-                            <div className="space-y-2">
-                              {guardian.players.map((player: any) => (
-                                <div
-                                  className="flex items-center justify-between rounded-lg border bg-background p-2"
-                                  key={player.playerId}
-                                >
-                                  <div className="flex-1">
-                                    <div className="flex items-center gap-2">
-                                      <div className="font-medium text-sm">
-                                        {player.playerName}
-                                      </div>
-                                      {/* Per-child link status badge */}
-                                      {player.declinedByUserId ? (
-                                        <Badge
-                                          className="gap-1 bg-red-600"
-                                          variant="destructive"
-                                        >
-                                          <X className="h-3 w-3" />
-                                          Declined
-                                        </Badge>
-                                      ) : player.acknowledgedByParentAt ? (
-                                        <Badge
-                                          className="gap-1 bg-green-600"
-                                          variant="default"
-                                        >
-                                          <CheckCircle2 className="h-3 w-3" />
-                                          Accepted
-                                        </Badge>
-                                      ) : (
-                                        <Badge
-                                          className="gap-1 bg-yellow-600 text-white"
-                                          variant="secondary"
-                                        >
-                                          <Clock className="h-3 w-3" />
-                                          Pending
-                                        </Badge>
-                                      )}
-                                    </div>
-                                    <div className="text-muted-foreground text-xs">
-                                      {player.ageGroup} • {player.relationship}
-                                      {player.isPrimary && " (Primary)"}
-                                    </div>
+                                {guardian.phone && (
+                                  <div className="flex items-center gap-2">
+                                    <Phone className="h-3 w-3" />
+                                    {guardian.phone}
                                   </div>
-                                  <div className="flex gap-2">
-                                    <Button
-                                      onClick={() => {
-                                        setSelectedGuardianForEdit({
-                                          guardianPlayerLinkId: player.linkId,
-                                          guardianIdentityId:
-                                            guardian.guardianId,
-                                          playerIdentityId: player.playerId,
-                                          playerName: player.playerName,
-                                          firstName: guardian.firstName,
-                                          lastName: guardian.lastName,
-                                          email: guardian.email || "",
-                                          phone: guardian.phone,
-                                          relationship: player.relationship,
-                                        });
-                                        setEditGuardianModalOpen(true);
-                                      }}
-                                      size="sm"
-                                      variant="ghost"
-                                    >
-                                      <Edit className="h-4 w-4" />
-                                    </Button>
-                                    {player.declinedByUserId && (
-                                      <TooltipProvider>
-                                        <Tooltip>
-                                          <TooltipTrigger asChild>
-                                            <Button
-                                              onClick={() =>
-                                                handleResetDeclined(
-                                                  player.linkId,
-                                                  `${guardian.firstName} ${guardian.lastName}`
-                                                )
-                                              }
-                                              size="sm"
-                                              variant="ghost"
-                                            >
-                                              <Send className="h-4 w-4 text-blue-600" />
-                                            </Button>
-                                          </TooltipTrigger>
-                                          <TooltipContent>
-                                            <p className="max-w-xs text-sm">
-                                              Reset declined status - Guardian
-                                              can try claiming again
-                                            </p>
-                                          </TooltipContent>
-                                        </Tooltip>
-                                      </TooltipProvider>
-                                    )}
-                                    {!(
-                                      player.declinedByUserId ||
-                                      player.acknowledgedByParentAt
-                                    ) &&
-                                      guardian.email && (
+                                )}
+                              </div>
+                            </div>
+
+                            <div className="text-sm">
+                              <div className="mb-2 font-medium">
+                                Linked Players:
+                              </div>
+                              <div className="space-y-2">
+                                {guardian.players.map((player: any) => (
+                                  <div
+                                    className="flex items-center justify-between rounded-lg border bg-background p-2"
+                                    key={player.playerId}
+                                  >
+                                    <div className="flex-1">
+                                      <div className="flex items-center gap-2">
+                                        <div className="font-medium text-sm">
+                                          {player.playerName}
+                                        </div>
+                                        {/* Per-child link status badge */}
+                                        {player.declinedByUserId ? (
+                                          <Badge
+                                            className="gap-1 bg-red-600"
+                                            variant="destructive"
+                                          >
+                                            <X className="h-3 w-3" />
+                                            Declined
+                                          </Badge>
+                                        ) : player.acknowledgedByParentAt ? (
+                                          <Badge
+                                            className="gap-1 bg-green-600"
+                                            variant="default"
+                                          >
+                                            <CheckCircle2 className="h-3 w-3" />
+                                            Accepted
+                                          </Badge>
+                                        ) : (
+                                          <Badge
+                                            className="gap-1 bg-yellow-600 text-white"
+                                            variant="secondary"
+                                          >
+                                            <Clock className="h-3 w-3" />
+                                            Pending
+                                          </Badge>
+                                        )}
+                                      </div>
+                                      <div className="text-muted-foreground text-xs">
+                                        {player.ageGroup} •{" "}
+                                        {player.relationship}
+                                        {player.isPrimary && " (Primary)"}
+                                      </div>
+                                    </div>
+                                    <div className="flex gap-2">
+                                      <Button
+                                        onClick={() => {
+                                          setSelectedGuardianForEdit({
+                                            guardianPlayerLinkId: player.linkId,
+                                            guardianIdentityId:
+                                              guardian.guardianId,
+                                            playerIdentityId: player.playerId,
+                                            playerName: player.playerName,
+                                            firstName: guardian.firstName,
+                                            lastName: guardian.lastName,
+                                            email: guardian.email || "",
+                                            phone: guardian.phone,
+                                            relationship: player.relationship,
+                                          });
+                                          setEditGuardianModalOpen(true);
+                                        }}
+                                        size="sm"
+                                        variant="ghost"
+                                      >
+                                        <Edit className="h-4 w-4" />
+                                      </Button>
+                                      {player.declinedByUserId && (
                                         <TooltipProvider>
                                           <Tooltip>
                                             <TooltipTrigger asChild>
                                               <Button
                                                 onClick={() =>
-                                                  handleResendPendingNotification(
+                                                  handleResetDeclined(
                                                     player.linkId,
-                                                    guardian.email,
-                                                    guardian.firstName,
-                                                    guardian.lastName
+                                                    `${guardian.firstName} ${guardian.lastName}`
                                                   )
                                                 }
                                                 size="sm"
                                                 variant="ghost"
                                               >
-                                                <Send className="h-4 w-4 text-yellow-600" />
+                                                <Send className="h-4 w-4 text-blue-600" />
                                               </Button>
                                             </TooltipTrigger>
                                             <TooltipContent>
                                               <p className="max-w-xs text-sm">
-                                                Resend notification email
+                                                Reset declined status - Guardian
+                                                can try claiming again
                                               </p>
                                             </TooltipContent>
                                           </Tooltip>
                                         </TooltipProvider>
                                       )}
-                                    <Button
-                                      onClick={() =>
-                                        handleDeleteClick(
-                                          player.linkId,
-                                          `${guardian.firstName} ${guardian.lastName}`,
-                                          player.playerName
-                                        )
-                                      }
-                                      size="sm"
-                                      variant="ghost"
-                                    >
-                                      <Trash2 className="h-4 w-4 text-destructive" />
-                                    </Button>
-                                  </div>
-                                </div>
-                              ))}
-                            </div>
-                          </div>
-                        </div>
-                      </div>
-                    )}
-                  </CardContent>
-                </Card>
-              ))
-            )}
-          </div>
-        )}
-
-        {statusFilter !== "missing" && groupByFamily && (
-          <div className="space-y-3">
-            {getGroupedGuardians().length === 0 ? (
-              <Card>
-                <CardContent className="flex min-h-[200px] items-center justify-center">
-                  <p className="text-muted-foreground">No families found</p>
-                </CardContent>
-              </Card>
-            ) : (
-              getGroupedGuardians().map((family: any) => (
-                <Card className="overflow-hidden" key={family.familyName}>
-                  <CardContent className="p-0">
-                    <button
-                      className="flex w-full cursor-pointer items-center justify-between border-0 bg-muted/30 p-4 text-left hover:bg-muted/50"
-                      onClick={() => toggleRow(family.familyName)}
-                      type="button"
-                    >
-                      <div className="flex items-center gap-4">
-                        <button className="text-muted-foreground">
-                          {expandedRows.has(family.familyName) ? (
-                            <ChevronDown className="h-5 w-5" />
-                          ) : (
-                            <ChevronRight className="h-5 w-5" />
-                          )}
-                        </button>
-                        <Users2 className="h-5 w-5 text-primary" />
-                        <div>
-                          <div className="font-semibold text-lg capitalize">
-                            {family.familyName} Family
-                          </div>
-                          <div className="text-muted-foreground text-sm">
-                            {family.members.length} guardian
-                            {family.members.length !== 1 ? "s" : ""} •{" "}
-                            {family.playerCount} player
-                            {family.playerCount !== 1 ? "s" : ""}
-                          </div>
-                        </div>
-                      </div>
-                      <div className="flex items-center gap-2">
-                        <Badge variant="outline">
-                          {
-                            family.members.filter((g: any) => g.hasUserAccount)
-                              .length
-                          }{" "}
-                          / {family.members.length} claimed
-                        </Badge>
-                      </div>
-                    </button>
-
-                    {expandedRows.has(family.familyName) && (
-                      <div className="border-t bg-background p-4">
-                        <div className="space-y-4">
-                          {family.members.map((guardian: any) => (
-                            <div
-                              className="rounded-lg border bg-muted/20 p-4"
-                              key={guardian.guardianId}
-                            >
-                              <div className="mb-3 flex items-start justify-between">
-                                <div className="flex-1">
-                                  <div className="mb-2 flex items-center gap-2">
-                                    <span className="font-medium text-lg">
-                                      {guardian.firstName} {guardian.lastName}
-                                    </span>
-                                    {getGuardianStatusBadge(
-                                      guardian.hasUserAccount
-                                    )}
-                                  </div>
-                                  <div className="space-y-1 text-muted-foreground text-sm">
-                                    <div className="flex items-center gap-2">
-                                      <Mail className="h-3 w-3" />
-                                      {guardian.email || "No email"}
-                                    </div>
-                                    {guardian.phone && (
-                                      <div className="flex items-center gap-2">
-                                        <Phone className="h-3 w-3" />
-                                        {guardian.phone}
-                                      </div>
-                                    )}
-                                  </div>
-                                </div>
-                                <Button
-                                  onClick={() => {
-                                    // Edit guardian contact info (uses first player's link)
-                                    const firstPlayer = guardian.players[0];
-                                    if (firstPlayer) {
-                                      setSelectedGuardianForEdit({
-                                        guardianPlayerLinkId:
-                                          firstPlayer.linkId,
-                                        guardianIdentityId: guardian.guardianId,
-                                        playerIdentityId: firstPlayer.playerId,
-                                        playerName: firstPlayer.playerName,
-                                        firstName: guardian.firstName,
-                                        lastName: guardian.lastName,
-                                        email: guardian.email || "",
-                                        phone: guardian.phone,
-                                        relationship: firstPlayer.relationship,
-                                      });
-                                      setEditGuardianModalOpen(true);
-                                    }
-                                  }}
-                                  size="sm"
-                                  variant="ghost"
-                                >
-                                  <Edit className="h-4 w-4" />
-                                </Button>
-                              </div>
-
-                              <div className="border-t pt-3">
-                                <div className="mb-2 font-medium text-sm">
-                                  Linked Players ({guardian.players.length}):
-                                </div>
-                                <div className="space-y-2">
-                                  {guardian.players.map((player: any) => (
-                                    <div
-                                      className="flex items-center justify-between rounded-md border bg-background p-2"
-                                      key={player.playerId}
-                                    >
-                                      <div className="flex-1">
-                                        <div className="flex items-center gap-2">
-                                          <div className="font-medium text-sm">
-                                            {player.playerName}
-                                          </div>
-                                          {/* Per-child link status badge */}
-                                          {player.declinedByUserId ? (
-                                            <Badge
-                                              className="gap-1 bg-red-600"
-                                              variant="destructive"
-                                            >
-                                              <X className="h-3 w-3" />
-                                              Declined
-                                            </Badge>
-                                          ) : player.acknowledgedByParentAt ? (
-                                            <Badge
-                                              className="gap-1 bg-green-600"
-                                              variant="default"
-                                            >
-                                              <CheckCircle2 className="h-3 w-3" />
-                                              Accepted
-                                            </Badge>
-                                          ) : (
-                                            <Badge
-                                              className="gap-1 bg-yellow-600 text-white"
-                                              variant="secondary"
-                                            >
-                                              <Clock className="h-3 w-3" />
-                                              Pending
-                                            </Badge>
-                                          )}
-                                        </div>
-                                        <div className="text-muted-foreground text-xs">
-                                          {player.ageGroup} •{" "}
-                                          {player.relationship}
-                                          {player.isPrimary && " (Primary)"}
-                                        </div>
-                                      </div>
-                                      <div className="flex gap-2">
-                                        <Button
-                                          onClick={() => {
-                                            setSelectedGuardianForEdit({
-                                              guardianPlayerLinkId:
-                                                player.linkId,
-                                              guardianIdentityId:
-                                                guardian.guardianId,
-                                              playerIdentityId: player.playerId,
-                                              playerName: player.playerName,
-                                              firstName: guardian.firstName,
-                                              lastName: guardian.lastName,
-                                              email: guardian.email || "",
-                                              phone: guardian.phone,
-                                              relationship: player.relationship,
-                                            });
-                                            setEditGuardianModalOpen(true);
-                                          }}
-                                          size="sm"
-                                          variant="ghost"
-                                        >
-                                          <Edit className="h-4 w-4" />
-                                        </Button>
-                                        {player.declinedByUserId && (
+                                      {!(
+                                        player.declinedByUserId ||
+                                        player.acknowledgedByParentAt
+                                      ) &&
+                                        guardian.email && (
                                           <TooltipProvider>
                                             <Tooltip>
                                               <TooltipTrigger asChild>
                                                 <Button
                                                   onClick={() =>
-                                                    handleResetDeclined(
+                                                    handleResendPendingNotification(
                                                       player.linkId,
-                                                      `${guardian.firstName} ${guardian.lastName}`
+                                                      guardian.email,
+                                                      guardian.firstName,
+                                                      guardian.lastName
                                                     )
                                                   }
                                                   size="sm"
                                                   variant="ghost"
                                                 >
-                                                  <Send className="h-4 w-4 text-blue-600" />
+                                                  <Send className="h-4 w-4 text-yellow-600" />
                                                 </Button>
                                               </TooltipTrigger>
                                               <TooltipContent>
                                                 <p className="max-w-xs text-sm">
-                                                  Reset declined status -
-                                                  Guardian can try claiming
-                                                  again
+                                                  Resend notification email
                                                 </p>
                                               </TooltipContent>
                                             </Tooltip>
                                           </TooltipProvider>
                                         )}
-                                        {!(
-                                          player.declinedByUserId ||
-                                          player.acknowledgedByParentAt
-                                        ) &&
-                                          guardian.email && (
+                                      <Button
+                                        onClick={() =>
+                                          handleDeleteClick(
+                                            player.linkId,
+                                            `${guardian.firstName} ${guardian.lastName}`,
+                                            player.playerName
+                                          )
+                                        }
+                                        size="sm"
+                                        variant="ghost"
+                                      >
+                                        <Trash2 className="h-4 w-4 text-destructive" />
+                                      </Button>
+                                    </div>
+                                  </div>
+                                ))}
+                              </div>
+                            </div>
+                          </div>
+                        </div>
+                      )}
+                    </CardContent>
+                  </Card>
+                ))
+              )}
+            </div>
+          )}
+
+        {statusFilter !== "missing" &&
+          statusFilter !== "unclaimed" &&
+          groupByFamily && (
+            <div className="space-y-3">
+              {getGroupedGuardians().length === 0 ? (
+                <Card>
+                  <CardContent className="flex min-h-[200px] items-center justify-center">
+                    <p className="text-muted-foreground">No families found</p>
+                  </CardContent>
+                </Card>
+              ) : (
+                getGroupedGuardians().map((family: any) => (
+                  <Card className="overflow-hidden" key={family.familyName}>
+                    <CardContent className="p-0">
+                      <button
+                        className="flex w-full cursor-pointer items-center justify-between border-0 bg-muted/30 p-4 text-left hover:bg-muted/50"
+                        onClick={() => toggleRow(family.familyName)}
+                        type="button"
+                      >
+                        <div className="flex items-center gap-4">
+                          <button className="text-muted-foreground">
+                            {expandedRows.has(family.familyName) ? (
+                              <ChevronDown className="h-5 w-5" />
+                            ) : (
+                              <ChevronRight className="h-5 w-5" />
+                            )}
+                          </button>
+                          <Users2 className="h-5 w-5 text-primary" />
+                          <div>
+                            <div className="font-semibold text-lg capitalize">
+                              {family.familyName} Family
+                            </div>
+                            <div className="text-muted-foreground text-sm">
+                              {family.members.length} guardian
+                              {family.members.length !== 1 ? "s" : ""} •{" "}
+                              {family.playerCount} player
+                              {family.playerCount !== 1 ? "s" : ""}
+                            </div>
+                          </div>
+                        </div>
+                        <div className="flex items-center gap-2">
+                          <Badge variant="outline">
+                            {
+                              family.members.filter(
+                                (g: any) => g.hasUserAccount
+                              ).length
+                            }{" "}
+                            / {family.members.length} claimed
+                          </Badge>
+                        </div>
+                      </button>
+
+                      {expandedRows.has(family.familyName) && (
+                        <div className="border-t bg-background p-4">
+                          <div className="space-y-4">
+                            {family.members.map((guardian: any) => (
+                              <div
+                                className="rounded-lg border bg-muted/20 p-4"
+                                key={guardian.guardianId}
+                              >
+                                <div className="mb-3 flex items-start justify-between">
+                                  <div className="flex-1">
+                                    <div className="mb-2 flex items-center gap-2">
+                                      <span className="font-medium text-lg">
+                                        {guardian.firstName} {guardian.lastName}
+                                      </span>
+                                      {getGuardianStatusBadge(
+                                        guardian.hasUserAccount
+                                      )}
+                                    </div>
+                                    <div className="space-y-1 text-muted-foreground text-sm">
+                                      <div className="flex items-center gap-2">
+                                        <Mail className="h-3 w-3" />
+                                        {guardian.email || "No email"}
+                                      </div>
+                                      {guardian.phone && (
+                                        <div className="flex items-center gap-2">
+                                          <Phone className="h-3 w-3" />
+                                          {guardian.phone}
+                                        </div>
+                                      )}
+                                    </div>
+                                  </div>
+                                  <Button
+                                    onClick={() => {
+                                      // Edit guardian contact info (uses first player's link)
+                                      const firstPlayer = guardian.players[0];
+                                      if (firstPlayer) {
+                                        setSelectedGuardianForEdit({
+                                          guardianPlayerLinkId:
+                                            firstPlayer.linkId,
+                                          guardianIdentityId:
+                                            guardian.guardianId,
+                                          playerIdentityId:
+                                            firstPlayer.playerId,
+                                          playerName: firstPlayer.playerName,
+                                          firstName: guardian.firstName,
+                                          lastName: guardian.lastName,
+                                          email: guardian.email || "",
+                                          phone: guardian.phone,
+                                          relationship:
+                                            firstPlayer.relationship,
+                                        });
+                                        setEditGuardianModalOpen(true);
+                                      }
+                                    }}
+                                    size="sm"
+                                    variant="ghost"
+                                  >
+                                    <Edit className="h-4 w-4" />
+                                  </Button>
+                                </div>
+
+                                <div className="border-t pt-3">
+                                  <div className="mb-2 font-medium text-sm">
+                                    Linked Players ({guardian.players.length}):
+                                  </div>
+                                  <div className="space-y-2">
+                                    {guardian.players.map((player: any) => (
+                                      <div
+                                        className="flex items-center justify-between rounded-md border bg-background p-2"
+                                        key={player.playerId}
+                                      >
+                                        <div className="flex-1">
+                                          <div className="flex items-center gap-2">
+                                            <div className="font-medium text-sm">
+                                              {player.playerName}
+                                            </div>
+                                            {/* Per-child link status badge */}
+                                            {player.declinedByUserId ? (
+                                              <Badge
+                                                className="gap-1 bg-red-600"
+                                                variant="destructive"
+                                              >
+                                                <X className="h-3 w-3" />
+                                                Declined
+                                              </Badge>
+                                            ) : player.acknowledgedByParentAt ? (
+                                              <Badge
+                                                className="gap-1 bg-green-600"
+                                                variant="default"
+                                              >
+                                                <CheckCircle2 className="h-3 w-3" />
+                                                Accepted
+                                              </Badge>
+                                            ) : (
+                                              <Badge
+                                                className="gap-1 bg-yellow-600 text-white"
+                                                variant="secondary"
+                                              >
+                                                <Clock className="h-3 w-3" />
+                                                Pending
+                                              </Badge>
+                                            )}
+                                          </div>
+                                          <div className="text-muted-foreground text-xs">
+                                            {player.ageGroup} •{" "}
+                                            {player.relationship}
+                                            {player.isPrimary && " (Primary)"}
+                                          </div>
+                                        </div>
+                                        <div className="flex gap-2">
+                                          <Button
+                                            onClick={() => {
+                                              setSelectedGuardianForEdit({
+                                                guardianPlayerLinkId:
+                                                  player.linkId,
+                                                guardianIdentityId:
+                                                  guardian.guardianId,
+                                                playerIdentityId:
+                                                  player.playerId,
+                                                playerName: player.playerName,
+                                                firstName: guardian.firstName,
+                                                lastName: guardian.lastName,
+                                                email: guardian.email || "",
+                                                phone: guardian.phone,
+                                                relationship:
+                                                  player.relationship,
+                                              });
+                                              setEditGuardianModalOpen(true);
+                                            }}
+                                            size="sm"
+                                            variant="ghost"
+                                          >
+                                            <Edit className="h-4 w-4" />
+                                          </Button>
+                                          {player.declinedByUserId && (
                                             <TooltipProvider>
                                               <Tooltip>
                                                 <TooltipTrigger asChild>
                                                   <Button
                                                     onClick={() =>
-                                                      handleResendPendingNotification(
+                                                      handleResetDeclined(
                                                         player.linkId,
-                                                        guardian.email,
-                                                        guardian.firstName,
-                                                        guardian.lastName
+                                                        `${guardian.firstName} ${guardian.lastName}`
                                                       )
                                                     }
                                                     size="sm"
                                                     variant="ghost"
                                                   >
-                                                    <Send className="h-4 w-4 text-yellow-600" />
+                                                    <Send className="h-4 w-4 text-blue-600" />
                                                   </Button>
                                                 </TooltipTrigger>
                                                 <TooltipContent>
                                                   <p className="max-w-xs text-sm">
-                                                    Resend notification email
+                                                    Reset declined status -
+                                                    Guardian can try claiming
+                                                    again
                                                   </p>
                                                 </TooltipContent>
                                               </Tooltip>
                                             </TooltipProvider>
                                           )}
-                                        <Button
-                                          onClick={() =>
-                                            handleDeleteClick(
-                                              player.linkId,
-                                              `${guardian.firstName} ${guardian.lastName}`,
-                                              player.playerName
-                                            )
-                                          }
-                                          size="sm"
-                                          variant="ghost"
-                                        >
-                                          <Trash2 className="h-4 w-4 text-destructive" />
-                                        </Button>
+                                          {!(
+                                            player.declinedByUserId ||
+                                            player.acknowledgedByParentAt
+                                          ) &&
+                                            guardian.email && (
+                                              <TooltipProvider>
+                                                <Tooltip>
+                                                  <TooltipTrigger asChild>
+                                                    <Button
+                                                      onClick={() =>
+                                                        handleResendPendingNotification(
+                                                          player.linkId,
+                                                          guardian.email,
+                                                          guardian.firstName,
+                                                          guardian.lastName
+                                                        )
+                                                      }
+                                                      size="sm"
+                                                      variant="ghost"
+                                                    >
+                                                      <Send className="h-4 w-4 text-yellow-600" />
+                                                    </Button>
+                                                  </TooltipTrigger>
+                                                  <TooltipContent>
+                                                    <p className="max-w-xs text-sm">
+                                                      Resend notification email
+                                                    </p>
+                                                  </TooltipContent>
+                                                </Tooltip>
+                                              </TooltipProvider>
+                                            )}
+                                          <Button
+                                            onClick={() =>
+                                              handleDeleteClick(
+                                                player.linkId,
+                                                `${guardian.firstName} ${guardian.lastName}`,
+                                                player.playerName
+                                              )
+                                            }
+                                            size="sm"
+                                            variant="ghost"
+                                          >
+                                            <Trash2 className="h-4 w-4 text-destructive" />
+                                          </Button>
+                                        </div>
                                       </div>
-                                    </div>
-                                  ))}
+                                    ))}
+                                  </div>
                                 </div>
                               </div>
-                            </div>
-                          ))}
+                            ))}
+                          </div>
                         </div>
-                      </div>
-                    )}
-                  </CardContent>
-                </Card>
-              ))
-            )}
-          </div>
-        )}
+                      )}
+                    </CardContent>
+                  </Card>
+                ))
+              )}
+            </div>
+          )}
 
         {statusFilter === "missing" && (
           <div className="space-y-2">
@@ -1420,6 +1475,79 @@ export default function GuardianManagementPage() {
                   </CardContent>
                 </Card>
               ))
+            )}
+          </div>
+        )}
+
+        {statusFilter === "unclaimed" && (
+          <div className="space-y-2">
+            {!unclaimedGuardians || unclaimedGuardians.length === 0 ? (
+              <Card>
+                <CardContent className="flex min-h-[200px] items-center justify-center">
+                  <div className="text-center">
+                    <CheckCircle2 className="mx-auto mb-2 h-8 w-8 text-green-600" />
+                    <p className="font-medium">No Unclaimed Guardians!</p>
+                    <p className="text-muted-foreground text-sm">
+                      All guardian profiles have been claimed
+                    </p>
+                  </div>
+                </CardContent>
+              </Card>
+            ) : (
+              unclaimedGuardians.map(
+                (item: (typeof unclaimedGuardians)[number]) => (
+                  <Card key={item.guardian._id}>
+                    <CardContent className="flex items-start justify-between p-4">
+                      <div className="flex-1 space-y-1">
+                        <div className="font-medium">
+                          {item.guardian.firstName} {item.guardian.lastName}
+                        </div>
+                        <div className="flex items-center gap-2 text-muted-foreground text-sm">
+                          <Mail className="h-3 w-3" />
+                          {item.guardian.email}
+                        </div>
+                        {item.guardian.phone && (
+                          <div className="flex items-center gap-2 text-muted-foreground text-sm">
+                            <Phone className="h-3 w-3" />
+                            {item.guardian.phone}
+                          </div>
+                        )}
+                        <div className="flex flex-wrap items-center gap-2 pt-1">
+                          <Badge variant="secondary">
+                            {item.childrenCount}{" "}
+                            {item.childrenCount === 1 ? "child" : "children"}
+                          </Badge>
+                          <Badge variant="outline">
+                            {item.daysSinceCreated === 0
+                              ? "Today"
+                              : item.daysSinceCreated === 1
+                                ? "Yesterday"
+                                : `${item.daysSinceCreated} days ago`}
+                          </Badge>
+                          <Badge variant="secondary">
+                            {item.guardian.createdFrom || "Import"}
+                          </Badge>
+                        </div>
+                        {item.children.length > 0 && (
+                          <div className="pt-1 text-muted-foreground text-xs">
+                            Children:{" "}
+                            {item.children
+                              .map(
+                                (c: (typeof item.children)[number]) =>
+                                  `${c.firstName} ${c.lastName}`
+                              )
+                              .join(", ")}
+                          </div>
+                        )}
+                      </div>
+                      <Button size="sm" variant="outline">
+                        <Send className="mr-2 h-3 w-3" />
+                        Send Reminder
+                      </Button>
+                    </CardContent>
+                  </Card>
+                )
+              )
             )}
           </div>
         )}
@@ -1506,8 +1634,10 @@ export default function GuardianManagementPage() {
                   "Declined Guardian-Player Links"}
                 {statusFilter === "missing" &&
                   "Players Without Guardian Contacts"}
+                {statusFilter === "unclaimed" && "Unclaimed Guardian Profiles"}
                 {groupByFamily &&
                   statusFilter !== "missing" &&
+                  statusFilter !== "unclaimed" &&
                   "Family Grouping View"}
               </div>
               <div className="space-y-2 text-purple-800 dark:text-purple-200">
@@ -1584,6 +1714,22 @@ export default function GuardianManagementPage() {
                     <div>
                       • Missing guardian information prevents important
                       communications
+                    </div>
+                  </>
+                )}
+                {statusFilter === "unclaimed" && (
+                  <>
+                    <div>
+                      • These guardian profiles were created from data imports
+                      but haven't been claimed yet
+                    </div>
+                    <div>
+                      • When a parent signs up with the same email, they'll be
+                      prompted to claim their profile
+                    </div>
+                    <div>
+                      • Use "Send Reminder" to prompt guardians to create their
+                      account
                     </div>
                   </>
                 )}

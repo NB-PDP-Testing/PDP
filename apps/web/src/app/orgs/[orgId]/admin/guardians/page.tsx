@@ -14,6 +14,7 @@ import {
   Edit,
   Lightbulb,
   Mail,
+  MapPin,
   Phone,
   Plus,
   Search,
@@ -379,11 +380,26 @@ export default function GuardianManagementPage() {
     });
 
     // Only include guardians that have at least one child after filtering
-    // For "incomplete": also restrict to guardians with missing email or phone
+    // For "incomplete": restrict to claimed guardians with missing critical info
     const validGuardians = guardiansWithFilteredChildren.filter(
-      (guardian: any) =>
-        guardian.players.length > 0 &&
-        (statusFilter !== "incomplete" || !guardian.email || !guardian.phone)
+      (guardian: any) => {
+        if (guardian.players.length === 0) {
+          return false;
+        }
+        if (statusFilter === "incomplete") {
+          if (!guardian.hasUserAccount) {
+            return false;
+          }
+          const hasMissingInfo = !(
+            guardian.phone &&
+            guardian.postcode &&
+            guardian.firstName?.trim() &&
+            guardian.lastName?.trim()
+          );
+          return hasMissingInfo;
+        }
+        return true;
+      }
     );
 
     // Group by family
@@ -480,13 +496,20 @@ export default function GuardianManagementPage() {
               p.playerName.toLowerCase().includes(searchQuery.toLowerCase())
             );
 
-          // For "incomplete": restrict to guardians with missing email or phone
-          if (
-            statusFilter === "incomplete" &&
-            guardian.email &&
-            guardian.phone
-          ) {
-            return false;
+          // For "incomplete": restrict to claimed guardians with missing critical info
+          if (statusFilter === "incomplete") {
+            if (!guardian.hasUserAccount) {
+              return false;
+            }
+            const hasMissingInfo = !(
+              guardian.phone &&
+              guardian.postcode &&
+              guardian.firstName?.trim() &&
+              guardian.lastName?.trim()
+            );
+            if (!hasMissingInfo) {
+              return false;
+            }
           }
 
           return matchesSearch;
@@ -1022,14 +1045,28 @@ export default function GuardianManagementPage() {
                                 <div className="space-y-1 text-muted-foreground">
                                   <div className="flex items-center gap-2">
                                     <Mail className="h-3 w-3" />
-                                    {guardian.email || "No email"}
+                                    {guardian.email || (
+                                      <span className="text-red-500">
+                                        No email
+                                      </span>
+                                    )}
                                   </div>
-                                  {guardian.phone && (
-                                    <div className="flex items-center gap-2">
-                                      <Phone className="h-3 w-3" />
-                                      {guardian.phone}
-                                    </div>
-                                  )}
+                                  <div className="flex items-center gap-2">
+                                    <Phone className="h-3 w-3" />
+                                    {guardian.phone || (
+                                      <span className="text-red-500">
+                                        No phone
+                                      </span>
+                                    )}
+                                  </div>
+                                  <div className="flex items-center gap-2">
+                                    <MapPin className="h-3 w-3" />
+                                    {guardian.postcode || (
+                                      <span className="text-red-500">
+                                        No postcode
+                                      </span>
+                                    )}
+                                  </div>
                                 </div>
                               </div>
 

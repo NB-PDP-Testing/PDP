@@ -251,6 +251,7 @@ export const getGuardiansForOrg = query({
             lastName: guardian.lastName,
             email: guardian.email,
             phone: guardian.phone,
+            postcode: guardian.postcode,
             verificationStatus: guardian.verificationStatus,
             hasUserAccount: !!guardian.userId,
             userId: guardian.userId,

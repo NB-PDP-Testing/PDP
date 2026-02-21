@@ -1343,7 +1343,19 @@ export default function AssessPlayerPage() {
                 placeholder="Overall observations, areas for improvement, notable strengths..."
                 value={generalNotes}
               />
-              <div className="flex justify-end">
+              <div className="flex items-center justify-between">
+                <Button
+                  disabled={unsavedCount === 0 || isSaving}
+                  onClick={handleSaveAll}
+                >
+                  {isSaving ? (
+                    <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                  ) : (
+                    <Save className="mr-2 h-4 w-4" />
+                  )}
+                  Save All
+                  {unsavedCount > 0 && ` (${unsavedCount})`}
+                </Button>
                 <Button
                   disabled={!(generalNotes.trim() && passport) || isSaving}
                   onClick={async () => {

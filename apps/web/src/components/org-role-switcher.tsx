@@ -201,11 +201,20 @@ export function OrgRoleSwitcher({ className }: OrgRoleSwitcherProps) {
   // This prevents syncing when membership changes from manual role switch
   const prevPathnameRef = useRef(pathname);
 
+  // Track whether we've done the initial URL sync on first load.
+  // On initial mount, prevPathnameRef equals the current pathname so
+  // pathnameChanged is always false — without this flag the sync would
+  // never run when a user arrives directly at a role page (bookmark, back
+  // button, direct URL) while activeFunctionalRole in the DB doesn't match.
+  // Fix for Issue #455.
+  const hasInitialSyncedRef = useRef(false);
+
   // Fix for Issue #226: Sync activeFunctionalRole with URL pathname
   // When user navigates to a role page via links/back/forward/URL,
   // automatically update the database to match the current page
   //
-  // IMPORTANT: Only sync when PATHNAME CHANGES, not when membership changes.
+  // IMPORTANT: Only sync when PATHNAME CHANGES or on the initial load,
+  // not when membership changes from a manual role switch.
   // This prevents a race condition where:
   // 1. User clicks to switch role (parent → admin)
   // 2. Mutation updates membership to admin
@@ -214,13 +223,18 @@ export function OrgRoleSwitcher({ className }: OrgRoleSwitcherProps) {
   // 5. useEffect tries to sync BACK to parent → infinite loop!
   useEffect(() => {
     const syncRoleFromURL = async () => {
-      // Only sync when pathname actually changed (user navigated)
-      // Don't sync when membership changed from manual role switch
       const pathnameChanged = pathname !== prevPathnameRef.current;
       prevPathnameRef.current = pathname;
 
-      if (!pathnameChanged) {
-        return; // Membership changed but pathname didn't - skip sync
+      // Allow sync on first load once membership data is available,
+      // even though the pathname hasn't "changed" from React's perspective.
+      const isFirstLoad = !hasInitialSyncedRef.current && !!currentMembership;
+      if (isFirstLoad) {
+        hasInitialSyncedRef.current = true;
+      }
+
+      if (!(pathnameChanged || isFirstLoad)) {
+        return; // Membership changed from a manual switch - skip sync
       }
 
       if (!(urlOrgId && currentMembership && pathname)) {
@@ -269,10 +283,6 @@ export function OrgRoleSwitcher({ className }: OrgRoleSwitcherProps) {
     currentMembership?.functionalRoles,
     switchActiveRole,
     currentMembership,
-    // Note: currentMembership deliberately omitted - we already depend on
-    // the specific fields we check (activeFunctionalRole, functionalRoles).
-    // Including the entire object causes infinite loops as every Convex update
-    // creates a new object reference. See: docs/bugs/role-switcher-infinite-loop.md
   ]);
 
   // Set default org for request dialog when it opens

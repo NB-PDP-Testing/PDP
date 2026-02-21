@@ -1293,6 +1293,9 @@ export default function AssessPlayerPage() {
                         <CardTitle className="flex items-center gap-2">
                           <Award className="h-5 w-5 text-emerald-600" />
                           {categoryName}
+                          <span className="font-normal text-muted-foreground text-sm">
+                            ({categorySkills.length})
+                          </span>
                         </CardTitle>
                         <div className="flex items-center gap-2">
                           {savedCount > 0 && (

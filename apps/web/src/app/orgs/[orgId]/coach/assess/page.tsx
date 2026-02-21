@@ -864,13 +864,13 @@ export default function AssessPlayerPage() {
                   {selectedPlayer.enrollment.ageGroup?.toUpperCase()} | DOB:{" "}
                   {selectedPlayer.player.dateOfBirth ?? "Not set"}
                 </p>
+                {passport && (
+                  <Badge className="mt-1 bg-white" variant="outline">
+                    <Target className="mr-1 h-3 w-3" />
+                    {passport.assessmentCount} assessments
+                  </Badge>
+                )}
               </div>
-              {passport && (
-                <Badge className="bg-white" variant="outline">
-                  <Target className="mr-1 h-3 w-3" />
-                  {passport.assessmentCount} assessments
-                </Badge>
-              )}
             </CardContent>
           </Card>
 

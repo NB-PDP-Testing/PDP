@@ -577,8 +577,9 @@ export default function AssessPlayerPage() {
     const skillsToSave = Object.entries(ratings).filter(
       ([code]) => !savedSkills.has(code)
     );
+    const hasNotes = !!generalNotes.trim();
 
-    if (skillsToSave.length === 0) {
+    if (skillsToSave.length === 0 && !hasNotes) {
       toast.info("Nothing to save", {
         description: "All ratings have already been saved",
       });
@@ -595,6 +596,23 @@ export default function AssessPlayerPage() {
         saved += 1;
       } catch {
         errors += 1;
+      }
+    }
+
+    // Save development notes to player profile if present
+    if (hasNotes && passport) {
+      try {
+        const timestamp = new Date().toLocaleDateString();
+        const newNote = `[${timestamp}] ${generalNotes.trim()}`;
+        await updatePassportNotes({
+          passportId: passport._id,
+          coachNotes: passport.coachNotes
+            ? `${passport.coachNotes}\n\n${newNote}`
+            : newNote,
+        });
+        setGeneralNotes("");
+      } catch {
+        // Non-critical
       }
     }
 
@@ -622,6 +640,9 @@ export default function AssessPlayerPage() {
   }, [
     ratings,
     savedSkills,
+    generalNotes,
+    passport,
+    updatePassportNotes,
     handleSaveSkill,
     selectedPlayerId,
     markReviewComplete,
@@ -1354,8 +1375,8 @@ export default function AssessPlayerPage() {
             <CardHeader>
               <CardTitle>Development Notes</CardTitle>
               <CardDescription>
-                Add overall observations - these will be saved to the player's
-                profile
+                Any notes entered here will be saved to the player's profile
+                when you click Save All
               </CardDescription>
             </CardHeader>
             <CardContent className="space-y-4">
@@ -1365,51 +1386,11 @@ export default function AssessPlayerPage() {
                 placeholder="Overall observations, areas for improvement, notable strengths..."
                 value={generalNotes}
               />
-              <div className="flex items-center justify-end gap-3">
+              <div className="flex items-center justify-end">
                 <Button
-                  disabled={!(generalNotes.trim() && passport) || isSaving}
-                  onClick={async () => {
-                    if (!passport) {
-                      toast.error("No passport found for this player");
-                      return;
-                    }
-                    setIsSaving(true);
-                    try {
-                      // Append to existing notes with timestamp
-                      const timestamp = new Date().toLocaleDateString();
-                      const newNote = `[${timestamp}] ${generalNotes.trim()}`;
-                      await updatePassportNotes({
-                        passportId: passport._id,
-                        coachNotes: passport.coachNotes
-                          ? `${passport.coachNotes}\n\n${newNote}`
-                          : newNote,
-                      });
-                      toast.success("Development notes saved!", {
-                        description: "Notes added to player profile",
-                      });
-                      setGeneralNotes("");
-                    } catch (error) {
-                      toast.error("Failed to save notes", {
-                        description:
-                          error instanceof Error
-                            ? error.message
-                            : "Unknown error",
-                      });
-                    } finally {
-                      setIsSaving(false);
-                    }
-                  }}
-                  variant="outline"
-                >
-                  {isSaving ? (
-                    <Loader2 className="mr-2 h-4 w-4 animate-spin" />
-                  ) : (
-                    <Save className="mr-2 h-4 w-4" />
-                  )}
-                  Save to Player Profile
-                </Button>
-                <Button
-                  disabled={unsavedCount === 0 || isSaving}
+                  disabled={
+                    (unsavedCount === 0 && !generalNotes.trim()) || isSaving
+                  }
                   onClick={handleSaveAll}
                 >
                   {isSaving ? (

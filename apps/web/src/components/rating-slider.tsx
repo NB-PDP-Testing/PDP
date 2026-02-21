@@ -219,6 +219,7 @@ export function RatingSlider({
         {/* Rating labels */}
         {showLabels && (
           <div className="mt-1 flex justify-between text-gray-500 text-xs">
+            <span>0</span>
             <span>1</span>
             <span>2</span>
             <span>3</span>

@@ -88,6 +88,7 @@ export default function AssessPlayerPage() {
   const [isSaving, setIsSaving] = useState(false);
   const [savedSkills, setSavedSkills] = useState<Set<string>>(new Set());
   const [showBenchmarks, setShowBenchmarks] = useState(false);
+  const [playerSportCodes, setPlayerSportCodes] = useState<string[]>([]);
 
   // Batch assessment mode state
   const [assessmentMode, setAssessmentMode] =
@@ -821,7 +822,10 @@ export default function AssessPlayerPage() {
                   </SelectTrigger>
                   <SelectContent>
                     <SelectItem value="all">All Sports</SelectItem>
-                    {sports?.map((sport) => (
+                    {(playerSportCodes.length > 0
+                      ? sports?.filter((s) => playerSportCodes.includes(s.code))
+                      : sports
+                    )?.map((sport) => (
                       <SelectItem key={sport._id} value={sport.code}>
                         {sport.name}
                       </SelectItem>
@@ -1473,9 +1477,32 @@ export default function AssessPlayerPage() {
                   className="flex items-center gap-3 rounded-lg border border-gray-200 p-3 text-left transition-colors hover:border-emerald-300 hover:bg-emerald-50/50"
                   key={`${enrollment.playerIdentityId}-${index}`}
                   onClick={() => {
-                    setSelectedPlayerId(enrollment.playerIdentityId);
+                    const playerId = enrollment.playerIdentityId;
+                    setSelectedPlayerId(playerId);
                     setRatings({});
                     setSavedSkills(new Set());
+
+                    // Auto-select sport based on this player's team memberships
+                    if (allCoachTeamPlayers && coachAssignments) {
+                      const playerTeamIds = new Set(
+                        allCoachTeamPlayers
+                          .filter((m) => m.playerIdentityId === playerId)
+                          .map((m) => m.teamId)
+                      );
+                      const playerSports = [
+                        ...new Set(
+                          coachAssignments.teams
+                            .filter(
+                              (t) => playerTeamIds.has(t.teamId) && t.sportCode
+                            )
+                            .map((t) => t.sportCode as string)
+                        ),
+                      ];
+                      setPlayerSportCodes(playerSports);
+                      if (playerSports.length >= 1) {
+                        setSelectedSportCode(playerSports[0]);
+                      }
+                    }
                   }}
                   type="button"
                 >

@@ -488,7 +488,8 @@ export default function AssessPlayerPage() {
   // Save individual skill assessment
   const handleSaveSkill = useCallback(
     async (skillCode: string) => {
-      if (!(selectedPlayerId && selectedSportCode && ratings[skillCode])) {
+      const ratingToSave = ratings[skillCode] ?? existingRatings.get(skillCode);
+      if (!(selectedPlayerId && selectedSportCode && ratingToSave)) {
         toast.error("Cannot save", {
           description: "Please select a rating first",
         });
@@ -512,7 +513,7 @@ export default function AssessPlayerPage() {
         const result = await recordAssessment({
           passportId,
           skillCode,
-          rating: ratings[skillCode],
+          rating: ratingToSave,
           assessmentDate: new Date().toISOString().split("T")[0],
           assessmentType,
           assessedBy: currentUser?._id,
@@ -540,6 +541,7 @@ export default function AssessPlayerPage() {
       selectedPlayerId,
       selectedSportCode,
       ratings,
+      existingRatings,
       notes,
       passport,
       findOrCreatePassport,
@@ -1288,7 +1290,7 @@ export default function AssessPlayerPage() {
                             }
                             previousValue={existingRatings.get(skill.code)}
                             showLabels={true}
-                            value={(currentRating || 1) as Rating}
+                            value={currentRating as Rating}
                           />
 
                           {/* Notes */}

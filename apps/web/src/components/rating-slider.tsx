@@ -3,14 +3,20 @@
 import { useMemo } from "react";
 import { cn } from "@/lib/utils";
 
-// Rating type (1-5 scale)
-export type Rating = 1 | 2 | 3 | 4 | 5;
+// Rating type (0-5 scale, where 0 = not assessed)
+export type Rating = 0 | 1 | 2 | 3 | 4 | 5;
 
 // Rating configuration with colors and labels
 const RATING_CONFIG: Record<
   number,
   { label: string; color: string; bgColor: string; borderColor: string }
 > = {
+  0: {
+    label: "Not Assessed",
+    color: "text-gray-400",
+    bgColor: "bg-gray-300",
+    borderColor: "border-gray-300",
+  },
   1: {
     label: "Developing",
     color: "text-red-600",
@@ -45,6 +51,9 @@ const RATING_CONFIG: Record<
 
 // Helper functions
 export function getColorForRating(rating: number): string {
+  if (rating === 0) {
+    return "#9ca3af"; // gray-400
+  }
   if (rating <= 1) {
     return "#dc2626"; // red-600
   }
@@ -106,8 +115,8 @@ export function RatingSlider({
   const config = useMemo(() => getRatingConfig(value), [value]);
   const color = useMemo(() => getColorForRating(value), [value]);
 
-  // Calculate percentage for progress bar
-  const percentage = ((value - 1) / 4) * 100;
+  // Calculate percentage for progress bar (0 = 0%, 1-5 mapped across 0-100%)
+  const percentage = value === 0 ? 0 : ((value - 1) / 4) * 100;
 
   // Determine if there's an improvement or decline from previous
   const change = previousValue ? value - previousValue : null;
@@ -122,14 +131,14 @@ export function RatingSlider({
         )}
       >
         <div className="min-w-0 flex-1">
-          <label
+          <span
             className={cn(
               "font-medium text-gray-700",
               compact ? "text-sm" : "text-base"
             )}
           >
             {label}
-          </label>
+          </span>
           {description && (
             <p className="truncate text-gray-500 text-xs">{description}</p>
           )}
@@ -178,7 +187,7 @@ export function RatingSlider({
           )}
           disabled={disabled}
           max="5"
-          min="1"
+          min="0"
           onChange={(e) =>
             onChange(Number.parseInt(e.target.value, 10) as Rating)
           }

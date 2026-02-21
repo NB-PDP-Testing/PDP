@@ -352,6 +352,30 @@ export default function AssessPlayerPage() {
       );
     }
 
+    // Filter by sport if one is selected
+    if (
+      selectedSportCode &&
+      selectedSportCode !== "all" &&
+      allCoachTeamPlayers &&
+      coachAssignments
+    ) {
+      // Find which teams play this sport
+      const sportTeamIds = new Set(
+        coachAssignments.teams
+          .filter((t) => t.sportCode === selectedSportCode)
+          .map((t) => t.teamId)
+      );
+      // Keep players who are on at least one of those teams
+      const sportPlayerIds = new Set(
+        allCoachTeamPlayers
+          .filter((m) => sportTeamIds.has(m.teamId))
+          .map((m) => m.playerIdentityId)
+      );
+      filtered = filtered.filter((p) =>
+        sportPlayerIds.has(p.enrollment.playerIdentityId)
+      );
+    }
+
     // FINALLY: Filter by search query
     if (searchQuery.trim()) {
       const query = searchQuery.toLowerCase();
@@ -380,6 +404,7 @@ export default function AssessPlayerPage() {
     coachTeamIds,
     selectedTeamId,
     selectedTeamPlayers,
+    selectedSportCode,
     searchQuery,
   ]);
 
@@ -412,6 +437,19 @@ export default function AssessPlayerPage() {
           : null,
     };
   }, [assessmentHistory]);
+
+  // Derive teams and sports for selected player (for display in info card)
+  const playerTeams = useMemo(() => {
+    if (!(selectedPlayerId && allCoachTeamPlayers && coachAssignments)) {
+      return [];
+    }
+    const playerTeamIds = new Set(
+      allCoachTeamPlayers
+        .filter((m) => m.playerIdentityId === selectedPlayerId)
+        .map((m) => m.teamId)
+    );
+    return coachAssignments.teams.filter((t) => playerTeamIds.has(t.teamId));
+  }, [selectedPlayerId, allCoachTeamPlayers, coachAssignments]);
 
   // Auto-select sport from team (only when team is explicitly selected)
   useMemo(() => {
@@ -676,12 +714,24 @@ export default function AssessPlayerPage() {
           <div className="flex items-center gap-4">
             <Button
               className="border-current/20 bg-current/10 hover:bg-current/20"
-              onClick={() => router.back()}
+              onClick={() => {
+                if (selectedPlayerId) {
+                  setSelectedPlayerId(null);
+                  setRatings({});
+                  setSavedSkills(new Set());
+                  setSearchQuery("");
+                  setSelectedTeamId(null);
+                  setSelectedSportCode("all");
+                  setPlayerSportCodes([]);
+                } else {
+                  router.back();
+                }
+              }}
               size="sm"
               variant="outline"
             >
               <ArrowLeft className="mr-2 h-4 w-4" />
-              Back
+              {selectedPlayerId ? "Players" : "Back"}
             </Button>
             <div>
               <h1 className="font-bold text-xl sm:text-2xl">
@@ -885,6 +935,23 @@ export default function AssessPlayerPage() {
                   {selectedPlayer.enrollment.ageGroup?.toUpperCase()} | DOB:{" "}
                   {selectedPlayer.player.dateOfBirth ?? "Not set"}
                 </p>
+                {playerTeams.length > 0 && (
+                  <div className="mt-1.5 flex flex-wrap gap-1">
+                    {playerTeams.map((t) => (
+                      <span
+                        className="inline-flex items-center rounded-full bg-blue-100 px-2 py-0.5 text-blue-700 text-xs"
+                        key={t.teamId}
+                      >
+                        {t.teamName}
+                        {t.sportCode && (
+                          <span className="ml-1 text-blue-500">
+                            · {t.sportCode.toUpperCase()}
+                          </span>
+                        )}
+                      </span>
+                    ))}
+                  </div>
+                )}
               </div>
             </CardContent>
           </Card>

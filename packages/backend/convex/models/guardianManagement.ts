@@ -1,4 +1,5 @@
 import { v } from "convex/values";
+import { components } from "../_generated/api";
 import type { Doc } from "../_generated/dataModel";
 import { mutation, query } from "../_generated/server";
 
@@ -245,13 +246,35 @@ export const getGuardiansForOrg = query({
         }
 
         if (!guardianMap.has(guardian._id)) {
+          // For claimed guardians, merge Better Auth user profile data.
+          // The user may have updated phone/postcode in their profile
+          // which is stored in the Better Auth user table but not synced
+          // back to guardianIdentities.
+          let mergedPhone = guardian.phone;
+          let mergedPostcode = guardian.postcode;
+          if (guardian.userId) {
+            const baUser = await ctx.runQuery(
+              components.betterAuth.adapter.findOne,
+              {
+                model: "user",
+                where: [
+                  { field: "_id", value: guardian.userId, operator: "eq" },
+                ],
+              }
+            );
+            if (baUser) {
+              mergedPhone = guardian.phone ?? (baUser as any).phone;
+              mergedPostcode = guardian.postcode ?? (baUser as any).postcode;
+            }
+          }
+
           guardianMap.set(guardian._id, {
             guardianId: guardian._id,
             firstName: guardian.firstName,
             lastName: guardian.lastName,
             email: guardian.email,
-            phone: guardian.phone,
-            postcode: guardian.postcode,
+            phone: mergedPhone,
+            postcode: mergedPostcode,
             verificationStatus: guardian.verificationStatus,
             hasUserAccount: !!guardian.userId,
             userId: guardian.userId,

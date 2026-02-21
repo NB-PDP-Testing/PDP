@@ -96,6 +96,8 @@ type RatingSliderProps = {
   compact?: boolean;
   /** Show labels below slider */
   showLabels?: boolean;
+  /** Benchmark expected rating to display as a marker on the slider */
+  benchmarkValue?: number;
   /** Custom class name */
   className?: string;
 };
@@ -110,6 +112,7 @@ export function RatingSlider({
   disabled = false,
   compact = false,
   showLabels = true,
+  benchmarkValue,
   className,
 }: RatingSliderProps) {
   const config = useMemo(() => getRatingConfig(value), [value]);
@@ -203,6 +206,15 @@ export function RatingSlider({
           type="range"
           value={value}
         />
+
+        {/* Benchmark marker */}
+        {benchmarkValue !== undefined && (
+          <div
+            className="pointer-events-none absolute top-0 h-3 w-0.5 bg-blue-600"
+            style={{ left: `${(benchmarkValue / 5) * 100}%` }}
+            title={`Benchmark: ${benchmarkValue}`}
+          />
+        )}
 
         {/* Progress indicator overlay */}
         <div

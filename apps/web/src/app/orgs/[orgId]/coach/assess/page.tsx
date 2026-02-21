@@ -87,6 +87,7 @@ export default function AssessPlayerPage() {
   const [generalNotes, setGeneralNotes] = useState("");
   const [isSaving, setIsSaving] = useState(false);
   const [savedSkills, setSavedSkills] = useState<Set<string>>(new Set());
+  const [showBenchmarks, setShowBenchmarks] = useState(false);
 
   // Batch assessment mode state
   const [assessmentMode, setAssessmentMode] =
@@ -241,6 +242,25 @@ export default function AssessPlayerPage() {
         }
       : "skip"
   );
+
+  // Get benchmarks for selected player and sport
+  const benchmarksData = useQuery(
+    api.models.referenceData.getBenchmarksForPlayer,
+    selectedPlayerId && selectedSportCode && selectedSportCode !== "all"
+      ? {
+          sportCode: selectedSportCode,
+          dateOfBirth: selectedPlayer?.player.dateOfBirth ?? undefined,
+          ageGroup: selectedPlayer?.enrollment.ageGroup ?? undefined,
+        }
+      : "skip"
+  );
+
+  const benchmarksMap = useMemo(() => {
+    if (!benchmarksData) {
+      return new Map<string, number>();
+    }
+    return new Map(benchmarksData.map((b) => [b.skillCode, b.expectedRating]));
+  }, [benchmarksData]);
 
   // Get existing assessments for this player/sport
   const existingAssessments = useQuery(
@@ -697,6 +717,20 @@ export default function AssessPlayerPage() {
                 Team Session
               </Button>
             </div>
+
+            <Button
+              className={`text-sm ${
+                showBenchmarks
+                  ? "bg-blue-600 text-white hover:bg-blue-700"
+                  : "border-current/30 bg-current/10 hover:bg-current/20"
+              }`}
+              onClick={() => setShowBenchmarks((prev) => !prev)}
+              size="sm"
+              variant="outline"
+            >
+              <BarChart3 className="mr-1 h-4 w-4" />
+              Benchmarks {showBenchmarks ? "On" : "Off"}
+            </Button>
 
             {assessmentMode === "individual" && unsavedCount > 0 && (
               <Button
@@ -1282,6 +1316,11 @@ export default function AssessPlayerPage() {
                         {/* Rating Slider */}
                         <div className="space-y-3">
                           <RatingSlider
+                            benchmarkValue={
+                              showBenchmarks
+                                ? benchmarksMap.get(skill.code)
+                                : undefined
+                            }
                             compact={true}
                             isSaved={isSaved}
                             label=""

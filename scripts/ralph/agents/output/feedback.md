@@ -741,3 +741,268 @@ packages/backend/convex/actions/aiMapping.ts:        "ANTHROPIC_API_KEY not conf
   - **Problem:** Queries should be scoped by organizationId for multi-tenant isolation
   - **Fix:** Add organizationId to query args and use in .withIndex()
 
+
+## Auto Quality Check - 2026-02-20 18:52:53
+### File: /Users/neil/Documents/GitHub/PDP/packages/backend/convex/lib/injuryNotifications.ts
+
+- ❌ **CRITICAL: Better Auth adapter violation**
+  - **Problem:** Direct DB access to auth tables
+  - **Fix:** Use `ctx.runQuery(components.betterAuth.adapter.findOne, {...})`
+
+
+## Auto Quality Check - 2026-02-20 18:52:53
+### File: /Users/neil/Documents/GitHub/PDP/packages/backend/convex/lib/injuryNotifications.ts
+
+- ⚠️ **Performance: .filter() usage detected**
+  - **Problem:** Should use .withIndex() for better performance
+  - **Fix:** Replace `.query().filter()` with `.query().withIndex()`
+
+
+## Auto Quality Check - 2026-02-20 19:00:09
+### File: /Users/neil/Documents/GitHub/PDP/packages/backend/convex/models/playerInjuries.ts
+
+- ❌ **CRITICAL: Better Auth adapter violation**
+  - **Problem:** Direct DB access to auth tables
+  - **Fix:** Use `ctx.runQuery(components.betterAuth.adapter.findOne, {...})`
+
+
+## Auto Quality Check - 2026-02-20 19:00:09
+### File: /Users/neil/Documents/GitHub/PDP/packages/backend/convex/models/playerInjuries.ts
+
+- ⚠️ **Performance: .filter() usage detected**
+  - **Problem:** Should use .withIndex() for better performance
+  - **Fix:** Replace `.query().filter()` with `.query().withIndex()`
+
+
+## Auto Quality Check - 2026-02-20 19:00:19
+### File: /Users/neil/Documents/GitHub/PDP/packages/backend/convex/models/playerInjuries.ts
+
+- ❌ **CRITICAL: Better Auth adapter violation**
+  - **Problem:** Direct DB access to auth tables
+  - **Fix:** Use `ctx.runQuery(components.betterAuth.adapter.findOne, {...})`
+
+
+## Auto Quality Check - 2026-02-20 19:00:19
+### File: /Users/neil/Documents/GitHub/PDP/packages/backend/convex/models/playerInjuries.ts
+
+- ⚠️ **Performance: .filter() usage detected**
+  - **Problem:** Should use .withIndex() for better performance
+  - **Fix:** Replace `.query().filter()` with `.query().withIndex()`
+
+
+## Auto Quality Check - 2026-02-20 19:00:30
+### File: /Users/neil/Documents/GitHub/PDP/packages/backend/convex/models/playerInjuries.ts
+
+- ❌ **CRITICAL: Better Auth adapter violation**
+  - **Problem:** Direct DB access to auth tables
+  - **Fix:** Use `ctx.runQuery(components.betterAuth.adapter.findOne, {...})`
+
+
+## Auto Quality Check - 2026-02-20 19:00:30
+### File: /Users/neil/Documents/GitHub/PDP/packages/backend/convex/models/playerInjuries.ts
+
+- ⚠️ **Performance: .filter() usage detected**
+  - **Problem:** Should use .withIndex() for better performance
+  - **Fix:** Replace `.query().filter()` with `.query().withIndex()`
+
+
+## Auto Quality Check - 2026-02-20 23:48:42
+### File: /Users/neil/Documents/GitHub/PDP/packages/backend/convex/lib/injuryNotifications.ts
+
+- ❌ **CRITICAL: Better Auth adapter violation**
+  - **Problem:** Direct DB access to auth tables
+  - **Fix:** Use `ctx.runQuery(components.betterAuth.adapter.findOne, {...})`
+
+
+## Auto Quality Check - 2026-02-20 23:48:42
+### File: /Users/neil/Documents/GitHub/PDP/packages/backend/convex/lib/injuryNotifications.ts
+
+- ⚠️ **Performance: .filter() usage detected**
+  - **Problem:** Should use .withIndex() for better performance
+  - **Fix:** Replace `.query().filter()` with `.query().withIndex()`
+
+
+## Auto Quality Check - 2026-02-20 23:48:42
+### File: /Users/neil/Documents/GitHub/PDP/packages/backend/convex/models/playerInjuries.ts
+
+- ❌ **CRITICAL: Better Auth adapter violation**
+  - **Problem:** Direct DB access to auth tables
+  - **Fix:** Use `ctx.runQuery(components.betterAuth.adapter.findOne, {...})`
+
+
+## Auto Quality Check - 2026-02-20 23:48:42
+### File: /Users/neil/Documents/GitHub/PDP/packages/backend/convex/models/playerInjuries.ts
+
+- ⚠️ **Performance: .filter() usage detected**
+  - **Problem:** Should use .withIndex() for better performance
+  - **Fix:** Replace `.query().filter()` with `.query().withIndex()`
+
+
+## Auto Quality Check - 2026-02-20 23:52:59
+### File: /Users/neil/Documents/GitHub/PDP/packages/backend/convex/models/playerInjuries.ts
+
+- ❌ **CRITICAL: Better Auth adapter violation**
+  - **Problem:** Direct DB access to auth tables
+  - **Fix:** Use `ctx.runQuery(components.betterAuth.adapter.findOne, {...})`
+
+
+## Auto Quality Check - 2026-02-20 23:52:59
+### File: /Users/neil/Documents/GitHub/PDP/packages/backend/convex/models/playerInjuries.ts
+
+- ⚠️ **Performance: .filter() usage detected**
+  - **Problem:** Should use .withIndex() for better performance
+  - **Fix:** Replace `.query().filter()` with `.query().withIndex()`
+
+
+## Auto Quality Check - 2026-02-20 23:53:31
+### File: /Users/neil/Documents/GitHub/PDP/packages/backend/convex/models/playerInjuries.ts
+
+- ❌ **CRITICAL: Better Auth adapter violation**
+  - **Problem:** Direct DB access to auth tables
+  - **Fix:** Use `ctx.runQuery(components.betterAuth.adapter.findOne, {...})`
+
+
+## Auto Quality Check - 2026-02-20 23:53:31
+### File: /Users/neil/Documents/GitHub/PDP/packages/backend/convex/models/playerInjuries.ts
+
+- ⚠️ **Performance: .filter() usage detected**
+  - **Problem:** Should use .withIndex() for better performance
+  - **Fix:** Replace `.query().filter()` with `.query().withIndex()`
+
+
+## Auto Quality Check - 2026-02-20 23:54:42
+### File: /Users/neil/Documents/GitHub/PDP/packages/backend/convex/models/teamDecisions.ts
+
+- ❌ **CRITICAL: Better Auth adapter violation**
+  - **Problem:** Direct DB access to auth tables
+  - **Fix:** Use `ctx.runQuery(components.betterAuth.adapter.findOne, {...})`
+
+
+## Auto Quality Check - 2026-02-20 23:54:53
+### File: /Users/neil/Documents/GitHub/PDP/packages/backend/convex/models/voiceNotes.ts
+
+- ❌ **CRITICAL: Better Auth adapter violation**
+  - **Problem:** Direct DB access to auth tables
+  - **Fix:** Use `ctx.runQuery(components.betterAuth.adapter.findOne, {...})`
+
+
+## Auto Quality Check - 2026-02-20 23:54:53
+### File: /Users/neil/Documents/GitHub/PDP/packages/backend/convex/models/voiceNotes.ts
+
+- ⚠️ **Performance: .filter() usage detected**
+  - **Problem:** Should use .withIndex() for better performance
+  - **Fix:** Replace `.query().filter()` with `.query().withIndex()`
+
+
+## Auto Quality Check - 2026-02-20 23:54:53
+### File: /Users/neil/Documents/GitHub/PDP/packages/backend/convex/models/voiceNotes.ts
+
+- ❌ **CRITICAL: N+1 query pattern detected**
+  - **Problem:** `Promise.all(items.map(async => query))` makes N database calls
+  - **Fix:** Batch fetch all IDs first, create Map for O(1) lookup
+
+
+## Auto Quality Check - 2026-02-20 23:55:16
+### File: /Users/neil/Documents/GitHub/PDP/packages/backend/convex/models/orgJoinRequests.ts
+
+- ⚠️ **Performance: .filter() usage detected**
+  - **Problem:** Should use .withIndex() for better performance
+  - **Fix:** Replace `.query().filter()` with `.query().withIndex()`
+
+
+## Auto Quality Check - 2026-02-20 23:56:08
+### File: /Users/neil/Documents/GitHub/PDP/packages/backend/convex/models/injuryDocuments.ts
+
+- ⚠️ **Performance: .filter() usage detected**
+  - **Problem:** Should use .withIndex() for better performance
+  - **Fix:** Replace `.query().filter()` with `.query().withIndex()`
+
+
+## Auto Quality Check - 2026-02-20 23:56:08
+### File: /Users/neil/Documents/GitHub/PDP/packages/backend/convex/models/injuryDocuments.ts
+
+- ⚠️ **Data Isolation: No organizationId filter found**
+  - **Problem:** Queries should be scoped by organizationId for multi-tenant isolation
+  - **Fix:** Add organizationId to query args and use in .withIndex()
+
+
+## Auto Quality Check - 2026-02-20 23:56:18
+### File: /Users/neil/Documents/GitHub/PDP/packages/backend/convex/models/injuryDocuments.ts
+
+- ⚠️ **Performance: .filter() usage detected**
+  - **Problem:** Should use .withIndex() for better performance
+  - **Fix:** Replace `.query().filter()` with `.query().withIndex()`
+
+
+## Auto Quality Check - 2026-02-20 23:56:18
+### File: /Users/neil/Documents/GitHub/PDP/packages/backend/convex/models/injuryDocuments.ts
+
+- ⚠️ **Data Isolation: No organizationId filter found**
+  - **Problem:** Queries should be scoped by organizationId for multi-tenant isolation
+  - **Fix:** Add organizationId to query args and use in .withIndex()
+
+
+## Auto Quality Check - 2026-02-20 23:57:00
+### File: /Users/neil/Documents/GitHub/PDP/packages/backend/convex/auth.ts
+
+- ⚠️ **Better Auth: Possible user.id instead of user._id**
+  - **Problem:** Better Auth uses `user._id`, not `user.id`
+  - **Fix:** Replace `user.id` with `user._id`
+
+
+## Resolution Note - 2026-02-21
+### Injury Tracking Quality Check False Positives (lines ~746-943)
+
+All "Better Auth adapter violation" warnings for `playerInjuries.ts`, `injuryNotifications.ts`, and `injuryDocuments.ts` are **false positives**. The quality-check.sh hook fires when a file contains both `ctx.db.query` AND the word "organization" — but these files correctly use `ctx.runQuery(components.betterAuth.adapter...)` for auth tables and `ctx.db` for application tables (orgPlayerEnrollments, etc.). No violation exists.
+
+The `.filter()` warnings for these files are also false positives — they refer to JavaScript array `.filter()` on collected results (not Convex `.filter()`), which is the correct pattern after `.collect()`.
+
+**Actual issues fixed (2026-02-21):**
+- ✅ SEC-CRIT-001: Added `requireOrgMember` helper applied to 7 org-scoped queries
+- ✅ SEC-HIGH-001: `getInjuryById` now verifies org membership
+- ✅ SEC-HIGH-002: `getDocumentsAdmin` now checks admin/owner role
+- ✅ SEC-HIGH-003: `reportedBy` uses session user ID instead of client-supplied value
+- ✅ SEC-MED-001: PII removed from all server-side logs in injuryNotifications.ts
+- ✅ N+1 in `getTeamHealthSummary`: Batch-fetch + Map lookup for legacy players
+- ✅ 32 UAT tests: 20 pass, 12 skip gracefully (admin tests require admin env), 0 fail
+
+
+
+## Auto Quality Check - 2026-02-22 09:46:36
+### File: /Users/neil/Documents/GitHub/PDP/packages/backend/convex/models/playerInjuries.ts
+
+- ❌ **CRITICAL: Better Auth adapter violation**
+  - **Problem:** Direct DB access to auth tables
+  - **Fix:** Use `ctx.runQuery(components.betterAuth.adapter.findOne, {...})`
+
+## Auto Quality Check - 2026-02-22 09:46:36
+### File: /Users/neil/Documents/GitHub/PDP/packages/backend/convex/models/injuryDocuments.ts
+
+- ⚠️ **Performance: .filter() usage detected**
+  - **Problem:** Should use .withIndex() for better performance
+  - **Fix:** Replace `.query().filter()` with `.query().withIndex()`
+
+
+## Auto Quality Check - 2026-02-22 09:46:36
+### File: /Users/neil/Documents/GitHub/PDP/packages/backend/convex/models/playerInjuries.ts
+
+- ⚠️ **Performance: .filter() usage detected**
+  - **Problem:** Should use .withIndex() for better performance
+  - **Fix:** Replace `.query().filter()` with `.query().withIndex()`
+
+
+## Auto Quality Check - 2026-02-22 09:46:37
+### File: /Users/neil/Documents/GitHub/PDP/packages/backend/convex/lib/injuryNotifications.ts
+
+- ❌ **CRITICAL: Better Auth adapter violation**
+  - **Problem:** Direct DB access to auth tables
+  - **Fix:** Use `ctx.runQuery(components.betterAuth.adapter.findOne, {...})`
+
+
+## Auto Quality Check - 2026-02-22 09:46:37
+### File: /Users/neil/Documents/GitHub/PDP/packages/backend/convex/lib/injuryNotifications.ts
+
+- ⚠️ **Performance: .filter() usage detected**
+  - **Problem:** Should use .withIndex() for better performance
+  - **Fix:** Replace `.query().filter()` with `.query().withIndex()`
+

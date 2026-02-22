@@ -1,6 +1,7 @@
 import { v } from "convex/values";
 import { components } from "../_generated/api";
 import type { Doc } from "../_generated/dataModel";
+import type { MutationCtx, QueryCtx } from "../_generated/server";
 import { mutation, query } from "../_generated/server";
 import { authComponent } from "../auth";
 import type { Doc as BetterAuthDoc } from "../betterAuth/_generated/dataModel";
@@ -14,6 +15,32 @@ import {
 // ============================================================
 // TYPE DEFINITIONS
 // ============================================================
+
+/**
+ * Verify the authenticated user is a member of the given organization.
+ * Throws with 403 if not a member — prevents cross-org data access (SEC-CRIT-001).
+ */
+async function requireOrgMember(
+  ctx: QueryCtx | MutationCtx,
+  userId: string,
+  organizationId: string
+): Promise<void> {
+  const member = await ctx.runQuery(components.betterAuth.adapter.findOne, {
+    model: "member",
+    where: [
+      { field: "userId", value: userId, operator: "eq" },
+      {
+        field: "organizationId",
+        value: organizationId,
+        operator: "eq",
+        connector: "AND",
+      },
+    ],
+  });
+  if (!member) {
+    throw new Error("Not authorized: not a member of this organization");
+  }
+}
 
 const severityValidator = v.union(
   v.literal("minor"),
@@ -127,7 +154,16 @@ export const getInjuryById = query({
     if (!user) {
       throw new Error("Not authenticated");
     }
-    return await ctx.db.get(args.injuryId);
+    const injury = await ctx.db.get(args.injuryId);
+    if (!injury) {
+      return null;
+    }
+    // Verify the user has org membership for the injury's organization (SEC-HIGH-001)
+    const orgId = injury.occurredAtOrgId;
+    if (orgId) {
+      await requireOrgMember(ctx, user._id, orgId);
+    }
+    return injury;
   },
 });
 
@@ -273,6 +309,7 @@ export const getActiveInjuriesForOrg = query({
     if (!user) {
       throw new Error("Not authenticated");
     }
+    await requireOrgMember(ctx, user._id, args.organizationId);
 
     const injuries = await ctx.db
       .query("playerInjuries")
@@ -328,6 +365,7 @@ export const getAllActiveInjuriesForOrg = query({
     if (!user) {
       throw new Error("Not authenticated");
     }
+    await requireOrgMember(ctx, user._id, args.organizationId);
 
     // Get all active enrollments using composite index (no JS filter)
     const activeEnrollments = await ctx.db
@@ -406,6 +444,7 @@ export const getAllInjuriesForOrg = query({
     if (!user) {
       throw new Error("Not authenticated");
     }
+    await requireOrgMember(ctx, user._id, args.organizationId);
 
     // Get all active enrollments using composite index (no JS filter)
     const activeEnrollments = await ctx.db
@@ -773,6 +812,7 @@ export const getOrgInjuryAnalytics = query({
     if (!user) {
       throw new Error("Not authenticated");
     }
+    await requireOrgMember(ctx, user._id, args.organizationId);
 
     // 1. Get all active enrollments for the org
     const enrollments = await ctx.db
@@ -906,6 +946,7 @@ export const getInjuriesByTeam = query({
     if (!user) {
       throw new Error("Not authenticated");
     }
+    await requireOrgMember(ctx, user._id, args.organizationId);
 
     // 1. Fetch all teams for the org via Better Auth adapter
     const teamsResult = await ctx.runQuery(
@@ -1057,6 +1098,7 @@ export const getInjuryTrends = query({
     if (!user) {
       throw new Error("Not authenticated");
     }
+    await requireOrgMember(ctx, user._id, args.organizationId);
 
     const days = args.periodDays ?? 30;
     const now = new Date();
@@ -1190,6 +1232,7 @@ export const getRecentInjuriesForAdmin = query({
     if (!user) {
       throw new Error("Not authenticated");
     }
+    await requireOrgMember(ctx, user._id, args.organizationId);
 
     const maxResults = args.limit ?? 50;
 
@@ -1403,7 +1446,7 @@ export const reportInjury = mutation({
       sportCode: args.sportCode,
       isVisibleToAllOrgs: args.isVisibleToAllOrgs ?? true, // Default to visible
       restrictedToOrgIds: args.restrictedToOrgIds,
-      reportedBy: args.reportedBy,
+      reportedBy: user._id ?? args.reportedBy,
       reportedByRole: args.reportedByRole,
       createdAt: now,
       updatedAt: now,
@@ -2377,41 +2420,57 @@ export const getTeamHealthSummary = query({
     });
 
     // Step 6: Get medical alert counts
-    // Medical profiles are linked via legacy players table, need to match by name
+    // Medical profiles are linked via legacy players table, need to match by name.
+    // Batch-fetch all legacy players for the org once to avoid N+1.
     let allergyCount = 0;
     let medicationCount = 0;
 
+    const legacyPlayersForOrg = await ctx.db
+      .query("players")
+      .withIndex("by_organizationId", (q) =>
+        q.eq("organizationId", args.organizationId)
+      )
+      .collect();
+
+    // Build a map from full name to legacy player for O(1) lookup
+    const legacyPlayerByName = new Map<
+      string,
+      (typeof legacyPlayersForOrg)[0]
+    >();
+    for (const lp of legacyPlayersForOrg) {
+      legacyPlayerByName.set(lp.name, lp);
+    }
+
+    // Collect all legacy player IDs that match our players
+    const legacyPlayerIds: (typeof legacyPlayersForOrg)[0]["_id"][] = [];
     for (const playerId of uniquePlayerIds) {
       const player = playerMap.get(playerId);
       if (!player) {
         continue;
       }
-
       const fullName = `${player.firstName} ${player.lastName}`;
-      const legacyPlayer = await ctx.db
-        .query("players")
-        .withIndex("by_organizationId", (q) =>
-          q.eq("organizationId", args.organizationId)
-        )
-        .filter((q) => q.eq(q.field("name"), fullName))
+      const legacyPlayer = legacyPlayerByName.get(fullName);
+      if (legacyPlayer) {
+        legacyPlayerIds.push(legacyPlayer._id);
+      }
+    }
+
+    // Batch-fetch all medical profiles for these legacy players
+    for (const legacyPlayerId of legacyPlayerIds) {
+      const medicalProfile = await ctx.db
+        .query("medicalProfiles")
+        .withIndex("by_playerId", (q) => q.eq("playerId", legacyPlayerId))
         .first();
 
-      if (legacyPlayer) {
-        const medicalProfile = await ctx.db
-          .query("medicalProfiles")
-          .withIndex("by_playerId", (q) => q.eq("playerId", legacyPlayer._id))
-          .first();
-
-        if (medicalProfile) {
-          if (medicalProfile.allergies && medicalProfile.allergies.length > 0) {
-            allergyCount += 1;
-          }
-          if (
-            medicalProfile.medications &&
-            medicalProfile.medications.length > 0
-          ) {
-            medicationCount += 1;
-          }
+      if (medicalProfile) {
+        if (medicalProfile.allergies && medicalProfile.allergies.length > 0) {
+          allergyCount += 1;
+        }
+        if (
+          medicalProfile.medications &&
+          medicalProfile.medications.length > 0
+        ) {
+          medicationCount += 1;
         }
       }
     }

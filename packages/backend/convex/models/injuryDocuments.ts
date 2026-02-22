@@ -1,4 +1,5 @@
 import { v } from "convex/values";
+import { components } from "../_generated/api";
 import { action, mutation, query } from "../_generated/server";
 import { authComponent } from "../auth";
 
@@ -189,6 +190,45 @@ export const getDocumentsAdmin = query({
     const user = await authComponent.safeGetAuthUser(ctx);
     if (!user) {
       throw new Error("Not authenticated");
+    }
+
+    // Verify the injury exists and check admin access (SEC-HIGH-002)
+    const injury = await ctx.db.get(args.injuryId);
+    if (!injury) {
+      return [];
+    }
+
+    if (injury.occurredAtOrgId) {
+      // Check user is an admin or owner of the org
+      const memberResult = await ctx.runQuery(
+        components.betterAuth.adapter.findOne,
+        {
+          model: "member",
+          where: [
+            { field: "userId", value: user._id, operator: "eq" },
+            {
+              field: "organizationId",
+              value: injury.occurredAtOrgId,
+              operator: "eq",
+              connector: "AND",
+            },
+          ],
+        }
+      );
+      const member = memberResult as {
+        role?: string;
+        functionalRoles?: string[];
+      } | null;
+      const isAdmin =
+        member?.role === "admin" ||
+        member?.role === "owner" ||
+        (Array.isArray(member?.functionalRoles) &&
+          member.functionalRoles.includes("admin"));
+      if (!isAdmin) {
+        throw new Error(
+          "Not authorized: admin role required to access all documents"
+        );
+      }
     }
 
     return await ctx.db

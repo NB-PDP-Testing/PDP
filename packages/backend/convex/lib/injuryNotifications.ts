@@ -124,8 +124,6 @@ export async function getAdminUserIdsForOrg(
     { organizationId }
   );
 
-  console.log("[getAdminUserIdsForOrg] Admin IDs found:", adminIds.length);
-
   return adminIds;
 }
 
@@ -165,16 +163,6 @@ export async function notifyInjuryReported(
 
   const recipientUserIds: string[] = [];
 
-  console.log("[notifyInjuryReported] Starting notification process:", {
-    injuryId,
-    playerIdentityId,
-    organizationId,
-    reportedByUserId,
-    reportedByRole,
-    severity,
-    playerName,
-  });
-
   // Determine who to notify based on who reported
   if (reportedByRole === "guardian" || reportedByRole === "player") {
     // Parent/player reported → notify coaches
@@ -183,7 +171,6 @@ export async function notifyInjuryReported(
       playerIdentityId,
       organizationId
     );
-    console.log("[notifyInjuryReported] Coach IDs to notify:", coachIds);
     recipientUserIds.push(...coachIds);
   } else {
     // Coach/admin reported → notify parents
@@ -191,17 +178,12 @@ export async function notifyInjuryReported(
       ctx,
       playerIdentityId
     );
-    console.log("[notifyInjuryReported] Guardian IDs to notify:", guardianIds);
     recipientUserIds.push(...guardianIds);
   }
 
   // For severe injuries, also notify admins
   if (severity === "severe" || severity === "long_term") {
     const adminIds = await getAdminUserIdsForOrg(ctx, organizationId);
-    console.log(
-      "[notifyInjuryReported] Admin IDs to notify (severe):",
-      adminIds
-    );
     recipientUserIds.push(...adminIds);
   }
 
@@ -212,13 +194,6 @@ export async function notifyInjuryReported(
 
   // Remove duplicates
   const uniqueRecipients = [...new Set(filteredRecipients)];
-
-  console.log("[notifyInjuryReported] Final recipients:", {
-    allRecipients: recipientUserIds,
-    filteredRecipients,
-    uniqueRecipients,
-    reportedByUserId,
-  });
 
   // Create notifications for each recipient
   const notificationType =
@@ -247,9 +222,7 @@ export async function notifyInjuryReported(
     });
   }
 
-  console.log(
-    `[notifyInjuryReported] Created ${uniqueRecipients.length} notifications for injury ${injuryId}`
-  );
+  console.log("[notifyInjuryReported] Created notifications for injury");
 }
 
 /**
@@ -366,12 +339,6 @@ export async function notifyMilestoneCompleted(
 
   const recipientUserIds: string[] = [];
 
-  console.log("[notifyMilestoneCompleted] Starting notification process:", {
-    injuryId,
-    completedByRole,
-    milestoneDescription,
-  });
-
   // Determine who to notify based on who completed the milestone
   if (completedByRole === "guardian" || completedByRole === "player") {
     // Parent completed → notify coaches
@@ -445,11 +412,7 @@ export async function notifyMedicalClearance(
     bodyPart,
   } = args;
 
-  console.log("[notifyMedicalClearance] Starting notification process:", {
-    injuryId,
-    playerName,
-    bodyPart,
-  });
+  console.log("[notifyMedicalClearance] Starting notification process");
 
   // Notify both coaches and parents (except the submitter)
   const [coachIds, guardianIds] = await Promise.all([

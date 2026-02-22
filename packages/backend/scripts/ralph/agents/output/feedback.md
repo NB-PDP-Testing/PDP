@@ -390,3 +390,35 @@
   - **Problem:** `Promise.all(items.map(async => query))` makes N database calls
   - **Fix:** Batch fetch all IDs first, create Map for O(1) lookup
 
+
+## Auto Quality Check - 2026-02-21 00:12:01
+### File: /Users/neil/Documents/GitHub/PDP/packages/backend/convex/lib/injuryNotifications.ts
+
+- ❌ **CRITICAL: Better Auth adapter violation**
+  - **Problem:** Direct DB access to auth tables
+  - **Fix:** Use `ctx.runQuery(components.betterAuth.adapter.findOne, {...})`
+
+
+## Auto Quality Check - 2026-02-21 00:12:01
+### File: /Users/neil/Documents/GitHub/PDP/packages/backend/convex/lib/injuryNotifications.ts
+
+- ⚠️ **Performance: .filter() usage detected**
+  - **Problem:** Should use .withIndex() for better performance
+  - **Fix:** Replace `.query().filter()` with `.query().withIndex()`
+
+
+## Auto Quality Check - 2026-02-21 00:12:08
+### File: /Users/neil/Documents/GitHub/PDP/packages/backend/convex/lib/injuryNotifications.ts
+
+- ❌ **CRITICAL: Better Auth adapter violation**
+  - **Problem:** Direct DB access to auth tables
+  - **Fix:** Use `ctx.runQuery(components.betterAuth.adapter.findOne, {...})`
+
+
+## Auto Quality Check - 2026-02-21 00:12:08
+### File: /Users/neil/Documents/GitHub/PDP/packages/backend/convex/lib/injuryNotifications.ts
+
+- ⚠️ **Performance: .filter() usage detected**
+  - **Problem:** Should use .withIndex() for better performance
+  - **Fix:** Replace `.query().filter()` with `.query().withIndex()`
+

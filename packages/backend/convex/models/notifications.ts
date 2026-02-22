@@ -7,11 +7,20 @@ import { authComponent } from "../auth";
 // ============================================================
 
 const notificationTypeValidator = v.union(
+  // Role & Team notifications
   v.literal("role_granted"),
   v.literal("team_assigned"),
   v.literal("team_removed"),
   v.literal("child_declined"),
-  v.literal("invitation_request")
+  v.literal("invitation_request"),
+  // Injury notifications (Phase 1 - Issue #261)
+  v.literal("injury_reported"),
+  v.literal("injury_status_changed"),
+  v.literal("severe_injury_alert"),
+  v.literal("injury_cleared"),
+  // Injury notifications (Phase 2 - Recovery Management)
+  v.literal("milestone_completed"),
+  v.literal("clearance_received")
 );
 
 const notificationValidator = v.object({
@@ -23,6 +32,9 @@ const notificationValidator = v.object({
   title: v.string(),
   message: v.string(),
   link: v.optional(v.string()),
+  // Injury context (optional - only set for injury notifications)
+  relatedInjuryId: v.optional(v.id("playerInjuries")),
+  relatedPlayerId: v.optional(v.id("playerIdentities")),
   createdAt: v.number(),
   seenAt: v.optional(v.number()),
   dismissedAt: v.optional(v.number()),
@@ -215,7 +227,7 @@ export const dismissNotification = mutation({
 
 /**
  * Create a new notification (internal only)
- * Called by other mutations when events occur (role grants, team assignments, etc.)
+ * Called by other mutations when events occur (role grants, team assignments, injuries, etc.)
  */
 export const createNotification = internalMutation({
   args: {
@@ -225,6 +237,9 @@ export const createNotification = internalMutation({
     title: v.string(),
     message: v.string(),
     link: v.optional(v.string()),
+    // Injury context (optional)
+    relatedInjuryId: v.optional(v.id("playerInjuries")),
+    relatedPlayerId: v.optional(v.id("playerIdentities")),
   },
   returns: v.id("notifications"),
   handler: async (ctx, args) => {
@@ -235,6 +250,8 @@ export const createNotification = internalMutation({
       title: args.title,
       message: args.message,
       link: args.link,
+      relatedInjuryId: args.relatedInjuryId,
+      relatedPlayerId: args.relatedPlayerId,
       createdAt: Date.now(),
     });
 

@@ -1,6 +1,7 @@
 "use client";
 
 import { api } from "@pdp/backend/convex/_generated/api";
+import type { Id } from "@pdp/backend/convex/_generated/dataModel";
 import { useQuery } from "convex/react";
 import {
   Activity,
@@ -11,7 +12,8 @@ import {
   Heart,
 } from "lucide-react";
 import { useParams } from "next/navigation";
-import { Suspense, useMemo } from "react";
+import { Suspense, useMemo, useState } from "react";
+import { InjuryDetailModal } from "@/components/injuries/injury-detail-modal";
 import { PageSkeleton } from "@/components/loading";
 import { Badge } from "@/components/ui/badge";
 import {
@@ -21,6 +23,7 @@ import {
   CardHeader,
   CardTitle,
 } from "@/components/ui/card";
+import { useCurrentUser } from "@/hooks/use-current-user";
 import { useGuardianChildrenInOrg } from "@/hooks/use-guardian-identity";
 import { authClient } from "@/lib/auth-client";
 
@@ -79,11 +82,44 @@ function InjuriesPageContent() {
   const params = useParams();
   const orgId = params.orgId as string;
   const { data: session } = authClient.useSession();
+  const currentUser = useCurrentUser();
 
   const { children: identityChildren, isLoading } = useGuardianChildrenInOrg(
     orgId,
     session?.user?.email
   );
+
+  // State for detail modal
+  const [showDetailModal, setShowDetailModal] = useState(false);
+  const [viewingInjury, setViewingInjury] = useState<{
+    _id: Id<"playerInjuries">;
+    playerIdentityId: Id<"playerIdentities">;
+    injuryType: string;
+    bodyPart: string;
+    side?: "left" | "right" | "both";
+    dateOccurred: string;
+    severity: string;
+    status: string;
+    description: string;
+    treatment?: string;
+    expectedReturn?: string;
+    actualReturn?: string;
+    estimatedRecoveryDays?: number;
+    recoveryPlanNotes?: string;
+    milestones?: Array<{
+      id: string;
+      description: string;
+      targetDate?: string;
+      completedDate?: string;
+      completedBy?: string;
+      notes?: string;
+      order: number;
+    }>;
+    medicalClearanceRequired?: boolean;
+    medicalClearanceReceived?: boolean;
+    medicalClearanceDate?: string;
+    player?: { firstName: string; lastName: string };
+  } | null>(null);
 
   // Get player IDs for querying injuries
   const playerIds = useMemo(
@@ -234,9 +270,17 @@ function InjuriesPageContent() {
                 const StatusIcon = STATUS_CONFIG[injury.status].icon;
 
                 return (
-                  <div
-                    className="flex items-start justify-between rounded-lg border border-red-200 bg-white p-4"
+                  <button
+                    className="flex w-full cursor-pointer items-start justify-between rounded-lg border border-red-200 bg-white p-4 text-left transition-colors hover:bg-red-50"
                     key={injury._id}
+                    onClick={() => {
+                      setViewingInjury({
+                        ...injury,
+                        player: player || undefined,
+                      });
+                      setShowDetailModal(true);
+                    }}
+                    type="button"
                   >
                     <div className="flex items-start gap-4">
                       <div className="flex h-10 w-10 flex-shrink-0 items-center justify-center rounded-full bg-red-100">
@@ -292,7 +336,7 @@ function InjuriesPageContent() {
                         {STATUS_CONFIG[injury.status].label}
                       </Badge>
                     </div>
-                  </div>
+                  </button>
                 );
               })}
             </div>
@@ -334,9 +378,17 @@ function InjuriesPageContent() {
                 const StatusIcon = STATUS_CONFIG[injury.status].icon;
 
                 return (
-                  <div
-                    className="flex items-start justify-between rounded-lg border p-4 transition-colors hover:bg-muted/50"
+                  <button
+                    className="flex w-full cursor-pointer items-start justify-between rounded-lg border p-4 text-left transition-colors hover:bg-muted/50"
                     key={injury._id}
+                    onClick={() => {
+                      setViewingInjury({
+                        ...injury,
+                        player: player || undefined,
+                      });
+                      setShowDetailModal(true);
+                    }}
+                    type="button"
                   >
                     <div className="flex items-start gap-4">
                       <div className="flex h-10 w-10 flex-shrink-0 items-center justify-center rounded-full bg-gray-100">
@@ -395,12 +447,31 @@ function InjuriesPageContent() {
                         {STATUS_CONFIG[injury.status].label}
                       </Badge>
                     </div>
-                  </div>
+                  </button>
                 );
               })}
             </div>
           </CardContent>
         </Card>
+      )}
+
+      {/* Injury Detail Modal - Phase 2 Recovery Management */}
+      {session?.user?.id && currentUser && (
+        <InjuryDetailModal
+          canEdit={false}
+          injury={viewingInjury}
+          onClose={() => {
+            setShowDetailModal(false);
+            setViewingInjury(null);
+          }}
+          open={showDetailModal}
+          userId={session.user.id}
+          userName={
+            `${currentUser.firstName || ""} ${currentUser.lastName || ""}`.trim() ||
+            "Parent"
+          }
+          userRole="guardian"
+        />
       )}
     </div>
   );

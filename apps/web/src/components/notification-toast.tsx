@@ -7,7 +7,13 @@ type NotificationType =
   | "team_assigned"
   | "team_removed"
   | "child_declined"
-  | "invitation_request";
+  | "invitation_request"
+  | "injury_reported"
+  | "injury_status_changed"
+  | "severe_injury_alert"
+  | "injury_cleared"
+  | "milestone_completed"
+  | "clearance_received";
 
 export type NotificationData = {
   _id: string;

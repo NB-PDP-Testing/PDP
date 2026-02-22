@@ -31,8 +31,10 @@ import {
   UserPlus,
   Users,
   UsersRound,
+  UserX,
   Wrench,
 } from "lucide-react";
+
 import type { Route } from "next";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
@@ -105,6 +107,11 @@ export function getAdminNavGroups(
           icon: UserCheck,
         },
         {
+          href: `/orgs/${orgId}/admin/unclaimed-guardians`,
+          label: "Unclaimed Guardians",
+          icon: UserX,
+        },
+        {
           href: `/orgs/${orgId}/admin/medical`,
           label: "Medical",
           icon: Heart,
@@ -156,6 +163,11 @@ export function getAdminNavGroups(
           href: `/orgs/${orgId}/admin/analytics`,
           label: "Analytics",
           icon: LineChart,
+        },
+        {
+          href: `/orgs/${orgId}/admin/injuries`,
+          label: "Injury Analytics",
+          icon: Heart,
         },
         {
           href: `/orgs/${orgId}/admin/benchmarks`,

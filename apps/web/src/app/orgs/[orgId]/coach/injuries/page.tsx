@@ -7,16 +7,17 @@ import {
   AlertTriangle,
   ArrowLeft,
   Calendar,
-  Check,
-  ChevronRight,
+  Eye,
   Heart,
   Loader2,
+  Pencil,
   Plus,
   User,
 } from "lucide-react";
 import { useParams, useRouter } from "next/navigation";
 import { useCallback, useMemo, useState } from "react";
 import { toast } from "sonner";
+import { InjuryDetailModal } from "@/components/injuries/injury-detail-modal";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import {
@@ -140,8 +141,62 @@ export default function InjuryTrackingPage() {
   // State
   const [selectedPlayerId, setSelectedPlayerId] = useState<string | null>(null);
   const [showAddDialog, setShowAddDialog] = useState(false);
+  const [showEditDialog, setShowEditDialog] = useState(false);
+  const [showDetailModal, setShowDetailModal] = useState(false);
   const [statusFilter, setStatusFilter] = useState<string>("active");
   const [historyStatusFilter, setHistoryStatusFilter] = useState<string>("all");
+
+  // Viewing injury state (for detail modal)
+  const [viewingInjury, setViewingInjury] = useState<{
+    _id: Id<"playerInjuries">;
+    playerIdentityId: Id<"playerIdentities">;
+    injuryType: string;
+    bodyPart: string;
+    side?: "left" | "right" | "both";
+    dateOccurred: string;
+    severity: string;
+    status: string;
+    description: string;
+    treatment?: string;
+    expectedReturn?: string;
+    actualReturn?: string;
+    estimatedRecoveryDays?: number;
+    recoveryPlanNotes?: string;
+    milestones?: Array<{
+      id: string;
+      description: string;
+      targetDate?: string;
+      completedDate?: string;
+      completedBy?: string;
+      notes?: string;
+      order: number;
+    }>;
+    medicalClearanceRequired?: boolean;
+    medicalClearanceReceived?: boolean;
+    medicalClearanceDate?: string;
+    player?: { firstName: string; lastName: string };
+  } | null>(null);
+
+  // Edit injury state
+  const [editingInjury, setEditingInjury] = useState<{
+    _id: Id<"playerInjuries">;
+    injuryType: string;
+    bodyPart: string;
+    side: "left" | "right" | "both" | "";
+    dateOccurred: string;
+    severity: Severity;
+    status: InjuryStatus;
+    description: string;
+    treatment: string;
+    expectedReturn: string;
+    occurredDuring:
+      | "training"
+      | "match"
+      | "other_sport"
+      | "non_sport"
+      | "unknown";
+    playerName?: string;
+  } | null>(null);
 
   // Form state
   const [newInjury, setNewInjury] = useState({
@@ -177,21 +232,25 @@ export default function InjuryTrackingPage() {
       : "skip"
   );
 
-  const activeInjuriesForOrg = useQuery(
-    api.models.playerInjuries.getAllActiveInjuriesForOrg,
-    { organizationId: orgId }
-  );
-
   const allInjuriesForOrg = useQuery(
     api.models.playerInjuries.getAllInjuriesForOrg,
     { organizationId: orgId }
   );
 
+  // Derive active injuries from allInjuriesForOrg to avoid redundant query
+  const activeInjuriesForOrg = useMemo(() => {
+    if (!allInjuriesForOrg) {
+      return;
+    }
+    return allInjuriesForOrg.filter(
+      (i: { status: string }) =>
+        i.status === "active" || i.status === "recovering"
+    );
+  }, [allInjuriesForOrg]);
+
   // Mutations
   const reportInjury = useMutation(api.models.playerInjuries.reportInjury);
-  const updateStatus = useMutation(
-    api.models.playerInjuries.updateInjuryStatus
-  );
+  const updateInjury = useMutation(api.models.playerInjuries.updateInjury);
 
   // Filter injuries by status
   const filteredInjuries = useMemo(() => {
@@ -270,27 +329,122 @@ export default function InjuryTrackingPage() {
     }
   }, [selectedPlayerId, newInjury, reportInjury, orgId]);
 
-  // Handle status update
-  const handleUpdateStatus = useCallback(
-    async (injuryId: Id<"playerInjuries">, newStatus: InjuryStatus) => {
-      try {
-        await updateStatus({
-          injuryId,
-          status: newStatus,
-          actualReturn:
-            newStatus === "cleared" || newStatus === "healed"
-              ? new Date().toISOString().split("T")[0]
-              : undefined,
-        });
-        toast.success("Status updated");
-      } catch (error) {
-        toast.error(
-          error instanceof Error ? error.message : "Failed to update status"
-        );
-      }
+  // Open edit dialog with injury data
+  const openEditDialog = useCallback(
+    (injury: {
+      _id: Id<"playerInjuries">;
+      injuryType: string;
+      bodyPart: string;
+      side?: "left" | "right" | "both";
+      dateOccurred: string;
+      severity: string;
+      status: string;
+      description: string;
+      treatment?: string;
+      expectedReturn?: string;
+      occurredDuring?:
+        | "training"
+        | "match"
+        | "other_sport"
+        | "non_sport"
+        | "unknown";
+      player?: { firstName: string; lastName: string } | null;
+    }) => {
+      setEditingInjury({
+        _id: injury._id,
+        injuryType: injury.injuryType,
+        bodyPart: injury.bodyPart,
+        side: injury.side || "",
+        dateOccurred: injury.dateOccurred,
+        severity: injury.severity as Severity,
+        status: injury.status as InjuryStatus,
+        description: injury.description,
+        treatment: injury.treatment || "",
+        expectedReturn: injury.expectedReturn || "",
+        occurredDuring: injury.occurredDuring || "unknown",
+        playerName: injury.player
+          ? `${injury.player.firstName} ${injury.player.lastName}`
+          : undefined,
+      });
+      setShowEditDialog(true);
     },
-    [updateStatus]
+    []
   );
+
+  // Open detail modal with injury data (Phase 2)
+  const openDetailModal = useCallback(
+    (injury: {
+      _id: Id<"playerInjuries">;
+      playerIdentityId: Id<"playerIdentities">;
+      injuryType: string;
+      bodyPart: string;
+      side?: "left" | "right" | "both";
+      dateOccurred: string;
+      severity: string;
+      status: string;
+      description: string;
+      treatment?: string;
+      expectedReturn?: string;
+      actualReturn?: string;
+      estimatedRecoveryDays?: number;
+      recoveryPlanNotes?: string;
+      milestones?: Array<{
+        id: string;
+        description: string;
+        targetDate?: string;
+        completedDate?: string;
+        completedBy?: string;
+        notes?: string;
+        order: number;
+      }>;
+      medicalClearanceRequired?: boolean;
+      medicalClearanceReceived?: boolean;
+      medicalClearanceDate?: string;
+      player?: { firstName: string; lastName: string } | null;
+    }) => {
+      setViewingInjury({
+        ...injury,
+        player: injury.player || undefined,
+      });
+      setShowDetailModal(true);
+    },
+    []
+  );
+
+  // Handle save injury (from edit dialog)
+  const handleSaveInjury = useCallback(async () => {
+    if (!editingInjury) {
+      return;
+    }
+
+    try {
+      await updateInjury({
+        injuryId: editingInjury._id,
+        injuryType: editingInjury.injuryType,
+        bodyPart: editingInjury.bodyPart,
+        side: editingInjury.side || null,
+        dateOccurred: editingInjury.dateOccurred,
+        severity: editingInjury.severity,
+        status: editingInjury.status,
+        description: editingInjury.description,
+        treatment: editingInjury.treatment || undefined,
+        expectedReturn: editingInjury.expectedReturn || undefined,
+        occurredDuring: editingInjury.occurredDuring,
+        actualReturn:
+          editingInjury.status === "cleared" ||
+          editingInjury.status === "healed"
+            ? new Date().toISOString().split("T")[0]
+            : undefined,
+      });
+      toast.success("Injury updated successfully");
+      setShowEditDialog(false);
+      setEditingInjury(null);
+    } catch (error) {
+      toast.error(
+        error instanceof Error ? error.message : "Failed to update injury"
+      );
+    }
+  }, [editingInjury, updateInjury]);
 
   // Loading state
   const isLoading = players === undefined;
@@ -336,9 +490,11 @@ export default function InjuryTrackingPage() {
           <CardContent>
             <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
               {activeInjuriesForOrg.map((injury) => (
-                <div
-                  className="flex items-center gap-3 rounded-lg border border-red-200 bg-white p-3"
+                <button
+                  className="flex w-full cursor-pointer items-center gap-3 rounded-lg border border-red-200 bg-white p-3 text-left transition-colors hover:bg-red-50"
                   key={injury._id}
+                  onClick={() => openDetailModal(injury)}
+                  type="button"
                 >
                   <div className="flex h-10 w-10 items-center justify-center rounded-full bg-red-100">
                     <Heart className="h-5 w-5 text-red-600" />
@@ -356,7 +512,7 @@ export default function InjuryTrackingPage() {
                   >
                     {SEVERITY_CONFIG[injury.severity as Severity].label}
                   </Badge>
-                </div>
+                </button>
               ))}
             </div>
           </CardContent>
@@ -495,42 +651,22 @@ export default function InjuryTrackingPage() {
                         </div>
                       </div>
                       <div className="flex gap-2">
-                        {injury.status === "active" && (
-                          <Button
-                            onClick={() =>
-                              handleUpdateStatus(injury._id, "recovering")
-                            }
-                            size="sm"
-                            variant="outline"
-                          >
-                            <ChevronRight className="mr-1 h-3 w-3" />
-                            Recovering
-                          </Button>
-                        )}
-                        {injury.status === "recovering" && (
-                          <Button
-                            onClick={() =>
-                              handleUpdateStatus(injury._id, "cleared")
-                            }
-                            size="sm"
-                            variant="outline"
-                          >
-                            <Check className="mr-1 h-3 w-3" />
-                            Clear
-                          </Button>
-                        )}
-                        {injury.status === "cleared" && (
-                          <Button
-                            onClick={() =>
-                              handleUpdateStatus(injury._id, "healed")
-                            }
-                            size="sm"
-                            variant="outline"
-                          >
-                            <Check className="mr-1 h-3 w-3" />
-                            Healed
-                          </Button>
-                        )}
+                        <Button
+                          onClick={() => openDetailModal(injury)}
+                          size="sm"
+                          variant="outline"
+                        >
+                          <Eye className="mr-1 h-3 w-3" />
+                          View
+                        </Button>
+                        <Button
+                          onClick={() => openEditDialog(injury)}
+                          size="sm"
+                          variant="outline"
+                        >
+                          <Pencil className="mr-1 h-3 w-3" />
+                          Edit
+                        </Button>
                       </div>
                     </div>
                   </div>
@@ -601,9 +737,11 @@ export default function InjuryTrackingPage() {
           ) : (
             <div className="space-y-3">
               {filteredHistoryInjuries.map((injury) => (
-                <div
-                  className="flex items-start justify-between rounded-lg border p-4 transition-colors hover:bg-muted/50"
+                <button
+                  className="flex w-full cursor-pointer items-start justify-between rounded-lg border p-4 text-left transition-colors hover:bg-muted/50"
                   key={injury._id}
+                  onClick={() => openDetailModal(injury)}
+                  type="button"
                 >
                   <div className="flex items-start gap-4">
                     <div className="flex h-10 w-10 flex-shrink-0 items-center justify-center rounded-full bg-gray-100">
@@ -659,8 +797,9 @@ export default function InjuryTrackingPage() {
                     >
                       {STATUS_CONFIG[injury.status as InjuryStatus].label}
                     </Badge>
+                    <Pencil className="h-4 w-4 text-muted-foreground" />
                   </div>
-                </div>
+                </button>
               ))}
             </div>
           )}
@@ -865,6 +1004,271 @@ export default function InjuryTrackingPage() {
           </DialogFooter>
         </DialogContent>
       </Dialog>
+
+      {/* Edit Injury Dialog */}
+      <Dialog
+        onOpenChange={(open) => {
+          setShowEditDialog(open);
+          if (!open) {
+            setEditingInjury(null);
+          }
+        }}
+        open={showEditDialog}
+      >
+        <DialogContent className="max-h-[90vh] overflow-y-auto sm:max-w-[600px]">
+          <DialogHeader>
+            <DialogTitle>Edit Injury</DialogTitle>
+            <DialogDescription>
+              {editingInjury?.playerName
+                ? `Update injury details for ${editingInjury.playerName}`
+                : "Update injury details"}
+            </DialogDescription>
+          </DialogHeader>
+
+          {editingInjury && (
+            <div className="grid gap-4 py-4">
+              <div className="grid grid-cols-2 gap-4">
+                <div className="space-y-2">
+                  <Label>Injury Type *</Label>
+                  <Select
+                    onValueChange={(value) =>
+                      setEditingInjury((prev) =>
+                        prev ? { ...prev, injuryType: value } : prev
+                      )
+                    }
+                    value={editingInjury.injuryType}
+                  >
+                    <SelectTrigger>
+                      <SelectValue placeholder="Select type" />
+                    </SelectTrigger>
+                    <SelectContent>
+                      {INJURY_TYPES.map((type) => (
+                        <SelectItem key={type} value={type}>
+                          {type}
+                        </SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+                </div>
+
+                <div className="space-y-2">
+                  <Label>Body Part *</Label>
+                  <Select
+                    onValueChange={(value) =>
+                      setEditingInjury((prev) =>
+                        prev ? { ...prev, bodyPart: value } : prev
+                      )
+                    }
+                    value={editingInjury.bodyPart}
+                  >
+                    <SelectTrigger>
+                      <SelectValue placeholder="Select body part" />
+                    </SelectTrigger>
+                    <SelectContent>
+                      {BODY_PARTS.map((part) => (
+                        <SelectItem key={part} value={part}>
+                          {part}
+                        </SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+                </div>
+              </div>
+
+              <div className="grid grid-cols-2 gap-4">
+                <div className="space-y-2">
+                  <Label>Side (if applicable)</Label>
+                  <Select
+                    onValueChange={(value) =>
+                      setEditingInjury((prev) =>
+                        prev
+                          ? {
+                              ...prev,
+                              side: value as "left" | "right" | "both" | "",
+                            }
+                          : prev
+                      )
+                    }
+                    value={editingInjury.side}
+                  >
+                    <SelectTrigger>
+                      <SelectValue placeholder="Select side" />
+                    </SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="left">Left</SelectItem>
+                      <SelectItem value="right">Right</SelectItem>
+                      <SelectItem value="both">Both</SelectItem>
+                    </SelectContent>
+                  </Select>
+                </div>
+
+                <div className="space-y-2">
+                  <Label>Severity *</Label>
+                  <Select
+                    onValueChange={(value) =>
+                      setEditingInjury((prev) =>
+                        prev ? { ...prev, severity: value as Severity } : prev
+                      )
+                    }
+                    value={editingInjury.severity}
+                  >
+                    <SelectTrigger>
+                      <SelectValue />
+                    </SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="minor">Minor</SelectItem>
+                      <SelectItem value="moderate">Moderate</SelectItem>
+                      <SelectItem value="severe">Severe</SelectItem>
+                      <SelectItem value="long_term">Long Term</SelectItem>
+                    </SelectContent>
+                  </Select>
+                </div>
+              </div>
+
+              <div className="grid grid-cols-2 gap-4">
+                <div className="space-y-2">
+                  <Label>Status *</Label>
+                  <Select
+                    onValueChange={(value) =>
+                      setEditingInjury((prev) =>
+                        prev ? { ...prev, status: value as InjuryStatus } : prev
+                      )
+                    }
+                    value={editingInjury.status}
+                  >
+                    <SelectTrigger>
+                      <SelectValue />
+                    </SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="active">Active</SelectItem>
+                      <SelectItem value="recovering">Recovering</SelectItem>
+                      <SelectItem value="cleared">Cleared</SelectItem>
+                      <SelectItem value="healed">Healed</SelectItem>
+                    </SelectContent>
+                  </Select>
+                </div>
+
+                <div className="space-y-2">
+                  <Label>Date Occurred *</Label>
+                  <Input
+                    onChange={(e) =>
+                      setEditingInjury((prev) =>
+                        prev ? { ...prev, dateOccurred: e.target.value } : prev
+                      )
+                    }
+                    type="date"
+                    value={editingInjury.dateOccurred}
+                  />
+                </div>
+              </div>
+
+              <div className="space-y-2">
+                <Label>Occurred During</Label>
+                <Select
+                  onValueChange={(value) =>
+                    setEditingInjury((prev) =>
+                      prev
+                        ? {
+                            ...prev,
+                            occurredDuring: value as
+                              | "training"
+                              | "match"
+                              | "other_sport"
+                              | "non_sport"
+                              | "unknown",
+                          }
+                        : prev
+                    )
+                  }
+                  value={editingInjury.occurredDuring}
+                >
+                  <SelectTrigger>
+                    <SelectValue />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="training">Training</SelectItem>
+                    <SelectItem value="match">Match</SelectItem>
+                    <SelectItem value="other_sport">Other Sport</SelectItem>
+                    <SelectItem value="non_sport">Non-Sport</SelectItem>
+                    <SelectItem value="unknown">Unknown</SelectItem>
+                  </SelectContent>
+                </Select>
+              </div>
+
+              <div className="space-y-2">
+                <Label>Description *</Label>
+                <Textarea
+                  onChange={(e) =>
+                    setEditingInjury((prev) =>
+                      prev ? { ...prev, description: e.target.value } : prev
+                    )
+                  }
+                  placeholder="Describe what happened and current symptoms..."
+                  value={editingInjury.description}
+                />
+              </div>
+
+              <div className="space-y-2">
+                <Label>Treatment/Management</Label>
+                <Textarea
+                  onChange={(e) =>
+                    setEditingInjury((prev) =>
+                      prev ? { ...prev, treatment: e.target.value } : prev
+                    )
+                  }
+                  placeholder="Any treatment or management being applied..."
+                  value={editingInjury.treatment}
+                />
+              </div>
+
+              <div className="space-y-2">
+                <Label>Expected Return Date</Label>
+                <Input
+                  onChange={(e) =>
+                    setEditingInjury((prev) =>
+                      prev ? { ...prev, expectedReturn: e.target.value } : prev
+                    )
+                  }
+                  type="date"
+                  value={editingInjury.expectedReturn}
+                />
+              </div>
+            </div>
+          )}
+
+          <DialogFooter>
+            <Button
+              onClick={() => {
+                setShowEditDialog(false);
+                setEditingInjury(null);
+              }}
+              variant="outline"
+            >
+              Cancel
+            </Button>
+            <Button onClick={handleSaveInjury}>Save Changes</Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
+      {/* Injury Detail Modal - Phase 2 Recovery Management */}
+      {userId && currentUser && (
+        <InjuryDetailModal
+          canEdit={true}
+          injury={viewingInjury}
+          onClose={() => {
+            setShowDetailModal(false);
+            setViewingInjury(null);
+          }}
+          open={showDetailModal}
+          userId={userId}
+          userName={
+            `${currentUser.firstName || ""} ${currentUser.lastName || ""}`.trim() ||
+            "Coach"
+          }
+          userRole="coach"
+        />
+      )}
     </div>
   );
 }

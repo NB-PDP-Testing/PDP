@@ -46,6 +46,7 @@ const guardianIdentityValidator = v.object({
   updatedAt: v.number(),
   createdFrom: v.optional(v.string()),
   allowGlobalPassportDiscovery: v.optional(v.boolean()),
+  importSessionId: v.optional(v.id("importSessions")),
 });
 
 // ============================================================

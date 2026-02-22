@@ -31,6 +31,13 @@ import {
   EmptyTitle,
 } from "@/components/ui/empty";
 import { Input } from "@/components/ui/input";
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select";
 import { Textarea } from "@/components/ui/textarea";
 import { BatchActionBar } from "./batch-action-bar";
 import { EditAssignmentDialog } from "./edit-assignment-dialog";
@@ -57,6 +64,7 @@ type TodoItem = BaseItem & {
 };
 
 type TeamNoteItem = BaseItem & {
+  teamId?: string;
   teamName?: string;
 };
 
@@ -112,6 +120,16 @@ export function ReviewQueue({
   const batchSaveTeamNotes = useMutation(
     api.models.whatsappReviewLinks.batchSaveTeamNotesFromReview
   );
+
+  const coachTeams = useQuery(
+    api.models.whatsappReviewLinks.getCoachTeamsForReview,
+    { code }
+  );
+
+  // Per-insight selected team for notes with no team assigned
+  const [selectedTeams, setSelectedTeams] = useState<
+    Record<string, { teamId: string; teamName: string }>
+  >({});
 
   const [loadingIds, setLoadingIds] = useState<Set<string>>(new Set());
   const [batchLoadingSection, setBatchLoadingSection] = useState<string | null>(
@@ -185,7 +203,14 @@ export function ReviewQueue({
       const key = `${voiceNoteId}-${insightId}`;
       setLoadingIds((prev) => new Set(prev).add(key));
       try {
-        await saveTeamNote({ code, voiceNoteId, insightId });
+        const teamSelection = selectedTeams[insightId];
+        await saveTeamNote({
+          code,
+          voiceNoteId,
+          insightId,
+          teamId: teamSelection?.teamId,
+          teamName: teamSelection?.teamName,
+        });
       } finally {
         setLoadingIds((prev) => {
           const next = new Set(prev);
@@ -194,7 +219,7 @@ export function ReviewQueue({
         });
       }
     },
-    [saveTeamNote, code]
+    [saveTeamNote, code, selectedTeams]
   );
 
   const handleBatchApply = useCallback(
@@ -511,34 +536,73 @@ export function ReviewQueue({
           icon={<Users className="h-4 w-4 text-green-600" />}
           title="Team Notes"
         >
-          {teamNotes.map((item) => (
-            <SwipeableReviewCard
-              key={`${item.voiceNoteId}-${item.insightId}`}
-              onSwipeLeft={() =>
-                handleDismiss(item.voiceNoteId, item.insightId)
-              }
-              onSwipeRight={() =>
-                handleSaveTeamNote(item.voiceNoteId, item.insightId)
-              }
-            >
-              <InsightCard
-                code={code}
-                description={item.description}
-                insightId={item.insightId}
-                loading={loadingIds.has(
-                  `${item.voiceNoteId}-${item.insightId}`
+          {teamNotes.map((item) => {
+            const needsTeamSelection =
+              !item.teamId && coachTeams && coachTeams.length > 1;
+            const selectedTeam = selectedTeams[item.insightId];
+            return (
+              <div key={`${item.voiceNoteId}-${item.insightId}`}>
+                {needsTeamSelection && (
+                  <div className="mb-2 px-1">
+                    <p className="mb-1 text-muted-foreground text-xs">
+                      Assign to team:
+                    </p>
+                    <Select
+                      onValueChange={(value) => {
+                        const team = coachTeams.find((t) => t.teamId === value);
+                        if (team) {
+                          setSelectedTeams((prev) => ({
+                            ...prev,
+                            [item.insightId]: {
+                              teamId: team.teamId,
+                              teamName: team.teamName,
+                            },
+                          }));
+                        }
+                      }}
+                      value={selectedTeam?.teamId ?? ""}
+                    >
+                      <SelectTrigger className="h-10 text-sm">
+                        <SelectValue placeholder="Select team…" />
+                      </SelectTrigger>
+                      <SelectContent>
+                        {coachTeams.map((team) => (
+                          <SelectItem key={team.teamId} value={team.teamId}>
+                            {team.teamName}
+                          </SelectItem>
+                        ))}
+                      </SelectContent>
+                    </Select>
+                  </div>
                 )}
-                noteDate={item.noteDate}
-                onApply={handleSaveTeamNote}
-                onDismiss={handleDismiss}
-                onEdit={handleEdit}
-                teamName={item.teamName}
-                title={item.title}
-                variant="team"
-                voiceNoteId={item.voiceNoteId}
-              />
-            </SwipeableReviewCard>
-          ))}
+                <SwipeableReviewCard
+                  onSwipeLeft={() =>
+                    handleDismiss(item.voiceNoteId, item.insightId)
+                  }
+                  onSwipeRight={() =>
+                    handleSaveTeamNote(item.voiceNoteId, item.insightId)
+                  }
+                >
+                  <InsightCard
+                    code={code}
+                    description={item.description}
+                    insightId={item.insightId}
+                    loading={loadingIds.has(
+                      `${item.voiceNoteId}-${item.insightId}`
+                    )}
+                    noteDate={item.noteDate}
+                    onApply={handleSaveTeamNote}
+                    onDismiss={handleDismiss}
+                    onEdit={handleEdit}
+                    teamName={selectedTeam?.teamName ?? item.teamName}
+                    title={item.title}
+                    variant="team"
+                    voiceNoteId={item.voiceNoteId}
+                  />
+                </SwipeableReviewCard>
+              </div>
+            );
+          })}
         </ReviewSection>
       )}
 
@@ -830,8 +894,16 @@ function InsightCard({
     );
   }
 
+  const cardBg = {
+    injury: "border-red-200 bg-red-50",
+    unmatched: "border-amber-200 bg-amber-50",
+    review: "border-yellow-200 bg-yellow-50",
+    todo: "border-blue-200 bg-blue-50",
+    team: "border-green-200 bg-green-50",
+  }[variant];
+
   return (
-    <Card className="shadow-sm">
+    <Card className={`shadow-sm ${cardBg}`}>
       <CardContent className="p-3">
         <div className="flex items-start justify-between gap-2">
           <div className="min-w-0 flex-1">
@@ -847,7 +919,7 @@ function InsightCard({
             )}
 
             {/* Title */}
-            <p className="text-foreground text-sm">{title}</p>
+            <p className="font-semibold text-foreground text-sm">{title}</p>
 
             {/* Description (truncated) */}
             {description && (

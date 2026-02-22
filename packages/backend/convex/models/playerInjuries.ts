@@ -1,7 +1,9 @@
 import { v } from "convex/values";
+
 import { components } from "../_generated/api";
 import type { Doc } from "../_generated/dataModel";
 import type { MutationCtx, QueryCtx } from "../_generated/server";
+
 import { mutation, query } from "../_generated/server";
 import { authComponent } from "../auth";
 import type { Doc as BetterAuthDoc } from "../betterAuth/_generated/dataModel";
@@ -2290,6 +2292,7 @@ export const recordMedicalClearance = mutation({
     return null;
   },
 });
+
 /**
  * Get team health summary for Health & Safety Widget
  * Returns active injuries (max 5), allergy count, medication count
@@ -2443,6 +2446,7 @@ export const getTeamHealthSummary = query({
 
     // Collect all legacy player IDs that match our players
     const legacyPlayerIds: (typeof legacyPlayersForOrg)[0]["_id"][] = [];
+
     for (const playerId of uniquePlayerIds) {
       const player = playerMap.get(playerId);
       if (!player) {

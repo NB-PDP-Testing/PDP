@@ -6,6 +6,7 @@ import { useMutation, useQuery } from "convex/react";
 import {
   AlertTriangle,
   ArrowLeft,
+  BookMarked,
   Check,
   CheckCircle,
   Clock,
@@ -131,6 +132,9 @@ export default function SessionPlanDetailPage() {
     api.models.sessionPlans.updateSessionPlanPresence
   );
   const deletePlan = useMutation(api.models.sessionPlans.deletePlan);
+  const markSavedToLibrary = useMutation(
+    api.models.sessionPlans.markSavedToLibrary
+  );
 
   // Edit mode state
   const [isEditing, setIsEditing] = useState(false);
@@ -323,6 +327,17 @@ export default function SessionPlanDetailPage() {
     }
   };
 
+  // Save to library handler
+  const handleSaveToLibrary = async () => {
+    try {
+      await markSavedToLibrary({ planId });
+      toast.success("Plan saved to your library!");
+    } catch (error) {
+      console.error("Failed to save plan to library:", error);
+      toast.error("Failed to save plan. Please try again.");
+    }
+  };
+
   // Toggle edit mode
   const toggleEditMode = () => {
     if (isEditing && hasUnsavedChanges) {
@@ -467,6 +482,25 @@ export default function SessionPlanDetailPage() {
                 <div className="flex items-center gap-2 rounded-full border border-white/30 bg-white/20 px-3 py-1.5 text-sm backdrop-blur-sm">
                   <Check className="h-3 w-3" />
                   <span>Saved</span>
+                </div>
+              )}
+
+              {/* Save to Library button (owner only, not yet saved) */}
+              {isOwner && !plan.savedToLibrary && (
+                <Button
+                  className="border-white/30 bg-white/20 text-white hover:bg-white/30"
+                  onClick={handleSaveToLibrary}
+                  size="sm"
+                  variant="outline"
+                >
+                  <BookMarked className="mr-2 h-4 w-4" />
+                  Save to Library
+                </Button>
+              )}
+              {isOwner && plan.savedToLibrary && (
+                <div className="flex items-center gap-2 rounded-full border border-white/30 bg-white/20 px-3 py-1.5 text-sm text-white backdrop-blur-sm">
+                  <Check className="h-3 w-3" />
+                  <span>In Library</span>
                 </div>
               )}
 
@@ -679,35 +713,27 @@ export default function SessionPlanDetailPage() {
               </Card>
             ) : null}
 
-            {/* Content - Main Session Plan */}
-            <Card className="overflow-hidden border-0 shadow-md">
-              <CardHeader
-                className={`bg-gradient-to-r ${gradientClass} text-white`}
-              >
-                <CardTitle className="text-lg">Session Plan</CardTitle>
-                <CardDescription className="text-white/80">
-                  {isEditing
-                    ? "Edit your training session structure"
-                    : "AI-generated training session structure"}
-                </CardDescription>
-              </CardHeader>
-              <CardContent className="p-6">
-                {isEditing ? (
+            {/* Content - Raw editor, only shown in edit mode */}
+            {isEditing && (
+              <Card className="overflow-hidden border-0 shadow-md">
+                <CardHeader
+                  className={`bg-gradient-to-r ${gradientClass} text-white`}
+                >
+                  <CardTitle className="text-lg">Session Plan</CardTitle>
+                  <CardDescription className="text-white/80">
+                    Edit your training session structure
+                  </CardDescription>
+                </CardHeader>
+                <CardContent className="p-6">
                   <Textarea
                     className="min-h-[400px] font-mono text-sm leading-relaxed"
                     onChange={(e) => handleContentChange(e.target.value)}
                     placeholder="Enter session plan content..."
                     value={editedContent}
                   />
-                ) : (
-                  <div className="prose prose-sm dark:prose-invert max-w-none">
-                    <pre className="whitespace-pre-wrap rounded-lg bg-slate-50 p-4 font-sans text-[15px] leading-relaxed">
-                      {plan.rawContent}
-                    </pre>
-                  </div>
-                )}
-              </CardContent>
-            </Card>
+                </CardContent>
+              </Card>
+            )}
 
             {/* Sections */}
             {plan.sections && plan.sections.length > 0 && (

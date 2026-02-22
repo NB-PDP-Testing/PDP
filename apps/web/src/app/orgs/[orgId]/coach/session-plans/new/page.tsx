@@ -36,6 +36,10 @@ export default function GenerateSessionPlanPage() {
 
   const [teamId, setTeamId] = useState<string>("");
   const [teamName, setTeamName] = useState<string>("");
+  const [teamAgeGroup, setTeamAgeGroup] = useState<string | undefined>(
+    undefined
+  );
+  const [teamSport, setTeamSport] = useState<string | undefined>(undefined);
   const [focusArea, setFocusArea] = useState<string>("");
   const [duration, setDuration] = useState<number>(90);
   const [isGenerating, setIsGenerating] = useState(false);
@@ -50,10 +54,11 @@ export default function GenerateSessionPlanPage() {
 
   const handleTeamChange = (value: string) => {
     setTeamId(value);
-    // Find team name from assignments
     const team = coachAssignments?.teams?.find((t) => t.teamId === value);
     if (team) {
       setTeamName(team.teamName || "");
+      setTeamAgeGroup(team.ageGroup || undefined);
+      setTeamSport(team.sportCode || undefined);
     }
   };
 
@@ -70,8 +75,9 @@ export default function GenerateSessionPlanPage() {
         organizationId: orgId,
         teamId,
         teamName,
-        ageGroup: undefined,
-        playerCount: 20, // Default - could be enhanced to fetch from team
+        ageGroup: teamAgeGroup,
+        sport: teamSport,
+        playerCount: 20,
         focusArea: focusArea || undefined,
         duration,
       });

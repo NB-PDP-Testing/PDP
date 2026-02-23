@@ -247,11 +247,9 @@ export default function OrgSettingsPage() {
       setSocialLinkedin(orgData.socialLinks?.linkedin || "");
       setSelectedSports(orgData.supportedSports || []);
       setSharingContactMode(
-        (orgData.sharingContactMode as
-          | "direct"
-          | "enquiry"
-          | null
-          | undefined) || ""
+        orgData.sharingContactMode === "none"
+          ? ""
+          : (orgData.sharingContactMode as "direct" | "enquiry" | "") || ""
       );
       setSharingContactName(orgData.sharingContactName || "");
       setSharingContactEmail(orgData.sharingContactEmail || "");

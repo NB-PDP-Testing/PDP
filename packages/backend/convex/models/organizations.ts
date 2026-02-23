@@ -74,6 +74,7 @@ export const getOrganization = query({
       sharingContactMode: org.sharingContactMode as
         | "direct"
         | "enquiry"
+        | "none"
         | null
         | undefined,
       sharingContactName: org.sharingContactName as string | null | undefined,
@@ -452,7 +453,9 @@ export const updateOrganizationSharingContact = mutation({
     const update: Record<string, string | null> = {};
 
     if (args.sharingContactMode !== undefined) {
-      update.sharingContactMode = args.sharingContactMode || null;
+      // Convert null ("no preference") to "none" — the schema doesn't accept null for this field
+      update.sharingContactMode =
+        args.sharingContactMode === null ? "none" : args.sharingContactMode;
     }
     if (args.sharingContactName !== undefined) {
       update.sharingContactName = args.sharingContactName || null;

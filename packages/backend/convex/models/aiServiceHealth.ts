@@ -7,12 +7,48 @@
 
 import { v } from "convex/values";
 import {
+  action,
   internalMutation,
   internalQuery,
   mutation,
   query,
 } from "../_generated/server";
 import { authComponent } from "../auth";
+
+/**
+ * Check Anthropic external status page (PLATFORM STAFF ONLY)
+ * Fetches live status from https://www.anthropicstatus.com/api/v2/status.json
+ */
+export const checkAnthropicExternalStatus = action({
+  args: {},
+  returns: v.object({
+    indicator: v.string(),
+    description: v.string(),
+    fetchedAt: v.number(),
+  }),
+  handler: async (ctx) => {
+    const authUser = await authComponent.safeGetAuthUser(ctx as never);
+    if (!authUser?.isPlatformStaff) {
+      throw new Error("Unauthorized: Platform staff access required");
+    }
+
+    const res = await fetch(
+      "https://www.anthropicstatus.com/api/v2/status.json"
+    );
+    if (!res.ok) {
+      throw new Error(`Failed to fetch Anthropic status: ${res.status}`);
+    }
+    const data = (await res.json()) as {
+      status: { indicator: string; description: string };
+    };
+
+    return {
+      indicator: data.status.indicator,
+      description: data.status.description,
+      fetchedAt: Date.now(),
+    };
+  },
+});
 
 /**
  * Get detailed AI service health status (PLATFORM STAFF ONLY)

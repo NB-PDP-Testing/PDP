@@ -202,6 +202,7 @@ function OnboardingStepRenderer({
       <UnifiedInvitationStep
         invitations={data.invitations}
         onComplete={onComplete}
+        onSkip={onSkip}
         userEmail={userEmail}
         userId={userId}
       />
@@ -265,6 +266,7 @@ function OnboardingStepRenderer({
       <ChildLinkingStep
         hasExistingGdprConsent={hasExistingGdprConsent}
         onComplete={onComplete}
+        onSkip={onSkip}
         pendingLinks={pendingLinks}
         skipCount={data.skipCount ?? 0}
       />

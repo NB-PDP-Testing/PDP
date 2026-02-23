@@ -38,6 +38,7 @@ type ChildLinkingStepProps = {
   pendingLinks: ChildLink[];
   hasExistingGdprConsent?: boolean;
   onComplete: () => void;
+  onSkip?: () => void;
   skipCount?: number; // Phase 6: Current skip count (max 3)
 };
 
@@ -51,6 +52,7 @@ export function ChildLinkingStep({
   pendingLinks,
   hasExistingGdprConsent = false,
   onComplete,
+  onSkip,
   skipCount = 0,
 }: ChildLinkingStepProps) {
   const [consentToSharing, setConsentToSharing] = useState(true);
@@ -86,7 +88,11 @@ export function ChildLinkingStep({
         pending_links: pendingLinks.length,
       });
       toast.info("You can complete this step next time you log in.");
-      onComplete();
+      if (onSkip) {
+        onSkip();
+      } else {
+        onComplete();
+      }
     } catch (error) {
       console.error("Failed to skip child linking:", error);
       toast.error("Failed to skip. Please try again.");

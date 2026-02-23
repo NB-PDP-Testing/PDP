@@ -74,6 +74,9 @@ import { RemoveFromOrgDialog } from "./remove-from-org-dialog";
 
 type FunctionalRole = "coach" | "parent" | "admin" | "player";
 
+// Regex for basic email format validation — defined at module level per Biome rules
+const EMAIL_FORMAT_REGEX = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+
 type UserEditState = {
   [userId: string]: {
     functionalRoles: FunctionalRole[];
@@ -164,6 +167,9 @@ export default function ManageUsersPage() {
   const denyInvitationRequest = useMutation(
     api.models.invitations.denyInvitationRequest
   );
+  const notifyExistingUserOfInvitation = useMutation(
+    api.models.invitations.notifyExistingUserOfInvitation
+  );
   const resendChildLink = useMutation(
     api.models.guardianPlayerLinks.resendChildLink
   );
@@ -196,6 +202,22 @@ export default function ManageUsersPage() {
   const [invitePlayerIds, setInvitePlayerIds] = useState<string[]>([]); // Player IDs for parent
   const [invitePlayerSearch, setInvitePlayerSearch] = useState(""); // Search term for players
   const [inviting, setInviting] = useState(false);
+
+  // Debounced email for existing user lookup (Feature A - Issue #437)
+  const [debouncedInviteEmail, setDebouncedInviteEmail] = useState("");
+  useEffect(() => {
+    const timer = setTimeout(() => {
+      setDebouncedInviteEmail(inviteEmail);
+    }, 500);
+    return () => clearTimeout(timer);
+  }, [inviteEmail]);
+  const isValidEmailFormat = EMAIL_FORMAT_REGEX.test(debouncedInviteEmail);
+  const existingInviteUser = useQuery(
+    api.models.users.getUserByEmail,
+    isValidEmailFormat && inviteDialogOpen
+      ? { email: debouncedInviteEmail }
+      : "skip"
+  );
 
   // Invitation detail modal state
   const [selectedInvitationId, setSelectedInvitationId] = useState<
@@ -730,6 +752,15 @@ export default function ManageUsersPage() {
           }
 
           console.log("[Invite] Successfully updated invitation metadata");
+        }
+
+        // Feature B (Issue #437): Notify existing user via in-app notification
+        if (invitationId) {
+          await notifyExistingUserOfInvitation({
+            invitedEmail: inviteEmail,
+            organizationId: orgId,
+            invitationId,
+          });
         }
 
         const rolesStr =
@@ -2335,6 +2366,19 @@ export default function ManageUsersPage() {
                     type="email"
                     value={inviteEmail}
                   />
+                  {/* Feature A (Issue #437): Existing user indicator */}
+                  {existingInviteUser && (
+                    <div className="flex items-center gap-2 rounded-md border border-green-200 bg-green-50 px-3 py-2 text-green-800 text-sm">
+                      <UserCheck className="h-4 w-4 shrink-0" />
+                      <span>
+                        <strong>
+                          {existingInviteUser.name || existingInviteUser.email}
+                        </strong>{" "}
+                        already has an account — they'll receive an in-app
+                        notification when invited.
+                      </span>
+                    </div>
+                  )}
                 </div>
 
                 <div className="space-y-2">

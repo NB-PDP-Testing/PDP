@@ -3851,7 +3851,9 @@ export default defineSchema({
       v.literal("injury_cleared"), // Player cleared to return to play
       // Injury notifications (Phase 2 - Recovery Management)
       v.literal("milestone_completed"), // Recovery milestone marked complete
-      v.literal("clearance_received") // Medical clearance received
+      v.literal("clearance_received"), // Medical clearance received
+      // Org invitation notifications (Issue #437)
+      v.literal("org_invitation_received") // Existing user invited to an org
     ),
     title: v.string(),
     message: v.string(),

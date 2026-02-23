@@ -1408,3 +1408,32 @@ export const aggregateDailyMetricsWrapper = internalMutation({
     return null;
   },
 });
+
+/**
+ * Get last N daily pipeline metric snapshots (PLATFORM STAFF ONLY)
+ * Used by the Convex tab on the AI Health & Spend dashboard.
+ * Returns platform-wide (organizationId = undefined) daily snapshots.
+ */
+export const getDailyPipelineSnapshots = query({
+  args: {
+    limit: v.optional(v.number()),
+  },
+  returns: v.array(v.any()),
+  handler: async (ctx, args) => {
+    const user = await authComponent.safeGetAuthUser(ctx);
+    if (!user?.isPlatformStaff) {
+      throw new Error("Unauthorized: Platform staff only");
+    }
+
+    const limit = args.limit ?? 7;
+
+    const snapshots = await ctx.db
+      .query("voicePipelineMetricsSnapshots")
+      .withIndex("by_periodType_and_start", (q) => q.eq("periodType", "daily"))
+      .order("desc")
+      .take(limit);
+
+    // Return in ascending order (oldest first) for chart rendering
+    return snapshots.reverse();
+  },
+});

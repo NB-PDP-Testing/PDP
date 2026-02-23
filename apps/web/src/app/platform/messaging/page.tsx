@@ -91,6 +91,10 @@ export default function PlatformMessagingPage() {
                 <Settings className="h-4 w-4" />
                 Settings
               </TabsTrigger>
+              <TabsTrigger className="gap-2" value="convex">
+                <Zap className="h-4 w-4" />
+                Convex
+              </TabsTrigger>
             </TabsList>
 
             {/* Overview Tab */}
@@ -116,6 +120,11 @@ export default function PlatformMessagingPage() {
             {/* Settings Tab */}
             <TabsContent value="settings">
               <SettingsTab />
+            </TabsContent>
+
+            {/* Convex Tab */}
+            <TabsContent value="convex">
+              <ConvexTab />
             </TabsContent>
           </Tabs>
         </div>
@@ -611,7 +620,120 @@ function CostAnalyticsTab() {
           )}
         </CardContent>
       </Card>
+
+      {/* Budget Exceeded Event History */}
+      <RecentCostAlerts />
     </div>
+  );
+}
+
+// Recent Cost Alerts Component (used in CostAnalyticsTab)
+function RecentCostAlerts() {
+  const alerts = useQuery(api.models.platformCostAlerts.getRecentCostAlerts, {
+    limit: 50,
+  });
+
+  const formatAlertType = (type: string) =>
+    type.replace(/_/g, " ").replace(/\b\w/g, (c) => c.toUpperCase());
+
+  const getSeverityVariant = (
+    severity: string
+  ): "default" | "destructive" | "secondary" | "outline" => {
+    if (severity === "critical") {
+      return "destructive";
+    }
+    if (severity === "warning") {
+      return "secondary";
+    }
+    return "outline";
+  };
+
+  return (
+    <Card>
+      <CardHeader>
+        <CardTitle className="flex items-center gap-2">
+          <AlertCircle className="h-5 w-5" />
+          Budget Alert History
+          {alerts !== undefined && (
+            <Badge className="ml-2" variant="secondary">
+              {alerts.length}
+            </Badge>
+          )}
+        </CardTitle>
+      </CardHeader>
+      <CardContent>
+        {alerts === undefined && (
+          <div className="flex items-center justify-center py-8">
+            <RefreshCw className="h-6 w-6 animate-spin text-muted-foreground" />
+          </div>
+        )}
+        {alerts !== undefined && alerts.length === 0 && (
+          <p className="py-4 text-center text-green-600">
+            No budget alerts. All organizations within limits.
+          </p>
+        )}
+        {alerts !== undefined && alerts.length > 0 && (
+          <Table>
+            <TableHeader>
+              <TableRow>
+                <TableHead>Time</TableHead>
+                <TableHead>Alert Type</TableHead>
+                <TableHead>Severity</TableHead>
+                <TableHead>Message</TableHead>
+                <TableHead className="text-right">
+                  Trigger / Threshold
+                </TableHead>
+                <TableHead>Ack</TableHead>
+              </TableRow>
+            </TableHeader>
+            <TableBody>
+              {(
+                alerts as Array<{
+                  _id: string;
+                  timestamp: number;
+                  alertType: string;
+                  severity: string;
+                  message: string;
+                  triggerValue?: number;
+                  thresholdValue?: number;
+                  acknowledged: boolean;
+                }>
+              ).map((alert) => (
+                <TableRow key={alert._id}>
+                  <TableCell className="whitespace-nowrap text-muted-foreground text-xs">
+                    {new Date(alert.timestamp).toLocaleString()}
+                  </TableCell>
+                  <TableCell className="text-sm">
+                    {formatAlertType(alert.alertType)}
+                  </TableCell>
+                  <TableCell>
+                    <Badge variant={getSeverityVariant(alert.severity)}>
+                      {alert.severity}
+                    </Badge>
+                  </TableCell>
+                  <TableCell className="max-w-xs truncate text-muted-foreground text-xs">
+                    {alert.message}
+                  </TableCell>
+                  <TableCell className="text-right text-sm">
+                    {alert.triggerValue !== undefined &&
+                    alert.thresholdValue !== undefined
+                      ? `$${alert.triggerValue.toFixed(2)} / $${alert.thresholdValue.toFixed(2)}`
+                      : "—"}
+                  </TableCell>
+                  <TableCell>
+                    {alert.acknowledged ? (
+                      <CheckCircle2 className="h-4 w-4 text-green-600" />
+                    ) : (
+                      <XCircle className="h-4 w-4 text-red-400" />
+                    )}
+                  </TableCell>
+                </TableRow>
+              ))}
+            </TableBody>
+          </Table>
+        )}
+      </CardContent>
+    </Card>
   );
 }
 
@@ -1033,6 +1155,32 @@ function ServiceHealthTab() {
     api.models.aiServiceHealth.forceResetCircuitBreaker
   );
 
+  const [anthropicStatus, setAnthropicStatus] = useState<{
+    indicator: string;
+    description: string;
+  } | null>(null);
+  const [checkingAnthropicStatus, setCheckingAnthropicStatus] = useState(false);
+
+  const handleCheckAnthropicStatus = async () => {
+    setCheckingAnthropicStatus(true);
+    try {
+      const res = await fetch(
+        "https://www.anthropicstatus.com/api/v2/status.json"
+      );
+      const data = (await res.json()) as {
+        status: { indicator: string; description: string };
+      };
+      setAnthropicStatus({
+        indicator: data.status.indicator,
+        description: data.status.description,
+      });
+    } catch {
+      toast.error("Failed to fetch Anthropic status");
+    } finally {
+      setCheckingAnthropicStatus(false);
+    }
+  };
+
   const handleForceReset = async () => {
     // biome-ignore lint/suspicious/noAlert: Platform admin action requires explicit confirmation
     const confirmed = confirm(
@@ -1226,6 +1374,56 @@ function ServiceHealthTab() {
         </CardContent>
       </Card>
 
+      {/* Anthropic External Status */}
+      <Card>
+        <CardHeader>
+          <CardTitle className="flex items-center gap-2">
+            <Activity className="h-5 w-5" />
+            Anthropic External Status
+          </CardTitle>
+        </CardHeader>
+        <CardContent>
+          <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
+            {anthropicStatus ? (
+              <div className="flex items-center gap-3">
+                {anthropicStatus.indicator === "none" ? (
+                  <CheckCircle2 className="h-8 w-8 text-green-600" />
+                ) : (
+                  <AlertCircle className="h-8 w-8 text-amber-600" />
+                )}
+                <div>
+                  <p className="font-semibold text-lg">
+                    {anthropicStatus.description}
+                  </p>
+                  <p className="text-muted-foreground text-sm capitalize">
+                    Indicator: {anthropicStatus.indicator}
+                  </p>
+                </div>
+              </div>
+            ) : (
+              <p className="text-muted-foreground text-sm">
+                Click "Check Status" to fetch live data from Anthropic's status
+                page.
+              </p>
+            )}
+            <Button
+              disabled={checkingAnthropicStatus}
+              onClick={handleCheckAnthropicStatus}
+              size="sm"
+              variant="outline"
+            >
+              <RefreshCw
+                className={`mr-2 h-4 w-4 ${checkingAnthropicStatus ? "animate-spin" : ""}`}
+              />
+              Check Status
+            </Button>
+          </div>
+          <p className="mt-3 text-muted-foreground text-xs">
+            Source: anthropicstatus.com
+          </p>
+        </CardContent>
+      </Card>
+
       {/* Top 5 Orgs by AI Usage */}
       <Card>
         <CardHeader>
@@ -1289,22 +1487,90 @@ function ServiceHealthTab() {
         </CardContent>
       </Card>
 
-      {/* Recent Errors (Placeholder) */}
-      <Card>
-        <CardHeader>
-          <CardTitle className="flex items-center gap-2">
-            <AlertCircle className="h-5 w-5" />
-            Recent Errors
-          </CardTitle>
-        </CardHeader>
-        <CardContent>
-          <p className="text-center text-muted-foreground">
-            Error logging not yet implemented. Future enhancement will track
-            error timestamp, type, affected organization, and resolution status.
-          </p>
-        </CardContent>
-      </Card>
+      {/* Recent Pipeline Errors */}
+      <RecentPipelineErrors />
     </div>
+  );
+}
+
+// Recent Pipeline Errors Component (used in ServiceHealthTab)
+function RecentPipelineErrors() {
+  const errors = useQuery(api.models.voicePipelineEvents.getRecentErrorEvents, {
+    limit: 50,
+  });
+
+  const formatEventType = (type: string) =>
+    type.replace(/_/g, " ").replace(/\b\w/g, (c) => c.toUpperCase());
+
+  return (
+    <Card>
+      <CardHeader>
+        <CardTitle className="flex items-center gap-2">
+          <AlertCircle className="h-5 w-5" />
+          Recent Pipeline Errors
+          {errors !== undefined && (
+            <Badge className="ml-2" variant="secondary">
+              {errors.length}
+            </Badge>
+          )}
+        </CardTitle>
+      </CardHeader>
+      <CardContent>
+        {errors === undefined && (
+          <div className="flex items-center justify-center py-8">
+            <RefreshCw className="h-6 w-6 animate-spin text-muted-foreground" />
+          </div>
+        )}
+        {errors !== undefined && errors.length === 0 && (
+          <p className="py-4 text-center text-green-600">
+            No pipeline errors found. All systems operating normally.
+          </p>
+        )}
+        {errors !== undefined && errors.length > 0 && (
+          <Table>
+            <TableHeader>
+              <TableRow>
+                <TableHead>Time</TableHead>
+                <TableHead>Event Type</TableHead>
+                <TableHead>Error</TableHead>
+                <TableHead>Organization</TableHead>
+              </TableRow>
+            </TableHeader>
+            <TableBody>
+              {errors.map(
+                (event: {
+                  _id: string;
+                  timestamp: number;
+                  eventType: string;
+                  errorMessage?: string;
+                  errorCode?: string;
+                  organizationId?: string;
+                }) => (
+                  <TableRow key={event._id}>
+                    <TableCell className="whitespace-nowrap text-muted-foreground text-xs">
+                      {new Date(event.timestamp).toLocaleString()}
+                    </TableCell>
+                    <TableCell>
+                      <Badge className="text-xs" variant="destructive">
+                        {formatEventType(event.eventType)}
+                      </Badge>
+                    </TableCell>
+                    <TableCell className="max-w-xs truncate text-sm">
+                      {event.errorMessage || event.errorCode || "—"}
+                    </TableCell>
+                    <TableCell className="font-mono text-muted-foreground text-xs">
+                      {event.organizationId
+                        ? `${event.organizationId.slice(0, 12)}...`
+                        : "—"}
+                    </TableCell>
+                  </TableRow>
+                )
+              )}
+            </TableBody>
+          </Table>
+        )}
+      </CardContent>
+    </Card>
   );
 }
 
@@ -1617,6 +1883,198 @@ function SettingsTab() {
           </CardContent>
         </Card>
       )}
+    </div>
+  );
+}
+
+// Helper functions for pipeline success rate display
+function getSuccessRateBarColor(rate: number): string {
+  if (rate >= 95) {
+    return "bg-green-500";
+  }
+  if (rate >= 80) {
+    return "bg-amber-500";
+  }
+  return "bg-red-500";
+}
+
+function getSuccessRateBadgeVariant(
+  rate: number
+): "secondary" | "outline" | "destructive" {
+  if (rate >= 95) {
+    return "secondary";
+  }
+  if (rate >= 80) {
+    return "outline";
+  }
+  return "destructive";
+}
+
+// Convex Tab Component
+function ConvexTab() {
+  const platformUsage = useQuery(api.models.aiUsageLog.getPlatformUsage, {
+    startDate: undefined,
+    endDate: undefined,
+  });
+  const snapshots = useQuery(
+    api.models.voicePipelineMetrics.getDailyPipelineSnapshots,
+    { limit: 7 }
+  );
+
+  const maxArtifacts = Math.max(
+    ...(snapshots ?? []).map(
+      (s: { artifactsReceived: number }) => s.artifactsReceived
+    ),
+    1
+  );
+
+  return (
+    <div className="space-y-6">
+      {/* Header note */}
+      <Card className="border-blue-200 bg-blue-50">
+        <CardContent className="flex items-center justify-between pt-6">
+          <p className="text-blue-700 text-sm">
+            Convex billing and plan limits are managed in the Convex dashboard.
+          </p>
+          <a
+            className="flex items-center gap-1 text-blue-700 text-sm underline hover:text-blue-900"
+            href="https://dashboard.convex.dev"
+            rel="noreferrer"
+            target="_blank"
+          >
+            Open Convex Dashboard
+            <TrendingUp className="h-3 w-3" />
+          </a>
+        </CardContent>
+      </Card>
+
+      {/* AI Function Call Volume */}
+      <Card>
+        <CardHeader>
+          <CardTitle className="flex items-center gap-2">
+            <Zap className="h-5 w-5" />
+            AI Function Call Volume (30 days)
+          </CardTitle>
+        </CardHeader>
+        <CardContent>
+          {platformUsage ? (
+            <div className="grid grid-cols-2 gap-4 md:grid-cols-4">
+              <div className="rounded-lg border p-4">
+                <p className="text-muted-foreground text-sm">Total Calls</p>
+                <p className="font-bold text-2xl">
+                  {platformUsage.callCount.toLocaleString()}
+                </p>
+              </div>
+              <div className="rounded-lg border p-4">
+                <p className="text-muted-foreground text-sm">Total Cost</p>
+                <p className="font-bold text-2xl">
+                  ${platformUsage.totalCost.toFixed(2)}
+                </p>
+              </div>
+              <div className="rounded-lg border p-4">
+                <p className="text-muted-foreground text-sm">Input Tokens</p>
+                <p className="font-bold text-2xl">
+                  {(platformUsage.totalInputTokens / 1000).toFixed(1)}k
+                </p>
+              </div>
+              <div className="rounded-lg border p-4">
+                <p className="text-muted-foreground text-sm">Cache Hit Rate</p>
+                <p
+                  className={`font-bold text-2xl ${getCacheHitRateColor(platformUsage.averageCacheHitRate)}`}
+                >
+                  {platformUsage.averageCacheHitRate.toFixed(1)}%
+                </p>
+              </div>
+            </div>
+          ) : (
+            <div className="flex items-center justify-center py-8">
+              <RefreshCw className="h-6 w-6 animate-spin text-muted-foreground" />
+            </div>
+          )}
+        </CardContent>
+      </Card>
+
+      {/* 7-Day Pipeline Health Trend */}
+      <Card>
+        <CardHeader>
+          <CardTitle className="flex items-center gap-2">
+            <Activity className="h-5 w-5" />
+            7-Day Pipeline Health Trend
+          </CardTitle>
+        </CardHeader>
+        <CardContent>
+          {snapshots === undefined && (
+            <div className="flex items-center justify-center py-8">
+              <RefreshCw className="h-6 w-6 animate-spin text-muted-foreground" />
+            </div>
+          )}
+          {snapshots !== undefined && snapshots.length === 0 && (
+            <p className="py-4 text-center text-muted-foreground">
+              No pipeline snapshot data yet. Data appears after the first daily
+              aggregation cron runs.
+            </p>
+          )}
+          {snapshots !== undefined && snapshots.length > 0 && (
+            <div className="space-y-2">
+              {snapshots.map(
+                (snap: {
+                  _id: string;
+                  periodStart: number;
+                  artifactsReceived: number;
+                  artifactsCompleted: number;
+                  artifactsFailed: number;
+                  avgTranscriptionLatency: number;
+                }) => {
+                  const successRate =
+                    snap.artifactsReceived > 0
+                      ? (snap.artifactsCompleted / snap.artifactsReceived) * 100
+                      : 100;
+                  const widthPct =
+                    (snap.artifactsReceived / maxArtifacts) * 100;
+                  const barColor = getSuccessRateBarColor(successRate);
+                  const badgeVariant = getSuccessRateBadgeVariant(successRate);
+                  return (
+                    <div
+                      className="flex items-center gap-2 text-sm"
+                      key={snap._id}
+                    >
+                      <div className="w-24 shrink-0 text-muted-foreground text-xs">
+                        {new Date(snap.periodStart).toLocaleDateString(
+                          "en-US",
+                          {
+                            month: "short",
+                            day: "numeric",
+                          }
+                        )}
+                      </div>
+                      <div className="flex-1">
+                        <div className="relative h-8 overflow-hidden rounded bg-gray-100">
+                          <div
+                            className={`h-full transition-all ${barColor}`}
+                            style={{ width: `${widthPct}%` }}
+                          />
+                        </div>
+                      </div>
+                      <div className="w-20 text-right text-xs">
+                        {snap.artifactsCompleted}/{snap.artifactsReceived}
+                      </div>
+                      <div className="w-16 text-right">
+                        <Badge variant={badgeVariant}>
+                          {successRate.toFixed(0)}%
+                        </Badge>
+                      </div>
+                    </div>
+                  );
+                }
+              )}
+              <p className="mt-2 text-muted-foreground text-xs">
+                Bar width = relative artifact volume. Color = success rate
+                (green ≥95%, amber ≥80%, red below).
+              </p>
+            </div>
+          )}
+        </CardContent>
+      </Card>
     </div>
   );
 }

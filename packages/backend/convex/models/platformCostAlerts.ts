@@ -4,7 +4,33 @@
  */
 
 import { v } from "convex/values";
-import { internalMutation } from "../_generated/server";
+import { internalMutation, query } from "../_generated/server";
+import { authComponent } from "../auth";
+
+/**
+ * Get recent cost alerts (PLATFORM STAFF ONLY)
+ * Returns last N cost alerts ordered by timestamp (newest first).
+ */
+export const getRecentCostAlerts = query({
+  args: {
+    limit: v.optional(v.number()),
+  },
+  returns: v.array(v.any()),
+  handler: async (ctx, args) => {
+    const user = await authComponent.safeGetAuthUser(ctx);
+    if (!user?.isPlatformStaff) {
+      throw new Error("Unauthorized: Platform staff only");
+    }
+
+    const limit = args.limit ?? 50;
+
+    return await ctx.db
+      .query("platformCostAlerts")
+      .withIndex("by_timestamp")
+      .order("desc")
+      .take(limit);
+  },
+});
 
 /**
  * Check all org budgets and create alerts when thresholds exceeded (US-006)

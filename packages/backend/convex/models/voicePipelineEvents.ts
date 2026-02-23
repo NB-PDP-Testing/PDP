@@ -480,6 +480,61 @@ export const getActiveArtifacts = query({
 });
 
 /**
+ * Get recent error events across all failure event types
+ *
+ * Platform staff only. Returns last N failure-type events ordered by timestamp (newest first).
+ * Queries each failure event type individually using by_eventType_and_timestamp index,
+ * then merges and sorts (no .filter() used).
+ */
+export const getRecentErrorEvents = query({
+  args: {
+    limit: v.optional(v.number()),
+  },
+  returns: v.array(v.any()),
+  handler: async (ctx, args) => {
+    // Platform staff authorization
+    const user = await authComponent.safeGetAuthUser(ctx);
+    if (!user?.isPlatformStaff) {
+      throw new Error("Unauthorized: Platform staff only");
+    }
+
+    const limit = args.limit ?? 50;
+    const perType = Math.ceil(limit / 4); // Fetch enough from each type to fill limit
+
+    const failureEventTypes = [
+      "artifact_failed",
+      "transcription_failed",
+      "claims_extraction_failed",
+      "entity_resolution_failed",
+      "draft_generation_failed",
+      "retry_failed",
+      "circuit_breaker_opened",
+    ] as const;
+
+    // Query each failure event type individually (no .filter())
+    const results = await Promise.all(
+      failureEventTypes.map((eventType) =>
+        ctx.db
+          .query("voicePipelineEvents")
+          .withIndex("by_eventType_and_timestamp", (q) =>
+            q.eq("eventType", eventType)
+          )
+          .order("desc")
+          .take(perType)
+      )
+    );
+
+    // Merge, sort by timestamp desc, take limit
+    const merged = results
+      .flat()
+      .sort((a, b) => b.timestamp - a.timestamp)
+      .slice(0, limit);
+
+    return merged;
+  },
+});
+
+/**
  * Get failed artifacts
  *
  * Platform staff only. Returns paginated list of failed artifacts.

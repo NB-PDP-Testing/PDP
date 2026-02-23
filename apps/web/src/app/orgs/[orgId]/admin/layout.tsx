@@ -282,7 +282,6 @@ function LegacyNavigation({
     { href: `/orgs/${orgId}/admin/overrides`, label: "Overrides" },
     { href: `/orgs/${orgId}/admin/coaches`, label: "Coaches" },
     { href: `/orgs/${orgId}/admin/guardians`, label: "Guardians" },
-    { href: `/orgs/${orgId}/admin/unclaimed-guardians`, label: "Unclaimed" },
     { href: `/orgs/${orgId}/admin/medical`, label: "Medical" },
     { href: `/orgs/${orgId}/admin/users`, label: "Users" },
     { href: `/orgs/${orgId}/admin/users/approvals`, label: "Approvals" },

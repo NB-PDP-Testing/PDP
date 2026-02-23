@@ -554,12 +554,9 @@ export const getVoiceNotesForPlayer = query({
       if (result) {
         // biome-ignore lint/suspicious/noExplicitAny: Better Auth adapter returns untyped data
         const coach = result as any;
-        if (coach.firstName || coach.lastName) {
-          coachMap.set(
-            uniqueCoachIds[i],
-            `${coach.firstName || ""} ${coach.lastName || ""}`.trim()
-          );
-        }
+        // Better Auth stores the display name in `name`, not firstName/lastName
+        const coachName = coach.name || coach.email || "Coach";
+        coachMap.set(uniqueCoachIds[i], coachName);
       }
     }
 
@@ -1620,6 +1617,62 @@ export const updateInsightContent = mutation({
           voiceNoteInsightId: voiceNoteInsight._id,
         }
       );
+    }
+
+    return { success: true };
+  },
+});
+
+/**
+ * Remove an applied insight from a voice note.
+ * Only the coach who created the note may remove insights from it.
+ * Also marks the corresponding voiceNoteInsights record as dismissed.
+ */
+export const removeInsight = mutation({
+  args: {
+    noteId: v.id("voiceNotes"),
+    insightId: v.string(),
+  },
+  returns: v.object({ success: v.boolean() }),
+  handler: async (ctx, args) => {
+    const user = await authComponent.safeGetAuthUser(ctx);
+    if (!user) {
+      throw new Error("Not authenticated");
+    }
+
+    const note = await ctx.db.get(args.noteId);
+    if (!note) {
+      throw new Error("Voice note not found");
+    }
+
+    // Only the coach who created the note can remove insights
+    if (note.coachId !== user._id) {
+      throw new Error(
+        "Access denied: only the note's author can remove insights"
+      );
+    }
+
+    // Remove the insight from the embedded array
+    const updatedInsights = note.insights.filter(
+      (insight) => insight.id !== args.insightId
+    );
+    await ctx.db.patch(args.noteId, { insights: updatedInsights });
+
+    // Mark the voiceNoteInsights record as dismissed
+    const voiceNoteInsight = await ctx.db
+      .query("voiceNoteInsights")
+      .withIndex("by_voice_note_and_insight", (q) =>
+        q.eq("voiceNoteId", args.noteId).eq("insightId", args.insightId)
+      )
+      .first();
+
+    if (voiceNoteInsight) {
+      await ctx.db.patch(voiceNoteInsight._id, {
+        status: "dismissed",
+        dismissedAt: Date.now(),
+        dismissedBy: user._id,
+        updatedAt: Date.now(),
+      });
     }
 
     return { success: true };

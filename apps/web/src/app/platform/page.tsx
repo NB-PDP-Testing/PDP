@@ -1,5 +1,7 @@
 "use client";
 
+import { api } from "@pdp/backend/convex/_generated/api";
+import { useQuery } from "convex/react";
 import {
   Activity,
   BarChart3,
@@ -7,10 +9,10 @@ import {
   Database,
   FileSpreadsheet,
   Flag,
+  HeartPulse,
   Key,
   Link2,
   Megaphone,
-  MessageSquare,
   Settings,
   Shield,
   Target,
@@ -21,6 +23,42 @@ import Image from "next/image";
 import Link from "next/link";
 import { Badge } from "@/components/ui/badge";
 import { Card, CardContent, CardTitle } from "@/components/ui/card";
+
+function AIHealthStatusDot() {
+  const health = useQuery(api.models.aiServiceHealth.getAIServiceHealth);
+
+  // null means no record exists — treat as healthy
+  const status = health?.status ?? "healthy";
+
+  const config = {
+    healthy: {
+      dot: "bg-green-500",
+      label: "Healthy",
+      text: "text-green-700",
+    },
+    degraded: {
+      dot: "bg-amber-500",
+      label: "Degraded",
+      text: "text-amber-700",
+    },
+    down: {
+      dot: "bg-red-500",
+      label: "Down",
+      text: "text-red-700",
+    },
+  }[status] ?? {
+    dot: "bg-green-500",
+    label: "Healthy",
+    text: "text-green-700",
+  };
+
+  return (
+    <span className={`flex items-center gap-1.5 text-xs ${config.text}`}>
+      <span className={`inline-block h-2 w-2 rounded-full ${config.dot}`} />
+      {config.label}
+    </span>
+  );
+}
 
 export default function PlatformDashboard() {
   return (
@@ -135,16 +173,19 @@ export default function PlatformDashboard() {
               </Card>
             </Link>
 
-            {/* Messaging & AI Dashboard */}
+            {/* AI Health & Spend */}
             <Link href="/platform/messaging">
               <Card className="h-full cursor-pointer transition-all hover:shadow-md hover:ring-2 hover:ring-[#1E3A5F]/20">
                 <CardContent className="flex items-center gap-3 p-4">
                   <div className="rounded-lg bg-indigo-100 p-3">
-                    <MessageSquare className="h-6 w-6 text-indigo-600" />
+                    <HeartPulse className="h-6 w-6 text-indigo-600" />
                   </div>
-                  <CardTitle className="text-base">
-                    Messaging & AI Dashboard
-                  </CardTitle>
+                  <div className="flex flex-col gap-0.5">
+                    <CardTitle className="text-base">
+                      AI Health & Spend
+                    </CardTitle>
+                    <AIHealthStatusDot />
+                  </div>
                 </CardContent>
               </Card>
             </Link>

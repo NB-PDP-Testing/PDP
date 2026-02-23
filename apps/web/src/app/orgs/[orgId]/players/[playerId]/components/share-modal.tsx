@@ -191,7 +191,7 @@ export function ShareModal({
 
   return (
     <Dialog onOpenChange={onOpenChange} open={open}>
-      <DialogContent className="max-w-2xl">
+      <DialogContent className="flex max-h-[90vh] max-w-2xl flex-col">
         <DialogHeader>
           <DialogTitle className="flex items-center gap-2">
             <Share2 className="h-5 w-5" />
@@ -202,137 +202,139 @@ export function ShareModal({
           </DialogDescription>
         </DialogHeader>
 
-        <div className="space-y-6">
-          {/* PDF Preview */}
-          <div className="rounded-lg border bg-muted/30 p-4">
-            <div className="flex items-center justify-between">
-              <div className="flex items-center gap-3">
-                <div className="flex h-12 w-12 items-center justify-center rounded-lg bg-red-100">
-                  <FileText className="h-6 w-6 text-red-600" />
+        <div className="overflow-y-auto">
+          <div className="space-y-6">
+            {/* PDF Preview */}
+            <div className="rounded-lg border bg-muted/30 p-4">
+              <div className="flex items-center justify-between">
+                <div className="flex items-center gap-3">
+                  <div className="flex h-12 w-12 items-center justify-center rounded-lg bg-red-100">
+                    <FileText className="h-6 w-6 text-red-600" />
+                  </div>
+                  <div>
+                    <p className="font-medium">{playerName}_Passport.pdf</p>
+                    <p className="text-muted-foreground text-sm">
+                      {isGenerating ? "Generating..." : "Ready to download"}
+                    </p>
+                  </div>
                 </div>
-                <div>
-                  <p className="font-medium">{playerName}_Passport.pdf</p>
-                  <p className="text-muted-foreground text-sm">
-                    {isGenerating ? "Generating..." : "Ready to download"}
-                  </p>
-                </div>
+
+                {isGenerating ? (
+                  <Loader2 className="h-5 w-5 animate-spin text-muted-foreground" />
+                ) : (
+                  <Badge className="bg-green-100 text-green-700">Ready</Badge>
+                )}
               </div>
 
-              {isGenerating ? (
-                <Loader2 className="h-5 w-5 animate-spin text-muted-foreground" />
-              ) : (
-                <Badge className="bg-green-100 text-green-700">Ready</Badge>
-              )}
-            </div>
-
-            {/* Preview/Download buttons */}
-            <div className="mt-4 flex gap-2">
-              <Button
-                className="flex-1"
-                disabled={isGenerating || !pdfBytes}
-                onClick={handleDownload}
-              >
-                <Download className="mr-2 h-4 w-4" />
-                Download PDF
-              </Button>
-              <Button
-                disabled={isGenerating || !previewUrl}
-                onClick={handlePreviewInNewTab}
-                variant="outline"
-              >
-                <ExternalLink className="mr-2 h-4 w-4" />
-                Preview
-              </Button>
-            </div>
-          </div>
-
-          <Separator />
-
-          {/* Share Options */}
-          <div className="space-y-4">
-            <h3 className="font-semibold">Share Options</h3>
-
-            {/* Native Share (if supported) */}
-            {typeof navigator !== "undefined" && "share" in navigator && (
-              <Button
-                className="w-full justify-start"
-                disabled={isGenerating || !pdfBytes}
-                onClick={handleNativeShare}
-                variant="outline"
-              >
-                <Share2 className="mr-3 h-4 w-4" />
-                Share via device...
-              </Button>
-            )}
-
-            {/* Email Share */}
-            <div className="space-y-2">
-              <Label>Share via Email</Label>
-              <div className="flex gap-2">
-                <Input
-                  className="flex-1"
-                  onChange={(e) => setEmailAddress(e.target.value)}
-                  placeholder="Enter email address"
-                  type="email"
-                  value={emailAddress}
-                />
+              {/* Preview/Download buttons */}
+              <div className="mt-4 flex gap-2">
                 <Button
-                  disabled={!emailAddress}
-                  onClick={handleEmailShare}
+                  className="flex-1"
+                  disabled={isGenerating || !pdfBytes}
+                  onClick={handleDownload}
+                >
+                  <Download className="mr-2 h-4 w-4" />
+                  Download PDF
+                </Button>
+                <Button
+                  disabled={isGenerating || !previewUrl}
+                  onClick={handlePreviewInNewTab}
                   variant="outline"
                 >
-                  <Mail className="mr-2 h-4 w-4" />
-                  Email
+                  <ExternalLink className="mr-2 h-4 w-4" />
+                  Preview
                 </Button>
               </div>
-              <p className="text-muted-foreground text-xs">
-                Opens your email client. Download the PDF first to attach it.
-              </p>
             </div>
 
-            {/* WhatsApp Share */}
-            <Button
-              className="w-full justify-start bg-green-600 text-white hover:bg-green-700"
-              disabled={isGenerating || !pdfBytes}
-              onClick={handleWhatsAppShare}
-            >
-              <MessageCircle className="mr-3 h-4 w-4" />
-              Share via WhatsApp
-              <span className="ml-auto text-green-200 text-xs">
-                includes PDF
-              </span>
-            </Button>
+            <Separator />
 
-            {/* Copy Link */}
-            <Button
-              className="w-full justify-start"
-              onClick={handleCopyLink}
-              variant="outline"
-            >
-              {copied ? (
-                <>
-                  <Check className="mr-3 h-4 w-4 text-green-600" />
-                  Link Copied!
-                </>
-              ) : (
-                <>
-                  <Copy className="mr-3 h-4 w-4" />
-                  Copy Link to Passport Page
-                </>
+            {/* Share Options */}
+            <div className="space-y-4">
+              <h3 className="font-semibold">Share Options</h3>
+
+              {/* Native Share (if supported) */}
+              {typeof navigator !== "undefined" && "share" in navigator && (
+                <Button
+                  className="w-full justify-start"
+                  disabled={isGenerating || !pdfBytes}
+                  onClick={handleNativeShare}
+                  variant="outline"
+                >
+                  <Share2 className="mr-3 h-4 w-4" />
+                  Share via device...
+                </Button>
               )}
-            </Button>
-          </div>
 
-          {/* Info Box */}
-          <div className="rounded-lg bg-blue-50 p-4 text-blue-800 text-sm">
-            <p className="font-medium">📋 What's included in the PDF:</p>
-            <ul className="mt-2 list-inside list-disc space-y-1 text-blue-700">
-              <li>Player information (name, DOB, age group, sport)</li>
-              <li>Current skill ratings with star system</li>
-              <li>Development goals and progress</li>
-              <li>Recent coach feedback and notes</li>
-              <li>Medical summary (if applicable)</li>
-            </ul>
+              {/* Email Share */}
+              <div className="space-y-2">
+                <Label>Share via Email</Label>
+                <div className="flex gap-2">
+                  <Input
+                    className="flex-1"
+                    onChange={(e) => setEmailAddress(e.target.value)}
+                    placeholder="Enter email address"
+                    type="email"
+                    value={emailAddress}
+                  />
+                  <Button
+                    disabled={!emailAddress}
+                    onClick={handleEmailShare}
+                    variant="outline"
+                  >
+                    <Mail className="mr-2 h-4 w-4" />
+                    Email
+                  </Button>
+                </div>
+                <p className="text-muted-foreground text-xs">
+                  Opens your email client. Download the PDF first to attach it.
+                </p>
+              </div>
+
+              {/* WhatsApp Share */}
+              <Button
+                className="w-full justify-start bg-green-600 text-white hover:bg-green-700"
+                disabled={isGenerating || !pdfBytes}
+                onClick={handleWhatsAppShare}
+              >
+                <MessageCircle className="mr-3 h-4 w-4" />
+                Share via WhatsApp
+                <span className="ml-auto text-green-200 text-xs">
+                  includes PDF
+                </span>
+              </Button>
+
+              {/* Copy Link */}
+              <Button
+                className="w-full justify-start"
+                onClick={handleCopyLink}
+                variant="outline"
+              >
+                {copied ? (
+                  <>
+                    <Check className="mr-3 h-4 w-4 text-green-600" />
+                    Link Copied!
+                  </>
+                ) : (
+                  <>
+                    <Copy className="mr-3 h-4 w-4" />
+                    Copy Link to Passport Page
+                  </>
+                )}
+              </Button>
+            </div>
+
+            {/* Info Box */}
+            <div className="rounded-lg bg-blue-50 p-4 text-blue-800 text-sm">
+              <p className="font-medium">📋 What's included in the PDF:</p>
+              <ul className="mt-2 list-inside list-disc space-y-1 text-blue-700">
+                <li>Player information (name, DOB, age group, sport)</li>
+                <li>Current skill ratings with star system</li>
+                <li>Development goals and progress</li>
+                <li>Recent coach feedback and notes</li>
+                <li>Medical summary (if applicable)</li>
+              </ul>
+            </div>
           </div>
         </div>
       </DialogContent>

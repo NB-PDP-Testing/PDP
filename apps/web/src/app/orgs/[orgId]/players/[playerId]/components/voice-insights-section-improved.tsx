@@ -448,66 +448,69 @@ export function VoiceInsightsSectionImproved({
     const summaryStatus = getParentSummaryStatus(insight.id);
 
     return (
-      <button
-        className="w-full cursor-pointer rounded-lg border p-3 text-left transition-colors hover:bg-muted/30"
-        key={insight.id}
-        onClick={() => toggleInsight(insight.id)}
-        type="button"
-      >
-        {/* Compact Header */}
-        <div className="flex items-start justify-between gap-2">
-          <div className="min-w-0 flex-1">
-            <div className="mb-1 flex flex-wrap items-center gap-2">
-              {insight.category && (
+      <div className="rounded-lg border" key={insight.id}>
+        {/* Compact Header — toggle button only wraps the summary row */}
+        <button
+          className="w-full p-3 text-left transition-colors hover:bg-muted/30"
+          onClick={() => toggleInsight(insight.id)}
+          type="button"
+        >
+          <div className="flex items-start justify-between gap-2">
+            <div className="min-w-0 flex-1">
+              <div className="mb-1 flex flex-wrap items-center gap-2">
+                {insight.category && (
+                  <Badge
+                    className="text-xs"
+                    variant={
+                      insight.category === "injury"
+                        ? "destructive"
+                        : insight.category === "behavior"
+                          ? "secondary"
+                          : "default"
+                    }
+                  >
+                    {insight.category.replace("_", " ")}
+                  </Badge>
+                )}
                 <Badge
                   className="text-xs"
                   variant={
-                    insight.category === "injury"
-                      ? "destructive"
-                      : insight.category === "behavior"
-                        ? "secondary"
-                        : "default"
+                    insight.status === "applied"
+                      ? "default"
+                      : insight.status === "dismissed"
+                        ? "outline"
+                        : "secondary"
                   }
                 >
-                  {insight.category.replace("_", " ")}
+                  {insight.status}
                 </Badge>
-              )}
-              <Badge
-                className="text-xs"
-                variant={
-                  insight.status === "applied"
-                    ? "default"
-                    : insight.status === "dismissed"
-                      ? "outline"
-                      : "secondary"
-                }
-              >
-                {insight.status}
-              </Badge>
-              <span className="text-muted-foreground text-xs">
-                {new Date(note.date).toLocaleDateString()}
-              </span>
-            </div>
-            <p className="line-clamp-1 font-medium text-sm">{insight.title}</p>
-            <p className="text-muted-foreground text-xs">
-              by {note.coachName || "Unknown Coach"}
-            </p>
-            {!isInsightExpanded && (
-              <p className="mt-0.5 line-clamp-1 text-muted-foreground text-xs">
-                {insight.description}
+                <span className="text-muted-foreground text-xs">
+                  {new Date(note.date).toLocaleDateString()}
+                </span>
+              </div>
+              <p className="line-clamp-1 font-medium text-sm">
+                {insight.title}
               </p>
+              <p className="text-muted-foreground text-xs">
+                by {note.coachName || "Unknown Coach"}
+              </p>
+              {!isInsightExpanded && (
+                <p className="mt-0.5 line-clamp-1 text-muted-foreground text-xs">
+                  {insight.description}
+                </p>
+              )}
+            </div>
+            {isInsightExpanded ? (
+              <ChevronUp className="h-4 w-4 flex-shrink-0 text-muted-foreground" />
+            ) : (
+              <ChevronDown className="h-4 w-4 flex-shrink-0 text-muted-foreground" />
             )}
           </div>
-          {isInsightExpanded ? (
-            <ChevronUp className="h-4 w-4 flex-shrink-0 text-muted-foreground" />
-          ) : (
-            <ChevronDown className="h-4 w-4 flex-shrink-0 text-muted-foreground" />
-          )}
-        </div>
+        </button>
 
-        {/* Expanded Details */}
+        {/* Expanded Details — sibling to the button, not nested inside */}
         {isInsightExpanded && (
-          <div className="mt-3 space-y-3 border-t pt-3">
+          <div className="border-t p-3">
             <InsightCard
               coachName={note.coachName}
               hasParentSummary={summaryStatus.hasParentSummary}
@@ -542,7 +545,7 @@ export function VoiceInsightsSectionImproved({
             />
           </div>
         )}
-      </button>
+      </div>
     );
   };
 

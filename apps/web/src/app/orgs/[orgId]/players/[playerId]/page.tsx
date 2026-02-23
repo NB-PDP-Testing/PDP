@@ -122,6 +122,14 @@ function PlayerPassportPageContent() {
   // Check if player has multiple sports
   const showCrossSportTab = (allPassports?.length ?? 0) > 1;
 
+  // Active sport tab derived from URL param or first passport
+  const activeSportCode =
+    sportCodeParam || allPassports?.[0]?.sportCode || "primary";
+
+  // Format a sport code into a display name (handles hyphens and underscores)
+  const formatSportName = (code: string) =>
+    code.replace(/[-_]/g, " ").replace(/\b\w/g, (l) => l.toUpperCase());
+
   // Determine user permissions based on functional roles
   const permissions = useMemo(() => {
     if (!roleDetails) {
@@ -269,15 +277,32 @@ function PlayerPassportPageContent() {
 
       {/* Player Passport Sections */}
       {showCrossSportTab ? (
-        <Tabs className="w-full" defaultValue="primary">
+        <Tabs
+          className="w-full"
+          defaultValue={activeSportCode}
+          onValueChange={(value) => {
+            if (value !== "cross-sport" && value !== activeSportCode) {
+              router.push(
+                `/orgs/${orgId}/players/${playerId}?sport=${value}` as Route
+              );
+            }
+          }}
+        >
           <TabsList>
-            <TabsTrigger value="primary">
-              {playerData.sportCode || "Primary Sport"}
-            </TabsTrigger>
+            {allPassports
+              ?.filter((p) => p.status === "active")
+              .map((passport) => (
+                <TabsTrigger key={passport._id} value={passport.sportCode}>
+                  {formatSportName(passport.sportCode)}
+                </TabsTrigger>
+              ))}
             <TabsTrigger value="cross-sport">Cross-Sport Analysis</TabsTrigger>
           </TabsList>
 
-          <TabsContent className="space-y-4" value="primary">
+          <TabsContent
+            className="space-y-4"
+            value={playerData.sportCode || activeSportCode}
+          >
             {/* Cast to any since components define their own interfaces for the properties they need */}
             <BasicInformationSection player={playerData as any} />
 

@@ -412,6 +412,15 @@ export const resolveEntity = mutation({
       }
     }
 
+    // 7.5. Schedule draft generation for the artifact.
+    // Generates drafts for claims that were awaiting disambiguation.
+    // generateDrafts is idempotent — it skips claims that already have a draft.
+    await ctx.scheduler.runAfter(
+      0,
+      internal.actions.draftGeneration.generateDrafts,
+      { artifactId: resolution.artifactId }
+    );
+
     // 8. [E5] Store coach alias (inline upsert)
     const existingAlias = await ctx.db
       .query("coachPlayerAliases")

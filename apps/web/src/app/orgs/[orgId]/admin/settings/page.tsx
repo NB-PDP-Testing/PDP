@@ -1762,11 +1762,11 @@ export default function OrgSettingsPage() {
                       <Crown className="h-5 w-5" />
                     </div>
                   )}
-                  <div>
+                  <div className="min-w-0 flex-1">
                     <p className="font-medium">
                       {currentOwner.userName || "Unknown"}
                     </p>
-                    <p className="text-muted-foreground text-sm">
+                    <p className="truncate text-muted-foreground text-sm">
                       {currentOwner.userEmail}
                     </p>
                   </div>

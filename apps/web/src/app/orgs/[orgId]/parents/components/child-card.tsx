@@ -17,7 +17,7 @@ import {
 import Link from "next/link";
 import { useMemo } from "react";
 import { Badge } from "@/components/ui/badge";
-import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { Card, CardContent } from "@/components/ui/card";
 import { Progress } from "@/components/ui/progress";
 
 // US-PERF-015/016: Type for bulk child data passed from parent dashboard
@@ -331,20 +331,18 @@ export function ChildCard({ child, orgId, bulkData }: ChildCardProps) {
   return (
     <Card className="overflow-hidden border-0 shadow-md transition-shadow hover:shadow-lg">
       {/* Header */}
-      <CardHeader className="bg-gradient-to-r from-blue-600 to-blue-700 p-4 pb-4 text-white">
+      <div className="bg-gradient-to-r from-blue-600 to-blue-700 p-4 text-white">
         <div className="flex items-start gap-3">
           <div className="flex h-12 w-12 shrink-0 items-center justify-center rounded-full bg-white/20">
             <User className="h-6 w-6 text-white" />
           </div>
           <div className="min-w-0 flex-1">
-            {/* Name row: truncated title + assessment badge side by side */}
-            <div className="flex items-start gap-2">
-              <div className="min-w-0 flex-1">
-                <CardTitle className="truncate text-lg text-white">
-                  {player.firstName} {player.lastName}
-                </CardTitle>
-              </div>
-              <div className="shrink-0 pt-0.5">
+            {/* Name + badge: badge pins right, wraps below name if no room */}
+            <div className="flex flex-wrap items-baseline gap-x-2 gap-y-1">
+              <p className="min-w-0 shrink font-semibold text-lg text-white leading-snug">
+                {player.firstName} {player.lastName}
+              </p>
+              <div className="ml-auto shrink-0">
                 {getAssessmentStatusBadge(
                   primaryPassport?.assessmentCount,
                   primaryPassport?.currentOverallRating
@@ -386,7 +384,7 @@ export function ChildCard({ child, orgId, bulkData }: ChildCardProps) {
             </div>
           </div>
         </div>
-      </CardHeader>
+      </div>
 
       <CardContent className="space-y-4 p-4">
         {/* Performance Score */}

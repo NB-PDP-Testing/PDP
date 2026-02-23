@@ -44,10 +44,10 @@ export function SkillAssessmentsSection({ passportId, orgId }: Props) {
 
   if (assessments === undefined) {
     return (
-      <Card>
+      <Card className="border-l-4 border-l-amber-500 shadow-md">
         <CardHeader>
           <CardTitle className="flex items-center gap-2">
-            <Award className="h-5 w-5" />
+            <Award className="h-5 w-5 text-amber-600" />
             Skill Assessments
           </CardTitle>
         </CardHeader>
@@ -66,13 +66,16 @@ export function SkillAssessmentsSection({ passportId, orgId }: Props) {
 
   return (
     <Collapsible onOpenChange={setIsExpanded} open={isExpanded}>
-      <Card>
+      <Card className="border-l-4 border-l-amber-500 shadow-md hover:shadow-lg">
         <CollapsibleTrigger className="w-full">
           <CardHeader className="cursor-pointer transition-colors hover:bg-accent/50">
             <div className="flex items-center justify-between">
               <CardTitle className="flex items-center gap-2">
-                <Award className="h-5 w-5" />
+                <Award className="h-5 w-5 text-amber-600" />
                 Recent Skill Assessments
+                <span className="rounded-full bg-amber-100 px-2 py-0.5 font-medium text-amber-700 text-xs">
+                  {assessments.length}
+                </span>
               </CardTitle>
               {isExpanded ? (
                 <ChevronUp className="h-5 w-5 text-muted-foreground" />

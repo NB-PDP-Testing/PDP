@@ -389,10 +389,10 @@ export function VoiceInsightsSectionImproved({
   // Loading state
   if (voiceNotes === undefined) {
     return (
-      <Card>
+      <Card className="border-l-4 border-l-violet-500 shadow-md">
         <CardHeader>
           <CardTitle className="flex items-center gap-2">
-            <MessageSquare className="h-5 w-5" />
+            <MessageSquare className="h-5 w-5 text-violet-600" />
             Voice Insights
           </CardTitle>
         </CardHeader>
@@ -408,10 +408,10 @@ export function VoiceInsightsSectionImproved({
   // Empty state
   if (filteredNotes.length === 0) {
     return (
-      <Card>
+      <Card className="border-l-4 border-l-violet-500 shadow-md hover:shadow-lg">
         <CardHeader>
           <CardTitle className="flex items-center gap-2">
-            <MessageSquare className="h-5 w-5" />
+            <MessageSquare className="h-5 w-5 text-violet-600" />
             Voice Insights
           </CardTitle>
         </CardHeader>
@@ -610,14 +610,17 @@ export function VoiceInsightsSectionImproved({
 
   return (
     <Collapsible onOpenChange={setIsExpanded} open={isExpanded}>
-      <Card>
+      <Card className="border-l-4 border-l-violet-500 shadow-md hover:shadow-lg">
         <CollapsibleTrigger asChild>
           <CardHeader className="cursor-pointer transition-colors hover:bg-muted/50">
             <div className="flex items-center justify-between">
               <CardTitle className="flex items-center gap-2">
-                <MessageSquare className="h-5 w-5" />
+                <MessageSquare className="h-5 w-5 text-violet-600" />
                 Voice Insights
-                <Badge className="ml-2" variant="secondary">
+                <Badge
+                  className="ml-2 bg-violet-100 text-violet-700"
+                  variant="secondary"
+                >
                   {totalInsights}
                 </Badge>
               </CardTitle>

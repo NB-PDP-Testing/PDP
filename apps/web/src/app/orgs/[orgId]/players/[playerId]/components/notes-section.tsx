@@ -47,12 +47,12 @@ export function NotesSection({ player, isCoach, canEdit = false }: Props) {
 
   return (
     <Collapsible onOpenChange={setIsExpanded} open={isExpanded}>
-      <Card>
+      <Card className="border-l-4 border-l-teal-500 shadow-md hover:shadow-lg">
         <CardHeader className="cursor-pointer transition-colors hover:bg-accent/50">
           <div className="flex items-center justify-between">
             <CollapsibleTrigger className="flex flex-1 items-center gap-2">
               <CardTitle className="flex items-center gap-2">
-                <FileText className="h-5 w-5" />
+                <FileText className="h-5 w-5 text-teal-600" />
                 Development Notes
               </CardTitle>
               <div className="flex items-center gap-2">

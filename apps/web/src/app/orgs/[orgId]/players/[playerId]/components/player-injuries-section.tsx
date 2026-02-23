@@ -38,10 +38,10 @@ export function PlayerInjuriesSection({ playerIdentityId, orgId }: Props) {
 
   if (injuries === undefined) {
     return (
-      <Card>
+      <Card className="border-l-4 border-l-green-500 shadow-md">
         <CardHeader>
           <CardTitle className="flex items-center gap-2">
-            <AlertTriangle className="h-5 w-5" />
+            <AlertTriangle className="h-5 w-5 text-green-600" />
             Injury Status
           </CardTitle>
         </CardHeader>
@@ -56,11 +56,14 @@ export function PlayerInjuriesSection({ playerIdentityId, orgId }: Props) {
 
   if (!injuries || injuries.length === 0) {
     return (
-      <Card>
+      <Card className="border-l-4 border-l-green-500 shadow-md hover:shadow-lg">
         <CardHeader>
           <CardTitle className="flex items-center gap-2">
-            <AlertTriangle className="h-5 w-5" />
+            <AlertTriangle className="h-5 w-5 text-green-600" />
             Injury Status
+            <span className="rounded-full bg-green-100 px-2 py-0.5 font-medium text-green-700 text-xs">
+              All Clear
+            </span>
           </CardTitle>
         </CardHeader>
         <CardContent>
@@ -74,14 +77,19 @@ export function PlayerInjuriesSection({ playerIdentityId, orgId }: Props) {
 
   return (
     <Collapsible onOpenChange={setIsExpanded} open={isExpanded}>
-      <Card>
+      <Card className="border-l-4 border-l-red-500 shadow-md hover:shadow-lg">
         <CollapsibleTrigger className="w-full">
           <CardHeader className="cursor-pointer transition-colors hover:bg-accent/50">
             <div className="flex items-center justify-between">
               <CardTitle className="flex items-center gap-2">
-                <AlertTriangle className="h-5 w-5" />
+                <AlertTriangle className="h-5 w-5 text-red-600" />
                 Injury Status
-                <Badge variant="outline">{injuries.length}</Badge>
+                <Badge
+                  className="border-red-300 bg-red-100 text-red-700"
+                  variant="outline"
+                >
+                  {injuries.length} active
+                </Badge>
               </CardTitle>
               {isExpanded ? (
                 <ChevronUp className="h-5 w-5 text-muted-foreground" />

@@ -17,7 +17,7 @@ import {
 import Link from "next/link";
 import { useMemo } from "react";
 import { Badge } from "@/components/ui/badge";
-import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { Card, CardContent } from "@/components/ui/card";
 import { Progress } from "@/components/ui/progress";
 
 // US-PERF-015/016: Type for bulk child data passed from parent dashboard
@@ -155,7 +155,7 @@ const getAssessmentStatusBadge = (
 ) => {
   if (!assessmentCount || assessmentCount === 0) {
     return (
-      <Badge className="shrink-0 bg-gray-100 text-gray-600" variant="outline">
+      <Badge className="bg-gray-100 text-gray-600" variant="outline">
         No Assessments
       </Badge>
     );
@@ -180,11 +180,11 @@ const getAssessmentStatusBadge = (
             ? "bg-yellow-100 text-yellow-700"
             : "bg-orange-100 text-orange-700";
 
-    return <Badge className={`shrink-0 ${ratingColor}`}>{ratingText}</Badge>;
+    return <Badge className={ratingColor}>{ratingText}</Badge>;
   }
 
   return (
-    <Badge className="shrink-0 bg-blue-100 text-blue-700">
+    <Badge className="bg-blue-100 text-blue-700">
       {assessmentCount} Assessment{assessmentCount > 1 ? "s" : ""}
     </Badge>
   );
@@ -331,59 +331,60 @@ export function ChildCard({ child, orgId, bulkData }: ChildCardProps) {
   return (
     <Card className="overflow-hidden border-0 shadow-md transition-shadow hover:shadow-lg">
       {/* Header */}
-      <CardHeader className="bg-gradient-to-r from-blue-600 to-blue-700 p-4 pb-4 text-white">
-        <div className="flex items-start justify-between gap-2">
+      <div className="bg-gradient-to-r from-blue-600 to-blue-700 p-4 text-white">
+        <div className="flex items-start gap-3">
+          <div className="flex h-12 w-12 shrink-0 items-center justify-center rounded-full bg-white/20">
+            <User className="h-6 w-6 text-white" />
+          </div>
           <div className="min-w-0 flex-1">
-            <div className="flex items-center gap-3">
-              <div className="flex h-12 w-12 shrink-0 items-center justify-center rounded-full bg-white/20">
-                <User className="h-6 w-6 text-white" />
-              </div>
-              <div className="min-w-0">
-                <CardTitle className="truncate text-lg text-white">
-                  {player.firstName} {player.lastName}
-                </CardTitle>
-                {enrollment?.ageGroup && (
-                  <p className="text-blue-100 text-sm">
-                    {enrollment.ageGroup.toUpperCase()}
-                  </p>
+            {/* Name + badge: badge pins right, wraps below name if no room */}
+            <div className="flex flex-wrap items-baseline gap-x-2 gap-y-1">
+              <p className="min-w-0 shrink font-semibold text-lg text-white leading-snug">
+                {player.firstName} {player.lastName}
+              </p>
+              <div className="ml-auto shrink-0">
+                {getAssessmentStatusBadge(
+                  primaryPassport?.assessmentCount,
+                  primaryPassport?.currentOverallRating
                 )}
-                {/* Sport Badges with Emojis */}
-                <div className="mt-1.5 flex flex-wrap gap-1.5">
-                  {activeSports.length > 0 ? (
-                    <>
-                      {activeSports.map((sport: any) => (
-                        <span
-                          className="inline-flex items-center gap-1 rounded-full bg-white/20 px-2 py-0.5 font-medium text-white text-xs"
-                          key={sport._id}
-                        >
-                          {getSportEmoji(sport.sportCode)}{" "}
-                          {formatSportName(sport.sportCode)}
-                        </span>
-                      ))}
-                      {isMultiSport && (
-                        <span className="inline-flex items-center gap-1 rounded-full bg-amber-400/30 px-2 py-0.5 font-bold text-amber-100 text-xs">
-                          ⭐ Multi-Sport
-                        </span>
-                      )}
-                    </>
-                  ) : (
-                    primaryPassport?.sportCode && (
-                      <span className="inline-flex items-center gap-1 rounded-full bg-white/20 px-2 py-0.5 font-medium text-white text-xs">
-                        {getSportEmoji(primaryPassport.sportCode)}{" "}
-                        {formatSportName(primaryPassport.sportCode)}
-                      </span>
-                    )
-                  )}
-                </div>
               </div>
             </div>
+            {enrollment?.ageGroup && (
+              <p className="mt-0.5 text-blue-100 text-sm">
+                {enrollment.ageGroup.toUpperCase()}
+              </p>
+            )}
+            {/* Sport Badges with Emojis */}
+            <div className="mt-1.5 flex flex-wrap gap-1.5">
+              {activeSports.length > 0 ? (
+                <>
+                  {activeSports.map((sport: any) => (
+                    <span
+                      className="inline-flex items-center gap-1 rounded-full bg-white/20 px-2 py-0.5 font-medium text-white text-xs"
+                      key={sport._id}
+                    >
+                      {getSportEmoji(sport.sportCode)}{" "}
+                      {formatSportName(sport.sportCode)}
+                    </span>
+                  ))}
+                  {isMultiSport && (
+                    <span className="inline-flex items-center gap-1 rounded-full bg-amber-400/30 px-2 py-0.5 font-bold text-amber-100 text-xs">
+                      ⭐ Multi-Sport
+                    </span>
+                  )}
+                </>
+              ) : (
+                primaryPassport?.sportCode && (
+                  <span className="inline-flex items-center gap-1 rounded-full bg-white/20 px-2 py-0.5 font-medium text-white text-xs">
+                    {getSportEmoji(primaryPassport.sportCode)}{" "}
+                    {formatSportName(primaryPassport.sportCode)}
+                  </span>
+                )
+              )}
+            </div>
           </div>
-          {getAssessmentStatusBadge(
-            primaryPassport?.assessmentCount,
-            primaryPassport?.currentOverallRating
-          )}
         </div>
-      </CardHeader>
+      </div>
 
       <CardContent className="space-y-4 p-4">
         {/* Performance Score */}

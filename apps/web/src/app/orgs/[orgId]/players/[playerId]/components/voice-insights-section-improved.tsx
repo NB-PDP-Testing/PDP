@@ -2,7 +2,7 @@
 
 import { api } from "@pdp/backend/convex/_generated/api";
 import type { Id } from "@pdp/backend/convex/_generated/dataModel";
-import { useQuery } from "convex/react";
+import { useMutation, useQuery } from "convex/react";
 import {
   ChevronDown,
   ChevronUp,
@@ -15,6 +15,7 @@ import {
 } from "lucide-react";
 import { useRouter } from "next/navigation";
 import { useMemo, useState } from "react";
+import { toast } from "sonner";
 import { Alert, AlertDescription } from "@/components/ui/alert";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
@@ -104,6 +105,12 @@ export function VoiceInsightsSectionImproved({
     api.models.coachParentSummaries.getParentSummariesByChildAndSport,
     { organizationId: orgId }
   );
+
+  // Mutations for edit and delete (coach only)
+  const updateInsightContent = useMutation(
+    api.models.voiceNotes.updateInsightContent
+  );
+  const removeInsight = useMutation(api.models.voiceNotes.removeInsight);
 
   // Determine permissions
   const canSeeTranscriptions = isCoach || isAdmin;
@@ -315,6 +322,34 @@ export function VoiceInsightsSectionImproved({
     );
   };
 
+  // Edit handler (coach only)
+  const handleEditInsight = async (
+    noteId: Id<"voiceNotes">,
+    insightId: string,
+    title: string,
+    description: string
+  ) => {
+    try {
+      await updateInsightContent({ noteId, insightId, title, description });
+      toast.success("Insight updated");
+    } catch {
+      toast.error("Failed to update insight");
+    }
+  };
+
+  // Delete handler (coach only)
+  const handleDeleteInsight = async (
+    noteId: Id<"voiceNotes">,
+    insightId: string
+  ) => {
+    try {
+      await removeInsight({ noteId, insightId });
+      toast.success("Insight deleted");
+    } catch {
+      toast.error("Failed to delete insight");
+    }
+  };
+
   // Toggle insight expansion
   const toggleInsight = (insightId: string) => {
     const newExpanded = new Set(expandedInsights);
@@ -479,6 +514,22 @@ export function VoiceInsightsSectionImproved({
               insight={insight}
               noteDate={note.date}
               noteId={note._id}
+              onDelete={
+                isCoach
+                  ? () => handleDeleteInsight(note._id, insight.id)
+                  : undefined
+              }
+              onEdit={
+                isCoach
+                  ? (title, description) =>
+                      handleEditInsight(
+                        note._id,
+                        insight.id,
+                        title,
+                        description
+                      )
+                  : undefined
+              }
               onViewInVoiceNotes={
                 canSeeAllInsights
                   ? () => handleViewInVoiceNotes(note._id)
@@ -521,6 +572,22 @@ export function VoiceInsightsSectionImproved({
                 key={insight.id}
                 noteDate={note.date}
                 noteId={note._id}
+                onDelete={
+                  isCoach
+                    ? () => handleDeleteInsight(note._id, insight.id)
+                    : undefined
+                }
+                onEdit={
+                  isCoach
+                    ? (title, description) =>
+                        handleEditInsight(
+                          note._id,
+                          insight.id,
+                          title,
+                          description
+                        )
+                    : undefined
+                }
                 onViewInVoiceNotes={
                   canSeeAllInsights
                     ? () => handleViewInVoiceNotes(note._id)

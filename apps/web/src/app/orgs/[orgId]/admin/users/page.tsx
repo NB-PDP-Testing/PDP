@@ -1692,7 +1692,7 @@ export default function ManageUsersPage() {
                 <CardHeader className="pb-4">
                   <div className="flex flex-col gap-2">
                     {/* Row 1: Avatar, Name/Email, Action Buttons */}
-                    <div className="flex items-center justify-between gap-2">
+                    <div className="flex items-start justify-between gap-2">
                       <div className="flex min-w-0 flex-1 items-center gap-3">
                         <Avatar className="h-10 w-10 flex-shrink-0">
                           <AvatarImage src={user.image || undefined} />
@@ -1728,7 +1728,7 @@ export default function ManageUsersPage() {
                       </div>
 
                       {/* Action buttons - always visible on right */}
-                      <div className="flex flex-shrink-0 items-center gap-2">
+                      <div className="flex min-w-[88px] flex-shrink-0 items-center justify-end gap-2">
                         {/* Suspend/Restore button (admin/owner only) */}
                         {(currentMember?.role === "owner" ||
                           currentMember?.role === "admin") &&

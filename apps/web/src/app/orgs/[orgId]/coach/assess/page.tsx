@@ -4,11 +4,14 @@ import { api } from "@pdp/backend/convex/_generated/api";
 import type { Id } from "@pdp/backend/convex/_generated/dataModel";
 import { useMutation, useQuery } from "convex/react";
 import {
+  AlertCircle,
   ArrowLeft,
   Award,
   BarChart3,
   Check,
+  CheckCircle2,
   ChevronRight,
+  Clock,
   History,
   Loader2,
   Save,
@@ -91,6 +94,9 @@ export default function AssessPlayerPage() {
   const [collapsedCategories, setCollapsedCategories] = useState<Set<string>>(
     new Set()
   );
+  const [statusFilter, setStatusFilter] = useState<
+    "never" | "overdue" | "due_soon" | "up_to_date" | null
+  >(null);
 
   // Batch assessment mode state
   const [assessmentMode, setAssessmentMode] =
@@ -304,8 +310,8 @@ export default function AssessPlayerPage() {
     [coachAssignments]
   );
 
-  // Filter and search players
-  const filteredPlayers = useMemo(() => {
+  // Base filtered players (team/sport/search — no status filter)
+  const baseFilteredPlayers = useMemo(() => {
     if (!allPlayers) {
       return [];
     }
@@ -376,7 +382,7 @@ export default function AssessPlayerPage() {
       );
     }
 
-    // FINALLY: Filter by search query
+    // Filter by search query
     if (searchQuery.trim()) {
       const query = searchQuery.toLowerCase();
       filtered = filtered.filter((p) => {
@@ -407,6 +413,65 @@ export default function AssessPlayerPage() {
     selectedSportCode,
     searchQuery,
   ]);
+
+  // Aggregate counts for the status dashboard cards
+  const statusCounts = useMemo(() => {
+    const today = new Date();
+    today.setHours(0, 0, 0, 0);
+    const dueSoonDate = new Date(today);
+    dueSoonDate.setDate(dueSoonDate.getDate() + 14);
+    let never = 0;
+    let overdue = 0;
+    let due_soon = 0;
+    let up_to_date = 0;
+    for (const { enrollment } of baseFilteredPlayers) {
+      const due = enrollment.nextReviewDue;
+      if (due) {
+        const dueDate = new Date(due);
+        if (dueDate < today) {
+          overdue += 1;
+        } else if (dueDate <= dueSoonDate) {
+          due_soon += 1;
+        } else {
+          up_to_date += 1;
+        }
+      } else {
+        never += 1;
+      }
+    }
+    return { never, overdue, due_soon, up_to_date };
+  }, [baseFilteredPlayers]);
+
+  // Apply status filter on top of base filters
+  const filteredPlayers = useMemo(() => {
+    if (!statusFilter) {
+      return baseFilteredPlayers;
+    }
+    const today = new Date();
+    today.setHours(0, 0, 0, 0);
+    const dueSoonDate = new Date(today);
+    dueSoonDate.setDate(dueSoonDate.getDate() + 14);
+    return baseFilteredPlayers.filter(({ enrollment }) => {
+      const due = enrollment.nextReviewDue;
+      if (statusFilter === "never") {
+        return !due;
+      }
+      if (!due) {
+        return false;
+      }
+      const dueDate = new Date(due);
+      if (statusFilter === "overdue") {
+        return dueDate < today;
+      }
+      if (statusFilter === "due_soon") {
+        return dueDate >= today && dueDate <= dueSoonDate;
+      }
+      if (statusFilter === "up_to_date") {
+        return dueDate > dueSoonDate;
+      }
+      return true;
+    });
+  }, [baseFilteredPlayers, statusFilter]);
 
   // Calculate player stats
   const playerStats = useMemo(() => {
@@ -916,6 +981,91 @@ export default function AssessPlayerPage() {
           </div>
         </CardContent>
       </Card>
+
+      {/* Assessment Status Overview */}
+      {assessmentMode === "individual" && !selectedPlayerId && (
+        <div className="grid grid-cols-2 gap-3 sm:grid-cols-4">
+          {(
+            [
+              {
+                key: "never",
+                label: "Never Assessed",
+                count: statusCounts.never,
+                Icon: AlertCircle,
+                idle: "border-gray-200 bg-gray-50 hover:border-gray-400",
+                active: "border-gray-500 bg-gray-100 ring-2 ring-gray-400",
+                iconColor: "text-gray-500",
+                countColor: "text-gray-700",
+                labelColor: "text-gray-500",
+              },
+              {
+                key: "overdue",
+                label: "Overdue",
+                count: statusCounts.overdue,
+                Icon: AlertCircle,
+                idle: "border-red-200 bg-red-50 hover:border-red-400",
+                active: "border-red-500 bg-red-100 ring-2 ring-red-400",
+                iconColor: "text-red-500",
+                countColor: "text-red-700",
+                labelColor: "text-red-600",
+              },
+              {
+                key: "due_soon",
+                label: "Due Soon",
+                count: statusCounts.due_soon,
+                Icon: Clock,
+                idle: "border-amber-200 bg-amber-50 hover:border-amber-400",
+                active: "border-amber-500 bg-amber-100 ring-2 ring-amber-400",
+                iconColor: "text-amber-500",
+                countColor: "text-amber-700",
+                labelColor: "text-amber-600",
+              },
+              {
+                key: "up_to_date",
+                label: "Up to Date",
+                count: statusCounts.up_to_date,
+                Icon: CheckCircle2,
+                idle: "border-green-200 bg-green-50 hover:border-green-400",
+                active: "border-green-500 bg-green-100 ring-2 ring-green-400",
+                iconColor: "text-green-500",
+                countColor: "text-green-700",
+                labelColor: "text-green-600",
+              },
+            ] as const
+          ).map(
+            ({
+              key,
+              label,
+              count,
+              Icon,
+              idle,
+              active,
+              iconColor,
+              countColor,
+              labelColor,
+            }) => (
+              <button
+                className={`rounded-lg border p-4 text-left transition-all ${
+                  statusFilter === key ? active : idle
+                }`}
+                key={key}
+                onClick={() =>
+                  setStatusFilter(
+                    statusFilter === key
+                      ? null
+                      : (key as "never" | "overdue" | "due_soon" | "up_to_date")
+                  )
+                }
+                type="button"
+              >
+                <Icon className={`mb-2 h-5 w-5 ${iconColor}`} />
+                <p className={`font-bold text-2xl ${countColor}`}>{count}</p>
+                <p className={`text-xs ${labelColor}`}>{label}</p>
+              </button>
+            )
+          )}
+        </div>
+      )}
 
       {/* Player Stats & Info */}
       {selectedPlayer && selectedSportCode && (

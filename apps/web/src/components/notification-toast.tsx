@@ -13,7 +13,8 @@ type NotificationType =
   | "severe_injury_alert"
   | "injury_cleared"
   | "milestone_completed"
-  | "clearance_received";
+  | "clearance_received"
+  | "org_invitation_received";
 
 export type NotificationData = {
   _id: string;

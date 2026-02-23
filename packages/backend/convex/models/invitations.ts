@@ -1003,6 +1003,71 @@ export const approveInvitationRequest = mutation({
   },
 });
 
+// ============================================================
+// ISSUE #437: NOTIFY EXISTING USER OF INVITATION
+// When an admin invites an email that already has an account,
+// send an in-app notification so they don't have to rely solely on email.
+// ============================================================
+
+/**
+ * Notify an existing user that they have been invited to an organization.
+ *
+ * Called after authClient.organization.inviteMember() succeeds.
+ * Looks up the invited email in the user table and, if an account exists,
+ * creates an in-app notification so the user sees an alert immediately
+ * without having to wait for and click the invitation email.
+ */
+export const notifyExistingUserOfInvitation = mutation({
+  args: {
+    invitedEmail: v.string(),
+    organizationId: v.string(),
+    invitationId: v.string(),
+  },
+  returns: v.object({
+    notified: v.boolean(),
+  }),
+  handler: async (ctx, args) => {
+    // Look up the invited email in the Better Auth user table
+    const existingUser = await ctx.runQuery(
+      components.betterAuth.adapter.findOne,
+      {
+        model: "user",
+        where: [
+          {
+            field: "email",
+            value: args.invitedEmail.toLowerCase(),
+            operator: "eq",
+          },
+        ],
+      }
+    );
+
+    if (!existingUser) {
+      return { notified: false };
+    }
+
+    // Look up org name for the notification message
+    const org = await ctx.runQuery(components.betterAuth.adapter.findOne, {
+      model: "organization",
+      where: [{ field: "_id", value: args.organizationId, operator: "eq" }],
+    });
+    const orgName =
+      (org as { name?: string } | null)?.name ?? "an organization";
+
+    // Create an in-app notification for the existing user
+    await ctx.runMutation(internal.models.notifications.createNotification, {
+      userId: existingUser._id as string,
+      organizationId: args.organizationId,
+      type: "org_invitation_received",
+      title: "You've been invited to an organization",
+      message: `You've been invited to join ${orgName}. Click to accept.`,
+      link: `/orgs/accept-invitation/${args.invitationId}`,
+    });
+
+    return { notified: true };
+  },
+});
+
 /**
  * Deny an invitation request
  */

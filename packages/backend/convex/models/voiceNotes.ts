@@ -2540,7 +2540,8 @@ export const getCoachImpactSummary = query({
     // 5. Get injury insights (from voiceNoteInsights with category "injury")
     const injuryInsights = insightsInRange.filter(
       (insight) =>
-        insight.category === "injury" || insight.category === "medical"
+        (insight.category === "injury" || insight.category === "medical") &&
+        !!insight.playerIdentityId
     );
 
     const injuriesRecorded = injuryInsights.slice(0, 20).map((insight) => ({

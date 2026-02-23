@@ -148,8 +148,18 @@ export function HistoryTab({
   // Parse the search query for smart filtering
   const { textQuery, typeFilter } = parseSearchQuery(searchQuery);
 
-  // Filter notes
-  const filteredNotes = voiceNotes?.filter((note) => {
+  // Filter notes — History shows only completed or failed notes
+  const completedNotes = voiceNotes?.filter(
+    (n) =>
+      n.transcriptionStatus !== "pending" &&
+      n.transcriptionStatus !== "processing" &&
+      !(
+        n.transcriptionStatus === "completed" &&
+        (n.insightsStatus === "pending" || n.insightsStatus === "processing")
+      )
+  );
+
+  const filteredNotes = completedNotes?.filter((note) => {
     // Type filter (from smart search)
     if (typeFilter && note.type !== typeFilter) {
       return false;
@@ -193,8 +203,8 @@ export function HistoryTab({
               Voice Note History
             </CardTitle>
             <CardDescription className="text-xs sm:text-sm">
-              {voiceNotes?.length ?? 0} note
-              {(voiceNotes?.length ?? 0) !== 1 ? "s" : ""} recorded
+              {completedNotes?.length ?? 0} note
+              {(completedNotes?.length ?? 0) !== 1 ? "s" : ""} recorded
             </CardDescription>
           </div>
         </div>
@@ -263,12 +273,12 @@ export function HistoryTab({
                 <Mic className="h-6 w-6" />
               </EmptyMedia>
               <EmptyTitle>
-                {voiceNotes?.length === 0
+                {completedNotes?.length === 0
                   ? "No recordings yet"
                   : "No matching notes"}
               </EmptyTitle>
               <EmptyDescription>
-                {voiceNotes?.length === 0
+                {completedNotes?.length === 0
                   ? "Start recording your first voice note to capture coaching insights"
                   : "Try adjusting your search or filters"}
               </EmptyDescription>

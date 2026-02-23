@@ -8,11 +8,11 @@ import {
   ArrowLeft,
   BarChart3,
   ChevronDown,
+  Clock,
   EyeOff,
   FileCheck,
   History,
   Lightbulb,
-  Loader2,
   Lock,
   MessageSquare,
   Mic,
@@ -58,6 +58,7 @@ import { InsightsTab } from "./components/insights-tab";
 import { MyImpactTab } from "./components/my-impact-tab";
 import { NewNoteTab } from "./components/new-note-tab";
 import { ParentsTab } from "./components/parents-tab";
+import { ProcessingTab } from "./components/processing-tab";
 import { TeamInsightsTab } from "./components/team-insights-tab";
 
 const { useSession } = authClient;
@@ -69,6 +70,7 @@ type TabId =
   | "drafts"
   | "team"
   | "auto-sent"
+  | "processing"
   | "history"
   | "my-impact";
 
@@ -458,6 +460,16 @@ export function VoiceNotesDashboard() {
       });
     }
 
+    // Processing tab — only show when there are notes waiting to complete
+    if (processingCount > 0) {
+      baseTabs.push({
+        id: "processing",
+        label: "Processing",
+        icon: Clock,
+        badge: processingCount,
+      });
+    }
+
     // Phase 7B: Drafts tab always shows (empty state handles no-data)
     baseTabs.push({
       id: "drafts" as TabId,
@@ -487,11 +499,10 @@ export function VoiceNotesDashboard() {
       });
     }
 
-    // Always show History (Settings is now in header)
+    // Always show History
     baseTabs.push({ id: "history", label: "History", icon: History });
 
-    // Phase 8: Show My Impact tab to coaches with functional role "Coach" OR platform staff
-    // Note: Check will be done below after fetching member data
+    // Phase 8: My Impact tab
     baseTabs.push({
       id: "my-impact",
       label: "My Impact",
@@ -507,6 +518,7 @@ export function VoiceNotesDashboard() {
     needsAttentionCount,
     shouldShowSentToParents,
     pendingDrafts?.length,
+    processingCount,
   ]);
 
   // If current tab is no longer available (e.g., approved all summaries), switch to New
@@ -571,17 +583,6 @@ export function VoiceNotesDashboard() {
                   </div>
                   <div className="text-gray-600 text-xs sm:text-sm">
                     Attention
-                  </div>
-                </div>
-              )}
-              {processingCount > 0 && (
-                <div className="text-center">
-                  <div className="flex items-center gap-1 font-bold text-lg text-orange-600 sm:text-2xl">
-                    <Loader2 className="h-4 w-4 animate-spin sm:h-5 sm:w-5" />
-                    {processingCount}
-                  </div>
-                  <div className="text-gray-600 text-xs sm:text-sm">
-                    Processing
                   </div>
                 </div>
               )}
@@ -809,6 +810,7 @@ export function VoiceNotesDashboard() {
             orgId={orgId}
           />
         )}
+        {activeTab === "processing" && <ProcessingTab orgId={orgId} />}
         {activeTab === "history" && (
           <HistoryTab
             highlightNoteId={noteIdParam || undefined}

@@ -65,6 +65,7 @@ type UnifiedInvitationStepProps = {
   userId: string;
   userEmail: string;
   onComplete: () => void;
+  onSkip?: () => void;
 };
 
 export function UnifiedInvitationStep({
@@ -72,6 +73,7 @@ export function UnifiedInvitationStep({
   userId,
   userEmail,
   onComplete,
+  onSkip,
 }: UnifiedInvitationStepProps) {
   const router = useRouter();
   const isMobile = useIsMobile();
@@ -291,6 +293,8 @@ export function UnifiedInvitationStep({
     // Skip this invitation (don't accept it)
     if (currentInvitationIndex < invitations.length - 1) {
       setCurrentInvitationIndex((prev) => prev + 1);
+    } else if (onSkip) {
+      onSkip();
     } else {
       onComplete();
     }

@@ -23,6 +23,7 @@ type ResolutionRecord = {
   claimId: Id<"voiceNoteClaims">;
   mentionType: string;
   status: string;
+  rawText: string;
   resolvedEntityId?: Id<"playerIdentities">;
   resolvedEntityName?: string;
   candidates: Array<{ score: number }>;
@@ -146,9 +147,26 @@ function buildResolutionMap(
   return map;
 }
 
+// ── Helper: correct misheard/mismatched entity name in text ─────
+// Only applied for user_resolved entities (coach disambiguation).
+
+function replaceEntityMention(
+  text: string,
+  rawText: string,
+  resolvedName: string
+): string {
+  if (!rawText || rawText === resolvedName) {
+    return text;
+  }
+  const escaped = rawText.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
+  return text.replace(new RegExp(`\\b${escaped}\\b`, "gi"), resolvedName);
+}
+
 /**
  * Generate insight drafts from resolved claims.
- * Called after entity resolution completes (Phase 5).
+ * Called after entity resolution completes (Phase 5) and after
+ * coach disambiguation (resolveEntity). Idempotent: skips claims
+ * that already have an existing draft.
  */
 export const generateDrafts = internalAction({
   args: {
@@ -211,6 +229,15 @@ export const generateDrafts = internalAction({
       resolutions as ResolutionRecord[]
     );
 
+    // 4.5. Build idempotency set — skip claims that already have a draft
+    const existingDrafts = await ctx.runQuery(
+      internal.models.insightDrafts.getDraftsByArtifact,
+      { artifactId: args.artifactId }
+    );
+    const claimsWithDrafts = new Set<string>(
+      existingDrafts.map((d) => String(d.claimId))
+    );
+
     // 5. Get coach trust level
     const trustLevel = await ctx.runQuery(
       internal.models.coachTrustLevels.getCoachTrustLevelInternal,
@@ -262,6 +289,11 @@ export const generateDrafts = internalAction({
     let displayOrder = 1; // 1-indexed per ADR-VN2-028
 
     for (const claim of claims) {
+      // Skip claims that already have a draft (idempotency for re-runs after disambiguation)
+      if (claimsWithDrafts.has(String(claim._id))) {
+        continue;
+      }
+
       const claimResolutions =
         resolutionsByClaimId.get(claim._id as unknown as string) ?? [];
       const playerResolution = findPlayerResolution(claimResolutions);
@@ -281,6 +313,19 @@ export const generateDrafts = internalAction({
       );
 
       const now = Date.now();
+
+      // For user-resolved entities (coach disambiguation), correct any misheard
+      // player name in the AI-generated title and description.
+      const resolvedName = playerResolution.resolvedEntityName ?? "";
+      const rawMention = playerResolution.rawText ?? "";
+      const isUserResolved = playerResolution.status === "user_resolved";
+      const draftTitle = isUserResolved
+        ? replaceEntityMention(claim.title, rawMention, resolvedName)
+        : claim.title;
+      const draftDescription = isUserResolved
+        ? replaceEntityMention(claim.description, rawMention, resolvedName)
+        : claim.description;
+
       drafts.push({
         draftId: crypto.randomUUID(),
         artifactId: args.artifactId,
@@ -288,8 +333,8 @@ export const generateDrafts = internalAction({
         playerIdentityId: playerResolution.resolvedEntityId,
         resolvedPlayerName: playerResolution.resolvedEntityName,
         insightType: claim.topic,
-        title: claim.title,
-        description: claim.description,
+        title: draftTitle,
+        description: draftDescription,
         evidence: {
           transcriptSnippet: claim.sourceText,
           timestampStart: claim.timestampStart,

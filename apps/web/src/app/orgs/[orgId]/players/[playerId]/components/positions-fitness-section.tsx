@@ -51,12 +51,12 @@ export function PositionsFitnessSection({ player }: Props) {
           onOpenChange={setIsPositionsExpanded}
           open={isPositionsExpanded}
         >
-          <Card>
+          <Card className="border-l-4 border-l-green-500 shadow-md hover:shadow-lg">
             <CollapsibleTrigger className="w-full">
               <CardHeader className="cursor-pointer transition-colors hover:bg-accent/50">
                 <div className="flex items-center justify-between">
                   <CardTitle className="flex items-center gap-2">
-                    <MapPin className="h-5 w-5" />
+                    <MapPin className="h-5 w-5 text-green-600" />
                     Preferred Positions
                   </CardTitle>
                   {isPositionsExpanded ? (
@@ -115,12 +115,12 @@ export function PositionsFitnessSection({ player }: Props) {
           onOpenChange={setIsFitnessExpanded}
           open={isFitnessExpanded}
         >
-          <Card>
+          <Card className="border-l-4 border-l-cyan-500 shadow-md hover:shadow-lg">
             <CollapsibleTrigger className="w-full">
               <CardHeader className="cursor-pointer transition-colors hover:bg-accent/50">
                 <div className="flex items-center justify-between">
                   <CardTitle className="flex items-center gap-2">
-                    <Activity className="h-5 w-5" />
+                    <Activity className="h-5 w-5 text-cyan-600" />
                     Physical Fitness Assessment
                   </CardTitle>
                   {isFitnessExpanded ? (

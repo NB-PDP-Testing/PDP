@@ -19,6 +19,7 @@ import { EmergencyContactsSection } from "./components/emergency-contacts-sectio
 import { GoalsSection } from "./components/goals-section";
 import { NotesSection } from "./components/notes-section";
 import { ParentSummariesSection } from "./components/parent-summaries-section";
+import { PassportHero } from "./components/passport-hero";
 import { PlayerInjuriesSection } from "./components/player-injuries-section";
 import { PositionsFitnessSection } from "./components/positions-fitness-section";
 import { RequestAccessModal } from "./components/request-access-modal";
@@ -125,6 +126,12 @@ function PlayerPassportPageContent() {
   // Active sport tab derived from URL param or first passport
   const activeSportCode =
     sportCodeParam || allPassports?.[0]?.sportCode || "primary";
+
+  // Active sports list for hero banner
+  const activeSports = useMemo(
+    () => allPassports?.filter((p) => p.status === "active") ?? [],
+    [allPassports]
+  );
 
   // Format a sport code into a display name (handles hyphens and underscores)
   const formatSportName = (code: string) =>
@@ -274,6 +281,19 @@ function PlayerPassportPageContent() {
           </>
         )}
       </div>
+
+      {/* Passport Hero Banner */}
+      <PassportHero
+        activeSports={activeSports}
+        ageGroup={(playerData as any).ageGroup}
+        goals={(playerData as any).goals}
+        isMultiSport={showCrossSportTab}
+        overallScore={(playerData as any).overallScore}
+        playerName={playerData.name || "Player"}
+        skills={playerData.skills as Record<string, number> | undefined}
+        sportCode={playerData.sportCode}
+        trainingAttendance={(playerData as any).trainingAttendance}
+      />
 
       {/* Player Passport Sections */}
       {showCrossSportTab ? (

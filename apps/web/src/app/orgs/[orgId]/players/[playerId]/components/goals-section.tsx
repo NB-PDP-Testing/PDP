@@ -155,12 +155,12 @@ export function GoalsSection({ player }: Props) {
   if (goals.length === 0) {
     return (
       <Collapsible onOpenChange={setIsExpanded} open={isExpanded}>
-        <Card>
+        <Card className="border-l-4 border-l-purple-500 shadow-md hover:shadow-lg">
           <CollapsibleTrigger className="w-full">
             <CardHeader className="cursor-pointer transition-colors hover:bg-accent/50">
               <div className="flex items-center justify-between">
                 <CardTitle className="flex items-center gap-2">
-                  <Target className="h-5 w-5" />
+                  <Target className="h-5 w-5 text-purple-600" />
                   Development Goals & Actions
                 </CardTitle>
                 {isExpanded ? (
@@ -185,15 +185,24 @@ export function GoalsSection({ player }: Props) {
     );
   }
 
+  const activeCount = goals.filter(
+    (g) => g.status === "in_progress" || g.status === "not_started"
+  ).length;
+
   return (
     <Collapsible onOpenChange={setIsExpanded} open={isExpanded}>
-      <Card>
+      <Card className="border-l-4 border-l-purple-500 shadow-md hover:shadow-lg">
         <CollapsibleTrigger className="w-full">
           <CardHeader className="cursor-pointer transition-colors hover:bg-accent/50">
             <div className="flex items-center justify-between">
               <CardTitle className="flex items-center gap-2">
-                <Target className="h-5 w-5" />
+                <Target className="h-5 w-5 text-purple-600" />
                 Development Goals & Actions
+                {activeCount > 0 && (
+                  <span className="rounded-full bg-purple-100 px-2 py-0.5 font-medium text-purple-700 text-xs">
+                    {activeCount} active
+                  </span>
+                )}
               </CardTitle>
               {isExpanded ? (
                 <ChevronUp className="h-5 w-5 text-muted-foreground" />

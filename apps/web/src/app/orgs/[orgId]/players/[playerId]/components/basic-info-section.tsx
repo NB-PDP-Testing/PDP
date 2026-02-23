@@ -130,16 +130,13 @@ export function BasicInformationSection({ player }: Props) {
 
   return (
     <div className="space-y-2">
-      {/* Player Name - Always Visible */}
-      <h2 className="font-bold text-2xl">{player.name}</h2>
-
       <Collapsible onOpenChange={setIsExpanded} open={isExpanded}>
-        <Card>
+        <Card className="border-l-4 border-l-slate-400 shadow-md hover:shadow-lg">
           <CollapsibleTrigger className="w-full">
             <CardHeader className="cursor-pointer transition-colors hover:bg-accent/50">
               <div className="flex items-center justify-between">
                 <CardTitle className="flex items-center gap-2">
-                  <User className="h-5 w-5" />
+                  <User className="h-5 w-5 text-slate-600" />
                   Basic Information
                 </CardTitle>
                 {isExpanded ? (

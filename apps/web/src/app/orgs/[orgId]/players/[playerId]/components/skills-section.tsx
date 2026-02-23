@@ -54,15 +54,20 @@ export function SkillsSection({ player }: Props) {
     return <GenericSkills skills={skills} />;
   };
 
+  const skillCount = Object.keys(skills).length;
+
   return (
     <Collapsible onOpenChange={setIsExpanded} open={isExpanded}>
-      <Card>
+      <Card className="border-l-4 border-l-amber-500 shadow-md hover:shadow-lg">
         <CollapsibleTrigger className="w-full">
           <CardHeader className="cursor-pointer transition-colors hover:bg-accent/50">
             <div className="flex items-center justify-between">
               <CardTitle className="flex items-center gap-2">
-                <Award className="h-5 w-5" />
+                <Award className="h-5 w-5 text-amber-600" />
                 Player Skills
+                <span className="rounded-full bg-amber-100 px-2 py-0.5 font-medium text-amber-700 text-xs">
+                  {skillCount} rated
+                </span>
               </CardTitle>
               {isExpanded ? (
                 <ChevronUp className="h-5 w-5 text-muted-foreground" />
@@ -490,7 +495,7 @@ function SkillCategory({
 }) {
   return (
     <div>
-      <h4 className="mb-3 border-gray-200 border-b pb-2 font-semibold text-gray-700 text-sm">
+      <h4 className="mb-3 rounded-r border-l-2 border-l-amber-400 bg-amber-50 py-1 pl-3 font-semibold text-amber-800 text-xs uppercase tracking-wide">
         {title}
       </h4>
       <div className="space-y-2">{children}</div>

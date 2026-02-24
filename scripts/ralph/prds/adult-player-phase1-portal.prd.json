@@ -1,0 +1,129 @@
+{
+  "project": "Adult Player Lifecycle — Phase 1: Player Portal Layout & Navigation",
+  "branchName": "ralph/adult-player-phase1-portal",
+  "description": "Extends the existing single-page player portal at /orgs/[orgId]/player/page.tsx into a full multi-section portal with sidebar navigation, mirroring the parent portal structure. Adds layout.tsx, PlayerSidebar, an overview enhancement with wellness CTA cards, and a self-edit profile sub-page.",
+  "readinessLevel": "100% - Existing portal and role switcher confirmed in codebase",
+  "contextAndDependencies": {
+    "criticalContext": [
+      "EXTEND, NEVER REBUILD: apps/web/src/app/orgs/[orgId]/player/page.tsx is a FULL dashboard (passport, emergency contacts, benchmarks, goals, skills, positions). It becomes the Overview tab — do NOT remove or replace any content.",
+      "'player' functional role already exists in org-role-switcher.tsx and routes to /orgs/[orgId]/player",
+      "hasPlayerDashboard query already built at packages/backend/convex/models/adultPlayers.ts:633 — use it to gate the portal",
+      "getPlayerDashboard query already built at adultPlayers.ts:503 — use it for the overview summary cards",
+      "updateMyProfile mutation already built at adultPlayers.ts:287 — use it for the profile self-edit page",
+      "getMyPlayerProfile query returns player + emergencyContacts — use for profile page display",
+      "Parent portal at apps/web/src/app/orgs/[orgId]/parents/ is the template — mirror its layout.tsx, sidebar component, and mobile nav pattern exactly",
+      "apps/web/src/components/layout/parent-sidebar.tsx is the reference for building PlayerSidebar",
+      "Sub-routes that don't have pages yet (progress, teams, injuries, sharing, health-check, settings) must show a placeholder 'Coming Soon' page — no 404 errors",
+      "Org theming: useOrgTheme() hook, CSS vars --org-primary, --org-secondary, --org-tertiary",
+      "Mobile-first: 375px minimum width, bottom nav tabs on mobile matching parent portal pattern"
+    ],
+    "keyFiles": [
+      "apps/web/src/app/orgs/[orgId]/player/page.tsx — EXTEND only, becomes Overview tab",
+      "apps/web/src/app/orgs/[orgId]/parents/layout.tsx — template to mirror",
+      "apps/web/src/app/orgs/[orgId]/parents/components/ — sidebar and component patterns",
+      "apps/web/src/components/layout/parent-sidebar.tsx — template for PlayerSidebar",
+      "packages/backend/convex/models/adultPlayers.ts — hasPlayerDashboard (line 633), getPlayerDashboard (line 503), updateMyProfile (line 287), getMyPlayerProfile",
+      "apps/web/src/components/org-role-switcher.tsx — player role already wired"
+    ],
+    "criticalPatterns": {
+      "LayoutWrapper": "layout.tsx wraps the existing page.tsx. The existing page content is untouched — just framed in the sidebar layout.",
+      "PortalGating": "hasPlayerDashboard query gates the entire /player/ route tree. Redirect to org home if false.",
+      "EmergencyContactCRUD": "Emergency contact mutations (add/edit/delete) need to be added to adultPlayers.ts following the playerEmergencyContacts table pattern.",
+      "ReturnValidators": "All new queries and mutations MUST include returns validator.",
+      "IndexUsage": "Always use .withIndex() — NEVER .filter() in Convex.",
+      "BetterAuthTables": "user/member/organization/team use ctx.runQuery(components.betterAuth.adapter.*). Application tables use ctx.db directly."
+    }
+  },
+  "userStories": [
+    {
+      "id": "US-P1-001",
+      "title": "Player Portal Layout & Sidebar Navigation",
+      "description": "As an adult player, I want a sidebar-navigated portal matching the depth of the parent portal, so that I can access all my sports management features in one place.",
+      "phase": "Phase 1: Extend Existing Player Portal",
+      "acceptanceCriteria": [
+        "Create apps/web/src/app/orgs/[orgId]/player/layout.tsx — this file does NOT currently exist",
+        "Build PlayerSidebar component by mirroring ParentSidebar at apps/web/src/components/layout/parent-sidebar.tsx",
+        "Existing player/page.tsx content must remain completely intact — it becomes the Overview tab, just framed in the new layout",
+        "hasPlayerDashboard query (adultPlayers.ts:633) gates the entire portal — redirect to org home if user has no player profile",
+        "Sidebar navigation items: Overview (Home icon, /player/), My Profile (User icon, /player/profile), My Progress (TrendingUp icon, /player/progress), My Teams (Users icon, /player/teams), My Injuries (Activity icon, /player/injuries), Passport Sharing (Share2 icon, /player/sharing), Daily Wellness (Heart icon, /player/health-check), Settings (Settings icon, /player/settings)",
+        "Mobile responsive: bottom nav tabs (4 primary items) matching parent portal pattern at 375px minimum",
+        "Org theming via useOrgTheme() applied consistently — CSS vars --org-primary, --org-secondary, --org-tertiary",
+        "Sub-routes that don't have pages yet (progress, teams, injuries, sharing, health-check, settings) show a placeholder 'Coming Soon' page — no 404 errors",
+        "npm run check-types passes",
+        "npx -w packages/backend convex codegen passes"
+      ],
+      "priority": 1,
+      "passes": false,
+      "notes": "Read apps/web/src/app/orgs/[orgId]/parents/layout.tsx and apps/web/src/components/layout/parent-sidebar.tsx before starting. Mirror the pattern exactly. The player/page.tsx is a full dashboard — do not touch its content."
+    },
+    {
+      "id": "US-P1-002",
+      "title": "Player Overview Dashboard Enhancement with Wellness CTA",
+      "description": "As an adult player, I want the existing overview to surface a Daily Wellness CTA and key summary cards, so that my most important actions are immediately visible.",
+      "phase": "Phase 1: Extend Existing Player Portal",
+      "acceptanceCriteria": [
+        "All existing content in player/page.tsx (passport, emergency contacts, benchmarks, goals, skills, positions) remains intact",
+        "Add a summary card row at the TOP of the existing page: active injuries count card, latest assessment rating card, today's wellness status card",
+        "If wellness check not yet submitted today: show amber 'Complete Your Daily Wellness Check' CTA card linking to /player/health-check",
+        "If wellness check already submitted today: show green 'Wellness checked in today ✓' status card",
+        "All summary cards show empty state (with appropriate icon and message) when no data exists",
+        "Summary data fetched via existing getPlayerDashboard(organizationId) query — no new backend query needed for the card row",
+        "Today's wellness status requires a new lightweight query getTodayHealthCheck(playerIdentityId, date) — add to a new file packages/backend/convex/models/playerHealthChecks.ts (Phase 4 will expand this file; stub it now with just this query)",
+        "Mobile-first card layout: stack vertically on mobile, 3-column grid on desktop",
+        "npm run check-types passes"
+      ],
+      "priority": 2,
+      "passes": false,
+      "notes": "Read the existing player/page.tsx fully before touching it. Add the summary row above the existing content, don't replace anything. The getTodayHealthCheck query stub only needs to return null for now — Phase 4 adds the full wellness schema."
+    },
+    {
+      "id": "US-P1-003",
+      "title": "Player Profile Self-Edit Sub-Page",
+      "description": "As an adult player, I want a dedicated page to manage my contact details and emergency contacts, so that my information stays current without asking an admin.",
+      "phase": "Phase 1: Extend Existing Player Portal",
+      "acceptanceCriteria": [
+        "Create apps/web/src/app/orgs/[orgId]/player/profile/page.tsx",
+        "Editable fields (using updateMyProfile mutation at adultPlayers.ts:287): email, phone, address, town, postcode, country",
+        "Read-only fields: firstName, lastName, dateOfBirth, gender — each shown with a Lock icon and tooltip 'Contact your admin to change'",
+        "Form uses React Hook Form with Zod validation, matching existing form patterns in the codebase",
+        "Save button shows loading state during mutation, success toast on save, error toast on failure",
+        "Emergency contacts section below personal details: displays all existing emergency contacts (from getMyPlayerProfile) with name, phone, relationship",
+        "Emergency contacts: Add button opens a dialog to create a new emergency contact",
+        "Emergency contacts: Edit and Delete actions on each contact row",
+        "Emergency contact mutations (addEmergencyContact, updateEmergencyContact, deleteEmergencyContact): add to packages/backend/convex/models/adultPlayers.ts following the playerEmergencyContacts table pattern already established",
+        "Mobile-first layout: 375px minimum width, single-column on mobile",
+        "npm run check-types passes"
+      ],
+      "priority": 3,
+      "passes": false,
+      "notes": "updateMyProfile mutation is already built at adultPlayers.ts:287. getMyPlayerProfile returns both player and emergencyContacts. The emergency contact CRUD mutations are the new backend work needed."
+    },
+    {
+      "id": "US-P1-UAT",
+      "title": "Phase 1 Player Portal E2E Tests",
+      "description": "As a developer, I want Playwright E2E tests covering all Phase 1 stories, so that the player portal works correctly end-to-end and regressions are caught automatically.",
+      "phase": "Phase 1: Extend Existing Player Portal",
+      "acceptanceCriteria": [
+        "Create test file: apps/web/uat/tests/player-portal-phase1.spec.ts",
+        "Test: user without player role visiting /orgs/[orgId]/player is redirected to org home",
+        "Test: user with player role sees sidebar with all 8 nav items rendered",
+        "Test: clicking each sidebar nav item navigates without 404",
+        "Test: overview page shows summary cards (may be empty state)",
+        "Test: amber wellness CTA card is visible when no wellness check submitted today",
+        "Test: navigate to My Profile, edit phone number, save, refresh, confirm new phone number persists",
+        "Test: read-only fields (name, DOB) inputs are disabled and show lock icon",
+        "Test: emergency contacts section is visible in My Profile",
+        "Manual test 1: Log in as user with player role → confirm sidebar with all 8 nav items",
+        "Manual test 2: Log in as user WITHOUT player role → confirm redirect to org home",
+        "Manual test 3: Navigate to My Profile → edit phone → save → refresh → confirm persisted",
+        "Manual test 4: Verify read-only fields show lock icon and cannot be edited",
+        "Manual test 5: Navigate to each sidebar section → confirm no 404 errors, placeholder shown for unbuilt sections",
+        "Manual test 6: Resize to 375px → confirm mobile bottom nav appears, all items tappable (44×44px min)",
+        "Manual test 7: Confirm org theme colours applied consistently across all portal pages"
+      ],
+      "priority": 4,
+      "passes": false,
+      "notes": "Use test account neil.B@blablablak.com / lien1979. Dev browser available at ~/.claude/skills/dev-browser."
+    }
+  ]
+}

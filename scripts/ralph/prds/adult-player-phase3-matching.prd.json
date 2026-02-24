@@ -1,0 +1,165 @@
+{
+  "project": "Adult Player Lifecycle — Phase 3: Adult Import & Youth Record Matching",
+  "branchName": "ralph/adult-player-phase3-matching",
+  "description": "When an adult is added to the system (manually, via CSV import, by email invite, or via self-registration), check for a matching youth playerIdentity to avoid duplicates and preserve history. Extends all three existing entry points — does NOT create new import pipelines. Adds a reusable findMatchingYouthProfile backend query and extends manual add, CSV import, join request, and invite flows.",
+  "readinessLevel": "100% - All three entry points confirmed in codebase, matching algorithm pattern in playerImport.ts:148",
+  "contextAndDependencies": {
+    "criticalContext": [
+      "EXTEND, NEVER REBUILD: All three entry points already exist — manual add (admin/players/page.tsx), CSV import (admin/player-import/page.tsx), email invite (existing invite dialog). Add matching logic to them, do NOT create new flows.",
+      "Guardian multi-signal matching algorithm at packages/backend/convex/models/playerImport.ts:148 — read this to understand the scoring approach before writing findMatchingYouthProfile",
+      "transitionToAdult mutation already built at adultPlayers.ts:206 — the 'merge' action calls this, NOT a new mutation",
+      "claimYouthProfile mutation at adultPlayers.ts:350 — use for 'Approve & Link' in the join request flow",
+      "Resend email utility at packages/backend/convex/utils/email.ts — follow the existing pattern for sendPlayerJoinApprovalEmail()",
+      "The existing duplicate check in admin/players/page.tsx (same name + DOB + gender) must remain unchanged — youth matching is an ADDITIVE check for adults only",
+      "Import continues via the existing batchImportMutation — do NOT create a new import pipeline",
+      "Join request flow: find how coach/parent requests are handled and follow the same pattern for player requests",
+      "BetterAuth tables (user/member/organization/team): use ctx.runQuery(components.betterAuth.adapter.*). Application tables: ctx.db.",
+      "Always use .withIndex() — NEVER .filter() in Convex. All queries must include returns validator."
+    ],
+    "keyFiles": [
+      "packages/backend/convex/models/playerImport.ts:148 — matching algorithm to reuse (READ before writing findMatchingYouthProfile)",
+      "packages/backend/convex/models/adultPlayers.ts — transitionToAdult (line 206), claimYouthProfile (line 350)",
+      "packages/backend/convex/utils/email.ts — extend with sendPlayerJoinApprovalEmail()",
+      "apps/web/src/app/orgs/[orgId]/admin/players/page.tsx — EXTEND only: add youth matching for adults",
+      "apps/web/src/app/orgs/[orgId]/admin/player-import/page.tsx — EXTEND only: add match badges to review table",
+      "packages/backend/convex/schema.ts — playerIdentities table structure (for query design)"
+    ],
+    "criticalPatterns": {
+      "MatchingAlgorithm": "exact DOB + exact surname (case-insensitive) = HIGH; exact DOB + first name match = MEDIUM; surname only = LOW. Email match boosts by one level. Query only youth playerIdentities using .withIndex().",
+      "ExtendNotReplace": "All three entry points already exist. Add matching logic to them. The existing flows must continue to work unchanged for youth players and non-matched adults.",
+      "MergeVsCreate": "Merge = call transitionToAdult on existing record, do NOT create new playerIdentity. Create New = existing flow unchanged.",
+      "N1Prevention": "findMatchingYouthProfile is called once per candidate, not in a loop over org players. The query scans youth identities with indexes.",
+      "ReturnValidators": "All new queries and mutations must include returns validator."
+    }
+  },
+  "userStories": [
+    {
+      "id": "US-P3-001",
+      "title": "Backend: findMatchingYouthProfile Query",
+      "description": "As a backend developer, I need a reusable query that checks if an adult being added matches an existing youth playerIdentity, so that all entry points can use the same matching logic.",
+      "phase": "Phase 3: Adult Import & Youth Record Matching",
+      "acceptanceCriteria": [
+        "Add findMatchingYouthProfile query to packages/backend/convex/models/playerImport.ts (or a new file packages/backend/convex/models/playerMatching.ts if cleaner)",
+        "Args: organizationId (string), firstName (string), lastName (string), dateOfBirth (string), email (optional string)",
+        "Query only playerIdentities where playerType === 'youth' using .withIndex() — never .filter()",
+        "Matching algorithm: exact DOB + exact surname (case-insensitive) → HIGH confidence; exact DOB + firstName match → MEDIUM; surname only → LOW",
+        "If email provided and matches playerIdentity email: boost confidence by one level (LOW→MEDIUM, MEDIUM→HIGH)",
+        "Return type: { confidence: 'high' | 'medium' | 'low' | 'none', match: playerIdentity object or null, matchedFields: string[] }",
+        "Include returns validator with the full return shape",
+        "Query does NOT iterate over all org players in a loop — it fetches candidates via index then scores in-memory",
+        "npm run check-types passes",
+        "npx -w packages/backend convex codegen passes"
+      ],
+      "priority": 1,
+      "passes": false,
+      "notes": "Read playerImport.ts:148 to understand the existing scoring pattern — reuse that approach. This is the foundation for all other Phase 3 stories. Must be completed first."
+    },
+    {
+      "id": "US-P3-002",
+      "title": "Youth Record Matching on Manual Add Player Form",
+      "description": "As an admin adding an adult player manually, I want the system to suggest if this adult matches an existing youth record, so that I don't create duplicate profiles and lose their history.",
+      "phase": "Phase 3: Adult Import & Youth Record Matching",
+      "acceptanceCriteria": [
+        "EXTEND apps/web/src/app/orgs/[orgId]/admin/players/page.tsx — do NOT replace or duplicate the existing Add Player form",
+        "When admin submits form for a player with calculated age >= 18: run findMatchingYouthProfile in parallel with the existing duplicate check",
+        "HIGH confidence match: show blocking dialog 'A youth profile matching this player exists — [Name], born [DOB]. Link to existing history or create new?'",
+        "HIGH confidence dialog: 'Link to Existing History' button calls transitionToAdult(existingPlayerIdentityId) — does NOT create new playerIdentity",
+        "HIGH confidence dialog: 'Create New Profile' button proceeds with existing creation flow unchanged",
+        "MEDIUM confidence match: show non-blocking amber warning banner above form 'A youth profile may match this player. Review before proceeding.' with 'View Match' link",
+        "LOW confidence or no match: proceed with existing flow completely unchanged",
+        "Existing exact duplicate detection (same name + DOB + gender) remains unchanged and runs first — youth matching is additive for adults only",
+        "Mobile responsive: dialog works at 375px width",
+        "npm run check-types passes"
+      ],
+      "priority": 2,
+      "passes": false,
+      "notes": "Read the full admin/players/page.tsx before touching it. findMatchingYouthProfile (US-P3-001) must be complete first. The existing duplicate check flow must not be broken."
+    },
+    {
+      "id": "US-P3-003",
+      "title": "Youth Record Matching on CSV Import",
+      "description": "As an admin running a player import, I want adult players in the CSV to be flagged against existing youth records, so that imported data enriches existing profiles rather than duplicating them.",
+      "phase": "Phase 3: Adult Import & Youth Record Matching",
+      "acceptanceCriteria": [
+        "EXTEND the existing import flow at apps/web/src/app/orgs/[orgId]/admin/player-import/page.tsx — do NOT create a new import pipeline",
+        "In the import preview/review table, add a 'Youth Match' column that appears only for adult rows (age >= 18)",
+        "For each adult row: run findMatchingYouthProfile and show a confidence badge: 'High' (red/amber colour), 'Medium' (yellow), or '-' (no match)",
+        "Admin can choose per matched row via dropdown or inline buttons: 'Accept Match' (merge — uses transitionToAdult on existing record), 'Skip Match' (create new profile), 'Review Later' (creates new + adds a note to the profile)",
+        "Default selection for HIGH confidence rows: 'Accept Match'. Default for MEDIUM: 'Skip Match'",
+        "Import continues via the existing batchImportMutation with admin's per-row decisions — no new import pipeline",
+        "Youth player rows (age < 18) and no-match adult rows proceed exactly as before",
+        "Show import summary before final confirmation: 'X adult rows will be merged with existing profiles, Y will create new profiles'",
+        "npm run check-types passes"
+      ],
+      "priority": 3,
+      "passes": false,
+      "notes": "Read admin/player-import/page.tsx fully before modifying. The review table already exists — add the new column and per-row decision UI. findMatchingYouthProfile (US-P3-001) must be built first."
+    },
+    {
+      "id": "US-P3-004",
+      "title": "Player Self-Registration via Join Request with Youth Matching",
+      "description": "As an adult player who has never received an invite, I want to register myself and join an organisation, so that my existing history is preserved when linked to my youth profile.",
+      "phase": "Phase 3: Adult Import & Youth Record Matching",
+      "acceptanceCriteria": [
+        "EXTEND the existing org join request form — add 'I'm a player' option alongside existing coach/parent role options",
+        "When 'player' role is selected: show a required DOB field (used for youth record matching)",
+        "On join request submission with player role: backend runs findMatchingYouthProfile with the provided name + DOB, stores result (confidence + matched playerIdentityId) with the join request record",
+        "In the admin's pending requests review UI (existing UI): flag requests where a HIGH youth match was found — show 'May match [Name], born [DOB]. Link or create new?'",
+        "Admin approval options for player requests with HIGH match: 'Approve & Link to Existing History' or 'Approve & Create New Profile'",
+        "'Approve & Link': calls claimYouthProfile(existingPlayerIdentityId, userId) — links user to existing record and transitions to adult if age >= 18",
+        "'Approve & Create New': existing approval flow, creates new playerIdentity",
+        "On approval (either path): send player confirmation email — add sendPlayerJoinApprovalEmail() to packages/backend/convex/utils/email.ts following existing pattern",
+        "Email content: 'Your request to join [Org] has been approved. You now have access to your player portal.' with link to org",
+        "npm run check-types passes"
+      ],
+      "priority": 4,
+      "passes": false,
+      "notes": "Find the existing join request form and admin review UI by searching for how coach/parent requests are handled — follow the same pattern. claimYouthProfile is at adultPlayers.ts:350."
+    },
+    {
+      "id": "US-P3-005",
+      "title": "Youth Record Matching on Email Invite",
+      "description": "As an admin inviting an adult player by email, I want the system to detect if a youth record exists for this person, so that their history is linked when they accept.",
+      "phase": "Phase 3: Adult Import & Youth Record Matching",
+      "acceptanceCriteria": [
+        "EXTEND the existing invite dialog — add optional DOB field for player role invites (if not already present)",
+        "When DOB is entered alongside email in the invite dialog: backend checks findMatchingYouthProfile",
+        "If HIGH or MEDIUM match found: show informational note inline in the dialog: 'A youth profile may exist for this person. They'll be linked to their existing history when they accept the invite.'",
+        "If no match: proceed with invite as normal, no UI change",
+        "Store the matched playerIdentityId in the invitation metadata when a match is found",
+        "On invitation acceptance (existing flow via accept-invitation page + onboarding orchestrator): if invitation metadata contains a matchedPlayerIdentityId AND player age >= 18, automatically call transitionToAdult(matchedPlayerIdentityId, userId) after claimPlayerAccount",
+        "The auto-transition on acceptance must be non-breaking for existing invites that have no matchedPlayerIdentityId in metadata",
+        "The inline note is informational only — admin does not need to confirm, just sees the note",
+        "npm run check-types passes"
+      ],
+      "priority": 5,
+      "passes": false,
+      "notes": "Find the existing invite dialog. Read how invitations are accepted in the accept-invitation page. The auto-transition must guard against null matchedPlayerIdentityId — existing invites have no such metadata."
+    },
+    {
+      "id": "US-P3-UAT",
+      "title": "Phase 3 Adult Import Matching E2E Tests",
+      "description": "As a developer, I want Playwright E2E tests for all Phase 3 matching scenarios, so that adult import matching is reliable and regression-free.",
+      "phase": "Phase 3: Adult Import & Youth Record Matching",
+      "acceptanceCriteria": [
+        "Create test file: apps/web/uat/tests/adult-import-matching-phase3.spec.ts",
+        "Test: manually adding adult player with HIGH confidence match shows blocking dialog",
+        "Test: manually adding adult player with no match proceeds directly to creation (no dialog)",
+        "Test: 'Link to Existing History' in dialog does not create a new playerIdentity",
+        "Test: import CSV with adult row matching existing youth player shows 'High' badge in review table",
+        "Test: join request form shows DOB field when 'player' role selected",
+        "Test: admin review screen shows match flag for player join request with matching youth record",
+        "Manual test 1: Create youth player (DOB = 18 years ago). Manually add same person as adult → confirm HIGH match dialog appears",
+        "Manual test 2: Choose 'Link to Existing' → confirm no new playerIdentity created, existing record now adult",
+        "Manual test 3: Choose 'Create New' → confirm two records now exist (acceptable edge case)",
+        "Manual test 4: Upload CSV with adult row matching youth player by name+DOB → confirm 'High' badge in import preview",
+        "Manual test 5: Accept match during import → verify no duplicate record, existing enrollment updated",
+        "Manual test 6: Submit self-registration as player with DOB matching youth record → log in as admin → confirm match flag in pending requests",
+        "Manual test 7: Invite player by email + DOB matching youth record → confirm informational note in invite dialog"
+      ],
+      "priority": 6,
+      "passes": false,
+      "notes": "US-P3-001 through US-P3-005 must all be complete before this UAT story."
+    }
+  ]
+}

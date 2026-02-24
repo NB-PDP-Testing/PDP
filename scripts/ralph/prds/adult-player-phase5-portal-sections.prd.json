@@ -1,0 +1,130 @@
+{
+  "project": "Adult Player Lifecycle — Phase 5: Full Player Portal Remaining Sections",
+  "branchName": "ralph/adult-player-phase5-portal-sections",
+  "description": "Completes the remaining player portal sub-pages: My Progress (read-only sport passport ratings with trend arrows), My Passport Sharing (player takes over sharing controls from guardian on account claim), and My Injuries (view injury history and self-report new injuries). All leverage existing backend queries and UI patterns.",
+  "readinessLevel": "100% - Existing passport, sharing, and injury backend confirmed in codebase",
+  "contextAndDependencies": {
+    "criticalContext": [
+      "Phase 1 (portal layout + sidebar) must be complete before this phase — these pages slot into the sidebar navigation created in Phase 1",
+      "EXTEND existing backend only — sportPassports, passportSharing, and playerInjuries backend already exists",
+      "Sport passport queries: find getPassportsForPlayer or equivalent in packages/backend/convex/models/sportPassports.ts — read before implementing",
+      "Passport sharing: existing parent sharing UI at apps/web/src/app/orgs/[orgId]/parents/sharing/page.tsx is the template to mirror exactly — read it first",
+      "passportSharing table and backend queries already exist for parent-controlled sharing — reuse them for player-controlled sharing",
+      "Ownership transfer: when player claims account (Phase 2 claimPlayerAccount), sharing control must transfer from guardian userId to player userId — add this transfer to the claim flow or as a post-claim mutation",
+      "Player injuries: find getInjuriesForPlayer or equivalent in packages/backend/convex/models/playerInjuries.ts — read the existing coach injury view for patterns",
+      "reportedByRole field: check packages/backend/convex/schema.ts to confirm playerInjuries has reportedByRole field — if missing, add it",
+      "Player-reported injuries must appear in coach injury view with 'Player-reported' badge",
+      "BetterAuth tables use ctx.runQuery(components.betterAuth.adapter.*). Application tables use ctx.db.",
+      "Always use .withIndex() — NEVER .filter(). All queries/mutations must include returns validator."
+    ],
+    "keyFiles": [
+      "apps/web/src/app/orgs/[orgId]/player/layout.tsx — must exist from Phase 1 before these pages work",
+      "packages/backend/convex/models/sportPassports.ts — passport queries to use",
+      "apps/web/src/app/orgs/[orgId]/parents/sharing/page.tsx — template to mirror for sharing page",
+      "packages/backend/convex/models/playerInjuries.ts — injury queries and mutations",
+      "packages/backend/convex/schema.ts — confirm reportedByRole on playerInjuries, passportSharing table structure",
+      "apps/web/src/app/orgs/[orgId]/coach/injuries/ — existing injury page patterns to reference"
+    ],
+    "criticalPatterns": {
+      "ReadOnlyPassport": "Player views own passport but cannot edit skill ratings. Remove all edit controls from the coach view pattern. Player CAN add their own notes.",
+      "SharingTransfer": "On claimPlayerAccount, update passportSharing records for this playerIdentityId to transfer guardianId/userId to the player's userId. Guardian sharing access is revoked.",
+      "SelfReportedInjury": "Creates injury with reportedByRole: 'player'. Must appear in coach injury view with 'Player-reported' badge. Verify the field exists in schema before creating.",
+      "ReturnValidators": "All new queries and mutations must include returns validator.",
+      "MobileFirst": "All pages mobile-first at 375px minimum width."
+    }
+  },
+  "userStories": [
+    {
+      "id": "US-P5-001",
+      "title": "My Progress — Player View of Sport Passports",
+      "description": "As an adult player, I want to see my sport passport ratings and assessment history, so that I can track my own development.",
+      "phase": "Phase 5: Full Player Portal Remaining Sections",
+      "acceptanceCriteria": [
+        "Create apps/web/src/app/orgs/[orgId]/player/progress/page.tsx",
+        "Fetch own passports using the appropriate existing query (find in sportPassports.ts — likely getPassportsForPlayer or similar scoped to a playerIdentityId)",
+        "If multiple sports: tab or pill switcher at top to select between sports",
+        "Display skill ratings (technical, tactical, physical, mental) in read-only format — same visual as coach view but with NO edit controls",
+        "Show trend arrows (↑ ↓ =) next to each rating based on most recent vs previous assessment value",
+        "Assessment history timeline below ratings: list of assessment dates with summary score for each, newest first",
+        "Player CANNOT edit their own ratings — no edit buttons or inputs. Show label: 'Ratings are set by your coach'",
+        "Player CAN add their own notes: 'My Notes' textarea section that saves via existing player notes mutation on the passport record — find the existing player notes pattern",
+        "Empty state: 'No passport assessments yet. Your coach will complete your first assessment.' if no passports exist",
+        "Mobile responsive at 375px minimum",
+        "npm run check-types passes"
+      ],
+      "priority": 1,
+      "passes": false,
+      "notes": "Read sportPassports.ts fully before implementing. Mirror the coach passport view but strip all edit capabilities. Find the player notes mutation — it likely already exists."
+    },
+    {
+      "id": "US-P5-002",
+      "title": "My Passport Sharing Management (Player Controls Own Sharing)",
+      "description": "As an adult player, I want to control who can see my sports passport, so that I can share my data with other clubs when I choose.",
+      "phase": "Phase 5: Full Player Portal Remaining Sections",
+      "acceptanceCriteria": [
+        "Create apps/web/src/app/orgs/[orgId]/player/sharing/page.tsx",
+        "Mirror the existing parent sharing UI at apps/web/src/app/orgs/[orgId]/parents/sharing/page.tsx — same controls, same patterns, same backend queries",
+        "Player can enable/disable passport sharing via toggle — same backend mutations as parent sharing",
+        "Player can approve or deny sharing enquiries from other orgs",
+        "Sharing ownership transfer: when claimPlayerAccount succeeds (Phase 2, US-P2-003), update passportSharing records for this playerIdentityId to transfer ownership to the player's userId, revoking guardian access",
+        "If ownership transfer is not already in Phase 2: add a mutation transferPassportSharingOwnership(playerIdentityId, newUserId) and call it as part of the claim flow or as a post-claim step",
+        "If guardian had previously enabled sharing: player sees it is currently shared and can choose to disable",
+        "Empty state: 'No sharing requests yet. Enable sharing to let other clubs view your passport.'",
+        "Mobile responsive at 375px minimum",
+        "npm run check-types passes"
+      ],
+      "priority": 2,
+      "passes": false,
+      "notes": "Read apps/web/src/app/orgs/[orgId]/parents/sharing/page.tsx FULLY before implementing. Read the passportSharing table schema. The ownership transfer is the new part — the rest reuses existing backend."
+    },
+    {
+      "id": "US-P5-003",
+      "title": "My Injuries — Player Self-View and Self-Report",
+      "description": "As an adult player, I want to view and self-report my own injuries, so that I can track my recovery and keep my club informed.",
+      "phase": "Phase 5: Full Player Portal Remaining Sections",
+      "acceptanceCriteria": [
+        "Create apps/web/src/app/orgs/[orgId]/player/injuries/page.tsx",
+        "Fetch own injury history using existing injury query scoped to this playerIdentityId (find in playerInjuries.ts)",
+        "Show injury list: body part, injury type, severity, date occurred, current status (active/recovering/cleared/healed)",
+        "Coach-reported injuries: display read-only with 'Reported by coach' badge",
+        "Player-reported injuries: display with 'You reported this' badge",
+        "Active injury (if any): show prominently at top with status, expected return date, recovery milestones if available",
+        "'Report New Injury' button opens a dialog form with fields: body part (dropdown using existing body part options), injury type (dropdown or text input), severity (minor/moderate/severe radio), date occurred (date picker), occurred during (training/match/other radio), notes (optional textarea)",
+        "On submit: create injury record with reportedByRole set to 'player' — verify this field exists in playerInjuries schema; if not, add it to schema.ts first",
+        "Player-reported injury appears in coach injury view for that player with 'Player-reported' badge — verify coach view shows reportedByRole",
+        "Empty state: 'No injuries on record. Stay healthy!' when no injuries exist",
+        "Mobile responsive at 375px minimum",
+        "npm run check-types passes"
+      ],
+      "priority": 3,
+      "passes": false,
+      "notes": "Read packages/backend/convex/models/playerInjuries.ts and schema.ts before implementing. Check if reportedByRole exists on playerInjuries — add to schema if missing. Reference apps/web/src/app/orgs/[orgId]/coach/injuries/ for existing patterns."
+    },
+    {
+      "id": "US-P5-UAT",
+      "title": "Phase 5 Player Portal Sections E2E Tests",
+      "description": "As a developer, I want Playwright E2E tests for the full player portal sections, so that progress, sharing, and injury features work end-to-end.",
+      "phase": "Phase 5: Full Player Portal Remaining Sections",
+      "acceptanceCriteria": [
+        "Create test file: apps/web/uat/tests/player-portal-phase5.spec.ts",
+        "Test: My Progress page loads and shows sport passport ratings in read-only format",
+        "Test: My Progress — no edit buttons present on skill rating fields",
+        "Test: My Progress — player notes textarea is present and saves successfully",
+        "Test: My Passport Sharing — sharing toggle changes state and persists in DB",
+        "Test: My Injuries — page loads and shows existing injury list",
+        "Test: My Injuries — 'Report New Injury' form opens, submits, creates injury with reportedByRole 'player'",
+        "Manual test 1: Log in as adult player with sport passport → navigate to My Progress → confirm ratings visible with sport tabs",
+        "Manual test 2: Confirm player CANNOT edit skill ratings (no edit controls present)",
+        "Manual test 3: Confirm player CAN add a personal note to passport notes section, saves successfully",
+        "Manual test 4: Navigate to My Passport Sharing → toggle sharing on → confirm sharing enabled in DB",
+        "Manual test 5: Navigate to My Injuries → confirm existing injuries shown with correct badges",
+        "Manual test 6: Click 'Report New Injury' → fill all fields → submit → confirm injury record created with reportedByRole 'player'",
+        "Manual test 7: New injury appears in list with 'You reported this' badge",
+        "Manual test 8: Log in as coach → confirm player-reported injury appears in coach injury view with 'Player-reported' badge"
+      ],
+      "priority": 4,
+      "passes": false,
+      "notes": "US-P5-001, US-P5-002, and US-P5-003 must all be complete before this UAT story. Phase 1 portal layout must also be complete for navigation to work."
+    }
+  ]
+}

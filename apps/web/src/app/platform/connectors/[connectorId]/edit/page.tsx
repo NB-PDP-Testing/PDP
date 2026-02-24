@@ -4,6 +4,7 @@ import { api } from "@pdp/backend/convex/_generated/api";
 import type { Id } from "@pdp/backend/convex/_generated/dataModel";
 import { useAction, useMutation, useQuery } from "convex/react";
 import { ChevronDown, Loader2, TestTube2 } from "lucide-react";
+import type { Route } from "next";
 import Link from "next/link";
 import { useParams, useRouter } from "next/navigation";
 import { useEffect, useState } from "react";
@@ -214,7 +215,7 @@ export default function EditConnectorPage() {
       }
 
       toast.success("Connector updated successfully");
-      router.push("/platform/connectors");
+      router.push("/platform/connectors" as Route);
     } catch (error) {
       console.error("Failed to update connector:", error);
       toast.error(
@@ -246,7 +247,9 @@ export default function EditConnectorPage() {
         <div className="text-center">
           <p className="text-lg text-muted-foreground">Connector not found</p>
           <Button asChild className="mt-4">
-            <Link href="/platform/connectors">Back to Connectors</Link>
+            <Link href={"/platform/connectors" as Route}>
+              Back to Connectors
+            </Link>
           </Button>
         </div>
       </div>
@@ -259,7 +262,7 @@ export default function EditConnectorPage() {
         {/* Header */}
         <div className="mb-8">
           <div className="mb-4 flex items-center gap-2">
-            <Link href="/platform/connectors">
+            <Link href={"/platform/connectors" as Route}>
               <Button className="text-white/80" size="sm" variant="ghost">
                 <ChevronDown className="mr-1 h-4 w-4 rotate-90" />
                 Back to Connectors
@@ -648,7 +651,7 @@ export default function EditConnectorPage() {
               <Button
                 className="flex-1"
                 disabled={isSubmitting}
-                onClick={() => router.push("/platform/connectors")}
+                onClick={() => router.push("/platform/connectors" as Route)}
                 type="button"
                 variant="outline"
               >

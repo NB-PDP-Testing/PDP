@@ -18,7 +18,7 @@ import {
   Target,
   Trophy,
 } from "lucide-react";
-
+import type { Route } from "next";
 import Image from "next/image";
 import Link from "next/link";
 import { Badge } from "@/components/ui/badge";
@@ -227,7 +227,7 @@ export default function PlatformDashboard() {
             </Link>
 
             {/* Federation Connectors */}
-            <Link href="/platform/connectors">
+            <Link href={"/platform/connectors" as Route}>
               <Card className="h-full cursor-pointer transition-all hover:shadow-md hover:ring-2 hover:ring-[#1E3A5F]/20">
                 <CardContent className="flex items-center gap-3 p-4">
                   <div className="rounded-lg bg-violet-100 p-3">

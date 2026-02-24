@@ -16,6 +16,7 @@ import {
   TestTube,
   Trash2,
 } from "lucide-react";
+import type { Route } from "next";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { useMemo, useState } from "react";
@@ -280,7 +281,7 @@ export default function ConnectorsPage() {
                 </DropdownMenuContent>
               </DropdownMenu>
             </div>
-            <Link href="/platform/connectors/create">
+            <Link href={"/platform/connectors/create" as Route}>
               <Button>
                 <Plus className="mr-2 h-4 w-4" />
                 Create Connector
@@ -390,7 +391,7 @@ export default function ConnectorsPage() {
                                 <Button
                                   onClick={() =>
                                     router.push(
-                                      `/platform/connectors/${connector._id}/edit`
+                                      `/platform/connectors/${connector._id}/edit` as Route
                                     )
                                   }
                                   size="icon"
@@ -515,7 +516,9 @@ export default function ConnectorsPage() {
                         variant="outline"
                       >
                         <Link
-                          href={`/platform/connectors/${connector._id}/edit`}
+                          href={
+                            `/platform/connectors/${connector._id}/edit` as Route
+                          }
                         >
                           <Edit className="mr-2 h-4 w-4" />
                           Edit

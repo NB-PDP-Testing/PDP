@@ -10,6 +10,7 @@ import {
   ExternalLink,
   Loader2,
 } from "lucide-react";
+import type { Route } from "next";
 import Link from "next/link";
 import { useParams, useRouter } from "next/navigation";
 import { useState } from "react";
@@ -89,7 +90,7 @@ export default function OAuthSetupPage() {
 
           // Redirect to edit page after a short delay
           setTimeout(() => {
-            router.push(`/platform/connectors/${connectorId}/edit`);
+            router.push(`/platform/connectors/${connectorId}/edit` as Route);
           }, 2000);
         } else if (event.data.type === "oauth_error") {
           window.removeEventListener("message", handleMessage);
@@ -127,7 +128,9 @@ export default function OAuthSetupPage() {
         <div className="text-center">
           <p className="text-lg text-muted-foreground">Connector not found</p>
           <Button asChild className="mt-4">
-            <Link href="/platform/connectors">Back to Connectors</Link>
+            <Link href={"/platform/connectors" as Route}>
+              Back to Connectors
+            </Link>
           </Button>
         </div>
       </div>
@@ -142,7 +145,7 @@ export default function OAuthSetupPage() {
             This connector is not configured for OAuth 2.0
           </p>
           <Button asChild className="mt-4">
-            <Link href={`/platform/connectors/${connectorId}/edit`}>
+            <Link href={`/platform/connectors/${connectorId}/edit` as Route}>
               Back to Connector
             </Link>
           </Button>
@@ -157,7 +160,7 @@ export default function OAuthSetupPage() {
         {/* Header */}
         <div className="mb-8">
           <div className="mb-4 flex items-center gap-2">
-            <Link href={`/platform/connectors/${connectorId}/edit`}>
+            <Link href={`/platform/connectors/${connectorId}/edit` as Route}>
               <Button className="text-white/80" size="sm" variant="ghost">
                 <ChevronDown className="mr-1 h-4 w-4 rotate-90" />
                 Back to Connector
@@ -348,7 +351,9 @@ export default function OAuthSetupPage() {
                   Retry Authorization
                 </Button>
                 <Button asChild className="flex-1" variant="outline">
-                  <Link href={`/platform/connectors/${connectorId}/edit`}>
+                  <Link
+                    href={`/platform/connectors/${connectorId}/edit` as Route}
+                  >
                     Back to Connector
                   </Link>
                 </Button>

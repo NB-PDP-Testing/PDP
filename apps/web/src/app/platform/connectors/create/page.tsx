@@ -4,6 +4,7 @@ import { api } from "@pdp/backend/convex/_generated/api";
 import type { Id } from "@pdp/backend/convex/_generated/dataModel";
 import { useAction, useQuery } from "convex/react";
 import { ChevronDown, Loader2 } from "lucide-react";
+import type { Route } from "next";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { useState } from "react";
@@ -157,7 +158,7 @@ export default function CreateConnectorPage() {
       });
 
       toast.success("Connector created successfully");
-      router.push("/platform/connectors");
+      router.push("/platform/connectors" as Route);
     } catch (error) {
       console.error("Failed to create connector:", error);
       toast.error(
@@ -182,7 +183,7 @@ export default function CreateConnectorPage() {
         {/* Header */}
         <div className="mb-8">
           <div className="mb-4 flex items-center gap-2">
-            <Link href="/platform/connectors">
+            <Link href={"/platform/connectors" as Route}>
               <Button className="text-white/80" size="sm" variant="ghost">
                 <ChevronDown className="mr-1 h-4 w-4 rotate-90" />
                 Back to Connectors
@@ -585,7 +586,7 @@ export default function CreateConnectorPage() {
               <Button
                 className="flex-1"
                 disabled={isSubmitting}
-                onClick={() => router.push("/platform/connectors")}
+                onClick={() => router.push("/platform/connectors" as Route)}
                 type="button"
                 variant="outline"
               >

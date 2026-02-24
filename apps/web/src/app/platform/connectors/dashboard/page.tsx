@@ -12,6 +12,7 @@ import {
   RefreshCw,
   TrendingUp,
 } from "lucide-react";
+import type { Route } from "next";
 import Link from "next/link";
 import { useEffect, useState } from "react";
 import {
@@ -474,7 +475,7 @@ export default function ConnectorDashboardPage() {
                 </TableBody>
               </Table>
               <div className="mt-4 text-center">
-                <Link href="/platform/connectors">
+                <Link href={"/platform/connectors" as Route}>
                   <Button size="sm" variant="outline">
                     Manage Connectors
                   </Button>
@@ -528,7 +529,7 @@ export default function ConnectorDashboardPage() {
                 </div>
               )}
               <div className="mt-4 text-center">
-                <Link href="/platform/connectors/sync-logs">
+                <Link href={"/platform/connectors/sync-logs" as Route}>
                   <Button size="sm" variant="outline">
                     View All Logs
                   </Button>

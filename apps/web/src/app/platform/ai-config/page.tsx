@@ -965,7 +965,7 @@ export default function AIConfigurationPage() {
           </DialogHeader>
 
           {editingConfig && (
-            <div className="grid gap-4 py-4">
+            <div className="grid max-h-[65vh] gap-4 overflow-y-auto py-4 pr-2">
               {/* Provider */}
               <div className="grid grid-cols-4 items-center gap-4">
                 <Label className="text-right" htmlFor="provider">
@@ -1101,7 +1101,7 @@ export default function AIConfigurationPage() {
                   <Input
                     className="w-full"
                     id="temperature"
-                    max="2"
+                    max={editingConfig.provider === "anthropic" ? "1" : "2"}
                     min="0"
                     onChange={(e) =>
                       setEditingConfig({
@@ -1121,9 +1121,18 @@ export default function AIConfigurationPage() {
                     <span className="font-medium">0</span> =
                     deterministic/factual (best for classification),{" "}
                     <span className="font-medium">0.7</span> = balanced
-                    (default), <span className="font-medium">1.0+</span> = more
-                    varied/creative. Applies to all features except voice
-                    transcription.
+                    (default), <span className="font-medium">1.0</span> =
+                    maximum creativity. Applies to all features except voice
+                    transcription.{" "}
+                    {editingConfig.provider === "anthropic" ? (
+                      <span className="font-medium text-amber-600">
+                        Anthropic: max 1.0.
+                      </span>
+                    ) : (
+                      <span className="text-muted-foreground">
+                        OpenAI: up to 2.0.
+                      </span>
+                    )}
                   </p>
                 </div>
               </div>

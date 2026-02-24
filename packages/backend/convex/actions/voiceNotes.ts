@@ -711,6 +711,9 @@ IMPORTANT:
         text: {
           format: zodTextFormat(insightSchema, "insights"),
         },
+        ...(config.temperature !== undefined && {
+          temperature: config.temperature,
+        }),
       });
 
       // Parse the response

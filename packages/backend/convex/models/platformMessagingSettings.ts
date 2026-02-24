@@ -93,7 +93,6 @@ export const updateFeatureToggle = mutation({
           args.feature === "parentNotificationsEnabled" ? args.enabled : true,
         emergencyMode: false,
         lastUpdatedAt: Date.now(),
-        lastUpdatedBy: currentUser._id,
       });
 
       return {
@@ -106,7 +105,6 @@ export const updateFeatureToggle = mutation({
     await ctx.db.patch(settings._id, {
       [args.feature]: args.enabled,
       lastUpdatedAt: Date.now(),
-      lastUpdatedBy: currentUser._id,
     });
 
     return {
@@ -149,7 +147,6 @@ export const activateEmergencyMode = mutation({
         emergencyMode: args.enabled,
         emergencyMessage: args.message,
         lastUpdatedAt: Date.now(),
-        lastUpdatedBy: currentUser._id,
       });
 
       return {
@@ -169,7 +166,6 @@ export const activateEmergencyMode = mutation({
         autoApprovalEnabled: false,
         parentNotificationsEnabled: false,
         lastUpdatedAt: Date.now(),
-        lastUpdatedBy: currentUser._id,
       });
 
       return {
@@ -183,7 +179,6 @@ export const activateEmergencyMode = mutation({
       emergencyMode: false,
       emergencyMessage: undefined,
       lastUpdatedAt: Date.now(),
-      lastUpdatedBy: currentUser._id,
     });
 
     return {

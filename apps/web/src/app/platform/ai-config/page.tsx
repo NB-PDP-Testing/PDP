@@ -12,6 +12,7 @@ import {
   ChevronDown,
   ChevronUp,
   History,
+  Info,
   Pencil,
   RefreshCw,
   Settings2,
@@ -549,6 +550,57 @@ export default function AIConfigurationPage() {
             </CardContent>
           </Card>
 
+          {/* Config Reference Card */}
+          <Card className="border-blue-100 bg-blue-50">
+            <CardContent className="p-4">
+              <div className="flex items-start gap-3">
+                <Info className="mt-0.5 h-5 w-5 shrink-0 text-blue-600" />
+                <div className="space-y-2 text-sm">
+                  <p className="font-semibold text-blue-900">
+                    Understanding AI Model Config
+                  </p>
+                  <div className="grid gap-x-6 gap-y-2 text-blue-800 sm:grid-cols-2">
+                    <div>
+                      <span className="font-medium">Model</span> — the specific
+                      AI model used. Changes take effect on the next request.
+                    </div>
+                    <div>
+                      <span className="font-medium">Provider</span> — Anthropic
+                      (Claude) or OpenAI (GPT / Whisper).
+                    </div>
+                    <div>
+                      <span className="font-medium">Max Tokens</span> — hard
+                      ceiling on response length. ~¾ word per token; default
+                      1500 ≈ 1,100 words. Raise if outputs are cut off; lower to
+                      reduce cost.
+                    </div>
+                    <div>
+                      <span className="font-medium">Temperature</span> —
+                      creativity vs. consistency.{" "}
+                      <span className="font-medium">0</span> = deterministic
+                      (best for classification),{" "}
+                      <span className="font-medium">0.7</span> = balanced
+                      default, <span className="font-medium">1.0</span> = most
+                      creative. Anthropic max is 1.0; OpenAI allows up to 2.0.
+                    </div>
+                    <div>
+                      <span className="font-medium">Fallback Model</span> —
+                      called automatically if the primary model fails. Falls
+                      back to the Platform Default when no per-feature fallback
+                      is set.
+                    </div>
+                    <div>
+                      <span className="font-medium">Status</span> — health of
+                      the configured model, updated by "Test All Models" or via
+                      live usage. Red means 3+ failures or model no longer
+                      exists.
+                    </div>
+                  </div>
+                </div>
+              </div>
+            </CardContent>
+          </Card>
+
           {/* Configuration Table */}
           <Card>
             <CardHeader className="flex flex-row items-center justify-between">
@@ -1063,78 +1115,50 @@ export default function AIConfigurationPage() {
               </div>
 
               {/* Max Tokens */}
-              <div className="grid grid-cols-4 items-start gap-4">
-                <Label className="pt-2 text-right" htmlFor="maxTokens">
+              <div className="grid grid-cols-4 items-center gap-4">
+                <Label className="text-right" htmlFor="maxTokens">
                   Max Tokens
                 </Label>
-                <div className="col-span-3 space-y-1">
-                  <Input
-                    className="w-full"
-                    id="maxTokens"
-                    onChange={(e) =>
-                      setEditingConfig({
-                        ...editingConfig,
-                        maxTokens: e.target.value
-                          ? Number.parseInt(e.target.value, 10)
-                          : undefined,
-                      })
-                    }
-                    placeholder="e.g., 1500"
-                    type="number"
-                    value={editingConfig.maxTokens || ""}
-                  />
-                  <p className="text-muted-foreground text-xs">
-                    Hard ceiling on response length — the model stops at this
-                    token count even mid-sentence. Raise if outputs are getting
-                    cut off; lower to reduce cost. (~¾ of a word per token,
-                    default 1500 ≈ 1,100 words.)
-                  </p>
-                </div>
+                <Input
+                  className="col-span-3"
+                  id="maxTokens"
+                  onChange={(e) =>
+                    setEditingConfig({
+                      ...editingConfig,
+                      maxTokens: e.target.value
+                        ? Number.parseInt(e.target.value, 10)
+                        : undefined,
+                    })
+                  }
+                  placeholder="e.g., 1500"
+                  type="number"
+                  value={editingConfig.maxTokens || ""}
+                />
               </div>
 
               {/* Temperature */}
-              <div className="grid grid-cols-4 items-start gap-4">
-                <Label className="pt-2 text-right" htmlFor="temperature">
+              <div className="grid grid-cols-4 items-center gap-4">
+                <Label className="text-right" htmlFor="temperature">
                   Temperature
                 </Label>
-                <div className="col-span-3 space-y-1">
-                  <Input
-                    className="w-full"
-                    id="temperature"
-                    max={editingConfig.provider === "anthropic" ? "1" : "2"}
-                    min="0"
-                    onChange={(e) =>
-                      setEditingConfig({
-                        ...editingConfig,
-                        temperature: e.target.value
-                          ? Number.parseFloat(e.target.value)
-                          : undefined,
-                      })
-                    }
-                    placeholder="e.g., 0.7"
-                    step="0.1"
-                    type="number"
-                    value={editingConfig.temperature ?? ""}
-                  />
-                  <p className="text-muted-foreground text-xs">
-                    Controls creativity vs. consistency.{" "}
-                    <span className="font-medium">0</span> =
-                    deterministic/factual (best for classification),{" "}
-                    <span className="font-medium">0.7</span> = balanced
-                    (default), <span className="font-medium">1.0</span> =
-                    maximum creativity. Applies to all features except voice
-                    transcription.{" "}
-                    {editingConfig.provider === "anthropic" ? (
-                      <span className="font-medium text-amber-600">
-                        Anthropic: max 1.0.
-                      </span>
-                    ) : (
-                      <span className="text-muted-foreground">
-                        OpenAI: up to 2.0.
-                      </span>
-                    )}
-                  </p>
-                </div>
+                <Input
+                  className="col-span-3"
+                  id="temperature"
+                  max={editingConfig.provider === "anthropic" ? "1" : "2"}
+                  min="0"
+                  onChange={(e) =>
+                    setEditingConfig({
+                      ...editingConfig,
+                      temperature: e.target.value
+                        ? Number.parseFloat(e.target.value)
+                        : undefined,
+                    })
+                  }
+                  placeholder="e.g., 0.7"
+                  step="0.1"
+                  type="number"
+                  value={editingConfig.temperature ?? ""}
+                />
               </div>
 
               {/* Active Toggle */}

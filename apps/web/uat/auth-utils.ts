@@ -81,14 +81,23 @@ export async function loginWithEmail(
     await signInButton.click();
     console.log(`[${userKey}] ✓ Sign In clicked (${Date.now() - startTime}ms)`);
 
-    // Wait for successful login - redirects to /orgs
-    console.log(`[${userKey}] Step 8: Waiting for redirect to /orgs (timeout: 60s)`);
+    // Wait for successful login - URL changes away from /login
+    console.log(`[${userKey}] Step 8: Waiting for login redirect (timeout: 30s)`);
     const urlBeforeWait = page.url();
     console.log(`[${userKey}]   Current URL: ${urlBeforeWait}`);
 
-    await page.waitForURL(/\/orgs/, { timeout: 60000 });
+    // Wait for URL to leave /login (happens quickly after submit)
+    await page.waitForURL((url) => !url.pathname.startsWith("/login"), {
+      timeout: 30000,
+    });
+    console.log(`[${userKey}] ✓ Left login page: ${page.url()} (${Date.now() - startTime}ms)`);
+
+    // Navigate directly to /orgs to bypass the slow root-page async redirect
+    console.log(`[${userKey}] Step 8b: Navigating directly to /orgs`);
+    await page.goto("/orgs", { timeout: 30000 });
+    await page.waitForURL(/\/orgs/, { timeout: 30000 });
     const urlAfterWait = page.url();
-    console.log(`[${userKey}] ✓ Redirected to ${urlAfterWait} (${Date.now() - startTime}ms)`);
+    console.log(`[${userKey}] ✓ Reached ${urlAfterWait} (${Date.now() - startTime}ms)`);
 
     // Wait for network to be idle to ensure auth state is fully settled
     console.log(`[${userKey}] Step 9: Waiting for network idle`);

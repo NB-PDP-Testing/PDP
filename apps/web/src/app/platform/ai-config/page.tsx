@@ -1063,50 +1063,69 @@ export default function AIConfigurationPage() {
               </div>
 
               {/* Max Tokens */}
-              <div className="grid grid-cols-4 items-center gap-4">
-                <Label className="text-right" htmlFor="maxTokens">
+              <div className="grid grid-cols-4 items-start gap-4">
+                <Label className="pt-2 text-right" htmlFor="maxTokens">
                   Max Tokens
                 </Label>
-                <Input
-                  className="col-span-3"
-                  id="maxTokens"
-                  onChange={(e) =>
-                    setEditingConfig({
-                      ...editingConfig,
-                      maxTokens: e.target.value
-                        ? Number.parseInt(e.target.value, 10)
-                        : undefined,
-                    })
-                  }
-                  placeholder="e.g., 500"
-                  type="number"
-                  value={editingConfig.maxTokens || ""}
-                />
+                <div className="col-span-3 space-y-1">
+                  <Input
+                    className="w-full"
+                    id="maxTokens"
+                    onChange={(e) =>
+                      setEditingConfig({
+                        ...editingConfig,
+                        maxTokens: e.target.value
+                          ? Number.parseInt(e.target.value, 10)
+                          : undefined,
+                      })
+                    }
+                    placeholder="e.g., 1500"
+                    type="number"
+                    value={editingConfig.maxTokens || ""}
+                  />
+                  <p className="text-muted-foreground text-xs">
+                    Hard ceiling on response length — the model stops at this
+                    token count even mid-sentence. Raise if outputs are getting
+                    cut off; lower to reduce cost. (~¾ of a word per token,
+                    default 1500 ≈ 1,100 words.)
+                  </p>
+                </div>
               </div>
 
               {/* Temperature */}
-              <div className="grid grid-cols-4 items-center gap-4">
-                <Label className="text-right" htmlFor="temperature">
+              <div className="grid grid-cols-4 items-start gap-4">
+                <Label className="pt-2 text-right" htmlFor="temperature">
                   Temperature
                 </Label>
-                <Input
-                  className="col-span-3"
-                  id="temperature"
-                  max="2"
-                  min="0"
-                  onChange={(e) =>
-                    setEditingConfig({
-                      ...editingConfig,
-                      temperature: e.target.value
-                        ? Number.parseFloat(e.target.value)
-                        : undefined,
-                    })
-                  }
-                  placeholder="e.g., 0.7"
-                  step="0.1"
-                  type="number"
-                  value={editingConfig.temperature ?? ""}
-                />
+                <div className="col-span-3 space-y-1">
+                  <Input
+                    className="w-full"
+                    id="temperature"
+                    max="2"
+                    min="0"
+                    onChange={(e) =>
+                      setEditingConfig({
+                        ...editingConfig,
+                        temperature: e.target.value
+                          ? Number.parseFloat(e.target.value)
+                          : undefined,
+                      })
+                    }
+                    placeholder="e.g., 0.7"
+                    step="0.1"
+                    type="number"
+                    value={editingConfig.temperature ?? ""}
+                  />
+                  <p className="text-muted-foreground text-xs">
+                    Controls creativity vs. consistency.{" "}
+                    <span className="font-medium">0</span> =
+                    deterministic/factual (best for classification),{" "}
+                    <span className="font-medium">0.7</span> = balanced
+                    (default), <span className="font-medium">1.0+</span> = more
+                    varied/creative. Applies to all features except voice
+                    transcription.
+                  </p>
+                </div>
               </div>
 
               {/* Active Toggle */}

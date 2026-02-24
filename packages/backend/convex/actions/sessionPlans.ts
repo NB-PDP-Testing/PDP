@@ -185,8 +185,7 @@ Return ONLY a JSON object with this exact structure (no markdown, no explanation
 async function callClaudeAPI(
   apiKey: string,
   prompt: string,
-  maxTokens: number,
-  modelId: string = DEFAULT_MODEL
+  options: { maxTokens: number; temperature: number; modelId?: string }
 ): Promise<string> {
   const response = await fetch(ANTHROPIC_API_URL, {
     method: "POST",
@@ -196,8 +195,9 @@ async function callClaudeAPI(
       "anthropic-version": ANTHROPIC_VERSION,
     },
     body: JSON.stringify({
-      model: modelId,
-      max_tokens: maxTokens,
+      model: options.modelId ?? DEFAULT_MODEL,
+      max_tokens: options.maxTokens,
+      temperature: options.temperature,
       messages: [{ role: "user", content: prompt }],
     }),
   });
@@ -328,24 +328,22 @@ export const generatePlanContent = internalAction({
 
       let rawContent: string;
       try {
-        rawContent = await callClaudeAPI(
-          apiKey,
-          prompt,
-          config.maxTokens,
-          config.modelId
-        );
+        rawContent = await callClaudeAPI(apiKey, prompt, {
+          maxTokens: config.maxTokens,
+          temperature: config.temperature,
+          modelId: config.modelId,
+        });
       } catch (primaryError) {
         if (config.fallbackModelId) {
           console.warn(
             `[SessionPlan] Primary model ${config.modelId} failed, retrying with fallback ${config.fallbackModelId}:`,
             primaryError
           );
-          rawContent = await callClaudeAPI(
-            apiKey,
-            prompt,
-            config.maxTokens,
-            config.fallbackModelId
-          );
+          rawContent = await callClaudeAPI(apiKey, prompt, {
+            maxTokens: config.maxTokens,
+            temperature: config.temperature,
+            modelId: config.fallbackModelId,
+          });
         } else {
           throw primaryError;
         }
@@ -433,7 +431,7 @@ export const extractMetadata = internalAction({
       const rawJson = await callClaudeAPI(
         apiKey,
         buildMetadataPrompt(plan.rawContent),
-        300
+        { maxTokens: 300, temperature: DEFAULT_TEMPERATURE }
       );
 
       let parsed: {

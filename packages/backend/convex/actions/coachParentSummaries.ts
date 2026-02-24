@@ -273,6 +273,9 @@ Respond in JSON format:
       const response = await client.messages.create({
         model: modelId,
         max_tokens: config.maxTokens,
+        ...(config.temperature !== undefined && {
+          temperature: config.temperature,
+        }),
         messages: [{ role: "user", content: prompt }],
       });
       const content = response.content[0];
@@ -450,6 +453,9 @@ Description: ${args.insightDescription}`;
         {
           model: modelId,
           max_tokens: config.maxTokens,
+          ...(config.temperature !== undefined && {
+            temperature: config.temperature,
+          }),
           messages: [
             {
               role: "user",

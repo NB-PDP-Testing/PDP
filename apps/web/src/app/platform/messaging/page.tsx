@@ -10,6 +10,7 @@ import {
   Clock,
   DollarSign,
   Gauge,
+  Info,
   LayoutDashboard,
   Pencil,
   RefreshCw,
@@ -58,11 +59,11 @@ export default function PlatformMessagingPage() {
           </Link>
           <div>
             <h1 className="mb-2 font-bold text-3xl tracking-tight sm:text-4xl">
-              Platform Messaging & AI Dashboard
+              AI Services & Operations
             </h1>
             <p className="text-lg text-white/90">
-              Monitor AI usage, costs, rate limits, and service health across
-              all organizations
+              Monitor AI usage, costs, rate limits, and per-feature health
+              across all organizations
             </p>
           </div>
         </div>
@@ -701,7 +702,9 @@ function RecentCostAlerts() {
               ).map((alert) => (
                 <TableRow key={alert._id}>
                   <TableCell className="whitespace-nowrap text-muted-foreground text-xs">
-                    {new Date(alert.timestamp).toLocaleString()}
+                    {alert.timestamp
+                      ? new Date(alert.timestamp).toLocaleString()
+                      : "—"}
                   </TableCell>
                   <TableCell className="text-sm">
                     {formatAlertType(alert.alertType)}
@@ -1122,7 +1125,10 @@ function getCircuitBreakerColor(state: "closed" | "open" | "half_open"): {
   }
 }
 
-function formatTimeAgo(timestamp: number): string {
+function formatTimeAgo(timestamp: number | undefined | null): string {
+  if (!timestamp) {
+    return "Never";
+  }
   const now = Date.now();
   const diff = now - timestamp;
   const seconds = Math.floor(diff / 1000);
@@ -1142,9 +1148,133 @@ function formatTimeAgo(timestamp: number): string {
   return `${seconds}s ago`;
 }
 
+function classifyErrorMessage(
+  msg: string
+): { label: string; className: string } | null {
+  const lower = msg.toLowerCase();
+  if (
+    lower.includes("model") &&
+    (lower.includes("not found") ||
+      lower.includes("not support") ||
+      lower.includes("deprecated") ||
+      lower.includes("unavailable") ||
+      lower.includes("does not exist"))
+  ) {
+    return { label: "Model Unavailable", className: "bg-red-100 text-red-700" };
+  }
+  if (lower.includes("rate limit") || lower.includes("429")) {
+    return { label: "Rate Limited", className: "bg-amber-100 text-amber-700" };
+  }
+  if (lower.includes("quota") || lower.includes("billing")) {
+    return { label: "Quota Exceeded", className: "bg-red-100 text-red-700" };
+  }
+  if (
+    lower.includes("auth") ||
+    lower.includes("api key") ||
+    lower.includes("401")
+  ) {
+    return { label: "Auth Error", className: "bg-red-100 text-red-700" };
+  }
+  return null;
+}
+
+function healthStaleness(
+  lastCheckAt?: number
+): { label: string; isStale: boolean } | null {
+  if (!lastCheckAt) {
+    return null;
+  }
+  const ageMs = Date.now() - lastCheckAt;
+  const ageDays = ageMs / (1000 * 60 * 60 * 24);
+  if (ageDays > 7) {
+    return { label: `checked ${Math.floor(ageDays)}d ago`, isStale: true };
+  }
+  const ageHours = ageMs / (1000 * 60 * 60);
+  if (ageHours >= 1) {
+    return { label: `checked ${Math.floor(ageHours)}h ago`, isStale: false };
+  }
+  const ageMins = ageMs / (1000 * 60);
+  return {
+    label: `checked ${Math.max(1, Math.floor(ageMins))}m ago`,
+    isStale: false,
+  };
+}
+
+// Per-feature health display names
+const FEATURE_DISPLAY_NAMES: Record<string, string> = {
+  voice_transcription: "Voice Transcription",
+  voice_insights: "Voice Insights",
+  sensitivity_classification: "Sensitivity Classification",
+  parent_summary: "Parent Summary",
+  session_plan: "Session Plan",
+  recommendations: "Recommendations",
+  comparison_insights: "Comparison Insights",
+  ai_column_mapping: "AI Column Mapping",
+  practice_plan_generation: "Practice Plan Generation",
+};
+
+// Admin guide card for the Service Health tab (uses Info icon)
+function ServiceHealthAdminGuide() {
+  return (
+    <Card className="border-blue-100 bg-blue-50">
+      <CardContent className="p-4">
+        <div className="flex items-start gap-3">
+          <Info className="mt-0.5 h-5 w-5 shrink-0 text-blue-600" />
+          <div className="space-y-2 text-sm">
+            <p className="font-semibold text-blue-900">
+              Understanding AI Service Health
+            </p>
+            <div className="grid gap-2 text-blue-800 sm:grid-cols-2">
+              <div className="flex items-start gap-2">
+                <span className="mt-0.5 inline-block h-2 w-2 shrink-0 rounded-full bg-green-500" />
+                <span>
+                  <strong>Healthy</strong> — model verified working via a live
+                  test call
+                </span>
+              </div>
+              <div className="flex items-start gap-2">
+                <span className="mt-0.5 inline-block h-2 w-2 shrink-0 rounded-full bg-amber-500" />
+                <span>
+                  <strong>Degraded</strong> — 1–2 recent failures; monitor
+                  closely
+                </span>
+              </div>
+              <div className="flex items-start gap-2">
+                <span className="mt-0.5 inline-block h-2 w-2 shrink-0 rounded-full bg-red-500" />
+                <span>
+                  <strong>Down / Model Unavailable</strong> — 3+ failures or
+                  model no longer exists; update the model in AI Config
+                </span>
+              </div>
+              <div className="flex items-start gap-2">
+                <span className="mt-0.5 inline-block h-2 w-2 shrink-0 rounded-full bg-slate-400" />
+                <span>
+                  <strong>Active</strong> — configured but never tested; click
+                  "Test All Models" to verify
+                </span>
+              </div>
+            </div>
+            <p className="text-blue-700 text-xs">
+              <strong>Circuit Breaker</strong> — a safety switch that
+              automatically stops all calls to a provider after repeated
+              failures, preventing wasted tokens and slow responses across all
+              organisations. Reset it manually once the underlying issue is
+              fixed.
+            </p>
+          </div>
+        </div>
+      </CardContent>
+    </Card>
+  );
+}
+
 // Service Health Tab Component
 function ServiceHealthTab() {
   const health = useQuery(api.models.aiServiceHealth.getPlatformServiceHealth);
+  const platformConfigs = useQuery(
+    api.models.aiModelConfig.getAllPlatformConfigs,
+    {}
+  );
 
   // Use undefined to let backend use default time range (avoids re-render loops)
   const platformUsage = useQuery(api.models.aiUsageLog.getPlatformUsage, {
@@ -1154,6 +1284,56 @@ function ServiceHealthTab() {
   const forceReset = useMutation(
     api.models.aiServiceHealth.forceResetCircuitBreaker
   );
+  const recordHealth = useMutation(
+    api.models.aiModelConfig.recordFeatureHealth
+  );
+  const [testingModels, setTestingModels] = useState(false);
+
+  async function testAllModels() {
+    if (!platformConfigs) {
+      return;
+    }
+    setTestingModels(true);
+    try {
+      const active = platformConfigs.filter((c) => c.isActive);
+      await Promise.all(
+        active.map(async (config) => {
+          try {
+            const res = await fetch("/api/ai-config/verify-model", {
+              method: "POST",
+              headers: { "Content-Type": "application/json" },
+              body: JSON.stringify({
+                provider: config.provider,
+                modelId: config.modelId,
+              }),
+            });
+            const result = (await res.json()) as {
+              success?: boolean;
+              errorMessage?: string;
+            };
+            await recordHealth({
+              feature: config.feature as Parameters<
+                typeof recordHealth
+              >[0]["feature"],
+              success: result.success ?? false,
+              errorMessage: result.errorMessage,
+            });
+          } catch {
+            await recordHealth({
+              feature: config.feature as Parameters<
+                typeof recordHealth
+              >[0]["feature"],
+              success: false,
+              errorMessage: "Network error reaching verification endpoint",
+            });
+          }
+        })
+      );
+      toast.success("Model verification complete — health statuses updated");
+    } finally {
+      setTestingModels(false);
+    }
+  }
 
   const [anthropicStatus, setAnthropicStatus] = useState<{
     indicator: string;
@@ -1262,6 +1442,9 @@ function ServiceHealthTab() {
 
   return (
     <div className="space-y-6">
+      {/* Admin Guide */}
+      <ServiceHealthAdminGuide />
+
       {/* Large Status Indicator */}
       <Card className={`border-2 ${statusStyle.bg}`}>
         <CardHeader>
@@ -1483,6 +1666,141 @@ function ServiceHealthTab() {
                 })}
               </TableBody>
             </Table>
+          )}
+        </CardContent>
+      </Card>
+
+      {/* Per-Feature AI Health */}
+      <Card>
+        <CardHeader>
+          <div className="flex items-center justify-between">
+            <CardTitle className="flex items-center gap-2">
+              <Activity className="h-5 w-5" />
+              Per-Feature AI Health
+            </CardTitle>
+            <Button
+              disabled={testingModels || !platformConfigs}
+              onClick={testAllModels}
+              size="sm"
+              variant="outline"
+            >
+              {testingModels ? (
+                <>
+                  <RefreshCw className="mr-2 h-3.5 w-3.5 animate-spin" />
+                  Testing…
+                </>
+              ) : (
+                <>
+                  <Zap className="mr-2 h-3.5 w-3.5" />
+                  Test All Models
+                </>
+              )}
+            </Button>
+          </div>
+        </CardHeader>
+        <CardContent>
+          {platformConfigs === undefined ? (
+            <div className="flex items-center justify-center py-8">
+              <RefreshCw className="h-6 w-6 animate-spin text-muted-foreground" />
+            </div>
+          ) : platformConfigs.length === 0 ? (
+            <p className="py-4 text-center text-muted-foreground">
+              No AI feature configs found. Seed defaults in AI Configuration.
+            </p>
+          ) : (
+            <div className="grid grid-cols-1 gap-3 sm:grid-cols-2 lg:grid-cols-3">
+              {platformConfigs
+                .filter((c) => c.isActive)
+                .map((config) => {
+                  const status = config.healthStatus;
+                  // Classify by actual error message first, then fall back to healthStatus
+                  const errorBadge =
+                    config.lastErrorMessage && status !== "healthy"
+                      ? classifyErrorMessage(config.lastErrorMessage)
+                      : null;
+                  const effectiveBadge = errorBadge ?? {
+                    label:
+                      status === "down"
+                        ? "Down"
+                        : status === "degraded"
+                          ? "Degraded"
+                          : status === "healthy"
+                            ? "Healthy"
+                            : "Active",
+                    className:
+                      status === "down"
+                        ? "bg-red-100 text-red-700"
+                        : status === "degraded"
+                          ? "bg-amber-100 text-amber-700"
+                          : status === "healthy"
+                            ? "bg-green-100 text-green-700"
+                            : "bg-slate-100 text-slate-600",
+                  };
+                  const cardColor = effectiveBadge.className.includes("red")
+                    ? "border-red-200 bg-red-50"
+                    : effectiveBadge.className.includes("amber")
+                      ? "border-amber-200 bg-amber-50"
+                      : effectiveBadge.className.includes("green")
+                        ? "border-green-200 bg-green-50"
+                        : "border-gray-200 bg-gray-50";
+                  return (
+                    <div
+                      className={`rounded-lg border p-3 ${cardColor}`}
+                      key={config._id}
+                    >
+                      <div className="mb-1 flex items-center justify-between gap-2">
+                        <p className="truncate font-medium text-sm">
+                          {FEATURE_DISPLAY_NAMES[config.feature] ??
+                            config.feature}
+                        </p>
+                        <Badge className={effectiveBadge.className}>
+                          {effectiveBadge.label}
+                        </Badge>
+                      </div>
+                      <p className="text-muted-foreground text-xs">
+                        {config.modelId}
+                      </p>
+                      {config.lastErrorMessage && status !== "healthy" && (
+                        <p
+                          className="mt-1 truncate text-red-600 text-xs"
+                          title={config.lastErrorMessage}
+                        >
+                          {config.lastErrorMessage}
+                        </p>
+                      )}
+                      {config.lastSuccessAt && (
+                        <p className="mt-1 text-muted-foreground text-xs">
+                          Last success: {formatTimeAgo(config.lastSuccessAt)}
+                        </p>
+                      )}
+                      {config.lastFailureAt && status !== "healthy" && (
+                        <p className="mt-0.5 text-red-600 text-xs">
+                          Last failure: {formatTimeAgo(config.lastFailureAt)}
+                          {config.consecutiveErrors
+                            ? ` (${config.consecutiveErrors} errors)`
+                            : ""}
+                        </p>
+                      )}
+                      {(() => {
+                        const staleness = healthStaleness(
+                          config.lastHealthCheckAt
+                        );
+                        if (!staleness) {
+                          return null;
+                        }
+                        return (
+                          <p
+                            className={`mt-0.5 text-xs ${staleness.isStale ? "font-medium text-amber-600" : "text-muted-foreground"}`}
+                          >
+                            {staleness.isStale ? "⚠ " : ""}
+                            {staleness.label}
+                          </p>
+                        );
+                      })()}
+                    </div>
+                  );
+                })}
+            </div>
           )}
         </CardContent>
       </Card>

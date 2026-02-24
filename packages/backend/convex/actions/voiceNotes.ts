@@ -225,6 +225,16 @@ export const transcribeAudio = internalAction({
         },
       });
 
+      // Report health success
+      try {
+        await ctx.runMutation(
+          internal.models.aiModelConfig.updateFeatureHealth,
+          { feature: "voice_transcription", success: true }
+        );
+      } catch {
+        // Non-fatal
+      }
+
       // Branch on quality result FIRST before scheduling any processing
       if (quality.suggestedAction === "reject") {
         // Transcription worked but quality too low for insights
@@ -321,6 +331,21 @@ export const transcribeAudio = internalAction({
         status: "failed",
         error: error instanceof Error ? error.message : "Unknown error",
       });
+
+      // Report health failure
+      try {
+        await ctx.runMutation(
+          internal.models.aiModelConfig.updateFeatureHealth,
+          {
+            feature: "voice_transcription",
+            success: false,
+            errorMessage:
+              error instanceof Error ? error.message : "Unknown error",
+          }
+        );
+      } catch {
+        // Non-fatal
+      }
 
       // v2 monitoring: emit transcription_failed event if artifact exists
       try {
@@ -808,6 +833,16 @@ IMPORTANT:
         status: "completed",
       });
 
+      // Report health success
+      try {
+        await ctx.runMutation(
+          internal.models.aiModelConfig.updateFeatureHealth,
+          { feature: "voice_insights", success: true }
+        );
+      } catch {
+        // Non-fatal
+      }
+
       // Log summary of matching results
       const _matchedCount = resolvedInsights.filter(
         (i) => i.playerIdentityId
@@ -1030,6 +1065,21 @@ IMPORTANT:
         status: "failed",
         error: error instanceof Error ? error.message : "Unknown error",
       });
+
+      // Report health failure
+      try {
+        await ctx.runMutation(
+          internal.models.aiModelConfig.updateFeatureHealth,
+          {
+            feature: "voice_insights",
+            success: false,
+            errorMessage:
+              error instanceof Error ? error.message : "Unknown error",
+          }
+        );
+      } catch {
+        // Non-fatal
+      }
     }
 
     return null;

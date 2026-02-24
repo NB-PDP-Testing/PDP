@@ -3969,7 +3969,10 @@ export default defineSchema({
       v.literal("parent_summary"), // Generate parent-friendly summary (Anthropic)
       v.literal("session_plan"), // Generate training session plans (Anthropic)
       v.literal("recommendations"), // Coaching recommendations (Anthropic)
-      v.literal("comparison_insights") // Passport comparison analysis (Anthropic)
+      v.literal("comparison_insights"), // Passport comparison analysis (Anthropic)
+      v.literal("ai_column_mapping"), // CSV import column mapping (Anthropic)
+      v.literal("practice_plan_generation"), // Home practice plan generation (OpenAI)
+      v.literal("global_fallback") // Platform-wide default fallback for all features
     ),
 
     // Scope: platform-wide default or organization-specific override
@@ -3990,6 +3993,20 @@ export default defineSchema({
 
     // Status
     isActive: v.boolean(),
+
+    // Per-feature health monitoring
+    healthStatus: v.optional(
+      v.union(v.literal("healthy"), v.literal("degraded"), v.literal("down"))
+    ),
+    lastSuccessAt: v.optional(v.number()),
+    lastFailureAt: v.optional(v.number()),
+    consecutiveErrors: v.optional(v.number()),
+    lastErrorMessage: v.optional(v.string()), // Raw error message from the last failure
+    lastHealthCheckAt: v.optional(v.number()), // Timestamp of most recent health check (success or failure)
+
+    // Fallback model — used automatically if the primary model fails at runtime
+    fallbackModelId: v.optional(v.string()), // e.g., "claude-haiku-4-5-20251001"
+    fallbackProvider: v.optional(v.string()), // e.g., "anthropic"
 
     // Audit trail
     updatedBy: v.string(), // User ID of who made the change

@@ -2,6 +2,8 @@
 
 import Anthropic from "@anthropic-ai/sdk";
 import { v } from "convex/values";
+import { internal } from "../_generated/api";
+import type { ActionCtx } from "../_generated/server";
 import { action } from "../_generated/server";
 
 // TypeScript types for AI mapping
@@ -17,6 +19,46 @@ export type AIMappingResponse = {
 
 // Regex for extracting JSON from markdown code blocks
 const JSON_BLOCK_REGEX = /```json\s*([\s\S]*?)\s*```/;
+
+const DEFAULT_MODEL = "claude-haiku-4-5-20251001";
+const DEFAULT_MAX_TOKENS = 1024;
+const DEFAULT_TEMPERATURE = 0.3;
+
+/**
+ * Get AI config from database with fallback defaults
+ */
+async function getAIConfig(ctx: ActionCtx): Promise<{
+  modelId: string;
+  maxTokens: number;
+  temperature: number;
+  fallbackModelId?: string;
+}> {
+  try {
+    const dbConfig = await ctx.runQuery(
+      internal.models.aiModelConfig.getConfigForFeatureInternal,
+      { feature: "ai_column_mapping" }
+    );
+    if (dbConfig) {
+      return {
+        modelId: dbConfig.modelId,
+        maxTokens: dbConfig.maxTokens ?? DEFAULT_MAX_TOKENS,
+        temperature: dbConfig.temperature ?? DEFAULT_TEMPERATURE,
+        fallbackModelId:
+          dbConfig.fallbackModelId ?? dbConfig.platformDefaultFallbackModelId,
+      };
+    }
+  } catch (error) {
+    console.warn(
+      "[AIMapping] Could not fetch AI config, using defaults:",
+      error
+    );
+  }
+  return {
+    modelId: DEFAULT_MODEL,
+    maxTokens: DEFAULT_MAX_TOKENS,
+    temperature: DEFAULT_TEMPERATURE,
+  };
+}
 
 /**
  * Parse Claude API response text into AIMappingResponse
@@ -106,7 +148,10 @@ async function handleAPIError(
  * Extracted as a plain async function to avoid circular Convex action references.
  */
 async function callClaudeAPIInternal(
-  prompt: string
+  prompt: string,
+  modelId: string = DEFAULT_MODEL,
+  maxTokens: number = DEFAULT_MAX_TOKENS,
+  temperature: number = DEFAULT_TEMPERATURE
 ): Promise<AIMappingResponse> {
   const apiKey = process.env.ANTHROPIC_API_KEY;
   if (!apiKey) {
@@ -122,9 +167,9 @@ async function callClaudeAPIInternal(
   for (let attempt = 1; attempt <= maxRetries; attempt++) {
     try {
       const message = await anthropic.messages.create({
-        model: "claude-haiku-4-5-20251001",
-        max_tokens: 1024,
-        temperature: 0.3,
+        model: modelId,
+        max_tokens: maxTokens,
+        temperature,
         messages: [{ role: "user", content: prompt }],
       });
 
@@ -173,8 +218,47 @@ export const callClaudeAPI = action({
     confidence: v.number(),
     reasoning: v.string(),
   }),
-  handler: async (_ctx, args): Promise<AIMappingResponse> =>
-    callClaudeAPIInternal(args.prompt),
+  handler: async (ctx, args): Promise<AIMappingResponse> => {
+    const config = await getAIConfig(ctx);
+    try {
+      let result: AIMappingResponse;
+      try {
+        result = await callClaudeAPIInternal(
+          args.prompt,
+          config.modelId,
+          config.maxTokens,
+          config.temperature
+        );
+      } catch (primaryError) {
+        if (config.fallbackModelId) {
+          console.warn(
+            `[AIMapping] Primary model ${config.modelId} failed, retrying with fallback ${config.fallbackModelId}:`,
+            primaryError
+          );
+          result = await callClaudeAPIInternal(
+            args.prompt,
+            config.fallbackModelId,
+            config.maxTokens,
+            config.temperature
+          );
+        } else {
+          throw primaryError;
+        }
+      }
+      await ctx.runMutation(internal.models.aiModelConfig.updateFeatureHealth, {
+        feature: "ai_column_mapping",
+        success: true,
+      });
+      return result;
+    } catch (error) {
+      await ctx.runMutation(internal.models.aiModelConfig.updateFeatureHealth, {
+        feature: "ai_column_mapping",
+        success: false,
+        errorMessage: error instanceof Error ? error.message : "Unknown error",
+      });
+      throw error;
+    }
+  },
 });
 
 /**

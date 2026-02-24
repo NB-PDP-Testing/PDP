@@ -11,11 +11,52 @@
 
 import { v } from "convex/values";
 import OpenAI from "openai";
-import { api } from "../_generated/api";
+import { api, internal } from "../_generated/api";
+import type { ActionCtx } from "../_generated/server";
 import { action } from "../_generated/server";
 
 // Regex for extracting JSON from markdown code blocks
 const JSON_MARKDOWN_REGEX = /```(?:json)?\s*(\{[\s\S]*\})\s*```/;
+
+const DEFAULT_MODEL = "gpt-4o";
+const DEFAULT_MAX_TOKENS = 2000;
+const DEFAULT_TEMPERATURE = 0.7;
+
+/**
+ * Get AI config from database with fallback defaults
+ */
+async function getAIConfig(ctx: ActionCtx): Promise<{
+  modelId: string;
+  maxTokens: number;
+  temperature: number;
+  fallbackModelId?: string;
+}> {
+  try {
+    const dbConfig = await ctx.runQuery(
+      internal.models.aiModelConfig.getConfigForFeatureInternal,
+      { feature: "practice_plan_generation" }
+    );
+    if (dbConfig) {
+      return {
+        modelId: dbConfig.modelId,
+        maxTokens: dbConfig.maxTokens ?? DEFAULT_MAX_TOKENS,
+        temperature: dbConfig.temperature ?? DEFAULT_TEMPERATURE,
+        fallbackModelId:
+          dbConfig.fallbackModelId ?? dbConfig.platformDefaultFallbackModelId,
+      };
+    }
+  } catch (error) {
+    console.warn(
+      "[PracticePlan] Could not fetch AI config, using defaults:",
+      error
+    );
+  }
+  return {
+    modelId: DEFAULT_MODEL,
+    maxTokens: DEFAULT_MAX_TOKENS,
+    temperature: DEFAULT_TEMPERATURE,
+  };
+}
 
 // Practice plan structure
 const practicePlanValidator = v.object({
@@ -138,6 +179,9 @@ export const generatePracticePlan = action({
       .map((s) => `${s.name}: ${s.rating}/5`)
       .join(", ");
 
+    // Get AI config from database
+    const aiConfig = await getAIConfig(ctx);
+
     // Initialize OpenAI
     const apiKey = process.env.OPENAI_API_KEY;
     if (!apiKey) {
@@ -148,7 +192,7 @@ export const generatePracticePlan = action({
       apiKey,
     });
 
-    // Generate practice plan with GPT-4
+    // Generate practice plan with configured model
     const prompt = `You are a youth sports development expert creating a personalized home practice plan for parents to use with their child.
 
 PLAYER PROFILE:
@@ -203,9 +247,9 @@ Return a JSON object with this EXACT structure:
 
 IMPORTANT: Return ONLY valid JSON, no markdown formatting or extra text.`;
 
-    try {
-      const response = await openai.chat.completions.create({
-        model: "gpt-4o",
+    function callOpenAI(modelId: string) {
+      return openai.chat.completions.create({
+        model: modelId,
         messages: [
           {
             role: "system",
@@ -217,9 +261,26 @@ IMPORTANT: Return ONLY valid JSON, no markdown formatting or extra text.`;
             content: prompt,
           },
         ],
-        temperature: 0.7,
-        max_tokens: 2000,
+        temperature: aiConfig.temperature,
+        max_tokens: aiConfig.maxTokens,
       });
+    }
+
+    try {
+      let response: Awaited<ReturnType<typeof callOpenAI>>;
+      try {
+        response = await callOpenAI(aiConfig.modelId);
+      } catch (primaryError) {
+        if (aiConfig.fallbackModelId) {
+          console.warn(
+            `[PracticePlan] Primary model ${aiConfig.modelId} failed, retrying with fallback ${aiConfig.fallbackModelId}:`,
+            primaryError
+          );
+          response = await callOpenAI(aiConfig.fallbackModelId);
+        } else {
+          throw primaryError;
+        }
+      }
 
       const content = response.choices[0]?.message?.content;
       if (!content) {
@@ -280,9 +341,21 @@ IMPORTANT: Return ONLY valid JSON, no markdown formatting or extra text.`;
         parentTips: aiPlan.parentTips,
       };
 
+      await ctx.runMutation(internal.models.aiModelConfig.updateFeatureHealth, {
+        feature: "practice_plan_generation",
+        success: true,
+      });
+
       return plan;
     } catch (error) {
       console.error("Error generating practice plan:", error);
+
+      await ctx.runMutation(internal.models.aiModelConfig.updateFeatureHealth, {
+        feature: "practice_plan_generation",
+        success: false,
+        errorMessage: error instanceof Error ? error.message : "Unknown error",
+      });
+
       throw new Error(
         `Failed to generate practice plan: ${error instanceof Error ? error.message : "Unknown error"}`
       );

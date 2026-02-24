@@ -8,7 +8,12 @@
  */
 
 import { v } from "convex/values";
-import { internalQuery, mutation, query } from "../_generated/server";
+import {
+  internalMutation,
+  internalQuery,
+  mutation,
+  query,
+} from "../_generated/server";
 
 // Feature type for validation
 const featureValidator = v.union(
@@ -18,7 +23,10 @@ const featureValidator = v.union(
   v.literal("parent_summary"),
   v.literal("session_plan"),
   v.literal("recommendations"),
-  v.literal("comparison_insights")
+  v.literal("comparison_insights"),
+  v.literal("ai_column_mapping"),
+  v.literal("practice_plan_generation"),
+  v.literal("global_fallback")
 );
 
 // Provider type for validation
@@ -54,10 +62,24 @@ export const getConfigForFeature = query({
       maxTokens: v.optional(v.number()),
       temperature: v.optional(v.number()),
       isActive: v.boolean(),
+      fallbackModelId: v.optional(v.string()),
+      fallbackProvider: v.optional(v.string()),
+      platformDefaultFallbackModelId: v.optional(v.string()),
     }),
     v.null()
   ),
   handler: async (ctx, args) => {
+    // Look up platform-wide default fallback once
+    const globalFallback = await ctx.db
+      .query("aiModelConfig")
+      .withIndex("by_feature_and_scope", (q) =>
+        q.eq("feature", "global_fallback").eq("scope", "platform")
+      )
+      .first();
+    const platformDefaultFallbackModelId = globalFallback?.isActive
+      ? globalFallback.modelId
+      : undefined;
+
     // First, try to find org-specific config
     if (args.organizationId) {
       const orgConfig = await ctx.db
@@ -81,6 +103,9 @@ export const getConfigForFeature = query({
           maxTokens: orgConfig.maxTokens,
           temperature: orgConfig.temperature,
           isActive: orgConfig.isActive,
+          fallbackModelId: orgConfig.fallbackModelId,
+          fallbackProvider: orgConfig.fallbackProvider,
+          platformDefaultFallbackModelId,
         };
       }
     }
@@ -107,6 +132,9 @@ export const getConfigForFeature = query({
       maxTokens: platformConfig.maxTokens,
       temperature: platformConfig.temperature,
       isActive: platformConfig.isActive,
+      fallbackModelId: platformConfig.fallbackModelId,
+      fallbackProvider: platformConfig.fallbackProvider,
+      platformDefaultFallbackModelId,
     };
   },
 });
@@ -125,10 +153,24 @@ export const getConfigForFeatureInternal = internalQuery({
       modelId: v.string(),
       maxTokens: v.optional(v.number()),
       temperature: v.optional(v.number()),
+      fallbackModelId: v.optional(v.string()),
+      fallbackProvider: v.optional(v.string()),
+      platformDefaultFallbackModelId: v.optional(v.string()),
     }),
     v.null()
   ),
   handler: async (ctx, args) => {
+    // Look up platform-wide default fallback once
+    const globalFallback = await ctx.db
+      .query("aiModelConfig")
+      .withIndex("by_feature_and_scope", (q) =>
+        q.eq("feature", "global_fallback").eq("scope", "platform")
+      )
+      .first();
+    const platformDefaultFallbackModelId = globalFallback?.isActive
+      ? globalFallback.modelId
+      : undefined;
+
     // First, try to find org-specific config
     if (args.organizationId) {
       const orgConfig = await ctx.db
@@ -147,6 +189,9 @@ export const getConfigForFeatureInternal = internalQuery({
           modelId: orgConfig.modelId,
           maxTokens: orgConfig.maxTokens,
           temperature: orgConfig.temperature,
+          fallbackModelId: orgConfig.fallbackModelId,
+          fallbackProvider: orgConfig.fallbackProvider,
+          platformDefaultFallbackModelId,
         };
       }
     }
@@ -168,6 +213,9 @@ export const getConfigForFeatureInternal = internalQuery({
       modelId: platformConfig.modelId,
       maxTokens: platformConfig.maxTokens,
       temperature: platformConfig.temperature,
+      fallbackModelId: platformConfig.fallbackModelId,
+      fallbackProvider: platformConfig.fallbackProvider,
+      platformDefaultFallbackModelId,
     };
   },
 });
@@ -190,6 +238,16 @@ export const getAllPlatformConfigs = query({
       updatedBy: v.string(),
       updatedAt: v.number(),
       notes: v.optional(v.string()),
+      healthStatus: v.optional(
+        v.union(v.literal("healthy"), v.literal("degraded"), v.literal("down"))
+      ),
+      lastSuccessAt: v.optional(v.number()),
+      lastFailureAt: v.optional(v.number()),
+      consecutiveErrors: v.optional(v.number()),
+      lastErrorMessage: v.optional(v.string()),
+      lastHealthCheckAt: v.optional(v.number()),
+      fallbackModelId: v.optional(v.string()),
+      fallbackProvider: v.optional(v.string()),
     })
   ),
   handler: async (ctx) => {
@@ -210,6 +268,14 @@ export const getAllPlatformConfigs = query({
       updatedBy: c.updatedBy,
       updatedAt: c.updatedAt,
       notes: c.notes,
+      healthStatus: c.healthStatus,
+      lastSuccessAt: c.lastSuccessAt,
+      lastFailureAt: c.lastFailureAt,
+      consecutiveErrors: c.consecutiveErrors,
+      lastErrorMessage: c.lastErrorMessage,
+      lastHealthCheckAt: c.lastHealthCheckAt,
+      fallbackModelId: c.fallbackModelId,
+      fallbackProvider: c.fallbackProvider,
     }));
   },
 });
@@ -273,6 +339,8 @@ export const upsertConfig = mutation({
     isActive: v.boolean(),
     notes: v.optional(v.string()),
     userId: v.string(), // Who is making the change
+    fallbackModelId: v.optional(v.string()),
+    fallbackProvider: v.optional(v.string()),
   },
   returns: v.id("aiModelConfig"),
   handler: async (ctx, args) => {
@@ -348,6 +416,8 @@ export const upsertConfig = mutation({
         notes: args.notes,
         updatedBy: args.userId,
         updatedAt: now,
+        fallbackModelId: args.fallbackModelId,
+        fallbackProvider: args.fallbackProvider,
       });
 
       return existingConfig._id;
@@ -367,6 +437,8 @@ export const upsertConfig = mutation({
       updatedBy: args.userId,
       updatedAt: now,
       createdAt: now,
+      fallbackModelId: args.fallbackModelId,
+      fallbackProvider: args.fallbackProvider,
     });
 
     // Log the creation
@@ -474,6 +546,95 @@ export const getConfigChangeLog = query({
 });
 
 /**
+ * Record per-feature health from the frontend after a manual model verification check.
+ * Public mutation — called from platform admin UI only.
+ */
+export const recordFeatureHealth = mutation({
+  args: {
+    feature: featureValidator,
+    success: v.boolean(),
+    errorMessage: v.optional(v.string()),
+  },
+  returns: v.null(),
+  handler: async (ctx, args) => {
+    const config = await ctx.db
+      .query("aiModelConfig")
+      .withIndex("by_feature_and_scope", (q) =>
+        q.eq("feature", args.feature).eq("scope", "platform")
+      )
+      .first();
+
+    if (!config) {
+      return null;
+    }
+
+    const consecutiveErrors = args.success
+      ? 0
+      : (config.consecutiveErrors ?? 0) + 1;
+    const healthStatus: "healthy" | "degraded" | "down" = args.success
+      ? "healthy"
+      : consecutiveErrors >= 3
+        ? "down"
+        : "degraded";
+
+    await ctx.db.patch(config._id, {
+      healthStatus,
+      consecutiveErrors,
+      lastSuccessAt: args.success ? Date.now() : config.lastSuccessAt,
+      lastFailureAt: args.success ? config.lastFailureAt : Date.now(),
+      lastErrorMessage: args.success ? undefined : args.errorMessage,
+      lastHealthCheckAt: Date.now(),
+    });
+
+    return null;
+  },
+});
+
+/**
+ * Update per-feature health status after each AI call (internal use only)
+ */
+export const updateFeatureHealth = internalMutation({
+  args: {
+    feature: featureValidator,
+    success: v.boolean(),
+    errorMessage: v.optional(v.string()),
+  },
+  returns: v.null(),
+  handler: async (ctx, args) => {
+    const config = await ctx.db
+      .query("aiModelConfig")
+      .withIndex("by_feature_and_scope", (q) =>
+        q.eq("feature", args.feature).eq("scope", "platform")
+      )
+      .first();
+
+    if (!config) {
+      return null;
+    }
+
+    const consecutiveErrors = args.success
+      ? 0
+      : (config.consecutiveErrors ?? 0) + 1;
+    const healthStatus: "healthy" | "degraded" | "down" = args.success
+      ? "healthy"
+      : consecutiveErrors >= 3
+        ? "down"
+        : "degraded";
+
+    await ctx.db.patch(config._id, {
+      healthStatus,
+      consecutiveErrors,
+      lastSuccessAt: args.success ? Date.now() : config.lastSuccessAt,
+      lastFailureAt: args.success ? config.lastFailureAt : Date.now(),
+      lastErrorMessage: args.success ? undefined : args.errorMessage,
+      lastHealthCheckAt: Date.now(),
+    });
+
+    return null;
+  },
+});
+
+/**
  * Seed default platform configs (run once on setup)
  * Can be called from Platform Staff UI
  */
@@ -500,35 +661,58 @@ export const seedDefaultConfigs = mutation({
       {
         feature: "sensitivity_classification" as const,
         provider: "anthropic" as const,
-        modelId: "claude-3-5-haiku-20241022",
+        modelId: "claude-haiku-4-5-20251001",
         maxTokens: 500,
       },
       {
         feature: "parent_summary" as const,
         provider: "anthropic" as const,
-        modelId: "claude-3-5-haiku-20241022",
+        modelId: "claude-haiku-4-5-20251001",
         maxTokens: 500,
       },
       {
         feature: "session_plan" as const,
         provider: "anthropic" as const,
-        modelId: "claude-3-5-haiku-20241022",
+        modelId: "claude-haiku-4-5-20251001",
         maxTokens: 1200,
         temperature: 0.7,
       },
       {
         feature: "recommendations" as const,
         provider: "anthropic" as const,
-        modelId: "claude-3-5-haiku-20241022",
+        modelId: "claude-haiku-4-5-20251001",
         maxTokens: 1500,
         temperature: 0.7,
       },
       {
         feature: "comparison_insights" as const,
         provider: "anthropic" as const,
-        modelId: "claude-3-5-haiku-20241022",
+        modelId: "claude-haiku-4-5-20251001",
         maxTokens: 2000,
         temperature: 0.7,
+      },
+      {
+        feature: "ai_column_mapping" as const,
+        provider: "anthropic" as const,
+        modelId: "claude-haiku-4-5-20251001",
+        maxTokens: 1024,
+        temperature: 0.3,
+      },
+      {
+        feature: "practice_plan_generation" as const,
+        provider: "openai" as const,
+        modelId: "gpt-4o",
+        maxTokens: 2000,
+        temperature: 0.7,
+      },
+      {
+        feature: "global_fallback" as const,
+        provider: "anthropic" as const,
+        modelId: "claude-haiku-4-5-20251001",
+        maxTokens: 1500,
+        temperature: 0.7,
+        notes:
+          "Platform-wide default fallback used by all features when no per-feature fallback is configured",
       },
     ];
 

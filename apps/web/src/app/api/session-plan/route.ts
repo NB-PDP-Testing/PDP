@@ -1,3 +1,5 @@
+import { api } from "@pdp/backend/convex/_generated/api";
+import { fetchQuery } from "convex/nextjs";
 import { type NextRequest, NextResponse } from "next/server";
 
 /**
@@ -7,15 +9,43 @@ import { type NextRequest, NextResponse } from "next/server";
  * This route acts as a server-side proxy to the Anthropic Claude API
  * to keep API keys secure and avoid CORS issues.
  *
- * Configuration (via environment variables):
- * - ANTHROPIC_MODEL_SESSION_PLAN: Model to use (default: claude-3-5-haiku-20241022)
- * - ANTHROPIC_MAX_TOKENS_SESSION_PLAN: Max tokens (default: 1200)
- * - ANTHROPIC_TEMPERATURE_SESSION_PLAN: Temperature (default: 0.7)
+ * Configuration: reads from Convex aiModelConfig table (feature: "session_plan")
+ * Falls back to defaults if unavailable.
  */
 
-const DEFAULT_MODEL = "claude-3-5-haiku-20241022";
+const DEFAULT_MODEL = "claude-haiku-4-5-20251001";
 const DEFAULT_MAX_TOKENS = 1200;
 const DEFAULT_TEMPERATURE = 0.7;
+
+async function getModelConfig() {
+  let modelConfig = {
+    model: DEFAULT_MODEL,
+    maxTokens: DEFAULT_MAX_TOKENS,
+    temperature: DEFAULT_TEMPERATURE,
+    fallbackModel: undefined as string | undefined,
+  };
+  try {
+    const dbConfig = await fetchQuery(
+      api.models.aiModelConfig.getConfigForFeature,
+      { feature: "session_plan" }
+    );
+    if (dbConfig) {
+      modelConfig = {
+        model: dbConfig.modelId,
+        maxTokens: dbConfig.maxTokens ?? DEFAULT_MAX_TOKENS,
+        temperature: dbConfig.temperature ?? DEFAULT_TEMPERATURE,
+        fallbackModel:
+          dbConfig.fallbackModelId ?? dbConfig.platformDefaultFallbackModelId,
+      };
+    }
+  } catch (e) {
+    console.warn(
+      "Could not fetch AI config for session_plan, using defaults:",
+      e
+    );
+  }
+  return modelConfig;
+}
 
 type TeamDataSkill = {
   skill: string;
@@ -29,18 +59,6 @@ type TeamData = {
   strengths?: TeamDataSkill[];
   weaknesses?: TeamDataSkill[];
 };
-
-function getConfig() {
-  return {
-    model: process.env.ANTHROPIC_MODEL_SESSION_PLAN || DEFAULT_MODEL,
-    maxTokens: process.env.ANTHROPIC_MAX_TOKENS_SESSION_PLAN
-      ? Number.parseInt(process.env.ANTHROPIC_MAX_TOKENS_SESSION_PLAN, 10)
-      : DEFAULT_MAX_TOKENS,
-    temperature: process.env.ANTHROPIC_TEMPERATURE_SESSION_PLAN
-      ? Number.parseFloat(process.env.ANTHROPIC_TEMPERATURE_SESSION_PLAN)
-      : DEFAULT_TEMPERATURE,
-  };
-}
 
 function buildSessionPlanPrompt(teamData: TeamData, focus?: string): string {
   return `You are an expert GAA football coach creating a training session plan.
@@ -104,29 +122,37 @@ export async function POST(request: NextRequest) {
     // Build the prompt for Claude
     const prompt = buildSessionPlanPrompt(teamData, focus);
 
-    // Get model configuration
-    const config = getConfig();
+    // Get model configuration from Convex (with fallback to defaults)
+    const config = await getModelConfig();
 
-    // Call Claude API from server-side (no CORS issues)
-    const response = await fetch("https://api.anthropic.com/v1/messages", {
-      method: "POST",
-      headers: {
-        "Content-Type": "application/json",
-        "x-api-key": apiKey,
-        "anthropic-version": "2023-06-01",
-      },
-      body: JSON.stringify({
-        model: config.model,
-        max_tokens: config.maxTokens,
-        temperature: config.temperature,
-        messages: [
-          {
-            role: "user",
-            content: prompt,
-          },
-        ],
-      }),
-    });
+    // Capture after guard so TS knows it's a string inside closures
+    const resolvedApiKey: string = apiKey;
+
+    function callClaude(modelId: string) {
+      return fetch("https://api.anthropic.com/v1/messages", {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+          "x-api-key": resolvedApiKey,
+          "anthropic-version": "2023-06-01",
+        },
+        body: JSON.stringify({
+          model: modelId,
+          max_tokens: config.maxTokens,
+          temperature: config.temperature,
+          messages: [{ role: "user", content: prompt }],
+        }),
+      });
+    }
+
+    let response = await callClaude(config.model);
+
+    if (!response.ok && config.fallbackModel) {
+      console.warn(
+        `[SessionPlan] Primary model ${config.model} failed (${response.status}), retrying with fallback ${config.fallbackModel}`
+      );
+      response = await callClaude(config.fallbackModel);
+    }
 
     if (!response.ok) {
       const errorText = await response.text();

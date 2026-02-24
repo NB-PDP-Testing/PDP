@@ -2,6 +2,7 @@
 
 import { v } from "convex/values";
 import { internal } from "../_generated/api";
+import type { ActionCtx } from "../_generated/server";
 import { internalAction } from "../_generated/server";
 
 /**
@@ -18,6 +19,44 @@ import { internalAction } from "../_generated/server";
 const ANTHROPIC_API_URL = "https://api.anthropic.com/v1/messages";
 const ANTHROPIC_VERSION = "2023-06-01";
 const DEFAULT_MODEL = "claude-haiku-4-5-20251001";
+const DEFAULT_MAX_TOKENS = 1500;
+const DEFAULT_TEMPERATURE = 0.7;
+
+/**
+ * Get AI config from database with fallback defaults
+ */
+async function getAIConfig(ctx: ActionCtx): Promise<{
+  modelId: string;
+  maxTokens: number;
+  temperature: number;
+  fallbackModelId?: string;
+}> {
+  try {
+    const dbConfig = await ctx.runQuery(
+      internal.models.aiModelConfig.getConfigForFeatureInternal,
+      { feature: "session_plan" }
+    );
+    if (dbConfig) {
+      return {
+        modelId: dbConfig.modelId,
+        maxTokens: dbConfig.maxTokens ?? DEFAULT_MAX_TOKENS,
+        temperature: dbConfig.temperature ?? DEFAULT_TEMPERATURE,
+        fallbackModelId:
+          dbConfig.fallbackModelId ?? dbConfig.platformDefaultFallbackModelId,
+      };
+    }
+  } catch (error) {
+    console.warn(
+      "[SessionPlan] Could not fetch AI config, using defaults:",
+      error
+    );
+  }
+  return {
+    modelId: DEFAULT_MODEL,
+    maxTokens: DEFAULT_MAX_TOKENS,
+    temperature: DEFAULT_TEMPERATURE,
+  };
+}
 
 // Top-level regex constants
 const RE_HEADING2 = /^##\s+(.+)/;
@@ -146,7 +185,8 @@ Return ONLY a JSON object with this exact structure (no markdown, no explanation
 async function callClaudeAPI(
   apiKey: string,
   prompt: string,
-  maxTokens: number
+  maxTokens: number,
+  modelId: string = DEFAULT_MODEL
 ): Promise<string> {
   const response = await fetch(ANTHROPIC_API_URL, {
     method: "POST",
@@ -156,7 +196,7 @@ async function callClaudeAPI(
       "anthropic-version": ANTHROPIC_VERSION,
     },
     body: JSON.stringify({
-      model: DEFAULT_MODEL,
+      model: modelId,
       max_tokens: maxTokens,
       messages: [{ role: "user", content: prompt }],
     }),
@@ -271,6 +311,8 @@ export const generatePlanContent = internalAction({
         );
       }
 
+      const config = await getAIConfig(ctx);
+
       const prompt = buildSessionPlanPrompt({
         teamName: plan.teamName,
         playerCount: plan.playerCount,
@@ -281,10 +323,33 @@ export const generatePlanContent = internalAction({
       });
 
       console.log(
-        `[SessionPlan] Calling Claude API for plan ${args.planId}...`
+        `[SessionPlan] Calling Claude API (${config.modelId}) for plan ${args.planId}...`
       );
 
-      const rawContent = await callClaudeAPI(apiKey, prompt, 1500);
+      let rawContent: string;
+      try {
+        rawContent = await callClaudeAPI(
+          apiKey,
+          prompt,
+          config.maxTokens,
+          config.modelId
+        );
+      } catch (primaryError) {
+        if (config.fallbackModelId) {
+          console.warn(
+            `[SessionPlan] Primary model ${config.modelId} failed, retrying with fallback ${config.fallbackModelId}:`,
+            primaryError
+          );
+          rawContent = await callClaudeAPI(
+            apiKey,
+            prompt,
+            config.maxTokens,
+            config.fallbackModelId
+          );
+        } else {
+          throw primaryError;
+        }
+      }
 
       console.log(`[SessionPlan] Plan generated (${rawContent.length} chars)`);
 
@@ -298,11 +363,22 @@ export const generatePlanContent = internalAction({
         status: "saved",
       });
 
+      await ctx.runMutation(internal.models.aiModelConfig.updateFeatureHealth, {
+        feature: "session_plan",
+        success: true,
+      });
+
       await ctx.runAction(internal.actions.sessionPlans.extractMetadata, {
         planId: args.planId,
       });
     } catch (error) {
       console.error("[SessionPlan] Failed to generate session plan:", error);
+
+      await ctx.runMutation(internal.models.aiModelConfig.updateFeatureHealth, {
+        feature: "session_plan",
+        success: false,
+        errorMessage: error instanceof Error ? error.message : "Unknown error",
+      });
 
       await ctx.runMutation(internal.models.sessionPlans.updatePlanContent, {
         planId: args.planId,

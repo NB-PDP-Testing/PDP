@@ -18,10 +18,10 @@ import { buildHealthUpdate, shouldCallAPI } from "../lib/circuitBreaker";
  * - ANTHROPIC_MODEL_SENSITIVITY: Model for classifying insight sensitivity
  * - ANTHROPIC_MODEL_SUMMARY: Model for generating parent-friendly summaries
  *
- * Final fallback uses claude-3-5-haiku for cost efficiency.
+ * Final fallback uses claude-haiku-4-5 for cost efficiency.
  */
-const DEFAULT_MODEL_SENSITIVITY = "claude-3-5-haiku-20241022";
-const DEFAULT_MODEL_SUMMARY = "claude-3-5-haiku-20241022";
+const DEFAULT_MODEL_SENSITIVITY = "claude-haiku-4-5-20251001";
+const DEFAULT_MODEL_SUMMARY = "claude-haiku-4-5-20251001";
 const DEFAULT_MAX_TOKENS_SENSITIVITY = 500;
 const DEFAULT_MAX_TOKENS_SUMMARY = 500;
 
@@ -50,6 +50,7 @@ async function getAIConfig(
   modelId: string;
   maxTokens: number;
   temperature?: number;
+  fallbackModelId?: string;
 }> {
   // Try to get config from database
   try {
@@ -67,6 +68,8 @@ async function getAIConfig(
             ? DEFAULT_MAX_TOKENS_SENSITIVITY
             : DEFAULT_MAX_TOKENS_SUMMARY),
         temperature: dbConfig.temperature,
+        fallbackModelId:
+          dbConfig.fallbackModelId ?? dbConfig.platformDefaultFallbackModelId,
       };
     }
   } catch (error) {
@@ -266,41 +269,28 @@ Respond in JSON format:
   "reason": "brief explanation"
 }`;
 
-    try {
+    async function callClassify(modelId: string) {
       const response = await client.messages.create({
-        model: config.modelId,
+        model: modelId,
         max_tokens: config.maxTokens,
-        messages: [
-          {
-            role: "user",
-            content: prompt,
-          },
-        ],
+        messages: [{ role: "user", content: prompt }],
       });
-
-      // Parse the response
       const content = response.content[0];
       if (content.type !== "text") {
         throw new Error("Unexpected response type from Claude API");
       }
-
-      // Extract JSON from response (may be wrapped in markdown)
       const text = content.text.trim();
       const jsonMatch = text.match(JSON_EXTRACT_REGEX);
       if (!jsonMatch) {
         throw new Error("Failed to extract JSON from Claude response");
       }
-
       const result = JSON.parse(jsonMatch[0]);
-
-      // Validate AI response structure before type casting
       const validCategories = ["normal", "injury", "behavior"];
       if (!(result.category && validCategories.includes(result.category))) {
         throw new Error(
           `Invalid category from AI: ${result.category}. Expected one of: ${validCategories.join(", ")}`
         );
       }
-
       if (
         typeof result.confidence !== "number" ||
         result.confidence < 0 ||
@@ -310,11 +300,28 @@ Respond in JSON format:
           `Invalid confidence score from AI: ${result.confidence}. Expected number between 0 and 1`
         );
       }
-
       if (!result.reason || typeof result.reason !== "string") {
         throw new Error(
           `Invalid reason from AI: ${result.reason}. Expected non-empty string`
         );
+      }
+      return result as { category: string; confidence: number; reason: string };
+    }
+
+    try {
+      let result: { category: string; confidence: number; reason: string };
+      try {
+        result = await callClassify(config.modelId);
+      } catch (primaryError) {
+        if (config.fallbackModelId) {
+          console.warn(
+            `⚠️ Sensitivity classification primary model ${config.modelId} failed, retrying with fallback ${config.fallbackModelId}:`,
+            primaryError
+          );
+          result = await callClassify(config.fallbackModelId);
+        } else {
+          throw primaryError;
+        }
       }
 
       // Success - update health record
@@ -438,10 +445,10 @@ Sport: ${args.sportName}`;
 Title: ${args.insightTitle}
 Description: ${args.insightDescription}`;
 
-    try {
-      const response = await client.messages.create(
+    function callSummary(modelId: string) {
+      return client.messages.create(
         {
-          model: config.modelId,
+          model: modelId,
           max_tokens: config.maxTokens,
           messages: [
             {
@@ -450,31 +457,40 @@ Description: ${args.insightDescription}`;
                 {
                   type: "text",
                   text: systemPrompt,
-                  // Mark for caching
                   cache_control: { type: "ephemeral" },
                 },
                 {
                   type: "text",
                   text: playerContext,
-                  // Mark for caching
                   cache_control: { type: "ephemeral" },
                 },
                 {
                   type: "text",
                   text: insightContent,
-                  // No cache_control = not cached (varies per call)
                 },
               ],
             },
           ],
         },
-        {
-          // REQUIRED: Enable prompt caching via headers in options
-          headers: {
-            "anthropic-beta": "prompt-caching-2024-07-31",
-          },
-        }
+        { headers: { "anthropic-beta": "prompt-caching-2024-07-31" } }
       );
+    }
+
+    try {
+      let response: Awaited<ReturnType<typeof callSummary>>;
+      try {
+        response = await callSummary(config.modelId);
+      } catch (primaryError) {
+        if (config.fallbackModelId) {
+          console.warn(
+            `⚠️ Parent summary primary model ${config.modelId} failed, retrying with fallback ${config.fallbackModelId}:`,
+            primaryError
+          );
+          response = await callSummary(config.fallbackModelId);
+        } else {
+          throw primaryError;
+        }
+      }
 
       // Extract cache statistics from response
       const inputTokens = response.usage.input_tokens;

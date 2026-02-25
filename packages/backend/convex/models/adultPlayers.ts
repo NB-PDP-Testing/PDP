@@ -1,5 +1,5 @@
 import { v } from "convex/values";
-import { mutation, query } from "../_generated/server";
+import { internalMutation, mutation, query } from "../_generated/server";
 import { calculateAge } from "./playerIdentities";
 
 // ============================================================
@@ -444,6 +444,89 @@ export const claimYouthProfile = mutation({
       return { success: true, transitioned: true };
     }
     // Just link the user ID but keep as youth
+    await ctx.db.patch(args.playerIdentityId, {
+      userId: args.userId,
+      email: args.email?.toLowerCase().trim(),
+      updatedAt: Date.now(),
+    });
+
+    return { success: true, transitioned: false };
+  },
+});
+
+/**
+ * Internal version of claimYouthProfile — for use by other mutations (e.g. approveJoinRequest)
+ */
+export const claimYouthProfileInternal = internalMutation({
+  args: {
+    playerIdentityId: v.id("playerIdentities"),
+    userId: v.string(),
+    email: v.optional(v.string()),
+  },
+  returns: v.object({
+    success: v.boolean(),
+    transitioned: v.boolean(),
+  }),
+  handler: async (ctx, args) => {
+    const player = await ctx.db.get(args.playerIdentityId);
+    if (!player) {
+      throw new Error("Player not found");
+    }
+
+    const existingPlayer = await ctx.db
+      .query("playerIdentities")
+      .withIndex("by_userId", (q) => q.eq("userId", args.userId))
+      .first();
+
+    if (existingPlayer) {
+      throw new Error("User already has a player identity");
+    }
+
+    const age = calculateAge(player.dateOfBirth);
+
+    if (age >= 18) {
+      await ctx.db.patch(args.playerIdentityId, {
+        playerType: "adult",
+        userId: args.userId,
+        email: args.email?.toLowerCase().trim(),
+        verificationStatus: "self_verified",
+        updatedAt: Date.now(),
+      });
+
+      const guardianLinks = await ctx.db
+        .query("guardianPlayerLinks")
+        .withIndex("by_player", (q) =>
+          q.eq("playerIdentityId", args.playerIdentityId)
+        )
+        .collect();
+
+      let priority = 1;
+      const now = Date.now();
+
+      for (const link of guardianLinks) {
+        const guardian = await ctx.db.get(link.guardianIdentityId);
+        if (!guardian) {
+          continue;
+        }
+
+        await ctx.db.insert("playerEmergencyContacts", {
+          playerIdentityId: args.playerIdentityId,
+          firstName: guardian.firstName,
+          lastName: guardian.lastName,
+          phone: guardian.phone || "",
+          email: guardian.email,
+          relationship: mapRelationshipToEmergency(link.relationship),
+          priority,
+          notes: link.isPrimary ? "Former primary guardian" : undefined,
+          createdAt: now,
+          updatedAt: now,
+        });
+        priority += 1;
+      }
+
+      return { success: true, transitioned: true };
+    }
+
     await ctx.db.patch(args.playerIdentityId, {
       userId: args.userId,
       email: args.email?.toLowerCase().trim(),

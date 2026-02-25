@@ -63,6 +63,9 @@ export default function JoinOrganizationRequestPage() {
     }
   }, [currentUser?.phone, phone]);
 
+  // Player-specific fields
+  const [playerDateOfBirth, setPlayerDateOfBirth] = useState("");
+
   // Coach-specific fields
   const [coachSport, setCoachSport] = useState("");
   const [coachGender, setCoachGender] = useState("");
@@ -84,6 +87,15 @@ export default function JoinOrganizationRequestPage() {
     functionalRoles: FunctionalRole[]
   ): "member" | "admin" =>
     functionalRoles.includes("admin") ? "admin" : "member";
+
+  // Check if player fields are valid
+  const isPlayerDataValid = () => {
+    if (!selectedRoles.includes("player")) {
+      return true;
+    }
+    // DOB is required for players (used for youth record matching)
+    return playerDateOfBirth.length > 0;
+  };
 
   // Check if coach fields are valid
   const isCoachDataValid = () => {
@@ -123,6 +135,11 @@ export default function JoinOrganizationRequestPage() {
         coachAgeGroups: selectedRoles.includes("coach")
           ? coachAgeGroups || undefined
           : undefined,
+
+        // Player-specific fields
+        playerDateOfBirth: selectedRoles.includes("player")
+          ? playerDateOfBirth || undefined
+          : undefined,
       });
 
       toast.success(
@@ -139,7 +156,8 @@ export default function JoinOrganizationRequestPage() {
     }
   };
 
-  const canSubmit = selectedRoles.length > 0 && isCoachDataValid();
+  const canSubmit =
+    selectedRoles.length > 0 && isCoachDataValid() && isPlayerDataValid();
 
   return (
     <div className="container mx-auto max-w-2xl space-y-6 py-8">
@@ -323,6 +341,33 @@ export default function JoinOrganizationRequestPage() {
                 </p>
               )}
             </div>
+
+            {/* Player-specific: Date of Birth (required for youth record matching) */}
+            {selectedRoles.includes("player") && (
+              <div className="space-y-4 rounded-lg border border-orange-200 bg-orange-50/50 p-4 dark:border-orange-800 dark:bg-orange-950/20">
+                <h3 className="flex items-center gap-2 font-medium text-orange-800 dark:text-orange-200">
+                  <Users className="h-4 w-4" />
+                  Player Information
+                </h3>
+                <div className="space-y-2">
+                  <Label htmlFor="playerDob">
+                    Date of Birth <span className="text-destructive">*</span>
+                  </Label>
+                  <Input
+                    disabled={isSubmitting}
+                    id="playerDob"
+                    max={new Date().toISOString().split("T")[0]}
+                    onChange={(e) => setPlayerDateOfBirth(e.target.value)}
+                    type="date"
+                    value={playerDateOfBirth}
+                  />
+                  <p className="text-muted-foreground text-xs">
+                    Used to match you with your existing player record if one
+                    exists
+                  </p>
+                </div>
+              </div>
+            )}
 
             {/* Phone Number - shown for parent or coach */}
             {(selectedRoles.includes("parent") ||

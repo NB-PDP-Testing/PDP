@@ -1,7 +1,11 @@
 import { v } from "convex/values";
-import { components } from "../_generated/api";
+import { components, internal } from "../_generated/api";
 import { mutation, query } from "../_generated/server";
 import { authComponent } from "../auth";
+import { sendPlayerJoinApprovalEmail } from "../utils/email";
+
+// Regex defined at module level for performance (used inside handler)
+const WHITESPACE_REGEX = /\s+/;
 
 /**
  * Organization join request management functions
@@ -51,8 +55,12 @@ export const createJoinRequest = mutation({
     coachGender: v.optional(v.string()),
     coachTeams: v.optional(v.string()),
     coachAgeGroups: v.optional(v.string()),
+
+    // Player-specific fields
+    playerDateOfBirth: v.optional(v.string()), // YYYY-MM-DD, required when player role selected
   },
   returns: v.id("orgJoinRequests"),
+  // biome-ignore lint/complexity/noExcessiveCognitiveComplexity: Join request creation handles multiple role types (coach, parent, player) with role-specific fields and youth matching — refactoring would reduce clarity.
   handler: async (ctx, args) => {
     const user = await authComponent.getAuthUser(ctx);
     if (!user) {
@@ -136,6 +144,40 @@ export const createJoinRequest = mutation({
         ? "admin"
         : "member";
 
+    // Player-specific: run youth record matching if player role + DOB provided
+    let matchedYouthIdentityId: string | undefined;
+    let matchedYouthName: string | undefined;
+    let matchedYouthConfidence: string | undefined;
+
+    if (functionalRoles.includes("player") && args.playerDateOfBirth) {
+      // Parse userName to firstName/lastName for matching
+      const nameParts = user.name.trim().split(WHITESPACE_REGEX);
+      const firstName = nameParts[0] || "";
+      const lastName = nameParts.slice(1).join(" ") || nameParts[0] || "";
+
+      const youthMatchResult: {
+        confidence: "high" | "medium" | "low" | "none";
+        match: { _id: string; firstName: string; lastName: string } | null;
+        matchedFields: string[];
+        warningFlag?: string;
+      } = await ctx.runQuery(
+        internal.models.playerMatching.findMatchingYouthProfileInternal,
+        {
+          organizationId: args.organizationId,
+          firstName,
+          lastName,
+          dateOfBirth: args.playerDateOfBirth,
+          email: user.email,
+        }
+      );
+
+      if (youthMatchResult.confidence === "high" && youthMatchResult.match) {
+        matchedYouthIdentityId = youthMatchResult.match._id;
+        matchedYouthName = `${youthMatchResult.match.firstName} ${youthMatchResult.match.lastName}`;
+        matchedYouthConfidence = "high";
+      }
+    }
+
     // Create the join request
     return await ctx.db.insert("orgJoinRequests", {
       userId: user._id,
@@ -159,6 +201,13 @@ export const createJoinRequest = mutation({
       coachGender: args.coachGender,
       coachTeams: args.coachTeams,
       coachAgeGroups: args.coachAgeGroups,
+
+      // Player-specific fields
+      playerDateOfBirth: args.playerDateOfBirth,
+      // biome-ignore lint/suspicious/noExplicitAny: Convex ID string interop — matchedYouthIdentityId is a validated playerIdentities ID
+      matchedYouthIdentityId: matchedYouthIdentityId as any,
+      matchedYouthName,
+      matchedYouthConfidence,
     });
   },
 });
@@ -274,6 +323,7 @@ export const getUserPendingRequests = query({
  * - Can optionally configure role-specific data:
  *   - For coaches: teams to assign
  *   - For parents: players to link
+ *   - For players: optionally link to existing youth identity
  * - See: docs/COMPREHENSIVE_AUTH_PLAN.md
  */
 export const approveJoinRequest = mutation({
@@ -282,6 +332,8 @@ export const approveJoinRequest = mutation({
     // Optional role configuration
     coachTeams: v.optional(v.array(v.string())), // Team names/IDs for coaches
     linkedPlayerIds: v.optional(v.array(v.string())), // Player IDs for parents
+    // Player-specific: link to existing youth identity
+    linkToYouthIdentityId: v.optional(v.id("playerIdentities")),
   },
   returns: v.null(),
   handler: async (ctx, args) => {
@@ -520,6 +572,21 @@ export const approveJoinRequest = mutation({
       );
     }
 
+    // Link adult player to youth identity if requested
+    if (functionalRoles.includes("player") && args.linkToYouthIdentityId) {
+      await ctx.runMutation(
+        internal.models.adultPlayers.claimYouthProfileInternal,
+        {
+          playerIdentityId: args.linkToYouthIdentityId,
+          userId: request.userId,
+          email: request.userEmail,
+        }
+      );
+      console.log(
+        `[approveJoinRequest] Linked player ${request.userEmail} to youth identity ${args.linkToYouthIdentityId}`
+      );
+    }
+
     // Copy phone and address from join request to user profile
     // This ensures the profile completion step shows pre-filled values
     if (request.phone || request.address) {
@@ -555,6 +622,17 @@ export const approveJoinRequest = mutation({
       reviewedBy: user._id,
       reviewerName: user.name,
     });
+
+    // Send approval email for player requests
+    if (functionalRoles.includes("player")) {
+      await sendPlayerJoinApprovalEmail({
+        email: request.userEmail,
+        userName: request.userName,
+        organizationName: request.organizationName,
+        orgLink: `${process.env.NEXT_PUBLIC_APP_URL || "https://app.playerarc.io"}/orgs/${request.organizationId}`,
+        linkedToHistory: Boolean(args.linkToYouthIdentityId),
+      });
+    }
 
     return null;
   },

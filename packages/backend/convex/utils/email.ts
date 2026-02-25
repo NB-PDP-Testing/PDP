@@ -5,6 +5,9 @@
  * Currently supports basic email sending - can be extended with Resend, SendGrid, etc.
  */
 
+// Regex defined at module level for performance
+const WHITESPACE_REGEX = /\s+/;
+
 type TeamInfo = {
   id: string;
   name: string;
@@ -1692,5 +1695,143 @@ export async function sendVerificationPinEmail(
     console.log("✅ Verification PIN email sent successfully:", result.id);
   } catch (error) {
     console.error("❌ Error sending verification PIN email:", error);
+  }
+}
+
+/**
+ * Send a player join approval email
+ *
+ * Sent when an admin approves a player's join request.
+ * Content: 'Your request to join [Org] has been approved. You now have access to your player portal.'
+ */
+export async function sendPlayerJoinApprovalEmail(data: {
+  email: string;
+  userName: string;
+  organizationName: string;
+  orgLink: string;
+  linkedToHistory: boolean;
+}): Promise<void> {
+  const { email, userName, organizationName, orgLink, linkedToHistory } = data;
+  const firstName = userName.trim().split(WHITESPACE_REGEX)[0] || userName;
+
+  const subject = `You've been approved to join ${organizationName} on PlayerARC`;
+  const preheaderText = `Your request to join ${organizationName} has been approved.`;
+  const logoUrl = getLogoUrl();
+
+  const historyNote = linkedToHistory
+    ? '<p style="margin: 0 0 16px 0; color: #22c55e;">✅ Your existing player history has been linked to your account.</p>'
+    : "";
+
+  const htmlBody = `
+    <!DOCTYPE html>
+    <html>
+      <head>
+        <meta charset="utf-8">
+        <meta name="viewport" content="width=device-width, initial-scale=1.0">
+        <title>${subject}</title>
+      </head>
+      <body style="font-family: Arial, sans-serif; line-height: 1.6; color: #333; max-width: 600px; margin: 0 auto; padding: 20px;">
+        <div style="display: none; max-height: 0px; overflow: hidden;">${preheaderText}</div>
+        <div style="background-color: #1E3A5F; padding: 20px; border-radius: 8px 8px 0 0; text-align: center;">
+          <table role="presentation" cellpadding="0" cellspacing="0" border="0" width="100%" style="margin: 0 auto;">
+            <tr>
+              <td style="text-align: center; padding-bottom: 4px;">
+                <table role="presentation" cellpadding="0" cellspacing="0" border="0" style="margin: 0 auto;">
+                  <tr>
+                    <td style="vertical-align: middle; padding-right: 12px;">
+                      <img src="${logoUrl}" alt="PlayerARC Logo" style="max-width: 80px; height: auto; display: block;" />
+                    </td>
+                    <td style="vertical-align: middle;">
+                      <h1 style="color: white; margin: 0; font-size: 24px; font-weight: bold; line-height: 1.2;">PlayerARC</h1>
+                    </td>
+                  </tr>
+                </table>
+              </td>
+            </tr>
+            <tr>
+              <td style="text-align: center; padding-top: 0;">
+                <p style="color: #22c55e; margin: 0; font-size: 13px; font-style: italic;">As many as possible, for as long as possible…</p>
+              </td>
+            </tr>
+          </table>
+        </div>
+        <div style="background-color: #f9fafb; padding: 30px; border-radius: 0 0 8px 8px; border: 1px solid #e5e7eb; border-top: none;">
+          <h2 style="color: #1E3A5F; margin: 0 0 16px 0;">Welcome to ${organizationName}!</h2>
+          <p style="margin: 0 0 16px 0;">Hi ${firstName},</p>
+          <p style="margin: 0 0 16px 0;">Your request to join <strong>${organizationName}</strong> has been approved. You now have access to your player portal.</p>
+          ${historyNote}
+          <p style="margin: 0 0 16px 0;">From your player portal you can:</p>
+          <ul style="margin: 0 0 24px 0; padding-left: 20px;">
+            <li style="margin-bottom: 8px;">View your player passport and development history</li>
+            <li style="margin-bottom: 8px;">Track your goals and assessments</li>
+            <li style="margin-bottom: 8px;">Access your training records</li>
+          </ul>
+          <div style="text-align: center; margin: 32px 0;">
+            <a href="${orgLink}" style="background-color: #1E3A5F; color: white; padding: 14px 28px; text-decoration: none; border-radius: 6px; font-weight: bold; display: inline-block;">Go to Player Portal</a>
+          </div>
+          <p style="font-size: 12px; color: #999; margin-top: 30px; padding-top: 20px; border-top: 1px solid #ddd;">
+            If the button doesn't work, copy and paste this link into your browser:<br>
+            <a href="${orgLink}" style="color: #1E3A5F; word-break: break-all;">${orgLink}</a>
+          </p>
+        </div>
+        <div style="text-align: center; margin-top: 20px; font-size: 12px; color: #999;">
+          <p>© ${new Date().getFullYear()} PlayerARC. All rights reserved.</p>
+        </div>
+      </body>
+    </html>
+  `;
+
+  const textBody = `Hi ${firstName},
+
+Your request to join ${organizationName} has been approved. You now have access to your player portal.
+${linkedToHistory ? "\n✅ Your existing player history has been linked to your account.\n" : ""}
+Visit your player portal: ${orgLink}
+
+© ${new Date().getFullYear()} PlayerARC.`;
+
+  const resendApiKey = process.env.RESEND_API_KEY;
+  const fromEmail =
+    process.env.EMAIL_FROM_ADDRESS ||
+    "PlayerARC <team@notifications.playerarc.io>";
+
+  if (!resendApiKey) {
+    console.warn(
+      "⚠️ RESEND_API_KEY not configured. Player approval email will not be sent."
+    );
+    console.log(
+      `[sendPlayerJoinApprovalEmail] Would send to: ${email}, org: ${organizationName}`
+    );
+    return;
+  }
+
+  try {
+    const response = await fetch("https://api.resend.com/emails", {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+        Authorization: `Bearer ${resendApiKey}`,
+      },
+      body: JSON.stringify({
+        from: fromEmail,
+        to: email,
+        subject,
+        html: htmlBody,
+        text: textBody,
+      }),
+    });
+
+    if (!response.ok) {
+      const errorData = await response.json().catch(() => ({}));
+      console.error("❌ Failed to send player approval email:", {
+        status: response.status,
+        error: errorData,
+      });
+      throw new Error(`Resend API error: ${response.status}`);
+    }
+
+    const result = await response.json();
+    console.log("✅ Player approval email sent successfully:", result.id);
+  } catch (error) {
+    console.error("❌ Error sending player approval email:", error);
   }
 }

@@ -1565,6 +1565,12 @@ export default defineSchema({
     coachTeams: v.optional(v.string()), // Comma-separated team names
     coachAgeGroups: v.optional(v.string()), // Comma-separated age groups
 
+    // Player-specific fields for youth record matching
+    playerDateOfBirth: v.optional(v.string()), // YYYY-MM-DD, used for youth matching
+    matchedYouthIdentityId: v.optional(v.id("playerIdentities")), // Matched youth record
+    matchedYouthName: v.optional(v.string()), // Denormalized for display in admin UI
+    matchedYouthConfidence: v.optional(v.string()), // "high" | "medium" | "low"
+
     // Timestamps
     requestedAt: v.number(),
     reviewedAt: v.optional(v.number()),

@@ -51,6 +51,14 @@ const playerIdentityMatchValidator = v.object({
   country: v.optional(v.string()),
   importSessionId: v.optional(v.id("importSessions")),
   externalIds: v.optional(v.record(v.string(), v.string())),
+  federationIds: v.optional(
+    v.object({
+      fai: v.optional(v.string()),
+      irfu: v.optional(v.string()),
+      gaa: v.optional(v.string()),
+      other: v.optional(v.string()),
+    })
+  ),
   lastSyncedAt: v.optional(v.number()),
   lastSyncedData: v.optional(v.any()),
   isActive: v.optional(v.boolean()),
@@ -108,6 +116,14 @@ const matchingArgs = {
   dateOfBirth: v.string(),
   email: v.optional(v.string()),
   gaaNumber: v.optional(v.string()),
+  federationIds: v.optional(
+    v.object({
+      fai: v.optional(v.string()),
+      irfu: v.optional(v.string()),
+      gaa: v.optional(v.string()),
+      other: v.optional(v.string()),
+    })
+  ),
 };
 
 // ============================================================
@@ -123,6 +139,12 @@ async function findMatchingYouthProfileHandler(
     dateOfBirth: string;
     email?: string;
     gaaNumber?: string;
+    federationIds?: {
+      fai?: string;
+      irfu?: string;
+      gaa?: string;
+      other?: string;
+    };
   }
 ): Promise<{
   confidence: ConfidenceLevel;
@@ -130,6 +152,67 @@ async function findMatchingYouthProfileHandler(
   matchedFields: string[];
   warningFlag?: string;
 }> {
+  // ── PRE-FETCH: Batch-fetch org's youth players (shared by PRIORITY -1 and PRIORITY 1) ──
+  const enrollments = await ctx.db
+    .query("orgPlayerEnrollments")
+    .withIndex("by_organizationId", (q) =>
+      q.eq("organizationId", args.organizationId)
+    )
+    .collect();
+
+  const youthPlayers: DataModel["playerIdentities"]["document"][] = [];
+  if (enrollments.length > 0) {
+    const uniquePlayerIds = [
+      ...new Set(enrollments.map((e) => e.playerIdentityId)),
+    ];
+    const playerDocs = await Promise.all(
+      uniquePlayerIds.map((id) => ctx.db.get(id))
+    );
+    for (const p of playerDocs) {
+      if (p !== null && p.playerType === "youth") {
+        youthPlayers.push(p);
+      }
+    }
+  }
+
+  // ── PRIORITY -1: Federation ID match (definitive HIGH confidence) ─────
+  // One exact federation ID match short-circuits all fuzzy checks
+  if (args.federationIds) {
+    const fed = args.federationIds;
+    for (const player of youthPlayers) {
+      const playerFed = player.federationIds;
+      const playerLegacyGaa = player.externalIds?.foireann;
+
+      let matchedBody: string | undefined;
+
+      if (fed.fai && playerFed?.fai && fed.fai === playerFed.fai) {
+        matchedBody = "fai";
+      } else if (fed.irfu && playerFed?.irfu && fed.irfu === playerFed.irfu) {
+        matchedBody = "irfu";
+      } else if (
+        fed.gaa &&
+        ((playerFed?.gaa && fed.gaa === playerFed.gaa) ||
+          (playerLegacyGaa && fed.gaa === playerLegacyGaa))
+      ) {
+        matchedBody = "gaa";
+      } else if (
+        fed.other &&
+        playerFed?.other &&
+        fed.other === playerFed.other
+      ) {
+        matchedBody = "other";
+      }
+
+      if (matchedBody) {
+        return {
+          confidence: "high",
+          match: player,
+          matchedFields: [`federationId:${matchedBody}`],
+        };
+      }
+    }
+  }
+
   // ── PRIORITY 0: Exact name+DOB index match ────────────────────────────
   const exactMatches = await ctx.db
     .query("playerIdentities")
@@ -162,43 +245,19 @@ async function findMatchingYouthProfileHandler(
   }
 
   // ── PRIORITY 1: Fuzzy matching on org's youth players ─────────────────
-
-  // Step 1: Fetch all enrollments for this org
-  const enrollments = await ctx.db
-    .query("orgPlayerEnrollments")
-    .withIndex("by_organizationId", (q) =>
-      q.eq("organizationId", args.organizationId)
-    )
-    .collect();
-
-  if (enrollments.length === 0) {
-    return { confidence: "none", match: null, matchedFields: [] };
-  }
-
-  // Step 2: Batch-fetch all playerIdentities (N+1 prevention via Promise.all)
-  const uniquePlayerIds = [
-    ...new Set(enrollments.map((e) => e.playerIdentityId)),
-  ];
-  const playerDocs = await Promise.all(
-    uniquePlayerIds.map((id) => ctx.db.get(id))
-  );
-
-  // Step 3: Filter to youth players in memory (no .filter() on DB)
-  const youthPlayers = playerDocs.filter(
-    (p) => p !== null && p.playerType === "youth"
-  );
+  // Uses pre-fetched youthPlayers (no additional DB queries needed)
 
   if (youthPlayers.length === 0) {
     return { confidence: "none", match: null, matchedFields: [] };
   }
 
-  // Step 4: Score each youth player
+  // Score each youth player
   const normalizedCandidateFirst = normalizeForMatching(args.firstName);
   const normalizedCandidateLast = normalizeForMatching(args.lastName);
   const normalizedCandidateEmail = args.email?.toLowerCase().trim();
 
   let bestConfidence: ConfidenceLevel = "none";
-  let bestMatch: (typeof youthPlayers)[number] = null;
+  let bestMatch: (typeof youthPlayers)[number] | null = null;
   let bestMatchedFields: string[] = [];
   let bestWarningFlag: string | undefined;
 

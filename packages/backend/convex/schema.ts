@@ -284,6 +284,17 @@ export default defineSchema({
     importSessionId: v.optional(v.id("importSessions")),
     externalIds: v.optional(v.record(v.string(), v.string())), // {"foireann": "12345", "pitchero": "67890"}
 
+    // Structured national federation registration numbers (Phase 3: US-P3-006)
+    // Note: externalIds.foireann is the legacy GAA path — do NOT remove it
+    federationIds: v.optional(
+      v.object({
+        fai: v.optional(v.string()), // Football Association of Ireland
+        irfu: v.optional(v.string()), // Irish Rugby Football Union
+        gaa: v.optional(v.string()), // Gaelic Athletic Association
+        other: v.optional(v.string()), // Other governing body
+      })
+    ),
+
     // Federation sync tracking
     lastSyncedAt: v.optional(v.number()), // Timestamp of last federation sync
     lastSyncedData: v.optional(v.any()), // Data as it was at last sync (for conflict detection)

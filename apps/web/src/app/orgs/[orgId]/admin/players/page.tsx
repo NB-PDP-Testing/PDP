@@ -4,6 +4,8 @@ import { api } from "@pdp/backend/convex/_generated/api";
 import { useConvex, useMutation, useQuery } from "convex/react";
 import {
   AlertTriangle,
+  ChevronDown,
+  ChevronRight,
   Edit,
   Eye,
   Loader2,
@@ -124,6 +126,13 @@ export default function ManagePlayersPage() {
   const [duplicateMessage, setDuplicateMessage] = useState("");
   const [isCheckingDuplicate, setIsCheckingDuplicate] = useState(false);
   const convex = useConvex();
+
+  // Federation numbers state (US-P3-006)
+  const [showFederationFields, setShowFederationFields] = useState(false);
+  const [federationFai, setFederationFai] = useState("");
+  const [federationIrfu, setFederationIrfu] = useState("");
+  const [federationGaa, setFederationGaa] = useState("");
+  const [federationOther, setFederationOther] = useState("");
 
   // Youth match state (US-P3-002)
   const [showYouthMatchDialog, setShowYouthMatchDialog] = useState(false);
@@ -315,6 +324,29 @@ export default function ManagePlayersPage() {
     }
   };
 
+  // Build federation IDs from form state (omit empty strings)
+  const buildFederationIds = () => {
+    const ids: {
+      fai?: string;
+      irfu?: string;
+      gaa?: string;
+      other?: string;
+    } = {};
+    if (federationFai.trim()) {
+      ids.fai = federationFai.trim();
+    }
+    if (federationIrfu.trim()) {
+      ids.irfu = federationIrfu.trim();
+    }
+    if (federationGaa.trim()) {
+      ids.gaa = federationGaa.trim();
+    }
+    if (federationOther.trim()) {
+      ids.other = federationOther.trim();
+    }
+    return Object.keys(ids).length > 0 ? ids : undefined;
+  };
+
   // Create the player (called after validation and optional duplicate confirmation)
   const createPlayer = async () => {
     setIsAddingPlayer(true);
@@ -325,6 +357,7 @@ export default function ManagePlayersPage() {
         dateOfBirth: addPlayerForm.dateOfBirth,
         gender: addPlayerForm.gender,
         createdFrom: "manual_admin",
+        federationIds: buildFederationIds(),
       });
 
       // Step 2: Enroll in organization
@@ -344,6 +377,11 @@ export default function ManagePlayersPage() {
       setFormErrors({});
       setShowAddPlayerDialog(false);
       setShowDuplicateWarning(false);
+      setFederationFai("");
+      setFederationIrfu("");
+      setFederationGaa("");
+      setFederationOther("");
+      setShowFederationFields(false);
 
       // Navigate to the new player
       router.push(`/orgs/${orgId}/players/${playerIdentityId}`);
@@ -429,6 +467,7 @@ export default function ManagePlayersPage() {
             firstName: addPlayerForm.firstName.trim(),
             lastName: addPlayerForm.lastName.trim(),
             dateOfBirth: addPlayerForm.dateOfBirth,
+            federationIds: buildFederationIds(),
           }),
         ]);
 
@@ -1181,6 +1220,11 @@ export default function ManagePlayersPage() {
             setMediumMatchWarning(null);
             setHasAcknowledgedMediumMatch(false);
             setYouthMatchCandidate(null);
+            setFederationFai("");
+            setFederationIrfu("");
+            setFederationGaa("");
+            setFederationOther("");
+            setShowFederationFields(false);
           }
           setShowAddPlayerDialog(open);
         }}
@@ -1362,6 +1406,65 @@ export default function ManagePlayersPage() {
                 )}
               </div>
             </ResponsiveFormRow>
+            {/* Federation Numbers — collapsible optional section */}
+            <div className="border-t pt-3">
+              <button
+                className="flex w-full items-center gap-2 text-left text-muted-foreground text-sm hover:text-foreground"
+                onClick={() => setShowFederationFields((v) => !v)}
+                type="button"
+              >
+                {showFederationFields ? (
+                  <ChevronDown className="h-4 w-4" />
+                ) : (
+                  <ChevronRight className="h-4 w-4" />
+                )}
+                Federation Numbers (Optional)
+              </button>
+              {showFederationFields && (
+                <div className="mt-3 space-y-3">
+                  <p className="text-muted-foreground text-xs">
+                    Enter national federation registration numbers for stronger
+                    identity matching.
+                  </p>
+                  <ResponsiveFormRow columns={2}>
+                    <div className="space-y-1">
+                      <Label className="text-xs">FAI Number</Label>
+                      <Input
+                        onChange={(e) => setFederationFai(e.target.value)}
+                        placeholder="FAI reg. number"
+                        value={federationFai}
+                      />
+                    </div>
+                    <div className="space-y-1">
+                      <Label className="text-xs">IRFU Number</Label>
+                      <Input
+                        onChange={(e) => setFederationIrfu(e.target.value)}
+                        placeholder="IRFU reg. number"
+                        value={federationIrfu}
+                      />
+                    </div>
+                  </ResponsiveFormRow>
+                  <ResponsiveFormRow columns={2}>
+                    <div className="space-y-1">
+                      <Label className="text-xs">GAA Number</Label>
+                      <Input
+                        onChange={(e) => setFederationGaa(e.target.value)}
+                        placeholder="GAA reg. number"
+                        value={federationGaa}
+                      />
+                    </div>
+                    <div className="space-y-1">
+                      <Label className="text-xs">Other</Label>
+                      <Input
+                        onChange={(e) => setFederationOther(e.target.value)}
+                        placeholder="Other federation"
+                        value={federationOther}
+                      />
+                    </div>
+                  </ResponsiveFormRow>
+                </div>
+              )}
+            </div>
           </ResponsiveFormSection>
         </ResponsiveForm>
       </ResponsiveDialog>

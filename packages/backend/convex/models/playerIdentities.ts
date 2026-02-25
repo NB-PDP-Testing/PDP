@@ -526,6 +526,14 @@ export const createPlayerIdentity = mutation({
     country: v.optional(v.string()),
     verificationStatus: v.optional(verificationStatusValidator),
     createdFrom: v.optional(v.string()),
+    federationIds: v.optional(
+      v.object({
+        fai: v.optional(v.string()),
+        irfu: v.optional(v.string()),
+        gaa: v.optional(v.string()),
+        other: v.optional(v.string()),
+      })
+    ),
   },
   returns: v.id("playerIdentities"),
   handler: async (ctx, args) => {
@@ -554,6 +562,7 @@ export const createPlayerIdentity = mutation({
       createdAt: now,
       updatedAt: now,
       createdFrom: args.createdFrom ?? "manual",
+      federationIds: args.federationIds,
     });
   },
 });

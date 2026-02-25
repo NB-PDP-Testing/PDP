@@ -58,6 +58,7 @@ export const createJoinRequest = mutation({
 
     // Player-specific fields
     playerDateOfBirth: v.optional(v.string()), // YYYY-MM-DD, required when player role selected
+    playerFederationNumber: v.optional(v.string()), // Optional federation registration number
   },
   returns: v.id("orgJoinRequests"),
   // biome-ignore lint/complexity/noExcessiveCognitiveComplexity: Join request creation handles multiple role types (coach, parent, player) with role-specific fields and youth matching — refactoring would reduce clarity.
@@ -168,6 +169,9 @@ export const createJoinRequest = mutation({
           lastName,
           dateOfBirth: args.playerDateOfBirth,
           email: user.email,
+          federationIds: args.playerFederationNumber
+            ? { other: args.playerFederationNumber }
+            : undefined,
         }
       );
 

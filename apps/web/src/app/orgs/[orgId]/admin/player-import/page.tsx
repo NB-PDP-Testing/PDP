@@ -78,6 +78,10 @@ type ParsedPlayer = {
   rowIndex: number;
   // Display name for backwards compatibility in UI
   displayName: string;
+  // Federation registration numbers (Phase 3: US-P3-006)
+  faiNumber?: string;
+  irfuNumber?: string;
+  gaaNumber?: string;
 };
 
 type YouthMatchResult = {
@@ -97,11 +101,11 @@ type MissingTeam = {
   count: number;
 };
 
-const SAMPLE_CSV = `FirstName,LastName,AgeGroup,Sport,Gender,Season,ParentFirstName,ParentLastName,ParentEmail,ParentPhone,ParentRelationship,DateOfBirth
-John,Smith,U12,GAA Football,Male,2025,Mary,Smith,mary.smith@email.com,0871234567,mother,2013-05-15
-Emma,Johnson,U10,GAA Football,Female,2025,Sarah,Johnson,sarah.johnson@email.com,0869876543,mother,2015-08-22
-Liam,Murphy,U14,GAA Football,Male,2025,Tom,Murphy,tom.murphy@email.com,0851112223,father,2011-03-10
-Sophie,Brown,U12,Hurling,Female,2025,Anne,Brown,anne.brown@email.com,0857654321,mother,2013-11-05`;
+const SAMPLE_CSV = `FirstName,LastName,AgeGroup,Sport,Gender,Season,ParentFirstName,ParentLastName,ParentEmail,ParentPhone,ParentRelationship,DateOfBirth,FAINumber,IRFUNumber,GAANumber
+John,Smith,U12,GAA Football,Male,2025,Mary,Smith,mary.smith@email.com,0871234567,mother,2013-05-15,,,
+Emma,Johnson,U10,GAA Football,Female,2025,Sarah,Johnson,sarah.johnson@email.com,0869876543,mother,2015-08-22,,,
+Liam,Murphy,U14,GAA Football,Male,2025,Tom,Murphy,tom.murphy@email.com,0851112223,father,2011-03-10,,,
+Sophie,Brown,U12,Hurling,Female,2025,Anne,Brown,anne.brown@email.com,0857654321,mother,2013-11-05,,,`;
 
 // Helper: Map sport name to sport code
 const mapSportNameToCode = (sportName: string): string => {
@@ -350,6 +354,9 @@ export default function PlayerImportPage() {
         postcode: row.Postcode,
         country: row.Country,
         rowIndex: players.length,
+        faiNumber: row.FAINumber?.trim() || undefined,
+        irfuNumber: row.IRFUNumber?.trim() || undefined,
+        gaaNumber: row.GAANumber?.trim() || undefined,
       });
     }
 
@@ -449,6 +456,15 @@ export default function PlayerImportPage() {
             firstName: p.firstName,
             lastName: p.lastName,
             dateOfBirth: p.dateOfBirth,
+            ...(p.faiNumber || p.irfuNumber || p.gaaNumber
+              ? {
+                  federationIds: {
+                    fai: p.faiNumber,
+                    irfu: p.irfuNumber,
+                    gaa: p.gaaNumber,
+                  },
+                }
+              : {}),
           })
         )
       );

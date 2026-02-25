@@ -65,6 +65,7 @@ export default function JoinOrganizationRequestPage() {
 
   // Player-specific fields
   const [playerDateOfBirth, setPlayerDateOfBirth] = useState("");
+  const [playerFederationNumber, setPlayerFederationNumber] = useState("");
 
   // Coach-specific fields
   const [coachSport, setCoachSport] = useState("");
@@ -139,6 +140,9 @@ export default function JoinOrganizationRequestPage() {
         // Player-specific fields
         playerDateOfBirth: selectedRoles.includes("player")
           ? playerDateOfBirth || undefined
+          : undefined,
+        playerFederationNumber: selectedRoles.includes("player")
+          ? playerFederationNumber || undefined
           : undefined,
       });
 
@@ -364,6 +368,22 @@ export default function JoinOrganizationRequestPage() {
                   <p className="text-muted-foreground text-xs">
                     Used to match you with your existing player record if one
                     exists
+                  </p>
+                </div>
+                <div className="space-y-2">
+                  <Label htmlFor="playerFederationNumber">
+                    Federation / Registration Number (Optional)
+                  </Label>
+                  <Input
+                    disabled={isSubmitting}
+                    id="playerFederationNumber"
+                    onChange={(e) => setPlayerFederationNumber(e.target.value)}
+                    placeholder="e.g., GAA, FAI, IRFU reg. number"
+                    value={playerFederationNumber}
+                  />
+                  <p className="text-muted-foreground text-xs">
+                    Your national federation registration number for stronger
+                    identity matching
                   </p>
                 </div>
               </div>

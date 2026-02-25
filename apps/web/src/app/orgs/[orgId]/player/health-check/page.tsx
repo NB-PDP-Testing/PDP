@@ -20,6 +20,7 @@ import {
   DialogTitle,
 } from "@/components/ui/dialog";
 import { authClient } from "@/lib/auth-client";
+import { WellnessTrendCharts } from "./wellness-trend-charts";
 
 // ============================================================
 // Constants
@@ -729,7 +730,11 @@ export default function PlayerHealthCheckPage() {
         </p>
       )}
 
-      {/* Trend charts placeholder — US-P4-004 */}
+      {/* Trend Charts */}
+      <WellnessTrendCharts
+        enabledDimensions={enabledDimensions}
+        playerIdentityId={playerIdentity._id}
+      />
     </div>
   );
 }

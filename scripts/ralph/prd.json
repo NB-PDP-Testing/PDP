@@ -138,7 +138,7 @@
         "npm run check-types passes"
       ],
       "priority": 5,
-      "passes": false,
+      "passes": true,
       "notes": "Find the existing invite dialog. Read how invitations are accepted in the accept-invitation page. The auto-transition must guard against null matchedPlayerIdentityId \u2014 existing invites have no such metadata."
     },
     {

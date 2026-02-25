@@ -111,3 +111,39 @@ Started: Wed 25 Feb 2026 18:04:01 GMT
 - `useTopLevelRegex`: move `/\s+/` to module-level const
 
 ---
+
+## 2026-02-25 - US-P3-005 - Youth Record Matching on Email Invite
+**Iteration**: 1
+**Commit**: 7061ac1e
+**Status**: Complete
+
+### What was implemented
+- Invite dialog (`admin/users/page.tsx`): added Player (Adult) role button (orange theme)
+- Optional firstName, lastName, DOB fields shown when player role selected
+- `useQuery(findMatchingYouthProfile)` with skip logic - reactive matching when all fields filled
+- Informational note shown inline when HIGH/MEDIUM match: "A youth profile may exist..."
+- `matchedPlayerIdentityId` stored in invitation metadata when match detected
+- `syncFunctionalRolesWithChildSelections` (members.ts): added step 4 - player role handling
+  - If `metadata.matchedPlayerIdentityId` present, calls `claimYouthProfileInternal` on acceptance
+  - Non-breaking: wrapped in try/catch, only runs if both player role + matched ID present
+- `onboarding.ts` getOnboardingTasks: includes `matchedPlayerIdentityId` from invitation metadata
+- `onboarding-orchestrator.tsx`: `AcceptInvitationTaskData` type includes `matchedPlayerIdentityId`
+
+### Files changed
+- `packages/backend/convex/models/members.ts` (+27)
+- `packages/backend/convex/models/onboarding.ts` (+5)
+- `apps/web/src/components/onboarding/onboarding-orchestrator.tsx` (+1)
+- `apps/web/src/app/orgs/[orgId]/admin/users/page.tsx` (+130)
+
+### Quality checks
+- Type check: passed (only pre-existing error in diagnoseSafeGetAuthUser.ts)
+- Linting: passed (no errors in changed files)
+- Convex codegen: passed
+- Browser verification: not applicable (invite flow, needs integration testing)
+
+### Key architecture note
+The acceptance flow is: accept-invitation page → redirects to /orgs → OnboardingOrchestrator
+detects pending invite → UnifiedInvitationStep calls syncFunctionalRolesWithChildSelections
+(NOT syncFunctionalRolesFromInvitation, which is no longer used)
+
+---

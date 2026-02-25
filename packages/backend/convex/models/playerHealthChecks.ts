@@ -619,6 +619,42 @@ export const withdrawCycleTrackingConsent = mutation({
   },
 });
 
+// All access records for a coach in an org — used by coach wellness dashboard
+export const getCoachAccessRequests = query({
+  args: {
+    coachUserId: v.string(),
+    organizationId: v.string(),
+  },
+  returns: v.array(
+    v.object({
+      _id: v.id("wellnessCoachAccess"),
+      _creationTime: v.number(),
+      playerIdentityId: v.id("playerIdentities"),
+      organizationId: v.string(),
+      coachUserId: v.string(),
+      coachName: v.string(),
+      requestedAt: v.number(),
+      status: v.union(
+        v.literal("pending"),
+        v.literal("approved"),
+        v.literal("denied"),
+        v.literal("revoked")
+      ),
+      approvedAt: v.optional(v.number()),
+      revokedAt: v.optional(v.number()),
+    })
+  ),
+  handler: async (ctx, args) =>
+    await ctx.db
+      .query("wellnessCoachAccess")
+      .withIndex("by_org_and_coach", (q) =>
+        q
+          .eq("organizationId", args.organizationId)
+          .eq("coachUserId", args.coachUserId)
+      )
+      .collect(),
+});
+
 // Internal query used by AI insight generation
 export const _getRecentChecksInternal = internalQuery({
   args: {

@@ -7,6 +7,7 @@ import {
   ActivitySquare,
   Calendar,
   CheckSquare,
+  Heart,
   LayoutDashboard,
   Lightbulb,
   Users,
@@ -45,6 +46,7 @@ import { PlanningTab } from "./components/planning-tab";
 import { PlayersTab } from "./components/players-tab";
 import { PresenceIndicators } from "./components/presence-indicators";
 import { TasksTab } from "./components/tasks-tab";
+import { WellnessTab } from "./components/wellness-tab";
 
 type TabValue =
   | "overview"
@@ -53,7 +55,8 @@ type TabValue =
   | "activity"
   | "decisions"
   | "tasks"
-  | "insights";
+  | "insights"
+  | "wellness";
 
 export default function TeamHubPage() {
   const params = useParams<{ orgId: string }>();
@@ -255,6 +258,13 @@ export default function TeamHubPage() {
                   <Lightbulb className="h-4 w-4" />
                   <span className="hidden sm:inline">Insights</span>
                 </TabsTrigger>
+                <TabsTrigger
+                  className="flex items-center gap-2"
+                  value="wellness"
+                >
+                  <Heart className="h-4 w-4" />
+                  <span className="hidden sm:inline">Wellness</span>
+                </TabsTrigger>
               </TabsList>
 
               <TabsContent value="overview">
@@ -304,6 +314,17 @@ export default function TeamHubPage() {
 
               <TabsContent value="insights">
                 <InsightsTab organizationId={orgId} teamId={displayTeamId} />
+              </TabsContent>
+
+              <TabsContent value="wellness">
+                <WellnessTab
+                  coachName={
+                    session?.user?.name || session?.user?.email || "Coach"
+                  }
+                  coachUserId={userId || ""}
+                  organizationId={orgId}
+                  teamId={displayTeamId}
+                />
               </TabsContent>
             </Tabs>
           </CardContent>

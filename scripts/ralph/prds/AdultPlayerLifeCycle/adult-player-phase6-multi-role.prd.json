@@ -84,6 +84,7 @@
         "If no match: create new playerIdentity + orgPlayerEnrollment with status 'pending'. Admin must approve in existing pending players UI.",
         "After submission: show 'Your player registration is with the admin for review. You'll be notified when approved.' — user cannot access player portal until approved.",
         "On admin approval: user's functionalRoles gains 'player', player portal becomes accessible. In-app notification to user: 'Your player role has been approved. You can now access the Player portal.'",
+        "FIRST-RUN MOMENT: the first time the user switches to the Player role (after approval), show a dismissible welcome banner at the top of the player portal: 'Welcome to your Player portal — explore your profile, wellness check-ins, and more.' Banner is shown only once — store a 'playerPortalWelcomeDismissed' flag in localStorage after the user dismisses it. Do NOT show it on subsequent visits.",
         "No duplicate user account is created under any path",
         "npm run check-types passes"
       ],
@@ -99,7 +100,8 @@
       "acceptanceCriteria": [
         "COACH who is also a PLAYER (viewing own player profile via coach interface):",
         "When a coach navigates to their own player profile from the team roster, show an enhanced read-only view of their own data (assessments, goals, passport)",
-        "Self-assessment is disabled: assessment submit buttons, rating inputs, and coach feedback forms are greyed out with tooltip 'You cannot assess yourself'",
+        "Self-assessment is disabled in the UI: assessment submit buttons, rating inputs, and coach feedback forms are greyed out with tooltip 'You cannot assess yourself'",
+        "BACKEND GUARD REQUIRED — not UI-only: the assessment submission mutation must validate that the assessor's userId does not match the assessed playerIdentity's linked userId. If they match, throw a validation error ('A coach cannot submit an assessment for their own player record'). Read how assessments are stored before implementing — find the mutation and add the userId comparison check. This guard fires regardless of which role the user is currently acting in.",
         "The 'Add voice note' and 'Create coach parent summary' actions are disabled for the coach's own player record",
         "PARENT who is also a PLAYER:",
         "Parent portal and player portal are entirely separate role contexts navigated via the role switcher",
@@ -111,7 +113,7 @@
       ],
       "priority": 4,
       "passes": false,
-      "notes": "These are guard rails, not major features. For the coach self-assessment guard: find where assessment actions are rendered in the coach player view and add a conditional disable based on whether the playerIdentity belongs to the current user. The admin confirmation dialog pattern: find existing confirmation dialogs in the codebase and follow the same pattern."
+      "notes": "These are guard rails, not major features. For the coach self-assessment guard: (1) find where assessment actions are rendered in the coach player view and add a conditional disable based on whether the playerIdentity belongs to the current user — UI-level first signal; (2) ALSO find the assessment submission mutation and add a server-side check: if assessor.userId === assessedPlayer.linkedUserId, throw validation error. The backend guard is mandatory — UI alone is insufficient. The admin confirmation dialog pattern: find existing confirmation dialogs in the codebase and follow the same pattern."
     },
     {
       "id": "US-P6-UAT",
@@ -125,7 +127,8 @@
         "Test: role context badge NOT visible for a user with only 1 role",
         "Test: 'Register as player' form is not shown to a user who already has the player role",
         "Test: submitting player registration creates a pending playerIdentity record",
-        "Test: coach cannot submit self-assessment on their own player profile (actions disabled)",
+        "Test: coach cannot submit self-assessment on their own player profile (actions disabled in UI)",
+        "Test: direct API call to assessment submission mutation with assessor userId === assessed player userId returns a validation error (backend guard fires independent of UI)",
         "Manual test 1: Log in as a user with Player + Coach roles → My Roles settings → set Player as primary → log out → log back in → confirm landing on /player/ dashboard",
         "Manual test 2: Confirm role context badge is visible in header showing current active role",
         "Manual test 3: Switch to Coach role via role switcher → confirm navigation to coach dashboard and badge updates to 'Coach'",

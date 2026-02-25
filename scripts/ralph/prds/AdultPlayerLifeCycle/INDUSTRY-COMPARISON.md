@@ -3,7 +3,7 @@
 **Document purpose:** A phase-by-phase comparison of the PlayerARC Adult Player Lifecycle PRD against industry best practice and international standards. For each area, differences are identified with their pros and cons so that informed decisions can be made about future evolution.
 
 **Reviewed PRDs:** Phases 1–8 (42 stories + Phase 8 dual-channel WhatsApp extension)
-**Last updated:** 2026-02-25 — P1 Today screen added; P2 token claim identity verification added; P3 Irish name normalisation added; P4 5-core/3-optional dimension split added; P5 GDPR Art.20 export added
+**Last updated:** 2026-02-25 — P1 Today screen added; P2 token claim identity verification added; P3 Irish name normalisation added; P4 5-core/3-optional dimension split added; P5 GDPR Art.20 export added; P6 deep industry review completed (server-side self-assessment guard, notification routing, deep link context, first-run onboarding gaps identified)
 **Reference platforms:** Hudl, Kitman Labs, Teamworks, Catapult, SportsEngine, FitrWoman / Orreco, Polar, Smartabase, Sportlyzer
 **Standards consulted:** GDPR / UK GDPR, GDPR Article 9, COPPA (US, updated Jan 2025), IOC Injury Surveillance guidelines, Meta WhatsApp Business policies, WCAG 2.1 AA
 
@@ -198,34 +198,79 @@ Add a radar/spider chart as the primary progress visualisation (a `<RadarChart>`
 Extending the existing role switcher with: primary role setting (controls default dashboard on login), a persistent role context badge, ability to add the player role to an existing account, cross-role permission guard rails (self-assessment disabled, cross-role confirmation dialogs).
 
 ### Industry standard
-- **SportsEngine** does not support true multi-role single accounts. Parents have sub-profiles for athletes. A coach who is also a parent has two separate accounts.
-- **Teamworks** is one of the few platforms with genuine multi-role support. Their approach: a user has a single account with an explicit "acting as" context that is always visible in the navigation bar. Role-switching is a deliberate, two-tap gesture. No automatic role selection — user always chooses.
-- **Hudl** supports coaches who are also athletes at the club level but does not provide a unified dashboard or role-switching UX; the user navigates between separate "spaces."
-- **Best practice** from enterprise RBAC (Role-Based Access Control) systems: every action should be tagged with the role context in which it was performed. An audit log showing "coach deleted player from roster while acting in Coach role" vs "coach deleted player while acting in Admin role" is critical for accountability.
-- For **self-assessment guards**, the standard in coached-athlete relationships is a blanket rule: a coach can never assess a player who holds the coach role within the same team. This is a governance rule, not just a UI guard.
+
+**Multi-role account support:**
+- **SportsEngine** does not support true multi-role single accounts. A coach who is also a parent has two separate accounts. Players are sub-profiles under the parent account with no independent identity until adulthood.
+- **Teamworks** is one of the few platforms with genuine multi-role support. Single account, explicit "acting as" context visible in the top navigation bar, deliberate two-tap role switch. No automatic role selection — user always chooses. Widely referenced as the multi-role UX gold standard in sports.
+- **Hudl** supports coaches who are also athletes at the club level but provides no unified dashboard; the user navigates between separate "spaces" without an explicit role-switching mechanism.
+- **Catapult** and **Kitman Labs** are role-silo platforms — a user is assigned one functional role (coach, medical, analyst) and sees only the data relevant to that role. Cross-role single accounts are not supported.
+- **Salesforce** (enterprise benchmark): the App Launcher model — each "role" is an "app" with its own navigation and views. Role context is always shown in the app bar. Admins can use "Run As" to simulate any role, which is a powerful support tool.
+- **Microsoft 365** (enterprise benchmark): persistent "You are signed in as [role]" message bar in admin portals. Role is always explicit; the bar cannot be dismissed.
+- **NetSuite** (enterprise benchmark): users have a default role set in preferences; system loads it on login. Users can switch mid-session from the top-right profile menu. No "ask every login" friction.
+
+**Role context indicators:**
+The industry has converged on three approaches. In order of effectiveness:
+1. **Persistent header message bar** (Microsoft 365, Salesforce admin): cannot be missed. Best for infrequent role switching.
+2. **Always-visible badge/chip in nav** (Teamworks): visible on every page. Best for frequent switching.
+3. **Profile dropdown only** (most SaaS): role visible only when the user opens the menu. Insufficient for multi-role safety.
+
+**Primary/default role:**
+The industry consensus (NetSuite, Auth0, Microsoft Entra) is "set once, load automatically, user can change in settings." The "ask on every login" approach (Teamworks) is unusual and intentionally high-friction — designed for high-stakes roles (team manager, medical staff) where acting in the wrong context carries real risk. For a grassroots sports club context, loading the primary role automatically is the right trade-off.
+
+**Backend enforcement of cross-role guards:**
+The RBAC industry is unambiguous: UI-only permission enforcement is insufficient. Every API endpoint must independently verify the requesting user's role and permissions. "HTTP requests can be freely crafted by any HTTP client, bypassing UI" (OSO RBAC Guide). This applies to the self-assessment guard, the admin-editing-own-record guard, and any other cross-role boundary.
+
+**Self-assessment prohibition:**
+The International Coaching Federation Code of Ethics and sports governance literature (USA Gymnastics, Sport Law) treat coach self-assessment as a conflict of interest that must be prohibited at the organisational level — not just discouraged via UX. Best practice is an `assessor_id !== assessed_player_user_id` constraint at the API (or DB) level, not a UI disable. The guard should fire even if the coach has also been assigned the player role.
+
+**Notifications in multi-role context:**
+Enterprise SaaS platforms (Slack, Microsoft Teams, Salesforce) route notifications based on the user's active role context. When acting as "Player", the user should receive player-context notifications. When acting as "Coach", coach-context notifications. Notification preferences are per-role, not account-wide.
+
+**Adding roles to existing accounts:**
+Microsoft Entra, Okta, and similar IAM platforms use a self-service request + admin approval workflow for sensitive role additions (matching our approach). Admin-only assignment is reserved for elevated/privileged roles. Self-service without approval is reserved for low-risk roles. Our "request + admin approval" model for the player role is the correct pattern.
+
+**Deep linking in multi-role context:**
+When a user is in "Player" context and follows a link to a "Coach" page (e.g., a shared assessment link), the industry standard is to offer a role-switch prompt ("This page requires Coach role. Switch?") rather than a hard 403. This is the Branch deep-linking pattern, also implemented in Salesforce App Launcher. A silent automatic switch (without telling the user) is considered poor UX and a security anti-pattern.
+
+**First-run experience for newly activated roles:**
+SaaS onboarding research (Appcues, Userflow) shows that users who receive a new role mid-lifecycle need a brief contextual orientation — what is new, where to go, what they can now do. A bare "role approved" notification without any onboarding leads to abandonment of the new context.
 
 ### Differences
 
-| Area | Our Approach | Industry Standard |
-|------|-------------|-------------------|
-| Multi-role UX | Role badge + switcher dropdown | Teamworks: "acting as" always explicit in top bar |
-| Role audit trail | Not included | Enterprise: every action tagged with active role context |
-| Primary role | Set in settings, takes effect on next login | Teamworks: no concept of "primary" — user chooses on each login |
-| Self-assessment guard | UI disable with tooltip | Governance rule: coach cannot be assigned as assessor for themselves at the org level |
-| Adding player role | Self-registration flow with admin approval | SportsEngine: separate account (no add-role mechanism) |
+| Area | Our Approach | Industry Standard | Status |
+|------|-------------|-------------------|--------|
+| Multi-role UX | Role badge + switcher dropdown | Teamworks: "acting as" always explicit in top bar | ✅ Aligned |
+| Context indicator placement | Badge in header/sidebar | Header message bar (Microsoft) or persistent badge (Teamworks) | ✅ Aligned |
+| Role audit trail | Not included | Enterprise: every action tagged with active role context | Open gap |
+| Primary role | Set in settings, loads on next login | Industry standard: auto-load primary role (NetSuite, Auth0) | ✅ Aligned |
+| Self-assessment guard | UI disable with tooltip | API-level enforcement (`assessor_id !== player_user_id`) | Partially resolved (see below) |
+| Admin-own-record guard | Confirmation dialog (UI only) | API-level warning/constraint | Open gap |
+| Adding player role | Self-registration + admin approval | Admin approval standard (Entra, Okta) | ✅ Aligned |
+| Notification routing | Not addressed | Route by active role context (enterprise standard) | Open gap |
+| Deep link role context | Not addressed | Prompt to switch role, not hard 403 | Open gap |
+| First-run for new role | "Your player role has been approved" notification | Role-specific guided first-use experience | Open gap |
+| Mobile role switch | Role badge abbreviated | Confirmation tap to prevent accidental switches | Open gap |
 
 ### Pros of our approach
-- **Role badge is a good safeguard** — users who accidentally act in the wrong role context is a real-world problem (a coach submitting an assessment thinking they are "acting as admin"). The badge is a low-friction way to surface this.
+- **Role badge on every page** aligns with the Teamworks best practice — users cannot miss their current role context.
 - **Add-player-role without creating a new account** is significantly better than the SportsEngine model. Preserving a single identity across roles is cleaner and reduces support burden.
-- **Cross-role guard rails** (self-assessment disable, admin-editing-own-record confirmation) are pragmatic and appropriate for a sports club context.
+- **Self-service + admin approval** for role addition matches the Entra/Okta pattern — correct level of friction for a semi-privileged role like "player."
+- **Primary role auto-loaded** matches the industry standard (NetSuite, Auth0) — deliberate login choice every session (Teamworks model) is unnecessarily high friction for a grassroots sports club.
 
-### Cons of our approach
-- **No role audit log** — if a coach/admin makes a mistake "in the wrong role", there is no log of what role they were acting in. This matters for GDPR data processing accountability and for resolving disputes.
-- **Primary role set-and-forget** — the industry trend (Teamworks, enterprise apps) is to ask the user on login "which hat are you wearing today?" rather than remembering a default. This friction is intentional — it prevents accidental wrong-context actions.
-- **Self-assessment guard is only UI-level** — a determined user could theoretically bypass the guard via the API. The guard should also be enforced at the backend mutation level.
+### Resolved (since initial analysis)
+- **Self-assessment guard — server-side enforcement added**: US-P6-004 updated to require a backend validation in the assessment mutation — if `assessor.userId === assessedPlayer.userId`, the mutation throws. The UI disable remains as the first signal; the backend is the safety net. ✅
 
-### Recommendation
-Add a `restrictedAssessorIds` field to assessment mutations: if the assessor's `userId` matches the assessed player's `userId` (via playerIdentity lookup), the backend throws a validation error. This makes the self-assessment guard server-enforced, not just cosmetic.
+### Remaining gaps
+- **No role audit log** — if a coach/admin acts in the wrong role context, there is no log of what role they were acting in. GDPR Article 30 (Records of Processing Activities) and club governance both benefit from this. Deferred to a future audit logging phase.
+- **Admin-own-record guard is UI-only** — the confirmation dialog is a UX hint, not a backend constraint. A mutation validating `adminUserId !== targetPlayerUserId` before sensitive modifications would close this gap properly.
+- **No notification routing** — multi-role users receive all notifications regardless of active role context. A player+coach will see coaching notifications even when acting as player. This is a future UX improvement.
+- **No deep link role-context handling** — a shared link to a coach page opened while the user is in Player context will likely 404 or redirect to the wrong page. A role-switch prompt should be shown.
+- **No first-run onboarding for newly added roles** — the approval notification exists, but there is no guided "here's what you can do now" experience for the newly accessible player portal. Risk: users don't discover the portal after approval.
+
+### Recommendations
+1. **Close the admin-own-record gap now**: add `if (args.playerId relates to ctx.userId) { throw validation error }` to sensitive admin mutations. This is a 30-minute backend change.
+2. **Add first-run moment to US-P6-003**: when a user switches to a newly approved role for the first time, show a dismissible banner "Welcome to your Player portal — here's what you can do." Clears on first dismiss, stored in localStorage.
+3. **Role audit log**: defer to the planned audit logging feature, but note it as a GDPR Article 30 requirement.
 
 ---
 
@@ -343,7 +388,7 @@ These are issues that affect multiple phases and are not addressed in any single
 | P3: Matching | **Ahead** | Irish name normalisation + multi-signal confidence ✅ | No merge audit trail |
 | P4: Wellness | **Ahead** (privacy + design) | Per-coach consent unique; 5-core/3-optional Hooper-aligned model ✅ | No session RPE; no wearable integration |
 | P5: Portal Sections | **Ahead** | GDPR Art.20 export added ✅; privateInsight/publicSummary split innovative | Injury triage bypasses medical staff |
-| P6: Multi-Role | Ahead | Add-role without new account is better than all competitors | No role action audit log; guard is UI-only |
+| P6: Multi-Role | **Ahead** | Add-role without new account; server-side self-assessment guard ✅ | Admin-own-record guard UI-only; no notification routing; no first-run onboarding for new role |
 | P7: Child Auth | Ahead | Per-content-type toggles; pre-birthday notifications | No verifiable parental consent (COPPA gap for US); unbounded changeLog |
 | P8: WhatsApp | Ahead | WhatsApp Flows ahead of market; excellent channel abstraction | No native push notifications; no wearable-triggered dispatch |
 

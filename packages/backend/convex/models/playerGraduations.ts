@@ -180,23 +180,40 @@ export const sendGraduationInvite = mutation({
       return { success: false, error: "Player is not linked to this guardian" };
     }
 
-    // Verify the graduation record exists and is pending
+    // Fetch the graduation record and check status in code (no combined index)
     const graduation = await ctx.db
       .query("playerGraduations")
       .withIndex("by_player", (q) =>
         q.eq("playerIdentityId", args.playerIdentityId)
       )
-      .filter((q) => q.eq(q.field("status"), "pending"))
       .first();
 
-    if (!graduation) {
-      return { success: false, error: "No pending graduation record found" };
+    if (
+      !graduation ||
+      (graduation.status !== "pending" &&
+        graduation.status !== "invitation_sent")
+    ) {
+      return { success: false, error: "No actionable graduation record found" };
     }
 
-    // Generate a secure token (UUID-like string)
-    const token = crypto.randomUUID();
     const now = Date.now();
     const thirtyDaysMs = 30 * 24 * 60 * 60 * 1000;
+
+    // Invalidate all previous unused tokens for this player before issuing a new one
+    const existingTokens = await ctx.db
+      .query("playerClaimTokens")
+      .withIndex("by_player", (q) =>
+        q.eq("playerIdentityId", args.playerIdentityId)
+      )
+      .collect();
+    for (const t of existingTokens) {
+      if (!t.usedAt) {
+        await ctx.db.patch(t._id, { usedAt: now });
+      }
+    }
+
+    // Generate a new secure token
+    const token = crypto.randomUUID();
 
     // Create the claim token record
     await ctx.db.insert("playerClaimTokens", {
@@ -242,6 +259,107 @@ export const sendGraduationInvite = mutation({
 
     console.log(
       `[graduations] Invitation scheduled for player ${args.playerIdentityId} to ${args.playerEmail}`
+    );
+
+    return { success: true, token };
+  },
+});
+
+/**
+ * Send a graduation invitation from an admin — bypasses guardian check.
+ *
+ * Admins can send directly to the player without being linked as a guardian.
+ * Otherwise identical to sendGraduationInvite: invalidates old tokens,
+ * creates a new 30-day token, and fires the invitation email.
+ */
+export const sendAdminGraduationInvite = mutation({
+  args: {
+    playerIdentityId: v.id("playerIdentities"),
+    playerEmail: v.string(),
+  },
+  returns: v.object({
+    success: v.boolean(),
+    token: v.optional(v.string()),
+    error: v.optional(v.string()),
+  }),
+  handler: async (ctx, args) => {
+    const identity = await ctx.auth.getUserIdentity();
+    if (!identity) {
+      return { success: false, error: "Not authenticated" };
+    }
+
+    const userId = identity.subject;
+
+    // Fetch the graduation record and check status in code
+    const graduation = await ctx.db
+      .query("playerGraduations")
+      .withIndex("by_player", (q) =>
+        q.eq("playerIdentityId", args.playerIdentityId)
+      )
+      .first();
+
+    if (
+      !graduation ||
+      (graduation.status !== "pending" &&
+        graduation.status !== "invitation_sent")
+    ) {
+      return { success: false, error: "No actionable graduation record found" };
+    }
+
+    const now = Date.now();
+    const thirtyDaysMs = 30 * 24 * 60 * 60 * 1000;
+
+    // Invalidate all previous unused tokens
+    const existingTokens = await ctx.db
+      .query("playerClaimTokens")
+      .withIndex("by_player", (q) =>
+        q.eq("playerIdentityId", args.playerIdentityId)
+      )
+      .collect();
+    for (const t of existingTokens) {
+      if (!t.usedAt) {
+        await ctx.db.patch(t._id, { usedAt: now });
+      }
+    }
+
+    const token = crypto.randomUUID();
+
+    await ctx.db.insert("playerClaimTokens", {
+      playerIdentityId: args.playerIdentityId,
+      token,
+      email: args.playerEmail.toLowerCase().trim(),
+      createdAt: now,
+      expiresAt: now + thirtyDaysMs,
+    });
+
+    await ctx.db.patch(graduation._id, {
+      status: "invitation_sent",
+      invitationSentAt: now,
+      invitationSentBy: userId,
+    });
+
+    const player = await ctx.db.get(args.playerIdentityId);
+    let organizationName = "Your Organization";
+    if (graduation.organizationId) {
+      const org = await ctx.runQuery(components.betterAuth.adapter.findOne, {
+        model: "organization",
+        where: [
+          { field: "_id", value: graduation.organizationId, operator: "eq" },
+        ],
+      });
+      organizationName =
+        (org as { name?: string } | null)?.name || "Your Organization";
+    }
+
+    await ctx.scheduler.runAfter(
+      0,
+      internal.actions.graduations.sendGraduationInvitationEmailAction,
+      {
+        email: args.playerEmail.toLowerCase().trim(),
+        playerFirstName: player?.firstName ?? "Player",
+        organizationName,
+        claimToken: token,
+      }
     );
 
     return { success: true, token };

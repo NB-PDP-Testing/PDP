@@ -89,7 +89,7 @@ export function GraduationSection({
     { playerIdentityId }
   );
   const sendInvite = useMutation(
-    api.models.playerGraduations.sendGraduationInvite
+    api.models.playerGraduations.sendAdminGraduationInvite
   );
   const transitionToAdult = useMutation(
     api.models.adultPlayers.transitionToAdult

@@ -19,6 +19,7 @@ import type * as actions_federationSyncEngine from "../actions/federationSyncEng
 import type * as actions_federationWebhook from "../actions/federationWebhook.js";
 import type * as actions_gaaFoireann from "../actions/gaaFoireann.js";
 import type * as actions_gaaSync from "../actions/gaaSync.js";
+import type * as actions_graduations from "../actions/graduations.js";
 import type * as actions_guardianNotifications from "../actions/guardianNotifications.js";
 import type * as actions_invitations from "../actions/invitations.js";
 import type * as actions_messaging from "../actions/messaging.js";
@@ -254,6 +255,7 @@ declare const fullApi: ApiFromModules<{
   "actions/federationWebhook": typeof actions_federationWebhook;
   "actions/gaaFoireann": typeof actions_gaaFoireann;
   "actions/gaaSync": typeof actions_gaaSync;
+  "actions/graduations": typeof actions_graduations;
   "actions/guardianNotifications": typeof actions_guardianNotifications;
   "actions/invitations": typeof actions_invitations;
   "actions/messaging": typeof actions_messaging;

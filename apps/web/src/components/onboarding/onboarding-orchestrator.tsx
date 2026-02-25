@@ -32,6 +32,7 @@ import { authClient } from "@/lib/auth-client";
 import { type ChildLink, ChildLinkingStep } from "./child-linking-step";
 import { OnboardingErrorBoundary } from "./error-boundary";
 import { GdprConsentStep } from "./gdpr-consent-step";
+import { PlayerGraduationStep } from "./player-graduation-step";
 import {
   type ProfileCompletionData,
   ProfileCompletionStep,
@@ -48,6 +49,7 @@ type OnboardingTask = {
     | "guardian_claim"
     | "child_linking"
     | "player_graduation"
+    | "player_claimed_account"
     | "welcome";
   priority: number;
   data: unknown;
@@ -56,6 +58,13 @@ type OnboardingTask = {
 // Type for player_graduation task data (Phase 7)
 type PlayerGraduationTaskData = {
   pendingGraduations: PendingGraduation[];
+};
+
+// Type for player_claimed_account task data (Phase 2 Adult Player)
+type PlayerClaimedAccountTaskData = {
+  playerIdentityId: Id<"playerIdentities">;
+  playerFirstName: string;
+  organizationId: string;
 };
 
 // Type for guardian_claim task data (matches what getOnboardingTasks returns)
@@ -281,6 +290,20 @@ function OnboardingStepRenderer({
       <GuardianPrompt
         onComplete={onComplete}
         pendingGraduations={data.pendingGraduations}
+      />
+    );
+  }
+
+  // Handle player_claimed_account task with PlayerGraduationStep (Phase 2 Adult Player)
+  if (task.type === "player_claimed_account") {
+    const data = task.data as PlayerClaimedAccountTaskData;
+
+    return (
+      <PlayerGraduationStep
+        onComplete={onComplete}
+        organizationId={data.organizationId}
+        playerFirstName={data.playerFirstName}
+        playerIdentityId={data.playerIdentityId}
       />
     );
   }

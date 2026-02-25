@@ -264,6 +264,7 @@ export default defineSchema({
     // Account claim fields (for 18+ graduation flow)
     claimedAt: v.optional(v.number()), // Timestamp when player claimed account
     claimInvitedBy: v.optional(v.string()), // Guardian userId who initiated claim invitation
+    playerWelcomedAt: v.optional(v.number()), // Timestamp when player completed the welcome onboarding step
 
     // Address (optional, usually from guardian for youth)
     address: v.optional(v.string()),
@@ -346,6 +347,16 @@ export default defineSchema({
   })
     .index("by_token", ["token"])
     .index("by_player", ["playerIdentityId"]),
+
+  // Verification PINs - short-lived PINs for identity verification (e.g. account claim)
+  verificationPins: defineTable({
+    playerIdentityId: v.id("playerIdentities"),
+    pin: v.string(), // 6-digit numeric string
+    expiresAt: v.number(), // 10 minutes from creation
+    usedAt: v.optional(v.number()), // Set atomically when claim succeeds
+    attemptCount: v.number(), // Tracks failed attempts (lock after 3)
+    channel: v.union(v.literal("sms"), v.literal("email")), // How PIN was sent
+  }).index("by_player", ["playerIdentityId"]),
 
   // Guardian-Player relationship (N:M)
   guardianPlayerLinks: defineTable({

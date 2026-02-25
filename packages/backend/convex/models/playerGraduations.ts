@@ -334,6 +334,7 @@ export const getPlayerClaimStatus = query({
     used: v.boolean(),
     playerName: v.optional(v.string()),
     organizationName: v.optional(v.string()),
+    organizationId: v.optional(v.string()),
     playerIdentityId: v.optional(v.id("playerIdentities")),
   }),
   handler: async (ctx, args) => {
@@ -406,6 +407,7 @@ export const getPlayerClaimStatus = query({
       used: false,
       playerName: `${player.firstName} ${player.lastName}`,
       organizationName,
+      organizationId: enrollment?.organizationId,
       playerIdentityId: claimToken.playerIdentityId,
     };
   },
@@ -500,10 +502,72 @@ export const claimPlayerAccount = mutation({
       });
     }
 
+    // Atomically mark the verification PIN as used (if one exists)
+    // This prevents replay attacks and confirms PIN was verified before claiming
+    const activePin = await ctx.db
+      .query("verificationPins")
+      .withIndex("by_player", (q) =>
+        q.eq("playerIdentityId", claimToken.playerIdentityId)
+      )
+      .filter((q) => q.eq(q.field("usedAt"), undefined))
+      .first();
+
+    if (!activePin || activePin.expiresAt < now) {
+      return {
+        success: false,
+        error:
+          "Identity verification required. Please complete PIN verification first.",
+      };
+    }
+
+    // Mark the PIN as used atomically
+    await ctx.db.patch(activePin._id, { usedAt: now });
+
     // Mark the token as used
     await ctx.db.patch(claimToken._id, {
       usedAt: now,
     });
+
+    // Get enrollment to find org admins to notify
+    const enrollment = await ctx.db
+      .query("orgPlayerEnrollments")
+      .withIndex("by_playerIdentityId", (q) =>
+        q.eq("playerIdentityId", claimToken.playerIdentityId)
+      )
+      .first();
+
+    if (enrollment) {
+      // Send age_transition_claimed notification to org admins
+      const orgId = enrollment.organizationId;
+      const orgMembersResult = await ctx.runQuery(
+        components.betterAuth.adapter.findMany,
+        {
+          model: "member",
+          paginationOpts: { cursor: null, numItems: 100 },
+          where: [{ field: "organizationId", value: orgId, operator: "eq" }],
+        }
+      );
+      const orgMembers = orgMembersResult.page;
+
+      for (const member of orgMembers as Array<{
+        userId: string;
+        role: string;
+      }>) {
+        if (member.role === "admin" || member.role === "owner") {
+          await ctx.runMutation(
+            internal.models.notifications.createNotification,
+            {
+              userId: member.userId,
+              organizationId: orgId,
+              type: "age_transition_claimed",
+              title: `${player.firstName} ${player.lastName} Claimed Their Account`,
+              message: `${player.firstName} ${player.lastName} has successfully claimed their PlayerARC account and is now an adult player.`,
+              relatedPlayerId: claimToken.playerIdentityId,
+            }
+          );
+        }
+      }
+    }
 
     console.log(
       `[graduations] Player ${claimToken.playerIdentityId} claimed by user ${args.userId}`
@@ -687,5 +751,286 @@ export const hasPlayerDashboard = query({
       .first();
 
     return enrollment !== null;
+  },
+});
+
+/**
+ * Send a verification PIN to prove identity before claiming an account
+ *
+ * Generates a 6-digit PIN and sends it via:
+ * - SMS (Twilio) if the player has a mobile number on their playerIdentity
+ * - Email (Resend) to the claim email if no mobile number is available
+ *
+ * The PIN is stored in verificationPins table with 10-minute expiry.
+ * Any previous unused PINs for this player are invalidated.
+ *
+ * @param playerIdentityId - The player identity to send PIN for
+ * @param claimEmail - The email address (from the claim token) for email fallback
+ */
+export const sendClaimVerificationPin = mutation({
+  args: {
+    playerIdentityId: v.id("playerIdentities"),
+    claimEmail: v.string(),
+  },
+  returns: v.object({
+    success: v.boolean(),
+    channel: v.union(v.literal("sms"), v.literal("email")),
+    maskedDestination: v.string(), // e.g. "+353 87 *** 4567" or "pl***@example.com"
+    error: v.optional(v.string()),
+  }),
+  handler: async (ctx, args) => {
+    // Get the player identity to check for mobile
+    const player = await ctx.db.get(args.playerIdentityId);
+    if (!player) {
+      return {
+        success: false,
+        channel: "email" as const,
+        maskedDestination: "",
+        error: "Player not found",
+      };
+    }
+
+    // Generate a 6-digit PIN
+    const pin = Math.floor(100_000 + Math.random() * 900_000).toString();
+    const now = Date.now();
+    const tenMinutesMs = 10 * 60 * 1000;
+
+    // Determine channel: SMS if mobile available, email otherwise
+    const mobileNumber = player.phone;
+    const channel: "sms" | "email" = mobileNumber ? "sms" : "email";
+
+    // Invalidate any existing unused PINs for this player
+    const existingPins = await ctx.db
+      .query("verificationPins")
+      .withIndex("by_player", (q) =>
+        q.eq("playerIdentityId", args.playerIdentityId)
+      )
+      .collect();
+
+    for (const existingPin of existingPins) {
+      if (!existingPin.usedAt) {
+        // Mark as used/expired
+        await ctx.db.patch(existingPin._id, { usedAt: now });
+      }
+    }
+
+    // Store the new PIN
+    await ctx.db.insert("verificationPins", {
+      playerIdentityId: args.playerIdentityId,
+      pin,
+      expiresAt: now + tenMinutesMs,
+      attemptCount: 0,
+      channel,
+    });
+
+    // Calculate masked destination
+    let maskedDestination: string;
+    if (channel === "sms" && mobileNumber) {
+      // Mask mobile: show first 4 chars and last 4 chars
+      const clean = mobileNumber.replace(/\s/g, "");
+      if (clean.length > 8) {
+        maskedDestination = `${clean.slice(0, 4)} *** ${clean.slice(-4)}`;
+      } else {
+        maskedDestination = `${clean.slice(0, 2)}*****${clean.slice(-2)}`;
+      }
+    } else {
+      // Mask email: show first 2 chars + domain
+      const emailParts = args.claimEmail.split("@");
+      const localPart = emailParts[0] ?? "";
+      const domain = emailParts[1] ?? "";
+      maskedDestination = `${localPart.slice(0, 2)}***@${domain}`;
+    }
+
+    // Schedule the PIN send via action
+    await ctx.scheduler.runAfter(
+      0,
+      internal.actions.graduations.sendVerificationPinAction,
+      {
+        channel,
+        destination: channel === "sms" ? (mobileNumber ?? "") : args.claimEmail,
+        pin,
+        playerFirstName: player.firstName,
+      }
+    );
+
+    return { success: true, channel, maskedDestination };
+  },
+});
+
+/**
+ * Verify a claim PIN for a player identity
+ *
+ * Checks if the provided PIN is valid and not expired.
+ * Increments the attempt count and returns failure if wrong.
+ * Does NOT mark the PIN as used — that happens atomically in claimPlayerAccount.
+ *
+ * @param playerIdentityId - The player identity
+ * @param pin - The 6-digit PIN to verify
+ */
+export const verifyClaimPin = mutation({
+  args: {
+    playerIdentityId: v.id("playerIdentities"),
+    pin: v.string(),
+  },
+  returns: v.object({
+    valid: v.boolean(),
+    expired: v.boolean(),
+    attemptsRemaining: v.number(),
+    locked: v.boolean(),
+    error: v.optional(v.string()),
+  }),
+  handler: async (ctx, args) => {
+    const now = Date.now();
+    const maxAttempts = 3;
+
+    // Find the most recent unused PIN for this player
+    const pins = await ctx.db
+      .query("verificationPins")
+      .withIndex("by_player", (q) =>
+        q.eq("playerIdentityId", args.playerIdentityId)
+      )
+      .collect();
+
+    // Find the most recent valid (not used) PIN
+    const activePin = pins
+      .filter((p) => !p.usedAt)
+      .sort((a, b) => b.expiresAt - a.expiresAt)[0];
+
+    if (!activePin) {
+      return {
+        valid: false,
+        expired: false,
+        attemptsRemaining: 0,
+        locked: false,
+        error: "No PIN found. Please request a new verification code.",
+      };
+    }
+
+    // Check if expired
+    if (activePin.expiresAt < now) {
+      return {
+        valid: false,
+        expired: true,
+        attemptsRemaining: 0,
+        locked: false,
+        error: "Code expired. Please request a new one.",
+      };
+    }
+
+    // Check if locked (too many attempts)
+    if (activePin.attemptCount >= maxAttempts) {
+      return {
+        valid: false,
+        expired: false,
+        attemptsRemaining: 0,
+        locked: true,
+        error:
+          "Too many incorrect attempts. Please ask your guardian to resend the invite.",
+      };
+    }
+
+    // Check the PIN
+    if (activePin.pin !== args.pin) {
+      // Increment attempt count
+      const newAttemptCount = activePin.attemptCount + 1;
+      await ctx.db.patch(activePin._id, { attemptCount: newAttemptCount });
+
+      const attemptsRemaining = maxAttempts - newAttemptCount;
+      const locked = attemptsRemaining <= 0;
+
+      return {
+        valid: false,
+        expired: false,
+        attemptsRemaining,
+        locked,
+        error: locked
+          ? "Too many incorrect attempts. Please ask your guardian to resend the invite."
+          : `Incorrect code. ${attemptsRemaining} attempt${attemptsRemaining === 1 ? "" : "s"} remaining.`,
+      };
+    }
+
+    // PIN is correct — don't mark as used yet, that happens in claimPlayerAccount
+    return {
+      valid: true,
+      expired: false,
+      attemptsRemaining: maxAttempts - activePin.attemptCount,
+      locked: false,
+    };
+  },
+});
+
+/**
+ * Mark the player as welcomed after completing the onboarding welcome step.
+ * This dismisses the player_claimed_account onboarding task.
+ */
+export const markPlayerWelcomed = mutation({
+  args: {},
+  returns: v.null(),
+  handler: async (ctx) => {
+    const identity = await ctx.auth.getUserIdentity();
+    if (!identity) {
+      return null;
+    }
+
+    const userId = identity.subject;
+
+    const player = await ctx.db
+      .query("playerIdentities")
+      .withIndex("by_userId", (q) => q.eq("userId", userId))
+      .first();
+
+    if (!player) {
+      return null;
+    }
+
+    await ctx.db.patch(player._id, {
+      playerWelcomedAt: Date.now(),
+    });
+
+    return null;
+  },
+});
+
+/**
+ * Get pending graduations for admin view
+ * Returns graduations for a specific player (used by admin player profile page)
+ */
+export const getPlayerGraduationStatus = query({
+  args: {
+    playerIdentityId: v.id("playerIdentities"),
+  },
+  returns: v.union(
+    v.object({
+      found: v.literal(true),
+      graduationId: v.id("playerGraduations"),
+      status: v.string(),
+      invitationSentAt: v.optional(v.number()),
+      claimedAt: v.optional(v.number()),
+      dismissedAt: v.optional(v.number()),
+    }),
+    v.object({
+      found: v.literal(false),
+    })
+  ),
+  handler: async (ctx, args) => {
+    const graduation = await ctx.db
+      .query("playerGraduations")
+      .withIndex("by_player", (q) =>
+        q.eq("playerIdentityId", args.playerIdentityId)
+      )
+      .first();
+
+    if (!graduation) {
+      return { found: false as const };
+    }
+
+    return {
+      found: true as const,
+      graduationId: graduation._id,
+      status: graduation.status,
+      invitationSentAt: graduation.invitationSentAt,
+      claimedAt: graduation.claimedAt,
+      dismissedAt: graduation.dismissedAt,
+    };
   },
 });

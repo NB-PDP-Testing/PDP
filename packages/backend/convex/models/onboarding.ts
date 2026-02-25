@@ -28,6 +28,7 @@ const onboardingTaskValidator = v.object({
     v.literal("guardian_claim"),
     v.literal("child_linking"),
     v.literal("player_graduation"),
+    v.literal("player_claimed_account"), // Phase 2 - Player welcome step after claiming account
     v.literal("welcome")
   ),
   priority: v.number(),
@@ -73,6 +74,7 @@ export const getOnboardingTasks = query({
         | "guardian_claim"
         | "child_linking"
         | "player_graduation"
+        | "player_claimed_account"
         | "welcome";
       priority: number;
       data: unknown;
@@ -591,12 +593,43 @@ export const getOnboardingTasks = query({
     }
 
     // =================================================================
-    // Task 5: Welcome message (Future - Phase 2)
+    // Task 5: Player claimed account welcome (Phase 2 - Graduation Flow)
+    // Priority 4.5 - Shown to players who just claimed their account
+    // =================================================================
+    {
+      const playerIdentity = await ctx.db
+        .query("playerIdentities")
+        .withIndex("by_userId", (q) => q.eq("userId", userId))
+        .first();
+
+      if (playerIdentity?.claimedAt && !playerIdentity.playerWelcomedAt) {
+        // Get the organization from enrollment
+        const enrollment = await ctx.db
+          .query("orgPlayerEnrollments")
+          .withIndex("by_playerIdentityId", (q) =>
+            q.eq("playerIdentityId", playerIdentity._id)
+          )
+          .first();
+
+        if (enrollment) {
+          tasks.push({
+            type: "player_claimed_account",
+            priority: 4.5,
+            data: {
+              playerIdentityId: playerIdentity._id,
+              playerFirstName: playerIdentity.firstName,
+              organizationId: enrollment.organizationId,
+            },
+          });
+        }
+      }
+    }
+
+    // =================================================================
+    // Task 6: Welcome message (Future)
     // Priority 5 - First login to organization
     // =================================================================
-    // TODO: Implement in Phase 2
-    // Check if user has never visited the org before (no flow progress records)
-    // If first login, add welcome task
+    // TODO: Implement in future phase
 
     // Sort tasks by priority
     tasks.sort((a, b) => a.priority - b.priority);

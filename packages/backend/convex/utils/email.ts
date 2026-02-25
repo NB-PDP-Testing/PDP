@@ -1591,3 +1591,106 @@ If you weren't expecting this email, you can safely ignore it.
     // Don't throw — invitation record is already created in the DB
   }
 }
+
+// ============================================================
+// VERIFICATION PIN EMAIL
+// ============================================================
+
+type VerificationPinEmailData = {
+  email: string;
+  playerFirstName: string;
+  pin: string;
+};
+
+/**
+ * Send a verification PIN email to a player claiming their account
+ * Used as fallback when no mobile number is on record
+ */
+export async function sendVerificationPinEmail(
+  data: VerificationPinEmailData
+): Promise<void> {
+  const { email, playerFirstName, pin } = data;
+
+  const subject = "Your PlayerARC Verification Code";
+
+  const htmlBody = `
+<!DOCTYPE html>
+<html>
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+</head>
+<body style="margin:0;padding:0;background-color:#f4f4f5;font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,sans-serif;">
+  <div style="max-width:480px;margin:40px auto;background:#ffffff;border-radius:12px;overflow:hidden;box-shadow:0 2px 8px rgba(0,0,0,0.08);">
+    <div style="background:linear-gradient(135deg,#2563eb,#1d4ed8);padding:32px 40px 24px;text-align:center;">
+      <h1 style="color:#ffffff;font-size:24px;font-weight:700;margin:0;">🔒 PlayerARC</h1>
+      <p style="color:#bfdbfe;font-size:14px;margin:8px 0 0;">Identity Verification</p>
+    </div>
+    <div style="padding:40px;text-align:center;">
+      <p style="color:#374151;font-size:16px;margin:0 0 24px;">Hi ${playerFirstName},</p>
+      <p style="color:#374151;font-size:15px;margin:0 0 24px;">
+        Your PlayerARC account claim verification code is:
+      </p>
+      <div style="background:#f3f4f6;border-radius:12px;padding:24px;margin:0 0 24px;display:inline-block;width:100%;box-sizing:border-box;">
+        <span style="font-size:36px;font-weight:700;letter-spacing:8px;color:#111827;font-family:monospace;">${pin}</span>
+      </div>
+      <p style="color:#6b7280;font-size:14px;margin:0 0 8px;">
+        ⏰ This code expires in <strong>10 minutes</strong>.
+      </p>
+      <p style="color:#9ca3af;font-size:13px;margin:0;">
+        If you did not request this code, you can safely ignore this email.
+      </p>
+    </div>
+    <div style="background:#f9fafb;padding:20px 40px;text-align:center;border-top:1px solid #e5e7eb;">
+      <p style="color:#9ca3af;font-size:12px;margin:0;">© ${new Date().getFullYear()} PlayerARC. All rights reserved.</p>
+    </div>
+  </div>
+</body>
+</html>
+  `.trim();
+
+  const textBody = `Hi ${playerFirstName},\n\nYour PlayerARC account claim verification code is: ${pin}\n\nThis code expires in 10 minutes.\n\nIf you did not request this code, you can safely ignore this email.\n\n© ${new Date().getFullYear()} PlayerARC.`;
+
+  const resendApiKey = process.env.RESEND_API_KEY;
+  const fromEmail =
+    process.env.EMAIL_FROM_ADDRESS ||
+    "PlayerARC <team@notifications.playerarc.io>";
+
+  if (!resendApiKey) {
+    console.warn(
+      "⚠️ RESEND_API_KEY not configured. Verification PIN email will not be sent."
+    );
+    return;
+  }
+
+  try {
+    const response = await fetch("https://api.resend.com/emails", {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+        Authorization: `Bearer ${resendApiKey}`,
+      },
+      body: JSON.stringify({
+        from: fromEmail,
+        to: email,
+        subject,
+        html: htmlBody,
+        text: textBody,
+      }),
+    });
+
+    if (!response.ok) {
+      const errorData = await response.json().catch(() => ({}));
+      console.error("❌ Failed to send verification PIN email:", {
+        status: response.status,
+        error: errorData,
+      });
+      throw new Error(`Resend API error: ${response.status}`);
+    }
+
+    const result = await response.json();
+    console.log("✅ Verification PIN email sent successfully:", result.id);
+  } catch (error) {
+    console.error("❌ Error sending verification PIN email:", error);
+  }
+}

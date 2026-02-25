@@ -3886,7 +3886,9 @@ export default defineSchema({
       v.literal("org_invitation_received"), // Existing user invited to an org
       // Graduation notifications (Phase 2 - Adult Player Graduation Flow)
       v.literal("age_transition_available"), // Guardian notified player turned 18
-      v.literal("age_transition_claimed") // Admins notified player claimed their account
+      v.literal("age_transition_claimed"), // Admins notified player claimed their account
+      // Wellness notifications (Phase 4)
+      v.literal("wellness_access_request") // Player notified a coach requested access
     ),
     title: v.string(),
     message: v.string(),
@@ -5419,4 +5421,86 @@ export default defineSchema({
     .index("by_organizationId", ["organizationId"])
     .index("by_connector_and_time", ["connectorId", "receivedAt"]) // For rate limiting
     .index("by_receivedAt", ["receivedAt"]), // For cleanup/archival
+
+  // ============================================================
+  // PHASE 4: DAILY PLAYER WELLNESS CHECK
+  // ============================================================
+
+  // Daily wellness check-in records
+  dailyPlayerHealthChecks: defineTable({
+    playerIdentityId: v.id("playerIdentities"),
+    organizationId: v.string(), // Better Auth organization ID
+    checkDate: v.string(), // YYYY-MM-DD
+
+    // 5 core dimensions (always enabled)
+    sleepQuality: v.optional(v.number()), // 1-5
+    energyLevel: v.optional(v.number()), // 1-5
+    mood: v.optional(v.number()), // 1-5
+    physicalFeeling: v.optional(v.number()), // 1-5
+    motivation: v.optional(v.number()), // 1-5
+
+    // 3 optional dimensions
+    foodIntake: v.optional(v.number()), // 1-5
+    waterIntake: v.optional(v.number()), // 1-5
+    muscleRecovery: v.optional(v.number()), // 1-5
+
+    enabledDimensions: v.array(v.string()), // dimensions enabled at time of submission
+
+    // Cycle phase (female 18+ only, GDPR Article 9)
+    cyclePhase: v.optional(
+      v.union(
+        v.literal("menstruation"),
+        v.literal("early_follicular"),
+        v.literal("ovulation"),
+        v.literal("early_luteal"),
+        v.literal("late_luteal")
+      )
+    ),
+
+    notes: v.optional(v.string()),
+    submittedAt: v.number(),
+    updatedAt: v.number(),
+    submittedOffline: v.optional(v.boolean()),
+    deviceSubmittedAt: v.optional(v.number()),
+  })
+    .index("by_player_and_date", ["playerIdentityId", "checkDate"])
+    .index("by_org_and_date", ["organizationId", "checkDate"])
+    .index("by_player", ["playerIdentityId"]),
+
+  // Per-player wellness dimension settings
+  playerWellnessSettings: defineTable({
+    playerIdentityId: v.id("playerIdentities"),
+    organizationId: v.string(),
+    enabledDimensions: v.array(v.string()), // defaults to 5 core dimensions
+    updatedAt: v.number(),
+  }).index("by_player", ["playerIdentityId"]),
+
+  // Coach access requests for player wellness data
+  wellnessCoachAccess: defineTable({
+    playerIdentityId: v.id("playerIdentities"),
+    organizationId: v.string(),
+    coachUserId: v.string(), // Better Auth user ID
+    coachName: v.string(), // denormalised for display
+    requestedAt: v.number(),
+    status: v.union(
+      v.literal("pending"),
+      v.literal("approved"),
+      v.literal("denied"),
+      v.literal("revoked")
+    ),
+    approvedAt: v.optional(v.number()),
+    revokedAt: v.optional(v.number()),
+  })
+    .index("by_player", ["playerIdentityId"])
+    .index("by_coach_and_player", ["coachUserId", "playerIdentityId"])
+    .index("by_org_and_coach", ["organizationId", "coachUserId"]),
+
+  // GDPR consents for sensitive health data
+  playerHealthConsents: defineTable({
+    playerIdentityId: v.id("playerIdentities"),
+    organizationId: v.string(),
+    consentType: v.string(), // 'cycle_tracking'
+    givenAt: v.number(),
+    withdrawnAt: v.optional(v.number()),
+  }).index("by_player_and_type", ["playerIdentityId", "consentType"]),
 });

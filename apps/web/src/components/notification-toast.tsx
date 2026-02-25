@@ -16,7 +16,8 @@ type NotificationType =
   | "clearance_received"
   | "org_invitation_received"
   | "age_transition_available"
-  | "age_transition_claimed";
+  | "age_transition_claimed"
+  | "wellness_access_request";
 
 export type NotificationData = {
   _id: string;

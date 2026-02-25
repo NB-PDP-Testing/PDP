@@ -154,6 +154,7 @@ import type * as models_platformMessagingSettings from "../models/platformMessag
 import type * as models_platformStaffInvitations from "../models/platformStaffInvitations.js";
 import type * as models_playerEmergencyContacts from "../models/playerEmergencyContacts.js";
 import type * as models_playerGraduations from "../models/playerGraduations.js";
+import type * as models_playerHealthChecks from "../models/playerHealthChecks.js";
 import type * as models_playerIdentities from "../models/playerIdentities.js";
 import type * as models_playerImport from "../models/playerImport.js";
 import type * as models_playerInjuries from "../models/playerInjuries.js";
@@ -391,6 +392,7 @@ declare const fullApi: ApiFromModules<{
   "models/platformStaffInvitations": typeof models_platformStaffInvitations;
   "models/playerEmergencyContacts": typeof models_playerEmergencyContacts;
   "models/playerGraduations": typeof models_playerGraduations;
+  "models/playerHealthChecks": typeof models_playerHealthChecks;
   "models/playerIdentities": typeof models_playerIdentities;
   "models/playerImport": typeof models_playerImport;
   "models/playerInjuries": typeof models_playerInjuries;

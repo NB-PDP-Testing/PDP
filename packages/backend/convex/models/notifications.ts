@@ -25,7 +25,9 @@ const notificationTypeValidator = v.union(
   v.literal("org_invitation_received"),
   // Graduation notifications (Phase 2 - Adult Player Graduation Flow)
   v.literal("age_transition_available"), // Guardian notified player turned 18
-  v.literal("age_transition_claimed") // Admins notified player claimed their account
+  v.literal("age_transition_claimed"), // Admins notified player claimed their account
+  // Wellness access notifications (Phase 4)
+  v.literal("wellness_access_request") // Player notified a coach requested access
 );
 
 const notificationValidator = v.object({

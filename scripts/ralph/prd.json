@@ -169,7 +169,7 @@
         "npm run check-types passes."
       ],
       "priority": 6,
-      "passes": false,
+      "passes": true,
       "notes": "US-P3-001 (findMatchingYouthProfile) must be complete before extending it here. Read schema.ts carefully \u2014 the existing externalIds.foireann field is legacy; do not remove it but extend with the structured federationIds field. The federation ID check (PRIORITY -1) should short-circuit the entire fuzzy matching pipeline \u2014 one exact federation ID is more reliable than any name+DOB fuzzy score."
     },
     {
@@ -198,7 +198,7 @@
         "Manual test 9: Create youth player named 'MacCarthy'. Manually add adult with surname 'McCarthy' (same DOB) \u2192 confirm HIGH match dialog appears"
       ],
       "priority": 7,
-      "passes": false,
+      "passes": true,
       "notes": "US-P3-001 through US-P3-005 must all be complete before this UAT story."
     }
   ]

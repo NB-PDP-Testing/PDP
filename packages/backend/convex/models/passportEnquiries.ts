@@ -130,28 +130,49 @@ export const getEnquiriesForOrg = query({
       throw new Error("Not authenticated");
     }
 
+    // BUG-006: Verify user is a member of the requested organization
+    const memberResult = await ctx.runQuery(
+      components.betterAuth.adapter.findOne,
+      {
+        model: "member",
+        where: [
+          {
+            field: "organizationId",
+            value: args.organizationId,
+            operator: "eq",
+          },
+          {
+            field: "userId",
+            value: user._id,
+            operator: "eq",
+            connector: "AND",
+          },
+        ],
+      }
+    );
+    if (!memberResult) {
+      throw new Error("You are not a member of this organization");
+    }
+
     // Build query based on status filter
-    let enquiries;
     if (args.status) {
       const status = args.status; // Type narrowing
-      enquiries = await ctx.db
+      return ctx.db
         .query("passportEnquiries")
         .withIndex("by_target_org_and_status", (q) =>
           q.eq("targetOrgId", args.organizationId).eq("status", status)
         )
         .order("desc")
         .collect();
-    } else {
-      enquiries = await ctx.db
-        .query("passportEnquiries")
-        .withIndex("by_target_org", (q) =>
-          q.eq("targetOrgId", args.organizationId)
-        )
-        .order("desc")
-        .collect();
     }
 
-    return enquiries;
+    return ctx.db
+      .query("passportEnquiries")
+      .withIndex("by_target_org", (q) =>
+        q.eq("targetOrgId", args.organizationId)
+      )
+      .order("desc")
+      .collect();
   },
 });
 
@@ -289,7 +310,7 @@ export const getEnquiriesByUser = query({
 
     const enquiries = await ctx.db
       .query("passportEnquiries")
-      .withIndex("by_source_org", (q) => q.eq("sourceOrgId", args.userId))
+      .withIndex("by_source_user", (q) => q.eq("sourceUserId", args.userId))
       .order("desc")
       .collect();
 

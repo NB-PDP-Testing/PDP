@@ -129,12 +129,16 @@ export async function dismissBlockingDialogs(page: Page): Promise<void> {
   await page.waitForTimeout(1500);
 
   // Handle up to 3 sequential dialogs (privacy, additional info, onboarding)
+  // First iteration waits up to 3s for async dialog (e.g. age-18 notification from Convex).
+  // Subsequent iterations wait only 1s (next dialogs should appear quickly after previous dismiss).
+  const dialogTimeouts = [3000, 1000, 1000];
   for (let i = 0; i < 3; i++) {
     try {
       const alertDialog = page.locator('[role="alertdialog"]');
-      // Quick check if dialog is already visible
-      if (!(await alertDialog.isVisible({ timeout: 2000 }).catch(() => false))) {
-        break; // No dialog, we're done
+      // Wait for a dialog to appear (isVisible does NOT wait, so use waitFor)
+      await alertDialog.waitFor({ state: "visible", timeout: dialogTimeouts[i] }).catch(() => null);
+      if (!(await alertDialog.isVisible())) {
+        break; // No dialog appeared, we're done
       }
 
       // Check if this is the privacy consent dialog
@@ -173,6 +177,22 @@ export async function dismissBlockingDialogs(page: Page): Promise<void> {
         await saveButton.click({ timeout: 5000 });
         await page.waitForTimeout(1500);
         continue; // Check for next dialog
+      }
+
+      // Age 18 transition dialog — click "Don't Ask Again" to permanently dismiss
+      // (stored in Convex so it persists across test runs for this dev account)
+      const dontAskButton = page.getByRole("button", { name: /don't ask again/i });
+      if (await dontAskButton.isVisible({ timeout: 1000 }).catch(() => false)) {
+        await dontAskButton.click();
+        await page.waitForTimeout(1500);
+        continue;
+      }
+      // Fallback: "Not Now" button if "Don't Ask Again" is not present
+      const notNowButton = page.getByRole("button", { name: /not now/i });
+      if (await notNowButton.isVisible({ timeout: 1000 }).catch(() => false)) {
+        await notNowButton.click();
+        await page.waitForTimeout(1500);
+        continue;
       }
 
       // Other onboarding dialogs — dismiss them by accepting all children (permanent fix)

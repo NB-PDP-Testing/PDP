@@ -3728,6 +3728,7 @@ export default defineSchema({
     .index("by_target_org", ["targetOrgId"])
     .index("by_target_org_and_status", ["targetOrgId", "status"])
     .index("by_source_org", ["sourceOrgId"])
+    .index("by_source_user", ["sourceUserId"])
     .index("by_player", ["playerIdentityId"])
     .index("by_status", ["status"]),
 

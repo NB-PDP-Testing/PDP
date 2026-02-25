@@ -29,6 +29,7 @@ import {
   DialogHeader,
   DialogTitle,
 } from "@/components/ui/dialog";
+import { authClient } from "@/lib/auth-client";
 import { AccessAuditLog } from "./access-audit-log";
 import { NotificationPreferences } from "./notification-preferences";
 import { PendingRequests } from "./pending-requests";
@@ -192,6 +193,13 @@ export function ChildSharingCard({
   // Use provided data or fallback to query results
   const consents = consentsData ?? consentsQuery;
   const pendingRequests = pendingRequestsData ?? pendingRequestsQuery;
+
+  // BUG-001: Resolve receiving org IDs to display names
+  const { data: organizations } = authClient.useListOrganizations();
+  const orgNameMap = useMemo(
+    () => new Map(organizations?.map((o) => [o.id, o.name]) ?? []),
+    [organizations]
+  );
 
   // Get primary sport from sport passports (first active passport)
   const primarySportCode = useMemo(() => {
@@ -414,7 +422,8 @@ export function ChildSharingCard({
                       </div>
                       <div>
                         <p className="font-semibold text-sm">
-                          {consent.receivingOrgId.slice(0, 20)}...
+                          {orgNameMap.get(consent.receivingOrgId) ??
+                            `${consent.receivingOrgId.slice(0, 20)}...`}
                         </p>
                         <p className="text-muted-foreground text-xs">
                           Organization
@@ -517,7 +526,10 @@ export function ChildSharingCard({
                       className="flex-1"
                       onClick={() => {
                         setSelectedConsentId(consent.consentId);
-                        setSelectedOrgName(consent.receivingOrgId);
+                        setSelectedOrgName(
+                          orgNameMap.get(consent.receivingOrgId) ??
+                            consent.receivingOrgId
+                        );
                         setRevokeModalOpen(true);
                       }}
                       size="sm"

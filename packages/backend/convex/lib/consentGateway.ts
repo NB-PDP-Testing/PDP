@@ -345,6 +345,28 @@ export const getConsentsForPlayer = query({
       throw new Error("Authentication required");
     }
 
+    const userId = identity.subject;
+
+    // BUG-007: Verify caller has parental responsibility for this player
+    const guardianIdentity = await ctx.db
+      .query("guardianIdentities")
+      .withIndex("by_userId", (q) => q.eq("userId", userId))
+      .first();
+    if (!guardianIdentity) {
+      throw new Error("Not authorized to view consents for this player");
+    }
+    const guardianLink = await ctx.db
+      .query("guardianPlayerLinks")
+      .withIndex("by_guardian_and_player", (q) =>
+        q
+          .eq("guardianIdentityId", guardianIdentity._id)
+          .eq("playerIdentityId", args.playerIdentityId)
+      )
+      .first();
+    if (!guardianLink) {
+      throw new Error("Not authorized to view consents for this player");
+    }
+
     // Get all consents for this player
     const consents = await ctx.db
       .query("passportShareConsents")

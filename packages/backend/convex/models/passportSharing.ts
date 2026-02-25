@@ -592,6 +592,27 @@ export const createPassportShareConsent = mutation({
       );
     }
 
+    // BUG-003: Enforce 30-day cooling-off after 3 coach declines to same org
+    const THIRTY_DAYS_MS = 30 * 24 * 60 * 60 * 1000;
+    const allPlayerConsents = await ctx.db
+      .query("passportShareConsents")
+      .withIndex("by_player", (q) =>
+        q.eq("playerIdentityId", args.playerIdentityId)
+      )
+      .collect();
+    const recentDeclinesToOrg = allPlayerConsents.filter(
+      (c) =>
+        c.receivingOrgId === args.receivingOrgId &&
+        c.coachAcceptanceStatus === "declined" &&
+        c.declinedAt != null &&
+        c.declinedAt > Date.now() - THIRTY_DAYS_MS
+    );
+    if (recentDeclinesToOrg.length >= 3) {
+      throw new Error(
+        "Sharing to this organization is temporarily blocked due to repeated declines. Please wait 30 days before sharing again."
+      );
+    }
+
     // Create the consent record
     const now = Date.now();
     const consentId = await ctx.db.insert("passportShareConsents", {
@@ -1176,9 +1197,24 @@ export const acceptPassportShare = mutation({
       );
     }
 
-    // TODO: Validate coach belongs to receiving organization
-    // This requires checking Better Auth member table or team assignments
-    // For now, we trust that the coach has the correct receivingOrgId
+    // Validate coach is a member of the receiving organization (BUG-002)
+    const coachMember = await ctx.runQuery(
+      components.betterAuth.adapter.findOne,
+      {
+        model: "member",
+        where: [
+          {
+            field: "organizationId",
+            value: consent.receivingOrgId,
+            operator: "eq",
+          },
+          { field: "userId", value: userId, operator: "eq", connector: "AND" },
+        ],
+      }
+    );
+    if (!coachMember) {
+      throw new Error("You are not a member of the receiving organization");
+    }
 
     // Update consent to accepted
     await ctx.db.patch(args.consentId, {
@@ -1300,13 +1336,11 @@ export const declinePassportShare = mutation({
       declineCount: newDeclineCount,
     });
 
-    // Log cooling-off period enforcement if applicable
+    // Log decline count (cooling-off enforcement happens in createPassportShareConsent)
     if (newDeclineCount >= 3) {
       console.log(
-        `[Passport Sharing] Consent ${args.consentId} declined ${newDeclineCount} times. 30-day cooling-off period should be enforced.`
+        `[Passport Sharing] Consent ${args.consentId} has been declined ${newDeclineCount} times. Cooling-off enforced on next share attempt.`
       );
-      // TODO US-049: Implement cooling-off period logic
-      // Prevent re-sharing to same org for 30 days after 3 declines
     }
 
     // Notify parent(s) that share was declined
@@ -1564,7 +1598,17 @@ export const respondToAccessRequest = mutation({
         `[Passport Sharing] Guardian ${userId} approved access request ${args.requestId}`
       );
 
-      // TODO US-048: Notify coach that request was approved
+      // BUG-004: Notify coach that request was approved
+      await ctx.db.insert("passportShareNotifications", {
+        userId: request.requestedBy,
+        notificationType: "share_enabled",
+        requestId: args.requestId,
+        playerIdentityId: request.playerIdentityId,
+        title: "Access Request Approved",
+        message:
+          "Your passport access request has been approved. Please check your pending shares.",
+        createdAt: now,
+      });
     } else {
       // Decline the request
       await ctx.db.patch(args.requestId, {
@@ -1577,7 +1621,17 @@ export const respondToAccessRequest = mutation({
         `[Passport Sharing] Guardian ${userId} declined access request ${args.requestId}`
       );
 
-      // TODO US-048: Notify coach that request was declined
+      // BUG-004: Notify coach that request was declined
+      await ctx.db.insert("passportShareNotifications", {
+        userId: request.requestedBy,
+        notificationType: "share_revoked",
+        requestId: args.requestId,
+        playerIdentityId: request.playerIdentityId,
+        title: "Access Request Declined",
+        message:
+          "Your passport access request has been declined by the guardian.",
+        createdAt: now,
+      });
     }
 
     return true;

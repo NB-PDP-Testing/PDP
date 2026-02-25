@@ -12,6 +12,7 @@ import {
   User,
 } from "lucide-react";
 import { useEffect, useState } from "react";
+import { toast } from "sonner";
 import { ResponsiveDialog } from "@/components/interactions";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
@@ -243,8 +244,7 @@ export function EnableSharingWizard({
       setCurrentStep("success");
     } catch (error) {
       console.error("Failed to create consent:", error);
-      // TODO: Show error toast notification using sonner
-      // For now, log to console
+      toast.error("Failed to enable sharing. Please try again.");
     } finally {
       setIsSubmitting(false);
     }

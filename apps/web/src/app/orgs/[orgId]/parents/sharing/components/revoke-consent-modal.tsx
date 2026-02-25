@@ -5,6 +5,7 @@ import type { Id } from "@pdp/backend/convex/_generated/dataModel";
 import { useMutation } from "convex/react";
 import { AlertTriangle } from "lucide-react";
 import { useState } from "react";
+import { toast } from "sonner";
 import { Button } from "@/components/ui/button";
 import {
   Dialog,
@@ -62,7 +63,7 @@ export function RevokeConsentModal({
       onSuccess?.();
     } catch (error) {
       console.error("Failed to revoke consent:", error);
-      // TODO: Show toast notification
+      toast.error("Failed to revoke access. Please try again.");
     } finally {
       setIsSubmitting(false);
     }

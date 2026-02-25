@@ -1,362 +1,138 @@
 {
-  "project": "Injury Tracking Phase 3 - Analytics & Prevention",
-  "branchName": "feature/261-injury-tracking-phase3-analytics",
-  "description": "Admin injury analytics dashboard with aggregate statistics, trend charts, body part breakdown, severity distribution, team comparisons, date range filtering, and CSV export.",
-  "readinessLevel": "100% - Ready to Start",
-  "urgency": "HIGH - Phases 1 & 2 complete, Phase 3 delivers analytics visibility to club admins",
+  "project": "Adult Player Lifecycle — Phase 1: Player Portal Layout & Navigation",
+  "branchName": "ralph/adult-player-phase1-portal",
+  "description": "Extends the existing single-page player portal at /orgs/[orgId]/player/page.tsx into a full multi-section portal with sidebar navigation, mirroring the parent portal structure. Adds layout.tsx, PlayerSidebar, a 'Today' priority first-screen as the default landing view (surfacing only what needs attention today above the fold, with full profile content below), and a self-edit profile sub-page.",
+  "readinessLevel": "100% - Existing portal and role switcher confirmed in codebase",
   "contextAndDependencies": {
     "criticalContext": [
-      "No admin pages exist yet under /orgs/[orgId]/admin/ - this will be the first",
-      "Admin sidebar exists: apps/web/src/components/layout/admin-sidebar.tsx",
-      "Existing backend queries: getInjuryStats (per-player), getAllActiveInjuriesForOrg, getAllInjuriesForOrg",
-      "playerInjuries table has: injuryType, bodyPart, severity, status, dateOccurred, occurredDuring, sportCode, daysOut, expectedReturn, actualReturn",
-      "orgPlayerEnrollments has ageGroup field for age group breakdowns",
-      "teamPlayerIdentities links players to teams for team comparisons",
-      "Recharts library is already installed - use LineChart, BarChart, PieChart, ResponsiveContainer",
-      "Phase 1 notifications and Phase 2 recovery management are complete",
-      "N+1 queries in getAllActiveInjuriesForOrg and getAllInjuriesForOrg need refactoring (noted in PRD)"
+      "EXTEND, NEVER REBUILD: apps/web/src/app/orgs/[orgId]/player/page.tsx is a FULL dashboard (passport, emergency contacts, benchmarks, goals, skills, positions). It becomes the Full Profile section WITHIN the Overview — rendered BELOW the 'Today' priority view. Do NOT remove or replace any content. The Today view sits above it on the same page.",
+      "'player' functional role already exists in org-role-switcher.tsx and routes to /orgs/[orgId]/player",
+      "hasPlayerDashboard query already built at packages/backend/convex/models/adultPlayers.ts:633 — use it to gate the portal",
+      "getPlayerDashboard query already built at adultPlayers.ts:503 — use it for the overview summary cards",
+      "updateMyProfile mutation already built at adultPlayers.ts:287 — use it for the profile self-edit page",
+      "getMyPlayerProfile query returns player + emergencyContacts — use for profile page display",
+      "Parent portal at apps/web/src/app/orgs/[orgId]/parents/ is the template — mirror its layout.tsx, sidebar component, and mobile nav pattern exactly",
+      "apps/web/src/components/layout/parent-sidebar.tsx is the reference for building PlayerSidebar",
+      "Sub-routes that don't have pages yet (progress, teams, injuries, sharing, health-check, settings) must show a placeholder 'Coming Soon' page — no 404 errors",
+      "Org theming: useOrgTheme() hook, CSS vars --org-primary, --org-secondary, --org-tertiary",
+      "Mobile-first: 375px minimum width, bottom nav tabs on mobile matching parent portal pattern"
     ],
     "keyFiles": [
-      "Backend: packages/backend/convex/models/playerInjuries.ts - existing queries to extend",
-      "Backend: packages/backend/convex/schema.ts - playerInjuries, orgPlayerEnrollments, teamPlayerIdentities tables",
-      "Frontend: apps/web/src/components/layout/admin-sidebar.tsx - add injuries nav link",
-      "Frontend: apps/web/src/app/orgs/[orgId]/admin/ - NEW directory for admin pages",
-      "Reference: apps/web/src/app/orgs/[orgId]/coach/injuries/page.tsx - existing injury page patterns"
+      "apps/web/src/app/orgs/[orgId]/player/page.tsx — EXTEND only, becomes Overview tab",
+      "apps/web/src/app/orgs/[orgId]/parents/layout.tsx — template to mirror",
+      "apps/web/src/app/orgs/[orgId]/parents/components/ — sidebar and component patterns",
+      "apps/web/src/components/layout/parent-sidebar.tsx — template for PlayerSidebar",
+      "packages/backend/convex/models/adultPlayers.ts — hasPlayerDashboard (line 633), getPlayerDashboard (line 503), updateMyProfile (line 287), getMyPlayerProfile",
+      "apps/web/src/components/org-role-switcher.tsx — player role already wired"
     ],
     "criticalPatterns": {
-      "BetterAuthTables": "Do NOT query user/organization/member/team tables directly. Use ctx.runQuery(components.betterAuth.adapter.findMany, {...}).",
-      "ApplicationTables": "playerInjuries, orgPlayerEnrollments, teamPlayerIdentities use regular Convex queries (ctx.db.query).",
-      "N1Prevention": "CRITICAL for analytics queries. Batch fetch with Map lookup, never query in a loop. Aggregate in-memory after fetching all data.",
-      "IndexUsage": "Always use .withIndex(), never .filter(). Use existing indexes where possible.",
-      "TypeSafety": "Use Id<'tableName'> types, not string. Import from @pdp/backend/convex/_generated/dataModel.",
-      "RechartsPatterns": "Always wrap charts in <ResponsiveContainer width='100%' height={300}>. Use grid-cols-1 md:grid-cols-2 for responsive layout.",
-      "CSVExport": "Escape commas in data: value.replace(/,/g, ';'). Use Blob + URL.createObjectURL + link.download pattern.",
-      "ReturnValidators": "All queries and mutations MUST include a returns validator.",
-      "AggregationStrategy": "Compute aggregations in-memory from raw injury data. Do NOT create pre-aggregated tables - premature optimization for current scale."
+      "LayoutWrapper": "layout.tsx wraps the existing page.tsx. The existing page content is untouched — just framed in the sidebar layout.",
+      "PortalGating": "hasPlayerDashboard query gates the entire /player/ route tree. Redirect to org home if false.",
+      "EmergencyContactCRUD": "Emergency contact mutations (add/edit/delete) need to be added to adultPlayers.ts following the playerEmergencyContacts table pattern.",
+      "ReturnValidators": "All new queries and mutations MUST include returns validator.",
+      "IndexUsage": "Always use .withIndex() — NEVER .filter() in Convex.",
+      "BetterAuthTables": "user/member/organization/team use ctx.runQuery(components.betterAuth.adapter.*). Application tables use ctx.db directly."
     }
   },
   "userStories": [
     {
-      "id": "US-ANA-001",
-      "title": "Create getOrgInjuryAnalytics aggregate query",
-      "description": "As an admin, I need a single backend query that returns comprehensive injury analytics for the organization, computed from raw injury data.",
+      "id": "US-P1-001",
+      "title": "Player Portal Layout & Sidebar Navigation",
+      "description": "As an adult player, I want a sidebar-navigated portal matching the depth of the parent portal, so that I can access all my sports management features in one place.",
+      "phase": "Phase 1: Extend Existing Player Portal",
       "acceptanceCriteria": [
-        "Add getOrgInjuryAnalytics query to playerInjuries.ts",
-        "Args: organizationId (string), startDate (optional string ISO date), endDate (optional string ISO date)",
-        "Fetch all injuries for the org using existing index patterns (not getAllInjuriesForOrg to avoid N+1)",
-        "Query orgPlayerEnrollments by org to get all players, then batch fetch their injuries via playerIdentityId",
-        "Compute and return: totalInjuries, activeCount, recoveringCount, clearedCount, healedCount",
-        "Compute: byBodyPart (object mapping body part to count), bySeverity (object mapping severity to count)",
-        "Compute: byMonth (array of {month: string, count: number} for last 12 months)",
-        "Compute: byOccurredDuring (object mapping context to count: training, match, other_sport, non_sport, unknown)",
-        "Compute: avgRecoveryDays (average daysOut for healed injuries), recurrenceRate (players with 2+ injuries / total injured players)",
-        "Apply date range filtering if startDate/endDate provided",
-        "Include returns validator with full shape",
-        "Typecheck passes: npm run check-types"
+        "Create apps/web/src/app/orgs/[orgId]/player/layout.tsx — this file does NOT currently exist",
+        "Build PlayerSidebar component by mirroring ParentSidebar at apps/web/src/components/layout/parent-sidebar.tsx",
+        "Existing player/page.tsx content must remain completely intact — it becomes the Overview tab, just framed in the new layout",
+        "hasPlayerDashboard query (adultPlayers.ts:633) gates the entire portal — redirect to org home if user has no player profile",
+        "Sidebar navigation items (9 total): Overview (Home icon, /player/), My Profile (User icon, /player/profile), My Progress (TrendingUp icon, /player/progress), My Teams (Users icon, /player/teams), Daily Wellness (Heart icon, /player/health-check), My Injuries (Activity icon, /player/injuries), Coach Feedback (MessageSquare icon, /player/feedback), Passport Sharing (Share2 icon, /player/sharing), Settings (Settings icon, /player/settings)",
+        "Mobile responsive: bottom nav tabs (4 primary items) matching parent portal pattern at 375px minimum",
+        "Org theming via useOrgTheme() applied consistently — CSS vars --org-primary, --org-secondary, --org-tertiary",
+        "Sub-routes that don't have pages yet (progress, teams, injuries, sharing, health-check, feedback, settings) show a placeholder 'Coming Soon' page — no 404 errors",
+        "npm run check-types passes",
+        "npx -w packages/backend convex codegen passes"
       ],
       "priority": 1,
       "passes": true,
-      "notes": "This is the main analytics query. Fetch all data in bulk, then aggregate in-memory. No N+1 patterns."
+      "notes": "Read apps/web/src/app/orgs/[orgId]/parents/layout.tsx and apps/web/src/components/layout/parent-sidebar.tsx before starting. Mirror the pattern exactly. The player/page.tsx is a full dashboard — do not touch its content."
     },
     {
-      "id": "US-ANA-002",
-      "title": "Create getInjuriesByTeam aggregate query",
-      "description": "As an admin, I need injury counts broken down by team so I can compare injury rates across teams.",
+      "id": "US-P1-002",
+      "title": "Player Overview — 'Today' Priority First-Screen",
+      "description": "As an adult player, I want the overview to immediately surface only the 2–3 things that need my attention today, so that I can act quickly without scrolling through data that isn't relevant right now.",
+      "phase": "Phase 1: Extend Existing Player Portal",
       "acceptanceCriteria": [
-        "Add getInjuriesByTeam query to playerInjuries.ts",
-        "Args: organizationId (string), startDate (optional string), endDate (optional string)",
-        "Fetch all teams for the org via Better Auth adapter",
-        "Fetch all teamPlayerIdentities for those teams",
-        "Batch fetch injuries for all players across teams",
-        "Return array of: {teamId, teamName, totalInjuries, activeCount, avgSeverity, mostCommonBodyPart, mostCommonType}",
-        "Sort by totalInjuries descending",
-        "Apply date range filtering if provided",
-        "Include returns validator",
-        "Typecheck passes: npm run check-types"
+        "The /orgs/[orgId]/player/ route renders a single scrollable page with two sections: a 'Today' priority section at the top, and a 'Full Profile' section below (the unchanged existing player/page.tsx content).",
+        "TODAY SECTION — Priority action cards (show ONLY if relevant — do not show empty placeholders for irrelevant cards):",
+        "  (a) WELLNESS CARD: if no wellness check submitted today (getTodayHealthCheck returns null) → amber card 'Complete your daily wellness check' with subtitle 'Takes under a minute' and a 'Start Check-In' button linking to /player/health-check. If already submitted → green card '✓ Wellness checked in today' with today's aggregate score shown (e.g. '4.2 / 5').",
+        "  (b) INJURY CARD: if player has at least one active injury (status 'active' or 'recovering') → amber card showing injury count, e.g. '⚠ 1 active injury' with body part and status, linking to /player/injuries. If no active injuries → card NOT shown.",
+        "  (c) FEEDBACK CARD: if player has at least one unacknowledged coachParentSummary (Phase 5 will provide the query — stub with null for now) → blue card 'New coach feedback available' with count, linking to /player/feedback. If none → card NOT shown.",
+        "If ALL three conditions are 'clear' (wellness done, no active injuries, no unread feedback): show a single green 'All clear today 🎉' card instead of the three cards.",
+        "TODAY SECTION — Quick stats strip below cards: Player name, current team(s) (comma-separated), today's date in format 'Tuesday, 25 Feb'.",
+        "FULL PROFILE SECTION: headed 'My Profile' with a subtle divider. Renders the existing player/page.tsx content exactly as-is (passport, emergency contacts, benchmarks, goals, skills, positions). No changes to this content.",
+        "On MOBILE (375px): Today section cards stack vertically and fill the full width. A 'See full profile ↓' link anchors to the Full Profile section. The 4 bottom nav tabs remain visible.",
+        "On DESKTOP: Today cards display in a 3-column grid. Full Profile is visible below without needing a scroll prompt.",
+        "Today section data: wellness from getTodayHealthCheck stub (Phase 1 already creates this); injuries from a new lightweight query getTodayPriorityData(playerIdentityId, organizationId) that returns { activeInjuryCount, activeInjuryBodyPart } — add this query to packages/backend/convex/models/adultPlayers.ts following existing patterns. The feedback query stubs to null until Phase 5.",
+        "Today section must render in under 200ms perceived time — use Convex reactive queries, no loading spinners for the primary cards (Suspense boundaries acceptable for the Full Profile section below).",
+        "Mobile responsive at 375px minimum.",
+        "npm run check-types passes"
       ],
       "priority": 2,
       "passes": true,
-      "notes": "Use batch fetch pattern. A player on multiple teams should count toward each team's stats. Use Better Auth adapter for team table."
+      "notes": "The Today section is the most important piece of real estate in the entire player portal. Keep it ruthlessly focused: only show cards for things that need action right now. Never show empty state cards for categories with nothing to report. The Full Profile content (existing page.tsx) is unchanged — it just moves to below the Today section on the same page. The getTodayPriorityData query can be a lightweight internal query — read adultPlayers.ts before adding it."
     },
     {
-      "id": "US-ANA-003",
-      "title": "Create getInjuryTrends comparison query",
-      "description": "As an admin, I need to compare current period injury stats against the previous period to identify trends.",
+      "id": "US-P1-003",
+      "title": "Player Profile Self-Edit Sub-Page",
+      "description": "As an adult player, I want a dedicated page to manage my contact details and emergency contacts, so that my information stays current without asking an admin.",
+      "phase": "Phase 1: Extend Existing Player Portal",
       "acceptanceCriteria": [
-        "Add getInjuryTrends query to playerInjuries.ts",
-        "Args: organizationId (string), periodDays (number, default 30)",
-        "Calculate current period: last N days from today",
-        "Calculate previous period: the N days before that",
-        "For each period compute: totalInjuries, bySeverity counts, byBodyPart counts, avgRecoveryDays",
-        "Return: { currentPeriod: {...}, previousPeriod: {...}, changes: { totalChange, severityChanges, bodyPartChanges } }",
-        "Changes should include absolute diff and percentage change",
-        "Include returns validator",
-        "Typecheck passes: npm run check-types"
+        "Create apps/web/src/app/orgs/[orgId]/player/profile/page.tsx",
+        "Editable fields (using updateMyProfile mutation at adultPlayers.ts:287): email, phone, address, town, postcode, country",
+        "Read-only fields: firstName, lastName, dateOfBirth, gender — each shown with a Lock icon and tooltip 'Contact your admin to change'",
+        "Form uses React Hook Form with Zod validation, matching existing form patterns in the codebase",
+        "Save button shows loading state during mutation, success toast on save, error toast on failure",
+        "Emergency contacts section below personal details: displays all existing emergency contacts (from getMyPlayerProfile) with name, phone, relationship",
+        "Emergency contacts: Add button opens a dialog to create a new emergency contact",
+        "Emergency contacts: Edit and Delete actions on each contact row",
+        "Emergency contact mutations (addEmergencyContact, updateEmergencyContact, deleteEmergencyContact): add to packages/backend/convex/models/adultPlayers.ts following the playerEmergencyContacts table pattern already established",
+        "Mobile-first layout: 375px minimum width, single-column on mobile",
+        "npm run check-types passes"
       ],
       "priority": 3,
       "passes": true,
-      "notes": "Percentage change: ((current - previous) / previous * 100). Handle division by zero (previous = 0)."
+      "notes": "updateMyProfile mutation is already built at adultPlayers.ts:287. getMyPlayerProfile returns both player and emergencyContacts. The emergency contact CRUD mutations are the new backend work needed."
     },
     {
-      "id": "US-ANA-004",
-      "title": "Create getRecentInjuriesForAdmin query",
-      "description": "As an admin, I need a paginated list of recent injuries across the organization with player and team details for a data table.",
+      "id": "US-P1-UAT",
+      "title": "Phase 1 Player Portal E2E Tests",
+      "description": "As a developer, I want Playwright E2E tests covering all Phase 1 stories, so that the player portal works correctly end-to-end and regressions are caught automatically.",
+      "phase": "Phase 1: Extend Existing Player Portal",
       "acceptanceCriteria": [
-        "Add getRecentInjuriesForAdmin query to playerInjuries.ts",
-        "Args: organizationId (string), limit (optional number, default 50), status (optional string to filter by status)",
-        "Fetch injuries and batch-enrich with: player name, team name(s), age group",
-        "Return array of enriched injury records sorted by dateOccurred descending",
-        "Each record includes: injuryId, playerName, teamNames, ageGroup, bodyPart, injuryType, severity, status, dateOccurred, daysOut, expectedReturn",
-        "Use batch fetch pattern - no N+1",
-        "Include returns validator",
-        "Typecheck passes: npm run check-types"
+        "Create test file: apps/web/uat/tests/player-portal-phase1.spec.ts",
+        "Test: user without player role visiting /orgs/[orgId]/player is redirected to org home",
+        "Test: user with player role sees sidebar with all 9 nav items rendered",
+        "Test: clicking each sidebar nav item navigates without 404",
+        "Test: overview page shows summary cards (may be empty state)",
+        "Test: amber wellness CTA card is visible when no wellness check submitted today",
+        "Test: injury card is NOT shown when player has no active injuries",
+        "Test: 'All clear today' card shown when wellness done and no active injuries",
+        "Test: Full Profile section renders below Today section on the same page",
+        "Test: navigate to My Profile, edit phone number, save, refresh, confirm new phone number persists",
+        "Test: read-only fields (name, DOB) inputs are disabled and show lock icon",
+        "Test: emergency contacts section is visible in My Profile",
+        "Manual test 1: Log in as user with player role → confirm sidebar with all 9 nav items",
+        "Manual test 2: Log in as user WITHOUT player role → confirm redirect to org home",
+        "Manual test 3: Navigate to My Profile → edit phone → save → refresh → confirm persisted",
+        "Manual test 4: Verify read-only fields show lock icon and cannot be edited",
+        "Manual test 5: Navigate to each sidebar section → confirm no 404 errors, placeholder shown for unbuilt sections",
+        "Manual test 6: Resize to 375px → confirm mobile bottom nav appears, all items tappable (44×44px min)",
+        "Manual test 7: Confirm org theme colours applied consistently across all portal pages",
+        "Manual test 8: Submit wellness check → confirm Today section updates to green '✓ Wellness checked in today' card without page refresh"
       ],
       "priority": 4,
       "passes": true,
-      "notes": "This powers the injuries data table on the admin dashboard. Keep enrichment efficient with Map lookups."
-    },
-    {
-      "id": "US-ANA-005",
-      "title": "Create admin injuries analytics page route and layout",
-      "description": "As an admin, I need an analytics page at /orgs/[orgId]/admin/injuries that provides the layout shell for injury analytics.",
-      "acceptanceCriteria": [
-        "Create apps/web/src/app/orgs/[orgId]/admin/injuries/page.tsx",
-        "Page title: 'Injury Analytics'",
-        "Page uses the admin layout (verify admin layout exists, create if needed)",
-        "Add date range filter controls at the top (start date, end date, preset buttons: Last 30 days, Last 90 days, This season, All time)",
-        "Page skeleton with sections for: summary cards, charts row, team comparison, recent injuries table",
-        "Fetch data using useQuery with getOrgInjuryAnalytics",
-        "Pass orgId from route params",
-        "Show loading skeletons while data loads (use shadcn Skeleton)",
-        "Typecheck passes: npm run check-types",
-        "Lint passes: npx ultracite fix"
-      ],
-      "priority": 5,
-      "passes": true,
-      "notes": "This is the first admin page. Check if admin layout wrapper exists - if not, the page can be standalone with admin sidebar."
-    },
-    {
-      "id": "US-ANA-006",
-      "title": "Add injuries link to admin sidebar navigation",
-      "description": "As an admin, I need an 'Injury Analytics' link in the admin sidebar so I can navigate to the analytics dashboard.",
-      "acceptanceCriteria": [
-        "Edit apps/web/src/components/layout/admin-sidebar.tsx",
-        "Add nav item: label 'Injury Analytics', icon Heart (or ShieldAlert), href /orgs/[orgId]/admin/injuries",
-        "Position it logically in the sidebar (near other analytics/reporting items)",
-        "Active state highlights correctly when on the injuries page",
-        "Typecheck passes: npm run check-types",
-        "Lint passes: npx ultracite fix"
-      ],
-      "priority": 6,
-      "passes": true,
-      "notes": "Use the existing NavItem pattern in admin-sidebar.tsx. Heart icon with ShieldAlert as alternative."
-    },
-    {
-      "id": "US-ANA-007",
-      "title": "Create injury summary statistics cards",
-      "description": "As an admin, I want to see key injury metrics at a glance: total injuries, currently active, average recovery time, and recurrence rate.",
-      "acceptanceCriteria": [
-        "Create summary cards component in the admin injuries page (can be inline or separate component file)",
-        "Card 1: Total Injuries (number, with trend indicator vs previous period)",
-        "Card 2: Currently Active (number of active + recovering injuries)",
-        "Card 3: Avg Recovery Days (average daysOut for healed injuries, formatted to 1 decimal)",
-        "Card 4: Recurrence Rate (percentage of players with 2+ injuries, formatted as percentage)",
-        "Each card shows comparison with previous period: green arrow up/down for improvements, red for worsening",
-        "Use shadcn/ui Card component with consistent styling",
-        "Responsive grid: 1 column mobile, 2 tablet, 4 desktop (grid-cols-1 md:grid-cols-2 lg:grid-cols-4)",
-        "Typecheck passes: npm run check-types",
-        "Lint passes: npx ultracite fix"
-      ],
-      "priority": 7,
-      "passes": false,
-      "notes": "For recurrence rate and avg recovery, 'improvement' means the number went DOWN. For total injuries going down is also an improvement."
-    },
-    {
-      "id": "US-ANA-008",
-      "title": "Create injuries over time trend chart",
-      "description": "As an admin, I want a line chart showing injury counts by month over the last 12 months to identify trends and seasonal patterns.",
-      "acceptanceCriteria": [
-        "Create trend chart component using Recharts LineChart",
-        "X-axis: months (formatted as 'Jan', 'Feb', etc.)",
-        "Y-axis: injury count",
-        "Single line showing total injuries per month",
-        "Tooltip showing exact count on hover",
-        "Wrap in ResponsiveContainer for responsive sizing",
-        "Card wrapper with title 'Injury Trends'",
-        "Empty state if no data: 'No injury data for selected period'",
-        "Typecheck passes: npm run check-types",
-        "Lint passes: npx ultracite fix"
-      ],
-      "priority": 8,
-      "passes": true,
-      "notes": "Data comes from byMonth array in getOrgInjuryAnalytics. Recharts is already installed."
-    },
-    {
-      "id": "US-ANA-009",
-      "title": "Create injuries by body part bar chart",
-      "description": "As an admin, I want a horizontal bar chart showing which body parts are most commonly injured to identify patterns.",
-      "acceptanceCriteria": [
-        "Create body part chart component using Recharts BarChart (horizontal layout)",
-        "Y-axis: body part names (ankle, knee, shoulder, etc.)",
-        "X-axis: injury count",
-        "Bars colored by count intensity (or single consistent color)",
-        "Sort by count descending (most common at top)",
-        "Tooltip showing exact count on hover",
-        "Wrap in ResponsiveContainer",
-        "Card wrapper with title 'Injuries by Body Part'",
-        "Limit to top 10 body parts if more than 10 exist",
-        "Typecheck passes: npm run check-types",
-        "Lint passes: npx ultracite fix"
-      ],
-      "priority": 9,
-      "passes": true,
-      "notes": "Data comes from byBodyPart object in getOrgInjuryAnalytics. Transform to array and sort."
-    },
-    {
-      "id": "US-ANA-010",
-      "title": "Create injuries by severity distribution chart",
-      "description": "As an admin, I want a donut/pie chart showing the distribution of injury severities to understand the overall severity profile.",
-      "acceptanceCriteria": [
-        "Create severity chart component using Recharts PieChart (donut style with inner radius)",
-        "Segments: minor (green), moderate (yellow), severe (orange), long_term (red)",
-        "Each segment shows percentage label",
-        "Legend showing severity labels with counts",
-        "Tooltip showing count and percentage on hover",
-        "Wrap in ResponsiveContainer",
-        "Card wrapper with title 'Severity Distribution'",
-        "Center text showing total count",
-        "Typecheck passes: npm run check-types",
-        "Lint passes: npx ultracite fix"
-      ],
-      "priority": 10,
-      "passes": true,
-      "notes": "Data comes from bySeverity object in getOrgInjuryAnalytics. Use consistent color coding across the dashboard."
-    },
-    {
-      "id": "US-ANA-011",
-      "title": "Create injury context breakdown chart",
-      "description": "As an admin, I want to see where injuries occur (training, match, outside club) to identify high-risk activities.",
-      "acceptanceCriteria": [
-        "Create context chart component using Recharts BarChart (vertical)",
-        "X-axis: context labels (Training, Match, Other Sport, Non-Sport, Unknown)",
-        "Y-axis: injury count",
-        "Distinct colors for each context type",
-        "Tooltip with count on hover",
-        "Wrap in ResponsiveContainer",
-        "Card wrapper with title 'Injury Context'",
-        "Typecheck passes: npm run check-types",
-        "Lint passes: npx ultracite fix"
-      ],
-      "priority": 11,
-      "passes": true,
-      "notes": "Data comes from byOccurredDuring object in getOrgInjuryAnalytics. Map enum values to display labels."
-    },
-    {
-      "id": "US-ANA-012",
-      "title": "Create team injury comparison table",
-      "description": "As an admin, I want a table comparing injury statistics across teams to identify teams with higher injury rates.",
-      "acceptanceCriteria": [
-        "Create team comparison component using a styled table or shadcn/ui Table",
-        "Columns: Team Name, Total Injuries, Active, Avg Severity, Most Common Body Part, Most Common Type",
-        "Fetch data using useQuery with getInjuriesByTeam",
-        "Sort by total injuries descending by default",
-        "Highlight teams with above-average injury counts (subtle red/orange background)",
-        "Card wrapper with title 'Team Comparison'",
-        "Empty state if no team data",
-        "Typecheck passes: npm run check-types",
-        "Lint passes: npx ultracite fix"
-      ],
-      "priority": 12,
-      "passes": false,
-      "notes": "This helps admins identify if specific teams or training programs have higher injury rates."
-    },
-    {
-      "id": "US-ANA-013",
-      "title": "Create recent injuries data table",
-      "description": "As an admin, I want a sortable, filterable table of recent injuries across the organization for detailed review.",
-      "acceptanceCriteria": [
-        "Create recent injuries table component",
-        "Fetch data using useQuery with getRecentInjuriesForAdmin",
-        "Columns: Player Name, Team(s), Body Part, Type, Severity, Status, Date, Days Out",
-        "Status column shows colored badge (active=red, recovering=yellow, cleared=green, healed=blue)",
-        "Severity column shows colored badge (minor=green, moderate=yellow, severe=orange, long_term=red)",
-        "Add status filter dropdown above table (All, Active, Recovering, Cleared, Healed)",
-        "Sort by date descending by default",
-        "Card wrapper with title 'Recent Injuries'",
-        "Show up to 50 most recent injuries",
-        "Typecheck passes: npm run check-types",
-        "Lint passes: npx ultracite fix"
-      ],
-      "priority": 13,
-      "passes": false,
-      "notes": "Use shadcn/ui Table, Badge, Select components. Consider making rows clickable in future phase."
-    },
-    {
-      "id": "US-ANA-014",
-      "title": "Add export injury report as CSV",
-      "description": "As an admin, I want to export injury data as a CSV file for reporting, insurance claims, and compliance purposes.",
-      "acceptanceCriteria": [
-        "Add 'Export CSV' button to the admin injuries page header (next to date range filter)",
-        "CSV includes all injuries in the current date range with columns: Player Name, Team, Body Part, Injury Type, Severity, Status, Date Occurred, Days Out, Expected Return, Occurred During, Treatment, Medical Provider",
-        "Escape commas in all string fields: value.replace(/,/g, ';')",
-        "Download with filename: injury-report-[orgName]-[date].csv",
-        "Use Blob + URL.createObjectURL + link.download pattern",
-        "Show toast on export: 'Injury report exported successfully'",
-        "Typecheck passes: npm run check-types",
-        "Lint passes: npx ultracite fix"
-      ],
-      "priority": 14,
-      "passes": false,
-      "notes": "Data comes from getRecentInjuriesForAdmin query. Include all records, not just top 50."
-    },
-    {
-      "id": "US-ANA-015",
-      "title": "Assemble full analytics dashboard layout",
-      "description": "As an admin, I want all analytics components arranged in a clean, responsive dashboard layout with proper spacing and visual hierarchy.",
-      "acceptanceCriteria": [
-        "Wire all components into the admin injuries page.tsx",
-        "Layout order: date range filter → summary cards row → charts row (trends + body part side by side) → charts row (severity + context side by side) → team comparison → recent injuries table → export button",
-        "Responsive: charts stack vertically on mobile (grid-cols-1), side by side on desktop (md:grid-cols-2)",
-        "Consistent card spacing using gap-4 or gap-6",
-        "Date range filter controls affect all components (pass startDate/endDate to queries)",
-        "Loading state: show Skeleton placeholders for all components while queries load",
-        "Empty state: show meaningful message if organization has no injury data",
-        "Typecheck passes: npm run check-types",
-        "Lint passes: npx ultracite fix"
-      ],
-      "priority": 15,
-      "passes": false,
-      "notes": "This is the final assembly story. All individual components should be built by this point. Focus on layout, data flow, and polish."
-    },
-    {
-      "id": "US-ANA-016",
-      "title": "Add period comparison indicators to summary cards",
-      "description": "As an admin, I want summary cards to show comparisons with the previous period so I can see if injury rates are improving or worsening.",
-      "acceptanceCriteria": [
-        "Fetch data using useQuery with getInjuryTrends",
-        "Update each summary card to show comparison: '+3 vs last period' or '-2 vs last period'",
-        "Color coding: green for improvements (fewer injuries, lower recovery time, lower recurrence), red for worsening",
-        "Show percentage change where meaningful: '↓ 15%' or '↑ 25%'",
-        "Gray '—' indicator when no previous period data exists",
-        "Typecheck passes: npm run check-types",
-        "Lint passes: npx ultracite fix"
-      ],
-      "priority": 16,
-      "passes": false,
-      "notes": "Improvement direction varies by metric: fewer total injuries = good (green), lower avg recovery = good (green), lower recurrence = good (green)."
+      "notes": "Use test account neil.B@blablablak.com / lien1979. Dev browser available at ~/.claude/skills/dev-browser."
     }
-  ],
-  "qualityChecks": {
-    "beforeCommitting": [
-      "npm run check-types - MUST pass",
-      "npx ultracite fix - MUST pass",
-      "npx -w packages/backend convex codegen - MUST pass",
-      "No N+1 query patterns in analytics queries - use batch fetch with Map lookup",
-      "All charts wrapped in ResponsiveContainer for mobile",
-      "CSV export escapes commas in all string data",
-      "Date range filter wired to all dashboard components",
-      "Loading skeletons shown while queries load",
-      "Empty states for all components when no data"
-    ]
-  }
+  ]
 }

@@ -1,11 +1,11 @@
 {
   "project": "Adult Player Lifecycle — Phase 1: Player Portal Layout & Navigation",
   "branchName": "ralph/adult-player-phase1-portal",
-  "description": "Extends the existing single-page player portal at /orgs/[orgId]/player/page.tsx into a full multi-section portal with sidebar navigation, mirroring the parent portal structure. Adds layout.tsx, PlayerSidebar, an overview enhancement with wellness CTA cards, and a self-edit profile sub-page.",
+  "description": "Extends the existing single-page player portal at /orgs/[orgId]/player/page.tsx into a full multi-section portal with sidebar navigation, mirroring the parent portal structure. Adds layout.tsx, PlayerSidebar, a 'Today' priority first-screen as the default landing view (surfacing only what needs attention today above the fold, with full profile content below), and a self-edit profile sub-page.",
   "readinessLevel": "100% - Existing portal and role switcher confirmed in codebase",
   "contextAndDependencies": {
     "criticalContext": [
-      "EXTEND, NEVER REBUILD: apps/web/src/app/orgs/[orgId]/player/page.tsx is a FULL dashboard (passport, emergency contacts, benchmarks, goals, skills, positions). It becomes the Overview tab — do NOT remove or replace any content.",
+      "EXTEND, NEVER REBUILD: apps/web/src/app/orgs/[orgId]/player/page.tsx is a FULL dashboard (passport, emergency contacts, benchmarks, goals, skills, positions). It becomes the Full Profile section WITHIN the Overview — rendered BELOW the 'Today' priority view. Do NOT remove or replace any content. The Today view sits above it on the same page.",
       "'player' functional role already exists in org-role-switcher.tsx and routes to /orgs/[orgId]/player",
       "hasPlayerDashboard query already built at packages/backend/convex/models/adultPlayers.ts:633 — use it to gate the portal",
       "getPlayerDashboard query already built at adultPlayers.ts:503 — use it for the overview summary cards",
@@ -58,23 +58,28 @@
     },
     {
       "id": "US-P1-002",
-      "title": "Player Overview Dashboard Enhancement with Wellness CTA",
-      "description": "As an adult player, I want the existing overview to surface a Daily Wellness CTA and key summary cards, so that my most important actions are immediately visible.",
+      "title": "Player Overview — 'Today' Priority First-Screen",
+      "description": "As an adult player, I want the overview to immediately surface only the 2–3 things that need my attention today, so that I can act quickly without scrolling through data that isn't relevant right now.",
       "phase": "Phase 1: Extend Existing Player Portal",
       "acceptanceCriteria": [
-        "All existing content in player/page.tsx (passport, emergency contacts, benchmarks, goals, skills, positions) remains intact",
-        "Add a summary card row at the TOP of the existing page: active injuries count card, latest assessment rating card, today's wellness status card",
-        "If wellness check not yet submitted today: show amber 'Complete Your Daily Wellness Check' CTA card linking to /player/health-check",
-        "If wellness check already submitted today: show green 'Wellness checked in today ✓' status card",
-        "All summary cards show empty state (with appropriate icon and message) when no data exists",
-        "Summary data fetched via existing getPlayerDashboard(organizationId) query — no new backend query needed for the card row",
-        "Today's wellness status requires a new lightweight query getTodayHealthCheck(playerIdentityId, date) — add to a new file packages/backend/convex/models/playerHealthChecks.ts (Phase 4 will expand this file; stub it now with just this query)",
-        "Mobile-first card layout: stack vertically on mobile, 3-column grid on desktop",
+        "The /orgs/[orgId]/player/ route renders a single scrollable page with two sections: a 'Today' priority section at the top, and a 'Full Profile' section below (the unchanged existing player/page.tsx content).",
+        "TODAY SECTION — Priority action cards (show ONLY if relevant — do not show empty placeholders for irrelevant cards):",
+        "  (a) WELLNESS CARD: if no wellness check submitted today (getTodayHealthCheck returns null) → amber card 'Complete your daily wellness check' with subtitle 'Takes under a minute' and a 'Start Check-In' button linking to /player/health-check. If already submitted → green card '✓ Wellness checked in today' with today's aggregate score shown (e.g. '4.2 / 5').",
+        "  (b) INJURY CARD: if player has at least one active injury (status 'active' or 'recovering') → amber card showing injury count, e.g. '⚠ 1 active injury' with body part and status, linking to /player/injuries. If no active injuries → card NOT shown.",
+        "  (c) FEEDBACK CARD: if player has at least one unacknowledged coachParentSummary (Phase 5 will provide the query — stub with null for now) → blue card 'New coach feedback available' with count, linking to /player/feedback. If none → card NOT shown.",
+        "If ALL three conditions are 'clear' (wellness done, no active injuries, no unread feedback): show a single green 'All clear today 🎉' card instead of the three cards.",
+        "TODAY SECTION — Quick stats strip below cards: Player name, current team(s) (comma-separated), today's date in format 'Tuesday, 25 Feb'.",
+        "FULL PROFILE SECTION: headed 'My Profile' with a subtle divider. Renders the existing player/page.tsx content exactly as-is (passport, emergency contacts, benchmarks, goals, skills, positions). No changes to this content.",
+        "On MOBILE (375px): Today section cards stack vertically and fill the full width. A 'See full profile ↓' link anchors to the Full Profile section. The 4 bottom nav tabs remain visible.",
+        "On DESKTOP: Today cards display in a 3-column grid. Full Profile is visible below without needing a scroll prompt.",
+        "Today section data: wellness from getTodayHealthCheck stub (Phase 1 already creates this); injuries from a new lightweight query getTodayPriorityData(playerIdentityId, organizationId) that returns { activeInjuryCount, activeInjuryBodyPart } — add this query to packages/backend/convex/models/adultPlayers.ts following existing patterns. The feedback query stubs to null until Phase 5.",
+        "Today section must render in under 200ms perceived time — use Convex reactive queries, no loading spinners for the primary cards (Suspense boundaries acceptable for the Full Profile section below).",
+        "Mobile responsive at 375px minimum.",
         "npm run check-types passes"
       ],
       "priority": 2,
       "passes": false,
-      "notes": "Read the existing player/page.tsx fully before touching it. Add the summary row above the existing content, don't replace anything. The getTodayHealthCheck query stub only needs to return null for now — Phase 4 adds the full wellness schema."
+      "notes": "The Today section is the most important piece of real estate in the entire player portal. Keep it ruthlessly focused: only show cards for things that need action right now. Never show empty state cards for categories with nothing to report. The Full Profile content (existing page.tsx) is unchanged — it just moves to below the Today section on the same page. The getTodayPriorityData query can be a lightweight internal query — read adultPlayers.ts before adding it."
     },
     {
       "id": "US-P1-003",
@@ -110,6 +115,9 @@
         "Test: clicking each sidebar nav item navigates without 404",
         "Test: overview page shows summary cards (may be empty state)",
         "Test: amber wellness CTA card is visible when no wellness check submitted today",
+        "Test: injury card is NOT shown when player has no active injuries",
+        "Test: 'All clear today' card shown when wellness done and no active injuries",
+        "Test: Full Profile section renders below Today section on the same page",
         "Test: navigate to My Profile, edit phone number, save, refresh, confirm new phone number persists",
         "Test: read-only fields (name, DOB) inputs are disabled and show lock icon",
         "Test: emergency contacts section is visible in My Profile",
@@ -119,7 +127,8 @@
         "Manual test 4: Verify read-only fields show lock icon and cannot be edited",
         "Manual test 5: Navigate to each sidebar section → confirm no 404 errors, placeholder shown for unbuilt sections",
         "Manual test 6: Resize to 375px → confirm mobile bottom nav appears, all items tappable (44×44px min)",
-        "Manual test 7: Confirm org theme colours applied consistently across all portal pages"
+        "Manual test 7: Confirm org theme colours applied consistently across all portal pages",
+        "Manual test 8: Submit wellness check → confirm Today section updates to green '✓ Wellness checked in today' card without page refresh"
       ],
       "priority": 4,
       "passes": false,

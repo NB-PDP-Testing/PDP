@@ -6,6 +6,7 @@
   "contextAndDependencies": {
     "criticalContext": [
       "EXTEND, NEVER REBUILD: All three entry points already exist — manual add (admin/players/page.tsx), CSV import (admin/player-import/page.tsx), email invite (existing invite dialog). Add matching logic to them, do NOT create new flows.",
+      "IRISH NAME NORMALISATION: All name comparisons MUST apply a normaliseNameForMatching() helper function BEFORE comparison. This function must: (1) apply Unicode NFD decomposition then strip combining diacritical marks (converts fadas — Séan→Sean, Pádraig→Padraig, Niamh→Niamh stays, Síle→Sile); (2) remove apostrophes, hyphens, and spaces (O'Brien→OBrien, O Brien→OBrien, Flannery-Burke→FlanerryBurke); (3) normalise Mc/Mac prefix — replace leading 'mac' with 'mc' after lowercasing (McCarthy→mccarthy, MacCarthy→mccarthy); (4) lowercase the entire result. This normalisation is applied to BOTH the candidate name and all stored names before ANY comparison — it does not change the stored data, only the comparison strings. Implement normaliseNameForMatching() as a shared utility function at the top of the matching file.",
       "Guardian multi-signal matching algorithm at packages/backend/convex/models/playerImport.ts:148 — read this to understand the scoring approach before writing findMatchingYouthProfile",
       "transitionToAdult mutation already built at adultPlayers.ts:206 — the 'merge' action calls this, NOT a new mutation",
       "claimYouthProfile mutation at adultPlayers.ts:350 — use for 'Approve & Link' in the join request flow",
@@ -25,7 +26,7 @@
       "packages/backend/convex/schema.ts — playerIdentities table structure (for query design)"
     ],
     "criticalPatterns": {
-      "MatchingAlgorithm": "exact DOB + exact surname (case-insensitive) = HIGH; exact DOB + first name match = MEDIUM; surname only = LOW. Email match boosts by one level. Query only youth playerIdentities using .withIndex().",
+      "MatchingAlgorithm": "All name comparisons use normaliseNameForMatching() (see criticalContext) BEFORE scoring. Scoring: normalised DOB + normalised surname match → HIGH; normalised DOB + normalised firstName match → MEDIUM; normalised surname only → LOW. Email match (exact, lowercased) boosts by one level. Query only youth playerIdentities using .withIndex(). Examples of matches that MUST work: 'O\\'Brien'/'OBrien'/'O Brien' all match each other; 'McCarthy'/'MacCarthy' match each other; 'Séan'/'Sean' match each other; 'Pádraig'/'Padraig' match each other.",
       "ExtendNotReplace": "All three entry points already exist. Add matching logic to them. The existing flows must continue to work unchanged for youth players and non-matched adults.",
       "MergeVsCreate": "Merge = call transitionToAdult on existing record, do NOT create new playerIdentity. Create New = existing flow unchanged.",
       "N1Prevention": "findMatchingYouthProfile is called once per candidate, not in a loop over org players. The query scans youth identities with indexes.",
@@ -42,7 +43,9 @@
         "Add findMatchingYouthProfile query to packages/backend/convex/models/playerImport.ts (or a new file packages/backend/convex/models/playerMatching.ts if cleaner)",
         "Args: organizationId (string), firstName (string), lastName (string), dateOfBirth (string), email (optional string)",
         "Query only playerIdentities where playerType === 'youth' using .withIndex() — never .filter()",
-        "Matching algorithm: exact DOB + exact surname (case-insensitive) → HIGH confidence; exact DOB + firstName match → MEDIUM; surname only → LOW",
+        "Implement normaliseNameForMatching(name: string): string utility function at the top of the matching file. Steps in order: (1) Unicode NFD decomposition + strip combining diacritical characters (regex /\\u0300-\\u036f/g) — converts Séan→Sean, Pádraig→Padraig, Síle→Sile; (2) remove apostrophes, hyphens, and spaces (replace /[\\x27\\-\\s]/g with ''); (3) if result starts with 'mac' (after lowercasing), replace leading 'mac' with 'mc'; (4) lowercase entire result. Function is pure — does NOT modify any stored data.",
+        "Matching algorithm — apply normaliseNameForMatching() to both candidate and stored names before scoring: normalised DOB (exact) + normalised surname match → HIGH confidence; normalised DOB + normalised firstName match → MEDIUM; normalised surname only → LOW. Email match (lowercased exact) boosts by one level.",
+        "Unit test examples (document as comments in the matching file): normaliseNameForMatching('O\\'Brien') === 'obrien'; normaliseNameForMatching('OBrien') === 'obrien'; normaliseNameForMatching('O Brien') === 'obrien'; normaliseNameForMatching('MacCarthy') === 'mccarthy'; normaliseNameForMatching('McCarthy') === 'mccarthy'; normaliseNameForMatching('Séan') === 'sean'; normaliseNameForMatching('Pádraig') === 'padraig'. These should be verified manually after implementation by running normaliseNameForMatching in the Convex REPL.",
         "If email provided and matches playerIdentity email: boost confidence by one level (LOW→MEDIUM, MEDIUM→HIGH)",
         "Return type: { confidence: 'high' | 'medium' | 'low' | 'none', match: playerIdentity object or null, matchedFields: string[] }",
         "Include returns validator with the full return shape",
@@ -52,7 +55,7 @@
       ],
       "priority": 1,
       "passes": false,
-      "notes": "Read playerImport.ts:148 to understand the existing scoring pattern — reuse that approach. This is the foundation for all other Phase 3 stories. Must be completed first."
+      "notes": "Read playerImport.ts:148 to understand the existing scoring pattern — reuse that approach. This is the foundation for all other Phase 3 stories. Must be completed first. Apply normaliseNameForMatching() to both the incoming candidate name and the stored playerIdentity names — never modify stored data, only the comparison strings."
     },
     {
       "id": "US-P3-002",
@@ -145,6 +148,8 @@
         "Create test file: apps/web/uat/tests/adult-import-matching-phase3.spec.ts",
         "Test: manually adding adult player with HIGH confidence match shows blocking dialog",
         "Test: manually adding adult player with no match proceeds directly to creation (no dialog)",
+        "Test: manually adding adult player with surname 'O\\'Brien' matches existing youth record with surname 'OBrien' at HIGH confidence",
+        "Test: manually adding adult player with first name 'Séan' matches existing youth record with first name 'Sean' (same DOB) at HIGH confidence",
         "Test: 'Link to Existing History' in dialog does not create a new playerIdentity",
         "Test: import CSV with adult row matching existing youth player shows 'High' badge in review table",
         "Test: join request form shows DOB field when 'player' role selected",
@@ -155,7 +160,9 @@
         "Manual test 4: Upload CSV with adult row matching youth player by name+DOB → confirm 'High' badge in import preview",
         "Manual test 5: Accept match during import → verify no duplicate record, existing enrollment updated",
         "Manual test 6: Submit self-registration as player with DOB matching youth record → log in as admin → confirm match flag in pending requests",
-        "Manual test 7: Invite player by email + DOB matching youth record → confirm informational note in invite dialog"
+        "Manual test 7: Invite player by email + DOB matching youth record → confirm informational note in invite dialog",
+        "Manual test 8: Create youth player named 'Séan O\\'Brien'. Manually add adult with name 'Sean OBrien' (same DOB) → confirm HIGH match dialog appears (names normalise to same value)",
+        "Manual test 9: Create youth player named 'MacCarthy'. Manually add adult with surname 'McCarthy' (same DOB) → confirm HIGH match dialog appears"
       ],
       "priority": 6,
       "passes": false,

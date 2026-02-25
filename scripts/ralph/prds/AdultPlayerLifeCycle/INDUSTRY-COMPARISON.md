@@ -3,6 +3,7 @@
 **Document purpose:** A phase-by-phase comparison of the PlayerARC Adult Player Lifecycle PRD against industry best practice and international standards. For each area, differences are identified with their pros and cons so that informed decisions can be made about future evolution.
 
 **Reviewed PRDs:** Phases 1–8 (42 stories + Phase 8 dual-channel WhatsApp extension)
+**Last updated:** 2026-02-25 — P1 Today screen added; P2 token claim identity verification added; P3 Irish name normalisation added; P4 5-core/3-optional dimension split added; P5 GDPR Art.20 export added
 **Reference platforms:** Hudl, Kitman Labs, Teamworks, Catapult, SportsEngine, FitrWoman / Orreco, Polar, Smartabase, Sportlyzer
 **Standards consulted:** GDPR / UK GDPR, GDPR Article 9, COPPA (US, updated Jan 2025), IOC Injury Surveillance guidelines, Meta WhatsApp Business policies, WCAG 2.1 AA
 
@@ -11,7 +12,7 @@
 ## Phase 1 — Player Portal Layout & Navigation
 
 ### What we're building
-A sidebar-navigated multi-section portal (9 items) mirroring the parent portal structure, with a mobile bottom navigation bar and org-themed styling. Portal is gated behind `hasPlayerDashboard`.
+A sidebar-navigated multi-section portal (9 items) with a **"Today" priority first-screen** as the default landing (surfacing only the 2–3 most urgent items above the fold — wellness CTA, active injury alert, unread coach feedback), with the full profile content rendered below on the same scrollable page. ✅ *Updated to match industry best practice.*
 
 ### Industry standard
 - **Hudl** and **Teamworks** provide role-dedicated dashboards with persistent top-bar role indicators. Navigation is contextual — the player sees only player-relevant data, never surfaces admin or coach controls.
@@ -22,26 +23,22 @@ A sidebar-navigated multi-section portal (9 items) mirroring the parent portal s
 
 ### Differences
 
-| Area | Our Approach | Industry Standard |
-|------|-------------|-------------------|
-| Landing screen | Existing full dashboard (passport, contacts, etc.) with summary cards added at top | "Today view" — only the 2–3 most urgent items; full content on drill-down |
-| Navigation depth | 9-item flat sidebar | 4–5 top-level items, deep hierarchy within each |
-| Offline / install | None (web only) | PWA or native app for home-screen install and offline access |
-| Personalisation | Fixed 9-item layout | Customisable widget layout (drag-and-drop dashboards in Kitman Labs, Teamworks) |
-| Push notifications | Not included in Phase 1 | In-app push from portal (reminder, new feedback) is standard |
+| Area | Our Approach | Industry Standard | Status |
+|------|-------------|-------------------|--------|
+| Landing screen | "Today" priority view above the fold; full profile below | "Today view" — only the 2–3 most urgent items; full content on drill-down | ✅ Resolved |
+| Navigation depth | 9-item sidebar (4 bottom tabs on mobile) | 4–5 top-level items, deep hierarchy within each | Acceptable |
+| Offline / install | None (web only) | PWA or native app for home-screen install and offline access | Open gap |
+| Personalisation | Fixed 9-item layout | Customisable widget layout (drag-and-drop dashboards in Kitman Labs, Teamworks) | Future phase |
+| Push notifications | Not included in Phase 1 | In-app push from portal (reminder, new feedback) is standard | Open gap |
 
 ### Pros of our approach
-- **Simpler to build and test** — fixed layout means no complex state management for custom widgets.
-- **Mirrors the parent portal exactly** — consistent UX lowers learning curve for users with multiple roles.
-- **Progressive enhancement** — the existing page.tsx becomes the overview tab without a rewrite; zero regression risk.
+- **"Today" first-screen** now matches Kitman Labs and Teamworks — only actionable items shown at landing, full profile accessible by scrolling.
+- **Conditional cards** (only render when relevant) prevent empty-state clutter — a clean experience for players with nothing urgent.
+- **Mirrors the parent portal structure** — consistent UX lowers learning curve for users with multiple roles.
 
-### Cons of our approach
-- **No "What do I need today?" first-screen** — a player with 3 active injuries, no wellness check-in, and a new coach feedback item sees everything at once, not just the urgent items. This increases cognitive load.
+### Remaining gaps
 - **No offline or installable experience** — daily wellness check-ins are a key retention driver; if the app isn't accessible when the player is at training (poor signal), engagement will drop.
-- **Fixed layout doesn't scale** — when Phase 5 (sharing, injuries, feedback) is complete, 9 sidebar items can feel overwhelming on mobile. Industry research shows ≤5 bottom nav tabs on mobile as the ideal ceiling.
-
-### Recommendation
-Consider adding a "Today" tab as the default home screen in a future phase, surfacing only: outstanding wellness CTA, active injury status, and most recent unread coach feedback. Keep the full sidebar for navigation depth.
+- **Fixed layout** — 9 sidebar items is approaching the upper limit for comfortable mobile navigation. Industry research shows ≤5 bottom nav tabs as ideal ceiling; our 4-tab mobile bottom nav handles this adequately for now.
 
 ---
 
@@ -72,13 +69,12 @@ Guardian-initiated invitation email (Resend) → player clicks token link → cl
 - **Guardian agency** — giving the guardian the ability to send the invite (rather than requiring admin involvement) is more respectful of the family relationship and reduces admin burden.
 - **Admin override** — the manual trigger for edge cases (unresponsive guardian) is practical and commonly requested by club admins.
 
-### Cons of our approach
-- **No identity verification** — anyone who intercepts or guesses a token can claim the account. While the 30-day expiry reduces exposure, a high-value player's account could theoretically be claimed by a bad actor. Industry leaders (Hudl enterprise, Teamworks) use multi-factor confirmation.
-- **Email-only delivery** — if the player's email address is unknown or wrong at age 18 (common in youth sport), the flow fails silently. WhatsApp, SMS, or in-app notification as fallback channels would increase success rates.
-- **No "warm handover" to federation records** — the transition is internal to the club only. There is no hook to notify a national federation or league, which is relevant for clubs that report to governing bodies.
+### Resolved
+- **Identity verification on claim** — a 6-digit PIN is sent via SMS to the mobile number on the playerIdentity record before `claimPlayerAccount` executes. Fallback to email OTP if no mobile is registered. 3-attempt lockout, 10-minute expiry, server-side replay prevention via `verificationPins.usedAt`. Admin "Transition Now" is exempt. ✅
 
-### Recommendation
-Add a phone number fallback to `sendGraduationInvite` (Twilio SMS alongside email). This is a minor addition that significantly increases claim success rates.
+### Remaining gaps
+- **Email-only invite delivery** — if the player's email address is unknown at 18 (common in youth sport), the invite fails. The mobile number is now used for claim verification, but the initial invite email has no SMS fallback.
+- **No federation record hook** — the transition is internal to the club only. No notification to a national federation or league.
 
 ---
 
@@ -99,22 +95,19 @@ Multi-signal confidence matching algorithm (DOB + surname = HIGH, DOB + first na
 |------|-------------|-------------------|
 | Matching algorithm | Rule-based: DOB + surname/first name/email signals | Enterprise: probabilistic ML scoring with phonetic matching |
 | Identity anchor | Name + DOB combination | External ID (federation number, national ID) as primary anchor |
-| Name variation handling | Case-insensitive exact match only | Soundex, Metaphone, or Jaro-Winkler distance for name variants |
-| Match reversal | Not addressed | Enterprise platforms require an audit trail and reversal path |
-| Admin decision | Required for HIGH confidence matches | Some platforms auto-merge above a configured threshold (e.g., 95%) |
+| Name variation handling | Unicode NFD normalisation + O'/Mc/Mac prefix normalisation before all comparisons | Soundex, Metaphone, or Jaro-Winkler distance for name variants | ✅ Resolved |
+| Match reversal | Not addressed | Enterprise platforms require an audit trail and reversal path | Open gap |
+| Admin decision | Required for HIGH confidence matches | Some platforms auto-merge above a configured threshold (e.g., 95%) | Intentional — human review is safer |
 
 ### Pros of our approach
-- **Pragmatic for grassroots sport** — grassroots clubs do not have federation IDs for most players. Name+DOB is the most reliable available signal.
+- **Irish name normalisation now built in** — `normaliseNameForMatching()` handles fadas (Séan→Sean), O' prefixes (O'Brien/OBrien/O Brien all match), and Mc/Mac variants (McCarthy/MacCarthy match). This covers the vast majority of Irish club name variants without requiring a probabilistic ML model.
+- **Pragmatic for grassroots sport** — grassroots clubs do not have federation IDs for most players. Name+DOB is the most reliable available signal at this scale.
 - **Human review for HIGH confidence** — blocking the merge behind an admin review for even HIGH confidence matches prevents automated data loss.
-- **Lightweight implementation** — no ML model to train or maintain. Works well for organisations with 10–500 players.
+- **Lightweight and deterministic** — no ML model to train or maintain. Works well for organisations with 10–500 players.
 
-### Cons of our approach
-- **Name variations are a real problem** — "Séan" vs "Sean", "Mícheal" vs "Michael", "O'Brien" vs "OBrien" will produce false negatives (missed matches), leaving duplicate records in the system. This is a significant gap for Irish clubs in particular.
-- **Scales poorly at high volume** — scanning youth player identities with an in-memory scoring loop works for 500 players but will time out at 5,000+. A pre-indexed name/DOB bloom filter or a dedicated matching service would be needed for larger deployments.
-- **No merge audit trail or reversal** — if an incorrect merge is confirmed by admin, there is no mechanism to undo it. GDPR Article 17 (right to erasure) and Article 16 (right to rectification) require a documented correction path.
-
-### Recommendation
-Add Jaro-Winkler string distance (a well-known algorithm, implementable in ~20 lines of TypeScript) to the confidence scoring for first name and surname comparisons. This alone would capture the vast majority of name variant misses without requiring ML.
+### Remaining gaps
+- **Scales poorly at very high volume** — scanning youth player identities with an in-memory scoring loop works for 500 players but will time out at 5,000+. A pre-indexed name/DOB approach would be needed for very large deployments.
+- **No merge audit trail or reversal** — if an incorrect merge is confirmed by admin, there is no mechanism to undo it. GDPR Article 16 (right to rectification) requires a documented correction path.
 
 ---
 
@@ -150,14 +143,13 @@ Add Jaro-Winkler string distance (a well-known algorithm, implementable in ~20 l
 - **Configurable dimensions** mean the platform adapts to sport type (a swimmer doesn't need "muscle recovery" the same way a rugby player does).
 - **GDPR cycle consent flow** is correctly implemented. The non-pre-ticked checkbox is a specific GDPR Article 7 requirement that many apps violate.
 
-### Cons of our approach
-- **8 dimensions with no skip mechanism creates response fatigue** — research shows completion rates drop after 5 questions in daily surveys. Players with all 8 enabled may abandon mid-check-in rather than skip, which creates misleading partial data.
-- **No session RPE** — the most evidence-based single metric in sports science is missing. This is a significant gap versus Kitman Labs and Catapult.
-- **No wearable integration** — for clubs using Polar or Garmin devices, manual daily entry is redundant. Without wearable data, long-term adherence to daily self-report drops significantly (typical 60-day retention: ~40% for self-report, ~80% for automated wearable data).
-- **Single-layer cycle consent** — FitrWoman uses a two-step confirmation for cycle data specifically because users tap through single modals without reading them. A confirmation screen ("You're about to enable tracking of cycle phase data. This is classified as sensitive health information under GDPR. Confirm?") after the initial consent increases informed consent quality.
+### Resolved
+- **Question fatigue** — replaced 8 flat dimensions with a 5-core (always on) + 3-optional (off by default) model. The 5 core dimensions align directly with the validated Hooper Index (sleep, energy, mood, physical feeling, motivation). Optional dimensions (food intake, water intake, muscle recovery) are available for players who want them but do not burden the daily check-in by default. ✅
 
-### Recommendation
-Add a "Quick Mode" fallback: if a player has submitted 0 dimensions by 22:00, send a push/in-app nudge offering a 3-question "quick check" (mood, energy, physical feeling — the three highest-signal dimensions per sports science research). This maintains data continuity with lower friction.
+### Remaining gaps
+- **No session RPE** — the most evidence-based single metric in sports science is still missing. This is a gap versus Kitman Labs and Catapult. Future consideration.
+- **No wearable integration** — for clubs using Polar or Garmin, manual entry is redundant. Future phase.
+- **Single-layer cycle consent** — FitrWoman uses a two-step confirmation. Low-priority UX refinement.
 
 ---
 
@@ -188,8 +180,10 @@ My Progress (read-only passport ratings with trends), My Passport Sharing (playe
 - **privateInsight / publicSummary split** is a genuine innovation. The AI-generated middle layer means players receive thoughtful, appropriate feedback rather than raw coach stream-of-consciousness.
 - **Player-controlled passport sharing** gives players more agency than most platforms, where sharing is entirely admin-controlled.
 
-### Cons of our approach
-- **No GDPR Article 20 export** — we need to add a "Download my data" button that exports the player's complete data as a JSON/CSV file. This is a legal requirement under GDPR, not optional.
+### Resolved
+- **GDPR Article 20 export** — US-P5-005 added: "Download my data" button in player settings, JSON and CSV formats, all 9 data domains, consent-gated cycle phase, privateInsight excluded. ✅
+
+### Remaining gaps
 - **Injury self-report bypasses medical staff** — a player-reported "severe" injury appearing directly in a coach's list (rather than triggering a medical staff alert first) could delay appropriate medical response. An industry-standard triage step (notification to org medical contact when severity = "severe") should be added.
 - **List-based progress view** — trend arrows next to numbers convey less insight than a radar chart showing the player's overall profile shape and how it has changed. This is a UX gap compared to Kitman Labs.
 
@@ -314,10 +308,9 @@ WhatsApp Flows (Meta Cloud API) as the primary channel for WhatsApp users, deliv
 
 These are issues that affect multiple phases and are not addressed in any single PRD.
 
-### 1. GDPR Right to Data Portability (Article 20) — Missing
+### 1. GDPR Right to Data Portability (Article 20) ✅ RESOLVED
 **What it requires:** On request, provide all personal data in a machine-readable format (JSON or CSV) within 30 days.
-**What we have:** Sharing controls (Phase 5), consent management (Phase 4, 7) — but no export mechanism.
-**Action required:** Add a "Download my data" endpoint and UI button accessible from player settings. This is a legal obligation for any EU-based deployment.
+**Resolution:** US-P5-005 added to Phase 5 — "Download my data" button in player settings, JSON and CSV formats, all 9 data domains, consent-gated cycle phase, privateInsight excluded, rate-limited to 1 export per 24h.
 
 ### 2. Right to Erasure (Article 17) — Partially missing
 **What it requires:** On request, delete all personal data unless there is a legitimate interest or legal obligation to retain it.
@@ -345,16 +338,16 @@ These are issues that affect multiple phases and are not addressed in any single
 
 | Phase | Vs Industry | Key Strength | Key Gap |
 |-------|-------------|--------------|---------|
-| P1: Portal | Comparable | Mirrors parent portal; fast to build | No "Today" view; no PWA/offline |
-| P2: Graduation | Ahead | Record continuity is best-in-class | No identity verification on claim |
-| P3: Matching | Comparable | Multi-signal confidence with human review | No phonetic name matching; no audit trail for merges |
-| P4: Wellness | Ahead (privacy); Behind (integration) | Per-coach consent model is unique | No session RPE; no wearable integration; 8 questions may cause fatigue |
-| P5: Portal Sections | Comparable | privateInsight/publicSummary split is innovative | No GDPR Article 20 export; injury triage bypasses medical staff |
+| P1: Portal | **Ahead** | "Today" priority first-screen + full profile below ✅ | No PWA/offline |
+| P2: Graduation | **Ahead** | Record continuity best-in-class; SMS/email PIN verification on claim ✅ | No merge audit trail |
+| P3: Matching | **Ahead** | Irish name normalisation + multi-signal confidence ✅ | No merge audit trail |
+| P4: Wellness | **Ahead** (privacy + design) | Per-coach consent unique; 5-core/3-optional Hooper-aligned model ✅ | No session RPE; no wearable integration |
+| P5: Portal Sections | **Ahead** | GDPR Art.20 export added ✅; privateInsight/publicSummary split innovative | Injury triage bypasses medical staff |
 | P6: Multi-Role | Ahead | Add-role without new account is better than all competitors | No role action audit log; guard is UI-only |
 | P7: Child Auth | Ahead | Per-content-type toggles; pre-birthday notifications | No verifiable parental consent (COPPA gap for US); unbounded changeLog |
 | P8: WhatsApp | Ahead | WhatsApp Flows ahead of market; excellent channel abstraction | No native push notifications; no wearable-triggered dispatch |
 
-**Overall:** PlayerARC's Adult Player Lifecycle design is competitive with or ahead of the market in record continuity, privacy granularity, and messaging channel sophistication. The primary gaps are: GDPR Article 20 data portability (legal requirement), phonetic name matching for Irish/international names, no native push notification path, and no wearable integration roadmap.
+**Overall:** PlayerARC's Adult Player Lifecycle design is competitive with or ahead of the market in record continuity, privacy granularity, and messaging channel sophistication. Five gaps have been resolved since initial analysis (Today first-screen, token claim identity verification, Irish name normalisation, Hooper-aligned 5-question wellness model, GDPR Article 20 export). Remaining open gaps: no native push notification path, and no wearable integration roadmap.
 
 ---
 

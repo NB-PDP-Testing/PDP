@@ -264,4 +264,12 @@ crons.interval(
   {}
 );
 
+// Phase 4 Wellness: Send daily wellness reminders at 8 AM UTC (US-P4-009)
+crons.daily(
+  "send-wellness-reminders",
+  { hourUTC: 8, minuteUTC: 0 },
+  internal.models.playerHealthChecks.sendWellnessReminders,
+  {}
+);
+
 export default crons;

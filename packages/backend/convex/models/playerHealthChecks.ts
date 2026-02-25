@@ -1,6 +1,12 @@
 import { v } from "convex/values";
 import { internal } from "../_generated/api";
-import { internalQuery, mutation, query } from "../_generated/server";
+import type { Id } from "../_generated/dataModel";
+import {
+  internalMutation,
+  internalQuery,
+  mutation,
+  query,
+} from "../_generated/server";
 
 // Core dimensions that can never be individually disabled
 const CORE_DIMENSIONS = [
@@ -756,5 +762,449 @@ export const _getRecentChecksInternal = internalQuery({
     return records
       .filter((r) => r.checkDate >= cutoffStr)
       .sort((a, b) => b.checkDate.localeCompare(a.checkDate));
+  },
+});
+
+// ─── Admin: Org Config (US-P4-009) ──────────────────────────────────────────
+
+/** Get org-level wellness reminder + alert configuration */
+export const getWellnessOrgConfig = query({
+  args: { organizationId: v.string() },
+  returns: v.union(
+    v.object({
+      _id: v.id("wellnessOrgConfig"),
+      organizationId: v.string(),
+      remindersEnabled: v.boolean(),
+      reminderFrequency: v.union(
+        v.literal("daily"),
+        v.literal("match_day_only"),
+        v.literal("training_day_only")
+      ),
+      reminderType: v.union(
+        v.literal("in_app"),
+        v.literal("email"),
+        v.literal("both")
+      ),
+      lowScoreAlertsEnabled: v.boolean(),
+      lowScoreThreshold: v.number(),
+      updatedAt: v.number(),
+      updatedBy: v.string(),
+    }),
+    v.null()
+  ),
+  handler: async (ctx, args) =>
+    ctx.db
+      .query("wellnessOrgConfig")
+      .withIndex("by_org", (q) => q.eq("organizationId", args.organizationId))
+      .first(),
+});
+
+/** Upsert org-level wellness reminder + alert configuration */
+export const updateWellnessOrgConfig = mutation({
+  args: {
+    organizationId: v.string(),
+    updatedBy: v.string(),
+    remindersEnabled: v.boolean(),
+    reminderFrequency: v.union(
+      v.literal("daily"),
+      v.literal("match_day_only"),
+      v.literal("training_day_only")
+    ),
+    reminderType: v.union(
+      v.literal("in_app"),
+      v.literal("email"),
+      v.literal("both")
+    ),
+    lowScoreAlertsEnabled: v.boolean(),
+    lowScoreThreshold: v.number(),
+  },
+  returns: v.id("wellnessOrgConfig"),
+  handler: async (ctx, args) => {
+    const existing = await ctx.db
+      .query("wellnessOrgConfig")
+      .withIndex("by_org", (q) => q.eq("organizationId", args.organizationId))
+      .first();
+    const now = Date.now();
+    const payload = {
+      organizationId: args.organizationId,
+      remindersEnabled: args.remindersEnabled,
+      reminderFrequency: args.reminderFrequency,
+      reminderType: args.reminderType,
+      lowScoreAlertsEnabled: args.lowScoreAlertsEnabled,
+      lowScoreThreshold: args.lowScoreThreshold,
+      updatedAt: now,
+      updatedBy: args.updatedBy,
+    };
+    if (existing) {
+      await ctx.db.patch(existing._id, payload);
+      return existing._id;
+    }
+    return ctx.db.insert("wellnessOrgConfig", payload);
+  },
+});
+
+// ─── Admin: Analytics (US-P4-009) ───────────────────────────────────────────
+
+/**
+ * Org-level daily wellness averages — for the analytics chart.
+ * Returns one row per date that had at least one submission.
+ */
+export const getOrgWellnessAnalytics = query({
+  args: {
+    organizationId: v.string(),
+    days: v.number(),
+  },
+  returns: v.array(
+    v.object({
+      checkDate: v.string(),
+      avgScore: v.number(),
+      submissionCount: v.number(),
+    })
+  ),
+  handler: async (ctx, args) => {
+    const cutoffDate = new Date();
+    cutoffDate.setDate(cutoffDate.getDate() - args.days);
+    const cutoffStr = cutoffDate.toISOString().split("T")[0];
+
+    const records = await ctx.db
+      .query("dailyPlayerHealthChecks")
+      .withIndex("by_org_and_date", (q) =>
+        q.eq("organizationId", args.organizationId)
+      )
+      .collect();
+
+    const byDate = new Map<string, { total: number; count: number }>();
+    for (const r of records) {
+      if (r.checkDate < cutoffStr) {
+        continue;
+      }
+      const dims: number[] = [];
+      if (r.sleepQuality !== undefined) {
+        dims.push(r.sleepQuality);
+      }
+      if (r.energyLevel !== undefined) {
+        dims.push(r.energyLevel);
+      }
+      if (r.mood !== undefined) {
+        dims.push(r.mood);
+      }
+      if (r.physicalFeeling !== undefined) {
+        dims.push(r.physicalFeeling);
+      }
+      if (r.motivation !== undefined) {
+        dims.push(r.motivation);
+      }
+      if (r.foodIntake !== undefined) {
+        dims.push(r.foodIntake);
+      }
+      if (r.waterIntake !== undefined) {
+        dims.push(r.waterIntake);
+      }
+      if (r.muscleRecovery !== undefined) {
+        dims.push(r.muscleRecovery);
+      }
+      if (dims.length === 0) {
+        continue;
+      }
+      const score = dims.reduce((a, b) => a + b, 0) / dims.length;
+      const existing = byDate.get(r.checkDate);
+      if (existing) {
+        existing.total += score;
+        existing.count += 1;
+      } else {
+        byDate.set(r.checkDate, { total: score, count: 1 });
+      }
+    }
+
+    return Array.from(byDate.entries())
+      .map(([checkDate, { total, count }]) => ({
+        checkDate,
+        avgScore: Math.round((total / count) * 10) / 10,
+        submissionCount: count,
+      }))
+      .sort((a, b) => a.checkDate.localeCompare(b.checkDate));
+  },
+});
+
+/**
+ * Individual player wellness history with full dimension values — admin only.
+ */
+export const getPlayerWellnessForAdmin = query({
+  args: {
+    playerIdentityId: v.id("playerIdentities"),
+    days: v.number(),
+  },
+  returns: v.array(
+    v.object({
+      checkDate: v.string(),
+      aggregateScore: v.number(),
+      sleepQuality: v.optional(v.number()),
+      energyLevel: v.optional(v.number()),
+      mood: v.optional(v.number()),
+      physicalFeeling: v.optional(v.number()),
+      motivation: v.optional(v.number()),
+      foodIntake: v.optional(v.number()),
+      waterIntake: v.optional(v.number()),
+      muscleRecovery: v.optional(v.number()),
+    })
+  ),
+  handler: async (ctx, args) => {
+    const cutoffDate = new Date();
+    cutoffDate.setDate(cutoffDate.getDate() - args.days);
+    const cutoffStr = cutoffDate.toISOString().split("T")[0];
+
+    const records = await ctx.db
+      .query("dailyPlayerHealthChecks")
+      .withIndex("by_player", (q) =>
+        q.eq("playerIdentityId", args.playerIdentityId)
+      )
+      .collect();
+
+    return records
+      .filter((r) => r.checkDate >= cutoffStr)
+      .map((r) => {
+        const dims: number[] = [];
+        if (r.sleepQuality !== undefined) {
+          dims.push(r.sleepQuality);
+        }
+        if (r.energyLevel !== undefined) {
+          dims.push(r.energyLevel);
+        }
+        if (r.mood !== undefined) {
+          dims.push(r.mood);
+        }
+        if (r.physicalFeeling !== undefined) {
+          dims.push(r.physicalFeeling);
+        }
+        if (r.motivation !== undefined) {
+          dims.push(r.motivation);
+        }
+        if (r.foodIntake !== undefined) {
+          dims.push(r.foodIntake);
+        }
+        if (r.waterIntake !== undefined) {
+          dims.push(r.waterIntake);
+        }
+        if (r.muscleRecovery !== undefined) {
+          dims.push(r.muscleRecovery);
+        }
+        const aggregateScore =
+          dims.length > 0
+            ? Math.round((dims.reduce((a, b) => a + b, 0) / dims.length) * 10) /
+              10
+            : 0;
+        return {
+          checkDate: r.checkDate,
+          aggregateScore,
+          sleepQuality: r.sleepQuality,
+          energyLevel: r.energyLevel,
+          mood: r.mood,
+          physicalFeeling: r.physicalFeeling,
+          motivation: r.motivation,
+          foodIntake: r.foodIntake,
+          waterIntake: r.waterIntake,
+          muscleRecovery: r.muscleRecovery,
+        };
+      })
+      .sort((a, b) => b.checkDate.localeCompare(a.checkDate));
+  },
+});
+
+/**
+ * Players with 3+ consecutive low wellness check-ins (score <= threshold).
+ * For the admin correlation panel.
+ */
+export const getConsecutiveLowWellnessPlayers = query({
+  args: {
+    organizationId: v.string(),
+    threshold: v.number(),
+    consecutiveCount: v.number(),
+  },
+  returns: v.array(
+    v.object({
+      playerIdentityId: v.id("playerIdentities"),
+      firstName: v.string(),
+      lastName: v.string(),
+      consecutiveLowDays: v.number(),
+      lastCheckDate: v.string(),
+      lastScore: v.number(),
+    })
+  ),
+  handler: async (ctx, args) => {
+    const cutoffDate = new Date();
+    cutoffDate.setDate(cutoffDate.getDate() - 14);
+    const cutoffStr = cutoffDate.toISOString().split("T")[0];
+
+    const records = await ctx.db
+      .query("dailyPlayerHealthChecks")
+      .withIndex("by_org_and_date", (q) =>
+        q.eq("organizationId", args.organizationId)
+      )
+      .collect();
+
+    const byPlayer = new Map<
+      string,
+      Array<{ checkDate: string; score: number }>
+    >();
+    for (const r of records) {
+      if (r.checkDate < cutoffStr) {
+        continue;
+      }
+      const dims: number[] = [];
+      if (r.sleepQuality !== undefined) {
+        dims.push(r.sleepQuality);
+      }
+      if (r.energyLevel !== undefined) {
+        dims.push(r.energyLevel);
+      }
+      if (r.mood !== undefined) {
+        dims.push(r.mood);
+      }
+      if (r.physicalFeeling !== undefined) {
+        dims.push(r.physicalFeeling);
+      }
+      if (r.motivation !== undefined) {
+        dims.push(r.motivation);
+      }
+      const score =
+        dims.length > 0 ? dims.reduce((a, b) => a + b, 0) / dims.length : 0;
+      const pid = r.playerIdentityId as string;
+      if (!byPlayer.has(pid)) {
+        byPlayer.set(pid, []);
+      }
+      byPlayer.get(pid)?.push({ checkDate: r.checkDate, score });
+    }
+
+    const lowPlayers: Array<{
+      pid: string;
+      consecutiveLowDays: number;
+      lastCheckDate: string;
+      lastScore: number;
+    }> = [];
+
+    for (const [pid, entries] of byPlayer.entries()) {
+      const sorted = entries.sort((a, b) =>
+        b.checkDate.localeCompare(a.checkDate)
+      );
+      let consecutive = 0;
+      for (const entry of sorted) {
+        if (entry.score <= args.threshold) {
+          consecutive += 1;
+        } else {
+          break;
+        }
+      }
+      if (consecutive >= args.consecutiveCount) {
+        lowPlayers.push({
+          pid,
+          consecutiveLowDays: consecutive,
+          lastCheckDate: sorted[0]?.checkDate ?? "",
+          lastScore: sorted[0]?.score ?? 0,
+        });
+      }
+    }
+
+    const result: Array<{
+      playerIdentityId: Id<"playerIdentities">;
+      firstName: string;
+      lastName: string;
+      consecutiveLowDays: number;
+      lastCheckDate: string;
+      lastScore: number;
+    }> = [];
+
+    for (const r of lowPlayers) {
+      const player = await ctx.db.get(
+        r.pid as unknown as Id<"playerIdentities">
+      );
+      if (player) {
+        result.push({
+          playerIdentityId: r.pid as unknown as Id<"playerIdentities">,
+          firstName: player.firstName,
+          lastName: player.lastName,
+          consecutiveLowDays: r.consecutiveLowDays,
+          lastCheckDate: r.lastCheckDate,
+          lastScore: Math.round(r.lastScore * 10) / 10,
+        });
+      }
+    }
+
+    return result;
+  },
+});
+
+// ─── Internal: Wellness Reminders Cron (US-P4-009) ──────────────────────────
+
+/**
+ * Send wellness reminders to players who haven't submitted today.
+ * Called daily by cron. Checks remindersEnabled before sending.
+ */
+export const sendWellnessReminders = internalMutation({
+  args: {},
+  returns: v.object({ sent: v.number(), skipped: v.number() }),
+  handler: async (ctx) => {
+    const today = new Date().toISOString().split("T")[0];
+    let sent = 0;
+    let skipped = 0;
+
+    const configs = await ctx.db.query("wellnessOrgConfig").collect();
+
+    for (const config of configs) {
+      if (!config.remindersEnabled) {
+        skipped += 1;
+        continue;
+      }
+
+      const enrollments = await ctx.db
+        .query("orgPlayerEnrollments")
+        .withIndex("by_organizationId", (q) =>
+          q.eq("organizationId", config.organizationId)
+        )
+        .collect();
+
+      for (const enrollment of enrollments) {
+        const existing = await ctx.db
+          .query("dailyPlayerHealthChecks")
+          .withIndex("by_player_and_date", (q) =>
+            q
+              .eq("playerIdentityId", enrollment.playerIdentityId)
+              .eq("checkDate", today)
+          )
+          .first();
+
+        if (existing) {
+          skipped += 1;
+          continue;
+        }
+
+        const player = await ctx.db.get(enrollment.playerIdentityId);
+        if (!player?.userId) {
+          skipped += 1;
+          continue;
+        }
+
+        if (
+          config.reminderType === "in_app" ||
+          config.reminderType === "both"
+        ) {
+          await ctx.runMutation(
+            internal.models.notifications.createNotification,
+            {
+              userId: player.userId,
+              organizationId: config.organizationId,
+              type: "wellness_reminder",
+              title: "Daily Wellness Check-In",
+              message:
+                "Don't forget to complete your daily wellness check-in today.",
+              relatedPlayerId: enrollment.playerIdentityId,
+            }
+          );
+        }
+
+        sent += 1;
+      }
+    }
+
+    return { sent, skipped };
   },
 });

@@ -7,6 +7,7 @@ import {
   BarChart3,
   Calendar,
   Filter,
+  Heart,
   TrendingDown,
   TrendingUp,
   Users,
@@ -50,6 +51,8 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
+import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
+import { WellnessAnalyticsTab } from "./wellness-analytics-tab";
 
 // Colors for charts
 const COLORS = {
@@ -386,392 +389,424 @@ export default function AnalyticsDashboard() {
         </Badge>
       </div>
 
-      {/* Filters */}
-      <Card>
-        <CardContent className="pt-4">
-          <div className="flex flex-wrap items-center gap-4">
-            <div className="flex items-center gap-2">
-              <Filter className="h-4 w-4 text-muted-foreground" />
-              <span className="font-medium text-sm">Filters:</span>
-            </div>
+      {/* Tab navigation: Skills vs Wellness */}
+      <Tabs defaultValue="skills">
+        <TabsList>
+          <TabsTrigger className="flex items-center gap-2" value="skills">
+            <BarChart3 className="h-4 w-4" />
+            Skills
+          </TabsTrigger>
+          <TabsTrigger className="flex items-center gap-2" value="wellness">
+            <Heart className="h-4 w-4" />
+            Wellness
+          </TabsTrigger>
+        </TabsList>
 
-            <Select onValueChange={setDateRange} value={dateRange}>
-              <SelectTrigger className="w-full sm:w-[140px]">
-                <Calendar className="mr-2 h-4 w-4" />
-                <SelectValue placeholder="Date range" />
-              </SelectTrigger>
-              <SelectContent>
-                <SelectItem value="all">All Time</SelectItem>
-                <SelectItem value="7d">Last 7 Days</SelectItem>
-                <SelectItem value="30d">Last 30 Days</SelectItem>
-                <SelectItem value="90d">Last 90 Days</SelectItem>
-              </SelectContent>
-            </Select>
+        <TabsContent className="mt-6" value="wellness">
+          <WellnessAnalyticsTab organizationId={orgId} />
+        </TabsContent>
 
-            <Select onValueChange={setSportFilter} value={sportFilter}>
-              <SelectTrigger className="w-full sm:w-[140px]">
-                <SelectValue placeholder="Sport" />
-              </SelectTrigger>
-              <SelectContent>
-                <SelectItem value="all">All Sports</SelectItem>
-                {sports?.map((sport: { code: string; name: string }) => (
-                  <SelectItem key={sport.code} value={sport.code}>
-                    {sport.name}
-                  </SelectItem>
-                ))}
-              </SelectContent>
-            </Select>
+        <TabsContent className="mt-6 space-y-6" value="skills">
+          {/* Filters */}
+          <Card>
+            <CardContent className="pt-4">
+              <div className="flex flex-wrap items-center gap-4">
+                <div className="flex items-center gap-2">
+                  <Filter className="h-4 w-4 text-muted-foreground" />
+                  <span className="font-medium text-sm">Filters:</span>
+                </div>
 
-            <Select onValueChange={setAgeGroupFilter} value={ageGroupFilter}>
-              <SelectTrigger className="w-full sm:w-[140px]">
-                <SelectValue placeholder="Age Group" />
-              </SelectTrigger>
-              <SelectContent>
-                <SelectItem value="all">All Ages</SelectItem>
-                {[
-                  "u8",
-                  "u9",
-                  "u10",
-                  "u11",
-                  "u12",
-                  "u13",
-                  "u14",
-                  "u15",
-                  "u16",
-                  "u17",
-                  "u18",
-                  "senior",
-                ].map((ag) => (
-                  <SelectItem key={ag} value={ag}>
-                    {ag.toUpperCase()}
-                  </SelectItem>
-                ))}
-              </SelectContent>
-            </Select>
+                <Select onValueChange={setDateRange} value={dateRange}>
+                  <SelectTrigger className="w-full sm:w-[140px]">
+                    <Calendar className="mr-2 h-4 w-4" />
+                    <SelectValue placeholder="Date range" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="all">All Time</SelectItem>
+                    <SelectItem value="7d">Last 7 Days</SelectItem>
+                    <SelectItem value="30d">Last 30 Days</SelectItem>
+                    <SelectItem value="90d">Last 90 Days</SelectItem>
+                  </SelectContent>
+                </Select>
 
-            <Button
-              onClick={() => {
-                setDateRange("all");
-                setSportFilter("all");
-                setAgeGroupFilter("all");
-              }}
-              size="sm"
-              variant="ghost"
-            >
-              Clear Filters
-            </Button>
-          </div>
-        </CardContent>
-      </Card>
-
-      {/* Summary Cards */}
-      <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-4">
-        <Card>
-          <CardHeader className="flex flex-row items-center justify-between pb-2">
-            <CardTitle className="font-medium text-sm">Total Players</CardTitle>
-            <Users className="h-4 w-4 text-muted-foreground" />
-          </CardHeader>
-          <CardContent>
-            <div className="font-bold text-2xl">
-              {metrics.uniquePlayerCount}
-            </div>
-            <p className="text-muted-foreground text-xs">
-              With skill assessments
-              {analyticsData.totalPlayers > 0 &&
-                analyticsData.totalPlayers !== metrics.uniquePlayerCount && (
-                  <span className="ml-1">
-                    ({analyticsData.totalPlayers} with benchmarks)
-                  </span>
-                )}
-            </p>
-          </CardContent>
-        </Card>
-
-        <Card>
-          <CardHeader className="flex flex-row items-center justify-between pb-2">
-            <CardTitle className="font-medium text-sm">
-              Avg. Skill Rating
-            </CardTitle>
-            <BarChart3 className="h-4 w-4 text-muted-foreground" />
-          </CardHeader>
-          <CardContent>
-            <div className="flex items-center gap-2">
-              <span className="font-bold text-2xl">
-                {metrics.avgRating.toFixed(1)}
-              </span>
-              <span className="text-muted-foreground text-sm">/ 5</span>
-            </div>
-            {metrics.ratingTrend !== 0 && (
-              <p
-                className={`flex items-center text-xs ${metrics.ratingTrend > 0 ? "text-green-600" : "text-red-600"}`}
-              >
-                {metrics.ratingTrend > 0 ? (
-                  <TrendingUp className="mr-1 h-3 w-3" />
-                ) : (
-                  <TrendingDown className="mr-1 h-3 w-3" />
-                )}
-                {Math.abs(metrics.ratingTrend).toFixed(1)}% from last month
-              </p>
-            )}
-          </CardContent>
-        </Card>
-
-        <Card>
-          <CardHeader className="flex flex-row items-center justify-between pb-2">
-            <CardTitle className="font-medium text-sm">
-              Assessments This Month
-            </CardTitle>
-            <Calendar className="h-4 w-4 text-muted-foreground" />
-          </CardHeader>
-          <CardContent>
-            <div className="font-bold text-2xl">
-              {metrics.assessmentsThisMonth}
-            </div>
-            <p className="text-muted-foreground text-xs">
-              {metrics.totalAssessments} total assessments
-            </p>
-          </CardContent>
-        </Card>
-
-        <Card>
-          <CardHeader className="flex flex-row items-center justify-between pb-2">
-            <CardTitle className="font-medium text-sm">On Track Rate</CardTitle>
-            <Activity className="h-4 w-4 text-muted-foreground" />
-          </CardHeader>
-          <CardContent>
-            <div className="flex items-center gap-2">
-              <span className="font-bold text-2xl text-green-600">
-                {Math.round(analyticsData.onTrackPercentage)}%
-              </span>
-            </div>
-            <p className="text-muted-foreground text-xs">
-              Meeting or exceeding benchmarks
-            </p>
-          </CardContent>
-        </Card>
-      </div>
-
-      {/* Charts Row 1 */}
-      <div className="grid gap-6 lg:grid-cols-2">
-        {/* Skill Status Distribution */}
-        <Card>
-          <CardHeader>
-            <CardTitle>Skill Status Distribution</CardTitle>
-            <CardDescription>
-              How players compare to benchmarks across all skills
-            </CardDescription>
-          </CardHeader>
-          <CardContent>
-            <div className="h-[300px]">
-              <ResponsiveContainer height="100%" width="100%">
-                <PieChart>
-                  <Pie
-                    cx="50%"
-                    cy="50%"
-                    data={statusDistributionData}
-                    dataKey="value"
-                    innerRadius={60}
-                    label={({ name, percent }) =>
-                      `${name} ${(percent * 100).toFixed(0)}%`
-                    }
-                    outerRadius={100}
-                    paddingAngle={2}
-                  >
-                    {statusDistributionData.map((entry) => (
-                      <Cell fill={entry.color} key={entry.name} />
+                <Select onValueChange={setSportFilter} value={sportFilter}>
+                  <SelectTrigger className="w-full sm:w-[140px]">
+                    <SelectValue placeholder="Sport" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="all">All Sports</SelectItem>
+                    {sports?.map((sport: { code: string; name: string }) => (
+                      <SelectItem key={sport.code} value={sport.code}>
+                        {sport.name}
+                      </SelectItem>
                     ))}
-                  </Pie>
-                  <Tooltip />
-                  <Legend />
-                </PieChart>
-              </ResponsiveContainer>
-            </div>
-          </CardContent>
-        </Card>
+                  </SelectContent>
+                </Select>
 
-        {/* Skills Needing Attention */}
-        <Card>
-          <CardHeader>
-            <CardTitle>Skills Needing Attention</CardTitle>
-            <CardDescription>
-              Skills where &gt;25% of players are below benchmark
-            </CardDescription>
-          </CardHeader>
-          <CardContent className="px-2 sm:px-6">
-            <div className="h-[300px]">
-              {skillsBarData.length > 0 ? (
-                <ResponsiveContainer height="100%" width="100%">
-                  <BarChart
-                    data={skillsBarData}
-                    layout="vertical"
-                    margin={{ top: 5, right: 10, left: 0, bottom: 5 }}
-                  >
-                    <CartesianGrid strokeDasharray="3 3" />
-                    <XAxis
-                      domain={[0, 100]}
-                      tickFormatter={(v) => `${v}%`}
-                      type="number"
-                    />
-                    <YAxis
-                      dataKey="skill"
-                      interval={0}
-                      tick={
-                        <CustomYAxisTick payload={{ value: "" }} x={0} y={0} />
-                      }
-                      type="category"
-                      width={110}
-                    />
-                    <Tooltip formatter={(value) => `${value}%`} />
-                    <Bar
-                      dataKey="belowPercent"
-                      fill="#ef4444"
-                      name="Below Benchmark %"
-                    />
-                  </BarChart>
-                </ResponsiveContainer>
-              ) : (
-                <div className="flex h-full items-center justify-center text-muted-foreground">
-                  <p>All skills are on track! 🎉</p>
+                <Select
+                  onValueChange={setAgeGroupFilter}
+                  value={ageGroupFilter}
+                >
+                  <SelectTrigger className="w-full sm:w-[140px]">
+                    <SelectValue placeholder="Age Group" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="all">All Ages</SelectItem>
+                    {[
+                      "u8",
+                      "u9",
+                      "u10",
+                      "u11",
+                      "u12",
+                      "u13",
+                      "u14",
+                      "u15",
+                      "u16",
+                      "u17",
+                      "u18",
+                      "senior",
+                    ].map((ag) => (
+                      <SelectItem key={ag} value={ag}>
+                        {ag.toUpperCase()}
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+
+                <Button
+                  onClick={() => {
+                    setDateRange("all");
+                    setSportFilter("all");
+                    setAgeGroupFilter("all");
+                  }}
+                  size="sm"
+                  variant="ghost"
+                >
+                  Clear Filters
+                </Button>
+              </div>
+            </CardContent>
+          </Card>
+
+          {/* Summary Cards */}
+          <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-4">
+            <Card>
+              <CardHeader className="flex flex-row items-center justify-between pb-2">
+                <CardTitle className="font-medium text-sm">
+                  Total Players
+                </CardTitle>
+                <Users className="h-4 w-4 text-muted-foreground" />
+              </CardHeader>
+              <CardContent>
+                <div className="font-bold text-2xl">
+                  {metrics.uniquePlayerCount}
                 </div>
-              )}
-            </div>
-          </CardContent>
-        </Card>
-      </div>
+                <p className="text-muted-foreground text-xs">
+                  With skill assessments
+                  {analyticsData.totalPlayers > 0 &&
+                    analyticsData.totalPlayers !==
+                      metrics.uniquePlayerCount && (
+                      <span className="ml-1">
+                        ({analyticsData.totalPlayers} with benchmarks)
+                      </span>
+                    )}
+                </p>
+              </CardContent>
+            </Card>
 
-      {/* Charts Row 2 */}
-      <div className="grid gap-6 lg:grid-cols-2">
-        {/* Progress Over Time */}
-        <Card>
-          <CardHeader>
-            <CardTitle>Assessment Activity Over Time</CardTitle>
-            <CardDescription>
-              Weekly assessment counts and average ratings
-            </CardDescription>
-          </CardHeader>
-          <CardContent>
-            <div className="h-[300px]">
-              {progressOverTimeData.length > 0 ? (
-                <ResponsiveContainer height="100%" width="100%">
-                  <LineChart data={progressOverTimeData}>
-                    <CartesianGrid strokeDasharray="3 3" />
-                    <XAxis dataKey="week" />
-                    <YAxis yAxisId="left" />
-                    <YAxis
-                      domain={[1, 5]}
-                      orientation="right"
-                      yAxisId="right"
-                    />
-                    <Tooltip />
-                    <Legend />
-                    <Bar
-                      dataKey="assessments"
-                      fill="#3b82f6"
-                      name="Assessments"
-                      yAxisId="left"
-                    />
-                    <Line
-                      dataKey="avgRating"
-                      name="Avg Rating"
-                      stroke="#22c55e"
-                      strokeWidth={2}
-                      type="monotone"
-                      yAxisId="right"
-                    />
-                  </LineChart>
-                </ResponsiveContainer>
-              ) : (
-                <div className="flex h-full items-center justify-center text-muted-foreground">
-                  <p>No assessment data available</p>
+            <Card>
+              <CardHeader className="flex flex-row items-center justify-between pb-2">
+                <CardTitle className="font-medium text-sm">
+                  Avg. Skill Rating
+                </CardTitle>
+                <BarChart3 className="h-4 w-4 text-muted-foreground" />
+              </CardHeader>
+              <CardContent>
+                <div className="flex items-center gap-2">
+                  <span className="font-bold text-2xl">
+                    {metrics.avgRating.toFixed(1)}
+                  </span>
+                  <span className="text-muted-foreground text-sm">/ 5</span>
                 </div>
-              )}
-            </div>
-          </CardContent>
-        </Card>
-
-        {/* Skill Category Radar */}
-        <Card>
-          <CardHeader>
-            <CardTitle>Skill Category Performance</CardTitle>
-            <CardDescription>
-              % of players on track by skill category
-            </CardDescription>
-          </CardHeader>
-          <CardContent>
-            <div className="h-[300px]">
-              {skillRadarData.length > 0 ? (
-                <ResponsiveContainer height="100%" width="100%">
-                  <RadarChart
-                    cx="50%"
-                    cy="50%"
-                    data={skillRadarData}
-                    outerRadius="80%"
+                {metrics.ratingTrend !== 0 && (
+                  <p
+                    className={`flex items-center text-xs ${metrics.ratingTrend > 0 ? "text-green-600" : "text-red-600"}`}
                   >
-                    <PolarGrid />
-                    <PolarAngleAxis dataKey="category" />
-                    <PolarRadiusAxis angle={90} domain={[0, 100]} />
-                    <Radar
-                      dataKey="onTrackPercent"
-                      fill="#22c55e"
-                      fillOpacity={0.5}
-                      name="On Track %"
-                      stroke="#22c55e"
-                    />
-                    <Legend />
-                    <Tooltip formatter={(value) => `${value}%`} />
-                  </RadarChart>
-                </ResponsiveContainer>
-              ) : (
-                <div className="flex h-full items-center justify-center text-muted-foreground">
-                  <p>No skill category data available</p>
+                    {metrics.ratingTrend > 0 ? (
+                      <TrendingUp className="mr-1 h-3 w-3" />
+                    ) : (
+                      <TrendingDown className="mr-1 h-3 w-3" />
+                    )}
+                    {Math.abs(metrics.ratingTrend).toFixed(1)}% from last month
+                  </p>
+                )}
+              </CardContent>
+            </Card>
+
+            <Card>
+              <CardHeader className="flex flex-row items-center justify-between pb-2">
+                <CardTitle className="font-medium text-sm">
+                  Assessments This Month
+                </CardTitle>
+                <Calendar className="h-4 w-4 text-muted-foreground" />
+              </CardHeader>
+              <CardContent>
+                <div className="font-bold text-2xl">
+                  {metrics.assessmentsThisMonth}
                 </div>
-              )}
-            </div>
-          </CardContent>
-        </Card>
-      </div>
+                <p className="text-muted-foreground text-xs">
+                  {metrics.totalAssessments} total assessments
+                </p>
+              </CardContent>
+            </Card>
 
-      {/* Players Needing Attention */}
-      {analyticsData.playersNeedingAttention?.length > 0 && (
-        <Card>
-          <CardHeader>
-            <CardTitle className="flex items-center gap-2">
-              <TrendingDown className="h-5 w-5 text-red-500" />
-              Players Needing Attention
-            </CardTitle>
-            <CardDescription>
-              Players with 2 or more skills below benchmark
-            </CardDescription>
-          </CardHeader>
-          <CardContent>
-            <div className="grid gap-3 md:grid-cols-2 lg:grid-cols-3">
-              {analyticsData.playersNeedingAttention.map(
-                (player: {
-                  playerIdentityId: string;
-                  firstName: string;
-                  lastName: string;
-                  belowCount: number;
-                }) => (
-                  <div
-                    className="flex items-center justify-between rounded-lg border p-3"
-                    key={player.playerIdentityId}
-                  >
-                    <div>
-                      <p className="font-medium">
-                        {player.firstName} {player.lastName}
-                      </p>
-                      <p className="text-muted-foreground text-sm">
-                        {player.belowCount} skills below benchmark
-                      </p>
+            <Card>
+              <CardHeader className="flex flex-row items-center justify-between pb-2">
+                <CardTitle className="font-medium text-sm">
+                  On Track Rate
+                </CardTitle>
+                <Activity className="h-4 w-4 text-muted-foreground" />
+              </CardHeader>
+              <CardContent>
+                <div className="flex items-center gap-2">
+                  <span className="font-bold text-2xl text-green-600">
+                    {Math.round(analyticsData.onTrackPercentage)}%
+                  </span>
+                </div>
+                <p className="text-muted-foreground text-xs">
+                  Meeting or exceeding benchmarks
+                </p>
+              </CardContent>
+            </Card>
+          </div>
+
+          {/* Charts Row 1 */}
+          <div className="grid gap-6 lg:grid-cols-2">
+            {/* Skill Status Distribution */}
+            <Card>
+              <CardHeader>
+                <CardTitle>Skill Status Distribution</CardTitle>
+                <CardDescription>
+                  How players compare to benchmarks across all skills
+                </CardDescription>
+              </CardHeader>
+              <CardContent>
+                <div className="h-[300px]">
+                  <ResponsiveContainer height="100%" width="100%">
+                    <PieChart>
+                      <Pie
+                        cx="50%"
+                        cy="50%"
+                        data={statusDistributionData}
+                        dataKey="value"
+                        innerRadius={60}
+                        label={({ name, percent }) =>
+                          `${name} ${(percent * 100).toFixed(0)}%`
+                        }
+                        outerRadius={100}
+                        paddingAngle={2}
+                      >
+                        {statusDistributionData.map((entry) => (
+                          <Cell fill={entry.color} key={entry.name} />
+                        ))}
+                      </Pie>
+                      <Tooltip />
+                      <Legend />
+                    </PieChart>
+                  </ResponsiveContainer>
+                </div>
+              </CardContent>
+            </Card>
+
+            {/* Skills Needing Attention */}
+            <Card>
+              <CardHeader>
+                <CardTitle>Skills Needing Attention</CardTitle>
+                <CardDescription>
+                  Skills where &gt;25% of players are below benchmark
+                </CardDescription>
+              </CardHeader>
+              <CardContent className="px-2 sm:px-6">
+                <div className="h-[300px]">
+                  {skillsBarData.length > 0 ? (
+                    <ResponsiveContainer height="100%" width="100%">
+                      <BarChart
+                        data={skillsBarData}
+                        layout="vertical"
+                        margin={{ top: 5, right: 10, left: 0, bottom: 5 }}
+                      >
+                        <CartesianGrid strokeDasharray="3 3" />
+                        <XAxis
+                          domain={[0, 100]}
+                          tickFormatter={(v) => `${v}%`}
+                          type="number"
+                        />
+                        <YAxis
+                          dataKey="skill"
+                          interval={0}
+                          tick={
+                            <CustomYAxisTick
+                              payload={{ value: "" }}
+                              x={0}
+                              y={0}
+                            />
+                          }
+                          type="category"
+                          width={110}
+                        />
+                        <Tooltip formatter={(value) => `${value}%`} />
+                        <Bar
+                          dataKey="belowPercent"
+                          fill="#ef4444"
+                          name="Below Benchmark %"
+                        />
+                      </BarChart>
+                    </ResponsiveContainer>
+                  ) : (
+                    <div className="flex h-full items-center justify-center text-muted-foreground">
+                      <p>All skills are on track! 🎉</p>
                     </div>
-                    <Badge variant="destructive">{player.belowCount}</Badge>
-                  </div>
-                )
-              )}
-            </div>
-          </CardContent>
-        </Card>
-      )}
+                  )}
+                </div>
+              </CardContent>
+            </Card>
+          </div>
+
+          {/* Charts Row 2 */}
+          <div className="grid gap-6 lg:grid-cols-2">
+            {/* Progress Over Time */}
+            <Card>
+              <CardHeader>
+                <CardTitle>Assessment Activity Over Time</CardTitle>
+                <CardDescription>
+                  Weekly assessment counts and average ratings
+                </CardDescription>
+              </CardHeader>
+              <CardContent>
+                <div className="h-[300px]">
+                  {progressOverTimeData.length > 0 ? (
+                    <ResponsiveContainer height="100%" width="100%">
+                      <LineChart data={progressOverTimeData}>
+                        <CartesianGrid strokeDasharray="3 3" />
+                        <XAxis dataKey="week" />
+                        <YAxis yAxisId="left" />
+                        <YAxis
+                          domain={[1, 5]}
+                          orientation="right"
+                          yAxisId="right"
+                        />
+                        <Tooltip />
+                        <Legend />
+                        <Bar
+                          dataKey="assessments"
+                          fill="#3b82f6"
+                          name="Assessments"
+                          yAxisId="left"
+                        />
+                        <Line
+                          dataKey="avgRating"
+                          name="Avg Rating"
+                          stroke="#22c55e"
+                          strokeWidth={2}
+                          type="monotone"
+                          yAxisId="right"
+                        />
+                      </LineChart>
+                    </ResponsiveContainer>
+                  ) : (
+                    <div className="flex h-full items-center justify-center text-muted-foreground">
+                      <p>No assessment data available</p>
+                    </div>
+                  )}
+                </div>
+              </CardContent>
+            </Card>
+
+            {/* Skill Category Radar */}
+            <Card>
+              <CardHeader>
+                <CardTitle>Skill Category Performance</CardTitle>
+                <CardDescription>
+                  % of players on track by skill category
+                </CardDescription>
+              </CardHeader>
+              <CardContent>
+                <div className="h-[300px]">
+                  {skillRadarData.length > 0 ? (
+                    <ResponsiveContainer height="100%" width="100%">
+                      <RadarChart
+                        cx="50%"
+                        cy="50%"
+                        data={skillRadarData}
+                        outerRadius="80%"
+                      >
+                        <PolarGrid />
+                        <PolarAngleAxis dataKey="category" />
+                        <PolarRadiusAxis angle={90} domain={[0, 100]} />
+                        <Radar
+                          dataKey="onTrackPercent"
+                          fill="#22c55e"
+                          fillOpacity={0.5}
+                          name="On Track %"
+                          stroke="#22c55e"
+                        />
+                        <Legend />
+                        <Tooltip formatter={(value) => `${value}%`} />
+                      </RadarChart>
+                    </ResponsiveContainer>
+                  ) : (
+                    <div className="flex h-full items-center justify-center text-muted-foreground">
+                      <p>No skill category data available</p>
+                    </div>
+                  )}
+                </div>
+              </CardContent>
+            </Card>
+          </div>
+
+          {/* Players Needing Attention */}
+          {analyticsData.playersNeedingAttention?.length > 0 && (
+            <Card>
+              <CardHeader>
+                <CardTitle className="flex items-center gap-2">
+                  <TrendingDown className="h-5 w-5 text-red-500" />
+                  Players Needing Attention
+                </CardTitle>
+                <CardDescription>
+                  Players with 2 or more skills below benchmark
+                </CardDescription>
+              </CardHeader>
+              <CardContent>
+                <div className="grid gap-3 md:grid-cols-2 lg:grid-cols-3">
+                  {analyticsData.playersNeedingAttention.map(
+                    (player: {
+                      playerIdentityId: string;
+                      firstName: string;
+                      lastName: string;
+                      belowCount: number;
+                    }) => (
+                      <div
+                        className="flex items-center justify-between rounded-lg border p-3"
+                        key={player.playerIdentityId}
+                      >
+                        <div>
+                          <p className="font-medium">
+                            {player.firstName} {player.lastName}
+                          </p>
+                          <p className="text-muted-foreground text-sm">
+                            {player.belowCount} skills below benchmark
+                          </p>
+                        </div>
+                        <Badge variant="destructive">{player.belowCount}</Badge>
+                      </div>
+                    )
+                  )}
+                </div>
+              </CardContent>
+            </Card>
+          )}
+        </TabsContent>
+      </Tabs>
     </div>
   );
 }

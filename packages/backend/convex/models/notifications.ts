@@ -27,7 +27,8 @@ const notificationTypeValidator = v.union(
   v.literal("age_transition_available"), // Guardian notified player turned 18
   v.literal("age_transition_claimed"), // Admins notified player claimed their account
   // Wellness access notifications (Phase 4)
-  v.literal("wellness_access_request") // Player notified a coach requested access
+  v.literal("wellness_access_request"), // Player notified a coach requested access
+  v.literal("wellness_reminder") // Daily wellness check-in reminder (US-P4-009)
 );
 
 const notificationValidator = v.object({

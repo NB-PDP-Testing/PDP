@@ -49,7 +49,8 @@ type NotificationType =
   | "org_invitation_received"
   | "age_transition_available"
   | "age_transition_claimed"
-  | "wellness_access_request";
+  | "wellness_access_request"
+  | "wellness_reminder";
 
 // Get icon for notification type
 function getNotificationIcon(type: NotificationType) {

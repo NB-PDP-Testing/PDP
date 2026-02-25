@@ -3888,7 +3888,8 @@ export default defineSchema({
       v.literal("age_transition_available"), // Guardian notified player turned 18
       v.literal("age_transition_claimed"), // Admins notified player claimed their account
       // Wellness notifications (Phase 4)
-      v.literal("wellness_access_request") // Player notified a coach requested access
+      v.literal("wellness_access_request"), // Player notified a coach requested access
+      v.literal("wellness_reminder") // Daily wellness check-in reminder (US-P4-009)
     ),
     title: v.string(),
     message: v.string(),
@@ -5503,4 +5504,27 @@ export default defineSchema({
     givenAt: v.number(),
     withdrawnAt: v.optional(v.number()),
   }).index("by_player_and_type", ["playerIdentityId", "consentType"]),
+
+  // Per-org wellness reminder and alert configuration (US-P4-009)
+  wellnessOrgConfig: defineTable({
+    organizationId: v.string(),
+    // Reminder settings
+    remindersEnabled: v.boolean(), // master toggle
+    reminderFrequency: v.union(
+      v.literal("daily"),
+      v.literal("match_day_only"),
+      v.literal("training_day_only")
+    ),
+    reminderType: v.union(
+      v.literal("in_app"),
+      v.literal("email"),
+      v.literal("both")
+    ),
+    // Low-score alert settings
+    lowScoreAlertsEnabled: v.boolean(),
+    lowScoreThreshold: v.number(), // default 2.0
+    // Updated at
+    updatedAt: v.number(),
+    updatedBy: v.string(), // userId
+  }).index("by_org", ["organizationId"]),
 });

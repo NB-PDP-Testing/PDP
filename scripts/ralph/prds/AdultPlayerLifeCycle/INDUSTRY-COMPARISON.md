@@ -2,10 +2,10 @@
 
 **Document purpose:** A phase-by-phase comparison of the PlayerARC Adult Player Lifecycle PRD against industry best practice and international standards. For each area, differences are identified with their pros and cons so that informed decisions can be made about future evolution.
 
-**Reviewed PRDs:** Phases 1–8 (42 stories + Phase 8 dual-channel WhatsApp extension)
-**Last updated:** 2026-02-25 — P1 Today screen added; P2 token claim identity verification added; P3 Irish name normalisation added; P4 5-core/3-optional dimension split added; P5 GDPR Art.20 export added; P6 deep industry review + all gaps closed (server-side guards, role-scoped notifications, deep link prompt, first-run onboarding, admin confirmed-flag pattern); P7 deep industry review + gaps closed (Ireland age-16 consent, separate audit table, child erasure right US-P7-008, no-profiling prohibition, session timeout); P8 deep industry review + gaps closed (GDPR Article 9 explicit consent phrasing for health data, WELLNESSSTOP confirmation phrasing, DPIA requirement, EU BSP requirement, wa_id pseudonymization)
+**Reviewed PRDs:** Phases 1–9 (42 stories + Phase 8 dual-channel WhatsApp extension + Phase 9 compliance sprint)
+**Last updated:** 2026-02-25 — P1 Today screen added; P2 token claim identity verification added; P3 Irish name normalisation added; P4 5-core/3-optional dimension split added; P5 GDPR Art.20 export added; P6 deep industry review + all gaps closed (server-side guards, role-scoped notifications, deep link prompt, first-run onboarding, admin confirmed-flag pattern); P7 deep industry review + gaps closed (Ireland age-16 consent, separate audit table, child erasure right US-P7-008, no-profiling prohibition, session timeout); P8 deep industry review + gaps closed (GDPR Article 9 explicit consent phrasing for health data, WELLNESSSTOP confirmation phrasing, DPIA requirement, EU BSP requirement, wa_id pseudonymization); P9 compliance sprint PRD added (adult right to erasure Article 17, data retention schedules Article 5, WCAG 2.1 AA accessibility — closes cross-cutting gaps 2, 3, 4)
 **Reference platforms:** Hudl, Kitman Labs, Teamworks, Catapult, SportsEngine, FitrWoman / Orreco, Polar, Smartabase, Sportlyzer
-**Standards consulted:** GDPR / UK GDPR, GDPR Article 9, GDPR Article 35 (DPIA), COPPA (US, updated Jan 2025), IOC Injury Surveillance guidelines, Meta WhatsApp Business policies, WhatsApp Business DPA, EU-US Data Privacy Framework, WCAG 2.1 AA
+**Standards consulted:** GDPR / UK GDPR, GDPR Articles 5/9/17/20/30/33/34/35, COPPA (US, updated Jan 2025), IOC Injury Surveillance guidelines, Meta WhatsApp Business policies, WhatsApp Business DPA, EU-US Data Privacy Framework, WCAG 2.1 AA, EU Web Accessibility Directive (2016/2102/EU), EDPB 2025 Coordinated Enforcement Framework, Ireland HSE Healthcare Records Retention Standard
 
 ---
 
@@ -456,6 +456,66 @@ Meta tightened health/wellness brand handling in February 2025. Brands associate
 
 ---
 
+## Phase 9 — Compliance Sprint (Adult Erasure, Data Retention & WCAG AA)
+
+### What we're building
+Three Must-have compliance gaps from PRODUCT-GAPS.md closed in a single sprint: (1) GDPR Article 17 adult right-to-erasure with per-category admin review and soft-delete execution; (2) GDPR Article 5 data retention schedules with org-configurable periods and a nightly automated enforcement cron; (3) WCAG 2.1 AA accessibility compliance with axe-playwright E2E automation and targeted remediation across the portal. No new product features — compliance-only work.
+
+### Industry context
+- **Right to erasure (Article 17):** EDPB 2025 Coordinated Enforcement Framework lists right to erasure as the **primary enforcement topic** for 2025, with 32 EU/EEA Data Protection Authorities coordinating investigations. No mid-market sports platform publicly documents an adult erasure workflow — this is a genuine gap across the industry. PlayerARC will be among the first sports platforms with a named, user-facing adult erasure process.
+- **Data retention (Article 5(1)(e)):** The storage limitation principle is a foundational GDPR obligation. Sports club data retention is complex: wellness data has no defined maximum, injury records are subject to Irish HSE 7-year healthcare standards, audit logs require a minimum 3-year retention under Article 30, and child safeguarding records require 7 years under the Child First Act. Most sports platforms have no documented retention policy — clubs typically hold data indefinitely.
+- **WCAG 2.1 AA:** The EU Web Accessibility Directive (2016/2102/EU) requires WCAG 2.1 AA for platforms serving public bodies. Irish Sports Council-funded clubs and clubs with local authority partnerships fall under this directive. The @axe-core/playwright package can automatically detect ~57% of WCAG AA violations, making automated regression prevention feasible at low ongoing cost.
+
+### Key design decisions
+
+**Erasure category map — not all data is erasable:**
+The critical design decision in Phase 9 is that adult erasure is not a single "delete everything" button. GDPR Article 17(3) creates category-specific exceptions. The `DATA_CATEGORY_CONFIG` constant defines per-category rules:
+- **Wellness data, coach feedback, communication data:** No legal retention grounds — must erase if requested.
+- **Assessment/passport data:** Strong player erasure right; club legitimate interest arguable but should default to erase.
+- **Injury records:** Ireland HSE healthcare 7-year retention applies where medical professional was involved — retained with documented grounds.
+- **Audit logs (Article 30 ROPA):** The organisation's legal compliance obligation overrides individual erasure rights — never erased.
+- **Child auth logs (parentChildAuthorizationLogs):** Child safeguarding 7-year retention — never erased.
+- **Profile data:** Anonymised rather than deleted (name → "Deleted Player") to preserve referential integrity for retained records.
+
+**Soft-delete before hard-delete — 30-day grace:**
+All data subject to erasure or retention expiry is soft-deleted first (retentionExpired: true) and held for 30 days before hard-deletion. This prevents accidental permanent loss and gives admins a recovery window. The nightly cron enforces both phases.
+
+**WCAG — axe-playwright as the regression gate:**
+Rather than a one-time audit, axe-playwright is added to the E2E suite and configured to fail CI on any new critical or serious WCAG AA violations. Known violations (emoji scale aria-labels, focus indicators, skip links, form labels) are fixed inline. Org-theme colour contrast is documented as an ongoing risk since admins can set arbitrary brand colours.
+
+### Differences
+
+| Area | Our Approach | Industry Standard | Status |
+|------|-------------|-------------------|--------|
+| Adult right to erasure | Cycle data deletion on consent withdrawal; child erasure (P7); no adult mechanism | EDPB 2025 primary enforcement focus; all platforms must provide Article 17 workflow | Resolved in P9 ✅ |
+| Erasure category decisions | N/A | Enterprise platforms (Salesforce DPA, HubSpot): per-category retention grounds documented; admin must sign off per data type | Resolved in P9 ✅ |
+| Data retention schedules | 30-day token expiry (P2), 8h session expiry (P8); no org-level retention policy | GDPR Article 5(1)(e): documented retention period per data category with automated enforcement | Resolved in P9 ✅ |
+| Retention enforcement cron | None | Enterprise platforms run nightly cleanup jobs; soft-delete → grace period → hard-delete pipeline | Resolved in P9 ✅ |
+| WCAG 2.1 AA | 44×44px touch targets specified; no explicit WCAG requirement in acceptance criteria | EU Web Accessibility Directive mandates AA for public-sector customers; axe-playwright automates 57% of checks | Resolved in P9 ✅ |
+| Emoji rating scale accessibility | Emoji buttons with no aria-labels | ARIA radiogroup pattern with aria-label per option; role='radio', aria-checked | Resolved in P9 ✅ |
+| Skip-to-main-content link | Not present | First focusable element on every page; WCAG 2.4.1 bypass blocks | Resolved in P9 ✅ |
+| Breach notification procedure | No documented procedure; no breach register | GDPR Articles 33/34: DPC within 72h; Article 33(5) breach register required | **Open gap** — documentation/process only, no P9 story |
+| Role audit log | parentChildAuthorizationLogs (P7) for child access; no system-wide audit | GDPR Article 30 ROPA; Kitman Labs, Teamworks: immutable event log for all sensitive mutations | **Open gap** — future audit phase |
+| Merge audit trail (P3) | No undo mechanism for confirmed identity merges | Enterprise identity platforms: pre-merge snapshot + documented reversal path; GDPR Article 16 | **Open gap** — planned for P3 follow-up |
+
+### Resolved (Phase 9)
+- **Adult right to erasure (GDPR Article 17)** — `erasureRequests` table; player submits via settings; admin reviews per category using `DATA_CATEGORY_CONFIG` grounds; `executeApprovedErasureCategories` action soft-deletes approved data; 30-day response deadline enforced with admin warning. ✅
+- **Data retention configuration** — `orgRetentionConfig` table with org-configurable periods per category; legal minimums enforced (injury records ≥ 2555 days, audit logs ≥ 1095 days); retention stamped on record creation via `stampRetentionExpiry`. ✅
+- **Retention enforcement cron** — nightly job: Phase 1 soft-deletes expired records; Phase 2 hard-deletes after 30-day grace; weekly admin digest of upcoming expirations; exempt tables (erasureRequests, parentChildAuthorizationLogs) never processed. ✅
+- **WCAG AA axe-playwright automation** — @axe-core/playwright integrated into E2E suite; critical and serious violations fail CI; moderate/minor logged as warnings; accessibility regression gate active. ✅
+- **Emoji scale aria** — wellness check-in rating buttons: role='radiogroup' wrapper, role='radio' + aria-checked per button, aria-label='Very Poor — 1 out of 5' pattern, visually-hidden sr-only text, ArrowKey navigation. ✅
+- **Focus indicators** — focus-visible:ring-2 added to all interactive elements missing visible focus ring; outline: none overrides removed. ✅
+- **Skip links** — skip-to-main-content link as first focusable element on all pages; main landmark has id='main-content'. ✅
+- **Form labels** — all inputs have associated label (htmlFor/id pair or aria-label); placeholder text not used as label substitute. ✅
+- **Screen reader landmarks** — header, main, nav landmarks verified on all major pages. ✅
+
+### Remaining gaps after Phase 9
+- **Data breach notification procedure** — GDPR Articles 33/34 require a documented incident response procedure and Article 33(5) breach register. No code required — this is a process, DPA clause, and admin-side log page. Must-have, Low effort. Not included in P9 (documentation-only; does not block implementation work).
+- **Role audit log** — system-wide immutable audit log for all sensitive mutations (GDPR Article 30). Medium effort. Planned for a dedicated audit phase after session log (P9+N).
+- **Merge audit trail** — pre-merge snapshot and documented correction path for identity merges (GDPR Article 16). Medium effort. Planned as P3 follow-up story.
+
+---
+
 ## Cross-Cutting Gaps vs. Industry Standards
 
 These are issues that affect multiple phases and are not addressed in any single PRD.
@@ -464,20 +524,17 @@ These are issues that affect multiple phases and are not addressed in any single
 **What it requires:** On request, provide all personal data in a machine-readable format (JSON or CSV) within 30 days.
 **Resolution:** US-P5-005 added to Phase 5 — "Download my data" button in player settings, JSON and CSV formats, all 9 data domains, consent-gated cycle phase, privateInsight excluded, rate-limited to 1 export per 24h.
 
-### 2. Right to Erasure (Article 17) — Partially missing
+### 2. Right to Erasure (Article 17) ✅ RESOLVED in Phase 9
 **What it requires:** On request, delete all personal data unless there is a legitimate interest or legal obligation to retain it.
-**What we have:** `withdrawCycleTrackingConsent` deletes cycle phase data. No general erasure mechanism.
-**Action required:** A `requestDataErasure` mutation and admin review flow needs to be designed. Sport clubs may have a legitimate interest in retaining statistical data even after a player leaves, but the mechanism must exist.
+**Resolution:** Phase 9 (US-P9-001 through US-P9-004) delivers a complete adult erasure workflow: player submits request via settings → admin reviews per DATA_CATEGORY_CONFIG grounds (Article 17(3) exceptions pre-documented per category) → approved categories soft-deleted via executeApprovedErasureCategories action → 30-day response deadline enforced with admin warnings → erasureRequests audit record retained permanently for Article 17 accountability.
 
-### 3. Accessibility (WCAG 2.1 AA) — Not explicitly specified
+### 3. Accessibility (WCAG 2.1 AA) ✅ RESOLVED in Phase 9
 **What it requires:** Keyboard navigation, screen reader support (`aria-label`s), minimum 4.5:1 contrast ratio, focus indicators.
-**What we have:** 44×44px touch targets specified for mobile (Phase 1, 3, 4). Org theme variables used. No explicit WCAG compliance requirement in any acceptance criterion.
-**Action required:** Add `npm run check-types passes` equivalents for accessibility — a tool like `axe-playwright` in the E2E test suite would catch most WCAG AA violations automatically.
+**Resolution:** Phase 9 (US-P9-007 through US-P9-009) delivers: @axe-core/playwright integrated into E2E suite as a CI regression gate; emoji wellness scale converted to ARIA radiogroup with per-button aria-label; skip-to-main-content link on all pages; all form inputs labelled; focus-visible indicators on all interactive elements; screen reader landmarks verified; dialog keyboard trap and Escape behaviour confirmed. Org-theme colour contrast remains an ongoing risk (admins set arbitrary brand colours) — documented and colour used only decoratively on content backgrounds.
 
-### 4. Data Retention Schedules — Not specified
+### 4. Data Retention Schedules ✅ RESOLVED in Phase 9
 **What it requires:** GDPR requires documented retention policies. COPPA requires a written data retention policy with deletion schedules.
-**What we have:** 30-day token expiry (Phase 2), 8h session expiry (Phase 8). No org-level data retention configuration.
-**Action required:** Add org-level retention settings (e.g., "wellness data retained for 2 years") and a cron that enforces deletion.
+**Resolution:** Phase 9 (US-P9-005 through US-P9-006) delivers: orgRetentionConfig table with per-category configurable periods; legal minimums enforced in UI (injury records ≥ 7 years, audit logs ≥ 3 years); retentionExpiresAt stamped on record creation; nightly cron soft-deletes expired records (30-day grace) then hard-deletes; weekly admin digest of upcoming expirations; admin retention settings page with preview of records approaching expiry.
 
 ### 5. Audit Logging — Partial
 **What we have:** `changeLog` on `parentChildAuthorizations` (Phase 7). No system-wide audit log.
@@ -496,10 +553,11 @@ These are issues that affect multiple phases and are not addressed in any single
 | P4: Wellness | **Ahead** (privacy + design) | Per-coach consent unique; 5-core/3-optional Hooper-aligned model ✅ | No session RPE; no wearable integration |
 | P5: Portal Sections | **Ahead** | GDPR Art.20 export added ✅; privateInsight/publicSummary split innovative | Injury triage bypasses medical staff |
 | P6: Multi-Role | **Ahead** | All gaps closed ✅ — server-side guards, role-scoped notifications, deep link prompt, first-run onboarding | Role audit log deferred to future audit phase |
-| P7: Child Auth | **Ahead** | Per-content-type toggles; pre-birthday notifications; child erasure right ✅; separate audit table ✅ | COPPA verifiable consent gap for US deployment (deferred); no profiling prohibition added ✅ |
+| P7: Child Auth | **Ahead** | Per-content-type toggles; pre-birthday notifications; child erasure right ✅; separate audit table ✅ | COPPA verifiable consent gap for US deployment (deferred) |
 | P8: WhatsApp | **Ahead** | WhatsApp Flows ahead of market; channel abstraction; all GDPR gaps closed ✅ (Article 9 consent, DPIA, EU BSP, wa_id pseudonymization, opt-out phrasing) | No native push notifications; no wearable-triggered dispatch; Twilio SMS EU residency still in beta |
+| P9: Compliance | **Compliant** | Adult erasure workflow (EDPB 2025 enforcement focus) ✅; data retention schedules with legal minimums enforced ✅; WCAG AA axe-playwright CI gate + emoji/focus/skip/label fixes ✅ | Breach notification procedure (documentation-only, not yet written); role audit log (future phase); merge audit trail (P3 follow-up) |
 
-**Overall:** PlayerARC's Adult Player Lifecycle design is competitive with or ahead of the market in record continuity, privacy granularity, and messaging channel sophistication. Five gaps have been resolved since initial analysis (Today first-screen, token claim identity verification, Irish name normalisation, Hooper-aligned 5-question wellness model, GDPR Article 20 export). Remaining open gaps: no native push notification path, and no wearable integration roadmap.
+**Overall:** PlayerARC's Adult Player Lifecycle design is competitive with or ahead of the market across all nine phases. Record continuity, privacy granularity, messaging channel sophistication, and GDPR compliance are particular strengths. Phase 9 closed the three highest-priority cross-cutting compliance gaps (adult erasure, data retention, WCAG AA). Remaining open Must-haves: breach notification procedure (documentation-only, Low effort), role audit log (future dedicated audit phase), and merge audit trail (P3 follow-up). Remaining Should-haves: PWA push notifications, session log + sRPE, injury triage medical routing, safeguarding officer role.
 
 ---
 

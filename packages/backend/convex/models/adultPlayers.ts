@@ -454,6 +454,57 @@ export const claimYouthProfile = mutation({
   },
 });
 
+/**
+ * Get today's health/wellness check for the current player
+ * Stub returning null until Phase 3 creates the wellness table
+ */
+export const getTodayHealthCheck = query({
+  args: {
+    playerIdentityId: v.id("playerIdentities"),
+  },
+  returns: v.null(),
+  handler: async (_ctx, _args) => null,
+});
+
+/**
+ * Get today's priority data for the player dashboard Today section
+ * Returns active injury count and first affected body part
+ */
+export const getTodayPriorityData = query({
+  args: {
+    playerIdentityId: v.id("playerIdentities"),
+    organizationId: v.string(),
+  },
+  returns: v.object({
+    activeInjuryCount: v.number(),
+    activeInjuryBodyPart: v.union(v.string(), v.null()),
+  }),
+  handler: async (ctx, args) => {
+    const activeInjuries = await ctx.db
+      .query("playerInjuries")
+      .withIndex("by_status", (q) =>
+        q.eq("playerIdentityId", args.playerIdentityId).eq("status", "active")
+      )
+      .collect();
+
+    const recoveringInjuries = await ctx.db
+      .query("playerInjuries")
+      .withIndex("by_status", (q) =>
+        q
+          .eq("playerIdentityId", args.playerIdentityId)
+          .eq("status", "recovering")
+      )
+      .collect();
+
+    const allActive = [...activeInjuries, ...recoveringInjuries];
+
+    return {
+      activeInjuryCount: allActive.length,
+      activeInjuryBodyPart: allActive[0]?.bodyPart ?? null,
+    };
+  },
+});
+
 // ============================================================
 // HELPER FUNCTIONS
 // ============================================================

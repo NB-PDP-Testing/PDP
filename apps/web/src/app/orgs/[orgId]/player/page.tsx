@@ -3,7 +3,15 @@
 import { api } from "@pdp/backend/convex/_generated/api";
 import type { Id } from "@pdp/backend/convex/_generated/dataModel";
 import { useQuery } from "convex/react";
-import { Loader2, Share2, User } from "lucide-react";
+import {
+  AlertTriangle,
+  CheckCircle2,
+  Loader2,
+  Share2,
+  User,
+} from "lucide-react";
+import type { Route } from "next";
+import Link from "next/link";
 import { useParams, useRouter } from "next/navigation";
 import { useState } from "react";
 import { toast } from "sonner";
@@ -18,6 +26,7 @@ import {
   CardHeader,
   CardTitle,
 } from "@/components/ui/card";
+import { Separator } from "@/components/ui/separator";
 import { Skeleton } from "@/components/ui/skeleton";
 import { authClient } from "@/lib/auth-client";
 import { useMembershipContext } from "@/providers/membership-provider";
@@ -69,6 +78,34 @@ export default function PlayerDashboardPage() {
       ? { playerIdentityId: playerIdentity._id, organizationId: orgId }
       : "skip"
   );
+
+  // Today section queries
+  const todayHealthCheck = useQuery(
+    api.models.adultPlayers.getTodayHealthCheck,
+    playerIdentity?._id ? { playerIdentityId: playerIdentity._id } : "skip"
+  );
+  const todayPriorityData = useQuery(
+    api.models.adultPlayers.getTodayPriorityData,
+    playerIdentity?._id
+      ? { playerIdentityId: playerIdentity._id, organizationId: orgId }
+      : "skip"
+  );
+
+  // Today section derived values
+  const wellnessDone =
+    todayHealthCheck !== null && todayHealthCheck !== undefined;
+  const hasActiveInjuries = (todayPriorityData?.activeInjuryCount ?? 0) > 0;
+  const hasUnreadFeedback = false; // stub until Phase 5
+  const allClear = wellnessDone && !hasActiveInjuries && !hasUnreadFeedback;
+
+  // Format today's date as "Tuesday, 25 Feb"
+  const todayFormatted = (() => {
+    const d = new Date();
+    const dayName = d.toLocaleDateString("en-GB", { weekday: "long" });
+    const day = d.getDate();
+    const month = d.toLocaleDateString("en-GB", { month: "short" });
+    return `${dayName}, ${day} ${month}`;
+  })();
 
   const isLoading = sessionLoading || allMemberships === undefined;
 
@@ -189,6 +226,144 @@ export default function PlayerDashboardPage() {
 
   return (
     <div className="container mx-auto max-w-5xl space-y-6 px-4 py-8">
+      {/* TODAY SECTION */}
+      <section className="space-y-4">
+        <h2 className="font-semibold text-xl">Today</h2>
+
+        {/* Priority action cards */}
+        {allClear ? (
+          <Card className="border-green-200 bg-green-50">
+            <CardContent className="flex items-center gap-3 pt-6">
+              <CheckCircle2 className="h-6 w-6 shrink-0 text-green-600" />
+              <div>
+                <p className="font-semibold text-green-800">
+                  All clear today 🎉
+                </p>
+                <p className="text-green-700 text-sm">
+                  Nothing needs your attention right now.
+                </p>
+              </div>
+            </CardContent>
+          </Card>
+        ) : (
+          <div className="grid gap-3 sm:grid-cols-2 md:grid-cols-3">
+            {/* Wellness card — always shown */}
+            {wellnessDone ? (
+              <Card className="border-green-200 bg-green-50">
+                <CardContent className="pt-6">
+                  <div className="flex items-start gap-3">
+                    <CheckCircle2 className="mt-0.5 h-5 w-5 shrink-0 text-green-600" />
+                    <div>
+                      <p className="font-semibold text-green-800 text-sm">
+                        ✓ Wellness checked in today
+                      </p>
+                    </div>
+                  </div>
+                </CardContent>
+              </Card>
+            ) : (
+              <Card className="border-amber-200 bg-amber-50">
+                <CardContent className="pt-6">
+                  <div className="flex items-start gap-3">
+                    <AlertTriangle className="mt-0.5 h-5 w-5 shrink-0 text-amber-600" />
+                    <div className="space-y-2">
+                      <p className="font-semibold text-amber-800 text-sm">
+                        Complete your daily wellness check
+                      </p>
+                      <p className="text-amber-700 text-xs">
+                        Takes under a minute
+                      </p>
+                      <Button
+                        asChild
+                        className="border-amber-300 text-amber-800 hover:bg-amber-100"
+                        size="sm"
+                        variant="outline"
+                      >
+                        <Link
+                          href={`/orgs/${orgId}/player/health-check` as Route}
+                        >
+                          Start Check-In
+                        </Link>
+                      </Button>
+                    </div>
+                  </div>
+                </CardContent>
+              </Card>
+            )}
+
+            {/* Injury card — only shown if active injuries */}
+            {hasActiveInjuries && (
+              <Card className="border-amber-200 bg-amber-50">
+                <CardContent className="pt-6">
+                  <div className="flex items-start gap-3">
+                    <AlertTriangle className="mt-0.5 h-5 w-5 shrink-0 text-amber-600" />
+                    <div className="space-y-2">
+                      <p className="font-semibold text-amber-800 text-sm">
+                        ⚠{" "}
+                        {todayPriorityData?.activeInjuryCount === 1
+                          ? "1 active injury"
+                          : `${todayPriorityData?.activeInjuryCount} active injuries`}
+                      </p>
+                      {todayPriorityData?.activeInjuryBodyPart && (
+                        <p className="text-amber-700 text-xs capitalize">
+                          {todayPriorityData.activeInjuryBodyPart}
+                        </p>
+                      )}
+                      <Button
+                        asChild
+                        className="border-amber-300 text-amber-800 hover:bg-amber-100"
+                        size="sm"
+                        variant="outline"
+                      >
+                        <Link href={`/orgs/${orgId}/player/injuries` as Route}>
+                          View Injuries
+                        </Link>
+                      </Button>
+                    </div>
+                  </div>
+                </CardContent>
+              </Card>
+            )}
+          </div>
+        )}
+
+        {/* Mobile: anchor link to full profile */}
+        <div className="md:hidden">
+          <a
+            className="text-muted-foreground text-sm hover:text-foreground"
+            href="#full-profile"
+          >
+            See full profile ↓
+          </a>
+        </div>
+
+        {/* Quick stats strip */}
+        <div className="flex flex-wrap items-center gap-x-3 gap-y-1 rounded-lg border bg-muted/30 px-4 py-3 text-sm">
+          <span className="font-medium">
+            {playerIdentity.firstName} {playerIdentity.lastName}
+          </span>
+          {enrollment?.ageGroup && (
+            <>
+              <span className="text-muted-foreground">·</span>
+              <span className="text-muted-foreground">
+                {enrollment.ageGroup}
+              </span>
+            </>
+          )}
+          <span className="text-muted-foreground">·</span>
+          <span className="text-muted-foreground">{todayFormatted}</span>
+        </div>
+      </section>
+
+      {/* MY PROFILE SECTION DIVIDER */}
+      <div className="flex items-center gap-4 pt-2" id="full-profile">
+        <Separator className="flex-1" />
+        <span className="shrink-0 font-medium text-muted-foreground text-sm uppercase tracking-wide">
+          My Profile
+        </span>
+        <Separator className="flex-1" />
+      </div>
+
       {/* Header */}
       <OrgThemedGradient
         className="rounded-lg p-6 shadow-lg"

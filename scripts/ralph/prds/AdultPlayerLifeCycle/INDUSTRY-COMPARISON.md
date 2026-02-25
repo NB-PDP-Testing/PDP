@@ -3,7 +3,7 @@
 **Document purpose:** A phase-by-phase comparison of the PlayerARC Adult Player Lifecycle PRD against industry best practice and international standards. For each area, differences are identified with their pros and cons so that informed decisions can be made about future evolution.
 
 **Reviewed PRDs:** Phases 1–8 (42 stories + Phase 8 dual-channel WhatsApp extension)
-**Last updated:** 2026-02-25 — P1 Today screen added; P2 token claim identity verification added; P3 Irish name normalisation added; P4 5-core/3-optional dimension split added; P5 GDPR Art.20 export added; P6 deep industry review + all gaps closed (server-side guards, role-scoped notifications US-P6-005, deep link prompt US-P6-006, first-run onboarding, admin confirmed-flag pattern)
+**Last updated:** 2026-02-25 — P1 Today screen added; P2 token claim identity verification added; P3 Irish name normalisation added; P4 5-core/3-optional dimension split added; P5 GDPR Art.20 export added; P6 deep industry review + all gaps closed (server-side guards, role-scoped notifications, deep link prompt, first-run onboarding, admin confirmed-flag pattern); P7 deep industry review + gaps closed (Ireland age-16 consent, separate audit table, child erasure right US-P7-008, no-profiling prohibition, session timeout)
 **Reference platforms:** Hudl, Kitman Labs, Teamworks, Catapult, SportsEngine, FitrWoman / Orreco, Polar, Smartabase, Sportlyzer
 **Standards consulted:** GDPR / UK GDPR, GDPR Article 9, COPPA (US, updated Jan 2025), IOC Injury Surveillance guidelines, Meta WhatsApp Business policies, WCAG 2.1 AA
 
@@ -275,35 +275,81 @@ SaaS onboarding research (Appcues, Userflow) shows that users who receive a new 
 ## Phase 7 — Child Player Passport Authorization
 
 ### What we're building
-`parentChildAuthorizations` table with access levels (none / view_only / view_interact), 5 granular content toggles (wellness, injuries, feedback, passport, teams), 30/7-day pre-birthday notifications, COPPA age-13 minimum, cycle phase never shown to under-18s.
+`parentChildAuthorizations` table with access levels (none / view_only / view_interact), 5 granular content toggles (wellness, injuries, feedback, passport, teams), 30/7-day pre-birthday notifications, age-13 minimum (COPPA floor), age-16 Irish digital consent threshold, cycle phase never shown to under-18s.
 
 ### Industry standard
-- **COPPA (US, updated January 2025)**: operators must obtain verifiable parental consent before collecting data from under-13s. The updated rule allows facial recognition of government ID + device photo as a valid verification method. Text-plus method is also added. Our simple "parent grants access via the platform" is adequate for EU (where age of consent is 13 for data processing), but is not COPPA-compliant for US deployment without verifiable consent mechanisms.
-- **UK GDPR (UK Children's Code / Age Appropriate Design Code)**: requires age-appropriate design, data minimisation for under-18s, no profiling of minors without explicit consent, and high privacy defaults. Our implementation aligns well with this.
-- **Sportlyzer** gives parents full visibility of all athlete data until the athlete "ages out" — there is no progressive withdrawal of parental access. No competing platform reviewed has a pre-birthday notification system for access transition.
-- **FitrWoman** hard-blocks under-16s from cycle-phase features (stricter than our 18). For competitive sports performance, under-18 is the correct threshold for cycle tracking; this is also the Orreco position.
-- **GDPR Article 9 + cycle tracking**: the academic consensus (Springer Nature, Journal of Bioethical Inquiry, 2024) is that cycle phase data from minors should not be collected by third parties under any circumstances, regardless of parental consent. Our "never for under-18" rule is correct.
+
+**COPPA (US, updated January 2025 — effective June 2025, compliance by April 2026):**
+Three new verifiable parental consent methods finalised: (1) knowledge-based questions — dynamically difficult, child cannot guess; (2) facial recognition of government-issued photo ID matched with a device selfie; (3) text-plus verification (SMS + additional step — only for operators who do not share children's data with third parties). "Parent logs in and clicks grant" is NOT a recognised COPPA consent method. This is a gap for any US deployment.
+
+**Ireland's digital age of consent: 16 (not 13):**
+Ireland implemented GDPR Article 8 at age 16 — one of the stricter EU implementations (others include Czech Republic and UK at 16; Spain and Denmark at 13). The Irish DPC surveyed sports clubs in February 2024 (FAI, IRFU, GAA, LGFA partners) and issued "Fundamentals for a Child-Oriented Approach to Data Processing" (Dec 2021). For Irish sports clubs, this means:
+- Under 16: only parental consent creates a valid legal basis — child cannot independently consent to data processing.
+- Ages 16-17: child can give their own data consent but is still under the age of majority.
+- The PRD's parent-grant flow correctly satisfies this (parent initiates the account, not the child), but the framing as "COPPA: minimum age 13" is misleading for Irish deployment.
+
+**UK Children's Code — common enforcement failures (recent ICO action):**
+Reddit fined £18.2M (February 2026) for: using children's data in recommender/personalisation systems without safeguards; profiling enabled by default; failing to treat "best interests of the child" as the primary design consideration. The Code applies to ALL under-18 users, not just under-13.
+
+**GDPR Recital 65 — child's independent right to erasure:**
+A child can request erasure of their own data independently, without requiring the consenting parent's involvement, once they are competent to understand what they are asking for. Legal age is not the threshold — demonstrated competence is. This means a 15-year-old player can request their data be erased without their parent approving it. No platform reviewed explicitly handles this.
+
+**Audit trail requirements:**
+GDPR Article 5 (accountability principle) and COPPA both require logging of who accessed, modified, or deleted personal data, and when. The regulated-industry standard (healthcare, finance) is a separate, write-once audit table — embedded arrays in documents cannot be made immutable, can grow unbounded, and cannot be efficiently queried for compliance reports.
+
+**Session length for minors:**
+Industry best practice (not a legal requirement) is shorter session timeouts for child accounts — 30–60 minutes recommended vs. 24 hours for adults. No platform reviewed explicitly documents this, but it is consistent with security guidance for vulnerable user cohorts.
+
+**Age-gated progressive disclosure:**
+YouTube (3 tiers: Kids/Explore/Standard), TikTok (under-13 restricted defaults, family pairing), Snapchat (under-16 private-by-default, over-16 public profile opt-in) all use 13/16/18 as their transition points — directly aligning with GDPR's recommended thresholds and Ireland's 16 threshold.
+
+**Coach-parent-child triangle communications:**
+ClassDojo and Seesaw (the leading platforms for this model) implement three distinct visibility layers: (1) coach-only internal notes; (2) parent-visible feedback; (3) child-visible approved summaries. Our `restrictChildView` field matches this pattern. No legal requirement mandates it — it is platform-defined best practice, and we are ahead of sports-specific platforms (Hudl, SportsEngine, TeamSnap do not publish policies on this).
+
+**Pre-birthday notifications:**
+No legal standard found for 30-day + 7-day notice windows. This is platform-specific best practice. We are innovating here — no competitor has this mechanism.
 
 ### Differences
 
-| Area | Our Approach | Industry Standard |
-|------|-------------|-------------------|
-| Parental consent mechanism | Parent grants via platform (no identity verification) | COPPA (US): verifiable parental consent (government ID) required for under-13s |
-| Access granularity | 5 content-type toggles + 3 access levels | Most platforms: on/off binary (full access or none) |
-| Pre-birthday notifications | 30 and 7 day alerts | No other platform reviewed has this mechanism |
-| Cycle tracking age gate | Never for under-18 | FitrWoman: never for under-16 (we are more conservative — correct) |
-| Audit log of access changes | `changeLog` array on record | Industry standard: separate audit events table (not embedded in the record) |
+| Area | Our Approach | Industry Standard | Status |
+|------|-------------|-------------------|--------|
+| Parental consent mechanism | Parent grants via platform (email login, no identity check) | COPPA (US): verifiable parental consent (knowledge-based Q, facial ID, or text-plus) | Gap for US deployment |
+| Irish digital consent age | 13 framed as the COPPA minimum | Ireland: 16 is the digital consent age — under-16 requires parental consent | Framing gap — flow is correct but PRD updated to clarify |
+| Child's right to erasure | Not addressed | GDPR Recital 65: child can request erasure independently once competent | Open gap — new story added |
+| Access granularity | 5 content-type toggles + 3 access levels | Most platforms: on/off binary (full access or none) | ✅ Best-in-class |
+| Pre-birthday notifications | 30 and 7 day alerts | No other platform reviewed has this mechanism | ✅ Ahead of market |
+| Cycle tracking age gate | Never for under-18 | FitrWoman: never for under-16 (we are more conservative — correct) | ✅ Correct |
+| Audit trail | Embedded `changeLog` array (unbounded, not immutable) | Separate `parentChildAuthorizationLogs` table | Updated in PRD |
+| Profiling of children | Not explicitly addressed | UK Children's Code: profiling OFF by default for all under-18 | Added to PRD as explicit prohibition |
+| Session length for child accounts | Not specified | Best practice: 30–60 min vs. adult 24 hours | Added to PRD |
+| Age of consent threshold | 13 (COPPA floor) | Ireland: 16 (GDPR Article 8 Irish implementation) | Clarified in PRD |
 
 ### Pros of our approach
-- **Granular content toggles are best-in-class** — no platform reviewed offers per-content-type parental control. This respects both parental oversight needs and the emerging athlete's autonomy (a parent might grant wellness access but not coach feedback access).
+- **Granular content toggles are best-in-class** — no platform reviewed offers per-content-type parental control. This respects both parental oversight needs and the child's emerging autonomy.
 - **Pre-birthday transition notifications** are genuinely innovative and directly address a gap in every platform reviewed.
-- **`changeLog` embedded on the authorization record** is a lightweight audit trail that exceeds most competitors.
-- **Under-18 cycle tracking block** is ethically sound and legally appropriate.
+- **`restrictChildView` coach notes filtering** puts us ahead of all sports-specific competitors. ClassDojo and Seesaw have this in education — we are the first to bring it to youth sports.
+- **Under-18 cycle tracking block** is ethically sound, legally correct, and aligned with academic consensus.
+- **Parent-initiated access model** correctly satisfies GDPR Article 8 for Irish deployment (under-16 requires parental consent — our flow provides it as the trigger).
 
-### Cons of our approach
-- **No verifiable parental consent** — for any US deployment, the platform would be COPPA non-compliant for players under 13. Even for EU deployment, the current approach (parent logs in and clicks "grant access") is not a strong enough mechanism if a minor has access to the parent's account.
-- **Embedded `changeLog` array has no size limit** — on a long-running record with many access changes, this array grows unbounded. A separate `parentChildAuthorizationLogs` table with a foreign key is the standard approach (and allows querying/filtering).
-- **Age of consent gap** — the PRD uses 13 as the COPPA minimum, but the UK Children's Code requires age-appropriate design from birth to 17, not just under-13. For 13–17 year olds, the code recommends high privacy defaults, which our implementation generally honours but could be more explicit about.
+### Resolved (since initial analysis)
+- **Separate audit table** — `parentChildAuthorizationLogs` replaces the embedded `changeLog` array in US-P7-001. Separate table, write-once entries, indexed by child and by date. ✅
+- **Irish age of consent clarification** — PRD criticalContext updated to reflect that 16 is Ireland's digital consent threshold; the parent-grant flow satisfies GDPR Article 8 for ages 13-15. ✅
+- **Child's right to erasure** — new story US-P7-008 added: child can submit an erasure request independently via account settings; admin reviews and processes it. ✅
+- **Profiling prohibition** — criticalContext updated: child accounts must have no analytics profiling beyond session necessities. ✅
+- **Session length** — US-P7-003 updated: child accounts should use a shorter session timeout (max 60 minutes idle). ✅
+
+### Remaining gaps
+- **No verifiable parental consent mechanism** — for US (COPPA) deployment, the "parent logs in and clicks" mechanism does not meet the 2025 verifiable consent standard (knowledge-based Q / facial ID / text-plus). Irish/EU deployment is adequately covered by the parent-grant flow. US deployment would need a separate consent verification step. **Deferred to a US-expansion phase.**
+- **No legal requirement for pre-birthday notification window** — our 30/7-day approach is best practice, not mandated. Low risk.
+
+### Sources
+- [FTC finalises COPPA 2025 amendments — White & Case](https://www.whitecase.com/insight-alert/unpacking-ftcs-coppa-amendments-what-you-need-know)
+- [Ireland digital age of consent — William Fry](https://www.williamfry.com/knowledge/digital-age-of-consent-for-childrens-data-set-to-be-13/)
+- [Irish DPC — Fundamentals for child-oriented data processing](https://www.dataprotection.ie/en/dpc-guidance/fundamentals-child-oriented-approach-data-processing)
+- [Irish DPC sports clubs survey 2024](https://www.dataprotection.ie/en/news-media/latest-news/dpc-sports-survey)
+- [Reddit fined £18.2M — Feb 2026](https://www.malwarebytes.com/blog/news/2026/02/reddit-porn-sites-fined-by-uk-regulators-over-childrens-safety-and-privacy)
+- [GDPR Recital 65 / child right to erasure — ICO](https://ico.org.uk/for-organisations/uk-gdpr-guidance-and-resources/childrens-information/children-and-the-uk-gdpr/how-does-the-right-to-erasure-apply-to-children/)
+- [UK Children's Code — ICO](https://ico.org.uk/for-organisations/uk-gdpr-guidance-and-resources/childrens-information/childrens-code-guidance-and-resources/age-appropriate-design-a-code-of-practice-for-online-services/)
 
 ---
 
@@ -387,7 +433,7 @@ These are issues that affect multiple phases and are not addressed in any single
 | P4: Wellness | **Ahead** (privacy + design) | Per-coach consent unique; 5-core/3-optional Hooper-aligned model ✅ | No session RPE; no wearable integration |
 | P5: Portal Sections | **Ahead** | GDPR Art.20 export added ✅; privateInsight/publicSummary split innovative | Injury triage bypasses medical staff |
 | P6: Multi-Role | **Ahead** | All gaps closed ✅ — server-side guards, role-scoped notifications, deep link prompt, first-run onboarding | Role audit log deferred to future audit phase |
-| P7: Child Auth | Ahead | Per-content-type toggles; pre-birthday notifications | No verifiable parental consent (COPPA gap for US); unbounded changeLog |
+| P7: Child Auth | **Ahead** | Per-content-type toggles; pre-birthday notifications; child erasure right ✅; separate audit table ✅ | COPPA verifiable consent gap for US deployment (deferred); no profiling prohibition added ✅ |
 | P8: WhatsApp | Ahead | WhatsApp Flows ahead of market; excellent channel abstraction | No native push notifications; no wearable-triggered dispatch |
 
 **Overall:** PlayerARC's Adult Player Lifecycle design is competitive with or ahead of the market in record continuity, privacy granularity, and messaging channel sophistication. Five gaps have been resolved since initial analysis (Today first-screen, token claim identity verification, Irish name normalisation, Hooper-aligned 5-question wellness model, GDPR Article 20 export). Remaining open gaps: no native push notification path, and no wearable integration roadmap.

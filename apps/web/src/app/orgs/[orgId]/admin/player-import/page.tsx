@@ -1071,7 +1071,7 @@ John Smith,U12,GAA Football,Male,2025,Mary,Smith,mary.smith@email.com,0871234567
                                     Accept Match
                                   </SelectItem>
                                   <SelectItem value="skip">
-                                    Skip (New)
+                                    Skip Match
                                   </SelectItem>
                                   <SelectItem value="review_later">
                                     Review Later
@@ -1109,7 +1109,7 @@ John Smith,U12,GAA Football,Male,2025,Mary,Smith,mary.smith@email.com,0871234567
                       : ""}
                   </span>{" "}
                   will be merged with existing youth profiles.{" "}
-                  {matchedCount -
+                  {youthMatches.size -
                     Array.from(rowDecisions.values()).filter(
                       (d) => d === "accept"
                     ).length}{" "}

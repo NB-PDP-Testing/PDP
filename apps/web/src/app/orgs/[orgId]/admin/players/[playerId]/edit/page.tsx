@@ -80,6 +80,10 @@ export default function EditPlayerPage() {
     ageGroup: "",
     coachNotes: "",
     adminNotes: "",
+    fedFai: "",
+    fedIrfu: "",
+    fedGaa: "",
+    fedOther: "",
   });
 
   // Query player identity data
@@ -130,6 +134,10 @@ export default function EditPlayerPage() {
         ageGroup: enrollment.ageGroup || "",
         coachNotes: enrollment.coachNotes || "",
         adminNotes: enrollment.adminNotes || "",
+        fedFai: playerIdentity.federationIds?.fai || "",
+        fedIrfu: playerIdentity.federationIds?.irfu || "",
+        fedGaa: playerIdentity.federationIds?.gaa || "",
+        fedOther: playerIdentity.federationIds?.other || "",
       });
       formInitializedRef.current = true;
     }
@@ -150,6 +158,14 @@ export default function EditPlayerPage() {
     setIsSaving(true);
     try {
       // Update player identity
+      const fedIds = {
+        fai: formData.fedFai.trim() || undefined,
+        irfu: formData.fedIrfu.trim() || undefined,
+        gaa: formData.fedGaa.trim() || undefined,
+        other: formData.fedOther.trim() || undefined,
+      };
+      const hasFedIds = Object.values(fedIds).some(Boolean);
+
       await updatePlayerIdentity({
         playerIdentityId: playerId as Id<"playerIdentities">,
         firstName: formData.firstName,
@@ -162,6 +178,7 @@ export default function EditPlayerPage() {
         town: formData.town || undefined,
         postcode: formData.postcode || undefined,
         country: formData.country || undefined,
+        federationIds: hasFedIds ? fedIds : undefined,
       });
 
       // Update enrollment if exists
@@ -493,6 +510,65 @@ export default function EditPlayerPage() {
           </CardContent>
         </Card>
       </div>
+
+      {/* Federation IDs */}
+      <Card>
+        <CardHeader>
+          <CardTitle>Federation Numbers</CardTitle>
+          <CardDescription>
+            National governing body registration numbers. Used for identity
+            matching during import.
+          </CardDescription>
+        </CardHeader>
+        <CardContent>
+          <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
+            <div className="space-y-2">
+              <Label htmlFor="fedFai">FAI Number</Label>
+              <Input
+                id="fedFai"
+                onChange={(e) =>
+                  setFormData({ ...formData, fedFai: e.target.value })
+                }
+                placeholder="FAI registration"
+                value={formData.fedFai}
+              />
+            </div>
+            <div className="space-y-2">
+              <Label htmlFor="fedIrfu">IRFU Number</Label>
+              <Input
+                id="fedIrfu"
+                onChange={(e) =>
+                  setFormData({ ...formData, fedIrfu: e.target.value })
+                }
+                placeholder="IRFU registration"
+                value={formData.fedIrfu}
+              />
+            </div>
+            <div className="space-y-2">
+              <Label htmlFor="fedGaa">GAA Number</Label>
+              <Input
+                id="fedGaa"
+                onChange={(e) =>
+                  setFormData({ ...formData, fedGaa: e.target.value })
+                }
+                placeholder="GAA registration"
+                value={formData.fedGaa}
+              />
+            </div>
+            <div className="space-y-2">
+              <Label htmlFor="fedOther">Other</Label>
+              <Input
+                id="fedOther"
+                onChange={(e) =>
+                  setFormData({ ...formData, fedOther: e.target.value })
+                }
+                placeholder="Other governing body"
+                value={formData.fedOther}
+              />
+            </div>
+          </div>
+        </CardContent>
+      </Card>
 
       {/* Guardians Section - for youth players only */}
       {playerIdentity.playerType === "youth" && (

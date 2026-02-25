@@ -1,0 +1,47 @@
+# Ralph Progress Log
+Started: Wed 25 Feb 2026 16:50:07 GMT
+---
+
+## Phase 2: Adult Player Lifecycle — Youth-to-Adult Graduation Flow
+
+### Completed Stories
+
+**US-P2-001** (commit e356ca54): Guardian Sees Graduation Alert in Parent Dashboard
+- Created graduation-alert.tsx with amber-styled alert cards
+- GraduationAlerts component queries getPendingGraduations
+- Added age_transition_available and age_transition_claimed to notification types
+- Daily cron now sends in-app notifications to guardians on graduation detection
+
+**US-P2-002** (commit 2675d236): Guardian Sends Account Invite Email via Resend
+- Completed the TODO at playerGraduations.ts:217
+- Added sendGraduationInvitationEmail() to utils/email.ts
+- Created actions/graduations.ts with sendGraduationInvitationEmailAction
+- Email includes CTA to /claim-account/[token] with 30-day expiry warning
+
+**US-P2-003** (commit 361d643b): Player Claims Account via Token & Onboards
+- Added verificationPins table to schema (by_player index, channel/expiry)
+- Added sendClaimVerificationPin and verifyClaimPin mutations
+- sendVerificationPinAction delivers PIN via Twilio SMS or Resend email
+- ClaimWizard extended to 5 steps: welcome → account → verify → gdpr → confirm
+- claimPlayerAccount now requires valid PIN; sends age_transition_claimed notification
+- player_claimed_account onboarding task with PlayerGraduationStep welcome screen
+- markPlayerWelcomed mutation clears the welcome task
+
+**US-P2-004** (commit 2b6f1796): Admin Manual Graduation Trigger
+- GraduationSection component added to admin player edit page
+- Shows when player is youth + age >= 18 (computed at render time)
+- Reactive graduation status via getPlayerGraduationStatus query
+- Send Invitation button bypasses guardian, goes direct to player
+- Transition Now button with confirmation dialog → calls transitionToAdult
+
+**US-P2-UAT** (commit 162d1ad5): Phase 2 E2E Tests
+- 17 automated tests in player-graduation-phase2.spec.ts
+- Tests cover: parent dashboard graduation alert, invite dialog, claim page error states, admin graduation trigger UI
+- Comprehensive manual test checklist for data-dependent flows (11 scenarios)
+
+### Key Patterns Learned
+- findMany adapter requires paginationOpts: { cursor: null, numItems: N } (missing causes TS error)
+- Better Auth findMany returns { page: [...] } not a direct array
+- Biome useBlockStatements rule requires { } even for single-line if/continue
+- noShadow rule: rename Dialog onOpenChange param if it shadows outer prop
+- UAT spec files are excluded from biome check (by biome.jsonc config) — that's expected

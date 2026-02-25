@@ -208,6 +208,7 @@ export const createJoinRequest = mutation({
 
       // Player-specific fields
       playerDateOfBirth: args.playerDateOfBirth,
+      playerFederationNumber: args.playerFederationNumber,
       // biome-ignore lint/suspicious/noExplicitAny: Convex ID string interop — matchedYouthIdentityId is a validated playerIdentities ID
       matchedYouthIdentityId: matchedYouthIdentityId as any,
       matchedYouthName,

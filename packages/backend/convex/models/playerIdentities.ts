@@ -40,6 +40,14 @@ const playerIdentityValidator = v.object({
   createdAt: v.number(),
   updatedAt: v.number(),
   createdFrom: v.optional(v.string()),
+  federationIds: v.optional(
+    v.object({
+      fai: v.optional(v.string()),
+      irfu: v.optional(v.string()),
+      gaa: v.optional(v.string()),
+      other: v.optional(v.string()),
+    })
+  ),
 });
 
 // ============================================================
@@ -586,6 +594,14 @@ export const updatePlayerIdentity = mutation({
     verificationStatus: v.optional(verificationStatusValidator),
     lastSyncedAt: v.optional(v.number()),
     lastSyncedData: v.optional(v.any()),
+    federationIds: v.optional(
+      v.object({
+        fai: v.optional(v.string()),
+        irfu: v.optional(v.string()),
+        gaa: v.optional(v.string()),
+        other: v.optional(v.string()),
+      })
+    ),
   },
   returns: v.null(),
   handler: async (ctx, args) => {
@@ -636,6 +652,9 @@ export const updatePlayerIdentity = mutation({
     }
     if (args.lastSyncedData !== undefined) {
       updates.lastSyncedData = args.lastSyncedData;
+    }
+    if (args.federationIds !== undefined) {
+      updates.federationIds = args.federationIds;
     }
 
     await ctx.db.patch(args.playerIdentityId, updates);

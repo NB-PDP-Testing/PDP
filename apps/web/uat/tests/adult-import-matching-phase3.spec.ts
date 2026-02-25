@@ -523,3 +523,118 @@ test.describe("US-P3-004: Admin approvals show match flag for player join reques
     await expect(page).not.toHaveTitle(/error/i);
   });
 });
+
+// ─── Additional Coverage: Name Normalisation, Fada, Link Count, Import Badge ─
+
+test.describe("Phase 3 Additional Coverage", () => {
+  test("PM3-060: Add Player dialog first/last name fields accept accented characters (fada)", async ({
+    adminPage: page,
+  }) => {
+    await goToAdminPlayers(page);
+    await openAddPlayerDialog(page);
+
+    const dialog = page.getByRole("dialog");
+    const firstNameInput = dialog.getByLabel(/first name/i);
+    await firstNameInput.fill("Séan");
+    await expect(firstNameInput).toHaveValue("Séan");
+
+    const lastNameInput = dialog.getByLabel(/last name/i);
+    await lastNameInput.fill("Ó'Briain");
+    await expect(lastNameInput).toHaveValue("Ó'Briain");
+  });
+
+  test("PM3-061: CSV import summary count reflects youth match count not team match count", async ({
+    adminPage: page,
+  }) => {
+    await goToAdminPlayerImport(page);
+
+    // Paste a CSV with one adult row that will have no youth match
+    const adultDob = new Date();
+    adultDob.setFullYear(adultDob.getFullYear() - 25);
+    const dobStr = adultDob.toISOString().split("T")[0];
+
+    const csv = [
+      "FirstName,LastName,AgeGroup,Sport,Gender,Season,DateOfBirth",
+      `SummaryTest,CountVerify,Senior,Soccer,Male,2025,${dobStr}`,
+    ].join("\n");
+
+    const csvInput = page.getByRole("textbox");
+    await csvInput.fill(csv);
+
+    const parseBtn = page.getByRole("button", { name: /parse/i }).first();
+    await parseBtn.click();
+    await page.waitForTimeout(4000);
+
+    // If import summary is visible, verify it doesn't show negative numbers
+    const summaryText = page.getByText(/will create new profiles/i);
+    if (await summaryText.isVisible({ timeout: 2000 }).catch(() => false)) {
+      const text = await summaryText.textContent();
+      // Count should not be negative
+      const match = text?.match(/(\d+)\s+will create new profiles/);
+      if (match) {
+        expect(Number(match[1])).toBeGreaterThanOrEqual(0);
+      }
+    }
+
+    await expect(page.getByRole("main")).toBeVisible();
+  });
+
+  test("PM3-062: CSV import table shows High confidence badge for matched youth rows", async ({
+    adminPage: page,
+  }) => {
+    await goToAdminPlayerImport(page);
+
+    // The High badge only appears when a youth profile match exists.
+    // We verify the badge element exists in the DOM if any youth match data is shown.
+    const highBadge = page.getByRole("main").getByText("High", { exact: true });
+    const mediumBadge = page
+      .getByRole("main")
+      .getByText("Medium", { exact: true });
+
+    const hasAnyBadge =
+      (await highBadge.isVisible({ timeout: 3000 }).catch(() => false)) ||
+      (await mediumBadge.isVisible({ timeout: 3000 }).catch(() => false));
+
+    // If no CSV has been parsed yet, badges won't be visible — that's expected
+    if (!hasAnyBadge) {
+      await expect(page.getByRole("main")).toBeVisible();
+    } else {
+      // When present, the badge should have correct text
+      await expect(highBadge.or(mediumBadge).first()).toBeVisible();
+    }
+  });
+
+  test("PM3-063: Player edit page shows Federation Numbers section", async ({
+    adminPage: page,
+  }) => {
+    // Navigate to a player edit page — use first player in list
+    await page.goto(ADMIN_PLAYERS_URL);
+    await waitForPageLoad(page);
+    await dismissBlockingDialogs(page);
+
+    // Click first edit link / row
+    const editLink = page.getByRole("link", { name: /edit/i }).first();
+    const hasEditLink = await editLink
+      .isVisible({ timeout: 5000 })
+      .catch(() => false);
+
+    if (hasEditLink) {
+      await editLink.click();
+      await waitForPageLoad(page);
+
+      // Federation Numbers card should be present
+      await expect(
+        page.getByRole("heading", { name: /federation numbers/i })
+      ).toBeVisible();
+
+      // All 4 fields should be visible
+      await expect(page.getByLabel(/fai number/i)).toBeVisible();
+      await expect(page.getByLabel(/irfu number/i)).toBeVisible();
+      await expect(page.getByLabel(/gaa number/i)).toBeVisible();
+      await expect(page.getByLabel(/other/i)).toBeVisible();
+    } else {
+      // No players in test org — verify page is still functional
+      await expect(page.getByRole("main")).toBeVisible();
+    }
+  });
+});

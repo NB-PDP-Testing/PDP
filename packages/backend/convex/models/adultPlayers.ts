@@ -122,6 +122,29 @@ export const findAdultPlayerByUserId = query({
 });
 
 /**
+ * Check if the current authenticated user has a player dashboard
+ * (i.e., an adult player identity linked to their account)
+ * Used for portal gating in the player layout
+ */
+export const hasPlayerDashboard = query({
+  args: {},
+  returns: v.boolean(),
+  handler: async (ctx) => {
+    const identity = await ctx.auth.getUserIdentity();
+    if (!identity) {
+      return false;
+    }
+
+    const player = await ctx.db
+      .query("playerIdentities")
+      .withIndex("by_userId", (q) => q.eq("userId", identity.subject))
+      .first();
+
+    return player !== null && player.playerType === "adult";
+  },
+});
+
+/**
  * Check if user has an adult player profile
  */
 export const hasAdultPlayerProfile = query({
@@ -264,11 +287,12 @@ export const transitionToAdult = mutation({
         phone: guardian.phone || "",
         email: guardian.email,
         relationship: mapRelationshipToEmergency(link.relationship),
-        priority: priority++,
+        priority,
         notes: link.isPrimary ? "Former primary guardian" : undefined,
         createdAt: now,
         updatedAt: now,
       });
+      priority += 1;
     }
 
     // 3. Guardian links are kept for historical reference
@@ -409,11 +433,12 @@ export const claimYouthProfile = mutation({
           phone: guardian.phone || "",
           email: guardian.email,
           relationship: mapRelationshipToEmergency(link.relationship),
-          priority: priority++,
+          priority,
           notes: link.isPrimary ? "Former primary guardian" : undefined,
           createdAt: now,
           updatedAt: now,
         });
+        priority += 1;
       }
 
       return { success: true, transitioned: true };
@@ -454,6 +479,8 @@ function mapRelationshipToEmergency(
     case "grandparent":
       return "Grandparent";
     case "other":
+      return "Family";
+    default:
       return "Family";
   }
 }

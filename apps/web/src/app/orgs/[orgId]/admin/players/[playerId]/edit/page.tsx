@@ -36,6 +36,7 @@ import {
 } from "@/components/ui/select";
 import { Textarea } from "@/components/ui/textarea";
 import { authClient } from "@/lib/auth-client";
+import { GraduationSection } from "./components/graduation-section";
 import { GuardiansSection } from "./components/guardians-section";
 
 // Helper to format date for date input (YYYY-MM-DD) - defined outside component to avoid re-renders
@@ -502,6 +503,18 @@ export default function EditPlayerPage() {
           playerName={`${playerIdentity.firstName} ${playerIdentity.lastName}`}
         />
       )}
+
+      {/* Graduation Section - for youth players aged 18+ */}
+      {playerIdentity.playerType === "youth" &&
+        playerIdentity.dateOfBirth &&
+        Date.now() - new Date(playerIdentity.dateOfBirth).getTime() >=
+          18 * 365.25 * 24 * 60 * 60 * 1000 && (
+          <GraduationSection
+            organizationId={orgId}
+            playerIdentityId={playerId as Id<"playerIdentities">}
+            playerName={`${playerIdentity.firstName} ${playerIdentity.lastName}`}
+          />
+        )}
 
       {/* Team Assignments - Full Width */}
       <Card>

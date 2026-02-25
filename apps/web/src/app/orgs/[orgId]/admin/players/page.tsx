@@ -125,6 +125,23 @@ export default function ManagePlayersPage() {
   const [isCheckingDuplicate, setIsCheckingDuplicate] = useState(false);
   const convex = useConvex();
 
+  // Youth match state (US-P3-002)
+  const [showYouthMatchDialog, setShowYouthMatchDialog] = useState(false);
+  const [youthMatchCandidate, setYouthMatchCandidate] = useState<{
+    _id: string;
+    firstName: string;
+    lastName: string;
+    dateOfBirth: string;
+  } | null>(null);
+  const [mediumMatchWarning, setMediumMatchWarning] = useState<{
+    name: string;
+    dateOfBirth: string;
+    playerIdentityId: string;
+  } | null>(null);
+  const [hasAcknowledgedMediumMatch, setHasAcknowledgedMediumMatch] =
+    useState(false);
+  const [isLinkingToYouth, setIsLinkingToYouth] = useState(false);
+
   // Delete player state
   const [showDeleteDialog, setShowDeleteDialog] = useState(false);
   const [playerToDelete, setPlayerToDelete] = useState<{
@@ -146,6 +163,9 @@ export default function ManagePlayersPage() {
   );
   const unenrollPlayer = useMutation(
     api.models.orgPlayerEnrollments.unenrollPlayer
+  );
+  const transitionToAdultMutation = useMutation(
+    api.models.adultPlayers.transitionToAdult
   );
 
   // Get data from new identity system
@@ -216,6 +236,18 @@ export default function ManagePlayersPage() {
     enrolledPlayers === undefined ||
     teams === undefined ||
     teamPlayerLinks === undefined;
+
+  // Calculate age from ISO date string
+  const calculateAge = (dob: string): number => {
+    const birth = new Date(dob);
+    const now = new Date();
+    let age = now.getFullYear() - birth.getFullYear();
+    const m = now.getMonth() - birth.getMonth();
+    if (m < 0 || (m === 0 && now.getDate() < birth.getDate())) {
+      age -= 1;
+    }
+    return age;
+  };
 
   // Validate add player form
   const validateForm = (): boolean => {
@@ -328,7 +360,47 @@ export default function ManagePlayersPage() {
     }
   };
 
-  // Handle add player submit - first check for duplicates
+  // Link to existing youth history (HIGH confidence match dialog)
+  const handleLinkToExistingHistory = async () => {
+    if (!youthMatchCandidate) {
+      return;
+    }
+    setIsLinkingToYouth(true);
+    try {
+      // Transition the youth record to adult
+      await transitionToAdultMutation({
+        playerIdentityId: youthMatchCandidate._id as any,
+      });
+      // Enroll in this organisation
+      await enrollPlayer({
+        playerIdentityId: youthMatchCandidate._id as any,
+        organizationId: orgId,
+        ageGroup: addPlayerForm.ageGroup,
+        season: getCurrentSeason(),
+      });
+      toast.success("Player linked to existing history", {
+        description: `${youthMatchCandidate.firstName} ${youthMatchCandidate.lastName}'s youth record has been transitioned to adult.`,
+      });
+      setShowYouthMatchDialog(false);
+      setShowAddPlayerDialog(false);
+      setAddPlayerForm(emptyFormData);
+      setFormErrors({});
+      setYouthMatchCandidate(null);
+      router.push(`/orgs/${orgId}/players/${youthMatchCandidate._id}`);
+    } catch (error) {
+      console.error("Error linking to existing history:", error);
+      toast.error("Failed to link player", {
+        description:
+          error instanceof Error
+            ? error.message
+            : "An unexpected error occurred",
+      });
+    } finally {
+      setIsLinkingToYouth(false);
+    }
+  };
+
+  // Handle add player submit - first check for duplicates, then youth matching
   const handleAddPlayer = async (e?: React.FormEvent<HTMLFormElement>) => {
     if (e) {
       e.preventDefault();
@@ -338,12 +410,70 @@ export default function ManagePlayersPage() {
       return;
     }
 
-    // Check for duplicates first
-    const canProceed = await checkForDuplicates();
-    if (canProceed) {
-      await createPlayer();
+    const age = calculateAge(addPlayerForm.dateOfBirth);
+    const isAdult = age >= 18;
+
+    if (isAdult && !hasAcknowledgedMediumMatch) {
+      // Run duplicate check and youth match in parallel for adults
+      setIsCheckingDuplicate(true);
+      try {
+        const [duplicateResult, youthMatch] = await Promise.all([
+          convex.query(api.models.playerIdentities.checkForDuplicatePlayer, {
+            firstName: addPlayerForm.firstName.trim(),
+            lastName: addPlayerForm.lastName.trim(),
+            dateOfBirth: addPlayerForm.dateOfBirth,
+            gender: addPlayerForm.gender,
+          }),
+          convex.query(api.models.playerMatching.findMatchingYouthProfile, {
+            organizationId: orgId,
+            firstName: addPlayerForm.firstName.trim(),
+            lastName: addPlayerForm.lastName.trim(),
+            dateOfBirth: addPlayerForm.dateOfBirth,
+          }),
+        ]);
+
+        // Existing exact duplicate check (runs first)
+        if (duplicateResult.isDuplicate && duplicateResult.message) {
+          setDuplicateMessage(duplicateResult.message);
+          setShowDuplicateWarning(true);
+          return;
+        }
+
+        // HIGH confidence youth match — blocking dialog
+        if (youthMatch.confidence === "high" && youthMatch.match) {
+          setYouthMatchCandidate({
+            _id: youthMatch.match._id,
+            firstName: youthMatch.match.firstName,
+            lastName: youthMatch.match.lastName,
+            dateOfBirth: youthMatch.match.dateOfBirth,
+          });
+          setShowYouthMatchDialog(true);
+          return;
+        }
+
+        // MEDIUM confidence — show non-blocking banner then proceed
+        if (youthMatch.confidence === "medium" && youthMatch.match) {
+          setMediumMatchWarning({
+            name: `${youthMatch.match.firstName} ${youthMatch.match.lastName}`,
+            dateOfBirth: youthMatch.match.dateOfBirth,
+            playerIdentityId: youthMatch.match._id,
+          });
+          setHasAcknowledgedMediumMatch(true);
+          return; // Banner shown; user re-submits to proceed
+        }
+      } finally {
+        setIsCheckingDuplicate(false);
+      }
+    } else if (!isAdult) {
+      // Youth player — existing duplicate check only
+      const canProceed = await checkForDuplicates();
+      if (!canProceed) {
+        return;
+      }
     }
-    // If not, the duplicate warning dialog will be shown
+    // If adult with acknowledged medium match, skip re-checking and proceed
+
+    await createPlayer();
   };
 
   // Handle duplicate warning confirmation - proceed anyway
@@ -1048,6 +1178,9 @@ export default function ManagePlayersPage() {
           if (!open) {
             setAddPlayerForm(emptyFormData);
             setFormErrors({});
+            setMediumMatchWarning(null);
+            setHasAcknowledgedMediumMatch(false);
+            setYouthMatchCandidate(null);
           }
           setShowAddPlayerDialog(open);
         }}
@@ -1064,6 +1197,39 @@ export default function ManagePlayersPage() {
           onSubmit={handleAddPlayer}
           submitText="Add Player"
         >
+          {/* MEDIUM confidence youth match banner (non-blocking) */}
+          {mediumMatchWarning && (
+            <div className="mx-4 mt-2 flex items-start gap-2 rounded-md border border-amber-200 bg-amber-50 p-3 text-amber-800">
+              <AlertTriangle className="mt-0.5 h-4 w-4 shrink-0" />
+              <div className="space-y-1 text-sm">
+                <p className="font-medium">Possible youth profile match</p>
+                <p>
+                  A youth profile may match this player:{" "}
+                  <span className="font-medium">{mediumMatchWarning.name}</span>
+                  {", born "}
+                  {new Date(
+                    mediumMatchWarning.dateOfBirth
+                  ).toLocaleDateString()}
+                  . Review before proceeding.
+                </p>
+                <button
+                  className="text-amber-700 underline hover:text-amber-900"
+                  onClick={() =>
+                    router.push(
+                      `/orgs/${orgId}/players/${mediumMatchWarning.playerIdentityId}`
+                    )
+                  }
+                  type="button"
+                >
+                  View Match
+                </button>
+                <span className="ml-2 text-amber-600 text-xs">
+                  Click Add Player again to proceed anyway.
+                </span>
+              </div>
+            </div>
+          )}
+
           <ResponsiveFormSection>
             {/* First Name and Last Name */}
             <ResponsiveFormRow columns={2}>
@@ -1293,6 +1459,79 @@ export default function ManagePlayersPage() {
             dates of birth or gender. An exact match (same name, date of birth,
             AND gender) has been detected.
           </p>
+        </div>
+      </ResponsiveDialog>
+
+      {/* Youth Match Dialog — HIGH confidence (blocking) */}
+      <ResponsiveDialog
+        contentClassName="sm:max-w-md"
+        description={
+          youthMatchCandidate
+            ? `A youth profile for ${youthMatchCandidate.firstName} ${youthMatchCandidate.lastName}, born ${new Date(youthMatchCandidate.dateOfBirth).toLocaleDateString()}, was found.`
+            : undefined
+        }
+        footer={
+          <div className="flex flex-col-reverse gap-2 sm:flex-row sm:justify-end">
+            <Button
+              disabled={isLinkingToYouth || isAddingPlayer}
+              onClick={async () => {
+                setShowYouthMatchDialog(false);
+                await createPlayer();
+              }}
+              variant="outline"
+            >
+              {isAddingPlayer ? (
+                <>
+                  <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                  Creating...
+                </>
+              ) : (
+                "Create New Profile"
+              )}
+            </Button>
+            <Button
+              disabled={isLinkingToYouth || isAddingPlayer}
+              onClick={handleLinkToExistingHistory}
+            >
+              {isLinkingToYouth ? (
+                <>
+                  <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                  Linking...
+                </>
+              ) : (
+                "Link to Existing History"
+              )}
+            </Button>
+          </div>
+        }
+        onOpenChange={(open) => {
+          if (!open) {
+            setYouthMatchCandidate(null);
+          }
+          setShowYouthMatchDialog(open);
+        }}
+        open={showYouthMatchDialog}
+        title="Youth Profile Match Found"
+      >
+        <div className="space-y-3 text-muted-foreground text-sm">
+          <p>
+            Would you like to link this adult to their existing youth history,
+            or create a new separate profile?
+          </p>
+          <ul className="list-disc space-y-1 pl-4">
+            <li>
+              <span className="font-medium text-foreground">
+                Link to Existing History
+              </span>{" "}
+              — preserves youth records, assessments, and team history.
+            </li>
+            <li>
+              <span className="font-medium text-foreground">
+                Create New Profile
+              </span>{" "}
+              — creates a separate adult record with no prior history.
+            </li>
+          </ul>
         </div>
       </ResponsiveDialog>
 

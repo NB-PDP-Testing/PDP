@@ -3,7 +3,7 @@
 **Document purpose:** A phase-by-phase comparison of the PlayerARC Adult Player Lifecycle PRD against industry best practice and international standards. For each area, differences are identified with their pros and cons so that informed decisions can be made about future evolution.
 
 **Reviewed PRDs:** Phases 1–8 (42 stories + Phase 8 dual-channel WhatsApp extension)
-**Last updated:** 2026-02-25 — P1 Today screen added; P2 token claim identity verification added; P3 Irish name normalisation added; P4 5-core/3-optional dimension split added; P5 GDPR Art.20 export added; P6 deep industry review completed (server-side self-assessment guard, notification routing, deep link context, first-run onboarding gaps identified)
+**Last updated:** 2026-02-25 — P1 Today screen added; P2 token claim identity verification added; P3 Irish name normalisation added; P4 5-core/3-optional dimension split added; P5 GDPR Art.20 export added; P6 deep industry review + all gaps closed (server-side guards, role-scoped notifications US-P6-005, deep link prompt US-P6-006, first-run onboarding, admin confirmed-flag pattern)
 **Reference platforms:** Hudl, Kitman Labs, Teamworks, Catapult, SportsEngine, FitrWoman / Orreco, Polar, Smartabase, Sportlyzer
 **Standards consulted:** GDPR / UK GDPR, GDPR Article 9, COPPA (US, updated Jan 2025), IOC Injury Surveillance guidelines, Meta WhatsApp Business policies, WCAG 2.1 AA
 
@@ -260,17 +260,15 @@ SaaS onboarding research (Appcues, Userflow) shows that users who receive a new 
 ### Resolved (since initial analysis)
 - **Self-assessment guard — server-side enforcement added**: US-P6-004 updated to require a backend validation in the assessment mutation — if `assessor.userId === assessedPlayer.userId`, the mutation throws. The UI disable remains as the first signal; the backend is the safety net. ✅
 
-### Remaining gaps
-- **No role audit log** — if a coach/admin acts in the wrong role context, there is no log of what role they were acting in. GDPR Article 30 (Records of Processing Activities) and club governance both benefit from this. Deferred to a future audit logging phase.
-- **Admin-own-record guard is UI-only** — the confirmation dialog is a UX hint, not a backend constraint. A mutation validating `adminUserId !== targetPlayerUserId` before sensitive modifications would close this gap properly.
-- **No notification routing** — multi-role users receive all notifications regardless of active role context. A player+coach will see coaching notifications even when acting as player. This is a future UX improvement.
-- **No deep link role-context handling** — a shared link to a coach page opened while the user is in Player context will likely 404 or redirect to the wrong page. A role-switch prompt should be shown.
-- **No first-run onboarding for newly added roles** — the approval notification exists, but there is no guided "here's what you can do now" experience for the newly accessible player portal. Risk: users don't discover the portal after approval.
+### Resolved (all open gaps closed)
+- **Self-assessment guard — server-side enforcement**: mutation throws if `assessor.userId === assessedPlayer.linkedUserId`. ✅
+- **Admin-own-record guard — backend confirmed flag**: enrollment update mutations require `confirmed: true` arg when admin is modifying their own player record. Calling without `confirmed=true` throws a validation error — the UI dialog is no longer the only gate. ✅ (US-P6-004)
+- **Notification routing — role-scoped**: `targetRole` optional field added to notifications schema. All notification creation calls updated with role mapping. Notification query and provider filter by `activeFunctionalRole`. ✅ (US-P6-005)
+- **Deep link role-context prompt**: when URL role segment mismatches active role and user holds the required role, a prompt offers to switch — no silent 403. ✅ (US-P6-006)
+- **First-run onboarding for new role**: dismissible welcome banner shown once on first player portal visit after approval. ✅ (US-P6-003)
 
-### Recommendations
-1. **Close the admin-own-record gap now**: add `if (args.playerId relates to ctx.userId) { throw validation error }` to sensitive admin mutations. This is a 30-minute backend change.
-2. **Add first-run moment to US-P6-003**: when a user switches to a newly approved role for the first time, show a dismissible banner "Welcome to your Player portal — here's what you can do." Clears on first dismiss, stored in localStorage.
-3. **Role audit log**: defer to the planned audit logging feature, but note it as a GDPR Article 30 requirement.
+### Remaining gaps
+- **No role audit log** — deferred to the planned org-wide audit logging feature. GDPR Article 30 requirement documented for that phase.
 
 ---
 
@@ -388,7 +386,7 @@ These are issues that affect multiple phases and are not addressed in any single
 | P3: Matching | **Ahead** | Irish name normalisation + multi-signal confidence ✅ | No merge audit trail |
 | P4: Wellness | **Ahead** (privacy + design) | Per-coach consent unique; 5-core/3-optional Hooper-aligned model ✅ | No session RPE; no wearable integration |
 | P5: Portal Sections | **Ahead** | GDPR Art.20 export added ✅; privateInsight/publicSummary split innovative | Injury triage bypasses medical staff |
-| P6: Multi-Role | **Ahead** | Add-role without new account; server-side self-assessment guard ✅ | Admin-own-record guard UI-only; no notification routing; no first-run onboarding for new role |
+| P6: Multi-Role | **Ahead** | All gaps closed ✅ — server-side guards, role-scoped notifications, deep link prompt, first-run onboarding | Role audit log deferred to future audit phase |
 | P7: Child Auth | Ahead | Per-content-type toggles; pre-birthday notifications | No verifiable parental consent (COPPA gap for US); unbounded changeLog |
 | P8: WhatsApp | Ahead | WhatsApp Flows ahead of market; excellent channel abstraction | No native push notifications; no wearable-triggered dispatch |
 

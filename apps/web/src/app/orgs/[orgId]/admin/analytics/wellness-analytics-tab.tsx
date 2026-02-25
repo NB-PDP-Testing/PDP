@@ -3,7 +3,7 @@
 import { api } from "@pdp/backend/convex/_generated/api";
 import type { Id } from "@pdp/backend/convex/_generated/dataModel";
 import { useQuery } from "convex/react";
-import { AlertTriangle, Download, Heart } from "lucide-react";
+import { Activity, AlertTriangle, Download, Heart } from "lucide-react";
 import { useState } from "react";
 import {
   CartesianGrid,
@@ -31,9 +31,19 @@ import {
   SelectValue,
 } from "@/components/ui/select";
 
-interface WellnessAnalyticsTabProps {
+type WellnessAnalyticsTabProps = {
   organizationId: string;
-}
+  userRole?: string | null;
+};
+
+const PHASE_LABELS: Record<string, string> = {
+  menstruation: "Menstruation",
+  early_follicular: "Early Follicular",
+  late_follicular: "Late Follicular",
+  ovulation: "Ovulation",
+  early_luteal: "Early Luteal",
+  late_luteal: "Late Luteal",
+};
 
 // Individual player detail panel — full dimension history (admin access)
 function PlayerWellnessDetail({
@@ -132,6 +142,7 @@ function PlayerWellnessDetail({
 
 export function WellnessAnalyticsTab({
   organizationId,
+  userRole,
 }: WellnessAnalyticsTabProps) {
   const [dateRangeDays, setDateRangeDays] = useState(30);
   const [drillDownPlayer, setDrillDownPlayer] = useState<{
@@ -151,6 +162,20 @@ export function WellnessAnalyticsTab({
     { organizationId, threshold: 2.0, consecutiveCount: 3 }
   );
 
+  // Injuries for all low-wellness players (correlation panel)
+  const lowPlayerIds = lowWellnessPlayers?.map((p) => p.playerIdentityId) ?? [];
+  const lowPlayerInjuries = useQuery(
+    api.models.playerInjuries.getInjuriesForMultiplePlayers,
+    lowPlayerIds.length > 0 ? { playerIdentityIds: lowPlayerIds } : "skip"
+  );
+
+  // Cycle phase injury heatmap — admin/owner only (medical_staff role in Phase 7+)
+  const isMedicalAdmin = userRole === "owner" || userRole === "admin";
+  const cycleHeatmap = useQuery(
+    api.models.playerHealthChecks.getCyclePhaseInjuryHeatmap,
+    isMedicalAdmin ? { organizationId, days: dateRangeDays } : "skip"
+  );
+
   const handleExportCsv = () => {
     if (!orgAnalytics || orgAnalytics.length === 0) {
       return;
@@ -167,6 +192,18 @@ export function WellnessAnalyticsTab({
     a.click();
     URL.revokeObjectURL(url);
   };
+
+  // Build a map of playerId → active injuries for the correlation panel
+  const injuryByPlayer = new Map<string, typeof lowPlayerInjuries>();
+  if (lowPlayerInjuries) {
+    for (const inj of lowPlayerInjuries) {
+      const pid = String(inj.playerIdentityId);
+      if (!injuryByPlayer.has(pid)) {
+        injuryByPlayer.set(pid, []);
+      }
+      injuryByPlayer.get(pid)?.push(inj);
+    }
+  }
 
   if (drillDownPlayer) {
     return (
@@ -262,7 +299,7 @@ export function WellnessAnalyticsTab({
         </CardContent>
       </Card>
 
-      {/* Low wellness alert panel */}
+      {/* Low wellness + injury correlation panel */}
       <Card>
         <CardHeader>
           <CardTitle className="flex items-center gap-2">
@@ -270,8 +307,8 @@ export function WellnessAnalyticsTab({
             Players with Consecutive Low Scores
           </CardTitle>
           <CardDescription>
-            Players whose last 3+ check-ins averaged ≤ 2.0. Click a name for
-            their full dimension history.
+            Players whose last 3+ check-ins averaged ≤ 2.0, alongside any active
+            injuries in the same period.
           </CardDescription>
         </CardHeader>
         <CardContent>
@@ -284,39 +321,139 @@ export function WellnessAnalyticsTab({
               No players with 3+ consecutive low scores. 🎉
             </p>
           ) : (
-            <div className="space-y-2">
-              {lowWellnessPlayers.map((p) => (
-                <div
-                  className="flex min-h-[44px] items-center gap-3 rounded-lg border border-amber-200 bg-amber-50 px-4 py-3"
-                  key={String(p.playerIdentityId)}
-                >
-                  <div className="min-w-0 flex-1">
-                    <button
-                      className="font-medium text-sm hover:underline"
-                      onClick={() =>
-                        setDrillDownPlayer({
-                          id: p.playerIdentityId,
-                          name: `${p.firstName} ${p.lastName}`,
-                        })
-                      }
-                      type="button"
-                    >
-                      {p.firstName} {p.lastName}
-                    </button>
-                    <p className="text-muted-foreground text-xs">
-                      Last check: {p.lastCheckDate} · Score:{" "}
-                      {p.lastScore.toFixed(1)}
-                    </p>
+            <div className="space-y-3">
+              {lowWellnessPlayers.map((p) => {
+                const injuries =
+                  injuryByPlayer.get(String(p.playerIdentityId)) ?? [];
+                return (
+                  <div
+                    className="rounded-lg border border-amber-200 bg-amber-50 px-4 py-3"
+                    key={String(p.playerIdentityId)}
+                  >
+                    <div className="flex min-h-[44px] items-center gap-3">
+                      <div className="min-w-0 flex-1">
+                        <button
+                          className="font-medium text-sm hover:underline"
+                          onClick={() =>
+                            setDrillDownPlayer({
+                              id: p.playerIdentityId,
+                              name: `${p.firstName} ${p.lastName}`,
+                            })
+                          }
+                          type="button"
+                        >
+                          {p.firstName} {p.lastName}
+                        </button>
+                        <p className="text-muted-foreground text-xs">
+                          Last check: {p.lastCheckDate} · Score:{" "}
+                          {p.lastScore.toFixed(1)}
+                        </p>
+                      </div>
+                      <Badge className="shrink-0 bg-amber-100 text-amber-800 hover:bg-amber-100">
+                        {p.consecutiveLowDays} low days
+                      </Badge>
+                    </div>
+                    {injuries.length > 0 && (
+                      <div className="mt-2 flex flex-wrap gap-1.5 border-amber-200 border-t pt-2">
+                        {injuries.map((inj) => (
+                          <Badge
+                            className="bg-red-100 text-red-800 text-xs hover:bg-red-100"
+                            key={String(inj._id)}
+                            variant="outline"
+                          >
+                            {inj.bodyPart} ({inj.status})
+                          </Badge>
+                        ))}
+                      </div>
+                    )}
                   </div>
-                  <Badge className="shrink-0 bg-amber-100 text-amber-800 hover:bg-amber-100">
-                    {p.consecutiveLowDays} low days
-                  </Badge>
-                </div>
-              ))}
+                );
+              })}
             </div>
           )}
         </CardContent>
       </Card>
+
+      {/* Cycle phase injury heatmap — admin/owner only */}
+      {isMedicalAdmin && (
+        <Card>
+          <CardHeader>
+            <CardTitle className="flex items-center gap-2">
+              <Activity className="h-4 w-4 text-purple-500" />
+              Cycle Phase Injury Correlation
+            </CardTitle>
+            <CardDescription>
+              Injury occurrences by cycle phase for female players who log cycle
+              data. Visible to admins only.
+            </CardDescription>
+          </CardHeader>
+          <CardContent>
+            {cycleHeatmap === undefined ? (
+              <p className="py-4 text-center text-muted-foreground text-sm">
+                Loading…
+              </p>
+            ) : cycleHeatmap.length === 0 ? (
+              <p className="py-4 text-center text-muted-foreground text-sm">
+                No cycle phase data recorded yet for this date range.
+              </p>
+            ) : (
+              <div className="overflow-x-auto">
+                <table className="w-full text-sm">
+                  <thead>
+                    <tr className="border-b">
+                      <th className="pb-2 text-left font-medium">Phase</th>
+                      <th className="pb-2 text-right font-medium">Check-ins</th>
+                      <th className="pb-2 text-right font-medium">Injuries</th>
+                      <th className="pb-2 text-right font-medium">Rate</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {cycleHeatmap
+                      .sort((a, b) => b.injuryCount - a.injuryCount)
+                      .map((row) => {
+                        const rate =
+                          row.checkInCount > 0
+                            ? (
+                                (row.injuryCount / row.checkInCount) *
+                                100
+                              ).toFixed(1)
+                            : "0.0";
+                        return (
+                          <tr
+                            className="border-b last:border-0"
+                            key={row.phase}
+                          >
+                            <td className="py-2">
+                              {PHASE_LABELS[row.phase] ?? row.phase}
+                            </td>
+                            <td className="py-2 text-right text-muted-foreground">
+                              {row.checkInCount}
+                            </td>
+                            <td className="py-2 text-right">
+                              <Badge
+                                className={
+                                  row.injuryCount > 0
+                                    ? "bg-red-100 text-red-800"
+                                    : "bg-green-100 text-green-800"
+                                }
+                                variant="outline"
+                              >
+                                {row.injuryCount}
+                              </Badge>
+                            </td>
+                            <td className="py-2 text-right text-muted-foreground text-xs">
+                              {rate}%
+                            </td>
+                          </tr>
+                        );
+                      })}
+                  </tbody>
+                </table>
+              </div>
+            )}
+          </CardContent>
+        </Card>
+      )}
     </div>
   );
 }

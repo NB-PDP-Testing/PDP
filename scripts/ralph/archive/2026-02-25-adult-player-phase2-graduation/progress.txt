@@ -1,47 +1,149 @@
 # Ralph Progress Log
-Started: Wed 25 Feb 2026 16:50:07 GMT
+Started: Wed 25 Feb 2026 18:04:01 GMT
 ---
 
-## Phase 2: Adult Player Lifecycle — Youth-to-Adult Graduation Flow
+## Codebase Patterns
+**Last Updated**: 2026-02-25 - Iteration 1
 
-### Completed Stories
+### Architecture
+- All routes scoped under `/orgs/[orgId]/`
+- playerIdentities is a PLATFORM-LEVEL table (no organizationId field)
+- Org-player relationship is through orgPlayerEnrollments table
+- stringMatching.ts exports: normalizeForMatching, levenshteinSimilarity, calculateMatchScore, ALIAS_TO_CANONICAL
 
-**US-P2-001** (commit e356ca54): Guardian Sees Graduation Alert in Parent Dashboard
-- Created graduation-alert.tsx with amber-styled alert cards
-- GraduationAlerts component queries getPendingGraduations
-- Added age_transition_available and age_transition_claimed to notification types
-- Daily cron now sends in-app notifications to guardians on graduation detection
+### Convex Backend Patterns
+- NEVER use `.filter()` - always use `.withIndex()`
+- All functions need `args` and `returns` validators
+- Use `Id<"tableName">` types, not `string`
+- playerIdentities indexes: by_name_dob, by_userId, by_email, by_playerType, by_importSessionId
+- orgPlayerEnrollments indexes: by_playerIdentityId, by_organizationId, by_player_and_org, by_org_and_status
+- GenericQueryCtx<DataModel> is the correct type for shared query handlers
+- DataModel imported from "../_generated/dataModel"
 
-**US-P2-002** (commit 2675d236): Guardian Sends Account Invite Email via Resend
-- Completed the TODO at playerGraduations.ts:217
-- Added sendGraduationInvitationEmail() to utils/email.ts
-- Created actions/graduations.ts with sendGraduationInvitationEmailAction
-- Email includes CTA to /claim-account/[token] with 30-day expiry warning
+### Biome Lint Rules
+- useBlockStatements: all `if` must use braces even for single-statement bodies
 
-**US-P2-003** (commit 361d643b): Player Claims Account via Token & Onboards
-- Added verificationPins table to schema (by_player index, channel/expiry)
-- Added sendClaimVerificationPin and verifyClaimPin mutations
-- sendVerificationPinAction delivers PIN via Twilio SMS or Resend email
-- ClaimWizard extended to 5 steps: welcome → account → verify → gdpr → confirm
-- claimPlayerAccount now requires valid PIN; sends age_transition_claimed notification
-- player_claimed_account onboarding task with PlayerGraduationStep welcome screen
-- markPlayerWelcomed mutation clears the welcome task
+### Quality Checks
+- Run in order: `npm run check-types` → `npx ultracite fix` → `npm run check`
+- Pre-existing errors in diagnoseSafeGetAuthUser.ts (scripts/) - ignore
 
-**US-P2-004** (commit 2b6f1796): Admin Manual Graduation Trigger
-- GraduationSection component added to admin player edit page
-- Shows when player is youth + age >= 18 (computed at render time)
-- Reactive graduation status via getPlayerGraduationStatus query
-- Send Invitation button bypasses guardian, goes direct to player
-- Transition Now button with confirmation dialog → calls transitionToAdult
+### File Locations
+- Youth matching query: packages/backend/convex/models/playerMatching.ts (new in Phase 3)
+- String matching: packages/backend/convex/lib/stringMatching.ts
+- GAA deduplication: packages/backend/convex/lib/import/deduplicator.ts
+- Adult players mutations: packages/backend/convex/models/adultPlayers.ts
+  - transitionToAdult at line 229
+  - claimYouthProfile at line ~350
+- Admin players page: apps/web/src/app/orgs/[orgId]/admin/players/page.tsx
+- Admin player import page: apps/web/src/app/orgs/[orgId]/admin/player-import/page.tsx
 
-**US-P2-UAT** (commit 162d1ad5): Phase 2 E2E Tests
-- 17 automated tests in player-graduation-phase2.spec.ts
-- Tests cover: parent dashboard graduation alert, invite dialog, claim page error states, admin graduation trigger UI
-- Comprehensive manual test checklist for data-dependent flows (11 scenarios)
+---
 
-### Key Patterns Learned
-- findMany adapter requires paginationOpts: { cursor: null, numItems: N } (missing causes TS error)
-- Better Auth findMany returns { page: [...] } not a direct array
-- Biome useBlockStatements rule requires { } even for single-line if/continue
-- noShadow rule: rename Dialog onOpenChange param if it shadows outer prop
-- UAT spec files are excluded from biome check (by biome.jsonc config) — that's expected
+## 2026-02-25 - US-P3-001 - Backend: findMatchingYouthProfile Query
+**Iteration**: 1
+**Commit**: b2decbdfd552d486d31048b88ecb7afddac6a3cb
+**Status**: Complete
+
+### What was implemented
+- Created packages/backend/convex/models/playerMatching.ts
+- Public `findMatchingYouthProfile` query for frontend use (manual add, CSV, invite)
+- Internal `findMatchingYouthProfileInternal` internalQuery for mutations/actions
+- Shared handler `findMatchingYouthProfileHandler` typed as `GenericQueryCtx<DataModel>`
+- Algorithm:
+  - PRIORITY 0: by_name_dob exact index to HIGH confidence immediately
+  - PRIORITY 1: Fetch org enrollments via by_organizationId -> batch-fetch playerIdentities -> filter youth in memory -> fuzzy score
+  - Fuzzy scoring: surname similarity >= 0.85 + exact DOB -> HIGH; first name similarity >= 0.85 + DOB -> MEDIUM; surname only >= 0.85 -> LOW
+  - Irish alias check (areIrishAliases) using ALIAS_TO_CANONICAL lookup
+  - Email boost: exact match boosts confidence one level
+  - Opportunistic GAA: foireann match -> boost to HIGH; mismatch -> warningFlag
+
+### Files changed
+- packages/backend/convex/models/playerMatching.ts (+352, new file)
+
+### Quality checks
+- Type check: passed (only pre-existing error in diagnoseSafeGetAuthUser.ts)
+- Linting: passed (fixed useBlockStatements violations)
+- Convex codegen: passed
+- Browser verification: not applicable (backend only)
+
+### Learnings for future iterations
+**Patterns discovered:**
+- playerIdentities has NO organizationId - must query orgPlayerEnrollments first then batch-fetch
+- Biome lint requires block statements even for single-line if bodies
+- GenericQueryCtx<DataModel> is the correct type for shared query handler functions
+
+**Gotchas encountered:**
+- Biome useBlockStatements rule: `if (x) continue;` must be `if (x) { continue; }`
+
+---
+
+## 2026-02-25 - US-P3-004 - Player Self-Registration via Join Request with Youth Matching
+**Iteration**: 1
+**Commit**: bed70fd2
+**Status**: Complete
+
+### What was implemented
+- Schema: Added `playerDateOfBirth`, `matchedYouthIdentityId`, `matchedYouthName`, `matchedYouthConfidence` to `orgJoinRequests` table
+- `createJoinRequest` mutation: added `playerDateOfBirth` arg; for player role, runs `findMatchingYouthProfileInternal` (parse name, call matching) and stores HIGH confidence match
+- `approveJoinRequest` mutation: added `linkToYouthIdentityId` arg; calls `claimYouthProfileInternal` when linking; sends `sendPlayerJoinApprovalEmail` for player approvals
+- `claimYouthProfileInternal`: new `internalMutation` in `adultPlayers.ts` for safe cross-mutation calling (avoids `api` circular reference)
+- Join form: DOB field shown when 'Player (Adult)' role selected (required)
+- Admin approvals UI: youth match flag on player cards; configure dialog with Link/Create radio choice
+- Email utility: `sendPlayerJoinApprovalEmail` added following Resend pattern
+
+### Files changed
+- `packages/backend/convex/schema.ts` (+6)
+- `packages/backend/convex/models/orgJoinRequests.ts` (+80)
+- `packages/backend/convex/models/adultPlayers.ts` (+85)
+- `packages/backend/convex/utils/email.ts` (+141)
+- `apps/web/src/app/orgs/join/[orgId]/page.tsx` (+47)
+- `apps/web/src/app/orgs/[orgId]/admin/users/approvals/page.tsx` (+160)
+
+### Quality checks
+- Type check: passed (only pre-existing errors)
+- Linting: passed
+- Convex codegen: passed
+
+### Learnings for future iterations
+- Cannot import `api` in Convex model files — causes circular TypeScript reference (TS7022/TS7023)
+- Use `internalMutation` + `internal.xxx.yyy` for cross-mutation calling in the same package
+- `ctx.runQuery(internal.xxx)` returns `any` — add explicit type annotation on result variable
+- `useTopLevelRegex`: move `/\s+/` to module-level const
+
+---
+
+## 2026-02-25 - US-P3-005 - Youth Record Matching on Email Invite
+**Iteration**: 1
+**Commit**: 7061ac1e
+**Status**: Complete
+
+### What was implemented
+- Invite dialog (`admin/users/page.tsx`): added Player (Adult) role button (orange theme)
+- Optional firstName, lastName, DOB fields shown when player role selected
+- `useQuery(findMatchingYouthProfile)` with skip logic - reactive matching when all fields filled
+- Informational note shown inline when HIGH/MEDIUM match: "A youth profile may exist..."
+- `matchedPlayerIdentityId` stored in invitation metadata when match detected
+- `syncFunctionalRolesWithChildSelections` (members.ts): added step 4 - player role handling
+  - If `metadata.matchedPlayerIdentityId` present, calls `claimYouthProfileInternal` on acceptance
+  - Non-breaking: wrapped in try/catch, only runs if both player role + matched ID present
+- `onboarding.ts` getOnboardingTasks: includes `matchedPlayerIdentityId` from invitation metadata
+- `onboarding-orchestrator.tsx`: `AcceptInvitationTaskData` type includes `matchedPlayerIdentityId`
+
+### Files changed
+- `packages/backend/convex/models/members.ts` (+27)
+- `packages/backend/convex/models/onboarding.ts` (+5)
+- `apps/web/src/components/onboarding/onboarding-orchestrator.tsx` (+1)
+- `apps/web/src/app/orgs/[orgId]/admin/users/page.tsx` (+130)
+
+### Quality checks
+- Type check: passed (only pre-existing error in diagnoseSafeGetAuthUser.ts)
+- Linting: passed (no errors in changed files)
+- Convex codegen: passed
+- Browser verification: not applicable (invite flow, needs integration testing)
+
+### Key architecture note
+The acceptance flow is: accept-invitation page → redirects to /orgs → OnboardingOrchestrator
+detects pending invite → UnifiedInvitationStep calls syncFunctionalRolesWithChildSelections
+(NOT syncFunctionalRolesFromInvitation, which is no longer used)
+
+---

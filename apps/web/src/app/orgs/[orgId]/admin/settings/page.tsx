@@ -116,6 +116,7 @@ export default function OrgSettingsPage() {
   const params = useParams();
   const router = useRouter();
   const orgId = params.orgId as string;
+  const { data: session } = authClient.useSession();
 
   const [org, setOrg] = useState<Organization | null>(null);
   const [loading, setLoading] = useState(true);
@@ -585,7 +586,7 @@ export default function OrgSettingsPage() {
     try {
       await updateWellnessConfig({
         organizationId: orgId,
-        updatedBy: orgId,
+        updatedBy: session?.user?.id ?? orgId,
         remindersEnabled: wellnessRemindersEnabled,
         reminderFrequency: wellnessReminderFrequency,
         reminderType: wellnessReminderType,

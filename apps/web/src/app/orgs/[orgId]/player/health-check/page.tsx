@@ -3,7 +3,7 @@
 import { api } from "@pdp/backend/convex/_generated/api";
 import type { Id } from "@pdp/backend/convex/_generated/dataModel";
 import { useMutation, useQuery } from "convex/react";
-import { CheckCircle2, Loader2, WifiOff } from "lucide-react";
+import { CheckCircle2, ChevronDown, Loader2, WifiOff } from "lucide-react";
 import { useParams } from "next/navigation";
 import { useCallback, useEffect, useRef, useState } from "react";
 import { toast } from "sonner";
@@ -17,6 +17,11 @@ import {
   CardTitle,
 } from "@/components/ui/card";
 import { Checkbox } from "@/components/ui/checkbox";
+import {
+  Collapsible,
+  CollapsibleContent,
+  CollapsibleTrigger,
+} from "@/components/ui/collapsible";
 import {
   Dialog,
   DialogContent,
@@ -329,6 +334,7 @@ export default function PlayerHealthCheckPage() {
   const [isOffline, setIsOffline] = useState(false);
   const [showGdprModal, setShowGdprModal] = useState(false);
   const [cycleDeclined, setCycleDeclined] = useState(false);
+  const [insightOpen, setInsightOpen] = useState(true);
   const pendingSyncKey = useRef<string | null>(null);
 
   // Determine if cycle phase section should show
@@ -587,34 +593,55 @@ export default function PlayerHealthCheckPage() {
 
   // Under-18 gate
   // TODO: Phase 7 — check parentChildAuthorizations.includeWellnessAccess.
-  // Safe default: deny access to under-18 players until parent grants wellness access.
-  if (playerIdentity.dateOfBirth) {
-    const dob = new Date(playerIdentity.dateOfBirth);
-    const ageDiff = Date.now() - dob.getTime();
-    const ageDate = new Date(ageDiff);
-    const age = Math.abs(ageDate.getUTCFullYear() - 1970);
-    if (age < 18) {
-      return (
-        <div className="container mx-auto max-w-3xl p-4 md:p-8">
-          <Card>
-            <CardHeader>
-              <CardTitle>Wellness Access Required</CardTitle>
-              <CardDescription>
-                Your parent needs to grant wellness access in your profile
-                settings.
-              </CardDescription>
-            </CardHeader>
-            <CardContent>
-              <p className="text-muted-foreground text-sm">
-                Ask your parent or guardian to enable wellness access from their
-                Parent Portal settings. Once they've done so, you'll be able to
-                submit your daily wellness check-in here.
-              </p>
-            </CardContent>
-          </Card>
-        </div>
-      );
-    }
+  // Safe default: deny access when dateOfBirth is missing (cannot verify age)
+  // or when the player is under 18 (parent must grant wellness access first).
+  if (!playerIdentity.dateOfBirth) {
+    return (
+      <div className="container mx-auto max-w-3xl p-4 md:p-8">
+        <Card>
+          <CardHeader>
+            <CardTitle>Wellness Access Required</CardTitle>
+            <CardDescription>
+              Your parent needs to grant wellness access in your profile
+              settings.
+            </CardDescription>
+          </CardHeader>
+          <CardContent>
+            <p className="text-muted-foreground text-sm">
+              Ask your parent or guardian to enable wellness access from their
+              Parent Portal settings. Once they've done so, you'll be able to
+              submit your daily wellness check-in here.
+            </p>
+          </CardContent>
+        </Card>
+      </div>
+    );
+  }
+  const dob = new Date(playerIdentity.dateOfBirth);
+  const ageDiff = Date.now() - dob.getTime();
+  const ageDate = new Date(ageDiff);
+  const age = Math.abs(ageDate.getUTCFullYear() - 1970);
+  if (age < 18) {
+    return (
+      <div className="container mx-auto max-w-3xl p-4 md:p-8">
+        <Card>
+          <CardHeader>
+            <CardTitle>Wellness Access Required</CardTitle>
+            <CardDescription>
+              Your parent needs to grant wellness access in your profile
+              settings.
+            </CardDescription>
+          </CardHeader>
+          <CardContent>
+            <p className="text-muted-foreground text-sm">
+              Ask your parent or guardian to enable wellness access from their
+              Parent Portal settings. Once they've done so, you'll be able to
+              submit your daily wellness check-in here.
+            </p>
+          </CardContent>
+        </Card>
+      </div>
+    );
   }
 
   const isAlreadySubmitted = todayCheck !== null;
@@ -728,7 +755,8 @@ export default function PlayerHealthCheckPage() {
             <div className="flex flex-wrap gap-2">
               {CYCLE_PHASES.map((phase) => (
                 <button
-                  className="flex min-h-[44px] flex-col items-center justify-center rounded-lg border-2 px-3 py-2 text-left transition-all"
+                  className="flex min-h-[44px] flex-col items-center justify-center rounded-lg border-2 px-3 py-2 text-left transition-all disabled:cursor-not-allowed disabled:opacity-50"
+                  disabled={cycleConsent === undefined}
                   key={phase.key}
                   onClick={() => handleCyclePhaseTap(phase.key)}
                   style={{
@@ -779,23 +807,48 @@ export default function PlayerHealthCheckPage() {
         </p>
       )}
 
-      {/* AI Wellness Insight (US-P4-010) */}
-      {checkInCount !== undefined && checkInCount < 7 ? (
-        <div className="rounded-lg border border-blue-200 bg-blue-50 px-4 py-3 text-blue-900 text-sm">
-          💡 Check in for {7 - checkInCount} more day
-          {7 - checkInCount !== 1 ? "s" : ""} to unlock personalised insights.
-        </div>
-      ) : latestInsight ? (
-        <div className="rounded-lg border border-emerald-200 bg-emerald-50 px-4 py-3">
-          <p className="font-medium text-emerald-900 text-sm">
-            💡 {latestInsight.insight}
-          </p>
-          <p className="mt-1 text-emerald-700 text-xs">
-            Generated by AI · Based on your last {latestInsight.basedOnDays}{" "}
-            check-ins
-          </p>
-        </div>
-      ) : null}
+      {/* AI Wellness Insight (US-P4-010) — collapsible panel above trend charts */}
+      {(checkInCount !== undefined || latestInsight) && (
+        <Collapsible onOpenChange={setInsightOpen} open={insightOpen}>
+          <CollapsibleTrigger asChild>
+            <button
+              className="flex w-full items-center justify-between rounded-lg border border-blue-200 bg-blue-50 px-4 py-3 text-left text-blue-900 text-sm transition-colors hover:bg-blue-100"
+              type="button"
+            >
+              <span className="font-medium">💡 Latest Insight</span>
+              <ChevronDown
+                className="h-4 w-4 shrink-0 transition-transform"
+                style={{ transform: insightOpen ? "rotate(180deg)" : "none" }}
+              />
+            </button>
+          </CollapsibleTrigger>
+          <CollapsibleContent>
+            <div className="rounded-b-lg border border-blue-200 border-t-0 bg-blue-50 px-4 pb-3">
+              {checkInCount !== undefined && checkInCount < 7 ? (
+                <p className="pt-2 text-blue-900 text-sm">
+                  Check in for {7 - checkInCount} more day
+                  {7 - checkInCount !== 1 ? "s" : ""} to unlock personalised
+                  insights.
+                </p>
+              ) : latestInsight ? (
+                <div className="pt-2">
+                  <p className="text-emerald-900 text-sm">
+                    {latestInsight.insight}
+                  </p>
+                  <p className="mt-1 text-emerald-700 text-xs">
+                    Generated by AI · Based on your last{" "}
+                    {latestInsight.basedOnDays} check-ins
+                  </p>
+                </div>
+              ) : (
+                <p className="pt-2 text-blue-900 text-sm">
+                  No insight available yet.
+                </p>
+              )}
+            </div>
+          </CollapsibleContent>
+        </Collapsible>
+      )}
 
       {/* Trend Charts */}
       <WellnessTrendCharts

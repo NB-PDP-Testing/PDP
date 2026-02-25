@@ -235,6 +235,16 @@ export const getWellnessForCoach = query({
     sevenDaysAgo.setDate(sevenDaysAgo.getDate() - 7);
     const cutoff = sevenDaysAgo.toISOString().split("T")[0];
 
+    // Batch-fetch all player identities to avoid N+1
+    const playerDocs = await Promise.all(
+      approved.map((a) => ctx.db.get(a.playerIdentityId))
+    );
+    const playerMap = new Map(
+      playerDocs
+        .filter((p): p is NonNullable<typeof p> => p !== null)
+        .map((p) => [String(p._id), p])
+    );
+
     const result: {
       playerIdentityId: (typeof approved)[0]["playerIdentityId"];
       playerName: string;
@@ -244,8 +254,7 @@ export const getWellnessForCoach = query({
     }[] = [];
 
     for (const access of approved) {
-      // Fetch player name
-      const player = await ctx.db.get(access.playerIdentityId);
+      const player = playerMap.get(String(access.playerIdentityId));
       if (!player) {
         continue;
       }
@@ -513,7 +522,7 @@ export const requestWellnessAccess = mutation({
         type: "wellness_access_request",
         title: "Wellness Access Request",
         message: `${args.coachName} has requested access to your wellness trends`,
-        link: "/player/settings",
+        link: `/orgs/${args.organizationId}/player/settings`,
       });
     }
 
@@ -725,54 +734,6 @@ export const getChildWellnessForParent = query({
       muscleRecovery?: number;
     }> = [];
     return { accessGranted: false as boolean, history };
-  },
-});
-
-// Internal query used by AI insight generation
-export const _getRecentChecksInternal = internalQuery({
-  args: {
-    playerIdentityId: v.id("playerIdentities"),
-    days: v.number(),
-  },
-  returns: v.array(
-    v.object({
-      _id: v.id("dailyPlayerHealthChecks"),
-      _creationTime: v.number(),
-      playerIdentityId: v.id("playerIdentities"),
-      organizationId: v.string(),
-      checkDate: v.string(),
-      sleepQuality: v.optional(v.number()),
-      energyLevel: v.optional(v.number()),
-      mood: v.optional(v.number()),
-      physicalFeeling: v.optional(v.number()),
-      motivation: v.optional(v.number()),
-      foodIntake: v.optional(v.number()),
-      waterIntake: v.optional(v.number()),
-      muscleRecovery: v.optional(v.number()),
-      enabledDimensions: v.array(v.string()),
-      cyclePhase: v.optional(cyclePhaseValidator),
-      notes: v.optional(v.string()),
-      submittedAt: v.number(),
-      updatedAt: v.number(),
-      submittedOffline: v.optional(v.boolean()),
-      deviceSubmittedAt: v.optional(v.number()),
-    })
-  ),
-  handler: async (ctx, args) => {
-    const cutoffDate = new Date();
-    cutoffDate.setDate(cutoffDate.getDate() - args.days);
-    const cutoffStr = cutoffDate.toISOString().split("T")[0];
-
-    const records = await ctx.db
-      .query("dailyPlayerHealthChecks")
-      .withIndex("by_player", (q) =>
-        q.eq("playerIdentityId", args.playerIdentityId)
-      )
-      .collect();
-
-    return records
-      .filter((r) => r.checkDate >= cutoffStr)
-      .sort((a, b) => b.checkDate.localeCompare(a.checkDate));
   },
 });
 
@@ -1115,32 +1076,138 @@ export const getConsecutiveLowWellnessPlayers = query({
       }
     }
 
-    const result: Array<{
-      playerIdentityId: Id<"playerIdentities">;
-      firstName: string;
-      lastName: string;
-      consecutiveLowDays: number;
-      lastCheckDate: string;
-      lastScore: number;
-    }> = [];
+    // Batch-fetch all player identities to avoid N+1
+    const playerDocs = await Promise.all(
+      lowPlayers.map((r) =>
+        ctx.db.get(r.pid as unknown as Id<"playerIdentities">)
+      )
+    );
+    const playerMap = new Map(
+      playerDocs
+        .filter((p): p is NonNullable<typeof p> => p !== null)
+        .map((p) => [String(p._id), p])
+    );
 
-    for (const r of lowPlayers) {
-      const player = await ctx.db.get(
-        r.pid as unknown as Id<"playerIdentities">
-      );
-      if (player) {
-        result.push({
+    return lowPlayers
+      .map((r) => {
+        const player = playerMap.get(r.pid);
+        if (!player) {
+          return null;
+        }
+        return {
           playerIdentityId: r.pid as unknown as Id<"playerIdentities">,
           firstName: player.firstName,
           lastName: player.lastName,
           consecutiveLowDays: r.consecutiveLowDays,
           lastCheckDate: r.lastCheckDate,
           lastScore: Math.round(r.lastScore * 10) / 10,
-        });
+        };
+      })
+      .filter(
+        (
+          r
+        ): r is {
+          playerIdentityId: Id<"playerIdentities">;
+          firstName: string;
+          lastName: string;
+          consecutiveLowDays: number;
+          lastCheckDate: string;
+          lastScore: number;
+        } => r !== null
+      );
+  },
+});
+
+// ─── Cycle Phase Injury Heatmap (US-P4-009, medical staff only) ─────────────
+
+/**
+ * Aggregate injury occurrences by menstrual cycle phase for female players.
+ * Used by the admin analytics cycle heatmap (medical_staff/admin only).
+ * Cross-references dailyPlayerHealthChecks.cyclePhase with playerInjuries.dateOccurred.
+ */
+export const getCyclePhaseInjuryHeatmap = query({
+  args: { organizationId: v.string(), days: v.number() },
+  returns: v.array(
+    v.object({
+      phase: v.string(),
+      injuryCount: v.number(),
+      checkInCount: v.number(),
+    })
+  ),
+  handler: async (ctx, args) => {
+    const cutoff = new Date();
+    cutoff.setDate(cutoff.getDate() - args.days);
+    const cutoffStr = cutoff.toISOString().split("T")[0];
+
+    // All health checks in the org within range that have a cycle phase recorded
+    const checksWithPhase = await ctx.db
+      .query("dailyPlayerHealthChecks")
+      .withIndex("by_org_and_date", (q) =>
+        q.eq("organizationId", args.organizationId)
+      )
+      .collect()
+      .then((recs) =>
+        recs.filter((r) => r.checkDate >= cutoffStr && r.cyclePhase != null)
+      );
+
+    // All injuries for org players in the same date window
+    const enrollments = await ctx.db
+      .query("orgPlayerEnrollments")
+      .withIndex("by_organizationId", (q) =>
+        q.eq("organizationId", args.organizationId)
+      )
+      .collect();
+
+    const enrolledIds = new Set(
+      enrollments.map((e) => String(e.playerIdentityId))
+    );
+
+    // Build a set of (playerId, date) pairs that had an injury start on that date
+    const injuryDates = new Set<string>();
+    for (const enrollment of enrollments) {
+      const injuries = await ctx.db
+        .query("playerInjuries")
+        .withIndex("by_playerIdentityId", (q) =>
+          q.eq("playerIdentityId", enrollment.playerIdentityId)
+        )
+        .collect();
+      for (const inj of injuries) {
+        if (inj.dateOccurred >= cutoffStr) {
+          injuryDates.add(
+            `${String(enrollment.playerIdentityId)}::${inj.dateOccurred}`
+          );
+        }
       }
     }
 
-    return result;
+    // Aggregate by cycle phase
+    const phaseCounts = new Map<
+      string,
+      { injuryCount: number; checkInCount: number }
+    >();
+
+    for (const check of checksWithPhase) {
+      if (!enrolledIds.has(String(check.playerIdentityId))) {
+        continue;
+      }
+      const phase = check.cyclePhase as string;
+      const entry = phaseCounts.get(phase) ?? {
+        injuryCount: 0,
+        checkInCount: 0,
+      };
+      entry.checkInCount += 1;
+      if (
+        injuryDates.has(`${String(check.playerIdentityId)}::${check.checkDate}`)
+      ) {
+        entry.injuryCount += 1;
+      }
+      phaseCounts.set(phase, entry);
+    }
+
+    return Array.from(phaseCounts.entries()).map(([phase, counts]) => ({
+      phase,
+      ...counts,
+    }));
   },
 });
 
@@ -1158,10 +1225,18 @@ export const sendWellnessReminders = internalMutation({
     let sent = 0;
     let skipped = 0;
 
+    // Full-table scan is intentional here — cron processes ALL orgs
     const configs = await ctx.db.query("wellnessOrgConfig").collect();
 
     for (const config of configs) {
       if (!config.remindersEnabled) {
+        skipped += 1;
+        continue;
+      }
+
+      // Only "daily" frequency is supported without match/training schedule data.
+      // match_day_only and training_day_only require Phase 5+ schedule data.
+      if (config.reminderFrequency !== "daily") {
         skipped += 1;
         continue;
       }
@@ -1194,23 +1269,25 @@ export const sendWellnessReminders = internalMutation({
           continue;
         }
 
-        if (
-          config.reminderType === "in_app" ||
-          config.reminderType === "both"
-        ) {
-          await ctx.runMutation(
-            internal.models.notifications.createNotification,
-            {
-              userId: player.userId,
-              organizationId: config.organizationId,
-              type: "wellness_reminder",
-              title: "Daily Wellness Check-In",
-              message:
-                "Don't forget to complete your daily wellness check-in today.",
-              relatedPlayerId: enrollment.playerIdentityId,
-            }
-          );
+        // email-only reminder: email delivery is not yet implemented — skip
+        if (config.reminderType === "email") {
+          skipped += 1;
+          continue;
         }
+
+        // in_app or both: send in-app notification
+        await ctx.runMutation(
+          internal.models.notifications.createNotification,
+          {
+            userId: player.userId,
+            organizationId: config.organizationId,
+            type: "wellness_reminder",
+            title: "Daily Wellness Check-In",
+            message:
+              "Don't forget to complete your daily wellness check-in today.",
+            relatedPlayerId: enrollment.playerIdentityId,
+          }
+        );
 
         sent += 1;
       }

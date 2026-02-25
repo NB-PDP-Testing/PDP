@@ -1,5 +1,9 @@
 "use node";
 
+// TODO (Phase 7+): Migrate to platform AI service pattern — use aiServiceHealth
+// checks and read model config from DB (aiModelConfig table) rather than
+// hardcoding INSIGHT_MODEL here. See docs/ai-service-pattern.md for reference.
+
 import Anthropic from "@anthropic-ai/sdk";
 import { v } from "convex/values";
 import { internal } from "../_generated/api";

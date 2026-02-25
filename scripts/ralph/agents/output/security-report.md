@@ -1,4 +1,4 @@
-# Security Report - 2026-02-25 19:39:15
+# Security Report - 2026-02-25 21:45:11
 
 **Phase:** P9
 **Critical:** 2 | **High:** 5 | **Medium:** 0
@@ -40,6 +40,7 @@ apps/web/src/app/api/comparison-insights/route.ts:      console.error("❌ ANTHR
   - packages/backend/convex/models/aiMappingCache.ts
   - packages/backend/convex/models/orgInjuryNotes.ts
   - packages/backend/convex/models/injuryDocuments.ts
+  - packages/backend/convex/models/playerHealthChecks.ts
   - packages/backend/convex/models/playerImport.ts
   - packages/backend/convex/models/passportEnquiries.ts
   - packages/backend/convex/models/setup.ts
@@ -110,6 +111,7 @@ apps/web/src/app/api/comparison-insights/route.ts:      console.error("❌ ANTHR
   - packages/backend/convex/actions/practicePlans.ts
   - packages/backend/convex/actions/sessionPlans.ts
   - packages/backend/convex/actions/voiceNotes.ts
+  - packages/backend/convex/actions/wellnessInsights.ts
   - packages/backend/convex/models/aiServiceHealth.ts
   **Action**: Validate/sanitize user input before AI prompts
 - ⚠️ **HIGH [P9]**: Notification functions without permission checks:

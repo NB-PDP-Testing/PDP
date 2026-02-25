@@ -118,6 +118,11 @@ export default function AnalyticsDashboard() {
   const params = useParams();
   const orgId = params.orgId as string;
 
+  // User role (for wellness heatmap gating)
+  const userRole = useQuery(api.models.organizations.getUserOrgRole, {
+    organizationId: orgId,
+  });
+
   // Filters
   const [sportFilter, setSportFilter] = useState<string>("all");
   const [ageGroupFilter, setAgeGroupFilter] = useState<string>("all");
@@ -403,7 +408,10 @@ export default function AnalyticsDashboard() {
         </TabsList>
 
         <TabsContent className="mt-6" value="wellness">
-          <WellnessAnalyticsTab organizationId={orgId} />
+          <WellnessAnalyticsTab
+            organizationId={orgId}
+            userRole={userRole?.role}
+          />
         </TabsContent>
 
         <TabsContent className="mt-6 space-y-6" value="skills">

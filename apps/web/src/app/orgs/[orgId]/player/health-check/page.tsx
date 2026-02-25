@@ -9,7 +9,13 @@ import { useCallback, useEffect, useRef, useState } from "react";
 import { toast } from "sonner";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
-import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import {
+  Card,
+  CardContent,
+  CardDescription,
+  CardHeader,
+  CardTitle,
+} from "@/components/ui/card";
 import { Checkbox } from "@/components/ui/checkbox";
 import {
   Dialog,
@@ -566,6 +572,38 @@ export default function PlayerHealthCheckPage() {
         </Card>
       </div>
     );
+  }
+
+  // Under-18 gate
+  // TODO: Phase 7 — check parentChildAuthorizations.includeWellnessAccess.
+  // Safe default: deny access to under-18 players until parent grants wellness access.
+  if (playerIdentity.dateOfBirth) {
+    const dob = new Date(playerIdentity.dateOfBirth);
+    const ageDiff = Date.now() - dob.getTime();
+    const ageDate = new Date(ageDiff);
+    const age = Math.abs(ageDate.getUTCFullYear() - 1970);
+    if (age < 18) {
+      return (
+        <div className="container mx-auto max-w-3xl p-4 md:p-8">
+          <Card>
+            <CardHeader>
+              <CardTitle>Wellness Access Required</CardTitle>
+              <CardDescription>
+                Your parent needs to grant wellness access in your profile
+                settings.
+              </CardDescription>
+            </CardHeader>
+            <CardContent>
+              <p className="text-muted-foreground text-sm">
+                Ask your parent or guardian to enable wellness access from their
+                Parent Portal settings. Once they've done so, you'll be able to
+                submit your daily wellness check-in here.
+              </p>
+            </CardContent>
+          </Card>
+        </div>
+      );
+    }
   }
 
   const isAlreadySubmitted = todayCheck !== null;

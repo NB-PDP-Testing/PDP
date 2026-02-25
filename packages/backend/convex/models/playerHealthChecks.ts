@@ -655,6 +655,62 @@ export const getCoachAccessRequests = query({
       .collect(),
 });
 
+/**
+ * Parent wellness view for a child player.
+ *
+ * Returns individual dimension values (parents are not coaches — full visibility).
+ * Gated by parentChildAuthorizations.includeWellnessAccess (Phase 7).
+ *
+ * TODO: Phase 7 — when parentChildAuthorizations table is built, replace the
+ * safe-default-deny below with a real check:
+ *   const auth = await ctx.db
+ *     .query("parentChildAuthorizations")
+ *     .withIndex("by_player", q => q.eq("playerIdentityId", args.playerIdentityId))
+ *     .first();
+ *   if (!auth?.includeWellnessAccess) return { accessGranted: false, history: [] };
+ */
+export const getChildWellnessForParent = query({
+  args: {
+    playerIdentityId: v.id("playerIdentities"),
+    days: v.optional(v.number()),
+  },
+  returns: v.object({
+    // TODO: Phase 7 — will be true when parentChildAuthorizations.includeWellnessAccess is true
+    accessGranted: v.boolean(),
+    history: v.array(
+      v.object({
+        checkDate: v.string(),
+        aggregateScore: v.number(),
+        sleepQuality: v.optional(v.number()),
+        energyLevel: v.optional(v.number()),
+        mood: v.optional(v.number()),
+        physicalFeeling: v.optional(v.number()),
+        motivation: v.optional(v.number()),
+        foodIntake: v.optional(v.number()),
+        waterIntake: v.optional(v.number()),
+        muscleRecovery: v.optional(v.number()),
+      })
+    ),
+  }),
+  handler: (_ctx, _args) => {
+    // TODO: Phase 7 — safe default: deny access until parentChildAuthorizations is implemented.
+    // Do NOT create a parallel access system. Wait for Phase 7 schema.
+    const history: Array<{
+      checkDate: string;
+      aggregateScore: number;
+      sleepQuality?: number;
+      energyLevel?: number;
+      mood?: number;
+      physicalFeeling?: number;
+      motivation?: number;
+      foodIntake?: number;
+      waterIntake?: number;
+      muscleRecovery?: number;
+    }> = [];
+    return { accessGranted: false as boolean, history };
+  },
+});
+
 // Internal query used by AI insight generation
 export const _getRecentChecksInternal = internalQuery({
   args: {

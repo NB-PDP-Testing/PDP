@@ -612,6 +612,10 @@ export const claimPlayerAccount = mutation({
       updatedAt: now,
     });
 
+    // TODO: Phase 7 — revoke parent's wellness view access on graduation to adult account.
+    // When parentChildAuthorizations table exists, set includeWellnessAccess = false here.
+    // See: packages/backend/convex/models/playerHealthChecks.ts getChildWellnessForParent
+
     // Update graduation record if exists
     if (graduation) {
       await ctx.db.patch(graduation._id, {

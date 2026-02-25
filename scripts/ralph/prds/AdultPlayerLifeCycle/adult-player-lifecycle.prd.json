@@ -1,8 +1,8 @@
 {
   "project": "Adult Player Lifecycle & Daily Health Check",
   "branchName": "ralph/adult-player-lifecycle",
-  "description": "Extends PlayerARC from guardian-managed youth players to full adult self-management. Covers: youth-to-adult 18th birthday transition flow, adult import with youth record matching, full multi-section player portal (mirroring parent portal), and daily emoji-based wellness check with GDPR-compliant optional menstrual cycle tracking for female players.",
-  "readinessLevel": "100% - Analysis complete, existing groundwork documented",
+  "description": "Extends PlayerARC from guardian-managed youth players to full adult self-management. 7 phases, 42 stories. Covers: (1) player portal layout & sidebar, (2) youth-to-adult 18th birthday transition, (3) adult import with youth record matching, (4) 8-dimension daily wellness check with per-coach consent and offline support, (5) full portal remaining sections including coach feedback & AI summaries, (6) multi-role UX for users with 2+ roles, (7) child player passport authorization with age-gated access levels. See individual phase JSON files in the AdultPlayerLifeCycle/ folder for full story detail.",
+  "readinessLevel": "100% - Analysis complete, existing groundwork documented. Phase JSON files are the authoritative implementation guide.",
   "contextAndDependencies": {
     "criticalContext": [
       "EXTEND, NEVER REBUILD: Significant groundwork already exists — see keyFiles below",
@@ -17,7 +17,11 @@
       "Player import flow at admin/player-import/page.tsx is authoritative — EXTEND with match badges, do NOT create a new import pipeline",
       "Guardian multi-signal matching algorithm at playerImport.ts:148 — reuse scoring approach for youth-to-adult matching",
       "gender field on playerIdentities: v.union(v.literal('male'), v.literal('female'), v.literal('other')) — used for cycle tracking visibility",
-      "NEW TABLES NEEDED (Phase 4): dailyPlayerHealthChecks (with indexes by_player_and_date, by_org_and_date, by_player) and playerHealthConsents — add both to packages/backend/convex/schema.ts",
+      "NEW TABLES NEEDED (Phase 4): dailyPlayerHealthChecks, playerWellnessSettings, wellnessCoachAccess, playerHealthConsents — add all 4 to packages/backend/convex/schema.ts",
+      "Phase 4 wellness: 8 dimensions (sleepQuality, energyLevel, foodIntake, waterIntake, mood, motivation, physicalFeeling, muscleRecovery), 5-point emoji scale, per-coach consent model (wellnessCoachAccess table), offline IndexedDB support. Coaches see ONLY aggregate scores — never individual dimensions.",
+      "NEW TABLE NEEDED (Phase 7): parentChildAuthorizations — unified access record per child (not per parent), access levels none/view_only/view_interact, granular content toggles, audit changeLog",
+      "Phase 6 (Multi-Role): extends existing org-role-switcher.tsx, adds primary role setting, role context badge, self-registration as player",
+      "Phase 7 (Child Authorization): parent grants child age-gated access (13+), child_account_setup route, restrictChildView field on notes, 30/7 day pre-birthday notifications extending graduation cron",
       "Cycle phase data is GDPR Article 9 Special Category health data — requires separate explicit consent, 18-month max retention, access-controlled (player + medical admin only, NOT coaches)",
       "BetterAuth tables (user, member, organization, team): use ctx.runQuery(components.betterAuth.adapter.findMany/findOne). Application tables: use ctx.db directly. Never mix.",
       "Always use .withIndex() — NEVER .filter() in Convex. Batch fetch with Map, never N+1 loops.",
@@ -29,7 +33,7 @@
       "packages/backend/convex/models/playerImport.ts:148 — matching algorithm to reuse for findMatchingYouthProfile",
       "packages/backend/convex/models/notifications.ts — notification type pattern (add age_transition_available, age_transition_claimed, wellness_alert)",
       "packages/backend/convex/utils/email.ts — Resend email utility to extend with sendGraduationInvitationEmail()",
-      "packages/backend/convex/schema.ts — add dailyPlayerHealthChecks and playerHealthConsents tables",
+      "packages/backend/convex/schema.ts — add dailyPlayerHealthChecks, playerWellnessSettings, wellnessCoachAccess, playerHealthConsents (Phase 4) and parentChildAuthorizations (Phase 7) tables",
       "apps/web/src/app/orgs/[orgId]/player/page.tsx — existing portal to EXTEND (Overview tab)",
       "apps/web/src/app/orgs/[orgId]/parents/layout.tsx — template layout to mirror",
       "apps/web/src/app/orgs/[orgId]/parents/components/ — sidebar and component patterns to mirror",
@@ -62,10 +66,10 @@
         "Build PlayerSidebar component by mirroring ParentSidebar at apps/web/src/components/layout/parent-sidebar.tsx",
         "Existing player/page.tsx content must remain completely intact — it becomes the Overview tab, just framed in the new layout",
         "hasPlayerDashboard query (adultPlayers.ts:633) gates the entire portal — redirect to org home if user has no player profile",
-        "Sidebar navigation items: Overview (Home icon, /player/), My Profile (User icon, /player/profile), My Progress (TrendingUp icon, /player/progress), My Teams (Users icon, /player/teams), My Injuries (Activity icon, /player/injuries), Passport Sharing (Share2 icon, /player/sharing), Daily Wellness (Heart icon, /player/health-check), Settings (Settings icon, /player/settings)",
+        "Sidebar navigation items (9 total): Overview (Home icon, /player/), My Profile (User icon, /player/profile), My Progress (TrendingUp icon, /player/progress), My Teams (Users icon, /player/teams), Daily Wellness (Heart icon, /player/health-check), My Injuries (Activity icon, /player/injuries), Coach Feedback (MessageSquare icon, /player/feedback), Passport Sharing (Share2 icon, /player/sharing), Settings (Settings icon, /player/settings)",
         "Mobile responsive: bottom nav tabs (4 primary items) matching parent portal pattern at 375px minimum",
         "Org theming via useOrgTheme() applied consistently — CSS vars --org-primary, --org-secondary, --org-tertiary",
-        "Sub-routes that don't have pages yet (progress, teams, injuries, sharing, health-check, settings) show a placeholder 'Coming Soon' page — no 404 errors",
+        "Sub-routes that don't have pages yet (progress, teams, injuries, sharing, health-check, feedback, settings) show a placeholder 'Coming Soon' page — no 404 errors",
         "npm run check-types passes",
         "npx -w packages/backend convex codegen passes"
       ],
@@ -681,6 +685,228 @@
       "priority": 27,
       "passes": false,
       "notes": "US-P-015, US-P-016, and US-P-017 must all be complete before this UAT story."
+    },
+    {
+      "id": "US-P-018",
+      "title": "My Coach Feedback & AI Summaries (Player View)",
+      "description": "As an adult player, I want to see the feedback and AI summaries my coaches have chosen to share with me so that I can understand my development from my coach's perspective.",
+      "phase": "Phase 5: Full Player Portal Remaining Sections",
+      "acceptanceCriteria": [
+        "Route: /orgs/[orgId]/player/feedback",
+        "Backend query returns only publicSummary fields from coachParentSummaries where status is approved/auto_approved/delivered/viewed — privateInsight is NEVER fetched or returned",
+        "Chronological feed newest first: coach name, date, AI summary text, sensitivity badge (normal/injury/behavior)",
+        "Player can acknowledge a summary (existing acknowledge mutation) — 'Acknowledged ✓' state shown after",
+        "All three sensitivity categories visible — this is the player's own development data",
+        "Empty state: 'Your coaches haven't shared any feedback with you yet.'",
+        "Mobile-first: 375px minimum width",
+        "See phase file adult-player-phase5-portal-sections.prd.json for full detail"
+      ],
+      "priority": 28,
+      "passes": false,
+      "notes": "Read coachParentSummaries.ts fully. privateInsight is NEVER shown. publicSummary is the AI-generated text visible after coach approval."
+    },
+    {
+      "id": "US-P-019",
+      "title": "Primary Role & Default Dashboard Setting",
+      "description": "As a user with multiple roles, I want to set which role I land on after logging in so that my most important dashboard is immediately accessible.",
+      "phase": "Phase 6: Multi-Role UX",
+      "acceptanceCriteria": [
+        "My Roles section in account settings shows all held functional roles",
+        "Set as primary action updates primaryFunctionalRole on member record",
+        "On next login: routing reads primaryFunctionalRole for default dashboard",
+        "Does not log user out mid-session",
+        "See phase file adult-player-phase6-multi-role.prd.json for full detail"
+      ],
+      "priority": 29,
+      "passes": false,
+      "notes": "primaryFunctionalRole already exists on member schema. Read org-role-switcher.tsx before implementing."
+    },
+    {
+      "id": "US-P-020",
+      "title": "Role Context Badge in Navigation",
+      "description": "As a user with multiple roles, I want to always know which role I am currently acting as so that I cannot take actions in the wrong context.",
+      "phase": "Phase 6: Multi-Role UX",
+      "acceptanceCriteria": [
+        "Persistent role context badge in page header: 'Acting as: [Role]'",
+        "Only shown for users with 2+ roles",
+        "Colour-coded by role using org theme vars",
+        "Visible on mobile without opening a menu",
+        "See phase file adult-player-phase6-multi-role.prd.json for full detail"
+      ],
+      "priority": 30,
+      "passes": false,
+      "notes": "Read org-role-switcher.tsx and layout files before implementing."
+    },
+    {
+      "id": "US-P-021",
+      "title": "Adding Player Role to an Existing Account",
+      "description": "As an existing platform member, I want to register myself as a player without creating a new account.",
+      "phase": "Phase 6: Multi-Role UX",
+      "acceptanceCriteria": [
+        "My Roles settings section includes 'Register as a player' option (only if not already a player)",
+        "Form collects DOB and optional team selection",
+        "Runs findMatchingYouthProfile on submit; HIGH match → admin review before linking",
+        "Creates pending playerIdentity + enrollment; admin approves in existing UI",
+        "No duplicate user account created",
+        "See phase file adult-player-phase6-multi-role.prd.json for full detail"
+      ],
+      "priority": 31,
+      "passes": false,
+      "notes": "findMatchingYouthProfile is from Phase 3 — reuse it."
+    },
+    {
+      "id": "US-P-022",
+      "title": "Cross-Role Permission Scenarios",
+      "description": "As a user with multiple roles, I want the platform to handle cross-role edge cases correctly.",
+      "phase": "Phase 6: Multi-Role UX",
+      "acceptanceCriteria": [
+        "Coach cannot self-assess own player profile (actions disabled with tooltip)",
+        "Parent and player portals are entirely separate contexts",
+        "Admin modifying own player record: confirmation dialog required",
+        "See phase file adult-player-phase6-multi-role.prd.json for full detail"
+      ],
+      "priority": 32,
+      "passes": false,
+      "notes": "Guard rails only — not major feature work."
+    },
+    {
+      "id": "US-P-019-UAT",
+      "title": "Phase 6 Multi-Role E2E Tests",
+      "description": "Playwright E2E tests for all Phase 6 multi-role stories.",
+      "phase": "Phase 6: Multi-Role UX",
+      "acceptanceCriteria": [
+        "Test file: apps/web/uat/tests/multi-role-phase6.spec.ts",
+        "See phase file adult-player-phase6-multi-role.prd.json for full test list"
+      ],
+      "priority": 33,
+      "passes": false,
+      "notes": "All Phase 6 stories must be complete before UAT."
+    },
+    {
+      "id": "US-P-023",
+      "title": "Backend: parentChildAuthorizations Schema & Queries",
+      "description": "Backend schemas and queries for the child access authorization system.",
+      "phase": "Phase 7: Child Player Passport Authorization",
+      "acceptanceCriteria": [
+        "Add parentChildAuthorizations table to schema.ts (see PRD for full schema)",
+        "Add restrictChildView field to relevant note/insight table",
+        "Implement grantChildAccess, revokeChildAccess, getChildAuthorization, getChildrenForParent, updateChildAccessToggles, getRestrictedNotes, setNoteChildRestriction mutations/queries",
+        "Age check in grantChildAccess: reject if child age < 13",
+        "See phase file adult-player-phase7-child-authorization.prd.json for full detail"
+      ],
+      "priority": 34,
+      "passes": false,
+      "notes": "Must be first story in Phase 7. Add to schema.ts and run codegen before writing queries."
+    },
+    {
+      "id": "US-P-024",
+      "title": "Parent Grants Child Platform Access",
+      "description": "As a parent, I want to grant my under-18 child controlled access to their player development data.",
+      "phase": "Phase 7: Child Player Passport Authorization",
+      "acceptanceCriteria": [
+        "Grant Player Access section in parent portal on child's profile page",
+        "Access level selector: View Only (ages 13–15) / View + Interact (ages 16–17)",
+        "Granular toggles: coach feedback, voice notes, development goals, assessments, wellness",
+        "Age < 13 blocked at UI and backend",
+        "Sends invite email to child on first grant",
+        "Second parent/guardian sees unified access level — all changes logged in changeLog",
+        "See phase file adult-player-phase7-child-authorization.prd.json for full detail"
+      ],
+      "priority": 35,
+      "passes": false,
+      "notes": "US-P-023 (backend) must be complete first."
+    },
+    {
+      "id": "US-P-025",
+      "title": "Child Account Creation & Onboarding",
+      "description": "As a child player, I want to set up my own account after my parent has granted me access.",
+      "phase": "Phase 7: Child Player Passport Authorization",
+      "acceptanceCriteria": [
+        "Public route /child-account-setup?token=xxx (similar to Phase 2 /claim-account)",
+        "DOB check at account setup: block if under 13",
+        "child_account_setup onboarding orchestrator task type",
+        "Child lands on player portal with 'Youth Account' badge after setup",
+        "See phase file adult-player-phase7-child-authorization.prd.json for full detail"
+      ],
+      "priority": 36,
+      "passes": false,
+      "notes": "Follow Phase 2 /claim-account pattern closely."
+    },
+    {
+      "id": "US-P-026",
+      "title": "Child Player Dashboard — View Only Mode",
+      "description": "As a child player with View Only access (ages 13–15), I want to see my sports development data in read-only format.",
+      "phase": "Phase 7: Child Player Passport Authorization",
+      "acceptanceCriteria": [
+        "Uses same /player/ portal from Phase 1 with Youth Account badge",
+        "All fields read-only, all edit actions disabled",
+        "Content gated by granular toggles from parentChildAuthorizations",
+        "Never shows: medical info, emergency contacts, fees, restrictChildView notes, privateInsight",
+        "Cycle phase section never shown for under-18 players",
+        "See phase file adult-player-phase7-child-authorization.prd.json for full detail"
+      ],
+      "priority": 37,
+      "passes": false,
+      "notes": "Implement shared useChildAccess() hook to centralize access level checking."
+    },
+    {
+      "id": "US-P-027",
+      "title": "Child View + Interact Mode (Ages 16–17)",
+      "description": "As a child player with View + Interact access, I want to set personal goals and respond to coach feedback.",
+      "phase": "Phase 7: Child Player Passport Authorization",
+      "acceptanceCriteria": [
+        "Personal development goals: child can add own goals (setByRole: 'player'), labelled 'My Goal'",
+        "Notes on coach feedback: child can append text response, visible to parent and coach",
+        "Acknowledge coach messages",
+        "See phase file adult-player-phase7-child-authorization.prd.json for full detail"
+      ],
+      "priority": 38,
+      "passes": false,
+      "notes": "Builds on View Only mode — all View Only content applies."
+    },
+    {
+      "id": "US-P-028",
+      "title": "Coach Parent-Only Note Filtering",
+      "description": "As a coach, I want to mark certain notes as parent-only so the child never sees them.",
+      "phase": "Phase 7: Child Player Passport Authorization",
+      "acceptanceCriteria": [
+        "Toggle on voice note/insight creation: 'Restrict from child view — Parent and coach only'",
+        "Notes with restrictChildView: true excluded from child's portal (silently — no indicator)",
+        "Existing notes default to false (no behaviour change)",
+        "See phase file adult-player-phase7-child-authorization.prd.json for full detail"
+      ],
+      "priority": 39,
+      "passes": false,
+      "notes": "restrictChildView field added in US-P-023. This story adds the coach UI toggle."
+    },
+    {
+      "id": "US-P-029",
+      "title": "30-Day and 7-Day Pre-Birthday Advance Notifications",
+      "description": "As a parent and player approaching 18, I want advance notification of the upcoming full account transition.",
+      "phase": "Phase 7: Child Player Passport Authorization",
+      "acceptanceCriteria": [
+        "Extend existing graduation cron to check players turning 18 in exactly 30 and 7 days",
+        "Notification types: age_transition_30_days and age_transition_7_days",
+        "30-day notification to parent and child (if has account)",
+        "Guard against duplicate notifications",
+        "See phase file adult-player-phase7-child-authorization.prd.json for full detail"
+      ],
+      "priority": 40,
+      "passes": false,
+      "notes": "Read graduation cron fully before modifying. Additive only — Phase 2 birthday handling unchanged."
+    },
+    {
+      "id": "US-P-030",
+      "title": "Phase 7 Child Authorization E2E Tests",
+      "description": "Playwright E2E tests for the full child authorization system.",
+      "phase": "Phase 7: Child Player Passport Authorization",
+      "acceptanceCriteria": [
+        "Test file: apps/web/uat/tests/child-authorization-phase7.spec.ts",
+        "See phase file adult-player-phase7-child-authorization.prd.json for full test list"
+      ],
+      "priority": 41,
+      "passes": false,
+      "notes": "All Phase 7 stories must be complete before UAT."
     }
   ]
 }

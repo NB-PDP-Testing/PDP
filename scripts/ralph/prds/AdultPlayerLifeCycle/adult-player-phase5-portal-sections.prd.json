@@ -1,8 +1,8 @@
 {
   "project": "Adult Player Lifecycle — Phase 5: Full Player Portal Remaining Sections",
   "branchName": "ralph/adult-player-phase5-portal-sections",
-  "description": "Completes the remaining player portal sub-pages: My Progress (read-only sport passport ratings with trend arrows), My Passport Sharing (player takes over sharing controls from guardian on account claim), and My Injuries (view injury history and self-report new injuries). All leverage existing backend queries and UI patterns.",
-  "readinessLevel": "100% - Existing passport, sharing, and injury backend confirmed in codebase",
+  "description": "Completes the remaining player portal sub-pages: My Progress (read-only sport passport ratings with trend arrows), My Passport Sharing (player takes over sharing controls from guardian on account claim), My Injuries (view injury history and self-report new injuries), and Coach Feedback & AI Summaries (player view of approved coachParentSummaries publicSummary records). All leverage existing backend queries and UI patterns.",
+  "readinessLevel": "100% - Existing passport, sharing, injury, and coachParentSummaries backend confirmed in codebase",
   "contextAndDependencies": {
     "criticalContext": [
       "Phase 1 (portal layout + sidebar) must be complete before this phase — these pages slot into the sidebar navigation created in Phase 1",
@@ -23,12 +23,15 @@
       "apps/web/src/app/orgs/[orgId]/parents/sharing/page.tsx — template to mirror for sharing page",
       "packages/backend/convex/models/playerInjuries.ts — injury queries and mutations",
       "packages/backend/convex/schema.ts — confirm reportedByRole on playerInjuries, passportSharing table structure",
-      "apps/web/src/app/orgs/[orgId]/coach/injuries/ — existing injury page patterns to reference"
+      "apps/web/src/app/orgs/[orgId]/coach/injuries/ — existing injury page patterns to reference",
+      "packages/backend/convex/models/coachParentSummaries.ts — existing coachParentSummaries queries to use for coach feedback page. READ FULLY before implementing US-P5-004",
+      "apps/web/src/app/orgs/[orgId]/parents/ — find how parents view coachParentSummaries for the UI pattern to mirror"
     ],
     "criticalPatterns": {
       "ReadOnlyPassport": "Player views own passport but cannot edit skill ratings. Remove all edit controls from the coach view pattern. Player CAN add their own notes.",
       "SharingTransfer": "On claimPlayerAccount, update passportSharing records for this playerIdentityId to transfer guardianId/userId to the player's userId. Guardian sharing access is revoked.",
       "SelfReportedInjury": "Creates injury with reportedByRole: 'player'. Must appear in coach injury view with 'Player-reported' badge. Verify the field exists in schema before creating.",
+      "CoachFeedbackVisibility": "The coachParentSummaries table has TWO distinct objects: privateInsight (coach raw note — NEVER exposed to players or parents) and publicSummary (AI-generated, shared after coach approval). Adult players see publicSummary records where status is approved/auto_approved/delivered/viewed. The backend query MUST NOT return privateInsight fields. All three sensitivityCategories (normal/injury/behavior) are visible to the player — it is their own data.",
       "ReturnValidators": "All new queries and mutations must include returns validator.",
       "MobileFirst": "All pages mobile-first at 375px minimum width."
     }
@@ -101,9 +104,32 @@
       "notes": "Read packages/backend/convex/models/playerInjuries.ts and schema.ts before implementing. Check if reportedByRole exists on playerInjuries — add to schema if missing. Reference apps/web/src/app/orgs/[orgId]/coach/injuries/ for existing patterns."
     },
     {
+      "id": "US-P5-004",
+      "title": "My Coach Feedback & AI Summaries (Player View)",
+      "description": "As an adult player, I want to see the feedback and AI summaries my coaches have chosen to share with me so that I can understand my development from my coach's perspective.",
+      "phase": "Phase 5: Full Player Portal Remaining Sections",
+      "acceptanceCriteria": [
+        "Create apps/web/src/app/orgs/[orgId]/player/feedback/page.tsx",
+        "Read coachParentSummaries.ts FULLY before implementing — understand the privateInsight vs publicSummary split",
+        "Backend: add a new query getCoachFeedbackForPlayer(playerIdentityId) to coachParentSummaries.ts that returns ONLY publicSummary fields for records where status is one of: approved, auto_approved, delivered, viewed. The query MUST NOT return privateInsight or any of its nested fields.",
+        "Frontend: display results as a chronological feed, newest first",
+        "Each feedback card shows: coach name, date, AI summary text (publicSummary.text), sensitivity badge (normal=grey / injury=amber / behavior=blue)",
+        "Player can acknowledge a feedback item (calls existing acknowledge mutation, sets acknowledgedAt timestamp). Show 'Acknowledged ✓' state after.",
+        "Unacknowledged items shown with a subtle highlight or 'New' badge",
+        "The raw privateInsight text MUST NEVER appear anywhere on this page — verify this by inspecting what the query returns",
+        "All three sensitivity categories (normal, injury, behavior) are shown without restriction — this is the player's own development data",
+        "Empty state: 'Your coaches haven't shared any feedback with you yet. Feedback shared by your coach will appear here.'",
+        "Mobile-first: 375px minimum width",
+        "npm run check-types passes"
+      ],
+      "priority": 4,
+      "passes": false,
+      "notes": "Read coachParentSummaries.ts and the existing parent portal view of coach feedback BEFORE implementing. The key insight: privateInsight is the coach's raw note (never shown), publicSummary is the AI-generated version (shown to player when status is approved/delivered/viewed). The backend query must return only publicSummary fields."
+    },
+    {
       "id": "US-P5-UAT",
       "title": "Phase 5 Player Portal Sections E2E Tests",
-      "description": "As a developer, I want Playwright E2E tests for the full player portal sections, so that progress, sharing, and injury features work end-to-end.",
+      "description": "As a developer, I want Playwright E2E tests for the full player portal sections so that progress, sharing, injury, and coach feedback features work end-to-end.",
       "phase": "Phase 5: Full Player Portal Remaining Sections",
       "acceptanceCriteria": [
         "Create test file: apps/web/uat/tests/player-portal-phase5.spec.ts",
@@ -113,6 +139,9 @@
         "Test: My Passport Sharing — sharing toggle changes state and persists in DB",
         "Test: My Injuries — page loads and shows existing injury list",
         "Test: My Injuries — 'Report New Injury' form opens, submits, creates injury with reportedByRole 'player'",
+        "Test: My Feedback — page loads and shows approved coachParentSummaries records",
+        "Test: My Feedback — privateInsight text does NOT appear anywhere on the page",
+        "Test: My Feedback — acknowledge button sets acknowledgedAt on the record",
         "Manual test 1: Log in as adult player with sport passport → navigate to My Progress → confirm ratings visible with sport tabs",
         "Manual test 2: Confirm player CANNOT edit skill ratings (no edit controls present)",
         "Manual test 3: Confirm player CAN add a personal note to passport notes section, saves successfully",
@@ -120,11 +149,15 @@
         "Manual test 5: Navigate to My Injuries → confirm existing injuries shown with correct badges",
         "Manual test 6: Click 'Report New Injury' → fill all fields → submit → confirm injury record created with reportedByRole 'player'",
         "Manual test 7: New injury appears in list with 'You reported this' badge",
-        "Manual test 8: Log in as coach → confirm player-reported injury appears in coach injury view with 'Player-reported' badge"
+        "Manual test 8: Log in as coach → confirm player-reported injury appears in coach injury view with 'Player-reported' badge",
+        "Manual test 9: As coach, approve a coachParentSummary for a player → log in as that player → navigate to Coach Feedback → confirm the publicSummary text appears",
+        "Manual test 10: Confirm the coach's privateInsight text does NOT appear anywhere on the feedback page",
+        "Manual test 11: Acknowledge a feedback item → confirm acknowledgedAt is set in DB and the card shows acknowledged state",
+        "Manual test 12: Confirm all three sensitivity categories (normal, injury, behavior) are visible in the player's feedback feed"
       ],
-      "priority": 4,
+      "priority": 5,
       "passes": false,
-      "notes": "US-P5-001, US-P5-002, and US-P5-003 must all be complete before this UAT story. Phase 1 portal layout must also be complete for navigation to work."
+      "notes": "US-P5-001, US-P5-002, US-P5-003, and US-P5-004 must all be complete before this UAT story. Phase 1 portal layout must also be complete for navigation to work."
     }
   ]
 }

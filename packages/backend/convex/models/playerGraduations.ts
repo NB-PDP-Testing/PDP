@@ -9,7 +9,7 @@
  */
 
 import { v } from "convex/values";
-import { components } from "../_generated/api";
+import { components, internal } from "../_generated/api";
 import type { Id } from "../_generated/dataModel";
 import { mutation, query } from "../_generated/server";
 
@@ -214,10 +214,34 @@ export const sendGraduationInvite = mutation({
       invitationSentBy: userId,
     });
 
-    // TODO: Send email via action (Phase 7 future enhancement)
-    // For now, we just log the token for testing
+    // Get player name and organization name for the email
+    const player = await ctx.db.get(args.playerIdentityId);
+    let organizationName = "Your Organization";
+    if (graduation.organizationId) {
+      const org = await ctx.runQuery(components.betterAuth.adapter.findOne, {
+        model: "organization",
+        where: [
+          { field: "_id", value: graduation.organizationId, operator: "eq" },
+        ],
+      });
+      organizationName =
+        (org as { name?: string } | null)?.name || "Your Organization";
+    }
+
+    // Send email via action (scheduled immediately)
+    await ctx.scheduler.runAfter(
+      0,
+      internal.actions.graduations.sendGraduationInvitationEmailAction,
+      {
+        email: args.playerEmail.toLowerCase().trim(),
+        playerFirstName: player?.firstName ?? "Player",
+        organizationName,
+        claimToken: token,
+      }
+    );
+
     console.log(
-      `[graduations] Invitation sent for player ${args.playerIdentityId} to ${args.playerEmail}. Token: ${token}`
+      `[graduations] Invitation scheduled for player ${args.playerIdentityId} to ${args.playerEmail}`
     );
 
     return { success: true, token };

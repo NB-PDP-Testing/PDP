@@ -153,6 +153,7 @@ import type * as models_phase4TestSeedMutations from "../models/phase4TestSeedMu
 import type * as models_platformCostAlerts from "../models/platformCostAlerts.js";
 import type * as models_platformMessagingSettings from "../models/platformMessagingSettings.js";
 import type * as models_platformStaffInvitations from "../models/platformStaffInvitations.js";
+import type * as models_playerDataExport from "../models/playerDataExport.js";
 import type * as models_playerEmergencyContacts from "../models/playerEmergencyContacts.js";
 import type * as models_playerGraduations from "../models/playerGraduations.js";
 import type * as models_playerHealthChecks from "../models/playerHealthChecks.js";
@@ -392,6 +393,7 @@ declare const fullApi: ApiFromModules<{
   "models/platformCostAlerts": typeof models_platformCostAlerts;
   "models/platformMessagingSettings": typeof models_platformMessagingSettings;
   "models/platformStaffInvitations": typeof models_platformStaffInvitations;
+  "models/playerDataExport": typeof models_playerDataExport;
   "models/playerEmergencyContacts": typeof models_playerEmergencyContacts;
   "models/playerGraduations": typeof models_playerGraduations;
   "models/playerHealthChecks": typeof models_playerHealthChecks;

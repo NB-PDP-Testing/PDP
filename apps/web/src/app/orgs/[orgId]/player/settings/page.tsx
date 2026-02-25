@@ -3,9 +3,9 @@
 import { api } from "@pdp/backend/convex/_generated/api";
 import type { Id } from "@pdp/backend/convex/_generated/dataModel";
 import { useMutation, useQuery } from "convex/react";
-import { Loader2, Lock, Shield, ShieldCheck } from "lucide-react";
+import { Download, Loader2, Lock, Shield, ShieldCheck } from "lucide-react";
 import { useParams } from "next/navigation";
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { toast } from "sonner";
 import {
   AlertDialog,
@@ -28,6 +28,113 @@ import {
 } from "@/components/ui/card";
 import { Switch } from "@/components/ui/switch";
 import { authClient } from "@/lib/auth-client";
+
+function shouldShowCycleSection(
+  playerIdentity: {
+    gender?: string;
+    dateOfBirth?: string;
+  } | null
+): boolean {
+  if (!playerIdentity) {
+    return false;
+  }
+  if (playerIdentity.gender !== "female") {
+    return false;
+  }
+  if (!playerIdentity.dateOfBirth) {
+    return false;
+  }
+  const dob = new Date(playerIdentity.dateOfBirth);
+  const ageDiff = Date.now() - dob.getTime();
+  const ageDate = new Date(ageDiff);
+  const age = Math.abs(ageDate.getUTCFullYear() - 1970);
+  return age >= 18;
+}
+
+function getRateLimitHoursRemaining(playerId: string): number {
+  const lastExport = localStorage.getItem(`gdpr_export_${playerId}`);
+  if (!lastExport) {
+    return 0;
+  }
+  const hoursSince =
+    (Date.now() - Number.parseInt(lastExport, 10)) / (1000 * 60 * 60);
+  return hoursSince < 24 ? Math.ceil(24 - hoursSince) : 0;
+}
+
+function triggerJsonDownload(
+  data: unknown,
+  firstName?: string,
+  lastName?: string
+): void {
+  const name = `${firstName ?? "player"}-${lastName ?? "data"}`;
+  const dateStr = new Date().toISOString().split("T")[0];
+  const blob = new Blob([JSON.stringify(data, null, 2)], {
+    type: "application/json",
+  });
+  const url = URL.createObjectURL(blob);
+  const a = document.createElement("a");
+  a.href = url;
+  a.download = `playerarc-data-${name}-${dateStr}.json`;
+  document.body.appendChild(a);
+  a.click();
+  document.body.removeChild(a);
+  URL.revokeObjectURL(url);
+}
+
+type ExportablePlayer =
+  | {
+      _id: Id<"playerIdentities">;
+      firstName?: string;
+      lastName?: string;
+    }
+  | null
+  | undefined;
+
+function useGdprExport(playerIdentity: ExportablePlayer, orgId: string) {
+  const [triggered, setTriggered] = useState(false);
+
+  const data = useQuery(
+    api.models.playerDataExport.assemblePlayerDataExport,
+    triggered && playerIdentity?._id
+      ? { playerIdentityId: playerIdentity._id, organizationId: orgId }
+      : "skip"
+  );
+
+  useEffect(() => {
+    if (!triggered || data === undefined) {
+      return;
+    }
+    triggerJsonDownload(
+      data,
+      playerIdentity?.firstName,
+      playerIdentity?.lastName
+    );
+    localStorage.setItem(
+      `gdpr_export_${playerIdentity?._id ?? ""}`,
+      Date.now().toString()
+    );
+    setTriggered(false);
+    toast.success("Data export downloaded successfully");
+  }, [triggered, data, playerIdentity]);
+
+  const download = () => {
+    if (!playerIdentity?._id) {
+      toast.error("Player identity not found");
+      return;
+    }
+    const hoursRemaining = getRateLimitHoursRemaining(playerIdentity._id);
+    if (hoursRemaining > 0) {
+      toast.info(
+        `You already downloaded your data today. You can request another export in ${hoursRemaining} hour${hoursRemaining === 1 ? "" : "s"}.`
+      );
+      return;
+    }
+    toast.info("Preparing your data export...");
+    setTriggered(true);
+  };
+
+  return { download, isLoading: triggered };
+}
 
 // Core dimensions — always active, cannot be individually disabled
 const CORE_DIMENSIONS = [
@@ -131,6 +238,10 @@ export default function PlayerSettingsPage() {
   // Revoke cycle consent confirmation dialog
   const [showRevokeConsentDialog, setShowRevokeConsentDialog] = useState(false);
 
+  // GDPR data export — managed by custom hook
+  const { download: handleDownloadJSON, isLoading: exportLoading } =
+    useGdprExport(playerIdentity, orgId);
+
   const handleToggle = async (dimensionKey: string, enabled: boolean) => {
     if (!(playerIdentity?._id && wellnessSettings)) {
       return;
@@ -202,22 +313,7 @@ export default function PlayerSettingsPage() {
   };
 
   // Determine if cycle tracking section should show
-  const showCycleSection = (() => {
-    if (!playerIdentity) {
-      return false;
-    }
-    if (playerIdentity.gender !== "female") {
-      return false;
-    }
-    if (!playerIdentity.dateOfBirth) {
-      return false;
-    }
-    const dob = new Date(playerIdentity.dateOfBirth);
-    const ageDiff = Date.now() - dob.getTime();
-    const ageDate = new Date(ageDiff);
-    const age = Math.abs(ageDate.getUTCFullYear() - 1970);
-    return age >= 18;
-  })();
+  const showCycleSection = shouldShowCycleSection(playerIdentity ?? null);
 
   const hasCycleConsent =
     cycleConsent !== undefined &&
@@ -449,6 +545,49 @@ export default function PlayerSettingsPage() {
               ))}
             </div>
           )}
+        </CardContent>
+      </Card>
+
+      {/* Privacy & Data Card — GDPR Article 20 Data Export */}
+      <Card>
+        <CardHeader>
+          <CardTitle className="flex items-center gap-2">
+            <Download className="h-5 w-5" />
+            Your Data
+          </CardTitle>
+          <CardDescription>
+            Download a copy of all personal data held about you (GDPR Article
+            20).
+          </CardDescription>
+        </CardHeader>
+        <CardContent>
+          <div className="flex flex-col gap-3 rounded-lg border p-4 sm:flex-row sm:items-center sm:justify-between">
+            <div>
+              <p className="font-medium text-sm">Download My Data</p>
+              <p className="text-muted-foreground text-xs">
+                Exports your profile, wellness history, injuries, coach
+                feedback, and passport ratings as a JSON file.
+              </p>
+            </div>
+            <Button
+              disabled={exportLoading}
+              onClick={handleDownloadJSON}
+              size="sm"
+              variant="outline"
+            >
+              {exportLoading ? (
+                <>
+                  <Loader2 className="mr-2 h-3 w-3 animate-spin" />
+                  Preparing...
+                </>
+              ) : (
+                <>
+                  <Download className="mr-2 h-3 w-3" />
+                  Download
+                </>
+              )}
+            </Button>
+          </div>
         </CardContent>
       </Card>
 

@@ -32,6 +32,7 @@ import type * as actions_sessionPlans from "../actions/sessionPlans.js";
 import type * as actions_syncQueueProcessor from "../actions/syncQueueProcessor.js";
 import type * as actions_teamInsights from "../actions/teamInsights.js";
 import type * as actions_voiceNotes from "../actions/voiceNotes.js";
+import type * as actions_wellnessInsights from "../actions/wellnessInsights.js";
 import type * as actions_whatsapp from "../actions/whatsapp.js";
 import type * as auth from "../auth.js";
 import type * as crons from "../crons.js";
@@ -270,6 +271,7 @@ declare const fullApi: ApiFromModules<{
   "actions/syncQueueProcessor": typeof actions_syncQueueProcessor;
   "actions/teamInsights": typeof actions_teamInsights;
   "actions/voiceNotes": typeof actions_voiceNotes;
+  "actions/wellnessInsights": typeof actions_wellnessInsights;
   "actions/whatsapp": typeof actions_whatsapp;
   auth: typeof auth;
   crons: typeof crons;

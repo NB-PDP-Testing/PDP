@@ -5527,4 +5527,16 @@ export default defineSchema({
     updatedAt: v.number(),
     updatedBy: v.string(), // userId
   }).index("by_org", ["organizationId"]),
+
+  // AI-generated wellness insights for players (US-P4-010)
+  playerWellnessInsights: defineTable({
+    playerIdentityId: v.id("playerIdentities"),
+    organizationId: v.string(),
+    insight: v.string(), // max 20-word insight text
+    generatedAt: v.number(),
+    basedOnDays: v.number(), // number of check-in records used
+    triggerCheckId: v.id("dailyPlayerHealthChecks"),
+  })
+    .index("by_player", ["playerIdentityId"])
+    .index("by_player_and_date", ["playerIdentityId", "generatedAt"]),
 });

@@ -385,6 +385,17 @@ export const submitDailyHealthCheck = mutation({
       deviceSubmittedAt: args.deviceSubmittedAt,
     });
 
+    // Schedule AI insight generation (US-P4-010) — fire-and-forget
+    await ctx.scheduler.runAfter(
+      0,
+      internal.actions.wellnessInsights.generateWellnessInsight,
+      {
+        playerIdentityId: args.playerIdentityId,
+        organizationId: args.organizationId,
+        triggerCheckId: newCheckId,
+      }
+    );
+
     return newCheckId;
   },
 });
@@ -1206,5 +1217,154 @@ export const sendWellnessReminders = internalMutation({
     }
 
     return { sent, skipped };
+  },
+});
+
+// ─── Internal helpers for AI Insight Generation (US-P4-010) ─────────────────
+
+/**
+ * Fetch last 14 days of health checks for a player (for insight generation).
+ * Returns records sorted newest-first.
+ */
+export const getRecentChecksForInsight = internalQuery({
+  args: { playerIdentityId: v.id("playerIdentities") },
+  returns: v.array(
+    v.object({
+      checkDate: v.string(),
+      sleepQuality: v.optional(v.number()),
+      energyLevel: v.optional(v.number()),
+      mood: v.optional(v.number()),
+      physicalFeeling: v.optional(v.number()),
+      motivation: v.optional(v.number()),
+      foodIntake: v.optional(v.number()),
+      waterIntake: v.optional(v.number()),
+      muscleRecovery: v.optional(v.number()),
+    })
+  ),
+  handler: async (ctx, args) => {
+    const cutoffDate = new Date();
+    cutoffDate.setDate(cutoffDate.getDate() - 14);
+    const cutoffStr = cutoffDate.toISOString().split("T")[0];
+
+    const records = await ctx.db
+      .query("dailyPlayerHealthChecks")
+      .withIndex("by_player", (q) =>
+        q.eq("playerIdentityId", args.playerIdentityId)
+      )
+      .collect();
+
+    return records
+      .filter((r) => r.checkDate >= cutoffStr)
+      .sort((a, b) => b.checkDate.localeCompare(a.checkDate))
+      .map((r) => ({
+        checkDate: r.checkDate,
+        sleepQuality: r.sleepQuality,
+        energyLevel: r.energyLevel,
+        mood: r.mood,
+        physicalFeeling: r.physicalFeeling,
+        motivation: r.motivation,
+        foodIntake: r.foodIntake,
+        waterIntake: r.waterIntake,
+        muscleRecovery: r.muscleRecovery,
+      }));
+  },
+});
+
+/** Check if an insight has already been generated today for this player. */
+export const hasInsightGeneratedToday = internalQuery({
+  args: { playerIdentityId: v.id("playerIdentities") },
+  returns: v.boolean(),
+  handler: async (ctx, args) => {
+    const todayStart = new Date();
+    todayStart.setUTCHours(0, 0, 0, 0);
+    const todayStartMs = todayStart.getTime();
+
+    const record = await ctx.db
+      .query("playerWellnessInsights")
+      .withIndex("by_player_and_date", (q) =>
+        q
+          .eq("playerIdentityId", args.playerIdentityId)
+          .gte("generatedAt", todayStartMs)
+      )
+      .first();
+
+    return record !== null;
+  },
+});
+
+/** Insert a generated wellness insight record. */
+export const insertWellnessInsight = internalMutation({
+  args: {
+    playerIdentityId: v.id("playerIdentities"),
+    organizationId: v.string(),
+    insight: v.string(),
+    generatedAt: v.number(),
+    basedOnDays: v.number(),
+    triggerCheckId: v.id("dailyPlayerHealthChecks"),
+  },
+  returns: v.id("playerWellnessInsights"),
+  handler: async (ctx, args) =>
+    ctx.db.insert("playerWellnessInsights", {
+      playerIdentityId: args.playerIdentityId,
+      organizationId: args.organizationId,
+      insight: args.insight,
+      generatedAt: args.generatedAt,
+      basedOnDays: args.basedOnDays,
+      triggerCheckId: args.triggerCheckId,
+    }),
+});
+
+// ─── Player Wellness Insights (US-P4-010) ────────────────────────────────────
+
+/**
+ * Get the most recent wellness insight for a player.
+ * Player-facing only — never expose to coaches or admins.
+ */
+export const getLatestWellnessInsight = query({
+  args: { playerIdentityId: v.id("playerIdentities") },
+  returns: v.union(
+    v.object({
+      _id: v.id("playerWellnessInsights"),
+      insight: v.string(),
+      generatedAt: v.number(),
+      basedOnDays: v.number(),
+    }),
+    v.null()
+  ),
+  handler: async (ctx, args) => {
+    const record = await ctx.db
+      .query("playerWellnessInsights")
+      .withIndex("by_player_and_date", (q) =>
+        q.eq("playerIdentityId", args.playerIdentityId)
+      )
+      .order("desc")
+      .first();
+
+    if (!record) {
+      return null;
+    }
+    return {
+      _id: record._id,
+      insight: record.insight,
+      generatedAt: record.generatedAt,
+      basedOnDays: record.basedOnDays,
+    };
+  },
+});
+
+/**
+ * Count how many wellness check-ins a player has (for the nudge counter).
+ */
+export const getWellnessCheckInCount = query({
+  args: { playerIdentityId: v.id("playerIdentities") },
+  returns: v.number(),
+  handler: async (ctx, args) => {
+    const records = await ctx.db
+      .query("dailyPlayerHealthChecks")
+      .withIndex("by_player", (q) =>
+        q.eq("playerIdentityId", args.playerIdentityId)
+      )
+      .collect();
+    return records.length;
   },
 });

@@ -2959,6 +2959,35 @@ export const syncFunctionalRolesWithChildSelections = mutation({
       }
     }
 
+    // 4. Handle player role - link to matched youth identity if provided (Phase 3: US-P3-005)
+    const rawSuggestedRoles: string[] =
+      metadata?.suggestedFunctionalRoles || [];
+    if (rawSuggestedRoles.includes("player")) {
+      const matchedId: string | undefined = metadata?.matchedPlayerIdentityId;
+      if (matchedId) {
+        try {
+          await ctx.runMutation(
+            internal.models.adultPlayers.claimYouthProfileInternal,
+            {
+              playerIdentityId: matchedId as Id<"playerIdentities">,
+              userId: args.userId,
+              email: args.userEmail,
+            }
+          );
+          console.log(
+            "[syncFunctionalRolesWithChildSelections] Linked player to youth identity:",
+            matchedId
+          );
+        } catch (err) {
+          // Non-breaking — existing invites have no matchedPlayerIdentityId
+          console.warn(
+            "[syncFunctionalRolesWithChildSelections] Failed to link youth record:",
+            err
+          );
+        }
+      }
+    }
+
     // Mark user as invited (Phase 0.8: Onboarding flow differentiation)
     await ctx.runMutation(components.betterAuth.adapter.updateOne, {
       input: {

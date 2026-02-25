@@ -161,6 +161,7 @@ export const getOnboardingTasks = query({
             metadata?: {
               suggestedFunctionalRoles?: string[];
               suggestedPlayerLinks?: Array<{ id: string; name?: string }>;
+              matchedPlayerIdentityId?: string;
             };
           }) => {
             const org = await ctx.runQuery(
@@ -187,6 +188,8 @@ export const getOnboardingTasks = query({
               expiresAt: inv.expiresAt,
               functionalRoles: inv.metadata?.suggestedFunctionalRoles || [],
               playerLinks: inv.metadata?.suggestedPlayerLinks || [],
+              matchedPlayerIdentityId:
+                inv.metadata?.matchedPlayerIdentityId ?? undefined,
             };
           }
         )

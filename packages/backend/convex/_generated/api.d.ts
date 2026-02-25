@@ -157,6 +157,7 @@ import type * as models_playerGraduations from "../models/playerGraduations.js";
 import type * as models_playerIdentities from "../models/playerIdentities.js";
 import type * as models_playerImport from "../models/playerImport.js";
 import type * as models_playerInjuries from "../models/playerInjuries.js";
+import type * as models_playerMatching from "../models/playerMatching.js";
 import type * as models_playerSelfAccess from "../models/playerSelfAccess.js";
 import type * as models_players from "../models/players.js";
 import type * as models_rateLimits from "../models/rateLimits.js";
@@ -393,6 +394,7 @@ declare const fullApi: ApiFromModules<{
   "models/playerIdentities": typeof models_playerIdentities;
   "models/playerImport": typeof models_playerImport;
   "models/playerInjuries": typeof models_playerInjuries;
+  "models/playerMatching": typeof models_playerMatching;
   "models/playerSelfAccess": typeof models_playerSelfAccess;
   "models/players": typeof models_players;
   "models/rateLimits": typeof models_rateLimits;

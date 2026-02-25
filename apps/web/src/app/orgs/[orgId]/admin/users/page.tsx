@@ -196,11 +196,15 @@ export default function ManageUsersPage() {
   const [inviteDialogOpen, setInviteDialogOpen] = useState(false);
   const [inviteEmail, setInviteEmail] = useState("");
   const [inviteFunctionalRoles, setInviteFunctionalRoles] = useState<
-    ("coach" | "parent" | "admin")[]
+    ("coach" | "parent" | "admin" | "player")[]
   >([]);
   const [inviteTeams, setInviteTeams] = useState<string[]>([]); // Team IDs for coach
   const [invitePlayerIds, setInvitePlayerIds] = useState<string[]>([]); // Player IDs for parent
   const [invitePlayerSearch, setInvitePlayerSearch] = useState(""); // Search term for players
+  // Player (adult) invite fields — used for youth record pre-matching
+  const [invitePlayerFirstName, setInvitePlayerFirstName] = useState("");
+  const [invitePlayerLastName, setInvitePlayerLastName] = useState("");
+  const [invitePlayerDob, setInvitePlayerDob] = useState("");
   const [inviting, setInviting] = useState(false);
 
   // Debounced email for existing user lookup (Feature A - Issue #437)
@@ -216,6 +220,26 @@ export default function ManageUsersPage() {
     api.models.users.getUserByEmail,
     isValidEmailFormat && inviteDialogOpen
       ? { email: debouncedInviteEmail }
+      : "skip"
+  );
+
+  // Youth matching for player invite — run when player role selected + name + DOB provided
+  const hasPlayerMatchData =
+    inviteFunctionalRoles.includes("player") &&
+    invitePlayerFirstName.trim().length > 0 &&
+    invitePlayerLastName.trim().length > 0 &&
+    invitePlayerDob.length > 0 &&
+    inviteDialogOpen;
+  const invitePlayerMatchResult = useQuery(
+    api.models.playerMatching.findMatchingYouthProfile,
+    hasPlayerMatchData
+      ? {
+          organizationId: orgId,
+          firstName: invitePlayerFirstName.trim(),
+          lastName: invitePlayerLastName.trim(),
+          dateOfBirth: invitePlayerDob,
+          email: inviteEmail || undefined,
+        }
       : "skip"
   );
 
@@ -255,7 +279,7 @@ export default function ManageUsersPage() {
   // If functional roles include "admin", Better Auth role should be "admin"
   // Otherwise, default to "member"
   const inferBetterAuthRole = (
-    functionalRoles: ("coach" | "parent" | "admin")[]
+    functionalRoles: ("coach" | "parent" | "admin" | "player")[]
   ): "member" | "admin" =>
     functionalRoles.includes("admin") ? "admin" : "member";
 
@@ -582,7 +606,9 @@ export default function ManageUsersPage() {
     }
   };
 
-  const toggleInviteFunctionalRole = (role: "coach" | "parent" | "admin") => {
+  const toggleInviteFunctionalRole = (
+    role: "coach" | "parent" | "admin" | "player"
+  ) => {
     setInviteFunctionalRoles((prev) =>
       prev.includes(role) ? prev.filter((r) => r !== role) : [...prev, role]
     );
@@ -625,11 +651,12 @@ export default function ManageUsersPage() {
       };
 
       type InviteMetadata = {
-        suggestedFunctionalRoles: ("coach" | "parent" | "admin")[];
+        suggestedFunctionalRoles: ("coach" | "parent" | "admin" | "player")[];
         roleSpecificData?: {
           teams?: TeamInfo[]; // Full team details for coach role
         };
         suggestedPlayerLinks?: PlayerInfo[]; // Full player details for parent role
+        matchedPlayerIdentityId?: string; // Pre-matched youth identity for player role
       };
 
       const metadata: InviteMetadata = {
@@ -686,6 +713,16 @@ export default function ManageUsersPage() {
           .filter((p): p is PlayerInfo => p !== null);
 
         metadata.suggestedPlayerLinks = playerDetails;
+      }
+
+      // Add player-specific data (matched youth identity for adult player role)
+      if (
+        inviteFunctionalRoles.includes("player") &&
+        invitePlayerMatchResult?.confidence !== "none" &&
+        invitePlayerMatchResult?.confidence !== undefined &&
+        invitePlayerMatchResult?.match?._id
+      ) {
+        metadata.matchedPlayerIdentityId = invitePlayerMatchResult.match._id;
       }
 
       const inviteOptions = {
@@ -775,6 +812,9 @@ export default function ManageUsersPage() {
         setInviteTeams([]);
         setInvitePlayerIds([]);
         setInvitePlayerSearch("");
+        setInvitePlayerFirstName("");
+        setInvitePlayerLastName("");
+        setInvitePlayerDob("");
       }
     } catch (error: any) {
       console.error("Error inviting user:", error);
@@ -2427,6 +2467,19 @@ export default function ManageUsersPage() {
                       <UserCircle className="h-4 w-4" />
                       <span>Parent</span>
                     </button>
+                    <button
+                      className={`flex cursor-pointer items-center gap-2 rounded-lg border px-3 py-2 text-sm transition-colors ${
+                        inviteFunctionalRoles.includes("player")
+                          ? "border-orange-400 bg-orange-100 text-orange-700"
+                          : "border-gray-200 bg-white hover:bg-gray-50"
+                      }`}
+                      disabled={inviting}
+                      onClick={() => toggleInviteFunctionalRole("player")}
+                      type="button"
+                    >
+                      <UserPlus className="h-4 w-4" />
+                      <span>Player (Adult)</span>
+                    </button>
                   </div>
                   {inviteFunctionalRoles.length > 0 && (
                     <p className="text-muted-foreground text-xs">
@@ -2582,6 +2635,77 @@ export default function ManageUsersPage() {
                         {invitePlayerIds.length} player(s) selected
                       </p>
                     )}
+                  </div>
+                )}
+
+                {/* Player (Adult): Optional name + DOB for youth record matching */}
+                {inviteFunctionalRoles.includes("player") && (
+                  <div className="space-y-3 rounded-lg border border-orange-200 bg-orange-50 p-3">
+                    <div>
+                      <Label className="font-medium text-orange-900 text-sm">
+                        Youth Record Matching (Optional)
+                      </Label>
+                      <p className="mt-1 text-orange-700 text-xs">
+                        Enter the player's name and date of birth to
+                        automatically link their existing youth history when
+                        they accept the invite.
+                      </p>
+                    </div>
+                    <div className="grid grid-cols-2 gap-2">
+                      <div>
+                        <Label className="text-orange-800 text-xs">
+                          First Name
+                        </Label>
+                        <Input
+                          className="mt-1"
+                          disabled={inviting}
+                          onChange={(e) =>
+                            setInvitePlayerFirstName(e.target.value)
+                          }
+                          placeholder="First name"
+                          value={invitePlayerFirstName}
+                        />
+                      </div>
+                      <div>
+                        <Label className="text-orange-800 text-xs">
+                          Last Name
+                        </Label>
+                        <Input
+                          className="mt-1"
+                          disabled={inviting}
+                          onChange={(e) =>
+                            setInvitePlayerLastName(e.target.value)
+                          }
+                          placeholder="Last name"
+                          value={invitePlayerLastName}
+                        />
+                      </div>
+                    </div>
+                    <div>
+                      <Label className="text-orange-800 text-xs">
+                        Date of Birth
+                      </Label>
+                      <Input
+                        className="mt-1"
+                        disabled={inviting}
+                        onChange={(e) => setInvitePlayerDob(e.target.value)}
+                        type="date"
+                        value={invitePlayerDob}
+                      />
+                    </div>
+                    {/* Match result note */}
+                    {hasPlayerMatchData &&
+                      invitePlayerMatchResult !== undefined &&
+                      (invitePlayerMatchResult.confidence === "high" ||
+                        invitePlayerMatchResult.confidence === "medium") && (
+                        <div className="rounded-md border border-orange-300 bg-orange-100 p-2">
+                          <p className="text-orange-800 text-xs">
+                            A youth profile may exist for this person.
+                            They&apos;ll be linked to their existing history
+                            when they accept the invite.
+                          </p>
+                        </div>
+                      )}
                   </div>
                 )}
               </ResponsiveFormSection>

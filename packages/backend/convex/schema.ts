@@ -3854,7 +3854,10 @@ export default defineSchema({
       v.literal("milestone_completed"), // Recovery milestone marked complete
       v.literal("clearance_received"), // Medical clearance received
       // Org invitation notifications (Issue #437)
-      v.literal("org_invitation_received") // Existing user invited to an org
+      v.literal("org_invitation_received"), // Existing user invited to an org
+      // Graduation notifications (Phase 2 - Adult Player Graduation Flow)
+      v.literal("age_transition_available"), // Guardian notified player turned 18
+      v.literal("age_transition_claimed") // Admins notified player claimed their account
     ),
     title: v.string(),
     message: v.string(),

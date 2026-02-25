@@ -6,6 +6,7 @@
  */
 
 import { v } from "convex/values";
+import { internal } from "../_generated/api";
 import { internalMutation } from "../_generated/server";
 
 // 18 years in milliseconds (accounting for leap years with 365.25)
@@ -89,6 +90,31 @@ export const detectPlayerGraduations = internalMutation({
       });
 
       created += 1;
+
+      // Notify guardians of this player
+      const guardianLinks = await ctx.db
+        .query("guardianPlayerLinks")
+        .withIndex("by_player", (q) => q.eq("playerIdentityId", player._id))
+        .collect();
+
+      for (const link of guardianLinks) {
+        const guardian = await ctx.db.get(link.guardianIdentityId);
+        if (!guardian?.userId) {
+          continue;
+        }
+
+        await ctx.runMutation(
+          internal.models.notifications.createNotification,
+          {
+            userId: guardian.userId,
+            organizationId: enrollment.organizationId,
+            type: "age_transition_available",
+            title: `${player.firstName} ${player.lastName} Has Turned 18`,
+            message: `${player.firstName} is now eligible to claim their own PlayerARC account. Send them an invite from your parent dashboard.`,
+            link: `/orgs/${enrollment.organizationId}/parents`,
+          }
+        );
+      }
     }
 
     console.log(

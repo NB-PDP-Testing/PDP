@@ -14,7 +14,9 @@ type NotificationType =
   | "injury_cleared"
   | "milestone_completed"
   | "clearance_received"
-  | "org_invitation_received";
+  | "org_invitation_received"
+  | "age_transition_available"
+  | "age_transition_claimed";
 
 export type NotificationData = {
   _id: string;

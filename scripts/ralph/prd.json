@@ -162,7 +162,7 @@
         "Manual test 11: Enter wrong PIN 3 times \u2192 confirm flow locks with appropriate message \u2192 admin can still use 'Transition Now' to bypass"
       ],
       "priority": 5,
-      "passes": false,
+      "passes": true,
       "notes": "The graduation cron can be triggered manually via Convex dashboard. Use Convex MCP tools to inspect playerGraduations records. All prior Phase 2 stories must be complete before this UAT."
     }
   ]

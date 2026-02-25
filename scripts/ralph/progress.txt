@@ -1,171 +1,47 @@
 # Ralph Progress Log
-Started: Wed 25 Feb 2026 15:37:40 GMT
+Started: Wed 25 Feb 2026 16:50:07 GMT
 ---
 
-## Codebase Patterns
-**Last Updated**: 2026-02-25 - Iteration 1
+## Phase 2: Adult Player Lifecycle — Youth-to-Adult Graduation Flow
 
-### Architecture
-- All routes scoped under `/orgs/[orgId]/`
-- Parent portal at `apps/web/src/app/orgs/[orgId]/parents/` is the reference template
-- Player portal at `apps/web/src/app/orgs/[orgId]/player/`
+### Completed Stories
 
-### Convex Backend Patterns
-- NEVER use `.filter()` - always use `.withIndex()`
-- All functions need `args` and `returns` validators
-- adultPlayers.ts had pre-existing lint errors (priority++ in claimYouthProfile) - fixed in iteration 1
+**US-P2-001** (commit e356ca54): Guardian Sees Graduation Alert in Parent Dashboard
+- Created graduation-alert.tsx with amber-styled alert cards
+- GraduationAlerts component queries getPendingGraduations
+- Added age_transition_available and age_transition_claimed to notification types
+- Daily cron now sends in-app notifications to guardians on graduation detection
 
-### Frontend Patterns
-- Portal layouts: "use client" with useOrgTheme(), useUXFeatureFlags()
-- Sidebar shown when `adminNavStyle === "sidebar"` (PostHog flag `ux_admin_nav_sidebar`)
-- BottomNav shown when `useBottomNav === true` (PostHog flag `ux_bottom_nav`)
-- BottomNav uses `id: "overview"` for exact-match active detection
-- Portal gating pattern: useQuery(hasPlayerDashboard) → useEffect redirect if false
+**US-P2-002** (commit 2675d236): Guardian Sends Account Invite Email via Resend
+- Completed the TODO at playerGraduations.ts:217
+- Added sendGraduationInvitationEmail() to utils/email.ts
+- Created actions/graduations.ts with sendGraduationInvitationEmailAction
+- Email includes CTA to /claim-account/[token] with 30-day expiry warning
 
-### Quality Checks
-- Run in order: `npx -w packages/backend convex codegen` → `npm run check-types` → biome check
-- Pre-commit hook runs `npx biome check --diagnostic-level=error` on ALL staged files
-- Pre-existing error: `diagnoseSafeGetAuthUser.ts` - TypeScript error, safely ignore
-- `npx ultracite fix` may fail with exit code 1 - run `npx biome check` to verify instead
+**US-P2-003** (commit 361d643b): Player Claims Account via Token & Onboards
+- Added verificationPins table to schema (by_player index, channel/expiry)
+- Added sendClaimVerificationPin and verifyClaimPin mutations
+- sendVerificationPinAction delivers PIN via Twilio SMS or Resend email
+- ClaimWizard extended to 5 steps: welcome → account → verify → gdpr → confirm
+- claimPlayerAccount now requires valid PIN; sends age_transition_claimed notification
+- player_claimed_account onboarding task with PlayerGraduationStep welcome screen
+- markPlayerWelcomed mutation clears the welcome task
 
-### File Locations
-- Player sidebar: `apps/web/src/components/layout/player-sidebar.tsx`
-- Adult players backend: `packages/backend/convex/models/adultPlayers.ts`
-- BottomNav: `apps/web/src/components/layout/bottom-nav.tsx`
+**US-P2-004** (commit 2b6f1796): Admin Manual Graduation Trigger
+- GraduationSection component added to admin player edit page
+- Shows when player is youth + age >= 18 (computed at render time)
+- Reactive graduation status via getPlayerGraduationStatus query
+- Send Invitation button bypasses guardian, goes direct to player
+- Transition Now button with confirmation dialog → calls transitionToAdult
 
----
+**US-P2-UAT** (commit 162d1ad5): Phase 2 E2E Tests
+- 17 automated tests in player-graduation-phase2.spec.ts
+- Tests cover: parent dashboard graduation alert, invite dialog, claim page error states, admin graduation trigger UI
+- Comprehensive manual test checklist for data-dependent flows (11 scenarios)
 
-## 2026-02-25 - US-P1-001 - Player Portal Layout & Sidebar Navigation
-**Iteration**: 1
-**Commit**: a942e2a5
-**Status**: Complete
-
-### What was implemented
-- Added `hasPlayerDashboard` query to adultPlayers.ts (portal gating)
-- Created player-sidebar.tsx - flat sidebar with 9 nav items + mobile drawer
-- Created player/layout.tsx - portal layout mirroring parents/layout.tsx
-- Created 7 placeholder pages (progress, teams, health-check, injuries, feedback, sharing, settings)
-- Fixed pre-existing lint issues in adultPlayers.ts that blocked commit
-
-### Quality checks
-- ✅ Convex codegen: passed
-- ✅ Type check: only pre-existing error in diagnoseSafeGetAuthUser.ts
-- ✅ Lint: all new files clean
-- ✅ Pre-commit hook: passed
-
-### Learnings for future iterations
-**Gotchas:**
-- Pre-commit hook lints ALL staged files - pre-existing errors in files you modify block commit
-- adultPlayers.ts had priority++ and missing default case that needed fixing
-- PRD referenced hasPlayerDashboard at line 633 but file only had 460 lines - had to create it
-- `npx ultracite fix` exit code is unreliable - use `npx biome check` to verify
-
----
-
-## 2026-02-25 - US-P1-002 - Player Overview Today Priority First-Screen
-**Iteration**: 2
-**Commit**: 3d3225ff961c51e55f2c14cc7ef06d310503fb77
-**Status**: Complete
-
-### What was implemented
-- Added `getTodayHealthCheck` stub query to adultPlayers.ts (returns null - no wellness table yet)
-- Added `getTodayPriorityData` query to adultPlayers.ts - queries active + recovering injuries via `by_status` index
-- Modified player/page.tsx to add Today section at top:
-  - Amber wellness card (always shown since stub returns null) with "Start Check-In" button linking to /player/health-check
-  - Amber injury card (only shown when activeInjuryCount > 0) with "View Injuries" link
-  - Green "All clear today 🎉" card when all conditions are clear
-  - Quick stats strip: player name, age group from enrollment, today's date formatted as "Tuesday, 25 Feb"
-  - Mobile anchor link "See full profile ↓" pointing to #full-profile
-- Added "My Profile" section divider with id="full-profile" above existing content
-- All existing profile content (OrgThemedGradient header, passport sections) unchanged below
-
-### Files changed
-- packages/backend/convex/models/adultPlayers.ts (+55, -0)
-- apps/web/src/app/orgs/[orgId]/player/page.tsx (+182, -1)
-
-### Quality checks
-- ✅ Convex codegen: passed
-- ✅ Type check: only pre-existing error in diagnoseSafeGetAuthUser.ts
-- ✅ Lint: clean (biome format fixed one formatting issue)
-- ✅ Pre-commit hook: passed
-
-### Learnings for future iterations
-**Patterns discovered:**
-- Import + usage must be added in one Write operation to avoid linter removing "unused" imports
-- `biome format --write` fixes formatting before committing is cleaner than fixing manually
-- playerInjuries `by_status` index: `["playerIdentityId", "status"]` - need two queries for active + recovering
-
-**Gotchas encountered:**
-- Adding imports in one Edit call and usage in another triggers linter to remove "unused" imports between edits
-- Always write full file with Write tool when making complex multi-section changes to avoid linter conflicts
-- `noExcessiveCognitiveComplexity` is a warning, not an error - doesn't block commit
-
-**What to do next (US-P1-003):**
-- Create apps/web/src/app/orgs/[orgId]/player/profile/page.tsx
-- Use updateMyProfile mutation (already built at adultPlayers.ts:287)
-- Add emergency contact CRUD mutations to adultPlayers.ts
-- Form: React Hook Form + Zod, read-only fields with Lock icon
-
----
-
-## 2026-02-25 - US-P1-003 - Player Profile Self-Edit Sub-Page
-**Iteration**: 3
-**Commit**: 260485e0
-**Status**: Complete
-
-### What was implemented
-- Created apps/web/src/app/orgs/[orgId]/player/profile/page.tsx
-- Personal details form with React Hook Form + Zod validation
-- Editable fields: email, phone, address, town, postcode, country
-- Read-only fields: firstName, lastName, dateOfBirth, gender with Lock icon + tooltip
-- Save button with loading state, success/error toasts via Sonner
-- Emergency contacts via existing EmergencyContactsSection component (isEditable=true)
-- NOTE: Emergency contact mutations already existed in emergencyContacts.ts model - no new backend needed
-
-### Files changed
-- apps/web/src/app/orgs/[orgId]/player/profile/page.tsx (+309, new file)
-
-### Quality checks
-- ✅ Type check: only pre-existing error in diagnoseSafeGetAuthUser.ts
-- ✅ Lint: clean
-- ✅ Pre-commit hook: passed
-
-### Learnings for future iterations
-**Patterns discovered:**
-- emergencyContacts.ts model already has full CRUD (create/update/remove/updatePriority)
-- EmergencyContactsSection component is reusable and already handles all emergency contact UI
-- Profile page doesn't need orgId - getMyPlayerProfile uses auth identity internally
-- React Hook Form: use useEffect + reset() to populate form when query data loads
-- Unused variables flagged as errors by biome - either prefix with _ or remove entirely
-
-**Gotchas:**
-- Import + unused variable is a biome error (not just warning) - always remove unused vars
-- useParams() was imported but orgId not needed, biome caught it
-
----
-
-## 2026-02-25 - US-P1-UAT - Player Portal Phase 1 E2E Tests
-**Iteration**: 4
-**Commit**: ce05017d
-**Status**: Complete
-
-### What was implemented
-- Created apps/web/uat/tests/player-portal-phase1.spec.ts
-- 22 tests (PP-001 to PP-022) covering all 3 implementation stories
-- Tests marked [player-linked] skip gracefully when test user lacks player identity
-- Tests for sub-route no-404, layout, Today section, wellness card, profile form
-
-### Files changed
-- apps/web/uat/tests/player-portal-phase1.spec.ts (+364, new file)
-
-### Quality checks
-- ✅ Biome ignores UAT files (they're not in the linting scope)
-- ✅ Pre-commit hook passed (biome ignores spec files)
-
-### Learnings for future iterations
-- UAT test files are in biome's ignore list - no lint enforcement on spec files
-- Tests using ownerPage/coachPage etc. require storage state in .auth/ directory
-- TEST_ORG_ID is exported from fixtures/test-fixtures.ts with org id from test-data.json
-- Tests that need player identity should check URL still contains /player before asserting
-
----
+### Key Patterns Learned
+- findMany adapter requires paginationOpts: { cursor: null, numItems: N } (missing causes TS error)
+- Better Auth findMany returns { page: [...] } not a direct array
+- Biome useBlockStatements rule requires { } even for single-line if/continue
+- noShadow rule: rename Dialog onOpenChange param if it shadows outer prop
+- UAT spec files are excluded from biome check (by biome.jsonc config) — that's expected

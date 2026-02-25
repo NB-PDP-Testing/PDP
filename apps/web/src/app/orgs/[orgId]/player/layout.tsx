@@ -2,7 +2,7 @@
 
 import { api } from "@pdp/backend/convex/_generated/api";
 import { useQuery } from "convex/react";
-import { Heart, Menu, User } from "lucide-react";
+import { Heart, Home, Menu, MessageSquare, User } from "lucide-react";
 import type { Route } from "next";
 import Link from "next/link";
 import { useParams, useRouter } from "next/navigation";
@@ -51,7 +51,7 @@ export default function PlayerLayout({
   const playerBottomNavItems: BottomNavItem[] = [
     {
       id: "overview",
-      icon: Heart,
+      icon: Home,
       label: "Overview",
       href: `/orgs/${orgId}/player`,
     },
@@ -69,7 +69,7 @@ export default function PlayerLayout({
     },
     {
       id: "feedback",
-      icon: Heart,
+      icon: MessageSquare,
       label: "Feedback",
       href: `/orgs/${orgId}/player/feedback`,
     },

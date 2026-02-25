@@ -456,13 +456,14 @@ export const claimYouthProfile = mutation({
 
 /**
  * Get today's health/wellness check for the current player
- * Stub returning null until Phase 3 creates the wellness table
+ * Stub returning null until Phase 3 creates the wellness table.
+ * Returns object with wellnessScore (0–5) when implemented.
  */
 export const getTodayHealthCheck = query({
   args: {
     playerIdentityId: v.id("playerIdentities"),
   },
-  returns: v.null(),
+  returns: v.union(v.object({ wellnessScore: v.number() }), v.null()),
   handler: async (_ctx, _args) => null,
 });
 
@@ -496,7 +497,15 @@ export const getTodayPriorityData = query({
       )
       .collect();
 
-    const allActive = [...activeInjuries, ...recoveringInjuries];
+    // Apply org-level visibility rules: show injury if visible to all orgs,
+    // or if this org is in the explicit allowlist
+    const isVisibleToOrg = (injury: (typeof activeInjuries)[number]) =>
+      injury.isVisibleToAllOrgs ||
+      (injury.restrictedToOrgIds?.includes(args.organizationId) ?? false);
+
+    const allActive = [...activeInjuries, ...recoveringInjuries].filter(
+      isVisibleToOrg
+    );
 
     return {
       activeInjuryCount: allActive.length,

@@ -91,9 +91,31 @@ export default function PlayerDashboardPage() {
       : "skip"
   );
 
+  // Team memberships for quick stats strip
+  const playerTeams = useQuery(
+    api.models.teamPlayerIdentities.getTeamsForPlayerWithCoreFlag,
+    playerIdentity?._id
+      ? {
+          playerIdentityId: playerIdentity._id,
+          organizationId: orgId,
+          status: "active",
+        }
+      : "skip"
+  );
+  const teamNamesDisplay =
+    playerTeams && playerTeams.length > 0
+      ? playerTeams.map((t) => t.teamName).join(", ")
+      : null;
+
   // Today section derived values
   const wellnessDone =
     todayHealthCheck !== null && todayHealthCheck !== undefined;
+  // Extract score here — cast needed because handler stub returns null;
+  // Phase 3 will implement the real return value with wellnessScore
+  const wellnessScore: number | undefined =
+    todayHealthCheck != null
+      ? (todayHealthCheck as { wellnessScore: number }).wellnessScore
+      : undefined;
   const hasActiveInjuries = (todayPriorityData?.activeInjuryCount ?? 0) > 0;
   const hasUnreadFeedback = false; // stub until Phase 5
   const allClear = wellnessDone && !hasActiveInjuries && !hasUnreadFeedback;
@@ -257,6 +279,11 @@ export default function PlayerDashboardPage() {
                       <p className="font-semibold text-green-800 text-sm">
                         ✓ Wellness checked in today
                       </p>
+                      {wellnessScore !== undefined && (
+                        <p className="mt-0.5 font-medium text-green-700 text-xs">
+                          Score: {wellnessScore.toFixed(1)} / 5
+                        </p>
+                      )}
                     </div>
                   </div>
                 </CardContent>
@@ -342,14 +369,19 @@ export default function PlayerDashboardPage() {
           <span className="font-medium">
             {playerIdentity.firstName} {playerIdentity.lastName}
           </span>
-          {enrollment?.ageGroup && (
+          {teamNamesDisplay ? (
+            <>
+              <span className="text-muted-foreground">·</span>
+              <span className="text-muted-foreground">{teamNamesDisplay}</span>
+            </>
+          ) : enrollment?.ageGroup ? (
             <>
               <span className="text-muted-foreground">·</span>
               <span className="text-muted-foreground">
                 {enrollment.ageGroup}
               </span>
             </>
-          )}
+          ) : null}
           <span className="text-muted-foreground">·</span>
           <span className="text-muted-foreground">{todayFormatted}</span>
         </div>

@@ -16,7 +16,11 @@
       "META WEBHOOK vs TWILIO WEBHOOK: Two separate HTTP endpoints. /whatsapp/incoming handles Twilio (existing). /whatsapp/meta/webhook handles Meta Cloud API (new GET for verification + POST for Flow completions and status updates). They use different signature verification methods.",
       "SESSION PRIORITY RULE (unchanged from original): In processIncomingMessage (Twilio handler), check for active whatsappWellnessSessions FIRST before coach routing. Only applies to the Twilio/conversational channel.",
       "EXISTING INFRASTRUCTURE TO REUSE: normalizePhoneNumber(), whatsappMessages table, whatsappPendingMessages, duplicateDetection, whatsappCommandHandler, phoneUtils. All remain unchanged.",
-      "Always use .withIndex() — NEVER .filter() in Convex. All new queries/mutations must include returns validator."
+      "Always use .withIndex() — NEVER .filter() in Convex. All new queries/mutations must include returns validator.",
+      "GDPR ARTICLE 9 — WELLNESS DATA IS SPECIAL CATEGORY HEALTH DATA: Daily wellness scores (sleep, mood, energy, motivation, physical feeling) constitute health data under GDPR Article 9 when tracked longitudinally. Processing requires (1) Article 6(1)(a) lawful basis AND (2) Article 9(2)(a) explicit consent that specifically names the health data categories. A generic 'consent to messages' toggle is NOT sufficient. The opt-in phrasing in US-P8-005 must explicitly identify the data types and their Article 9 health data status.",
+      "DPIA MANDATORY: Processing daily health-category data for a large number of players constitutes large-scale special category processing under GDPR Article 35. A Data Protection Impact Assessment must be completed before go-live. This is a legal obligation, not optional. The club/org's data controller must sign off the DPIA.",
+      "EU BSP REQUIREMENT: The WhatsApp Business Cloud API must be used via an EU-certified Business Solution Provider (BSP) with EU/EEA data residency to avoid uncontrolled transatlantic data transfers. The club must also accept Meta's Data Processing Agreement (Article 28 GDPR) — available at whatsapp.com/legal/business-data-processing-terms — and the Standard Contractual Clauses via the Business Data Transfer Addendum before processing personal data.",
+      "wa_id PSEUDONYMIZATION: The wa_id (WhatsApp phone number identifier) sent by Meta to the Flows Data Exchange endpoint is personal data. It must be immediately resolved to playerIdentityId on receipt. Do NOT persist wa_id as a standalone field in any application table. Store only the playerIdentityId reference."
     ],
     "keyFiles": [
       "packages/backend/convex/http.ts — add POST and GET routes for /whatsapp/meta/webhook and /whatsapp/flows/exchange. Do NOT modify existing /whatsapp/incoming route.",
@@ -117,7 +121,7 @@
         "  Called by Meta's servers when a player opens the wellness Flow.",
         "  Verify the request using Meta's Flows data exchange signature verification (different from webhook signature — uses AES encryption. See Meta Flows documentation for decryption algorithm.)",
         "  Parse the decrypted payload to get the player's wa_id (WhatsApp user ID).",
-        "  Look up playerIdentityId from wa_id using by_whatsapp_number index (query playerWellnessSettings).",
+        "  Resolve wa_id to playerIdentityId immediately using by_whatsapp_number index (query playerWellnessSettings). Do NOT store wa_id in any intermediate table or log — it is personal data (GDPR) and must be pseudonymized on receipt. All subsequent processing uses playerIdentityId only.",
         "  Fetch player's enabledDimensions from getWellnessSettings(playerIdentityId).",
         "  Build and return the dynamic Flow screen payload containing only enabled dimensions as RadioButtonsGroup fields:",
         "    Each dimension becomes a RadioButtonsGroup with name=[dimensionKey], label=[question text], required: true, data-source: [{id:'1',title:'😢 Very Poor'},{id:'2',title:'😕 Poor'},{id:'3',title:'😐 Neutral'},{id:'4',title:'🙂 Good'},{id:'5',title:'😁 Great'}]",
@@ -126,7 +130,7 @@
         "  Include a SUBMIT footer button labelled 'Submit my check-in'",
         "Create internal action internal.actions.metaWhatsapp.processFlowCompletionWebhook(payload):",
         "  Parse completion payload: extract wa_id, flow_token, answers (each dimension key → number value)",
-        "  Look up playerIdentityId from wa_id",
+        "  Immediately resolve wa_id to playerIdentityId using by_whatsapp_number index. Do NOT log or store the wa_id — it is personal data (GDPR Article 9) and must be pseudonymized on first use.",
         "  Check for existing dailyPlayerHealthChecks record today (idempotency) — if exists, log and return",
         "  Call submitDailyHealthCheck with source: 'whatsapp_flows'",
         "  Send confirmation WhatsApp message back to player via Meta API: '✅ Wellness check complete! 🎉\\n\\nYour score today: [score]/5\\n[interpretation]\\n\\nView your trends in the PlayerARC app.'",
@@ -185,7 +189,7 @@
         "Completion message (SMS/conversational): '✅ Done! Your score: [score]/5\\n[interpretation]\\nView trends in the PlayerARC app.'",
         "COMMANDS (add to whatsappCommandHandler.ts):",
         "  SKIP: abandon session with 'No problem! Check in via the app anytime.'",
-        "  WELLNESSSTOP: deregister from wellness channel with confirmation",
+        "  WELLNESSSTOP: deregister from wellness channel. Confirmation message must be EXACTLY: 'You have been removed from wellness check-ins. Reply WELLNESS to re-subscribe.' (Meta Business Policy compliance requirement — this specific phrasing is not optional.)",
         "  WELLNESS: if no active session, create one and send first question on demand",
         "Session expiry: if player replies after expiresAt, respond 'This wellness session has expired. Next check tomorrow.' and abandon.",
         "npm run check-types passes."
@@ -208,7 +212,7 @@
         "  If WhatsApp not available: show '📱 SMS will be used — you'll receive questions one at a time via text.' Set wellnessChannel to 'sms_conversational'.",
         "  Player can manually override channel with a toggle: 'Prefer SMS instead of WhatsApp Flows' — switching to sms_conversational even if WhatsApp is available.",
         "After verification, show opt-in toggle: 'Enable daily wellness check-ins'. Toggle ON = whatsappOptIn: true. Toggle OFF = deregister.",
-        "WhatsApp Business Policy disclosure: 'By enabling this, you consent to receive wellness check messages. Reply STOP to unsubscribe at any time.'",
+        "GDPR Article 9 opt-in disclosure (MANDATORY — must use this exact wording or equivalent): 'I consent to [org name] processing my daily wellness responses (sleep quality, energy level, mood, motivation, and physical feeling) as special category health data under GDPR Article 9(2)(a). My responses will be used only for player development and coaching support. I can withdraw this consent at any time by toggling off or replying WELLNESSSTOP.' This must be displayed as a clearly labelled, non-pre-ticked consent statement above the enable toggle — not buried in a terms link. A generic 'consent to receive messages' phrasing is not compliant for Article 9 health data.",
         "Verified number shown masked: '+353 87 *** 4567'. 'Change number' link restarts verification and clears opt-in.",
         "If player is opted-in via WhatsApp Flows: show 'How it works: At [configured time], you'll receive a WhatsApp message. Tap 'Start Check-In' to open a quick form — takes under 60 seconds.'",
         "If opted-in via SMS: show 'How it works: At [configured time], you'll receive a text message. Reply with numbers 1–5 for each question.'",

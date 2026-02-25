@@ -3,9 +3,9 @@
 **Document purpose:** A phase-by-phase comparison of the PlayerARC Adult Player Lifecycle PRD against industry best practice and international standards. For each area, differences are identified with their pros and cons so that informed decisions can be made about future evolution.
 
 **Reviewed PRDs:** Phases 1–8 (42 stories + Phase 8 dual-channel WhatsApp extension)
-**Last updated:** 2026-02-25 — P1 Today screen added; P2 token claim identity verification added; P3 Irish name normalisation added; P4 5-core/3-optional dimension split added; P5 GDPR Art.20 export added; P6 deep industry review + all gaps closed (server-side guards, role-scoped notifications, deep link prompt, first-run onboarding, admin confirmed-flag pattern); P7 deep industry review + gaps closed (Ireland age-16 consent, separate audit table, child erasure right US-P7-008, no-profiling prohibition, session timeout)
+**Last updated:** 2026-02-25 — P1 Today screen added; P2 token claim identity verification added; P3 Irish name normalisation added; P4 5-core/3-optional dimension split added; P5 GDPR Art.20 export added; P6 deep industry review + all gaps closed (server-side guards, role-scoped notifications, deep link prompt, first-run onboarding, admin confirmed-flag pattern); P7 deep industry review + gaps closed (Ireland age-16 consent, separate audit table, child erasure right US-P7-008, no-profiling prohibition, session timeout); P8 deep industry review + gaps closed (GDPR Article 9 explicit consent phrasing for health data, WELLNESSSTOP confirmation phrasing, DPIA requirement, EU BSP requirement, wa_id pseudonymization)
 **Reference platforms:** Hudl, Kitman Labs, Teamworks, Catapult, SportsEngine, FitrWoman / Orreco, Polar, Smartabase, Sportlyzer
-**Standards consulted:** GDPR / UK GDPR, GDPR Article 9, COPPA (US, updated Jan 2025), IOC Injury Surveillance guidelines, Meta WhatsApp Business policies, WCAG 2.1 AA
+**Standards consulted:** GDPR / UK GDPR, GDPR Article 9, GDPR Article 35 (DPIA), COPPA (US, updated Jan 2025), IOC Injury Surveillance guidelines, Meta WhatsApp Business policies, WhatsApp Business DPA, EU-US Data Privacy Framework, WCAG 2.1 AA
 
 ---
 
@@ -356,40 +356,103 @@ No legal standard found for 30-day + 7-day notice windows. This is platform-spec
 ## Phase 8 — WhatsApp Wellness Check (Dual-Channel)
 
 ### What we're building
-WhatsApp Flows (Meta Cloud API) as the primary channel for WhatsApp users, delivering a native multi-question form inside WhatsApp. Twilio conversational/SMS as the fallback. `WellnessDispatchService` abstraction layer. AES-encrypted Data Exchange for dynamic per-player dimension screens. Channel auto-detection via Meta Contacts API.
+WhatsApp Flows (Meta Cloud API) as the primary channel for WhatsApp users, delivering a native multi-question form inside WhatsApp. Twilio conversational/SMS as the fallback. `WellnessDispatchService` abstraction layer. AES-encrypted Data Exchange for dynamic per-player dimension screens. Channel auto-detection via Meta Contacts API. Opt-in/out via player settings + WELLNESSSTOP command.
 
 ### Industry standard
-- **Kitman Labs**, **Catapult**, and **Smartabase** all use in-app push notifications and email as their primary wellness reminder channels. None of the leading athlete management platforms use WhatsApp Flows. This places PlayerARC **ahead of the market** for this feature.
-- **WhatsApp Business API** for health and wellness is well-established in healthcare (patient check-ins, post-operative recovery surveys) but rare in sports. Healthcare providers using WhatsApp surveys report 65–83% completion rates, compared to 30–45% for email surveys and 55% for SMS sequential surveys. These figures align with the rates cited in the PRD.
-- **WhatsApp Flows** (as opposed to conversational WhatsApp) was released by Meta in 2023 and has been adopted primarily by e-commerce (checkout forms), banking (KYC), and healthcare (intake forms). Sports wellness is an emerging use case as of 2025/2026.
-- **Twilio Verify** (phone number verification via SMS PIN) is the industry standard for phone verification — which aligns with the US-P8-005 approach.
-- **Alternative channels not addressed**: Teams/Slack integrations are relevant for semi-professional clubs. Apple Push Notifications (APN) and Google FCM (via a PWA service worker) could deliver push prompts to players who have the app installed, with significantly higher click-through rates than WhatsApp for users already in the app ecosystem.
-- **Wearable auto-trigger**: Polar, Garmin Connect, and Apple Health all expose webhooks or APIs. An emerging best practice is to auto-trigger a wellness check after a wearable detects a completed workout session, rather than at a fixed time each day. Kitman Labs is moving in this direction.
+
+**Competitor channel approaches:**
+- **Kitman Labs**, **Catapult**, and **Smartabase** all use in-app push notifications and email as their primary wellness reminder channels. None of the leading athlete management platforms currently use WhatsApp Flows. PlayerARC is **ahead of the market** for this channel.
+- **WhatsApp Business API** for health and wellness is well-established in healthcare (patient check-ins, post-operative recovery surveys) but rare in sports. Healthcare providers using WhatsApp surveys report 65–83% completion rates, compared to 30–45% for email surveys and ~55% for SMS sequential surveys.
+- **WhatsApp Flows** (2023, Meta) has been adopted primarily by e-commerce (checkout forms), banking (KYC), and healthcare (intake forms). Sports wellness is an emerging use case as of 2025/2026.
+- **Twilio Verify** (phone number verification via SMS PIN) is the industry standard for phone verification — aligning with the US-P8-005 approach.
+
+**GDPR Article 9 — Wellness data is special category health data:**
+The Article 29 Working Party (now EDPB) and the ICO take the position that subjective wellness scores (sleep quality, energy level, mood, motivation, physical feeling) constitute health data under Article 9 when tracked daily and in aggregate. The test is functional: "does the data reveal or allow reasonable conclusions about someone's health status?" Daily multi-dimension wellness scores — especially longitudinal — clearly pass this test.
+
+Consequences:
+1. A standard opt-in toggle ("you consent to receive wellness check messages") is **not sufficient** for Article 9 data. GDPR Article 9(2)(a) requires **explicit consent that specifically identifies health data processing** — the consent text must name the data categories (sleep, mood, energy, physical feeling) and their health data status.
+2. Processing requires **both** Article 6(1)(a) (lawful basis) **and** Article 9(2)(a) (exception for health data). Two distinct consent requirements must be met.
+3. A **Data Protection Impact Assessment (DPIA) is mandatory** under GDPR Article 35 for large-scale processing of special category data. A sports club processing daily health data for all adult members at scale meets the threshold. The DPIA must be completed before go-live.
+
+**WhatsApp Cloud API GDPR compliance — infrastructure requirements:**
+Using WhatsApp Business Cloud API in a GDPR-compliant manner requires four specific steps:
+1. **Cloud API, not the standard Business App** — the standard WhatsApp Business App does not qualify for GDPR's processor model. Cloud API is required.
+2. **EU-certified Business Solution Provider (BSP)** — the BSP must store message data in EU/EEA servers. Direct Cloud API without a BSP may result in US data processing.
+3. **Data Processing Agreement (DPA) under Article 28** — Meta provides a [WhatsApp Business Data Processing Terms](https://www.whatsapp.com/legal/business-data-processing-terms) agreement. It must be accepted before processing personal data. It covers: processing only on instructions, breach notification, sub-processor management, data deletion on termination.
+4. **Standard Contractual Clauses (SCCs)** — Meta provides a [Business Data Transfer Addendum](https://www.whatsapp.com/legal/business-data-transfer-addendum) (SCCs Module 3, processor-to-processor) for EEA/Switzerland transfers. The EU-US Data Privacy Framework (DPF) is an additional mechanism but not a substitute for SCCs; DPF stability is uncertain following challenges from Max Schrems.
+
+**WhatsApp E2E encryption — message content vs. metadata:**
+WhatsApp uses the Signal Protocol (open-source Double-Ratchet). Message content is E2E encrypted in transit. However, once received by the Cloud API, content is decrypted and forwarded to the business. Meta cannot read message content during transmission but has access to **unencrypted metadata**: phone numbers, IP addresses, timestamps, frequency of interaction, device information, usage patterns. Metadata is personal data under GDPR and must be addressed in the DPA. The correct mental model: "content is protected, metadata is not."
+
+Additionally, the `wa_id` (WhatsApp phone number identifier) that Meta sends to the Flows Data Exchange endpoint is personal data transferred from Meta (processor) to the business (controller). This transfer requires lawful basis documentation and the `wa_id` should be pseudonymized immediately upon receipt (stored only as a lookup against playerIdentityId — never as a freestanding identifier in application tables).
+
+**Meta opt-out confirmation — required phrasing:**
+Meta Business Policy requires that opt-out requests are honoured and the user is clearly informed. The industry-standard WELLNESSSTOP opt-out confirmation must include: (1) confirmation they have been removed, (2) how to re-subscribe. The specific phrasing required in US-P8-004 is: `"You have been removed from wellness check-ins. Reply WELLNESS to re-subscribe."` This is a Meta compliance requirement, not optional UX copy.
+
+**Meta rate limits (portfolio-based since October 2025):**
+Meta changed from per-number to portfolio-level messaging limits on 7 October 2025. Key tiers: new accounts 250 unique messages/24h; standard 2,000; upgraded 10,000; premium 100,000+. Upgrades now complete within 6 hours (down from 24). For a sports club with 300+ opted-in players, the standard tier (2,000/24h) is sufficient for a single dispatch. Tier upgrades should be applied for as part of the Meta Business setup process. Quality score (Green/Yellow/Red) is based on the last 7 days' message reception — spam or unacknowledged messages can downgrade a number and reduce throughput.
+
+**Meta health/wellness brand categorisation risk (Feb 2025):**
+Meta tightened health/wellness brand handling in February 2025. Brands associated with "health conditions, specific health statuses, or wellness trackers" may be internally categorised by Meta, restricting Conversions API usage. This affects advertising but **not WhatsApp messaging** directly. A sports club running wellness check-ins is unlikely to be categorised as a health brand (sports performance monitoring is distinct from clinical wellness apps), but the admin should be aware that the Meta account could be flagged if the messaging templates use clinical health language.
+
+**Alternative channels (not addressed):**
+- Push notifications (APN/FCM via PWA Service Worker): 7.8% average reaction rate overall; 15–20% CTR with good targeting; 4x higher CTR with personalisation vs. broadcast. For players who have the app installed, push notifications achieve higher completion rates than external channels (app is already open). This is the standard Kitman Labs/Catapult approach.
+- Wearable auto-trigger: Polar, Garmin Connect, Apple Health all expose APIs. Emerging best practice (Kitman Labs direction): trigger wellness check after a detected workout session, not at a fixed daily time. Session-triggered checks are more timely and clinically valid (RPE is best captured within 30 minutes of session end).
 
 ### Differences
 
-| Area | Our Approach | Industry Standard |
-|------|-------------|-------------------|
-| Primary reminder channel | WhatsApp Flows | In-app push notification (Kitman Labs, Catapult) |
-| Secondary channel | Twilio conversational / SMS | Email (Kitman Labs, Catapult) |
-| Channel sophistication | WhatsApp Flows (gold standard for messaging) | Most platforms haven't reached WhatsApp Flows yet |
-| Wearable trigger | Not included | Auto-trigger after workout session (emerging best practice) |
-| Enterprise messaging | WhatsApp only | Slack, Microsoft Teams integrations in enterprise-tier platforms |
-| PWA push notifications | Not included | Service Worker FCM/APN push is standard for web apps that want push |
-| Completion feedback | Score + interpretation text sent back via WhatsApp/SMS | Kitman Labs: in-app trend comparison ("you're 0.5 above last week") |
+| Area | Our Approach | Industry Standard | Status |
+|------|-------------|-------------------|--------|
+| Primary reminder channel | WhatsApp Flows | In-app push notification (Kitman Labs, Catapult) | ✅ Ahead of market |
+| Secondary channel | Twilio conversational / SMS | Email (Kitman Labs, Catapult) | ✅ Acceptable |
+| Channel sophistication | WhatsApp Flows + SMS dual-channel | Most platforms haven't reached WhatsApp Flows yet | ✅ Best-in-class |
+| GDPR Article 9 consent phrasing | "Consent to receive wellness check messages" | Explicit health data consent naming Article 9 categories | Resolved (see below) |
+| DPIA requirement | Not mentioned | Mandatory for large-scale health data processing | Resolved (see below) |
+| EU BSP requirement | Not specified | EU-certified BSP required for GDPR-compliant Cloud API | Resolved (see below) |
+| wa_id handling | Stored for lookup | Pseudonymised — stored as playerIdentityId reference only | Resolved (see below) |
+| WELLNESSSTOP confirmation | "Confirmation" (unspecified) | Meta policy: specific re-subscribe phrasing required | Resolved (see below) |
+| Wearable trigger | Not included | Auto-trigger after workout session (emerging best practice) | Open gap |
+| PWA push notifications | Not included | Service Worker FCM/APN push standard for web apps | Open gap |
+| Completion feedback | Score + interpretation text | Kitman Labs: in-app trend comparison vs. last week | Open gap |
 
 ### Pros of our approach
-- **WhatsApp Flows is genuinely ahead of the market** — no major athlete management platform uses this. The ~83% completion rate vs ~45% email is a compelling adoption argument, particularly in Ireland/UK where WhatsApp penetration exceeds 80%.
-- **Channel abstraction (`WellnessDispatchService`)** is excellent architectural thinking. Adding a Teams channel or email channel in future is a single additional case, not a rewrite. This future-proofs the implementation well.
-- **Idempotency handling** (checking for existing daily record before inserting) is critical and often overlooked in webhook integrations. Explicitly specifying this in the PRD is a quality indicator.
-- **AES-encrypted data exchange for dynamic screens** ensures that player dimension preferences are not transmitted in plaintext via Meta's servers — this is both the technical requirement and the correct privacy approach.
-- **Automatic fallback** from Meta Flows to Twilio on failure is the right resilience pattern. A hard failure in Meta's API should not prevent wellness data collection.
+- **WhatsApp Flows is genuinely ahead of the market** — no major athlete management platform uses this. The ~83% completion rate vs ~45% email is a compelling adoption argument in Ireland/UK where WhatsApp penetration exceeds 80%.
+- **Channel abstraction (`WellnessDispatchService`)** future-proofs the architecture — adding a push notification or email channel requires a single additional case, not a rewrite.
+- **Idempotency handling** (checking for existing daily record before inserting) is critical and often overlooked in webhook integrations.
+- **AES-encrypted data exchange for dynamic screens** ensures player dimension preferences are not transmitted in plaintext via Meta's servers — technically required and correct privacy practice.
+- **Automatic fallback** from Meta Flows to Twilio on failure is the right resilience pattern.
+- **Dual opt-out surface** (WELLNESSSTOP command + settings toggle) is more accessible than settings-only, which is the standard in most platforms.
 
 ### Cons of our approach
-- **WhatsApp-only messaging ignores users without WhatsApp** — in some demographics (over-50s, certain regions), WhatsApp penetration is lower than average. SMS covers these users, but SMS conversational completion rates (~55%) are significantly lower than WhatsApp Flows. A native push notification option for users who have the app installed would bridge this gap with potentially the highest completion rate of all.
-- **Fixed daily dispatch time** may not match training schedules — a player with an 06:30 training session may be unresponsive to an 08:00 wellness check (already done warm-up). Session-triggered wellness checks (triggered after workout detection or coach marks session complete) are more timely.
-- **Meta Business API approval dependency** — the WhatsApp Flows channel requires Meta's template approval (24–48h) and ongoing compliance with Meta's Business Policy. A policy violation can result in the WhatsApp number being banned, which would immediately disable wellness delivery for all opted-in players. The Twilio fallback mitigates this but the admin needs to be aware of the dependency.
-- **No opt-out UX surface** — the PRD specifies `WELLNESSSTOP` as a command, and a toggle in settings. WhatsApp Business Policy additionally requires that the confirmation message when opting out includes "You have been removed from wellness check-ins. Reply WELLNESS to re-subscribe." This phrasing is a Meta compliance requirement, not just a UX preference.
+- **Fixed daily dispatch time** may not match training schedules — session-triggered wellness checks are more timely and clinically valid.
+- **Meta Business API approval dependency** — a policy violation can result in the number being banned, disabling wellness delivery for all opted-in players. Twilio fallback mitigates this.
+- **No native push notifications** — players who have the app installed and prefer push notifications are not served by this design. A significant engagement gap vs. Kitman Labs/Catapult.
+
+### Resolved (since initial analysis)
+- **GDPR Article 9 explicit consent** — US-P8-005 opt-in phrasing updated to explicitly name the health data categories and state they are processed as special category health data under GDPR Article 9. The toggle description now reads: "I consent to [club name] processing my daily wellness responses (sleep quality, energy level, mood, motivation, and physical feeling) as health data under GDPR Article 9(2)(a). I can withdraw this consent anytime by toggling off or replying WELLNESSSTOP." ✅
+- **DPIA requirement** — criticalContext updated: a Data Protection Impact Assessment is mandatory before go-live for any organisation processing health-category wellness data for a large number of players. ✅
+- **EU BSP requirement** — criticalContext updated: Cloud API must be used via an EU-certified Business Solution Provider with EU/EEA data residency; Meta Article 28 DPA and SCCs (Module 3) must be in place. ✅
+- **wa_id pseudonymization** — US-P8-002 updated: `wa_id` received at the Flows Data Exchange endpoint must be immediately resolved to `playerIdentityId`; only the `playerIdentityId` is stored in application tables. The `wa_id` is never persisted as a standalone field. ✅
+- **WELLNESSSTOP confirmation phrasing** — US-P8-004 updated: WELLNESSSTOP handler must send exactly: "You have been removed from wellness check-ins. Reply WELLNESS to re-subscribe." (Meta compliance requirement). ✅
+
+### Remaining gaps
+- **No native push notifications** — players who have the app installed would benefit from push prompts (higher CTR, lower data-transfer overhead). Deferred — requires PWA service worker setup.
+- **Fixed dispatch time** — session-triggered wellness checks are more clinically valid. Deferred to a future wearable integration phase.
+- **Twilio SMS EU data residency** — Twilio SMS data residency for EU (IE1) is in Private Beta. Twilio WhatsApp data residency is not confirmed (likely routed through Meta's infrastructure). For full GDPR data residency compliance on the SMS fallback channel, monitor Twilio's Private Beta status.
+
+### Sources
+- [WhatsApp Business Data Processing Terms](https://www.whatsapp.com/legal/business-data-processing-terms)
+- [WhatsApp Business Data Transfer Addendum (SCCs)](https://www.whatsapp.com/legal/business-data-transfer-addendum)
+- [EU-US Data Privacy Framework — WhatsApp LLC](https://www.whatsapp.com/legal/data-privacy-framework)
+- [GDPR Article 9: Special Category Health Data — ICO](https://ico.org.uk/for-organisations/uk-gdpr-guidance-and-resources/lawful-basis/special-category-data/what-is-special-category-data/)
+- [Article 29 Working Party: Health Data in Apps and Devices — Inside Privacy](https://www.insideprivacy.com/international/article-29-working-party-clarifies-scope-of-health-data-in-apps-and-devices/)
+- [WhatsApp GDPR Compliance Guide 2025 — Qualimero](https://qualimero.com/en/blog/whatsapp-business-gdpr-compliant-ai-consultation-guide-2025)
+- [WhatsApp data security: Encryption & API best practices — Infobip](https://www.infobip.com/blog/whatsapp-data-security)
+- [Meta WhatsApp API Rate Limits — WATI](https://www.wati.io/en/blog/whatsapp-business-api/whatsapp-api-rate-limits/)
+- [Scale WhatsApp Cloud API: Throughput Limits 2026 — Wuseller](https://www.wuseller.com/whatsapp-business-knowledge-hub/scale-whatsapp-cloud-api-master-throughput-limits-upgrades-2026/)
+- [Meta Health and Wellness Restrictions Feb 2025 — Foley Hoag](https://foleyhoag.com/news-and-insights/blogs/security-privacy-and-the-law/2025/january/meta-s-new-advertising-rules-key-considerations-for-health-and-wellness-businesses/)
+- [Twilio Data Residency for SMS EU (Private Beta)](https://www.twilio.com/en-us/changelog/data-residency-for-sms--eu--is-now-in-private-beta)
+- [Push Notification Statistics 2025 — Mobiloud](https://www.mobiloud.com/blog/push-notification-statistics)
 
 ---
 
@@ -434,7 +497,7 @@ These are issues that affect multiple phases and are not addressed in any single
 | P5: Portal Sections | **Ahead** | GDPR Art.20 export added ✅; privateInsight/publicSummary split innovative | Injury triage bypasses medical staff |
 | P6: Multi-Role | **Ahead** | All gaps closed ✅ — server-side guards, role-scoped notifications, deep link prompt, first-run onboarding | Role audit log deferred to future audit phase |
 | P7: Child Auth | **Ahead** | Per-content-type toggles; pre-birthday notifications; child erasure right ✅; separate audit table ✅ | COPPA verifiable consent gap for US deployment (deferred); no profiling prohibition added ✅ |
-| P8: WhatsApp | Ahead | WhatsApp Flows ahead of market; excellent channel abstraction | No native push notifications; no wearable-triggered dispatch |
+| P8: WhatsApp | **Ahead** | WhatsApp Flows ahead of market; channel abstraction; all GDPR gaps closed ✅ (Article 9 consent, DPIA, EU BSP, wa_id pseudonymization, opt-out phrasing) | No native push notifications; no wearable-triggered dispatch; Twilio SMS EU residency still in beta |
 
 **Overall:** PlayerARC's Adult Player Lifecycle design is competitive with or ahead of the market in record continuity, privacy granularity, and messaging channel sophistication. Five gaps have been resolved since initial analysis (Today first-screen, token claim identity verification, Irish name normalisation, Hooper-aligned 5-question wellness model, GDPR Article 20 export). Remaining open gaps: no native push notification path, and no wearable integration roadmap.
 

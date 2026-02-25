@@ -3,7 +3,7 @@
 import { api } from "@pdp/backend/convex/_generated/api";
 import type { Id } from "@pdp/backend/convex/_generated/dataModel";
 import { useMutation, useQuery } from "convex/react";
-import { Loader2, Lock, ShieldCheck } from "lucide-react";
+import { Loader2, Lock, Shield, ShieldCheck } from "lucide-react";
 import { useParams } from "next/navigation";
 import { useState } from "react";
 import { toast } from "sonner";
@@ -102,6 +102,12 @@ export default function PlayerSettingsPage() {
     playerIdentity?._id ? { playerIdentityId: playerIdentity._id } : "skip"
   );
 
+  // Cycle tracking consent
+  const cycleConsent = useQuery(
+    api.models.playerHealthChecks.getCycleTrackingConsent,
+    playerIdentity?._id ? { playerIdentityId: playerIdentity._id } : "skip"
+  );
+
   // Mutations
   const updateSettings = useMutation(
     api.models.playerHealthChecks.updateWellnessSettings
@@ -112,12 +118,18 @@ export default function PlayerSettingsPage() {
   const revokeAccess = useMutation(
     api.models.playerHealthChecks.revokeWellnessAccess
   );
+  const withdrawConsent = useMutation(
+    api.models.playerHealthChecks.withdrawCycleTrackingConsent
+  );
 
-  // Revoke confirmation dialog state
+  // Revoke coach access confirmation dialog state
   const [revokeTarget, setRevokeTarget] = useState<{
     id: Id<"wellnessCoachAccess">;
     coachName: string;
   } | null>(null);
+
+  // Revoke cycle consent confirmation dialog
+  const [showRevokeConsentDialog, setShowRevokeConsentDialog] = useState(false);
 
   const handleToggle = async (dimensionKey: string, enabled: boolean) => {
     if (!(playerIdentity?._id && wellnessSettings)) {
@@ -174,6 +186,43 @@ export default function PlayerSettingsPage() {
       setRevokeTarget(null);
     }
   };
+
+  const handleWithdrawConsent = async () => {
+    if (!playerIdentity?._id) {
+      return;
+    }
+    try {
+      await withdrawConsent({ playerIdentityId: playerIdentity._id });
+      toast.success("Consent withdrawn and cycle phase data deleted");
+    } catch {
+      toast.error("Failed to withdraw consent");
+    } finally {
+      setShowRevokeConsentDialog(false);
+    }
+  };
+
+  // Determine if cycle tracking section should show
+  const showCycleSection = (() => {
+    if (!playerIdentity) {
+      return false;
+    }
+    if (playerIdentity.gender !== "female") {
+      return false;
+    }
+    if (!playerIdentity.dateOfBirth) {
+      return false;
+    }
+    const dob = new Date(playerIdentity.dateOfBirth);
+    const ageDiff = Date.now() - dob.getTime();
+    const ageDate = new Date(ageDiff);
+    const age = Math.abs(ageDate.getUTCFullYear() - 1970);
+    return age >= 18;
+  })();
+
+  const hasCycleConsent =
+    cycleConsent !== undefined &&
+    cycleConsent !== null &&
+    !cycleConsent.withdrawnAt;
 
   const isLoading =
     sessionLoading ||
@@ -402,6 +451,82 @@ export default function PlayerSettingsPage() {
           )}
         </CardContent>
       </Card>
+
+      {/* Privacy Card — cycle phase section for female players >= 18 only */}
+      {showCycleSection && (
+        <>
+          <AlertDialog
+            onOpenChange={(open) => {
+              if (!open) {
+                setShowRevokeConsentDialog(false);
+              }
+            }}
+            open={showRevokeConsentDialog}
+          >
+            <AlertDialogContent>
+              <AlertDialogHeader>
+                <AlertDialogTitle>
+                  Withdraw Cycle Phase Consent
+                </AlertDialogTitle>
+                <AlertDialogDescription>
+                  Withdrawing consent will permanently delete all your menstrual
+                  cycle phase data. This cannot be undone. Continue?
+                </AlertDialogDescription>
+              </AlertDialogHeader>
+              <AlertDialogFooter>
+                <AlertDialogCancel>Cancel</AlertDialogCancel>
+                <AlertDialogAction
+                  className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
+                  onClick={handleWithdrawConsent}
+                >
+                  Withdraw & Delete Data
+                </AlertDialogAction>
+              </AlertDialogFooter>
+            </AlertDialogContent>
+          </AlertDialog>
+
+          <Card>
+            <CardHeader>
+              <CardTitle className="flex items-center gap-2">
+                <Shield className="h-5 w-5" />
+                Privacy
+              </CardTitle>
+              <CardDescription>
+                Manage your sensitive health data preferences.
+              </CardDescription>
+            </CardHeader>
+            <CardContent>
+              <div className="flex min-h-[44px] items-center gap-3 rounded-lg border px-4 py-3">
+                <div className="min-w-0 flex-1">
+                  <p className="font-medium text-sm">
+                    Menstrual Cycle Phase Tracking
+                  </p>
+                  <p className="text-muted-foreground text-xs">
+                    GDPR Article 9 Special Category data. Only visible to you
+                    and org medical/admin staff. Never shared with coaches.
+                  </p>
+                </div>
+                <Switch
+                  aria-label="Toggle menstrual cycle tracking"
+                  checked={hasCycleConsent}
+                  onCheckedChange={(checked) => {
+                    if (!checked && hasCycleConsent) {
+                      setShowRevokeConsentDialog(true);
+                    }
+                    // Toggling ON is handled via the GDPR modal in the check-in page
+                  }}
+                />
+              </div>
+              {!hasCycleConsent && (
+                <p className="mt-2 text-muted-foreground text-xs">
+                  Enable cycle phase tracking from the Daily Wellness check-in
+                  page to give consent.
+                </p>
+              )}
+            </CardContent>
+          </Card>
+        </>
+      )}
     </div>
   );
 }

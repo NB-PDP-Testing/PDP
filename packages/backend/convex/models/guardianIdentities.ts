@@ -2446,6 +2446,77 @@ export const adminUnlinkGuardian = mutation({
 });
 
 // ============================================================
+// ADMIN ADD PLAYER: GUARDIAN SUGGESTION
+// ============================================================
+
+/**
+ * Suggest matching guardians for the admin "Add Player" form.
+ * Thin wrapper around findGuardianMatches — returns ALL matches
+ * (claimed or unclaimed) since admin is explicitly assigning.
+ */
+export const suggestGuardiansForPlayer = query({
+  args: {
+    playerLastName: v.string(),
+    playerPostcode: v.optional(v.string()),
+    playerTown: v.optional(v.string()),
+    guardianEmail: v.optional(v.string()),
+    guardianPhone: v.optional(v.string()),
+    guardianFirstName: v.optional(v.string()),
+    guardianLastName: v.optional(v.string()),
+  },
+  returns: v.array(
+    v.object({
+      guardianIdentityId: v.id("guardianIdentities"),
+      score: v.number(),
+      confidence: v.union(
+        v.literal("high"),
+        v.literal("medium"),
+        v.literal("low")
+      ),
+      matchReasons: v.array(v.string()),
+      guardian: v.object({
+        firstName: v.string(),
+        lastName: v.string(),
+        email: v.optional(v.string()),
+        phone: v.optional(v.string()),
+      }),
+      linkedChildren: v.array(
+        v.object({
+          playerIdentityId: v.id("playerIdentities"),
+          firstName: v.string(),
+          lastName: v.string(),
+          dateOfBirth: v.string(),
+        })
+      ),
+    })
+  ),
+  handler: async (ctx, args) => {
+    const matches = await findGuardianMatches(ctx, {
+      email: args.guardianEmail || "",
+      firstName: args.guardianFirstName || "",
+      lastName: args.guardianLastName || args.playerLastName,
+      phone: args.guardianPhone,
+      postcode: args.playerPostcode,
+      town: args.playerTown,
+    });
+
+    return matches.map((m) => ({
+      guardianIdentityId: m.guardianIdentityId,
+      score: m.score,
+      confidence: m.confidence,
+      matchReasons: m.matchReasons,
+      guardian: m.guardian,
+      linkedChildren: m.linkedChildren.map((c) => ({
+        playerIdentityId: c.playerIdentityId,
+        firstName: c.firstName,
+        lastName: c.lastName,
+        dateOfBirth: c.dateOfBirth,
+      })),
+    }));
+  },
+});
+
+// ============================================================
 // HELPER FUNCTIONS
 // ============================================================
 // Phone normalization moved to shared utility: lib/phoneUtils.ts

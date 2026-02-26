@@ -241,13 +241,12 @@ export const getPlayersForOrg = query({
   ),
   handler: async (ctx, args) => {
     // Use the appropriate index based on whether status is provided
-    const allEnrollments = args.status
+    const { status } = args;
+    const allEnrollments = status
       ? await ctx.db
           .query("orgPlayerEnrollments")
           .withIndex("by_org_and_status", (q) =>
-            q
-              .eq("organizationId", args.organizationId)
-              .eq("status", args.status as string)
+            q.eq("organizationId", args.organizationId).eq("status", status)
           )
           .collect()
       : await ctx.db

@@ -1494,113 +1494,135 @@ export default function ManagePlayersPage() {
                     Based on matching surname, address, email, or phone.
                   </p>
                   <div className="space-y-2">
-                    {guardianSuggestions.map((match) => {
-                      const isSelected =
-                        selectedGuardianId === match.guardianIdentityId;
-                      return (
-                        <div
-                          className={`rounded-lg border p-3 transition-colors ${
-                            isSelected
-                              ? "border-primary bg-primary/5"
-                              : "hover:border-muted-foreground/30"
-                          }`}
-                          key={match.guardianIdentityId}
-                        >
-                          <div className="flex items-start justify-between gap-2">
-                            <div className="min-w-0 flex-1">
-                              <div className="flex items-center gap-2">
-                                <Badge
-                                  className={
-                                    match.confidence === "high"
-                                      ? "bg-green-500/10 text-green-700"
-                                      : match.confidence === "medium"
-                                        ? "bg-amber-500/10 text-amber-700"
-                                        : "bg-gray-500/10 text-gray-700"
-                                  }
-                                  variant="outline"
-                                >
-                                  {match.confidence === "high"
-                                    ? "High"
-                                    : match.confidence === "medium"
-                                      ? "Medium"
-                                      : "Low"}{" "}
-                                  ({match.score})
-                                </Badge>
-                                {isSelected && (
+                    {guardianSuggestions.map(
+                      (match: {
+                        guardianIdentityId: string;
+                        score: number;
+                        confidence: "high" | "medium" | "low";
+                        matchReasons: string[];
+                        guardian: {
+                          firstName: string;
+                          lastName: string;
+                          email?: string;
+                          phone?: string;
+                        };
+                        linkedChildren: {
+                          playerIdentityId: string;
+                          firstName: string;
+                          lastName: string;
+                          dateOfBirth: string;
+                        }[];
+                      }) => {
+                        const isSelected =
+                          selectedGuardianId === match.guardianIdentityId;
+                        return (
+                          <div
+                            className={`rounded-lg border p-3 transition-colors ${
+                              isSelected
+                                ? "border-primary bg-primary/5"
+                                : "hover:border-muted-foreground/30"
+                            }`}
+                            key={match.guardianIdentityId}
+                          >
+                            <div className="flex items-start justify-between gap-2">
+                              <div className="min-w-0 flex-1">
+                                <div className="flex items-center gap-2">
                                   <Badge
-                                    className="bg-primary/10 text-primary"
+                                    className={
+                                      match.confidence === "high"
+                                        ? "bg-green-500/10 text-green-700"
+                                        : match.confidence === "medium"
+                                          ? "bg-amber-500/10 text-amber-700"
+                                          : "bg-gray-500/10 text-gray-700"
+                                    }
                                     variant="outline"
                                   >
-                                    <Check className="mr-1 h-3 w-3" />
-                                    Selected
+                                    {match.confidence === "high"
+                                      ? "High"
+                                      : match.confidence === "medium"
+                                        ? "Medium"
+                                        : "Low"}{" "}
+                                    ({match.score})
                                   </Badge>
-                                )}
-                              </div>
-                              <p className="mt-1 font-medium text-sm">
-                                {match.guardian.firstName}{" "}
-                                {match.guardian.lastName}
-                              </p>
-                              <p className="text-muted-foreground text-xs">
-                                {[match.guardian.email, match.guardian.phone]
-                                  .filter(Boolean)
-                                  .join(" · ")}
-                              </p>
-                              {match.linkedChildren.length > 0 && (
-                                <p className="mt-0.5 text-muted-foreground text-xs">
-                                  Guardian of:{" "}
-                                  {match.linkedChildren
-                                    .map((c) => `${c.firstName} ${c.lastName}`)
-                                    .join(", ")}
+                                  {isSelected && (
+                                    <Badge
+                                      className="bg-primary/10 text-primary"
+                                      variant="outline"
+                                    >
+                                      <Check className="mr-1 h-3 w-3" />
+                                      Selected
+                                    </Badge>
+                                  )}
+                                </div>
+                                <p className="mt-1 font-medium text-sm">
+                                  {match.guardian.firstName}{" "}
+                                  {match.guardian.lastName}
                                 </p>
-                              )}
-                              <p className="mt-0.5 text-muted-foreground text-xs italic">
-                                {match.matchReasons.join(", ")}
-                              </p>
+                                <p className="text-muted-foreground text-xs">
+                                  {[match.guardian.email, match.guardian.phone]
+                                    .filter(Boolean)
+                                    .join(" · ")}
+                                </p>
+                                {match.linkedChildren.length > 0 && (
+                                  <p className="mt-0.5 text-muted-foreground text-xs">
+                                    Guardian of:{" "}
+                                    {match.linkedChildren
+                                      .map(
+                                        (c) => `${c.firstName} ${c.lastName}`
+                                      )
+                                      .join(", ")}
+                                  </p>
+                                )}
+                                <p className="mt-0.5 text-muted-foreground text-xs italic">
+                                  {match.matchReasons.join(", ")}
+                                </p>
+                              </div>
+                              <Button
+                                onClick={() => {
+                                  if (isSelected) {
+                                    setSelectedGuardianId(null);
+                                    setAddPlayerForm({
+                                      ...addPlayerForm,
+                                      guardianFirstName: "",
+                                      guardianLastName: "",
+                                      guardianEmail: "",
+                                      guardianPhone: "",
+                                    });
+                                  } else {
+                                    setSelectedGuardianId(
+                                      match.guardianIdentityId
+                                    );
+                                    setAddPlayerForm({
+                                      ...addPlayerForm,
+                                      guardianFirstName:
+                                        match.guardian.firstName,
+                                      guardianLastName: match.guardian.lastName,
+                                      guardianEmail: match.guardian.email || "",
+                                      guardianPhone: match.guardian.phone || "",
+                                    });
+                                  }
+                                }}
+                                size="sm"
+                                type="button"
+                                variant={isSelected ? "outline" : "default"}
+                              >
+                                {isSelected ? (
+                                  <>
+                                    <X className="mr-1 h-3 w-3" />
+                                    Clear
+                                  </>
+                                ) : (
+                                  <>
+                                    <Link className="mr-1 h-3 w-3" />
+                                    Link
+                                  </>
+                                )}
+                              </Button>
                             </div>
-                            <Button
-                              onClick={() => {
-                                if (isSelected) {
-                                  setSelectedGuardianId(null);
-                                  setAddPlayerForm({
-                                    ...addPlayerForm,
-                                    guardianFirstName: "",
-                                    guardianLastName: "",
-                                    guardianEmail: "",
-                                    guardianPhone: "",
-                                  });
-                                } else {
-                                  setSelectedGuardianId(
-                                    match.guardianIdentityId
-                                  );
-                                  setAddPlayerForm({
-                                    ...addPlayerForm,
-                                    guardianFirstName: match.guardian.firstName,
-                                    guardianLastName: match.guardian.lastName,
-                                    guardianEmail: match.guardian.email || "",
-                                    guardianPhone: match.guardian.phone || "",
-                                  });
-                                }
-                              }}
-                              size="sm"
-                              type="button"
-                              variant={isSelected ? "outline" : "default"}
-                            >
-                              {isSelected ? (
-                                <>
-                                  <X className="mr-1 h-3 w-3" />
-                                  Clear
-                                </>
-                              ) : (
-                                <>
-                                  <Link className="mr-1 h-3 w-3" />
-                                  Link
-                                </>
-                              )}
-                            </Button>
                           </div>
-                        </div>
-                      );
-                    })}
+                        );
+                      }
+                    )}
                   </div>
                 </ResponsiveFormSection>
               )}

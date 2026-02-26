@@ -7,6 +7,7 @@ import {
   query,
 } from "../_generated/server";
 import { authComponent } from "../auth";
+import { requireAuth } from "../lib/authHelpers";
 
 // ============================================================
 // CONSTANTS
@@ -441,6 +442,9 @@ export const createGuardianPlayerLink = mutation({
   },
   returns: v.id("guardianPlayerLinks"),
   handler: async (ctx, args) => {
+    // Auth: require authenticated user
+    await requireAuth(ctx);
+
     // Verify guardian exists
     const guardian = await ctx.db.get(args.guardianIdentityId);
     if (!guardian) {
@@ -860,6 +864,9 @@ export const deleteGuardianPlayerLink = mutation({
   args: { linkId: v.id("guardianPlayerLinks") },
   returns: v.null(),
   handler: async (ctx, args) => {
+    // Auth: require authenticated user
+    await requireAuth(ctx);
+
     const existing = await ctx.db.get(args.linkId);
     if (!existing) {
       throw new Error("Guardian-player link not found");

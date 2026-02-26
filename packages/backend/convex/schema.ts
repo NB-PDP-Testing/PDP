@@ -299,7 +299,11 @@ export default defineSchema({
     .index("by_userId", ["userId"])
     .index("by_email", ["email"])
     .index("by_playerType", ["playerType"])
-    .index("by_importSessionId", ["importSessionId"]),
+    .index("by_importSessionId", ["importSessionId"])
+    .searchIndex("search_name", {
+      searchField: "firstName",
+      filterFields: ["lastName"],
+    }),
 
   // Player Graduations - tracks players who have turned 18 and their graduation status
   playerGraduations: defineTable({

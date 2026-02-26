@@ -2,6 +2,7 @@ import { v } from "convex/values";
 import { components } from "../_generated/api";
 import { internalQuery, mutation, query } from "../_generated/server";
 import type { Doc as BetterAuthDoc } from "../betterAuth/_generated/dataModel";
+import { requireAuthAndOrg } from "../lib/authHelpers";
 
 // ============================================================
 // TYPE DEFINITIONS
@@ -246,6 +247,9 @@ export const createPassport = mutation({
   },
   returns: v.id("sportPassports"),
   handler: async (ctx, args) => {
+    // Auth: verify caller is a member of the target organization
+    await requireAuthAndOrg(ctx, args.organizationId);
+
     // Verify player exists
     const player = await ctx.db.get(args.playerIdentityId);
     if (!player) {
@@ -303,6 +307,9 @@ export const updatePositions = mutation({
       throw new Error("Passport not found");
     }
 
+    // Auth: verify caller is a member of this passport's organization
+    await requireAuthAndOrg(ctx, existing.organizationId);
+
     const updates: Record<string, unknown> = {
       updatedAt: Date.now(),
     };
@@ -341,6 +348,9 @@ export const updatePhysicalAttributes = mutation({
       throw new Error("Passport not found");
     }
 
+    // Auth: verify caller is a member of this passport's organization
+    await requireAuthAndOrg(ctx, existing.organizationId);
+
     const updates: Record<string, unknown> = {
       updatedAt: Date.now(),
     };
@@ -373,6 +383,9 @@ export const updateNotes = mutation({
     if (!existing) {
       throw new Error("Passport not found");
     }
+
+    // Auth: verify caller is a member of this passport's organization
+    await requireAuthAndOrg(ctx, existing.organizationId);
 
     const updates: Record<string, unknown> = {
       updatedAt: Date.now(),
@@ -414,6 +427,9 @@ export const updateRatings = mutation({
     if (!existing) {
       throw new Error("Passport not found");
     }
+
+    // Auth: verify caller is a member of this passport's organization
+    await requireAuthAndOrg(ctx, existing.organizationId);
 
     const updates: Record<string, unknown> = {
       updatedAt: Date.now(),
@@ -463,6 +479,9 @@ export const changeStatus = mutation({
     if (!existing) {
       throw new Error("Passport not found");
     }
+
+    // Auth: verify caller is a member of this passport's organization
+    await requireAuthAndOrg(ctx, existing.organizationId);
 
     await ctx.db.patch(args.passportId, {
       status: args.status,
@@ -859,6 +878,9 @@ export const deletePassport = mutation({
     if (!existing) {
       throw new Error("Passport not found");
     }
+
+    // Auth: verify caller is a member of this passport's organization
+    await requireAuthAndOrg(ctx, existing.organizationId);
 
     await ctx.db.delete(args.passportId);
     return null;

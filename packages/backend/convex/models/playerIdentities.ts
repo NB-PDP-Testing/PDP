@@ -529,6 +529,7 @@ export const createPlayerIdentity = mutation({
   },
   returns: v.id("playerIdentities"),
   handler: async (ctx, args) => {
+    await requireAuth(ctx);
     const now = Date.now();
 
     // Determine player type based on age if not specified

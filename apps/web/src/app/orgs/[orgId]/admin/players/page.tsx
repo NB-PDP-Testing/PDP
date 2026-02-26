@@ -336,16 +336,8 @@ export default function ManagePlayersPage() {
       errors.ageGroup = "Age group is required";
     }
 
-    // Address validation: address, town, and postcode are required
-    if (!addPlayerForm.address.trim()) {
-      errors.address = "Address is required";
-    }
-    if (!addPlayerForm.town.trim()) {
-      errors.town = "Town is required";
-    }
-    if (!addPlayerForm.postcode.trim()) {
-      errors.postcode = "Postcode / Eircode is required";
-    }
+    // Address validation: all optional, but if any is provided validate completeness
+    // (no required validation — not all clubs collect address at enrollment)
 
     // Guardian validation: if email is provided, require first + last name
     if (addPlayerForm.guardianEmail.trim() && !selectedGuardianId) {
@@ -1362,14 +1354,18 @@ export default function ManagePlayersPage() {
               <Label htmlFor="sportCode">Sport</Label>
               <Select
                 onValueChange={(value) =>
-                  setAddPlayerForm({ ...addPlayerForm, sportCode: value })
+                  setAddPlayerForm({
+                    ...addPlayerForm,
+                    sportCode: value === "__none__" ? "" : value,
+                  })
                 }
-                value={addPlayerForm.sportCode}
+                value={addPlayerForm.sportCode || "__none__"}
               >
                 <SelectTrigger>
                   <SelectValue placeholder="Select sport (optional)" />
                 </SelectTrigger>
                 <SelectContent>
+                  <SelectItem value="__none__">No sport selected</SelectItem>
                   {sportsData?.map((sport) => (
                     <SelectItem key={sport.code} value={sport.code}>
                       {sport.name}
@@ -1380,11 +1376,9 @@ export default function ManagePlayersPage() {
             </div>
           </ResponsiveFormSection>
           {/* Player Address (Optional) */}
-          <ResponsiveFormSection title="Player Address">
+          <ResponsiveFormSection title="Player Address (Optional)">
             <div className="space-y-2">
-              <Label htmlFor="address">
-                Address <span className="text-red-500">*</span>
-              </Label>
+              <Label htmlFor="address">Address</Label>
               <Input
                 className={formErrors.address ? "border-red-500" : ""}
                 id="address"
@@ -1406,9 +1400,7 @@ export default function ManagePlayersPage() {
             </div>
             <ResponsiveFormRow columns={2}>
               <div className="space-y-2">
-                <Label htmlFor="town">
-                  Town <span className="text-red-500">*</span>
-                </Label>
+                <Label htmlFor="town">Town</Label>
                 <Input
                   className={formErrors.town ? "border-red-500" : ""}
                   id="town"
@@ -1429,9 +1421,7 @@ export default function ManagePlayersPage() {
                 )}
               </div>
               <div className="space-y-2">
-                <Label htmlFor="postcode">
-                  Postcode / Eircode <span className="text-red-500">*</span>
-                </Label>
+                <Label htmlFor="postcode">Postcode / Eircode</Label>
                 <Input
                   className={formErrors.postcode ? "border-red-500" : ""}
                   id="postcode"

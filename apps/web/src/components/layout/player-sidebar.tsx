@@ -10,6 +10,7 @@ import {
   Settings,
   Share2,
   TrendingUp,
+  Trophy,
   User,
   Users,
 } from "lucide-react";
@@ -57,6 +58,11 @@ export function getPlayerNavItems(orgId: string): NavItem[] {
       href: `/orgs/${orgId}/player/teams`,
       label: "My Teams",
       icon: Users,
+    },
+    {
+      href: `/orgs/${orgId}/player/passports`,
+      label: "My Passports",
+      icon: Trophy,
     },
     {
       href: `/orgs/${orgId}/player/health-check`,

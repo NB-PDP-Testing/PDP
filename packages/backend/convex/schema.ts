@@ -445,8 +445,8 @@ export default defineSchema({
 
     // Membership info
     clubMembershipNumber: v.optional(v.string()),
-    ageGroup: v.string(),
-    season: v.string(),
+    ageGroup: v.optional(v.string()),
+    season: v.optional(v.string()),
     sport: v.optional(v.string()), // DEPRECATED Phase 3: Use sportPassports.sportCode instead. This field is kept for backwards compatibility but should not be used.
 
     // Status

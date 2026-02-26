@@ -159,7 +159,7 @@ export default function CoachNotesPage() {
         enrollmentId: enrollment._id,
         playerIdentityId: player._id,
         playerName: `${player.firstName} ${player.lastName}`,
-        ageGroup: enrollment.ageGroup,
+        ageGroup: enrollment.ageGroup ?? "",
         teams: playerTeams,
         coachNotes,
         lastUpdated,
@@ -184,7 +184,7 @@ export default function CoachNotesPage() {
         enrollmentId: enrollment._id,
         playerIdentityId: player._id,
         playerName: `${player.firstName} ${player.lastName}`,
-        ageGroup: enrollment.ageGroup,
+        ageGroup: enrollment.ageGroup ?? "",
         coachNotes,
       };
     });

@@ -9,6 +9,7 @@ import {
   query,
 } from "../_generated/server";
 import { findSimilarPlayersLogic } from "../lib/playerMatching";
+import { calculateMatchScore } from "../lib/stringMatching";
 
 // ============================================================
 // TYPE DEFINITIONS
@@ -28,8 +29,8 @@ const enrollmentValidator = v.object({
   playerIdentityId: v.id("playerIdentities"),
   organizationId: v.string(),
   clubMembershipNumber: v.optional(v.string()),
-  ageGroup: v.string(),
-  season: v.string(),
+  ageGroup: v.optional(v.string()),
+  season: v.optional(v.string()),
   sport: v.optional(v.string()), // DEPRECATED: kept for backwards compatibility
   status: enrollmentStatusValidator,
   reviewStatus: v.optional(v.string()),
@@ -315,6 +316,180 @@ export const isPlayerEnrolled = query({
       )
       .first();
     return enrollment !== null;
+  },
+});
+
+/**
+ * Get all unlinked enrollments for an organization
+ * Returns enrollments where the linked playerIdentity has no userId
+ */
+export const getUnlinkedEnrollmentsForOrg = query({
+  args: { organizationId: v.string() },
+  returns: v.array(
+    v.object({
+      enrollmentId: v.id("orgPlayerEnrollments"),
+      playerIdentityId: v.id("playerIdentities"),
+      firstName: v.string(),
+      lastName: v.string(),
+      dateOfBirth: v.string(),
+      ageGroup: v.optional(v.string()),
+      season: v.optional(v.string()),
+    })
+  ),
+  handler: async (ctx, args) => {
+    // 1. Fetch all enrollments by index (no .filter())
+    const enrollments = await ctx.db
+      .query("orgPlayerEnrollments")
+      .withIndex("by_organizationId", (q) =>
+        q.eq("organizationId", args.organizationId)
+      )
+      .collect();
+    if (enrollments.length === 0) {
+      return [];
+    }
+
+    // 2. Batch fetch all playerIdentities
+    const identityIds = [
+      ...new Set(enrollments.map((e) => e.playerIdentityId)),
+    ];
+    const identities = await Promise.all(
+      identityIds.map((id) => ctx.db.get(id))
+    );
+    const identityMap = new Map(
+      identities
+        .filter((p): p is NonNullable<typeof p> => p !== null)
+        .map((p) => [p._id, p])
+    );
+
+    // 3. Return only those where userId is absent
+    const unlinked = [];
+    for (const e of enrollments) {
+      const identity = identityMap.get(e.playerIdentityId);
+      if (!identity || identity.userId) {
+        continue;
+      }
+      unlinked.push({
+        enrollmentId: e._id,
+        playerIdentityId: e.playerIdentityId,
+        firstName: identity.firstName,
+        lastName: identity.lastName,
+        dateOfBirth: identity.dateOfBirth,
+        ageGroup: e.ageGroup,
+        season: e.season,
+      });
+    }
+    return unlinked;
+  },
+});
+
+/**
+ * Find unlinked player records that best match a Better Auth user's name/email.
+ * Used in the admin UI to auto-suggest which unclaimed player belongs to a user.
+ * Reuses the existing calculateMatchScore (Levenshtein + Irish name aliases).
+ */
+export const findMatchingUnlinkedPlayers = query({
+  args: {
+    organizationId: v.string(),
+    name: v.string(),
+    email: v.optional(v.string()),
+  },
+  returns: v.array(
+    v.object({
+      enrollmentId: v.id("orgPlayerEnrollments"),
+      playerIdentityId: v.id("playerIdentities"),
+      firstName: v.string(),
+      lastName: v.string(),
+      dateOfBirth: v.string(),
+      ageGroup: v.optional(v.string()),
+      matchScore: v.number(),
+      confidence: v.union(
+        v.literal("high"),
+        v.literal("medium"),
+        v.literal("low")
+      ),
+      matchReasons: v.array(v.string()),
+    })
+  ),
+  handler: async (ctx, args) => {
+    if (!args.name.trim()) {
+      return [];
+    }
+
+    const enrollments = await ctx.db
+      .query("orgPlayerEnrollments")
+      .withIndex("by_organizationId", (q) =>
+        q.eq("organizationId", args.organizationId)
+      )
+      .collect();
+    if (enrollments.length === 0) {
+      return [];
+    }
+
+    const identityIds = [
+      ...new Set(enrollments.map((e) => e.playerIdentityId)),
+    ];
+    const identities = await Promise.all(
+      identityIds.map((id) => ctx.db.get(id))
+    );
+    const identityMap = new Map(
+      identities
+        .filter((p): p is NonNullable<typeof p> => p !== null)
+        .map((p) => [p._id, p])
+    );
+
+    const results = [];
+
+    for (const enrollment of enrollments) {
+      const identity = identityMap.get(enrollment.playerIdentityId);
+      if (!identity || identity.userId) {
+        continue; // Skip already-claimed
+      }
+
+      let score = calculateMatchScore(
+        args.name,
+        identity.firstName,
+        identity.lastName
+      );
+      const reasons: string[] = [];
+
+      if (score >= 0.85) {
+        reasons.push("Strong name match");
+      } else if (score >= 0.65) {
+        reasons.push("Partial name match");
+      }
+
+      // Email boost: exact match adds 0.35 and is surfaced as a reason
+      if (
+        args.email &&
+        identity.email &&
+        identity.email.toLowerCase() === args.email.toLowerCase()
+      ) {
+        score = Math.min(1, score + 0.35);
+        reasons.push("Email matches");
+      }
+
+      if (score < 0.5) {
+        continue;
+      }
+
+      const confidence: "high" | "medium" | "low" =
+        score >= 0.85 ? "high" : score >= 0.65 ? "medium" : "low";
+
+      results.push({
+        enrollmentId: enrollment._id,
+        playerIdentityId: identity._id,
+        firstName: identity.firstName,
+        lastName: identity.lastName,
+        dateOfBirth: identity.dateOfBirth,
+        ageGroup: enrollment.ageGroup,
+        matchScore: Math.round(score * 100) / 100,
+        confidence,
+        matchReasons: reasons,
+      });
+    }
+
+    results.sort((a, b) => b.matchScore - a.matchScore);
+    return results.slice(0, 5);
   },
 });
 
@@ -629,6 +804,142 @@ export const findOrCreateEnrollment = mutation({
 });
 
 /**
+ * Create a playerIdentity (adult, self_verified), an orgPlayerEnrollment,
+ * and link the userId — all in one atomic mutation.
+ * Use when an admin assigns the "player" functional role to an active member
+ * who has no existing player record.
+ */
+export const createPlayerIdentityAndEnrollment = mutation({
+  args: {
+    userId: v.string(),
+    email: v.optional(v.string()),
+    organizationId: v.string(),
+    firstName: v.string(),
+    lastName: v.string(),
+    dateOfBirth: v.string(),
+    // Optional team IDs — ageGroup/season/sport are derived from the team
+    teamIds: v.optional(v.array(v.string())),
+  },
+  returns: v.object({
+    playerIdentityId: v.id("playerIdentities"),
+    enrollmentId: v.id("orgPlayerEnrollments"),
+    passportId: v.union(v.id("sportPassports"), v.null()),
+  }),
+  handler: async (ctx, args) => {
+    const now = Date.now();
+
+    // Guard: userId already linked to a playerIdentity
+    const existing = await ctx.db
+      .query("playerIdentities")
+      .withIndex("by_userId", (q) => q.eq("userId", args.userId))
+      .first();
+    if (existing) {
+      throw new Error("This user is already linked to a player identity");
+    }
+
+    // 1. Fetch team data upfront (batch) so we can derive ageGroup/season/sport
+    const teams =
+      args.teamIds && args.teamIds.length > 0
+        ? await Promise.all(
+            args.teamIds.map((teamId) =>
+              ctx.runQuery(components.betterAuth.adapter.findOne, {
+                model: "team",
+                where: [{ field: "_id", value: teamId, operator: "eq" }],
+              })
+            )
+          )
+        : [];
+    const validTeams = teams.filter(Boolean) as Array<{
+      _id: string;
+      ageGroup?: string;
+      season?: string;
+      sport?: string;
+    }>;
+
+    // Derive from first team that has the value (or leave undefined)
+    const firstTeamWithAgeGroup = validTeams.find((t) => t.ageGroup);
+    const firstTeamWithSeason = validTeams.find((t) => t.season);
+    const firstTeamWithSport = validTeams.find((t) => t.sport);
+
+    // 2. Create the playerIdentity
+    const playerIdentityId = await ctx.db.insert("playerIdentities", {
+      firstName: args.firstName.trim(),
+      lastName: args.lastName.trim(),
+      dateOfBirth: args.dateOfBirth,
+      gender: "other",
+      playerType: "adult",
+      userId: args.userId,
+      email: args.email?.toLowerCase().trim(),
+      verificationStatus: "self_verified",
+      createdAt: now,
+      updatedAt: now,
+      createdFrom: "manual",
+    });
+
+    // 3. Create the org enrollment (ageGroup/season optional — from team if available)
+    const enrollmentId = await ctx.db.insert("orgPlayerEnrollments", {
+      playerIdentityId,
+      organizationId: args.organizationId,
+      ageGroup: firstTeamWithAgeGroup?.ageGroup,
+      season: firstTeamWithSeason?.season,
+      status: "active",
+      enrolledAt: now,
+      updatedAt: now,
+    });
+
+    // 4. Assign to each selected team
+    for (const team of validTeams) {
+      // Skip if already on this team
+      const existingLink = await ctx.db
+        .query("teamPlayerIdentities")
+        .withIndex("by_team_and_player", (q) =>
+          q.eq("teamId", team._id).eq("playerIdentityId", playerIdentityId)
+        )
+        .first();
+      if (!existingLink) {
+        await ctx.db.insert("teamPlayerIdentities", {
+          teamId: team._id,
+          playerIdentityId,
+          organizationId: args.organizationId,
+          status: "active",
+          season: team.season,
+          createdAt: now,
+          updatedAt: now,
+        });
+      }
+    }
+
+    // 5. Optionally create a sport passport if any team has a sport
+    let passportId: Id<"sportPassports"> | null = null;
+    if (firstTeamWithSport?.sport) {
+      const existingPassport = await ctx.db
+        .query("sportPassports")
+        .withIndex("by_playerIdentityId", (q) =>
+          q.eq("playerIdentityId", playerIdentityId)
+        )
+        .first();
+
+      if (existingPassport) {
+        passportId = existingPassport._id;
+      } else {
+        passportId = await ctx.db.insert("sportPassports", {
+          playerIdentityId,
+          sportCode: firstTeamWithSport.sport,
+          organizationId: args.organizationId,
+          currentSeason: firstTeamWithSeason?.season,
+          status: "active",
+          assessmentCount: 0,
+          createdAt: now,
+          updatedAt: now,
+        });
+      }
+    }
+
+    return { playerIdentityId, enrollmentId, passportId };
+  },
+});
+
+/**
  * Delete an enrollment (hard delete)
  */
 export const deleteEnrollment = mutation({
@@ -703,7 +1014,7 @@ export const getPlayersForOrgInternal = internalQuery({
       firstName: v.string(),
       lastName: v.string(),
       name: v.string(),
-      ageGroup: v.string(),
+      ageGroup: v.optional(v.string()),
       sport: v.union(v.string(), v.null()),
     })
   ),
@@ -762,7 +1073,7 @@ export const getPlayersForCoachTeamsInternal = internalQuery({
       firstName: v.string(),
       lastName: v.string(),
       name: v.string(),
-      ageGroup: v.string(),
+      ageGroup: v.optional(v.string()),
       sport: v.union(v.string(), v.null()),
     })
   ),

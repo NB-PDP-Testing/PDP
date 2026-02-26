@@ -123,12 +123,12 @@ type DetectedTeam = {
 type IdentityPlayer = {
   _id: string;
   name: string;
-  ageGroup: string;
+  ageGroup: string | undefined;
   sport?: string;
   gender: string;
   teamId: string;
   organizationId: string;
-  season: string;
+  season: string | undefined;
   dateOfBirth?: string;
   parentFirstName?: string;
   parentSurname?: string;

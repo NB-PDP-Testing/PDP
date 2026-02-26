@@ -580,9 +580,8 @@ export default function EditPlayerPage() {
         />
       )}
 
-      {/* Graduation Section - for youth players aged 18+ */}
-      {playerIdentity.playerType === "youth" &&
-        playerIdentity.dateOfBirth &&
+      {/* Graduation Section - for any player aged 18+ */}
+      {playerIdentity.dateOfBirth &&
         Date.now() - new Date(playerIdentity.dateOfBirth).getTime() >=
           18 * 365.25 * 24 * 60 * 60 * 1000 && (
           <GraduationSection

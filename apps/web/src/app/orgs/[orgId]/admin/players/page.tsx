@@ -5,9 +5,11 @@ import type { Id } from "@pdp/backend/convex/_generated/dataModel";
 import { useConvex, useMutation, useQuery } from "convex/react";
 import {
   AlertTriangle,
+  ArrowLeftRight,
   Check,
   Edit,
   Eye,
+  GitMerge,
   Link,
   Loader2,
   Plus,
@@ -165,6 +167,25 @@ export default function ManagePlayersPage() {
   const [isCheckingDuplicate, setIsCheckingDuplicate] = useState(false);
   const convex = useConvex();
 
+  // Existing player match state (for "Use This Player" flow)
+  const [selectedExistingPlayer, setSelectedExistingPlayer] =
+    useState<Id<"playerIdentities"> | null>(null);
+
+  // Duplicate detection panel state
+  const [showDuplicatePanel, setShowDuplicatePanel] = useState(false);
+  const [dismissedGroups, setDismissedGroups] = useState<Set<string>>(
+    new Set()
+  );
+
+  // Merge dialog state
+  const [mergeKeepId, setMergeKeepId] = useState<Id<"playerIdentities"> | null>(
+    null
+  );
+  const [mergeRemoveId, setMergeRemoveId] =
+    useState<Id<"playerIdentities"> | null>(null);
+  const [showMergeDialog, setShowMergeDialog] = useState(false);
+  const [isMerging, setIsMerging] = useState(false);
+
   // Delete player state
   const [showDeleteDialog, setShowDeleteDialog] = useState(false);
   const [playerToDelete, setPlayerToDelete] = useState<{
@@ -192,6 +213,9 @@ export default function ManagePlayersPage() {
   );
   const createGuardianPlayerLink = useMutation(
     api.models.guardianPlayerLinks.createGuardianPlayerLink
+  );
+  const mergePlayerIdentities = useMutation(
+    api.models.playerIdentities.mergePlayerIdentities
   );
 
   // Derive whether player is youth (under 18) from DOB
@@ -239,6 +263,38 @@ export default function ManagePlayersPage() {
   // Block submission while guardian suggestions are loading (query fired but not returned)
   const isGuardianMatchLoading =
     shouldQueryGuardians && guardianSuggestions === undefined;
+
+  // Potential player matches — reactive query fires when form has enough data
+  const shouldQueryMatches =
+    addPlayerForm.firstName.trim().length >= 2 &&
+    addPlayerForm.lastName.trim().length >= 2 &&
+    !!addPlayerForm.dateOfBirth;
+
+  const potentialMatches = useQuery(
+    api.models.playerIdentities.findPotentialMatches,
+    shouldQueryMatches
+      ? {
+          firstName: addPlayerForm.firstName.trim(),
+          lastName: addPlayerForm.lastName.trim(),
+          dateOfBirth: addPlayerForm.dateOfBirth,
+          gender: addPlayerForm.gender,
+        }
+      : "skip"
+  );
+
+  // Duplicate detection for the org
+  const duplicateGroups = useQuery(
+    api.models.playerIdentities.findPotentialDuplicatesForOrg,
+    { organizationId: orgId }
+  );
+
+  // Merge preview
+  const mergePreview = useQuery(
+    api.models.playerIdentities.getMergePreview,
+    mergeKeepId && mergeRemoveId
+      ? { keepId: mergeKeepId, removeId: mergeRemoveId, organizationId: orgId }
+      : "skip"
+  );
 
   // Get data from new identity system — only active enrollments
   const enrolledPlayers = useQuery(
@@ -398,18 +454,25 @@ export default function ManagePlayersPage() {
   const createPlayer = async () => {
     setIsAddingPlayer(true);
     try {
-      // Step 1: Create player identity (with optional address)
-      const playerIdentityId = await createPlayerIdentity({
-        firstName: addPlayerForm.firstName.trim(),
-        lastName: addPlayerForm.lastName.trim(),
-        dateOfBirth: addPlayerForm.dateOfBirth,
-        gender: addPlayerForm.gender,
-        createdFrom: "manual_admin",
-        address: addPlayerForm.address.trim() || undefined,
-        town: addPlayerForm.town.trim() || undefined,
-        postcode: addPlayerForm.postcode.trim() || undefined,
-        country: addPlayerForm.country.trim() || undefined,
-      });
+      // Step 1: Create player identity or use existing match
+      let playerIdentityId: Id<"playerIdentities">;
+
+      if (selectedExistingPlayer) {
+        // User chose to use an existing player identity
+        playerIdentityId = selectedExistingPlayer;
+      } else {
+        playerIdentityId = await createPlayerIdentity({
+          firstName: addPlayerForm.firstName.trim(),
+          lastName: addPlayerForm.lastName.trim(),
+          dateOfBirth: addPlayerForm.dateOfBirth,
+          gender: addPlayerForm.gender,
+          createdFrom: "manual_admin",
+          address: addPlayerForm.address.trim() || undefined,
+          town: addPlayerForm.town.trim() || undefined,
+          postcode: addPlayerForm.postcode.trim() || undefined,
+          country: addPlayerForm.country.trim() || undefined,
+        });
+      }
 
       // Step 2: Enroll in organization (with sport if selected)
       await enrollPlayer({
@@ -460,6 +523,7 @@ export default function ManagePlayersPage() {
       // Reset form and close dialogs
       setAddPlayerForm(emptyFormData);
       setSelectedGuardianId(null);
+      setSelectedExistingPlayer(null);
       setFormErrors({});
       setShowAddPlayerDialog(false);
       setShowDuplicateWarning(false);
@@ -501,6 +565,36 @@ export default function ManagePlayersPage() {
   const handleDuplicateConfirm = async () => {
     setShowDuplicateWarning(false);
     await createPlayer();
+  };
+
+  // Handle merge
+  const handleMergeConfirm = async () => {
+    if (!(mergeKeepId && mergeRemoveId)) {
+      return;
+    }
+    setIsMerging(true);
+    try {
+      const result = await mergePlayerIdentities({
+        keepId: mergeKeepId,
+        removeId: mergeRemoveId,
+        organizationId: orgId,
+      });
+      toast.success("Players merged successfully", {
+        description: `${result.recordsUpdated} records updated.${result.conflicts.length > 0 ? ` ${result.conflicts.length} conflict(s) resolved.` : ""}`,
+      });
+      setShowMergeDialog(false);
+      setMergeKeepId(null);
+      setMergeRemoveId(null);
+    } catch (error) {
+      toast.error("Failed to merge players", {
+        description:
+          error instanceof Error
+            ? error.message
+            : "An unexpected error occurred",
+      });
+    } finally {
+      setIsMerging(false);
+    }
   };
 
   // Handle delete player
@@ -750,6 +844,7 @@ export default function ManagePlayersPage() {
           (1000 * 60 * 60 * 24);
         return days <= 60;
       }).length || 0,
+    duplicateGroups: duplicateGroups?.totalGroups ?? 0,
   };
 
   return (
@@ -787,7 +882,7 @@ export default function ManagePlayersPage() {
       </div>
 
       {/* Stats */}
-      <div className="grid gap-4 md:grid-cols-3">
+      <div className="grid gap-4 md:grid-cols-4">
         <Card>
           <CardContent className="p-4">
             <div className="flex items-center justify-between">
@@ -827,7 +922,140 @@ export default function ManagePlayersPage() {
             </div>
           </CardContent>
         </Card>
+        {stats.duplicateGroups > 0 && (
+          <Card
+            className="cursor-pointer border-amber-200 bg-amber-50/50 transition-colors hover:bg-amber-50 dark:border-amber-800 dark:bg-amber-950/20"
+            onClick={() => setShowDuplicatePanel(!showDuplicatePanel)}
+          >
+            <CardContent className="p-4">
+              <div className="flex items-center justify-between">
+                <div>
+                  <p className="text-amber-700 text-sm dark:text-amber-400">
+                    Potential Duplicates
+                  </p>
+                  <p className="font-bold text-2xl text-amber-600">
+                    {stats.duplicateGroups}
+                  </p>
+                </div>
+                <AlertTriangle className="h-8 w-8 text-amber-500" />
+              </div>
+            </CardContent>
+          </Card>
+        )}
       </div>
+
+      {/* Duplicate Review Panel */}
+      {showDuplicatePanel &&
+        duplicateGroups &&
+        duplicateGroups.groups.length > 0 && (
+          <Card className="border-amber-200 dark:border-amber-800">
+            <CardHeader>
+              <div className="flex items-center justify-between">
+                <div>
+                  <CardTitle className="text-amber-700 dark:text-amber-400">
+                    Potential Duplicate Players
+                  </CardTitle>
+                  <CardDescription>
+                    Review and merge players that may be duplicates.
+                  </CardDescription>
+                </div>
+                <Button
+                  onClick={() => setShowDuplicatePanel(false)}
+                  size="sm"
+                  variant="ghost"
+                >
+                  <X className="h-4 w-4" />
+                </Button>
+              </div>
+            </CardHeader>
+            <CardContent>
+              <div className="space-y-3">
+                {duplicateGroups.groups
+                  .filter(
+                    (g) =>
+                      !dismissedGroups.has(
+                        g.players.map((p: any) => p._id).join("-")
+                      )
+                  )
+                  .map((group) => {
+                    const groupKey = group.players
+                      .map((p: any) => p._id)
+                      .join("-");
+                    return (
+                      <div className="rounded-lg border p-4" key={groupKey}>
+                        <div className="mb-3 flex items-center justify-between">
+                          <div className="flex items-center gap-2">
+                            <Badge
+                              className={
+                                group.confidence === "high"
+                                  ? "bg-red-500/10 text-red-700"
+                                  : group.confidence === "medium"
+                                    ? "bg-amber-500/10 text-amber-700"
+                                    : "bg-gray-500/10 text-gray-700"
+                              }
+                              variant="outline"
+                            >
+                              {group.confidence} confidence ({group.matchScore})
+                            </Badge>
+                            <Badge variant="outline">{group.matchType}</Badge>
+                          </div>
+                          <div className="flex gap-1">
+                            <Button
+                              onClick={() => {
+                                setMergeKeepId(group.players[0]._id);
+                                setMergeRemoveId(group.players[1]._id);
+                                setShowMergeDialog(true);
+                              }}
+                              size="sm"
+                              variant="default"
+                            >
+                              <GitMerge className="mr-1 h-3 w-3" />
+                              Merge
+                            </Button>
+                            <Button
+                              onClick={() => {
+                                const next = new Set(dismissedGroups);
+                                next.add(groupKey);
+                                setDismissedGroups(next);
+                              }}
+                              size="sm"
+                              variant="ghost"
+                            >
+                              Dismiss
+                            </Button>
+                          </div>
+                        </div>
+                        <div className="grid gap-3 sm:grid-cols-2">
+                          {group.players.map((player: any) => (
+                            <div
+                              className="rounded-md border bg-muted/30 p-3"
+                              key={player._id}
+                            >
+                              <p className="font-medium text-sm">
+                                {player.firstName} {player.lastName}
+                              </p>
+                              <p className="text-muted-foreground text-xs">
+                                DOB:{" "}
+                                {new Date(
+                                  player.dateOfBirth
+                                ).toLocaleDateString()}{" "}
+                                | {player.gender}
+                              </p>
+                              {player.ageGroup && (
+                                <p className="text-muted-foreground text-xs">
+                                  Age Group: {player.ageGroup}
+                                </p>
+                              )}
+                            </div>
+                          ))}
+                        </div>
+                      </div>
+                    );
+                  })}
+              </div>
+            </CardContent>
+          </Card>
+        )}
 
       {/* Filters */}
       <div className="flex flex-col gap-4">
@@ -1199,6 +1427,7 @@ export default function ManagePlayersPage() {
           if (!open) {
             setAddPlayerForm(emptyFormData);
             setSelectedGuardianId(null);
+            setSelectedExistingPlayer(null);
             setFormErrors({});
           }
           setShowAddPlayerDialog(open);
@@ -1375,6 +1604,86 @@ export default function ManagePlayersPage() {
               </Select>
             </div>
           </ResponsiveFormSection>
+          {/* Potential Matches Panel */}
+          {potentialMatches &&
+            potentialMatches.length > 0 &&
+            !selectedExistingPlayer && (
+              <div className="space-y-2 rounded-lg border border-amber-200 bg-amber-50/50 p-4 dark:border-amber-800 dark:bg-amber-950/20">
+                <p className="font-medium text-amber-700 text-sm dark:text-amber-400">
+                  <AlertTriangle className="mr-1 inline h-4 w-4" />
+                  Existing players found matching this name and date of birth
+                </p>
+                <div className="space-y-2">
+                  {potentialMatches.map((match: any) => (
+                    <div
+                      className="flex items-center justify-between rounded-md border bg-white p-3 dark:bg-gray-900"
+                      key={match._id}
+                    >
+                      <div>
+                        <p className="font-medium text-sm">
+                          {match.firstName} {match.lastName}
+                        </p>
+                        <p className="text-muted-foreground text-xs">
+                          DOB:{" "}
+                          {new Date(match.dateOfBirth).toLocaleDateString()} |{" "}
+                          {match.gender}
+                        </p>
+                        <div className="mt-1 flex items-center gap-1">
+                          <Badge
+                            className={
+                              match.confidence === "high"
+                                ? "bg-green-500/10 text-green-700"
+                                : match.confidence === "medium"
+                                  ? "bg-amber-500/10 text-amber-700"
+                                  : "bg-gray-500/10 text-gray-700"
+                            }
+                            variant="outline"
+                          >
+                            {match.confidence} ({match.matchScore})
+                          </Badge>
+                          <Badge variant="outline">{match.matchType}</Badge>
+                        </div>
+                      </div>
+                      <Button
+                        onClick={() => setSelectedExistingPlayer(match._id)}
+                        size="sm"
+                        type="button"
+                        variant="default"
+                      >
+                        <Check className="mr-1 h-3 w-3" />
+                        Use This Player
+                      </Button>
+                    </div>
+                  ))}
+                </div>
+              </div>
+            )}
+
+          {/* Selected Existing Player Banner */}
+          {selectedExistingPlayer && (
+            <div className="flex items-center justify-between rounded-lg border border-green-200 bg-green-50/50 p-4 dark:border-green-800 dark:bg-green-950/20">
+              <div>
+                <p className="font-medium text-green-700 text-sm dark:text-green-400">
+                  <Check className="mr-1 inline h-4 w-4" />
+                  Using existing player identity
+                </p>
+                <p className="text-green-600 text-xs dark:text-green-500">
+                  This will enroll the existing player in your organization
+                  instead of creating a new identity.
+                </p>
+              </div>
+              <Button
+                onClick={() => setSelectedExistingPlayer(null)}
+                size="sm"
+                type="button"
+                variant="outline"
+              >
+                <X className="mr-1 h-3 w-3" />
+                Clear
+              </Button>
+            </div>
+          )}
+
           {/* Player Address (Optional) */}
           <ResponsiveFormSection title="Player Address (Optional)">
             <div className="space-y-2">
@@ -1914,6 +2223,172 @@ export default function ManagePlayersPage() {
             later.
           </p>
         </div>
+      </ResponsiveDialog>
+
+      {/* Merge Player Dialog */}
+      <ResponsiveDialog
+        contentClassName="sm:max-w-lg"
+        footer={
+          <div className="flex flex-col-reverse gap-2 sm:flex-row sm:justify-end">
+            <Button
+              onClick={() => {
+                setShowMergeDialog(false);
+                setMergeKeepId(null);
+                setMergeRemoveId(null);
+              }}
+              variant="outline"
+            >
+              Cancel
+            </Button>
+            <Button
+              disabled={isMerging || !mergePreview?.canMerge}
+              onClick={handleMergeConfirm}
+              variant="default"
+            >
+              {isMerging ? (
+                <>
+                  <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                  Merging...
+                </>
+              ) : (
+                <>
+                  <GitMerge className="mr-2 h-4 w-4" />
+                  Confirm Merge
+                </>
+              )}
+            </Button>
+          </div>
+        }
+        onOpenChange={(open) => {
+          if (!open) {
+            setMergeKeepId(null);
+            setMergeRemoveId(null);
+          }
+          setShowMergeDialog(open);
+        }}
+        open={showMergeDialog}
+        title="Merge Player Identities"
+      >
+        {mergePreview ? (
+          <div className="space-y-4">
+            {/* Side-by-side player cards */}
+            <div className="grid gap-3 sm:grid-cols-2">
+              <div className="rounded-lg border-2 border-green-300 bg-green-50/50 p-3 dark:border-green-700 dark:bg-green-950/20">
+                <Badge
+                  className="mb-2 bg-green-500/10 text-green-700"
+                  variant="outline"
+                >
+                  Keep
+                </Badge>
+                <p className="font-medium">
+                  {mergePreview.keepPlayer.firstName}{" "}
+                  {mergePreview.keepPlayer.lastName}
+                </p>
+                <p className="text-muted-foreground text-xs">
+                  DOB:{" "}
+                  {new Date(
+                    mergePreview.keepPlayer.dateOfBirth
+                  ).toLocaleDateString()}{" "}
+                  | {mergePreview.keepPlayer.gender}
+                </p>
+              </div>
+              <div className="rounded-lg border-2 border-red-300 bg-red-50/50 p-3 dark:border-red-700 dark:bg-red-950/20">
+                <Badge
+                  className="mb-2 bg-red-500/10 text-red-700"
+                  variant="outline"
+                >
+                  Remove
+                </Badge>
+                <p className="font-medium">
+                  {mergePreview.removePlayer.firstName}{" "}
+                  {mergePreview.removePlayer.lastName}
+                </p>
+                <p className="text-muted-foreground text-xs">
+                  DOB:{" "}
+                  {new Date(
+                    mergePreview.removePlayer.dateOfBirth
+                  ).toLocaleDateString()}{" "}
+                  | {mergePreview.removePlayer.gender}
+                </p>
+              </div>
+            </div>
+
+            {/* Swap button */}
+            <div className="flex justify-center">
+              <Button
+                onClick={() => {
+                  setMergeKeepId(mergeRemoveId);
+                  setMergeRemoveId(mergeKeepId);
+                }}
+                size="sm"
+                type="button"
+                variant="outline"
+              >
+                <ArrowLeftRight className="mr-1 h-3 w-3" />
+                Swap Keep / Remove
+              </Button>
+            </div>
+
+            {/* Affected records */}
+            {mergePreview.affectedRecords.length > 0 && (
+              <div>
+                <p className="mb-2 font-medium text-sm">Affected Records</p>
+                <div className="space-y-1">
+                  {mergePreview.affectedRecords.map((r: any) => (
+                    <div
+                      className="flex items-center justify-between rounded-md bg-muted/50 px-3 py-1.5 text-sm"
+                      key={r.table}
+                    >
+                      <span className="text-muted-foreground">{r.table}</span>
+                      <Badge variant="outline">{r.count}</Badge>
+                    </div>
+                  ))}
+                </div>
+              </div>
+            )}
+
+            {/* Conflicts */}
+            {mergePreview.conflicts.length > 0 && (
+              <div>
+                <p className="mb-2 font-medium text-amber-700 text-sm">
+                  Conflicts
+                </p>
+                <div className="space-y-1">
+                  {mergePreview.conflicts.map((c: any, i: number) => (
+                    <div
+                      className="rounded-md border border-amber-200 bg-amber-50/50 px-3 py-1.5 text-xs dark:border-amber-800 dark:bg-amber-950/20"
+                      key={`${c.table}-${i}`}
+                    >
+                      <p className="font-medium text-amber-700">
+                        {c.table}: {c.issue}
+                      </p>
+                      <p className="text-amber-600">
+                        Resolution: {c.resolution}
+                      </p>
+                    </div>
+                  ))}
+                </div>
+              </div>
+            )}
+
+            {/* Blocking reason */}
+            {!mergePreview.canMerge && mergePreview.blockingReason && (
+              <div className="rounded-lg border border-red-200 bg-red-50 p-3 dark:border-red-800 dark:bg-red-950/20">
+                <p className="font-medium text-red-700 text-sm">
+                  <AlertTriangle className="mr-1 inline h-4 w-4" />
+                  Merge Blocked
+                </p>
+                <p className="text-red-600 text-xs">
+                  {mergePreview.blockingReason}
+                </p>
+              </div>
+            )}
+          </div>
+        ) : (
+          <div className="flex items-center justify-center py-8">
+            <Loader2 className="h-6 w-6 animate-spin text-muted-foreground" />
+          </div>
+        )}
       </ResponsiveDialog>
     </div>
   );

@@ -137,8 +137,6 @@ export default function PlayerDashboardPage() {
     return values.reduce((a, b) => a + b, 0) / values.length;
   })();
   const hasActiveInjuries = (todayPriorityData?.activeInjuryCount ?? 0) > 0;
-  const hasUnreadFeedback = false; // stub until Phase 5
-  const allClear = wellnessDone && !hasActiveInjuries && !hasUnreadFeedback;
 
   // Format today's date as "Tuesday, 25 Feb"
   const todayFormatted = (() => {
@@ -271,108 +269,91 @@ export default function PlayerDashboardPage() {
       {/* TODAY SECTION */}
       <section className="space-y-4">
         <h2 className="font-semibold text-xl">Today</h2>
-
         {/* Priority action cards */}
-        {allClear ? (
-          <Card className="border-green-200 bg-green-50">
-            <CardContent className="flex items-center gap-3 pt-6">
-              <CheckCircle2 className="h-6 w-6 shrink-0 text-green-600" />
-              <div>
-                <p className="font-semibold text-green-800">
-                  All clear today 🎉
-                </p>
-                <p className="text-green-700 text-sm">
-                  Nothing needs your attention right now.
-                </p>
-              </div>
-            </CardContent>
-          </Card>
-        ) : (
-          <div className="grid gap-3 sm:grid-cols-2 md:grid-cols-3">
-            {/* Wellness card — always shown */}
-            {wellnessDone ? (
-              <Card className="border-green-200 bg-green-50">
-                <CardContent className="pt-6">
-                  <div className="flex items-start gap-3">
-                    <CheckCircle2 className="mt-0.5 h-5 w-5 shrink-0 text-green-600" />
-                    <div>
-                      <p className="font-semibold text-green-800 text-sm">
-                        ✓ Wellness checked in today
+        <div className="grid gap-3 sm:grid-cols-2 md:grid-cols-3">
+          {/* Wellness card — always shown */}
+          {wellnessDone ? (
+            <Card className="border-green-200 bg-green-50">
+              <CardContent className="pt-6">
+                <div className="flex items-start gap-3">
+                  <CheckCircle2 className="mt-0.5 h-5 w-5 shrink-0 text-green-600" />
+                  <div>
+                    <p className="font-semibold text-green-800 text-sm">
+                      ✓ Wellness checked in today
+                    </p>
+                    {wellnessScore !== undefined && (
+                      <p className="mt-0.5 font-medium text-green-700 text-xs">
+                        Score: {wellnessScore.toFixed(1)} / 5
                       </p>
-                      {wellnessScore !== undefined && (
-                        <p className="mt-0.5 font-medium text-green-700 text-xs">
-                          Score: {wellnessScore.toFixed(1)} / 5
-                        </p>
-                      )}
-                    </div>
+                    )}
                   </div>
-                </CardContent>
-              </Card>
-            ) : (
-              <Card className="border-amber-200 bg-amber-50">
-                <CardContent className="pt-6">
-                  <div className="flex items-start gap-3">
-                    <AlertTriangle className="mt-0.5 h-5 w-5 shrink-0 text-amber-600" />
-                    <div className="space-y-2">
-                      <p className="font-semibold text-amber-800 text-sm">
-                        Complete your daily wellness check
-                      </p>
-                      <p className="text-amber-700 text-xs">
-                        Takes under a minute
-                      </p>
-                      <Button
-                        asChild
-                        className="border-amber-300 text-amber-800 hover:bg-amber-100"
-                        size="sm"
-                        variant="outline"
+                </div>
+              </CardContent>
+            </Card>
+          ) : (
+            <Card className="border-amber-200 bg-amber-50">
+              <CardContent className="pt-6">
+                <div className="flex items-start gap-3">
+                  <AlertTriangle className="mt-0.5 h-5 w-5 shrink-0 text-amber-600" />
+                  <div className="space-y-2">
+                    <p className="font-semibold text-amber-800 text-sm">
+                      Complete your daily wellness check
+                    </p>
+                    <p className="text-amber-700 text-xs">
+                      Takes under a minute
+                    </p>
+                    <Button
+                      asChild
+                      className="border-amber-300 text-amber-800 hover:bg-amber-100"
+                      size="sm"
+                      variant="outline"
+                    >
+                      <Link
+                        href={`/orgs/${orgId}/player/health-check` as Route}
                       >
-                        <Link
-                          href={`/orgs/${orgId}/player/health-check` as Route}
-                        >
-                          Start Check-In
-                        </Link>
-                      </Button>
-                    </div>
+                        Start Check-In
+                      </Link>
+                    </Button>
                   </div>
-                </CardContent>
-              </Card>
-            )}
+                </div>
+              </CardContent>
+            </Card>
+          )}
 
-            {/* Injury card — only shown if active injuries */}
-            {hasActiveInjuries && (
-              <Card className="border-amber-200 bg-amber-50">
-                <CardContent className="pt-6">
-                  <div className="flex items-start gap-3">
-                    <AlertTriangle className="mt-0.5 h-5 w-5 shrink-0 text-amber-600" />
-                    <div className="space-y-2">
-                      <p className="font-semibold text-amber-800 text-sm">
-                        ⚠{" "}
-                        {todayPriorityData?.activeInjuryCount === 1
-                          ? "1 active injury"
-                          : `${todayPriorityData?.activeInjuryCount} active injuries`}
+          {/* Injury card — only shown if active injuries */}
+          {hasActiveInjuries && (
+            <Card className="border-amber-200 bg-amber-50">
+              <CardContent className="pt-6">
+                <div className="flex items-start gap-3">
+                  <AlertTriangle className="mt-0.5 h-5 w-5 shrink-0 text-amber-600" />
+                  <div className="space-y-2">
+                    <p className="font-semibold text-amber-800 text-sm">
+                      ⚠{" "}
+                      {todayPriorityData?.activeInjuryCount === 1
+                        ? "1 active injury"
+                        : `${todayPriorityData?.activeInjuryCount} active injuries`}
+                    </p>
+                    {todayPriorityData?.activeInjuryBodyPart && (
+                      <p className="text-amber-700 text-xs capitalize">
+                        {todayPriorityData.activeInjuryBodyPart}
                       </p>
-                      {todayPriorityData?.activeInjuryBodyPart && (
-                        <p className="text-amber-700 text-xs capitalize">
-                          {todayPriorityData.activeInjuryBodyPart}
-                        </p>
-                      )}
-                      <Button
-                        asChild
-                        className="border-amber-300 text-amber-800 hover:bg-amber-100"
-                        size="sm"
-                        variant="outline"
-                      >
-                        <Link href={`/orgs/${orgId}/player/injuries` as Route}>
-                          View Injuries
-                        </Link>
-                      </Button>
-                    </div>
+                    )}
+                    <Button
+                      asChild
+                      className="border-amber-300 text-amber-800 hover:bg-amber-100"
+                      size="sm"
+                      variant="outline"
+                    >
+                      <Link href={`/orgs/${orgId}/player/injuries` as Route}>
+                        View Injuries
+                      </Link>
+                    </Button>
                   </div>
-                </CardContent>
-              </Card>
-            )}
-          </div>
-        )}
+                </div>
+              </CardContent>
+            </Card>
+          )}
+        </div>
 
         {/* Mobile: anchor link to full profile */}
         <div className="md:hidden">
@@ -383,7 +364,6 @@ export default function PlayerDashboardPage() {
             See full profile ↓
           </a>
         </div>
-
         {/* Quick stats strip */}
         <div className="flex flex-wrap items-center gap-x-3 gap-y-1 rounded-lg border bg-muted/30 px-4 py-3 text-sm">
           <span className="font-medium">

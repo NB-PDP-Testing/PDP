@@ -290,6 +290,7 @@ function OnboardingStepRenderer({
     return (
       <GuardianPrompt
         onComplete={onComplete}
+        onSkip={onSkip}
         pendingGraduations={data.pendingGraduations}
       />
     );

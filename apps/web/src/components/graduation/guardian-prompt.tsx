@@ -45,6 +45,7 @@ export type PendingGraduation = {
 type GuardianPromptProps = {
   pendingGraduations: PendingGraduation[];
   onComplete: () => void;
+  onSkip: () => void;
 };
 
 /**
@@ -58,6 +59,7 @@ type GuardianPromptProps = {
 export function GuardianPrompt({
   pendingGraduations,
   onComplete,
+  onSkip,
 }: GuardianPromptProps) {
   // Show first pending graduation (process one at a time)
   const [currentIndex, setCurrentIndex] = useState(0);
@@ -118,9 +120,9 @@ export function GuardianPrompt({
   };
 
   const handleDismissNow = () => {
-    // Just skip this one for now - shows again next login
+    // Skip for this session - shows again next login
     toast.info("You can complete this later.");
-    moveToNext();
+    onSkip();
   };
 
   const handleDismissPermanently = async () => {
@@ -219,7 +221,7 @@ export function GuardianPrompt({
               className="flex-1"
               disabled={isSending || isDismissing}
               onClick={handleDismissPermanently}
-              variant="ghost"
+              variant="outline"
             >
               {isDismissing ? "..." : "Don't Ask Again"}
             </Button>

@@ -619,6 +619,7 @@ export const updateAttendance = mutation({
     if (!existing) {
       throw new Error("Enrollment not found");
     }
+    await requireAuthAndOrg(ctx, existing.organizationId);
 
     const currentAttendance = existing.attendance ?? {};
     const newAttendance = {
@@ -649,6 +650,7 @@ export const changeEnrollmentStatus = mutation({
     if (!existing) {
       throw new Error("Enrollment not found");
     }
+    await requireAuthAndOrg(ctx, existing.organizationId);
 
     await ctx.db.patch(args.enrollmentId, {
       status: args.status,
@@ -680,6 +682,8 @@ export const findOrCreateEnrollment = mutation({
     passportWasCreated: v.boolean(),
   }),
   handler: async (ctx, args) => {
+    await requireAuthAndOrg(ctx, args.organizationId);
+
     const now = Date.now();
     let wasCreated = false;
     let passportWasCreated = false;
@@ -1368,6 +1372,8 @@ export const markReviewComplete = mutation({
     nextReviewDue: v.string(),
   }),
   handler: async (ctx, args) => {
+    await requireAuthAndOrg(ctx, args.organizationId);
+
     // Find the enrollment
     const enrollment = await ctx.db
       .query("orgPlayerEnrollments")

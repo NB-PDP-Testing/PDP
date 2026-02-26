@@ -168,15 +168,12 @@ export const searchPlayersByName = query({
         .take(limit);
     }
 
-    // If only lastName provided, search firstName field with lastName term
-    // (search index only supports searchField, not filterFields for partial match)
+    // If only lastName provided, use by_name index for exact lastName prefix match
     if (lastName) {
-      // Fall back to composite index for exact lastName match
-      const all = await ctx.db
+      return await ctx.db
         .query("playerIdentities")
-        .withSearchIndex("search_name", (q) => q.search("firstName", lastName))
+        .withIndex("by_lastName", (q) => q.eq("lastName", lastName))
         .take(limit);
-      return all;
     }
 
     // No search terms — return empty

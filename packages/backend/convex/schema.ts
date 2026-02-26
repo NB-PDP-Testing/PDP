@@ -296,6 +296,7 @@ export default defineSchema({
     createdFrom: v.optional(v.string()), // "import", "registration", "manual"
   })
     .index("by_name_dob", ["firstName", "lastName", "dateOfBirth"])
+    .index("by_lastName", ["lastName"])
     .index("by_userId", ["userId"])
     .index("by_email", ["email"])
     .index("by_playerType", ["playerType"])

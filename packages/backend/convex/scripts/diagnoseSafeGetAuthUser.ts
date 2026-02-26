@@ -69,6 +69,7 @@ export const run = query({
       {
         model: "session",
         where: [{ field: "userId", value: baId, operator: "eq" }],
+        paginationOpts: { cursor: null, numItems: 5 },
       }
     );
 
@@ -95,7 +96,7 @@ export const run = query({
             }
           : { found: false, error: wrongTableError },
       },
-      activeSessions: sessions?.length ?? 0,
+      activeSessions: sessions?.page?.length ?? 0,
       diagnosis:
         wrongTableDoc && wrongTableDoc._id !== baConvexId
           ? `⚠️  BUG CONFIRMED: safeGetAuthUser returns the WRONG document. ` +

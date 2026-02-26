@@ -204,6 +204,7 @@ import type * as scripts_debugCoachUser from "../scripts/debugCoachUser.js";
 import type * as scripts_debugPlayerData from "../scripts/debugPlayerData.js";
 import type * as scripts_deleteAllPlayers from "../scripts/deleteAllPlayers.js";
 import type * as scripts_deleteUser from "../scripts/deleteUser.js";
+import type * as scripts_diagnoseSafeGetAuthUser from "../scripts/diagnoseSafeGetAuthUser.js";
 import type * as scripts_disableV2ForOrg from "../scripts/disableV2ForOrg.js";
 import type * as scripts_enableV2ForOrg from "../scripts/enableV2ForOrg.js";
 import type * as scripts_findPlayerByName from "../scripts/findPlayerByName.js";
@@ -439,6 +440,7 @@ declare const fullApi: ApiFromModules<{
   "scripts/debugPlayerData": typeof scripts_debugPlayerData;
   "scripts/deleteAllPlayers": typeof scripts_deleteAllPlayers;
   "scripts/deleteUser": typeof scripts_deleteUser;
+  "scripts/diagnoseSafeGetAuthUser": typeof scripts_diagnoseSafeGetAuthUser;
   "scripts/disableV2ForOrg": typeof scripts_disableV2ForOrg;
   "scripts/enableV2ForOrg": typeof scripts_enableV2ForOrg;
   "scripts/findPlayerByName": typeof scripts_findPlayerByName;

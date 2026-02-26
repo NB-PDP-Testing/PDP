@@ -256,18 +256,21 @@ export const createPassport = mutation({
       throw new Error("Player identity not found");
     }
 
-    // Check if passport already exists for this player/sport combo
-    const existing = await ctx.db
+    // Check if passport already exists for this player/sport in THIS org
+    const orgPassports = await ctx.db
       .query("sportPassports")
-      .withIndex("by_player_and_sport", (q) =>
+      .withIndex("by_player_org_status", (q) =>
         q
           .eq("playerIdentityId", args.playerIdentityId)
-          .eq("sportCode", args.sportCode)
+          .eq("organizationId", args.organizationId)
       )
-      .first();
+      .collect();
+    const existing = orgPassports.find((p) => p.sportCode === args.sportCode);
 
     if (existing) {
-      throw new Error("Player already has a passport for this sport");
+      throw new Error(
+        "Player already has a passport for this sport in this organization"
+      );
     }
 
     const now = Date.now();
@@ -506,6 +509,7 @@ export const setNextReviewDue = mutation({
     if (!existing) {
       throw new Error("Passport not found");
     }
+    await requireAuthAndOrg(ctx, existing.organizationId);
 
     await ctx.db.patch(args.passportId, {
       nextReviewDue: args.nextReviewDue,
@@ -531,15 +535,18 @@ export const findOrCreatePassport = mutation({
     wasCreated: v.boolean(),
   }),
   handler: async (ctx, args) => {
-    // Check if passport already exists
-    const existing = await ctx.db
+    await requireAuthAndOrg(ctx, args.organizationId);
+
+    // Check if passport already exists in THIS org
+    const orgPassports = await ctx.db
       .query("sportPassports")
-      .withIndex("by_player_and_sport", (q) =>
+      .withIndex("by_player_org_status", (q) =>
         q
           .eq("playerIdentityId", args.playerIdentityId)
-          .eq("sportCode", args.sportCode)
+          .eq("organizationId", args.organizationId)
       )
-      .first();
+      .collect();
+    const existing = orgPassports.find((p) => p.sportCode === args.sportCode);
 
     if (existing) {
       return {

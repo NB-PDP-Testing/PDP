@@ -441,17 +441,16 @@ export default function PlayerImportPage() {
     return age;
   };
 
-  // Run youth match checks for adult rows after parsing
+  // Run player match checks for all rows after parsing
   const checkYouthMatchesForAdults = async (players: ParsedPlayer[]) => {
-    const adultRows = players.filter((p) => calculateAge(p.dateOfBirth) >= 18);
-    if (adultRows.length === 0) {
+    if (players.length === 0) {
       return;
     }
     setIsCheckingMatches(true);
     try {
       const results = await Promise.all(
-        adultRows.map((p) =>
-          convex.query(api.models.playerMatching.findMatchingYouthProfile, {
+        players.map((p) =>
+          convex.query(api.models.playerMatching.findPlayerMatchCandidates, {
             organizationId: orgId,
             firstName: p.firstName,
             lastName: p.lastName,
@@ -472,20 +471,22 @@ export default function PlayerImportPage() {
       const matchMap = new Map<number, YouthMatchResult>();
       const decisionMap = new Map<number, RowDecision>();
 
-      for (const [i, player] of adultRows.entries()) {
-        const result = results[i];
-        if (result.confidence !== "none" && result.match) {
+      for (const [i, player] of players.entries()) {
+        const candidates = results[i];
+        // Use the best candidate (first in sorted list)
+        const best = candidates[0];
+        if (best && best.confidence !== "none") {
           const youthMatch: YouthMatchResult = {
-            confidence: result.confidence,
-            matchId: result.match._id,
-            matchName: `${result.match.firstName} ${result.match.lastName}`,
-            matchDob: result.match.dateOfBirth,
+            confidence: best.confidence,
+            matchId: best._id,
+            matchName: `${best.firstName} ${best.lastName}`,
+            matchDob: best.dateOfBirth,
           };
           matchMap.set(player.rowIndex, youthMatch);
           // Default: HIGH → accept, MEDIUM → skip
           decisionMap.set(
             player.rowIndex,
-            result.confidence === "high" ? "accept" : "skip"
+            best.confidence === "high" ? "accept" : "skip"
           );
         }
       }

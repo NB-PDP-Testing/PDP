@@ -145,7 +145,7 @@ export const createJoinRequest = mutation({
         ? "admin"
         : "member";
 
-    // Player-specific: run youth record matching if player role + DOB provided
+    // Player-specific: run player record matching if player role + DOB provided
     let matchedYouthIdentityId: string | undefined;
     let matchedYouthName: string | undefined;
     let matchedYouthConfidence: string | undefined;
@@ -156,13 +156,14 @@ export const createJoinRequest = mutation({
       const firstName = nameParts[0] || "";
       const lastName = nameParts.slice(1).join(" ") || nameParts[0] || "";
 
-      const youthMatchResult: {
+      const matchResult: {
         confidence: "high" | "medium" | "low" | "none";
         match: { _id: string; firstName: string; lastName: string } | null;
+        matchScore: number;
         matchedFields: string[];
         warningFlag?: string;
       } = await ctx.runQuery(
-        internal.models.playerMatching.findMatchingYouthProfileInternal,
+        internal.models.playerMatching.findBestPlayerMatchInternal,
         {
           organizationId: args.organizationId,
           firstName,
@@ -175,9 +176,9 @@ export const createJoinRequest = mutation({
         }
       );
 
-      if (youthMatchResult.confidence === "high" && youthMatchResult.match) {
-        matchedYouthIdentityId = youthMatchResult.match._id;
-        matchedYouthName = `${youthMatchResult.match.firstName} ${youthMatchResult.match.lastName}`;
+      if (matchResult.confidence === "high" && matchResult.match) {
+        matchedYouthIdentityId = matchResult.match._id;
+        matchedYouthName = `${matchResult.match.firstName} ${matchResult.match.lastName}`;
         matchedYouthConfidence = "high";
       }
     }

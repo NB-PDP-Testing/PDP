@@ -28,7 +28,8 @@ const verificationStatusValidator = v.union(
   v.literal("document_verified")
 );
 
-const playerIdentityMatchValidator = v.object({
+// Complete player identity fields — kept in sync with schema
+const playerIdentityFields = {
   _id: v.id("playerIdentities"),
   _creationTime: v.number(),
   firstName: v.string(),
@@ -65,25 +66,74 @@ const playerIdentityMatchValidator = v.object({
   lastSyncedData: v.optional(v.any()),
   isActive: v.optional(v.boolean()),
   createdFrom: v.optional(v.string()),
-});
+};
 
-const matchResultValidator = v.object({
+// A single match candidate: full player identity + matching metadata
+const matchCandidateValidator = v.object({
+  ...playerIdentityFields,
+  matchScore: v.number(),
+  matchedFields: v.array(v.string()),
+  warningFlag: v.optional(v.string()),
   confidence: v.union(
     v.literal("high"),
     v.literal("medium"),
     v.literal("low"),
     v.literal("none")
   ),
-  match: v.union(playerIdentityMatchValidator, v.null()),
+});
+
+// Single best match result (for automated flows)
+const bestMatchResultValidator = v.object({
+  confidence: v.union(
+    v.literal("high"),
+    v.literal("medium"),
+    v.literal("low"),
+    v.literal("none")
+  ),
+  match: v.union(v.object(playerIdentityFields), v.null()),
+  matchScore: v.number(),
   matchedFields: v.array(v.string()),
   warningFlag: v.optional(v.string()),
 });
 
 // ============================================================
-// MATCHING ALGORITHM HELPERS
+// SHARED ARGS
+// ============================================================
+
+const matchingArgs = {
+  organizationId: v.string(),
+  firstName: v.string(),
+  lastName: v.string(),
+  dateOfBirth: v.string(),
+  email: v.optional(v.string()),
+  phone: v.optional(v.string()),
+  postcode: v.optional(v.string()),
+  address: v.optional(v.string()),
+  gaaNumber: v.optional(v.string()),
+  federationIds: v.optional(
+    v.object({
+      fai: v.optional(v.string()),
+      irfu: v.optional(v.string()),
+      gaa: v.optional(v.string()),
+      other: v.optional(v.string()),
+    })
+  ),
+  /** Optional filter: restrict results to "youth" or "adult" only */
+  playerType: v.optional(playerTypeValidator),
+};
+
+// ============================================================
+// HELPERS
 // ============================================================
 
 type ConfidenceLevel = "high" | "medium" | "low" | "none";
+
+const CONFIDENCE_RANK: Record<ConfidenceLevel, number> = {
+  high: 3,
+  medium: 2,
+  low: 1,
+  none: 0,
+};
 
 function boostConfidence(confidence: ConfidenceLevel): ConfidenceLevel {
   if (confidence === "low") {
@@ -95,10 +145,6 @@ function boostConfidence(confidence: ConfidenceLevel): ConfidenceLevel {
   return "high";
 }
 
-/**
- * Check if two first names are Irish phonetic aliases of each other.
- * Returns true if both resolve to the same canonical form.
- */
 function areIrishAliases(nameA: string, nameB: string): boolean {
   const normalA = normalizeForMatching(nameA);
   const normalB = normalizeForMatching(nameB);
@@ -107,32 +153,28 @@ function areIrishAliases(nameA: string, nameB: string): boolean {
   return Boolean(canonicalA && canonicalB && canonicalA === canonicalB);
 }
 
+function normalizePostcode(postcode: string): string {
+  return postcode.toUpperCase().replace(/\s/g, "");
+}
+
+function normalizePhone(phone: string): string {
+  return phone.replace(/\D/g, "").slice(-10);
+}
+
 // ============================================================
-// CORE MATCHING ARGS (shared between query and internalQuery)
+// CORE MATCHING HANDLER
+// Returns all candidates above "none", sorted by confidence then score.
 // ============================================================
 
-const matchingArgs = {
-  organizationId: v.string(),
-  firstName: v.string(),
-  lastName: v.string(),
-  dateOfBirth: v.string(),
-  email: v.optional(v.string()),
-  gaaNumber: v.optional(v.string()),
-  federationIds: v.optional(
-    v.object({
-      fai: v.optional(v.string()),
-      irfu: v.optional(v.string()),
-      gaa: v.optional(v.string()),
-      other: v.optional(v.string()),
-    })
-  ),
+type MatchResult = {
+  player: DataModel["playerIdentities"]["document"];
+  confidence: ConfidenceLevel;
+  matchScore: number;
+  matchedFields: string[];
+  warningFlag?: string;
 };
 
-// ============================================================
-// SHARED HANDLER LOGIC
-// ============================================================
-
-async function findMatchingYouthProfileHandler(
+async function findPlayerMatchesHandler(
   ctx: GenericQueryCtx<DataModel>,
   args: {
     organizationId: string;
@@ -140,6 +182,9 @@ async function findMatchingYouthProfileHandler(
     lastName: string;
     dateOfBirth: string;
     email?: string;
+    phone?: string;
+    postcode?: string;
+    address?: string;
     gaaNumber?: string;
     federationIds?: {
       fai?: string;
@@ -147,14 +192,12 @@ async function findMatchingYouthProfileHandler(
       gaa?: string;
       other?: string;
     };
+    playerType?: "youth" | "adult";
   }
-): Promise<{
-  confidence: ConfidenceLevel;
-  match: DataModel["playerIdentities"]["document"] | null;
-  matchedFields: string[];
-  warningFlag?: string;
-}> {
-  // ── PRE-FETCH: Batch-fetch org's youth players (shared by PRIORITY -1 and PRIORITY 1) ──
+): Promise<MatchResult[]> {
+  const results: MatchResult[] = [];
+
+  // ── PRE-FETCH: Org's enrolled players ──────────────────────────────────────
   const enrollments = await ctx.db
     .query("orgPlayerEnrollments")
     .withIndex("by_organizationId", (q) =>
@@ -162,7 +205,7 @@ async function findMatchingYouthProfileHandler(
     )
     .collect();
 
-  const youthPlayers: DataModel["playerIdentities"]["document"][] = [];
+  const orgPlayers: DataModel["playerIdentities"]["document"][] = [];
   if (enrollments.length > 0) {
     const uniquePlayerIds = [
       ...new Set(enrollments.map((e) => e.playerIdentityId)),
@@ -171,20 +214,21 @@ async function findMatchingYouthProfileHandler(
       uniquePlayerIds.map((id) => ctx.db.get(id))
     );
     for (const p of playerDocs) {
-      if (p !== null && p.playerType === "youth") {
-        youthPlayers.push(p);
+      if (
+        p !== null &&
+        (!args.playerType || p.playerType === args.playerType)
+      ) {
+        orgPlayers.push(p);
       }
     }
   }
 
-  // ── PRIORITY -1: Federation ID match (definitive HIGH confidence) ─────
-  // One exact federation ID match short-circuits all fuzzy checks
+  // ── PRIORITY -1: Federation ID match (definitive HIGH, short-circuits) ─────
   if (args.federationIds) {
     const fed = args.federationIds;
-    for (const player of youthPlayers) {
+    for (const player of orgPlayers) {
       const playerFed = player.federationIds;
       const playerLegacyGaa = player.externalIds?.foireann;
-
       let matchedBody: string | undefined;
 
       if (fed.fai && playerFed?.fai && fed.fai === playerFed.fai) {
@@ -206,16 +250,22 @@ async function findMatchingYouthProfileHandler(
       }
 
       if (matchedBody) {
-        return {
-          confidence: "high",
-          match: player,
-          matchedFields: [`federationId:${matchedBody}`],
-        };
+        return [
+          {
+            player,
+            confidence: "high",
+            matchScore: 100,
+            matchedFields: [`federationId:${matchedBody}`],
+          },
+        ];
       }
     }
   }
 
-  // ── PRIORITY 0: Exact name+DOB index match ────────────────────────────
+  // Track IDs added via exact index to avoid duplicates in fuzzy pass
+  const addedIds = new Set<string>();
+
+  // ── PRIORITY 0: Exact name+DOB index match (global, not org-scoped) ────────
   const exactMatches = await ctx.db
     .query("playerIdentities")
     .withIndex("by_name_dob", (q) =>
@@ -227,45 +277,84 @@ async function findMatchingYouthProfileHandler(
     .collect();
 
   for (const candidate of exactMatches) {
-    if (candidate.playerType === "youth") {
-      // Opportunistic GAA corroboration
-      let warningFlag: string | undefined;
-      if (
-        args.gaaNumber &&
-        candidate.externalIds?.foireann &&
-        args.gaaNumber !== candidate.externalIds.foireann
-      ) {
-        warningFlag = "GAA membership number mismatch — review before linking";
-      }
-      return {
-        confidence: "high",
-        match: candidate,
-        matchedFields: ["firstName", "lastName", "dateOfBirth"],
-        warningFlag,
-      };
+    if (args.playerType && candidate.playerType !== args.playerType) {
+      continue;
     }
+
+    let score = 90;
+    const matchedFields = ["firstName", "lastName", "dateOfBirth"];
+    let warningFlag: string | undefined;
+
+    // GAA corroboration
+    if (
+      args.gaaNumber &&
+      candidate.externalIds?.foireann &&
+      args.gaaNumber !== candidate.externalIds.foireann
+    ) {
+      warningFlag = "GAA membership number mismatch — review before linking";
+    }
+
+    // Additional signals on top of exact match
+    if (
+      args.email &&
+      candidate.email &&
+      args.email.toLowerCase().trim() === candidate.email.toLowerCase().trim()
+    ) {
+      score += 25;
+      matchedFields.push("email");
+    }
+    if (
+      args.phone &&
+      candidate.phone &&
+      normalizePhone(args.phone) === normalizePhone(candidate.phone)
+    ) {
+      score += 20;
+      matchedFields.push("phone");
+    }
+    if (
+      args.postcode &&
+      candidate.postcode &&
+      normalizePostcode(args.postcode) === normalizePostcode(candidate.postcode)
+    ) {
+      score += 15;
+      matchedFields.push("postcode");
+    }
+    if (
+      args.address &&
+      candidate.address &&
+      args.address.toLowerCase().trim() ===
+        candidate.address.toLowerCase().trim()
+    ) {
+      score += 10;
+      matchedFields.push("address");
+    }
+
+    results.push({
+      player: candidate,
+      confidence: "high",
+      matchScore: score,
+      matchedFields,
+      warningFlag,
+    });
+    addedIds.add(candidate._id);
   }
 
-  // ── PRIORITY 1: Fuzzy matching on org's youth players ─────────────────
-  // Uses pre-fetched youthPlayers (no additional DB queries needed)
-
-  if (youthPlayers.length === 0) {
-    return { confidence: "none", match: null, matchedFields: [] };
+  // ── PRIORITY 1: Fuzzy matching across org's enrolled players ───────────────
+  if (orgPlayers.length === 0) {
+    return sortResults(results);
   }
 
-  // Score each youth player
   const normalizedCandidateFirst = normalizeForMatching(args.firstName);
   const normalizedCandidateLast = normalizeForMatching(args.lastName);
-  const normalizedCandidateEmail = args.email?.toLowerCase().trim();
+  const normalizedCandidateEmail = args.email?.toLowerCase().trim() ?? "";
+  const normalizedCandidatePhone = args.phone ? normalizePhone(args.phone) : "";
+  const normalizedCandidatePostcode = args.postcode
+    ? normalizePostcode(args.postcode)
+    : "";
 
-  let bestConfidence: ConfidenceLevel = "none";
-  let bestMatch: (typeof youthPlayers)[number] | null = null;
-  let bestMatchedFields: string[] = [];
-  let bestWarningFlag: string | undefined;
-
-  for (const player of youthPlayers) {
-    if (player === null) {
-      continue;
+  for (const player of orgPlayers) {
+    if (addedIds.has(player._id)) {
+      continue; // Already captured via exact index
     }
 
     const normalizedStoredFirst = normalizeForMatching(player.firstName);
@@ -280,14 +369,10 @@ async function findMatchingYouthProfileHandler(
       normalizedCandidateFirst,
       normalizedStoredFirst
     );
-
-    // Check Irish phonetic aliases for first name
     const firstNamesAreAliases = areIrishAliases(
       args.firstName,
       player.firstName
     );
-
-    // Also run calculateMatchScore for combined full-name alias detection
     const fullNameScore = calculateMatchScore(
       `${args.firstName} ${args.lastName}`,
       player.firstName,
@@ -296,33 +381,32 @@ async function findMatchingYouthProfileHandler(
 
     let confidence: ConfidenceLevel = "none";
     const matchedFields: string[] = [];
+    let matchScore = 0;
 
-    // HIGH: exact DOB + surname similarity >= 0.85
+    // Name+DOB confidence tiers (same thresholds as original findMatchingYouthProfile)
     if (dobMatches && lastSimilarity >= 0.85) {
       confidence = "high";
+      matchScore = 70 + Math.round(lastSimilarity * 10);
       matchedFields.push("dateOfBirth", "lastName");
       if (firstSimilarity >= 0.85 || firstNamesAreAliases) {
         matchedFields.push("firstName");
+        matchScore += 5;
       }
-    }
-    // HIGH: Irish alias match on first name + exact DOB (e.g. Niamh/Neeve same DOB)
-    else if (dobMatches && firstNamesAreAliases && lastSimilarity >= 0.7) {
+    } else if (dobMatches && firstNamesAreAliases && lastSimilarity >= 0.7) {
       confidence = "high";
+      matchScore = 65;
       matchedFields.push("dateOfBirth", "firstName", "lastName");
-    }
-    // HIGH: full-name score from calculateMatchScore >= 0.85 + exact DOB
-    else if (dobMatches && fullNameScore >= 0.85) {
+    } else if (dobMatches && fullNameScore >= 0.85) {
       confidence = "high";
+      matchScore = 65;
       matchedFields.push("dateOfBirth", "firstName", "lastName");
-    }
-    // MEDIUM: exact DOB + first name similarity >= 0.85 (surname mismatch)
-    else if (dobMatches && firstSimilarity >= 0.85) {
+    } else if (dobMatches && firstSimilarity >= 0.85) {
       confidence = "medium";
+      matchScore = 50;
       matchedFields.push("dateOfBirth", "firstName");
-    }
-    // LOW: surname similarity >= 0.85 without DOB
-    else if (lastSimilarity >= 0.85) {
+    } else if (lastSimilarity >= 0.85) {
       confidence = "low";
+      matchScore = 30;
       matchedFields.push("lastName");
     }
 
@@ -330,84 +414,202 @@ async function findMatchingYouthProfileHandler(
       continue;
     }
 
-    // Email boost: exact email match boosts by one level
+    // Email exact match → boost confidence + score
     if (
       normalizedCandidateEmail &&
       player.email &&
       normalizedCandidateEmail === player.email.toLowerCase().trim()
     ) {
       confidence = boostConfidence(confidence);
+      matchScore += 25;
       if (!matchedFields.includes("email")) {
         matchedFields.push("email");
       }
     }
 
-    // Opportunistic GAA corroboration (after confidence determined)
+    // Phone exact match → boost confidence + score
+    if (normalizedCandidatePhone.length >= 10 && player.phone) {
+      const storedPhone = normalizePhone(player.phone);
+      if (storedPhone === normalizedCandidatePhone) {
+        confidence = boostConfidence(confidence);
+        matchScore += 20;
+        if (!matchedFields.includes("phone")) {
+          matchedFields.push("phone");
+        }
+      }
+    }
+
+    // Postcode match → score only (no confidence boost — too ambiguous alone)
+    if (normalizedCandidatePostcode && player.postcode) {
+      const storedPostcode = normalizePostcode(player.postcode);
+      if (
+        storedPostcode === normalizedCandidatePostcode ||
+        storedPostcode.startsWith(normalizedCandidatePostcode) ||
+        normalizedCandidatePostcode.startsWith(storedPostcode)
+      ) {
+        matchScore += 15;
+        if (!matchedFields.includes("postcode")) {
+          matchedFields.push("postcode");
+        }
+      }
+    }
+
+    // Address match → score only
+    if (
+      args.address &&
+      player.address &&
+      args.address.toLowerCase().trim() === player.address.toLowerCase().trim()
+    ) {
+      matchScore += 10;
+      if (!matchedFields.includes("address")) {
+        matchedFields.push("address");
+      }
+    }
+
+    // GAA corroboration
     let warningFlag: string | undefined;
     if (args.gaaNumber && player.externalIds?.foireann) {
       if (args.gaaNumber === player.externalIds.foireann) {
-        // GAA number agreement — boost to HIGH
         confidence = "high";
+        matchScore += 20;
         if (!matchedFields.includes("gaaNumber")) {
           matchedFields.push("gaaNumber");
         }
       } else {
-        // Disagreement — add warning flag
         warningFlag = "GAA membership number mismatch — review before linking";
       }
     }
 
-    // Keep track of best match (prefer higher confidence)
-    const confidenceRank = { high: 3, medium: 2, low: 1, none: 0 };
-    if (confidenceRank[confidence] > confidenceRank[bestConfidence]) {
-      bestConfidence = confidence;
-      bestMatch = player;
-      bestMatchedFields = matchedFields;
-      bestWarningFlag = warningFlag;
-    }
+    results.push({
+      player,
+      confidence,
+      matchScore,
+      matchedFields,
+      warningFlag,
+    });
+    addedIds.add(player._id);
   }
 
-  return {
-    confidence: bestConfidence,
-    match: bestMatch,
-    matchedFields: bestMatchedFields,
-    warningFlag: bestWarningFlag,
-  };
+  return sortResults(results);
+}
+
+function sortResults(results: MatchResult[]): MatchResult[] {
+  return results.sort((a, b) => {
+    const confDiff =
+      CONFIDENCE_RANK[b.confidence] - CONFIDENCE_RANK[a.confidence];
+    if (confDiff !== 0) {
+      return confDiff;
+    }
+    return b.matchScore - a.matchScore;
+  });
 }
 
 // ============================================================
-// PUBLIC QUERY (called from frontend: manual add, CSV import, invite dialog)
+// PUBLIC QUERY: findPlayerMatchCandidates
+// Returns a ranked list of all candidates — use where a human confirms the match.
+// Entry points: admin add player, admin invite, admin users page, CSV import preview.
 // ============================================================
 
 /**
- * Find a matching youth playerIdentity for an adult being added to the system.
+ * Find all potential matching player identities for a given person.
  *
- * Used by all three adult entry points:
- * - Manual add (admin/players/page.tsx)
- * - CSV import preview (admin/player-import/page.tsx)
- * - Email invite dialog
+ * Returns candidates sorted by confidence (high → low) then match score.
+ * A human (admin or the user themselves) should confirm which record is correct.
  *
- * Algorithm:
- * - PRIORITY 0: Exact name+DOB index → HIGH confidence
- * - PRIORITY 1: Fuzzy surname+DOB / first+DOB / surname-only → HIGH/MEDIUM/LOW
- * - Email boost: exact email match boosts confidence by one level
- * - Opportunistic GAA: foireann number agreement → HIGH; disagreement → warningFlag
+ * Signals checked:
+ * - Federation IDs (FAI/IRFU/GAA) → definitive HIGH, short-circuits
+ * - Exact name + DOB (global index) → HIGH
+ * - Fuzzy name similarity + DOB (org-scoped) → HIGH/MEDIUM/LOW
+ * - Email exact match → boosts confidence + score
+ * - Phone exact match → boosts confidence + score
+ * - Postcode match → score boost
+ * - Address match → score boost
+ * - GAA number agreement → HIGH; disagreement → warningFlag
+ *
+ * Optional `playerType` filter restricts results to "youth" or "adult" only.
  */
-export const findMatchingYouthProfile = query({
+export const findPlayerMatchCandidates = query({
   args: matchingArgs,
-  returns: matchResultValidator,
-  handler: async (ctx, args) => findMatchingYouthProfileHandler(ctx, args),
+  returns: v.array(matchCandidateValidator),
+  handler: async (ctx, args) => {
+    const matches = await findPlayerMatchesHandler(ctx, args);
+    return matches.map(
+      ({ player, confidence, matchScore, matchedFields, warningFlag }) => ({
+        ...player,
+        confidence,
+        matchScore,
+        matchedFields,
+        warningFlag,
+      })
+    );
+  },
 });
 
 // ============================================================
-// INTERNAL QUERY (called from mutations/actions: join request, invite acceptance)
+// PUBLIC QUERY: findBestPlayerMatch
+// Returns only the single best match — use in automated flows.
+// Entry points: join request creation, graduation claim.
 // ============================================================
 
 /**
- * Internal version of findMatchingYouthProfile for use in mutations and actions.
+ * Find the single best matching player identity for a given person.
+ *
+ * Returns the highest-confidence, highest-scoring candidate, or
+ * { confidence: "none", match: null } if no match found.
+ *
+ * Use this in automated flows where a human isn't confirming the match
+ * (e.g. join request pre-filling, graduation auto-claim).
  */
-export const findMatchingYouthProfileInternal = internalQuery({
+export const findBestPlayerMatch = query({
   args: matchingArgs,
-  returns: matchResultValidator,
-  handler: async (ctx, args) => findMatchingYouthProfileHandler(ctx, args),
+  returns: bestMatchResultValidator,
+  handler: async (ctx, args) => {
+    const matches = await findPlayerMatchesHandler(ctx, args);
+    if (matches.length === 0) {
+      return {
+        confidence: "none" as const,
+        match: null,
+        matchScore: 0,
+        matchedFields: [],
+      };
+    }
+    const best = matches[0];
+    return {
+      confidence: best.confidence,
+      match: best.player,
+      matchScore: best.matchScore,
+      matchedFields: best.matchedFields,
+      warningFlag: best.warningFlag,
+    };
+  },
+});
+
+// ============================================================
+// INTERNAL QUERY: findBestPlayerMatchInternal
+// Same as findBestPlayerMatch but callable from mutations/actions.
+// Entry points: createJoinRequest, autoClaimByEmail, claimPlayerAccount.
+// ============================================================
+
+export const findBestPlayerMatchInternal = internalQuery({
+  args: matchingArgs,
+  returns: bestMatchResultValidator,
+  handler: async (ctx, args) => {
+    const matches = await findPlayerMatchesHandler(ctx, args);
+    if (matches.length === 0) {
+      return {
+        confidence: "none" as const,
+        match: null,
+        matchScore: 0,
+        matchedFields: [],
+      };
+    }
+    const best = matches[0];
+    return {
+      confidence: best.confidence,
+      match: best.player,
+      matchScore: best.matchScore,
+      matchedFields: best.matchedFields,
+      warningFlag: best.warningFlag,
+    };
+  },
 });

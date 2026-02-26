@@ -272,15 +272,15 @@ export default function ManageUsersPage() {
       : "skip"
   );
 
-  // Youth matching for player invite — run when player role selected + name + DOB provided
+  // Player matching for invite — run when player role selected + name + DOB provided
   const hasPlayerMatchData =
     inviteFunctionalRoles.includes("player") &&
     invitePlayerFirstName.trim().length > 0 &&
     invitePlayerLastName.trim().length > 0 &&
     invitePlayerDob.length > 0 &&
     inviteDialogOpen;
-  const invitePlayerMatchResult = useQuery(
-    api.models.playerMatching.findMatchingYouthProfile,
+  const invitePlayerMatchCandidates = useQuery(
+    api.models.playerMatching.findPlayerMatchCandidates,
     hasPlayerMatchData
       ? {
           organizationId: orgId,
@@ -291,6 +291,8 @@ export default function ManageUsersPage() {
         }
       : "skip"
   );
+  // Best single match for backwards-compatible usage in invite flow
+  const invitePlayerMatchResult = invitePlayerMatchCandidates?.[0] ?? null;
 
   // Invitation detail modal state
   const [selectedInvitationId, setSelectedInvitationId] = useState<
@@ -906,14 +908,14 @@ export default function ManageUsersPage() {
         metadata.suggestedPlayerLinks = playerDetails;
       }
 
-      // Add player-specific data (matched youth identity for adult player role)
+      // Add player-specific data (matched identity for player role)
       if (
         inviteFunctionalRoles.includes("player") &&
         invitePlayerMatchResult?.confidence !== "none" &&
         invitePlayerMatchResult?.confidence !== undefined &&
-        invitePlayerMatchResult?.match?._id
+        invitePlayerMatchResult?._id
       ) {
-        metadata.matchedPlayerIdentityId = invitePlayerMatchResult.match._id;
+        metadata.matchedPlayerIdentityId = invitePlayerMatchResult._id;
       }
 
       const inviteOptions = {
@@ -3632,14 +3634,15 @@ export default function ManageUsersPage() {
                     </div>
                     {/* Match result note */}
                     {hasPlayerMatchData &&
-                      invitePlayerMatchResult !== undefined &&
+                      invitePlayerMatchResult !== null &&
                       (invitePlayerMatchResult.confidence === "high" ||
                         invitePlayerMatchResult.confidence === "medium") && (
                         <div className="rounded-md border border-orange-300 bg-orange-100 p-2">
                           <p className="text-orange-800 text-xs">
-                            A youth profile may exist for this person.
-                            They&apos;ll be linked to their existing history
-                            when they accept the invite.
+                            An existing {invitePlayerMatchResult.playerType}{" "}
+                            player record may match this person. They&apos;ll be
+                            linked to their existing history when they accept
+                            the invite.
                           </p>
                         </div>
                       )}

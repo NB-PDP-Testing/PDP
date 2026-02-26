@@ -121,9 +121,6 @@ export default function ManagePlayersPage() {
     Partial<Record<keyof AddPlayerFormData, string>>
   >({});
 
-  // Duplicate warning state
-  const [showDuplicateWarning, setShowDuplicateWarning] = useState(false);
-  const [duplicateMessage, setDuplicateMessage] = useState("");
   const [isCheckingDuplicate, setIsCheckingDuplicate] = useState(false);
   const convex = useConvex();
 
@@ -134,13 +131,14 @@ export default function ManagePlayersPage() {
   const [federationGaa, setFederationGaa] = useState("");
   const [federationOther, setFederationOther] = useState("");
 
-  // Youth match state (US-P3-002)
+  // Player match state (US-P3-002)
   const [showYouthMatchDialog, setShowYouthMatchDialog] = useState(false);
   const [youthMatchCandidate, setYouthMatchCandidate] = useState<{
     _id: string;
     firstName: string;
     lastName: string;
     dateOfBirth: string;
+    playerType: "youth" | "adult";
   } | null>(null);
   const [mediumMatchWarning, setMediumMatchWarning] = useState<{
     name: string;
@@ -246,18 +244,6 @@ export default function ManagePlayersPage() {
     teams === undefined ||
     teamPlayerLinks === undefined;
 
-  // Calculate age from ISO date string
-  const calculateAge = (dob: string): number => {
-    const birth = new Date(dob);
-    const now = new Date();
-    let age = now.getFullYear() - birth.getFullYear();
-    const m = now.getMonth() - birth.getMonth();
-    if (m < 0 || (m === 0 && now.getDate() < birth.getDate())) {
-      age -= 1;
-    }
-    return age;
-  };
-
   // Validate add player form
   const validateForm = (): boolean => {
     const errors: Partial<Record<keyof AddPlayerFormData, string>> = {};
@@ -286,42 +272,6 @@ export default function ManagePlayersPage() {
 
     setFormErrors(errors);
     return Object.keys(errors).length === 0;
-  };
-
-  // Check for duplicates and show warning if found
-  const checkForDuplicates = async (): Promise<boolean> => {
-    if (!addPlayerForm.dateOfBirth) {
-      return true; // Can't check without DOB
-    }
-
-    setIsCheckingDuplicate(true);
-    try {
-      const result = await convex.query(
-        api.models.playerIdentities.checkForDuplicatePlayer,
-        {
-          firstName: addPlayerForm.firstName.trim(),
-          lastName: addPlayerForm.lastName.trim(),
-          dateOfBirth: addPlayerForm.dateOfBirth,
-          gender: addPlayerForm.gender,
-        }
-      );
-
-      if (result.isDuplicate && result.message) {
-        // Exact match found - show warning
-        setDuplicateMessage(result.message);
-        setShowDuplicateWarning(true);
-        return false; // Don't proceed - wait for user confirmation
-      }
-
-      // No exact duplicate - proceed
-      return true;
-    } catch (error) {
-      console.error("Error checking for duplicates:", error);
-      // On error, allow creation to proceed
-      return true;
-    } finally {
-      setIsCheckingDuplicate(false);
-    }
   };
 
   // Build federation IDs from form state (omit empty strings)
@@ -376,7 +326,6 @@ export default function ManagePlayersPage() {
       setAddPlayerForm(emptyFormData);
       setFormErrors({});
       setShowAddPlayerDialog(false);
-      setShowDuplicateWarning(false);
       setFederationFai("");
       setFederationIrfu("");
       setFederationGaa("");
@@ -398,17 +347,19 @@ export default function ManagePlayersPage() {
     }
   };
 
-  // Link to existing youth history (HIGH confidence match dialog)
+  // Link to existing player record (HIGH confidence match dialog)
   const handleLinkToExistingHistory = async () => {
     if (!youthMatchCandidate) {
       return;
     }
     setIsLinkingToYouth(true);
     try {
-      // Transition the youth record to adult
-      await transitionToAdultMutation({
-        playerIdentityId: youthMatchCandidate._id as any,
-      });
+      // Only transition youth→adult if the matched record is a youth player
+      if (youthMatchCandidate.playerType === "youth") {
+        await transitionToAdultMutation({
+          playerIdentityId: youthMatchCandidate._id as any,
+        });
+      }
       // Enroll in this organisation
       await enrollPlayer({
         playerIdentityId: youthMatchCandidate._id as any,
@@ -416,8 +367,8 @@ export default function ManagePlayersPage() {
         ageGroup: addPlayerForm.ageGroup,
         season: getCurrentSeason(),
       });
-      toast.success("Player linked to existing history", {
-        description: `${youthMatchCandidate.firstName} ${youthMatchCandidate.lastName}'s youth record has been transitioned to adult.`,
+      toast.success("Player linked to existing record", {
+        description: `${youthMatchCandidate.firstName} ${youthMatchCandidate.lastName}'s existing record has been enrolled in this organisation.`,
       });
       setShowYouthMatchDialog(false);
       setShowAddPlayerDialog(false);
@@ -438,7 +389,7 @@ export default function ManagePlayersPage() {
     }
   };
 
-  // Handle add player submit - first check for duplicates, then youth matching
+  // Handle add player submit — run unified matching for all players
   const handleAddPlayer = async (e?: React.FormEvent<HTMLFormElement>) => {
     if (e) {
       e.preventDefault();
@@ -448,76 +399,65 @@ export default function ManagePlayersPage() {
       return;
     }
 
-    const age = calculateAge(addPlayerForm.dateOfBirth);
-    const isAdult = age >= 18;
-
-    if (isAdult && !hasAcknowledgedMediumMatch) {
-      // Run duplicate check and youth match in parallel for adults
+    if (!hasAcknowledgedMediumMatch) {
       setIsCheckingDuplicate(true);
       try {
-        const [duplicateResult, youthMatch] = await Promise.all([
-          convex.query(api.models.playerIdentities.checkForDuplicatePlayer, {
-            firstName: addPlayerForm.firstName.trim(),
-            lastName: addPlayerForm.lastName.trim(),
-            dateOfBirth: addPlayerForm.dateOfBirth,
-            gender: addPlayerForm.gender,
-          }),
-          convex.query(api.models.playerMatching.findMatchingYouthProfile, {
+        type Candidate = {
+          confidence: "high" | "medium" | "low" | "none";
+          _id: string;
+          firstName: string;
+          lastName: string;
+          dateOfBirth: string;
+          playerType: "youth" | "adult";
+        };
+        const candidates = (await convex.query(
+          api.models.playerMatching.findPlayerMatchCandidates,
+          {
             organizationId: orgId,
             firstName: addPlayerForm.firstName.trim(),
             lastName: addPlayerForm.lastName.trim(),
             dateOfBirth: addPlayerForm.dateOfBirth,
             federationIds: buildFederationIds(),
-          }),
-        ]);
+          }
+        )) as Candidate[];
 
-        // Existing exact duplicate check (runs first)
-        if (duplicateResult.isDuplicate && duplicateResult.message) {
-          setDuplicateMessage(duplicateResult.message);
-          setShowDuplicateWarning(true);
-          return;
-        }
+        const highCandidates = candidates.filter(
+          (c) => c.confidence === "high"
+        );
+        const mediumCandidates = candidates.filter(
+          (c) => c.confidence === "medium"
+        );
 
-        // HIGH confidence youth match — blocking dialog
-        if (youthMatch.confidence === "high" && youthMatch.match) {
+        // HIGH confidence — blocking dialog: link or create new
+        if (highCandidates.length > 0) {
+          const best = highCandidates[0];
           setYouthMatchCandidate({
-            _id: youthMatch.match._id,
-            firstName: youthMatch.match.firstName,
-            lastName: youthMatch.match.lastName,
-            dateOfBirth: youthMatch.match.dateOfBirth,
+            _id: best._id,
+            firstName: best.firstName,
+            lastName: best.lastName,
+            dateOfBirth: best.dateOfBirth,
+            playerType: best.playerType,
           });
           setShowYouthMatchDialog(true);
           return;
         }
 
-        // MEDIUM confidence — show non-blocking banner then proceed
-        if (youthMatch.confidence === "medium" && youthMatch.match) {
+        // MEDIUM confidence — non-blocking banner, user re-submits to proceed
+        if (mediumCandidates.length > 0) {
+          const best = mediumCandidates[0];
           setMediumMatchWarning({
-            name: `${youthMatch.match.firstName} ${youthMatch.match.lastName}`,
-            dateOfBirth: youthMatch.match.dateOfBirth,
-            playerIdentityId: youthMatch.match._id,
+            name: `${best.firstName} ${best.lastName}`,
+            dateOfBirth: best.dateOfBirth,
+            playerIdentityId: best._id,
           });
           setHasAcknowledgedMediumMatch(true);
-          return; // Banner shown; user re-submits to proceed
+          return;
         }
       } finally {
         setIsCheckingDuplicate(false);
       }
-    } else if (!isAdult) {
-      // Youth player — existing duplicate check only
-      const canProceed = await checkForDuplicates();
-      if (!canProceed) {
-        return;
-      }
     }
-    // If adult with acknowledged medium match, skip re-checking and proceed
 
-    await createPlayer();
-  };
-
-  // Handle duplicate warning confirmation - proceed anyway
-  const handleDuplicateConfirm = async () => {
-    setShowDuplicateWarning(false);
     await createPlayer();
   };
 
@@ -1241,14 +1181,14 @@ export default function ManagePlayersPage() {
           onSubmit={handleAddPlayer}
           submitText="Add Player"
         >
-          {/* MEDIUM confidence youth match banner (non-blocking) */}
+          {/* MEDIUM confidence player match banner (non-blocking) */}
           {mediumMatchWarning && (
             <div className="mx-4 mt-2 flex items-start gap-2 rounded-md border border-amber-200 bg-amber-50 p-3 text-amber-800">
               <AlertTriangle className="mt-0.5 h-4 w-4 shrink-0" />
               <div className="space-y-1 text-sm">
-                <p className="font-medium">Possible youth profile match</p>
+                <p className="font-medium">Possible existing player match</p>
                 <p>
-                  A youth profile may match this player:{" "}
+                  An existing player may match this record:{" "}
                   <span className="font-medium">{mediumMatchWarning.name}</span>
                   {", born "}
                   {new Date(
@@ -1522,55 +1462,12 @@ export default function ManagePlayersPage() {
         </div>
       </ResponsiveDialog>
 
-      {/* Duplicate Warning Dialog */}
-      <ResponsiveDialog
-        contentClassName="sm:max-w-md"
-        footer={
-          <div className="flex flex-col-reverse gap-2 sm:flex-row sm:justify-end">
-            <Button
-              onClick={() => setShowDuplicateWarning(false)}
-              variant="outline"
-            >
-              Cancel
-            </Button>
-            <Button
-              disabled={isAddingPlayer}
-              onClick={handleDuplicateConfirm}
-              variant="default"
-            >
-              {isAddingPlayer ? (
-                <>
-                  <Loader2 className="mr-2 h-4 w-4 animate-spin" />
-                  Creating...
-                </>
-              ) : (
-                "Create Anyway"
-              )}
-            </Button>
-          </div>
-        }
-        onOpenChange={setShowDuplicateWarning}
-        open={showDuplicateWarning}
-      >
-        <div className="space-y-4">
-          <h3 className="flex items-center gap-2 font-semibold text-amber-600 text-lg">
-            ⚠️ Potential Duplicate
-          </h3>
-          <p className="text-muted-foreground">{duplicateMessage}</p>
-          <p className="text-muted-foreground text-sm">
-            The system allows players with the same name if they have different
-            dates of birth or gender. An exact match (same name, date of birth,
-            AND gender) has been detected.
-          </p>
-        </div>
-      </ResponsiveDialog>
-
-      {/* Youth Match Dialog — HIGH confidence (blocking) */}
+      {/* Player Match Dialog — HIGH confidence (blocking) */}
       <ResponsiveDialog
         contentClassName="sm:max-w-md"
         description={
           youthMatchCandidate
-            ? `A youth profile for ${youthMatchCandidate.firstName} ${youthMatchCandidate.lastName}, born ${new Date(youthMatchCandidate.dateOfBirth).toLocaleDateString()}, was found.`
+            ? `An existing ${youthMatchCandidate.playerType} player record for ${youthMatchCandidate.firstName} ${youthMatchCandidate.lastName}, born ${new Date(youthMatchCandidate.dateOfBirth).toLocaleDateString()}, was found.`
             : undefined
         }
         footer={
@@ -1602,7 +1499,7 @@ export default function ManagePlayersPage() {
                   Linking...
                 </>
               ) : (
-                "Link to Existing History"
+                "Link to Existing Record"
               )}
             </Button>
           </div>
@@ -1614,25 +1511,25 @@ export default function ManagePlayersPage() {
           setShowYouthMatchDialog(open);
         }}
         open={showYouthMatchDialog}
-        title="Youth Profile Match Found"
+        title="Existing Player Record Found"
       >
         <div className="space-y-3 text-muted-foreground text-sm">
           <p>
-            Would you like to link this adult to their existing youth history,
-            or create a new separate profile?
+            Would you like to link to this existing record, or create a new
+            separate profile?
           </p>
           <ul className="list-disc space-y-1 pl-4">
             <li>
               <span className="font-medium text-foreground">
-                Link to Existing History
+                Link to Existing Record
               </span>{" "}
-              — preserves youth records, assessments, and team history.
+              — preserves all prior history, assessments, and team records.
             </li>
             <li>
               <span className="font-medium text-foreground">
                 Create New Profile
               </span>{" "}
-              — creates a separate adult record with no prior history.
+              — creates a separate record with no prior history.
             </li>
           </ul>
         </div>

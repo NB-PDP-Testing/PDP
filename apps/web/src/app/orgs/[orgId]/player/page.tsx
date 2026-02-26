@@ -80,9 +80,12 @@ export default function PlayerDashboardPage() {
   );
 
   // Today section queries
+  const today = new Date().toISOString().split("T")[0];
   const todayHealthCheck = useQuery(
-    api.models.adultPlayers.getTodayHealthCheck,
-    playerIdentity?._id ? { playerIdentityId: playerIdentity._id } : "skip"
+    api.models.playerHealthChecks.getTodayHealthCheck,
+    playerIdentity?._id
+      ? { playerIdentityId: playerIdentity._id, checkDate: today }
+      : "skip"
   );
   const todayPriorityData = useQuery(
     api.models.adultPlayers.getTodayPriorityData,
@@ -110,12 +113,29 @@ export default function PlayerDashboardPage() {
   // Today section derived values
   const wellnessDone =
     todayHealthCheck !== null && todayHealthCheck !== undefined;
-  // Extract score here — cast needed because handler stub returns null;
-  // Phase 3 will implement the real return value with wellnessScore
-  const wellnessScore: number | undefined =
-    todayHealthCheck != null
-      ? (todayHealthCheck as { wellnessScore: number }).wellnessScore
-      : undefined;
+  // Compute aggregate score as average of all submitted dimension values
+  const wellnessScore: number | undefined = (() => {
+    if (!todayHealthCheck) {
+      return;
+    }
+    const dims = [
+      "sleepQuality",
+      "energyLevel",
+      "mood",
+      "physicalFeeling",
+      "motivation",
+      "foodIntake",
+      "waterIntake",
+      "muscleRecovery",
+    ] as const;
+    const values = dims
+      .map((d) => todayHealthCheck[d])
+      .filter((v): v is number => typeof v === "number");
+    if (values.length === 0) {
+      return;
+    }
+    return values.reduce((a, b) => a + b, 0) / values.length;
+  })();
   const hasActiveInjuries = (todayPriorityData?.activeInjuryCount ?? 0) > 0;
   const hasUnreadFeedback = false; // stub until Phase 5
   const allClear = wellnessDone && !hasActiveInjuries && !hasUnreadFeedback;

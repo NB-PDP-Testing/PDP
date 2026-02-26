@@ -5,10 +5,15 @@ import type { Id } from "../_generated/dataModel";
 import {
   internalMutation,
   internalQuery,
+  type MutationCtx,
   mutation,
   query,
 } from "../_generated/server";
+import { requireAuthAndOrg } from "../lib/authHelpers";
 import { findSimilarPlayersLogic } from "../lib/playerMatching";
+
+// Admin/owner roles that can perform destructive operations
+const ADMIN_ROLES = ["admin", "owner"];
 
 // ============================================================
 // TYPE DEFINITIONS
@@ -235,25 +240,28 @@ export const getPlayersForOrg = query({
     })
   ),
   handler: async (ctx, args) => {
-    const enrollmentsQuery = ctx.db
-      .query("orgPlayerEnrollments")
-      .withIndex("by_organizationId", (q) =>
-        q.eq("organizationId", args.organizationId)
-      );
+    // Use the appropriate index based on whether status is provided
+    const { status } = args;
+    const allEnrollments = status
+      ? await ctx.db
+          .query("orgPlayerEnrollments")
+          .withIndex("by_org_and_status", (q) =>
+            q.eq("organizationId", args.organizationId).eq("status", status)
+          )
+          .collect()
+      : await ctx.db
+          .query("orgPlayerEnrollments")
+          .withIndex("by_organizationId", (q) =>
+            q.eq("organizationId", args.organizationId)
+          )
+          .collect();
 
-    let enrollments = await enrollmentsQuery.collect();
-
-    // Filter by status if provided
-    if (args.status) {
-      enrollments = enrollments.filter((e) => e.status === args.status);
-    }
-
-    // Filter by age group if provided
-    if (args.ageGroup) {
-      enrollments = enrollments.filter(
-        (e) => e.ageGroup?.toLowerCase() === args.ageGroup?.toLowerCase()
-      );
-    }
+    // Filter by age group if provided (in-memory — no compound index with status+ageGroup)
+    const enrollments = args.ageGroup
+      ? allEnrollments.filter(
+          (e) => e.ageGroup?.toLowerCase() === args.ageGroup?.toLowerCase()
+        )
+      : allEnrollments;
 
     const results = [];
 
@@ -319,6 +327,93 @@ export const isPlayerEnrolled = query({
 });
 
 // ============================================================
+// HELPERS
+// ============================================================
+
+/**
+ * Cascade cleanup when a player is removed from an org.
+ * Archives passports, revokes share consents, declines pending requests,
+ * and disables access grants for the given org.
+ * Preserves: injuries, emergency contacts, guardians, assessments, messages.
+ */
+async function cascadeCleanupForOrg(
+  ctx: MutationCtx,
+  playerIdentityId: Id<"playerIdentities">,
+  organizationId: string
+) {
+  // 1. Archive active sport passports for this org
+  const activePassports = await ctx.db
+    .query("sportPassports")
+    .withIndex("by_player_org_status", (q) =>
+      q
+        .eq("playerIdentityId", playerIdentityId)
+        .eq("organizationId", organizationId)
+        .eq("status", "active")
+    )
+    .collect();
+
+  for (const passport of activePassports) {
+    await ctx.db.patch(passport._id, {
+      status: "archived" as const,
+      updatedAt: Date.now(),
+    });
+  }
+
+  // 2. Revoke active share consents where this org is the receiver
+  const activeConsents = await ctx.db
+    .query("passportShareConsents")
+    .withIndex("by_player_and_status", (q) =>
+      q.eq("playerIdentityId", playerIdentityId).eq("status", "active")
+    )
+    .collect();
+
+  for (const consent of activeConsents) {
+    if (consent.receivingOrgId === organizationId) {
+      await ctx.db.patch(consent._id, {
+        status: "revoked" as const,
+        revokedAt: Date.now(),
+      });
+    }
+  }
+
+  // 3. Decline pending share requests from this org
+  const pendingRequests = await ctx.db
+    .query("passportShareRequests")
+    .withIndex("by_player_and_status", (q) =>
+      q.eq("playerIdentityId", playerIdentityId).eq("status", "pending")
+    )
+    .collect();
+
+  for (const request of pendingRequests) {
+    if (request.requestingOrgId === organizationId) {
+      await ctx.db.patch(request._id, {
+        status: "declined" as const,
+        respondedAt: Date.now(),
+      });
+    }
+  }
+
+  // 4. Disable access grants for this org
+  const accessGrants = await ctx.db
+    .query("playerAccessGrants")
+    .withIndex("by_player_and_org", (q) =>
+      q
+        .eq("playerIdentityId", playerIdentityId)
+        .eq("organizationId", organizationId)
+    )
+    .collect();
+
+  for (const grant of accessGrants) {
+    if (grant.isEnabled) {
+      await ctx.db.patch(grant._id, {
+        isEnabled: false,
+        updatedAt: Date.now(),
+      });
+    }
+  }
+}
+
+// ============================================================
 // MUTATIONS
 // ============================================================
 
@@ -342,6 +437,9 @@ export const enrollPlayer = mutation({
     passportId: v.union(v.id("sportPassports"), v.null()),
   }),
   handler: async (ctx, args) => {
+    // Auth: verify caller is a member of the target organization
+    await requireAuthAndOrg(ctx, args.organizationId);
+
     // Verify player exists
     const player = await ctx.db.get(args.playerIdentityId);
     if (!player) {
@@ -359,6 +457,35 @@ export const enrollPlayer = mutation({
       .first();
 
     if (existing) {
+      // If previously unenrolled (inactive), reactivate instead of throwing
+      if (existing.status === "inactive") {
+        await ctx.db.patch(existing._id, {
+          status: args.status ?? "active",
+          ageGroup: args.ageGroup,
+          season: args.season,
+          sport: args.sportCode,
+          clubMembershipNumber: args.clubMembershipNumber,
+          updatedAt: Date.now(),
+        });
+
+        // Check for existing sport passport (org-scoped to avoid cross-org dedup)
+        let passportId = null;
+        if (args.sportCode) {
+          const orgPassports = await ctx.db
+            .query("sportPassports")
+            .withIndex("by_player_org_status", (q) =>
+              q
+                .eq("playerIdentityId", args.playerIdentityId)
+                .eq("organizationId", args.organizationId)
+            )
+            .collect();
+          const existingPassport =
+            orgPassports.find((p) => p.sportCode === args.sportCode) ?? null;
+          passportId = existingPassport?._id ?? null;
+        }
+
+        return { enrollmentId: existing._id, passportId };
+      }
       throw new Error("Player is already enrolled in this organization");
     }
 
@@ -377,19 +504,21 @@ export const enrollPlayer = mutation({
       updatedAt: now,
     });
 
-    // Auto-create sport passport if sportCode provided
+    // Auto-create sport passport if sportCode provided (org-scoped dedup)
     let passportId = null;
     const sportCode = args.sportCode;
     if (sportCode) {
-      // Check if passport already exists for this player/sport
-      const existingPassport = await ctx.db
+      // Check if passport already exists for this player/sport IN THIS ORG
+      const orgPassports = await ctx.db
         .query("sportPassports")
-        .withIndex("by_player_and_sport", (q) =>
+        .withIndex("by_player_org_status", (q) =>
           q
             .eq("playerIdentityId", args.playerIdentityId)
-            .eq("sportCode", sportCode)
+            .eq("organizationId", args.organizationId)
         )
-        .first();
+        .collect();
+      const existingPassport =
+        orgPassports.find((p) => p.sportCode === sportCode) ?? null;
 
       if (existingPassport) {
         passportId = existingPassport._id;
@@ -434,6 +563,9 @@ export const updateEnrollment = mutation({
     if (!existing) {
       throw new Error("Enrollment not found");
     }
+
+    // Auth: verify caller is a member of this enrollment's organization
+    await requireAuthAndOrg(ctx, existing.organizationId);
 
     const updates: Record<string, unknown> = {
       updatedAt: Date.now(),
@@ -487,6 +619,7 @@ export const updateAttendance = mutation({
     if (!existing) {
       throw new Error("Enrollment not found");
     }
+    await requireAuthAndOrg(ctx, existing.organizationId);
 
     const currentAttendance = existing.attendance ?? {};
     const newAttendance = {
@@ -517,6 +650,7 @@ export const changeEnrollmentStatus = mutation({
     if (!existing) {
       throw new Error("Enrollment not found");
     }
+    await requireAuthAndOrg(ctx, existing.organizationId);
 
     await ctx.db.patch(args.enrollmentId, {
       status: args.status,
@@ -548,6 +682,8 @@ export const findOrCreateEnrollment = mutation({
     passportWasCreated: v.boolean(),
   }),
   handler: async (ctx, args) => {
+    await requireAuthAndOrg(ctx, args.organizationId);
+
     const now = Date.now();
     let wasCreated = false;
     let passportWasCreated = false;
@@ -640,6 +776,33 @@ export const deleteEnrollment = mutation({
       throw new Error("Enrollment not found");
     }
 
+    // Auth: require admin/owner role for hard delete
+    const { role } = await requireAuthAndOrg(ctx, existing.organizationId);
+    if (!ADMIN_ROLES.includes(role)) {
+      throw new Error("Only admin or owner can permanently delete enrollments");
+    }
+
+    // Remove team assignments for this player in this org
+    const teamAssignments = await ctx.db
+      .query("teamPlayerIdentities")
+      .withIndex("by_playerIdentityId", (q) =>
+        q.eq("playerIdentityId", existing.playerIdentityId)
+      )
+      .collect();
+
+    for (const assignment of teamAssignments) {
+      if (assignment.organizationId === existing.organizationId) {
+        await ctx.db.delete(assignment._id);
+      }
+    }
+
+    // Cascade: archive passports, revoke shares, decline requests, disable grants
+    await cascadeCleanupForOrg(
+      ctx,
+      existing.playerIdentityId,
+      existing.organizationId
+    );
+
     await ctx.db.delete(args.enrollmentId);
     return null;
   },
@@ -659,6 +822,9 @@ export const unenrollPlayer = mutation({
       throw new Error("Enrollment not found");
     }
 
+    // Auth: verify caller is a member of this enrollment's organization
+    await requireAuthAndOrg(ctx, existing.organizationId);
+
     // Option 1: Soft delete (set status to inactive)
     // This preserves history and allows re-enrollment
     await ctx.db.patch(args.enrollmentId, {
@@ -666,8 +832,8 @@ export const unenrollPlayer = mutation({
       updatedAt: Date.now(),
     });
 
-    // Also remove any team assignments for this player in this org
-    // Get all team assignments for this player
+    // Also remove any team assignments for this player in THIS org only
+    // Query by playerIdentityId and filter to matching org to avoid cross-org damage
     const teamAssignments = await ctx.db
       .query("teamPlayerIdentities")
       .withIndex("by_playerIdentityId", (q) =>
@@ -675,15 +841,25 @@ export const unenrollPlayer = mutation({
       )
       .collect();
 
-    // Delete team assignments (they can be recreated if player re-enrolls)
+    // Only deactivate assignments belonging to the same org as the enrollment
     for (const assignment of teamAssignments) {
-      // Only delete if assignment is for same org (check via team)
-      // For now, delete all assignments - player is being removed from org
-      await ctx.db.patch(assignment._id, {
-        status: "inactive",
-        updatedAt: Date.now(),
-      });
+      if (
+        assignment.organizationId === existing.organizationId &&
+        assignment.status === "active"
+      ) {
+        await ctx.db.patch(assignment._id, {
+          status: "inactive",
+          updatedAt: Date.now(),
+        });
+      }
     }
+
+    // Cascade: archive passports, revoke shares, decline requests, disable grants
+    await cascadeCleanupForOrg(
+      ctx,
+      existing.playerIdentityId,
+      existing.organizationId
+    );
 
     return null;
   },
@@ -1196,6 +1372,8 @@ export const markReviewComplete = mutation({
     nextReviewDue: v.string(),
   }),
   handler: async (ctx, args) => {
+    await requireAuthAndOrg(ctx, args.organizationId);
+
     // Find the enrollment
     const enrollment = await ctx.db
       .query("orgPlayerEnrollments")

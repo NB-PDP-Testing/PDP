@@ -1,5 +1,6 @@
 import { v } from "convex/values";
 import { internalQuery, mutation, query } from "../_generated/server";
+import { requireAuth } from "../lib/authHelpers";
 
 // ============================================================
 // TYPE DEFINITIONS
@@ -135,7 +136,7 @@ export const getPlayerForCurrentUser = query({
 });
 
 /**
- * Search players by name (partial match)
+ * Search players by name (uses search index for efficient partial matching)
  */
 export const searchPlayersByName = query({
   args: {
@@ -146,38 +147,37 @@ export const searchPlayersByName = query({
   returns: v.array(playerIdentityValidator),
   handler: async (ctx, args) => {
     const limit = args.limit ?? 20;
+    const firstName = args.firstName?.trim();
+    const lastName = args.lastName?.trim();
 
-    // If we have both names, use the composite index
-    if (args.firstName && args.lastName) {
-      // Note: This won't work as partial match, just exact
-      // For partial matching, we'd need a search index
-      const firstName = args.firstName.trim();
-      const lastName = args.lastName.trim();
-      const players = await ctx.db
+    // If both names provided, use exact composite index
+    if (firstName && lastName) {
+      return await ctx.db
         .query("playerIdentities")
         .withIndex("by_name_dob", (q) =>
           q.eq("firstName", firstName).eq("lastName", lastName)
         )
         .take(limit);
-      return players;
     }
 
-    // Otherwise, scan and filter (not ideal for large datasets)
-    const all = await ctx.db.query("playerIdentities").take(limit * 10);
-
-    let filtered = all;
-
-    if (args.firstName) {
-      const fn = args.firstName.toLowerCase().trim();
-      filtered = filtered.filter((p) => p.firstName.toLowerCase().includes(fn));
+    // If firstName provided, use search index for partial matching
+    if (firstName) {
+      return await ctx.db
+        .query("playerIdentities")
+        .withSearchIndex("search_name", (q) => q.search("firstName", firstName))
+        .take(limit);
     }
 
-    if (args.lastName) {
-      const ln = args.lastName.toLowerCase().trim();
-      filtered = filtered.filter((p) => p.lastName.toLowerCase().includes(ln));
+    // If only lastName provided, use by_name index for exact lastName prefix match
+    if (lastName) {
+      return await ctx.db
+        .query("playerIdentities")
+        .withIndex("by_lastName", (q) => q.eq("lastName", lastName))
+        .take(limit);
     }
 
-    return filtered.slice(0, limit);
+    // No search terms — return empty
+    return [];
   },
 });
 
@@ -529,6 +529,7 @@ export const createPlayerIdentity = mutation({
   },
   returns: v.id("playerIdentities"),
   handler: async (ctx, args) => {
+    await requireAuth(ctx);
     const now = Date.now();
 
     // Determine player type based on age if not specified
@@ -580,6 +581,9 @@ export const updatePlayerIdentity = mutation({
   },
   returns: v.null(),
   handler: async (ctx, args) => {
+    // Auth: require authenticated user
+    await requireAuth(ctx);
+
     const existing = await ctx.db.get(args.playerIdentityId);
     if (!existing) {
       throw new Error("Player identity not found");

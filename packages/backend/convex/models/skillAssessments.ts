@@ -1,6 +1,7 @@
 import { v } from "convex/values";
 import type { Id } from "../_generated/dataModel";
 import { mutation, query } from "../_generated/server";
+import { requireAuthAndOrg } from "../lib/authHelpers";
 
 // ============================================================
 // TYPE DEFINITIONS
@@ -676,6 +677,9 @@ export const deleteAssessment = mutation({
     if (!existing) {
       throw new Error("Assessment not found");
     }
+
+    // Auth: verify caller is a member of this assessment's organization
+    await requireAuthAndOrg(ctx, existing.organizationId);
 
     await ctx.db.delete(args.assessmentId);
     return null;

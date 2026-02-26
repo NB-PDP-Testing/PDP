@@ -296,10 +296,15 @@ export default defineSchema({
     createdFrom: v.optional(v.string()), // "import", "registration", "manual"
   })
     .index("by_name_dob", ["firstName", "lastName", "dateOfBirth"])
+    .index("by_lastName", ["lastName"])
     .index("by_userId", ["userId"])
     .index("by_email", ["email"])
     .index("by_playerType", ["playerType"])
-    .index("by_importSessionId", ["importSessionId"]),
+    .index("by_importSessionId", ["importSessionId"])
+    .searchIndex("search_name", {
+      searchField: "firstName",
+      filterFields: ["lastName"],
+    }),
 
   // Player Graduations - tracks players who have turned 18 and their graduation status
   playerGraduations: defineTable({

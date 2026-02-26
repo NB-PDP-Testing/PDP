@@ -147,6 +147,7 @@ export const sendGraduationInvite = mutation({
     success: v.boolean(),
     token: v.optional(v.string()),
     error: v.optional(v.string()),
+    existingUser: v.optional(v.boolean()),
   }),
   handler: async (ctx, args) => {
     const identity = await ctx.auth.getUserIdentity();
@@ -196,6 +197,17 @@ export const sendGraduationInvite = mutation({
       return { success: false, error: "No actionable graduation record found" };
     }
 
+    // Check if the email already belongs to an existing user account
+    const normalizedEmail = args.playerEmail.toLowerCase().trim();
+    const existingBaUser = await ctx.runQuery(
+      components.betterAuth.adapter.findOne,
+      {
+        model: "user",
+        where: [{ field: "email", value: normalizedEmail, operator: "eq" }],
+      }
+    );
+    const existingUser = existingBaUser !== null;
+
     const now = Date.now();
     const thirtyDaysMs = 30 * 24 * 60 * 60 * 1000;
 
@@ -215,11 +227,11 @@ export const sendGraduationInvite = mutation({
     // Generate a new secure token
     const token = crypto.randomUUID();
 
-    // Create the claim token record
+    // Create the claim token record (always, so auto-claim on login can work)
     await ctx.db.insert("playerClaimTokens", {
       playerIdentityId: args.playerIdentityId,
       token,
-      email: args.playerEmail.toLowerCase().trim(),
+      email: normalizedEmail,
       createdAt: now,
       expiresAt: now + thirtyDaysMs,
     });
@@ -250,7 +262,7 @@ export const sendGraduationInvite = mutation({
       0,
       internal.actions.graduations.sendGraduationInvitationEmailAction,
       {
-        email: args.playerEmail.toLowerCase().trim(),
+        email: normalizedEmail,
         playerFirstName: player?.firstName ?? "Player",
         organizationName,
         claimToken: token,
@@ -261,7 +273,7 @@ export const sendGraduationInvite = mutation({
       `[graduations] Invitation scheduled for player ${args.playerIdentityId} to ${args.playerEmail}`
     );
 
-    return { success: true, token };
+    return { success: true, token, existingUser: existingUser || undefined };
   },
 });
 
@@ -1135,6 +1147,88 @@ export const verifyClaimPin = mutation({
       attemptsRemaining: maxAttempts - activePin.attemptCount,
       locked: false,
     };
+  },
+});
+
+/**
+ * Automatically link a player identity to the current user based on a pending
+ * claim token for their email address.
+ *
+ * This is used for the "existing account" path where a guardian sends a graduation
+ * invite to an email that already has a PlayerARC account. Rather than going through
+ * the full claim flow, the next time that user logs in this mutation is called
+ * transparently to link the player identity.
+ *
+ * No PIN verification is needed here because:
+ * 1. The guardian explicitly sent the invite to this email
+ * 2. The user is already authenticated (Better Auth session)
+ * 3. The email match proves identity
+ */
+export const autoClaimByEmail = mutation({
+  args: {},
+  returns: v.object({
+    claimed: v.boolean(),
+    playerIdentityId: v.optional(v.id("playerIdentities")),
+  }),
+  handler: async (ctx, _args) => {
+    const identity = await ctx.auth.getUserIdentity();
+    if (!identity?.email) {
+      return { claimed: false };
+    }
+
+    const userEmail = identity.email.toLowerCase().trim();
+    const userId = identity.subject;
+    const now = Date.now();
+
+    // Find pending valid claim tokens for this email
+    const tokens = await ctx.db
+      .query("playerClaimTokens")
+      .withIndex("by_email", (q) => q.eq("email", userEmail))
+      .collect();
+
+    const validToken = tokens.find((t) => !t.usedAt && t.expiresAt > now);
+    if (!validToken) {
+      return { claimed: false };
+    }
+
+    // Get the player identity
+    const player = await ctx.db.get(validToken.playerIdentityId);
+    if (!player) {
+      return { claimed: false };
+    }
+
+    // Check not already claimed by someone else
+    if (player.userId && player.userId !== userId) {
+      return { claimed: false };
+    }
+
+    // Link the player identity to this user
+    await ctx.db.patch(validToken.playerIdentityId, {
+      userId,
+      claimedAt: now,
+      playerType: "adult",
+      updatedAt: now,
+    });
+
+    // Mark token as used
+    await ctx.db.patch(validToken._id, { usedAt: now });
+
+    // Update graduation record if exists
+    const graduation = await ctx.db
+      .query("playerGraduations")
+      .withIndex("by_player", (q) =>
+        q.eq("playerIdentityId", validToken.playerIdentityId)
+      )
+      .first();
+    if (graduation) {
+      await ctx.db.patch(graduation._id, { status: "claimed", claimedAt: now });
+    }
+
+    console.log(
+      `[graduations] Player ${validToken.playerIdentityId} auto-claimed by user ${userId} via email match`
+    );
+
+    return { claimed: true, playerIdentityId: validToken.playerIdentityId };
   },
 });
 

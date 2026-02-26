@@ -28,6 +28,7 @@ const onboardingTaskValidator = v.object({
     v.literal("guardian_claim"),
     v.literal("child_linking"),
     v.literal("player_graduation"),
+    v.literal("player_claim_pending"), // Auto-claim for existing-account graduation path
     v.literal("player_claimed_account"), // Phase 2 - Player welcome step after claiming account
     v.literal("welcome")
   ),
@@ -74,6 +75,7 @@ export const getOnboardingTasks = query({
         | "guardian_claim"
         | "child_linking"
         | "player_graduation"
+        | "player_claim_pending"
         | "player_claimed_account"
         | "welcome";
       priority: number;
@@ -592,6 +594,50 @@ export const getOnboardingTasks = query({
             pendingGraduations,
           },
         });
+      }
+    }
+
+    // =================================================================
+    // Task 4.4: Auto-claim player identity if invite was sent to existing account
+    // Priority 4.4 - Transparently links player history for existing-account users
+    // =================================================================
+    {
+      const pendingTokens = await ctx.db
+        .query("playerClaimTokens")
+        .withIndex("by_email", (q) => q.eq("email", normalizedEmail))
+        .collect();
+
+      const nowForClaim = Date.now();
+      const validToken = pendingTokens.find(
+        (t) => !t.usedAt && t.expiresAt > nowForClaim
+      );
+
+      if (validToken) {
+        const claimPlayer = await ctx.db.get(validToken.playerIdentityId);
+        // Only show task if player not already linked to another user
+        if (
+          claimPlayer &&
+          (!claimPlayer.userId || claimPlayer.userId === userId)
+        ) {
+          const claimEnrollment = await ctx.db
+            .query("orgPlayerEnrollments")
+            .withIndex("by_playerIdentityId", (q) =>
+              q.eq("playerIdentityId", validToken.playerIdentityId)
+            )
+            .first();
+
+          if (claimEnrollment) {
+            tasks.push({
+              type: "player_claim_pending",
+              priority: 4.4,
+              data: {
+                playerIdentityId: validToken.playerIdentityId,
+                playerFirstName: claimPlayer.firstName,
+                organizationId: claimEnrollment.organizationId,
+              },
+            });
+          }
+        }
       }
     }
 

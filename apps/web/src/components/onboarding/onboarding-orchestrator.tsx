@@ -19,6 +19,7 @@ import {
   GuardianPrompt,
   type PendingGraduation,
 } from "@/components/graduation/guardian-prompt";
+import { PlayerClaimPendingStep } from "@/components/graduation/player-claim-pending-step";
 import { Button } from "@/components/ui/button";
 import {
   Dialog,
@@ -49,6 +50,7 @@ type OnboardingTask = {
     | "guardian_claim"
     | "child_linking"
     | "player_graduation"
+    | "player_claim_pending"
     | "player_claimed_account"
     | "welcome";
   priority: number;
@@ -294,6 +296,14 @@ function OnboardingStepRenderer({
         pendingGraduations={data.pendingGraduations}
       />
     );
+  }
+
+  // Handle player_claim_pending — auto-claim player identity for existing-account users
+  // Guardian sent invite to email that already has a PlayerARC account; on next login
+  // this step fires autoClaimByEmail and shows a brief "linking" animation before
+  // proceeding to the player_claimed_account welcome step.
+  if (task.type === "player_claim_pending") {
+    return <PlayerClaimPendingStep onComplete={onComplete} />;
   }
 
   // Handle player_claimed_account task with PlayerGraduationStep (Phase 2 Adult Player)

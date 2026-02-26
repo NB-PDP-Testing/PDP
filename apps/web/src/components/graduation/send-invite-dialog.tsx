@@ -3,7 +3,7 @@
 import { api } from "@pdp/backend/convex/_generated/api";
 import type { Id } from "@pdp/backend/convex/_generated/dataModel";
 import { useMutation } from "convex/react";
-import { Mail } from "lucide-react";
+import { Mail, UserCheck } from "lucide-react";
 import { useState } from "react";
 import { toast } from "sonner";
 import { Button } from "@/components/ui/button";
@@ -36,6 +36,7 @@ export function SendGraduationInviteDialog({
   const [email, setEmail] = useState("");
   const [isSending, setIsSending] = useState(false);
   const [sentSuccessfully, setSentSuccessfully] = useState(false);
+  const [isExistingUser, setIsExistingUser] = useState(false);
   const sendInvite = useMutation(
     api.models.playerGraduations.sendGraduationInvite
   );
@@ -52,9 +53,13 @@ export function SendGraduationInviteDialog({
       });
       if (result.success) {
         setSentSuccessfully(true);
-        toast.success(
-          `Invite sent to ${email.trim()}. Link valid for 30 days.`
-        );
+        if (result.existingUser) {
+          setIsExistingUser(true);
+        } else {
+          toast.success(
+            `Invite sent to ${email.trim()}. Link valid for 30 days.`
+          );
+        }
       } else {
         toast.error(result.error ?? "Failed to send invite. Please try again.");
       }
@@ -69,6 +74,7 @@ export function SendGraduationInviteDialog({
   const handleClose = () => {
     setEmail("");
     setSentSuccessfully(false);
+    setIsExistingUser(false);
     onClose();
   };
 
@@ -85,7 +91,19 @@ export function SendGraduationInviteDialog({
           </DialogDescription>
         </DialogHeader>
 
-        {sentSuccessfully ? (
+        {sentSuccessfully && isExistingUser && (
+          <div className="py-4 text-center">
+            <div className="mx-auto mb-3 flex h-12 w-12 items-center justify-center rounded-full bg-blue-100">
+              <UserCheck className="h-6 w-6 text-blue-600" />
+            </div>
+            <p className="font-medium text-blue-800">Account Found</p>
+            <p className="mt-1 text-muted-foreground text-sm">
+              This person already has a PlayerARC account. Their player history
+              will be linked automatically the next time they log in.
+            </p>
+          </div>
+        )}
+        {sentSuccessfully && !isExistingUser && (
           <div className="py-4 text-center">
             <div className="mx-auto mb-3 flex h-12 w-12 items-center justify-center rounded-full bg-green-100">
               <Mail className="h-6 w-6 text-green-600" />
@@ -96,7 +114,8 @@ export function SendGraduationInviteDialog({
               valid for 30 days.
             </p>
           </div>
-        ) : (
+        )}
+        {!sentSuccessfully && (
           <div className="space-y-4 py-2">
             <div className="space-y-2">
               <Label htmlFor="invite-email">Player&apos;s Email Address</Label>

@@ -359,7 +359,8 @@ export default defineSchema({
     usedAt: v.optional(v.number()), // Set when token is used
   })
     .index("by_token", ["token"])
-    .index("by_player", ["playerIdentityId"]),
+    .index("by_player", ["playerIdentityId"])
+    .index("by_email", ["email"]),
 
   // Verification PINs - short-lived PINs for identity verification (e.g. account claim)
   verificationPins: defineTable({

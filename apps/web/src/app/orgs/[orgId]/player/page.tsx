@@ -137,6 +137,8 @@ export default function PlayerDashboardPage() {
     return values.reduce((a, b) => a + b, 0) / values.length;
   })();
   const hasActiveInjuries = (todayPriorityData?.activeInjuryCount ?? 0) > 0;
+  const hasUnreadFeedback = false; // stub until Phase 5
+  const allClear = wellnessDone && !hasActiveInjuries && !hasUnreadFeedback;
 
   // Format today's date as "Tuesday, 25 Feb"
   const todayFormatted = (() => {
@@ -354,6 +356,18 @@ export default function PlayerDashboardPage() {
             </Card>
           )}
         </div>
+
+        {/* All clear banner — shown when wellness done, no injuries, no unread feedback */}
+        {allClear && (
+          <Card className="border-green-200 bg-green-50">
+            <CardContent className="flex items-center gap-3 pt-4 pb-4">
+              <CheckCircle2 className="h-5 w-5 shrink-0 text-green-600" />
+              <p className="font-medium text-green-800 text-sm">
+                All clear today 🎉 — nothing needs your attention right now.
+              </p>
+            </CardContent>
+          </Card>
+        )}
 
         {/* Mobile: anchor link to full profile */}
         <div className="md:hidden">

@@ -81,6 +81,78 @@ function triggerJsonDownload(
   URL.revokeObjectURL(url);
 }
 
+function toCsv(rows: Record<string, unknown>[]): string {
+  if (rows.length === 0) {
+    return "";
+  }
+  const headers = Object.keys(rows[0]);
+  const lines = [
+    headers.join(","),
+    ...rows.map((row) =>
+      headers
+        .map((h) => {
+          const val = row[h] ?? "";
+          const str = String(val);
+          return str.includes(",") || str.includes('"') || str.includes("\n")
+            ? `"${str.replace(/"/g, '""')}"`
+            : str;
+        })
+        .join(",")
+    ),
+  ];
+  return lines.join("\n");
+}
+
+function triggerCsvDownload(
+  data: Record<string, unknown>,
+  firstName?: string,
+  lastName?: string
+): void {
+  const name = `${firstName ?? "player"}-${lastName ?? "data"}`;
+  const dateStr = new Date().toISOString().split("T")[0];
+
+  // Build one CSV per domain, separated by blank lines and domain headers
+  const domainKeys = [
+    "profile",
+    "emergencyContacts",
+    "passportRatings",
+    "wellnessHistory",
+    "injuries",
+    "coachFeedback",
+    "sharingRecords",
+    "consentRecords",
+    "wellnessCoachAccess",
+  ];
+
+  const sections: string[] = [];
+  for (const key of domainKeys) {
+    const raw = (data as Record<string, unknown>)[key];
+    if (!raw) {
+      continue;
+    }
+    const rows = Array.isArray(raw)
+      ? (raw as Record<string, unknown>[])
+      : [raw as Record<string, unknown>];
+    if (rows.length === 0) {
+      continue;
+    }
+    sections.push(`# ${key}`);
+    sections.push(toCsv(rows));
+    sections.push("");
+  }
+
+  const csv = sections.join("\n");
+  const blob = new Blob([csv], { type: "text/csv" });
+  const url = URL.createObjectURL(blob);
+  const a = document.createElement("a");
+  a.href = url;
+  a.download = `playerarc-data-${name}-${dateStr}.csv`;
+  document.body.appendChild(a);
+  a.click();
+  document.body.removeChild(a);
+  URL.revokeObjectURL(url);
+}
+
 type ExportablePlayer =
   | {
       _id: Id<"playerIdentities">;
@@ -91,7 +163,7 @@ type ExportablePlayer =
   | undefined;
 
 function useGdprExport(playerIdentity: ExportablePlayer, orgId: string) {
-  const [triggered, setTriggered] = useState(false);
+  const [triggered, setTriggered] = useState<"json" | "csv" | false>(false);
 
   const data = useQuery(
     api.models.playerDataExport.assemblePlayerDataExport,
@@ -104,11 +176,19 @@ function useGdprExport(playerIdentity: ExportablePlayer, orgId: string) {
     if (!triggered || data === undefined) {
       return;
     }
-    triggerJsonDownload(
-      data,
-      playerIdentity?.firstName,
-      playerIdentity?.lastName
-    );
+    if (triggered === "csv") {
+      triggerCsvDownload(
+        data as Record<string, unknown>,
+        playerIdentity?.firstName,
+        playerIdentity?.lastName
+      );
+    } else {
+      triggerJsonDownload(
+        data,
+        playerIdentity?.firstName,
+        playerIdentity?.lastName
+      );
+    }
     localStorage.setItem(
       `gdpr_export_${playerIdentity?._id ?? ""}`,
       Date.now().toString()
@@ -117,7 +197,7 @@ function useGdprExport(playerIdentity: ExportablePlayer, orgId: string) {
     toast.success("Data export downloaded successfully");
   }, [triggered, data, playerIdentity]);
 
-  const download = () => {
+  const downloadJson = () => {
     if (!playerIdentity?._id) {
       toast.error("Player identity not found");
       return;
@@ -130,10 +210,26 @@ function useGdprExport(playerIdentity: ExportablePlayer, orgId: string) {
       return;
     }
     toast.info("Preparing your data export...");
-    setTriggered(true);
+    setTriggered("json");
   };
 
-  return { download, isLoading: triggered };
+  const downloadCsv = () => {
+    if (!playerIdentity?._id) {
+      toast.error("Player identity not found");
+      return;
+    }
+    const hoursRemaining = getRateLimitHoursRemaining(playerIdentity._id);
+    if (hoursRemaining > 0) {
+      toast.info(
+        `You already downloaded your data today. You can request another export in ${hoursRemaining} hour${hoursRemaining === 1 ? "" : "s"}.`
+      );
+      return;
+    }
+    toast.info("Preparing your data export...");
+    setTriggered("csv");
+  };
+
+  return { downloadJson, downloadCsv, isLoading: triggered !== false };
 }
 
 // Core dimensions — always active, cannot be individually disabled
@@ -239,8 +335,14 @@ export default function PlayerSettingsPage() {
   const [showRevokeConsentDialog, setShowRevokeConsentDialog] = useState(false);
 
   // GDPR data export — managed by custom hook
-  const { download: handleDownloadJSON, isLoading: exportLoading } =
-    useGdprExport(playerIdentity, orgId);
+  const {
+    downloadJson,
+    downloadCsv,
+    isLoading: exportLoading,
+  } = useGdprExport(playerIdentity, orgId);
+
+  // Export format confirmation dialog
+  const [showExportDialog, setShowExportDialog] = useState(false);
 
   const handleToggle = async (dimensionKey: string, enabled: boolean) => {
     if (!(playerIdentity?._id && wellnessSettings)) {
@@ -549,6 +651,47 @@ export default function PlayerSettingsPage() {
       </Card>
 
       {/* Privacy & Data Card — GDPR Article 20 Data Export */}
+      <AlertDialog
+        onOpenChange={(open) => {
+          if (!open) {
+            setShowExportDialog(false);
+          }
+        }}
+        open={showExportDialog}
+      >
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>Download Your Data</AlertDialogTitle>
+            <AlertDialogDescription>
+              Choose a format to download a copy of all personal data held about
+              you (GDPR Article 20). Your profile, wellness history, injuries,
+              coach feedback, and passport ratings will be included.
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter className="flex-col gap-2 sm:flex-row">
+            <AlertDialogCancel>Cancel</AlertDialogCancel>
+            <Button
+              onClick={() => {
+                setShowExportDialog(false);
+                downloadCsv();
+              }}
+              variant="outline"
+            >
+              <Download className="mr-2 h-3 w-3" />
+              Download CSV
+            </Button>
+            <AlertDialogAction
+              onClick={() => {
+                downloadJson();
+              }}
+            >
+              <Download className="mr-2 h-3 w-3" />
+              Download JSON
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
+
       <Card>
         <CardHeader>
           <CardTitle className="flex items-center gap-2">
@@ -566,12 +709,12 @@ export default function PlayerSettingsPage() {
               <p className="font-medium text-sm">Download My Data</p>
               <p className="text-muted-foreground text-xs">
                 Exports your profile, wellness history, injuries, coach
-                feedback, and passport ratings as a JSON file.
+                feedback, and passport ratings as JSON or CSV.
               </p>
             </div>
             <Button
               disabled={exportLoading}
-              onClick={handleDownloadJSON}
+              onClick={() => setShowExportDialog(true)}
               size="sm"
               variant="outline"
             >

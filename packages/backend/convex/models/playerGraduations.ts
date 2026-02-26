@@ -612,6 +612,26 @@ export const claimPlayerAccount = mutation({
       updatedAt: now,
     });
 
+    // Transfer passport sharing ownership from guardian to the newly-claimed player.
+    // Any sharing consents that were set up by a guardian are now controlled by the
+    // player themselves (grantedByType switches from "guardian" to "self").
+    const existingConsents = await ctx.db
+      .query("passportShareConsents")
+      .withIndex("by_player", (q) =>
+        q.eq("playerIdentityId", claimToken.playerIdentityId)
+      )
+      .collect();
+    await Promise.all(
+      existingConsents
+        .filter((c) => c.grantedByType === "guardian")
+        .map((c) =>
+          ctx.db.patch(c._id, {
+            grantedBy: args.userId,
+            grantedByType: "self",
+          })
+        )
+    );
+
     // TODO: Phase 7 — revoke parent's wellness view access on graduation to adult account.
     // When parentChildAuthorizations table exists, set includeWellnessAccess = false here.
     // See: packages/backend/convex/models/playerHealthChecks.ts getChildWellnessForParent

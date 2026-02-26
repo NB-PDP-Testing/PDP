@@ -16,6 +16,7 @@ import { useParams } from "next/navigation";
 import { useState } from "react";
 import {
   PolarAngleAxis,
+  PolarGrid,
   PolarRadiusAxis,
   Radar,
   RadarChart,
@@ -262,6 +263,7 @@ function RatingsCard({
                 data={radarData}
                 margin={{ bottom: 10, left: 30, right: 30, top: 10 }}
               >
+                <PolarGrid />
                 <PolarAngleAxis dataKey="subject" tick={{ fontSize: 12 }} />
                 <PolarRadiusAxis
                   domain={[0, 10]}

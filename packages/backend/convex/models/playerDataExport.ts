@@ -1,4 +1,5 @@
 import { v } from "convex/values";
+import { components } from "../_generated/api";
 import { query } from "../_generated/server";
 
 // ============================================================
@@ -46,6 +47,23 @@ export const assemblePlayerDataExport = query({
       cycleConsent !== null &&
       cycleConsent !== undefined &&
       !cycleConsent.withdrawnAt;
+
+    // Resolve org name via Better Auth adapter
+    let organizationName: string = args.organizationId;
+    try {
+      const orgResult = await ctx.runQuery(
+        components.betterAuth.adapter.findOne,
+        {
+          model: "organization",
+          where: [{ field: "id", value: args.organizationId, operator: "eq" }],
+        }
+      );
+      if (orgResult && "name" in orgResult) {
+        organizationName = String(orgResult.name);
+      }
+    } catch {
+      // Fall back to ID if lookup fails
+    }
 
     // (1) Profile
     const profile = {
@@ -171,7 +189,7 @@ export const assemblePlayerDataExport = query({
           : undefined,
       }));
 
-    // (7) Passport sharing records
+    // (7) Passport sharing records — resolve org names for human-readable export
     const sharingConsents = await ctx.db
       .query("passportShareConsents")
       .withIndex("by_player", (q) =>
@@ -179,8 +197,32 @@ export const assemblePlayerDataExport = query({
       )
       .collect();
 
+    const uniqueReceivingOrgIds = [
+      ...new Set(sharingConsents.map((s) => s.receivingOrgId)),
+    ];
+    const receivingOrgNames = new Map<string, string>();
+    await Promise.all(
+      uniqueReceivingOrgIds.map(async (orgId) => {
+        try {
+          const orgResult = await ctx.runQuery(
+            components.betterAuth.adapter.findOne,
+            {
+              model: "organization",
+              where: [{ field: "id", value: orgId, operator: "eq" }],
+            }
+          );
+          if (orgResult && "name" in orgResult) {
+            receivingOrgNames.set(orgId, String(orgResult.name));
+          }
+        } catch {
+          // Fall back to ID if lookup fails
+        }
+      })
+    );
+
     const sharingRecords = sharingConsents.map((s) => ({
-      receivingOrgId: s.receivingOrgId,
+      receivingOrgName:
+        receivingOrgNames.get(s.receivingOrgId) ?? s.receivingOrgId,
       status: s.status,
       consentedAt: new Date(s.consentedAt).toISOString(),
       expiresAt: new Date(s.expiresAt).toISOString(),
@@ -226,7 +268,7 @@ export const assemblePlayerDataExport = query({
       metadata: {
         exportedAt: new Date().toISOString(),
         playerName: `${playerIdentity.firstName} ${playerIdentity.lastName}`,
-        organizationId: args.organizationId,
+        organizationName,
         gdprBasis: "Article 20 — Right to Data Portability",
       },
       profile,

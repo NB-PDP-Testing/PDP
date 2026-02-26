@@ -1945,25 +1945,27 @@ export const getCoachFeedbackForPlayer = query({
       visibleStatuses.has(s.status)
     );
 
-    // Fetch coach names in batch via Better Auth adapter
+    // Fetch coach names in parallel via Better Auth adapter (no N+1)
     const coachIds = [...new Set(visibleSummaries.map((s) => s.coachId))];
     const coachNames = new Map<string, string>();
-    for (const coachId of coachIds) {
-      try {
-        const userResult = await ctx.runQuery(
-          components.betterAuth.adapter.findOne,
-          {
-            model: "user",
-            where: [{ field: "_id", value: coachId, operator: "eq" }],
+    await Promise.all(
+      coachIds.map(async (coachId) => {
+        try {
+          const userResult = await ctx.runQuery(
+            components.betterAuth.adapter.findOne,
+            {
+              model: "user",
+              where: [{ field: "_id", value: coachId, operator: "eq" }],
+            }
+          );
+          if (userResult && "name" in userResult) {
+            coachNames.set(coachId, String(userResult.name));
           }
-        );
-        if (userResult && "name" in userResult) {
-          coachNames.set(coachId, String(userResult.name));
+        } catch {
+          // Ignore errors fetching coach name
         }
-      } catch {
-        // Ignore errors fetching coach name
-      }
-    }
+      })
+    );
 
     // Return ONLY publicSummary fields — never privateInsight
     return visibleSummaries.map((s) => ({

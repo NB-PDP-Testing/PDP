@@ -1,4 +1,4 @@
-# Security Report - 2026-02-25 21:45:11
+# Security Report - 2026-02-26 01:22:24
 
 **Phase:** P9
 **Critical:** 2 | **High:** 5 | **Medium:** 0
@@ -12,7 +12,7 @@ apps/web/src/app/api/ai-config/available-models/route.ts:    errors.anthropic = 
 apps/web/src/app/api/ai-config/available-models/route.ts:    errors.openai = "OPENAI_API_KEY not configured";
 apps/web/src/app/api/comparison-insights/route.ts:      console.error("❌ ANTHROPIC_API_KEY not found in environment variables");
 ```
-- ⚠️ **HIGH**: 5 high-severity dependency vulnerabilities
+- ⚠️ **HIGH**: 6 high-severity dependency vulnerabilities
   Run `npm audit fix` to resolve
 - ⚠️ **HIGH**: Mutations without authorization checks:
   - packages/backend/convex/models/platformMessagingSettings.ts

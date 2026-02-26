@@ -9,6 +9,7 @@ import {
   MessageSquare,
   Settings,
   Share2,
+  Target,
   TrendingUp,
   Trophy,
   User,
@@ -53,6 +54,11 @@ export function getPlayerNavItems(orgId: string): NavItem[] {
       href: `/orgs/${orgId}/player/progress`,
       label: "My Progress",
       icon: TrendingUp,
+    },
+    {
+      href: `/orgs/${orgId}/player/goals`,
+      label: "My Goals",
+      icon: Target,
     },
     {
       href: `/orgs/${orgId}/player/teams`,

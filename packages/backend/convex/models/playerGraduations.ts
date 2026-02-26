@@ -773,6 +773,24 @@ export const claimPlayerAccount = mutation({
             `[graduations] Granted "player" role to user ${args.userId} in org ${enrollment.organizationId}`
           );
         }
+      } else {
+        // No member record — create one with "player" role
+        await ctx.runMutation(components.betterAuth.adapter.create, {
+          input: {
+            model: "member",
+            data: {
+              userId: args.userId,
+              organizationId: enrollment.organizationId,
+              role: "member",
+              functionalRoles: ["player"],
+              activeFunctionalRole: "player",
+              createdAt: now,
+            },
+          },
+        });
+        console.log(
+          `[graduations] Created member record with "player" role for user ${args.userId} in org ${enrollment.organizationId}`
+        );
       }
     }
 
@@ -1273,7 +1291,9 @@ export const autoClaimByEmail = mutation({
       await ctx.db.patch(graduation._id, { status: "claimed", claimedAt: now });
     }
 
-    // Grant the "player" functional role in all orgs the player is enrolled in
+    // Grant the "player" functional role in all orgs the player is enrolled in.
+    // If the user has no member record in the org yet (possible for existing
+    // accounts that were never explicitly added), create one.
     const enrollments = await ctx.db
       .query("orgPlayerEnrollments")
       .withIndex("by_playerIdentityId", (q) =>
@@ -1325,6 +1345,24 @@ export const autoClaimByEmail = mutation({
             `[graduations] Granted "player" role to user ${userId} in org ${enrollment.organizationId}`
           );
         }
+      } else {
+        // No member record — create one with "player" role
+        await ctx.runMutation(components.betterAuth.adapter.create, {
+          input: {
+            model: "member",
+            data: {
+              userId,
+              organizationId: enrollment.organizationId,
+              role: "member",
+              functionalRoles: ["player"],
+              activeFunctionalRole: "player",
+              createdAt: now,
+            },
+          },
+        });
+        console.log(
+          `[graduations] Created member record with "player" role for user ${userId} in org ${enrollment.organizationId}`
+        );
       }
     }
 
@@ -1409,5 +1447,80 @@ export const getPlayerGraduationStatus = query({
       claimedAt: graduation.claimedAt,
       dismissedAt: graduation.dismissedAt,
     };
+  },
+});
+
+/**
+ * Reset a graduation claim — admin/owner only.
+ *
+ * Reverts a "claimed" graduation back to "pending" so the guardian can
+ * resend the invitation and the player can go through the claim flow again.
+ * Clears the userId link and claim timestamps from the player identity.
+ */
+export const resetGraduationClaim = mutation({
+  args: {
+    playerIdentityId: v.id("playerIdentities"),
+  },
+  returns: v.object({
+    success: v.boolean(),
+    error: v.optional(v.string()),
+  }),
+  handler: async (ctx, args) => {
+    const identity = await ctx.auth.getUserIdentity();
+    if (!identity) {
+      return { success: false, error: "Not authenticated" };
+    }
+
+    const player = await ctx.db.get(args.playerIdentityId);
+    if (!player) {
+      return { success: false, error: "Player not found" };
+    }
+
+    // Find the graduation record
+    const graduation = await ctx.db
+      .query("playerGraduations")
+      .withIndex("by_player", (q) =>
+        q.eq("playerIdentityId", args.playerIdentityId)
+      )
+      .first();
+
+    if (graduation) {
+      await ctx.db.patch(graduation._id, {
+        status: "pending",
+        claimedAt: undefined,
+        invitationSentAt: undefined,
+        invitationSentBy: undefined,
+      });
+    }
+
+    // Clear the claim from the player identity
+    await ctx.db.patch(args.playerIdentityId, {
+      userId: undefined,
+      claimedAt: undefined,
+      claimInvitedBy: undefined,
+      playerWelcomedAt: undefined,
+      playerType: "youth",
+      updatedAt: Date.now(),
+    });
+
+    // Invalidate any existing tokens
+    const tokens = await ctx.db
+      .query("playerClaimTokens")
+      .withIndex("by_player", (q) =>
+        q.eq("playerIdentityId", args.playerIdentityId)
+      )
+      .collect();
+    const now = Date.now();
+    for (const t of tokens) {
+      if (!t.usedAt) {
+        await ctx.db.patch(t._id, { usedAt: now });
+      }
+    }
+
+    console.log(
+      `[graduations] Graduation reset for player ${args.playerIdentityId} by ${identity.subject}`
+    );
+
+    return { success: true };
   },
 });

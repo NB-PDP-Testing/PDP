@@ -1,13 +1,14 @@
 "use client";
 
-import { zodResolver } from "@hookform/resolvers/zod";
 import { api } from "@pdp/backend/convex/_generated/api";
 import { useMutation, useQuery } from "convex/react";
-import { Loader2, Lock, User } from "lucide-react";
-import { useEffect } from "react";
-import { useForm } from "react-hook-form";
+import type { CountryCode } from "libphonenumber-js";
+import { parsePhoneNumber } from "libphonenumber-js";
+import { Loader2, MapPin, User } from "lucide-react";
+import { useEffect, useState } from "react";
 import { toast } from "sonner";
-import { z } from "zod";
+import { Alert, AlertDescription } from "@/components/ui/alert";
+import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import {
   Card,
@@ -18,104 +19,167 @@ import {
 } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
+import { PhoneInput } from "@/components/ui/phone-input";
+import {
+  Select,
+  SelectContent,
+  SelectGroup,
+  SelectItem,
+  SelectLabel,
+  SelectSeparator,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select";
 import { Separator } from "@/components/ui/separator";
 import { Skeleton } from "@/components/ui/skeleton";
+import { useCurrentUser } from "@/hooks/use-current-user";
 import {
-  Tooltip,
-  TooltipContent,
-  TooltipProvider,
-  TooltipTrigger,
-} from "@/components/ui/tooltip";
+  ALL_COUNTRIES,
+  getCountyOptions,
+  IRISH_COUNTIES,
+  TOP_COUNTRIES,
+  US_STATES,
+} from "@/lib/constants/address-data";
 import { EmergencyContactsSection } from "../../players/[playerId]/components/emergency-contacts-section";
-
-const profileSchema = z.object({
-  email: z.string().email("Invalid email address").or(z.literal("")),
-  phone: z.string().max(30, "Phone too long"),
-  address: z.string().max(200, "Address too long"),
-  town: z.string().max(100, "Town too long"),
-  postcode: z.string().max(20, "Postcode too long"),
-  country: z.string().max(100, "Country too long"),
-});
-
-type ProfileFormData = z.infer<typeof profileSchema>;
-
-function ReadOnlyField({
-  label,
-  value,
-}: {
-  label: string;
-  value: string | undefined;
-}) {
-  return (
-    <div className="space-y-1.5">
-      <div className="flex items-center gap-1.5">
-        <Label className="text-muted-foreground">{label}</Label>
-        <TooltipProvider>
-          <Tooltip>
-            <TooltipTrigger asChild>
-              <Lock className="h-3 w-3 text-muted-foreground" />
-            </TooltipTrigger>
-            <TooltipContent>
-              <p>Contact your admin to change</p>
-            </TooltipContent>
-          </Tooltip>
-        </TooltipProvider>
-      </div>
-      <Input disabled value={value ?? ""} />
-    </div>
-  );
-}
 
 export default function PlayerProfilePage() {
   const profile = useQuery(api.models.adultPlayers.getMyPlayerProfile);
   const updateProfile = useMutation(api.models.adultPlayers.updateMyProfile);
 
-  const {
-    register,
-    handleSubmit,
-    reset,
-    formState: { errors, isSubmitting },
-  } = useForm<ProfileFormData>({
-    resolver: zodResolver(profileSchema),
-    defaultValues: {
-      email: "",
-      phone: "",
-      address: "",
-      town: "",
-      postcode: "",
-      country: "",
-    },
-  });
+  const currentUser = useCurrentUser();
+  const authMethod = useQuery(
+    api.models.users.getUserAuthMethod,
+    currentUser?._id ? { userId: currentUser._id } : "skip"
+  );
+
+  const isOAuthUser = authMethod?.hasOAuthAccount ?? false;
+  const oauthProvider = authMethod?.oauthProvider;
+  const canEditName = !isOAuthUser;
+
+  // Form state — Personal Information
+  const [firstName, setFirstName] = useState("");
+  const [lastName, setLastName] = useState("");
+  const [phone, setPhone] = useState("");
+
+  // Form state — Address
+  const [address, setAddress] = useState("");
+  const [address2, setAddress2] = useState("");
+  const [town, setTown] = useState("");
+  const [county, setCounty] = useState("");
+  const [postcode, setPostcode] = useState("");
+  const [country, setCountry] = useState("");
+  const [isCountyOther, setIsCountyOther] = useState(false);
+
+  const [isSaving, setIsSaving] = useState(false);
+  const [errors, setErrors] = useState<{
+    firstName?: string;
+    lastName?: string;
+    phone?: string;
+  }>({});
 
   // Populate form when profile loads
   useEffect(() => {
     if (profile?.player) {
-      reset({
-        email: profile.player.email ?? "",
-        phone: profile.player.phone ?? "",
-        address: profile.player.address ?? "",
-        town: profile.player.town ?? "",
-        postcode: profile.player.postcode ?? "",
-        country: profile.player.country ?? "",
-      });
+      const p = profile.player;
+      const rawPhone = p.phone ?? "";
+      let normalizedPhone = "";
+      if (rawPhone) {
+        normalizedPhone = rawPhone.startsWith("+") ? rawPhone : `+${rawPhone}`;
+      }
+      setFirstName(p.firstName ?? "");
+      setLastName(p.lastName ?? "");
+      setPhone(normalizedPhone);
+      setAddress(p.address ?? "");
+      setAddress2(p.address2 ?? "");
+      setTown(p.town ?? "");
+      setCounty(p.county ?? "");
+      setPostcode(p.postcode ?? "");
+      setCountry(p.country ?? "");
+      setIsCountyOther(false);
     }
-  }, [profile, reset]);
+  }, [profile]);
 
-  const onSubmit = async (data: ProfileFormData) => {
+  const validate = (): boolean => {
+    const newErrors: typeof errors = {};
+
+    if (canEditName) {
+      if (firstName.length < 2 || firstName.length > 50) {
+        newErrors.firstName = "First name must be between 2 and 50 characters";
+      }
+      if (lastName.length < 2 || lastName.length > 50) {
+        newErrors.lastName = "Last name must be between 2 and 50 characters";
+      }
+    }
+
+    if (phone.length > 0) {
+      try {
+        const phoneNumber = parsePhoneNumber(phone);
+        if (phoneNumber?.isValid()) {
+          const type = phoneNumber.getType();
+          if (type === "FIXED_LINE") {
+            newErrors.phone =
+              "Please enter a mobile number. Landlines cannot receive WhatsApp messages or SMS.";
+          }
+        } else {
+          newErrors.phone = "Please enter a valid phone number";
+        }
+      } catch {
+        newErrors.phone = "Please enter a valid phone number";
+      }
+    }
+
+    setErrors(newErrors);
+    return Object.keys(newErrors).length === 0;
+  };
+
+  const countyOptions = getCountyOptions(country);
+  const showCountyDropdown = countyOptions && !isCountyOther;
+
+  const handleCountryChange = (value: string) => {
+    setCountry(value);
+    setCounty("");
+    setIsCountyOther(false);
+  };
+
+  const handleCountySelectChange = (value: string) => {
+    if (value === "__other__") {
+      setIsCountyOther(true);
+      setCounty("");
+    } else {
+      setCounty(value);
+    }
+  };
+
+  const otherCountries = ALL_COUNTRIES.filter(
+    (c) => !TOP_COUNTRIES.some((tc) => tc.code === c.code)
+  );
+
+  const handleSave = async () => {
+    if (!validate()) {
+      toast.error("Please fix validation errors");
+      return;
+    }
+
+    setIsSaving(true);
     try {
       await updateProfile({
-        email: data.email || undefined,
-        phone: data.phone || undefined,
-        address: data.address || undefined,
-        town: data.town || undefined,
-        postcode: data.postcode || undefined,
-        country: data.country || undefined,
+        firstName: canEditName ? firstName.trim() || undefined : undefined,
+        lastName: canEditName ? lastName.trim() || undefined : undefined,
+        phone: phone.trim() || undefined,
+        address: address.trim() || undefined,
+        address2: address2.trim() || undefined,
+        town: town.trim() || undefined,
+        county: county.trim() || undefined,
+        postcode: postcode.trim() || undefined,
+        country: country || undefined,
       });
-      toast.success("Profile updated");
+      toast.success("Profile updated successfully");
     } catch (error) {
-      toast.error("Failed to update profile", {
-        description: error instanceof Error ? error.message : "Unknown error",
-      });
+      toast.error(
+        error instanceof Error ? error.message : "Failed to update profile"
+      );
+    } finally {
+      setIsSaving(false);
     }
   };
 
@@ -157,7 +221,22 @@ export default function PlayerProfilePage() {
         </p>
       </div>
 
-      {/* Personal Details Card */}
+      {/* OAuth info */}
+      {isOAuthUser && oauthProvider && (
+        <Alert>
+          <AlertDescription>
+            Your name is managed by{" "}
+            <strong>
+              {oauthProvider === "google" ? "Google" : "Microsoft"}
+            </strong>
+            . To update your name, please edit your{" "}
+            {oauthProvider === "google" ? "Google" : "Microsoft"} account
+            settings.
+          </AlertDescription>
+        </Alert>
+      )}
+
+      {/* Personal Details */}
       <Card>
         <CardHeader>
           <CardTitle className="flex items-center gap-2">
@@ -165,138 +244,305 @@ export default function PlayerProfilePage() {
             Personal Details
           </CardTitle>
           <CardDescription>
-            Update your contact information. Fields with a lock icon can only be
-            changed by an admin.
+            Your contact information for club records.
           </CardDescription>
         </CardHeader>
-        <CardContent>
-          <form className="space-y-6" onSubmit={handleSubmit(onSubmit)}>
-            {/* Read-only identity fields */}
-            <div className="grid gap-4 sm:grid-cols-2">
-              <ReadOnlyField label="First Name" value={player.firstName} />
-              <ReadOnlyField label="Last Name" value={player.lastName} />
+        <CardContent className="space-y-4">
+          {/* First Name */}
+          <div className="space-y-2">
+            <div className="flex items-center gap-2">
+              <Label htmlFor="firstName">
+                First Name <span className="text-destructive">*</span>
+              </Label>
+              {isOAuthUser && oauthProvider && (
+                <Badge className="text-xs" variant="secondary">
+                  Synced from{" "}
+                  {oauthProvider === "google" ? "Google" : "Microsoft"}
+                </Badge>
+              )}
             </div>
+            <Input
+              className={canEditName ? "" : "cursor-not-allowed bg-muted"}
+              disabled={!canEditName}
+              id="firstName"
+              onChange={(e) => {
+                setFirstName(e.target.value);
+                setErrors({ ...errors, firstName: undefined });
+              }}
+              placeholder="Enter your first name"
+              value={firstName}
+            />
+            {errors.firstName && (
+              <p className="text-destructive text-sm">{errors.firstName}</p>
+            )}
+          </div>
 
-            <div className="grid gap-4 sm:grid-cols-2">
-              <ReadOnlyField
-                label="Date of Birth"
+          {/* Last Name */}
+          <div className="space-y-2">
+            <div className="flex items-center gap-2">
+              <Label htmlFor="lastName">
+                Last Name <span className="text-destructive">*</span>
+              </Label>
+              {isOAuthUser && oauthProvider && (
+                <Badge className="text-xs" variant="secondary">
+                  Synced from{" "}
+                  {oauthProvider === "google" ? "Google" : "Microsoft"}
+                </Badge>
+              )}
+            </div>
+            <Input
+              className={canEditName ? "" : "cursor-not-allowed bg-muted"}
+              disabled={!canEditName}
+              id="lastName"
+              onChange={(e) => {
+                setLastName(e.target.value);
+                setErrors({ ...errors, lastName: undefined });
+              }}
+              placeholder="Enter your last name"
+              value={lastName}
+            />
+            {errors.lastName && (
+              <p className="text-destructive text-sm">{errors.lastName}</p>
+            )}
+          </div>
+
+          {/* Phone */}
+          <div className="space-y-2">
+            <Label htmlFor="phone">
+              Mobile Number <span className="text-destructive">*</span>
+            </Label>
+            <PhoneInput
+              countries={["IE", "GB", "US"] as CountryCode[]}
+              defaultCountry={"IE" as CountryCode}
+              id="phone"
+              onChange={(value) => {
+                setPhone(value || "");
+                setErrors({ ...errors, phone: undefined });
+              }}
+              placeholder="Enter mobile number"
+              value={phone}
+            />
+            <p className="text-muted-foreground text-xs">
+              Used for WhatsApp messages and SMS notifications. Must be a mobile
+              number.
+            </p>
+            {errors.phone && (
+              <p className="text-destructive text-sm">{errors.phone}</p>
+            )}
+          </div>
+
+          <Separator />
+
+          {/* Read-only identity fields */}
+          <div className="grid gap-4 sm:grid-cols-2">
+            <div className="space-y-2">
+              <Label className="text-muted-foreground">Date of Birth</Label>
+              <Input
+                className="cursor-not-allowed bg-muted"
+                disabled
                 value={
                   player.dateOfBirth
                     ? new Date(player.dateOfBirth).toLocaleDateString("en-GB")
-                    : undefined
+                    : ""
                 }
               />
-              <ReadOnlyField
-                label="Gender"
+            </div>
+            <div className="space-y-2">
+              <Label className="text-muted-foreground">Gender</Label>
+              <Input
+                className="cursor-not-allowed bg-muted"
+                disabled
                 value={
                   player.gender
                     ? player.gender.charAt(0).toUpperCase() +
                       player.gender.slice(1)
-                    : undefined
+                    : ""
                 }
               />
             </div>
+          </div>
 
-            <Separator />
-
-            {/* Editable contact fields */}
-            <div className="space-y-1.5">
-              <Label htmlFor="email">Email</Label>
-              <Input
-                id="email"
-                placeholder="your@email.com"
-                type="email"
-                {...register("email")}
-              />
-              {errors.email && (
-                <p className="text-destructive text-xs">
-                  {errors.email.message}
-                </p>
-              )}
-            </div>
-
-            <div className="space-y-1.5">
-              <Label htmlFor="phone">Phone</Label>
-              <Input
-                id="phone"
-                placeholder="087 123 4567"
-                type="tel"
-                {...register("phone")}
-              />
-              {errors.phone && (
-                <p className="text-destructive text-xs">
-                  {errors.phone.message}
-                </p>
-              )}
-            </div>
-
-            <div className="space-y-1.5">
-              <Label htmlFor="address">Address</Label>
-              <Input
-                id="address"
-                placeholder="123 Main Street"
-                {...register("address")}
-              />
-              {errors.address && (
-                <p className="text-destructive text-xs">
-                  {errors.address.message}
-                </p>
-              )}
-            </div>
-
-            <div className="grid gap-4 sm:grid-cols-2">
-              <div className="space-y-1.5">
-                <Label htmlFor="town">Town / City</Label>
-                <Input id="town" placeholder="Dublin" {...register("town")} />
-                {errors.town && (
-                  <p className="text-destructive text-xs">
-                    {errors.town.message}
-                  </p>
-                )}
-              </div>
-
-              <div className="space-y-1.5">
-                <Label htmlFor="postcode">Postcode / Eircode</Label>
-                <Input
-                  id="postcode"
-                  placeholder="D01 AB12"
-                  {...register("postcode")}
-                />
-                {errors.postcode && (
-                  <p className="text-destructive text-xs">
-                    {errors.postcode.message}
-                  </p>
-                )}
-              </div>
-            </div>
-
-            <div className="space-y-1.5">
-              <Label htmlFor="country">Country</Label>
-              <Input
-                id="country"
-                placeholder="Ireland"
-                {...register("country")}
-              />
-              {errors.country && (
-                <p className="text-destructive text-xs">
-                  {errors.country.message}
-                </p>
-              )}
-            </div>
-
-            <Button
-              className="w-full sm:w-auto"
-              disabled={isSubmitting}
-              type="submit"
-            >
-              {isSubmitting && (
-                <Loader2 className="mr-2 h-4 w-4 animate-spin" />
-              )}
-              Save Changes
-            </Button>
-          </form>
+          {/* Email (read-only — login credential) */}
+          <div className="space-y-2">
+            <Label className="text-muted-foreground">Email Address</Label>
+            <Input
+              className="cursor-not-allowed bg-muted"
+              disabled
+              value={player.email ?? ""}
+            />
+            <p className="text-muted-foreground text-xs">
+              Email is your login username and cannot be changed here.
+            </p>
+          </div>
         </CardContent>
       </Card>
+
+      {/* Address */}
+      <Card>
+        <CardHeader>
+          <div className="flex items-center gap-2">
+            <MapPin className="h-5 w-5 text-muted-foreground" />
+            <div>
+              <CardTitle>Address</CardTitle>
+              <CardDescription>
+                Your home address for club records.
+              </CardDescription>
+            </div>
+          </div>
+        </CardHeader>
+        <CardContent className="space-y-4">
+          <div className="space-y-2">
+            <Label htmlFor="address">Street Address</Label>
+            <Input
+              id="address"
+              onChange={(e) => setAddress(e.target.value)}
+              placeholder="123 Main Street"
+              value={address}
+            />
+          </div>
+
+          <div className="space-y-2">
+            <Label htmlFor="address2">Address Line 2</Label>
+            <Input
+              id="address2"
+              onChange={(e) => setAddress2(e.target.value)}
+              placeholder="Apartment, unit, building, etc."
+              value={address2}
+            />
+          </div>
+
+          <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
+            <div className="space-y-2">
+              <Label htmlFor="town">Town / City</Label>
+              <Input
+                id="town"
+                onChange={(e) => setTown(e.target.value)}
+                placeholder="Dublin"
+                value={town}
+              />
+            </div>
+            <div className="space-y-2">
+              <Label htmlFor="postcode">
+                Postcode / Eircode <span className="text-destructive">*</span>
+              </Label>
+              <Input
+                id="postcode"
+                onChange={(e) => setPostcode(e.target.value.toUpperCase())}
+                placeholder="D02 XY45"
+                value={postcode}
+              />
+            </div>
+          </div>
+
+          <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
+            {/* County / State */}
+            <div className="space-y-2">
+              <Label htmlFor="county">
+                {country === "US" ? "State" : "County"}
+              </Label>
+              {showCountyDropdown ? (
+                <Select onValueChange={handleCountySelectChange} value={county}>
+                  <SelectTrigger className="w-full">
+                    <SelectValue
+                      placeholder={
+                        country === "US" ? "Select state" : "Select county"
+                      }
+                    />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectGroup>
+                      {country === "IE" && (
+                        <>
+                          <SelectLabel>Irish Counties</SelectLabel>
+                          {IRISH_COUNTIES.map((c) => (
+                            <SelectItem key={c} value={c}>
+                              {c}
+                            </SelectItem>
+                          ))}
+                        </>
+                      )}
+                      {country === "US" && (
+                        <>
+                          <SelectLabel>US States</SelectLabel>
+                          {US_STATES.map((s) => (
+                            <SelectItem key={s} value={s}>
+                              {s}
+                            </SelectItem>
+                          ))}
+                        </>
+                      )}
+                      <SelectSeparator />
+                      <SelectItem value="__other__">
+                        Other (enter manually)
+                      </SelectItem>
+                    </SelectGroup>
+                  </SelectContent>
+                </Select>
+              ) : (
+                <Input
+                  id="county"
+                  onChange={(e) => setCounty(e.target.value)}
+                  placeholder={
+                    country === "US" ? "Enter state" : "Enter county/region"
+                  }
+                  value={county}
+                />
+              )}
+              {isCountyOther && countyOptions && (
+                <button
+                  className="text-primary text-xs hover:underline"
+                  onClick={() => {
+                    setIsCountyOther(false);
+                    setCounty("");
+                  }}
+                  type="button"
+                >
+                  Back to dropdown
+                </button>
+              )}
+            </div>
+
+            {/* Country */}
+            <div className="space-y-2">
+              <Label htmlFor="country">Country</Label>
+              <Select onValueChange={handleCountryChange} value={country}>
+                <SelectTrigger className="w-full">
+                  <SelectValue placeholder="Select country" />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectGroup>
+                    <SelectLabel>Common</SelectLabel>
+                    {TOP_COUNTRIES.map((c) => (
+                      <SelectItem key={c.code} value={c.code}>
+                        {c.name}
+                      </SelectItem>
+                    ))}
+                  </SelectGroup>
+                  <SelectSeparator />
+                  <SelectGroup>
+                    <SelectLabel>All Countries</SelectLabel>
+                    {otherCountries.map((c) => (
+                      <SelectItem key={c.code} value={c.code}>
+                        {c.name}
+                      </SelectItem>
+                    ))}
+                  </SelectGroup>
+                </SelectContent>
+              </Select>
+            </div>
+          </div>
+        </CardContent>
+      </Card>
+
+      {/* Save */}
+      <Button
+        className="w-full sm:w-auto"
+        disabled={isSaving}
+        onClick={handleSave}
+      >
+        {isSaving && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
+        Save Changes
+      </Button>
 
       {/* Emergency Contacts */}
       <EmergencyContactsSection

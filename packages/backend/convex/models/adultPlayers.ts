@@ -1,5 +1,9 @@
 import { v } from "convex/values";
+import { components } from "../_generated/api";
 import { internalMutation, mutation, query } from "../_generated/server";
+import { authComponent } from "../auth";
+import { normalizePostcode } from "../lib/matching/guardianMatcher";
+import { normalizePhoneNumber } from "../lib/phoneUtils";
 import { calculateAge } from "./playerIdentities";
 
 // ============================================================
@@ -32,7 +36,9 @@ const playerIdentityValidator = v.object({
   email: v.optional(v.string()),
   phone: v.optional(v.string()),
   address: v.optional(v.string()),
+  address2: v.optional(v.string()),
   town: v.optional(v.string()),
+  county: v.optional(v.string()),
   postcode: v.optional(v.string()),
   country: v.optional(v.string()),
   verificationStatus: verificationStatusValidator,
@@ -306,29 +312,30 @@ export const transitionToAdult = mutation({
 });
 
 /**
- * Update adult player's own profile
+ * Update adult player's own profile — bidirectional sync with Better Auth user record
  */
 export const updateMyProfile = mutation({
   args: {
-    email: v.optional(v.string()),
+    firstName: v.optional(v.string()),
+    lastName: v.optional(v.string()),
     phone: v.optional(v.string()),
     address: v.optional(v.string()),
+    address2: v.optional(v.string()),
     town: v.optional(v.string()),
+    county: v.optional(v.string()),
     postcode: v.optional(v.string()),
     country: v.optional(v.string()),
   },
   returns: v.null(),
   handler: async (ctx, args) => {
-    const identity = await ctx.auth.getUserIdentity();
-    if (!identity) {
+    const user = await authComponent.safeGetAuthUser(ctx);
+    if (!user) {
       throw new Error("Not authenticated");
     }
 
-    const userId = identity.subject;
-
     const player = await ctx.db
       .query("playerIdentities")
-      .withIndex("by_userId", (q) => q.eq("userId", userId))
+      .withIndex("by_userId", (q) => q.eq("userId", user._id))
       .first();
 
     if (!player) {
@@ -339,30 +346,94 @@ export const updateMyProfile = mutation({
       throw new Error("Only adult players can update their own profile");
     }
 
-    const updates: Record<string, unknown> = {
-      updatedAt: Date.now(),
-    };
+    const normalizedPhone = args.phone
+      ? normalizePhoneNumber(args.phone)
+      : undefined;
+    const normalizedPostcode = args.postcode
+      ? normalizePostcode(args.postcode)
+      : undefined;
 
-    if (args.email !== undefined) {
-      updates.email = args.email.toLowerCase().trim();
+    // Build playerIdentity updates
+    const playerUpdates: Record<string, unknown> = { updatedAt: Date.now() };
+    if (args.firstName !== undefined) {
+      playerUpdates.firstName = args.firstName.trim();
     }
-    if (args.phone !== undefined) {
-      updates.phone = args.phone.trim();
+    if (args.lastName !== undefined) {
+      playerUpdates.lastName = args.lastName.trim();
+    }
+    if (normalizedPhone !== undefined) {
+      playerUpdates.phone = normalizedPhone;
     }
     if (args.address !== undefined) {
-      updates.address = args.address.trim();
+      playerUpdates.address = args.address.trim();
+    }
+    if (args.address2 !== undefined) {
+      playerUpdates.address2 = args.address2.trim();
     }
     if (args.town !== undefined) {
-      updates.town = args.town.trim();
+      playerUpdates.town = args.town.trim();
     }
-    if (args.postcode !== undefined) {
-      updates.postcode = args.postcode.trim();
+    if (args.county !== undefined) {
+      playerUpdates.county = args.county.trim();
+    }
+    if (normalizedPostcode !== undefined) {
+      playerUpdates.postcode = normalizedPostcode;
     }
     if (args.country !== undefined) {
-      updates.country = args.country.trim();
+      playerUpdates.country = args.country.trim();
     }
 
-    await ctx.db.patch(player._id, updates);
+    await ctx.db.patch(player._id, playerUpdates);
+
+    // Sync to Better Auth user record
+    const userUpdates: Record<string, unknown> = { updatedAt: Date.now() };
+    if (args.firstName !== undefined) {
+      userUpdates.firstName = args.firstName.trim();
+    }
+    if (args.lastName !== undefined) {
+      userUpdates.lastName = args.lastName.trim();
+    }
+    if (args.firstName !== undefined || args.lastName !== undefined) {
+      const newFirst =
+        args.firstName?.trim() ??
+        (user as Record<string, unknown>).firstName ??
+        "";
+      const newLast =
+        args.lastName?.trim() ??
+        (user as Record<string, unknown>).lastName ??
+        "";
+      userUpdates.name = `${newFirst} ${newLast}`.trim();
+    }
+    if (normalizedPhone !== undefined) {
+      userUpdates.phone = normalizedPhone;
+    }
+    if (args.address !== undefined) {
+      userUpdates.address = args.address.trim();
+    }
+    if (args.address2 !== undefined) {
+      userUpdates.address2 = args.address2.trim();
+    }
+    if (args.town !== undefined) {
+      userUpdates.town = args.town.trim();
+    }
+    if (args.county !== undefined) {
+      userUpdates.county = args.county.trim();
+    }
+    if (normalizedPostcode !== undefined) {
+      userUpdates.postcode = normalizedPostcode;
+    }
+    if (args.country !== undefined) {
+      userUpdates.country = args.country.trim();
+    }
+
+    await ctx.runMutation(components.betterAuth.adapter.updateOne, {
+      input: {
+        model: "user",
+        where: [{ field: "_id", value: user._id, operator: "eq" }],
+        update: userUpdates,
+      },
+    });
+
     return null;
   },
 });

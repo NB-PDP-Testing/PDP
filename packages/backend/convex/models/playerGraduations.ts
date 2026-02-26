@@ -612,6 +612,43 @@ export const claimPlayerAccount = mutation({
       updatedAt: now,
     });
 
+    // Sync Better Auth user contact fields into playerIdentity (initial golden record sync)
+    const betterAuthUser = await ctx.runQuery(
+      components.betterAuth.userFunctions.getUserByStringId,
+      { userId: args.userId }
+    );
+    if (betterAuthUser) {
+      const syncUpdates: Record<string, string | number | undefined> = {
+        updatedAt: now,
+      };
+      const u = betterAuthUser as Record<string, unknown>;
+      if (typeof u.phone === "string" && u.phone) {
+        syncUpdates.phone = u.phone;
+      }
+      if (typeof u.address === "string" && u.address) {
+        syncUpdates.address = u.address;
+      }
+      if (typeof u.address2 === "string" && u.address2) {
+        syncUpdates.address2 = u.address2;
+      }
+      if (typeof u.town === "string" && u.town) {
+        syncUpdates.town = u.town;
+      }
+      if (typeof u.county === "string" && u.county) {
+        syncUpdates.county = u.county;
+      }
+      if (typeof u.postcode === "string" && u.postcode) {
+        syncUpdates.postcode = u.postcode;
+      }
+      if (typeof u.country === "string" && u.country) {
+        syncUpdates.country = u.country;
+      }
+      if (typeof u.email === "string" && u.email) {
+        syncUpdates.email = u.email;
+      }
+      await ctx.db.patch(claimToken.playerIdentityId, syncUpdates);
+    }
+
     // Transfer passport sharing ownership from guardian to the newly-claimed player.
     // Any sharing consents that were set up by a guardian are now controlled by the
     // player themselves (grantedByType switches from "guardian" to "self").

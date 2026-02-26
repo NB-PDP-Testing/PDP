@@ -21,16 +21,13 @@ export const run = query({
   },
   handler: async (ctx, args) => {
     // ── 1. Find the betterAuth user by email ──────────────────────────────
-    const baUserResult = await ctx.runQuery(
+    const baUser = await ctx.runQuery(
       components.betterAuth.adapter.findOne,
       {
         model: "user",
         where: [{ field: "email", value: args.email, operator: "eq" }],
-        paginationOpts: { cursor: null, numItems: 1 },
       }
     );
-
-    const baUser = baUserResult?.page?.[0] ?? null;
 
     if (!baUser) {
       return { error: `No betterAuth user found for email: ${args.email}` };
@@ -72,7 +69,6 @@ export const run = query({
       {
         model: "session",
         where: [{ field: "userId", value: baId, operator: "eq" }],
-        paginationOpts: { cursor: null, numItems: 5 },
       }
     );
 
@@ -99,7 +95,7 @@ export const run = query({
             }
           : { found: false, error: wrongTableError },
       },
-      activeSessions: sessions?.page?.length ?? 0,
+      activeSessions: sessions?.length ?? 0,
       diagnosis:
         wrongTableDoc && wrongTableDoc._id !== baConvexId
           ? `⚠️  BUG CONFIRMED: safeGetAuthUser returns the WRONG document. ` +

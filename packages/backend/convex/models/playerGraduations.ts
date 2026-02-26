@@ -728,6 +728,55 @@ export const claimPlayerAccount = mutation({
       .first();
 
     if (enrollment) {
+      // Grant the "player" functional role for this user in the org
+      const memberResult = await ctx.runQuery(
+        components.betterAuth.adapter.findOne,
+        {
+          model: "member",
+          where: [
+            {
+              field: "organizationId",
+              value: enrollment.organizationId,
+              operator: "eq",
+            },
+            {
+              field: "userId",
+              value: args.userId,
+              operator: "eq",
+              connector: "AND",
+            },
+          ],
+        }
+      );
+      if (memberResult) {
+        const currentRoles: ("coach" | "parent" | "admin" | "player")[] =
+          (
+            memberResult as {
+              functionalRoles?: ("coach" | "parent" | "admin" | "player")[];
+            }
+          ).functionalRoles || [];
+        if (!currentRoles.includes("player")) {
+          await ctx.runMutation(components.betterAuth.adapter.updateOne, {
+            input: {
+              model: "member",
+              where: [
+                {
+                  field: "_id",
+                  value: (memberResult as { _id: string })._id,
+                  operator: "eq",
+                },
+              ],
+              update: { functionalRoles: [...currentRoles, "player"] },
+            },
+          });
+          console.log(
+            `[graduations] Granted "player" role to user ${args.userId} in org ${enrollment.organizationId}`
+          );
+        }
+      }
+    }
+
+    if (enrollment) {
       // Send age_transition_claimed notification to org admins
       const orgId = enrollment.organizationId;
       const orgMembersResult = await ctx.runQuery(
@@ -1222,6 +1271,61 @@ export const autoClaimByEmail = mutation({
       .first();
     if (graduation) {
       await ctx.db.patch(graduation._id, { status: "claimed", claimedAt: now });
+    }
+
+    // Grant the "player" functional role in all orgs the player is enrolled in
+    const enrollments = await ctx.db
+      .query("orgPlayerEnrollments")
+      .withIndex("by_playerIdentityId", (q) =>
+        q.eq("playerIdentityId", validToken.playerIdentityId)
+      )
+      .collect();
+    for (const enrollment of enrollments) {
+      const memberResult = await ctx.runQuery(
+        components.betterAuth.adapter.findOne,
+        {
+          model: "member",
+          where: [
+            {
+              field: "organizationId",
+              value: enrollment.organizationId,
+              operator: "eq",
+            },
+            {
+              field: "userId",
+              value: userId,
+              operator: "eq",
+              connector: "AND",
+            },
+          ],
+        }
+      );
+      if (memberResult) {
+        const currentRoles: ("coach" | "parent" | "admin" | "player")[] =
+          (
+            memberResult as {
+              functionalRoles?: ("coach" | "parent" | "admin" | "player")[];
+            }
+          ).functionalRoles || [];
+        if (!currentRoles.includes("player")) {
+          await ctx.runMutation(components.betterAuth.adapter.updateOne, {
+            input: {
+              model: "member",
+              where: [
+                {
+                  field: "_id",
+                  value: (memberResult as { _id: string })._id,
+                  operator: "eq",
+                },
+              ],
+              update: { functionalRoles: [...currentRoles, "player"] },
+            },
+          });
+          console.log(
+            `[graduations] Granted "player" role to user ${userId} in org ${enrollment.organizationId}`
+          );
+        }
+      }
     }
 
     console.log(

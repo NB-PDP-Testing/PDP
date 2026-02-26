@@ -86,15 +86,33 @@ const playerIdentityValidator = v.object({
   email: v.optional(v.string()),
   phone: v.optional(v.string()),
   address: v.optional(v.string()),
+  address2: v.optional(v.string()),
   town: v.optional(v.string()),
+  county: v.optional(v.string()),
   postcode: v.optional(v.string()),
   country: v.optional(v.string()),
+  claimedAt: v.optional(v.number()),
+  claimInvitedBy: v.optional(v.string()),
+  playerWelcomedAt: v.optional(v.number()),
   verificationStatus: v.union(
     v.literal("unverified"),
     v.literal("guardian_verified"),
     v.literal("self_verified"),
     v.literal("document_verified")
   ),
+  importSessionId: v.optional(v.id("importSessions")),
+  externalIds: v.optional(v.record(v.string(), v.string())),
+  federationIds: v.optional(
+    v.object({
+      fai: v.optional(v.string()),
+      irfu: v.optional(v.string()),
+      gaa: v.optional(v.string()),
+      other: v.optional(v.string()),
+    })
+  ),
+  lastSyncedAt: v.optional(v.number()),
+  lastSyncedData: v.optional(v.any()),
+  isActive: v.optional(v.boolean()),
   createdAt: v.number(),
   updatedAt: v.number(),
   createdFrom: v.optional(v.string()),

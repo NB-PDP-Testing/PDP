@@ -7,7 +7,6 @@ import { CheckCircle2, ChevronDown, Loader2, WifiOff } from "lucide-react";
 import { useParams } from "next/navigation";
 import { useCallback, useEffect, useRef, useState } from "react";
 import { toast } from "sonner";
-import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import {
   Card,
@@ -65,25 +64,7 @@ const CORE_DIMENSIONS = [
   },
 ] as const;
 
-const OPTIONAL_DIMENSIONS = [
-  {
-    key: "foodIntake",
-    label: "Food Intake",
-    question: "How well did you eat today?",
-  },
-  {
-    key: "waterIntake",
-    label: "Water Intake",
-    question: "How hydrated were you?",
-  },
-  {
-    key: "muscleRecovery",
-    label: "Muscle Recovery",
-    question: "How are your muscles recovering?",
-  },
-] as const;
-
-const ALL_DIMENSIONS = [...CORE_DIMENSIONS, ...OPTIONAL_DIMENSIONS];
+const ALL_DIMENSIONS = [...CORE_DIMENSIONS];
 
 const CYCLE_PHASES = [
   { key: "menstruation", label: "Menstruation", sublabel: "Days 1–5" },
@@ -686,19 +667,13 @@ export default function PlayerHealthCheckPage() {
 
       {/* Dimension cards */}
       <div className="space-y-4">
-        {visibleDimensions.map((dim, idx) => {
-          const isCore = idx < CORE_DIMENSIONS.length;
+        {visibleDimensions.map((dim) => {
           const selected = dimensionValues[dim.key];
           return (
             <Card key={dim.key}>
               <CardContent className="pt-5">
-                <div className="mb-3 flex items-center justify-between gap-2">
+                <div className="mb-3">
                   <p className="font-medium text-sm">{dim.question}</p>
-                  {!isCore && (
-                    <Badge className="shrink-0" variant="secondary">
-                      Optional
-                    </Badge>
-                  )}
                 </div>
                 <div className="flex justify-between gap-1">
                   {EMOJI_SCALE.map((scale) => (

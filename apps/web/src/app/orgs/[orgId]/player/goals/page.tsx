@@ -200,12 +200,9 @@ export default function PlayerGoalsPage() {
     }
     return goals.map((goal) => ({
       ...goal,
-      // If createdBy is set and is not the current player's userId, it's a coach goal
-      isCoachGoal: !!(
-        goal.createdBy &&
-        playerUserId &&
-        goal.createdBy !== playerUserId
-      ),
+      // A personal goal is one the player created themselves (createdBy matches their own userId).
+      // Coach goals either have no createdBy (legacy) or a different userId (coach's).
+      isCoachGoal: !goal.createdBy || goal.createdBy !== playerUserId,
     }));
   }, [goals, playerUserId]);
 

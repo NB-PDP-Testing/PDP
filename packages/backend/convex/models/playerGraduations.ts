@@ -1269,9 +1269,10 @@ export const autoClaimByEmail = mutation({
       return { claimed: false };
     }
 
-    // Link the player identity to this user
+    // Link the player identity to this user (also set email so findPlayerByEmail works)
     await ctx.db.patch(validToken.playerIdentityId, {
       userId,
+      email: userEmail,
       claimedAt: now,
       playerType: "adult",
       updatedAt: now,

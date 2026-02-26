@@ -140,7 +140,7 @@ export function GuardianSettings({ guardianIdentity }: GuardianSettingsProps) {
   return (
     <>
       <Button
-        className="gap-2"
+        className="gap-2 border-white/50 text-white hover:bg-white/20 hover:text-white"
         onClick={() => setShowSettingsDialog(true)}
         variant="outline"
       >

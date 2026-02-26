@@ -75,6 +75,7 @@ import type * as lib_stringMatching from "../lib/stringMatching.js";
 import type * as lib_trustLevelCalculator from "../lib/trustLevelCalculator.js";
 import type * as lib_whatsappCommandHandler from "../lib/whatsappCommandHandler.js";
 import type * as lib_whatsappCommands from "../lib/whatsappCommands.js";
+import type * as migrations_backfillNormalizedNames from "../migrations/backfillNormalizedNames.js";
 import type * as migrations_cleanSlate from "../migrations/cleanSlate.js";
 import type * as migrations_compareIrishDancing from "../migrations/compareIrishDancing.js";
 import type * as migrations_deleteOldIrishDancingSport from "../migrations/deleteOldIrishDancingSport.js";
@@ -311,6 +312,7 @@ declare const fullApi: ApiFromModules<{
   "lib/trustLevelCalculator": typeof lib_trustLevelCalculator;
   "lib/whatsappCommandHandler": typeof lib_whatsappCommandHandler;
   "lib/whatsappCommands": typeof lib_whatsappCommands;
+  "migrations/backfillNormalizedNames": typeof migrations_backfillNormalizedNames;
   "migrations/cleanSlate": typeof migrations_cleanSlate;
   "migrations/compareIrishDancing": typeof migrations_compareIrishDancing;
   "migrations/deleteOldIrishDancingSport": typeof migrations_deleteOldIrishDancingSport;

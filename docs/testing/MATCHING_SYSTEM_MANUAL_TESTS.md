@@ -21,14 +21,14 @@ Add the following four players manually via **Admin → Players → Add Player**
 These are the records the matching system will detect in subsequent tests.
 
 > Note: Use your own org's Age Groups and Sports as they appear in your dropdowns.
-> The key fields for matching are Name, Date of Birth, Gender, and (optionally) Address/Phone.
+> The key fields for matching are Name, Date of Birth, Gender, Email, Phone, and Postcode.
 
-| Ref | First Name | Last Name | Date of Birth | Gender | Age Group | Sport | Notes |
-|-----|-----------|-----------|---------------|--------|-----------|-------|-------|
-| P1 | Ciarán | Murphy | 2014-03-15 | Male | U12 | GAA | Youth — exact match base |
-| P2 | Mary | O'Brien | 1990-07-22 | Female | Senior | Football | Adult — adult-to-adult base |
-| P3 | Niamh | Walsh | 2015-09-05 | Female | U11 | Soccer | Youth — Irish alias base |
-| P4 | Seán | Brennan | 2006-04-18 | Male | U18 | Rugby | Youth aged 18+ — graduation base |
+| Ref | First Name | Last Name | Date of Birth | Gender | Age Group | Sport | Email | Phone | Postcode | Notes |
+|-----|-----------|-----------|---------------|--------|-----------|-------|-------|-------|----------|-------|
+| P1 | Ciarán | Murphy | 2014-03-15 | Male | U12 | GAA | ciaran.murphy@test.ie | +353871234001 | D01 A001 | Youth — exact match base |
+| P2 | Mary | O'Brien | 1990-07-22 | Female | Senior | Football | mary.obrien@test.ie | +353871234002 | D02 A002 | Adult — adult-to-adult base |
+| P3 | Niamh | Walsh | 2015-09-05 | Female | U11 | Soccer | niamh.walsh@test.ie | +353871234003 | D03 A003 | Youth — Irish alias base |
+| P4 | Seán | Brennan | 2006-04-18 | Male | U18 | Rugby | sean.brennan@test.ie | +353871234004 | D04 A004 | Youth aged 18+ — graduation base |
 
 **Verify:** All four appear in the player list before proceeding.
 
@@ -37,6 +37,10 @@ These are the records the matching system will detect in subsequent tests.
 ## Entry Point 1: Admin Manually Adds a Player
 
 **Location:** Admin → Players → "+ Add Player" button
+
+The form now collects **Email** (required), **Phone** (optional, PhoneInput), and
+**Postcode** (optional) in addition to name, DOB, and gender. All three are passed to
+`findPlayerMatchCandidates` as boost signals.
 
 ### TC1.1 — HIGH confidence: Exact name + DOB (youth)
 
@@ -106,7 +110,18 @@ The form does NOT block — clicking **"Add Player" again** proceeds to create.
 
 ---
 
-### TC1.5 — No match: Brand new player
+### TC1.5 — Email required validation
+
+Leave **Email** blank and attempt to submit the form with all other fields filled.
+
+**Expected:** A red inline error appears below the Email field: *"Email is required"*.
+The form does not submit.
+
+**Pass criteria:** Validation fires, no duplicate check or record creation occurs.
+
+---
+
+### TC1.6 — No match: Brand new player
 
 | Field | Value |
 |-------|-------|
@@ -114,6 +129,7 @@ The form does NOT block — clicking **"Add Player" again** proceeds to create.
 | Last Name | Kelly |
 | Date of Birth | 2013-06-10 |
 | Gender | Male |
+| Email | patrick.kelly@test.ie |
 
 **Expected:** No dialog, no banner. Player created immediately.
 
@@ -121,7 +137,27 @@ The form does NOT block — clicking **"Add Player" again** proceeds to create.
 
 ---
 
-### TC1.6 — HIGH confidence: Exact name + DOB (youth aged 18+)
+### TC1.7 — Phone boost: fuzzy name + matching phone upgrades to HIGH
+
+**Setup:** Seed player P3 (Niamh Walsh) was created with phone `+353871234003`.
+
+| Field | Value |
+|-------|-------|
+| First Name | Niave *(different spelling)* |
+| Last Name | Walsh |
+| Date of Birth | 2015-09-05 |
+| Gender | Female |
+| Email | different@test.ie |
+| Phone | +353871234003 *(P3's phone)* |
+
+**Expected:** Phone match boosts the score — blocking HIGH confidence dialog appears
+showing Niamh Walsh as the candidate.
+
+**Pass criteria:** Dialog appears (would have been MEDIUM or LOW on name alone).
+
+---
+
+### TC1.8 — HIGH confidence: Exact name + DOB (youth aged 18+)
 
 | Field | Value |
 |-------|-------|
@@ -223,6 +259,10 @@ Row 7 shows no match. The default decisions match the table above.
 This tests the backend `findBestPlayerMatchInternal` call inside `createJoinRequest`.
 The match is stored on the join request and shown to the admin on the approval screen.
 
+The player role section of the join form now shows optional **Phone** (PhoneInput) and
+**Postcode** fields. These are stored on the join request record and passed to the
+matching engine as boost signals.
+
 ### Setup
 Create a new test user account (or use an existing non-member account). Navigate to
 your org's join URL and submit a join request with the **Player** role.
@@ -245,7 +285,25 @@ The admin approval screen shows the matched player name and confidence.
 
 ---
 
-### TC4.2 — No match on join request
+### TC4.2 — Phone boost on join request
+
+Use a test user account with a **different name** from seed player P1 but supply the
+matching phone number.
+
+| Field | Value |
+|-------|-------|
+| Requested Role | Player |
+| Date of Birth | 2014-03-15 |
+| Phone | +353871234001 *(P1's phone)* |
+
+**Expected:** Approval card shows a matched player (Ciarán Murphy) at high confidence
+because phone boosted the score.
+
+**Pass criteria:** `matchedYouthIdentityId` is populated on the join request record.
+
+---
+
+### TC4.3 — No match on join request
 
 | Field | Value |
 |-------|-------|
@@ -263,8 +321,14 @@ The admin approval screen shows the matched player name and confidence.
 **Location:** Admin → Users → click **Edit** on a member with Player role but no linked
 player record → Player Record section
 
-This flow uses `findMatchingUnlinkedPlayers` (a pre-existing query on `orgPlayerEnrollments`)
-which matches by name and email. It is separate from the new unified matching system.
+This flow has two sub-flows:
+- **Auto-match panel** uses `findMatchingUnlinkedPlayers` (name + email, pre-existing) to
+  suggest existing unlinked records.
+- **"Create New" step** — clicking **"✓ Confirm — create this record"** first runs
+  `findPlayerMatchCandidates` (with email from the user's BA account, plus the optional
+  **Phone** and **Postcode** fields now visible in the create form) and shows an amber
+  warning if HIGH or MEDIUM candidates are found. The admin must click **"Create anyway"**
+  or **"Cancel"** before the record is created.
 
 ### TC5.1 — Auto-match on user with matching name
 
@@ -276,6 +340,47 @@ unlinked player in the org:
 
 **Pass criteria:** Match candidate shown. Clicking "Link" assigns the existing
 `playerIdentityId` to the user without creating a new record.
+
+---
+
+### TC5.2 — HIGH match warning on "Create New Player Record"
+
+**Setup:** Create a test user account whose **display name is "Ciarán Murphy"** (matching
+seed player P1). Open Admin → Users → Edit for that user. Select Player role. When no
+auto-match is found (or dismiss it), click **"Can't find the record — create a new one"**.
+
+| Step | Action |
+|------|--------|
+| 1 | Enter DOB `2014-03-15` in the Date of Birth field |
+| 2 | Click **"✓ Confirm — create this record"** |
+
+**Expected:** An amber warning box appears below the DOB field:
+> "Possible existing player record(s) found: Ciarán Murphy — DOB 2014-03-15 (high match)"
+
+Two buttons shown: **"Create anyway"** and **"Cancel"**.
+
+**Pass criteria:**
+- Warning box appears before any record is created.
+- Clicking "Cancel" dismisses the warning and keeps the form open.
+- Clicking "Create anyway" proceeds to create the record (no second prompt).
+
+---
+
+### TC5.3 — No warning when user has no match
+
+**Setup:** Open Admin → Users → Edit for a user whose display name is **"Patrick Kelly"**.
+Click "Can't find the record — create a new one".
+
+| Field | Value |
+|-------|-------|
+| Date of Birth | 2013-06-10 |
+
+Click **"✓ Confirm — create this record"**.
+
+**Expected:** No warning box. Step transitions directly to "confirmed" and saving creates
+the record.
+
+**Pass criteria:** No amber warning shown. Record created successfully.
 
 ---
 
@@ -307,15 +412,24 @@ for any `ReturnsValidationError` or query failures.
 
 ## Known Limitations
 
-1. **Phone/postcode/address matching** boosts the score but does not change confidence
-   level on its own — these signals only matter when combined with a name/DOB base match.
-   The current admin "Add Player" form does not collect phone/postcode at add time,
-   so these signals are only active during CSV import (which has those columns) and
-   the invite dialog (if email is provided).
+1. **Phone/postcode boost signals** only change confidence when combined with a name/DOB
+   base match — they do not trigger a match on their own. Email is a stronger signal and
+   can independently elevate a LOW to HIGH when it matches exactly.
 
-2. **CSV import matching** now runs for ALL rows (not just adults). The default decision
+2. **Signal coverage by entry point** (as of this implementation):
+   | Field    | Add Player | Create New | Join Request | CSV Import | Email Invite |
+   |----------|-----------|------------|--------------|------------|-------------|
+   | Email    | Required  | Auto (BA)  | Auto (user)  | Column     | Entered      |
+   | Phone    | Optional  | Optional   | Optional     | Column     | —            |
+   | Postcode | Optional  | Optional   | Optional     | Column     | —            |
+
+3. **CSV import matching** runs for ALL rows (not just adults). The default decision
    for HIGH is "accept" and for MEDIUM is "skip" — these can be overridden in the
    import preview UI before committing.
 
-3. **Guardian/parent matching** is handled by a separate system (`getSmartMatchesForGuardian`)
+4. **Guardian/parent matching** is handled by a separate system (`getSmartMatchesForGuardian`)
    and is out of scope for this test plan.
+
+5. **Admin Users → "Create New Player Record"** — gap closed. The "Confirm — create this
+   record" button now runs `findPlayerMatchCandidates` before proceeding. HIGH and MEDIUM
+   candidates surface an amber warning with "Create anyway" / "Cancel" options (TC5.2–5.3).

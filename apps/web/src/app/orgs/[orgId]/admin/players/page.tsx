@@ -46,6 +46,7 @@ import {
 } from "@/components/ui/empty";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
+import { PhoneInput } from "@/components/ui/phone-input";
 import {
   Select,
   SelectContent,
@@ -54,6 +55,9 @@ import {
   SelectValue,
 } from "@/components/ui/select";
 import { Skeleton } from "@/components/ui/skeleton";
+
+// Regex for basic email format validation — defined at module level per Biome rules
+const EMAIL_FORMAT_REGEX = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
 
 // Age group options
 const AGE_GROUPS = [
@@ -97,6 +101,8 @@ type AddPlayerFormData = {
   dateOfBirth: string;
   gender: "male" | "female" | "other";
   ageGroup: string;
+  email: string;
+  postcode: string;
 };
 
 const emptyFormData: AddPlayerFormData = {
@@ -105,6 +111,8 @@ const emptyFormData: AddPlayerFormData = {
   dateOfBirth: "",
   gender: "male",
   ageGroup: "",
+  email: "",
+  postcode: "",
 };
 
 export default function ManagePlayersPage() {
@@ -130,6 +138,9 @@ export default function ManagePlayersPage() {
   const [federationIrfu, setFederationIrfu] = useState("");
   const [federationGaa, setFederationGaa] = useState("");
   const [federationOther, setFederationOther] = useState("");
+
+  // Phone (E.164) — stored outside plain form object like federation IDs
+  const [addPlayerPhone, setAddPlayerPhone] = useState("");
 
   // Player match state (US-P3-002)
   const [showYouthMatchDialog, setShowYouthMatchDialog] = useState(false);
@@ -269,6 +280,11 @@ export default function ManagePlayersPage() {
     if (!addPlayerForm.ageGroup) {
       errors.ageGroup = "Age group is required";
     }
+    if (!addPlayerForm.email.trim()) {
+      errors.email = "Email is required";
+    } else if (!EMAIL_FORMAT_REGEX.test(addPlayerForm.email.trim())) {
+      errors.email = "Please enter a valid email";
+    }
 
     setFormErrors(errors);
     return Object.keys(errors).length === 0;
@@ -331,6 +347,7 @@ export default function ManagePlayersPage() {
       setFederationGaa("");
       setFederationOther("");
       setShowFederationFields(false);
+      setAddPlayerPhone("");
 
       // Navigate to the new player
       router.push(`/orgs/${orgId}/players/${playerIdentityId}`);
@@ -375,6 +392,7 @@ export default function ManagePlayersPage() {
       setAddPlayerForm(emptyFormData);
       setFormErrors({});
       setYouthMatchCandidate(null);
+      setAddPlayerPhone("");
       router.push(`/orgs/${orgId}/players/${youthMatchCandidate._id}`);
     } catch (error) {
       console.error("Error linking to existing history:", error);
@@ -418,6 +436,9 @@ export default function ManagePlayersPage() {
             lastName: addPlayerForm.lastName.trim(),
             dateOfBirth: addPlayerForm.dateOfBirth,
             federationIds: buildFederationIds(),
+            email: addPlayerForm.email.trim() || undefined,
+            phone: addPlayerPhone || undefined,
+            postcode: addPlayerForm.postcode.trim() || undefined,
           }
         )) as Candidate[];
 
@@ -1165,6 +1186,7 @@ export default function ManagePlayersPage() {
             setFederationGaa("");
             setFederationOther("");
             setShowFederationFields(false);
+            setAddPlayerPhone("");
           }
           setShowAddPlayerDialog(open);
         }}
@@ -1177,6 +1199,7 @@ export default function ManagePlayersPage() {
             setShowAddPlayerDialog(false);
             setAddPlayerForm(emptyFormData);
             setFormErrors({});
+            setAddPlayerPhone("");
           }}
           onSubmit={handleAddPlayer}
           submitText="Add Player"
@@ -1346,6 +1369,58 @@ export default function ManagePlayersPage() {
                 )}
               </div>
             </ResponsiveFormRow>
+            {/* Email — required for matching */}
+            <div className="space-y-2">
+              <Label htmlFor="email">
+                Email <span className="text-red-500">*</span>
+              </Label>
+              <Input
+                className={formErrors.email ? "border-red-500" : ""}
+                id="email"
+                onChange={(e) => {
+                  setAddPlayerForm({ ...addPlayerForm, email: e.target.value });
+                  if (formErrors.email) {
+                    setFormErrors({ ...formErrors, email: undefined });
+                  }
+                }}
+                placeholder="player@example.com"
+                type="email"
+                value={addPlayerForm.email}
+              />
+              {formErrors.email && (
+                <p className="text-red-500 text-sm">{formErrors.email}</p>
+              )}
+            </div>
+
+            {/* Phone and Postcode — optional matching signals */}
+            <ResponsiveFormRow columns={2}>
+              <div className="space-y-2">
+                <Label htmlFor="phone">Phone (Optional)</Label>
+                <PhoneInput
+                  countries={["IE", "GB", "US"]}
+                  defaultCountry="IE"
+                  onChange={(value) => setAddPlayerPhone(value ?? "")}
+                  value={addPlayerPhone}
+                />
+              </div>
+              <div className="space-y-2">
+                <Label htmlFor="postcode">Postcode (Optional)</Label>
+                <Input
+                  id="postcode"
+                  maxLength={10}
+                  onChange={(e) =>
+                    setAddPlayerForm({
+                      ...addPlayerForm,
+                      postcode: e.target.value,
+                    })
+                  }
+                  placeholder="e.g. D01 F5P2"
+                  type="text"
+                  value={addPlayerForm.postcode}
+                />
+              </div>
+            </ResponsiveFormRow>
+
             {/* Federation Numbers — collapsible optional section */}
             <div className="border-t pt-3">
               <button

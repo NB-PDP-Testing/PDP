@@ -26,6 +26,7 @@ import {
 } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
+import { PhoneInput } from "@/components/ui/phone-input";
 import {
   Select,
   SelectContent,
@@ -66,6 +67,8 @@ export default function JoinOrganizationRequestPage() {
   // Player-specific fields
   const [playerDateOfBirth, setPlayerDateOfBirth] = useState("");
   const [playerFederationNumber, setPlayerFederationNumber] = useState("");
+  const [playerPhone, setPlayerPhone] = useState("");
+  const [playerPostcode, setPlayerPostcode] = useState("");
 
   // Coach-specific fields
   const [coachSport, setCoachSport] = useState("");
@@ -143,6 +146,12 @@ export default function JoinOrganizationRequestPage() {
           : undefined,
         playerFederationNumber: selectedRoles.includes("player")
           ? playerFederationNumber || undefined
+          : undefined,
+        playerPhone: selectedRoles.includes("player")
+          ? playerPhone || undefined
+          : undefined,
+        playerPostcode: selectedRoles.includes("player")
+          ? playerPostcode || undefined
           : undefined,
       });
 
@@ -385,6 +394,31 @@ export default function JoinOrganizationRequestPage() {
                     Your national federation registration number for stronger
                     identity matching
                   </p>
+                </div>
+                {/* Phone and Postcode — optional signals for stronger matching */}
+                <div className="grid grid-cols-2 gap-4">
+                  <div className="space-y-2">
+                    <Label htmlFor="playerPhone">Phone (Optional)</Label>
+                    <PhoneInput
+                      countries={["IE", "GB", "US"]}
+                      defaultCountry="IE"
+                      disabled={isSubmitting}
+                      onChange={(value) => setPlayerPhone(value ?? "")}
+                      value={playerPhone}
+                    />
+                  </div>
+                  <div className="space-y-2">
+                    <Label htmlFor="playerPostcode">Postcode (Optional)</Label>
+                    <Input
+                      disabled={isSubmitting}
+                      id="playerPostcode"
+                      maxLength={10}
+                      onChange={(e) => setPlayerPostcode(e.target.value)}
+                      placeholder="e.g. D01 F5P2"
+                      type="text"
+                      value={playerPostcode}
+                    />
+                  </div>
                 </div>
               </div>
             )}

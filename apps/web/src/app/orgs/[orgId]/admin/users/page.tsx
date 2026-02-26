@@ -2,7 +2,7 @@
 
 import { api } from "@pdp/backend/convex/_generated/api";
 import type { Id } from "@pdp/backend/convex/_generated/dataModel";
-import { useMutation, useQuery } from "convex/react";
+import { useConvex, useMutation, useQuery } from "convex/react";
 import {
   AlertTriangle,
   CheckCircle2,
@@ -61,6 +61,7 @@ import {
 } from "@/components/ui/empty";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
+import { PhoneInput } from "@/components/ui/phone-input";
 import { Skeleton } from "@/components/ui/skeleton";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { useOrgTheme } from "@/hooks/use-org-theme";
@@ -92,6 +93,7 @@ export default function ManageUsersPage() {
   const params = useParams();
   const { theme } = useOrgTheme();
   const orgId = params.orgId as string;
+  const convex = useConvex();
 
   // Get current user session
   const { data: session } = authClient.useSession();
@@ -214,7 +216,7 @@ export default function ManageUsersPage() {
   const [selectedExistingEnrollmentId, setSelectedExistingEnrollmentId] =
     useState<Record<string, string | null>>({});
   const [playerCreateForm, setPlayerCreateForm] = useState<
-    Record<string, { dateOfBirth: string }>
+    Record<string, { dateOfBirth: string; phone: string; postcode: string }>
   >({});
   const [playerCreateTeams, setPlayerCreateTeams] = useState<
     Record<string, string[]>
@@ -225,6 +227,18 @@ export default function ManageUsersPage() {
   const [playerMatchStep, setPlayerMatchStep] = useState<
     Record<string, "auto" | "search" | "create" | "confirmed">
   >({});
+  type CreateMatchCandidate = {
+    _id: string;
+    firstName: string;
+    lastName: string;
+    dateOfBirth: string;
+    confidence: "high" | "medium" | "low" | "none";
+  };
+  const [playerCreateMatchWarnings, setPlayerCreateMatchWarnings] = useState<
+    Record<string, CreateMatchCandidate[]>
+  >({});
+  const [playerCreateMatchAcknowledged, setPlayerCreateMatchAcknowledged] =
+    useState<Record<string, boolean>>({});
   const [playerMatchTarget, setPlayerMatchTarget] = useState<{
     userId: string;
     name: string;
@@ -3125,7 +3139,14 @@ export default function ManageUsersPage() {
                                               setPlayerCreateForm((prev) => ({
                                                 ...prev,
                                                 [member.userId]: {
+                                                  ...prev[member.userId],
                                                   dateOfBirth: e.target.value,
+                                                  phone:
+                                                    prev[member.userId]
+                                                      ?.phone ?? "",
+                                                  postcode:
+                                                    prev[member.userId]
+                                                      ?.postcode ?? "",
                                                 },
                                               }))
                                             }
@@ -3133,22 +3154,227 @@ export default function ManageUsersPage() {
                                             value={dob}
                                           />
                                         </div>
-                                        {dob && (
-                                          <Button
-                                            className="border-orange-400 text-orange-700 hover:bg-orange-100"
-                                            onClick={() =>
-                                              setPlayerMatchStep((prev) => ({
-                                                ...prev,
-                                                [member.userId]: "confirmed",
-                                              }))
-                                            }
-                                            size="sm"
-                                            type="button"
-                                            variant="outline"
-                                          >
-                                            ✓ Confirm — create this record
-                                          </Button>
+                                        {/* Phone and Postcode — optional matching signals */}
+                                        <div className="grid grid-cols-2 gap-2">
+                                          <div>
+                                            <Label className="font-medium text-sm">
+                                              Phone (Optional)
+                                            </Label>
+                                            <PhoneInput
+                                              countries={["IE", "GB", "US"]}
+                                              defaultCountry="IE"
+                                              onChange={(value) =>
+                                                setPlayerCreateForm((prev) => ({
+                                                  ...prev,
+                                                  [member.userId]: {
+                                                    dateOfBirth:
+                                                      prev[member.userId]
+                                                        ?.dateOfBirth ?? "",
+                                                    postcode:
+                                                      prev[member.userId]
+                                                        ?.postcode ?? "",
+                                                    phone: value ?? "",
+                                                  },
+                                                }))
+                                              }
+                                              value={
+                                                playerCreateForm[member.userId]
+                                                  ?.phone ?? ""
+                                              }
+                                            />
+                                          </div>
+                                          <div>
+                                            <Label className="font-medium text-sm">
+                                              Postcode (Optional)
+                                            </Label>
+                                            <Input
+                                              maxLength={10}
+                                              onChange={(e) =>
+                                                setPlayerCreateForm((prev) => ({
+                                                  ...prev,
+                                                  [member.userId]: {
+                                                    dateOfBirth:
+                                                      prev[member.userId]
+                                                        ?.dateOfBirth ?? "",
+                                                    phone:
+                                                      prev[member.userId]
+                                                        ?.phone ?? "",
+                                                    postcode: e.target.value,
+                                                  },
+                                                }))
+                                              }
+                                              placeholder="e.g. D01 F5P2"
+                                              type="text"
+                                              value={
+                                                playerCreateForm[member.userId]
+                                                  ?.postcode ?? ""
+                                              }
+                                            />
+                                          </div>
+                                        </div>
+                                        {/* Duplicate-match warning for create step */}
+                                        {playerCreateMatchWarnings[
+                                          member.userId
+                                        ]?.length > 0 && (
+                                          <div className="rounded border border-amber-300 bg-amber-50 p-2 text-xs">
+                                            <p className="mb-1 font-medium text-amber-800">
+                                              Possible existing player record(s)
+                                              found:
+                                            </p>
+                                            {playerCreateMatchWarnings[
+                                              member.userId
+                                            ].map((c) => (
+                                              <p
+                                                className="text-amber-700"
+                                                key={c._id}
+                                              >
+                                                {c.firstName} {c.lastName} — DOB{" "}
+                                                {c.dateOfBirth} ({c.confidence}{" "}
+                                                match)
+                                              </p>
+                                            ))}
+                                            <div className="mt-2 flex gap-2">
+                                              <Button
+                                                className="border-amber-400 text-amber-700 hover:bg-amber-100"
+                                                onClick={() => {
+                                                  setPlayerCreateMatchAcknowledged(
+                                                    (prev) => ({
+                                                      ...prev,
+                                                      [member.userId]: true,
+                                                    })
+                                                  );
+                                                  setPlayerCreateMatchWarnings(
+                                                    (prev) => ({
+                                                      ...prev,
+                                                      [member.userId]: [],
+                                                    })
+                                                  );
+                                                  setPlayerMatchStep(
+                                                    (prev) => ({
+                                                      ...prev,
+                                                      [member.userId]:
+                                                        "confirmed",
+                                                    })
+                                                  );
+                                                }}
+                                                size="sm"
+                                                type="button"
+                                                variant="outline"
+                                              >
+                                                Create anyway
+                                              </Button>
+                                              <Button
+                                                onClick={() =>
+                                                  setPlayerCreateMatchWarnings(
+                                                    (prev) => ({
+                                                      ...prev,
+                                                      [member.userId]: [],
+                                                    })
+                                                  )
+                                                }
+                                                size="sm"
+                                                type="button"
+                                                variant="ghost"
+                                              >
+                                                Cancel
+                                              </Button>
+                                            </div>
+                                          </div>
                                         )}
+                                        {dob &&
+                                          !(
+                                            playerCreateMatchWarnings[
+                                              member.userId
+                                            ]?.length > 0
+                                          ) && (
+                                            <Button
+                                              className="border-orange-400 text-orange-700 hover:bg-orange-100"
+                                              onClick={async () => {
+                                                if (
+                                                  playerCreateMatchAcknowledged[
+                                                    member.userId
+                                                  ]
+                                                ) {
+                                                  setPlayerMatchStep(
+                                                    (prev) => ({
+                                                      ...prev,
+                                                      [member.userId]:
+                                                        "confirmed",
+                                                    })
+                                                  );
+                                                  return;
+                                                }
+                                                const accountName =
+                                                  member.user?.name ?? "";
+                                                const spaceIdx =
+                                                  accountName.indexOf(" ");
+                                                const firstName =
+                                                  spaceIdx >= 0
+                                                    ? accountName.slice(
+                                                        0,
+                                                        spaceIdx
+                                                      )
+                                                    : accountName;
+                                                const lastName =
+                                                  spaceIdx >= 0
+                                                    ? accountName.slice(
+                                                        spaceIdx + 1
+                                                      )
+                                                    : "";
+                                                const candidates =
+                                                  (await convex.query(
+                                                    api.models.playerMatching
+                                                      .findPlayerMatchCandidates,
+                                                    {
+                                                      organizationId: orgId,
+                                                      firstName:
+                                                        firstName.trim(),
+                                                      lastName: lastName.trim(),
+                                                      dateOfBirth: dob,
+                                                      email:
+                                                        member.user?.email ??
+                                                        undefined,
+                                                      phone:
+                                                        playerCreateForm[
+                                                          member.userId
+                                                        ]?.phone || undefined,
+                                                      postcode:
+                                                        playerCreateForm[
+                                                          member.userId
+                                                        ]?.postcode?.trim() ||
+                                                        undefined,
+                                                    }
+                                                  )) as CreateMatchCandidate[];
+                                                const relevant =
+                                                  candidates.filter(
+                                                    (c) =>
+                                                      c.confidence === "high" ||
+                                                      c.confidence === "medium"
+                                                  );
+                                                if (relevant.length > 0) {
+                                                  setPlayerCreateMatchWarnings(
+                                                    (prev) => ({
+                                                      ...prev,
+                                                      [member.userId]: relevant,
+                                                    })
+                                                  );
+                                                } else {
+                                                  setPlayerMatchStep(
+                                                    (prev) => ({
+                                                      ...prev,
+                                                      [member.userId]:
+                                                        "confirmed",
+                                                    })
+                                                  );
+                                                }
+                                              }}
+                                              size="sm"
+                                              type="button"
+                                              variant="outline"
+                                            >
+                                              ✓ Confirm — create this record
+                                            </Button>
+                                          )}
                                       </div>
                                     )}
                                   </div>

@@ -1582,6 +1582,8 @@ export default defineSchema({
     // Player-specific fields for youth record matching
     playerDateOfBirth: v.optional(v.string()), // YYYY-MM-DD, used for youth matching
     playerFederationNumber: v.optional(v.string()), // Federation ID supplied at join request
+    playerPhone: v.optional(v.string()), // E.164 phone — boost signal for matching
+    playerPostcode: v.optional(v.string()), // Postcode — boost signal for matching
     matchedYouthIdentityId: v.optional(v.id("playerIdentities")), // Matched youth record
     matchedYouthName: v.optional(v.string()), // Denormalized for display in admin UI
     matchedYouthConfidence: v.optional(v.string()), // "high" | "medium" | "low"

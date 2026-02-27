@@ -1,306 +1,18 @@
 
-## QA Verification - Phase 4.5 Platform Admin UI - 2026-02-19
+## Documentation Update - 2026-02-25 22:50
+- ✅ Feature documentation generated: `docs/features/adult-player-phase5-portal-sections.md`
+- Phase complete: Adult Player Lifecycle — Phase 5: Full Player Portal Remaining Sections
 
-### Summary
-
-- **Branch:** ralph/phase-4.5-platform-admin-ui
-- **Stories:** US-P4.5-001 through US-P4.5-008 (8 stories)
-- **PRD Source:** `scripts/ralph/prd.json` (from commit 00309397)
-- **Overall:** FAIL — Critical bugs prevent core features from functioning
-
----
-
-## CRITICAL BUGS (Will Cause Runtime Errors)
-
-### Bug 1: `useMutation` called for Convex Actions (4 locations)
-
-Convex actions (`action({...})`) MUST be called with `useAction`, not `useMutation`. Using `useMutation` for an action will throw a runtime error.
-
-| File | Line | Wrong Call | Fix |
-|------|------|-----------|-----|
-| `apps/web/src/components/connectors/connection-test-dialog.tsx` | 40 | `useMutation(api.actions.federationAuth.testConnection)` | `useAction(...)` |
-| `apps/web/src/app/platform/connectors/[connectorId]/oauth-setup/page.tsx` | 42 | `useMutation(api.actions.federationAuth.startOAuthFlow)` | `useAction(...)` |
-| `apps/web/src/app/platform/connectors/oauth-callback/page.tsx` | 21 | `useMutation(api.actions.federationAuth.completeOAuthFlow)` | `useAction(...)` |
-| `apps/web/src/app/platform/connectors/[connectorId]/edit/page.tsx` | 98 | `useMutation(api.models.federationConnectors.updateConnectorCredentials)` | `useAction(...)` |
-
-Backend confirms all four are `action({...})` — not mutations:
-- `packages/backend/convex/actions/federationAuth.ts:21` — `startOAuthFlow = action({...})`
-- `packages/backend/convex/actions/federationAuth.ts:77` — `completeOAuthFlow = action({...})`
-- `packages/backend/convex/actions/federationAuth.ts:324` — `testConnection = action({...})`
-- `packages/backend/convex/models/federationConnectors.ts:159` — `updateConnectorCredentials = action({...})`
-
-**Impact:** Connection testing (US-P4.5-004), OAuth authorization start and callback (US-P4.5-003), and edit form credential updates (US-P4.5-002) are ALL broken at runtime.
-
----
-
-## Story-by-Story Results
-
-### US-P4.5-001: Create Connector List Page
-**File:** `apps/web/src/app/platform/connectors/page.tsx`
-**Status: PARTIAL**
-
-| AC | Status | Notes |
-|----|--------|-------|
-| Page exists | PASS | Path is `/platform/connectors/` not `/platform-admin/connectors/` (Ralph used existing platform area — `/platform/` layout enforces `isPlatformStaff`, so auth is equivalent) |
-| Title: Federation Connectors | PASS | |
-| Table with all 7 columns | PASS | Name, Federation Code, Status, Connected Orgs, Last Sync, Health, Actions |
-| Status badges green/yellow/red | PASS | |
-| Health badge with uptime % | WARNING | Calculated as heuristic (`100 - consecutiveFailures * 20`). `getConnectorHealth` query exists but is NOT called. All active connectors show 100%. |
-| Connected Orgs tooltip shows org names | FAIL | Shows `org.organizationId` (internal ID), not org name |
-| Last Sync relative time | PASS | |
-| Actions: Edit, Test, Delete | PASS | |
-| Create Connector button | PASS | |
-| Table sortable | FAIL | No sorting — column headers are not interactive |
-| Status filter dropdown | PASS | |
-| Search bar | PASS | Client-side filter |
-| Empty state | PASS | |
-| Mobile responsive card list | PASS | |
-| TypeScript errors | FAIL | 6 `implicit any` errors |
-
----
-
-### US-P4.5-002: Create Connector Creation/Edit Form
-**Status: PARTIAL — Edit credential save broken**
-
-| AC | Status | Notes |
-|----|--------|-------|
-| Create page exists | PASS | `create/page.tsx` |
-| Edit page exists | PASS | `[connectorId]/edit/page.tsx` |
-| All form fields | PASS | Name, fed code, status, auth type, all credential fields, endpoints, sync config, template |
-| All 3 auth types (OAuth/API Key/Basic Auth) | PASS | |
-| Federation code validation pattern | PASS | |
-| HTTPS URL validation | PASS | |
-| Cron schedule validation | FAIL | No cron expression validation — any string accepted |
-| createConnector call | PASS | Uses `useAction` correctly |
-| updateConnector call | PASS | Uses `useMutation` correctly (this one IS a mutation) |
-| updateConnectorCredentials call | FAIL | Uses `useMutation` — should be `useAction` (runtime error) |
-| Success/error toasts | PASS | |
-| Cancel returns to list | PASS | |
-| Federation code immutable in edit | PASS | Disabled input |
-| OAuth Setup button on edit page | FAIL | No "Setup OAuth" button — PRD notes require it when auth type is OAuth. oauth-setup page exists but is unreachable from the UI. |
-| TypeScript errors | FAIL | `implicit any` on template parameter; `name specified twice` error |
-
----
-
-### US-P4.5-003: Implement OAuth 2.0 Setup Wizard
-**Status: FAIL — Both pages broken**
-
-| AC | Status | Notes |
-|----|--------|-------|
-| OAuth setup page exists | PASS | `[connectorId]/oauth-setup/page.tsx` |
-| Shows connector info and endpoints | PASS | |
-| Start Authorization button | PASS | |
-| Calls startOAuthFlow | FAIL | `useMutation` used for action — runtime error |
-| Opens auth URL in new window | PASS (code only) | |
-| OAuth callback page exists | PASS | `oauth-callback/page.tsx` |
-| Extracts code and state | PASS | |
-| Calls completeOAuthFlow | FAIL | `useMutation` used for action — runtime error |
-| CSRF state validation | PASS | |
-| Success / Error states | PASS | |
-| Redirect to edit after success | PASS | |
-| Reachable from edit page | FAIL | No link from edit page to oauth-setup |
-
----
-
-### US-P4.5-004: Add Connection Test Functionality
-**Status: FAIL — Broken at runtime**
-
-| AC | Status | Notes |
-|----|--------|-------|
-| Test button in list | PASS | |
-| Test button in edit page | PASS | |
-| Dialog shown on click | PASS | `ConnectionTestDialog` component |
-| Auto-tests on dialog open | PASS | |
-| Calls testConnection action | FAIL | `useMutation` used for action — runtime error |
-| Success result with response time | PASS (code only) | |
-| Failure result with error | PASS (code only) | |
-| Retry button on failure | PASS | |
-| Close button | PASS | |
-
----
-
-### US-P4.5-005: Create Sync Logs Viewer
-**File:** `apps/web/src/app/platform/connectors/sync-logs/page.tsx`
-**Status: PARTIAL**
-
-| AC | Status | Notes |
-|----|--------|-------|
-| Page exists | PASS | At `/sync-logs/` (PRD says `/logs/` — minor path difference) |
-| Title: Federation Sync Logs | PASS | |
-| All 8 table columns | PASS | |
-| Type badge colors | PARTIAL | Uses badge variants, not custom colors |
-| Status badge (running yellow) | PARTIAL | `running` status in schema but `getStatusBadgeVariant` only types `completed`/`failed` |
-| Duration column | PASS | |
-| Stats: Created/Updated/Conflicts | PASS | |
-| View Details button | PASS | |
-| Filter by connector | PASS | |
-| Filter by status | PASS | |
-| Date range (Last 7/30 days) | PASS | |
-| Custom date range picker | FAIL | Only preset options — no custom range |
-| Search by organization name | FAIL | Searches `organizationId` (internal ID), not human-readable org name |
-| Default sort: newest first | PASS | Backend default |
-| Pagination (50 per page) | PARTIAL | Cursor-based pagination exists but page size is backend default |
-| Empty state | PASS | |
-| Mobile responsive | PASS | |
-| TypeScript errors | FAIL | 5 `implicit any` errors |
-
----
-
-### US-P4.5-006: Create Sync Log Details Modal
-**File:** `apps/web/src/components/connectors/sync-log-details-dialog.tsx`
-**Status: PARTIAL**
-
-| AC | Status | Notes |
-|----|--------|-------|
-| Dialog exists | PASS | |
-| Opened by View Details | PASS | |
-| Dialog title with org/timestamp | PASS | |
-| Sync metadata section | PASS | All fields present |
-| Stats section | PASS | All 6 stat cards |
-| Conflicts section (expandable) | PASS | |
-| Each conflict shows all required fields | PASS | |
-| Color-coded resolution | PASS | |
-| Errors section (scrollable) | PASS | |
-| Export Details as JSON | PASS | |
-| Retry Sync button (if failed) | FAIL | Button shows but calls `toast.info("Retry functionality coming soon")` — not wired to backend |
-| TypeScript errors | FAIL | 5 `implicit any` errors |
-
----
-
-### US-P4.5-007: Create Connector Health Dashboard
-**File:** `apps/web/src/app/platform/connectors/dashboard/page.tsx`
-**Status: PARTIAL**
-
-| AC | Status | Notes |
-|----|--------|-------|
-| Page exists | PASS | |
-| Title: Federation Connector Dashboard | PASS | |
-| 4 summary cards | PASS | Total Connectors (w/ breakdown), Connected Orgs, Syncs Last 24h, Est. Monthly Cost |
-| Sync trend chart (30 days, 2 lines) | PASS | Uses recharts LineChart |
-| Connector health table (top 5, worst first) | PARTIAL | Present but missing Actions column — PRD requires Connector, Uptime, Last Error, Actions |
-| Red highlight for uptime <80% | PASS | |
-| Recent errors panel (last 10) | PASS | |
-| Click error → view sync log details | FAIL | Error items have no click handler |
-| View All Logs link | PASS | |
-| Manage Connectors link | PASS | |
-| Auto-refresh every 60 seconds | PARTIAL | `setInterval` updates `lastRefresh` state but Convex queries are reactive — manual refresh is not needed for data, but it misleads users into thinking the timestamp represents a data reload |
-| TypeScript errors | FAIL | 1 `implicit any` error |
-
----
-
-### US-P4.5-008: Add Analytics and Cost Monitoring
-**File:** `apps/web/src/app/platform/connectors/analytics/page.tsx`
-**Status: PARTIAL**
-
-| AC | Status | Notes |
-|----|--------|-------|
-| Page exists | PASS | |
-| Title: Federation Analytics | PASS | |
-| Time range selector (7d/30d/90d) | PASS | |
-| Custom time range | FAIL | Not implemented |
-| Sync volume chart (stacked bar) | PASS | Uses recharts BarChart |
-| API cost chart (line) | PASS | Uses recharts LineChart |
-| Cache hit rate pie chart | PASS | Uses recharts PieChart |
-| Cache savings displayed | PASS | Summary card shows savings |
-| Connector performance table | PASS | All required columns |
-| Highlight slow syncs >5 min yellow | PASS | |
-| Org leaderboard (top 10) | PASS | |
-| Export analytics | PARTIAL | JSON only — PRD says CSV or JSON, CSV not implemented |
-| Filter by connector | PASS | |
-| Filter by organization | FAIL | Not implemented — only connector filter present |
-| Mobile responsive | PASS | |
-
----
-
-## Recommended Fixes (Priority Order)
-
-### P0 — Fix immediately (breaks core features)
-
-1. **Fix `useMutation` → `useAction` in 4 files** (and update imports):
-   - `apps/web/src/components/connectors/connection-test-dialog.tsx`
-   - `apps/web/src/app/platform/connectors/[connectorId]/oauth-setup/page.tsx`
-   - `apps/web/src/app/platform/connectors/oauth-callback/page.tsx`
-   - `apps/web/src/app/platform/connectors/[connectorId]/edit/page.tsx`
-
-2. **Add "Setup OAuth" button on edit page** for OAuth-type connectors linking to `/platform/connectors/[connectorId]/oauth-setup`
-
-### P1 — AC failures
-
-3. Wire **Retry Sync button** in `sync-log-details-dialog.tsx` to actual backend
-4. Display **organization names** not IDs in connector list tooltip and sync logs
-5. Add **Actions column** to health table in dashboard
-6. Fix **20 TypeScript errors** — add types to map/filter callbacks in all connector files
-
-### P2 — Incomplete features
-
-7. Make **recent errors clickable** in dashboard (open sync log details dialog)
-8. Add **organization filter** to analytics page
-9. Implement **table sorting** on connector list
-10. Add **custom date range picker** to sync logs and analytics
-
-### P3 — Minor gaps
-
-11. Use `getConnectorHealth` query for real uptime metrics instead of heuristic
-12. Implement CSV export option in analytics
-
----
-
-## PRD Audit - US-P4.5-004 - 2026-02-16 11:40:21
-## Audit Report: US-P4.5-004 - Add connection test functionality
-
-**STATUS: PARTIAL**
-
-### ✅ Implemented Acceptance Criteria
-
-1. ✅ **Test Connection button on connector edit page** - Present at line 636-645 in `edit/page.tsx`
-2. ✅ **Test Connection button on connector list (Actions column)** - Present at lines 352-366 (desktop), 462-475 (mobile) in `page.tsx`
-3. ✅ **Dialog with testing message** - `ConnectionTestDialog` component shows "Testing connection to {connectorName}..." at lines 84-99
-4. ✅ **testConnection action** - Implemented at `federationAuth.ts:283-421`
-5. ✅ **OAuth support** - Adds Bearer token auth at lines 337-338
-6. ✅ **API Key support** - Adds custom header auth at lines 339-340
-7. ✅ **Basic Auth support** - Adds Basic auth header at lines 341-345
-8. ✅ **Correct return type** - Returns `{ success: boolean, message: string, responseTime: number }` at line 287-291
-9. ✅ **Success display** - Shows green alert with checkmark and response time at lines 103-116
-10. ✅ **Failure display** - Shows red alert with X icon and error message at lines 119-132
-11. ✅ **Common error handling** - Handles 401, 403, 404, 429, 500+ errors at lines 361-371; timeout at lines 391-396; network error at lines 399-405
-12. ✅ **Retry button on failure** - Present at lines 136-139
-13. ✅ **Close button** - Present at lines 141-147, calls `handleClose()` which resets state and closes dialog
-14. ✅ **Calls membership list endpoint with limit=1** - Line 330 sets `limit=1` query param
-15. ✅ **Type checks pass** - Pre-existing errors unrelated to this story
-
-### ❌ Missing Acceptance Criteria
-
-1. **Edit button in desktop table view is not clickable** - The Edit button at line 342-344 in `page.tsx` has no `asChild` + `Link` or `onClick` handler to navigate to the edit page. The mobile version (lines 454-460) correctly wraps it with a Link.
-
-### 📝 Quality Notes
-
-- Auto-tests on dialog open (line 72-76)
-- 10-second timeout configured (line 352)
-- Proper state management with loading/success/error states
-- Component is reusable with proper props interface
-
-### Recommendation
-
-**PARTIAL** - Core functionality is complete and working. The Edit button in the desktop table view needs to be fixed to navigate to the edit page (should use `Link` like the mobile version does).
-
-## Auto Quality Check - 2026-02-16 11:42:55
-### File: /Users/jkobrien/code/PDP/packages/backend/convex/models/syncHistory.ts
-
-- ⚠️ **Performance: .filter() usage detected**
-  - **Problem:** Should use .withIndex() for better performance
-  - **Fix:** Replace `.query().filter()` with `.query().withIndex()`
-
-
-## Security Tester - 2026-02-16 11:43:40
+## Security Tester - 2026-02-25 22:50:35
 - 🚨 **CRITICAL**: Hardcoded secrets detected
 ```
+apps/web/src/app/api/ai-config/verify-model/route.ts:          errorMessage: "ANTHROPIC_API_KEY not configured in Next.js env",
+apps/web/src/app/api/ai-config/verify-model/route.ts:          errorMessage: "OPENAI_API_KEY not configured in Next.js env",
+apps/web/src/app/api/ai-config/available-models/route.ts:    errors.anthropic = "ANTHROPIC_API_KEY not configured";
+apps/web/src/app/api/ai-config/available-models/route.ts:    errors.openai = "OPENAI_API_KEY not configured";
 apps/web/src/app/api/comparison-insights/route.ts:      console.error("❌ ANTHROPIC_API_KEY not found in environment variables");
-apps/web/src/app/api/recommendations/route.ts:      console.error("❌ ANTHROPIC_API_KEY not found in environment variables");
-apps/web/src/app/api/session-plan/route.ts:      console.error("❌ ANTHROPIC_API_KEY not found in environment variables");
-packages/backend/convex/actions/aiMapping.ts:      "Invalid Anthropic API key. Check ANTHROPIC_API_KEY environment variable."
-packages/backend/convex/actions/aiMapping.ts:        "ANTHROPIC_API_KEY not configured in Convex environment variables"
 ```
-- ⚠️ **HIGH**: 4 high-severity dependency vulnerabilities
+- ⚠️ **HIGH**: 5 high-severity dependency vulnerabilities
   Run `npm audit fix` to resolve
 - ⚠️ **HIGH**: Mutations without authorization checks:
   - packages/backend/convex/models/platformMessagingSettings.ts
@@ -327,15 +39,19 @@ packages/backend/convex/actions/aiMapping.ts:        "ANTHROPIC_API_KEY not conf
   - packages/backend/convex/models/players.ts
   - packages/backend/convex/models/aiMappingCache.ts
   - packages/backend/convex/models/orgInjuryNotes.ts
+  - packages/backend/convex/models/injuryDocuments.ts
+  - packages/backend/convex/models/playerHealthChecks.ts
   - packages/backend/convex/models/playerImport.ts
   - packages/backend/convex/models/passportEnquiries.ts
   - packages/backend/convex/models/setup.ts
   - packages/backend/convex/models/teamPlayerIdentities.ts
   - packages/backend/convex/models/rateLimits.ts
+  - packages/backend/convex/models/phase4TestCleanup.ts
   - packages/backend/convex/models/syncHistory.ts
   - packages/backend/convex/models/platformStaffInvitations.ts
   - packages/backend/convex/models/coachParentMessages.ts
   - packages/backend/convex/models/aiModelConfig.ts
+  - packages/backend/convex/models/voicePipelineAlerts.ts
   - packages/backend/convex/models/aiMappingAnalytics.ts
   - packages/backend/convex/models/orgPlayerEnrollments.ts
   - packages/backend/convex/models/sportPassports.ts
@@ -359,6 +75,7 @@ packages/backend/convex/actions/aiMapping.ts:        "ANTHROPIC_API_KEY not conf
   - packages/backend/convex/models/members.ts
   - packages/backend/convex/models/voiceNoteEntityResolutions.ts
   - packages/backend/convex/models/users.ts
+  - packages/backend/convex/models/voicePipelineRetry.ts
   - packages/backend/convex/models/skillAssessments.ts
   - packages/backend/convex/models/playerSelfAccess.ts
   - packages/backend/convex/models/aiServiceHealth.ts
@@ -392,7 +109,9 @@ packages/backend/convex/actions/aiMapping.ts:        "ANTHROPIC_API_KEY not conf
   - packages/backend/convex/actions/claimsExtraction.ts
   - packages/backend/convex/actions/coachParentSummaries.ts
   - packages/backend/convex/actions/practicePlans.ts
+  - packages/backend/convex/actions/sessionPlans.ts
   - packages/backend/convex/actions/voiceNotes.ts
+  - packages/backend/convex/actions/wellnessInsights.ts
   - packages/backend/convex/models/aiServiceHealth.ts
   **Action**: Validate/sanitize user input before AI prompts
 - ⚠️ **HIGH [P9]**: Notification functions without permission checks:
@@ -400,68 +119,16 @@ packages/backend/convex/actions/aiMapping.ts:        "ANTHROPIC_API_KEY not conf
   **Action**: Verify user can send notifications to recipient
 
 
-## PRD Audit - US-P4.5-005 - 2026-02-16 11:42:11
-## US-P4.5-005 Audit Report
-
-**Status: PARTIAL** - Story implemented with one path deviation
-
-### Summary
-The sync logs viewer has been comprehensively implemented with all core functionality working. However, there is one discrepancy with the acceptance criteria regarding the file path.
-
-### Acceptance Criteria Review
-
-✅ **PASS: Core Functionality**
-- Page title: "Federation Sync Logs" (line 166)
-- DataTable/table for sync history display (desktop table lines 251-358, mobile cards 360-432)
-- Correct table columns: Timestamp, Connector, Organization, Type, Status, Duration, Stats, Actions
-- Type badges with correct colors: scheduled (default/blue), manual (secondary/purple), webhook (outline/green) (lines 40-50)
-- Status badges: completed (default/green), failed (destructive/red) - "running" status supported in filters but not present in data (lines 52-62)
-- Duration format: "Xm Ys" (lines 140-148)
-- Stats column: "Created: X, Updated: Y, Conflicts: Z" (lines 329-340)
-- Actions: "View Details" button wired to dialog (lines 343-349, dialog component exists)
-
-✅ **PASS: Filtering & Search**
-- Filter by connector dropdown (All Connectors or specific) (lines 195-212)
-- Filter by status dropdown (All, Completed, Failed, Running) (lines 215-229)
-- Filter by date range (Last 7 days, Last 30 days, All time) (lines 232-245)
-- Search bar filters by organization (lines 185-192, client-side filtering lines 116-122)
-- Sort by timestamp (newest first) - backend query uses `by_startedAt` index descending
-
-✅ **PASS: UI Requirements**
-- Pagination: 50 logs per page (backend default limit 50, lines 112-113 in syncHistory.ts)
-- Empty state: "No sync logs found. Try adjusting filters." (lines 283-290, 362-365)
-- Mobile responsive: table becomes card list on <768px (lines 251-358 for desktop, 360-432 for mobile)
-- Code quality: `npx ultracite fix` passed with no issues
-
-❌ **FAIL: File Path Discrepancy**
-- **Expected**: `apps/web/src/app/platform-admin/connectors/logs/page.tsx`
-- **Actual**: `apps/web/src/app/platform/connectors/sync-logs/page.tsx`
-- The implementation uses `/platform/connectors/sync-logs` instead of `/platform-admin/connectors/logs`
-- Reason noted in commit: "Renamed directory from 'logs' to 'sync-logs' to avoid .gitignore conflict"
-
-### Backend Implementation
-✅ Complete backend support in `packages/backend/convex/models/syncHistory.ts`:
-- `getAllSyncHistory` query (lines 106-198)
-- `getSyncHistoryDetails` query for modal (lines 293-356)
-- Proper use of indexes (`by_startedAt`)
-- Pagination with cursor support
-- All validators correct
-
-### Verdict
-**PARTIAL** - The story is functionally complete with all features working as specified, but deviates from the specified path. The path change appears deliberate (to avoid gitignore issues) and was documented in the commit message. All other acceptance criteria are fully met.
-
-**Recommendation**: Update the PRD acceptance criteria to reflect the actual path (`/platform/connectors/sync-logs`) or discuss if the path should be changed to match the original spec.
-
-## Security Tester - 2026-02-16 11:45:42
+## Security Tester - 2026-02-25 22:52:40
 - 🚨 **CRITICAL**: Hardcoded secrets detected
 ```
+apps/web/src/app/api/ai-config/verify-model/route.ts:          errorMessage: "ANTHROPIC_API_KEY not configured in Next.js env",
+apps/web/src/app/api/ai-config/verify-model/route.ts:          errorMessage: "OPENAI_API_KEY not configured in Next.js env",
+apps/web/src/app/api/ai-config/available-models/route.ts:    errors.anthropic = "ANTHROPIC_API_KEY not configured";
+apps/web/src/app/api/ai-config/available-models/route.ts:    errors.openai = "OPENAI_API_KEY not configured";
 apps/web/src/app/api/comparison-insights/route.ts:      console.error("❌ ANTHROPIC_API_KEY not found in environment variables");
-apps/web/src/app/api/recommendations/route.ts:      console.error("❌ ANTHROPIC_API_KEY not found in environment variables");
-apps/web/src/app/api/session-plan/route.ts:      console.error("❌ ANTHROPIC_API_KEY not found in environment variables");
-packages/backend/convex/actions/aiMapping.ts:      "Invalid Anthropic API key. Check ANTHROPIC_API_KEY environment variable."
-packages/backend/convex/actions/aiMapping.ts:        "ANTHROPIC_API_KEY not configured in Convex environment variables"
 ```
-- ⚠️ **HIGH**: 4 high-severity dependency vulnerabilities
+- ⚠️ **HIGH**: 5 high-severity dependency vulnerabilities
   Run `npm audit fix` to resolve
 - ⚠️ **HIGH**: Mutations without authorization checks:
   - packages/backend/convex/models/platformMessagingSettings.ts
@@ -488,15 +155,19 @@ packages/backend/convex/actions/aiMapping.ts:        "ANTHROPIC_API_KEY not conf
   - packages/backend/convex/models/players.ts
   - packages/backend/convex/models/aiMappingCache.ts
   - packages/backend/convex/models/orgInjuryNotes.ts
+  - packages/backend/convex/models/injuryDocuments.ts
+  - packages/backend/convex/models/playerHealthChecks.ts
   - packages/backend/convex/models/playerImport.ts
   - packages/backend/convex/models/passportEnquiries.ts
   - packages/backend/convex/models/setup.ts
   - packages/backend/convex/models/teamPlayerIdentities.ts
   - packages/backend/convex/models/rateLimits.ts
+  - packages/backend/convex/models/phase4TestCleanup.ts
   - packages/backend/convex/models/syncHistory.ts
   - packages/backend/convex/models/platformStaffInvitations.ts
   - packages/backend/convex/models/coachParentMessages.ts
   - packages/backend/convex/models/aiModelConfig.ts
+  - packages/backend/convex/models/voicePipelineAlerts.ts
   - packages/backend/convex/models/aiMappingAnalytics.ts
   - packages/backend/convex/models/orgPlayerEnrollments.ts
   - packages/backend/convex/models/sportPassports.ts
@@ -520,6 +191,7 @@ packages/backend/convex/actions/aiMapping.ts:        "ANTHROPIC_API_KEY not conf
   - packages/backend/convex/models/members.ts
   - packages/backend/convex/models/voiceNoteEntityResolutions.ts
   - packages/backend/convex/models/users.ts
+  - packages/backend/convex/models/voicePipelineRetry.ts
   - packages/backend/convex/models/skillAssessments.ts
   - packages/backend/convex/models/playerSelfAccess.ts
   - packages/backend/convex/models/aiServiceHealth.ts
@@ -553,7 +225,9 @@ packages/backend/convex/actions/aiMapping.ts:        "ANTHROPIC_API_KEY not conf
   - packages/backend/convex/actions/claimsExtraction.ts
   - packages/backend/convex/actions/coachParentSummaries.ts
   - packages/backend/convex/actions/practicePlans.ts
+  - packages/backend/convex/actions/sessionPlans.ts
   - packages/backend/convex/actions/voiceNotes.ts
+  - packages/backend/convex/actions/wellnessInsights.ts
   - packages/backend/convex/models/aiServiceHealth.ts
   **Action**: Validate/sanitize user input before AI prompts
 - ⚠️ **HIGH [P9]**: Notification functions without permission checks:
@@ -561,16 +235,64 @@ packages/backend/convex/actions/aiMapping.ts:        "ANTHROPIC_API_KEY not conf
   **Action**: Verify user can send notifications to recipient
 
 
-## Security Tester - 2026-02-16 11:47:46
+## Auto Quality Check - 2026-02-25 22:54:22
+### File: /Users/jkobrien/code/PDP/packages/backend/convex/models/passportSharing.ts
+
+- ❌ **CRITICAL: Better Auth adapter violation**
+  - **Problem:** Direct DB access to auth tables
+  - **Fix:** Use `ctx.runQuery(components.betterAuth.adapter.findOne, {...})`
+
+
+## Auto Quality Check - 2026-02-25 22:54:22
+### File: /Users/jkobrien/code/PDP/packages/backend/convex/models/passportSharing.ts
+
+- ⚠️ **Performance: .filter() usage detected**
+  - **Problem:** Should use .withIndex() for better performance
+  - **Fix:** Replace `.query().filter()` with `.query().withIndex()`
+
+
+## Auto Quality Check - 2026-02-25 22:54:22
+### File: /Users/jkobrien/code/PDP/packages/backend/convex/models/passportSharing.ts
+
+- ❌ **CRITICAL: N+1 query pattern detected**
+  - **Problem:** `Promise.all(items.map(async => query))` makes N database calls
+  - **Fix:** Batch fetch all IDs first, create Map for O(1) lookup
+
+
+## Auto Quality Check - 2026-02-25 22:54:44
+### File: /Users/jkobrien/code/PDP/packages/backend/convex/models/passportSharing.ts
+
+- ❌ **CRITICAL: Better Auth adapter violation**
+  - **Problem:** Direct DB access to auth tables
+  - **Fix:** Use `ctx.runQuery(components.betterAuth.adapter.findOne, {...})`
+
+
+## Auto Quality Check - 2026-02-25 22:54:44
+### File: /Users/jkobrien/code/PDP/packages/backend/convex/models/passportSharing.ts
+
+- ⚠️ **Performance: .filter() usage detected**
+  - **Problem:** Should use .withIndex() for better performance
+  - **Fix:** Replace `.query().filter()` with `.query().withIndex()`
+
+
+## Auto Quality Check - 2026-02-25 22:54:44
+### File: /Users/jkobrien/code/PDP/packages/backend/convex/models/passportSharing.ts
+
+- ❌ **CRITICAL: N+1 query pattern detected**
+  - **Problem:** `Promise.all(items.map(async => query))` makes N database calls
+  - **Fix:** Batch fetch all IDs first, create Map for O(1) lookup
+
+
+## Security Tester - 2026-02-25 22:54:46
 - 🚨 **CRITICAL**: Hardcoded secrets detected
 ```
+apps/web/src/app/api/ai-config/verify-model/route.ts:          errorMessage: "ANTHROPIC_API_KEY not configured in Next.js env",
+apps/web/src/app/api/ai-config/verify-model/route.ts:          errorMessage: "OPENAI_API_KEY not configured in Next.js env",
+apps/web/src/app/api/ai-config/available-models/route.ts:    errors.anthropic = "ANTHROPIC_API_KEY not configured";
+apps/web/src/app/api/ai-config/available-models/route.ts:    errors.openai = "OPENAI_API_KEY not configured";
 apps/web/src/app/api/comparison-insights/route.ts:      console.error("❌ ANTHROPIC_API_KEY not found in environment variables");
-apps/web/src/app/api/recommendations/route.ts:      console.error("❌ ANTHROPIC_API_KEY not found in environment variables");
-apps/web/src/app/api/session-plan/route.ts:      console.error("❌ ANTHROPIC_API_KEY not found in environment variables");
-packages/backend/convex/actions/aiMapping.ts:      "Invalid Anthropic API key. Check ANTHROPIC_API_KEY environment variable."
-packages/backend/convex/actions/aiMapping.ts:        "ANTHROPIC_API_KEY not configured in Convex environment variables"
 ```
-- ⚠️ **HIGH**: 4 high-severity dependency vulnerabilities
+- ⚠️ **HIGH**: 5 high-severity dependency vulnerabilities
   Run `npm audit fix` to resolve
 - ⚠️ **HIGH**: Mutations without authorization checks:
   - packages/backend/convex/models/platformMessagingSettings.ts
@@ -597,15 +319,19 @@ packages/backend/convex/actions/aiMapping.ts:        "ANTHROPIC_API_KEY not conf
   - packages/backend/convex/models/players.ts
   - packages/backend/convex/models/aiMappingCache.ts
   - packages/backend/convex/models/orgInjuryNotes.ts
+  - packages/backend/convex/models/injuryDocuments.ts
+  - packages/backend/convex/models/playerHealthChecks.ts
   - packages/backend/convex/models/playerImport.ts
   - packages/backend/convex/models/passportEnquiries.ts
   - packages/backend/convex/models/setup.ts
   - packages/backend/convex/models/teamPlayerIdentities.ts
   - packages/backend/convex/models/rateLimits.ts
+  - packages/backend/convex/models/phase4TestCleanup.ts
   - packages/backend/convex/models/syncHistory.ts
   - packages/backend/convex/models/platformStaffInvitations.ts
   - packages/backend/convex/models/coachParentMessages.ts
   - packages/backend/convex/models/aiModelConfig.ts
+  - packages/backend/convex/models/voicePipelineAlerts.ts
   - packages/backend/convex/models/aiMappingAnalytics.ts
   - packages/backend/convex/models/orgPlayerEnrollments.ts
   - packages/backend/convex/models/sportPassports.ts
@@ -629,6 +355,7 @@ packages/backend/convex/actions/aiMapping.ts:        "ANTHROPIC_API_KEY not conf
   - packages/backend/convex/models/members.ts
   - packages/backend/convex/models/voiceNoteEntityResolutions.ts
   - packages/backend/convex/models/users.ts
+  - packages/backend/convex/models/voicePipelineRetry.ts
   - packages/backend/convex/models/skillAssessments.ts
   - packages/backend/convex/models/playerSelfAccess.ts
   - packages/backend/convex/models/aiServiceHealth.ts
@@ -662,7 +389,9 @@ packages/backend/convex/actions/aiMapping.ts:        "ANTHROPIC_API_KEY not conf
   - packages/backend/convex/actions/claimsExtraction.ts
   - packages/backend/convex/actions/coachParentSummaries.ts
   - packages/backend/convex/actions/practicePlans.ts
+  - packages/backend/convex/actions/sessionPlans.ts
   - packages/backend/convex/actions/voiceNotes.ts
+  - packages/backend/convex/actions/wellnessInsights.ts
   - packages/backend/convex/models/aiServiceHealth.ts
   **Action**: Validate/sanitize user input before AI prompts
 - ⚠️ **HIGH [P9]**: Notification functions without permission checks:
@@ -670,2327 +399,319 @@ packages/backend/convex/actions/aiMapping.ts:        "ANTHROPIC_API_KEY not conf
   **Action**: Verify user can send notifications to recipient
 
 
-## Auto Quality Check - 2026-02-18 23:01:18
-### File: /Users/jkobrien/code/PDP/packages/backend/convex/models/federationConnectors.ts
-
-- ⚠️ **Performance: .filter() usage detected**
-  - **Problem:** Should use .withIndex() for better performance
-  - **Fix:** Replace `.query().filter()` with `.query().withIndex()`
-
-
-## Auto Quality Check - 2026-02-19 09:08:23
-### File: /Users/jkobrien/code/PDP/packages/backend/convex/lib/import/mapper.ts
-
-- ⚠️ **Performance: .filter() usage detected**
-  - **Problem:** Should use .withIndex() for better performance
-  - **Fix:** Replace `.query().filter()` with `.query().withIndex()`
-
-
-## Auto Quality Check - 2026-02-19 21:18:00
-### File: /Users/jkobrien/code/PDP/packages/backend/convex/models/federationConnectors.ts
-
-- ⚠️ **Performance: .filter() usage detected**
-  - **Problem:** Should use .withIndex() for better performance
-  - **Fix:** Replace `.query().filter()` with `.query().withIndex()`
-
-
-## Auto Quality Check - 2026-02-19 21:18:13
-### File: /Users/jkobrien/code/PDP/packages/backend/convex/models/federationConnectors.ts
-
-- ⚠️ **Performance: .filter() usage detected**
-  - **Problem:** Should use .withIndex() for better performance
-  - **Fix:** Replace `.query().filter()` with `.query().withIndex()`
-
-
-## Auto Quality Check - 2026-02-19 21:58:19
-### File: /Users/jkobrien/code/PDP/packages/backend/convex/models/importTemplateSeeds.ts
-
-- ⚠️ **Data Isolation: No organizationId filter found**
-  - **Problem:** Queries should be scoped by organizationId for multi-tenant isolation
-  - **Fix:** Add organizationId to query args and use in .withIndex()
-
-
-## Auto Quality Check - 2026-02-19 21:59:21
-### File: /Users/jkobrien/code/PDP/packages/backend/convex/models/organizations.ts
+## Auto Quality Check - 2026-02-25 22:55:06
+### File: /Users/jkobrien/code/PDP/packages/backend/convex/models/passportSharing.ts
 
 - ❌ **CRITICAL: Better Auth adapter violation**
   - **Problem:** Direct DB access to auth tables
   - **Fix:** Use `ctx.runQuery(components.betterAuth.adapter.findOne, {...})`
 
 
-## Auto Quality Check - 2026-02-19 21:59:21
-### File: /Users/jkobrien/code/PDP/packages/backend/convex/models/organizations.ts
+## Auto Quality Check - 2026-02-25 22:55:06
+### File: /Users/jkobrien/code/PDP/packages/backend/convex/models/passportSharing.ts
 
 - ⚠️ **Performance: .filter() usage detected**
   - **Problem:** Should use .withIndex() for better performance
   - **Fix:** Replace `.query().filter()` with `.query().withIndex()`
 
 
-## Auto Quality Check - 2026-02-19 21:59:21
-### File: /Users/jkobrien/code/PDP/packages/backend/convex/models/organizations.ts
+## Auto Quality Check - 2026-02-25 22:55:06
+### File: /Users/jkobrien/code/PDP/packages/backend/convex/models/passportSharing.ts
 
 - ❌ **CRITICAL: N+1 query pattern detected**
   - **Problem:** `Promise.all(items.map(async => query))` makes N database calls
   - **Fix:** Batch fetch all IDs first, create Map for O(1) lookup
 
 
-## Auto Quality Check - 2026-02-19 22:01:08
-### File: /Users/jkobrien/code/PDP/packages/backend/convex/models/importTemplateSeeds.ts
-
-- ⚠️ **Data Isolation: No organizationId filter found**
-  - **Problem:** Queries should be scoped by organizationId for multi-tenant isolation
-  - **Fix:** Add organizationId to query args and use in .withIndex()
-
-
-## Auto Quality Check - 2026-02-20 09:05:25
-### File: /Users/jkobrien/code/PDP/packages/backend/convex/models/orgPlayerEnrollments.ts
+## Auto Quality Check - 2026-02-25 22:55:21
+### File: /Users/jkobrien/code/PDP/packages/backend/convex/models/passportSharing.ts
 
 - ❌ **CRITICAL: Better Auth adapter violation**
   - **Problem:** Direct DB access to auth tables
   - **Fix:** Use `ctx.runQuery(components.betterAuth.adapter.findOne, {...})`
 
 
-## Auto Quality Check - 2026-02-20 09:05:25
-### File: /Users/jkobrien/code/PDP/packages/backend/convex/models/orgPlayerEnrollments.ts
+## Auto Quality Check - 2026-02-25 22:55:21
+### File: /Users/jkobrien/code/PDP/packages/backend/convex/models/passportSharing.ts
 
 - ⚠️ **Performance: .filter() usage detected**
   - **Problem:** Should use .withIndex() for better performance
   - **Fix:** Replace `.query().filter()` with `.query().withIndex()`
 
 
-## Auto Quality Check - 2026-02-20 09:07:47
-### File: /Users/jkobrien/code/PDP/packages/backend/convex/models/orgPlayerEnrollments.ts
-
-- ❌ **CRITICAL: Better Auth adapter violation**
-  - **Problem:** Direct DB access to auth tables
-  - **Fix:** Use `ctx.runQuery(components.betterAuth.adapter.findOne, {...})`
-
-
-## Auto Quality Check - 2026-02-20 09:07:47
-### File: /Users/jkobrien/code/PDP/packages/backend/convex/models/orgPlayerEnrollments.ts
-
-- ⚠️ **Performance: .filter() usage detected**
-  - **Problem:** Should use .withIndex() for better performance
-  - **Fix:** Replace `.query().filter()` with `.query().withIndex()`
-
-
-## Auto Quality Check - 2026-02-20 10:26:04
-### File: /Users/jkobrien/code/PDP/packages/backend/convex/models/whatsappReviewLinks.ts
-
-- ❌ **CRITICAL: Better Auth adapter violation**
-  - **Problem:** Direct DB access to auth tables
-  - **Fix:** Use `ctx.runQuery(components.betterAuth.adapter.findOne, {...})`
-
-
-## Auto Quality Check - 2026-02-20 10:26:04
-### File: /Users/jkobrien/code/PDP/packages/backend/convex/models/whatsappReviewLinks.ts
-
-- ⚠️ **Performance: .filter() usage detected**
-  - **Problem:** Should use .withIndex() for better performance
-  - **Fix:** Replace `.query().filter()` with `.query().withIndex()`
-
-
-## Auto Quality Check - 2026-02-20 10:28:07
-### File: /Users/jkobrien/code/PDP/packages/backend/convex/models/whatsappReviewLinks.ts
-
-- ❌ **CRITICAL: Better Auth adapter violation**
-  - **Problem:** Direct DB access to auth tables
-  - **Fix:** Use `ctx.runQuery(components.betterAuth.adapter.findOne, {...})`
-
-
-## Auto Quality Check - 2026-02-20 10:28:07
-### File: /Users/jkobrien/code/PDP/packages/backend/convex/models/whatsappReviewLinks.ts
-
-- ⚠️ **Performance: .filter() usage detected**
-  - **Problem:** Should use .withIndex() for better performance
-  - **Fix:** Replace `.query().filter()` with `.query().withIndex()`
-
-
-## Auto Quality Check - 2026-02-20 11:04:22
-### File: /Users/jkobrien/code/PDP/packages/backend/convex/models/whatsappReviewLinks.ts
-
-- ❌ **CRITICAL: Better Auth adapter violation**
-  - **Problem:** Direct DB access to auth tables
-  - **Fix:** Use `ctx.runQuery(components.betterAuth.adapter.findOne, {...})`
-
-
-## Auto Quality Check - 2026-02-20 11:04:22
-### File: /Users/jkobrien/code/PDP/packages/backend/convex/models/whatsappReviewLinks.ts
-
-- ⚠️ **Performance: .filter() usage detected**
-  - **Problem:** Should use .withIndex() for better performance
-  - **Fix:** Replace `.query().filter()` with `.query().withIndex()`
-
-
-## Auto Quality Check - 2026-02-20 11:04:59
-### File: /Users/jkobrien/code/PDP/packages/backend/convex/models/whatsappReviewLinks.ts
-
-- ❌ **CRITICAL: Better Auth adapter violation**
-  - **Problem:** Direct DB access to auth tables
-  - **Fix:** Use `ctx.runQuery(components.betterAuth.adapter.findOne, {...})`
-
-
-## Auto Quality Check - 2026-02-20 11:04:59
-### File: /Users/jkobrien/code/PDP/packages/backend/convex/models/whatsappReviewLinks.ts
-
-- ⚠️ **Performance: .filter() usage detected**
-  - **Problem:** Should use .withIndex() for better performance
-  - **Fix:** Replace `.query().filter()` with `.query().withIndex()`
-
-
-## Auto Quality Check - 2026-02-20 11:07:59
-### File: /Users/jkobrien/code/PDP/packages/backend/convex/models/whatsappReviewLinks.ts
-
-- ❌ **CRITICAL: Better Auth adapter violation**
-  - **Problem:** Direct DB access to auth tables
-  - **Fix:** Use `ctx.runQuery(components.betterAuth.adapter.findOne, {...})`
-
-
-## Auto Quality Check - 2026-02-20 11:07:59
-### File: /Users/jkobrien/code/PDP/packages/backend/convex/models/whatsappReviewLinks.ts
-
-- ⚠️ **Performance: .filter() usage detected**
-  - **Problem:** Should use .withIndex() for better performance
-  - **Fix:** Replace `.query().filter()` with `.query().withIndex()`
-
-
-## Auto Quality Check - 2026-02-20 11:08:09
-### File: /Users/jkobrien/code/PDP/packages/backend/convex/models/whatsappReviewLinks.ts
-
-- ❌ **CRITICAL: Better Auth adapter violation**
-  - **Problem:** Direct DB access to auth tables
-  - **Fix:** Use `ctx.runQuery(components.betterAuth.adapter.findOne, {...})`
-
-
-## Auto Quality Check - 2026-02-20 11:08:09
-### File: /Users/jkobrien/code/PDP/packages/backend/convex/models/whatsappReviewLinks.ts
-
-- ⚠️ **Performance: .filter() usage detected**
-  - **Problem:** Should use .withIndex() for better performance
-  - **Fix:** Replace `.query().filter()` with `.query().withIndex()`
-
-
-## Auto Quality Check - 2026-02-20 11:08:19
-### File: /Users/jkobrien/code/PDP/packages/backend/convex/models/whatsappReviewLinks.ts
-
-- ❌ **CRITICAL: Better Auth adapter violation**
-  - **Problem:** Direct DB access to auth tables
-  - **Fix:** Use `ctx.runQuery(components.betterAuth.adapter.findOne, {...})`
-
-
-## Auto Quality Check - 2026-02-20 11:08:19
-### File: /Users/jkobrien/code/PDP/packages/backend/convex/models/whatsappReviewLinks.ts
-
-- ⚠️ **Performance: .filter() usage detected**
-  - **Problem:** Should use .withIndex() for better performance
-  - **Fix:** Replace `.query().filter()` with `.query().withIndex()`
-
-
-## Auto Quality Check - 2026-02-20 11:59:39
-### File: /Users/jkobrien/code/PDP/packages/backend/convex/actions/voiceNotes.ts
-
-- ⚠️ **Performance: .filter() usage detected**
-  - **Problem:** Should use .withIndex() for better performance
-  - **Fix:** Replace `.query().filter()` with `.query().withIndex()`
-
-
-## Auto Quality Check - 2026-02-20 11:59:47
-### File: /Users/jkobrien/code/PDP/packages/backend/convex/actions/voiceNotes.ts
-
-- ⚠️ **Performance: .filter() usage detected**
-  - **Problem:** Should use .withIndex() for better performance
-  - **Fix:** Replace `.query().filter()` with `.query().withIndex()`
-
-
-## Auto Quality Check - 2026-02-20 11:59:58
-### File: /Users/jkobrien/code/PDP/packages/backend/convex/actions/voiceNotes.ts
-
-- ⚠️ **Performance: .filter() usage detected**
-  - **Problem:** Should use .withIndex() for better performance
-  - **Fix:** Replace `.query().filter()` with `.query().withIndex()`
-
-
-## Auto Quality Check - 2026-02-20 12:01:49
-### File: /Users/jkobrien/code/PDP/packages/backend/convex/actions/voiceNotes.ts
-
-- ⚠️ **Performance: .filter() usage detected**
-  - **Problem:** Should use .withIndex() for better performance
-  - **Fix:** Replace `.query().filter()` with `.query().withIndex()`
-
-
-## Auto Quality Check - 2026-02-20 12:02:07
-### File: /Users/jkobrien/code/PDP/packages/backend/convex/actions/voiceNotes.ts
-
-- ⚠️ **Performance: .filter() usage detected**
-  - **Problem:** Should use .withIndex() for better performance
-  - **Fix:** Replace `.query().filter()` with `.query().withIndex()`
-
-
-## Auto Quality Check - 2026-02-20 12:02:08
-### File: /Users/jkobrien/code/PDP/packages/backend/convex/actions/voiceNotes.ts
-
-- ⚠️ **Performance: .filter() usage detected**
-  - **Problem:** Should use .withIndex() for better performance
-  - **Fix:** Replace `.query().filter()` with `.query().withIndex()`
-
-
-## Auto Quality Check - 2026-02-20 12:02:21
-### File: /Users/jkobrien/code/PDP/packages/backend/convex/actions/voiceNotes.ts
-
-- ⚠️ **Performance: .filter() usage detected**
-  - **Problem:** Should use .withIndex() for better performance
-  - **Fix:** Replace `.query().filter()` with `.query().withIndex()`
-
-
-## Auto Quality Check - 2026-02-20 12:02:29
-### File: /Users/jkobrien/code/PDP/packages/backend/convex/actions/voiceNotes.ts
-
-- ⚠️ **Performance: .filter() usage detected**
-  - **Problem:** Should use .withIndex() for better performance
-  - **Fix:** Replace `.query().filter()` with `.query().withIndex()`
-
-
-## Auto Quality Check - 2026-02-20 12:02:46
-### File: /Users/jkobrien/code/PDP/packages/backend/convex/actions/voiceNotes.ts
-
-- ⚠️ **Performance: .filter() usage detected**
-  - **Problem:** Should use .withIndex() for better performance
-  - **Fix:** Replace `.query().filter()` with `.query().withIndex()`
-
-
-## Auto Quality Check - 2026-02-20 12:03:04
-### File: /Users/jkobrien/code/PDP/packages/backend/convex/actions/voiceNotes.ts
-
-- ⚠️ **Performance: .filter() usage detected**
-  - **Problem:** Should use .withIndex() for better performance
-  - **Fix:** Replace `.query().filter()` with `.query().withIndex()`
-
-
-## Auto Quality Check - 2026-02-20 12:06:42
-### File: /Users/jkobrien/code/PDP/packages/backend/convex/models/voiceNotes.ts
-
-- ❌ **CRITICAL: Better Auth adapter violation**
-  - **Problem:** Direct DB access to auth tables
-  - **Fix:** Use `ctx.runQuery(components.betterAuth.adapter.findOne, {...})`
-
-
-## Auto Quality Check - 2026-02-20 12:06:42
-### File: /Users/jkobrien/code/PDP/packages/backend/convex/models/voiceNotes.ts
-
-- ⚠️ **Performance: .filter() usage detected**
-  - **Problem:** Should use .withIndex() for better performance
-  - **Fix:** Replace `.query().filter()` with `.query().withIndex()`
-
-
-## Auto Quality Check - 2026-02-20 12:06:42
-### File: /Users/jkobrien/code/PDP/packages/backend/convex/models/voiceNotes.ts
+## Auto Quality Check - 2026-02-25 22:55:21
+### File: /Users/jkobrien/code/PDP/packages/backend/convex/models/passportSharing.ts
 
 - ❌ **CRITICAL: N+1 query pattern detected**
   - **Problem:** `Promise.all(items.map(async => query))` makes N database calls
   - **Fix:** Batch fetch all IDs first, create Map for O(1) lookup
 
 
-## Auto Quality Check - 2026-02-20 12:08:39
-### File: /Users/jkobrien/code/PDP/packages/backend/convex/actions/voiceNotes.ts
-
-- ⚠️ **Performance: .filter() usage detected**
-  - **Problem:** Should use .withIndex() for better performance
-  - **Fix:** Replace `.query().filter()` with `.query().withIndex()`
-
-
-## Auto Quality Check - 2026-02-20 12:08:48
-### File: /Users/jkobrien/code/PDP/packages/backend/convex/actions/voiceNotes.ts
-
-- ⚠️ **Performance: .filter() usage detected**
-  - **Problem:** Should use .withIndex() for better performance
-  - **Fix:** Replace `.query().filter()` with `.query().withIndex()`
-
-
-## Auto Quality Check - 2026-02-20 12:08:59
-### File: /Users/jkobrien/code/PDP/packages/backend/convex/models/voiceNotes.ts
+## Auto Quality Check - 2026-02-25 22:55:21
+### File: /Users/jkobrien/code/PDP/packages/backend/convex/models/passportSharing.ts
 
 - ❌ **CRITICAL: Better Auth adapter violation**
   - **Problem:** Direct DB access to auth tables
   - **Fix:** Use `ctx.runQuery(components.betterAuth.adapter.findOne, {...})`
 
 
-## Auto Quality Check - 2026-02-20 12:08:59
-### File: /Users/jkobrien/code/PDP/packages/backend/convex/models/voiceNotes.ts
+## Auto Quality Check - 2026-02-25 22:55:21
+### File: /Users/jkobrien/code/PDP/packages/backend/convex/models/passportSharing.ts
 
 - ⚠️ **Performance: .filter() usage detected**
   - **Problem:** Should use .withIndex() for better performance
   - **Fix:** Replace `.query().filter()` with `.query().withIndex()`
 
 
-## Auto Quality Check - 2026-02-20 12:08:59
-### File: /Users/jkobrien/code/PDP/packages/backend/convex/models/voiceNotes.ts
+## Auto Quality Check - 2026-02-25 22:55:21
+### File: /Users/jkobrien/code/PDP/packages/backend/convex/models/passportSharing.ts
 
 - ❌ **CRITICAL: N+1 query pattern detected**
   - **Problem:** `Promise.all(items.map(async => query))` makes N database calls
   - **Fix:** Batch fetch all IDs first, create Map for O(1) lookup
 
 
-## Auto Quality Check - 2026-02-20 12:39:54
-### File: /Users/jkobrien/code/PDP/packages/backend/convex/actions/voiceNotes.ts
-
-- ⚠️ **Performance: .filter() usage detected**
-  - **Problem:** Should use .withIndex() for better performance
-  - **Fix:** Replace `.query().filter()` with `.query().withIndex()`
-
-
-## Auto Quality Check - 2026-02-20 12:40:03
-### File: /Users/jkobrien/code/PDP/packages/backend/convex/actions/voiceNotes.ts
-
-- ⚠️ **Performance: .filter() usage detected**
-  - **Problem:** Should use .withIndex() for better performance
-  - **Fix:** Replace `.query().filter()` with `.query().withIndex()`
-
-
-## Auto Quality Check - 2026-02-20 12:40:11
-### File: /Users/jkobrien/code/PDP/packages/backend/convex/actions/voiceNotes.ts
-
-- ⚠️ **Performance: .filter() usage detected**
-  - **Problem:** Should use .withIndex() for better performance
-  - **Fix:** Replace `.query().filter()` with `.query().withIndex()`
-
-
-## Auto Quality Check - 2026-02-20 12:41:37
-### File: /Users/jkobrien/code/PDP/packages/backend/convex/actions/claimsExtraction.ts
-
-- ⚠️ **Performance: .filter() usage detected**
-  - **Problem:** Should use .withIndex() for better performance
-  - **Fix:** Replace `.query().filter()` with `.query().withIndex()`
-
-
-## Auto Quality Check - 2026-02-20 12:49:27
-### File: /Users/jkobrien/code/PDP/packages/backend/convex/models/whatsappReviewLinks.ts
+## Auto Quality Check - 2026-02-25 22:55:34
+### File: /Users/jkobrien/code/PDP/packages/backend/convex/models/passportSharing.ts
 
 - ❌ **CRITICAL: Better Auth adapter violation**
   - **Problem:** Direct DB access to auth tables
   - **Fix:** Use `ctx.runQuery(components.betterAuth.adapter.findOne, {...})`
 
 
-## Auto Quality Check - 2026-02-20 12:49:27
-### File: /Users/jkobrien/code/PDP/packages/backend/convex/models/whatsappReviewLinks.ts
+## Auto Quality Check - 2026-02-25 22:55:34
+### File: /Users/jkobrien/code/PDP/packages/backend/convex/models/passportSharing.ts
 
 - ⚠️ **Performance: .filter() usage detected**
   - **Problem:** Should use .withIndex() for better performance
   - **Fix:** Replace `.query().filter()` with `.query().withIndex()`
 
 
-## Auto Quality Check - 2026-02-20 12:50:02
-### File: /Users/jkobrien/code/PDP/packages/backend/convex/models/whatsappReviewLinks.ts
-
-- ❌ **CRITICAL: Better Auth adapter violation**
-  - **Problem:** Direct DB access to auth tables
-  - **Fix:** Use `ctx.runQuery(components.betterAuth.adapter.findOne, {...})`
-
-
-## Auto Quality Check - 2026-02-20 12:50:02
-### File: /Users/jkobrien/code/PDP/packages/backend/convex/models/whatsappReviewLinks.ts
-
-- ⚠️ **Performance: .filter() usage detected**
-  - **Problem:** Should use .withIndex() for better performance
-  - **Fix:** Replace `.query().filter()` with `.query().withIndex()`
-
-
-## Auto Quality Check - 2026-02-20 12:50:44
-### File: /Users/jkobrien/code/PDP/packages/backend/convex/models/whatsappReviewLinks.ts
-
-- ❌ **CRITICAL: Better Auth adapter violation**
-  - **Problem:** Direct DB access to auth tables
-  - **Fix:** Use `ctx.runQuery(components.betterAuth.adapter.findOne, {...})`
-
-
-## Auto Quality Check - 2026-02-20 12:50:45
-### File: /Users/jkobrien/code/PDP/packages/backend/convex/models/whatsappReviewLinks.ts
-
-- ⚠️ **Performance: .filter() usage detected**
-  - **Problem:** Should use .withIndex() for better performance
-  - **Fix:** Replace `.query().filter()` with `.query().withIndex()`
-
-
-## Auto Quality Check - 2026-02-20 12:50:45
-### File: /Users/jkobrien/code/PDP/packages/backend/convex/models/whatsappReviewLinks.ts
-
-- ❌ **CRITICAL: Better Auth adapter violation**
-  - **Problem:** Direct DB access to auth tables
-  - **Fix:** Use `ctx.runQuery(components.betterAuth.adapter.findOne, {...})`
-
-
-## Auto Quality Check - 2026-02-20 12:50:45
-### File: /Users/jkobrien/code/PDP/packages/backend/convex/models/whatsappReviewLinks.ts
-
-- ⚠️ **Performance: .filter() usage detected**
-  - **Problem:** Should use .withIndex() for better performance
-  - **Fix:** Replace `.query().filter()` with `.query().withIndex()`
-
-
-## Auto Quality Check - 2026-02-20 12:51:16
-### File: /Users/jkobrien/code/PDP/packages/backend/convex/models/whatsappReviewLinks.ts
-
-- ❌ **CRITICAL: Better Auth adapter violation**
-  - **Problem:** Direct DB access to auth tables
-  - **Fix:** Use `ctx.runQuery(components.betterAuth.adapter.findOne, {...})`
-
-
-## Auto Quality Check - 2026-02-20 12:51:16
-### File: /Users/jkobrien/code/PDP/packages/backend/convex/models/whatsappReviewLinks.ts
-
-- ⚠️ **Performance: .filter() usage detected**
-  - **Problem:** Should use .withIndex() for better performance
-  - **Fix:** Replace `.query().filter()` with `.query().withIndex()`
-
-
-## Auto Quality Check - 2026-02-20 12:51:26
-### File: /Users/jkobrien/code/PDP/packages/backend/convex/models/whatsappReviewLinks.ts
-
-- ❌ **CRITICAL: Better Auth adapter violation**
-  - **Problem:** Direct DB access to auth tables
-  - **Fix:** Use `ctx.runQuery(components.betterAuth.adapter.findOne, {...})`
-
-
-## Auto Quality Check - 2026-02-20 12:51:26
-### File: /Users/jkobrien/code/PDP/packages/backend/convex/models/whatsappReviewLinks.ts
-
-- ⚠️ **Performance: .filter() usage detected**
-  - **Problem:** Should use .withIndex() for better performance
-  - **Fix:** Replace `.query().filter()` with `.query().withIndex()`
-
-
-## Auto Quality Check - 2026-02-20 12:51:39
-### File: /Users/jkobrien/code/PDP/packages/backend/convex/models/whatsappReviewLinks.ts
-
-- ❌ **CRITICAL: Better Auth adapter violation**
-  - **Problem:** Direct DB access to auth tables
-  - **Fix:** Use `ctx.runQuery(components.betterAuth.adapter.findOne, {...})`
-
-
-## Auto Quality Check - 2026-02-20 12:51:39
-### File: /Users/jkobrien/code/PDP/packages/backend/convex/models/whatsappReviewLinks.ts
-
-- ⚠️ **Performance: .filter() usage detected**
-  - **Problem:** Should use .withIndex() for better performance
-  - **Fix:** Replace `.query().filter()` with `.query().withIndex()`
-
-
-## Auto Quality Check - 2026-02-20 12:51:49
-### File: /Users/jkobrien/code/PDP/packages/backend/convex/models/whatsappReviewLinks.ts
-
-- ❌ **CRITICAL: Better Auth adapter violation**
-  - **Problem:** Direct DB access to auth tables
-  - **Fix:** Use `ctx.runQuery(components.betterAuth.adapter.findOne, {...})`
-
-
-## Auto Quality Check - 2026-02-20 12:51:49
-### File: /Users/jkobrien/code/PDP/packages/backend/convex/models/whatsappReviewLinks.ts
-
-- ⚠️ **Performance: .filter() usage detected**
-  - **Problem:** Should use .withIndex() for better performance
-  - **Fix:** Replace `.query().filter()` with `.query().withIndex()`
-
-
-## Auto Quality Check - 2026-02-20 12:52:00
-### File: /Users/jkobrien/code/PDP/packages/backend/convex/models/whatsappReviewLinks.ts
-
-- ❌ **CRITICAL: Better Auth adapter violation**
-  - **Problem:** Direct DB access to auth tables
-  - **Fix:** Use `ctx.runQuery(components.betterAuth.adapter.findOne, {...})`
-
-
-## Auto Quality Check - 2026-02-20 12:52:00
-### File: /Users/jkobrien/code/PDP/packages/backend/convex/models/whatsappReviewLinks.ts
-
-- ⚠️ **Performance: .filter() usage detected**
-  - **Problem:** Should use .withIndex() for better performance
-  - **Fix:** Replace `.query().filter()` with `.query().withIndex()`
-
-
-## Auto Quality Check - 2026-02-20 13:15:13
-### File: /Users/jkobrien/code/PDP/packages/backend/convex/models/whatsappMessages.ts
-
-- ⚠️ **Performance: .filter() usage detected**
-  - **Problem:** Should use .withIndex() for better performance
-  - **Fix:** Replace `.query().filter()` with `.query().withIndex()`
-
-
-## Auto Quality Check - 2026-02-20 13:18:58
-### File: /Users/jkobrien/code/PDP/packages/backend/convex/models/whatsappMessages.ts
-
-- ⚠️ **Performance: .filter() usage detected**
-  - **Problem:** Should use .withIndex() for better performance
-  - **Fix:** Replace `.query().filter()` with `.query().withIndex()`
-
-
-## Auto Quality Check - 2026-02-20 13:20:53
-### File: /Users/jkobrien/code/PDP/packages/backend/convex/models/whatsappMessages.ts
-
-- ⚠️ **Performance: .filter() usage detected**
-  - **Problem:** Should use .withIndex() for better performance
-  - **Fix:** Replace `.query().filter()` with `.query().withIndex()`
-
-
-## Auto Quality Check - 2026-02-20 13:22:03
-### File: /Users/jkobrien/code/PDP/packages/backend/convex/models/whatsappMessages.ts
-
-- ⚠️ **Performance: .filter() usage detected**
-  - **Problem:** Should use .withIndex() for better performance
-  - **Fix:** Replace `.query().filter()` with `.query().withIndex()`
-
-
-## Auto Quality Check - 2026-02-20 13:27:52
-### File: /Users/jkobrien/code/PDP/packages/backend/convex/models/whatsappMessages.ts
-
-- ⚠️ **Performance: .filter() usage detected**
-  - **Problem:** Should use .withIndex() for better performance
-  - **Fix:** Replace `.query().filter()` with `.query().withIndex()`
-
-
-## Auto Quality Check - 2026-02-20 14:43:35
-### File: /Users/jkobrien/code/PDP/packages/backend/convex/models/whatsappReviewLinks.ts
-
-- ❌ **CRITICAL: Better Auth adapter violation**
-  - **Problem:** Direct DB access to auth tables
-  - **Fix:** Use `ctx.runQuery(components.betterAuth.adapter.findOne, {...})`
-
-
-## Auto Quality Check - 2026-02-20 14:43:35
-### File: /Users/jkobrien/code/PDP/packages/backend/convex/models/whatsappReviewLinks.ts
-
-- ⚠️ **Performance: .filter() usage detected**
-  - **Problem:** Should use .withIndex() for better performance
-  - **Fix:** Replace `.query().filter()` with `.query().withIndex()`
-
-
-## Auto Quality Check - 2026-02-20 14:43:57
-### File: /Users/jkobrien/code/PDP/packages/backend/convex/models/whatsappReviewLinks.ts
-
-- ❌ **CRITICAL: Better Auth adapter violation**
-  - **Problem:** Direct DB access to auth tables
-  - **Fix:** Use `ctx.runQuery(components.betterAuth.adapter.findOne, {...})`
-
-
-## Auto Quality Check - 2026-02-20 14:43:57
-### File: /Users/jkobrien/code/PDP/packages/backend/convex/models/whatsappReviewLinks.ts
-
-- ⚠️ **Performance: .filter() usage detected**
-  - **Problem:** Should use .withIndex() for better performance
-  - **Fix:** Replace `.query().filter()` with `.query().withIndex()`
-
-
-## Auto Quality Check - 2026-02-20 14:47:15
-### File: /Users/jkobrien/code/PDP/packages/backend/convex/actions/voiceNotes.ts
-
-- ⚠️ **Performance: .filter() usage detected**
-  - **Problem:** Should use .withIndex() for better performance
-  - **Fix:** Replace `.query().filter()` with `.query().withIndex()`
-
-
-## Auto Quality Check - 2026-02-20 14:56:05
-### File: /Users/jkobrien/code/PDP/packages/backend/convex/actions/voiceNotes.ts
-
-- ⚠️ **Performance: .filter() usage detected**
-  - **Problem:** Should use .withIndex() for better performance
-  - **Fix:** Replace `.query().filter()` with `.query().withIndex()`
-
-
-## Auto Quality Check - 2026-02-20 15:16:33
-### File: /Users/jkobrien/code/PDP/packages/backend/convex/actions/voiceNotes.ts
-
-- ⚠️ **Performance: .filter() usage detected**
-  - **Problem:** Should use .withIndex() for better performance
-  - **Fix:** Replace `.query().filter()` with `.query().withIndex()`
-
-
-## Auto Quality Check - 2026-02-20 15:16:34
-### File: /Users/jkobrien/code/PDP/packages/backend/convex/models/whatsappReviewLinks.ts
-
-- ❌ **CRITICAL: Better Auth adapter violation**
-  - **Problem:** Direct DB access to auth tables
-  - **Fix:** Use `ctx.runQuery(components.betterAuth.adapter.findOne, {...})`
-
-
-## Auto Quality Check - 2026-02-20 15:16:34
-### File: /Users/jkobrien/code/PDP/packages/backend/convex/models/whatsappReviewLinks.ts
-
-- ⚠️ **Performance: .filter() usage detected**
-  - **Problem:** Should use .withIndex() for better performance
-  - **Fix:** Replace `.query().filter()` with `.query().withIndex()`
-
-
-## Auto Quality Check - 2026-02-20 15:20:58
-### File: /Users/jkobrien/code/PDP/packages/backend/convex/actions/voiceNotes.ts
-
-- ⚠️ **Performance: .filter() usage detected**
-  - **Problem:** Should use .withIndex() for better performance
-  - **Fix:** Replace `.query().filter()` with `.query().withIndex()`
-
-
-## Auto Quality Check - 2026-02-20 15:21:09
-### File: /Users/jkobrien/code/PDP/packages/backend/convex/models/whatsappReviewLinks.ts
-
-- ❌ **CRITICAL: Better Auth adapter violation**
-  - **Problem:** Direct DB access to auth tables
-  - **Fix:** Use `ctx.runQuery(components.betterAuth.adapter.findOne, {...})`
-
-
-## Auto Quality Check - 2026-02-20 15:21:09
-### File: /Users/jkobrien/code/PDP/packages/backend/convex/models/whatsappReviewLinks.ts
-
-- ⚠️ **Performance: .filter() usage detected**
-  - **Problem:** Should use .withIndex() for better performance
-  - **Fix:** Replace `.query().filter()` with `.query().withIndex()`
-
-
-## Auto Quality Check - 2026-02-20 15:21:22
-### File: /Users/jkobrien/code/PDP/packages/backend/convex/models/whatsappReviewLinks.ts
-
-- ❌ **CRITICAL: Better Auth adapter violation**
-  - **Problem:** Direct DB access to auth tables
-  - **Fix:** Use `ctx.runQuery(components.betterAuth.adapter.findOne, {...})`
-
-
-## Auto Quality Check - 2026-02-20 15:21:22
-### File: /Users/jkobrien/code/PDP/packages/backend/convex/models/whatsappReviewLinks.ts
-
-- ⚠️ **Performance: .filter() usage detected**
-  - **Problem:** Should use .withIndex() for better performance
-  - **Fix:** Replace `.query().filter()` with `.query().withIndex()`
-
-
-## Auto Quality Check - 2026-02-20 16:40:27
-### File: /Users/jkobrien/code/PDP/packages/backend/convex/models/whatsappMessages.ts
-
-- ⚠️ **Performance: .filter() usage detected**
-  - **Problem:** Should use .withIndex() for better performance
-  - **Fix:** Replace `.query().filter()` with `.query().withIndex()`
-
-
-## Auto Quality Check - 2026-02-20 16:50:49
-### File: /Users/jkobrien/code/PDP/packages/backend/convex/models/whatsappMessages.ts
-
-- ⚠️ **Performance: .filter() usage detected**
-  - **Problem:** Should use .withIndex() for better performance
-  - **Fix:** Replace `.query().filter()` with `.query().withIndex()`
-
-
-## Auto Quality Check - 2026-02-20 18:16:21
-### File: /Users/jkobrien/code/PDP/packages/backend/convex/models/sessionPlans.ts
-
-- ❌ **CRITICAL: Better Auth adapter violation**
-  - **Problem:** Direct DB access to auth tables
-  - **Fix:** Use `ctx.runQuery(components.betterAuth.adapter.findOne, {...})`
-
-
-## Auto Quality Check - 2026-02-20 18:16:21
-### File: /Users/jkobrien/code/PDP/packages/backend/convex/models/sessionPlans.ts
-
-- ⚠️ **Performance: .filter() usage detected**
-  - **Problem:** Should use .withIndex() for better performance
-  - **Fix:** Replace `.query().filter()` with `.query().withIndex()`
-
-
-## Auto Quality Check - 2026-02-20 19:07:13
-### File: /Users/jkobrien/code/PDP/packages/backend/convex/models/coaches.ts
-
-- ⚠️ **Performance: .filter() usage detected**
-  - **Problem:** Should use .withIndex() for better performance
-  - **Fix:** Replace `.query().filter()` with `.query().withIndex()`
-
-
-## Auto Quality Check - 2026-02-20 19:07:20
-### File: /Users/jkobrien/code/PDP/packages/backend/convex/models/coaches.ts
-
-- ⚠️ **Performance: .filter() usage detected**
-  - **Problem:** Should use .withIndex() for better performance
-  - **Fix:** Replace `.query().filter()` with `.query().withIndex()`
-
-
-## Auto Quality Check - 2026-02-20 19:08:13
-### File: /Users/jkobrien/code/PDP/packages/backend/convex/models/sessionPlans.ts
-
-- ❌ **CRITICAL: Better Auth adapter violation**
-  - **Problem:** Direct DB access to auth tables
-  - **Fix:** Use `ctx.runQuery(components.betterAuth.adapter.findOne, {...})`
-
-
-## Auto Quality Check - 2026-02-20 19:08:13
-### File: /Users/jkobrien/code/PDP/packages/backend/convex/models/sessionPlans.ts
-
-- ⚠️ **Performance: .filter() usage detected**
-  - **Problem:** Should use .withIndex() for better performance
-  - **Fix:** Replace `.query().filter()` with `.query().withIndex()`
-
-
-## Auto Quality Check - 2026-02-20 19:08:23
-### File: /Users/jkobrien/code/PDP/packages/backend/convex/models/sessionPlans.ts
-
-- ❌ **CRITICAL: Better Auth adapter violation**
-  - **Problem:** Direct DB access to auth tables
-  - **Fix:** Use `ctx.runQuery(components.betterAuth.adapter.findOne, {...})`
-
-
-## Auto Quality Check - 2026-02-20 19:08:23
-### File: /Users/jkobrien/code/PDP/packages/backend/convex/models/sessionPlans.ts
-
-- ⚠️ **Performance: .filter() usage detected**
-  - **Problem:** Should use .withIndex() for better performance
-  - **Fix:** Replace `.query().filter()` with `.query().withIndex()`
-
-
-## Auto Quality Check - 2026-02-22 10:47:49
-### File: /Users/neil/Documents/GitHub/PDP/packages/backend/convex/models/members.ts
-
-- ❌ **CRITICAL: Better Auth adapter violation**
-  - **Problem:** Direct DB access to auth tables
-  - **Fix:** Use `ctx.runQuery(components.betterAuth.adapter.findOne, {...})`
-
-
-## Auto Quality Check - 2026-02-22 10:47:49
-### File: /Users/neil/Documents/GitHub/PDP/packages/backend/convex/models/members.ts
-
-- ⚠️ **Performance: .filter() usage detected**
-  - **Problem:** Should use .withIndex() for better performance
-  - **Fix:** Replace `.query().filter()` with `.query().withIndex()`
-
-
-## Auto Quality Check - 2026-02-22 10:47:49
-### File: /Users/neil/Documents/GitHub/PDP/packages/backend/convex/models/members.ts
+## Auto Quality Check - 2026-02-25 22:55:34
+### File: /Users/jkobrien/code/PDP/packages/backend/convex/models/passportSharing.ts
 
 - ❌ **CRITICAL: N+1 query pattern detected**
   - **Problem:** `Promise.all(items.map(async => query))` makes N database calls
   - **Fix:** Batch fetch all IDs first, create Map for O(1) lookup
 
 
-## Auto Quality Check - 2026-02-22 10:48:28
-### File: /Users/neil/Documents/GitHub/PDP/packages/backend/convex/models/members.ts
+## Auto Quality Check - 2026-02-25 22:55:34
+### File: /Users/jkobrien/code/PDP/packages/backend/convex/models/passportSharing.ts
 
 - ❌ **CRITICAL: Better Auth adapter violation**
   - **Problem:** Direct DB access to auth tables
   - **Fix:** Use `ctx.runQuery(components.betterAuth.adapter.findOne, {...})`
 
 
-## Auto Quality Check - 2026-02-22 10:48:28
-### File: /Users/neil/Documents/GitHub/PDP/packages/backend/convex/models/members.ts
+## Auto Quality Check - 2026-02-25 22:55:34
+### File: /Users/jkobrien/code/PDP/packages/backend/convex/models/passportSharing.ts
 
 - ⚠️ **Performance: .filter() usage detected**
   - **Problem:** Should use .withIndex() for better performance
   - **Fix:** Replace `.query().filter()` with `.query().withIndex()`
 
 
-## Auto Quality Check - 2026-02-22 10:48:28
-### File: /Users/neil/Documents/GitHub/PDP/packages/backend/convex/models/members.ts
+## Auto Quality Check - 2026-02-25 22:55:34
+### File: /Users/jkobrien/code/PDP/packages/backend/convex/models/passportSharing.ts
 
 - ❌ **CRITICAL: N+1 query pattern detected**
   - **Problem:** `Promise.all(items.map(async => query))` makes N database calls
   - **Fix:** Batch fetch all IDs first, create Map for O(1) lookup
 
 
-## Auto Quality Check - 2026-02-22 10:48:39
-### File: /Users/neil/Documents/GitHub/PDP/packages/backend/convex/models/members.ts
+## Auto Quality Check - 2026-02-25 22:55:35
+### File: /Users/jkobrien/code/PDP/packages/backend/convex/models/passportSharing.ts
 
 - ❌ **CRITICAL: Better Auth adapter violation**
   - **Problem:** Direct DB access to auth tables
   - **Fix:** Use `ctx.runQuery(components.betterAuth.adapter.findOne, {...})`
 
 
-## Auto Quality Check - 2026-02-22 10:48:39
-### File: /Users/neil/Documents/GitHub/PDP/packages/backend/convex/models/members.ts
+## Auto Quality Check - 2026-02-25 22:55:35
+### File: /Users/jkobrien/code/PDP/packages/backend/convex/models/passportSharing.ts
 
 - ⚠️ **Performance: .filter() usage detected**
   - **Problem:** Should use .withIndex() for better performance
   - **Fix:** Replace `.query().filter()` with `.query().withIndex()`
 
 
-## Auto Quality Check - 2026-02-22 10:48:39
-### File: /Users/neil/Documents/GitHub/PDP/packages/backend/convex/models/members.ts
+## Auto Quality Check - 2026-02-25 22:55:35
+### File: /Users/jkobrien/code/PDP/packages/backend/convex/models/passportSharing.ts
 
 - ❌ **CRITICAL: N+1 query pattern detected**
   - **Problem:** `Promise.all(items.map(async => query))` makes N database calls
   - **Fix:** Batch fetch all IDs first, create Map for O(1) lookup
 
 
-## Auto Quality Check - 2026-02-22 10:48:58
-### File: /Users/neil/Documents/GitHub/PDP/packages/backend/convex/models/members.ts
+## Auto Quality Check - 2026-02-25 22:56:03
+### File: /Users/jkobrien/code/PDP/packages/backend/convex/models/playerGraduations.ts
 
 - ❌ **CRITICAL: Better Auth adapter violation**
   - **Problem:** Direct DB access to auth tables
   - **Fix:** Use `ctx.runQuery(components.betterAuth.adapter.findOne, {...})`
 
 
-## Auto Quality Check - 2026-02-22 10:48:58
-### File: /Users/neil/Documents/GitHub/PDP/packages/backend/convex/models/members.ts
+## Auto Quality Check - 2026-02-25 22:56:03
+### File: /Users/jkobrien/code/PDP/packages/backend/convex/models/playerGraduations.ts
 
 - ⚠️ **Performance: .filter() usage detected**
   - **Problem:** Should use .withIndex() for better performance
   - **Fix:** Replace `.query().filter()` with `.query().withIndex()`
 
 
-## Auto Quality Check - 2026-02-22 10:48:58
-### File: /Users/neil/Documents/GitHub/PDP/packages/backend/convex/models/members.ts
-
-- ❌ **CRITICAL: N+1 query pattern detected**
-  - **Problem:** `Promise.all(items.map(async => query))` makes N database calls
-  - **Fix:** Batch fetch all IDs first, create Map for O(1) lookup
-
-
-## Auto Quality Check - 2026-02-22 10:49:13
-### File: /Users/neil/Documents/GitHub/PDP/packages/backend/convex/models/members.ts
-
-- ❌ **CRITICAL: Better Auth adapter violation**
-  - **Problem:** Direct DB access to auth tables
-  - **Fix:** Use `ctx.runQuery(components.betterAuth.adapter.findOne, {...})`
-
-
-## Auto Quality Check - 2026-02-22 10:49:13
-### File: /Users/neil/Documents/GitHub/PDP/packages/backend/convex/models/members.ts
-
-- ⚠️ **Performance: .filter() usage detected**
-  - **Problem:** Should use .withIndex() for better performance
-  - **Fix:** Replace `.query().filter()` with `.query().withIndex()`
-
-
-## Auto Quality Check - 2026-02-22 10:49:13
-### File: /Users/neil/Documents/GitHub/PDP/packages/backend/convex/models/members.ts
-
-- ❌ **CRITICAL: N+1 query pattern detected**
-  - **Problem:** `Promise.all(items.map(async => query))` makes N database calls
-  - **Fix:** Batch fetch all IDs first, create Map for O(1) lookup
-
-
-## Auto Quality Check - 2026-02-22 10:49:36
-### File: /Users/neil/Documents/GitHub/PDP/packages/backend/convex/models/guardianManagement.ts
-
-- ⚠️ **Performance: .filter() usage detected**
-  - **Problem:** Should use .withIndex() for better performance
-  - **Fix:** Replace `.query().filter()` with `.query().withIndex()`
-
-
-## Auto Quality Check - 2026-02-22 10:49:47
-### File: /Users/neil/Documents/GitHub/PDP/packages/backend/convex/models/guardianIdentities.ts
-
-- ❌ **CRITICAL: Better Auth adapter violation**
-  - **Problem:** Direct DB access to auth tables
-  - **Fix:** Use `ctx.runQuery(components.betterAuth.adapter.findOne, {...})`
-
-
-## Auto Quality Check - 2026-02-22 10:49:47
-### File: /Users/neil/Documents/GitHub/PDP/packages/backend/convex/models/guardianIdentities.ts
-
-- ⚠️ **Performance: .filter() usage detected**
-  - **Problem:** Should use .withIndex() for better performance
-  - **Fix:** Replace `.query().filter()` with `.query().withIndex()`
-
-
-## Auto Quality Check - 2026-02-22 10:57:14
-### File: /Users/neil/Documents/GitHub/PDP/packages/backend/convex/models/playerInjuries.ts
-
-- ❌ **CRITICAL: Better Auth adapter violation**
-  - **Problem:** Direct DB access to auth tables
-  - **Fix:** Use `ctx.runQuery(components.betterAuth.adapter.findOne, {...})`
-
-
-## Auto Quality Check - 2026-02-22 10:57:14
-### File: /Users/neil/Documents/GitHub/PDP/packages/backend/convex/models/playerInjuries.ts
-
-- ⚠️ **Performance: .filter() usage detected**
-  - **Problem:** Should use .withIndex() for better performance
-  - **Fix:** Replace `.query().filter()` with `.query().withIndex()`
-
-
-## Auto Quality Check - 2026-02-22 10:57:56
-### File: /Users/neil/Documents/GitHub/PDP/packages/backend/convex/models/playerInjuries.ts
-
-- ❌ **CRITICAL: Better Auth adapter violation**
-  - **Problem:** Direct DB access to auth tables
-  - **Fix:** Use `ctx.runQuery(components.betterAuth.adapter.findOne, {...})`
-
-
-## Auto Quality Check - 2026-02-22 10:57:56
-### File: /Users/neil/Documents/GitHub/PDP/packages/backend/convex/models/playerInjuries.ts
-
-- ⚠️ **Performance: .filter() usage detected**
-  - **Problem:** Should use .withIndex() for better performance
-  - **Fix:** Replace `.query().filter()` with `.query().withIndex()`
-
-
-## Auto Quality Check - 2026-02-22 10:58:30
-### File: /Users/neil/Documents/GitHub/PDP/packages/backend/convex/models/playerInjuries.ts
-
-- ❌ **CRITICAL: Better Auth adapter violation**
-  - **Problem:** Direct DB access to auth tables
-  - **Fix:** Use `ctx.runQuery(components.betterAuth.adapter.findOne, {...})`
-
-
-## Auto Quality Check - 2026-02-22 10:58:30
-### File: /Users/neil/Documents/GitHub/PDP/packages/backend/convex/models/playerInjuries.ts
-
-- ⚠️ **Performance: .filter() usage detected**
-  - **Problem:** Should use .withIndex() for better performance
-  - **Fix:** Replace `.query().filter()` with `.query().withIndex()`
-
-
-## Auto Quality Check - 2026-02-22 10:58:52
-### File: /Users/neil/Documents/GitHub/PDP/packages/backend/convex/models/playerInjuries.ts
-
-- ❌ **CRITICAL: Better Auth adapter violation**
-  - **Problem:** Direct DB access to auth tables
-  - **Fix:** Use `ctx.runQuery(components.betterAuth.adapter.findOne, {...})`
-
-
-## Auto Quality Check - 2026-02-22 10:58:52
-### File: /Users/neil/Documents/GitHub/PDP/packages/backend/convex/models/playerInjuries.ts
-
-- ⚠️ **Performance: .filter() usage detected**
-  - **Problem:** Should use .withIndex() for better performance
-  - **Fix:** Replace `.query().filter()` with `.query().withIndex()`
+## Security Tester - 2026-02-25 22:56:48
+- 🚨 **CRITICAL**: Hardcoded secrets detected
+```
+apps/web/src/app/api/ai-config/verify-model/route.ts:          errorMessage: "ANTHROPIC_API_KEY not configured in Next.js env",
+apps/web/src/app/api/ai-config/verify-model/route.ts:          errorMessage: "OPENAI_API_KEY not configured in Next.js env",
+apps/web/src/app/api/ai-config/available-models/route.ts:    errors.anthropic = "ANTHROPIC_API_KEY not configured";
+apps/web/src/app/api/ai-config/available-models/route.ts:    errors.openai = "OPENAI_API_KEY not configured";
+apps/web/src/app/api/comparison-insights/route.ts:      console.error("❌ ANTHROPIC_API_KEY not found in environment variables");
+```
+- ⚠️ **HIGH**: 5 high-severity dependency vulnerabilities
+  Run `npm audit fix` to resolve
+- ⚠️ **HIGH**: Mutations without authorization checks:
+  - packages/backend/convex/models/platformMessagingSettings.ts
+  - packages/backend/convex/models/syncQueue.ts
+  - packages/backend/convex/models/importSessions.ts
+  - packages/backend/convex/models/passportComparison.ts
+  - packages/backend/convex/models/trustGatePermissions.ts
+  - packages/backend/convex/models/ageGroupEligibilityOverrides.ts
+  - packages/backend/convex/models/federationConnectors.ts
+  - packages/backend/convex/models/teamCollaboration.ts
+  - packages/backend/convex/models/guardianIdentities.ts
+  - packages/backend/convex/models/sessionPlans.ts
+  - packages/backend/convex/models/adultPlayers.ts
+  - packages/backend/convex/models/demoAsks.ts
+  - packages/backend/convex/models/skillBenchmarks.ts
+  - packages/backend/convex/models/coaches.ts
+  - packages/backend/convex/models/medicalProfiles.ts
+  - packages/backend/convex/models/invitations.ts
+  - packages/backend/convex/models/flows.ts
+  - packages/backend/convex/models/notifications.ts
+  - packages/backend/convex/models/whatsappReviewLinks.ts
+  - packages/backend/convex/models/teamObservations.ts
+  - packages/backend/convex/models/passportGoals.ts
+  - packages/backend/convex/models/players.ts
+  - packages/backend/convex/models/aiMappingCache.ts
+  - packages/backend/convex/models/orgInjuryNotes.ts
+  - packages/backend/convex/models/injuryDocuments.ts
+  - packages/backend/convex/models/playerHealthChecks.ts
+  - packages/backend/convex/models/playerImport.ts
+  - packages/backend/convex/models/passportEnquiries.ts
+  - packages/backend/convex/models/setup.ts
+  - packages/backend/convex/models/teamPlayerIdentities.ts
+  - packages/backend/convex/models/rateLimits.ts
+  - packages/backend/convex/models/phase4TestCleanup.ts
+  - packages/backend/convex/models/syncHistory.ts
+  - packages/backend/convex/models/platformStaffInvitations.ts
+  - packages/backend/convex/models/coachParentMessages.ts
+  - packages/backend/convex/models/aiModelConfig.ts
+  - packages/backend/convex/models/voicePipelineAlerts.ts
+  - packages/backend/convex/models/aiMappingAnalytics.ts
+  - packages/backend/convex/models/orgPlayerEnrollments.ts
+  - packages/backend/convex/models/sportPassports.ts
+  - packages/backend/convex/models/orgJoinRequests.ts
+  - packages/backend/convex/models/sportAgeGroupConfig.ts
+  - packages/backend/convex/models/referenceData.ts
+  - packages/backend/convex/models/importMappingHistory.ts
+  - packages/backend/convex/models/notificationPreferences.ts
+  - packages/backend/convex/models/userPreferences.ts
+  - packages/backend/convex/models/teams.ts
+  - packages/backend/convex/models/gdpr.ts
+  - packages/backend/convex/models/userProfiles.ts
+  - packages/backend/convex/models/emergencyContacts.ts
+  - packages/backend/convex/models/coachTrustLevels.ts
+  - packages/backend/convex/models/coachParentSummaries.ts
+  - packages/backend/convex/models/onboarding.ts
+  - packages/backend/convex/models/guardianPlayerLinks.ts
+  - packages/backend/convex/models/orgGuardianProfiles.ts
+  - packages/backend/convex/models/passportSharing.ts
+  - packages/backend/convex/models/playerGraduations.ts
+  - packages/backend/convex/models/members.ts
+  - packages/backend/convex/models/voiceNoteEntityResolutions.ts
+  - packages/backend/convex/models/users.ts
+  - packages/backend/convex/models/voicePipelineRetry.ts
+  - packages/backend/convex/models/skillAssessments.ts
+  - packages/backend/convex/models/playerSelfAccess.ts
+  - packages/backend/convex/models/aiServiceHealth.ts
+  - packages/backend/convex/models/importTemplates.ts
+  - packages/backend/convex/models/sports.ts
+  - packages/backend/convex/models/importProgress.ts
+  - packages/backend/convex/models/fixNeilsRoles.ts
+  - packages/backend/convex/models/playerIdentities.ts
+  - packages/backend/convex/models/voiceNotes.ts
+  - packages/backend/convex/models/guardianManagement.ts
+  - packages/backend/convex/models/importTemplateSeeds.ts
+  - packages/backend/convex/models/insightDrafts.ts
+  - packages/backend/convex/models/importSessionDrafts.ts
+  - packages/backend/convex/models/teamDecisions.ts
+  - packages/backend/convex/models/gaaTestMutations.ts
+  - packages/backend/convex/models/playerInjuries.ts
+  - packages/backend/convex/models/voiceNoteInsights.ts
+  - packages/backend/convex/models/playerEmergencyContacts.ts
+  - packages/backend/convex/models/coachTasks.ts
+  **Action**: Add `getUserOrgRole()` or mark as `// @public`
+- 🚨 **CRITICAL [P9]**: XSS risk - dangerouslySetInnerHTML without sanitization:
+    apps/web/src/components/ui/confetti.tsx:        dangerouslySetInnerHTML={{
+  apps/web/src/components/ui/chart.tsx:      dangerouslySetInnerHTML={{
+  apps/web/src/components/onboarding/gdpr-policy-viewer.tsx: * Uses dangerouslySetInnerHTML to avoid React key issues with static content.
+  **Action**: Use DOMPurify or remove dangerouslySetInnerHTML
+- ⚠️ **HIGH [P9]**: No rate limiting on notification/activity endpoints:
+  - packages/backend/convex/models/demoAsks.ts
+  **Action**: Add rate limiting to prevent spam/abuse
+- ⚠️ **HIGH [P9]**: AI endpoints without input validation:
+  - packages/backend/convex/actions/aiMapping.ts
+  - packages/backend/convex/actions/claimsExtraction.ts
+  - packages/backend/convex/actions/coachParentSummaries.ts
+  - packages/backend/convex/actions/practicePlans.ts
+  - packages/backend/convex/actions/sessionPlans.ts
+  - packages/backend/convex/actions/voiceNotes.ts
+  - packages/backend/convex/actions/wellnessInsights.ts
+  - packages/backend/convex/models/aiServiceHealth.ts
+  **Action**: Validate/sanitize user input before AI prompts
+- ⚠️ **HIGH [P9]**: Notification functions without permission checks:
+  - packages/backend/convex/models/notifications.ts
+  **Action**: Verify user can send notifications to recipient
 
 
-## Auto Quality Check - 2026-02-22 10:59:05
-### File: /Users/neil/Documents/GitHub/PDP/packages/backend/convex/models/playerInjuries.ts
+## Auto Quality Check - 2026-02-25 22:57:21
+### File: /Users/jkobrien/code/PDP/packages/backend/convex/models/playerGraduations.ts
 
 - ❌ **CRITICAL: Better Auth adapter violation**
   - **Problem:** Direct DB access to auth tables
   - **Fix:** Use `ctx.runQuery(components.betterAuth.adapter.findOne, {...})`
 
 
-## Auto Quality Check - 2026-02-22 10:59:05
-### File: /Users/neil/Documents/GitHub/PDP/packages/backend/convex/models/playerInjuries.ts
+## Auto Quality Check - 2026-02-25 22:57:21
+### File: /Users/jkobrien/code/PDP/packages/backend/convex/models/playerGraduations.ts
 
 - ⚠️ **Performance: .filter() usage detected**
   - **Problem:** Should use .withIndex() for better performance
   - **Fix:** Replace `.query().filter()` with `.query().withIndex()`
 
 
-## Auto Quality Check - 2026-02-22 10:59:25
-### File: /Users/neil/Documents/GitHub/PDP/packages/backend/convex/models/playerInjuries.ts
+## PRD Audit - US-P5-002 - 2026-02-25 22:53:44
+**PARTIAL** — Story US-P5-002 is partially implemented.
 
-- ❌ **CRITICAL: Better Auth adapter violation**
-  - **Problem:** Direct DB access to auth tables
-  - **Fix:** Use `ctx.runQuery(components.betterAuth.adapter.findOne, {...})`
+**What's implemented:**
+- Player sharing page exists at `apps/web/src/app/orgs/[orgId]/player/sharing/page.tsx`
+- Player can approve/deny sharing enquiries (Approve/Decline buttons functional)
+- Empty state message matches requirement exactly
+- Mobile responsive at 375px with proper flex layouts
+- Active shares shown with revoke capability
 
+**What's missing:**
 
-## Auto Quality Check - 2026-02-22 10:59:25
-### File: /Users/neil/Documents/GitHub/PDP/packages/backend/convex/models/playerInjuries.ts
+1. **Enable/disable toggle** — No toggle or wizard for players to initiate passport sharing. The parent sharing UI has `EnableSharingWizard` and a discovery preference toggle; the player page has neither. Players cannot start sharing from scratch.
 
-- ⚠️ **Performance: .filter() usage detected**
-  - **Problem:** Should use .withIndex() for better performance
-  - **Fix:** Replace `.query().filter()` with `.query().withIndex()`
-
-
-## Auto Quality Check - 2026-02-22 10:59:36
-### File: /Users/neil/Documents/GitHub/PDP/packages/backend/convex/models/playerInjuries.ts
-
-- ❌ **CRITICAL: Better Auth adapter violation**
-  - **Problem:** Direct DB access to auth tables
-  - **Fix:** Use `ctx.runQuery(components.betterAuth.adapter.findOne, {...})`
-
-
-## Auto Quality Check - 2026-02-22 10:59:36
-### File: /Users/neil/Documents/GitHub/PDP/packages/backend/convex/models/playerInjuries.ts
-
-- ⚠️ **Performance: .filter() usage detected**
-  - **Problem:** Should use .withIndex() for better performance
-  - **Fix:** Replace `.query().filter()` with `.query().withIndex()`
-
-
-## Auto Quality Check - 2026-02-22 10:59:56
-### File: /Users/neil/Documents/GitHub/PDP/packages/backend/convex/models/playerInjuries.ts
-
-- ❌ **CRITICAL: Better Auth adapter violation**
-  - **Problem:** Direct DB access to auth tables
-  - **Fix:** Use `ctx.runQuery(components.betterAuth.adapter.findOne, {...})`
-
-
-## Auto Quality Check - 2026-02-22 10:59:56
-### File: /Users/neil/Documents/GitHub/PDP/packages/backend/convex/models/playerInjuries.ts
-
-- ⚠️ **Performance: .filter() usage detected**
-  - **Problem:** Should use .withIndex() for better performance
-  - **Fix:** Replace `.query().filter()` with `.query().withIndex()`
-
-
-## Auto Quality Check - 2026-02-22 11:00:07
-### File: /Users/neil/Documents/GitHub/PDP/packages/backend/convex/models/playerInjuries.ts
-
-- ❌ **CRITICAL: Better Auth adapter violation**
-  - **Problem:** Direct DB access to auth tables
-  - **Fix:** Use `ctx.runQuery(components.betterAuth.adapter.findOne, {...})`
-
-
-## Auto Quality Check - 2026-02-22 11:00:07
-### File: /Users/neil/Documents/GitHub/PDP/packages/backend/convex/models/playerInjuries.ts
-
-- ⚠️ **Performance: .filter() usage detected**
-  - **Problem:** Should use .withIndex() for better performance
-  - **Fix:** Replace `.query().filter()` with `.query().withIndex()`
-
-
-## Auto Quality Check - 2026-02-22 11:00:26
-### File: /Users/neil/Documents/GitHub/PDP/packages/backend/convex/models/playerInjuries.ts
-
-- ❌ **CRITICAL: Better Auth adapter violation**
-  - **Problem:** Direct DB access to auth tables
-  - **Fix:** Use `ctx.runQuery(components.betterAuth.adapter.findOne, {...})`
-
-
-## Auto Quality Check - 2026-02-22 11:00:26
-### File: /Users/neil/Documents/GitHub/PDP/packages/backend/convex/models/playerInjuries.ts
-
-- ⚠️ **Performance: .filter() usage detected**
-  - **Problem:** Should use .withIndex() for better performance
-  - **Fix:** Replace `.query().filter()` with `.query().withIndex()`
-
-
-## Auto Quality Check - 2026-02-22 11:00:36
-### File: /Users/neil/Documents/GitHub/PDP/packages/backend/convex/models/playerInjuries.ts
-
-- ❌ **CRITICAL: Better Auth adapter violation**
-  - **Problem:** Direct DB access to auth tables
-  - **Fix:** Use `ctx.runQuery(components.betterAuth.adapter.findOne, {...})`
-
-
-## Auto Quality Check - 2026-02-22 11:00:36
-### File: /Users/neil/Documents/GitHub/PDP/packages/backend/convex/models/playerInjuries.ts
-
-- ⚠️ **Performance: .filter() usage detected**
-  - **Problem:** Should use .withIndex() for better performance
-  - **Fix:** Replace `.query().filter()` with `.query().withIndex()`
-
-
-## Auto Quality Check - 2026-02-22 11:00:48
-### File: /Users/neil/Documents/GitHub/PDP/packages/backend/convex/models/playerInjuries.ts
-
-- ❌ **CRITICAL: Better Auth adapter violation**
-  - **Problem:** Direct DB access to auth tables
-  - **Fix:** Use `ctx.runQuery(components.betterAuth.adapter.findOne, {...})`
-
-
-## Auto Quality Check - 2026-02-22 11:00:48
-### File: /Users/neil/Documents/GitHub/PDP/packages/backend/convex/models/playerInjuries.ts
-
-- ⚠️ **Performance: .filter() usage detected**
-  - **Problem:** Should use .withIndex() for better performance
-  - **Fix:** Replace `.query().filter()` with `.query().withIndex()`
-
-
-## Auto Quality Check - 2026-02-22 11:01:06
-### File: /Users/neil/Documents/GitHub/PDP/packages/backend/convex/models/playerInjuries.ts
-
-- ❌ **CRITICAL: Better Auth adapter violation**
-  - **Problem:** Direct DB access to auth tables
-  - **Fix:** Use `ctx.runQuery(components.betterAuth.adapter.findOne, {...})`
-
-
-## Auto Quality Check - 2026-02-22 11:01:06
-### File: /Users/neil/Documents/GitHub/PDP/packages/backend/convex/models/playerInjuries.ts
-
-- ⚠️ **Performance: .filter() usage detected**
-  - **Problem:** Should use .withIndex() for better performance
-  - **Fix:** Replace `.query().filter()` with `.query().withIndex()`
-
-
-## Auto Quality Check - 2026-02-22 11:01:17
-### File: /Users/neil/Documents/GitHub/PDP/packages/backend/convex/models/playerInjuries.ts
-
-- ❌ **CRITICAL: Better Auth adapter violation**
-  - **Problem:** Direct DB access to auth tables
-  - **Fix:** Use `ctx.runQuery(components.betterAuth.adapter.findOne, {...})`
-
-
-## Auto Quality Check - 2026-02-22 11:01:17
-### File: /Users/neil/Documents/GitHub/PDP/packages/backend/convex/models/playerInjuries.ts
-
-- ⚠️ **Performance: .filter() usage detected**
-  - **Problem:** Should use .withIndex() for better performance
-  - **Fix:** Replace `.query().filter()` with `.query().withIndex()`
-
-
-## Auto Quality Check - 2026-02-22 11:01:30
-### File: /Users/neil/Documents/GitHub/PDP/packages/backend/convex/models/playerInjuries.ts
-
-- ❌ **CRITICAL: Better Auth adapter violation**
-  - **Problem:** Direct DB access to auth tables
-  - **Fix:** Use `ctx.runQuery(components.betterAuth.adapter.findOne, {...})`
-
-
-## Auto Quality Check - 2026-02-22 11:01:30
-### File: /Users/neil/Documents/GitHub/PDP/packages/backend/convex/models/playerInjuries.ts
-
-- ⚠️ **Performance: .filter() usage detected**
-  - **Problem:** Should use .withIndex() for better performance
-  - **Fix:** Replace `.query().filter()` with `.query().withIndex()`
-
-
-## Auto Quality Check - 2026-02-22 11:02:03
-### File: /Users/neil/Documents/GitHub/PDP/packages/backend/convex/models/playerInjuries.ts
-
-- ❌ **CRITICAL: Better Auth adapter violation**
-  - **Problem:** Direct DB access to auth tables
-  - **Fix:** Use `ctx.runQuery(components.betterAuth.adapter.findOne, {...})`
-
-
-## Auto Quality Check - 2026-02-22 11:02:03
-### File: /Users/neil/Documents/GitHub/PDP/packages/backend/convex/models/playerInjuries.ts
-
-- ⚠️ **Performance: .filter() usage detected**
-  - **Problem:** Should use .withIndex() for better performance
-  - **Fix:** Replace `.query().filter()` with `.query().withIndex()`
-
-
-## Auto Quality Check - 2026-02-22 11:02:13
-### File: /Users/neil/Documents/GitHub/PDP/packages/backend/convex/models/playerInjuries.ts
-
-- ❌ **CRITICAL: Better Auth adapter violation**
-  - **Problem:** Direct DB access to auth tables
-  - **Fix:** Use `ctx.runQuery(components.betterAuth.adapter.findOne, {...})`
-
-
-## Auto Quality Check - 2026-02-22 11:02:13
-### File: /Users/neil/Documents/GitHub/PDP/packages/backend/convex/models/playerInjuries.ts
-
-- ⚠️ **Performance: .filter() usage detected**
-  - **Problem:** Should use .withIndex() for better performance
-  - **Fix:** Replace `.query().filter()` with `.query().withIndex()`
-
-
-## Auto Quality Check - 2026-02-22 11:02:25
-### File: /Users/neil/Documents/GitHub/PDP/packages/backend/convex/models/playerInjuries.ts
-
-- ❌ **CRITICAL: Better Auth adapter violation**
-  - **Problem:** Direct DB access to auth tables
-  - **Fix:** Use `ctx.runQuery(components.betterAuth.adapter.findOne, {...})`
-
-
-## Auto Quality Check - 2026-02-22 11:02:25
-### File: /Users/neil/Documents/GitHub/PDP/packages/backend/convex/models/playerInjuries.ts
-
-- ⚠️ **Performance: .filter() usage detected**
-  - **Problem:** Should use .withIndex() for better performance
-  - **Fix:** Replace `.query().filter()` with `.query().withIndex()`
-
-
-## Auto Quality Check - 2026-02-22 11:02:43
-### File: /Users/neil/Documents/GitHub/PDP/packages/backend/convex/models/playerInjuries.ts
-
-- ❌ **CRITICAL: Better Auth adapter violation**
-  - **Problem:** Direct DB access to auth tables
-  - **Fix:** Use `ctx.runQuery(components.betterAuth.adapter.findOne, {...})`
-
-
-## Auto Quality Check - 2026-02-22 11:02:43
-### File: /Users/neil/Documents/GitHub/PDP/packages/backend/convex/models/playerInjuries.ts
-
-- ⚠️ **Performance: .filter() usage detected**
-  - **Problem:** Should use .withIndex() for better performance
-  - **Fix:** Replace `.query().filter()` with `.query().withIndex()`
-
-
-## Auto Quality Check - 2026-02-22 11:02:54
-### File: /Users/neil/Documents/GitHub/PDP/packages/backend/convex/models/playerInjuries.ts
-
-- ❌ **CRITICAL: Better Auth adapter violation**
-  - **Problem:** Direct DB access to auth tables
-  - **Fix:** Use `ctx.runQuery(components.betterAuth.adapter.findOne, {...})`
-
-
-## Auto Quality Check - 2026-02-22 11:02:54
-### File: /Users/neil/Documents/GitHub/PDP/packages/backend/convex/models/playerInjuries.ts
-
-- ⚠️ **Performance: .filter() usage detected**
-  - **Problem:** Should use .withIndex() for better performance
-  - **Fix:** Replace `.query().filter()` with `.query().withIndex()`
-
-
-## Auto Quality Check - 2026-02-22 11:03:23
-### File: /Users/neil/Documents/GitHub/PDP/packages/backend/convex/models/playerInjuries.ts
-
-- ❌ **CRITICAL: Better Auth adapter violation**
-  - **Problem:** Direct DB access to auth tables
-  - **Fix:** Use `ctx.runQuery(components.betterAuth.adapter.findOne, {...})`
-
-
-## Auto Quality Check - 2026-02-22 11:03:23
-### File: /Users/neil/Documents/GitHub/PDP/packages/backend/convex/models/playerInjuries.ts
-
-- ⚠️ **Performance: .filter() usage detected**
-  - **Problem:** Should use .withIndex() for better performance
-  - **Fix:** Replace `.query().filter()` with `.query().withIndex()`
-
-
-## Auto Quality Check - 2026-02-22 11:03:45
-### File: /Users/neil/Documents/GitHub/PDP/packages/backend/convex/models/playerInjuries.ts
-
-- ❌ **CRITICAL: Better Auth adapter violation**
-  - **Problem:** Direct DB access to auth tables
-  - **Fix:** Use `ctx.runQuery(components.betterAuth.adapter.findOne, {...})`
-
-
-## Auto Quality Check - 2026-02-22 11:03:45
-### File: /Users/neil/Documents/GitHub/PDP/packages/backend/convex/models/playerInjuries.ts
-
-- ⚠️ **Performance: .filter() usage detected**
-  - **Problem:** Should use .withIndex() for better performance
-  - **Fix:** Replace `.query().filter()` with `.query().withIndex()`
-
-
-## Auto Quality Check - 2026-02-23 11:28:44
-### File: /Users/jkobrien/code/PDP/packages/backend/convex/models/voiceNoteEntityResolutions.ts
-
-- ⚠️ **Performance: .filter() usage detected**
-  - **Problem:** Should use .withIndex() for better performance
-  - **Fix:** Replace `.query().filter()` with `.query().withIndex()`
-
-
-## Auto Quality Check - 2026-02-23 11:31:43
-### File: /Users/jkobrien/code/PDP/packages/backend/convex/models/voiceNotes.ts
-
-- ❌ **CRITICAL: Better Auth adapter violation**
-  - **Problem:** Direct DB access to auth tables
-  - **Fix:** Use `ctx.runQuery(components.betterAuth.adapter.findOne, {...})`
-
-
-## Auto Quality Check - 2026-02-23 11:31:43
-### File: /Users/jkobrien/code/PDP/packages/backend/convex/models/voiceNotes.ts
-
-- ⚠️ **Performance: .filter() usage detected**
-  - **Problem:** Should use .withIndex() for better performance
-  - **Fix:** Replace `.query().filter()` with `.query().withIndex()`
-
-
-## Auto Quality Check - 2026-02-23 11:31:43
-### File: /Users/jkobrien/code/PDP/packages/backend/convex/models/voiceNotes.ts
-
-- ❌ **CRITICAL: N+1 query pattern detected**
-  - **Problem:** `Promise.all(items.map(async => query))` makes N database calls
-  - **Fix:** Batch fetch all IDs first, create Map for O(1) lookup
-
-
-## Auto Quality Check - 2026-02-23 11:32:18
-### File: /Users/jkobrien/code/PDP/packages/backend/convex/actions/draftGeneration.ts
-
-- ⚠️ **Performance: .filter() usage detected**
-  - **Problem:** Should use .withIndex() for better performance
-  - **Fix:** Replace `.query().filter()` with `.query().withIndex()`
-
-
-## Auto Quality Check - 2026-02-23 11:32:19
-### File: /Users/jkobrien/code/PDP/packages/backend/convex/actions/entityResolution.ts
-
-- ⚠️ **Performance: .filter() usage detected**
-  - **Problem:** Should use .withIndex() for better performance
-  - **Fix:** Replace `.query().filter()` with `.query().withIndex()`
-
-
-## Auto Quality Check - 2026-02-23 11:32:29
-### File: /Users/jkobrien/code/PDP/packages/backend/convex/actions/draftGeneration.ts
-
-- ⚠️ **Performance: .filter() usage detected**
-  - **Problem:** Should use .withIndex() for better performance
-  - **Fix:** Replace `.query().filter()` with `.query().withIndex()`
-
-
-## Auto Quality Check - 2026-02-23 11:32:39
-### File: /Users/jkobrien/code/PDP/packages/backend/convex/actions/draftGeneration.ts
-
-- ⚠️ **Performance: .filter() usage detected**
-  - **Problem:** Should use .withIndex() for better performance
-  - **Fix:** Replace `.query().filter()` with `.query().withIndex()`
-
-
-## Auto Quality Check - 2026-02-23 11:32:57
-### File: /Users/jkobrien/code/PDP/packages/backend/convex/actions/entityResolution.ts
-
-- ⚠️ **Performance: .filter() usage detected**
-  - **Problem:** Should use .withIndex() for better performance
-  - **Fix:** Replace `.query().filter()` with `.query().withIndex()`
-
-
-## Auto Quality Check - 2026-02-23 12:02:22
-### File: /Users/jkobrien/code/PDP/packages/backend/convex/actions/draftGeneration.ts
-
-- ⚠️ **Performance: .filter() usage detected**
-  - **Problem:** Should use .withIndex() for better performance
-  - **Fix:** Replace `.query().filter()` with `.query().withIndex()`
-
-
-## Auto Quality Check - 2026-02-23 12:02:31
-### File: /Users/jkobrien/code/PDP/packages/backend/convex/actions/draftGeneration.ts
-
-- ⚠️ **Performance: .filter() usage detected**
-  - **Problem:** Should use .withIndex() for better performance
-  - **Fix:** Replace `.query().filter()` with `.query().withIndex()`
-
-
-## Auto Quality Check - 2026-02-23 12:02:43
-### File: /Users/jkobrien/code/PDP/packages/backend/convex/actions/draftGeneration.ts
-
-- ⚠️ **Performance: .filter() usage detected**
-  - **Problem:** Should use .withIndex() for better performance
-  - **Fix:** Replace `.query().filter()` with `.query().withIndex()`
-
-
-## Auto Quality Check - 2026-02-23 12:02:55
-### File: /Users/jkobrien/code/PDP/packages/backend/convex/actions/draftGeneration.ts
-
-- ⚠️ **Performance: .filter() usage detected**
-  - **Problem:** Should use .withIndex() for better performance
-  - **Fix:** Replace `.query().filter()` with `.query().withIndex()`
-
-
-## Auto Quality Check - 2026-02-23 12:03:04
-### File: /Users/jkobrien/code/PDP/packages/backend/convex/actions/draftGeneration.ts
-
-- ⚠️ **Performance: .filter() usage detected**
-  - **Problem:** Should use .withIndex() for better performance
-  - **Fix:** Replace `.query().filter()` with `.query().withIndex()`
-
-
-## Auto Quality Check - 2026-02-23 12:03:16
-### File: /Users/jkobrien/code/PDP/packages/backend/convex/actions/draftGeneration.ts
-
-- ⚠️ **Performance: .filter() usage detected**
-  - **Problem:** Should use .withIndex() for better performance
-  - **Fix:** Replace `.query().filter()` with `.query().withIndex()`
-
-
-## Auto Quality Check - 2026-02-23 12:03:27
-### File: /Users/jkobrien/code/PDP/packages/backend/convex/models/voiceNoteEntityResolutions.ts
-
-- ⚠️ **Performance: .filter() usage detected**
-  - **Problem:** Should use .withIndex() for better performance
-  - **Fix:** Replace `.query().filter()` with `.query().withIndex()`
-
-
-## Auto Quality Check - 2026-02-23 12:04:41
-### File: /Users/jkobrien/code/PDP/packages/backend/convex/actions/draftGeneration.ts
-
-- ⚠️ **Performance: .filter() usage detected**
-  - **Problem:** Should use .withIndex() for better performance
-  - **Fix:** Replace `.query().filter()` with `.query().withIndex()`
-
-
-## Auto Quality Check - 2026-02-23 12:04:48
-### File: /Users/jkobrien/code/PDP/packages/backend/convex/actions/draftGeneration.ts
-
-- ⚠️ **Performance: .filter() usage detected**
-  - **Problem:** Should use .withIndex() for better performance
-  - **Fix:** Replace `.query().filter()` with `.query().withIndex()`
-
-
-## Auto Quality Check - 2026-02-23 12:04:55
-### File: /Users/jkobrien/code/PDP/packages/backend/convex/models/voiceNoteEntityResolutions.ts
-
-- ⚠️ **Performance: .filter() usage detected**
-  - **Problem:** Should use .withIndex() for better performance
-  - **Fix:** Replace `.query().filter()` with `.query().withIndex()`
-
-
-## Auto Quality Check - 2026-02-23 12:05:47
-### File: /Users/jkobrien/code/PDP/packages/backend/convex/actions/draftGeneration.ts
-
-- ⚠️ **Performance: .filter() usage detected**
-  - **Problem:** Should use .withIndex() for better performance
-  - **Fix:** Replace `.query().filter()` with `.query().withIndex()`
-
-
-## Auto Quality Check - 2026-02-23 12:05:54
-### File: /Users/jkobrien/code/PDP/packages/backend/convex/actions/draftGeneration.ts
-
-- ⚠️ **Performance: .filter() usage detected**
-  - **Problem:** Should use .withIndex() for better performance
-  - **Fix:** Replace `.query().filter()` with `.query().withIndex()`
-
-
-## Auto Quality Check - 2026-02-23 12:21:10
-### File: /Users/jkobrien/code/PDP/packages/backend/convex/models/voiceNoteInsights.ts
-
-- ⚠️ **Performance: .filter() usage detected**
-  - **Problem:** Should use .withIndex() for better performance
-  - **Fix:** Replace `.query().filter()` with `.query().withIndex()`
-
-
-## Auto Quality Check - 2026-02-23 12:21:10
-### File: /Users/jkobrien/code/PDP/packages/backend/convex/models/voiceNoteInsights.ts
-
-- ❌ **CRITICAL: N+1 query pattern detected**
-  - **Problem:** `Promise.all(items.map(async => query))` makes N database calls
-  - **Fix:** Batch fetch all IDs first, create Map for O(1) lookup
-
-
-## Auto Quality Check - 2026-02-23 12:21:44
-### File: /Users/jkobrien/code/PDP/packages/backend/convex/models/voiceNotes.ts
-
-- ❌ **CRITICAL: Better Auth adapter violation**
-  - **Problem:** Direct DB access to auth tables
-  - **Fix:** Use `ctx.runQuery(components.betterAuth.adapter.findOne, {...})`
-
-
-## Auto Quality Check - 2026-02-23 12:21:44
-### File: /Users/jkobrien/code/PDP/packages/backend/convex/models/voiceNotes.ts
-
-- ⚠️ **Performance: .filter() usage detected**
-  - **Problem:** Should use .withIndex() for better performance
-  - **Fix:** Replace `.query().filter()` with `.query().withIndex()`
-
-
-## Auto Quality Check - 2026-02-23 12:21:44
-### File: /Users/jkobrien/code/PDP/packages/backend/convex/models/voiceNotes.ts
-
-- ❌ **CRITICAL: N+1 query pattern detected**
-  - **Problem:** `Promise.all(items.map(async => query))` makes N database calls
-  - **Fix:** Batch fetch all IDs first, create Map for O(1) lookup
-
-
-## Auto Quality Check - 2026-02-23 12:23:14
-### File: /Users/jkobrien/code/PDP/packages/backend/convex/models/voiceNotes.ts
-
-- ❌ **CRITICAL: Better Auth adapter violation**
-  - **Problem:** Direct DB access to auth tables
-  - **Fix:** Use `ctx.runQuery(components.betterAuth.adapter.findOne, {...})`
-
-
-## Auto Quality Check - 2026-02-23 12:23:14
-### File: /Users/jkobrien/code/PDP/packages/backend/convex/models/voiceNotes.ts
-
-- ⚠️ **Performance: .filter() usage detected**
-  - **Problem:** Should use .withIndex() for better performance
-  - **Fix:** Replace `.query().filter()` with `.query().withIndex()`
-
-
-## Auto Quality Check - 2026-02-23 12:23:14
-### File: /Users/jkobrien/code/PDP/packages/backend/convex/models/voiceNotes.ts
-
-- ❌ **CRITICAL: N+1 query pattern detected**
-  - **Problem:** `Promise.all(items.map(async => query))` makes N database calls
-  - **Fix:** Batch fetch all IDs first, create Map for O(1) lookup
-
-
-## Auto Quality Check - 2026-02-23 12:23:25
-### File: /Users/jkobrien/code/PDP/packages/backend/convex/models/voiceNotes.ts
-
-- ❌ **CRITICAL: Better Auth adapter violation**
-  - **Problem:** Direct DB access to auth tables
-  - **Fix:** Use `ctx.runQuery(components.betterAuth.adapter.findOne, {...})`
-
-
-## Auto Quality Check - 2026-02-23 12:23:25
-### File: /Users/jkobrien/code/PDP/packages/backend/convex/models/voiceNotes.ts
-
-- ⚠️ **Performance: .filter() usage detected**
-  - **Problem:** Should use .withIndex() for better performance
-  - **Fix:** Replace `.query().filter()` with `.query().withIndex()`
-
-
-## Auto Quality Check - 2026-02-23 12:23:25
-### File: /Users/jkobrien/code/PDP/packages/backend/convex/models/voiceNotes.ts
-
-- ❌ **CRITICAL: N+1 query pattern detected**
-  - **Problem:** `Promise.all(items.map(async => query))` makes N database calls
-  - **Fix:** Batch fetch all IDs first, create Map for O(1) lookup
-
-
-## Auto Quality Check - 2026-02-23 12:26:21
-### File: /Users/jkobrien/code/PDP/packages/backend/convex/models/voiceNotes.ts
-
-- ❌ **CRITICAL: Better Auth adapter violation**
-  - **Problem:** Direct DB access to auth tables
-  - **Fix:** Use `ctx.runQuery(components.betterAuth.adapter.findOne, {...})`
-
-
-## Auto Quality Check - 2026-02-23 12:26:21
-### File: /Users/jkobrien/code/PDP/packages/backend/convex/models/voiceNotes.ts
-
-- ⚠️ **Performance: .filter() usage detected**
-  - **Problem:** Should use .withIndex() for better performance
-  - **Fix:** Replace `.query().filter()` with `.query().withIndex()`
-
-
-## Auto Quality Check - 2026-02-23 12:26:21
-### File: /Users/jkobrien/code/PDP/packages/backend/convex/models/voiceNotes.ts
-
-- ❌ **CRITICAL: N+1 query pattern detected**
-  - **Problem:** `Promise.all(items.map(async => query))` makes N database calls
-  - **Fix:** Batch fetch all IDs first, create Map for O(1) lookup
-
-
-## Auto Quality Check - 2026-02-23 12:26:34
-### File: /Users/jkobrien/code/PDP/packages/backend/convex/models/voiceNotes.ts
-
-- ❌ **CRITICAL: Better Auth adapter violation**
-  - **Problem:** Direct DB access to auth tables
-  - **Fix:** Use `ctx.runQuery(components.betterAuth.adapter.findOne, {...})`
-
-
-## Auto Quality Check - 2026-02-23 12:26:34
-### File: /Users/jkobrien/code/PDP/packages/backend/convex/models/voiceNotes.ts
-
-- ⚠️ **Performance: .filter() usage detected**
-  - **Problem:** Should use .withIndex() for better performance
-  - **Fix:** Replace `.query().filter()` with `.query().withIndex()`
-
-
-## Auto Quality Check - 2026-02-23 12:26:34
-### File: /Users/jkobrien/code/PDP/packages/backend/convex/models/voiceNotes.ts
-
-- ❌ **CRITICAL: N+1 query pattern detected**
-  - **Problem:** `Promise.all(items.map(async => query))` makes N database calls
-  - **Fix:** Batch fetch all IDs first, create Map for O(1) lookup
-
-
-## Auto Quality Check - 2026-02-23 12:26:43
-### File: /Users/jkobrien/code/PDP/packages/backend/convex/models/voiceNotes.ts
-
-- ❌ **CRITICAL: Better Auth adapter violation**
-  - **Problem:** Direct DB access to auth tables
-  - **Fix:** Use `ctx.runQuery(components.betterAuth.adapter.findOne, {...})`
-
-
-## Auto Quality Check - 2026-02-23 12:26:43
-### File: /Users/jkobrien/code/PDP/packages/backend/convex/models/voiceNotes.ts
-
-- ⚠️ **Performance: .filter() usage detected**
-  - **Problem:** Should use .withIndex() for better performance
-  - **Fix:** Replace `.query().filter()` with `.query().withIndex()`
-
-
-## Auto Quality Check - 2026-02-23 12:26:43
-### File: /Users/jkobrien/code/PDP/packages/backend/convex/models/voiceNotes.ts
-
-- ❌ **CRITICAL: N+1 query pattern detected**
-  - **Problem:** `Promise.all(items.map(async => query))` makes N database calls
-  - **Fix:** Batch fetch all IDs first, create Map for O(1) lookup
-
-
-## Auto Quality Check - 2026-02-23 12:26:56
-### File: /Users/jkobrien/code/PDP/packages/backend/convex/models/voiceNotes.ts
-
-- ❌ **CRITICAL: Better Auth adapter violation**
-  - **Problem:** Direct DB access to auth tables
-  - **Fix:** Use `ctx.runQuery(components.betterAuth.adapter.findOne, {...})`
-
-
-## Auto Quality Check - 2026-02-23 12:26:56
-### File: /Users/jkobrien/code/PDP/packages/backend/convex/models/voiceNotes.ts
-
-- ⚠️ **Performance: .filter() usage detected**
-  - **Problem:** Should use .withIndex() for better performance
-  - **Fix:** Replace `.query().filter()` with `.query().withIndex()`
-
-
-## Auto Quality Check - 2026-02-23 12:26:57
-### File: /Users/jkobrien/code/PDP/packages/backend/convex/models/voiceNotes.ts
-
-- ❌ **CRITICAL: N+1 query pattern detected**
-  - **Problem:** `Promise.all(items.map(async => query))` makes N database calls
-  - **Fix:** Batch fetch all IDs first, create Map for O(1) lookup
-
-
-## Auto Quality Check - 2026-02-23 12:28:35
-### File: /Users/jkobrien/code/PDP/packages/backend/convex/models/voiceNotes.ts
-
-- ❌ **CRITICAL: Better Auth adapter violation**
-  - **Problem:** Direct DB access to auth tables
-  - **Fix:** Use `ctx.runQuery(components.betterAuth.adapter.findOne, {...})`
-
-
-## Auto Quality Check - 2026-02-23 12:28:35
-### File: /Users/jkobrien/code/PDP/packages/backend/convex/models/voiceNotes.ts
-
-- ⚠️ **Performance: .filter() usage detected**
-  - **Problem:** Should use .withIndex() for better performance
-  - **Fix:** Replace `.query().filter()` with `.query().withIndex()`
-
-
-## Auto Quality Check - 2026-02-23 12:28:35
-### File: /Users/jkobrien/code/PDP/packages/backend/convex/models/voiceNotes.ts
-
-- ❌ **CRITICAL: N+1 query pattern detected**
-  - **Problem:** `Promise.all(items.map(async => query))` makes N database calls
-  - **Fix:** Batch fetch all IDs first, create Map for O(1) lookup
-
-
-## Auto Quality Check - 2026-02-23 13:16:16
-### File: /Users/jkobrien/code/PDP/packages/backend/convex/models/sportPassports.ts
-
-- ❌ **CRITICAL: Better Auth adapter violation**
-  - **Problem:** Direct DB access to auth tables
-  - **Fix:** Use `ctx.runQuery(components.betterAuth.adapter.findOne, {...})`
-
-
-## Auto Quality Check - 2026-02-23 13:16:16
-### File: /Users/jkobrien/code/PDP/packages/backend/convex/models/sportPassports.ts
-
-- ⚠️ **Performance: .filter() usage detected**
-  - **Problem:** Should use .withIndex() for better performance
-  - **Fix:** Replace `.query().filter()` with `.query().withIndex()`
-
-
-## Auto Quality Check - 2026-02-23 13:16:23
-### File: /Users/jkobrien/code/PDP/packages/backend/convex/models/sportPassports.ts
-
-- ❌ **CRITICAL: Better Auth adapter violation**
-  - **Problem:** Direct DB access to auth tables
-  - **Fix:** Use `ctx.runQuery(components.betterAuth.adapter.findOne, {...})`
-
-
-## Auto Quality Check - 2026-02-23 13:16:23
-### File: /Users/jkobrien/code/PDP/packages/backend/convex/models/sportPassports.ts
-
-- ⚠️ **Performance: .filter() usage detected**
-  - **Problem:** Should use .withIndex() for better performance
-  - **Fix:** Replace `.query().filter()` with `.query().withIndex()`
-
-
-## Auto Quality Check - 2026-02-23 15:01:14
-### File: /Users/jkobrien/code/PDP/packages/backend/convex/models/voiceNotes.ts
-
-- ❌ **CRITICAL: Better Auth adapter violation**
-  - **Problem:** Direct DB access to auth tables
-  - **Fix:** Use `ctx.runQuery(components.betterAuth.adapter.findOne, {...})`
-
-
-## Auto Quality Check - 2026-02-23 15:01:14
-### File: /Users/jkobrien/code/PDP/packages/backend/convex/models/voiceNotes.ts
-
-- ⚠️ **Performance: .filter() usage detected**
-  - **Problem:** Should use .withIndex() for better performance
-  - **Fix:** Replace `.query().filter()` with `.query().withIndex()`
-
-
-## Auto Quality Check - 2026-02-23 15:01:14
-### File: /Users/jkobrien/code/PDP/packages/backend/convex/models/voiceNotes.ts
-
-- ❌ **CRITICAL: N+1 query pattern detected**
-  - **Problem:** `Promise.all(items.map(async => query))` makes N database calls
-  - **Fix:** Batch fetch all IDs first, create Map for O(1) lookup
-
-
-## Auto Quality Check - 2026-02-23 15:01:21
-### File: /Users/jkobrien/code/PDP/packages/backend/convex/models/voiceNotes.ts
-
-- ❌ **CRITICAL: Better Auth adapter violation**
-  - **Problem:** Direct DB access to auth tables
-  - **Fix:** Use `ctx.runQuery(components.betterAuth.adapter.findOne, {...})`
-
-
-## Auto Quality Check - 2026-02-23 15:01:21
-### File: /Users/jkobrien/code/PDP/packages/backend/convex/models/voiceNotes.ts
-
-- ⚠️ **Performance: .filter() usage detected**
-  - **Problem:** Should use .withIndex() for better performance
-  - **Fix:** Replace `.query().filter()` with `.query().withIndex()`
-
-
-## Auto Quality Check - 2026-02-23 15:01:21
-### File: /Users/jkobrien/code/PDP/packages/backend/convex/models/voiceNotes.ts
-
-- ❌ **CRITICAL: N+1 query pattern detected**
-  - **Problem:** `Promise.all(items.map(async => query))` makes N database calls
-  - **Fix:** Batch fetch all IDs first, create Map for O(1) lookup
-
-
-## Auto Quality Check - 2026-02-23 15:01:29
-### File: /Users/jkobrien/code/PDP/packages/backend/convex/models/voiceNotes.ts
-
-- ❌ **CRITICAL: Better Auth adapter violation**
-  - **Problem:** Direct DB access to auth tables
-  - **Fix:** Use `ctx.runQuery(components.betterAuth.adapter.findOne, {...})`
-
-
-## Auto Quality Check - 2026-02-23 15:01:29
-### File: /Users/jkobrien/code/PDP/packages/backend/convex/models/voiceNotes.ts
-
-- ⚠️ **Performance: .filter() usage detected**
-  - **Problem:** Should use .withIndex() for better performance
-  - **Fix:** Replace `.query().filter()` with `.query().withIndex()`
-
-
-## Auto Quality Check - 2026-02-23 15:01:29
-### File: /Users/jkobrien/code/PDP/packages/backend/convex/models/voiceNotes.ts
-
-- ❌ **CRITICAL: N+1 query pattern detected**
-  - **Problem:** `Promise.all(items.map(async => query))` makes N database calls
-  - **Fix:** Batch fetch all IDs first, create Map for O(1) lookup
-
-
-## Auto Quality Check - 2026-02-23 15:06:45
-### File: /Users/jkobrien/code/PDP/packages/backend/convex/models/voiceNotes.ts
-
-- ❌ **CRITICAL: Better Auth adapter violation**
-  - **Problem:** Direct DB access to auth tables
-  - **Fix:** Use `ctx.runQuery(components.betterAuth.adapter.findOne, {...})`
-
-
-## Auto Quality Check - 2026-02-23 15:06:45
-### File: /Users/jkobrien/code/PDP/packages/backend/convex/models/voiceNotes.ts
-
-- ⚠️ **Performance: .filter() usage detected**
-  - **Problem:** Should use .withIndex() for better performance
-  - **Fix:** Replace `.query().filter()` with `.query().withIndex()`
-
-
-## Auto Quality Check - 2026-02-23 15:06:45
-### File: /Users/jkobrien/code/PDP/packages/backend/convex/models/voiceNotes.ts
-
-- ❌ **CRITICAL: N+1 query pattern detected**
-  - **Problem:** `Promise.all(items.map(async => query))` makes N database calls
-  - **Fix:** Batch fetch all IDs first, create Map for O(1) lookup
-
-
-## Auto Quality Check - 2026-02-23 15:06:53
-### File: /Users/jkobrien/code/PDP/packages/backend/convex/models/voiceNotes.ts
-
-- ❌ **CRITICAL: Better Auth adapter violation**
-  - **Problem:** Direct DB access to auth tables
-  - **Fix:** Use `ctx.runQuery(components.betterAuth.adapter.findOne, {...})`
-
-
-## Auto Quality Check - 2026-02-23 15:06:53
-### File: /Users/jkobrien/code/PDP/packages/backend/convex/models/voiceNotes.ts
-
-- ⚠️ **Performance: .filter() usage detected**
-  - **Problem:** Should use .withIndex() for better performance
-  - **Fix:** Replace `.query().filter()` with `.query().withIndex()`
-
-
-## Auto Quality Check - 2026-02-23 15:06:53
-### File: /Users/jkobrien/code/PDP/packages/backend/convex/models/voiceNotes.ts
-
-- ❌ **CRITICAL: N+1 query pattern detected**
-  - **Problem:** `Promise.all(items.map(async => query))` makes N database calls
-  - **Fix:** Batch fetch all IDs first, create Map for O(1) lookup
-
-
-## Auto Quality Check - 2026-02-23 15:13:41
-### File: /Users/jkobrien/code/PDP/packages/backend/convex/models/voiceNotes.ts
-
-- ❌ **CRITICAL: Better Auth adapter violation**
-  - **Problem:** Direct DB access to auth tables
-  - **Fix:** Use `ctx.runQuery(components.betterAuth.adapter.findOne, {...})`
-
-
-## Auto Quality Check - 2026-02-23 15:13:41
-### File: /Users/jkobrien/code/PDP/packages/backend/convex/models/voiceNotes.ts
-
-- ⚠️ **Performance: .filter() usage detected**
-  - **Problem:** Should use .withIndex() for better performance
-  - **Fix:** Replace `.query().filter()` with `.query().withIndex()`
-
-
-## Auto Quality Check - 2026-02-23 15:13:41
-### File: /Users/jkobrien/code/PDP/packages/backend/convex/models/voiceNotes.ts
-
-- ❌ **CRITICAL: N+1 query pattern detected**
-  - **Problem:** `Promise.all(items.map(async => query))` makes N database calls
-  - **Fix:** Batch fetch all IDs first, create Map for O(1) lookup
-
-
-## Auto Quality Check - 2026-02-23 15:53:59
-### File: /Users/jkobrien/code/PDP/packages/backend/convex/models/aiServiceHealth.ts
-
-- ⚠️ **Data Isolation: No organizationId filter found**
-  - **Problem:** Queries should be scoped by organizationId for multi-tenant isolation
-  - **Fix:** Add organizationId to query args and use in .withIndex()
-
-
-## Auto Quality Check - 2026-02-23 15:56:48
-### File: /Users/jkobrien/code/PDP/packages/backend/convex/models/aiServiceHealth.ts
-
-- ⚠️ **Data Isolation: No organizationId filter found**
-  - **Problem:** Queries should be scoped by organizationId for multi-tenant isolation
-  - **Fix:** Add organizationId to query args and use in .withIndex()
-
-
-## Auto Quality Check - 2026-02-23 15:57:23
-### File: /Users/jkobrien/code/PDP/packages/backend/convex/models/aiUsageLog.ts
-
-- ⚠️ **Performance: .filter() usage detected**
-  - **Problem:** Should use .withIndex() for better performance
-  - **Fix:** Replace `.query().filter()` with `.query().withIndex()`
-
-
-## Auto Quality Check - 2026-02-23 15:57:23
-### File: /Users/jkobrien/code/PDP/packages/backend/convex/models/platformCostAlerts.ts
-
-- ⚠️ **Performance: .filter() usage detected**
-  - **Problem:** Should use .withIndex() for better performance
-  - **Fix:** Replace `.query().filter()` with `.query().withIndex()`
-
-
-## Auto Quality Check - 2026-02-23 15:57:53
-### File: /Users/jkobrien/code/PDP/packages/backend/convex/models/voicePipelineAlerts.ts
-
-- ⚠️ **Performance: .filter() usage detected**
-  - **Problem:** Should use .withIndex() for better performance
-  - **Fix:** Replace `.query().filter()` with `.query().withIndex()`
-
-
-## Auto Quality Check - 2026-02-23 16:07:46
-### File: /Users/jkobrien/code/PDP/packages/backend/convex/models/aiServiceHealth.ts
-
-- ⚠️ **Data Isolation: No organizationId filter found**
-  - **Problem:** Queries should be scoped by organizationId for multi-tenant isolation
-  - **Fix:** Add organizationId to query args and use in .withIndex()
-
-
-## Auto Quality Check - 2026-02-23 16:07:46
-### File: /Users/jkobrien/code/PDP/packages/backend/convex/models/aiUsageLog.ts
-
-- ⚠️ **Performance: .filter() usage detected**
-  - **Problem:** Should use .withIndex() for better performance
-  - **Fix:** Replace `.query().filter()` with `.query().withIndex()`
-
-
-## Auto Quality Check - 2026-02-23 16:08:20
-### File: /Users/jkobrien/code/PDP/packages/backend/convex/models/platformCostAlerts.ts
-
-- ⚠️ **Performance: .filter() usage detected**
-  - **Problem:** Should use .withIndex() for better performance
-  - **Fix:** Replace `.query().filter()` with `.query().withIndex()`
-
-
-## Auto Quality Check - 2026-02-23 16:09:28
-### File: /Users/jkobrien/code/PDP/packages/backend/convex/models/voicePipelineEvents.ts
-
-- ⚠️ **Performance: .filter() usage detected**
-  - **Problem:** Should use .withIndex() for better performance
-  - **Fix:** Replace `.query().filter()` with `.query().withIndex()`
-
-
-## Auto Quality Check - 2026-02-23 16:10:40
-### File: /Users/jkobrien/code/PDP/packages/backend/convex/models/voicePipelineEvents.ts
-
-- ⚠️ **Performance: .filter() usage detected**
-  - **Problem:** Should use .withIndex() for better performance
-  - **Fix:** Replace `.query().filter()` with `.query().withIndex()`
-
-
-## Auto Quality Check - 2026-02-23 16:10:55
-### File: /Users/jkobrien/code/PDP/packages/backend/convex/models/voicePipelineEvents.ts
-
-- ⚠️ **Performance: .filter() usage detected**
-  - **Problem:** Should use .withIndex() for better performance
-  - **Fix:** Replace `.query().filter()` with `.query().withIndex()`
-
-
-## Auto Quality Check - 2026-02-23 16:11:16
-### File: /Users/jkobrien/code/PDP/packages/backend/convex/models/aiServiceHealth.ts
-
-- ⚠️ **Data Isolation: No organizationId filter found**
-  - **Problem:** Queries should be scoped by organizationId for multi-tenant isolation
-  - **Fix:** Add organizationId to query args and use in .withIndex()
-
-
-## Auto Quality Check - 2026-02-23 16:16:47
-### File: /Users/jkobrien/code/PDP/packages/backend/convex/models/voicePipelineEvents.ts
-
-- ⚠️ **Performance: .filter() usage detected**
-  - **Problem:** Should use .withIndex() for better performance
-  - **Fix:** Replace `.query().filter()` with `.query().withIndex()`
-
-
-## Auto Quality Check - 2026-02-23 16:16:47
-### File: /Users/jkobrien/code/PDP/packages/backend/convex/models/aiServiceHealth.ts
-
-- ⚠️ **Data Isolation: No organizationId filter found**
-  - **Problem:** Queries should be scoped by organizationId for multi-tenant isolation
-  - **Fix:** Add organizationId to query args and use in .withIndex()
-
-
-## Auto Quality Check - 2026-02-23 16:17:00
-### File: /Users/jkobrien/code/PDP/packages/backend/convex/models/platformCostAlerts.ts
-
-- ⚠️ **Performance: .filter() usage detected**
-  - **Problem:** Should use .withIndex() for better performance
-  - **Fix:** Replace `.query().filter()` with `.query().withIndex()`
-
-
-## Auto Quality Check - 2026-02-23 16:17:12
-### File: /Users/jkobrien/code/PDP/packages/backend/convex/models/aiUsageLog.ts
-
-- ⚠️ **Performance: .filter() usage detected**
-  - **Problem:** Should use .withIndex() for better performance
-  - **Fix:** Replace `.query().filter()` with `.query().withIndex()`
-
-
-## Auto Quality Check - 2026-02-23 16:17:34
-### File: /Users/jkobrien/code/PDP/packages/backend/convex/models/voicePipelineMetrics.ts
-
-- ⚠️ **Performance: .filter() usage detected**
-  - **Problem:** Should use .withIndex() for better performance
-  - **Fix:** Replace `.query().filter()` with `.query().withIndex()`
-
-
-## Auto Quality Check - 2026-02-23 16:18:42
-### File: /Users/jkobrien/code/PDP/packages/backend/convex/models/voicePipelineEvents.ts
-
-- ⚠️ **Performance: .filter() usage detected**
-  - **Problem:** Should use .withIndex() for better performance
-  - **Fix:** Replace `.query().filter()` with `.query().withIndex()`
-
-
-## Auto Quality Check - 2026-02-23 16:19:01
-### File: /Users/jkobrien/code/PDP/packages/backend/convex/models/aiServiceHealth.ts
-
-- ⚠️ **Data Isolation: No organizationId filter found**
-  - **Problem:** Queries should be scoped by organizationId for multi-tenant isolation
-  - **Fix:** Add organizationId to query args and use in .withIndex()
-
-
-## Auto Quality Check - 2026-02-23 16:19:12
-### File: /Users/jkobrien/code/PDP/packages/backend/convex/models/aiServiceHealth.ts
-
-- ⚠️ **Data Isolation: No organizationId filter found**
-  - **Problem:** Queries should be scoped by organizationId for multi-tenant isolation
-  - **Fix:** Add organizationId to query args and use in .withIndex()
-
-
-## Auto Quality Check - 2026-02-23 16:19:19
-### File: /Users/jkobrien/code/PDP/packages/backend/convex/models/aiServiceHealth.ts
-
-- ⚠️ **Data Isolation: No organizationId filter found**
-  - **Problem:** Queries should be scoped by organizationId for multi-tenant isolation
-  - **Fix:** Add organizationId to query args and use in .withIndex()
-
-
-## Auto Quality Check - 2026-02-23 16:19:28
-### File: /Users/jkobrien/code/PDP/packages/backend/convex/models/aiServiceHealth.ts
-
-- ⚠️ **Data Isolation: No organizationId filter found**
-  - **Problem:** Queries should be scoped by organizationId for multi-tenant isolation
-  - **Fix:** Add organizationId to query args and use in .withIndex()
-
-
-## Auto Quality Check - 2026-02-23 16:19:36
-### File: /Users/jkobrien/code/PDP/packages/backend/convex/models/aiServiceHealth.ts
-
-- ⚠️ **Data Isolation: No organizationId filter found**
-  - **Problem:** Queries should be scoped by organizationId for multi-tenant isolation
-  - **Fix:** Add organizationId to query args and use in .withIndex()
-
-
-## Auto Quality Check - 2026-02-23 16:19:54
-### File: /Users/jkobrien/code/PDP/packages/backend/convex/models/aiServiceHealth.ts
-
-- ⚠️ **Data Isolation: No organizationId filter found**
-  - **Problem:** Queries should be scoped by organizationId for multi-tenant isolation
-  - **Fix:** Add organizationId to query args and use in .withIndex()
-
-
-## Auto Quality Check - 2026-02-23 16:20:02
-### File: /Users/jkobrien/code/PDP/packages/backend/convex/models/aiServiceHealth.ts
-
-- ⚠️ **Data Isolation: No organizationId filter found**
-  - **Problem:** Queries should be scoped by organizationId for multi-tenant isolation
-  - **Fix:** Add organizationId to query args and use in .withIndex()
-
-
-## Auto Quality Check - 2026-02-23 16:20:23
-### File: /Users/jkobrien/code/PDP/packages/backend/convex/models/platformCostAlerts.ts
-
-- ⚠️ **Performance: .filter() usage detected**
-  - **Problem:** Should use .withIndex() for better performance
-  - **Fix:** Replace `.query().filter()` with `.query().withIndex()`
-
-
-## Auto Quality Check - 2026-02-23 16:20:30
-### File: /Users/jkobrien/code/PDP/packages/backend/convex/models/platformCostAlerts.ts
-
-- ⚠️ **Performance: .filter() usage detected**
-  - **Problem:** Should use .withIndex() for better performance
-  - **Fix:** Replace `.query().filter()` with `.query().withIndex()`
-
-
-## Auto Quality Check - 2026-02-23 16:20:55
-### File: /Users/jkobrien/code/PDP/packages/backend/convex/models/voicePipelineMetrics.ts
-
-- ⚠️ **Performance: .filter() usage detected**
-  - **Problem:** Should use .withIndex() for better performance
-  - **Fix:** Replace `.query().filter()` with `.query().withIndex()`
-
-
-## Auto Quality Check - 2026-02-23 16:21:08
-### File: /Users/jkobrien/code/PDP/packages/backend/convex/models/voicePipelineMetrics.ts
-
-- ⚠️ **Performance: .filter() usage detected**
-  - **Problem:** Should use .withIndex() for better performance
-  - **Fix:** Replace `.query().filter()` with `.query().withIndex()`
-
-
-## Auto Quality Check - 2026-02-23 16:21:21
-### File: /Users/jkobrien/code/PDP/packages/backend/convex/models/voicePipelineMetrics.ts
-
-- ⚠️ **Performance: .filter() usage detected**
-  - **Problem:** Should use .withIndex() for better performance
-  - **Fix:** Replace `.query().filter()` with `.query().withIndex()`
-
-
-## Auto Quality Check - 2026-02-23 17:45:44
-### File: /Users/jkobrien/code/PDP/packages/backend/convex/models/organizations.ts
-
-- ❌ **CRITICAL: Better Auth adapter violation**
-  - **Problem:** Direct DB access to auth tables
-  - **Fix:** Use `ctx.runQuery(components.betterAuth.adapter.findOne, {...})`
-
-
-## Auto Quality Check - 2026-02-23 17:45:44
-### File: /Users/jkobrien/code/PDP/packages/backend/convex/models/organizations.ts
-
-- ⚠️ **Performance: .filter() usage detected**
-  - **Problem:** Should use .withIndex() for better performance
-  - **Fix:** Replace `.query().filter()` with `.query().withIndex()`
-
-
-## Auto Quality Check - 2026-02-23 17:45:44
-### File: /Users/jkobrien/code/PDP/packages/backend/convex/models/organizations.ts
-
-- ❌ **CRITICAL: N+1 query pattern detected**
-  - **Problem:** `Promise.all(items.map(async => query))` makes N database calls
-  - **Fix:** Batch fetch all IDs first, create Map for O(1) lookup
-
-
-## Auto Quality Check - 2026-02-23 17:45:50
-### File: /Users/jkobrien/code/PDP/packages/backend/convex/models/organizations.ts
+2. **`transferPassportSharingOwnership` mutation** — Does not exist anywhere in the codebase (0 grep matches). The ownership transfer mutation is a hard requirement.
 
-- ❌ **CRITICAL: Better Auth adapter violation**
-  - **Problem:** Direct DB access to auth tables
-  - **Fix:** Use `ctx.runQuery(components.betterAuth.adapter.findOne, {...})`
-
-
-## Auto Quality Check - 2026-02-23 17:45:50
-### File: /Users/jkobrien/code/PDP/packages/backend/convex/models/organizations.ts
-
-- ⚠️ **Performance: .filter() usage detected**
-  - **Problem:** Should use .withIndex() for better performance
-  - **Fix:** Replace `.query().filter()` with `.query().withIndex()`
-
-
-## Auto Quality Check - 2026-02-23 17:45:50
-### File: /Users/jkobrien/code/PDP/packages/backend/convex/models/organizations.ts
-
-- ❌ **CRITICAL: N+1 query pattern detected**
-  - **Problem:** `Promise.all(items.map(async => query))` makes N database calls
-  - **Fix:** Batch fetch all IDs first, create Map for O(1) lookup
-
-
-## Auto Quality Check - 2026-02-23 17:48:15
-### File: /Users/jkobrien/code/PDP/packages/backend/convex/models/organizations.ts
-
-- ❌ **CRITICAL: Better Auth adapter violation**
-  - **Problem:** Direct DB access to auth tables
-  - **Fix:** Use `ctx.runQuery(components.betterAuth.adapter.findOne, {...})`
-
-
-## Auto Quality Check - 2026-02-23 17:48:15
-### File: /Users/jkobrien/code/PDP/packages/backend/convex/models/organizations.ts
-
-- ⚠️ **Performance: .filter() usage detected**
-  - **Problem:** Should use .withIndex() for better performance
-  - **Fix:** Replace `.query().filter()` with `.query().withIndex()`
-
-
-## Auto Quality Check - 2026-02-23 17:48:15
-### File: /Users/jkobrien/code/PDP/packages/backend/convex/models/organizations.ts
-
-- ❌ **CRITICAL: N+1 query pattern detected**
-  - **Problem:** `Promise.all(items.map(async => query))` makes N database calls
-  - **Fix:** Batch fetch all IDs first, create Map for O(1) lookup
-
-
-## Auto Quality Check - 2026-02-23 17:50:50
-### File: /Users/jkobrien/code/PDP/packages/backend/convex/models/organizations.ts
-
-- ❌ **CRITICAL: Better Auth adapter violation**
-  - **Problem:** Direct DB access to auth tables
-  - **Fix:** Use `ctx.runQuery(components.betterAuth.adapter.findOne, {...})`
-
-
-## Auto Quality Check - 2026-02-23 17:50:50
-### File: /Users/jkobrien/code/PDP/packages/backend/convex/models/organizations.ts
-
-- ⚠️ **Performance: .filter() usage detected**
-  - **Problem:** Should use .withIndex() for better performance
-  - **Fix:** Replace `.query().filter()` with `.query().withIndex()`
-
-
-## Auto Quality Check - 2026-02-23 17:50:50
-### File: /Users/jkobrien/code/PDP/packages/backend/convex/models/organizations.ts
-
-- ❌ **CRITICAL: N+1 query pattern detected**
-  - **Problem:** `Promise.all(items.map(async => query))` makes N database calls
-  - **Fix:** Batch fetch all IDs first, create Map for O(1) lookup
-
-
-## Auto Quality Check - 2026-02-23 17:50:58
-### File: /Users/jkobrien/code/PDP/packages/backend/convex/models/organizations.ts
-
-- ❌ **CRITICAL: Better Auth adapter violation**
-  - **Problem:** Direct DB access to auth tables
-  - **Fix:** Use `ctx.runQuery(components.betterAuth.adapter.findOne, {...})`
-
-
-## Auto Quality Check - 2026-02-23 17:50:58
-### File: /Users/jkobrien/code/PDP/packages/backend/convex/models/organizations.ts
-
-- ⚠️ **Performance: .filter() usage detected**
-  - **Problem:** Should use .withIndex() for better performance
-  - **Fix:** Replace `.query().filter()` with `.query().withIndex()`
-
-
-## Auto Quality Check - 2026-02-23 17:50:58
-### File: /Users/jkobrien/code/PDP/packages/backend/convex/models/organizations.ts
-
-- ❌ **CRITICAL: N+1 query pattern detected**
-  - **Problem:** `Promise.all(items.map(async => query))` makes N database calls
-  - **Fix:** Batch fetch all IDs first, create Map for O(1) lookup
-
-
-## Auto Quality Check - 2026-02-23 18:09:35
-### File: /Users/jkobrien/code/PDP/packages/backend/convex/models/invitations.ts
-
-- ⚠️ **Performance: .filter() usage detected**
-  - **Problem:** Should use .withIndex() for better performance
-  - **Fix:** Replace `.query().filter()` with `.query().withIndex()`
-
-
-## Auto Quality Check - 2026-02-23 18:09:35
-### File: /Users/jkobrien/code/PDP/packages/backend/convex/models/invitations.ts
-
-- ❌ **CRITICAL: N+1 query pattern detected**
-  - **Problem:** `Promise.all(items.map(async => query))` makes N database calls
-  - **Fix:** Batch fetch all IDs first, create Map for O(1) lookup
-
-
-## Auto Quality Check - 2026-02-23 18:10:49
-### File: /Users/jkobrien/code/PDP/packages/backend/convex/models/users.ts
-
-- ❌ **CRITICAL: Better Auth adapter violation**
-  - **Problem:** Direct DB access to auth tables
-  - **Fix:** Use `ctx.runQuery(components.betterAuth.adapter.findOne, {...})`
-
-
-## Auto Quality Check - 2026-02-23 18:10:49
-### File: /Users/jkobrien/code/PDP/packages/backend/convex/models/users.ts
-
-- ⚠️ **Performance: .filter() usage detected**
-  - **Problem:** Should use .withIndex() for better performance
-  - **Fix:** Replace `.query().filter()` with `.query().withIndex()`
-
-
-## Auto Quality Check - 2026-02-23 18:16:18
-### File: /Users/jkobrien/code/PDP/packages/backend/convex/models/notifications.ts
-
-- ⚠️ **Performance: .filter() usage detected**
-  - **Problem:** Should use .withIndex() for better performance
-  - **Fix:** Replace `.query().filter()` with `.query().withIndex()`
-
-
-## Auto Quality Check - 2026-02-23 18:18:14
-### File: /Users/jkobrien/code/PDP/packages/backend/convex/models/notifications.ts
-
-- ⚠️ **Performance: .filter() usage detected**
-  - **Problem:** Should use .withIndex() for better performance
-  - **Fix:** Replace `.query().filter()` with `.query().withIndex()`
-
-
-## Auto Quality Check - 2026-02-23 18:18:52
-### File: /Users/jkobrien/code/PDP/packages/backend/convex/models/invitations.ts
-
-- ⚠️ **Performance: .filter() usage detected**
-  - **Problem:** Should use .withIndex() for better performance
-  - **Fix:** Replace `.query().filter()` with `.query().withIndex()`
-
-
-## Auto Quality Check - 2026-02-23 18:18:52
-### File: /Users/jkobrien/code/PDP/packages/backend/convex/models/invitations.ts
-
-- ❌ **CRITICAL: N+1 query pattern detected**
-  - **Problem:** `Promise.all(items.map(async => query))` makes N database calls
-  - **Fix:** Batch fetch all IDs first, create Map for O(1) lookup
-
-
-## Auto Quality Check - 2026-02-23 18:19:20
-### File: /Users/jkobrien/code/PDP/packages/backend/convex/models/invitations.ts
-
-- ⚠️ **Performance: .filter() usage detected**
-  - **Problem:** Should use .withIndex() for better performance
-  - **Fix:** Replace `.query().filter()` with `.query().withIndex()`
-
-
-## Auto Quality Check - 2026-02-23 18:19:20
-### File: /Users/jkobrien/code/PDP/packages/backend/convex/models/invitations.ts
-
-- ❌ **CRITICAL: N+1 query pattern detected**
-  - **Problem:** `Promise.all(items.map(async => query))` makes N database calls
-  - **Fix:** Batch fetch all IDs first, create Map for O(1) lookup
-
-
-## Auto Quality Check - 2026-02-23 18:20:41
-### File: /Users/jkobrien/code/PDP/packages/backend/convex/models/organizations.ts
-
-- ❌ **CRITICAL: Better Auth adapter violation**
-  - **Problem:** Direct DB access to auth tables
-  - **Fix:** Use `ctx.runQuery(components.betterAuth.adapter.findOne, {...})`
-
-
-## Auto Quality Check - 2026-02-23 18:20:41
-### File: /Users/jkobrien/code/PDP/packages/backend/convex/models/organizations.ts
-
-- ⚠️ **Performance: .filter() usage detected**
-  - **Problem:** Should use .withIndex() for better performance
-  - **Fix:** Replace `.query().filter()` with `.query().withIndex()`
-
-
-## Auto Quality Check - 2026-02-23 18:20:41
-### File: /Users/jkobrien/code/PDP/packages/backend/convex/models/organizations.ts
-
-- ❌ **CRITICAL: N+1 query pattern detected**
-  - **Problem:** `Promise.all(items.map(async => query))` makes N database calls
-  - **Fix:** Batch fetch all IDs first, create Map for O(1) lookup
-
-
-## Auto Quality Check - 2026-02-23 18:21:00
-### File: /Users/jkobrien/code/PDP/packages/backend/convex/models/invitations.ts
-
-- ⚠️ **Performance: .filter() usage detected**
-  - **Problem:** Should use .withIndex() for better performance
-  - **Fix:** Replace `.query().filter()` with `.query().withIndex()`
-
-
-## Auto Quality Check - 2026-02-23 18:21:00
-### File: /Users/jkobrien/code/PDP/packages/backend/convex/models/invitations.ts
-
-- ❌ **CRITICAL: N+1 query pattern detected**
-  - **Problem:** `Promise.all(items.map(async => query))` makes N database calls
-  - **Fix:** Batch fetch all IDs first, create Map for O(1) lookup
-
-
-## Auto Quality Check - 2026-02-24 15:42:56
-### File: /Users/jkobrien/code/PDP/packages/backend/convex/models/playerInjuries.ts
-
-- ❌ **CRITICAL: Better Auth adapter violation**
-  - **Problem:** Direct DB access to auth tables
-  - **Fix:** Use `ctx.runQuery(components.betterAuth.adapter.findOne, {...})`
-
-
-## Auto Quality Check - 2026-02-24 15:42:56
-### File: /Users/jkobrien/code/PDP/packages/backend/convex/models/playerInjuries.ts
-
-- ⚠️ **Performance: .filter() usage detected**
-  - **Problem:** Should use .withIndex() for better performance
-  - **Fix:** Replace `.query().filter()` with `.query().withIndex()`
-
-
-## Auto Quality Check - 2026-02-24 15:42:56
-### File: /Users/jkobrien/code/PDP/packages/backend/convex/models/orgInjuryNotes.ts
-
-- ⚠️ **Performance: .filter() usage detected**
-  - **Problem:** Should use .withIndex() for better performance
-  - **Fix:** Replace `.query().filter()` with `.query().withIndex()`
+3. **Ownership transfer in claim flow** — `claimPlayerAccount` in `packages/backend/convex/models/playerGraduations.ts` has no logic to transfer passport sharing records from guardian to the claimed adult player, meaning guardian access to sharing consents is never revoked.
 
+4. **Guardian-inherited sharing visibility** — Unclear whether existing consents created by a guardian are surfaced with proper attribution/context to the player.
 
-## Auto Quality Check - 2026-02-24 15:42:56
+## Auto Quality Check - 2026-02-25 22:58:46
 ### File: /Users/jkobrien/code/PDP/packages/backend/convex/models/injuryDocuments.ts
 
 - ⚠️ **Performance: .filter() usage detected**
@@ -2998,263 +719,11218 @@ packages/backend/convex/actions/aiMapping.ts:        "ANTHROPIC_API_KEY not conf
   - **Fix:** Replace `.query().filter()` with `.query().withIndex()`
 
 
-## Auto Quality Check - 2026-02-24 15:43:25
-### File: /Users/jkobrien/code/PDP/packages/backend/convex/models/guardianPlayerLinks.ts
-
-- ⚠️ **Performance: .filter() usage detected**
-  - **Problem:** Should use .withIndex() for better performance
-  - **Fix:** Replace `.query().filter()` with `.query().withIndex()`
-
-
-## Auto Quality Check - 2026-02-24 15:43:25
-### File: /Users/jkobrien/code/PDP/packages/backend/convex/models/playerGraduations.ts
-
-- ❌ **CRITICAL: Better Auth adapter violation**
-  - **Problem:** Direct DB access to auth tables
-  - **Fix:** Use `ctx.runQuery(components.betterAuth.adapter.findOne, {...})`
-
-
-## Auto Quality Check - 2026-02-24 15:43:25
-### File: /Users/jkobrien/code/PDP/packages/backend/convex/models/playerGraduations.ts
-
-- ⚠️ **Performance: .filter() usage detected**
-  - **Problem:** Should use .withIndex() for better performance
-  - **Fix:** Replace `.query().filter()` with `.query().withIndex()`
-
-
-## Auto Quality Check - 2026-02-24 15:43:26
-### File: /Users/jkobrien/code/PDP/packages/backend/convex/models/skillAssessments.ts
-
-- ⚠️ **Performance: .filter() usage detected**
-  - **Problem:** Should use .withIndex() for better performance
-  - **Fix:** Replace `.query().filter()` with `.query().withIndex()`
-
-
-## Auto Quality Check - 2026-02-24 15:43:50
-### File: /Users/jkobrien/code/PDP/packages/backend/convex/models/guardianManagement.ts
-
-- ⚠️ **Performance: .filter() usage detected**
-  - **Problem:** Should use .withIndex() for better performance
-  - **Fix:** Replace `.query().filter()` with `.query().withIndex()`
-
-
-## Auto Quality Check - 2026-02-24 15:43:50
-### File: /Users/jkobrien/code/PDP/packages/backend/convex/models/guardianPlayerLinks.ts
-
-- ⚠️ **Performance: .filter() usage detected**
-  - **Problem:** Should use .withIndex() for better performance
-  - **Fix:** Replace `.query().filter()` with `.query().withIndex()`
-
-
-## Auto Quality Check - 2026-02-24 15:43:52
-### File: /Users/jkobrien/code/PDP/packages/backend/convex/models/orgPlayerEnrollments.ts
-
-- ❌ **CRITICAL: Better Auth adapter violation**
-  - **Problem:** Direct DB access to auth tables
-  - **Fix:** Use `ctx.runQuery(components.betterAuth.adapter.findOne, {...})`
-
-
-## Auto Quality Check - 2026-02-24 15:43:52
-### File: /Users/jkobrien/code/PDP/packages/backend/convex/models/orgPlayerEnrollments.ts
-
-- ⚠️ **Performance: .filter() usage detected**
-  - **Problem:** Should use .withIndex() for better performance
-  - **Fix:** Replace `.query().filter()` with `.query().withIndex()`
-
-
-## Auto Quality Check - 2026-02-24 15:43:53
-### File: /Users/jkobrien/code/PDP/packages/backend/convex/models/playerImport.ts
-
-- ❌ **CRITICAL: Better Auth adapter violation**
-  - **Problem:** Direct DB access to auth tables
-  - **Fix:** Use `ctx.runQuery(components.betterAuth.adapter.findOne, {...})`
-
-
-## Auto Quality Check - 2026-02-24 15:43:53
-### File: /Users/jkobrien/code/PDP/packages/backend/convex/models/playerImport.ts
-
-- ⚠️ **Performance: .filter() usage detected**
-  - **Problem:** Should use .withIndex() for better performance
-  - **Fix:** Replace `.query().filter()` with `.query().withIndex()`
-
-
-## Auto Quality Check - 2026-02-24 15:43:53
-### File: /Users/jkobrien/code/PDP/packages/backend/convex/models/playerImport.ts
-
-- ❌ **CRITICAL: N+1 query pattern detected**
-  - **Problem:** `Promise.all(items.map(async => query))` makes N database calls
-  - **Fix:** Batch fetch all IDs first, create Map for O(1) lookup
-
-
-## Auto Quality Check - 2026-02-24 15:44:14
-### File: /Users/jkobrien/code/PDP/packages/backend/convex/models/guardianPlayerLinks.ts
-
-- ⚠️ **Performance: .filter() usage detected**
-  - **Problem:** Should use .withIndex() for better performance
-  - **Fix:** Replace `.query().filter()` with `.query().withIndex()`
-
-
-## Auto Quality Check - 2026-02-24 15:44:14
-### File: /Users/jkobrien/code/PDP/packages/backend/convex/models/guardianManagement.ts
-
-- ⚠️ **Performance: .filter() usage detected**
-  - **Problem:** Should use .withIndex() for better performance
-  - **Fix:** Replace `.query().filter()` with `.query().withIndex()`
-
-
-## Auto Quality Check - 2026-02-24 15:44:14
-### File: /Users/jkobrien/code/PDP/packages/backend/convex/models/passportSharing.ts
-
-- ❌ **CRITICAL: Better Auth adapter violation**
-  - **Problem:** Direct DB access to auth tables
-  - **Fix:** Use `ctx.runQuery(components.betterAuth.adapter.findOne, {...})`
-
-
-## Auto Quality Check - 2026-02-24 15:44:15
-### File: /Users/jkobrien/code/PDP/packages/backend/convex/models/passportSharing.ts
-
-- ⚠️ **Performance: .filter() usage detected**
-  - **Problem:** Should use .withIndex() for better performance
-  - **Fix:** Replace `.query().filter()` with `.query().withIndex()`
+## Security Tester - 2026-02-25 22:58:53
+- 🚨 **CRITICAL**: Hardcoded secrets detected
+```
+apps/web/src/app/api/ai-config/verify-model/route.ts:          errorMessage: "ANTHROPIC_API_KEY not configured in Next.js env",
+apps/web/src/app/api/ai-config/verify-model/route.ts:          errorMessage: "OPENAI_API_KEY not configured in Next.js env",
+apps/web/src/app/api/ai-config/available-models/route.ts:    errors.anthropic = "ANTHROPIC_API_KEY not configured";
+apps/web/src/app/api/ai-config/available-models/route.ts:    errors.openai = "OPENAI_API_KEY not configured";
+apps/web/src/app/api/comparison-insights/route.ts:      console.error("❌ ANTHROPIC_API_KEY not found in environment variables");
+```
+- ⚠️ **HIGH**: 5 high-severity dependency vulnerabilities
+  Run `npm audit fix` to resolve
+- ⚠️ **HIGH**: Mutations without authorization checks:
+  - packages/backend/convex/models/platformMessagingSettings.ts
+  - packages/backend/convex/models/syncQueue.ts
+  - packages/backend/convex/models/importSessions.ts
+  - packages/backend/convex/models/passportComparison.ts
+  - packages/backend/convex/models/trustGatePermissions.ts
+  - packages/backend/convex/models/ageGroupEligibilityOverrides.ts
+  - packages/backend/convex/models/federationConnectors.ts
+  - packages/backend/convex/models/teamCollaboration.ts
+  - packages/backend/convex/models/guardianIdentities.ts
+  - packages/backend/convex/models/sessionPlans.ts
+  - packages/backend/convex/models/adultPlayers.ts
+  - packages/backend/convex/models/demoAsks.ts
+  - packages/backend/convex/models/skillBenchmarks.ts
+  - packages/backend/convex/models/coaches.ts
+  - packages/backend/convex/models/medicalProfiles.ts
+  - packages/backend/convex/models/invitations.ts
+  - packages/backend/convex/models/flows.ts
+  - packages/backend/convex/models/notifications.ts
+  - packages/backend/convex/models/whatsappReviewLinks.ts
+  - packages/backend/convex/models/teamObservations.ts
+  - packages/backend/convex/models/passportGoals.ts
+  - packages/backend/convex/models/players.ts
+  - packages/backend/convex/models/aiMappingCache.ts
+  - packages/backend/convex/models/orgInjuryNotes.ts
+  - packages/backend/convex/models/injuryDocuments.ts
+  - packages/backend/convex/models/playerHealthChecks.ts
+  - packages/backend/convex/models/playerImport.ts
+  - packages/backend/convex/models/passportEnquiries.ts
+  - packages/backend/convex/models/setup.ts
+  - packages/backend/convex/models/teamPlayerIdentities.ts
+  - packages/backend/convex/models/rateLimits.ts
+  - packages/backend/convex/models/phase4TestCleanup.ts
+  - packages/backend/convex/models/syncHistory.ts
+  - packages/backend/convex/models/platformStaffInvitations.ts
+  - packages/backend/convex/models/coachParentMessages.ts
+  - packages/backend/convex/models/aiModelConfig.ts
+  - packages/backend/convex/models/voicePipelineAlerts.ts
+  - packages/backend/convex/models/aiMappingAnalytics.ts
+  - packages/backend/convex/models/orgPlayerEnrollments.ts
+  - packages/backend/convex/models/sportPassports.ts
+  - packages/backend/convex/models/orgJoinRequests.ts
+  - packages/backend/convex/models/sportAgeGroupConfig.ts
+  - packages/backend/convex/models/referenceData.ts
+  - packages/backend/convex/models/importMappingHistory.ts
+  - packages/backend/convex/models/notificationPreferences.ts
+  - packages/backend/convex/models/userPreferences.ts
+  - packages/backend/convex/models/teams.ts
+  - packages/backend/convex/models/gdpr.ts
+  - packages/backend/convex/models/userProfiles.ts
+  - packages/backend/convex/models/emergencyContacts.ts
+  - packages/backend/convex/models/coachTrustLevels.ts
+  - packages/backend/convex/models/coachParentSummaries.ts
+  - packages/backend/convex/models/onboarding.ts
+  - packages/backend/convex/models/guardianPlayerLinks.ts
+  - packages/backend/convex/models/orgGuardianProfiles.ts
+  - packages/backend/convex/models/passportSharing.ts
+  - packages/backend/convex/models/playerGraduations.ts
+  - packages/backend/convex/models/members.ts
+  - packages/backend/convex/models/voiceNoteEntityResolutions.ts
+  - packages/backend/convex/models/users.ts
+  - packages/backend/convex/models/voicePipelineRetry.ts
+  - packages/backend/convex/models/skillAssessments.ts
+  - packages/backend/convex/models/playerSelfAccess.ts
+  - packages/backend/convex/models/aiServiceHealth.ts
+  - packages/backend/convex/models/importTemplates.ts
+  - packages/backend/convex/models/sports.ts
+  - packages/backend/convex/models/importProgress.ts
+  - packages/backend/convex/models/fixNeilsRoles.ts
+  - packages/backend/convex/models/playerIdentities.ts
+  - packages/backend/convex/models/voiceNotes.ts
+  - packages/backend/convex/models/guardianManagement.ts
+  - packages/backend/convex/models/importTemplateSeeds.ts
+  - packages/backend/convex/models/insightDrafts.ts
+  - packages/backend/convex/models/importSessionDrafts.ts
+  - packages/backend/convex/models/teamDecisions.ts
+  - packages/backend/convex/models/gaaTestMutations.ts
+  - packages/backend/convex/models/playerInjuries.ts
+  - packages/backend/convex/models/voiceNoteInsights.ts
+  - packages/backend/convex/models/playerEmergencyContacts.ts
+  - packages/backend/convex/models/coachTasks.ts
+  **Action**: Add `getUserOrgRole()` or mark as `// @public`
+- 🚨 **CRITICAL [P9]**: XSS risk - dangerouslySetInnerHTML without sanitization:
+    apps/web/src/components/ui/confetti.tsx:        dangerouslySetInnerHTML={{
+  apps/web/src/components/ui/chart.tsx:      dangerouslySetInnerHTML={{
+  apps/web/src/components/onboarding/gdpr-policy-viewer.tsx: * Uses dangerouslySetInnerHTML to avoid React key issues with static content.
+  **Action**: Use DOMPurify or remove dangerouslySetInnerHTML
+- ⚠️ **HIGH [P9]**: No rate limiting on notification/activity endpoints:
+  - packages/backend/convex/models/demoAsks.ts
+  **Action**: Add rate limiting to prevent spam/abuse
+- ⚠️ **HIGH [P9]**: AI endpoints without input validation:
+  - packages/backend/convex/actions/aiMapping.ts
+  - packages/backend/convex/actions/claimsExtraction.ts
+  - packages/backend/convex/actions/coachParentSummaries.ts
+  - packages/backend/convex/actions/practicePlans.ts
+  - packages/backend/convex/actions/sessionPlans.ts
+  - packages/backend/convex/actions/voiceNotes.ts
+  - packages/backend/convex/actions/wellnessInsights.ts
+  - packages/backend/convex/models/aiServiceHealth.ts
+  **Action**: Validate/sanitize user input before AI prompts
+- ⚠️ **HIGH [P9]**: Notification functions without permission checks:
+  - packages/backend/convex/models/notifications.ts
+  **Action**: Verify user can send notifications to recipient
 
 
-## Auto Quality Check - 2026-02-24 15:44:15
-### File: /Users/jkobrien/code/PDP/packages/backend/convex/models/passportSharing.ts
-
-- ❌ **CRITICAL: N+1 query pattern detected**
-  - **Problem:** `Promise.all(items.map(async => query))` makes N database calls
-  - **Fix:** Batch fetch all IDs first, create Map for O(1) lookup
-
-
-## Auto Quality Check - 2026-02-24 15:44:17
-### File: /Users/jkobrien/code/PDP/packages/backend/convex/models/playerIdentities.ts
+## Auto Quality Check - 2026-02-25 22:59:02
+### File: /Users/jkobrien/code/PDP/packages/backend/convex/models/playerInjuries.ts
 
 - ❌ **CRITICAL: Better Auth adapter violation**
   - **Problem:** Direct DB access to auth tables
   - **Fix:** Use `ctx.runQuery(components.betterAuth.adapter.findOne, {...})`
 
 
-## Auto Quality Check - 2026-02-24 15:44:17
-### File: /Users/jkobrien/code/PDP/packages/backend/convex/models/playerIdentities.ts
+## Auto Quality Check - 2026-02-25 22:59:02
+### File: /Users/jkobrien/code/PDP/packages/backend/convex/models/playerInjuries.ts
 
 - ⚠️ **Performance: .filter() usage detected**
   - **Problem:** Should use .withIndex() for better performance
   - **Fix:** Replace `.query().filter()` with `.query().withIndex()`
 
 
-## Auto Quality Check - 2026-02-24 15:44:17
-### File: /Users/jkobrien/code/PDP/packages/backend/convex/models/playerIdentities.ts
-
-- ❌ **CRITICAL: N+1 query pattern detected**
-  - **Problem:** `Promise.all(items.map(async => query))` makes N database calls
-  - **Fix:** Batch fetch all IDs first, create Map for O(1) lookup
-
-
-## Auto Quality Check - 2026-02-24 15:44:45
-### File: /Users/jkobrien/code/PDP/packages/backend/convex/models/notifications.ts
-
-- ⚠️ **Performance: .filter() usage detected**
-  - **Problem:** Should use .withIndex() for better performance
-  - **Fix:** Replace `.query().filter()` with `.query().withIndex()`
-
-
-## Auto Quality Check - 2026-02-24 15:44:45
-### File: /Users/jkobrien/code/PDP/packages/backend/convex/models/playerIdentities.ts
+## Auto Quality Check - 2026-02-25 22:59:10
+### File: /Users/jkobrien/code/PDP/packages/backend/convex/models/playerInjuries.ts
 
 - ❌ **CRITICAL: Better Auth adapter violation**
   - **Problem:** Direct DB access to auth tables
   - **Fix:** Use `ctx.runQuery(components.betterAuth.adapter.findOne, {...})`
 
 
-## Auto Quality Check - 2026-02-24 15:44:45
-### File: /Users/jkobrien/code/PDP/packages/backend/convex/models/playerIdentities.ts
+## Auto Quality Check - 2026-02-25 22:59:10
+### File: /Users/jkobrien/code/PDP/packages/backend/convex/models/playerInjuries.ts
 
 - ⚠️ **Performance: .filter() usage detected**
   - **Problem:** Should use .withIndex() for better performance
   - **Fix:** Replace `.query().filter()` with `.query().withIndex()`
 
 
-## Auto Quality Check - 2026-02-24 15:44:45
-### File: /Users/jkobrien/code/PDP/packages/backend/convex/models/playerIdentities.ts
-
-- ❌ **CRITICAL: N+1 query pattern detected**
-  - **Problem:** `Promise.all(items.map(async => query))` makes N database calls
-  - **Fix:** Batch fetch all IDs first, create Map for O(1) lookup
-
-
-## Auto Quality Check - 2026-02-24 15:45:25
-### File: /Users/jkobrien/code/PDP/packages/backend/convex/models/sportPassports.ts
+## Auto Quality Check - 2026-02-25 23:00:27
+### File: /Users/jkobrien/code/PDP/packages/backend/convex/models/playerInjuries.ts
 
 - ❌ **CRITICAL: Better Auth adapter violation**
   - **Problem:** Direct DB access to auth tables
   - **Fix:** Use `ctx.runQuery(components.betterAuth.adapter.findOne, {...})`
 
 
-## Auto Quality Check - 2026-02-24 15:45:25
-### File: /Users/jkobrien/code/PDP/packages/backend/convex/models/sportPassports.ts
+## Auto Quality Check - 2026-02-25 23:00:27
+### File: /Users/jkobrien/code/PDP/packages/backend/convex/models/playerInjuries.ts
 
 - ⚠️ **Performance: .filter() usage detected**
   - **Problem:** Should use .withIndex() for better performance
   - **Fix:** Replace `.query().filter()` with `.query().withIndex()`
 
 
-## Auto Quality Check - 2026-02-24 15:45:26
-### File: /Users/jkobrien/code/PDP/packages/backend/convex/models/orgGuardianProfiles.ts
+## Security Tester - 2026-02-25 23:01:00
+- 🚨 **CRITICAL**: Hardcoded secrets detected
+```
+apps/web/src/app/api/ai-config/verify-model/route.ts:          errorMessage: "ANTHROPIC_API_KEY not configured in Next.js env",
+apps/web/src/app/api/ai-config/verify-model/route.ts:          errorMessage: "OPENAI_API_KEY not configured in Next.js env",
+apps/web/src/app/api/ai-config/available-models/route.ts:    errors.anthropic = "ANTHROPIC_API_KEY not configured";
+apps/web/src/app/api/ai-config/available-models/route.ts:    errors.openai = "OPENAI_API_KEY not configured";
+apps/web/src/app/api/comparison-insights/route.ts:      console.error("❌ ANTHROPIC_API_KEY not found in environment variables");
+```
+- ⚠️ **HIGH**: 5 high-severity dependency vulnerabilities
+  Run `npm audit fix` to resolve
+- ⚠️ **HIGH**: Mutations without authorization checks:
+  - packages/backend/convex/models/platformMessagingSettings.ts
+  - packages/backend/convex/models/syncQueue.ts
+  - packages/backend/convex/models/importSessions.ts
+  - packages/backend/convex/models/passportComparison.ts
+  - packages/backend/convex/models/trustGatePermissions.ts
+  - packages/backend/convex/models/ageGroupEligibilityOverrides.ts
+  - packages/backend/convex/models/federationConnectors.ts
+  - packages/backend/convex/models/teamCollaboration.ts
+  - packages/backend/convex/models/guardianIdentities.ts
+  - packages/backend/convex/models/sessionPlans.ts
+  - packages/backend/convex/models/adultPlayers.ts
+  - packages/backend/convex/models/demoAsks.ts
+  - packages/backend/convex/models/skillBenchmarks.ts
+  - packages/backend/convex/models/coaches.ts
+  - packages/backend/convex/models/medicalProfiles.ts
+  - packages/backend/convex/models/invitations.ts
+  - packages/backend/convex/models/flows.ts
+  - packages/backend/convex/models/notifications.ts
+  - packages/backend/convex/models/whatsappReviewLinks.ts
+  - packages/backend/convex/models/teamObservations.ts
+  - packages/backend/convex/models/passportGoals.ts
+  - packages/backend/convex/models/players.ts
+  - packages/backend/convex/models/aiMappingCache.ts
+  - packages/backend/convex/models/orgInjuryNotes.ts
+  - packages/backend/convex/models/injuryDocuments.ts
+  - packages/backend/convex/models/playerHealthChecks.ts
+  - packages/backend/convex/models/playerImport.ts
+  - packages/backend/convex/models/passportEnquiries.ts
+  - packages/backend/convex/models/setup.ts
+  - packages/backend/convex/models/teamPlayerIdentities.ts
+  - packages/backend/convex/models/rateLimits.ts
+  - packages/backend/convex/models/phase4TestCleanup.ts
+  - packages/backend/convex/models/syncHistory.ts
+  - packages/backend/convex/models/platformStaffInvitations.ts
+  - packages/backend/convex/models/coachParentMessages.ts
+  - packages/backend/convex/models/aiModelConfig.ts
+  - packages/backend/convex/models/voicePipelineAlerts.ts
+  - packages/backend/convex/models/aiMappingAnalytics.ts
+  - packages/backend/convex/models/orgPlayerEnrollments.ts
+  - packages/backend/convex/models/sportPassports.ts
+  - packages/backend/convex/models/orgJoinRequests.ts
+  - packages/backend/convex/models/sportAgeGroupConfig.ts
+  - packages/backend/convex/models/referenceData.ts
+  - packages/backend/convex/models/importMappingHistory.ts
+  - packages/backend/convex/models/notificationPreferences.ts
+  - packages/backend/convex/models/userPreferences.ts
+  - packages/backend/convex/models/teams.ts
+  - packages/backend/convex/models/gdpr.ts
+  - packages/backend/convex/models/userProfiles.ts
+  - packages/backend/convex/models/emergencyContacts.ts
+  - packages/backend/convex/models/coachTrustLevels.ts
+  - packages/backend/convex/models/coachParentSummaries.ts
+  - packages/backend/convex/models/onboarding.ts
+  - packages/backend/convex/models/guardianPlayerLinks.ts
+  - packages/backend/convex/models/orgGuardianProfiles.ts
+  - packages/backend/convex/models/passportSharing.ts
+  - packages/backend/convex/models/playerGraduations.ts
+  - packages/backend/convex/models/members.ts
+  - packages/backend/convex/models/voiceNoteEntityResolutions.ts
+  - packages/backend/convex/models/users.ts
+  - packages/backend/convex/models/voicePipelineRetry.ts
+  - packages/backend/convex/models/skillAssessments.ts
+  - packages/backend/convex/models/playerSelfAccess.ts
+  - packages/backend/convex/models/aiServiceHealth.ts
+  - packages/backend/convex/models/importTemplates.ts
+  - packages/backend/convex/models/sports.ts
+  - packages/backend/convex/models/importProgress.ts
+  - packages/backend/convex/models/fixNeilsRoles.ts
+  - packages/backend/convex/models/playerIdentities.ts
+  - packages/backend/convex/models/voiceNotes.ts
+  - packages/backend/convex/models/guardianManagement.ts
+  - packages/backend/convex/models/importTemplateSeeds.ts
+  - packages/backend/convex/models/insightDrafts.ts
+  - packages/backend/convex/models/importSessionDrafts.ts
+  - packages/backend/convex/models/teamDecisions.ts
+  - packages/backend/convex/models/gaaTestMutations.ts
+  - packages/backend/convex/models/playerInjuries.ts
+  - packages/backend/convex/models/voiceNoteInsights.ts
+  - packages/backend/convex/models/playerEmergencyContacts.ts
+  - packages/backend/convex/models/coachTasks.ts
+  **Action**: Add `getUserOrgRole()` or mark as `// @public`
+- 🚨 **CRITICAL [P9]**: XSS risk - dangerouslySetInnerHTML without sanitization:
+    apps/web/src/components/ui/confetti.tsx:        dangerouslySetInnerHTML={{
+  apps/web/src/components/ui/chart.tsx:      dangerouslySetInnerHTML={{
+  apps/web/src/components/onboarding/gdpr-policy-viewer.tsx: * Uses dangerouslySetInnerHTML to avoid React key issues with static content.
+  **Action**: Use DOMPurify or remove dangerouslySetInnerHTML
+- ⚠️ **HIGH [P9]**: No rate limiting on notification/activity endpoints:
+  - packages/backend/convex/models/demoAsks.ts
+  **Action**: Add rate limiting to prevent spam/abuse
+- ⚠️ **HIGH [P9]**: AI endpoints without input validation:
+  - packages/backend/convex/actions/aiMapping.ts
+  - packages/backend/convex/actions/claimsExtraction.ts
+  - packages/backend/convex/actions/coachParentSummaries.ts
+  - packages/backend/convex/actions/practicePlans.ts
+  - packages/backend/convex/actions/sessionPlans.ts
+  - packages/backend/convex/actions/voiceNotes.ts
+  - packages/backend/convex/actions/wellnessInsights.ts
+  - packages/backend/convex/models/aiServiceHealth.ts
+  **Action**: Validate/sanitize user input before AI prompts
+- ⚠️ **HIGH [P9]**: Notification functions without permission checks:
+  - packages/backend/convex/models/notifications.ts
+  **Action**: Verify user can send notifications to recipient
+
+
+## PRD Audit - US-P5-003 - 2026-02-25 22:58:21
+**PARTIAL** — 11 of 12 acceptance criteria met.
+
+**What's missing:**
+
+The coach injury detail view (`InjuryDetailModal` component used in `/coach/injuries/`) does **not** display a 'Player-reported' badge. The `reportedByRole` field exists in the schema and is stored correctly, and the player view properly shows conditional badges — but the `InjuryDetailModal` lacks any conditional rendering for `reportedByRole`, so coaches have no visual indicator when viewing a player-reported injury.
+
+All other criteria are fully implemented:
+- Page exists at `apps/web/src/app/orgs/[orgId]/player/injuries/page.tsx` (470 lines)
+- Query uses `withIndex("by_playerIdentityId")` — no `.filter()`
+- Injury list shows body part, type, severity (color-coded badge), date, status (color-coded badge)
+- "Reported by coach" / "You reported this" badges in player view
+- Active injuries shown prominently at top with red border card, expected return date displayed when available
+- Report Injury button opens dialog with all required form fields (19 body part options, 9 injury types, severity radio, date picker, occurred during radio, optional notes)
+- Form submission sets `reportedByRole: "player"` explicitly
+- Empty state shows "Stay healthy! No injuries on record."
+- Mobile responsive with `max-w-3xl` container, `sm:max-w-md` dialog
+- TypeScript types appear correct by inspection
+
+## Security Tester - 2026-02-25 23:03:03
+- 🚨 **CRITICAL**: Hardcoded secrets detected
+```
+apps/web/src/app/api/ai-config/verify-model/route.ts:          errorMessage: "ANTHROPIC_API_KEY not configured in Next.js env",
+apps/web/src/app/api/ai-config/verify-model/route.ts:          errorMessage: "OPENAI_API_KEY not configured in Next.js env",
+apps/web/src/app/api/ai-config/available-models/route.ts:    errors.anthropic = "ANTHROPIC_API_KEY not configured";
+apps/web/src/app/api/ai-config/available-models/route.ts:    errors.openai = "OPENAI_API_KEY not configured";
+apps/web/src/app/api/comparison-insights/route.ts:      console.error("❌ ANTHROPIC_API_KEY not found in environment variables");
+```
+- ⚠️ **HIGH**: 5 high-severity dependency vulnerabilities
+  Run `npm audit fix` to resolve
+- ⚠️ **HIGH**: Mutations without authorization checks:
+  - packages/backend/convex/models/platformMessagingSettings.ts
+  - packages/backend/convex/models/syncQueue.ts
+  - packages/backend/convex/models/importSessions.ts
+  - packages/backend/convex/models/passportComparison.ts
+  - packages/backend/convex/models/trustGatePermissions.ts
+  - packages/backend/convex/models/ageGroupEligibilityOverrides.ts
+  - packages/backend/convex/models/federationConnectors.ts
+  - packages/backend/convex/models/teamCollaboration.ts
+  - packages/backend/convex/models/guardianIdentities.ts
+  - packages/backend/convex/models/sessionPlans.ts
+  - packages/backend/convex/models/adultPlayers.ts
+  - packages/backend/convex/models/demoAsks.ts
+  - packages/backend/convex/models/skillBenchmarks.ts
+  - packages/backend/convex/models/coaches.ts
+  - packages/backend/convex/models/medicalProfiles.ts
+  - packages/backend/convex/models/invitations.ts
+  - packages/backend/convex/models/flows.ts
+  - packages/backend/convex/models/notifications.ts
+  - packages/backend/convex/models/whatsappReviewLinks.ts
+  - packages/backend/convex/models/teamObservations.ts
+  - packages/backend/convex/models/passportGoals.ts
+  - packages/backend/convex/models/players.ts
+  - packages/backend/convex/models/aiMappingCache.ts
+  - packages/backend/convex/models/orgInjuryNotes.ts
+  - packages/backend/convex/models/injuryDocuments.ts
+  - packages/backend/convex/models/playerHealthChecks.ts
+  - packages/backend/convex/models/playerImport.ts
+  - packages/backend/convex/models/passportEnquiries.ts
+  - packages/backend/convex/models/setup.ts
+  - packages/backend/convex/models/teamPlayerIdentities.ts
+  - packages/backend/convex/models/rateLimits.ts
+  - packages/backend/convex/models/phase4TestCleanup.ts
+  - packages/backend/convex/models/syncHistory.ts
+  - packages/backend/convex/models/platformStaffInvitations.ts
+  - packages/backend/convex/models/coachParentMessages.ts
+  - packages/backend/convex/models/aiModelConfig.ts
+  - packages/backend/convex/models/voicePipelineAlerts.ts
+  - packages/backend/convex/models/aiMappingAnalytics.ts
+  - packages/backend/convex/models/orgPlayerEnrollments.ts
+  - packages/backend/convex/models/sportPassports.ts
+  - packages/backend/convex/models/orgJoinRequests.ts
+  - packages/backend/convex/models/sportAgeGroupConfig.ts
+  - packages/backend/convex/models/referenceData.ts
+  - packages/backend/convex/models/importMappingHistory.ts
+  - packages/backend/convex/models/notificationPreferences.ts
+  - packages/backend/convex/models/userPreferences.ts
+  - packages/backend/convex/models/teams.ts
+  - packages/backend/convex/models/gdpr.ts
+  - packages/backend/convex/models/userProfiles.ts
+  - packages/backend/convex/models/emergencyContacts.ts
+  - packages/backend/convex/models/coachTrustLevels.ts
+  - packages/backend/convex/models/coachParentSummaries.ts
+  - packages/backend/convex/models/onboarding.ts
+  - packages/backend/convex/models/guardianPlayerLinks.ts
+  - packages/backend/convex/models/orgGuardianProfiles.ts
+  - packages/backend/convex/models/passportSharing.ts
+  - packages/backend/convex/models/playerGraduations.ts
+  - packages/backend/convex/models/members.ts
+  - packages/backend/convex/models/voiceNoteEntityResolutions.ts
+  - packages/backend/convex/models/users.ts
+  - packages/backend/convex/models/voicePipelineRetry.ts
+  - packages/backend/convex/models/skillAssessments.ts
+  - packages/backend/convex/models/playerSelfAccess.ts
+  - packages/backend/convex/models/aiServiceHealth.ts
+  - packages/backend/convex/models/importTemplates.ts
+  - packages/backend/convex/models/sports.ts
+  - packages/backend/convex/models/importProgress.ts
+  - packages/backend/convex/models/fixNeilsRoles.ts
+  - packages/backend/convex/models/playerIdentities.ts
+  - packages/backend/convex/models/voiceNotes.ts
+  - packages/backend/convex/models/guardianManagement.ts
+  - packages/backend/convex/models/importTemplateSeeds.ts
+  - packages/backend/convex/models/insightDrafts.ts
+  - packages/backend/convex/models/importSessionDrafts.ts
+  - packages/backend/convex/models/teamDecisions.ts
+  - packages/backend/convex/models/gaaTestMutations.ts
+  - packages/backend/convex/models/playerInjuries.ts
+  - packages/backend/convex/models/voiceNoteInsights.ts
+  - packages/backend/convex/models/playerEmergencyContacts.ts
+  - packages/backend/convex/models/coachTasks.ts
+  **Action**: Add `getUserOrgRole()` or mark as `// @public`
+- 🚨 **CRITICAL [P9]**: XSS risk - dangerouslySetInnerHTML without sanitization:
+    apps/web/src/components/ui/confetti.tsx:        dangerouslySetInnerHTML={{
+  apps/web/src/components/ui/chart.tsx:      dangerouslySetInnerHTML={{
+  apps/web/src/components/onboarding/gdpr-policy-viewer.tsx: * Uses dangerouslySetInnerHTML to avoid React key issues with static content.
+  **Action**: Use DOMPurify or remove dangerouslySetInnerHTML
+- ⚠️ **HIGH [P9]**: No rate limiting on notification/activity endpoints:
+  - packages/backend/convex/models/demoAsks.ts
+  **Action**: Add rate limiting to prevent spam/abuse
+- ⚠️ **HIGH [P9]**: AI endpoints without input validation:
+  - packages/backend/convex/actions/aiMapping.ts
+  - packages/backend/convex/actions/claimsExtraction.ts
+  - packages/backend/convex/actions/coachParentSummaries.ts
+  - packages/backend/convex/actions/practicePlans.ts
+  - packages/backend/convex/actions/sessionPlans.ts
+  - packages/backend/convex/actions/voiceNotes.ts
+  - packages/backend/convex/actions/wellnessInsights.ts
+  - packages/backend/convex/models/aiServiceHealth.ts
+  **Action**: Validate/sanitize user input before AI prompts
+- ⚠️ **HIGH [P9]**: Notification functions without permission checks:
+  - packages/backend/convex/models/notifications.ts
+  **Action**: Verify user can send notifications to recipient
+
+
+## PRD Audit - US-P5-004 - 2026-02-25 23:01:38
+**PARTIAL**
+
+Most criteria are met, but there are two concerns:
+
+**What's implemented correctly:**
+- `apps/web/src/app/orgs/[orgId]/player/feedback/page.tsx` exists with full UI
+- Backend `getCoachFeedbackForPlayer` query exists, filters to `approved/auto_approved/delivered/viewed` statuses
+- `privateInsight` is provably absent — the `returns` validator and the `.map()` at line 1969 only expose `publicSummaryText` (mapped from `s.publicSummary.content`)
+- Chronological order: `.order("desc")` — newest first ✅
+- Feedback cards show: coach name, date, `publicSummaryText`, sensitivity badge (grey/amber/blue) ✅
+- Acknowledge calls `acknowledgeCoachFeedbackAsPlayer`, shows "Acknowledged ✓" state ✅
+- Unacknowledged items get a "New" badge and left-border highlight ✅
+- All three sensitivity categories displayed without restriction ✅
+- Empty state text matches spec exactly ✅
+- Mobile-first layout (`p-4 md:p-6`, `max-w-3xl`) ✅
+
+**Issues found:**
+
+1. **Pattern violation — `.filter()` in Convex (line 1944):** The backend uses `.filter()` after `.withIndex()` to check `status`, violating the critical project rule ("NEVER use `.filter()` in Convex — always `.withIndex()`"). There is no composite index on `playerIdentityId + status`, so a status-based index filter was not used.
+
+2. **N+1 coach name fetch (lines 1951–1966):** Coach names are fetched in a `for` loop with individual `runQuery` calls per coach ID instead of a batch fetch. This violates the project's "Batch fetch, never N+1" rule. For players with many coaches it will be slow.
+
+3. **`npm run check-types` not verified** — cannot confirm without running the command.
+
+The page is functional and correctly guards `privateInsight`, but two backend pattern violations exist.
+
+## Auto Quality Check - 2026-02-25 23:04:08
+### File: /Users/jkobrien/code/PDP/packages/backend/convex/models/playerDataExport.ts
 
 - ⚠️ **Performance: .filter() usage detected**
   - **Problem:** Should use .withIndex() for better performance
   - **Fix:** Replace `.query().filter()` with `.query().withIndex()`
 
 
-## Auto Quality Check - 2026-02-24 15:45:26
-### File: /Users/jkobrien/code/PDP/packages/backend/convex/models/orgPlayerEnrollments.ts
-
-- ❌ **CRITICAL: Better Auth adapter violation**
-  - **Problem:** Direct DB access to auth tables
-  - **Fix:** Use `ctx.runQuery(components.betterAuth.adapter.findOne, {...})`
-
-
-## Auto Quality Check - 2026-02-24 15:45:26
-### File: /Users/jkobrien/code/PDP/packages/backend/convex/models/orgPlayerEnrollments.ts
-
-- ⚠️ **Performance: .filter() usage detected**
-  - **Problem:** Should use .withIndex() for better performance
-  - **Fix:** Replace `.query().filter()` with `.query().withIndex()`
-
-
-## Auto Quality Check - 2026-02-24 15:46:24
-### File: /Users/jkobrien/code/PDP/packages/backend/convex/models/members.ts
-
-- ❌ **CRITICAL: Better Auth adapter violation**
-  - **Problem:** Direct DB access to auth tables
-  - **Fix:** Use `ctx.runQuery(components.betterAuth.adapter.findOne, {...})`
-
-
-## Auto Quality Check - 2026-02-24 15:46:24
-### File: /Users/jkobrien/code/PDP/packages/backend/convex/models/members.ts
-
-- ⚠️ **Performance: .filter() usage detected**
-  - **Problem:** Should use .withIndex() for better performance
-  - **Fix:** Replace `.query().filter()` with `.query().withIndex()`
-
-
-## Auto Quality Check - 2026-02-24 15:46:24
-### File: /Users/jkobrien/code/PDP/packages/backend/convex/models/members.ts
-
-- ❌ **CRITICAL: N+1 query pattern detected**
-  - **Problem:** `Promise.all(items.map(async => query))` makes N database calls
-  - **Fix:** Batch fetch all IDs first, create Map for O(1) lookup
-
-
-## Auto Quality Check - 2026-02-24 15:46:52
-### File: /Users/jkobrien/code/PDP/packages/backend/convex/models/adultPlayers.ts
+## Auto Quality Check - 2026-02-25 23:04:09
+### File: /Users/jkobrien/code/PDP/packages/backend/convex/models/gdpr.ts
 
 - ⚠️ **Data Isolation: No organizationId filter found**
   - **Problem:** Queries should be scoped by organizationId for multi-tenant isolation
   - **Fix:** Add organizationId to query args and use in .withIndex()
 
 
-## Auto Quality Check - 2026-02-24 15:46:52
+## Security Tester - 2026-02-25 23:05:07
+- 🚨 **CRITICAL**: Hardcoded secrets detected
+```
+apps/web/src/app/api/ai-config/verify-model/route.ts:          errorMessage: "ANTHROPIC_API_KEY not configured in Next.js env",
+apps/web/src/app/api/ai-config/verify-model/route.ts:          errorMessage: "OPENAI_API_KEY not configured in Next.js env",
+apps/web/src/app/api/ai-config/available-models/route.ts:    errors.anthropic = "ANTHROPIC_API_KEY not configured";
+apps/web/src/app/api/ai-config/available-models/route.ts:    errors.openai = "OPENAI_API_KEY not configured";
+apps/web/src/app/api/comparison-insights/route.ts:      console.error("❌ ANTHROPIC_API_KEY not found in environment variables");
+```
+- ⚠️ **HIGH**: 5 high-severity dependency vulnerabilities
+  Run `npm audit fix` to resolve
+- ⚠️ **HIGH**: Mutations without authorization checks:
+  - packages/backend/convex/models/platformMessagingSettings.ts
+  - packages/backend/convex/models/syncQueue.ts
+  - packages/backend/convex/models/importSessions.ts
+  - packages/backend/convex/models/passportComparison.ts
+  - packages/backend/convex/models/trustGatePermissions.ts
+  - packages/backend/convex/models/ageGroupEligibilityOverrides.ts
+  - packages/backend/convex/models/federationConnectors.ts
+  - packages/backend/convex/models/teamCollaboration.ts
+  - packages/backend/convex/models/guardianIdentities.ts
+  - packages/backend/convex/models/sessionPlans.ts
+  - packages/backend/convex/models/adultPlayers.ts
+  - packages/backend/convex/models/demoAsks.ts
+  - packages/backend/convex/models/skillBenchmarks.ts
+  - packages/backend/convex/models/coaches.ts
+  - packages/backend/convex/models/medicalProfiles.ts
+  - packages/backend/convex/models/invitations.ts
+  - packages/backend/convex/models/flows.ts
+  - packages/backend/convex/models/notifications.ts
+  - packages/backend/convex/models/whatsappReviewLinks.ts
+  - packages/backend/convex/models/teamObservations.ts
+  - packages/backend/convex/models/passportGoals.ts
+  - packages/backend/convex/models/players.ts
+  - packages/backend/convex/models/aiMappingCache.ts
+  - packages/backend/convex/models/orgInjuryNotes.ts
+  - packages/backend/convex/models/injuryDocuments.ts
+  - packages/backend/convex/models/playerHealthChecks.ts
+  - packages/backend/convex/models/playerImport.ts
+  - packages/backend/convex/models/passportEnquiries.ts
+  - packages/backend/convex/models/setup.ts
+  - packages/backend/convex/models/teamPlayerIdentities.ts
+  - packages/backend/convex/models/rateLimits.ts
+  - packages/backend/convex/models/phase4TestCleanup.ts
+  - packages/backend/convex/models/syncHistory.ts
+  - packages/backend/convex/models/platformStaffInvitations.ts
+  - packages/backend/convex/models/coachParentMessages.ts
+  - packages/backend/convex/models/aiModelConfig.ts
+  - packages/backend/convex/models/voicePipelineAlerts.ts
+  - packages/backend/convex/models/aiMappingAnalytics.ts
+  - packages/backend/convex/models/orgPlayerEnrollments.ts
+  - packages/backend/convex/models/sportPassports.ts
+  - packages/backend/convex/models/orgJoinRequests.ts
+  - packages/backend/convex/models/sportAgeGroupConfig.ts
+  - packages/backend/convex/models/referenceData.ts
+  - packages/backend/convex/models/importMappingHistory.ts
+  - packages/backend/convex/models/notificationPreferences.ts
+  - packages/backend/convex/models/userPreferences.ts
+  - packages/backend/convex/models/teams.ts
+  - packages/backend/convex/models/gdpr.ts
+  - packages/backend/convex/models/userProfiles.ts
+  - packages/backend/convex/models/emergencyContacts.ts
+  - packages/backend/convex/models/coachTrustLevels.ts
+  - packages/backend/convex/models/coachParentSummaries.ts
+  - packages/backend/convex/models/onboarding.ts
+  - packages/backend/convex/models/guardianPlayerLinks.ts
+  - packages/backend/convex/models/orgGuardianProfiles.ts
+  - packages/backend/convex/models/passportSharing.ts
+  - packages/backend/convex/models/playerGraduations.ts
+  - packages/backend/convex/models/members.ts
+  - packages/backend/convex/models/voiceNoteEntityResolutions.ts
+  - packages/backend/convex/models/users.ts
+  - packages/backend/convex/models/voicePipelineRetry.ts
+  - packages/backend/convex/models/skillAssessments.ts
+  - packages/backend/convex/models/playerSelfAccess.ts
+  - packages/backend/convex/models/aiServiceHealth.ts
+  - packages/backend/convex/models/importTemplates.ts
+  - packages/backend/convex/models/sports.ts
+  - packages/backend/convex/models/importProgress.ts
+  - packages/backend/convex/models/fixNeilsRoles.ts
+  - packages/backend/convex/models/playerIdentities.ts
+  - packages/backend/convex/models/voiceNotes.ts
+  - packages/backend/convex/models/guardianManagement.ts
+  - packages/backend/convex/models/importTemplateSeeds.ts
+  - packages/backend/convex/models/insightDrafts.ts
+  - packages/backend/convex/models/importSessionDrafts.ts
+  - packages/backend/convex/models/teamDecisions.ts
+  - packages/backend/convex/models/gaaTestMutations.ts
+  - packages/backend/convex/models/playerInjuries.ts
+  - packages/backend/convex/models/voiceNoteInsights.ts
+  - packages/backend/convex/models/playerEmergencyContacts.ts
+  - packages/backend/convex/models/coachTasks.ts
+  **Action**: Add `getUserOrgRole()` or mark as `// @public`
+- 🚨 **CRITICAL [P9]**: XSS risk - dangerouslySetInnerHTML without sanitization:
+    apps/web/src/components/ui/confetti.tsx:        dangerouslySetInnerHTML={{
+  apps/web/src/components/ui/chart.tsx:      dangerouslySetInnerHTML={{
+  apps/web/src/components/onboarding/gdpr-policy-viewer.tsx: * Uses dangerouslySetInnerHTML to avoid React key issues with static content.
+  **Action**: Use DOMPurify or remove dangerouslySetInnerHTML
+- ⚠️ **HIGH [P9]**: No rate limiting on notification/activity endpoints:
+  - packages/backend/convex/models/demoAsks.ts
+  **Action**: Add rate limiting to prevent spam/abuse
+- ⚠️ **HIGH [P9]**: AI endpoints without input validation:
+  - packages/backend/convex/actions/aiMapping.ts
+  - packages/backend/convex/actions/claimsExtraction.ts
+  - packages/backend/convex/actions/coachParentSummaries.ts
+  - packages/backend/convex/actions/practicePlans.ts
+  - packages/backend/convex/actions/sessionPlans.ts
+  - packages/backend/convex/actions/voiceNotes.ts
+  - packages/backend/convex/actions/wellnessInsights.ts
+  - packages/backend/convex/models/aiServiceHealth.ts
+  **Action**: Validate/sanitize user input before AI prompts
+- ⚠️ **HIGH [P9]**: Notification functions without permission checks:
+  - packages/backend/convex/models/notifications.ts
+  **Action**: Verify user can send notifications to recipient
+
+
+## Auto Quality Check - 2026-02-25 23:05:45
+### File: /Users/jkobrien/code/PDP/packages/backend/convex/models/playerDataExport.ts
+
+- ⚠️ **Performance: .filter() usage detected**
+  - **Problem:** Should use .withIndex() for better performance
+  - **Fix:** Replace `.query().filter()` with `.query().withIndex()`
+
+
+## PRD Audit - US-P5-005 - 2026-02-25 23:03:11
+**PARTIAL** — Most core functionality is implemented but several acceptance criteria gaps exist.
+
+---
+
+### What's Implemented Correctly
+
+- **Download button**: Present at `settings/page.tsx:566` — "Download My Data" label
+- **GDPR reference**: CardDescription mentions "GDPR Article 20" (line 559)
+- **Rate limiting**: 24-hour limit via `localStorage` at `page.tsx:54-61` with correct toast message
+- **JSON download**: Blob URL / anchor-click pattern at `page.tsx:64-82`, correct filename format `playerarc-data-[name]-[YYYY-MM-DD].json`
+- **All 9 data domains**: Fully implemented in `packages/backend/convex/models/playerDataExport.ts`
+- **`cyclePhase` conditional**: Only included if active consent, lines 45-48, 122-124
+- **`privateInsight` exclusion**: Explicitly excluded — only `publicSummary.content` returned (line 165)
+- **Metadata block**: Correct structure with `gdprBasis: "Article 20 — Right to Data Portability"` (line 230)
+- **Mobile responsive**: `flex-col` on mobile, `sm:flex-row` on wider screens
+
+---
+
+### Gaps / Failures
+
+| # | Criterion | Status | Detail |
+|---|-----------|--------|--------|
+| 1 | Section label must be **"Privacy & Data"** | ❌ FAIL | CardTitle is **"Your Data"** — comment says `Privacy & Data Card` but rendered title doesn't match AC |
+| 2 | Explanatory text: *"Under GDPR Article 20, you have the right to receive all data we hold about you in a portable format. Your export will be ready instantly."* | ❌ FAIL | Actual text is different: *"Download a copy of all personal data held about you (GDPR Article 20)."* |
+| 3 | **Confirmation dialog** listing export contents, with **"Download JSON"** and **"Download CSV"** buttons | ❌ FAIL | No dialog — button clicks directly trigger download with no confirmation step |
+| 4 | **CSV format** as ZIP file (one CSV per domain) | ❌ FAIL | Not implemented — only JSON is available |
+| 5 | Backend should be a **Convex action** (`exportPlayerData`) | ❌ FAIL | Implemented as a **query** named `assemblePlayerDataExport` — different function type and name than specified |
+| 6 | `organizationName` in metadata | ❌ FAIL | Metadata contains `organizationId` (line 229), not the resolved org name as specified |
+
+---
+
+### Summary
+
+The JSON export path, all 9 data domains, privacy controls, rate limiting, and download mechanics are solid. However, **4 UI/UX criteria are completely missing** (section label, explanatory text, confirmation dialog, CSV/ZIP format) and the backend uses a query instead of an action with a different function name than specified.
+
+## PRD Audit - US-P5-006 - 2026-02-25 23:06:38
+**PARTIAL** — Most criteria are met, but there are gaps.
+
+**What's implemented correctly:**
+- Extended the existing `progress/page.tsx` (not a new page)
+- View toggle (Chart/List) with pill-style buttons, localStorage persistence (`playerProgressView`), default "chart"
+- RadarChart using recharts: `RadarChart`, `PolarGrid`* , `PolarAngleAxis`, `PolarRadiusAxis`, `Radar`, `ResponsiveContainer`, `Tooltip`
+- Correct dimensions: technical, tactical, physical, mental (matches passport schema)
+- 0–10 domain, ticks via `tickCount={3}`
+- CSS var `--org-primary` with 0.3 opacity fill / full opacity stroke
+- Comparison ghost radar (dashed, 40% opacity) for previous assessment when available
+- Legend for current vs previous
+- "Based on assessment: [date]" below chart
+- Empty state in chart view (no empty radar)
+- List view unchanged with trend arrows
+- `aria-label` on the wrapper div
+- `ResponsiveContainer width="100%" height={300}`
+
+**Missing/Non-compliant items:**
+
+1. **`PolarGrid` not imported.** The acceptance criteria explicitly requires `import { ..., PolarGrid, ... } from "recharts"`. Line 17–24 shows the import omits `PolarGrid`. The `<RadarChart>` renders without `<PolarGrid />` — the radar chart will have no grid lines.
+
+2. **`PolarRadiusAxis` ticks don't show `0, 5, 10` explicitly.** The AC says "Show tick at 0, 5, 10" but `tickCount={3}` is used. While this produces 3 ticks, recharts may not place them at exactly 0, 5, 10 without explicit `ticks={[0, 5, 10]}`. This is a minor deviation.
+
+3. **Tooltip doesn't show dimension name + score format.** AC requires `'Technical: 7.5'` format. The tooltip `formatter={(value: number) => [value.toFixed(1)]}` only returns the value — the dimension name is not included. Recharts Tooltip will show the dataKey name ("current"/"previous") rather than the dimension label (e.g., "Technical").
+
+4. **Mobile label truncation not implemented.** AC states: "If dimension labels are too long, truncate to the first word." There is no truncation logic in `PolarAngleAxis` tick rendering.
+
+**Summary of gaps:** `PolarGrid` missing from import and usage; tooltip doesn't render `"DimensionName: value"`; no label truncation for mobile; ticks may not land exactly at 0/5/10.
+
+## Security Tester - 2026-02-25 23:07:09
+- 🚨 **CRITICAL**: Hardcoded secrets detected
+```
+apps/web/src/app/api/ai-config/verify-model/route.ts:          errorMessage: "ANTHROPIC_API_KEY not configured in Next.js env",
+apps/web/src/app/api/ai-config/verify-model/route.ts:          errorMessage: "OPENAI_API_KEY not configured in Next.js env",
+apps/web/src/app/api/ai-config/available-models/route.ts:    errors.anthropic = "ANTHROPIC_API_KEY not configured";
+apps/web/src/app/api/ai-config/available-models/route.ts:    errors.openai = "OPENAI_API_KEY not configured";
+apps/web/src/app/api/comparison-insights/route.ts:      console.error("❌ ANTHROPIC_API_KEY not found in environment variables");
+```
+- ⚠️ **HIGH**: 5 high-severity dependency vulnerabilities
+  Run `npm audit fix` to resolve
+- ⚠️ **HIGH**: Mutations without authorization checks:
+  - packages/backend/convex/models/platformMessagingSettings.ts
+  - packages/backend/convex/models/syncQueue.ts
+  - packages/backend/convex/models/importSessions.ts
+  - packages/backend/convex/models/passportComparison.ts
+  - packages/backend/convex/models/trustGatePermissions.ts
+  - packages/backend/convex/models/ageGroupEligibilityOverrides.ts
+  - packages/backend/convex/models/federationConnectors.ts
+  - packages/backend/convex/models/teamCollaboration.ts
+  - packages/backend/convex/models/guardianIdentities.ts
+  - packages/backend/convex/models/sessionPlans.ts
+  - packages/backend/convex/models/adultPlayers.ts
+  - packages/backend/convex/models/demoAsks.ts
+  - packages/backend/convex/models/skillBenchmarks.ts
+  - packages/backend/convex/models/coaches.ts
+  - packages/backend/convex/models/medicalProfiles.ts
+  - packages/backend/convex/models/invitations.ts
+  - packages/backend/convex/models/flows.ts
+  - packages/backend/convex/models/notifications.ts
+  - packages/backend/convex/models/whatsappReviewLinks.ts
+  - packages/backend/convex/models/teamObservations.ts
+  - packages/backend/convex/models/passportGoals.ts
+  - packages/backend/convex/models/players.ts
+  - packages/backend/convex/models/aiMappingCache.ts
+  - packages/backend/convex/models/orgInjuryNotes.ts
+  - packages/backend/convex/models/injuryDocuments.ts
+  - packages/backend/convex/models/playerHealthChecks.ts
+  - packages/backend/convex/models/playerImport.ts
+  - packages/backend/convex/models/passportEnquiries.ts
+  - packages/backend/convex/models/setup.ts
+  - packages/backend/convex/models/teamPlayerIdentities.ts
+  - packages/backend/convex/models/rateLimits.ts
+  - packages/backend/convex/models/phase4TestCleanup.ts
+  - packages/backend/convex/models/syncHistory.ts
+  - packages/backend/convex/models/platformStaffInvitations.ts
+  - packages/backend/convex/models/coachParentMessages.ts
+  - packages/backend/convex/models/aiModelConfig.ts
+  - packages/backend/convex/models/voicePipelineAlerts.ts
+  - packages/backend/convex/models/aiMappingAnalytics.ts
+  - packages/backend/convex/models/orgPlayerEnrollments.ts
+  - packages/backend/convex/models/sportPassports.ts
+  - packages/backend/convex/models/orgJoinRequests.ts
+  - packages/backend/convex/models/sportAgeGroupConfig.ts
+  - packages/backend/convex/models/referenceData.ts
+  - packages/backend/convex/models/importMappingHistory.ts
+  - packages/backend/convex/models/notificationPreferences.ts
+  - packages/backend/convex/models/userPreferences.ts
+  - packages/backend/convex/models/teams.ts
+  - packages/backend/convex/models/gdpr.ts
+  - packages/backend/convex/models/userProfiles.ts
+  - packages/backend/convex/models/emergencyContacts.ts
+  - packages/backend/convex/models/coachTrustLevels.ts
+  - packages/backend/convex/models/coachParentSummaries.ts
+  - packages/backend/convex/models/onboarding.ts
+  - packages/backend/convex/models/guardianPlayerLinks.ts
+  - packages/backend/convex/models/orgGuardianProfiles.ts
+  - packages/backend/convex/models/passportSharing.ts
+  - packages/backend/convex/models/playerGraduations.ts
+  - packages/backend/convex/models/members.ts
+  - packages/backend/convex/models/voiceNoteEntityResolutions.ts
+  - packages/backend/convex/models/users.ts
+  - packages/backend/convex/models/voicePipelineRetry.ts
+  - packages/backend/convex/models/skillAssessments.ts
+  - packages/backend/convex/models/playerSelfAccess.ts
+  - packages/backend/convex/models/aiServiceHealth.ts
+  - packages/backend/convex/models/importTemplates.ts
+  - packages/backend/convex/models/sports.ts
+  - packages/backend/convex/models/importProgress.ts
+  - packages/backend/convex/models/fixNeilsRoles.ts
+  - packages/backend/convex/models/playerIdentities.ts
+  - packages/backend/convex/models/voiceNotes.ts
+  - packages/backend/convex/models/guardianManagement.ts
+  - packages/backend/convex/models/importTemplateSeeds.ts
+  - packages/backend/convex/models/insightDrafts.ts
+  - packages/backend/convex/models/importSessionDrafts.ts
+  - packages/backend/convex/models/teamDecisions.ts
+  - packages/backend/convex/models/gaaTestMutations.ts
+  - packages/backend/convex/models/playerInjuries.ts
+  - packages/backend/convex/models/voiceNoteInsights.ts
+  - packages/backend/convex/models/playerEmergencyContacts.ts
+  - packages/backend/convex/models/coachTasks.ts
+  **Action**: Add `getUserOrgRole()` or mark as `// @public`
+- 🚨 **CRITICAL [P9]**: XSS risk - dangerouslySetInnerHTML without sanitization:
+    apps/web/src/components/ui/confetti.tsx:        dangerouslySetInnerHTML={{
+  apps/web/src/components/ui/chart.tsx:      dangerouslySetInnerHTML={{
+  apps/web/src/components/onboarding/gdpr-policy-viewer.tsx: * Uses dangerouslySetInnerHTML to avoid React key issues with static content.
+  **Action**: Use DOMPurify or remove dangerouslySetInnerHTML
+- ⚠️ **HIGH [P9]**: No rate limiting on notification/activity endpoints:
+  - packages/backend/convex/models/demoAsks.ts
+  **Action**: Add rate limiting to prevent spam/abuse
+- ⚠️ **HIGH [P9]**: AI endpoints without input validation:
+  - packages/backend/convex/actions/aiMapping.ts
+  - packages/backend/convex/actions/claimsExtraction.ts
+  - packages/backend/convex/actions/coachParentSummaries.ts
+  - packages/backend/convex/actions/practicePlans.ts
+  - packages/backend/convex/actions/sessionPlans.ts
+  - packages/backend/convex/actions/voiceNotes.ts
+  - packages/backend/convex/actions/wellnessInsights.ts
+  - packages/backend/convex/models/aiServiceHealth.ts
+  **Action**: Validate/sanitize user input before AI prompts
+- ⚠️ **HIGH [P9]**: Notification functions without permission checks:
+  - packages/backend/convex/models/notifications.ts
+  **Action**: Verify user can send notifications to recipient
+
+
+## PRD Audit - US-P5-UAT - 2026-02-25 23:07:06
+**PARTIAL**
+
+The test file exists at `apps/web/uat/tests/player-portal-phase5.spec.ts` with good coverage of page loading, headings, and security checks. However, several acceptance criteria are missing or only partially implemented:
+
+**Missing/Incomplete Tests:**
+
+1. **Player notes saves successfully** — PP5-005 only checks visibility of "Player Notes" text; no test for actually editing and saving the textarea.
+
+2. **Sharing toggle changes state and persists in DB** — PP5-008 through PP5-011 only test page load and empty/active state; no test for toggling and verifying DB persistence.
+
+3. **'Report New Injury' form submits with `reportedByRole: 'player'`** — PP5-015 tests the dialog opens; no test for form submission or verifying the `reportedByRole` field in the created record.
+
+4. **Acknowledge button sets `acknowledgedAt` on the record** — No test exists for this interaction or DB verification.
+
+5. **Download triggers `.json` extension** — PP5-024 intercepts the download but does not verify the file extension is `.json`.
+
+6. **Exported JSON contains all 9 data domains** — PP5-024 only checks `gdprBasis` metadata and absence of `privateInsight`; no assertion for the 9 required domains (`profile`, `emergencyContacts`, `passportRatings`, `wellnessHistory`, `injuries`, `coachFeedback`, `sharingRecords`, `consentRecords`, `wellnessCoachAccess`).
+
+7. **Rate-limit message on second download within 24h** — No test exists for this scenario.
+
+**Criteria Met:**
+- Test file created ✓
+- My Progress page loads and shows skill ratings card (read-only) ✓
+- No edit inputs (range sliders) on ratings ✓
+- Player notes section visible ✓
+- Passport Sharing page loads ✓
+- Injuries page loads with Report button and dialog ✓
+- Feedback page loads ✓
+- `privateInsight` absent from feedback page ✓
+- Download My Data button present ✓
+- Privacy & Data section visible ✓
+- `privateInsight` absent from export JSON ✓
+
+## Security Tester - 2026-02-25 23:09:12
+- 🚨 **CRITICAL**: Hardcoded secrets detected
+```
+apps/web/src/app/api/ai-config/verify-model/route.ts:          errorMessage: "ANTHROPIC_API_KEY not configured in Next.js env",
+apps/web/src/app/api/ai-config/verify-model/route.ts:          errorMessage: "OPENAI_API_KEY not configured in Next.js env",
+apps/web/src/app/api/ai-config/available-models/route.ts:    errors.anthropic = "ANTHROPIC_API_KEY not configured";
+apps/web/src/app/api/ai-config/available-models/route.ts:    errors.openai = "OPENAI_API_KEY not configured";
+apps/web/src/app/api/comparison-insights/route.ts:      console.error("❌ ANTHROPIC_API_KEY not found in environment variables");
+```
+- ⚠️ **HIGH**: 5 high-severity dependency vulnerabilities
+  Run `npm audit fix` to resolve
+- ⚠️ **HIGH**: Mutations without authorization checks:
+  - packages/backend/convex/models/platformMessagingSettings.ts
+  - packages/backend/convex/models/syncQueue.ts
+  - packages/backend/convex/models/importSessions.ts
+  - packages/backend/convex/models/passportComparison.ts
+  - packages/backend/convex/models/trustGatePermissions.ts
+  - packages/backend/convex/models/ageGroupEligibilityOverrides.ts
+  - packages/backend/convex/models/federationConnectors.ts
+  - packages/backend/convex/models/teamCollaboration.ts
+  - packages/backend/convex/models/guardianIdentities.ts
+  - packages/backend/convex/models/sessionPlans.ts
+  - packages/backend/convex/models/adultPlayers.ts
+  - packages/backend/convex/models/demoAsks.ts
+  - packages/backend/convex/models/skillBenchmarks.ts
+  - packages/backend/convex/models/coaches.ts
+  - packages/backend/convex/models/medicalProfiles.ts
+  - packages/backend/convex/models/invitations.ts
+  - packages/backend/convex/models/flows.ts
+  - packages/backend/convex/models/notifications.ts
+  - packages/backend/convex/models/whatsappReviewLinks.ts
+  - packages/backend/convex/models/teamObservations.ts
+  - packages/backend/convex/models/passportGoals.ts
+  - packages/backend/convex/models/players.ts
+  - packages/backend/convex/models/aiMappingCache.ts
+  - packages/backend/convex/models/orgInjuryNotes.ts
+  - packages/backend/convex/models/injuryDocuments.ts
+  - packages/backend/convex/models/playerHealthChecks.ts
+  - packages/backend/convex/models/playerImport.ts
+  - packages/backend/convex/models/passportEnquiries.ts
+  - packages/backend/convex/models/setup.ts
+  - packages/backend/convex/models/teamPlayerIdentities.ts
+  - packages/backend/convex/models/rateLimits.ts
+  - packages/backend/convex/models/phase4TestCleanup.ts
+  - packages/backend/convex/models/syncHistory.ts
+  - packages/backend/convex/models/platformStaffInvitations.ts
+  - packages/backend/convex/models/coachParentMessages.ts
+  - packages/backend/convex/models/aiModelConfig.ts
+  - packages/backend/convex/models/voicePipelineAlerts.ts
+  - packages/backend/convex/models/aiMappingAnalytics.ts
+  - packages/backend/convex/models/orgPlayerEnrollments.ts
+  - packages/backend/convex/models/sportPassports.ts
+  - packages/backend/convex/models/orgJoinRequests.ts
+  - packages/backend/convex/models/sportAgeGroupConfig.ts
+  - packages/backend/convex/models/referenceData.ts
+  - packages/backend/convex/models/importMappingHistory.ts
+  - packages/backend/convex/models/notificationPreferences.ts
+  - packages/backend/convex/models/userPreferences.ts
+  - packages/backend/convex/models/teams.ts
+  - packages/backend/convex/models/gdpr.ts
+  - packages/backend/convex/models/userProfiles.ts
+  - packages/backend/convex/models/emergencyContacts.ts
+  - packages/backend/convex/models/coachTrustLevels.ts
+  - packages/backend/convex/models/coachParentSummaries.ts
+  - packages/backend/convex/models/onboarding.ts
+  - packages/backend/convex/models/guardianPlayerLinks.ts
+  - packages/backend/convex/models/orgGuardianProfiles.ts
+  - packages/backend/convex/models/passportSharing.ts
+  - packages/backend/convex/models/playerGraduations.ts
+  - packages/backend/convex/models/members.ts
+  - packages/backend/convex/models/voiceNoteEntityResolutions.ts
+  - packages/backend/convex/models/users.ts
+  - packages/backend/convex/models/voicePipelineRetry.ts
+  - packages/backend/convex/models/skillAssessments.ts
+  - packages/backend/convex/models/playerSelfAccess.ts
+  - packages/backend/convex/models/aiServiceHealth.ts
+  - packages/backend/convex/models/importTemplates.ts
+  - packages/backend/convex/models/sports.ts
+  - packages/backend/convex/models/importProgress.ts
+  - packages/backend/convex/models/fixNeilsRoles.ts
+  - packages/backend/convex/models/playerIdentities.ts
+  - packages/backend/convex/models/voiceNotes.ts
+  - packages/backend/convex/models/guardianManagement.ts
+  - packages/backend/convex/models/importTemplateSeeds.ts
+  - packages/backend/convex/models/insightDrafts.ts
+  - packages/backend/convex/models/importSessionDrafts.ts
+  - packages/backend/convex/models/teamDecisions.ts
+  - packages/backend/convex/models/gaaTestMutations.ts
+  - packages/backend/convex/models/playerInjuries.ts
+  - packages/backend/convex/models/voiceNoteInsights.ts
+  - packages/backend/convex/models/playerEmergencyContacts.ts
+  - packages/backend/convex/models/coachTasks.ts
+  **Action**: Add `getUserOrgRole()` or mark as `// @public`
+- 🚨 **CRITICAL [P9]**: XSS risk - dangerouslySetInnerHTML without sanitization:
+    apps/web/src/components/ui/confetti.tsx:        dangerouslySetInnerHTML={{
+  apps/web/src/components/ui/chart.tsx:      dangerouslySetInnerHTML={{
+  apps/web/src/components/onboarding/gdpr-policy-viewer.tsx: * Uses dangerouslySetInnerHTML to avoid React key issues with static content.
+  **Action**: Use DOMPurify or remove dangerouslySetInnerHTML
+- ⚠️ **HIGH [P9]**: No rate limiting on notification/activity endpoints:
+  - packages/backend/convex/models/demoAsks.ts
+  **Action**: Add rate limiting to prevent spam/abuse
+- ⚠️ **HIGH [P9]**: AI endpoints without input validation:
+  - packages/backend/convex/actions/aiMapping.ts
+  - packages/backend/convex/actions/claimsExtraction.ts
+  - packages/backend/convex/actions/coachParentSummaries.ts
+  - packages/backend/convex/actions/practicePlans.ts
+  - packages/backend/convex/actions/sessionPlans.ts
+  - packages/backend/convex/actions/voiceNotes.ts
+  - packages/backend/convex/actions/wellnessInsights.ts
+  - packages/backend/convex/models/aiServiceHealth.ts
+  **Action**: Validate/sanitize user input before AI prompts
+- ⚠️ **HIGH [P9]**: Notification functions without permission checks:
+  - packages/backend/convex/models/notifications.ts
+  **Action**: Verify user can send notifications to recipient
+
+
+## Security Tester - 2026-02-25 23:11:16
+- 🚨 **CRITICAL**: Hardcoded secrets detected
+```
+apps/web/src/app/api/ai-config/verify-model/route.ts:          errorMessage: "ANTHROPIC_API_KEY not configured in Next.js env",
+apps/web/src/app/api/ai-config/verify-model/route.ts:          errorMessage: "OPENAI_API_KEY not configured in Next.js env",
+apps/web/src/app/api/ai-config/available-models/route.ts:    errors.anthropic = "ANTHROPIC_API_KEY not configured";
+apps/web/src/app/api/ai-config/available-models/route.ts:    errors.openai = "OPENAI_API_KEY not configured";
+apps/web/src/app/api/comparison-insights/route.ts:      console.error("❌ ANTHROPIC_API_KEY not found in environment variables");
+```
+- ⚠️ **HIGH**: 5 high-severity dependency vulnerabilities
+  Run `npm audit fix` to resolve
+- ⚠️ **HIGH**: Mutations without authorization checks:
+  - packages/backend/convex/models/platformMessagingSettings.ts
+  - packages/backend/convex/models/syncQueue.ts
+  - packages/backend/convex/models/importSessions.ts
+  - packages/backend/convex/models/passportComparison.ts
+  - packages/backend/convex/models/trustGatePermissions.ts
+  - packages/backend/convex/models/ageGroupEligibilityOverrides.ts
+  - packages/backend/convex/models/federationConnectors.ts
+  - packages/backend/convex/models/teamCollaboration.ts
+  - packages/backend/convex/models/guardianIdentities.ts
+  - packages/backend/convex/models/sessionPlans.ts
+  - packages/backend/convex/models/adultPlayers.ts
+  - packages/backend/convex/models/demoAsks.ts
+  - packages/backend/convex/models/skillBenchmarks.ts
+  - packages/backend/convex/models/coaches.ts
+  - packages/backend/convex/models/medicalProfiles.ts
+  - packages/backend/convex/models/invitations.ts
+  - packages/backend/convex/models/flows.ts
+  - packages/backend/convex/models/notifications.ts
+  - packages/backend/convex/models/whatsappReviewLinks.ts
+  - packages/backend/convex/models/teamObservations.ts
+  - packages/backend/convex/models/passportGoals.ts
+  - packages/backend/convex/models/players.ts
+  - packages/backend/convex/models/aiMappingCache.ts
+  - packages/backend/convex/models/orgInjuryNotes.ts
+  - packages/backend/convex/models/injuryDocuments.ts
+  - packages/backend/convex/models/playerHealthChecks.ts
+  - packages/backend/convex/models/playerImport.ts
+  - packages/backend/convex/models/passportEnquiries.ts
+  - packages/backend/convex/models/setup.ts
+  - packages/backend/convex/models/teamPlayerIdentities.ts
+  - packages/backend/convex/models/rateLimits.ts
+  - packages/backend/convex/models/phase4TestCleanup.ts
+  - packages/backend/convex/models/syncHistory.ts
+  - packages/backend/convex/models/platformStaffInvitations.ts
+  - packages/backend/convex/models/coachParentMessages.ts
+  - packages/backend/convex/models/aiModelConfig.ts
+  - packages/backend/convex/models/voicePipelineAlerts.ts
+  - packages/backend/convex/models/aiMappingAnalytics.ts
+  - packages/backend/convex/models/orgPlayerEnrollments.ts
+  - packages/backend/convex/models/sportPassports.ts
+  - packages/backend/convex/models/orgJoinRequests.ts
+  - packages/backend/convex/models/sportAgeGroupConfig.ts
+  - packages/backend/convex/models/referenceData.ts
+  - packages/backend/convex/models/importMappingHistory.ts
+  - packages/backend/convex/models/notificationPreferences.ts
+  - packages/backend/convex/models/userPreferences.ts
+  - packages/backend/convex/models/teams.ts
+  - packages/backend/convex/models/gdpr.ts
+  - packages/backend/convex/models/userProfiles.ts
+  - packages/backend/convex/models/emergencyContacts.ts
+  - packages/backend/convex/models/coachTrustLevels.ts
+  - packages/backend/convex/models/coachParentSummaries.ts
+  - packages/backend/convex/models/onboarding.ts
+  - packages/backend/convex/models/guardianPlayerLinks.ts
+  - packages/backend/convex/models/orgGuardianProfiles.ts
+  - packages/backend/convex/models/passportSharing.ts
+  - packages/backend/convex/models/playerGraduations.ts
+  - packages/backend/convex/models/members.ts
+  - packages/backend/convex/models/voiceNoteEntityResolutions.ts
+  - packages/backend/convex/models/users.ts
+  - packages/backend/convex/models/voicePipelineRetry.ts
+  - packages/backend/convex/models/skillAssessments.ts
+  - packages/backend/convex/models/playerSelfAccess.ts
+  - packages/backend/convex/models/aiServiceHealth.ts
+  - packages/backend/convex/models/importTemplates.ts
+  - packages/backend/convex/models/sports.ts
+  - packages/backend/convex/models/importProgress.ts
+  - packages/backend/convex/models/fixNeilsRoles.ts
+  - packages/backend/convex/models/playerIdentities.ts
+  - packages/backend/convex/models/voiceNotes.ts
+  - packages/backend/convex/models/guardianManagement.ts
+  - packages/backend/convex/models/importTemplateSeeds.ts
+  - packages/backend/convex/models/insightDrafts.ts
+  - packages/backend/convex/models/importSessionDrafts.ts
+  - packages/backend/convex/models/teamDecisions.ts
+  - packages/backend/convex/models/gaaTestMutations.ts
+  - packages/backend/convex/models/playerInjuries.ts
+  - packages/backend/convex/models/voiceNoteInsights.ts
+  - packages/backend/convex/models/playerEmergencyContacts.ts
+  - packages/backend/convex/models/coachTasks.ts
+  **Action**: Add `getUserOrgRole()` or mark as `// @public`
+- 🚨 **CRITICAL [P9]**: XSS risk - dangerouslySetInnerHTML without sanitization:
+    apps/web/src/components/ui/confetti.tsx:        dangerouslySetInnerHTML={{
+  apps/web/src/components/ui/chart.tsx:      dangerouslySetInnerHTML={{
+  apps/web/src/components/onboarding/gdpr-policy-viewer.tsx: * Uses dangerouslySetInnerHTML to avoid React key issues with static content.
+  **Action**: Use DOMPurify or remove dangerouslySetInnerHTML
+- ⚠️ **HIGH [P9]**: No rate limiting on notification/activity endpoints:
+  - packages/backend/convex/models/demoAsks.ts
+  **Action**: Add rate limiting to prevent spam/abuse
+- ⚠️ **HIGH [P9]**: AI endpoints without input validation:
+  - packages/backend/convex/actions/aiMapping.ts
+  - packages/backend/convex/actions/claimsExtraction.ts
+  - packages/backend/convex/actions/coachParentSummaries.ts
+  - packages/backend/convex/actions/practicePlans.ts
+  - packages/backend/convex/actions/sessionPlans.ts
+  - packages/backend/convex/actions/voiceNotes.ts
+  - packages/backend/convex/actions/wellnessInsights.ts
+  - packages/backend/convex/models/aiServiceHealth.ts
+  **Action**: Validate/sanitize user input before AI prompts
+- ⚠️ **HIGH [P9]**: Notification functions without permission checks:
+  - packages/backend/convex/models/notifications.ts
+  **Action**: Verify user can send notifications to recipient
+
+
+## Security Tester - 2026-02-25 23:13:19
+- 🚨 **CRITICAL**: Hardcoded secrets detected
+```
+apps/web/src/app/api/ai-config/verify-model/route.ts:          errorMessage: "ANTHROPIC_API_KEY not configured in Next.js env",
+apps/web/src/app/api/ai-config/verify-model/route.ts:          errorMessage: "OPENAI_API_KEY not configured in Next.js env",
+apps/web/src/app/api/ai-config/available-models/route.ts:    errors.anthropic = "ANTHROPIC_API_KEY not configured";
+apps/web/src/app/api/ai-config/available-models/route.ts:    errors.openai = "OPENAI_API_KEY not configured";
+apps/web/src/app/api/comparison-insights/route.ts:      console.error("❌ ANTHROPIC_API_KEY not found in environment variables");
+```
+- ⚠️ **HIGH**: 5 high-severity dependency vulnerabilities
+  Run `npm audit fix` to resolve
+- ⚠️ **HIGH**: Mutations without authorization checks:
+  - packages/backend/convex/models/platformMessagingSettings.ts
+  - packages/backend/convex/models/syncQueue.ts
+  - packages/backend/convex/models/importSessions.ts
+  - packages/backend/convex/models/passportComparison.ts
+  - packages/backend/convex/models/trustGatePermissions.ts
+  - packages/backend/convex/models/ageGroupEligibilityOverrides.ts
+  - packages/backend/convex/models/federationConnectors.ts
+  - packages/backend/convex/models/teamCollaboration.ts
+  - packages/backend/convex/models/guardianIdentities.ts
+  - packages/backend/convex/models/sessionPlans.ts
+  - packages/backend/convex/models/adultPlayers.ts
+  - packages/backend/convex/models/demoAsks.ts
+  - packages/backend/convex/models/skillBenchmarks.ts
+  - packages/backend/convex/models/coaches.ts
+  - packages/backend/convex/models/medicalProfiles.ts
+  - packages/backend/convex/models/invitations.ts
+  - packages/backend/convex/models/flows.ts
+  - packages/backend/convex/models/notifications.ts
+  - packages/backend/convex/models/whatsappReviewLinks.ts
+  - packages/backend/convex/models/teamObservations.ts
+  - packages/backend/convex/models/passportGoals.ts
+  - packages/backend/convex/models/players.ts
+  - packages/backend/convex/models/aiMappingCache.ts
+  - packages/backend/convex/models/orgInjuryNotes.ts
+  - packages/backend/convex/models/injuryDocuments.ts
+  - packages/backend/convex/models/playerHealthChecks.ts
+  - packages/backend/convex/models/playerImport.ts
+  - packages/backend/convex/models/passportEnquiries.ts
+  - packages/backend/convex/models/setup.ts
+  - packages/backend/convex/models/teamPlayerIdentities.ts
+  - packages/backend/convex/models/rateLimits.ts
+  - packages/backend/convex/models/phase4TestCleanup.ts
+  - packages/backend/convex/models/syncHistory.ts
+  - packages/backend/convex/models/platformStaffInvitations.ts
+  - packages/backend/convex/models/coachParentMessages.ts
+  - packages/backend/convex/models/aiModelConfig.ts
+  - packages/backend/convex/models/voicePipelineAlerts.ts
+  - packages/backend/convex/models/aiMappingAnalytics.ts
+  - packages/backend/convex/models/orgPlayerEnrollments.ts
+  - packages/backend/convex/models/sportPassports.ts
+  - packages/backend/convex/models/orgJoinRequests.ts
+  - packages/backend/convex/models/sportAgeGroupConfig.ts
+  - packages/backend/convex/models/referenceData.ts
+  - packages/backend/convex/models/importMappingHistory.ts
+  - packages/backend/convex/models/notificationPreferences.ts
+  - packages/backend/convex/models/userPreferences.ts
+  - packages/backend/convex/models/teams.ts
+  - packages/backend/convex/models/gdpr.ts
+  - packages/backend/convex/models/userProfiles.ts
+  - packages/backend/convex/models/emergencyContacts.ts
+  - packages/backend/convex/models/coachTrustLevels.ts
+  - packages/backend/convex/models/coachParentSummaries.ts
+  - packages/backend/convex/models/onboarding.ts
+  - packages/backend/convex/models/guardianPlayerLinks.ts
+  - packages/backend/convex/models/orgGuardianProfiles.ts
+  - packages/backend/convex/models/passportSharing.ts
+  - packages/backend/convex/models/playerGraduations.ts
+  - packages/backend/convex/models/members.ts
+  - packages/backend/convex/models/voiceNoteEntityResolutions.ts
+  - packages/backend/convex/models/users.ts
+  - packages/backend/convex/models/voicePipelineRetry.ts
+  - packages/backend/convex/models/skillAssessments.ts
+  - packages/backend/convex/models/playerSelfAccess.ts
+  - packages/backend/convex/models/aiServiceHealth.ts
+  - packages/backend/convex/models/importTemplates.ts
+  - packages/backend/convex/models/sports.ts
+  - packages/backend/convex/models/importProgress.ts
+  - packages/backend/convex/models/fixNeilsRoles.ts
+  - packages/backend/convex/models/playerIdentities.ts
+  - packages/backend/convex/models/voiceNotes.ts
+  - packages/backend/convex/models/guardianManagement.ts
+  - packages/backend/convex/models/importTemplateSeeds.ts
+  - packages/backend/convex/models/insightDrafts.ts
+  - packages/backend/convex/models/importSessionDrafts.ts
+  - packages/backend/convex/models/teamDecisions.ts
+  - packages/backend/convex/models/gaaTestMutations.ts
+  - packages/backend/convex/models/playerInjuries.ts
+  - packages/backend/convex/models/voiceNoteInsights.ts
+  - packages/backend/convex/models/playerEmergencyContacts.ts
+  - packages/backend/convex/models/coachTasks.ts
+  **Action**: Add `getUserOrgRole()` or mark as `// @public`
+- 🚨 **CRITICAL [P9]**: XSS risk - dangerouslySetInnerHTML without sanitization:
+    apps/web/src/components/ui/confetti.tsx:        dangerouslySetInnerHTML={{
+  apps/web/src/components/ui/chart.tsx:      dangerouslySetInnerHTML={{
+  apps/web/src/components/onboarding/gdpr-policy-viewer.tsx: * Uses dangerouslySetInnerHTML to avoid React key issues with static content.
+  **Action**: Use DOMPurify or remove dangerouslySetInnerHTML
+- ⚠️ **HIGH [P9]**: No rate limiting on notification/activity endpoints:
+  - packages/backend/convex/models/demoAsks.ts
+  **Action**: Add rate limiting to prevent spam/abuse
+- ⚠️ **HIGH [P9]**: AI endpoints without input validation:
+  - packages/backend/convex/actions/aiMapping.ts
+  - packages/backend/convex/actions/claimsExtraction.ts
+  - packages/backend/convex/actions/coachParentSummaries.ts
+  - packages/backend/convex/actions/practicePlans.ts
+  - packages/backend/convex/actions/sessionPlans.ts
+  - packages/backend/convex/actions/voiceNotes.ts
+  - packages/backend/convex/actions/wellnessInsights.ts
+  - packages/backend/convex/models/aiServiceHealth.ts
+  **Action**: Validate/sanitize user input before AI prompts
+- ⚠️ **HIGH [P9]**: Notification functions without permission checks:
+  - packages/backend/convex/models/notifications.ts
+  **Action**: Verify user can send notifications to recipient
+
+
+## Security Tester - 2026-02-25 23:15:21
+- 🚨 **CRITICAL**: Hardcoded secrets detected
+```
+apps/web/src/app/api/ai-config/verify-model/route.ts:          errorMessage: "ANTHROPIC_API_KEY not configured in Next.js env",
+apps/web/src/app/api/ai-config/verify-model/route.ts:          errorMessage: "OPENAI_API_KEY not configured in Next.js env",
+apps/web/src/app/api/ai-config/available-models/route.ts:    errors.anthropic = "ANTHROPIC_API_KEY not configured";
+apps/web/src/app/api/ai-config/available-models/route.ts:    errors.openai = "OPENAI_API_KEY not configured";
+apps/web/src/app/api/comparison-insights/route.ts:      console.error("❌ ANTHROPIC_API_KEY not found in environment variables");
+```
+- ⚠️ **HIGH**: 5 high-severity dependency vulnerabilities
+  Run `npm audit fix` to resolve
+- ⚠️ **HIGH**: Mutations without authorization checks:
+  - packages/backend/convex/models/platformMessagingSettings.ts
+  - packages/backend/convex/models/syncQueue.ts
+  - packages/backend/convex/models/importSessions.ts
+  - packages/backend/convex/models/passportComparison.ts
+  - packages/backend/convex/models/trustGatePermissions.ts
+  - packages/backend/convex/models/ageGroupEligibilityOverrides.ts
+  - packages/backend/convex/models/federationConnectors.ts
+  - packages/backend/convex/models/teamCollaboration.ts
+  - packages/backend/convex/models/guardianIdentities.ts
+  - packages/backend/convex/models/sessionPlans.ts
+  - packages/backend/convex/models/adultPlayers.ts
+  - packages/backend/convex/models/demoAsks.ts
+  - packages/backend/convex/models/skillBenchmarks.ts
+  - packages/backend/convex/models/coaches.ts
+  - packages/backend/convex/models/medicalProfiles.ts
+  - packages/backend/convex/models/invitations.ts
+  - packages/backend/convex/models/flows.ts
+  - packages/backend/convex/models/notifications.ts
+  - packages/backend/convex/models/whatsappReviewLinks.ts
+  - packages/backend/convex/models/teamObservations.ts
+  - packages/backend/convex/models/passportGoals.ts
+  - packages/backend/convex/models/players.ts
+  - packages/backend/convex/models/aiMappingCache.ts
+  - packages/backend/convex/models/orgInjuryNotes.ts
+  - packages/backend/convex/models/injuryDocuments.ts
+  - packages/backend/convex/models/playerHealthChecks.ts
+  - packages/backend/convex/models/playerImport.ts
+  - packages/backend/convex/models/passportEnquiries.ts
+  - packages/backend/convex/models/setup.ts
+  - packages/backend/convex/models/teamPlayerIdentities.ts
+  - packages/backend/convex/models/rateLimits.ts
+  - packages/backend/convex/models/phase4TestCleanup.ts
+  - packages/backend/convex/models/syncHistory.ts
+  - packages/backend/convex/models/platformStaffInvitations.ts
+  - packages/backend/convex/models/coachParentMessages.ts
+  - packages/backend/convex/models/aiModelConfig.ts
+  - packages/backend/convex/models/voicePipelineAlerts.ts
+  - packages/backend/convex/models/aiMappingAnalytics.ts
+  - packages/backend/convex/models/orgPlayerEnrollments.ts
+  - packages/backend/convex/models/sportPassports.ts
+  - packages/backend/convex/models/orgJoinRequests.ts
+  - packages/backend/convex/models/sportAgeGroupConfig.ts
+  - packages/backend/convex/models/referenceData.ts
+  - packages/backend/convex/models/importMappingHistory.ts
+  - packages/backend/convex/models/notificationPreferences.ts
+  - packages/backend/convex/models/userPreferences.ts
+  - packages/backend/convex/models/teams.ts
+  - packages/backend/convex/models/gdpr.ts
+  - packages/backend/convex/models/userProfiles.ts
+  - packages/backend/convex/models/emergencyContacts.ts
+  - packages/backend/convex/models/coachTrustLevels.ts
+  - packages/backend/convex/models/coachParentSummaries.ts
+  - packages/backend/convex/models/onboarding.ts
+  - packages/backend/convex/models/guardianPlayerLinks.ts
+  - packages/backend/convex/models/orgGuardianProfiles.ts
+  - packages/backend/convex/models/passportSharing.ts
+  - packages/backend/convex/models/playerGraduations.ts
+  - packages/backend/convex/models/members.ts
+  - packages/backend/convex/models/voiceNoteEntityResolutions.ts
+  - packages/backend/convex/models/users.ts
+  - packages/backend/convex/models/voicePipelineRetry.ts
+  - packages/backend/convex/models/skillAssessments.ts
+  - packages/backend/convex/models/playerSelfAccess.ts
+  - packages/backend/convex/models/aiServiceHealth.ts
+  - packages/backend/convex/models/importTemplates.ts
+  - packages/backend/convex/models/sports.ts
+  - packages/backend/convex/models/importProgress.ts
+  - packages/backend/convex/models/fixNeilsRoles.ts
+  - packages/backend/convex/models/playerIdentities.ts
+  - packages/backend/convex/models/voiceNotes.ts
+  - packages/backend/convex/models/guardianManagement.ts
+  - packages/backend/convex/models/importTemplateSeeds.ts
+  - packages/backend/convex/models/insightDrafts.ts
+  - packages/backend/convex/models/importSessionDrafts.ts
+  - packages/backend/convex/models/teamDecisions.ts
+  - packages/backend/convex/models/gaaTestMutations.ts
+  - packages/backend/convex/models/playerInjuries.ts
+  - packages/backend/convex/models/voiceNoteInsights.ts
+  - packages/backend/convex/models/playerEmergencyContacts.ts
+  - packages/backend/convex/models/coachTasks.ts
+  **Action**: Add `getUserOrgRole()` or mark as `// @public`
+- 🚨 **CRITICAL [P9]**: XSS risk - dangerouslySetInnerHTML without sanitization:
+    apps/web/src/components/ui/confetti.tsx:        dangerouslySetInnerHTML={{
+  apps/web/src/components/ui/chart.tsx:      dangerouslySetInnerHTML={{
+  apps/web/src/components/onboarding/gdpr-policy-viewer.tsx: * Uses dangerouslySetInnerHTML to avoid React key issues with static content.
+  **Action**: Use DOMPurify or remove dangerouslySetInnerHTML
+- ⚠️ **HIGH [P9]**: No rate limiting on notification/activity endpoints:
+  - packages/backend/convex/models/demoAsks.ts
+  **Action**: Add rate limiting to prevent spam/abuse
+- ⚠️ **HIGH [P9]**: AI endpoints without input validation:
+  - packages/backend/convex/actions/aiMapping.ts
+  - packages/backend/convex/actions/claimsExtraction.ts
+  - packages/backend/convex/actions/coachParentSummaries.ts
+  - packages/backend/convex/actions/practicePlans.ts
+  - packages/backend/convex/actions/sessionPlans.ts
+  - packages/backend/convex/actions/voiceNotes.ts
+  - packages/backend/convex/actions/wellnessInsights.ts
+  - packages/backend/convex/models/aiServiceHealth.ts
+  **Action**: Validate/sanitize user input before AI prompts
+- ⚠️ **HIGH [P9]**: Notification functions without permission checks:
+  - packages/backend/convex/models/notifications.ts
+  **Action**: Verify user can send notifications to recipient
+
+
+## Security Tester - 2026-02-25 23:17:25
+- 🚨 **CRITICAL**: Hardcoded secrets detected
+```
+apps/web/src/app/api/ai-config/verify-model/route.ts:          errorMessage: "ANTHROPIC_API_KEY not configured in Next.js env",
+apps/web/src/app/api/ai-config/verify-model/route.ts:          errorMessage: "OPENAI_API_KEY not configured in Next.js env",
+apps/web/src/app/api/ai-config/available-models/route.ts:    errors.anthropic = "ANTHROPIC_API_KEY not configured";
+apps/web/src/app/api/ai-config/available-models/route.ts:    errors.openai = "OPENAI_API_KEY not configured";
+apps/web/src/app/api/comparison-insights/route.ts:      console.error("❌ ANTHROPIC_API_KEY not found in environment variables");
+```
+- ⚠️ **HIGH**: 6 high-severity dependency vulnerabilities
+  Run `npm audit fix` to resolve
+- ⚠️ **HIGH**: Mutations without authorization checks:
+  - packages/backend/convex/models/platformMessagingSettings.ts
+  - packages/backend/convex/models/syncQueue.ts
+  - packages/backend/convex/models/importSessions.ts
+  - packages/backend/convex/models/passportComparison.ts
+  - packages/backend/convex/models/trustGatePermissions.ts
+  - packages/backend/convex/models/ageGroupEligibilityOverrides.ts
+  - packages/backend/convex/models/federationConnectors.ts
+  - packages/backend/convex/models/teamCollaboration.ts
+  - packages/backend/convex/models/guardianIdentities.ts
+  - packages/backend/convex/models/sessionPlans.ts
+  - packages/backend/convex/models/adultPlayers.ts
+  - packages/backend/convex/models/demoAsks.ts
+  - packages/backend/convex/models/skillBenchmarks.ts
+  - packages/backend/convex/models/coaches.ts
+  - packages/backend/convex/models/medicalProfiles.ts
+  - packages/backend/convex/models/invitations.ts
+  - packages/backend/convex/models/flows.ts
+  - packages/backend/convex/models/notifications.ts
+  - packages/backend/convex/models/whatsappReviewLinks.ts
+  - packages/backend/convex/models/teamObservations.ts
+  - packages/backend/convex/models/passportGoals.ts
+  - packages/backend/convex/models/players.ts
+  - packages/backend/convex/models/aiMappingCache.ts
+  - packages/backend/convex/models/orgInjuryNotes.ts
+  - packages/backend/convex/models/injuryDocuments.ts
+  - packages/backend/convex/models/playerHealthChecks.ts
+  - packages/backend/convex/models/playerImport.ts
+  - packages/backend/convex/models/passportEnquiries.ts
+  - packages/backend/convex/models/setup.ts
+  - packages/backend/convex/models/teamPlayerIdentities.ts
+  - packages/backend/convex/models/rateLimits.ts
+  - packages/backend/convex/models/phase4TestCleanup.ts
+  - packages/backend/convex/models/syncHistory.ts
+  - packages/backend/convex/models/platformStaffInvitations.ts
+  - packages/backend/convex/models/coachParentMessages.ts
+  - packages/backend/convex/models/aiModelConfig.ts
+  - packages/backend/convex/models/voicePipelineAlerts.ts
+  - packages/backend/convex/models/aiMappingAnalytics.ts
+  - packages/backend/convex/models/orgPlayerEnrollments.ts
+  - packages/backend/convex/models/sportPassports.ts
+  - packages/backend/convex/models/orgJoinRequests.ts
+  - packages/backend/convex/models/sportAgeGroupConfig.ts
+  - packages/backend/convex/models/referenceData.ts
+  - packages/backend/convex/models/importMappingHistory.ts
+  - packages/backend/convex/models/notificationPreferences.ts
+  - packages/backend/convex/models/userPreferences.ts
+  - packages/backend/convex/models/teams.ts
+  - packages/backend/convex/models/gdpr.ts
+  - packages/backend/convex/models/userProfiles.ts
+  - packages/backend/convex/models/emergencyContacts.ts
+  - packages/backend/convex/models/coachTrustLevels.ts
+  - packages/backend/convex/models/coachParentSummaries.ts
+  - packages/backend/convex/models/onboarding.ts
+  - packages/backend/convex/models/guardianPlayerLinks.ts
+  - packages/backend/convex/models/orgGuardianProfiles.ts
+  - packages/backend/convex/models/passportSharing.ts
+  - packages/backend/convex/models/playerGraduations.ts
+  - packages/backend/convex/models/members.ts
+  - packages/backend/convex/models/voiceNoteEntityResolutions.ts
+  - packages/backend/convex/models/users.ts
+  - packages/backend/convex/models/voicePipelineRetry.ts
+  - packages/backend/convex/models/skillAssessments.ts
+  - packages/backend/convex/models/playerSelfAccess.ts
+  - packages/backend/convex/models/aiServiceHealth.ts
+  - packages/backend/convex/models/importTemplates.ts
+  - packages/backend/convex/models/sports.ts
+  - packages/backend/convex/models/importProgress.ts
+  - packages/backend/convex/models/fixNeilsRoles.ts
+  - packages/backend/convex/models/playerIdentities.ts
+  - packages/backend/convex/models/voiceNotes.ts
+  - packages/backend/convex/models/guardianManagement.ts
+  - packages/backend/convex/models/importTemplateSeeds.ts
+  - packages/backend/convex/models/insightDrafts.ts
+  - packages/backend/convex/models/importSessionDrafts.ts
+  - packages/backend/convex/models/teamDecisions.ts
+  - packages/backend/convex/models/gaaTestMutations.ts
+  - packages/backend/convex/models/playerInjuries.ts
+  - packages/backend/convex/models/voiceNoteInsights.ts
+  - packages/backend/convex/models/playerEmergencyContacts.ts
+  - packages/backend/convex/models/coachTasks.ts
+  **Action**: Add `getUserOrgRole()` or mark as `// @public`
+- 🚨 **CRITICAL [P9]**: XSS risk - dangerouslySetInnerHTML without sanitization:
+    apps/web/src/components/ui/confetti.tsx:        dangerouslySetInnerHTML={{
+  apps/web/src/components/ui/chart.tsx:      dangerouslySetInnerHTML={{
+  apps/web/src/components/onboarding/gdpr-policy-viewer.tsx: * Uses dangerouslySetInnerHTML to avoid React key issues with static content.
+  **Action**: Use DOMPurify or remove dangerouslySetInnerHTML
+- ⚠️ **HIGH [P9]**: No rate limiting on notification/activity endpoints:
+  - packages/backend/convex/models/demoAsks.ts
+  **Action**: Add rate limiting to prevent spam/abuse
+- ⚠️ **HIGH [P9]**: AI endpoints without input validation:
+  - packages/backend/convex/actions/aiMapping.ts
+  - packages/backend/convex/actions/claimsExtraction.ts
+  - packages/backend/convex/actions/coachParentSummaries.ts
+  - packages/backend/convex/actions/practicePlans.ts
+  - packages/backend/convex/actions/sessionPlans.ts
+  - packages/backend/convex/actions/voiceNotes.ts
+  - packages/backend/convex/actions/wellnessInsights.ts
+  - packages/backend/convex/models/aiServiceHealth.ts
+  **Action**: Validate/sanitize user input before AI prompts
+- ⚠️ **HIGH [P9]**: Notification functions without permission checks:
+  - packages/backend/convex/models/notifications.ts
+  **Action**: Verify user can send notifications to recipient
+
+
+## Security Tester - 2026-02-25 23:19:27
+- 🚨 **CRITICAL**: Hardcoded secrets detected
+```
+apps/web/src/app/api/ai-config/verify-model/route.ts:          errorMessage: "ANTHROPIC_API_KEY not configured in Next.js env",
+apps/web/src/app/api/ai-config/verify-model/route.ts:          errorMessage: "OPENAI_API_KEY not configured in Next.js env",
+apps/web/src/app/api/ai-config/available-models/route.ts:    errors.anthropic = "ANTHROPIC_API_KEY not configured";
+apps/web/src/app/api/ai-config/available-models/route.ts:    errors.openai = "OPENAI_API_KEY not configured";
+apps/web/src/app/api/comparison-insights/route.ts:      console.error("❌ ANTHROPIC_API_KEY not found in environment variables");
+```
+- ⚠️ **HIGH**: 6 high-severity dependency vulnerabilities
+  Run `npm audit fix` to resolve
+- ⚠️ **HIGH**: Mutations without authorization checks:
+  - packages/backend/convex/models/platformMessagingSettings.ts
+  - packages/backend/convex/models/syncQueue.ts
+  - packages/backend/convex/models/importSessions.ts
+  - packages/backend/convex/models/passportComparison.ts
+  - packages/backend/convex/models/trustGatePermissions.ts
+  - packages/backend/convex/models/ageGroupEligibilityOverrides.ts
+  - packages/backend/convex/models/federationConnectors.ts
+  - packages/backend/convex/models/teamCollaboration.ts
+  - packages/backend/convex/models/guardianIdentities.ts
+  - packages/backend/convex/models/sessionPlans.ts
+  - packages/backend/convex/models/adultPlayers.ts
+  - packages/backend/convex/models/demoAsks.ts
+  - packages/backend/convex/models/skillBenchmarks.ts
+  - packages/backend/convex/models/coaches.ts
+  - packages/backend/convex/models/medicalProfiles.ts
+  - packages/backend/convex/models/invitations.ts
+  - packages/backend/convex/models/flows.ts
+  - packages/backend/convex/models/notifications.ts
+  - packages/backend/convex/models/whatsappReviewLinks.ts
+  - packages/backend/convex/models/teamObservations.ts
+  - packages/backend/convex/models/passportGoals.ts
+  - packages/backend/convex/models/players.ts
+  - packages/backend/convex/models/aiMappingCache.ts
+  - packages/backend/convex/models/orgInjuryNotes.ts
+  - packages/backend/convex/models/injuryDocuments.ts
+  - packages/backend/convex/models/playerHealthChecks.ts
+  - packages/backend/convex/models/playerImport.ts
+  - packages/backend/convex/models/passportEnquiries.ts
+  - packages/backend/convex/models/setup.ts
+  - packages/backend/convex/models/teamPlayerIdentities.ts
+  - packages/backend/convex/models/rateLimits.ts
+  - packages/backend/convex/models/phase4TestCleanup.ts
+  - packages/backend/convex/models/syncHistory.ts
+  - packages/backend/convex/models/platformStaffInvitations.ts
+  - packages/backend/convex/models/coachParentMessages.ts
+  - packages/backend/convex/models/aiModelConfig.ts
+  - packages/backend/convex/models/voicePipelineAlerts.ts
+  - packages/backend/convex/models/aiMappingAnalytics.ts
+  - packages/backend/convex/models/orgPlayerEnrollments.ts
+  - packages/backend/convex/models/sportPassports.ts
+  - packages/backend/convex/models/orgJoinRequests.ts
+  - packages/backend/convex/models/sportAgeGroupConfig.ts
+  - packages/backend/convex/models/referenceData.ts
+  - packages/backend/convex/models/importMappingHistory.ts
+  - packages/backend/convex/models/notificationPreferences.ts
+  - packages/backend/convex/models/userPreferences.ts
+  - packages/backend/convex/models/teams.ts
+  - packages/backend/convex/models/gdpr.ts
+  - packages/backend/convex/models/userProfiles.ts
+  - packages/backend/convex/models/emergencyContacts.ts
+  - packages/backend/convex/models/coachTrustLevels.ts
+  - packages/backend/convex/models/coachParentSummaries.ts
+  - packages/backend/convex/models/onboarding.ts
+  - packages/backend/convex/models/guardianPlayerLinks.ts
+  - packages/backend/convex/models/orgGuardianProfiles.ts
+  - packages/backend/convex/models/passportSharing.ts
+  - packages/backend/convex/models/playerGraduations.ts
+  - packages/backend/convex/models/members.ts
+  - packages/backend/convex/models/voiceNoteEntityResolutions.ts
+  - packages/backend/convex/models/users.ts
+  - packages/backend/convex/models/voicePipelineRetry.ts
+  - packages/backend/convex/models/skillAssessments.ts
+  - packages/backend/convex/models/playerSelfAccess.ts
+  - packages/backend/convex/models/aiServiceHealth.ts
+  - packages/backend/convex/models/importTemplates.ts
+  - packages/backend/convex/models/sports.ts
+  - packages/backend/convex/models/importProgress.ts
+  - packages/backend/convex/models/fixNeilsRoles.ts
+  - packages/backend/convex/models/playerIdentities.ts
+  - packages/backend/convex/models/voiceNotes.ts
+  - packages/backend/convex/models/guardianManagement.ts
+  - packages/backend/convex/models/importTemplateSeeds.ts
+  - packages/backend/convex/models/insightDrafts.ts
+  - packages/backend/convex/models/importSessionDrafts.ts
+  - packages/backend/convex/models/teamDecisions.ts
+  - packages/backend/convex/models/gaaTestMutations.ts
+  - packages/backend/convex/models/playerInjuries.ts
+  - packages/backend/convex/models/voiceNoteInsights.ts
+  - packages/backend/convex/models/playerEmergencyContacts.ts
+  - packages/backend/convex/models/coachTasks.ts
+  **Action**: Add `getUserOrgRole()` or mark as `// @public`
+- 🚨 **CRITICAL [P9]**: XSS risk - dangerouslySetInnerHTML without sanitization:
+    apps/web/src/components/ui/confetti.tsx:        dangerouslySetInnerHTML={{
+  apps/web/src/components/ui/chart.tsx:      dangerouslySetInnerHTML={{
+  apps/web/src/components/onboarding/gdpr-policy-viewer.tsx: * Uses dangerouslySetInnerHTML to avoid React key issues with static content.
+  **Action**: Use DOMPurify or remove dangerouslySetInnerHTML
+- ⚠️ **HIGH [P9]**: No rate limiting on notification/activity endpoints:
+  - packages/backend/convex/models/demoAsks.ts
+  **Action**: Add rate limiting to prevent spam/abuse
+- ⚠️ **HIGH [P9]**: AI endpoints without input validation:
+  - packages/backend/convex/actions/aiMapping.ts
+  - packages/backend/convex/actions/claimsExtraction.ts
+  - packages/backend/convex/actions/coachParentSummaries.ts
+  - packages/backend/convex/actions/practicePlans.ts
+  - packages/backend/convex/actions/sessionPlans.ts
+  - packages/backend/convex/actions/voiceNotes.ts
+  - packages/backend/convex/actions/wellnessInsights.ts
+  - packages/backend/convex/models/aiServiceHealth.ts
+  **Action**: Validate/sanitize user input before AI prompts
+- ⚠️ **HIGH [P9]**: Notification functions without permission checks:
+  - packages/backend/convex/models/notifications.ts
+  **Action**: Verify user can send notifications to recipient
+
+
+## Security Tester - 2026-02-25 23:21:29
+- 🚨 **CRITICAL**: Hardcoded secrets detected
+```
+apps/web/src/app/api/ai-config/verify-model/route.ts:          errorMessage: "ANTHROPIC_API_KEY not configured in Next.js env",
+apps/web/src/app/api/ai-config/verify-model/route.ts:          errorMessage: "OPENAI_API_KEY not configured in Next.js env",
+apps/web/src/app/api/ai-config/available-models/route.ts:    errors.anthropic = "ANTHROPIC_API_KEY not configured";
+apps/web/src/app/api/ai-config/available-models/route.ts:    errors.openai = "OPENAI_API_KEY not configured";
+apps/web/src/app/api/comparison-insights/route.ts:      console.error("❌ ANTHROPIC_API_KEY not found in environment variables");
+```
+- ⚠️ **HIGH**: 6 high-severity dependency vulnerabilities
+  Run `npm audit fix` to resolve
+- ⚠️ **HIGH**: Mutations without authorization checks:
+  - packages/backend/convex/models/platformMessagingSettings.ts
+  - packages/backend/convex/models/syncQueue.ts
+  - packages/backend/convex/models/importSessions.ts
+  - packages/backend/convex/models/passportComparison.ts
+  - packages/backend/convex/models/trustGatePermissions.ts
+  - packages/backend/convex/models/ageGroupEligibilityOverrides.ts
+  - packages/backend/convex/models/federationConnectors.ts
+  - packages/backend/convex/models/teamCollaboration.ts
+  - packages/backend/convex/models/guardianIdentities.ts
+  - packages/backend/convex/models/sessionPlans.ts
+  - packages/backend/convex/models/adultPlayers.ts
+  - packages/backend/convex/models/demoAsks.ts
+  - packages/backend/convex/models/skillBenchmarks.ts
+  - packages/backend/convex/models/coaches.ts
+  - packages/backend/convex/models/medicalProfiles.ts
+  - packages/backend/convex/models/invitations.ts
+  - packages/backend/convex/models/flows.ts
+  - packages/backend/convex/models/notifications.ts
+  - packages/backend/convex/models/whatsappReviewLinks.ts
+  - packages/backend/convex/models/teamObservations.ts
+  - packages/backend/convex/models/passportGoals.ts
+  - packages/backend/convex/models/players.ts
+  - packages/backend/convex/models/aiMappingCache.ts
+  - packages/backend/convex/models/orgInjuryNotes.ts
+  - packages/backend/convex/models/injuryDocuments.ts
+  - packages/backend/convex/models/playerHealthChecks.ts
+  - packages/backend/convex/models/playerImport.ts
+  - packages/backend/convex/models/passportEnquiries.ts
+  - packages/backend/convex/models/setup.ts
+  - packages/backend/convex/models/teamPlayerIdentities.ts
+  - packages/backend/convex/models/rateLimits.ts
+  - packages/backend/convex/models/phase4TestCleanup.ts
+  - packages/backend/convex/models/syncHistory.ts
+  - packages/backend/convex/models/platformStaffInvitations.ts
+  - packages/backend/convex/models/coachParentMessages.ts
+  - packages/backend/convex/models/aiModelConfig.ts
+  - packages/backend/convex/models/voicePipelineAlerts.ts
+  - packages/backend/convex/models/aiMappingAnalytics.ts
+  - packages/backend/convex/models/orgPlayerEnrollments.ts
+  - packages/backend/convex/models/sportPassports.ts
+  - packages/backend/convex/models/orgJoinRequests.ts
+  - packages/backend/convex/models/sportAgeGroupConfig.ts
+  - packages/backend/convex/models/referenceData.ts
+  - packages/backend/convex/models/importMappingHistory.ts
+  - packages/backend/convex/models/notificationPreferences.ts
+  - packages/backend/convex/models/userPreferences.ts
+  - packages/backend/convex/models/teams.ts
+  - packages/backend/convex/models/gdpr.ts
+  - packages/backend/convex/models/userProfiles.ts
+  - packages/backend/convex/models/emergencyContacts.ts
+  - packages/backend/convex/models/coachTrustLevels.ts
+  - packages/backend/convex/models/coachParentSummaries.ts
+  - packages/backend/convex/models/onboarding.ts
+  - packages/backend/convex/models/guardianPlayerLinks.ts
+  - packages/backend/convex/models/orgGuardianProfiles.ts
+  - packages/backend/convex/models/passportSharing.ts
+  - packages/backend/convex/models/playerGraduations.ts
+  - packages/backend/convex/models/members.ts
+  - packages/backend/convex/models/voiceNoteEntityResolutions.ts
+  - packages/backend/convex/models/users.ts
+  - packages/backend/convex/models/voicePipelineRetry.ts
+  - packages/backend/convex/models/skillAssessments.ts
+  - packages/backend/convex/models/playerSelfAccess.ts
+  - packages/backend/convex/models/aiServiceHealth.ts
+  - packages/backend/convex/models/importTemplates.ts
+  - packages/backend/convex/models/sports.ts
+  - packages/backend/convex/models/importProgress.ts
+  - packages/backend/convex/models/fixNeilsRoles.ts
+  - packages/backend/convex/models/playerIdentities.ts
+  - packages/backend/convex/models/voiceNotes.ts
+  - packages/backend/convex/models/guardianManagement.ts
+  - packages/backend/convex/models/importTemplateSeeds.ts
+  - packages/backend/convex/models/insightDrafts.ts
+  - packages/backend/convex/models/importSessionDrafts.ts
+  - packages/backend/convex/models/teamDecisions.ts
+  - packages/backend/convex/models/gaaTestMutations.ts
+  - packages/backend/convex/models/playerInjuries.ts
+  - packages/backend/convex/models/voiceNoteInsights.ts
+  - packages/backend/convex/models/playerEmergencyContacts.ts
+  - packages/backend/convex/models/coachTasks.ts
+  **Action**: Add `getUserOrgRole()` or mark as `// @public`
+- 🚨 **CRITICAL [P9]**: XSS risk - dangerouslySetInnerHTML without sanitization:
+    apps/web/src/components/ui/confetti.tsx:        dangerouslySetInnerHTML={{
+  apps/web/src/components/ui/chart.tsx:      dangerouslySetInnerHTML={{
+  apps/web/src/components/onboarding/gdpr-policy-viewer.tsx: * Uses dangerouslySetInnerHTML to avoid React key issues with static content.
+  **Action**: Use DOMPurify or remove dangerouslySetInnerHTML
+- ⚠️ **HIGH [P9]**: No rate limiting on notification/activity endpoints:
+  - packages/backend/convex/models/demoAsks.ts
+  **Action**: Add rate limiting to prevent spam/abuse
+- ⚠️ **HIGH [P9]**: AI endpoints without input validation:
+  - packages/backend/convex/actions/aiMapping.ts
+  - packages/backend/convex/actions/claimsExtraction.ts
+  - packages/backend/convex/actions/coachParentSummaries.ts
+  - packages/backend/convex/actions/practicePlans.ts
+  - packages/backend/convex/actions/sessionPlans.ts
+  - packages/backend/convex/actions/voiceNotes.ts
+  - packages/backend/convex/actions/wellnessInsights.ts
+  - packages/backend/convex/models/aiServiceHealth.ts
+  **Action**: Validate/sanitize user input before AI prompts
+- ⚠️ **HIGH [P9]**: Notification functions without permission checks:
+  - packages/backend/convex/models/notifications.ts
+  **Action**: Verify user can send notifications to recipient
+
+
+## Security Tester - 2026-02-25 23:23:33
+- 🚨 **CRITICAL**: Hardcoded secrets detected
+```
+apps/web/src/app/api/ai-config/verify-model/route.ts:          errorMessage: "ANTHROPIC_API_KEY not configured in Next.js env",
+apps/web/src/app/api/ai-config/verify-model/route.ts:          errorMessage: "OPENAI_API_KEY not configured in Next.js env",
+apps/web/src/app/api/ai-config/available-models/route.ts:    errors.anthropic = "ANTHROPIC_API_KEY not configured";
+apps/web/src/app/api/ai-config/available-models/route.ts:    errors.openai = "OPENAI_API_KEY not configured";
+apps/web/src/app/api/comparison-insights/route.ts:      console.error("❌ ANTHROPIC_API_KEY not found in environment variables");
+```
+- ⚠️ **HIGH**: 6 high-severity dependency vulnerabilities
+  Run `npm audit fix` to resolve
+- ⚠️ **HIGH**: Mutations without authorization checks:
+  - packages/backend/convex/models/platformMessagingSettings.ts
+  - packages/backend/convex/models/syncQueue.ts
+  - packages/backend/convex/models/importSessions.ts
+  - packages/backend/convex/models/passportComparison.ts
+  - packages/backend/convex/models/trustGatePermissions.ts
+  - packages/backend/convex/models/ageGroupEligibilityOverrides.ts
+  - packages/backend/convex/models/federationConnectors.ts
+  - packages/backend/convex/models/teamCollaboration.ts
+  - packages/backend/convex/models/guardianIdentities.ts
+  - packages/backend/convex/models/sessionPlans.ts
+  - packages/backend/convex/models/adultPlayers.ts
+  - packages/backend/convex/models/demoAsks.ts
+  - packages/backend/convex/models/skillBenchmarks.ts
+  - packages/backend/convex/models/coaches.ts
+  - packages/backend/convex/models/medicalProfiles.ts
+  - packages/backend/convex/models/invitations.ts
+  - packages/backend/convex/models/flows.ts
+  - packages/backend/convex/models/notifications.ts
+  - packages/backend/convex/models/whatsappReviewLinks.ts
+  - packages/backend/convex/models/teamObservations.ts
+  - packages/backend/convex/models/passportGoals.ts
+  - packages/backend/convex/models/players.ts
+  - packages/backend/convex/models/aiMappingCache.ts
+  - packages/backend/convex/models/orgInjuryNotes.ts
+  - packages/backend/convex/models/injuryDocuments.ts
+  - packages/backend/convex/models/playerHealthChecks.ts
+  - packages/backend/convex/models/playerImport.ts
+  - packages/backend/convex/models/passportEnquiries.ts
+  - packages/backend/convex/models/setup.ts
+  - packages/backend/convex/models/teamPlayerIdentities.ts
+  - packages/backend/convex/models/rateLimits.ts
+  - packages/backend/convex/models/phase4TestCleanup.ts
+  - packages/backend/convex/models/syncHistory.ts
+  - packages/backend/convex/models/platformStaffInvitations.ts
+  - packages/backend/convex/models/coachParentMessages.ts
+  - packages/backend/convex/models/aiModelConfig.ts
+  - packages/backend/convex/models/voicePipelineAlerts.ts
+  - packages/backend/convex/models/aiMappingAnalytics.ts
+  - packages/backend/convex/models/orgPlayerEnrollments.ts
+  - packages/backend/convex/models/sportPassports.ts
+  - packages/backend/convex/models/orgJoinRequests.ts
+  - packages/backend/convex/models/sportAgeGroupConfig.ts
+  - packages/backend/convex/models/referenceData.ts
+  - packages/backend/convex/models/importMappingHistory.ts
+  - packages/backend/convex/models/notificationPreferences.ts
+  - packages/backend/convex/models/userPreferences.ts
+  - packages/backend/convex/models/teams.ts
+  - packages/backend/convex/models/gdpr.ts
+  - packages/backend/convex/models/userProfiles.ts
+  - packages/backend/convex/models/emergencyContacts.ts
+  - packages/backend/convex/models/coachTrustLevels.ts
+  - packages/backend/convex/models/coachParentSummaries.ts
+  - packages/backend/convex/models/onboarding.ts
+  - packages/backend/convex/models/guardianPlayerLinks.ts
+  - packages/backend/convex/models/orgGuardianProfiles.ts
+  - packages/backend/convex/models/passportSharing.ts
+  - packages/backend/convex/models/playerGraduations.ts
+  - packages/backend/convex/models/members.ts
+  - packages/backend/convex/models/voiceNoteEntityResolutions.ts
+  - packages/backend/convex/models/users.ts
+  - packages/backend/convex/models/voicePipelineRetry.ts
+  - packages/backend/convex/models/skillAssessments.ts
+  - packages/backend/convex/models/playerSelfAccess.ts
+  - packages/backend/convex/models/aiServiceHealth.ts
+  - packages/backend/convex/models/importTemplates.ts
+  - packages/backend/convex/models/sports.ts
+  - packages/backend/convex/models/importProgress.ts
+  - packages/backend/convex/models/fixNeilsRoles.ts
+  - packages/backend/convex/models/playerIdentities.ts
+  - packages/backend/convex/models/voiceNotes.ts
+  - packages/backend/convex/models/guardianManagement.ts
+  - packages/backend/convex/models/importTemplateSeeds.ts
+  - packages/backend/convex/models/insightDrafts.ts
+  - packages/backend/convex/models/importSessionDrafts.ts
+  - packages/backend/convex/models/teamDecisions.ts
+  - packages/backend/convex/models/gaaTestMutations.ts
+  - packages/backend/convex/models/playerInjuries.ts
+  - packages/backend/convex/models/voiceNoteInsights.ts
+  - packages/backend/convex/models/playerEmergencyContacts.ts
+  - packages/backend/convex/models/coachTasks.ts
+  **Action**: Add `getUserOrgRole()` or mark as `// @public`
+- 🚨 **CRITICAL [P9]**: XSS risk - dangerouslySetInnerHTML without sanitization:
+    apps/web/src/components/ui/confetti.tsx:        dangerouslySetInnerHTML={{
+  apps/web/src/components/ui/chart.tsx:      dangerouslySetInnerHTML={{
+  apps/web/src/components/onboarding/gdpr-policy-viewer.tsx: * Uses dangerouslySetInnerHTML to avoid React key issues with static content.
+  **Action**: Use DOMPurify or remove dangerouslySetInnerHTML
+- ⚠️ **HIGH [P9]**: No rate limiting on notification/activity endpoints:
+  - packages/backend/convex/models/demoAsks.ts
+  **Action**: Add rate limiting to prevent spam/abuse
+- ⚠️ **HIGH [P9]**: AI endpoints without input validation:
+  - packages/backend/convex/actions/aiMapping.ts
+  - packages/backend/convex/actions/claimsExtraction.ts
+  - packages/backend/convex/actions/coachParentSummaries.ts
+  - packages/backend/convex/actions/practicePlans.ts
+  - packages/backend/convex/actions/sessionPlans.ts
+  - packages/backend/convex/actions/voiceNotes.ts
+  - packages/backend/convex/actions/wellnessInsights.ts
+  - packages/backend/convex/models/aiServiceHealth.ts
+  **Action**: Validate/sanitize user input before AI prompts
+- ⚠️ **HIGH [P9]**: Notification functions without permission checks:
+  - packages/backend/convex/models/notifications.ts
+  **Action**: Verify user can send notifications to recipient
+
+
+## Security Tester - 2026-02-25 23:25:35
+- 🚨 **CRITICAL**: Hardcoded secrets detected
+```
+apps/web/src/app/api/ai-config/verify-model/route.ts:          errorMessage: "ANTHROPIC_API_KEY not configured in Next.js env",
+apps/web/src/app/api/ai-config/verify-model/route.ts:          errorMessage: "OPENAI_API_KEY not configured in Next.js env",
+apps/web/src/app/api/ai-config/available-models/route.ts:    errors.anthropic = "ANTHROPIC_API_KEY not configured";
+apps/web/src/app/api/ai-config/available-models/route.ts:    errors.openai = "OPENAI_API_KEY not configured";
+apps/web/src/app/api/comparison-insights/route.ts:      console.error("❌ ANTHROPIC_API_KEY not found in environment variables");
+```
+- ⚠️ **HIGH**: 6 high-severity dependency vulnerabilities
+  Run `npm audit fix` to resolve
+- ⚠️ **HIGH**: Mutations without authorization checks:
+  - packages/backend/convex/models/platformMessagingSettings.ts
+  - packages/backend/convex/models/syncQueue.ts
+  - packages/backend/convex/models/importSessions.ts
+  - packages/backend/convex/models/passportComparison.ts
+  - packages/backend/convex/models/trustGatePermissions.ts
+  - packages/backend/convex/models/ageGroupEligibilityOverrides.ts
+  - packages/backend/convex/models/federationConnectors.ts
+  - packages/backend/convex/models/teamCollaboration.ts
+  - packages/backend/convex/models/guardianIdentities.ts
+  - packages/backend/convex/models/sessionPlans.ts
+  - packages/backend/convex/models/adultPlayers.ts
+  - packages/backend/convex/models/demoAsks.ts
+  - packages/backend/convex/models/skillBenchmarks.ts
+  - packages/backend/convex/models/coaches.ts
+  - packages/backend/convex/models/medicalProfiles.ts
+  - packages/backend/convex/models/invitations.ts
+  - packages/backend/convex/models/flows.ts
+  - packages/backend/convex/models/notifications.ts
+  - packages/backend/convex/models/whatsappReviewLinks.ts
+  - packages/backend/convex/models/teamObservations.ts
+  - packages/backend/convex/models/passportGoals.ts
+  - packages/backend/convex/models/players.ts
+  - packages/backend/convex/models/aiMappingCache.ts
+  - packages/backend/convex/models/orgInjuryNotes.ts
+  - packages/backend/convex/models/injuryDocuments.ts
+  - packages/backend/convex/models/playerHealthChecks.ts
+  - packages/backend/convex/models/playerImport.ts
+  - packages/backend/convex/models/passportEnquiries.ts
+  - packages/backend/convex/models/setup.ts
+  - packages/backend/convex/models/teamPlayerIdentities.ts
+  - packages/backend/convex/models/rateLimits.ts
+  - packages/backend/convex/models/phase4TestCleanup.ts
+  - packages/backend/convex/models/syncHistory.ts
+  - packages/backend/convex/models/platformStaffInvitations.ts
+  - packages/backend/convex/models/coachParentMessages.ts
+  - packages/backend/convex/models/aiModelConfig.ts
+  - packages/backend/convex/models/voicePipelineAlerts.ts
+  - packages/backend/convex/models/aiMappingAnalytics.ts
+  - packages/backend/convex/models/orgPlayerEnrollments.ts
+  - packages/backend/convex/models/sportPassports.ts
+  - packages/backend/convex/models/orgJoinRequests.ts
+  - packages/backend/convex/models/sportAgeGroupConfig.ts
+  - packages/backend/convex/models/referenceData.ts
+  - packages/backend/convex/models/importMappingHistory.ts
+  - packages/backend/convex/models/notificationPreferences.ts
+  - packages/backend/convex/models/userPreferences.ts
+  - packages/backend/convex/models/teams.ts
+  - packages/backend/convex/models/gdpr.ts
+  - packages/backend/convex/models/userProfiles.ts
+  - packages/backend/convex/models/emergencyContacts.ts
+  - packages/backend/convex/models/coachTrustLevels.ts
+  - packages/backend/convex/models/coachParentSummaries.ts
+  - packages/backend/convex/models/onboarding.ts
+  - packages/backend/convex/models/guardianPlayerLinks.ts
+  - packages/backend/convex/models/orgGuardianProfiles.ts
+  - packages/backend/convex/models/passportSharing.ts
+  - packages/backend/convex/models/playerGraduations.ts
+  - packages/backend/convex/models/members.ts
+  - packages/backend/convex/models/voiceNoteEntityResolutions.ts
+  - packages/backend/convex/models/users.ts
+  - packages/backend/convex/models/voicePipelineRetry.ts
+  - packages/backend/convex/models/skillAssessments.ts
+  - packages/backend/convex/models/playerSelfAccess.ts
+  - packages/backend/convex/models/aiServiceHealth.ts
+  - packages/backend/convex/models/importTemplates.ts
+  - packages/backend/convex/models/sports.ts
+  - packages/backend/convex/models/importProgress.ts
+  - packages/backend/convex/models/fixNeilsRoles.ts
+  - packages/backend/convex/models/playerIdentities.ts
+  - packages/backend/convex/models/voiceNotes.ts
+  - packages/backend/convex/models/guardianManagement.ts
+  - packages/backend/convex/models/importTemplateSeeds.ts
+  - packages/backend/convex/models/insightDrafts.ts
+  - packages/backend/convex/models/importSessionDrafts.ts
+  - packages/backend/convex/models/teamDecisions.ts
+  - packages/backend/convex/models/gaaTestMutations.ts
+  - packages/backend/convex/models/playerInjuries.ts
+  - packages/backend/convex/models/voiceNoteInsights.ts
+  - packages/backend/convex/models/playerEmergencyContacts.ts
+  - packages/backend/convex/models/coachTasks.ts
+  **Action**: Add `getUserOrgRole()` or mark as `// @public`
+- 🚨 **CRITICAL [P9]**: XSS risk - dangerouslySetInnerHTML without sanitization:
+    apps/web/src/components/ui/confetti.tsx:        dangerouslySetInnerHTML={{
+  apps/web/src/components/ui/chart.tsx:      dangerouslySetInnerHTML={{
+  apps/web/src/components/onboarding/gdpr-policy-viewer.tsx: * Uses dangerouslySetInnerHTML to avoid React key issues with static content.
+  **Action**: Use DOMPurify or remove dangerouslySetInnerHTML
+- ⚠️ **HIGH [P9]**: No rate limiting on notification/activity endpoints:
+  - packages/backend/convex/models/demoAsks.ts
+  **Action**: Add rate limiting to prevent spam/abuse
+- ⚠️ **HIGH [P9]**: AI endpoints without input validation:
+  - packages/backend/convex/actions/aiMapping.ts
+  - packages/backend/convex/actions/claimsExtraction.ts
+  - packages/backend/convex/actions/coachParentSummaries.ts
+  - packages/backend/convex/actions/practicePlans.ts
+  - packages/backend/convex/actions/sessionPlans.ts
+  - packages/backend/convex/actions/voiceNotes.ts
+  - packages/backend/convex/actions/wellnessInsights.ts
+  - packages/backend/convex/models/aiServiceHealth.ts
+  **Action**: Validate/sanitize user input before AI prompts
+- ⚠️ **HIGH [P9]**: Notification functions without permission checks:
+  - packages/backend/convex/models/notifications.ts
+  **Action**: Verify user can send notifications to recipient
+
+
+## Security Tester - 2026-02-25 23:27:37
+- 🚨 **CRITICAL**: Hardcoded secrets detected
+```
+apps/web/src/app/api/ai-config/verify-model/route.ts:          errorMessage: "ANTHROPIC_API_KEY not configured in Next.js env",
+apps/web/src/app/api/ai-config/verify-model/route.ts:          errorMessage: "OPENAI_API_KEY not configured in Next.js env",
+apps/web/src/app/api/ai-config/available-models/route.ts:    errors.anthropic = "ANTHROPIC_API_KEY not configured";
+apps/web/src/app/api/ai-config/available-models/route.ts:    errors.openai = "OPENAI_API_KEY not configured";
+apps/web/src/app/api/comparison-insights/route.ts:      console.error("❌ ANTHROPIC_API_KEY not found in environment variables");
+```
+- ⚠️ **HIGH**: 6 high-severity dependency vulnerabilities
+  Run `npm audit fix` to resolve
+- ⚠️ **HIGH**: Mutations without authorization checks:
+  - packages/backend/convex/models/platformMessagingSettings.ts
+  - packages/backend/convex/models/syncQueue.ts
+  - packages/backend/convex/models/importSessions.ts
+  - packages/backend/convex/models/passportComparison.ts
+  - packages/backend/convex/models/trustGatePermissions.ts
+  - packages/backend/convex/models/ageGroupEligibilityOverrides.ts
+  - packages/backend/convex/models/federationConnectors.ts
+  - packages/backend/convex/models/teamCollaboration.ts
+  - packages/backend/convex/models/guardianIdentities.ts
+  - packages/backend/convex/models/sessionPlans.ts
+  - packages/backend/convex/models/adultPlayers.ts
+  - packages/backend/convex/models/demoAsks.ts
+  - packages/backend/convex/models/skillBenchmarks.ts
+  - packages/backend/convex/models/coaches.ts
+  - packages/backend/convex/models/medicalProfiles.ts
+  - packages/backend/convex/models/invitations.ts
+  - packages/backend/convex/models/flows.ts
+  - packages/backend/convex/models/notifications.ts
+  - packages/backend/convex/models/whatsappReviewLinks.ts
+  - packages/backend/convex/models/teamObservations.ts
+  - packages/backend/convex/models/passportGoals.ts
+  - packages/backend/convex/models/players.ts
+  - packages/backend/convex/models/aiMappingCache.ts
+  - packages/backend/convex/models/orgInjuryNotes.ts
+  - packages/backend/convex/models/injuryDocuments.ts
+  - packages/backend/convex/models/playerHealthChecks.ts
+  - packages/backend/convex/models/playerImport.ts
+  - packages/backend/convex/models/passportEnquiries.ts
+  - packages/backend/convex/models/setup.ts
+  - packages/backend/convex/models/teamPlayerIdentities.ts
+  - packages/backend/convex/models/rateLimits.ts
+  - packages/backend/convex/models/phase4TestCleanup.ts
+  - packages/backend/convex/models/syncHistory.ts
+  - packages/backend/convex/models/platformStaffInvitations.ts
+  - packages/backend/convex/models/coachParentMessages.ts
+  - packages/backend/convex/models/aiModelConfig.ts
+  - packages/backend/convex/models/voicePipelineAlerts.ts
+  - packages/backend/convex/models/aiMappingAnalytics.ts
+  - packages/backend/convex/models/orgPlayerEnrollments.ts
+  - packages/backend/convex/models/sportPassports.ts
+  - packages/backend/convex/models/orgJoinRequests.ts
+  - packages/backend/convex/models/sportAgeGroupConfig.ts
+  - packages/backend/convex/models/referenceData.ts
+  - packages/backend/convex/models/importMappingHistory.ts
+  - packages/backend/convex/models/notificationPreferences.ts
+  - packages/backend/convex/models/userPreferences.ts
+  - packages/backend/convex/models/teams.ts
+  - packages/backend/convex/models/gdpr.ts
+  - packages/backend/convex/models/userProfiles.ts
+  - packages/backend/convex/models/emergencyContacts.ts
+  - packages/backend/convex/models/coachTrustLevels.ts
+  - packages/backend/convex/models/coachParentSummaries.ts
+  - packages/backend/convex/models/onboarding.ts
+  - packages/backend/convex/models/guardianPlayerLinks.ts
+  - packages/backend/convex/models/orgGuardianProfiles.ts
+  - packages/backend/convex/models/passportSharing.ts
+  - packages/backend/convex/models/playerGraduations.ts
+  - packages/backend/convex/models/members.ts
+  - packages/backend/convex/models/voiceNoteEntityResolutions.ts
+  - packages/backend/convex/models/users.ts
+  - packages/backend/convex/models/voicePipelineRetry.ts
+  - packages/backend/convex/models/skillAssessments.ts
+  - packages/backend/convex/models/playerSelfAccess.ts
+  - packages/backend/convex/models/aiServiceHealth.ts
+  - packages/backend/convex/models/importTemplates.ts
+  - packages/backend/convex/models/sports.ts
+  - packages/backend/convex/models/importProgress.ts
+  - packages/backend/convex/models/fixNeilsRoles.ts
+  - packages/backend/convex/models/playerIdentities.ts
+  - packages/backend/convex/models/voiceNotes.ts
+  - packages/backend/convex/models/guardianManagement.ts
+  - packages/backend/convex/models/importTemplateSeeds.ts
+  - packages/backend/convex/models/insightDrafts.ts
+  - packages/backend/convex/models/importSessionDrafts.ts
+  - packages/backend/convex/models/teamDecisions.ts
+  - packages/backend/convex/models/gaaTestMutations.ts
+  - packages/backend/convex/models/playerInjuries.ts
+  - packages/backend/convex/models/voiceNoteInsights.ts
+  - packages/backend/convex/models/playerEmergencyContacts.ts
+  - packages/backend/convex/models/coachTasks.ts
+  **Action**: Add `getUserOrgRole()` or mark as `// @public`
+- 🚨 **CRITICAL [P9]**: XSS risk - dangerouslySetInnerHTML without sanitization:
+    apps/web/src/components/ui/confetti.tsx:        dangerouslySetInnerHTML={{
+  apps/web/src/components/ui/chart.tsx:      dangerouslySetInnerHTML={{
+  apps/web/src/components/onboarding/gdpr-policy-viewer.tsx: * Uses dangerouslySetInnerHTML to avoid React key issues with static content.
+  **Action**: Use DOMPurify or remove dangerouslySetInnerHTML
+- ⚠️ **HIGH [P9]**: No rate limiting on notification/activity endpoints:
+  - packages/backend/convex/models/demoAsks.ts
+  **Action**: Add rate limiting to prevent spam/abuse
+- ⚠️ **HIGH [P9]**: AI endpoints without input validation:
+  - packages/backend/convex/actions/aiMapping.ts
+  - packages/backend/convex/actions/claimsExtraction.ts
+  - packages/backend/convex/actions/coachParentSummaries.ts
+  - packages/backend/convex/actions/practicePlans.ts
+  - packages/backend/convex/actions/sessionPlans.ts
+  - packages/backend/convex/actions/voiceNotes.ts
+  - packages/backend/convex/actions/wellnessInsights.ts
+  - packages/backend/convex/models/aiServiceHealth.ts
+  **Action**: Validate/sanitize user input before AI prompts
+- ⚠️ **HIGH [P9]**: Notification functions without permission checks:
+  - packages/backend/convex/models/notifications.ts
+  **Action**: Verify user can send notifications to recipient
+
+
+## Security Tester - 2026-02-25 23:29:41
+- 🚨 **CRITICAL**: Hardcoded secrets detected
+```
+apps/web/src/app/api/ai-config/verify-model/route.ts:          errorMessage: "ANTHROPIC_API_KEY not configured in Next.js env",
+apps/web/src/app/api/ai-config/verify-model/route.ts:          errorMessage: "OPENAI_API_KEY not configured in Next.js env",
+apps/web/src/app/api/ai-config/available-models/route.ts:    errors.anthropic = "ANTHROPIC_API_KEY not configured";
+apps/web/src/app/api/ai-config/available-models/route.ts:    errors.openai = "OPENAI_API_KEY not configured";
+apps/web/src/app/api/comparison-insights/route.ts:      console.error("❌ ANTHROPIC_API_KEY not found in environment variables");
+```
+- ⚠️ **HIGH**: 6 high-severity dependency vulnerabilities
+  Run `npm audit fix` to resolve
+- ⚠️ **HIGH**: Mutations without authorization checks:
+  - packages/backend/convex/models/platformMessagingSettings.ts
+  - packages/backend/convex/models/syncQueue.ts
+  - packages/backend/convex/models/importSessions.ts
+  - packages/backend/convex/models/passportComparison.ts
+  - packages/backend/convex/models/trustGatePermissions.ts
+  - packages/backend/convex/models/ageGroupEligibilityOverrides.ts
+  - packages/backend/convex/models/federationConnectors.ts
+  - packages/backend/convex/models/teamCollaboration.ts
+  - packages/backend/convex/models/guardianIdentities.ts
+  - packages/backend/convex/models/sessionPlans.ts
+  - packages/backend/convex/models/adultPlayers.ts
+  - packages/backend/convex/models/demoAsks.ts
+  - packages/backend/convex/models/skillBenchmarks.ts
+  - packages/backend/convex/models/coaches.ts
+  - packages/backend/convex/models/medicalProfiles.ts
+  - packages/backend/convex/models/invitations.ts
+  - packages/backend/convex/models/flows.ts
+  - packages/backend/convex/models/notifications.ts
+  - packages/backend/convex/models/whatsappReviewLinks.ts
+  - packages/backend/convex/models/teamObservations.ts
+  - packages/backend/convex/models/passportGoals.ts
+  - packages/backend/convex/models/players.ts
+  - packages/backend/convex/models/aiMappingCache.ts
+  - packages/backend/convex/models/orgInjuryNotes.ts
+  - packages/backend/convex/models/injuryDocuments.ts
+  - packages/backend/convex/models/playerHealthChecks.ts
+  - packages/backend/convex/models/playerImport.ts
+  - packages/backend/convex/models/passportEnquiries.ts
+  - packages/backend/convex/models/setup.ts
+  - packages/backend/convex/models/teamPlayerIdentities.ts
+  - packages/backend/convex/models/rateLimits.ts
+  - packages/backend/convex/models/phase4TestCleanup.ts
+  - packages/backend/convex/models/syncHistory.ts
+  - packages/backend/convex/models/platformStaffInvitations.ts
+  - packages/backend/convex/models/coachParentMessages.ts
+  - packages/backend/convex/models/aiModelConfig.ts
+  - packages/backend/convex/models/voicePipelineAlerts.ts
+  - packages/backend/convex/models/aiMappingAnalytics.ts
+  - packages/backend/convex/models/orgPlayerEnrollments.ts
+  - packages/backend/convex/models/sportPassports.ts
+  - packages/backend/convex/models/orgJoinRequests.ts
+  - packages/backend/convex/models/sportAgeGroupConfig.ts
+  - packages/backend/convex/models/referenceData.ts
+  - packages/backend/convex/models/importMappingHistory.ts
+  - packages/backend/convex/models/notificationPreferences.ts
+  - packages/backend/convex/models/userPreferences.ts
+  - packages/backend/convex/models/teams.ts
+  - packages/backend/convex/models/gdpr.ts
+  - packages/backend/convex/models/userProfiles.ts
+  - packages/backend/convex/models/emergencyContacts.ts
+  - packages/backend/convex/models/coachTrustLevels.ts
+  - packages/backend/convex/models/coachParentSummaries.ts
+  - packages/backend/convex/models/onboarding.ts
+  - packages/backend/convex/models/guardianPlayerLinks.ts
+  - packages/backend/convex/models/orgGuardianProfiles.ts
+  - packages/backend/convex/models/passportSharing.ts
+  - packages/backend/convex/models/playerGraduations.ts
+  - packages/backend/convex/models/members.ts
+  - packages/backend/convex/models/voiceNoteEntityResolutions.ts
+  - packages/backend/convex/models/users.ts
+  - packages/backend/convex/models/voicePipelineRetry.ts
+  - packages/backend/convex/models/skillAssessments.ts
+  - packages/backend/convex/models/playerSelfAccess.ts
+  - packages/backend/convex/models/aiServiceHealth.ts
+  - packages/backend/convex/models/importTemplates.ts
+  - packages/backend/convex/models/sports.ts
+  - packages/backend/convex/models/importProgress.ts
+  - packages/backend/convex/models/fixNeilsRoles.ts
+  - packages/backend/convex/models/playerIdentities.ts
+  - packages/backend/convex/models/voiceNotes.ts
+  - packages/backend/convex/models/guardianManagement.ts
+  - packages/backend/convex/models/importTemplateSeeds.ts
+  - packages/backend/convex/models/insightDrafts.ts
+  - packages/backend/convex/models/importSessionDrafts.ts
+  - packages/backend/convex/models/teamDecisions.ts
+  - packages/backend/convex/models/gaaTestMutations.ts
+  - packages/backend/convex/models/playerInjuries.ts
+  - packages/backend/convex/models/voiceNoteInsights.ts
+  - packages/backend/convex/models/playerEmergencyContacts.ts
+  - packages/backend/convex/models/coachTasks.ts
+  **Action**: Add `getUserOrgRole()` or mark as `// @public`
+- 🚨 **CRITICAL [P9]**: XSS risk - dangerouslySetInnerHTML without sanitization:
+    apps/web/src/components/ui/confetti.tsx:        dangerouslySetInnerHTML={{
+  apps/web/src/components/ui/chart.tsx:      dangerouslySetInnerHTML={{
+  apps/web/src/components/onboarding/gdpr-policy-viewer.tsx: * Uses dangerouslySetInnerHTML to avoid React key issues with static content.
+  **Action**: Use DOMPurify or remove dangerouslySetInnerHTML
+- ⚠️ **HIGH [P9]**: No rate limiting on notification/activity endpoints:
+  - packages/backend/convex/models/demoAsks.ts
+  **Action**: Add rate limiting to prevent spam/abuse
+- ⚠️ **HIGH [P9]**: AI endpoints without input validation:
+  - packages/backend/convex/actions/aiMapping.ts
+  - packages/backend/convex/actions/claimsExtraction.ts
+  - packages/backend/convex/actions/coachParentSummaries.ts
+  - packages/backend/convex/actions/practicePlans.ts
+  - packages/backend/convex/actions/sessionPlans.ts
+  - packages/backend/convex/actions/voiceNotes.ts
+  - packages/backend/convex/actions/wellnessInsights.ts
+  - packages/backend/convex/models/aiServiceHealth.ts
+  **Action**: Validate/sanitize user input before AI prompts
+- ⚠️ **HIGH [P9]**: Notification functions without permission checks:
+  - packages/backend/convex/models/notifications.ts
+  **Action**: Verify user can send notifications to recipient
+
+
+## Security Tester - 2026-02-25 23:31:43
+- 🚨 **CRITICAL**: Hardcoded secrets detected
+```
+apps/web/src/app/api/ai-config/verify-model/route.ts:          errorMessage: "ANTHROPIC_API_KEY not configured in Next.js env",
+apps/web/src/app/api/ai-config/verify-model/route.ts:          errorMessage: "OPENAI_API_KEY not configured in Next.js env",
+apps/web/src/app/api/ai-config/available-models/route.ts:    errors.anthropic = "ANTHROPIC_API_KEY not configured";
+apps/web/src/app/api/ai-config/available-models/route.ts:    errors.openai = "OPENAI_API_KEY not configured";
+apps/web/src/app/api/comparison-insights/route.ts:      console.error("❌ ANTHROPIC_API_KEY not found in environment variables");
+```
+- ⚠️ **HIGH**: 6 high-severity dependency vulnerabilities
+  Run `npm audit fix` to resolve
+- ⚠️ **HIGH**: Mutations without authorization checks:
+  - packages/backend/convex/models/platformMessagingSettings.ts
+  - packages/backend/convex/models/syncQueue.ts
+  - packages/backend/convex/models/importSessions.ts
+  - packages/backend/convex/models/passportComparison.ts
+  - packages/backend/convex/models/trustGatePermissions.ts
+  - packages/backend/convex/models/ageGroupEligibilityOverrides.ts
+  - packages/backend/convex/models/federationConnectors.ts
+  - packages/backend/convex/models/teamCollaboration.ts
+  - packages/backend/convex/models/guardianIdentities.ts
+  - packages/backend/convex/models/sessionPlans.ts
+  - packages/backend/convex/models/adultPlayers.ts
+  - packages/backend/convex/models/demoAsks.ts
+  - packages/backend/convex/models/skillBenchmarks.ts
+  - packages/backend/convex/models/coaches.ts
+  - packages/backend/convex/models/medicalProfiles.ts
+  - packages/backend/convex/models/invitations.ts
+  - packages/backend/convex/models/flows.ts
+  - packages/backend/convex/models/notifications.ts
+  - packages/backend/convex/models/whatsappReviewLinks.ts
+  - packages/backend/convex/models/teamObservations.ts
+  - packages/backend/convex/models/passportGoals.ts
+  - packages/backend/convex/models/players.ts
+  - packages/backend/convex/models/aiMappingCache.ts
+  - packages/backend/convex/models/orgInjuryNotes.ts
+  - packages/backend/convex/models/injuryDocuments.ts
+  - packages/backend/convex/models/playerHealthChecks.ts
+  - packages/backend/convex/models/playerImport.ts
+  - packages/backend/convex/models/passportEnquiries.ts
+  - packages/backend/convex/models/setup.ts
+  - packages/backend/convex/models/teamPlayerIdentities.ts
+  - packages/backend/convex/models/rateLimits.ts
+  - packages/backend/convex/models/phase4TestCleanup.ts
+  - packages/backend/convex/models/syncHistory.ts
+  - packages/backend/convex/models/platformStaffInvitations.ts
+  - packages/backend/convex/models/coachParentMessages.ts
+  - packages/backend/convex/models/aiModelConfig.ts
+  - packages/backend/convex/models/voicePipelineAlerts.ts
+  - packages/backend/convex/models/aiMappingAnalytics.ts
+  - packages/backend/convex/models/orgPlayerEnrollments.ts
+  - packages/backend/convex/models/sportPassports.ts
+  - packages/backend/convex/models/orgJoinRequests.ts
+  - packages/backend/convex/models/sportAgeGroupConfig.ts
+  - packages/backend/convex/models/referenceData.ts
+  - packages/backend/convex/models/importMappingHistory.ts
+  - packages/backend/convex/models/notificationPreferences.ts
+  - packages/backend/convex/models/userPreferences.ts
+  - packages/backend/convex/models/teams.ts
+  - packages/backend/convex/models/gdpr.ts
+  - packages/backend/convex/models/userProfiles.ts
+  - packages/backend/convex/models/emergencyContacts.ts
+  - packages/backend/convex/models/coachTrustLevels.ts
+  - packages/backend/convex/models/coachParentSummaries.ts
+  - packages/backend/convex/models/onboarding.ts
+  - packages/backend/convex/models/guardianPlayerLinks.ts
+  - packages/backend/convex/models/orgGuardianProfiles.ts
+  - packages/backend/convex/models/passportSharing.ts
+  - packages/backend/convex/models/playerGraduations.ts
+  - packages/backend/convex/models/members.ts
+  - packages/backend/convex/models/voiceNoteEntityResolutions.ts
+  - packages/backend/convex/models/users.ts
+  - packages/backend/convex/models/voicePipelineRetry.ts
+  - packages/backend/convex/models/skillAssessments.ts
+  - packages/backend/convex/models/playerSelfAccess.ts
+  - packages/backend/convex/models/aiServiceHealth.ts
+  - packages/backend/convex/models/importTemplates.ts
+  - packages/backend/convex/models/sports.ts
+  - packages/backend/convex/models/importProgress.ts
+  - packages/backend/convex/models/fixNeilsRoles.ts
+  - packages/backend/convex/models/playerIdentities.ts
+  - packages/backend/convex/models/voiceNotes.ts
+  - packages/backend/convex/models/guardianManagement.ts
+  - packages/backend/convex/models/importTemplateSeeds.ts
+  - packages/backend/convex/models/insightDrafts.ts
+  - packages/backend/convex/models/importSessionDrafts.ts
+  - packages/backend/convex/models/teamDecisions.ts
+  - packages/backend/convex/models/gaaTestMutations.ts
+  - packages/backend/convex/models/playerInjuries.ts
+  - packages/backend/convex/models/voiceNoteInsights.ts
+  - packages/backend/convex/models/playerEmergencyContacts.ts
+  - packages/backend/convex/models/coachTasks.ts
+  **Action**: Add `getUserOrgRole()` or mark as `// @public`
+- 🚨 **CRITICAL [P9]**: XSS risk - dangerouslySetInnerHTML without sanitization:
+    apps/web/src/components/ui/confetti.tsx:        dangerouslySetInnerHTML={{
+  apps/web/src/components/ui/chart.tsx:      dangerouslySetInnerHTML={{
+  apps/web/src/components/onboarding/gdpr-policy-viewer.tsx: * Uses dangerouslySetInnerHTML to avoid React key issues with static content.
+  **Action**: Use DOMPurify or remove dangerouslySetInnerHTML
+- ⚠️ **HIGH [P9]**: No rate limiting on notification/activity endpoints:
+  - packages/backend/convex/models/demoAsks.ts
+  **Action**: Add rate limiting to prevent spam/abuse
+- ⚠️ **HIGH [P9]**: AI endpoints without input validation:
+  - packages/backend/convex/actions/aiMapping.ts
+  - packages/backend/convex/actions/claimsExtraction.ts
+  - packages/backend/convex/actions/coachParentSummaries.ts
+  - packages/backend/convex/actions/practicePlans.ts
+  - packages/backend/convex/actions/sessionPlans.ts
+  - packages/backend/convex/actions/voiceNotes.ts
+  - packages/backend/convex/actions/wellnessInsights.ts
+  - packages/backend/convex/models/aiServiceHealth.ts
+  **Action**: Validate/sanitize user input before AI prompts
+- ⚠️ **HIGH [P9]**: Notification functions without permission checks:
+  - packages/backend/convex/models/notifications.ts
+  **Action**: Verify user can send notifications to recipient
+
+
+## Security Tester - 2026-02-25 23:33:45
+- 🚨 **CRITICAL**: Hardcoded secrets detected
+```
+apps/web/src/app/api/ai-config/verify-model/route.ts:          errorMessage: "ANTHROPIC_API_KEY not configured in Next.js env",
+apps/web/src/app/api/ai-config/verify-model/route.ts:          errorMessage: "OPENAI_API_KEY not configured in Next.js env",
+apps/web/src/app/api/ai-config/available-models/route.ts:    errors.anthropic = "ANTHROPIC_API_KEY not configured";
+apps/web/src/app/api/ai-config/available-models/route.ts:    errors.openai = "OPENAI_API_KEY not configured";
+apps/web/src/app/api/comparison-insights/route.ts:      console.error("❌ ANTHROPIC_API_KEY not found in environment variables");
+```
+- ⚠️ **HIGH**: 6 high-severity dependency vulnerabilities
+  Run `npm audit fix` to resolve
+- ⚠️ **HIGH**: Mutations without authorization checks:
+  - packages/backend/convex/models/platformMessagingSettings.ts
+  - packages/backend/convex/models/syncQueue.ts
+  - packages/backend/convex/models/importSessions.ts
+  - packages/backend/convex/models/passportComparison.ts
+  - packages/backend/convex/models/trustGatePermissions.ts
+  - packages/backend/convex/models/ageGroupEligibilityOverrides.ts
+  - packages/backend/convex/models/federationConnectors.ts
+  - packages/backend/convex/models/teamCollaboration.ts
+  - packages/backend/convex/models/guardianIdentities.ts
+  - packages/backend/convex/models/sessionPlans.ts
+  - packages/backend/convex/models/adultPlayers.ts
+  - packages/backend/convex/models/demoAsks.ts
+  - packages/backend/convex/models/skillBenchmarks.ts
+  - packages/backend/convex/models/coaches.ts
+  - packages/backend/convex/models/medicalProfiles.ts
+  - packages/backend/convex/models/invitations.ts
+  - packages/backend/convex/models/flows.ts
+  - packages/backend/convex/models/notifications.ts
+  - packages/backend/convex/models/whatsappReviewLinks.ts
+  - packages/backend/convex/models/teamObservations.ts
+  - packages/backend/convex/models/passportGoals.ts
+  - packages/backend/convex/models/players.ts
+  - packages/backend/convex/models/aiMappingCache.ts
+  - packages/backend/convex/models/orgInjuryNotes.ts
+  - packages/backend/convex/models/injuryDocuments.ts
+  - packages/backend/convex/models/playerHealthChecks.ts
+  - packages/backend/convex/models/playerImport.ts
+  - packages/backend/convex/models/passportEnquiries.ts
+  - packages/backend/convex/models/setup.ts
+  - packages/backend/convex/models/teamPlayerIdentities.ts
+  - packages/backend/convex/models/rateLimits.ts
+  - packages/backend/convex/models/phase4TestCleanup.ts
+  - packages/backend/convex/models/syncHistory.ts
+  - packages/backend/convex/models/platformStaffInvitations.ts
+  - packages/backend/convex/models/coachParentMessages.ts
+  - packages/backend/convex/models/aiModelConfig.ts
+  - packages/backend/convex/models/voicePipelineAlerts.ts
+  - packages/backend/convex/models/aiMappingAnalytics.ts
+  - packages/backend/convex/models/orgPlayerEnrollments.ts
+  - packages/backend/convex/models/sportPassports.ts
+  - packages/backend/convex/models/orgJoinRequests.ts
+  - packages/backend/convex/models/sportAgeGroupConfig.ts
+  - packages/backend/convex/models/referenceData.ts
+  - packages/backend/convex/models/importMappingHistory.ts
+  - packages/backend/convex/models/notificationPreferences.ts
+  - packages/backend/convex/models/userPreferences.ts
+  - packages/backend/convex/models/teams.ts
+  - packages/backend/convex/models/gdpr.ts
+  - packages/backend/convex/models/userProfiles.ts
+  - packages/backend/convex/models/emergencyContacts.ts
+  - packages/backend/convex/models/coachTrustLevels.ts
+  - packages/backend/convex/models/coachParentSummaries.ts
+  - packages/backend/convex/models/onboarding.ts
+  - packages/backend/convex/models/guardianPlayerLinks.ts
+  - packages/backend/convex/models/orgGuardianProfiles.ts
+  - packages/backend/convex/models/passportSharing.ts
+  - packages/backend/convex/models/playerGraduations.ts
+  - packages/backend/convex/models/members.ts
+  - packages/backend/convex/models/voiceNoteEntityResolutions.ts
+  - packages/backend/convex/models/users.ts
+  - packages/backend/convex/models/voicePipelineRetry.ts
+  - packages/backend/convex/models/skillAssessments.ts
+  - packages/backend/convex/models/playerSelfAccess.ts
+  - packages/backend/convex/models/aiServiceHealth.ts
+  - packages/backend/convex/models/importTemplates.ts
+  - packages/backend/convex/models/sports.ts
+  - packages/backend/convex/models/importProgress.ts
+  - packages/backend/convex/models/fixNeilsRoles.ts
+  - packages/backend/convex/models/playerIdentities.ts
+  - packages/backend/convex/models/voiceNotes.ts
+  - packages/backend/convex/models/guardianManagement.ts
+  - packages/backend/convex/models/importTemplateSeeds.ts
+  - packages/backend/convex/models/insightDrafts.ts
+  - packages/backend/convex/models/importSessionDrafts.ts
+  - packages/backend/convex/models/teamDecisions.ts
+  - packages/backend/convex/models/gaaTestMutations.ts
+  - packages/backend/convex/models/playerInjuries.ts
+  - packages/backend/convex/models/voiceNoteInsights.ts
+  - packages/backend/convex/models/playerEmergencyContacts.ts
+  - packages/backend/convex/models/coachTasks.ts
+  **Action**: Add `getUserOrgRole()` or mark as `// @public`
+- 🚨 **CRITICAL [P9]**: XSS risk - dangerouslySetInnerHTML without sanitization:
+    apps/web/src/components/ui/confetti.tsx:        dangerouslySetInnerHTML={{
+  apps/web/src/components/ui/chart.tsx:      dangerouslySetInnerHTML={{
+  apps/web/src/components/onboarding/gdpr-policy-viewer.tsx: * Uses dangerouslySetInnerHTML to avoid React key issues with static content.
+  **Action**: Use DOMPurify or remove dangerouslySetInnerHTML
+- ⚠️ **HIGH [P9]**: No rate limiting on notification/activity endpoints:
+  - packages/backend/convex/models/demoAsks.ts
+  **Action**: Add rate limiting to prevent spam/abuse
+- ⚠️ **HIGH [P9]**: AI endpoints without input validation:
+  - packages/backend/convex/actions/aiMapping.ts
+  - packages/backend/convex/actions/claimsExtraction.ts
+  - packages/backend/convex/actions/coachParentSummaries.ts
+  - packages/backend/convex/actions/practicePlans.ts
+  - packages/backend/convex/actions/sessionPlans.ts
+  - packages/backend/convex/actions/voiceNotes.ts
+  - packages/backend/convex/actions/wellnessInsights.ts
+  - packages/backend/convex/models/aiServiceHealth.ts
+  **Action**: Validate/sanitize user input before AI prompts
+- ⚠️ **HIGH [P9]**: Notification functions without permission checks:
+  - packages/backend/convex/models/notifications.ts
+  **Action**: Verify user can send notifications to recipient
+
+
+## Security Tester - 2026-02-25 23:35:50
+- 🚨 **CRITICAL**: Hardcoded secrets detected
+```
+apps/web/src/app/api/ai-config/verify-model/route.ts:          errorMessage: "ANTHROPIC_API_KEY not configured in Next.js env",
+apps/web/src/app/api/ai-config/verify-model/route.ts:          errorMessage: "OPENAI_API_KEY not configured in Next.js env",
+apps/web/src/app/api/ai-config/available-models/route.ts:    errors.anthropic = "ANTHROPIC_API_KEY not configured";
+apps/web/src/app/api/ai-config/available-models/route.ts:    errors.openai = "OPENAI_API_KEY not configured";
+apps/web/src/app/api/comparison-insights/route.ts:      console.error("❌ ANTHROPIC_API_KEY not found in environment variables");
+```
+- ⚠️ **HIGH**: 6 high-severity dependency vulnerabilities
+  Run `npm audit fix` to resolve
+- ⚠️ **HIGH**: Mutations without authorization checks:
+  - packages/backend/convex/models/platformMessagingSettings.ts
+  - packages/backend/convex/models/syncQueue.ts
+  - packages/backend/convex/models/importSessions.ts
+  - packages/backend/convex/models/passportComparison.ts
+  - packages/backend/convex/models/trustGatePermissions.ts
+  - packages/backend/convex/models/ageGroupEligibilityOverrides.ts
+  - packages/backend/convex/models/federationConnectors.ts
+  - packages/backend/convex/models/teamCollaboration.ts
+  - packages/backend/convex/models/guardianIdentities.ts
+  - packages/backend/convex/models/sessionPlans.ts
+  - packages/backend/convex/models/adultPlayers.ts
+  - packages/backend/convex/models/demoAsks.ts
+  - packages/backend/convex/models/skillBenchmarks.ts
+  - packages/backend/convex/models/coaches.ts
+  - packages/backend/convex/models/medicalProfiles.ts
+  - packages/backend/convex/models/invitations.ts
+  - packages/backend/convex/models/flows.ts
+  - packages/backend/convex/models/notifications.ts
+  - packages/backend/convex/models/whatsappReviewLinks.ts
+  - packages/backend/convex/models/teamObservations.ts
+  - packages/backend/convex/models/passportGoals.ts
+  - packages/backend/convex/models/players.ts
+  - packages/backend/convex/models/aiMappingCache.ts
+  - packages/backend/convex/models/orgInjuryNotes.ts
+  - packages/backend/convex/models/injuryDocuments.ts
+  - packages/backend/convex/models/playerHealthChecks.ts
+  - packages/backend/convex/models/playerImport.ts
+  - packages/backend/convex/models/passportEnquiries.ts
+  - packages/backend/convex/models/setup.ts
+  - packages/backend/convex/models/teamPlayerIdentities.ts
+  - packages/backend/convex/models/rateLimits.ts
+  - packages/backend/convex/models/phase4TestCleanup.ts
+  - packages/backend/convex/models/syncHistory.ts
+  - packages/backend/convex/models/platformStaffInvitations.ts
+  - packages/backend/convex/models/coachParentMessages.ts
+  - packages/backend/convex/models/aiModelConfig.ts
+  - packages/backend/convex/models/voicePipelineAlerts.ts
+  - packages/backend/convex/models/aiMappingAnalytics.ts
+  - packages/backend/convex/models/orgPlayerEnrollments.ts
+  - packages/backend/convex/models/sportPassports.ts
+  - packages/backend/convex/models/orgJoinRequests.ts
+  - packages/backend/convex/models/sportAgeGroupConfig.ts
+  - packages/backend/convex/models/referenceData.ts
+  - packages/backend/convex/models/importMappingHistory.ts
+  - packages/backend/convex/models/notificationPreferences.ts
+  - packages/backend/convex/models/userPreferences.ts
+  - packages/backend/convex/models/teams.ts
+  - packages/backend/convex/models/gdpr.ts
+  - packages/backend/convex/models/userProfiles.ts
+  - packages/backend/convex/models/emergencyContacts.ts
+  - packages/backend/convex/models/coachTrustLevels.ts
+  - packages/backend/convex/models/coachParentSummaries.ts
+  - packages/backend/convex/models/onboarding.ts
+  - packages/backend/convex/models/guardianPlayerLinks.ts
+  - packages/backend/convex/models/orgGuardianProfiles.ts
+  - packages/backend/convex/models/passportSharing.ts
+  - packages/backend/convex/models/playerGraduations.ts
+  - packages/backend/convex/models/members.ts
+  - packages/backend/convex/models/voiceNoteEntityResolutions.ts
+  - packages/backend/convex/models/users.ts
+  - packages/backend/convex/models/voicePipelineRetry.ts
+  - packages/backend/convex/models/skillAssessments.ts
+  - packages/backend/convex/models/playerSelfAccess.ts
+  - packages/backend/convex/models/aiServiceHealth.ts
+  - packages/backend/convex/models/importTemplates.ts
+  - packages/backend/convex/models/sports.ts
+  - packages/backend/convex/models/importProgress.ts
+  - packages/backend/convex/models/fixNeilsRoles.ts
+  - packages/backend/convex/models/playerIdentities.ts
+  - packages/backend/convex/models/voiceNotes.ts
+  - packages/backend/convex/models/guardianManagement.ts
+  - packages/backend/convex/models/importTemplateSeeds.ts
+  - packages/backend/convex/models/insightDrafts.ts
+  - packages/backend/convex/models/importSessionDrafts.ts
+  - packages/backend/convex/models/teamDecisions.ts
+  - packages/backend/convex/models/gaaTestMutations.ts
+  - packages/backend/convex/models/playerInjuries.ts
+  - packages/backend/convex/models/voiceNoteInsights.ts
+  - packages/backend/convex/models/playerEmergencyContacts.ts
+  - packages/backend/convex/models/coachTasks.ts
+  **Action**: Add `getUserOrgRole()` or mark as `// @public`
+- 🚨 **CRITICAL [P9]**: XSS risk - dangerouslySetInnerHTML without sanitization:
+    apps/web/src/components/ui/confetti.tsx:        dangerouslySetInnerHTML={{
+  apps/web/src/components/ui/chart.tsx:      dangerouslySetInnerHTML={{
+  apps/web/src/components/onboarding/gdpr-policy-viewer.tsx: * Uses dangerouslySetInnerHTML to avoid React key issues with static content.
+  **Action**: Use DOMPurify or remove dangerouslySetInnerHTML
+- ⚠️ **HIGH [P9]**: No rate limiting on notification/activity endpoints:
+  - packages/backend/convex/models/demoAsks.ts
+  **Action**: Add rate limiting to prevent spam/abuse
+- ⚠️ **HIGH [P9]**: AI endpoints without input validation:
+  - packages/backend/convex/actions/aiMapping.ts
+  - packages/backend/convex/actions/claimsExtraction.ts
+  - packages/backend/convex/actions/coachParentSummaries.ts
+  - packages/backend/convex/actions/practicePlans.ts
+  - packages/backend/convex/actions/sessionPlans.ts
+  - packages/backend/convex/actions/voiceNotes.ts
+  - packages/backend/convex/actions/wellnessInsights.ts
+  - packages/backend/convex/models/aiServiceHealth.ts
+  **Action**: Validate/sanitize user input before AI prompts
+- ⚠️ **HIGH [P9]**: Notification functions without permission checks:
+  - packages/backend/convex/models/notifications.ts
+  **Action**: Verify user can send notifications to recipient
+
+
+## Security Tester - 2026-02-25 23:37:52
+- 🚨 **CRITICAL**: Hardcoded secrets detected
+```
+apps/web/src/app/api/ai-config/verify-model/route.ts:          errorMessage: "ANTHROPIC_API_KEY not configured in Next.js env",
+apps/web/src/app/api/ai-config/verify-model/route.ts:          errorMessage: "OPENAI_API_KEY not configured in Next.js env",
+apps/web/src/app/api/ai-config/available-models/route.ts:    errors.anthropic = "ANTHROPIC_API_KEY not configured";
+apps/web/src/app/api/ai-config/available-models/route.ts:    errors.openai = "OPENAI_API_KEY not configured";
+apps/web/src/app/api/comparison-insights/route.ts:      console.error("❌ ANTHROPIC_API_KEY not found in environment variables");
+```
+- ⚠️ **HIGH**: 6 high-severity dependency vulnerabilities
+  Run `npm audit fix` to resolve
+- ⚠️ **HIGH**: Mutations without authorization checks:
+  - packages/backend/convex/models/platformMessagingSettings.ts
+  - packages/backend/convex/models/syncQueue.ts
+  - packages/backend/convex/models/importSessions.ts
+  - packages/backend/convex/models/passportComparison.ts
+  - packages/backend/convex/models/trustGatePermissions.ts
+  - packages/backend/convex/models/ageGroupEligibilityOverrides.ts
+  - packages/backend/convex/models/federationConnectors.ts
+  - packages/backend/convex/models/teamCollaboration.ts
+  - packages/backend/convex/models/guardianIdentities.ts
+  - packages/backend/convex/models/sessionPlans.ts
+  - packages/backend/convex/models/adultPlayers.ts
+  - packages/backend/convex/models/demoAsks.ts
+  - packages/backend/convex/models/skillBenchmarks.ts
+  - packages/backend/convex/models/coaches.ts
+  - packages/backend/convex/models/medicalProfiles.ts
+  - packages/backend/convex/models/invitations.ts
+  - packages/backend/convex/models/flows.ts
+  - packages/backend/convex/models/notifications.ts
+  - packages/backend/convex/models/whatsappReviewLinks.ts
+  - packages/backend/convex/models/teamObservations.ts
+  - packages/backend/convex/models/passportGoals.ts
+  - packages/backend/convex/models/players.ts
+  - packages/backend/convex/models/aiMappingCache.ts
+  - packages/backend/convex/models/orgInjuryNotes.ts
+  - packages/backend/convex/models/injuryDocuments.ts
+  - packages/backend/convex/models/playerHealthChecks.ts
+  - packages/backend/convex/models/playerImport.ts
+  - packages/backend/convex/models/passportEnquiries.ts
+  - packages/backend/convex/models/setup.ts
+  - packages/backend/convex/models/teamPlayerIdentities.ts
+  - packages/backend/convex/models/rateLimits.ts
+  - packages/backend/convex/models/phase4TestCleanup.ts
+  - packages/backend/convex/models/syncHistory.ts
+  - packages/backend/convex/models/platformStaffInvitations.ts
+  - packages/backend/convex/models/coachParentMessages.ts
+  - packages/backend/convex/models/aiModelConfig.ts
+  - packages/backend/convex/models/voicePipelineAlerts.ts
+  - packages/backend/convex/models/aiMappingAnalytics.ts
+  - packages/backend/convex/models/orgPlayerEnrollments.ts
+  - packages/backend/convex/models/sportPassports.ts
+  - packages/backend/convex/models/orgJoinRequests.ts
+  - packages/backend/convex/models/sportAgeGroupConfig.ts
+  - packages/backend/convex/models/referenceData.ts
+  - packages/backend/convex/models/importMappingHistory.ts
+  - packages/backend/convex/models/notificationPreferences.ts
+  - packages/backend/convex/models/userPreferences.ts
+  - packages/backend/convex/models/teams.ts
+  - packages/backend/convex/models/gdpr.ts
+  - packages/backend/convex/models/userProfiles.ts
+  - packages/backend/convex/models/emergencyContacts.ts
+  - packages/backend/convex/models/coachTrustLevels.ts
+  - packages/backend/convex/models/coachParentSummaries.ts
+  - packages/backend/convex/models/onboarding.ts
+  - packages/backend/convex/models/guardianPlayerLinks.ts
+  - packages/backend/convex/models/orgGuardianProfiles.ts
+  - packages/backend/convex/models/passportSharing.ts
+  - packages/backend/convex/models/playerGraduations.ts
+  - packages/backend/convex/models/members.ts
+  - packages/backend/convex/models/voiceNoteEntityResolutions.ts
+  - packages/backend/convex/models/users.ts
+  - packages/backend/convex/models/voicePipelineRetry.ts
+  - packages/backend/convex/models/skillAssessments.ts
+  - packages/backend/convex/models/playerSelfAccess.ts
+  - packages/backend/convex/models/aiServiceHealth.ts
+  - packages/backend/convex/models/importTemplates.ts
+  - packages/backend/convex/models/sports.ts
+  - packages/backend/convex/models/importProgress.ts
+  - packages/backend/convex/models/fixNeilsRoles.ts
+  - packages/backend/convex/models/playerIdentities.ts
+  - packages/backend/convex/models/voiceNotes.ts
+  - packages/backend/convex/models/guardianManagement.ts
+  - packages/backend/convex/models/importTemplateSeeds.ts
+  - packages/backend/convex/models/insightDrafts.ts
+  - packages/backend/convex/models/importSessionDrafts.ts
+  - packages/backend/convex/models/teamDecisions.ts
+  - packages/backend/convex/models/gaaTestMutations.ts
+  - packages/backend/convex/models/playerInjuries.ts
+  - packages/backend/convex/models/voiceNoteInsights.ts
+  - packages/backend/convex/models/playerEmergencyContacts.ts
+  - packages/backend/convex/models/coachTasks.ts
+  **Action**: Add `getUserOrgRole()` or mark as `// @public`
+- 🚨 **CRITICAL [P9]**: XSS risk - dangerouslySetInnerHTML without sanitization:
+    apps/web/src/components/ui/confetti.tsx:        dangerouslySetInnerHTML={{
+  apps/web/src/components/ui/chart.tsx:      dangerouslySetInnerHTML={{
+  apps/web/src/components/onboarding/gdpr-policy-viewer.tsx: * Uses dangerouslySetInnerHTML to avoid React key issues with static content.
+  **Action**: Use DOMPurify or remove dangerouslySetInnerHTML
+- ⚠️ **HIGH [P9]**: No rate limiting on notification/activity endpoints:
+  - packages/backend/convex/models/demoAsks.ts
+  **Action**: Add rate limiting to prevent spam/abuse
+- ⚠️ **HIGH [P9]**: AI endpoints without input validation:
+  - packages/backend/convex/actions/aiMapping.ts
+  - packages/backend/convex/actions/claimsExtraction.ts
+  - packages/backend/convex/actions/coachParentSummaries.ts
+  - packages/backend/convex/actions/practicePlans.ts
+  - packages/backend/convex/actions/sessionPlans.ts
+  - packages/backend/convex/actions/voiceNotes.ts
+  - packages/backend/convex/actions/wellnessInsights.ts
+  - packages/backend/convex/models/aiServiceHealth.ts
+  **Action**: Validate/sanitize user input before AI prompts
+- ⚠️ **HIGH [P9]**: Notification functions without permission checks:
+  - packages/backend/convex/models/notifications.ts
+  **Action**: Verify user can send notifications to recipient
+
+
+## Security Tester - 2026-02-25 23:39:54
+- 🚨 **CRITICAL**: Hardcoded secrets detected
+```
+apps/web/src/app/api/ai-config/verify-model/route.ts:          errorMessage: "ANTHROPIC_API_KEY not configured in Next.js env",
+apps/web/src/app/api/ai-config/verify-model/route.ts:          errorMessage: "OPENAI_API_KEY not configured in Next.js env",
+apps/web/src/app/api/ai-config/available-models/route.ts:    errors.anthropic = "ANTHROPIC_API_KEY not configured";
+apps/web/src/app/api/ai-config/available-models/route.ts:    errors.openai = "OPENAI_API_KEY not configured";
+apps/web/src/app/api/comparison-insights/route.ts:      console.error("❌ ANTHROPIC_API_KEY not found in environment variables");
+```
+- ⚠️ **HIGH**: 6 high-severity dependency vulnerabilities
+  Run `npm audit fix` to resolve
+- ⚠️ **HIGH**: Mutations without authorization checks:
+  - packages/backend/convex/models/platformMessagingSettings.ts
+  - packages/backend/convex/models/syncQueue.ts
+  - packages/backend/convex/models/importSessions.ts
+  - packages/backend/convex/models/passportComparison.ts
+  - packages/backend/convex/models/trustGatePermissions.ts
+  - packages/backend/convex/models/ageGroupEligibilityOverrides.ts
+  - packages/backend/convex/models/federationConnectors.ts
+  - packages/backend/convex/models/teamCollaboration.ts
+  - packages/backend/convex/models/guardianIdentities.ts
+  - packages/backend/convex/models/sessionPlans.ts
+  - packages/backend/convex/models/adultPlayers.ts
+  - packages/backend/convex/models/demoAsks.ts
+  - packages/backend/convex/models/skillBenchmarks.ts
+  - packages/backend/convex/models/coaches.ts
+  - packages/backend/convex/models/medicalProfiles.ts
+  - packages/backend/convex/models/invitations.ts
+  - packages/backend/convex/models/flows.ts
+  - packages/backend/convex/models/notifications.ts
+  - packages/backend/convex/models/whatsappReviewLinks.ts
+  - packages/backend/convex/models/teamObservations.ts
+  - packages/backend/convex/models/passportGoals.ts
+  - packages/backend/convex/models/players.ts
+  - packages/backend/convex/models/aiMappingCache.ts
+  - packages/backend/convex/models/orgInjuryNotes.ts
+  - packages/backend/convex/models/injuryDocuments.ts
+  - packages/backend/convex/models/playerHealthChecks.ts
+  - packages/backend/convex/models/playerImport.ts
+  - packages/backend/convex/models/passportEnquiries.ts
+  - packages/backend/convex/models/setup.ts
+  - packages/backend/convex/models/teamPlayerIdentities.ts
+  - packages/backend/convex/models/rateLimits.ts
+  - packages/backend/convex/models/phase4TestCleanup.ts
+  - packages/backend/convex/models/syncHistory.ts
+  - packages/backend/convex/models/platformStaffInvitations.ts
+  - packages/backend/convex/models/coachParentMessages.ts
+  - packages/backend/convex/models/aiModelConfig.ts
+  - packages/backend/convex/models/voicePipelineAlerts.ts
+  - packages/backend/convex/models/aiMappingAnalytics.ts
+  - packages/backend/convex/models/orgPlayerEnrollments.ts
+  - packages/backend/convex/models/sportPassports.ts
+  - packages/backend/convex/models/orgJoinRequests.ts
+  - packages/backend/convex/models/sportAgeGroupConfig.ts
+  - packages/backend/convex/models/referenceData.ts
+  - packages/backend/convex/models/importMappingHistory.ts
+  - packages/backend/convex/models/notificationPreferences.ts
+  - packages/backend/convex/models/userPreferences.ts
+  - packages/backend/convex/models/teams.ts
+  - packages/backend/convex/models/gdpr.ts
+  - packages/backend/convex/models/userProfiles.ts
+  - packages/backend/convex/models/emergencyContacts.ts
+  - packages/backend/convex/models/coachTrustLevels.ts
+  - packages/backend/convex/models/coachParentSummaries.ts
+  - packages/backend/convex/models/onboarding.ts
+  - packages/backend/convex/models/guardianPlayerLinks.ts
+  - packages/backend/convex/models/orgGuardianProfiles.ts
+  - packages/backend/convex/models/passportSharing.ts
+  - packages/backend/convex/models/playerGraduations.ts
+  - packages/backend/convex/models/members.ts
+  - packages/backend/convex/models/voiceNoteEntityResolutions.ts
+  - packages/backend/convex/models/users.ts
+  - packages/backend/convex/models/voicePipelineRetry.ts
+  - packages/backend/convex/models/skillAssessments.ts
+  - packages/backend/convex/models/playerSelfAccess.ts
+  - packages/backend/convex/models/aiServiceHealth.ts
+  - packages/backend/convex/models/importTemplates.ts
+  - packages/backend/convex/models/sports.ts
+  - packages/backend/convex/models/importProgress.ts
+  - packages/backend/convex/models/fixNeilsRoles.ts
+  - packages/backend/convex/models/playerIdentities.ts
+  - packages/backend/convex/models/voiceNotes.ts
+  - packages/backend/convex/models/guardianManagement.ts
+  - packages/backend/convex/models/importTemplateSeeds.ts
+  - packages/backend/convex/models/insightDrafts.ts
+  - packages/backend/convex/models/importSessionDrafts.ts
+  - packages/backend/convex/models/teamDecisions.ts
+  - packages/backend/convex/models/gaaTestMutations.ts
+  - packages/backend/convex/models/playerInjuries.ts
+  - packages/backend/convex/models/voiceNoteInsights.ts
+  - packages/backend/convex/models/playerEmergencyContacts.ts
+  - packages/backend/convex/models/coachTasks.ts
+  **Action**: Add `getUserOrgRole()` or mark as `// @public`
+- 🚨 **CRITICAL [P9]**: XSS risk - dangerouslySetInnerHTML without sanitization:
+    apps/web/src/components/ui/confetti.tsx:        dangerouslySetInnerHTML={{
+  apps/web/src/components/ui/chart.tsx:      dangerouslySetInnerHTML={{
+  apps/web/src/components/onboarding/gdpr-policy-viewer.tsx: * Uses dangerouslySetInnerHTML to avoid React key issues with static content.
+  **Action**: Use DOMPurify or remove dangerouslySetInnerHTML
+- ⚠️ **HIGH [P9]**: No rate limiting on notification/activity endpoints:
+  - packages/backend/convex/models/demoAsks.ts
+  **Action**: Add rate limiting to prevent spam/abuse
+- ⚠️ **HIGH [P9]**: AI endpoints without input validation:
+  - packages/backend/convex/actions/aiMapping.ts
+  - packages/backend/convex/actions/claimsExtraction.ts
+  - packages/backend/convex/actions/coachParentSummaries.ts
+  - packages/backend/convex/actions/practicePlans.ts
+  - packages/backend/convex/actions/sessionPlans.ts
+  - packages/backend/convex/actions/voiceNotes.ts
+  - packages/backend/convex/actions/wellnessInsights.ts
+  - packages/backend/convex/models/aiServiceHealth.ts
+  **Action**: Validate/sanitize user input before AI prompts
+- ⚠️ **HIGH [P9]**: Notification functions without permission checks:
+  - packages/backend/convex/models/notifications.ts
+  **Action**: Verify user can send notifications to recipient
+
+
+## Security Tester - 2026-02-25 23:41:58
+- 🚨 **CRITICAL**: Hardcoded secrets detected
+```
+apps/web/src/app/api/ai-config/verify-model/route.ts:          errorMessage: "ANTHROPIC_API_KEY not configured in Next.js env",
+apps/web/src/app/api/ai-config/verify-model/route.ts:          errorMessage: "OPENAI_API_KEY not configured in Next.js env",
+apps/web/src/app/api/ai-config/available-models/route.ts:    errors.anthropic = "ANTHROPIC_API_KEY not configured";
+apps/web/src/app/api/ai-config/available-models/route.ts:    errors.openai = "OPENAI_API_KEY not configured";
+apps/web/src/app/api/comparison-insights/route.ts:      console.error("❌ ANTHROPIC_API_KEY not found in environment variables");
+```
+- ⚠️ **HIGH**: 6 high-severity dependency vulnerabilities
+  Run `npm audit fix` to resolve
+- ⚠️ **HIGH**: Mutations without authorization checks:
+  - packages/backend/convex/models/platformMessagingSettings.ts
+  - packages/backend/convex/models/syncQueue.ts
+  - packages/backend/convex/models/importSessions.ts
+  - packages/backend/convex/models/passportComparison.ts
+  - packages/backend/convex/models/trustGatePermissions.ts
+  - packages/backend/convex/models/ageGroupEligibilityOverrides.ts
+  - packages/backend/convex/models/federationConnectors.ts
+  - packages/backend/convex/models/teamCollaboration.ts
+  - packages/backend/convex/models/guardianIdentities.ts
+  - packages/backend/convex/models/sessionPlans.ts
+  - packages/backend/convex/models/adultPlayers.ts
+  - packages/backend/convex/models/demoAsks.ts
+  - packages/backend/convex/models/skillBenchmarks.ts
+  - packages/backend/convex/models/coaches.ts
+  - packages/backend/convex/models/medicalProfiles.ts
+  - packages/backend/convex/models/invitations.ts
+  - packages/backend/convex/models/flows.ts
+  - packages/backend/convex/models/notifications.ts
+  - packages/backend/convex/models/whatsappReviewLinks.ts
+  - packages/backend/convex/models/teamObservations.ts
+  - packages/backend/convex/models/passportGoals.ts
+  - packages/backend/convex/models/players.ts
+  - packages/backend/convex/models/aiMappingCache.ts
+  - packages/backend/convex/models/orgInjuryNotes.ts
+  - packages/backend/convex/models/injuryDocuments.ts
+  - packages/backend/convex/models/playerHealthChecks.ts
+  - packages/backend/convex/models/playerImport.ts
+  - packages/backend/convex/models/passportEnquiries.ts
+  - packages/backend/convex/models/setup.ts
+  - packages/backend/convex/models/teamPlayerIdentities.ts
+  - packages/backend/convex/models/rateLimits.ts
+  - packages/backend/convex/models/phase4TestCleanup.ts
+  - packages/backend/convex/models/syncHistory.ts
+  - packages/backend/convex/models/platformStaffInvitations.ts
+  - packages/backend/convex/models/coachParentMessages.ts
+  - packages/backend/convex/models/aiModelConfig.ts
+  - packages/backend/convex/models/voicePipelineAlerts.ts
+  - packages/backend/convex/models/aiMappingAnalytics.ts
+  - packages/backend/convex/models/orgPlayerEnrollments.ts
+  - packages/backend/convex/models/sportPassports.ts
+  - packages/backend/convex/models/orgJoinRequests.ts
+  - packages/backend/convex/models/sportAgeGroupConfig.ts
+  - packages/backend/convex/models/referenceData.ts
+  - packages/backend/convex/models/importMappingHistory.ts
+  - packages/backend/convex/models/notificationPreferences.ts
+  - packages/backend/convex/models/userPreferences.ts
+  - packages/backend/convex/models/teams.ts
+  - packages/backend/convex/models/gdpr.ts
+  - packages/backend/convex/models/userProfiles.ts
+  - packages/backend/convex/models/emergencyContacts.ts
+  - packages/backend/convex/models/coachTrustLevels.ts
+  - packages/backend/convex/models/coachParentSummaries.ts
+  - packages/backend/convex/models/onboarding.ts
+  - packages/backend/convex/models/guardianPlayerLinks.ts
+  - packages/backend/convex/models/orgGuardianProfiles.ts
+  - packages/backend/convex/models/passportSharing.ts
+  - packages/backend/convex/models/playerGraduations.ts
+  - packages/backend/convex/models/members.ts
+  - packages/backend/convex/models/voiceNoteEntityResolutions.ts
+  - packages/backend/convex/models/users.ts
+  - packages/backend/convex/models/voicePipelineRetry.ts
+  - packages/backend/convex/models/skillAssessments.ts
+  - packages/backend/convex/models/playerSelfAccess.ts
+  - packages/backend/convex/models/aiServiceHealth.ts
+  - packages/backend/convex/models/importTemplates.ts
+  - packages/backend/convex/models/sports.ts
+  - packages/backend/convex/models/importProgress.ts
+  - packages/backend/convex/models/fixNeilsRoles.ts
+  - packages/backend/convex/models/playerIdentities.ts
+  - packages/backend/convex/models/voiceNotes.ts
+  - packages/backend/convex/models/guardianManagement.ts
+  - packages/backend/convex/models/importTemplateSeeds.ts
+  - packages/backend/convex/models/insightDrafts.ts
+  - packages/backend/convex/models/importSessionDrafts.ts
+  - packages/backend/convex/models/teamDecisions.ts
+  - packages/backend/convex/models/gaaTestMutations.ts
+  - packages/backend/convex/models/playerInjuries.ts
+  - packages/backend/convex/models/voiceNoteInsights.ts
+  - packages/backend/convex/models/playerEmergencyContacts.ts
+  - packages/backend/convex/models/coachTasks.ts
+  **Action**: Add `getUserOrgRole()` or mark as `// @public`
+- 🚨 **CRITICAL [P9]**: XSS risk - dangerouslySetInnerHTML without sanitization:
+    apps/web/src/components/ui/confetti.tsx:        dangerouslySetInnerHTML={{
+  apps/web/src/components/ui/chart.tsx:      dangerouslySetInnerHTML={{
+  apps/web/src/components/onboarding/gdpr-policy-viewer.tsx: * Uses dangerouslySetInnerHTML to avoid React key issues with static content.
+  **Action**: Use DOMPurify or remove dangerouslySetInnerHTML
+- ⚠️ **HIGH [P9]**: No rate limiting on notification/activity endpoints:
+  - packages/backend/convex/models/demoAsks.ts
+  **Action**: Add rate limiting to prevent spam/abuse
+- ⚠️ **HIGH [P9]**: AI endpoints without input validation:
+  - packages/backend/convex/actions/aiMapping.ts
+  - packages/backend/convex/actions/claimsExtraction.ts
+  - packages/backend/convex/actions/coachParentSummaries.ts
+  - packages/backend/convex/actions/practicePlans.ts
+  - packages/backend/convex/actions/sessionPlans.ts
+  - packages/backend/convex/actions/voiceNotes.ts
+  - packages/backend/convex/actions/wellnessInsights.ts
+  - packages/backend/convex/models/aiServiceHealth.ts
+  **Action**: Validate/sanitize user input before AI prompts
+- ⚠️ **HIGH [P9]**: Notification functions without permission checks:
+  - packages/backend/convex/models/notifications.ts
+  **Action**: Verify user can send notifications to recipient
+
+
+## Security Tester - 2026-02-25 23:44:00
+- 🚨 **CRITICAL**: Hardcoded secrets detected
+```
+apps/web/src/app/api/ai-config/verify-model/route.ts:          errorMessage: "ANTHROPIC_API_KEY not configured in Next.js env",
+apps/web/src/app/api/ai-config/verify-model/route.ts:          errorMessage: "OPENAI_API_KEY not configured in Next.js env",
+apps/web/src/app/api/ai-config/available-models/route.ts:    errors.anthropic = "ANTHROPIC_API_KEY not configured";
+apps/web/src/app/api/ai-config/available-models/route.ts:    errors.openai = "OPENAI_API_KEY not configured";
+apps/web/src/app/api/comparison-insights/route.ts:      console.error("❌ ANTHROPIC_API_KEY not found in environment variables");
+```
+- ⚠️ **HIGH**: 6 high-severity dependency vulnerabilities
+  Run `npm audit fix` to resolve
+- ⚠️ **HIGH**: Mutations without authorization checks:
+  - packages/backend/convex/models/platformMessagingSettings.ts
+  - packages/backend/convex/models/syncQueue.ts
+  - packages/backend/convex/models/importSessions.ts
+  - packages/backend/convex/models/passportComparison.ts
+  - packages/backend/convex/models/trustGatePermissions.ts
+  - packages/backend/convex/models/ageGroupEligibilityOverrides.ts
+  - packages/backend/convex/models/federationConnectors.ts
+  - packages/backend/convex/models/teamCollaboration.ts
+  - packages/backend/convex/models/guardianIdentities.ts
+  - packages/backend/convex/models/sessionPlans.ts
+  - packages/backend/convex/models/adultPlayers.ts
+  - packages/backend/convex/models/demoAsks.ts
+  - packages/backend/convex/models/skillBenchmarks.ts
+  - packages/backend/convex/models/coaches.ts
+  - packages/backend/convex/models/medicalProfiles.ts
+  - packages/backend/convex/models/invitations.ts
+  - packages/backend/convex/models/flows.ts
+  - packages/backend/convex/models/notifications.ts
+  - packages/backend/convex/models/whatsappReviewLinks.ts
+  - packages/backend/convex/models/teamObservations.ts
+  - packages/backend/convex/models/passportGoals.ts
+  - packages/backend/convex/models/players.ts
+  - packages/backend/convex/models/aiMappingCache.ts
+  - packages/backend/convex/models/orgInjuryNotes.ts
+  - packages/backend/convex/models/injuryDocuments.ts
+  - packages/backend/convex/models/playerHealthChecks.ts
+  - packages/backend/convex/models/playerImport.ts
+  - packages/backend/convex/models/passportEnquiries.ts
+  - packages/backend/convex/models/setup.ts
+  - packages/backend/convex/models/teamPlayerIdentities.ts
+  - packages/backend/convex/models/rateLimits.ts
+  - packages/backend/convex/models/phase4TestCleanup.ts
+  - packages/backend/convex/models/syncHistory.ts
+  - packages/backend/convex/models/platformStaffInvitations.ts
+  - packages/backend/convex/models/coachParentMessages.ts
+  - packages/backend/convex/models/aiModelConfig.ts
+  - packages/backend/convex/models/voicePipelineAlerts.ts
+  - packages/backend/convex/models/aiMappingAnalytics.ts
+  - packages/backend/convex/models/orgPlayerEnrollments.ts
+  - packages/backend/convex/models/sportPassports.ts
+  - packages/backend/convex/models/orgJoinRequests.ts
+  - packages/backend/convex/models/sportAgeGroupConfig.ts
+  - packages/backend/convex/models/referenceData.ts
+  - packages/backend/convex/models/importMappingHistory.ts
+  - packages/backend/convex/models/notificationPreferences.ts
+  - packages/backend/convex/models/userPreferences.ts
+  - packages/backend/convex/models/teams.ts
+  - packages/backend/convex/models/gdpr.ts
+  - packages/backend/convex/models/userProfiles.ts
+  - packages/backend/convex/models/emergencyContacts.ts
+  - packages/backend/convex/models/coachTrustLevels.ts
+  - packages/backend/convex/models/coachParentSummaries.ts
+  - packages/backend/convex/models/onboarding.ts
+  - packages/backend/convex/models/guardianPlayerLinks.ts
+  - packages/backend/convex/models/orgGuardianProfiles.ts
+  - packages/backend/convex/models/passportSharing.ts
+  - packages/backend/convex/models/playerGraduations.ts
+  - packages/backend/convex/models/members.ts
+  - packages/backend/convex/models/voiceNoteEntityResolutions.ts
+  - packages/backend/convex/models/users.ts
+  - packages/backend/convex/models/voicePipelineRetry.ts
+  - packages/backend/convex/models/skillAssessments.ts
+  - packages/backend/convex/models/playerSelfAccess.ts
+  - packages/backend/convex/models/aiServiceHealth.ts
+  - packages/backend/convex/models/importTemplates.ts
+  - packages/backend/convex/models/sports.ts
+  - packages/backend/convex/models/importProgress.ts
+  - packages/backend/convex/models/fixNeilsRoles.ts
+  - packages/backend/convex/models/playerIdentities.ts
+  - packages/backend/convex/models/voiceNotes.ts
+  - packages/backend/convex/models/guardianManagement.ts
+  - packages/backend/convex/models/importTemplateSeeds.ts
+  - packages/backend/convex/models/insightDrafts.ts
+  - packages/backend/convex/models/importSessionDrafts.ts
+  - packages/backend/convex/models/teamDecisions.ts
+  - packages/backend/convex/models/gaaTestMutations.ts
+  - packages/backend/convex/models/playerInjuries.ts
+  - packages/backend/convex/models/voiceNoteInsights.ts
+  - packages/backend/convex/models/playerEmergencyContacts.ts
+  - packages/backend/convex/models/coachTasks.ts
+  **Action**: Add `getUserOrgRole()` or mark as `// @public`
+- 🚨 **CRITICAL [P9]**: XSS risk - dangerouslySetInnerHTML without sanitization:
+    apps/web/src/components/ui/confetti.tsx:        dangerouslySetInnerHTML={{
+  apps/web/src/components/ui/chart.tsx:      dangerouslySetInnerHTML={{
+  apps/web/src/components/onboarding/gdpr-policy-viewer.tsx: * Uses dangerouslySetInnerHTML to avoid React key issues with static content.
+  **Action**: Use DOMPurify or remove dangerouslySetInnerHTML
+- ⚠️ **HIGH [P9]**: No rate limiting on notification/activity endpoints:
+  - packages/backend/convex/models/demoAsks.ts
+  **Action**: Add rate limiting to prevent spam/abuse
+- ⚠️ **HIGH [P9]**: AI endpoints without input validation:
+  - packages/backend/convex/actions/aiMapping.ts
+  - packages/backend/convex/actions/claimsExtraction.ts
+  - packages/backend/convex/actions/coachParentSummaries.ts
+  - packages/backend/convex/actions/practicePlans.ts
+  - packages/backend/convex/actions/sessionPlans.ts
+  - packages/backend/convex/actions/voiceNotes.ts
+  - packages/backend/convex/actions/wellnessInsights.ts
+  - packages/backend/convex/models/aiServiceHealth.ts
+  **Action**: Validate/sanitize user input before AI prompts
+- ⚠️ **HIGH [P9]**: Notification functions without permission checks:
+  - packages/backend/convex/models/notifications.ts
+  **Action**: Verify user can send notifications to recipient
+
+
+## Security Tester - 2026-02-25 23:46:02
+- 🚨 **CRITICAL**: Hardcoded secrets detected
+```
+apps/web/src/app/api/ai-config/verify-model/route.ts:          errorMessage: "ANTHROPIC_API_KEY not configured in Next.js env",
+apps/web/src/app/api/ai-config/verify-model/route.ts:          errorMessage: "OPENAI_API_KEY not configured in Next.js env",
+apps/web/src/app/api/ai-config/available-models/route.ts:    errors.anthropic = "ANTHROPIC_API_KEY not configured";
+apps/web/src/app/api/ai-config/available-models/route.ts:    errors.openai = "OPENAI_API_KEY not configured";
+apps/web/src/app/api/comparison-insights/route.ts:      console.error("❌ ANTHROPIC_API_KEY not found in environment variables");
+```
+- ⚠️ **HIGH**: 6 high-severity dependency vulnerabilities
+  Run `npm audit fix` to resolve
+- ⚠️ **HIGH**: Mutations without authorization checks:
+  - packages/backend/convex/models/platformMessagingSettings.ts
+  - packages/backend/convex/models/syncQueue.ts
+  - packages/backend/convex/models/importSessions.ts
+  - packages/backend/convex/models/passportComparison.ts
+  - packages/backend/convex/models/trustGatePermissions.ts
+  - packages/backend/convex/models/ageGroupEligibilityOverrides.ts
+  - packages/backend/convex/models/federationConnectors.ts
+  - packages/backend/convex/models/teamCollaboration.ts
+  - packages/backend/convex/models/guardianIdentities.ts
+  - packages/backend/convex/models/sessionPlans.ts
+  - packages/backend/convex/models/adultPlayers.ts
+  - packages/backend/convex/models/demoAsks.ts
+  - packages/backend/convex/models/skillBenchmarks.ts
+  - packages/backend/convex/models/coaches.ts
+  - packages/backend/convex/models/medicalProfiles.ts
+  - packages/backend/convex/models/invitations.ts
+  - packages/backend/convex/models/flows.ts
+  - packages/backend/convex/models/notifications.ts
+  - packages/backend/convex/models/whatsappReviewLinks.ts
+  - packages/backend/convex/models/teamObservations.ts
+  - packages/backend/convex/models/passportGoals.ts
+  - packages/backend/convex/models/players.ts
+  - packages/backend/convex/models/aiMappingCache.ts
+  - packages/backend/convex/models/orgInjuryNotes.ts
+  - packages/backend/convex/models/injuryDocuments.ts
+  - packages/backend/convex/models/playerHealthChecks.ts
+  - packages/backend/convex/models/playerImport.ts
+  - packages/backend/convex/models/passportEnquiries.ts
+  - packages/backend/convex/models/setup.ts
+  - packages/backend/convex/models/teamPlayerIdentities.ts
+  - packages/backend/convex/models/rateLimits.ts
+  - packages/backend/convex/models/phase4TestCleanup.ts
+  - packages/backend/convex/models/syncHistory.ts
+  - packages/backend/convex/models/platformStaffInvitations.ts
+  - packages/backend/convex/models/coachParentMessages.ts
+  - packages/backend/convex/models/aiModelConfig.ts
+  - packages/backend/convex/models/voicePipelineAlerts.ts
+  - packages/backend/convex/models/aiMappingAnalytics.ts
+  - packages/backend/convex/models/orgPlayerEnrollments.ts
+  - packages/backend/convex/models/sportPassports.ts
+  - packages/backend/convex/models/orgJoinRequests.ts
+  - packages/backend/convex/models/sportAgeGroupConfig.ts
+  - packages/backend/convex/models/referenceData.ts
+  - packages/backend/convex/models/importMappingHistory.ts
+  - packages/backend/convex/models/notificationPreferences.ts
+  - packages/backend/convex/models/userPreferences.ts
+  - packages/backend/convex/models/teams.ts
+  - packages/backend/convex/models/gdpr.ts
+  - packages/backend/convex/models/userProfiles.ts
+  - packages/backend/convex/models/emergencyContacts.ts
+  - packages/backend/convex/models/coachTrustLevels.ts
+  - packages/backend/convex/models/coachParentSummaries.ts
+  - packages/backend/convex/models/onboarding.ts
+  - packages/backend/convex/models/guardianPlayerLinks.ts
+  - packages/backend/convex/models/orgGuardianProfiles.ts
+  - packages/backend/convex/models/passportSharing.ts
+  - packages/backend/convex/models/playerGraduations.ts
+  - packages/backend/convex/models/members.ts
+  - packages/backend/convex/models/voiceNoteEntityResolutions.ts
+  - packages/backend/convex/models/users.ts
+  - packages/backend/convex/models/voicePipelineRetry.ts
+  - packages/backend/convex/models/skillAssessments.ts
+  - packages/backend/convex/models/playerSelfAccess.ts
+  - packages/backend/convex/models/aiServiceHealth.ts
+  - packages/backend/convex/models/importTemplates.ts
+  - packages/backend/convex/models/sports.ts
+  - packages/backend/convex/models/importProgress.ts
+  - packages/backend/convex/models/fixNeilsRoles.ts
+  - packages/backend/convex/models/playerIdentities.ts
+  - packages/backend/convex/models/voiceNotes.ts
+  - packages/backend/convex/models/guardianManagement.ts
+  - packages/backend/convex/models/importTemplateSeeds.ts
+  - packages/backend/convex/models/insightDrafts.ts
+  - packages/backend/convex/models/importSessionDrafts.ts
+  - packages/backend/convex/models/teamDecisions.ts
+  - packages/backend/convex/models/gaaTestMutations.ts
+  - packages/backend/convex/models/playerInjuries.ts
+  - packages/backend/convex/models/voiceNoteInsights.ts
+  - packages/backend/convex/models/playerEmergencyContacts.ts
+  - packages/backend/convex/models/coachTasks.ts
+  **Action**: Add `getUserOrgRole()` or mark as `// @public`
+- 🚨 **CRITICAL [P9]**: XSS risk - dangerouslySetInnerHTML without sanitization:
+    apps/web/src/components/ui/confetti.tsx:        dangerouslySetInnerHTML={{
+  apps/web/src/components/ui/chart.tsx:      dangerouslySetInnerHTML={{
+  apps/web/src/components/onboarding/gdpr-policy-viewer.tsx: * Uses dangerouslySetInnerHTML to avoid React key issues with static content.
+  **Action**: Use DOMPurify or remove dangerouslySetInnerHTML
+- ⚠️ **HIGH [P9]**: No rate limiting on notification/activity endpoints:
+  - packages/backend/convex/models/demoAsks.ts
+  **Action**: Add rate limiting to prevent spam/abuse
+- ⚠️ **HIGH [P9]**: AI endpoints without input validation:
+  - packages/backend/convex/actions/aiMapping.ts
+  - packages/backend/convex/actions/claimsExtraction.ts
+  - packages/backend/convex/actions/coachParentSummaries.ts
+  - packages/backend/convex/actions/practicePlans.ts
+  - packages/backend/convex/actions/sessionPlans.ts
+  - packages/backend/convex/actions/voiceNotes.ts
+  - packages/backend/convex/actions/wellnessInsights.ts
+  - packages/backend/convex/models/aiServiceHealth.ts
+  **Action**: Validate/sanitize user input before AI prompts
+- ⚠️ **HIGH [P9]**: Notification functions without permission checks:
+  - packages/backend/convex/models/notifications.ts
+  **Action**: Verify user can send notifications to recipient
+
+
+## Security Tester - 2026-02-25 23:48:07
+- 🚨 **CRITICAL**: Hardcoded secrets detected
+```
+apps/web/src/app/api/ai-config/verify-model/route.ts:          errorMessage: "ANTHROPIC_API_KEY not configured in Next.js env",
+apps/web/src/app/api/ai-config/verify-model/route.ts:          errorMessage: "OPENAI_API_KEY not configured in Next.js env",
+apps/web/src/app/api/ai-config/available-models/route.ts:    errors.anthropic = "ANTHROPIC_API_KEY not configured";
+apps/web/src/app/api/ai-config/available-models/route.ts:    errors.openai = "OPENAI_API_KEY not configured";
+apps/web/src/app/api/comparison-insights/route.ts:      console.error("❌ ANTHROPIC_API_KEY not found in environment variables");
+```
+- ⚠️ **HIGH**: 6 high-severity dependency vulnerabilities
+  Run `npm audit fix` to resolve
+- ⚠️ **HIGH**: Mutations without authorization checks:
+  - packages/backend/convex/models/platformMessagingSettings.ts
+  - packages/backend/convex/models/syncQueue.ts
+  - packages/backend/convex/models/importSessions.ts
+  - packages/backend/convex/models/passportComparison.ts
+  - packages/backend/convex/models/trustGatePermissions.ts
+  - packages/backend/convex/models/ageGroupEligibilityOverrides.ts
+  - packages/backend/convex/models/federationConnectors.ts
+  - packages/backend/convex/models/teamCollaboration.ts
+  - packages/backend/convex/models/guardianIdentities.ts
+  - packages/backend/convex/models/sessionPlans.ts
+  - packages/backend/convex/models/adultPlayers.ts
+  - packages/backend/convex/models/demoAsks.ts
+  - packages/backend/convex/models/skillBenchmarks.ts
+  - packages/backend/convex/models/coaches.ts
+  - packages/backend/convex/models/medicalProfiles.ts
+  - packages/backend/convex/models/invitations.ts
+  - packages/backend/convex/models/flows.ts
+  - packages/backend/convex/models/notifications.ts
+  - packages/backend/convex/models/whatsappReviewLinks.ts
+  - packages/backend/convex/models/teamObservations.ts
+  - packages/backend/convex/models/passportGoals.ts
+  - packages/backend/convex/models/players.ts
+  - packages/backend/convex/models/aiMappingCache.ts
+  - packages/backend/convex/models/orgInjuryNotes.ts
+  - packages/backend/convex/models/injuryDocuments.ts
+  - packages/backend/convex/models/playerHealthChecks.ts
+  - packages/backend/convex/models/playerImport.ts
+  - packages/backend/convex/models/passportEnquiries.ts
+  - packages/backend/convex/models/setup.ts
+  - packages/backend/convex/models/teamPlayerIdentities.ts
+  - packages/backend/convex/models/rateLimits.ts
+  - packages/backend/convex/models/phase4TestCleanup.ts
+  - packages/backend/convex/models/syncHistory.ts
+  - packages/backend/convex/models/platformStaffInvitations.ts
+  - packages/backend/convex/models/coachParentMessages.ts
+  - packages/backend/convex/models/aiModelConfig.ts
+  - packages/backend/convex/models/voicePipelineAlerts.ts
+  - packages/backend/convex/models/aiMappingAnalytics.ts
+  - packages/backend/convex/models/orgPlayerEnrollments.ts
+  - packages/backend/convex/models/sportPassports.ts
+  - packages/backend/convex/models/orgJoinRequests.ts
+  - packages/backend/convex/models/sportAgeGroupConfig.ts
+  - packages/backend/convex/models/referenceData.ts
+  - packages/backend/convex/models/importMappingHistory.ts
+  - packages/backend/convex/models/notificationPreferences.ts
+  - packages/backend/convex/models/userPreferences.ts
+  - packages/backend/convex/models/teams.ts
+  - packages/backend/convex/models/gdpr.ts
+  - packages/backend/convex/models/userProfiles.ts
+  - packages/backend/convex/models/emergencyContacts.ts
+  - packages/backend/convex/models/coachTrustLevels.ts
+  - packages/backend/convex/models/coachParentSummaries.ts
+  - packages/backend/convex/models/onboarding.ts
+  - packages/backend/convex/models/guardianPlayerLinks.ts
+  - packages/backend/convex/models/orgGuardianProfiles.ts
+  - packages/backend/convex/models/passportSharing.ts
+  - packages/backend/convex/models/playerGraduations.ts
+  - packages/backend/convex/models/members.ts
+  - packages/backend/convex/models/voiceNoteEntityResolutions.ts
+  - packages/backend/convex/models/users.ts
+  - packages/backend/convex/models/voicePipelineRetry.ts
+  - packages/backend/convex/models/skillAssessments.ts
+  - packages/backend/convex/models/playerSelfAccess.ts
+  - packages/backend/convex/models/aiServiceHealth.ts
+  - packages/backend/convex/models/importTemplates.ts
+  - packages/backend/convex/models/sports.ts
+  - packages/backend/convex/models/importProgress.ts
+  - packages/backend/convex/models/fixNeilsRoles.ts
+  - packages/backend/convex/models/playerIdentities.ts
+  - packages/backend/convex/models/voiceNotes.ts
+  - packages/backend/convex/models/guardianManagement.ts
+  - packages/backend/convex/models/importTemplateSeeds.ts
+  - packages/backend/convex/models/insightDrafts.ts
+  - packages/backend/convex/models/importSessionDrafts.ts
+  - packages/backend/convex/models/teamDecisions.ts
+  - packages/backend/convex/models/gaaTestMutations.ts
+  - packages/backend/convex/models/playerInjuries.ts
+  - packages/backend/convex/models/voiceNoteInsights.ts
+  - packages/backend/convex/models/playerEmergencyContacts.ts
+  - packages/backend/convex/models/coachTasks.ts
+  **Action**: Add `getUserOrgRole()` or mark as `// @public`
+- 🚨 **CRITICAL [P9]**: XSS risk - dangerouslySetInnerHTML without sanitization:
+    apps/web/src/components/ui/confetti.tsx:        dangerouslySetInnerHTML={{
+  apps/web/src/components/ui/chart.tsx:      dangerouslySetInnerHTML={{
+  apps/web/src/components/onboarding/gdpr-policy-viewer.tsx: * Uses dangerouslySetInnerHTML to avoid React key issues with static content.
+  **Action**: Use DOMPurify or remove dangerouslySetInnerHTML
+- ⚠️ **HIGH [P9]**: No rate limiting on notification/activity endpoints:
+  - packages/backend/convex/models/demoAsks.ts
+  **Action**: Add rate limiting to prevent spam/abuse
+- ⚠️ **HIGH [P9]**: AI endpoints without input validation:
+  - packages/backend/convex/actions/aiMapping.ts
+  - packages/backend/convex/actions/claimsExtraction.ts
+  - packages/backend/convex/actions/coachParentSummaries.ts
+  - packages/backend/convex/actions/practicePlans.ts
+  - packages/backend/convex/actions/sessionPlans.ts
+  - packages/backend/convex/actions/voiceNotes.ts
+  - packages/backend/convex/actions/wellnessInsights.ts
+  - packages/backend/convex/models/aiServiceHealth.ts
+  **Action**: Validate/sanitize user input before AI prompts
+- ⚠️ **HIGH [P9]**: Notification functions without permission checks:
+  - packages/backend/convex/models/notifications.ts
+  **Action**: Verify user can send notifications to recipient
+
+
+## Security Tester - 2026-02-25 23:50:09
+- 🚨 **CRITICAL**: Hardcoded secrets detected
+```
+apps/web/src/app/api/ai-config/verify-model/route.ts:          errorMessage: "ANTHROPIC_API_KEY not configured in Next.js env",
+apps/web/src/app/api/ai-config/verify-model/route.ts:          errorMessage: "OPENAI_API_KEY not configured in Next.js env",
+apps/web/src/app/api/ai-config/available-models/route.ts:    errors.anthropic = "ANTHROPIC_API_KEY not configured";
+apps/web/src/app/api/ai-config/available-models/route.ts:    errors.openai = "OPENAI_API_KEY not configured";
+apps/web/src/app/api/comparison-insights/route.ts:      console.error("❌ ANTHROPIC_API_KEY not found in environment variables");
+```
+- ⚠️ **HIGH**: 6 high-severity dependency vulnerabilities
+  Run `npm audit fix` to resolve
+- ⚠️ **HIGH**: Mutations without authorization checks:
+  - packages/backend/convex/models/platformMessagingSettings.ts
+  - packages/backend/convex/models/syncQueue.ts
+  - packages/backend/convex/models/importSessions.ts
+  - packages/backend/convex/models/passportComparison.ts
+  - packages/backend/convex/models/trustGatePermissions.ts
+  - packages/backend/convex/models/ageGroupEligibilityOverrides.ts
+  - packages/backend/convex/models/federationConnectors.ts
+  - packages/backend/convex/models/teamCollaboration.ts
+  - packages/backend/convex/models/guardianIdentities.ts
+  - packages/backend/convex/models/sessionPlans.ts
+  - packages/backend/convex/models/adultPlayers.ts
+  - packages/backend/convex/models/demoAsks.ts
+  - packages/backend/convex/models/skillBenchmarks.ts
+  - packages/backend/convex/models/coaches.ts
+  - packages/backend/convex/models/medicalProfiles.ts
+  - packages/backend/convex/models/invitations.ts
+  - packages/backend/convex/models/flows.ts
+  - packages/backend/convex/models/notifications.ts
+  - packages/backend/convex/models/whatsappReviewLinks.ts
+  - packages/backend/convex/models/teamObservations.ts
+  - packages/backend/convex/models/passportGoals.ts
+  - packages/backend/convex/models/players.ts
+  - packages/backend/convex/models/aiMappingCache.ts
+  - packages/backend/convex/models/orgInjuryNotes.ts
+  - packages/backend/convex/models/injuryDocuments.ts
+  - packages/backend/convex/models/playerHealthChecks.ts
+  - packages/backend/convex/models/playerImport.ts
+  - packages/backend/convex/models/passportEnquiries.ts
+  - packages/backend/convex/models/setup.ts
+  - packages/backend/convex/models/teamPlayerIdentities.ts
+  - packages/backend/convex/models/rateLimits.ts
+  - packages/backend/convex/models/phase4TestCleanup.ts
+  - packages/backend/convex/models/syncHistory.ts
+  - packages/backend/convex/models/platformStaffInvitations.ts
+  - packages/backend/convex/models/coachParentMessages.ts
+  - packages/backend/convex/models/aiModelConfig.ts
+  - packages/backend/convex/models/voicePipelineAlerts.ts
+  - packages/backend/convex/models/aiMappingAnalytics.ts
+  - packages/backend/convex/models/orgPlayerEnrollments.ts
+  - packages/backend/convex/models/sportPassports.ts
+  - packages/backend/convex/models/orgJoinRequests.ts
+  - packages/backend/convex/models/sportAgeGroupConfig.ts
+  - packages/backend/convex/models/referenceData.ts
+  - packages/backend/convex/models/importMappingHistory.ts
+  - packages/backend/convex/models/notificationPreferences.ts
+  - packages/backend/convex/models/userPreferences.ts
+  - packages/backend/convex/models/teams.ts
+  - packages/backend/convex/models/gdpr.ts
+  - packages/backend/convex/models/userProfiles.ts
+  - packages/backend/convex/models/emergencyContacts.ts
+  - packages/backend/convex/models/coachTrustLevels.ts
+  - packages/backend/convex/models/coachParentSummaries.ts
+  - packages/backend/convex/models/onboarding.ts
+  - packages/backend/convex/models/guardianPlayerLinks.ts
+  - packages/backend/convex/models/orgGuardianProfiles.ts
+  - packages/backend/convex/models/passportSharing.ts
+  - packages/backend/convex/models/playerGraduations.ts
+  - packages/backend/convex/models/members.ts
+  - packages/backend/convex/models/voiceNoteEntityResolutions.ts
+  - packages/backend/convex/models/users.ts
+  - packages/backend/convex/models/voicePipelineRetry.ts
+  - packages/backend/convex/models/skillAssessments.ts
+  - packages/backend/convex/models/playerSelfAccess.ts
+  - packages/backend/convex/models/aiServiceHealth.ts
+  - packages/backend/convex/models/importTemplates.ts
+  - packages/backend/convex/models/sports.ts
+  - packages/backend/convex/models/importProgress.ts
+  - packages/backend/convex/models/fixNeilsRoles.ts
+  - packages/backend/convex/models/playerIdentities.ts
+  - packages/backend/convex/models/voiceNotes.ts
+  - packages/backend/convex/models/guardianManagement.ts
+  - packages/backend/convex/models/importTemplateSeeds.ts
+  - packages/backend/convex/models/insightDrafts.ts
+  - packages/backend/convex/models/importSessionDrafts.ts
+  - packages/backend/convex/models/teamDecisions.ts
+  - packages/backend/convex/models/gaaTestMutations.ts
+  - packages/backend/convex/models/playerInjuries.ts
+  - packages/backend/convex/models/voiceNoteInsights.ts
+  - packages/backend/convex/models/playerEmergencyContacts.ts
+  - packages/backend/convex/models/coachTasks.ts
+  **Action**: Add `getUserOrgRole()` or mark as `// @public`
+- 🚨 **CRITICAL [P9]**: XSS risk - dangerouslySetInnerHTML without sanitization:
+    apps/web/src/components/ui/confetti.tsx:        dangerouslySetInnerHTML={{
+  apps/web/src/components/ui/chart.tsx:      dangerouslySetInnerHTML={{
+  apps/web/src/components/onboarding/gdpr-policy-viewer.tsx: * Uses dangerouslySetInnerHTML to avoid React key issues with static content.
+  **Action**: Use DOMPurify or remove dangerouslySetInnerHTML
+- ⚠️ **HIGH [P9]**: No rate limiting on notification/activity endpoints:
+  - packages/backend/convex/models/demoAsks.ts
+  **Action**: Add rate limiting to prevent spam/abuse
+- ⚠️ **HIGH [P9]**: AI endpoints without input validation:
+  - packages/backend/convex/actions/aiMapping.ts
+  - packages/backend/convex/actions/claimsExtraction.ts
+  - packages/backend/convex/actions/coachParentSummaries.ts
+  - packages/backend/convex/actions/practicePlans.ts
+  - packages/backend/convex/actions/sessionPlans.ts
+  - packages/backend/convex/actions/voiceNotes.ts
+  - packages/backend/convex/actions/wellnessInsights.ts
+  - packages/backend/convex/models/aiServiceHealth.ts
+  **Action**: Validate/sanitize user input before AI prompts
+- ⚠️ **HIGH [P9]**: Notification functions without permission checks:
+  - packages/backend/convex/models/notifications.ts
+  **Action**: Verify user can send notifications to recipient
+
+
+## Security Tester - 2026-02-25 23:52:11
+- 🚨 **CRITICAL**: Hardcoded secrets detected
+```
+apps/web/src/app/api/ai-config/verify-model/route.ts:          errorMessage: "ANTHROPIC_API_KEY not configured in Next.js env",
+apps/web/src/app/api/ai-config/verify-model/route.ts:          errorMessage: "OPENAI_API_KEY not configured in Next.js env",
+apps/web/src/app/api/ai-config/available-models/route.ts:    errors.anthropic = "ANTHROPIC_API_KEY not configured";
+apps/web/src/app/api/ai-config/available-models/route.ts:    errors.openai = "OPENAI_API_KEY not configured";
+apps/web/src/app/api/comparison-insights/route.ts:      console.error("❌ ANTHROPIC_API_KEY not found in environment variables");
+```
+- ⚠️ **HIGH**: 6 high-severity dependency vulnerabilities
+  Run `npm audit fix` to resolve
+- ⚠️ **HIGH**: Mutations without authorization checks:
+  - packages/backend/convex/models/platformMessagingSettings.ts
+  - packages/backend/convex/models/syncQueue.ts
+  - packages/backend/convex/models/importSessions.ts
+  - packages/backend/convex/models/passportComparison.ts
+  - packages/backend/convex/models/trustGatePermissions.ts
+  - packages/backend/convex/models/ageGroupEligibilityOverrides.ts
+  - packages/backend/convex/models/federationConnectors.ts
+  - packages/backend/convex/models/teamCollaboration.ts
+  - packages/backend/convex/models/guardianIdentities.ts
+  - packages/backend/convex/models/sessionPlans.ts
+  - packages/backend/convex/models/adultPlayers.ts
+  - packages/backend/convex/models/demoAsks.ts
+  - packages/backend/convex/models/skillBenchmarks.ts
+  - packages/backend/convex/models/coaches.ts
+  - packages/backend/convex/models/medicalProfiles.ts
+  - packages/backend/convex/models/invitations.ts
+  - packages/backend/convex/models/flows.ts
+  - packages/backend/convex/models/notifications.ts
+  - packages/backend/convex/models/whatsappReviewLinks.ts
+  - packages/backend/convex/models/teamObservations.ts
+  - packages/backend/convex/models/passportGoals.ts
+  - packages/backend/convex/models/players.ts
+  - packages/backend/convex/models/aiMappingCache.ts
+  - packages/backend/convex/models/orgInjuryNotes.ts
+  - packages/backend/convex/models/injuryDocuments.ts
+  - packages/backend/convex/models/playerHealthChecks.ts
+  - packages/backend/convex/models/playerImport.ts
+  - packages/backend/convex/models/passportEnquiries.ts
+  - packages/backend/convex/models/setup.ts
+  - packages/backend/convex/models/teamPlayerIdentities.ts
+  - packages/backend/convex/models/rateLimits.ts
+  - packages/backend/convex/models/phase4TestCleanup.ts
+  - packages/backend/convex/models/syncHistory.ts
+  - packages/backend/convex/models/platformStaffInvitations.ts
+  - packages/backend/convex/models/coachParentMessages.ts
+  - packages/backend/convex/models/aiModelConfig.ts
+  - packages/backend/convex/models/voicePipelineAlerts.ts
+  - packages/backend/convex/models/aiMappingAnalytics.ts
+  - packages/backend/convex/models/orgPlayerEnrollments.ts
+  - packages/backend/convex/models/sportPassports.ts
+  - packages/backend/convex/models/orgJoinRequests.ts
+  - packages/backend/convex/models/sportAgeGroupConfig.ts
+  - packages/backend/convex/models/referenceData.ts
+  - packages/backend/convex/models/importMappingHistory.ts
+  - packages/backend/convex/models/notificationPreferences.ts
+  - packages/backend/convex/models/userPreferences.ts
+  - packages/backend/convex/models/teams.ts
+  - packages/backend/convex/models/gdpr.ts
+  - packages/backend/convex/models/userProfiles.ts
+  - packages/backend/convex/models/emergencyContacts.ts
+  - packages/backend/convex/models/coachTrustLevels.ts
+  - packages/backend/convex/models/coachParentSummaries.ts
+  - packages/backend/convex/models/onboarding.ts
+  - packages/backend/convex/models/guardianPlayerLinks.ts
+  - packages/backend/convex/models/orgGuardianProfiles.ts
+  - packages/backend/convex/models/passportSharing.ts
+  - packages/backend/convex/models/playerGraduations.ts
+  - packages/backend/convex/models/members.ts
+  - packages/backend/convex/models/voiceNoteEntityResolutions.ts
+  - packages/backend/convex/models/users.ts
+  - packages/backend/convex/models/voicePipelineRetry.ts
+  - packages/backend/convex/models/skillAssessments.ts
+  - packages/backend/convex/models/playerSelfAccess.ts
+  - packages/backend/convex/models/aiServiceHealth.ts
+  - packages/backend/convex/models/importTemplates.ts
+  - packages/backend/convex/models/sports.ts
+  - packages/backend/convex/models/importProgress.ts
+  - packages/backend/convex/models/fixNeilsRoles.ts
+  - packages/backend/convex/models/playerIdentities.ts
+  - packages/backend/convex/models/voiceNotes.ts
+  - packages/backend/convex/models/guardianManagement.ts
+  - packages/backend/convex/models/importTemplateSeeds.ts
+  - packages/backend/convex/models/insightDrafts.ts
+  - packages/backend/convex/models/importSessionDrafts.ts
+  - packages/backend/convex/models/teamDecisions.ts
+  - packages/backend/convex/models/gaaTestMutations.ts
+  - packages/backend/convex/models/playerInjuries.ts
+  - packages/backend/convex/models/voiceNoteInsights.ts
+  - packages/backend/convex/models/playerEmergencyContacts.ts
+  - packages/backend/convex/models/coachTasks.ts
+  **Action**: Add `getUserOrgRole()` or mark as `// @public`
+- 🚨 **CRITICAL [P9]**: XSS risk - dangerouslySetInnerHTML without sanitization:
+    apps/web/src/components/ui/confetti.tsx:        dangerouslySetInnerHTML={{
+  apps/web/src/components/ui/chart.tsx:      dangerouslySetInnerHTML={{
+  apps/web/src/components/onboarding/gdpr-policy-viewer.tsx: * Uses dangerouslySetInnerHTML to avoid React key issues with static content.
+  **Action**: Use DOMPurify or remove dangerouslySetInnerHTML
+- ⚠️ **HIGH [P9]**: No rate limiting on notification/activity endpoints:
+  - packages/backend/convex/models/demoAsks.ts
+  **Action**: Add rate limiting to prevent spam/abuse
+- ⚠️ **HIGH [P9]**: AI endpoints without input validation:
+  - packages/backend/convex/actions/aiMapping.ts
+  - packages/backend/convex/actions/claimsExtraction.ts
+  - packages/backend/convex/actions/coachParentSummaries.ts
+  - packages/backend/convex/actions/practicePlans.ts
+  - packages/backend/convex/actions/sessionPlans.ts
+  - packages/backend/convex/actions/voiceNotes.ts
+  - packages/backend/convex/actions/wellnessInsights.ts
+  - packages/backend/convex/models/aiServiceHealth.ts
+  **Action**: Validate/sanitize user input before AI prompts
+- ⚠️ **HIGH [P9]**: Notification functions without permission checks:
+  - packages/backend/convex/models/notifications.ts
+  **Action**: Verify user can send notifications to recipient
+
+
+## Security Tester - 2026-02-25 23:54:16
+- 🚨 **CRITICAL**: Hardcoded secrets detected
+```
+apps/web/src/app/api/ai-config/verify-model/route.ts:          errorMessage: "ANTHROPIC_API_KEY not configured in Next.js env",
+apps/web/src/app/api/ai-config/verify-model/route.ts:          errorMessage: "OPENAI_API_KEY not configured in Next.js env",
+apps/web/src/app/api/ai-config/available-models/route.ts:    errors.anthropic = "ANTHROPIC_API_KEY not configured";
+apps/web/src/app/api/ai-config/available-models/route.ts:    errors.openai = "OPENAI_API_KEY not configured";
+apps/web/src/app/api/comparison-insights/route.ts:      console.error("❌ ANTHROPIC_API_KEY not found in environment variables");
+```
+- ⚠️ **HIGH**: 6 high-severity dependency vulnerabilities
+  Run `npm audit fix` to resolve
+- ⚠️ **HIGH**: Mutations without authorization checks:
+  - packages/backend/convex/models/platformMessagingSettings.ts
+  - packages/backend/convex/models/syncQueue.ts
+  - packages/backend/convex/models/importSessions.ts
+  - packages/backend/convex/models/passportComparison.ts
+  - packages/backend/convex/models/trustGatePermissions.ts
+  - packages/backend/convex/models/ageGroupEligibilityOverrides.ts
+  - packages/backend/convex/models/federationConnectors.ts
+  - packages/backend/convex/models/teamCollaboration.ts
+  - packages/backend/convex/models/guardianIdentities.ts
+  - packages/backend/convex/models/sessionPlans.ts
+  - packages/backend/convex/models/adultPlayers.ts
+  - packages/backend/convex/models/demoAsks.ts
+  - packages/backend/convex/models/skillBenchmarks.ts
+  - packages/backend/convex/models/coaches.ts
+  - packages/backend/convex/models/medicalProfiles.ts
+  - packages/backend/convex/models/invitations.ts
+  - packages/backend/convex/models/flows.ts
+  - packages/backend/convex/models/notifications.ts
+  - packages/backend/convex/models/whatsappReviewLinks.ts
+  - packages/backend/convex/models/teamObservations.ts
+  - packages/backend/convex/models/passportGoals.ts
+  - packages/backend/convex/models/players.ts
+  - packages/backend/convex/models/aiMappingCache.ts
+  - packages/backend/convex/models/orgInjuryNotes.ts
+  - packages/backend/convex/models/injuryDocuments.ts
+  - packages/backend/convex/models/playerHealthChecks.ts
+  - packages/backend/convex/models/playerImport.ts
+  - packages/backend/convex/models/passportEnquiries.ts
+  - packages/backend/convex/models/setup.ts
+  - packages/backend/convex/models/teamPlayerIdentities.ts
+  - packages/backend/convex/models/rateLimits.ts
+  - packages/backend/convex/models/phase4TestCleanup.ts
+  - packages/backend/convex/models/syncHistory.ts
+  - packages/backend/convex/models/platformStaffInvitations.ts
+  - packages/backend/convex/models/coachParentMessages.ts
+  - packages/backend/convex/models/aiModelConfig.ts
+  - packages/backend/convex/models/voicePipelineAlerts.ts
+  - packages/backend/convex/models/aiMappingAnalytics.ts
+  - packages/backend/convex/models/orgPlayerEnrollments.ts
+  - packages/backend/convex/models/sportPassports.ts
+  - packages/backend/convex/models/orgJoinRequests.ts
+  - packages/backend/convex/models/sportAgeGroupConfig.ts
+  - packages/backend/convex/models/referenceData.ts
+  - packages/backend/convex/models/importMappingHistory.ts
+  - packages/backend/convex/models/notificationPreferences.ts
+  - packages/backend/convex/models/userPreferences.ts
+  - packages/backend/convex/models/teams.ts
+  - packages/backend/convex/models/gdpr.ts
+  - packages/backend/convex/models/userProfiles.ts
+  - packages/backend/convex/models/emergencyContacts.ts
+  - packages/backend/convex/models/coachTrustLevels.ts
+  - packages/backend/convex/models/coachParentSummaries.ts
+  - packages/backend/convex/models/onboarding.ts
+  - packages/backend/convex/models/guardianPlayerLinks.ts
+  - packages/backend/convex/models/orgGuardianProfiles.ts
+  - packages/backend/convex/models/passportSharing.ts
+  - packages/backend/convex/models/playerGraduations.ts
+  - packages/backend/convex/models/members.ts
+  - packages/backend/convex/models/voiceNoteEntityResolutions.ts
+  - packages/backend/convex/models/users.ts
+  - packages/backend/convex/models/voicePipelineRetry.ts
+  - packages/backend/convex/models/skillAssessments.ts
+  - packages/backend/convex/models/playerSelfAccess.ts
+  - packages/backend/convex/models/aiServiceHealth.ts
+  - packages/backend/convex/models/importTemplates.ts
+  - packages/backend/convex/models/sports.ts
+  - packages/backend/convex/models/importProgress.ts
+  - packages/backend/convex/models/fixNeilsRoles.ts
+  - packages/backend/convex/models/playerIdentities.ts
+  - packages/backend/convex/models/voiceNotes.ts
+  - packages/backend/convex/models/guardianManagement.ts
+  - packages/backend/convex/models/importTemplateSeeds.ts
+  - packages/backend/convex/models/insightDrafts.ts
+  - packages/backend/convex/models/importSessionDrafts.ts
+  - packages/backend/convex/models/teamDecisions.ts
+  - packages/backend/convex/models/gaaTestMutations.ts
+  - packages/backend/convex/models/playerInjuries.ts
+  - packages/backend/convex/models/voiceNoteInsights.ts
+  - packages/backend/convex/models/playerEmergencyContacts.ts
+  - packages/backend/convex/models/coachTasks.ts
+  **Action**: Add `getUserOrgRole()` or mark as `// @public`
+- 🚨 **CRITICAL [P9]**: XSS risk - dangerouslySetInnerHTML without sanitization:
+    apps/web/src/components/ui/confetti.tsx:        dangerouslySetInnerHTML={{
+  apps/web/src/components/ui/chart.tsx:      dangerouslySetInnerHTML={{
+  apps/web/src/components/onboarding/gdpr-policy-viewer.tsx: * Uses dangerouslySetInnerHTML to avoid React key issues with static content.
+  **Action**: Use DOMPurify or remove dangerouslySetInnerHTML
+- ⚠️ **HIGH [P9]**: No rate limiting on notification/activity endpoints:
+  - packages/backend/convex/models/demoAsks.ts
+  **Action**: Add rate limiting to prevent spam/abuse
+- ⚠️ **HIGH [P9]**: AI endpoints without input validation:
+  - packages/backend/convex/actions/aiMapping.ts
+  - packages/backend/convex/actions/claimsExtraction.ts
+  - packages/backend/convex/actions/coachParentSummaries.ts
+  - packages/backend/convex/actions/practicePlans.ts
+  - packages/backend/convex/actions/sessionPlans.ts
+  - packages/backend/convex/actions/voiceNotes.ts
+  - packages/backend/convex/actions/wellnessInsights.ts
+  - packages/backend/convex/models/aiServiceHealth.ts
+  **Action**: Validate/sanitize user input before AI prompts
+- ⚠️ **HIGH [P9]**: Notification functions without permission checks:
+  - packages/backend/convex/models/notifications.ts
+  **Action**: Verify user can send notifications to recipient
+
+
+## Security Tester - 2026-02-25 23:56:18
+- 🚨 **CRITICAL**: Hardcoded secrets detected
+```
+apps/web/src/app/api/ai-config/verify-model/route.ts:          errorMessage: "ANTHROPIC_API_KEY not configured in Next.js env",
+apps/web/src/app/api/ai-config/verify-model/route.ts:          errorMessage: "OPENAI_API_KEY not configured in Next.js env",
+apps/web/src/app/api/ai-config/available-models/route.ts:    errors.anthropic = "ANTHROPIC_API_KEY not configured";
+apps/web/src/app/api/ai-config/available-models/route.ts:    errors.openai = "OPENAI_API_KEY not configured";
+apps/web/src/app/api/comparison-insights/route.ts:      console.error("❌ ANTHROPIC_API_KEY not found in environment variables");
+```
+- ⚠️ **HIGH**: 6 high-severity dependency vulnerabilities
+  Run `npm audit fix` to resolve
+- ⚠️ **HIGH**: Mutations without authorization checks:
+  - packages/backend/convex/models/platformMessagingSettings.ts
+  - packages/backend/convex/models/syncQueue.ts
+  - packages/backend/convex/models/importSessions.ts
+  - packages/backend/convex/models/passportComparison.ts
+  - packages/backend/convex/models/trustGatePermissions.ts
+  - packages/backend/convex/models/ageGroupEligibilityOverrides.ts
+  - packages/backend/convex/models/federationConnectors.ts
+  - packages/backend/convex/models/teamCollaboration.ts
+  - packages/backend/convex/models/guardianIdentities.ts
+  - packages/backend/convex/models/sessionPlans.ts
+  - packages/backend/convex/models/adultPlayers.ts
+  - packages/backend/convex/models/demoAsks.ts
+  - packages/backend/convex/models/skillBenchmarks.ts
+  - packages/backend/convex/models/coaches.ts
+  - packages/backend/convex/models/medicalProfiles.ts
+  - packages/backend/convex/models/invitations.ts
+  - packages/backend/convex/models/flows.ts
+  - packages/backend/convex/models/notifications.ts
+  - packages/backend/convex/models/whatsappReviewLinks.ts
+  - packages/backend/convex/models/teamObservations.ts
+  - packages/backend/convex/models/passportGoals.ts
+  - packages/backend/convex/models/players.ts
+  - packages/backend/convex/models/aiMappingCache.ts
+  - packages/backend/convex/models/orgInjuryNotes.ts
+  - packages/backend/convex/models/injuryDocuments.ts
+  - packages/backend/convex/models/playerHealthChecks.ts
+  - packages/backend/convex/models/playerImport.ts
+  - packages/backend/convex/models/passportEnquiries.ts
+  - packages/backend/convex/models/setup.ts
+  - packages/backend/convex/models/teamPlayerIdentities.ts
+  - packages/backend/convex/models/rateLimits.ts
+  - packages/backend/convex/models/phase4TestCleanup.ts
+  - packages/backend/convex/models/syncHistory.ts
+  - packages/backend/convex/models/platformStaffInvitations.ts
+  - packages/backend/convex/models/coachParentMessages.ts
+  - packages/backend/convex/models/aiModelConfig.ts
+  - packages/backend/convex/models/voicePipelineAlerts.ts
+  - packages/backend/convex/models/aiMappingAnalytics.ts
+  - packages/backend/convex/models/orgPlayerEnrollments.ts
+  - packages/backend/convex/models/sportPassports.ts
+  - packages/backend/convex/models/orgJoinRequests.ts
+  - packages/backend/convex/models/sportAgeGroupConfig.ts
+  - packages/backend/convex/models/referenceData.ts
+  - packages/backend/convex/models/importMappingHistory.ts
+  - packages/backend/convex/models/notificationPreferences.ts
+  - packages/backend/convex/models/userPreferences.ts
+  - packages/backend/convex/models/teams.ts
+  - packages/backend/convex/models/gdpr.ts
+  - packages/backend/convex/models/userProfiles.ts
+  - packages/backend/convex/models/emergencyContacts.ts
+  - packages/backend/convex/models/coachTrustLevels.ts
+  - packages/backend/convex/models/coachParentSummaries.ts
+  - packages/backend/convex/models/onboarding.ts
+  - packages/backend/convex/models/guardianPlayerLinks.ts
+  - packages/backend/convex/models/orgGuardianProfiles.ts
+  - packages/backend/convex/models/passportSharing.ts
+  - packages/backend/convex/models/playerGraduations.ts
+  - packages/backend/convex/models/members.ts
+  - packages/backend/convex/models/voiceNoteEntityResolutions.ts
+  - packages/backend/convex/models/users.ts
+  - packages/backend/convex/models/voicePipelineRetry.ts
+  - packages/backend/convex/models/skillAssessments.ts
+  - packages/backend/convex/models/playerSelfAccess.ts
+  - packages/backend/convex/models/aiServiceHealth.ts
+  - packages/backend/convex/models/importTemplates.ts
+  - packages/backend/convex/models/sports.ts
+  - packages/backend/convex/models/importProgress.ts
+  - packages/backend/convex/models/fixNeilsRoles.ts
+  - packages/backend/convex/models/playerIdentities.ts
+  - packages/backend/convex/models/voiceNotes.ts
+  - packages/backend/convex/models/guardianManagement.ts
+  - packages/backend/convex/models/importTemplateSeeds.ts
+  - packages/backend/convex/models/insightDrafts.ts
+  - packages/backend/convex/models/importSessionDrafts.ts
+  - packages/backend/convex/models/teamDecisions.ts
+  - packages/backend/convex/models/gaaTestMutations.ts
+  - packages/backend/convex/models/playerInjuries.ts
+  - packages/backend/convex/models/voiceNoteInsights.ts
+  - packages/backend/convex/models/playerEmergencyContacts.ts
+  - packages/backend/convex/models/coachTasks.ts
+  **Action**: Add `getUserOrgRole()` or mark as `// @public`
+- 🚨 **CRITICAL [P9]**: XSS risk - dangerouslySetInnerHTML without sanitization:
+    apps/web/src/components/ui/confetti.tsx:        dangerouslySetInnerHTML={{
+  apps/web/src/components/ui/chart.tsx:      dangerouslySetInnerHTML={{
+  apps/web/src/components/onboarding/gdpr-policy-viewer.tsx: * Uses dangerouslySetInnerHTML to avoid React key issues with static content.
+  **Action**: Use DOMPurify or remove dangerouslySetInnerHTML
+- ⚠️ **HIGH [P9]**: No rate limiting on notification/activity endpoints:
+  - packages/backend/convex/models/demoAsks.ts
+  **Action**: Add rate limiting to prevent spam/abuse
+- ⚠️ **HIGH [P9]**: AI endpoints without input validation:
+  - packages/backend/convex/actions/aiMapping.ts
+  - packages/backend/convex/actions/claimsExtraction.ts
+  - packages/backend/convex/actions/coachParentSummaries.ts
+  - packages/backend/convex/actions/practicePlans.ts
+  - packages/backend/convex/actions/sessionPlans.ts
+  - packages/backend/convex/actions/voiceNotes.ts
+  - packages/backend/convex/actions/wellnessInsights.ts
+  - packages/backend/convex/models/aiServiceHealth.ts
+  **Action**: Validate/sanitize user input before AI prompts
+- ⚠️ **HIGH [P9]**: Notification functions without permission checks:
+  - packages/backend/convex/models/notifications.ts
+  **Action**: Verify user can send notifications to recipient
+
+
+## Security Tester - 2026-02-25 23:58:20
+- 🚨 **CRITICAL**: Hardcoded secrets detected
+```
+apps/web/src/app/api/ai-config/verify-model/route.ts:          errorMessage: "ANTHROPIC_API_KEY not configured in Next.js env",
+apps/web/src/app/api/ai-config/verify-model/route.ts:          errorMessage: "OPENAI_API_KEY not configured in Next.js env",
+apps/web/src/app/api/ai-config/available-models/route.ts:    errors.anthropic = "ANTHROPIC_API_KEY not configured";
+apps/web/src/app/api/ai-config/available-models/route.ts:    errors.openai = "OPENAI_API_KEY not configured";
+apps/web/src/app/api/comparison-insights/route.ts:      console.error("❌ ANTHROPIC_API_KEY not found in environment variables");
+```
+- ⚠️ **HIGH**: 6 high-severity dependency vulnerabilities
+  Run `npm audit fix` to resolve
+- ⚠️ **HIGH**: Mutations without authorization checks:
+  - packages/backend/convex/models/platformMessagingSettings.ts
+  - packages/backend/convex/models/syncQueue.ts
+  - packages/backend/convex/models/importSessions.ts
+  - packages/backend/convex/models/passportComparison.ts
+  - packages/backend/convex/models/trustGatePermissions.ts
+  - packages/backend/convex/models/ageGroupEligibilityOverrides.ts
+  - packages/backend/convex/models/federationConnectors.ts
+  - packages/backend/convex/models/teamCollaboration.ts
+  - packages/backend/convex/models/guardianIdentities.ts
+  - packages/backend/convex/models/sessionPlans.ts
+  - packages/backend/convex/models/adultPlayers.ts
+  - packages/backend/convex/models/demoAsks.ts
+  - packages/backend/convex/models/skillBenchmarks.ts
+  - packages/backend/convex/models/coaches.ts
+  - packages/backend/convex/models/medicalProfiles.ts
+  - packages/backend/convex/models/invitations.ts
+  - packages/backend/convex/models/flows.ts
+  - packages/backend/convex/models/notifications.ts
+  - packages/backend/convex/models/whatsappReviewLinks.ts
+  - packages/backend/convex/models/teamObservations.ts
+  - packages/backend/convex/models/passportGoals.ts
+  - packages/backend/convex/models/players.ts
+  - packages/backend/convex/models/aiMappingCache.ts
+  - packages/backend/convex/models/orgInjuryNotes.ts
+  - packages/backend/convex/models/injuryDocuments.ts
+  - packages/backend/convex/models/playerHealthChecks.ts
+  - packages/backend/convex/models/playerImport.ts
+  - packages/backend/convex/models/passportEnquiries.ts
+  - packages/backend/convex/models/setup.ts
+  - packages/backend/convex/models/teamPlayerIdentities.ts
+  - packages/backend/convex/models/rateLimits.ts
+  - packages/backend/convex/models/phase4TestCleanup.ts
+  - packages/backend/convex/models/syncHistory.ts
+  - packages/backend/convex/models/platformStaffInvitations.ts
+  - packages/backend/convex/models/coachParentMessages.ts
+  - packages/backend/convex/models/aiModelConfig.ts
+  - packages/backend/convex/models/voicePipelineAlerts.ts
+  - packages/backend/convex/models/aiMappingAnalytics.ts
+  - packages/backend/convex/models/orgPlayerEnrollments.ts
+  - packages/backend/convex/models/sportPassports.ts
+  - packages/backend/convex/models/orgJoinRequests.ts
+  - packages/backend/convex/models/sportAgeGroupConfig.ts
+  - packages/backend/convex/models/referenceData.ts
+  - packages/backend/convex/models/importMappingHistory.ts
+  - packages/backend/convex/models/notificationPreferences.ts
+  - packages/backend/convex/models/userPreferences.ts
+  - packages/backend/convex/models/teams.ts
+  - packages/backend/convex/models/gdpr.ts
+  - packages/backend/convex/models/userProfiles.ts
+  - packages/backend/convex/models/emergencyContacts.ts
+  - packages/backend/convex/models/coachTrustLevels.ts
+  - packages/backend/convex/models/coachParentSummaries.ts
+  - packages/backend/convex/models/onboarding.ts
+  - packages/backend/convex/models/guardianPlayerLinks.ts
+  - packages/backend/convex/models/orgGuardianProfiles.ts
+  - packages/backend/convex/models/passportSharing.ts
+  - packages/backend/convex/models/playerGraduations.ts
+  - packages/backend/convex/models/members.ts
+  - packages/backend/convex/models/voiceNoteEntityResolutions.ts
+  - packages/backend/convex/models/users.ts
+  - packages/backend/convex/models/voicePipelineRetry.ts
+  - packages/backend/convex/models/skillAssessments.ts
+  - packages/backend/convex/models/playerSelfAccess.ts
+  - packages/backend/convex/models/aiServiceHealth.ts
+  - packages/backend/convex/models/importTemplates.ts
+  - packages/backend/convex/models/sports.ts
+  - packages/backend/convex/models/importProgress.ts
+  - packages/backend/convex/models/fixNeilsRoles.ts
+  - packages/backend/convex/models/playerIdentities.ts
+  - packages/backend/convex/models/voiceNotes.ts
+  - packages/backend/convex/models/guardianManagement.ts
+  - packages/backend/convex/models/importTemplateSeeds.ts
+  - packages/backend/convex/models/insightDrafts.ts
+  - packages/backend/convex/models/importSessionDrafts.ts
+  - packages/backend/convex/models/teamDecisions.ts
+  - packages/backend/convex/models/gaaTestMutations.ts
+  - packages/backend/convex/models/playerInjuries.ts
+  - packages/backend/convex/models/voiceNoteInsights.ts
+  - packages/backend/convex/models/playerEmergencyContacts.ts
+  - packages/backend/convex/models/coachTasks.ts
+  **Action**: Add `getUserOrgRole()` or mark as `// @public`
+- 🚨 **CRITICAL [P9]**: XSS risk - dangerouslySetInnerHTML without sanitization:
+    apps/web/src/components/ui/confetti.tsx:        dangerouslySetInnerHTML={{
+  apps/web/src/components/ui/chart.tsx:      dangerouslySetInnerHTML={{
+  apps/web/src/components/onboarding/gdpr-policy-viewer.tsx: * Uses dangerouslySetInnerHTML to avoid React key issues with static content.
+  **Action**: Use DOMPurify or remove dangerouslySetInnerHTML
+- ⚠️ **HIGH [P9]**: No rate limiting on notification/activity endpoints:
+  - packages/backend/convex/models/demoAsks.ts
+  **Action**: Add rate limiting to prevent spam/abuse
+- ⚠️ **HIGH [P9]**: AI endpoints without input validation:
+  - packages/backend/convex/actions/aiMapping.ts
+  - packages/backend/convex/actions/claimsExtraction.ts
+  - packages/backend/convex/actions/coachParentSummaries.ts
+  - packages/backend/convex/actions/practicePlans.ts
+  - packages/backend/convex/actions/sessionPlans.ts
+  - packages/backend/convex/actions/voiceNotes.ts
+  - packages/backend/convex/actions/wellnessInsights.ts
+  - packages/backend/convex/models/aiServiceHealth.ts
+  **Action**: Validate/sanitize user input before AI prompts
+- ⚠️ **HIGH [P9]**: Notification functions without permission checks:
+  - packages/backend/convex/models/notifications.ts
+  **Action**: Verify user can send notifications to recipient
+
+
+## Security Tester - 2026-02-26 00:00:24
+- 🚨 **CRITICAL**: Hardcoded secrets detected
+```
+apps/web/src/app/api/ai-config/verify-model/route.ts:          errorMessage: "ANTHROPIC_API_KEY not configured in Next.js env",
+apps/web/src/app/api/ai-config/verify-model/route.ts:          errorMessage: "OPENAI_API_KEY not configured in Next.js env",
+apps/web/src/app/api/ai-config/available-models/route.ts:    errors.anthropic = "ANTHROPIC_API_KEY not configured";
+apps/web/src/app/api/ai-config/available-models/route.ts:    errors.openai = "OPENAI_API_KEY not configured";
+apps/web/src/app/api/comparison-insights/route.ts:      console.error("❌ ANTHROPIC_API_KEY not found in environment variables");
+```
+- ⚠️ **HIGH**: 6 high-severity dependency vulnerabilities
+  Run `npm audit fix` to resolve
+- ⚠️ **HIGH**: Mutations without authorization checks:
+  - packages/backend/convex/models/platformMessagingSettings.ts
+  - packages/backend/convex/models/syncQueue.ts
+  - packages/backend/convex/models/importSessions.ts
+  - packages/backend/convex/models/passportComparison.ts
+  - packages/backend/convex/models/trustGatePermissions.ts
+  - packages/backend/convex/models/ageGroupEligibilityOverrides.ts
+  - packages/backend/convex/models/federationConnectors.ts
+  - packages/backend/convex/models/teamCollaboration.ts
+  - packages/backend/convex/models/guardianIdentities.ts
+  - packages/backend/convex/models/sessionPlans.ts
+  - packages/backend/convex/models/adultPlayers.ts
+  - packages/backend/convex/models/demoAsks.ts
+  - packages/backend/convex/models/skillBenchmarks.ts
+  - packages/backend/convex/models/coaches.ts
+  - packages/backend/convex/models/medicalProfiles.ts
+  - packages/backend/convex/models/invitations.ts
+  - packages/backend/convex/models/flows.ts
+  - packages/backend/convex/models/notifications.ts
+  - packages/backend/convex/models/whatsappReviewLinks.ts
+  - packages/backend/convex/models/teamObservations.ts
+  - packages/backend/convex/models/passportGoals.ts
+  - packages/backend/convex/models/players.ts
+  - packages/backend/convex/models/aiMappingCache.ts
+  - packages/backend/convex/models/orgInjuryNotes.ts
+  - packages/backend/convex/models/injuryDocuments.ts
+  - packages/backend/convex/models/playerHealthChecks.ts
+  - packages/backend/convex/models/playerImport.ts
+  - packages/backend/convex/models/passportEnquiries.ts
+  - packages/backend/convex/models/setup.ts
+  - packages/backend/convex/models/teamPlayerIdentities.ts
+  - packages/backend/convex/models/rateLimits.ts
+  - packages/backend/convex/models/phase4TestCleanup.ts
+  - packages/backend/convex/models/syncHistory.ts
+  - packages/backend/convex/models/platformStaffInvitations.ts
+  - packages/backend/convex/models/coachParentMessages.ts
+  - packages/backend/convex/models/aiModelConfig.ts
+  - packages/backend/convex/models/voicePipelineAlerts.ts
+  - packages/backend/convex/models/aiMappingAnalytics.ts
+  - packages/backend/convex/models/orgPlayerEnrollments.ts
+  - packages/backend/convex/models/sportPassports.ts
+  - packages/backend/convex/models/orgJoinRequests.ts
+  - packages/backend/convex/models/sportAgeGroupConfig.ts
+  - packages/backend/convex/models/referenceData.ts
+  - packages/backend/convex/models/importMappingHistory.ts
+  - packages/backend/convex/models/notificationPreferences.ts
+  - packages/backend/convex/models/userPreferences.ts
+  - packages/backend/convex/models/teams.ts
+  - packages/backend/convex/models/gdpr.ts
+  - packages/backend/convex/models/userProfiles.ts
+  - packages/backend/convex/models/emergencyContacts.ts
+  - packages/backend/convex/models/coachTrustLevels.ts
+  - packages/backend/convex/models/coachParentSummaries.ts
+  - packages/backend/convex/models/onboarding.ts
+  - packages/backend/convex/models/guardianPlayerLinks.ts
+  - packages/backend/convex/models/orgGuardianProfiles.ts
+  - packages/backend/convex/models/passportSharing.ts
+  - packages/backend/convex/models/playerGraduations.ts
+  - packages/backend/convex/models/members.ts
+  - packages/backend/convex/models/voiceNoteEntityResolutions.ts
+  - packages/backend/convex/models/users.ts
+  - packages/backend/convex/models/voicePipelineRetry.ts
+  - packages/backend/convex/models/skillAssessments.ts
+  - packages/backend/convex/models/playerSelfAccess.ts
+  - packages/backend/convex/models/aiServiceHealth.ts
+  - packages/backend/convex/models/importTemplates.ts
+  - packages/backend/convex/models/sports.ts
+  - packages/backend/convex/models/importProgress.ts
+  - packages/backend/convex/models/fixNeilsRoles.ts
+  - packages/backend/convex/models/playerIdentities.ts
+  - packages/backend/convex/models/voiceNotes.ts
+  - packages/backend/convex/models/guardianManagement.ts
+  - packages/backend/convex/models/importTemplateSeeds.ts
+  - packages/backend/convex/models/insightDrafts.ts
+  - packages/backend/convex/models/importSessionDrafts.ts
+  - packages/backend/convex/models/teamDecisions.ts
+  - packages/backend/convex/models/gaaTestMutations.ts
+  - packages/backend/convex/models/playerInjuries.ts
+  - packages/backend/convex/models/voiceNoteInsights.ts
+  - packages/backend/convex/models/playerEmergencyContacts.ts
+  - packages/backend/convex/models/coachTasks.ts
+  **Action**: Add `getUserOrgRole()` or mark as `// @public`
+- 🚨 **CRITICAL [P9]**: XSS risk - dangerouslySetInnerHTML without sanitization:
+    apps/web/src/components/ui/confetti.tsx:        dangerouslySetInnerHTML={{
+  apps/web/src/components/ui/chart.tsx:      dangerouslySetInnerHTML={{
+  apps/web/src/components/onboarding/gdpr-policy-viewer.tsx: * Uses dangerouslySetInnerHTML to avoid React key issues with static content.
+  **Action**: Use DOMPurify or remove dangerouslySetInnerHTML
+- ⚠️ **HIGH [P9]**: No rate limiting on notification/activity endpoints:
+  - packages/backend/convex/models/demoAsks.ts
+  **Action**: Add rate limiting to prevent spam/abuse
+- ⚠️ **HIGH [P9]**: AI endpoints without input validation:
+  - packages/backend/convex/actions/aiMapping.ts
+  - packages/backend/convex/actions/claimsExtraction.ts
+  - packages/backend/convex/actions/coachParentSummaries.ts
+  - packages/backend/convex/actions/practicePlans.ts
+  - packages/backend/convex/actions/sessionPlans.ts
+  - packages/backend/convex/actions/voiceNotes.ts
+  - packages/backend/convex/actions/wellnessInsights.ts
+  - packages/backend/convex/models/aiServiceHealth.ts
+  **Action**: Validate/sanitize user input before AI prompts
+- ⚠️ **HIGH [P9]**: Notification functions without permission checks:
+  - packages/backend/convex/models/notifications.ts
+  **Action**: Verify user can send notifications to recipient
+
+
+## Security Tester - 2026-02-26 00:02:26
+- 🚨 **CRITICAL**: Hardcoded secrets detected
+```
+apps/web/src/app/api/ai-config/verify-model/route.ts:          errorMessage: "ANTHROPIC_API_KEY not configured in Next.js env",
+apps/web/src/app/api/ai-config/verify-model/route.ts:          errorMessage: "OPENAI_API_KEY not configured in Next.js env",
+apps/web/src/app/api/ai-config/available-models/route.ts:    errors.anthropic = "ANTHROPIC_API_KEY not configured";
+apps/web/src/app/api/ai-config/available-models/route.ts:    errors.openai = "OPENAI_API_KEY not configured";
+apps/web/src/app/api/comparison-insights/route.ts:      console.error("❌ ANTHROPIC_API_KEY not found in environment variables");
+```
+- ⚠️ **HIGH**: 6 high-severity dependency vulnerabilities
+  Run `npm audit fix` to resolve
+- ⚠️ **HIGH**: Mutations without authorization checks:
+  - packages/backend/convex/models/platformMessagingSettings.ts
+  - packages/backend/convex/models/syncQueue.ts
+  - packages/backend/convex/models/importSessions.ts
+  - packages/backend/convex/models/passportComparison.ts
+  - packages/backend/convex/models/trustGatePermissions.ts
+  - packages/backend/convex/models/ageGroupEligibilityOverrides.ts
+  - packages/backend/convex/models/federationConnectors.ts
+  - packages/backend/convex/models/teamCollaboration.ts
+  - packages/backend/convex/models/guardianIdentities.ts
+  - packages/backend/convex/models/sessionPlans.ts
+  - packages/backend/convex/models/adultPlayers.ts
+  - packages/backend/convex/models/demoAsks.ts
+  - packages/backend/convex/models/skillBenchmarks.ts
+  - packages/backend/convex/models/coaches.ts
+  - packages/backend/convex/models/medicalProfiles.ts
+  - packages/backend/convex/models/invitations.ts
+  - packages/backend/convex/models/flows.ts
+  - packages/backend/convex/models/notifications.ts
+  - packages/backend/convex/models/whatsappReviewLinks.ts
+  - packages/backend/convex/models/teamObservations.ts
+  - packages/backend/convex/models/passportGoals.ts
+  - packages/backend/convex/models/players.ts
+  - packages/backend/convex/models/aiMappingCache.ts
+  - packages/backend/convex/models/orgInjuryNotes.ts
+  - packages/backend/convex/models/injuryDocuments.ts
+  - packages/backend/convex/models/playerHealthChecks.ts
+  - packages/backend/convex/models/playerImport.ts
+  - packages/backend/convex/models/passportEnquiries.ts
+  - packages/backend/convex/models/setup.ts
+  - packages/backend/convex/models/teamPlayerIdentities.ts
+  - packages/backend/convex/models/rateLimits.ts
+  - packages/backend/convex/models/phase4TestCleanup.ts
+  - packages/backend/convex/models/syncHistory.ts
+  - packages/backend/convex/models/platformStaffInvitations.ts
+  - packages/backend/convex/models/coachParentMessages.ts
+  - packages/backend/convex/models/aiModelConfig.ts
+  - packages/backend/convex/models/voicePipelineAlerts.ts
+  - packages/backend/convex/models/aiMappingAnalytics.ts
+  - packages/backend/convex/models/orgPlayerEnrollments.ts
+  - packages/backend/convex/models/sportPassports.ts
+  - packages/backend/convex/models/orgJoinRequests.ts
+  - packages/backend/convex/models/sportAgeGroupConfig.ts
+  - packages/backend/convex/models/referenceData.ts
+  - packages/backend/convex/models/importMappingHistory.ts
+  - packages/backend/convex/models/notificationPreferences.ts
+  - packages/backend/convex/models/userPreferences.ts
+  - packages/backend/convex/models/teams.ts
+  - packages/backend/convex/models/gdpr.ts
+  - packages/backend/convex/models/userProfiles.ts
+  - packages/backend/convex/models/emergencyContacts.ts
+  - packages/backend/convex/models/coachTrustLevels.ts
+  - packages/backend/convex/models/coachParentSummaries.ts
+  - packages/backend/convex/models/onboarding.ts
+  - packages/backend/convex/models/guardianPlayerLinks.ts
+  - packages/backend/convex/models/orgGuardianProfiles.ts
+  - packages/backend/convex/models/passportSharing.ts
+  - packages/backend/convex/models/playerGraduations.ts
+  - packages/backend/convex/models/members.ts
+  - packages/backend/convex/models/voiceNoteEntityResolutions.ts
+  - packages/backend/convex/models/users.ts
+  - packages/backend/convex/models/voicePipelineRetry.ts
+  - packages/backend/convex/models/skillAssessments.ts
+  - packages/backend/convex/models/playerSelfAccess.ts
+  - packages/backend/convex/models/aiServiceHealth.ts
+  - packages/backend/convex/models/importTemplates.ts
+  - packages/backend/convex/models/sports.ts
+  - packages/backend/convex/models/importProgress.ts
+  - packages/backend/convex/models/fixNeilsRoles.ts
+  - packages/backend/convex/models/playerIdentities.ts
+  - packages/backend/convex/models/voiceNotes.ts
+  - packages/backend/convex/models/guardianManagement.ts
+  - packages/backend/convex/models/importTemplateSeeds.ts
+  - packages/backend/convex/models/insightDrafts.ts
+  - packages/backend/convex/models/importSessionDrafts.ts
+  - packages/backend/convex/models/teamDecisions.ts
+  - packages/backend/convex/models/gaaTestMutations.ts
+  - packages/backend/convex/models/playerInjuries.ts
+  - packages/backend/convex/models/voiceNoteInsights.ts
+  - packages/backend/convex/models/playerEmergencyContacts.ts
+  - packages/backend/convex/models/coachTasks.ts
+  **Action**: Add `getUserOrgRole()` or mark as `// @public`
+- 🚨 **CRITICAL [P9]**: XSS risk - dangerouslySetInnerHTML without sanitization:
+    apps/web/src/components/ui/confetti.tsx:        dangerouslySetInnerHTML={{
+  apps/web/src/components/ui/chart.tsx:      dangerouslySetInnerHTML={{
+  apps/web/src/components/onboarding/gdpr-policy-viewer.tsx: * Uses dangerouslySetInnerHTML to avoid React key issues with static content.
+  **Action**: Use DOMPurify or remove dangerouslySetInnerHTML
+- ⚠️ **HIGH [P9]**: No rate limiting on notification/activity endpoints:
+  - packages/backend/convex/models/demoAsks.ts
+  **Action**: Add rate limiting to prevent spam/abuse
+- ⚠️ **HIGH [P9]**: AI endpoints without input validation:
+  - packages/backend/convex/actions/aiMapping.ts
+  - packages/backend/convex/actions/claimsExtraction.ts
+  - packages/backend/convex/actions/coachParentSummaries.ts
+  - packages/backend/convex/actions/practicePlans.ts
+  - packages/backend/convex/actions/sessionPlans.ts
+  - packages/backend/convex/actions/voiceNotes.ts
+  - packages/backend/convex/actions/wellnessInsights.ts
+  - packages/backend/convex/models/aiServiceHealth.ts
+  **Action**: Validate/sanitize user input before AI prompts
+- ⚠️ **HIGH [P9]**: Notification functions without permission checks:
+  - packages/backend/convex/models/notifications.ts
+  **Action**: Verify user can send notifications to recipient
+
+
+## Security Tester - 2026-02-26 00:04:28
+- 🚨 **CRITICAL**: Hardcoded secrets detected
+```
+apps/web/src/app/api/ai-config/verify-model/route.ts:          errorMessage: "ANTHROPIC_API_KEY not configured in Next.js env",
+apps/web/src/app/api/ai-config/verify-model/route.ts:          errorMessage: "OPENAI_API_KEY not configured in Next.js env",
+apps/web/src/app/api/ai-config/available-models/route.ts:    errors.anthropic = "ANTHROPIC_API_KEY not configured";
+apps/web/src/app/api/ai-config/available-models/route.ts:    errors.openai = "OPENAI_API_KEY not configured";
+apps/web/src/app/api/comparison-insights/route.ts:      console.error("❌ ANTHROPIC_API_KEY not found in environment variables");
+```
+- ⚠️ **HIGH**: 6 high-severity dependency vulnerabilities
+  Run `npm audit fix` to resolve
+- ⚠️ **HIGH**: Mutations without authorization checks:
+  - packages/backend/convex/models/platformMessagingSettings.ts
+  - packages/backend/convex/models/syncQueue.ts
+  - packages/backend/convex/models/importSessions.ts
+  - packages/backend/convex/models/passportComparison.ts
+  - packages/backend/convex/models/trustGatePermissions.ts
+  - packages/backend/convex/models/ageGroupEligibilityOverrides.ts
+  - packages/backend/convex/models/federationConnectors.ts
+  - packages/backend/convex/models/teamCollaboration.ts
+  - packages/backend/convex/models/guardianIdentities.ts
+  - packages/backend/convex/models/sessionPlans.ts
+  - packages/backend/convex/models/adultPlayers.ts
+  - packages/backend/convex/models/demoAsks.ts
+  - packages/backend/convex/models/skillBenchmarks.ts
+  - packages/backend/convex/models/coaches.ts
+  - packages/backend/convex/models/medicalProfiles.ts
+  - packages/backend/convex/models/invitations.ts
+  - packages/backend/convex/models/flows.ts
+  - packages/backend/convex/models/notifications.ts
+  - packages/backend/convex/models/whatsappReviewLinks.ts
+  - packages/backend/convex/models/teamObservations.ts
+  - packages/backend/convex/models/passportGoals.ts
+  - packages/backend/convex/models/players.ts
+  - packages/backend/convex/models/aiMappingCache.ts
+  - packages/backend/convex/models/orgInjuryNotes.ts
+  - packages/backend/convex/models/injuryDocuments.ts
+  - packages/backend/convex/models/playerHealthChecks.ts
+  - packages/backend/convex/models/playerImport.ts
+  - packages/backend/convex/models/passportEnquiries.ts
+  - packages/backend/convex/models/setup.ts
+  - packages/backend/convex/models/teamPlayerIdentities.ts
+  - packages/backend/convex/models/rateLimits.ts
+  - packages/backend/convex/models/phase4TestCleanup.ts
+  - packages/backend/convex/models/syncHistory.ts
+  - packages/backend/convex/models/platformStaffInvitations.ts
+  - packages/backend/convex/models/coachParentMessages.ts
+  - packages/backend/convex/models/aiModelConfig.ts
+  - packages/backend/convex/models/voicePipelineAlerts.ts
+  - packages/backend/convex/models/aiMappingAnalytics.ts
+  - packages/backend/convex/models/orgPlayerEnrollments.ts
+  - packages/backend/convex/models/sportPassports.ts
+  - packages/backend/convex/models/orgJoinRequests.ts
+  - packages/backend/convex/models/sportAgeGroupConfig.ts
+  - packages/backend/convex/models/referenceData.ts
+  - packages/backend/convex/models/importMappingHistory.ts
+  - packages/backend/convex/models/notificationPreferences.ts
+  - packages/backend/convex/models/userPreferences.ts
+  - packages/backend/convex/models/teams.ts
+  - packages/backend/convex/models/gdpr.ts
+  - packages/backend/convex/models/userProfiles.ts
+  - packages/backend/convex/models/emergencyContacts.ts
+  - packages/backend/convex/models/coachTrustLevels.ts
+  - packages/backend/convex/models/coachParentSummaries.ts
+  - packages/backend/convex/models/onboarding.ts
+  - packages/backend/convex/models/guardianPlayerLinks.ts
+  - packages/backend/convex/models/orgGuardianProfiles.ts
+  - packages/backend/convex/models/passportSharing.ts
+  - packages/backend/convex/models/playerGraduations.ts
+  - packages/backend/convex/models/members.ts
+  - packages/backend/convex/models/voiceNoteEntityResolutions.ts
+  - packages/backend/convex/models/users.ts
+  - packages/backend/convex/models/voicePipelineRetry.ts
+  - packages/backend/convex/models/skillAssessments.ts
+  - packages/backend/convex/models/playerSelfAccess.ts
+  - packages/backend/convex/models/aiServiceHealth.ts
+  - packages/backend/convex/models/importTemplates.ts
+  - packages/backend/convex/models/sports.ts
+  - packages/backend/convex/models/importProgress.ts
+  - packages/backend/convex/models/fixNeilsRoles.ts
+  - packages/backend/convex/models/playerIdentities.ts
+  - packages/backend/convex/models/voiceNotes.ts
+  - packages/backend/convex/models/guardianManagement.ts
+  - packages/backend/convex/models/importTemplateSeeds.ts
+  - packages/backend/convex/models/insightDrafts.ts
+  - packages/backend/convex/models/importSessionDrafts.ts
+  - packages/backend/convex/models/teamDecisions.ts
+  - packages/backend/convex/models/gaaTestMutations.ts
+  - packages/backend/convex/models/playerInjuries.ts
+  - packages/backend/convex/models/voiceNoteInsights.ts
+  - packages/backend/convex/models/playerEmergencyContacts.ts
+  - packages/backend/convex/models/coachTasks.ts
+  **Action**: Add `getUserOrgRole()` or mark as `// @public`
+- 🚨 **CRITICAL [P9]**: XSS risk - dangerouslySetInnerHTML without sanitization:
+    apps/web/src/components/ui/confetti.tsx:        dangerouslySetInnerHTML={{
+  apps/web/src/components/ui/chart.tsx:      dangerouslySetInnerHTML={{
+  apps/web/src/components/onboarding/gdpr-policy-viewer.tsx: * Uses dangerouslySetInnerHTML to avoid React key issues with static content.
+  **Action**: Use DOMPurify or remove dangerouslySetInnerHTML
+- ⚠️ **HIGH [P9]**: No rate limiting on notification/activity endpoints:
+  - packages/backend/convex/models/demoAsks.ts
+  **Action**: Add rate limiting to prevent spam/abuse
+- ⚠️ **HIGH [P9]**: AI endpoints without input validation:
+  - packages/backend/convex/actions/aiMapping.ts
+  - packages/backend/convex/actions/claimsExtraction.ts
+  - packages/backend/convex/actions/coachParentSummaries.ts
+  - packages/backend/convex/actions/practicePlans.ts
+  - packages/backend/convex/actions/sessionPlans.ts
+  - packages/backend/convex/actions/voiceNotes.ts
+  - packages/backend/convex/actions/wellnessInsights.ts
+  - packages/backend/convex/models/aiServiceHealth.ts
+  **Action**: Validate/sanitize user input before AI prompts
+- ⚠️ **HIGH [P9]**: Notification functions without permission checks:
+  - packages/backend/convex/models/notifications.ts
+  **Action**: Verify user can send notifications to recipient
+
+
+## Security Tester - 2026-02-26 00:06:32
+- 🚨 **CRITICAL**: Hardcoded secrets detected
+```
+apps/web/src/app/api/ai-config/verify-model/route.ts:          errorMessage: "ANTHROPIC_API_KEY not configured in Next.js env",
+apps/web/src/app/api/ai-config/verify-model/route.ts:          errorMessage: "OPENAI_API_KEY not configured in Next.js env",
+apps/web/src/app/api/ai-config/available-models/route.ts:    errors.anthropic = "ANTHROPIC_API_KEY not configured";
+apps/web/src/app/api/ai-config/available-models/route.ts:    errors.openai = "OPENAI_API_KEY not configured";
+apps/web/src/app/api/comparison-insights/route.ts:      console.error("❌ ANTHROPIC_API_KEY not found in environment variables");
+```
+- ⚠️ **HIGH**: 6 high-severity dependency vulnerabilities
+  Run `npm audit fix` to resolve
+- ⚠️ **HIGH**: Mutations without authorization checks:
+  - packages/backend/convex/models/platformMessagingSettings.ts
+  - packages/backend/convex/models/syncQueue.ts
+  - packages/backend/convex/models/importSessions.ts
+  - packages/backend/convex/models/passportComparison.ts
+  - packages/backend/convex/models/trustGatePermissions.ts
+  - packages/backend/convex/models/ageGroupEligibilityOverrides.ts
+  - packages/backend/convex/models/federationConnectors.ts
+  - packages/backend/convex/models/teamCollaboration.ts
+  - packages/backend/convex/models/guardianIdentities.ts
+  - packages/backend/convex/models/sessionPlans.ts
+  - packages/backend/convex/models/adultPlayers.ts
+  - packages/backend/convex/models/demoAsks.ts
+  - packages/backend/convex/models/skillBenchmarks.ts
+  - packages/backend/convex/models/coaches.ts
+  - packages/backend/convex/models/medicalProfiles.ts
+  - packages/backend/convex/models/invitations.ts
+  - packages/backend/convex/models/flows.ts
+  - packages/backend/convex/models/notifications.ts
+  - packages/backend/convex/models/whatsappReviewLinks.ts
+  - packages/backend/convex/models/teamObservations.ts
+  - packages/backend/convex/models/passportGoals.ts
+  - packages/backend/convex/models/players.ts
+  - packages/backend/convex/models/aiMappingCache.ts
+  - packages/backend/convex/models/orgInjuryNotes.ts
+  - packages/backend/convex/models/injuryDocuments.ts
+  - packages/backend/convex/models/playerHealthChecks.ts
+  - packages/backend/convex/models/playerImport.ts
+  - packages/backend/convex/models/passportEnquiries.ts
+  - packages/backend/convex/models/setup.ts
+  - packages/backend/convex/models/teamPlayerIdentities.ts
+  - packages/backend/convex/models/rateLimits.ts
+  - packages/backend/convex/models/phase4TestCleanup.ts
+  - packages/backend/convex/models/syncHistory.ts
+  - packages/backend/convex/models/platformStaffInvitations.ts
+  - packages/backend/convex/models/coachParentMessages.ts
+  - packages/backend/convex/models/aiModelConfig.ts
+  - packages/backend/convex/models/voicePipelineAlerts.ts
+  - packages/backend/convex/models/aiMappingAnalytics.ts
+  - packages/backend/convex/models/orgPlayerEnrollments.ts
+  - packages/backend/convex/models/sportPassports.ts
+  - packages/backend/convex/models/orgJoinRequests.ts
+  - packages/backend/convex/models/sportAgeGroupConfig.ts
+  - packages/backend/convex/models/referenceData.ts
+  - packages/backend/convex/models/importMappingHistory.ts
+  - packages/backend/convex/models/notificationPreferences.ts
+  - packages/backend/convex/models/userPreferences.ts
+  - packages/backend/convex/models/teams.ts
+  - packages/backend/convex/models/gdpr.ts
+  - packages/backend/convex/models/userProfiles.ts
+  - packages/backend/convex/models/emergencyContacts.ts
+  - packages/backend/convex/models/coachTrustLevels.ts
+  - packages/backend/convex/models/coachParentSummaries.ts
+  - packages/backend/convex/models/onboarding.ts
+  - packages/backend/convex/models/guardianPlayerLinks.ts
+  - packages/backend/convex/models/orgGuardianProfiles.ts
+  - packages/backend/convex/models/passportSharing.ts
+  - packages/backend/convex/models/playerGraduations.ts
+  - packages/backend/convex/models/members.ts
+  - packages/backend/convex/models/voiceNoteEntityResolutions.ts
+  - packages/backend/convex/models/users.ts
+  - packages/backend/convex/models/voicePipelineRetry.ts
+  - packages/backend/convex/models/skillAssessments.ts
+  - packages/backend/convex/models/playerSelfAccess.ts
+  - packages/backend/convex/models/aiServiceHealth.ts
+  - packages/backend/convex/models/importTemplates.ts
+  - packages/backend/convex/models/sports.ts
+  - packages/backend/convex/models/importProgress.ts
+  - packages/backend/convex/models/fixNeilsRoles.ts
+  - packages/backend/convex/models/playerIdentities.ts
+  - packages/backend/convex/models/voiceNotes.ts
+  - packages/backend/convex/models/guardianManagement.ts
+  - packages/backend/convex/models/importTemplateSeeds.ts
+  - packages/backend/convex/models/insightDrafts.ts
+  - packages/backend/convex/models/importSessionDrafts.ts
+  - packages/backend/convex/models/teamDecisions.ts
+  - packages/backend/convex/models/gaaTestMutations.ts
+  - packages/backend/convex/models/playerInjuries.ts
+  - packages/backend/convex/models/voiceNoteInsights.ts
+  - packages/backend/convex/models/playerEmergencyContacts.ts
+  - packages/backend/convex/models/coachTasks.ts
+  **Action**: Add `getUserOrgRole()` or mark as `// @public`
+- 🚨 **CRITICAL [P9]**: XSS risk - dangerouslySetInnerHTML without sanitization:
+    apps/web/src/components/ui/confetti.tsx:        dangerouslySetInnerHTML={{
+  apps/web/src/components/ui/chart.tsx:      dangerouslySetInnerHTML={{
+  apps/web/src/components/onboarding/gdpr-policy-viewer.tsx: * Uses dangerouslySetInnerHTML to avoid React key issues with static content.
+  **Action**: Use DOMPurify or remove dangerouslySetInnerHTML
+- ⚠️ **HIGH [P9]**: No rate limiting on notification/activity endpoints:
+  - packages/backend/convex/models/demoAsks.ts
+  **Action**: Add rate limiting to prevent spam/abuse
+- ⚠️ **HIGH [P9]**: AI endpoints without input validation:
+  - packages/backend/convex/actions/aiMapping.ts
+  - packages/backend/convex/actions/claimsExtraction.ts
+  - packages/backend/convex/actions/coachParentSummaries.ts
+  - packages/backend/convex/actions/practicePlans.ts
+  - packages/backend/convex/actions/sessionPlans.ts
+  - packages/backend/convex/actions/voiceNotes.ts
+  - packages/backend/convex/actions/wellnessInsights.ts
+  - packages/backend/convex/models/aiServiceHealth.ts
+  **Action**: Validate/sanitize user input before AI prompts
+- ⚠️ **HIGH [P9]**: Notification functions without permission checks:
+  - packages/backend/convex/models/notifications.ts
+  **Action**: Verify user can send notifications to recipient
+
+
+## Security Tester - 2026-02-26 00:08:35
+- 🚨 **CRITICAL**: Hardcoded secrets detected
+```
+apps/web/src/app/api/ai-config/verify-model/route.ts:          errorMessage: "ANTHROPIC_API_KEY not configured in Next.js env",
+apps/web/src/app/api/ai-config/verify-model/route.ts:          errorMessage: "OPENAI_API_KEY not configured in Next.js env",
+apps/web/src/app/api/ai-config/available-models/route.ts:    errors.anthropic = "ANTHROPIC_API_KEY not configured";
+apps/web/src/app/api/ai-config/available-models/route.ts:    errors.openai = "OPENAI_API_KEY not configured";
+apps/web/src/app/api/comparison-insights/route.ts:      console.error("❌ ANTHROPIC_API_KEY not found in environment variables");
+```
+- ⚠️ **HIGH**: 6 high-severity dependency vulnerabilities
+  Run `npm audit fix` to resolve
+- ⚠️ **HIGH**: Mutations without authorization checks:
+  - packages/backend/convex/models/platformMessagingSettings.ts
+  - packages/backend/convex/models/syncQueue.ts
+  - packages/backend/convex/models/importSessions.ts
+  - packages/backend/convex/models/passportComparison.ts
+  - packages/backend/convex/models/trustGatePermissions.ts
+  - packages/backend/convex/models/ageGroupEligibilityOverrides.ts
+  - packages/backend/convex/models/federationConnectors.ts
+  - packages/backend/convex/models/teamCollaboration.ts
+  - packages/backend/convex/models/guardianIdentities.ts
+  - packages/backend/convex/models/sessionPlans.ts
+  - packages/backend/convex/models/adultPlayers.ts
+  - packages/backend/convex/models/demoAsks.ts
+  - packages/backend/convex/models/skillBenchmarks.ts
+  - packages/backend/convex/models/coaches.ts
+  - packages/backend/convex/models/medicalProfiles.ts
+  - packages/backend/convex/models/invitations.ts
+  - packages/backend/convex/models/flows.ts
+  - packages/backend/convex/models/notifications.ts
+  - packages/backend/convex/models/whatsappReviewLinks.ts
+  - packages/backend/convex/models/teamObservations.ts
+  - packages/backend/convex/models/passportGoals.ts
+  - packages/backend/convex/models/players.ts
+  - packages/backend/convex/models/aiMappingCache.ts
+  - packages/backend/convex/models/orgInjuryNotes.ts
+  - packages/backend/convex/models/injuryDocuments.ts
+  - packages/backend/convex/models/playerHealthChecks.ts
+  - packages/backend/convex/models/playerImport.ts
+  - packages/backend/convex/models/passportEnquiries.ts
+  - packages/backend/convex/models/setup.ts
+  - packages/backend/convex/models/teamPlayerIdentities.ts
+  - packages/backend/convex/models/rateLimits.ts
+  - packages/backend/convex/models/phase4TestCleanup.ts
+  - packages/backend/convex/models/syncHistory.ts
+  - packages/backend/convex/models/platformStaffInvitations.ts
+  - packages/backend/convex/models/coachParentMessages.ts
+  - packages/backend/convex/models/aiModelConfig.ts
+  - packages/backend/convex/models/voicePipelineAlerts.ts
+  - packages/backend/convex/models/aiMappingAnalytics.ts
+  - packages/backend/convex/models/orgPlayerEnrollments.ts
+  - packages/backend/convex/models/sportPassports.ts
+  - packages/backend/convex/models/orgJoinRequests.ts
+  - packages/backend/convex/models/sportAgeGroupConfig.ts
+  - packages/backend/convex/models/referenceData.ts
+  - packages/backend/convex/models/importMappingHistory.ts
+  - packages/backend/convex/models/notificationPreferences.ts
+  - packages/backend/convex/models/userPreferences.ts
+  - packages/backend/convex/models/teams.ts
+  - packages/backend/convex/models/gdpr.ts
+  - packages/backend/convex/models/userProfiles.ts
+  - packages/backend/convex/models/emergencyContacts.ts
+  - packages/backend/convex/models/coachTrustLevels.ts
+  - packages/backend/convex/models/coachParentSummaries.ts
+  - packages/backend/convex/models/onboarding.ts
+  - packages/backend/convex/models/guardianPlayerLinks.ts
+  - packages/backend/convex/models/orgGuardianProfiles.ts
+  - packages/backend/convex/models/passportSharing.ts
+  - packages/backend/convex/models/playerGraduations.ts
+  - packages/backend/convex/models/members.ts
+  - packages/backend/convex/models/voiceNoteEntityResolutions.ts
+  - packages/backend/convex/models/users.ts
+  - packages/backend/convex/models/voicePipelineRetry.ts
+  - packages/backend/convex/models/skillAssessments.ts
+  - packages/backend/convex/models/playerSelfAccess.ts
+  - packages/backend/convex/models/aiServiceHealth.ts
+  - packages/backend/convex/models/importTemplates.ts
+  - packages/backend/convex/models/sports.ts
+  - packages/backend/convex/models/importProgress.ts
+  - packages/backend/convex/models/fixNeilsRoles.ts
+  - packages/backend/convex/models/playerIdentities.ts
+  - packages/backend/convex/models/voiceNotes.ts
+  - packages/backend/convex/models/guardianManagement.ts
+  - packages/backend/convex/models/importTemplateSeeds.ts
+  - packages/backend/convex/models/insightDrafts.ts
+  - packages/backend/convex/models/importSessionDrafts.ts
+  - packages/backend/convex/models/teamDecisions.ts
+  - packages/backend/convex/models/gaaTestMutations.ts
+  - packages/backend/convex/models/playerInjuries.ts
+  - packages/backend/convex/models/voiceNoteInsights.ts
+  - packages/backend/convex/models/playerEmergencyContacts.ts
+  - packages/backend/convex/models/coachTasks.ts
+  **Action**: Add `getUserOrgRole()` or mark as `// @public`
+- 🚨 **CRITICAL [P9]**: XSS risk - dangerouslySetInnerHTML without sanitization:
+    apps/web/src/components/ui/confetti.tsx:        dangerouslySetInnerHTML={{
+  apps/web/src/components/ui/chart.tsx:      dangerouslySetInnerHTML={{
+  apps/web/src/components/onboarding/gdpr-policy-viewer.tsx: * Uses dangerouslySetInnerHTML to avoid React key issues with static content.
+  **Action**: Use DOMPurify or remove dangerouslySetInnerHTML
+- ⚠️ **HIGH [P9]**: No rate limiting on notification/activity endpoints:
+  - packages/backend/convex/models/demoAsks.ts
+  **Action**: Add rate limiting to prevent spam/abuse
+- ⚠️ **HIGH [P9]**: AI endpoints without input validation:
+  - packages/backend/convex/actions/aiMapping.ts
+  - packages/backend/convex/actions/claimsExtraction.ts
+  - packages/backend/convex/actions/coachParentSummaries.ts
+  - packages/backend/convex/actions/practicePlans.ts
+  - packages/backend/convex/actions/sessionPlans.ts
+  - packages/backend/convex/actions/voiceNotes.ts
+  - packages/backend/convex/actions/wellnessInsights.ts
+  - packages/backend/convex/models/aiServiceHealth.ts
+  **Action**: Validate/sanitize user input before AI prompts
+- ⚠️ **HIGH [P9]**: Notification functions without permission checks:
+  - packages/backend/convex/models/notifications.ts
+  **Action**: Verify user can send notifications to recipient
+
+
+## Security Tester - 2026-02-26 00:10:37
+- 🚨 **CRITICAL**: Hardcoded secrets detected
+```
+apps/web/src/app/api/ai-config/verify-model/route.ts:          errorMessage: "ANTHROPIC_API_KEY not configured in Next.js env",
+apps/web/src/app/api/ai-config/verify-model/route.ts:          errorMessage: "OPENAI_API_KEY not configured in Next.js env",
+apps/web/src/app/api/ai-config/available-models/route.ts:    errors.anthropic = "ANTHROPIC_API_KEY not configured";
+apps/web/src/app/api/ai-config/available-models/route.ts:    errors.openai = "OPENAI_API_KEY not configured";
+apps/web/src/app/api/comparison-insights/route.ts:      console.error("❌ ANTHROPIC_API_KEY not found in environment variables");
+```
+- ⚠️ **HIGH**: 6 high-severity dependency vulnerabilities
+  Run `npm audit fix` to resolve
+- ⚠️ **HIGH**: Mutations without authorization checks:
+  - packages/backend/convex/models/platformMessagingSettings.ts
+  - packages/backend/convex/models/syncQueue.ts
+  - packages/backend/convex/models/importSessions.ts
+  - packages/backend/convex/models/passportComparison.ts
+  - packages/backend/convex/models/trustGatePermissions.ts
+  - packages/backend/convex/models/ageGroupEligibilityOverrides.ts
+  - packages/backend/convex/models/federationConnectors.ts
+  - packages/backend/convex/models/teamCollaboration.ts
+  - packages/backend/convex/models/guardianIdentities.ts
+  - packages/backend/convex/models/sessionPlans.ts
+  - packages/backend/convex/models/adultPlayers.ts
+  - packages/backend/convex/models/demoAsks.ts
+  - packages/backend/convex/models/skillBenchmarks.ts
+  - packages/backend/convex/models/coaches.ts
+  - packages/backend/convex/models/medicalProfiles.ts
+  - packages/backend/convex/models/invitations.ts
+  - packages/backend/convex/models/flows.ts
+  - packages/backend/convex/models/notifications.ts
+  - packages/backend/convex/models/whatsappReviewLinks.ts
+  - packages/backend/convex/models/teamObservations.ts
+  - packages/backend/convex/models/passportGoals.ts
+  - packages/backend/convex/models/players.ts
+  - packages/backend/convex/models/aiMappingCache.ts
+  - packages/backend/convex/models/orgInjuryNotes.ts
+  - packages/backend/convex/models/injuryDocuments.ts
+  - packages/backend/convex/models/playerHealthChecks.ts
+  - packages/backend/convex/models/playerImport.ts
+  - packages/backend/convex/models/passportEnquiries.ts
+  - packages/backend/convex/models/setup.ts
+  - packages/backend/convex/models/teamPlayerIdentities.ts
+  - packages/backend/convex/models/rateLimits.ts
+  - packages/backend/convex/models/phase4TestCleanup.ts
+  - packages/backend/convex/models/syncHistory.ts
+  - packages/backend/convex/models/platformStaffInvitations.ts
+  - packages/backend/convex/models/coachParentMessages.ts
+  - packages/backend/convex/models/aiModelConfig.ts
+  - packages/backend/convex/models/voicePipelineAlerts.ts
+  - packages/backend/convex/models/aiMappingAnalytics.ts
+  - packages/backend/convex/models/orgPlayerEnrollments.ts
+  - packages/backend/convex/models/sportPassports.ts
+  - packages/backend/convex/models/orgJoinRequests.ts
+  - packages/backend/convex/models/sportAgeGroupConfig.ts
+  - packages/backend/convex/models/referenceData.ts
+  - packages/backend/convex/models/importMappingHistory.ts
+  - packages/backend/convex/models/notificationPreferences.ts
+  - packages/backend/convex/models/userPreferences.ts
+  - packages/backend/convex/models/teams.ts
+  - packages/backend/convex/models/gdpr.ts
+  - packages/backend/convex/models/userProfiles.ts
+  - packages/backend/convex/models/emergencyContacts.ts
+  - packages/backend/convex/models/coachTrustLevels.ts
+  - packages/backend/convex/models/coachParentSummaries.ts
+  - packages/backend/convex/models/onboarding.ts
+  - packages/backend/convex/models/guardianPlayerLinks.ts
+  - packages/backend/convex/models/orgGuardianProfiles.ts
+  - packages/backend/convex/models/passportSharing.ts
+  - packages/backend/convex/models/playerGraduations.ts
+  - packages/backend/convex/models/members.ts
+  - packages/backend/convex/models/voiceNoteEntityResolutions.ts
+  - packages/backend/convex/models/users.ts
+  - packages/backend/convex/models/voicePipelineRetry.ts
+  - packages/backend/convex/models/skillAssessments.ts
+  - packages/backend/convex/models/playerSelfAccess.ts
+  - packages/backend/convex/models/aiServiceHealth.ts
+  - packages/backend/convex/models/importTemplates.ts
+  - packages/backend/convex/models/sports.ts
+  - packages/backend/convex/models/importProgress.ts
+  - packages/backend/convex/models/fixNeilsRoles.ts
+  - packages/backend/convex/models/playerIdentities.ts
+  - packages/backend/convex/models/voiceNotes.ts
+  - packages/backend/convex/models/guardianManagement.ts
+  - packages/backend/convex/models/importTemplateSeeds.ts
+  - packages/backend/convex/models/insightDrafts.ts
+  - packages/backend/convex/models/importSessionDrafts.ts
+  - packages/backend/convex/models/teamDecisions.ts
+  - packages/backend/convex/models/gaaTestMutations.ts
+  - packages/backend/convex/models/playerInjuries.ts
+  - packages/backend/convex/models/voiceNoteInsights.ts
+  - packages/backend/convex/models/playerEmergencyContacts.ts
+  - packages/backend/convex/models/coachTasks.ts
+  **Action**: Add `getUserOrgRole()` or mark as `// @public`
+- 🚨 **CRITICAL [P9]**: XSS risk - dangerouslySetInnerHTML without sanitization:
+    apps/web/src/components/ui/confetti.tsx:        dangerouslySetInnerHTML={{
+  apps/web/src/components/ui/chart.tsx:      dangerouslySetInnerHTML={{
+  apps/web/src/components/onboarding/gdpr-policy-viewer.tsx: * Uses dangerouslySetInnerHTML to avoid React key issues with static content.
+  **Action**: Use DOMPurify or remove dangerouslySetInnerHTML
+- ⚠️ **HIGH [P9]**: No rate limiting on notification/activity endpoints:
+  - packages/backend/convex/models/demoAsks.ts
+  **Action**: Add rate limiting to prevent spam/abuse
+- ⚠️ **HIGH [P9]**: AI endpoints without input validation:
+  - packages/backend/convex/actions/aiMapping.ts
+  - packages/backend/convex/actions/claimsExtraction.ts
+  - packages/backend/convex/actions/coachParentSummaries.ts
+  - packages/backend/convex/actions/practicePlans.ts
+  - packages/backend/convex/actions/sessionPlans.ts
+  - packages/backend/convex/actions/voiceNotes.ts
+  - packages/backend/convex/actions/wellnessInsights.ts
+  - packages/backend/convex/models/aiServiceHealth.ts
+  **Action**: Validate/sanitize user input before AI prompts
+- ⚠️ **HIGH [P9]**: Notification functions without permission checks:
+  - packages/backend/convex/models/notifications.ts
+  **Action**: Verify user can send notifications to recipient
+
+
+## Security Tester - 2026-02-26 00:12:41
+- 🚨 **CRITICAL**: Hardcoded secrets detected
+```
+apps/web/src/app/api/ai-config/verify-model/route.ts:          errorMessage: "ANTHROPIC_API_KEY not configured in Next.js env",
+apps/web/src/app/api/ai-config/verify-model/route.ts:          errorMessage: "OPENAI_API_KEY not configured in Next.js env",
+apps/web/src/app/api/ai-config/available-models/route.ts:    errors.anthropic = "ANTHROPIC_API_KEY not configured";
+apps/web/src/app/api/ai-config/available-models/route.ts:    errors.openai = "OPENAI_API_KEY not configured";
+apps/web/src/app/api/comparison-insights/route.ts:      console.error("❌ ANTHROPIC_API_KEY not found in environment variables");
+```
+- ⚠️ **HIGH**: 6 high-severity dependency vulnerabilities
+  Run `npm audit fix` to resolve
+- ⚠️ **HIGH**: Mutations without authorization checks:
+  - packages/backend/convex/models/platformMessagingSettings.ts
+  - packages/backend/convex/models/syncQueue.ts
+  - packages/backend/convex/models/importSessions.ts
+  - packages/backend/convex/models/passportComparison.ts
+  - packages/backend/convex/models/trustGatePermissions.ts
+  - packages/backend/convex/models/ageGroupEligibilityOverrides.ts
+  - packages/backend/convex/models/federationConnectors.ts
+  - packages/backend/convex/models/teamCollaboration.ts
+  - packages/backend/convex/models/guardianIdentities.ts
+  - packages/backend/convex/models/sessionPlans.ts
+  - packages/backend/convex/models/adultPlayers.ts
+  - packages/backend/convex/models/demoAsks.ts
+  - packages/backend/convex/models/skillBenchmarks.ts
+  - packages/backend/convex/models/coaches.ts
+  - packages/backend/convex/models/medicalProfiles.ts
+  - packages/backend/convex/models/invitations.ts
+  - packages/backend/convex/models/flows.ts
+  - packages/backend/convex/models/notifications.ts
+  - packages/backend/convex/models/whatsappReviewLinks.ts
+  - packages/backend/convex/models/teamObservations.ts
+  - packages/backend/convex/models/passportGoals.ts
+  - packages/backend/convex/models/players.ts
+  - packages/backend/convex/models/aiMappingCache.ts
+  - packages/backend/convex/models/orgInjuryNotes.ts
+  - packages/backend/convex/models/injuryDocuments.ts
+  - packages/backend/convex/models/playerHealthChecks.ts
+  - packages/backend/convex/models/playerImport.ts
+  - packages/backend/convex/models/passportEnquiries.ts
+  - packages/backend/convex/models/setup.ts
+  - packages/backend/convex/models/teamPlayerIdentities.ts
+  - packages/backend/convex/models/rateLimits.ts
+  - packages/backend/convex/models/phase4TestCleanup.ts
+  - packages/backend/convex/models/syncHistory.ts
+  - packages/backend/convex/models/platformStaffInvitations.ts
+  - packages/backend/convex/models/coachParentMessages.ts
+  - packages/backend/convex/models/aiModelConfig.ts
+  - packages/backend/convex/models/voicePipelineAlerts.ts
+  - packages/backend/convex/models/aiMappingAnalytics.ts
+  - packages/backend/convex/models/orgPlayerEnrollments.ts
+  - packages/backend/convex/models/sportPassports.ts
+  - packages/backend/convex/models/orgJoinRequests.ts
+  - packages/backend/convex/models/sportAgeGroupConfig.ts
+  - packages/backend/convex/models/referenceData.ts
+  - packages/backend/convex/models/importMappingHistory.ts
+  - packages/backend/convex/models/notificationPreferences.ts
+  - packages/backend/convex/models/userPreferences.ts
+  - packages/backend/convex/models/teams.ts
+  - packages/backend/convex/models/gdpr.ts
+  - packages/backend/convex/models/userProfiles.ts
+  - packages/backend/convex/models/emergencyContacts.ts
+  - packages/backend/convex/models/coachTrustLevels.ts
+  - packages/backend/convex/models/coachParentSummaries.ts
+  - packages/backend/convex/models/onboarding.ts
+  - packages/backend/convex/models/guardianPlayerLinks.ts
+  - packages/backend/convex/models/orgGuardianProfiles.ts
+  - packages/backend/convex/models/passportSharing.ts
+  - packages/backend/convex/models/playerGraduations.ts
+  - packages/backend/convex/models/members.ts
+  - packages/backend/convex/models/voiceNoteEntityResolutions.ts
+  - packages/backend/convex/models/users.ts
+  - packages/backend/convex/models/voicePipelineRetry.ts
+  - packages/backend/convex/models/skillAssessments.ts
+  - packages/backend/convex/models/playerSelfAccess.ts
+  - packages/backend/convex/models/aiServiceHealth.ts
+  - packages/backend/convex/models/importTemplates.ts
+  - packages/backend/convex/models/sports.ts
+  - packages/backend/convex/models/importProgress.ts
+  - packages/backend/convex/models/fixNeilsRoles.ts
+  - packages/backend/convex/models/playerIdentities.ts
+  - packages/backend/convex/models/voiceNotes.ts
+  - packages/backend/convex/models/guardianManagement.ts
+  - packages/backend/convex/models/importTemplateSeeds.ts
+  - packages/backend/convex/models/insightDrafts.ts
+  - packages/backend/convex/models/importSessionDrafts.ts
+  - packages/backend/convex/models/teamDecisions.ts
+  - packages/backend/convex/models/gaaTestMutations.ts
+  - packages/backend/convex/models/playerInjuries.ts
+  - packages/backend/convex/models/voiceNoteInsights.ts
+  - packages/backend/convex/models/playerEmergencyContacts.ts
+  - packages/backend/convex/models/coachTasks.ts
+  **Action**: Add `getUserOrgRole()` or mark as `// @public`
+- 🚨 **CRITICAL [P9]**: XSS risk - dangerouslySetInnerHTML without sanitization:
+    apps/web/src/components/ui/confetti.tsx:        dangerouslySetInnerHTML={{
+  apps/web/src/components/ui/chart.tsx:      dangerouslySetInnerHTML={{
+  apps/web/src/components/onboarding/gdpr-policy-viewer.tsx: * Uses dangerouslySetInnerHTML to avoid React key issues with static content.
+  **Action**: Use DOMPurify or remove dangerouslySetInnerHTML
+- ⚠️ **HIGH [P9]**: No rate limiting on notification/activity endpoints:
+  - packages/backend/convex/models/demoAsks.ts
+  **Action**: Add rate limiting to prevent spam/abuse
+- ⚠️ **HIGH [P9]**: AI endpoints without input validation:
+  - packages/backend/convex/actions/aiMapping.ts
+  - packages/backend/convex/actions/claimsExtraction.ts
+  - packages/backend/convex/actions/coachParentSummaries.ts
+  - packages/backend/convex/actions/practicePlans.ts
+  - packages/backend/convex/actions/sessionPlans.ts
+  - packages/backend/convex/actions/voiceNotes.ts
+  - packages/backend/convex/actions/wellnessInsights.ts
+  - packages/backend/convex/models/aiServiceHealth.ts
+  **Action**: Validate/sanitize user input before AI prompts
+- ⚠️ **HIGH [P9]**: Notification functions without permission checks:
+  - packages/backend/convex/models/notifications.ts
+  **Action**: Verify user can send notifications to recipient
+
+
+## Security Tester - 2026-02-26 00:14:43
+- 🚨 **CRITICAL**: Hardcoded secrets detected
+```
+apps/web/src/app/api/ai-config/verify-model/route.ts:          errorMessage: "ANTHROPIC_API_KEY not configured in Next.js env",
+apps/web/src/app/api/ai-config/verify-model/route.ts:          errorMessage: "OPENAI_API_KEY not configured in Next.js env",
+apps/web/src/app/api/ai-config/available-models/route.ts:    errors.anthropic = "ANTHROPIC_API_KEY not configured";
+apps/web/src/app/api/ai-config/available-models/route.ts:    errors.openai = "OPENAI_API_KEY not configured";
+apps/web/src/app/api/comparison-insights/route.ts:      console.error("❌ ANTHROPIC_API_KEY not found in environment variables");
+```
+- ⚠️ **HIGH**: 6 high-severity dependency vulnerabilities
+  Run `npm audit fix` to resolve
+- ⚠️ **HIGH**: Mutations without authorization checks:
+  - packages/backend/convex/models/platformMessagingSettings.ts
+  - packages/backend/convex/models/syncQueue.ts
+  - packages/backend/convex/models/importSessions.ts
+  - packages/backend/convex/models/passportComparison.ts
+  - packages/backend/convex/models/trustGatePermissions.ts
+  - packages/backend/convex/models/ageGroupEligibilityOverrides.ts
+  - packages/backend/convex/models/federationConnectors.ts
+  - packages/backend/convex/models/teamCollaboration.ts
+  - packages/backend/convex/models/guardianIdentities.ts
+  - packages/backend/convex/models/sessionPlans.ts
+  - packages/backend/convex/models/adultPlayers.ts
+  - packages/backend/convex/models/demoAsks.ts
+  - packages/backend/convex/models/skillBenchmarks.ts
+  - packages/backend/convex/models/coaches.ts
+  - packages/backend/convex/models/medicalProfiles.ts
+  - packages/backend/convex/models/invitations.ts
+  - packages/backend/convex/models/flows.ts
+  - packages/backend/convex/models/notifications.ts
+  - packages/backend/convex/models/whatsappReviewLinks.ts
+  - packages/backend/convex/models/teamObservations.ts
+  - packages/backend/convex/models/passportGoals.ts
+  - packages/backend/convex/models/players.ts
+  - packages/backend/convex/models/aiMappingCache.ts
+  - packages/backend/convex/models/orgInjuryNotes.ts
+  - packages/backend/convex/models/injuryDocuments.ts
+  - packages/backend/convex/models/playerHealthChecks.ts
+  - packages/backend/convex/models/playerImport.ts
+  - packages/backend/convex/models/passportEnquiries.ts
+  - packages/backend/convex/models/setup.ts
+  - packages/backend/convex/models/teamPlayerIdentities.ts
+  - packages/backend/convex/models/rateLimits.ts
+  - packages/backend/convex/models/phase4TestCleanup.ts
+  - packages/backend/convex/models/syncHistory.ts
+  - packages/backend/convex/models/platformStaffInvitations.ts
+  - packages/backend/convex/models/coachParentMessages.ts
+  - packages/backend/convex/models/aiModelConfig.ts
+  - packages/backend/convex/models/voicePipelineAlerts.ts
+  - packages/backend/convex/models/aiMappingAnalytics.ts
+  - packages/backend/convex/models/orgPlayerEnrollments.ts
+  - packages/backend/convex/models/sportPassports.ts
+  - packages/backend/convex/models/orgJoinRequests.ts
+  - packages/backend/convex/models/sportAgeGroupConfig.ts
+  - packages/backend/convex/models/referenceData.ts
+  - packages/backend/convex/models/importMappingHistory.ts
+  - packages/backend/convex/models/notificationPreferences.ts
+  - packages/backend/convex/models/userPreferences.ts
+  - packages/backend/convex/models/teams.ts
+  - packages/backend/convex/models/gdpr.ts
+  - packages/backend/convex/models/userProfiles.ts
+  - packages/backend/convex/models/emergencyContacts.ts
+  - packages/backend/convex/models/coachTrustLevels.ts
+  - packages/backend/convex/models/coachParentSummaries.ts
+  - packages/backend/convex/models/onboarding.ts
+  - packages/backend/convex/models/guardianPlayerLinks.ts
+  - packages/backend/convex/models/orgGuardianProfiles.ts
+  - packages/backend/convex/models/passportSharing.ts
+  - packages/backend/convex/models/playerGraduations.ts
+  - packages/backend/convex/models/members.ts
+  - packages/backend/convex/models/voiceNoteEntityResolutions.ts
+  - packages/backend/convex/models/users.ts
+  - packages/backend/convex/models/voicePipelineRetry.ts
+  - packages/backend/convex/models/skillAssessments.ts
+  - packages/backend/convex/models/playerSelfAccess.ts
+  - packages/backend/convex/models/aiServiceHealth.ts
+  - packages/backend/convex/models/importTemplates.ts
+  - packages/backend/convex/models/sports.ts
+  - packages/backend/convex/models/importProgress.ts
+  - packages/backend/convex/models/fixNeilsRoles.ts
+  - packages/backend/convex/models/playerIdentities.ts
+  - packages/backend/convex/models/voiceNotes.ts
+  - packages/backend/convex/models/guardianManagement.ts
+  - packages/backend/convex/models/importTemplateSeeds.ts
+  - packages/backend/convex/models/insightDrafts.ts
+  - packages/backend/convex/models/importSessionDrafts.ts
+  - packages/backend/convex/models/teamDecisions.ts
+  - packages/backend/convex/models/gaaTestMutations.ts
+  - packages/backend/convex/models/playerInjuries.ts
+  - packages/backend/convex/models/voiceNoteInsights.ts
+  - packages/backend/convex/models/playerEmergencyContacts.ts
+  - packages/backend/convex/models/coachTasks.ts
+  **Action**: Add `getUserOrgRole()` or mark as `// @public`
+- 🚨 **CRITICAL [P9]**: XSS risk - dangerouslySetInnerHTML without sanitization:
+    apps/web/src/components/ui/confetti.tsx:        dangerouslySetInnerHTML={{
+  apps/web/src/components/ui/chart.tsx:      dangerouslySetInnerHTML={{
+  apps/web/src/components/onboarding/gdpr-policy-viewer.tsx: * Uses dangerouslySetInnerHTML to avoid React key issues with static content.
+  **Action**: Use DOMPurify or remove dangerouslySetInnerHTML
+- ⚠️ **HIGH [P9]**: No rate limiting on notification/activity endpoints:
+  - packages/backend/convex/models/demoAsks.ts
+  **Action**: Add rate limiting to prevent spam/abuse
+- ⚠️ **HIGH [P9]**: AI endpoints without input validation:
+  - packages/backend/convex/actions/aiMapping.ts
+  - packages/backend/convex/actions/claimsExtraction.ts
+  - packages/backend/convex/actions/coachParentSummaries.ts
+  - packages/backend/convex/actions/practicePlans.ts
+  - packages/backend/convex/actions/sessionPlans.ts
+  - packages/backend/convex/actions/voiceNotes.ts
+  - packages/backend/convex/actions/wellnessInsights.ts
+  - packages/backend/convex/models/aiServiceHealth.ts
+  **Action**: Validate/sanitize user input before AI prompts
+- ⚠️ **HIGH [P9]**: Notification functions without permission checks:
+  - packages/backend/convex/models/notifications.ts
+  **Action**: Verify user can send notifications to recipient
+
+
+## Security Tester - 2026-02-26 00:16:45
+- 🚨 **CRITICAL**: Hardcoded secrets detected
+```
+apps/web/src/app/api/ai-config/verify-model/route.ts:          errorMessage: "ANTHROPIC_API_KEY not configured in Next.js env",
+apps/web/src/app/api/ai-config/verify-model/route.ts:          errorMessage: "OPENAI_API_KEY not configured in Next.js env",
+apps/web/src/app/api/ai-config/available-models/route.ts:    errors.anthropic = "ANTHROPIC_API_KEY not configured";
+apps/web/src/app/api/ai-config/available-models/route.ts:    errors.openai = "OPENAI_API_KEY not configured";
+apps/web/src/app/api/comparison-insights/route.ts:      console.error("❌ ANTHROPIC_API_KEY not found in environment variables");
+```
+- ⚠️ **HIGH**: 6 high-severity dependency vulnerabilities
+  Run `npm audit fix` to resolve
+- ⚠️ **HIGH**: Mutations without authorization checks:
+  - packages/backend/convex/models/platformMessagingSettings.ts
+  - packages/backend/convex/models/syncQueue.ts
+  - packages/backend/convex/models/importSessions.ts
+  - packages/backend/convex/models/passportComparison.ts
+  - packages/backend/convex/models/trustGatePermissions.ts
+  - packages/backend/convex/models/ageGroupEligibilityOverrides.ts
+  - packages/backend/convex/models/federationConnectors.ts
+  - packages/backend/convex/models/teamCollaboration.ts
+  - packages/backend/convex/models/guardianIdentities.ts
+  - packages/backend/convex/models/sessionPlans.ts
+  - packages/backend/convex/models/adultPlayers.ts
+  - packages/backend/convex/models/demoAsks.ts
+  - packages/backend/convex/models/skillBenchmarks.ts
+  - packages/backend/convex/models/coaches.ts
+  - packages/backend/convex/models/medicalProfiles.ts
+  - packages/backend/convex/models/invitations.ts
+  - packages/backend/convex/models/flows.ts
+  - packages/backend/convex/models/notifications.ts
+  - packages/backend/convex/models/whatsappReviewLinks.ts
+  - packages/backend/convex/models/teamObservations.ts
+  - packages/backend/convex/models/passportGoals.ts
+  - packages/backend/convex/models/players.ts
+  - packages/backend/convex/models/aiMappingCache.ts
+  - packages/backend/convex/models/orgInjuryNotes.ts
+  - packages/backend/convex/models/injuryDocuments.ts
+  - packages/backend/convex/models/playerHealthChecks.ts
+  - packages/backend/convex/models/playerImport.ts
+  - packages/backend/convex/models/passportEnquiries.ts
+  - packages/backend/convex/models/setup.ts
+  - packages/backend/convex/models/teamPlayerIdentities.ts
+  - packages/backend/convex/models/rateLimits.ts
+  - packages/backend/convex/models/phase4TestCleanup.ts
+  - packages/backend/convex/models/syncHistory.ts
+  - packages/backend/convex/models/platformStaffInvitations.ts
+  - packages/backend/convex/models/coachParentMessages.ts
+  - packages/backend/convex/models/aiModelConfig.ts
+  - packages/backend/convex/models/voicePipelineAlerts.ts
+  - packages/backend/convex/models/aiMappingAnalytics.ts
+  - packages/backend/convex/models/orgPlayerEnrollments.ts
+  - packages/backend/convex/models/sportPassports.ts
+  - packages/backend/convex/models/orgJoinRequests.ts
+  - packages/backend/convex/models/sportAgeGroupConfig.ts
+  - packages/backend/convex/models/referenceData.ts
+  - packages/backend/convex/models/importMappingHistory.ts
+  - packages/backend/convex/models/notificationPreferences.ts
+  - packages/backend/convex/models/userPreferences.ts
+  - packages/backend/convex/models/teams.ts
+  - packages/backend/convex/models/gdpr.ts
+  - packages/backend/convex/models/userProfiles.ts
+  - packages/backend/convex/models/emergencyContacts.ts
+  - packages/backend/convex/models/coachTrustLevels.ts
+  - packages/backend/convex/models/coachParentSummaries.ts
+  - packages/backend/convex/models/onboarding.ts
+  - packages/backend/convex/models/guardianPlayerLinks.ts
+  - packages/backend/convex/models/orgGuardianProfiles.ts
+  - packages/backend/convex/models/passportSharing.ts
+  - packages/backend/convex/models/playerGraduations.ts
+  - packages/backend/convex/models/members.ts
+  - packages/backend/convex/models/voiceNoteEntityResolutions.ts
+  - packages/backend/convex/models/users.ts
+  - packages/backend/convex/models/voicePipelineRetry.ts
+  - packages/backend/convex/models/skillAssessments.ts
+  - packages/backend/convex/models/playerSelfAccess.ts
+  - packages/backend/convex/models/aiServiceHealth.ts
+  - packages/backend/convex/models/importTemplates.ts
+  - packages/backend/convex/models/sports.ts
+  - packages/backend/convex/models/importProgress.ts
+  - packages/backend/convex/models/fixNeilsRoles.ts
+  - packages/backend/convex/models/playerIdentities.ts
+  - packages/backend/convex/models/voiceNotes.ts
+  - packages/backend/convex/models/guardianManagement.ts
+  - packages/backend/convex/models/importTemplateSeeds.ts
+  - packages/backend/convex/models/insightDrafts.ts
+  - packages/backend/convex/models/importSessionDrafts.ts
+  - packages/backend/convex/models/teamDecisions.ts
+  - packages/backend/convex/models/gaaTestMutations.ts
+  - packages/backend/convex/models/playerInjuries.ts
+  - packages/backend/convex/models/voiceNoteInsights.ts
+  - packages/backend/convex/models/playerEmergencyContacts.ts
+  - packages/backend/convex/models/coachTasks.ts
+  **Action**: Add `getUserOrgRole()` or mark as `// @public`
+- 🚨 **CRITICAL [P9]**: XSS risk - dangerouslySetInnerHTML without sanitization:
+    apps/web/src/components/ui/confetti.tsx:        dangerouslySetInnerHTML={{
+  apps/web/src/components/ui/chart.tsx:      dangerouslySetInnerHTML={{
+  apps/web/src/components/onboarding/gdpr-policy-viewer.tsx: * Uses dangerouslySetInnerHTML to avoid React key issues with static content.
+  **Action**: Use DOMPurify or remove dangerouslySetInnerHTML
+- ⚠️ **HIGH [P9]**: No rate limiting on notification/activity endpoints:
+  - packages/backend/convex/models/demoAsks.ts
+  **Action**: Add rate limiting to prevent spam/abuse
+- ⚠️ **HIGH [P9]**: AI endpoints without input validation:
+  - packages/backend/convex/actions/aiMapping.ts
+  - packages/backend/convex/actions/claimsExtraction.ts
+  - packages/backend/convex/actions/coachParentSummaries.ts
+  - packages/backend/convex/actions/practicePlans.ts
+  - packages/backend/convex/actions/sessionPlans.ts
+  - packages/backend/convex/actions/voiceNotes.ts
+  - packages/backend/convex/actions/wellnessInsights.ts
+  - packages/backend/convex/models/aiServiceHealth.ts
+  **Action**: Validate/sanitize user input before AI prompts
+- ⚠️ **HIGH [P9]**: Notification functions without permission checks:
+  - packages/backend/convex/models/notifications.ts
+  **Action**: Verify user can send notifications to recipient
+
+
+## Security Tester - 2026-02-26 00:18:48
+- 🚨 **CRITICAL**: Hardcoded secrets detected
+```
+apps/web/src/app/api/ai-config/verify-model/route.ts:          errorMessage: "ANTHROPIC_API_KEY not configured in Next.js env",
+apps/web/src/app/api/ai-config/verify-model/route.ts:          errorMessage: "OPENAI_API_KEY not configured in Next.js env",
+apps/web/src/app/api/ai-config/available-models/route.ts:    errors.anthropic = "ANTHROPIC_API_KEY not configured";
+apps/web/src/app/api/ai-config/available-models/route.ts:    errors.openai = "OPENAI_API_KEY not configured";
+apps/web/src/app/api/comparison-insights/route.ts:      console.error("❌ ANTHROPIC_API_KEY not found in environment variables");
+```
+- ⚠️ **HIGH**: 6 high-severity dependency vulnerabilities
+  Run `npm audit fix` to resolve
+- ⚠️ **HIGH**: Mutations without authorization checks:
+  - packages/backend/convex/models/platformMessagingSettings.ts
+  - packages/backend/convex/models/syncQueue.ts
+  - packages/backend/convex/models/importSessions.ts
+  - packages/backend/convex/models/passportComparison.ts
+  - packages/backend/convex/models/trustGatePermissions.ts
+  - packages/backend/convex/models/ageGroupEligibilityOverrides.ts
+  - packages/backend/convex/models/federationConnectors.ts
+  - packages/backend/convex/models/teamCollaboration.ts
+  - packages/backend/convex/models/guardianIdentities.ts
+  - packages/backend/convex/models/sessionPlans.ts
+  - packages/backend/convex/models/adultPlayers.ts
+  - packages/backend/convex/models/demoAsks.ts
+  - packages/backend/convex/models/skillBenchmarks.ts
+  - packages/backend/convex/models/coaches.ts
+  - packages/backend/convex/models/medicalProfiles.ts
+  - packages/backend/convex/models/invitations.ts
+  - packages/backend/convex/models/flows.ts
+  - packages/backend/convex/models/notifications.ts
+  - packages/backend/convex/models/whatsappReviewLinks.ts
+  - packages/backend/convex/models/teamObservations.ts
+  - packages/backend/convex/models/passportGoals.ts
+  - packages/backend/convex/models/players.ts
+  - packages/backend/convex/models/aiMappingCache.ts
+  - packages/backend/convex/models/orgInjuryNotes.ts
+  - packages/backend/convex/models/injuryDocuments.ts
+  - packages/backend/convex/models/playerHealthChecks.ts
+  - packages/backend/convex/models/playerImport.ts
+  - packages/backend/convex/models/passportEnquiries.ts
+  - packages/backend/convex/models/setup.ts
+  - packages/backend/convex/models/teamPlayerIdentities.ts
+  - packages/backend/convex/models/rateLimits.ts
+  - packages/backend/convex/models/phase4TestCleanup.ts
+  - packages/backend/convex/models/syncHistory.ts
+  - packages/backend/convex/models/platformStaffInvitations.ts
+  - packages/backend/convex/models/coachParentMessages.ts
+  - packages/backend/convex/models/aiModelConfig.ts
+  - packages/backend/convex/models/voicePipelineAlerts.ts
+  - packages/backend/convex/models/aiMappingAnalytics.ts
+  - packages/backend/convex/models/orgPlayerEnrollments.ts
+  - packages/backend/convex/models/sportPassports.ts
+  - packages/backend/convex/models/orgJoinRequests.ts
+  - packages/backend/convex/models/sportAgeGroupConfig.ts
+  - packages/backend/convex/models/referenceData.ts
+  - packages/backend/convex/models/importMappingHistory.ts
+  - packages/backend/convex/models/notificationPreferences.ts
+  - packages/backend/convex/models/userPreferences.ts
+  - packages/backend/convex/models/teams.ts
+  - packages/backend/convex/models/gdpr.ts
+  - packages/backend/convex/models/userProfiles.ts
+  - packages/backend/convex/models/emergencyContacts.ts
+  - packages/backend/convex/models/coachTrustLevels.ts
+  - packages/backend/convex/models/coachParentSummaries.ts
+  - packages/backend/convex/models/onboarding.ts
+  - packages/backend/convex/models/guardianPlayerLinks.ts
+  - packages/backend/convex/models/orgGuardianProfiles.ts
+  - packages/backend/convex/models/passportSharing.ts
+  - packages/backend/convex/models/playerGraduations.ts
+  - packages/backend/convex/models/members.ts
+  - packages/backend/convex/models/voiceNoteEntityResolutions.ts
+  - packages/backend/convex/models/users.ts
+  - packages/backend/convex/models/voicePipelineRetry.ts
+  - packages/backend/convex/models/skillAssessments.ts
+  - packages/backend/convex/models/playerSelfAccess.ts
+  - packages/backend/convex/models/aiServiceHealth.ts
+  - packages/backend/convex/models/importTemplates.ts
+  - packages/backend/convex/models/sports.ts
+  - packages/backend/convex/models/importProgress.ts
+  - packages/backend/convex/models/fixNeilsRoles.ts
+  - packages/backend/convex/models/playerIdentities.ts
+  - packages/backend/convex/models/voiceNotes.ts
+  - packages/backend/convex/models/guardianManagement.ts
+  - packages/backend/convex/models/importTemplateSeeds.ts
+  - packages/backend/convex/models/insightDrafts.ts
+  - packages/backend/convex/models/importSessionDrafts.ts
+  - packages/backend/convex/models/teamDecisions.ts
+  - packages/backend/convex/models/gaaTestMutations.ts
+  - packages/backend/convex/models/playerInjuries.ts
+  - packages/backend/convex/models/voiceNoteInsights.ts
+  - packages/backend/convex/models/playerEmergencyContacts.ts
+  - packages/backend/convex/models/coachTasks.ts
+  **Action**: Add `getUserOrgRole()` or mark as `// @public`
+- 🚨 **CRITICAL [P9]**: XSS risk - dangerouslySetInnerHTML without sanitization:
+    apps/web/src/components/ui/confetti.tsx:        dangerouslySetInnerHTML={{
+  apps/web/src/components/ui/chart.tsx:      dangerouslySetInnerHTML={{
+  apps/web/src/components/onboarding/gdpr-policy-viewer.tsx: * Uses dangerouslySetInnerHTML to avoid React key issues with static content.
+  **Action**: Use DOMPurify or remove dangerouslySetInnerHTML
+- ⚠️ **HIGH [P9]**: No rate limiting on notification/activity endpoints:
+  - packages/backend/convex/models/demoAsks.ts
+  **Action**: Add rate limiting to prevent spam/abuse
+- ⚠️ **HIGH [P9]**: AI endpoints without input validation:
+  - packages/backend/convex/actions/aiMapping.ts
+  - packages/backend/convex/actions/claimsExtraction.ts
+  - packages/backend/convex/actions/coachParentSummaries.ts
+  - packages/backend/convex/actions/practicePlans.ts
+  - packages/backend/convex/actions/sessionPlans.ts
+  - packages/backend/convex/actions/voiceNotes.ts
+  - packages/backend/convex/actions/wellnessInsights.ts
+  - packages/backend/convex/models/aiServiceHealth.ts
+  **Action**: Validate/sanitize user input before AI prompts
+- ⚠️ **HIGH [P9]**: Notification functions without permission checks:
+  - packages/backend/convex/models/notifications.ts
+  **Action**: Verify user can send notifications to recipient
+
+
+## Security Tester - 2026-02-26 00:20:50
+- 🚨 **CRITICAL**: Hardcoded secrets detected
+```
+apps/web/src/app/api/ai-config/verify-model/route.ts:          errorMessage: "ANTHROPIC_API_KEY not configured in Next.js env",
+apps/web/src/app/api/ai-config/verify-model/route.ts:          errorMessage: "OPENAI_API_KEY not configured in Next.js env",
+apps/web/src/app/api/ai-config/available-models/route.ts:    errors.anthropic = "ANTHROPIC_API_KEY not configured";
+apps/web/src/app/api/ai-config/available-models/route.ts:    errors.openai = "OPENAI_API_KEY not configured";
+apps/web/src/app/api/comparison-insights/route.ts:      console.error("❌ ANTHROPIC_API_KEY not found in environment variables");
+```
+- ⚠️ **HIGH**: 6 high-severity dependency vulnerabilities
+  Run `npm audit fix` to resolve
+- ⚠️ **HIGH**: Mutations without authorization checks:
+  - packages/backend/convex/models/platformMessagingSettings.ts
+  - packages/backend/convex/models/syncQueue.ts
+  - packages/backend/convex/models/importSessions.ts
+  - packages/backend/convex/models/passportComparison.ts
+  - packages/backend/convex/models/trustGatePermissions.ts
+  - packages/backend/convex/models/ageGroupEligibilityOverrides.ts
+  - packages/backend/convex/models/federationConnectors.ts
+  - packages/backend/convex/models/teamCollaboration.ts
+  - packages/backend/convex/models/guardianIdentities.ts
+  - packages/backend/convex/models/sessionPlans.ts
+  - packages/backend/convex/models/adultPlayers.ts
+  - packages/backend/convex/models/demoAsks.ts
+  - packages/backend/convex/models/skillBenchmarks.ts
+  - packages/backend/convex/models/coaches.ts
+  - packages/backend/convex/models/medicalProfiles.ts
+  - packages/backend/convex/models/invitations.ts
+  - packages/backend/convex/models/flows.ts
+  - packages/backend/convex/models/notifications.ts
+  - packages/backend/convex/models/whatsappReviewLinks.ts
+  - packages/backend/convex/models/teamObservations.ts
+  - packages/backend/convex/models/passportGoals.ts
+  - packages/backend/convex/models/players.ts
+  - packages/backend/convex/models/aiMappingCache.ts
+  - packages/backend/convex/models/orgInjuryNotes.ts
+  - packages/backend/convex/models/injuryDocuments.ts
+  - packages/backend/convex/models/playerHealthChecks.ts
+  - packages/backend/convex/models/playerImport.ts
+  - packages/backend/convex/models/passportEnquiries.ts
+  - packages/backend/convex/models/setup.ts
+  - packages/backend/convex/models/teamPlayerIdentities.ts
+  - packages/backend/convex/models/rateLimits.ts
+  - packages/backend/convex/models/phase4TestCleanup.ts
+  - packages/backend/convex/models/syncHistory.ts
+  - packages/backend/convex/models/platformStaffInvitations.ts
+  - packages/backend/convex/models/coachParentMessages.ts
+  - packages/backend/convex/models/aiModelConfig.ts
+  - packages/backend/convex/models/voicePipelineAlerts.ts
+  - packages/backend/convex/models/aiMappingAnalytics.ts
+  - packages/backend/convex/models/orgPlayerEnrollments.ts
+  - packages/backend/convex/models/sportPassports.ts
+  - packages/backend/convex/models/orgJoinRequests.ts
+  - packages/backend/convex/models/sportAgeGroupConfig.ts
+  - packages/backend/convex/models/referenceData.ts
+  - packages/backend/convex/models/importMappingHistory.ts
+  - packages/backend/convex/models/notificationPreferences.ts
+  - packages/backend/convex/models/userPreferences.ts
+  - packages/backend/convex/models/teams.ts
+  - packages/backend/convex/models/gdpr.ts
+  - packages/backend/convex/models/userProfiles.ts
+  - packages/backend/convex/models/emergencyContacts.ts
+  - packages/backend/convex/models/coachTrustLevels.ts
+  - packages/backend/convex/models/coachParentSummaries.ts
+  - packages/backend/convex/models/onboarding.ts
+  - packages/backend/convex/models/guardianPlayerLinks.ts
+  - packages/backend/convex/models/orgGuardianProfiles.ts
+  - packages/backend/convex/models/passportSharing.ts
+  - packages/backend/convex/models/playerGraduations.ts
+  - packages/backend/convex/models/members.ts
+  - packages/backend/convex/models/voiceNoteEntityResolutions.ts
+  - packages/backend/convex/models/users.ts
+  - packages/backend/convex/models/voicePipelineRetry.ts
+  - packages/backend/convex/models/skillAssessments.ts
+  - packages/backend/convex/models/playerSelfAccess.ts
+  - packages/backend/convex/models/aiServiceHealth.ts
+  - packages/backend/convex/models/importTemplates.ts
+  - packages/backend/convex/models/sports.ts
+  - packages/backend/convex/models/importProgress.ts
+  - packages/backend/convex/models/fixNeilsRoles.ts
+  - packages/backend/convex/models/playerIdentities.ts
+  - packages/backend/convex/models/voiceNotes.ts
+  - packages/backend/convex/models/guardianManagement.ts
+  - packages/backend/convex/models/importTemplateSeeds.ts
+  - packages/backend/convex/models/insightDrafts.ts
+  - packages/backend/convex/models/importSessionDrafts.ts
+  - packages/backend/convex/models/teamDecisions.ts
+  - packages/backend/convex/models/gaaTestMutations.ts
+  - packages/backend/convex/models/playerInjuries.ts
+  - packages/backend/convex/models/voiceNoteInsights.ts
+  - packages/backend/convex/models/playerEmergencyContacts.ts
+  - packages/backend/convex/models/coachTasks.ts
+  **Action**: Add `getUserOrgRole()` or mark as `// @public`
+- 🚨 **CRITICAL [P9]**: XSS risk - dangerouslySetInnerHTML without sanitization:
+    apps/web/src/components/ui/confetti.tsx:        dangerouslySetInnerHTML={{
+  apps/web/src/components/ui/chart.tsx:      dangerouslySetInnerHTML={{
+  apps/web/src/components/onboarding/gdpr-policy-viewer.tsx: * Uses dangerouslySetInnerHTML to avoid React key issues with static content.
+  **Action**: Use DOMPurify or remove dangerouslySetInnerHTML
+- ⚠️ **HIGH [P9]**: No rate limiting on notification/activity endpoints:
+  - packages/backend/convex/models/demoAsks.ts
+  **Action**: Add rate limiting to prevent spam/abuse
+- ⚠️ **HIGH [P9]**: AI endpoints without input validation:
+  - packages/backend/convex/actions/aiMapping.ts
+  - packages/backend/convex/actions/claimsExtraction.ts
+  - packages/backend/convex/actions/coachParentSummaries.ts
+  - packages/backend/convex/actions/practicePlans.ts
+  - packages/backend/convex/actions/sessionPlans.ts
+  - packages/backend/convex/actions/voiceNotes.ts
+  - packages/backend/convex/actions/wellnessInsights.ts
+  - packages/backend/convex/models/aiServiceHealth.ts
+  **Action**: Validate/sanitize user input before AI prompts
+- ⚠️ **HIGH [P9]**: Notification functions without permission checks:
+  - packages/backend/convex/models/notifications.ts
+  **Action**: Verify user can send notifications to recipient
+
+
+## Security Tester - 2026-02-26 00:22:53
+- 🚨 **CRITICAL**: Hardcoded secrets detected
+```
+apps/web/src/app/api/ai-config/verify-model/route.ts:          errorMessage: "ANTHROPIC_API_KEY not configured in Next.js env",
+apps/web/src/app/api/ai-config/verify-model/route.ts:          errorMessage: "OPENAI_API_KEY not configured in Next.js env",
+apps/web/src/app/api/ai-config/available-models/route.ts:    errors.anthropic = "ANTHROPIC_API_KEY not configured";
+apps/web/src/app/api/ai-config/available-models/route.ts:    errors.openai = "OPENAI_API_KEY not configured";
+apps/web/src/app/api/comparison-insights/route.ts:      console.error("❌ ANTHROPIC_API_KEY not found in environment variables");
+```
+- ⚠️ **HIGH**: 6 high-severity dependency vulnerabilities
+  Run `npm audit fix` to resolve
+- ⚠️ **HIGH**: Mutations without authorization checks:
+  - packages/backend/convex/models/platformMessagingSettings.ts
+  - packages/backend/convex/models/syncQueue.ts
+  - packages/backend/convex/models/importSessions.ts
+  - packages/backend/convex/models/passportComparison.ts
+  - packages/backend/convex/models/trustGatePermissions.ts
+  - packages/backend/convex/models/ageGroupEligibilityOverrides.ts
+  - packages/backend/convex/models/federationConnectors.ts
+  - packages/backend/convex/models/teamCollaboration.ts
+  - packages/backend/convex/models/guardianIdentities.ts
+  - packages/backend/convex/models/sessionPlans.ts
+  - packages/backend/convex/models/adultPlayers.ts
+  - packages/backend/convex/models/demoAsks.ts
+  - packages/backend/convex/models/skillBenchmarks.ts
+  - packages/backend/convex/models/coaches.ts
+  - packages/backend/convex/models/medicalProfiles.ts
+  - packages/backend/convex/models/invitations.ts
+  - packages/backend/convex/models/flows.ts
+  - packages/backend/convex/models/notifications.ts
+  - packages/backend/convex/models/whatsappReviewLinks.ts
+  - packages/backend/convex/models/teamObservations.ts
+  - packages/backend/convex/models/passportGoals.ts
+  - packages/backend/convex/models/players.ts
+  - packages/backend/convex/models/aiMappingCache.ts
+  - packages/backend/convex/models/orgInjuryNotes.ts
+  - packages/backend/convex/models/injuryDocuments.ts
+  - packages/backend/convex/models/playerHealthChecks.ts
+  - packages/backend/convex/models/playerImport.ts
+  - packages/backend/convex/models/passportEnquiries.ts
+  - packages/backend/convex/models/setup.ts
+  - packages/backend/convex/models/teamPlayerIdentities.ts
+  - packages/backend/convex/models/rateLimits.ts
+  - packages/backend/convex/models/phase4TestCleanup.ts
+  - packages/backend/convex/models/syncHistory.ts
+  - packages/backend/convex/models/platformStaffInvitations.ts
+  - packages/backend/convex/models/coachParentMessages.ts
+  - packages/backend/convex/models/aiModelConfig.ts
+  - packages/backend/convex/models/voicePipelineAlerts.ts
+  - packages/backend/convex/models/aiMappingAnalytics.ts
+  - packages/backend/convex/models/orgPlayerEnrollments.ts
+  - packages/backend/convex/models/sportPassports.ts
+  - packages/backend/convex/models/orgJoinRequests.ts
+  - packages/backend/convex/models/sportAgeGroupConfig.ts
+  - packages/backend/convex/models/referenceData.ts
+  - packages/backend/convex/models/importMappingHistory.ts
+  - packages/backend/convex/models/notificationPreferences.ts
+  - packages/backend/convex/models/userPreferences.ts
+  - packages/backend/convex/models/teams.ts
+  - packages/backend/convex/models/gdpr.ts
+  - packages/backend/convex/models/userProfiles.ts
+  - packages/backend/convex/models/emergencyContacts.ts
+  - packages/backend/convex/models/coachTrustLevels.ts
+  - packages/backend/convex/models/coachParentSummaries.ts
+  - packages/backend/convex/models/onboarding.ts
+  - packages/backend/convex/models/guardianPlayerLinks.ts
+  - packages/backend/convex/models/orgGuardianProfiles.ts
+  - packages/backend/convex/models/passportSharing.ts
+  - packages/backend/convex/models/playerGraduations.ts
+  - packages/backend/convex/models/members.ts
+  - packages/backend/convex/models/voiceNoteEntityResolutions.ts
+  - packages/backend/convex/models/users.ts
+  - packages/backend/convex/models/voicePipelineRetry.ts
+  - packages/backend/convex/models/skillAssessments.ts
+  - packages/backend/convex/models/playerSelfAccess.ts
+  - packages/backend/convex/models/aiServiceHealth.ts
+  - packages/backend/convex/models/importTemplates.ts
+  - packages/backend/convex/models/sports.ts
+  - packages/backend/convex/models/importProgress.ts
+  - packages/backend/convex/models/fixNeilsRoles.ts
+  - packages/backend/convex/models/playerIdentities.ts
+  - packages/backend/convex/models/voiceNotes.ts
+  - packages/backend/convex/models/guardianManagement.ts
+  - packages/backend/convex/models/importTemplateSeeds.ts
+  - packages/backend/convex/models/insightDrafts.ts
+  - packages/backend/convex/models/importSessionDrafts.ts
+  - packages/backend/convex/models/teamDecisions.ts
+  - packages/backend/convex/models/gaaTestMutations.ts
+  - packages/backend/convex/models/playerInjuries.ts
+  - packages/backend/convex/models/voiceNoteInsights.ts
+  - packages/backend/convex/models/playerEmergencyContacts.ts
+  - packages/backend/convex/models/coachTasks.ts
+  **Action**: Add `getUserOrgRole()` or mark as `// @public`
+- 🚨 **CRITICAL [P9]**: XSS risk - dangerouslySetInnerHTML without sanitization:
+    apps/web/src/components/ui/confetti.tsx:        dangerouslySetInnerHTML={{
+  apps/web/src/components/ui/chart.tsx:      dangerouslySetInnerHTML={{
+  apps/web/src/components/onboarding/gdpr-policy-viewer.tsx: * Uses dangerouslySetInnerHTML to avoid React key issues with static content.
+  **Action**: Use DOMPurify or remove dangerouslySetInnerHTML
+- ⚠️ **HIGH [P9]**: No rate limiting on notification/activity endpoints:
+  - packages/backend/convex/models/demoAsks.ts
+  **Action**: Add rate limiting to prevent spam/abuse
+- ⚠️ **HIGH [P9]**: AI endpoints without input validation:
+  - packages/backend/convex/actions/aiMapping.ts
+  - packages/backend/convex/actions/claimsExtraction.ts
+  - packages/backend/convex/actions/coachParentSummaries.ts
+  - packages/backend/convex/actions/practicePlans.ts
+  - packages/backend/convex/actions/sessionPlans.ts
+  - packages/backend/convex/actions/voiceNotes.ts
+  - packages/backend/convex/actions/wellnessInsights.ts
+  - packages/backend/convex/models/aiServiceHealth.ts
+  **Action**: Validate/sanitize user input before AI prompts
+- ⚠️ **HIGH [P9]**: Notification functions without permission checks:
+  - packages/backend/convex/models/notifications.ts
+  **Action**: Verify user can send notifications to recipient
+
+
+## Security Tester - 2026-02-26 00:24:57
+- 🚨 **CRITICAL**: Hardcoded secrets detected
+```
+apps/web/src/app/api/ai-config/verify-model/route.ts:          errorMessage: "ANTHROPIC_API_KEY not configured in Next.js env",
+apps/web/src/app/api/ai-config/verify-model/route.ts:          errorMessage: "OPENAI_API_KEY not configured in Next.js env",
+apps/web/src/app/api/ai-config/available-models/route.ts:    errors.anthropic = "ANTHROPIC_API_KEY not configured";
+apps/web/src/app/api/ai-config/available-models/route.ts:    errors.openai = "OPENAI_API_KEY not configured";
+apps/web/src/app/api/comparison-insights/route.ts:      console.error("❌ ANTHROPIC_API_KEY not found in environment variables");
+```
+- ⚠️ **HIGH**: 6 high-severity dependency vulnerabilities
+  Run `npm audit fix` to resolve
+- ⚠️ **HIGH**: Mutations without authorization checks:
+  - packages/backend/convex/models/platformMessagingSettings.ts
+  - packages/backend/convex/models/syncQueue.ts
+  - packages/backend/convex/models/importSessions.ts
+  - packages/backend/convex/models/passportComparison.ts
+  - packages/backend/convex/models/trustGatePermissions.ts
+  - packages/backend/convex/models/ageGroupEligibilityOverrides.ts
+  - packages/backend/convex/models/federationConnectors.ts
+  - packages/backend/convex/models/teamCollaboration.ts
+  - packages/backend/convex/models/guardianIdentities.ts
+  - packages/backend/convex/models/sessionPlans.ts
+  - packages/backend/convex/models/adultPlayers.ts
+  - packages/backend/convex/models/demoAsks.ts
+  - packages/backend/convex/models/skillBenchmarks.ts
+  - packages/backend/convex/models/coaches.ts
+  - packages/backend/convex/models/medicalProfiles.ts
+  - packages/backend/convex/models/invitations.ts
+  - packages/backend/convex/models/flows.ts
+  - packages/backend/convex/models/notifications.ts
+  - packages/backend/convex/models/whatsappReviewLinks.ts
+  - packages/backend/convex/models/teamObservations.ts
+  - packages/backend/convex/models/passportGoals.ts
+  - packages/backend/convex/models/players.ts
+  - packages/backend/convex/models/aiMappingCache.ts
+  - packages/backend/convex/models/orgInjuryNotes.ts
+  - packages/backend/convex/models/injuryDocuments.ts
+  - packages/backend/convex/models/playerHealthChecks.ts
+  - packages/backend/convex/models/playerImport.ts
+  - packages/backend/convex/models/passportEnquiries.ts
+  - packages/backend/convex/models/setup.ts
+  - packages/backend/convex/models/teamPlayerIdentities.ts
+  - packages/backend/convex/models/rateLimits.ts
+  - packages/backend/convex/models/phase4TestCleanup.ts
+  - packages/backend/convex/models/syncHistory.ts
+  - packages/backend/convex/models/platformStaffInvitations.ts
+  - packages/backend/convex/models/coachParentMessages.ts
+  - packages/backend/convex/models/aiModelConfig.ts
+  - packages/backend/convex/models/voicePipelineAlerts.ts
+  - packages/backend/convex/models/aiMappingAnalytics.ts
+  - packages/backend/convex/models/orgPlayerEnrollments.ts
+  - packages/backend/convex/models/sportPassports.ts
+  - packages/backend/convex/models/orgJoinRequests.ts
+  - packages/backend/convex/models/sportAgeGroupConfig.ts
+  - packages/backend/convex/models/referenceData.ts
+  - packages/backend/convex/models/importMappingHistory.ts
+  - packages/backend/convex/models/notificationPreferences.ts
+  - packages/backend/convex/models/userPreferences.ts
+  - packages/backend/convex/models/teams.ts
+  - packages/backend/convex/models/gdpr.ts
+  - packages/backend/convex/models/userProfiles.ts
+  - packages/backend/convex/models/emergencyContacts.ts
+  - packages/backend/convex/models/coachTrustLevels.ts
+  - packages/backend/convex/models/coachParentSummaries.ts
+  - packages/backend/convex/models/onboarding.ts
+  - packages/backend/convex/models/guardianPlayerLinks.ts
+  - packages/backend/convex/models/orgGuardianProfiles.ts
+  - packages/backend/convex/models/passportSharing.ts
+  - packages/backend/convex/models/playerGraduations.ts
+  - packages/backend/convex/models/members.ts
+  - packages/backend/convex/models/voiceNoteEntityResolutions.ts
+  - packages/backend/convex/models/users.ts
+  - packages/backend/convex/models/voicePipelineRetry.ts
+  - packages/backend/convex/models/skillAssessments.ts
+  - packages/backend/convex/models/playerSelfAccess.ts
+  - packages/backend/convex/models/aiServiceHealth.ts
+  - packages/backend/convex/models/importTemplates.ts
+  - packages/backend/convex/models/sports.ts
+  - packages/backend/convex/models/importProgress.ts
+  - packages/backend/convex/models/fixNeilsRoles.ts
+  - packages/backend/convex/models/playerIdentities.ts
+  - packages/backend/convex/models/voiceNotes.ts
+  - packages/backend/convex/models/guardianManagement.ts
+  - packages/backend/convex/models/importTemplateSeeds.ts
+  - packages/backend/convex/models/insightDrafts.ts
+  - packages/backend/convex/models/importSessionDrafts.ts
+  - packages/backend/convex/models/teamDecisions.ts
+  - packages/backend/convex/models/gaaTestMutations.ts
+  - packages/backend/convex/models/playerInjuries.ts
+  - packages/backend/convex/models/voiceNoteInsights.ts
+  - packages/backend/convex/models/playerEmergencyContacts.ts
+  - packages/backend/convex/models/coachTasks.ts
+  **Action**: Add `getUserOrgRole()` or mark as `// @public`
+- 🚨 **CRITICAL [P9]**: XSS risk - dangerouslySetInnerHTML without sanitization:
+    apps/web/src/components/ui/confetti.tsx:        dangerouslySetInnerHTML={{
+  apps/web/src/components/ui/chart.tsx:      dangerouslySetInnerHTML={{
+  apps/web/src/components/onboarding/gdpr-policy-viewer.tsx: * Uses dangerouslySetInnerHTML to avoid React key issues with static content.
+  **Action**: Use DOMPurify or remove dangerouslySetInnerHTML
+- ⚠️ **HIGH [P9]**: No rate limiting on notification/activity endpoints:
+  - packages/backend/convex/models/demoAsks.ts
+  **Action**: Add rate limiting to prevent spam/abuse
+- ⚠️ **HIGH [P9]**: AI endpoints without input validation:
+  - packages/backend/convex/actions/aiMapping.ts
+  - packages/backend/convex/actions/claimsExtraction.ts
+  - packages/backend/convex/actions/coachParentSummaries.ts
+  - packages/backend/convex/actions/practicePlans.ts
+  - packages/backend/convex/actions/sessionPlans.ts
+  - packages/backend/convex/actions/voiceNotes.ts
+  - packages/backend/convex/actions/wellnessInsights.ts
+  - packages/backend/convex/models/aiServiceHealth.ts
+  **Action**: Validate/sanitize user input before AI prompts
+- ⚠️ **HIGH [P9]**: Notification functions without permission checks:
+  - packages/backend/convex/models/notifications.ts
+  **Action**: Verify user can send notifications to recipient
+
+
+## Security Tester - 2026-02-26 00:26:59
+- 🚨 **CRITICAL**: Hardcoded secrets detected
+```
+apps/web/src/app/api/ai-config/verify-model/route.ts:          errorMessage: "ANTHROPIC_API_KEY not configured in Next.js env",
+apps/web/src/app/api/ai-config/verify-model/route.ts:          errorMessage: "OPENAI_API_KEY not configured in Next.js env",
+apps/web/src/app/api/ai-config/available-models/route.ts:    errors.anthropic = "ANTHROPIC_API_KEY not configured";
+apps/web/src/app/api/ai-config/available-models/route.ts:    errors.openai = "OPENAI_API_KEY not configured";
+apps/web/src/app/api/comparison-insights/route.ts:      console.error("❌ ANTHROPIC_API_KEY not found in environment variables");
+```
+- ⚠️ **HIGH**: 6 high-severity dependency vulnerabilities
+  Run `npm audit fix` to resolve
+- ⚠️ **HIGH**: Mutations without authorization checks:
+  - packages/backend/convex/models/platformMessagingSettings.ts
+  - packages/backend/convex/models/syncQueue.ts
+  - packages/backend/convex/models/importSessions.ts
+  - packages/backend/convex/models/passportComparison.ts
+  - packages/backend/convex/models/trustGatePermissions.ts
+  - packages/backend/convex/models/ageGroupEligibilityOverrides.ts
+  - packages/backend/convex/models/federationConnectors.ts
+  - packages/backend/convex/models/teamCollaboration.ts
+  - packages/backend/convex/models/guardianIdentities.ts
+  - packages/backend/convex/models/sessionPlans.ts
+  - packages/backend/convex/models/adultPlayers.ts
+  - packages/backend/convex/models/demoAsks.ts
+  - packages/backend/convex/models/skillBenchmarks.ts
+  - packages/backend/convex/models/coaches.ts
+  - packages/backend/convex/models/medicalProfiles.ts
+  - packages/backend/convex/models/invitations.ts
+  - packages/backend/convex/models/flows.ts
+  - packages/backend/convex/models/notifications.ts
+  - packages/backend/convex/models/whatsappReviewLinks.ts
+  - packages/backend/convex/models/teamObservations.ts
+  - packages/backend/convex/models/passportGoals.ts
+  - packages/backend/convex/models/players.ts
+  - packages/backend/convex/models/aiMappingCache.ts
+  - packages/backend/convex/models/orgInjuryNotes.ts
+  - packages/backend/convex/models/injuryDocuments.ts
+  - packages/backend/convex/models/playerHealthChecks.ts
+  - packages/backend/convex/models/playerImport.ts
+  - packages/backend/convex/models/passportEnquiries.ts
+  - packages/backend/convex/models/setup.ts
+  - packages/backend/convex/models/teamPlayerIdentities.ts
+  - packages/backend/convex/models/rateLimits.ts
+  - packages/backend/convex/models/phase4TestCleanup.ts
+  - packages/backend/convex/models/syncHistory.ts
+  - packages/backend/convex/models/platformStaffInvitations.ts
+  - packages/backend/convex/models/coachParentMessages.ts
+  - packages/backend/convex/models/aiModelConfig.ts
+  - packages/backend/convex/models/voicePipelineAlerts.ts
+  - packages/backend/convex/models/aiMappingAnalytics.ts
+  - packages/backend/convex/models/orgPlayerEnrollments.ts
+  - packages/backend/convex/models/sportPassports.ts
+  - packages/backend/convex/models/orgJoinRequests.ts
+  - packages/backend/convex/models/sportAgeGroupConfig.ts
+  - packages/backend/convex/models/referenceData.ts
+  - packages/backend/convex/models/importMappingHistory.ts
+  - packages/backend/convex/models/notificationPreferences.ts
+  - packages/backend/convex/models/userPreferences.ts
+  - packages/backend/convex/models/teams.ts
+  - packages/backend/convex/models/gdpr.ts
+  - packages/backend/convex/models/userProfiles.ts
+  - packages/backend/convex/models/emergencyContacts.ts
+  - packages/backend/convex/models/coachTrustLevels.ts
+  - packages/backend/convex/models/coachParentSummaries.ts
+  - packages/backend/convex/models/onboarding.ts
+  - packages/backend/convex/models/guardianPlayerLinks.ts
+  - packages/backend/convex/models/orgGuardianProfiles.ts
+  - packages/backend/convex/models/passportSharing.ts
+  - packages/backend/convex/models/playerGraduations.ts
+  - packages/backend/convex/models/members.ts
+  - packages/backend/convex/models/voiceNoteEntityResolutions.ts
+  - packages/backend/convex/models/users.ts
+  - packages/backend/convex/models/voicePipelineRetry.ts
+  - packages/backend/convex/models/skillAssessments.ts
+  - packages/backend/convex/models/playerSelfAccess.ts
+  - packages/backend/convex/models/aiServiceHealth.ts
+  - packages/backend/convex/models/importTemplates.ts
+  - packages/backend/convex/models/sports.ts
+  - packages/backend/convex/models/importProgress.ts
+  - packages/backend/convex/models/fixNeilsRoles.ts
+  - packages/backend/convex/models/playerIdentities.ts
+  - packages/backend/convex/models/voiceNotes.ts
+  - packages/backend/convex/models/guardianManagement.ts
+  - packages/backend/convex/models/importTemplateSeeds.ts
+  - packages/backend/convex/models/insightDrafts.ts
+  - packages/backend/convex/models/importSessionDrafts.ts
+  - packages/backend/convex/models/teamDecisions.ts
+  - packages/backend/convex/models/gaaTestMutations.ts
+  - packages/backend/convex/models/playerInjuries.ts
+  - packages/backend/convex/models/voiceNoteInsights.ts
+  - packages/backend/convex/models/playerEmergencyContacts.ts
+  - packages/backend/convex/models/coachTasks.ts
+  **Action**: Add `getUserOrgRole()` or mark as `// @public`
+- 🚨 **CRITICAL [P9]**: XSS risk - dangerouslySetInnerHTML without sanitization:
+    apps/web/src/components/ui/confetti.tsx:        dangerouslySetInnerHTML={{
+  apps/web/src/components/ui/chart.tsx:      dangerouslySetInnerHTML={{
+  apps/web/src/components/onboarding/gdpr-policy-viewer.tsx: * Uses dangerouslySetInnerHTML to avoid React key issues with static content.
+  **Action**: Use DOMPurify or remove dangerouslySetInnerHTML
+- ⚠️ **HIGH [P9]**: No rate limiting on notification/activity endpoints:
+  - packages/backend/convex/models/demoAsks.ts
+  **Action**: Add rate limiting to prevent spam/abuse
+- ⚠️ **HIGH [P9]**: AI endpoints without input validation:
+  - packages/backend/convex/actions/aiMapping.ts
+  - packages/backend/convex/actions/claimsExtraction.ts
+  - packages/backend/convex/actions/coachParentSummaries.ts
+  - packages/backend/convex/actions/practicePlans.ts
+  - packages/backend/convex/actions/sessionPlans.ts
+  - packages/backend/convex/actions/voiceNotes.ts
+  - packages/backend/convex/actions/wellnessInsights.ts
+  - packages/backend/convex/models/aiServiceHealth.ts
+  **Action**: Validate/sanitize user input before AI prompts
+- ⚠️ **HIGH [P9]**: Notification functions without permission checks:
+  - packages/backend/convex/models/notifications.ts
+  **Action**: Verify user can send notifications to recipient
+
+
+## Security Tester - 2026-02-26 00:29:01
+- 🚨 **CRITICAL**: Hardcoded secrets detected
+```
+apps/web/src/app/api/ai-config/verify-model/route.ts:          errorMessage: "ANTHROPIC_API_KEY not configured in Next.js env",
+apps/web/src/app/api/ai-config/verify-model/route.ts:          errorMessage: "OPENAI_API_KEY not configured in Next.js env",
+apps/web/src/app/api/ai-config/available-models/route.ts:    errors.anthropic = "ANTHROPIC_API_KEY not configured";
+apps/web/src/app/api/ai-config/available-models/route.ts:    errors.openai = "OPENAI_API_KEY not configured";
+apps/web/src/app/api/comparison-insights/route.ts:      console.error("❌ ANTHROPIC_API_KEY not found in environment variables");
+```
+- ⚠️ **HIGH**: 6 high-severity dependency vulnerabilities
+  Run `npm audit fix` to resolve
+- ⚠️ **HIGH**: Mutations without authorization checks:
+  - packages/backend/convex/models/platformMessagingSettings.ts
+  - packages/backend/convex/models/syncQueue.ts
+  - packages/backend/convex/models/importSessions.ts
+  - packages/backend/convex/models/passportComparison.ts
+  - packages/backend/convex/models/trustGatePermissions.ts
+  - packages/backend/convex/models/ageGroupEligibilityOverrides.ts
+  - packages/backend/convex/models/federationConnectors.ts
+  - packages/backend/convex/models/teamCollaboration.ts
+  - packages/backend/convex/models/guardianIdentities.ts
+  - packages/backend/convex/models/sessionPlans.ts
+  - packages/backend/convex/models/adultPlayers.ts
+  - packages/backend/convex/models/demoAsks.ts
+  - packages/backend/convex/models/skillBenchmarks.ts
+  - packages/backend/convex/models/coaches.ts
+  - packages/backend/convex/models/medicalProfiles.ts
+  - packages/backend/convex/models/invitations.ts
+  - packages/backend/convex/models/flows.ts
+  - packages/backend/convex/models/notifications.ts
+  - packages/backend/convex/models/whatsappReviewLinks.ts
+  - packages/backend/convex/models/teamObservations.ts
+  - packages/backend/convex/models/passportGoals.ts
+  - packages/backend/convex/models/players.ts
+  - packages/backend/convex/models/aiMappingCache.ts
+  - packages/backend/convex/models/orgInjuryNotes.ts
+  - packages/backend/convex/models/injuryDocuments.ts
+  - packages/backend/convex/models/playerHealthChecks.ts
+  - packages/backend/convex/models/playerImport.ts
+  - packages/backend/convex/models/passportEnquiries.ts
+  - packages/backend/convex/models/setup.ts
+  - packages/backend/convex/models/teamPlayerIdentities.ts
+  - packages/backend/convex/models/rateLimits.ts
+  - packages/backend/convex/models/phase4TestCleanup.ts
+  - packages/backend/convex/models/syncHistory.ts
+  - packages/backend/convex/models/platformStaffInvitations.ts
+  - packages/backend/convex/models/coachParentMessages.ts
+  - packages/backend/convex/models/aiModelConfig.ts
+  - packages/backend/convex/models/voicePipelineAlerts.ts
+  - packages/backend/convex/models/aiMappingAnalytics.ts
+  - packages/backend/convex/models/orgPlayerEnrollments.ts
+  - packages/backend/convex/models/sportPassports.ts
+  - packages/backend/convex/models/orgJoinRequests.ts
+  - packages/backend/convex/models/sportAgeGroupConfig.ts
+  - packages/backend/convex/models/referenceData.ts
+  - packages/backend/convex/models/importMappingHistory.ts
+  - packages/backend/convex/models/notificationPreferences.ts
+  - packages/backend/convex/models/userPreferences.ts
+  - packages/backend/convex/models/teams.ts
+  - packages/backend/convex/models/gdpr.ts
+  - packages/backend/convex/models/userProfiles.ts
+  - packages/backend/convex/models/emergencyContacts.ts
+  - packages/backend/convex/models/coachTrustLevels.ts
+  - packages/backend/convex/models/coachParentSummaries.ts
+  - packages/backend/convex/models/onboarding.ts
+  - packages/backend/convex/models/guardianPlayerLinks.ts
+  - packages/backend/convex/models/orgGuardianProfiles.ts
+  - packages/backend/convex/models/passportSharing.ts
+  - packages/backend/convex/models/playerGraduations.ts
+  - packages/backend/convex/models/members.ts
+  - packages/backend/convex/models/voiceNoteEntityResolutions.ts
+  - packages/backend/convex/models/users.ts
+  - packages/backend/convex/models/voicePipelineRetry.ts
+  - packages/backend/convex/models/skillAssessments.ts
+  - packages/backend/convex/models/playerSelfAccess.ts
+  - packages/backend/convex/models/aiServiceHealth.ts
+  - packages/backend/convex/models/importTemplates.ts
+  - packages/backend/convex/models/sports.ts
+  - packages/backend/convex/models/importProgress.ts
+  - packages/backend/convex/models/fixNeilsRoles.ts
+  - packages/backend/convex/models/playerIdentities.ts
+  - packages/backend/convex/models/voiceNotes.ts
+  - packages/backend/convex/models/guardianManagement.ts
+  - packages/backend/convex/models/importTemplateSeeds.ts
+  - packages/backend/convex/models/insightDrafts.ts
+  - packages/backend/convex/models/importSessionDrafts.ts
+  - packages/backend/convex/models/teamDecisions.ts
+  - packages/backend/convex/models/gaaTestMutations.ts
+  - packages/backend/convex/models/playerInjuries.ts
+  - packages/backend/convex/models/voiceNoteInsights.ts
+  - packages/backend/convex/models/playerEmergencyContacts.ts
+  - packages/backend/convex/models/coachTasks.ts
+  **Action**: Add `getUserOrgRole()` or mark as `// @public`
+- 🚨 **CRITICAL [P9]**: XSS risk - dangerouslySetInnerHTML without sanitization:
+    apps/web/src/components/ui/confetti.tsx:        dangerouslySetInnerHTML={{
+  apps/web/src/components/ui/chart.tsx:      dangerouslySetInnerHTML={{
+  apps/web/src/components/onboarding/gdpr-policy-viewer.tsx: * Uses dangerouslySetInnerHTML to avoid React key issues with static content.
+  **Action**: Use DOMPurify or remove dangerouslySetInnerHTML
+- ⚠️ **HIGH [P9]**: No rate limiting on notification/activity endpoints:
+  - packages/backend/convex/models/demoAsks.ts
+  **Action**: Add rate limiting to prevent spam/abuse
+- ⚠️ **HIGH [P9]**: AI endpoints without input validation:
+  - packages/backend/convex/actions/aiMapping.ts
+  - packages/backend/convex/actions/claimsExtraction.ts
+  - packages/backend/convex/actions/coachParentSummaries.ts
+  - packages/backend/convex/actions/practicePlans.ts
+  - packages/backend/convex/actions/sessionPlans.ts
+  - packages/backend/convex/actions/voiceNotes.ts
+  - packages/backend/convex/actions/wellnessInsights.ts
+  - packages/backend/convex/models/aiServiceHealth.ts
+  **Action**: Validate/sanitize user input before AI prompts
+- ⚠️ **HIGH [P9]**: Notification functions without permission checks:
+  - packages/backend/convex/models/notifications.ts
+  **Action**: Verify user can send notifications to recipient
+
+
+## Security Tester - 2026-02-26 00:31:05
+- 🚨 **CRITICAL**: Hardcoded secrets detected
+```
+apps/web/src/app/api/ai-config/verify-model/route.ts:          errorMessage: "ANTHROPIC_API_KEY not configured in Next.js env",
+apps/web/src/app/api/ai-config/verify-model/route.ts:          errorMessage: "OPENAI_API_KEY not configured in Next.js env",
+apps/web/src/app/api/ai-config/available-models/route.ts:    errors.anthropic = "ANTHROPIC_API_KEY not configured";
+apps/web/src/app/api/ai-config/available-models/route.ts:    errors.openai = "OPENAI_API_KEY not configured";
+apps/web/src/app/api/comparison-insights/route.ts:      console.error("❌ ANTHROPIC_API_KEY not found in environment variables");
+```
+- ⚠️ **HIGH**: 6 high-severity dependency vulnerabilities
+  Run `npm audit fix` to resolve
+- ⚠️ **HIGH**: Mutations without authorization checks:
+  - packages/backend/convex/models/platformMessagingSettings.ts
+  - packages/backend/convex/models/syncQueue.ts
+  - packages/backend/convex/models/importSessions.ts
+  - packages/backend/convex/models/passportComparison.ts
+  - packages/backend/convex/models/trustGatePermissions.ts
+  - packages/backend/convex/models/ageGroupEligibilityOverrides.ts
+  - packages/backend/convex/models/federationConnectors.ts
+  - packages/backend/convex/models/teamCollaboration.ts
+  - packages/backend/convex/models/guardianIdentities.ts
+  - packages/backend/convex/models/sessionPlans.ts
+  - packages/backend/convex/models/adultPlayers.ts
+  - packages/backend/convex/models/demoAsks.ts
+  - packages/backend/convex/models/skillBenchmarks.ts
+  - packages/backend/convex/models/coaches.ts
+  - packages/backend/convex/models/medicalProfiles.ts
+  - packages/backend/convex/models/invitations.ts
+  - packages/backend/convex/models/flows.ts
+  - packages/backend/convex/models/notifications.ts
+  - packages/backend/convex/models/whatsappReviewLinks.ts
+  - packages/backend/convex/models/teamObservations.ts
+  - packages/backend/convex/models/passportGoals.ts
+  - packages/backend/convex/models/players.ts
+  - packages/backend/convex/models/aiMappingCache.ts
+  - packages/backend/convex/models/orgInjuryNotes.ts
+  - packages/backend/convex/models/injuryDocuments.ts
+  - packages/backend/convex/models/playerHealthChecks.ts
+  - packages/backend/convex/models/playerImport.ts
+  - packages/backend/convex/models/passportEnquiries.ts
+  - packages/backend/convex/models/setup.ts
+  - packages/backend/convex/models/teamPlayerIdentities.ts
+  - packages/backend/convex/models/rateLimits.ts
+  - packages/backend/convex/models/phase4TestCleanup.ts
+  - packages/backend/convex/models/syncHistory.ts
+  - packages/backend/convex/models/platformStaffInvitations.ts
+  - packages/backend/convex/models/coachParentMessages.ts
+  - packages/backend/convex/models/aiModelConfig.ts
+  - packages/backend/convex/models/voicePipelineAlerts.ts
+  - packages/backend/convex/models/aiMappingAnalytics.ts
+  - packages/backend/convex/models/orgPlayerEnrollments.ts
+  - packages/backend/convex/models/sportPassports.ts
+  - packages/backend/convex/models/orgJoinRequests.ts
+  - packages/backend/convex/models/sportAgeGroupConfig.ts
+  - packages/backend/convex/models/referenceData.ts
+  - packages/backend/convex/models/importMappingHistory.ts
+  - packages/backend/convex/models/notificationPreferences.ts
+  - packages/backend/convex/models/userPreferences.ts
+  - packages/backend/convex/models/teams.ts
+  - packages/backend/convex/models/gdpr.ts
+  - packages/backend/convex/models/userProfiles.ts
+  - packages/backend/convex/models/emergencyContacts.ts
+  - packages/backend/convex/models/coachTrustLevels.ts
+  - packages/backend/convex/models/coachParentSummaries.ts
+  - packages/backend/convex/models/onboarding.ts
+  - packages/backend/convex/models/guardianPlayerLinks.ts
+  - packages/backend/convex/models/orgGuardianProfiles.ts
+  - packages/backend/convex/models/passportSharing.ts
+  - packages/backend/convex/models/playerGraduations.ts
+  - packages/backend/convex/models/members.ts
+  - packages/backend/convex/models/voiceNoteEntityResolutions.ts
+  - packages/backend/convex/models/users.ts
+  - packages/backend/convex/models/voicePipelineRetry.ts
+  - packages/backend/convex/models/skillAssessments.ts
+  - packages/backend/convex/models/playerSelfAccess.ts
+  - packages/backend/convex/models/aiServiceHealth.ts
+  - packages/backend/convex/models/importTemplates.ts
+  - packages/backend/convex/models/sports.ts
+  - packages/backend/convex/models/importProgress.ts
+  - packages/backend/convex/models/fixNeilsRoles.ts
+  - packages/backend/convex/models/playerIdentities.ts
+  - packages/backend/convex/models/voiceNotes.ts
+  - packages/backend/convex/models/guardianManagement.ts
+  - packages/backend/convex/models/importTemplateSeeds.ts
+  - packages/backend/convex/models/insightDrafts.ts
+  - packages/backend/convex/models/importSessionDrafts.ts
+  - packages/backend/convex/models/teamDecisions.ts
+  - packages/backend/convex/models/gaaTestMutations.ts
+  - packages/backend/convex/models/playerInjuries.ts
+  - packages/backend/convex/models/voiceNoteInsights.ts
+  - packages/backend/convex/models/playerEmergencyContacts.ts
+  - packages/backend/convex/models/coachTasks.ts
+  **Action**: Add `getUserOrgRole()` or mark as `// @public`
+- 🚨 **CRITICAL [P9]**: XSS risk - dangerouslySetInnerHTML without sanitization:
+    apps/web/src/components/ui/confetti.tsx:        dangerouslySetInnerHTML={{
+  apps/web/src/components/ui/chart.tsx:      dangerouslySetInnerHTML={{
+  apps/web/src/components/onboarding/gdpr-policy-viewer.tsx: * Uses dangerouslySetInnerHTML to avoid React key issues with static content.
+  **Action**: Use DOMPurify or remove dangerouslySetInnerHTML
+- ⚠️ **HIGH [P9]**: No rate limiting on notification/activity endpoints:
+  - packages/backend/convex/models/demoAsks.ts
+  **Action**: Add rate limiting to prevent spam/abuse
+- ⚠️ **HIGH [P9]**: AI endpoints without input validation:
+  - packages/backend/convex/actions/aiMapping.ts
+  - packages/backend/convex/actions/claimsExtraction.ts
+  - packages/backend/convex/actions/coachParentSummaries.ts
+  - packages/backend/convex/actions/practicePlans.ts
+  - packages/backend/convex/actions/sessionPlans.ts
+  - packages/backend/convex/actions/voiceNotes.ts
+  - packages/backend/convex/actions/wellnessInsights.ts
+  - packages/backend/convex/models/aiServiceHealth.ts
+  **Action**: Validate/sanitize user input before AI prompts
+- ⚠️ **HIGH [P9]**: Notification functions without permission checks:
+  - packages/backend/convex/models/notifications.ts
+  **Action**: Verify user can send notifications to recipient
+
+
+## Security Tester - 2026-02-26 00:33:07
+- 🚨 **CRITICAL**: Hardcoded secrets detected
+```
+apps/web/src/app/api/ai-config/verify-model/route.ts:          errorMessage: "ANTHROPIC_API_KEY not configured in Next.js env",
+apps/web/src/app/api/ai-config/verify-model/route.ts:          errorMessage: "OPENAI_API_KEY not configured in Next.js env",
+apps/web/src/app/api/ai-config/available-models/route.ts:    errors.anthropic = "ANTHROPIC_API_KEY not configured";
+apps/web/src/app/api/ai-config/available-models/route.ts:    errors.openai = "OPENAI_API_KEY not configured";
+apps/web/src/app/api/comparison-insights/route.ts:      console.error("❌ ANTHROPIC_API_KEY not found in environment variables");
+```
+- ⚠️ **HIGH**: 6 high-severity dependency vulnerabilities
+  Run `npm audit fix` to resolve
+- ⚠️ **HIGH**: Mutations without authorization checks:
+  - packages/backend/convex/models/platformMessagingSettings.ts
+  - packages/backend/convex/models/syncQueue.ts
+  - packages/backend/convex/models/importSessions.ts
+  - packages/backend/convex/models/passportComparison.ts
+  - packages/backend/convex/models/trustGatePermissions.ts
+  - packages/backend/convex/models/ageGroupEligibilityOverrides.ts
+  - packages/backend/convex/models/federationConnectors.ts
+  - packages/backend/convex/models/teamCollaboration.ts
+  - packages/backend/convex/models/guardianIdentities.ts
+  - packages/backend/convex/models/sessionPlans.ts
+  - packages/backend/convex/models/adultPlayers.ts
+  - packages/backend/convex/models/demoAsks.ts
+  - packages/backend/convex/models/skillBenchmarks.ts
+  - packages/backend/convex/models/coaches.ts
+  - packages/backend/convex/models/medicalProfiles.ts
+  - packages/backend/convex/models/invitations.ts
+  - packages/backend/convex/models/flows.ts
+  - packages/backend/convex/models/notifications.ts
+  - packages/backend/convex/models/whatsappReviewLinks.ts
+  - packages/backend/convex/models/teamObservations.ts
+  - packages/backend/convex/models/passportGoals.ts
+  - packages/backend/convex/models/players.ts
+  - packages/backend/convex/models/aiMappingCache.ts
+  - packages/backend/convex/models/orgInjuryNotes.ts
+  - packages/backend/convex/models/injuryDocuments.ts
+  - packages/backend/convex/models/playerHealthChecks.ts
+  - packages/backend/convex/models/playerImport.ts
+  - packages/backend/convex/models/passportEnquiries.ts
+  - packages/backend/convex/models/setup.ts
+  - packages/backend/convex/models/teamPlayerIdentities.ts
+  - packages/backend/convex/models/rateLimits.ts
+  - packages/backend/convex/models/phase4TestCleanup.ts
+  - packages/backend/convex/models/syncHistory.ts
+  - packages/backend/convex/models/platformStaffInvitations.ts
+  - packages/backend/convex/models/coachParentMessages.ts
+  - packages/backend/convex/models/aiModelConfig.ts
+  - packages/backend/convex/models/voicePipelineAlerts.ts
+  - packages/backend/convex/models/aiMappingAnalytics.ts
+  - packages/backend/convex/models/orgPlayerEnrollments.ts
+  - packages/backend/convex/models/sportPassports.ts
+  - packages/backend/convex/models/orgJoinRequests.ts
+  - packages/backend/convex/models/sportAgeGroupConfig.ts
+  - packages/backend/convex/models/referenceData.ts
+  - packages/backend/convex/models/importMappingHistory.ts
+  - packages/backend/convex/models/notificationPreferences.ts
+  - packages/backend/convex/models/userPreferences.ts
+  - packages/backend/convex/models/teams.ts
+  - packages/backend/convex/models/gdpr.ts
+  - packages/backend/convex/models/userProfiles.ts
+  - packages/backend/convex/models/emergencyContacts.ts
+  - packages/backend/convex/models/coachTrustLevels.ts
+  - packages/backend/convex/models/coachParentSummaries.ts
+  - packages/backend/convex/models/onboarding.ts
+  - packages/backend/convex/models/guardianPlayerLinks.ts
+  - packages/backend/convex/models/orgGuardianProfiles.ts
+  - packages/backend/convex/models/passportSharing.ts
+  - packages/backend/convex/models/playerGraduations.ts
+  - packages/backend/convex/models/members.ts
+  - packages/backend/convex/models/voiceNoteEntityResolutions.ts
+  - packages/backend/convex/models/users.ts
+  - packages/backend/convex/models/voicePipelineRetry.ts
+  - packages/backend/convex/models/skillAssessments.ts
+  - packages/backend/convex/models/playerSelfAccess.ts
+  - packages/backend/convex/models/aiServiceHealth.ts
+  - packages/backend/convex/models/importTemplates.ts
+  - packages/backend/convex/models/sports.ts
+  - packages/backend/convex/models/importProgress.ts
+  - packages/backend/convex/models/fixNeilsRoles.ts
+  - packages/backend/convex/models/playerIdentities.ts
+  - packages/backend/convex/models/voiceNotes.ts
+  - packages/backend/convex/models/guardianManagement.ts
+  - packages/backend/convex/models/importTemplateSeeds.ts
+  - packages/backend/convex/models/insightDrafts.ts
+  - packages/backend/convex/models/importSessionDrafts.ts
+  - packages/backend/convex/models/teamDecisions.ts
+  - packages/backend/convex/models/gaaTestMutations.ts
+  - packages/backend/convex/models/playerInjuries.ts
+  - packages/backend/convex/models/voiceNoteInsights.ts
+  - packages/backend/convex/models/playerEmergencyContacts.ts
+  - packages/backend/convex/models/coachTasks.ts
+  **Action**: Add `getUserOrgRole()` or mark as `// @public`
+- 🚨 **CRITICAL [P9]**: XSS risk - dangerouslySetInnerHTML without sanitization:
+    apps/web/src/components/ui/confetti.tsx:        dangerouslySetInnerHTML={{
+  apps/web/src/components/ui/chart.tsx:      dangerouslySetInnerHTML={{
+  apps/web/src/components/onboarding/gdpr-policy-viewer.tsx: * Uses dangerouslySetInnerHTML to avoid React key issues with static content.
+  **Action**: Use DOMPurify or remove dangerouslySetInnerHTML
+- ⚠️ **HIGH [P9]**: No rate limiting on notification/activity endpoints:
+  - packages/backend/convex/models/demoAsks.ts
+  **Action**: Add rate limiting to prevent spam/abuse
+- ⚠️ **HIGH [P9]**: AI endpoints without input validation:
+  - packages/backend/convex/actions/aiMapping.ts
+  - packages/backend/convex/actions/claimsExtraction.ts
+  - packages/backend/convex/actions/coachParentSummaries.ts
+  - packages/backend/convex/actions/practicePlans.ts
+  - packages/backend/convex/actions/sessionPlans.ts
+  - packages/backend/convex/actions/voiceNotes.ts
+  - packages/backend/convex/actions/wellnessInsights.ts
+  - packages/backend/convex/models/aiServiceHealth.ts
+  **Action**: Validate/sanitize user input before AI prompts
+- ⚠️ **HIGH [P9]**: Notification functions without permission checks:
+  - packages/backend/convex/models/notifications.ts
+  **Action**: Verify user can send notifications to recipient
+
+
+## Security Tester - 2026-02-26 00:35:09
+- 🚨 **CRITICAL**: Hardcoded secrets detected
+```
+apps/web/src/app/api/ai-config/verify-model/route.ts:          errorMessage: "ANTHROPIC_API_KEY not configured in Next.js env",
+apps/web/src/app/api/ai-config/verify-model/route.ts:          errorMessage: "OPENAI_API_KEY not configured in Next.js env",
+apps/web/src/app/api/ai-config/available-models/route.ts:    errors.anthropic = "ANTHROPIC_API_KEY not configured";
+apps/web/src/app/api/ai-config/available-models/route.ts:    errors.openai = "OPENAI_API_KEY not configured";
+apps/web/src/app/api/comparison-insights/route.ts:      console.error("❌ ANTHROPIC_API_KEY not found in environment variables");
+```
+- ⚠️ **HIGH**: 6 high-severity dependency vulnerabilities
+  Run `npm audit fix` to resolve
+- ⚠️ **HIGH**: Mutations without authorization checks:
+  - packages/backend/convex/models/platformMessagingSettings.ts
+  - packages/backend/convex/models/syncQueue.ts
+  - packages/backend/convex/models/importSessions.ts
+  - packages/backend/convex/models/passportComparison.ts
+  - packages/backend/convex/models/trustGatePermissions.ts
+  - packages/backend/convex/models/ageGroupEligibilityOverrides.ts
+  - packages/backend/convex/models/federationConnectors.ts
+  - packages/backend/convex/models/teamCollaboration.ts
+  - packages/backend/convex/models/guardianIdentities.ts
+  - packages/backend/convex/models/sessionPlans.ts
+  - packages/backend/convex/models/adultPlayers.ts
+  - packages/backend/convex/models/demoAsks.ts
+  - packages/backend/convex/models/skillBenchmarks.ts
+  - packages/backend/convex/models/coaches.ts
+  - packages/backend/convex/models/medicalProfiles.ts
+  - packages/backend/convex/models/invitations.ts
+  - packages/backend/convex/models/flows.ts
+  - packages/backend/convex/models/notifications.ts
+  - packages/backend/convex/models/whatsappReviewLinks.ts
+  - packages/backend/convex/models/teamObservations.ts
+  - packages/backend/convex/models/passportGoals.ts
+  - packages/backend/convex/models/players.ts
+  - packages/backend/convex/models/aiMappingCache.ts
+  - packages/backend/convex/models/orgInjuryNotes.ts
+  - packages/backend/convex/models/injuryDocuments.ts
+  - packages/backend/convex/models/playerHealthChecks.ts
+  - packages/backend/convex/models/playerImport.ts
+  - packages/backend/convex/models/passportEnquiries.ts
+  - packages/backend/convex/models/setup.ts
+  - packages/backend/convex/models/teamPlayerIdentities.ts
+  - packages/backend/convex/models/rateLimits.ts
+  - packages/backend/convex/models/phase4TestCleanup.ts
+  - packages/backend/convex/models/syncHistory.ts
+  - packages/backend/convex/models/platformStaffInvitations.ts
+  - packages/backend/convex/models/coachParentMessages.ts
+  - packages/backend/convex/models/aiModelConfig.ts
+  - packages/backend/convex/models/voicePipelineAlerts.ts
+  - packages/backend/convex/models/aiMappingAnalytics.ts
+  - packages/backend/convex/models/orgPlayerEnrollments.ts
+  - packages/backend/convex/models/sportPassports.ts
+  - packages/backend/convex/models/orgJoinRequests.ts
+  - packages/backend/convex/models/sportAgeGroupConfig.ts
+  - packages/backend/convex/models/referenceData.ts
+  - packages/backend/convex/models/importMappingHistory.ts
+  - packages/backend/convex/models/notificationPreferences.ts
+  - packages/backend/convex/models/userPreferences.ts
+  - packages/backend/convex/models/teams.ts
+  - packages/backend/convex/models/gdpr.ts
+  - packages/backend/convex/models/userProfiles.ts
+  - packages/backend/convex/models/emergencyContacts.ts
+  - packages/backend/convex/models/coachTrustLevels.ts
+  - packages/backend/convex/models/coachParentSummaries.ts
+  - packages/backend/convex/models/onboarding.ts
+  - packages/backend/convex/models/guardianPlayerLinks.ts
+  - packages/backend/convex/models/orgGuardianProfiles.ts
+  - packages/backend/convex/models/passportSharing.ts
+  - packages/backend/convex/models/playerGraduations.ts
+  - packages/backend/convex/models/members.ts
+  - packages/backend/convex/models/voiceNoteEntityResolutions.ts
+  - packages/backend/convex/models/users.ts
+  - packages/backend/convex/models/voicePipelineRetry.ts
+  - packages/backend/convex/models/skillAssessments.ts
+  - packages/backend/convex/models/playerSelfAccess.ts
+  - packages/backend/convex/models/aiServiceHealth.ts
+  - packages/backend/convex/models/importTemplates.ts
+  - packages/backend/convex/models/sports.ts
+  - packages/backend/convex/models/importProgress.ts
+  - packages/backend/convex/models/fixNeilsRoles.ts
+  - packages/backend/convex/models/playerIdentities.ts
+  - packages/backend/convex/models/voiceNotes.ts
+  - packages/backend/convex/models/guardianManagement.ts
+  - packages/backend/convex/models/importTemplateSeeds.ts
+  - packages/backend/convex/models/insightDrafts.ts
+  - packages/backend/convex/models/importSessionDrafts.ts
+  - packages/backend/convex/models/teamDecisions.ts
+  - packages/backend/convex/models/gaaTestMutations.ts
+  - packages/backend/convex/models/playerInjuries.ts
+  - packages/backend/convex/models/voiceNoteInsights.ts
+  - packages/backend/convex/models/playerEmergencyContacts.ts
+  - packages/backend/convex/models/coachTasks.ts
+  **Action**: Add `getUserOrgRole()` or mark as `// @public`
+- 🚨 **CRITICAL [P9]**: XSS risk - dangerouslySetInnerHTML without sanitization:
+    apps/web/src/components/ui/confetti.tsx:        dangerouslySetInnerHTML={{
+  apps/web/src/components/ui/chart.tsx:      dangerouslySetInnerHTML={{
+  apps/web/src/components/onboarding/gdpr-policy-viewer.tsx: * Uses dangerouslySetInnerHTML to avoid React key issues with static content.
+  **Action**: Use DOMPurify or remove dangerouslySetInnerHTML
+- ⚠️ **HIGH [P9]**: No rate limiting on notification/activity endpoints:
+  - packages/backend/convex/models/demoAsks.ts
+  **Action**: Add rate limiting to prevent spam/abuse
+- ⚠️ **HIGH [P9]**: AI endpoints without input validation:
+  - packages/backend/convex/actions/aiMapping.ts
+  - packages/backend/convex/actions/claimsExtraction.ts
+  - packages/backend/convex/actions/coachParentSummaries.ts
+  - packages/backend/convex/actions/practicePlans.ts
+  - packages/backend/convex/actions/sessionPlans.ts
+  - packages/backend/convex/actions/voiceNotes.ts
+  - packages/backend/convex/actions/wellnessInsights.ts
+  - packages/backend/convex/models/aiServiceHealth.ts
+  **Action**: Validate/sanitize user input before AI prompts
+- ⚠️ **HIGH [P9]**: Notification functions without permission checks:
+  - packages/backend/convex/models/notifications.ts
+  **Action**: Verify user can send notifications to recipient
+
+
+## Security Tester - 2026-02-26 00:37:14
+- 🚨 **CRITICAL**: Hardcoded secrets detected
+```
+apps/web/src/app/api/ai-config/verify-model/route.ts:          errorMessage: "ANTHROPIC_API_KEY not configured in Next.js env",
+apps/web/src/app/api/ai-config/verify-model/route.ts:          errorMessage: "OPENAI_API_KEY not configured in Next.js env",
+apps/web/src/app/api/ai-config/available-models/route.ts:    errors.anthropic = "ANTHROPIC_API_KEY not configured";
+apps/web/src/app/api/ai-config/available-models/route.ts:    errors.openai = "OPENAI_API_KEY not configured";
+apps/web/src/app/api/comparison-insights/route.ts:      console.error("❌ ANTHROPIC_API_KEY not found in environment variables");
+```
+- ⚠️ **HIGH**: 6 high-severity dependency vulnerabilities
+  Run `npm audit fix` to resolve
+- ⚠️ **HIGH**: Mutations without authorization checks:
+  - packages/backend/convex/models/platformMessagingSettings.ts
+  - packages/backend/convex/models/syncQueue.ts
+  - packages/backend/convex/models/importSessions.ts
+  - packages/backend/convex/models/passportComparison.ts
+  - packages/backend/convex/models/trustGatePermissions.ts
+  - packages/backend/convex/models/ageGroupEligibilityOverrides.ts
+  - packages/backend/convex/models/federationConnectors.ts
+  - packages/backend/convex/models/teamCollaboration.ts
+  - packages/backend/convex/models/guardianIdentities.ts
+  - packages/backend/convex/models/sessionPlans.ts
+  - packages/backend/convex/models/adultPlayers.ts
+  - packages/backend/convex/models/demoAsks.ts
+  - packages/backend/convex/models/skillBenchmarks.ts
+  - packages/backend/convex/models/coaches.ts
+  - packages/backend/convex/models/medicalProfiles.ts
+  - packages/backend/convex/models/invitations.ts
+  - packages/backend/convex/models/flows.ts
+  - packages/backend/convex/models/notifications.ts
+  - packages/backend/convex/models/whatsappReviewLinks.ts
+  - packages/backend/convex/models/teamObservations.ts
+  - packages/backend/convex/models/passportGoals.ts
+  - packages/backend/convex/models/players.ts
+  - packages/backend/convex/models/aiMappingCache.ts
+  - packages/backend/convex/models/orgInjuryNotes.ts
+  - packages/backend/convex/models/injuryDocuments.ts
+  - packages/backend/convex/models/playerHealthChecks.ts
+  - packages/backend/convex/models/playerImport.ts
+  - packages/backend/convex/models/passportEnquiries.ts
+  - packages/backend/convex/models/setup.ts
+  - packages/backend/convex/models/teamPlayerIdentities.ts
+  - packages/backend/convex/models/rateLimits.ts
+  - packages/backend/convex/models/phase4TestCleanup.ts
+  - packages/backend/convex/models/syncHistory.ts
+  - packages/backend/convex/models/platformStaffInvitations.ts
+  - packages/backend/convex/models/coachParentMessages.ts
+  - packages/backend/convex/models/aiModelConfig.ts
+  - packages/backend/convex/models/voicePipelineAlerts.ts
+  - packages/backend/convex/models/aiMappingAnalytics.ts
+  - packages/backend/convex/models/orgPlayerEnrollments.ts
+  - packages/backend/convex/models/sportPassports.ts
+  - packages/backend/convex/models/orgJoinRequests.ts
+  - packages/backend/convex/models/sportAgeGroupConfig.ts
+  - packages/backend/convex/models/referenceData.ts
+  - packages/backend/convex/models/importMappingHistory.ts
+  - packages/backend/convex/models/notificationPreferences.ts
+  - packages/backend/convex/models/userPreferences.ts
+  - packages/backend/convex/models/teams.ts
+  - packages/backend/convex/models/gdpr.ts
+  - packages/backend/convex/models/userProfiles.ts
+  - packages/backend/convex/models/emergencyContacts.ts
+  - packages/backend/convex/models/coachTrustLevels.ts
+  - packages/backend/convex/models/coachParentSummaries.ts
+  - packages/backend/convex/models/onboarding.ts
+  - packages/backend/convex/models/guardianPlayerLinks.ts
+  - packages/backend/convex/models/orgGuardianProfiles.ts
+  - packages/backend/convex/models/passportSharing.ts
+  - packages/backend/convex/models/playerGraduations.ts
+  - packages/backend/convex/models/members.ts
+  - packages/backend/convex/models/voiceNoteEntityResolutions.ts
+  - packages/backend/convex/models/users.ts
+  - packages/backend/convex/models/voicePipelineRetry.ts
+  - packages/backend/convex/models/skillAssessments.ts
+  - packages/backend/convex/models/playerSelfAccess.ts
+  - packages/backend/convex/models/aiServiceHealth.ts
+  - packages/backend/convex/models/importTemplates.ts
+  - packages/backend/convex/models/sports.ts
+  - packages/backend/convex/models/importProgress.ts
+  - packages/backend/convex/models/fixNeilsRoles.ts
+  - packages/backend/convex/models/playerIdentities.ts
+  - packages/backend/convex/models/voiceNotes.ts
+  - packages/backend/convex/models/guardianManagement.ts
+  - packages/backend/convex/models/importTemplateSeeds.ts
+  - packages/backend/convex/models/insightDrafts.ts
+  - packages/backend/convex/models/importSessionDrafts.ts
+  - packages/backend/convex/models/teamDecisions.ts
+  - packages/backend/convex/models/gaaTestMutations.ts
+  - packages/backend/convex/models/playerInjuries.ts
+  - packages/backend/convex/models/voiceNoteInsights.ts
+  - packages/backend/convex/models/playerEmergencyContacts.ts
+  - packages/backend/convex/models/coachTasks.ts
+  **Action**: Add `getUserOrgRole()` or mark as `// @public`
+- 🚨 **CRITICAL [P9]**: XSS risk - dangerouslySetInnerHTML without sanitization:
+    apps/web/src/components/ui/confetti.tsx:        dangerouslySetInnerHTML={{
+  apps/web/src/components/ui/chart.tsx:      dangerouslySetInnerHTML={{
+  apps/web/src/components/onboarding/gdpr-policy-viewer.tsx: * Uses dangerouslySetInnerHTML to avoid React key issues with static content.
+  **Action**: Use DOMPurify or remove dangerouslySetInnerHTML
+- ⚠️ **HIGH [P9]**: No rate limiting on notification/activity endpoints:
+  - packages/backend/convex/models/demoAsks.ts
+  **Action**: Add rate limiting to prevent spam/abuse
+- ⚠️ **HIGH [P9]**: AI endpoints without input validation:
+  - packages/backend/convex/actions/aiMapping.ts
+  - packages/backend/convex/actions/claimsExtraction.ts
+  - packages/backend/convex/actions/coachParentSummaries.ts
+  - packages/backend/convex/actions/practicePlans.ts
+  - packages/backend/convex/actions/sessionPlans.ts
+  - packages/backend/convex/actions/voiceNotes.ts
+  - packages/backend/convex/actions/wellnessInsights.ts
+  - packages/backend/convex/models/aiServiceHealth.ts
+  **Action**: Validate/sanitize user input before AI prompts
+- ⚠️ **HIGH [P9]**: Notification functions without permission checks:
+  - packages/backend/convex/models/notifications.ts
+  **Action**: Verify user can send notifications to recipient
+
+
+## Security Tester - 2026-02-26 00:39:16
+- 🚨 **CRITICAL**: Hardcoded secrets detected
+```
+apps/web/src/app/api/ai-config/verify-model/route.ts:          errorMessage: "ANTHROPIC_API_KEY not configured in Next.js env",
+apps/web/src/app/api/ai-config/verify-model/route.ts:          errorMessage: "OPENAI_API_KEY not configured in Next.js env",
+apps/web/src/app/api/ai-config/available-models/route.ts:    errors.anthropic = "ANTHROPIC_API_KEY not configured";
+apps/web/src/app/api/ai-config/available-models/route.ts:    errors.openai = "OPENAI_API_KEY not configured";
+apps/web/src/app/api/comparison-insights/route.ts:      console.error("❌ ANTHROPIC_API_KEY not found in environment variables");
+```
+- ⚠️ **HIGH**: 6 high-severity dependency vulnerabilities
+  Run `npm audit fix` to resolve
+- ⚠️ **HIGH**: Mutations without authorization checks:
+  - packages/backend/convex/models/platformMessagingSettings.ts
+  - packages/backend/convex/models/syncQueue.ts
+  - packages/backend/convex/models/importSessions.ts
+  - packages/backend/convex/models/passportComparison.ts
+  - packages/backend/convex/models/trustGatePermissions.ts
+  - packages/backend/convex/models/ageGroupEligibilityOverrides.ts
+  - packages/backend/convex/models/federationConnectors.ts
+  - packages/backend/convex/models/teamCollaboration.ts
+  - packages/backend/convex/models/guardianIdentities.ts
+  - packages/backend/convex/models/sessionPlans.ts
+  - packages/backend/convex/models/adultPlayers.ts
+  - packages/backend/convex/models/demoAsks.ts
+  - packages/backend/convex/models/skillBenchmarks.ts
+  - packages/backend/convex/models/coaches.ts
+  - packages/backend/convex/models/medicalProfiles.ts
+  - packages/backend/convex/models/invitations.ts
+  - packages/backend/convex/models/flows.ts
+  - packages/backend/convex/models/notifications.ts
+  - packages/backend/convex/models/whatsappReviewLinks.ts
+  - packages/backend/convex/models/teamObservations.ts
+  - packages/backend/convex/models/passportGoals.ts
+  - packages/backend/convex/models/players.ts
+  - packages/backend/convex/models/aiMappingCache.ts
+  - packages/backend/convex/models/orgInjuryNotes.ts
+  - packages/backend/convex/models/injuryDocuments.ts
+  - packages/backend/convex/models/playerHealthChecks.ts
+  - packages/backend/convex/models/playerImport.ts
+  - packages/backend/convex/models/passportEnquiries.ts
+  - packages/backend/convex/models/setup.ts
+  - packages/backend/convex/models/teamPlayerIdentities.ts
+  - packages/backend/convex/models/rateLimits.ts
+  - packages/backend/convex/models/phase4TestCleanup.ts
+  - packages/backend/convex/models/syncHistory.ts
+  - packages/backend/convex/models/platformStaffInvitations.ts
+  - packages/backend/convex/models/coachParentMessages.ts
+  - packages/backend/convex/models/aiModelConfig.ts
+  - packages/backend/convex/models/voicePipelineAlerts.ts
+  - packages/backend/convex/models/aiMappingAnalytics.ts
+  - packages/backend/convex/models/orgPlayerEnrollments.ts
+  - packages/backend/convex/models/sportPassports.ts
+  - packages/backend/convex/models/orgJoinRequests.ts
+  - packages/backend/convex/models/sportAgeGroupConfig.ts
+  - packages/backend/convex/models/referenceData.ts
+  - packages/backend/convex/models/importMappingHistory.ts
+  - packages/backend/convex/models/notificationPreferences.ts
+  - packages/backend/convex/models/userPreferences.ts
+  - packages/backend/convex/models/teams.ts
+  - packages/backend/convex/models/gdpr.ts
+  - packages/backend/convex/models/userProfiles.ts
+  - packages/backend/convex/models/emergencyContacts.ts
+  - packages/backend/convex/models/coachTrustLevels.ts
+  - packages/backend/convex/models/coachParentSummaries.ts
+  - packages/backend/convex/models/onboarding.ts
+  - packages/backend/convex/models/guardianPlayerLinks.ts
+  - packages/backend/convex/models/orgGuardianProfiles.ts
+  - packages/backend/convex/models/passportSharing.ts
+  - packages/backend/convex/models/playerGraduations.ts
+  - packages/backend/convex/models/members.ts
+  - packages/backend/convex/models/voiceNoteEntityResolutions.ts
+  - packages/backend/convex/models/users.ts
+  - packages/backend/convex/models/voicePipelineRetry.ts
+  - packages/backend/convex/models/skillAssessments.ts
+  - packages/backend/convex/models/playerSelfAccess.ts
+  - packages/backend/convex/models/aiServiceHealth.ts
+  - packages/backend/convex/models/importTemplates.ts
+  - packages/backend/convex/models/sports.ts
+  - packages/backend/convex/models/importProgress.ts
+  - packages/backend/convex/models/fixNeilsRoles.ts
+  - packages/backend/convex/models/playerIdentities.ts
+  - packages/backend/convex/models/voiceNotes.ts
+  - packages/backend/convex/models/guardianManagement.ts
+  - packages/backend/convex/models/importTemplateSeeds.ts
+  - packages/backend/convex/models/insightDrafts.ts
+  - packages/backend/convex/models/importSessionDrafts.ts
+  - packages/backend/convex/models/teamDecisions.ts
+  - packages/backend/convex/models/gaaTestMutations.ts
+  - packages/backend/convex/models/playerInjuries.ts
+  - packages/backend/convex/models/voiceNoteInsights.ts
+  - packages/backend/convex/models/playerEmergencyContacts.ts
+  - packages/backend/convex/models/coachTasks.ts
+  **Action**: Add `getUserOrgRole()` or mark as `// @public`
+- 🚨 **CRITICAL [P9]**: XSS risk - dangerouslySetInnerHTML without sanitization:
+    apps/web/src/components/ui/confetti.tsx:        dangerouslySetInnerHTML={{
+  apps/web/src/components/ui/chart.tsx:      dangerouslySetInnerHTML={{
+  apps/web/src/components/onboarding/gdpr-policy-viewer.tsx: * Uses dangerouslySetInnerHTML to avoid React key issues with static content.
+  **Action**: Use DOMPurify or remove dangerouslySetInnerHTML
+- ⚠️ **HIGH [P9]**: No rate limiting on notification/activity endpoints:
+  - packages/backend/convex/models/demoAsks.ts
+  **Action**: Add rate limiting to prevent spam/abuse
+- ⚠️ **HIGH [P9]**: AI endpoints without input validation:
+  - packages/backend/convex/actions/aiMapping.ts
+  - packages/backend/convex/actions/claimsExtraction.ts
+  - packages/backend/convex/actions/coachParentSummaries.ts
+  - packages/backend/convex/actions/practicePlans.ts
+  - packages/backend/convex/actions/sessionPlans.ts
+  - packages/backend/convex/actions/voiceNotes.ts
+  - packages/backend/convex/actions/wellnessInsights.ts
+  - packages/backend/convex/models/aiServiceHealth.ts
+  **Action**: Validate/sanitize user input before AI prompts
+- ⚠️ **HIGH [P9]**: Notification functions without permission checks:
+  - packages/backend/convex/models/notifications.ts
+  **Action**: Verify user can send notifications to recipient
+
+
+## Security Tester - 2026-02-26 00:41:18
+- 🚨 **CRITICAL**: Hardcoded secrets detected
+```
+apps/web/src/app/api/ai-config/verify-model/route.ts:          errorMessage: "ANTHROPIC_API_KEY not configured in Next.js env",
+apps/web/src/app/api/ai-config/verify-model/route.ts:          errorMessage: "OPENAI_API_KEY not configured in Next.js env",
+apps/web/src/app/api/ai-config/available-models/route.ts:    errors.anthropic = "ANTHROPIC_API_KEY not configured";
+apps/web/src/app/api/ai-config/available-models/route.ts:    errors.openai = "OPENAI_API_KEY not configured";
+apps/web/src/app/api/comparison-insights/route.ts:      console.error("❌ ANTHROPIC_API_KEY not found in environment variables");
+```
+- ⚠️ **HIGH**: 6 high-severity dependency vulnerabilities
+  Run `npm audit fix` to resolve
+- ⚠️ **HIGH**: Mutations without authorization checks:
+  - packages/backend/convex/models/platformMessagingSettings.ts
+  - packages/backend/convex/models/syncQueue.ts
+  - packages/backend/convex/models/importSessions.ts
+  - packages/backend/convex/models/passportComparison.ts
+  - packages/backend/convex/models/trustGatePermissions.ts
+  - packages/backend/convex/models/ageGroupEligibilityOverrides.ts
+  - packages/backend/convex/models/federationConnectors.ts
+  - packages/backend/convex/models/teamCollaboration.ts
+  - packages/backend/convex/models/guardianIdentities.ts
+  - packages/backend/convex/models/sessionPlans.ts
+  - packages/backend/convex/models/adultPlayers.ts
+  - packages/backend/convex/models/demoAsks.ts
+  - packages/backend/convex/models/skillBenchmarks.ts
+  - packages/backend/convex/models/coaches.ts
+  - packages/backend/convex/models/medicalProfiles.ts
+  - packages/backend/convex/models/invitations.ts
+  - packages/backend/convex/models/flows.ts
+  - packages/backend/convex/models/notifications.ts
+  - packages/backend/convex/models/whatsappReviewLinks.ts
+  - packages/backend/convex/models/teamObservations.ts
+  - packages/backend/convex/models/passportGoals.ts
+  - packages/backend/convex/models/players.ts
+  - packages/backend/convex/models/aiMappingCache.ts
+  - packages/backend/convex/models/orgInjuryNotes.ts
+  - packages/backend/convex/models/injuryDocuments.ts
+  - packages/backend/convex/models/playerHealthChecks.ts
+  - packages/backend/convex/models/playerImport.ts
+  - packages/backend/convex/models/passportEnquiries.ts
+  - packages/backend/convex/models/setup.ts
+  - packages/backend/convex/models/teamPlayerIdentities.ts
+  - packages/backend/convex/models/rateLimits.ts
+  - packages/backend/convex/models/phase4TestCleanup.ts
+  - packages/backend/convex/models/syncHistory.ts
+  - packages/backend/convex/models/platformStaffInvitations.ts
+  - packages/backend/convex/models/coachParentMessages.ts
+  - packages/backend/convex/models/aiModelConfig.ts
+  - packages/backend/convex/models/voicePipelineAlerts.ts
+  - packages/backend/convex/models/aiMappingAnalytics.ts
+  - packages/backend/convex/models/orgPlayerEnrollments.ts
+  - packages/backend/convex/models/sportPassports.ts
+  - packages/backend/convex/models/orgJoinRequests.ts
+  - packages/backend/convex/models/sportAgeGroupConfig.ts
+  - packages/backend/convex/models/referenceData.ts
+  - packages/backend/convex/models/importMappingHistory.ts
+  - packages/backend/convex/models/notificationPreferences.ts
+  - packages/backend/convex/models/userPreferences.ts
+  - packages/backend/convex/models/teams.ts
+  - packages/backend/convex/models/gdpr.ts
+  - packages/backend/convex/models/userProfiles.ts
+  - packages/backend/convex/models/emergencyContacts.ts
+  - packages/backend/convex/models/coachTrustLevels.ts
+  - packages/backend/convex/models/coachParentSummaries.ts
+  - packages/backend/convex/models/onboarding.ts
+  - packages/backend/convex/models/guardianPlayerLinks.ts
+  - packages/backend/convex/models/orgGuardianProfiles.ts
+  - packages/backend/convex/models/passportSharing.ts
+  - packages/backend/convex/models/playerGraduations.ts
+  - packages/backend/convex/models/members.ts
+  - packages/backend/convex/models/voiceNoteEntityResolutions.ts
+  - packages/backend/convex/models/users.ts
+  - packages/backend/convex/models/voicePipelineRetry.ts
+  - packages/backend/convex/models/skillAssessments.ts
+  - packages/backend/convex/models/playerSelfAccess.ts
+  - packages/backend/convex/models/aiServiceHealth.ts
+  - packages/backend/convex/models/importTemplates.ts
+  - packages/backend/convex/models/sports.ts
+  - packages/backend/convex/models/importProgress.ts
+  - packages/backend/convex/models/fixNeilsRoles.ts
+  - packages/backend/convex/models/playerIdentities.ts
+  - packages/backend/convex/models/voiceNotes.ts
+  - packages/backend/convex/models/guardianManagement.ts
+  - packages/backend/convex/models/importTemplateSeeds.ts
+  - packages/backend/convex/models/insightDrafts.ts
+  - packages/backend/convex/models/importSessionDrafts.ts
+  - packages/backend/convex/models/teamDecisions.ts
+  - packages/backend/convex/models/gaaTestMutations.ts
+  - packages/backend/convex/models/playerInjuries.ts
+  - packages/backend/convex/models/voiceNoteInsights.ts
+  - packages/backend/convex/models/playerEmergencyContacts.ts
+  - packages/backend/convex/models/coachTasks.ts
+  **Action**: Add `getUserOrgRole()` or mark as `// @public`
+- 🚨 **CRITICAL [P9]**: XSS risk - dangerouslySetInnerHTML without sanitization:
+    apps/web/src/components/ui/confetti.tsx:        dangerouslySetInnerHTML={{
+  apps/web/src/components/ui/chart.tsx:      dangerouslySetInnerHTML={{
+  apps/web/src/components/onboarding/gdpr-policy-viewer.tsx: * Uses dangerouslySetInnerHTML to avoid React key issues with static content.
+  **Action**: Use DOMPurify or remove dangerouslySetInnerHTML
+- ⚠️ **HIGH [P9]**: No rate limiting on notification/activity endpoints:
+  - packages/backend/convex/models/demoAsks.ts
+  **Action**: Add rate limiting to prevent spam/abuse
+- ⚠️ **HIGH [P9]**: AI endpoints without input validation:
+  - packages/backend/convex/actions/aiMapping.ts
+  - packages/backend/convex/actions/claimsExtraction.ts
+  - packages/backend/convex/actions/coachParentSummaries.ts
+  - packages/backend/convex/actions/practicePlans.ts
+  - packages/backend/convex/actions/sessionPlans.ts
+  - packages/backend/convex/actions/voiceNotes.ts
+  - packages/backend/convex/actions/wellnessInsights.ts
+  - packages/backend/convex/models/aiServiceHealth.ts
+  **Action**: Validate/sanitize user input before AI prompts
+- ⚠️ **HIGH [P9]**: Notification functions without permission checks:
+  - packages/backend/convex/models/notifications.ts
+  **Action**: Verify user can send notifications to recipient
+
+
+## Security Tester - 2026-02-26 00:43:22
+- 🚨 **CRITICAL**: Hardcoded secrets detected
+```
+apps/web/src/app/api/ai-config/verify-model/route.ts:          errorMessage: "ANTHROPIC_API_KEY not configured in Next.js env",
+apps/web/src/app/api/ai-config/verify-model/route.ts:          errorMessage: "OPENAI_API_KEY not configured in Next.js env",
+apps/web/src/app/api/ai-config/available-models/route.ts:    errors.anthropic = "ANTHROPIC_API_KEY not configured";
+apps/web/src/app/api/ai-config/available-models/route.ts:    errors.openai = "OPENAI_API_KEY not configured";
+apps/web/src/app/api/comparison-insights/route.ts:      console.error("❌ ANTHROPIC_API_KEY not found in environment variables");
+```
+- ⚠️ **HIGH**: 6 high-severity dependency vulnerabilities
+  Run `npm audit fix` to resolve
+- ⚠️ **HIGH**: Mutations without authorization checks:
+  - packages/backend/convex/models/platformMessagingSettings.ts
+  - packages/backend/convex/models/syncQueue.ts
+  - packages/backend/convex/models/importSessions.ts
+  - packages/backend/convex/models/passportComparison.ts
+  - packages/backend/convex/models/trustGatePermissions.ts
+  - packages/backend/convex/models/ageGroupEligibilityOverrides.ts
+  - packages/backend/convex/models/federationConnectors.ts
+  - packages/backend/convex/models/teamCollaboration.ts
+  - packages/backend/convex/models/guardianIdentities.ts
+  - packages/backend/convex/models/sessionPlans.ts
+  - packages/backend/convex/models/adultPlayers.ts
+  - packages/backend/convex/models/demoAsks.ts
+  - packages/backend/convex/models/skillBenchmarks.ts
+  - packages/backend/convex/models/coaches.ts
+  - packages/backend/convex/models/medicalProfiles.ts
+  - packages/backend/convex/models/invitations.ts
+  - packages/backend/convex/models/flows.ts
+  - packages/backend/convex/models/notifications.ts
+  - packages/backend/convex/models/whatsappReviewLinks.ts
+  - packages/backend/convex/models/teamObservations.ts
+  - packages/backend/convex/models/passportGoals.ts
+  - packages/backend/convex/models/players.ts
+  - packages/backend/convex/models/aiMappingCache.ts
+  - packages/backend/convex/models/orgInjuryNotes.ts
+  - packages/backend/convex/models/injuryDocuments.ts
+  - packages/backend/convex/models/playerHealthChecks.ts
+  - packages/backend/convex/models/playerImport.ts
+  - packages/backend/convex/models/passportEnquiries.ts
+  - packages/backend/convex/models/setup.ts
+  - packages/backend/convex/models/teamPlayerIdentities.ts
+  - packages/backend/convex/models/rateLimits.ts
+  - packages/backend/convex/models/phase4TestCleanup.ts
+  - packages/backend/convex/models/syncHistory.ts
+  - packages/backend/convex/models/platformStaffInvitations.ts
+  - packages/backend/convex/models/coachParentMessages.ts
+  - packages/backend/convex/models/aiModelConfig.ts
+  - packages/backend/convex/models/voicePipelineAlerts.ts
+  - packages/backend/convex/models/aiMappingAnalytics.ts
+  - packages/backend/convex/models/orgPlayerEnrollments.ts
+  - packages/backend/convex/models/sportPassports.ts
+  - packages/backend/convex/models/orgJoinRequests.ts
+  - packages/backend/convex/models/sportAgeGroupConfig.ts
+  - packages/backend/convex/models/referenceData.ts
+  - packages/backend/convex/models/importMappingHistory.ts
+  - packages/backend/convex/models/notificationPreferences.ts
+  - packages/backend/convex/models/userPreferences.ts
+  - packages/backend/convex/models/teams.ts
+  - packages/backend/convex/models/gdpr.ts
+  - packages/backend/convex/models/userProfiles.ts
+  - packages/backend/convex/models/emergencyContacts.ts
+  - packages/backend/convex/models/coachTrustLevels.ts
+  - packages/backend/convex/models/coachParentSummaries.ts
+  - packages/backend/convex/models/onboarding.ts
+  - packages/backend/convex/models/guardianPlayerLinks.ts
+  - packages/backend/convex/models/orgGuardianProfiles.ts
+  - packages/backend/convex/models/passportSharing.ts
+  - packages/backend/convex/models/playerGraduations.ts
+  - packages/backend/convex/models/members.ts
+  - packages/backend/convex/models/voiceNoteEntityResolutions.ts
+  - packages/backend/convex/models/users.ts
+  - packages/backend/convex/models/voicePipelineRetry.ts
+  - packages/backend/convex/models/skillAssessments.ts
+  - packages/backend/convex/models/playerSelfAccess.ts
+  - packages/backend/convex/models/aiServiceHealth.ts
+  - packages/backend/convex/models/importTemplates.ts
+  - packages/backend/convex/models/sports.ts
+  - packages/backend/convex/models/importProgress.ts
+  - packages/backend/convex/models/fixNeilsRoles.ts
+  - packages/backend/convex/models/playerIdentities.ts
+  - packages/backend/convex/models/voiceNotes.ts
+  - packages/backend/convex/models/guardianManagement.ts
+  - packages/backend/convex/models/importTemplateSeeds.ts
+  - packages/backend/convex/models/insightDrafts.ts
+  - packages/backend/convex/models/importSessionDrafts.ts
+  - packages/backend/convex/models/teamDecisions.ts
+  - packages/backend/convex/models/gaaTestMutations.ts
+  - packages/backend/convex/models/playerInjuries.ts
+  - packages/backend/convex/models/voiceNoteInsights.ts
+  - packages/backend/convex/models/playerEmergencyContacts.ts
+  - packages/backend/convex/models/coachTasks.ts
+  **Action**: Add `getUserOrgRole()` or mark as `// @public`
+- 🚨 **CRITICAL [P9]**: XSS risk - dangerouslySetInnerHTML without sanitization:
+    apps/web/src/components/ui/confetti.tsx:        dangerouslySetInnerHTML={{
+  apps/web/src/components/ui/chart.tsx:      dangerouslySetInnerHTML={{
+  apps/web/src/components/onboarding/gdpr-policy-viewer.tsx: * Uses dangerouslySetInnerHTML to avoid React key issues with static content.
+  **Action**: Use DOMPurify or remove dangerouslySetInnerHTML
+- ⚠️ **HIGH [P9]**: No rate limiting on notification/activity endpoints:
+  - packages/backend/convex/models/demoAsks.ts
+  **Action**: Add rate limiting to prevent spam/abuse
+- ⚠️ **HIGH [P9]**: AI endpoints without input validation:
+  - packages/backend/convex/actions/aiMapping.ts
+  - packages/backend/convex/actions/claimsExtraction.ts
+  - packages/backend/convex/actions/coachParentSummaries.ts
+  - packages/backend/convex/actions/practicePlans.ts
+  - packages/backend/convex/actions/sessionPlans.ts
+  - packages/backend/convex/actions/voiceNotes.ts
+  - packages/backend/convex/actions/wellnessInsights.ts
+  - packages/backend/convex/models/aiServiceHealth.ts
+  **Action**: Validate/sanitize user input before AI prompts
+- ⚠️ **HIGH [P9]**: Notification functions without permission checks:
+  - packages/backend/convex/models/notifications.ts
+  **Action**: Verify user can send notifications to recipient
+
+
+## Security Tester - 2026-02-26 00:45:24
+- 🚨 **CRITICAL**: Hardcoded secrets detected
+```
+apps/web/src/app/api/ai-config/verify-model/route.ts:          errorMessage: "ANTHROPIC_API_KEY not configured in Next.js env",
+apps/web/src/app/api/ai-config/verify-model/route.ts:          errorMessage: "OPENAI_API_KEY not configured in Next.js env",
+apps/web/src/app/api/ai-config/available-models/route.ts:    errors.anthropic = "ANTHROPIC_API_KEY not configured";
+apps/web/src/app/api/ai-config/available-models/route.ts:    errors.openai = "OPENAI_API_KEY not configured";
+apps/web/src/app/api/comparison-insights/route.ts:      console.error("❌ ANTHROPIC_API_KEY not found in environment variables");
+```
+- ⚠️ **HIGH**: 6 high-severity dependency vulnerabilities
+  Run `npm audit fix` to resolve
+- ⚠️ **HIGH**: Mutations without authorization checks:
+  - packages/backend/convex/models/platformMessagingSettings.ts
+  - packages/backend/convex/models/syncQueue.ts
+  - packages/backend/convex/models/importSessions.ts
+  - packages/backend/convex/models/passportComparison.ts
+  - packages/backend/convex/models/trustGatePermissions.ts
+  - packages/backend/convex/models/ageGroupEligibilityOverrides.ts
+  - packages/backend/convex/models/federationConnectors.ts
+  - packages/backend/convex/models/teamCollaboration.ts
+  - packages/backend/convex/models/guardianIdentities.ts
+  - packages/backend/convex/models/sessionPlans.ts
+  - packages/backend/convex/models/adultPlayers.ts
+  - packages/backend/convex/models/demoAsks.ts
+  - packages/backend/convex/models/skillBenchmarks.ts
+  - packages/backend/convex/models/coaches.ts
+  - packages/backend/convex/models/medicalProfiles.ts
+  - packages/backend/convex/models/invitations.ts
+  - packages/backend/convex/models/flows.ts
+  - packages/backend/convex/models/notifications.ts
+  - packages/backend/convex/models/whatsappReviewLinks.ts
+  - packages/backend/convex/models/teamObservations.ts
+  - packages/backend/convex/models/passportGoals.ts
+  - packages/backend/convex/models/players.ts
+  - packages/backend/convex/models/aiMappingCache.ts
+  - packages/backend/convex/models/orgInjuryNotes.ts
+  - packages/backend/convex/models/injuryDocuments.ts
+  - packages/backend/convex/models/playerHealthChecks.ts
+  - packages/backend/convex/models/playerImport.ts
+  - packages/backend/convex/models/passportEnquiries.ts
+  - packages/backend/convex/models/setup.ts
+  - packages/backend/convex/models/teamPlayerIdentities.ts
+  - packages/backend/convex/models/rateLimits.ts
+  - packages/backend/convex/models/phase4TestCleanup.ts
+  - packages/backend/convex/models/syncHistory.ts
+  - packages/backend/convex/models/platformStaffInvitations.ts
+  - packages/backend/convex/models/coachParentMessages.ts
+  - packages/backend/convex/models/aiModelConfig.ts
+  - packages/backend/convex/models/voicePipelineAlerts.ts
+  - packages/backend/convex/models/aiMappingAnalytics.ts
+  - packages/backend/convex/models/orgPlayerEnrollments.ts
+  - packages/backend/convex/models/sportPassports.ts
+  - packages/backend/convex/models/orgJoinRequests.ts
+  - packages/backend/convex/models/sportAgeGroupConfig.ts
+  - packages/backend/convex/models/referenceData.ts
+  - packages/backend/convex/models/importMappingHistory.ts
+  - packages/backend/convex/models/notificationPreferences.ts
+  - packages/backend/convex/models/userPreferences.ts
+  - packages/backend/convex/models/teams.ts
+  - packages/backend/convex/models/gdpr.ts
+  - packages/backend/convex/models/userProfiles.ts
+  - packages/backend/convex/models/emergencyContacts.ts
+  - packages/backend/convex/models/coachTrustLevels.ts
+  - packages/backend/convex/models/coachParentSummaries.ts
+  - packages/backend/convex/models/onboarding.ts
+  - packages/backend/convex/models/guardianPlayerLinks.ts
+  - packages/backend/convex/models/orgGuardianProfiles.ts
+  - packages/backend/convex/models/passportSharing.ts
+  - packages/backend/convex/models/playerGraduations.ts
+  - packages/backend/convex/models/members.ts
+  - packages/backend/convex/models/voiceNoteEntityResolutions.ts
+  - packages/backend/convex/models/users.ts
+  - packages/backend/convex/models/voicePipelineRetry.ts
+  - packages/backend/convex/models/skillAssessments.ts
+  - packages/backend/convex/models/playerSelfAccess.ts
+  - packages/backend/convex/models/aiServiceHealth.ts
+  - packages/backend/convex/models/importTemplates.ts
+  - packages/backend/convex/models/sports.ts
+  - packages/backend/convex/models/importProgress.ts
+  - packages/backend/convex/models/fixNeilsRoles.ts
+  - packages/backend/convex/models/playerIdentities.ts
+  - packages/backend/convex/models/voiceNotes.ts
+  - packages/backend/convex/models/guardianManagement.ts
+  - packages/backend/convex/models/importTemplateSeeds.ts
+  - packages/backend/convex/models/insightDrafts.ts
+  - packages/backend/convex/models/importSessionDrafts.ts
+  - packages/backend/convex/models/teamDecisions.ts
+  - packages/backend/convex/models/gaaTestMutations.ts
+  - packages/backend/convex/models/playerInjuries.ts
+  - packages/backend/convex/models/voiceNoteInsights.ts
+  - packages/backend/convex/models/playerEmergencyContacts.ts
+  - packages/backend/convex/models/coachTasks.ts
+  **Action**: Add `getUserOrgRole()` or mark as `// @public`
+- 🚨 **CRITICAL [P9]**: XSS risk - dangerouslySetInnerHTML without sanitization:
+    apps/web/src/components/ui/confetti.tsx:        dangerouslySetInnerHTML={{
+  apps/web/src/components/ui/chart.tsx:      dangerouslySetInnerHTML={{
+  apps/web/src/components/onboarding/gdpr-policy-viewer.tsx: * Uses dangerouslySetInnerHTML to avoid React key issues with static content.
+  **Action**: Use DOMPurify or remove dangerouslySetInnerHTML
+- ⚠️ **HIGH [P9]**: No rate limiting on notification/activity endpoints:
+  - packages/backend/convex/models/demoAsks.ts
+  **Action**: Add rate limiting to prevent spam/abuse
+- ⚠️ **HIGH [P9]**: AI endpoints without input validation:
+  - packages/backend/convex/actions/aiMapping.ts
+  - packages/backend/convex/actions/claimsExtraction.ts
+  - packages/backend/convex/actions/coachParentSummaries.ts
+  - packages/backend/convex/actions/practicePlans.ts
+  - packages/backend/convex/actions/sessionPlans.ts
+  - packages/backend/convex/actions/voiceNotes.ts
+  - packages/backend/convex/actions/wellnessInsights.ts
+  - packages/backend/convex/models/aiServiceHealth.ts
+  **Action**: Validate/sanitize user input before AI prompts
+- ⚠️ **HIGH [P9]**: Notification functions without permission checks:
+  - packages/backend/convex/models/notifications.ts
+  **Action**: Verify user can send notifications to recipient
+
+
+## Security Tester - 2026-02-26 00:47:27
+- 🚨 **CRITICAL**: Hardcoded secrets detected
+```
+apps/web/src/app/api/ai-config/verify-model/route.ts:          errorMessage: "ANTHROPIC_API_KEY not configured in Next.js env",
+apps/web/src/app/api/ai-config/verify-model/route.ts:          errorMessage: "OPENAI_API_KEY not configured in Next.js env",
+apps/web/src/app/api/ai-config/available-models/route.ts:    errors.anthropic = "ANTHROPIC_API_KEY not configured";
+apps/web/src/app/api/ai-config/available-models/route.ts:    errors.openai = "OPENAI_API_KEY not configured";
+apps/web/src/app/api/comparison-insights/route.ts:      console.error("❌ ANTHROPIC_API_KEY not found in environment variables");
+```
+- ⚠️ **HIGH**: 6 high-severity dependency vulnerabilities
+  Run `npm audit fix` to resolve
+- ⚠️ **HIGH**: Mutations without authorization checks:
+  - packages/backend/convex/models/platformMessagingSettings.ts
+  - packages/backend/convex/models/syncQueue.ts
+  - packages/backend/convex/models/importSessions.ts
+  - packages/backend/convex/models/passportComparison.ts
+  - packages/backend/convex/models/trustGatePermissions.ts
+  - packages/backend/convex/models/ageGroupEligibilityOverrides.ts
+  - packages/backend/convex/models/federationConnectors.ts
+  - packages/backend/convex/models/teamCollaboration.ts
+  - packages/backend/convex/models/guardianIdentities.ts
+  - packages/backend/convex/models/sessionPlans.ts
+  - packages/backend/convex/models/adultPlayers.ts
+  - packages/backend/convex/models/demoAsks.ts
+  - packages/backend/convex/models/skillBenchmarks.ts
+  - packages/backend/convex/models/coaches.ts
+  - packages/backend/convex/models/medicalProfiles.ts
+  - packages/backend/convex/models/invitations.ts
+  - packages/backend/convex/models/flows.ts
+  - packages/backend/convex/models/notifications.ts
+  - packages/backend/convex/models/whatsappReviewLinks.ts
+  - packages/backend/convex/models/teamObservations.ts
+  - packages/backend/convex/models/passportGoals.ts
+  - packages/backend/convex/models/players.ts
+  - packages/backend/convex/models/aiMappingCache.ts
+  - packages/backend/convex/models/orgInjuryNotes.ts
+  - packages/backend/convex/models/injuryDocuments.ts
+  - packages/backend/convex/models/playerHealthChecks.ts
+  - packages/backend/convex/models/playerImport.ts
+  - packages/backend/convex/models/passportEnquiries.ts
+  - packages/backend/convex/models/setup.ts
+  - packages/backend/convex/models/teamPlayerIdentities.ts
+  - packages/backend/convex/models/rateLimits.ts
+  - packages/backend/convex/models/phase4TestCleanup.ts
+  - packages/backend/convex/models/syncHistory.ts
+  - packages/backend/convex/models/platformStaffInvitations.ts
+  - packages/backend/convex/models/coachParentMessages.ts
+  - packages/backend/convex/models/aiModelConfig.ts
+  - packages/backend/convex/models/voicePipelineAlerts.ts
+  - packages/backend/convex/models/aiMappingAnalytics.ts
+  - packages/backend/convex/models/orgPlayerEnrollments.ts
+  - packages/backend/convex/models/sportPassports.ts
+  - packages/backend/convex/models/orgJoinRequests.ts
+  - packages/backend/convex/models/sportAgeGroupConfig.ts
+  - packages/backend/convex/models/referenceData.ts
+  - packages/backend/convex/models/importMappingHistory.ts
+  - packages/backend/convex/models/notificationPreferences.ts
+  - packages/backend/convex/models/userPreferences.ts
+  - packages/backend/convex/models/teams.ts
+  - packages/backend/convex/models/gdpr.ts
+  - packages/backend/convex/models/userProfiles.ts
+  - packages/backend/convex/models/emergencyContacts.ts
+  - packages/backend/convex/models/coachTrustLevels.ts
+  - packages/backend/convex/models/coachParentSummaries.ts
+  - packages/backend/convex/models/onboarding.ts
+  - packages/backend/convex/models/guardianPlayerLinks.ts
+  - packages/backend/convex/models/orgGuardianProfiles.ts
+  - packages/backend/convex/models/passportSharing.ts
+  - packages/backend/convex/models/playerGraduations.ts
+  - packages/backend/convex/models/members.ts
+  - packages/backend/convex/models/voiceNoteEntityResolutions.ts
+  - packages/backend/convex/models/users.ts
+  - packages/backend/convex/models/voicePipelineRetry.ts
+  - packages/backend/convex/models/skillAssessments.ts
+  - packages/backend/convex/models/playerSelfAccess.ts
+  - packages/backend/convex/models/aiServiceHealth.ts
+  - packages/backend/convex/models/importTemplates.ts
+  - packages/backend/convex/models/sports.ts
+  - packages/backend/convex/models/importProgress.ts
+  - packages/backend/convex/models/fixNeilsRoles.ts
+  - packages/backend/convex/models/playerIdentities.ts
+  - packages/backend/convex/models/voiceNotes.ts
+  - packages/backend/convex/models/guardianManagement.ts
+  - packages/backend/convex/models/importTemplateSeeds.ts
+  - packages/backend/convex/models/insightDrafts.ts
+  - packages/backend/convex/models/importSessionDrafts.ts
+  - packages/backend/convex/models/teamDecisions.ts
+  - packages/backend/convex/models/gaaTestMutations.ts
+  - packages/backend/convex/models/playerInjuries.ts
+  - packages/backend/convex/models/voiceNoteInsights.ts
+  - packages/backend/convex/models/playerEmergencyContacts.ts
+  - packages/backend/convex/models/coachTasks.ts
+  **Action**: Add `getUserOrgRole()` or mark as `// @public`
+- 🚨 **CRITICAL [P9]**: XSS risk - dangerouslySetInnerHTML without sanitization:
+    apps/web/src/components/ui/confetti.tsx:        dangerouslySetInnerHTML={{
+  apps/web/src/components/ui/chart.tsx:      dangerouslySetInnerHTML={{
+  apps/web/src/components/onboarding/gdpr-policy-viewer.tsx: * Uses dangerouslySetInnerHTML to avoid React key issues with static content.
+  **Action**: Use DOMPurify or remove dangerouslySetInnerHTML
+- ⚠️ **HIGH [P9]**: No rate limiting on notification/activity endpoints:
+  - packages/backend/convex/models/demoAsks.ts
+  **Action**: Add rate limiting to prevent spam/abuse
+- ⚠️ **HIGH [P9]**: AI endpoints without input validation:
+  - packages/backend/convex/actions/aiMapping.ts
+  - packages/backend/convex/actions/claimsExtraction.ts
+  - packages/backend/convex/actions/coachParentSummaries.ts
+  - packages/backend/convex/actions/practicePlans.ts
+  - packages/backend/convex/actions/sessionPlans.ts
+  - packages/backend/convex/actions/voiceNotes.ts
+  - packages/backend/convex/actions/wellnessInsights.ts
+  - packages/backend/convex/models/aiServiceHealth.ts
+  **Action**: Validate/sanitize user input before AI prompts
+- ⚠️ **HIGH [P9]**: Notification functions without permission checks:
+  - packages/backend/convex/models/notifications.ts
+  **Action**: Verify user can send notifications to recipient
+
+
+## Security Tester - 2026-02-26 00:49:31
+- 🚨 **CRITICAL**: Hardcoded secrets detected
+```
+apps/web/src/app/api/ai-config/verify-model/route.ts:          errorMessage: "ANTHROPIC_API_KEY not configured in Next.js env",
+apps/web/src/app/api/ai-config/verify-model/route.ts:          errorMessage: "OPENAI_API_KEY not configured in Next.js env",
+apps/web/src/app/api/ai-config/available-models/route.ts:    errors.anthropic = "ANTHROPIC_API_KEY not configured";
+apps/web/src/app/api/ai-config/available-models/route.ts:    errors.openai = "OPENAI_API_KEY not configured";
+apps/web/src/app/api/comparison-insights/route.ts:      console.error("❌ ANTHROPIC_API_KEY not found in environment variables");
+```
+- ⚠️ **HIGH**: 6 high-severity dependency vulnerabilities
+  Run `npm audit fix` to resolve
+- ⚠️ **HIGH**: Mutations without authorization checks:
+  - packages/backend/convex/models/platformMessagingSettings.ts
+  - packages/backend/convex/models/syncQueue.ts
+  - packages/backend/convex/models/importSessions.ts
+  - packages/backend/convex/models/passportComparison.ts
+  - packages/backend/convex/models/trustGatePermissions.ts
+  - packages/backend/convex/models/ageGroupEligibilityOverrides.ts
+  - packages/backend/convex/models/federationConnectors.ts
+  - packages/backend/convex/models/teamCollaboration.ts
+  - packages/backend/convex/models/guardianIdentities.ts
+  - packages/backend/convex/models/sessionPlans.ts
+  - packages/backend/convex/models/adultPlayers.ts
+  - packages/backend/convex/models/demoAsks.ts
+  - packages/backend/convex/models/skillBenchmarks.ts
+  - packages/backend/convex/models/coaches.ts
+  - packages/backend/convex/models/medicalProfiles.ts
+  - packages/backend/convex/models/invitations.ts
+  - packages/backend/convex/models/flows.ts
+  - packages/backend/convex/models/notifications.ts
+  - packages/backend/convex/models/whatsappReviewLinks.ts
+  - packages/backend/convex/models/teamObservations.ts
+  - packages/backend/convex/models/passportGoals.ts
+  - packages/backend/convex/models/players.ts
+  - packages/backend/convex/models/aiMappingCache.ts
+  - packages/backend/convex/models/orgInjuryNotes.ts
+  - packages/backend/convex/models/injuryDocuments.ts
+  - packages/backend/convex/models/playerHealthChecks.ts
+  - packages/backend/convex/models/playerImport.ts
+  - packages/backend/convex/models/passportEnquiries.ts
+  - packages/backend/convex/models/setup.ts
+  - packages/backend/convex/models/teamPlayerIdentities.ts
+  - packages/backend/convex/models/rateLimits.ts
+  - packages/backend/convex/models/phase4TestCleanup.ts
+  - packages/backend/convex/models/syncHistory.ts
+  - packages/backend/convex/models/platformStaffInvitations.ts
+  - packages/backend/convex/models/coachParentMessages.ts
+  - packages/backend/convex/models/aiModelConfig.ts
+  - packages/backend/convex/models/voicePipelineAlerts.ts
+  - packages/backend/convex/models/aiMappingAnalytics.ts
+  - packages/backend/convex/models/orgPlayerEnrollments.ts
+  - packages/backend/convex/models/sportPassports.ts
+  - packages/backend/convex/models/orgJoinRequests.ts
+  - packages/backend/convex/models/sportAgeGroupConfig.ts
+  - packages/backend/convex/models/referenceData.ts
+  - packages/backend/convex/models/importMappingHistory.ts
+  - packages/backend/convex/models/notificationPreferences.ts
+  - packages/backend/convex/models/userPreferences.ts
+  - packages/backend/convex/models/teams.ts
+  - packages/backend/convex/models/gdpr.ts
+  - packages/backend/convex/models/userProfiles.ts
+  - packages/backend/convex/models/emergencyContacts.ts
+  - packages/backend/convex/models/coachTrustLevels.ts
+  - packages/backend/convex/models/coachParentSummaries.ts
+  - packages/backend/convex/models/onboarding.ts
+  - packages/backend/convex/models/guardianPlayerLinks.ts
+  - packages/backend/convex/models/orgGuardianProfiles.ts
+  - packages/backend/convex/models/passportSharing.ts
+  - packages/backend/convex/models/playerGraduations.ts
+  - packages/backend/convex/models/members.ts
+  - packages/backend/convex/models/voiceNoteEntityResolutions.ts
+  - packages/backend/convex/models/users.ts
+  - packages/backend/convex/models/voicePipelineRetry.ts
+  - packages/backend/convex/models/skillAssessments.ts
+  - packages/backend/convex/models/playerSelfAccess.ts
+  - packages/backend/convex/models/aiServiceHealth.ts
+  - packages/backend/convex/models/importTemplates.ts
+  - packages/backend/convex/models/sports.ts
+  - packages/backend/convex/models/importProgress.ts
+  - packages/backend/convex/models/fixNeilsRoles.ts
+  - packages/backend/convex/models/playerIdentities.ts
+  - packages/backend/convex/models/voiceNotes.ts
+  - packages/backend/convex/models/guardianManagement.ts
+  - packages/backend/convex/models/importTemplateSeeds.ts
+  - packages/backend/convex/models/insightDrafts.ts
+  - packages/backend/convex/models/importSessionDrafts.ts
+  - packages/backend/convex/models/teamDecisions.ts
+  - packages/backend/convex/models/gaaTestMutations.ts
+  - packages/backend/convex/models/playerInjuries.ts
+  - packages/backend/convex/models/voiceNoteInsights.ts
+  - packages/backend/convex/models/playerEmergencyContacts.ts
+  - packages/backend/convex/models/coachTasks.ts
+  **Action**: Add `getUserOrgRole()` or mark as `// @public`
+- 🚨 **CRITICAL [P9]**: XSS risk - dangerouslySetInnerHTML without sanitization:
+    apps/web/src/components/ui/confetti.tsx:        dangerouslySetInnerHTML={{
+  apps/web/src/components/ui/chart.tsx:      dangerouslySetInnerHTML={{
+  apps/web/src/components/onboarding/gdpr-policy-viewer.tsx: * Uses dangerouslySetInnerHTML to avoid React key issues with static content.
+  **Action**: Use DOMPurify or remove dangerouslySetInnerHTML
+- ⚠️ **HIGH [P9]**: No rate limiting on notification/activity endpoints:
+  - packages/backend/convex/models/demoAsks.ts
+  **Action**: Add rate limiting to prevent spam/abuse
+- ⚠️ **HIGH [P9]**: AI endpoints without input validation:
+  - packages/backend/convex/actions/aiMapping.ts
+  - packages/backend/convex/actions/claimsExtraction.ts
+  - packages/backend/convex/actions/coachParentSummaries.ts
+  - packages/backend/convex/actions/practicePlans.ts
+  - packages/backend/convex/actions/sessionPlans.ts
+  - packages/backend/convex/actions/voiceNotes.ts
+  - packages/backend/convex/actions/wellnessInsights.ts
+  - packages/backend/convex/models/aiServiceHealth.ts
+  **Action**: Validate/sanitize user input before AI prompts
+- ⚠️ **HIGH [P9]**: Notification functions without permission checks:
+  - packages/backend/convex/models/notifications.ts
+  **Action**: Verify user can send notifications to recipient
+
+
+## Security Tester - 2026-02-26 00:51:33
+- 🚨 **CRITICAL**: Hardcoded secrets detected
+```
+apps/web/src/app/api/ai-config/verify-model/route.ts:          errorMessage: "ANTHROPIC_API_KEY not configured in Next.js env",
+apps/web/src/app/api/ai-config/verify-model/route.ts:          errorMessage: "OPENAI_API_KEY not configured in Next.js env",
+apps/web/src/app/api/ai-config/available-models/route.ts:    errors.anthropic = "ANTHROPIC_API_KEY not configured";
+apps/web/src/app/api/ai-config/available-models/route.ts:    errors.openai = "OPENAI_API_KEY not configured";
+apps/web/src/app/api/comparison-insights/route.ts:      console.error("❌ ANTHROPIC_API_KEY not found in environment variables");
+```
+- ⚠️ **HIGH**: 6 high-severity dependency vulnerabilities
+  Run `npm audit fix` to resolve
+- ⚠️ **HIGH**: Mutations without authorization checks:
+  - packages/backend/convex/models/platformMessagingSettings.ts
+  - packages/backend/convex/models/syncQueue.ts
+  - packages/backend/convex/models/importSessions.ts
+  - packages/backend/convex/models/passportComparison.ts
+  - packages/backend/convex/models/trustGatePermissions.ts
+  - packages/backend/convex/models/ageGroupEligibilityOverrides.ts
+  - packages/backend/convex/models/federationConnectors.ts
+  - packages/backend/convex/models/teamCollaboration.ts
+  - packages/backend/convex/models/guardianIdentities.ts
+  - packages/backend/convex/models/sessionPlans.ts
+  - packages/backend/convex/models/adultPlayers.ts
+  - packages/backend/convex/models/demoAsks.ts
+  - packages/backend/convex/models/skillBenchmarks.ts
+  - packages/backend/convex/models/coaches.ts
+  - packages/backend/convex/models/medicalProfiles.ts
+  - packages/backend/convex/models/invitations.ts
+  - packages/backend/convex/models/flows.ts
+  - packages/backend/convex/models/notifications.ts
+  - packages/backend/convex/models/whatsappReviewLinks.ts
+  - packages/backend/convex/models/teamObservations.ts
+  - packages/backend/convex/models/passportGoals.ts
+  - packages/backend/convex/models/players.ts
+  - packages/backend/convex/models/aiMappingCache.ts
+  - packages/backend/convex/models/orgInjuryNotes.ts
+  - packages/backend/convex/models/injuryDocuments.ts
+  - packages/backend/convex/models/playerHealthChecks.ts
+  - packages/backend/convex/models/playerImport.ts
+  - packages/backend/convex/models/passportEnquiries.ts
+  - packages/backend/convex/models/setup.ts
+  - packages/backend/convex/models/teamPlayerIdentities.ts
+  - packages/backend/convex/models/rateLimits.ts
+  - packages/backend/convex/models/phase4TestCleanup.ts
+  - packages/backend/convex/models/syncHistory.ts
+  - packages/backend/convex/models/platformStaffInvitations.ts
+  - packages/backend/convex/models/coachParentMessages.ts
+  - packages/backend/convex/models/aiModelConfig.ts
+  - packages/backend/convex/models/voicePipelineAlerts.ts
+  - packages/backend/convex/models/aiMappingAnalytics.ts
+  - packages/backend/convex/models/orgPlayerEnrollments.ts
+  - packages/backend/convex/models/sportPassports.ts
+  - packages/backend/convex/models/orgJoinRequests.ts
+  - packages/backend/convex/models/sportAgeGroupConfig.ts
+  - packages/backend/convex/models/referenceData.ts
+  - packages/backend/convex/models/importMappingHistory.ts
+  - packages/backend/convex/models/notificationPreferences.ts
+  - packages/backend/convex/models/userPreferences.ts
+  - packages/backend/convex/models/teams.ts
+  - packages/backend/convex/models/gdpr.ts
+  - packages/backend/convex/models/userProfiles.ts
+  - packages/backend/convex/models/emergencyContacts.ts
+  - packages/backend/convex/models/coachTrustLevels.ts
+  - packages/backend/convex/models/coachParentSummaries.ts
+  - packages/backend/convex/models/onboarding.ts
+  - packages/backend/convex/models/guardianPlayerLinks.ts
+  - packages/backend/convex/models/orgGuardianProfiles.ts
+  - packages/backend/convex/models/passportSharing.ts
+  - packages/backend/convex/models/playerGraduations.ts
+  - packages/backend/convex/models/members.ts
+  - packages/backend/convex/models/voiceNoteEntityResolutions.ts
+  - packages/backend/convex/models/users.ts
+  - packages/backend/convex/models/voicePipelineRetry.ts
+  - packages/backend/convex/models/skillAssessments.ts
+  - packages/backend/convex/models/playerSelfAccess.ts
+  - packages/backend/convex/models/aiServiceHealth.ts
+  - packages/backend/convex/models/importTemplates.ts
+  - packages/backend/convex/models/sports.ts
+  - packages/backend/convex/models/importProgress.ts
+  - packages/backend/convex/models/fixNeilsRoles.ts
+  - packages/backend/convex/models/playerIdentities.ts
+  - packages/backend/convex/models/voiceNotes.ts
+  - packages/backend/convex/models/guardianManagement.ts
+  - packages/backend/convex/models/importTemplateSeeds.ts
+  - packages/backend/convex/models/insightDrafts.ts
+  - packages/backend/convex/models/importSessionDrafts.ts
+  - packages/backend/convex/models/teamDecisions.ts
+  - packages/backend/convex/models/gaaTestMutations.ts
+  - packages/backend/convex/models/playerInjuries.ts
+  - packages/backend/convex/models/voiceNoteInsights.ts
+  - packages/backend/convex/models/playerEmergencyContacts.ts
+  - packages/backend/convex/models/coachTasks.ts
+  **Action**: Add `getUserOrgRole()` or mark as `// @public`
+- 🚨 **CRITICAL [P9]**: XSS risk - dangerouslySetInnerHTML without sanitization:
+    apps/web/src/components/ui/confetti.tsx:        dangerouslySetInnerHTML={{
+  apps/web/src/components/ui/chart.tsx:      dangerouslySetInnerHTML={{
+  apps/web/src/components/onboarding/gdpr-policy-viewer.tsx: * Uses dangerouslySetInnerHTML to avoid React key issues with static content.
+  **Action**: Use DOMPurify or remove dangerouslySetInnerHTML
+- ⚠️ **HIGH [P9]**: No rate limiting on notification/activity endpoints:
+  - packages/backend/convex/models/demoAsks.ts
+  **Action**: Add rate limiting to prevent spam/abuse
+- ⚠️ **HIGH [P9]**: AI endpoints without input validation:
+  - packages/backend/convex/actions/aiMapping.ts
+  - packages/backend/convex/actions/claimsExtraction.ts
+  - packages/backend/convex/actions/coachParentSummaries.ts
+  - packages/backend/convex/actions/practicePlans.ts
+  - packages/backend/convex/actions/sessionPlans.ts
+  - packages/backend/convex/actions/voiceNotes.ts
+  - packages/backend/convex/actions/wellnessInsights.ts
+  - packages/backend/convex/models/aiServiceHealth.ts
+  **Action**: Validate/sanitize user input before AI prompts
+- ⚠️ **HIGH [P9]**: Notification functions without permission checks:
+  - packages/backend/convex/models/notifications.ts
+  **Action**: Verify user can send notifications to recipient
+
+
+## Security Tester - 2026-02-26 00:53:35
+- 🚨 **CRITICAL**: Hardcoded secrets detected
+```
+apps/web/src/app/api/ai-config/verify-model/route.ts:          errorMessage: "ANTHROPIC_API_KEY not configured in Next.js env",
+apps/web/src/app/api/ai-config/verify-model/route.ts:          errorMessage: "OPENAI_API_KEY not configured in Next.js env",
+apps/web/src/app/api/ai-config/available-models/route.ts:    errors.anthropic = "ANTHROPIC_API_KEY not configured";
+apps/web/src/app/api/ai-config/available-models/route.ts:    errors.openai = "OPENAI_API_KEY not configured";
+apps/web/src/app/api/comparison-insights/route.ts:      console.error("❌ ANTHROPIC_API_KEY not found in environment variables");
+```
+- ⚠️ **HIGH**: 6 high-severity dependency vulnerabilities
+  Run `npm audit fix` to resolve
+- ⚠️ **HIGH**: Mutations without authorization checks:
+  - packages/backend/convex/models/platformMessagingSettings.ts
+  - packages/backend/convex/models/syncQueue.ts
+  - packages/backend/convex/models/importSessions.ts
+  - packages/backend/convex/models/passportComparison.ts
+  - packages/backend/convex/models/trustGatePermissions.ts
+  - packages/backend/convex/models/ageGroupEligibilityOverrides.ts
+  - packages/backend/convex/models/federationConnectors.ts
+  - packages/backend/convex/models/teamCollaboration.ts
+  - packages/backend/convex/models/guardianIdentities.ts
+  - packages/backend/convex/models/sessionPlans.ts
+  - packages/backend/convex/models/adultPlayers.ts
+  - packages/backend/convex/models/demoAsks.ts
+  - packages/backend/convex/models/skillBenchmarks.ts
+  - packages/backend/convex/models/coaches.ts
+  - packages/backend/convex/models/medicalProfiles.ts
+  - packages/backend/convex/models/invitations.ts
+  - packages/backend/convex/models/flows.ts
+  - packages/backend/convex/models/notifications.ts
+  - packages/backend/convex/models/whatsappReviewLinks.ts
+  - packages/backend/convex/models/teamObservations.ts
+  - packages/backend/convex/models/passportGoals.ts
+  - packages/backend/convex/models/players.ts
+  - packages/backend/convex/models/aiMappingCache.ts
+  - packages/backend/convex/models/orgInjuryNotes.ts
+  - packages/backend/convex/models/injuryDocuments.ts
+  - packages/backend/convex/models/playerHealthChecks.ts
+  - packages/backend/convex/models/playerImport.ts
+  - packages/backend/convex/models/passportEnquiries.ts
+  - packages/backend/convex/models/setup.ts
+  - packages/backend/convex/models/teamPlayerIdentities.ts
+  - packages/backend/convex/models/rateLimits.ts
+  - packages/backend/convex/models/phase4TestCleanup.ts
+  - packages/backend/convex/models/syncHistory.ts
+  - packages/backend/convex/models/platformStaffInvitations.ts
+  - packages/backend/convex/models/coachParentMessages.ts
+  - packages/backend/convex/models/aiModelConfig.ts
+  - packages/backend/convex/models/voicePipelineAlerts.ts
+  - packages/backend/convex/models/aiMappingAnalytics.ts
+  - packages/backend/convex/models/orgPlayerEnrollments.ts
+  - packages/backend/convex/models/sportPassports.ts
+  - packages/backend/convex/models/orgJoinRequests.ts
+  - packages/backend/convex/models/sportAgeGroupConfig.ts
+  - packages/backend/convex/models/referenceData.ts
+  - packages/backend/convex/models/importMappingHistory.ts
+  - packages/backend/convex/models/notificationPreferences.ts
+  - packages/backend/convex/models/userPreferences.ts
+  - packages/backend/convex/models/teams.ts
+  - packages/backend/convex/models/gdpr.ts
+  - packages/backend/convex/models/userProfiles.ts
+  - packages/backend/convex/models/emergencyContacts.ts
+  - packages/backend/convex/models/coachTrustLevels.ts
+  - packages/backend/convex/models/coachParentSummaries.ts
+  - packages/backend/convex/models/onboarding.ts
+  - packages/backend/convex/models/guardianPlayerLinks.ts
+  - packages/backend/convex/models/orgGuardianProfiles.ts
+  - packages/backend/convex/models/passportSharing.ts
+  - packages/backend/convex/models/playerGraduations.ts
+  - packages/backend/convex/models/members.ts
+  - packages/backend/convex/models/voiceNoteEntityResolutions.ts
+  - packages/backend/convex/models/users.ts
+  - packages/backend/convex/models/voicePipelineRetry.ts
+  - packages/backend/convex/models/skillAssessments.ts
+  - packages/backend/convex/models/playerSelfAccess.ts
+  - packages/backend/convex/models/aiServiceHealth.ts
+  - packages/backend/convex/models/importTemplates.ts
+  - packages/backend/convex/models/sports.ts
+  - packages/backend/convex/models/importProgress.ts
+  - packages/backend/convex/models/fixNeilsRoles.ts
+  - packages/backend/convex/models/playerIdentities.ts
+  - packages/backend/convex/models/voiceNotes.ts
+  - packages/backend/convex/models/guardianManagement.ts
+  - packages/backend/convex/models/importTemplateSeeds.ts
+  - packages/backend/convex/models/insightDrafts.ts
+  - packages/backend/convex/models/importSessionDrafts.ts
+  - packages/backend/convex/models/teamDecisions.ts
+  - packages/backend/convex/models/gaaTestMutations.ts
+  - packages/backend/convex/models/playerInjuries.ts
+  - packages/backend/convex/models/voiceNoteInsights.ts
+  - packages/backend/convex/models/playerEmergencyContacts.ts
+  - packages/backend/convex/models/coachTasks.ts
+  **Action**: Add `getUserOrgRole()` or mark as `// @public`
+- 🚨 **CRITICAL [P9]**: XSS risk - dangerouslySetInnerHTML without sanitization:
+    apps/web/src/components/ui/confetti.tsx:        dangerouslySetInnerHTML={{
+  apps/web/src/components/ui/chart.tsx:      dangerouslySetInnerHTML={{
+  apps/web/src/components/onboarding/gdpr-policy-viewer.tsx: * Uses dangerouslySetInnerHTML to avoid React key issues with static content.
+  **Action**: Use DOMPurify or remove dangerouslySetInnerHTML
+- ⚠️ **HIGH [P9]**: No rate limiting on notification/activity endpoints:
+  - packages/backend/convex/models/demoAsks.ts
+  **Action**: Add rate limiting to prevent spam/abuse
+- ⚠️ **HIGH [P9]**: AI endpoints without input validation:
+  - packages/backend/convex/actions/aiMapping.ts
+  - packages/backend/convex/actions/claimsExtraction.ts
+  - packages/backend/convex/actions/coachParentSummaries.ts
+  - packages/backend/convex/actions/practicePlans.ts
+  - packages/backend/convex/actions/sessionPlans.ts
+  - packages/backend/convex/actions/voiceNotes.ts
+  - packages/backend/convex/actions/wellnessInsights.ts
+  - packages/backend/convex/models/aiServiceHealth.ts
+  **Action**: Validate/sanitize user input before AI prompts
+- ⚠️ **HIGH [P9]**: Notification functions without permission checks:
+  - packages/backend/convex/models/notifications.ts
+  **Action**: Verify user can send notifications to recipient
+
+
+## Security Tester - 2026-02-26 00:55:39
+- 🚨 **CRITICAL**: Hardcoded secrets detected
+```
+apps/web/src/app/api/ai-config/verify-model/route.ts:          errorMessage: "ANTHROPIC_API_KEY not configured in Next.js env",
+apps/web/src/app/api/ai-config/verify-model/route.ts:          errorMessage: "OPENAI_API_KEY not configured in Next.js env",
+apps/web/src/app/api/ai-config/available-models/route.ts:    errors.anthropic = "ANTHROPIC_API_KEY not configured";
+apps/web/src/app/api/ai-config/available-models/route.ts:    errors.openai = "OPENAI_API_KEY not configured";
+apps/web/src/app/api/comparison-insights/route.ts:      console.error("❌ ANTHROPIC_API_KEY not found in environment variables");
+```
+- ⚠️ **HIGH**: 6 high-severity dependency vulnerabilities
+  Run `npm audit fix` to resolve
+- ⚠️ **HIGH**: Mutations without authorization checks:
+  - packages/backend/convex/models/platformMessagingSettings.ts
+  - packages/backend/convex/models/syncQueue.ts
+  - packages/backend/convex/models/importSessions.ts
+  - packages/backend/convex/models/passportComparison.ts
+  - packages/backend/convex/models/trustGatePermissions.ts
+  - packages/backend/convex/models/ageGroupEligibilityOverrides.ts
+  - packages/backend/convex/models/federationConnectors.ts
+  - packages/backend/convex/models/teamCollaboration.ts
+  - packages/backend/convex/models/guardianIdentities.ts
+  - packages/backend/convex/models/sessionPlans.ts
+  - packages/backend/convex/models/adultPlayers.ts
+  - packages/backend/convex/models/demoAsks.ts
+  - packages/backend/convex/models/skillBenchmarks.ts
+  - packages/backend/convex/models/coaches.ts
+  - packages/backend/convex/models/medicalProfiles.ts
+  - packages/backend/convex/models/invitations.ts
+  - packages/backend/convex/models/flows.ts
+  - packages/backend/convex/models/notifications.ts
+  - packages/backend/convex/models/whatsappReviewLinks.ts
+  - packages/backend/convex/models/teamObservations.ts
+  - packages/backend/convex/models/passportGoals.ts
+  - packages/backend/convex/models/players.ts
+  - packages/backend/convex/models/aiMappingCache.ts
+  - packages/backend/convex/models/orgInjuryNotes.ts
+  - packages/backend/convex/models/injuryDocuments.ts
+  - packages/backend/convex/models/playerHealthChecks.ts
+  - packages/backend/convex/models/playerImport.ts
+  - packages/backend/convex/models/passportEnquiries.ts
+  - packages/backend/convex/models/setup.ts
+  - packages/backend/convex/models/teamPlayerIdentities.ts
+  - packages/backend/convex/models/rateLimits.ts
+  - packages/backend/convex/models/phase4TestCleanup.ts
+  - packages/backend/convex/models/syncHistory.ts
+  - packages/backend/convex/models/platformStaffInvitations.ts
+  - packages/backend/convex/models/coachParentMessages.ts
+  - packages/backend/convex/models/aiModelConfig.ts
+  - packages/backend/convex/models/voicePipelineAlerts.ts
+  - packages/backend/convex/models/aiMappingAnalytics.ts
+  - packages/backend/convex/models/orgPlayerEnrollments.ts
+  - packages/backend/convex/models/sportPassports.ts
+  - packages/backend/convex/models/orgJoinRequests.ts
+  - packages/backend/convex/models/sportAgeGroupConfig.ts
+  - packages/backend/convex/models/referenceData.ts
+  - packages/backend/convex/models/importMappingHistory.ts
+  - packages/backend/convex/models/notificationPreferences.ts
+  - packages/backend/convex/models/userPreferences.ts
+  - packages/backend/convex/models/teams.ts
+  - packages/backend/convex/models/gdpr.ts
+  - packages/backend/convex/models/userProfiles.ts
+  - packages/backend/convex/models/emergencyContacts.ts
+  - packages/backend/convex/models/coachTrustLevels.ts
+  - packages/backend/convex/models/coachParentSummaries.ts
+  - packages/backend/convex/models/onboarding.ts
+  - packages/backend/convex/models/guardianPlayerLinks.ts
+  - packages/backend/convex/models/orgGuardianProfiles.ts
+  - packages/backend/convex/models/passportSharing.ts
+  - packages/backend/convex/models/playerGraduations.ts
+  - packages/backend/convex/models/members.ts
+  - packages/backend/convex/models/voiceNoteEntityResolutions.ts
+  - packages/backend/convex/models/users.ts
+  - packages/backend/convex/models/voicePipelineRetry.ts
+  - packages/backend/convex/models/skillAssessments.ts
+  - packages/backend/convex/models/playerSelfAccess.ts
+  - packages/backend/convex/models/aiServiceHealth.ts
+  - packages/backend/convex/models/importTemplates.ts
+  - packages/backend/convex/models/sports.ts
+  - packages/backend/convex/models/importProgress.ts
+  - packages/backend/convex/models/fixNeilsRoles.ts
+  - packages/backend/convex/models/playerIdentities.ts
+  - packages/backend/convex/models/voiceNotes.ts
+  - packages/backend/convex/models/guardianManagement.ts
+  - packages/backend/convex/models/importTemplateSeeds.ts
+  - packages/backend/convex/models/insightDrafts.ts
+  - packages/backend/convex/models/importSessionDrafts.ts
+  - packages/backend/convex/models/teamDecisions.ts
+  - packages/backend/convex/models/gaaTestMutations.ts
+  - packages/backend/convex/models/playerInjuries.ts
+  - packages/backend/convex/models/voiceNoteInsights.ts
+  - packages/backend/convex/models/playerEmergencyContacts.ts
+  - packages/backend/convex/models/coachTasks.ts
+  **Action**: Add `getUserOrgRole()` or mark as `// @public`
+- 🚨 **CRITICAL [P9]**: XSS risk - dangerouslySetInnerHTML without sanitization:
+    apps/web/src/components/ui/confetti.tsx:        dangerouslySetInnerHTML={{
+  apps/web/src/components/ui/chart.tsx:      dangerouslySetInnerHTML={{
+  apps/web/src/components/onboarding/gdpr-policy-viewer.tsx: * Uses dangerouslySetInnerHTML to avoid React key issues with static content.
+  **Action**: Use DOMPurify or remove dangerouslySetInnerHTML
+- ⚠️ **HIGH [P9]**: No rate limiting on notification/activity endpoints:
+  - packages/backend/convex/models/demoAsks.ts
+  **Action**: Add rate limiting to prevent spam/abuse
+- ⚠️ **HIGH [P9]**: AI endpoints without input validation:
+  - packages/backend/convex/actions/aiMapping.ts
+  - packages/backend/convex/actions/claimsExtraction.ts
+  - packages/backend/convex/actions/coachParentSummaries.ts
+  - packages/backend/convex/actions/practicePlans.ts
+  - packages/backend/convex/actions/sessionPlans.ts
+  - packages/backend/convex/actions/voiceNotes.ts
+  - packages/backend/convex/actions/wellnessInsights.ts
+  - packages/backend/convex/models/aiServiceHealth.ts
+  **Action**: Validate/sanitize user input before AI prompts
+- ⚠️ **HIGH [P9]**: Notification functions without permission checks:
+  - packages/backend/convex/models/notifications.ts
+  **Action**: Verify user can send notifications to recipient
+
+
+## Auto Quality Check - 2026-02-26 00:57:00
+### File: /Users/jkobrien/code/PDP/packages/backend/convex/models/coachParentSummaries.ts
+
+- ❌ **CRITICAL: Better Auth adapter violation**
+  - **Problem:** Direct DB access to auth tables
+  - **Fix:** Use `ctx.runQuery(components.betterAuth.adapter.findOne, {...})`
+
+
+## Auto Quality Check - 2026-02-26 00:57:00
+### File: /Users/jkobrien/code/PDP/packages/backend/convex/models/coachParentSummaries.ts
+
+- ⚠️ **Performance: .filter() usage detected**
+  - **Problem:** Should use .withIndex() for better performance
+  - **Fix:** Replace `.query().filter()` with `.query().withIndex()`
+
+
+## Auto Quality Check - 2026-02-26 00:57:00
+### File: /Users/jkobrien/code/PDP/packages/backend/convex/models/coachParentSummaries.ts
+
+- ❌ **CRITICAL: N+1 query pattern detected**
+  - **Problem:** `Promise.all(items.map(async => query))` makes N database calls
+  - **Fix:** Batch fetch all IDs first, create Map for O(1) lookup
+
+
+## Auto Quality Check - 2026-02-26 00:57:00
+### File: /Users/jkobrien/code/PDP/packages/backend/convex/models/playerDataExport.ts
+
+- ⚠️ **Performance: .filter() usage detected**
+  - **Problem:** Should use .withIndex() for better performance
+  - **Fix:** Replace `.query().filter()` with `.query().withIndex()`
+
+
+## Auto Quality Check - 2026-02-26 00:57:17
+### File: /Users/jkobrien/code/PDP/packages/backend/convex/models/passportSharing.ts
+
+- ❌ **CRITICAL: Better Auth adapter violation**
+  - **Problem:** Direct DB access to auth tables
+  - **Fix:** Use `ctx.runQuery(components.betterAuth.adapter.findOne, {...})`
+
+
+## Auto Quality Check - 2026-02-26 00:57:17
+### File: /Users/jkobrien/code/PDP/packages/backend/convex/models/passportSharing.ts
+
+- ⚠️ **Performance: .filter() usage detected**
+  - **Problem:** Should use .withIndex() for better performance
+  - **Fix:** Replace `.query().filter()` with `.query().withIndex()`
+
+
+## Auto Quality Check - 2026-02-26 00:57:17
+### File: /Users/jkobrien/code/PDP/packages/backend/convex/models/passportSharing.ts
+
+- ❌ **CRITICAL: N+1 query pattern detected**
+  - **Problem:** `Promise.all(items.map(async => query))` makes N database calls
+  - **Fix:** Batch fetch all IDs first, create Map for O(1) lookup
+
+
+## Auto Quality Check - 2026-02-26 00:57:17
+### File: /Users/jkobrien/code/PDP/packages/backend/convex/models/playerInjuries.ts
+
+- ❌ **CRITICAL: Better Auth adapter violation**
+  - **Problem:** Direct DB access to auth tables
+  - **Fix:** Use `ctx.runQuery(components.betterAuth.adapter.findOne, {...})`
+
+
+## Auto Quality Check - 2026-02-26 00:57:17
+### File: /Users/jkobrien/code/PDP/packages/backend/convex/models/playerInjuries.ts
+
+- ⚠️ **Performance: .filter() usage detected**
+  - **Problem:** Should use .withIndex() for better performance
+  - **Fix:** Replace `.query().filter()` with `.query().withIndex()`
+
+
+## Auto Quality Check - 2026-02-26 00:57:39
+### File: /Users/jkobrien/code/PDP/packages/backend/convex/models/coachParentSummaries.ts
+
+- ❌ **CRITICAL: Better Auth adapter violation**
+  - **Problem:** Direct DB access to auth tables
+  - **Fix:** Use `ctx.runQuery(components.betterAuth.adapter.findOne, {...})`
+
+
+## Auto Quality Check - 2026-02-26 00:57:39
+### File: /Users/jkobrien/code/PDP/packages/backend/convex/models/coachParentSummaries.ts
+
+- ⚠️ **Performance: .filter() usage detected**
+  - **Problem:** Should use .withIndex() for better performance
+  - **Fix:** Replace `.query().filter()` with `.query().withIndex()`
+
+
+## Auto Quality Check - 2026-02-26 00:57:39
+### File: /Users/jkobrien/code/PDP/packages/backend/convex/models/coachParentSummaries.ts
+
+- ❌ **CRITICAL: N+1 query pattern detected**
+  - **Problem:** `Promise.all(items.map(async => query))` makes N database calls
+  - **Fix:** Batch fetch all IDs first, create Map for O(1) lookup
+
+
+## Auto Quality Check - 2026-02-26 00:57:40
+### File: /Users/jkobrien/code/PDP/packages/backend/convex/models/playerInjuries.ts
+
+- ❌ **CRITICAL: Better Auth adapter violation**
+  - **Problem:** Direct DB access to auth tables
+  - **Fix:** Use `ctx.runQuery(components.betterAuth.adapter.findOne, {...})`
+
+
+## Auto Quality Check - 2026-02-26 00:57:40
+### File: /Users/jkobrien/code/PDP/packages/backend/convex/models/playerInjuries.ts
+
+- ⚠️ **Performance: .filter() usage detected**
+  - **Problem:** Should use .withIndex() for better performance
+  - **Fix:** Replace `.query().filter()` with `.query().withIndex()`
+
+
+## Security Tester - 2026-02-26 00:57:41
+- 🚨 **CRITICAL**: Hardcoded secrets detected
+```
+apps/web/src/app/api/ai-config/verify-model/route.ts:          errorMessage: "ANTHROPIC_API_KEY not configured in Next.js env",
+apps/web/src/app/api/ai-config/verify-model/route.ts:          errorMessage: "OPENAI_API_KEY not configured in Next.js env",
+apps/web/src/app/api/ai-config/available-models/route.ts:    errors.anthropic = "ANTHROPIC_API_KEY not configured";
+apps/web/src/app/api/ai-config/available-models/route.ts:    errors.openai = "OPENAI_API_KEY not configured";
+apps/web/src/app/api/comparison-insights/route.ts:      console.error("❌ ANTHROPIC_API_KEY not found in environment variables");
+```
+- ⚠️ **HIGH**: 6 high-severity dependency vulnerabilities
+  Run `npm audit fix` to resolve
+- ⚠️ **HIGH**: Mutations without authorization checks:
+  - packages/backend/convex/models/platformMessagingSettings.ts
+  - packages/backend/convex/models/syncQueue.ts
+  - packages/backend/convex/models/importSessions.ts
+  - packages/backend/convex/models/passportComparison.ts
+  - packages/backend/convex/models/trustGatePermissions.ts
+  - packages/backend/convex/models/ageGroupEligibilityOverrides.ts
+  - packages/backend/convex/models/federationConnectors.ts
+  - packages/backend/convex/models/teamCollaboration.ts
+  - packages/backend/convex/models/guardianIdentities.ts
+  - packages/backend/convex/models/sessionPlans.ts
+  - packages/backend/convex/models/adultPlayers.ts
+  - packages/backend/convex/models/demoAsks.ts
+  - packages/backend/convex/models/skillBenchmarks.ts
+  - packages/backend/convex/models/coaches.ts
+  - packages/backend/convex/models/medicalProfiles.ts
+  - packages/backend/convex/models/invitations.ts
+  - packages/backend/convex/models/flows.ts
+  - packages/backend/convex/models/notifications.ts
+  - packages/backend/convex/models/whatsappReviewLinks.ts
+  - packages/backend/convex/models/teamObservations.ts
+  - packages/backend/convex/models/passportGoals.ts
+  - packages/backend/convex/models/players.ts
+  - packages/backend/convex/models/aiMappingCache.ts
+  - packages/backend/convex/models/orgInjuryNotes.ts
+  - packages/backend/convex/models/injuryDocuments.ts
+  - packages/backend/convex/models/playerHealthChecks.ts
+  - packages/backend/convex/models/playerImport.ts
+  - packages/backend/convex/models/passportEnquiries.ts
+  - packages/backend/convex/models/setup.ts
+  - packages/backend/convex/models/teamPlayerIdentities.ts
+  - packages/backend/convex/models/rateLimits.ts
+  - packages/backend/convex/models/phase4TestCleanup.ts
+  - packages/backend/convex/models/syncHistory.ts
+  - packages/backend/convex/models/platformStaffInvitations.ts
+  - packages/backend/convex/models/coachParentMessages.ts
+  - packages/backend/convex/models/aiModelConfig.ts
+  - packages/backend/convex/models/voicePipelineAlerts.ts
+  - packages/backend/convex/models/aiMappingAnalytics.ts
+  - packages/backend/convex/models/orgPlayerEnrollments.ts
+  - packages/backend/convex/models/sportPassports.ts
+  - packages/backend/convex/models/orgJoinRequests.ts
+  - packages/backend/convex/models/sportAgeGroupConfig.ts
+  - packages/backend/convex/models/referenceData.ts
+  - packages/backend/convex/models/importMappingHistory.ts
+  - packages/backend/convex/models/notificationPreferences.ts
+  - packages/backend/convex/models/userPreferences.ts
+  - packages/backend/convex/models/teams.ts
+  - packages/backend/convex/models/gdpr.ts
+  - packages/backend/convex/models/userProfiles.ts
+  - packages/backend/convex/models/emergencyContacts.ts
+  - packages/backend/convex/models/coachTrustLevels.ts
+  - packages/backend/convex/models/coachParentSummaries.ts
+  - packages/backend/convex/models/onboarding.ts
+  - packages/backend/convex/models/guardianPlayerLinks.ts
+  - packages/backend/convex/models/orgGuardianProfiles.ts
+  - packages/backend/convex/models/passportSharing.ts
+  - packages/backend/convex/models/playerGraduations.ts
+  - packages/backend/convex/models/members.ts
+  - packages/backend/convex/models/voiceNoteEntityResolutions.ts
+  - packages/backend/convex/models/users.ts
+  - packages/backend/convex/models/voicePipelineRetry.ts
+  - packages/backend/convex/models/skillAssessments.ts
+  - packages/backend/convex/models/playerSelfAccess.ts
+  - packages/backend/convex/models/aiServiceHealth.ts
+  - packages/backend/convex/models/importTemplates.ts
+  - packages/backend/convex/models/sports.ts
+  - packages/backend/convex/models/importProgress.ts
+  - packages/backend/convex/models/fixNeilsRoles.ts
+  - packages/backend/convex/models/playerIdentities.ts
+  - packages/backend/convex/models/voiceNotes.ts
+  - packages/backend/convex/models/guardianManagement.ts
+  - packages/backend/convex/models/importTemplateSeeds.ts
+  - packages/backend/convex/models/insightDrafts.ts
+  - packages/backend/convex/models/importSessionDrafts.ts
+  - packages/backend/convex/models/teamDecisions.ts
+  - packages/backend/convex/models/gaaTestMutations.ts
+  - packages/backend/convex/models/playerInjuries.ts
+  - packages/backend/convex/models/voiceNoteInsights.ts
+  - packages/backend/convex/models/playerEmergencyContacts.ts
+  - packages/backend/convex/models/coachTasks.ts
+  **Action**: Add `getUserOrgRole()` or mark as `// @public`
+- 🚨 **CRITICAL [P9]**: XSS risk - dangerouslySetInnerHTML without sanitization:
+    apps/web/src/components/ui/confetti.tsx:        dangerouslySetInnerHTML={{
+  apps/web/src/components/ui/chart.tsx:      dangerouslySetInnerHTML={{
+  apps/web/src/components/onboarding/gdpr-policy-viewer.tsx: * Uses dangerouslySetInnerHTML to avoid React key issues with static content.
+  **Action**: Use DOMPurify or remove dangerouslySetInnerHTML
+- ⚠️ **HIGH [P9]**: No rate limiting on notification/activity endpoints:
+  - packages/backend/convex/models/demoAsks.ts
+  **Action**: Add rate limiting to prevent spam/abuse
+- ⚠️ **HIGH [P9]**: AI endpoints without input validation:
+  - packages/backend/convex/actions/aiMapping.ts
+  - packages/backend/convex/actions/claimsExtraction.ts
+  - packages/backend/convex/actions/coachParentSummaries.ts
+  - packages/backend/convex/actions/practicePlans.ts
+  - packages/backend/convex/actions/sessionPlans.ts
+  - packages/backend/convex/actions/voiceNotes.ts
+  - packages/backend/convex/actions/wellnessInsights.ts
+  - packages/backend/convex/models/aiServiceHealth.ts
+  **Action**: Validate/sanitize user input before AI prompts
+- ⚠️ **HIGH [P9]**: Notification functions without permission checks:
+  - packages/backend/convex/models/notifications.ts
+  **Action**: Verify user can send notifications to recipient
+
+
+## Auto Quality Check - 2026-02-26 00:57:50
+### File: /Users/jkobrien/code/PDP/packages/backend/convex/models/playerInjuries.ts
+
+- ❌ **CRITICAL: Better Auth adapter violation**
+  - **Problem:** Direct DB access to auth tables
+  - **Fix:** Use `ctx.runQuery(components.betterAuth.adapter.findOne, {...})`
+
+
+## Auto Quality Check - 2026-02-26 00:57:50
+### File: /Users/jkobrien/code/PDP/packages/backend/convex/models/playerInjuries.ts
+
+- ⚠️ **Performance: .filter() usage detected**
+  - **Problem:** Should use .withIndex() for better performance
+  - **Fix:** Replace `.query().filter()` with `.query().withIndex()`
+
+
+## Auto Quality Check - 2026-02-26 00:58:02
+### File: /Users/jkobrien/code/PDP/packages/backend/convex/models/passportSharing.ts
+
+- ❌ **CRITICAL: Better Auth adapter violation**
+  - **Problem:** Direct DB access to auth tables
+  - **Fix:** Use `ctx.runQuery(components.betterAuth.adapter.findOne, {...})`
+
+
+## Auto Quality Check - 2026-02-26 00:58:02
+### File: /Users/jkobrien/code/PDP/packages/backend/convex/models/passportSharing.ts
+
+- ⚠️ **Performance: .filter() usage detected**
+  - **Problem:** Should use .withIndex() for better performance
+  - **Fix:** Replace `.query().filter()` with `.query().withIndex()`
+
+
+## Auto Quality Check - 2026-02-26 00:58:02
+### File: /Users/jkobrien/code/PDP/packages/backend/convex/models/passportSharing.ts
+
+- ❌ **CRITICAL: N+1 query pattern detected**
+  - **Problem:** `Promise.all(items.map(async => query))` makes N database calls
+  - **Fix:** Batch fetch all IDs first, create Map for O(1) lookup
+
+
+## Auto Quality Check - 2026-02-26 00:58:32
+### File: /Users/jkobrien/code/PDP/packages/backend/convex/models/playerGraduations.ts
+
+- ❌ **CRITICAL: Better Auth adapter violation**
+  - **Problem:** Direct DB access to auth tables
+  - **Fix:** Use `ctx.runQuery(components.betterAuth.adapter.findOne, {...})`
+
+
+## Auto Quality Check - 2026-02-26 00:58:32
+### File: /Users/jkobrien/code/PDP/packages/backend/convex/models/playerGraduations.ts
+
+- ⚠️ **Performance: .filter() usage detected**
+  - **Problem:** Should use .withIndex() for better performance
+  - **Fix:** Replace `.query().filter()` with `.query().withIndex()`
+
+
+## Auto Quality Check - 2026-02-26 00:58:46
+### File: /Users/jkobrien/code/PDP/packages/backend/convex/models/playerGraduations.ts
+
+- ❌ **CRITICAL: Better Auth adapter violation**
+  - **Problem:** Direct DB access to auth tables
+  - **Fix:** Use `ctx.runQuery(components.betterAuth.adapter.findOne, {...})`
+
+
+## Auto Quality Check - 2026-02-26 00:58:46
+### File: /Users/jkobrien/code/PDP/packages/backend/convex/models/playerGraduations.ts
+
+- ⚠️ **Performance: .filter() usage detected**
+  - **Problem:** Should use .withIndex() for better performance
+  - **Fix:** Replace `.query().filter()` with `.query().withIndex()`
+
+
+## Auto Quality Check - 2026-02-26 00:58:47
+### File: /Users/jkobrien/code/PDP/packages/backend/convex/models/sportPassports.ts
+
+- ❌ **CRITICAL: Better Auth adapter violation**
+  - **Problem:** Direct DB access to auth tables
+  - **Fix:** Use `ctx.runQuery(components.betterAuth.adapter.findOne, {...})`
+
+
+## Auto Quality Check - 2026-02-26 00:58:47
+### File: /Users/jkobrien/code/PDP/packages/backend/convex/models/sportPassports.ts
+
+- ⚠️ **Performance: .filter() usage detected**
+  - **Problem:** Should use .withIndex() for better performance
+  - **Fix:** Replace `.query().filter()` with `.query().withIndex()`
+
+
+## Auto Quality Check - 2026-02-26 00:59:39
+### File: /Users/jkobrien/code/PDP/packages/backend/convex/models/coachParentSummaries.ts
+
+- ❌ **CRITICAL: Better Auth adapter violation**
+  - **Problem:** Direct DB access to auth tables
+  - **Fix:** Use `ctx.runQuery(components.betterAuth.adapter.findOne, {...})`
+
+
+## Auto Quality Check - 2026-02-26 00:59:39
+### File: /Users/jkobrien/code/PDP/packages/backend/convex/models/coachParentSummaries.ts
+
+- ⚠️ **Performance: .filter() usage detected**
+  - **Problem:** Should use .withIndex() for better performance
+  - **Fix:** Replace `.query().filter()` with `.query().withIndex()`
+
+
+## Auto Quality Check - 2026-02-26 00:59:39
+### File: /Users/jkobrien/code/PDP/packages/backend/convex/models/coachParentSummaries.ts
+
+- ❌ **CRITICAL: N+1 query pattern detected**
+  - **Problem:** `Promise.all(items.map(async => query))` makes N database calls
+  - **Fix:** Batch fetch all IDs first, create Map for O(1) lookup
+
+
+## Security Tester - 2026-02-26 00:59:46
+- 🚨 **CRITICAL**: Hardcoded secrets detected
+```
+apps/web/src/app/api/ai-config/verify-model/route.ts:          errorMessage: "ANTHROPIC_API_KEY not configured in Next.js env",
+apps/web/src/app/api/ai-config/verify-model/route.ts:          errorMessage: "OPENAI_API_KEY not configured in Next.js env",
+apps/web/src/app/api/ai-config/available-models/route.ts:    errors.anthropic = "ANTHROPIC_API_KEY not configured";
+apps/web/src/app/api/ai-config/available-models/route.ts:    errors.openai = "OPENAI_API_KEY not configured";
+apps/web/src/app/api/comparison-insights/route.ts:      console.error("❌ ANTHROPIC_API_KEY not found in environment variables");
+```
+- ⚠️ **HIGH**: 6 high-severity dependency vulnerabilities
+  Run `npm audit fix` to resolve
+- ⚠️ **HIGH**: Mutations without authorization checks:
+  - packages/backend/convex/models/platformMessagingSettings.ts
+  - packages/backend/convex/models/syncQueue.ts
+  - packages/backend/convex/models/importSessions.ts
+  - packages/backend/convex/models/passportComparison.ts
+  - packages/backend/convex/models/trustGatePermissions.ts
+  - packages/backend/convex/models/ageGroupEligibilityOverrides.ts
+  - packages/backend/convex/models/federationConnectors.ts
+  - packages/backend/convex/models/teamCollaboration.ts
+  - packages/backend/convex/models/guardianIdentities.ts
+  - packages/backend/convex/models/sessionPlans.ts
+  - packages/backend/convex/models/adultPlayers.ts
+  - packages/backend/convex/models/demoAsks.ts
+  - packages/backend/convex/models/skillBenchmarks.ts
+  - packages/backend/convex/models/coaches.ts
+  - packages/backend/convex/models/medicalProfiles.ts
+  - packages/backend/convex/models/invitations.ts
+  - packages/backend/convex/models/flows.ts
+  - packages/backend/convex/models/notifications.ts
+  - packages/backend/convex/models/whatsappReviewLinks.ts
+  - packages/backend/convex/models/teamObservations.ts
+  - packages/backend/convex/models/passportGoals.ts
+  - packages/backend/convex/models/players.ts
+  - packages/backend/convex/models/aiMappingCache.ts
+  - packages/backend/convex/models/orgInjuryNotes.ts
+  - packages/backend/convex/models/injuryDocuments.ts
+  - packages/backend/convex/models/playerHealthChecks.ts
+  - packages/backend/convex/models/playerImport.ts
+  - packages/backend/convex/models/passportEnquiries.ts
+  - packages/backend/convex/models/setup.ts
+  - packages/backend/convex/models/teamPlayerIdentities.ts
+  - packages/backend/convex/models/rateLimits.ts
+  - packages/backend/convex/models/phase4TestCleanup.ts
+  - packages/backend/convex/models/syncHistory.ts
+  - packages/backend/convex/models/platformStaffInvitations.ts
+  - packages/backend/convex/models/coachParentMessages.ts
+  - packages/backend/convex/models/aiModelConfig.ts
+  - packages/backend/convex/models/voicePipelineAlerts.ts
+  - packages/backend/convex/models/aiMappingAnalytics.ts
+  - packages/backend/convex/models/orgPlayerEnrollments.ts
+  - packages/backend/convex/models/sportPassports.ts
+  - packages/backend/convex/models/orgJoinRequests.ts
+  - packages/backend/convex/models/sportAgeGroupConfig.ts
+  - packages/backend/convex/models/referenceData.ts
+  - packages/backend/convex/models/importMappingHistory.ts
+  - packages/backend/convex/models/notificationPreferences.ts
+  - packages/backend/convex/models/userPreferences.ts
+  - packages/backend/convex/models/teams.ts
+  - packages/backend/convex/models/gdpr.ts
+  - packages/backend/convex/models/userProfiles.ts
+  - packages/backend/convex/models/emergencyContacts.ts
+  - packages/backend/convex/models/coachTrustLevels.ts
+  - packages/backend/convex/models/coachParentSummaries.ts
+  - packages/backend/convex/models/onboarding.ts
+  - packages/backend/convex/models/guardianPlayerLinks.ts
+  - packages/backend/convex/models/orgGuardianProfiles.ts
+  - packages/backend/convex/models/passportSharing.ts
+  - packages/backend/convex/models/playerGraduations.ts
+  - packages/backend/convex/models/members.ts
+  - packages/backend/convex/models/voiceNoteEntityResolutions.ts
+  - packages/backend/convex/models/users.ts
+  - packages/backend/convex/models/voicePipelineRetry.ts
+  - packages/backend/convex/models/skillAssessments.ts
+  - packages/backend/convex/models/playerSelfAccess.ts
+  - packages/backend/convex/models/aiServiceHealth.ts
+  - packages/backend/convex/models/importTemplates.ts
+  - packages/backend/convex/models/sports.ts
+  - packages/backend/convex/models/importProgress.ts
+  - packages/backend/convex/models/fixNeilsRoles.ts
+  - packages/backend/convex/models/playerIdentities.ts
+  - packages/backend/convex/models/voiceNotes.ts
+  - packages/backend/convex/models/guardianManagement.ts
+  - packages/backend/convex/models/importTemplateSeeds.ts
+  - packages/backend/convex/models/insightDrafts.ts
+  - packages/backend/convex/models/importSessionDrafts.ts
+  - packages/backend/convex/models/teamDecisions.ts
+  - packages/backend/convex/models/gaaTestMutations.ts
+  - packages/backend/convex/models/playerInjuries.ts
+  - packages/backend/convex/models/voiceNoteInsights.ts
+  - packages/backend/convex/models/playerEmergencyContacts.ts
+  - packages/backend/convex/models/coachTasks.ts
+  **Action**: Add `getUserOrgRole()` or mark as `// @public`
+- 🚨 **CRITICAL [P9]**: XSS risk - dangerouslySetInnerHTML without sanitization:
+    apps/web/src/components/ui/confetti.tsx:        dangerouslySetInnerHTML={{
+  apps/web/src/components/ui/chart.tsx:      dangerouslySetInnerHTML={{
+  apps/web/src/components/onboarding/gdpr-policy-viewer.tsx: * Uses dangerouslySetInnerHTML to avoid React key issues with static content.
+  **Action**: Use DOMPurify or remove dangerouslySetInnerHTML
+- ⚠️ **HIGH [P9]**: No rate limiting on notification/activity endpoints:
+  - packages/backend/convex/models/demoAsks.ts
+  **Action**: Add rate limiting to prevent spam/abuse
+- ⚠️ **HIGH [P9]**: AI endpoints without input validation:
+  - packages/backend/convex/actions/aiMapping.ts
+  - packages/backend/convex/actions/claimsExtraction.ts
+  - packages/backend/convex/actions/coachParentSummaries.ts
+  - packages/backend/convex/actions/practicePlans.ts
+  - packages/backend/convex/actions/sessionPlans.ts
+  - packages/backend/convex/actions/voiceNotes.ts
+  - packages/backend/convex/actions/wellnessInsights.ts
+  - packages/backend/convex/models/aiServiceHealth.ts
+  **Action**: Validate/sanitize user input before AI prompts
+- ⚠️ **HIGH [P9]**: Notification functions without permission checks:
+  - packages/backend/convex/models/notifications.ts
+  **Action**: Verify user can send notifications to recipient
+
+
+## Security Tester - 2026-02-26 01:01:50
+- 🚨 **CRITICAL**: Hardcoded secrets detected
+```
+apps/web/src/app/api/ai-config/verify-model/route.ts:          errorMessage: "ANTHROPIC_API_KEY not configured in Next.js env",
+apps/web/src/app/api/ai-config/verify-model/route.ts:          errorMessage: "OPENAI_API_KEY not configured in Next.js env",
+apps/web/src/app/api/ai-config/available-models/route.ts:    errors.anthropic = "ANTHROPIC_API_KEY not configured";
+apps/web/src/app/api/ai-config/available-models/route.ts:    errors.openai = "OPENAI_API_KEY not configured";
+apps/web/src/app/api/comparison-insights/route.ts:      console.error("❌ ANTHROPIC_API_KEY not found in environment variables");
+```
+- ⚠️ **HIGH**: 6 high-severity dependency vulnerabilities
+  Run `npm audit fix` to resolve
+- ⚠️ **HIGH**: Mutations without authorization checks:
+  - packages/backend/convex/models/platformMessagingSettings.ts
+  - packages/backend/convex/models/syncQueue.ts
+  - packages/backend/convex/models/importSessions.ts
+  - packages/backend/convex/models/passportComparison.ts
+  - packages/backend/convex/models/trustGatePermissions.ts
+  - packages/backend/convex/models/ageGroupEligibilityOverrides.ts
+  - packages/backend/convex/models/federationConnectors.ts
+  - packages/backend/convex/models/teamCollaboration.ts
+  - packages/backend/convex/models/guardianIdentities.ts
+  - packages/backend/convex/models/sessionPlans.ts
+  - packages/backend/convex/models/adultPlayers.ts
+  - packages/backend/convex/models/demoAsks.ts
+  - packages/backend/convex/models/skillBenchmarks.ts
+  - packages/backend/convex/models/coaches.ts
+  - packages/backend/convex/models/medicalProfiles.ts
+  - packages/backend/convex/models/invitations.ts
+  - packages/backend/convex/models/flows.ts
+  - packages/backend/convex/models/notifications.ts
+  - packages/backend/convex/models/whatsappReviewLinks.ts
+  - packages/backend/convex/models/teamObservations.ts
+  - packages/backend/convex/models/passportGoals.ts
+  - packages/backend/convex/models/players.ts
+  - packages/backend/convex/models/aiMappingCache.ts
+  - packages/backend/convex/models/orgInjuryNotes.ts
+  - packages/backend/convex/models/injuryDocuments.ts
+  - packages/backend/convex/models/playerHealthChecks.ts
+  - packages/backend/convex/models/playerImport.ts
+  - packages/backend/convex/models/passportEnquiries.ts
+  - packages/backend/convex/models/setup.ts
+  - packages/backend/convex/models/teamPlayerIdentities.ts
+  - packages/backend/convex/models/rateLimits.ts
+  - packages/backend/convex/models/phase4TestCleanup.ts
+  - packages/backend/convex/models/syncHistory.ts
+  - packages/backend/convex/models/platformStaffInvitations.ts
+  - packages/backend/convex/models/coachParentMessages.ts
+  - packages/backend/convex/models/aiModelConfig.ts
+  - packages/backend/convex/models/voicePipelineAlerts.ts
+  - packages/backend/convex/models/aiMappingAnalytics.ts
+  - packages/backend/convex/models/orgPlayerEnrollments.ts
+  - packages/backend/convex/models/sportPassports.ts
+  - packages/backend/convex/models/orgJoinRequests.ts
+  - packages/backend/convex/models/sportAgeGroupConfig.ts
+  - packages/backend/convex/models/referenceData.ts
+  - packages/backend/convex/models/importMappingHistory.ts
+  - packages/backend/convex/models/notificationPreferences.ts
+  - packages/backend/convex/models/userPreferences.ts
+  - packages/backend/convex/models/teams.ts
+  - packages/backend/convex/models/gdpr.ts
+  - packages/backend/convex/models/userProfiles.ts
+  - packages/backend/convex/models/emergencyContacts.ts
+  - packages/backend/convex/models/coachTrustLevels.ts
+  - packages/backend/convex/models/coachParentSummaries.ts
+  - packages/backend/convex/models/onboarding.ts
+  - packages/backend/convex/models/guardianPlayerLinks.ts
+  - packages/backend/convex/models/orgGuardianProfiles.ts
+  - packages/backend/convex/models/passportSharing.ts
+  - packages/backend/convex/models/playerGraduations.ts
+  - packages/backend/convex/models/members.ts
+  - packages/backend/convex/models/voiceNoteEntityResolutions.ts
+  - packages/backend/convex/models/users.ts
+  - packages/backend/convex/models/voicePipelineRetry.ts
+  - packages/backend/convex/models/skillAssessments.ts
+  - packages/backend/convex/models/playerSelfAccess.ts
+  - packages/backend/convex/models/aiServiceHealth.ts
+  - packages/backend/convex/models/importTemplates.ts
+  - packages/backend/convex/models/sports.ts
+  - packages/backend/convex/models/importProgress.ts
+  - packages/backend/convex/models/fixNeilsRoles.ts
+  - packages/backend/convex/models/playerIdentities.ts
+  - packages/backend/convex/models/voiceNotes.ts
+  - packages/backend/convex/models/guardianManagement.ts
+  - packages/backend/convex/models/importTemplateSeeds.ts
+  - packages/backend/convex/models/insightDrafts.ts
+  - packages/backend/convex/models/importSessionDrafts.ts
+  - packages/backend/convex/models/teamDecisions.ts
+  - packages/backend/convex/models/gaaTestMutations.ts
+  - packages/backend/convex/models/playerInjuries.ts
+  - packages/backend/convex/models/voiceNoteInsights.ts
+  - packages/backend/convex/models/playerEmergencyContacts.ts
+  - packages/backend/convex/models/coachTasks.ts
+  **Action**: Add `getUserOrgRole()` or mark as `// @public`
+- 🚨 **CRITICAL [P9]**: XSS risk - dangerouslySetInnerHTML without sanitization:
+    apps/web/src/components/ui/confetti.tsx:        dangerouslySetInnerHTML={{
+  apps/web/src/components/ui/chart.tsx:      dangerouslySetInnerHTML={{
+  apps/web/src/components/onboarding/gdpr-policy-viewer.tsx: * Uses dangerouslySetInnerHTML to avoid React key issues with static content.
+  **Action**: Use DOMPurify or remove dangerouslySetInnerHTML
+- ⚠️ **HIGH [P9]**: No rate limiting on notification/activity endpoints:
+  - packages/backend/convex/models/demoAsks.ts
+  **Action**: Add rate limiting to prevent spam/abuse
+- ⚠️ **HIGH [P9]**: AI endpoints without input validation:
+  - packages/backend/convex/actions/aiMapping.ts
+  - packages/backend/convex/actions/claimsExtraction.ts
+  - packages/backend/convex/actions/coachParentSummaries.ts
+  - packages/backend/convex/actions/practicePlans.ts
+  - packages/backend/convex/actions/sessionPlans.ts
+  - packages/backend/convex/actions/voiceNotes.ts
+  - packages/backend/convex/actions/wellnessInsights.ts
+  - packages/backend/convex/models/aiServiceHealth.ts
+  **Action**: Validate/sanitize user input before AI prompts
+- ⚠️ **HIGH [P9]**: Notification functions without permission checks:
+  - packages/backend/convex/models/notifications.ts
+  **Action**: Verify user can send notifications to recipient
+
+
+## Auto Quality Check - 2026-02-26 01:02:21
+### File: /Users/jkobrien/code/PDP/packages/backend/convex/models/coachParentSummaries.ts
+
+- ❌ **CRITICAL: Better Auth adapter violation**
+  - **Problem:** Direct DB access to auth tables
+  - **Fix:** Use `ctx.runQuery(components.betterAuth.adapter.findOne, {...})`
+
+
+## Auto Quality Check - 2026-02-26 01:02:21
+### File: /Users/jkobrien/code/PDP/packages/backend/convex/models/coachParentSummaries.ts
+
+- ⚠️ **Performance: .filter() usage detected**
+  - **Problem:** Should use .withIndex() for better performance
+  - **Fix:** Replace `.query().filter()` with `.query().withIndex()`
+
+
+## Auto Quality Check - 2026-02-26 01:02:21
+### File: /Users/jkobrien/code/PDP/packages/backend/convex/models/coachParentSummaries.ts
+
+- ❌ **CRITICAL: N+1 query pattern detected**
+  - **Problem:** `Promise.all(items.map(async => query))` makes N database calls
+  - **Fix:** Batch fetch all IDs first, create Map for O(1) lookup
+
+
+## Auto Quality Check - 2026-02-26 01:03:02
+### File: /Users/jkobrien/code/PDP/packages/backend/convex/models/playerDataExport.ts
+
+- ⚠️ **Performance: .filter() usage detected**
+  - **Problem:** Should use .withIndex() for better performance
+  - **Fix:** Replace `.query().filter()` with `.query().withIndex()`
+
+
+## Auto Quality Check - 2026-02-26 01:03:24
+### File: /Users/jkobrien/code/PDP/packages/backend/convex/models/playerDataExport.ts
+
+- ⚠️ **Performance: .filter() usage detected**
+  - **Problem:** Should use .withIndex() for better performance
+  - **Fix:** Replace `.query().filter()` with `.query().withIndex()`
+
+
+## Auto Quality Check - 2026-02-26 01:03:31
+### File: /Users/jkobrien/code/PDP/packages/backend/convex/models/sportPassports.ts
+
+- ❌ **CRITICAL: Better Auth adapter violation**
+  - **Problem:** Direct DB access to auth tables
+  - **Fix:** Use `ctx.runQuery(components.betterAuth.adapter.findOne, {...})`
+
+
+## Auto Quality Check - 2026-02-26 01:03:31
+### File: /Users/jkobrien/code/PDP/packages/backend/convex/models/sportPassports.ts
+
+- ⚠️ **Performance: .filter() usage detected**
+  - **Problem:** Should use .withIndex() for better performance
+  - **Fix:** Replace `.query().filter()` with `.query().withIndex()`
+
+
+## Security Tester - 2026-02-26 01:03:52
+- 🚨 **CRITICAL**: Hardcoded secrets detected
+```
+apps/web/src/app/api/ai-config/verify-model/route.ts:          errorMessage: "ANTHROPIC_API_KEY not configured in Next.js env",
+apps/web/src/app/api/ai-config/verify-model/route.ts:          errorMessage: "OPENAI_API_KEY not configured in Next.js env",
+apps/web/src/app/api/ai-config/available-models/route.ts:    errors.anthropic = "ANTHROPIC_API_KEY not configured";
+apps/web/src/app/api/ai-config/available-models/route.ts:    errors.openai = "OPENAI_API_KEY not configured";
+apps/web/src/app/api/comparison-insights/route.ts:      console.error("❌ ANTHROPIC_API_KEY not found in environment variables");
+```
+- ⚠️ **HIGH**: 6 high-severity dependency vulnerabilities
+  Run `npm audit fix` to resolve
+- ⚠️ **HIGH**: Mutations without authorization checks:
+  - packages/backend/convex/models/platformMessagingSettings.ts
+  - packages/backend/convex/models/syncQueue.ts
+  - packages/backend/convex/models/importSessions.ts
+  - packages/backend/convex/models/passportComparison.ts
+  - packages/backend/convex/models/trustGatePermissions.ts
+  - packages/backend/convex/models/ageGroupEligibilityOverrides.ts
+  - packages/backend/convex/models/federationConnectors.ts
+  - packages/backend/convex/models/teamCollaboration.ts
+  - packages/backend/convex/models/guardianIdentities.ts
+  - packages/backend/convex/models/sessionPlans.ts
+  - packages/backend/convex/models/adultPlayers.ts
+  - packages/backend/convex/models/demoAsks.ts
+  - packages/backend/convex/models/skillBenchmarks.ts
+  - packages/backend/convex/models/coaches.ts
+  - packages/backend/convex/models/medicalProfiles.ts
+  - packages/backend/convex/models/invitations.ts
+  - packages/backend/convex/models/flows.ts
+  - packages/backend/convex/models/notifications.ts
+  - packages/backend/convex/models/whatsappReviewLinks.ts
+  - packages/backend/convex/models/teamObservations.ts
+  - packages/backend/convex/models/passportGoals.ts
+  - packages/backend/convex/models/players.ts
+  - packages/backend/convex/models/aiMappingCache.ts
+  - packages/backend/convex/models/orgInjuryNotes.ts
+  - packages/backend/convex/models/injuryDocuments.ts
+  - packages/backend/convex/models/playerHealthChecks.ts
+  - packages/backend/convex/models/playerImport.ts
+  - packages/backend/convex/models/passportEnquiries.ts
+  - packages/backend/convex/models/setup.ts
+  - packages/backend/convex/models/teamPlayerIdentities.ts
+  - packages/backend/convex/models/rateLimits.ts
+  - packages/backend/convex/models/phase4TestCleanup.ts
+  - packages/backend/convex/models/syncHistory.ts
+  - packages/backend/convex/models/platformStaffInvitations.ts
+  - packages/backend/convex/models/coachParentMessages.ts
+  - packages/backend/convex/models/aiModelConfig.ts
+  - packages/backend/convex/models/voicePipelineAlerts.ts
+  - packages/backend/convex/models/aiMappingAnalytics.ts
+  - packages/backend/convex/models/orgPlayerEnrollments.ts
+  - packages/backend/convex/models/sportPassports.ts
+  - packages/backend/convex/models/orgJoinRequests.ts
+  - packages/backend/convex/models/sportAgeGroupConfig.ts
+  - packages/backend/convex/models/referenceData.ts
+  - packages/backend/convex/models/importMappingHistory.ts
+  - packages/backend/convex/models/notificationPreferences.ts
+  - packages/backend/convex/models/userPreferences.ts
+  - packages/backend/convex/models/teams.ts
+  - packages/backend/convex/models/gdpr.ts
+  - packages/backend/convex/models/userProfiles.ts
+  - packages/backend/convex/models/emergencyContacts.ts
+  - packages/backend/convex/models/coachTrustLevels.ts
+  - packages/backend/convex/models/coachParentSummaries.ts
+  - packages/backend/convex/models/onboarding.ts
+  - packages/backend/convex/models/guardianPlayerLinks.ts
+  - packages/backend/convex/models/orgGuardianProfiles.ts
+  - packages/backend/convex/models/passportSharing.ts
+  - packages/backend/convex/models/playerGraduations.ts
+  - packages/backend/convex/models/members.ts
+  - packages/backend/convex/models/voiceNoteEntityResolutions.ts
+  - packages/backend/convex/models/users.ts
+  - packages/backend/convex/models/voicePipelineRetry.ts
+  - packages/backend/convex/models/skillAssessments.ts
+  - packages/backend/convex/models/playerSelfAccess.ts
+  - packages/backend/convex/models/aiServiceHealth.ts
+  - packages/backend/convex/models/importTemplates.ts
+  - packages/backend/convex/models/sports.ts
+  - packages/backend/convex/models/importProgress.ts
+  - packages/backend/convex/models/fixNeilsRoles.ts
+  - packages/backend/convex/models/playerIdentities.ts
+  - packages/backend/convex/models/voiceNotes.ts
+  - packages/backend/convex/models/guardianManagement.ts
+  - packages/backend/convex/models/importTemplateSeeds.ts
+  - packages/backend/convex/models/insightDrafts.ts
+  - packages/backend/convex/models/importSessionDrafts.ts
+  - packages/backend/convex/models/teamDecisions.ts
+  - packages/backend/convex/models/gaaTestMutations.ts
+  - packages/backend/convex/models/playerInjuries.ts
+  - packages/backend/convex/models/voiceNoteInsights.ts
+  - packages/backend/convex/models/playerEmergencyContacts.ts
+  - packages/backend/convex/models/coachTasks.ts
+  **Action**: Add `getUserOrgRole()` or mark as `// @public`
+- 🚨 **CRITICAL [P9]**: XSS risk - dangerouslySetInnerHTML without sanitization:
+    apps/web/src/components/ui/confetti.tsx:        dangerouslySetInnerHTML={{
+  apps/web/src/components/ui/chart.tsx:      dangerouslySetInnerHTML={{
+  apps/web/src/components/onboarding/gdpr-policy-viewer.tsx: * Uses dangerouslySetInnerHTML to avoid React key issues with static content.
+  **Action**: Use DOMPurify or remove dangerouslySetInnerHTML
+- ⚠️ **HIGH [P9]**: No rate limiting on notification/activity endpoints:
+  - packages/backend/convex/models/demoAsks.ts
+  **Action**: Add rate limiting to prevent spam/abuse
+- ⚠️ **HIGH [P9]**: AI endpoints without input validation:
+  - packages/backend/convex/actions/aiMapping.ts
+  - packages/backend/convex/actions/claimsExtraction.ts
+  - packages/backend/convex/actions/coachParentSummaries.ts
+  - packages/backend/convex/actions/practicePlans.ts
+  - packages/backend/convex/actions/sessionPlans.ts
+  - packages/backend/convex/actions/voiceNotes.ts
+  - packages/backend/convex/actions/wellnessInsights.ts
+  - packages/backend/convex/models/aiServiceHealth.ts
+  **Action**: Validate/sanitize user input before AI prompts
+- ⚠️ **HIGH [P9]**: Notification functions without permission checks:
+  - packages/backend/convex/models/notifications.ts
+  **Action**: Verify user can send notifications to recipient
+
+
+## Auto Quality Check - 2026-02-26 01:04:00
+### File: /Users/jkobrien/code/PDP/packages/backend/convex/models/coachParentSummaries.ts
+
+- ❌ **CRITICAL: Better Auth adapter violation**
+  - **Problem:** Direct DB access to auth tables
+  - **Fix:** Use `ctx.runQuery(components.betterAuth.adapter.findOne, {...})`
+
+
+## Auto Quality Check - 2026-02-26 01:04:00
+### File: /Users/jkobrien/code/PDP/packages/backend/convex/models/coachParentSummaries.ts
+
+- ⚠️ **Performance: .filter() usage detected**
+  - **Problem:** Should use .withIndex() for better performance
+  - **Fix:** Replace `.query().filter()` with `.query().withIndex()`
+
+
+## Auto Quality Check - 2026-02-26 01:04:00
+### File: /Users/jkobrien/code/PDP/packages/backend/convex/models/coachParentSummaries.ts
+
+- ❌ **CRITICAL: N+1 query pattern detected**
+  - **Problem:** `Promise.all(items.map(async => query))` makes N database calls
+  - **Fix:** Batch fetch all IDs first, create Map for O(1) lookup
+
+
+## Auto Quality Check - 2026-02-26 01:05:08
+### File: /Users/jkobrien/code/PDP/packages/backend/convex/models/sportPassports.ts
+
+- ❌ **CRITICAL: Better Auth adapter violation**
+  - **Problem:** Direct DB access to auth tables
+  - **Fix:** Use `ctx.runQuery(components.betterAuth.adapter.findOne, {...})`
+
+
+## Auto Quality Check - 2026-02-26 01:05:08
+### File: /Users/jkobrien/code/PDP/packages/backend/convex/models/sportPassports.ts
+
+- ⚠️ **Performance: .filter() usage detected**
+  - **Problem:** Should use .withIndex() for better performance
+  - **Fix:** Replace `.query().filter()` with `.query().withIndex()`
+
+
+## Auto Quality Check - 2026-02-26 01:05:25
+### File: /Users/jkobrien/code/PDP/packages/backend/convex/models/playerInjuries.ts
+
+- ❌ **CRITICAL: Better Auth adapter violation**
+  - **Problem:** Direct DB access to auth tables
+  - **Fix:** Use `ctx.runQuery(components.betterAuth.adapter.findOne, {...})`
+
+
+## Auto Quality Check - 2026-02-26 01:05:25
+### File: /Users/jkobrien/code/PDP/packages/backend/convex/models/playerInjuries.ts
+
+- ⚠️ **Performance: .filter() usage detected**
+  - **Problem:** Should use .withIndex() for better performance
+  - **Fix:** Replace `.query().filter()` with `.query().withIndex()`
+
+
+## Security Tester - 2026-02-26 01:05:56
+- 🚨 **CRITICAL**: Hardcoded secrets detected
+```
+apps/web/src/app/api/ai-config/verify-model/route.ts:          errorMessage: "ANTHROPIC_API_KEY not configured in Next.js env",
+apps/web/src/app/api/ai-config/verify-model/route.ts:          errorMessage: "OPENAI_API_KEY not configured in Next.js env",
+apps/web/src/app/api/ai-config/available-models/route.ts:    errors.anthropic = "ANTHROPIC_API_KEY not configured";
+apps/web/src/app/api/ai-config/available-models/route.ts:    errors.openai = "OPENAI_API_KEY not configured";
+apps/web/src/app/api/comparison-insights/route.ts:      console.error("❌ ANTHROPIC_API_KEY not found in environment variables");
+```
+- ⚠️ **HIGH**: 6 high-severity dependency vulnerabilities
+  Run `npm audit fix` to resolve
+- ⚠️ **HIGH**: Mutations without authorization checks:
+  - packages/backend/convex/models/platformMessagingSettings.ts
+  - packages/backend/convex/models/syncQueue.ts
+  - packages/backend/convex/models/importSessions.ts
+  - packages/backend/convex/models/passportComparison.ts
+  - packages/backend/convex/models/trustGatePermissions.ts
+  - packages/backend/convex/models/ageGroupEligibilityOverrides.ts
+  - packages/backend/convex/models/federationConnectors.ts
+  - packages/backend/convex/models/teamCollaboration.ts
+  - packages/backend/convex/models/guardianIdentities.ts
+  - packages/backend/convex/models/sessionPlans.ts
+  - packages/backend/convex/models/adultPlayers.ts
+  - packages/backend/convex/models/demoAsks.ts
+  - packages/backend/convex/models/skillBenchmarks.ts
+  - packages/backend/convex/models/coaches.ts
+  - packages/backend/convex/models/medicalProfiles.ts
+  - packages/backend/convex/models/invitations.ts
+  - packages/backend/convex/models/flows.ts
+  - packages/backend/convex/models/notifications.ts
+  - packages/backend/convex/models/whatsappReviewLinks.ts
+  - packages/backend/convex/models/teamObservations.ts
+  - packages/backend/convex/models/passportGoals.ts
+  - packages/backend/convex/models/players.ts
+  - packages/backend/convex/models/aiMappingCache.ts
+  - packages/backend/convex/models/orgInjuryNotes.ts
+  - packages/backend/convex/models/injuryDocuments.ts
+  - packages/backend/convex/models/playerHealthChecks.ts
+  - packages/backend/convex/models/playerImport.ts
+  - packages/backend/convex/models/passportEnquiries.ts
+  - packages/backend/convex/models/setup.ts
+  - packages/backend/convex/models/teamPlayerIdentities.ts
+  - packages/backend/convex/models/rateLimits.ts
+  - packages/backend/convex/models/phase4TestCleanup.ts
+  - packages/backend/convex/models/syncHistory.ts
+  - packages/backend/convex/models/platformStaffInvitations.ts
+  - packages/backend/convex/models/coachParentMessages.ts
+  - packages/backend/convex/models/aiModelConfig.ts
+  - packages/backend/convex/models/voicePipelineAlerts.ts
+  - packages/backend/convex/models/aiMappingAnalytics.ts
+  - packages/backend/convex/models/orgPlayerEnrollments.ts
+  - packages/backend/convex/models/sportPassports.ts
+  - packages/backend/convex/models/orgJoinRequests.ts
+  - packages/backend/convex/models/sportAgeGroupConfig.ts
+  - packages/backend/convex/models/referenceData.ts
+  - packages/backend/convex/models/importMappingHistory.ts
+  - packages/backend/convex/models/notificationPreferences.ts
+  - packages/backend/convex/models/userPreferences.ts
+  - packages/backend/convex/models/teams.ts
+  - packages/backend/convex/models/gdpr.ts
+  - packages/backend/convex/models/userProfiles.ts
+  - packages/backend/convex/models/emergencyContacts.ts
+  - packages/backend/convex/models/coachTrustLevels.ts
+  - packages/backend/convex/models/coachParentSummaries.ts
+  - packages/backend/convex/models/onboarding.ts
+  - packages/backend/convex/models/guardianPlayerLinks.ts
+  - packages/backend/convex/models/orgGuardianProfiles.ts
+  - packages/backend/convex/models/passportSharing.ts
+  - packages/backend/convex/models/playerGraduations.ts
+  - packages/backend/convex/models/members.ts
+  - packages/backend/convex/models/voiceNoteEntityResolutions.ts
+  - packages/backend/convex/models/users.ts
+  - packages/backend/convex/models/voicePipelineRetry.ts
+  - packages/backend/convex/models/skillAssessments.ts
+  - packages/backend/convex/models/playerSelfAccess.ts
+  - packages/backend/convex/models/aiServiceHealth.ts
+  - packages/backend/convex/models/importTemplates.ts
+  - packages/backend/convex/models/sports.ts
+  - packages/backend/convex/models/importProgress.ts
+  - packages/backend/convex/models/fixNeilsRoles.ts
+  - packages/backend/convex/models/playerIdentities.ts
+  - packages/backend/convex/models/voiceNotes.ts
+  - packages/backend/convex/models/guardianManagement.ts
+  - packages/backend/convex/models/importTemplateSeeds.ts
+  - packages/backend/convex/models/insightDrafts.ts
+  - packages/backend/convex/models/importSessionDrafts.ts
+  - packages/backend/convex/models/teamDecisions.ts
+  - packages/backend/convex/models/gaaTestMutations.ts
+  - packages/backend/convex/models/playerInjuries.ts
+  - packages/backend/convex/models/voiceNoteInsights.ts
+  - packages/backend/convex/models/playerEmergencyContacts.ts
+  - packages/backend/convex/models/coachTasks.ts
+  **Action**: Add `getUserOrgRole()` or mark as `// @public`
+- 🚨 **CRITICAL [P9]**: XSS risk - dangerouslySetInnerHTML without sanitization:
+    apps/web/src/components/ui/confetti.tsx:        dangerouslySetInnerHTML={{
+  apps/web/src/components/ui/chart.tsx:      dangerouslySetInnerHTML={{
+  apps/web/src/components/onboarding/gdpr-policy-viewer.tsx: * Uses dangerouslySetInnerHTML to avoid React key issues with static content.
+  **Action**: Use DOMPurify or remove dangerouslySetInnerHTML
+- ⚠️ **HIGH [P9]**: No rate limiting on notification/activity endpoints:
+  - packages/backend/convex/models/demoAsks.ts
+  **Action**: Add rate limiting to prevent spam/abuse
+- ⚠️ **HIGH [P9]**: AI endpoints without input validation:
+  - packages/backend/convex/actions/aiMapping.ts
+  - packages/backend/convex/actions/claimsExtraction.ts
+  - packages/backend/convex/actions/coachParentSummaries.ts
+  - packages/backend/convex/actions/practicePlans.ts
+  - packages/backend/convex/actions/sessionPlans.ts
+  - packages/backend/convex/actions/voiceNotes.ts
+  - packages/backend/convex/actions/wellnessInsights.ts
+  - packages/backend/convex/models/aiServiceHealth.ts
+  **Action**: Validate/sanitize user input before AI prompts
+- ⚠️ **HIGH [P9]**: Notification functions without permission checks:
+  - packages/backend/convex/models/notifications.ts
+  **Action**: Verify user can send notifications to recipient
+
+
+## Security Tester - 2026-02-26 01:08:00
+- 🚨 **CRITICAL**: Hardcoded secrets detected
+```
+apps/web/src/app/api/ai-config/verify-model/route.ts:          errorMessage: "ANTHROPIC_API_KEY not configured in Next.js env",
+apps/web/src/app/api/ai-config/verify-model/route.ts:          errorMessage: "OPENAI_API_KEY not configured in Next.js env",
+apps/web/src/app/api/ai-config/available-models/route.ts:    errors.anthropic = "ANTHROPIC_API_KEY not configured";
+apps/web/src/app/api/ai-config/available-models/route.ts:    errors.openai = "OPENAI_API_KEY not configured";
+apps/web/src/app/api/comparison-insights/route.ts:      console.error("❌ ANTHROPIC_API_KEY not found in environment variables");
+```
+- ⚠️ **HIGH**: 6 high-severity dependency vulnerabilities
+  Run `npm audit fix` to resolve
+- ⚠️ **HIGH**: Mutations without authorization checks:
+  - packages/backend/convex/models/platformMessagingSettings.ts
+  - packages/backend/convex/models/syncQueue.ts
+  - packages/backend/convex/models/importSessions.ts
+  - packages/backend/convex/models/passportComparison.ts
+  - packages/backend/convex/models/trustGatePermissions.ts
+  - packages/backend/convex/models/ageGroupEligibilityOverrides.ts
+  - packages/backend/convex/models/federationConnectors.ts
+  - packages/backend/convex/models/teamCollaboration.ts
+  - packages/backend/convex/models/guardianIdentities.ts
+  - packages/backend/convex/models/sessionPlans.ts
+  - packages/backend/convex/models/adultPlayers.ts
+  - packages/backend/convex/models/demoAsks.ts
+  - packages/backend/convex/models/skillBenchmarks.ts
+  - packages/backend/convex/models/coaches.ts
+  - packages/backend/convex/models/medicalProfiles.ts
+  - packages/backend/convex/models/invitations.ts
+  - packages/backend/convex/models/flows.ts
+  - packages/backend/convex/models/notifications.ts
+  - packages/backend/convex/models/whatsappReviewLinks.ts
+  - packages/backend/convex/models/teamObservations.ts
+  - packages/backend/convex/models/passportGoals.ts
+  - packages/backend/convex/models/players.ts
+  - packages/backend/convex/models/aiMappingCache.ts
+  - packages/backend/convex/models/orgInjuryNotes.ts
+  - packages/backend/convex/models/injuryDocuments.ts
+  - packages/backend/convex/models/playerHealthChecks.ts
+  - packages/backend/convex/models/playerImport.ts
+  - packages/backend/convex/models/passportEnquiries.ts
+  - packages/backend/convex/models/setup.ts
+  - packages/backend/convex/models/teamPlayerIdentities.ts
+  - packages/backend/convex/models/rateLimits.ts
+  - packages/backend/convex/models/phase4TestCleanup.ts
+  - packages/backend/convex/models/syncHistory.ts
+  - packages/backend/convex/models/platformStaffInvitations.ts
+  - packages/backend/convex/models/coachParentMessages.ts
+  - packages/backend/convex/models/aiModelConfig.ts
+  - packages/backend/convex/models/voicePipelineAlerts.ts
+  - packages/backend/convex/models/aiMappingAnalytics.ts
+  - packages/backend/convex/models/orgPlayerEnrollments.ts
+  - packages/backend/convex/models/sportPassports.ts
+  - packages/backend/convex/models/orgJoinRequests.ts
+  - packages/backend/convex/models/sportAgeGroupConfig.ts
+  - packages/backend/convex/models/referenceData.ts
+  - packages/backend/convex/models/importMappingHistory.ts
+  - packages/backend/convex/models/notificationPreferences.ts
+  - packages/backend/convex/models/userPreferences.ts
+  - packages/backend/convex/models/teams.ts
+  - packages/backend/convex/models/gdpr.ts
+  - packages/backend/convex/models/userProfiles.ts
+  - packages/backend/convex/models/emergencyContacts.ts
+  - packages/backend/convex/models/coachTrustLevels.ts
+  - packages/backend/convex/models/coachParentSummaries.ts
+  - packages/backend/convex/models/onboarding.ts
+  - packages/backend/convex/models/guardianPlayerLinks.ts
+  - packages/backend/convex/models/orgGuardianProfiles.ts
+  - packages/backend/convex/models/passportSharing.ts
+  - packages/backend/convex/models/playerGraduations.ts
+  - packages/backend/convex/models/members.ts
+  - packages/backend/convex/models/voiceNoteEntityResolutions.ts
+  - packages/backend/convex/models/users.ts
+  - packages/backend/convex/models/voicePipelineRetry.ts
+  - packages/backend/convex/models/skillAssessments.ts
+  - packages/backend/convex/models/playerSelfAccess.ts
+  - packages/backend/convex/models/aiServiceHealth.ts
+  - packages/backend/convex/models/importTemplates.ts
+  - packages/backend/convex/models/sports.ts
+  - packages/backend/convex/models/importProgress.ts
+  - packages/backend/convex/models/fixNeilsRoles.ts
+  - packages/backend/convex/models/playerIdentities.ts
+  - packages/backend/convex/models/voiceNotes.ts
+  - packages/backend/convex/models/guardianManagement.ts
+  - packages/backend/convex/models/importTemplateSeeds.ts
+  - packages/backend/convex/models/insightDrafts.ts
+  - packages/backend/convex/models/importSessionDrafts.ts
+  - packages/backend/convex/models/teamDecisions.ts
+  - packages/backend/convex/models/gaaTestMutations.ts
+  - packages/backend/convex/models/playerInjuries.ts
+  - packages/backend/convex/models/voiceNoteInsights.ts
+  - packages/backend/convex/models/playerEmergencyContacts.ts
+  - packages/backend/convex/models/coachTasks.ts
+  **Action**: Add `getUserOrgRole()` or mark as `// @public`
+- 🚨 **CRITICAL [P9]**: XSS risk - dangerouslySetInnerHTML without sanitization:
+    apps/web/src/components/ui/confetti.tsx:        dangerouslySetInnerHTML={{
+  apps/web/src/components/ui/chart.tsx:      dangerouslySetInnerHTML={{
+  apps/web/src/components/onboarding/gdpr-policy-viewer.tsx: * Uses dangerouslySetInnerHTML to avoid React key issues with static content.
+  **Action**: Use DOMPurify or remove dangerouslySetInnerHTML
+- ⚠️ **HIGH [P9]**: No rate limiting on notification/activity endpoints:
+  - packages/backend/convex/models/demoAsks.ts
+  **Action**: Add rate limiting to prevent spam/abuse
+- ⚠️ **HIGH [P9]**: AI endpoints without input validation:
+  - packages/backend/convex/actions/aiMapping.ts
+  - packages/backend/convex/actions/claimsExtraction.ts
+  - packages/backend/convex/actions/coachParentSummaries.ts
+  - packages/backend/convex/actions/practicePlans.ts
+  - packages/backend/convex/actions/sessionPlans.ts
+  - packages/backend/convex/actions/voiceNotes.ts
+  - packages/backend/convex/actions/wellnessInsights.ts
+  - packages/backend/convex/models/aiServiceHealth.ts
+  **Action**: Validate/sanitize user input before AI prompts
+- ⚠️ **HIGH [P9]**: Notification functions without permission checks:
+  - packages/backend/convex/models/notifications.ts
+  **Action**: Verify user can send notifications to recipient
+
+
+## Security Tester - 2026-02-26 01:10:03
+- 🚨 **CRITICAL**: Hardcoded secrets detected
+```
+apps/web/src/app/api/ai-config/verify-model/route.ts:          errorMessage: "ANTHROPIC_API_KEY not configured in Next.js env",
+apps/web/src/app/api/ai-config/verify-model/route.ts:          errorMessage: "OPENAI_API_KEY not configured in Next.js env",
+apps/web/src/app/api/ai-config/available-models/route.ts:    errors.anthropic = "ANTHROPIC_API_KEY not configured";
+apps/web/src/app/api/ai-config/available-models/route.ts:    errors.openai = "OPENAI_API_KEY not configured";
+apps/web/src/app/api/comparison-insights/route.ts:      console.error("❌ ANTHROPIC_API_KEY not found in environment variables");
+```
+- ⚠️ **HIGH**: 6 high-severity dependency vulnerabilities
+  Run `npm audit fix` to resolve
+- ⚠️ **HIGH**: Mutations without authorization checks:
+  - packages/backend/convex/models/platformMessagingSettings.ts
+  - packages/backend/convex/models/syncQueue.ts
+  - packages/backend/convex/models/importSessions.ts
+  - packages/backend/convex/models/passportComparison.ts
+  - packages/backend/convex/models/trustGatePermissions.ts
+  - packages/backend/convex/models/ageGroupEligibilityOverrides.ts
+  - packages/backend/convex/models/federationConnectors.ts
+  - packages/backend/convex/models/teamCollaboration.ts
+  - packages/backend/convex/models/guardianIdentities.ts
+  - packages/backend/convex/models/sessionPlans.ts
+  - packages/backend/convex/models/adultPlayers.ts
+  - packages/backend/convex/models/demoAsks.ts
+  - packages/backend/convex/models/skillBenchmarks.ts
+  - packages/backend/convex/models/coaches.ts
+  - packages/backend/convex/models/medicalProfiles.ts
+  - packages/backend/convex/models/invitations.ts
+  - packages/backend/convex/models/flows.ts
+  - packages/backend/convex/models/notifications.ts
+  - packages/backend/convex/models/whatsappReviewLinks.ts
+  - packages/backend/convex/models/teamObservations.ts
+  - packages/backend/convex/models/passportGoals.ts
+  - packages/backend/convex/models/players.ts
+  - packages/backend/convex/models/aiMappingCache.ts
+  - packages/backend/convex/models/orgInjuryNotes.ts
+  - packages/backend/convex/models/injuryDocuments.ts
+  - packages/backend/convex/models/playerHealthChecks.ts
+  - packages/backend/convex/models/playerImport.ts
+  - packages/backend/convex/models/passportEnquiries.ts
+  - packages/backend/convex/models/setup.ts
+  - packages/backend/convex/models/teamPlayerIdentities.ts
+  - packages/backend/convex/models/rateLimits.ts
+  - packages/backend/convex/models/phase4TestCleanup.ts
+  - packages/backend/convex/models/syncHistory.ts
+  - packages/backend/convex/models/platformStaffInvitations.ts
+  - packages/backend/convex/models/coachParentMessages.ts
+  - packages/backend/convex/models/aiModelConfig.ts
+  - packages/backend/convex/models/voicePipelineAlerts.ts
+  - packages/backend/convex/models/aiMappingAnalytics.ts
+  - packages/backend/convex/models/orgPlayerEnrollments.ts
+  - packages/backend/convex/models/sportPassports.ts
+  - packages/backend/convex/models/orgJoinRequests.ts
+  - packages/backend/convex/models/sportAgeGroupConfig.ts
+  - packages/backend/convex/models/referenceData.ts
+  - packages/backend/convex/models/importMappingHistory.ts
+  - packages/backend/convex/models/notificationPreferences.ts
+  - packages/backend/convex/models/userPreferences.ts
+  - packages/backend/convex/models/teams.ts
+  - packages/backend/convex/models/gdpr.ts
+  - packages/backend/convex/models/userProfiles.ts
+  - packages/backend/convex/models/emergencyContacts.ts
+  - packages/backend/convex/models/coachTrustLevels.ts
+  - packages/backend/convex/models/coachParentSummaries.ts
+  - packages/backend/convex/models/onboarding.ts
+  - packages/backend/convex/models/guardianPlayerLinks.ts
+  - packages/backend/convex/models/orgGuardianProfiles.ts
+  - packages/backend/convex/models/passportSharing.ts
+  - packages/backend/convex/models/playerGraduations.ts
+  - packages/backend/convex/models/members.ts
+  - packages/backend/convex/models/voiceNoteEntityResolutions.ts
+  - packages/backend/convex/models/users.ts
+  - packages/backend/convex/models/voicePipelineRetry.ts
+  - packages/backend/convex/models/skillAssessments.ts
+  - packages/backend/convex/models/playerSelfAccess.ts
+  - packages/backend/convex/models/aiServiceHealth.ts
+  - packages/backend/convex/models/importTemplates.ts
+  - packages/backend/convex/models/sports.ts
+  - packages/backend/convex/models/importProgress.ts
+  - packages/backend/convex/models/fixNeilsRoles.ts
+  - packages/backend/convex/models/playerIdentities.ts
+  - packages/backend/convex/models/voiceNotes.ts
+  - packages/backend/convex/models/guardianManagement.ts
+  - packages/backend/convex/models/importTemplateSeeds.ts
+  - packages/backend/convex/models/insightDrafts.ts
+  - packages/backend/convex/models/importSessionDrafts.ts
+  - packages/backend/convex/models/teamDecisions.ts
+  - packages/backend/convex/models/gaaTestMutations.ts
+  - packages/backend/convex/models/playerInjuries.ts
+  - packages/backend/convex/models/voiceNoteInsights.ts
+  - packages/backend/convex/models/playerEmergencyContacts.ts
+  - packages/backend/convex/models/coachTasks.ts
+  **Action**: Add `getUserOrgRole()` or mark as `// @public`
+- 🚨 **CRITICAL [P9]**: XSS risk - dangerouslySetInnerHTML without sanitization:
+    apps/web/src/components/ui/confetti.tsx:        dangerouslySetInnerHTML={{
+  apps/web/src/components/ui/chart.tsx:      dangerouslySetInnerHTML={{
+  apps/web/src/components/onboarding/gdpr-policy-viewer.tsx: * Uses dangerouslySetInnerHTML to avoid React key issues with static content.
+  **Action**: Use DOMPurify or remove dangerouslySetInnerHTML
+- ⚠️ **HIGH [P9]**: No rate limiting on notification/activity endpoints:
+  - packages/backend/convex/models/demoAsks.ts
+  **Action**: Add rate limiting to prevent spam/abuse
+- ⚠️ **HIGH [P9]**: AI endpoints without input validation:
+  - packages/backend/convex/actions/aiMapping.ts
+  - packages/backend/convex/actions/claimsExtraction.ts
+  - packages/backend/convex/actions/coachParentSummaries.ts
+  - packages/backend/convex/actions/practicePlans.ts
+  - packages/backend/convex/actions/sessionPlans.ts
+  - packages/backend/convex/actions/voiceNotes.ts
+  - packages/backend/convex/actions/wellnessInsights.ts
+  - packages/backend/convex/models/aiServiceHealth.ts
+  **Action**: Validate/sanitize user input before AI prompts
+- ⚠️ **HIGH [P9]**: Notification functions without permission checks:
+  - packages/backend/convex/models/notifications.ts
+  **Action**: Verify user can send notifications to recipient
+
+
+## Auto Quality Check - 2026-02-26 01:11:45
+### File: /Users/jkobrien/code/PDP/packages/backend/convex/models/playerGraduations.ts
+
+- ❌ **CRITICAL: Better Auth adapter violation**
+  - **Problem:** Direct DB access to auth tables
+  - **Fix:** Use `ctx.runQuery(components.betterAuth.adapter.findOne, {...})`
+
+
+## Auto Quality Check - 2026-02-26 01:11:45
+### File: /Users/jkobrien/code/PDP/packages/backend/convex/models/playerGraduations.ts
+
+- ⚠️ **Performance: .filter() usage detected**
+  - **Problem:** Should use .withIndex() for better performance
+  - **Fix:** Replace `.query().filter()` with `.query().withIndex()`
+
+
+## Auto Quality Check - 2026-02-26 01:12:02
+### File: /Users/jkobrien/code/PDP/packages/backend/convex/models/playerGraduations.ts
+
+- ❌ **CRITICAL: Better Auth adapter violation**
+  - **Problem:** Direct DB access to auth tables
+  - **Fix:** Use `ctx.runQuery(components.betterAuth.adapter.findOne, {...})`
+
+
+## Auto Quality Check - 2026-02-26 01:12:02
+### File: /Users/jkobrien/code/PDP/packages/backend/convex/models/playerGraduations.ts
+
+- ⚠️ **Performance: .filter() usage detected**
+  - **Problem:** Should use .withIndex() for better performance
+  - **Fix:** Replace `.query().filter()` with `.query().withIndex()`
+
+
+## Auto Quality Check - 2026-02-26 01:12:02
+### File: /Users/jkobrien/code/PDP/packages/backend/convex/models/playerDataExport.ts
+
+- ⚠️ **Performance: .filter() usage detected**
+  - **Problem:** Should use .withIndex() for better performance
+  - **Fix:** Replace `.query().filter()` with `.query().withIndex()`
+
+
+## Security Tester - 2026-02-26 01:12:05
+- 🚨 **CRITICAL**: Hardcoded secrets detected
+```
+apps/web/src/app/api/ai-config/verify-model/route.ts:          errorMessage: "ANTHROPIC_API_KEY not configured in Next.js env",
+apps/web/src/app/api/ai-config/verify-model/route.ts:          errorMessage: "OPENAI_API_KEY not configured in Next.js env",
+apps/web/src/app/api/ai-config/available-models/route.ts:    errors.anthropic = "ANTHROPIC_API_KEY not configured";
+apps/web/src/app/api/ai-config/available-models/route.ts:    errors.openai = "OPENAI_API_KEY not configured";
+apps/web/src/app/api/comparison-insights/route.ts:      console.error("❌ ANTHROPIC_API_KEY not found in environment variables");
+```
+- ⚠️ **HIGH**: 6 high-severity dependency vulnerabilities
+  Run `npm audit fix` to resolve
+- ⚠️ **HIGH**: Mutations without authorization checks:
+  - packages/backend/convex/models/platformMessagingSettings.ts
+  - packages/backend/convex/models/syncQueue.ts
+  - packages/backend/convex/models/importSessions.ts
+  - packages/backend/convex/models/passportComparison.ts
+  - packages/backend/convex/models/trustGatePermissions.ts
+  - packages/backend/convex/models/ageGroupEligibilityOverrides.ts
+  - packages/backend/convex/models/federationConnectors.ts
+  - packages/backend/convex/models/teamCollaboration.ts
+  - packages/backend/convex/models/guardianIdentities.ts
+  - packages/backend/convex/models/sessionPlans.ts
+  - packages/backend/convex/models/adultPlayers.ts
+  - packages/backend/convex/models/demoAsks.ts
+  - packages/backend/convex/models/skillBenchmarks.ts
+  - packages/backend/convex/models/coaches.ts
+  - packages/backend/convex/models/medicalProfiles.ts
+  - packages/backend/convex/models/invitations.ts
+  - packages/backend/convex/models/flows.ts
+  - packages/backend/convex/models/notifications.ts
+  - packages/backend/convex/models/whatsappReviewLinks.ts
+  - packages/backend/convex/models/teamObservations.ts
+  - packages/backend/convex/models/passportGoals.ts
+  - packages/backend/convex/models/players.ts
+  - packages/backend/convex/models/aiMappingCache.ts
+  - packages/backend/convex/models/orgInjuryNotes.ts
+  - packages/backend/convex/models/injuryDocuments.ts
+  - packages/backend/convex/models/playerHealthChecks.ts
+  - packages/backend/convex/models/playerImport.ts
+  - packages/backend/convex/models/passportEnquiries.ts
+  - packages/backend/convex/models/setup.ts
+  - packages/backend/convex/models/teamPlayerIdentities.ts
+  - packages/backend/convex/models/rateLimits.ts
+  - packages/backend/convex/models/phase4TestCleanup.ts
+  - packages/backend/convex/models/syncHistory.ts
+  - packages/backend/convex/models/platformStaffInvitations.ts
+  - packages/backend/convex/models/coachParentMessages.ts
+  - packages/backend/convex/models/aiModelConfig.ts
+  - packages/backend/convex/models/voicePipelineAlerts.ts
+  - packages/backend/convex/models/aiMappingAnalytics.ts
+  - packages/backend/convex/models/orgPlayerEnrollments.ts
+  - packages/backend/convex/models/sportPassports.ts
+  - packages/backend/convex/models/orgJoinRequests.ts
+  - packages/backend/convex/models/sportAgeGroupConfig.ts
+  - packages/backend/convex/models/referenceData.ts
+  - packages/backend/convex/models/importMappingHistory.ts
+  - packages/backend/convex/models/notificationPreferences.ts
+  - packages/backend/convex/models/userPreferences.ts
+  - packages/backend/convex/models/teams.ts
+  - packages/backend/convex/models/gdpr.ts
+  - packages/backend/convex/models/userProfiles.ts
+  - packages/backend/convex/models/emergencyContacts.ts
+  - packages/backend/convex/models/coachTrustLevels.ts
+  - packages/backend/convex/models/coachParentSummaries.ts
+  - packages/backend/convex/models/onboarding.ts
+  - packages/backend/convex/models/guardianPlayerLinks.ts
+  - packages/backend/convex/models/orgGuardianProfiles.ts
+  - packages/backend/convex/models/passportSharing.ts
+  - packages/backend/convex/models/playerGraduations.ts
+  - packages/backend/convex/models/members.ts
+  - packages/backend/convex/models/voiceNoteEntityResolutions.ts
+  - packages/backend/convex/models/users.ts
+  - packages/backend/convex/models/voicePipelineRetry.ts
+  - packages/backend/convex/models/skillAssessments.ts
+  - packages/backend/convex/models/playerSelfAccess.ts
+  - packages/backend/convex/models/aiServiceHealth.ts
+  - packages/backend/convex/models/importTemplates.ts
+  - packages/backend/convex/models/sports.ts
+  - packages/backend/convex/models/importProgress.ts
+  - packages/backend/convex/models/fixNeilsRoles.ts
+  - packages/backend/convex/models/playerIdentities.ts
+  - packages/backend/convex/models/voiceNotes.ts
+  - packages/backend/convex/models/guardianManagement.ts
+  - packages/backend/convex/models/importTemplateSeeds.ts
+  - packages/backend/convex/models/insightDrafts.ts
+  - packages/backend/convex/models/importSessionDrafts.ts
+  - packages/backend/convex/models/teamDecisions.ts
+  - packages/backend/convex/models/gaaTestMutations.ts
+  - packages/backend/convex/models/playerInjuries.ts
+  - packages/backend/convex/models/voiceNoteInsights.ts
+  - packages/backend/convex/models/playerEmergencyContacts.ts
+  - packages/backend/convex/models/coachTasks.ts
+  **Action**: Add `getUserOrgRole()` or mark as `// @public`
+- 🚨 **CRITICAL [P9]**: XSS risk - dangerouslySetInnerHTML without sanitization:
+    apps/web/src/components/ui/confetti.tsx:        dangerouslySetInnerHTML={{
+  apps/web/src/components/ui/chart.tsx:      dangerouslySetInnerHTML={{
+  apps/web/src/components/onboarding/gdpr-policy-viewer.tsx: * Uses dangerouslySetInnerHTML to avoid React key issues with static content.
+  **Action**: Use DOMPurify or remove dangerouslySetInnerHTML
+- ⚠️ **HIGH [P9]**: No rate limiting on notification/activity endpoints:
+  - packages/backend/convex/models/demoAsks.ts
+  **Action**: Add rate limiting to prevent spam/abuse
+- ⚠️ **HIGH [P9]**: AI endpoints without input validation:
+  - packages/backend/convex/actions/aiMapping.ts
+  - packages/backend/convex/actions/claimsExtraction.ts
+  - packages/backend/convex/actions/coachParentSummaries.ts
+  - packages/backend/convex/actions/practicePlans.ts
+  - packages/backend/convex/actions/sessionPlans.ts
+  - packages/backend/convex/actions/voiceNotes.ts
+  - packages/backend/convex/actions/wellnessInsights.ts
+  - packages/backend/convex/models/aiServiceHealth.ts
+  **Action**: Validate/sanitize user input before AI prompts
+- ⚠️ **HIGH [P9]**: Notification functions without permission checks:
+  - packages/backend/convex/models/notifications.ts
+  **Action**: Verify user can send notifications to recipient
+
+
+## Auto Quality Check - 2026-02-26 01:12:15
+### File: /Users/jkobrien/code/PDP/packages/backend/convex/models/playerGraduations.ts
+
+- ❌ **CRITICAL: Better Auth adapter violation**
+  - **Problem:** Direct DB access to auth tables
+  - **Fix:** Use `ctx.runQuery(components.betterAuth.adapter.findOne, {...})`
+
+
+## Auto Quality Check - 2026-02-26 01:12:15
+### File: /Users/jkobrien/code/PDP/packages/backend/convex/models/playerGraduations.ts
+
+- ⚠️ **Performance: .filter() usage detected**
+  - **Problem:** Should use .withIndex() for better performance
+  - **Fix:** Replace `.query().filter()` with `.query().withIndex()`
+
+
+## Auto Quality Check - 2026-02-26 01:12:48
+### File: /Users/jkobrien/code/PDP/packages/backend/convex/models/coachParentSummaries.ts
+
+- ❌ **CRITICAL: Better Auth adapter violation**
+  - **Problem:** Direct DB access to auth tables
+  - **Fix:** Use `ctx.runQuery(components.betterAuth.adapter.findOne, {...})`
+
+
+## Auto Quality Check - 2026-02-26 01:12:48
+### File: /Users/jkobrien/code/PDP/packages/backend/convex/models/coachParentSummaries.ts
+
+- ⚠️ **Performance: .filter() usage detected**
+  - **Problem:** Should use .withIndex() for better performance
+  - **Fix:** Replace `.query().filter()` with `.query().withIndex()`
+
+
+## Auto Quality Check - 2026-02-26 01:12:48
+### File: /Users/jkobrien/code/PDP/packages/backend/convex/models/coachParentSummaries.ts
+
+- ❌ **CRITICAL: N+1 query pattern detected**
+  - **Problem:** `Promise.all(items.map(async => query))` makes N database calls
+  - **Fix:** Batch fetch all IDs first, create Map for O(1) lookup
+
+
+## Security Tester - 2026-02-26 01:14:13
+- 🚨 **CRITICAL**: Hardcoded secrets detected
+```
+apps/web/src/app/api/ai-config/verify-model/route.ts:          errorMessage: "ANTHROPIC_API_KEY not configured in Next.js env",
+apps/web/src/app/api/ai-config/verify-model/route.ts:          errorMessage: "OPENAI_API_KEY not configured in Next.js env",
+apps/web/src/app/api/ai-config/available-models/route.ts:    errors.anthropic = "ANTHROPIC_API_KEY not configured";
+apps/web/src/app/api/ai-config/available-models/route.ts:    errors.openai = "OPENAI_API_KEY not configured";
+apps/web/src/app/api/comparison-insights/route.ts:      console.error("❌ ANTHROPIC_API_KEY not found in environment variables");
+```
+- ⚠️ **HIGH**: 6 high-severity dependency vulnerabilities
+  Run `npm audit fix` to resolve
+- ⚠️ **HIGH**: Mutations without authorization checks:
+  - packages/backend/convex/models/platformMessagingSettings.ts
+  - packages/backend/convex/models/syncQueue.ts
+  - packages/backend/convex/models/importSessions.ts
+  - packages/backend/convex/models/passportComparison.ts
+  - packages/backend/convex/models/trustGatePermissions.ts
+  - packages/backend/convex/models/ageGroupEligibilityOverrides.ts
+  - packages/backend/convex/models/federationConnectors.ts
+  - packages/backend/convex/models/teamCollaboration.ts
+  - packages/backend/convex/models/guardianIdentities.ts
+  - packages/backend/convex/models/sessionPlans.ts
+  - packages/backend/convex/models/adultPlayers.ts
+  - packages/backend/convex/models/demoAsks.ts
+  - packages/backend/convex/models/skillBenchmarks.ts
+  - packages/backend/convex/models/coaches.ts
+  - packages/backend/convex/models/medicalProfiles.ts
+  - packages/backend/convex/models/invitations.ts
+  - packages/backend/convex/models/flows.ts
+  - packages/backend/convex/models/notifications.ts
+  - packages/backend/convex/models/whatsappReviewLinks.ts
+  - packages/backend/convex/models/teamObservations.ts
+  - packages/backend/convex/models/passportGoals.ts
+  - packages/backend/convex/models/players.ts
+  - packages/backend/convex/models/aiMappingCache.ts
+  - packages/backend/convex/models/orgInjuryNotes.ts
+  - packages/backend/convex/models/injuryDocuments.ts
+  - packages/backend/convex/models/playerHealthChecks.ts
+  - packages/backend/convex/models/playerImport.ts
+  - packages/backend/convex/models/passportEnquiries.ts
+  - packages/backend/convex/models/setup.ts
+  - packages/backend/convex/models/teamPlayerIdentities.ts
+  - packages/backend/convex/models/rateLimits.ts
+  - packages/backend/convex/models/phase4TestCleanup.ts
+  - packages/backend/convex/models/syncHistory.ts
+  - packages/backend/convex/models/platformStaffInvitations.ts
+  - packages/backend/convex/models/coachParentMessages.ts
+  - packages/backend/convex/models/aiModelConfig.ts
+  - packages/backend/convex/models/voicePipelineAlerts.ts
+  - packages/backend/convex/models/aiMappingAnalytics.ts
+  - packages/backend/convex/models/orgPlayerEnrollments.ts
+  - packages/backend/convex/models/sportPassports.ts
+  - packages/backend/convex/models/orgJoinRequests.ts
+  - packages/backend/convex/models/sportAgeGroupConfig.ts
+  - packages/backend/convex/models/referenceData.ts
+  - packages/backend/convex/models/importMappingHistory.ts
+  - packages/backend/convex/models/notificationPreferences.ts
+  - packages/backend/convex/models/userPreferences.ts
+  - packages/backend/convex/models/teams.ts
+  - packages/backend/convex/models/gdpr.ts
+  - packages/backend/convex/models/userProfiles.ts
+  - packages/backend/convex/models/emergencyContacts.ts
+  - packages/backend/convex/models/coachTrustLevels.ts
+  - packages/backend/convex/models/coachParentSummaries.ts
+  - packages/backend/convex/models/onboarding.ts
+  - packages/backend/convex/models/guardianPlayerLinks.ts
+  - packages/backend/convex/models/orgGuardianProfiles.ts
+  - packages/backend/convex/models/passportSharing.ts
+  - packages/backend/convex/models/playerGraduations.ts
+  - packages/backend/convex/models/members.ts
+  - packages/backend/convex/models/voiceNoteEntityResolutions.ts
+  - packages/backend/convex/models/users.ts
+  - packages/backend/convex/models/voicePipelineRetry.ts
+  - packages/backend/convex/models/skillAssessments.ts
+  - packages/backend/convex/models/playerSelfAccess.ts
+  - packages/backend/convex/models/aiServiceHealth.ts
+  - packages/backend/convex/models/importTemplates.ts
+  - packages/backend/convex/models/sports.ts
+  - packages/backend/convex/models/importProgress.ts
+  - packages/backend/convex/models/fixNeilsRoles.ts
+  - packages/backend/convex/models/playerIdentities.ts
+  - packages/backend/convex/models/voiceNotes.ts
+  - packages/backend/convex/models/guardianManagement.ts
+  - packages/backend/convex/models/importTemplateSeeds.ts
+  - packages/backend/convex/models/insightDrafts.ts
+  - packages/backend/convex/models/importSessionDrafts.ts
+  - packages/backend/convex/models/teamDecisions.ts
+  - packages/backend/convex/models/gaaTestMutations.ts
+  - packages/backend/convex/models/playerInjuries.ts
+  - packages/backend/convex/models/voiceNoteInsights.ts
+  - packages/backend/convex/models/playerEmergencyContacts.ts
+  - packages/backend/convex/models/coachTasks.ts
+  **Action**: Add `getUserOrgRole()` or mark as `// @public`
+- 🚨 **CRITICAL [P9]**: XSS risk - dangerouslySetInnerHTML without sanitization:
+    apps/web/src/components/ui/confetti.tsx:        dangerouslySetInnerHTML={{
+  apps/web/src/components/ui/chart.tsx:      dangerouslySetInnerHTML={{
+  apps/web/src/components/onboarding/gdpr-policy-viewer.tsx: * Uses dangerouslySetInnerHTML to avoid React key issues with static content.
+  **Action**: Use DOMPurify or remove dangerouslySetInnerHTML
+- ⚠️ **HIGH [P9]**: No rate limiting on notification/activity endpoints:
+  - packages/backend/convex/models/demoAsks.ts
+  **Action**: Add rate limiting to prevent spam/abuse
+- ⚠️ **HIGH [P9]**: AI endpoints without input validation:
+  - packages/backend/convex/actions/aiMapping.ts
+  - packages/backend/convex/actions/claimsExtraction.ts
+  - packages/backend/convex/actions/coachParentSummaries.ts
+  - packages/backend/convex/actions/practicePlans.ts
+  - packages/backend/convex/actions/sessionPlans.ts
+  - packages/backend/convex/actions/voiceNotes.ts
+  - packages/backend/convex/actions/wellnessInsights.ts
+  - packages/backend/convex/models/aiServiceHealth.ts
+  **Action**: Validate/sanitize user input before AI prompts
+- ⚠️ **HIGH [P9]**: Notification functions without permission checks:
+  - packages/backend/convex/models/notifications.ts
+  **Action**: Verify user can send notifications to recipient
+
+
+## Security Tester - 2026-02-26 01:16:16
+- 🚨 **CRITICAL**: Hardcoded secrets detected
+```
+apps/web/src/app/api/ai-config/verify-model/route.ts:          errorMessage: "ANTHROPIC_API_KEY not configured in Next.js env",
+apps/web/src/app/api/ai-config/verify-model/route.ts:          errorMessage: "OPENAI_API_KEY not configured in Next.js env",
+apps/web/src/app/api/ai-config/available-models/route.ts:    errors.anthropic = "ANTHROPIC_API_KEY not configured";
+apps/web/src/app/api/ai-config/available-models/route.ts:    errors.openai = "OPENAI_API_KEY not configured";
+apps/web/src/app/api/comparison-insights/route.ts:      console.error("❌ ANTHROPIC_API_KEY not found in environment variables");
+```
+- ⚠️ **HIGH**: 6 high-severity dependency vulnerabilities
+  Run `npm audit fix` to resolve
+- ⚠️ **HIGH**: Mutations without authorization checks:
+  - packages/backend/convex/models/platformMessagingSettings.ts
+  - packages/backend/convex/models/syncQueue.ts
+  - packages/backend/convex/models/importSessions.ts
+  - packages/backend/convex/models/passportComparison.ts
+  - packages/backend/convex/models/trustGatePermissions.ts
+  - packages/backend/convex/models/ageGroupEligibilityOverrides.ts
+  - packages/backend/convex/models/federationConnectors.ts
+  - packages/backend/convex/models/teamCollaboration.ts
+  - packages/backend/convex/models/guardianIdentities.ts
+  - packages/backend/convex/models/sessionPlans.ts
+  - packages/backend/convex/models/adultPlayers.ts
+  - packages/backend/convex/models/demoAsks.ts
+  - packages/backend/convex/models/skillBenchmarks.ts
+  - packages/backend/convex/models/coaches.ts
+  - packages/backend/convex/models/medicalProfiles.ts
+  - packages/backend/convex/models/invitations.ts
+  - packages/backend/convex/models/flows.ts
+  - packages/backend/convex/models/notifications.ts
+  - packages/backend/convex/models/whatsappReviewLinks.ts
+  - packages/backend/convex/models/teamObservations.ts
+  - packages/backend/convex/models/passportGoals.ts
+  - packages/backend/convex/models/players.ts
+  - packages/backend/convex/models/aiMappingCache.ts
+  - packages/backend/convex/models/orgInjuryNotes.ts
+  - packages/backend/convex/models/injuryDocuments.ts
+  - packages/backend/convex/models/playerHealthChecks.ts
+  - packages/backend/convex/models/playerImport.ts
+  - packages/backend/convex/models/passportEnquiries.ts
+  - packages/backend/convex/models/setup.ts
+  - packages/backend/convex/models/teamPlayerIdentities.ts
+  - packages/backend/convex/models/rateLimits.ts
+  - packages/backend/convex/models/phase4TestCleanup.ts
+  - packages/backend/convex/models/syncHistory.ts
+  - packages/backend/convex/models/platformStaffInvitations.ts
+  - packages/backend/convex/models/coachParentMessages.ts
+  - packages/backend/convex/models/aiModelConfig.ts
+  - packages/backend/convex/models/voicePipelineAlerts.ts
+  - packages/backend/convex/models/aiMappingAnalytics.ts
+  - packages/backend/convex/models/orgPlayerEnrollments.ts
+  - packages/backend/convex/models/sportPassports.ts
+  - packages/backend/convex/models/orgJoinRequests.ts
+  - packages/backend/convex/models/sportAgeGroupConfig.ts
+  - packages/backend/convex/models/referenceData.ts
+  - packages/backend/convex/models/importMappingHistory.ts
+  - packages/backend/convex/models/notificationPreferences.ts
+  - packages/backend/convex/models/userPreferences.ts
+  - packages/backend/convex/models/teams.ts
+  - packages/backend/convex/models/gdpr.ts
+  - packages/backend/convex/models/userProfiles.ts
+  - packages/backend/convex/models/emergencyContacts.ts
+  - packages/backend/convex/models/coachTrustLevels.ts
+  - packages/backend/convex/models/coachParentSummaries.ts
+  - packages/backend/convex/models/onboarding.ts
+  - packages/backend/convex/models/guardianPlayerLinks.ts
+  - packages/backend/convex/models/orgGuardianProfiles.ts
+  - packages/backend/convex/models/passportSharing.ts
+  - packages/backend/convex/models/playerGraduations.ts
+  - packages/backend/convex/models/members.ts
+  - packages/backend/convex/models/voiceNoteEntityResolutions.ts
+  - packages/backend/convex/models/users.ts
+  - packages/backend/convex/models/voicePipelineRetry.ts
+  - packages/backend/convex/models/skillAssessments.ts
+  - packages/backend/convex/models/playerSelfAccess.ts
+  - packages/backend/convex/models/aiServiceHealth.ts
+  - packages/backend/convex/models/importTemplates.ts
+  - packages/backend/convex/models/sports.ts
+  - packages/backend/convex/models/importProgress.ts
+  - packages/backend/convex/models/fixNeilsRoles.ts
+  - packages/backend/convex/models/playerIdentities.ts
+  - packages/backend/convex/models/voiceNotes.ts
+  - packages/backend/convex/models/guardianManagement.ts
+  - packages/backend/convex/models/importTemplateSeeds.ts
+  - packages/backend/convex/models/insightDrafts.ts
+  - packages/backend/convex/models/importSessionDrafts.ts
+  - packages/backend/convex/models/teamDecisions.ts
+  - packages/backend/convex/models/gaaTestMutations.ts
+  - packages/backend/convex/models/playerInjuries.ts
+  - packages/backend/convex/models/voiceNoteInsights.ts
+  - packages/backend/convex/models/playerEmergencyContacts.ts
+  - packages/backend/convex/models/coachTasks.ts
+  **Action**: Add `getUserOrgRole()` or mark as `// @public`
+- 🚨 **CRITICAL [P9]**: XSS risk - dangerouslySetInnerHTML without sanitization:
+    apps/web/src/components/ui/confetti.tsx:        dangerouslySetInnerHTML={{
+  apps/web/src/components/ui/chart.tsx:      dangerouslySetInnerHTML={{
+  apps/web/src/components/onboarding/gdpr-policy-viewer.tsx: * Uses dangerouslySetInnerHTML to avoid React key issues with static content.
+  **Action**: Use DOMPurify or remove dangerouslySetInnerHTML
+- ⚠️ **HIGH [P9]**: No rate limiting on notification/activity endpoints:
+  - packages/backend/convex/models/demoAsks.ts
+  **Action**: Add rate limiting to prevent spam/abuse
+- ⚠️ **HIGH [P9]**: AI endpoints without input validation:
+  - packages/backend/convex/actions/aiMapping.ts
+  - packages/backend/convex/actions/claimsExtraction.ts
+  - packages/backend/convex/actions/coachParentSummaries.ts
+  - packages/backend/convex/actions/practicePlans.ts
+  - packages/backend/convex/actions/sessionPlans.ts
+  - packages/backend/convex/actions/voiceNotes.ts
+  - packages/backend/convex/actions/wellnessInsights.ts
+  - packages/backend/convex/models/aiServiceHealth.ts
+  **Action**: Validate/sanitize user input before AI prompts
+- ⚠️ **HIGH [P9]**: Notification functions without permission checks:
+  - packages/backend/convex/models/notifications.ts
+  **Action**: Verify user can send notifications to recipient
+
+
+## Auto Quality Check - 2026-02-26 01:16:42
+### File: /Users/jkobrien/code/PDP/packages/backend/convex/models/coachParentSummaries.ts
+
+- ❌ **CRITICAL: Better Auth adapter violation**
+  - **Problem:** Direct DB access to auth tables
+  - **Fix:** Use `ctx.runQuery(components.betterAuth.adapter.findOne, {...})`
+
+
+## Auto Quality Check - 2026-02-26 01:16:42
+### File: /Users/jkobrien/code/PDP/packages/backend/convex/models/coachParentSummaries.ts
+
+- ⚠️ **Performance: .filter() usage detected**
+  - **Problem:** Should use .withIndex() for better performance
+  - **Fix:** Replace `.query().filter()` with `.query().withIndex()`
+
+
+## Auto Quality Check - 2026-02-26 01:16:42
+### File: /Users/jkobrien/code/PDP/packages/backend/convex/models/coachParentSummaries.ts
+
+- ❌ **CRITICAL: N+1 query pattern detected**
+  - **Problem:** `Promise.all(items.map(async => query))` makes N database calls
+  - **Fix:** Batch fetch all IDs first, create Map for O(1) lookup
+
+
+## Auto Quality Check - 2026-02-26 01:17:03
+### File: /Users/jkobrien/code/PDP/packages/backend/convex/models/playerDataExport.ts
+
+- ⚠️ **Performance: .filter() usage detected**
+  - **Problem:** Should use .withIndex() for better performance
+  - **Fix:** Replace `.query().filter()` with `.query().withIndex()`
+
+
+## Auto Quality Check - 2026-02-26 01:17:20
+### File: /Users/jkobrien/code/PDP/packages/backend/convex/models/playerDataExport.ts
+
+- ⚠️ **Performance: .filter() usage detected**
+  - **Problem:** Should use .withIndex() for better performance
+  - **Fix:** Replace `.query().filter()` with `.query().withIndex()`
+
+
+## Auto Quality Check - 2026-02-26 01:18:05
+### File: /Users/jkobrien/code/PDP/packages/backend/convex/models/playerDataExport.ts
+
+- ⚠️ **Performance: .filter() usage detected**
+  - **Problem:** Should use .withIndex() for better performance
+  - **Fix:** Replace `.query().filter()` with `.query().withIndex()`
+
+
+## Auto Quality Check - 2026-02-26 01:18:05
+### File: /Users/jkobrien/code/PDP/packages/backend/convex/models/playerDataExport.ts
+
+- ❌ **CRITICAL: N+1 query pattern detected**
+  - **Problem:** `Promise.all(items.map(async => query))` makes N database calls
+  - **Fix:** Batch fetch all IDs first, create Map for O(1) lookup
+
+
+## Security Tester - 2026-02-26 01:18:18
+- 🚨 **CRITICAL**: Hardcoded secrets detected
+```
+apps/web/src/app/api/ai-config/verify-model/route.ts:          errorMessage: "ANTHROPIC_API_KEY not configured in Next.js env",
+apps/web/src/app/api/ai-config/verify-model/route.ts:          errorMessage: "OPENAI_API_KEY not configured in Next.js env",
+apps/web/src/app/api/ai-config/available-models/route.ts:    errors.anthropic = "ANTHROPIC_API_KEY not configured";
+apps/web/src/app/api/ai-config/available-models/route.ts:    errors.openai = "OPENAI_API_KEY not configured";
+apps/web/src/app/api/comparison-insights/route.ts:      console.error("❌ ANTHROPIC_API_KEY not found in environment variables");
+```
+- ⚠️ **HIGH**: 6 high-severity dependency vulnerabilities
+  Run `npm audit fix` to resolve
+- ⚠️ **HIGH**: Mutations without authorization checks:
+  - packages/backend/convex/models/platformMessagingSettings.ts
+  - packages/backend/convex/models/syncQueue.ts
+  - packages/backend/convex/models/importSessions.ts
+  - packages/backend/convex/models/passportComparison.ts
+  - packages/backend/convex/models/trustGatePermissions.ts
+  - packages/backend/convex/models/ageGroupEligibilityOverrides.ts
+  - packages/backend/convex/models/federationConnectors.ts
+  - packages/backend/convex/models/teamCollaboration.ts
+  - packages/backend/convex/models/guardianIdentities.ts
+  - packages/backend/convex/models/sessionPlans.ts
+  - packages/backend/convex/models/adultPlayers.ts
+  - packages/backend/convex/models/demoAsks.ts
+  - packages/backend/convex/models/skillBenchmarks.ts
+  - packages/backend/convex/models/coaches.ts
+  - packages/backend/convex/models/medicalProfiles.ts
+  - packages/backend/convex/models/invitations.ts
+  - packages/backend/convex/models/flows.ts
+  - packages/backend/convex/models/notifications.ts
+  - packages/backend/convex/models/whatsappReviewLinks.ts
+  - packages/backend/convex/models/teamObservations.ts
+  - packages/backend/convex/models/passportGoals.ts
+  - packages/backend/convex/models/players.ts
+  - packages/backend/convex/models/aiMappingCache.ts
+  - packages/backend/convex/models/orgInjuryNotes.ts
+  - packages/backend/convex/models/injuryDocuments.ts
+  - packages/backend/convex/models/playerHealthChecks.ts
+  - packages/backend/convex/models/playerImport.ts
+  - packages/backend/convex/models/passportEnquiries.ts
+  - packages/backend/convex/models/setup.ts
+  - packages/backend/convex/models/teamPlayerIdentities.ts
+  - packages/backend/convex/models/rateLimits.ts
+  - packages/backend/convex/models/phase4TestCleanup.ts
+  - packages/backend/convex/models/syncHistory.ts
+  - packages/backend/convex/models/platformStaffInvitations.ts
+  - packages/backend/convex/models/coachParentMessages.ts
+  - packages/backend/convex/models/aiModelConfig.ts
+  - packages/backend/convex/models/voicePipelineAlerts.ts
+  - packages/backend/convex/models/aiMappingAnalytics.ts
+  - packages/backend/convex/models/orgPlayerEnrollments.ts
+  - packages/backend/convex/models/sportPassports.ts
+  - packages/backend/convex/models/orgJoinRequests.ts
+  - packages/backend/convex/models/sportAgeGroupConfig.ts
+  - packages/backend/convex/models/referenceData.ts
+  - packages/backend/convex/models/importMappingHistory.ts
+  - packages/backend/convex/models/notificationPreferences.ts
+  - packages/backend/convex/models/userPreferences.ts
+  - packages/backend/convex/models/teams.ts
+  - packages/backend/convex/models/gdpr.ts
+  - packages/backend/convex/models/userProfiles.ts
+  - packages/backend/convex/models/emergencyContacts.ts
+  - packages/backend/convex/models/coachTrustLevels.ts
+  - packages/backend/convex/models/coachParentSummaries.ts
+  - packages/backend/convex/models/onboarding.ts
+  - packages/backend/convex/models/guardianPlayerLinks.ts
+  - packages/backend/convex/models/orgGuardianProfiles.ts
+  - packages/backend/convex/models/passportSharing.ts
+  - packages/backend/convex/models/playerGraduations.ts
+  - packages/backend/convex/models/members.ts
+  - packages/backend/convex/models/voiceNoteEntityResolutions.ts
+  - packages/backend/convex/models/users.ts
+  - packages/backend/convex/models/voicePipelineRetry.ts
+  - packages/backend/convex/models/skillAssessments.ts
+  - packages/backend/convex/models/playerSelfAccess.ts
+  - packages/backend/convex/models/aiServiceHealth.ts
+  - packages/backend/convex/models/importTemplates.ts
+  - packages/backend/convex/models/sports.ts
+  - packages/backend/convex/models/importProgress.ts
+  - packages/backend/convex/models/fixNeilsRoles.ts
+  - packages/backend/convex/models/playerIdentities.ts
+  - packages/backend/convex/models/voiceNotes.ts
+  - packages/backend/convex/models/guardianManagement.ts
+  - packages/backend/convex/models/importTemplateSeeds.ts
+  - packages/backend/convex/models/insightDrafts.ts
+  - packages/backend/convex/models/importSessionDrafts.ts
+  - packages/backend/convex/models/teamDecisions.ts
+  - packages/backend/convex/models/gaaTestMutations.ts
+  - packages/backend/convex/models/playerInjuries.ts
+  - packages/backend/convex/models/voiceNoteInsights.ts
+  - packages/backend/convex/models/playerEmergencyContacts.ts
+  - packages/backend/convex/models/coachTasks.ts
+  **Action**: Add `getUserOrgRole()` or mark as `// @public`
+- 🚨 **CRITICAL [P9]**: XSS risk - dangerouslySetInnerHTML without sanitization:
+    apps/web/src/components/ui/confetti.tsx:        dangerouslySetInnerHTML={{
+  apps/web/src/components/ui/chart.tsx:      dangerouslySetInnerHTML={{
+  apps/web/src/components/onboarding/gdpr-policy-viewer.tsx: * Uses dangerouslySetInnerHTML to avoid React key issues with static content.
+  **Action**: Use DOMPurify or remove dangerouslySetInnerHTML
+- ⚠️ **HIGH [P9]**: No rate limiting on notification/activity endpoints:
+  - packages/backend/convex/models/demoAsks.ts
+  **Action**: Add rate limiting to prevent spam/abuse
+- ⚠️ **HIGH [P9]**: AI endpoints without input validation:
+  - packages/backend/convex/actions/aiMapping.ts
+  - packages/backend/convex/actions/claimsExtraction.ts
+  - packages/backend/convex/actions/coachParentSummaries.ts
+  - packages/backend/convex/actions/practicePlans.ts
+  - packages/backend/convex/actions/sessionPlans.ts
+  - packages/backend/convex/actions/voiceNotes.ts
+  - packages/backend/convex/actions/wellnessInsights.ts
+  - packages/backend/convex/models/aiServiceHealth.ts
+  **Action**: Validate/sanitize user input before AI prompts
+- ⚠️ **HIGH [P9]**: Notification functions without permission checks:
+  - packages/backend/convex/models/notifications.ts
+  **Action**: Verify user can send notifications to recipient
+
+
+## Auto Quality Check - 2026-02-26 01:19:29
+### File: /Users/jkobrien/code/PDP/packages/backend/convex/models/playerGraduations.ts
+
+- ❌ **CRITICAL: Better Auth adapter violation**
+  - **Problem:** Direct DB access to auth tables
+  - **Fix:** Use `ctx.runQuery(components.betterAuth.adapter.findOne, {...})`
+
+
+## Auto Quality Check - 2026-02-26 01:19:29
+### File: /Users/jkobrien/code/PDP/packages/backend/convex/models/playerGraduations.ts
+
+- ⚠️ **Performance: .filter() usage detected**
+  - **Problem:** Should use .withIndex() for better performance
+  - **Fix:** Replace `.query().filter()` with `.query().withIndex()`
+
+
+## Security Tester - 2026-02-26 01:20:22
+- 🚨 **CRITICAL**: Hardcoded secrets detected
+```
+apps/web/src/app/api/ai-config/verify-model/route.ts:          errorMessage: "ANTHROPIC_API_KEY not configured in Next.js env",
+apps/web/src/app/api/ai-config/verify-model/route.ts:          errorMessage: "OPENAI_API_KEY not configured in Next.js env",
+apps/web/src/app/api/ai-config/available-models/route.ts:    errors.anthropic = "ANTHROPIC_API_KEY not configured";
+apps/web/src/app/api/ai-config/available-models/route.ts:    errors.openai = "OPENAI_API_KEY not configured";
+apps/web/src/app/api/comparison-insights/route.ts:      console.error("❌ ANTHROPIC_API_KEY not found in environment variables");
+```
+- ⚠️ **HIGH**: 6 high-severity dependency vulnerabilities
+  Run `npm audit fix` to resolve
+- ⚠️ **HIGH**: Mutations without authorization checks:
+  - packages/backend/convex/models/platformMessagingSettings.ts
+  - packages/backend/convex/models/syncQueue.ts
+  - packages/backend/convex/models/importSessions.ts
+  - packages/backend/convex/models/passportComparison.ts
+  - packages/backend/convex/models/trustGatePermissions.ts
+  - packages/backend/convex/models/ageGroupEligibilityOverrides.ts
+  - packages/backend/convex/models/federationConnectors.ts
+  - packages/backend/convex/models/teamCollaboration.ts
+  - packages/backend/convex/models/guardianIdentities.ts
+  - packages/backend/convex/models/sessionPlans.ts
+  - packages/backend/convex/models/adultPlayers.ts
+  - packages/backend/convex/models/demoAsks.ts
+  - packages/backend/convex/models/skillBenchmarks.ts
+  - packages/backend/convex/models/coaches.ts
+  - packages/backend/convex/models/medicalProfiles.ts
+  - packages/backend/convex/models/invitations.ts
+  - packages/backend/convex/models/flows.ts
+  - packages/backend/convex/models/notifications.ts
+  - packages/backend/convex/models/whatsappReviewLinks.ts
+  - packages/backend/convex/models/teamObservations.ts
+  - packages/backend/convex/models/passportGoals.ts
+  - packages/backend/convex/models/players.ts
+  - packages/backend/convex/models/aiMappingCache.ts
+  - packages/backend/convex/models/orgInjuryNotes.ts
+  - packages/backend/convex/models/injuryDocuments.ts
+  - packages/backend/convex/models/playerHealthChecks.ts
+  - packages/backend/convex/models/playerImport.ts
+  - packages/backend/convex/models/passportEnquiries.ts
+  - packages/backend/convex/models/setup.ts
+  - packages/backend/convex/models/teamPlayerIdentities.ts
+  - packages/backend/convex/models/rateLimits.ts
+  - packages/backend/convex/models/phase4TestCleanup.ts
+  - packages/backend/convex/models/syncHistory.ts
+  - packages/backend/convex/models/platformStaffInvitations.ts
+  - packages/backend/convex/models/coachParentMessages.ts
+  - packages/backend/convex/models/aiModelConfig.ts
+  - packages/backend/convex/models/voicePipelineAlerts.ts
+  - packages/backend/convex/models/aiMappingAnalytics.ts
+  - packages/backend/convex/models/orgPlayerEnrollments.ts
+  - packages/backend/convex/models/sportPassports.ts
+  - packages/backend/convex/models/orgJoinRequests.ts
+  - packages/backend/convex/models/sportAgeGroupConfig.ts
+  - packages/backend/convex/models/referenceData.ts
+  - packages/backend/convex/models/importMappingHistory.ts
+  - packages/backend/convex/models/notificationPreferences.ts
+  - packages/backend/convex/models/userPreferences.ts
+  - packages/backend/convex/models/teams.ts
+  - packages/backend/convex/models/gdpr.ts
+  - packages/backend/convex/models/userProfiles.ts
+  - packages/backend/convex/models/emergencyContacts.ts
+  - packages/backend/convex/models/coachTrustLevels.ts
+  - packages/backend/convex/models/coachParentSummaries.ts
+  - packages/backend/convex/models/onboarding.ts
+  - packages/backend/convex/models/guardianPlayerLinks.ts
+  - packages/backend/convex/models/orgGuardianProfiles.ts
+  - packages/backend/convex/models/passportSharing.ts
+  - packages/backend/convex/models/playerGraduations.ts
+  - packages/backend/convex/models/members.ts
+  - packages/backend/convex/models/voiceNoteEntityResolutions.ts
+  - packages/backend/convex/models/users.ts
+  - packages/backend/convex/models/voicePipelineRetry.ts
+  - packages/backend/convex/models/skillAssessments.ts
+  - packages/backend/convex/models/playerSelfAccess.ts
+  - packages/backend/convex/models/aiServiceHealth.ts
+  - packages/backend/convex/models/importTemplates.ts
+  - packages/backend/convex/models/sports.ts
+  - packages/backend/convex/models/importProgress.ts
+  - packages/backend/convex/models/fixNeilsRoles.ts
+  - packages/backend/convex/models/playerIdentities.ts
+  - packages/backend/convex/models/voiceNotes.ts
+  - packages/backend/convex/models/guardianManagement.ts
+  - packages/backend/convex/models/importTemplateSeeds.ts
+  - packages/backend/convex/models/insightDrafts.ts
+  - packages/backend/convex/models/importSessionDrafts.ts
+  - packages/backend/convex/models/teamDecisions.ts
+  - packages/backend/convex/models/gaaTestMutations.ts
+  - packages/backend/convex/models/playerInjuries.ts
+  - packages/backend/convex/models/voiceNoteInsights.ts
+  - packages/backend/convex/models/playerEmergencyContacts.ts
+  - packages/backend/convex/models/coachTasks.ts
+  **Action**: Add `getUserOrgRole()` or mark as `// @public`
+- 🚨 **CRITICAL [P9]**: XSS risk - dangerouslySetInnerHTML without sanitization:
+    apps/web/src/components/ui/confetti.tsx:        dangerouslySetInnerHTML={{
+  apps/web/src/components/ui/chart.tsx:      dangerouslySetInnerHTML={{
+  apps/web/src/components/onboarding/gdpr-policy-viewer.tsx: * Uses dangerouslySetInnerHTML to avoid React key issues with static content.
+  **Action**: Use DOMPurify or remove dangerouslySetInnerHTML
+- ⚠️ **HIGH [P9]**: No rate limiting on notification/activity endpoints:
+  - packages/backend/convex/models/demoAsks.ts
+  **Action**: Add rate limiting to prevent spam/abuse
+- ⚠️ **HIGH [P9]**: AI endpoints without input validation:
+  - packages/backend/convex/actions/aiMapping.ts
+  - packages/backend/convex/actions/claimsExtraction.ts
+  - packages/backend/convex/actions/coachParentSummaries.ts
+  - packages/backend/convex/actions/practicePlans.ts
+  - packages/backend/convex/actions/sessionPlans.ts
+  - packages/backend/convex/actions/voiceNotes.ts
+  - packages/backend/convex/actions/wellnessInsights.ts
+  - packages/backend/convex/models/aiServiceHealth.ts
+  **Action**: Validate/sanitize user input before AI prompts
+- ⚠️ **HIGH [P9]**: Notification functions without permission checks:
+  - packages/backend/convex/models/notifications.ts
+  **Action**: Verify user can send notifications to recipient
+
+
+## Auto Quality Check - 2026-02-26 01:20:27
+### File: /Users/jkobrien/code/PDP/packages/backend/convex/models/coachParentSummaries.ts
+
+- ❌ **CRITICAL: Better Auth adapter violation**
+  - **Problem:** Direct DB access to auth tables
+  - **Fix:** Use `ctx.runQuery(components.betterAuth.adapter.findOne, {...})`
+
+
+## Auto Quality Check - 2026-02-26 01:20:27
+### File: /Users/jkobrien/code/PDP/packages/backend/convex/models/coachParentSummaries.ts
+
+- ⚠️ **Performance: .filter() usage detected**
+  - **Problem:** Should use .withIndex() for better performance
+  - **Fix:** Replace `.query().filter()` with `.query().withIndex()`
+
+
+## Auto Quality Check - 2026-02-26 01:20:27
+### File: /Users/jkobrien/code/PDP/packages/backend/convex/models/coachParentSummaries.ts
+
+- ❌ **CRITICAL: N+1 query pattern detected**
+  - **Problem:** `Promise.all(items.map(async => query))` makes N database calls
+  - **Fix:** Batch fetch all IDs first, create Map for O(1) lookup
+
+
+## Security Tester - 2026-02-26 01:22:24
+- 🚨 **CRITICAL**: Hardcoded secrets detected
+```
+apps/web/src/app/api/ai-config/verify-model/route.ts:          errorMessage: "ANTHROPIC_API_KEY not configured in Next.js env",
+apps/web/src/app/api/ai-config/verify-model/route.ts:          errorMessage: "OPENAI_API_KEY not configured in Next.js env",
+apps/web/src/app/api/ai-config/available-models/route.ts:    errors.anthropic = "ANTHROPIC_API_KEY not configured";
+apps/web/src/app/api/ai-config/available-models/route.ts:    errors.openai = "OPENAI_API_KEY not configured";
+apps/web/src/app/api/comparison-insights/route.ts:      console.error("❌ ANTHROPIC_API_KEY not found in environment variables");
+```
+- ⚠️ **HIGH**: 6 high-severity dependency vulnerabilities
+  Run `npm audit fix` to resolve
+- ⚠️ **HIGH**: Mutations without authorization checks:
+  - packages/backend/convex/models/platformMessagingSettings.ts
+  - packages/backend/convex/models/syncQueue.ts
+  - packages/backend/convex/models/importSessions.ts
+  - packages/backend/convex/models/passportComparison.ts
+  - packages/backend/convex/models/trustGatePermissions.ts
+  - packages/backend/convex/models/ageGroupEligibilityOverrides.ts
+  - packages/backend/convex/models/federationConnectors.ts
+  - packages/backend/convex/models/teamCollaboration.ts
+  - packages/backend/convex/models/guardianIdentities.ts
+  - packages/backend/convex/models/sessionPlans.ts
+  - packages/backend/convex/models/adultPlayers.ts
+  - packages/backend/convex/models/demoAsks.ts
+  - packages/backend/convex/models/skillBenchmarks.ts
+  - packages/backend/convex/models/coaches.ts
+  - packages/backend/convex/models/medicalProfiles.ts
+  - packages/backend/convex/models/invitations.ts
+  - packages/backend/convex/models/flows.ts
+  - packages/backend/convex/models/notifications.ts
+  - packages/backend/convex/models/whatsappReviewLinks.ts
+  - packages/backend/convex/models/teamObservations.ts
+  - packages/backend/convex/models/passportGoals.ts
+  - packages/backend/convex/models/players.ts
+  - packages/backend/convex/models/aiMappingCache.ts
+  - packages/backend/convex/models/orgInjuryNotes.ts
+  - packages/backend/convex/models/injuryDocuments.ts
+  - packages/backend/convex/models/playerHealthChecks.ts
+  - packages/backend/convex/models/playerImport.ts
+  - packages/backend/convex/models/passportEnquiries.ts
+  - packages/backend/convex/models/setup.ts
+  - packages/backend/convex/models/teamPlayerIdentities.ts
+  - packages/backend/convex/models/rateLimits.ts
+  - packages/backend/convex/models/phase4TestCleanup.ts
+  - packages/backend/convex/models/syncHistory.ts
+  - packages/backend/convex/models/platformStaffInvitations.ts
+  - packages/backend/convex/models/coachParentMessages.ts
+  - packages/backend/convex/models/aiModelConfig.ts
+  - packages/backend/convex/models/voicePipelineAlerts.ts
+  - packages/backend/convex/models/aiMappingAnalytics.ts
+  - packages/backend/convex/models/orgPlayerEnrollments.ts
+  - packages/backend/convex/models/sportPassports.ts
+  - packages/backend/convex/models/orgJoinRequests.ts
+  - packages/backend/convex/models/sportAgeGroupConfig.ts
+  - packages/backend/convex/models/referenceData.ts
+  - packages/backend/convex/models/importMappingHistory.ts
+  - packages/backend/convex/models/notificationPreferences.ts
+  - packages/backend/convex/models/userPreferences.ts
+  - packages/backend/convex/models/teams.ts
+  - packages/backend/convex/models/gdpr.ts
+  - packages/backend/convex/models/userProfiles.ts
+  - packages/backend/convex/models/emergencyContacts.ts
+  - packages/backend/convex/models/coachTrustLevels.ts
+  - packages/backend/convex/models/coachParentSummaries.ts
+  - packages/backend/convex/models/onboarding.ts
+  - packages/backend/convex/models/guardianPlayerLinks.ts
+  - packages/backend/convex/models/orgGuardianProfiles.ts
+  - packages/backend/convex/models/passportSharing.ts
+  - packages/backend/convex/models/playerGraduations.ts
+  - packages/backend/convex/models/members.ts
+  - packages/backend/convex/models/voiceNoteEntityResolutions.ts
+  - packages/backend/convex/models/users.ts
+  - packages/backend/convex/models/voicePipelineRetry.ts
+  - packages/backend/convex/models/skillAssessments.ts
+  - packages/backend/convex/models/playerSelfAccess.ts
+  - packages/backend/convex/models/aiServiceHealth.ts
+  - packages/backend/convex/models/importTemplates.ts
+  - packages/backend/convex/models/sports.ts
+  - packages/backend/convex/models/importProgress.ts
+  - packages/backend/convex/models/fixNeilsRoles.ts
+  - packages/backend/convex/models/playerIdentities.ts
+  - packages/backend/convex/models/voiceNotes.ts
+  - packages/backend/convex/models/guardianManagement.ts
+  - packages/backend/convex/models/importTemplateSeeds.ts
+  - packages/backend/convex/models/insightDrafts.ts
+  - packages/backend/convex/models/importSessionDrafts.ts
+  - packages/backend/convex/models/teamDecisions.ts
+  - packages/backend/convex/models/gaaTestMutations.ts
+  - packages/backend/convex/models/playerInjuries.ts
+  - packages/backend/convex/models/voiceNoteInsights.ts
+  - packages/backend/convex/models/playerEmergencyContacts.ts
+  - packages/backend/convex/models/coachTasks.ts
+  **Action**: Add `getUserOrgRole()` or mark as `// @public`
+- 🚨 **CRITICAL [P9]**: XSS risk - dangerouslySetInnerHTML without sanitization:
+    apps/web/src/components/ui/confetti.tsx:        dangerouslySetInnerHTML={{
+  apps/web/src/components/ui/chart.tsx:      dangerouslySetInnerHTML={{
+  apps/web/src/components/onboarding/gdpr-policy-viewer.tsx: * Uses dangerouslySetInnerHTML to avoid React key issues with static content.
+  **Action**: Use DOMPurify or remove dangerouslySetInnerHTML
+- ⚠️ **HIGH [P9]**: No rate limiting on notification/activity endpoints:
+  - packages/backend/convex/models/demoAsks.ts
+  **Action**: Add rate limiting to prevent spam/abuse
+- ⚠️ **HIGH [P9]**: AI endpoints without input validation:
+  - packages/backend/convex/actions/aiMapping.ts
+  - packages/backend/convex/actions/claimsExtraction.ts
+  - packages/backend/convex/actions/coachParentSummaries.ts
+  - packages/backend/convex/actions/practicePlans.ts
+  - packages/backend/convex/actions/sessionPlans.ts
+  - packages/backend/convex/actions/voiceNotes.ts
+  - packages/backend/convex/actions/wellnessInsights.ts
+  - packages/backend/convex/models/aiServiceHealth.ts
+  **Action**: Validate/sanitize user input before AI prompts
+- ⚠️ **HIGH [P9]**: Notification functions without permission checks:
+  - packages/backend/convex/models/notifications.ts
+  **Action**: Verify user can send notifications to recipient
+
+
+## Code Review Gate - 2026-02-26 01:23:14
+
+🔍 **Code Review: BLOCK** (3 critical, 1 high, 2 medium) - 🚨 **CRITICAL**: `.filter()` usage in `packages/backend/convex/models/coachParentSummaries.ts` - use `.withIndex()` instead\n  ```\n145:  return guardians.filter((g) => g.guardian !== null) as Array<{
+919:    const recentApproved = allSummaries.filter((summary) => {
+1018:      count += approvedSummaries.filter((s) => !s.viewedAt).length;\n  ```\n- ℹ️ **MEDIUM**: `console.log` in `packages/backend/convex/models/coachParentSummaries.ts` - remove before merge\n- 🚨 **CRITICAL**: `.filter()` usage in `packages/backend/convex/models/playerDataExport.ts` - use `.withIndex()` instead\n  ```\n180:      .filter((s) => visibleStatuses.has(s.status))\n  ```\n- 🚨 **CRITICAL**: `.filter()` usage in `packages/backend/convex/models/playerGraduations.ts` - use `.withIndex()` instead\n  ```\n59:      .filter((q) =>
+95:        .filter((q) => q.eq(q.field("status"), "pending"))
+626:        .filter((c) => c.grantedByType === "guardian")\n  ```\n- ⚠️ **HIGH**: Mutation in `packages/backend/convex/models/playerGraduations.ts` may be missing auth check\n- ℹ️ **MEDIUM**: `console.log` in `packages/backend/convex/models/playerGraduations.ts` - remove before merge\n\n**Verdict:** BLOCK - Fix CRITICAL/HIGH issues before continuing
+
+
+## Security Tester - 2026-02-26 01:24:26
+- 🚨 **CRITICAL**: Hardcoded secrets detected
+```
+apps/web/src/app/api/ai-config/verify-model/route.ts:          errorMessage: "ANTHROPIC_API_KEY not configured in Next.js env",
+apps/web/src/app/api/ai-config/verify-model/route.ts:          errorMessage: "OPENAI_API_KEY not configured in Next.js env",
+apps/web/src/app/api/ai-config/available-models/route.ts:    errors.anthropic = "ANTHROPIC_API_KEY not configured";
+apps/web/src/app/api/ai-config/available-models/route.ts:    errors.openai = "OPENAI_API_KEY not configured";
+apps/web/src/app/api/comparison-insights/route.ts:      console.error("❌ ANTHROPIC_API_KEY not found in environment variables");
+```
+- ⚠️ **HIGH**: 6 high-severity dependency vulnerabilities
+  Run `npm audit fix` to resolve
+- ⚠️ **HIGH**: Mutations without authorization checks:
+  - packages/backend/convex/models/platformMessagingSettings.ts
+  - packages/backend/convex/models/syncQueue.ts
+  - packages/backend/convex/models/importSessions.ts
+  - packages/backend/convex/models/passportComparison.ts
+  - packages/backend/convex/models/trustGatePermissions.ts
+  - packages/backend/convex/models/ageGroupEligibilityOverrides.ts
+  - packages/backend/convex/models/federationConnectors.ts
+  - packages/backend/convex/models/teamCollaboration.ts
+  - packages/backend/convex/models/guardianIdentities.ts
+  - packages/backend/convex/models/sessionPlans.ts
+  - packages/backend/convex/models/adultPlayers.ts
+  - packages/backend/convex/models/demoAsks.ts
+  - packages/backend/convex/models/skillBenchmarks.ts
+  - packages/backend/convex/models/coaches.ts
+  - packages/backend/convex/models/medicalProfiles.ts
+  - packages/backend/convex/models/invitations.ts
+  - packages/backend/convex/models/flows.ts
+  - packages/backend/convex/models/notifications.ts
+  - packages/backend/convex/models/whatsappReviewLinks.ts
+  - packages/backend/convex/models/teamObservations.ts
+  - packages/backend/convex/models/passportGoals.ts
+  - packages/backend/convex/models/players.ts
+  - packages/backend/convex/models/aiMappingCache.ts
+  - packages/backend/convex/models/orgInjuryNotes.ts
+  - packages/backend/convex/models/injuryDocuments.ts
+  - packages/backend/convex/models/playerHealthChecks.ts
+  - packages/backend/convex/models/playerImport.ts
+  - packages/backend/convex/models/passportEnquiries.ts
+  - packages/backend/convex/models/setup.ts
+  - packages/backend/convex/models/teamPlayerIdentities.ts
+  - packages/backend/convex/models/rateLimits.ts
+  - packages/backend/convex/models/phase4TestCleanup.ts
+  - packages/backend/convex/models/syncHistory.ts
+  - packages/backend/convex/models/platformStaffInvitations.ts
+  - packages/backend/convex/models/coachParentMessages.ts
+  - packages/backend/convex/models/aiModelConfig.ts
+  - packages/backend/convex/models/voicePipelineAlerts.ts
+  - packages/backend/convex/models/aiMappingAnalytics.ts
+  - packages/backend/convex/models/orgPlayerEnrollments.ts
+  - packages/backend/convex/models/sportPassports.ts
+  - packages/backend/convex/models/orgJoinRequests.ts
+  - packages/backend/convex/models/sportAgeGroupConfig.ts
+  - packages/backend/convex/models/referenceData.ts
+  - packages/backend/convex/models/importMappingHistory.ts
+  - packages/backend/convex/models/notificationPreferences.ts
+  - packages/backend/convex/models/userPreferences.ts
+  - packages/backend/convex/models/teams.ts
+  - packages/backend/convex/models/gdpr.ts
+  - packages/backend/convex/models/userProfiles.ts
+  - packages/backend/convex/models/emergencyContacts.ts
+  - packages/backend/convex/models/coachTrustLevels.ts
+  - packages/backend/convex/models/coachParentSummaries.ts
+  - packages/backend/convex/models/onboarding.ts
+  - packages/backend/convex/models/guardianPlayerLinks.ts
+  - packages/backend/convex/models/orgGuardianProfiles.ts
+  - packages/backend/convex/models/passportSharing.ts
+  - packages/backend/convex/models/playerGraduations.ts
+  - packages/backend/convex/models/members.ts
+  - packages/backend/convex/models/voiceNoteEntityResolutions.ts
+  - packages/backend/convex/models/users.ts
+  - packages/backend/convex/models/voicePipelineRetry.ts
+  - packages/backend/convex/models/skillAssessments.ts
+  - packages/backend/convex/models/playerSelfAccess.ts
+  - packages/backend/convex/models/aiServiceHealth.ts
+  - packages/backend/convex/models/importTemplates.ts
+  - packages/backend/convex/models/sports.ts
+  - packages/backend/convex/models/importProgress.ts
+  - packages/backend/convex/models/fixNeilsRoles.ts
+  - packages/backend/convex/models/playerIdentities.ts
+  - packages/backend/convex/models/voiceNotes.ts
+  - packages/backend/convex/models/guardianManagement.ts
+  - packages/backend/convex/models/importTemplateSeeds.ts
+  - packages/backend/convex/models/insightDrafts.ts
+  - packages/backend/convex/models/importSessionDrafts.ts
+  - packages/backend/convex/models/teamDecisions.ts
+  - packages/backend/convex/models/gaaTestMutations.ts
+  - packages/backend/convex/models/playerInjuries.ts
+  - packages/backend/convex/models/voiceNoteInsights.ts
+  - packages/backend/convex/models/playerEmergencyContacts.ts
+  - packages/backend/convex/models/coachTasks.ts
+  **Action**: Add `getUserOrgRole()` or mark as `// @public`
+- 🚨 **CRITICAL [P9]**: XSS risk - dangerouslySetInnerHTML without sanitization:
+    apps/web/src/components/ui/confetti.tsx:        dangerouslySetInnerHTML={{
+  apps/web/src/components/ui/chart.tsx:      dangerouslySetInnerHTML={{
+  apps/web/src/components/onboarding/gdpr-policy-viewer.tsx: * Uses dangerouslySetInnerHTML to avoid React key issues with static content.
+  **Action**: Use DOMPurify or remove dangerouslySetInnerHTML
+- ⚠️ **HIGH [P9]**: No rate limiting on notification/activity endpoints:
+  - packages/backend/convex/models/demoAsks.ts
+  **Action**: Add rate limiting to prevent spam/abuse
+- ⚠️ **HIGH [P9]**: AI endpoints without input validation:
+  - packages/backend/convex/actions/aiMapping.ts
+  - packages/backend/convex/actions/claimsExtraction.ts
+  - packages/backend/convex/actions/coachParentSummaries.ts
+  - packages/backend/convex/actions/practicePlans.ts
+  - packages/backend/convex/actions/sessionPlans.ts
+  - packages/backend/convex/actions/voiceNotes.ts
+  - packages/backend/convex/actions/wellnessInsights.ts
+  - packages/backend/convex/models/aiServiceHealth.ts
+  **Action**: Validate/sanitize user input before AI prompts
+- ⚠️ **HIGH [P9]**: Notification functions without permission checks:
+  - packages/backend/convex/models/notifications.ts
+  **Action**: Verify user can send notifications to recipient
+
+
+## Security Tester - 2026-02-26 01:26:30
+- 🚨 **CRITICAL**: Hardcoded secrets detected
+```
+apps/web/src/app/api/ai-config/verify-model/route.ts:          errorMessage: "ANTHROPIC_API_KEY not configured in Next.js env",
+apps/web/src/app/api/ai-config/verify-model/route.ts:          errorMessage: "OPENAI_API_KEY not configured in Next.js env",
+apps/web/src/app/api/ai-config/available-models/route.ts:    errors.anthropic = "ANTHROPIC_API_KEY not configured";
+apps/web/src/app/api/ai-config/available-models/route.ts:    errors.openai = "OPENAI_API_KEY not configured";
+apps/web/src/app/api/comparison-insights/route.ts:      console.error("❌ ANTHROPIC_API_KEY not found in environment variables");
+```
+- ⚠️ **HIGH**: 6 high-severity dependency vulnerabilities
+  Run `npm audit fix` to resolve
+- ⚠️ **HIGH**: Mutations without authorization checks:
+  - packages/backend/convex/models/platformMessagingSettings.ts
+  - packages/backend/convex/models/syncQueue.ts
+  - packages/backend/convex/models/importSessions.ts
+  - packages/backend/convex/models/passportComparison.ts
+  - packages/backend/convex/models/trustGatePermissions.ts
+  - packages/backend/convex/models/ageGroupEligibilityOverrides.ts
+  - packages/backend/convex/models/federationConnectors.ts
+  - packages/backend/convex/models/teamCollaboration.ts
+  - packages/backend/convex/models/guardianIdentities.ts
+  - packages/backend/convex/models/sessionPlans.ts
+  - packages/backend/convex/models/adultPlayers.ts
+  - packages/backend/convex/models/demoAsks.ts
+  - packages/backend/convex/models/skillBenchmarks.ts
+  - packages/backend/convex/models/coaches.ts
+  - packages/backend/convex/models/medicalProfiles.ts
+  - packages/backend/convex/models/invitations.ts
+  - packages/backend/convex/models/flows.ts
+  - packages/backend/convex/models/notifications.ts
+  - packages/backend/convex/models/whatsappReviewLinks.ts
+  - packages/backend/convex/models/teamObservations.ts
+  - packages/backend/convex/models/passportGoals.ts
+  - packages/backend/convex/models/players.ts
+  - packages/backend/convex/models/aiMappingCache.ts
+  - packages/backend/convex/models/orgInjuryNotes.ts
+  - packages/backend/convex/models/injuryDocuments.ts
+  - packages/backend/convex/models/playerHealthChecks.ts
+  - packages/backend/convex/models/playerImport.ts
+  - packages/backend/convex/models/passportEnquiries.ts
+  - packages/backend/convex/models/setup.ts
+  - packages/backend/convex/models/teamPlayerIdentities.ts
+  - packages/backend/convex/models/rateLimits.ts
+  - packages/backend/convex/models/phase4TestCleanup.ts
+  - packages/backend/convex/models/syncHistory.ts
+  - packages/backend/convex/models/platformStaffInvitations.ts
+  - packages/backend/convex/models/coachParentMessages.ts
+  - packages/backend/convex/models/aiModelConfig.ts
+  - packages/backend/convex/models/voicePipelineAlerts.ts
+  - packages/backend/convex/models/aiMappingAnalytics.ts
+  - packages/backend/convex/models/orgPlayerEnrollments.ts
+  - packages/backend/convex/models/sportPassports.ts
+  - packages/backend/convex/models/orgJoinRequests.ts
+  - packages/backend/convex/models/sportAgeGroupConfig.ts
+  - packages/backend/convex/models/referenceData.ts
+  - packages/backend/convex/models/importMappingHistory.ts
+  - packages/backend/convex/models/notificationPreferences.ts
+  - packages/backend/convex/models/userPreferences.ts
+  - packages/backend/convex/models/teams.ts
+  - packages/backend/convex/models/gdpr.ts
+  - packages/backend/convex/models/userProfiles.ts
+  - packages/backend/convex/models/emergencyContacts.ts
+  - packages/backend/convex/models/coachTrustLevels.ts
+  - packages/backend/convex/models/coachParentSummaries.ts
+  - packages/backend/convex/models/onboarding.ts
+  - packages/backend/convex/models/guardianPlayerLinks.ts
+  - packages/backend/convex/models/orgGuardianProfiles.ts
+  - packages/backend/convex/models/passportSharing.ts
+  - packages/backend/convex/models/playerGraduations.ts
+  - packages/backend/convex/models/members.ts
+  - packages/backend/convex/models/voiceNoteEntityResolutions.ts
+  - packages/backend/convex/models/users.ts
+  - packages/backend/convex/models/voicePipelineRetry.ts
+  - packages/backend/convex/models/skillAssessments.ts
+  - packages/backend/convex/models/playerSelfAccess.ts
+  - packages/backend/convex/models/aiServiceHealth.ts
+  - packages/backend/convex/models/importTemplates.ts
+  - packages/backend/convex/models/sports.ts
+  - packages/backend/convex/models/importProgress.ts
+  - packages/backend/convex/models/fixNeilsRoles.ts
+  - packages/backend/convex/models/playerIdentities.ts
+  - packages/backend/convex/models/voiceNotes.ts
+  - packages/backend/convex/models/guardianManagement.ts
+  - packages/backend/convex/models/importTemplateSeeds.ts
+  - packages/backend/convex/models/insightDrafts.ts
+  - packages/backend/convex/models/importSessionDrafts.ts
+  - packages/backend/convex/models/teamDecisions.ts
+  - packages/backend/convex/models/gaaTestMutations.ts
+  - packages/backend/convex/models/playerInjuries.ts
+  - packages/backend/convex/models/voiceNoteInsights.ts
+  - packages/backend/convex/models/playerEmergencyContacts.ts
+  - packages/backend/convex/models/coachTasks.ts
+  **Action**: Add `getUserOrgRole()` or mark as `// @public`
+- 🚨 **CRITICAL [P9]**: XSS risk - dangerouslySetInnerHTML without sanitization:
+    apps/web/src/components/ui/confetti.tsx:        dangerouslySetInnerHTML={{
+  apps/web/src/components/ui/chart.tsx:      dangerouslySetInnerHTML={{
+  apps/web/src/components/onboarding/gdpr-policy-viewer.tsx: * Uses dangerouslySetInnerHTML to avoid React key issues with static content.
+  **Action**: Use DOMPurify or remove dangerouslySetInnerHTML
+- ⚠️ **HIGH [P9]**: No rate limiting on notification/activity endpoints:
+  - packages/backend/convex/models/demoAsks.ts
+  **Action**: Add rate limiting to prevent spam/abuse
+- ⚠️ **HIGH [P9]**: AI endpoints without input validation:
+  - packages/backend/convex/actions/aiMapping.ts
+  - packages/backend/convex/actions/claimsExtraction.ts
+  - packages/backend/convex/actions/coachParentSummaries.ts
+  - packages/backend/convex/actions/practicePlans.ts
+  - packages/backend/convex/actions/sessionPlans.ts
+  - packages/backend/convex/actions/voiceNotes.ts
+  - packages/backend/convex/actions/wellnessInsights.ts
+  - packages/backend/convex/models/aiServiceHealth.ts
+  **Action**: Validate/sanitize user input before AI prompts
+- ⚠️ **HIGH [P9]**: Notification functions without permission checks:
+  - packages/backend/convex/models/notifications.ts
+  **Action**: Verify user can send notifications to recipient
+
+
+## Security Tester - 2026-02-26 01:28:32
+- 🚨 **CRITICAL**: Hardcoded secrets detected
+```
+apps/web/src/app/api/ai-config/verify-model/route.ts:          errorMessage: "ANTHROPIC_API_KEY not configured in Next.js env",
+apps/web/src/app/api/ai-config/verify-model/route.ts:          errorMessage: "OPENAI_API_KEY not configured in Next.js env",
+apps/web/src/app/api/ai-config/available-models/route.ts:    errors.anthropic = "ANTHROPIC_API_KEY not configured";
+apps/web/src/app/api/ai-config/available-models/route.ts:    errors.openai = "OPENAI_API_KEY not configured";
+apps/web/src/app/api/comparison-insights/route.ts:      console.error("❌ ANTHROPIC_API_KEY not found in environment variables");
+```
+- ⚠️ **HIGH**: 6 high-severity dependency vulnerabilities
+  Run `npm audit fix` to resolve
+- ⚠️ **HIGH**: Mutations without authorization checks:
+  - packages/backend/convex/models/platformMessagingSettings.ts
+  - packages/backend/convex/models/syncQueue.ts
+  - packages/backend/convex/models/importSessions.ts
+  - packages/backend/convex/models/passportComparison.ts
+  - packages/backend/convex/models/trustGatePermissions.ts
+  - packages/backend/convex/models/ageGroupEligibilityOverrides.ts
+  - packages/backend/convex/models/federationConnectors.ts
+  - packages/backend/convex/models/teamCollaboration.ts
+  - packages/backend/convex/models/guardianIdentities.ts
+  - packages/backend/convex/models/sessionPlans.ts
+  - packages/backend/convex/models/adultPlayers.ts
+  - packages/backend/convex/models/demoAsks.ts
+  - packages/backend/convex/models/skillBenchmarks.ts
+  - packages/backend/convex/models/coaches.ts
+  - packages/backend/convex/models/medicalProfiles.ts
+  - packages/backend/convex/models/invitations.ts
+  - packages/backend/convex/models/flows.ts
+  - packages/backend/convex/models/notifications.ts
+  - packages/backend/convex/models/whatsappReviewLinks.ts
+  - packages/backend/convex/models/teamObservations.ts
+  - packages/backend/convex/models/passportGoals.ts
+  - packages/backend/convex/models/players.ts
+  - packages/backend/convex/models/aiMappingCache.ts
+  - packages/backend/convex/models/orgInjuryNotes.ts
+  - packages/backend/convex/models/injuryDocuments.ts
+  - packages/backend/convex/models/playerHealthChecks.ts
+  - packages/backend/convex/models/playerImport.ts
+  - packages/backend/convex/models/passportEnquiries.ts
+  - packages/backend/convex/models/setup.ts
+  - packages/backend/convex/models/teamPlayerIdentities.ts
+  - packages/backend/convex/models/rateLimits.ts
+  - packages/backend/convex/models/phase4TestCleanup.ts
+  - packages/backend/convex/models/syncHistory.ts
+  - packages/backend/convex/models/platformStaffInvitations.ts
+  - packages/backend/convex/models/coachParentMessages.ts
+  - packages/backend/convex/models/aiModelConfig.ts
+  - packages/backend/convex/models/voicePipelineAlerts.ts
+  - packages/backend/convex/models/aiMappingAnalytics.ts
+  - packages/backend/convex/models/orgPlayerEnrollments.ts
+  - packages/backend/convex/models/sportPassports.ts
+  - packages/backend/convex/models/orgJoinRequests.ts
+  - packages/backend/convex/models/sportAgeGroupConfig.ts
+  - packages/backend/convex/models/referenceData.ts
+  - packages/backend/convex/models/importMappingHistory.ts
+  - packages/backend/convex/models/notificationPreferences.ts
+  - packages/backend/convex/models/userPreferences.ts
+  - packages/backend/convex/models/teams.ts
+  - packages/backend/convex/models/gdpr.ts
+  - packages/backend/convex/models/userProfiles.ts
+  - packages/backend/convex/models/emergencyContacts.ts
+  - packages/backend/convex/models/coachTrustLevels.ts
+  - packages/backend/convex/models/coachParentSummaries.ts
+  - packages/backend/convex/models/onboarding.ts
+  - packages/backend/convex/models/guardianPlayerLinks.ts
+  - packages/backend/convex/models/orgGuardianProfiles.ts
+  - packages/backend/convex/models/passportSharing.ts
+  - packages/backend/convex/models/playerGraduations.ts
+  - packages/backend/convex/models/members.ts
+  - packages/backend/convex/models/voiceNoteEntityResolutions.ts
+  - packages/backend/convex/models/users.ts
+  - packages/backend/convex/models/voicePipelineRetry.ts
+  - packages/backend/convex/models/skillAssessments.ts
+  - packages/backend/convex/models/playerSelfAccess.ts
+  - packages/backend/convex/models/aiServiceHealth.ts
+  - packages/backend/convex/models/importTemplates.ts
+  - packages/backend/convex/models/sports.ts
+  - packages/backend/convex/models/importProgress.ts
+  - packages/backend/convex/models/fixNeilsRoles.ts
+  - packages/backend/convex/models/playerIdentities.ts
+  - packages/backend/convex/models/voiceNotes.ts
+  - packages/backend/convex/models/guardianManagement.ts
+  - packages/backend/convex/models/importTemplateSeeds.ts
+  - packages/backend/convex/models/insightDrafts.ts
+  - packages/backend/convex/models/importSessionDrafts.ts
+  - packages/backend/convex/models/teamDecisions.ts
+  - packages/backend/convex/models/gaaTestMutations.ts
+  - packages/backend/convex/models/playerInjuries.ts
+  - packages/backend/convex/models/voiceNoteInsights.ts
+  - packages/backend/convex/models/playerEmergencyContacts.ts
+  - packages/backend/convex/models/coachTasks.ts
+  **Action**: Add `getUserOrgRole()` or mark as `// @public`
+- 🚨 **CRITICAL [P9]**: XSS risk - dangerouslySetInnerHTML without sanitization:
+    apps/web/src/components/ui/confetti.tsx:        dangerouslySetInnerHTML={{
+  apps/web/src/components/ui/chart.tsx:      dangerouslySetInnerHTML={{
+  apps/web/src/components/onboarding/gdpr-policy-viewer.tsx: * Uses dangerouslySetInnerHTML to avoid React key issues with static content.
+  **Action**: Use DOMPurify or remove dangerouslySetInnerHTML
+- ⚠️ **HIGH [P9]**: No rate limiting on notification/activity endpoints:
+  - packages/backend/convex/models/demoAsks.ts
+  **Action**: Add rate limiting to prevent spam/abuse
+- ⚠️ **HIGH [P9]**: AI endpoints without input validation:
+  - packages/backend/convex/actions/aiMapping.ts
+  - packages/backend/convex/actions/claimsExtraction.ts
+  - packages/backend/convex/actions/coachParentSummaries.ts
+  - packages/backend/convex/actions/practicePlans.ts
+  - packages/backend/convex/actions/sessionPlans.ts
+  - packages/backend/convex/actions/voiceNotes.ts
+  - packages/backend/convex/actions/wellnessInsights.ts
+  - packages/backend/convex/models/aiServiceHealth.ts
+  **Action**: Validate/sanitize user input before AI prompts
+- ⚠️ **HIGH [P9]**: Notification functions without permission checks:
+  - packages/backend/convex/models/notifications.ts
+  **Action**: Verify user can send notifications to recipient
+
+
+## Auto Quality Check - 2026-02-26 08:51:36
+### File: /Users/jkobrien/code/PDP/packages/backend/convex/models/orgPlayerEnrollments.ts
+
+- ❌ **CRITICAL: Better Auth adapter violation**
+  - **Problem:** Direct DB access to auth tables
+  - **Fix:** Use `ctx.runQuery(components.betterAuth.adapter.findOne, {...})`
+
+
+## Auto Quality Check - 2026-02-26 08:51:36
+### File: /Users/jkobrien/code/PDP/packages/backend/convex/models/orgPlayerEnrollments.ts
+
+- ⚠️ **Performance: .filter() usage detected**
+  - **Problem:** Should use .withIndex() for better performance
+  - **Fix:** Replace `.query().filter()` with `.query().withIndex()`
+
+
+## Auto Quality Check - 2026-02-26 08:51:42
+### File: /Users/jkobrien/code/PDP/packages/backend/convex/models/orgPlayerEnrollments.ts
+
+- ❌ **CRITICAL: Better Auth adapter violation**
+  - **Problem:** Direct DB access to auth tables
+  - **Fix:** Use `ctx.runQuery(components.betterAuth.adapter.findOne, {...})`
+
+
+## Auto Quality Check - 2026-02-26 08:51:42
+### File: /Users/jkobrien/code/PDP/packages/backend/convex/models/orgPlayerEnrollments.ts
+
+- ⚠️ **Performance: .filter() usage detected**
+  - **Problem:** Should use .withIndex() for better performance
+  - **Fix:** Replace `.query().filter()` with `.query().withIndex()`
+
+
+## Auto Quality Check - 2026-02-26 08:52:23
+### File: /Users/jkobrien/code/PDP/packages/backend/convex/models/teamPlayerIdentities.ts
+
+- ❌ **CRITICAL: Better Auth adapter violation**
+  - **Problem:** Direct DB access to auth tables
+  - **Fix:** Use `ctx.runQuery(components.betterAuth.adapter.findOne, {...})`
+
+
+## Auto Quality Check - 2026-02-26 08:52:23
+### File: /Users/jkobrien/code/PDP/packages/backend/convex/models/teamPlayerIdentities.ts
+
+- ⚠️ **Performance: .filter() usage detected**
+  - **Problem:** Should use .withIndex() for better performance
+  - **Fix:** Replace `.query().filter()` with `.query().withIndex()`
+
+
+## Auto Quality Check - 2026-02-26 08:52:24
+### File: /Users/jkobrien/code/PDP/packages/backend/convex/models/teamPlayerIdentities.ts
+
+- ❌ **CRITICAL: Better Auth adapter violation**
+  - **Problem:** Direct DB access to auth tables
+  - **Fix:** Use `ctx.runQuery(components.betterAuth.adapter.findOne, {...})`
+
+
+## Auto Quality Check - 2026-02-26 08:52:24
+### File: /Users/jkobrien/code/PDP/packages/backend/convex/models/teamPlayerIdentities.ts
+
+- ⚠️ **Performance: .filter() usage detected**
+  - **Problem:** Should use .withIndex() for better performance
+  - **Fix:** Replace `.query().filter()` with `.query().withIndex()`
+
+
+## Auto Quality Check - 2026-02-26 08:52:36
+### File: /Users/jkobrien/code/PDP/packages/backend/convex/models/orgPlayerEnrollments.ts
+
+- ❌ **CRITICAL: Better Auth adapter violation**
+  - **Problem:** Direct DB access to auth tables
+  - **Fix:** Use `ctx.runQuery(components.betterAuth.adapter.findOne, {...})`
+
+
+## Auto Quality Check - 2026-02-26 08:52:36
+### File: /Users/jkobrien/code/PDP/packages/backend/convex/models/orgPlayerEnrollments.ts
+
+- ⚠️ **Performance: .filter() usage detected**
+  - **Problem:** Should use .withIndex() for better performance
+  - **Fix:** Replace `.query().filter()` with `.query().withIndex()`
+
+
+## Auto Quality Check - 2026-02-26 08:52:37
+### File: /Users/jkobrien/code/PDP/packages/backend/convex/models/members.ts
+
+- ❌ **CRITICAL: Better Auth adapter violation**
+  - **Problem:** Direct DB access to auth tables
+  - **Fix:** Use `ctx.runQuery(components.betterAuth.adapter.findOne, {...})`
+
+
+## Auto Quality Check - 2026-02-26 08:52:37
+### File: /Users/jkobrien/code/PDP/packages/backend/convex/models/members.ts
+
+- ⚠️ **Performance: .filter() usage detected**
+  - **Problem:** Should use .withIndex() for better performance
+  - **Fix:** Replace `.query().filter()` with `.query().withIndex()`
+
+
+## Auto Quality Check - 2026-02-26 08:52:37
+### File: /Users/jkobrien/code/PDP/packages/backend/convex/models/members.ts
+
+- ❌ **CRITICAL: N+1 query pattern detected**
+  - **Problem:** `Promise.all(items.map(async => query))` makes N database calls
+  - **Fix:** Batch fetch all IDs first, create Map for O(1) lookup
+
+
+## Auto Quality Check - 2026-02-26 08:52:50
+### File: /Users/jkobrien/code/PDP/packages/backend/convex/models/playerIdentities.ts
+
+- ❌ **CRITICAL: Better Auth adapter violation**
+  - **Problem:** Direct DB access to auth tables
+  - **Fix:** Use `ctx.runQuery(components.betterAuth.adapter.findOne, {...})`
+
+
+## Auto Quality Check - 2026-02-26 08:52:50
+### File: /Users/jkobrien/code/PDP/packages/backend/convex/models/playerIdentities.ts
+
+- ⚠️ **Performance: .filter() usage detected**
+  - **Problem:** Should use .withIndex() for better performance
+  - **Fix:** Replace `.query().filter()` with `.query().withIndex()`
+
+
+## Auto Quality Check - 2026-02-26 08:52:50
+### File: /Users/jkobrien/code/PDP/packages/backend/convex/models/playerIdentities.ts
+
+- ❌ **CRITICAL: N+1 query pattern detected**
+  - **Problem:** `Promise.all(items.map(async => query))` makes N database calls
+  - **Fix:** Batch fetch all IDs first, create Map for O(1) lookup
+
+
+## Auto Quality Check - 2026-02-26 08:53:16
+### File: /Users/jkobrien/code/PDP/packages/backend/convex/models/orgPlayerEnrollments.ts
+
+- ❌ **CRITICAL: Better Auth adapter violation**
+  - **Problem:** Direct DB access to auth tables
+  - **Fix:** Use `ctx.runQuery(components.betterAuth.adapter.findOne, {...})`
+
+
+## Auto Quality Check - 2026-02-26 08:53:16
+### File: /Users/jkobrien/code/PDP/packages/backend/convex/models/orgPlayerEnrollments.ts
+
+- ⚠️ **Performance: .filter() usage detected**
+  - **Problem:** Should use .withIndex() for better performance
+  - **Fix:** Replace `.query().filter()` with `.query().withIndex()`
+
+
+## Auto Quality Check - 2026-02-26 08:53:30
+### File: /Users/jkobrien/code/PDP/packages/backend/convex/models/members.ts
+
+- ❌ **CRITICAL: Better Auth adapter violation**
+  - **Problem:** Direct DB access to auth tables
+  - **Fix:** Use `ctx.runQuery(components.betterAuth.adapter.findOne, {...})`
+
+
+## Auto Quality Check - 2026-02-26 08:53:30
+### File: /Users/jkobrien/code/PDP/packages/backend/convex/models/members.ts
+
+- ⚠️ **Performance: .filter() usage detected**
+  - **Problem:** Should use .withIndex() for better performance
+  - **Fix:** Replace `.query().filter()` with `.query().withIndex()`
+
+
+## Auto Quality Check - 2026-02-26 08:53:30
+### File: /Users/jkobrien/code/PDP/packages/backend/convex/models/members.ts
+
+- ❌ **CRITICAL: N+1 query pattern detected**
+  - **Problem:** `Promise.all(items.map(async => query))` makes N database calls
+  - **Fix:** Batch fetch all IDs first, create Map for O(1) lookup
+
+
+## Auto Quality Check - 2026-02-26 08:53:40
+### File: /Users/jkobrien/code/PDP/packages/backend/convex/models/adultPlayers.ts
+
+- ⚠️ **Performance: .filter() usage detected**
+  - **Problem:** Should use .withIndex() for better performance
+  - **Fix:** Replace `.query().filter()` with `.query().withIndex()`
+
+
+## Auto Quality Check - 2026-02-26 08:53:49
+### File: /Users/jkobrien/code/PDP/packages/backend/convex/models/adultPlayers.ts
+
+- ⚠️ **Performance: .filter() usage detected**
+  - **Problem:** Should use .withIndex() for better performance
+  - **Fix:** Replace `.query().filter()` with `.query().withIndex()`
+
+
+## Auto Quality Check - 2026-02-26 08:53:50
+### File: /Users/jkobrien/code/PDP/packages/backend/convex/models/playerIdentities.ts
+
+- ❌ **CRITICAL: Better Auth adapter violation**
+  - **Problem:** Direct DB access to auth tables
+  - **Fix:** Use `ctx.runQuery(components.betterAuth.adapter.findOne, {...})`
+
+
+## Auto Quality Check - 2026-02-26 08:53:50
+### File: /Users/jkobrien/code/PDP/packages/backend/convex/models/playerIdentities.ts
+
+- ⚠️ **Performance: .filter() usage detected**
+  - **Problem:** Should use .withIndex() for better performance
+  - **Fix:** Replace `.query().filter()` with `.query().withIndex()`
+
+
+## Auto Quality Check - 2026-02-26 08:53:50
+### File: /Users/jkobrien/code/PDP/packages/backend/convex/models/playerIdentities.ts
+
+- ❌ **CRITICAL: N+1 query pattern detected**
+  - **Problem:** `Promise.all(items.map(async => query))` makes N database calls
+  - **Fix:** Batch fetch all IDs first, create Map for O(1) lookup
+
+
+## Auto Quality Check - 2026-02-26 08:54:01
+### File: /Users/jkobrien/code/PDP/packages/backend/convex/models/teamPlayerIdentities.ts
+
+- ❌ **CRITICAL: Better Auth adapter violation**
+  - **Problem:** Direct DB access to auth tables
+  - **Fix:** Use `ctx.runQuery(components.betterAuth.adapter.findOne, {...})`
+
+
+## Auto Quality Check - 2026-02-26 08:54:01
+### File: /Users/jkobrien/code/PDP/packages/backend/convex/models/teamPlayerIdentities.ts
+
+- ⚠️ **Performance: .filter() usage detected**
+  - **Problem:** Should use .withIndex() for better performance
+  - **Fix:** Replace `.query().filter()` with `.query().withIndex()`
+
+
+## Auto Quality Check - 2026-02-26 08:54:22
+### File: /Users/jkobrien/code/PDP/packages/backend/convex/models/players.ts
+
+- ❌ **CRITICAL: Better Auth adapter violation**
+  - **Problem:** Direct DB access to auth tables
+  - **Fix:** Use `ctx.runQuery(components.betterAuth.adapter.findOne, {...})`
+
+
+## Auto Quality Check - 2026-02-26 08:54:22
+### File: /Users/jkobrien/code/PDP/packages/backend/convex/models/players.ts
+
+- ⚠️ **Performance: .filter() usage detected**
+  - **Problem:** Should use .withIndex() for better performance
+  - **Fix:** Replace `.query().filter()` with `.query().withIndex()`
+
+
+## Auto Quality Check - 2026-02-26 08:54:22
+### File: /Users/jkobrien/code/PDP/packages/backend/convex/models/players.ts
+
+- ❌ **CRITICAL: N+1 query pattern detected**
+  - **Problem:** `Promise.all(items.map(async => query))` makes N database calls
+  - **Fix:** Batch fetch all IDs first, create Map for O(1) lookup
+
+
+## Auto Quality Check - 2026-02-26 08:55:42
+### File: /Users/jkobrien/code/PDP/packages/backend/convex/models/orgPlayerEnrollments.ts
+
+- ❌ **CRITICAL: Better Auth adapter violation**
+  - **Problem:** Direct DB access to auth tables
+  - **Fix:** Use `ctx.runQuery(components.betterAuth.adapter.findOne, {...})`
+
+
+## Auto Quality Check - 2026-02-26 08:55:42
+### File: /Users/jkobrien/code/PDP/packages/backend/convex/models/orgPlayerEnrollments.ts
+
+- ⚠️ **Performance: .filter() usage detected**
+  - **Problem:** Should use .withIndex() for better performance
+  - **Fix:** Replace `.query().filter()` with `.query().withIndex()`
+
+
+## Auto Quality Check - 2026-02-26 08:56:26
+### File: /Users/jkobrien/code/PDP/packages/backend/convex/models/members.ts
+
+- ❌ **CRITICAL: Better Auth adapter violation**
+  - **Problem:** Direct DB access to auth tables
+  - **Fix:** Use `ctx.runQuery(components.betterAuth.adapter.findOne, {...})`
+
+
+## Auto Quality Check - 2026-02-26 08:56:26
+### File: /Users/jkobrien/code/PDP/packages/backend/convex/models/members.ts
+
+- ⚠️ **Performance: .filter() usage detected**
+  - **Problem:** Should use .withIndex() for better performance
+  - **Fix:** Replace `.query().filter()` with `.query().withIndex()`
+
+
+## Auto Quality Check - 2026-02-26 08:56:26
+### File: /Users/jkobrien/code/PDP/packages/backend/convex/models/members.ts
+
+- ❌ **CRITICAL: N+1 query pattern detected**
+  - **Problem:** `Promise.all(items.map(async => query))` makes N database calls
+  - **Fix:** Batch fetch all IDs first, create Map for O(1) lookup
+
+
+## Auto Quality Check - 2026-02-26 09:17:35
+### File: /Users/jkobrien/code/PDP/packages/backend/convex/models/adultPlayers.ts
+
+- ⚠️ **Performance: .filter() usage detected**
+  - **Problem:** Should use .withIndex() for better performance
+  - **Fix:** Replace `.query().filter()` with `.query().withIndex()`
+
+
+## Auto Quality Check - 2026-02-26 09:17:35
+### File: /Users/jkobrien/code/PDP/packages/backend/convex/models/playerIdentities.ts
+
+- ❌ **CRITICAL: Better Auth adapter violation**
+  - **Problem:** Direct DB access to auth tables
+  - **Fix:** Use `ctx.runQuery(components.betterAuth.adapter.findOne, {...})`
+
+
+## Auto Quality Check - 2026-02-26 09:17:35
+### File: /Users/jkobrien/code/PDP/packages/backend/convex/models/playerIdentities.ts
+
+- ⚠️ **Performance: .filter() usage detected**
+  - **Problem:** Should use .withIndex() for better performance
+  - **Fix:** Replace `.query().filter()` with `.query().withIndex()`
+
+
+## Auto Quality Check - 2026-02-26 09:17:35
+### File: /Users/jkobrien/code/PDP/packages/backend/convex/models/playerIdentities.ts
+
+- ❌ **CRITICAL: N+1 query pattern detected**
+  - **Problem:** `Promise.all(items.map(async => query))` makes N database calls
+  - **Fix:** Batch fetch all IDs first, create Map for O(1) lookup
+
+
+## Auto Quality Check - 2026-02-26 09:17:45
+### File: /Users/jkobrien/code/PDP/packages/backend/convex/models/playerIdentities.ts
+
+- ❌ **CRITICAL: Better Auth adapter violation**
+  - **Problem:** Direct DB access to auth tables
+  - **Fix:** Use `ctx.runQuery(components.betterAuth.adapter.findOne, {...})`
+
+
+## Auto Quality Check - 2026-02-26 09:17:45
+### File: /Users/jkobrien/code/PDP/packages/backend/convex/models/playerIdentities.ts
+
+- ⚠️ **Performance: .filter() usage detected**
+  - **Problem:** Should use .withIndex() for better performance
+  - **Fix:** Replace `.query().filter()` with `.query().withIndex()`
+
+
+## Auto Quality Check - 2026-02-26 09:17:45
+### File: /Users/jkobrien/code/PDP/packages/backend/convex/models/playerIdentities.ts
+
+- ❌ **CRITICAL: N+1 query pattern detected**
+  - **Problem:** `Promise.all(items.map(async => query))` makes N database calls
+  - **Fix:** Batch fetch all IDs first, create Map for O(1) lookup
+
+
+## Auto Quality Check - 2026-02-26 09:18:13
+### File: /Users/jkobrien/code/PDP/packages/backend/convex/models/playerIdentities.ts
+
+- ❌ **CRITICAL: Better Auth adapter violation**
+  - **Problem:** Direct DB access to auth tables
+  - **Fix:** Use `ctx.runQuery(components.betterAuth.adapter.findOne, {...})`
+
+
+## Auto Quality Check - 2026-02-26 09:18:13
+### File: /Users/jkobrien/code/PDP/packages/backend/convex/models/playerIdentities.ts
+
+- ⚠️ **Performance: .filter() usage detected**
+  - **Problem:** Should use .withIndex() for better performance
+  - **Fix:** Replace `.query().filter()` with `.query().withIndex()`
+
+
+## Auto Quality Check - 2026-02-26 09:18:13
+### File: /Users/jkobrien/code/PDP/packages/backend/convex/models/playerIdentities.ts
+
+- ❌ **CRITICAL: N+1 query pattern detected**
+  - **Problem:** `Promise.all(items.map(async => query))` makes N database calls
+  - **Fix:** Batch fetch all IDs first, create Map for O(1) lookup
+
+
+## Auto Quality Check - 2026-02-26 09:18:13
+### File: /Users/jkobrien/code/PDP/packages/backend/convex/models/adultPlayers.ts
+
+- ⚠️ **Performance: .filter() usage detected**
+  - **Problem:** Should use .withIndex() for better performance
+  - **Fix:** Replace `.query().filter()` with `.query().withIndex()`
+
+
+## Auto Quality Check - 2026-02-26 09:18:13
+### File: /Users/jkobrien/code/PDP/packages/backend/convex/lib/playerMatching.ts
+
+- ❌ **CRITICAL: Better Auth adapter violation**
+  - **Problem:** Direct DB access to auth tables
+  - **Fix:** Use `ctx.runQuery(components.betterAuth.adapter.findOne, {...})`
+
+
+## Auto Quality Check - 2026-02-26 09:18:29
+### File: /Users/jkobrien/code/PDP/packages/backend/convex/models/adultPlayers.ts
+
+- ⚠️ **Performance: .filter() usage detected**
+  - **Problem:** Should use .withIndex() for better performance
+  - **Fix:** Replace `.query().filter()` with `.query().withIndex()`
+
+
+## Auto Quality Check - 2026-02-26 09:18:30
+### File: /Users/jkobrien/code/PDP/packages/backend/convex/lib/playerMatching.ts
+
+- ❌ **CRITICAL: Better Auth adapter violation**
+  - **Problem:** Direct DB access to auth tables
+  - **Fix:** Use `ctx.runQuery(components.betterAuth.adapter.findOne, {...})`
+
+
+## Auto Quality Check - 2026-02-26 09:18:47
+### File: /Users/jkobrien/code/PDP/packages/backend/convex/models/playerIdentities.ts
+
+- ❌ **CRITICAL: Better Auth adapter violation**
+  - **Problem:** Direct DB access to auth tables
+  - **Fix:** Use `ctx.runQuery(components.betterAuth.adapter.findOne, {...})`
+
+
+## Auto Quality Check - 2026-02-26 09:18:47
+### File: /Users/jkobrien/code/PDP/packages/backend/convex/models/playerIdentities.ts
+
+- ⚠️ **Performance: .filter() usage detected**
+  - **Problem:** Should use .withIndex() for better performance
+  - **Fix:** Replace `.query().filter()` with `.query().withIndex()`
+
+
+## Auto Quality Check - 2026-02-26 09:18:47
+### File: /Users/jkobrien/code/PDP/packages/backend/convex/models/playerIdentities.ts
+
+- ❌ **CRITICAL: N+1 query pattern detected**
+  - **Problem:** `Promise.all(items.map(async => query))` makes N database calls
+  - **Fix:** Batch fetch all IDs first, create Map for O(1) lookup
+
+
+## Auto Quality Check - 2026-02-26 09:18:47
+### File: /Users/jkobrien/code/PDP/packages/backend/convex/models/playerIdentities.ts
+
+- ❌ **CRITICAL: Better Auth adapter violation**
+  - **Problem:** Direct DB access to auth tables
+  - **Fix:** Use `ctx.runQuery(components.betterAuth.adapter.findOne, {...})`
+
+
+## Auto Quality Check - 2026-02-26 09:18:47
+### File: /Users/jkobrien/code/PDP/packages/backend/convex/models/playerIdentities.ts
+
+- ⚠️ **Performance: .filter() usage detected**
+  - **Problem:** Should use .withIndex() for better performance
+  - **Fix:** Replace `.query().filter()` with `.query().withIndex()`
+
+
+## Auto Quality Check - 2026-02-26 09:18:47
+### File: /Users/jkobrien/code/PDP/packages/backend/convex/models/playerIdentities.ts
+
+- ❌ **CRITICAL: N+1 query pattern detected**
+  - **Problem:** `Promise.all(items.map(async => query))` makes N database calls
+  - **Fix:** Batch fetch all IDs first, create Map for O(1) lookup
+
+
+## Auto Quality Check - 2026-02-26 09:19:15
+### File: /Users/jkobrien/code/PDP/packages/backend/convex/models/members.ts
+
+- ❌ **CRITICAL: Better Auth adapter violation**
+  - **Problem:** Direct DB access to auth tables
+  - **Fix:** Use `ctx.runQuery(components.betterAuth.adapter.findOne, {...})`
+
+
+## Auto Quality Check - 2026-02-26 09:19:15
+### File: /Users/jkobrien/code/PDP/packages/backend/convex/models/members.ts
+
+- ⚠️ **Performance: .filter() usage detected**
+  - **Problem:** Should use .withIndex() for better performance
+  - **Fix:** Replace `.query().filter()` with `.query().withIndex()`
+
+
+## Auto Quality Check - 2026-02-26 09:19:15
+### File: /Users/jkobrien/code/PDP/packages/backend/convex/models/members.ts
+
+- ❌ **CRITICAL: N+1 query pattern detected**
+  - **Problem:** `Promise.all(items.map(async => query))` makes N database calls
+  - **Fix:** Batch fetch all IDs first, create Map for O(1) lookup
+
+
+## Auto Quality Check - 2026-02-26 09:19:15
+### File: /Users/jkobrien/code/PDP/packages/backend/convex/models/members.ts
+
+- ❌ **CRITICAL: Better Auth adapter violation**
+  - **Problem:** Direct DB access to auth tables
+  - **Fix:** Use `ctx.runQuery(components.betterAuth.adapter.findOne, {...})`
+
+
+## Auto Quality Check - 2026-02-26 09:19:15
+### File: /Users/jkobrien/code/PDP/packages/backend/convex/models/members.ts
+
+- ⚠️ **Performance: .filter() usage detected**
+  - **Problem:** Should use .withIndex() for better performance
+  - **Fix:** Replace `.query().filter()` with `.query().withIndex()`
+
+
+## Auto Quality Check - 2026-02-26 09:19:15
+### File: /Users/jkobrien/code/PDP/packages/backend/convex/models/members.ts
+
+- ❌ **CRITICAL: N+1 query pattern detected**
+  - **Problem:** `Promise.all(items.map(async => query))` makes N database calls
+  - **Fix:** Batch fetch all IDs first, create Map for O(1) lookup
+
+
+## Auto Quality Check - 2026-02-26 09:19:49
+### File: /Users/jkobrien/code/PDP/packages/backend/convex/models/members.ts
+
+- ❌ **CRITICAL: Better Auth adapter violation**
+  - **Problem:** Direct DB access to auth tables
+  - **Fix:** Use `ctx.runQuery(components.betterAuth.adapter.findOne, {...})`
+
+
+## Auto Quality Check - 2026-02-26 09:19:49
+### File: /Users/jkobrien/code/PDP/packages/backend/convex/models/members.ts
+
+- ⚠️ **Performance: .filter() usage detected**
+  - **Problem:** Should use .withIndex() for better performance
+  - **Fix:** Replace `.query().filter()` with `.query().withIndex()`
+
+
+## Auto Quality Check - 2026-02-26 09:19:49
+### File: /Users/jkobrien/code/PDP/packages/backend/convex/models/members.ts
+
+- ❌ **CRITICAL: N+1 query pattern detected**
+  - **Problem:** `Promise.all(items.map(async => query))` makes N database calls
+  - **Fix:** Batch fetch all IDs first, create Map for O(1) lookup
+
+
+## Auto Quality Check - 2026-02-26 09:20:21
+### File: /Users/jkobrien/code/PDP/packages/backend/convex/models/adultPlayers.ts
+
+- ⚠️ **Performance: .filter() usage detected**
+  - **Problem:** Should use .withIndex() for better performance
+  - **Fix:** Replace `.query().filter()` with `.query().withIndex()`
+
+
+## Auto Quality Check - 2026-02-26 09:20:23
+### File: /Users/jkobrien/code/PDP/packages/backend/convex/models/members.ts
+
+- ❌ **CRITICAL: Better Auth adapter violation**
+  - **Problem:** Direct DB access to auth tables
+  - **Fix:** Use `ctx.runQuery(components.betterAuth.adapter.findOne, {...})`
+
+
+## Auto Quality Check - 2026-02-26 09:20:23
+### File: /Users/jkobrien/code/PDP/packages/backend/convex/models/members.ts
+
+- ⚠️ **Performance: .filter() usage detected**
+  - **Problem:** Should use .withIndex() for better performance
+  - **Fix:** Replace `.query().filter()` with `.query().withIndex()`
+
+
+## Auto Quality Check - 2026-02-26 09:20:23
+### File: /Users/jkobrien/code/PDP/packages/backend/convex/models/members.ts
+
+- ❌ **CRITICAL: N+1 query pattern detected**
+  - **Problem:** `Promise.all(items.map(async => query))` makes N database calls
+  - **Fix:** Batch fetch all IDs first, create Map for O(1) lookup
+
+
+## Auto Quality Check - 2026-02-26 09:21:37
+### File: /Users/jkobrien/code/PDP/packages/backend/convex/models/orgPlayerEnrollments.ts
+
+- ❌ **CRITICAL: Better Auth adapter violation**
+  - **Problem:** Direct DB access to auth tables
+  - **Fix:** Use `ctx.runQuery(components.betterAuth.adapter.findOne, {...})`
+
+
+## Auto Quality Check - 2026-02-26 09:21:37
+### File: /Users/jkobrien/code/PDP/packages/backend/convex/models/orgPlayerEnrollments.ts
+
+- ⚠️ **Performance: .filter() usage detected**
+  - **Problem:** Should use .withIndex() for better performance
+  - **Fix:** Replace `.query().filter()` with `.query().withIndex()`
+
+
+## Auto Quality Check - 2026-02-26 09:46:28
+### File: /Users/jkobrien/code/PDP/packages/backend/convex/models/orgPlayerEnrollments.ts
+
+- ❌ **CRITICAL: Better Auth adapter violation**
+  - **Problem:** Direct DB access to auth tables
+  - **Fix:** Use `ctx.runQuery(components.betterAuth.adapter.findOne, {...})`
+
+
+## Auto Quality Check - 2026-02-26 09:46:28
+### File: /Users/jkobrien/code/PDP/packages/backend/convex/models/orgPlayerEnrollments.ts
+
+- ⚠️ **Performance: .filter() usage detected**
+  - **Problem:** Should use .withIndex() for better performance
+  - **Fix:** Replace `.query().filter()` with `.query().withIndex()`
+
+
+## Auto Quality Check - 2026-02-26 09:46:53
+### File: /Users/jkobrien/code/PDP/packages/backend/convex/models/playerGraduations.ts
+
+- ❌ **CRITICAL: Better Auth adapter violation**
+  - **Problem:** Direct DB access to auth tables
+  - **Fix:** Use `ctx.runQuery(components.betterAuth.adapter.findOne, {...})`
+
+
+## Auto Quality Check - 2026-02-26 09:46:53
+### File: /Users/jkobrien/code/PDP/packages/backend/convex/models/playerGraduations.ts
+
+- ⚠️ **Performance: .filter() usage detected**
+  - **Problem:** Should use .withIndex() for better performance
+  - **Fix:** Replace `.query().filter()` with `.query().withIndex()`
+
+
+## Auto Quality Check - 2026-02-26 09:46:54
+### File: /Users/jkobrien/code/PDP/packages/backend/convex/models/members.ts
+
+- ❌ **CRITICAL: Better Auth adapter violation**
+  - **Problem:** Direct DB access to auth tables
+  - **Fix:** Use `ctx.runQuery(components.betterAuth.adapter.findOne, {...})`
+
+
+## Auto Quality Check - 2026-02-26 09:46:54
+### File: /Users/jkobrien/code/PDP/packages/backend/convex/models/members.ts
+
+- ⚠️ **Performance: .filter() usage detected**
+  - **Problem:** Should use .withIndex() for better performance
+  - **Fix:** Replace `.query().filter()` with `.query().withIndex()`
+
+
+## Auto Quality Check - 2026-02-26 09:46:54
+### File: /Users/jkobrien/code/PDP/packages/backend/convex/models/members.ts
+
+- ❌ **CRITICAL: N+1 query pattern detected**
+  - **Problem:** `Promise.all(items.map(async => query))` makes N database calls
+  - **Fix:** Batch fetch all IDs first, create Map for O(1) lookup
+
+
+## Auto Quality Check - 2026-02-26 09:47:22
+### File: /Users/jkobrien/code/PDP/packages/backend/convex/auth.ts
+
+- ⚠️ **Better Auth: Possible user.id instead of user._id**
+  - **Problem:** Better Auth uses `user._id`, not `user.id`
+  - **Fix:** Replace `user.id` with `user._id`
+
+
+## Auto Quality Check - 2026-02-26 09:47:22
+### File: /Users/jkobrien/code/PDP/packages/backend/convex/models/members.ts
+
+- ❌ **CRITICAL: Better Auth adapter violation**
+  - **Problem:** Direct DB access to auth tables
+  - **Fix:** Use `ctx.runQuery(components.betterAuth.adapter.findOne, {...})`
+
+
+## Auto Quality Check - 2026-02-26 09:47:22
+### File: /Users/jkobrien/code/PDP/packages/backend/convex/models/members.ts
+
+- ⚠️ **Performance: .filter() usage detected**
+  - **Problem:** Should use .withIndex() for better performance
+  - **Fix:** Replace `.query().filter()` with `.query().withIndex()`
+
+
+## Auto Quality Check - 2026-02-26 09:47:22
+### File: /Users/jkobrien/code/PDP/packages/backend/convex/models/members.ts
+
+- ❌ **CRITICAL: N+1 query pattern detected**
+  - **Problem:** `Promise.all(items.map(async => query))` makes N database calls
+  - **Fix:** Batch fetch all IDs first, create Map for O(1) lookup
+
+
+## Auto Quality Check - 2026-02-26 09:47:23
+### File: /Users/jkobrien/code/PDP/packages/backend/convex/models/orgPlayerEnrollments.ts
+
+- ❌ **CRITICAL: Better Auth adapter violation**
+  - **Problem:** Direct DB access to auth tables
+  - **Fix:** Use `ctx.runQuery(components.betterAuth.adapter.findOne, {...})`
+
+
+## Auto Quality Check - 2026-02-26 09:47:23
+### File: /Users/jkobrien/code/PDP/packages/backend/convex/models/orgPlayerEnrollments.ts
+
+- ⚠️ **Performance: .filter() usage detected**
+  - **Problem:** Should use .withIndex() for better performance
+  - **Fix:** Replace `.query().filter()` with `.query().withIndex()`
+
+
+## Auto Quality Check - 2026-02-26 09:47:47
+### File: /Users/jkobrien/code/PDP/packages/backend/convex/models/orgPlayerEnrollments.ts
+
+- ❌ **CRITICAL: Better Auth adapter violation**
+  - **Problem:** Direct DB access to auth tables
+  - **Fix:** Use `ctx.runQuery(components.betterAuth.adapter.findOne, {...})`
+
+
+## Auto Quality Check - 2026-02-26 09:47:47
+### File: /Users/jkobrien/code/PDP/packages/backend/convex/models/orgPlayerEnrollments.ts
+
+- ⚠️ **Performance: .filter() usage detected**
+  - **Problem:** Should use .withIndex() for better performance
+  - **Fix:** Replace `.query().filter()` with `.query().withIndex()`
+
+
+## Auto Quality Check - 2026-02-26 09:47:47
+### File: /Users/jkobrien/code/PDP/packages/backend/convex/models/orgPlayerEnrollments.ts
+
+- ❌ **CRITICAL: Better Auth adapter violation**
+  - **Problem:** Direct DB access to auth tables
+  - **Fix:** Use `ctx.runQuery(components.betterAuth.adapter.findOne, {...})`
+
+
+## Auto Quality Check - 2026-02-26 09:47:47
+### File: /Users/jkobrien/code/PDP/packages/backend/convex/models/orgPlayerEnrollments.ts
+
+- ⚠️ **Performance: .filter() usage detected**
+  - **Problem:** Should use .withIndex() for better performance
+  - **Fix:** Replace `.query().filter()` with `.query().withIndex()`
+
+
+## Auto Quality Check - 2026-02-26 09:47:48
+### File: /Users/jkobrien/code/PDP/packages/backend/convex/auth.ts
+
+- ⚠️ **Better Auth: Possible user.id instead of user._id**
+  - **Problem:** Better Auth uses `user._id`, not `user.id`
+  - **Fix:** Replace `user.id` with `user._id`
+
+
+## Auto Quality Check - 2026-02-26 09:49:07
+### File: /Users/jkobrien/code/PDP/packages/backend/convex/models/players.ts
+
+- ❌ **CRITICAL: Better Auth adapter violation**
+  - **Problem:** Direct DB access to auth tables
+  - **Fix:** Use `ctx.runQuery(components.betterAuth.adapter.findOne, {...})`
+
+
+## Auto Quality Check - 2026-02-26 09:49:07
+### File: /Users/jkobrien/code/PDP/packages/backend/convex/models/players.ts
+
+- ⚠️ **Performance: .filter() usage detected**
+  - **Problem:** Should use .withIndex() for better performance
+  - **Fix:** Replace `.query().filter()` with `.query().withIndex()`
+
+
+## Auto Quality Check - 2026-02-26 09:49:07
+### File: /Users/jkobrien/code/PDP/packages/backend/convex/models/players.ts
+
+- ❌ **CRITICAL: N+1 query pattern detected**
+  - **Problem:** `Promise.all(items.map(async => query))` makes N database calls
+  - **Fix:** Batch fetch all IDs first, create Map for O(1) lookup
+
+
+## Auto Quality Check - 2026-02-26 09:49:08
+### File: /Users/jkobrien/code/PDP/packages/backend/convex/models/adultPlayers.ts
+
+- ⚠️ **Performance: .filter() usage detected**
+  - **Problem:** Should use .withIndex() for better performance
+  - **Fix:** Replace `.query().filter()` with `.query().withIndex()`
+
+
+## Auto Quality Check - 2026-02-26 09:49:42
+### File: /Users/jkobrien/code/PDP/packages/backend/convex/models/playerIdentities.ts
+
+- ❌ **CRITICAL: Better Auth adapter violation**
+  - **Problem:** Direct DB access to auth tables
+  - **Fix:** Use `ctx.runQuery(components.betterAuth.adapter.findOne, {...})`
+
+
+## Auto Quality Check - 2026-02-26 09:49:42
+### File: /Users/jkobrien/code/PDP/packages/backend/convex/models/playerIdentities.ts
+
+- ⚠️ **Performance: .filter() usage detected**
+  - **Problem:** Should use .withIndex() for better performance
+  - **Fix:** Replace `.query().filter()` with `.query().withIndex()`
+
+
+## Auto Quality Check - 2026-02-26 09:49:42
+### File: /Users/jkobrien/code/PDP/packages/backend/convex/models/playerIdentities.ts
+
+- ❌ **CRITICAL: N+1 query pattern detected**
+  - **Problem:** `Promise.all(items.map(async => query))` makes N database calls
+  - **Fix:** Batch fetch all IDs first, create Map for O(1) lookup
+
+
+## Auto Quality Check - 2026-02-26 09:49:42
+### File: /Users/jkobrien/code/PDP/packages/backend/convex/models/playerIdentities.ts
+
+- ❌ **CRITICAL: Better Auth adapter violation**
+  - **Problem:** Direct DB access to auth tables
+  - **Fix:** Use `ctx.runQuery(components.betterAuth.adapter.findOne, {...})`
+
+
+## Auto Quality Check - 2026-02-26 09:49:42
+### File: /Users/jkobrien/code/PDP/packages/backend/convex/models/playerIdentities.ts
+
+- ⚠️ **Performance: .filter() usage detected**
+  - **Problem:** Should use .withIndex() for better performance
+  - **Fix:** Replace `.query().filter()` with `.query().withIndex()`
+
+
+## Auto Quality Check - 2026-02-26 09:49:42
+### File: /Users/jkobrien/code/PDP/packages/backend/convex/models/playerIdentities.ts
+
+- ❌ **CRITICAL: N+1 query pattern detected**
+  - **Problem:** `Promise.all(items.map(async => query))` makes N database calls
+  - **Fix:** Batch fetch all IDs first, create Map for O(1) lookup
+
+
+## Auto Quality Check - 2026-02-26 09:49:43
+### File: /Users/jkobrien/code/PDP/packages/backend/convex/models/orgJoinRequests.ts
+
+- ⚠️ **Performance: .filter() usage detected**
+  - **Problem:** Should use .withIndex() for better performance
+  - **Fix:** Replace `.query().filter()` with `.query().withIndex()`
+
+
+## Auto Quality Check - 2026-02-26 09:50:02
+### File: /Users/jkobrien/code/PDP/packages/backend/convex/models/invitations.ts
+
+- ⚠️ **Performance: .filter() usage detected**
+  - **Problem:** Should use .withIndex() for better performance
+  - **Fix:** Replace `.query().filter()` with `.query().withIndex()`
+
+
+## Auto Quality Check - 2026-02-26 09:50:02
+### File: /Users/jkobrien/code/PDP/packages/backend/convex/models/invitations.ts
+
+- ❌ **CRITICAL: N+1 query pattern detected**
+  - **Problem:** `Promise.all(items.map(async => query))` makes N database calls
+  - **Fix:** Batch fetch all IDs first, create Map for O(1) lookup
+
+
+## Auto Quality Check - 2026-02-26 09:50:23
+### File: /Users/jkobrien/code/PDP/packages/backend/convex/auth.ts
+
+- ⚠️ **Better Auth: Possible user.id instead of user._id**
+  - **Problem:** Better Auth uses `user._id`, not `user.id`
+  - **Fix:** Replace `user.id` with `user._id`
+
+
+## Auto Quality Check - 2026-02-26 09:54:45
+### File: /Users/jkobrien/code/PDP/packages/backend/convex/models/orgPlayerEnrollments.ts
+
+- ❌ **CRITICAL: Better Auth adapter violation**
+  - **Problem:** Direct DB access to auth tables
+  - **Fix:** Use `ctx.runQuery(components.betterAuth.adapter.findOne, {...})`
+
+
+## Auto Quality Check - 2026-02-26 09:54:45
+### File: /Users/jkobrien/code/PDP/packages/backend/convex/models/orgPlayerEnrollments.ts
+
+- ⚠️ **Performance: .filter() usage detected**
+  - **Problem:** Should use .withIndex() for better performance
+  - **Fix:** Replace `.query().filter()` with `.query().withIndex()`
+
+
+## Auto Quality Check - 2026-02-26 09:54:46
+### File: /Users/jkobrien/code/PDP/packages/backend/convex/models/playerIdentities.ts
+
+- ❌ **CRITICAL: Better Auth adapter violation**
+  - **Problem:** Direct DB access to auth tables
+  - **Fix:** Use `ctx.runQuery(components.betterAuth.adapter.findOne, {...})`
+
+
+## Auto Quality Check - 2026-02-26 09:54:46
+### File: /Users/jkobrien/code/PDP/packages/backend/convex/models/playerIdentities.ts
+
+- ⚠️ **Performance: .filter() usage detected**
+  - **Problem:** Should use .withIndex() for better performance
+  - **Fix:** Replace `.query().filter()` with `.query().withIndex()`
+
+
+## Auto Quality Check - 2026-02-26 09:54:46
+### File: /Users/jkobrien/code/PDP/packages/backend/convex/models/playerIdentities.ts
+
+- ❌ **CRITICAL: N+1 query pattern detected**
+  - **Problem:** `Promise.all(items.map(async => query))` makes N database calls
+  - **Fix:** Batch fetch all IDs first, create Map for O(1) lookup
+
+
+## Auto Quality Check - 2026-02-26 09:54:57
+### File: /Users/jkobrien/code/PDP/packages/backend/convex/models/orgPlayerEnrollments.ts
+
+- ❌ **CRITICAL: Better Auth adapter violation**
+  - **Problem:** Direct DB access to auth tables
+  - **Fix:** Use `ctx.runQuery(components.betterAuth.adapter.findOne, {...})`
+
+
+## Auto Quality Check - 2026-02-26 09:54:57
+### File: /Users/jkobrien/code/PDP/packages/backend/convex/models/orgPlayerEnrollments.ts
+
+- ⚠️ **Performance: .filter() usage detected**
+  - **Problem:** Should use .withIndex() for better performance
+  - **Fix:** Replace `.query().filter()` with `.query().withIndex()`
+
+
+## Auto Quality Check - 2026-02-26 09:55:08
+### File: /Users/jkobrien/code/PDP/packages/backend/convex/models/orgPlayerEnrollments.ts
+
+- ❌ **CRITICAL: Better Auth adapter violation**
+  - **Problem:** Direct DB access to auth tables
+  - **Fix:** Use `ctx.runQuery(components.betterAuth.adapter.findOne, {...})`
+
+
+## Auto Quality Check - 2026-02-26 09:55:08
+### File: /Users/jkobrien/code/PDP/packages/backend/convex/models/orgPlayerEnrollments.ts
+
+- ⚠️ **Performance: .filter() usage detected**
+  - **Problem:** Should use .withIndex() for better performance
+  - **Fix:** Replace `.query().filter()` with `.query().withIndex()`
+
+
+## Auto Quality Check - 2026-02-26 09:55:19
+### File: /Users/jkobrien/code/PDP/packages/backend/convex/models/orgPlayerEnrollments.ts
+
+- ❌ **CRITICAL: Better Auth adapter violation**
+  - **Problem:** Direct DB access to auth tables
+  - **Fix:** Use `ctx.runQuery(components.betterAuth.adapter.findOne, {...})`
+
+
+## Auto Quality Check - 2026-02-26 09:55:19
+### File: /Users/jkobrien/code/PDP/packages/backend/convex/models/orgPlayerEnrollments.ts
+
+- ⚠️ **Performance: .filter() usage detected**
+  - **Problem:** Should use .withIndex() for better performance
+  - **Fix:** Replace `.query().filter()` with `.query().withIndex()`
+
+
+## Auto Quality Check - 2026-02-26 09:55:29
+### File: /Users/jkobrien/code/PDP/packages/backend/convex/models/orgPlayerEnrollments.ts
+
+- ❌ **CRITICAL: Better Auth adapter violation**
+  - **Problem:** Direct DB access to auth tables
+  - **Fix:** Use `ctx.runQuery(components.betterAuth.adapter.findOne, {...})`
+
+
+## Auto Quality Check - 2026-02-26 09:55:29
+### File: /Users/jkobrien/code/PDP/packages/backend/convex/models/orgPlayerEnrollments.ts
+
+- ⚠️ **Performance: .filter() usage detected**
+  - **Problem:** Should use .withIndex() for better performance
+  - **Fix:** Replace `.query().filter()` with `.query().withIndex()`
+
+
+## Auto Quality Check - 2026-02-26 09:56:12
+### File: /Users/jkobrien/code/PDP/packages/backend/convex/models/orgPlayerEnrollments.ts
+
+- ❌ **CRITICAL: Better Auth adapter violation**
+  - **Problem:** Direct DB access to auth tables
+  - **Fix:** Use `ctx.runQuery(components.betterAuth.adapter.findOne, {...})`
+
+
+## Auto Quality Check - 2026-02-26 09:56:12
+### File: /Users/jkobrien/code/PDP/packages/backend/convex/models/orgPlayerEnrollments.ts
+
+- ⚠️ **Performance: .filter() usage detected**
+  - **Problem:** Should use .withIndex() for better performance
+  - **Fix:** Replace `.query().filter()` with `.query().withIndex()`
+
+
+## Auto Quality Check - 2026-02-26 09:59:32
+### File: /Users/jkobrien/code/PDP/packages/backend/convex/models/orgPlayerEnrollments.ts
+
+- ❌ **CRITICAL: Better Auth adapter violation**
+  - **Problem:** Direct DB access to auth tables
+  - **Fix:** Use `ctx.runQuery(components.betterAuth.adapter.findOne, {...})`
+
+
+## Auto Quality Check - 2026-02-26 09:59:32
+### File: /Users/jkobrien/code/PDP/packages/backend/convex/models/orgPlayerEnrollments.ts
+
+- ⚠️ **Performance: .filter() usage detected**
+  - **Problem:** Should use .withIndex() for better performance
+  - **Fix:** Replace `.query().filter()` with `.query().withIndex()`
+
+
+## Auto Quality Check - 2026-02-26 09:59:46
+### File: /Users/jkobrien/code/PDP/packages/backend/convex/models/orgPlayerEnrollments.ts
+
+- ❌ **CRITICAL: Better Auth adapter violation**
+  - **Problem:** Direct DB access to auth tables
+  - **Fix:** Use `ctx.runQuery(components.betterAuth.adapter.findOne, {...})`
+
+
+## Auto Quality Check - 2026-02-26 09:59:46
+### File: /Users/jkobrien/code/PDP/packages/backend/convex/models/orgPlayerEnrollments.ts
+
+- ⚠️ **Performance: .filter() usage detected**
+  - **Problem:** Should use .withIndex() for better performance
+  - **Fix:** Replace `.query().filter()` with `.query().withIndex()`
+
+
+## Auto Quality Check - 2026-02-26 10:09:17
+### File: /Users/jkobrien/code/PDP/packages/backend/convex/models/orgPlayerEnrollments.ts
+
+- ❌ **CRITICAL: Better Auth adapter violation**
+  - **Problem:** Direct DB access to auth tables
+  - **Fix:** Use `ctx.runQuery(components.betterAuth.adapter.findOne, {...})`
+
+
+## Auto Quality Check - 2026-02-26 10:09:17
+### File: /Users/jkobrien/code/PDP/packages/backend/convex/models/orgPlayerEnrollments.ts
+
+- ⚠️ **Performance: .filter() usage detected**
+  - **Problem:** Should use .withIndex() for better performance
+  - **Fix:** Replace `.query().filter()` with `.query().withIndex()`
+
+
+## Auto Quality Check - 2026-02-26 10:09:24
+### File: /Users/jkobrien/code/PDP/packages/backend/convex/models/orgPlayerEnrollments.ts
+
+- ❌ **CRITICAL: Better Auth adapter violation**
+  - **Problem:** Direct DB access to auth tables
+  - **Fix:** Use `ctx.runQuery(components.betterAuth.adapter.findOne, {...})`
+
+
+## Auto Quality Check - 2026-02-26 10:09:24
+### File: /Users/jkobrien/code/PDP/packages/backend/convex/models/orgPlayerEnrollments.ts
+
+- ⚠️ **Performance: .filter() usage detected**
+  - **Problem:** Should use .withIndex() for better performance
+  - **Fix:** Replace `.query().filter()` with `.query().withIndex()`
+
+
+## Auto Quality Check - 2026-02-26 10:09:32
+### File: /Users/jkobrien/code/PDP/packages/backend/convex/models/orgPlayerEnrollments.ts
+
+- ❌ **CRITICAL: Better Auth adapter violation**
+  - **Problem:** Direct DB access to auth tables
+  - **Fix:** Use `ctx.runQuery(components.betterAuth.adapter.findOne, {...})`
+
+
+## Auto Quality Check - 2026-02-26 10:09:32
+### File: /Users/jkobrien/code/PDP/packages/backend/convex/models/orgPlayerEnrollments.ts
+
+- ⚠️ **Performance: .filter() usage detected**
+  - **Problem:** Should use .withIndex() for better performance
+  - **Fix:** Replace `.query().filter()` with `.query().withIndex()`
+
+
+## Auto Quality Check - 2026-02-26 10:09:48
+### File: /Users/jkobrien/code/PDP/packages/backend/convex/models/playerIdentities.ts
+
+- ❌ **CRITICAL: Better Auth adapter violation**
+  - **Problem:** Direct DB access to auth tables
+  - **Fix:** Use `ctx.runQuery(components.betterAuth.adapter.findOne, {...})`
+
+
+## Auto Quality Check - 2026-02-26 10:09:48
+### File: /Users/jkobrien/code/PDP/packages/backend/convex/models/playerIdentities.ts
+
+- ⚠️ **Performance: .filter() usage detected**
+  - **Problem:** Should use .withIndex() for better performance
+  - **Fix:** Replace `.query().filter()` with `.query().withIndex()`
+
+
+## Auto Quality Check - 2026-02-26 10:09:48
+### File: /Users/jkobrien/code/PDP/packages/backend/convex/models/playerIdentities.ts
+
+- ❌ **CRITICAL: N+1 query pattern detected**
+  - **Problem:** `Promise.all(items.map(async => query))` makes N database calls
+  - **Fix:** Batch fetch all IDs first, create Map for O(1) lookup
+
+
+## Auto Quality Check - 2026-02-26 10:10:23
+### File: /Users/jkobrien/code/PDP/packages/backend/convex/models/orgPlayerEnrollments.ts
+
+- ❌ **CRITICAL: Better Auth adapter violation**
+  - **Problem:** Direct DB access to auth tables
+  - **Fix:** Use `ctx.runQuery(components.betterAuth.adapter.findOne, {...})`
+
+
+## Auto Quality Check - 2026-02-26 10:10:23
+### File: /Users/jkobrien/code/PDP/packages/backend/convex/models/orgPlayerEnrollments.ts
+
+- ⚠️ **Performance: .filter() usage detected**
+  - **Problem:** Should use .withIndex() for better performance
+  - **Fix:** Replace `.query().filter()` with `.query().withIndex()`
+
+
+## Auto Quality Check - 2026-02-26 10:10:39
+### File: /Users/jkobrien/code/PDP/packages/backend/convex/models/orgPlayerEnrollments.ts
+
+- ❌ **CRITICAL: Better Auth adapter violation**
+  - **Problem:** Direct DB access to auth tables
+  - **Fix:** Use `ctx.runQuery(components.betterAuth.adapter.findOne, {...})`
+
+
+## Auto Quality Check - 2026-02-26 10:10:39
+### File: /Users/jkobrien/code/PDP/packages/backend/convex/models/orgPlayerEnrollments.ts
+
+- ⚠️ **Performance: .filter() usage detected**
+  - **Problem:** Should use .withIndex() for better performance
+  - **Fix:** Replace `.query().filter()` with `.query().withIndex()`
+
+
+## Auto Quality Check - 2026-02-26 10:10:58
+### File: /Users/jkobrien/code/PDP/packages/backend/convex/models/orgPlayerEnrollments.ts
+
+- ❌ **CRITICAL: Better Auth adapter violation**
+  - **Problem:** Direct DB access to auth tables
+  - **Fix:** Use `ctx.runQuery(components.betterAuth.adapter.findOne, {...})`
+
+
+## Auto Quality Check - 2026-02-26 10:10:58
+### File: /Users/jkobrien/code/PDP/packages/backend/convex/models/orgPlayerEnrollments.ts
+
+- ⚠️ **Performance: .filter() usage detected**
+  - **Problem:** Should use .withIndex() for better performance
+  - **Fix:** Replace `.query().filter()` with `.query().withIndex()`
+
+
+## Auto Quality Check - 2026-02-26 10:15:04
+### File: /Users/jkobrien/code/PDP/packages/backend/convex/models/orgPlayerEnrollments.ts
+
+- ❌ **CRITICAL: Better Auth adapter violation**
+  - **Problem:** Direct DB access to auth tables
+  - **Fix:** Use `ctx.runQuery(components.betterAuth.adapter.findOne, {...})`
+
+
+## Auto Quality Check - 2026-02-26 10:15:04
+### File: /Users/jkobrien/code/PDP/packages/backend/convex/models/orgPlayerEnrollments.ts
+
+- ⚠️ **Performance: .filter() usage detected**
+  - **Problem:** Should use .withIndex() for better performance
+  - **Fix:** Replace `.query().filter()` with `.query().withIndex()`
+
+
+## Auto Quality Check - 2026-02-26 10:15:17
+### File: /Users/jkobrien/code/PDP/packages/backend/convex/models/orgPlayerEnrollments.ts
+
+- ❌ **CRITICAL: Better Auth adapter violation**
+  - **Problem:** Direct DB access to auth tables
+  - **Fix:** Use `ctx.runQuery(components.betterAuth.adapter.findOne, {...})`
+
+
+## Auto Quality Check - 2026-02-26 10:15:17
+### File: /Users/jkobrien/code/PDP/packages/backend/convex/models/orgPlayerEnrollments.ts
+
+- ⚠️ **Performance: .filter() usage detected**
+  - **Problem:** Should use .withIndex() for better performance
+  - **Fix:** Replace `.query().filter()` with `.query().withIndex()`
+
+
+## Auto Quality Check - 2026-02-26 10:42:46
+### File: /Users/jkobrien/code/PDP/packages/backend/convex/models/orgPlayerEnrollments.ts
+
+- ❌ **CRITICAL: Better Auth adapter violation**
+  - **Problem:** Direct DB access to auth tables
+  - **Fix:** Use `ctx.runQuery(components.betterAuth.adapter.findOne, {...})`
+
+
+## Auto Quality Check - 2026-02-26 10:42:46
+### File: /Users/jkobrien/code/PDP/packages/backend/convex/models/orgPlayerEnrollments.ts
+
+- ⚠️ **Performance: .filter() usage detected**
+  - **Problem:** Should use .withIndex() for better performance
+  - **Fix:** Replace `.query().filter()` with `.query().withIndex()`
+
+
+## Auto Quality Check - 2026-02-26 10:42:55
+### File: /Users/jkobrien/code/PDP/packages/backend/convex/models/orgPlayerEnrollments.ts
+
+- ❌ **CRITICAL: Better Auth adapter violation**
+  - **Problem:** Direct DB access to auth tables
+  - **Fix:** Use `ctx.runQuery(components.betterAuth.adapter.findOne, {...})`
+
+
+## Auto Quality Check - 2026-02-26 10:42:55
+### File: /Users/jkobrien/code/PDP/packages/backend/convex/models/orgPlayerEnrollments.ts
+
+- ⚠️ **Performance: .filter() usage detected**
+  - **Problem:** Should use .withIndex() for better performance
+  - **Fix:** Replace `.query().filter()` with `.query().withIndex()`
+
+
+## Auto Quality Check - 2026-02-26 10:56:11
+### File: /Users/jkobrien/code/PDP/packages/backend/convex/models/teams.ts
+
+- ❌ **CRITICAL: Better Auth adapter violation**
+  - **Problem:** Direct DB access to auth tables
+  - **Fix:** Use `ctx.runQuery(components.betterAuth.adapter.findOne, {...})`
+
+
+## Auto Quality Check - 2026-02-26 10:56:11
+### File: /Users/jkobrien/code/PDP/packages/backend/convex/models/teams.ts
+
+- ⚠️ **Performance: .filter() usage detected**
+  - **Problem:** Should use .withIndex() for better performance
+  - **Fix:** Replace `.query().filter()` with `.query().withIndex()`
+
+
+## Auto Quality Check - 2026-02-26 10:56:11
+### File: /Users/jkobrien/code/PDP/packages/backend/convex/models/teams.ts
+
+- ⚠️ **Better Auth: Possible user.id instead of user._id**
+  - **Problem:** Better Auth uses `user._id`, not `user.id`
+  - **Fix:** Replace `user.id` with `user._id`
+
+
+## Auto Quality Check - 2026-02-26 11:01:59
+### File: /Users/jkobrien/code/PDP/packages/backend/convex/models/orgPlayerEnrollments.ts
+
+- ❌ **CRITICAL: Better Auth adapter violation**
+  - **Problem:** Direct DB access to auth tables
+  - **Fix:** Use `ctx.runQuery(components.betterAuth.adapter.findOne, {...})`
+
+
+## Auto Quality Check - 2026-02-26 11:01:59
+### File: /Users/jkobrien/code/PDP/packages/backend/convex/models/orgPlayerEnrollments.ts
+
+- ⚠️ **Performance: .filter() usage detected**
+  - **Problem:** Should use .withIndex() for better performance
+  - **Fix:** Replace `.query().filter()` with `.query().withIndex()`
+
+
+## Auto Quality Check - 2026-02-26 11:02:25
+### File: /Users/jkobrien/code/PDP/packages/backend/convex/models/orgPlayerEnrollments.ts
+
+- ❌ **CRITICAL: Better Auth adapter violation**
+  - **Problem:** Direct DB access to auth tables
+  - **Fix:** Use `ctx.runQuery(components.betterAuth.adapter.findOne, {...})`
+
+
+## Auto Quality Check - 2026-02-26 11:02:25
+### File: /Users/jkobrien/code/PDP/packages/backend/convex/models/orgPlayerEnrollments.ts
+
+- ⚠️ **Performance: .filter() usage detected**
+  - **Problem:** Should use .withIndex() for better performance
+  - **Fix:** Replace `.query().filter()` with `.query().withIndex()`
+
+
+## Auto Quality Check - 2026-02-26 11:02:41
+### File: /Users/jkobrien/code/PDP/packages/backend/convex/models/orgPlayerEnrollments.ts
+
+- ❌ **CRITICAL: Better Auth adapter violation**
+  - **Problem:** Direct DB access to auth tables
+  - **Fix:** Use `ctx.runQuery(components.betterAuth.adapter.findOne, {...})`
+
+
+## Auto Quality Check - 2026-02-26 11:02:41
+### File: /Users/jkobrien/code/PDP/packages/backend/convex/models/orgPlayerEnrollments.ts
+
+- ⚠️ **Performance: .filter() usage detected**
+  - **Problem:** Should use .withIndex() for better performance
+  - **Fix:** Replace `.query().filter()` with `.query().withIndex()`
+
+
+## Auto Quality Check - 2026-02-26 11:02:41
+### File: /Users/jkobrien/code/PDP/packages/backend/convex/models/orgPlayerEnrollments.ts
+
+- ❌ **CRITICAL: Better Auth adapter violation**
+  - **Problem:** Direct DB access to auth tables
+  - **Fix:** Use `ctx.runQuery(components.betterAuth.adapter.findOne, {...})`
+
+
+## Auto Quality Check - 2026-02-26 11:02:41
+### File: /Users/jkobrien/code/PDP/packages/backend/convex/models/orgPlayerEnrollments.ts
+
+- ⚠️ **Performance: .filter() usage detected**
+  - **Problem:** Should use .withIndex() for better performance
+  - **Fix:** Replace `.query().filter()` with `.query().withIndex()`
+
+
+## Auto Quality Check - 2026-02-26 11:02:51
+### File: /Users/jkobrien/code/PDP/packages/backend/convex/models/orgPlayerEnrollments.ts
+
+- ❌ **CRITICAL: Better Auth adapter violation**
+  - **Problem:** Direct DB access to auth tables
+  - **Fix:** Use `ctx.runQuery(components.betterAuth.adapter.findOne, {...})`
+
+
+## Auto Quality Check - 2026-02-26 11:02:51
+### File: /Users/jkobrien/code/PDP/packages/backend/convex/models/orgPlayerEnrollments.ts
+
+- ⚠️ **Performance: .filter() usage detected**
+  - **Problem:** Should use .withIndex() for better performance
+  - **Fix:** Replace `.query().filter()` with `.query().withIndex()`
+
+
+## Auto Quality Check - 2026-02-26 11:02:51
+### File: /Users/jkobrien/code/PDP/packages/backend/convex/models/orgPlayerEnrollments.ts
+
+- ❌ **CRITICAL: Better Auth adapter violation**
+  - **Problem:** Direct DB access to auth tables
+  - **Fix:** Use `ctx.runQuery(components.betterAuth.adapter.findOne, {...})`
+
+
+## Auto Quality Check - 2026-02-26 11:02:51
+### File: /Users/jkobrien/code/PDP/packages/backend/convex/models/orgPlayerEnrollments.ts
+
+- ⚠️ **Performance: .filter() usage detected**
+  - **Problem:** Should use .withIndex() for better performance
+  - **Fix:** Replace `.query().filter()` with `.query().withIndex()`
+
+
+## Auto Quality Check - 2026-02-26 11:03:42
+### File: /Users/jkobrien/code/PDP/packages/backend/convex/lib/import/mapper.ts
+
+- ⚠️ **Performance: .filter() usage detected**
+  - **Problem:** Should use .withIndex() for better performance
+  - **Fix:** Replace `.query().filter()` with `.query().withIndex()`
+
+
+## Auto Quality Check - 2026-02-26 11:04:20
+### File: /Users/jkobrien/code/PDP/packages/backend/convex/models/teamPlayerIdentities.ts
+
+- ❌ **CRITICAL: Better Auth adapter violation**
+  - **Problem:** Direct DB access to auth tables
+  - **Fix:** Use `ctx.runQuery(components.betterAuth.adapter.findOne, {...})`
+
+
+## Auto Quality Check - 2026-02-26 11:04:20
+### File: /Users/jkobrien/code/PDP/packages/backend/convex/models/teamPlayerIdentities.ts
+
+- ⚠️ **Performance: .filter() usage detected**
+  - **Problem:** Should use .withIndex() for better performance
+  - **Fix:** Replace `.query().filter()` with `.query().withIndex()`
+
+
+## Auto Quality Check - 2026-02-26 11:04:35
+### File: /Users/jkobrien/code/PDP/packages/backend/convex/models/teamPlayerIdentities.ts
+
+- ❌ **CRITICAL: Better Auth adapter violation**
+  - **Problem:** Direct DB access to auth tables
+  - **Fix:** Use `ctx.runQuery(components.betterAuth.adapter.findOne, {...})`
+
+
+## Auto Quality Check - 2026-02-26 11:04:35
+### File: /Users/jkobrien/code/PDP/packages/backend/convex/models/teamPlayerIdentities.ts
+
+- ⚠️ **Performance: .filter() usage detected**
+  - **Problem:** Should use .withIndex() for better performance
+  - **Fix:** Replace `.query().filter()` with `.query().withIndex()`
+
+
+## Auto Quality Check - 2026-02-26 11:04:41
+### File: /Users/jkobrien/code/PDP/packages/backend/convex/models/teamPlayerIdentities.ts
+
+- ❌ **CRITICAL: Better Auth adapter violation**
+  - **Problem:** Direct DB access to auth tables
+  - **Fix:** Use `ctx.runQuery(components.betterAuth.adapter.findOne, {...})`
+
+
+## Auto Quality Check - 2026-02-26 11:04:41
+### File: /Users/jkobrien/code/PDP/packages/backend/convex/models/teamPlayerIdentities.ts
+
+- ⚠️ **Performance: .filter() usage detected**
+  - **Problem:** Should use .withIndex() for better performance
+  - **Fix:** Replace `.query().filter()` with `.query().withIndex()`
+
+
+## Auto Quality Check - 2026-02-26 11:04:42
+### File: /Users/jkobrien/code/PDP/packages/backend/convex/models/teamPlayerIdentities.ts
+
+- ❌ **CRITICAL: Better Auth adapter violation**
+  - **Problem:** Direct DB access to auth tables
+  - **Fix:** Use `ctx.runQuery(components.betterAuth.adapter.findOne, {...})`
+
+
+## Auto Quality Check - 2026-02-26 11:04:42
+### File: /Users/jkobrien/code/PDP/packages/backend/convex/models/teamPlayerIdentities.ts
+
+- ⚠️ **Performance: .filter() usage detected**
+  - **Problem:** Should use .withIndex() for better performance
+  - **Fix:** Replace `.query().filter()` with `.query().withIndex()`
+
+
+## Auto Quality Check - 2026-02-26 11:05:04
+### File: /Users/jkobrien/code/PDP/packages/backend/convex/models/sportPassports.ts
+
+- ❌ **CRITICAL: Better Auth adapter violation**
+  - **Problem:** Direct DB access to auth tables
+  - **Fix:** Use `ctx.runQuery(components.betterAuth.adapter.findOne, {...})`
+
+
+## Auto Quality Check - 2026-02-26 11:05:04
+### File: /Users/jkobrien/code/PDP/packages/backend/convex/models/sportPassports.ts
+
+- ⚠️ **Performance: .filter() usage detected**
+  - **Problem:** Should use .withIndex() for better performance
+  - **Fix:** Replace `.query().filter()` with `.query().withIndex()`
+
+
+## Auto Quality Check - 2026-02-26 11:05:05
+### File: /Users/jkobrien/code/PDP/packages/backend/convex/models/teams.ts
+
+- ❌ **CRITICAL: Better Auth adapter violation**
+  - **Problem:** Direct DB access to auth tables
+  - **Fix:** Use `ctx.runQuery(components.betterAuth.adapter.findOne, {...})`
+
+
+## Auto Quality Check - 2026-02-26 11:05:05
+### File: /Users/jkobrien/code/PDP/packages/backend/convex/models/teams.ts
+
+- ⚠️ **Performance: .filter() usage detected**
+  - **Problem:** Should use .withIndex() for better performance
+  - **Fix:** Replace `.query().filter()` with `.query().withIndex()`
+
+
+## Auto Quality Check - 2026-02-26 11:05:05
+### File: /Users/jkobrien/code/PDP/packages/backend/convex/models/teams.ts
+
+- ⚠️ **Better Auth: Possible user.id instead of user._id**
+  - **Problem:** Better Auth uses `user._id`, not `user.id`
+  - **Fix:** Replace `user.id` with `user._id`
+
+
+## Auto Quality Check - 2026-02-26 11:06:49
+### File: /Users/jkobrien/code/PDP/packages/backend/convex/models/orgPlayerEnrollments.ts
+
+- ❌ **CRITICAL: Better Auth adapter violation**
+  - **Problem:** Direct DB access to auth tables
+  - **Fix:** Use `ctx.runQuery(components.betterAuth.adapter.findOne, {...})`
+
+
+## Auto Quality Check - 2026-02-26 11:06:49
+### File: /Users/jkobrien/code/PDP/packages/backend/convex/models/orgPlayerEnrollments.ts
+
+- ⚠️ **Performance: .filter() usage detected**
+  - **Problem:** Should use .withIndex() for better performance
+  - **Fix:** Replace `.query().filter()` with `.query().withIndex()`
+
+
+## Auto Quality Check - 2026-02-26 11:06:57
+### File: /Users/jkobrien/code/PDP/packages/backend/convex/models/orgPlayerEnrollments.ts
+
+- ❌ **CRITICAL: Better Auth adapter violation**
+  - **Problem:** Direct DB access to auth tables
+  - **Fix:** Use `ctx.runQuery(components.betterAuth.adapter.findOne, {...})`
+
+
+## Auto Quality Check - 2026-02-26 11:06:57
+### File: /Users/jkobrien/code/PDP/packages/backend/convex/models/orgPlayerEnrollments.ts
+
+- ⚠️ **Performance: .filter() usage detected**
+  - **Problem:** Should use .withIndex() for better performance
+  - **Fix:** Replace `.query().filter()` with `.query().withIndex()`
+
+
+## Auto Quality Check - 2026-02-26 11:07:04
+### File: /Users/jkobrien/code/PDP/packages/backend/convex/models/orgPlayerEnrollments.ts
+
+- ❌ **CRITICAL: Better Auth adapter violation**
+  - **Problem:** Direct DB access to auth tables
+  - **Fix:** Use `ctx.runQuery(components.betterAuth.adapter.findOne, {...})`
+
+
+## Auto Quality Check - 2026-02-26 11:07:04
+### File: /Users/jkobrien/code/PDP/packages/backend/convex/models/orgPlayerEnrollments.ts
+
+- ⚠️ **Performance: .filter() usage detected**
+  - **Problem:** Should use .withIndex() for better performance
+  - **Fix:** Replace `.query().filter()` with `.query().withIndex()`
+
+
+## Auto Quality Check - 2026-02-26 11:07:13
+### File: /Users/jkobrien/code/PDP/packages/backend/convex/models/orgPlayerEnrollments.ts
+
+- ❌ **CRITICAL: Better Auth adapter violation**
+  - **Problem:** Direct DB access to auth tables
+  - **Fix:** Use `ctx.runQuery(components.betterAuth.adapter.findOne, {...})`
+
+
+## Auto Quality Check - 2026-02-26 11:07:13
+### File: /Users/jkobrien/code/PDP/packages/backend/convex/models/orgPlayerEnrollments.ts
+
+- ⚠️ **Performance: .filter() usage detected**
+  - **Problem:** Should use .withIndex() for better performance
+  - **Fix:** Replace `.query().filter()` with `.query().withIndex()`
+
+
+## Auto Quality Check - 2026-02-26 11:07:22
+### File: /Users/jkobrien/code/PDP/packages/backend/convex/models/orgPlayerEnrollments.ts
+
+- ❌ **CRITICAL: Better Auth adapter violation**
+  - **Problem:** Direct DB access to auth tables
+  - **Fix:** Use `ctx.runQuery(components.betterAuth.adapter.findOne, {...})`
+
+
+## Auto Quality Check - 2026-02-26 11:07:22
+### File: /Users/jkobrien/code/PDP/packages/backend/convex/models/orgPlayerEnrollments.ts
+
+- ⚠️ **Performance: .filter() usage detected**
+  - **Problem:** Should use .withIndex() for better performance
+  - **Fix:** Replace `.query().filter()` with `.query().withIndex()`
+
+
+## Auto Quality Check - 2026-02-26 11:07:34
+### File: /Users/jkobrien/code/PDP/packages/backend/convex/models/orgPlayerEnrollments.ts
+
+- ❌ **CRITICAL: Better Auth adapter violation**
+  - **Problem:** Direct DB access to auth tables
+  - **Fix:** Use `ctx.runQuery(components.betterAuth.adapter.findOne, {...})`
+
+
+## Auto Quality Check - 2026-02-26 11:07:34
+### File: /Users/jkobrien/code/PDP/packages/backend/convex/models/orgPlayerEnrollments.ts
+
+- ⚠️ **Performance: .filter() usage detected**
+  - **Problem:** Should use .withIndex() for better performance
+  - **Fix:** Replace `.query().filter()` with `.query().withIndex()`
+
+
+## Auto Quality Check - 2026-02-26 11:08:14
+### File: /Users/jkobrien/code/PDP/packages/backend/convex/models/teams.ts
+
+- ❌ **CRITICAL: Better Auth adapter violation**
+  - **Problem:** Direct DB access to auth tables
+  - **Fix:** Use `ctx.runQuery(components.betterAuth.adapter.findOne, {...})`
+
+
+## Auto Quality Check - 2026-02-26 11:08:14
+### File: /Users/jkobrien/code/PDP/packages/backend/convex/models/teams.ts
+
+- ⚠️ **Performance: .filter() usage detected**
+  - **Problem:** Should use .withIndex() for better performance
+  - **Fix:** Replace `.query().filter()` with `.query().withIndex()`
+
+
+## Auto Quality Check - 2026-02-26 11:08:14
+### File: /Users/jkobrien/code/PDP/packages/backend/convex/models/teams.ts
+
+- ⚠️ **Better Auth: Possible user.id instead of user._id**
+  - **Problem:** Better Auth uses `user._id`, not `user.id`
+  - **Fix:** Replace `user.id` with `user._id`
+
+
+## Auto Quality Check - 2026-02-26 11:08:48
+### File: /Users/jkobrien/code/PDP/packages/backend/convex/models/orgPlayerEnrollments.ts
+
+- ❌ **CRITICAL: Better Auth adapter violation**
+  - **Problem:** Direct DB access to auth tables
+  - **Fix:** Use `ctx.runQuery(components.betterAuth.adapter.findOne, {...})`
+
+
+## Auto Quality Check - 2026-02-26 11:08:48
+### File: /Users/jkobrien/code/PDP/packages/backend/convex/models/orgPlayerEnrollments.ts
+
+- ⚠️ **Performance: .filter() usage detected**
+  - **Problem:** Should use .withIndex() for better performance
+  - **Fix:** Replace `.query().filter()` with `.query().withIndex()`
+
+
+## Auto Quality Check - 2026-02-26 11:11:22
+### File: /Users/jkobrien/code/PDP/packages/backend/convex/lib/playerMatching.ts
+
+- ❌ **CRITICAL: Better Auth adapter violation**
+  - **Problem:** Direct DB access to auth tables
+  - **Fix:** Use `ctx.runQuery(components.betterAuth.adapter.findOne, {...})`
+
+
+## Auto Quality Check - 2026-02-26 11:11:22
+### File: /Users/jkobrien/code/PDP/packages/backend/convex/models/playerInjuries.ts
+
+- ❌ **CRITICAL: Better Auth adapter violation**
+  - **Problem:** Direct DB access to auth tables
+  - **Fix:** Use `ctx.runQuery(components.betterAuth.adapter.findOne, {...})`
+
+
+## Auto Quality Check - 2026-02-26 11:11:22
+### File: /Users/jkobrien/code/PDP/packages/backend/convex/models/playerInjuries.ts
+
+- ⚠️ **Performance: .filter() usage detected**
+  - **Problem:** Should use .withIndex() for better performance
+  - **Fix:** Replace `.query().filter()` with `.query().withIndex()`
+
+
+## Auto Quality Check - 2026-02-26 11:11:34
+### File: /Users/jkobrien/code/PDP/packages/backend/convex/models/playerInjuries.ts
+
+- ❌ **CRITICAL: Better Auth adapter violation**
+  - **Problem:** Direct DB access to auth tables
+  - **Fix:** Use `ctx.runQuery(components.betterAuth.adapter.findOne, {...})`
+
+
+## Auto Quality Check - 2026-02-26 11:11:34
+### File: /Users/jkobrien/code/PDP/packages/backend/convex/models/playerInjuries.ts
+
+- ⚠️ **Performance: .filter() usage detected**
+  - **Problem:** Should use .withIndex() for better performance
+  - **Fix:** Replace `.query().filter()` with `.query().withIndex()`
+
+
+## Auto Quality Check - 2026-02-26 11:11:42
+### File: /Users/jkobrien/code/PDP/packages/backend/convex/lib/playerMatching.ts
+
+- ❌ **CRITICAL: Better Auth adapter violation**
+  - **Problem:** Direct DB access to auth tables
+  - **Fix:** Use `ctx.runQuery(components.betterAuth.adapter.findOne, {...})`
+
+
+## Auto Quality Check - 2026-02-26 11:11:51
+### File: /Users/jkobrien/code/PDP/packages/backend/convex/models/playerInjuries.ts
+
+- ❌ **CRITICAL: Better Auth adapter violation**
+  - **Problem:** Direct DB access to auth tables
+  - **Fix:** Use `ctx.runQuery(components.betterAuth.adapter.findOne, {...})`
+
+
+## Auto Quality Check - 2026-02-26 11:11:51
+### File: /Users/jkobrien/code/PDP/packages/backend/convex/models/playerInjuries.ts
+
+- ⚠️ **Performance: .filter() usage detected**
+  - **Problem:** Should use .withIndex() for better performance
+  - **Fix:** Replace `.query().filter()` with `.query().withIndex()`
+
+
+## Auto Quality Check - 2026-02-26 11:12:00
+### File: /Users/jkobrien/code/PDP/packages/backend/convex/models/playerInjuries.ts
+
+- ❌ **CRITICAL: Better Auth adapter violation**
+  - **Problem:** Direct DB access to auth tables
+  - **Fix:** Use `ctx.runQuery(components.betterAuth.adapter.findOne, {...})`
+
+
+## Auto Quality Check - 2026-02-26 11:12:00
+### File: /Users/jkobrien/code/PDP/packages/backend/convex/models/playerInjuries.ts
+
+- ⚠️ **Performance: .filter() usage detected**
+  - **Problem:** Should use .withIndex() for better performance
+  - **Fix:** Replace `.query().filter()` with `.query().withIndex()`
+
+
+## Auto Quality Check - 2026-02-26 11:21:58
+### File: /Users/jkobrien/code/PDP/packages/backend/convex/models/orgPlayerEnrollments.ts
+
+- ❌ **CRITICAL: Better Auth adapter violation**
+  - **Problem:** Direct DB access to auth tables
+  - **Fix:** Use `ctx.runQuery(components.betterAuth.adapter.findOne, {...})`
+
+
+## Auto Quality Check - 2026-02-26 11:21:58
+### File: /Users/jkobrien/code/PDP/packages/backend/convex/models/orgPlayerEnrollments.ts
+
+- ⚠️ **Performance: .filter() usage detected**
+  - **Problem:** Should use .withIndex() for better performance
+  - **Fix:** Replace `.query().filter()` with `.query().withIndex()`
+
+
+## Auto Quality Check - 2026-02-26 11:22:58
+### File: /Users/jkobrien/code/PDP/packages/backend/convex/models/coachParentSummaries.ts
+
+- ❌ **CRITICAL: Better Auth adapter violation**
+  - **Problem:** Direct DB access to auth tables
+  - **Fix:** Use `ctx.runQuery(components.betterAuth.adapter.findOne, {...})`
+
+
+## Auto Quality Check - 2026-02-26 11:22:58
+### File: /Users/jkobrien/code/PDP/packages/backend/convex/models/coachParentSummaries.ts
+
+- ⚠️ **Performance: .filter() usage detected**
+  - **Problem:** Should use .withIndex() for better performance
+  - **Fix:** Replace `.query().filter()` with `.query().withIndex()`
+
+
+## Auto Quality Check - 2026-02-26 11:22:58
+### File: /Users/jkobrien/code/PDP/packages/backend/convex/models/coachParentSummaries.ts
+
+- ❌ **CRITICAL: N+1 query pattern detected**
+  - **Problem:** `Promise.all(items.map(async => query))` makes N database calls
+  - **Fix:** Batch fetch all IDs first, create Map for O(1) lookup
+
+
+## Auto Quality Check - 2026-02-26 11:24:37
+### File: /Users/jkobrien/code/PDP/packages/backend/convex/models/medicalProfiles.ts
+
+- ⚠️ **Performance: .filter() usage detected**
+  - **Problem:** Should use .withIndex() for better performance
+  - **Fix:** Replace `.query().filter()` with `.query().withIndex()`
+
+
+## Auto Quality Check - 2026-02-26 11:24:37
+### File: /Users/jkobrien/code/PDP/packages/backend/convex/models/medicalProfiles.ts
+
+- ❌ **CRITICAL: N+1 query pattern detected**
+  - **Problem:** `Promise.all(items.map(async => query))` makes N database calls
+  - **Fix:** Batch fetch all IDs first, create Map for O(1) lookup
+
+
+## Auto Quality Check - 2026-02-26 11:41:50
+### File: /Users/jkobrien/code/PDP/packages/backend/convex/models/teamPlayerIdentities.ts
+
+- ❌ **CRITICAL: Better Auth adapter violation**
+  - **Problem:** Direct DB access to auth tables
+  - **Fix:** Use `ctx.runQuery(components.betterAuth.adapter.findOne, {...})`
+
+
+## Auto Quality Check - 2026-02-26 11:41:50
+### File: /Users/jkobrien/code/PDP/packages/backend/convex/models/teamPlayerIdentities.ts
+
+- ⚠️ **Performance: .filter() usage detected**
+  - **Problem:** Should use .withIndex() for better performance
+  - **Fix:** Replace `.query().filter()` with `.query().withIndex()`
+
+
+## Auto Quality Check - 2026-02-26 11:41:51
+### File: /Users/jkobrien/code/PDP/packages/backend/convex/models/teamPlayerIdentities.ts
+
+- ❌ **CRITICAL: Better Auth adapter violation**
+  - **Problem:** Direct DB access to auth tables
+  - **Fix:** Use `ctx.runQuery(components.betterAuth.adapter.findOne, {...})`
+
+
+## Auto Quality Check - 2026-02-26 11:41:51
+### File: /Users/jkobrien/code/PDP/packages/backend/convex/models/teamPlayerIdentities.ts
+
+- ⚠️ **Performance: .filter() usage detected**
+  - **Problem:** Should use .withIndex() for better performance
+  - **Fix:** Replace `.query().filter()` with `.query().withIndex()`
+
+
+## Auto Quality Check - 2026-02-26 11:47:59
+### File: /Users/jkobrien/code/PDP/packages/backend/convex/models/orgPlayerEnrollments.ts
+
+- ❌ **CRITICAL: Better Auth adapter violation**
+  - **Problem:** Direct DB access to auth tables
+  - **Fix:** Use `ctx.runQuery(components.betterAuth.adapter.findOne, {...})`
+
+
+## Auto Quality Check - 2026-02-26 11:47:59
+### File: /Users/jkobrien/code/PDP/packages/backend/convex/models/orgPlayerEnrollments.ts
+
+- ⚠️ **Performance: .filter() usage detected**
+  - **Problem:** Should use .withIndex() for better performance
+  - **Fix:** Replace `.query().filter()` with `.query().withIndex()`
+
+
+## Auto Quality Check - 2026-02-26 11:48:06
+### File: /Users/jkobrien/code/PDP/packages/backend/convex/models/teamPlayerIdentities.ts
+
+- ❌ **CRITICAL: Better Auth adapter violation**
+  - **Problem:** Direct DB access to auth tables
+  - **Fix:** Use `ctx.runQuery(components.betterAuth.adapter.findOne, {...})`
+
+
+## Auto Quality Check - 2026-02-26 11:48:06
+### File: /Users/jkobrien/code/PDP/packages/backend/convex/models/teamPlayerIdentities.ts
+
+- ⚠️ **Performance: .filter() usage detected**
+  - **Problem:** Should use .withIndex() for better performance
+  - **Fix:** Replace `.query().filter()` with `.query().withIndex()`
+
+
+## Auto Quality Check - 2026-02-26 11:48:25
+### File: /Users/jkobrien/code/PDP/packages/backend/convex/models/teamPlayerIdentities.ts
+
+- ❌ **CRITICAL: Better Auth adapter violation**
+  - **Problem:** Direct DB access to auth tables
+  - **Fix:** Use `ctx.runQuery(components.betterAuth.adapter.findOne, {...})`
+
+
+## Auto Quality Check - 2026-02-26 11:48:25
+### File: /Users/jkobrien/code/PDP/packages/backend/convex/models/teamPlayerIdentities.ts
+
+- ⚠️ **Performance: .filter() usage detected**
+  - **Problem:** Should use .withIndex() for better performance
+  - **Fix:** Replace `.query().filter()` with `.query().withIndex()`
+
+
+## Auto Quality Check - 2026-02-26 11:48:31
+### File: /Users/jkobrien/code/PDP/packages/backend/convex/models/teamPlayerIdentities.ts
+
+- ❌ **CRITICAL: Better Auth adapter violation**
+  - **Problem:** Direct DB access to auth tables
+  - **Fix:** Use `ctx.runQuery(components.betterAuth.adapter.findOne, {...})`
+
+
+## Auto Quality Check - 2026-02-26 11:48:31
+### File: /Users/jkobrien/code/PDP/packages/backend/convex/models/teamPlayerIdentities.ts
+
+- ⚠️ **Performance: .filter() usage detected**
+  - **Problem:** Should use .withIndex() for better performance
+  - **Fix:** Replace `.query().filter()` with `.query().withIndex()`
+
+
+## Auto Quality Check - 2026-02-26 11:48:49
+### File: /Users/jkobrien/code/PDP/packages/backend/convex/models/orgPlayerEnrollments.ts
+
+- ❌ **CRITICAL: Better Auth adapter violation**
+  - **Problem:** Direct DB access to auth tables
+  - **Fix:** Use `ctx.runQuery(components.betterAuth.adapter.findOne, {...})`
+
+
+## Auto Quality Check - 2026-02-26 11:48:49
+### File: /Users/jkobrien/code/PDP/packages/backend/convex/models/orgPlayerEnrollments.ts
+
+- ⚠️ **Performance: .filter() usage detected**
+  - **Problem:** Should use .withIndex() for better performance
+  - **Fix:** Replace `.query().filter()` with `.query().withIndex()`
+
+
+## Auto Quality Check - 2026-02-26 12:10:04
+### File: /Users/jkobrien/code/PDP/packages/backend/convex/lib/playerMatching.ts
+
+- ❌ **CRITICAL: Better Auth adapter violation**
+  - **Problem:** Direct DB access to auth tables
+  - **Fix:** Use `ctx.runQuery(components.betterAuth.adapter.findOne, {...})`
+
+
+## Auto Quality Check - 2026-02-26 12:10:04
+### File: /Users/jkobrien/code/PDP/packages/backend/convex/models/guardianPlayerLinks.ts
+
+- ⚠️ **Performance: .filter() usage detected**
+  - **Problem:** Should use .withIndex() for better performance
+  - **Fix:** Replace `.query().filter()` with `.query().withIndex()`
+
+
+## Auto Quality Check - 2026-02-26 12:10:04
+### File: /Users/jkobrien/code/PDP/packages/backend/convex/models/whatsappReviewLinks.ts
+
+- ❌ **CRITICAL: Better Auth adapter violation**
+  - **Problem:** Direct DB access to auth tables
+  - **Fix:** Use `ctx.runQuery(components.betterAuth.adapter.findOne, {...})`
+
+
+## Auto Quality Check - 2026-02-26 12:10:04
+### File: /Users/jkobrien/code/PDP/packages/backend/convex/models/whatsappReviewLinks.ts
+
+- ⚠️ **Performance: .filter() usage detected**
+  - **Problem:** Should use .withIndex() for better performance
+  - **Fix:** Replace `.query().filter()` with `.query().withIndex()`
+
+
+## Auto Quality Check - 2026-02-26 12:10:21
+### File: /Users/jkobrien/code/PDP/packages/backend/convex/models/playerIdentities.ts
+
+- ❌ **CRITICAL: Better Auth adapter violation**
+  - **Problem:** Direct DB access to auth tables
+  - **Fix:** Use `ctx.runQuery(components.betterAuth.adapter.findOne, {...})`
+
+
+## Auto Quality Check - 2026-02-26 12:10:21
+### File: /Users/jkobrien/code/PDP/packages/backend/convex/models/playerIdentities.ts
+
+- ⚠️ **Performance: .filter() usage detected**
+  - **Problem:** Should use .withIndex() for better performance
+  - **Fix:** Replace `.query().filter()` with `.query().withIndex()`
+
+
+## Auto Quality Check - 2026-02-26 12:10:21
+### File: /Users/jkobrien/code/PDP/packages/backend/convex/models/playerIdentities.ts
+
+- ❌ **CRITICAL: N+1 query pattern detected**
+  - **Problem:** `Promise.all(items.map(async => query))` makes N database calls
+  - **Fix:** Batch fetch all IDs first, create Map for O(1) lookup
+
+
+## Auto Quality Check - 2026-02-26 12:10:35
+### File: /Users/jkobrien/code/PDP/packages/backend/convex/models/orgPlayerEnrollments.ts
+
+- ❌ **CRITICAL: Better Auth adapter violation**
+  - **Problem:** Direct DB access to auth tables
+  - **Fix:** Use `ctx.runQuery(components.betterAuth.adapter.findOne, {...})`
+
+
+## Auto Quality Check - 2026-02-26 12:10:35
+### File: /Users/jkobrien/code/PDP/packages/backend/convex/models/orgPlayerEnrollments.ts
+
+- ⚠️ **Performance: .filter() usage detected**
+  - **Problem:** Should use .withIndex() for better performance
+  - **Fix:** Replace `.query().filter()` with `.query().withIndex()`
+
+
+## Auto Quality Check - 2026-02-26 12:10:45
+### File: /Users/jkobrien/code/PDP/packages/backend/convex/models/orgPlayerEnrollments.ts
+
+- ❌ **CRITICAL: Better Auth adapter violation**
+  - **Problem:** Direct DB access to auth tables
+  - **Fix:** Use `ctx.runQuery(components.betterAuth.adapter.findOne, {...})`
+
+
+## Auto Quality Check - 2026-02-26 12:10:45
+### File: /Users/jkobrien/code/PDP/packages/backend/convex/models/orgPlayerEnrollments.ts
+
+- ⚠️ **Performance: .filter() usage detected**
+  - **Problem:** Should use .withIndex() for better performance
+  - **Fix:** Replace `.query().filter()` with `.query().withIndex()`
+
+
+## Auto Quality Check - 2026-02-26 12:10:46
+### File: /Users/jkobrien/code/PDP/packages/backend/convex/models/members.ts
+
+- ❌ **CRITICAL: Better Auth adapter violation**
+  - **Problem:** Direct DB access to auth tables
+  - **Fix:** Use `ctx.runQuery(components.betterAuth.adapter.findOne, {...})`
+
+
+## Auto Quality Check - 2026-02-26 12:10:46
+### File: /Users/jkobrien/code/PDP/packages/backend/convex/models/members.ts
+
+- ⚠️ **Performance: .filter() usage detected**
+  - **Problem:** Should use .withIndex() for better performance
+  - **Fix:** Replace `.query().filter()` with `.query().withIndex()`
+
+
+## Auto Quality Check - 2026-02-26 12:10:46
+### File: /Users/jkobrien/code/PDP/packages/backend/convex/models/members.ts
+
+- ❌ **CRITICAL: N+1 query pattern detected**
+  - **Problem:** `Promise.all(items.map(async => query))` makes N database calls
+  - **Fix:** Batch fetch all IDs first, create Map for O(1) lookup
+
+
+## Auto Quality Check - 2026-02-26 12:11:14
 ### File: /Users/jkobrien/code/PDP/packages/backend/convex/models/guardianIdentities.ts
 
 - ❌ **CRITICAL: Better Auth adapter violation**
@@ -3262,7 +11938,7 @@ packages/backend/convex/actions/aiMapping.ts:        "ANTHROPIC_API_KEY not conf
   - **Fix:** Use `ctx.runQuery(components.betterAuth.adapter.findOne, {...})`
 
 
-## Auto Quality Check - 2026-02-24 15:46:52
+## Auto Quality Check - 2026-02-26 12:11:14
 ### File: /Users/jkobrien/code/PDP/packages/backend/convex/models/guardianIdentities.ts
 
 - ⚠️ **Performance: .filter() usage detected**
@@ -3270,7 +11946,1071 @@ packages/backend/convex/actions/aiMapping.ts:        "ANTHROPIC_API_KEY not conf
   - **Fix:** Replace `.query().filter()` with `.query().withIndex()`
 
 
-## Auto Quality Check - 2026-02-24 15:46:52
+## Auto Quality Check - 2026-02-26 12:11:14
+### File: /Users/jkobrien/code/PDP/packages/backend/convex/models/whatsappReviewLinks.ts
+
+- ❌ **CRITICAL: Better Auth adapter violation**
+  - **Problem:** Direct DB access to auth tables
+  - **Fix:** Use `ctx.runQuery(components.betterAuth.adapter.findOne, {...})`
+
+
+## Auto Quality Check - 2026-02-26 12:11:14
+### File: /Users/jkobrien/code/PDP/packages/backend/convex/models/whatsappReviewLinks.ts
+
+- ⚠️ **Performance: .filter() usage detected**
+  - **Problem:** Should use .withIndex() for better performance
+  - **Fix:** Replace `.query().filter()` with `.query().withIndex()`
+
+
+## Auto Quality Check - 2026-02-26 12:11:52
+### File: /Users/jkobrien/code/PDP/packages/backend/convex/models/guardianPlayerLinks.ts
+
+- ⚠️ **Performance: .filter() usage detected**
+  - **Problem:** Should use .withIndex() for better performance
+  - **Fix:** Replace `.query().filter()` with `.query().withIndex()`
+
+
+## Auto Quality Check - 2026-02-26 12:12:02
+### File: /Users/jkobrien/code/PDP/packages/backend/convex/models/guardianPlayerLinks.ts
+
+- ⚠️ **Performance: .filter() usage detected**
+  - **Problem:** Should use .withIndex() for better performance
+  - **Fix:** Replace `.query().filter()` with `.query().withIndex()`
+
+
+## Auto Quality Check - 2026-02-26 12:12:12
+### File: /Users/jkobrien/code/PDP/packages/backend/convex/models/guardianPlayerLinks.ts
+
+- ⚠️ **Performance: .filter() usage detected**
+  - **Problem:** Should use .withIndex() for better performance
+  - **Fix:** Replace `.query().filter()` with `.query().withIndex()`
+
+
+## Auto Quality Check - 2026-02-26 12:12:31
+### File: /Users/jkobrien/code/PDP/packages/backend/convex/models/guardianManagement.ts
+
+- ⚠️ **Performance: .filter() usage detected**
+  - **Problem:** Should use .withIndex() for better performance
+  - **Fix:** Replace `.query().filter()` with `.query().withIndex()`
+
+
+## Auto Quality Check - 2026-02-26 12:12:53
+### File: /Users/jkobrien/code/PDP/packages/backend/convex/models/players.ts
+
+- ❌ **CRITICAL: Better Auth adapter violation**
+  - **Problem:** Direct DB access to auth tables
+  - **Fix:** Use `ctx.runQuery(components.betterAuth.adapter.findOne, {...})`
+
+
+## Auto Quality Check - 2026-02-26 12:12:53
+### File: /Users/jkobrien/code/PDP/packages/backend/convex/models/players.ts
+
+- ⚠️ **Performance: .filter() usage detected**
+  - **Problem:** Should use .withIndex() for better performance
+  - **Fix:** Replace `.query().filter()` with `.query().withIndex()`
+
+
+## Auto Quality Check - 2026-02-26 12:12:53
+### File: /Users/jkobrien/code/PDP/packages/backend/convex/models/players.ts
+
+- ❌ **CRITICAL: N+1 query pattern detected**
+  - **Problem:** `Promise.all(items.map(async => query))` makes N database calls
+  - **Fix:** Batch fetch all IDs first, create Map for O(1) lookup
+
+
+## Auto Quality Check - 2026-02-26 12:15:18
+### File: /Users/jkobrien/code/PDP/packages/backend/convex/models/orgPlayerEnrollments.ts
+
+- ❌ **CRITICAL: Better Auth adapter violation**
+  - **Problem:** Direct DB access to auth tables
+  - **Fix:** Use `ctx.runQuery(components.betterAuth.adapter.findOne, {...})`
+
+
+## Auto Quality Check - 2026-02-26 12:15:18
+### File: /Users/jkobrien/code/PDP/packages/backend/convex/models/orgPlayerEnrollments.ts
+
+- ⚠️ **Performance: .filter() usage detected**
+  - **Problem:** Should use .withIndex() for better performance
+  - **Fix:** Replace `.query().filter()` with `.query().withIndex()`
+
+
+## Auto Quality Check - 2026-02-26 12:15:19
+### File: /Users/jkobrien/code/PDP/packages/backend/convex/models/orgPlayerEnrollments.ts
+
+- ❌ **CRITICAL: Better Auth adapter violation**
+  - **Problem:** Direct DB access to auth tables
+  - **Fix:** Use `ctx.runQuery(components.betterAuth.adapter.findOne, {...})`
+
+
+## Auto Quality Check - 2026-02-26 12:15:19
+### File: /Users/jkobrien/code/PDP/packages/backend/convex/models/orgPlayerEnrollments.ts
+
+- ⚠️ **Performance: .filter() usage detected**
+  - **Problem:** Should use .withIndex() for better performance
+  - **Fix:** Replace `.query().filter()` with `.query().withIndex()`
+
+
+## Auto Quality Check - 2026-02-26 12:15:29
+### File: /Users/jkobrien/code/PDP/packages/backend/convex/models/orgPlayerEnrollments.ts
+
+- ❌ **CRITICAL: Better Auth adapter violation**
+  - **Problem:** Direct DB access to auth tables
+  - **Fix:** Use `ctx.runQuery(components.betterAuth.adapter.findOne, {...})`
+
+
+## Auto Quality Check - 2026-02-26 12:15:29
+### File: /Users/jkobrien/code/PDP/packages/backend/convex/models/orgPlayerEnrollments.ts
+
+- ⚠️ **Performance: .filter() usage detected**
+  - **Problem:** Should use .withIndex() for better performance
+  - **Fix:** Replace `.query().filter()` with `.query().withIndex()`
+
+
+## Auto Quality Check - 2026-02-26 12:15:40
+### File: /Users/jkobrien/code/PDP/packages/backend/convex/models/orgPlayerEnrollments.ts
+
+- ❌ **CRITICAL: Better Auth adapter violation**
+  - **Problem:** Direct DB access to auth tables
+  - **Fix:** Use `ctx.runQuery(components.betterAuth.adapter.findOne, {...})`
+
+
+## Auto Quality Check - 2026-02-26 12:15:40
+### File: /Users/jkobrien/code/PDP/packages/backend/convex/models/orgPlayerEnrollments.ts
+
+- ⚠️ **Performance: .filter() usage detected**
+  - **Problem:** Should use .withIndex() for better performance
+  - **Fix:** Replace `.query().filter()` with `.query().withIndex()`
+
+
+## Auto Quality Check - 2026-02-26 12:15:54
+### File: /Users/jkobrien/code/PDP/packages/backend/convex/models/orgPlayerEnrollments.ts
+
+- ❌ **CRITICAL: Better Auth adapter violation**
+  - **Problem:** Direct DB access to auth tables
+  - **Fix:** Use `ctx.runQuery(components.betterAuth.adapter.findOne, {...})`
+
+
+## Auto Quality Check - 2026-02-26 12:15:54
+### File: /Users/jkobrien/code/PDP/packages/backend/convex/models/orgPlayerEnrollments.ts
+
+- ⚠️ **Performance: .filter() usage detected**
+  - **Problem:** Should use .withIndex() for better performance
+  - **Fix:** Replace `.query().filter()` with `.query().withIndex()`
+
+
+## Auto Quality Check - 2026-02-26 12:16:03
+### File: /Users/jkobrien/code/PDP/packages/backend/convex/models/orgPlayerEnrollments.ts
+
+- ❌ **CRITICAL: Better Auth adapter violation**
+  - **Problem:** Direct DB access to auth tables
+  - **Fix:** Use `ctx.runQuery(components.betterAuth.adapter.findOne, {...})`
+
+
+## Auto Quality Check - 2026-02-26 12:16:03
+### File: /Users/jkobrien/code/PDP/packages/backend/convex/models/orgPlayerEnrollments.ts
+
+- ⚠️ **Performance: .filter() usage detected**
+  - **Problem:** Should use .withIndex() for better performance
+  - **Fix:** Replace `.query().filter()` with `.query().withIndex()`
+
+
+## Auto Quality Check - 2026-02-26 12:16:17
+### File: /Users/jkobrien/code/PDP/packages/backend/convex/models/orgPlayerEnrollments.ts
+
+- ❌ **CRITICAL: Better Auth adapter violation**
+  - **Problem:** Direct DB access to auth tables
+  - **Fix:** Use `ctx.runQuery(components.betterAuth.adapter.findOne, {...})`
+
+
+## Auto Quality Check - 2026-02-26 12:16:17
+### File: /Users/jkobrien/code/PDP/packages/backend/convex/models/orgPlayerEnrollments.ts
+
+- ⚠️ **Performance: .filter() usage detected**
+  - **Problem:** Should use .withIndex() for better performance
+  - **Fix:** Replace `.query().filter()` with `.query().withIndex()`
+
+
+## Auto Quality Check - 2026-02-26 12:16:29
+### File: /Users/jkobrien/code/PDP/packages/backend/convex/models/orgPlayerEnrollments.ts
+
+- ❌ **CRITICAL: Better Auth adapter violation**
+  - **Problem:** Direct DB access to auth tables
+  - **Fix:** Use `ctx.runQuery(components.betterAuth.adapter.findOne, {...})`
+
+
+## Auto Quality Check - 2026-02-26 12:16:29
+### File: /Users/jkobrien/code/PDP/packages/backend/convex/models/orgPlayerEnrollments.ts
+
+- ⚠️ **Performance: .filter() usage detected**
+  - **Problem:** Should use .withIndex() for better performance
+  - **Fix:** Replace `.query().filter()` with `.query().withIndex()`
+
+
+## Auto Quality Check - 2026-02-26 12:16:38
+### File: /Users/jkobrien/code/PDP/packages/backend/convex/models/orgPlayerEnrollments.ts
+
+- ❌ **CRITICAL: Better Auth adapter violation**
+  - **Problem:** Direct DB access to auth tables
+  - **Fix:** Use `ctx.runQuery(components.betterAuth.adapter.findOne, {...})`
+
+
+## Auto Quality Check - 2026-02-26 12:16:38
+### File: /Users/jkobrien/code/PDP/packages/backend/convex/models/orgPlayerEnrollments.ts
+
+- ⚠️ **Performance: .filter() usage detected**
+  - **Problem:** Should use .withIndex() for better performance
+  - **Fix:** Replace `.query().filter()` with `.query().withIndex()`
+
+
+## Auto Quality Check - 2026-02-26 12:17:05
+### File: /Users/jkobrien/code/PDP/packages/backend/convex/models/orgPlayerEnrollments.ts
+
+- ❌ **CRITICAL: Better Auth adapter violation**
+  - **Problem:** Direct DB access to auth tables
+  - **Fix:** Use `ctx.runQuery(components.betterAuth.adapter.findOne, {...})`
+
+
+## Auto Quality Check - 2026-02-26 12:17:05
+### File: /Users/jkobrien/code/PDP/packages/backend/convex/models/orgPlayerEnrollments.ts
+
+- ⚠️ **Performance: .filter() usage detected**
+  - **Problem:** Should use .withIndex() for better performance
+  - **Fix:** Replace `.query().filter()` with `.query().withIndex()`
+
+
+## Auto Quality Check - 2026-02-26 12:17:14
+### File: /Users/jkobrien/code/PDP/packages/backend/convex/models/orgPlayerEnrollments.ts
+
+- ❌ **CRITICAL: Better Auth adapter violation**
+  - **Problem:** Direct DB access to auth tables
+  - **Fix:** Use `ctx.runQuery(components.betterAuth.adapter.findOne, {...})`
+
+
+## Auto Quality Check - 2026-02-26 12:17:14
+### File: /Users/jkobrien/code/PDP/packages/backend/convex/models/orgPlayerEnrollments.ts
+
+- ⚠️ **Performance: .filter() usage detected**
+  - **Problem:** Should use .withIndex() for better performance
+  - **Fix:** Replace `.query().filter()` with `.query().withIndex()`
+
+
+## Auto Quality Check - 2026-02-26 12:17:49
+### File: /Users/jkobrien/code/PDP/packages/backend/convex/models/orgPlayerEnrollments.ts
+
+- ❌ **CRITICAL: Better Auth adapter violation**
+  - **Problem:** Direct DB access to auth tables
+  - **Fix:** Use `ctx.runQuery(components.betterAuth.adapter.findOne, {...})`
+
+
+## Auto Quality Check - 2026-02-26 12:17:49
+### File: /Users/jkobrien/code/PDP/packages/backend/convex/models/orgPlayerEnrollments.ts
+
+- ⚠️ **Performance: .filter() usage detected**
+  - **Problem:** Should use .withIndex() for better performance
+  - **Fix:** Replace `.query().filter()` with `.query().withIndex()`
+
+
+## Auto Quality Check - 2026-02-26 12:18:05
+### File: /Users/jkobrien/code/PDP/packages/backend/convex/models/orgPlayerEnrollments.ts
+
+- ❌ **CRITICAL: Better Auth adapter violation**
+  - **Problem:** Direct DB access to auth tables
+  - **Fix:** Use `ctx.runQuery(components.betterAuth.adapter.findOne, {...})`
+
+
+## Auto Quality Check - 2026-02-26 12:18:05
+### File: /Users/jkobrien/code/PDP/packages/backend/convex/models/orgPlayerEnrollments.ts
+
+- ⚠️ **Performance: .filter() usage detected**
+  - **Problem:** Should use .withIndex() for better performance
+  - **Fix:** Replace `.query().filter()` with `.query().withIndex()`
+
+
+## Auto Quality Check - 2026-02-26 12:30:33
+### File: /Users/jkobrien/code/PDP/packages/backend/convex/models/orgPlayerEnrollments.ts
+
+- ❌ **CRITICAL: Better Auth adapter violation**
+  - **Problem:** Direct DB access to auth tables
+  - **Fix:** Use `ctx.runQuery(components.betterAuth.adapter.findOne, {...})`
+
+
+## Auto Quality Check - 2026-02-26 12:30:33
+### File: /Users/jkobrien/code/PDP/packages/backend/convex/models/orgPlayerEnrollments.ts
+
+- ⚠️ **Performance: .filter() usage detected**
+  - **Problem:** Should use .withIndex() for better performance
+  - **Fix:** Replace `.query().filter()` with `.query().withIndex()`
+
+
+## Auto Quality Check - 2026-02-26 12:30:33
+### File: /Users/jkobrien/code/PDP/packages/backend/convex/models/orgPlayerEnrollments.ts
+
+- ❌ **CRITICAL: Better Auth adapter violation**
+  - **Problem:** Direct DB access to auth tables
+  - **Fix:** Use `ctx.runQuery(components.betterAuth.adapter.findOne, {...})`
+
+
+## Auto Quality Check - 2026-02-26 12:30:33
+### File: /Users/jkobrien/code/PDP/packages/backend/convex/models/orgPlayerEnrollments.ts
+
+- ⚠️ **Performance: .filter() usage detected**
+  - **Problem:** Should use .withIndex() for better performance
+  - **Fix:** Replace `.query().filter()` with `.query().withIndex()`
+
+
+## Auto Quality Check - 2026-02-26 12:30:34
+### File: /Users/jkobrien/code/PDP/packages/backend/convex/models/orgPlayerEnrollments.ts
+
+- ❌ **CRITICAL: Better Auth adapter violation**
+  - **Problem:** Direct DB access to auth tables
+  - **Fix:** Use `ctx.runQuery(components.betterAuth.adapter.findOne, {...})`
+
+
+## Auto Quality Check - 2026-02-26 12:30:34
+### File: /Users/jkobrien/code/PDP/packages/backend/convex/models/orgPlayerEnrollments.ts
+
+- ⚠️ **Performance: .filter() usage detected**
+  - **Problem:** Should use .withIndex() for better performance
+  - **Fix:** Replace `.query().filter()` with `.query().withIndex()`
+
+
+## Auto Quality Check - 2026-02-26 12:30:56
+### File: /Users/jkobrien/code/PDP/packages/backend/convex/models/orgPlayerEnrollments.ts
+
+- ❌ **CRITICAL: Better Auth adapter violation**
+  - **Problem:** Direct DB access to auth tables
+  - **Fix:** Use `ctx.runQuery(components.betterAuth.adapter.findOne, {...})`
+
+
+## Auto Quality Check - 2026-02-26 12:30:56
+### File: /Users/jkobrien/code/PDP/packages/backend/convex/models/orgPlayerEnrollments.ts
+
+- ⚠️ **Performance: .filter() usage detected**
+  - **Problem:** Should use .withIndex() for better performance
+  - **Fix:** Replace `.query().filter()` with `.query().withIndex()`
+
+
+## Auto Quality Check - 2026-02-26 12:30:56
+### File: /Users/jkobrien/code/PDP/packages/backend/convex/models/orgPlayerEnrollments.ts
+
+- ❌ **CRITICAL: Better Auth adapter violation**
+  - **Problem:** Direct DB access to auth tables
+  - **Fix:** Use `ctx.runQuery(components.betterAuth.adapter.findOne, {...})`
+
+
+## Auto Quality Check - 2026-02-26 12:30:56
+### File: /Users/jkobrien/code/PDP/packages/backend/convex/models/orgPlayerEnrollments.ts
+
+- ⚠️ **Performance: .filter() usage detected**
+  - **Problem:** Should use .withIndex() for better performance
+  - **Fix:** Replace `.query().filter()` with `.query().withIndex()`
+
+
+## Auto Quality Check - 2026-02-26 12:30:57
+### File: /Users/jkobrien/code/PDP/packages/backend/convex/models/orgPlayerEnrollments.ts
+
+- ❌ **CRITICAL: Better Auth adapter violation**
+  - **Problem:** Direct DB access to auth tables
+  - **Fix:** Use `ctx.runQuery(components.betterAuth.adapter.findOne, {...})`
+
+
+## Auto Quality Check - 2026-02-26 12:30:57
+### File: /Users/jkobrien/code/PDP/packages/backend/convex/models/orgPlayerEnrollments.ts
+
+- ⚠️ **Performance: .filter() usage detected**
+  - **Problem:** Should use .withIndex() for better performance
+  - **Fix:** Replace `.query().filter()` with `.query().withIndex()`
+
+
+## Auto Quality Check - 2026-02-26 12:31:13
+### File: /Users/jkobrien/code/PDP/packages/backend/convex/models/orgPlayerEnrollments.ts
+
+- ❌ **CRITICAL: Better Auth adapter violation**
+  - **Problem:** Direct DB access to auth tables
+  - **Fix:** Use `ctx.runQuery(components.betterAuth.adapter.findOne, {...})`
+
+
+## Auto Quality Check - 2026-02-26 12:31:13
+### File: /Users/jkobrien/code/PDP/packages/backend/convex/models/orgPlayerEnrollments.ts
+
+- ⚠️ **Performance: .filter() usage detected**
+  - **Problem:** Should use .withIndex() for better performance
+  - **Fix:** Replace `.query().filter()` with `.query().withIndex()`
+
+
+## Auto Quality Check - 2026-02-26 12:31:24
+### File: /Users/jkobrien/code/PDP/packages/backend/convex/models/orgPlayerEnrollments.ts
+
+- ❌ **CRITICAL: Better Auth adapter violation**
+  - **Problem:** Direct DB access to auth tables
+  - **Fix:** Use `ctx.runQuery(components.betterAuth.adapter.findOne, {...})`
+
+
+## Auto Quality Check - 2026-02-26 12:31:24
+### File: /Users/jkobrien/code/PDP/packages/backend/convex/models/orgPlayerEnrollments.ts
+
+- ⚠️ **Performance: .filter() usage detected**
+  - **Problem:** Should use .withIndex() for better performance
+  - **Fix:** Replace `.query().filter()` with `.query().withIndex()`
+
+
+## Auto Quality Check - 2026-02-26 12:31:31
+### File: /Users/jkobrien/code/PDP/packages/backend/convex/models/orgPlayerEnrollments.ts
+
+- ❌ **CRITICAL: Better Auth adapter violation**
+  - **Problem:** Direct DB access to auth tables
+  - **Fix:** Use `ctx.runQuery(components.betterAuth.adapter.findOne, {...})`
+
+
+## Auto Quality Check - 2026-02-26 12:31:31
+### File: /Users/jkobrien/code/PDP/packages/backend/convex/models/orgPlayerEnrollments.ts
+
+- ⚠️ **Performance: .filter() usage detected**
+  - **Problem:** Should use .withIndex() for better performance
+  - **Fix:** Replace `.query().filter()` with `.query().withIndex()`
+
+
+## Auto Quality Check - 2026-02-26 12:31:40
+### File: /Users/jkobrien/code/PDP/packages/backend/convex/models/orgPlayerEnrollments.ts
+
+- ❌ **CRITICAL: Better Auth adapter violation**
+  - **Problem:** Direct DB access to auth tables
+  - **Fix:** Use `ctx.runQuery(components.betterAuth.adapter.findOne, {...})`
+
+
+## Auto Quality Check - 2026-02-26 12:31:40
+### File: /Users/jkobrien/code/PDP/packages/backend/convex/models/orgPlayerEnrollments.ts
+
+- ⚠️ **Performance: .filter() usage detected**
+  - **Problem:** Should use .withIndex() for better performance
+  - **Fix:** Replace `.query().filter()` with `.query().withIndex()`
+
+
+## Auto Quality Check - 2026-02-26 12:31:54
+### File: /Users/jkobrien/code/PDP/packages/backend/convex/models/orgPlayerEnrollments.ts
+
+- ❌ **CRITICAL: Better Auth adapter violation**
+  - **Problem:** Direct DB access to auth tables
+  - **Fix:** Use `ctx.runQuery(components.betterAuth.adapter.findOne, {...})`
+
+
+## Auto Quality Check - 2026-02-26 12:31:54
+### File: /Users/jkobrien/code/PDP/packages/backend/convex/models/orgPlayerEnrollments.ts
+
+- ⚠️ **Performance: .filter() usage detected**
+  - **Problem:** Should use .withIndex() for better performance
+  - **Fix:** Replace `.query().filter()` with `.query().withIndex()`
+
+
+## Auto Quality Check - 2026-02-26 12:48:17
+### File: /Users/jkobrien/code/PDP/packages/backend/convex/models/orgPlayerEnrollments.ts
+
+- ❌ **CRITICAL: Better Auth adapter violation**
+  - **Problem:** Direct DB access to auth tables
+  - **Fix:** Use `ctx.runQuery(components.betterAuth.adapter.findOne, {...})`
+
+
+## Auto Quality Check - 2026-02-26 12:48:17
+### File: /Users/jkobrien/code/PDP/packages/backend/convex/models/orgPlayerEnrollments.ts
+
+- ⚠️ **Performance: .filter() usage detected**
+  - **Problem:** Should use .withIndex() for better performance
+  - **Fix:** Replace `.query().filter()` with `.query().withIndex()`
+
+
+## Auto Quality Check - 2026-02-26 12:48:28
+### File: /Users/jkobrien/code/PDP/packages/backend/convex/models/orgPlayerEnrollments.ts
+
+- ❌ **CRITICAL: Better Auth adapter violation**
+  - **Problem:** Direct DB access to auth tables
+  - **Fix:** Use `ctx.runQuery(components.betterAuth.adapter.findOne, {...})`
+
+
+## Auto Quality Check - 2026-02-26 12:48:28
+### File: /Users/jkobrien/code/PDP/packages/backend/convex/models/orgPlayerEnrollments.ts
+
+- ⚠️ **Performance: .filter() usage detected**
+  - **Problem:** Should use .withIndex() for better performance
+  - **Fix:** Replace `.query().filter()` with `.query().withIndex()`
+
+
+## Auto Quality Check - 2026-02-26 12:48:40
+### File: /Users/jkobrien/code/PDP/packages/backend/convex/models/orgPlayerEnrollments.ts
+
+- ❌ **CRITICAL: Better Auth adapter violation**
+  - **Problem:** Direct DB access to auth tables
+  - **Fix:** Use `ctx.runQuery(components.betterAuth.adapter.findOne, {...})`
+
+
+## Auto Quality Check - 2026-02-26 12:48:40
+### File: /Users/jkobrien/code/PDP/packages/backend/convex/models/orgPlayerEnrollments.ts
+
+- ⚠️ **Performance: .filter() usage detected**
+  - **Problem:** Should use .withIndex() for better performance
+  - **Fix:** Replace `.query().filter()` with `.query().withIndex()`
+
+
+## Auto Quality Check - 2026-02-26 12:48:49
+### File: /Users/jkobrien/code/PDP/packages/backend/convex/models/orgPlayerEnrollments.ts
+
+- ❌ **CRITICAL: Better Auth adapter violation**
+  - **Problem:** Direct DB access to auth tables
+  - **Fix:** Use `ctx.runQuery(components.betterAuth.adapter.findOne, {...})`
+
+
+## Auto Quality Check - 2026-02-26 12:48:49
+### File: /Users/jkobrien/code/PDP/packages/backend/convex/models/orgPlayerEnrollments.ts
+
+- ⚠️ **Performance: .filter() usage detected**
+  - **Problem:** Should use .withIndex() for better performance
+  - **Fix:** Replace `.query().filter()` with `.query().withIndex()`
+
+
+## Auto Quality Check - 2026-02-26 12:48:58
+### File: /Users/jkobrien/code/PDP/packages/backend/convex/models/orgPlayerEnrollments.ts
+
+- ❌ **CRITICAL: Better Auth adapter violation**
+  - **Problem:** Direct DB access to auth tables
+  - **Fix:** Use `ctx.runQuery(components.betterAuth.adapter.findOne, {...})`
+
+
+## Auto Quality Check - 2026-02-26 12:48:58
+### File: /Users/jkobrien/code/PDP/packages/backend/convex/models/orgPlayerEnrollments.ts
+
+- ⚠️ **Performance: .filter() usage detected**
+  - **Problem:** Should use .withIndex() for better performance
+  - **Fix:** Replace `.query().filter()` with `.query().withIndex()`
+
+
+## Auto Quality Check - 2026-02-26 12:49:27
+### File: /Users/jkobrien/code/PDP/packages/backend/convex/models/orgPlayerEnrollments.ts
+
+- ❌ **CRITICAL: Better Auth adapter violation**
+  - **Problem:** Direct DB access to auth tables
+  - **Fix:** Use `ctx.runQuery(components.betterAuth.adapter.findOne, {...})`
+
+
+## Auto Quality Check - 2026-02-26 12:49:27
+### File: /Users/jkobrien/code/PDP/packages/backend/convex/models/orgPlayerEnrollments.ts
+
+- ⚠️ **Performance: .filter() usage detected**
+  - **Problem:** Should use .withIndex() for better performance
+  - **Fix:** Replace `.query().filter()` with `.query().withIndex()`
+
+
+## Auto Quality Check - 2026-02-26 12:50:05
+### File: /Users/jkobrien/code/PDP/packages/backend/convex/models/orgPlayerEnrollments.ts
+
+- ❌ **CRITICAL: Better Auth adapter violation**
+  - **Problem:** Direct DB access to auth tables
+  - **Fix:** Use `ctx.runQuery(components.betterAuth.adapter.findOne, {...})`
+
+
+## Auto Quality Check - 2026-02-26 12:50:05
+### File: /Users/jkobrien/code/PDP/packages/backend/convex/models/orgPlayerEnrollments.ts
+
+- ⚠️ **Performance: .filter() usage detected**
+  - **Problem:** Should use .withIndex() for better performance
+  - **Fix:** Replace `.query().filter()` with `.query().withIndex()`
+
+
+## Auto Quality Check - 2026-02-26 12:50:15
+### File: /Users/jkobrien/code/PDP/packages/backend/convex/models/orgPlayerEnrollments.ts
+
+- ❌ **CRITICAL: Better Auth adapter violation**
+  - **Problem:** Direct DB access to auth tables
+  - **Fix:** Use `ctx.runQuery(components.betterAuth.adapter.findOne, {...})`
+
+
+## Auto Quality Check - 2026-02-26 12:50:15
+### File: /Users/jkobrien/code/PDP/packages/backend/convex/models/orgPlayerEnrollments.ts
+
+- ⚠️ **Performance: .filter() usage detected**
+  - **Problem:** Should use .withIndex() for better performance
+  - **Fix:** Replace `.query().filter()` with `.query().withIndex()`
+
+
+## Auto Quality Check - 2026-02-26 14:40:47
+### File: /Users/jkobrien/code/PDP/packages/backend/convex/models/playerGraduations.ts
+
+- ❌ **CRITICAL: Better Auth adapter violation**
+  - **Problem:** Direct DB access to auth tables
+  - **Fix:** Use `ctx.runQuery(components.betterAuth.adapter.findOne, {...})`
+
+
+## Auto Quality Check - 2026-02-26 14:40:47
+### File: /Users/jkobrien/code/PDP/packages/backend/convex/models/playerGraduations.ts
+
+- ⚠️ **Performance: .filter() usage detected**
+  - **Problem:** Should use .withIndex() for better performance
+  - **Fix:** Replace `.query().filter()` with `.query().withIndex()`
+
+
+## Auto Quality Check - 2026-02-26 14:46:29
+### File: /Users/jkobrien/code/PDP/packages/backend/convex/models/adultPlayers.ts
+
+- ⚠️ **Performance: .filter() usage detected**
+  - **Problem:** Should use .withIndex() for better performance
+  - **Fix:** Replace `.query().filter()` with `.query().withIndex()`
+
+
+## Auto Quality Check - 2026-02-26 14:47:03
+### File: /Users/jkobrien/code/PDP/packages/backend/convex/models/adultPlayers.ts
+
+- ⚠️ **Performance: .filter() usage detected**
+  - **Problem:** Should use .withIndex() for better performance
+  - **Fix:** Replace `.query().filter()` with `.query().withIndex()`
+
+
+## Auto Quality Check - 2026-02-26 14:47:16
+### File: /Users/jkobrien/code/PDP/packages/backend/convex/models/adultPlayers.ts
+
+- ⚠️ **Performance: .filter() usage detected**
+  - **Problem:** Should use .withIndex() for better performance
+  - **Fix:** Replace `.query().filter()` with `.query().withIndex()`
+
+
+## Auto Quality Check - 2026-02-26 14:47:45
+### File: /Users/jkobrien/code/PDP/packages/backend/convex/betterAuth/userFunctions.ts
+
+- ❌ **CRITICAL: Better Auth adapter violation**
+  - **Problem:** Direct DB access to auth tables
+  - **Fix:** Use `ctx.runQuery(components.betterAuth.adapter.findOne, {...})`
+
+
+## Auto Quality Check - 2026-02-26 14:47:45
+### File: /Users/jkobrien/code/PDP/packages/backend/convex/betterAuth/userFunctions.ts
+
+- ⚠️ **Data Isolation: No organizationId filter found**
+  - **Problem:** Queries should be scoped by organizationId for multi-tenant isolation
+  - **Fix:** Add organizationId to query args and use in .withIndex()
+
+
+## Auto Quality Check - 2026-02-26 14:53:31
+### File: /Users/jkobrien/code/PDP/packages/backend/convex/models/adultPlayers.ts
+
+- ⚠️ **Performance: .filter() usage detected**
+  - **Problem:** Should use .withIndex() for better performance
+  - **Fix:** Replace `.query().filter()` with `.query().withIndex()`
+
+
+## Auto Quality Check - 2026-02-26 14:53:43
+### File: /Users/jkobrien/code/PDP/packages/backend/convex/models/adultPlayers.ts
+
+- ⚠️ **Performance: .filter() usage detected**
+  - **Problem:** Should use .withIndex() for better performance
+  - **Fix:** Replace `.query().filter()` with `.query().withIndex()`
+
+
+## Auto Quality Check - 2026-02-26 14:55:02
+### File: /Users/jkobrien/code/PDP/packages/backend/convex/models/userProfiles.ts
+
+- ⚠️ **Data Isolation: No organizationId filter found**
+  - **Problem:** Queries should be scoped by organizationId for multi-tenant isolation
+  - **Fix:** Add organizationId to query args and use in .withIndex()
+
+
+## Auto Quality Check - 2026-02-26 14:55:09
+### File: /Users/jkobrien/code/PDP/packages/backend/convex/models/userProfiles.ts
+
+- ⚠️ **Data Isolation: No organizationId filter found**
+  - **Problem:** Queries should be scoped by organizationId for multi-tenant isolation
+  - **Fix:** Add organizationId to query args and use in .withIndex()
+
+
+## Auto Quality Check - 2026-02-26 15:14:50
+### File: /Users/jkobrien/code/PDP/packages/backend/convex/models/adultPlayers.ts
+
+- ⚠️ **Performance: .filter() usage detected**
+  - **Problem:** Should use .withIndex() for better performance
+  - **Fix:** Replace `.query().filter()` with `.query().withIndex()`
+
+
+## Auto Quality Check - 2026-02-26 15:14:59
+### File: /Users/jkobrien/code/PDP/packages/backend/convex/models/adultPlayers.ts
+
+- ⚠️ **Performance: .filter() usage detected**
+  - **Problem:** Should use .withIndex() for better performance
+  - **Fix:** Replace `.query().filter()` with `.query().withIndex()`
+
+
+## Auto Quality Check - 2026-02-26 15:15:07
+### File: /Users/jkobrien/code/PDP/packages/backend/convex/models/userProfiles.ts
+
+- ⚠️ **Data Isolation: No organizationId filter found**
+  - **Problem:** Queries should be scoped by organizationId for multi-tenant isolation
+  - **Fix:** Add organizationId to query args and use in .withIndex()
+
+
+## Auto Quality Check - 2026-02-26 15:15:20
+### File: /Users/jkobrien/code/PDP/packages/backend/convex/models/adultPlayers.ts
+
+- ⚠️ **Performance: .filter() usage detected**
+  - **Problem:** Should use .withIndex() for better performance
+  - **Fix:** Replace `.query().filter()` with `.query().withIndex()`
+
+
+## Auto Quality Check - 2026-02-26 15:15:31
+### File: /Users/jkobrien/code/PDP/packages/backend/convex/models/adultPlayers.ts
+
+- ⚠️ **Performance: .filter() usage detected**
+  - **Problem:** Should use .withIndex() for better performance
+  - **Fix:** Replace `.query().filter()` with `.query().withIndex()`
+
+
+## Auto Quality Check - 2026-02-26 15:15:39
+### File: /Users/jkobrien/code/PDP/packages/backend/convex/models/adultPlayers.ts
+
+- ⚠️ **Performance: .filter() usage detected**
+  - **Problem:** Should use .withIndex() for better performance
+  - **Fix:** Replace `.query().filter()` with `.query().withIndex()`
+
+
+## Auto Quality Check - 2026-02-26 15:15:47
+### File: /Users/jkobrien/code/PDP/packages/backend/convex/models/adultPlayers.ts
+
+- ⚠️ **Performance: .filter() usage detected**
+  - **Problem:** Should use .withIndex() for better performance
+  - **Fix:** Replace `.query().filter()` with `.query().withIndex()`
+
+
+## Auto Quality Check - 2026-02-26 15:16:00
+### File: /Users/jkobrien/code/PDP/packages/backend/convex/models/adultPlayers.ts
+
+- ⚠️ **Performance: .filter() usage detected**
+  - **Problem:** Should use .withIndex() for better performance
+  - **Fix:** Replace `.query().filter()` with `.query().withIndex()`
+
+
+## Auto Quality Check - 2026-02-26 15:16:12
+### File: /Users/jkobrien/code/PDP/packages/backend/convex/models/adultPlayers.ts
+
+- ⚠️ **Performance: .filter() usage detected**
+  - **Problem:** Should use .withIndex() for better performance
+  - **Fix:** Replace `.query().filter()` with `.query().withIndex()`
+
+
+## Auto Quality Check - 2026-02-26 15:16:22
+### File: /Users/jkobrien/code/PDP/packages/backend/convex/models/adultPlayers.ts
+
+- ⚠️ **Performance: .filter() usage detected**
+  - **Problem:** Should use .withIndex() for better performance
+  - **Fix:** Replace `.query().filter()` with `.query().withIndex()`
+
+
+## Auto Quality Check - 2026-02-26 15:16:31
+### File: /Users/jkobrien/code/PDP/packages/backend/convex/models/adultPlayers.ts
+
+- ⚠️ **Performance: .filter() usage detected**
+  - **Problem:** Should use .withIndex() for better performance
+  - **Fix:** Replace `.query().filter()` with `.query().withIndex()`
+
+
+## Auto Quality Check - 2026-02-26 15:16:42
+### File: /Users/jkobrien/code/PDP/packages/backend/convex/models/adultPlayers.ts
+
+- ⚠️ **Performance: .filter() usage detected**
+  - **Problem:** Should use .withIndex() for better performance
+  - **Fix:** Replace `.query().filter()` with `.query().withIndex()`
+
+
+## Auto Quality Check - 2026-02-26 15:16:50
+### File: /Users/jkobrien/code/PDP/packages/backend/convex/models/adultPlayers.ts
+
+- ⚠️ **Performance: .filter() usage detected**
+  - **Problem:** Should use .withIndex() for better performance
+  - **Fix:** Replace `.query().filter()` with `.query().withIndex()`
+
+
+## Auto Quality Check - 2026-02-26 15:17:02
+### File: /Users/jkobrien/code/PDP/packages/backend/convex/models/adultPlayers.ts
+
+- ⚠️ **Performance: .filter() usage detected**
+  - **Problem:** Should use .withIndex() for better performance
+  - **Fix:** Replace `.query().filter()` with `.query().withIndex()`
+
+
+## Auto Quality Check - 2026-02-26 15:17:35
+### File: /Users/jkobrien/code/PDP/packages/backend/convex/models/adultPlayers.ts
+
+- ⚠️ **Performance: .filter() usage detected**
+  - **Problem:** Should use .withIndex() for better performance
+  - **Fix:** Replace `.query().filter()` with `.query().withIndex()`
+
+
+## Auto Quality Check - 2026-02-26 15:17:48
+### File: /Users/jkobrien/code/PDP/packages/backend/convex/models/adultPlayers.ts
+
+- ⚠️ **Performance: .filter() usage detected**
+  - **Problem:** Should use .withIndex() for better performance
+  - **Fix:** Replace `.query().filter()` with `.query().withIndex()`
+
+
+## Auto Quality Check - 2026-02-26 15:17:55
+### File: /Users/jkobrien/code/PDP/packages/backend/convex/models/adultPlayers.ts
+
+- ⚠️ **Performance: .filter() usage detected**
+  - **Problem:** Should use .withIndex() for better performance
+  - **Fix:** Replace `.query().filter()` with `.query().withIndex()`
+
+
+## Auto Quality Check - 2026-02-26 15:18:19
+### File: /Users/jkobrien/code/PDP/packages/backend/convex/models/userProfiles.ts
+
+- ⚠️ **Data Isolation: No organizationId filter found**
+  - **Problem:** Queries should be scoped by organizationId for multi-tenant isolation
+  - **Fix:** Add organizationId to query args and use in .withIndex()
+
+
+## Auto Quality Check - 2026-02-26 15:18:39
+### File: /Users/jkobrien/code/PDP/packages/backend/convex/models/playerGraduations.ts
+
+- ❌ **CRITICAL: Better Auth adapter violation**
+  - **Problem:** Direct DB access to auth tables
+  - **Fix:** Use `ctx.runQuery(components.betterAuth.adapter.findOne, {...})`
+
+
+## Auto Quality Check - 2026-02-26 15:18:39
+### File: /Users/jkobrien/code/PDP/packages/backend/convex/models/playerGraduations.ts
+
+- ⚠️ **Performance: .filter() usage detected**
+  - **Problem:** Should use .withIndex() for better performance
+  - **Fix:** Replace `.query().filter()` with `.query().withIndex()`
+
+
+## Auto Quality Check - 2026-02-26 15:18:47
+### File: /Users/jkobrien/code/PDP/packages/backend/convex/models/playerGraduations.ts
+
+- ❌ **CRITICAL: Better Auth adapter violation**
+  - **Problem:** Direct DB access to auth tables
+  - **Fix:** Use `ctx.runQuery(components.betterAuth.adapter.findOne, {...})`
+
+
+## Auto Quality Check - 2026-02-26 15:18:47
+### File: /Users/jkobrien/code/PDP/packages/backend/convex/models/playerGraduations.ts
+
+- ⚠️ **Performance: .filter() usage detected**
+  - **Problem:** Should use .withIndex() for better performance
+  - **Fix:** Replace `.query().filter()` with `.query().withIndex()`
+
+
+## Auto Quality Check - 2026-02-26 15:19:05
+### File: /Users/jkobrien/code/PDP/packages/backend/convex/models/playerGraduations.ts
+
+- ❌ **CRITICAL: Better Auth adapter violation**
+  - **Problem:** Direct DB access to auth tables
+  - **Fix:** Use `ctx.runQuery(components.betterAuth.adapter.findOne, {...})`
+
+
+## Auto Quality Check - 2026-02-26 15:19:05
+### File: /Users/jkobrien/code/PDP/packages/backend/convex/models/playerGraduations.ts
+
+- ⚠️ **Performance: .filter() usage detected**
+  - **Problem:** Should use .withIndex() for better performance
+  - **Fix:** Replace `.query().filter()` with `.query().withIndex()`
+
+
+## Auto Quality Check - 2026-02-26 15:22:30
+### File: /Users/jkobrien/code/PDP/packages/backend/convex/models/playerGraduations.ts
+
+- ❌ **CRITICAL: Better Auth adapter violation**
+  - **Problem:** Direct DB access to auth tables
+  - **Fix:** Use `ctx.runQuery(components.betterAuth.adapter.findOne, {...})`
+
+
+## Auto Quality Check - 2026-02-26 15:22:30
+### File: /Users/jkobrien/code/PDP/packages/backend/convex/models/playerGraduations.ts
+
+- ⚠️ **Performance: .filter() usage detected**
+  - **Problem:** Should use .withIndex() for better performance
+  - **Fix:** Replace `.query().filter()` with `.query().withIndex()`
+
+
+## Auto Quality Check - 2026-02-26 15:30:38
+### File: /Users/jkobrien/code/PDP/packages/backend/convex/models/playerIdentities.ts
+
+- ❌ **CRITICAL: Better Auth adapter violation**
+  - **Problem:** Direct DB access to auth tables
+  - **Fix:** Use `ctx.runQuery(components.betterAuth.adapter.findOne, {...})`
+
+
+## Auto Quality Check - 2026-02-26 15:30:38
+### File: /Users/jkobrien/code/PDP/packages/backend/convex/models/playerIdentities.ts
+
+- ⚠️ **Performance: .filter() usage detected**
+  - **Problem:** Should use .withIndex() for better performance
+  - **Fix:** Replace `.query().filter()` with `.query().withIndex()`
+
+
+## Auto Quality Check - 2026-02-26 15:30:38
+### File: /Users/jkobrien/code/PDP/packages/backend/convex/models/playerIdentities.ts
+
+- ❌ **CRITICAL: N+1 query pattern detected**
+  - **Problem:** `Promise.all(items.map(async => query))` makes N database calls
+  - **Fix:** Batch fetch all IDs first, create Map for O(1) lookup
+
+
+## Auto Quality Check - 2026-02-26 15:30:57
+### File: /Users/jkobrien/code/PDP/packages/backend/convex/models/playerIdentities.ts
+
+- ❌ **CRITICAL: Better Auth adapter violation**
+  - **Problem:** Direct DB access to auth tables
+  - **Fix:** Use `ctx.runQuery(components.betterAuth.adapter.findOne, {...})`
+
+
+## Auto Quality Check - 2026-02-26 15:30:57
+### File: /Users/jkobrien/code/PDP/packages/backend/convex/models/playerIdentities.ts
+
+- ⚠️ **Performance: .filter() usage detected**
+  - **Problem:** Should use .withIndex() for better performance
+  - **Fix:** Replace `.query().filter()` with `.query().withIndex()`
+
+
+## Auto Quality Check - 2026-02-26 15:30:57
+### File: /Users/jkobrien/code/PDP/packages/backend/convex/models/playerIdentities.ts
+
+- ❌ **CRITICAL: N+1 query pattern detected**
+  - **Problem:** `Promise.all(items.map(async => query))` makes N database calls
+  - **Fix:** Batch fetch all IDs first, create Map for O(1) lookup
+
+
+## Auto Quality Check - 2026-02-26 15:31:06
+### File: /Users/jkobrien/code/PDP/packages/backend/convex/models/playerIdentities.ts
+
+- ❌ **CRITICAL: Better Auth adapter violation**
+  - **Problem:** Direct DB access to auth tables
+  - **Fix:** Use `ctx.runQuery(components.betterAuth.adapter.findOne, {...})`
+
+
+## Auto Quality Check - 2026-02-26 15:31:06
+### File: /Users/jkobrien/code/PDP/packages/backend/convex/models/playerIdentities.ts
+
+- ⚠️ **Performance: .filter() usage detected**
+  - **Problem:** Should use .withIndex() for better performance
+  - **Fix:** Replace `.query().filter()` with `.query().withIndex()`
+
+
+## Auto Quality Check - 2026-02-26 15:31:06
+### File: /Users/jkobrien/code/PDP/packages/backend/convex/models/playerIdentities.ts
+
+- ❌ **CRITICAL: N+1 query pattern detected**
+  - **Problem:** `Promise.all(items.map(async => query))` makes N database calls
+  - **Fix:** Batch fetch all IDs first, create Map for O(1) lookup
+
+
+## Auto Quality Check - 2026-02-26 15:37:38
+### File: /Users/jkobrien/code/PDP/packages/backend/convex/models/sportPassports.ts
+
+- ❌ **CRITICAL: Better Auth adapter violation**
+  - **Problem:** Direct DB access to auth tables
+  - **Fix:** Use `ctx.runQuery(components.betterAuth.adapter.findOne, {...})`
+
+
+## Auto Quality Check - 2026-02-26 15:37:38
+### File: /Users/jkobrien/code/PDP/packages/backend/convex/models/sportPassports.ts
+
+- ⚠️ **Performance: .filter() usage detected**
+  - **Problem:** Should use .withIndex() for better performance
+  - **Fix:** Replace `.query().filter()` with `.query().withIndex()`
+
+
+## Auto Quality Check - 2026-02-26 15:37:48
+### File: /Users/jkobrien/code/PDP/packages/backend/convex/models/sportPassports.ts
+
+- ❌ **CRITICAL: Better Auth adapter violation**
+  - **Problem:** Direct DB access to auth tables
+  - **Fix:** Use `ctx.runQuery(components.betterAuth.adapter.findOne, {...})`
+
+
+## Auto Quality Check - 2026-02-26 15:37:48
+### File: /Users/jkobrien/code/PDP/packages/backend/convex/models/sportPassports.ts
+
+- ⚠️ **Performance: .filter() usage detected**
+  - **Problem:** Should use .withIndex() for better performance
+  - **Fix:** Replace `.query().filter()` with `.query().withIndex()`
+
+
+## Auto Quality Check - 2026-02-26 15:38:01
+### File: /Users/jkobrien/code/PDP/packages/backend/convex/models/sportPassports.ts
+
+- ❌ **CRITICAL: Better Auth adapter violation**
+  - **Problem:** Direct DB access to auth tables
+  - **Fix:** Use `ctx.runQuery(components.betterAuth.adapter.findOne, {...})`
+
+
+## Auto Quality Check - 2026-02-26 15:38:01
+### File: /Users/jkobrien/code/PDP/packages/backend/convex/models/sportPassports.ts
+
+- ⚠️ **Performance: .filter() usage detected**
+  - **Problem:** Should use .withIndex() for better performance
+  - **Fix:** Replace `.query().filter()` with `.query().withIndex()`
+
+
+## Auto Quality Check - 2026-02-26 15:38:08
+### File: /Users/jkobrien/code/PDP/packages/backend/convex/models/sportPassports.ts
+
+- ❌ **CRITICAL: Better Auth adapter violation**
+  - **Problem:** Direct DB access to auth tables
+  - **Fix:** Use `ctx.runQuery(components.betterAuth.adapter.findOne, {...})`
+
+
+## Auto Quality Check - 2026-02-26 15:38:08
+### File: /Users/jkobrien/code/PDP/packages/backend/convex/models/sportPassports.ts
+
+- ⚠️ **Performance: .filter() usage detected**
+  - **Problem:** Should use .withIndex() for better performance
+  - **Fix:** Replace `.query().filter()` with `.query().withIndex()`
+
+
+## Auto Quality Check - 2026-02-26 16:14:45
+### File: /Users/jkobrien/code/PDP/packages/backend/convex/models/passportGoals.ts
+
+- ⚠️ **Performance: .filter() usage detected**
+  - **Problem:** Should use .withIndex() for better performance
+  - **Fix:** Replace `.query().filter()` with `.query().withIndex()`
+
+
+## Auto Quality Check - 2026-02-26 16:27:24
+### File: /Users/jkobrien/code/PDP/packages/backend/convex/models/playerIdentities.ts
+
+- ❌ **CRITICAL: Better Auth adapter violation**
+  - **Problem:** Direct DB access to auth tables
+  - **Fix:** Use `ctx.runQuery(components.betterAuth.adapter.findOne, {...})`
+
+
+## Auto Quality Check - 2026-02-26 16:27:24
+### File: /Users/jkobrien/code/PDP/packages/backend/convex/models/playerIdentities.ts
+
+- ⚠️ **Performance: .filter() usage detected**
+  - **Problem:** Should use .withIndex() for better performance
+  - **Fix:** Replace `.query().filter()` with `.query().withIndex()`
+
+
+## Auto Quality Check - 2026-02-26 16:27:24
+### File: /Users/jkobrien/code/PDP/packages/backend/convex/models/playerIdentities.ts
+
+- ❌ **CRITICAL: N+1 query pattern detected**
+  - **Problem:** `Promise.all(items.map(async => query))` makes N database calls
+  - **Fix:** Batch fetch all IDs first, create Map for O(1) lookup
+
+
+## Auto Quality Check - 2026-02-26 16:39:55
+### File: /Users/jkobrien/code/PDP/packages/backend/convex/models/playerGraduations.ts
+
+- ❌ **CRITICAL: Better Auth adapter violation**
+  - **Problem:** Direct DB access to auth tables
+  - **Fix:** Use `ctx.runQuery(components.betterAuth.adapter.findOne, {...})`
+
+
+## Auto Quality Check - 2026-02-26 16:39:55
+### File: /Users/jkobrien/code/PDP/packages/backend/convex/models/playerGraduations.ts
+
+- ⚠️ **Performance: .filter() usage detected**
+  - **Problem:** Should use .withIndex() for better performance
+  - **Fix:** Replace `.query().filter()` with `.query().withIndex()`
+
+
+## Auto Quality Check - 2026-02-26 16:40:22
 ### File: /Users/jkobrien/code/PDP/packages/backend/convex/jobs/graduations.ts
 
 - ⚠️ **Performance: .filter() usage detected**
@@ -3278,31 +13018,343 @@ packages/backend/convex/actions/aiMapping.ts:        "ANTHROPIC_API_KEY not conf
   - **Fix:** Replace `.query().filter()` with `.query().withIndex()`
 
 
-## Auto Quality Check - 2026-02-24 15:46:52
-### File: /Users/jkobrien/code/PDP/packages/backend/convex/models/playerIdentities.ts
+## Auto Quality Check - 2026-02-26 16:40:55
+### File: /Users/jkobrien/code/PDP/packages/backend/convex/models/playerGraduations.ts
 
 - ❌ **CRITICAL: Better Auth adapter violation**
   - **Problem:** Direct DB access to auth tables
   - **Fix:** Use `ctx.runQuery(components.betterAuth.adapter.findOne, {...})`
 
 
-## Auto Quality Check - 2026-02-24 15:46:52
-### File: /Users/jkobrien/code/PDP/packages/backend/convex/models/playerIdentities.ts
+## Auto Quality Check - 2026-02-26 16:40:55
+### File: /Users/jkobrien/code/PDP/packages/backend/convex/models/playerGraduations.ts
 
 - ⚠️ **Performance: .filter() usage detected**
   - **Problem:** Should use .withIndex() for better performance
   - **Fix:** Replace `.query().filter()` with `.query().withIndex()`
 
 
-## Auto Quality Check - 2026-02-24 15:46:52
-### File: /Users/jkobrien/code/PDP/packages/backend/convex/models/playerIdentities.ts
+## Auto Quality Check - 2026-02-26 16:41:08
+### File: /Users/jkobrien/code/PDP/packages/backend/convex/jobs/graduations.ts
+
+- ⚠️ **Performance: .filter() usage detected**
+  - **Problem:** Should use .withIndex() for better performance
+  - **Fix:** Replace `.query().filter()` with `.query().withIndex()`
+
+
+## Auto Quality Check - 2026-02-26 17:02:02
+### File: /Users/jkobrien/code/PDP/packages/backend/convex/models/playerGraduations.ts
+
+- ❌ **CRITICAL: Better Auth adapter violation**
+  - **Problem:** Direct DB access to auth tables
+  - **Fix:** Use `ctx.runQuery(components.betterAuth.adapter.findOne, {...})`
+
+
+## Auto Quality Check - 2026-02-26 17:02:02
+### File: /Users/jkobrien/code/PDP/packages/backend/convex/models/playerGraduations.ts
+
+- ⚠️ **Performance: .filter() usage detected**
+  - **Problem:** Should use .withIndex() for better performance
+  - **Fix:** Replace `.query().filter()` with `.query().withIndex()`
+
+
+## Auto Quality Check - 2026-02-26 17:02:19
+### File: /Users/jkobrien/code/PDP/packages/backend/convex/models/playerGraduations.ts
+
+- ❌ **CRITICAL: Better Auth adapter violation**
+  - **Problem:** Direct DB access to auth tables
+  - **Fix:** Use `ctx.runQuery(components.betterAuth.adapter.findOne, {...})`
+
+
+## Auto Quality Check - 2026-02-26 17:02:19
+### File: /Users/jkobrien/code/PDP/packages/backend/convex/models/playerGraduations.ts
+
+- ⚠️ **Performance: .filter() usage detected**
+  - **Problem:** Should use .withIndex() for better performance
+  - **Fix:** Replace `.query().filter()` with `.query().withIndex()`
+
+
+## Auto Quality Check - 2026-02-26 17:34:26
+### File: /Users/jkobrien/code/PDP/packages/backend/convex/models/playerGraduations.ts
+
+- ❌ **CRITICAL: Better Auth adapter violation**
+  - **Problem:** Direct DB access to auth tables
+  - **Fix:** Use `ctx.runQuery(components.betterAuth.adapter.findOne, {...})`
+
+
+## Auto Quality Check - 2026-02-26 17:34:26
+### File: /Users/jkobrien/code/PDP/packages/backend/convex/models/playerGraduations.ts
+
+- ⚠️ **Performance: .filter() usage detected**
+  - **Problem:** Should use .withIndex() for better performance
+  - **Fix:** Replace `.query().filter()` with `.query().withIndex()`
+
+
+## Auto Quality Check - 2026-02-26 17:35:00
+### File: /Users/jkobrien/code/PDP/packages/backend/convex/models/onboarding.ts
+
+- ❌ **CRITICAL: Better Auth adapter violation**
+  - **Problem:** Direct DB access to auth tables
+  - **Fix:** Use `ctx.runQuery(components.betterAuth.adapter.findOne, {...})`
+
+
+## Auto Quality Check - 2026-02-26 17:35:00
+### File: /Users/jkobrien/code/PDP/packages/backend/convex/models/onboarding.ts
+
+- ⚠️ **Performance: .filter() usage detected**
+  - **Problem:** Should use .withIndex() for better performance
+  - **Fix:** Replace `.query().filter()` with `.query().withIndex()`
+
+
+## Auto Quality Check - 2026-02-26 17:35:00
+### File: /Users/jkobrien/code/PDP/packages/backend/convex/models/onboarding.ts
 
 - ❌ **CRITICAL: N+1 query pattern detected**
   - **Problem:** `Promise.all(items.map(async => query))` makes N database calls
   - **Fix:** Batch fetch all IDs first, create Map for O(1) lookup
 
 
-## Auto Quality Check - 2026-02-24 15:47:17
+## Auto Quality Check - 2026-02-26 17:38:17
+### File: /Users/jkobrien/code/PDP/packages/backend/convex/models/onboarding.ts
+
+- ❌ **CRITICAL: Better Auth adapter violation**
+  - **Problem:** Direct DB access to auth tables
+  - **Fix:** Use `ctx.runQuery(components.betterAuth.adapter.findOne, {...})`
+
+
+## Auto Quality Check - 2026-02-26 17:38:17
+### File: /Users/jkobrien/code/PDP/packages/backend/convex/models/onboarding.ts
+
+- ⚠️ **Performance: .filter() usage detected**
+  - **Problem:** Should use .withIndex() for better performance
+  - **Fix:** Replace `.query().filter()` with `.query().withIndex()`
+
+
+## Auto Quality Check - 2026-02-26 17:38:17
+### File: /Users/jkobrien/code/PDP/packages/backend/convex/models/onboarding.ts
+
+- ❌ **CRITICAL: N+1 query pattern detected**
+  - **Problem:** `Promise.all(items.map(async => query))` makes N database calls
+  - **Fix:** Batch fetch all IDs first, create Map for O(1) lookup
+
+
+## Auto Quality Check - 2026-02-26 17:39:17
+### File: /Users/jkobrien/code/PDP/packages/backend/convex/models/playerGraduations.ts
+
+- ❌ **CRITICAL: Better Auth adapter violation**
+  - **Problem:** Direct DB access to auth tables
+  - **Fix:** Use `ctx.runQuery(components.betterAuth.adapter.findOne, {...})`
+
+
+## Auto Quality Check - 2026-02-26 17:39:17
+### File: /Users/jkobrien/code/PDP/packages/backend/convex/models/playerGraduations.ts
+
+- ⚠️ **Performance: .filter() usage detected**
+  - **Problem:** Should use .withIndex() for better performance
+  - **Fix:** Replace `.query().filter()` with `.query().withIndex()`
+
+
+## Auto Quality Check - 2026-02-26 17:39:27
+### File: /Users/jkobrien/code/PDP/packages/backend/convex/models/onboarding.ts
+
+- ❌ **CRITICAL: Better Auth adapter violation**
+  - **Problem:** Direct DB access to auth tables
+  - **Fix:** Use `ctx.runQuery(components.betterAuth.adapter.findOne, {...})`
+
+
+## Auto Quality Check - 2026-02-26 17:39:27
+### File: /Users/jkobrien/code/PDP/packages/backend/convex/models/onboarding.ts
+
+- ⚠️ **Performance: .filter() usage detected**
+  - **Problem:** Should use .withIndex() for better performance
+  - **Fix:** Replace `.query().filter()` with `.query().withIndex()`
+
+
+## Auto Quality Check - 2026-02-26 17:39:28
+### File: /Users/jkobrien/code/PDP/packages/backend/convex/models/onboarding.ts
+
+- ❌ **CRITICAL: N+1 query pattern detected**
+  - **Problem:** `Promise.all(items.map(async => query))` makes N database calls
+  - **Fix:** Batch fetch all IDs first, create Map for O(1) lookup
+
+
+## Auto Quality Check - 2026-02-26 17:40:38
+### File: /Users/jkobrien/code/PDP/packages/backend/convex/models/playerGraduations.ts
+
+- ❌ **CRITICAL: Better Auth adapter violation**
+  - **Problem:** Direct DB access to auth tables
+  - **Fix:** Use `ctx.runQuery(components.betterAuth.adapter.findOne, {...})`
+
+
+## Auto Quality Check - 2026-02-26 17:40:38
+### File: /Users/jkobrien/code/PDP/packages/backend/convex/models/playerGraduations.ts
+
+- ⚠️ **Performance: .filter() usage detected**
+  - **Problem:** Should use .withIndex() for better performance
+  - **Fix:** Replace `.query().filter()` with `.query().withIndex()`
+
+
+## Auto Quality Check - 2026-02-26 17:41:00
+### File: /Users/jkobrien/code/PDP/packages/backend/convex/models/playerGraduations.ts
+
+- ❌ **CRITICAL: Better Auth adapter violation**
+  - **Problem:** Direct DB access to auth tables
+  - **Fix:** Use `ctx.runQuery(components.betterAuth.adapter.findOne, {...})`
+
+
+## Auto Quality Check - 2026-02-26 17:41:00
+### File: /Users/jkobrien/code/PDP/packages/backend/convex/models/playerGraduations.ts
+
+- ⚠️ **Performance: .filter() usage detected**
+  - **Problem:** Should use .withIndex() for better performance
+  - **Fix:** Replace `.query().filter()` with `.query().withIndex()`
+
+
+## Auto Quality Check - 2026-02-26 17:41:13
+### File: /Users/jkobrien/code/PDP/packages/backend/convex/models/onboarding.ts
+
+- ❌ **CRITICAL: Better Auth adapter violation**
+  - **Problem:** Direct DB access to auth tables
+  - **Fix:** Use `ctx.runQuery(components.betterAuth.adapter.findOne, {...})`
+
+
+## Auto Quality Check - 2026-02-26 17:41:13
+### File: /Users/jkobrien/code/PDP/packages/backend/convex/models/onboarding.ts
+
+- ⚠️ **Performance: .filter() usage detected**
+  - **Problem:** Should use .withIndex() for better performance
+  - **Fix:** Replace `.query().filter()` with `.query().withIndex()`
+
+
+## Auto Quality Check - 2026-02-26 17:41:13
+### File: /Users/jkobrien/code/PDP/packages/backend/convex/models/onboarding.ts
+
+- ❌ **CRITICAL: N+1 query pattern detected**
+  - **Problem:** `Promise.all(items.map(async => query))` makes N database calls
+  - **Fix:** Batch fetch all IDs first, create Map for O(1) lookup
+
+
+## Auto Quality Check - 2026-02-26 17:41:22
+### File: /Users/jkobrien/code/PDP/packages/backend/convex/models/onboarding.ts
+
+- ❌ **CRITICAL: Better Auth adapter violation**
+  - **Problem:** Direct DB access to auth tables
+  - **Fix:** Use `ctx.runQuery(components.betterAuth.adapter.findOne, {...})`
+
+
+## Auto Quality Check - 2026-02-26 17:41:22
+### File: /Users/jkobrien/code/PDP/packages/backend/convex/models/onboarding.ts
+
+- ⚠️ **Performance: .filter() usage detected**
+  - **Problem:** Should use .withIndex() for better performance
+  - **Fix:** Replace `.query().filter()` with `.query().withIndex()`
+
+
+## Auto Quality Check - 2026-02-26 17:41:22
+### File: /Users/jkobrien/code/PDP/packages/backend/convex/models/onboarding.ts
+
+- ❌ **CRITICAL: N+1 query pattern detected**
+  - **Problem:** `Promise.all(items.map(async => query))` makes N database calls
+  - **Fix:** Batch fetch all IDs first, create Map for O(1) lookup
+
+
+## Auto Quality Check - 2026-02-26 17:41:37
+### File: /Users/jkobrien/code/PDP/packages/backend/convex/models/onboarding.ts
+
+- ❌ **CRITICAL: Better Auth adapter violation**
+  - **Problem:** Direct DB access to auth tables
+  - **Fix:** Use `ctx.runQuery(components.betterAuth.adapter.findOne, {...})`
+
+
+## Auto Quality Check - 2026-02-26 17:41:37
+### File: /Users/jkobrien/code/PDP/packages/backend/convex/models/onboarding.ts
+
+- ⚠️ **Performance: .filter() usage detected**
+  - **Problem:** Should use .withIndex() for better performance
+  - **Fix:** Replace `.query().filter()` with `.query().withIndex()`
+
+
+## Auto Quality Check - 2026-02-26 17:41:37
+### File: /Users/jkobrien/code/PDP/packages/backend/convex/models/onboarding.ts
+
+- ❌ **CRITICAL: N+1 query pattern detected**
+  - **Problem:** `Promise.all(items.map(async => query))` makes N database calls
+  - **Fix:** Batch fetch all IDs first, create Map for O(1) lookup
+
+
+## Auto Quality Check - 2026-02-26 17:46:35
+### File: /Users/jkobrien/code/PDP/packages/backend/convex/models/playerGraduations.ts
+
+- ❌ **CRITICAL: Better Auth adapter violation**
+  - **Problem:** Direct DB access to auth tables
+  - **Fix:** Use `ctx.runQuery(components.betterAuth.adapter.findOne, {...})`
+
+
+## Auto Quality Check - 2026-02-26 17:46:35
+### File: /Users/jkobrien/code/PDP/packages/backend/convex/models/playerGraduations.ts
+
+- ⚠️ **Performance: .filter() usage detected**
+  - **Problem:** Should use .withIndex() for better performance
+  - **Fix:** Replace `.query().filter()` with `.query().withIndex()`
+
+
+## Auto Quality Check - 2026-02-26 17:48:12
+### File: /Users/jkobrien/code/PDP/packages/backend/convex/models/playerGraduations.ts
+
+- ❌ **CRITICAL: Better Auth adapter violation**
+  - **Problem:** Direct DB access to auth tables
+  - **Fix:** Use `ctx.runQuery(components.betterAuth.adapter.findOne, {...})`
+
+
+## Auto Quality Check - 2026-02-26 17:48:12
+### File: /Users/jkobrien/code/PDP/packages/backend/convex/models/playerGraduations.ts
+
+- ⚠️ **Performance: .filter() usage detected**
+  - **Problem:** Should use .withIndex() for better performance
+  - **Fix:** Replace `.query().filter()` with `.query().withIndex()`
+
+
+## Auto Quality Check - 2026-02-26 17:48:26
+### File: /Users/jkobrien/code/PDP/packages/backend/convex/models/playerGraduations.ts
+
+- ❌ **CRITICAL: Better Auth adapter violation**
+  - **Problem:** Direct DB access to auth tables
+  - **Fix:** Use `ctx.runQuery(components.betterAuth.adapter.findOne, {...})`
+
+
+## Auto Quality Check - 2026-02-26 17:48:26
+### File: /Users/jkobrien/code/PDP/packages/backend/convex/models/playerGraduations.ts
+
+- ⚠️ **Performance: .filter() usage detected**
+  - **Problem:** Should use .withIndex() for better performance
+  - **Fix:** Replace `.query().filter()` with `.query().withIndex()`
+
+
+## Auto Quality Check - 2026-02-26 17:51:10
+### File: /Users/jkobrien/code/PDP/packages/backend/convex/models/playerGraduations.ts
+
+- ❌ **CRITICAL: Better Auth adapter violation**
+  - **Problem:** Direct DB access to auth tables
+  - **Fix:** Use `ctx.runQuery(components.betterAuth.adapter.findOne, {...})`
+
+
+## Auto Quality Check - 2026-02-26 17:51:10
+### File: /Users/jkobrien/code/PDP/packages/backend/convex/models/playerGraduations.ts
+
+- ⚠️ **Performance: .filter() usage detected**
+  - **Problem:** Should use .withIndex() for better performance
+  - **Fix:** Replace `.query().filter()` with `.query().withIndex()`
+
+
+## Auto Quality Check - 2026-02-26 17:58:19
+### File: /Users/jkobrien/code/PDP/packages/backend/convex/models/coachParentSummaries.ts
+
+- ❌ **CRITICAL: Better Auth adapter violation**
+  - **Problem:** Direct DB access to auth tables
+  - **Fix:** Use `ctx.runQuery(components.betterAuth.adapter.findOne, {...})`
+
+
+## Auto Quality Check - 2026-02-26 17:58:19
 ### File: /Users/jkobrien/code/PDP/packages/backend/convex/models/coachParentSummaries.ts
 
 - ⚠️ **Performance: .filter() usage detected**
@@ -3310,7 +13362,7 @@ packages/backend/convex/actions/aiMapping.ts:        "ANTHROPIC_API_KEY not conf
   - **Fix:** Replace `.query().filter()` with `.query().withIndex()`
 
 
-## Auto Quality Check - 2026-02-24 15:47:17
+## Auto Quality Check - 2026-02-26 17:58:19
 ### File: /Users/jkobrien/code/PDP/packages/backend/convex/models/coachParentSummaries.ts
 
 - ❌ **CRITICAL: N+1 query pattern detected**
@@ -3318,39 +13370,1831 @@ packages/backend/convex/actions/aiMapping.ts:        "ANTHROPIC_API_KEY not conf
   - **Fix:** Batch fetch all IDs first, create Map for O(1) lookup
 
 
-## Auto Quality Check - 2026-02-24 15:47:34
-### File: /Users/jkobrien/code/PDP/packages/backend/convex/models/passportComparison.ts
+## Auto Quality Check - 2026-02-26 17:58:20
+### File: /Users/jkobrien/code/PDP/packages/backend/convex/models/playerGraduations.ts
 
 - ❌ **CRITICAL: Better Auth adapter violation**
   - **Problem:** Direct DB access to auth tables
   - **Fix:** Use `ctx.runQuery(components.betterAuth.adapter.findOne, {...})`
 
 
-## Auto Quality Check - 2026-02-24 15:47:34
-### File: /Users/jkobrien/code/PDP/packages/backend/convex/models/passportComparison.ts
+## Auto Quality Check - 2026-02-26 17:58:20
+### File: /Users/jkobrien/code/PDP/packages/backend/convex/models/playerGraduations.ts
 
 - ⚠️ **Performance: .filter() usage detected**
   - **Problem:** Should use .withIndex() for better performance
   - **Fix:** Replace `.query().filter()` with `.query().withIndex()`
 
 
-## Auto Quality Check - 2026-02-24 15:47:34
-### File: /Users/jkobrien/code/PDP/packages/backend/convex/models/passportComparison.ts
+## Auto Quality Check - 2026-02-26 17:58:33
+### File: /Users/jkobrien/code/PDP/packages/backend/convex/models/coachParentSummaries.ts
+
+- ❌ **CRITICAL: Better Auth adapter violation**
+  - **Problem:** Direct DB access to auth tables
+  - **Fix:** Use `ctx.runQuery(components.betterAuth.adapter.findOne, {...})`
+
+
+## Auto Quality Check - 2026-02-26 17:58:33
+### File: /Users/jkobrien/code/PDP/packages/backend/convex/models/coachParentSummaries.ts
+
+- ⚠️ **Performance: .filter() usage detected**
+  - **Problem:** Should use .withIndex() for better performance
+  - **Fix:** Replace `.query().filter()` with `.query().withIndex()`
+
+
+## Auto Quality Check - 2026-02-26 17:58:33
+### File: /Users/jkobrien/code/PDP/packages/backend/convex/models/coachParentSummaries.ts
 
 - ❌ **CRITICAL: N+1 query pattern detected**
   - **Problem:** `Promise.all(items.map(async => query))` makes N database calls
   - **Fix:** Batch fetch all IDs first, create Map for O(1) lookup
 
 
-## Auto Quality Check - 2026-02-24 16:08:53
+## Auto Quality Check - 2026-02-26 17:58:57
+### File: /Users/jkobrien/code/PDP/packages/backend/convex/models/members.ts
+
+- ❌ **CRITICAL: Better Auth adapter violation**
+  - **Problem:** Direct DB access to auth tables
+  - **Fix:** Use `ctx.runQuery(components.betterAuth.adapter.findOne, {...})`
+
+
+## Auto Quality Check - 2026-02-26 17:58:57
+### File: /Users/jkobrien/code/PDP/packages/backend/convex/models/members.ts
+
+- ⚠️ **Performance: .filter() usage detected**
+  - **Problem:** Should use .withIndex() for better performance
+  - **Fix:** Replace `.query().filter()` with `.query().withIndex()`
+
+
+## Auto Quality Check - 2026-02-26 17:58:57
+### File: /Users/jkobrien/code/PDP/packages/backend/convex/models/members.ts
+
+- ❌ **CRITICAL: N+1 query pattern detected**
+  - **Problem:** `Promise.all(items.map(async => query))` makes N database calls
+  - **Fix:** Batch fetch all IDs first, create Map for O(1) lookup
+
+
+## Auto Quality Check - 2026-02-26 18:00:27
+### File: /Users/jkobrien/code/PDP/packages/backend/convex/models/coachParentSummaries.ts
+
+- ❌ **CRITICAL: Better Auth adapter violation**
+  - **Problem:** Direct DB access to auth tables
+  - **Fix:** Use `ctx.runQuery(components.betterAuth.adapter.findOne, {...})`
+
+
+## Auto Quality Check - 2026-02-26 18:00:27
+### File: /Users/jkobrien/code/PDP/packages/backend/convex/models/coachParentSummaries.ts
+
+- ⚠️ **Performance: .filter() usage detected**
+  - **Problem:** Should use .withIndex() for better performance
+  - **Fix:** Replace `.query().filter()` with `.query().withIndex()`
+
+
+## Auto Quality Check - 2026-02-26 18:00:27
+### File: /Users/jkobrien/code/PDP/packages/backend/convex/models/coachParentSummaries.ts
+
+- ❌ **CRITICAL: N+1 query pattern detected**
+  - **Problem:** `Promise.all(items.map(async => query))` makes N database calls
+  - **Fix:** Batch fetch all IDs first, create Map for O(1) lookup
+
+
+## Auto Quality Check - 2026-02-26 18:00:46
+### File: /Users/jkobrien/code/PDP/packages/backend/convex/models/playerGraduations.ts
+
+- ❌ **CRITICAL: Better Auth adapter violation**
+  - **Problem:** Direct DB access to auth tables
+  - **Fix:** Use `ctx.runQuery(components.betterAuth.adapter.findOne, {...})`
+
+
+## Auto Quality Check - 2026-02-26 18:00:46
+### File: /Users/jkobrien/code/PDP/packages/backend/convex/models/playerGraduations.ts
+
+- ⚠️ **Performance: .filter() usage detected**
+  - **Problem:** Should use .withIndex() for better performance
+  - **Fix:** Replace `.query().filter()` with `.query().withIndex()`
+
+
+## Auto Quality Check - 2026-02-26 18:01:01
+### File: /Users/jkobrien/code/PDP/packages/backend/convex/models/playerGraduations.ts
+
+- ❌ **CRITICAL: Better Auth adapter violation**
+  - **Problem:** Direct DB access to auth tables
+  - **Fix:** Use `ctx.runQuery(components.betterAuth.adapter.findOne, {...})`
+
+
+## Auto Quality Check - 2026-02-26 18:01:01
+### File: /Users/jkobrien/code/PDP/packages/backend/convex/models/playerGraduations.ts
+
+- ⚠️ **Performance: .filter() usage detected**
+  - **Problem:** Should use .withIndex() for better performance
+  - **Fix:** Replace `.query().filter()` with `.query().withIndex()`
+
+
+## Auto Quality Check - 2026-02-26 18:01:13
+### File: /Users/jkobrien/code/PDP/packages/backend/convex/models/playerGraduations.ts
+
+- ❌ **CRITICAL: Better Auth adapter violation**
+  - **Problem:** Direct DB access to auth tables
+  - **Fix:** Use `ctx.runQuery(components.betterAuth.adapter.findOne, {...})`
+
+
+## Auto Quality Check - 2026-02-26 18:01:13
+### File: /Users/jkobrien/code/PDP/packages/backend/convex/models/playerGraduations.ts
+
+- ⚠️ **Performance: .filter() usage detected**
+  - **Problem:** Should use .withIndex() for better performance
+  - **Fix:** Replace `.query().filter()` with `.query().withIndex()`
+
+
+## Auto Quality Check - 2026-02-26 18:02:19
+### File: /Users/jkobrien/code/PDP/packages/backend/convex/models/playerGraduations.ts
+
+- ❌ **CRITICAL: Better Auth adapter violation**
+  - **Problem:** Direct DB access to auth tables
+  - **Fix:** Use `ctx.runQuery(components.betterAuth.adapter.findOne, {...})`
+
+
+## Auto Quality Check - 2026-02-26 18:02:19
+### File: /Users/jkobrien/code/PDP/packages/backend/convex/models/playerGraduations.ts
+
+- ⚠️ **Performance: .filter() usage detected**
+  - **Problem:** Should use .withIndex() for better performance
+  - **Fix:** Replace `.query().filter()` with `.query().withIndex()`
+
+
+## Auto Quality Check - 2026-02-26 18:02:36
+### File: /Users/jkobrien/code/PDP/packages/backend/convex/models/playerGraduations.ts
+
+- ❌ **CRITICAL: Better Auth adapter violation**
+  - **Problem:** Direct DB access to auth tables
+  - **Fix:** Use `ctx.runQuery(components.betterAuth.adapter.findOne, {...})`
+
+
+## Auto Quality Check - 2026-02-26 18:02:36
+### File: /Users/jkobrien/code/PDP/packages/backend/convex/models/playerGraduations.ts
+
+- ⚠️ **Performance: .filter() usage detected**
+  - **Problem:** Should use .withIndex() for better performance
+  - **Fix:** Replace `.query().filter()` with `.query().withIndex()`
+
+
+## Auto Quality Check - 2026-02-26 18:02:48
+### File: /Users/jkobrien/code/PDP/packages/backend/convex/models/playerGraduations.ts
+
+- ❌ **CRITICAL: Better Auth adapter violation**
+  - **Problem:** Direct DB access to auth tables
+  - **Fix:** Use `ctx.runQuery(components.betterAuth.adapter.findOne, {...})`
+
+
+## Auto Quality Check - 2026-02-26 18:02:48
+### File: /Users/jkobrien/code/PDP/packages/backend/convex/models/playerGraduations.ts
+
+- ⚠️ **Performance: .filter() usage detected**
+  - **Problem:** Should use .withIndex() for better performance
+  - **Fix:** Replace `.query().filter()` with `.query().withIndex()`
+
+
+## Auto Quality Check - 2026-02-26 18:08:33
+### File: /Users/jkobrien/code/PDP/packages/backend/convex/models/playerGraduations.ts
+
+- ❌ **CRITICAL: Better Auth adapter violation**
+  - **Problem:** Direct DB access to auth tables
+  - **Fix:** Use `ctx.runQuery(components.betterAuth.adapter.findOne, {...})`
+
+
+## Auto Quality Check - 2026-02-26 18:08:33
+### File: /Users/jkobrien/code/PDP/packages/backend/convex/models/playerGraduations.ts
+
+- ⚠️ **Performance: .filter() usage detected**
+  - **Problem:** Should use .withIndex() for better performance
+  - **Fix:** Replace `.query().filter()` with `.query().withIndex()`
+
+
+## Auto Quality Check - 2026-02-26 18:09:32
+### File: /Users/jkobrien/code/PDP/packages/backend/convex/scripts/seedDemoClub.ts
+
+- ⚠️ **Performance: .filter() usage detected**
+  - **Problem:** Should use .withIndex() for better performance
+  - **Fix:** Replace `.query().filter()` with `.query().withIndex()`
+
+
+## Auto Quality Check - 2026-02-26 18:09:54
+### File: /Users/jkobrien/code/PDP/packages/backend/convex/models/playerGraduations.ts
+
+- ❌ **CRITICAL: Better Auth adapter violation**
+  - **Problem:** Direct DB access to auth tables
+  - **Fix:** Use `ctx.runQuery(components.betterAuth.adapter.findOne, {...})`
+
+
+## Auto Quality Check - 2026-02-26 18:09:54
+### File: /Users/jkobrien/code/PDP/packages/backend/convex/models/playerGraduations.ts
+
+- ⚠️ **Performance: .filter() usage detected**
+  - **Problem:** Should use .withIndex() for better performance
+  - **Fix:** Replace `.query().filter()` with `.query().withIndex()`
+
+
+## Auto Quality Check - 2026-02-26 18:10:11
+### File: /Users/jkobrien/code/PDP/packages/backend/convex/models/playerGraduations.ts
+
+- ❌ **CRITICAL: Better Auth adapter violation**
+  - **Problem:** Direct DB access to auth tables
+  - **Fix:** Use `ctx.runQuery(components.betterAuth.adapter.findOne, {...})`
+
+
+## Auto Quality Check - 2026-02-26 18:10:11
+### File: /Users/jkobrien/code/PDP/packages/backend/convex/models/playerGraduations.ts
+
+- ⚠️ **Performance: .filter() usage detected**
+  - **Problem:** Should use .withIndex() for better performance
+  - **Fix:** Replace `.query().filter()` with `.query().withIndex()`
+
+
+## Auto Quality Check - 2026-02-26 18:10:25
+### File: /Users/jkobrien/code/PDP/packages/backend/convex/models/playerGraduations.ts
+
+- ❌ **CRITICAL: Better Auth adapter violation**
+  - **Problem:** Direct DB access to auth tables
+  - **Fix:** Use `ctx.runQuery(components.betterAuth.adapter.findOne, {...})`
+
+
+## Auto Quality Check - 2026-02-26 18:10:25
+### File: /Users/jkobrien/code/PDP/packages/backend/convex/models/playerGraduations.ts
+
+- ⚠️ **Performance: .filter() usage detected**
+  - **Problem:** Should use .withIndex() for better performance
+  - **Fix:** Replace `.query().filter()` with `.query().withIndex()`
+
+
+## Auto Quality Check - 2026-02-26 18:10:34
+### File: /Users/jkobrien/code/PDP/packages/backend/convex/models/playerGraduations.ts
+
+- ❌ **CRITICAL: Better Auth adapter violation**
+  - **Problem:** Direct DB access to auth tables
+  - **Fix:** Use `ctx.runQuery(components.betterAuth.adapter.findOne, {...})`
+
+
+## Auto Quality Check - 2026-02-26 18:10:34
+### File: /Users/jkobrien/code/PDP/packages/backend/convex/models/playerGraduations.ts
+
+- ⚠️ **Performance: .filter() usage detected**
+  - **Problem:** Should use .withIndex() for better performance
+  - **Fix:** Replace `.query().filter()` with `.query().withIndex()`
+
+
+## Auto Quality Check - 2026-02-26 18:10:43
+### File: /Users/jkobrien/code/PDP/packages/backend/convex/models/playerGraduations.ts
+
+- ❌ **CRITICAL: Better Auth adapter violation**
+  - **Problem:** Direct DB access to auth tables
+  - **Fix:** Use `ctx.runQuery(components.betterAuth.adapter.findOne, {...})`
+
+
+## Auto Quality Check - 2026-02-26 18:10:43
+### File: /Users/jkobrien/code/PDP/packages/backend/convex/models/playerGraduations.ts
+
+- ⚠️ **Performance: .filter() usage detected**
+  - **Problem:** Should use .withIndex() for better performance
+  - **Fix:** Replace `.query().filter()` with `.query().withIndex()`
+
+
+## Auto Quality Check - 2026-02-26 18:11:03
+### File: /Users/jkobrien/code/PDP/packages/backend/convex/models/playerGraduations.ts
+
+- ❌ **CRITICAL: Better Auth adapter violation**
+  - **Problem:** Direct DB access to auth tables
+  - **Fix:** Use `ctx.runQuery(components.betterAuth.adapter.findOne, {...})`
+
+
+## Auto Quality Check - 2026-02-26 18:11:03
+### File: /Users/jkobrien/code/PDP/packages/backend/convex/models/playerGraduations.ts
+
+- ⚠️ **Performance: .filter() usage detected**
+  - **Problem:** Should use .withIndex() for better performance
+  - **Fix:** Replace `.query().filter()` with `.query().withIndex()`
+
+
+## Auto Quality Check - 2026-02-26 18:11:16
+### File: /Users/jkobrien/code/PDP/packages/backend/convex/models/playerGraduations.ts
+
+- ❌ **CRITICAL: Better Auth adapter violation**
+  - **Problem:** Direct DB access to auth tables
+  - **Fix:** Use `ctx.runQuery(components.betterAuth.adapter.findOne, {...})`
+
+
+## Auto Quality Check - 2026-02-26 18:11:16
+### File: /Users/jkobrien/code/PDP/packages/backend/convex/models/playerGraduations.ts
+
+- ⚠️ **Performance: .filter() usage detected**
+  - **Problem:** Should use .withIndex() for better performance
+  - **Fix:** Replace `.query().filter()` with `.query().withIndex()`
+
+
+## Auto Quality Check - 2026-02-26 18:12:11
+### File: /Users/jkobrien/code/PDP/packages/backend/convex/models/playerGraduations.ts
+
+- ❌ **CRITICAL: Better Auth adapter violation**
+  - **Problem:** Direct DB access to auth tables
+  - **Fix:** Use `ctx.runQuery(components.betterAuth.adapter.findOne, {...})`
+
+
+## Auto Quality Check - 2026-02-26 18:12:11
+### File: /Users/jkobrien/code/PDP/packages/backend/convex/models/playerGraduations.ts
+
+- ⚠️ **Performance: .filter() usage detected**
+  - **Problem:** Should use .withIndex() for better performance
+  - **Fix:** Replace `.query().filter()` with `.query().withIndex()`
+
+
+## Auto Quality Check - 2026-02-26 18:12:20
+### File: /Users/jkobrien/code/PDP/packages/backend/convex/models/playerGraduations.ts
+
+- ❌ **CRITICAL: Better Auth adapter violation**
+  - **Problem:** Direct DB access to auth tables
+  - **Fix:** Use `ctx.runQuery(components.betterAuth.adapter.findOne, {...})`
+
+
+## Auto Quality Check - 2026-02-26 18:12:20
+### File: /Users/jkobrien/code/PDP/packages/backend/convex/models/playerGraduations.ts
+
+- ⚠️ **Performance: .filter() usage detected**
+  - **Problem:** Should use .withIndex() for better performance
+  - **Fix:** Replace `.query().filter()` with `.query().withIndex()`
+
+
+## Auto Quality Check - 2026-02-26 18:13:09
+### File: /Users/jkobrien/code/PDP/packages/backend/convex/models/playerGraduations.ts
+
+- ❌ **CRITICAL: Better Auth adapter violation**
+  - **Problem:** Direct DB access to auth tables
+  - **Fix:** Use `ctx.runQuery(components.betterAuth.adapter.findOne, {...})`
+
+
+## Auto Quality Check - 2026-02-26 18:13:09
+### File: /Users/jkobrien/code/PDP/packages/backend/convex/models/playerGraduations.ts
+
+- ⚠️ **Performance: .filter() usage detected**
+  - **Problem:** Should use .withIndex() for better performance
+  - **Fix:** Replace `.query().filter()` with `.query().withIndex()`
+
+
+## Auto Quality Check - 2026-02-26 18:13:19
+### File: /Users/jkobrien/code/PDP/packages/backend/convex/models/playerGraduations.ts
+
+- ❌ **CRITICAL: Better Auth adapter violation**
+  - **Problem:** Direct DB access to auth tables
+  - **Fix:** Use `ctx.runQuery(components.betterAuth.adapter.findOne, {...})`
+
+
+## Auto Quality Check - 2026-02-26 18:13:19
+### File: /Users/jkobrien/code/PDP/packages/backend/convex/models/playerGraduations.ts
+
+- ⚠️ **Performance: .filter() usage detected**
+  - **Problem:** Should use .withIndex() for better performance
+  - **Fix:** Replace `.query().filter()` with `.query().withIndex()`
+
+
+## Auto Quality Check - 2026-02-26 20:31:25
+### File: /Users/jkobrien/code/PDP/packages/backend/convex/models/playerGraduations.ts
+
+- ❌ **CRITICAL: Better Auth adapter violation**
+  - **Problem:** Direct DB access to auth tables
+  - **Fix:** Use `ctx.runQuery(components.betterAuth.adapter.findOne, {...})`
+
+
+## Auto Quality Check - 2026-02-26 20:31:25
+### File: /Users/jkobrien/code/PDP/packages/backend/convex/models/playerGraduations.ts
+
+- ⚠️ **Performance: .filter() usage detected**
+  - **Problem:** Should use .withIndex() for better performance
+  - **Fix:** Replace `.query().filter()` with `.query().withIndex()`
+
+
+## Auto Quality Check - 2026-02-26 20:32:08
+### File: /Users/jkobrien/code/PDP/packages/backend/convex/models/playerGraduations.ts
+
+- ❌ **CRITICAL: Better Auth adapter violation**
+  - **Problem:** Direct DB access to auth tables
+  - **Fix:** Use `ctx.runQuery(components.betterAuth.adapter.findOne, {...})`
+
+
+## Auto Quality Check - 2026-02-26 20:32:08
+### File: /Users/jkobrien/code/PDP/packages/backend/convex/models/playerGraduations.ts
+
+- ⚠️ **Performance: .filter() usage detected**
+  - **Problem:** Should use .withIndex() for better performance
+  - **Fix:** Replace `.query().filter()` with `.query().withIndex()`
+
+
+## Auto Quality Check - 2026-02-26 20:32:17
+### File: /Users/jkobrien/code/PDP/packages/backend/convex/models/playerGraduations.ts
+
+- ❌ **CRITICAL: Better Auth adapter violation**
+  - **Problem:** Direct DB access to auth tables
+  - **Fix:** Use `ctx.runQuery(components.betterAuth.adapter.findOne, {...})`
+
+
+## Auto Quality Check - 2026-02-26 20:32:17
+### File: /Users/jkobrien/code/PDP/packages/backend/convex/models/playerGraduations.ts
+
+- ⚠️ **Performance: .filter() usage detected**
+  - **Problem:** Should use .withIndex() for better performance
+  - **Fix:** Replace `.query().filter()` with `.query().withIndex()`
+
+
+## Auto Quality Check - 2026-02-26 20:32:49
+### File: /Users/jkobrien/code/PDP/packages/backend/convex/models/playerGraduations.ts
+
+- ❌ **CRITICAL: Better Auth adapter violation**
+  - **Problem:** Direct DB access to auth tables
+  - **Fix:** Use `ctx.runQuery(components.betterAuth.adapter.findOne, {...})`
+
+
+## Auto Quality Check - 2026-02-26 20:32:49
+### File: /Users/jkobrien/code/PDP/packages/backend/convex/models/playerGraduations.ts
+
+- ⚠️ **Performance: .filter() usage detected**
+  - **Problem:** Should use .withIndex() for better performance
+  - **Fix:** Replace `.query().filter()` with `.query().withIndex()`
+
+
+## Auto Quality Check - 2026-02-26 20:32:57
+### File: /Users/jkobrien/code/PDP/packages/backend/convex/models/playerGraduations.ts
+
+- ❌ **CRITICAL: Better Auth adapter violation**
+  - **Problem:** Direct DB access to auth tables
+  - **Fix:** Use `ctx.runQuery(components.betterAuth.adapter.findOne, {...})`
+
+
+## Auto Quality Check - 2026-02-26 20:32:57
+### File: /Users/jkobrien/code/PDP/packages/backend/convex/models/playerGraduations.ts
+
+- ⚠️ **Performance: .filter() usage detected**
+  - **Problem:** Should use .withIndex() for better performance
+  - **Fix:** Replace `.query().filter()` with `.query().withIndex()`
+
+
+## Auto Quality Check - 2026-02-26 20:37:24
+### File: /Users/jkobrien/code/PDP/packages/backend/convex/models/playerIdentities.ts
+
+- ❌ **CRITICAL: Better Auth adapter violation**
+  - **Problem:** Direct DB access to auth tables
+  - **Fix:** Use `ctx.runQuery(components.betterAuth.adapter.findOne, {...})`
+
+
+## Auto Quality Check - 2026-02-26 20:37:24
+### File: /Users/jkobrien/code/PDP/packages/backend/convex/models/playerIdentities.ts
+
+- ⚠️ **Performance: .filter() usage detected**
+  - **Problem:** Should use .withIndex() for better performance
+  - **Fix:** Replace `.query().filter()` with `.query().withIndex()`
+
+
+## Auto Quality Check - 2026-02-26 20:37:24
+### File: /Users/jkobrien/code/PDP/packages/backend/convex/models/playerIdentities.ts
+
+- ❌ **CRITICAL: N+1 query pattern detected**
+  - **Problem:** `Promise.all(items.map(async => query))` makes N database calls
+  - **Fix:** Batch fetch all IDs first, create Map for O(1) lookup
+
+
+## Auto Quality Check - 2026-02-26 20:37:36
+### File: /Users/jkobrien/code/PDP/packages/backend/convex/models/playerIdentities.ts
+
+- ❌ **CRITICAL: Better Auth adapter violation**
+  - **Problem:** Direct DB access to auth tables
+  - **Fix:** Use `ctx.runQuery(components.betterAuth.adapter.findOne, {...})`
+
+
+## Auto Quality Check - 2026-02-26 20:37:36
+### File: /Users/jkobrien/code/PDP/packages/backend/convex/models/playerIdentities.ts
+
+- ⚠️ **Performance: .filter() usage detected**
+  - **Problem:** Should use .withIndex() for better performance
+  - **Fix:** Replace `.query().filter()` with `.query().withIndex()`
+
+
+## Auto Quality Check - 2026-02-26 20:37:36
+### File: /Users/jkobrien/code/PDP/packages/backend/convex/models/playerIdentities.ts
+
+- ❌ **CRITICAL: N+1 query pattern detected**
+  - **Problem:** `Promise.all(items.map(async => query))` makes N database calls
+  - **Fix:** Batch fetch all IDs first, create Map for O(1) lookup
+
+
+## Auto Quality Check - 2026-02-26 20:45:54
 ### File: /Users/jkobrien/code/PDP/packages/backend/convex/models/adultPlayers.ts
+
+- ⚠️ **Performance: .filter() usage detected**
+  - **Problem:** Should use .withIndex() for better performance
+  - **Fix:** Replace `.query().filter()` with `.query().withIndex()`
+
+
+## Auto Quality Check - 2026-02-26 20:46:03
+### File: /Users/jkobrien/code/PDP/packages/backend/convex/models/adultPlayers.ts
+
+- ⚠️ **Performance: .filter() usage detected**
+  - **Problem:** Should use .withIndex() for better performance
+  - **Fix:** Replace `.query().filter()` with `.query().withIndex()`
+
+
+## Auto Quality Check - 2026-02-26 21:04:13
+### File: /Users/jkobrien/code/PDP/packages/backend/convex/models/playerIdentities.ts
+
+- ❌ **CRITICAL: Better Auth adapter violation**
+  - **Problem:** Direct DB access to auth tables
+  - **Fix:** Use `ctx.runQuery(components.betterAuth.adapter.findOne, {...})`
+
+
+## Auto Quality Check - 2026-02-26 21:04:13
+### File: /Users/jkobrien/code/PDP/packages/backend/convex/models/playerIdentities.ts
+
+- ⚠️ **Performance: .filter() usage detected**
+  - **Problem:** Should use .withIndex() for better performance
+  - **Fix:** Replace `.query().filter()` with `.query().withIndex()`
+
+
+## Auto Quality Check - 2026-02-26 21:04:13
+### File: /Users/jkobrien/code/PDP/packages/backend/convex/models/playerIdentities.ts
+
+- ❌ **CRITICAL: N+1 query pattern detected**
+  - **Problem:** `Promise.all(items.map(async => query))` makes N database calls
+  - **Fix:** Batch fetch all IDs first, create Map for O(1) lookup
+
+
+## Auto Quality Check - 2026-02-26 21:17:28
+### File: /Users/jkobrien/code/PDP/packages/backend/convex/models/playerIdentities.ts
+
+- ❌ **CRITICAL: Better Auth adapter violation**
+  - **Problem:** Direct DB access to auth tables
+  - **Fix:** Use `ctx.runQuery(components.betterAuth.adapter.findOne, {...})`
+
+
+## Auto Quality Check - 2026-02-26 21:17:28
+### File: /Users/jkobrien/code/PDP/packages/backend/convex/models/playerIdentities.ts
+
+- ⚠️ **Performance: .filter() usage detected**
+  - **Problem:** Should use .withIndex() for better performance
+  - **Fix:** Replace `.query().filter()` with `.query().withIndex()`
+
+
+## Auto Quality Check - 2026-02-26 21:17:28
+### File: /Users/jkobrien/code/PDP/packages/backend/convex/models/playerIdentities.ts
+
+- ❌ **CRITICAL: N+1 query pattern detected**
+  - **Problem:** `Promise.all(items.map(async => query))` makes N database calls
+  - **Fix:** Batch fetch all IDs first, create Map for O(1) lookup
+
+
+## Auto Quality Check - 2026-02-26 21:18:53
+### File: /Users/jkobrien/code/PDP/packages/backend/convex/models/invitations.ts
+
+- ⚠️ **Performance: .filter() usage detected**
+  - **Problem:** Should use .withIndex() for better performance
+  - **Fix:** Replace `.query().filter()` with `.query().withIndex()`
+
+
+## Auto Quality Check - 2026-02-26 21:18:53
+### File: /Users/jkobrien/code/PDP/packages/backend/convex/models/invitations.ts
+
+- ❌ **CRITICAL: N+1 query pattern detected**
+  - **Problem:** `Promise.all(items.map(async => query))` makes N database calls
+  - **Fix:** Batch fetch all IDs first, create Map for O(1) lookup
+
+
+## Auto Quality Check - 2026-02-26 21:19:10
+### File: /Users/jkobrien/code/PDP/packages/backend/convex/models/invitations.ts
+
+- ⚠️ **Performance: .filter() usage detected**
+  - **Problem:** Should use .withIndex() for better performance
+  - **Fix:** Replace `.query().filter()` with `.query().withIndex()`
+
+
+## Auto Quality Check - 2026-02-26 21:19:10
+### File: /Users/jkobrien/code/PDP/packages/backend/convex/models/invitations.ts
+
+- ❌ **CRITICAL: N+1 query pattern detected**
+  - **Problem:** `Promise.all(items.map(async => query))` makes N database calls
+  - **Fix:** Batch fetch all IDs first, create Map for O(1) lookup
+
+
+## Auto Quality Check - 2026-02-26 21:19:17
+### File: /Users/jkobrien/code/PDP/packages/backend/convex/models/invitations.ts
+
+- ⚠️ **Performance: .filter() usage detected**
+  - **Problem:** Should use .withIndex() for better performance
+  - **Fix:** Replace `.query().filter()` with `.query().withIndex()`
+
+
+## Auto Quality Check - 2026-02-26 21:19:17
+### File: /Users/jkobrien/code/PDP/packages/backend/convex/models/invitations.ts
+
+- ❌ **CRITICAL: N+1 query pattern detected**
+  - **Problem:** `Promise.all(items.map(async => query))` makes N database calls
+  - **Fix:** Batch fetch all IDs first, create Map for O(1) lookup
+
+
+## Auto Quality Check - 2026-02-26 21:19:29
+### File: /Users/jkobrien/code/PDP/packages/backend/convex/models/playerGraduations.ts
+
+- ❌ **CRITICAL: Better Auth adapter violation**
+  - **Problem:** Direct DB access to auth tables
+  - **Fix:** Use `ctx.runQuery(components.betterAuth.adapter.findOne, {...})`
+
+
+## Auto Quality Check - 2026-02-26 21:19:29
+### File: /Users/jkobrien/code/PDP/packages/backend/convex/models/playerGraduations.ts
+
+- ⚠️ **Performance: .filter() usage detected**
+  - **Problem:** Should use .withIndex() for better performance
+  - **Fix:** Replace `.query().filter()` with `.query().withIndex()`
+
+
+## Auto Quality Check - 2026-02-26 21:19:35
+### File: /Users/jkobrien/code/PDP/packages/backend/convex/models/playerGraduations.ts
+
+- ❌ **CRITICAL: Better Auth adapter violation**
+  - **Problem:** Direct DB access to auth tables
+  - **Fix:** Use `ctx.runQuery(components.betterAuth.adapter.findOne, {...})`
+
+
+## Auto Quality Check - 2026-02-26 21:19:35
+### File: /Users/jkobrien/code/PDP/packages/backend/convex/models/playerGraduations.ts
+
+- ⚠️ **Performance: .filter() usage detected**
+  - **Problem:** Should use .withIndex() for better performance
+  - **Fix:** Replace `.query().filter()` with `.query().withIndex()`
+
+
+## Auto Quality Check - 2026-02-26 21:20:06
+### File: /Users/jkobrien/code/PDP/packages/backend/convex/models/adultPlayers.ts
+
+- ⚠️ **Performance: .filter() usage detected**
+  - **Problem:** Should use .withIndex() for better performance
+  - **Fix:** Replace `.query().filter()` with `.query().withIndex()`
+
+
+## Auto Quality Check - 2026-02-26 21:20:18
+### File: /Users/jkobrien/code/PDP/packages/backend/convex/models/adultPlayers.ts
+
+- ⚠️ **Performance: .filter() usage detected**
+  - **Problem:** Should use .withIndex() for better performance
+  - **Fix:** Replace `.query().filter()` with `.query().withIndex()`
+
+
+## Auto Quality Check - 2026-02-26 21:20:36
+### File: /Users/jkobrien/code/PDP/packages/backend/convex/models/orgJoinRequests.ts
+
+- ⚠️ **Performance: .filter() usage detected**
+  - **Problem:** Should use .withIndex() for better performance
+  - **Fix:** Replace `.query().filter()` with `.query().withIndex()`
+
+
+## Auto Quality Check - 2026-02-26 21:20:42
+### File: /Users/jkobrien/code/PDP/packages/backend/convex/models/orgJoinRequests.ts
+
+- ⚠️ **Performance: .filter() usage detected**
+  - **Problem:** Should use .withIndex() for better performance
+  - **Fix:** Replace `.query().filter()` with `.query().withIndex()`
+
+
+## Auto Quality Check - 2026-02-26 21:20:49
+### File: /Users/jkobrien/code/PDP/packages/backend/convex/models/playerIdentities.ts
+
+- ❌ **CRITICAL: Better Auth adapter violation**
+  - **Problem:** Direct DB access to auth tables
+  - **Fix:** Use `ctx.runQuery(components.betterAuth.adapter.findOne, {...})`
+
+
+## Auto Quality Check - 2026-02-26 21:20:49
+### File: /Users/jkobrien/code/PDP/packages/backend/convex/models/playerIdentities.ts
+
+- ⚠️ **Performance: .filter() usage detected**
+  - **Problem:** Should use .withIndex() for better performance
+  - **Fix:** Replace `.query().filter()` with `.query().withIndex()`
+
+
+## Auto Quality Check - 2026-02-26 21:20:49
+### File: /Users/jkobrien/code/PDP/packages/backend/convex/models/playerIdentities.ts
+
+- ❌ **CRITICAL: N+1 query pattern detected**
+  - **Problem:** `Promise.all(items.map(async => query))` makes N database calls
+  - **Fix:** Batch fetch all IDs first, create Map for O(1) lookup
+
+
+## Auto Quality Check - 2026-02-26 21:21:31
+### File: /Users/jkobrien/code/PDP/packages/backend/convex/models/orgPlayerEnrollments.ts
+
+- ❌ **CRITICAL: Better Auth adapter violation**
+  - **Problem:** Direct DB access to auth tables
+  - **Fix:** Use `ctx.runQuery(components.betterAuth.adapter.findOne, {...})`
+
+
+## Auto Quality Check - 2026-02-26 21:21:31
+### File: /Users/jkobrien/code/PDP/packages/backend/convex/models/orgPlayerEnrollments.ts
+
+- ⚠️ **Performance: .filter() usage detected**
+  - **Problem:** Should use .withIndex() for better performance
+  - **Fix:** Replace `.query().filter()` with `.query().withIndex()`
+
+
+## Auto Quality Check - 2026-02-26 21:21:56
+### File: /Users/jkobrien/code/PDP/packages/backend/convex/models/playerImport.ts
+
+- ❌ **CRITICAL: Better Auth adapter violation**
+  - **Problem:** Direct DB access to auth tables
+  - **Fix:** Use `ctx.runQuery(components.betterAuth.adapter.findOne, {...})`
+
+
+## Auto Quality Check - 2026-02-26 21:21:56
+### File: /Users/jkobrien/code/PDP/packages/backend/convex/models/playerImport.ts
+
+- ⚠️ **Performance: .filter() usage detected**
+  - **Problem:** Should use .withIndex() for better performance
+  - **Fix:** Replace `.query().filter()` with `.query().withIndex()`
+
+
+## Auto Quality Check - 2026-02-26 21:21:56
+### File: /Users/jkobrien/code/PDP/packages/backend/convex/models/playerImport.ts
+
+- ❌ **CRITICAL: N+1 query pattern detected**
+  - **Problem:** `Promise.all(items.map(async => query))` makes N database calls
+  - **Fix:** Batch fetch all IDs first, create Map for O(1) lookup
+
+
+## Auto Quality Check - 2026-02-26 21:22:02
+### File: /Users/jkobrien/code/PDP/packages/backend/convex/models/playerImport.ts
+
+- ❌ **CRITICAL: Better Auth adapter violation**
+  - **Problem:** Direct DB access to auth tables
+  - **Fix:** Use `ctx.runQuery(components.betterAuth.adapter.findOne, {...})`
+
+
+## Auto Quality Check - 2026-02-26 21:22:02
+### File: /Users/jkobrien/code/PDP/packages/backend/convex/models/playerImport.ts
+
+- ⚠️ **Performance: .filter() usage detected**
+  - **Problem:** Should use .withIndex() for better performance
+  - **Fix:** Replace `.query().filter()` with `.query().withIndex()`
+
+
+## Auto Quality Check - 2026-02-26 21:22:02
+### File: /Users/jkobrien/code/PDP/packages/backend/convex/models/playerImport.ts
+
+- ❌ **CRITICAL: N+1 query pattern detected**
+  - **Problem:** `Promise.all(items.map(async => query))` makes N database calls
+  - **Fix:** Batch fetch all IDs first, create Map for O(1) lookup
+
+
+## Auto Quality Check - 2026-02-26 21:45:27
+### File: /Users/jkobrien/code/PDP/packages/backend/convex/models/guardianPlayerLinks.ts
+
+- ⚠️ **Performance: .filter() usage detected**
+  - **Problem:** Should use .withIndex() for better performance
+  - **Fix:** Replace `.query().filter()` with `.query().withIndex()`
+
+
+## Auto Quality Check - 2026-02-26 21:46:51
+### File: /Users/jkobrien/code/PDP/packages/backend/convex/models/guardianPlayerLinks.ts
+
+- ⚠️ **Performance: .filter() usage detected**
+  - **Problem:** Should use .withIndex() for better performance
+  - **Fix:** Replace `.query().filter()` with `.query().withIndex()`
+
+
+## Auto Quality Check - 2026-02-26 21:56:37
+### File: /Users/jkobrien/code/PDP/packages/backend/convex/models/playerImport.ts
+
+- ❌ **CRITICAL: Better Auth adapter violation**
+  - **Problem:** Direct DB access to auth tables
+  - **Fix:** Use `ctx.runQuery(components.betterAuth.adapter.findOne, {...})`
+
+
+## Auto Quality Check - 2026-02-26 21:56:37
+### File: /Users/jkobrien/code/PDP/packages/backend/convex/models/playerImport.ts
+
+- ⚠️ **Performance: .filter() usage detected**
+  - **Problem:** Should use .withIndex() for better performance
+  - **Fix:** Replace `.query().filter()` with `.query().withIndex()`
+
+
+## Auto Quality Check - 2026-02-26 21:56:37
+### File: /Users/jkobrien/code/PDP/packages/backend/convex/models/playerImport.ts
+
+- ❌ **CRITICAL: N+1 query pattern detected**
+  - **Problem:** `Promise.all(items.map(async => query))` makes N database calls
+  - **Fix:** Batch fetch all IDs first, create Map for O(1) lookup
+
+
+## Auto Quality Check - 2026-02-26 22:02:24
+### File: /Users/jkobrien/code/PDP/packages/backend/convex/models/playerIdentities.ts
+
+- ❌ **CRITICAL: Better Auth adapter violation**
+  - **Problem:** Direct DB access to auth tables
+  - **Fix:** Use `ctx.runQuery(components.betterAuth.adapter.findOne, {...})`
+
+
+## Auto Quality Check - 2026-02-26 22:02:24
+### File: /Users/jkobrien/code/PDP/packages/backend/convex/models/playerIdentities.ts
+
+- ⚠️ **Performance: .filter() usage detected**
+  - **Problem:** Should use .withIndex() for better performance
+  - **Fix:** Replace `.query().filter()` with `.query().withIndex()`
+
+
+## Auto Quality Check - 2026-02-26 22:02:24
+### File: /Users/jkobrien/code/PDP/packages/backend/convex/models/playerIdentities.ts
+
+- ❌ **CRITICAL: N+1 query pattern detected**
+  - **Problem:** `Promise.all(items.map(async => query))` makes N database calls
+  - **Fix:** Batch fetch all IDs first, create Map for O(1) lookup
+
+
+## Auto Quality Check - 2026-02-26 22:02:25
+### File: /Users/jkobrien/code/PDP/packages/backend/convex/models/orgJoinRequests.ts
+
+- ⚠️ **Performance: .filter() usage detected**
+  - **Problem:** Should use .withIndex() for better performance
+  - **Fix:** Replace `.query().filter()` with `.query().withIndex()`
+
+
+## Auto Quality Check - 2026-02-26 22:02:55
+### File: /Users/jkobrien/code/PDP/packages/backend/convex/models/orgJoinRequests.ts
+
+- ⚠️ **Performance: .filter() usage detected**
+  - **Problem:** Should use .withIndex() for better performance
+  - **Fix:** Replace `.query().filter()` with `.query().withIndex()`
+
+
+## Auto Quality Check - 2026-02-26 22:07:10
+### File: /Users/jkobrien/code/PDP/packages/backend/convex/models/orgJoinRequests.ts
+
+- ⚠️ **Performance: .filter() usage detected**
+  - **Problem:** Should use .withIndex() for better performance
+  - **Fix:** Replace `.query().filter()` with `.query().withIndex()`
+
+
+## Auto Quality Check - 2026-02-26 22:07:22
+### File: /Users/jkobrien/code/PDP/packages/backend/convex/models/orgJoinRequests.ts
+
+- ⚠️ **Performance: .filter() usage detected**
+  - **Problem:** Should use .withIndex() for better performance
+  - **Fix:** Replace `.query().filter()` with `.query().withIndex()`
+
+
+## Auto Quality Check - 2026-02-26 22:14:50
+### File: /Users/jkobrien/code/PDP/packages/backend/convex/models/orgJoinRequests.ts
+
+- ⚠️ **Performance: .filter() usage detected**
+  - **Problem:** Should use .withIndex() for better performance
+  - **Fix:** Replace `.query().filter()` with `.query().withIndex()`
+
+
+## Auto Quality Check - 2026-02-26 22:14:59
+### File: /Users/jkobrien/code/PDP/packages/backend/convex/models/orgJoinRequests.ts
+
+- ⚠️ **Performance: .filter() usage detected**
+  - **Problem:** Should use .withIndex() for better performance
+  - **Fix:** Replace `.query().filter()` with `.query().withIndex()`
+
+
+## Auto Quality Check - 2026-02-26 22:43:49
+### File: /Users/jkobrien/code/PDP/packages/backend/convex/models/orgJoinRequests.ts
+
+- ⚠️ **Performance: .filter() usage detected**
+  - **Problem:** Should use .withIndex() for better performance
+  - **Fix:** Replace `.query().filter()` with `.query().withIndex()`
+
+
+## Auto Quality Check - 2026-02-26 22:44:01
+### File: /Users/jkobrien/code/PDP/packages/backend/convex/models/orgJoinRequests.ts
+
+- ⚠️ **Performance: .filter() usage detected**
+  - **Problem:** Should use .withIndex() for better performance
+  - **Fix:** Replace `.query().filter()` with `.query().withIndex()`
+
+
+## Auto Quality Check - 2026-02-26 22:57:25
+### File: /Users/jkobrien/code/PDP/packages/backend/convex/models/orgJoinRequests.ts
+
+- ⚠️ **Performance: .filter() usage detected**
+  - **Problem:** Should use .withIndex() for better performance
+  - **Fix:** Replace `.query().filter()` with `.query().withIndex()`
+
+
+## Auto Quality Check - 2026-02-26 22:57:35
+### File: /Users/jkobrien/code/PDP/packages/backend/convex/models/orgJoinRequests.ts
+
+- ⚠️ **Performance: .filter() usage detected**
+  - **Problem:** Should use .withIndex() for better performance
+  - **Fix:** Replace `.query().filter()` with `.query().withIndex()`
+
+
+## Auto Quality Check - 2026-02-26 22:57:42
+### File: /Users/jkobrien/code/PDP/packages/backend/convex/models/orgJoinRequests.ts
+
+- ⚠️ **Performance: .filter() usage detected**
+  - **Problem:** Should use .withIndex() for better performance
+  - **Fix:** Replace `.query().filter()` with `.query().withIndex()`
+
+
+## Auto Quality Check - 2026-02-26 23:22:38
+### File: /Users/jkobrien/code/PDP/packages/backend/convex/models/orgJoinRequests.ts
+
+- ⚠️ **Performance: .filter() usage detected**
+  - **Problem:** Should use .withIndex() for better performance
+  - **Fix:** Replace `.query().filter()` with `.query().withIndex()`
+
+
+## Auto Quality Check - 2026-02-26 23:22:45
+### File: /Users/jkobrien/code/PDP/packages/backend/convex/models/orgJoinRequests.ts
+
+- ⚠️ **Performance: .filter() usage detected**
+  - **Problem:** Should use .withIndex() for better performance
+  - **Fix:** Replace `.query().filter()` with `.query().withIndex()`
+
+
+## Auto Quality Check - 2026-02-26 23:22:52
+### File: /Users/jkobrien/code/PDP/packages/backend/convex/models/orgJoinRequests.ts
+
+- ⚠️ **Performance: .filter() usage detected**
+  - **Problem:** Should use .withIndex() for better performance
+  - **Fix:** Replace `.query().filter()` with `.query().withIndex()`
+
+
+## Auto Quality Check - 2026-02-26 23:23:39
+### File: /Users/jkobrien/code/PDP/packages/backend/convex/models/orgJoinRequests.ts
+
+- ⚠️ **Performance: .filter() usage detected**
+  - **Problem:** Should use .withIndex() for better performance
+  - **Fix:** Replace `.query().filter()` with `.query().withIndex()`
+
+
+## Auto Quality Check - 2026-02-26 23:23:48
+### File: /Users/jkobrien/code/PDP/packages/backend/convex/models/orgJoinRequests.ts
+
+- ⚠️ **Performance: .filter() usage detected**
+  - **Problem:** Should use .withIndex() for better performance
+  - **Fix:** Replace `.query().filter()` with `.query().withIndex()`
+
+
+## Auto Quality Check - 2026-02-26 23:23:55
+### File: /Users/jkobrien/code/PDP/packages/backend/convex/models/orgJoinRequests.ts
+
+- ⚠️ **Performance: .filter() usage detected**
+  - **Problem:** Should use .withIndex() for better performance
+  - **Fix:** Replace `.query().filter()` with `.query().withIndex()`
+
+
+## Auto Quality Check - 2026-02-27 10:52:53
+### File: /Users/jkobrien/code/PDP/packages/backend/convex/lib/playerMatching.ts
+
+- ❌ **CRITICAL: Better Auth adapter violation**
+  - **Problem:** Direct DB access to auth tables
+  - **Fix:** Use `ctx.runQuery(components.betterAuth.adapter.findOne, {...})`
+
+
+## Auto Quality Check - 2026-02-27 10:52:53
+### File: /Users/jkobrien/code/PDP/packages/backend/convex/models/playerIdentities.ts
+
+- ❌ **CRITICAL: Better Auth adapter violation**
+  - **Problem:** Direct DB access to auth tables
+  - **Fix:** Use `ctx.runQuery(components.betterAuth.adapter.findOne, {...})`
+
+
+## Auto Quality Check - 2026-02-27 10:52:53
+### File: /Users/jkobrien/code/PDP/packages/backend/convex/models/playerIdentities.ts
+
+- ⚠️ **Performance: .filter() usage detected**
+  - **Problem:** Should use .withIndex() for better performance
+  - **Fix:** Replace `.query().filter()` with `.query().withIndex()`
+
+
+## Auto Quality Check - 2026-02-27 10:52:53
+### File: /Users/jkobrien/code/PDP/packages/backend/convex/models/playerIdentities.ts
+
+- ❌ **CRITICAL: N+1 query pattern detected**
+  - **Problem:** `Promise.all(items.map(async => query))` makes N database calls
+  - **Fix:** Batch fetch all IDs first, create Map for O(1) lookup
+
+
+## Auto Quality Check - 2026-02-27 10:53:22
+### File: /Users/jkobrien/code/PDP/packages/backend/convex/lib/playerMatching.ts
+
+- ❌ **CRITICAL: Better Auth adapter violation**
+  - **Problem:** Direct DB access to auth tables
+  - **Fix:** Use `ctx.runQuery(components.betterAuth.adapter.findOne, {...})`
+
+
+## Auto Quality Check - 2026-02-27 10:53:38
+### File: /Users/jkobrien/code/PDP/packages/backend/convex/models/playerIdentities.ts
+
+- ❌ **CRITICAL: Better Auth adapter violation**
+  - **Problem:** Direct DB access to auth tables
+  - **Fix:** Use `ctx.runQuery(components.betterAuth.adapter.findOne, {...})`
+
+
+## Auto Quality Check - 2026-02-27 10:53:38
+### File: /Users/jkobrien/code/PDP/packages/backend/convex/models/playerIdentities.ts
+
+- ⚠️ **Performance: .filter() usage detected**
+  - **Problem:** Should use .withIndex() for better performance
+  - **Fix:** Replace `.query().filter()` with `.query().withIndex()`
+
+
+## Auto Quality Check - 2026-02-27 10:53:38
+### File: /Users/jkobrien/code/PDP/packages/backend/convex/models/playerIdentities.ts
+
+- ❌ **CRITICAL: N+1 query pattern detected**
+  - **Problem:** `Promise.all(items.map(async => query))` makes N database calls
+  - **Fix:** Batch fetch all IDs first, create Map for O(1) lookup
+
+
+## Auto Quality Check - 2026-02-27 10:57:40
+### File: /Users/jkobrien/code/PDP/packages/backend/convex/models/orgJoinRequests.ts
+
+- ⚠️ **Performance: .filter() usage detected**
+  - **Problem:** Should use .withIndex() for better performance
+  - **Fix:** Replace `.query().filter()` with `.query().withIndex()`
+
+
+## Auto Quality Check - 2026-02-27 11:49:40
+### File: /Users/jkobrien/code/PDP/packages/backend/convex/models/playerIdentities.ts
+
+- ❌ **CRITICAL: Better Auth adapter violation**
+  - **Problem:** Direct DB access to auth tables
+  - **Fix:** Use `ctx.runQuery(components.betterAuth.adapter.findOne, {...})`
+
+
+## Auto Quality Check - 2026-02-27 11:49:40
+### File: /Users/jkobrien/code/PDP/packages/backend/convex/models/playerIdentities.ts
+
+- ⚠️ **Performance: .filter() usage detected**
+  - **Problem:** Should use .withIndex() for better performance
+  - **Fix:** Replace `.query().filter()` with `.query().withIndex()`
+
+
+## Auto Quality Check - 2026-02-27 11:49:40
+### File: /Users/jkobrien/code/PDP/packages/backend/convex/models/playerIdentities.ts
+
+- ❌ **CRITICAL: N+1 query pattern detected**
+  - **Problem:** `Promise.all(items.map(async => query))` makes N database calls
+  - **Fix:** Batch fetch all IDs first, create Map for O(1) lookup
+
+
+## Auto Quality Check - 2026-02-27 11:50:03
+### File: /Users/jkobrien/code/PDP/packages/backend/convex/models/playerIdentities.ts
+
+- ❌ **CRITICAL: Better Auth adapter violation**
+  - **Problem:** Direct DB access to auth tables
+  - **Fix:** Use `ctx.runQuery(components.betterAuth.adapter.findOne, {...})`
+
+
+## Auto Quality Check - 2026-02-27 11:50:03
+### File: /Users/jkobrien/code/PDP/packages/backend/convex/models/playerIdentities.ts
+
+- ⚠️ **Performance: .filter() usage detected**
+  - **Problem:** Should use .withIndex() for better performance
+  - **Fix:** Replace `.query().filter()` with `.query().withIndex()`
+
+
+## Auto Quality Check - 2026-02-27 11:50:03
+### File: /Users/jkobrien/code/PDP/packages/backend/convex/models/playerIdentities.ts
+
+- ❌ **CRITICAL: N+1 query pattern detected**
+  - **Problem:** `Promise.all(items.map(async => query))` makes N database calls
+  - **Fix:** Batch fetch all IDs first, create Map for O(1) lookup
+
+
+## Auto Quality Check - 2026-02-27 11:50:10
+### File: /Users/jkobrien/code/PDP/packages/backend/convex/models/playerGraduations.ts
+
+- ❌ **CRITICAL: Better Auth adapter violation**
+  - **Problem:** Direct DB access to auth tables
+  - **Fix:** Use `ctx.runQuery(components.betterAuth.adapter.findOne, {...})`
+
+
+## Auto Quality Check - 2026-02-27 11:50:10
+### File: /Users/jkobrien/code/PDP/packages/backend/convex/models/playerGraduations.ts
+
+- ⚠️ **Performance: .filter() usage detected**
+  - **Problem:** Should use .withIndex() for better performance
+  - **Fix:** Replace `.query().filter()` with `.query().withIndex()`
+
+
+## Auto Quality Check - 2026-02-27 11:50:11
+### File: /Users/jkobrien/code/PDP/packages/backend/convex/models/medicalProfiles.ts
+
+- ⚠️ **Performance: .filter() usage detected**
+  - **Problem:** Should use .withIndex() for better performance
+  - **Fix:** Replace `.query().filter()` with `.query().withIndex()`
+
+
+## Auto Quality Check - 2026-02-27 11:50:11
+### File: /Users/jkobrien/code/PDP/packages/backend/convex/models/medicalProfiles.ts
+
+- ❌ **CRITICAL: N+1 query pattern detected**
+  - **Problem:** `Promise.all(items.map(async => query))` makes N database calls
+  - **Fix:** Batch fetch all IDs first, create Map for O(1) lookup
+
+
+## Auto Quality Check - 2026-02-27 11:50:22
+### File: /Users/jkobrien/code/PDP/packages/backend/convex/models/playerGraduations.ts
+
+- ❌ **CRITICAL: Better Auth adapter violation**
+  - **Problem:** Direct DB access to auth tables
+  - **Fix:** Use `ctx.runQuery(components.betterAuth.adapter.findOne, {...})`
+
+
+## Auto Quality Check - 2026-02-27 11:50:22
+### File: /Users/jkobrien/code/PDP/packages/backend/convex/models/playerGraduations.ts
+
+- ⚠️ **Performance: .filter() usage detected**
+  - **Problem:** Should use .withIndex() for better performance
+  - **Fix:** Replace `.query().filter()` with `.query().withIndex()`
+
+
+## Auto Quality Check - 2026-02-27 11:50:36
+### File: /Users/jkobrien/code/PDP/packages/backend/convex/models/medicalProfiles.ts
+
+- ⚠️ **Performance: .filter() usage detected**
+  - **Problem:** Should use .withIndex() for better performance
+  - **Fix:** Replace `.query().filter()` with `.query().withIndex()`
+
+
+## Auto Quality Check - 2026-02-27 11:50:36
+### File: /Users/jkobrien/code/PDP/packages/backend/convex/models/medicalProfiles.ts
+
+- ❌ **CRITICAL: N+1 query pattern detected**
+  - **Problem:** `Promise.all(items.map(async => query))` makes N database calls
+  - **Fix:** Batch fetch all IDs first, create Map for O(1) lookup
+
+
+## Auto Quality Check - 2026-02-27 12:02:52
+### File: /Users/jkobrien/code/PDP/packages/backend/convex/models/playerMatching.ts
+
+- ⚠️ **Performance: .filter() usage detected**
+  - **Problem:** Should use .withIndex() for better performance
+  - **Fix:** Replace `.query().filter()` with `.query().withIndex()`
+
+
+## Auto Quality Check - 2026-02-27 12:03:00
+### File: /Users/jkobrien/code/PDP/packages/backend/convex/models/playerMatching.ts
+
+- ⚠️ **Performance: .filter() usage detected**
+  - **Problem:** Should use .withIndex() for better performance
+  - **Fix:** Replace `.query().filter()` with `.query().withIndex()`
+
+
+## Auto Quality Check - 2026-02-27 12:03:43
+### File: /Users/jkobrien/code/PDP/packages/backend/convex/models/adultPlayers.ts
+
+- ⚠️ **Performance: .filter() usage detected**
+  - **Problem:** Should use .withIndex() for better performance
+  - **Fix:** Replace `.query().filter()` with `.query().withIndex()`
+
+
+## Auto Quality Check - 2026-02-27 12:03:44
+### File: /Users/jkobrien/code/PDP/packages/backend/convex/models/playerHealthChecks.ts
+
+- ⚠️ **Performance: .filter() usage detected**
+  - **Problem:** Should use .withIndex() for better performance
+  - **Fix:** Replace `.query().filter()` with `.query().withIndex()`
+
+
+## Auto Quality Check - 2026-02-27 12:04:09
+### File: /Users/jkobrien/code/PDP/packages/backend/convex/models/adultPlayers.ts
+
+- ⚠️ **Performance: .filter() usage detected**
+  - **Problem:** Should use .withIndex() for better performance
+  - **Fix:** Replace `.query().filter()` with `.query().withIndex()`
+
+
+## Auto Quality Check - 2026-02-27 12:04:10
+### File: /Users/jkobrien/code/PDP/packages/backend/convex/models/playerHealthChecks.ts
+
+- ⚠️ **Performance: .filter() usage detected**
+  - **Problem:** Should use .withIndex() for better performance
+  - **Fix:** Replace `.query().filter()` with `.query().withIndex()`
+
+
+## Auto Quality Check - 2026-02-27 12:04:20
+### File: /Users/jkobrien/code/PDP/packages/backend/convex/models/adultPlayers.ts
+
+- ⚠️ **Performance: .filter() usage detected**
+  - **Problem:** Should use .withIndex() for better performance
+  - **Fix:** Replace `.query().filter()` with `.query().withIndex()`
+
+
+## Auto Quality Check - 2026-02-27 12:05:06
+### File: /Users/jkobrien/code/PDP/packages/backend/convex/models/adultPlayers.ts
+
+- ⚠️ **Performance: .filter() usage detected**
+  - **Problem:** Should use .withIndex() for better performance
+  - **Fix:** Replace `.query().filter()` with `.query().withIndex()`
+
+
+## Auto Quality Check - 2026-02-27 12:05:15
+### File: /Users/jkobrien/code/PDP/packages/backend/convex/models/adultPlayers.ts
+
+- ⚠️ **Performance: .filter() usage detected**
+  - **Problem:** Should use .withIndex() for better performance
+  - **Fix:** Replace `.query().filter()` with `.query().withIndex()`
+
+
+## Auto Quality Check - 2026-02-27 12:05:25
+### File: /Users/jkobrien/code/PDP/packages/backend/convex/models/adultPlayers.ts
+
+- ⚠️ **Performance: .filter() usage detected**
+  - **Problem:** Should use .withIndex() for better performance
+  - **Fix:** Replace `.query().filter()` with `.query().withIndex()`
+
+
+## Auto Quality Check - 2026-02-27 12:05:26
+### File: /Users/jkobrien/code/PDP/packages/backend/convex/models/adultPlayers.ts
+
+- ⚠️ **Performance: .filter() usage detected**
+  - **Problem:** Should use .withIndex() for better performance
+  - **Fix:** Replace `.query().filter()` with `.query().withIndex()`
+
+
+## Auto Quality Check - 2026-02-27 12:05:26
+### File: /Users/jkobrien/code/PDP/packages/backend/convex/models/adultPlayers.ts
+
+- ⚠️ **Performance: .filter() usage detected**
+  - **Problem:** Should use .withIndex() for better performance
+  - **Fix:** Replace `.query().filter()` with `.query().withIndex()`
+
+
+## Auto Quality Check - 2026-02-27 12:05:43
+### File: /Users/jkobrien/code/PDP/packages/backend/convex/models/adultPlayers.ts
+
+- ⚠️ **Performance: .filter() usage detected**
+  - **Problem:** Should use .withIndex() for better performance
+  - **Fix:** Replace `.query().filter()` with `.query().withIndex()`
+
+
+## Auto Quality Check - 2026-02-27 12:06:14
+### File: /Users/jkobrien/code/PDP/packages/backend/convex/models/adultPlayers.ts
+
+- ⚠️ **Performance: .filter() usage detected**
+  - **Problem:** Should use .withIndex() for better performance
+  - **Fix:** Replace `.query().filter()` with `.query().withIndex()`
+
+
+## Auto Quality Check - 2026-02-27 12:06:22
+### File: /Users/jkobrien/code/PDP/packages/backend/convex/models/adultPlayers.ts
+
+- ⚠️ **Performance: .filter() usage detected**
+  - **Problem:** Should use .withIndex() for better performance
+  - **Fix:** Replace `.query().filter()` with `.query().withIndex()`
+
+
+## Auto Quality Check - 2026-02-27 12:06:30
+### File: /Users/jkobrien/code/PDP/packages/backend/convex/models/adultPlayers.ts
+
+- ⚠️ **Performance: .filter() usage detected**
+  - **Problem:** Should use .withIndex() for better performance
+  - **Fix:** Replace `.query().filter()` with `.query().withIndex()`
+
+
+## Auto Quality Check - 2026-02-27 12:06:39
+### File: /Users/jkobrien/code/PDP/packages/backend/convex/models/adultPlayers.ts
+
+- ⚠️ **Performance: .filter() usage detected**
+  - **Problem:** Should use .withIndex() for better performance
+  - **Fix:** Replace `.query().filter()` with `.query().withIndex()`
+
+
+## Auto Quality Check - 2026-02-27 12:06:47
+### File: /Users/jkobrien/code/PDP/packages/backend/convex/models/playerHealthChecks.ts
+
+- ⚠️ **Performance: .filter() usage detected**
+  - **Problem:** Should use .withIndex() for better performance
+  - **Fix:** Replace `.query().filter()` with `.query().withIndex()`
+
+
+## Auto Quality Check - 2026-02-27 12:06:55
+### File: /Users/jkobrien/code/PDP/packages/backend/convex/models/playerHealthChecks.ts
+
+- ⚠️ **Performance: .filter() usage detected**
+  - **Problem:** Should use .withIndex() for better performance
+  - **Fix:** Replace `.query().filter()` with `.query().withIndex()`
+
+
+## Auto Quality Check - 2026-02-27 12:07:06
+### File: /Users/jkobrien/code/PDP/packages/backend/convex/models/playerHealthChecks.ts
+
+- ⚠️ **Performance: .filter() usage detected**
+  - **Problem:** Should use .withIndex() for better performance
+  - **Fix:** Replace `.query().filter()` with `.query().withIndex()`
+
+
+## Auto Quality Check - 2026-02-27 12:07:15
+### File: /Users/jkobrien/code/PDP/packages/backend/convex/models/playerHealthChecks.ts
+
+- ⚠️ **Performance: .filter() usage detected**
+  - **Problem:** Should use .withIndex() for better performance
+  - **Fix:** Replace `.query().filter()` with `.query().withIndex()`
+
+
+## Auto Quality Check - 2026-02-27 12:07:24
+### File: /Users/jkobrien/code/PDP/packages/backend/convex/models/playerHealthChecks.ts
+
+- ⚠️ **Performance: .filter() usage detected**
+  - **Problem:** Should use .withIndex() for better performance
+  - **Fix:** Replace `.query().filter()` with `.query().withIndex()`
+
+
+## Auto Quality Check - 2026-02-27 12:07:33
+### File: /Users/jkobrien/code/PDP/packages/backend/convex/models/playerHealthChecks.ts
+
+- ⚠️ **Performance: .filter() usage detected**
+  - **Problem:** Should use .withIndex() for better performance
+  - **Fix:** Replace `.query().filter()` with `.query().withIndex()`
+
+
+## Auto Quality Check - 2026-02-27 12:07:42
+### File: /Users/jkobrien/code/PDP/packages/backend/convex/models/playerHealthChecks.ts
+
+- ⚠️ **Performance: .filter() usage detected**
+  - **Problem:** Should use .withIndex() for better performance
+  - **Fix:** Replace `.query().filter()` with `.query().withIndex()`
+
+
+## Auto Quality Check - 2026-02-27 12:07:50
+### File: /Users/jkobrien/code/PDP/packages/backend/convex/models/playerHealthChecks.ts
+
+- ⚠️ **Performance: .filter() usage detected**
+  - **Problem:** Should use .withIndex() for better performance
+  - **Fix:** Replace `.query().filter()` with `.query().withIndex()`
+
+
+## Auto Quality Check - 2026-02-27 12:07:59
+### File: /Users/jkobrien/code/PDP/packages/backend/convex/models/playerHealthChecks.ts
+
+- ⚠️ **Performance: .filter() usage detected**
+  - **Problem:** Should use .withIndex() for better performance
+  - **Fix:** Replace `.query().filter()` with `.query().withIndex()`
+
+
+## Auto Quality Check - 2026-02-27 12:08:07
+### File: /Users/jkobrien/code/PDP/packages/backend/convex/models/playerHealthChecks.ts
+
+- ⚠️ **Performance: .filter() usage detected**
+  - **Problem:** Should use .withIndex() for better performance
+  - **Fix:** Replace `.query().filter()` with `.query().withIndex()`
+
+
+## Auto Quality Check - 2026-02-27 12:08:16
+### File: /Users/jkobrien/code/PDP/packages/backend/convex/models/playerHealthChecks.ts
+
+- ⚠️ **Performance: .filter() usage detected**
+  - **Problem:** Should use .withIndex() for better performance
+  - **Fix:** Replace `.query().filter()` with `.query().withIndex()`
+
+
+## Auto Quality Check - 2026-02-27 12:08:26
+### File: /Users/jkobrien/code/PDP/packages/backend/convex/models/playerHealthChecks.ts
+
+- ⚠️ **Performance: .filter() usage detected**
+  - **Problem:** Should use .withIndex() for better performance
+  - **Fix:** Replace `.query().filter()` with `.query().withIndex()`
+
+
+## Auto Quality Check - 2026-02-27 12:08:36
+### File: /Users/jkobrien/code/PDP/packages/backend/convex/models/playerHealthChecks.ts
+
+- ⚠️ **Performance: .filter() usage detected**
+  - **Problem:** Should use .withIndex() for better performance
+  - **Fix:** Replace `.query().filter()` with `.query().withIndex()`
+
+
+## Auto Quality Check - 2026-02-27 12:12:22
+### File: /Users/jkobrien/code/PDP/packages/backend/convex/migrations/backfillNormalizedNames.ts
 
 - ⚠️ **Data Isolation: No organizationId filter found**
   - **Problem:** Queries should be scoped by organizationId for multi-tenant isolation
   - **Fix:** Add organizationId to query args and use in .withIndex()
 
 
-## Auto Quality Check - 2026-02-24 16:08:54
+## Auto Quality Check - 2026-02-27 15:17:14
+### File: /Users/jkobrien/code/PDP/packages/backend/convex/models/playerIdentities.ts
+
+- ❌ **CRITICAL: Better Auth adapter violation**
+  - **Problem:** Direct DB access to auth tables
+  - **Fix:** Use `ctx.runQuery(components.betterAuth.adapter.findOne, {...})`
+
+
+## Auto Quality Check - 2026-02-27 15:17:14
+### File: /Users/jkobrien/code/PDP/packages/backend/convex/models/playerIdentities.ts
+
+- ⚠️ **Performance: .filter() usage detected**
+  - **Problem:** Should use .withIndex() for better performance
+  - **Fix:** Replace `.query().filter()` with `.query().withIndex()`
+
+
+## Auto Quality Check - 2026-02-27 15:17:14
+### File: /Users/jkobrien/code/PDP/packages/backend/convex/models/playerIdentities.ts
+
+- ❌ **CRITICAL: N+1 query pattern detected**
+  - **Problem:** `Promise.all(items.map(async => query))` makes N database calls
+  - **Fix:** Batch fetch all IDs first, create Map for O(1) lookup
+
+
+## Auto Quality Check - 2026-02-27 15:21:35
+### File: /Users/jkobrien/code/PDP/packages/backend/convex/models/playerMatching.ts
+
+- ⚠️ **Performance: .filter() usage detected**
+  - **Problem:** Should use .withIndex() for better performance
+  - **Fix:** Replace `.query().filter()` with `.query().withIndex()`
+
+
+## Auto Quality Check - 2026-02-27 15:21:42
+### File: /Users/jkobrien/code/PDP/packages/backend/convex/models/playerMatching.ts
+
+- ⚠️ **Performance: .filter() usage detected**
+  - **Problem:** Should use .withIndex() for better performance
+  - **Fix:** Replace `.query().filter()` with `.query().withIndex()`
+
+
+## Auto Quality Check - 2026-02-27 15:24:40
+### File: /Users/jkobrien/code/PDP/packages/backend/convex/models/orgPlayerEnrollments.ts
+
+- ❌ **CRITICAL: Better Auth adapter violation**
+  - **Problem:** Direct DB access to auth tables
+  - **Fix:** Use `ctx.runQuery(components.betterAuth.adapter.findOne, {...})`
+
+
+## Auto Quality Check - 2026-02-27 15:24:40
+### File: /Users/jkobrien/code/PDP/packages/backend/convex/models/orgPlayerEnrollments.ts
+
+- ⚠️ **Performance: .filter() usage detected**
+  - **Problem:** Should use .withIndex() for better performance
+  - **Fix:** Replace `.query().filter()` with `.query().withIndex()`
+
+
+## Auto Quality Check - 2026-02-27 15:24:48
+### File: /Users/jkobrien/code/PDP/packages/backend/convex/models/orgPlayerEnrollments.ts
+
+- ❌ **CRITICAL: Better Auth adapter violation**
+  - **Problem:** Direct DB access to auth tables
+  - **Fix:** Use `ctx.runQuery(components.betterAuth.adapter.findOne, {...})`
+
+
+## Auto Quality Check - 2026-02-27 15:24:48
+### File: /Users/jkobrien/code/PDP/packages/backend/convex/models/orgPlayerEnrollments.ts
+
+- ⚠️ **Performance: .filter() usage detected**
+  - **Problem:** Should use .withIndex() for better performance
+  - **Fix:** Replace `.query().filter()` with `.query().withIndex()`
+
+
+## Auto Quality Check - 2026-02-27 15:48:46
+### File: /Users/jkobrien/code/PDP/packages/backend/convex/models/orgPlayerEnrollments.ts
+
+- ❌ **CRITICAL: Better Auth adapter violation**
+  - **Problem:** Direct DB access to auth tables
+  - **Fix:** Use `ctx.runQuery(components.betterAuth.adapter.findOne, {...})`
+
+
+## Auto Quality Check - 2026-02-27 15:48:46
+### File: /Users/jkobrien/code/PDP/packages/backend/convex/models/orgPlayerEnrollments.ts
+
+- ⚠️ **Performance: .filter() usage detected**
+  - **Problem:** Should use .withIndex() for better performance
+  - **Fix:** Replace `.query().filter()` with `.query().withIndex()`
+
+
+## Auto Quality Check - 2026-02-27 15:48:53
+### File: /Users/jkobrien/code/PDP/packages/backend/convex/models/orgPlayerEnrollments.ts
+
+- ❌ **CRITICAL: Better Auth adapter violation**
+  - **Problem:** Direct DB access to auth tables
+  - **Fix:** Use `ctx.runQuery(components.betterAuth.adapter.findOne, {...})`
+
+
+## Auto Quality Check - 2026-02-27 15:48:53
+### File: /Users/jkobrien/code/PDP/packages/backend/convex/models/orgPlayerEnrollments.ts
+
+- ⚠️ **Performance: .filter() usage detected**
+  - **Problem:** Should use .withIndex() for better performance
+  - **Fix:** Replace `.query().filter()` with `.query().withIndex()`
+
+
+## Auto Quality Check - 2026-02-27 15:49:06
+### File: /Users/jkobrien/code/PDP/packages/backend/convex/models/orgPlayerEnrollments.ts
+
+- ❌ **CRITICAL: Better Auth adapter violation**
+  - **Problem:** Direct DB access to auth tables
+  - **Fix:** Use `ctx.runQuery(components.betterAuth.adapter.findOne, {...})`
+
+
+## Auto Quality Check - 2026-02-27 15:49:06
+### File: /Users/jkobrien/code/PDP/packages/backend/convex/models/orgPlayerEnrollments.ts
+
+- ⚠️ **Performance: .filter() usage detected**
+  - **Problem:** Should use .withIndex() for better performance
+  - **Fix:** Replace `.query().filter()` with `.query().withIndex()`
+
+
+## Auto Quality Check - 2026-02-27 15:53:23
+### File: /Users/jkobrien/code/PDP/packages/backend/convex/models/coachParentSummaries.ts
+
+- ❌ **CRITICAL: Better Auth adapter violation**
+  - **Problem:** Direct DB access to auth tables
+  - **Fix:** Use `ctx.runQuery(components.betterAuth.adapter.findOne, {...})`
+
+
+## Auto Quality Check - 2026-02-27 15:53:23
+### File: /Users/jkobrien/code/PDP/packages/backend/convex/models/coachParentSummaries.ts
+
+- ⚠️ **Performance: .filter() usage detected**
+  - **Problem:** Should use .withIndex() for better performance
+  - **Fix:** Replace `.query().filter()` with `.query().withIndex()`
+
+
+## Auto Quality Check - 2026-02-27 15:53:23
+### File: /Users/jkobrien/code/PDP/packages/backend/convex/models/coachParentSummaries.ts
+
+- ❌ **CRITICAL: N+1 query pattern detected**
+  - **Problem:** `Promise.all(items.map(async => query))` makes N database calls
+  - **Fix:** Batch fetch all IDs first, create Map for O(1) lookup
+
+
+## Auto Quality Check - 2026-02-27 15:53:37
+### File: /Users/jkobrien/code/PDP/packages/backend/convex/models/coachParentSummaries.ts
+
+- ❌ **CRITICAL: Better Auth adapter violation**
+  - **Problem:** Direct DB access to auth tables
+  - **Fix:** Use `ctx.runQuery(components.betterAuth.adapter.findOne, {...})`
+
+
+## Auto Quality Check - 2026-02-27 15:53:37
+### File: /Users/jkobrien/code/PDP/packages/backend/convex/models/coachParentSummaries.ts
+
+- ⚠️ **Performance: .filter() usage detected**
+  - **Problem:** Should use .withIndex() for better performance
+  - **Fix:** Replace `.query().filter()` with `.query().withIndex()`
+
+
+## Auto Quality Check - 2026-02-27 15:53:37
+### File: /Users/jkobrien/code/PDP/packages/backend/convex/models/coachParentSummaries.ts
+
+- ❌ **CRITICAL: N+1 query pattern detected**
+  - **Problem:** `Promise.all(items.map(async => query))` makes N database calls
+  - **Fix:** Batch fetch all IDs first, create Map for O(1) lookup
+
+
+## Auto Quality Check - 2026-02-27 15:53:49
+### File: /Users/jkobrien/code/PDP/packages/backend/convex/models/coachParentSummaries.ts
+
+- ❌ **CRITICAL: Better Auth adapter violation**
+  - **Problem:** Direct DB access to auth tables
+  - **Fix:** Use `ctx.runQuery(components.betterAuth.adapter.findOne, {...})`
+
+
+## Auto Quality Check - 2026-02-27 15:53:49
+### File: /Users/jkobrien/code/PDP/packages/backend/convex/models/coachParentSummaries.ts
+
+- ⚠️ **Performance: .filter() usage detected**
+  - **Problem:** Should use .withIndex() for better performance
+  - **Fix:** Replace `.query().filter()` with `.query().withIndex()`
+
+
+## Auto Quality Check - 2026-02-27 15:53:49
+### File: /Users/jkobrien/code/PDP/packages/backend/convex/models/coachParentSummaries.ts
+
+- ❌ **CRITICAL: N+1 query pattern detected**
+  - **Problem:** `Promise.all(items.map(async => query))` makes N database calls
+  - **Fix:** Batch fetch all IDs first, create Map for O(1) lookup
+
+
+## Auto Quality Check - 2026-02-27 15:54:30
+### File: /Users/jkobrien/code/PDP/packages/backend/convex/models/adultPlayers.ts
+
+- ⚠️ **Performance: .filter() usage detected**
+  - **Problem:** Should use .withIndex() for better performance
+  - **Fix:** Replace `.query().filter()` with `.query().withIndex()`
+
+
+## Auto Quality Check - 2026-02-27 15:54:31
+### File: /Users/jkobrien/code/PDP/packages/backend/convex/models/playerIdentities.ts
+
+- ❌ **CRITICAL: Better Auth adapter violation**
+  - **Problem:** Direct DB access to auth tables
+  - **Fix:** Use `ctx.runQuery(components.betterAuth.adapter.findOne, {...})`
+
+
+## Auto Quality Check - 2026-02-27 15:54:31
+### File: /Users/jkobrien/code/PDP/packages/backend/convex/models/playerIdentities.ts
+
+- ⚠️ **Performance: .filter() usage detected**
+  - **Problem:** Should use .withIndex() for better performance
+  - **Fix:** Replace `.query().filter()` with `.query().withIndex()`
+
+
+## Auto Quality Check - 2026-02-27 15:54:31
+### File: /Users/jkobrien/code/PDP/packages/backend/convex/models/playerIdentities.ts
+
+- ❌ **CRITICAL: N+1 query pattern detected**
+  - **Problem:** `Promise.all(items.map(async => query))` makes N database calls
+  - **Fix:** Batch fetch all IDs first, create Map for O(1) lookup
+
+
+## Auto Quality Check - 2026-02-27 15:54:31
+### File: /Users/jkobrien/code/PDP/packages/backend/convex/models/medicalProfiles.ts
+
+- ⚠️ **Performance: .filter() usage detected**
+  - **Problem:** Should use .withIndex() for better performance
+  - **Fix:** Replace `.query().filter()` with `.query().withIndex()`
+
+
+## Auto Quality Check - 2026-02-27 15:54:31
+### File: /Users/jkobrien/code/PDP/packages/backend/convex/models/medicalProfiles.ts
+
+- ❌ **CRITICAL: N+1 query pattern detected**
+  - **Problem:** `Promise.all(items.map(async => query))` makes N database calls
+  - **Fix:** Batch fetch all IDs first, create Map for O(1) lookup
+
+
+## Auto Quality Check - 2026-02-27 15:54:31
+### File: /Users/jkobrien/code/PDP/packages/backend/convex/models/guardianPlayerLinks.ts
+
+- ⚠️ **Performance: .filter() usage detected**
+  - **Problem:** Should use .withIndex() for better performance
+  - **Fix:** Replace `.query().filter()` with `.query().withIndex()`
+
+
+## Auto Quality Check - 2026-02-27 15:54:31
+### File: /Users/jkobrien/code/PDP/packages/backend/convex/models/orgGuardianProfiles.ts
+
+- ⚠️ **Performance: .filter() usage detected**
+  - **Problem:** Should use .withIndex() for better performance
+  - **Fix:** Replace `.query().filter()` with `.query().withIndex()`
+
+
+## Auto Quality Check - 2026-02-27 15:54:32
+### File: /Users/jkobrien/code/PDP/packages/backend/convex/models/playerImport.ts
+
+- ❌ **CRITICAL: Better Auth adapter violation**
+  - **Problem:** Direct DB access to auth tables
+  - **Fix:** Use `ctx.runQuery(components.betterAuth.adapter.findOne, {...})`
+
+
+## Auto Quality Check - 2026-02-27 15:54:32
+### File: /Users/jkobrien/code/PDP/packages/backend/convex/models/playerImport.ts
+
+- ⚠️ **Performance: .filter() usage detected**
+  - **Problem:** Should use .withIndex() for better performance
+  - **Fix:** Replace `.query().filter()` with `.query().withIndex()`
+
+
+## Auto Quality Check - 2026-02-27 15:54:32
+### File: /Users/jkobrien/code/PDP/packages/backend/convex/models/playerImport.ts
+
+- ❌ **CRITICAL: N+1 query pattern detected**
+  - **Problem:** `Promise.all(items.map(async => query))` makes N database calls
+  - **Fix:** Batch fetch all IDs first, create Map for O(1) lookup
+
+
+## Auto Quality Check - 2026-02-27 15:54:33
+### File: /Users/jkobrien/code/PDP/packages/backend/convex/models/orgPlayerEnrollments.ts
+
+- ❌ **CRITICAL: Better Auth adapter violation**
+  - **Problem:** Direct DB access to auth tables
+  - **Fix:** Use `ctx.runQuery(components.betterAuth.adapter.findOne, {...})`
+
+
+## Auto Quality Check - 2026-02-27 15:54:33
+### File: /Users/jkobrien/code/PDP/packages/backend/convex/models/orgPlayerEnrollments.ts
+
+- ⚠️ **Performance: .filter() usage detected**
+  - **Problem:** Should use .withIndex() for better performance
+  - **Fix:** Replace `.query().filter()` with `.query().withIndex()`
+
+
+## Auto Quality Check - 2026-02-27 15:55:42
+### File: /Users/jkobrien/code/PDP/packages/backend/convex/models/adultPlayers.ts
+
+- ⚠️ **Performance: .filter() usage detected**
+  - **Problem:** Should use .withIndex() for better performance
+  - **Fix:** Replace `.query().filter()` with `.query().withIndex()`
+
+
+## Auto Quality Check - 2026-02-27 15:55:42
+### File: /Users/jkobrien/code/PDP/packages/backend/convex/models/guardianPlayerLinks.ts
+
+- ⚠️ **Performance: .filter() usage detected**
+  - **Problem:** Should use .withIndex() for better performance
+  - **Fix:** Replace `.query().filter()` with `.query().withIndex()`
+
+
+## Auto Quality Check - 2026-02-27 15:55:42
+### File: /Users/jkobrien/code/PDP/packages/backend/convex/models/orgPlayerEnrollments.ts
+
+- ❌ **CRITICAL: Better Auth adapter violation**
+  - **Problem:** Direct DB access to auth tables
+  - **Fix:** Use `ctx.runQuery(components.betterAuth.adapter.findOne, {...})`
+
+
+## Auto Quality Check - 2026-02-27 15:55:42
+### File: /Users/jkobrien/code/PDP/packages/backend/convex/models/orgPlayerEnrollments.ts
+
+- ⚠️ **Performance: .filter() usage detected**
+  - **Problem:** Should use .withIndex() for better performance
+  - **Fix:** Replace `.query().filter()` with `.query().withIndex()`
+
+
+## Auto Quality Check - 2026-02-27 15:56:45
+### File: /Users/jkobrien/code/PDP/packages/backend/convex/models/medicalProfiles.ts
+
+- ⚠️ **Performance: .filter() usage detected**
+  - **Problem:** Should use .withIndex() for better performance
+  - **Fix:** Replace `.query().filter()` with `.query().withIndex()`
+
+
+## Auto Quality Check - 2026-02-27 15:56:45
+### File: /Users/jkobrien/code/PDP/packages/backend/convex/models/medicalProfiles.ts
+
+- ❌ **CRITICAL: N+1 query pattern detected**
+  - **Problem:** `Promise.all(items.map(async => query))` makes N database calls
+  - **Fix:** Batch fetch all IDs first, create Map for O(1) lookup
+
+
+## Auto Quality Check - 2026-02-27 15:57:01
+### File: /Users/jkobrien/code/PDP/packages/backend/convex/models/playerImport.ts
+
+- ❌ **CRITICAL: Better Auth adapter violation**
+  - **Problem:** Direct DB access to auth tables
+  - **Fix:** Use `ctx.runQuery(components.betterAuth.adapter.findOne, {...})`
+
+
+## Auto Quality Check - 2026-02-27 15:57:01
+### File: /Users/jkobrien/code/PDP/packages/backend/convex/models/playerImport.ts
+
+- ⚠️ **Performance: .filter() usage detected**
+  - **Problem:** Should use .withIndex() for better performance
+  - **Fix:** Replace `.query().filter()` with `.query().withIndex()`
+
+
+## Auto Quality Check - 2026-02-27 15:57:02
+### File: /Users/jkobrien/code/PDP/packages/backend/convex/models/playerImport.ts
+
+- ❌ **CRITICAL: N+1 query pattern detected**
+  - **Problem:** `Promise.all(items.map(async => query))` makes N database calls
+  - **Fix:** Batch fetch all IDs first, create Map for O(1) lookup
+
+
+## Auto Quality Check - 2026-02-27 15:57:19
+### File: /Users/jkobrien/code/PDP/packages/backend/convex/models/members.ts
+
+- ❌ **CRITICAL: Better Auth adapter violation**
+  - **Problem:** Direct DB access to auth tables
+  - **Fix:** Use `ctx.runQuery(components.betterAuth.adapter.findOne, {...})`
+
+
+## Auto Quality Check - 2026-02-27 15:57:19
+### File: /Users/jkobrien/code/PDP/packages/backend/convex/models/members.ts
+
+- ⚠️ **Performance: .filter() usage detected**
+  - **Problem:** Should use .withIndex() for better performance
+  - **Fix:** Replace `.query().filter()` with `.query().withIndex()`
+
+
+## Auto Quality Check - 2026-02-27 15:57:19
+### File: /Users/jkobrien/code/PDP/packages/backend/convex/models/members.ts
+
+- ❌ **CRITICAL: N+1 query pattern detected**
+  - **Problem:** `Promise.all(items.map(async => query))` makes N database calls
+  - **Fix:** Batch fetch all IDs first, create Map for O(1) lookup
+
+
+## Auto Quality Check - 2026-02-27 15:57:20
+### File: /Users/jkobrien/code/PDP/packages/backend/convex/models/members.ts
+
+- ❌ **CRITICAL: Better Auth adapter violation**
+  - **Problem:** Direct DB access to auth tables
+  - **Fix:** Use `ctx.runQuery(components.betterAuth.adapter.findOne, {...})`
+
+
+## Auto Quality Check - 2026-02-27 15:57:20
+### File: /Users/jkobrien/code/PDP/packages/backend/convex/models/members.ts
+
+- ⚠️ **Performance: .filter() usage detected**
+  - **Problem:** Should use .withIndex() for better performance
+  - **Fix:** Replace `.query().filter()` with `.query().withIndex()`
+
+
+## Auto Quality Check - 2026-02-27 15:57:20
+### File: /Users/jkobrien/code/PDP/packages/backend/convex/models/members.ts
+
+- ❌ **CRITICAL: N+1 query pattern detected**
+  - **Problem:** `Promise.all(items.map(async => query))` makes N database calls
+  - **Fix:** Batch fetch all IDs first, create Map for O(1) lookup
+
+
+## Auto Quality Check - 2026-02-27 15:58:17
 ### File: /Users/jkobrien/code/PDP/packages/backend/convex/models/playerGraduations.ts
 
 - ❌ **CRITICAL: Better Auth adapter violation**
@@ -3358,7 +15202,7 @@ packages/backend/convex/actions/aiMapping.ts:        "ANTHROPIC_API_KEY not conf
   - **Fix:** Use `ctx.runQuery(components.betterAuth.adapter.findOne, {...})`
 
 
-## Auto Quality Check - 2026-02-24 16:08:54
+## Auto Quality Check - 2026-02-27 15:58:17
 ### File: /Users/jkobrien/code/PDP/packages/backend/convex/models/playerGraduations.ts
 
 - ⚠️ **Performance: .filter() usage detected**
@@ -3366,18 +15210,1290 @@ packages/backend/convex/actions/aiMapping.ts:        "ANTHROPIC_API_KEY not conf
   - **Fix:** Replace `.query().filter()` with `.query().withIndex()`
 
 
-## Auto Quality Check - 2026-02-25 11:19:48
-### File: /Users/jkobrien/code/PDP/packages/backend/convex/models/coachParentSummaries.ts
+## Auto Quality Check - 2026-02-27 15:58:17
+### File: /Users/jkobrien/code/PDP/packages/backend/convex/models/guardianIdentities.ts
+
+- ❌ **CRITICAL: Better Auth adapter violation**
+  - **Problem:** Direct DB access to auth tables
+  - **Fix:** Use `ctx.runQuery(components.betterAuth.adapter.findOne, {...})`
+
+
+## Auto Quality Check - 2026-02-27 15:58:17
+### File: /Users/jkobrien/code/PDP/packages/backend/convex/models/guardianIdentities.ts
 
 - ⚠️ **Performance: .filter() usage detected**
   - **Problem:** Should use .withIndex() for better performance
   - **Fix:** Replace `.query().filter()` with `.query().withIndex()`
 
 
-## Auto Quality Check - 2026-02-25 11:19:48
-### File: /Users/jkobrien/code/PDP/packages/backend/convex/models/coachParentSummaries.ts
+## Auto Quality Check - 2026-02-27 15:58:18
+### File: /Users/jkobrien/code/PDP/packages/backend/convex/models/importSessions.ts
+
+- ⚠️ **Performance: .filter() usage detected**
+  - **Problem:** Should use .withIndex() for better performance
+  - **Fix:** Replace `.query().filter()` with `.query().withIndex()`
+
+
+## Auto Quality Check - 2026-02-27 15:59:10
+### File: /Users/jkobrien/code/PDP/packages/backend/convex/models/playerGraduations.ts
+
+- ❌ **CRITICAL: Better Auth adapter violation**
+  - **Problem:** Direct DB access to auth tables
+  - **Fix:** Use `ctx.runQuery(components.betterAuth.adapter.findOne, {...})`
+
+
+## Auto Quality Check - 2026-02-27 15:59:10
+### File: /Users/jkobrien/code/PDP/packages/backend/convex/models/playerGraduations.ts
+
+- ⚠️ **Performance: .filter() usage detected**
+  - **Problem:** Should use .withIndex() for better performance
+  - **Fix:** Replace `.query().filter()` with `.query().withIndex()`
+
+
+## Auto Quality Check - 2026-02-27 15:59:10
+### File: /Users/jkobrien/code/PDP/packages/backend/convex/models/guardianIdentities.ts
+
+- ❌ **CRITICAL: Better Auth adapter violation**
+  - **Problem:** Direct DB access to auth tables
+  - **Fix:** Use `ctx.runQuery(components.betterAuth.adapter.findOne, {...})`
+
+
+## Auto Quality Check - 2026-02-27 15:59:10
+### File: /Users/jkobrien/code/PDP/packages/backend/convex/models/guardianIdentities.ts
+
+- ⚠️ **Performance: .filter() usage detected**
+  - **Problem:** Should use .withIndex() for better performance
+  - **Fix:** Replace `.query().filter()` with `.query().withIndex()`
+
+
+## Auto Quality Check - 2026-02-27 15:59:20
+### File: /Users/jkobrien/code/PDP/packages/backend/convex/models/playerIdentities.ts
+
+- ❌ **CRITICAL: Better Auth adapter violation**
+  - **Problem:** Direct DB access to auth tables
+  - **Fix:** Use `ctx.runQuery(components.betterAuth.adapter.findOne, {...})`
+
+
+## Auto Quality Check - 2026-02-27 15:59:20
+### File: /Users/jkobrien/code/PDP/packages/backend/convex/models/playerIdentities.ts
+
+- ⚠️ **Performance: .filter() usage detected**
+  - **Problem:** Should use .withIndex() for better performance
+  - **Fix:** Replace `.query().filter()` with `.query().withIndex()`
+
+
+## Auto Quality Check - 2026-02-27 15:59:20
+### File: /Users/jkobrien/code/PDP/packages/backend/convex/models/playerIdentities.ts
 
 - ❌ **CRITICAL: N+1 query pattern detected**
   - **Problem:** `Promise.all(items.map(async => query))` makes N database calls
   - **Fix:** Batch fetch all IDs first, create Map for O(1) lookup
+
+
+## Auto Quality Check - 2026-02-27 15:59:44
+### File: /Users/jkobrien/code/PDP/packages/backend/convex/models/adultPlayers.ts
+
+- ⚠️ **Performance: .filter() usage detected**
+  - **Problem:** Should use .withIndex() for better performance
+  - **Fix:** Replace `.query().filter()` with `.query().withIndex()`
+
+
+## Auto Quality Check - 2026-02-27 15:59:45
+### File: /Users/jkobrien/code/PDP/packages/backend/convex/models/guardianPlayerLinks.ts
+
+- ⚠️ **Performance: .filter() usage detected**
+  - **Problem:** Should use .withIndex() for better performance
+  - **Fix:** Replace `.query().filter()` with `.query().withIndex()`
+
+
+## Auto Quality Check - 2026-02-27 15:59:46
+### File: /Users/jkobrien/code/PDP/packages/backend/convex/models/orgPlayerEnrollments.ts
+
+- ❌ **CRITICAL: Better Auth adapter violation**
+  - **Problem:** Direct DB access to auth tables
+  - **Fix:** Use `ctx.runQuery(components.betterAuth.adapter.findOne, {...})`
+
+
+## Auto Quality Check - 2026-02-27 15:59:46
+### File: /Users/jkobrien/code/PDP/packages/backend/convex/models/orgPlayerEnrollments.ts
+
+- ⚠️ **Performance: .filter() usage detected**
+  - **Problem:** Should use .withIndex() for better performance
+  - **Fix:** Replace `.query().filter()` with `.query().withIndex()`
+
+
+## Auto Quality Check - 2026-02-27 16:00:10
+### File: /Users/jkobrien/code/PDP/packages/backend/convex/models/playerGraduations.ts
+
+- ❌ **CRITICAL: Better Auth adapter violation**
+  - **Problem:** Direct DB access to auth tables
+  - **Fix:** Use `ctx.runQuery(components.betterAuth.adapter.findOne, {...})`
+
+
+## Auto Quality Check - 2026-02-27 16:00:10
+### File: /Users/jkobrien/code/PDP/packages/backend/convex/models/playerGraduations.ts
+
+- ⚠️ **Performance: .filter() usage detected**
+  - **Problem:** Should use .withIndex() for better performance
+  - **Fix:** Replace `.query().filter()` with `.query().withIndex()`
+
+
+## Auto Quality Check - 2026-02-27 16:00:11
+### File: /Users/jkobrien/code/PDP/packages/backend/convex/models/guardianIdentities.ts
+
+- ❌ **CRITICAL: Better Auth adapter violation**
+  - **Problem:** Direct DB access to auth tables
+  - **Fix:** Use `ctx.runQuery(components.betterAuth.adapter.findOne, {...})`
+
+
+## Auto Quality Check - 2026-02-27 16:00:11
+### File: /Users/jkobrien/code/PDP/packages/backend/convex/models/guardianIdentities.ts
+
+- ⚠️ **Performance: .filter() usage detected**
+  - **Problem:** Should use .withIndex() for better performance
+  - **Fix:** Replace `.query().filter()` with `.query().withIndex()`
+
+
+## Auto Quality Check - 2026-02-27 16:01:23
+### File: /Users/jkobrien/code/PDP/packages/backend/convex/models/playerIdentities.ts
+
+- ❌ **CRITICAL: Better Auth adapter violation**
+  - **Problem:** Direct DB access to auth tables
+  - **Fix:** Use `ctx.runQuery(components.betterAuth.adapter.findOne, {...})`
+
+
+## Auto Quality Check - 2026-02-27 16:01:23
+### File: /Users/jkobrien/code/PDP/packages/backend/convex/models/playerIdentities.ts
+
+- ⚠️ **Performance: .filter() usage detected**
+  - **Problem:** Should use .withIndex() for better performance
+  - **Fix:** Replace `.query().filter()` with `.query().withIndex()`
+
+
+## Auto Quality Check - 2026-02-27 16:01:23
+### File: /Users/jkobrien/code/PDP/packages/backend/convex/models/playerIdentities.ts
+
+- ❌ **CRITICAL: N+1 query pattern detected**
+  - **Problem:** `Promise.all(items.map(async => query))` makes N database calls
+  - **Fix:** Batch fetch all IDs first, create Map for O(1) lookup
+
+
+## Auto Quality Check - 2026-02-27 16:01:33
+### File: /Users/jkobrien/code/PDP/packages/backend/convex/models/adultPlayers.ts
+
+- ⚠️ **Performance: .filter() usage detected**
+  - **Problem:** Should use .withIndex() for better performance
+  - **Fix:** Replace `.query().filter()` with `.query().withIndex()`
+
+
+## Auto Quality Check - 2026-02-27 16:01:42
+### File: /Users/jkobrien/code/PDP/packages/backend/convex/models/guardianPlayerLinks.ts
+
+- ⚠️ **Performance: .filter() usage detected**
+  - **Problem:** Should use .withIndex() for better performance
+  - **Fix:** Replace `.query().filter()` with `.query().withIndex()`
+
+
+## Auto Quality Check - 2026-02-27 16:01:50
+### File: /Users/jkobrien/code/PDP/packages/backend/convex/models/orgPlayerEnrollments.ts
+
+- ❌ **CRITICAL: Better Auth adapter violation**
+  - **Problem:** Direct DB access to auth tables
+  - **Fix:** Use `ctx.runQuery(components.betterAuth.adapter.findOne, {...})`
+
+
+## Auto Quality Check - 2026-02-27 16:01:50
+### File: /Users/jkobrien/code/PDP/packages/backend/convex/models/orgPlayerEnrollments.ts
+
+- ⚠️ **Performance: .filter() usage detected**
+  - **Problem:** Should use .withIndex() for better performance
+  - **Fix:** Replace `.query().filter()` with `.query().withIndex()`
+
+
+## Auto Quality Check - 2026-02-27 16:01:58
+### File: /Users/jkobrien/code/PDP/packages/backend/convex/models/orgPlayerEnrollments.ts
+
+- ❌ **CRITICAL: Better Auth adapter violation**
+  - **Problem:** Direct DB access to auth tables
+  - **Fix:** Use `ctx.runQuery(components.betterAuth.adapter.findOne, {...})`
+
+
+## Auto Quality Check - 2026-02-27 16:01:58
+### File: /Users/jkobrien/code/PDP/packages/backend/convex/models/orgPlayerEnrollments.ts
+
+- ⚠️ **Performance: .filter() usage detected**
+  - **Problem:** Should use .withIndex() for better performance
+  - **Fix:** Replace `.query().filter()` with `.query().withIndex()`
+
+
+## Auto Quality Check - 2026-02-27 16:05:55
+### File: /Users/jkobrien/code/PDP/packages/backend/convex/models/playerMatching.ts
+
+- ⚠️ **Performance: .filter() usage detected**
+  - **Problem:** Should use .withIndex() for better performance
+  - **Fix:** Replace `.query().filter()` with `.query().withIndex()`
+
+
+## Auto Quality Check - 2026-02-27 16:06:10
+### File: /Users/jkobrien/code/PDP/packages/backend/convex/models/playerMatching.ts
+
+- ⚠️ **Performance: .filter() usage detected**
+  - **Problem:** Should use .withIndex() for better performance
+  - **Fix:** Replace `.query().filter()` with `.query().withIndex()`
+
+
+## Auto Quality Check - 2026-02-27 16:07:34
+### File: /Users/jkobrien/code/PDP/packages/backend/convex/models/playerMatching.ts
+
+- ⚠️ **Performance: .filter() usage detected**
+  - **Problem:** Should use .withIndex() for better performance
+  - **Fix:** Replace `.query().filter()` with `.query().withIndex()`
+
+
+## Auto Quality Check - 2026-02-27 16:08:13
+### File: /Users/jkobrien/code/PDP/packages/backend/convex/models/playerMatching.ts
+
+- ⚠️ **Performance: .filter() usage detected**
+  - **Problem:** Should use .withIndex() for better performance
+  - **Fix:** Replace `.query().filter()` with `.query().withIndex()`
+
+
+## Auto Quality Check - 2026-02-27 16:08:28
+### File: /Users/jkobrien/code/PDP/packages/backend/convex/models/playerIdentities.ts
+
+- ❌ **CRITICAL: Better Auth adapter violation**
+  - **Problem:** Direct DB access to auth tables
+  - **Fix:** Use `ctx.runQuery(components.betterAuth.adapter.findOne, {...})`
+
+
+## Auto Quality Check - 2026-02-27 16:08:28
+### File: /Users/jkobrien/code/PDP/packages/backend/convex/models/playerIdentities.ts
+
+- ⚠️ **Performance: .filter() usage detected**
+  - **Problem:** Should use .withIndex() for better performance
+  - **Fix:** Replace `.query().filter()` with `.query().withIndex()`
+
+
+## Auto Quality Check - 2026-02-27 16:08:28
+### File: /Users/jkobrien/code/PDP/packages/backend/convex/models/playerIdentities.ts
+
+- ❌ **CRITICAL: N+1 query pattern detected**
+  - **Problem:** `Promise.all(items.map(async => query))` makes N database calls
+  - **Fix:** Batch fetch all IDs first, create Map for O(1) lookup
+
+
+## Auto Quality Check - 2026-02-27 16:08:35
+### File: /Users/jkobrien/code/PDP/packages/backend/convex/models/playerIdentities.ts
+
+- ❌ **CRITICAL: Better Auth adapter violation**
+  - **Problem:** Direct DB access to auth tables
+  - **Fix:** Use `ctx.runQuery(components.betterAuth.adapter.findOne, {...})`
+
+
+## Auto Quality Check - 2026-02-27 16:08:35
+### File: /Users/jkobrien/code/PDP/packages/backend/convex/models/playerIdentities.ts
+
+- ⚠️ **Performance: .filter() usage detected**
+  - **Problem:** Should use .withIndex() for better performance
+  - **Fix:** Replace `.query().filter()` with `.query().withIndex()`
+
+
+## Auto Quality Check - 2026-02-27 16:08:35
+### File: /Users/jkobrien/code/PDP/packages/backend/convex/models/playerIdentities.ts
+
+- ❌ **CRITICAL: N+1 query pattern detected**
+  - **Problem:** `Promise.all(items.map(async => query))` makes N database calls
+  - **Fix:** Batch fetch all IDs first, create Map for O(1) lookup
+
+
+## Auto Quality Check - 2026-02-27 16:12:26
+### File: /Users/jkobrien/code/PDP/packages/backend/convex/models/playerIdentities.ts
+
+- ❌ **CRITICAL: Better Auth adapter violation**
+  - **Problem:** Direct DB access to auth tables
+  - **Fix:** Use `ctx.runQuery(components.betterAuth.adapter.findOne, {...})`
+
+
+## Auto Quality Check - 2026-02-27 16:12:26
+### File: /Users/jkobrien/code/PDP/packages/backend/convex/models/playerIdentities.ts
+
+- ⚠️ **Performance: .filter() usage detected**
+  - **Problem:** Should use .withIndex() for better performance
+  - **Fix:** Replace `.query().filter()` with `.query().withIndex()`
+
+
+## Auto Quality Check - 2026-02-27 16:12:26
+### File: /Users/jkobrien/code/PDP/packages/backend/convex/models/playerIdentities.ts
+
+- ❌ **CRITICAL: N+1 query pattern detected**
+  - **Problem:** `Promise.all(items.map(async => query))` makes N database calls
+  - **Fix:** Batch fetch all IDs first, create Map for O(1) lookup
+
+
+## Auto Quality Check - 2026-02-27 16:12:46
+### File: /Users/jkobrien/code/PDP/packages/backend/convex/models/playerIdentities.ts
+
+- ❌ **CRITICAL: Better Auth adapter violation**
+  - **Problem:** Direct DB access to auth tables
+  - **Fix:** Use `ctx.runQuery(components.betterAuth.adapter.findOne, {...})`
+
+
+## Auto Quality Check - 2026-02-27 16:12:46
+### File: /Users/jkobrien/code/PDP/packages/backend/convex/models/playerIdentities.ts
+
+- ⚠️ **Performance: .filter() usage detected**
+  - **Problem:** Should use .withIndex() for better performance
+  - **Fix:** Replace `.query().filter()` with `.query().withIndex()`
+
+
+## Auto Quality Check - 2026-02-27 16:12:46
+### File: /Users/jkobrien/code/PDP/packages/backend/convex/models/playerIdentities.ts
+
+- ❌ **CRITICAL: N+1 query pattern detected**
+  - **Problem:** `Promise.all(items.map(async => query))` makes N database calls
+  - **Fix:** Batch fetch all IDs first, create Map for O(1) lookup
+
+
+## Auto Quality Check - 2026-02-27 16:20:22
+### File: /Users/jkobrien/code/PDP/packages/backend/convex/models/playerMatching.ts
+
+- ⚠️ **Performance: .filter() usage detected**
+  - **Problem:** Should use .withIndex() for better performance
+  - **Fix:** Replace `.query().filter()` with `.query().withIndex()`
+
+
+## Auto Quality Check - 2026-02-27 17:04:47
+### File: /Users/jkobrien/code/PDP/packages/backend/convex/models/orgJoinRequests.ts
+
+- ⚠️ **Performance: .filter() usage detected**
+  - **Problem:** Should use .withIndex() for better performance
+  - **Fix:** Replace `.query().filter()` with `.query().withIndex()`
+
+
+## Auto Quality Check - 2026-02-27 17:04:54
+### File: /Users/jkobrien/code/PDP/packages/backend/convex/models/orgJoinRequests.ts
+
+- ⚠️ **Performance: .filter() usage detected**
+  - **Problem:** Should use .withIndex() for better performance
+  - **Fix:** Replace `.query().filter()` with `.query().withIndex()`
+
+
+## Auto Quality Check - 2026-02-27 17:05:10
+### File: /Users/jkobrien/code/PDP/packages/backend/convex/models/adultPlayers.ts
+
+- ⚠️ **Performance: .filter() usage detected**
+  - **Problem:** Should use .withIndex() for better performance
+  - **Fix:** Replace `.query().filter()` with `.query().withIndex()`
+
+
+## Auto Quality Check - 2026-02-27 17:07:20
+### File: /Users/jkobrien/code/PDP/packages/backend/convex/models/orgJoinRequests.ts
+
+- ⚠️ **Performance: .filter() usage detected**
+  - **Problem:** Should use .withIndex() for better performance
+  - **Fix:** Replace `.query().filter()` with `.query().withIndex()`
+
+
+## Auto Quality Check - 2026-02-27 17:08:16
+### File: /Users/jkobrien/code/PDP/packages/backend/convex/models/adultPlayers.ts
+
+- ⚠️ **Performance: .filter() usage detected**
+  - **Problem:** Should use .withIndex() for better performance
+  - **Fix:** Replace `.query().filter()` with `.query().withIndex()`
+
+
+## Auto Quality Check - 2026-02-27 17:08:48
+### File: /Users/jkobrien/code/PDP/packages/backend/convex/models/orgJoinRequests.ts
+
+- ⚠️ **Performance: .filter() usage detected**
+  - **Problem:** Should use .withIndex() for better performance
+  - **Fix:** Replace `.query().filter()` with `.query().withIndex()`
+
+
+## Auto Quality Check - 2026-02-27 17:08:57
+### File: /Users/jkobrien/code/PDP/packages/backend/convex/models/orgJoinRequests.ts
+
+- ⚠️ **Performance: .filter() usage detected**
+  - **Problem:** Should use .withIndex() for better performance
+  - **Fix:** Replace `.query().filter()` with `.query().withIndex()`
+
+
+## Auto Quality Check - 2026-02-27 17:09:10
+### File: /Users/jkobrien/code/PDP/packages/backend/convex/models/orgJoinRequests.ts
+
+- ⚠️ **Performance: .filter() usage detected**
+  - **Problem:** Should use .withIndex() for better performance
+  - **Fix:** Replace `.query().filter()` with `.query().withIndex()`
+
+
+## Auto Quality Check - 2026-02-27 17:09:18
+### File: /Users/jkobrien/code/PDP/packages/backend/convex/models/orgJoinRequests.ts
+
+- ⚠️ **Performance: .filter() usage detected**
+  - **Problem:** Should use .withIndex() for better performance
+  - **Fix:** Replace `.query().filter()` with `.query().withIndex()`
+
+
+## Auto Quality Check - 2026-02-27 17:09:39
+### File: /Users/jkobrien/code/PDP/packages/backend/convex/models/orgJoinRequests.ts
+
+- ⚠️ **Performance: .filter() usage detected**
+  - **Problem:** Should use .withIndex() for better performance
+  - **Fix:** Replace `.query().filter()` with `.query().withIndex()`
+
+
+## Auto Quality Check - 2026-02-27 17:09:47
+### File: /Users/jkobrien/code/PDP/packages/backend/convex/models/orgJoinRequests.ts
+
+- ⚠️ **Performance: .filter() usage detected**
+  - **Problem:** Should use .withIndex() for better performance
+  - **Fix:** Replace `.query().filter()` with `.query().withIndex()`
+
+
+## Auto Quality Check - 2026-02-27 17:14:11
+### File: /Users/jkobrien/code/PDP/packages/backend/convex/models/adultPlayers.ts
+
+- ⚠️ **Performance: .filter() usage detected**
+  - **Problem:** Should use .withIndex() for better performance
+  - **Fix:** Replace `.query().filter()` with `.query().withIndex()`
+
+
+## Auto Quality Check - 2026-02-27 17:22:15
+### File: /Users/jkobrien/code/PDP/packages/backend/convex/models/orgJoinRequests.ts
+
+- ⚠️ **Performance: .filter() usage detected**
+  - **Problem:** Should use .withIndex() for better performance
+  - **Fix:** Replace `.query().filter()` with `.query().withIndex()`
+
+
+## Auto Quality Check - 2026-02-27 17:27:23
+### File: /Users/jkobrien/code/PDP/packages/backend/convex/models/orgJoinRequests.ts
+
+- ⚠️ **Performance: .filter() usage detected**
+  - **Problem:** Should use .withIndex() for better performance
+  - **Fix:** Replace `.query().filter()` with `.query().withIndex()`
+
+
+## Auto Quality Check - 2026-02-27 17:27:37
+### File: /Users/jkobrien/code/PDP/packages/backend/convex/models/orgJoinRequests.ts
+
+- ⚠️ **Performance: .filter() usage detected**
+  - **Problem:** Should use .withIndex() for better performance
+  - **Fix:** Replace `.query().filter()` with `.query().withIndex()`
+
+
+## Auto Quality Check - 2026-02-27 17:27:45
+### File: /Users/jkobrien/code/PDP/packages/backend/convex/models/orgJoinRequests.ts
+
+- ⚠️ **Performance: .filter() usage detected**
+  - **Problem:** Should use .withIndex() for better performance
+  - **Fix:** Replace `.query().filter()` with `.query().withIndex()`
+
+
+## Auto Quality Check - 2026-02-27 17:27:53
+### File: /Users/jkobrien/code/PDP/packages/backend/convex/models/orgJoinRequests.ts
+
+- ⚠️ **Performance: .filter() usage detected**
+  - **Problem:** Should use .withIndex() for better performance
+  - **Fix:** Replace `.query().filter()` with `.query().withIndex()`
+
+
+## Auto Quality Check - 2026-02-27 17:28:00
+### File: /Users/jkobrien/code/PDP/packages/backend/convex/models/orgJoinRequests.ts
+
+- ⚠️ **Performance: .filter() usage detected**
+  - **Problem:** Should use .withIndex() for better performance
+  - **Fix:** Replace `.query().filter()` with `.query().withIndex()`
+
+
+## Auto Quality Check - 2026-02-27 17:28:10
+### File: /Users/jkobrien/code/PDP/packages/backend/convex/models/orgJoinRequests.ts
+
+- ⚠️ **Performance: .filter() usage detected**
+  - **Problem:** Should use .withIndex() for better performance
+  - **Fix:** Replace `.query().filter()` with `.query().withIndex()`
+
+
+## Auto Quality Check - 2026-02-27 17:28:25
+### File: /Users/jkobrien/code/PDP/packages/backend/convex/models/orgJoinRequests.ts
+
+- ⚠️ **Performance: .filter() usage detected**
+  - **Problem:** Should use .withIndex() for better performance
+  - **Fix:** Replace `.query().filter()` with `.query().withIndex()`
+
+
+## Auto Quality Check - 2026-02-27 17:28:36
+### File: /Users/jkobrien/code/PDP/packages/backend/convex/models/orgJoinRequests.ts
+
+- ⚠️ **Performance: .filter() usage detected**
+  - **Problem:** Should use .withIndex() for better performance
+  - **Fix:** Replace `.query().filter()` with `.query().withIndex()`
+
+
+## Auto Quality Check - 2026-02-27 18:03:57
+### File: /Users/jkobrien/code/PDP/packages/backend/convex/models/members.ts
+
+- ❌ **CRITICAL: Better Auth adapter violation**
+  - **Problem:** Direct DB access to auth tables
+  - **Fix:** Use `ctx.runQuery(components.betterAuth.adapter.findOne, {...})`
+
+
+## Auto Quality Check - 2026-02-27 18:03:57
+### File: /Users/jkobrien/code/PDP/packages/backend/convex/models/members.ts
+
+- ⚠️ **Performance: .filter() usage detected**
+  - **Problem:** Should use .withIndex() for better performance
+  - **Fix:** Replace `.query().filter()` with `.query().withIndex()`
+
+
+## Auto Quality Check - 2026-02-27 18:03:57
+### File: /Users/jkobrien/code/PDP/packages/backend/convex/models/members.ts
+
+- ❌ **CRITICAL: N+1 query pattern detected**
+  - **Problem:** `Promise.all(items.map(async => query))` makes N database calls
+  - **Fix:** Batch fetch all IDs first, create Map for O(1) lookup
+
+
+## Auto Quality Check - 2026-02-27 18:04:03
+### File: /Users/jkobrien/code/PDP/packages/backend/convex/models/members.ts
+
+- ❌ **CRITICAL: Better Auth adapter violation**
+  - **Problem:** Direct DB access to auth tables
+  - **Fix:** Use `ctx.runQuery(components.betterAuth.adapter.findOne, {...})`
+
+
+## Auto Quality Check - 2026-02-27 18:04:03
+### File: /Users/jkobrien/code/PDP/packages/backend/convex/models/members.ts
+
+- ⚠️ **Performance: .filter() usage detected**
+  - **Problem:** Should use .withIndex() for better performance
+  - **Fix:** Replace `.query().filter()` with `.query().withIndex()`
+
+
+## Auto Quality Check - 2026-02-27 18:04:03
+### File: /Users/jkobrien/code/PDP/packages/backend/convex/models/members.ts
+
+- ❌ **CRITICAL: N+1 query pattern detected**
+  - **Problem:** `Promise.all(items.map(async => query))` makes N database calls
+  - **Fix:** Batch fetch all IDs first, create Map for O(1) lookup
+
+
+## Auto Quality Check - 2026-02-27 18:04:29
+### File: /Users/jkobrien/code/PDP/packages/backend/convex/models/adultPlayers.ts
+
+- ⚠️ **Performance: .filter() usage detected**
+  - **Problem:** Should use .withIndex() for better performance
+  - **Fix:** Replace `.query().filter()` with `.query().withIndex()`
+
+
+## Auto Quality Check - 2026-02-27 18:05:55
+### File: /Users/jkobrien/code/PDP/packages/backend/convex/models/orgJoinRequests.ts
+
+- ⚠️ **Performance: .filter() usage detected**
+  - **Problem:** Should use .withIndex() for better performance
+  - **Fix:** Replace `.query().filter()` with `.query().withIndex()`
+
+
+## Auto Quality Check - 2026-02-27 18:07:33
+### File: /Users/jkobrien/code/PDP/packages/backend/convex/models/members.ts
+
+- ❌ **CRITICAL: Better Auth adapter violation**
+  - **Problem:** Direct DB access to auth tables
+  - **Fix:** Use `ctx.runQuery(components.betterAuth.adapter.findOne, {...})`
+
+
+## Auto Quality Check - 2026-02-27 18:07:33
+### File: /Users/jkobrien/code/PDP/packages/backend/convex/models/members.ts
+
+- ⚠️ **Performance: .filter() usage detected**
+  - **Problem:** Should use .withIndex() for better performance
+  - **Fix:** Replace `.query().filter()` with `.query().withIndex()`
+
+
+## Auto Quality Check - 2026-02-27 18:07:33
+### File: /Users/jkobrien/code/PDP/packages/backend/convex/models/members.ts
+
+- ❌ **CRITICAL: N+1 query pattern detected**
+  - **Problem:** `Promise.all(items.map(async => query))` makes N database calls
+  - **Fix:** Batch fetch all IDs first, create Map for O(1) lookup
+
+
+## Auto Quality Check - 2026-02-27 18:09:25
+### File: /Users/jkobrien/code/PDP/packages/backend/convex/models/members.ts
+
+- ❌ **CRITICAL: Better Auth adapter violation**
+  - **Problem:** Direct DB access to auth tables
+  - **Fix:** Use `ctx.runQuery(components.betterAuth.adapter.findOne, {...})`
+
+
+## Auto Quality Check - 2026-02-27 18:09:25
+### File: /Users/jkobrien/code/PDP/packages/backend/convex/models/members.ts
+
+- ⚠️ **Performance: .filter() usage detected**
+  - **Problem:** Should use .withIndex() for better performance
+  - **Fix:** Replace `.query().filter()` with `.query().withIndex()`
+
+
+## Auto Quality Check - 2026-02-27 18:09:25
+### File: /Users/jkobrien/code/PDP/packages/backend/convex/models/members.ts
+
+- ❌ **CRITICAL: N+1 query pattern detected**
+  - **Problem:** `Promise.all(items.map(async => query))` makes N database calls
+  - **Fix:** Batch fetch all IDs first, create Map for O(1) lookup
+
+
+## Auto Quality Check - 2026-02-27 18:09:32
+### File: /Users/jkobrien/code/PDP/packages/backend/convex/models/members.ts
+
+- ❌ **CRITICAL: Better Auth adapter violation**
+  - **Problem:** Direct DB access to auth tables
+  - **Fix:** Use `ctx.runQuery(components.betterAuth.adapter.findOne, {...})`
+
+
+## Auto Quality Check - 2026-02-27 18:09:32
+### File: /Users/jkobrien/code/PDP/packages/backend/convex/models/members.ts
+
+- ⚠️ **Performance: .filter() usage detected**
+  - **Problem:** Should use .withIndex() for better performance
+  - **Fix:** Replace `.query().filter()` with `.query().withIndex()`
+
+
+## Auto Quality Check - 2026-02-27 18:09:32
+### File: /Users/jkobrien/code/PDP/packages/backend/convex/models/members.ts
+
+- ❌ **CRITICAL: N+1 query pattern detected**
+  - **Problem:** `Promise.all(items.map(async => query))` makes N database calls
+  - **Fix:** Batch fetch all IDs first, create Map for O(1) lookup
+
+
+## Auto Quality Check - 2026-02-27 18:10:08
+### File: /Users/jkobrien/code/PDP/packages/backend/convex/models/onboarding.ts
+
+- ❌ **CRITICAL: Better Auth adapter violation**
+  - **Problem:** Direct DB access to auth tables
+  - **Fix:** Use `ctx.runQuery(components.betterAuth.adapter.findOne, {...})`
+
+
+## Auto Quality Check - 2026-02-27 18:10:08
+### File: /Users/jkobrien/code/PDP/packages/backend/convex/models/onboarding.ts
+
+- ⚠️ **Performance: .filter() usage detected**
+  - **Problem:** Should use .withIndex() for better performance
+  - **Fix:** Replace `.query().filter()` with `.query().withIndex()`
+
+
+## Auto Quality Check - 2026-02-27 18:10:08
+### File: /Users/jkobrien/code/PDP/packages/backend/convex/models/onboarding.ts
+
+- ❌ **CRITICAL: N+1 query pattern detected**
+  - **Problem:** `Promise.all(items.map(async => query))` makes N database calls
+  - **Fix:** Batch fetch all IDs first, create Map for O(1) lookup
+
+
+## Auto Quality Check - 2026-02-27 18:10:31
+### File: /Users/jkobrien/code/PDP/packages/backend/convex/models/onboarding.ts
+
+- ❌ **CRITICAL: Better Auth adapter violation**
+  - **Problem:** Direct DB access to auth tables
+  - **Fix:** Use `ctx.runQuery(components.betterAuth.adapter.findOne, {...})`
+
+
+## Auto Quality Check - 2026-02-27 18:10:31
+### File: /Users/jkobrien/code/PDP/packages/backend/convex/models/onboarding.ts
+
+- ⚠️ **Performance: .filter() usage detected**
+  - **Problem:** Should use .withIndex() for better performance
+  - **Fix:** Replace `.query().filter()` with `.query().withIndex()`
+
+
+## Auto Quality Check - 2026-02-27 18:10:31
+### File: /Users/jkobrien/code/PDP/packages/backend/convex/models/onboarding.ts
+
+- ❌ **CRITICAL: N+1 query pattern detected**
+  - **Problem:** `Promise.all(items.map(async => query))` makes N database calls
+  - **Fix:** Batch fetch all IDs first, create Map for O(1) lookup
+
+
+## Auto Quality Check - 2026-02-27 18:10:39
+### File: /Users/jkobrien/code/PDP/packages/backend/convex/models/onboarding.ts
+
+- ❌ **CRITICAL: Better Auth adapter violation**
+  - **Problem:** Direct DB access to auth tables
+  - **Fix:** Use `ctx.runQuery(components.betterAuth.adapter.findOne, {...})`
+
+
+## Auto Quality Check - 2026-02-27 18:10:39
+### File: /Users/jkobrien/code/PDP/packages/backend/convex/models/onboarding.ts
+
+- ⚠️ **Performance: .filter() usage detected**
+  - **Problem:** Should use .withIndex() for better performance
+  - **Fix:** Replace `.query().filter()` with `.query().withIndex()`
+
+
+## Auto Quality Check - 2026-02-27 18:10:39
+### File: /Users/jkobrien/code/PDP/packages/backend/convex/models/onboarding.ts
+
+- ❌ **CRITICAL: N+1 query pattern detected**
+  - **Problem:** `Promise.all(items.map(async => query))` makes N database calls
+  - **Fix:** Batch fetch all IDs first, create Map for O(1) lookup
+
+
+## Auto Quality Check - 2026-02-27 18:10:47
+### File: /Users/jkobrien/code/PDP/packages/backend/convex/models/onboarding.ts
+
+- ❌ **CRITICAL: Better Auth adapter violation**
+  - **Problem:** Direct DB access to auth tables
+  - **Fix:** Use `ctx.runQuery(components.betterAuth.adapter.findOne, {...})`
+
+
+## Auto Quality Check - 2026-02-27 18:10:47
+### File: /Users/jkobrien/code/PDP/packages/backend/convex/models/onboarding.ts
+
+- ⚠️ **Performance: .filter() usage detected**
+  - **Problem:** Should use .withIndex() for better performance
+  - **Fix:** Replace `.query().filter()` with `.query().withIndex()`
+
+
+## Auto Quality Check - 2026-02-27 18:10:47
+### File: /Users/jkobrien/code/PDP/packages/backend/convex/models/onboarding.ts
+
+- ❌ **CRITICAL: N+1 query pattern detected**
+  - **Problem:** `Promise.all(items.map(async => query))` makes N database calls
+  - **Fix:** Batch fetch all IDs first, create Map for O(1) lookup
+
+
+## Auto Quality Check - 2026-02-27 18:10:58
+### File: /Users/jkobrien/code/PDP/packages/backend/convex/models/members.ts
+
+- ❌ **CRITICAL: Better Auth adapter violation**
+  - **Problem:** Direct DB access to auth tables
+  - **Fix:** Use `ctx.runQuery(components.betterAuth.adapter.findOne, {...})`
+
+
+## Auto Quality Check - 2026-02-27 18:10:58
+### File: /Users/jkobrien/code/PDP/packages/backend/convex/models/members.ts
+
+- ⚠️ **Performance: .filter() usage detected**
+  - **Problem:** Should use .withIndex() for better performance
+  - **Fix:** Replace `.query().filter()` with `.query().withIndex()`
+
+
+## Auto Quality Check - 2026-02-27 18:10:58
+### File: /Users/jkobrien/code/PDP/packages/backend/convex/models/members.ts
+
+- ❌ **CRITICAL: N+1 query pattern detected**
+  - **Problem:** `Promise.all(items.map(async => query))` makes N database calls
+  - **Fix:** Batch fetch all IDs first, create Map for O(1) lookup
+
+
+## Auto Quality Check - 2026-02-27 18:11:13
+### File: /Users/jkobrien/code/PDP/packages/backend/convex/models/members.ts
+
+- ❌ **CRITICAL: Better Auth adapter violation**
+  - **Problem:** Direct DB access to auth tables
+  - **Fix:** Use `ctx.runQuery(components.betterAuth.adapter.findOne, {...})`
+
+
+## Auto Quality Check - 2026-02-27 18:11:13
+### File: /Users/jkobrien/code/PDP/packages/backend/convex/models/members.ts
+
+- ⚠️ **Performance: .filter() usage detected**
+  - **Problem:** Should use .withIndex() for better performance
+  - **Fix:** Replace `.query().filter()` with `.query().withIndex()`
+
+
+## Auto Quality Check - 2026-02-27 18:11:13
+### File: /Users/jkobrien/code/PDP/packages/backend/convex/models/members.ts
+
+- ❌ **CRITICAL: N+1 query pattern detected**
+  - **Problem:** `Promise.all(items.map(async => query))` makes N database calls
+  - **Fix:** Batch fetch all IDs first, create Map for O(1) lookup
+
+
+## Auto Quality Check - 2026-02-27 18:17:43
+### File: /Users/jkobrien/code/PDP/packages/backend/convex/models/adultPlayers.ts
+
+- ⚠️ **Performance: .filter() usage detected**
+  - **Problem:** Should use .withIndex() for better performance
+  - **Fix:** Replace `.query().filter()` with `.query().withIndex()`
+
+
+## Auto Quality Check - 2026-02-27 18:18:28
+### File: /Users/jkobrien/code/PDP/packages/backend/convex/models/adultPlayers.ts
+
+- ⚠️ **Performance: .filter() usage detected**
+  - **Problem:** Should use .withIndex() for better performance
+  - **Fix:** Replace `.query().filter()` with `.query().withIndex()`
+
+
+## Auto Quality Check - 2026-02-27 18:19:03
+### File: /Users/jkobrien/code/PDP/packages/backend/convex/models/adultPlayers.ts
+
+- ⚠️ **Performance: .filter() usage detected**
+  - **Problem:** Should use .withIndex() for better performance
+  - **Fix:** Replace `.query().filter()` with `.query().withIndex()`
+
+
+## Auto Quality Check - 2026-02-27 18:19:48
+### File: /Users/jkobrien/code/PDP/packages/backend/convex/models/adultPlayers.ts
+
+- ⚠️ **Performance: .filter() usage detected**
+  - **Problem:** Should use .withIndex() for better performance
+  - **Fix:** Replace `.query().filter()` with `.query().withIndex()`
+
+
+## Auto Quality Check - 2026-02-27 18:20:22
+### File: /Users/jkobrien/code/PDP/packages/backend/convex/models/adultPlayers.ts
+
+- ⚠️ **Performance: .filter() usage detected**
+  - **Problem:** Should use .withIndex() for better performance
+  - **Fix:** Replace `.query().filter()` with `.query().withIndex()`
+
+
+## Auto Quality Check - 2026-02-27 18:20:29
+### File: /Users/jkobrien/code/PDP/packages/backend/convex/models/adultPlayers.ts
+
+- ⚠️ **Performance: .filter() usage detected**
+  - **Problem:** Should use .withIndex() for better performance
+  - **Fix:** Replace `.query().filter()` with `.query().withIndex()`
+
+
+## Auto Quality Check - 2026-02-27 18:29:03
+### File: /Users/jkobrien/code/PDP/packages/backend/convex/migrations/resetCiaranMurphy.ts
+
+- ❌ **CRITICAL: Better Auth adapter violation**
+  - **Problem:** Direct DB access to auth tables
+  - **Fix:** Use `ctx.runQuery(components.betterAuth.adapter.findOne, {...})`
+
+
+## Auto Quality Check - 2026-02-27 18:34:28
+### File: /Users/jkobrien/code/PDP/packages/backend/convex/migrations/resetCiaranMurphy.ts
+
+- ❌ **CRITICAL: Better Auth adapter violation**
+  - **Problem:** Direct DB access to auth tables
+  - **Fix:** Use `ctx.runQuery(components.betterAuth.adapter.findOne, {...})`
+
+
+## Auto Quality Check - 2026-02-27 18:34:37
+### File: /Users/jkobrien/code/PDP/packages/backend/convex/migrations/resetCiaranMurphy.ts
+
+- ❌ **CRITICAL: Better Auth adapter violation**
+  - **Problem:** Direct DB access to auth tables
+  - **Fix:** Use `ctx.runQuery(components.betterAuth.adapter.findOne, {...})`
+
+
+## Auto Quality Check - 2026-02-27 18:35:01
+### File: /Users/jkobrien/code/PDP/packages/backend/convex/migrations/resetCiaranMurphy.ts
+
+- ❌ **CRITICAL: Better Auth adapter violation**
+  - **Problem:** Direct DB access to auth tables
+  - **Fix:** Use `ctx.runQuery(components.betterAuth.adapter.findOne, {...})`
+
+
+## Auto Quality Check - 2026-02-27 18:35:11
+### File: /Users/jkobrien/code/PDP/packages/backend/convex/migrations/resetCiaranMurphy.ts
+
+- ❌ **CRITICAL: Better Auth adapter violation**
+  - **Problem:** Direct DB access to auth tables
+  - **Fix:** Use `ctx.runQuery(components.betterAuth.adapter.findOne, {...})`
+
+
+## Auto Quality Check - 2026-02-27 18:44:24
+### File: /Users/jkobrien/code/PDP/packages/backend/convex/models/playerIdentities.ts
+
+- ❌ **CRITICAL: Better Auth adapter violation**
+  - **Problem:** Direct DB access to auth tables
+  - **Fix:** Use `ctx.runQuery(components.betterAuth.adapter.findOne, {...})`
+
+
+## Auto Quality Check - 2026-02-27 18:44:24
+### File: /Users/jkobrien/code/PDP/packages/backend/convex/models/playerIdentities.ts
+
+- ⚠️ **Performance: .filter() usage detected**
+  - **Problem:** Should use .withIndex() for better performance
+  - **Fix:** Replace `.query().filter()` with `.query().withIndex()`
+
+
+## Auto Quality Check - 2026-02-27 18:44:24
+### File: /Users/jkobrien/code/PDP/packages/backend/convex/models/playerIdentities.ts
+
+- ❌ **CRITICAL: N+1 query pattern detected**
+  - **Problem:** `Promise.all(items.map(async => query))` makes N database calls
+  - **Fix:** Batch fetch all IDs first, create Map for O(1) lookup
+
+
+## Auto Quality Check - 2026-02-27 18:45:00
+### File: /Users/jkobrien/code/PDP/packages/backend/convex/models/playerMatching.ts
+
+- ⚠️ **Performance: .filter() usage detected**
+  - **Problem:** Should use .withIndex() for better performance
+  - **Fix:** Replace `.query().filter()` with `.query().withIndex()`
+
+
+## Auto Quality Check - 2026-02-27 18:46:13
+### File: /Users/jkobrien/code/PDP/packages/backend/convex/lib/matching/guardianMatcher.ts
+
+- ⚠️ **Performance: .filter() usage detected**
+  - **Problem:** Should use .withIndex() for better performance
+  - **Fix:** Replace `.query().filter()` with `.query().withIndex()`
+
+
+## Auto Quality Check - 2026-02-27 18:46:13
+### File: /Users/jkobrien/code/PDP/packages/backend/convex/lib/matching/guardianMatcher.ts
+
+- ⚠️ **Data Isolation: No organizationId filter found**
+  - **Problem:** Queries should be scoped by organizationId for multi-tenant isolation
+  - **Fix:** Add organizationId to query args and use in .withIndex()
+
+
+## Auto Quality Check - 2026-02-27 18:53:37
+### File: /Users/jkobrien/code/PDP/packages/backend/convex/models/playerIdentities.ts
+
+- ❌ **CRITICAL: Better Auth adapter violation**
+  - **Problem:** Direct DB access to auth tables
+  - **Fix:** Use `ctx.runQuery(components.betterAuth.adapter.findOne, {...})`
+
+
+## Auto Quality Check - 2026-02-27 18:53:37
+### File: /Users/jkobrien/code/PDP/packages/backend/convex/models/playerIdentities.ts
+
+- ⚠️ **Performance: .filter() usage detected**
+  - **Problem:** Should use .withIndex() for better performance
+  - **Fix:** Replace `.query().filter()` with `.query().withIndex()`
+
+
+## Auto Quality Check - 2026-02-27 18:53:37
+### File: /Users/jkobrien/code/PDP/packages/backend/convex/models/playerIdentities.ts
+
+- ❌ **CRITICAL: N+1 query pattern detected**
+  - **Problem:** `Promise.all(items.map(async => query))` makes N database calls
+  - **Fix:** Batch fetch all IDs first, create Map for O(1) lookup
+
+
+## Auto Quality Check - 2026-02-27 18:54:26
+### File: /Users/jkobrien/code/PDP/packages/backend/convex/models/playerIdentities.ts
+
+- ❌ **CRITICAL: Better Auth adapter violation**
+  - **Problem:** Direct DB access to auth tables
+  - **Fix:** Use `ctx.runQuery(components.betterAuth.adapter.findOne, {...})`
+
+
+## Auto Quality Check - 2026-02-27 18:54:26
+### File: /Users/jkobrien/code/PDP/packages/backend/convex/models/playerIdentities.ts
+
+- ⚠️ **Performance: .filter() usage detected**
+  - **Problem:** Should use .withIndex() for better performance
+  - **Fix:** Replace `.query().filter()` with `.query().withIndex()`
+
+
+## Auto Quality Check - 2026-02-27 18:54:26
+### File: /Users/jkobrien/code/PDP/packages/backend/convex/models/playerIdentities.ts
+
+- ❌ **CRITICAL: N+1 query pattern detected**
+  - **Problem:** `Promise.all(items.map(async => query))` makes N database calls
+  - **Fix:** Batch fetch all IDs first, create Map for O(1) lookup
+
+
+## Auto Quality Check - 2026-02-27 18:54:37
+### File: /Users/jkobrien/code/PDP/packages/backend/convex/models/playerIdentities.ts
+
+- ❌ **CRITICAL: Better Auth adapter violation**
+  - **Problem:** Direct DB access to auth tables
+  - **Fix:** Use `ctx.runQuery(components.betterAuth.adapter.findOne, {...})`
+
+
+## Auto Quality Check - 2026-02-27 18:54:37
+### File: /Users/jkobrien/code/PDP/packages/backend/convex/models/playerIdentities.ts
+
+- ⚠️ **Performance: .filter() usage detected**
+  - **Problem:** Should use .withIndex() for better performance
+  - **Fix:** Replace `.query().filter()` with `.query().withIndex()`
+
+
+## Auto Quality Check - 2026-02-27 18:54:37
+### File: /Users/jkobrien/code/PDP/packages/backend/convex/models/playerIdentities.ts
+
+- ❌ **CRITICAL: N+1 query pattern detected**
+  - **Problem:** `Promise.all(items.map(async => query))` makes N database calls
+  - **Fix:** Batch fetch all IDs first, create Map for O(1) lookup
+
+
+## Auto Quality Check - 2026-02-27 18:57:04
+### File: /Users/jkobrien/code/PDP/packages/backend/convex/models/playerIdentities.ts
+
+- ❌ **CRITICAL: Better Auth adapter violation**
+  - **Problem:** Direct DB access to auth tables
+  - **Fix:** Use `ctx.runQuery(components.betterAuth.adapter.findOne, {...})`
+
+
+## Auto Quality Check - 2026-02-27 18:57:04
+### File: /Users/jkobrien/code/PDP/packages/backend/convex/models/playerIdentities.ts
+
+- ⚠️ **Performance: .filter() usage detected**
+  - **Problem:** Should use .withIndex() for better performance
+  - **Fix:** Replace `.query().filter()` with `.query().withIndex()`
+
+
+## Auto Quality Check - 2026-02-27 18:57:04
+### File: /Users/jkobrien/code/PDP/packages/backend/convex/models/playerIdentities.ts
+
+- ❌ **CRITICAL: N+1 query pattern detected**
+  - **Problem:** `Promise.all(items.map(async => query))` makes N database calls
+  - **Fix:** Batch fetch all IDs first, create Map for O(1) lookup
+
+
+## Auto Quality Check - 2026-02-27 18:57:14
+### File: /Users/jkobrien/code/PDP/packages/backend/convex/models/playerIdentities.ts
+
+- ❌ **CRITICAL: Better Auth adapter violation**
+  - **Problem:** Direct DB access to auth tables
+  - **Fix:** Use `ctx.runQuery(components.betterAuth.adapter.findOne, {...})`
+
+
+## Auto Quality Check - 2026-02-27 18:57:14
+### File: /Users/jkobrien/code/PDP/packages/backend/convex/models/playerIdentities.ts
+
+- ⚠️ **Performance: .filter() usage detected**
+  - **Problem:** Should use .withIndex() for better performance
+  - **Fix:** Replace `.query().filter()` with `.query().withIndex()`
+
+
+## Auto Quality Check - 2026-02-27 18:57:14
+### File: /Users/jkobrien/code/PDP/packages/backend/convex/models/playerIdentities.ts
+
+- ❌ **CRITICAL: N+1 query pattern detected**
+  - **Problem:** `Promise.all(items.map(async => query))` makes N database calls
+  - **Fix:** Batch fetch all IDs first, create Map for O(1) lookup
+
+
+## Auto Quality Check - 2026-02-27 18:57:26
+### File: /Users/jkobrien/code/PDP/packages/backend/convex/models/playerIdentities.ts
+
+- ❌ **CRITICAL: Better Auth adapter violation**
+  - **Problem:** Direct DB access to auth tables
+  - **Fix:** Use `ctx.runQuery(components.betterAuth.adapter.findOne, {...})`
+
+
+## Auto Quality Check - 2026-02-27 18:57:26
+### File: /Users/jkobrien/code/PDP/packages/backend/convex/models/playerIdentities.ts
+
+- ⚠️ **Performance: .filter() usage detected**
+  - **Problem:** Should use .withIndex() for better performance
+  - **Fix:** Replace `.query().filter()` with `.query().withIndex()`
+
+
+## Auto Quality Check - 2026-02-27 18:57:26
+### File: /Users/jkobrien/code/PDP/packages/backend/convex/models/playerIdentities.ts
+
+- ❌ **CRITICAL: N+1 query pattern detected**
+  - **Problem:** `Promise.all(items.map(async => query))` makes N database calls
+  - **Fix:** Batch fetch all IDs first, create Map for O(1) lookup
+
+
+## Auto Quality Check - 2026-02-27 18:57:35
+### File: /Users/jkobrien/code/PDP/packages/backend/convex/models/playerIdentities.ts
+
+- ❌ **CRITICAL: Better Auth adapter violation**
+  - **Problem:** Direct DB access to auth tables
+  - **Fix:** Use `ctx.runQuery(components.betterAuth.adapter.findOne, {...})`
+
+
+## Auto Quality Check - 2026-02-27 18:57:35
+### File: /Users/jkobrien/code/PDP/packages/backend/convex/models/playerIdentities.ts
+
+- ⚠️ **Performance: .filter() usage detected**
+  - **Problem:** Should use .withIndex() for better performance
+  - **Fix:** Replace `.query().filter()` with `.query().withIndex()`
+
+
+## Auto Quality Check - 2026-02-27 18:57:35
+### File: /Users/jkobrien/code/PDP/packages/backend/convex/models/playerIdentities.ts
+
+- ❌ **CRITICAL: N+1 query pattern detected**
+  - **Problem:** `Promise.all(items.map(async => query))` makes N database calls
+  - **Fix:** Batch fetch all IDs first, create Map for O(1) lookup
+
+
+## Auto Quality Check - 2026-02-27 18:57:49
+### File: /Users/jkobrien/code/PDP/packages/backend/convex/models/playerIdentities.ts
+
+- ❌ **CRITICAL: Better Auth adapter violation**
+  - **Problem:** Direct DB access to auth tables
+  - **Fix:** Use `ctx.runQuery(components.betterAuth.adapter.findOne, {...})`
+
+
+## Auto Quality Check - 2026-02-27 18:57:49
+### File: /Users/jkobrien/code/PDP/packages/backend/convex/models/playerIdentities.ts
+
+- ⚠️ **Performance: .filter() usage detected**
+  - **Problem:** Should use .withIndex() for better performance
+  - **Fix:** Replace `.query().filter()` with `.query().withIndex()`
+
+
+## Auto Quality Check - 2026-02-27 18:57:49
+### File: /Users/jkobrien/code/PDP/packages/backend/convex/models/playerIdentities.ts
+
+- ❌ **CRITICAL: N+1 query pattern detected**
+  - **Problem:** `Promise.all(items.map(async => query))` makes N database calls
+  - **Fix:** Batch fetch all IDs first, create Map for O(1) lookup
+
+
+## Auto Quality Check - 2026-02-27 19:01:24
+### File: /Users/jkobrien/code/PDP/packages/backend/convex/models/skillAssessments.ts
+
+- ⚠️ **Performance: .filter() usage detected**
+  - **Problem:** Should use .withIndex() for better performance
+  - **Fix:** Replace `.query().filter()` with `.query().withIndex()`
+
+
+## Auto Quality Check - 2026-02-27 19:02:23
+### File: /Users/jkobrien/code/PDP/packages/backend/convex/models/skillAssessments.ts
+
+- ⚠️ **Performance: .filter() usage detected**
+  - **Problem:** Should use .withIndex() for better performance
+  - **Fix:** Replace `.query().filter()` with `.query().withIndex()`
+
+
+## Auto Quality Check - 2026-02-27 19:06:05
+### File: /Users/jkobrien/code/PDP/packages/backend/convex/models/passportSharing.ts
+
+- ❌ **CRITICAL: Better Auth adapter violation**
+  - **Problem:** Direct DB access to auth tables
+  - **Fix:** Use `ctx.runQuery(components.betterAuth.adapter.findOne, {...})`
+
+
+## Auto Quality Check - 2026-02-27 19:06:05
+### File: /Users/jkobrien/code/PDP/packages/backend/convex/models/passportSharing.ts
+
+- ⚠️ **Performance: .filter() usage detected**
+  - **Problem:** Should use .withIndex() for better performance
+  - **Fix:** Replace `.query().filter()` with `.query().withIndex()`
+
+
+## Auto Quality Check - 2026-02-27 19:06:05
+### File: /Users/jkobrien/code/PDP/packages/backend/convex/models/passportSharing.ts
+
+- ❌ **CRITICAL: N+1 query pattern detected**
+  - **Problem:** `Promise.all(items.map(async => query))` makes N database calls
+  - **Fix:** Batch fetch all IDs first, create Map for O(1) lookup
+
+
+## Auto Quality Check - 2026-02-27 19:06:23
+### File: /Users/jkobrien/code/PDP/packages/backend/convex/models/organizations.ts
+
+- ❌ **CRITICAL: Better Auth adapter violation**
+  - **Problem:** Direct DB access to auth tables
+  - **Fix:** Use `ctx.runQuery(components.betterAuth.adapter.findOne, {...})`
+
+
+## Auto Quality Check - 2026-02-27 19:06:23
+### File: /Users/jkobrien/code/PDP/packages/backend/convex/models/organizations.ts
+
+- ⚠️ **Performance: .filter() usage detected**
+  - **Problem:** Should use .withIndex() for better performance
+  - **Fix:** Replace `.query().filter()` with `.query().withIndex()`
+
+
+## Auto Quality Check - 2026-02-27 19:06:23
+### File: /Users/jkobrien/code/PDP/packages/backend/convex/models/organizations.ts
+
+- ❌ **CRITICAL: N+1 query pattern detected**
+  - **Problem:** `Promise.all(items.map(async => query))` makes N database calls
+  - **Fix:** Batch fetch all IDs first, create Map for O(1) lookup
+
+
+## Auto Quality Check - 2026-02-27 19:06:34
+### File: /Users/jkobrien/code/PDP/packages/backend/convex/models/passportSharing.ts
+
+- ❌ **CRITICAL: Better Auth adapter violation**
+  - **Problem:** Direct DB access to auth tables
+  - **Fix:** Use `ctx.runQuery(components.betterAuth.adapter.findOne, {...})`
+
+
+## Auto Quality Check - 2026-02-27 19:06:34
+### File: /Users/jkobrien/code/PDP/packages/backend/convex/models/passportSharing.ts
+
+- ⚠️ **Performance: .filter() usage detected**
+  - **Problem:** Should use .withIndex() for better performance
+  - **Fix:** Replace `.query().filter()` with `.query().withIndex()`
+
+
+## Auto Quality Check - 2026-02-27 19:06:34
+### File: /Users/jkobrien/code/PDP/packages/backend/convex/models/passportSharing.ts
+
+- ❌ **CRITICAL: N+1 query pattern detected**
+  - **Problem:** `Promise.all(items.map(async => query))` makes N database calls
+  - **Fix:** Batch fetch all IDs first, create Map for O(1) lookup
+
+
+## Auto Quality Check - 2026-02-27 19:06:42
+### File: /Users/jkobrien/code/PDP/packages/backend/convex/models/passportSharing.ts
+
+- ❌ **CRITICAL: Better Auth adapter violation**
+  - **Problem:** Direct DB access to auth tables
+  - **Fix:** Use `ctx.runQuery(components.betterAuth.adapter.findOne, {...})`
+
+
+## Auto Quality Check - 2026-02-27 19:06:42
+### File: /Users/jkobrien/code/PDP/packages/backend/convex/models/passportSharing.ts
+
+- ⚠️ **Performance: .filter() usage detected**
+  - **Problem:** Should use .withIndex() for better performance
+  - **Fix:** Replace `.query().filter()` with `.query().withIndex()`
+
+
+## Auto Quality Check - 2026-02-27 19:06:42
+### File: /Users/jkobrien/code/PDP/packages/backend/convex/models/passportSharing.ts
+
+- ❌ **CRITICAL: N+1 query pattern detected**
+  - **Problem:** `Promise.all(items.map(async => query))` makes N database calls
+  - **Fix:** Batch fetch all IDs first, create Map for O(1) lookup
+
+
+## Auto Quality Check - 2026-02-27 19:17:20
+### File: /Users/jkobrien/code/PDP/packages/backend/convex/models/skillAssessments.ts
+
+- ⚠️ **Performance: .filter() usage detected**
+  - **Problem:** Should use .withIndex() for better performance
+  - **Fix:** Replace `.query().filter()` with `.query().withIndex()`
+
+
+## Auto Quality Check - 2026-02-27 19:17:30
+### File: /Users/jkobrien/code/PDP/packages/backend/convex/models/skillAssessments.ts
+
+- ⚠️ **Performance: .filter() usage detected**
+  - **Problem:** Should use .withIndex() for better performance
+  - **Fix:** Replace `.query().filter()` with `.query().withIndex()`
+
+
+## Auto Quality Check - 2026-02-27 19:18:06
+### File: /Users/jkobrien/code/PDP/packages/backend/convex/models/skillAssessments.ts
+
+- ⚠️ **Performance: .filter() usage detected**
+  - **Problem:** Should use .withIndex() for better performance
+  - **Fix:** Replace `.query().filter()` with `.query().withIndex()`
+
+
+## Auto Quality Check - 2026-02-27 19:18:15
+### File: /Users/jkobrien/code/PDP/packages/backend/convex/models/skillAssessments.ts
+
+- ⚠️ **Performance: .filter() usage detected**
+  - **Problem:** Should use .withIndex() for better performance
+  - **Fix:** Replace `.query().filter()` with `.query().withIndex()`
+
+
+## Auto Quality Check - 2026-02-27 19:26:26
+### File: /Users/jkobrien/code/PDP/packages/backend/convex/models/skillAssessments.ts
+
+- ⚠️ **Performance: .filter() usage detected**
+  - **Problem:** Should use .withIndex() for better performance
+  - **Fix:** Replace `.query().filter()` with `.query().withIndex()`
+
+
+## Auto Quality Check - 2026-02-27 19:26:37
+### File: /Users/jkobrien/code/PDP/packages/backend/convex/models/skillAssessments.ts
+
+- ⚠️ **Performance: .filter() usage detected**
+  - **Problem:** Should use .withIndex() for better performance
+  - **Fix:** Replace `.query().filter()` with `.query().withIndex()`
 

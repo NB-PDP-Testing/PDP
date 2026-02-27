@@ -460,7 +460,7 @@ export const getAllInjuriesForOrg = query({
     const uniquePlayerIds = [
       ...new Set(activeEnrollments.map((e) => e.playerIdentityId)),
     ];
-    const enrollmentMap = new Map<string, { ageGroup: string }>();
+    const enrollmentMap = new Map<string, { ageGroup: string | undefined }>();
     for (const e of activeEnrollments) {
       enrollmentMap.set(e.playerIdentityId, { ageGroup: e.ageGroup });
     }
@@ -1247,7 +1247,7 @@ export const getRecentInjuriesForAdmin = query({
       .collect();
 
     // Build enrollment map: playerIdentityId → enrollment (for ageGroup)
-    const enrollmentMap = new Map<string, { ageGroup: string }>();
+    const enrollmentMap = new Map<string, { ageGroup: string | undefined }>();
     for (const e of enrollments) {
       enrollmentMap.set(e.playerIdentityId, { ageGroup: e.ageGroup });
     }

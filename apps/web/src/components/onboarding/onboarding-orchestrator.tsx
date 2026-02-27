@@ -19,6 +19,7 @@ import {
   GuardianPrompt,
   type PendingGraduation,
 } from "@/components/graduation/guardian-prompt";
+import { PlayerClaimPendingStep } from "@/components/graduation/player-claim-pending-step";
 import { Button } from "@/components/ui/button";
 import {
   Dialog,
@@ -32,6 +33,7 @@ import { authClient } from "@/lib/auth-client";
 import { type ChildLink, ChildLinkingStep } from "./child-linking-step";
 import { OnboardingErrorBoundary } from "./error-boundary";
 import { GdprConsentStep } from "./gdpr-consent-step";
+import { PlayerGraduationStep } from "./player-graduation-step";
 import {
   type ProfileCompletionData,
   ProfileCompletionStep,
@@ -48,6 +50,8 @@ type OnboardingTask = {
     | "guardian_claim"
     | "child_linking"
     | "player_graduation"
+    | "player_claim_pending"
+    | "player_claimed_account"
     | "welcome";
   priority: number;
   data: unknown;
@@ -56,6 +60,13 @@ type OnboardingTask = {
 // Type for player_graduation task data (Phase 7)
 type PlayerGraduationTaskData = {
   pendingGraduations: PendingGraduation[];
+};
+
+// Type for player_claimed_account task data (Phase 2 Adult Player)
+type PlayerClaimedAccountTaskData = {
+  playerIdentityId: Id<"playerIdentities">;
+  playerFirstName: string;
+  organizationId: string;
 };
 
 // Type for guardian_claim task data (matches what getOnboardingTasks returns)
@@ -130,6 +141,9 @@ type AcceptInvitationTaskData = {
       id: string;
       name: string;
     }>;
+    matchedPlayerIdentityId?: string;
+    matchedPlayerName?: string;
+    matchedPlayerDob?: string;
   }>;
 };
 
@@ -280,7 +294,30 @@ function OnboardingStepRenderer({
     return (
       <GuardianPrompt
         onComplete={onComplete}
+        onSkip={onSkip}
         pendingGraduations={data.pendingGraduations}
+      />
+    );
+  }
+
+  // Handle player_claim_pending — auto-claim player identity for existing-account users
+  // Guardian sent invite to email that already has a PlayerARC account; on next login
+  // this step fires autoClaimByEmail and shows a brief "linking" animation before
+  // proceeding to the player_claimed_account welcome step.
+  if (task.type === "player_claim_pending") {
+    return <PlayerClaimPendingStep onComplete={onComplete} />;
+  }
+
+  // Handle player_claimed_account task with PlayerGraduationStep (Phase 2 Adult Player)
+  if (task.type === "player_claimed_account") {
+    const data = task.data as PlayerClaimedAccountTaskData;
+
+    return (
+      <PlayerGraduationStep
+        onComplete={onComplete}
+        organizationId={data.organizationId}
+        playerFirstName={data.playerFirstName}
+        playerIdentityId={data.playerIdentityId}
       />
     );
   }

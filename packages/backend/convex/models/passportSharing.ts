@@ -3414,10 +3414,11 @@ export const getOrgRecentSharingActivity = query({
       const otherOrgId = isSourceOrg
         ? consent.receivingOrgId
         : consent.sourceOrgIds?.[0] || "";
-      const otherOrg = await ctx.runQuery(
-        api.models.organizations.getOrganization,
-        { organizationId: otherOrgId }
-      );
+      const otherOrg = otherOrgId
+        ? await ctx.runQuery(api.models.organizations.getOrganization, {
+            organizationId: otherOrgId,
+          })
+        : null;
       const orgName = otherOrg?.name || "Unknown Organization";
 
       // Add activity based on consent lifecycle
@@ -3705,5 +3706,236 @@ export const dismissNotification = mutation({
     });
 
     return true;
+  },
+});
+
+// ============================================================
+// ADULT PLAYER SELF-SERVICE SHARING (Phase 5)
+// Adult players can manage their own passport sharing directly
+// ============================================================
+
+/**
+ * Get passport sharing data for the authenticated adult player
+ * Allows adult players to view their own consents and pending requests
+ */
+export const getMyPassportSharingData = query({
+  args: {},
+  returns: v.object({
+    playerIdentityId: v.union(v.id("playerIdentities"), v.null()),
+    consents: v.array(
+      v.object({
+        consentId: v.id("passportShareConsents"),
+        receivingOrgId: v.string(),
+        receivingOrgName: v.string(),
+        status: v.union(
+          v.literal("active"),
+          v.literal("expired"),
+          v.literal("revoked"),
+          v.literal("suspended")
+        ),
+        coachAcceptanceStatus: v.union(
+          v.literal("pending"),
+          v.literal("accepted"),
+          v.literal("declined")
+        ),
+        consentedAt: v.number(),
+        expiresAt: v.number(),
+        revokedAt: v.optional(v.number()),
+      })
+    ),
+    pendingRequests: v.array(
+      v.object({
+        requestId: v.id("passportShareRequests"),
+        requestedByName: v.string(),
+        requestingOrgId: v.string(),
+        requestingOrgName: v.string(),
+        reason: v.optional(v.string()),
+        requestedAt: v.number(),
+        expiresAt: v.number(),
+      })
+    ),
+  }),
+  handler: async (ctx) => {
+    const identity = await ctx.auth.getUserIdentity();
+    if (!identity) {
+      return { playerIdentityId: null, consents: [], pendingRequests: [] };
+    }
+
+    // Find the player identity for this user
+    const playerIdentity = await ctx.db
+      .query("playerIdentities")
+      .withIndex("by_userId", (q) => q.eq("userId", identity.subject))
+      .first();
+
+    if (!playerIdentity || playerIdentity.playerType !== "adult") {
+      return { playerIdentityId: null, consents: [], pendingRequests: [] };
+    }
+
+    // Get all consents for this player
+    const consents = await ctx.db
+      .query("passportShareConsents")
+      .withIndex("by_player", (q) =>
+        q.eq("playerIdentityId", playerIdentity._id)
+      )
+      .collect();
+
+    // Enrich consents with org names
+    const enrichedConsents = await Promise.all(
+      consents.map(async (consent) => {
+        const org = await _lookupOrganization(ctx, consent.receivingOrgId);
+        return {
+          consentId: consent._id,
+          receivingOrgId: consent.receivingOrgId,
+          receivingOrgName: org?.name ?? "Unknown Organization",
+          status: consent.status,
+          coachAcceptanceStatus: consent.coachAcceptanceStatus,
+          consentedAt: consent.consentedAt,
+          expiresAt: consent.expiresAt,
+          revokedAt: consent.revokedAt,
+        };
+      })
+    );
+
+    // Get pending requests
+    const now = Date.now();
+    const requests = await ctx.db
+      .query("passportShareRequests")
+      .withIndex("by_player_and_status", (q) =>
+        q.eq("playerIdentityId", playerIdentity._id).eq("status", "pending")
+      )
+      .collect();
+
+    const validRequests = requests.filter((r) => r.expiresAt > now);
+
+    const enrichedRequests = await Promise.all(
+      validRequests.map(async (request) => ({
+        requestId: request._id,
+        requestedByName: request.requestedByName,
+        requestingOrgId: request.requestingOrgId,
+        requestingOrgName: request.requestingOrgName,
+        reason: request.reason,
+        requestedAt: request.requestedAt,
+        expiresAt: request.expiresAt,
+      }))
+    );
+
+    return {
+      playerIdentityId: playerIdentity._id,
+      consents: enrichedConsents,
+      pendingRequests: enrichedRequests,
+    };
+  },
+});
+
+/**
+ * Revoke passport sharing consent as an adult player
+ */
+export const revokeMyPassportSharing = mutation({
+  args: {
+    consentId: v.id("passportShareConsents"),
+  },
+  returns: v.null(),
+  handler: async (ctx, args) => {
+    const identity = await ctx.auth.getUserIdentity();
+    if (!identity) {
+      throw new Error("Authentication required");
+    }
+
+    const playerIdentity = await ctx.db
+      .query("playerIdentities")
+      .withIndex("by_userId", (q) => q.eq("userId", identity.subject))
+      .first();
+
+    if (!playerIdentity || playerIdentity.playerType !== "adult") {
+      throw new Error("Adult player identity not found");
+    }
+
+    const consent = await ctx.db.get(args.consentId);
+    if (!consent) {
+      throw new Error("Consent not found");
+    }
+
+    // Verify this consent belongs to this player
+    if (consent.playerIdentityId !== playerIdentity._id) {
+      throw new Error("Not authorized to revoke this consent");
+    }
+
+    await ctx.db.patch(args.consentId, {
+      status: "revoked",
+      revokedAt: Date.now(),
+    });
+
+    return null;
+  },
+});
+
+/**
+ * Respond to a passport access request as an adult player
+ */
+export const respondToAccessRequestAsPlayer = mutation({
+  args: {
+    requestId: v.id("passportShareRequests"),
+    response: v.union(v.literal("approved"), v.literal("declined")),
+  },
+  returns: v.null(),
+  handler: async (ctx, args) => {
+    const identity = await ctx.auth.getUserIdentity();
+    if (!identity) {
+      throw new Error("Authentication required");
+    }
+
+    const playerIdentity = await ctx.db
+      .query("playerIdentities")
+      .withIndex("by_userId", (q) => q.eq("userId", identity.subject))
+      .first();
+
+    if (!playerIdentity || playerIdentity.playerType !== "adult") {
+      throw new Error("Adult player identity not found");
+    }
+
+    const request = await ctx.db.get(args.requestId);
+    if (!request) {
+      throw new Error("Request not found");
+    }
+
+    if (request.playerIdentityId !== playerIdentity._id) {
+      throw new Error("Not authorized to respond to this request");
+    }
+
+    if (request.status !== "pending") {
+      throw new Error(`Request has already been ${request.status}`);
+    }
+
+    if (request.expiresAt < Date.now()) {
+      await ctx.db.patch(args.requestId, { status: "expired" });
+      throw new Error("Request has expired");
+    }
+
+    const now = Date.now();
+    await ctx.db.patch(args.requestId, {
+      status: args.response,
+      respondedAt: now,
+      respondedBy: identity.subject,
+    });
+
+    // Notify requesting coach
+    await ctx.db.insert("passportShareNotifications", {
+      userId: request.requestedBy,
+      notificationType:
+        args.response === "approved" ? "share_enabled" : "share_revoked",
+      requestId: args.requestId,
+      playerIdentityId: request.playerIdentityId,
+      title:
+        args.response === "approved"
+          ? "Access Request Approved"
+          : "Access Request Declined",
+      message:
+        args.response === "approved"
+          ? "Your passport access request has been approved by the player."
+          : "Your passport access request has been declined by the player.",
+      createdAt: now,
+    });
+
+    return null;
   },
 });

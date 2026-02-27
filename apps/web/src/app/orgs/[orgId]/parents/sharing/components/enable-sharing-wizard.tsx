@@ -1033,7 +1033,7 @@ function OrganizationSelectionStep({
           {enrolledOrgs.map(
             (org: {
               id: string;
-              ageGroup: string;
+              ageGroup: string | undefined;
               status: "active" | "inactive" | "pending" | "suspended";
             }) => (
               <OrganizationCheckbox
@@ -1059,7 +1059,7 @@ function OrganizationSelectionStep({
  */
 type OrganizationCheckboxProps = {
   organizationId: string;
-  ageGroup: string;
+  ageGroup: string | undefined;
   status: string;
   isSelected: boolean;
   onToggle: () => void;
@@ -1103,9 +1103,11 @@ function OrganizationCheckbox({
           {organization.name}
         </Label>
         <div className="mt-1 flex flex-wrap gap-2">
-          <Badge className="text-xs" variant="secondary">
-            {ageGroup}
-          </Badge>
+          {ageGroup && (
+            <Badge className="text-xs" variant="secondary">
+              {ageGroup}
+            </Badge>
+          )}
           <Badge className="text-xs" variant="secondary">
             {status}
           </Badge>

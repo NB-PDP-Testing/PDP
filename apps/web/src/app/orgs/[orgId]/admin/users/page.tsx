@@ -2,7 +2,7 @@
 
 import { api } from "@pdp/backend/convex/_generated/api";
 import type { Id } from "@pdp/backend/convex/_generated/dataModel";
-import { useMutation, useQuery } from "convex/react";
+import { useConvex, useMutation, useQuery } from "convex/react";
 import {
   AlertTriangle,
   CheckCircle2,
@@ -61,6 +61,7 @@ import {
 } from "@/components/ui/empty";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
+import { PhoneInput } from "@/components/ui/phone-input";
 import { Skeleton } from "@/components/ui/skeleton";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { useOrgTheme } from "@/hooks/use-org-theme";
@@ -92,6 +93,7 @@ export default function ManageUsersPage() {
   const params = useParams();
   const { theme } = useOrgTheme();
   const orgId = params.orgId as string;
+  const convex = useConvex();
 
   // Get current user session
   const { data: session } = authClient.useSession();
@@ -173,6 +175,24 @@ export default function ManageUsersPage() {
   const resendChildLink = useMutation(
     api.models.guardianPlayerLinks.resendChildLink
   );
+  const createPlayerIdentityAndEnrollment = useMutation(
+    api.models.orgPlayerEnrollments.createPlayerIdentityAndEnrollment
+  );
+  const linkPlayerToUser = useMutation(
+    api.models.playerIdentities.linkPlayerToUser
+  );
+  const updatePlayerTeams = useMutation(
+    api.models.teamPlayerIdentities.updatePlayerTeams
+  );
+
+  const unlinkedEnrollments = useQuery(
+    api.models.orgPlayerEnrollments.getUnlinkedEnrollmentsForOrg,
+    { organizationId: orgId }
+  );
+  const teamPlayerLinks = useQuery(
+    api.models.teamPlayerIdentities.getTeamMembersForOrg,
+    { organizationId: orgId }
+  );
 
   // Transform enrollment data to match expected player format
   const allPlayers =
@@ -192,15 +212,62 @@ export default function ManageUsersPage() {
     [userId: string]: string;
   }>({});
 
+  // Player enrollment state for active member player role assignment
+  const [selectedExistingEnrollmentId, setSelectedExistingEnrollmentId] =
+    useState<Record<string, string | null>>({});
+  const [playerCreateForm, setPlayerCreateForm] = useState<
+    Record<string, { dateOfBirth: string; phone: string; postcode: string }>
+  >({});
+  const [playerCreateTeams, setPlayerCreateTeams] = useState<
+    Record<string, string[]>
+  >({});
+  const [enrollmentSearchTerm, setEnrollmentSearchTerm] = useState<
+    Record<string, string>
+  >({});
+  const [playerMatchStep, setPlayerMatchStep] = useState<
+    Record<string, "auto" | "search" | "create" | "confirmed">
+  >({});
+  type CreateMatchCandidate = {
+    _id: string;
+    firstName: string;
+    lastName: string;
+    dateOfBirth: string;
+    confidence: "high" | "medium" | "low" | "none";
+  };
+  const [playerCreateMatchWarnings, setPlayerCreateMatchWarnings] = useState<
+    Record<string, CreateMatchCandidate[]>
+  >({});
+  const [playerCreateMatchAcknowledged, setPlayerCreateMatchAcknowledged] =
+    useState<Record<string, boolean>>({});
+  const [playerMatchTarget, setPlayerMatchTarget] = useState<{
+    userId: string;
+    name: string;
+    email: string;
+  } | null>(null);
+  const playerMatchResults = useQuery(
+    api.models.orgPlayerEnrollments.findMatchingUnlinkedPlayers,
+    playerMatchTarget
+      ? {
+          organizationId: orgId,
+          name: playerMatchTarget.name,
+          email: playerMatchTarget.email,
+        }
+      : "skip"
+  );
+
   // Invitation dialog state
   const [inviteDialogOpen, setInviteDialogOpen] = useState(false);
   const [inviteEmail, setInviteEmail] = useState("");
   const [inviteFunctionalRoles, setInviteFunctionalRoles] = useState<
-    ("coach" | "parent" | "admin")[]
+    ("coach" | "parent" | "admin" | "player")[]
   >([]);
   const [inviteTeams, setInviteTeams] = useState<string[]>([]); // Team IDs for coach
   const [invitePlayerIds, setInvitePlayerIds] = useState<string[]>([]); // Player IDs for parent
   const [invitePlayerSearch, setInvitePlayerSearch] = useState(""); // Search term for players
+  // Player (adult) invite fields — used for youth record pre-matching
+  const [invitePlayerFirstName, setInvitePlayerFirstName] = useState("");
+  const [invitePlayerLastName, setInvitePlayerLastName] = useState("");
+  const [invitePlayerDob, setInvitePlayerDob] = useState("");
   const [inviting, setInviting] = useState(false);
 
   // Debounced email for existing user lookup (Feature A - Issue #437)
@@ -218,6 +285,28 @@ export default function ManageUsersPage() {
       ? { email: debouncedInviteEmail }
       : "skip"
   );
+
+  // Player matching for invite — run when player role selected + name + DOB provided
+  const hasPlayerMatchData =
+    inviteFunctionalRoles.includes("player") &&
+    invitePlayerFirstName.trim().length > 0 &&
+    invitePlayerLastName.trim().length > 0 &&
+    invitePlayerDob.length > 0 &&
+    inviteDialogOpen;
+  const invitePlayerMatchCandidates = useQuery(
+    api.models.playerMatching.findPlayerMatchCandidates,
+    hasPlayerMatchData
+      ? {
+          organizationId: orgId,
+          firstName: invitePlayerFirstName.trim(),
+          lastName: invitePlayerLastName.trim(),
+          dateOfBirth: invitePlayerDob,
+          email: inviteEmail || undefined,
+        }
+      : "skip"
+  );
+  // Best single match for backwards-compatible usage in invite flow
+  const invitePlayerMatchResult = invitePlayerMatchCandidates?.[0] ?? null;
 
   // Invitation detail modal state
   const [selectedInvitationId, setSelectedInvitationId] = useState<
@@ -255,7 +344,7 @@ export default function ManageUsersPage() {
   // If functional roles include "admin", Better Auth role should be "admin"
   // Otherwise, default to "member"
   const inferBetterAuthRole = (
-    functionalRoles: ("coach" | "parent" | "admin")[]
+    functionalRoles: ("coach" | "parent" | "admin" | "player")[]
   ): "member" | "admin" =>
     functionalRoles.includes("admin") ? "admin" : "member";
 
@@ -332,6 +421,31 @@ export default function ManageUsersPage() {
       return hasChanges ? updated : prev;
     });
   }, [membersWithDetails, teams]);
+
+  // Auto-update the match target when a member enters "auto" step
+  useEffect(() => {
+    const entry = Object.entries(playerMatchStep).find(([, s]) => s === "auto");
+    if (!entry) {
+      if (playerMatchTarget !== null) {
+        setPlayerMatchTarget(null);
+      }
+      return;
+    }
+    const [targetId] = entry;
+    if (playerMatchTarget?.userId === targetId) {
+      return;
+    }
+    const m = (membersWithDetails as any[] | undefined)?.find(
+      (x: any) => x.userId === targetId
+    );
+    if (m) {
+      setPlayerMatchTarget({
+        userId: targetId,
+        name: m.user?.name ?? "",
+        email: m.user?.email ?? "",
+      });
+    }
+  }, [playerMatchStep, playerMatchTarget, membersWithDetails]);
 
   // Helper to get unique age groups from teams
   const ageGroups = Array.from(
@@ -433,6 +547,43 @@ export default function ManageUsersPage() {
         },
       };
     });
+    // Manage enrollment state when player role is toggled
+    if (role === "player") {
+      const currentRoles =
+        editStates[userId]?.functionalRoles ??
+        (membersWithDetails ?? []).find((m: any) => m.userId === userId)
+          ?.functionalRoles ??
+        [];
+      const isAdding = !currentRoles.includes("player");
+      if (isAdding) {
+        // Start the auto-match flow when adding the player role
+        setPlayerMatchStep((prev) => ({ ...prev, [userId]: "auto" }));
+      } else {
+        // Clear all player enrollment state when removing
+        setSelectedExistingEnrollmentId((prev) => ({
+          ...prev,
+          [userId]: null,
+        }));
+        setPlayerCreateForm((prev) => {
+          const n = { ...prev };
+          delete n[userId];
+          return n;
+        });
+        setPlayerCreateTeams((prev) => {
+          const n = { ...prev };
+          delete n[userId];
+          return n;
+        });
+        setPlayerMatchStep((prev) => {
+          const n = { ...prev };
+          delete n[userId];
+          return n;
+        });
+        if (playerMatchTarget?.userId === userId) {
+          setPlayerMatchTarget(null);
+        }
+      }
+    }
   };
 
   const toggleTeam = (userId: string, teamId: string) => {
@@ -512,6 +663,22 @@ export default function ManageUsersPage() {
       return;
     }
 
+    if (state.functionalRoles.includes("player")) {
+      const alreadyLinked = allPlayersData?.some(
+        (p: any) => p.player?.userId === userId
+      );
+      if (!alreadyLinked) {
+        const hasSelection = !!selectedExistingEnrollmentId[userId];
+        const hasDob = !!playerCreateForm[userId]?.dateOfBirth;
+        if (!(hasSelection || hasDob)) {
+          toast.error(
+            "Player role: select a player record to claim, or enter a date of birth to create one"
+          );
+          return;
+        }
+      }
+    }
+
     setLoading(userId);
     try {
       // Update functional roles
@@ -568,6 +735,70 @@ export default function ManageUsersPage() {
         }
       }
 
+      // Handle player enrollment for active members
+      if (state.functionalRoles.includes("player")) {
+        const linkedRecord = allPlayersData?.find(
+          (p: any) => p.player?.userId === userId
+        );
+        if (!linkedRecord) {
+          // Link or create
+          const enrollmentId = selectedExistingEnrollmentId[userId];
+          const teamIds =
+            (playerCreateTeams[userId] ?? []).length > 0
+              ? playerCreateTeams[userId]
+              : undefined;
+          if (enrollmentId) {
+            const enrollment = unlinkedEnrollments?.find(
+              (e) => e.enrollmentId === enrollmentId
+            );
+            if (enrollment) {
+              await linkPlayerToUser({
+                playerIdentityId: enrollment.playerIdentityId,
+                userId,
+                email: member.user?.email ?? undefined,
+              });
+              // Assign teams if selected
+              if (teamIds && teamIds.length > 0) {
+                await updatePlayerTeams({
+                  playerIdentityId: enrollment.playerIdentityId,
+                  organizationId: orgId,
+                  teamIds,
+                  userEmail: session?.user?.email ?? "",
+                });
+              }
+            }
+          } else {
+            // Auto-create using Better Auth account name + DOB
+            const accountName = member.user?.name ?? "";
+            const spaceIdx = accountName.indexOf(" ");
+            const firstName =
+              spaceIdx >= 0 ? accountName.slice(0, spaceIdx) : accountName;
+            const lastName =
+              spaceIdx >= 0 ? accountName.slice(spaceIdx + 1) : "";
+            const dob = playerCreateForm[userId]?.dateOfBirth;
+            if (dob) {
+              await createPlayerIdentityAndEnrollment({
+                userId,
+                email: member.user?.email ?? undefined,
+                organizationId: orgId,
+                firstName: firstName.trim(),
+                lastName: lastName.trim(),
+                dateOfBirth: dob,
+                teamIds,
+              });
+            }
+          }
+        } else if (playerCreateTeams[userId] !== undefined) {
+          // Already linked — update teams if changed
+          await updatePlayerTeams({
+            playerIdentityId: linkedRecord._id as Id<"playerIdentities">,
+            organizationId: orgId,
+            teamIds: playerCreateTeams[userId],
+            userEmail: session?.user?.email ?? "",
+          });
+        }
+      }
+
       setEditStates((prev) => ({
         ...prev,
         [userId]: { ...prev[userId], modified: false },
@@ -582,7 +813,9 @@ export default function ManageUsersPage() {
     }
   };
 
-  const toggleInviteFunctionalRole = (role: "coach" | "parent" | "admin") => {
+  const toggleInviteFunctionalRole = (
+    role: "coach" | "parent" | "admin" | "player"
+  ) => {
     setInviteFunctionalRoles((prev) =>
       prev.includes(role) ? prev.filter((r) => r !== role) : [...prev, role]
     );
@@ -625,11 +858,12 @@ export default function ManageUsersPage() {
       };
 
       type InviteMetadata = {
-        suggestedFunctionalRoles: ("coach" | "parent" | "admin")[];
+        suggestedFunctionalRoles: ("coach" | "parent" | "admin" | "player")[];
         roleSpecificData?: {
           teams?: TeamInfo[]; // Full team details for coach role
         };
         suggestedPlayerLinks?: PlayerInfo[]; // Full player details for parent role
+        matchedPlayerIdentityId?: string; // Pre-matched youth identity for player role
       };
 
       const metadata: InviteMetadata = {
@@ -686,6 +920,16 @@ export default function ManageUsersPage() {
           .filter((p): p is PlayerInfo => p !== null);
 
         metadata.suggestedPlayerLinks = playerDetails;
+      }
+
+      // Add player-specific data (matched identity for player role)
+      if (
+        inviteFunctionalRoles.includes("player") &&
+        invitePlayerMatchResult?.confidence !== "none" &&
+        invitePlayerMatchResult?.confidence !== undefined &&
+        invitePlayerMatchResult?._id
+      ) {
+        metadata.matchedPlayerIdentityId = invitePlayerMatchResult._id;
       }
 
       const inviteOptions = {
@@ -775,6 +1019,9 @@ export default function ManageUsersPage() {
         setInviteTeams([]);
         setInvitePlayerIds([]);
         setInvitePlayerSearch("");
+        setInvitePlayerFirstName("");
+        setInvitePlayerLastName("");
+        setInvitePlayerDob("");
       }
     } catch (error: any) {
       console.error("Error inviting user:", error);
@@ -2290,19 +2537,977 @@ export default function ManageUsersPage() {
                       </div>
                     )}
 
+                    {/* Player Settings */}
+                    {state.functionalRoles.includes("player") &&
+                      (() => {
+                        const linkedPlayerRecord = allPlayersData?.find(
+                          (p: any) => p.player?.userId === member.userId
+                        );
+
+                        // Compute current team IDs for this player
+                        const currentPlayerTeamIds = linkedPlayerRecord
+                          ? (teamPlayerLinks ?? [])
+                              .filter(
+                                (link: any) =>
+                                  link.playerIdentityId ===
+                                    linkedPlayerRecord._id &&
+                                  link.status === "active"
+                              )
+                              .map((link: any) => link.teamId)
+                          : [];
+
+                        // Selected teams: use stored state, or current teams if already linked
+                        const selectedTeamIds =
+                          playerCreateTeams[member.userId] ??
+                          currentPlayerTeamIds;
+
+                        const selectedEnrollmentId =
+                          selectedExistingEnrollmentId[member.userId] ?? null;
+                        const playerSearchTerm =
+                          enrollmentSearchTerm[member.userId] ?? "";
+                        const dob =
+                          playerCreateForm[member.userId]?.dateOfBirth ?? "";
+
+                        // Filter unlinked player records by search
+                        const filteredUnlinked = (
+                          unlinkedEnrollments ?? []
+                        ).filter(
+                          (e) =>
+                            playerSearchTerm === "" ||
+                            `${e.firstName} ${e.lastName}`
+                              .toLowerCase()
+                              .includes(playerSearchTerm.toLowerCase()) ||
+                            (e.ageGroup ?? "")
+                              .toLowerCase()
+                              .includes(playerSearchTerm.toLowerCase())
+                        );
+
+                        // Selected enrollment details (for showing DOB)
+                        const selectedEnrollment = selectedEnrollmentId
+                          ? (unlinkedEnrollments ?? []).find(
+                              (e) => e.enrollmentId === selectedEnrollmentId
+                            )
+                          : null;
+
+                        // 3-step player matching flow
+                        const matchStep = (playerMatchStep[member.userId] ??
+                          "auto") as "auto" | "search" | "create" | "confirmed";
+                        const isActiveMatchTarget =
+                          playerMatchTarget?.userId === member.userId;
+                        const matches = isActiveMatchTarget
+                          ? playerMatchResults
+                          : undefined;
+                        const topMatch = matches?.[0] ?? null;
+                        const isMatchLoading =
+                          isActiveMatchTarget && matches === undefined;
+
+                        return (
+                          <div
+                            className={`space-y-3 rounded-lg border p-4 ${linkedPlayerRecord ? "border-green-300 bg-green-50" : "border-orange-300 bg-orange-50"}`}
+                          >
+                            <div className="flex items-center justify-between">
+                              <div className="flex items-center gap-2">
+                                <UserCircle className="h-4 w-4 text-orange-600" />
+                                <span className="font-semibold text-orange-700 text-sm">
+                                  Player Settings
+                                </span>
+                              </div>
+                              {!linkedPlayerRecord && (
+                                <Badge
+                                  className="bg-orange-100 text-orange-700"
+                                  variant="outline"
+                                >
+                                  <AlertTriangle className="mr-1 h-3 w-3" />
+                                  No player record linked
+                                </Badge>
+                              )}
+                            </div>
+
+                            {/* Already linked: show name badge */}
+                            {linkedPlayerRecord && (
+                              <div className="rounded-lg bg-green-100 p-2">
+                                <p className="mb-1 font-medium text-green-700 text-xs">
+                                  Currently Linked:
+                                </p>
+                                <span className="inline-flex items-center rounded bg-green-200 px-2 py-0.5 text-green-800 text-xs">
+                                  {linkedPlayerRecord.name}
+                                </span>
+                              </div>
+                            )}
+
+                            {/* Not linked: 3-step player matching flow */}
+                            {!linkedPlayerRecord &&
+                              (() => {
+                                // Step: confirmed + existing enrollment selected
+                                if (
+                                  matchStep === "confirmed" &&
+                                  selectedEnrollment
+                                ) {
+                                  return (
+                                    <div className="space-y-2">
+                                      <Label className="font-medium text-sm">
+                                        Player Record
+                                      </Label>
+                                      <div className="flex items-center justify-between rounded-lg border border-orange-300 bg-orange-50 p-3">
+                                        <div>
+                                          <p className="font-medium text-orange-800 text-sm">
+                                            Will link:{" "}
+                                            {selectedEnrollment.firstName}{" "}
+                                            {selectedEnrollment.lastName}
+                                          </p>
+                                          <p className="text-muted-foreground text-xs">
+                                            DOB:{" "}
+                                            {selectedEnrollment.dateOfBirth}
+                                          </p>
+                                        </div>
+                                        <Button
+                                          className="h-auto p-0 text-muted-foreground text-xs"
+                                          onClick={() => {
+                                            setSelectedExistingEnrollmentId(
+                                              (prev) => ({
+                                                ...prev,
+                                                [member.userId]: null,
+                                              })
+                                            );
+                                            setPlayerMatchStep((prev) => ({
+                                              ...prev,
+                                              [member.userId]: "auto",
+                                            }));
+                                          }}
+                                          size="sm"
+                                          type="button"
+                                          variant="ghost"
+                                        >
+                                          ✕ Change
+                                        </Button>
+                                      </div>
+                                    </div>
+                                  );
+                                }
+
+                                // Step: confirmed + DOB (creating new)
+                                if (matchStep === "confirmed" && dob) {
+                                  return (
+                                    <div className="space-y-2">
+                                      <Label className="font-medium text-sm">
+                                        Player Record
+                                      </Label>
+                                      <div className="flex items-center justify-between rounded-lg border border-orange-300 bg-orange-50 p-3">
+                                        <div>
+                                          <p className="font-medium text-orange-800 text-sm">
+                                            Will create:{" "}
+                                            {member.user?.name ?? "Player"}
+                                          </p>
+                                          <p className="text-muted-foreground text-xs">
+                                            DOB: {dob}
+                                          </p>
+                                        </div>
+                                        <Button
+                                          className="h-auto p-0 text-muted-foreground text-xs"
+                                          onClick={() =>
+                                            setPlayerMatchStep((prev) => ({
+                                              ...prev,
+                                              [member.userId]: "create",
+                                            }))
+                                          }
+                                          size="sm"
+                                          type="button"
+                                          variant="ghost"
+                                        >
+                                          ✕ Change
+                                        </Button>
+                                      </div>
+                                    </div>
+                                  );
+                                }
+
+                                return (
+                                  <div className="space-y-3">
+                                    {/* Step: auto — auto-match results */}
+                                    {matchStep === "auto" && (
+                                      <div className="space-y-2">
+                                        <Label className="font-medium text-sm">
+                                          Player Record
+                                        </Label>
+                                        {isMatchLoading ? (
+                                          <div className="flex items-center gap-2 rounded-lg border border-gray-200 bg-gray-50 p-3">
+                                            <Loader2 className="h-4 w-4 animate-spin text-muted-foreground" />
+                                            <span className="text-muted-foreground text-sm">
+                                              Searching for a match...
+                                            </span>
+                                          </div>
+                                        ) : topMatch ? (
+                                          <div className="space-y-2">
+                                            <p className="text-muted-foreground text-xs">
+                                              We found a potential match based
+                                              on name
+                                              {(
+                                                topMatch as any
+                                              ).matchReasons?.includes(
+                                                "Email matches"
+                                              )
+                                                ? " and email"
+                                                : ""}
+                                              :
+                                            </p>
+                                            <div
+                                              className={`rounded-lg border p-3 ${(topMatch as any).confidence === "high" ? "border-green-300 bg-green-50" : (topMatch as any).confidence === "medium" ? "border-blue-200 bg-blue-50" : "border-gray-200 bg-gray-50"}`}
+                                            >
+                                              <div className="flex items-center justify-between">
+                                                <div>
+                                                  <p className="font-semibold text-sm">
+                                                    {
+                                                      (topMatch as any)
+                                                        .firstName
+                                                    }{" "}
+                                                    {(topMatch as any).lastName}
+                                                  </p>
+                                                  <p className="text-muted-foreground text-xs">
+                                                    DOB:{" "}
+                                                    {
+                                                      (topMatch as any)
+                                                        .dateOfBirth
+                                                    }
+                                                    {(topMatch as any).ageGroup
+                                                      ? ` · ${(topMatch as any).ageGroup}`
+                                                      : ""}
+                                                  </p>
+                                                  <div className="mt-1 flex flex-wrap gap-1">
+                                                    {(
+                                                      (topMatch as any)
+                                                        .matchReasons ?? []
+                                                    ).map((r: string) => (
+                                                      <span
+                                                        className="rounded-full border bg-white px-2 py-0.5 text-xs"
+                                                        key={r}
+                                                      >
+                                                        {r}
+                                                      </span>
+                                                    ))}
+                                                  </div>
+                                                </div>
+                                                <Badge
+                                                  className={
+                                                    (topMatch as any)
+                                                      .confidence === "high"
+                                                      ? "bg-green-100 text-green-700"
+                                                      : (topMatch as any)
+                                                            .confidence ===
+                                                          "medium"
+                                                        ? "bg-blue-100 text-blue-700"
+                                                        : "bg-gray-100 text-gray-700"
+                                                  }
+                                                  variant="outline"
+                                                >
+                                                  {(topMatch as any)
+                                                    .confidence === "high"
+                                                    ? "Strong match"
+                                                    : (topMatch as any)
+                                                          .confidence ===
+                                                        "medium"
+                                                      ? "Possible match"
+                                                      : "Weak match"}
+                                                </Badge>
+                                              </div>
+                                            </div>
+                                            <div className="flex gap-2">
+                                              <Button
+                                                className="flex-1 border-green-400 text-green-700 hover:bg-green-50"
+                                                onClick={() => {
+                                                  setSelectedExistingEnrollmentId(
+                                                    (prev) => ({
+                                                      ...prev,
+                                                      [member.userId]: (
+                                                        topMatch as any
+                                                      ).enrollmentId,
+                                                    })
+                                                  );
+                                                  setPlayerMatchStep(
+                                                    (prev) => ({
+                                                      ...prev,
+                                                      [member.userId]:
+                                                        "confirmed",
+                                                    })
+                                                  );
+                                                }}
+                                                size="sm"
+                                                type="button"
+                                                variant="outline"
+                                              >
+                                                ✓ Yes, link this record
+                                              </Button>
+                                              <Button
+                                                className="border-gray-300 text-gray-600 hover:bg-gray-50"
+                                                onClick={() =>
+                                                  setPlayerMatchStep(
+                                                    (prev) => ({
+                                                      ...prev,
+                                                      [member.userId]: "search",
+                                                    })
+                                                  )
+                                                }
+                                                size="sm"
+                                                type="button"
+                                                variant="outline"
+                                              >
+                                                Not the right record →
+                                              </Button>
+                                            </div>
+                                            {matches && matches.length > 1 && (
+                                              <details className="text-xs">
+                                                <summary className="cursor-pointer text-muted-foreground">
+                                                  {matches.length - 1} other
+                                                  potential match
+                                                  {matches.length > 2
+                                                    ? "es"
+                                                    : ""}
+                                                </summary>
+                                                <div className="mt-1 space-y-1">
+                                                  {matches
+                                                    .slice(1)
+                                                    .map((m: any) => (
+                                                      <button
+                                                        className="flex w-full items-center justify-between rounded border border-gray-200 p-2 text-left hover:bg-gray-50"
+                                                        key={m.enrollmentId}
+                                                        onClick={() => {
+                                                          setSelectedExistingEnrollmentId(
+                                                            (prev) => ({
+                                                              ...prev,
+                                                              [member.userId]:
+                                                                m.enrollmentId,
+                                                            })
+                                                          );
+                                                          setPlayerMatchStep(
+                                                            (prev) => ({
+                                                              ...prev,
+                                                              [member.userId]:
+                                                                "confirmed",
+                                                            })
+                                                          );
+                                                        }}
+                                                        type="button"
+                                                      >
+                                                        <span className="font-medium">
+                                                          {m.firstName}{" "}
+                                                          {m.lastName}
+                                                        </span>
+                                                        <span className="text-muted-foreground">
+                                                          {m.dateOfBirth}
+                                                        </span>
+                                                      </button>
+                                                    ))}
+                                                </div>
+                                              </details>
+                                            )}
+                                          </div>
+                                        ) : matches !== undefined ? (
+                                          <div className="space-y-2">
+                                            <div className="rounded-lg border border-orange-200 bg-orange-50 p-3">
+                                              <p className="text-orange-700 text-sm">
+                                                No matching player record found
+                                                for {member.user?.name}.
+                                              </p>
+                                            </div>
+                                            <div className="flex gap-2">
+                                              <Button
+                                                className="border-orange-400 text-orange-700 hover:bg-orange-100"
+                                                onClick={() =>
+                                                  setPlayerMatchStep(
+                                                    (prev) => ({
+                                                      ...prev,
+                                                      [member.userId]: "search",
+                                                    })
+                                                  )
+                                                }
+                                                size="sm"
+                                                type="button"
+                                                variant="outline"
+                                              >
+                                                Search for record
+                                              </Button>
+                                              <Button
+                                                className="border-orange-400 text-orange-700 hover:bg-orange-100"
+                                                onClick={() =>
+                                                  setPlayerMatchStep(
+                                                    (prev) => ({
+                                                      ...prev,
+                                                      [member.userId]: "create",
+                                                    })
+                                                  )
+                                                }
+                                                size="sm"
+                                                type="button"
+                                                variant="outline"
+                                              >
+                                                Create new record
+                                              </Button>
+                                            </div>
+                                          </div>
+                                        ) : (
+                                          <div className="flex items-center gap-2 rounded-lg border border-gray-200 bg-gray-50 p-3">
+                                            <Loader2 className="h-4 w-4 animate-spin text-muted-foreground" />
+                                            <span className="text-muted-foreground text-sm">
+                                              Checking for a match...
+                                            </span>
+                                          </div>
+                                        )}
+                                      </div>
+                                    )}
+
+                                    {/* Step: search — search by name */}
+                                    {matchStep === "search" && (
+                                      <div className="space-y-2">
+                                        <div className="flex items-center justify-between">
+                                          <Label className="font-medium text-sm">
+                                            Search Player Records
+                                          </Label>
+                                          <Button
+                                            className="h-auto p-0 text-muted-foreground text-xs"
+                                            onClick={() =>
+                                              setPlayerMatchStep((prev) => ({
+                                                ...prev,
+                                                [member.userId]: "auto",
+                                              }))
+                                            }
+                                            size="sm"
+                                            type="button"
+                                            variant="ghost"
+                                          >
+                                            ← Back
+                                          </Button>
+                                        </div>
+                                        <div className="relative">
+                                          <Search className="-translate-y-1/2 absolute top-1/2 left-3 h-4 w-4 text-gray-400" />
+                                          <Input
+                                            className="pl-10"
+                                            onChange={(e) =>
+                                              setEnrollmentSearchTerm(
+                                                (prev) => ({
+                                                  ...prev,
+                                                  [member.userId]:
+                                                    e.target.value,
+                                                })
+                                              )
+                                            }
+                                            placeholder="Type a name to search..."
+                                            value={playerSearchTerm}
+                                          />
+                                        </div>
+                                        {playerSearchTerm.length >= 2 ? (
+                                          <div className="max-h-48 space-y-1 overflow-y-auto">
+                                            {filteredUnlinked.length === 0 ? (
+                                              <div className="space-y-2">
+                                                <p className="text-muted-foreground text-xs">
+                                                  No player records found
+                                                  matching "{playerSearchTerm}".
+                                                </p>
+                                                <Button
+                                                  className="border-orange-400 text-orange-700 hover:bg-orange-100"
+                                                  onClick={() =>
+                                                    setPlayerMatchStep(
+                                                      (prev) => ({
+                                                        ...prev,
+                                                        [member.userId]:
+                                                          "create",
+                                                      })
+                                                    )
+                                                  }
+                                                  size="sm"
+                                                  type="button"
+                                                  variant="outline"
+                                                >
+                                                  Create a new record instead
+                                                </Button>
+                                              </div>
+                                            ) : (
+                                              filteredUnlinked.map((e) => {
+                                                const isSelected =
+                                                  selectedEnrollmentId ===
+                                                  e.enrollmentId;
+                                                return (
+                                                  <button
+                                                    className={`flex w-full cursor-pointer items-center gap-2 rounded border p-2 text-left text-sm ${
+                                                      isSelected
+                                                        ? "border-orange-400 bg-orange-100"
+                                                        : "border-gray-200 bg-white hover:bg-gray-50"
+                                                    }`}
+                                                    key={e.enrollmentId}
+                                                    onClick={() => {
+                                                      setSelectedExistingEnrollmentId(
+                                                        (prev) => ({
+                                                          ...prev,
+                                                          [member.userId]:
+                                                            isSelected
+                                                              ? null
+                                                              : e.enrollmentId,
+                                                        })
+                                                      );
+                                                      if (!isSelected) {
+                                                        setPlayerMatchStep(
+                                                          (prev) => ({
+                                                            ...prev,
+                                                            [member.userId]:
+                                                              "confirmed",
+                                                          })
+                                                        );
+                                                      }
+                                                    }}
+                                                    type="button"
+                                                  >
+                                                    <span
+                                                      className={`flex h-4 w-4 shrink-0 items-center justify-center rounded-sm border ${isSelected ? "border-orange-500 bg-orange-500 text-white" : "border-muted"}`}
+                                                    >
+                                                      {isSelected && "✓"}
+                                                    </span>
+                                                    <span className="flex-1 font-medium">
+                                                      {e.firstName} {e.lastName}
+                                                    </span>
+                                                    <span className="text-muted-foreground text-xs">
+                                                      {e.dateOfBirth
+                                                        ? `DOB: ${e.dateOfBirth}`
+                                                        : e.ageGroup}
+                                                    </span>
+                                                  </button>
+                                                );
+                                              })
+                                            )}
+                                          </div>
+                                        ) : (
+                                          <p className="text-muted-foreground text-xs">
+                                            Type at least 2 characters to
+                                            search.
+                                          </p>
+                                        )}
+                                        <Button
+                                          className="border-orange-400 text-orange-700 hover:bg-orange-100"
+                                          onClick={() =>
+                                            setPlayerMatchStep((prev) => ({
+                                              ...prev,
+                                              [member.userId]: "create",
+                                            }))
+                                          }
+                                          size="sm"
+                                          type="button"
+                                          variant="outline"
+                                        >
+                                          Can't find the record — create a new
+                                          one
+                                        </Button>
+                                      </div>
+                                    )}
+
+                                    {/* Step: create — DOB field only */}
+                                    {matchStep === "create" && (
+                                      <div className="space-y-2">
+                                        <div className="flex items-center justify-between">
+                                          <Label className="font-medium text-sm">
+                                            Create New Player Record
+                                          </Label>
+                                          <Button
+                                            className="h-auto p-0 text-muted-foreground text-xs"
+                                            onClick={() =>
+                                              setPlayerMatchStep((prev) => ({
+                                                ...prev,
+                                                [member.userId]: "search",
+                                              }))
+                                            }
+                                            size="sm"
+                                            type="button"
+                                            variant="ghost"
+                                          >
+                                            ← Back
+                                          </Button>
+                                        </div>
+                                        <p className="text-muted-foreground text-xs">
+                                          A new player record will be created
+                                          for{" "}
+                                          <strong>{member.user?.name}</strong>.
+                                        </p>
+                                        <div>
+                                          <Label
+                                            className="font-medium text-sm"
+                                            htmlFor={`player-dob-${member.userId}`}
+                                          >
+                                            Date of Birth{" "}
+                                            <span className="text-destructive">
+                                              *
+                                            </span>
+                                          </Label>
+                                          <Input
+                                            id={`player-dob-${member.userId}`}
+                                            onChange={(e) =>
+                                              setPlayerCreateForm((prev) => ({
+                                                ...prev,
+                                                [member.userId]: {
+                                                  ...prev[member.userId],
+                                                  dateOfBirth: e.target.value,
+                                                  phone:
+                                                    prev[member.userId]
+                                                      ?.phone ?? "",
+                                                  postcode:
+                                                    prev[member.userId]
+                                                      ?.postcode ?? "",
+                                                },
+                                              }))
+                                            }
+                                            type="date"
+                                            value={dob}
+                                          />
+                                        </div>
+                                        {/* Phone and Postcode — optional matching signals */}
+                                        <div className="grid grid-cols-2 gap-2">
+                                          <div>
+                                            <Label className="font-medium text-sm">
+                                              Phone (Optional)
+                                            </Label>
+                                            <PhoneInput
+                                              countries={["IE", "GB", "US"]}
+                                              defaultCountry="IE"
+                                              onChange={(value) =>
+                                                setPlayerCreateForm((prev) => ({
+                                                  ...prev,
+                                                  [member.userId]: {
+                                                    dateOfBirth:
+                                                      prev[member.userId]
+                                                        ?.dateOfBirth ?? "",
+                                                    postcode:
+                                                      prev[member.userId]
+                                                        ?.postcode ?? "",
+                                                    phone: value ?? "",
+                                                  },
+                                                }))
+                                              }
+                                              value={
+                                                playerCreateForm[member.userId]
+                                                  ?.phone ?? ""
+                                              }
+                                            />
+                                          </div>
+                                          <div>
+                                            <Label className="font-medium text-sm">
+                                              Postcode (Optional)
+                                            </Label>
+                                            <Input
+                                              maxLength={10}
+                                              onChange={(e) =>
+                                                setPlayerCreateForm((prev) => ({
+                                                  ...prev,
+                                                  [member.userId]: {
+                                                    dateOfBirth:
+                                                      prev[member.userId]
+                                                        ?.dateOfBirth ?? "",
+                                                    phone:
+                                                      prev[member.userId]
+                                                        ?.phone ?? "",
+                                                    postcode: e.target.value,
+                                                  },
+                                                }))
+                                              }
+                                              placeholder="e.g. D01 F5P2"
+                                              type="text"
+                                              value={
+                                                playerCreateForm[member.userId]
+                                                  ?.postcode ?? ""
+                                              }
+                                            />
+                                          </div>
+                                        </div>
+                                        {/* Duplicate-match warning for create step */}
+                                        {playerCreateMatchWarnings[
+                                          member.userId
+                                        ]?.length > 0 && (
+                                          <div className="rounded border border-amber-300 bg-amber-50 p-2 text-xs">
+                                            <p className="mb-1 font-medium text-amber-800">
+                                              Possible existing player record(s)
+                                              found:
+                                            </p>
+                                            {playerCreateMatchWarnings[
+                                              member.userId
+                                            ].map((c) => (
+                                              <p
+                                                className="text-amber-700"
+                                                key={c._id}
+                                              >
+                                                {c.firstName} {c.lastName} — DOB{" "}
+                                                {c.dateOfBirth} ({c.confidence}{" "}
+                                                match)
+                                              </p>
+                                            ))}
+                                            <div className="mt-2 flex gap-2">
+                                              <Button
+                                                className="border-amber-400 text-amber-700 hover:bg-amber-100"
+                                                onClick={() => {
+                                                  setPlayerCreateMatchAcknowledged(
+                                                    (prev) => ({
+                                                      ...prev,
+                                                      [member.userId]: true,
+                                                    })
+                                                  );
+                                                  setPlayerCreateMatchWarnings(
+                                                    (prev) => ({
+                                                      ...prev,
+                                                      [member.userId]: [],
+                                                    })
+                                                  );
+                                                  setPlayerMatchStep(
+                                                    (prev) => ({
+                                                      ...prev,
+                                                      [member.userId]:
+                                                        "confirmed",
+                                                    })
+                                                  );
+                                                }}
+                                                size="sm"
+                                                type="button"
+                                                variant="outline"
+                                              >
+                                                Create anyway
+                                              </Button>
+                                              <Button
+                                                onClick={() =>
+                                                  setPlayerCreateMatchWarnings(
+                                                    (prev) => ({
+                                                      ...prev,
+                                                      [member.userId]: [],
+                                                    })
+                                                  )
+                                                }
+                                                size="sm"
+                                                type="button"
+                                                variant="ghost"
+                                              >
+                                                Cancel
+                                              </Button>
+                                            </div>
+                                          </div>
+                                        )}
+                                        {dob &&
+                                          !(
+                                            playerCreateMatchWarnings[
+                                              member.userId
+                                            ]?.length > 0
+                                          ) && (
+                                            <Button
+                                              className="border-orange-400 text-orange-700 hover:bg-orange-100"
+                                              onClick={async () => {
+                                                if (
+                                                  playerCreateMatchAcknowledged[
+                                                    member.userId
+                                                  ]
+                                                ) {
+                                                  setPlayerMatchStep(
+                                                    (prev) => ({
+                                                      ...prev,
+                                                      [member.userId]:
+                                                        "confirmed",
+                                                    })
+                                                  );
+                                                  return;
+                                                }
+                                                const accountName =
+                                                  member.user?.name ?? "";
+                                                const spaceIdx =
+                                                  accountName.indexOf(" ");
+                                                const firstName =
+                                                  spaceIdx >= 0
+                                                    ? accountName.slice(
+                                                        0,
+                                                        spaceIdx
+                                                      )
+                                                    : accountName;
+                                                const lastName =
+                                                  spaceIdx >= 0
+                                                    ? accountName.slice(
+                                                        spaceIdx + 1
+                                                      )
+                                                    : "";
+                                                const candidates =
+                                                  (await convex.query(
+                                                    api.models.playerMatching
+                                                      .findPlayerMatchCandidates,
+                                                    {
+                                                      organizationId: orgId,
+                                                      firstName:
+                                                        firstName.trim(),
+                                                      lastName: lastName.trim(),
+                                                      dateOfBirth: dob,
+                                                      email:
+                                                        member.user?.email ??
+                                                        undefined,
+                                                      phone:
+                                                        playerCreateForm[
+                                                          member.userId
+                                                        ]?.phone || undefined,
+                                                      postcode:
+                                                        playerCreateForm[
+                                                          member.userId
+                                                        ]?.postcode?.trim() ||
+                                                        undefined,
+                                                    }
+                                                  )) as CreateMatchCandidate[];
+                                                const relevant =
+                                                  candidates.filter(
+                                                    (c) =>
+                                                      c.confidence === "high" ||
+                                                      c.confidence === "medium"
+                                                  );
+                                                if (relevant.length > 0) {
+                                                  setPlayerCreateMatchWarnings(
+                                                    (prev) => ({
+                                                      ...prev,
+                                                      [member.userId]: relevant,
+                                                    })
+                                                  );
+                                                } else {
+                                                  setPlayerMatchStep(
+                                                    (prev) => ({
+                                                      ...prev,
+                                                      [member.userId]:
+                                                        "confirmed",
+                                                    })
+                                                  );
+                                                }
+                                              }}
+                                              size="sm"
+                                              type="button"
+                                              variant="outline"
+                                            >
+                                              ✓ Confirm — create this record
+                                            </Button>
+                                          )}
+                                      </div>
+                                    )}
+                                  </div>
+                                );
+                              })()}
+
+                            {/* Team assignment — shown for both linked and unlinked */}
+                            <div className="space-y-2">
+                              <Label className="font-medium text-sm">
+                                Assign to Teams{" "}
+                                <span className="font-normal text-muted-foreground text-xs">
+                                  (optional)
+                                </span>
+                              </Label>
+                              {(teams ?? []).length === 0 ? (
+                                <p className="text-muted-foreground text-xs">
+                                  No teams set up yet.
+                                </p>
+                              ) : (
+                                <div className="max-h-48 space-y-1 overflow-y-auto">
+                                  {(teams ?? []).map((team: any) => {
+                                    const isSelected = selectedTeamIds.includes(
+                                      team._id
+                                    );
+
+                                    // Age-group mismatch warning
+                                    const teamAgeGroupStr =
+                                      team.ageGroup?.trim() ?? "";
+                                    const dobForWarning =
+                                      selectedEnrollment?.dateOfBirth ||
+                                      linkedPlayerRecord?.dateOfBirth ||
+                                      dob ||
+                                      "";
+                                    const dobYear = dobForWarning
+                                      ? new Date(dobForWarning).getFullYear()
+                                      : null;
+                                    const playerAge = dobYear
+                                      ? new Date().getFullYear() - dobYear
+                                      : null;
+                                    const ageGroupNum = teamAgeGroupStr
+                                      ? Number.parseInt(
+                                          teamAgeGroupStr.replace(/\D/g, ""),
+                                          10
+                                        )
+                                      : null;
+                                    const showAgeWarning =
+                                      isSelected &&
+                                      playerAge !== null &&
+                                      ageGroupNum !== null &&
+                                      !Number.isNaN(ageGroupNum) &&
+                                      Math.abs(playerAge - ageGroupNum) > 2;
+
+                                    return (
+                                      <div key={team._id}>
+                                        <button
+                                          className={`flex w-full cursor-pointer items-center gap-2 rounded border p-2 text-left text-sm ${
+                                            isSelected
+                                              ? "border-orange-400 bg-orange-100"
+                                              : "border-gray-200 bg-white hover:bg-gray-50"
+                                          }`}
+                                          onClick={() =>
+                                            setPlayerCreateTeams((prev) => ({
+                                              ...prev,
+                                              [member.userId]: isSelected
+                                                ? (
+                                                    prev[member.userId] ??
+                                                    currentPlayerTeamIds
+                                                  ).filter(
+                                                    (id) => id !== team._id
+                                                  )
+                                                : [
+                                                    ...(prev[member.userId] ??
+                                                      currentPlayerTeamIds),
+                                                    team._id,
+                                                  ],
+                                            }))
+                                          }
+                                          type="button"
+                                        >
+                                          <span
+                                            className={`flex h-4 w-4 shrink-0 items-center justify-center rounded-sm border ${isSelected ? "border-orange-500 bg-orange-500 text-white" : "border-muted"}`}
+                                          >
+                                            {isSelected && "✓"}
+                                          </span>
+                                          <span className="flex-1 font-medium">
+                                            {team.name}
+                                          </span>
+                                          <span className="text-muted-foreground text-xs">
+                                            {team.ageGroup}
+                                            {team.season
+                                              ? ` · ${team.season}`
+                                              : ""}
+                                          </span>
+                                        </button>
+                                        {showAgeWarning && (
+                                          <p className="mt-0.5 text-amber-600 text-xs">
+                                            ⚠ Player age ({playerAge}) may not
+                                            match {teamAgeGroupStr} — you can
+                                            still proceed.
+                                          </p>
+                                        )}
+                                      </div>
+                                    );
+                                  })}
+                                </div>
+                              )}
+                            </div>
+                          </div>
+                        );
+                      })()}
+
                     {/* Save Button */}
                     {state.modified && (
                       <div className="flex justify-end gap-2 border-t pt-4">
                         <Button
-                          onClick={() =>
+                          onClick={() => {
                             setEditStates((prev) => ({
                               ...prev,
                               [member.userId]: {
                                 ...prev[member.userId],
                                 modified: false,
                               },
-                            }))
-                          }
+                            }));
+                            setSelectedExistingEnrollmentId((prev) => ({
+                              ...prev,
+                              [member.userId]: null,
+                            }));
+                            setPlayerCreateForm((prev) => {
+                              const n = { ...prev };
+                              delete n[member.userId];
+                              return n;
+                            });
+                          }}
                           variant="outline"
                         >
                           Cancel
@@ -2426,6 +3631,19 @@ export default function ManageUsersPage() {
                     >
                       <UserCircle className="h-4 w-4" />
                       <span>Parent</span>
+                    </button>
+                    <button
+                      className={`flex cursor-pointer items-center gap-2 rounded-lg border px-3 py-2 text-sm transition-colors ${
+                        inviteFunctionalRoles.includes("player")
+                          ? "border-orange-400 bg-orange-100 text-orange-700"
+                          : "border-gray-200 bg-white hover:bg-gray-50"
+                      }`}
+                      disabled={inviting}
+                      onClick={() => toggleInviteFunctionalRole("player")}
+                      type="button"
+                    >
+                      <UserPlus className="h-4 w-4" />
+                      <span>Player (Adult)</span>
                     </button>
                   </div>
                   {inviteFunctionalRoles.length > 0 && (
@@ -2582,6 +3800,78 @@ export default function ManageUsersPage() {
                         {invitePlayerIds.length} player(s) selected
                       </p>
                     )}
+                  </div>
+                )}
+
+                {/* Player (Adult): Optional name + DOB for youth record matching */}
+                {inviteFunctionalRoles.includes("player") && (
+                  <div className="space-y-3 rounded-lg border border-orange-200 bg-orange-50 p-3">
+                    <div>
+                      <Label className="font-medium text-orange-900 text-sm">
+                        Youth Record Matching (Optional)
+                      </Label>
+                      <p className="mt-1 text-orange-700 text-xs">
+                        Enter the player's name and date of birth to
+                        automatically link their existing youth history when
+                        they accept the invite.
+                      </p>
+                    </div>
+                    <div className="grid grid-cols-2 gap-2">
+                      <div>
+                        <Label className="text-orange-800 text-xs">
+                          First Name
+                        </Label>
+                        <Input
+                          className="mt-1"
+                          disabled={inviting}
+                          onChange={(e) =>
+                            setInvitePlayerFirstName(e.target.value)
+                          }
+                          placeholder="First name"
+                          value={invitePlayerFirstName}
+                        />
+                      </div>
+                      <div>
+                        <Label className="text-orange-800 text-xs">
+                          Last Name
+                        </Label>
+                        <Input
+                          className="mt-1"
+                          disabled={inviting}
+                          onChange={(e) =>
+                            setInvitePlayerLastName(e.target.value)
+                          }
+                          placeholder="Last name"
+                          value={invitePlayerLastName}
+                        />
+                      </div>
+                    </div>
+                    <div>
+                      <Label className="text-orange-800 text-xs">
+                        Date of Birth
+                      </Label>
+                      <Input
+                        className="mt-1"
+                        disabled={inviting}
+                        onChange={(e) => setInvitePlayerDob(e.target.value)}
+                        type="date"
+                        value={invitePlayerDob}
+                      />
+                    </div>
+                    {/* Match result note */}
+                    {hasPlayerMatchData &&
+                      invitePlayerMatchResult !== null &&
+                      (invitePlayerMatchResult.confidence === "high" ||
+                        invitePlayerMatchResult.confidence === "medium") && (
+                        <div className="rounded-md border border-orange-300 bg-orange-100 p-2">
+                          <p className="text-orange-800 text-xs">
+                            An existing {invitePlayerMatchResult.playerType}{" "}
+                            player record may match this person. They&apos;ll be
+                            linked to their existing history when they accept
+                            the invite.
+                          </p>
+                        </div>
+                      )}
                   </div>
                 )}
               </ResponsiveFormSection>

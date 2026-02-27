@@ -651,7 +651,7 @@ export default function GoalsDashboardPage() {
         onClose={() => setShowCreateDialog(false)}
         onSubmit={async (data) => {
           try {
-            await createGoal(data);
+            await createGoal({ ...data, createdBy: userId });
             setShowCreateDialog(false);
             toast.success("Goal created successfully!");
           } catch (_error) {
@@ -679,6 +679,7 @@ export default function GoalsDashboardPage() {
                 targetDate: data.targetDate,
                 linkedSkills: data.linkedSkills,
                 parentCanView: data.parentCanView,
+                createdBy: userId,
               });
               created += 1;
             } catch (_error) {

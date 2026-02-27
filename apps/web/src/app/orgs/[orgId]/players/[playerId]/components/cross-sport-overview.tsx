@@ -135,12 +135,14 @@ export function CrossSportOverview({
                           <span className="font-medium text-sm">
                             {team.teamName}
                           </span>
-                          <Badge
-                            className="bg-blue-100 text-blue-700"
-                            variant="outline"
-                          >
-                            {team.ageGroup.toUpperCase()}
-                          </Badge>
+                          {team.ageGroup && (
+                            <Badge
+                              className="bg-blue-100 text-blue-700"
+                              variant="outline"
+                            >
+                              {team.ageGroup.toUpperCase()}
+                            </Badge>
+                          )}
                         </div>
                       ))}
                     </div>

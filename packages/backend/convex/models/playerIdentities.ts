@@ -40,21 +40,34 @@ const playerIdentityValidator = v.object({
   email: v.optional(v.string()),
   phone: v.optional(v.string()),
   address: v.optional(v.string()),
+  address2: v.optional(v.string()),
   town: v.optional(v.string()),
+  county: v.optional(v.string()),
   postcode: v.optional(v.string()),
   country: v.optional(v.string()),
   verificationStatus: verificationStatusValidator,
+  claimedAt: v.optional(v.number()),
+  claimInvitedBy: v.optional(v.string()),
+  playerWelcomedAt: v.optional(v.number()),
+  importSessionId: v.optional(v.id("importSessions")),
+  externalIds: v.optional(v.record(v.string(), v.string())),
+  federationIds: v.optional(
+    v.object({
+      fai: v.optional(v.string()),
+      irfu: v.optional(v.string()),
+      gaa: v.optional(v.string()),
+      other: v.optional(v.string()),
+    })
+  ),
+  lastSyncedAt: v.optional(v.number()),
+  lastSyncedData: v.optional(v.any()),
+  isActive: v.optional(v.boolean()),
   createdAt: v.number(),
   updatedAt: v.number(),
   createdFrom: v.optional(v.string()),
   normalizedFirstName: v.optional(v.string()),
   normalizedLastName: v.optional(v.string()),
   mergedInto: v.optional(v.id("playerIdentities")),
-  isActive: v.optional(v.boolean()),
-  importSessionId: v.optional(v.string()),
-  externalIds: v.optional(v.any()),
-  lastSyncedAt: v.optional(v.number()),
-  lastSyncedData: v.optional(v.any()),
 });
 
 // ============================================================
@@ -540,6 +553,14 @@ export const createPlayerIdentity = mutation({
     country: v.optional(v.string()),
     verificationStatus: v.optional(verificationStatusValidator),
     createdFrom: v.optional(v.string()),
+    federationIds: v.optional(
+      v.object({
+        fai: v.optional(v.string()),
+        irfu: v.optional(v.string()),
+        gaa: v.optional(v.string()),
+        other: v.optional(v.string()),
+      })
+    ),
   },
   returns: v.id("playerIdentities"),
   handler: async (ctx, args) => {
@@ -574,6 +595,7 @@ export const createPlayerIdentity = mutation({
       createdAt: now,
       updatedAt: now,
       createdFrom: args.createdFrom ?? "manual",
+      federationIds: args.federationIds,
     });
   },
 });
@@ -597,6 +619,14 @@ export const updatePlayerIdentity = mutation({
     verificationStatus: v.optional(verificationStatusValidator),
     lastSyncedAt: v.optional(v.number()),
     lastSyncedData: v.optional(v.any()),
+    federationIds: v.optional(
+      v.object({
+        fai: v.optional(v.string()),
+        irfu: v.optional(v.string()),
+        gaa: v.optional(v.string()),
+        other: v.optional(v.string()),
+      })
+    ),
   },
   returns: v.null(),
   handler: async (ctx, args) => {
@@ -654,6 +684,9 @@ export const updatePlayerIdentity = mutation({
     }
     if (args.lastSyncedData !== undefined) {
       updates.lastSyncedData = args.lastSyncedData;
+    }
+    if (args.federationIds !== undefined) {
+      updates.federationIds = args.federationIds;
     }
 
     await ctx.db.patch(args.playerIdentityId, updates);
@@ -1170,6 +1203,9 @@ export const findPotentialMatches = query({
     }
 
     // 4. Fuzzy: query by_lastName candidates with same DOB, score with calculateMatchScore
+    // When DOB + exact last name both match the candidate was found via an exact index —
+    // last name similarity is 1.0. Mirror findPlayerMatchCandidates tier-1 logic:
+    // DOB + lastSimilarity >= 0.85 = HIGH regardless of first name.
     const lastNameCandidates = await ctx.db
       .query("playerIdentities")
       .withIndex("by_lastName", (q) => q.eq("lastName", trimmedLast))
@@ -1178,11 +1214,13 @@ export const findPotentialMatches = query({
       if (m.dateOfBirth !== args.dateOfBirth) {
         continue;
       }
-      const score = calculateMatchScore(
+      const calcScore = calculateMatchScore(
         `${trimmedFirst} ${trimmedLast}`,
         m.firstName,
         m.lastName
       );
+      // DOB + exact last name → minimum HIGH (0.9), consistent with submit-time matching
+      const score = Math.max(calcScore, 0.9);
       if (score >= 0.5) {
         addResult(m, score, "fuzzy");
       }
@@ -1199,11 +1237,13 @@ export const findPotentialMatches = query({
       if (m.dateOfBirth !== args.dateOfBirth) {
         continue;
       }
-      const score = calculateMatchScore(
+      const calcScore = calculateMatchScore(
         `${trimmedFirst} ${trimmedLast}`,
         m.firstName,
         m.lastName
       );
+      // DOB + exact normalised last name → minimum HIGH (0.9)
+      const score = Math.max(calcScore, 0.9);
       if (score >= 0.5) {
         addResult(m, score, "fuzzy");
       }
@@ -1260,6 +1300,15 @@ export const findPotentialDuplicatesForOrg = query({
       return { totalGroups: 0, groups: [] };
     }
 
+    // Build a set of dismissed pair keys so we can skip them below
+    const dismissedPairs = await ctx.db
+      .query("dismissedDuplicatePairs")
+      .withIndex("by_org", (q) => q.eq("organizationId", args.organizationId))
+      .collect();
+    const dismissedSet = new Set(
+      dismissedPairs.map((d) => `${d.playerIdA}:${d.playerIdB}`)
+    );
+
     // Batch fetch player identities
     const playerIds = [...new Set(enrollments.map((e) => e.playerIdentityId))];
     const playerMap = new Map<string, any>();
@@ -1302,6 +1351,13 @@ export const findPotentialDuplicatesForOrg = query({
         for (let j = i + 1; j < group.length; j++) {
           const a = group[i];
           const b = group[j];
+
+          // Skip pairs the admin has explicitly dismissed
+          const keyAB = `${a._id}:${b._id}`;
+          const keyBA = `${b._id}:${a._id}`;
+          if (dismissedSet.has(keyAB) || dismissedSet.has(keyBA)) {
+            continue;
+          }
 
           // Check DOB proximity (within 365 days)
           const dobA = new Date(a.dateOfBirth).getTime();
@@ -1362,6 +1418,54 @@ export const findPotentialDuplicatesForOrg = query({
     const limited = duplicateGroups.slice(0, 50);
 
     return { totalGroups: limited.length, groups: limited };
+  },
+});
+
+/**
+ * Permanently dismiss a potential duplicate pair for this organisation.
+ * The pair will no longer appear in findPotentialDuplicatesForOrg.
+ */
+export const dismissDuplicatePair = mutation({
+  args: {
+    organizationId: v.string(),
+    playerIdA: v.id("playerIdentities"),
+    playerIdB: v.id("playerIdentities"),
+  },
+  returns: v.null(),
+  handler: async (ctx, args) => {
+    const { userId, role } = await requireAuthAndOrg(ctx, args.organizationId);
+    if (role !== "admin" && role !== "owner") {
+      throw new Error("Only admins/owners can dismiss duplicate pairs");
+    }
+
+    // Normalise order so playerIdA < playerIdB (string comparison) for consistent lookup
+    const [idA, idB] =
+      args.playerIdA < args.playerIdB
+        ? [args.playerIdA, args.playerIdB]
+        : [args.playerIdB, args.playerIdA];
+
+    // Idempotent: don't insert if already dismissed
+    const existing = await ctx.db
+      .query("dismissedDuplicatePairs")
+      .withIndex("by_org_pair", (q) =>
+        q
+          .eq("organizationId", args.organizationId)
+          .eq("playerIdA", idA)
+          .eq("playerIdB", idB)
+      )
+      .first();
+
+    if (!existing) {
+      await ctx.db.insert("dismissedDuplicatePairs", {
+        organizationId: args.organizationId,
+        playerIdA: idA,
+        playerIdB: idB,
+        dismissedBy: userId,
+        dismissedAt: Date.now(),
+      });
+    }
+
+    return null;
   },
 });
 

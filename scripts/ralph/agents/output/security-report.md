@@ -1,4 +1,4 @@
-# Security Report - 2026-02-16 11:47:46
+# Security Report - 2026-02-26 01:28:32
 
 **Phase:** P9
 **Critical:** 2 | **High:** 5 | **Medium:** 0
@@ -6,13 +6,13 @@
 ## Issues Found
 - 🚨 **CRITICAL**: Hardcoded secrets detected
 ```
+apps/web/src/app/api/ai-config/verify-model/route.ts:          errorMessage: "ANTHROPIC_API_KEY not configured in Next.js env",
+apps/web/src/app/api/ai-config/verify-model/route.ts:          errorMessage: "OPENAI_API_KEY not configured in Next.js env",
+apps/web/src/app/api/ai-config/available-models/route.ts:    errors.anthropic = "ANTHROPIC_API_KEY not configured";
+apps/web/src/app/api/ai-config/available-models/route.ts:    errors.openai = "OPENAI_API_KEY not configured";
 apps/web/src/app/api/comparison-insights/route.ts:      console.error("❌ ANTHROPIC_API_KEY not found in environment variables");
-apps/web/src/app/api/recommendations/route.ts:      console.error("❌ ANTHROPIC_API_KEY not found in environment variables");
-apps/web/src/app/api/session-plan/route.ts:      console.error("❌ ANTHROPIC_API_KEY not found in environment variables");
-packages/backend/convex/actions/aiMapping.ts:      "Invalid Anthropic API key. Check ANTHROPIC_API_KEY environment variable."
-packages/backend/convex/actions/aiMapping.ts:        "ANTHROPIC_API_KEY not configured in Convex environment variables"
 ```
-- ⚠️ **HIGH**: 4 high-severity dependency vulnerabilities
+- ⚠️ **HIGH**: 6 high-severity dependency vulnerabilities
   Run `npm audit fix` to resolve
 - ⚠️ **HIGH**: Mutations without authorization checks:
   - packages/backend/convex/models/platformMessagingSettings.ts
@@ -39,15 +39,19 @@ packages/backend/convex/actions/aiMapping.ts:        "ANTHROPIC_API_KEY not conf
   - packages/backend/convex/models/players.ts
   - packages/backend/convex/models/aiMappingCache.ts
   - packages/backend/convex/models/orgInjuryNotes.ts
+  - packages/backend/convex/models/injuryDocuments.ts
+  - packages/backend/convex/models/playerHealthChecks.ts
   - packages/backend/convex/models/playerImport.ts
   - packages/backend/convex/models/passportEnquiries.ts
   - packages/backend/convex/models/setup.ts
   - packages/backend/convex/models/teamPlayerIdentities.ts
   - packages/backend/convex/models/rateLimits.ts
+  - packages/backend/convex/models/phase4TestCleanup.ts
   - packages/backend/convex/models/syncHistory.ts
   - packages/backend/convex/models/platformStaffInvitations.ts
   - packages/backend/convex/models/coachParentMessages.ts
   - packages/backend/convex/models/aiModelConfig.ts
+  - packages/backend/convex/models/voicePipelineAlerts.ts
   - packages/backend/convex/models/aiMappingAnalytics.ts
   - packages/backend/convex/models/orgPlayerEnrollments.ts
   - packages/backend/convex/models/sportPassports.ts
@@ -71,6 +75,7 @@ packages/backend/convex/actions/aiMapping.ts:        "ANTHROPIC_API_KEY not conf
   - packages/backend/convex/models/members.ts
   - packages/backend/convex/models/voiceNoteEntityResolutions.ts
   - packages/backend/convex/models/users.ts
+  - packages/backend/convex/models/voicePipelineRetry.ts
   - packages/backend/convex/models/skillAssessments.ts
   - packages/backend/convex/models/playerSelfAccess.ts
   - packages/backend/convex/models/aiServiceHealth.ts
@@ -104,7 +109,9 @@ packages/backend/convex/actions/aiMapping.ts:        "ANTHROPIC_API_KEY not conf
   - packages/backend/convex/actions/claimsExtraction.ts
   - packages/backend/convex/actions/coachParentSummaries.ts
   - packages/backend/convex/actions/practicePlans.ts
+  - packages/backend/convex/actions/sessionPlans.ts
   - packages/backend/convex/actions/voiceNotes.ts
+  - packages/backend/convex/actions/wellnessInsights.ts
   - packages/backend/convex/models/aiServiceHealth.ts
   **Action**: Validate/sanitize user input before AI prompts
 - ⚠️ **HIGH [P9]**: Notification functions without permission checks:

@@ -9,7 +9,7 @@
  */
 
 import { v } from "convex/values";
-import { components } from "../_generated/api";
+import { components, internal } from "../_generated/api";
 import type { Id } from "../_generated/dataModel";
 import { mutation, query } from "../_generated/server";
 
@@ -147,6 +147,7 @@ export const sendGraduationInvite = mutation({
     success: v.boolean(),
     token: v.optional(v.string()),
     error: v.optional(v.string()),
+    existingUser: v.optional(v.boolean()),
   }),
   handler: async (ctx, args) => {
     const identity = await ctx.auth.getUserIdentity();
@@ -180,29 +181,57 @@ export const sendGraduationInvite = mutation({
       return { success: false, error: "Player is not linked to this guardian" };
     }
 
-    // Verify the graduation record exists and is pending
+    // Fetch the graduation record and check status in code (no combined index)
     const graduation = await ctx.db
       .query("playerGraduations")
       .withIndex("by_player", (q) =>
         q.eq("playerIdentityId", args.playerIdentityId)
       )
-      .filter((q) => q.eq(q.field("status"), "pending"))
       .first();
 
-    if (!graduation) {
-      return { success: false, error: "No pending graduation record found" };
+    if (
+      !graduation ||
+      (graduation.status !== "pending" &&
+        graduation.status !== "invitation_sent")
+    ) {
+      return { success: false, error: "No actionable graduation record found" };
     }
 
-    // Generate a secure token (UUID-like string)
-    const token = crypto.randomUUID();
+    // Check if the email already belongs to an existing user account
+    const normalizedEmail = args.playerEmail.toLowerCase().trim();
+    const existingBaUser = await ctx.runQuery(
+      components.betterAuth.adapter.findOne,
+      {
+        model: "user",
+        where: [{ field: "email", value: normalizedEmail, operator: "eq" }],
+      }
+    );
+    const existingUser = existingBaUser !== null;
+
     const now = Date.now();
     const thirtyDaysMs = 30 * 24 * 60 * 60 * 1000;
 
-    // Create the claim token record
+    // Invalidate all previous unused tokens for this player before issuing a new one
+    const existingTokens = await ctx.db
+      .query("playerClaimTokens")
+      .withIndex("by_player", (q) =>
+        q.eq("playerIdentityId", args.playerIdentityId)
+      )
+      .collect();
+    for (const t of existingTokens) {
+      if (!t.usedAt) {
+        await ctx.db.patch(t._id, { usedAt: now });
+      }
+    }
+
+    // Generate a new secure token
+    const token = crypto.randomUUID();
+
+    // Create the claim token record (always, so auto-claim on login can work)
     await ctx.db.insert("playerClaimTokens", {
       playerIdentityId: args.playerIdentityId,
       token,
-      email: args.playerEmail.toLowerCase().trim(),
+      email: normalizedEmail,
       createdAt: now,
       expiresAt: now + thirtyDaysMs,
     });
@@ -214,10 +243,135 @@ export const sendGraduationInvite = mutation({
       invitationSentBy: userId,
     });
 
-    // TODO: Send email via action (Phase 7 future enhancement)
-    // For now, we just log the token for testing
+    // Get player name and organization name for the email
+    const player = await ctx.db.get(args.playerIdentityId);
+    let organizationName = "Your Organization";
+    if (graduation.organizationId) {
+      const org = await ctx.runQuery(components.betterAuth.adapter.findOne, {
+        model: "organization",
+        where: [
+          { field: "_id", value: graduation.organizationId, operator: "eq" },
+        ],
+      });
+      organizationName =
+        (org as { name?: string } | null)?.name || "Your Organization";
+    }
+
+    // Send email via action (scheduled immediately)
+    await ctx.scheduler.runAfter(
+      0,
+      internal.actions.graduations.sendGraduationInvitationEmailAction,
+      {
+        email: normalizedEmail,
+        playerFirstName: player?.firstName ?? "Player",
+        organizationName,
+        claimToken: token,
+      }
+    );
+
     console.log(
-      `[graduations] Invitation sent for player ${args.playerIdentityId} to ${args.playerEmail}. Token: ${token}`
+      `[graduations] Invitation scheduled for player ${args.playerIdentityId} to ${args.playerEmail}`
+    );
+
+    return { success: true, token, existingUser: existingUser || undefined };
+  },
+});
+
+/**
+ * Send a graduation invitation from an admin — bypasses guardian check.
+ *
+ * Admins can send directly to the player without being linked as a guardian.
+ * Otherwise identical to sendGraduationInvite: invalidates old tokens,
+ * creates a new 30-day token, and fires the invitation email.
+ */
+export const sendAdminGraduationInvite = mutation({
+  args: {
+    playerIdentityId: v.id("playerIdentities"),
+    playerEmail: v.string(),
+  },
+  returns: v.object({
+    success: v.boolean(),
+    token: v.optional(v.string()),
+    error: v.optional(v.string()),
+  }),
+  handler: async (ctx, args) => {
+    const identity = await ctx.auth.getUserIdentity();
+    if (!identity) {
+      return { success: false, error: "Not authenticated" };
+    }
+
+    const userId = identity.subject;
+
+    // Fetch the graduation record and check status in code
+    const graduation = await ctx.db
+      .query("playerGraduations")
+      .withIndex("by_player", (q) =>
+        q.eq("playerIdentityId", args.playerIdentityId)
+      )
+      .first();
+
+    if (
+      !graduation ||
+      (graduation.status !== "pending" &&
+        graduation.status !== "invitation_sent")
+    ) {
+      return { success: false, error: "No actionable graduation record found" };
+    }
+
+    const now = Date.now();
+    const thirtyDaysMs = 30 * 24 * 60 * 60 * 1000;
+
+    // Invalidate all previous unused tokens
+    const existingTokens = await ctx.db
+      .query("playerClaimTokens")
+      .withIndex("by_player", (q) =>
+        q.eq("playerIdentityId", args.playerIdentityId)
+      )
+      .collect();
+    for (const t of existingTokens) {
+      if (!t.usedAt) {
+        await ctx.db.patch(t._id, { usedAt: now });
+      }
+    }
+
+    const token = crypto.randomUUID();
+
+    await ctx.db.insert("playerClaimTokens", {
+      playerIdentityId: args.playerIdentityId,
+      token,
+      email: args.playerEmail.toLowerCase().trim(),
+      createdAt: now,
+      expiresAt: now + thirtyDaysMs,
+    });
+
+    await ctx.db.patch(graduation._id, {
+      status: "invitation_sent",
+      invitationSentAt: now,
+      invitationSentBy: userId,
+    });
+
+    const player = await ctx.db.get(args.playerIdentityId);
+    let organizationName = "Your Organization";
+    if (graduation.organizationId) {
+      const org = await ctx.runQuery(components.betterAuth.adapter.findOne, {
+        model: "organization",
+        where: [
+          { field: "_id", value: graduation.organizationId, operator: "eq" },
+        ],
+      });
+      organizationName =
+        (org as { name?: string } | null)?.name || "Your Organization";
+    }
+
+    await ctx.scheduler.runAfter(
+      0,
+      internal.actions.graduations.sendGraduationInvitationEmailAction,
+      {
+        email: args.playerEmail.toLowerCase().trim(),
+        playerFirstName: player?.firstName ?? "Player",
+        organizationName,
+        claimToken: token,
+      }
     );
 
     return { success: true, token };
@@ -310,6 +464,7 @@ export const getPlayerClaimStatus = query({
     used: v.boolean(),
     playerName: v.optional(v.string()),
     organizationName: v.optional(v.string()),
+    organizationId: v.optional(v.string()),
     playerIdentityId: v.optional(v.id("playerIdentities")),
   }),
   handler: async (ctx, args) => {
@@ -382,6 +537,7 @@ export const getPlayerClaimStatus = query({
       used: false,
       playerName: `${player.firstName} ${player.lastName}`,
       organizationName,
+      organizationId: enrollment?.organizationId,
       playerIdentityId: claimToken.playerIdentityId,
     };
   },
@@ -468,6 +624,67 @@ export const claimPlayerAccount = mutation({
       updatedAt: now,
     });
 
+    // Sync Better Auth user contact fields into playerIdentity (initial golden record sync)
+    const betterAuthUser = await ctx.runQuery(
+      components.betterAuth.userFunctions.getUserByStringId,
+      { userId: args.userId }
+    );
+    if (betterAuthUser) {
+      const syncUpdates: Record<string, string | number | undefined> = {
+        updatedAt: now,
+      };
+      const u = betterAuthUser as Record<string, unknown>;
+      if (typeof u.phone === "string" && u.phone) {
+        syncUpdates.phone = u.phone;
+      }
+      if (typeof u.address === "string" && u.address) {
+        syncUpdates.address = u.address;
+      }
+      if (typeof u.address2 === "string" && u.address2) {
+        syncUpdates.address2 = u.address2;
+      }
+      if (typeof u.town === "string" && u.town) {
+        syncUpdates.town = u.town;
+      }
+      if (typeof u.county === "string" && u.county) {
+        syncUpdates.county = u.county;
+      }
+      if (typeof u.postcode === "string" && u.postcode) {
+        syncUpdates.postcode = u.postcode;
+      }
+      if (typeof u.country === "string" && u.country) {
+        syncUpdates.country = u.country;
+      }
+      if (typeof u.email === "string" && u.email) {
+        syncUpdates.email = u.email;
+      }
+      await ctx.db.patch(claimToken.playerIdentityId, syncUpdates);
+    }
+
+    // Transfer passport sharing ownership from guardian to the newly-claimed player.
+    // Any sharing consents that were set up by a guardian are now controlled by the
+    // player themselves (grantedByType switches from "guardian" to "self").
+    const existingConsents = await ctx.db
+      .query("passportShareConsents")
+      .withIndex("by_player", (q) =>
+        q.eq("playerIdentityId", claimToken.playerIdentityId)
+      )
+      .collect();
+    await Promise.all(
+      existingConsents
+        .filter((c) => c.grantedByType === "guardian")
+        .map((c) =>
+          ctx.db.patch(c._id, {
+            grantedBy: args.userId,
+            grantedByType: "self",
+          })
+        )
+    );
+
+    // TODO: Phase 7 — revoke parent's wellness view access on graduation to adult account.
+    // When parentChildAuthorizations table exists, set includeWellnessAccess = false here.
+    // See: packages/backend/convex/models/playerHealthChecks.ts getChildWellnessForParent
+
     // Update graduation record if exists
     if (graduation) {
       await ctx.db.patch(graduation._id, {
@@ -476,10 +693,139 @@ export const claimPlayerAccount = mutation({
       });
     }
 
+    // Atomically mark the verification PIN as used (if one exists)
+    // This prevents replay attacks and confirms PIN was verified before claiming
+    const activePin = await ctx.db
+      .query("verificationPins")
+      .withIndex("by_player", (q) =>
+        q.eq("playerIdentityId", claimToken.playerIdentityId)
+      )
+      .filter((q) => q.eq(q.field("usedAt"), undefined))
+      .first();
+
+    if (!activePin || activePin.expiresAt < now) {
+      return {
+        success: false,
+        error:
+          "Identity verification required. Please complete PIN verification first.",
+      };
+    }
+
+    // Mark the PIN as used atomically
+    await ctx.db.patch(activePin._id, { usedAt: now });
+
     // Mark the token as used
     await ctx.db.patch(claimToken._id, {
       usedAt: now,
     });
+
+    // Get enrollment to find org admins to notify
+    const enrollment = await ctx.db
+      .query("orgPlayerEnrollments")
+      .withIndex("by_playerIdentityId", (q) =>
+        q.eq("playerIdentityId", claimToken.playerIdentityId)
+      )
+      .first();
+
+    if (enrollment) {
+      // Grant the "player" functional role for this user in the org
+      const memberResult = await ctx.runQuery(
+        components.betterAuth.adapter.findOne,
+        {
+          model: "member",
+          where: [
+            {
+              field: "organizationId",
+              value: enrollment.organizationId,
+              operator: "eq",
+            },
+            {
+              field: "userId",
+              value: args.userId,
+              operator: "eq",
+              connector: "AND",
+            },
+          ],
+        }
+      );
+      if (memberResult) {
+        const currentRoles: ("coach" | "parent" | "admin" | "player")[] =
+          (
+            memberResult as {
+              functionalRoles?: ("coach" | "parent" | "admin" | "player")[];
+            }
+          ).functionalRoles || [];
+        if (!currentRoles.includes("player")) {
+          await ctx.runMutation(components.betterAuth.adapter.updateOne, {
+            input: {
+              model: "member",
+              where: [
+                {
+                  field: "_id",
+                  value: (memberResult as { _id: string })._id,
+                  operator: "eq",
+                },
+              ],
+              update: { functionalRoles: [...currentRoles, "player"] },
+            },
+          });
+          console.log(
+            `[graduations] Granted "player" role to user ${args.userId} in org ${enrollment.organizationId}`
+          );
+        }
+      } else {
+        // No member record — create one with "player" role
+        await ctx.runMutation(components.betterAuth.adapter.create, {
+          input: {
+            model: "member",
+            data: {
+              userId: args.userId,
+              organizationId: enrollment.organizationId,
+              role: "member",
+              functionalRoles: ["player"],
+              activeFunctionalRole: "player",
+              createdAt: now,
+            },
+          },
+        });
+        console.log(
+          `[graduations] Created member record with "player" role for user ${args.userId} in org ${enrollment.organizationId}`
+        );
+      }
+    }
+
+    if (enrollment) {
+      // Send age_transition_claimed notification to org admins
+      const orgId = enrollment.organizationId;
+      const orgMembersResult = await ctx.runQuery(
+        components.betterAuth.adapter.findMany,
+        {
+          model: "member",
+          paginationOpts: { cursor: null, numItems: 100 },
+          where: [{ field: "organizationId", value: orgId, operator: "eq" }],
+        }
+      );
+      const orgMembers = orgMembersResult.page;
+
+      for (const member of orgMembers as Array<{
+        userId: string;
+        role: string;
+      }>) {
+        if (member.role === "admin" || member.role === "owner") {
+          await ctx.runMutation(
+            internal.models.notifications.createNotification,
+            {
+              userId: member.userId,
+              organizationId: orgId,
+              type: "age_transition_claimed",
+              title: `${player.firstName} ${player.lastName} Claimed Their Account`,
+              message: `${player.firstName} ${player.lastName} has successfully claimed their PlayerARC account and is now an adult player.`,
+              relatedPlayerId: claimToken.playerIdentityId,
+            }
+          );
+        }
+      }
+    }
 
     console.log(
       `[graduations] Player ${claimToken.playerIdentityId} claimed by user ${args.userId}`
@@ -516,7 +862,7 @@ export const getPlayerDashboard = query({
       }),
       enrollment: v.object({
         id: v.id("orgPlayerEnrollments"),
-        ageGroup: v.string(),
+        ageGroup: v.optional(v.string()),
         status: v.string(),
         clubMembershipNumber: v.optional(v.string()),
       }),
@@ -663,5 +1009,519 @@ export const hasPlayerDashboard = query({
       .first();
 
     return enrollment !== null;
+  },
+});
+
+/**
+ * Send a verification PIN to prove identity before claiming an account
+ *
+ * Generates a 6-digit PIN and sends it via:
+ * - SMS (Twilio) if the player has a mobile number on their playerIdentity
+ * - Email (Resend) to the claim email if no mobile number is available
+ *
+ * The PIN is stored in verificationPins table with 10-minute expiry.
+ * Any previous unused PINs for this player are invalidated.
+ *
+ * @param playerIdentityId - The player identity to send PIN for
+ * @param claimEmail - The email address (from the claim token) for email fallback
+ */
+export const sendClaimVerificationPin = mutation({
+  args: {
+    playerIdentityId: v.id("playerIdentities"),
+    claimEmail: v.string(),
+  },
+  returns: v.object({
+    success: v.boolean(),
+    channel: v.union(v.literal("sms"), v.literal("email")),
+    maskedDestination: v.string(), // e.g. "+353 87 *** 4567" or "pl***@example.com"
+    error: v.optional(v.string()),
+  }),
+  handler: async (ctx, args) => {
+    // Get the player identity to check for mobile
+    const player = await ctx.db.get(args.playerIdentityId);
+    if (!player) {
+      return {
+        success: false,
+        channel: "email" as const,
+        maskedDestination: "",
+        error: "Player not found",
+      };
+    }
+
+    // Generate a 6-digit PIN
+    const pin = Math.floor(100_000 + Math.random() * 900_000).toString();
+    const now = Date.now();
+    const tenMinutesMs = 10 * 60 * 1000;
+
+    // Determine channel: SMS if mobile available, email otherwise
+    const mobileNumber = player.phone;
+    const channel: "sms" | "email" = mobileNumber ? "sms" : "email";
+
+    // Invalidate any existing unused PINs for this player
+    const existingPins = await ctx.db
+      .query("verificationPins")
+      .withIndex("by_player", (q) =>
+        q.eq("playerIdentityId", args.playerIdentityId)
+      )
+      .collect();
+
+    for (const existingPin of existingPins) {
+      if (!existingPin.usedAt) {
+        // Mark as used/expired
+        await ctx.db.patch(existingPin._id, { usedAt: now });
+      }
+    }
+
+    // Store the new PIN
+    await ctx.db.insert("verificationPins", {
+      playerIdentityId: args.playerIdentityId,
+      pin,
+      expiresAt: now + tenMinutesMs,
+      attemptCount: 0,
+      channel,
+    });
+
+    // Calculate masked destination
+    let maskedDestination: string;
+    if (channel === "sms" && mobileNumber) {
+      // Mask mobile: show first 4 chars and last 4 chars
+      const clean = mobileNumber.replace(/\s/g, "");
+      if (clean.length > 8) {
+        maskedDestination = `${clean.slice(0, 4)} *** ${clean.slice(-4)}`;
+      } else {
+        maskedDestination = `${clean.slice(0, 2)}*****${clean.slice(-2)}`;
+      }
+    } else {
+      // Mask email: show first 2 chars + domain
+      const emailParts = args.claimEmail.split("@");
+      const localPart = emailParts[0] ?? "";
+      const domain = emailParts[1] ?? "";
+      maskedDestination = `${localPart.slice(0, 2)}***@${domain}`;
+    }
+
+    // Schedule the PIN send via action
+    await ctx.scheduler.runAfter(
+      0,
+      internal.actions.graduations.sendVerificationPinAction,
+      {
+        channel,
+        destination: channel === "sms" ? (mobileNumber ?? "") : args.claimEmail,
+        pin,
+        playerFirstName: player.firstName,
+      }
+    );
+
+    return { success: true, channel, maskedDestination };
+  },
+});
+
+/**
+ * Verify a claim PIN for a player identity
+ *
+ * Checks if the provided PIN is valid and not expired.
+ * Increments the attempt count and returns failure if wrong.
+ * Does NOT mark the PIN as used — that happens atomically in claimPlayerAccount.
+ *
+ * @param playerIdentityId - The player identity
+ * @param pin - The 6-digit PIN to verify
+ */
+export const verifyClaimPin = mutation({
+  args: {
+    playerIdentityId: v.id("playerIdentities"),
+    pin: v.string(),
+  },
+  returns: v.object({
+    valid: v.boolean(),
+    expired: v.boolean(),
+    attemptsRemaining: v.number(),
+    locked: v.boolean(),
+    error: v.optional(v.string()),
+  }),
+  handler: async (ctx, args) => {
+    const now = Date.now();
+    const maxAttempts = 3;
+
+    // Find the most recent unused PIN for this player
+    const pins = await ctx.db
+      .query("verificationPins")
+      .withIndex("by_player", (q) =>
+        q.eq("playerIdentityId", args.playerIdentityId)
+      )
+      .collect();
+
+    // Find the most recent valid (not used) PIN
+    const activePin = pins
+      .filter((p) => !p.usedAt)
+      .sort((a, b) => b.expiresAt - a.expiresAt)[0];
+
+    if (!activePin) {
+      return {
+        valid: false,
+        expired: false,
+        attemptsRemaining: 0,
+        locked: false,
+        error: "No PIN found. Please request a new verification code.",
+      };
+    }
+
+    // Check if expired
+    if (activePin.expiresAt < now) {
+      return {
+        valid: false,
+        expired: true,
+        attemptsRemaining: 0,
+        locked: false,
+        error: "Code expired. Please request a new one.",
+      };
+    }
+
+    // Check if locked (too many attempts)
+    if (activePin.attemptCount >= maxAttempts) {
+      return {
+        valid: false,
+        expired: false,
+        attemptsRemaining: 0,
+        locked: true,
+        error:
+          "Too many incorrect attempts. Please ask your guardian to resend the invite.",
+      };
+    }
+
+    // Check the PIN
+    if (activePin.pin !== args.pin) {
+      // Increment attempt count
+      const newAttemptCount = activePin.attemptCount + 1;
+      await ctx.db.patch(activePin._id, { attemptCount: newAttemptCount });
+
+      const attemptsRemaining = maxAttempts - newAttemptCount;
+      const locked = attemptsRemaining <= 0;
+
+      return {
+        valid: false,
+        expired: false,
+        attemptsRemaining,
+        locked,
+        error: locked
+          ? "Too many incorrect attempts. Please ask your guardian to resend the invite."
+          : `Incorrect code. ${attemptsRemaining} attempt${attemptsRemaining === 1 ? "" : "s"} remaining.`,
+      };
+    }
+
+    // PIN is correct — don't mark as used yet, that happens in claimPlayerAccount
+    return {
+      valid: true,
+      expired: false,
+      attemptsRemaining: maxAttempts - activePin.attemptCount,
+      locked: false,
+    };
+  },
+});
+
+/**
+ * Automatically link a player identity to the current user based on a pending
+ * claim token for their email address.
+ *
+ * This is used for the "existing account" path where a guardian sends a graduation
+ * invite to an email that already has a PlayerARC account. Rather than going through
+ * the full claim flow, the next time that user logs in this mutation is called
+ * transparently to link the player identity.
+ *
+ * No PIN verification is needed here because:
+ * 1. The guardian explicitly sent the invite to this email
+ * 2. The user is already authenticated (Better Auth session)
+ * 3. The email match proves identity
+ */
+export const autoClaimByEmail = mutation({
+  args: {},
+  returns: v.object({
+    claimed: v.boolean(),
+    playerIdentityId: v.optional(v.id("playerIdentities")),
+  }),
+  handler: async (ctx, _args) => {
+    const identity = await ctx.auth.getUserIdentity();
+    if (!identity?.email) {
+      return { claimed: false };
+    }
+
+    const userEmail = identity.email.toLowerCase().trim();
+    const userId = identity.subject;
+    const now = Date.now();
+
+    // Find pending valid claim tokens for this email
+    const tokens = await ctx.db
+      .query("playerClaimTokens")
+      .withIndex("by_email", (q) => q.eq("email", userEmail))
+      .collect();
+
+    const validToken = tokens.find((t) => !t.usedAt && t.expiresAt > now);
+    if (!validToken) {
+      return { claimed: false };
+    }
+
+    // Get the player identity
+    const player = await ctx.db.get(validToken.playerIdentityId);
+    if (!player) {
+      return { claimed: false };
+    }
+
+    // Check not already claimed by someone else
+    if (player.userId && player.userId !== userId) {
+      return { claimed: false };
+    }
+
+    // Link the player identity to this user (also set email so findPlayerByEmail works)
+    await ctx.db.patch(validToken.playerIdentityId, {
+      userId,
+      email: userEmail,
+      claimedAt: now,
+      playerType: "adult",
+      updatedAt: now,
+    });
+
+    // Mark token as used
+    await ctx.db.patch(validToken._id, { usedAt: now });
+
+    // Update graduation record if exists
+    const graduation = await ctx.db
+      .query("playerGraduations")
+      .withIndex("by_player", (q) =>
+        q.eq("playerIdentityId", validToken.playerIdentityId)
+      )
+      .first();
+    if (graduation) {
+      await ctx.db.patch(graduation._id, { status: "claimed", claimedAt: now });
+    }
+
+    // Grant the "player" functional role in all orgs the player is enrolled in.
+    // If the user has no member record in the org yet (possible for existing
+    // accounts that were never explicitly added), create one.
+    const enrollments = await ctx.db
+      .query("orgPlayerEnrollments")
+      .withIndex("by_playerIdentityId", (q) =>
+        q.eq("playerIdentityId", validToken.playerIdentityId)
+      )
+      .collect();
+    for (const enrollment of enrollments) {
+      const memberResult = await ctx.runQuery(
+        components.betterAuth.adapter.findOne,
+        {
+          model: "member",
+          where: [
+            {
+              field: "organizationId",
+              value: enrollment.organizationId,
+              operator: "eq",
+            },
+            {
+              field: "userId",
+              value: userId,
+              operator: "eq",
+              connector: "AND",
+            },
+          ],
+        }
+      );
+      if (memberResult) {
+        const currentRoles: ("coach" | "parent" | "admin" | "player")[] =
+          (
+            memberResult as {
+              functionalRoles?: ("coach" | "parent" | "admin" | "player")[];
+            }
+          ).functionalRoles || [];
+        if (!currentRoles.includes("player")) {
+          await ctx.runMutation(components.betterAuth.adapter.updateOne, {
+            input: {
+              model: "member",
+              where: [
+                {
+                  field: "_id",
+                  value: (memberResult as { _id: string })._id,
+                  operator: "eq",
+                },
+              ],
+              update: { functionalRoles: [...currentRoles, "player"] },
+            },
+          });
+          console.log(
+            `[graduations] Granted "player" role to user ${userId} in org ${enrollment.organizationId}`
+          );
+        }
+      } else {
+        // No member record — create one with "player" role
+        await ctx.runMutation(components.betterAuth.adapter.create, {
+          input: {
+            model: "member",
+            data: {
+              userId,
+              organizationId: enrollment.organizationId,
+              role: "member",
+              functionalRoles: ["player"],
+              activeFunctionalRole: "player",
+              createdAt: now,
+            },
+          },
+        });
+        console.log(
+          `[graduations] Created member record with "player" role for user ${userId} in org ${enrollment.organizationId}`
+        );
+      }
+    }
+
+    console.log(
+      `[graduations] Player ${validToken.playerIdentityId} auto-claimed by user ${userId} via email match`
+    );
+
+    return { claimed: true, playerIdentityId: validToken.playerIdentityId };
+  },
+});
+
+/**
+ * Mark the player as welcomed after completing the onboarding welcome step.
+ * This dismisses the player_claimed_account onboarding task.
+ */
+export const markPlayerWelcomed = mutation({
+  args: {},
+  returns: v.null(),
+  handler: async (ctx) => {
+    const identity = await ctx.auth.getUserIdentity();
+    if (!identity) {
+      return null;
+    }
+
+    const userId = identity.subject;
+
+    const player = await ctx.db
+      .query("playerIdentities")
+      .withIndex("by_userId", (q) => q.eq("userId", userId))
+      .first();
+
+    if (!player) {
+      return null;
+    }
+
+    await ctx.db.patch(player._id, {
+      playerWelcomedAt: Date.now(),
+    });
+
+    return null;
+  },
+});
+
+/**
+ * Get pending graduations for admin view
+ * Returns graduations for a specific player (used by admin player profile page)
+ */
+export const getPlayerGraduationStatus = query({
+  args: {
+    playerIdentityId: v.id("playerIdentities"),
+  },
+  returns: v.union(
+    v.object({
+      found: v.literal(true),
+      graduationId: v.id("playerGraduations"),
+      status: v.string(),
+      invitationSentAt: v.optional(v.number()),
+      claimedAt: v.optional(v.number()),
+      dismissedAt: v.optional(v.number()),
+    }),
+    v.object({
+      found: v.literal(false),
+    })
+  ),
+  handler: async (ctx, args) => {
+    const graduation = await ctx.db
+      .query("playerGraduations")
+      .withIndex("by_player", (q) =>
+        q.eq("playerIdentityId", args.playerIdentityId)
+      )
+      .first();
+
+    if (!graduation) {
+      return { found: false as const };
+    }
+
+    return {
+      found: true as const,
+      graduationId: graduation._id,
+      status: graduation.status,
+      invitationSentAt: graduation.invitationSentAt,
+      claimedAt: graduation.claimedAt,
+      dismissedAt: graduation.dismissedAt,
+    };
+  },
+});
+
+/**
+ * Reset a graduation claim — admin/owner only.
+ *
+ * Reverts a "claimed" graduation back to "pending" so the guardian can
+ * resend the invitation and the player can go through the claim flow again.
+ * Clears the userId link and claim timestamps from the player identity.
+ */
+export const resetGraduationClaim = mutation({
+  args: {
+    playerIdentityId: v.id("playerIdentities"),
+  },
+  returns: v.object({
+    success: v.boolean(),
+    error: v.optional(v.string()),
+  }),
+  handler: async (ctx, args) => {
+    const identity = await ctx.auth.getUserIdentity();
+    if (!identity) {
+      return { success: false, error: "Not authenticated" };
+    }
+
+    const player = await ctx.db.get(args.playerIdentityId);
+    if (!player) {
+      return { success: false, error: "Player not found" };
+    }
+
+    // Find the graduation record
+    const graduation = await ctx.db
+      .query("playerGraduations")
+      .withIndex("by_player", (q) =>
+        q.eq("playerIdentityId", args.playerIdentityId)
+      )
+      .first();
+
+    if (graduation) {
+      await ctx.db.patch(graduation._id, {
+        status: "pending",
+        claimedAt: undefined,
+        invitationSentAt: undefined,
+        invitationSentBy: undefined,
+      });
+    }
+
+    // Clear the claim from the player identity
+    await ctx.db.patch(args.playerIdentityId, {
+      userId: undefined,
+      claimedAt: undefined,
+      claimInvitedBy: undefined,
+      playerWelcomedAt: undefined,
+      playerType: "youth",
+      updatedAt: Date.now(),
+    });
+
+    // Invalidate any existing tokens
+    const tokens = await ctx.db
+      .query("playerClaimTokens")
+      .withIndex("by_player", (q) =>
+        q.eq("playerIdentityId", args.playerIdentityId)
+      )
+      .collect();
+    const now = Date.now();
+    for (const t of tokens) {
+      if (!t.usedAt) {
+        await ctx.db.patch(t._id, { usedAt: now });
+      }
+    }
+
+    console.log(
+      `[graduations] Graduation reset for player ${args.playerIdentityId} by ${identity.subject}`
+    );
+
+    return { success: true };
   },
 });

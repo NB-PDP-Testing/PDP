@@ -7,6 +7,8 @@ import {
   AlertTriangle,
   ArrowLeftRight,
   Check,
+  ChevronDown,
+  ChevronRight,
   Edit,
   Eye,
   GitMerge,
@@ -21,9 +23,9 @@ import {
   Users,
   X,
 } from "lucide-react";
-
 import { useParams, useRouter } from "next/navigation";
 import { useState } from "react";
+
 import { toast } from "sonner";
 import { SmartDataView } from "@/components/data-display";
 import {
@@ -51,6 +53,7 @@ import {
 } from "@/components/ui/empty";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
+import { PhoneInput } from "@/components/ui/phone-input";
 import {
   Select,
   SelectContent,
@@ -59,6 +62,9 @@ import {
   SelectValue,
 } from "@/components/ui/select";
 import { Skeleton } from "@/components/ui/skeleton";
+
+// Regex for basic email format validation — defined at module level per Biome rules
+const EMAIL_FORMAT_REGEX = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
 
 // Age group options
 const AGE_GROUPS = [
@@ -111,6 +117,9 @@ type AddPlayerFormData = {
   dateOfBirth: string;
   gender: "male" | "female" | "other";
   ageGroup: string;
+  // Matching signals
+  email: string; // optional — youth players may not have an email address
+  // Sport
   sportCode: string;
   // Player address (optional)
   address: string;
@@ -131,6 +140,7 @@ const emptyFormData: AddPlayerFormData = {
   dateOfBirth: "",
   gender: "male",
   ageGroup: "",
+  email: "",
   sportCode: "",
   address: "",
   town: "",
@@ -157,22 +167,47 @@ export default function ManagePlayersPage() {
     Partial<Record<keyof AddPlayerFormData, string>>
   >({});
 
+  const [isCheckingDuplicate, setIsCheckingDuplicate] = useState(false);
+  const convex = useConvex();
+
+  // Federation numbers state (US-P3-006)
+  const [showFederationFields, setShowFederationFields] = useState(false);
+  const [federationFai, setFederationFai] = useState("");
+  const [federationIrfu, setFederationIrfu] = useState("");
+  const [federationGaa, setFederationGaa] = useState("");
+  const [federationOther, setFederationOther] = useState("");
+
+  // Phone (E.164) — stored outside plain form object like federation IDs
+  const [addPlayerPhone, setAddPlayerPhone] = useState("");
+
+  // Player match state (US-P3-002)
+  const [showYouthMatchDialog, setShowYouthMatchDialog] = useState(false);
+  const [youthMatchCandidate, setYouthMatchCandidate] = useState<{
+    _id: string;
+    firstName: string;
+    lastName: string;
+    dateOfBirth: string;
+    playerType: "youth" | "adult";
+  } | null>(null);
+  const [mediumMatchWarning, setMediumMatchWarning] = useState<{
+    name: string;
+    dateOfBirth: string;
+    playerIdentityId: string;
+  } | null>(null);
+  const [hasAcknowledgedMediumMatch, setHasAcknowledgedMediumMatch] =
+    useState(false);
+  const [isLinkingToYouth, setIsLinkingToYouth] = useState(false);
+
   // Guardian suggestion state
   const [selectedGuardianId, setSelectedGuardianId] = useState<string | null>(
     null
   );
 
-  // Duplicate warning state
-  const [showDuplicateWarning, setShowDuplicateWarning] = useState(false);
-  const [duplicateMessage, setDuplicateMessage] = useState("");
-  const [isCheckingDuplicate, setIsCheckingDuplicate] = useState(false);
-  const convex = useConvex();
-
-  // Existing player match state (for "Use This Player" flow)
+  // Existing player match state (for "Use This Player" flow — findPotentialMatches panel)
   const [selectedExistingPlayer, setSelectedExistingPlayer] =
     useState<Id<"playerIdentities"> | null>(null);
 
-  // Duplicate detection panel state
+  // Duplicate detection panel state (admin dedup UI)
   const [showDuplicatePanel, setShowDuplicatePanel] = useState(false);
   const [dismissedGroups, setDismissedGroups] = useState<Set<string>>(
     new Set()
@@ -217,6 +252,12 @@ export default function ManagePlayersPage() {
   );
   const mergePlayerIdentities = useMutation(
     api.models.playerIdentities.mergePlayerIdentities
+  );
+  const dismissDuplicatePair = useMutation(
+    api.models.playerIdentities.dismissDuplicatePair
+  );
+  const updatePlayerIdentityMutation = useMutation(
+    api.models.playerIdentities.updatePlayerIdentity
   );
 
   // Derive whether player is youth (under 18) from DOB
@@ -385,8 +426,11 @@ export default function ManagePlayersPage() {
     } else {
       errors.dateOfBirth = "Date of birth is required";
     }
-    if (!addPlayerForm.ageGroup) {
-      errors.ageGroup = "Age group is required";
+    if (
+      addPlayerForm.email.trim() &&
+      !EMAIL_FORMAT_REGEX.test(addPlayerForm.email.trim())
+    ) {
+      errors.email = "Please enter a valid email";
     }
 
     // Address validation: all optional, but if any is provided validate completeness
@@ -411,40 +455,27 @@ export default function ManagePlayersPage() {
     return Object.keys(errors).length === 0;
   };
 
-  // Check for duplicates and show warning if found
-  const checkForDuplicates = async (): Promise<boolean> => {
-    if (!addPlayerForm.dateOfBirth) {
-      return true; // Can't check without DOB
+  // Build federation IDs from form state (omit empty strings)
+  const buildFederationIds = () => {
+    const ids: {
+      fai?: string;
+      irfu?: string;
+      gaa?: string;
+      other?: string;
+    } = {};
+    if (federationFai.trim()) {
+      ids.fai = federationFai.trim();
     }
-
-    setIsCheckingDuplicate(true);
-    try {
-      const result = await convex.query(
-        api.models.playerIdentities.checkForDuplicatePlayer,
-        {
-          firstName: addPlayerForm.firstName.trim(),
-          lastName: addPlayerForm.lastName.trim(),
-          dateOfBirth: addPlayerForm.dateOfBirth,
-          gender: addPlayerForm.gender,
-        }
-      );
-
-      if (result.isDuplicate && result.message) {
-        // Exact match found - show warning
-        setDuplicateMessage(result.message);
-        setShowDuplicateWarning(true);
-        return false; // Don't proceed - wait for user confirmation
-      }
-
-      // No exact duplicate - proceed
-      return true;
-    } catch (error) {
-      console.error("Error checking for duplicates:", error);
-      // On error, allow creation to proceed
-      return true;
-    } finally {
-      setIsCheckingDuplicate(false);
+    if (federationIrfu.trim()) {
+      ids.irfu = federationIrfu.trim();
     }
+    if (federationGaa.trim()) {
+      ids.gaa = federationGaa.trim();
+    }
+    if (federationOther.trim()) {
+      ids.other = federationOther.trim();
+    }
+    return Object.keys(ids).length > 0 ? ids : undefined;
   };
 
   // Create the player (called after validation and optional duplicate confirmation)
@@ -452,11 +483,13 @@ export default function ManagePlayersPage() {
     setIsAddingPlayer(true);
     try {
       // Step 1: Create player identity or use existing match
+      // Client-side findPlayerMatchCandidates already ran (UX layer).
+      // findOrCreatePlayer is the server-side safety net using 3-tier dedup.
       let playerIdentityId: Id<"playerIdentities">;
       let wasCreated = true;
 
       if (selectedExistingPlayer) {
-        // User chose to use an existing player identity
+        // User chose to use an existing player identity from the match panel
         playerIdentityId = selectedExistingPlayer;
         wasCreated = false;
       } else {
@@ -475,11 +508,20 @@ export default function ManagePlayersPage() {
         wasCreated = result.wasCreated;
       }
 
+      // Step 1b: Store federation IDs on newly created records
+      const federationIds = buildFederationIds();
+      if (wasCreated && federationIds) {
+        await updatePlayerIdentityMutation({
+          playerIdentityId,
+          federationIds,
+        });
+      }
+
       // Step 2: Enroll in organization (with sport if selected)
       await enrollPlayer({
         playerIdentityId,
         organizationId: orgId,
-        ageGroup: addPlayerForm.ageGroup,
+        ageGroup: addPlayerForm.ageGroup || undefined,
         season: getCurrentSeason(),
         sportCode: addPlayerForm.sportCode || undefined,
       });
@@ -530,7 +572,12 @@ export default function ManagePlayersPage() {
       setSelectedExistingPlayer(null);
       setFormErrors({});
       setShowAddPlayerDialog(false);
-      setShowDuplicateWarning(false);
+      setFederationFai("");
+      setFederationIrfu("");
+      setFederationGaa("");
+      setFederationOther("");
+      setShowFederationFields(false);
+      setAddPlayerPhone("");
 
       // Navigate to the new player
       router.push(`/orgs/${orgId}/players/${playerIdentityId}`);
@@ -547,7 +594,44 @@ export default function ManagePlayersPage() {
     }
   };
 
-  // Handle add player submit - first check for duplicates
+  // Link to existing player record (HIGH confidence match dialog)
+  const handleLinkToExistingHistory = async () => {
+    if (!youthMatchCandidate) {
+      return;
+    }
+    setIsLinkingToYouth(true);
+    try {
+      // Enroll the existing record in this organisation as-is (no type change)
+      await enrollPlayer({
+        playerIdentityId: youthMatchCandidate._id as any,
+        organizationId: orgId,
+        ageGroup: addPlayerForm.ageGroup || undefined,
+        season: getCurrentSeason(),
+      });
+      toast.success("Player linked to existing record", {
+        description: `${youthMatchCandidate.firstName} ${youthMatchCandidate.lastName}'s existing record has been enrolled in this organisation.`,
+      });
+      setShowYouthMatchDialog(false);
+      setShowAddPlayerDialog(false);
+      setAddPlayerForm(emptyFormData);
+      setFormErrors({});
+      setYouthMatchCandidate(null);
+      setAddPlayerPhone("");
+      router.push(`/orgs/${orgId}/players/${youthMatchCandidate._id}`);
+    } catch (error) {
+      console.error("Error linking to existing history:", error);
+      toast.error("Failed to link player", {
+        description:
+          error instanceof Error
+            ? error.message
+            : "An unexpected error occurred",
+      });
+    } finally {
+      setIsLinkingToYouth(false);
+    }
+  };
+
+  // Handle add player submit — run unified matching for all players
   const handleAddPlayer = async (e?: React.FormEvent<HTMLFormElement>) => {
     if (e) {
       e.preventDefault();
@@ -557,17 +641,68 @@ export default function ManagePlayersPage() {
       return;
     }
 
-    // Check for duplicates first
-    const canProceed = await checkForDuplicates();
-    if (canProceed) {
-      await createPlayer();
-    }
-    // If not, the duplicate warning dialog will be shown
-  };
+    if (!hasAcknowledgedMediumMatch) {
+      setIsCheckingDuplicate(true);
+      try {
+        type Candidate = {
+          confidence: "high" | "medium" | "low" | "none";
+          _id: string;
+          firstName: string;
+          lastName: string;
+          dateOfBirth: string;
+          playerType: "youth" | "adult";
+        };
+        const candidates = (await convex.query(
+          api.models.playerMatching.findPlayerMatchCandidates,
+          {
+            organizationId: orgId,
+            firstName: addPlayerForm.firstName.trim(),
+            lastName: addPlayerForm.lastName.trim(),
+            dateOfBirth: addPlayerForm.dateOfBirth,
+            federationIds: buildFederationIds(),
+            email: addPlayerForm.email.trim() || undefined,
+            phone: addPlayerPhone || undefined,
+            postcode: addPlayerForm.postcode.trim() || undefined,
+          }
+        )) as Candidate[];
 
-  // Handle duplicate warning confirmation - proceed anyway
-  const handleDuplicateConfirm = async () => {
-    setShowDuplicateWarning(false);
+        const highCandidates = candidates.filter(
+          (c) => c.confidence === "high"
+        );
+        const mediumCandidates = candidates.filter(
+          (c) => c.confidence === "medium"
+        );
+
+        // HIGH confidence — blocking dialog: link or create new
+        if (highCandidates.length > 0) {
+          const best = highCandidates[0];
+          setYouthMatchCandidate({
+            _id: best._id,
+            firstName: best.firstName,
+            lastName: best.lastName,
+            dateOfBirth: best.dateOfBirth,
+            playerType: best.playerType,
+          });
+          setShowYouthMatchDialog(true);
+          return;
+        }
+
+        // MEDIUM confidence — non-blocking banner, user re-submits to proceed
+        if (mediumCandidates.length > 0) {
+          const best = mediumCandidates[0];
+          setMediumMatchWarning({
+            name: `${best.firstName} ${best.lastName}`,
+            dateOfBirth: best.dateOfBirth,
+            playerIdentityId: best._id,
+          });
+          setHasAcknowledgedMediumMatch(true);
+          return;
+        }
+      } finally {
+        setIsCheckingDuplicate(false);
+      }
+    }
+
     await createPlayer();
   };
 
@@ -1017,10 +1152,20 @@ export default function ManagePlayersPage() {
                               Merge
                             </Button>
                             <Button
-                              onClick={() => {
+                              onClick={async () => {
+                                const [idA, idB] = group.players.map(
+                                  (p: any) => p._id
+                                );
+                                // Optimistic local hide
                                 const next = new Set(dismissedGroups);
                                 next.add(groupKey);
                                 setDismissedGroups(next);
+                                // Persist to DB so it survives refresh
+                                await dismissDuplicatePair({
+                                  organizationId: orgId,
+                                  playerIdA: idA,
+                                  playerIdB: idB,
+                                });
                               }}
                               size="sm"
                               variant="ghost"
@@ -1433,6 +1578,15 @@ export default function ManagePlayersPage() {
             setSelectedGuardianId(null);
             setSelectedExistingPlayer(null);
             setFormErrors({});
+            setMediumMatchWarning(null);
+            setHasAcknowledgedMediumMatch(false);
+            setYouthMatchCandidate(null);
+            setFederationFai("");
+            setFederationIrfu("");
+            setFederationGaa("");
+            setFederationOther("");
+            setShowFederationFields(false);
+            setAddPlayerPhone("");
           }
           setShowAddPlayerDialog(open);
         }}
@@ -1448,10 +1602,44 @@ export default function ManagePlayersPage() {
             setAddPlayerForm(emptyFormData);
             setSelectedGuardianId(null);
             setFormErrors({});
+            setAddPlayerPhone("");
           }}
           onSubmit={handleAddPlayer}
           submitText="Add Player"
         >
+          {/* MEDIUM confidence player match banner (non-blocking) */}
+          {mediumMatchWarning && (
+            <div className="mx-4 mt-2 flex items-start gap-2 rounded-md border border-amber-200 bg-amber-50 p-3 text-amber-800">
+              <AlertTriangle className="mt-0.5 h-4 w-4 shrink-0" />
+              <div className="space-y-1 text-sm">
+                <p className="font-medium">Possible existing player match</p>
+                <p>
+                  An existing player may match this record:{" "}
+                  <span className="font-medium">{mediumMatchWarning.name}</span>
+                  {", born "}
+                  {new Date(
+                    mediumMatchWarning.dateOfBirth
+                  ).toLocaleDateString()}
+                  . Review before proceeding.
+                </p>
+                <button
+                  className="text-amber-700 underline hover:text-amber-900"
+                  onClick={() =>
+                    router.push(
+                      `/orgs/${orgId}/players/${mediumMatchWarning.playerIdentityId}`
+                    )
+                  }
+                  type="button"
+                >
+                  View Match
+                </button>
+                <span className="ml-2 text-amber-600 text-xs">
+                  Click Add Player again to proceed anyway.
+                </span>
+              </div>
+            </div>
+          )}
+
           {/* Player Details */}
           <ResponsiveFormSection title="Player Details">
             <ResponsiveFormRow columns={2}>
@@ -1552,9 +1740,7 @@ export default function ManagePlayersPage() {
               </div>
 
               <div className="space-y-2">
-                <Label htmlFor="ageGroup">
-                  Age Group <span className="text-red-500">*</span>
-                </Label>
+                <Label htmlFor="ageGroup">Age Group</Label>
                 <Select
                   onValueChange={(value) => {
                     setAddPlayerForm({ ...addPlayerForm, ageGroup: value });
@@ -1582,7 +1768,39 @@ export default function ManagePlayersPage() {
                 )}
               </div>
             </ResponsiveFormRow>
+            {/* Email — optional matching signal */}
+            <div className="space-y-2">
+              <Label htmlFor="email">Email</Label>
+              <Input
+                className={formErrors.email ? "border-red-500" : ""}
+                id="email"
+                onChange={(e) => {
+                  setAddPlayerForm({ ...addPlayerForm, email: e.target.value });
+                  if (formErrors.email) {
+                    setFormErrors({ ...formErrors, email: undefined });
+                  }
+                }}
+                placeholder="player@example.com"
+                type="email"
+                value={addPlayerForm.email}
+              />
+              {formErrors.email && (
+                <p className="text-red-500 text-sm">{formErrors.email}</p>
+              )}
+            </div>
 
+            {/* Phone — optional matching signal */}
+            <div className="space-y-2">
+              <Label htmlFor="phone">Phone (Optional)</Label>
+              <PhoneInput
+                countries={["IE", "GB", "US"]}
+                defaultCountry="IE"
+                onChange={(value) => setAddPlayerPhone(value ?? "")}
+                value={addPlayerPhone}
+              />
+            </div>
+
+            {/* Sport */}
             <div className="space-y-2">
               <Label htmlFor="sportCode">Sport</Label>
               <Select
@@ -1606,6 +1824,66 @@ export default function ManagePlayersPage() {
                   ))}
                 </SelectContent>
               </Select>
+            </div>
+
+            {/* Federation Numbers — collapsible optional section */}
+            <div className="border-t pt-3">
+              <button
+                className="flex w-full items-center gap-2 text-left text-muted-foreground text-sm hover:text-foreground"
+                onClick={() => setShowFederationFields((v) => !v)}
+                type="button"
+              >
+                {showFederationFields ? (
+                  <ChevronDown className="h-4 w-4" />
+                ) : (
+                  <ChevronRight className="h-4 w-4" />
+                )}
+                Federation Numbers (Optional)
+              </button>
+              {showFederationFields && (
+                <div className="mt-3 space-y-3">
+                  <p className="text-muted-foreground text-xs">
+                    Enter national federation registration numbers for stronger
+                    identity matching.
+                  </p>
+                  <ResponsiveFormRow columns={2}>
+                    <div className="space-y-1">
+                      <Label className="text-xs">FAI Number</Label>
+                      <Input
+                        onChange={(e) => setFederationFai(e.target.value)}
+                        placeholder="FAI reg. number"
+                        value={federationFai}
+                      />
+                    </div>
+                    <div className="space-y-1">
+                      <Label className="text-xs">IRFU Number</Label>
+                      <Input
+                        onChange={(e) => setFederationIrfu(e.target.value)}
+                        placeholder="IRFU reg. number"
+                        value={federationIrfu}
+                      />
+                    </div>
+                  </ResponsiveFormRow>
+                  <ResponsiveFormRow columns={2}>
+                    <div className="space-y-1">
+                      <Label className="text-xs">GAA Number</Label>
+                      <Input
+                        onChange={(e) => setFederationGaa(e.target.value)}
+                        placeholder="GAA reg. number"
+                        value={federationGaa}
+                      />
+                    </div>
+                    <div className="space-y-1">
+                      <Label className="text-xs">Other</Label>
+                      <Input
+                        onChange={(e) => setFederationOther(e.target.value)}
+                        placeholder="Other federation"
+                        value={federationOther}
+                      />
+                    </div>
+                  </ResponsiveFormRow>
+                </div>
+              )}
             </div>
           </ResponsiveFormSection>
           {/* Potential Matches Panel */}
@@ -2133,21 +2411,23 @@ export default function ManagePlayersPage() {
         </div>
       </ResponsiveDialog>
 
-      {/* Duplicate Warning Dialog */}
+      {/* Player Match Dialog — HIGH confidence (blocking) */}
       <ResponsiveDialog
         contentClassName="sm:max-w-md"
+        description={
+          youthMatchCandidate
+            ? `An existing ${youthMatchCandidate.playerType} player record for ${youthMatchCandidate.firstName} ${youthMatchCandidate.lastName}, born ${new Date(youthMatchCandidate.dateOfBirth).toLocaleDateString()}, was found.`
+            : undefined
+        }
         footer={
           <div className="flex flex-col-reverse gap-2 sm:flex-row sm:justify-end">
             <Button
-              onClick={() => setShowDuplicateWarning(false)}
+              disabled={isLinkingToYouth || isAddingPlayer}
+              onClick={async () => {
+                setShowYouthMatchDialog(false);
+                await createPlayer();
+              }}
               variant="outline"
-            >
-              Cancel
-            </Button>
-            <Button
-              disabled={isAddingPlayer}
-              onClick={handleDuplicateConfirm}
-              variant="default"
             >
               {isAddingPlayer ? (
                 <>
@@ -2155,24 +2435,52 @@ export default function ManagePlayersPage() {
                   Creating...
                 </>
               ) : (
-                "Create Anyway"
+                "Create New Profile"
+              )}
+            </Button>
+            <Button
+              disabled={isLinkingToYouth || isAddingPlayer}
+              onClick={handleLinkToExistingHistory}
+            >
+              {isLinkingToYouth ? (
+                <>
+                  <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                  Linking...
+                </>
+              ) : (
+                "Link to Existing Record"
               )}
             </Button>
           </div>
         }
-        onOpenChange={setShowDuplicateWarning}
-        open={showDuplicateWarning}
+        onOpenChange={(open) => {
+          if (!open) {
+            setYouthMatchCandidate(null);
+          }
+          setShowYouthMatchDialog(open);
+        }}
+        open={showYouthMatchDialog}
+        title="Existing Player Record Found"
       >
-        <div className="space-y-4">
-          <h3 className="flex items-center gap-2 font-semibold text-amber-600 text-lg">
-            ⚠️ Potential Duplicate
-          </h3>
-          <p className="text-muted-foreground">{duplicateMessage}</p>
-          <p className="text-muted-foreground text-sm">
-            The system allows players with the same name if they have different
-            dates of birth or gender. An exact match (same name, date of birth,
-            AND gender) has been detected.
+        <div className="space-y-3 text-muted-foreground text-sm">
+          <p>
+            Would you like to link to this existing record, or create a new
+            separate profile?
           </p>
+          <ul className="list-disc space-y-1 pl-4">
+            <li>
+              <span className="font-medium text-foreground">
+                Link to Existing Record
+              </span>{" "}
+              — preserves all prior history, assessments, and team records.
+            </li>
+            <li>
+              <span className="font-medium text-foreground">
+                Create New Profile
+              </span>{" "}
+              — creates a separate record with no prior history.
+            </li>
+          </ul>
         </div>
       </ResponsiveDialog>
 

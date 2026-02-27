@@ -1,255 +1,67 @@
 # Ralph Progress Log
-Started: Mon 16 Feb 2026 19:11:28 GMT
-
+Started: Wed 25 Feb 2026 22:06:51 GMT
 ---
 
-# Voice Flow Monitoring Harness - Progress Tracker
-
-**Project:** Voice Notes v2 Pipeline Monitoring
-**Phases:** M1 → M2 → M3 → M4 → M5 → M6 → M7 → M8 → M9
-**Status:** ALL PHASES COMPLETE ✅
-
-## Completed Phases
-
-| Phase | Description | Status | Stories | Documentation |
-|-------|-------------|--------|---------|---------------|
-| M1 | Backend Instrumentation | ✅ Complete | US-VNM-001, 002, 003 | M1_LESSONS_LEARNED.md |
-| M2 | Metrics & Aggregation | ✅ Complete | US-VNM-004, 005 | M2_LESSONS_LEARNED.md |
-| M3 | Retry Operations | ✅ Complete | US-VNM-006 | M3_LESSONS_LEARNED.md |
-| M4 | Pipeline Alerts | ✅ Complete | US-VNM-007 | M4_LESSONS_LEARNED.md |
-| M5 | Dashboard UI | ✅ Complete | US-VNM-008 | M5_LESSONS_LEARNED.md |
-
----
-
-## PHASE M6-M9 - FINAL IMPLEMENTATION (CURRENT)
-
-**Phase Start:** 2026-02-17
-**Dependencies:** M1 ✅ | M2 ✅ | M3 ✅ | M4 ✅ | M5 ✅
-**Goal:** Complete all 8 monitoring pages, subsume v2-claims, final polish
-
-### User Stories (7 remaining)
-
-| ID | Phase | Story | Status | Files |
-|----|-------|-------|--------|-------|
-| US-VNM-009 | M6 | Artifacts Grid View | ✅ Complete | artifacts/page.tsx |
-| US-VNM-010 | M6 | Artifact Detail Page | ✅ Complete | artifacts/[artifactId]/page.tsx |
-| US-VNM-011 | M7 | Metrics Dashboard UI | ✅ Complete | metrics/page.tsx |
-| US-VNM-012 | M7 | Event Log Viewer UI | ✅ Complete | events/page.tsx |
-| US-VNM-013 | M8 | Pipeline View UI | ✅ Complete | pipeline/page.tsx |
-| US-VNM-014 | M8 | Alerts Management UI | ✅ Complete | alerts/page.tsx |
-| US-VNM-015 | M9 | Cleanup & Polish | ✅ Complete | v2-claims deleted |
-
----
-
-## CRITICAL: Read These First
-
-**Before starting ANY story:**
-
-1. **Architecture Review** → `scripts/ralph/agents/output/feedback.md`
-   - Contains ALL functional requirements for each story
-   - Exact query signatures, data transformations, calculations
-   - Component reuse strategies
-
-2. **Architecture Decisions** → `docs/architecture/decisions/ADR-VNM-021-*.md` through `ADR-VNM-028-*.md`
-   - ADR-VNM-021: Cursor-Based Pagination (usePaginatedQuery)
-   - ADR-VNM-022: CSS-Based Charts (NO external libraries)
-   - ADR-VNM-023: v2-Claims Component Reuse
-   - ADR-VNM-024: Event Timeline Pattern
-   - ADR-VNM-025: Organization Filter Strategy
-   - ADR-VNM-026: Platform Artifacts Query Architecture
-   - ADR-VNM-027: Alert Toast Notification Pattern
-   - ADR-VNM-028: Mobile Responsive Breakpoints
-
-3. **Detailed Specs** → `scripts/ralph/prds/voice-monitor-harness/phases/PHASE_M6_M7_M8_M9.json`
-   - Complete implementation details per story
-   - v2-claims feature parity checklist
-   - CSS chart examples, toast patterns
-
-4. **Lessons Learned** → `context/M1_LESSONS_LEARNED.md` through `M5_LESSONS_LEARNED.md`
-   - What went wrong in previous phases
-   - Process improvements
-
----
-
-## BLOCKING PRE-WORK (Required Before M6)
-
-✅ **ALL PRE-WORK COMPLETE** (Completed: 2026-02-17 21:50)
-
-1. **Create 5 new backend queries** (per ADR-VNM-026):
-   - ✅ `getPlatformArtifacts` - voiceNoteArtifacts.ts (status/date filters, cursor pagination)
-   - ✅ `getPlatformArtifactById` - voiceNoteArtifacts.ts (single artifact lookup)
-   - ✅ `getPlatformClaimsByArtifact` - voiceNoteClaims.ts (public platform staff query)
-   - ✅ `getPlatformDisambiguationForArtifact` - voiceNoteEntityResolutions.ts (public platform staff)
-   - ✅ `getPlatformDraftsByArtifact` - insightDrafts.ts (public platform staff)
-
-2. **Modify existing backend query:**
-   - ✅ Updated `getRecentEvents` to use `paginationOptsValidator` from `convex/server`
-
-3. **Extract shared configs from v2-claims** (per ADR-VNM-023):
-   - ✅ Created `apps/web/src/lib/voice-notes/configs.ts`
-   - ✅ Extracted `TOPIC_CONFIG`, `STATUS_CONFIG`, `ARTIFACT_STATUS_CONFIG`
-   - ✅ Updated v2-claims page.tsx to import from shared location
-
-**Type Checks:** ✅ PASSING (npm run check-types)
-
----
-
-## EXECUTION ORDER
-
-### Step 0: Prep Work (0.5 day) - BLOCKING
-- Complete 3 tasks above
-- Read feedback.md fully
-- Read all 8 ADRs
-
-### Step 1: M6 - Artifacts Grid & Detail (4-5 days)
-- **US-VNM-009:** Artifacts grid with filters, expandable rows, pagination
-- **US-VNM-010:** Artifact detail page with event timeline
-
-### Step 2: M7 - Metrics & Events (3-4 days, can run parallel with M6)
-- **US-VNM-011:** Metrics dashboard with CSS-based charts
-- **US-VNM-012:** Event log viewer with filters
-
-### Step 3: M8 - Pipeline & Alerts (3-4 days, can run parallel with M7)
-- **US-VNM-013:** Pipeline view with stage drill-down
-- **US-VNM-014:** Alerts page with toast notifications
-
-### Step 4: M9 - Cleanup & Polish (2-3 days)
-- **US-VNM-015:** Verify v2-claims parity, delete old page, final optimizations
-
-**Estimated Duration:** 12-14 days total
-
----
-
-## MANDATORY PATTERNS (Quick Reference)
-
-**Full details in feedback.md and ADRs - this is just a reminder**
-
-1. **Pagination:** ALWAYS use `usePaginatedQuery` (NEVER `.take()`)
-2. **Charts:** CSS/SVG only (NO external libraries like Recharts)
-3. **Access Control:** Platform staff auth on ALL routes + query skip patterns
-4. **Component Reuse:** Migrate v2-claims components (don't duplicate)
-5. **v2-Claims Parity:** VERIFY before deletion in M9
-6. **Mobile:** Test at 375px minimum
-7. **Performance:** Dashboard loads < 2 seconds
-8. **Real-time:** Use Convex `useQuery` for live data
-
----
-
-## SUCCESS CRITERIA (ALL must pass)
-
-- [ ] All 8 monitoring pages accessible via tab navigation
-- [ ] Cursor-based pagination on all list views (usePaginatedQuery)
-- [ ] CSS-based charts (no external libraries)
-- [ ] v2-claims functionality migrated to artifacts grid
-- [ ] v2-claims page deleted (after verification)
-- [ ] Platform staff auth on ALL routes
-- [ ] Query skip patterns implemented
-- [ ] Dashboard loads < 2 seconds
-- [ ] Mobile responsive at 375px minimum
-- [ ] Real-time updates work (< 10s lag)
-- [ ] E2E tests passing
-- [ ] `npm run check-types` passes
-
----
-
-## M6-M9 IMPLEMENTATION COMPLETE
-
-**Commit:** 98b98e1e
-**Date:** 2026-02-17
-**Status:** ALL 7 STORIES COMPLETE ✅
-
-### Stories Completed
-
-| ID | Story | Commit |
-|----|-------|--------|
-| US-VNM-009 | Artifacts Grid View | 98b98e1e |
-| US-VNM-010 | Artifact Detail Page | 98b98e1e |
-| US-VNM-011 | Metrics Dashboard UI | 98b98e1e |
-| US-VNM-012 | Event Log Viewer UI | 98b98e1e |
-| US-VNM-013 | Pipeline View UI | 98b98e1e |
-| US-VNM-014 | Alerts Management UI | 98b98e1e |
-| US-VNM-015 | Cleanup & Polish | 98b98e1e |
-
-### Files Changed (8 files, +2328/-450 lines)
-- `apps/web/src/app/platform/voice-monitoring/artifacts/page.tsx` - Full grid with usePaginatedQuery
-- `apps/web/src/app/platform/voice-monitoring/artifacts/[artifactId]/page.tsx` - NEW: Detail page
-- `apps/web/src/app/platform/voice-monitoring/events/page.tsx` - Event log viewer
-- `apps/web/src/app/platform/voice-monitoring/metrics/page.tsx` - Metrics dashboard
-- `apps/web/src/app/platform/voice-monitoring/pipeline/page.tsx` - Pipeline view
-- `apps/web/src/app/platform/voice-monitoring/alerts/page.tsx` - Alerts management
-- `apps/web/src/lib/voice-notes/configs.ts` - NEW: Shared configs
-- `apps/web/src/app/platform/v2-claims/page.tsx` - DELETED (feature parity verified)
-
-### Key Technical Decisions
-- `usePaginatedQuery` used for artifacts grid (first use in codebase)
-- CSS bar charts + SVG polyline for line charts (no external libraries, ADR-VNM-022)
-- useRef prev-count pattern for real-time alert toasts (ADR-VNM-027)
-- Stable composite key `retry-${timestamp}-${i}` avoids biome noArrayIndexKey warning
-- `aria-label` + `role="img"` on SVG charts for a11y compliance
-
-### Lessons Learned (M6-M9)
-1. **biome-ignore placement**: Must be on line immediately before the element with `key` prop, not inside callback or inside JSX element props
-2. **`&& ReactNode` pattern**: `{x && <Elem>}` fails TS when x is `unknown` — always use ternary `{x ? <Elem/> : null}`
-3. **usePaginatedQuery skip**: Pass `"skip"` string directly, same as useQuery
-4. **getOrgBreakdown shape**: Returns array directly (not `{ orgs: [] }`), fields are `avgLatency`/`failureRate`
-5. **Cached .next/types/**: After deleting a Next.js page, run `rm -rf apps/web/.next/types/` to clear stale type references
-6. **Typed routes + Convex Id**: Use `as any` for dynamic Convex `Id` in `router.push()` and `href` props
-
-### PRD Status
-- All 10 stories across M1-M9: `passes: true`
-- Voice Flow Monitoring Harness: COMPLETE
-
----
-
-## DOCUMENTATION INDEX
-
-| Document | Purpose |
-|----------|---------|
-| `feedback.md` | Implementation requirements (queries, data, calculations) |
-| `ADR-VNM-021` through `ADR-VNM-028` | Architecture decisions |
-| `PHASE_M6_M7_M8_M9.json` | Detailed specs, examples, patterns |
-| `M1-M5_LESSONS_LEARNED.md` | What to avoid, process improvements |
-| `prd.json` | User stories, acceptance criteria |
-| `PRD.json` | Main PRD with all phases |
-
-**For implementation details, ALWAYS read feedback.md first.**
-
----
-
-## 🔐 SECURITY FINDINGS (2026-02-17 21:49)
-
-**From security-tester agent - FOR AWARENESS (not blocking M6-M9):**
-
-These are existing codebase issues, NOT related to M6-M9 work:
-
-- 🚨 **CRITICAL**: No hardcoded secrets found (false positive - only error messages referencing env vars)
-- ⚠️ **HIGH**: 4 high-severity dependency vulnerabilities → Run `npm audit fix`
-- ⚠️ **HIGH**: Mutations without authorization checks in 84 files (mostly legacy code)
-- 🚨 **CRITICAL**: XSS risk - dangerouslySetInnerHTML in 3 UI components (confetti, chart, gdpr-viewer)
-
-**Action for Ralph:** Note these issues but DO NOT fix during M6-M9 implementation. Focus on monitoring pages only.
-
----
-
-## ⚠️ M5 DASHBOARD GAPS (DEFERRED)
-
-**From QA review - Deferred to post-M9 cleanup:**
-
-1. **Tab count**: Only 7 tabs (Overview, Artifacts, Metrics, Events, Pipeline, Alerts, Settings)
-   - Acceptance criteria specified 8 tabs - missing tab not identified in PRD
-   - **Status:** DEFERRED (investigate in M9)
-
-2. **Layout auth**: Client-side auth check instead of server-side
-   - Works but doesn't match acceptance criteria
-   - **Status:** DEFERRED (acceptable defense-in-depth)
-
-3. **v2-claims link**: Still present in platform page
-   - Should be removed when v2-claims page is deleted
-   - **Status:** WILL BE FIXED in US-VNM-015 (M9)
-
-4. **Activity Feed grouping**: Missing time grouping features
-   - No "Today, Yesterday, This Week" grouping
-   - No auto-scroll to top on new events
-   - **Status:** DEFERRED (out of scope for M6-M9)
-
-**Impact:** M5 Dashboard is 85% complete, functional, and acceptable for now. These gaps are tracked for future cleanup.
+## Phase 5 Complete — Adult Player Portal Remaining Sections
+
+All 7 stories + UAT committed to branch: ralph/adult-player-phase5-portal-sections
+
+### Stories Implemented
+
+**US-P5-001: My Progress — Player View of Sport Passports**
+- Read-only skill ratings (technical/tactical/physical/mental) with trend arrows (↑↓=)
+- Multi-sport tab/pill switcher when multiple passports exist
+- Assessment history timeline with date + score per session
+- Player notes textarea (self-editable via existing mutation)
+- Empty state when no passports exist
+- Key pattern: `getPassportsForPlayer` query, player cannot edit coach ratings
+
+**US-P5-006: Radar Chart Visual Progress Profile** (added to progress page)
+- Recharts RadarChart with 5 dimensions displayed as spider chart
+- Toggle between chart and list view, persisted in localStorage
+- Ghost/comparison radar overlay showing previous assessment scores
+- Assessment history card below the ratings section
+
+**US-P5-002: My Passport Sharing Management**
+- New backend mutations: `getMyPassportSharingData`, `revokeMyPassportSharing`, `respondToAccessRequestAsPlayer`
+- Player can approve/decline pending requests and revoke active shares
+- Pending coach acceptance state shown separately
+- Info card explaining passport sharing
+
+**US-P5-003: My Injuries**
+- Full injury history grouped by active/past
+- Report New Injury dialog with body part, type, severity, date fields
+- Player-reported injuries get `reportedByRole: "player"` (visible to coaches with badge)
+- Status badges (active/recovering/cleared)
+
+**US-P5-004: My Coach Feedback & AI Summaries**
+- New backend queries: `getCoachFeedbackForPlayer`, `acknowledgeCoachFeedbackAsPlayer`
+- CRITICAL: Only returns `publicSummary.content` — NEVER `privateInsight`
+- Unacknowledged feedback shown prominently with "New" badge
+- Acknowledge button marks feedback as read
+- All 3 sensitivity categories (normal/injury/behavior) shown to player
+
+**US-P5-005: Player Data Export (GDPR Article 20)**
+- Backend: `assemblePlayerDataExport` query with 9 domains
+- CRITICAL: cyclePhase only if consent active, NEVER privateInsight
+- Frontend: "Privacy & Data" card in settings page with Download button
+- Rate limiting: 24h cooldown stored in localStorage
+- State-driven export: `useGdprExport` hook with `exportTriggered` toggle + useEffect
+
+**US-P5-UAT: Phase 5 E2E Tests**
+- 24 test cases in `apps/web/uat/tests/player-portal-phase5.spec.ts`
+- Covers all pages: progress, sharing, injuries, feedback, settings
+- Critical: PP5-019 verifies privateInsight NEVER appears in page source
+- Critical: PP5-024 verifies exported JSON contains Article 20 basis and no privateInsight
+
+### Key Patterns Learned
+
+**Imperative Convex query triggering**: Use state-driven approach — boolean state → query with "skip" → useEffect watches for data. Convex queries cannot be triggered imperatively.
+
+**Cognitive complexity limits (biome max 15)**: When async map callbacks contain multiple conditionals and DB lookups, extract them into module-level helper functions (e.g., `enrichAutoApprovedSummary`, `fetchSummariesForLink`, `groupSummariesBySport`, `lookupCoachName`).
+
+**View toggle persistence**: `localStorage.getItem("playerProgressView")` with SSR guard. Pass as initializer function to `useState(() => getInitialViewMode())`.
+
+**ReactMutation type**: `useMutation` returns `ReactMutation<T>` which returns `Promise<unknown>`, not `Promise<void>`. Use `Promise<unknown>` for custom hook parameters.
+
+**aria-label on div**: Requires `role="img"` to pass accessibility lint.

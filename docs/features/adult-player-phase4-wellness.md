@@ -1,0 +1,310 @@
+# Adult Player Lifecycle — Phase 4: Daily Player Wellness Check
+
+> Auto-generated documentation - Last updated: 2026-02-25 21:02
+
+## Status
+
+- **Branch**: `ralph/adult-player-phase4-wellness`
+- **Progress**: 11 / 11 stories complete
+- **Phase Status**: ✅ Complete
+
+## Completed Features
+
+### US-P4-001: Backend: Wellness Schemas, Queries & Mutations
+
+As a backend developer, I need all wellness database schemas, queries, and mutations in place so that frontend stories can be implemented on top of a complete, type-safe API.
+
+**Acceptance Criteria:**
+- Add 4 tables to packages/backend/convex/schema.ts exactly as specified in the PRD:
+-   dailyPlayerHealthChecks: playerIdentityId (v.id), organizationId (string), checkDate (string YYYY-MM-DD), 8 optional number fields (sleepQuality/energyLevel/foodIntake/waterIntake/mood/motivation/physicalFeeling/muscleRecovery each v.optional(v.number())), enabledDimensions (v.array(v.string())), optional cyclePhase (v.union of 5 literals: menstruation/early_follicular/ovulation/early_luteal/late_luteal), optional notes string, submittedAt/updatedAt numbers, optional submittedOffline boolean, optional deviceSubmittedAt number. Indexes: by_player_and_date [playerIdentityId, checkDate], by_org_and_date [organizationId, checkDate], by_player [playerIdentityId]
+-   playerWellnessSettings: playerIdentityId (v.id), organizationId (string), enabledDimensions (v.array(v.string())), updatedAt (number). Index: by_player [playerIdentityId]. Default enabledDimensions when no record exists: ['sleepQuality', 'energyLevel', 'mood', 'physicalFeeling', 'motivation'] (the 5 core dimensions)
+-   wellnessCoachAccess: playerIdentityId (v.id), organizationId (string), coachUserId (string), coachName (string, denormalised), requestedAt (number), status (v.union of pending/approved/denied/revoked literals), optional approvedAt (number), optional revokedAt (number). Indexes: by_player [playerIdentityId], by_coach_and_player [coachUserId, playerIdentityId], by_org_and_coach [organizationId, coachUserId]
+-   playerHealthConsents: playerIdentityId (v.id), organizationId (string), consentType (string — use 'cycle_tracking'), givenAt (number), optional withdrawnAt (number). Index: by_player_and_type [playerIdentityId, consentType]
+- Expand packages/backend/convex/models/playerHealthChecks.ts (the Phase 1 stub) with these queries and mutations (all must include returns validator):
+-   getTodayHealthCheck(playerIdentityId, checkDate): replace stub — query dailyPlayerHealthChecks using by_player_and_date index, return record or null
+-   getWellnessHistory(playerIdentityId, days): query by_player index, filter to last N days in-memory, return array sorted newest first. Default days=30.
+-   getWellnessSettings(playerIdentityId): query by_player index on playerWellnessSettings. If no record: return default object with 5 core dimensions enabled: { enabledDimensions: ['sleepQuality', 'energyLevel', 'mood', 'physicalFeeling', 'motivation'] }.
+-   submitDailyHealthCheck(playerIdentityId, organizationId, checkDate, dimensionValues object, enabledDimensions, cyclePhase?, notes?, submittedOffline?, deviceSubmittedAt?): insert into dailyPlayerHealthChecks. Check for existing record by by_player_and_date — if exists, throw error directing caller to use updateDailyHealthCheck.
+-   updateDailyHealthCheck(checkId, dimensionValues object, cyclePhase?, notes?): patch existing record, update updatedAt.
+-   updateWellnessSettings(playerIdentityId, organizationId, enabledDimensions): upsert playerWellnessSettings. Throw error if any of the 5 core dimensions (sleepQuality, energyLevel, mood, physicalFeeling, motivation) is absent from enabledDimensions array. Optional dimensions (foodIntake, waterIntake, muscleRecovery) can be freely added or removed.
+-   requestWellnessAccess(playerIdentityId, coachUserId, organizationId, coachName): check for existing pending record via by_coach_and_player index — if pending exists, no-op. Otherwise insert new wellnessCoachAccess with status 'pending'. Send in-app notification to player via existing notifications system.
+-   respondWellnessAccess(accessId, decision): patch status to 'approved' or 'denied'. Set approvedAt if approved.
+-   revokeWellnessAccess(accessId): patch status to 'revoked', set revokedAt.
+-   getWellnessCoachAccessList(playerIdentityId): return all wellnessCoachAccess records for this player (all statuses) using by_player index.
+-   getWellnessForCoach(coachUserId, organizationId): fetch all approved wellnessCoachAccess records for this coach via by_org_and_coach index where status === 'approved'. For each approved playerIdentityId: fetch last 7 days of check-ins, compute aggregate score per day (average of all dimension values present). Return array of { playerIdentityId, playerName, todayScore, trend7Days }. MUST NOT include individual dimension values in return type.
+-   giveCycleTrackingConsent(playerIdentityId, organizationId): upsert playerHealthConsents with consentType 'cycle_tracking', givenAt = now, withdrawnAt = undefined.
+-   withdrawCycleTrackingConsent(playerIdentityId): patch playerHealthConsents to set withdrawnAt = now. Run a separate mutation to null out cyclePhase field on all past dailyPlayerHealthChecks for this player.
+- Run npx -w packages/backend convex codegen — all generated types must pass
+- npm run check-types passes
+
+### US-P4-002: Player Wellness Dimension Settings
+
+As an adult player, I want to choose which wellness dimensions I track so that the check-in stays relevant and quick for my situation.
+
+**Acceptance Criteria:**
+- Create apps/web/src/app/orgs/[orgId]/player/settings/page.tsx (or convert the Phase 1 'Coming Soon' placeholder if it exists)
+- Add a 'Wellness Dimensions' section to the settings page with two subsections:
+- CORE DIMENSIONS subsection (headed 'Core tracking — always active'): list the 5 core dimensions as read-only rows with a lock icon and a green 'Active' badge. Each shows: dimension name + helper text. Sleep Quality (how rested you feel on waking), Energy (your energy level throughout the day), Mood (your emotional state), Physical Feeling (how your body feels overall), Motivation (how motivated you feel for training). No toggle — these cannot be disabled individually.
+- OPTIONAL DIMENSIONS subsection (headed 'Optional — turn on to track more'): list the 3 optional dimensions as toggle switches. Food Intake (how well you ate today), Water Intake (how well hydrated you were), Muscle Recovery (muscle soreness and recovery level). Default state: all 3 OFF. Each toggle saves immediately via updateWellnessSettings mutation — no Save button required.
+- When an optional dimension is toggled ON: it is added to enabledDimensions and appears in the next check-in form. When toggled OFF: removed from enabledDimensions and hidden from check-in form. Historical data for that dimension is retained and reappears if re-enabled.
+- Info note below the optional dimensions list: 'Your core dimensions are always tracked. Enable optional dimensions to add more detail to your check-in.'
+- The mutation updateWellnessSettings enforces that the 5 core dimensions remain in enabledDimensions — the toggle UI cannot violate this because core dimensions have no toggles, but the backend enforces it regardless.
+- Mobile-first: 375px minimum width, touch-friendly toggles (44px minimum tap target)
+- npm run check-types passes
+
+### US-P4-003: Daily Wellness Check-In Submission with Offline Support
+
+As an adult player, I want to quickly rate my wellness across my chosen dimensions using emojis each day, with the check-in working even when I'm offline.
+
+**Acceptance Criteria:**
+- Create apps/web/src/app/orgs/[orgId]/player/health-check/page.tsx (replace any Phase 1 'Coming Soon' placeholder)
+- On load: fetch getWellnessSettings to determine enabled dimensions; fetch getTodayHealthCheck to check if already submitted today
+- Show only enabled dimensions on the check-in form. Core dimensions always shown (in order): Sleep Quality, Energy, Mood, Physical Feeling, Motivation. Optional dimensions shown only if enabled (appended after core dimensions in order): Food Intake, Water Intake, Muscle Recovery. Typical check-in has 5 questions; maximum is 8 if all optional dimensions enabled.
+- Each dimension: question label + 5 large emoji buttons (44×44px minimum touch target). Emojis left to right: 1=😢 (Very Poor), 2=😕 (Poor), 3=😐 (Neutral), 4=🙂 (Good), 5=😁 (Great)
+- Selected emoji highlights with the emoji-scale accent colour. Unselected emojis are muted/greyed.
+- Cycle phase section (female players only, age >= 18): shown at bottom with 'Optional — you don't have to answer this' label. NEVER shown for under-18 players or male players.
+- Cycle phase displayed as 5 horizontal pills: Menstruation (Days 1–5), Early Follicular (Days 6–9), Ovulation (Days 10–14), Early Luteal (Days 15–21), Late Luteal (Days 22–28)
+- GDPR gate: when user first taps any cycle phase pill AND no active consent in playerHealthConsents, show GDPR consent modal BEFORE registering the selection (see US-P4-007 for modal spec). If declined, hide cycle phase section.
+- Submit button: enabled only when all enabled dimensions have been answered. Cycle phase is always optional.
+- OFFLINE SUPPORT: detect offline state via navigator.onLine. If offline on submit: store check-in data in IndexedDB (key: orgId_playerIdentityId_YYYY-MM-DD). Show banner: 'No connection — your check-in is saved and will sync when you're back online.' Listen to window 'online' event — when fired, auto-call submitDailyHealthCheck with submittedOffline: true and deviceSubmittedAt from the stored timestamp. Clear IndexedDB entry after successful sync. Show 'Check-in synced ✓' toast.
+- On successful online submit: success toast 'Wellness check submitted ✓'. Show streak indicator: 'You've checked in X days in a row 🔥' (query getWellnessHistory to compute streak).
+- If already submitted today (getTodayHealthCheck returns a record): display current answers in selected state, Submit becomes 'Update'. On submit: calls updateDailyHealthCheck.
+- Trend charts displayed below the form — see US-P4-004.
+- Mobile-first: 375px minimum width. Emoji buttons easy to tap on small screens.
+- npm run check-types passes
+
+### US-P4-004: Player Wellness Trend Charts
+
+As an adult player, I want to see trends in my wellness data over time so that I can understand my patterns and manage my training load.
+
+**Acceptance Criteria:**
+- Trend charts rendered on the /orgs/[orgId]/player/health-check page below the daily submission form
+- Fetch getWellnessHistory(playerIdentityId, days=30) for chart data
+- First chart (most prominent): overall aggregate wellness score trend — average of all enabled dimensions per day
+- Per-dimension charts: one chart per currently-enabled dimension showing last 30 days
+- Time range toggle above charts: '7 days' / '30 days' / '90 days' — updates all charts. Default: 30 days.
+- Chart colour scale: 1=red (#ef4444) to 5=green (#22c55e). Use gradient or colour the line by value.
+- Days with no submission: show as a gap in the line — not zero, not interpolated.
+- Use the charting library already used in the project — grep for 'recharts' or 'chart' in package.json before implementing. Do NOT install a new library.
+- Empty state: fewer than 2 data points — show 'Check in for a few more days to see your trends' instead of chart.
+- Charts scroll horizontally on narrow screens rather than squashing labels.
+- npm run check-types passes
+
+### US-P4-005: Per-Coach Wellness Access Consent (Coach Requests, Player Controls)
+
+As a coach, I want to request access to a player's wellness trend data. As a player, I want to control exactly which coaches can see my wellness data, and revoke access at any time.
+
+**Acceptance Criteria:**
+- COACH SIDE — Request Access (implemented alongside US-P4-006):
+- In the Team Wellness widget, players who have not approved access show 'Access not granted' and a 'Request Access' button
+- On click: calls requestWellnessAccess mutation. Coach button changes to 'Request sent — awaiting approval' (disabled) while status is 'pending'.
+- If previously denied or revoked: button shows 'Request access again' and allows a new request.
+- PLAYER SIDE — Manage Access in Settings:
+- Add 'Wellness Access' section to the player settings page (/orgs/[orgId]/player/settings) — below Wellness Dimensions section from US-P4-002
+- Section heading: 'Coaches with access to your wellness trends'
+- Fetch getWellnessCoachAccessList(playerIdentityId) — display all records (all statuses)
+- Pending requests: show coach name + 'Approve' and 'Deny' buttons. Approve → respondWellnessAccess(id, 'approved'). Deny → respondWellnessAccess(id, 'denied').
+- Approved coaches: show coach name + green 'Approved' badge + 'Revoke' button. Revoke shows confirmation: 'Remove [Coach Name]'s access to your wellness data?' On confirm → revokeWellnessAccess(id).
+- Denied coaches: show coach name + 'Denied' label (static, no action — coach can request again).
+- Revoked coaches: show coach name + 'Revoked' label.
+- In-app notification to player when coach sends request: '[Coach name] has requested access to your wellness trends'. Notification links to /player/settings (Wellness Access section).
+- Approved coaches see ONLY aggregate score + 7-day trend (getWellnessForCoach handles this — no individual dimensions returned).
+- Empty state: 'No coaches have requested access to your wellness data yet.'
+- Mobile-first: 375px minimum width
+- npm run check-types passes
+
+### US-P4-006: Coach Team Wellness Dashboard
+
+As a coach, I want to see wellness summary data for players who have shared it with me so that I can adapt training and identify players who need support.
+
+**Acceptance Criteria:**
+- Add 'Team Wellness' section to the coach Team Hub page — read the existing Team Hub before implementing; follow the health-safety-widget.tsx pattern
+- Fetch getWellnessForCoach(coachUserId, organizationId) to populate the section
+- For each player with APPROVED access: display player name + today's aggregate wellness score as a colour-coded number badge (red=1 to green=5) + a 7-day sparkline trend chart
+- Players with aggregate score ≤ 2.0: highlighted with an amber alert icon and bolded name
+- Summary line at top: 'X of Y players checked in today' (Y = count of players with approved access, X = those with a record for today)
+- For each player WITHOUT approved access: show player name + 'Access not granted' label + 'Request Access' button (triggers US-P4-005 coach flow)
+- INDIVIDUAL DIMENSION VALUES ARE NEVER SHOWN — the getWellnessForCoach query does not return them, so the UI simply cannot render them
+- CYCLE PHASE IS NEVER SHOWN in this view under any circumstances
+- Widget is reactive via Convex subscription — live updates as players submit
+- Empty state (no approved players): 'No players have shared their wellness data with you. Use the Request Access button next to each player to ask for access.'
+- Mobile-first: 375px minimum width
+- npm run check-types passes
+
+### US-P4-007: GDPR Consent Flow for Menstrual Cycle Phase Tracking
+
+As a female player, I want to be clearly informed about menstrual cycle data collection and give explicit consent so that my sensitive health data is handled in accordance with GDPR Article 9.
+
+**Acceptance Criteria:**
+- Cycle phase section shown ONLY for players where gender === 'female' AND age >= 18 (calculated from playerIdentity.dateOfBirth)
+- First time a player taps a cycle phase pill AND playerHealthConsents has no active record (no record or withdrawnAt is set): intercept with GDPR consent modal BEFORE registering the tap
+- Consent modal content: plain-language explanation of (a) what data is collected (cycle phase only, not full menstrual health data), (b) who sees it (player + org medical/admin staff only — explicitly NOT coaches), (c) retention period (up to 18 months), (d) withdrawal rights
+- Consent modal has ONE explicit checkbox: 'I consent to PlayerARC storing my menstrual cycle phase data for sports performance analysis. I can withdraw this consent at any time.'
+- Checkbox is NOT pre-ticked under any circumstances
+- Two buttons: 'I Consent' (enabled only when checkbox is ticked) and 'Skip / No Thanks'
+- On 'I Consent': call giveCycleTrackingConsent mutation. Modal closes. Player can now select cycle phase.
+- On 'Skip / No Thanks': hide cycle phase section for current session. Player can re-enable via settings.
+- In player settings (/player/settings): add 'Privacy' section with 'Menstrual Cycle Tracking' toggle
+- Toggle ON = consented, OFF = not consented or withdrawn
+- Toggling OFF when consented: show confirmation dialog 'Withdrawing consent will permanently delete all your menstrual cycle phase data. This cannot be undone. Continue?' — on confirm, call withdrawCycleTrackingConsent
+- Privacy policy link included in consent modal body
+- npm run check-types passes
+
+### US-P4-008: Under-18 Player Wellness Check (Via Parent-Granted Authorization)
+
+As a youth player whose parent has granted them platform access, I want to submit my daily wellness check so that my wellbeing is tracked while my parent remains informed.
+
+**Acceptance Criteria:**
+- Wellness check accessible to under-18 players ONLY IF parentChildAuthorizations.includeWellnessAccess === true for their record (Phase 7 schema). If Phase 7 is not yet built, default to denied (safe default) and show 'Your parent needs to grant wellness access in your profile settings.'
+- Under-18 players use the same 8-dimension check-in form and 5-point emoji scale as adult players
+- All wellness dimension settings rules apply equally (child can configure which dimensions to track in settings)
+- CYCLE PHASE SECTION IS NEVER SHOWN for under-18 players regardless of gender — do not render it, do not call the consent modal
+- Parent wellness view: add a 'Wellness' tab to the child's page in the parent portal. Parent sees aggregate score per day AND individual dimension values (parents are not coaches — they have full visibility into their child's data). Parent view is gated by parentChildAuthorizations.includeWellnessAccess.
+- Parent CANNOT submit a wellness check on behalf of their child — the submission form is not available in the parent portal
+- When player turns 18 and claims adult account (Phase 2 graduation): parent's wellness view access is automatically revoked (handled by the Phase 2 claimPlayerAccount flow — add this step there if not already present)
+- npm run check-types passes
+
+### US-P4-009: Admin Wellness Analytics & Reminder Configuration
+
+As an org admin, I want to configure wellness reminders and view org-level wellness analytics so that player engagement is maintained and patterns are visible.
+
+**Acceptance Criteria:**
+- ADMIN SETTINGS — Wellness Reminders (add to existing org admin settings page):
+- New 'Wellness Reminders' section in org admin settings
+- Master toggle: enable/disable reminders org-wide
+- Frequency options (when enabled): daily, match-day only, training-day only
+- Reminder type options: in-app notification only, email only, both
+- Reminder cron: scheduled Convex function that runs daily and sends reminders only to players who haven't submitted that day (check by_player_and_date index — if record exists for today, skip that player)
+- Low-score alert for admins/medical staff: configurable score threshold (default ≤ 2.0) and configurable recipient list (org admin or users with medical access). Alert sent when player's aggregate score falls below threshold.
+- Coaches do NOT receive automated low-score alerts — coaches view voluntarily
+- ADMIN ANALYTICS — Wellness Tab (add to existing admin analytics section):
+- New 'Wellness' tab in admin analytics
+- Org-level chart: average daily wellness scores across all players who have submitted — trending over configurable date range
+- Individual player drill-down: admin clicks a player name to see their full dimension-level history (admins have full access, not limited to aggregate)
+- Correlation panel: list of players with 3+ consecutive low wellness check-ins (score ≤ 2.0) alongside any injury records in the same period
+- Cycle phase analysis (medical staff only — check for a medical_staff role or permission): aggregate heatmap of injury occurrences by cycle phase across female players. Only render if current user has medical access.
+- CSV export: wellness data with date range filter and player filter
+- npm run check-types passes
+
+### US-P4-010: AI Wellness Trend Insights (Player-Facing)
+
+As a player who has submitted at least 7 days of wellness check-ins, I want to receive an AI-generated insight about my wellness trends after each submission so that I understand what my data is telling me and can act on it.
+
+**Acceptance Criteria:**
+- SCHEMA — add playerWellnessInsights table to packages/backend/convex/schema.ts: playerIdentityId (v.id('playerIdentities')), organizationId (v.string()), insight (v.string()), generatedAt (v.number()), basedOnDays (v.number() — number of days used to generate the insight), triggerCheckId (v.id('dailyPlayerHealthChecks') — the check-in that triggered generation). Indexes: by_player [playerIdentityId], by_player_and_date [playerIdentityId, generatedAt].
+- BACKEND — create packages/backend/convex/actions/wellnessInsights.ts ('use node' action file):
+-   generateWellnessInsight internal action: args { playerIdentityId: v.id('playerIdentities'), organizationId: v.string(), triggerCheckId: v.id('dailyPlayerHealthChecks') }.
+-   Step 1: fetch last 14 days of dailyPlayerHealthChecks for this player (by_player index, filter in-memory to last 14 days). If fewer than 7 records found: do NOT generate an insight — return { generated: false, reason: 'insufficient_data' }.
+-   Step 2: check if an insight was already generated today (by_player_and_date index, generatedAt > start of today UTC). If yes: return { generated: false, reason: 'already_generated_today' }.
+-   Step 3: build an insight prompt. Compute: 7-day avg aggregate score, 14-day avg aggregate score, per-dimension 7-day averages for all enabled dimensions, trend direction per dimension (improving/declining/stable: compare last 3 days avg vs prior 4 days avg). Identify the single most notable signal (lowest-scoring dimension with a declining trend, or the biggest improvement).
+-   Step 4: call Claude API (use the existing Anthropic integration pattern in the codebase — search for how coachParentSummaries.ts calls the AI and follow the exact same pattern). Prompt: 'You are a player wellness assistant for a sports club. Based on the following 14-day wellness data, generate ONE concise, encouraging, and actionable insight (max 20 words). Do not diagnose, prescribe, or use clinical language. Focus on performance and recovery. Data: [formatted data]. Respond with just the insight sentence, no preamble.'
+-   Step 5: insert playerWellnessInsights record with the generated text, generatedAt: Date.now(), basedOnDays: count of records used, triggerCheckId.
+-   Step 6: return { generated: true, insight: string }.
+- TRIGGER — extend submitDailyHealthCheck mutation in packages/backend/convex/models/playerHealthChecks.ts:
+-   After successful insert of the dailyPlayerHealthChecks record, schedule the insight generation: ctx.scheduler.runAfter(0, internal.actions.wellnessInsights.generateWellnessInsight, { playerIdentityId, organizationId, triggerCheckId: newCheckId }).
+-   The scheduler call is fire-and-forget — if insight generation fails, the check-in must still succeed. Wrap in try/catch or use the scheduler pattern (scheduler.runAfter does not block the mutation).
+- PLAYER UI — extend the wellness check-in page (apps/web/src/app/orgs/[orgId]/player/health-check/page.tsx):
+-   After check-in submission, poll for the latest playerWellnessInsights record (use a query with a short interval or a Convex useQuery that re-renders when the record appears — up to 10 seconds). If an insight appears: display it in a card below the submission confirmation: '💡 [insight text]'. If no insight appears within 10 seconds or player has fewer than 7 days of data: show nothing (do not show a loading spinner indefinitely).
+-   On the trend chart view (from US-P4-004): show the most recent insight in a collapsible 'Latest Insight' panel at the top of the page. Add 'Generated by AI · Based on your last [N] check-ins' attribution.
+-   Insight is shown only to the player — NEVER to coaches or admins. The playerWellnessInsights table must not be accessible via any coach or admin query.
+-   If the player has fewer than 7 check-ins, show a gentle nudge instead: 'Check in for [7 - count] more days to unlock personalised insights.'
+- Run npx -w packages/backend convex codegen — all types pass.
+- npm run check-types passes.
+
+### US-P4-UAT: Phase 4 Wellness E2E Tests
+
+As a developer, I want Playwright E2E tests for the full wellness system so that submission, settings, offline sync, coach access consent, and GDPR flows all work correctly.
+
+**Acceptance Criteria:**
+- Create test file: apps/web/uat/tests/daily-wellness-phase4.spec.ts
+- Test: wellness check form shows exactly 5 core dimensions for a player with default settings (no optional dimensions enabled)
+- Test: enabling an optional dimension (e.g. Food Intake) in settings adds it to the check-in form; disabling it removes it
+- Test: submit button disabled when any enabled dimension is unanswered
+- Test: submitting wellness check creates dailyPlayerHealthChecks record with correct values
+- Test: returning to check-in page same day shows existing answers in selected state
+- Test: cycle phase section not shown for male players
+- Test: GDPR consent modal appears on first cycle phase interaction for a consenting female player
+- Test: GDPR modal checkbox is not pre-ticked
+- Test: coach wellness dashboard shows approved players' aggregate scores only (no individual dimensions)
+- Test: coach 'Request Access' creates wellnessCoachAccess record with status 'pending'
+- Test: player approve updates status to 'approved'
+- Test: player revoke updates status to 'revoked' and removes player from coach view
+- Manual test 1: Log in as adult female player → navigate to Daily Wellness → confirm all 8 dimensions display with emoji buttons
+- Manual test 2: Settings → Wellness Dimensions → confirm core 5 dimensions show with lock icon (cannot toggle) → toggle ON 'Food Intake' (optional) → return to check-in → confirm Food Intake now appears after the core 5
+- Manual test 3: In settings, toggle OFF all 3 optional dimensions → confirm only core 5 remain, no error (this is valid). Confirm backend rejects any request that would remove a core dimension.
+- Manual test 4: Submit all enabled dimensions → confirm success toast and streak counter
+- Manual test 5: Return to page same day → confirm current answers shown, edit one answer → confirm update saved
+- Manual test 6: Use DevTools to simulate offline → fill all dimensions → submit → confirm 'No connection' indicator → restore network → confirm 'Check-in synced ✓' toast → verify record has submittedOffline: true in DB
+- Manual test 7: As female player, tap a cycle phase pill → confirm GDPR modal appears (checkbox NOT pre-ticked)
+- Manual test 8: Accept cycle consent → select cycle phase → submit → verify cyclePhase stored in record
+- Manual test 9: Settings → Privacy → toggle off Menstrual Cycle Tracking → confirm dialog → confirm → verify past records have cyclePhase nulled
+- Manual test 10: Log in as male player → confirm cycle phase section does NOT appear
+- Manual test 11: As coach → Team Hub → Team Wellness → find player → click 'Request Access' → verify notification received by player
+- Manual test 12: As player → Settings → Wellness Access → Approve coach request → as coach → confirm aggregate score and sparkline now visible (no individual dimensions)
+- Manual test 13: As player → Revoke coach access → as coach → confirm player shows 'Access not granted'
+- Manual test 14: As org admin → navigate to Wellness analytics tab → confirm org trend chart loads
+- Manual test 15: Under-18 player with includeWellnessAccess: true → submit wellness check → as parent → confirm wellness history visible read-only → confirm NO cycle phase section shown
+
+
+## Implementation Notes
+
+### Key Patterns & Learnings
+
+**Patterns discovered:**
+- Phase 1 playerHealthChecks.ts stub DID NOT EXIST — had to create the file fresh
+- Notification type must be added to 4 places: schema.ts, models/notifications.ts, notification-toast.tsx, notification-bell.tsx
+- Biome requires block-form `if` in loops: `if (!x) { continue; }` not `if (!x) continue;`
+- Biome warns on evolving array types — use explicit type annotation on `const result: MyType[] = []`
+- Schema notifications table had its own type union separate from models/notifications.ts — both needed updating
+- `respondWellnessAccess` can't use `Record<string, unknown>` for patch — must use explicit if/else branches
+--
+- Player identity pattern: `authClient.useSession()` → email → `api.models.playerIdentities.findPlayerByEmail`
+- The settings page will receive more sections (US-P4-005 Wellness Access, US-P4-007 Privacy) — build it incrementally
+- Biome auto-reformats `if (!x && !y)` as `if (!(x && y))` and `flex-1 min-w-0` as `min-w-0 flex-1`
+
+**Gotchas encountered:**
+- Schema notifications table had its own type union separate from models/notifications.ts — both needed updating
+- `respondWellnessAccess` can't use `Record<string, unknown>` for patch — must use explicit if/else branches
+- US-P4-002: Player Wellness Dimension Settings page
+- Convert the placeholder settings page at apps/web/src/app/orgs/[orgId]/player/settings/page.tsx
+---
+--
+- none
+- US-P4-003: Daily Wellness Check-In Submission with Offline Support
+- Health-check placeholder page at apps/web/src/app/orgs/[orgId]/player/health-check/page.tsx needs replacing
+---
+
+### Files Changed
+
+- packages/backend/convex/schema.ts (+110)
+- packages/backend/convex/models/playerHealthChecks.ts (NEW, +680)
+- packages/backend/convex/models/notifications.ts (+3)
+- apps/web/src/components/notification-toast.tsx (+1)
+- apps/web/src/components/notifications/notification-bell.tsx (+6)
+- ✅ Convex codegen: passed
+- ✅ Type check: passed
+- ✅ Biome lint: passed (no errors)
+- ✅ Backend-only change: browser testing not required
+- Phase 1 playerHealthChecks.ts stub DID NOT EXIST — had to create the file fresh
+- Notification type must be added to 4 places: schema.ts, models/notifications.ts, notification-toast.tsx, notification-bell.tsx
+- Biome requires block-form `if` in loops: `if (!x) { continue; }` not `if (!x) continue;`
+- Biome warns on evolving array types — use explicit type annotation on `const result: MyType[] = []`
+--
+- apps/web/src/app/orgs/[orgId]/player/settings/page.tsx (+227, -10) — converted placeholder to full page
+
+
+## Key Files
+
+
+### New Files Created
+- packages/backend/convex/models/playerHealthChecks.ts (NEW, +680)
+- apps/web/src/app/orgs/[orgId]/player/health-check/wellness-trend-charts.tsx (NEW)
+- Added WellnessTab component to team-hub/components/wellness-tab.tsx (NEW)
+- apps/web/src/app/orgs/[orgId]/coach/team-hub/components/wellness-tab.tsx (NEW)
+- apps/web/src/app/orgs/[orgId]/parents/wellness/page.tsx (NEW)
+- apps/web/src/app/orgs/[orgId]/admin/analytics/wellness-analytics-tab.tsx (NEW)
+- packages/backend/convex/actions/wellnessInsights.ts (NEW — internalAction with helper functions)
+- apps/web/uat/tests/daily-wellness-phase4.spec.ts (NEW — 787 lines)
+
+---
+*Documentation auto-generated by Ralph Documenter Agent*

@@ -2590,6 +2590,8 @@ export const syncFunctionalRolesWithChildSelections = mutation({
     selectedPlayerIds: v.array(v.string()),
     declinedPlayerIds: v.array(v.string()),
     consentToSharing: v.boolean(),
+    // The player identity ID the user explicitly confirmed as theirs (undefined = not confirmed / declined)
+    acceptedPlayerIdentityId: v.optional(v.string()),
   },
   returns: v.object({
     success: v.boolean(),
@@ -2955,6 +2957,41 @@ export const syncFunctionalRolesWithChildSelections = mutation({
           playersLinked,
           "Declined:",
           playersDeclined
+        );
+      }
+    }
+
+    // 4. Handle player role - link to matched youth identity only if user confirmed
+    const rawSuggestedRoles: string[] =
+      metadata?.suggestedFunctionalRoles || [];
+    if (rawSuggestedRoles.includes("player")) {
+      const matchedId: string | undefined = metadata?.matchedPlayerIdentityId;
+      // Only link if the user explicitly confirmed this is their record
+      if (matchedId && args.acceptedPlayerIdentityId === matchedId) {
+        try {
+          await ctx.runMutation(
+            internal.models.adultPlayers.claimYouthProfileInternal,
+            {
+              playerIdentityId: matchedId as Id<"playerIdentities">,
+              userId: args.userId,
+              email: args.userEmail,
+            }
+          );
+          console.log(
+            "[syncFunctionalRolesWithChildSelections] Linked player to youth identity (user confirmed):",
+            matchedId
+          );
+        } catch (err) {
+          // Non-breaking — log and continue
+          console.warn(
+            "[syncFunctionalRolesWithChildSelections] Failed to link youth record:",
+            err
+          );
+        }
+      } else if (matchedId && !args.acceptedPlayerIdentityId) {
+        console.log(
+          "[syncFunctionalRolesWithChildSelections] Skipping player link — user did not confirm:",
+          matchedId
         );
       }
     }

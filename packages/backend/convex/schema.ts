@@ -264,10 +264,13 @@ export default defineSchema({
     // Account claim fields (for 18+ graduation flow)
     claimedAt: v.optional(v.number()), // Timestamp when player claimed account
     claimInvitedBy: v.optional(v.string()), // Guardian userId who initiated claim invitation
+    playerWelcomedAt: v.optional(v.number()), // Timestamp when player completed the welcome onboarding step
 
     // Address (optional, usually from guardian for youth)
     address: v.optional(v.string()),
+    address2: v.optional(v.string()),
     town: v.optional(v.string()),
+    county: v.optional(v.string()),
     postcode: v.optional(v.string()),
     country: v.optional(v.string()),
 
@@ -282,6 +285,17 @@ export default defineSchema({
     // Import tracking
     importSessionId: v.optional(v.id("importSessions")),
     externalIds: v.optional(v.record(v.string(), v.string())), // {"foireann": "12345", "pitchero": "67890"}
+
+    // Structured national federation registration numbers (Phase 3: US-P3-006)
+    // Note: externalIds.foireann is the legacy GAA path — do NOT remove it
+    federationIds: v.optional(
+      v.object({
+        fai: v.optional(v.string()), // Football Association of Ireland
+        irfu: v.optional(v.string()), // Irish Rugby Football Union
+        gaa: v.optional(v.string()), // Gaelic Athletic Association
+        other: v.optional(v.string()), // Other governing body
+      })
+    ),
 
     // Federation sync tracking
     lastSyncedAt: v.optional(v.number()), // Timestamp of last federation sync
@@ -337,6 +351,18 @@ export default defineSchema({
     .index("by_org", ["organizationId"])
     .index("by_removeId", ["removeId"]),
 
+  // Dismissed potential duplicate pairs — persists admin's "not a duplicate" decision
+  dismissedDuplicatePairs: defineTable({
+    organizationId: v.string(),
+    // Always stored with the lower _id first so lookups are order-independent
+    playerIdA: v.id("playerIdentities"),
+    playerIdB: v.id("playerIdentities"),
+    dismissedBy: v.string(), // userId of the admin who dismissed
+    dismissedAt: v.number(),
+  })
+    .index("by_org", ["organizationId"])
+    .index("by_org_pair", ["organizationId", "playerIdA", "playerIdB"]),
+
   // Player Graduations - tracks players who have turned 18 and their graduation status
   playerGraduations: defineTable({
     playerIdentityId: v.id("playerIdentities"),
@@ -381,7 +407,18 @@ export default defineSchema({
     usedAt: v.optional(v.number()), // Set when token is used
   })
     .index("by_token", ["token"])
-    .index("by_player", ["playerIdentityId"]),
+    .index("by_player", ["playerIdentityId"])
+    .index("by_email", ["email"]),
+
+  // Verification PINs - short-lived PINs for identity verification (e.g. account claim)
+  verificationPins: defineTable({
+    playerIdentityId: v.id("playerIdentities"),
+    pin: v.string(), // 6-digit numeric string
+    expiresAt: v.number(), // 10 minutes from creation
+    usedAt: v.optional(v.number()), // Set atomically when claim succeeds
+    attemptCount: v.number(), // Tracks failed attempts (lock after 3)
+    channel: v.union(v.literal("sms"), v.literal("email")), // How PIN was sent
+  }).index("by_player", ["playerIdentityId"]),
 
   // Guardian-Player relationship (N:M)
   guardianPlayerLinks: defineTable({
@@ -459,8 +496,8 @@ export default defineSchema({
 
     // Membership info
     clubMembershipNumber: v.optional(v.string()),
-    ageGroup: v.string(),
-    season: v.string(),
+    ageGroup: v.optional(v.string()),
+    season: v.optional(v.string()),
     sport: v.optional(v.string()), // DEPRECATED Phase 3: Use sportPassports.sportCode instead. This field is kept for backwards compatibility but should not be used.
 
     // Status
@@ -1589,6 +1626,15 @@ export default defineSchema({
     coachGender: v.optional(v.string()), // Team gender preference (male, female, mixed)
     coachTeams: v.optional(v.string()), // Comma-separated team names
     coachAgeGroups: v.optional(v.string()), // Comma-separated age groups
+
+    // Player-specific fields for youth record matching
+    playerDateOfBirth: v.optional(v.string()), // YYYY-MM-DD, used for youth matching
+    playerFederationNumber: v.optional(v.string()), // Federation ID supplied at join request
+    playerPhone: v.optional(v.string()), // E.164 phone — boost signal for matching
+    playerPostcode: v.optional(v.string()), // Postcode — boost signal for matching
+    matchedYouthIdentityId: v.optional(v.id("playerIdentities")), // Matched youth record
+    matchedYouthName: v.optional(v.string()), // Denormalized for display in admin UI
+    matchedYouthConfidence: v.optional(v.string()), // "high" | "medium" | "low"
 
     // Timestamps
     requestedAt: v.number(),
@@ -3890,7 +3936,13 @@ export default defineSchema({
       v.literal("milestone_completed"), // Recovery milestone marked complete
       v.literal("clearance_received"), // Medical clearance received
       // Org invitation notifications (Issue #437)
-      v.literal("org_invitation_received") // Existing user invited to an org
+      v.literal("org_invitation_received"), // Existing user invited to an org
+      // Graduation notifications (Phase 2 - Adult Player Graduation Flow)
+      v.literal("age_transition_available"), // Guardian notified player turned 18
+      v.literal("age_transition_claimed"), // Admins notified player claimed their account
+      // Wellness notifications (Phase 4)
+      v.literal("wellness_access_request"), // Player notified a coach requested access
+      v.literal("wellness_reminder") // Daily wellness check-in reminder (US-P4-009)
     ),
     title: v.string(),
     message: v.string(),
@@ -5423,4 +5475,121 @@ export default defineSchema({
     .index("by_organizationId", ["organizationId"])
     .index("by_connector_and_time", ["connectorId", "receivedAt"]) // For rate limiting
     .index("by_receivedAt", ["receivedAt"]), // For cleanup/archival
+
+  // ============================================================
+  // PHASE 4: DAILY PLAYER WELLNESS CHECK
+  // ============================================================
+
+  // Daily wellness check-in records
+  dailyPlayerHealthChecks: defineTable({
+    playerIdentityId: v.id("playerIdentities"),
+    organizationId: v.string(), // Better Auth organization ID
+    checkDate: v.string(), // YYYY-MM-DD
+
+    // 5 core dimensions (always enabled)
+    sleepQuality: v.optional(v.number()), // 1-5
+    energyLevel: v.optional(v.number()), // 1-5
+    mood: v.optional(v.number()), // 1-5
+    physicalFeeling: v.optional(v.number()), // 1-5
+    motivation: v.optional(v.number()), // 1-5
+
+    // 3 optional dimensions
+    foodIntake: v.optional(v.number()), // 1-5
+    waterIntake: v.optional(v.number()), // 1-5
+    muscleRecovery: v.optional(v.number()), // 1-5
+
+    enabledDimensions: v.array(v.string()), // dimensions enabled at time of submission
+
+    // Cycle phase (female 18+ only, GDPR Article 9)
+    cyclePhase: v.optional(
+      v.union(
+        v.literal("menstruation"),
+        v.literal("early_follicular"),
+        v.literal("ovulation"),
+        v.literal("early_luteal"),
+        v.literal("late_luteal")
+      )
+    ),
+
+    notes: v.optional(v.string()),
+    submittedAt: v.number(),
+    updatedAt: v.number(),
+    submittedOffline: v.optional(v.boolean()),
+    deviceSubmittedAt: v.optional(v.number()),
+  })
+    .index("by_player_and_date", ["playerIdentityId", "checkDate"])
+    .index("by_org_and_date", ["organizationId", "checkDate"])
+    .index("by_player", ["playerIdentityId"]),
+
+  // Per-player wellness dimension settings
+  playerWellnessSettings: defineTable({
+    playerIdentityId: v.id("playerIdentities"),
+    organizationId: v.string(),
+    enabledDimensions: v.array(v.string()), // defaults to 5 core dimensions
+    updatedAt: v.number(),
+  }).index("by_player", ["playerIdentityId"]),
+
+  // Coach access requests for player wellness data
+  wellnessCoachAccess: defineTable({
+    playerIdentityId: v.id("playerIdentities"),
+    organizationId: v.string(),
+    coachUserId: v.string(), // Better Auth user ID
+    coachName: v.string(), // denormalised for display
+    requestedAt: v.number(),
+    status: v.union(
+      v.literal("pending"),
+      v.literal("approved"),
+      v.literal("denied"),
+      v.literal("revoked")
+    ),
+    approvedAt: v.optional(v.number()),
+    revokedAt: v.optional(v.number()),
+  })
+    .index("by_player", ["playerIdentityId"])
+    .index("by_coach_and_player", ["coachUserId", "playerIdentityId"])
+    .index("by_org_and_coach", ["organizationId", "coachUserId"]),
+
+  // GDPR consents for sensitive health data
+  playerHealthConsents: defineTable({
+    playerIdentityId: v.id("playerIdentities"),
+    organizationId: v.string(),
+    consentType: v.string(), // 'cycle_tracking'
+    givenAt: v.number(),
+    withdrawnAt: v.optional(v.number()),
+  }).index("by_player_and_type", ["playerIdentityId", "consentType"]),
+
+  // Per-org wellness reminder and alert configuration (US-P4-009)
+  wellnessOrgConfig: defineTable({
+    organizationId: v.string(),
+    // Reminder settings
+    remindersEnabled: v.boolean(), // master toggle
+    reminderFrequency: v.union(
+      v.literal("daily"),
+      v.literal("match_day_only"),
+      v.literal("training_day_only")
+    ),
+    reminderType: v.union(
+      v.literal("in_app"),
+      v.literal("email"),
+      v.literal("both")
+    ),
+    // Low-score alert settings
+    lowScoreAlertsEnabled: v.boolean(),
+    lowScoreThreshold: v.number(), // default 2.0
+    // Updated at
+    updatedAt: v.number(),
+    updatedBy: v.string(), // userId
+  }).index("by_org", ["organizationId"]),
+
+  // AI-generated wellness insights for players (US-P4-010)
+  playerWellnessInsights: defineTable({
+    playerIdentityId: v.id("playerIdentities"),
+    organizationId: v.string(),
+    insight: v.string(), // max 20-word insight text
+    generatedAt: v.number(),
+    basedOnDays: v.number(), // number of check-in records used
+    triggerCheckId: v.id("dailyPlayerHealthChecks"),
+  })
+    .index("by_player", ["playerIdentityId"])
+    .index("by_player_and_date", ["playerIdentityId", "generatedAt"]),
 });

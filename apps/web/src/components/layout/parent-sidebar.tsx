@@ -91,6 +91,11 @@ export function getParentNavGroups(
           label: "Injuries",
           icon: Activity,
         },
+        {
+          href: `/orgs/${orgId}/parents/wellness`,
+          label: "Wellness",
+          icon: Heart,
+        },
       ],
     },
     {

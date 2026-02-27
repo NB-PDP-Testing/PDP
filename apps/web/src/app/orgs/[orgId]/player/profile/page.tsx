@@ -84,7 +84,9 @@ export default function PlayerProfilePage() {
       const rawPhone = p.phone ?? "";
       let normalizedPhone = "";
       if (rawPhone) {
-        normalizedPhone = rawPhone.startsWith("+") ? rawPhone : `+${rawPhone}`;
+        normalizedPhone = (
+          rawPhone.startsWith("+") ? rawPhone : `+${rawPhone}`
+        ).replace(/\s+/g, "");
       }
       setFirstName(p.firstName ?? "");
       setLastName(p.lastName ?? "");

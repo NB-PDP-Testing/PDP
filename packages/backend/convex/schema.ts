@@ -351,6 +351,18 @@ export default defineSchema({
     .index("by_org", ["organizationId"])
     .index("by_removeId", ["removeId"]),
 
+  // Dismissed potential duplicate pairs — persists admin's "not a duplicate" decision
+  dismissedDuplicatePairs: defineTable({
+    organizationId: v.string(),
+    // Always stored with the lower _id first so lookups are order-independent
+    playerIdA: v.id("playerIdentities"),
+    playerIdB: v.id("playerIdentities"),
+    dismissedBy: v.string(), // userId of the admin who dismissed
+    dismissedAt: v.number(),
+  })
+    .index("by_org", ["organizationId"])
+    .index("by_org_pair", ["organizationId", "playerIdA", "playerIdB"]),
+
   // Player Graduations - tracks players who have turned 18 and their graduation status
   playerGraduations: defineTable({
     playerIdentityId: v.id("playerIdentities"),

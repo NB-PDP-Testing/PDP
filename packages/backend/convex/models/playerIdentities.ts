@@ -1300,6 +1300,15 @@ export const findPotentialDuplicatesForOrg = query({
       return { totalGroups: 0, groups: [] };
     }
 
+    // Build a set of dismissed pair keys so we can skip them below
+    const dismissedPairs = await ctx.db
+      .query("dismissedDuplicatePairs")
+      .withIndex("by_org", (q) => q.eq("organizationId", args.organizationId))
+      .collect();
+    const dismissedSet = new Set(
+      dismissedPairs.map((d) => `${d.playerIdA}:${d.playerIdB}`)
+    );
+
     // Batch fetch player identities
     const playerIds = [...new Set(enrollments.map((e) => e.playerIdentityId))];
     const playerMap = new Map<string, any>();
@@ -1342,6 +1351,13 @@ export const findPotentialDuplicatesForOrg = query({
         for (let j = i + 1; j < group.length; j++) {
           const a = group[i];
           const b = group[j];
+
+          // Skip pairs the admin has explicitly dismissed
+          const keyAB = `${a._id}:${b._id}`;
+          const keyBA = `${b._id}:${a._id}`;
+          if (dismissedSet.has(keyAB) || dismissedSet.has(keyBA)) {
+            continue;
+          }
 
           // Check DOB proximity (within 365 days)
           const dobA = new Date(a.dateOfBirth).getTime();
@@ -1402,6 +1418,54 @@ export const findPotentialDuplicatesForOrg = query({
     const limited = duplicateGroups.slice(0, 50);
 
     return { totalGroups: limited.length, groups: limited };
+  },
+});
+
+/**
+ * Permanently dismiss a potential duplicate pair for this organisation.
+ * The pair will no longer appear in findPotentialDuplicatesForOrg.
+ */
+export const dismissDuplicatePair = mutation({
+  args: {
+    organizationId: v.string(),
+    playerIdA: v.id("playerIdentities"),
+    playerIdB: v.id("playerIdentities"),
+  },
+  returns: v.null(),
+  handler: async (ctx, args) => {
+    const { userId, role } = await requireAuthAndOrg(ctx, args.organizationId);
+    if (role !== "admin" && role !== "owner") {
+      throw new Error("Only admins/owners can dismiss duplicate pairs");
+    }
+
+    // Normalise order so playerIdA < playerIdB (string comparison) for consistent lookup
+    const [idA, idB] =
+      args.playerIdA < args.playerIdB
+        ? [args.playerIdA, args.playerIdB]
+        : [args.playerIdB, args.playerIdA];
+
+    // Idempotent: don't insert if already dismissed
+    const existing = await ctx.db
+      .query("dismissedDuplicatePairs")
+      .withIndex("by_org_pair", (q) =>
+        q
+          .eq("organizationId", args.organizationId)
+          .eq("playerIdA", idA)
+          .eq("playerIdB", idB)
+      )
+      .first();
+
+    if (!existing) {
+      await ctx.db.insert("dismissedDuplicatePairs", {
+        organizationId: args.organizationId,
+        playerIdA: idA,
+        playerIdB: idB,
+        dismissedBy: userId,
+        dismissedAt: Date.now(),
+      });
+    }
+
+    return null;
   },
 });
 

@@ -62,7 +62,11 @@ export const createJoinRequest = mutation({
     playerPhone: v.optional(v.string()), // E.164 phone — boost signal for matching
     playerPostcode: v.optional(v.string()), // Postcode — boost signal for matching
   },
-  returns: v.id("orgJoinRequests"),
+  returns: v.union(
+    v.object({ status: v.literal("ok"), id: v.id("orgJoinRequests") }),
+    v.object({ status: v.literal("already_member") }),
+    v.object({ status: v.literal("pending_request_exists") })
+  ),
   // biome-ignore lint/complexity/noExcessiveCognitiveComplexity: Join request creation handles multiple role types (coach, parent, player) with role-specific fields and youth matching — refactoring would reduce clarity.
   handler: async (ctx, args) => {
     const user = await authComponent.getAuthUser(ctx);
@@ -80,9 +84,7 @@ export const createJoinRequest = mutation({
       .first();
 
     if (existingRequest) {
-      throw new Error(
-        "You already have a pending request for this organization"
-      );
+      return { status: "pending_request_exists" as const };
     }
 
     // Check if user is already a member
@@ -107,7 +109,7 @@ export const createJoinRequest = mutation({
     );
 
     if (memberResult) {
-      throw new Error("You are already a member of this organization");
+      return { status: "already_member" as const };
     }
 
     // Get organization details
@@ -188,7 +190,7 @@ export const createJoinRequest = mutation({
     }
 
     // Create the join request
-    return await ctx.db.insert("orgJoinRequests", {
+    const joinRequestId = await ctx.db.insert("orgJoinRequests", {
       userId: user._id,
       userEmail: user.email,
       userName: user.name,
@@ -221,6 +223,8 @@ export const createJoinRequest = mutation({
       matchedYouthName,
       matchedYouthConfidence,
     });
+
+    return { status: "ok" as const, id: joinRequestId };
   },
 });
 
@@ -594,6 +598,28 @@ export const approveJoinRequest = mutation({
           email: request.userEmail,
         }
       );
+
+      // If the registrant is 18+, ensure the linked record is treated as an
+      // adult player. claimYouthProfileInternal uses the stored record's DOB,
+      // which may still be < 18 (e.g. a youth record seeded years ago).
+      // Use the registrant's own DOB from the join request as the authority.
+      if (request.playerDateOfBirth) {
+        const dobMs = new Date(request.playerDateOfBirth).getTime();
+        const registrantAge = Math.floor(
+          (Date.now() - dobMs) / (365.25 * 24 * 60 * 60 * 1000)
+        );
+        if (registrantAge >= 18) {
+          const linkedRecord = await ctx.db.get(args.linkToYouthIdentityId);
+          if (linkedRecord && linkedRecord.playerType !== "adult") {
+            await ctx.db.patch(args.linkToYouthIdentityId, {
+              playerType: "adult",
+              verificationStatus: "self_verified",
+              updatedAt: Date.now(),
+            });
+          }
+        }
+      }
+
       console.log(
         `[approveJoinRequest] Linked player ${request.userEmail} to youth identity ${args.linkToYouthIdentityId}`
       );

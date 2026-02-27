@@ -1,12 +1,9 @@
 "use client";
 
-import { api } from "@pdp/backend/convex/_generated/api";
-import { useQuery } from "convex/react";
 import { Heart, Home, Menu, MessageSquare, User } from "lucide-react";
 import type { Route } from "next";
 import Link from "next/link";
-import { useParams, useRouter } from "next/navigation";
-import { useEffect } from "react";
+import { useParams } from "next/navigation";
 import {
   BottomNav,
   type BottomNavItem,
@@ -27,7 +24,6 @@ export default function PlayerLayout({
 }) {
   const params = useParams();
   const orgId = params.orgId as string;
-  const router = useRouter();
 
   // Apply organization theme colors
   const { theme } = useOrgTheme();
@@ -35,17 +31,6 @@ export default function PlayerLayout({
   // Get UX feature flags
   const { adminNavStyle, useBottomNav } = useUXFeatureFlags();
   const useNewNav = adminNavStyle === "sidebar";
-
-  // Gate the portal: redirect to org home if no adult player dashboard
-  const hasPlayerDashboard = useQuery(
-    api.models.adultPlayers.hasPlayerDashboard
-  );
-
-  useEffect(() => {
-    if (hasPlayerDashboard === false) {
-      router.replace(`/orgs/${orgId}`);
-    }
-  }, [hasPlayerDashboard, orgId, router]);
 
   // Player bottom nav items (4 primary items for mobile)
   const playerBottomNavItems: BottomNavItem[] = [

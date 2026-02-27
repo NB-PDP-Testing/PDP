@@ -1,6 +1,6 @@
 FirstName,LastName,DateOfBirth,Gender,AgeGroup,Sport,Season,ParentFirstName,ParentLastName,ParentEmail,ParentPhone,Address,Town,Postcode,Country,GAANumber,IRFUNumber,FAINumber
-Ciarán,Murphy,2014-03-15,Male,U12,GAA Football,2025,,,,,,,D01 A001,,,,
-Mary,O'Brien,1990-07-22,Female,Senior,Soccer,2025,,,,,,,D02 A002,,,,
-Niamh,Walsh,2015-09-05,Female,U11,Soccer,2025,,,,,,,D03 A003,,,,
-Seán,Brennan,2006-04-18,Male,U18,Rugby,2025,,,,,,,D04 A004,,,,
-Jack,Walsh,2009-03-10,Male,U16,GAA Football,2025,,,,,,,D05 A005,,GAA-99001,,
+Ciarán,Murphy,2014-03-15,Male,U12,Test Club FC U12 Boys,2025,,,,,,,D01 A001,,,,
+Mary,O'Brien,1990-07-22,Female,Senior,Test Club FC U12 Boys,2025,,,,,,,D02 A002,,,,
+Niamh,Walsh,2015-09-05,Female,U11,Test Club FC U12 Boys,2025,,,,,,,D03 A003,,,,
+Seán,Brennan,2006-04-18,Male,U18,Test Club FC U12 Boys,2025,,,,,,,D04 A004,,,,
+Jack,Walsh,2009-03-10,Male,U16,Test Club FC U12 Boys,2025,,,,,,,D05 A005,,GAA-99001,,

@@ -3414,10 +3414,11 @@ export const getOrgRecentSharingActivity = query({
       const otherOrgId = isSourceOrg
         ? consent.receivingOrgId
         : consent.sourceOrgIds?.[0] || "";
-      const otherOrg = await ctx.runQuery(
-        api.models.organizations.getOrganization,
-        { organizationId: otherOrgId }
-      );
+      const otherOrg = otherOrgId
+        ? await ctx.runQuery(api.models.organizations.getOrganization, {
+            organizationId: otherOrgId,
+          })
+        : null;
       const orgName = otherOrg?.name || "Unknown Organization";
 
       // Add activity based on consent lifecycle

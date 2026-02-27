@@ -142,6 +142,8 @@ type AcceptInvitationTaskData = {
       name: string;
     }>;
     matchedPlayerIdentityId?: string;
+    matchedPlayerName?: string;
+    matchedPlayerDob?: string;
   }>;
 };
 

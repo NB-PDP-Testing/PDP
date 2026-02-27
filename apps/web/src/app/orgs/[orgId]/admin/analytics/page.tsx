@@ -158,8 +158,8 @@ export default function AnalyticsDashboard() {
     return;
   }, [dateRange]);
 
-  const allAssessments = useQuery(
-    api.models.skillAssessments.getOrgAssessments,
+  const assessmentMetrics = useQuery(
+    api.models.skillAssessments.getOrgAssessmentMetrics,
     {
       organizationId: orgId,
       startDate,
@@ -174,66 +174,8 @@ export default function AnalyticsDashboard() {
   // Get sports for filter
   const sports = useQuery(api.models.referenceData.getSports);
 
-  // Calculate additional metrics including unique player count
-  const metrics = useMemo(() => {
-    if (!allAssessments) {
-      return null;
-    }
-
-    const thisMonth = new Date();
-    thisMonth.setDate(1);
-    const thisMonthStr = thisMonth.toISOString().split("T")[0];
-
-    const assessmentsThisMonth = allAssessments.filter(
-      (a) => a.assessmentDate >= thisMonthStr
-    );
-
-    const avgRating =
-      allAssessments.length > 0
-        ? allAssessments.reduce((sum, a) => sum + a.rating, 0) /
-          allAssessments.length
-        : 0;
-
-    // Calculate trend (compare this month vs last month)
-    const lastMonth = new Date();
-    lastMonth.setMonth(lastMonth.getMonth() - 1);
-    lastMonth.setDate(1);
-    const lastMonthStr = lastMonth.toISOString().split("T")[0];
-
-    const lastMonthAssessments = allAssessments.filter(
-      (a) => a.assessmentDate >= lastMonthStr && a.assessmentDate < thisMonthStr
-    );
-
-    const lastMonthAvg =
-      lastMonthAssessments.length > 0
-        ? lastMonthAssessments.reduce((sum, a) => sum + a.rating, 0) /
-          lastMonthAssessments.length
-        : 0;
-
-    const thisMonthAvg =
-      assessmentsThisMonth.length > 0
-        ? assessmentsThisMonth.reduce((sum, a) => sum + a.rating, 0) /
-          assessmentsThisMonth.length
-        : 0;
-
-    const ratingTrend =
-      lastMonthAvg > 0
-        ? ((thisMonthAvg - lastMonthAvg) / lastMonthAvg) * 100
-        : 0;
-
-    // Count unique players (works for all assessments, not just those with benchmark data)
-    const uniquePlayerIds = new Set(
-      allAssessments.map((a) => a.playerIdentityId)
-    );
-
-    return {
-      totalAssessments: allAssessments.length,
-      assessmentsThisMonth: assessmentsThisMonth.length,
-      avgRating,
-      ratingTrend,
-      uniquePlayerCount: uniquePlayerIds.size,
-    };
-  }, [allAssessments]);
+  // Metrics come pre-computed from the backend — no client-side aggregation needed
+  const metrics = assessmentMetrics ?? null;
 
   // Prepare chart data
   const statusDistributionData = useMemo(() => {
@@ -269,47 +211,20 @@ export default function AnalyticsDashboard() {
     ].filter((d) => d.value > 0);
   }, [analyticsData]);
 
-  // Progress over time (group by week)
+  // Progress over time — pre-computed by the backend (last 12 weeks)
   const progressOverTimeData = useMemo(() => {
-    if (!allAssessments) {
+    if (!assessmentMetrics?.weeklyData) {
       return [];
     }
-
-    const weeklyData = new Map<
-      string,
-      { week: string; count: number; avgRating: number; totalRating: number }
-    >();
-
-    for (const assessment of allAssessments) {
-      const date = new Date(assessment.assessmentDate);
-      const weekStart = new Date(date);
-      weekStart.setDate(date.getDate() - date.getDay());
-      const weekKey = weekStart.toISOString().split("T")[0];
-
-      const existing = weeklyData.get(weekKey) || {
-        week: weekKey,
-        count: 0,
-        avgRating: 0,
-        totalRating: 0,
-      };
-      existing.count += 1;
-      existing.totalRating += assessment.rating;
-      existing.avgRating = existing.totalRating / existing.count;
-      weeklyData.set(weekKey, existing);
-    }
-
-    return Array.from(weeklyData.values())
-      .sort((a, b) => a.week.localeCompare(b.week))
-      .slice(-12) // Last 12 weeks
-      .map((d) => ({
-        week: new Date(d.week).toLocaleDateString("en-IE", {
-          month: "short",
-          day: "numeric",
-        }),
-        assessments: d.count,
-        avgRating: Number(d.avgRating.toFixed(2)),
-      }));
-  }, [allAssessments]);
+    return assessmentMetrics.weeklyData.map((d) => ({
+      week: new Date(d.week).toLocaleDateString("en-IE", {
+        month: "short",
+        day: "numeric",
+      }),
+      assessments: d.count,
+      avgRating: d.avgRating,
+    }));
+  }, [assessmentMetrics]);
 
   // Skills needing attention bar chart
   const skillsBarData = useMemo(() => {

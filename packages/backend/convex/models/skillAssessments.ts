@@ -233,6 +233,12 @@ export const getAssessmentHistory = query({
       notes: v.optional(v.string()),
       confidence: v.optional(confidenceValidator),
       createdAt: v.optional(v.number()),
+      importSessionId: v.optional(v.id("importSessions")),
+      source: v.optional(v.union(v.literal("manual"), v.literal("voice_note"))),
+      sessionId: v.optional(v.string()),
+      matchId: v.optional(v.string()),
+      voiceNoteId: v.optional(v.id("voiceNotes")),
+      privateNotes: v.optional(v.string()),
     })
   ),
   handler: async (ctx, args) => {
@@ -389,6 +395,125 @@ export const getOrgAssessments = query({
     }
 
     return assessments;
+  },
+});
+
+/**
+ * Aggregated assessment metrics for the analytics dashboard.
+ * Replaces streaming raw records to the client — computes everything server-side
+ * so we never hit Convex's 8192-item array limit.
+ */
+export const getOrgAssessmentMetrics = query({
+  args: {
+    organizationId: v.string(),
+    startDate: v.optional(v.string()),
+  },
+  returns: v.object({
+    totalAssessments: v.number(),
+    assessmentsThisMonth: v.number(),
+    avgRating: v.number(),
+    ratingTrend: v.number(),
+    uniquePlayerCount: v.number(),
+    // Weekly counts + avg ratings for the last 12 weeks (for chart)
+    weeklyData: v.array(
+      v.object({
+        week: v.string(),
+        count: v.number(),
+        avgRating: v.number(),
+      })
+    ),
+  }),
+  handler: async (ctx, args) => {
+    // Use the compound index to filter by org + date at DB level
+    const q = ctx.db
+      .query("skillAssessments")
+      .withIndex("by_organizationId", (idx) => {
+        const base = idx.eq("organizationId", args.organizationId);
+        return args.startDate
+          ? base.gte("assessmentDate", args.startDate)
+          : base;
+      });
+
+    const assessments = await q.collect();
+
+    if (assessments.length === 0) {
+      return {
+        totalAssessments: 0,
+        assessmentsThisMonth: 0,
+        avgRating: 0,
+        ratingTrend: 0,
+        uniquePlayerCount: 0,
+        weeklyData: [],
+      };
+    }
+
+    const now = new Date();
+    const thisMonthStr = new Date(now.getFullYear(), now.getMonth(), 1)
+      .toISOString()
+      .split("T")[0];
+    const lastMonthStr = new Date(now.getFullYear(), now.getMonth() - 1, 1)
+      .toISOString()
+      .split("T")[0];
+
+    let totalRating = 0;
+    let thisMonthCount = 0;
+    let thisMonthRating = 0;
+    let lastMonthCount = 0;
+    let lastMonthRating = 0;
+    const uniquePlayers = new Set<string>();
+    const weeklyMap = new Map<string, { count: number; totalRating: number }>();
+
+    for (const a of assessments) {
+      totalRating += a.rating;
+      uniquePlayers.add(a.playerIdentityId);
+
+      const d = a.assessmentDate;
+      if (d >= thisMonthStr) {
+        thisMonthCount += 1;
+        thisMonthRating += a.rating;
+      } else if (d >= lastMonthStr) {
+        lastMonthCount += 1;
+        lastMonthRating += a.rating;
+      }
+
+      // Bucket into week (Sunday-aligned)
+      const date = new Date(d);
+      const weekStart = new Date(date);
+      weekStart.setDate(date.getDate() - date.getDay());
+      const weekKey = weekStart.toISOString().split("T")[0];
+      const bucket = weeklyMap.get(weekKey) ?? { count: 0, totalRating: 0 };
+      bucket.count += 1;
+      bucket.totalRating += a.rating;
+      weeklyMap.set(weekKey, bucket);
+    }
+
+    const avgRating = totalRating / assessments.length;
+    const thisMonthAvg =
+      thisMonthCount > 0 ? thisMonthRating / thisMonthCount : 0;
+    const lastMonthAvg =
+      lastMonthCount > 0 ? lastMonthRating / lastMonthCount : 0;
+    const ratingTrend =
+      lastMonthAvg > 0
+        ? ((thisMonthAvg - lastMonthAvg) / lastMonthAvg) * 100
+        : 0;
+
+    const weeklyData = Array.from(weeklyMap.entries())
+      .map(([week, { count, totalRating: wr }]) => ({
+        week,
+        count,
+        avgRating: Math.round((wr / count) * 100) / 100,
+      }))
+      .sort((a, b) => a.week.localeCompare(b.week))
+      .slice(-12);
+
+    return {
+      totalAssessments: assessments.length,
+      assessmentsThisMonth: thisMonthCount,
+      avgRating: Math.round(avgRating * 100) / 100,
+      ratingTrend: Math.round(ratingTrend * 10) / 10,
+      uniquePlayerCount: uniquePlayers.size,
+      weeklyData,
+    };
   },
 });
 

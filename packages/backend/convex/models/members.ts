@@ -2590,6 +2590,8 @@ export const syncFunctionalRolesWithChildSelections = mutation({
     selectedPlayerIds: v.array(v.string()),
     declinedPlayerIds: v.array(v.string()),
     consentToSharing: v.boolean(),
+    // The player identity ID the user explicitly confirmed as theirs (undefined = not confirmed / declined)
+    acceptedPlayerIdentityId: v.optional(v.string()),
   },
   returns: v.object({
     success: v.boolean(),
@@ -2959,12 +2961,13 @@ export const syncFunctionalRolesWithChildSelections = mutation({
       }
     }
 
-    // 4. Handle player role - link to matched youth identity if provided (Phase 3: US-P3-005)
+    // 4. Handle player role - link to matched youth identity only if user confirmed
     const rawSuggestedRoles: string[] =
       metadata?.suggestedFunctionalRoles || [];
     if (rawSuggestedRoles.includes("player")) {
       const matchedId: string | undefined = metadata?.matchedPlayerIdentityId;
-      if (matchedId) {
+      // Only link if the user explicitly confirmed this is their record
+      if (matchedId && args.acceptedPlayerIdentityId === matchedId) {
         try {
           await ctx.runMutation(
             internal.models.adultPlayers.claimYouthProfileInternal,
@@ -2975,16 +2978,21 @@ export const syncFunctionalRolesWithChildSelections = mutation({
             }
           );
           console.log(
-            "[syncFunctionalRolesWithChildSelections] Linked player to youth identity:",
+            "[syncFunctionalRolesWithChildSelections] Linked player to youth identity (user confirmed):",
             matchedId
           );
         } catch (err) {
-          // Non-breaking — existing invites have no matchedPlayerIdentityId
+          // Non-breaking — log and continue
           console.warn(
             "[syncFunctionalRolesWithChildSelections] Failed to link youth record:",
             err
           );
         }
+      } else if (matchedId && !args.acceptedPlayerIdentityId) {
+        console.log(
+          "[syncFunctionalRolesWithChildSelections] Skipping player link — user did not confirm:",
+          matchedId
+        );
       }
     }
 

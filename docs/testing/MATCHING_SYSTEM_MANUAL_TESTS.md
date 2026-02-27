@@ -350,7 +350,7 @@ No new record is created. The server found P1 via its own 3-tier check.
 
 | Field | Value |
 |-------|-------|
-| Email | any email you control |
+| Email | any email **not already a member** of this org (e.g. `yourname+tc21@example.com`) |
 | Role | Player |
 | First Name | Ciarán |
 | Last Name | Murphy |
@@ -366,14 +366,19 @@ No new record is created. The server found P1 via its own 3-tier check.
 
 ### TC2.2 — No match in invite dialog
 
+> ⚠️ **Do not use Patrick Kelly here.** TC1.3 creates Patrick Kelly (2013-06-10) as a new player,
+> so by the time you reach TC2.2 that record exists in the org and would correctly trigger a match.
+> Use the name below instead.
+
 | Field | Value |
 |-------|-------|
 | Role | Player |
-| First Name | Patrick |
-| Last Name | Kelly |
-| Date of Birth | 2013-06-10 |
+| First Name | Brendan |
+| Last Name | O'Callaghan |
+| Date of Birth | 2007-11-22 |
+| Email | any email **not already a member** of this org (e.g. use a `+alias` like `yourname+tc22@example.com`) |
 
-**Expected:** No banner appears.
+**Expected:** No banner appears (no seeded or created player with this name/DOB).
 
 **Pass criteria:** No match banner shown.
 
@@ -381,55 +386,77 @@ No new record is created. The server found P1 via its own 3-tier check.
 
 ## Entry Point 3: CSV Bulk Import
 
-**Location:** Admin → Player Import
+**Location:** Admin → Import → Start New Import (Import Wizard)
 
-> ⚠️ **Do not commit this import.** This test is purely observational — you are checking
-> the confidence levels and default decisions shown in the preview screen. Committing would
-> create extra records and links that interfere with subsequent tests. Stop at the preview.
-> If you accidentally commit, re-seed from `seed-players.csv` before continuing.
+> ⚠️ **Do not run the live import.** Stop at the **Simulation Results** step to check the
+> expected outcomes. Clicking "Run Live Import" would create/update records that interfere
+> with subsequent tests. Navigate away or click Back when done.
+>
+> If you accidentally run the import, re-seed from `seed-players.csv` before continuing.
+
+### How the Import Wizard works
+
+The Import Wizard uses **exact name + DOB matching only** (`firstName`, `lastName`,
+`dateOfBirth` must all match exactly). It does **not** use fuzzy matching, phonetic
+aliases, federation IDs, or postcode signals for the simulation or the live import.
+
+This is intentional: bulk imports should never silently merge near-matches. Users can
+clean up near-misses manually after import.
+
+The `findPlayerMatchCandidates` engine (all 5 signals) is **not used** in the CSV path.
+Confidence scores and priority tiers are not visible anywhere in the wizard.
 
 ### Steps
 
-1. Go to **Admin → Player Import**
-2. Upload `docs/testing/test-import-matching.csv` and click **Parse**
-3. The preview table will show 9 rows — check each row against the Expected Results table below
-4. **Do not click Import** — close or navigate away when done
+1. Go to **Admin → Import** and click **Start New Import**
+2. On the Upload step, upload `docs/testing/test-import-matching.csv`
+3. On the Mapping step, confirm the auto-detected column mappings and click **Continue**
+4. On the Player Selection step, leave all 9 rows selected and click **Continue**
+5. Skip or confirm the Benchmark Config step and click **Continue**
+6. On the Review step, click **Run Simulation** and wait for results
+7. Check the Simulation Results against the Expected Results table below
+8. **Do not click "Run Live Import"** — navigate away when done
 
-### What the CSV tests
+### What the simulation shows
 
-The file covers every matching confidence tier in a single import:
+The Simulation Results screen shows:
+- **Summary counts**: Players to Create, Players to Update, Guardians, Enrollments, Passports
+- **Sample Player Previews**: up to 5 players with a **New** or **Update** badge
+- Warnings (e.g. duplicate rows in the CSV)
+- Errors that would prevent import
 
-| Column used | Signal |
-|-------------|--------|
-| FirstName + LastName + DateOfBirth | Name/DOB — all tiers |
-| Postcode | Address boost (+15 score) |
-| GAANumber | Federation ID Priority -1 (definitive HIGH) |
-
-> Player Email and Phone are not CSV columns — email boost does not apply here.
-> The matching signals available for CSV are: name/DOB, postcode, and federation IDs.
+There is no confidence score, no priority tier, and no matched-field detail shown.
 
 ### Expected Results
 
-| Row | Player in CSV | Tier hit | Expected confidence | Expected default |
-|-----|--------------|----------|---------------------|-----------------|
-| 1 | Ciarán Murphy 2014-03-15, Postcode D01 A001 | Priority 0 (exact) + postcode boost | HIGH (score ~105) | accept — link to P1 |
-| 2 | Ciaran Murphy 2014-03-15 | Priority 0.5 (normalised index) | **HIGH** *(was MEDIUM pre-merge)* | accept — link to P1 |
-| 3 | Mary O'Brien 1990-07-22, Postcode D02 A002 | Priority 0 (exact) + postcode boost | HIGH (score ~105) | accept — link to P2 |
-| 4 | Niamh Walsh 2015-09-05 | Priority 0 (exact) | HIGH | accept — link to P3 |
-| 5 | Neeve Walsh 2015-09-05 | Priority 1 (Irish alias) | HIGH | accept — link to P3 |
-| 6 | Seán Brennan 2006-04-18 | Priority 0 (exact) | HIGH | accept — link to P4 |
-| 7 | Patrick Kelly 2013-06-10 | None | None | create new |
-| 8 | Seán Walsh 2009-03-10 + GAANumber GAA-99001 | **Priority -1** (federation ID) | HIGH (score 100) | accept — link to P5 |
-| 9 | Seán Walsh 2009-03-10, no GAA number | Priority 1 (lastName + DOB fuzzy) | MEDIUM | skip |
+The seeded players (`seed-players.csv`) are: P1 = Ciarán Murphy, P2 = Mary O'Brien,
+P3 = Niamh Walsh, P4 = Seán Brennan, P5 = **Jack** Walsh (not Seán).
+
+TC1.3 created Patrick Kelly (2013-06-10) earlier in this test run.
+
+| Row | Player in CSV | Exact DB match? | Expected badge |
+|-----|--------------|-----------------|----------------|
+| 1 | Ciarán Murphy 2014-03-15 | ✅ P1 | **Update** |
+| 2 | Ciaran Murphy 2014-03-15 *(no fada)* | ❌ different spelling | **New** |
+| 3 | Mary O'Brien 1990-07-22 | ✅ P2 | **Update** |
+| 4 | Niamh Walsh 2015-09-05 | ✅ P3 | **Update** |
+| 5 | Neeve Walsh 2015-09-05 *(phonetic variant)* | ❌ different name | **New** |
+| 6 | Seán Brennan 2006-04-18 | ✅ P4 | **Update** |
+| 7 | Patrick Kelly 2013-06-10 | ✅ created in TC1.3 | **Update** |
+| 8 | Seán Walsh 2009-03-10 + GAANumber | ❌ P5 is Jack Walsh | **New** |
+| 9 | Seán Walsh 2009-03-10, no GAA | ❌ P5 is Jack Walsh | **New** |
+
+**Expected summary counts:**
+- Players to Create: **5** (rows 2, 5, 8, 9, and row 7 if TC1.3 was not run)
+- Players to Update: **4** (rows 1, 3, 4, 6) — or 5 if TC1.3 was run (row 7 also updates)
+- Rows 8 and 9 are flagged as a **duplicate** warning (same name + DOB appears twice)
 
 **Pass criteria:**
-- Rows 1, 2, 3, 4, 5, 6, 8 show HIGH (green badge).
-- Row 9 shows MEDIUM (amber) — Row 8 vs Row 9 side-by-side shows exactly what the GAA number adds.
-- Row 7 shows no match.
-- Default decisions match the table above.
-
-> **Row 2:** "Ciaran" (no fada) was MEDIUM before the merge. The normalised name index now
-> stores "ciaran" for both spellings — correctly HIGH. This is a deliberate improvement.
+- Rows 1, 3, 4, 6 show **Update** badge.
+- Rows 2, 5, 8, 9 show **New** badge (near-matches are intentionally not merged).
+- Row 7 shows **Update** if TC1.3 was run, **New** if not.
+- A duplicate warning appears for the two "Seán Walsh 2009-03-10" rows.
+- Summary counts match the table above.
 
 ---
 
@@ -495,7 +522,7 @@ Phone signal boosted what would have been a lower match (different name, same DO
 
 ### TC5.1 — Auto-match on user with matching name
 
-Open the edit panel for a user whose display name matches an existing unlinked player.
+**Setup:** Ensure there is an existing unlinked player record in the system. Use an existing org member whose display name matches that player's name — or invite a new user and accept them first. Open the edit panel for that member.
 
 **Expected:** "Player Record" section shows an auto-match candidate with "Strong match"
 or "Possible match" badge. Buttons: **"Link"** and **"Not this player"**.
@@ -507,8 +534,7 @@ creating a new record.
 
 ### TC5.2 — HIGH match warning on "Create New Player Record"
 
-**Setup:** Create a test user with display name **"Ciarán Murphy"**. Open Admin → Users →
-Edit for that user. Select Player role. Click **"Can't find the record — create a new one"**.
+**Setup:** First add a player named **"Ciarán Murphy"** with DOB `2014-03-15` via Admin → Players → Add Player (do not link to any user). Then invite a user to the org using any email address not already a member — the display name on the account must be **"Ciarán Murphy"** (the invited user must sign up and be accepted, or use an existing non-member account whose name is "Ciarán Murphy"). Open Admin → Users → Edit for that user. Assign the Player role. Click **"Can't find the record — create a new one"**.
 
 | Step | Action |
 |------|--------|

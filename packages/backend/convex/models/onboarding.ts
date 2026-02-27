@@ -16,6 +16,7 @@
 
 import { v } from "convex/values";
 import { components } from "../_generated/api";
+import type { Id } from "../_generated/dataModel";
 import { mutation, query } from "../_generated/server";
 import { authComponent } from "../auth";
 
@@ -180,6 +181,20 @@ export const getOnboardingTasks = query({
               }
             );
 
+            // If there's a matched adult player identity, fetch their name and DOB
+            let matchedPlayerName: string | undefined;
+            let matchedPlayerDob: string | undefined;
+            const matchedPlayerId = inv.metadata?.matchedPlayerIdentityId;
+            if (matchedPlayerId) {
+              const playerRecord = await ctx.db.get(
+                matchedPlayerId as Id<"playerIdentities">
+              );
+              if (playerRecord) {
+                matchedPlayerName = `${playerRecord.firstName} ${playerRecord.lastName}`;
+                matchedPlayerDob = playerRecord.dateOfBirth;
+              }
+            }
+
             return {
               invitationId: inv._id,
               organizationId: inv.organizationId,
@@ -192,6 +207,8 @@ export const getOnboardingTasks = query({
               playerLinks: inv.metadata?.suggestedPlayerLinks || [],
               matchedPlayerIdentityId:
                 inv.metadata?.matchedPlayerIdentityId ?? undefined,
+              matchedPlayerName,
+              matchedPlayerDob,
             };
           }
         )

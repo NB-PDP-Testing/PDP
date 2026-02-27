@@ -2,7 +2,7 @@
 
 import { api } from "@pdp/backend/convex/_generated/api";
 import type { Id } from "@pdp/backend/convex/_generated/dataModel";
-import { useQuery } from "convex/react";
+import { useMutation, useQuery } from "convex/react";
 import {
   AlertTriangle,
   ArrowRight,
@@ -15,6 +15,7 @@ import {
 import type { Route } from "next";
 import Link from "next/link";
 import { useParams } from "next/navigation";
+import { useState } from "react";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import {
@@ -43,11 +44,26 @@ export default function PlayerDashboardPage() {
   const { memberships: allMemberships } = useMembershipContext();
   const membership = allMemberships?.find((m) => m.organizationId === orgId);
 
-  const userEmail = session?.user?.email;
-  const playerIdentity = useQuery(
-    api.models.playerIdentities.findPlayerByEmail,
-    userEmail ? { email: userEmail.toLowerCase() } : "skip"
+  const transitionToAdultMutation = useMutation(
+    api.models.adultPlayers.transitionToAdult
   );
+  const [isGraduating, setIsGraduating] = useState(false);
+
+  // Look up by userId — the authoritative link between a user account and their player record.
+  // Falls back to email for legacy records that may not have userId set yet.
+  const userId = session?.user?.id;
+  const playerByUserId = useQuery(
+    api.models.playerIdentities.findPlayerByUserId,
+    userId ? { userId } : "skip"
+  );
+  const userEmail = session?.user?.email;
+  const playerByEmail = useQuery(
+    api.models.playerIdentities.findPlayerByEmail,
+    playerByUserId === null && userEmail
+      ? { email: userEmail.toLowerCase() }
+      : "skip"
+  );
+  const playerIdentity = playerByUserId ?? playerByEmail;
 
   // Passport data (used for passport card summary)
   const playerData = useQuery(
@@ -222,6 +238,90 @@ export default function PlayerDashboardPage() {
               </ul>
             </div>
           </CardContent>
+        </Card>
+      </div>
+    );
+  }
+
+  // Youth player account that needs to be graduated to adult
+  if (playerIdentity.playerType !== "adult") {
+    const dobMs = new Date(playerIdentity.dateOfBirth).getTime();
+    const age = Math.floor(
+      (Date.now() - dobMs) / (365.25 * 24 * 60 * 60 * 1000)
+    );
+    const isAdultAge = age >= 18;
+
+    const handleGraduate = async () => {
+      setIsGraduating(true);
+      try {
+        await transitionToAdultMutation({
+          playerIdentityId: playerIdentity._id,
+        });
+        // Page will re-render automatically once playerType updates to "adult"
+      } catch (err) {
+        console.error("Failed to upgrade account:", err);
+        setIsGraduating(false);
+      }
+    };
+
+    return (
+      <div className="container mx-auto p-4 md:p-8">
+        <Card className={isAdultAge ? "border-blue-200" : "border-amber-200"}>
+          <CardHeader>
+            <CardTitle className="flex items-center gap-2">
+              <AlertTriangle
+                className={`h-5 w-5 ${isAdultAge ? "text-blue-600" : "text-amber-600"}`}
+              />
+              {isAdultAge
+                ? "Your account is registered as a youth player"
+                : "Youth Player Account"}
+            </CardTitle>
+            <CardDescription className="mt-2">
+              {isAdultAge ? (
+                <>
+                  Welcome back, {playerIdentity.firstName}! You&apos;re in our
+                  system as{" "}
+                  <span className="font-medium">
+                    {playerIdentity.firstName} {playerIdentity.lastName}
+                  </span>{" "}
+                  (born {playerIdentity.dateOfBirth}, age {age}). Your history
+                  is here — you just need to upgrade your account to access the
+                  adult player portal.
+                </>
+              ) : (
+                <>
+                  Your player account (
+                  <span className="font-medium">
+                    {playerIdentity.firstName} {playerIdentity.lastName}
+                  </span>
+                  , born {playerIdentity.dateOfBirth}) is registered as a youth
+                  account. Contact your club administrator to update your
+                  account.
+                </>
+              )}
+            </CardDescription>
+          </CardHeader>
+          {isAdultAge && (
+            <CardContent>
+              <Button
+                className="gap-2"
+                disabled={isGraduating}
+                onClick={handleGraduate}
+              >
+                {isGraduating ? (
+                  <>
+                    <Loader2 className="h-4 w-4 animate-spin" />
+                    Upgrading...
+                  </>
+                ) : (
+                  <>
+                    <ArrowRight className="h-4 w-4" />
+                    Upgrade to Adult Account
+                  </>
+                )}
+              </Button>
+            </CardContent>
+          )}
         </Card>
       </div>
     );

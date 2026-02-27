@@ -53,6 +53,7 @@ export default function JoinOrganizationRequestPage() {
   const [selectedRoles, setSelectedRoles] = useState<FunctionalRole[]>([]);
   const [message, setMessage] = useState("");
   const [isSubmitting, setIsSubmitting] = useState(false);
+  const [alreadyMember, setAlreadyMember] = useState(false);
 
   // Common field - phone (used by both parent and coach)
   const [phone, setPhone] = useState("");
@@ -117,7 +118,7 @@ export default function JoinOrganizationRequestPage() {
     try {
       const betterAuthRole = inferBetterAuthRole(selectedRoles);
 
-      await createJoinRequest({
+      const result = await createJoinRequest({
         organizationId: orgId,
         requestedRole: betterAuthRole,
         requestedFunctionalRoles: selectedRoles,
@@ -155,6 +156,17 @@ export default function JoinOrganizationRequestPage() {
           : undefined,
       });
 
+      if (result.status === "already_member") {
+        setAlreadyMember(true);
+        return;
+      }
+
+      if (result.status === "pending_request_exists") {
+        toast.info("You already have a pending request for this organisation.");
+        router.push("/orgs/join");
+        return;
+      }
+
       toast.success(
         "Join request submitted successfully! An admin will review your request."
       );
@@ -171,6 +183,34 @@ export default function JoinOrganizationRequestPage() {
 
   const canSubmit =
     selectedRoles.length > 0 && isCoachDataValid() && isPlayerDataValid();
+
+  if (alreadyMember) {
+    return (
+      <div className="container mx-auto max-w-2xl space-y-6 py-8">
+        <Card className="border-green-200">
+          <CardHeader>
+            <div className="flex items-center gap-4">
+              <div className="flex h-12 w-12 items-center justify-center rounded-full bg-green-100">
+                <Check className="h-6 w-6 text-green-600" />
+              </div>
+              <div>
+                <CardTitle>You&apos;re already registered here</CardTitle>
+                <CardDescription>
+                  Your account is already a member of this organisation. No need
+                  to submit another request.
+                </CardDescription>
+              </div>
+            </div>
+          </CardHeader>
+          <CardContent>
+            <Button asChild>
+              <Link href={`/orgs/${orgId}`}>Go to your dashboard →</Link>
+            </Button>
+          </CardContent>
+        </Card>
+      </div>
+    );
+  }
 
   return (
     <div className="container mx-auto max-w-2xl space-y-6 py-8">

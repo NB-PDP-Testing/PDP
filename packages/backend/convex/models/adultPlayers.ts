@@ -265,6 +265,10 @@ export const transitionToAdult = mutation({
   }),
   handler: async (ctx, args) => {
     await requireAuth(ctx);
+
+    // Fetch the full Better Auth user so we can sync their profile to the player record
+    const authUser = await authComponent.getAuthUser(ctx);
+
     const player = await ctx.db.get(args.playerIdentityId);
     if (!player) {
       throw new Error("Player not found");
@@ -279,13 +283,23 @@ export const transitionToAdult = mutation({
       throw new Error("Player must be 18 or older to transition to adult");
     }
 
-    // 1. Update player to adult type
+    // When the user self-upgrades, their Better Auth account is the source of truth
+    // for userId and email. Explicit args override, then auth user, then existing record.
+    const resolvedUserId = args.userId ?? authUser?._id ?? player.userId;
+    const resolvedEmail =
+      args.email?.toLowerCase().trim() ??
+      authUser?.email?.toLowerCase().trim() ??
+      player.email;
+    const resolvedPhone =
+      args.phone?.trim() ?? authUser?.phone?.trim() ?? player.phone;
+
+    // 1. Update player to adult type, writing current user profile data
     await ctx.db.patch(args.playerIdentityId, {
       playerType: "adult",
-      userId: args.userId,
-      email: args.email?.toLowerCase().trim(),
-      phone: args.phone?.trim(),
-      verificationStatus: args.userId ? "self_verified" : "unverified",
+      userId: resolvedUserId,
+      email: resolvedEmail,
+      phone: resolvedPhone,
+      verificationStatus: resolvedUserId ? "self_verified" : "unverified",
       updatedAt: Date.now(),
     });
 

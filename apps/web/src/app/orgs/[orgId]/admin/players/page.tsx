@@ -118,7 +118,7 @@ type AddPlayerFormData = {
   gender: "male" | "female" | "other";
   ageGroup: string;
   // Matching signals
-  email: string;
+  email: string; // optional — youth players may not have an email address
   // Sport
   sportCode: string;
   // Player address (optional)
@@ -252,6 +252,9 @@ export default function ManagePlayersPage() {
   );
   const mergePlayerIdentities = useMutation(
     api.models.playerIdentities.mergePlayerIdentities
+  );
+  const dismissDuplicatePair = useMutation(
+    api.models.playerIdentities.dismissDuplicatePair
   );
   const updatePlayerIdentityMutation = useMutation(
     api.models.playerIdentities.updatePlayerIdentity
@@ -423,9 +426,10 @@ export default function ManagePlayersPage() {
     } else {
       errors.dateOfBirth = "Date of birth is required";
     }
-    if (!addPlayerForm.email.trim()) {
-      errors.email = "Email is required";
-    } else if (!EMAIL_FORMAT_REGEX.test(addPlayerForm.email.trim())) {
+    if (
+      addPlayerForm.email.trim() &&
+      !EMAIL_FORMAT_REGEX.test(addPlayerForm.email.trim())
+    ) {
       errors.email = "Please enter a valid email";
     }
 
@@ -1148,10 +1152,20 @@ export default function ManagePlayersPage() {
                               Merge
                             </Button>
                             <Button
-                              onClick={() => {
+                              onClick={async () => {
+                                const [idA, idB] = group.players.map(
+                                  (p: any) => p._id
+                                );
+                                // Optimistic local hide
                                 const next = new Set(dismissedGroups);
                                 next.add(groupKey);
                                 setDismissedGroups(next);
+                                // Persist to DB so it survives refresh
+                                await dismissDuplicatePair({
+                                  organizationId: orgId,
+                                  playerIdA: idA,
+                                  playerIdB: idB,
+                                });
                               }}
                               size="sm"
                               variant="ghost"
@@ -1754,11 +1768,9 @@ export default function ManagePlayersPage() {
                 )}
               </div>
             </ResponsiveFormRow>
-            {/* Email — required for matching */}
+            {/* Email — optional matching signal */}
             <div className="space-y-2">
-              <Label htmlFor="email">
-                Email <span className="text-red-500">*</span>
-              </Label>
+              <Label htmlFor="email">Email</Label>
               <Input
                 className={formErrors.email ? "border-red-500" : ""}
                 id="email"

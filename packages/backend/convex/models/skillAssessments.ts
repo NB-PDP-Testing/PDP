@@ -616,6 +616,19 @@ export const recordAssessment = mutation({
       throw new Error("Rating must be between 1 and 5");
     }
 
+    // Self-assessment guard: coaches cannot submit assessments for their own player record
+    if (args.assessmentType !== "self") {
+      const identity = await ctx.auth.getUserIdentity();
+      if (identity?.subject) {
+        const playerIdentity = await ctx.db.get(passport.playerIdentityId);
+        if (playerIdentity?.userId === identity.subject) {
+          throw new Error(
+            "A coach cannot submit an assessment for their own player record"
+          );
+        }
+      }
+    }
+
     // Get previous rating for this skill
     const previousAssessment = await ctx.db
       .query("skillAssessments")
@@ -708,6 +721,19 @@ export const recordBatchAssessments = mutation({
     const passport = await ctx.db.get(args.passportId);
     if (!passport) {
       throw new Error("Sport passport not found");
+    }
+
+    // Self-assessment guard: coaches cannot submit assessments for their own player record
+    if (args.assessmentType !== "self") {
+      const identity = await ctx.auth.getUserIdentity();
+      if (identity?.subject) {
+        const playerIdentity = await ctx.db.get(passport.playerIdentityId);
+        if (playerIdentity?.userId === identity.subject) {
+          throw new Error(
+            "A coach cannot submit an assessment for their own player record"
+          );
+        }
+      }
     }
 
     const now = Date.now();
@@ -871,6 +897,16 @@ export const recordAssessmentWithBenchmark = mutation({
     const playerIdentity = await ctx.db.get(passport.playerIdentityId);
     if (!playerIdentity) {
       throw new Error("Player identity not found");
+    }
+
+    // Self-assessment guard: coaches cannot submit assessments for their own player record
+    if (args.assessmentType !== "self") {
+      const identity = await ctx.auth.getUserIdentity();
+      if (identity?.subject && playerIdentity.userId === identity.subject) {
+        throw new Error(
+          "A coach cannot submit an assessment for their own player record"
+        );
+      }
     }
 
     // Calculate age group from DOB

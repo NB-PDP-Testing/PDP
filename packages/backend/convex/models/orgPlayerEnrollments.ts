@@ -737,6 +737,7 @@ export const updateEnrollment = mutation({
     nextReviewDue: v.optional(v.string()),
     coachNotes: v.optional(v.string()),
     adminNotes: v.optional(v.string()),
+    confirmed: v.boolean(),
   },
   returns: v.null(),
   handler: async (ctx, args) => {
@@ -746,7 +747,15 @@ export const updateEnrollment = mutation({
     }
 
     // Auth: verify caller is a member of this enrollment's organization
-    await requireAuthAndOrg(ctx, existing.organizationId);
+    const { userId } = await requireAuthAndOrg(ctx, existing.organizationId);
+
+    // Admin own-record guard: require explicit confirmation when modifying own player record
+    if (!args.confirmed) {
+      const playerIdentity = await ctx.db.get(existing.playerIdentityId);
+      if (playerIdentity?.userId === userId) {
+        throw new Error("Self-modification requires explicit confirmation");
+      }
+    }
 
     const updates: Record<string, unknown> = {
       updatedAt: Date.now(),
@@ -824,6 +833,7 @@ export const changeEnrollmentStatus = mutation({
   args: {
     enrollmentId: v.id("orgPlayerEnrollments"),
     status: enrollmentStatusValidator,
+    confirmed: v.boolean(),
   },
   returns: v.null(),
   handler: async (ctx, args) => {
@@ -831,7 +841,15 @@ export const changeEnrollmentStatus = mutation({
     if (!existing) {
       throw new Error("Enrollment not found");
     }
-    await requireAuthAndOrg(ctx, existing.organizationId);
+    const { userId } = await requireAuthAndOrg(ctx, existing.organizationId);
+
+    // Admin own-record guard: require explicit confirmation when modifying own player record
+    if (!args.confirmed) {
+      const playerIdentity = await ctx.db.get(existing.playerIdentityId);
+      if (playerIdentity?.userId === userId) {
+        throw new Error("Self-modification requires explicit confirmation");
+      }
+    }
 
     await ctx.db.patch(args.enrollmentId, {
       status: args.status,

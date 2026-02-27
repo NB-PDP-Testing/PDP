@@ -16,6 +16,7 @@ import {
   Loader2,
   Save,
   Search,
+  ShieldAlert,
   Target,
   TrendingUp,
   User,
@@ -30,6 +31,7 @@ import {
   type Rating,
   RatingSlider,
 } from "@/components/rating-slider";
+import { Alert, AlertDescription } from "@/components/ui/alert";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import {
@@ -241,6 +243,11 @@ export default function AssessPlayerPage() {
     );
     return found ?? null;
   }, [allPlayers, selectedPlayerId]);
+
+  // Self-assessment guard: detect if the selected player is the current user's own record
+  const isSelf =
+    !!(userId && selectedPlayer?.player?.userId) &&
+    selectedPlayer.player.userId === userId;
 
   const passport = useQuery(
     api.models.sportPassports.getPassportForPlayerAndSport,
@@ -1481,6 +1488,16 @@ export default function AssessPlayerPage() {
       skills &&
       skills.length > 0 ? (
         <div className="space-y-6">
+          {/* Self-assessment banner */}
+          {isSelf && (
+            <Alert className="border-amber-200 bg-amber-50">
+              <ShieldAlert className="h-4 w-4 text-amber-600" />
+              <AlertDescription className="text-amber-800">
+                <strong>You cannot assess yourself.</strong> Assessment inputs
+                are disabled for your own player record.
+              </AlertDescription>
+            </Alert>
+          )}
           {Array.from(skillsByCategory.entries()).map(
             ([categoryName, categorySkills]) => {
               const isCollapsed = collapsedCategories.has(categoryName);
@@ -1579,6 +1596,7 @@ export default function AssessPlayerPage() {
                                     : undefined
                                 }
                                 compact={true}
+                                disabled={isSelf}
                                 isSaved={isSaved}
                                 label=""
                                 onChange={(value) =>
@@ -1593,6 +1611,7 @@ export default function AssessPlayerPage() {
                               <div className="flex items-start gap-2">
                                 <Textarea
                                   className="min-h-[60px] flex-1 text-sm"
+                                  disabled={isSelf}
                                   onChange={(e) =>
                                     handleNoteChange(skill.code, e.target.value)
                                   }
@@ -1600,7 +1619,9 @@ export default function AssessPlayerPage() {
                                   value={notes[skill.code] ?? ""}
                                 />
                                 <Button
-                                  disabled={!currentRating || isSaving}
+                                  disabled={
+                                    !currentRating || isSaving || isSelf
+                                  }
                                   onClick={() => handleSaveSkill(skill.code)}
                                   size="sm"
                                   variant={isSaved ? "outline" : "default"}
@@ -1644,7 +1665,9 @@ export default function AssessPlayerPage() {
               <div className="flex items-center justify-end">
                 <Button
                   disabled={
-                    (unsavedCount === 0 && !generalNotes.trim()) || isSaving
+                    (unsavedCount === 0 && !generalNotes.trim()) ||
+                    isSaving ||
+                    isSelf
                   }
                   onClick={handleSaveAll}
                 >

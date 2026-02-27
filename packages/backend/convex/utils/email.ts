@@ -1613,7 +1613,7 @@ export async function sendMagicLinkEmail(
               style="background-color: #22c55e; color: white; padding: 14px 32px; text-decoration: none; border-radius: 5px; display: inline-block; font-weight: bold; font-size: 16px;"
             >Sign In to PlayerARC</a>
           </div>
-          <p style="color: #666; font-size: 14px;">This link will expire in <strong>5 minutes</strong> and can only be used once.</p>
+          <p style="color: #666; font-size: 14px;">This link will expire in <strong>10 minutes</strong> and can only be used once.</p>
           <p style="color: #666; font-size: 14px;">If you didn't request this, you can safely ignore this email.</p>
           <hr style="border: none; border-top: 1px solid #ddd; margin: 25px 0;">
           <p style="color: #999; font-size: 12px; text-align: center;">
@@ -1624,7 +1624,7 @@ export async function sendMagicLinkEmail(
     </html>
   `;
 
-  const textBody = `Sign In to PlayerARC\n\nClick here to sign in: ${magicLinkUrl}\n\nThis link will expire in 5 minutes and can only be used once.\n\nIf you didn't request this, you can safely ignore this email.`;
+  const textBody = `Sign In to PlayerARC\n\nClick here to sign in: ${magicLinkUrl}\n\nThis link will expire in 10 minutes and can only be used once.\n\nIf you didn't request this, you can safely ignore this email.`;
 
   const resendApiKey = process.env.RESEND_API_KEY;
   const fromEmail =

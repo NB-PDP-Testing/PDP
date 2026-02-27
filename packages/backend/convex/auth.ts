@@ -57,7 +57,7 @@ export function createAuth(
       convex(),
       lastLoginMethod(),
       magicLink({
-        expiresIn: 300, // 5 minutes
+        expiresIn: 600, // 10 minutes
         disableSignUp: true, // Users must sign up first via proper flow
         // biome-ignore lint/suspicious/useAwait: Fire-and-forget to prevent timing attacks
         sendMagicLink: async ({ email, url }) => {

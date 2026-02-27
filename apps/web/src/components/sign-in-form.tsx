@@ -408,7 +408,7 @@ function SignInFormContent() {
                 Check your email for a sign-in link.
               </p>
               <p className="mt-1 text-muted-foreground text-xs">
-                The link expires in 5 minutes.
+                The link expires in 10 minutes.
               </p>
             </div>
           ) : (

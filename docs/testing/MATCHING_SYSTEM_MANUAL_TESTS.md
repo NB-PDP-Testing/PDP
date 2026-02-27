@@ -26,6 +26,30 @@ Signal boosts applied on top of any tier: **Email +25**, **Phone +20**, **Postco
 
 ---
 
+## Test Files
+
+Two CSV files live in `docs/testing/`:
+
+| File | Purpose | When to use |
+|------|---------|------------|
+| `seed-players.csv` | Creates the 5 base players that all tests match against | **Phase 0 only** — import once before starting any tests |
+| `test-import-matching.csv` | 9 rows designed to trigger every confidence tier | **Entry Point 3 only** — import in preview mode, observe results, do **not** commit |
+
+---
+
+## Test Order
+
+Run the phases in this sequence. Skipping Phase 0 will cause all subsequent tests to fail.
+
+```
+Phase 0  →  EP1  →  EP2  →  EP3  →  EP4  →  EP5  →  Phase 6
+(seed)      (add)   (invite) (CSV)  (join)  (users) (dedup)
+```
+
+Phase 6 (Dedup Panel) depends on a deliberate duplicate created during EP1 — see its Setup section.
+
+---
+
 ## Prerequisites
 
 Complete **Phase 0: Seed Base Players** before running any other tests.
@@ -35,15 +59,20 @@ Every test in later phases depends on these records already existing.
 
 ## Phase 0: Seed Base Players
 
-### Step 1 — Bulk import via CSV
+### Step 1 — Import the seed CSV
 
-Import the seed file **`docs/testing/seed-players.csv`** via **Admin → Player Import**.
-This creates all five players with the correct name, DOB, gender, age group, sport,
-postcode, and (for P5) the GAA federation number.
+1. Go to **Admin → Player Import**
+2. Click **Download Template** to confirm your org's Age Group and Sport labels, then close
+3. Open `docs/testing/seed-players.csv` in a text editor and update the `AgeGroup` and
+   `Sport` columns to match your org exactly (e.g. `U12` → `U-12`, `GAA Football` → `GAA`)
+4. Upload the edited file and click **Parse**
+5. Review the preview — all 5 rows should parse without errors (red rows indicate a bad
+   Age Group or Sport value — fix the CSV and re-upload)
+6. Click **Import** to commit
 
-> **Age Group and Sport names must match your org's configured values.**
-> Edit the CSV before importing if your org uses different labels (e.g. "U-12" vs "U12",
-> "GAA" vs "GAA Football"). The values below reflect common defaults.
+> **Note on P2 (Mary O'Brien, born 1990):** She is an adult player. If your import rejects
+> adult DOBs or shows a warning, add her manually via **Admin → Players → "+ Add Player"**
+> instead, using the values in the table below.
 
 | Ref | First Name | Last Name | DOB | Gender | Age Group | Sport | Postcode | Federation |
 |-----|-----------|-----------|-----|--------|-----------|-------|----------|-----------|
@@ -53,21 +82,28 @@ postcode, and (for P5) the GAA federation number.
 | P4 | Seán | Brennan | 2006-04-18 | Male | U18 | Rugby | D04 A004 | — |
 | P5 | Jack | Walsh | 2009-03-10 | Male | U16 | GAA Football | D05 A005 | GAA: GAA-99001 |
 
-### Step 2 — Add email and phone (manual, post-import)
+**Verify:** All five names appear in the player list before moving to Step 2.
 
-The CSV importer does not support player email or phone columns. After importing,
-open each player's edit form and add the following — these are required for the
-phone boost tests (TC1.7, TC4.1, TC4.2):
+---
 
-| Ref | Email | Phone |
-|-----|-------|-------|
-| P1 | ciaran.murphy@test.ie | +353871234001 |
-| P2 | mary.obrien@test.ie | +353871234002 |
-| P3 | niamh.walsh@test.ie | +353871234003 |
-| P4 | sean.brennan@test.ie | +353871234004 |
-| P5 | jack.walsh@test.ie | +353871234005 |
+### Step 2 — Add email and phone to each player (manual)
 
-**Verify:** All five appear in the player list with correct names and DOBs before proceeding.
+The CSV importer does not support player email or player phone — only parent contact
+fields. These signals are required for the phone boost tests (TC1.7, TC4.1, TC4.2), so
+add them now via each player's edit form.
+
+1. In **Admin → Players**, open each player and click **Edit**
+2. Fill in the Email and Phone fields from the table below and save
+
+| Ref | Player | Email | Phone |
+|-----|--------|-------|-------|
+| P1 | Ciarán Murphy | ciaran.murphy@test.ie | +353871234001 |
+| P2 | Mary O'Brien | mary.obrien@test.ie | +353871234002 |
+| P3 | Niamh Walsh | niamh.walsh@test.ie | +353871234003 |
+| P4 | Seán Brennan | sean.brennan@test.ie | +353871234004 |
+| P5 | Jack Walsh | jack.walsh@test.ie | +353871234005 |
+
+**Verify:** Open P3 (Niamh Walsh) and confirm both email and phone are saved before proceeding.
 
 ---
 
@@ -305,45 +341,53 @@ No new record is created. The server found P1 via its own 3-tier check.
 
 **Location:** Admin → Player Import
 
-Use the CSV file at `docs/testing/test-import-matching.csv`.
-The file tests all signal tiers including federation IDs, normalized names, and Irish aliases.
+> ⚠️ **Do not commit this import.** This test is purely observational — you are checking
+> the confidence levels and default decisions shown in the preview screen. Committing would
+> create extra records and links that interfere with subsequent tests. Stop at the preview.
+> If you accidentally commit, re-seed from `seed-players.csv` before continuing.
 
-### Supported Matching Columns
+### Steps
 
-| Column | Signal |
-|--------|--------|
+1. Go to **Admin → Player Import**
+2. Upload `docs/testing/test-import-matching.csv` and click **Parse**
+3. The preview table will show 9 rows — check each row against the Expected Results table below
+4. **Do not click Import** — close or navigate away when done
+
+### What the CSV tests
+
+The file covers every matching confidence tier in a single import:
+
+| Column used | Signal |
+|-------------|--------|
 | FirstName + LastName + DateOfBirth | Name/DOB — all tiers |
-| Postcode | Address boost (+15) |
+| Postcode | Address boost (+15 score) |
 | GAANumber | Federation ID Priority -1 (definitive HIGH) |
-| IRFUNumber | Federation ID Priority -1 (definitive HIGH) |
-| FAINumber | Federation ID Priority -1 (definitive HIGH) |
 
-> **Note:** Player Email is not a CSV column — only ParentEmail is supported.
-> Email boost is not available for CSV import rows.
+> Player Email and Phone are not CSV columns — email boost does not apply here.
+> The matching signals available for CSV are: name/DOB, postcode, and federation IDs.
 
 ### Expected Results
 
-| Row | Player | Tier Hit | Expected Confidence | Default Decision |
-|-----|--------|----------|-------------------|-----------------|
-| 1 | Ciarán Murphy 2014-03-15, Postcode: D01 A001 | Priority 0 (exact) + postcode boost | HIGH (score ~105) | accept (link) |
-| 2 | Ciaran Murphy 2014-03-15 | **Priority 0.5** (normalised index) | **HIGH** *(was MEDIUM pre-merge)* | accept (link) |
-| 3 | Mary O'Brien 1990-07-22, Postcode: D02 A002 | Priority 0 (exact) + postcode boost | HIGH (score ~105) | accept (link) |
-| 4 | Niamh Walsh 2015-09-05 | Priority 0 (exact) | HIGH | accept (link) |
-| 5 | Neeve Walsh 2015-09-05 | Priority 1 (Irish alias) | HIGH | accept (link) |
-| 6 | Seán Brennan 2006-04-18 | Priority 0 (exact) | HIGH | accept (link) |
+| Row | Player in CSV | Tier hit | Expected confidence | Expected default |
+|-----|--------------|----------|---------------------|-----------------|
+| 1 | Ciarán Murphy 2014-03-15, Postcode D01 A001 | Priority 0 (exact) + postcode boost | HIGH (score ~105) | accept — link to P1 |
+| 2 | Ciaran Murphy 2014-03-15 | Priority 0.5 (normalised index) | **HIGH** *(was MEDIUM pre-merge)* | accept — link to P1 |
+| 3 | Mary O'Brien 1990-07-22, Postcode D02 A002 | Priority 0 (exact) + postcode boost | HIGH (score ~105) | accept — link to P2 |
+| 4 | Niamh Walsh 2015-09-05 | Priority 0 (exact) | HIGH | accept — link to P3 |
+| 5 | Neeve Walsh 2015-09-05 | Priority 1 (Irish alias) | HIGH | accept — link to P3 |
+| 6 | Seán Brennan 2006-04-18 | Priority 0 (exact) | HIGH | accept — link to P4 |
 | 7 | Patrick Kelly 2013-06-10 | None | None | create new |
-| 8 | Seán Walsh 2009-03-10, GAANumber: GAA-99001 | **Priority -1** (federation ID) | HIGH (score 100) | accept (link P5) |
-| 9 | Seán Walsh 2009-03-10 *(no GAA number)* | Priority 1 (lastName + DOB fuzzy) | MEDIUM | skip |
+| 8 | Seán Walsh 2009-03-10 + GAANumber GAA-99001 | **Priority -1** (federation ID) | HIGH (score 100) | accept — link to P5 |
+| 9 | Seán Walsh 2009-03-10, no GAA number | Priority 1 (lastName + DOB fuzzy) | MEDIUM | skip |
 
 **Pass criteria:**
-- Rows 1, 2, 3, 4, 5, 6, 8 show HIGH match (green).
-- Row 9 shows MEDIUM (amber) — same person as Row 8 but without GAA number, showing federation ID is the upgrade.
-- Row 7 shows no match (new player).
+- Rows 1, 2, 3, 4, 5, 6, 8 show HIGH (green badge).
+- Row 9 shows MEDIUM (amber) — Row 8 vs Row 9 side-by-side shows exactly what the GAA number adds.
+- Row 7 shows no match.
 - Default decisions match the table above.
 
-> **Row 2 note:** Prior to the merge, "Ciaran" (missing fada) showed as MEDIUM confidence.
-> The new `by_normalized_name_dob` index corrects this — both normalise to "ciaran" and
-> are now correctly identified as HIGH confidence. This is a deliberate improvement.
+> **Row 2:** "Ciaran" (no fada) was MEDIUM before the merge. The normalised name index now
+> stores "ciaran" for both spellings — correctly HIGH. This is a deliberate improvement.
 
 ---
 

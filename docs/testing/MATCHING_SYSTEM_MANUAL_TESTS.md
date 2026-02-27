@@ -297,14 +297,19 @@ The form does not submit.
 
 > Expand the **"Federation Numbers"** collapsible at the bottom of the form and enter the GAA number.
 
-> **Note on behaviour before entering the GAA number:**
-> You will see a HIGH confidence match (inline panel: 0.9, blocking dialog: score ~80) for
-> Jack Walsh based on **DOB + exact last name** alone — this is correct and expected. Two people
-> sharing the same last name and exact birthday is a strong duplicate signal in a club context.
-> The GAA number upgrades the blocking dialog to score **100** and changes the matched field from
-> `dateOfBirth, lastName` to `federationId:gaa`, proving Priority -1 fired. If you want to see
-> a case where the name is _so different_ that DOB+lastName wouldn't match, use a different last
-> name entirely — federation IDs are the safeguard for that scenario.
+> **Important — two separate systems, two separate observations:**
+>
+> The **inline panel** (reactive, appears while typing) uses `findPotentialMatches` which does
+> **not accept federation IDs**. It will always show **0.9** for Jack Walsh based on DOB + last
+> name, regardless of whether you enter the GAA number. This is expected and correct.
+>
+> The **blocking dialog** (fires when you click "Add Player") uses `findPlayerMatchCandidates`
+> which does receive the GAA number. _Without_ the GAA number it shows score ~80 (DOB + last
+> name). _With_ `GAA-99001` it shows score **100** with matched field `federationId:gaa` — this
+> is what the test is verifying.
+>
+> **To observe the federation ID effect: you must click "Add Player"** and look at the blocking
+> dialog's score and matched fields, not the inline panel badge.
 
 **Expected (with GAA number entered):** Blocking dialog appears at HIGH confidence (score: 100)
 showing Jack Walsh. The matched field reads `federationId:gaa`.

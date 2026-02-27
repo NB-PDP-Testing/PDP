@@ -3,8 +3,26 @@
 **Purpose:** Verify the unified matching system detects duplicates at every entry point
 before a new player record is created.
 
-**System under test:** `findPlayerMatchCandidates` / `findBestPlayerMatch` in
-`packages/backend/convex/models/playerMatching.ts`
+**System under test:**
+- `findPlayerMatchCandidates` / `findBestPlayerMatch` — `packages/backend/convex/models/playerMatching.ts`
+- `findPotentialDuplicatesForOrg` / `getMergePreview` / `mergePlayerIdentities` — `packages/backend/convex/models/playerIdentities.ts`
+
+**Last updated:** Post-merge (`Adult-Player-Phase5a-MainMerge` branch)
+
+---
+
+## Matching Priority Order
+
+The system checks signals in this order — a higher-priority hit short-circuits lower tiers:
+
+| Priority | Tier | Signal | Confidence |
+|----------|------|--------|-----------|
+| -1 | Federation ID | FAI / IRFU / GAA / Other number exact match | HIGH (definitive) |
+| 0 | Exact name + DOB | `by_name_dob` index (case-sensitive) | HIGH |
+| 0.5 | Normalized name + DOB | `by_normalized_name_dob` index — strips fada, O'/Mc/Mac prefix, hyphens | HIGH |
+| 1 | Fuzzy name + DOB | Levenshtein + Irish alias phonetics, org-scoped | HIGH / MEDIUM / LOW |
+
+Signal boosts applied on top of any tier: **Email +25**, **Phone +20**, **Postcode +15**, **Address +10**.
 
 ---
 
@@ -17,20 +35,23 @@ Every test in later phases depends on these records already existing.
 
 ## Phase 0: Seed Base Players
 
-Add the following four players manually via **Admin → Players → Add Player**.
-These are the records the matching system will detect in subsequent tests.
+Add the following five players manually via **Admin → Players → "+ Add Player"**.
 
-> Note: Use your own org's Age Groups and Sports as they appear in your dropdowns.
-> The key fields for matching are Name, Date of Birth, Gender, Email, Phone, and Postcode.
+> Note: Use your org's Age Groups and Sports as they appear in your dropdowns.
+> Key fields for matching are Name, DOB, Gender, Email, Phone, Postcode, and Federation Numbers.
 
-| Ref | First Name | Last Name | Date of Birth | Gender | Age Group | Sport | Email | Phone | Postcode | Notes |
-|-----|-----------|-----------|---------------|--------|-----------|-------|-------|-------|----------|-------|
-| P1 | Ciarán | Murphy | 2014-03-15 | Male | U12 | GAA | ciaran.murphy@test.ie | +353871234001 | D01 A001 | Youth — exact match base |
-| P2 | Mary | O'Brien | 1990-07-22 | Female | Senior | Football | mary.obrien@test.ie | +353871234002 | D02 A002 | Adult — adult-to-adult base |
-| P3 | Niamh | Walsh | 2015-09-05 | Female | U11 | Soccer | niamh.walsh@test.ie | +353871234003 | D03 A003 | Youth — Irish alias base |
-| P4 | Seán | Brennan | 2006-04-18 | Male | U18 | Rugby | sean.brennan@test.ie | +353871234004 | D04 A004 | Youth aged 18+ — graduation base |
+| Ref | First Name | Last Name | DOB | Gender | Email | Phone | Postcode | Federation | Notes |
+|-----|-----------|-----------|-----|--------|-------|-------|----------|-----------|-------|
+| P1 | Ciarán | Murphy | 2014-03-15 | Male | ciaran.murphy@test.ie | +353871234001 | D01 A001 | — | Youth — exact match base |
+| P2 | Mary | O'Brien | 1990-07-22 | Female | mary.obrien@test.ie | +353871234002 | D02 A002 | — | Adult — adult-to-adult base |
+| P3 | Niamh | Walsh | 2015-09-05 | Female | niamh.walsh@test.ie | +353871234003 | D03 A003 | — | Youth — Irish alias base |
+| P4 | Seán | Brennan | 2006-04-18 | Male | sean.brennan@test.ie | +353871234004 | D04 A004 | — | Youth aged 18+ — graduation base |
+| P5 | Jack | Walsh | 2009-03-10 | Male | jack.walsh@test.ie | +353871234005 | D05 A005 | GAA: GAA-99001 | Federation ID base — same surname as P3, different DOB |
 
-**Verify:** All four appear in the player list before proceeding.
+> P5: When adding, expand the **"Federation Numbers"** collapsible and enter `GAA-99001`
+> in the GAA Number field.
+
+**Verify:** All five appear in the player list before proceeding.
 
 ---
 
@@ -38,9 +59,8 @@ These are the records the matching system will detect in subsequent tests.
 
 **Location:** Admin → Players → "+ Add Player" button
 
-The form now collects **Email** (required), **Phone** (optional, PhoneInput), and
-**Postcode** (optional) in addition to name, DOB, and gender. All three are passed to
-`findPlayerMatchCandidates` as boost signals.
+The form collects **Email** (required), **Phone** (optional), **Sport** (optional), and
+**Postcode** (optional, in the address section) — all passed to `findPlayerMatchCandidates`.
 
 ### TC1.1 — HIGH confidence: Exact name + DOB (youth)
 
@@ -50,14 +70,14 @@ The form now collects **Email** (required), **Phone** (optional, PhoneInput), an
 | Last Name | Murphy |
 | Date of Birth | 2014-03-15 |
 | Gender | Male |
+| Email | test1@test.ie |
 
 **Expected:** A blocking dialog titled **"Existing Player Record Found"** appears before the
-record is saved. Dialog shows Ciarán Murphy's DOB and `youth` player type.
+record is saved. Shows Ciarán Murphy's DOB and `youth` player type.
 Two buttons: **"Link to Existing Record"** and **"Create New Profile"**.
 
-**Pass criteria:** Dialog appears. Clicking "Link to Existing Record" enrolls the
-existing record (no new playerIdentity created). Clicking "Create New Profile"
-creates a second separate record.
+**Pass criteria:** Dialog appears. "Link to Existing Record" enrolls the existing record
+(no new playerIdentity created). "Create New Profile" creates a separate record.
 
 ---
 
@@ -69,6 +89,7 @@ creates a second separate record.
 | Last Name | O'Brien |
 | Date of Birth | 1990-07-22 |
 | Gender | Female |
+| Email | test2@test.ie |
 
 **Expected:** Same blocking dialog. Candidate shown as `adult` player type.
 "Link to Existing Record" enrolls the existing adult record (no type transition).
@@ -77,7 +98,12 @@ creates a second separate record.
 
 ---
 
-### TC1.3 — MEDIUM confidence: Fuzzy name (missing fada), exact DOB
+### TC1.3 — HIGH confidence: Diacritic variant (Ciaran = Ciarán via normalized index)
+
+> **Behaviour change from pre-merge:** Previously this showed MEDIUM confidence (Levenshtein
+> edit distance). Now the `by_normalized_name_dob` index (Priority 0.5) normalises both
+> "Ciaran" and "Ciarán" to "ciaran", so they are an exact match at the DB level — **HIGH**.
+> This correctly reflects that removing a fada is a common data-entry error, not a different person.
 
 | Field | Value |
 |-------|-------|
@@ -85,13 +111,11 @@ creates a second separate record.
 | Last Name | Murphy |
 | Date of Birth | 2014-03-15 |
 | Gender | Male |
+| Email | test3@test.ie |
 
-**Expected:** An amber non-blocking warning banner appears inside the Add Player
-form saying an existing player may match. Text shows "Ciaran Murphy" or similar.
-The form does NOT block — clicking **"Add Player" again** proceeds to create.
+**Expected:** Blocking dialog appears (HIGH confidence), matching to Ciarán Murphy.
 
-**Pass criteria:** Amber banner appears. Re-submitting creates the record
-(or admin can navigate to review the existing record via the "View Match" link).
+**Pass criteria:** Dialog appears (not just an amber banner). Confidence is HIGH.
 
 ---
 
@@ -103,8 +127,10 @@ The form does NOT block — clicking **"Add Player" again** proceeds to create.
 | Last Name | Walsh |
 | Date of Birth | 2015-09-05 |
 | Gender | Female |
+| Email | test4@test.ie |
 
-**Expected:** Blocking dialog appears, matching to Niamh Walsh.
+**Expected:** Blocking dialog appears, matching to Niamh Walsh. Caught by Irish alias
+phonetics in the fuzzy tier (Priority 1).
 
 **Pass criteria:** Dialog appears despite spelling difference in first name.
 
@@ -133,7 +159,7 @@ The form does not submit.
 
 **Expected:** No dialog, no banner. Player created immediately.
 
-**Pass criteria:** Player is created without any matching UI appearing.
+**Pass criteria:** Player created without any matching UI appearing.
 
 ---
 
@@ -150,10 +176,9 @@ The form does not submit.
 | Email | different@test.ie |
 | Phone | +353871234003 *(P3's phone)* |
 
-**Expected:** Phone match boosts the score — blocking HIGH confidence dialog appears
-showing Niamh Walsh as the candidate.
+**Expected:** Phone match boosts score → blocking HIGH confidence dialog showing Niamh Walsh.
 
-**Pass criteria:** Dialog appears (would have been MEDIUM or LOW on name alone).
+**Pass criteria:** Dialog appears (would have been MEDIUM or LOW on name/DOB alone).
 
 ---
 
@@ -165,6 +190,7 @@ showing Niamh Walsh as the candidate.
 | Last Name | Brennan |
 | Date of Birth | 2006-04-18 |
 | Gender | Male |
+| Email | test8@test.ie |
 
 **Expected:** Blocking dialog. Candidate shown as `youth` player type.
 "Link to Existing Record" triggers `transitionToAdult` + enroll.
@@ -173,12 +199,58 @@ showing Niamh Walsh as the candidate.
 
 ---
 
+### TC1.9 — DEFINITIVE HIGH: Federation ID exact match (Priority -1)
+
+**Setup:** Seed player P5 (Jack Walsh) was created with GAA Number `GAA-99001`.
+
+| Field | Value |
+|-------|-------|
+| First Name | Seán *(completely different name)* |
+| Last Name | Walsh |
+| Date of Birth | 2009-03-10 |
+| Gender | Male |
+| Email | test9@test.ie |
+| Federation → GAA | GAA-99001 *(P5's GAA number)* |
+
+> Expand the **"Federation Numbers"** collapsible at the bottom of the form and enter the GAA number.
+
+**Expected:** Blocking dialog appears at HIGH confidence (score: 100) showing Jack Walsh.
+The matched field reads `federationId:gaa`. This fires even though "Seán Walsh" ≠ "Jack Walsh".
+
+**Pass criteria:** Dialog appears. The matched field shows federation ID — NOT name/DOB.
+This demonstrates Priority -1 short-circuiting all other tiers.
+
+---
+
+### TC1.10 — Server-side safety net (findOrCreatePlayer)
+
+> This test verifies that the **server-side** `findOrCreatePlayer` mutation (from main's
+> PR 572) acts as a data integrity net — even if someone bypasses the client-side dialog.
+
+**Setup:** After TC1.1's HIGH dialog appeared and you dismissed without linking, attempt
+to call `findOrCreatePlayer` directly via the Convex dashboard with P1's details:
+
+```json
+{
+  "firstName": "Ciarán",
+  "lastName": "Murphy",
+  "dateOfBirth": "2014-03-15",
+  "gender": "male",
+  "organizationId": "<your-org-id>",
+  "createdFrom": "manual_admin"
+}
+```
+
+**Expected:** The mutation returns `{ playerIdentityId: <P1's ID>, wasCreated: false }`.
+No new record is created. The server found P1 via its own 3-tier check.
+
+**Pass criteria:** `wasCreated` is `false`. P1's existing `_id` is returned.
+
+---
+
 ## Entry Point 2: Admin Invites a User (Email Invite with Player Role)
 
 **Location:** Admin → Users → "+ Invite Member" → toggle **Player** role
-
-The invite dialog shows a player fields section (First Name, Last Name, Date of Birth)
-when the Player role is selected. A match banner appears as you type.
 
 ### TC2.1 — HIGH confidence match shown in invite dialog
 
@@ -217,38 +289,45 @@ when the Player role is selected. A match banner appears as you type.
 
 **Location:** Admin → Player Import
 
-Use the CSV below — it contains rows that test all match scenarios.
-Paste the entire block into the CSV input area and click **Parse**.
+Use the CSV file at `docs/testing/test-import-matching.csv`.
+The file tests all signal tiers including federation IDs, normalized names, and Irish aliases.
 
-### Test CSV
+### Supported Matching Columns
 
-```csv
-FirstName,LastName,DateOfBirth,Gender,AgeGroup,Sport,Season,ParentFirstName,ParentLastName,ParentEmail,ParentPhone,Address,Town,Postcode,Country
-Ciarán,Murphy,2014-03-15,Male,u12,GAA,2025,,,,,,,,
-Ciaran,Murphy,2014-03-15,Male,u12,GAA,2025,,,,,,,,
-Mary,O'Brien,1990-07-22,Female,senior,Football,2025,,,,,,,,
-Niamh,Walsh,2015-09-05,Female,u11,Soccer,2025,,,,,,,,
-Neeve,Walsh,2015-09-05,Female,u11,Soccer,2025,,,,,,,,
-Seán,Brennan,2006-04-18,Male,u18,Rugby,2025,,,,,,,,
-Patrick,Kelly,2013-06-10,Male,u13,GAA,2025,,,,,,,,
-```
+| Column | Signal |
+|--------|--------|
+| FirstName + LastName + DateOfBirth | Name/DOB — all tiers |
+| Postcode | Address boost (+15) |
+| GAANumber | Federation ID Priority -1 (definitive HIGH) |
+| IRFUNumber | Federation ID Priority -1 (definitive HIGH) |
+| FAINumber | Federation ID Priority -1 (definitive HIGH) |
 
-The CSV file is also saved at: `docs/testing/test-import-matching.csv`
+> **Note:** Player Email is not a CSV column — only ParentEmail is supported.
+> Email boost is not available for CSV import rows.
 
-### Expected results after parsing:
+### Expected Results
 
-| Row | Player | Expected Match | Default Decision |
-|-----|--------|---------------|-----------------|
-| 1 | Ciarán Murphy 2014-03-15 | HIGH — matches P1 | accept (link) |
-| 2 | Ciaran Murphy 2014-03-15 | MEDIUM — fuzzy match P1 | skip |
-| 3 | Mary O'Brien 1990-07-22 | HIGH — matches P2 | accept (link) |
-| 4 | Niamh Walsh 2015-09-05 | HIGH — matches P3 (exact) | accept (link) |
-| 5 | Neeve Walsh 2015-09-05 | HIGH — matches P3 (alias) | accept (link) |
-| 6 | Seán Brennan 2006-04-18 | HIGH — matches P4 | accept (link) |
-| 7 | Patrick Kelly 2013-06-10 | None | create new |
+| Row | Player | Tier Hit | Expected Confidence | Default Decision |
+|-----|--------|----------|-------------------|-----------------|
+| 1 | Ciarán Murphy 2014-03-15, Postcode: D01 A001 | Priority 0 (exact) + postcode boost | HIGH (score ~105) | accept (link) |
+| 2 | Ciaran Murphy 2014-03-15 | **Priority 0.5** (normalised index) | **HIGH** *(was MEDIUM pre-merge)* | accept (link) |
+| 3 | Mary O'Brien 1990-07-22, Postcode: D02 A002 | Priority 0 (exact) + postcode boost | HIGH (score ~105) | accept (link) |
+| 4 | Niamh Walsh 2015-09-05 | Priority 0 (exact) | HIGH | accept (link) |
+| 5 | Neeve Walsh 2015-09-05 | Priority 1 (Irish alias) | HIGH | accept (link) |
+| 6 | Seán Brennan 2006-04-18 | Priority 0 (exact) | HIGH | accept (link) |
+| 7 | Patrick Kelly 2013-06-10 | None | None | create new |
+| 8 | Seán Walsh 2009-03-10, GAANumber: GAA-99001 | **Priority -1** (federation ID) | HIGH (score 100) | accept (link P5) |
+| 9 | Seán Walsh 2009-03-10 *(no GAA number)* | Priority 1 (lastName + DOB fuzzy) | MEDIUM | skip |
 
-**Pass criteria:** Rows 1, 3, 4, 5, 6 show HIGH match (green). Row 2 shows MEDIUM (amber).
-Row 7 shows no match. The default decisions match the table above.
+**Pass criteria:**
+- Rows 1, 2, 3, 4, 5, 6, 8 show HIGH match (green).
+- Row 9 shows MEDIUM (amber) — same person as Row 8 but without GAA number, showing federation ID is the upgrade.
+- Row 7 shows no match (new player).
+- Default decisions match the table above.
+
+> **Row 2 note:** Prior to the merge, "Ciaran" (missing fada) showed as MEDIUM confidence.
+> The new `by_normalized_name_dob` index corrects this — both normalise to "ciaran" and
+> are now correctly identified as HIGH confidence. This is a deliberate improvement.
 
 ---
 
@@ -256,16 +335,11 @@ Row 7 shows no match. The default decisions match the table above.
 
 **Location:** Organisation join page (the public join URL for your org)
 
-This tests the backend `findBestPlayerMatchInternal` call inside `createJoinRequest`.
+Tests the backend `findBestPlayerMatchInternal` call inside `createJoinRequest`.
 The match is stored on the join request and shown to the admin on the approval screen.
 
-The player role section of the join form now shows optional **Phone** (PhoneInput) and
-**Postcode** fields. These are stored on the join request record and passed to the
-matching engine as boost signals.
-
-### Setup
-Create a new test user account (or use an existing non-member account). Navigate to
-your org's join URL and submit a join request with the **Player** role.
+The join form shows optional **Phone** (PhoneInput) and **Postcode** fields when Player
+role is selected. These are passed to the matching engine as boost signals.
 
 ### TC4.1 — Match stored on join request (player role)
 
@@ -274,21 +348,18 @@ your org's join URL and submit a join request with the **Player** role.
 | Requested Role | Player |
 | Date of Birth | 2014-03-15 |
 
-The join request form will prompt for a DOB when Player is selected.
-
-**Expected:** After submitting the join request, go to **Admin → Users → Pending Requests**.
-Find the request. The approval card should show:
+**Expected:** After submitting, go to **Admin → Users → Pending Requests**.
+The approval card shows:
 > "Matched player: Ciarán Murphy (high confidence)"
 
-**Pass criteria:** `matchedYouthIdentityId` is populated on the join request record.
-The admin approval screen shows the matched player name and confidence.
+**Pass criteria:** `matchedYouthIdentityId` is populated. Admin approval screen shows
+matched player name and confidence.
 
 ---
 
 ### TC4.2 — Phone boost on join request
 
-Use a test user account with a **different name** from seed player P1 but supply the
-matching phone number.
+Use a test user account with a **different name** from P1 but supply P1's phone number.
 
 | Field | Value |
 |-------|-------|
@@ -296,10 +367,10 @@ matching phone number.
 | Date of Birth | 2014-03-15 |
 | Phone | +353871234001 *(P1's phone)* |
 
-**Expected:** Approval card shows a matched player (Ciarán Murphy) at high confidence
-because phone boosted the score.
+**Expected:** Approval card shows Ciarán Murphy as a high-confidence match.
+Phone signal boosted what would have been a lower match (different name, same DOB).
 
-**Pass criteria:** `matchedYouthIdentityId` is populated on the join request record.
+**Pass criteria:** `matchedYouthIdentityId` is populated.
 
 ---
 
@@ -318,58 +389,43 @@ because phone boosted the score.
 
 ## Entry Point 5: Admin Users — Link to Player (Existing User)
 
-**Location:** Admin → Users → click **Edit** on a member with Player role but no linked
-player record → Player Record section
-
-This flow has two sub-flows:
-- **Auto-match panel** uses `findMatchingUnlinkedPlayers` (name + email, pre-existing) to
-  suggest existing unlinked records.
-- **"Create New" step** — clicking **"✓ Confirm — create this record"** first runs
-  `findPlayerMatchCandidates` (with email from the user's BA account, plus the optional
-  **Phone** and **Postcode** fields now visible in the create form) and shows an amber
-  warning if HIGH or MEDIUM candidates are found. The admin must click **"Create anyway"**
-  or **"Cancel"** before the record is created.
+**Location:** Admin → Users → Edit member with Player role → Player Record section
 
 ### TC5.1 — Auto-match on user with matching name
 
-When an admin opens the edit panel for a user whose display name matches an existing
-unlinked player in the org:
+Open the edit panel for a user whose display name matches an existing unlinked player.
 
-**Expected:** The "Player Record" section shows an auto-match candidate with
-"Strong match" or "Possible match" badge. Buttons: **"Link"** and **"Not this player"**.
+**Expected:** "Player Record" section shows an auto-match candidate with "Strong match"
+or "Possible match" badge. Buttons: **"Link"** and **"Not this player"**.
 
-**Pass criteria:** Match candidate shown. Clicking "Link" assigns the existing
-`playerIdentityId` to the user without creating a new record.
+**Pass criteria:** Candidate shown. "Link" assigns the existing playerIdentityId without
+creating a new record.
 
 ---
 
 ### TC5.2 — HIGH match warning on "Create New Player Record"
 
-**Setup:** Create a test user account whose **display name is "Ciarán Murphy"** (matching
-seed player P1). Open Admin → Users → Edit for that user. Select Player role. When no
-auto-match is found (or dismiss it), click **"Can't find the record — create a new one"**.
+**Setup:** Create a test user with display name **"Ciarán Murphy"**. Open Admin → Users →
+Edit for that user. Select Player role. Click **"Can't find the record — create a new one"**.
 
 | Step | Action |
 |------|--------|
 | 1 | Enter DOB `2014-03-15` in the Date of Birth field |
 | 2 | Click **"✓ Confirm — create this record"** |
 
-**Expected:** An amber warning box appears below the DOB field:
+**Expected:** An amber warning box appears:
 > "Possible existing player record(s) found: Ciarán Murphy — DOB 2014-03-15 (high match)"
 
-Two buttons shown: **"Create anyway"** and **"Cancel"**.
+Two buttons: **"Create anyway"** and **"Cancel"**.
 
-**Pass criteria:**
-- Warning box appears before any record is created.
-- Clicking "Cancel" dismisses the warning and keeps the form open.
-- Clicking "Create anyway" proceeds to create the record (no second prompt).
+**Pass criteria:** Warning appears before record is created. "Cancel" dismisses.
+"Create anyway" proceeds without a second prompt.
 
 ---
 
 ### TC5.3 — No warning when user has no match
 
-**Setup:** Open Admin → Users → Edit for a user whose display name is **"Patrick Kelly"**.
-Click "Can't find the record — create a new one".
+**Setup:** User with display name **"Patrick Kelly"**. Click "Can't find the record — create a new one".
 
 | Field | Value |
 |-------|-------|
@@ -377,24 +433,106 @@ Click "Can't find the record — create a new one".
 
 Click **"✓ Confirm — create this record"**.
 
-**Expected:** No warning box. Step transitions directly to "confirmed" and saving creates
-the record.
+**Expected:** No warning. Step transitions directly to "confirmed" and saving creates the record.
 
 **Pass criteria:** No amber warning shown. Record created successfully.
 
 ---
 
+## Phase 6: Admin Dedup Panel & Merge Dialog
+
+**Location:** Admin → Players — stat card area at the top of the page
+
+This feature (from main's PR 573) surfaces potential duplicate player identities within
+the org and lets an admin merge them in a side-by-side dialog.
+
+### Setup
+
+To get the dedup panel to show data, first create a deliberate duplicate:
+1. Go to Admin → Players → "+ Add Player"
+2. Enter a player with slightly different spelling but same DOB as an existing seed player
+   (e.g. "Ciara" Murphy, 2014-03-15). The HIGH dialog will appear — click **"Create New Profile"**
+   to force-create the duplicate.
+3. You should now have two records: Ciarán Murphy and Ciara Murphy with the same DOB.
+
+---
+
+### TC6.1 — Dedup stat card shows potential duplicates
+
+**Expected:** An amber **"Potential Duplicates"** stat card appears at the top of the
+Players page showing a non-zero count (e.g. "2 potential duplicate pairs").
+
+**Pass criteria:** Stat card is visible and shows at least the Murphy pair.
+
+---
+
+### TC6.2 — Expand a duplicate group
+
+Click the **"Potential Duplicates"** stat card to open the review panel.
+
+**Expected:** The panel expands below the stat cards. Shows one or more groups, each
+listing player names, DOBs, and a **"Review / Merge"** button.
+
+**Pass criteria:** Murphy group is visible. Each row shows name, DOB, and player type.
+
+---
+
+### TC6.3 — Merge dialog: side-by-side view
+
+Click **"Review / Merge"** on the Murphy duplicate pair.
+
+**Expected:** A dialog opens with:
+- **Left card** (keep): Original Ciarán Murphy — `_id`, DOB, playerType, creation date
+- **Right card** (remove): New Ciara Murphy — same fields
+- An **"↔ Swap"** button to flip which is kept and which is removed
+- A count of **affected records** that will be reassigned (enrollments, health checks, etc.)
+- A **"Confirm Merge"** button
+
+**Pass criteria:** Side-by-side layout renders. Swap button works (left/right switch).
+Affected record count is shown.
+
+---
+
+### TC6.4 — Confirm merge
+
+Click **"Confirm Merge"** in the dialog.
+
+**Expected:**
+- Dialog closes
+- Duplicate group disappears from the dedup panel (or count decreases)
+- In the player list, only one "Murphy" record remains
+- The removed record has `mergedInto` set in the Convex dashboard (`playerIdentities` table)
+
+**Pass criteria:**
+- Only one Murphy in the player list
+- Convex dashboard shows `mergedInto` on the removed identity
+- No enrollment records lost — all previously on the removed identity are now on the kept identity
+
+---
+
+### TC6.5 — Audit trail in playerIdentityMerges table
+
+After TC6.4, check the Convex dashboard:
+1. Open the `playerIdentityMerges` table
+2. Find the most recent entry
+
+**Expected:** A record showing `keptId`, `removedId`, `mergedBy`, `mergedAt`, and the list
+of affected tables/counts.
+
+**Pass criteria:** Audit record exists and contains accurate data.
+
+---
+
 ## Entry Point 6: Graduation Claim (autoClaimByEmail)
 
-**Location:** Triggered automatically when an adult user logs in and there is an
-unaccepted graduation invite for their email address.
+**Location:** Triggered automatically when an adult user logs in with a graduation invite.
 
-This calls `findBestPlayerMatchInternal` is **not** called here — instead, the graduation
-flow matches via the graduation token (email-based). The duplicate check does not run
-on graduation claims because the token already identifies the specific record.
+The graduation flow is token-scoped (matched via the graduation invite email) — the
+general player matching system does not run here. The token already identifies the
+specific record.
 
-**Status:** Not applicable for duplicate testing. The graduation flow is token-scoped
-by design.
+**Status:** Not applicable for duplicate matching testing. Covered in the Phase 4/5
+adult player lifecycle test plan.
 
 ---
 
@@ -403,7 +541,7 @@ by design.
 For each test case, note:
 - ✅ Pass — matching UI appeared as expected
 - ❌ Fail — no matching UI, or wrong behaviour
-- ⚠️ Partial — some matching UI appeared but with wrong data
+- ⚠️ Partial — matching UI appeared but with wrong data
 
 If a test fails, check the browser console for errors and the Convex dashboard logs
 for any `ReturnsValidationError` or query failures.
@@ -412,24 +550,33 @@ for any `ReturnsValidationError` or query failures.
 
 ## Known Limitations
 
-1. **Phone/postcode boost signals** only change confidence when combined with a name/DOB
-   base match — they do not trigger a match on their own. Email is a stronger signal and
-   can independently elevate a LOW to HIGH when it matches exactly.
+1. **Boost signals do not trigger matches on their own.** Phone, postcode, and address only
+   modify the score/confidence of a name+DOB base match — they don't surface a match if
+   name/DOB doesn't meet the minimum threshold. Email is a stronger signal and can elevate
+   a LOW match to HIGH.
 
-2. **Signal coverage by entry point** (as of this implementation):
-   | Field    | Add Player | Create New | Join Request | CSV Import | Email Invite |
-   |----------|-----------|------------|--------------|------------|-------------|
-   | Email    | Required  | Auto (BA)  | Auto (user)  | Column     | Entered      |
-   | Phone    | Optional  | Optional   | Optional     | Column     | —            |
-   | Postcode | Optional  | Optional   | Optional     | Column     | —            |
+2. **Diacritic removal is now HIGH confidence.** Since the merge, "Ciaran" and "Ciarán"
+   both normalise to "ciaran" at the DB index level and are treated as a HIGH match
+   (Priority 0.5). Previously this was MEDIUM via Levenshtein. This change is intentional.
 
-3. **CSV import matching** runs for ALL rows (not just adults). The default decision
-   for HIGH is "accept" and for MEDIUM is "skip" — these can be overridden in the
-   import preview UI before committing.
+3. **CSV import does not support player Email or player Phone.** Only `ParentEmail` and
+   `ParentPhone` are parsed. The matching signals for CSV rows are: Name+DOB, Postcode,
+   and Federation IDs (GAANumber, IRFUNumber, FAINumber).
 
-4. **Guardian/parent matching** is handled by a separate system (`getSmartMatchesForGuardian`)
-   and is out of scope for this test plan.
+4. **Signal coverage by entry point:**
 
-5. **Admin Users → "Create New Player Record"** — gap closed. The "Confirm — create this
-   record" button now runs `findPlayerMatchCandidates` before proceeding. HIGH and MEDIUM
-   candidates surface an amber warning with "Create anyway" / "Cancel" options (TC5.2–5.3).
+   | Field | Add Player | Create New | Join Request | CSV Import | Email Invite |
+   |-------|-----------|------------|--------------|------------|-------------|
+   | Email | Required | Auto (BA user) | Auto (user) | — | Entered |
+   | Phone | Optional | Optional | Optional | — | — |
+   | Postcode | Optional | Optional | Optional | Column | — |
+   | GAA Number | Federation field | — | — | GAANumber column | — |
+   | IRFU Number | Federation field | — | — | IRFUNumber column | — |
+   | FAI Number | Federation field | — | — | FAINumber column | — |
+
+5. **Guardian/parent matching** is handled by `getSmartMatchesForGuardian` and is out of
+   scope for this test plan.
+
+6. **Two-layer architecture.** The client-side `findPlayerMatchCandidates` provides UX
+   transparency (the dialog/banner). The server-side `findOrCreatePlayer` is a data integrity
+   safety net that also catches duplicates even if the UI dialog is bypassed.

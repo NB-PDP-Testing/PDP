@@ -2469,6 +2469,7 @@ export const approvePlayerSelfRegistration = mutation({
       title: "Player Role Approved",
       message: `Your player registration for ${orgName} has been approved. You can now access the Player portal.`,
       link: `/orgs/${args.organizationId}/player`,
+      targetRole: "player",
     });
 
     return null;

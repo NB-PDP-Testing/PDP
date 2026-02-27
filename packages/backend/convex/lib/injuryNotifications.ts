@@ -134,6 +134,9 @@ export async function getAdminUserIdsForOrg(
  * - Coach reports → Parents get notified
  * - Parent reports → Coaches get notified
  * - Severe injury → Admins also get notified
+ *
+ * targetRole is set per-recipient so role-scoped notification
+ * filtering works correctly for multi-role users.
  */
 export async function notifyInjuryReported(
   ctx: MutationCtx,
@@ -161,41 +164,6 @@ export async function notifyInjuryReported(
     injuryType,
   } = args;
 
-  const recipientUserIds: string[] = [];
-
-  // Determine who to notify based on who reported
-  if (reportedByRole === "guardian" || reportedByRole === "player") {
-    // Parent/player reported → notify coaches
-    const coachIds = await getCoachUserIdsForPlayer(
-      ctx,
-      playerIdentityId,
-      organizationId
-    );
-    recipientUserIds.push(...coachIds);
-  } else {
-    // Coach/admin reported → notify parents
-    const guardianIds = await getGuardianUserIdsForPlayer(
-      ctx,
-      playerIdentityId
-    );
-    recipientUserIds.push(...guardianIds);
-  }
-
-  // For severe injuries, also notify admins
-  if (severity === "severe" || severity === "long_term") {
-    const adminIds = await getAdminUserIdsForOrg(ctx, organizationId);
-    recipientUserIds.push(...adminIds);
-  }
-
-  // Remove the reporter from the recipient list (don't notify yourself)
-  const filteredRecipients = recipientUserIds.filter(
-    (id) => id !== reportedByUserId
-  );
-
-  // Remove duplicates
-  const uniqueRecipients = [...new Set(filteredRecipients)];
-
-  // Create notifications for each recipient
   const notificationType =
     severity === "severe" || severity === "long_term"
       ? "severe_injury_alert"
@@ -208,18 +176,61 @@ export async function notifyInjuryReported(
 
   const message = `${playerName} - ${bodyPart} ${injuryType.toLowerCase()}`;
 
-  // Create notifications via direct db.insert (avoids ctx.runMutation overhead)
-  for (const userId of uniqueRecipients) {
+  const baseFields = {
+    organizationId,
+    type: notificationType as "severe_injury_alert" | "injury_reported",
+    title,
+    message,
+    relatedInjuryId: injuryId,
+    relatedPlayerId: playerIdentityId,
+    createdAt: Date.now(),
+  };
+
+  // Determine primary recipients based on who reported
+  const primaryTargetRole: "coach" | "parent" =
+    reportedByRole === "guardian" || reportedByRole === "player"
+      ? "coach"
+      : "parent";
+
+  let primaryRecipients: string[];
+  if (reportedByRole === "guardian" || reportedByRole === "player") {
+    primaryRecipients = await getCoachUserIdsForPlayer(
+      ctx,
+      playerIdentityId,
+      organizationId
+    );
+  } else {
+    primaryRecipients = await getGuardianUserIdsForPlayer(
+      ctx,
+      playerIdentityId
+    );
+  }
+
+  // Notify primary recipients (coaches or parents) with appropriate targetRole
+  const filteredPrimary = [
+    ...new Set(primaryRecipients.filter((id) => id !== reportedByUserId)),
+  ];
+  for (const userId of filteredPrimary) {
     await ctx.db.insert("notifications", {
+      ...baseFields,
       userId,
-      organizationId,
-      type: notificationType,
-      title,
-      message,
-      relatedInjuryId: injuryId,
-      relatedPlayerId: playerIdentityId,
-      createdAt: Date.now(),
+      targetRole: primaryTargetRole,
     });
+  }
+
+  // For severe injuries, also notify admins with admin targetRole
+  if (severity === "severe" || severity === "long_term") {
+    const adminIds = await getAdminUserIdsForOrg(ctx, organizationId);
+    const filteredAdmins = [
+      ...new Set(adminIds.filter((id) => id !== reportedByUserId)),
+    ];
+    for (const userId of filteredAdmins) {
+      await ctx.db.insert("notifications", {
+        ...baseFields,
+        userId,
+        targetRole: "admin",
+      });
+    }
   }
 
   console.log("[notifyInjuryReported] Created notifications for injury");
@@ -231,6 +242,9 @@ export async function notifyInjuryReported(
  * Notifies both coaches and parents when:
  * - Status changes to "cleared" (player can return)
  * - Status changes to "healed" (fully recovered)
+ *
+ * targetRole is set per-recipient type so multi-role users see
+ * notifications only in the appropriate role context.
  */
 export async function notifyStatusChanged(
   ctx: MutationCtx,
@@ -266,16 +280,6 @@ export async function notifyStatusChanged(
     getCoachUserIdsForPlayer(ctx, playerIdentityId, organizationId),
   ]);
 
-  const allRecipients = [...guardianIds, ...coachIds];
-
-  // Remove the updater from the recipient list
-  const filteredRecipients = allRecipients.filter(
-    (id) => id !== updatedByUserId
-  );
-
-  // Remove duplicates
-  const uniqueRecipients = [...new Set(filteredRecipients)];
-
   // Determine notification content
   const notificationType =
     newStatus === "cleared" ? "injury_cleared" : "injury_status_changed";
@@ -290,30 +294,50 @@ export async function notifyStatusChanged(
       ? `${playerName} has been cleared to return to play (${bodyPart})`
       : `${playerName}'s ${bodyPart} injury has fully healed`;
 
-  // Create notifications via direct db.insert (avoids ctx.runMutation overhead)
-  for (const userId of uniqueRecipients) {
+  const baseFields = {
+    organizationId,
+    type: notificationType as "injury_cleared" | "injury_status_changed",
+    title,
+    message,
+    relatedInjuryId: injuryId,
+    relatedPlayerId: playerIdentityId,
+    createdAt: Date.now(),
+  };
+
+  // Notify coaches with coach targetRole
+  const filteredCoaches = [
+    ...new Set(coachIds.filter((id) => id !== updatedByUserId)),
+  ];
+  for (const userId of filteredCoaches) {
     await ctx.db.insert("notifications", {
+      ...baseFields,
       userId,
-      organizationId,
-      type: notificationType,
-      title,
-      message,
-      relatedInjuryId: injuryId,
-      relatedPlayerId: playerIdentityId,
-      createdAt: Date.now(),
+      targetRole: "coach",
+    });
+  }
+
+  // Notify guardians/parents with parent targetRole
+  const filteredGuardians = [
+    ...new Set(guardianIds.filter((id) => id !== updatedByUserId)),
+  ];
+  for (const userId of filteredGuardians) {
+    await ctx.db.insert("notifications", {
+      ...baseFields,
+      userId,
+      targetRole: "parent",
     });
   }
 
   console.log(
-    `[notifyStatusChanged] Created ${uniqueRecipients.length} notifications for status change to ${newStatus}`
+    `[notifyStatusChanged] Created notifications for status change to ${newStatus}`
   );
 }
 
 /**
  * Notify relevant parties when a recovery milestone is completed
  *
- * - If parent completes → notify coaches
- * - If coach completes → notify parents
+ * - If parent completes → notify coaches (targetRole='coach')
+ * - If coach completes → notify parents (targetRole='parent')
  */
 export async function notifyMilestoneCompleted(
   ctx: MutationCtx,
@@ -337,39 +361,34 @@ export async function notifyMilestoneCompleted(
     milestoneDescription,
   } = args;
 
-  const recipientUserIds: string[] = [];
+  // Determine who to notify and their targetRole
+  const recipientTargetRole: "coach" | "parent" =
+    completedByRole === "guardian" || completedByRole === "player"
+      ? "coach"
+      : "parent";
 
-  // Determine who to notify based on who completed the milestone
+  let recipientIds: string[];
   if (completedByRole === "guardian" || completedByRole === "player") {
     // Parent completed → notify coaches
-    const coachIds = await getCoachUserIdsForPlayer(
+    recipientIds = await getCoachUserIdsForPlayer(
       ctx,
       playerIdentityId,
       organizationId
     );
-    recipientUserIds.push(...coachIds);
   } else {
     // Coach/admin completed → notify parents
-    const guardianIds = await getGuardianUserIdsForPlayer(
-      ctx,
-      playerIdentityId
-    );
-    recipientUserIds.push(...guardianIds);
+    recipientIds = await getGuardianUserIdsForPlayer(ctx, playerIdentityId);
   }
 
-  // Remove the completer from the recipient list
-  const filteredRecipients = recipientUserIds.filter(
-    (id) => id !== completedByUserId
-  );
-
-  // Remove duplicates
-  const uniqueRecipients = [...new Set(filteredRecipients)];
+  const filteredRecipients = [
+    ...new Set(recipientIds.filter((id) => id !== completedByUserId)),
+  ];
 
   const title = "Recovery Milestone Completed";
   const message = `${playerName} - ${milestoneDescription}`;
 
   // Create notifications via direct db.insert (avoids ctx.runMutation overhead)
-  for (const userId of uniqueRecipients) {
+  for (const userId of filteredRecipients) {
     await ctx.db.insert("notifications", {
       userId,
       organizationId,
@@ -378,19 +397,21 @@ export async function notifyMilestoneCompleted(
       message,
       relatedInjuryId: injuryId,
       relatedPlayerId: playerIdentityId,
+      targetRole: recipientTargetRole,
       createdAt: Date.now(),
     });
   }
 
   console.log(
-    `[notifyMilestoneCompleted] Created ${uniqueRecipients.length} notifications for milestone completion`
+    `[notifyMilestoneCompleted] Created ${filteredRecipients.length} notifications for milestone completion`
   );
 }
 
 /**
- * Notify coaches when medical clearance is received
+ * Notify coaches and parents when medical clearance is received
  *
- * Notifies coaches when a parent submits medical clearance documentation
+ * targetRole is set per-recipient type so multi-role users see
+ * notifications only in the appropriate role context.
  */
 export async function notifyMedicalClearance(
   ctx: MutationCtx,
@@ -414,40 +435,50 @@ export async function notifyMedicalClearance(
 
   console.log("[notifyMedicalClearance] Starting notification process");
 
-  // Notify both coaches and parents (except the submitter)
+  // Get coaches and guardians separately to set correct targetRole per recipient
   const [coachIds, guardianIds] = await Promise.all([
     getCoachUserIdsForPlayer(ctx, playerIdentityId, organizationId),
     getGuardianUserIdsForPlayer(ctx, playerIdentityId),
   ]);
 
-  const allRecipients = [...coachIds, ...guardianIds];
-
-  // Remove the submitter from the recipient list
-  const filteredRecipients = allRecipients.filter(
-    (id) => id !== submittedByUserId
-  );
-
-  // Remove duplicates
-  const uniqueRecipients = [...new Set(filteredRecipients)];
-
   const title = "Medical Clearance Received";
   const message = `${playerName} - medical clearance received for ${bodyPart} injury`;
 
-  // Create notifications via direct db.insert (avoids ctx.runMutation overhead)
-  for (const userId of uniqueRecipients) {
+  const baseFields = {
+    organizationId,
+    type: "clearance_received" as const,
+    title,
+    message,
+    relatedInjuryId: injuryId,
+    relatedPlayerId: playerIdentityId,
+    createdAt: Date.now(),
+  };
+
+  // Notify coaches with coach targetRole
+  const filteredCoaches = [
+    ...new Set(coachIds.filter((id) => id !== submittedByUserId)),
+  ];
+  for (const userId of filteredCoaches) {
     await ctx.db.insert("notifications", {
+      ...baseFields,
       userId,
-      organizationId,
-      type: "clearance_received",
-      title,
-      message,
-      relatedInjuryId: injuryId,
-      relatedPlayerId: playerIdentityId,
-      createdAt: Date.now(),
+      targetRole: "coach",
+    });
+  }
+
+  // Notify guardians/parents with parent targetRole
+  const filteredGuardians = [
+    ...new Set(guardianIds.filter((id) => id !== submittedByUserId)),
+  ];
+  for (const userId of filteredGuardians) {
+    await ctx.db.insert("notifications", {
+      ...baseFields,
+      userId,
+      targetRole: "parent",
     });
   }
 
   console.log(
-    `[notifyMedicalClearance] Created ${uniqueRecipients.length} notifications for medical clearance`
+    "[notifyMedicalClearance] Created notifications for medical clearance"
   );
 }

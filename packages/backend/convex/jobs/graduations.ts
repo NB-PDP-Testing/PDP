@@ -112,6 +112,7 @@ export const detectPlayerGraduations = internalMutation({
             title: `${player.firstName} ${player.lastName} Has Turned 18`,
             message: `${player.firstName} is now eligible to claim their own PlayerARC account. Send them an invite from your parent dashboard.`,
             link: `/orgs/${enrollment.organizationId}/parents`,
+            targetRole: "parent",
           }
         );
       }

@@ -33,6 +33,15 @@ const notificationTypeValidator = v.union(
   v.literal("player_role_approved") // Player self-registration approved by admin
 );
 
+const targetRoleValidator = v.optional(
+  v.union(
+    v.literal("coach"),
+    v.literal("admin"),
+    v.literal("parent"),
+    v.literal("player")
+  )
+);
+
 const notificationValidator = v.object({
   _id: v.id("notifications"),
   _creationTime: v.number(),
@@ -42,6 +51,7 @@ const notificationValidator = v.object({
   title: v.string(),
   message: v.string(),
   link: v.optional(v.string()),
+  targetRole: targetRoleValidator,
   // Injury context (optional - only set for injury notifications)
   relatedInjuryId: v.optional(v.id("playerInjuries")),
   relatedPlayerId: v.optional(v.id("playerIdentities")),
@@ -57,9 +67,22 @@ const notificationValidator = v.object({
 /**
  * Get unseen notifications for the authenticated user
  * Used by NotificationProvider for real-time toast display
+ *
+ * When activeRole is provided: only returns notifications where
+ *   targetRole === activeRole OR targetRole is not set (global notifications).
+ * When activeRole is omitted: returns all unseen notifications (backward compatible).
  */
 export const getUnseenNotifications = query({
-  args: {},
+  args: {
+    activeRole: v.optional(
+      v.union(
+        v.literal("coach"),
+        v.literal("admin"),
+        v.literal("parent"),
+        v.literal("player")
+      )
+    ),
+  },
   returns: v.array(
     v.object({
       _id: v.id("notifications"),
@@ -70,7 +93,7 @@ export const getUnseenNotifications = query({
       createdAt: v.number(),
     })
   ),
-  handler: async (ctx) => {
+  handler: async (ctx, args) => {
     const user = await authComponent.safeGetAuthUser(ctx);
     if (!user) {
       return [];
@@ -87,7 +110,17 @@ export const getUnseenNotifications = query({
       .collect();
 
     // Filter to only unseen notifications
-    const unseen = notifications.filter((n) => n.seenAt === undefined);
+    let unseen = notifications.filter((n) => n.seenAt === undefined);
+
+    // When activeRole is provided, filter to role-scoped notifications:
+    // - notifications for this role
+    // - notifications with no targetRole (global — shown regardless of active role)
+    if (args.activeRole) {
+      const role = args.activeRole;
+      unseen = unseen.filter(
+        (n) => n.targetRole === undefined || n.targetRole === role
+      );
+    }
 
     return unseen.map((n) => ({
       _id: n._id,
@@ -103,9 +136,23 @@ export const getUnseenNotifications = query({
 /**
  * Get recent notifications for the authenticated user
  * Includes both seen and unseen notifications
+ *
+ * When activeRole is provided: only returns notifications where
+ *   targetRole === activeRole OR targetRole is not set (global notifications).
+ * When activeRole is omitted: returns all recent notifications (backward compatible).
  */
 export const getRecentNotifications = query({
-  args: { limit: v.optional(v.number()) },
+  args: {
+    limit: v.optional(v.number()),
+    activeRole: v.optional(
+      v.union(
+        v.literal("coach"),
+        v.literal("admin"),
+        v.literal("parent"),
+        v.literal("player")
+      )
+    ),
+  },
   returns: v.array(notificationValidator),
   handler: async (ctx, args) => {
     const user = await authComponent.safeGetAuthUser(ctx);
@@ -120,9 +167,19 @@ export const getRecentNotifications = query({
       .query("notifications")
       .withIndex("by_user_created", (q) => q.eq("userId", userId))
       .order("desc")
-      .take(limit);
+      .collect();
 
-    return notifications;
+    let filtered = notifications;
+
+    // When activeRole is provided, apply role-scoped filter
+    if (args.activeRole) {
+      const role = args.activeRole;
+      filtered = filtered.filter(
+        (n) => n.targetRole === undefined || n.targetRole === role
+      );
+    }
+
+    return filtered.slice(0, limit);
   },
 });
 
@@ -238,6 +295,9 @@ export const dismissNotification = mutation({
 /**
  * Create a new notification (internal only)
  * Called by other mutations when events occur (role grants, team assignments, injuries, etc.)
+ *
+ * targetRole: when set, notification only appears when user is acting in that role.
+ * Omit targetRole for global notifications (shown regardless of active role).
  */
 export const createNotification = internalMutation({
   args: {
@@ -247,6 +307,7 @@ export const createNotification = internalMutation({
     title: v.string(),
     message: v.string(),
     link: v.optional(v.string()),
+    targetRole: targetRoleValidator,
     // Injury context (optional)
     relatedInjuryId: v.optional(v.id("playerInjuries")),
     relatedPlayerId: v.optional(v.id("playerIdentities")),
@@ -260,6 +321,7 @@ export const createNotification = internalMutation({
       title: args.title,
       message: args.message,
       link: args.link,
+      targetRole: args.targetRole,
       relatedInjuryId: args.relatedInjuryId,
       relatedPlayerId: args.relatedPlayerId,
       createdAt: Date.now(),

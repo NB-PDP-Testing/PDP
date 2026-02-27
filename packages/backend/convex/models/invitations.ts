@@ -483,6 +483,7 @@ export const createInvitationRequest = mutation({
         title: "New Invitation Request",
         message: `${args.userEmail} is requesting a new invitation`,
         link: `/orgs/${invitationResult.organizationId}/admin/invitations?tab=requests`,
+        targetRole: "admin",
       });
     }
 

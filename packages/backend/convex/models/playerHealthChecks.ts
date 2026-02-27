@@ -528,6 +528,7 @@ export const requestWellnessAccess = mutation({
         title: "Wellness Access Request",
         message: `${args.coachName} has requested access to your wellness trends`,
         link: `/orgs/${args.organizationId}/player/settings`,
+        targetRole: "player",
       });
     }
 
@@ -1296,6 +1297,7 @@ export const sendWellnessReminders = internalMutation({
             message:
               "Don't forget to complete your daily wellness check-in today.",
             relatedPlayerId: enrollment.playerIdentityId,
+            targetRole: "player",
           }
         );
 

@@ -821,6 +821,7 @@ export const claimPlayerAccount = mutation({
               title: `${player.firstName} ${player.lastName} Claimed Their Account`,
               message: `${player.firstName} ${player.lastName} has successfully claimed their PlayerARC account and is now an adult player.`,
               relatedPlayerId: claimToken.playerIdentityId,
+              targetRole: "admin",
             }
           );
         }

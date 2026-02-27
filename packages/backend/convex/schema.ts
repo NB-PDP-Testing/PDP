@@ -3949,6 +3949,16 @@ export default defineSchema({
     title: v.string(),
     message: v.string(),
     link: v.optional(v.string()), // URL for navigation
+    // Role routing: only show this notification when user is acting in this role
+    // If omitted, notification is shown regardless of active role (backward compatible)
+    targetRole: v.optional(
+      v.union(
+        v.literal("coach"),
+        v.literal("admin"),
+        v.literal("parent"),
+        v.literal("player")
+      )
+    ),
     // Injury context (optional - only set for injury notifications)
     relatedInjuryId: v.optional(v.id("playerInjuries")),
     relatedPlayerId: v.optional(v.id("playerIdentities")),

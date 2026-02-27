@@ -2,6 +2,7 @@ import { v } from "convex/values";
 import { components } from "../_generated/api";
 import { internalQuery, mutation, query } from "../_generated/server";
 import type { Doc as BetterAuthDoc } from "../betterAuth/_generated/dataModel";
+import { requireAuthAndOrg } from "../lib/authHelpers";
 
 // ============================================================
 // TYPE DEFINITIONS
@@ -246,24 +247,30 @@ export const createPassport = mutation({
   },
   returns: v.id("sportPassports"),
   handler: async (ctx, args) => {
+    // Auth: verify caller is a member of the target organization
+    await requireAuthAndOrg(ctx, args.organizationId);
+
     // Verify player exists
     const player = await ctx.db.get(args.playerIdentityId);
     if (!player) {
       throw new Error("Player identity not found");
     }
 
-    // Check if passport already exists for this player/sport combo
-    const existing = await ctx.db
+    // Check if passport already exists for this player/sport in THIS org
+    const orgPassports = await ctx.db
       .query("sportPassports")
-      .withIndex("by_player_and_sport", (q) =>
+      .withIndex("by_player_org_status", (q) =>
         q
           .eq("playerIdentityId", args.playerIdentityId)
-          .eq("sportCode", args.sportCode)
+          .eq("organizationId", args.organizationId)
       )
-      .first();
+      .collect();
+    const existing = orgPassports.find((p) => p.sportCode === args.sportCode);
 
     if (existing) {
-      throw new Error("Player already has a passport for this sport");
+      throw new Error(
+        "Player already has a passport for this sport in this organization"
+      );
     }
 
     const now = Date.now();
@@ -303,6 +310,9 @@ export const updatePositions = mutation({
       throw new Error("Passport not found");
     }
 
+    // Auth: verify caller is a member of this passport's organization
+    await requireAuthAndOrg(ctx, existing.organizationId);
+
     const updates: Record<string, unknown> = {
       updatedAt: Date.now(),
     };
@@ -341,6 +351,9 @@ export const updatePhysicalAttributes = mutation({
       throw new Error("Passport not found");
     }
 
+    // Auth: verify caller is a member of this passport's organization
+    await requireAuthAndOrg(ctx, existing.organizationId);
+
     const updates: Record<string, unknown> = {
       updatedAt: Date.now(),
     };
@@ -373,6 +386,9 @@ export const updateNotes = mutation({
     if (!existing) {
       throw new Error("Passport not found");
     }
+
+    // Auth: verify caller is a member of this passport's organization
+    await requireAuthAndOrg(ctx, existing.organizationId);
 
     const updates: Record<string, unknown> = {
       updatedAt: Date.now(),
@@ -414,6 +430,9 @@ export const updateRatings = mutation({
     if (!existing) {
       throw new Error("Passport not found");
     }
+
+    // Auth: verify caller is a member of this passport's organization
+    await requireAuthAndOrg(ctx, existing.organizationId);
 
     const updates: Record<string, unknown> = {
       updatedAt: Date.now(),
@@ -464,6 +483,9 @@ export const changeStatus = mutation({
       throw new Error("Passport not found");
     }
 
+    // Auth: verify caller is a member of this passport's organization
+    await requireAuthAndOrg(ctx, existing.organizationId);
+
     await ctx.db.patch(args.passportId, {
       status: args.status,
       updatedAt: Date.now(),
@@ -487,6 +509,7 @@ export const setNextReviewDue = mutation({
     if (!existing) {
       throw new Error("Passport not found");
     }
+    await requireAuthAndOrg(ctx, existing.organizationId);
 
     await ctx.db.patch(args.passportId, {
       nextReviewDue: args.nextReviewDue,
@@ -512,15 +535,18 @@ export const findOrCreatePassport = mutation({
     wasCreated: v.boolean(),
   }),
   handler: async (ctx, args) => {
-    // Check if passport already exists
-    const existing = await ctx.db
+    await requireAuthAndOrg(ctx, args.organizationId);
+
+    // Check if passport already exists in THIS org
+    const orgPassports = await ctx.db
       .query("sportPassports")
-      .withIndex("by_player_and_sport", (q) =>
+      .withIndex("by_player_org_status", (q) =>
         q
           .eq("playerIdentityId", args.playerIdentityId)
-          .eq("sportCode", args.sportCode)
+          .eq("organizationId", args.organizationId)
       )
-      .first();
+      .collect();
+    const existing = orgPassports.find((p) => p.sportCode === args.sportCode);
 
     if (existing) {
       return {
@@ -859,6 +885,9 @@ export const deletePassport = mutation({
     if (!existing) {
       throw new Error("Passport not found");
     }
+
+    // Auth: verify caller is a member of this passport's organization
+    await requireAuthAndOrg(ctx, existing.organizationId);
 
     await ctx.db.delete(args.passportId);
     return null;

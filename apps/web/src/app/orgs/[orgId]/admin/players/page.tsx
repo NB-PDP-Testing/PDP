@@ -1,13 +1,18 @@
 "use client";
 
 import { api } from "@pdp/backend/convex/_generated/api";
+import type { Id } from "@pdp/backend/convex/_generated/dataModel";
 import { useConvex, useMutation, useQuery } from "convex/react";
 import {
   AlertTriangle,
+  ArrowLeftRight,
+  Check,
   ChevronDown,
   ChevronRight,
   Edit,
   Eye,
+  GitMerge,
+  Link,
   Loader2,
   Plus,
   Search,
@@ -16,9 +21,11 @@ import {
   UserCircle,
   UserPlus,
   Users,
+  X,
 } from "lucide-react";
 import { useParams, useRouter } from "next/navigation";
 import { useState } from "react";
+
 import { toast } from "sonner";
 import { SmartDataView } from "@/components/data-display";
 import {
@@ -92,8 +99,17 @@ const getCurrentSeason = () => {
   return `${year - 1}/${year}`;
 };
 
+const EMAIL_REGEX = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+
 type SortColumn = "name" | "team" | "ageGroup" | "lastReview";
 type SortDirection = "asc" | "desc";
+
+type GuardianRelationship =
+  | "mother"
+  | "father"
+  | "guardian"
+  | "grandparent"
+  | "other";
 
 type AddPlayerFormData = {
   firstName: string;
@@ -101,8 +117,21 @@ type AddPlayerFormData = {
   dateOfBirth: string;
   gender: "male" | "female" | "other";
   ageGroup: string;
+  // Matching signals
   email: string;
+  // Sport
+  sportCode: string;
+  // Player address (optional)
+  address: string;
+  town: string;
   postcode: string;
+  country: string;
+  // Guardian (optional, youth only)
+  guardianFirstName: string;
+  guardianLastName: string;
+  guardianEmail: string;
+  guardianPhone: string;
+  guardianRelationship: GuardianRelationship;
 };
 
 const emptyFormData: AddPlayerFormData = {
@@ -112,7 +141,16 @@ const emptyFormData: AddPlayerFormData = {
   gender: "male",
   ageGroup: "",
   email: "",
+  sportCode: "",
+  address: "",
+  town: "",
   postcode: "",
+  country: "",
+  guardianFirstName: "",
+  guardianLastName: "",
+  guardianEmail: "",
+  guardianPhone: "",
+  guardianRelationship: "mother",
 };
 
 export default function ManagePlayersPage() {
@@ -160,6 +198,30 @@ export default function ManagePlayersPage() {
     useState(false);
   const [isLinkingToYouth, setIsLinkingToYouth] = useState(false);
 
+  // Guardian suggestion state
+  const [selectedGuardianId, setSelectedGuardianId] = useState<string | null>(
+    null
+  );
+
+  // Existing player match state (for "Use This Player" flow — findPotentialMatches panel)
+  const [selectedExistingPlayer, setSelectedExistingPlayer] =
+    useState<Id<"playerIdentities"> | null>(null);
+
+  // Duplicate detection panel state (admin dedup UI)
+  const [showDuplicatePanel, setShowDuplicatePanel] = useState(false);
+  const [dismissedGroups, setDismissedGroups] = useState<Set<string>>(
+    new Set()
+  );
+
+  // Merge dialog state
+  const [mergeKeepId, setMergeKeepId] = useState<Id<"playerIdentities"> | null>(
+    null
+  );
+  const [mergeRemoveId, setMergeRemoveId] =
+    useState<Id<"playerIdentities"> | null>(null);
+  const [showMergeDialog, setShowMergeDialog] = useState(false);
+  const [isMerging, setIsMerging] = useState(false);
+
   // Delete player state
   const [showDeleteDialog, setShowDeleteDialog] = useState(false);
   const [playerToDelete, setPlayerToDelete] = useState<{
@@ -173,8 +235,8 @@ export default function ManagePlayersPage() {
   const [isBulkDeleting, setIsBulkDeleting] = useState(false);
 
   // Mutations
-  const createPlayerIdentity = useMutation(
-    api.models.playerIdentities.createPlayerIdentity
+  const findOrCreatePlayer = useMutation(
+    api.models.playerIdentities.findOrCreatePlayer
   );
   const enrollPlayer = useMutation(
     api.models.orgPlayerEnrollments.enrollPlayer
@@ -185,12 +247,99 @@ export default function ManagePlayersPage() {
   const transitionToAdultMutation = useMutation(
     api.models.adultPlayers.transitionToAdult
   );
+  const findOrCreateGuardian = useMutation(
+    api.models.guardianIdentities.findOrCreateGuardian
+  );
+  const createGuardianPlayerLink = useMutation(
+    api.models.guardianPlayerLinks.createGuardianPlayerLink
+  );
+  const mergePlayerIdentities = useMutation(
+    api.models.playerIdentities.mergePlayerIdentities
+  );
+  const updatePlayerIdentityMutation = useMutation(
+    api.models.playerIdentities.updatePlayerIdentity
+  );
 
-  // Get data from new identity system
+  // Derive whether player is youth (under 18) from DOB
+  const isYouthPlayer = (() => {
+    if (!addPlayerForm.dateOfBirth) {
+      return true; // Default to showing guardian section
+    }
+    const dob = new Date(addPlayerForm.dateOfBirth);
+    const now = new Date();
+    const age = now.getFullYear() - dob.getFullYear();
+    const monthDiff = now.getMonth() - dob.getMonth();
+    const adjustedAge =
+      monthDiff < 0 || (monthDiff === 0 && now.getDate() < dob.getDate())
+        ? age - 1
+        : age;
+    return adjustedAge < 18;
+  })();
+
+  // Guardian suggestion matching — fires reactively when enough info is entered
+  const shouldQueryGuardians =
+    isYouthPlayer &&
+    addPlayerForm.lastName.trim().length >= 2 &&
+    !!addPlayerForm.dateOfBirth;
+
+  const guardianSuggestions = useQuery(
+    api.models.guardianIdentities.suggestGuardiansForPlayer,
+    shouldQueryGuardians
+      ? {
+          playerLastName: addPlayerForm.lastName.trim(),
+          playerPostcode: addPlayerForm.postcode.trim() || undefined,
+          playerTown: addPlayerForm.town.trim() || undefined,
+          guardianEmail: addPlayerForm.guardianEmail.trim() || undefined,
+          guardianPhone: addPlayerForm.guardianPhone.trim() || undefined,
+          guardianFirstName:
+            addPlayerForm.guardianFirstName.trim() || undefined,
+          guardianLastName: addPlayerForm.guardianLastName.trim() || undefined,
+        }
+      : "skip"
+  );
+
+  // Block submission while guardian suggestions are loading (query fired but not returned)
+  const isGuardianMatchLoading =
+    shouldQueryGuardians && guardianSuggestions === undefined;
+
+  // Potential player matches — reactive query fires when form has enough data
+  const shouldQueryMatches =
+    addPlayerForm.firstName.trim().length >= 2 &&
+    addPlayerForm.lastName.trim().length >= 2 &&
+    !!addPlayerForm.dateOfBirth;
+
+  const potentialMatches = useQuery(
+    api.models.playerIdentities.findPotentialMatches,
+    shouldQueryMatches
+      ? {
+          firstName: addPlayerForm.firstName.trim(),
+          lastName: addPlayerForm.lastName.trim(),
+          dateOfBirth: addPlayerForm.dateOfBirth,
+          gender: addPlayerForm.gender,
+        }
+      : "skip"
+  );
+
+  // Duplicate detection for the org
+  const duplicateGroups = useQuery(
+    api.models.playerIdentities.findPotentialDuplicatesForOrg,
+    { organizationId: orgId }
+  );
+
+  // Merge preview
+  const mergePreview = useQuery(
+    api.models.playerIdentities.getMergePreview,
+    mergeKeepId && mergeRemoveId
+      ? { keepId: mergeKeepId, removeId: mergeRemoveId, organizationId: orgId }
+      : "skip"
+  );
+
+  // Get data from new identity system — only active enrollments
   const enrolledPlayers = useQuery(
     api.models.orgPlayerEnrollments.getPlayersForOrg,
     {
       organizationId: orgId,
+      status: "active",
     }
   );
   const teams = useQuery(api.models.teams.getTeamsByOrganization, {
@@ -286,6 +435,24 @@ export default function ManagePlayersPage() {
       errors.email = "Please enter a valid email";
     }
 
+    // Address validation: all optional, but if any is provided validate completeness
+    // (no required validation — not all clubs collect address at enrollment)
+
+    // Guardian validation: if email is provided, require first + last name
+    if (addPlayerForm.guardianEmail.trim() && !selectedGuardianId) {
+      if (!EMAIL_REGEX.test(addPlayerForm.guardianEmail.trim())) {
+        errors.guardianEmail = "Please enter a valid email address";
+      }
+      if (!addPlayerForm.guardianFirstName.trim()) {
+        errors.guardianFirstName =
+          "Guardian first name is required when email is provided";
+      }
+      if (!addPlayerForm.guardianLastName.trim()) {
+        errors.guardianLastName =
+          "Guardian last name is required when email is provided";
+      }
+    }
+
     setFormErrors(errors);
     return Object.keys(errors).length === 0;
   };
@@ -317,29 +484,94 @@ export default function ManagePlayersPage() {
   const createPlayer = async () => {
     setIsAddingPlayer(true);
     try {
-      const playerIdentityId = await createPlayerIdentity({
-        firstName: addPlayerForm.firstName.trim(),
-        lastName: addPlayerForm.lastName.trim(),
-        dateOfBirth: addPlayerForm.dateOfBirth,
-        gender: addPlayerForm.gender,
-        createdFrom: "manual_admin",
-        federationIds: buildFederationIds(),
-      });
+      // Step 1: Create player identity or use existing match
+      // Client-side findPlayerMatchCandidates already ran (UX layer).
+      // findOrCreatePlayer is the server-side safety net using 3-tier dedup.
+      let playerIdentityId: Id<"playerIdentities">;
+      let wasCreated = true;
 
-      // Step 2: Enroll in organization
+      if (selectedExistingPlayer) {
+        // User chose to use an existing player identity from the match panel
+        playerIdentityId = selectedExistingPlayer;
+        wasCreated = false;
+      } else {
+        const result = await findOrCreatePlayer({
+          firstName: addPlayerForm.firstName.trim(),
+          lastName: addPlayerForm.lastName.trim(),
+          dateOfBirth: addPlayerForm.dateOfBirth,
+          gender: addPlayerForm.gender,
+          createdFrom: "manual_admin",
+          address: addPlayerForm.address.trim() || undefined,
+          town: addPlayerForm.town.trim() || undefined,
+          postcode: addPlayerForm.postcode.trim() || undefined,
+          country: addPlayerForm.country.trim() || undefined,
+        });
+        playerIdentityId = result.playerIdentityId;
+        wasCreated = result.wasCreated;
+      }
+
+      // Step 1b: Store federation IDs on newly created records
+      const federationIds = buildFederationIds();
+      if (wasCreated && federationIds) {
+        await updatePlayerIdentityMutation({
+          playerIdentityId,
+          federationIds,
+        });
+      }
+
+      // Step 2: Enroll in organization (with sport if selected)
       await enrollPlayer({
         playerIdentityId,
         organizationId: orgId,
         ageGroup: addPlayerForm.ageGroup,
         season: getCurrentSeason(),
+        sportCode: addPlayerForm.sportCode || undefined,
       });
 
-      toast.success("Player added successfully", {
-        description: `${addPlayerForm.firstName} ${addPlayerForm.lastName} has been added to the organization.`,
-      });
+      // Step 3: Guardian linking
+      if (selectedGuardianId) {
+        // Admin selected an existing guardian suggestion
+        await createGuardianPlayerLink({
+          guardianIdentityId: selectedGuardianId as Id<"guardianIdentities">,
+          playerIdentityId,
+          relationship: addPlayerForm.guardianRelationship,
+          isPrimary: true,
+        });
+      } else if (addPlayerForm.guardianEmail.trim()) {
+        // Admin entered new guardian details
+        const guardianResult = await findOrCreateGuardian({
+          firstName: addPlayerForm.guardianFirstName.trim(),
+          lastName: addPlayerForm.guardianLastName.trim(),
+          email: addPlayerForm.guardianEmail.trim(),
+          phone: addPlayerForm.guardianPhone.trim() || undefined,
+          address: addPlayerForm.address.trim() || undefined,
+          town: addPlayerForm.town.trim() || undefined,
+          postcode: addPlayerForm.postcode.trim() || undefined,
+          country: addPlayerForm.country.trim() || undefined,
+          createdFrom: "manual_admin",
+        });
+        await createGuardianPlayerLink({
+          guardianIdentityId: guardianResult.guardianIdentityId,
+          playerIdentityId,
+          relationship: addPlayerForm.guardianRelationship,
+          isPrimary: true,
+        });
+      }
+
+      const guardianLinked = !!(
+        selectedGuardianId || addPlayerForm.guardianEmail.trim()
+      );
+      toast.success(
+        wasCreated ? "Player added successfully" : "Existing player enrolled",
+        {
+          description: `${addPlayerForm.firstName} ${addPlayerForm.lastName} has been ${wasCreated ? "added to" : "enrolled in"} the organization.${guardianLinked ? " Guardian linked." : ""}`,
+        }
+      );
 
       // Reset form and close dialogs
       setAddPlayerForm(emptyFormData);
+      setSelectedGuardianId(null);
+      setSelectedExistingPlayer(null);
       setFormErrors({});
       setShowAddPlayerDialog(false);
       setFederationFai("");
@@ -480,6 +712,36 @@ export default function ManagePlayersPage() {
     }
 
     await createPlayer();
+  };
+
+  // Handle merge
+  const handleMergeConfirm = async () => {
+    if (!(mergeKeepId && mergeRemoveId)) {
+      return;
+    }
+    setIsMerging(true);
+    try {
+      const result = await mergePlayerIdentities({
+        keepId: mergeKeepId,
+        removeId: mergeRemoveId,
+        organizationId: orgId,
+      });
+      toast.success("Players merged successfully", {
+        description: `${result.recordsUpdated} records updated.${result.conflicts.length > 0 ? ` ${result.conflicts.length} conflict(s) resolved.` : ""}`,
+      });
+      setShowMergeDialog(false);
+      setMergeKeepId(null);
+      setMergeRemoveId(null);
+    } catch (error) {
+      toast.error("Failed to merge players", {
+        description:
+          error instanceof Error
+            ? error.message
+            : "An unexpected error occurred",
+      });
+    } finally {
+      setIsMerging(false);
+    }
   };
 
   // Handle delete player
@@ -729,6 +991,7 @@ export default function ManagePlayersPage() {
           (1000 * 60 * 60 * 24);
         return days <= 60;
       }).length || 0,
+    duplicateGroups: duplicateGroups?.totalGroups ?? 0,
   };
 
   return (
@@ -766,7 +1029,7 @@ export default function ManagePlayersPage() {
       </div>
 
       {/* Stats */}
-      <div className="grid gap-4 md:grid-cols-3">
+      <div className="grid gap-4 md:grid-cols-4">
         <Card>
           <CardContent className="p-4">
             <div className="flex items-center justify-between">
@@ -806,7 +1069,140 @@ export default function ManagePlayersPage() {
             </div>
           </CardContent>
         </Card>
+        {stats.duplicateGroups > 0 && (
+          <Card
+            className="cursor-pointer border-amber-200 bg-amber-50/50 transition-colors hover:bg-amber-50 dark:border-amber-800 dark:bg-amber-950/20"
+            onClick={() => setShowDuplicatePanel(!showDuplicatePanel)}
+          >
+            <CardContent className="p-4">
+              <div className="flex items-center justify-between">
+                <div>
+                  <p className="text-amber-700 text-sm dark:text-amber-400">
+                    Potential Duplicates
+                  </p>
+                  <p className="font-bold text-2xl text-amber-600">
+                    {stats.duplicateGroups}
+                  </p>
+                </div>
+                <AlertTriangle className="h-8 w-8 text-amber-500" />
+              </div>
+            </CardContent>
+          </Card>
+        )}
       </div>
+
+      {/* Duplicate Review Panel */}
+      {showDuplicatePanel &&
+        duplicateGroups &&
+        duplicateGroups.groups.length > 0 && (
+          <Card className="border-amber-200 dark:border-amber-800">
+            <CardHeader>
+              <div className="flex items-center justify-between">
+                <div>
+                  <CardTitle className="text-amber-700 dark:text-amber-400">
+                    Potential Duplicate Players
+                  </CardTitle>
+                  <CardDescription>
+                    Review and merge players that may be duplicates.
+                  </CardDescription>
+                </div>
+                <Button
+                  onClick={() => setShowDuplicatePanel(false)}
+                  size="sm"
+                  variant="ghost"
+                >
+                  <X className="h-4 w-4" />
+                </Button>
+              </div>
+            </CardHeader>
+            <CardContent>
+              <div className="space-y-3">
+                {duplicateGroups.groups
+                  .filter(
+                    (g) =>
+                      !dismissedGroups.has(
+                        g.players.map((p: any) => p._id).join("-")
+                      )
+                  )
+                  .map((group) => {
+                    const groupKey = group.players
+                      .map((p: any) => p._id)
+                      .join("-");
+                    return (
+                      <div className="rounded-lg border p-4" key={groupKey}>
+                        <div className="mb-3 flex items-center justify-between">
+                          <div className="flex items-center gap-2">
+                            <Badge
+                              className={
+                                group.confidence === "high"
+                                  ? "bg-red-500/10 text-red-700"
+                                  : group.confidence === "medium"
+                                    ? "bg-amber-500/10 text-amber-700"
+                                    : "bg-gray-500/10 text-gray-700"
+                              }
+                              variant="outline"
+                            >
+                              {group.confidence} confidence ({group.matchScore})
+                            </Badge>
+                            <Badge variant="outline">{group.matchType}</Badge>
+                          </div>
+                          <div className="flex gap-1">
+                            <Button
+                              onClick={() => {
+                                setMergeKeepId(group.players[0]._id);
+                                setMergeRemoveId(group.players[1]._id);
+                                setShowMergeDialog(true);
+                              }}
+                              size="sm"
+                              variant="default"
+                            >
+                              <GitMerge className="mr-1 h-3 w-3" />
+                              Merge
+                            </Button>
+                            <Button
+                              onClick={() => {
+                                const next = new Set(dismissedGroups);
+                                next.add(groupKey);
+                                setDismissedGroups(next);
+                              }}
+                              size="sm"
+                              variant="ghost"
+                            >
+                              Dismiss
+                            </Button>
+                          </div>
+                        </div>
+                        <div className="grid gap-3 sm:grid-cols-2">
+                          {group.players.map((player: any) => (
+                            <div
+                              className="rounded-md border bg-muted/30 p-3"
+                              key={player._id}
+                            >
+                              <p className="font-medium text-sm">
+                                {player.firstName} {player.lastName}
+                              </p>
+                              <p className="text-muted-foreground text-xs">
+                                DOB:{" "}
+                                {new Date(
+                                  player.dateOfBirth
+                                ).toLocaleDateString()}{" "}
+                                | {player.gender}
+                              </p>
+                              {player.ageGroup && (
+                                <p className="text-muted-foreground text-xs">
+                                  Age Group: {player.ageGroup}
+                                </p>
+                              )}
+                            </div>
+                          ))}
+                        </div>
+                      </div>
+                    );
+                  })}
+              </div>
+            </CardContent>
+          </Card>
+        )}
 
       {/* Filters */}
       <div className="flex flex-col gap-4">
@@ -1172,11 +1568,13 @@ export default function ManagePlayersPage() {
 
       {/* Add Player Dialog */}
       <ResponsiveDialog
-        contentClassName="sm:max-w-md"
+        contentClassName="sm:max-w-lg"
         description="Create a new player and enroll them in your organization."
         onOpenChange={(open) => {
           if (!open) {
             setAddPlayerForm(emptyFormData);
+            setSelectedGuardianId(null);
+            setSelectedExistingPlayer(null);
             setFormErrors({});
             setMediumMatchWarning(null);
             setHasAcknowledgedMediumMatch(false);
@@ -1194,10 +1592,13 @@ export default function ManagePlayersPage() {
         title="Add New Player"
       >
         <ResponsiveForm
-          isLoading={isAddingPlayer || isCheckingDuplicate}
+          isLoading={
+            isAddingPlayer || isCheckingDuplicate || isGuardianMatchLoading
+          }
           onCancel={() => {
             setShowAddPlayerDialog(false);
             setAddPlayerForm(emptyFormData);
+            setSelectedGuardianId(null);
             setFormErrors({});
             setAddPlayerPhone("");
           }}
@@ -1237,8 +1638,8 @@ export default function ManagePlayersPage() {
             </div>
           )}
 
-          <ResponsiveFormSection>
-            {/* First Name and Last Name */}
+          {/* Player Details */}
+          <ResponsiveFormSection title="Player Details">
             <ResponsiveFormRow columns={2}>
               <div className="space-y-2">
                 <Label htmlFor="firstName">
@@ -1289,7 +1690,6 @@ export default function ManagePlayersPage() {
               </div>
             </ResponsiveFormRow>
 
-            {/* Date of Birth */}
             <div className="space-y-2">
               <Label htmlFor="dateOfBirth">
                 Date of Birth <span className="text-red-500">*</span>
@@ -1315,7 +1715,6 @@ export default function ManagePlayersPage() {
               )}
             </div>
 
-            {/* Gender and Age Group */}
             <ResponsiveFormRow columns={2}>
               <div className="space-y-2">
                 <Label htmlFor="gender">
@@ -1392,34 +1791,42 @@ export default function ManagePlayersPage() {
               )}
             </div>
 
-            {/* Phone and Postcode — optional matching signals */}
-            <ResponsiveFormRow columns={2}>
-              <div className="space-y-2">
-                <Label htmlFor="phone">Phone (Optional)</Label>
-                <PhoneInput
-                  countries={["IE", "GB", "US"]}
-                  defaultCountry="IE"
-                  onChange={(value) => setAddPlayerPhone(value ?? "")}
-                  value={addPlayerPhone}
-                />
-              </div>
-              <div className="space-y-2">
-                <Label htmlFor="postcode">Postcode (Optional)</Label>
-                <Input
-                  id="postcode"
-                  maxLength={10}
-                  onChange={(e) =>
-                    setAddPlayerForm({
-                      ...addPlayerForm,
-                      postcode: e.target.value,
-                    })
-                  }
-                  placeholder="e.g. D01 F5P2"
-                  type="text"
-                  value={addPlayerForm.postcode}
-                />
-              </div>
-            </ResponsiveFormRow>
+            {/* Phone — optional matching signal */}
+            <div className="space-y-2">
+              <Label htmlFor="phone">Phone (Optional)</Label>
+              <PhoneInput
+                countries={["IE", "GB", "US"]}
+                defaultCountry="IE"
+                onChange={(value) => setAddPlayerPhone(value ?? "")}
+                value={addPlayerPhone}
+              />
+            </div>
+
+            {/* Sport */}
+            <div className="space-y-2">
+              <Label htmlFor="sportCode">Sport</Label>
+              <Select
+                onValueChange={(value) =>
+                  setAddPlayerForm({
+                    ...addPlayerForm,
+                    sportCode: value === "__none__" ? "" : value,
+                  })
+                }
+                value={addPlayerForm.sportCode || "__none__"}
+              >
+                <SelectTrigger>
+                  <SelectValue placeholder="Select sport (optional)" />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="__none__">No sport selected</SelectItem>
+                  {sportsData?.map((sport) => (
+                    <SelectItem key={sport.code} value={sport.code}>
+                      {sport.name}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            </div>
 
             {/* Federation Numbers — collapsible optional section */}
             <div className="border-t pt-3">
@@ -1481,6 +1888,475 @@ export default function ManagePlayersPage() {
               )}
             </div>
           </ResponsiveFormSection>
+          {/* Potential Matches Panel */}
+          {potentialMatches &&
+            potentialMatches.length > 0 &&
+            !selectedExistingPlayer && (
+              <div className="space-y-2 rounded-lg border border-amber-200 bg-amber-50/50 p-4 dark:border-amber-800 dark:bg-amber-950/20">
+                <p className="font-medium text-amber-700 text-sm dark:text-amber-400">
+                  <AlertTriangle className="mr-1 inline h-4 w-4" />
+                  Existing players found matching this name and date of birth
+                </p>
+                <div className="space-y-2">
+                  {potentialMatches.map((match: any) => (
+                    <div
+                      className="flex items-center justify-between rounded-md border bg-white p-3 dark:bg-gray-900"
+                      key={match._id}
+                    >
+                      <div>
+                        <p className="font-medium text-sm">
+                          {match.firstName} {match.lastName}
+                        </p>
+                        <p className="text-muted-foreground text-xs">
+                          DOB:{" "}
+                          {new Date(match.dateOfBirth).toLocaleDateString()} |{" "}
+                          {match.gender}
+                        </p>
+                        <div className="mt-1 flex items-center gap-1">
+                          <Badge
+                            className={
+                              match.confidence === "high"
+                                ? "bg-green-500/10 text-green-700"
+                                : match.confidence === "medium"
+                                  ? "bg-amber-500/10 text-amber-700"
+                                  : "bg-gray-500/10 text-gray-700"
+                            }
+                            variant="outline"
+                          >
+                            {match.confidence} ({match.matchScore})
+                          </Badge>
+                          <Badge variant="outline">{match.matchType}</Badge>
+                        </div>
+                      </div>
+                      <Button
+                        onClick={() => setSelectedExistingPlayer(match._id)}
+                        size="sm"
+                        type="button"
+                        variant="default"
+                      >
+                        <Check className="mr-1 h-3 w-3" />
+                        Use This Player
+                      </Button>
+                    </div>
+                  ))}
+                </div>
+              </div>
+            )}
+
+          {/* Selected Existing Player Banner */}
+          {selectedExistingPlayer && (
+            <div className="flex items-center justify-between rounded-lg border border-green-200 bg-green-50/50 p-4 dark:border-green-800 dark:bg-green-950/20">
+              <div>
+                <p className="font-medium text-green-700 text-sm dark:text-green-400">
+                  <Check className="mr-1 inline h-4 w-4" />
+                  Using existing player identity
+                </p>
+                <p className="text-green-600 text-xs dark:text-green-500">
+                  This will enroll the existing player in your organization
+                  instead of creating a new identity.
+                </p>
+              </div>
+              <Button
+                onClick={() => setSelectedExistingPlayer(null)}
+                size="sm"
+                type="button"
+                variant="outline"
+              >
+                <X className="mr-1 h-3 w-3" />
+                Clear
+              </Button>
+            </div>
+          )}
+
+          {/* Player Address (Optional) */}
+          <ResponsiveFormSection title="Player Address (Optional)">
+            <div className="space-y-2">
+              <Label htmlFor="address">Address</Label>
+              <Input
+                className={formErrors.address ? "border-red-500" : ""}
+                id="address"
+                onChange={(e) => {
+                  setAddPlayerForm({
+                    ...addPlayerForm,
+                    address: e.target.value,
+                  });
+                  if (formErrors.address) {
+                    setFormErrors({ ...formErrors, address: undefined });
+                  }
+                }}
+                placeholder="e.g. 12 Main Street"
+                value={addPlayerForm.address}
+              />
+              {formErrors.address && (
+                <p className="text-red-500 text-sm">{formErrors.address}</p>
+              )}
+            </div>
+            <ResponsiveFormRow columns={2}>
+              <div className="space-y-2">
+                <Label htmlFor="town">Town</Label>
+                <Input
+                  className={formErrors.town ? "border-red-500" : ""}
+                  id="town"
+                  onChange={(e) => {
+                    setAddPlayerForm({
+                      ...addPlayerForm,
+                      town: e.target.value,
+                    });
+                    if (formErrors.town) {
+                      setFormErrors({ ...formErrors, town: undefined });
+                    }
+                  }}
+                  placeholder="e.g. Armagh"
+                  value={addPlayerForm.town}
+                />
+                {formErrors.town && (
+                  <p className="text-red-500 text-sm">{formErrors.town}</p>
+                )}
+              </div>
+              <div className="space-y-2">
+                <Label htmlFor="postcode">Postcode / Eircode</Label>
+                <Input
+                  className={formErrors.postcode ? "border-red-500" : ""}
+                  id="postcode"
+                  onChange={(e) => {
+                    setAddPlayerForm({
+                      ...addPlayerForm,
+                      postcode: e.target.value,
+                    });
+                    if (formErrors.postcode) {
+                      setFormErrors({ ...formErrors, postcode: undefined });
+                    }
+                  }}
+                  placeholder="e.g. BT61 8AA"
+                  value={addPlayerForm.postcode}
+                />
+                {formErrors.postcode && (
+                  <p className="text-red-500 text-sm">{formErrors.postcode}</p>
+                )}
+              </div>
+            </ResponsiveFormRow>
+            <div className="space-y-2">
+              <Label htmlFor="country">Country</Label>
+              <Select
+                onValueChange={(value) =>
+                  setAddPlayerForm({ ...addPlayerForm, country: value })
+                }
+                value={addPlayerForm.country || ""}
+              >
+                <SelectTrigger>
+                  <SelectValue placeholder="Select country" />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="Ireland">Ireland</SelectItem>
+                  <SelectItem value="Northern Ireland">
+                    Northern Ireland
+                  </SelectItem>
+                  <SelectItem value="United Kingdom">United Kingdom</SelectItem>
+                  <SelectItem value="Other">Other</SelectItem>
+                </SelectContent>
+              </Select>
+            </div>
+          </ResponsiveFormSection>
+          {/* Guardian / Emergency Contact Section */}
+          {/* biome-ignore lint/complexity/noUselessFragments: wraps multiple conditional siblings */}
+          <>
+            {/* Guardian matching loading indicator */}
+            {isGuardianMatchLoading && (
+              <div className="flex items-center gap-2 rounded-lg border border-blue-200 bg-blue-50 p-3 text-blue-700 text-sm">
+                <Loader2 className="h-4 w-4 animate-spin" />
+                Checking for matching guardians...
+              </div>
+            )}
+
+            {/* Guardian Suggestions — only for youth players */}
+            {isYouthPlayer &&
+              guardianSuggestions &&
+              guardianSuggestions.length > 0 && (
+                <ResponsiveFormSection title="Suggested Guardians">
+                  <p className="text-muted-foreground text-xs">
+                    Based on matching surname, address, email, or phone.
+                  </p>
+                  <div className="space-y-2">
+                    {guardianSuggestions.map(
+                      (match: {
+                        guardianIdentityId: string;
+                        score: number;
+                        confidence: "high" | "medium" | "low";
+                        matchReasons: string[];
+                        guardian: {
+                          firstName: string;
+                          lastName: string;
+                          email?: string;
+                          phone?: string;
+                        };
+                        linkedChildren: {
+                          playerIdentityId: string;
+                          firstName: string;
+                          lastName: string;
+                          dateOfBirth: string;
+                        }[];
+                      }) => {
+                        const isSelected =
+                          selectedGuardianId === match.guardianIdentityId;
+                        return (
+                          <div
+                            className={`rounded-lg border p-3 transition-colors ${
+                              isSelected
+                                ? "border-primary bg-primary/5"
+                                : "hover:border-muted-foreground/30"
+                            }`}
+                            key={match.guardianIdentityId}
+                          >
+                            <div className="flex items-start justify-between gap-2">
+                              <div className="min-w-0 flex-1">
+                                <div className="flex items-center gap-2">
+                                  <Badge
+                                    className={
+                                      match.confidence === "high"
+                                        ? "bg-green-500/10 text-green-700"
+                                        : match.confidence === "medium"
+                                          ? "bg-amber-500/10 text-amber-700"
+                                          : "bg-gray-500/10 text-gray-700"
+                                    }
+                                    variant="outline"
+                                  >
+                                    {match.confidence === "high"
+                                      ? "High"
+                                      : match.confidence === "medium"
+                                        ? "Medium"
+                                        : "Low"}{" "}
+                                    ({match.score})
+                                  </Badge>
+                                  {isSelected && (
+                                    <Badge
+                                      className="bg-primary/10 text-primary"
+                                      variant="outline"
+                                    >
+                                      <Check className="mr-1 h-3 w-3" />
+                                      Selected
+                                    </Badge>
+                                  )}
+                                </div>
+                                <p className="mt-1 font-medium text-sm">
+                                  {match.guardian.firstName}{" "}
+                                  {match.guardian.lastName}
+                                </p>
+                                <p className="text-muted-foreground text-xs">
+                                  {[match.guardian.email, match.guardian.phone]
+                                    .filter(Boolean)
+                                    .join(" · ")}
+                                </p>
+                                {match.linkedChildren.length > 0 && (
+                                  <p className="mt-0.5 text-muted-foreground text-xs">
+                                    Guardian of:{" "}
+                                    {match.linkedChildren
+                                      .map(
+                                        (c) => `${c.firstName} ${c.lastName}`
+                                      )
+                                      .join(", ")}
+                                  </p>
+                                )}
+                                <p className="mt-0.5 text-muted-foreground text-xs italic">
+                                  {match.matchReasons.join(", ")}
+                                </p>
+                              </div>
+                              <Button
+                                onClick={() => {
+                                  if (isSelected) {
+                                    setSelectedGuardianId(null);
+                                    setAddPlayerForm({
+                                      ...addPlayerForm,
+                                      guardianFirstName: "",
+                                      guardianLastName: "",
+                                      guardianEmail: "",
+                                      guardianPhone: "",
+                                    });
+                                  } else {
+                                    setSelectedGuardianId(
+                                      match.guardianIdentityId
+                                    );
+                                    setAddPlayerForm({
+                                      ...addPlayerForm,
+                                      guardianFirstName:
+                                        match.guardian.firstName,
+                                      guardianLastName: match.guardian.lastName,
+                                      guardianEmail: match.guardian.email || "",
+                                      guardianPhone: match.guardian.phone || "",
+                                    });
+                                  }
+                                }}
+                                size="sm"
+                                type="button"
+                                variant={isSelected ? "outline" : "default"}
+                              >
+                                {isSelected ? (
+                                  <>
+                                    <X className="mr-1 h-3 w-3" />
+                                    Clear
+                                  </>
+                                ) : (
+                                  <>
+                                    <Link className="mr-1 h-3 w-3" />
+                                    Link
+                                  </>
+                                )}
+                              </Button>
+                            </div>
+                          </div>
+                        );
+                      }
+                    )}
+                  </div>
+                </ResponsiveFormSection>
+              )}
+
+            {/* Guardian / Emergency Contact Details */}
+            <ResponsiveFormSection
+              title={
+                selectedGuardianId
+                  ? "Guardian Details (Linked)"
+                  : isYouthPlayer
+                    ? "Guardian Details (Optional)"
+                    : "Emergency Contact (Optional)"
+              }
+            >
+              <ResponsiveFormRow columns={2}>
+                <div className="space-y-2">
+                  <Label htmlFor="guardianFirstName">First Name</Label>
+                  <Input
+                    className={
+                      formErrors.guardianFirstName ? "border-red-500" : ""
+                    }
+                    disabled={!!selectedGuardianId}
+                    id="guardianFirstName"
+                    onChange={(e) => {
+                      setAddPlayerForm({
+                        ...addPlayerForm,
+                        guardianFirstName: e.target.value,
+                      });
+                      if (formErrors.guardianFirstName) {
+                        setFormErrors({
+                          ...formErrors,
+                          guardianFirstName: undefined,
+                        });
+                      }
+                    }}
+                    placeholder="Guardian first name"
+                    value={addPlayerForm.guardianFirstName}
+                  />
+                  {formErrors.guardianFirstName && (
+                    <p className="text-red-500 text-xs">
+                      {formErrors.guardianFirstName}
+                    </p>
+                  )}
+                </div>
+                <div className="space-y-2">
+                  <Label htmlFor="guardianLastName">Last Name</Label>
+                  <Input
+                    className={
+                      formErrors.guardianLastName ? "border-red-500" : ""
+                    }
+                    disabled={!!selectedGuardianId}
+                    id="guardianLastName"
+                    onChange={(e) => {
+                      setAddPlayerForm({
+                        ...addPlayerForm,
+                        guardianLastName: e.target.value,
+                      });
+                      if (formErrors.guardianLastName) {
+                        setFormErrors({
+                          ...formErrors,
+                          guardianLastName: undefined,
+                        });
+                      }
+                    }}
+                    placeholder="Guardian last name"
+                    value={addPlayerForm.guardianLastName}
+                  />
+                  {formErrors.guardianLastName && (
+                    <p className="text-red-500 text-xs">
+                      {formErrors.guardianLastName}
+                    </p>
+                  )}
+                </div>
+              </ResponsiveFormRow>
+
+              <ResponsiveFormRow columns={2}>
+                <div className="space-y-2">
+                  <Label htmlFor="guardianEmail">Email</Label>
+                  <Input
+                    className={formErrors.guardianEmail ? "border-red-500" : ""}
+                    disabled={!!selectedGuardianId}
+                    id="guardianEmail"
+                    onChange={(e) => {
+                      setAddPlayerForm({
+                        ...addPlayerForm,
+                        guardianEmail: e.target.value,
+                      });
+                      if (formErrors.guardianEmail) {
+                        setFormErrors({
+                          ...formErrors,
+                          guardianEmail: undefined,
+                        });
+                      }
+                    }}
+                    placeholder="guardian@example.com"
+                    type="email"
+                    value={addPlayerForm.guardianEmail}
+                  />
+                  {formErrors.guardianEmail && (
+                    <p className="text-red-500 text-xs">
+                      {formErrors.guardianEmail}
+                    </p>
+                  )}
+                </div>
+                <div className="space-y-2">
+                  <Label htmlFor="guardianPhone">Phone</Label>
+                  <Input
+                    disabled={!!selectedGuardianId}
+                    id="guardianPhone"
+                    onChange={(e) =>
+                      setAddPlayerForm({
+                        ...addPlayerForm,
+                        guardianPhone: e.target.value,
+                      })
+                    }
+                    placeholder="087 123 4567"
+                    type="tel"
+                    value={addPlayerForm.guardianPhone}
+                  />
+                </div>
+              </ResponsiveFormRow>
+
+              <div className="space-y-2">
+                <Label htmlFor="guardianRelationship">
+                  {isYouthPlayer ? "Relationship" : "Relationship / Role"}
+                </Label>
+                <Select
+                  onValueChange={(value: GuardianRelationship) =>
+                    setAddPlayerForm({
+                      ...addPlayerForm,
+                      guardianRelationship: value,
+                    })
+                  }
+                  value={addPlayerForm.guardianRelationship}
+                >
+                  <SelectTrigger>
+                    <SelectValue placeholder="Select relationship" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="mother">Mother</SelectItem>
+                    <SelectItem value="father">Father</SelectItem>
+                    <SelectItem value="guardian">Guardian</SelectItem>
+                    <SelectItem value="grandparent">Grandparent</SelectItem>
+                    <SelectItem value="other">
+                      {isYouthPlayer ? "Other" : "Other / Emergency Contact"}
+                    </SelectItem>
+                  </SelectContent>
+                </Select>
+              </div>
+            </ResponsiveFormSection>
+          </>
         </ResponsiveForm>
       </ResponsiveDialog>
 
@@ -1661,6 +2537,172 @@ export default function ManagePlayersPage() {
             later.
           </p>
         </div>
+      </ResponsiveDialog>
+
+      {/* Merge Player Dialog */}
+      <ResponsiveDialog
+        contentClassName="sm:max-w-lg"
+        footer={
+          <div className="flex flex-col-reverse gap-2 sm:flex-row sm:justify-end">
+            <Button
+              onClick={() => {
+                setShowMergeDialog(false);
+                setMergeKeepId(null);
+                setMergeRemoveId(null);
+              }}
+              variant="outline"
+            >
+              Cancel
+            </Button>
+            <Button
+              disabled={isMerging || !mergePreview?.canMerge}
+              onClick={handleMergeConfirm}
+              variant="default"
+            >
+              {isMerging ? (
+                <>
+                  <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                  Merging...
+                </>
+              ) : (
+                <>
+                  <GitMerge className="mr-2 h-4 w-4" />
+                  Confirm Merge
+                </>
+              )}
+            </Button>
+          </div>
+        }
+        onOpenChange={(open) => {
+          if (!open) {
+            setMergeKeepId(null);
+            setMergeRemoveId(null);
+          }
+          setShowMergeDialog(open);
+        }}
+        open={showMergeDialog}
+        title="Merge Player Identities"
+      >
+        {mergePreview ? (
+          <div className="space-y-4">
+            {/* Side-by-side player cards */}
+            <div className="grid gap-3 sm:grid-cols-2">
+              <div className="rounded-lg border-2 border-green-300 bg-green-50/50 p-3 dark:border-green-700 dark:bg-green-950/20">
+                <Badge
+                  className="mb-2 bg-green-500/10 text-green-700"
+                  variant="outline"
+                >
+                  Keep
+                </Badge>
+                <p className="font-medium">
+                  {mergePreview.keepPlayer.firstName}{" "}
+                  {mergePreview.keepPlayer.lastName}
+                </p>
+                <p className="text-muted-foreground text-xs">
+                  DOB:{" "}
+                  {new Date(
+                    mergePreview.keepPlayer.dateOfBirth
+                  ).toLocaleDateString()}{" "}
+                  | {mergePreview.keepPlayer.gender}
+                </p>
+              </div>
+              <div className="rounded-lg border-2 border-red-300 bg-red-50/50 p-3 dark:border-red-700 dark:bg-red-950/20">
+                <Badge
+                  className="mb-2 bg-red-500/10 text-red-700"
+                  variant="outline"
+                >
+                  Remove
+                </Badge>
+                <p className="font-medium">
+                  {mergePreview.removePlayer.firstName}{" "}
+                  {mergePreview.removePlayer.lastName}
+                </p>
+                <p className="text-muted-foreground text-xs">
+                  DOB:{" "}
+                  {new Date(
+                    mergePreview.removePlayer.dateOfBirth
+                  ).toLocaleDateString()}{" "}
+                  | {mergePreview.removePlayer.gender}
+                </p>
+              </div>
+            </div>
+
+            {/* Swap button */}
+            <div className="flex justify-center">
+              <Button
+                onClick={() => {
+                  setMergeKeepId(mergeRemoveId);
+                  setMergeRemoveId(mergeKeepId);
+                }}
+                size="sm"
+                type="button"
+                variant="outline"
+              >
+                <ArrowLeftRight className="mr-1 h-3 w-3" />
+                Swap Keep / Remove
+              </Button>
+            </div>
+
+            {/* Affected records */}
+            {mergePreview.affectedRecords.length > 0 && (
+              <div>
+                <p className="mb-2 font-medium text-sm">Affected Records</p>
+                <div className="space-y-1">
+                  {mergePreview.affectedRecords.map((r: any) => (
+                    <div
+                      className="flex items-center justify-between rounded-md bg-muted/50 px-3 py-1.5 text-sm"
+                      key={r.table}
+                    >
+                      <span className="text-muted-foreground">{r.table}</span>
+                      <Badge variant="outline">{r.count}</Badge>
+                    </div>
+                  ))}
+                </div>
+              </div>
+            )}
+
+            {/* Conflicts */}
+            {mergePreview.conflicts.length > 0 && (
+              <div>
+                <p className="mb-2 font-medium text-amber-700 text-sm">
+                  Conflicts
+                </p>
+                <div className="space-y-1">
+                  {mergePreview.conflicts.map((c: any, i: number) => (
+                    <div
+                      className="rounded-md border border-amber-200 bg-amber-50/50 px-3 py-1.5 text-xs dark:border-amber-800 dark:bg-amber-950/20"
+                      key={`${c.table}-${i}`}
+                    >
+                      <p className="font-medium text-amber-700">
+                        {c.table}: {c.issue}
+                      </p>
+                      <p className="text-amber-600">
+                        Resolution: {c.resolution}
+                      </p>
+                    </div>
+                  ))}
+                </div>
+              </div>
+            )}
+
+            {/* Blocking reason */}
+            {!mergePreview.canMerge && mergePreview.blockingReason && (
+              <div className="rounded-lg border border-red-200 bg-red-50 p-3 dark:border-red-800 dark:bg-red-950/20">
+                <p className="font-medium text-red-700 text-sm">
+                  <AlertTriangle className="mr-1 inline h-4 w-4" />
+                  Merge Blocked
+                </p>
+                <p className="text-red-600 text-xs">
+                  {mergePreview.blockingReason}
+                </p>
+              </div>
+            )}
+          </div>
+        ) : (
+          <div className="flex items-center justify-center py-8">
+            <Loader2 className="h-6 w-6 animate-spin text-muted-foreground" />
+          </div>
+        )}
       </ResponsiveDialog>
     </div>
   );

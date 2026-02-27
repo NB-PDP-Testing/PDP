@@ -7,6 +7,7 @@ import {
   query,
 } from "../_generated/server";
 import { authComponent } from "../auth";
+import { requireAuth } from "../lib/authHelpers";
 
 // ============================================================
 // CONSTANTS
@@ -441,6 +442,9 @@ export const createGuardianPlayerLink = mutation({
   },
   returns: v.id("guardianPlayerLinks"),
   handler: async (ctx, args) => {
+    // Auth: require authenticated user
+    await requireAuth(ctx);
+
     // Verify guardian exists
     const guardian = await ctx.db.get(args.guardianIdentityId);
     if (!guardian) {
@@ -600,6 +604,7 @@ export const updateGuardianPlayerLink = mutation({
   },
   returns: v.null(),
   handler: async (ctx, args) => {
+    await requireAuth(ctx);
     const existing = await ctx.db.get(args.linkId);
     if (!existing) {
       throw new Error("Guardian-player link not found");
@@ -637,6 +642,7 @@ export const setPrimaryGuardian = mutation({
   },
   returns: v.null(),
   handler: async (ctx, args) => {
+    await requireAuth(ctx);
     // Get all links for this player
     const links = await ctx.db
       .query("guardianPlayerLinks")
@@ -685,6 +691,7 @@ export const reassignPlayerToGuardian = mutation({
   },
   returns: v.null(),
   handler: async (ctx, args) => {
+    await requireAuth(ctx);
     // 1. Get existing link
     const existingLink = await ctx.db.get(args.linkId);
     if (!existingLink) {
@@ -745,6 +752,7 @@ export const updateLinkConsent = mutation({
   },
   returns: v.null(),
   handler: async (ctx, args) => {
+    await requireAuth(ctx);
     const link = await ctx.db
       .query("guardianPlayerLinks")
       .withIndex("by_guardian_and_player", (q) =>
@@ -779,6 +787,7 @@ export const declineGuardianPlayerLink = mutation({
   },
   returns: v.null(),
   handler: async (ctx, args) => {
+    await requireAuth(ctx);
     const link = await ctx.db
       .query("guardianPlayerLinks")
       .withIndex("by_guardian_and_player", (q) =>
@@ -810,6 +819,7 @@ export const resetDeclinedLink = mutation({
   },
   returns: v.null(),
   handler: async (ctx, args) => {
+    await requireAuth(ctx);
     const link = await ctx.db.get(args.linkId);
     if (!link) {
       throw new Error("Guardian-player link not found");
@@ -835,6 +845,7 @@ export const verifyLink = mutation({
   },
   returns: v.null(),
   handler: async (ctx, args) => {
+    await requireAuth(ctx);
     const existing = await ctx.db.get(args.linkId);
     if (!existing) {
       throw new Error("Guardian-player link not found");
@@ -860,6 +871,9 @@ export const deleteGuardianPlayerLink = mutation({
   args: { linkId: v.id("guardianPlayerLinks") },
   returns: v.null(),
   handler: async (ctx, args) => {
+    // Auth: require authenticated user
+    await requireAuth(ctx);
+
     const existing = await ctx.db.get(args.linkId);
     if (!existing) {
       throw new Error("Guardian-player link not found");

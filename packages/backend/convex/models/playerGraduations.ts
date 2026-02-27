@@ -862,7 +862,7 @@ export const getPlayerDashboard = query({
       }),
       enrollment: v.object({
         id: v.id("orgPlayerEnrollments"),
-        ageGroup: v.string(),
+        ageGroup: v.optional(v.string()),
         status: v.string(),
         clubMembershipNumber: v.optional(v.string()),
       }),

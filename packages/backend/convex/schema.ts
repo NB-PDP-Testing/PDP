@@ -304,16 +304,52 @@ export default defineSchema({
     // Active status (for federation webhook deletions)
     isActive: v.optional(v.boolean()), // Defaults to true, set to false when deleted from federation
 
+    // Normalized name fields for fuzzy matching / deduplication
+    normalizedFirstName: v.optional(v.string()),
+    normalizedLastName: v.optional(v.string()),
+
+    // Merge tracking (set when this identity has been merged into another)
+    mergedInto: v.optional(v.id("playerIdentities")),
+
     // Metadata
     createdAt: v.number(),
     updatedAt: v.number(),
     createdFrom: v.optional(v.string()), // "import", "registration", "manual"
   })
     .index("by_name_dob", ["firstName", "lastName", "dateOfBirth"])
+    .index("by_normalized_name_dob", [
+      "normalizedLastName",
+      "normalizedFirstName",
+      "dateOfBirth",
+    ])
+    .index("by_lastName", ["lastName"])
     .index("by_userId", ["userId"])
     .index("by_email", ["email"])
     .index("by_playerType", ["playerType"])
-    .index("by_importSessionId", ["importSessionId"]),
+    .index("by_importSessionId", ["importSessionId"])
+    .searchIndex("search_name", {
+      searchField: "firstName",
+      filterFields: ["lastName"],
+    }),
+
+  // Audit trail for player identity merges
+  playerIdentityMerges: defineTable({
+    keepId: v.id("playerIdentities"),
+    removeId: v.id("playerIdentities"),
+    organizationId: v.string(),
+    mergedBy: v.string(),
+    mergedAt: v.number(),
+    recordsUpdated: v.number(),
+    conflicts: v.array(
+      v.object({
+        table: v.string(),
+        issue: v.string(),
+        resolution: v.string(),
+      })
+    ),
+  })
+    .index("by_org", ["organizationId"])
+    .index("by_removeId", ["removeId"]),
 
   // Player Graduations - tracks players who have turned 18 and their graduation status
   playerGraduations: defineTable({

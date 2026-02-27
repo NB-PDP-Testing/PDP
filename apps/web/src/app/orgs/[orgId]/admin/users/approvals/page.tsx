@@ -660,9 +660,9 @@ export default function JoinRequestApprovalsPage() {
 
   // Get high confidence matches
   const highConfidenceMatches =
-    smartMatches?.filter((m) => m.confidence === "high") || [];
+    smartMatches?.filter((m: any) => m.confidence === "high") || [];
   const otherMatches =
-    smartMatches?.filter((m) => m.confidence !== "high") || [];
+    smartMatches?.filter((m: any) => m.confidence !== "high") || [];
 
   return (
     <div className="space-y-6">
@@ -1060,7 +1060,7 @@ export default function JoinRequestApprovalsPage() {
                       High Confidence Matches
                     </p>
                     <div className="space-y-2 rounded-lg border border-green-200 bg-green-50 p-3">
-                      {highConfidenceMatches.map((match) => (
+                      {highConfidenceMatches.map((match: any) => (
                         <div
                           className="flex w-full items-center gap-3 rounded p-2 text-left hover:bg-green-100"
                           key={match.playerIdentityId}
@@ -1111,7 +1111,7 @@ export default function JoinRequestApprovalsPage() {
                     </button>
                     {expandedMatches && (
                       <div className="max-h-48 space-y-2 overflow-y-auto rounded-lg border p-3">
-                        {otherMatches.map((match) => (
+                        {otherMatches.map((match: any) => (
                           <div
                             className="flex w-full items-center gap-3 rounded p-2 text-left hover:bg-muted"
                             key={match.playerIdentityId}

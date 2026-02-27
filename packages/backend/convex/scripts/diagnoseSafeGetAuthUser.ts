@@ -21,16 +21,13 @@ export const run = query({
   },
   handler: async (ctx, args) => {
     // ── 1. Find the betterAuth user by email ──────────────────────────────
-    const baUserResult = await ctx.runQuery(
+    const baUser = await ctx.runQuery(
       components.betterAuth.adapter.findOne,
       {
         model: "user",
         where: [{ field: "email", value: args.email, operator: "eq" }],
-        paginationOpts: { cursor: null, numItems: 1 },
       }
     );
-
-    const baUser = baUserResult?.page?.[0] ?? null;
 
     if (!baUser) {
       return { error: `No betterAuth user found for email: ${args.email}` };

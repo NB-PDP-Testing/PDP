@@ -661,7 +661,8 @@ export const enrollPlayer = mutation({
 
         return { enrollmentId: existing._id, passportId };
       }
-      throw new Error("Player is already enrolled in this organization");
+      // Already actively enrolled — return existing enrollment (idempotent)
+      return { enrollmentId: existing._id, passportId: null };
     }
 
     const now = Date.now();

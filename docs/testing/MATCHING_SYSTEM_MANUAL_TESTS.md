@@ -35,23 +35,39 @@ Every test in later phases depends on these records already existing.
 
 ## Phase 0: Seed Base Players
 
-Add the following five players manually via **Admin → Players → "+ Add Player"**.
+### Step 1 — Bulk import via CSV
 
-> Note: Use your org's Age Groups and Sports as they appear in your dropdowns.
-> Key fields for matching are Name, DOB, Gender, Email, Phone, Postcode, and Federation Numbers.
+Import the seed file **`docs/testing/seed-players.csv`** via **Admin → Player Import**.
+This creates all five players with the correct name, DOB, gender, age group, sport,
+postcode, and (for P5) the GAA federation number.
 
-| Ref | First Name | Last Name | DOB | Gender | Email | Phone | Postcode | Federation | Notes |
-|-----|-----------|-----------|-----|--------|-------|-------|----------|-----------|-------|
-| P1 | Ciarán | Murphy | 2014-03-15 | Male | ciaran.murphy@test.ie | +353871234001 | D01 A001 | — | Youth — exact match base |
-| P2 | Mary | O'Brien | 1990-07-22 | Female | mary.obrien@test.ie | +353871234002 | D02 A002 | — | Adult — adult-to-adult base |
-| P3 | Niamh | Walsh | 2015-09-05 | Female | niamh.walsh@test.ie | +353871234003 | D03 A003 | — | Youth — Irish alias base |
-| P4 | Seán | Brennan | 2006-04-18 | Male | sean.brennan@test.ie | +353871234004 | D04 A004 | — | Youth aged 18+ — graduation base |
-| P5 | Jack | Walsh | 2009-03-10 | Male | jack.walsh@test.ie | +353871234005 | D05 A005 | GAA: GAA-99001 | Federation ID base — same surname as P3, different DOB |
+> **Age Group and Sport names must match your org's configured values.**
+> Edit the CSV before importing if your org uses different labels (e.g. "U-12" vs "U12",
+> "GAA" vs "GAA Football"). The values below reflect common defaults.
 
-> P5: When adding, expand the **"Federation Numbers"** collapsible and enter `GAA-99001`
-> in the GAA Number field.
+| Ref | First Name | Last Name | DOB | Gender | Age Group | Sport | Postcode | Federation |
+|-----|-----------|-----------|-----|--------|-----------|-------|----------|-----------|
+| P1 | Ciarán | Murphy | 2014-03-15 | Male | U12 | GAA Football | D01 A001 | — |
+| P2 | Mary | O'Brien | 1990-07-22 | Female | Senior | Soccer | D02 A002 | — |
+| P3 | Niamh | Walsh | 2015-09-05 | Female | U11 | Soccer | D03 A003 | — |
+| P4 | Seán | Brennan | 2006-04-18 | Male | U18 | Rugby | D04 A004 | — |
+| P5 | Jack | Walsh | 2009-03-10 | Male | U16 | GAA Football | D05 A005 | GAA: GAA-99001 |
 
-**Verify:** All five appear in the player list before proceeding.
+### Step 2 — Add email and phone (manual, post-import)
+
+The CSV importer does not support player email or phone columns. After importing,
+open each player's edit form and add the following — these are required for the
+phone boost tests (TC1.7, TC4.1, TC4.2):
+
+| Ref | Email | Phone |
+|-----|-------|-------|
+| P1 | ciaran.murphy@test.ie | +353871234001 |
+| P2 | mary.obrien@test.ie | +353871234002 |
+| P3 | niamh.walsh@test.ie | +353871234003 |
+| P4 | sean.brennan@test.ie | +353871234004 |
+| P5 | jack.walsh@test.ie | +353871234005 |
+
+**Verify:** All five appear in the player list with correct names and DOBs before proceeding.
 
 ---
 

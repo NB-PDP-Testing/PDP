@@ -28,6 +28,7 @@ import { toast } from "sonner";
 import { LogoUpload } from "@/components/logo-upload";
 import { OrgThemedButton } from "@/components/org-themed-button";
 import { DensityToggle } from "@/components/polish/density-toggle";
+import { MyRolesSection } from "@/components/settings/my-roles-section";
 import { NotificationPreferences } from "@/components/settings/notification-preferences";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
@@ -630,6 +631,8 @@ export default function OrgSettingsPage() {
           Manage your organization's details, branding, and theme
         </p>
       </div>
+
+      <MyRolesSection />
 
       {/* General Settings */}
       <Card>

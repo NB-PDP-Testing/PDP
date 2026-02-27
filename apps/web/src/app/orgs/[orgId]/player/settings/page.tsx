@@ -7,6 +7,7 @@ import { Download, Loader2, Lock, Shield, ShieldCheck } from "lucide-react";
 import { useParams } from "next/navigation";
 import { useEffect, useState } from "react";
 import { toast } from "sonner";
+import { MyRolesSection } from "@/components/settings/my-roles-section";
 import {
   AlertDialog,
   AlertDialogAction,
@@ -398,6 +399,7 @@ export default function PlayerSettingsPage() {
 
   return (
     <div className="container mx-auto max-w-3xl space-y-6 p-4 md:p-8">
+      <MyRolesSection />
       {/* Revoke confirmation dialog */}
       <AlertDialog
         onOpenChange={(open) => {

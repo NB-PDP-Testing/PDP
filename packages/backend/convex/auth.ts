@@ -1,7 +1,7 @@
 import { createClient, type GenericCtx } from "@convex-dev/better-auth";
 import { convex } from "@convex-dev/better-auth/plugins";
 import { betterAuth } from "better-auth";
-import { organization } from "better-auth/plugins";
+import { lastLoginMethod, organization } from "better-auth/plugins";
 import { components } from "./_generated/api";
 import type { DataModel } from "./_generated/dataModel";
 import { ac, admin, member, owner } from "./betterAuth/accessControl";
@@ -44,6 +44,7 @@ export function createAuth(
     },
     plugins: [
       convex(),
+      lastLoginMethod(),
       organization({
         // Invitation expiration: 7 days (default is 48 hours)
         invitationExpiresIn: 60 * 60 * 24 * 7,

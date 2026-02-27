@@ -29,6 +29,7 @@ export const test = base.extend<{
   adminPage: Page;
   coachPage: Page;
   parentPage: Page;
+  multiRolePage: Page;
 }>({
   // Owner user (Platform Staff)
   ownerPage: async ({ browser }, use) => {
@@ -86,6 +87,21 @@ export const test = base.extend<{
       storageState: fs.existsSync(storageState) ? storageState : undefined,
     });
     const page = await context.newPage();
+    await use(page);
+    await context.close();
+  },
+
+  // Multi-role user (holds 2+ functional roles, e.g. admin + player or coach + player)
+  multiRolePage: async ({ browser }, use) => {
+    const storageState = path.join(authDir, "multi-role.json");
+    const context = await browser.newContext({
+      baseURL,
+      storageState: fs.existsSync(storageState) ? storageState : undefined,
+    });
+    const page = await context.newPage();
+    await page.addInitScript(() => {
+      localStorage.setItem("voice-notes-help-guide-seen", "true");
+    });
     await use(page);
     await context.close();
   },

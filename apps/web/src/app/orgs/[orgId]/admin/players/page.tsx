@@ -426,9 +426,6 @@ export default function ManagePlayersPage() {
     } else {
       errors.dateOfBirth = "Date of birth is required";
     }
-    if (!addPlayerForm.ageGroup) {
-      errors.ageGroup = "Age group is required";
-    }
     if (!addPlayerForm.email.trim()) {
       errors.email = "Email is required";
     } else if (!EMAIL_FORMAT_REGEX.test(addPlayerForm.email.trim())) {
@@ -523,7 +520,7 @@ export default function ManagePlayersPage() {
       await enrollPlayer({
         playerIdentityId,
         organizationId: orgId,
-        ageGroup: addPlayerForm.ageGroup,
+        ageGroup: addPlayerForm.ageGroup || undefined,
         season: getCurrentSeason(),
         sportCode: addPlayerForm.sportCode || undefined,
       });
@@ -613,7 +610,7 @@ export default function ManagePlayersPage() {
       await enrollPlayer({
         playerIdentityId: youthMatchCandidate._id as any,
         organizationId: orgId,
-        ageGroup: addPlayerForm.ageGroup,
+        ageGroup: addPlayerForm.ageGroup || undefined,
         season: getCurrentSeason(),
       });
       toast.success("Player linked to existing record", {
@@ -1738,9 +1735,7 @@ export default function ManagePlayersPage() {
               </div>
 
               <div className="space-y-2">
-                <Label htmlFor="ageGroup">
-                  Age Group <span className="text-red-500">*</span>
-                </Label>
+                <Label htmlFor="ageGroup">Age Group</Label>
                 <Select
                   onValueChange={(value) => {
                     setAddPlayerForm({ ...addPlayerForm, ageGroup: value });

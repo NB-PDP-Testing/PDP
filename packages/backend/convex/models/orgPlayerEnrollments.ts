@@ -600,7 +600,7 @@ export const enrollPlayer = mutation({
   args: {
     playerIdentityId: v.id("playerIdentities"),
     organizationId: v.string(),
-    ageGroup: v.string(),
+    ageGroup: v.optional(v.string()),
     season: v.string(),
     clubMembershipNumber: v.optional(v.string()),
     status: v.optional(enrollmentStatusValidator),

@@ -66,6 +66,8 @@ const playerIdentityFields = {
   lastSyncedData: v.optional(v.any()),
   isActive: v.optional(v.boolean()),
   createdFrom: v.optional(v.string()),
+  normalizedFirstName: v.optional(v.string()),
+  normalizedLastName: v.optional(v.string()),
 };
 
 // A single match candidate: full player identity + matching metadata

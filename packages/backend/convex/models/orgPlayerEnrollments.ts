@@ -81,6 +81,8 @@ const _playerIdentityValidator = v.object({
   createdAt: v.number(),
   updatedAt: v.number(),
   createdFrom: v.optional(v.string()),
+  normalizedFirstName: v.optional(v.string()),
+  normalizedLastName: v.optional(v.string()),
 });
 
 // ============================================================

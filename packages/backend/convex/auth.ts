@@ -1,11 +1,12 @@
 import { createClient, type GenericCtx } from "@convex-dev/better-auth";
 import { convex } from "@convex-dev/better-auth/plugins";
 import { betterAuth } from "better-auth";
-import { organization } from "better-auth/plugins";
+import { lastLoginMethod, magicLink, organization } from "better-auth/plugins";
 import { components } from "./_generated/api";
 import type { DataModel } from "./_generated/dataModel";
 import { ac, admin, member, owner } from "./betterAuth/accessControl";
 import authSchema from "./betterAuth/schema";
+import { sendMagicLinkEmail, sendPasswordResetEmail } from "./utils/email";
 
 /**
  * Type for functional roles stored in member.functionalRoles array
@@ -41,9 +42,28 @@ export function createAuth(
     emailAndPassword: {
       enabled: true,
       requireEmailVerification: false,
+      resetPasswordTokenExpiresIn: 3600, // 1 hour
+      sendResetPassword: async ({ user, url }) => {
+        await sendPasswordResetEmail({
+          to: user.email,
+          name: user.name,
+          resetUrl: url,
+        });
+      },
     },
     plugins: [
       convex(),
+      lastLoginMethod(),
+      magicLink({
+        expiresIn: 600, // 10 minutes
+        disableSignUp: true, // Users must sign up first via proper flow
+        sendMagicLink: async ({ email, url }) => {
+          await sendMagicLinkEmail({
+            to: email,
+            magicLinkUrl: url,
+          });
+        },
+      }),
       organization({
         // Invitation expiration: 7 days (default is 48 hours)
         invitationExpiresIn: 60 * 60 * 24 * 7,

@@ -244,9 +244,6 @@ export default function ManagePlayersPage() {
   const unenrollPlayer = useMutation(
     api.models.orgPlayerEnrollments.unenrollPlayer
   );
-  const transitionToAdultMutation = useMutation(
-    api.models.adultPlayers.transitionToAdult
-  );
   const findOrCreateGuardian = useMutation(
     api.models.guardianIdentities.findOrCreateGuardian
   );
@@ -600,13 +597,7 @@ export default function ManagePlayersPage() {
     }
     setIsLinkingToYouth(true);
     try {
-      // Only transition youth→adult if the matched record is a youth player
-      if (youthMatchCandidate.playerType === "youth") {
-        await transitionToAdultMutation({
-          playerIdentityId: youthMatchCandidate._id as any,
-        });
-      }
-      // Enroll in this organisation
+      // Enroll the existing record in this organisation as-is (no type change)
       await enrollPlayer({
         playerIdentityId: youthMatchCandidate._id as any,
         organizationId: orgId,

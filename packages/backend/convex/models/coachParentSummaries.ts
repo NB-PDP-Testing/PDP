@@ -72,6 +72,26 @@ const summaryValidator = v.object({
       decidedAt: v.number(),
     })
   ),
+  revokedAt: v.optional(v.number()),
+  revokedBy: v.optional(v.string()),
+  revocationReason: v.optional(v.string()),
+  overrideType: v.optional(
+    v.union(
+      v.literal("coach_approved_low_confidence"),
+      v.literal("coach_rejected_high_confidence"),
+      v.literal("coach_edited"),
+      v.literal("coach_revoked_auto")
+    )
+  ),
+  overrideReason: v.optional(v.string()),
+  overrideFeedback: v.optional(
+    v.object({
+      wasInaccurate: v.boolean(),
+      wasTooSensitive: v.boolean(),
+      timingWasWrong: v.boolean(),
+      otherReason: v.optional(v.string()),
+    })
+  ),
 });
 
 const playerIdentityValidator = v.object({
@@ -89,6 +109,16 @@ const playerIdentityValidator = v.object({
   town: v.optional(v.string()),
   postcode: v.optional(v.string()),
   country: v.optional(v.string()),
+  claimedAt: v.optional(v.number()),
+  claimInvitedBy: v.optional(v.string()),
+  importSessionId: v.optional(v.id("importSessions")),
+  externalIds: v.optional(v.record(v.string(), v.string())),
+  lastSyncedAt: v.optional(v.number()),
+  lastSyncedData: v.optional(v.any()),
+  isActive: v.optional(v.boolean()),
+  normalizedFirstName: v.optional(v.string()),
+  normalizedLastName: v.optional(v.string()),
+  mergedInto: v.optional(v.id("playerIdentities")),
   verificationStatus: v.union(
     v.literal("unverified"),
     v.literal("guardian_verified"),

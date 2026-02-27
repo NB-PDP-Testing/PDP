@@ -1518,6 +1518,26 @@ const bulkInjuryValidator = v.object({
       v.literal("admin")
     )
   ),
+  estimatedRecoveryDays: v.optional(v.number()),
+  recoveryPlanNotes: v.optional(v.string()),
+  milestones: v.optional(
+    v.array(
+      v.object({
+        id: v.string(),
+        description: v.string(),
+        targetDate: v.optional(v.string()),
+        completedDate: v.optional(v.string()),
+        completedBy: v.optional(v.string()),
+        notes: v.optional(v.string()),
+        order: v.number(),
+      })
+    )
+  ),
+  medicalClearanceRequired: v.optional(v.boolean()),
+  medicalClearanceReceived: v.optional(v.boolean()),
+  medicalClearanceDate: v.optional(v.string()),
+  source: v.optional(v.union(v.literal("manual"), v.literal("voice_note"))),
+  voiceNoteId: v.optional(v.id("voiceNotes")),
   createdAt: v.number(),
   updatedAt: v.number(),
 });

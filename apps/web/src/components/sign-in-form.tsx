@@ -142,23 +142,6 @@ function SignInFormContent() {
           </p>
         </div>
 
-        {/* Mission Statement */}
-        <div
-          className="rounded-lg border-2 p-4 shadow-sm"
-          style={{
-            borderColor: "var(--pdp-navy)",
-            background:
-              "linear-gradient(to right, rgba(var(--pdp-navy-rgb), 0.1), rgba(var(--pdp-green-rgb), 0.05))",
-          }}
-        >
-          <p className="text-foreground text-sm leading-relaxed">
-            A comprehensive digital ecosystem where parents and coaches
-            collaborate to support and manage a child's sporting development.
-            Each player has a personal "passport" that follows them throughout
-            their time with a club/sport.
-          </p>
-        </div>
-
         {/* Card Container */}
         <div className="space-y-5 rounded-lg border bg-card p-6 shadow-lg sm:p-8">
           {/* Sign In Header */}

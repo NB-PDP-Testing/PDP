@@ -7,6 +7,7 @@ import {
   mutation,
   query,
 } from "../_generated/server";
+import { requireAuth, requireAuthAndOrg } from "../lib/authHelpers";
 
 // Core dimensions that can never be individually disabled
 const CORE_DIMENSIONS = [
@@ -356,6 +357,7 @@ export const submitDailyHealthCheck = mutation({
   },
   returns: v.id("dailyPlayerHealthChecks"),
   handler: async (ctx, args) => {
+    await requireAuth(ctx);
     // Check for existing record — caller must use updateDailyHealthCheck
     const existing = await ctx.db
       .query("dailyPlayerHealthChecks")
@@ -418,6 +420,7 @@ export const updateDailyHealthCheck = mutation({
   },
   returns: v.null(),
   handler: async (ctx, args) => {
+    await requireAuth(ctx);
     await ctx.db.patch(args.checkId, {
       sleepQuality: args.dimensionValues.sleepQuality,
       energyLevel: args.dimensionValues.energyLevel,
@@ -444,6 +447,7 @@ export const updateWellnessSettings = mutation({
   },
   returns: v.null(),
   handler: async (ctx, args) => {
+    await requireAuth(ctx);
     // Enforce that all 5 core dimensions are present
     for (const coreDim of CORE_DIMENSIONS) {
       if (!args.enabledDimensions.includes(coreDim)) {
@@ -489,6 +493,7 @@ export const requestWellnessAccess = mutation({
   },
   returns: v.null(),
   handler: async (ctx, args) => {
+    await requireAuth(ctx);
     // Check for existing pending request — no-op if one exists
     const existing = await ctx.db
       .query("wellnessCoachAccess")
@@ -537,6 +542,7 @@ export const respondWellnessAccess = mutation({
   },
   returns: v.null(),
   handler: async (ctx, args) => {
+    await requireAuth(ctx);
     if (args.decision === "approved") {
       await ctx.db.patch(args.accessId, {
         status: "approved",
@@ -558,6 +564,7 @@ export const revokeWellnessAccess = mutation({
   },
   returns: v.null(),
   handler: async (ctx, args) => {
+    await requireAuth(ctx);
     await ctx.db.patch(args.accessId, {
       status: "revoked",
       revokedAt: Date.now(),
@@ -574,6 +581,7 @@ export const giveCycleTrackingConsent = mutation({
   },
   returns: v.null(),
   handler: async (ctx, args) => {
+    await requireAuth(ctx);
     const existing = await ctx.db
       .query("playerHealthConsents")
       .withIndex("by_player_and_type", (q) =>
@@ -609,6 +617,7 @@ export const withdrawCycleTrackingConsent = mutation({
   },
   returns: v.null(),
   handler: async (ctx, args) => {
+    await requireAuth(ctx);
     // Set withdrawnAt on consent record
     const consent = await ctx.db
       .query("playerHealthConsents")
@@ -792,6 +801,7 @@ export const updateWellnessOrgConfig = mutation({
   },
   returns: v.id("wellnessOrgConfig"),
   handler: async (ctx, args) => {
+    await requireAuthAndOrg(ctx, args.organizationId);
     const existing = await ctx.db
       .query("wellnessOrgConfig")
       .withIndex("by_org", (q) => q.eq("organizationId", args.organizationId))

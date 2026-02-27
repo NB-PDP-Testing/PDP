@@ -265,6 +265,10 @@ async function findPlayerMatchesHandler(
   // Track IDs added via exact index to avoid duplicates in fuzzy pass
   const addedIds = new Set<string>();
 
+  // Pre-compute normalized forms (used in Priority 0.5 and Priority 1)
+  const normFirst = normalizeForMatching(args.firstName);
+  const normLast = normalizeForMatching(args.lastName);
+
   // ── PRIORITY 0: Exact name+DOB index match (global, not org-scoped) ────────
   const exactMatches = await ctx.db
     .query("playerIdentities")
@@ -339,13 +343,117 @@ async function findPlayerMatchesHandler(
     addedIds.add(candidate._id);
   }
 
+  // ── PRIORITY 0.5: Normalized name + DOB index (global → filtered to org) ───
+  // Uses stored normalizedFirstName/normalizedLastName for O(log n) lookup.
+  // Catches normalized-exact matches Priority 0 misses (accents, O'/Mc prefixes).
+  // Also checks Irish canonical alias variants for the first name.
+  const canonicalFirst = ALIAS_TO_CANONICAL.get(normFirst);
+  const firstNameVariants = [normFirst];
+  if (canonicalFirst && canonicalFirst !== normFirst) {
+    firstNameVariants.push(canonicalFirst);
+  }
+
+  for (const normFirstVariant of firstNameVariants) {
+    const normalizedCandidates = await ctx.db
+      .query("playerIdentities")
+      .withIndex("by_normalized_name_dob", (q) =>
+        q
+          .eq("normalizedLastName", normLast)
+          .eq("normalizedFirstName", normFirstVariant)
+          .eq("dateOfBirth", args.dateOfBirth)
+      )
+      .collect();
+
+    for (const candidate of normalizedCandidates) {
+      if (addedIds.has(candidate._id)) {
+        continue;
+      }
+      if (args.playerType && candidate.playerType !== args.playerType) {
+        continue;
+      }
+
+      // Check org membership via index (avoids .filter())
+      const enrollment = await ctx.db
+        .query("orgPlayerEnrollments")
+        .withIndex("by_player_and_org", (q) =>
+          q
+            .eq("playerIdentityId", candidate._id)
+            .eq("organizationId", args.organizationId)
+        )
+        .first();
+
+      if (!enrollment) {
+        continue;
+      }
+
+      // Normalized exact name + DOB = HIGH confidence
+      let score = 85;
+      const matchedFields = ["firstName", "lastName", "dateOfBirth"];
+      let warningFlag: string | undefined;
+
+      if (
+        args.email &&
+        candidate.email &&
+        args.email.toLowerCase().trim() === candidate.email.toLowerCase().trim()
+      ) {
+        score += 25;
+        matchedFields.push("email");
+      }
+      if (
+        args.phone &&
+        candidate.phone &&
+        normalizePhone(args.phone) === normalizePhone(candidate.phone)
+      ) {
+        score += 20;
+        matchedFields.push("phone");
+      }
+      if (args.postcode && candidate.postcode) {
+        const storedPostcode = normalizePostcode(candidate.postcode);
+        const candidatePostcode = normalizePostcode(args.postcode);
+        if (
+          storedPostcode === candidatePostcode ||
+          storedPostcode.startsWith(candidatePostcode) ||
+          candidatePostcode.startsWith(storedPostcode)
+        ) {
+          score += 15;
+          matchedFields.push("postcode");
+        }
+      }
+      if (
+        args.address &&
+        candidate.address &&
+        args.address.toLowerCase().trim() ===
+          candidate.address.toLowerCase().trim()
+      ) {
+        score += 10;
+        matchedFields.push("address");
+      }
+      if (
+        args.gaaNumber &&
+        candidate.externalIds?.foireann &&
+        args.gaaNumber !== candidate.externalIds.foireann
+      ) {
+        warningFlag = "GAA membership number mismatch — review before linking";
+      }
+
+      results.push({
+        player: candidate,
+        confidence: "high",
+        matchScore: score,
+        matchedFields,
+        warningFlag,
+      });
+      addedIds.add(candidate._id);
+    }
+  }
+
   // ── PRIORITY 1: Fuzzy matching across org's enrolled players ───────────────
   if (orgPlayers.length === 0) {
     return sortResults(results);
   }
 
-  const normalizedCandidateFirst = normalizeForMatching(args.firstName);
-  const normalizedCandidateLast = normalizeForMatching(args.lastName);
+  const normalizedCandidateFirst = normFirst;
+  const normalizedCandidateLast = normLast;
   const normalizedCandidateEmail = args.email?.toLowerCase().trim() ?? "";
   const normalizedCandidatePhone = args.phone ? normalizePhone(args.phone) : "";
   const normalizedCandidatePostcode = args.postcode
@@ -357,8 +465,10 @@ async function findPlayerMatchesHandler(
       continue; // Already captured via exact index
     }
 
-    const normalizedStoredFirst = normalizeForMatching(player.firstName);
-    const normalizedStoredLast = normalizeForMatching(player.lastName);
+    const normalizedStoredFirst =
+      player.normalizedFirstName ?? normalizeForMatching(player.firstName);
+    const normalizedStoredLast =
+      player.normalizedLastName ?? normalizeForMatching(player.lastName);
 
     const dobMatches = player.dateOfBirth === args.dateOfBirth;
     const lastSimilarity = levenshteinSimilarity(

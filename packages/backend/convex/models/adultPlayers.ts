@@ -2,6 +2,7 @@ import { v } from "convex/values";
 import { components } from "../_generated/api";
 import { internalMutation, mutation, query } from "../_generated/server";
 import { authComponent } from "../auth";
+import { requireAuth } from "../lib/authHelpers";
 import { normalizePostcode } from "../lib/matching/guardianMatcher";
 import { normalizePhoneNumber } from "../lib/phoneUtils";
 import { calculateAge } from "./playerIdentities";
@@ -205,6 +206,7 @@ export const registerAdultPlayer = mutation({
   },
   returns: v.id("playerIdentities"),
   handler: async (ctx, args) => {
+    await requireAuth(ctx);
     // Check if user already has a player identity
     const existingPlayer = await ctx.db
       .query("playerIdentities")
@@ -260,6 +262,7 @@ export const transitionToAdult = mutation({
     emergencyContactsCreated: v.number(),
   }),
   handler: async (ctx, args) => {
+    await requireAuth(ctx);
     const player = await ctx.db.get(args.playerIdentityId);
     if (!player) {
       throw new Error("Player not found");
@@ -469,6 +472,7 @@ export const claimYouthProfile = mutation({
     transitioned: v.boolean(),
   }),
   handler: async (ctx, args) => {
+    await requireAuth(ctx);
     const player = await ctx.db.get(args.playerIdentityId);
     if (!player) {
       throw new Error("Player not found");

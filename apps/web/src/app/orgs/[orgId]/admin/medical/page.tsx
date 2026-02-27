@@ -1218,7 +1218,6 @@ export default function MedicalProfilesPage() {
             setEditingProfile(viewingProfile);
             setViewingProfile(null);
           }}
-          playerId={viewingProfile.playerIdentityId as unknown as Id<"players">}
           playerName={viewingProfile.playerName}
           profile={viewingProfile.profile}
         />
